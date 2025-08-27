@@ -6,6 +6,7 @@ import { Secp256k1Signer, makeEthSignDigest } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
+import { type AztecAddressHex, type Hex, type KeyStore, KeystoreManager } from '@aztec/node-keystore';
 import {
   AuthRequest,
   AuthResponse,
@@ -16,7 +17,8 @@ import {
   createSecp256k1PeerId,
 } from '@aztec/p2p';
 import { computeInHashFromL1ToL2Messages } from '@aztec/prover-client/helpers';
-import { Offense, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
+import { OffenseType, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import { Gas } from '@aztec/stdlib/gas';
 import type { BuildBlockResult, IFullNodeBlockBuilder, SlasherConfig } from '@aztec/stdlib/interfaces/server';
@@ -25,7 +27,7 @@ import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { makeBlockAttestation, makeBlockProposal, makeHeader, mockTx } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { ContentCommitment, type Tx, TxHash } from '@aztec/stdlib/tx';
-import { AttestationTimeoutError, InvalidValidatorPrivateKeyError } from '@aztec/stdlib/validators';
+import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 
 import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -36,7 +38,12 @@ import { ValidatorClient } from './validator.js';
 
 describe('ValidatorClient', () => {
   let config: ValidatorClientConfig &
-    Pick<SlasherConfig, 'slashInvalidBlockEnabled' | 'slashInvalidBlockPenalty' | 'slashInvalidBlockMaxPenalty'>;
+    Pick<
+      SlasherConfig,
+      | 'slashBroadcastedInvalidBlockEnabled'
+      | 'slashBroadcastedInvalidBlockPenalty'
+      | 'slashBroadcastedInvalidBlockMaxPenalty'
+    >;
   let validatorClient: ValidatorClient;
   let p2pClient: MockProxy<P2P>;
   let blockSource: MockProxy<L2BlockSource>;
@@ -46,6 +53,7 @@ describe('ValidatorClient', () => {
   let validatorAccounts: PrivateKeyAccount[];
   let dateProvider: TestDateProvider;
   let txProvider: MockProxy<TxProvider>;
+  let keyStoreManager: KeystoreManager;
 
   beforeEach(() => {
     p2pClient = mock<P2P>();
@@ -70,10 +78,28 @@ describe('ValidatorClient', () => {
       disableValidator: false,
       validatorReexecute: false,
       validatorReexecuteDeadlineMs: 6000,
-      slashInvalidBlockEnabled: true,
-      slashInvalidBlockPenalty: 1n,
-      slashInvalidBlockMaxPenalty: 100n,
+      slashBroadcastedInvalidBlockEnabled: true,
+      slashBroadcastedInvalidBlockPenalty: 1n,
+      slashBroadcastedInvalidBlockMaxPenalty: 100n,
     };
+
+    const keyStore: KeyStore = {
+      schemaVersion: 1,
+      slasher: undefined,
+      prover: undefined,
+      remoteSigner: undefined,
+      validators: [
+        {
+          attester: validatorPrivateKeys.map(key => key as Hex<32>),
+          feeRecipient: AztecAddress.ZERO.toString() as AztecAddressHex,
+          coinbase: undefined,
+          remoteSigner: undefined,
+          publisher: [],
+        },
+      ],
+    };
+    keyStoreManager = new KeystoreManager(keyStore);
+
     validatorClient = ValidatorClient.new(
       config,
       blockBuilder,
@@ -82,26 +108,9 @@ describe('ValidatorClient', () => {
       blockSource,
       l1ToL2MessageSource,
       txProvider,
+      keyStoreManager,
       dateProvider,
     );
-  });
-
-  describe('constructor', () => {
-    it('should throw error if an invalid private key is provided', () => {
-      config.validatorPrivateKeys = new SecretValue(['0x1234567890123456789']);
-      expect(() =>
-        ValidatorClient.new(
-          config,
-          blockBuilder,
-          epochCache,
-          p2pClient,
-          blockSource,
-          l1ToL2MessageSource,
-          txProvider,
-          dateProvider,
-        ),
-      ).toThrow(InvalidValidatorPrivateKeyError);
-    });
   });
 
   describe('createBlockProposal', () => {
@@ -288,8 +297,9 @@ describe('ValidatorClient', () => {
       expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
         {
           validator: proposer,
-          amount: config.slashInvalidBlockPenalty,
-          offense: Offense.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+          amount: config.slashBroadcastedInvalidBlockPenalty,
+          offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+          epochOrSlot: expect.any(BigInt),
         },
       ]);
 
@@ -297,8 +307,9 @@ describe('ValidatorClient', () => {
       await expect(
         validatorClient.shouldSlash({
           validator: EthAddress.fromString(proposer.toString()), // create a copy of the EthAddress
-          amount: config.slashInvalidBlockMaxPenalty,
-          offense: Offense.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+          amount: config.slashBroadcastedInvalidBlockMaxPenalty,
+          offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+          epochOrSlot: 1n,
         }),
       ).resolves.toBe(true);
 
@@ -306,14 +317,15 @@ describe('ValidatorClient', () => {
       await expect(
         validatorClient.shouldSlash({
           validator: EthAddress.fromString(proposer.toString()),
-          amount: config.slashInvalidBlockMaxPenalty + 1n,
-          offense: Offense.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+          amount: config.slashBroadcastedInvalidBlockMaxPenalty + 1n,
+          offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
+          epochOrSlot: 1n,
         }),
       ).resolves.toBe(false);
     });
 
     it('should not emit WANT_TO_SLASH_EVENT if slashing is disabled', async () => {
-      validatorClient.configureSlashing({ slashInvalidBlockEnabled: false });
+      validatorClient.configureSlashing({ slashBroadcastedInvalidBlockEnabled: false });
 
       const emitSpy = jest.spyOn(validatorClient, 'emit');
       enableReexecution();

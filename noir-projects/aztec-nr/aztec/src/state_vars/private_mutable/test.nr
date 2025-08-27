@@ -12,7 +12,7 @@ unconstrained fn in_private(
 
 #[test(should_fail_with = "Failed to get a note")]
 unconstrained fn get_uninitialized() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -22,7 +22,7 @@ unconstrained fn get_uninitialized() {
 
 #[test(should_fail_with = "Failed to get a note")]
 unconstrained fn replace_uninitialized() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -34,7 +34,7 @@ unconstrained fn replace_uninitialized() {
 
 #[test]
 unconstrained fn initialize() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -55,7 +55,7 @@ unconstrained fn initialize() {
 
 #[test]
 unconstrained fn initialize_and_get_pending() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -85,7 +85,7 @@ unconstrained fn initialize_and_get_pending() {
 
 #[test]
 unconstrained fn initialize_and_replace_pending() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -117,7 +117,7 @@ unconstrained fn initialize_and_replace_pending() {
 
 #[test]
 unconstrained fn initialize_or_replace_uninitialized() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.private_context(|context| {
         let state_var = in_private(context);
@@ -138,7 +138,7 @@ unconstrained fn initialize_or_replace_uninitialized() {
 
 #[test]
 unconstrained fn initialize_or_replace_initialized_pending() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.private_context(|context| {
         let state_var = in_private(context);

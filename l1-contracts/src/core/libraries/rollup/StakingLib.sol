@@ -50,7 +50,7 @@ enum Status {
  *      Workflow for slashing-induced exits:
  *      1. Slashing occurs -> Exit created with recipientOrWithdrawer=withdrawer, isRecipient=false
  *      2. Withdrawer calls initiateWithdraw() -> Updates to recipientOrWithdrawer=recipient, isRecipient=true
- *      3. After delay period -> finaliseWithdraw() can transfer funds to the recipient
+ *      3. After delay period -> finalizeWithdraw() can transfer funds to the recipient
  * @param withdrawalId Unique identifier for this withdrawal from the GSE contract
  * @param amount The amount of stake being withdrawn
  * @param exitableAt Timestamp when the stake becomes withdrawable after delay period
@@ -167,12 +167,12 @@ library StakingLib {
    * @dev Reverts if the attester has no valid exit request (Staking__NotExiting) or if the exit delay period has not
    * elapsed (Staking__WithdrawalNotUnlockedYet)
    */
-  function finaliseWithdraw(address _attester) internal {
+  function finalizeWithdraw(address _attester) internal {
     StakingStorage storage store = getStorage();
     // We load it into memory to cache it, as we will delete it before we use it.
     Exit memory exit = store.exits[_attester];
     require(exit.exists, Errors.Staking__NotExiting(_attester));
-    require(exit.isRecipient, Errors.Staking__NotExiting(_attester));
+    require(exit.isRecipient, Errors.Staking__InitiateWithdrawNeeded(_attester));
     require(
       exit.exitableAt <= Timestamp.wrap(block.timestamp),
       Errors.Staking__WithdrawalNotUnlockedYet(Timestamp.wrap(block.timestamp), exit.exitableAt)
@@ -180,10 +180,10 @@ library StakingLib {
 
     delete store.exits[_attester];
 
-    store.gse.finaliseWithdraw(exit.withdrawalId);
+    store.gse.finalizeWithdraw(exit.withdrawalId);
     store.stakingAsset.transfer(exit.recipientOrWithdrawer, exit.amount);
 
-    emit IStakingCore.WithdrawFinalised(_attester, exit.recipientOrWithdrawer, exit.amount);
+    emit IStakingCore.WithdrawFinalized(_attester, exit.recipientOrWithdrawer, exit.amount);
   }
 
   function trySlash(address _attester, uint256 _amount) internal returns (bool) {
@@ -448,10 +448,6 @@ library StakingLib {
 
   function getAttesterCountAtTime(Timestamp _timestamp) internal view returns (uint256) {
     return getStorage().gse.getAttesterCountAtTime(address(this), _timestamp);
-  }
-
-  function getAttestersAtTime(Timestamp _timestamp) internal view returns (address[] memory) {
-    return getStorage().gse.getAttestersAtTime(address(this), _timestamp);
   }
 
   function getAttesterAtIndex(uint256 _index) internal view returns (address) {

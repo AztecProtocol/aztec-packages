@@ -175,7 +175,7 @@ contract Governance is IGovernance {
   /**
    * @dev Withdrawals that have been initiated.
    *
-   * `withdrawals` is only updated during `initiateWithdraw`, `proposeWithLock`, and `finaliseWithdraw`.
+   * `withdrawals` is only updated during `initiateWithdraw`, `proposeWithLock`, and `finalizeWithdraw`.
    */
   mapping(uint256 withdrawalId => Withdrawal withdrawal) internal withdrawals;
 
@@ -336,22 +336,25 @@ contract Governance is IGovernance {
    *
    * @param _to The address that will receive the funds when the withdrawal is finalized.
    * @param _amount The amount of power to reduce, and thus funds to withdraw.
-   * @return The id of the withdrawal, passed to `finaliseWithdraw`.
+   * @return The id of the withdrawal, passed to `finalizeWithdraw`.
    */
   function initiateWithdraw(address _to, uint256 _amount) external override(IGovernance) returns (uint256) {
     return _initiateWithdraw(msg.sender, _to, _amount, configuration.withdrawalDelay());
   }
 
   /**
-   * @notice Finalise a withdrawal of funds from the governance contract,
+   * @notice Finalize a withdrawal of funds from the governance contract,
    * transferring ASSET from the governance contract to the recipient specified in the withdrawal.
    *
    * @dev The withdrawal must not have been claimed, and the delay specified on the withdrawal must have passed.
    *
-   * @param _withdrawalId The id of the withdrawal to finalise.
+   * @param _withdrawalId The id of the withdrawal to finalize.
    */
-  function finaliseWithdraw(uint256 _withdrawalId) external override(IGovernance) {
+  function finalizeWithdraw(uint256 _withdrawalId) external override(IGovernance) {
     Withdrawal storage withdrawal = withdrawals[_withdrawalId];
+    // This is a sanity check, the `recipient` will only be zero for a non-existent withdrawal, so this avoids
+    // `finalize`ing non-existent withdrawals. Note, that `_initiateWithdraw` will fail if `_to` is `address(0)`
+    require(withdrawal.recipient != address(0), Errors.Governance__WithdrawalNotInitiated());
     require(!withdrawal.claimed, Errors.Governance__WithdrawalAlreadyClaimed());
     require(
       Timestamp.wrap(block.timestamp) >= withdrawal.unlocksAt,
@@ -359,7 +362,7 @@ contract Governance is IGovernance {
     );
     withdrawal.claimed = true;
 
-    emit WithdrawFinalised(_withdrawalId);
+    emit WithdrawFinalized(_withdrawalId);
 
     ASSET.safeTransfer(withdrawal.recipient, withdrawal.amount);
   }
@@ -393,12 +396,12 @@ contract Governance is IGovernance {
    * @dev this is intended to only be used in an emergency, where the governanceProposer is compromised.
    *
    * @dev We don't actually need to check available power here, since if the msg.sender does not have
-   * sufficient balance, the .
+   * sufficient balance, the `_initiateWithdraw` would revert with an underflow.
    *
    * @param _proposal The IPayload address, which is a contract that contains the proposed actions to be executed by
    * the governance.
    * @param _to The address that will receive the withdrawn funds when the withdrawal is finalized (see
-   * `finaliseWithdraw`)
+   * `finalizeWithdraw`)
    * @return The id of the proposal
    */
   function proposeWithLock(IPayload _proposal, address _to) external override(IGovernance) returns (uint256) {
@@ -498,13 +501,24 @@ contract Governance is IGovernance {
     require(getProposalState(_proposalId) == ProposalState.Droppable, Errors.Governance__ProposalCannotBeDropped());
 
     self.cachedState = ProposalState.Dropped;
+
+    emit ProposalDropped(_proposalId);
     return true;
   }
 
   /**
    * @notice Get the power of an address at a given timestamp.
-   * @dev If the timestamp is the current block timestamp, we return the powerNow.
-   * Otherwise, we return the powerAt the timestamp.
+   *
+   * @param _owner The address to get the power of.
+   * @param _ts The timestamp to get the power at.
+   * @return The power of the address at the given timestamp.
+   */
+  function powerAt(address _owner, Timestamp _ts) external view override(IGovernance) returns (uint256) {
+    return users[_owner].valueAt(_ts);
+  }
+
+  /**
+   * @notice Get the power of an address at the current block timestamp.
    *
    * Note that `powerNow` with the current block timestamp is NOT STABLE.
    *
@@ -517,33 +531,30 @@ contract Governance is IGovernance {
    *  The powerNow at 4 will be different from the powerNow at 2.
    *
    * @param _owner The address to get the power of.
-   * @param _ts The timestamp to get the power at.
-   * @return The power of the address at the given timestamp.
+   * @return The power of the address at the current block timestamp.
    */
-  function powerAt(address _owner, Timestamp _ts) external view override(IGovernance) returns (uint256) {
-    if (_ts == Timestamp.wrap(block.timestamp)) {
-      return users[_owner].valueNow();
-    }
-    return users[_owner].valueAt(_ts);
+  function powerNow(address _owner) external view override(IGovernance) returns (uint256) {
+    return users[_owner].valueNow();
   }
 
   /**
    * @notice Get the total power in Governance at a given timestamp.
-   * @dev If the timestamp is the current block timestamp, we return the powerNow.
-   * Otherwise, we return the powerAt the timestamp.
-   *
-   * Note that `powerNow` with the current block timestamp is NOT STABLE.
-   *
-   * See `powerAt` for more details.
    *
    * @param _ts The timestamp to get the power at.
    * @return The total power at the given timestamp.
    */
   function totalPowerAt(Timestamp _ts) external view override(IGovernance) returns (uint256) {
-    if (_ts == Timestamp.wrap(block.timestamp)) {
-      return total.valueNow();
-    }
     return total.valueAt(_ts);
+  }
+
+  /**
+   * @notice Get the total power in Governance at the current block timestamp.
+   * Note that `powerNow` with the current block timestamp is NOT STABLE.
+   *
+   * @return The total power at the current block timestamp.
+   */
+  function totalPowerNow() external view override(IGovernance) returns (uint256) {
+    return total.valueNow();
   }
 
   /**
@@ -692,6 +703,7 @@ contract Governance is IGovernance {
    * @return The id of the withdrawal.
    */
   function _initiateWithdraw(address _from, address _to, uint256 _amount, Timestamp _delay) internal returns (uint256) {
+    require(_to != address(0), Errors.Governance__CannotWithdrawToAddressZero());
     users[_from].sub(_amount);
     total.sub(_amount);
 

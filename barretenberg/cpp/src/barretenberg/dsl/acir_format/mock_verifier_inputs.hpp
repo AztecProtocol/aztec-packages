@@ -24,6 +24,7 @@ bb::Goblin::MergeProof create_mock_merge_proof();
 bb::HonkProof create_mock_pre_ipa_proof();
 bb::HonkProof create_mock_ipa_proof();
 bb::HonkProof create_mock_translator_proof();
+template <typename Builder> bb::HonkProof create_mock_civc_proof(const size_t inner_public_inputs_size = 0);
 
 template <typename Flavor, class PublicInputs>
 std::shared_ptr<typename Flavor::VerificationKey> create_mock_honk_vk(const size_t dyadic_size,

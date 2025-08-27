@@ -202,7 +202,7 @@ template <typename Flavor> class SumcheckProver {
         , alphas(relation_separator)
         , gate_challenges(gate_challenges)
         , relation_parameters(relation_parameters)
-        , virtual_log_n(virtual_log_n){};
+        , virtual_log_n(virtual_log_n) {};
 
     // SumcheckProver constructor for the Flavors that generate a single challeng `alpha` and use its powers as
     // subrelation seperator challenges.
@@ -221,7 +221,7 @@ template <typename Flavor> class SumcheckProver {
         , alphas(initialize_relation_separator<FF, Flavor::NUM_SUBRELATIONS - 1>(alpha))
         , gate_challenges(gate_challenges)
         , relation_parameters(relation_parameters)
-        , virtual_log_n(virtual_log_n){};
+        , virtual_log_n(virtual_log_n) {};
     /**
      * @brief Non-ZK version: Compute round univariate, place it in transcript, compute challenge, partially evaluate.
      * Repeat until final round, then get full evaluations of prover polynomials, and place them in transcript.
@@ -697,7 +697,7 @@ template <typename Flavor> class SumcheckVerifier {
         : transcript(std::move(transcript))
         , round(target_sum)
         , virtual_log_n(virtual_log_n)
-        , alphas(relation_separator){};
+        , alphas(relation_separator) {};
 
     explicit SumcheckVerifier(std::shared_ptr<Transcript> transcript,
                               const FF& alpha,
@@ -706,7 +706,7 @@ template <typename Flavor> class SumcheckVerifier {
         : transcript(std::move(transcript))
         , round(target_sum)
         , virtual_log_n(virtual_log_n)
-        , alphas(initialize_relation_separator<FF, Flavor::NUM_SUBRELATIONS - 1>(alpha)){};
+        , alphas(initialize_relation_separator<FF, Flavor::NUM_SUBRELATIONS - 1>(alpha)) {};
     /**
      * @brief Extract round univariate, check sum, generate challenge, compute next target sum..., repeat until
      * final round, then use purported evaluations to generate purported full Honk relation value and check against

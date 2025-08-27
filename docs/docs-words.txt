@@ -309,7 +309,9 @@ TORADIXLE
 Tpkm
 transactionfee
 TRANSACTIONFEE
+transpile
 transpiles
+transpiling
 trasaction
 trixie
 trustlessly
@@ -343,3 +345,5 @@ woooh
 zcash
 Zcash
 Zybil
+nothin
+whoooaa

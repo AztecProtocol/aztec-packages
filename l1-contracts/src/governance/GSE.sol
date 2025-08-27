@@ -51,7 +51,7 @@ interface IGSECore {
   function delegate(address _instance, address _attester, address _delegatee) external;
   function vote(uint256 _proposalId, uint256 _amount, bool _support) external;
   function voteWithBonus(uint256 _proposalId, uint256 _amount, bool _support) external;
-  function finaliseWithdraw(uint256 _withdrawalId) external;
+  function finalizeWithdraw(uint256 _withdrawalId) external;
   function proposeWithLock(IPayload _proposal, address _to) external returns (uint256);
 
   function isRegistered(address _instance, address _attester) external view returns (bool);
@@ -80,7 +80,6 @@ interface IGSE is IGSECore {
     view
     returns (address[] memory);
   function getG1PublicKeysFromAddresses(address[] memory _attesters) external view returns (G1Point[] memory);
-  function getAttestersAtTime(address _instance, Timestamp _timestamp) external view returns (address[] memory);
   function getAttesterFromIndexAtTime(address _instance, uint256 _index, Timestamp _timestamp)
     external
     view
@@ -183,13 +182,6 @@ contract GSECore is IGSECore, Ownable {
   // The asset used for sybil resistance and power in governance. Must match the ASSET in `Governance` to work as
   // intended.
   IERC20 public immutable ASSET;
-
-  // the `gap` pushes the `checkProofOfPossession` into its own slot
-  // so we don't have the trouble of being in the middle of a slot
-  uint256 private gap = 0;
-
-  // @note  Always true, exists to override to false for testing only.
-  bool public checkProofOfPossession = true;
 
   // The GSE's history of rollups.
   Checkpoints.Trace224 internal rollups;
@@ -308,16 +300,20 @@ contract GSECore is IGSECore, Ownable {
     bool isMsgSenderLatestRollup = getLatestRollup() == msg.sender;
 
     // If _moveWithLatestRollup is true, then msg.sender must be the latest rollup.
-    require(!_moveWithLatestRollup || isMsgSenderLatestRollup, Errors.GSE__NotLatestRollup(msg.sender));
+    if (_moveWithLatestRollup) {
+      require(isMsgSenderLatestRollup, Errors.GSE__NotLatestRollup(msg.sender));
+    }
 
     // Ensure that we are not already attesting on the rollup
     require(!isRegistered(msg.sender, _attester), Errors.GSE__AlreadyRegistered(msg.sender, _attester));
 
     // Ensure that if we are the latest rollup, we are not already attesting on the bonus instance.
-    require(
-      !isMsgSenderLatestRollup || !isRegistered(BONUS_INSTANCE_ADDRESS, _attester),
-      Errors.GSE__AlreadyRegistered(BONUS_INSTANCE_ADDRESS, _attester)
-    );
+    if (isMsgSenderLatestRollup) {
+      require(
+        !isRegistered(BONUS_INSTANCE_ADDRESS, _attester),
+        Errors.GSE__AlreadyRegistered(BONUS_INSTANCE_ADDRESS, _attester)
+      );
+    }
 
     // Set the recipient instance address, i.e. the one that will receive the attester.
     // From above, we know that if we are here, and _moveWithLatestRollup is true,
@@ -332,28 +328,7 @@ contract GSECore is IGSECore, Ownable {
       instances[recipientInstance].attesters.add(_attester), Errors.GSE__AlreadyRegistered(recipientInstance, _attester)
     );
 
-    if (checkProofOfPossession) {
-      // Make sure the attester has not registered before
-      G1Point memory previouslyRegisteredPoint = configOf[_attester].publicKey;
-      require(
-        (previouslyRegisteredPoint.x == 0 && previouslyRegisteredPoint.y == 0),
-        Errors.GSE__CannotChangePublicKeys(previouslyRegisteredPoint.x, previouslyRegisteredPoint.y)
-      );
-
-      // Make sure the incoming point has not been seen before
-      // NOTE: we only need to check for the existence of Pk1, and not also for Pk2,
-      // as the Pk2 will be constrained to have the same underlying secret key as part of the proofOfPossession,
-      // so existence/correctness of Pk2 is implied by existence/correctness of Pk1.
-      bytes32 hashedIncomingPoint = keccak256(abi.encodePacked(_publicKeyInG1.x, _publicKeyInG1.y));
-      require((!ownedPKs[hashedIncomingPoint]), Errors.GSE__ProofOfPossessionAlreadySeen(hashedIncomingPoint));
-
-      require(
-        BN254Lib.proofOfPossession(_publicKeyInG1, _publicKeyInG2, _proofOfPossession),
-        Errors.GSE__InvalidProofOfPossession()
-      );
-
-      ownedPKs[hashedIncomingPoint] = true;
-    }
+    _checkProofOfPossession(_attester, _publicKeyInG1, _publicKeyInG2, _proofOfPossession);
 
     // This is the ONLY place where we set the configuration for an attester.
     // This means that their withdrawer and public keys are set once, globally.
@@ -455,7 +430,7 @@ contract GSECore is IGSECore, Ownable {
   }
 
   /**
-   * @notice  A helper function to make it easy for users of the GSE to finalise
+   * @notice  A helper function to make it easy for users of the GSE to finalize
    *          a pending exit in the governance.
    *
    *          Kept in here since it is already connected to Governance:
@@ -465,10 +440,10 @@ contract GSECore is IGSECore, Ownable {
    *
    * @param _withdrawalId - The id of the withdrawal
    */
-  function finaliseWithdraw(uint256 _withdrawalId) external override(IGSECore) {
+  function finalizeWithdraw(uint256 _withdrawalId) external override(IGSECore) {
     Governance gov = getGovernance();
     if (!gov.getWithdrawal(_withdrawalId).claimed) {
-      gov.finaliseWithdraw(_withdrawalId);
+      gov.finalizeWithdraw(_withdrawalId);
     }
   }
 
@@ -488,7 +463,7 @@ contract GSECore is IGSECore, Ownable {
    * @param _payload - The IPayload address, which is a contract that contains the proposed actions to be executed by
    * the governance.
    * @param _to - The address that will receive the withdrawn funds when the withdrawal is finalized (see
-   * `finaliseWithdraw`)
+   * `finalizeWithdraw`)
    *
    * @return The id of the proposal
    */
@@ -616,6 +591,33 @@ contract GSECore is IGSECore, Ownable {
     getGovernance().vote(_proposalId, _amount, _support);
   }
 
+  function _checkProofOfPossession(
+    address _attester,
+    G1Point memory _publicKeyInG1,
+    G2Point memory _publicKeyInG2,
+    G1Point memory _proofOfPossession
+  ) internal virtual {
+    // Make sure the attester has not registered before
+    G1Point memory previouslyRegisteredPoint = configOf[_attester].publicKey;
+    require(
+      (previouslyRegisteredPoint.x == 0 && previouslyRegisteredPoint.y == 0),
+      Errors.GSE__CannotChangePublicKeys(previouslyRegisteredPoint.x, previouslyRegisteredPoint.y)
+    );
+
+    // Make sure the incoming point has not been seen before
+    // NOTE: we only need to check for the existence of Pk1, and not also for Pk2,
+    // as the Pk2 will be constrained to have the same underlying secret key as part of the proofOfPossession,
+    // so existence/correctness of Pk2 is implied by existence/correctness of Pk1.
+    bytes32 hashedIncomingPoint = keccak256(abi.encodePacked(_publicKeyInG1.x, _publicKeyInG1.y));
+    require((!ownedPKs[hashedIncomingPoint]), Errors.GSE__ProofOfPossessionAlreadySeen(hashedIncomingPoint));
+    ownedPKs[hashedIncomingPoint] = true;
+
+    require(
+      BN254Lib.proofOfPossession(_publicKeyInG1, _publicKeyInG2, _proofOfPossession),
+      Errors.GSE__InvalidProofOfPossession()
+    );
+  }
+
   function _pendingThrough(uint256 _proposalId) internal view returns (Timestamp) {
     return getGovernance().getProposal(_proposalId).pendingThroughMemory();
   }
@@ -662,8 +664,9 @@ contract GSE is IGSE, GSECore {
   /**
    * @notice  Get the effective balance of the attester at the instance.
    *
-   *          The effective balance is the balance of the attester at the instance,
-   *          plus the balance of the attester at the bonus instance if the instance is the latest rollup.
+   *          The effective balance is the balance of the attester at the specific instance or at the bonus if the
+   *          instance is the latest rollup and he was not at the specific. We can do this as an `or` since the
+   *          attester may only be active at one of them.
    *
    * @param _instance   - The instance to look at
    * @param _attester   - The attester to look at
@@ -672,8 +675,8 @@ contract GSE is IGSE, GSECore {
    */
   function effectiveBalanceOf(address _instance, address _attester) external view override(IGSE) returns (uint256) {
     uint256 balance = delegation.getBalanceOf(_instance, _attester);
-    if (getLatestRollup() == _instance) {
-      balance += delegation.getBalanceOf(BONUS_INSTANCE_ADDRESS, _attester);
+    if (balance == 0 && getLatestRollup() == _instance) {
+      return delegation.getBalanceOf(BONUS_INSTANCE_ADDRESS, _attester);
     }
     return balance;
   }
@@ -692,29 +695,6 @@ contract GSE is IGSE, GSECore {
 
   function getVotingPower(address _delegatee) external view override(IGSE) returns (uint256) {
     return delegation.getVotingPower(_delegatee);
-  }
-
-  /**
-   * @notice  Get the addresses of the attesters at the instance at the time of `_timestamp`
-   *
-   * @param _instance   - The instance to look at
-   * @param _timestamp  - The timestamp to lookup
-   *
-   * @return The attesters at the instance at the time of `_timestamp`
-   */
-  function getAttestersAtTime(address _instance, Timestamp _timestamp)
-    external
-    view
-    override(IGSE)
-    returns (address[] memory)
-  {
-    uint256 count = getAttesterCountAtTime(_instance, _timestamp);
-    uint256[] memory indices = new uint256[](count);
-    for (uint256 i = 0; i < count; i++) {
-      indices[i] = i;
-    }
-
-    return _getAddressFromIndicesAtTimestamp(_instance, indices, _timestamp);
   }
 
   function getAttestersFromIndicesAtTime(address _instance, Timestamp _timestamp, uint256[] memory _indices)

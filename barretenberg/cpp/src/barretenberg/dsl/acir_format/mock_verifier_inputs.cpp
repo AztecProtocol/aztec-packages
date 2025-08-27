@@ -238,6 +238,22 @@ Goblin::MergeProof create_mock_merge_proof()
     return proof;
 }
 
+template <typename Builder> HonkProof create_mock_civc_proof(const size_t inner_public_inputs_size)
+{
+    HonkProof proof;
+
+    HonkProof mega_proof = create_mock_honk_proof<MegaZKFlavor, stdlib::recursion::honk::HidingKernelIO<Builder>>(
+        inner_public_inputs_size);
+    Goblin::MergeProof merge_proof = create_mock_merge_proof();
+    ECCVMProof eccvm_proof{ create_mock_pre_ipa_proof(), create_mock_ipa_proof() };
+    HonkProof translator_proof = create_mock_translator_proof();
+
+    ClientIVC::Proof civc_proof{ mega_proof, { merge_proof, eccvm_proof, translator_proof } };
+    proof = civc_proof.to_field_elements();
+
+    return proof;
+}
+
 /**
  * @brief Create a mock pre-ipa proof which has the correct structure but is not necessarily valid
  *
@@ -487,6 +503,9 @@ template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::App
 template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>();
 template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>();
 
+template HonkProof create_mock_civc_proof<UltraCircuitBuilder>(const size_t);
+template HonkProof create_mock_civc_proof<MegaCircuitBuilder>(const size_t);
+
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<MegaFlavor, stdlib::recursion::honk::AppIO>(
     const size_t, const size_t, const size_t);
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<MegaFlavor,
@@ -495,6 +514,9 @@ template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<MegaFl
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<
     MegaFlavor,
     stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>(const size_t, const size_t, const size_t);
+template std::shared_ptr<MegaZKFlavor::VerificationKey> create_mock_honk_vk<
+    MegaZKFlavor,
+    stdlib::recursion::honk::HidingKernelIO<UltraCircuitBuilder>>(const size_t, const size_t, const size_t);
 
 template std::shared_ptr<UltraFlavor::VerificationKey> create_mock_honk_vk<
     UltraFlavor,

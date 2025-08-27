@@ -3,6 +3,7 @@ import { HttpBlobSinkClient } from '@aztec/blob-sink/client';
 import { inboundTransform } from '@aztec/blob-sink/encoding';
 import type { EpochCache } from '@aztec/epoch-cache';
 import {
+  type EmpireSlashingProposerContract,
   FormattedViemError,
   type GasPrice,
   type GovernanceProposerContract,
@@ -10,7 +11,6 @@ import {
   type L1TxUtilsConfig,
   Multicall3,
   RollupContract,
-  type SlashingProposerContract,
   defaultL1TxUtilsConfig,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
@@ -20,6 +20,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { L2Block, Signature } from '@aztec/stdlib/block';
+import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { ProposedBlockHeader } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -36,7 +37,8 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
-import { SequencerPublisher, SignalType } from './sequencer-publisher.js';
+import type { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
+import { SequencerPublisher } from './sequencer-publisher.js';
 
 const mockRollupAddress = EthAddress.random().toString();
 const mockGovernanceProposerAddress = EthAddress.random().toString();
@@ -46,9 +48,11 @@ const BLOB_SINK_URL = `http://localhost:${BLOB_SINK_PORT}`;
 
 describe('SequencerPublisher', () => {
   let rollup: MockProxy<RollupContract>;
-  let slashingProposerContract: MockProxy<SlashingProposerContract>;
+  let slashingProposerContract: MockProxy<EmpireSlashingProposerContract>;
   let governanceProposerContract: MockProxy<GovernanceProposerContract>;
+  let slashFactoryContract: MockProxy<SlashFactoryContract>;
   let l1TxUtils: MockProxy<L1TxUtilsWithBlobs>;
+  let l1Metrics: MockProxy<SequencerPublisherMetrics>;
   let forwardSpy: jest.SpiedFunction<typeof Multicall3.forward>;
 
   let proposeTxHash: `0x${string}`;
@@ -65,7 +69,7 @@ describe('SequencerPublisher', () => {
   // An l1 publisher with some private methods exposed
   let publisher: SequencerPublisher;
 
-  let testHarnessPrivateKey: PrivateKeyAccount;
+  let testHarnessAttesterAccount: PrivateKeyAccount;
 
   const GAS_GUESS = 300_000n;
 
@@ -90,16 +94,17 @@ describe('SequencerPublisher', () => {
       logs: [],
     } as unknown as GetTransactionReceiptReturnType;
 
+    testHarnessAttesterAccount = privateKeyToAccount(
+      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+    );
     l1TxUtils = mock<L1TxUtilsWithBlobs>();
     l1TxUtils.getBlock.mockResolvedValue({ timestamp: 12n } as any);
     l1TxUtils.getBlockNumber.mockResolvedValue(1n);
-    const publisherPrivateKey = `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`;
-    testHarnessPrivateKey = privateKeyToAccount(publisherPrivateKey);
+    l1TxUtils.getSenderAddress.mockReturnValue(EthAddress.fromString(testHarnessAttesterAccount.address));
     const config = {
       blobSinkUrl: BLOB_SINK_URL,
       l1RpcUrls: [`http://127.0.0.1:8545`],
       l1ChainId: 1,
-      publisherPrivateKey,
       l1Contracts: {
         rollupAddress: EthAddress.ZERO.toString(),
         governanceProposerAddress: mockGovernanceProposerAddress,
@@ -118,8 +123,11 @@ describe('SequencerPublisher', () => {
     (rollup as any).address = mockRollupAddress;
     forwardSpy = jest.spyOn(Multicall3, 'forward');
 
-    slashingProposerContract = mock<SlashingProposerContract>();
+    slashingProposerContract = mock<EmpireSlashingProposerContract>();
+    l1Metrics = mock<SequencerPublisherMetrics>();
+
     governanceProposerContract = mock<GovernanceProposerContract>();
+    slashFactoryContract = mock<SlashFactoryContract>();
 
     const epochCache = mock<EpochCache>();
     epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: 1n, slot: 2n, ts: 3n, now: 3n });
@@ -132,7 +140,9 @@ describe('SequencerPublisher', () => {
       epochCache,
       slashingProposerContract,
       governanceProposerContract,
+      slashFactoryContract,
       dateProvider: new TestDateProvider(),
+      metrics: l1Metrics,
     });
 
     (publisher as any)['l1TxUtils'] = l1TxUtils;
@@ -213,7 +223,6 @@ describe('SequencerPublisher', () => {
     expect(await publisher.enqueueProposeL2Block(l2Block)).toEqual(true);
     const govPayload = EthAddress.random();
     const voteSig = Signature.random();
-    publisher.setGovernancePayload(govPayload);
     governanceProposerContract.getRoundInfo.mockResolvedValue({
       lastSignalSlot: 1n,
       payloadWithMostSignals: govPayload.toString(),
@@ -229,12 +238,12 @@ describe('SequencerPublisher', () => {
     });
     rollup.getProposerAt.mockResolvedValueOnce(mockForwarderAddress);
     expect(
-      await publisher.enqueueCastSignal(
+      await publisher.enqueueGovernanceCastSignal(
+        govPayload,
         2n,
         1n,
-        SignalType.GOVERNANCE,
-        EthAddress.fromString(testHarnessPrivateKey.address),
-        msg => testHarnessPrivateKey.signTypedData(msg),
+        EthAddress.fromString(testHarnessAttesterAccount.address),
+        msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
     ).toEqual(true);
 
@@ -263,6 +272,7 @@ describe('SequencerPublisher', () => {
       [],
       blobInput,
     ] as const;
+
     expect(forwardSpy).toHaveBeenCalledWith(
       [
         {

@@ -48,6 +48,8 @@ class GoblinRecursiveVerifier {
         StdlibEccvmProof eccvm_proof; // contains pre-IPA and IPA proofs
         StdlibHonkProof translator_proof;
 
+        StdlibProof() = default;
+
         StdlibProof(Builder& builder, const GoblinProof& goblin_proof)
             : merge_proof(builder, goblin_proof.merge_proof)
             , eccvm_proof(builder,
@@ -61,7 +63,7 @@ class GoblinRecursiveVerifier {
                             const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
         : builder(builder)
         , verification_keys(verification_keys)
-        , transcript(transcript){};
+        , transcript(transcript) {};
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
         const GoblinProof&,

@@ -6,7 +6,8 @@
   "exports": {
     ".": "./dest/index.js",
     "./config": "./dest/aztec-node/config.js",
-    "./sentinel": "./dest/aztec-node/sentinel.js"
+    "./sentinel": "./dest/aztec-node/sentinel.js",
+    "./test": "./dest/test/index.js"
   },
   "bin": "./dest/bin/index.js",
   "typedocOptions": {
@@ -75,6 +76,7 @@
     "@aztec/kv-store": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",
+    "@aztec/node-keystore": "workspace:^",
     "@aztec/node-lib": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/p2p": "workspace:^",

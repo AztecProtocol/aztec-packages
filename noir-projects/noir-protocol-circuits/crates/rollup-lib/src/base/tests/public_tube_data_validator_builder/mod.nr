@@ -1,5 +1,6 @@
 mod validate_with_avm_data;
 mod validate_with_block_constant_data;
+mod validate_gas_settings;
 
 use crate::base::components::PublicTubeDataValidator;
 use dep::types::{

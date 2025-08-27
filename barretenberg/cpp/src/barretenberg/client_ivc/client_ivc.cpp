@@ -89,87 +89,122 @@ void ClientIVC::instantiate_stdlib_verification_queue(
  * @param accumulation_recursive_transcript Transcript shared across recursive verification of the folding of
  * K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n} (app)
  *
- * @return Pair of PairingPoints for final verification and commitments to the merged tables as read from the proof by
- * the Merge verifier
+ * @return Triple of output verifier accumulator, PairingPoints for final verification and commitments to the merged
+ * tables as read from the proof by the Merge verifier
  */
-std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
-    perform_recursive_verification_and_databus_consistency_checks(
-        ClientCircuit& circuit,
-        const StdlibVerifierInputs& verifier_inputs,
-        const TableCommitments& T_prev_commitments,
-        const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
+std::tuple<std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey>,
+           ClientIVC::PairingPoints,
+           ClientIVC::TableCommitments>
+ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
+    ClientCircuit& circuit,
+    const StdlibVerifierInputs& verifier_inputs,
+    const std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey>& input_stdlib_verifier_accumulator,
+    const TableCommitments& T_prev_commitments,
+    const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
 {
     using MergeCommitments = Goblin::MergeRecursiveVerifier::InputCommitments;
 
-    // Witness commitments and public inputs corresponding to the incoming instance
-    WitnessCommitments witness_commitments;
-    std::vector<StdlibFF> public_inputs;
+    // The pairing points produced by the verification of the decider proof
+    PairingPoints decider_pairing_points;
 
     // Input commitments to be passed to the merge recursive verification
-    MergeCommitments merge_commitments;
-    merge_commitments.T_prev_commitments = T_prev_commitments;
+    MergeCommitments merge_commitments{ .T_prev_commitments = T_prev_commitments };
+
+    auto verifier_instance =
+        std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_inputs.honk_vk_and_hash);
+
+    std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey> output_stdlib_verifier_accumulator;
+    std::optional<StdlibFF> prev_accum_hash = std::nullopt;
+    // The decider proof exists if the tail kernel has been accumulated
+    bool is_hiding_kernel = !decider_proof.empty();
 
     switch (verifier_inputs.type) {
-    case QUEUE_TYPE::PG_TAIL:
-    case QUEUE_TYPE::PG: {
-        // Construct stdlib verifier accumulator from the native counterpart computed on a previous round
-        auto stdlib_verifier_accum =
-            std::make_shared<RecursiveDeciderVerificationKey>(&circuit, recursive_verifier_native_accum);
-
-        // Perform folding recursive verification to update the verifier accumulator
-        FoldingRecursiveVerifier verifier{
-            &circuit, stdlib_verifier_accum, { verifier_inputs.honk_vk_and_hash }, accumulation_recursive_transcript
-        };
-        auto verifier_accum = verifier.verify_folding_proof(verifier_inputs.proof);
-
-        // Extract native verifier accumulator from the stdlib accum for use on the next round
-        recursive_verifier_native_accum = std::make_shared<DeciderVerificationKey>(verifier_accum->get_value());
-
-        witness_commitments = std::move(verifier.keys_to_fold[1]->witness_commitments);
-        public_inputs = std::move(verifier.public_inputs);
-
-        break;
-    }
-
     case QUEUE_TYPE::OINK: {
-        // Construct an incomplete stdlib verifier accumulator from the corresponding stdlib verification key
-        auto verifier_accum =
-            std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_inputs.honk_vk_and_hash);
+        BB_ASSERT_EQ(input_stdlib_verifier_accumulator, nullptr);
 
         // Perform oink recursive verification to complete the initial verifier accumulator
-        OinkRecursiveVerifier verifier{ &circuit, verifier_accum, accumulation_recursive_transcript };
+        OinkRecursiveVerifier verifier{ &circuit, verifier_instance, accumulation_recursive_transcript };
         verifier.verify_proof(verifier_inputs.proof);
 
-        // Extract native verifier accumulator from the stdlib accum for use on the next round
-        recursive_verifier_native_accum = std::make_shared<DeciderVerificationKey>(verifier_accum->get_value());
-        // Initialize the gate challenges to zero for use in first round of folding
-        recursive_verifier_native_accum->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
-
-        witness_commitments = std::move(verifier_accum->witness_commitments);
-        public_inputs = std::move(verifier.public_inputs);
+        output_stdlib_verifier_accumulator = verifier_instance;
+        output_stdlib_verifier_accumulator->target_sum = StdlibFF::from_witness_index(&circuit, circuit.zero_idx);
+        output_stdlib_verifier_accumulator->gate_challenges.assign(
+            CONST_PG_LOG_N, StdlibFF::from_witness_index(&circuit, circuit.zero_idx));
 
         // T_prev = 0 in the first recursive verification
         merge_commitments.T_prev_commitments = stdlib::recursion::honk::empty_ecc_op_tables(circuit);
 
         break;
     }
+    case QUEUE_TYPE::PG:
+    case QUEUE_TYPE::PG_TAIL: {
+        BB_ASSERT_NEQ(input_stdlib_verifier_accumulator, nullptr);
+        if (verifier_inputs
+                .is_kernel) { // this is what I'm using to determine if this is the first circuit we're folding...
+            // Fiat-Shamir the accumulator.
+            prev_accum_hash =
+                input_stdlib_verifier_accumulator->hash_through_transcript("", *accumulation_recursive_transcript);
+            accumulation_recursive_transcript->add_to_hash_buffer("accum_hash", *prev_accum_hash);
+            info("Previous accumulator hash in PG rec verifier: ", *prev_accum_hash);
+        }
+        // Perform folding recursive verification to update the verifier accumulator
+        FoldingRecursiveVerifier verifier{
+            &circuit, input_stdlib_verifier_accumulator, verifier_instance, accumulation_recursive_transcript
+        };
+        output_stdlib_verifier_accumulator =
+            verifier.verify_folding_proof(verifier_inputs.proof); // WORKTODO: connect this to previous/next accumulator
+
+        break;
+    }
     case QUEUE_TYPE::PG_FINAL: {
+        BB_ASSERT_NEQ(input_stdlib_verifier_accumulator, nullptr);
         BB_ASSERT_EQ(stdlib_verification_queue.size(), size_t(1));
-        BB_ASSERT_EQ(num_circuits_accumulated,
-                     num_circuits,
-                     "All circuits must be accumulated before constructing the hiding circuit.");
+
+        // Note: reinstate this.
+        // BB_ASSERT_EQ(num_circuits_accumulated,
+        //              num_circuits - 1,
+        //              "All circuits must be accumulated before constructing the hiding circuit.");
         // Complete the hiding circuit construction
-        auto [pairing_points, merged_table_commitments] =
-            complete_hiding_circuit_logic(verifier_inputs.proof, verifier_inputs.honk_vk_and_hash, circuit);
-        // Return early since the hiding circuit method performs merge and public inputs handling
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1501): we should remove the code duplication for
-        // the consistency checks at some point
-        return { pairing_points, merged_table_commitments };
+
+        hide_op_queue_accumulation_result(circuit);
+
+        // Propagate the public inputs of the tail kernel by converting them to public inputs of the hiding circuit.
+        auto num_public_inputs = static_cast<size_t>(honk_vk->num_public_inputs);
+        num_public_inputs -= KernelIO::PUBLIC_INPUTS_SIZE; // exclude fixed kernel_io public inputs
+        auto stdlib_proof = verifier_inputs.proof;
+        for (size_t i = 0; i < num_public_inputs; i++) {
+            stdlib_proof[i].set_public();
+        }
+
+        // Fiat-Shamir the accumulator.
+        prev_accum_hash =
+            input_stdlib_verifier_accumulator->hash_through_transcript("", *accumulation_recursive_transcript);
+        accumulation_recursive_transcript->add_to_hash_buffer("accum_hash", *prev_accum_hash);
+        info("Previous accumulator hash in PG rec verifier: ", *prev_accum_hash);
+        // Perform recursive folding verification of the last folding proof
+        FoldingRecursiveVerifier folding_verifier{
+            &circuit, input_stdlib_verifier_accumulator, verifier_instance, accumulation_recursive_transcript
+        };
+        auto recursive_verifier_native_accum = folding_verifier.verify_folding_proof(verifier_inputs.proof);
+        verification_queue.clear();
+
+        // Perform recursive decider verification
+        DeciderRecursiveVerifier decider{ &circuit, recursive_verifier_native_accum };
+        BB_ASSERT_EQ(decider_proof.empty(), false, "Decider proof is empty!");
+
+        decider_pairing_points = decider.verify_proof(decider_proof);
+
+        BB_ASSERT_EQ(output_stdlib_verifier_accumulator, nullptr);
+        break;
     }
     default: {
-        throw_or_abort("Invalid queue type! Only OINK, PG and PG_FINAL are supported");
+        throw_or_abort("Invalid queue type! Only OINK, PG, PG_TAIL and PG_FINAL are supported");
     }
     }
+
+    // Extract the witness commitments and public inputs from the incoming verifier instance
+    WitnessCommitments witness_commitments = std::move(verifier_instance->witness_commitments);
+    std::vector<StdlibFF> public_inputs = std::move(verifier_instance->public_inputs);
 
     PairingPoints nested_pairing_points; // to be extracted from public inputs of app or kernel proof just verified
 
@@ -177,19 +212,29 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         // Reconstruct the input from the previous kernel from its public inputs
         KernelIO kernel_input; // pairing points, databus return data commitments
         kernel_input.reconstruct_from_public(public_inputs);
-
         nested_pairing_points = kernel_input.pairing_inputs;
-        // T_prev is read by the public input of the previous kernel K_{i-1} at the beginning of the recursive
-        // verification of of the folding of K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n} (app). This verification
-        // happens in K_{i}
-        merge_commitments.T_prev_commitments = kernel_input.ecc_op_tables;
-
         // Perform databus consistency checks
         kernel_input.kernel_return_data.assert_equal(witness_commitments.calldata);
         kernel_input.app_return_data.assert_equal(witness_commitments.secondary_calldata);
 
-        // Set the kernel return data commitment to be propagated via the public inputs
-        bus_depot.set_kernel_return_data_commitment(witness_commitments.return_data);
+        // T_prev is read by the public input of the previous kernel K_{i-1} at the beginning of the recursive
+        // verification of of the folding of K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n} (app). This verification
+        // happens in K_{i}
+        merge_commitments.T_prev_commitments = std::move(kernel_input.ecc_op_tables);
+
+        BB_ASSERT_EQ(verifier_inputs.type == QUEUE_TYPE::PG || verifier_inputs.type == QUEUE_TYPE::PG_TAIL ||
+                         verifier_inputs.type == QUEUE_TYPE::PG_FINAL,
+                     true,
+                     "Kernel circuits should be folded.");
+        // Get the previous accum hash
+        info("PG accum hash from IO: ", kernel_input.output_pg_accum_hash);
+        ASSERT(prev_accum_hash.has_value());
+        kernel_input.output_pg_accum_hash.assert_equal(*prev_accum_hash);
+
+        if (!is_hiding_kernel) {
+            // The hiding kernel has no return data but uses the traditional public-inputs mechanism
+            bus_depot.set_kernel_return_data_commitment(witness_commitments.return_data);
+        }
     } else {
         // Reconstruct the input from the previous app from its public inputs
         AppIO app_input; // pairing points
@@ -208,8 +253,11 @@ std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::
         goblin.recursively_verify_merge(circuit, merge_commitments, accumulation_recursive_transcript);
 
     pairing_points.aggregate(nested_pairing_points);
+    if (is_hiding_kernel) {
+        pairing_points.aggregate(decider_pairing_points);
+    }
 
-    return { pairing_points, merged_table_commitments };
+    return { output_stdlib_verifier_accumulator, pairing_points, merged_table_commitments };
 }
 
 /**
@@ -259,37 +307,53 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
     // Perform Oink/PG and Merge recursive verification + databus consistency checks for each entry in the queue
     PairingPoints points_accumulator;
+    std::shared_ptr<RecursiveDeciderVerificationKey> current_stdlib_verifier_accumulator = nullptr;
+    bool is_init_kernel = (recursive_verifier_native_accum == nullptr); // Should clean this up ideally
+    if (!is_init_kernel) {
+        current_stdlib_verifier_accumulator =
+            std::make_shared<RecursiveDeciderVerificationKey>(&circuit, recursive_verifier_native_accum);
+    }
     while (!stdlib_verification_queue.empty()) {
         const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
 
-        auto [pairing_points, merged_table_commitments] = perform_recursive_verification_and_databus_consistency_checks(
-            circuit, verifier_input, T_prev_commitments, accumulation_recursive_transcript);
-
+        auto [output_stdlib_verifier_accumulator, pairing_points, merged_table_commitments] =
+            perform_recursive_verification_and_databus_consistency_checks(circuit,
+                                                                          verifier_input,
+                                                                          current_stdlib_verifier_accumulator,
+                                                                          T_prev_commitments,
+                                                                          accumulation_recursive_transcript);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1376): Optimize recursion aggregation - seems
         // we can use `batch_mul` here to decrease the size of the `ECCOpQueue`, but must be cautious with FS security.
         points_accumulator.aggregate(pairing_points);
-
         // Update commitment to the status of the op_queue
         T_prev_commitments = merged_table_commitments;
+        // Update the output verifier accumulator
+        current_stdlib_verifier_accumulator = output_stdlib_verifier_accumulator;
 
         stdlib_verification_queue.pop_front();
     }
-
     // Set the kernel output data to be propagated via the public inputs
     if (is_hiding_kernel) {
+        BB_ASSERT_EQ(current_stdlib_verifier_accumulator, nullptr);
         HidingKernelIO hiding_output{ points_accumulator, T_prev_commitments };
         hiding_output.set_public();
         // preserve the hiding circuit so a proof for it can be created
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1502): reconsider approach once integration is
-        // complete
-        hiding_circuit = std::make_unique<ClientCircuit>(circuit);
     } else {
+        BB_ASSERT_NEQ(current_stdlib_verifier_accumulator, nullptr);
+        // Extract native verifier accumulator from the stdlib accum for use on the next round
+        recursive_verifier_native_accum =
+            std::make_shared<DeciderVerificationKey>(current_stdlib_verifier_accumulator->get_value());
+
         KernelIO kernel_output;
         kernel_output.pairing_inputs = points_accumulator;
         kernel_output.kernel_return_data = bus_depot.get_kernel_return_data_commitment(circuit);
         kernel_output.app_return_data = bus_depot.get_app_return_data_commitment(circuit);
         kernel_output.ecc_op_tables = T_prev_commitments;
-
+        RecursiveTranscript hash_transcript;
+        kernel_output.output_pg_accum_hash =
+            current_stdlib_verifier_accumulator->hash_through_transcript("", hash_transcript);
+        info("kernel output pg hash: ", kernel_output.output_pg_accum_hash);
         kernel_output.set_public();
     }
 }
@@ -326,7 +390,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
 
     honk_vk = precomputed_vk;
 
-    // We're acccumulating a kernel if the verification queue is empty (because the kernel circuit contains recursive
+    // We're accumulating a kernel if the verification queue is empty (because the kernel circuit contains recursive
     // verifiers for all the entries previously present in the verification queue) and if it's not the first accumulate
     // call (which will always be for an app circuit).
     bool is_kernel = verification_queue.empty() && num_circuits_accumulated > 0;
@@ -337,14 +401,14 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         prover_accumulation_transcript = std::make_shared<Transcript>();
     }
 
-    VerifierInputs queue_entry{ .honk_vk = honk_vk,
-                                // first circuit accumulated should be an app
-                                .is_kernel = is_kernel };
+    // make a copy of the prover_accumulation_transcript for the verifier to use
+    auto verifier_transcript =
+        Transcript::convert_prover_transcript_to_verifier_transcript(prover_accumulation_transcript);
+
+    VerifierInputs queue_entry{ .honk_vk = honk_vk, .is_kernel = is_kernel };
     if (num_circuits_accumulated == 0) { // First circuit in the IVC
-        BB_ASSERT_EQ(queue_entry.is_kernel, false, "First circuit accumulated is always be an app");
+        BB_ASSERT_EQ(queue_entry.is_kernel, false, "First circuit accumulated must always be an app");
         // For first circuit in the IVC, use oink to complete the decider proving key and generate an oink proof
-        auto oink_verifier_transcript =
-            Transcript::convert_prover_transcript_to_verifier_transcript(prover_accumulation_transcript);
         MegaOinkProver oink_prover{ proving_key, honk_vk, prover_accumulation_transcript };
         vinfo("computing oink proof...");
         oink_prover.prove();
@@ -353,38 +417,39 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
 
         fold_output.accumulator = proving_key; // initialize the prover accum with the completed key
 
-        auto decider_vk = std::make_shared<DeciderVerificationKey>(honk_vk);
-        oink_verifier_transcript->load_proof(oink_proof);
-        OinkVerifier<Flavor> oink_verifier{ decider_vk, oink_verifier_transcript };
-        oink_verifier.verify();
-        native_verifier_accum = decider_vk;
-        native_verifier_accum->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
-
         queue_entry.type = QUEUE_TYPE::OINK;
         queue_entry.proof = oink_proof;
+    } else if (num_circuits_accumulated == num_circuits - 1) {
+        // construct the mega proof of the hiding circuit
+        auto mega_proof = prove_hiding_circuit(circuit);
+
+        queue_entry.type = QUEUE_TYPE::MEGA;
+        queue_entry.proof = mega_proof;
     } else { // Otherwise, fold the new key into the accumulator
         vinfo("computing folding proof");
         auto vk = std::make_shared<DeciderVerificationKey_<Flavor>>(honk_vk);
-        // make a copy of the prover_accumulation_transcript for the verifier to use
-        auto verifier_accumulation_transcript =
-            Transcript::convert_prover_transcript_to_verifier_transcript(prover_accumulation_transcript);
-
+        // Only fiat shamir if this is a kernel with the assumption that kernels are always the first being recursively
+        // verified.
+        if (is_kernel) {
+            // Fiat-Shamir the verifier accumulator
+            FF accum_hash = native_verifier_accum->hash_through_transcript("", *prover_accumulation_transcript);
+            prover_accumulation_transcript->add_to_hash_buffer("accum_hash", accum_hash);
+            info("Accumulator hash in PG prover: ", accum_hash);
+        }
         FoldingProver folding_prover({ fold_output.accumulator, proving_key },
                                      { native_verifier_accum, vk },
                                      prover_accumulation_transcript,
                                      trace_usage_tracker);
         fold_output = folding_prover.prove();
         vinfo("constructed folding proof");
-        FoldingVerifier folding_verifier({ native_verifier_accum, vk }, verifier_accumulation_transcript);
-        native_verifier_accum = folding_verifier.verify_folding_proof(fold_output.proof);
 
-        if (num_circuits_accumulated == num_circuits - 1) {
+        if (num_circuits_accumulated == num_circuits - 2) {
             // we are folding in the "Tail" kernel, so the verification_queue entry should have type PG_FINAL
             queue_entry.type = QUEUE_TYPE::PG_FINAL;
             decider_proof = decider_prove();
             vinfo("constructed decider proof");
-        } else if (num_circuits_accumulated == num_circuits - 2) {
-            // we are folding in the "Inner/Reset" kernel, so the verification_queue entry should have type PG_TAIL
+        } else if (num_circuits_accumulated == num_circuits - 3) {
+            // we are folding in the last "Inner/Reset" kernel, so the verification_queue entry should have type PG_TAIL
             queue_entry.type = QUEUE_TYPE::PG_TAIL;
         } else {
             queue_entry.type = QUEUE_TYPE::PG;
@@ -393,8 +458,11 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     }
     verification_queue.push_back(queue_entry);
 
-    // Construct merge proof for the present circuit
-    goblin.prove_merge(prover_accumulation_transcript);
+    // Construct merge proof for the present circuit (skipped for hiding since merge proof constructed in goblin prove)
+    if (num_circuits_accumulated != num_circuits - 1) {
+        update_native_verifier_accumulator(queue_entry, verifier_transcript);
+        goblin.prove_merge(prover_accumulation_transcript);
+    }
 
     num_circuits_accumulated++;
 }
@@ -406,9 +474,9 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
  * derived from processing the ultra_op version of op_queue. This result (referred to as accumulated_result in
  * translator) is included in the translator proof and, on the verifier side, checked against the same computation
  * performed by ECCVM (this is done in verify_translation). To prevent leaking information about the actual
- * accumulated_result (and implicitly about the ops) when the proof is sent to the rollup, a random but valid operation
- * is added to the op queue, to ensure the polynomial over Grumpkin, whose evaluation is accumulated_result, has at
- * least one random coefficient.
+ * accumulated_result (and implicitly about the ops) when the proof is sent to the rollup, a random but valid
+ * operation is added to the op queue, to ensure the polynomial over Grumpkin, whose evaluation is
+ * accumulated_result, has at least one random coefficient.
  */
 void ClientIVC::hide_op_queue_accumulation_result(ClientCircuit& circuit)
 {
@@ -418,88 +486,24 @@ void ClientIVC::hide_op_queue_accumulation_result(ClientCircuit& circuit)
     circuit.queue_ecc_eq();
 }
 
-std::pair<ClientIVC::PairingPoints, ClientIVC::TableCommitments> ClientIVC::complete_hiding_circuit_logic(
-    const StdlibProof& stdlib_proof,
-    const std::shared_ptr<RecursiveVKAndHash>& stdlib_vk_and_hash,
-    ClientCircuit& circuit)
-{
-    using MergeCommitments = Goblin::MergeRecursiveVerifier::InputCommitments;
-    trace_usage_tracker.print();
-
-    // Shared transcript between PG and Merge
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1453): Investigate whether Decider/PG/Merge need to
-    // share a transcript
-    std::shared_ptr<RecursiveTranscript> pg_merge_transcript = std::make_shared<RecursiveTranscript>();
-
-    hide_op_queue_accumulation_result(circuit);
-
-    // Construct stdlib accumulator, decider vkey and folding proof
-    auto stdlib_verifier_accumulator =
-        std::make_shared<RecursiveDeciderVerificationKey>(&circuit, recursive_verifier_native_accum);
-
-    // Propagate the public inputs of the tail kernel by converting them to public inputs of the hiding circuit.
-    auto num_public_inputs = static_cast<size_t>(honk_vk->num_public_inputs);
-    num_public_inputs -= KernelIO::PUBLIC_INPUTS_SIZE; // exclude fixed kernel_io public inputs
-    for (size_t i = 0; i < num_public_inputs; i++) {
-        stdlib_proof[i].set_public();
-    }
-
-    // Perform recursive folding verification of the last folding proof
-    FoldingRecursiveVerifier folding_verifier{
-        &circuit, stdlib_verifier_accumulator, { stdlib_vk_and_hash }, pg_merge_transcript
-    };
-    auto recursive_verifier_native_accum = folding_verifier.verify_folding_proof(stdlib_proof);
-    verification_queue.clear();
-
-    // Get the completed decider verification key corresponding to the tail kernel from the folding verifier
-    const std::vector<StdlibFF>& public_inputs = folding_verifier.public_inputs;
-    WitnessCommitments& witness_commitments = folding_verifier.keys_to_fold[1]->witness_commitments;
-
-    // Reconstruct the KernelIO from the public inputs of the tail kernel and perform databus consistency checks
-    KernelIO kernel_input; // pairing points, databus return data commitments
-    kernel_input.reconstruct_from_public(public_inputs);
-    kernel_input.kernel_return_data.assert_equal(witness_commitments.calldata);
-    kernel_input.app_return_data.assert_equal(witness_commitments.secondary_calldata);
-
-    // Extract the commitments to the subtable corresponding to the incoming circuit
-    MergeCommitments merge_commitments;
-    merge_commitments.t_commitments = witness_commitments.get_ecc_op_wires().get_copy();
-    merge_commitments.T_prev_commitments = std::move(
-        kernel_input.ecc_op_tables); // Commitment to the status of the op_queue before folding the tail kernel
-    // Perform recursive verification of the last merge proof
-    auto [points_accumulator, merged_table_commitments] =
-        goblin.recursively_verify_merge(circuit, merge_commitments, pg_merge_transcript);
-
-    points_accumulator.aggregate(kernel_input.pairing_inputs);
-
-    // Perform recursive decider verification
-    DeciderRecursiveVerifier decider{ &circuit, recursive_verifier_native_accum };
-    BB_ASSERT_EQ(!decider_proof.empty(), true, "Decider proof is empty!");
-    PairingPoints decider_pairing_points = decider.verify_proof(decider_proof);
-    points_accumulator.aggregate(decider_pairing_points);
-    return { points_accumulator, merged_table_commitments };
-}
-
 /**
  * @brief Construct the proving key of the hiding circuit, from the hiding_circuit builder in the client_ivc class
  */
-std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::compute_hiding_circuit_proving_key()
+std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::compute_hiding_circuit_proving_key(ClientCircuit& circuit)
 {
-    auto hiding_decider_pk =
-        std::make_shared<DeciderZKProvingKey>(*hiding_circuit, TraceSettings(), bn254_commitment_key);
+    auto hiding_decider_pk = std::make_shared<DeciderZKProvingKey>(circuit, TraceSettings(), bn254_commitment_key);
     return hiding_decider_pk;
 }
 
 /**
- * @brief Construct a zero-knowledge proof for the hiding circuit, which recursively verifies the last folding, merge
- * and decider proof.
+ * @brief Construct a zero-knowledge proof for the hiding circuit, which recursively verifies the last folding,
+ * merge and decider proof.
  *
  * @return HonkProof - a ZK Mega proof
  */
-HonkProof ClientIVC::prove_hiding_circuit()
+HonkProof ClientIVC::prove_hiding_circuit(ClientCircuit& circuit)
 {
-    ASSERT(hiding_circuit != nullptr, "hiding circuit should have been constructed before attempted to create its key");
-    auto hiding_decider_pk = compute_hiding_circuit_proving_key();
+    auto hiding_decider_pk = compute_hiding_circuit_proving_key(circuit);
     honk_vk = std::make_shared<MegaZKVerificationKey>(hiding_decider_pk->get_precomputed());
     auto& hiding_circuit_vk = honk_vk;
     // Hiding circuit is proven by a MegaZKProver
@@ -518,7 +522,7 @@ ClientIVC::Proof ClientIVC::prove()
 {
     // deallocate the protogalaxy accumulator
     fold_output.accumulator = nullptr;
-    auto mega_proof = prove_hiding_circuit();
+    auto mega_proof = verification_queue.front().proof;
 
     // A transcript is shared between the Hiding circuit prover and the Goblin prover
     goblin.transcript = transcript;
@@ -608,6 +612,20 @@ size_t ClientIVC::Proof::size() const
     return mega_proof.size() + goblin_proof.size();
 }
 
+std::vector<ClientIVC::FF> ClientIVC::Proof::to_field_elements() const
+{
+    HonkProof proof;
+
+    proof.insert(proof.end(), mega_proof.begin(), mega_proof.end());
+    proof.insert(proof.end(), goblin_proof.merge_proof.begin(), goblin_proof.merge_proof.end());
+    proof.insert(
+        proof.end(), goblin_proof.eccvm_proof.pre_ipa_proof.begin(), goblin_proof.eccvm_proof.pre_ipa_proof.end());
+    proof.insert(proof.end(), goblin_proof.eccvm_proof.ipa_proof.begin(), goblin_proof.eccvm_proof.ipa_proof.end());
+    proof.insert(proof.end(), goblin_proof.translator_proof.begin(), goblin_proof.translator_proof.end());
+
+    return proof;
+};
+
 msgpack::sbuffer ClientIVC::Proof::to_msgpack_buffer() const
 {
     msgpack::sbuffer buffer;
@@ -677,6 +695,28 @@ ClientIVC::Proof ClientIVC::Proof::from_file_msgpack(const std::string& filename
 ClientIVC::VerificationKey ClientIVC::get_vk() const
 {
     return { honk_vk, std::make_shared<ECCVMVerificationKey>(), std::make_shared<TranslatorVerificationKey>() };
+}
+
+void ClientIVC::update_native_verifier_accumulator(const VerifierInputs& queue_entry,
+                                                   const std::shared_ptr<Transcript>& verifier_transcript)
+{
+    auto decider_vk = std::make_shared<DeciderVerificationKey>(queue_entry.honk_vk);
+    if (queue_entry.type == QUEUE_TYPE::OINK) {
+        verifier_transcript->load_proof(queue_entry.proof);
+        OinkVerifier<Flavor> oink_verifier{ decider_vk, verifier_transcript };
+        oink_verifier.verify();
+        native_verifier_accum = decider_vk;
+        native_verifier_accum->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
+    } else {
+        if (queue_entry.is_kernel) {
+            // Fiat-Shamir the verifier accumulator
+            FF accum_hash = native_verifier_accum->hash_through_transcript("", *verifier_transcript);
+            verifier_transcript->add_to_hash_buffer("accum_hash", accum_hash);
+            info("Accumulator hash in PG verifier: ", accum_hash);
+        }
+        FoldingVerifier folding_verifier({ native_verifier_accum, decider_vk }, verifier_transcript);
+        native_verifier_accum = folding_verifier.verify_folding_proof(queue_entry.proof);
+    }
 }
 
 } // namespace bb

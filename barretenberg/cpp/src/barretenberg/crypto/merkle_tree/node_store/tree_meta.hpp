@@ -24,8 +24,8 @@ struct TreeMeta {
     index_t initialSize;
     bb::fr initialRoot;
     block_number_t oldestHistoricBlock;
-    block_number_t unfinalisedBlockHeight;
-    block_number_t finalisedBlockHeight;
+    block_number_t unfinalizedBlockHeight;
+    block_number_t finalizedBlockHeight;
 
     MSGPACK_FIELDS(name,
                    depth,
@@ -35,8 +35,8 @@ struct TreeMeta {
                    initialSize,
                    initialRoot,
                    oldestHistoricBlock,
-                   unfinalisedBlockHeight,
-                   finalisedBlockHeight)
+                   unfinalizedBlockHeight,
+                   finalizedBlockHeight)
 
     TreeMeta(std::string n,
              uint32_t d,
@@ -56,8 +56,8 @@ struct TreeMeta {
         , initialSize(is)
         , initialRoot(ir)
         , oldestHistoricBlock(o)
-        , unfinalisedBlockHeight(u)
-        , finalisedBlockHeight(f)
+        , unfinalizedBlockHeight(u)
+        , finalizedBlockHeight(f)
     {}
     TreeMeta() = default;
     ~TreeMeta() = default;
@@ -70,8 +70,8 @@ struct TreeMeta {
     {
         return name == other.name && depth == other.depth && size == other.size &&
                committedSize == other.committedSize && root == other.root && initialRoot == other.initialRoot &&
-               initialSize == other.initialSize && unfinalisedBlockHeight == other.unfinalisedBlockHeight &&
-               oldestHistoricBlock == other.oldestHistoricBlock && finalisedBlockHeight == other.finalisedBlockHeight;
+               initialSize == other.initialSize && unfinalizedBlockHeight == other.unfinalizedBlockHeight &&
+               oldestHistoricBlock == other.oldestHistoricBlock && finalizedBlockHeight == other.finalizedBlockHeight;
     }
 };
 
@@ -80,8 +80,8 @@ inline std::ostream& operator<<(std::ostream& os, const TreeMeta& meta)
     os << "TreeMeta{name: " << meta.name << ", depth: " << meta.depth << ", size: " << std::dec << (meta.size)
        << ", committedSize: " << std::dec << meta.committedSize << ", root: " << meta.root
        << ", initialSize: " << std::dec << meta.initialSize << ", initialRoot: " << meta.initialRoot
-       << ", oldestHistoricBlock: " << std::dec << meta.oldestHistoricBlock << ", finalisedBlockHeight: " << std::dec
-       << meta.finalisedBlockHeight << ", unfinalisedBlockHeight: " << std::dec << meta.unfinalisedBlockHeight << "}";
+       << ", oldestHistoricBlock: " << std::dec << meta.oldestHistoricBlock << ", finalizedBlockHeight: " << std::dec
+       << meta.finalizedBlockHeight << ", unfinalizedBlockHeight: " << std::dec << meta.unfinalizedBlockHeight << "}";
     return os;
 }
 

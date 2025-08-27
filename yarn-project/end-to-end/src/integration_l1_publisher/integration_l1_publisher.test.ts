@@ -7,15 +7,15 @@ import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_P
 import { EpochCache } from '@aztec/epoch-cache';
 import {
   type DeployL1ContractsArgs,
+  EmpireSlashingProposerContract,
   type ExtendedViemWalletClient,
   GovernanceProposerContract,
   type L1ContractAddresses,
   RollupContract,
-  SlashingProposerContract,
   createEthereumChain,
   createExtendedL1Client,
 } from '@aztec/ethereum';
-import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthCheatCodesWithState, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -23,7 +23,6 @@ import { times, timesParallel } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { SHA256Trunc, Secp256k1Signer, sha256ToField } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Signature } from '@aztec/foundation/eth-signature';
 import { hexToBuffer } from '@aztec/foundation/string';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
@@ -32,9 +31,10 @@ import { StandardTree } from '@aztec/merkle-tree';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { buildBlockWithCleanDB } from '@aztec/prover-client/block-factory';
-import { SequencerPublisher, SignalType } from '@aztec/sequencer-client';
-import { type CommitteeAttestation, type L2Tips, PublishedL2Block } from '@aztec/stdlib/block';
+import { SequencerPublisher, SequencerPublisherMetrics } from '@aztec/sequencer-client';
+import { type CommitteeAttestation, type L2Tips, PublishedL2Block, Signature } from '@aztec/stdlib/block';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import { orderAttestations } from '@aztec/stdlib/p2p';
 import { fr, makeBloatedProcessedTx, makeBlockAttestationFromBlock } from '@aztec/stdlib/testing';
 import type { BlockHeader, ProcessedTx } from '@aztec/stdlib/tx';
@@ -84,6 +84,8 @@ describe('L1Publisher integration', () => {
   let l1Client: ExtendedViemWalletClient;
   let l1ContractAddresses: L1ContractAddresses;
   let deployerAccount: PrivateKeyAccount;
+
+  let governanceProposerContract: GovernanceProposerContract;
 
   let rollupAddress: Address;
   let outboxAddress: Address;
@@ -201,25 +203,30 @@ describe('L1Publisher integration', () => {
     await worldStateSynchronizer.start();
 
     const sequencerL1Client = createExtendedL1Client(config.l1RpcUrls, sequencerPK, foundry);
-    const l1TxUtils = new L1TxUtilsWithBlobs(sequencerL1Client, logger, dateProvider, config);
+    const l1TxUtils = createL1TxUtilsWithBlobsFromViemWallet(sequencerL1Client, logger, dateProvider, config);
     const rollupContract = new RollupContract(sequencerL1Client, l1ContractAddresses.rollupAddress.toString());
     const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
-    const slashingProposerContract = new SlashingProposerContract(
+    const slashingProposerContract = new EmpireSlashingProposerContract(
       sequencerL1Client,
       slashingProposerAddress.toString(),
     );
-    const governanceProposerContract = new GovernanceProposerContract(
+    governanceProposerContract = new GovernanceProposerContract(
       sequencerL1Client,
       l1ContractAddresses.governanceProposerAddress.toString(),
     );
+    const slashFactoryContract = new SlashFactoryContract(
+      sequencerL1Client,
+      l1ContractAddresses.slashFactoryAddress!.toString(),
+    );
     epochCache = await EpochCache.create(l1ContractAddresses.rollupAddress, config, { dateProvider });
     const blobSinkClient = createBlobSinkClient();
+    const sequencerPublisherMetrics: MockProxy<SequencerPublisherMetrics> = mock<SequencerPublisherMetrics>();
 
     publisher = new SequencerPublisher(
       {
         l1RpcUrls: config.l1RpcUrls,
         l1Contracts: l1ContractAddresses,
-        publisherPrivateKey: new SecretValue(sequencerPK),
+        publisherPrivateKeys: [new SecretValue(sequencerPK)],
         l1PublishRetryIntervalMS: 100,
         l1ChainId: chainId,
         viemPollingIntervalMS: 100,
@@ -233,7 +240,9 @@ describe('L1Publisher integration', () => {
         epochCache,
         governanceProposerContract,
         slashingProposerContract,
+        slashFactoryContract,
         dateProvider,
+        metrics: sequencerPublisherMetrics,
       },
     );
 
@@ -427,7 +436,7 @@ describe('L1Publisher integration', () => {
         const isFirstBlockOfEpoch =
           thisBlockNumber == 1n ||
           (await rollup.getEpochNumber(thisBlockNumber)) > (await rollup.getEpochNumber(thisBlockNumber - 1n));
-        // If we are at the first blob of the epoch, we must initialise the hash:
+        // If we are at the first blob of the epoch, we must initialize the hash:
         prevBlobAccumulatorHash = isFirstBlockOfEpoch ? Buffer.alloc(0) : prevBlobAccumulatorHash;
         const currentBlobAccumulatorHash = hexToBuffer(await rollup.getCurrentBlobCommitmentsHash());
         let expectedBlobAccumulatorHash = prevBlobAccumulatorHash;
@@ -625,15 +634,14 @@ describe('L1Publisher integration', () => {
 
     it(`succeeds proposing new block when vote fails`, async () => {
       const block = await buildSingleBlock();
-      publisher.registerSlashPayloadGetter(() => Promise.resolve(EthAddress.random()));
 
       await publisher.enqueueProposeL2Block(block);
-      await publisher.enqueueCastSignal(
-        block.header.getSlot(),
-        block.header.globalVariables.timestamp,
-        SignalType.SLASHING,
+      await publisher.enqueueSlashingActions(
+        [{ type: 'vote-empire-payload', payload: EthAddress.random() }],
+        block.slot,
+        block.timestamp,
         EthAddress.random(),
-        _payload => Promise.resolve(Signature.random().toString()),
+        (_payload: any) => Promise.resolve(Signature.random().toString()),
       );
 
       const result = await publisher.sendRequests();

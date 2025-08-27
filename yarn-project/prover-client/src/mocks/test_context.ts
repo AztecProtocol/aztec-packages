@@ -10,7 +10,7 @@ import { PublicTxSimulationTester, SimpleContractDataSource } from '@aztec/simul
 import { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2Block } from '@aztec/stdlib/block';
+import { EthAddress, type L2Block } from '@aztec/stdlib/block';
 import type { ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
 import { makeBloatedProcessedTx } from '@aztec/stdlib/testing';
 import { type AppendOnlyTreeSnapshot, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
@@ -107,7 +107,7 @@ export class TestContext {
 
     const broker = new TestBroker(proverCount, localProver);
     const facade = new BrokerCircuitProverFacade(broker);
-    const orchestrator = new TestProvingOrchestrator(ws, facade, Fr.ZERO);
+    const orchestrator = new TestProvingOrchestrator(ws, facade, EthAddress.ZERO);
 
     await broker.start();
     facade.start();

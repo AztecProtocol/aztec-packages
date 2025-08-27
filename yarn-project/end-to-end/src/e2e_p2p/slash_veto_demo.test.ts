@@ -1,6 +1,18 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { createLogger, retryUntil } from '@aztec/aztec.js';
-import { type ExtendedViemWalletClient, L1Deployer, RollupContract, SlasherArtifact } from '@aztec/ethereum';
+import { EthAddress, createLogger, retryUntil } from '@aztec/aztec.js';
+import {
+  EmpireSlashingProposerArtifact,
+  EmpireSlashingProposerContract,
+  type ExtendedViemWalletClient,
+  L1Deployer,
+  L1TxUtils,
+  RollupContract,
+  SlasherArtifact,
+  createExtendedL1Client,
+  createL1TxUtilsFromViemWallet,
+} from '@aztec/ethereum';
+import { tryJsonStringify } from '@aztec/foundation/json-rpc';
+import { bufferToHex } from '@aztec/foundation/string';
 import { GSEAbi } from '@aztec/l1-artifacts/GSEAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
@@ -8,22 +20,24 @@ import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { getContract } from 'viem';
+import { encodeFunctionData, getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { createNodes } from '../fixtures/setup_p2p_test.js';
+import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
 import { P2PNetworkTest } from './p2p_network.js';
 
 const debugLogger = createLogger('e2e:spartan-test:slash-veto-demo');
 
+const VETOER_PRIVATE_KEY_INDEX = 18; // This should be after all keys used by validators
 const NUM_NODES = 4;
 const NUM_VALIDATORS = NUM_NODES + 1; // We create an extra validator, who will not have a running node
 const BOOT_NODE_UDP_PORT = 4500;
-const ETHEREUM_SLOT_DURATION = 6;
-const AZTEC_SLOT_DURATION = 12;
-const EPOCH_DURATION = 4;
+const ETHEREUM_SLOT_DURATION = 4;
+const AZTEC_SLOT_DURATION = 8;
+const EPOCH_DURATION = 2;
 // how many l2 slots make up a slashing round
-const SLASHING_ROUND_SIZE = 5;
+const SLASHING_ROUND_SIZE = 4;
 // how many block builders must signal for a single payload in a single round for it to be executable
 const SLASHING_QUORUM = 3;
 // an attester must not attest to 50% of proven blocks over an epoch to warrant a slash payload being created
@@ -42,6 +56,8 @@ describe('veto slash', () => {
   let slashingAmount: bigint;
   let additionalNode: AztecNodeService | undefined;
   let rollup: RollupContract;
+  let vetoerL1TxUtils: L1TxUtils;
+  let vetoerL1Client: ExtendedViemWalletClient;
 
   beforeAll(async () => {
     t = await P2PNetworkTest.create({
@@ -81,7 +97,14 @@ describe('veto slash', () => {
       DATA_DIR,
     );
 
+    vetoerL1Client = createExtendedL1Client(
+      t.ctx.aztecNodeConfig.l1RpcUrls,
+      bufferToHex(getPrivateKeyFromIndex(VETOER_PRIVATE_KEY_INDEX)!),
+    );
+    vetoerL1TxUtils = createL1TxUtilsFromViemWallet(vetoerL1Client, t.logger, t.ctx.dateProvider);
+
     ({ rollup } = await t.getContracts());
+
     // slash amount is just below the ejection threshold
     slashingAmount = (await rollup.getActivationThreshold()) - (await rollup.getEjectionThreshold()) - 1n;
     t.ctx.aztecNodeConfig.slashInactivityEnabled = true;
@@ -119,18 +142,36 @@ describe('veto slash', () => {
    */
   async function deployNewSlasher(deployerClient: ExtendedViemWalletClient) {
     const deployer = new L1Deployer(deployerClient, 42, undefined, false, undefined, undefined);
-    const args = [
-      rollup.address,
-      SLASHING_QUORUM,
-      SLASHING_ROUND_SIZE,
-      LIFETIME_IN_ROUNDS, // lifetime in rounds
-      EXECUTION_DELAY_IN_ROUNDS, // execution delay in rounds
-      deployerClient.account.address, // vetoer
-    ] as const;
-    debugLogger.info(`\n\ndeploying slasher with args: ${JSON.stringify(args)}\n\n`);
-    const slashFactoryAddress = await deployer.deploy(SlasherArtifact, args);
+
+    const vetoer = deployerClient.account.address;
+    const governance = EthAddress.random().toString(); // We don't need a real governance address for this test
+    debugLogger.info(`\n\ndeploying slasher with vetoer: ${vetoer}\n\n`);
+    const slasher = await deployer.deploy(SlasherArtifact, [vetoer, governance]);
     await deployer.waitForDeployments();
-    return slashFactoryAddress;
+
+    const proposerArgs = [
+      rollup.address, // instance
+      slasher.toString(), // slasher
+      BigInt(SLASHING_QUORUM),
+      BigInt(SLASHING_ROUND_SIZE),
+      BigInt(LIFETIME_IN_ROUNDS),
+      BigInt(EXECUTION_DELAY_IN_ROUNDS),
+    ] as const;
+    debugLogger.info(`\n\ndeploying slasher proposer with args: ${tryJsonStringify(proposerArgs)}\n\n`);
+    const proposer = await deployer.deploy(EmpireSlashingProposerArtifact, proposerArgs);
+
+    debugLogger.info(`\n\ninitializing slasher with proposer: ${proposer}\n\n`);
+    const txUtils = createL1TxUtilsFromViemWallet(deployerClient, t.logger, t.ctx.dateProvider);
+    await txUtils.sendAndMonitorTransaction({
+      to: slasher.toString(),
+      data: encodeFunctionData({
+        abi: SlasherAbi,
+        functionName: 'initializeProposer',
+        args: [proposer.toString()],
+      }),
+    });
+
+    return slasher;
   }
 
   it.each([true])(
@@ -142,16 +183,20 @@ describe('veto slash', () => {
       //                                //
       //################################//
 
-      const l1Client = t.ctx.deployL1ContractsValues.l1Client;
-      const newSlasherAddress = await deployNewSlasher(l1Client);
+      const newSlasherAddress = await deployNewSlasher(vetoerL1Client);
       debugLogger.info(`\n\nnewSlasherAddress: ${newSlasherAddress}\n\n`);
-      const rollupRaw = getContract({
-        address: rollup.address,
-        abi: RollupAbi,
-        client: l1Client,
+      const { receipt } = await createL1TxUtilsFromViemWallet(
+        t.ctx.deployL1ContractsValues.l1Client,
+        t.logger,
+        t.ctx.dateProvider,
+      ).sendAndMonitorTransaction({
+        to: rollup.address,
+        data: encodeFunctionData({
+          abi: RollupAbi,
+          functionName: 'setSlasher',
+          args: [newSlasherAddress.toString()],
+        }),
       });
-      const tx = await rollupRaw.write.setSlasher([newSlasherAddress.toString()]);
-      const receipt = await l1Client.waitForTransactionReceipt({ hash: tx });
       expect(receipt.status).toEqual('success');
       const slasherAddress = await rollup.getSlasher();
       expect(slasherAddress.toLowerCase()).toEqual(newSlasherAddress.toString().toLowerCase());
@@ -163,9 +208,13 @@ describe('veto slash', () => {
       });
       const slasherVetoer = await slasher.read.VETOER();
       debugLogger.info(`\n\nnew slasher vetoer: ${slasherVetoer}\n\n`);
-      expect(slasherVetoer).toEqual(l1Client.account.address);
+      expect(slasherVetoer).toEqual(vetoerL1Client.account.address);
 
       const slashingProposer = await rollup.getSlashingProposer();
+      if (slashingProposer.type !== 'empire') {
+        throw new Error('This test requires Empire slashing');
+      }
+      const empireSlashingProposer = slashingProposer as EmpireSlashingProposerContract;
 
       //#######################################//
       //                                       //
@@ -174,7 +223,7 @@ describe('veto slash', () => {
       //#######################################//
 
       const awaitSubmittableRound = new Promise<{ payload: `0x${string}`; round: bigint }>(resolve => {
-        slashingProposer.listenToSubmittablePayloads(args => {
+        empireSlashingProposer.listenToSubmittablePayloads(args => {
           resolve(args);
         });
       });
@@ -186,12 +235,12 @@ describe('veto slash', () => {
       const diagnosticInterval = setInterval(() => {
         void (async () => {
           try {
-            const currentRound = await slashingProposer.getCurrentRound();
-            const roundInfo = await slashingProposer.getRoundInfo(rollup.address, currentRound);
+            const currentRound = await empireSlashingProposer.getCurrentRound();
+            const roundInfo = await empireSlashingProposer.getRoundInfo(rollup.address, currentRound);
             debugLogger.info(`\n\ncurrentRound: ${currentRound}\n\n`);
             debugLogger.info(`\n\npayloadWithMostSignals: ${roundInfo.payloadWithMostSignals}\n\n`);
 
-            const signals = await slashingProposer.getPayloadSignals(
+            const signals = await empireSlashingProposer.getPayloadSignals(
               rollup.address,
               currentRound,
               roundInfo.payloadWithMostSignals,
@@ -249,13 +298,15 @@ describe('veto slash', () => {
       //##############################//
 
       if (shouldVeto) {
-        const slasher = getContract({
-          address: await rollup.getSlasher(),
-          abi: SlasherAbi,
-          client: t.ctx.deployL1ContractsValues.l1Client,
+        const slasherAddress = await rollup.getSlasher();
+        const { receipt } = await vetoerL1TxUtils.sendAndMonitorTransaction({
+          to: slasherAddress,
+          data: encodeFunctionData({
+            abi: SlasherAbi,
+            functionName: 'vetoPayload',
+            args: [submittableRound.payload],
+          }),
         });
-        const tx = await slasher.write.vetoPayload([submittableRound.payload]);
-        const receipt = await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: tx });
         debugLogger.info(`\n\nvetoPayload tx receipt: ${receipt.status}\n\n`);
       }
 
@@ -266,26 +317,33 @@ describe('veto slash', () => {
       //###################################//
 
       const awaitPayloadSubmitted = new Promise<{ round: bigint; payload: `0x${string}` }>(resolve => {
-        slashingProposer.listenToPayloadSubmitted(args => {
+        empireSlashingProposer.listenToPayloadSubmitted(args => {
+          debugLogger.warn(`Payload ${args.payload} for round ${args.round} has been submitted`);
           resolve(args);
         });
       });
       const awaitPayloadExpiredPromise = retryUntil(async () => {
         const currentRound = await slashingProposer.getCurrentRound();
-        return currentRound > submittableRound.round + BigInt(LIFETIME_IN_ROUNDS);
+        if (currentRound > submittableRound.round + BigInt(LIFETIME_IN_ROUNDS)) {
+          debugLogger.warn(
+            `Lifetime for payload ${submittableRound.payload} from round ${submittableRound.round} has expired`,
+          );
+          return true;
+        }
       });
 
       const payloadExecutedOrExpired = await Promise.race([awaitPayloadSubmitted, awaitPayloadExpiredPromise]);
       const badAttesterFinalBalance = await gse.read.effectiveBalanceOf([rollup.address, attester.address]);
       if (shouldVeto) {
-        // If we vetoed, the attester should have their balance unchanged.
-        expect(payloadExecutedOrExpired).toBe(true);
-        expect(badAttesterFinalBalance).toBe(badAttesterInitialBalance);
+        // If we vetoed, then either the payload expired, or another more recent payload was executed
+        if (typeof payloadExecutedOrExpired === 'boolean') {
+          expect(payloadExecutedOrExpired).toBe(true);
+        } else {
+          expect(payloadExecutedOrExpired.round).toBeGreaterThan(submittableRound.round);
+        }
       } else {
         // If we didn't veto, the attester should have their balance decreased by the slashing amount.
-        expect((payloadExecutedOrExpired as { round: bigint; payload: `0x${string}` }).round).toBe(
-          submittableRound.round,
-        );
+        expect((payloadExecutedOrExpired as { round: bigint }).round).toBe(submittableRound.round);
         expect(badAttesterFinalBalance).toBe(badAttesterInitialBalance - slashingAmount);
       }
     },

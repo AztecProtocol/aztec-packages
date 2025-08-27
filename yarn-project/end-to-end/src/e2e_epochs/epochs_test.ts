@@ -26,7 +26,7 @@ import {
   SequencerState,
 } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
-import type { EthAddress, L2BlockNumber } from '@aztec/stdlib/block';
+import { EthAddress, type L2BlockNumber } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 
@@ -124,7 +124,8 @@ export class EpochsTestContext {
       proverTestDelayMs: opts.proverTestDelayMs ?? 0,
       // We use numeric incremental prover ids for simplicity, but we can switch to
       // using the prover's eth address if the proverId is used for something in the rollup contract
-      proverId: Fr.fromString('1'),
+      // Use numeric EthAddress for deterministic prover id
+      proverId: EthAddress.fromNumber(1),
       // This must be enough so that the tx from the prover is delayed properly,
       // but not so much to hang the sequencer and timeout the teardown
       txPropagationMaxQueryAttempts: opts.txPropagationMaxQueryAttempts ?? 12,
@@ -189,7 +190,7 @@ export class EpochsTestContext {
     const proverNode = await withLogNameSuffix(suffix, () =>
       createAndSyncProverNode(
         proverNodePrivateKey,
-        { ...this.context.config, proverId: Fr.fromString(suffix) },
+        { ...this.context.config, proverId: EthAddress.fromNumber(parseInt(suffix, 10)) },
         { dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')) },
         this.context.aztecNode,
         undefined,
@@ -250,9 +251,15 @@ export class EpochsTestContext {
       this.logger.info(
         `Setting tx delayer max inclusion time into slot to ${opts.txDelayerMaxInclusionTimeIntoSlot} seconds`,
       );
+      // Here we reach into the sequencer and hook in a tx delayer. The problem is that the sequencer's l1 utils only uses a public client, not a wallet.
+      // The delayer needs a wallet (a client that can sign), so we have to create one here.
+      const l1Client = createExtendedL1Client(
+        resolvedConfig.l1RpcUrls!,
+        resolvedConfig.publisherPrivateKeys![0]!.getValue(),
+      );
       const sequencer = node.getSequencer() as TestSequencerClient;
       const publisher = sequencer.sequencer.publisher;
-      const delayed = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, this.L1_BLOCK_TIME_IN_S);
+      const delayed = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, this.L1_BLOCK_TIME_IN_S, l1Client);
       delayed.delayer!.setMaxInclusionTimeIntoSlot(opts.txDelayerMaxInclusionTimeIntoSlot);
       publisher.l1TxUtils = delayed;
     }
@@ -307,7 +314,7 @@ export class EpochsTestContext {
   }
 
   /** Waits for the aztec node to sync to the target block number. */
-  public async waitForNodeToSync(blockNumber: number, type: 'proven' | 'finalised' | 'historic') {
+  public async waitForNodeToSync(blockNumber: number, type: 'proven' | 'finalized' | 'historic') {
     const waitTime = ARCHIVER_POLL_INTERVAL + WORLD_STATE_BLOCK_CHECK_INTERVAL;
     let synched = false;
     while (!synched) {
@@ -319,8 +326,8 @@ export class EpochsTestContext {
       this.logger.info(`Wait for node synch ${blockNumber} ${type}`, { blockNumber, type, syncState, tips });
       if (type === 'proven') {
         synched = tips.proven.number >= blockNumber && syncState.latestBlockNumber >= blockNumber;
-      } else if (type === 'finalised') {
-        synched = syncState.finalisedBlockNumber >= blockNumber;
+      } else if (type === 'finalized') {
+        synched = syncState.finalizedBlockNumber >= blockNumber;
       } else {
         synched = syncState.oldestHistoricBlockNumber >= blockNumber;
       }

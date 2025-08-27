@@ -29,7 +29,7 @@ void DataCopyTraceBuilder::process(
         bool is_cd_copy = event.operation == simulation::DataCopyOperation::CD_COPY;
         bool is_rd_copy = event.operation == simulation::DataCopyOperation::RD_COPY;
 
-        // todo(ilyas): Can optimise this as we only need the inverse if CD_COPY as well
+        // todo(ilyas): Can optimize this as we only need the inverse if CD_COPY as well
         bool is_top_level = event.read_context_id == 0;
         FF parent_id_inv = is_top_level ? 0 : FF(event.read_context_id).invert();
 
