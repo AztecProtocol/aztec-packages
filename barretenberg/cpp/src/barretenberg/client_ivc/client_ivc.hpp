@@ -270,7 +270,7 @@ class ClientIVC {
     Proof prove();
 
     static void hide_op_queue_accumulation_result(ClientCircuit& circuit);
-    HonkProof prove_hiding_circuit(ClientCircuit& circuit);
+    HonkProof construct_mega_proof_for_hiding_kernel(ClientCircuit& circuit);
 
     static bool verify(const Proof& proof, const VerificationKey& vk);
 
@@ -284,7 +284,7 @@ class ClientIVC {
 
   private:
     /**
-     * @brief Update the native verifier accumulator based on the provided queue entry and transcript.
+     * @brief Runs either Oink or PG native verifier to update the native verifier accumulator
      *
      * @param queue_entry The verifier inputs from the queue.
      * @param verifier_transcript Verifier transcript corresponding to the prover transcript.

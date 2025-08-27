@@ -137,7 +137,7 @@ std::tuple<std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey>,
 ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     ClientCircuit& circuit,
     const StdlibVerifierInputs& verifier_inputs,
-    const std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey>& input_stdlib_verifier_accumulator,
+    const std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey>& input_verifier_accumulator,
     const TableCommitments& T_prev_commitments,
     const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
 {
@@ -152,16 +152,16 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     auto verifier_instance =
         std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_inputs.honk_vk_and_hash);
 
-    std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey> output_stdlib_verifier_accumulator;
+    std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey> output_verifier_accumulator;
     std::optional<StdlibFF> prev_accum_hash = std::nullopt;
     // The decider proof exists if the tail kernel has been accumulated
     bool is_hiding_kernel = !decider_proof.empty();
 
     switch (verifier_inputs.type) {
     case QUEUE_TYPE::OINK: {
-        BB_ASSERT_EQ(input_stdlib_verifier_accumulator, nullptr);
+        BB_ASSERT_EQ(input_verifier_accumulator, nullptr);
 
-        output_stdlib_verifier_accumulator = perform_oink_recursive_verification(
+        output_verifier_accumulator = perform_oink_recursive_verification(
             circuit, verifier_instance, accumulation_recursive_transcript, verifier_inputs.proof);
 
         // T_prev = 0 in the first recursive verification
@@ -170,26 +170,20 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     }
     case QUEUE_TYPE::PG:
     case QUEUE_TYPE::PG_TAIL: {
-        BB_ASSERT_NEQ(input_stdlib_verifier_accumulator, nullptr);
+        BB_ASSERT_NEQ(input_verifier_accumulator, nullptr);
 
-        output_stdlib_verifier_accumulator = perform_pg_recursive_verification(circuit,
-                                                                               input_stdlib_verifier_accumulator,
-                                                                               verifier_instance,
-                                                                               accumulation_recursive_transcript,
-                                                                               verifier_inputs.proof,
-                                                                               prev_accum_hash,
-                                                                               verifier_inputs.is_kernel);
+        output_verifier_accumulator = perform_pg_recursive_verification(circuit,
+                                                                        input_verifier_accumulator,
+                                                                        verifier_instance,
+                                                                        accumulation_recursive_transcript,
+                                                                        verifier_inputs.proof,
+                                                                        prev_accum_hash,
+                                                                        verifier_inputs.is_kernel);
         break;
     }
     case QUEUE_TYPE::PG_FINAL: {
-        BB_ASSERT_NEQ(input_stdlib_verifier_accumulator, nullptr);
+        BB_ASSERT_NEQ(input_verifier_accumulator, nullptr);
         BB_ASSERT_EQ(stdlib_verification_queue.size(), size_t(1));
-
-        // Note: reinstate this.
-        // BB_ASSERT_EQ(num_circuits_accumulated,
-        //              num_circuits - 1,
-        //              "All circuits must be accumulated before constructing the hiding circuit.");
-        // Complete the hiding circuit construction
 
         hide_op_queue_accumulation_result(circuit);
 
@@ -201,18 +195,17 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         }
 
         auto final_verifier_accumulator = perform_pg_recursive_verification(circuit,
-                                                                            input_stdlib_verifier_accumulator,
+                                                                            input_verifier_accumulator,
                                                                             verifier_instance,
                                                                             accumulation_recursive_transcript,
                                                                             verifier_inputs.proof,
                                                                             prev_accum_hash,
                                                                             verifier_inputs.is_kernel);
-
         // Perform recursive decider verification
         DeciderRecursiveVerifier decider{ &circuit, final_verifier_accumulator };
         decider_pairing_points = decider.verify_proof(decider_proof);
 
-        BB_ASSERT_EQ(output_stdlib_verifier_accumulator, nullptr);
+        BB_ASSERT_EQ(output_verifier_accumulator, nullptr);
         break;
     }
     default: {
@@ -275,7 +268,7 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         pairing_points.aggregate(decider_pairing_points);
     }
 
-    return { output_stdlib_verifier_accumulator, pairing_points, merged_table_commitments };
+    return { output_verifier_accumulator, pairing_points, merged_table_commitments };
 }
 
 /**
@@ -495,7 +488,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         decider_proof = construct_decider_proof();
         break;
     case QUEUE_TYPE::MEGA:
-        proof = prove_hiding_circuit(circuit);
+        proof = construct_mega_proof_for_hiding_kernel(circuit);
         break;
     }
 
@@ -537,7 +530,7 @@ void ClientIVC::hide_op_queue_accumulation_result(ClientCircuit& circuit)
  *
  * @return HonkProof - a ZK Mega proof
  */
-HonkProof ClientIVC::prove_hiding_circuit(ClientCircuit& circuit)
+HonkProof ClientIVC::construct_mega_proof_for_hiding_kernel(ClientCircuit& circuit)
 {
     // Note: a structured trace is not used for the hiding kernel
     auto hiding_decider_pk = std::make_shared<DeciderZKProvingKey>(circuit, TraceSettings(), bn254_commitment_key);
