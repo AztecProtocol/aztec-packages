@@ -561,7 +561,7 @@ export const deployRollup = async (
     rollupConfigArgs,
   ] as const;
 
-  const rollupAddress = await deployer.deploy(RollupArtifact, rollupArgs);
+  const rollupAddress = await deployer.deploy(RollupArtifact, rollupArgs, { gasLimit: 15_000_000n });
   logger.verbose(`Deployed Rollup at ${rollupAddress}`, rollupConfigArgs);
 
   const rollupContract = new RollupContract(extendedClient, rollupAddress);
@@ -1032,6 +1032,7 @@ export class L1Deployer {
   async deploy<const TAbi extends Abi>(
     params: ContractArtifacts<TAbi>,
     args?: ContractConstructorArgs<TAbi>,
+    opts: { gasLimit?: bigint } = {},
   ): Promise<EthAddress> {
     this.logger.debug(`Deploying ${params.name} contract`, { args });
     try {
@@ -1040,11 +1041,14 @@ export class L1Deployer {
         params.contractAbi,
         params.contractBytecode,
         (args ?? []) as readonly unknown[],
-        this.salt,
-        params.libraries,
-        this.logger,
-        this.l1TxUtils,
-        this.acceleratedTestDeployments,
+        {
+          salt: this.salt,
+          libraries: params.libraries,
+          logger: this.logger,
+          l1TxUtils: this.l1TxUtils,
+          acceleratedTestDeployments: this.acceleratedTestDeployments,
+          gasLimit: opts.gasLimit,
+        },
       );
       if (txHash) {
         this.txHashes.push(txHash);
@@ -1086,7 +1090,7 @@ export class L1Deployer {
  * @param abi - The ETH contract's ABI (as abitype's Abi).
  * @param bytecode  - The ETH contract's bytecode.
  * @param args - Constructor arguments for the contract.
- * @param maybeSalt - Optional salt for CREATE2 deployment (does not wait for deployment tx to be mined if set, does not send tx if contract already exists).
+ * @param salt - Optional salt for CREATE2 deployment (does not wait for deployment tx to be mined if set, does not send tx if contract already exists).
  * @returns The ETH address the contract was deployed to.
  */
 export async function deployL1Contract(
@@ -1094,14 +1098,20 @@ export async function deployL1Contract(
   abi: Narrow<Abi | readonly unknown[]>,
   bytecode: Hex,
   args: readonly unknown[] = [],
-  maybeSalt?: Hex,
-  libraries?: Libraries,
-  logger?: Logger,
-  l1TxUtils?: L1TxUtils,
-  acceleratedTestDeployments: boolean = false,
+  opts: {
+    salt?: Hex;
+    libraries?: Libraries;
+    logger?: Logger;
+    l1TxUtils?: L1TxUtils;
+    gasLimit?: bigint;
+    acceleratedTestDeployments?: boolean;
+  } = {},
 ): Promise<{ address: EthAddress; txHash: Hex | undefined }> {
   let txHash: Hex | undefined = undefined;
   let resultingAddress: Hex | null | undefined = undefined;
+
+  const { salt: saltFromOpts, libraries, logger, gasLimit, acceleratedTestDeployments } = opts;
+  let { l1TxUtils } = opts;
 
   if (!l1TxUtils) {
     const config = getL1TxUtilsConfigEnvVars();
@@ -1124,17 +1134,13 @@ export async function deployL1Contract(
     const libraryTxs: Hex[] = [];
     for (const libraryName in libraries?.libraryCode) {
       const lib = libraries.libraryCode[libraryName];
-
+      const { libraries: _libraries, ...optsWithoutLibraries } = opts;
       const { address, txHash } = await deployL1Contract(
         extendedClient,
         lib.contractAbi,
         lib.contractBytecode,
         [],
-        maybeSalt,
-        undefined,
-        logger,
-        l1TxUtils,
-        acceleratedTestDeployments,
+        optsWithoutLibraries,
       );
 
       if (txHash) {
@@ -1182,16 +1188,16 @@ export async function deployL1Contract(
     }
   }
 
-  if (maybeSalt) {
-    logger?.info(`Deploying contract with salt ${maybeSalt}`);
-    const { address, paddedSalt: salt, calldata } = getExpectedAddress(abi, bytecode, args, maybeSalt);
+  if (saltFromOpts) {
+    logger?.info(`Deploying contract with salt ${saltFromOpts}`);
+    const { address, paddedSalt: salt, calldata } = getExpectedAddress(abi, bytecode, args, saltFromOpts);
     resultingAddress = address;
     const existing = await extendedClient.getCode({ address: resultingAddress });
     if (existing === undefined || existing === '0x') {
-      const res = await l1TxUtils.sendTransaction({
-        to: DEPLOYER_ADDRESS,
-        data: concatHex([salt, calldata]),
-      });
+      const res = await l1TxUtils.sendTransaction(
+        { to: DEPLOYER_ADDRESS, data: concatHex([salt, calldata]) },
+        { gasLimit },
+      );
       txHash = res.txHash;
 
       logger?.verbose(`Deployed contract with salt ${salt} to address ${resultingAddress} in tx ${txHash}.`);

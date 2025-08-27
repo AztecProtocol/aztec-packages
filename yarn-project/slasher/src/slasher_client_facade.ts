@@ -36,7 +36,7 @@ export class SlasherClientFacade implements SlasherClientInterface {
 
   public async start(): Promise<void> {
     this.client = await this.createSlasherClient();
-    await this.client.start();
+    await this.client?.start();
 
     this.unwatch = this.rollup.listenToSlasherChanged(() => {
       void this.handleSlasherChange().catch(error => {
@@ -76,7 +76,7 @@ export class SlasherClientFacade implements SlasherClientInterface {
     return this.client?.getProposerActions(slotNumber) ?? Promise.reject(new Error('Slasher client not initialized'));
   }
 
-  private createSlasherClient(): Promise<SlasherClientInterface> {
+  private createSlasherClient() {
     return createSlasherImplementation(
       this.config,
       this.rollup,
@@ -94,6 +94,6 @@ export class SlasherClientFacade implements SlasherClientInterface {
     this.logger.warn('Slasher contract changed, recreating slasher client');
     await this.client?.stop();
     this.client = await this.createSlasherClient();
-    await this.client.start();
+    await this.client?.start();
   }
 }

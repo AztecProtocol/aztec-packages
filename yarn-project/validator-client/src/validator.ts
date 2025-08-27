@@ -12,11 +12,10 @@ import type { P2P, PeerId } from '@aztec/p2p';
 import { AuthRequest, AuthResponse, ReqRespSubProtocol, TxProvider } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import { computeInHashFromL1ToL2Messages } from '@aztec/prover-client/helpers';
-import { OffenseType } from '@aztec/slasher';
 import {
+  OffenseType,
   type SlasherConfig,
   WANT_TO_SLASH_EVENT,
-  type WantToSlashArgs,
   type Watcher,
   type WatcherEmitter,
 } from '@aztec/slasher';
@@ -502,26 +501,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         epochOrSlot: proposal.slotNumber.toBigInt(),
       },
     ]);
-  }
-
-  /**
-   * Ask this client if we should slash the validator specified in the args.
-   * @param args - The validator/amount/offence triple to check
-   * @returns True if this validator client re-executed a proposal and found it invalid.
-   *
-   * NOTE: this will return true even if the validator proposed the invalid block a "long" time ago.
-   * Thus, the onus is on the caller to ensure we aren't digging to far in the past.
-   *
-   * That is fine though, since the only caller is the slasher client, and it is designed to call
-   * `shouldSlash` on each of its watchers "very close" to the point in time when the slashable offence occurred;
-   * i.e. either we just created the slashing payload, or someone else did and we saw the event on L1.
-   */
-  public shouldSlash(args: WantToSlashArgs): Promise<boolean> {
-    // note we don't check the offence here: we know this person is bad and we're willing to slash up to the max penalty.
-    return Promise.resolve(
-      args.amount <= this.config.slashBroadcastedInvalidBlockMaxPenalty &&
-        this.proposersOfInvalidBlocks.has(args.validator.toString()),
-    );
   }
 
   async createBlockProposal(
