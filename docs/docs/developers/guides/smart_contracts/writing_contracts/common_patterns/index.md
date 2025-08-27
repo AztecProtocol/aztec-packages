@@ -151,4 +151,4 @@ E.g. for a voting contract, if your nullifier simply emits just the `user_addres
 
 Here is an example from the voting contract:
 
-#include_code cast_vote /noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr rust
+#include_code cast_vote /noir-projects/noir-contracts/contracts/app/private_voting_contract/src/main.nr rust
