@@ -22,18 +22,18 @@ unconstrained fn test_get_current() {
 
     let delay_change = get_non_initial_delay_change(pre, post, timestamp_of_change);
 
-    assert_eq(delay_change.get_current(0), pre);
-    assert_eq(delay_change.get_current(timestamp_of_change - 1), pre);
-    assert_eq(delay_change.get_current(timestamp_of_change), post);
-    assert_eq(delay_change.get_current(timestamp_of_change + 1), post);
+    assert_eq(delay_change.get_current_at(0), pre);
+    assert_eq(delay_change.get_current_at(timestamp_of_change - 1), pre);
+    assert_eq(delay_change.get_current_at(timestamp_of_change), post);
+    assert_eq(delay_change.get_current_at(timestamp_of_change + 1), post);
 }
 
 #[test]
 unconstrained fn test_get_current_initial() {
     let delay_change = get_initial_delay_change();
 
-    assert_eq(delay_change.get_current(0), TEST_INITIAL_DELAY);
-    assert_eq(delay_change.get_current(1), TEST_INITIAL_DELAY);
+    assert_eq(delay_change.get_current_at(0), TEST_INITIAL_DELAY);
+    assert_eq(delay_change.get_current_at(1), TEST_INITIAL_DELAY);
 }
 
 #[test]
@@ -123,7 +123,7 @@ unconstrained fn test_schedule_change_to_longer_delay_before_change() {
     assert_eq(delay_change.pre.unwrap(), pre);
     assert_eq(delay_change.post.unwrap(), new);
     assert_eq(delay_change.timestamp_of_change, current_timestamp);
-    assert_eq(delay_change.get_current(current_timestamp), new);
+    assert_eq(delay_change.get_current_at(current_timestamp), new);
 }
 
 #[test]
@@ -142,7 +142,7 @@ unconstrained fn test_schedule_change_to_longer_delay_after_change() {
     assert_eq(delay_change.pre.unwrap(), post);
     assert_eq(delay_change.post.unwrap(), new);
     assert_eq(delay_change.timestamp_of_change, current_timestamp);
-    assert_eq(delay_change.get_current(current_timestamp), new);
+    assert_eq(delay_change.get_current_at(current_timestamp), new);
 }
 
 #[test]
@@ -158,19 +158,19 @@ unconstrained fn test_schedule_change_to_longer_delay_from_initial() {
     assert_eq(delay_change.pre.unwrap(), TEST_INITIAL_DELAY);
     assert_eq(delay_change.post.unwrap(), new);
     assert_eq(delay_change.timestamp_of_change, current_timestamp);
-    assert_eq(delay_change.get_current(current_timestamp), new);
+    assert_eq(delay_change.get_current_at(current_timestamp), new);
 }
 
-unconstrained fn assert_effective_minimum_delay_invariants<let INITIAL_DELAY: u64>(
+unconstrained fn assert_max_time_a_read_remains_valid_invariants<let INITIAL_DELAY: u64>(
     delay_change: &mut ScheduledDelayChange<INITIAL_DELAY>,
     historical_timestamp: u64,
-    effective_minimum_delay: u64,
+    max_time_a_read_remains_valid: u64,
 ) {
     // The effective minimum delay guarantees the earliest timestamp in which a scheduled value change could be made
     // effective. No action, even if executed immediately after the historical timestamp, should result in a scheduled
     // value change having a timestamp of change lower than this.
     let expected_earliest_value_change_timestamp =
-        historical_timestamp + 1 + effective_minimum_delay;
+        historical_timestamp + 1 + max_time_a_read_remains_valid;
 
     if delay_change.timestamp_of_change > historical_timestamp {
         // If a delay change is already scheduled to happen in the future, we then must consider the scenario in
@@ -178,14 +178,14 @@ unconstrained fn assert_effective_minimum_delay_invariants<let INITIAL_DELAY: u6
         let delay_change_timestamp = delay_change.timestamp_of_change;
 
         let value_change_timestamp =
-            delay_change_timestamp + delay_change.get_current(delay_change_timestamp);
+            delay_change_timestamp + delay_change.get_current_at(delay_change_timestamp);
         assert(expected_earliest_value_change_timestamp <= value_change_timestamp);
     }
 
     // Another possibility would be to schedule a value change immediately after the historical timestamp.
     let change_schedule_timestamp = historical_timestamp + 1;
     let value_change_timestamp =
-        change_schedule_timestamp + delay_change.get_current(change_schedule_timestamp);
+        change_schedule_timestamp + delay_change.get_current_at(change_schedule_timestamp);
     assert(expected_earliest_value_change_timestamp <= value_change_timestamp);
 
     // Finally, a delay reduction could be scheduled immediately after the historical timestamp. We reduce the delay to
@@ -207,13 +207,14 @@ unconstrained fn test_get_effective_delay_at_before_change_in_far_future() {
 
     // The scheduled delay change is far into the future (further than the current delay is), so it doesn't affect
     // the effective delay, which is simply the current one (pre).
-    let effective_minimum_delay = delay_change.get_effective_minimum_delay_at(historical_timestamp);
-    assert_eq(effective_minimum_delay, pre);
+    let max_time_a_read_remains_valid =
+        delay_change.get_max_time_a_read_remains_valid(historical_timestamp);
+    assert_eq(max_time_a_read_remains_valid, pre);
 
-    assert_effective_minimum_delay_invariants(
+    assert_max_time_a_read_remains_valid_invariants(
         &mut delay_change,
         historical_timestamp,
-        effective_minimum_delay,
+        max_time_a_read_remains_valid,
     );
 }
 
@@ -230,13 +231,14 @@ unconstrained fn test_get_effective_delay_at_before_change_to_long_delay() {
     // The scheduled delay change will be effective soon (it's fewer seconds away than the current delay), but due to
     // it being larger than the current one it doesn't affect the effective delay, which is simply the current one
     // (pre).
-    let effective_minimum_delay = delay_change.get_effective_minimum_delay_at(historical_timestamp);
-    assert_eq(effective_minimum_delay, pre);
+    let max_time_a_read_remains_valid =
+        delay_change.get_max_time_a_read_remains_valid(historical_timestamp);
+    assert_eq(max_time_a_read_remains_valid, pre);
 
-    assert_effective_minimum_delay_invariants(
+    assert_max_time_a_read_remains_valid_invariants(
         &mut delay_change,
         historical_timestamp,
-        effective_minimum_delay,
+        max_time_a_read_remains_valid,
     );
 }
 
@@ -255,13 +257,17 @@ unconstrained fn test_get_effective_delay_at_before_near_change_to_short_delay()
     // reduced, and a delay change would be scheduled there with an overall delay lower than the current one.
     // The effective delay therefore is the new delay plus the number of seconds that need to elapse until it becomes
     // effective (i.e. until the timestamp of change).
-    let effective_minimum_delay = delay_change.get_effective_minimum_delay_at(historical_timestamp);
-    assert_eq(effective_minimum_delay, post + timestamp_of_change - (historical_timestamp + 1));
+    let max_time_a_read_remains_valid =
+        delay_change.get_max_time_a_read_remains_valid(historical_timestamp);
+    assert_eq(
+        max_time_a_read_remains_valid,
+        post + timestamp_of_change - (historical_timestamp + 1),
+    );
 
-    assert_effective_minimum_delay_invariants(
+    assert_max_time_a_read_remains_valid_invariants(
         &mut delay_change,
         historical_timestamp,
-        effective_minimum_delay,
+        max_time_a_read_remains_valid,
     );
 }
 
@@ -276,13 +282,14 @@ unconstrained fn test_get_effective_delay_at_after_change() {
     let mut delay_change = get_non_initial_delay_change(pre, post, timestamp_of_change);
 
     // No delay change is scheduled, so the effective delay is simply the current one (post).
-    let effective_minimum_delay = delay_change.get_effective_minimum_delay_at(historical_timestamp);
-    assert_eq(effective_minimum_delay, post);
+    let max_time_a_read_remains_valid =
+        delay_change.get_max_time_a_read_remains_valid(historical_timestamp);
+    assert_eq(max_time_a_read_remains_valid, post);
 
-    assert_effective_minimum_delay_invariants(
+    assert_max_time_a_read_remains_valid_invariants(
         &mut delay_change,
         historical_timestamp,
-        effective_minimum_delay,
+        max_time_a_read_remains_valid,
     );
 }
 
@@ -294,12 +301,13 @@ unconstrained fn test_get_effective_delay_at_initial() {
 
     // Like in the after change scenario, no delay change is scheduled, so the effective delay is simply the current
     // one (initial).
-    let effective_minimum_delay = delay_change.get_effective_minimum_delay_at(historical_timestamp);
-    assert_eq(effective_minimum_delay, TEST_INITIAL_DELAY);
+    let max_time_a_read_remains_valid =
+        delay_change.get_max_time_a_read_remains_valid(historical_timestamp);
+    assert_eq(max_time_a_read_remains_valid, TEST_INITIAL_DELAY);
 
-    assert_effective_minimum_delay_invariants(
+    assert_max_time_a_read_remains_valid_invariants(
         &mut delay_change,
         historical_timestamp,
-        effective_minimum_delay,
+        max_time_a_read_remains_valid,
     );
 }

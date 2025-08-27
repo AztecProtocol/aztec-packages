@@ -50,12 +50,12 @@ unconstrained fn get_scheduled_value_in_public() {
     env.public_context(|context| {
         let state_var = in_public(context);
 
-        // Since we haven't modified the delay, it's value should be the default value of TEST_INITIAL_DELAY.
         state_var.schedule_value_change(new_value);
 
         let (scheduled, timestamp_of_change) = state_var.get_scheduled_value();
 
         assert_eq(scheduled, new_value);
+        // Since we haven't modified the delay, its value should be the default value of TEST_INITIAL_DELAY.
         assert_eq(timestamp_of_change, context.timestamp() + TEST_INITIAL_DELAY);
     });
 }
@@ -305,7 +305,7 @@ unconstrained fn get_current_value_in_private_at_change() {
         assert_eq(state_var.get_current_value(), new_value);
         assert_eq(
             context.include_by_timestamp,
-            context.get_block_header().global_variables.timestamp + TEST_INITIAL_DELAY,
+            context.get_anchor_timestamp() + TEST_INITIAL_DELAY,
         );
     });
 }

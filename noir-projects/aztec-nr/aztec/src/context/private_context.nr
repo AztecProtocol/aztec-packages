@@ -554,6 +554,16 @@ impl PrivateContext {
         get_block_header_at(block_number, self)
     }
 
+    /// Gets the block timestamp of the anchor block (the block whose roots this function
+    /// is reading from).
+    ///
+    /// # Returns
+    /// `u64` - the timestamp of the anchor block for this private function.
+    ///
+    pub fn get_anchor_timestamp(self) -> u64 {
+        self.get_block_header().global_variables.timestamp
+    }
+
     /// Sets the hash of the return values for this private function.
     ///
     /// Very low-level function: this is called by the #[private] macro.

@@ -16,10 +16,10 @@ pub fn compute_delayed_public_mutable_time_horizon<T, let INITIAL_DELAY: u64>(
 where
     T: ToField + Eq + FromField,
 {
-    let effective_minimum_delay =
-        delayed_public_mutable_values.sdc.get_effective_minimum_delay_at(historical_timestamp);
-    delayed_public_mutable_values.svc.get_time_horizon(
+    let max_time_a_read_remains_valid =
+        delayed_public_mutable_values.sdc.get_max_time_a_read_remains_valid(historical_timestamp);
+    delayed_public_mutable_values.svc.get_time_horizon_at(
         historical_timestamp,
-        effective_minimum_delay,
+        max_time_a_read_remains_valid,
     )
 }

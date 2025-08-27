@@ -364,7 +364,9 @@ pub(crate) comptime fn create_message_discovery_call() -> Quoted {
         unsafe {
             dep::aztec::messages::discovery::discover_new_messages(
                 context.this_address(),
-                _compute_note_hash_and_nullifier,
+                // This fn is generated within the #[aztec] macro.
+                // See generate_contract_library_method_compute_note_hash_and_nullifier
+                _compute_note_hash_and_nullifier, 
             );
         };
     }
