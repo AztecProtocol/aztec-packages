@@ -22,24 +22,42 @@ template <class... Ts> struct overloads : Ts... {
 // This is a deduction guide. Apparently not needed in C++20, but we somehow still need it.
 template <class... Ts> overloads(Ts...) -> overloads<Ts...>;
 
+template <std::integral T> T safe_shift_left(T a, T b)
+{
+    constexpr size_t bits = sizeof(T) * 8;
+    if (b >= bits) {
+        return static_cast<T>(0);
+    }
+    return static_cast<T>(a << b);
+}
+
 struct shift_left {
-    template <typename T, typename U> T operator()(const T& a, const U& b) const
+    template <typename T> T operator()(const T& a, const T& b) const
     {
         if constexpr (std::is_same_v<T, uint1_t>) {
-            return static_cast<T>(a.operator<<(b));
+            return static_cast<T>(b == uint1_t(0) ? a : uint1_t(0));
         } else {
-            return static_cast<T>(a << b);
+            return safe_shift_left<T>(a, b);
         }
     }
 };
 
+template <std::integral T> T safe_shift_right(T a, T b)
+{
+    constexpr size_t bits = sizeof(T) * 8;
+    if (b >= bits) {
+        return static_cast<T>(0);
+    }
+    return static_cast<T>(a >> b);
+}
+
 struct shift_right {
-    template <typename T, typename U> T operator()(const T& a, const U& b) const
+    template <typename T> T operator()(const T& a, const T& b) const
     {
         if constexpr (std::is_same_v<T, uint1_t>) {
-            return static_cast<T>(a.operator>>(b));
+            return static_cast<T>(b == uint1_t(0) ? a : uint1_t(0));
         } else {
-            return static_cast<T>(a >> b);
+            return safe_shift_right<T>(a, b);
         }
     }
 };
