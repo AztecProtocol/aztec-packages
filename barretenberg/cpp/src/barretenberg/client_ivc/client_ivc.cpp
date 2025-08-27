@@ -196,27 +196,20 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         // Propagate the public inputs of the tail kernel by converting them to public inputs of the hiding circuit.
         auto num_public_inputs = static_cast<size_t>(honk_vk->num_public_inputs);
         num_public_inputs -= KernelIO::PUBLIC_INPUTS_SIZE; // exclude fixed kernel_io public inputs
-        auto stdlib_proof = verifier_inputs.proof;
         for (size_t i = 0; i < num_public_inputs; i++) {
-            stdlib_proof[i].set_public();
+            verifier_inputs.proof[i].set_public();
         }
 
-        // Fiat-Shamir the accumulator.
-        prev_accum_hash =
-            input_stdlib_verifier_accumulator->hash_through_transcript("", *accumulation_recursive_transcript);
-        accumulation_recursive_transcript->add_to_hash_buffer("accum_hash", *prev_accum_hash);
-        info("Previous accumulator hash in PG rec verifier: ", *prev_accum_hash);
-        // Perform recursive folding verification of the last folding proof
-        FoldingRecursiveVerifier folding_verifier{
-            &circuit, input_stdlib_verifier_accumulator, verifier_instance, accumulation_recursive_transcript
-        };
-        auto recursive_verifier_native_accum = folding_verifier.verify_folding_proof(verifier_inputs.proof);
-        verification_queue.clear();
+        auto final_verifier_accumulator = perform_pg_recursive_verification(circuit,
+                                                                            input_stdlib_verifier_accumulator,
+                                                                            verifier_instance,
+                                                                            accumulation_recursive_transcript,
+                                                                            verifier_inputs.proof,
+                                                                            prev_accum_hash,
+                                                                            verifier_inputs.is_kernel);
 
         // Perform recursive decider verification
-        DeciderRecursiveVerifier decider{ &circuit, recursive_verifier_native_accum };
-        BB_ASSERT_EQ(decider_proof.empty(), false, "Decider proof is empty!");
-
+        DeciderRecursiveVerifier decider{ &circuit, final_verifier_accumulator };
         decider_pairing_points = decider.verify_proof(decider_proof);
 
         BB_ASSERT_EQ(output_stdlib_verifier_accumulator, nullptr);
