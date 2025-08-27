@@ -31,7 +31,6 @@ void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::run_oink_verifier_o
     domain_separator = std::to_string(1);
     OinkRecursiveVerifier_<Flavor> oink_verifier{ builder, key, transcript, domain_separator + '_' };
     oink_verifier.verify();
-    public_inputs = std::move(oink_verifier.public_inputs);
 }
 
 template <class DeciderVerificationKeys>

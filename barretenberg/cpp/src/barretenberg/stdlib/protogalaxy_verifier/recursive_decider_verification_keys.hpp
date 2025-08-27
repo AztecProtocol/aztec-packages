@@ -45,6 +45,15 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerific
         }
     }
 
+    RecursiveDeciderVerificationKeys_(Builder* builder,
+                                      const std::shared_ptr<DeciderVK>& accumulator,
+                                      const std::shared_ptr<DeciderVK>& incoming_instance)
+        : builder(builder)
+    {
+        _data[0] = accumulator;
+        _data[1] = incoming_instance;
+    }
+
     /**
      * @brief Get the precomputed commitments grouped by commitment index
      * @example If the commitments are grouped as in

@@ -34,7 +34,6 @@ template <IsUltraOrMegaHonk Flavor> class OinkVerifier {
     typename Flavor::CommitmentLabels comm_labels;
     bb::RelationParameters<FF> relation_parameters;
     WitnessCommitments witness_comms;
-    std::vector<FF> public_inputs;
 
     OinkVerifier(const std::shared_ptr<DeciderVK>& verification_key,
                  const std::shared_ptr<Transcript>& transcript,
