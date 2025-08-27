@@ -198,6 +198,7 @@ function(barretenberg_module MODULE_NAME)
                 ${MODULE_NAME}_${FUZZER_NAME_STEM}_fuzzer
                 PRIVATE
                 ${MODULE_LINK_NAME}
+                ${ARGN}
             )
         endforeach()
     endif()
