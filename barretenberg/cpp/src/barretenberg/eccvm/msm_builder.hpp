@@ -27,8 +27,10 @@ class ECCVMMSMMBuilder {
     static constexpr size_t NUM_WNAF_DIGITS_PER_SCALAR = bb::eccvm::NUM_WNAF_DIGITS_PER_SCALAR;
 
     struct alignas(64) MSMRow {
-        uint32_t pc = 0;        // counter over all half-length (128 bit) scalar muls used to compute the required MSMs
-        uint32_t msm_size = 0;  // the number of points that will be scaled and summed
+        uint32_t pc = 0;        // decreasing counter over all half-length (128 bit) scalar muls used to compute
+                                // the required MSMs
+        uint32_t msm_size = 0;  // the number of points in (a.k.a. the length of) the MSM in whose computation
+                                // this VM row participates
         uint32_t msm_count = 0; // number of multiplications processed so far (not including this row) in current MSM
                                 // round (a.k.a. wNAF digit slot). this specifically refers to the number of wNAF-digit
                                 // * point scalar products we have looked up and accumulated.
@@ -148,7 +150,7 @@ class ECCVMMSMMBuilder {
         std::vector<size_t> msm_row_counts;
         msm_row_counts.reserve(msms.size() + 1);
         msm_row_counts.push_back(1);
-        // compute the program counter (i.e. the index among all single scalar muls) that each multiscalar
+        // compute the point counter (i.e. the index among all single scalar muls) that each multiscalar
         // multiplication will start at.
         std::vector<size_t> pc_values;
         pc_values.reserve(msms.size() + 1);

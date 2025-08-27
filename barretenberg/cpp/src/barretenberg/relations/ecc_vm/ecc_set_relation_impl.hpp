@@ -18,17 +18,18 @@ namespace bb {
  * by the ECCVM.
  *
  * First term: tuple of (pc, round, wnaf_slice), computed when slicing scalar multipliers into slices,
- *             as part of ECCVMWnafRelation
+ *             as part of ECCVMWnafRelation. (Recall that pc stands for "point counter". Here, round corresponds to
+ *             `msm_round`.)
  * Input source: ECCVMWnafRelation
  * Output source: ECCVMMSMRelation
  *
  *
- * Second term: tuple of (point-counter, P.x, P.y, scalar-multiplier), used in ECCVMWnafRelation and
- *              ECCVMPointTableRelation
+ * Second term: tuple of (pc, P.x, P.y, scalar-multiplier), used in ECCVMWnafRelation and
+ *              ECCVMPointTableRelation. (Recall that pc stands for "point counter".)
  * Input source: ECCVMPointTableRelation
  * Output source: ECCVMMSMRelation
  *
- * Third term: tuple of (point-counter, P.x, P.y, msm-size) from ECCVMMSMRelation
+ * Third term: tuple of (pc, P.x, P.y, msm-size) from ECCVMMSMRelation. (Recall that pc stands for "point counter".)
  * Input source: ECCVMMSMRelation
  * Output source: ECCVMTranscriptRelation
  *
@@ -59,8 +60,9 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
     /**
      * @brief First term: tuple of (pc, round, wnaf_slice), computed when slicing scalar multipliers into slices,
      *        as part of ECCVMWnafRelation.
-     *        If precompute_select = 1, tuple entry = (wnaf-slice + point-counter * beta + msm-round * beta_sqr).
-     *                       There are 4 tuple entries per row.
+     *        If precompute_select = 1, tuple entry = (wnaf-slice + pc * beta + msm-round * beta_sqr).
+     *        There are 4 tuple entries per row of the Precompute table. Moreover, the element that "increments" is
+     *        4 * `precompute_round`, due to the fact that the Precompute columns contain four "digits"/slices per row.
      */
     Accumulator numerator(1); // degree-0
     {
@@ -125,8 +127,8 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
     }
 
     /**
-     * @brief Second term: tuple of (point-counter, P.x, P.y, scalar-multiplier), used in ECCVMWnafRelation and
-     * ECCVMPointTableRelation. ECCVMWnafRelation validates the sum of the wnaf slices associated with point-counter
+     * @brief Second term: tuple of (pc, P.x, P.y, scalar-multiplier), used in ECCVMWnafRelation and
+     * ECCVMPointTableRelation. ECCVMWnafRelation validates the sum of the wnaf slices associated with pc
      * equals scalar-multiplier. ECCVMPointTableRelation computes a table of muliples of [P]: { -15[P], -13[P], ...,
      * 15[P] }. We need to validate that scalar-multiplier and [P] = (P.x, P.y) come from MUL opcodes in the transcript
      * columns.
@@ -200,10 +202,10 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         numerator *= point_table_init_read; // degree-9
     }
     /**
-     * @brief Third term: tuple of (point-counter, P.x, P.y, msm-size) from ECCVMMSMRelation.
+     * @brief Third term: tuple of (pc, P.x, P.y, msm-size) from ECCVMMSMRelation.
      *        (P.x, P.y) is the output of a multi-scalar-multiplication evaluated in ECCVMMSMRelation.
      *        We need to validate that the same values (P.x, P.y) are present in the Transcript columns and describe a
-     *        multi-scalar multiplication of size `msm-size`, starting at `point-counter`.
+     *        multi-scalar multiplication of size `msm-size`, starting at `pc`.
      *
      *        If msm_transition_shift = 1, this indicates the current row is the last row of a multiscalar
      * multiplication evaluation. The output of the MSM will be present on `(msm_accumulator_x_shift,
@@ -345,7 +347,7 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
         denominator *= point_table_init_write; // degree 17
     }
     /**
-     * @brief Third term: tuple of (point-counter, P.x, P.y, msm-size) from ECCVMTranscriptRelation.
+     * @brief Third term: tuple of (pc, P.x, P.y, msm-size) from ECCVMTranscriptRelation.
      *        (P.x, P.y) is the *claimed* output of a multi-scalar-multiplication evaluated in ECCVMMSMRelation.
      *        We need to validate that the msm output produced in ECCVMMSMRelation is equivalent to the output present
      * in `transcript_msm_output_x, transcript_msm_output_y`, for a given multi-scalar multiplication starting at

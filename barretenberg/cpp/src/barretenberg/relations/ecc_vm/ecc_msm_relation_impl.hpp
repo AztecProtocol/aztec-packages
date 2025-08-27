@@ -130,7 +130,14 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      * @brief Constraining addition rounds
      *
      * The boolean column q_add describes whether a round is an ADDITION round.
-     * The values of q_add are Prover-defined. We need to ensure they set q_add correctly.
+     * The values of q_add are Prover-defined. We need to ensure they set q_add correctly. We will do this via a
+     * multiset-equality check (formerly called a "strict lookup"), which allows the various tables to "communicate".
+     * On a high level, we ensure that this table "reads" (pc, round, wnaf_slice), another table (PointTable) "writes" a
+     * potentially different set of (pc, round, wnaf_slice), and we demand that the reads match the writes.
+     * Alternatively said, the MSM columns spawn a multiset of tuples of the form (pc, round, wnaf_slice), the
+     * PointTable columns span a potentially different multiset of tuples of the form (pc, round, wnaf_slice), and we
+     * _check_ that these two multisets match.
+     *
      * We rely on the following statements that we assume are constrained to be true (from other relations):
      *      1. The set of reads into (pc, round, wnaf_slice) is constructed when q_add = 1
      *      2. The set of reads into (pc, round, wnaf_slice) must match the set of writes from the point_table columns
@@ -365,7 +372,8 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     std::get<16>(accumulator) += (-add4 + 1) * slice4 * scaling_factor;
 
     // SELECTORS ARE MUTUALLY EXCLUSIVE
-    // at most one of q_skew, q_double, q_add can be nonzero
+    // at most one of q_skew, q_double, q_add can be nonzero.
+    // note that as we can expect our table to be zero padded, we do not insist that q_add + q_double + q_skew == 1.
     std::get<17>(accumulator) += (q_add * q_double + q_add * q_skew + q_double * q_skew) * scaling_factor;
 
     // ROUND TRANSITION LOGIC
@@ -392,12 +400,8 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     //      round_transition * skew_shift * (round - 31) = 0 (if round tx and skew, then round == 31);
     //      round_transition * (skew_shift + double_shift - 1) = 0 (if round tx, then skew XOR double = 1).
     // together, these have the following implications: if round tx and round != 31, then double_shift = 1.
-    // conversely, if round tx and double_shift == 0, then `skew_shift == 1`, which then forces `round == 31`.
-    //
-    // NOTE(@notnotraju): we must also constrain q_skew == 1 when round == 32. As far as I can tell, this is not done
-    // anywhere. Here is the potential bad thing that could happen: we could set q_skew to be 0 after the only place
-    // where it is forced (at round transition). Or worse, we could alternative q_skew and double in this round 32. As
-    // far as I can tell, this requires adding an extra column, which bears witness to the fact that the round is 32.
+    // conversely, if round tx and double_shift == 0, then `skew_shift == 1` (which then forces `round == 31`).
+
     std::get<19>(accumulator) += round_transition * q_skew_shift * (round - 31) * scaling_factor;
     std::get<20>(accumulator) += round_transition * (q_skew_shift + q_double_shift - 1) * scaling_factor;
 
@@ -405,13 +409,26 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // "row" of our VM is processing the same wNAF digit place.
     std::get<21>(accumulator) += round_transition * (-q_double_shift + 1) * (-q_skew_shift + 1) * scaling_factor;
 
+    // CONSTRAINING Q_DOUBLE AND Q_SKEW
+    // NOTE: we have already constrained q_add, q_skew, and q_double to be mutually exclusive.
+
     // if double, next add = 1. As q_double, q_add, and q_skew are mutually exclusive, this suffices to force
     // q_double_shift == q_skew_shift == 0.
     std::get<22>(accumulator) += q_double * (-q_add_shift + 1) * scaling_factor;
+    // if the current row is has q_skew == 1 and the next row is _not_ an MSM transition, then q_skew_shift = 1.
+    // this forces q_skew to precisely correspond to the rows where `round == 32`. Indeed, not that the first q_skew
+    // bit is set correctly:
+    //      round == 31, round_transition == 1 ==> q_skew_shift == 1. (if, to the contrary, q_double_shift == 1, then
+    //      the q_add_shift_shift == 1, but we assume that we have correctly constrained the q_adds via the multiset
+    //      argument. this means that q_double_shift == 0, which forces q_skew_shift == 1 because round_transition
+    //      == 1.)
+    // this means that the first row with `round == 32` has q_skew == 1. then all subsequent q_skew entries must be 1,
+    // _until_ we start our new MSM.
+    std::get<33>(accumulator) += (-msm_transition_shift + 1) * q_skew * (-q_skew_shift + 1) * scaling_factor;
 
     // UPDATING THE COUNT
 
-    // if we are changing the "round" (i.e. starting to process a new wNAF digit), the count_shift must be 0.
+    // if we are changing the `round` (i.e. starting to process a new wNAF digit), the count_shift must be 0.
     std::get<23>(accumulator) += round_delta * count_shift * scaling_factor;
     // if msm_transition = 0 and round_transition = 0, then the next "row" of the VM is processing the same wNAF digit.
     // this means that the count must increase: count_shift = count + add1 + add2 + add3 + add4
