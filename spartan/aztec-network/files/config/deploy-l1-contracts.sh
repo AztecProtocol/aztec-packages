@@ -67,9 +67,11 @@ if [ "$REAL_VERIFIER" = "true" ]; then
   REAL_VERIFIER_ARG="--real-verifier"
 fi
 
+FLUSH_ENTRY_QUEUE_ARG="--flush-entry-queue"
+
 for attempt in $(seq 1 $MAX_RETRIES); do
   # Construct base command
-  base_cmd="LOG_LEVEL=debug node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts $TEST_ACCOUNTS_ARG $ACCELERATED_TEST_DEPLOYMENTS_ARG $SPONSORED_FPC_ARG $REAL_VERIFIER_ARG"
+  base_cmd="LOG_LEVEL=debug node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js deploy-l1-contracts $TEST_ACCOUNTS_ARG $ACCELERATED_TEST_DEPLOYMENTS_ARG $SPONSORED_FPC_ARG $REAL_VERIFIER_ARG $FLUSH_ENTRY_QUEUE"
 
   # Add account - use private key if set, otherwise use mnemonic
   if [ -n "${L1_DEPLOYMENT_PRIVATE_KEY:-}" ]; then
