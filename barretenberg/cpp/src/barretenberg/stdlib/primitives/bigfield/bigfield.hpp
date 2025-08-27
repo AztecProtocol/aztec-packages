@@ -55,7 +55,7 @@ template <typename Builder, typename T> class bigfield {
         }
         friend std::ostream& operator<<(std::ostream& os, const Limb& a)
         {
-            os << "{ " << a.element << " < " << a.maximum_value << " }";
+            os << "{ " << a.element << " <= " << a.maximum_value << " }";
             return os;
         }
         Limb(const Limb& other) = default;
@@ -326,29 +326,25 @@ template <typename Builder, typename T> class bigfield {
     static constexpr size_t MAXIMUM_SUMMAND_COUNT_LOG = 4;
     static constexpr size_t MAXIMUM_SUMMAND_COUNT = 1 << MAXIMUM_SUMMAND_COUNT_LOG;
 
-    static constexpr uint256_t prime_basis_maximum_limb =
-        modulus_u512.slice(NUM_LIMB_BITS * (NUM_LIMBS - 1), NUM_LIMB_BITS* NUM_LIMBS).lo;
     static constexpr Basis prime_basis{ uint512_t(bb::fr::modulus), bb::fr::modulus.get_msb() + 1 };
     static constexpr Basis binary_basis{ uint512_t(1) << LOG2_BINARY_MODULUS, LOG2_BINARY_MODULUS };
     static constexpr Basis target_basis{ modulus_u512, static_cast<size_t>(modulus_u512.get_msb() + 1) };
     static constexpr bb::fr shift_1 = bb::fr(uint256_t(1) << NUM_LIMB_BITS);
     static constexpr bb::fr shift_2 = bb::fr(uint256_t(1) << (NUM_LIMB_BITS * 2));
     static constexpr bb::fr shift_3 = bb::fr(uint256_t(1) << (NUM_LIMB_BITS * 3));
-    static constexpr bb::fr shift_right_1 = bb::fr(1) / shift_1;
-    static constexpr bb::fr shift_right_2 = bb::fr(1) / shift_2;
-    static constexpr bb::fr negative_prime_modulus_mod_binary_basis = -bb::fr(uint256_t(modulus_u512));
-    static constexpr uint512_t negative_prime_modulus = binary_basis.modulus - target_basis.modulus;
-    static constexpr std::array<uint256_t, NUM_LIMBS> neg_modulus_limbs_u256{
-        negative_prime_modulus.slice(0, NUM_LIMB_BITS).lo,
-        negative_prime_modulus.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo,
-        negative_prime_modulus.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo,
-        negative_prime_modulus.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo,
+    static constexpr bb::fr negative_prime_modulus_mod_native_basis = -bb::fr(uint256_t(target_basis.modulus));
+    static constexpr uint512_t negative_prime_modulus_mod_binary_basis = binary_basis.modulus - target_basis.modulus;
+    static constexpr std::array<uint256_t, NUM_LIMBS> neg_modulus_mod_binary_basis_limbs_u256{
+        negative_prime_modulus_mod_binary_basis.slice(0, NUM_LIMB_BITS).lo,
+        negative_prime_modulus_mod_binary_basis.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo,
+        negative_prime_modulus_mod_binary_basis.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo,
+        negative_prime_modulus_mod_binary_basis.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo,
     };
-    static constexpr std::array<bb::fr, NUM_LIMBS> neg_modulus_limbs{
-        bb::fr(negative_prime_modulus.slice(0, NUM_LIMB_BITS).lo),
-        bb::fr(negative_prime_modulus.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo),
-        bb::fr(negative_prime_modulus.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo),
-        bb::fr(negative_prime_modulus.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo),
+    static constexpr std::array<bb::fr, NUM_LIMBS> neg_modulus_mod_binary_basis_limbs{
+        bb::fr(negative_prime_modulus_mod_binary_basis.slice(0, NUM_LIMB_BITS).lo),
+        bb::fr(negative_prime_modulus_mod_binary_basis.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo),
+        bb::fr(negative_prime_modulus_mod_binary_basis.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo),
+        bb::fr(negative_prime_modulus_mod_binary_basis.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo),
     };
 
     /**
@@ -770,7 +766,7 @@ template <typename Builder, typename T> class bigfield {
         //
         // a * b = q * p + r
         //
-        // where p is the quotient, r is the remainder, and p is the size of the non-native field.
+        // where q is the quotient, r is the remainder, and p is the size of the non-native field.
         // The CRT requires that we check that the equation:
         // (a) holds modulo the size of the native field n,
         // (b) holds modulo the size of the bigger ring 2^t,
@@ -787,7 +783,7 @@ template <typename Builder, typename T> class bigfield {
         // Note: We use a further safer bound of 2^((t + m - 1) / 2). We use -1 to stay safer,
         // because it provides additional space to avoid the overflow, but get_msb() by itself should be enough.
         uint64_t maximum_product_bits = maximum_product.get_msb() - 1;
-        return (uint512_t(1) << (maximum_product_bits >> 1));
+        return (uint512_t(1) << (maximum_product_bits >> 1)) - uint512_t(1);
     }
 
     // If we encounter this maximum value of a bigfield we stop execution
@@ -925,7 +921,7 @@ template <typename Builder, typename T> class bigfield {
     // If the logarithm of the maximum value of a limb is more than this, we need to reduce.
     // We allow an element to be added to itself 10 times, so we allow the limb to grow by 10 bits.
     // Number 10 is arbitrary, there's no actual usecase for adding 1024 elements together.
-    static constexpr uint64_t MAX_UNREDUCED_LIMB_BITS = NUM_LIMB_BITS + 10;
+    static constexpr uint64_t MAX_UNREDUCED_LIMB_BITS = NUM_LIMB_BITS + MAX_ADDITION_LOG;
 
     // If we reach this size of a limb, we stop execution (as safety measure). This should never reach during addition
     // as we would reduce the limbs before they reach this size.

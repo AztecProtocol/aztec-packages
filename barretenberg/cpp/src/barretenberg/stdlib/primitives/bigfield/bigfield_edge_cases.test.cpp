@@ -80,7 +80,7 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
         uint512_t(fq_ct::modulus),                // p
     };
 
-    inline static const std::array<uint512_t, 9> values_larger_than_bigfield = {
+    inline static const std::array<uint512_t, 10> values_larger_than_bigfield = {
         uint512_t(fq_ct::modulus) + uint512_t(1),
         uint512_t(fq_ct::modulus) + uint512_t(fr::modulus),
         (uint512_t(1) << 256) - 1,
@@ -89,6 +89,7 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
         uint512_t(fq_ct::get_maximum_unreduced_value()) - 1,
         uint512_t(fq_ct::get_maximum_unreduced_value()),
         uint512_t(fq_ct::get_maximum_unreduced_value()) + 1,
+        uint512_t(fq_ct::get_maximum_unreduced_value()) + 2,
         (uint512_t(1) << (stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 4)) - 1,
     };
 
@@ -135,7 +136,7 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
 
         // Check that the combined max value is greater than the maximum unreduced bigfield value
         EXPECT_GT(combined_a.get_maximum_value(),      // 2^68 * 2^68 * 2^68 * 2^61 = 2^265
-                  fq_ct::get_maximum_unreduced_value() // sqrt(2^272 * |Fr|) ≈ 2^(263) or 2^(264)
+                  fq_ct::get_maximum_unreduced_value() // sqrt(2^272 * |Fr|) ≈ (2^(263) - 1) or (2^(264) - 1)
         );
 
         // Squaring op must perform self-reduction
@@ -144,7 +145,7 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
 
         // Check that original combined value is now reduced
         EXPECT_EQ(combined_a.get_value() < reduction_upper_bound, true); // reduced value < 2^s
-        EXPECT_EQ(combined_a.get_maximum_value() < fq_ct::get_maximum_unreduced_value(), true);
+        EXPECT_EQ(combined_a.get_maximum_value() <= fq_ct::get_maximum_unreduced_value(), true);
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
@@ -176,14 +177,14 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
             (uint256_t(1) << fq_ct::MAX_UNREDUCED_LIMB_BITS) + 1000; // > 2^78
 
         // Check that the combined max value is less than the maximum unreduced bigfield value
-        EXPECT_EQ(combined_a.get_maximum_value() < fq_ct::get_maximum_unreduced_value(), true);
+        EXPECT_EQ(combined_a.get_maximum_value() <= fq_ct::get_maximum_unreduced_value(), true);
 
         // Perform a squaring which should trigger reduction
         combined_a.sqr();
 
         // Check that the original combined value is now reduced
         EXPECT_EQ(combined_a.get_value() < reduction_upper_bound, true);
-        EXPECT_EQ(combined_a.get_maximum_value() < fq_ct::get_maximum_unreduced_value(), true);
+        EXPECT_EQ(combined_a.get_maximum_value() <= fq_ct::get_maximum_unreduced_value(), true);
 
         // Check the circuit is valid
         bool result = CircuitChecker::check(builder);

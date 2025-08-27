@@ -332,7 +332,7 @@ bigfield<Builder, T> bigfield<Builder, T>::add_to_lower_limb(const field_t<Build
     // If the original value is constant, we have to reinitialize the higher limbs to be witnesses when adding a witness
     if (is_constant()) {
         auto context = other.context;
-        for (size_t i = 1; i < 4; i++) {
+        for (size_t i = 1; i < NUM_LIMBS; i++) {
             // Construct a witness element from the original constant limb
             result.binary_basis_limbs[i] =
                 Limb(field_t<Builder>::from_witness(context, binary_basis_limbs[i].element.get_value()),
@@ -393,18 +393,8 @@ bigfield<Builder, T> bigfield<Builder, T>::operator+(const bigfield& other) cons
     bool both_prime_limb_multiplicative_constant_one =
         (prime_basis_limb.multiplicative_constant == 1 && other.prime_basis_limb.multiplicative_constant == 1);
     if (both_prime_limb_multiplicative_constant_one && both_witness) {
-        bool limbconst = binary_basis_limbs[0].element.is_constant();
-        limbconst = limbconst || binary_basis_limbs[1].element.is_constant();
-        limbconst = limbconst || binary_basis_limbs[2].element.is_constant();
-        limbconst = limbconst || binary_basis_limbs[3].element.is_constant();
-        limbconst = limbconst || prime_basis_limb.is_constant();
-        limbconst = limbconst || other.binary_basis_limbs[0].element.is_constant();
-        limbconst = limbconst || other.binary_basis_limbs[1].element.is_constant();
-        limbconst = limbconst || other.binary_basis_limbs[2].element.is_constant();
-        limbconst = limbconst || other.binary_basis_limbs[3].element.is_constant();
-        limbconst = limbconst || other.prime_basis_limb.is_constant();
-        limbconst =
-            limbconst ||
+        bool limbconst =
+            is_constant() || other.is_constant() ||
             (prime_basis_limb.get_witness_index() ==
              other.prime_basis_limb.get_witness_index()); // We are comparing if the bigfield elements are exactly the
                                                           // same object, so we compare the unnormalized witness indices
@@ -640,20 +630,12 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
     bool both_prime_limb_multiplicative_constant_one =
         (prime_basis_limb.multiplicative_constant == 1 && other.prime_basis_limb.multiplicative_constant == 1);
     if (both_prime_limb_multiplicative_constant_one && both_witness) {
-        bool limbconst = result.binary_basis_limbs[0].element.is_constant();
-        limbconst = limbconst || result.binary_basis_limbs[1].element.is_constant();
-        limbconst = limbconst || result.binary_basis_limbs[2].element.is_constant();
-        limbconst = limbconst || result.binary_basis_limbs[3].element.is_constant();
-        limbconst = limbconst || prime_basis_limb.is_constant();
-        limbconst = limbconst || other.binary_basis_limbs[0].element.is_constant();
-        limbconst = limbconst || other.binary_basis_limbs[1].element.is_constant();
-        limbconst = limbconst || other.binary_basis_limbs[2].element.is_constant();
-        limbconst = limbconst || other.binary_basis_limbs[3].element.is_constant();
-        limbconst = limbconst || other.prime_basis_limb.is_constant();
-        limbconst = limbconst ||
-                    (prime_basis_limb.witness_index ==
-                     other.prime_basis_limb.witness_index); // We are checking if this is and identical element, so we
-                                                            // need to compare the actual indices, not normalized ones
+        bool limbconst =
+            is_constant() || other.is_constant() ||
+            (prime_basis_limb.get_witness_index() ==
+             other.prime_basis_limb.get_witness_index()); // We are checking if `this` and `other` are identical, so we
+                                                          // need to compare the actual indices, not normalized ones
+
         if (!limbconst) {
             // Extract witness indices and multiplicative constants for binary basis limbs
             std::array<std::pair<uint32_t, bb::fr>, NUM_LIMBS> x_scaled;
@@ -1963,9 +1945,9 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(
 // mod r) but different mod p, you can't construct a proof. The chances of an honest prover running afoul of this
 // condition are extremely small (TODO: compute probability) Note also that the number of constraints depends on how
 // much the values have overflown beyond p e.g. due to an addition chain The function is based on the following.
-// Suppose a-b = 0 mod p. Then a-b = k*p for k in a range [-R,L] such that L*p>= a, R*p>=b. And also a-b = k*p mod r
-// for such k. Thus we can verify a-b is non-zero mod p by taking the product of such values (a-b-kp) and showing
-// it's non-zero mod r
+// Suppose a-b = 0 mod p. Then a-b = k*p for k in a range [-R,L] for largest L and R such that L*p>= a, R*p>=b.
+// And also a-b = k*p mod r for such k. Thus we can verify a-b is non-zero mod p by taking the product of such values
+// (a-b-kp) and showing it's non-zero mod r
 template <typename Builder, typename T> void bigfield<Builder, T>::assert_is_not_equal(const bigfield& other) const
 {
     // Why would we use this for 2 constants? Turns out, in biggroup
@@ -2094,8 +2076,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
     // Compute the maximum value of the product of the quotient and neg_modulus: max(q * p')
     uint512_t max_q_neg_p_lo(0);
     uint512_t max_q_neg_p_hi(0);
-    std::tie(max_q_neg_p_lo, max_q_neg_p_hi) =
-        compute_partial_schoolbook_multiplication(neg_modulus_limbs_u256, quotient.get_binary_basis_limb_maximums());
+    std::tie(max_q_neg_p_lo, max_q_neg_p_hi) = compute_partial_schoolbook_multiplication(
+        neg_modulus_mod_binary_basis_limbs_u256, quotient.get_binary_basis_limb_maximums());
 
     // Compute the maximum value that needs to be borrowed from the hi limbs to the lo limb.
     // Check the README for the explanation of the borrow.
@@ -2256,16 +2238,18 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
             remainder_limbs[2].get_normalized_witness_index(),
             remainder_limbs[3].get_normalized_witness_index(),
         },
-        { neg_modulus_limbs[0], neg_modulus_limbs[1], neg_modulus_limbs[2], neg_modulus_limbs[3] },
+        { neg_modulus_mod_binary_basis_limbs[0],
+          neg_modulus_mod_binary_basis_limbs[1],
+          neg_modulus_mod_binary_basis_limbs[2],
+          neg_modulus_mod_binary_basis_limbs[3] },
     };
 
     // N.B. this method DOES NOT evaluate the prime field component of the non-native field mul
     const auto [lo_idx, hi_idx] = ctx->evaluate_non_native_field_multiplication(witnesses);
 
-    bb::fr neg_prime = -bb::fr(uint256_t(target_basis.modulus));
     field_t<Builder>::evaluate_polynomial_identity(left.prime_basis_limb,
                                                    to_mul.prime_basis_limb,
-                                                   quotient.prime_basis_limb * neg_prime,
+                                                   quotient.prime_basis_limb * negative_prime_modulus_mod_native_basis,
                                                    -remainder_prime_limb,
                                                    "bigfield: prime limb identity failed");
 
@@ -2303,8 +2287,6 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     BB_ASSERT_LTE(to_add.size(), MAXIMUM_SUMMAND_COUNT);
     BB_ASSERT_LTE(input_remainders.size(), MAXIMUM_SUMMAND_COUNT);
 
-    BB_ASSERT_EQ(input_left.size(), input_right.size());
-    BB_ASSERT_LT(input_left.size(), 1024U);
     // Sanity checks
     bool is_left_constant = true;
     for (auto& el : input_left) {
@@ -2354,9 +2336,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     /**
      * Step 1: Compute the maximum potential value of our product limbs
      *
-     * max_lo = maximum value of limb products that span the range 0 - 2^{3t}
-     * max_hi = maximum value of limb products that span the range 2^{2t} - 2^{5t}
-     * (t = NUM_LIMB_BITS)
+     * max_lo = maximum value of limb products that span the range 0 - 2^{3L}
+     * max_hi = maximum value of limb products that span the range 2^{2L} - 2^{5L}
      **/
     uint512_t max_lo = 0;
     uint512_t max_hi = 0;
@@ -2389,8 +2370,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     field_t<Builder> borrow_lo(ctx, bb::fr(borrow_lo_value));
 
     // Compute the maximum value of the quotient times modulus.
-    const auto [max_q_neg_p_lo, max_q_neg_p_hi] =
-        compute_partial_schoolbook_multiplication(neg_modulus_limbs_u256, quotient.get_binary_basis_limb_maximums());
+    const auto [max_q_neg_p_lo, max_q_neg_p_hi] = compute_partial_schoolbook_multiplication(
+        neg_modulus_mod_binary_basis_limbs_u256, quotient.get_binary_basis_limb_maximums());
 
     // update max_lo, max_hi with quotient limb product terms.
     max_lo += max_q_neg_p_lo + max_remainders_lo;
@@ -2569,16 +2550,17 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
             remainder_limbs[2].get_normalized_witness_index(),
             remainder_limbs[3].get_normalized_witness_index(),
         },
-        { neg_modulus_limbs[0], neg_modulus_limbs[1], neg_modulus_limbs[2], neg_modulus_limbs[3] },
+        { neg_modulus_mod_binary_basis_limbs[0],
+          neg_modulus_mod_binary_basis_limbs[1],
+          neg_modulus_mod_binary_basis_limbs[2],
+          neg_modulus_mod_binary_basis_limbs[3] },
     };
 
     const auto [lo_1_idx, hi_1_idx] = ctx->evaluate_non_native_field_multiplication(witnesses);
 
-    bb::fr neg_prime = -bb::fr(uint256_t(target_basis.modulus));
-
     field_t<Builder>::evaluate_polynomial_identity(left[0].prime_basis_limb,
                                                    right[0].prime_basis_limb,
-                                                   quotient.prime_basis_limb * neg_prime,
+                                                   quotient.prime_basis_limb * negative_prime_modulus_mod_native_basis,
                                                    -remainder_prime_limb,
                                                    "bigfield: prime limb identity failed");
 
