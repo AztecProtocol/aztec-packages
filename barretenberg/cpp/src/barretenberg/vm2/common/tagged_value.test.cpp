@@ -480,6 +480,8 @@ TEST(TaggedValueTest, ErrorCases)
     EXPECT_THROW(ff_val1 & ff_val2, InvalidOperationTag);
     EXPECT_THROW(ff_val1 | ff_val2, InvalidOperationTag);
     EXPECT_THROW(ff_val1 ^ ff_val2, InvalidOperationTag);
+    EXPECT_THROW(ff_val1 >> ff_val2, InvalidOperationTag);
+    EXPECT_THROW(ff_val1 << ff_val2, InvalidOperationTag);
     EXPECT_THROW(~ff_val1, InvalidOperationTag);
 
     // Test mixed type operations
@@ -494,6 +496,8 @@ TEST(TaggedValueTest, ErrorCases)
     EXPECT_THROW(u8_val1 & u16_val, TagMismatchException);
     EXPECT_THROW(u8_val1 | u16_val, TagMismatchException);
     EXPECT_THROW(u8_val1 ^ u16_val, TagMismatchException);
+    EXPECT_THROW(u8_val1 >> u16_val, TagMismatchException);
+    EXPECT_THROW(u8_val1 << u16_val, TagMismatchException);
 
     // Dividing by zero should throw (see checked_divides)
     EXPECT_THROW(TaggedValue::from<uint1_t>(1) / TaggedValue::from<uint1_t>(0), DivisionByZero);
@@ -505,29 +509,91 @@ TEST(TaggedValueTest, ErrorCases)
     EXPECT_THROW(ff_val1 / TaggedValue::from<FF>(0), DivisionByZero);
 }
 
-// Test shift operations with different right-side types
-TEST(TaggedValueTest, ShiftOperationsWithDifferentTypes)
+// Test shift operations
+TEST(TaggedValueTest, ShiftOperations)
 {
-    // Shift a uint8_t by shift_val
+    // Shift a uint1_t
+    auto u1_amount = TaggedValue::from<uint1_t>(1);
+    auto u1_shift = TaggedValue::from<uint1_t>(1);
+    auto result_shl_u1 = u1_amount << u1_shift;
+    ASSERT_EQ(result_shl_u1.get_tag(), ValueTag::U1);
+    EXPECT_EQ(result_shl_u1.as<uint1_t>(), static_cast<uint1_t>(0));
+
+    // Shift a uint8_t
     auto u8_amount = TaggedValue::from<uint8_t>(3);
-    auto shift_val = TaggedValue::from<uint8_t>(3);
-    auto result_shl_u8 = u8_amount << shift_val;
+    auto u8_shift = TaggedValue::from<uint8_t>(3);
+    auto result_shl_u8 = u8_amount << u8_shift;
     ASSERT_EQ(result_shl_u8.get_tag(), ValueTag::U8);
     EXPECT_EQ(result_shl_u8.as<uint8_t>(), 3 << 3);
 
-    // Shift a uint16_t by shift_val
+    // Shift a uint16_t
     auto u16_amount = TaggedValue::from<uint16_t>(4);
-    shift_val = TaggedValue::from<uint16_t>(3);
-    auto result_shl_u16 = u16_amount << shift_val;
+    auto u16_shift = TaggedValue::from<uint16_t>(3);
+    auto result_shl_u16 = u16_amount << u16_shift;
     ASSERT_EQ(result_shl_u16.get_tag(), ValueTag::U16);
     EXPECT_EQ(result_shl_u16.as<uint16_t>(), 4 << 3);
 
-    // Shift a uint32_t by shift_val
-    auto u1_amount = TaggedValue::from<uint1_t>(1);
-    shift_val = TaggedValue::from<uint1_t>(1);
-    auto result_shl_u1 = u1_amount << shift_val;
-    ASSERT_EQ(result_shl_u1.get_tag(), ValueTag::U1);
-    EXPECT_EQ(result_shl_u1.as<uint1_t>(), static_cast<uint1_t>(0)); // 1 << 1 = 0 with overflow
+    // Shift a uint32_t
+    auto u32_amount = TaggedValue::from<uint32_t>(4);
+    auto u32_shift = TaggedValue::from<uint32_t>(3);
+    auto result_shl_u32 = u32_amount << u32_shift;
+    ASSERT_EQ(result_shl_u32.get_tag(), ValueTag::U32);
+    EXPECT_EQ(result_shl_u32.as<uint32_t>(), 4 << 3);
+
+    // Shift a uint64_t
+    auto u64_amount = TaggedValue::from<uint64_t>(4);
+    auto u64_shift = TaggedValue::from<uint64_t>(3);
+    auto result_shl_u64 = u64_amount << u64_shift;
+    ASSERT_EQ(result_shl_u64.get_tag(), ValueTag::U64);
+    EXPECT_EQ(result_shl_u64.as<uint64_t>(), 4 << 3);
+
+    // Shift a uint128_t
+    auto u128_amount = TaggedValue::from<uint128_t>(4);
+    auto u128_shift = TaggedValue::from<uint128_t>(3);
+    auto result_shl_u128 = u128_amount << u128_shift;
+    ASSERT_EQ(result_shl_u128.get_tag(), ValueTag::U128);
+    EXPECT_EQ(result_shl_u128.as<uint128_t>(), 4 << 3);
+
+    // Test shift overflow
+    auto u8_shift_overflow = u8_amount << TaggedValue::from<uint8_t>(10);
+    EXPECT_EQ(u8_shift_overflow.get_tag(), ValueTag::U8);
+    EXPECT_EQ(u8_shift_overflow.as<uint8_t>(), 0);
+
+    auto u16_shift_overflow = u16_amount << TaggedValue::from<uint16_t>(17);
+    EXPECT_EQ(u16_shift_overflow.get_tag(), ValueTag::U16);
+    EXPECT_EQ(u16_shift_overflow.as<uint16_t>(), 0);
+
+    auto u32_shift_overflow = u32_amount << TaggedValue::from<uint32_t>(33);
+    EXPECT_EQ(u32_shift_overflow.get_tag(), ValueTag::U32);
+    EXPECT_EQ(u32_shift_overflow.as<uint32_t>(), 0);
+
+    auto u64_shift_overflow = u64_amount << TaggedValue::from<uint64_t>(65);
+    EXPECT_EQ(u64_shift_overflow.get_tag(), ValueTag::U64);
+    EXPECT_EQ(u64_shift_overflow.as<uint64_t>(), 0);
+
+    auto u128_shift_overflow = u128_amount << TaggedValue::from<uint128_t>(129);
+    EXPECT_EQ(u128_shift_overflow.get_tag(), ValueTag::U128);
+    EXPECT_EQ(u128_shift_overflow.as<uint128_t>(), 0);
+
+    u8_shift_overflow = u8_amount >> TaggedValue::from<uint8_t>(10);
+    EXPECT_EQ(u8_shift_overflow.get_tag(), ValueTag::U8);
+    EXPECT_EQ(u8_shift_overflow.as<uint8_t>(), 0);
+
+    u16_shift_overflow = u16_amount >> TaggedValue::from<uint16_t>(17);
+    EXPECT_EQ(u16_shift_overflow.get_tag(), ValueTag::U16);
+    EXPECT_EQ(u16_shift_overflow.as<uint16_t>(), 0);
+
+    u32_shift_overflow = u32_amount >> TaggedValue::from<uint32_t>(33);
+    EXPECT_EQ(u32_shift_overflow.get_tag(), ValueTag::U32);
+    EXPECT_EQ(u32_shift_overflow.as<uint32_t>(), 0);
+
+    u64_shift_overflow = u64_amount >> TaggedValue::from<uint64_t>(65);
+    EXPECT_EQ(u64_shift_overflow.get_tag(), ValueTag::U64);
+    EXPECT_EQ(u64_shift_overflow.as<uint64_t>(), 0);
+
+    u128_shift_overflow = u128_amount >> TaggedValue::from<uint128_t>(129);
+    EXPECT_EQ(u128_shift_overflow.get_tag(), ValueTag::U128);
+    EXPECT_EQ(u128_shift_overflow.as<uint128_t>(), 0);
 }
 
 // Test boundary cases for all types

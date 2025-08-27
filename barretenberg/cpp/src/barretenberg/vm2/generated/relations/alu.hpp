@@ -14,10 +14,10 @@ template <typename FF_> class aluImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 54> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 2, 5, 5, 4, 3, 3, 4, 6, 3,
-                                                                            3, 6, 3, 6, 3, 6, 3, 5, 3, 3, 3, 3, 6, 6,
-                                                                            3, 3, 5, 6, 3, 6, 3, 3, 3, 3, 3, 3, 3, 4,
-                                                                            3, 4, 3, 3, 3, 3, 2, 2, 3, 3, 4, 3 };
+    static constexpr std::array<size_t, 63> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 3, 3, 3, 3, 2, 5, 5, 4, 3, 3, 4, 6, 3, 6, 5, 3, 3, 4, 3, 3, 6, 3, 6, 3, 5, 3, 3, 3, 6, 6, 3,
+        3, 5, 6, 3, 6, 3, 3, 3, 3, 3, 3, 3, 4, 3, 4, 6, 6, 5, 2, 3, 4, 3, 3, 3, 3, 2, 2, 3, 3, 4, 3
+    };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -54,45 +54,57 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
             return "TAG_ERR_CHECK";
         case 12:
             return "AB_TAGS_CHECK";
-        case 15:
-            return "ALU_ADD_SUB";
-        case 17:
-            return "ALU_MUL_NON_U128";
-        case 19:
+        case 14:
             return "A_DECOMPOSITION";
-        case 20:
+        case 15:
             return "B_DECOMPOSITION";
+        case 17:
+            return "A_LO_BITS";
+        case 18:
+            return "A_HI_BITS";
         case 21:
+            return "ALU_ADD_SUB";
+        case 23:
+            return "ALU_MUL_NON_U128";
+        case 25:
             return "ALU_MUL_U128";
-        case 26:
+        case 29:
             return "ALU_DIV_U128_CHECK";
-        case 27:
-            return "ALU_DIV_U128";
         case 30:
-            return "DIV_0_ERR";
-        case 31:
-            return "ALU_FDIV_DIV_NON_U128";
+            return "ALU_DIV_U128";
         case 33:
+            return "DIV_0_ERR";
+        case 34:
+            return "ALU_FDIV_DIV_NON_U128";
+        case 36:
             return "EQ_OP_MAIN";
-        case 39:
+        case 42:
             return "LT_SWAP_INPUTS_A";
-        case 40:
-            return "LT_SWAP_INPUTS_B";
-        case 41:
-            return "LTE_NEGATE_RESULT_C";
         case 43:
+            return "LT_SWAP_INPUTS_B";
+        case 44:
+            return "LTE_NEGATE_RESULT_C";
+        case 46:
             return "NOT_OP_MAIN";
+        case 47:
+            return "SHL_TWO_POW_SHIFT";
         case 48:
-            return "SEL_TRUNC_NON_TRIVIAL";
+            return "ALU_SHL";
         case 49:
-            return "SEL_TRUNCATE";
-        case 50:
-            return "TRUNC_TRIVIAL_CASE";
-        case 51:
-            return "SMALL_TRUNC_VAL_IS_LO";
+            return "ALU_SHR";
         case 52:
+            return "SHIFTS_LO_BITS";
+        case 57:
+            return "SEL_TRUNC_NON_TRIVIAL";
+        case 58:
+            return "SEL_TRUNCATE";
+        case 59:
+            return "TRUNC_TRIVIAL_CASE";
+        case 60:
+            return "SMALL_TRUNC_VAL_IS_LO";
+        case 61:
             return "TRUNC_LO_128_DECOMPOSITION";
-        case 53:
+        case 62:
             return "TRUNC_MID_BITS";
         }
         return std::to_string(index);
@@ -106,26 +118,32 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
     static constexpr size_t SR_C_TAG_CHECK = 8;
     static constexpr size_t SR_TAG_ERR_CHECK = 11;
     static constexpr size_t SR_AB_TAGS_CHECK = 12;
-    static constexpr size_t SR_ALU_ADD_SUB = 15;
-    static constexpr size_t SR_ALU_MUL_NON_U128 = 17;
-    static constexpr size_t SR_A_DECOMPOSITION = 19;
-    static constexpr size_t SR_B_DECOMPOSITION = 20;
-    static constexpr size_t SR_ALU_MUL_U128 = 21;
-    static constexpr size_t SR_ALU_DIV_U128_CHECK = 26;
-    static constexpr size_t SR_ALU_DIV_U128 = 27;
-    static constexpr size_t SR_DIV_0_ERR = 30;
-    static constexpr size_t SR_ALU_FDIV_DIV_NON_U128 = 31;
-    static constexpr size_t SR_EQ_OP_MAIN = 33;
-    static constexpr size_t SR_LT_SWAP_INPUTS_A = 39;
-    static constexpr size_t SR_LT_SWAP_INPUTS_B = 40;
-    static constexpr size_t SR_LTE_NEGATE_RESULT_C = 41;
-    static constexpr size_t SR_NOT_OP_MAIN = 43;
-    static constexpr size_t SR_SEL_TRUNC_NON_TRIVIAL = 48;
-    static constexpr size_t SR_SEL_TRUNCATE = 49;
-    static constexpr size_t SR_TRUNC_TRIVIAL_CASE = 50;
-    static constexpr size_t SR_SMALL_TRUNC_VAL_IS_LO = 51;
-    static constexpr size_t SR_TRUNC_LO_128_DECOMPOSITION = 52;
-    static constexpr size_t SR_TRUNC_MID_BITS = 53;
+    static constexpr size_t SR_A_DECOMPOSITION = 14;
+    static constexpr size_t SR_B_DECOMPOSITION = 15;
+    static constexpr size_t SR_A_LO_BITS = 17;
+    static constexpr size_t SR_A_HI_BITS = 18;
+    static constexpr size_t SR_ALU_ADD_SUB = 21;
+    static constexpr size_t SR_ALU_MUL_NON_U128 = 23;
+    static constexpr size_t SR_ALU_MUL_U128 = 25;
+    static constexpr size_t SR_ALU_DIV_U128_CHECK = 29;
+    static constexpr size_t SR_ALU_DIV_U128 = 30;
+    static constexpr size_t SR_DIV_0_ERR = 33;
+    static constexpr size_t SR_ALU_FDIV_DIV_NON_U128 = 34;
+    static constexpr size_t SR_EQ_OP_MAIN = 36;
+    static constexpr size_t SR_LT_SWAP_INPUTS_A = 42;
+    static constexpr size_t SR_LT_SWAP_INPUTS_B = 43;
+    static constexpr size_t SR_LTE_NEGATE_RESULT_C = 44;
+    static constexpr size_t SR_NOT_OP_MAIN = 46;
+    static constexpr size_t SR_SHL_TWO_POW_SHIFT = 47;
+    static constexpr size_t SR_ALU_SHL = 48;
+    static constexpr size_t SR_ALU_SHR = 49;
+    static constexpr size_t SR_SHIFTS_LO_BITS = 52;
+    static constexpr size_t SR_SEL_TRUNC_NON_TRIVIAL = 57;
+    static constexpr size_t SR_SEL_TRUNCATE = 58;
+    static constexpr size_t SR_TRUNC_TRIVIAL_CASE = 59;
+    static constexpr size_t SR_SMALL_TRUNC_VAL_IS_LO = 60;
+    static constexpr size_t SR_TRUNC_LO_128_DECOMPOSITION = 61;
+    static constexpr size_t SR_TRUNC_MID_BITS = 62;
 };
 
 } // namespace bb::avm2
