@@ -153,32 +153,6 @@ TEST(ECDSASecp256r1, TestECDSAConstraintSucceed)
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
         .num_acir_opcodes = 1,
-        .public_inputs = {},
-        .ecdsa_r1_constraints = { ecdsa_r1_constraint },
-        .original_opcode_indices = create_empty_original_opcode_indices(),
-    };
-    mock_opcode_indices(constraint_system);
-
-    AcirProgram program{ constraint_system, witness_values };
-    auto builder = create_circuit(program);
-
-    EXPECT_EQ(builder.get_variable(ecdsa_r1_constraint.result), 1);
-    EXPECT_TRUE(CircuitChecker::check(builder));
-}
-
-// Test that the verifier can create an ECDSA circuit.
-// The ECDSA circuit requires that certain dummy data is valid
-// even though we are just building the circuit.
-TEST(ECDSASecp256r1, TestECDSACompilesForVerifier)
-{
-    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
-    EcdsaSecp256r1Constraint ecdsa_r1_constraint;
-    WitnessVector witness_values;
-    size_t num_variables = generate_ecdsa_constraint(ecdsa_r1_constraint, witness_values);
-    AcirFormat constraint_system{
-        .varnum = static_cast<uint32_t>(num_variables),
-        .num_acir_opcodes = 1,
-        .public_inputs = {},
         .ecdsa_r1_constraints = { ecdsa_r1_constraint },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
@@ -206,7 +180,6 @@ TEST(ECDSASecp256r1, TestECDSAConstraintFail)
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(num_variables),
         .num_acir_opcodes = 1,
-        .public_inputs = {},
         .ecdsa_r1_constraints = { ecdsa_r1_constraint },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };

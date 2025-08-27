@@ -6,6 +6,7 @@
 
 #pragma once
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/dsl/acir_format/witness_constant.hpp"
 #include <array>
 #include <cstdint>
 #include <vector>
@@ -26,6 +27,11 @@ struct EcdsaSecp256r1Constraint {
 
     // This is the result of verifying the signature
     uint32_t result;
+
+    // Predicate indicating whether the constraint should be disabled:
+    // - true: the constraint is valid
+    // - false: the constraint is disabled, i.e it must not fail and can return whatever.
+    WitnessOrConstant<bb::fr> predicate;
 
     // This is the computed signature
     //
