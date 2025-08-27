@@ -17,6 +17,7 @@
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/dsl/acir_format/ecdsa_constraints.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/honk/execution_trace/gate_data.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -651,7 +652,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 }
                 af.original_opcode_indices.blake3_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EcdsaSecp256k1>) {
-                af.ecdsa_k1_constraints.push_back(EcdsaSecp256k1Constraint{
+                af.ecdsa_k1_constraints.push_back(EcdsaConstraint{
                     .hashed_message =
                         transform::map(*arg.hashed_message, [](auto& e) { return get_witness_from_function_input(e); }),
                     .signature =
@@ -665,16 +666,16 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 af.constrained_witness.insert(af.ecdsa_k1_constraints.back().result);
                 af.original_opcode_indices.ecdsa_k1_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EcdsaSecp256r1>) {
-                af.ecdsa_r1_constraints.push_back(EcdsaSecp256r1Constraint{
+                af.ecdsa_r1_constraints.push_back(EcdsaConstraint{
                     .hashed_message =
                         transform::map(*arg.hashed_message, [](auto& e) { return get_witness_from_function_input(e); }),
+                    .signature =
+                        transform::map(*arg.signature, [](auto& e) { return get_witness_from_function_input(e); }),
                     .pub_x_indices =
                         transform::map(*arg.public_key_x, [](auto& e) { return get_witness_from_function_input(e); }),
                     .pub_y_indices =
                         transform::map(*arg.public_key_y, [](auto& e) { return get_witness_from_function_input(e); }),
                     .result = arg.output.value,
-                    .signature =
-                        transform::map(*arg.signature, [](auto& e) { return get_witness_from_function_input(e); }),
                 });
                 af.constrained_witness.insert(af.ecdsa_r1_constraints.back().result);
                 af.original_opcode_indices.ecdsa_r1_constraints.push_back(opcode_index);
