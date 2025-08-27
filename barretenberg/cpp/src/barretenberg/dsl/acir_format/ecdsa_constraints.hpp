@@ -15,25 +15,21 @@ namespace acir_format {
 using namespace bb;
 
 struct EcdsaConstraint {
-    // This is the byte representation of the hashed message.
+    // The byte representation of the hashed message.
     std::array<uint32_t, 32> hashed_message;
 
-    // This is the computed signature
-    //
+    // The signature
     std::array<uint32_t, 64> signature;
 
-    // This is the supposed public key which signed the
-    // message, giving rise to the signature.
-    // Since Fr does not have enough bits to represent
-    // the prime field in secp256k1, a byte array is used.
-    // Can also use low and hi where lo=128 bits
+    // The public key against the signature must be verifid. Since Fr does not have enough bits to represent the
+    // prime field in secp256k1 or secp256r1, a byte array is used.
     std::array<uint32_t, 32> pub_x_indices;
     std::array<uint32_t, 32> pub_y_indices;
 
-    // This is the result of verifying the signature
+    // Expected result of signature verification
     uint32_t result;
 
-    // for serialization, update with any new fields
+    // For serialization, update with any new fields
     MSGPACK_FIELDS(hashed_message, signature, pub_x_indices, pub_y_indices, result);
     friend bool operator==(EcdsaConstraint const& lhs, EcdsaConstraint const& rhs) = default;
 };
