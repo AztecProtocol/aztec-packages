@@ -62,7 +62,7 @@ fi
 # Note, currently writing keys for all services for convenience
 cat <<EOF >/shared/config/keys.env
 export VALIDATOR_PRIVATE_KEYS=$validator_private_keys
-export WEB3_SIGNER_ADDRESSES=$validator_addresses
+export VALIDATOR_ADDRESSES=$validator_addresses
 export L1_PRIVATE_KEY=$private_key
 export SEQ_PUBLISHER_PRIVATE_KEY=$private_key
 export PROVER_PUBLISHER_PRIVATE_KEY=$private_key
