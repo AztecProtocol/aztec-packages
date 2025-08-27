@@ -15,7 +15,7 @@ import {
   createEthereumChain,
   createExtendedL1Client,
 } from '@aztec/ethereum';
-import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthCheatCodesWithState, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -31,7 +31,7 @@ import { StandardTree } from '@aztec/merkle-tree';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { buildBlockWithCleanDB } from '@aztec/prover-client/block-factory';
-import { SequencerPublisher } from '@aztec/sequencer-client';
+import { SequencerPublisher, SequencerPublisherMetrics } from '@aztec/sequencer-client';
 import { type CommitteeAttestation, type L2Tips, PublishedL2Block, Signature } from '@aztec/stdlib/block';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
@@ -84,6 +84,8 @@ describe('L1Publisher integration', () => {
   let l1Client: ExtendedViemWalletClient;
   let l1ContractAddresses: L1ContractAddresses;
   let deployerAccount: PrivateKeyAccount;
+
+  let governanceProposerContract: GovernanceProposerContract;
 
   let rollupAddress: Address;
   let outboxAddress: Address;
@@ -201,14 +203,14 @@ describe('L1Publisher integration', () => {
     await worldStateSynchronizer.start();
 
     const sequencerL1Client = createExtendedL1Client(config.l1RpcUrls, sequencerPK, foundry);
-    const l1TxUtils = new L1TxUtilsWithBlobs(sequencerL1Client, logger, dateProvider, config);
+    const l1TxUtils = createL1TxUtilsWithBlobsFromViemWallet(sequencerL1Client, logger, dateProvider, config);
     const rollupContract = new RollupContract(sequencerL1Client, l1ContractAddresses.rollupAddress.toString());
     const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
     const slashingProposerContract = new EmpireSlashingProposerContract(
       sequencerL1Client,
       slashingProposerAddress.toString(),
     );
-    const governanceProposerContract = new GovernanceProposerContract(
+    governanceProposerContract = new GovernanceProposerContract(
       sequencerL1Client,
       l1ContractAddresses.governanceProposerAddress.toString(),
     );
@@ -218,12 +220,13 @@ describe('L1Publisher integration', () => {
     );
     epochCache = await EpochCache.create(l1ContractAddresses.rollupAddress, config, { dateProvider });
     const blobSinkClient = createBlobSinkClient();
+    const sequencerPublisherMetrics: MockProxy<SequencerPublisherMetrics> = mock<SequencerPublisherMetrics>();
 
     publisher = new SequencerPublisher(
       {
         l1RpcUrls: config.l1RpcUrls,
         l1Contracts: l1ContractAddresses,
-        publisherPrivateKey: new SecretValue(sequencerPK),
+        publisherPrivateKeys: [new SecretValue(sequencerPK)],
         l1PublishRetryIntervalMS: 100,
         l1ChainId: chainId,
         viemPollingIntervalMS: 100,
@@ -239,6 +242,7 @@ describe('L1Publisher integration', () => {
         slashingProposerContract,
         slashFactoryContract,
         dateProvider,
+        metrics: sequencerPublisherMetrics,
       },
     );
 

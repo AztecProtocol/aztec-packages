@@ -605,7 +605,12 @@ void ExecutionTraceBuilder::process(
                               { C::execution_enqueued_call_end, !has_parent ? 1 : 0 },
                               { C::execution_nested_exit_call, has_parent ? 1 : 0 },
                           } });
-            } else if (exec_opcode == ExecutionOpCode::GETENVVAR) {
+            }
+            // Separate if-statement for opcodes.
+            // This cannot be an else-if chained to the above,
+            // because `sel_exit_call` can happen on any opcode
+            // and we still need to tracegen the opcode-specific logic.
+            if (exec_opcode == ExecutionOpCode::GETENVVAR) {
                 assert(ex_event.addressing_event.resolution_info.size() == 2 &&
                        "GETENVVAR should have exactly two resolved operands (envvar enum and output)");
                 // rop[1] is the envvar enum
@@ -1144,14 +1149,6 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_execution_instruction_fetching_result_settings, InteractionType::LookupGeneric>()
         .add<lookup_execution_instruction_fetching_body_settings, InteractionType::LookupGeneric>()
         // Addressing
-        .add<lookup_addressing_base_address_from_memory_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_indirect_from_memory_0_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_indirect_from_memory_1_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_indirect_from_memory_2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_indirect_from_memory_3_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_indirect_from_memory_4_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_indirect_from_memory_5_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_indirect_from_memory_6_settings, InteractionType::LookupGeneric>()
         .add<lookup_addressing_relative_overflow_range_0_settings, InteractionType::LookupGeneric>()
         .add<lookup_addressing_relative_overflow_range_1_settings, InteractionType::LookupGeneric>()
         .add<lookup_addressing_relative_overflow_range_2_settings, InteractionType::LookupGeneric>()

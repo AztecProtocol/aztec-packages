@@ -23,7 +23,7 @@ if (NOT(FUZZING))
         bb-cli-lib
         tracy_mem
     )
-    if(CHECK_CIRCUIT_STACKTRACES)
+    if(CHECK_CIRCUIT_STACKTRACES OR ENABLE_STACKTRACES)
         target_link_libraries(
             bb
             PUBLIC

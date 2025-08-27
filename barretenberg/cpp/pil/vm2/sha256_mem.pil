@@ -15,12 +15,12 @@ include "execution.pil";
  * sha256.start { sha256.execution_clk, sha256.space_id, sha256.output_addr, sha256.state_addr, sha256.input_addr, sha256.err };
  *
  * This trace reads and writes the following:
- * (1) Read State: From { state_addr, state_addr + 1, ..., state_addr + 7 } 
+ * (1) Read State: From { state_addr, state_addr + 1, ..., state_addr + 7 }
  * (2) Read Input: From { input_addr, input_addr + 1, ..., input_addr + 15 }
  * (3) Write Output: From { output_addr, output_addr + 1, ..., output_addr + 7 }
  * All values operated on in this subtrace are validated to be U32.
  * This subtrace has a mix of a vertical and horizontal memory accesses.
- * The State and Outputs are written horizontally (i.e. there are 8 columns), this means that 
+ * The State and Outputs are written horizontally (i.e. there are 8 columns), this means that
  * they are loaded in "parallel" and therefore they form their own temporality groups (for the purpose of any errors)
  * The Input is "mixed" into the hash at each round (from round 1 to 16), this means the inputs are loaded in a single column and the i-th input
  * is loaded in the i-th row of computation. Therefore, a single load is a temporality group (for the purpose of errors).
@@ -90,7 +90,7 @@ include "execution.pil";
  */
 
 namespace sha256;
-    
+
     pol commit sel;
     sel * (1 - sel) = 0;
 
@@ -117,7 +117,7 @@ namespace sha256;
     #[LATCH_HAS_SEL_ON] // sel = 1 when latch = 1, sel = 0 at first row because of shift relations
     latch * (1 - sel) = 0;
     // This is now guaranteed to be mututally exclusive because of the above condition and since sel = 0 at row = 0 (since it has shifts)
-    pol LATCH_CONDITION = latch + precomputed.first_row; 
+    pol LATCH_CONDITION = latch + precomputed.first_row;
 
     #[START_AFTER_LAST]
     sel' * (start' - LATCH_CONDITION) = 0;
@@ -177,7 +177,7 @@ namespace sha256;
     // Memory Operations: State and Output
     ////////////////////////////////////////////////////////
     // Since reading the hash state and writing the hash outputs have similar "shapes" (i.e. 8 columns)
-    // and occur at different "times" (the start and end (latch) respectively), we define a set of 
+    // and occur at different "times" (the start and end (latch) respectively), we define a set of
     // shared columns that we can re-use between the two. This saves us ~24 columns and 8 permutations.
 
     pol commit memory_address[8]; // Addresses to read from or write to
@@ -230,101 +230,100 @@ namespace sha256;
     // flag that accounts for this
     pol commit rw;
     rw = OUTPUT_WRITE_CONDITION;
-    // TODO: These need to be changed to permutations once we have the custom permutation selectors impl
     #[MEM_OP_0]
-    sel_mem_state_or_output { 
-        execution_clk,       memory_address[0],
-        memory_register[0],  memory_tag[0],
-        space_id,            /*rw=*/ rw
-    } in
-    memory.sel { 
-        memory.clk,      memory.address,
-        memory.value,    memory.tag,
-        memory.space_id, memory.rw
+    sel_mem_state_or_output {
+        execution_clk,       space_id,
+        memory_address[0],   memory_register[0],
+        memory_tag[0],       /*rw=*/ rw
+    } is
+    memory.sel_sha256_op[0] {
+        memory.clk,      memory.space_id,
+        memory.address,  memory.value,
+        memory.tag,      memory.rw
     };
 
     #[MEM_OP_1]
-    sel_mem_state_or_output { 
-        execution_clk,       memory_address[1],
-        memory_register[1],  memory_tag[1],
-        space_id,            /*rw=*/ rw
-    } in
-    memory.sel { 
-        memory.clk,      memory.address,
-        memory.value,    memory.tag,
-        memory.space_id, memory.rw
+    sel_mem_state_or_output {
+        execution_clk,       space_id,
+        memory_address[1],   memory_register[1],
+        memory_tag[1],       /*rw=*/ rw
+    } is
+    memory.sel_sha256_op[1] {
+        memory.clk,      memory.space_id,
+        memory.address,  memory.value,
+        memory.tag,      memory.rw
     };
 
     #[MEM_OP_2]
-    sel_mem_state_or_output { 
-        execution_clk,       memory_address[2],
-        memory_register[2],  memory_tag[2],
-        space_id,            /*rw=*/ rw
-    } in
-    memory.sel { 
-        memory.clk,      memory.address,
-        memory.value,    memory.tag,
-        memory.space_id, memory.rw
+    sel_mem_state_or_output {
+        execution_clk,       space_id,
+        memory_address[2],   memory_register[2],
+        memory_tag[2],       /*rw=*/ rw
+    } is
+    memory.sel_sha256_op[2] {
+        memory.clk,      memory.space_id,
+        memory.address,  memory.value,
+        memory.tag,      memory.rw
     };
 
     #[MEM_OP_3]
-    sel_mem_state_or_output { 
-        execution_clk,       memory_address[3],
-        memory_register[3],  memory_tag[3],
-        space_id,            /*rw=*/ rw
-    } in
-    memory.sel { 
-        memory.clk,      memory.address,
-        memory.value,    memory.tag,
-        memory.space_id, memory.rw
+    sel_mem_state_or_output {
+        execution_clk,       space_id,
+        memory_address[3],   memory_register[3],
+        memory_tag[3],       /*rw=*/ rw
+    } is
+    memory.sel_sha256_op[3] {
+        memory.clk,      memory.space_id,
+        memory.address,  memory.value,
+        memory.tag,      memory.rw
     };
 
     #[MEM_OP_4]
-    sel_mem_state_or_output { 
-        execution_clk,       memory_address[4],
-        memory_register[4],  memory_tag[4],
-        space_id,            /*rw=*/ rw
-    } in
-    memory.sel { 
-        memory.clk,      memory.address,
-        memory.value,    memory.tag,
-        memory.space_id, memory.rw
+    sel_mem_state_or_output {
+        execution_clk,       space_id,
+        memory_address[4],   memory_register[4],
+        memory_tag[4],       /*rw=*/ rw
+    } is
+    memory.sel_sha256_op[4] {
+        memory.clk,      memory.space_id,
+        memory.address,  memory.value,
+        memory.tag,      memory.rw
     };
 
     #[MEM_OP_5]
-    sel_mem_state_or_output { 
-        execution_clk,       memory_address[5],
-        memory_register[5],  memory_tag[5],
-        space_id,            /*rw=*/ rw
-    } in
-    memory.sel { 
-        memory.clk,      memory.address,
-        memory.value,    memory.tag,
-        memory.space_id, memory.rw
+    sel_mem_state_or_output {
+        execution_clk,       space_id,
+        memory_address[5],   memory_register[5],
+        memory_tag[5],       /*rw=*/ rw
+    } is
+    memory.sel_sha256_op[5] {
+        memory.clk,      memory.space_id,
+        memory.address,  memory.value,
+        memory.tag,      memory.rw
     };
 
     #[MEM_OP_6]
-    sel_mem_state_or_output { 
-        execution_clk,       memory_address[6],
-        memory_register[6],  memory_tag[6],
-        space_id,            /*rw=*/ rw
-    } in
-    memory.sel { 
-        memory.clk,      memory.address,
-        memory.value,    memory.tag,
-        memory.space_id, memory.rw
+    sel_mem_state_or_output {
+        execution_clk,       space_id,
+        memory_address[6],   memory_register[6],
+        memory_tag[6],       /*rw=*/ rw
+    } is
+    memory.sel_sha256_op[6] {
+        memory.clk,      memory.space_id,
+        memory.address,  memory.value,
+        memory.tag,      memory.rw
     };
 
     #[MEM_OP_7]
-    sel_mem_state_or_output { 
-        execution_clk,       memory_address[7],
-        memory_register[7],  memory_tag[7],
-        space_id,            /*rw=*/ rw
-    } in
-    memory.sel { 
-        memory.clk,      memory.address,
-        memory.value,    memory.tag,
-        memory.space_id, memory.rw
+    sel_mem_state_or_output {
+        execution_clk,       space_id,
+        memory_address[7],   memory_register[7],
+        memory_tag[7],       /*rw=*/ rw
+    } is
+    memory.sel_sha256_op[7] {
+        memory.clk,      memory.space_id,
+        memory.address,  memory.value,
+        memory.tag,      memory.rw
     };
 
     ////////////////////////////////////////////////
@@ -345,7 +344,7 @@ namespace sha256;
     pol BATCHED_TAG_CHECK = 2**0 * STATE_TAG_DIFF_0 + 2**3 * STATE_TAG_DIFF_1
                           + 2**6 * STATE_TAG_DIFF_2 + 2**9 * STATE_TAG_DIFF_3
                           + 2**12 * STATE_TAG_DIFF_4 + 2**15 * STATE_TAG_DIFF_5
-                          + 2**18 * STATE_TAG_DIFF_6 + 2**21 * STATE_TAG_DIFF_7; 
+                          + 2**18 * STATE_TAG_DIFF_6 + 2**21 * STATE_TAG_DIFF_7;
 
     pol commit batch_tag_inv;
     #[BATCH_ZERO_CHECK_READ]
@@ -385,7 +384,7 @@ namespace sha256;
     sel * (1 - LATCH_CONDITION) * (input_rounds_rem' - (input_rounds_rem - sel_is_input_round)) = 0;
 
     // Read input if we have not had an error from the previous temporality groups and this is an input round
-    pol commit sel_read_input_from_memory; 
+    pol commit sel_read_input_from_memory;
     sel_read_input_from_memory = sel * (1 - mem_out_of_range_err) * sel_is_input_round * (1 - sel_invalid_state_tag_err);
 
     // Put the result of the input loads in to the corresponding w value
@@ -396,15 +395,15 @@ namespace sha256;
     pol commit input_tag;
 
     #[MEM_INPUT_READ]
-    sel_read_input_from_memory { 
-        execution_clk,       input_addr,
-        input,               input_tag,
-        space_id,            /*rw=*/ precomputed.zero
-    } in
-    memory.sel { 
-        memory.clk,      memory.address,
-        memory.value,    memory.tag,
-        memory.space_id, memory.rw
+    sel_read_input_from_memory {
+        execution_clk,       space_id,
+        input_addr,          input,
+        input_tag,           /*rw=*/ precomputed.zero
+    } is
+    memory.sel_sha256_read {
+        memory.clk,      memory.space_id,
+        memory.address,  memory.value,
+        memory.tag,      memory.rw
     };
 
     ////////////////////////////////////////////////
@@ -418,7 +417,7 @@ namespace sha256;
     pol commit sel_invalid_input_row_tag_err;
     sel_invalid_input_row_tag_err * (1 - sel_invalid_input_row_tag_err) = 0;
 
-    pol INPUT_TAG_DIFF = sel_read_input_from_memory * (input_tag - constants.MEM_TAG_U32); 
+    pol INPUT_TAG_DIFF = sel_read_input_from_memory * (input_tag - constants.MEM_TAG_U32);
     pol commit input_tag_diff_inv;
     // Iff INPUT_TAG_DIFF != 0, sel_invalid_input_row_tag_err = 1
     #[INPUT_TAG_DIFF_CHECK]
