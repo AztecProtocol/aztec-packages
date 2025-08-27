@@ -44,13 +44,12 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
                                      bool has_valid_witness_assignments = true);
 
 template <typename Curve>
-static void create_dummy_ecdsa_constraint(
-    typename Curve::Builder& builder,
-    const std::vector<stdlib::field_t<typename Curve::Builder>>& hashed_message_fields,
-    const std::vector<stdlib::field_t<typename Curve::Builder>>& r_fields,
-    const std::vector<stdlib::field_t<typename Curve::Builder>>& s_fields,
-    const std::vector<stdlib::field_t<typename Curve::Builder>>& pub_x_fields,
-    const std::vector<stdlib::field_t<typename Curve::Builder>>& pub_y_fields,
-    const stdlib::field_t<typename Curve::Builder>& result_field);
+void create_dummy_ecdsa_constraint(typename Curve::Builder& builder,
+                                   const std::vector<stdlib::field_t<typename Curve::Builder>>& hashed_message_fields,
+                                   const std::vector<stdlib::field_t<typename Curve::Builder>>& r_fields,
+                                   const std::vector<stdlib::field_t<typename Curve::Builder>>& s_fields,
+                                   const std::vector<stdlib::field_t<typename Curve::Builder>>& pub_x_fields,
+                                   const std::vector<stdlib::field_t<typename Curve::Builder>>& pub_y_fields,
+                                   const stdlib::field_t<typename Curve::Builder>& result_field);
 
 } // namespace acir_format

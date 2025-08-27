@@ -63,7 +63,7 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
     byte_array_ct pub_y_bytes = fields_to_bytes(builder, pub_y_fields);
     byte_array_ct r = fields_to_bytes(builder, r_fields);
     byte_array_ct s = fields_to_bytes(builder, s_fields);
-    bool_ct result(result_field);
+    bool_ct result = static_cast<bool_ct>(result_field);
 
     // Reconstruct the public key from the byte representations of its coordinates
     Fq pub_x(pub_x_bytes);
@@ -87,14 +87,13 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
  * @details To avoid firing asserts, the public key must be a point on the curve
  */
 template <typename Curve>
-static void create_dummy_ecdsa_constraint(
-    typename Curve::Builder& builder,
-    const std::vector<stdlib::field_t<typename Curve::Builder>>& hashed_message_fields,
-    const std::vector<stdlib::field_t<typename Curve::Builder>>& r_fields,
-    const std::vector<stdlib::field_t<typename Curve::Builder>>& s_fields,
-    const std::vector<stdlib::field_t<typename Curve::Builder>>& pub_x_fields,
-    const std::vector<stdlib::field_t<typename Curve::Builder>>& pub_y_fields,
-    const stdlib::field_t<typename Curve::Builder>& result_field)
+void create_dummy_ecdsa_constraint(typename Curve::Builder& builder,
+                                   const std::vector<stdlib::field_t<typename Curve::Builder>>& hashed_message_fields,
+                                   const std::vector<stdlib::field_t<typename Curve::Builder>>& r_fields,
+                                   const std::vector<stdlib::field_t<typename Curve::Builder>>& s_fields,
+                                   const std::vector<stdlib::field_t<typename Curve::Builder>>& pub_x_fields,
+                                   const std::vector<stdlib::field_t<typename Curve::Builder>>& pub_y_fields,
+                                   const stdlib::field_t<typename Curve::Builder>& result_field)
 {
     using Builder = Curve::Builder;
     using FqNative = Curve::fq;
@@ -119,12 +118,12 @@ static void create_dummy_ecdsa_constraint(
     populate_fields(s_fields, mock_signature_component);
 
     // Pub key
-    std::vector<uint8_t> buffer_x;
-    std::vector<uint8_t> buffer_y;
+    std::array<uint8_t, 32> buffer_x;
+    std::array<uint8_t, 32> buffer_y;
     std::vector<bb::fr> mock_pub_x;
     std::vector<bb::fr> mock_pub_y;
     FqNative::serialize_to_buffer(G1Native::one.x, &buffer_x[0]);
-    FqNative::serialize_to_buffer(G1Native::one.x, &buffer_y[0]);
+    FqNative::serialize_to_buffer(G1Native::one.y, &buffer_y[0]);
     for (auto [byte_x, byte_y] : zip_view(buffer_x, buffer_y)) {
         mock_pub_x.emplace_back(bb::fr(byte_x));
         mock_pub_y.emplace_back(bb::fr(byte_y));
