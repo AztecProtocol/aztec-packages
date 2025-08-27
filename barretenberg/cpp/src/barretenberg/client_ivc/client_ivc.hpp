@@ -278,7 +278,7 @@ class ClientIVC {
 
     bool prove_and_verify();
 
-    HonkProof decider_prove();
+    HonkProof construct_decider_proof();
 
     VerificationKey get_vk() const;
 
@@ -302,6 +302,21 @@ class ClientIVC {
                                  bool is_kernel);
 
     QUEUE_TYPE get_queue_type() const;
+
+    std::shared_ptr<RecursiveDeciderVerificationKey> perform_oink_recursive_verification(
+        ClientCircuit& circuit,
+        const std::shared_ptr<RecursiveDeciderVerificationKey>& verifier_instance,
+        const std::shared_ptr<RecursiveTranscript>& transcript,
+        const StdlibProof& proof);
+
+    std::shared_ptr<RecursiveDeciderVerificationKey> perform_pg_recursive_verification(
+        ClientCircuit& circuit,
+        const std::shared_ptr<RecursiveDeciderVerificationKey>& verifier_accumulator,
+        const std::shared_ptr<RecursiveDeciderVerificationKey>& verifier_instance,
+        const std::shared_ptr<RecursiveTranscript>& transcript,
+        const StdlibProof& proof,
+        std::optional<StdlibFF>& prev_accum_hash,
+        bool is_kernel);
 };
 
 } // namespace bb
