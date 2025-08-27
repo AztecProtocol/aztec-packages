@@ -83,10 +83,9 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
 
     SumcheckVerifier<Flavor> sumcheck(transcript, alpha, CONST_PROOF_SIZE_LOG_N);
 
-    auto gate_challenges = std::vector<FF>(CONST_PROOF_SIZE_LOG_N);
-    for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
-        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-    }
+    // Get the gate challenges for sumcheck computation
+    std::vector<FF> gate_challenges =
+        transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", CONST_PROOF_SIZE_LOG_N);
 
     SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
 

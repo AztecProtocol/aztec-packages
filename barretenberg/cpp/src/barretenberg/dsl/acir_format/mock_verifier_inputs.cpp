@@ -453,7 +453,8 @@ template <typename Flavor> std::shared_ptr<DeciderVerificationKey_<Flavor>> crea
             0, 0); // metadata does not need to be accurate
     decider_verification_key->vk = vk;
     decider_verification_key->is_complete = true;
-    decider_verification_key->gate_challenges = std::vector<FF>(static_cast<size_t>(CONST_PG_LOG_N), 0);
+    decider_verification_key->gate_challenges =
+        std::vector<FF>(static_cast<size_t>(CONST_PG_LOG_N), FF::random_element());
 
     for (auto& commitment : decider_verification_key->witness_commitments.get_all()) {
         commitment = curve::BN254::AffineElement::one(); // arbitrary mock commitment

@@ -82,11 +82,8 @@ template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::generate_gate_cha
     const size_t virtual_log_n =
         Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : static_cast<size_t>(proving_key->log_dyadic_size());
 
-    std::vector<FF> gate_challenges(static_cast<size_t>(virtual_log_n));
-    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
-        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-    }
-    proving_key->gate_challenges = gate_challenges;
+    proving_key->gate_challenges =
+        transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
 }
 
 template <IsUltraOrMegaHonk Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Flavor>::construct_proof()

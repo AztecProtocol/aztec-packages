@@ -70,10 +70,8 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
 
     VerifierCommitments commitments{ key->vk_and_hash->vk, key->witness_commitments };
     static constexpr size_t VIRTUAL_LOG_N = Flavor::NativeFlavor::VIRTUAL_LOG_N;
-    auto gate_challenges = std::vector<FF>(VIRTUAL_LOG_N);
-    for (size_t idx = 0; idx < VIRTUAL_LOG_N; idx++) {
-        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-    }
+    // Get the gate challenges for sumcheck computation
+    key->gate_challenges = transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", VIRTUAL_LOG_N);
 
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u
@@ -95,7 +93,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
         libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
     }
     SumcheckOutput<Flavor> sumcheck_output =
-        sumcheck.verify(key->relation_parameters, gate_challenges, padding_indicator_array);
+        sumcheck.verify(key->relation_parameters, key->gate_challenges, padding_indicator_array);
 
     // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
     if constexpr (Flavor::HasZK) {
