@@ -134,7 +134,7 @@ export class SequencerPublisher {
   public l1TxUtils: L1TxUtilsWithBlobs;
   public rollupContract: RollupContract;
   public govProposerContract: GovernanceProposerContract;
-  public slashingProposerContract: EmpireSlashingProposerContract | TallySlashingProposerContract;
+  public slashingProposerContract: EmpireSlashingProposerContract | TallySlashingProposerContract | undefined;
   public slashFactoryContract: SlashFactoryContract;
 
   protected requests: RequestWithExpiry[] = [];
@@ -146,7 +146,7 @@ export class SequencerPublisher {
       blobSinkClient?: BlobSinkClientInterface;
       l1TxUtils: L1TxUtilsWithBlobs;
       rollupContract: RollupContract;
-      slashingProposerContract: EmpireSlashingProposerContract | TallySlashingProposerContract;
+      slashingProposerContract: EmpireSlashingProposerContract | TallySlashingProposerContract | undefined;
       governanceProposerContract: GovernanceProposerContract;
       slashFactoryContract: SlashFactoryContract;
       epochCache: EpochCache;
@@ -651,7 +651,7 @@ export class SequencerPublisher {
     for (const action of actions) {
       switch (action.type) {
         case 'vote-empire-payload': {
-          if (this.slashingProposerContract.type !== 'empire') {
+          if (this.slashingProposerContract?.type !== 'empire') {
             this.log.error('Cannot vote for empire payload on non-empire slashing contract');
             break;
           }
@@ -686,7 +686,7 @@ export class SequencerPublisher {
 
         case 'execute-empire-payload': {
           this.log.debug(`Enqueuing slashing execute payload at slot ${slotNumber}`, { slotNumber, signerAddress });
-          if (this.slashingProposerContract.type !== 'empire') {
+          if (this.slashingProposerContract?.type !== 'empire') {
             this.log.error('Cannot execute slashing payload on non-empire slashing contract');
             return false;
           }
@@ -709,7 +709,7 @@ export class SequencerPublisher {
             votesCount: action.votes.length,
             signerAddress,
           });
-          if (this.slashingProposerContract.type !== 'tally') {
+          if (this.slashingProposerContract?.type !== 'tally') {
             this.log.error('Cannot vote for slashing offenses on non-tally slashing contract');
             return false;
           }
@@ -732,7 +732,7 @@ export class SequencerPublisher {
             round: action.round,
             signerAddress,
           });
-          if (this.slashingProposerContract.type !== 'tally') {
+          if (this.slashingProposerContract?.type !== 'tally') {
             this.log.error('Cannot execute slashing offenses on non-tally slashing contract');
             return false;
           }
