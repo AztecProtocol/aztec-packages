@@ -44,9 +44,5 @@ contract MultiAdder is IMultiAdder {
         true
       );
     }
-
-    if (STAKING.getCurrentEpoch() >= STAKING.getNextFlushableEpoch()) {
-      STAKING.flushEntryQueue();
-    }
   }
 }

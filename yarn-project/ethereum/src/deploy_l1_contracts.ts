@@ -72,6 +72,9 @@ import { ZK_PASSPORT_DOMAIN, ZK_PASSPORT_SCOPE, ZK_PASSPORT_VERIFIER_ADDRESS } f
 
 export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
 
+// upper limit on how many validators can be added to the queue in one go
+const MAX_VALIDATOR_CHUNK_SIZE = 16;
+
 const networkName = getActiveNetworkName();
 
 export type Operator = {
@@ -808,14 +811,32 @@ export const addMultipleValidators = async (
 
       const validatorCount = await rollup.getActiveAttesterCount();
 
-      logger.info(`Adding ${validators.length} validators to the rollup`);
+      logger.info(`Adding ${validators.length} total validators to the rollup`);
 
+      let queue = [...validatorsTuples];
+      let i = 0;
+      while (queue.length > 0) {
+        i++;
+        const chunk = queue.splice(0, MAX_VALIDATOR_CHUNK_SIZE);
+        logger.info(`Adding chunk #${i} of ${chunk.length} validators to the rollup`);
+
+        await deployer.l1TxUtils.sendAndMonitorTransaction({
+          to: multiAdder.toString(),
+          data: encodeFunctionData({
+            abi: MultiAdderArtifact.contractAbi,
+            functionName: 'addValidators',
+            args: [chunk],
+          }),
+        });
+      }
+
+      logger.info(`Flushing entry queue`);
       await deployer.l1TxUtils.sendAndMonitorTransaction({
-        to: multiAdder.toString(),
+        to: rollupAddress,
         data: encodeFunctionData({
-          abi: MultiAdderArtifact.contractAbi,
-          functionName: 'addValidators',
-          args: [validatorsTuples],
+          abi: RollupArtifact.contractAbi,
+          functionName: 'flushEntryQueue',
+          args: [],
         }),
       });
 
