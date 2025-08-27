@@ -40,10 +40,13 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
             inputs_native.emplace_back(element);
             inputs.emplace_back(field_ct(witness_ct(&builder, element)));
         }
+        size_t num_gates_start = builder.get_estimated_num_finalized_gates();
 
         auto result = stdlib::poseidon2<Builder>::hash(builder, inputs);
         auto expected = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(inputs_native);
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
+        if (num_inputs == 1) {
+            EXPECT_EQ(73, builder.get_estimated_num_finalized_gates() - num_gates_start);
+        }
 
         EXPECT_EQ(result.get_value(), expected);
 
@@ -131,9 +134,18 @@ TYPED_TEST(StdlibPoseidon2, TestHashZeros)
 
 TYPED_TEST(StdlibPoseidon2, TestHashSmall)
 {
-    TestFixture::test_hash(1);
-
-    TestFixture::test_hash(10);
+    TestFixture::test_hash(1); // 73
+    // TestFixture::test_hash(2);  // 74
+    // TestFixture::test_hash(3);  // 74
+    // TestFixture::test_hash(4);  // 148
+    // TestFixture::test_hash(5);  // 149
+    TestFixture::test_hash(6);  // 150
+    TestFixture::test_hash(10); // 300
+    TestFixture::test_hash(16); // 452
+    TestFixture::test_hash(17); // 453
+    TestFixture::test_hash(18); // 454
+    TestFixture::test_hash(23); // 454
+    TestFixture::test_hash(24); // 454
 }
 
 TYPED_TEST(StdlibPoseidon2, TestHashLarge)
