@@ -49,12 +49,12 @@ import { AnvilTestWatcher } from '@aztec/aztec/testing';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
+  EmpireSlashingProposerContract,
   GovernanceProposerContract,
   RollupContract,
-  SlashingProposerContract,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
-import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Timer } from '@aztec/foundation/timer';
@@ -63,13 +63,14 @@ import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/Schnor
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import type { PXEService } from '@aztec/pxe/server';
-import { SequencerPublisher } from '@aztec/sequencer-client';
+import { SequencerPublisher, SequencerPublisherMetrics } from '@aztec/sequencer-client';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2Block } from '@aztec/stdlib/block';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import * as fs from 'fs';
+import { type MockProxy, mock } from 'jest-mock-extended';
 import { getContract } from 'viem';
 
 import { DEFAULT_BLOB_SINK_PORT } from './fixtures/fixtures.js';
@@ -403,7 +404,12 @@ describe('e2e_synching', () => {
 
     const sequencerPK: `0x${string}` = `0x${getPrivateKeyFromIndex(0)!.toString('hex')}`;
 
-    const l1TxUtils = new L1TxUtilsWithBlobs(deployL1ContractsValues.l1Client, logger, dateProvider!, config);
+    const l1TxUtils = createL1TxUtilsWithBlobsFromViemWallet(
+      deployL1ContractsValues.l1Client,
+      logger,
+      dateProvider!,
+      config,
+    );
     const rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString();
     const rollupContract = new RollupContract(deployL1ContractsValues.l1Client, rollupAddress);
     const governanceProposerContract = new GovernanceProposerContract(
@@ -411,16 +417,22 @@ describe('e2e_synching', () => {
       config.l1Contracts.governanceProposerAddress.toString(),
     );
     const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
-    const slashingProposerContract = new SlashingProposerContract(
+    const slashingProposerContract = new EmpireSlashingProposerContract(
       deployL1ContractsValues.l1Client,
       slashingProposerAddress.toString(),
     );
+    const { SlashFactoryContract } = await import('@aztec/stdlib/l1-contracts');
+    const slashFactoryContract = new SlashFactoryContract(
+      deployL1ContractsValues.l1Client,
+      deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString(),
+    );
     const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
+    const sequencerPublisherMetrics: MockProxy<SequencerPublisherMetrics> = mock<SequencerPublisherMetrics>();
     const publisher = new SequencerPublisher(
       {
         l1RpcUrls: config.l1RpcUrls,
         l1Contracts: deployL1ContractsValues.l1ContractAddresses,
-        publisherPrivateKey: new SecretValue(sequencerPK),
+        publisherPrivateKeys: [new SecretValue(sequencerPK)],
         l1PublishRetryIntervalMS: 100,
         l1ChainId: 31337,
         viemPollingIntervalMS: 100,
@@ -434,8 +446,10 @@ describe('e2e_synching', () => {
         rollupContract,
         governanceProposerContract,
         slashingProposerContract,
+        slashFactoryContract,
         epochCache,
         dateProvider: dateProvider!,
+        metrics: sequencerPublisherMetrics,
       },
     );
 

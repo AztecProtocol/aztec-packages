@@ -209,7 +209,7 @@ function test {
   [ -z "$tests" ] && num=0 || num=$(echo "$tests" | wc -l)
   echo "Gathered $num tests."
 
-  echo "$tests" | parallelise
+  echo "$tests" | parallelize
 }
 
 function build {
@@ -229,13 +229,13 @@ function build {
     noir-projects
     l1-contracts
     yarn-project
+    release-image
   )
   # These projects can be built in parallel.
   parallel_cmds=(
     boxes/bootstrap.sh
     playground/bootstrap.sh
     docs/bootstrap.sh
-    release-image/bootstrap.sh
     spartan/bootstrap.sh
     aztec-up/bootstrap.sh
   )
@@ -304,7 +304,7 @@ function bench {
   echo_header "bench all"
   build_bench
   find . -type d -iname bench-out | xargs rm -rf
-  bench_cmds | STRICT_SCHEDULING=1 parallelise
+  bench_cmds | STRICT_SCHEDULING=1 parallelize
   rm -rf bench-out
   mkdir -p bench-out
   bench_merge

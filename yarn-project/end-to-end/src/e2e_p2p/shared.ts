@@ -13,13 +13,12 @@ import {
 } from '@aztec/aztec.js';
 import type { RollupCheatCodes } from '@aztec/aztec/testing';
 import type { RollupContract, ViemClient } from '@aztec/ethereum';
-import { timesAsync } from '@aztec/foundation/collection';
-import type { SlashFactoryAbi } from '@aztec/l1-artifacts/SlashFactoryAbi';
-import type { SlashingProposerAbi } from '@aztec/l1-artifacts/SlashingProposerAbi';
+import { timesAsync, unique } from '@aztec/foundation/collection';
+import type { EmpireSlashingProposerAbi } from '@aztec/l1-artifacts/EmpireSlashingProposerAbi';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { TestContract, TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe/server';
-import { Offense, OffenseToBigInt } from '@aztec/slasher';
+import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 
 import type { GetContractReturnType } from 'viem';
 
@@ -109,7 +108,7 @@ export async function createPXEServiceAndPrepareTransactions(
 }
 
 export async function awaitProposalExecution(
-  slashingProposer: GetContractReturnType<typeof SlashingProposerAbi, ViemClient>,
+  slashingProposer: GetContractReturnType<typeof EmpireSlashingProposerAbi, ViemClient>,
   timeoutSeconds: number,
 ) {
   await retryUntil(
@@ -154,11 +153,9 @@ export async function awaitCommitteeExists({
  * Currently assumes that the committee is the same size as the validator set.
  */
 export async function awaitCommitteeKicked({
-  offense,
   rollup,
   cheatCodes,
   committee,
-  slashingAmount,
   slashFactory,
   slashingProposer,
   slashingRoundSize,
@@ -166,39 +163,35 @@ export async function awaitCommitteeKicked({
   logger,
   sendDummyTx,
 }: {
-  offense: Offense;
   rollup: RollupContract;
   cheatCodes: RollupCheatCodes;
   committee: readonly `0x${string}`[];
-  slashingAmount: bigint;
-  slashFactory: GetContractReturnType<typeof SlashFactoryAbi, ViemClient>;
-  slashingProposer: GetContractReturnType<typeof SlashingProposerAbi, ViemClient>;
+  slashFactory: SlashFactoryContract;
+  slashingProposer: GetContractReturnType<typeof EmpireSlashingProposerAbi, ViemClient>;
   slashingRoundSize: number;
   aztecSlotDuration: number;
   logger: Logger;
   sendDummyTx: () => Promise<void>;
 }) {
-  logger.info(`Waiting for slash payload to be deployed`);
-  const expectedSlashes = Array.from({ length: committee.length }, () => slashingAmount);
-  const sortedCommittee = [...committee].sort((a, b) => a.localeCompare(b));
-  await retryUntil(
+  logger.info(`Advancing epochs so slash payload gets deployed`);
+  await cheatCodes.debugRollup();
+  await cheatCodes.advanceToNextEpoch();
+  await cheatCodes.advanceToNextEpoch();
+
+  // Await for the slash payload to be created and check that all committee members are slashed
+  const slashPayloadEvents = await retryUntil(
     async () => {
-      const [address, _, isDeployed] = await slashFactory.read.getAddressAndIsDeployed([
-        sortedCommittee,
-        expectedSlashes,
-      ]);
-      return address && isDeployed;
+      const events = await slashFactory.getSlashPayloadCreatedEvents();
+      return events.length > 0 ? events : undefined;
     },
-    'slash payload deployed',
-    60,
+    'slash payload created',
+    120,
     1,
   );
-
-  const slashPayloadEvents = await slashFactory.getEvents.SlashPayloadCreated();
   expect(slashPayloadEvents.length).toBe(1);
-  expect(slashPayloadEvents[0].args.offenses).toEqual(
-    Array.from({ length: committee.length }, () => OffenseToBigInt[offense]),
-  );
+
+  // The uniqueness check is needed since a validator may be slashed more than once on the same round (eg because they let two epochs be pruned)
+  expect(unique(slashPayloadEvents[0].slashes.map(slash => slash.validator.toString()))).toHaveLength(committee.length);
 
   const attestersPre = await rollup.getAttesters();
   expect(attestersPre.length).toBe(committee.length);
@@ -221,11 +214,12 @@ export async function awaitCommitteeKicked({
   const attestersPostSlashing = await rollup.getAttesters();
   expect(attestersPostSlashing.length).toBe(0);
 
-  for (const attester of attestersPre) {
-    const attesterInfo = await rollup.getAttesterView(attester);
-    // Check that status is Living
-    expect(attesterInfo.status).toEqual(2);
-  }
+  // TODO(palla/slash): Reinstate this check if applies
+  // for (const attester of attestersPre) {
+  //   const attesterInfo = await rollup.getAttesterView(attester);
+  //   // Check that status is Living
+  //   expect(attesterInfo.status).toEqual(2);
+  // }
 
   await cheatCodes.debugRollup();
   await cheatCodes.advanceToNextEpoch();

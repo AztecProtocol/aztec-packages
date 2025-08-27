@@ -45,6 +45,8 @@ export async function getL1ContractsConfig(
     slashingRoundSize,
     slashingLifetimeInRounds,
     slashingExecutionDelayInRounds,
+    slashingOffsetInRounds,
+    slashingUnit,
     slashingVetoer,
     manaTarget,
     provingCostPerMana,
@@ -66,6 +68,8 @@ export async function getL1ContractsConfig(
     slasherProposer.getRoundSize(),
     slasherProposer.getLifetimeInRounds(),
     slasherProposer.getExecutionDelayInRounds(),
+    slasherProposer.type === 'tally' ? slasherProposer.getSlashOffsetInRounds() : 0n,
+    slasherProposer.type === 'tally' ? slasherProposer.getSlashingUnit() : 0n,
     slasher.read.VETOER(),
     rollup.getManaTarget(),
     rollup.getProvingCostPerMana(),
@@ -95,5 +99,8 @@ export async function getL1ContractsConfig(
     rollupVersion: Number(rollupVersion),
     genesisArchiveTreeRoot,
     exitDelaySeconds: Number(exitDelay),
+    slasherFlavor: slasherProposer.type,
+    slashingOffsetInRounds: Number(slashingOffsetInRounds),
+    slashingUnit: slashingUnit,
   };
 }

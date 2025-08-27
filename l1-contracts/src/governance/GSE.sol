@@ -51,7 +51,7 @@ interface IGSECore {
   function delegate(address _instance, address _attester, address _delegatee) external;
   function vote(uint256 _proposalId, uint256 _amount, bool _support) external;
   function voteWithBonus(uint256 _proposalId, uint256 _amount, bool _support) external;
-  function finaliseWithdraw(uint256 _withdrawalId) external;
+  function finalizeWithdraw(uint256 _withdrawalId) external;
   function proposeWithLock(IPayload _proposal, address _to) external returns (uint256);
 
   function isRegistered(address _instance, address _attester) external view returns (bool);
@@ -80,7 +80,6 @@ interface IGSE is IGSECore {
     view
     returns (address[] memory);
   function getG1PublicKeysFromAddresses(address[] memory _attesters) external view returns (G1Point[] memory);
-  function getAttestersAtTime(address _instance, Timestamp _timestamp) external view returns (address[] memory);
   function getAttesterFromIndexAtTime(address _instance, uint256 _index, Timestamp _timestamp)
     external
     view
@@ -301,16 +300,20 @@ contract GSECore is IGSECore, Ownable {
     bool isMsgSenderLatestRollup = getLatestRollup() == msg.sender;
 
     // If _moveWithLatestRollup is true, then msg.sender must be the latest rollup.
-    require(!_moveWithLatestRollup || isMsgSenderLatestRollup, Errors.GSE__NotLatestRollup(msg.sender));
+    if (_moveWithLatestRollup) {
+      require(isMsgSenderLatestRollup, Errors.GSE__NotLatestRollup(msg.sender));
+    }
 
     // Ensure that we are not already attesting on the rollup
     require(!isRegistered(msg.sender, _attester), Errors.GSE__AlreadyRegistered(msg.sender, _attester));
 
     // Ensure that if we are the latest rollup, we are not already attesting on the bonus instance.
-    require(
-      !isMsgSenderLatestRollup || !isRegistered(BONUS_INSTANCE_ADDRESS, _attester),
-      Errors.GSE__AlreadyRegistered(BONUS_INSTANCE_ADDRESS, _attester)
-    );
+    if (isMsgSenderLatestRollup) {
+      require(
+        !isRegistered(BONUS_INSTANCE_ADDRESS, _attester),
+        Errors.GSE__AlreadyRegistered(BONUS_INSTANCE_ADDRESS, _attester)
+      );
+    }
 
     // Set the recipient instance address, i.e. the one that will receive the attester.
     // From above, we know that if we are here, and _moveWithLatestRollup is true,
@@ -427,7 +430,7 @@ contract GSECore is IGSECore, Ownable {
   }
 
   /**
-   * @notice  A helper function to make it easy for users of the GSE to finalise
+   * @notice  A helper function to make it easy for users of the GSE to finalize
    *          a pending exit in the governance.
    *
    *          Kept in here since it is already connected to Governance:
@@ -437,10 +440,10 @@ contract GSECore is IGSECore, Ownable {
    *
    * @param _withdrawalId - The id of the withdrawal
    */
-  function finaliseWithdraw(uint256 _withdrawalId) external override(IGSECore) {
+  function finalizeWithdraw(uint256 _withdrawalId) external override(IGSECore) {
     Governance gov = getGovernance();
     if (!gov.getWithdrawal(_withdrawalId).claimed) {
-      gov.finaliseWithdraw(_withdrawalId);
+      gov.finalizeWithdraw(_withdrawalId);
     }
   }
 
@@ -460,7 +463,7 @@ contract GSECore is IGSECore, Ownable {
    * @param _payload - The IPayload address, which is a contract that contains the proposed actions to be executed by
    * the governance.
    * @param _to - The address that will receive the withdrawn funds when the withdrawal is finalized (see
-   * `finaliseWithdraw`)
+   * `finalizeWithdraw`)
    *
    * @return The id of the proposal
    */
@@ -692,29 +695,6 @@ contract GSE is IGSE, GSECore {
 
   function getVotingPower(address _delegatee) external view override(IGSE) returns (uint256) {
     return delegation.getVotingPower(_delegatee);
-  }
-
-  /**
-   * @notice  Get the addresses of the attesters at the instance at the time of `_timestamp`
-   *
-   * @param _instance   - The instance to look at
-   * @param _timestamp  - The timestamp to lookup
-   *
-   * @return The attesters at the instance at the time of `_timestamp`
-   */
-  function getAttestersAtTime(address _instance, Timestamp _timestamp)
-    external
-    view
-    override(IGSE)
-    returns (address[] memory)
-  {
-    uint256 count = getAttesterCountAtTime(_instance, _timestamp);
-    uint256[] memory indices = new uint256[](count);
-    for (uint256 i = 0; i < count; i++) {
-      indices[i] = i;
-    }
-
-    return _getAddressFromIndicesAtTimestamp(_instance, indices, _timestamp);
   }
 
   function getAttestersFromIndicesAtTime(address _instance, Timestamp _timestamp, uint256[] memory _indices)

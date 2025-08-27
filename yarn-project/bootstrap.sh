@@ -142,7 +142,7 @@ function test_cmds {
     fi
 
     if [[ "$test" =~ rollup_ivc_integration || "$test" =~ avm_integration ]]; then
-      cmd_env+=" LOG_LEVEL=trace BB_VERBOSE=1 "
+      cmd_env+=" LOG_LEVEL=debug BB_VERBOSE=1 "
     fi
 
     echo "${prefix}${cmd_env} yarn-project/scripts/run_test.sh $test"
@@ -159,7 +159,7 @@ function test_cmds {
 
 function test {
   echo_header "yarn-project test"
-  test_cmds | filter_test_cmds | parallelise
+  test_cmds | filter_test_cmds | parallelize
 }
 
 function bench_cmds {

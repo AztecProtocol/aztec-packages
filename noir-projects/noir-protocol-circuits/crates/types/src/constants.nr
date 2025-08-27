@@ -902,9 +902,9 @@ pub global AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED: u32 = 20000;
 pub global AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED: u32 = 1000;
 
 // GAS DEFAULTS
-pub global DEFAULT_GAS_LIMIT: u32 = 1_000_000_000;
-pub global MAX_L2_GAS_PER_TX_PUBLIC_PORTION: u32 = 6_000_000;
-pub global DEFAULT_TEARDOWN_GAS_LIMIT: u32 = MAX_L2_GAS_PER_TX_PUBLIC_PORTION;
+// The maximum amount of l2 gas that the AVM can process safely.
+pub global AVM_MAX_PROCESSABLE_L2_GAS: u32 = 6_000_000;
+
 pub global DA_BYTES_PER_FIELD: u32 = 32;
 pub global DA_GAS_PER_BYTE: u32 = 16;
 // pays for preamble information in TX Effects
@@ -913,6 +913,26 @@ pub global FIXED_DA_GAS: u32 = 512;
 pub global FIXED_L2_GAS: u32 = 512;
 // base cost for a single public call
 pub global FIXED_AVM_STARTUP_L2_GAS: u32 = 20_000;
+
+pub global MAX_PROCESSABLE_DA_GAS_PER_BLOCK: u32 =
+    BLOBS_PER_BLOCK * FIELDS_PER_BLOB * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+
+// For gas estimation, we use the theoretical maximum amounts.
+// Since we split in teardown and total, teardown has the theoretical maximum and total is that times 2.
+// After gas estimation, we tune it down to the actual amount necessary.
+pub global GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT: u32 = AVM_MAX_PROCESSABLE_L2_GAS;
+pub global GAS_ESTIMATION_L2_GAS_LIMIT: u32 =
+    GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT + AVM_MAX_PROCESSABLE_L2_GAS;
+
+pub global GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_BLOCK;
+pub global GAS_ESTIMATION_DA_GAS_LIMIT: u32 =
+    GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT + MAX_PROCESSABLE_DA_GAS_PER_BLOCK;
+
+// Default gas limits. Users should use gas estimation, or they will overpay gas fees.
+pub global DEFAULT_TEARDOWN_L2_GAS_LIMIT: u32 = 1_000_000; // Arbitrary default number.
+pub global DEFAULT_L2_GAS_LIMIT: u32 = AVM_MAX_PROCESSABLE_L2_GAS; // Arbitrary default number.
+pub global DEFAULT_TEARDOWN_DA_GAS_LIMIT: u32 = 1_000_000; // Arbitrary default number.
+pub global DEFAULT_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_BLOCK; // Arbitrary default number.
 
 // Some tree insertions incur an additional cost associated with
 // the new database entry to be stored by all network participants.

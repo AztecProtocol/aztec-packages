@@ -204,8 +204,9 @@ describe('Accrued Substate', () => {
           `Attempted to emit duplicate nullifier ${value0} (contract address: ${address}).`,
         ),
       );
-      expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
-      expect(trace.traceNewNullifier).toHaveBeenCalledWith(siloedNullifier0);
+      expect(trace.traceNewNullifier).toHaveBeenCalledTimes(2);
+      expect(trace.traceNewNullifier).toHaveBeenNthCalledWith(1, siloedNullifier0);
+      expect(trace.traceNewNullifier).toHaveBeenNthCalledWith(2, siloedNullifier0);
     });
 
     it('Nullifier collision reverts (nullifier exists in host state)', async () => {
@@ -216,7 +217,8 @@ describe('Accrued Substate', () => {
           `Attempted to emit duplicate nullifier ${value0} (contract address: ${address}).`,
         ),
       );
-      expect(trace.traceNewNullifier).toHaveBeenCalledTimes(0); // the only attempt should fail before tracing
+      expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1); // fails, but after tracing
+      expect(trace.traceNewNullifier).toHaveBeenCalledWith(siloedNullifier0);
     });
   });
 

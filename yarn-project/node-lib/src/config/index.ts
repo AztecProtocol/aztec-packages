@@ -14,6 +14,9 @@ export type SharedNodeConfig = {
   autoUpdate?: 'disabled' | 'notify' | 'config' | 'config-and-version';
   /** The base URL against which to check for updates */
   autoUpdateUrl?: string;
+
+  /** URL of the Web3Signer instance */
+  web3SignerUrl?: string;
 };
 
 export const sharedNodeConfigMappings: ConfigMappingsType<SharedNodeConfig> = {
@@ -45,5 +48,10 @@ export const sharedNodeConfigMappings: ConfigMappingsType<SharedNodeConfig> = {
   autoUpdateUrl: {
     env: 'AUTO_UPDATE_URL',
     description: 'Base URL to check for updates',
+  },
+  web3SignerUrl: {
+    env: 'WEB3_SIGNER_URL',
+    description: 'URL of the Web3Signer instance',
+    parseEnv: (val: string) => val.trim(),
   },
 };

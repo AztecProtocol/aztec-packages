@@ -5,11 +5,17 @@ import {TestBase} from "@test/base/Base.sol";
 import {
   AttestationLib, CommitteeAttestations, CommitteeAttestation
 } from "@aztec/core/libraries/rollup/AttestationLib.sol";
+import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 contract AttestationLibWrapper {
   using AttestationLib for CommitteeAttestations;
+  using AttestationLibHelper for CommitteeAttestations;
+
+  function isEmpty(CommitteeAttestations memory _attestations) external pure returns (bool) {
+    return AttestationLib.isEmpty(_attestations);
+  }
 
   function assertSizes(CommitteeAttestations memory _attestations, uint256 _expectedCount) external pure {
     AttestationLib.assertSizes(_attestations, _expectedCount);
@@ -28,7 +34,7 @@ contract AttestationLibWrapper {
     pure
     returns (CommitteeAttestations memory)
   {
-    return AttestationLib.packAttestations(_attestations);
+    return AttestationLibHelper.packAttestations(_attestations);
   }
 }
 
@@ -185,6 +191,22 @@ contract AttestationLibTest is TestBase {
     );
 
     attestationLibWrapper.reconstructCommitteeFromSigners($attestations, getSigners(), SIZE);
+  }
+
+  function test_isEmpty(uint256 _signatureCount) public createValidAttestations(_signatureCount) {
+    CommitteeAttestations memory attestations = attestationLibWrapper.packAttestations(new CommitteeAttestation[](0));
+    assertTrue(attestationLibWrapper.isEmpty(attestations));
+    assertFalse(attestationLibWrapper.isEmpty($attestations));
+  }
+
+  function test_isEmpty_emptyIndices() public {
+    $attestations.signatureIndices = new bytes(0);
+    assertTrue(attestationLibWrapper.isEmpty($attestations));
+  }
+
+  function test_isEmpty_emptySignaturesOrAddresses() public {
+    $attestations.signaturesOrAddresses = new bytes(0);
+    assertTrue(attestationLibWrapper.isEmpty($attestations));
   }
 
   function getSigners() internal view returns (address[] memory) {

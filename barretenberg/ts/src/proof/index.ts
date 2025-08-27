@@ -77,15 +77,15 @@ export function uint8ArrayToHex(buffer: Uint8Array): string {
 }
 
 export function hexToUint8Array(hex: string): Uint8Array {
-  const sanitisedHex = BigInt(hex).toString(16).padStart(64, '0');
+  const sanitizedHex = BigInt(hex).toString(16).padStart(64, '0');
 
-  const len = sanitisedHex.length / 2;
+  const len = sanitizedHex.length / 2;
   const u8 = new Uint8Array(len);
 
   let i = 0;
   let j = 0;
   while (i < len) {
-    u8[i] = parseInt(sanitisedHex.slice(j, j + 2), 16);
+    u8[i] = parseInt(sanitizedHex.slice(j, j + 2), 16);
     i += 1;
     j += 2;
   }

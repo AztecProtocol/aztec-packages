@@ -62,7 +62,7 @@ contract NoVoteAndExitTest is GovernanceBase {
         Errors.Governance__WithdrawalNotUnlockedYet.selector, Timestamp.wrap(block.timestamp), withdrawal.unlocksAt
       )
     );
-    governance.finaliseWithdraw(withdrawalId);
+    governance.finalizeWithdraw(withdrawalId);
 
     governance.execute(proposalId);
   }

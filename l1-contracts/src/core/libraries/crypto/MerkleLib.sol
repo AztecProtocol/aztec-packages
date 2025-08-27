@@ -47,6 +47,10 @@ library MerkleLib {
       indexAtHeight >>= 1;
     }
 
+    // Security: Ensure the index doesn't have bits set beyond the tree height
+    // This prevents replay attacks where an attacker could use index 8 with path length 2 to walk the same path as
+    // index 0.
+    require(indexAtHeight == 0, Errors.MerkleLib__InvalidIndexForPathLength());
     require(subtreeRoot == _expectedRoot, Errors.MerkleLib__InvalidRoot(_expectedRoot, subtreeRoot, _leaf, _index));
   }
 
