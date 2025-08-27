@@ -108,7 +108,8 @@ export class FeesTest {
     if (!numberOfAccounts) {
       throw new Error('There must be at least 1 initial account.');
     }
-    this.coinbase = setupOptions.coinbase ?? EthAddress.random();
+    setupOptions.coinbase ??= EthAddress.random();
+    this.coinbase = setupOptions.coinbase!;
     this.logger = createLogger(`e2e:e2e_fees:${testName}`);
     this.snapshotManager = createSnapshotManager(
       `e2e_fees/${testName}-${numberOfAccounts}`,
