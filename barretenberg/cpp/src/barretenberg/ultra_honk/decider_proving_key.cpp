@@ -201,7 +201,8 @@ void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     const auto& secondary_calldata = circuit.get_secondary_calldata();
     const auto& return_data = circuit.get_return_data();
 
-    // Note: We do not utilize a zero row for databus columns
+    // Note: Databus columns start from index 0. If this ever changes, make sure to also update the active range
+    // construction in ExecutionTraceUsageTracker::update(). We do not utilize a zero row for databus columns.
     for (size_t idx = 0; idx < calldata.size(); ++idx) {
         calldata_poly.at(idx) = circuit.get_variable(calldata[idx]);        // calldata values
         calldata_read_counts.at(idx) = calldata.get_read_count(idx);        // read counts
