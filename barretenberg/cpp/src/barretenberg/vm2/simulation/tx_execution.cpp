@@ -12,6 +12,18 @@
 #include "barretenberg/vm2/simulation/tx_context.hpp"
 
 namespace bb::avm2::simulation {
+namespace {
+
+// A tx-level exception that is expected to be handled.
+// This is in contrast to other runtime exceptions that might happen and should be propagated.
+class TxExecutionException : public std::runtime_error {
+  public:
+    TxExecutionException(const std::string& message)
+        : std::runtime_error(message)
+    {}
+};
+
+} // namespace
 
 void TxExecution::emit_public_call_request(const PublicCallRequestWithCalldata& call,
                                            TransactionPhase phase,
@@ -67,6 +79,7 @@ void TxExecution::simulate(const Tx& tx)
          tx.teardownEnqueuedCall ? "1 teardown enqueued call" : "no teardown enqueued call");
 
     // Insert non-revertibles. This can throw if there is a nullifier collision.
+    // That would result in an unprovable tx.
     insert_non_revertibles(tx);
 
     // Setup.
@@ -83,11 +96,8 @@ void TxExecution::simulate(const Tx& tx)
                                                               start_gas,
                                                               tx_context.side_effect_states,
                                                               TransactionPhase::SETUP);
+        // This call should not throw unless it's an unexpected unrecoverable failure.
         ExecutionResult result = call_execution.execute(std::move(context));
-        if (!result.success) {
-            throw std::runtime_error(
-                format("[SETUP] UNRECOVERABLE ERROR! Enqueued call to ", call.request.contractAddress, " failed"));
-        }
         tx_context.side_effect_states = result.side_effect_states;
         tx_context.gas_used = result.gas_used;
         emit_public_call_request(call,
@@ -98,6 +108,11 @@ void TxExecution::simulate(const Tx& tx)
                                  tx_context.gas_used,
                                  state_before,
                                  tx_context.serialize_tx_context_event());
+        if (!result.success) {
+            // This will result in an unprovable tx.
+            throw TxExecutionException(
+                format("[SETUP] UNRECOVERABLE ERROR! Enqueued call to ", call.request.contractAddress, " failed"));
+        }
     }
 
     // The checkpoint we should go back to if anything from now on reverts.
@@ -105,6 +120,7 @@ void TxExecution::simulate(const Tx& tx)
 
     try {
         // Insert revertibles. This can throw if there is a nullifier collision.
+        // Such an exception should be handled and the tx be provable.
         insert_revertibles(tx);
 
         // App logic.
@@ -121,6 +137,7 @@ void TxExecution::simulate(const Tx& tx)
                                                                   start_gas,
                                                                   tx_context.side_effect_states,
                                                                   TransactionPhase::APP_LOGIC);
+            // This call should not throw unless it's an unexpected unrecoverable failure.
             ExecutionResult result = call_execution.execute(std::move(context));
             tx_context.side_effect_states = result.side_effect_states;
             tx_context.gas_used = result.gas_used;
@@ -133,11 +150,12 @@ void TxExecution::simulate(const Tx& tx)
                                      state_before,
                                      tx_context.serialize_tx_context_event());
             if (!result.success) {
-                throw std::runtime_error(
+                // This exception should be handled and the tx be provable.
+                throw TxExecutionException(
                     format("[APP_LOGIC] Enqueued call to ", call.request.contractAddress, " failed"));
             }
         }
-    } catch (const std::runtime_error& e) {
+    } catch (const TxExecutionException& e) {
         info("Revertible failure while simulating tx ", tx.hash, ": ", e.what());
         // We revert to the post-setup state.
         merkle_db.revert_checkpoint();
@@ -170,6 +188,7 @@ void TxExecution::simulate(const Tx& tx)
                                                                   start_gas,
                                                                   tx_context.side_effect_states,
                                                                   TransactionPhase::TEARDOWN);
+            // This call should not throw unless it's an unexpected unrecoverable failure.
             ExecutionResult result = call_execution.execute(std::move(context));
             tx_context.side_effect_states = result.side_effect_states;
             // Check what to do here for GAS
@@ -182,14 +201,15 @@ void TxExecution::simulate(const Tx& tx)
                                      state_before,
                                      tx_context.serialize_tx_context_event());
             if (!result.success) {
-                throw std::runtime_error(format(
+                // This exception should be handled and the tx be provable.
+                throw TxExecutionException(format(
                     "[TEARDOWN] Enqueued call to ", tx.teardownEnqueuedCall->request.contractAddress, " failed"));
             }
         }
 
         // We commit the forked state and we are done.
         merkle_db.commit_checkpoint();
-    } catch (const std::runtime_error& e) {
+    } catch (const TxExecutionException& e) {
         info("Teardown failure while simulating tx ", tx.hash, ": ", e.what());
         // We rollback to the post-setup state.
         merkle_db.revert_checkpoint();
@@ -212,11 +232,11 @@ void TxExecution::emit_nullifier(bool revertible, const FF& nullifier)
         uint32_t prev_nullifier_count = merkle_db.get_tree_state().nullifierTree.counter;
 
         if (prev_nullifier_count == MAX_NULLIFIERS_PER_TX) {
-            throw std::runtime_error("Maximum number of nullifiers reached");
+            throw TxExecutionException("Maximum number of nullifiers reached");
         }
         bool success = merkle_db.siloed_nullifier_write(nullifier);
         if (!success) {
-            throw std::runtime_error("Nullifier collision");
+            throw TxExecutionException("Nullifier collision");
         }
 
         events.emit(TxPhaseEvent{ .phase = phase,
@@ -224,7 +244,7 @@ void TxExecution::emit_nullifier(bool revertible, const FF& nullifier)
                                   .state_after = tx_context.serialize_tx_context_event(),
                                   .event = PrivateAppendTreeEvent{ .leaf_value = nullifier } });
 
-    } catch (const std::runtime_error& e) {
+    } catch (const TxExecutionException& e) {
         events.emit(TxPhaseEvent{
             .phase = phase,
             .state_before = state_before,
@@ -246,7 +266,7 @@ void TxExecution::emit_note_hash(bool revertible, const FF& note_hash)
         uint32_t prev_note_hash_count = merkle_db.get_tree_state().noteHashTree.counter;
 
         if (prev_note_hash_count == MAX_NOTE_HASHES_PER_TX) {
-            throw std::runtime_error("Maximum number of note hashes reached");
+            throw TxExecutionException("Maximum number of note hashes reached");
         }
 
         if (revertible) {
@@ -259,7 +279,7 @@ void TxExecution::emit_note_hash(bool revertible, const FF& note_hash)
                                   .state_before = state_before,
                                   .state_after = tx_context.serialize_tx_context_event(),
                                   .event = PrivateAppendTreeEvent{ .leaf_value = note_hash } });
-    } catch (const std::runtime_error& e) {
+    } catch (const TxExecutionException& e) {
         events.emit(TxPhaseEvent{ .phase = phase,
                                   .state_before = state_before,
                                   .state_after = tx_context.serialize_tx_context_event(),
@@ -277,7 +297,7 @@ void TxExecution::emit_l2_to_l1_message(bool revertible, const ScopedL2ToL1Messa
 
     try {
         if (tx_context.side_effect_states.numL2ToL1Messages == MAX_L2_TO_L1_MSGS_PER_TX) {
-            throw std::runtime_error("Maximum number of L2 to L1 messages reached");
+            throw TxExecutionException("Maximum number of L2 to L1 messages reached");
         }
         // TODO: We don't store the l2 to l1 message in the context since it's not needed until cpp has to generate
         // public inputs.
@@ -286,7 +306,7 @@ void TxExecution::emit_l2_to_l1_message(bool revertible, const ScopedL2ToL1Messa
                                   .state_before = state_before,
                                   .state_after = tx_context.serialize_tx_context_event(),
                                   .event = PrivateEmitL2L1MessageEvent{ .scoped_msg = l2_to_l1_message } });
-    } catch (const std::runtime_error& e) {
+    } catch (const TxExecutionException& e) {
         events.emit(TxPhaseEvent{ .phase = phase,
                                   .state_before = state_before,
                                   .state_after = tx_context.serialize_tx_context_event(),
@@ -299,7 +319,7 @@ void TxExecution::emit_l2_to_l1_message(bool revertible, const ScopedL2ToL1Messa
 
 // TODO: How to increment the context id here?
 // This function inserts the non-revertible accumulated data into the Merkle DB.
-// It might error if the limits for number of allowable inserts are exceeded, but this result in an unprovable tx
+// It might error if the limits for number of allowable inserts are exceeded, but this result in an unprovable tx.
 void TxExecution::insert_non_revertibles(const Tx& tx)
 {
     info("[NON_REVERTIBLE] Inserting ",
@@ -368,7 +388,7 @@ void TxExecution::pay_fee(const FF& fee_payer,
 
     if (field_gt.ff_gt(fee, fee_payer_balance)) {
         // Unrecoverable error.
-        throw std::runtime_error("Not enough balance for fee payer to pay for transaction");
+        throw TxExecutionException("Not enough balance for fee payer to pay for transaction");
     }
 
     merkle_db.storage_write(FEE_JUICE_ADDRESS, fee_juice_balance_slot, fee_payer_balance - fee, true);
