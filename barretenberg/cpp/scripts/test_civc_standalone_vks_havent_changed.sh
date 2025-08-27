@@ -1,6 +1,8 @@
 #!/bin/bash
 source $(git rev-parse --show-toplevel)/ci3/source
 
+# export bb as it is needed when using exported functions
+export bb=$(./find-bb)
 cd ..
 
 # NOTE: We pin the captured IVC inputs to a known master commit, exploiting that there won't be frequent changes.
@@ -63,9 +65,9 @@ function check_circuit_vks {
   local flow_folder="$inputs_tmp_dir/$1"
 
   if [[ "${2:-}" == "--update_inputs" ]]; then
-    ./build/bin/bb check --update_inputs --scheme client_ivc --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" || { echo_stderr "Error: Likely VK change detected in $flow_folder! Updating inputs."; exit 1; }
+    $bb check --update_inputs --scheme client_ivc --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" || { echo_stderr "Error: Likely VK change detected in $flow_folder! Updating inputs."; exit 1; }
   else
-    ./build/bin/bb check --scheme client_ivc --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" || { echo_stderr "Error: Likely VK change detected in $flow_folder!"; exit 1; }
+    $bb check --scheme client_ivc --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" || { echo_stderr "Error: Likely VK change detected in $flow_folder!"; exit 1; }
   fi
 }
 

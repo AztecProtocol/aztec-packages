@@ -32,8 +32,6 @@ template <class DeciderVerificationKeys> class ProtogalaxyRecursiveVerifier_ {
 
     DeciderVerificationKeys keys_to_fold;
 
-    std::vector<FF> public_inputs; // extracted from the incoming instance
-
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
     ProtogalaxyRecursiveVerifier_(Builder* builder,
@@ -42,6 +40,14 @@ template <class DeciderVerificationKeys> class ProtogalaxyRecursiveVerifier_ {
                                   const std::shared_ptr<Transcript>& transcript)
         : builder(builder)
         , keys_to_fold(DeciderVerificationKeys(builder, accumulator, vk_and_hashs))
+        , transcript(transcript) {};
+
+    ProtogalaxyRecursiveVerifier_(Builder* builder,
+                                  const std::shared_ptr<DeciderVK>& accumulator,
+                                  const std::shared_ptr<DeciderVK>& incoming_instance,
+                                  const std::shared_ptr<Transcript>& transcript)
+        : builder(builder)
+        , keys_to_fold(DeciderVerificationKeys(builder, accumulator, incoming_instance))
         , transcript(transcript) {};
 
     /**

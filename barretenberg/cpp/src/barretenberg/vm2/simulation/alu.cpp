@@ -177,6 +177,62 @@ MemoryValue Alu::op_not(const MemoryValue& a)
     }
 }
 
+MemoryValue Alu::shl(const MemoryValue& a, const MemoryValue& b)
+{
+    try {
+        MemoryValue c = a << b; // This will throw if the tags do not match or are FF.
+        auto tag_bits = get_tag_bits(a.get_tag());
+        auto b_num = static_cast<uint128_t>(b.as_ff());
+
+        bool overflow = b_num > tag_bits;
+        uint8_t a_lo_bits = overflow ? tag_bits : tag_bits - static_cast<uint8_t>(b_num);
+        auto a_lo =
+            overflow ? b_num - tag_bits : static_cast<uint128_t>(a.as_ff()) % (static_cast<uint128_t>(1) << a_lo_bits);
+        range_check.assert_range(a_lo, a_lo_bits);
+        range_check.assert_range(static_cast<uint128_t>(a.as_ff()) >> a_lo_bits,
+                                 overflow ? tag_bits : static_cast<uint8_t>(b_num));
+        events.emit({ .operation = AluOperation::SHL, .a = a, .b = b, .c = c });
+        return c;
+    } catch (const TagMismatchException& e) {
+        events.emit({ .operation = AluOperation::SHL, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        throw AluException("SHL, " + std::string(e.what()));
+    } catch (const InvalidOperationTag& e) {
+        events.emit({ .operation = AluOperation::SHL, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        throw AluException("SHL, " + std::string(e.what()));
+    } catch (const std::exception& e) {
+        // We have some err not handled by TAG_ERROR, so we rethrow back to execution:
+        throw e;
+    }
+}
+
+MemoryValue Alu::shr(const MemoryValue& a, const MemoryValue& b)
+{
+    try {
+        MemoryValue c = a >> b; // This will throw if the tags do not match or are FF.
+        auto tag_bits = get_tag_bits(a.get_tag());
+        auto b_num = static_cast<uint128_t>(b.as_ff());
+
+        bool overflow = b_num > tag_bits;
+        uint8_t a_lo_bits = overflow ? tag_bits : static_cast<uint8_t>(b_num);
+        auto a_lo =
+            overflow ? b_num - tag_bits : static_cast<uint128_t>(a.as_ff()) % (static_cast<uint128_t>(1) << a_lo_bits);
+        range_check.assert_range(a_lo, a_lo_bits);
+        range_check.assert_range(static_cast<uint128_t>(a.as_ff()) >> a_lo_bits,
+                                 overflow ? tag_bits : tag_bits - static_cast<uint8_t>(b_num));
+        events.emit({ .operation = AluOperation::SHR, .a = a, .b = b, .c = c });
+        return c;
+    } catch (const TagMismatchException& e) {
+        events.emit({ .operation = AluOperation::SHR, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        throw AluException("SHR, " + std::string(e.what()));
+    } catch (const InvalidOperationTag& e) {
+        events.emit({ .operation = AluOperation::SHR, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        throw AluException("SHR, " + std::string(e.what()));
+    } catch (const std::exception& e) {
+        // We have some err not handled by TAG_ERROR, so we rethrow back to execution:
+        throw e;
+    }
+}
+
 MemoryValue Alu::truncate(const FF& a, MemoryTag dst_tag)
 {
     const MemoryValue c = MemoryValue::from_tag_truncating(dst_tag, a);
@@ -209,32 +265,6 @@ MemoryValue Alu::truncate(const FF& a, MemoryTag dst_tag)
                   .b = MemoryValue::from_tag(MemoryTag::FF, static_cast<uint8_t>(dst_tag)),
                   .c = c });
     return c;
-}
-
-MemoryValue Alu::shr(const MemoryValue& a, const MemoryValue& b)
-{
-    // todo: Tag checks need to change to ensure LHS == RHS, this is in the ShiftVisitor in tagged value
-    try {
-        MemoryValue c = a >> b;
-        events.emit({ .operation = AluOperation::SHR, .a = a, .b = b, .c = c });
-        return c;
-    } catch (const std::exception& e) {
-        events.emit({ .operation = AluOperation::SHR, .a = a, .b = b, .error = AluError::TAG_ERROR });
-        throw AluException("SHR, " + std::string(e.what()));
-    }
-}
-
-MemoryValue Alu::shl(const MemoryValue& a, const MemoryValue& b)
-{
-    // todo: Tag checks need to change to ensure LHS == RHS, this is in the ShiftVisitor in tagged value
-    try {
-        MemoryValue c = a << b;
-        events.emit({ .operation = AluOperation::SHL, .a = a, .b = b, .c = c });
-        return c;
-    } catch (const std::exception& e) {
-        events.emit({ .operation = AluOperation::SHL, .a = a, .b = b, .error = AluError::TAG_ERROR });
-        throw AluException("SHL, " + std::string(e.what()));
-    }
 }
 
 } // namespace bb::avm2::simulation
