@@ -751,7 +751,7 @@ template <typename Flavor> class SumcheckVerifier {
             const bool checked = round.check_sum(round_univariate, padding_indicator_array[round_idx]);
             round.compute_next_target_sum(round_univariate, round_challenge, padding_indicator_array[round_idx]);
             gate_separators.partially_evaluate(round_challenge, padding_indicator_array[round_idx]);
-
+            info("round result: ", checked);
             verified = verified && checked;
         }
         // Extract claimed evaluations of Libra univariates and compute their sum multiplied by the Libra challenge

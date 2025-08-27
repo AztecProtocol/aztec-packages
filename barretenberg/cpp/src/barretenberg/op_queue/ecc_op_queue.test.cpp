@@ -77,7 +77,7 @@ class ECCOpQueueTest {
 
         for (size_t i = 0; i < eccvm_table.size(); ++i) {
             EXPECT_EQ(ultra_opcode_values[2 * i], eccvm_table[i].op_code.value());
-            EXPECT_EQ(ultra_opcode_values[2 * i + 1], Fr(0));
+            EXPECT_EQ(ultra_opcode_values[2 * i + 1], eccvm_table[i].op_code.value());
         }
     };
 };

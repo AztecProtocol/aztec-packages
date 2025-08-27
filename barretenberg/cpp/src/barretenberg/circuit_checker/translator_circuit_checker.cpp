@@ -92,6 +92,69 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
         {
             // Get the values of P.x
             Fr op_code = circuit.get_variable(op_wire[i]);
+            Fr op_code_next = circuit.get_variable(op_wire[i + 1]);
+            if (op_code != op_code_next) {
+                return report_fail("Mismatch of opcodes for the same UltraOp = ", i);
+            }
+
+            // Current accumulator (updated value)
+            const std::vector current_accumulator_binary_limbs = {
+                circuit.get_variable(accumulators_binary_limbs_0_wire[i]),
+                circuit.get_variable(accumulators_binary_limbs_1_wire[i]),
+                circuit.get_variable(accumulators_binary_limbs_2_wire[i]),
+                circuit.get_variable(accumulators_binary_limbs_3_wire[i]),
+            };
+
+            // Previous accumulator
+            const std::vector previous_accumulator_binary_limbs = {
+                circuit.get_variable(accumulators_binary_limbs_0_wire[i + 1]),
+                circuit.get_variable(accumulators_binary_limbs_1_wire[i + 1]),
+                circuit.get_variable(accumulators_binary_limbs_2_wire[i + 1]),
+                circuit.get_variable(accumulators_binary_limbs_3_wire[i + 1]),
+            };
+
+            if (op_code == 0) {
+                for (auto [curent_limb, previous_limb] :
+                     zip_view(current_accumulator_binary_limbs, previous_accumulator_binary_limbs)) {
+                    if (curent_limb != previous_limb) {
+                        return report_fail("No-op should not change the accumulator = ", i);
+                    }
+                }
+                // WORKTODO: check everything else is set to 0
+
+                size_t odd_gate_index = i + 1;
+                const std::vector current_accumulator_binary_limbs_copy = {
+                    circuit.get_variable(accumulators_binary_limbs_0_wire[odd_gate_index]),
+                    circuit.get_variable(accumulators_binary_limbs_1_wire[odd_gate_index]),
+                    circuit.get_variable(accumulators_binary_limbs_2_wire[odd_gate_index]),
+                    circuit.get_variable(accumulators_binary_limbs_3_wire[odd_gate_index]),
+                };
+                if (odd_gate_index < circuit.num_gates - 1) {
+                    size_t next_even_gate_index = i + 2;
+                    const std::vector current_accumulator_binary_limbs = {
+                        circuit.get_variable(accumulators_binary_limbs_0_wire[next_even_gate_index]),
+                        circuit.get_variable(accumulators_binary_limbs_1_wire[next_even_gate_index]),
+                        circuit.get_variable(accumulators_binary_limbs_2_wire[next_even_gate_index]),
+                        circuit.get_variable(accumulators_binary_limbs_3_wire[next_even_gate_index]),
+                    };
+
+                    for (size_t j = 0; j < current_accumulator_binary_limbs.size(); j++) {
+                        if (current_accumulator_binary_limbs_copy[j] != current_accumulator_binary_limbs[j]) {
+                            return report_fail("accumulator copy failed at row = ", odd_gate_index);
+                        }
+                    }
+                } else {
+                    // Check accumulator starts at zero
+                    for (const auto& limb : current_accumulator_binary_limbs_copy) {
+                        if (limb != Fr(0)) {
+                            return report_fail("accumulator doesn't start with 0 = ", odd_gate_index);
+                        }
+                    }
+                }
+
+                continue;
+            }
+
             Fr p_x_lo = circuit.get_variable(x_lo_y_hi_wire[i]);
             Fr p_x_hi = circuit.get_variable(x_hi_z_1_wire[i]);
             Fr p_x_0 = circuit.get_variable(p_x_0_p_x_1_wire[i]);
@@ -122,22 +185,6 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
             // Relation limbs
             Fr low_wide_relation_limb = circuit.get_variable(relation_wide_limbs_wire[i]);
             Fr high_wide_relation_limb = circuit.get_variable(relation_wide_limbs_wire[i + 1]);
-
-            // Current accumulator (updated value)
-            const std::vector current_accumulator_binary_limbs = {
-                circuit.get_variable(accumulators_binary_limbs_0_wire[i]),
-                circuit.get_variable(accumulators_binary_limbs_1_wire[i]),
-                circuit.get_variable(accumulators_binary_limbs_2_wire[i]),
-                circuit.get_variable(accumulators_binary_limbs_3_wire[i]),
-            };
-
-            // Previous accumulator
-            const std::vector previous_accumulator_binary_limbs = {
-                circuit.get_variable(accumulators_binary_limbs_0_wire[i + 1]),
-                circuit.get_variable(accumulators_binary_limbs_1_wire[i + 1]),
-                circuit.get_variable(accumulators_binary_limbs_2_wire[i + 1]),
-                circuit.get_variable(accumulators_binary_limbs_3_wire[i + 1]),
-            };
 
             // Quotient
             const std::vector quotient_binary_limbs = {
@@ -437,7 +484,6 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
         }
         {
             size_t odd_gate_index = i + 1;
-            // Check the accumulator is copied correctly
             const std::vector current_accumulator_binary_limbs_copy = {
                 circuit.get_variable(accumulators_binary_limbs_0_wire[odd_gate_index]),
                 circuit.get_variable(accumulators_binary_limbs_1_wire[odd_gate_index]),

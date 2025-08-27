@@ -405,7 +405,7 @@ void TranslatorCircuitBuilder::populate_wires_from_ultra_op(const UltraOp& ultra
     auto& op_wire = std::get<WireIds::OP>(wires);
     op_wire.push_back(add_variable(ultra_op.op_code.value()));
     // Similarly to the ColumnPolynomials in the merge protocol, the op_wire is 0 at every second index
-    op_wire.push_back(zero_idx);
+    op_wire.push_back(add_variable(ultra_op.op_code.value()));
 
     insert_pair_into_wire(WireIds::X_LOW_Y_HI, ultra_op.x_lo, ultra_op.y_hi);
 
@@ -528,19 +528,21 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     // add two zeros for consistency.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1360): We'll also have to eventually process random
     // data in the merge protocol (added for zero knowledge)/
-    populate_wires_from_ultra_op(ultra_ops[0]);
+    // populate_wires_from_ultra_op(ultra_ops[0]);
     for (auto& wire : wires) {
-        if (wire.empty()) {
-            wire.push_back(zero_idx);
-            wire.push_back(zero_idx);
-        }
+        wire.push_back(add_variable(zero_idx));
+        wire.push_back(add_variable(zero_idx));
     }
     num_gates += 2;
 
     // We need to precompute the accumulators at each step, because in the actual circuit we compute the values starting
     // from the later indices. We need to know the previous accumulator to create the gate
     for (size_t i = 1; i < ultra_ops.size(); i++) {
+
         const auto& ultra_op = ultra_ops[ultra_ops.size() - i];
+        if (ultra_op.op_code.value() == 0) {
+            continue;
+        }
         current_accumulator *= evaluation_input_x;
         const auto [x_256, y_256] = ultra_op.get_base_point_standard_form();
         current_accumulator +=
@@ -555,10 +557,29 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     // We don't care about the last value since we'll recompute it during witness generation anyway
     accumulator_trace.pop_back();
 
+    std::array<Fr, NUM_BINARY_LIMBS> previous_accumulator_binary_limbs;
     // Generate witness values from all the UltraOps
     for (size_t i = 1; i < ultra_ops.size(); i++) {
         const auto& ultra_op = ultra_ops[i];
-        Fq previous_accumulator = 0;
+        if (ultra_op.op_code.value() == 0) {
+            for (size_t j = 0; j < ACCUMULATORS_BINARY_LIMBS_0; j++) {
+                wires[j].push_back(add_variable(zero_idx));
+                wires[j].push_back(add_variable(zero_idx));
+            }
+            size_t idx = 0;
+            for (size_t j = ACCUMULATORS_BINARY_LIMBS_0; j < ACCUMULATORS_BINARY_LIMBS_3 + 1; j++) {
+                wires[j].push_back(add_variable(previous_accumulator_binary_limbs[idx]));
+                wires[j].push_back(add_variable(previous_accumulator_binary_limbs[idx]));
+                idx++;
+            }
+            for (size_t j = ACCUMULATORS_BINARY_LIMBS_3 + 1; j < TOTAL_COUNT; j++) {
+                wires[j].push_back(add_variable(zero_idx));
+                wires[j].push_back(add_variable(zero_idx));
+            }
+            num_gates += 2;
+            continue;
+        }
+        Fq previous_accumulator{ 0 };
         // Pop the last value from accumulator trace and use it as previous accumulator
         if (!accumulator_trace.empty()) {
             previous_accumulator = accumulator_trace.back();
@@ -567,7 +588,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         // Compute witness values
         AccumulationInput one_accumulation_step =
             generate_witness_values(ultra_op, previous_accumulator, batching_challenge_v, evaluation_input_x);
-
+        previous_accumulator_binary_limbs = one_accumulation_step.previous_accumulator;
         // And put them into the wires
         create_accumulation_gate(one_accumulation_step);
     }

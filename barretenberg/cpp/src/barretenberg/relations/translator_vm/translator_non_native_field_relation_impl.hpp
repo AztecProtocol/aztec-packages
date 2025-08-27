@@ -183,7 +183,7 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
     // clang-format on
     // subtract large value; vanishing shows the desired relation holds on low 136-bit limb
     tmp -= relation_wide_limbs * shiftx2;
-    tmp *= lagrange_even_in_minicircuit;
+    tmp *= lagrange_even_in_minicircuit * op;
     tmp *= scaling_factor;
     std::get<0>(accumulators) += tmp;
 
@@ -236,7 +236,7 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
     // clang-format on
     // subtract large value; vanishing shows the desired relation holds on high 136-bit limb
     tmp -= relation_wide_limbs_shift * shiftx2;
-    tmp *= lagrange_even_in_minicircuit;
+    tmp *= lagrange_even_in_minicircuit * op;
     tmp *= scaling_factor;
     std::get<1>(accumulators) += tmp;
 
@@ -278,7 +278,7 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
                      + reconstructed_quotient * NEGATIVE_MODULUS_LIMBS[4]
                      - reconstructed_current_accumulator;
     // clang-format on
-    tmp *= lagrange_even_in_minicircuit;
+    tmp *= lagrange_even_in_minicircuit * op;
     tmp *= scaling_factor;
     std::get<2>(accumulators) += tmp;
 };

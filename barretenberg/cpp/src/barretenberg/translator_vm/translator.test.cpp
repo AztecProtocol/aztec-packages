@@ -1,5 +1,6 @@
 #include "barretenberg/circuit_checker/translator_circuit_checker.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/honk/relation_checker.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
@@ -37,10 +38,20 @@ class TranslatorTests : public ::testing::Test {
         auto op_queue = std::make_shared<bb::ECCOpQueue>();
         op_queue->no_op_ultra_only();
 
-        for (size_t i = 0; i < circuit_size_parameter; i++) {
+        for (size_t i = 0; i < circuit_size_parameter / 2; i++) {
             op_queue->add_accumulate(P1);
             op_queue->mul_accumulate(P2, z);
         }
+        op_queue->eq_and_reset();
+        op_queue->no_op_ultra_only();
+        op_queue->no_op_ultra_only();
+        op_queue->no_op_ultra_only();
+        op_queue->no_op_ultra_only();
+        for (size_t i = 0; i < circuit_size_parameter / 2; i++) {
+            op_queue->add_accumulate(P1);
+            op_queue->mul_accumulate(P2, z);
+        }
+
         op_queue->merge();
 
         return CircuitBuilder{ batching_challenge_v, evaluation_challenge_x, op_queue };
@@ -91,9 +102,12 @@ TEST_F(TranslatorTests, Basic)
 
     EXPECT_TRUE(TranslatorCircuitChecker::check(circuit_builder));
     auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
+
     TranslatorProver prover{ proving_key, prover_transcript };
     auto proof = prover.construct_proof();
 
+    // RelationChecker<TranslatorFlavor>::check<TranslatorOpcodeConstraintRelation<TranslatorFlavor::FF>>(
+    //     proving_key->proving_key->polynomials, prover.relation_parameters, "TranslatorOpcodeConstraintRelation");
     auto verifier_transcript = std::make_shared<Transcript>();
     verifier_transcript->load_proof(initial_transcript);
     verifier_transcript->template receive_from_prover<Fq>("init");

@@ -168,8 +168,8 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wir
     op_tuple.z_2 = this->add_variable(ultra_op.z_2);
 
     // Set the indices for the op values for each of the two rows
-    uint32_t op_val_idx_1 = op_tuple.op;    // genuine op code value
-    uint32_t op_val_idx_2 = this->zero_idx; // second row value always set to 0
+    uint32_t op_val_idx_1 = op_tuple.op; // genuine op code value
+    uint32_t op_val_idx_2 = op_tuple.op; // second row value always set to 0
     // If this is a random operation, the op values are randomized
     if (ultra_op.op_code.is_random_op) {
         op_val_idx_1 = this->add_variable(ultra_op.op_code.random_value_1);

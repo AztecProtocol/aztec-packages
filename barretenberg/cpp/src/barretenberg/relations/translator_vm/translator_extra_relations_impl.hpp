@@ -33,18 +33,69 @@ void TranslatorOpcodeConstraintRelationImpl<FF>::accumulate(ContainerOverSubrela
 
     auto op = View(in.op);
     auto lagrange_mini_masking = View(in.lagrange_mini_masking);
+    auto lagrange_even_in_minicircuit = View(in.lagrange_even_in_minicircuit);
     static const FF minus_three = FF(-3);
     static const FF minus_four = FF(-4);
     static const FF minus_eight = FF(-8);
     static const FF minus_one = FF(-1);
+
+    auto accumulators_binary_limbs_0 = View(in.accumulators_binary_limbs_0);
+    auto accumulators_binary_limbs_1 = View(in.accumulators_binary_limbs_1);
+    auto accumulators_binary_limbs_2 = View(in.accumulators_binary_limbs_2);
+    auto accumulators_binary_limbs_3 = View(in.accumulators_binary_limbs_3);
+    auto accumulators_binary_limbs_0_shift = View(in.accumulators_binary_limbs_0_shift);
+    auto accumulators_binary_limbs_1_shift = View(in.accumulators_binary_limbs_1_shift);
+    auto accumulators_binary_limbs_2_shift = View(in.accumulators_binary_limbs_2_shift);
+    auto accumulators_binary_limbs_3_shift = View(in.accumulators_binary_limbs_3_shift);
 
     // Contribution (1) op(op-3)(op-4)(op-8))
     auto tmp_1 = op * (op + minus_three);
     tmp_1 *= (op + minus_four);
     tmp_1 *= (op + minus_eight);
     tmp_1 *= (lagrange_mini_masking + minus_one);
+    tmp_1 *= lagrange_even_in_minicircuit;
     tmp_1 *= scaling_factor;
     std::get<0>(accumulators) += tmp_1;
+
+    // Contribution (2) (2-5 ensure that the accumulator stays the same at even indices)
+    auto tmp_2 = (accumulators_binary_limbs_0 - accumulators_binary_limbs_0_shift);
+    tmp_2 *= (op + minus_three);
+    tmp_2 *= (op + minus_four);
+    tmp_2 *= (op + minus_eight);
+    tmp_2 *= (lagrange_mini_masking + minus_one);
+    tmp_2 *= lagrange_even_in_minicircuit;
+    tmp_2 *= scaling_factor;
+    std::get<1>(accumulators) += tmp_2;
+
+    // Contribution (3)
+    auto tmp_3 = (accumulators_binary_limbs_1 - accumulators_binary_limbs_1_shift);
+    tmp_3 *= (op + minus_three);
+    tmp_3 *= (op + minus_four);
+    tmp_3 *= (op + minus_eight);
+    tmp_3 *= (lagrange_mini_masking + minus_one);
+    tmp_3 *= lagrange_even_in_minicircuit;
+    tmp_3 *= scaling_factor;
+    std::get<2>(accumulators) += tmp_3;
+
+    // Contribution (4)
+    auto tmp_4 = (accumulators_binary_limbs_2 - accumulators_binary_limbs_2_shift);
+    tmp_4 *= (op + minus_three);
+    tmp_4 *= (op + minus_four);
+    tmp_4 *= (op + minus_eight);
+    tmp_4 *= (lagrange_mini_masking + minus_one);
+    tmp_4 *= lagrange_even_in_minicircuit;
+    tmp_4 *= scaling_factor;
+    std::get<3>(accumulators) += tmp_4;
+
+    // Contribution (5)
+    auto tmp_5 = (accumulators_binary_limbs_3 - accumulators_binary_limbs_3_shift);
+    tmp_5 *= (op + minus_three);
+    tmp_5 *= (op + minus_four);
+    tmp_5 *= (op + minus_eight);
+    tmp_5 *= (lagrange_mini_masking + minus_one);
+    tmp_5 *= lagrange_even_in_minicircuit;
+    tmp_5 *= scaling_factor;
+    std::get<4>(accumulators) += tmp_5;
 };
 
 /**
