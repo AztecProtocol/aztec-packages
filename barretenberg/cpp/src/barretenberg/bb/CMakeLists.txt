@@ -1,28 +1,23 @@
-# Used also by bb_cli_bench
-barretenberg_module(
-    bb-cli-lib
-    barretenberg
-    env
-    api
-    circuit_checker
-    ${TRACY_LIBS}
-    libdeflate::libdeflate_static)
-
-if(NOT DISABLE_AZTEC_VM)
-    add_dependencies(bb-cli-lib vm2)
-endif()
-
 if (NOT(FUZZING))
     add_executable(
         bb
         main.cpp
+        cli.cpp
     )
     target_link_libraries(
         bb
         PRIVATE
-        bb-cli-lib
+        barretenberg
+        env
+        api
+        circuit_checker
+        ${TRACY_LIBS}
+        libdeflate::libdeflate_static
         tracy_mem
     )
+    if(NOT DISABLE_AZTEC_VM)
+        add_dependencies(bb vm2)
+    endif()
     if(CHECK_CIRCUIT_STACKTRACES OR ENABLE_STACKTRACES)
         target_link_libraries(
             bb
