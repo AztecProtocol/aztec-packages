@@ -61,10 +61,6 @@ pub fn unpack_delay_change<let INITIAL_DELAY: u64>(
     ScheduledDelayChange::unpack([packed])
 }
 
-// TODO: check whether this evaluates at comptime or runtime.
-// global TWO_POW_32: Field = 2.pow_32(32);
-// global TWO_POW_8: Field = 2.pow_32(8);
-
 // We pack to `2 * N + 1` fields because ScheduledValueChange contains T twice (hence `2 * N`) and we need one extra
 // field to store ScheduledDelayChange and the timestamp_of_change of ScheduledValueChange.
 impl<T, let INITIAL_DELAY: u64> Packable for DelayedPublicMutableValues<T, INITIAL_DELAY>
