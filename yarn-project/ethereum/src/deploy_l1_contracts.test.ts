@@ -29,8 +29,8 @@ describe('deploy_l1_contracts', () => {
   // LOG_LEVEL=verbose L1_RPC_URL=http://localhost:8545 L1_CHAIN_ID=1337 yarn test deploy_l1_contracts
   const chainId = process.env.L1_CHAIN_ID ? parseInt(process.env.L1_CHAIN_ID, 10) : 31337;
   let rpcUrl = process.env.L1_RPC_URL;
-  let stop: () => Promise<void> = () => Promise.resolve();
   let client: ExtendedViemWalletClient;
+  let stop: () => Promise<void> = () => Promise.resolve();
 
   beforeAll(async () => {
     logger = createLogger('ethereum:test:deploy_l1_contracts');
@@ -134,18 +134,19 @@ describe('deploy_l1_contracts', () => {
   });
 
   it('deploys and adds 48 initialValidators', async () => {
+    // Adds 48 validators.
+    // Note, that not all 48 validators is necessarily added in the active set, some might be in the entry queue
+
     const initialValidators = times(48, () => {
       const addr = EthAddress.random();
       const bn254SecretKey = new SecretValue(Fr.random().toBigInt());
       return { attester: addr, withdrawer: addr, bn254SecretKey };
     });
+    const info = await deploy({ initialValidators, aztecTargetCommitteeSize: initialValidators.length });
+    const rollup = new RollupContract(client, info.l1ContractAddresses.rollupAddress);
 
-    const deployment = await deploy({ initialValidators, aztecTargetCommitteeSize: initialValidators.length });
-    const rollup = new RollupContract(client, deployment.l1ContractAddresses.rollupAddress);
-
-    expect(await rollup.getActiveAttesterCount()).toEqual(BigInt(initialValidators.length));
-    expect((await rollup.getAttesters()).map(a => a.toLowerCase()).sort()).toEqual(
-      initialValidators.map(({ attester }) => attester.toString().toLowerCase()).sort(),
+    expect((await rollup.getActiveAttesterCount()) + (await rollup.getEntryQueueLength())).toEqual(
+      BigInt(initialValidators.length),
     );
   });
 });

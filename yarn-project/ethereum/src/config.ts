@@ -187,15 +187,17 @@ export const getRewardBoostConfig = (networkName: NetworkNames) => {
 const LocalEntryQueueConfig = {
   bootstrapValidatorSetSize: 0n,
   bootstrapFlushSize: 0n,
-  normalFlushSizeMin: 48n,
+  normalFlushSizeMin: 48n, // will effectively be bounded by maxQueueFlushSize
   normalFlushSizeQuotient: 2n,
+  maxQueueFlushSize: 48n,
 };
 
 const TestnetEntryQueueConfig = {
   bootstrapValidatorSetSize: 750n,
-  bootstrapFlushSize: 75n,
+  bootstrapFlushSize: 75n, // will effectively be bounded by maxQueueFlushSize
   normalFlushSizeMin: 1n,
   normalFlushSizeQuotient: 2475n,
+  maxQueueFlushSize: 32n, // Limited to 32 so flush cost are kept below 15M gas.
 };
 
 export const getEntryQueueConfig = (networkName: NetworkNames) => {
