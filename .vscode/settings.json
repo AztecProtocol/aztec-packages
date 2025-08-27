@@ -174,7 +174,7 @@
   // Clangd. Note that this setting may be overridden by user settings
   // to the default value "clangd".
   //
-  // "clangd.path": "clangd-20",
+  "clangd.path": "clangd-20",
   //
   // C/C++ (should be disabled)
   //
