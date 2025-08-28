@@ -13,7 +13,9 @@ namespace execution;
     // When we encounter this case, the internal call information is reset on the next row (i.e. internal_call_id = 1, return_id = 0 and next_internal_call_id = 2)
     pol RESET_NEXT_CALL_ID =  sel_enter_call + enqueued_call_start';
 
-    // sel_exit_call includes the error case, so we gate sel_execute_internal_call and sel_execute_internal_return by (1 - sel_error). This makes them all mututally exclusive.
+    // sel_exit_call includes external exit cases (revert, return, any execution error).
+    // sel_execute_internal_return could be 1 and sel_opcode_error could be 1 at the same time (which would set sel_error=1 and sel_exit_call=1),
+    // so we need to gate them by (1 - sel_error) here. We gate both of them out of excessive caution.
     // When we encounter this case, the internal call information in the next row is constrained to change (incremented, unwound, etc)
     pol NEW_NEXT_CALL_ID = (sel_execute_internal_call + sel_execute_internal_return) * (1 - sel_error) + sel_exit_call;
 
