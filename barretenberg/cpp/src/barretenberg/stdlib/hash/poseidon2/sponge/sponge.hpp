@@ -48,8 +48,8 @@ template <typename Builder> class FieldSponge {
     size_t cache_size = 0;
     Builder* builder;
 
-    FieldSponge(Builder& builder_, size_t in_len)
-        : builder(&builder_)
+    FieldSponge(Builder* builder_, size_t in_len)
+        : builder(builder_)
     {
 
         field_t iv(static_cast<uint256_t>(in_len) << 64);
@@ -103,8 +103,10 @@ template <typename Builder> class FieldSponge {
      * @return std::array<field_t, out_len>
      */
 
-    static field_t hash_internal(Builder& builder, std::span<const field_t> input)
+    static field_t hash_internal(std::span<const field_t> input)
     {
+        Builder* builder = validate_context<Builder>(input);
+
         const size_t in_len = input.size();
         FieldSponge sponge(builder, in_len);
 
@@ -117,12 +119,8 @@ template <typename Builder> class FieldSponge {
 
         // The final state consists of 4 elements, we only take the first element, which means that the remaining
         // 3 witnesses are only used in a single gate.
-        if constexpr (IsUltraBuilder<Builder>) {
-            for (const auto& elem : sponge.state) {
-                if (!elem.is_constant()) {
-                    builder.update_used_witnesses(elem.witness_index);
-                }
-            }
+        for (const auto& elem : sponge.state) {
+            builder->update_used_witnesses(elem.witness_index);
         }
         return output;
     }

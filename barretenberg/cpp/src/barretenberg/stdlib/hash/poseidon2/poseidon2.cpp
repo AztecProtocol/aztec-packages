@@ -13,13 +13,13 @@ using namespace bb;
 /**
  * @brief Hash a vector of field_ct.
  */
-template <typename C> field_t<C> poseidon2<C>::hash(C& builder, const std::vector<field_ct>& inputs)
+template <typename C> field_t<C> poseidon2<C>::hash(const std::vector<field_ct>& inputs)
 {
 
     /* Run the sponge by absorbing all the input and squeezing one output.
      *
      */
-    return Sponge::hash_internal(builder, inputs);
+    return Sponge::hash_internal(inputs);
 }
 
 template class poseidon2<bb::MegaCircuitBuilder>;

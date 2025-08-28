@@ -31,7 +31,7 @@ template <typename Builder> class poseidon2 {
     using Sponge = FieldSponge<Builder>;
 
   public:
-    static field_ct hash(Builder& builder, const std::vector<field_ct>& in);
+    static field_ct hash(const std::vector<field_ct>& in);
 };
 
 } // namespace bb::stdlib

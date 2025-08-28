@@ -33,9 +33,15 @@ B_j = (a_{3j},, a_{3j+1},, a_{3j+2}) \quad\text{(pad missing entries with  0)},\
 m = \left\lceil \frac{N}{3}\right\rceil .
 \f]
 
-Initialize the state (with domain-separation IV):
+**Remark:** In Poseidon paper, the padding scheme for variable input length hashing suggests padding with \f$ 10^\ast\f$.
+
+"Domain Separation for Poseidon" section (see 4.2 in [Poseidon](https://eprint.iacr.org/2019/458.pdf)) suggests using domain separation IV defined as follows
 \f[
-\mathbf{s}^{(0)} = (0,0,0,\mathrm{IV}), \qquad \mathrm{IV} = (\texttt{input_length} \ll 64).
+    \mathrm{IV} = (\texttt{input_length}^{64})
+\f]
+Initialize the state:
+\f[
+    \mathbf{s}^{(0)} = (0,0,0,\mathrm{IV}).
 \f]
 
 Note that we initialize \f$ \mathrm{IV} \f$ as a fixed witness. It ensures that the first invocation of the Poseidon2 permutation leads to a state where all entries are **normalized** witnesses, i.e. they have `multiplicative_constant` equal 1, and `additive_constant` equal 0.
@@ -75,7 +81,7 @@ Each permutation consists of:
 
 Note that in general, step 1 requires 6 arithmetic gates, the steps 2-4 create total number of rounds + 3 gates. Hence a single invocation of Poseidon2 Permutation results in 73 gates.
 ### External Matrix
-
+As proposed in Section 5.1 of [Poseidon2 paper](https://eprint.iacr.org/2023/323.pdf), we set
 \f[
 M_E =
     \begin{bmatrix}

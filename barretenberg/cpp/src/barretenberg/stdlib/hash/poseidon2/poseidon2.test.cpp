@@ -14,7 +14,7 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
     using _curve = stdlib::bn254<Builder>;
 
     using byte_array_ct = typename _curve::byte_array_ct;
-    using fr_ct = typename _curve::ScalarField;
+    using field_ct = typename _curve::ScalarField;
     using witness_ct = typename _curve::witness_ct;
     using public_witness_ct = typename _curve::public_witness_ct;
     using poseidon2 = typename stdlib::poseidon2<Builder>;
@@ -42,7 +42,7 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
         }
         size_t num_gates_start = builder.get_estimated_num_finalized_gates();
 
-        auto result = stdlib::poseidon2<Builder>::hash(builder, inputs);
+        auto result = stdlib::poseidon2<Builder>::hash(inputs);
         auto expected = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(inputs_native);
         if (num_inputs == 1) {
             EXPECT_EQ(73, builder.get_estimated_num_finalized_gates() - num_gates_start);
@@ -66,12 +66,12 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
         fr left_in = fr::random_element();
         fr right_in = fr::random_element();
 
-        fr_ct left = witness_ct(&builder, left_in);
-        fr_ct right = witness_ct(&builder, right_in);
+        field_ct left = witness_ct(&builder, left_in);
+        field_ct right = witness_ct(&builder, right_in);
 
         // num_inputs - 1 iterations since the first hash hashes two elements
         for (size_t i = 0; i < num_inputs - 1; ++i) {
-            left = poseidon2::hash(builder, { left, right });
+            left = poseidon2::hash({ left, right });
         }
 
         builder.set_public_input(left.witness_index);
@@ -96,7 +96,7 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
         }
 
         fr expected = native_poseidon2::hash(inputs);
-        auto result = poseidon2::hash(builder, witness_inputs);
+        auto result = poseidon2::hash(witness_inputs);
 
         EXPECT_EQ(result.get_value(), expected);
     }
@@ -106,20 +106,43 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
         Builder builder;
 
         std::vector<fr> inputs;
-        std::vector<stdlib::field_t<Builder>> witness_inputs;
+        std::vector<field_ct> witness_inputs;
 
         for (size_t i = 0; i < 8; ++i) {
             inputs.push_back(bb::fr::random_element());
             if (i % 2 == 1) {
                 witness_inputs.push_back(witness_ct(&builder, inputs[i]));
             } else {
-                witness_inputs.push_back(fr_ct(&builder, inputs[i]));
+                witness_inputs.push_back(field_ct(&builder, inputs[i]));
             }
         }
 
         native_poseidon2::hash(inputs);
-        EXPECT_THROW_OR_ABORT(poseidon2::hash(builder, witness_inputs),
-                              ".*Sponge inputs should not be stdlib constants.*");
+        EXPECT_THROW_OR_ABORT(poseidon2::hash(witness_inputs), ".*Sponge inputs should not be stdlib constants.*");
+    }
+
+    static void test_padding_collisions()
+    {
+        Builder builder;
+
+        const field_ct random_input(witness_ct(&builder, fr::random_element()));
+        const field_ct zero(witness_ct(&builder, 0));
+
+        std::vector<field_ct> witness_inputs_len_1{ random_input };
+        std::vector<field_ct> witness_inputs_len_2{ random_input, zero };
+        std::vector<field_ct> witness_inputs_len_3{ random_input, zero, zero };
+        std::vector<std::vector<field_ct>> inputs{ witness_inputs_len_1, witness_inputs_len_2, witness_inputs_len_3 };
+
+        std::vector<fr> hashes(3);
+
+        for (size_t idx = 0; idx < 3; idx++) {
+            hashes[idx] = poseidon2::hash(inputs[idx]).get_value();
+        }
+
+        // The domain separation IV depends on the input size, therefore, the hashes must not coincide.
+        EXPECT_NE(hashes[1], hashes[2]);
+        EXPECT_NE(hashes[2], hashes[3]);
+        EXPECT_NE(hashes[1], hashes[3]);
     }
 };
 
@@ -161,4 +184,8 @@ TYPED_TEST(StdlibPoseidon2, TestHashRepeatedPairs)
 TYPED_TEST(StdlibPoseidon2, TestHashConstants)
 {
     TestFixture::test_hash_constants();
+};
+TYPED_TEST(StdlibPoseidon2, TestHashPadding)
+{
+    TestFixture::test_padding_collisions();
 };
