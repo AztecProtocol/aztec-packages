@@ -7,17 +7,16 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/data_copy_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/testing/fakes/fake_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 
 namespace bb::avm2::simulation {
 namespace {
 
-using ::testing::_;
 using ::testing::ElementsAre;
-using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::StrictMock;
@@ -32,17 +31,14 @@ class DataCopySimulationTest : public ::testing::Test {
         EXPECT_CALL(context, get_memory());
         EXPECT_CALL(execution_id_manager, get_execution_id());
         EXPECT_CALL(context, get_context_id());
-
-        // Range check calls
-        EXPECT_CALL(range_check, assert_range(_, 32)).Times(4); // we expect to do 4 range checks during a data copy
     }
 
     MemoryStore mem;
     StrictMock<MockExecutionIdManager> execution_id_manager;
-    StrictMock<MockRangeCheck> range_check;
+    FakeGreaterThan gt;
     StrictMock<MockContext> context;
     EventEmitter<DataCopyEvent> event_emitter;
-    DataCopy data_copy = DataCopy(execution_id_manager, range_check, event_emitter);
+    DataCopy data_copy = DataCopy(execution_id_manager, gt, event_emitter);
 
     uint32_t dst_addr = 0; // Destination address in memory for the copied returndata.
 };
@@ -55,10 +51,10 @@ class NestedCdCopySimulationTest : public DataCopySimulationTest {
         for (uint32_t i = 0; i < parent_cd_size; ++i) {
             mem.set(parent_cd_addr + i, MemoryValue::from(calldata[i]));
         }
-        EXPECT_CALL(context, get_parent_cd_addr()).Times(2);
+        EXPECT_CALL(context, get_parent_cd_addr()).WillRepeatedly(Return(parent_cd_addr));
         EXPECT_CALL(context, get_parent_cd_size()).WillRepeatedly(Return(parent_cd_size));
         EXPECT_CALL(context, get_parent_id());
-        EXPECT_CALL(context, has_parent()).Times(2).WillRepeatedly(Return(true));
+        EXPECT_CALL(context, has_parent()).WillRepeatedly(Return(true));
     }
 
     std::vector<FF> calldata = { 1, 2, 3, 4, 5, 6, 7, 8 };
@@ -165,14 +161,16 @@ class RdCopySimulationTest : public DataCopySimulationTest {
     RdCopySimulationTest()
     {
         // Set up the parent context address
-        EXPECT_CALL(context, get_last_rd_addr()).Times(2);
-        EXPECT_CALL(context, get_last_rd_size()).WillRepeatedly(Return(parent_rd_size));
+        EXPECT_CALL(context, get_last_rd_addr()).WillRepeatedly(Return(child_rd_addr));
+        EXPECT_CALL(context, get_last_rd_size()).WillRepeatedly(Return(child_rd_size));
+        EXPECT_CALL(context, get_last_child_id()).WillRepeatedly(Return(child_context_id));
         EXPECT_CALL(context, has_parent()).WillRepeatedly(Return(true));
         EXPECT_CALL(context, get_last_child_id()).WillRepeatedly(Return(2));
     }
     std::vector<FF> returndata = { 9, 10, 11, 12 }; // Example returndata to be copied.
-    uint32_t parent_rd_size = static_cast<uint32_t>(returndata.size());
-    uint32_t parent_rd_addr = 200; // Address where the parent returndata is stored.
+    uint32_t child_rd_size = static_cast<uint32_t>(returndata.size());
+    uint32_t child_rd_addr = 200; // Address where the parent returndata is stored.
+    uint32_t child_context_id = 2;
 };
 
 TEST_F(RdCopySimulationTest, RdZero)
