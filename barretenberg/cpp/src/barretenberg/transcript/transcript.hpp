@@ -743,7 +743,8 @@ template <typename TranscriptParams> class BaseTranscript {
         BaseTranscript branched_transcript;
 
         // Need to fetch_sub because the constructor automatically increases unique_transcript_index by 1
-        branched_transcript.transcript_index = unique_transcript_index.fetch_sub(1);
+        unique_transcript_index.fetch_sub(1);
+        branched_transcript.transcript_index = transcript_index;
         branched_transcript.round_index = round_index;
         branched_transcript.add_to_hash_buffer("init", previous_challenge);
         round_index += BRANCHING_JUMP;
