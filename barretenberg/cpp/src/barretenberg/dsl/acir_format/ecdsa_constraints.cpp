@@ -20,11 +20,11 @@ using namespace bb;
  * @details Given and ECDSA constraint system, add to the builder constraints that verify the ECDSA signature. We
  * perform the following operations:
  *  1. Reconstruct byte arrays from builder variables (we enforce that each variable fits in one byte and stack them in
- *     a vector) and boolean result from the corresponding builder variable
+ *     a vector) and the boolean result from the corresponding builder variable
  *  2. Reconstruct the public key from the byte representations (big-endian, 32-byte numbers) of the \f$x\f$ and \f$y\f$
  *     coordinates.
  *  3. Enforce uniquess of the representation of the public key by asserting \f$x < q\f$ and \f$y < q\f$, where \f$q\f$
- * is the modulus of the base field of the elliptic curve we are working with
+ *     is the modulus of the base field of the elliptic curve we are working with.
  *  4. Verify the signature against the public key and the hash of the message. We return a bool_t bearing witness to
  *     whether the signature verification was successfull or not.
  *  5. Enforce that the result of the signature verification matches the expected result.

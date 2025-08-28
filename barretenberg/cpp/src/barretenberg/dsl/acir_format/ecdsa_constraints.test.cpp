@@ -22,6 +22,10 @@ template <class Curve> class EcdsaConstraintsTest : public ::testing::Test {
     using G1Native = Curve::g1;
     using Flavor = std::conditional_t<std::is_same_v<Builder, UltraCircuitBuilder>, UltraFlavor, MegaFlavor>;
 
+    // Reproducible test
+    static constexpr FrNative private_key =
+        FrNative("0xd67abee717b3fc725adf59e2cc8cd916435c348b277dd814a34e3ceb279436c2");
+
     static size_t generate_ecdsa_constraint(EcdsaConstraint& ecdsa_constraint, WitnessVector& witness_values)
     {
         std::string message_string = "Instructions unclear, ask again later.";
@@ -32,7 +36,7 @@ template <class Curve> class EcdsaConstraintsTest : public ::testing::Test {
 
         // Generate ECDSA key pair
         ecdsa_key_pair<FrNative, G1Native> account;
-        account.private_key = FrNative::random_element();
+        account.private_key = private_key;
         account.public_key = G1Native::one * account.private_key;
 
         // Generate signature

@@ -17,7 +17,7 @@ using namespace bb;
 /**
  * @brief ECDSA constraints
  *
- * @details ECDSA constraints are composed of five arrays:
+ * @details ECDSA constraints have five components:
  *  1. `hashed_message`, an array of length 32 representing the witness indices of the byte representation of the hash
  *     of the message for which the signature must be verified
  *  2. `signature`, an array of length 64 representing the witness indices of the signature \f$(r, s)\f$ which must be
