@@ -513,9 +513,9 @@ sel_op_truncate * (1 - sel_op_truncate) = 0;
 // Note that we enforce the output tag through this dispatching lookup by having ia_tag matching both mem_tag_reg[1] and rop[2].
 #[EXEC_DISPATCHING_CAST]
 execution.sel_execute_cast {
-    execution.register[0], execution.rop[2], execution.subtrace_operation_id, execution.register[1], execution.mem_tag_reg[1]
+    execution.register[0], execution.rop[2], execution.subtrace_operation_id, execution.register[1], execution.mem_tag_reg[1], execution.sel_opcode_error
 } in sel_op_truncate {
-    ia, ia_tag, op_id, ic, ia_tag
+    ia, ia_tag, op_id, ic, ia_tag, /*sel_opcode_error=*/ precomputed.zero
 };
 
 // SET DISPATCHING
@@ -534,9 +534,9 @@ execution.sel_execute_cast {
 // Note that we enforce the output tag through this dispatching lookup by having ia_tag matching both mem_tag_reg[0] and rop[1].
 #[EXEC_DISPATCHING_SET]
 execution.sel_execute_set {
-    execution.rop[2], execution.rop[1], execution.subtrace_operation_id, execution.register[0], execution.mem_tag_reg[0]
+    execution.rop[2], execution.rop[1], execution.subtrace_operation_id, execution.register[0], execution.mem_tag_reg[0], execution.sel_opcode_error
 } in sel_op_truncate {
-    ia, ia_tag, op_id, ic, ic_tag
+    ia, ia_tag, op_id, ic, ic_tag, /*sel_opcode_error=*/ precomputed.zero
 };
 
 // 3 cases for truncation:
