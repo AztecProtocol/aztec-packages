@@ -528,7 +528,6 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     // add two zeros for consistency.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1360): We'll also have to eventually process random
     // data in the merge protocol (added for zero knowledge)/
-    // populate_wires_from_ultra_op(ultra_ops[0]);
     for (auto& wire : wires) {
         wire.push_back(add_variable(zero_idx));
         wire.push_back(add_variable(zero_idx));
@@ -541,6 +540,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
 
         const auto& ultra_op = ultra_ops[ultra_ops.size() - i];
         if (ultra_op.op_code.value() == 0) {
+            //  Skip  no-ops as
             continue;
         }
         current_accumulator *= evaluation_input_x;
