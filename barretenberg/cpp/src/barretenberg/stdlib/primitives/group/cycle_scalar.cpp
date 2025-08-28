@@ -265,8 +265,6 @@ template <typename Builder> bool cycle_scalar<Builder>::is_constant() const
  */
 template <typename Builder> void cycle_scalar<Builder>::validate_scalar_is_in_field() const
 {
-    // AUDITTODO: This uses IS_ULTRA which was available in the parent cycle_group class context
-    // Need to check if this should be Builder::CIRCUIT_TYPE == CircuitType::ULTRA
     using FF = typename field_t::native;
     constexpr bool IS_ULTRA = Builder::CIRCUIT_TYPE == CircuitType::ULTRA;
 

@@ -63,8 +63,6 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
     , _context(context)
     , tag(OriginTag(base_point.get_origin_tag(), offset_generator.get_origin_tag()))
 {
-    // AUDITTODO: This uses IS_ULTRA which was available in the parent cycle_group class context
-    // Need to check if this should be Builder::CIRCUIT_TYPE == CircuitType::ULTRA
     constexpr bool IS_ULTRA = Builder::CIRCUIT_TYPE == CircuitType::ULTRA;
 
     const size_t table_size = 1UL << table_bits;
@@ -147,8 +145,6 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
  */
 template <typename Builder> cycle_group<Builder> straus_lookup_table<Builder>::read(const field_t& _index)
 {
-    // AUDITTODO: This uses IS_ULTRA which was available in the parent cycle_group class context
-    // Need to check if this should be Builder::CIRCUIT_TYPE == CircuitType::ULTRA
     constexpr bool IS_ULTRA = Builder::CIRCUIT_TYPE == CircuitType::ULTRA;
 
     if constexpr (IS_ULTRA) {

@@ -14,6 +14,7 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_scalar.hpp"
 #include "barretenberg/stdlib/primitives/group/straus_lookup_table.hpp"
+#include "barretenberg/stdlib/primitives/group/straus_scalar_slice.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base_params.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 #include <optional>
@@ -59,19 +60,7 @@ template <typename Builder> class cycle_group {
 
     using cycle_scalar = ::bb::stdlib::cycle_scalar<Builder>;
     using straus_lookup_table = ::bb::stdlib::straus_lookup_table<Builder>;
-
-    /**
-     * @brief straus_scalar_slice decomposes an input scalar into `table_bits` bit-slices.
-     * Used in `batch_mul`, which ses the Straus multiscalar multiplication algorithm.
-     *
-     */
-    struct straus_scalar_slice {
-        straus_scalar_slice(Builder* context, const cycle_scalar& scalars, size_t table_bits);
-        std::optional<field_t> read(size_t index);
-        size_t _table_bits;
-        std::vector<field_t> slices;
-        std::vector<uint64_t> slices_native;
-    };
+    using straus_scalar_slice = ::bb::stdlib::straus_scalar_slice<Builder>;
 
   private:
     /**
