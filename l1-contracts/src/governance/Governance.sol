@@ -7,11 +7,17 @@ import {
   Proposal,
   ProposalState,
   Configuration,
-  Ballot,
+  ProposeConfiguration,
   Withdrawal
 } from "@aztec/governance/interfaces/IGovernance.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {Checkpoints, CheckpointedUintLib} from "@aztec/governance/libraries/CheckpointedUintLib.sol";
+import {Ballot, CompressedBallot, BallotLib} from "@aztec/governance/libraries/compressed-data/Ballot.sol";
+import {
+  CompressedConfiguration,
+  CompressedConfigurationLib
+} from "@aztec/governance/libraries/compressed-data/Configuration.sol";
+import {CompressedProposal, CompressedProposalLib} from "@aztec/governance/libraries/compressed-data/Proposal.sol";
 import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {ProposalLib, VoteTabulationReturn} from "@aztec/governance/libraries/ProposalLib.sol";
@@ -129,9 +135,13 @@ struct DepositControl {
  */
 contract Governance is IGovernance {
   using SafeERC20 for IERC20;
-  using ProposalLib for Proposal;
+  using ProposalLib for CompressedProposal;
   using CheckpointedUintLib for Checkpoints.Trace224;
   using ConfigurationLib for Configuration;
+  using ConfigurationLib for CompressedConfiguration;
+  using CompressedConfigurationLib for CompressedConfiguration;
+  using CompressedProposalLib for CompressedProposal;
+  using BallotLib for CompressedBallot;
 
   IERC20 public immutable ASSET;
 
@@ -155,15 +165,16 @@ contract Governance is IGovernance {
    * New proposals are created by calling `_propose`, via `propose` or `proposeWithLock`.
    * The storage of a proposal may be modified by calling `vote`, `execute`, or `dropProposal`.
    */
-  mapping(uint256 proposalId => Proposal proposal) internal proposals;
+  mapping(uint256 proposalId => CompressedProposal proposal) internal proposals;
 
   /**
    * @dev The ballots that have been cast for each proposal.
    *
-   * `Ballot`s contain a `yea` and `nay` count, which are the number of votes for and against the proposal.
+   * `CompressedBallot`s contain a compressed `yea` and `nay` count (uint128 each packed into uint256),
+   * which are the number of votes for and against the proposal.
    * `ballots` is only updated during `vote`.
    */
-  mapping(uint256 proposalId => mapping(address user => Ballot ballot)) public ballots;
+  mapping(uint256 proposalId => mapping(address user => CompressedBallot ballot)) internal ballots;
 
   /**
    * @dev Checkpointed deposit amounts for an address.
@@ -175,7 +186,7 @@ contract Governance is IGovernance {
   /**
    * @dev Withdrawals that have been initiated.
    *
-   * `withdrawals` is only updated during `initiateWithdraw`, `proposeWithLock`, and `finaliseWithdraw`.
+   * `withdrawals` is only updated during `initiateWithdraw`, `proposeWithLock`, and `finalizeWithdraw`.
    */
   mapping(uint256 withdrawalId => Withdrawal withdrawal) internal withdrawals;
 
@@ -185,7 +196,7 @@ contract Governance is IGovernance {
    * `configuration` is set in the constructor, and is only updated during `updateConfiguration`,
    * which must be done via a proposal.
    */
-  Configuration internal configuration;
+  CompressedConfiguration internal configuration;
 
   /**
    * @dev The total power of the governance contract.
@@ -237,8 +248,8 @@ contract Governance is IGovernance {
     ASSET = _asset;
     governanceProposer = _governanceProposer;
 
-    configuration = _configuration;
-    configuration.assertValid();
+    _configuration.assertValid();
+    configuration = CompressedConfigurationLib.compress(_configuration);
 
     // Unnecessary to set, but better clarity.
     depositControl.allBeneficiariesAllowed = false;
@@ -296,7 +307,7 @@ contract Governance is IGovernance {
     // This following MUST revert if the configuration is invalid
     _configuration.assertValid();
 
-    configuration = _configuration;
+    configuration = CompressedConfigurationLib.compress(_configuration);
 
     emit ConfigurationUpdated(Timestamp.wrap(block.timestamp));
   }
@@ -332,28 +343,28 @@ contract Governance is IGovernance {
    * @notice Initiate a withdrawal of funds from the governance contract,
    * decreasing the power of the beneficiary within the governance contract.
    *
-   * @dev the withdraw may be finalized by anyone after configuration.withdrawalDelay() has passed.
+   * @dev the withdraw may be finalized by anyone after configuration.getWithdrawalDelay() has passed.
    *
    * @param _to The address that will receive the funds when the withdrawal is finalized.
    * @param _amount The amount of power to reduce, and thus funds to withdraw.
-   * @return The id of the withdrawal, passed to `finaliseWithdraw`.
+   * @return The id of the withdrawal, passed to `finalizeWithdraw`.
    */
   function initiateWithdraw(address _to, uint256 _amount) external override(IGovernance) returns (uint256) {
-    return _initiateWithdraw(msg.sender, _to, _amount, configuration.withdrawalDelay());
+    return _initiateWithdraw(msg.sender, _to, _amount, configuration.getWithdrawalDelay());
   }
 
   /**
-   * @notice Finalise a withdrawal of funds from the governance contract,
+   * @notice Finalize a withdrawal of funds from the governance contract,
    * transferring ASSET from the governance contract to the recipient specified in the withdrawal.
    *
    * @dev The withdrawal must not have been claimed, and the delay specified on the withdrawal must have passed.
    *
-   * @param _withdrawalId The id of the withdrawal to finalise.
+   * @param _withdrawalId The id of the withdrawal to finalize.
    */
-  function finaliseWithdraw(uint256 _withdrawalId) external override(IGovernance) {
+  function finalizeWithdraw(uint256 _withdrawalId) external override(IGovernance) {
     Withdrawal storage withdrawal = withdrawals[_withdrawalId];
     // This is a sanity check, the `recipient` will only be zero for a non-existent withdrawal, so this avoids
-    // `finalise`ing non-existent withdrawals. Note, that `_initiateWithdraw` will fail if `_to` is `address(0)`
+    // `finalize`ing non-existent withdrawals. Note, that `_initiateWithdraw` will fail if `_to` is `address(0)`
     require(withdrawal.recipient != address(0), Errors.Governance__WithdrawalNotInitiated());
     require(!withdrawal.claimed, Errors.Governance__WithdrawalAlreadyClaimed());
     require(
@@ -362,7 +373,7 @@ contract Governance is IGovernance {
     );
     withdrawal.claimed = true;
 
-    emit WithdrawFinalised(_withdrawalId);
+    emit WithdrawFinalized(_withdrawalId);
 
     ASSET.safeTransfer(withdrawal.recipient, withdrawal.amount);
   }
@@ -396,16 +407,17 @@ contract Governance is IGovernance {
    * @dev this is intended to only be used in an emergency, where the governanceProposer is compromised.
    *
    * @dev We don't actually need to check available power here, since if the msg.sender does not have
-   * sufficient balance, the .
+   * sufficient balance, the `_initiateWithdraw` would revert with an underflow.
    *
    * @param _proposal The IPayload address, which is a contract that contains the proposed actions to be executed by
    * the governance.
    * @param _to The address that will receive the withdrawn funds when the withdrawal is finalized (see
-   * `finaliseWithdraw`)
+   * `finalizeWithdraw`)
    * @return The id of the proposal
    */
   function proposeWithLock(IPayload _proposal, address _to) external override(IGovernance) returns (uint256) {
-    _initiateWithdraw(msg.sender, _to, configuration.proposeConfig.lockAmount, configuration.proposeConfig.lockDelay);
+    ProposeConfiguration memory proposeConfig = configuration.getProposeConfig();
+    _initiateWithdraw(msg.sender, _to, proposeConfig.lockAmount, proposeConfig.lockDelay);
     return _propose(_proposal, address(this));
   }
 
@@ -435,18 +447,18 @@ contract Governance is IGovernance {
     // alter the power while the proposal is active since all txs in a block have the same timestamp.
     uint256 userPower = users[msg.sender].valueAt(proposals[_proposalId].pendingThrough());
 
-    Ballot storage userBallot = ballots[_proposalId][msg.sender];
+    CompressedBallot userBallot = ballots[_proposalId][msg.sender];
 
-    uint256 availablePower = userPower - (userBallot.nay + userBallot.yea);
+    uint256 availablePower = userPower - (userBallot.getNay() + userBallot.getYea());
     require(_amount <= availablePower, Errors.Governance__InsufficientPower(msg.sender, availablePower, _amount));
 
-    Ballot storage summedBallot = proposals[_proposalId].summedBallot;
+    CompressedProposal storage proposal = proposals[_proposalId];
     if (_support) {
-      userBallot.yea += _amount;
-      summedBallot.yea += _amount;
+      ballots[_proposalId][msg.sender] = userBallot.addYea(_amount);
+      proposal.addYea(_amount);
     } else {
-      userBallot.nay += _amount;
-      summedBallot.nay += _amount;
+      ballots[_proposalId][msg.sender] = userBallot.addNay(_amount);
+      proposal.addNay(_amount);
     }
 
     emit VoteCast(_proposalId, msg.sender, _support, _amount);
@@ -470,7 +482,7 @@ contract Governance is IGovernance {
     ProposalState state = getProposalState(_proposalId);
     require(state == ProposalState.Executable, Errors.Governance__ProposalNotExecutable());
 
-    Proposal storage proposal = proposals[_proposalId];
+    CompressedProposal storage proposal = proposals[_proposalId];
     proposal.cachedState = ProposalState.Executed;
 
     IPayload.Action[] memory actions = proposal.payload.getActions();
@@ -496,18 +508,29 @@ contract Governance is IGovernance {
    * @param _proposalId The id of the proposal to mark as `Dropped`.
    */
   function dropProposal(uint256 _proposalId) external override(IGovernance) returns (bool) {
-    Proposal storage self = proposals[_proposalId];
+    CompressedProposal storage self = proposals[_proposalId];
     require(self.cachedState != ProposalState.Dropped, Errors.Governance__ProposalAlreadyDropped());
     require(getProposalState(_proposalId) == ProposalState.Droppable, Errors.Governance__ProposalCannotBeDropped());
 
     self.cachedState = ProposalState.Dropped;
+
+    emit ProposalDropped(_proposalId);
     return true;
   }
 
   /**
    * @notice Get the power of an address at a given timestamp.
-   * @dev If the timestamp is the current block timestamp, we return the powerNow.
-   * Otherwise, we return the powerAt the timestamp.
+   *
+   * @param _owner The address to get the power of.
+   * @param _ts The timestamp to get the power at.
+   * @return The power of the address at the given timestamp.
+   */
+  function powerAt(address _owner, Timestamp _ts) external view override(IGovernance) returns (uint256) {
+    return users[_owner].valueAt(_ts);
+  }
+
+  /**
+   * @notice Get the power of an address at the current block timestamp.
    *
    * Note that `powerNow` with the current block timestamp is NOT STABLE.
    *
@@ -520,33 +543,30 @@ contract Governance is IGovernance {
    *  The powerNow at 4 will be different from the powerNow at 2.
    *
    * @param _owner The address to get the power of.
-   * @param _ts The timestamp to get the power at.
-   * @return The power of the address at the given timestamp.
+   * @return The power of the address at the current block timestamp.
    */
-  function powerAt(address _owner, Timestamp _ts) external view override(IGovernance) returns (uint256) {
-    if (_ts == Timestamp.wrap(block.timestamp)) {
-      return users[_owner].valueNow();
-    }
-    return users[_owner].valueAt(_ts);
+  function powerNow(address _owner) external view override(IGovernance) returns (uint256) {
+    return users[_owner].valueNow();
   }
 
   /**
    * @notice Get the total power in Governance at a given timestamp.
-   * @dev If the timestamp is the current block timestamp, we return the powerNow.
-   * Otherwise, we return the powerAt the timestamp.
-   *
-   * Note that `powerNow` with the current block timestamp is NOT STABLE.
-   *
-   * See `powerAt` for more details.
    *
    * @param _ts The timestamp to get the power at.
    * @return The total power at the given timestamp.
    */
   function totalPowerAt(Timestamp _ts) external view override(IGovernance) returns (uint256) {
-    if (_ts == Timestamp.wrap(block.timestamp)) {
-      return total.valueNow();
-    }
     return total.valueAt(_ts);
+  }
+
+  /**
+   * @notice Get the total power in Governance at the current block timestamp.
+   * Note that `powerNow` with the current block timestamp is NOT STABLE.
+   *
+   * @return The total power at the current block timestamp.
+   */
+  function totalPowerNow() external view override(IGovernance) returns (uint256) {
+    return total.valueNow();
   }
 
   /**
@@ -569,7 +589,7 @@ contract Governance is IGovernance {
   }
 
   function getConfiguration() external view override(IGovernance) returns (Configuration memory) {
-    return configuration;
+    return configuration.decompress();
   }
 
   /**
@@ -581,7 +601,7 @@ contract Governance is IGovernance {
    * @return The proposal.
    */
   function getProposal(uint256 _proposalId) external view override(IGovernance) returns (Proposal memory) {
-    return proposals[_proposalId];
+    return proposals[_proposalId].decompress();
   }
 
   /**
@@ -594,6 +614,19 @@ contract Governance is IGovernance {
    */
   function getWithdrawal(uint256 _withdrawalId) external view override(IGovernance) returns (Withdrawal memory) {
     return withdrawals[_withdrawalId];
+  }
+
+  /**
+   * @notice Get a user's ballot for a specific proposal.
+   *
+   * @dev Returns the uncompressed Ballot struct for external callers.
+   *
+   * @param _proposalId The id of the proposal.
+   * @param _user The address of the user.
+   * @return The user's ballot with yea and nay votes.
+   */
+  function getBallot(uint256 _proposalId, address _user) external view override(IGovernance) returns (Ballot memory) {
+    return ballots[_proposalId][_user].decompress();
   }
 
   /**
@@ -640,7 +673,7 @@ contract Governance is IGovernance {
   function getProposalState(uint256 _proposalId) public view override(IGovernance) returns (ProposalState) {
     require(_proposalId < proposalCount, Errors.Governance__ProposalDoesNotExists(_proposalId));
 
-    Proposal storage self = proposals[_proposalId];
+    CompressedProposal storage self = proposals[_proposalId];
 
     // A proposal's state is "stable" after `execute` or `dropProposal` has been called on it.
     // In this case, the state of the proposal as returned by `getProposalState` is the same as the cached state,
@@ -727,14 +760,8 @@ contract Governance is IGovernance {
   function _propose(IPayload _proposal, address _proposer) internal returns (uint256) {
     uint256 proposalId = proposalCount++;
 
-    proposals[proposalId] = Proposal({
-      config: configuration,
-      cachedState: ProposalState.Pending,
-      payload: _proposal,
-      proposer: _proposer,
-      creation: Timestamp.wrap(block.timestamp),
-      summedBallot: Ballot({yea: 0, nay: 0})
-    });
+    proposals[proposalId] =
+      CompressedProposalLib.create(_proposer, _proposal, Timestamp.wrap(block.timestamp), configuration);
 
     emit Proposed(proposalId, address(_proposal));
 

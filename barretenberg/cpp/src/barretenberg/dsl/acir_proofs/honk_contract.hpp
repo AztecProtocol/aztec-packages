@@ -494,10 +494,10 @@ library TranscriptLib {
         pure
         returns (Fr[CONST_PROOF_SIZE_LOG_N] memory gateChallenges, Fr nextPreviousChallenge)
     {
-        for (uint256 i = 0; i < logN; i++) {
-            previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
-            Fr unused;
-            (gateChallenges[i], unused) = splitChallenge(previousChallenge);
+        previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
+        (gateChallenges[0],) = splitChallenge(previousChallenge);
+        for (uint256 i = 1; i < logN; i++) {
+            gateChallenges[i] = gateChallenges[i - 1] * gateChallenges[i - 1];
         }
         nextPreviousChallenge = previousChallenge;
     }
@@ -2098,7 +2098,7 @@ abstract contract BaseHonkVerifier is IVerifier {
             commitments[NUMBER_UNSHIFTED + 1 + i] = proof.geminiFoldComms[i];
         }
 
-        // Finalise the batch opening claim
+        // Finalize the batch opening claim
         commitments[NUMBER_UNSHIFTED + $LOG_N] = Honk.G1Point({x: 1, y: 2});
         scalars[NUMBER_UNSHIFTED + $LOG_N] = mem.constantTermAccumulator;
 

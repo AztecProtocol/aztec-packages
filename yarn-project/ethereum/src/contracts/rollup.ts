@@ -5,6 +5,7 @@ import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
 import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
 
+import chunk from 'lodash.chunk';
 import {
   type Account,
   type GetContractReturnType,
@@ -24,7 +25,9 @@ import type { L1ReaderConfig } from '../l1_reader.js';
 import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
 import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
-import { SlashingProposerContract } from './slashing_proposer.js';
+import { EmpireSlashingProposerContract } from './empire_slashing_proposer.js';
+import { GSEContract } from './gse.js';
+import { TallySlashingProposerContract } from './tally_slashing_proposer.js';
 import { checkBlockTag } from './utils.js';
 
 export type ViemCommitteeAttestation = {
@@ -152,8 +155,14 @@ export class RollupContract {
     return this.rollup;
   }
 
-  public async getSlashingProposer(): Promise<SlashingProposerContract> {
+  public async getSlashingProposer(): Promise<
+    EmpireSlashingProposerContract | TallySlashingProposerContract | undefined
+  > {
     const slasherAddress = await this.rollup.read.getSlasher();
+    if (EthAddress.fromString(slasherAddress).isZero()) {
+      return undefined;
+    }
+
     const slasher = getContract({ address: slasherAddress, abi: SlasherAbi, client: this.client });
     const proposerAddress = await slasher.read.PROPOSER();
     const proposerAbi = [
@@ -169,9 +178,9 @@ export class RollupContract {
     const proposer = getContract({ address: proposerAddress, abi: proposerAbi, client: this.client });
     const proposerType = await proposer.read.SLASHING_PROPOSER_TYPE();
     if (proposerType === SlashingProposerType.Tally.valueOf()) {
-      throw new Error(`Unsupported slashing proposer type: ${proposerType}`);
+      return new TallySlashingProposerContract(this.client, proposerAddress);
     } else if (proposerType === SlashingProposerType.Empire.valueOf()) {
-      return new SlashingProposerContract(this.client, proposerAddress);
+      return new EmpireSlashingProposerContract(this.client, proposerAddress);
     } else {
       throw new Error(`Unknown slashing proposer type: ${proposerType}`);
     }
@@ -259,6 +268,10 @@ export class RollupContract {
 
   getOwner() {
     return this.rollup.read.owner();
+  }
+
+  getActiveAttesterCount() {
+    return this.rollup.read.getActiveAttesterCount();
   }
 
   public async getSlashingProposerAddress() {
@@ -375,6 +388,10 @@ export class RollupContract {
 
   getTimestampForSlot(slot: bigint) {
     return this.rollup.read.getTimestampForSlot([slot]);
+  }
+
+  getEntryQueueLength() {
+    return this.rollup.read.getEntryQueueLength();
   }
 
   async getEpochNumber(blockNumber?: bigint) {
@@ -678,8 +695,15 @@ export class RollupContract {
     return this.rollup.read.getSpecificProverRewardsForEpoch([epoch, prover]);
   }
 
-  getAttesters() {
-    return this.rollup.read.getAttesters();
+  async getAttesters() {
+    const attesterSize = await this.getActiveAttesterCount();
+    const gse = new GSEContract(this.client, await this.getGSE());
+    const ts = (await this.client.getBlock()).timestamp;
+
+    const indices = Array.from({ length: Number(attesterSize) }, (_, i) => BigInt(i));
+    const chunks = chunk(indices, 1000);
+
+    return (await Promise.all(chunks.map(chunk => gse.getAttestersFromIndicesAtTime(this.address, ts, chunk)))).flat();
   }
 
   getAttesterView(address: Hex | EthAddress) {
@@ -740,6 +764,29 @@ export class RollupContract {
             if (args.oldSlasher && args.newSlasher) {
               callback(args as { oldSlasher: `0x${string}`; newSlasher: `0x${string}` });
             }
+          }
+        },
+      },
+    );
+  }
+
+  public async getSlashEvents(l1BlockHash: Hex): Promise<{ amount: bigint; attester: EthAddress }[]> {
+    const events = await this.rollup.getEvents.Slashed({}, { blockHash: l1BlockHash, strict: true });
+    return events.map(event => ({
+      amount: event.args.amount!,
+      attester: EthAddress.fromString(event.args.attester!),
+    }));
+  }
+
+  public listenToSlash(callback: (args: { amount: bigint; attester: EthAddress }) => unknown) {
+    return this.rollup.watchEvent.Slashed(
+      {},
+      {
+        strict: true,
+        onLogs: logs => {
+          for (const log of logs) {
+            const args = log.args;
+            callback({ amount: args.amount!, attester: EthAddress.fromString(args.attester!) });
           }
         },
       },

@@ -14,17 +14,30 @@ namespace bb::stdlib {
 template <typename Builder> struct ecdsa_signature {
     stdlib::byte_array<Builder> r;
     stdlib::byte_array<Builder> s;
+
+    Builder* get_context() const
+    {
+        if (r.get_context() != nullptr) {
+            return r.get_context();
+        }
+
+        if (s.get_context() != nullptr) {
+            return s.get_context();
+        }
+
+        return nullptr;
+    }
 };
 
 template <typename Builder, typename Curve, typename Fq, typename Fr, typename G1>
-bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& message,
+bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed_message,
                                        const G1& public_key,
                                        const ecdsa_signature<Builder>& sig);
 
 template <typename Builder, typename Curve, typename Fq, typename Fr, typename G1>
-bool_t<Builder> ecdsa_verify_signature_prehashed_message_noassert(const stdlib::byte_array<Builder>& hashed_message,
-                                                                  const G1& public_key,
-                                                                  const ecdsa_signature<Builder>& sig);
+void validate_inputs(const stdlib::byte_array<Builder>& hashed_message,
+                     const G1& public_key,
+                     const ecdsa_signature<Builder>& sig);
 
 template <typename Builder> void generate_ecdsa_verification_test_circuit(Builder& builder, size_t num_iterations);
 

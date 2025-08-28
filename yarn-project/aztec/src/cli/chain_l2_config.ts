@@ -68,13 +68,15 @@ export type L2ChainConfig = {
   slashInactivitySignalTargetPercentage: number;
   slashInactivityCreatePenalty: bigint;
   slashInactivityMaxPenalty: bigint;
-  slashInvalidBlockEnabled: boolean;
-  slashInvalidBlockPenalty: bigint;
-  slashInvalidBlockMaxPenalty: bigint;
+  slashBroadcastedInvalidBlockEnabled: boolean;
+  slashBroadcastedInvalidBlockPenalty: bigint;
+  slashBroadcastedInvalidBlockMaxPenalty: bigint;
   slashProposeInvalidAttestationsPenalty: bigint;
   slashProposeInvalidAttestationsMaxPenalty: bigint;
   slashAttestDescendantOfInvalidPenalty: bigint;
   slashAttestDescendantOfInvalidMaxPenalty: bigint;
+  slashUnknownPenalty: bigint;
+  slashUnknownMaxPenalty: bigint;
   // control whether sentinel is enabled or not. Needed for slashing
   sentinelEnabled: boolean;
 };
@@ -130,17 +132,19 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   slashInactivitySignalTargetPercentage: 0,
   slashInactivityCreatePenalty: 0n,
   slashInactivityMaxPenalty: 0n,
-  slashInvalidBlockEnabled: false,
   slashPayloadTtlSeconds: 0,
   slashPruneEnabled: false,
   slashPrunePenalty: 0n,
   slashPruneMaxPenalty: 0n,
-  slashInvalidBlockPenalty: 0n,
-  slashInvalidBlockMaxPenalty: 0n,
   slashProposeInvalidAttestationsPenalty: 0n,
   slashProposeInvalidAttestationsMaxPenalty: 0n,
   slashAttestDescendantOfInvalidPenalty: 0n,
   slashAttestDescendantOfInvalidMaxPenalty: 0n,
+  slashUnknownPenalty: 0n,
+  slashUnknownMaxPenalty: 0n,
+  slashBroadcastedInvalidBlockEnabled: false,
+  slashBroadcastedInvalidBlockPenalty: 0n,
+  slashBroadcastedInvalidBlockMaxPenalty: 0n,
   sentinelEnabled: false,
 };
 
@@ -179,10 +183,10 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   activationThreshold: DefaultL1ContractsConfig.activationThreshold,
   /** The minimum stake for a validator. */
   ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
-  /** The slashing quorum */
-  slashingQuorum: 101,
   /** The slashing round size */
-  slashingRoundSize: 200,
+  slashingRoundSize: 32 * 6, // 6 epochs
+  /** The slashing quorum */
+  slashingQuorum: (32 * 6) / 2 + 1, // 6 epochs, majority of validators
   /** Governance proposing quorum */
   governanceProposerQuorum: 151,
   /** Governance proposing round size */
@@ -202,13 +206,15 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   slashInactivitySignalTargetPercentage: 0.67,
   slashInactivityCreatePenalty: 17n * (DefaultL1ContractsConfig.activationThreshold / 100n),
   slashInactivityMaxPenalty: 17n * (DefaultL1ContractsConfig.activationThreshold / 100n),
-  slashInvalidBlockEnabled: true,
-  slashInvalidBlockPenalty: DefaultL1ContractsConfig.activationThreshold,
-  slashInvalidBlockMaxPenalty: DefaultL1ContractsConfig.activationThreshold,
+  slashBroadcastedInvalidBlockEnabled: true,
+  slashBroadcastedInvalidBlockPenalty: DefaultL1ContractsConfig.activationThreshold,
+  slashBroadcastedInvalidBlockMaxPenalty: DefaultL1ContractsConfig.activationThreshold,
   slashProposeInvalidAttestationsPenalty: DefaultL1ContractsConfig.activationThreshold,
   slashProposeInvalidAttestationsMaxPenalty: DefaultL1ContractsConfig.activationThreshold,
   slashAttestDescendantOfInvalidPenalty: DefaultL1ContractsConfig.activationThreshold,
   slashAttestDescendantOfInvalidMaxPenalty: DefaultL1ContractsConfig.activationThreshold,
+  slashUnknownPenalty: 17n * (DefaultL1ContractsConfig.activationThreshold / 100n),
+  slashUnknownMaxPenalty: 17n * (DefaultL1ContractsConfig.activationThreshold / 100n),
   sentinelEnabled: true,
 };
 
@@ -368,9 +374,9 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('SLASH_INACTIVITY_SIGNAL_TARGET_PERCENTAGE', config.slashInactivitySignalTargetPercentage.toString());
   enrichVar('SLASH_INACTIVITY_CREATE_PENALTY', config.slashInactivityCreatePenalty.toString());
   enrichVar('SLASH_INACTIVITY_MAX_PENALTY', config.slashInactivityMaxPenalty.toString());
-  enrichVar('SLASH_INVALID_BLOCK_ENABLED', config.slashInvalidBlockEnabled.toString());
-  enrichVar('SLASH_INVALID_BLOCK_PENALTY', config.slashInvalidBlockPenalty.toString());
-  enrichVar('SLASH_INVALID_BLOCK_MAX_PENALTY', config.slashInvalidBlockMaxPenalty.toString());
+  enrichVar('SLASH_INVALID_BLOCK_ENABLED', config.slashBroadcastedInvalidBlockEnabled.toString());
+  enrichVar('SLASH_INVALID_BLOCK_PENALTY', config.slashBroadcastedInvalidBlockPenalty.toString());
+  enrichVar('SLASH_INVALID_BLOCK_MAX_PENALTY', config.slashBroadcastedInvalidBlockMaxPenalty.toString());
   enrichVar('SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY', config.slashProposeInvalidAttestationsPenalty.toString());
   enrichVar(
     'SLASH_PROPOSE_INVALID_ATTESTATIONS_MAX_PENALTY',
@@ -381,6 +387,8 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
     'SLASH_ATTEST_DESCENDANT_OF_INVALID_MAX_PENALTY',
     config.slashAttestDescendantOfInvalidMaxPenalty.toString(),
   );
+  enrichVar('SLASH_UNKNOWN_PENALTY', config.slashUnknownPenalty.toString());
+  enrichVar('SLASH_UNKNOWN_MAX_PENALTY', config.slashUnknownMaxPenalty.toString());
 
   enrichVar('SENTINEL_ENABLED', config.sentinelEnabled.toString());
 }

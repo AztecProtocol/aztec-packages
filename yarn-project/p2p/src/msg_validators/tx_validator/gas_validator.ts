@@ -1,4 +1,4 @@
-import { FIXED_DA_GAS, FIXED_L2_GAS } from '@aztec/constants';
+import { AVM_MAX_PROCESSABLE_L2_GAS, FIXED_DA_GAS, FIXED_L2_GAS } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import { getCallRequestsWithCalldataByPhase } from '@aztec/simulator/server';
@@ -7,6 +7,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import type { PublicStateSource } from '@aztec/stdlib/trees';
 import {
+  TX_ERROR_GAS_LIMIT_TOO_HIGH,
   TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE,
   TX_ERROR_INSUFFICIENT_FEE_PER_GAS,
   TX_ERROR_INSUFFICIENT_GAS_LIMIT,
@@ -29,7 +30,7 @@ export class GasTxValidator implements TxValidator<Tx> {
   }
 
   async validateTx(tx: Tx): Promise<TxValidationResult> {
-    const gasLimitValidation = this.#validateMinGasLimit(tx);
+    const gasLimitValidation = this.#validateGasLimit(tx);
     if (gasLimitValidation.result === 'invalid') {
       return Promise.resolve(gasLimitValidation);
     }
@@ -65,7 +66,7 @@ export class GasTxValidator implements TxValidator<Tx> {
   /**
    * Check whether the tx's gas limit is above the minimum amount.
    */
-  #validateMinGasLimit(tx: Tx): TxValidationResult {
+  #validateGasLimit(tx: Tx): TxValidationResult {
     const gasLimits = tx.data.constants.txContext.gasSettings.gasLimits;
     const minGasLimits = new Gas(FIXED_DA_GAS, FIXED_L2_GAS);
 
@@ -76,6 +77,15 @@ export class GasTxValidator implements TxValidator<Tx> {
       });
       return { result: 'invalid', reason: [TX_ERROR_INSUFFICIENT_GAS_LIMIT] };
     }
+
+    if (gasLimits.l2Gas > AVM_MAX_PROCESSABLE_L2_GAS) {
+      this.#log.verbose(`Rejecting transaction due to the gas limit(s) being higher than the maximum processable gas`, {
+        gasLimits,
+        minGasLimits,
+      });
+      return { result: 'invalid', reason: [TX_ERROR_GAS_LIMIT_TOO_HIGH] };
+    }
+
     return { result: 'valid' };
   }
 

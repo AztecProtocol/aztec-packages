@@ -3,13 +3,11 @@ pragma solidity >=0.8.27;
 
 import {GovernanceBase} from "../base.t.sol";
 import {Configuration, Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
-import {ProposalLib, VoteTabulationReturn, VoteTabulationInfo} from "@aztec/governance/libraries/ProposalLib.sol";
+import {VoteTabulationReturn, VoteTabulationInfo} from "@aztec/governance/libraries/ProposalLib.sol";
 import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol";
-
 import {Math, Panic} from "@oz/utils/math/Math.sol";
 
 contract VoteTabulationTest is GovernanceBase {
-  using ProposalLib for Proposal;
   using ConfigurationLib for Configuration;
 
   uint256 internal totalPower;
@@ -17,15 +15,8 @@ contract VoteTabulationTest is GovernanceBase {
   uint256 internal votesNeeded;
   uint256 internal yeaLimit;
 
-  function test_WhenMinimumConfigEq0() external {
-    // it return (Invalid, MinimumEqZero)
-    (VoteTabulationReturn vtr, VoteTabulationInfo vti) = proposal.voteTabulation(0);
-    assertEq(vtr, VoteTabulationReturn.Invalid, "invalid return value");
-    assertEq(vti, VoteTabulationInfo.MinimumEqZero, "invalid info value");
-  }
-
   modifier whenMinimumGt0(Configuration memory _config) {
-    proposal.config.minimumVotes = bound(_config.minimumVotes, ConfigurationLib.VOTES_LOWER, type(uint256).max);
+    proposal.config.minimumVotes = bound(_config.minimumVotes, ConfigurationLib.VOTES_LOWER, type(uint96).max);
     _;
   }
 
@@ -35,13 +26,13 @@ contract VoteTabulationTest is GovernanceBase {
   {
     // it return (Rejected, TotalPowerLtMinimum)
     totalPower = bound(_totalPower, 0, proposal.config.minimumVotes - 1);
-    (VoteTabulationReturn vtr, VoteTabulationInfo vti) = proposal.voteTabulation(totalPower);
+    (VoteTabulationReturn vtr, VoteTabulationInfo vti) = upw.voteTabulation(proposal, totalPower);
     assertEq(vtr, VoteTabulationReturn.Rejected, "invalid return value");
     assertEq(vti, VoteTabulationInfo.TotalPowerLtMinimum, "invalid info value");
   }
 
   modifier whenTotalPowerGteMinimum(uint256 _totalPower) {
-    totalPower = bound(_totalPower, proposal.config.minimumVotes, type(uint256).max);
+    totalPower = bound(_totalPower, proposal.config.minimumVotes, type(uint96).max);
     _;
   }
 
@@ -56,7 +47,7 @@ contract VoteTabulationTest is GovernanceBase {
     whenQuorumConfigInvalid
   {
     // it return (Invalid, VotesNeededEqZero)
-    (VoteTabulationReturn vtr, VoteTabulationInfo vti) = proposal.voteTabulation(totalPower);
+    (VoteTabulationReturn vtr, VoteTabulationInfo vti) = upw.voteTabulation(proposal, totalPower);
     assertEq(vtr, VoteTabulationReturn.Invalid, "invalid return value");
     assertEq(vti, VoteTabulationInfo.VotesNeededEqZero, "invalid info value");
   }
@@ -72,11 +63,11 @@ contract VoteTabulationTest is GovernanceBase {
     proposal.config.quorum = 1e18 + 1;
 
     // Overwriting some limits such that we do not overflow
-    uint256 upperLimit = Math.mulDiv(type(uint256).max, 1e18, proposal.config.quorum);
+    uint256 upperLimit = Math.mulDiv(type(uint96).max, 1e18, proposal.config.quorum);
     proposal.config.minimumVotes = bound(_config.minimumVotes, ConfigurationLib.VOTES_LOWER, upperLimit);
     totalPower = bound(_totalPower, proposal.config.minimumVotes, upperLimit);
 
-    (VoteTabulationReturn vtr, VoteTabulationInfo vti) = proposal.voteTabulation(totalPower);
+    (VoteTabulationReturn vtr, VoteTabulationInfo vti) = upw.voteTabulation(proposal, totalPower);
     assertEq(vtr, VoteTabulationReturn.Invalid, "invalid return value");
     assertEq(vti, VoteTabulationInfo.VotesNeededGtTotalPower, "invalid info value");
   }
@@ -91,7 +82,7 @@ contract VoteTabulationTest is GovernanceBase {
     totalPower = type(uint256).max;
     proposal.config.quorum = 1e18 + 1;
     vm.expectRevert(abi.encodeWithSelector(0x4e487b71, Panic.UNDER_OVERFLOW));
-    this.callVoteTabulation(totalPower);
+    upw.voteTabulation(proposal, totalPower);
   }
 
   modifier whenQuorumConfigValid(Configuration memory _config) {
@@ -119,7 +110,7 @@ contract VoteTabulationTest is GovernanceBase {
     proposal.summedBallot.yea = yea;
     proposal.summedBallot.nay = nay;
 
-    (VoteTabulationReturn vtr, VoteTabulationInfo vti) = proposal.voteTabulation(totalPower);
+    (VoteTabulationReturn vtr, VoteTabulationInfo vti) = upw.voteTabulation(proposal, totalPower);
     assertEq(vtr, VoteTabulationReturn.Rejected, "invalid return value");
     assertEq(vti, VoteTabulationInfo.VotesCastLtVotesNeeded, "invalid info value");
   }
@@ -147,23 +138,6 @@ contract VoteTabulationTest is GovernanceBase {
     // which is already handled as `votesCast >= votesNeeded` and `votesNeeded > 0`.
   }
 
-  function test_WhenYeaLimitGtUint256Max(Configuration memory _config, uint256 _totalPower, uint256 _votes)
-    external
-    whenMinimumGt0(_config)
-    whenTotalPowerGteMinimum(_totalPower)
-    whenQuorumConfigValid(_config)
-    whenVotesCastGteVotesNeeded(_votes)
-    whenDifferentialConfigInvalid
-  {
-    // it revert
-    proposal.config.requiredYeaMargin = 1e18 + 1;
-    totalPower = type(uint256).max;
-    proposal.summedBallot.nay = totalPower;
-
-    vm.expectRevert(abi.encodeWithSelector(0x4e487b71, Panic.UNDER_OVERFLOW));
-    this.callVoteTabulation(totalPower);
-  }
-
   function test_WhenYeaLimitGtVotesCast(Configuration memory _config, uint256 _totalPower, uint256 _votes)
     external
     whenMinimumGt0(_config)
@@ -176,14 +150,14 @@ contract VoteTabulationTest is GovernanceBase {
     proposal.config.requiredYeaMargin = 1e18 + 1;
 
     // Overwriting some limits such that we do not overflow
-    uint256 upperLimit = Math.mulDiv(type(uint256).max, 1e18, proposal.config.requiredYeaMargin);
+    uint256 upperLimit = Math.mulDiv(type(uint96).max, 1e18, proposal.config.requiredYeaMargin);
     proposal.config.minimumVotes = bound(_config.minimumVotes, ConfigurationLib.VOTES_LOWER, upperLimit);
     totalPower = bound(_totalPower, proposal.config.minimumVotes, upperLimit);
     votesNeeded = Math.mulDiv(totalPower, proposal.config.quorum, 1e18, Math.Rounding.Ceil);
     votes = bound(_votes, votesNeeded, totalPower);
     proposal.summedBallot.nay = votes;
 
-    (VoteTabulationReturn vtr, VoteTabulationInfo vti) = proposal.voteTabulation(totalPower);
+    (VoteTabulationReturn vtr, VoteTabulationInfo vti) = upw.voteTabulation(proposal, totalPower);
     assertEq(vtr, VoteTabulationReturn.Invalid, "invalid return value");
     assertEq(vti, VoteTabulationInfo.YeaLimitGtVotesCast, "invalid info value");
   }
@@ -207,7 +181,7 @@ contract VoteTabulationTest is GovernanceBase {
     // it return (Accepted, YeaVotesEqVotesCast)
     proposal.summedBallot.yea = votes;
 
-    (VoteTabulationReturn vtr, VoteTabulationInfo vti) = proposal.voteTabulation(totalPower);
+    (VoteTabulationReturn vtr, VoteTabulationInfo vti) = upw.voteTabulation(proposal, totalPower);
     assertEq(vtr, VoteTabulationReturn.Accepted, "invalid return value");
     assertEq(vti, VoteTabulationInfo.YeaVotesEqVotesCast, "invalid info value");
   }
@@ -234,7 +208,7 @@ contract VoteTabulationTest is GovernanceBase {
     proposal.summedBallot.yea = yea;
     proposal.summedBallot.nay = nay;
 
-    (VoteTabulationReturn vtr, VoteTabulationInfo vti) = proposal.voteTabulation(totalPower);
+    (VoteTabulationReturn vtr, VoteTabulationInfo vti) = upw.voteTabulation(proposal, totalPower);
     assertEq(vtr, VoteTabulationReturn.Rejected, "invalid return value");
     assertEq(vti, VoteTabulationInfo.YeaVotesLeYeaLimit, "invalid info value");
   }
@@ -264,14 +238,8 @@ contract VoteTabulationTest is GovernanceBase {
 
     assertGt(yea, nay, "yea <= nay");
 
-    (VoteTabulationReturn vtr, VoteTabulationInfo vti) = proposal.voteTabulation(totalPower);
+    (VoteTabulationReturn vtr, VoteTabulationInfo vti) = upw.voteTabulation(proposal, totalPower);
     assertEq(vtr, VoteTabulationReturn.Accepted, "invalid return value");
     assertEq(vti, VoteTabulationInfo.YeaVotesGtYeaLimit, "invalid info value");
-  }
-
-  // @dev helper for testing, to avoid:
-  // "call didn't revert at a lower depth than cheatcode call depth"
-  function callVoteTabulation(uint256 _totalPower) external view {
-    proposal.voteTabulation(_totalPower);
   }
 }

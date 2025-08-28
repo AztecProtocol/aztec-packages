@@ -25,12 +25,13 @@ library TestConstants {
   uint256 internal constant AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS = 0;
   uint256 internal constant AZTEC_SLASHING_OFFSET_IN_ROUNDS = 2;
   address internal constant AZTEC_SLASHING_VETOER = address(0);
-  uint256 internal constant AZTEC_SLASHING_UNIT = 5e18;
+  uint256 internal constant AZTEC_SLASHING_UNIT = 20e18;
   uint256 internal constant AZTEC_MANA_TARGET = 100_000_000;
   uint256 internal constant AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN = 4;
   uint256 internal constant AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT = 2;
   uint256 internal constant AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE = 0;
   uint256 internal constant AZTEC_ENTRY_QUEUE_BOOTSTRAP_FLUSH_SIZE = 0;
+  uint256 internal constant AZTEC_ENTRY_QUEUE_MAX_FLUSH_SIZE = 480;
   uint256 internal constant AZTEC_EXIT_DELAY_SECONDS = 2 * 24 * 60 * 60; // 2 days
   EthValue internal constant AZTEC_PROVING_COST_PER_MANA = EthValue.wrap(100);
 
@@ -81,7 +82,8 @@ library TestConstants {
       bootstrapValidatorSetSize: AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE,
       bootstrapFlushSize: AZTEC_ENTRY_QUEUE_BOOTSTRAP_FLUSH_SIZE,
       normalFlushSizeMin: AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN,
-      normalFlushSizeQuotient: AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT
+      normalFlushSizeQuotient: AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT,
+      maxQueueFlushSize: AZTEC_ENTRY_QUEUE_MAX_FLUSH_SIZE
     });
   }
 

@@ -3,24 +3,27 @@ import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { type AccountWalletWithSecretKey, AztecAddress, EthAddress, Fr } from '@aztec/aztec.js';
 import {
+  type EmpireSlashingProposerContract,
   type ExtendedViemWalletClient,
   GSEContract,
-  L1TxUtils,
   MultiAdderArtifact,
   type Operator,
   RollupContract,
+  type TallySlashingProposerContract,
   type ViemClient,
+  createL1TxUtilsFromViemWallet,
   deployL1Contract,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { SecretValue } from '@aztec/foundation/config';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { EmpireSlashingProposerAbi, RollupAbi, SlashFactoryAbi, SlasherAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { RollupAbi, SlasherAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import type { BootstrapNode } from '@aztec/p2p/bootstrap';
 import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
+import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 import { getGenesisValues } from '@aztec/world-state/testing';
@@ -70,6 +73,7 @@ export class P2PNetworkTest {
 
   public deployedAccounts: InitialAccountData[] = [];
   public prefilledPublicData: PublicDataTreeLeaf[] = [];
+
   // The re-execution test needs a wallet and a spam contract
   public wallet?: AccountWalletWithSecretKey;
   public defaultAccountAddress?: AztecAddress;
@@ -348,7 +352,7 @@ export class P2PNetworkTest {
   }
 
   private async _sendDummyTx(l1Client: ExtendedViemWalletClient) {
-    const l1TxUtils = new L1TxUtils(l1Client);
+    const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client);
     return await l1TxUtils.sendAndMonitorTransaction({
       to: l1Client.account!.address,
       value: 1n,
@@ -391,8 +395,8 @@ export class P2PNetworkTest {
   async getContracts(): Promise<{
     rollup: RollupContract;
     slasherContract: GetContractReturnType<typeof SlasherAbi, ViemClient>;
-    slashingProposer: GetContractReturnType<typeof EmpireSlashingProposerAbi, ViemClient>;
-    slashFactory: GetContractReturnType<typeof SlashFactoryAbi, ViemClient>;
+    slashingProposer: EmpireSlashingProposerContract | TallySlashingProposerContract | undefined;
+    slashFactory: SlashFactoryContract;
   }> {
     if (!this.ctx.deployL1ContractsValues) {
       throw new Error('DeployL1ContractsValues not set');
@@ -409,17 +413,13 @@ export class P2PNetworkTest {
       client: this.ctx.deployL1ContractsValues.l1Client,
     });
 
-    const slashingProposer = getContract({
-      address: getAddress(await slasherContract.read.PROPOSER()),
-      abi: EmpireSlashingProposerAbi,
-      client: this.ctx.deployL1ContractsValues.l1Client,
-    });
+    // Get the actual slashing proposer from rollup (which handles both empire and tally)
+    const slashingProposer = await rollup.getSlashingProposer();
 
-    const slashFactory = getContract({
-      address: getAddress(this.ctx.deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString()),
-      abi: SlashFactoryAbi,
-      client: this.ctx.deployL1ContractsValues.l1Client,
-    });
+    const slashFactory = new SlashFactoryContract(
+      this.ctx.deployL1ContractsValues.l1Client,
+      getAddress(this.ctx.deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString()),
+    );
 
     return { rollup, slasherContract, slashingProposer, slashFactory };
   }

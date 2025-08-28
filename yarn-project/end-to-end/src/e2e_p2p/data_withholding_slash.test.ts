@@ -1,5 +1,4 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { Offense } from '@aztec/slasher';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
@@ -9,7 +8,7 @@ import path from 'path';
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
-import { awaitCommitteeExists, awaitCommitteeKicked } from './shared.js';
+import { awaitCommitteeExists, awaitCommitteeKicked, awaitOffenseDetected } from './shared.js';
 
 jest.setTimeout(1000000);
 
@@ -38,6 +37,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
 
+  const slashingUnit = BigInt(20e18);
   const slashingQuorum = 3;
   const slashingRoundSize = 4;
   // This test needs longer slot window to ensure that the client has enough time to submit their txs,
@@ -59,6 +59,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
         aztecProofSubmissionEpochs: 0, // effectively forces instant reorgs
         slashingQuorum,
         slashingRoundSize,
+        slashingUnit,
         minTxsPerBlock: 0,
       },
     });
@@ -87,14 +88,18 @@ describe('e2e_p2p_data_withholding_slash', () => {
     const { rollup, slashingProposer, slashFactory } = await t.getContracts();
 
     // Jump forward to an epoch in the future such that the validator set is not empty
-    {
-      const newTime = await t.ctx.cheatCodes.rollup.advanceToEpoch(4n);
-      t.ctx.dateProvider.setTime(Number(newTime * 1000n));
-      // Send tx
-      await debugRollup();
-    }
+    await t.ctx.cheatCodes.rollup.advanceToEpoch(4n, { updateDateProvider: t.ctx.dateProvider });
+    await debugRollup();
 
-    const slashingAmount = (await rollup.getActivationThreshold()) - (await rollup.getEjectionThreshold()) + 1n;
+    const [activationThreshold, ejectionThreshold] = await Promise.all([
+      rollup.getActivationThreshold(),
+      rollup.getEjectionThreshold(),
+    ]);
+
+    // Slashing amount should be enough to kick validators out
+    const slashingAmount = slashingUnit * 3n;
+    expect(activationThreshold - slashingAmount).toBeLessThan(ejectionThreshold);
+
     t.ctx.aztecNodeConfig.slashPruneEnabled = true;
     t.ctx.aztecNodeConfig.slashPrunePenalty = slashingAmount;
     t.ctx.aztecNodeConfig.slashPruneMaxPenalty = slashingAmount;
@@ -124,13 +129,9 @@ describe('e2e_p2p_data_withholding_slash', () => {
     // Considering the slot duration is 32 seconds,
     // Considering the epoch duration is 2 slots,
     // we have ~64 seconds to do this.
-    {
-      const newTime = await t.ctx.cheatCodes.rollup.advanceToEpoch(8n);
-      t.ctx.dateProvider.setTime(Number(newTime * 1000n));
-      // Send L1 tx
-      await t.sendDummyTx();
-      await debugRollup();
-    }
+    await t.ctx.cheatCodes.rollup.advanceToEpoch(8n, { updateDateProvider: t.ctx.dateProvider });
+    await t.sendDummyTx();
+    await debugRollup();
 
     // Send Aztec txs
     t.logger.info('Setup account');
@@ -146,8 +147,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
     }
 
     // Re-create the nodes.
-    // ASSUMING they sync in the middle of the epoch, they will "see" the reorg,
-    // and try to slash.
+    // ASSUMING they sync in the middle of the epoch, they will "see" the reorg, and try to slash.
     t.logger.info('Re-creating nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
@@ -159,18 +159,23 @@ describe('e2e_p2p_data_withholding_slash', () => {
       DATA_DIR,
     );
 
+    await awaitOffenseDetected({
+      epochDuration: t.ctx.aztecNodeConfig.aztecEpochDuration,
+      logger: t.logger,
+      nodeAdmin: nodes[0],
+      slashingRoundSize,
+    });
+
     await awaitCommitteeKicked({
-      offense: Offense.DATA_WITHHOLDING,
       rollup,
       cheatCodes: t.ctx.cheatCodes.rollup,
       committee,
-      slashingAmount,
       slashFactory,
       slashingProposer,
       slashingRoundSize,
       aztecSlotDuration,
       logger: t.logger,
-      sendDummyTx: () => t.sendDummyTx().then(() => undefined),
+      dateProvider: t.ctx.dateProvider,
     });
   });
 });

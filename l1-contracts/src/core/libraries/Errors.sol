@@ -97,6 +97,7 @@ library Errors {
 
   // MerkleLib
   error MerkleLib__InvalidRoot(bytes32 expected, bytes32 actual, bytes32 leaf, uint256 leafIndex); // 0x5f216bf1
+  error MerkleLib__InvalidIndexForPathLength();
 
   // SampleLib
   error SampleLib__IndexOutOfBounds(uint256 requested, uint256 bound); // 0xa12fc559
@@ -126,6 +127,7 @@ library Errors {
   error Staking__InsufficientStake(uint256, uint256); // 0x903aee24
   error Staking__NoOneToSlash(address); // 0x7e2f7f1c
   error Staking__NotExiting(address); // 0xef566ee0
+  error Staking__InitiateWithdrawNeeded(address);
   error Staking__NotSlasher(address, address); // 0x23a6f432
   error Staking__NotWithdrawer(address, address); // 0x8e668e5d
   error Staking__NothingToExit(address); // 0xd2aac9b6

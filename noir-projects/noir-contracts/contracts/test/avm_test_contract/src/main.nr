@@ -203,6 +203,8 @@ pub contract AvmTest {
     fn bitwise_ops(x: u32, y: u32) -> u32 {
         let mut result = x & y;
         result = result | x;
+        result = result >> x;
+        result = result << y;
         result ^ y
     }
 
@@ -661,6 +663,7 @@ pub contract AvmTest {
         expected_deployer: AztecAddress,
         expected_class_id: ContractClassId,
         expected_initialization_hash: Field,
+        skip_strictly_limited_side_effects: bool,
     ) {
         dep::aztec::oracle::debug_log::debug_log("biwise_ops");
         let num = get_block_number();
@@ -718,20 +721,24 @@ pub contract AvmTest {
         let _ = get_l2_gas_left();
         dep::aztec::oracle::debug_log::debug_log("get_da_gas_left");
         let _ = get_da_gas_left();
-        dep::aztec::oracle::debug_log::debug_log("emit_public_log");
-        let _ = emit_public_log();
+        if !skip_strictly_limited_side_effects {
+            dep::aztec::oracle::debug_log::debug_log("emit_public_log");
+            let _ = emit_public_log();
+        }
         dep::aztec::oracle::debug_log::debug_log("note_hash_exists");
         let _ = note_hash_exists(1, 2);
         dep::aztec::oracle::debug_log::debug_log("new_note_hash");
         let _ = new_note_hash(1);
         dep::aztec::oracle::debug_log::debug_log("new_nullifier");
-        let _ = new_nullifier(1);
+        let _ = new_nullifier(args_field[0]);
         dep::aztec::oracle::debug_log::debug_log("nullifier_exists");
         let _ = nullifier_exists(1);
         dep::aztec::oracle::debug_log::debug_log("l1_to_l2_msg_exists");
         let _ = l1_to_l2_msg_exists(1, 2);
-        dep::aztec::oracle::debug_log::debug_log("send_l2_to_l1_msg");
-        let _ = send_l2_to_l1_msg(EthAddress::from_field(0x2020), 1);
+        if !skip_strictly_limited_side_effects {
+            dep::aztec::oracle::debug_log::debug_log("send_l2_to_l1_msg");
+            let _ = send_l2_to_l1_msg(EthAddress::from_field(0x2020), 1);
+        }
         dep::aztec::oracle::debug_log::debug_log("storage_read_and_write");
         set_storage_single(read_storage_single());
         dep::aztec::oracle::debug_log::debug_log("nested_call_to_add");

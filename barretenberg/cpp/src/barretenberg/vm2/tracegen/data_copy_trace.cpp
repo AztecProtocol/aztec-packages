@@ -7,6 +7,7 @@
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_data_copy.hpp"
+#include "barretenberg/vm2/generated/relations/perms_data_copy.hpp"
 #include "barretenberg/vm2/simulation/events/data_copy_events.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -29,7 +30,7 @@ void DataCopyTraceBuilder::process(
         bool is_cd_copy = event.operation == simulation::DataCopyOperation::CD_COPY;
         bool is_rd_copy = event.operation == simulation::DataCopyOperation::RD_COPY;
 
-        // todo(ilyas): Can optimise this as we only need the inverse if CD_COPY as well
+        // todo(ilyas): Can optimize this as we only need the inverse if CD_COPY as well
         bool is_top_level = event.read_context_id == 0;
         FF parent_id_inv = is_top_level ? 0 : FF(event.read_context_id).invert();
 
@@ -44,8 +45,9 @@ void DataCopyTraceBuilder::process(
                       { C::data_copy_clk, event.execution_clk },
                       { C::data_copy_sel_start, 1 },
                       { C::data_copy_sel_cd_copy, is_cd_copy ? 1 : 0 },
+                      { C::data_copy_sel_cd_copy_start, is_cd_copy ? 1 : 0 },
                       { C::data_copy_sel_rd_copy, is_rd_copy ? 1 : 0 },
-                      { C::data_copy_operation_id, static_cast<uint8_t>(event.operation) },
+                      { C::data_copy_sel_rd_copy_start, is_rd_copy ? 1 : 0 },
                       { C::data_copy_thirty_two, 32 }, // Need this for range checks
 
                       { C::data_copy_src_context_id, event.read_context_id },
@@ -130,7 +132,6 @@ void DataCopyTraceBuilder::process(
             trace.set(row,
                       { {
                           { C::data_copy_clk, event.execution_clk },
-                          { C::data_copy_operation_id, static_cast<uint8_t>(event.operation) },
                           { C::data_copy_sel_cd_copy, is_cd_copy ? 1 : 0 },
                           { C::data_copy_sel_rd_copy, is_rd_copy ? 1 : 0 },
                           { C::data_copy_thirty_two, 32 }, // Need this for range checks
@@ -178,7 +179,7 @@ void DataCopyTraceBuilder::process(
 
 const InteractionDefinition DataCopyTraceBuilder::interactions =
     InteractionDefinition()
-        // Mem Read / Writes
+        // Mem Read / Writes (Need to be moved to permutations)
         .add<lookup_data_copy_mem_read_settings, InteractionType::LookupGeneric>()
         .add<lookup_data_copy_mem_write_settings, InteractionType::LookupGeneric>()
         // Enqueued Call Col Read
@@ -187,6 +188,8 @@ const InteractionDefinition DataCopyTraceBuilder::interactions =
         .add<lookup_data_copy_range_reads_left_settings, InteractionType::LookupGeneric>()
         .add<lookup_data_copy_range_max_read_size_diff_settings, InteractionType::LookupGeneric>()
         .add<lookup_data_copy_range_read_settings, InteractionType::LookupGeneric>()
-        .add<lookup_data_copy_range_write_settings, InteractionType::LookupGeneric>();
-
+        .add<lookup_data_copy_range_write_settings, InteractionType::LookupGeneric>()
+        // Permutations
+        .add<perm_data_copy_dispatch_cd_copy_settings, InteractionType::Permutation>()
+        .add<perm_data_copy_dispatch_rd_copy_settings, InteractionType::Permutation>();
 } // namespace bb::avm2::tracegen

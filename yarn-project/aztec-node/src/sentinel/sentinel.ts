@@ -5,9 +5,8 @@ import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { L2TipsMemoryStore, type L2TipsStore } from '@aztec/kv-store/stores';
 import type { P2PClient } from '@aztec/p2p';
-import { Offense } from '@aztec/slasher';
-import type { SlasherConfig, WantToSlashArgs, Watcher, WatcherEmitter } from '@aztec/slasher/config';
-import { WANT_TO_SLASH_EVENT } from '@aztec/slasher/config';
+import { OffenseType, WANT_TO_SLASH_EVENT, type Watcher, type WatcherEmitter } from '@aztec/slasher';
+import type { SlasherConfig } from '@aztec/slasher/config';
 import {
   type L2BlockSource,
   L2BlockStream,
@@ -121,12 +120,12 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     }
 
     const epoch = getEpochAtSlot(block.header.getSlot(), await this.archiver.getL1Constants());
-    this.logger.info(`Computing proven performance for epoch ${epoch}`);
+    this.logger.debug(`Computing proven performance for epoch ${epoch}`);
     const performance = await this.computeProvenPerformance(epoch);
-    this.logger.info(`Proven performance for epoch ${epoch}`, performance);
+    this.logger.info(`Computed proven performance for epoch ${epoch}`, performance);
 
     await this.updateProvenPerformance(epoch, performance);
-    this.handleProvenPerformance(performance);
+    this.handleProvenPerformance(epoch, performance);
   }
 
   protected async computeProvenPerformance(epoch: bigint) {
@@ -169,7 +168,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     return this.store.updateProvenPerformance(epoch, performance);
   }
 
-  protected handleProvenPerformance(performance: ValidatorsEpochPerformance) {
+  protected handleProvenPerformance(epoch: bigint, performance: ValidatorsEpochPerformance) {
     const criminals = Object.entries(performance)
       .filter(([_, { missed, total }]) => {
         return missed / total >= this.config.slashInactivityCreateTargetPercentage;
@@ -179,39 +178,14 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     const args = criminals.map(address => ({
       validator: EthAddress.fromString(address),
       amount: this.config.slashInactivityCreatePenalty,
-      offense: Offense.INACTIVITY,
+      offenseType: OffenseType.INACTIVITY,
+      epochOrSlot: epoch,
     }));
 
-    this.logger.info(`Criminals: ${criminals.length}`, { args });
-
     if (criminals.length > 0) {
+      this.logger.info(`Identified ${criminals.length} validators to slash due to inactivity`, { args });
       this.emit(WANT_TO_SLASH_EVENT, args);
     }
-  }
-
-  public async shouldSlash({ validator, amount }: WantToSlashArgs): Promise<boolean> {
-    const l1Constants = this.epochCache.getL1Constants();
-    const ttlL2Slots = this.config.slashPayloadTtlSeconds / l1Constants.slotDuration;
-    const ttlEpochs = BigInt(Math.ceil(ttlL2Slots / l1Constants.epochDuration));
-
-    const currentEpoch = this.epochCache.getEpochAndSlotNow().epoch;
-    const performance = await this.store.getProvenPerformance(validator);
-    const isCriminal =
-      performance
-        .filter(p => p.epoch >= currentEpoch - ttlEpochs)
-        .findIndex(p => p.missed / p.total >= this.config.slashInactivitySignalTargetPercentage) !== -1;
-    if (isCriminal) {
-      if (amount <= this.config.slashInactivityMaxPenalty) {
-        return true;
-      } else {
-        this.logger.warn(`Validator ${validator} is a criminal but the penalty is too high`, {
-          amount,
-          maxPenalty: this.config.slashInactivityMaxPenalty,
-        });
-        return false;
-      }
-    }
-    return false;
   }
 
   /**

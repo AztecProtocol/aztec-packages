@@ -65,6 +65,7 @@ import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
+import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
 // solhint-disable comprehensive-interface
 
 uint256 constant MANA_TARGET = 1e8;
@@ -92,6 +93,8 @@ contract FakeCanonical is IRewardDistributor {
   }
 
   function updateRegistry(IRegistry _registry) external {}
+
+  function recover(address _asset, address _to, uint256 _amount) external {}
 }
 
 /**
@@ -173,7 +176,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     SlashFactory slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
     address[] memory toSlash = new address[](0);
     uint96[] memory amounts = new uint96[](0);
-    uint256[] memory offenses = new uint256[](0);
+    uint128[][] memory offenses = new uint128[][](0);
     slashPayload = slashFactory.createSlashPayload(toSlash, amounts, offenses);
 
     vm.label(coinbase, "coinbase");
@@ -230,10 +233,10 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
 
         // Store the attestations for the current block number
         uint256 currentBlockNumber = rollup.getPendingBlockNumber() + 1;
-        blockAttestations[currentBlockNumber] = AttestationLib.packAttestations(b.attestations);
+        blockAttestations[currentBlockNumber] = AttestationLibHelper.packAttestations(b.attestations);
 
         vm.prank(proposer);
-        rollup.propose(b.proposeArgs, AttestationLib.packAttestations(b.attestations), b.signers, b.blobInputs);
+        rollup.propose(b.proposeArgs, AttestationLibHelper.packAttestations(b.attestations), b.signers, b.blobInputs);
 
         nextSlot = nextSlot + Slot.wrap(1);
       }

@@ -1,10 +1,10 @@
 import { EthAddress, type NodeInfo, type PXE, createCompatibleClient, sleep } from '@aztec/aztec.js';
 import {
   GovernanceProposerContract,
-  L1TxUtils,
   RollupContract,
   createEthereumChain,
   createExtendedL1Client,
+  createL1TxUtilsFromViemWallet,
   deployL1Contract,
 } from '@aztec/ethereum';
 import { createLogger } from '@aztec/foundation/log';
@@ -114,7 +114,7 @@ describe('spartan_upgrade_governance_proposer', () => {
         NewGovernanceProposerPayloadAbi,
         NewGovernanceProposerPayloadBytecode,
         [nodeInfo.l1ContractAddresses.registryAddress.toString()],
-        '0x2a', // salt
+        { salt: '0x2a' },
       );
       expect(newGovernanceProposerAddress).toBeDefined();
       expect(newGovernanceProposerAddress.equals(EthAddress.ZERO)).toBeFalsy();
@@ -164,7 +164,7 @@ describe('spartan_upgrade_governance_proposer', () => {
 
       debugLogger.info(`Executing proposal ${info.round}`);
 
-      const l1TxUtils = new L1TxUtils(l1Client, debugLogger);
+      const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, debugLogger);
       const { receipt } = await governanceProposer.submitRoundWinner(executableRound, l1TxUtils);
       expect(receipt).toBeDefined();
       expect(receipt.status).toEqual('success');

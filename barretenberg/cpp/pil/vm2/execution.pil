@@ -408,7 +408,8 @@ pol commit sel_execute_to_radix;
 pol commit sel_execute_poseidon2_perm;
 pol commit sel_execute_ecc_add;
 pol commit sel_execute_execution;
-pol commit sel_execute_data_copy;
+pol commit sel_execute_calldata_copy;
+pol commit sel_execute_returndata_copy;
 pol commit sel_execute_keccakf1600;
 pol commit sel_execute_get_contract_instance;
 pol commit sel_execute_emit_unencrypted_log;
@@ -421,7 +422,8 @@ sel_execute_to_radix * (1 - sel_execute_to_radix) = 0;
 sel_execute_poseidon2_perm * (1 - sel_execute_poseidon2_perm) = 0;
 sel_execute_ecc_add * (1 - sel_execute_ecc_add) = 0;
 sel_execute_execution * (1 - sel_execute_execution) = 0;
-sel_execute_data_copy * (1 - sel_execute_data_copy) = 0;
+sel_execute_calldata_copy * (1 - sel_execute_calldata_copy) = 0;
+sel_execute_returndata_copy * (1 - sel_execute_returndata_copy) = 0;
 sel_execute_keccakf1600 * (1 - sel_execute_keccakf1600) = 0;
 sel_execute_get_contract_instance * (1 - sel_execute_get_contract_instance) = 0;
 sel_execute_emit_unencrypted_log * (1 - sel_execute_emit_unencrypted_log) = 0;
@@ -437,10 +439,11 @@ sel_execute_poseidon2_perm * constants.AVM_SUBTRACE_ID_POSEIDON_PERM +
 sel_execute_to_radix * constants.AVM_SUBTRACE_ID_TO_RADIX +
 sel_execute_ecc_add * constants.AVM_SUBTRACE_ID_ECC +
 sel_execute_keccakf1600 * constants.AVM_SUBTRACE_ID_KECCAKF1600 +
-sel_execute_data_copy * constants.AVM_SUBTRACE_ID_DATA_COPY +
+sel_execute_calldata_copy * constants.AVM_SUBTRACE_ID_CALLDATA_COPY +
 sel_execute_get_contract_instance * constants.AVM_SUBTRACE_ID_GETCONTRACTINSTANCE +
 sel_execute_emit_unencrypted_log * constants.AVM_SUBTRACE_ID_EMITUNENCRYPTEDLOG +
-sel_execute_sha256_compression * constants.AVM_SUBTRACE_ID_SHA256_COMPRESSION
+sel_execute_sha256_compression * constants.AVM_SUBTRACE_ID_SHA256_COMPRESSION +
+sel_execute_returndata_copy * constants.AVM_SUBTRACE_ID_RETURNDATA_COPY
 // We force the selectors to be 0 if we are not executing an opcode.
 = sel_should_execute_opcode * subtrace_id;
 
@@ -638,6 +641,15 @@ sel * (1 - sel_execute_emit_nullifier) * (prev_num_nullifiers_emitted - num_null
 sel * (1 - sel_execute_emit_unencrypted_log) * (prev_num_unencrypted_logs - num_unencrypted_logs) = 0;
 #[NUM_L2_TO_L1_MESSAGES_NOT_CHANGED]
 sel * (1 - sel_execute_send_l2_to_l1_msg) * (prev_num_l2_to_l1_messages - num_l2_to_l1_messages) = 0;
+
+// Some opcodes cannot fail during opcode execution. They should not be able to set sel_opcode_error.
+// Note that some of these opcodes can fail in the stages before execution.
+// This list only takes into account the opcodes that are handled by the execution subtrace.
+// Infallible opcodes which are handled by other traces should constrain sel_opcode_error there.
+(sel_execute_mov + sel_execute_returndata_size + sel_execute_jump +
+ sel_execute_jumpi + sel_execute_debug_log + sel_execute_success_copy +
+ sel_execute_call + sel_execute_static_call + sel_execute_internal_call +
+ sel_execute_return + sel_execute_revert) * sel_opcode_error = 0;
 
 /**************************************************************************************************
  *  Temporality group 6: Register write.

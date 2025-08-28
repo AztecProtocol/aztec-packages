@@ -494,10 +494,10 @@ library ZKTranscriptLib {
         pure
         returns (Fr[CONST_PROOF_SIZE_LOG_N] memory gateChallenges, Fr nextPreviousChallenge)
     {
-        for (uint256 i = 0; i < logN; i++) {
-            previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
-
-            (gateChallenges[i],) = splitChallenge(previousChallenge);
+        previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
+        (gateChallenges[0],) = splitChallenge(previousChallenge);
+        for (uint256 i = 1; i < logN; i++) {
+            gateChallenges[i] = gateChallenges[i - 1] * gateChallenges[i - 1];
         }
         nextPreviousChallenge = previousChallenge;
     }
@@ -2163,7 +2163,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
         boundary += $LOG_N - 1;
 
-        // Finalise the batch opening claim
+        // Finalize the batch opening claim
         mem.denominators[0] = Fr.wrap(1).div(tp.shplonkZ - tp.geminiR);
         mem.denominators[1] = Fr.wrap(1).div(tp.shplonkZ - SUBGROUP_GENERATOR * tp.geminiR);
         mem.denominators[2] = mem.denominators[0];

@@ -69,6 +69,7 @@ import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {SlashRound} from "@aztec/core/libraries/SlashRoundLib.sol";
+import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -95,6 +96,8 @@ contract FakeCanonical is IRewardDistributor {
   }
 
   function updateRegistry(IRegistry _registry) external {}
+
+  function recover(address _asset, address _to, uint256 _amount) external {}
 }
 
 contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
@@ -129,7 +132,10 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   uint256 internal PROOFS_PER_EPOCH; // given as e2, for simple decimals, e.g., 200 = 2.00
   uint256 internal VOTING_ROUND_SIZE = 500;
 
+  bool internal IS_IGNITION;
+
   Rollup internal rollup;
+  Slasher internal slasher;
 
   address internal coinbase = address(bytes20("MONEY MAKER"));
   TestERC20 internal asset;
@@ -188,12 +194,13 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
     asset = builder.getConfig().testERC20;
     rollup = builder.getConfig().rollup;
-    slashingProposer = Slasher(rollup.getSlasher()).PROPOSER();
+    slasher = Slasher(rollup.getSlasher());
+    slashingProposer = address(slasher) == address(0) ? address(0) : slasher.PROPOSER();
 
     SlashFactory slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
     address[] memory toSlash = new address[](0);
     uint96[] memory amounts = new uint96[](0);
-    uint256[] memory offenses = new uint256[](0);
+    uint128[][] memory offenses = new uint128[][](0);
     slashPayload = slashFactory.createSlashPayload(toSlash, amounts, offenses);
 
     vm.label(coinbase, "coinbase");
@@ -213,6 +220,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       MANA_TARGET = 0;
       TARGET_COMMITTEE_SIZE = 24;
       PROOFS_PER_EPOCH = 200; // 2.00
+
+      IS_IGNITION = true;
     } else {
       full = load("single_tx_block_1");
 
@@ -221,6 +230,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       MANA_TARGET = 1e8;
       TARGET_COMMITTEE_SIZE = 48;
       PROOFS_PER_EPOCH = 200; // 2.00
+
+      IS_IGNITION = false;
     }
 
     FeeLib.initialize(MANA_TARGET, EthValue.wrap(100));
@@ -391,16 +402,18 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
    * @return Encoded vote data
    */
   function createTallyVoteData(uint256 _size) internal returns (bytes memory) {
-    require(_size % 2 == 0, "Vote data must have even number of validators");
+    require(_size % 4 == 0, "Vote data must have multiple of 4 validators");
 
     bytes32 seed = keccak256(abi.encode(_size, block.timestamp));
 
-    bytes memory voteData = new bytes(_size / 2);
+    bytes memory voteData = new bytes(_size / 4);
 
-    for (uint256 i = 0; i < _size; i += 2) {
-      uint8 firstValidator = uint8(uint256(keccak256(abi.encode(seed, i)))) & 0x0F;
-      uint8 secondValidator = uint8(uint256(keccak256(abi.encode(seed, i + 1)))) & 0x0F;
-      voteData[i / 2] = bytes1((secondValidator << 4) | firstValidator);
+    for (uint256 i = 0; i < _size; i += 4) {
+      uint8 validator0 = uint8(uint256(keccak256(abi.encode(seed, i)))) & 0x03; // 2 bits
+      uint8 validator1 = uint8(uint256(keccak256(abi.encode(seed, i + 1)))) & 0x03; // 2 bits
+      uint8 validator2 = uint8(uint256(keccak256(abi.encode(seed, i + 2)))) & 0x03; // 2 bits
+      uint8 validator3 = uint8(uint256(keccak256(abi.encode(seed, i + 3)))) & 0x03; // 2 bits
+      voteData[i / 4] = bytes1((validator3 << 6) | (validator2 << 4) | (validator1 << 2) | validator0);
     }
 
     return voteData;
@@ -429,7 +442,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
   function proposeWithTallyVote(Block memory b, address proposer) internal {
     // First propose the block
-    CommitteeAttestations memory attestations = AttestationLib.packAttestations(b.attestations);
+    CommitteeAttestations memory attestations = AttestationLibHelper.packAttestations(b.attestations);
 
     uint256 committeeSize = rollup.getEpochCommittee(rollup.getCurrentEpoch()).length;
     uint256 roundSizeInEpochs = 2;
@@ -455,9 +468,12 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     Slot nextSlot = Slot.wrap(EPOCH_DURATION * 3 + 1);
     Epoch nextEpoch = Epoch.wrap(4);
     bool warmedUp = false;
+
+    uint256 stopAtBlock = IS_IGNITION ? 200 : 150;
+
     // Loop through all of the L1 metadata
     for (uint256 i = 0; i < l1Metadata.length; i++) {
-      if (rollup.getPendingBlockNumber() >= 200) {
+      if (rollup.getPendingBlockNumber() >= stopAtBlock) {
         break;
       }
 
@@ -483,7 +499,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
         // Store the attestations for the current block number
         uint256 currentBlockNumber = rollup.getPendingBlockNumber() + 1;
-        blockAttestations[currentBlockNumber] = AttestationLib.packAttestations(b.attestations);
+        blockAttestations[currentBlockNumber] = AttestationLibHelper.packAttestations(b.attestations);
 
         if (_slashing == TestSlash.EMPIRE) {
           Signature memory sig = createEmpireSignalSignature(proposer, slashPayload, rollup.getCurrentSlot());
@@ -491,7 +507,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
           calls[0] = Multicall3.Call3({
             target: address(rollup),
             callData: abi.encodeCall(
-              rollup.propose, (b.proposeArgs, AttestationLib.packAttestations(b.attestations), b.signers, b.blobInputs)
+              rollup.propose,
+              (b.proposeArgs, AttestationLibHelper.packAttestations(b.attestations), b.signers, b.blobInputs)
             ),
             allowFailure: false
           });
@@ -510,12 +527,12 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
             proposeWithTallyVote(b, proposer);
           } else {
             // Before slash offset, just propose normally
-            CommitteeAttestations memory attestations = AttestationLib.packAttestations(b.attestations);
+            CommitteeAttestations memory attestations = AttestationLibHelper.packAttestations(b.attestations);
             vm.prank(proposer);
             rollup.propose(b.proposeArgs, attestations, b.signers, b.blobInputs);
           }
         } else {
-          CommitteeAttestations memory attestations = AttestationLib.packAttestations(b.attestations);
+          CommitteeAttestations memory attestations = AttestationLibHelper.packAttestations(b.attestations);
 
           // Emit calldata size for propose
           bytes memory proposeCalldata =

@@ -237,7 +237,10 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
 
     // We call one external library or another based on the slasher flavor
     // This allows us to keep the slash flavors in separate external libraries so we do not exceed max contract size
-    if (_config.slasherFlavor == SlasherFlavor.TALLY) {
+    // Note that we do not deploy a slasher if we run with no committees (i.e. targetCommitteeSize == 0)
+    if (_config.targetCommitteeSize == 0) {
+      slasher = ISlasher(address(0));
+    } else if (_config.slasherFlavor == SlasherFlavor.TALLY) {
       slasher = TallySlasherDeploymentExtLib.deployTallySlasher(
         address(this),
         _config.slashingVetoer,
@@ -443,8 +446,8 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @dev Can be called by anyone. Transfers the stake to the designated recipient.
    * @param _attester The validator address whose withdrawal to finalize
    */
-  function finaliseWithdraw(address _attester) external override(IStakingCore) {
-    ValidatorOperationsExtLib.finaliseWithdraw(_attester);
+  function finalizeWithdraw(address _attester) external override(IStakingCore) {
+    ValidatorOperationsExtLib.finalizeWithdraw(_attester);
   }
 
   /**

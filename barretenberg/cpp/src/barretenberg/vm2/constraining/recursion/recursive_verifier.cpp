@@ -119,10 +119,8 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
 
     SumcheckVerifier<Flavor> sumcheck(transcript, alpha, CONST_PROOF_SIZE_LOG_N);
 
-    auto gate_challenges = std::vector<FF>(CONST_PROOF_SIZE_LOG_N);
-    for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
-        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-    }
+    std::vector<FF> gate_challenges =
+        transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", CONST_PROOF_SIZE_LOG_N);
 
     // No need to constrain that sumcheck_verified is true as this is guaranteed by the implementation of
     // when called over a "circuit field" types.

@@ -1,5 +1,5 @@
 import type { BatchedBlob, FinalBlobBatchingChallenges } from '@aztec/blob-lib';
-import type { Fr } from '@aztec/foundation/fields';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 
 import type { L2Block } from '../block/l2_block.js';
 import type { Proof } from '../proofs/proof.js';
@@ -33,13 +33,13 @@ export interface EpochProver extends Omit<IBlockFactory, 'setBlockCompleted'> {
   setBlockCompleted(blockNumber: number, expectedBlockHeader?: BlockHeader): Promise<L2Block>;
 
   /** Pads the epoch with empty block roots if needed and blocks until proven. Throws if proving has failed. */
-  finaliseEpoch(): Promise<{ publicInputs: RootRollupPublicInputs; proof: Proof; batchedBlobInputs: BatchedBlob }>;
+  finalizeEpoch(): Promise<{ publicInputs: RootRollupPublicInputs; proof: Proof; batchedBlobInputs: BatchedBlob }>;
 
   /** Cancels all proving jobs. */
   cancel(): void;
 
   /** Returns an identifier for the prover or zero if not set. */
-  getProverId(): Fr;
+  getProverId(): EthAddress;
 
   /** Returns the block assembled at a given index (zero-based) within the epoch. */
   getBlock(index: number): L2Block;

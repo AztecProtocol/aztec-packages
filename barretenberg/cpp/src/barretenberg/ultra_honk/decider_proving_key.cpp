@@ -160,16 +160,20 @@ void DeciderProvingKey_<Flavor>::allocate_databus_polynomials(const Circuit& cir
     polynomials.return_data_read_counts = Polynomial(MAX_DATABUS_SIZE, dyadic_size());
     polynomials.return_data_read_tags = Polynomial(MAX_DATABUS_SIZE, dyadic_size());
 
-    polynomials.databus_id = Polynomial(MAX_DATABUS_SIZE, dyadic_size());
-
     // Allocate log derivative lookup argument inverse polynomials
     const size_t q_busread_end =
         circuit.blocks.busread.trace_offset() + circuit.blocks.busread.get_fixed_size(is_structured);
-    polynomials.calldata_inverses = Polynomial(std::max(circuit.get_calldata().size(), q_busread_end), dyadic_size());
+    const size_t calldata_size = circuit.get_calldata().size();
+    const size_t secondary_calldata_size = circuit.get_secondary_calldata().size();
+    const size_t return_data_size = circuit.get_return_data().size();
+
+    polynomials.databus_id = Polynomial(
+        std::max({ calldata_size, secondary_calldata_size, return_data_size, q_busread_end }), dyadic_size());
+
+    polynomials.calldata_inverses = Polynomial(std::max(calldata_size, q_busread_end), dyadic_size());
     polynomials.secondary_calldata_inverses =
-        Polynomial(std::max(circuit.get_secondary_calldata().size(), q_busread_end), dyadic_size());
-    polynomials.return_data_inverses =
-        Polynomial(std::max(circuit.get_return_data().size(), q_busread_end), dyadic_size());
+        Polynomial(std::max(secondary_calldata_size, q_busread_end), dyadic_size());
+    polynomials.return_data_inverses = Polynomial(std::max(return_data_size, q_busread_end), dyadic_size());
 }
 
 /**
@@ -197,7 +201,8 @@ void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     const auto& secondary_calldata = circuit.get_secondary_calldata();
     const auto& return_data = circuit.get_return_data();
 
-    // Note: We do not utilize a zero row for databus columns
+    // Note: Databus columns start from index 0. If this ever changes, make sure to also update the active range
+    // construction in ExecutionTraceUsageTracker::update(). We do not utilize a zero row for databus columns.
     for (size_t idx = 0; idx < calldata.size(); ++idx) {
         calldata_poly.at(idx) = circuit.get_variable(calldata[idx]);        // calldata values
         calldata_read_counts.at(idx) = calldata.get_read_count(idx);        // read counts

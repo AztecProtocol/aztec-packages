@@ -42,5 +42,5 @@ scripts/bb_prove.sh assert_statement
 Programmatically, you can also do from root:
 
 ```bash
-./barretenberg/acir_tests/bootstrap.sh test_cmds | grep assert_statement | ci3/parallelise
+./barretenberg/acir_tests/bootstrap.sh test_cmds | grep assert_statement | ci3/parallelize
 ```

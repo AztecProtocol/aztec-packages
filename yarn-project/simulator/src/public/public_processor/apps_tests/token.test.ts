@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { TestDateProvider } from '@aztec/foundation/timer';
+import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
@@ -55,7 +55,7 @@ describe('Public Processor app tests: TokenContract', () => {
   });
 
   it('token constructor, mint, many transfers', async () => {
-    const startTime = performance.now();
+    const timer = new Timer();
 
     const mintAmount = 1_000_000n;
     const transferAmount = 10n;
@@ -112,7 +112,6 @@ describe('Public Processor app tests: TokenContract', () => {
     expect(processedTxs.length).toBe(NUM_TRANSFERS + 2); // constructor, mint, transfers
     expect(failedTxs.length).toBe(0);
 
-    const endTime = performance.now();
-    logger.verbose(`TokenContract public processor test took ${endTime - startTime}ms\n`);
+    logger.verbose(`TokenContract public processor test took ${timer.ms()}ms\n`);
   });
 });
