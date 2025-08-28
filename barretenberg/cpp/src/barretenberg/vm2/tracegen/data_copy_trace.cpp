@@ -38,6 +38,10 @@ void DataCopyTraceBuilder::process(
         // we cast to a wider integer type to detect overflows
         uint64_t copy_size = static_cast<uint64_t>(event.data_copy_size);
         uint64_t data_offset = static_cast<uint64_t>(event.data_offset);
+        uint64_t max_read_index = std::min(data_offset + copy_size, static_cast<uint64_t>(event.data_size));
+
+        uint64_t max_read_addr = static_cast<uint64_t>(event.data_addr) + max_read_index;
+        uint64_t max_write_addr = static_cast<uint64_t>(event.dst_addr) + copy_size;
 
         trace.set(row,
                   { {
@@ -62,54 +66,41 @@ void DataCopyTraceBuilder::process(
 
                       { C::data_copy_is_top_level, is_top_level ? 1 : 0 },
                       { C::data_copy_parent_id_inv, parent_id_inv },
+
+                      // Compute Max Read Index
+                      { C::data_copy_offset_plus_size, data_offset + copy_size },
+                      { C::data_copy_offset_plus_size_is_gt, data_offset + copy_size > event.data_size ? 1 : 0 },
+                      { C::data_copy_max_read_index, max_read_index },
+
+                      // Max Addresses
+                      { C::data_copy_max_mem_addr, MAX_MEM_ADDR },
+                      { C::data_copy_max_read_addr, max_read_addr },
+                      { C::data_copy_max_write_addr, max_write_addr },
+
                   } });
 
         /////////////////////////////
         // Memory Address Range Check
         /////////////////////////////
-        // The final possible error is to check that we do not try to read or write out of bounds memory.
+        // We need to check that the read and write addresses are within the valid memory range.
         // Note: for enqueued calls, there is no out of bound read since we read from a column.
-
-        uint64_t max_read_size = std::min(data_offset + copy_size, static_cast<uint64_t>(event.data_size));
-        // This helps in proving read_size = min(read_size, data_offset + copy_size)
-        bool is_data_size_lt = static_cast<uint64_t>(event.data_size) < (data_offset + copy_size);
-        uint64_t abs_diff_max_read_index = is_data_size_lt
-                                               ? (data_offset + copy_size) - event.data_size - 1
-                                               : static_cast<uint64_t>(event.data_size) - (data_offset + copy_size);
-
-        // Additions done over uint64_t to avoid overflow issues
-        uint64_t max_read_addr = (max_read_size + event.data_addr) * (!is_top_level ? 1 : 0); // 0 if enqueued call
-        uint64_t max_write_addr = static_cast<uint64_t>(event.dst_addr) + copy_size;
 
         bool read_address_overflow = max_read_addr > MAX_MEM_ADDR;
         bool write_address_overflow = max_write_addr > MAX_MEM_ADDR;
         if (read_address_overflow || write_address_overflow) {
-            trace.set(
-                row,
-                { { { C::data_copy_sel_end, 1 },
-                    // Add error flag - note we can be out of range for both reads and writes
-                    { C::data_copy_src_out_of_range_err, read_address_overflow ? 1 : 0 },
-                    { C::data_copy_dst_out_of_range_err, write_address_overflow ? 1 : 0 },
-                    { C::data_copy_err, 1 },
-
-                    // Circuit columns for computing max_read_size = std::min(..)
-                    { C::data_copy_src_data_size_is_lt, is_data_size_lt ? 1 : 0 },
-                    { C::data_copy_abs_diff_max_read_index, abs_diff_max_read_index },
-
-                    // Range checking - we want to explicitly show that max_X > MAX_MEM_ADDR (hence the - 1)
-                    { C::data_copy_abs_read_diff,
-                      read_address_overflow ? max_read_addr - MAX_MEM_ADDR - 1 : MAX_MEM_ADDR - max_read_addr },
-                    { C::data_copy_abs_write_diff,
-                      write_address_overflow ? max_write_addr - MAX_MEM_ADDR - 1 : MAX_MEM_ADDR - max_write_addr } } });
+            trace.set(row,
+                      { {
+                          { C::data_copy_sel_end, 1 },
+                          // Add error flag - note we can be out of range for both reads and writes
+                          { C::data_copy_src_out_of_range_err, read_address_overflow ? 1 : 0 },
+                          { C::data_copy_dst_out_of_range_err, write_address_overflow ? 1 : 0 },
+                          { C::data_copy_err, 1 },
+                      } });
             row++;
             continue; // Go to the next event
         }
 
-        // At this point it's safe to perform the data copy operation since there are no longer any errors.
-        // Range check helpers for reads_left = min(0, max_read_size - data_offset)
-        bool offset_gt_max_read_size = data_offset > max_read_size;
-        auto reads_left = offset_gt_max_read_size ? 0 : max_read_size - data_offset;
-        auto abs_max_read_offset = offset_gt_max_read_size ? data_offset - max_read_size - 1 : reads_left;
+        auto reads_left = data_offset > max_read_index ? 0 : max_read_index - data_offset;
 
         for (uint32_t i = 0; i < event.calldata.size(); i++) {
             bool start = i == 0;
@@ -152,25 +143,18 @@ void DataCopyTraceBuilder::process(
 
                           { C::data_copy_sel_mem_read, sel_mem_read ? 1 : 0 },
                           { C::data_copy_read_addr, read_addr },
-                          { C::data_copy_reads_left, reads_left },
-
-                          // Range Checks
-                          { C::data_copy_sel_offset_gt_max_read, start && offset_gt_max_read_size ? 1 : 0 },
-                          { C::data_copy_abs_max_read_offset, start ? abs_max_read_offset : 0 },
-
-                          { C::data_copy_src_data_size_is_lt, is_data_size_lt ? 1 : 0 },
-                          { C::data_copy_abs_diff_max_read_index, abs_diff_max_read_index },
-                          { C::data_copy_abs_read_diff,
-                            start ? MAX_MEM_ADDR - max_read_addr : 0 }, // MAX_MEM_ADDR >= max_read_addr
-                          { C::data_copy_abs_write_diff,
-                            start ? MAX_MEM_ADDR - max_write_addr : 0 }, // MAX_MEM_ADDR >= max_write_addr
 
                           { C::data_copy_reads_left_inv, reads_left_inv },
                           { C::data_copy_padding, is_padding_row ? 1 : 0 },
                           { C::data_copy_value, value },
 
                           { C::data_copy_cd_copy_col_read, read_cd_col ? 1 : 0 },
+
+                          // Reads Left
+                          { C::data_copy_reads_left, reads_left },
+                          { C::data_copy_offset_gt_max_read_index, (start && data_offset > max_read_index) ? 1 : 0 },
                       } });
+
             reads_left = reads_left == 0 ? 0 : reads_left - 1;
             row++;
         }
@@ -184,11 +168,11 @@ const InteractionDefinition DataCopyTraceBuilder::interactions =
         .add<lookup_data_copy_mem_write_settings, InteractionType::LookupGeneric>()
         // Enqueued Call Col Read
         .add<lookup_data_copy_col_read_settings, InteractionType::LookupGeneric>()
-        // Range Checks
-        .add<lookup_data_copy_range_reads_left_settings, InteractionType::LookupGeneric>()
-        .add<lookup_data_copy_range_max_read_size_diff_settings, InteractionType::LookupGeneric>()
-        .add<lookup_data_copy_range_read_settings, InteractionType::LookupGeneric>()
-        .add<lookup_data_copy_range_write_settings, InteractionType::LookupGeneric>()
+        // GT checks
+        .add<lookup_data_copy_max_read_index_gt_settings, InteractionType::LookupGeneric>()
+        .add<lookup_data_copy_check_src_addr_in_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_data_copy_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_data_copy_offset_gt_max_read_index_settings, InteractionType::LookupGeneric>()
         // Permutations
         .add<perm_data_copy_dispatch_cd_copy_settings, InteractionType::Permutation>()
         .add<perm_data_copy_dispatch_rd_copy_settings, InteractionType::Permutation>();
