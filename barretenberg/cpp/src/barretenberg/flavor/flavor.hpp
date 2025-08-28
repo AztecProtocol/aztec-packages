@@ -184,8 +184,8 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     {
         using namespace bb::field_conversion;
         // Create a temporary instance to get the number of precomputed entities
-        PrecomputedCommitments temp;
-        size_t commitments_size = temp.get_all().size() * Transcript::template calc_num_data_types<Commitment>();
+        size_t commitments_size =
+            PrecomputedCommitments::size() * Transcript::template calc_num_data_types<Commitment>();
         size_t metadata_size = 0;
         if constexpr (SerializeMetadata == VKSerializationMode::FULL) {
             // 3 metadata fields + commitments
