@@ -40,10 +40,7 @@ provider "helm" {
   }
 }
 
-# Get mnemonic from Google Secret Manager
-data "google_secret_manager_secret_version" "mnemonic_latest" {
-  secret = var.MNEMONIC_SECRET_NAME
-}
+
 
 # Static IP addresses for eth-devnet services
 resource "google_compute_address" "eth_execution_ip" {
@@ -76,18 +73,19 @@ resource "null_resource" "generate_genesis" {
     chain_id   = var.CHAIN_ID
     block_time = var.BLOCK_TIME
     gas_limit  = var.GAS_LIMIT
-    mnemonic   = data.google_secret_manager_secret_version.mnemonic_latest.secret_data
+    mnemonic   = var.MNEMONIC
   }
 
   provisioner "local-exec" {
     command = <<-EOT
       cd ../../eth-devnet
+      rm -rf out/ tmp/
 
       # Set environment variables for genesis generation
       export CHAIN_ID=${var.CHAIN_ID}
       export BLOCK_TIME=${var.BLOCK_TIME}
       export GAS_LIMIT="${var.GAS_LIMIT}"
-      export MNEMONIC="${data.google_secret_manager_secret_version.mnemonic_latest.secret_data}"
+      export MNEMONIC="${var.MNEMONIC}"
       export PREFUNDED_MNEMONIC_INDICES="${var.PREFUNDED_MNEMONIC_INDICES}"
 
       # Use a custom directory for Foundry installation to avoid permission issues
@@ -126,7 +124,7 @@ resource "helm_release" "eth_devnet" {
 
   set {
     name  = "ethereum.validator.mnemonic"
-    value = data.google_secret_manager_secret_version.mnemonic_latest.secret_data
+    value = var.MNEMONIC
   }
 
 
@@ -151,3 +149,26 @@ resource "helm_release" "eth_devnet" {
   wait_for_jobs = false
 }
 
+data "kubernetes_service" "eth_execution" {
+  count    = var.CREATE_STATIC_IPS ? 0 : 1
+  provider = kubernetes.gke-cluster
+
+  metadata {
+    name      = "${var.RELEASE_PREFIX}-eth-execution"
+    namespace = var.NAMESPACE
+  }
+
+  depends_on = [helm_release.eth_devnet]
+}
+
+data "kubernetes_service" "eth_beacon" {
+  count    = var.CREATE_STATIC_IPS ? 0 : 1
+  provider = kubernetes.gke-cluster
+
+  metadata {
+    name      = "${var.RELEASE_PREFIX}-eth-beacon"
+    namespace = var.NAMESPACE
+  }
+
+  depends_on = [helm_release.eth_devnet]
+}
