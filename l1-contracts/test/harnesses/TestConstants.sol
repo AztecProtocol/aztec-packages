@@ -25,7 +25,9 @@ library TestConstants {
   uint256 internal constant AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS = 0;
   uint256 internal constant AZTEC_SLASHING_OFFSET_IN_ROUNDS = 2;
   address internal constant AZTEC_SLASHING_VETOER = address(0);
-  uint256 internal constant AZTEC_SLASHING_UNIT = 20e18;
+  uint256 internal constant AZTEC_SLASH_AMOUNT_SMALL = 20e18;
+  uint256 internal constant AZTEC_SLASH_AMOUNT_MEDIUM = 40e18;
+  uint256 internal constant AZTEC_SLASH_AMOUNT_LARGE = 60e18;
   uint256 internal constant AZTEC_MANA_TARGET = 100_000_000;
   uint256 internal constant AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN = 4;
   uint256 internal constant AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT = 2;
@@ -106,7 +108,7 @@ library TestConstants {
       rewardConfig: getRewardConfig(),
       rewardBoostConfig: getRewardBoostConfig(),
       stakingQueueConfig: getStakingQueueConfig(),
-      slashingUnit: AZTEC_SLASHING_UNIT,
+      slashAmounts: [AZTEC_SLASH_AMOUNT_SMALL, AZTEC_SLASH_AMOUNT_MEDIUM, AZTEC_SLASH_AMOUNT_LARGE],
       slasherFlavor: SlasherFlavor.EMPIRE
     });
 

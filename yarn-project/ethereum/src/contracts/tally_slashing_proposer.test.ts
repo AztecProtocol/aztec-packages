@@ -125,9 +125,13 @@ describe('TallySlashingProposer', () => {
       expect(executionDelayInRounds).toBe(BigInt(testConfig.slashingExecutionDelayInRounds));
     });
 
-    it('returns correct slashing unit from deployed contract', async () => {
-      const slashingUnit = await tallySlashingProposer.getSlashingUnit();
-      expect(slashingUnit).toBe(testConfig.slashingUnit);
+    it('returns correct slashing amounts from deployed contract', async () => {
+      const slashingAmounts = await tallySlashingProposer.getSlashingAmounts();
+      expect(slashingAmounts).toEqual([
+        testConfig.slashAmountSmall,
+        testConfig.slashAmountMedium,
+        testConfig.slashAmountLarge,
+      ]);
     });
 
     it('returns correct slash offset in rounds from deployed contract', async () => {

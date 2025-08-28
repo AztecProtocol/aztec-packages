@@ -37,13 +37,7 @@ import { type ValidatorClientConfig, validatorClientConfigMappings } from './con
 import { ValidatorClient } from './validator.js';
 
 describe('ValidatorClient', () => {
-  let config: ValidatorClientConfig &
-    Pick<
-      SlasherConfig,
-      | 'slashBroadcastedInvalidBlockEnabled'
-      | 'slashBroadcastedInvalidBlockPenalty'
-      | 'slashBroadcastedInvalidBlockMaxPenalty'
-    >;
+  let config: ValidatorClientConfig & Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty'>;
   let validatorClient: ValidatorClient;
   let p2pClient: MockProxy<P2P>;
   let blockSource: MockProxy<L2BlockSource>;
@@ -78,9 +72,7 @@ describe('ValidatorClient', () => {
       disableValidator: false,
       validatorReexecute: false,
       validatorReexecuteDeadlineMs: 6000,
-      slashBroadcastedInvalidBlockEnabled: true,
       slashBroadcastedInvalidBlockPenalty: 1n,
-      slashBroadcastedInvalidBlockMaxPenalty: 100n,
     };
 
     const keyStore: KeyStore = {
@@ -305,7 +297,7 @@ describe('ValidatorClient', () => {
     });
 
     it('should not emit WANT_TO_SLASH_EVENT if slashing is disabled', async () => {
-      validatorClient.configureSlashing({ slashBroadcastedInvalidBlockEnabled: false });
+      validatorClient.configureSlashing({ slashBroadcastedInvalidBlockPenalty: 0n });
 
       const emitSpy = jest.spyOn(validatorClient, 'emit');
       enableReexecution();
