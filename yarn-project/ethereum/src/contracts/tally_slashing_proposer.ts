@@ -93,19 +93,30 @@ export class TallySlashingProposerContract extends EventEmitter {
   public async getPayload(
     round: bigint,
   ): Promise<{ actions: { slashAmount: bigint; validator: EthAddress }[]; address: EthAddress }> {
-    const { result } = await this.contract.simulate.getTally([round]);
+    const result = await this.getTallyFromContract(round);
     const address = await this.contract.read.getPayloadAddress([round, result]);
-    const actions = result.map(({ validator, slashAmount }) => ({
-      validator: EthAddress.fromString(validator),
-      slashAmount,
-    }));
+    const actions = this.mapSlashActions(result);
     return { actions, address: EthAddress.fromString(address) };
   }
 
   /** Returns the slash actions to be executed for a given round based on votes */
   public async getTally(round: bigint): Promise<{ slashAmount: bigint; validator: EthAddress }[]> {
-    const { result } = await this.contract.simulate.getTally([round]);
-    return result.map(({ validator, slashAmount }) => ({ validator: EthAddress.fromString(validator), slashAmount }));
+    const result = await this.getTallyFromContract(round);
+    return this.mapSlashActions(result);
+  }
+
+  private async getTallyFromContract(round: bigint): Promise<readonly { slashAmount: bigint; validator: Hex }[]> {
+    const { result: committees } = await this.contract.simulate.getSlashTargetCommittees([round]);
+    return await this.contract.read.getTally([round, committees]);
+  }
+
+  private mapSlashActions(
+    actions: readonly { slashAmount: bigint; validator: Hex }[],
+  ): { slashAmount: bigint; validator: EthAddress }[] {
+    return actions.map(({ validator, slashAmount }) => ({
+      validator: EthAddress.fromString(validator),
+      slashAmount,
+    }));
   }
 
   /** Tries to extract a VoteCast event from the given logs. */

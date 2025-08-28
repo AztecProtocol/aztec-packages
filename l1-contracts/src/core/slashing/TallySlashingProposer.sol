@@ -6,12 +6,14 @@ pragma solidity >=0.8.27;
 import {ISlasher, SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {SlashPayloadLib} from "@aztec/core/libraries/SlashPayloadLib.sol";
 import {SlashRound, CompressedSlashRound, CompressedSlashRoundMath} from "@aztec/core/libraries/SlashRoundLib.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
-import {SlashPayload} from "@aztec/periphery/SlashPayload.sol";
+import {SlashPayloadCloneable} from "@aztec/periphery/SlashPayloadCloneable.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {SignatureLib, Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
+import {Clones} from "@oz/proxy/Clones.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
@@ -87,6 +89,8 @@ contract TallySlashingProposer is EIP712 {
   using CompressedTimeMath for Slot;
   using CompressedSlashRoundMath for CompressedSlashRound;
   using CompressedSlashRoundMath for SlashRound;
+  using Clones for address;
+  using SlashPayloadLib for address[];
 
   /**
    * @notice Contains metadata about a slashing round stored in uncompressed format
@@ -120,13 +124,17 @@ contract TallySlashingProposer is EIP712 {
 
   /**
    * @notice Contains all vote data for a single round
-   * @dev Stores up to MAX_ROUND_SIZE votes as bytes arrays. Each vote encodes slash amounts
+   * @dev Stores up to MAX_ROUND_SIZE votes as fixed-size arrays. Each vote encodes slash amounts
    *      for all validators in the round using 2 bits per validator.
    * @param votes Array of encoded vote data, one entry per proposer vote in the round
+   *         Each vote is stored as fixed-size bytes32 chunks, to avoid the overhead of an extra SLOAD/SSTORE operation
+   *         just to load/write the length of the array, which we already know.
+   *         Vote size = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 4 bytes
+   *         Number of bytes32 slots needed = ceil(voteSize / 32)
+   *         Note that we check the vote size in the constructor to avoid issues
    */
   struct RoundVotes {
-    // TODO(palla/slash): Do not use dynamic arrays given we know the size of each `votes` via the committee size
-    bytes[1024] votes;
+    bytes32[4][1024] votes; // Assuming max 4 slots (128 bytes) per vote
   }
 
   /**
@@ -177,6 +185,12 @@ contract TallySlashingProposer is EIP712 {
    * @dev Receives SlashPayload contracts from this proposer to perform validator punishment
    */
   ISlasher public immutable SLASHER;
+
+  /**
+   * @notice The implementation contract for SlashPayload clones
+   * @dev Single instance deployed once and used as template for all slash payload clones
+   */
+  address public immutable SLASH_PAYLOAD_IMPLEMENTATION;
 
   /**
    * @notice Base amount of stake to slash per slashing unit (in wei)
@@ -290,6 +304,9 @@ contract TallySlashingProposer is EIP712 {
     EXECUTION_DELAY_IN_ROUNDS = _executionDelayInRounds;
     SLASH_OFFSET_IN_ROUNDS = _slashOffsetInRounds;
 
+    // Deploy the SlashPayloadCloneable implementation contract once
+    SLASH_PAYLOAD_IMPLEMENTATION = address(new SlashPayloadCloneable{salt: bytes32(bytes20(uint160(address(this))))}());
+
     require(
       SLASH_OFFSET_IN_ROUNDS > 0, Errors.TallySlashingProposer__SlashOffsetMustBeGreaterThanZero(SLASH_OFFSET_IN_ROUNDS)
     );
@@ -318,6 +335,12 @@ contract TallySlashingProposer is EIP712 {
     );
     require(ROUND_SIZE < MAX_ROUND_SIZE, Errors.TallySlashingProposer__RoundSizeTooLarge(ROUND_SIZE, MAX_ROUND_SIZE));
     require(COMMITTEE_SIZE > 0, Errors.TallySlashingProposer__CommitteeSizeMustBeGreaterThanZero(COMMITTEE_SIZE));
+
+    // Validate that vote size doesn't exceed our fixed 4 bytes32 allocation
+    // Each vote requires COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 4 bytes
+    // We have allocated 4 bytes32 slots = 128 bytes maximum
+    uint256 voteSize = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 4;
+    require(voteSize <= 128, Errors.TallySlashingProposer__VoteSizeTooBig(voteSize, 128));
   }
 
   /**
@@ -370,7 +393,7 @@ contract TallySlashingProposer is EIP712 {
 
     // Store the vote for this round
     uint256 voteCount = roundData.voteCount;
-    _getRoundVotes(round).votes[voteCount] = _votes;
+    _storeVoteData(round, voteCount, _votes);
 
     // Increment the vote count for this round (all other fields remain unchanged)
     _setRoundData(round, slot, voteCount + 1, roundData.executed);
@@ -412,17 +435,20 @@ contract TallySlashingProposer is EIP712 {
     (SlashAction[] memory actions, bool[] memory committeesWithSlashes) = _tally(roundData, _committees);
 
     // Only verify committees that have slashed validators
-    for (uint256 i = 0; i < committeesWithSlashes.length; i++) {
-      if (!committeesWithSlashes[i]) {
-        continue;
-      }
+    unchecked {
+      uint256 length = committeesWithSlashes.length;
+      for (uint256 i; i < length; ++i) {
+        if (!committeesWithSlashes[i]) {
+          continue;
+        }
 
-      // Check committee commitments against the stored on-chain data
-      bytes32 commitment = _computeCommitteeCommitment(_committees[i]);
-      Epoch epochNumber = getSlashTargetEpoch(_round, i);
-      require(
-        commitment == _getCommitteeCommitment(epochNumber), Errors.TallySlashingProposer__InvalidCommitteeCommitment()
-      );
+        // Check committee commitments against the stored on-chain data
+        bytes32 commitment = _computeCommitteeCommitment(_committees[i]);
+        Epoch epochNumber = getSlashTargetEpoch(_round, i);
+        require(
+          commitment == _getCommitteeCommitment(epochNumber), Errors.TallySlashingProposer__InvalidCommitteeCommitment()
+        );
+      }
     }
 
     // Mark round as executed to prevent re-execution
@@ -440,24 +466,42 @@ contract TallySlashingProposer is EIP712 {
   }
 
   /**
+   * @notice Load committees for all epochs to be potentially slashed in a round from the rollup instance
+   * @dev This is an expensive call. It is not marked as view since `getEpochCommittee` may modify rollup state.
+   * @param _round The round number to load committees for
+   * @return committees Array of committees, one for each epoch in the round
+   */
+  function getSlashTargetCommittees(SlashRound _round) external returns (address[][] memory committees) {
+    committees = new address[][](ROUND_SIZE_IN_EPOCHS);
+
+    IValidatorSelection rollup = IValidatorSelection(INSTANCE);
+    unchecked {
+      for (uint256 epochIndex; epochIndex < ROUND_SIZE_IN_EPOCHS; ++epochIndex) {
+        Epoch epoch = getSlashTargetEpoch(_round, epochIndex);
+        committees[epochIndex] = rollup.getEpochCommittee(epoch);
+      }
+    }
+
+    return committees;
+  }
+
+  /**
    * @notice Get the tally results for a specific round, showing which validators would be slashed
    * @dev This function is intended for off-chain querying and analysis of voting results.
    *      It uses transient storage when calling getEpochCommittee on the rollup contract.
    *      Returns the same slash actions that would be executed if executeRound() were called for this round.
    *
    * @param _round The round number to analyze and return tally results for
+   * @param _committees The list of committees to consider for the tally (get them via `getSlashTargetCommittees`)
    * @return actions Array of SlashAction structs containing validator addresses and slash amounts
    *                for all validators that reached the quorum threshold in this round
    */
-  function getTally(SlashRound _round) external returns (SlashAction[] memory) {
+  function getTally(SlashRound _round, address[][] calldata _committees) external view returns (SlashAction[] memory) {
     // Get the round data for the specified round
     RoundData memory roundData = _getRoundData(_round, getCurrentRound());
 
-    // Load the committees for this round
-    address[][] memory committees = _getSlashTargetCommittees(_round);
-
     // Tally votes and return slash actions
-    (SlashAction[] memory actions,) = _tally(roundData, committees);
+    (SlashAction[] memory actions,) = _tally(roundData, _committees);
     return actions;
   }
 
@@ -512,7 +556,9 @@ contract TallySlashingProposer is EIP712 {
    * @return The votes retrieved
    */
   function getVotes(SlashRound _round, uint256 _index) external view returns (bytes memory) {
-    return _getRoundVotes(_round).votes[_index];
+    uint256 expectedLength = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 4;
+    bytes32[4] storage voteSlots = _getRoundVotes(_round).votes[_index];
+    return _loadVoteDataFromStorage(voteSlots, expectedLength);
   }
 
   /**
@@ -584,7 +630,6 @@ contract TallySlashingProposer is EIP712 {
   function _getCommitteeCommitment(Epoch _epoch) internal returns (bytes32) {
     IValidatorSelection rollup = IValidatorSelection(INSTANCE);
     (bytes32 commitment,) = rollup.getEpochCommitteeCommitment(_epoch);
-
     return commitment;
   }
 
@@ -598,34 +643,65 @@ contract TallySlashingProposer is EIP712 {
     // Prepare arrays for the SlashPayload constructor and get the predicted address
     (address[] memory validators, uint96[] memory amounts, bytes32 salt, address predictedAddress) =
       _preparePayloadDataAndAddress(_round, _actions);
-
     // Return existing payload if already deployed
     if (predictedAddress.code.length > 0) {
       return IPayload(predictedAddress);
     }
 
-    // Deploy new SlashPayload contract
-    SlashPayload payload = new SlashPayload{salt: salt}(validators, amounts, IValidatorSelection(INSTANCE));
+    // Deploy clone of SlashPayload using EIP-1167 minimal proxy with immutable args
+    // Encode the immutable arguments for the clone
+    bytes memory immutableArgs = SlashPayloadLib.encodeImmutableArgs(INSTANCE, validators, amounts);
 
-    return IPayload(address(payload));
+    // Deploy the clone with deterministic address
+    address clone = Clones.cloneDeterministicWithImmutableArgs(SLASH_PAYLOAD_IMPLEMENTATION, immutableArgs, salt);
+
+    return IPayload(clone);
   }
 
   /**
-   * @notice Load committees for all epochs to be potentially slashed in a round from the rollup instance
-   * @dev This is an expensive call, use only from external view functions
-   * @param _round The round number to load committees for
-   * @return committees Array of committees, one for each epoch in the round
+   * @notice Store vote data in fixed-size format
+   * @param roundNumber The round to store the vote for
+   * @param voteIndex The index of the vote within the round
+   * @param voteData The vote data to store
    */
-  function _getSlashTargetCommittees(SlashRound _round) internal returns (address[][] memory committees) {
-    committees = new address[][](ROUND_SIZE_IN_EPOCHS);
+  function _storeVoteData(SlashRound roundNumber, uint256 voteIndex, bytes calldata voteData) internal {
+    bytes32[4] storage voteSlots = _getRoundVotes(roundNumber).votes[voteIndex];
+    uint256 dataLength = voteData.length;
 
-    IValidatorSelection rollup = IValidatorSelection(INSTANCE);
-    for (uint256 epochIndex = 0; epochIndex < ROUND_SIZE_IN_EPOCHS; epochIndex++) {
-      Epoch epoch = getSlashTargetEpoch(_round, epochIndex);
-      committees[epochIndex] = rollup.getEpochCommittee(epoch);
+    // Ensure we don't exceed maximum size
+    require(dataLength <= 128, Errors.TallySlashingProposer__VoteSizeTooBig(dataLength, 128));
+
+    unchecked {
+      assembly {
+        let offset := voteData.offset
+
+        // Store chunk 0 (bytes 0-31)
+        if dataLength {
+          let chunk := calldataload(offset)
+          // For partial chunks, we need to keep data left-aligned in the slot
+          // No masking needed since unused bytes are already zero in calldata
+          sstore(voteSlots.slot, chunk)
+        }
+
+        // Store chunk 1 (bytes 32-63)
+        if gt(dataLength, 32) {
+          let chunk := calldataload(add(offset, 32))
+          sstore(add(voteSlots.slot, 1), chunk)
+        }
+
+        // Store chunk 2 (bytes 64-95)
+        if gt(dataLength, 64) {
+          let chunk := calldataload(add(offset, 64))
+          sstore(add(voteSlots.slot, 2), chunk)
+        }
+
+        // Store chunk 3 (bytes 96-127)
+        if gt(dataLength, 96) {
+          let chunk := calldataload(add(offset, 96))
+          sstore(add(voteSlots.slot, 3), chunk)
+        }
+      }
     }
-
-    return committees;
   }
 
   /**
@@ -654,7 +730,7 @@ contract TallySlashingProposer is EIP712 {
    * @return slashActions Array of slash actions that reached quorum
    * @return committeesWithSlashes Boolean array indicating which committees have at least one slashed validator
    */
-  function _tally(RoundData memory _roundData, address[][] memory _committees)
+  function _tally(RoundData memory _roundData, address[][] calldata _committees)
     internal
     view
     returns (SlashAction[] memory slashActions, bool[] memory committeesWithSlashes)
@@ -672,93 +748,198 @@ contract TallySlashingProposer is EIP712 {
       return (new SlashAction[](0), new bool[](ROUND_SIZE_IN_EPOCHS));
     }
 
-    SlashRound roundNumber = _roundData.roundNumber;
+    // Pre-calculate total validators to optimize memory allocation
+    uint256 totalValidators = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS;
 
-    // Create a 2D voting tally matrix: tallyMatrix[validatorIndex][slashAmountInUnits] = voteCount
-    // - First dimension: validator index (0 to COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS - 1)
-    // - Second dimension: slash amount in units (0-3, where 0 means no slash)
-    // Each validator can be voted to be slashed by 1-3 units (0 represents no slashing)
-    uint256[4][] memory tallyMatrix = new uint256[4][](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
+    // Create a voting tally array where each uint256 packs all vote counts for a validator
+    // Layout: [0-63: votes for 1 unit][64-127: votes for 2 units][128-191: votes for 3 units][192-255: unused]
+    // Each 64-bit segment can store up to 2^64-1 votes
+    // Overflow protection: With MAX_ROUND_SIZE=1024, maximum possible votes per validator is 1024,
+    // which is well below 2^64-1, preventing any overflow in the packed counters
+    uint256[] memory tallyMatrix = new uint256[](totalValidators);
 
     // Process all votes cast during this round to populate the tally matrix
-    // Vote encoding: each byte contains 4 validator votes using 2 bits each
-    // - Bits 0-1 (0x03): slash amount for validator at index (j * 4)
-    // - Bits 2-3 (0x0C): slash amount for validator at index (j * 4 + 1)
-    // - Bits 4-5 (0x30): slash amount for validator at index (j * 4 + 2)
-    // - Bits 6-7 (0xC0): slash amount for validator at index (j * 4 + 3)
-    for (uint256 i = 0; i < voteCount; i++) {
-      // Load the i-th votes from this round from storage into memory
-      bytes memory currentVote = _getRoundVotes(roundNumber).votes[i];
-      for (uint256 j = 0; j < currentVote.length; j++) {
-        uint8 currentByte = uint8(currentVote[j]);
+    _processVotes(_roundData, tallyMatrix, voteCount);
 
-        // Extract 2 bits for each of the 4 validators in this byte
-        uint8 validatorSlash0 = currentByte & 0x03;
-        if (validatorSlash0 > 0) {
-          tallyMatrix[j * 4][validatorSlash0]++;
+    // Determine which validators reached quorum and return slash actions
+    return _determineSlashActions(tallyMatrix, _committees, totalValidators);
+  }
+
+  /**
+   * @notice Process all votes and populate the tally matrix
+   */
+  function _processVotes(RoundData memory _roundData, uint256[] memory tallyMatrix, uint256 voteCount) internal view {
+    SlashRound roundNumber = _roundData.roundNumber;
+    uint256 voteLength = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 4;
+
+    // Cache the RoundVotes storage reference to avoid repeated calls
+    RoundVotes storage targetRoundVotes = _getRoundVotes(roundNumber);
+
+    unchecked {
+      for (uint256 i; i < voteCount; ++i) {
+        // Load the i-th votes from this round from storage into memory
+        bytes memory currentVote = _loadVoteDataFromStorage(targetRoundVotes.votes[i], voteLength);
+
+        // Process votes 32 bytes at a time
+        uint256 j;
+        for (; j + 31 < voteLength; j += 32) {
+          // Process 32 bytes at once (128 validators)
+          _process32BytesVotes(tallyMatrix, currentVote, j);
         }
 
-        uint8 validatorSlash1 = (currentByte >> 2) & 0x03;
-        if (validatorSlash1 > 0) {
-          tallyMatrix[j * 4 + 1][validatorSlash1]++;
-        }
+        // Process remaining bytes one at a time (inlined)
+        for (; j < voteLength; ++j) {
+          uint256 baseIndex = j << 2; // j * 4 using bit shift
+          uint8 currentByte;
 
-        uint8 validatorSlash2 = (currentByte >> 4) & 0x03;
-        if (validatorSlash2 > 0) {
-          tallyMatrix[j * 4 + 2][validatorSlash2]++;
-        }
+          assembly {
+            currentByte := byte(0, mload(add(add(currentVote, 0x20), j)))
+          }
 
-        uint8 validatorSlash3 = (currentByte >> 6) & 0x03;
-        if (validatorSlash3 > 0) {
-          tallyMatrix[j * 4 + 3][validatorSlash3]++;
+          // Next byte if this one is empty
+          if (currentByte == 0) continue;
+
+          // Extract 2 bits for each of the 4 validators in this byte,
+          // and increment vote count for the given slash amount
+          // Extract validator 0 vote: bits 0-1 (mask with 0x03 = 0b00000011)
+          uint8 validatorSlash0 = currentByte & 0x03;
+          if (validatorSlash0 != 0) {
+            // Increment vote count at position (slashAmount-1) * 64 bits in packed uint256
+            // Layout: [0-63: votes for 1 unit][64-127: votes for 2 units][128-191: votes for 3 units]
+            tallyMatrix[baseIndex] += uint256(1) << ((validatorSlash0 - 1) << 6);
+          }
+
+          // Extract validator 1 vote: bits 2-3 (shift right 2, then mask with 0x03)
+          uint8 validatorSlash1 = (currentByte >> 2) & 0x03;
+          if (validatorSlash1 != 0) {
+            tallyMatrix[baseIndex + 1] += uint256(1) << ((validatorSlash1 - 1) << 6);
+          }
+
+          // Extract validator 2 vote: bits 4-5 (shift right 4, then mask with 0x03)
+          uint8 validatorSlash2 = (currentByte >> 4) & 0x03;
+          if (validatorSlash2 != 0) {
+            tallyMatrix[baseIndex + 2] += uint256(1) << ((validatorSlash2 - 1) << 6);
+          }
+
+          // Extract validator 3 vote: bits 6-7 (shift right 6, no mask needed as top 2 bits)
+          uint8 validatorSlash3 = currentByte >> 6;
+          if (validatorSlash3 != 0) {
+            tallyMatrix[baseIndex + 3] += uint256(1) << ((validatorSlash3 - 1) << 6);
+          }
         }
       }
     }
+  }
 
-    // Prepare arrays to collect slash actions and track committees with slashes
-    SlashAction[] memory actions = new SlashAction[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
-    uint256 actionCount = 0;
+  /**
+   * @notice Determine which validators reached quorum and should be slashed
+   */
+  function _determineSlashActions(
+    uint256[] memory tallyMatrix,
+    address[][] calldata _committees,
+    uint256 totalValidators
+  ) internal view returns (SlashAction[] memory actions, bool[] memory committeesWithSlashes) {
+    actions = new SlashAction[](totalValidators);
+    uint256 actionCount;
     committeesWithSlashes = new bool[](ROUND_SIZE_IN_EPOCHS);
 
-    // Determine which validators reached quorum and should be slashed
-    // For each validator in all committees across all epochs in this round
-    for (uint256 i = 0; i < tallyMatrix.length; i++) {
-      uint256 voteCountForValidator = 0;
+    unchecked {
+      for (uint256 i; i < totalValidators; ++i) {
+        uint256 packedVotes = tallyMatrix[i];
 
-      // Check slash amounts from highest (3 units) to lowest (1 unit)
-      // Cumulative voting: a vote for N units counts as votes for N-1, N-2, ..., 1 units
-      // This means if someone votes to slash 3 units, it also counts as votes for 1-2 units
-      for (uint256 j = 3; j > 0; j--) {
-        voteCountForValidator += tallyMatrix[i][j];
+        // Skip if no votes for this validator
+        if (packedVotes == 0) continue;
 
-        // Check if this slash amount has reached quorum
-        if (voteCountForValidator >= QUORUM) {
-          // Quorum reached - calculate validator details and slash amount
-          uint256 committeeIndex = i / COMMITTEE_SIZE; // Which epoch's committee
-          uint256 validatorIndex = i % COMMITTEE_SIZE; // Position within committee
-          address validator = _committees[committeeIndex][validatorIndex];
-          uint256 slashAmount = SLASHING_UNIT * j; // Convert units to actual slash amount
+        uint256 voteCountForValidator;
 
-          // Record the slashing action
-          actions[actionCount] = SlashAction({validator: validator, slashAmount: slashAmount});
-          actionCount++;
+        // Check slash amounts from highest (3 units) to lowest (1 unit)
+        // Cumulative voting: votes for N units also count for N-1, N-2, etc.
+        for (uint256 j = 3; j > 0;) {
+          // Extract vote count for this slash amount from packed data
+          // Shift right by (slashAmount-1) * 64 bits, then mask to get 64-bit segment
+          // Layout: [0-63: votes for 1 unit][64-127: votes for 2 units][128-191: votes for 3 units]
+          uint256 votesForAmount = (packedVotes >> ((j - 1) << 6)) & 0xFFFFFFFFFFFFFFFF;
+          voteCountForValidator += votesForAmount;
 
-          // Mark this committee as having at least one slashed validator
-          // This is used later to determine which committee commitments need verification
-          committeesWithSlashes[committeeIndex] = true;
+          // Check if this slash amount has reached quorum
+          if (voteCountForValidator >= QUORUM) {
+            // Record the slashing action
+            actions[actionCount] = SlashAction({
+              validator: _committees[i / COMMITTEE_SIZE][i % COMMITTEE_SIZE],
+              slashAmount: SLASHING_UNIT * j
+            });
+            ++actionCount;
 
-          // Only slash each validator once at the highest amount that reached quorum
-          break;
+            // Mark this committee as having at least one slashed validator
+            committeesWithSlashes[i / COMMITTEE_SIZE] = true;
+
+            // Only slash each validator once at the highest amount that reached quorum
+            break;
+          }
+
+          --j;
         }
       }
     }
 
-    // Resize actions array to the actual number of actions
+    // Resize actions array to the actual number of actions using assembly
     assembly {
       mstore(actions, actionCount)
     }
 
     return (actions, committeesWithSlashes);
+  }
+
+  /**
+   * @notice Load vote data from fixed-size format (optimized with unrolled loop)
+   * @param voteSlots The storage reference to the vote slots
+   * @param expectedLength The expected length of the vote data
+   * @return voteData The reconstructed vote data as bytes
+   */
+  function _loadVoteDataFromStorage(bytes32[4] storage voteSlots, uint256 expectedLength)
+    internal
+    view
+    returns (bytes memory voteData)
+  {
+    // Allocate memory for full chunks
+    // This avoids complex masking by over-allocating slightly
+    voteData = new bytes(4 * 32);
+
+    unchecked {
+      // Load full chunks without masking
+      assembly {
+        let dataPtr := add(voteData, 0x20)
+
+        // Chunk 0 (bytes 0-31)
+        if expectedLength {
+          let chunk := sload(voteSlots.slot)
+          mstore(dataPtr, chunk)
+        }
+
+        // Chunk 1 (bytes 32-63)
+        if gt(expectedLength, 32) {
+          let chunk := sload(add(voteSlots.slot, 1))
+          mstore(add(dataPtr, 32), chunk)
+        }
+
+        // Chunk 2 (bytes 64-95)
+        if gt(expectedLength, 64) {
+          let chunk := sload(add(voteSlots.slot, 2))
+          mstore(add(dataPtr, 64), chunk)
+        }
+
+        // Chunk 3 (bytes 96-127)
+        if gt(expectedLength, 96) {
+          let chunk := sload(add(voteSlots.slot, 3))
+          mstore(add(dataPtr, 96), chunk)
+        }
+
+        // Adjust the array length to the expected length
+        // This ensures the bytes array reports the correct length
+        // even though we allocated extra memory
+        mstore(voteData, expectedLength)
+      }
+    }
   }
 
   /**
@@ -808,21 +989,23 @@ contract TallySlashingProposer is EIP712 {
     amounts = new uint96[](actionCount);
 
     // Extract validators and amounts from actions
-    for (uint256 i = 0; i < actionCount; i++) {
-      validators[i] = _actions[i].validator;
-      // Convert uint256 to uint96, checking for overflow
-      require(_actions[i].slashAmount <= type(uint96).max, Errors.TallySlashingProposer__SlashAmountTooLarge());
-      amounts[i] = uint96(_actions[i].slashAmount);
+    unchecked {
+      for (uint256 i; i < actionCount; ++i) {
+        validators[i] = _actions[i].validator;
+        // Convert uint256 to uint96, checking for overflow
+        require(_actions[i].slashAmount <= type(uint96).max, Errors.TallySlashingProposer__SlashAmountTooLarge());
+        amounts[i] = uint96(_actions[i].slashAmount);
+      }
     }
 
     // Compute salt for CREATE2 deployment, including round number
     salt = keccak256(abi.encodePacked(SlashRound.unwrap(_round), validators, amounts));
 
-    // Compute predicted address using CREATE2
-    bytes memory constructorArgs = abi.encode(validators, amounts, IValidatorSelection(INSTANCE));
-    bytes32 creationCodeHash = keccak256(abi.encodePacked(type(SlashPayload).creationCode, constructorArgs));
-    predictedAddress =
-      address(uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, creationCodeHash)))));
+    // Compute predicted address using clone deterministic address prediction
+    bytes memory immutableArgs = SlashPayloadLib.encodeImmutableArgs(INSTANCE, validators, amounts);
+    predictedAddress = Clones.predictDeterministicAddressWithImmutableArgs(
+      SLASH_PAYLOAD_IMPLEMENTATION, immutableArgs, salt, address(this)
+    );
 
     return (validators, amounts, salt, predictedAddress);
   }
@@ -882,6 +1065,58 @@ contract TallySlashingProposer is EIP712 {
    */
   function _computeRound(Slot _slot) internal view returns (SlashRound) {
     return SlashRound.wrap(Slot.unwrap(_slot) / ROUND_SIZE);
+  }
+
+  /**
+   * @notice Process 32 bytes of vote data at once
+   * @dev Processes a full word for maximum efficiency with early exit for zero words
+   */
+  function _process32BytesVotes(uint256[] memory tallyMatrix, bytes memory currentVote, uint256 startJ) internal pure {
+    unchecked {
+      // Load 32 bytes as a single word
+      uint256 word;
+      assembly {
+        word := mload(add(add(currentVote, 0x20), startJ))
+      }
+
+      // Early exit if entire word is zero (no votes)
+      if (word == 0) return;
+
+      // Process the 32-byte word byte by byte, maintaining big-endian order
+      uint256 baseIndex = startJ << 2; // Convert byte index to validator index: startJ * 4
+
+      for (uint256 i; i < 32; ++i) {
+        // Early exit if remaining word is zero
+        if (word == 0) break;
+
+        // Extract most significant byte from word (big-endian order)
+        // Shift right 248 bits (31 bytes) to get the leftmost byte
+        uint8 currentByte = uint8(word >> 248);
+
+        // Shift word left by 8 bits for next iteration, removing processed byte
+        word <<= 8;
+
+        if (currentByte != 0) {
+          uint256 idx = baseIndex + (i << 2); // Convert byte index to validator index: baseIndex + i * 4
+
+          // Extract validator 0 vote: bits 0-1 (mask with 0x03 = 0b00000011)
+          uint8 v0 = currentByte & 0x03;
+          if (v0 != 0) tallyMatrix[idx] += uint256(1) << ((v0 - 1) << 6);
+
+          // Extract validator 1 vote: bits 2-3 (shift right 2, then mask with 0x03)
+          uint8 v1 = (currentByte >> 2) & 0x03;
+          if (v1 != 0) tallyMatrix[idx + 1] += uint256(1) << ((v1 - 1) << 6);
+
+          // Extract validator 2 vote: bits 4-5 (shift right 4, then mask with 0x03)
+          uint8 v2 = (currentByte >> 4) & 0x03;
+          if (v2 != 0) tallyMatrix[idx + 2] += uint256(1) << ((v2 - 1) << 6);
+
+          // Extract validator 3 vote: bits 6-7 (shift right 6, no mask needed)
+          uint8 v3 = currentByte >> 6;
+          if (v3 != 0) tallyMatrix[idx + 3] += uint256(1) << ((v3 - 1) << 6);
+        }
+      }
+    }
   }
 
   /**
