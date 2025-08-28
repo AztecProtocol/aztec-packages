@@ -22,7 +22,6 @@ void run_check_circuit(AvmFlavor::ProverPolynomials& polys, size_t num_rows, boo
         .beta = AvmFlavor::FF::random_element(),
         .gamma = AvmFlavor::FF::random_element(),
         .public_input_delta = 0,
-        .lookup_grand_product_delta = 0,
         .beta_sqr = 0,
         .beta_cube = 0,
         .eccvm_set_permutation_delta = 0,
