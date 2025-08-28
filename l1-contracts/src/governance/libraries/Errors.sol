@@ -37,6 +37,7 @@ library Errors {
 
   error Governance__ConfigurationLib__InvalidMinimumVotes();
   error Governance__ConfigurationLib__LockAmountTooSmall();
+  error Governance__ConfigurationLib__LockAmountTooBig();
   error Governance__ConfigurationLib__QuorumTooSmall();
   error Governance__ConfigurationLib__QuorumTooBig();
   error Governance__ConfigurationLib__RequiredYeaMarginTooBig();

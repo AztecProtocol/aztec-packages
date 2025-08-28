@@ -1,3 +1,5 @@
+include "../constants_gen.pil";
+
  /**
  * This virtual gadget implements the NullifierExists opcode, which checks if a nullifier exists
  * in the nullifier tree for a given contract address.
@@ -34,7 +36,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
         // Inputs
         /*nullifier=*/ register[0],                      // input: nullifier to check
         prev_nullifier_tree_root,                        // input: tree root from context
-        /*should_silo=1*/ sel_execute_nullifier_exists,   // input: should_silo = 1 (always silo for contract nullifiers)
+        /*should_silo=1*/ sel_execute_nullifier_exists,  // input: should_silo = 1 (always silo for contract nullifiers)
         /*contract_address=*/ register[1]                // input: contract address for siloing
     } in nullifier_check.sel {
         // Outputs

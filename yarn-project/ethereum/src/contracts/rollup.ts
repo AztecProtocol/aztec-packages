@@ -155,8 +155,14 @@ export class RollupContract {
     return this.rollup;
   }
 
-  public async getSlashingProposer(): Promise<EmpireSlashingProposerContract | TallySlashingProposerContract> {
+  public async getSlashingProposer(): Promise<
+    EmpireSlashingProposerContract | TallySlashingProposerContract | undefined
+  > {
     const slasherAddress = await this.rollup.read.getSlasher();
+    if (EthAddress.fromString(slasherAddress).isZero()) {
+      return undefined;
+    }
+
     const slasher = getContract({ address: slasherAddress, abi: SlasherAbi, client: this.client });
     const proposerAddress = await slasher.read.PROPOSER();
     const proposerAbi = [
@@ -382,6 +388,10 @@ export class RollupContract {
 
   getTimestampForSlot(slot: bigint) {
     return this.rollup.read.getTimestampForSlot([slot]);
+  }
+
+  getEntryQueueLength() {
+    return this.rollup.read.getEntryQueueLength();
   }
 
   async getEpochNumber(blockNumber?: bigint) {
@@ -754,6 +764,29 @@ export class RollupContract {
             if (args.oldSlasher && args.newSlasher) {
               callback(args as { oldSlasher: `0x${string}`; newSlasher: `0x${string}` });
             }
+          }
+        },
+      },
+    );
+  }
+
+  public async getSlashEvents(l1BlockHash: Hex): Promise<{ amount: bigint; attester: EthAddress }[]> {
+    const events = await this.rollup.getEvents.Slashed({}, { blockHash: l1BlockHash, strict: true });
+    return events.map(event => ({
+      amount: event.args.amount!,
+      attester: EthAddress.fromString(event.args.attester!),
+    }));
+  }
+
+  public listenToSlash(callback: (args: { amount: bigint; attester: EthAddress }) => unknown) {
+    return this.rollup.watchEvent.Slashed(
+      {},
+      {
+        strict: true,
+        onLogs: logs => {
+          for (const log of logs) {
+            const args = log.args;
+            callback({ amount: args.amount!, attester: EthAddress.fromString(args.attester!) });
           }
         },
       },

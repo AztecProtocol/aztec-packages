@@ -32,10 +32,11 @@ contract UpdateStakingQueueConfigTest is StakingBase {
     // it emits a {StakingQueueConfigUpdated} event
 
     // Update the config to have sane values that can be compressed
-    _config.bootstrapValidatorSetSize = bound(_config.bootstrapValidatorSetSize, 0, type(uint64).max);
-    _config.bootstrapFlushSize = bound(_config.bootstrapFlushSize, 0, type(uint64).max);
-    _config.normalFlushSizeMin = bound(_config.normalFlushSizeMin, 0, type(uint64).max);
-    _config.normalFlushSizeQuotient = bound(_config.normalFlushSizeQuotient, 0, type(uint64).max);
+    _config.bootstrapValidatorSetSize = bound(_config.bootstrapValidatorSetSize, 0, type(uint32).max);
+    _config.bootstrapFlushSize = bound(_config.bootstrapFlushSize, 0, type(uint32).max);
+    _config.normalFlushSizeMin = bound(_config.normalFlushSizeMin, 0, type(uint32).max);
+    _config.normalFlushSizeQuotient = bound(_config.normalFlushSizeQuotient, 0, type(uint32).max);
+    _config.maxQueueFlushSize = bound(_config.maxQueueFlushSize, 0, type(uint32).max);
 
     Rollup rollup = Rollup(address(registry.getCanonicalRollup()));
     vm.prank(rollup.owner());

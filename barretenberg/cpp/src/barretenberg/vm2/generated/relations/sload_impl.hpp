@@ -18,16 +18,16 @@ void sloadImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 
     const auto constants_MEM_TAG_FF = FF(0);
 
-    { // SLOAD_SUCCESS
+    { // SLOAD_FF_OUTPUT_TAG
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-        auto tmp = in.get(C::execution_sel_execute_sload) * in.get(C::execution_sel_opcode_error);
+        auto tmp =
+            in.get(C::execution_sel_execute_sload) * (constants_MEM_TAG_FF - in.get(C::execution_mem_tag_reg_1_));
         tmp *= scaling_factor;
         std::get<0>(evals) += typename Accumulator::View(tmp);
     }
-    { // SLOAD_FF_OUTPUT_TAG
+    { // SLOAD_SUCCESS
         using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-        auto tmp =
-            in.get(C::execution_sel_execute_sload) * (constants_MEM_TAG_FF - in.get(C::execution_mem_tag_reg_1_));
+        auto tmp = in.get(C::execution_sel_execute_sload) * in.get(C::execution_sel_opcode_error);
         tmp *= scaling_factor;
         std::get<1>(evals) += typename Accumulator::View(tmp);
     }

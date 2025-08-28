@@ -36,6 +36,7 @@ class ContextInterface {
     virtual void halt() = 0;
     virtual uint32_t get_context_id() const = 0;
     virtual uint32_t get_parent_id() const = 0;
+    virtual uint32_t get_last_child_id() const = 0;
     virtual bool has_parent() const = 0;
 
     // Environment.
@@ -120,6 +121,8 @@ class BaseContext : public ContextInterface {
         , internal_call_stack_manager(std::move(internal_call_stack_manager))
         , phase(phase)
     {}
+
+    uint32_t get_last_child_id() const override;
 
     // Having getters and setters make it easier to mock the context.
     // Machine state.

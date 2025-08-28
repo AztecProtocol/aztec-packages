@@ -61,6 +61,10 @@ tests:
     error_regex: "Input is not large enough"
     owners:
       - *adam
+  - regex: "barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk"
+    error_regex: "Aborted.*core dumped"
+    owners:
+      - *adam
 
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
@@ -257,6 +261,11 @@ tests:
     error_regex: "ContractFunctionExecutionError: The contract function"
     owners:
       - *mitch
+
+  - regex: "src/e2e_multi_eoa.test.ts"
+    error_regex: "TypeError: Cannot convert undefined to a BigInt"
+    owners:
+      - *alex
 
   # Nightly GKE tests
   - regex: "spartan/bootstrap.sh"

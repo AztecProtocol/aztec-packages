@@ -100,7 +100,10 @@ contract InitiateWithdrawTest is GovernanceBase {
 
       Withdrawal memory withdrawal = governance.getWithdrawal(withdrawalId);
       assertEq(withdrawal.amount, amount, "invalid amount");
-      assertEq(withdrawal.unlocksAt, Timestamp.wrap(block.timestamp) + config.withdrawalDelay(), "Invalid timestamp");
+      Configuration memory memConfig = config;
+      assertEq(
+        withdrawal.unlocksAt, Timestamp.wrap(block.timestamp) + upw.getWithdrawalDelay(memConfig), "Invalid timestamp"
+      );
       assertEq(withdrawal.recipient, recipient, "invalid recipient");
       assertFalse(withdrawal.claimed, "already claimed");
       assertEq(governance.totalPowerNow(), sum);
