@@ -2,12 +2,12 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {DecoderBase} from "./base/DecoderBase.sol";
+import {DecoderBase} from "../base/DecoderBase.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
 import {FeeJuicePortal} from "@aztec/core/messagebridge/FeeJuicePortal.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
-import {TestConstants} from "./harnesses/TestConstants.sol";
+import {TestConstants} from "../harnesses/TestConstants.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 
@@ -15,9 +15,9 @@ import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol
 
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 
-import {RollupBase, IInstance} from "./base/RollupBase.sol";
-import {RollupBuilder} from "./builder/RollupBuilder.sol";
-import {TimeCheater} from "./staking/TimeCheater.sol";
+import {RollupBase, IInstance} from "../base/RollupBase.sol";
+import {RollupBuilder} from "../builder/RollupBuilder.sol";
+import {TimeCheater} from "../staking/TimeCheater.sol";
 import {Bps, BpsLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
 // solhint-disable comprehensive-interface
 
