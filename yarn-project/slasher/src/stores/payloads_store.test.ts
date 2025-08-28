@@ -10,7 +10,9 @@ describe('SlasherPayloadsStore', () => {
 
   beforeEach(() => {
     kvStore = openTmpStore();
-    store = new SlasherPayloadsStore(kvStore);
+    store = new SlasherPayloadsStore(kvStore, {
+      slashingPayloadLifetimeInRounds: 5,
+    });
   });
 
   afterEach(async () => {
@@ -321,7 +323,36 @@ describe('SlasherPayloadsStore', () => {
   });
 
   describe('clearExpiredPayloads', () => {
-    it.todo('should clear expired payloads');
+    it('should clear expired payload votes and unused payloads', async () => {
+      const currentRound = 10n;
+
+      // Add payloads for different rounds
+      const recentPayload = createSlashPayloadRound(createSlashPayload(), 5n, 7n); // Should not expire
+      const expiredPayload1 = createSlashPayloadRound(createSlashPayload(), 5n, 3n); // Should expire
+      const expiredPayload2 = createSlashPayloadRound(createSlashPayload(), 5n, 4n); // Should expire
+
+      await store.addPayload(recentPayload);
+      await store.addPayload(expiredPayload1);
+      await store.addPayload(expiredPayload2);
+
+      // Verify all payloads are present
+      expect(await store.hasPayload(recentPayload.address)).toBe(true);
+      expect(await store.hasPayload(expiredPayload1.address)).toBe(true);
+      expect(await store.hasPayload(expiredPayload2.address)).toBe(true);
+
+      // Clear expired payloads
+      await store.clearExpiredPayloads(currentRound);
+
+      // Verify expired votes are cleared, but recent votes remain
+      const recentPayloads = await store.getPayloadsForRound(7n);
+      expect(recentPayloads).toHaveLength(1);
+
+      const expiredPayloads1 = await store.getPayloadsForRound(3n);
+      expect(expiredPayloads1).toHaveLength(0);
+
+      const expiredPayloads2 = await store.getPayloadsForRound(4n);
+      expect(expiredPayloads2).toHaveLength(0);
+    });
   });
 
   describe('edge cases', () => {

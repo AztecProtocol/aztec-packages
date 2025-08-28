@@ -83,6 +83,7 @@ describe('veto slash', () => {
         aztecEpochDuration: EPOCH_DURATION,
         validatorReexecute: false,
         sentinelEnabled: true,
+        slashSelfAllowed: true,
         slashingOffsetInRounds: SLASH_OFFSET_IN_ROUNDS,
         slashAmountSmall: SLASHING_UNIT,
         slashAmountMedium: SLASHING_UNIT * 2n,
