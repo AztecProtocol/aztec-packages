@@ -1,5 +1,6 @@
 #include "./graph.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <algorithm>
 #include <array>
@@ -653,7 +654,7 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
     size_t pub_inputs_block_idx = 0;
 
     // For MegaCircuitBuilder, pub_inputs block has index 3
-    if constexpr (std::is_same_v<CircuitBuilder, bb::MegaCircuitBuilder>) {
+    if constexpr (IsMegaBuilder<CircuitBuilder>) {
         pub_inputs_block_idx = 3;
     }
 
@@ -699,7 +700,7 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
             if (connect_variables) {
                 connect_all_variables_in_vector(delta_range_variables);
             }
-            if constexpr (std::is_same_v<CircuitBuilder, bb::MegaCircuitBuilder>) {
+            if constexpr (IsMegaBuilder<CircuitBuilder>) {
                 // If type of CircuitBuilder is MegaCircuitBuilder, we'll try to process blocks like they can be
                 // databus or eccop
                 auto databus_variables = get_databus_connected_component(gate_idx, blk_idx, block_data[blk_idx]);
@@ -914,11 +915,12 @@ std::vector<ConnectedComponent> StaticAnalyzer_<FF, CircuitBuilder>::find_connec
         }
     }
     mark_range_list_connected_components();
+    mark_finalize_connected_components();
     if (!return_all_connected_components) {
-        std::vector<ConnectedComponent> main_connected_components;
-        for (const auto& cc : connected_components) {
-            if (!cc.is_range_list_cc) {
-                main_connected_components.emplace_back(cc);
+        main_connected_components.reserve(connected_components.size());
+        for (auto& cc : connected_components) {
+            if (!cc.is_range_list_cc && !cc.is_finalize_cc) {
+                main_connected_components.emplace_back(std::move(cc));
             }
         }
         return main_connected_components;
@@ -943,6 +945,18 @@ void StaticAnalyzer_<FF, CircuitBuilder>::mark_range_list_connected_components()
                     return tags[var_idx] == first_tag;
                 });
         }
+    }
+}
+
+template <typename FF, typename CircuitBuilder>
+void StaticAnalyzer_<FF, CircuitBuilder>::mark_finalize_connected_components()
+{
+    const auto& finalize_witnesses = circuit_builder.finalize_witnesses;
+    for (auto& cc : connected_components) {
+        const auto& vars = cc.vars();
+        cc.is_finalize_cc = std::all_of(vars.begin(), vars.end(), [&finalize_witnesses](uint32_t var_idx) {
+            return finalize_witnesses.contains(var_idx);
+        });
     }
 }
 
@@ -1204,7 +1218,7 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::process_current_plookup_gate(si
     };
     auto& lookup_block = circuit_builder.blocks.lookup;
     auto& lookup_tables = circuit_builder.lookup_tables;
-    auto table_index = static_cast<size_t>(lookup_block.q_3()[gate_index]);
+    auto table_index = static_cast<size_t>(static_cast<uint256_t>(lookup_block.q_3()[gate_index]));
     for (const auto& table : lookup_tables) {
         if (table.table_index == table_index) {
             std::unordered_set<bb::fr> column_1(table.column_1.begin(), table.column_1.end());
@@ -1352,9 +1366,16 @@ std::unordered_set<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_variables_
 template <typename FF, typename CircuitBuilder>
 void StaticAnalyzer_<FF, CircuitBuilder>::print_connected_components_info()
 {
-    for (size_t i = 0; i < connected_components.size(); i++) {
-        info("size of ", i + 1, " connected component == ", connected_components[i].size(), ":");
-        info("Doest connected component represent range list? ", connected_components[i].is_range_list_cc);
+    for (size_t i = 0; i < main_connected_components.size(); i++) {
+        info("size of ", i + 1, " connected component == ", main_connected_components[i].size(), ":");
+        info("Does connected component represent range list? ", main_connected_components[i].is_range_list_cc);
+        info("Does connected component represent something from finalize? ",
+             main_connected_components[i].is_finalize_cc);
+        if (main_connected_components[i].size() < 50) {
+            for (const auto& elem : main_connected_components[i].vars()) {
+                info("elem == ", elem);
+            }
+        }
     }
 }
 

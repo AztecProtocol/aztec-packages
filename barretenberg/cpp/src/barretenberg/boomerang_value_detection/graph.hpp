@@ -51,10 +51,12 @@ struct KeyEquals {
 struct ConnectedComponent {
     std::vector<uint32_t> variable_indices;
     bool is_range_list_cc;
+    bool is_finalize_cc;
     ConnectedComponent() = default;
     ConnectedComponent(const std::vector<uint32_t>& vector)
         : variable_indices(vector)
-        , is_range_list_cc(false) {};
+        , is_range_list_cc(false)
+        , is_finalize_cc(false) {};
     size_t size() const { return variable_indices.size(); }
     const std::vector<uint32_t>& vars() const { return variable_indices; }
 };
@@ -121,6 +123,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
                             std::unordered_set<uint32_t>& is_used,
                             std::vector<uint32_t>& connected_component);
     void mark_range_list_connected_components();
+    void mark_finalize_connected_components();
     std::vector<ConnectedComponent> find_connected_components(bool return_all_connected_components = false);
     bool check_vertex_in_connected_component(const std::vector<uint32_t>& connected_component,
                                              const uint32_t& var_index);
@@ -164,6 +167,8 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     std::unordered_set<uint32_t> variables_in_one_gate;
     std::unordered_set<uint32_t> fixed_variables;
     std::vector<ConnectedComponent> connected_components;
+    std::vector<ConnectedComponent>
+        main_connected_components; // connected components without finalize blocks and range lists
 };
 
 // Type aliases for convenience
