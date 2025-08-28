@@ -159,12 +159,14 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     // we protect against this case with this cheap check.
     Fr z(hashed_message);
     z.assert_is_in_field();
+    info("Z in circuit: ", z.get_value());
 
     // Step 1.
     public_key.validate_on_curve();
 
     // Step 2.
     Fr r(sig.r);
+    info("R in circuit ", r.get_value());
     r.assert_is_in_field();            // r < n
     r.assert_is_not_equal(Fr::zero()); // 0 < r
 
@@ -177,6 +179,9 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     Fr u1 = z.div_without_denominator_check(s);
     Fr u2 = r.div_without_denominator_check(s);
 
+    info("u1: ", u1.get_value());
+    info("u2: ", u2.get_value());
+
     G1 result;
     if constexpr (Curve::type == bb::CurveType::SECP256K1) {
         result = G1::secp256k1_ecdsa_mul(public_key, u1, u2);
@@ -185,6 +190,9 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     }
 
     // Step 5.
+    info(result.get_value());
+    info(result.get_value().is_point_at_infinity());
+    info(result.is_point_at_infinity().get_value());
     if (result.get_value().is_point_at_infinity()) {
         info("The result of the batch multiplication is the point at infinity. This will produce an unsatisfied "
              "circuit.");
