@@ -203,7 +203,7 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
                                                         result.x.binary_basis_limbs[3].element);
     // Copy maximum limb values from Fq to Fr: this is needed by the subtraction happening in the == operator
     for (size_t idx = 0; idx < 4; idx++) {
-        result_x_mod_r.binary_basis_limbs[idx].maximum_value = result.x.binary_basis_limbs[idx].element;
+        result_x_mod_r.binary_basis_limbs[idx].maximum_value = result.x.binary_basis_limbs[idx].maximum_value;
     }
 
     // Check result.x = r mod n
