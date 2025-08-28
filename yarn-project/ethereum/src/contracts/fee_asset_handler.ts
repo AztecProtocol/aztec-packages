@@ -36,7 +36,10 @@ export class FeeAssetHandlerContract {
     return contract.read.mintAmount();
   }
 
-  public mint(recipient: Hex) {
+  public mint(recipient: Hex | EthAddress) {
+    if (recipient instanceof EthAddress) {
+      recipient = recipient.toString();
+    }
     return this.txUtils.sendAndMonitorTransaction({
       to: this.address.toString(),
       data: encodeFunctionData({

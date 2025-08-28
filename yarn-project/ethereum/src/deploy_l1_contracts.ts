@@ -269,7 +269,7 @@ export const deploySharedContracts = async (
     feeAssetHandlerAddress = await deployer.deploy(FeeAssetHandlerArtifact, [
       l1Client.account.address,
       feeAssetAddress.toString(),
-      BigInt(1e18),
+      BigInt(1000n * 10n ** 18n),
     ]);
     logger.verbose(`Deployed FeeAssetHandler at ${feeAssetHandlerAddress}`);
 

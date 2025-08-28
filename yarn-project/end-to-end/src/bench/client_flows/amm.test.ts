@@ -1,5 +1,4 @@
 import { AccountWallet, AztecAddress, Fr, type SimulateMethodOptions } from '@aztec/aztec.js';
-import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import type { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
@@ -66,7 +65,7 @@ describe('AMM benchmark', () => {
       beforeAll(async () => {
         benchysWallet = await t.createAndFundBenchmarkingWallet(accountType);
         // Fund benchy with bananas, so they can pay for the amms using the private FPC
-        await t.mintPrivateBananas(FEE_FUNDING_FOR_TESTER_ACCOUNT, benchysWallet.getAddress());
+        await t.mintPrivateBananas(1000n * 10n ** 18n, benchysWallet.getAddress());
         // Register admin as sender in benchy's wallet, since we need it to discover the minted bananas
         await benchysWallet.registerSender(adminWallet.getAddress());
         // Register both FPC and BananCoin on the user's Wallet so we can simulate and prove
