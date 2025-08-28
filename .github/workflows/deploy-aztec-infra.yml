@@ -100,6 +100,10 @@ on:
         description: Whether to use an external ingress for the rpc
         required: true
         type: boolean
+      otel_collector_url:
+        description: The OpenTelemetry collector that will receive metrics from this deployment. Optional
+        required: false
+        type: string
     secrets:
       GCP_SA_KEY:
         description: The GCP service account key
@@ -207,6 +211,10 @@ on:
         description: Whether to use an external ingress for the rpc
         required: true
         type: boolean
+      otel_collector_url:
+        description: The OpenTelemetry collector that will receive metrics from this deployment. Optional
+        required: false
+        type: string
 
 jobs:
   deploy_aztec_infra:
@@ -237,6 +245,7 @@ jobs:
       TF_VAR_PROVER_RESOURCE_PROFILE: ${{ inputs.prover_resource_profile }}
       TF_VAR_RPC_RESOURCE_PROFILE: ${{ inputs.rpc_resource_profile }}
       TF_VAR_RPC_EXTERNAL_INGRESS: ${{ inputs.rpc_external_ingress }}
+      TF_VAR_OTEL_COLLECTOR_URL: ${{ inputs.otel_collector_url }}
 
     steps:
       - name: Debug inputs
