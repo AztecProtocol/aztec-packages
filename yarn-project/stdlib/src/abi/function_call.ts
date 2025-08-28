@@ -5,7 +5,7 @@ import { AztecAddress } from '../aztec-address/index.js';
 import { type AbiType, FunctionType } from './abi.js';
 import { FunctionSelector } from './function_selector.js';
 
-/** A request to call a function on a contract from a given address. */
+/** A request to call a function on a contract. */
 export class FunctionCall {
   constructor(
     /** The name of the function to call */

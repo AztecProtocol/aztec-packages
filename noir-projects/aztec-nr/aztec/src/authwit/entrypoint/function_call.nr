@@ -5,17 +5,16 @@ use dep::protocol_types::{
 };
 use std::meta::derive;
 
-// 3 * 32 + 2
-global FUNCTION_CALL_SIZE_IN_BYTES: u32 = 98;
+// 3 * 32 + 3
+global FUNCTION_CALL_SIZE_IN_BYTES: u32 = 99;
 
-// TODO: update to include a `pub hide_msg_sender: bool` item, for public
-// function calls.
 #[derive(Serialize)]
 pub struct FunctionCall {
     pub args_hash: Field, /* args_hash is calldata_hash if is_public is true */
     pub function_selector: FunctionSelector,
     pub target_address: AztecAddress,
     pub is_public: bool,
+    pub hide_msg_sender: bool, /* This option is only available for public calls. Must be `false` if `is_public = false`. Private calls, by definition, hide msg_sender from the world. */
     pub is_static: bool,
 }
 
@@ -35,7 +34,8 @@ impl FunctionCall {
             bytes[i + 64] = target_address_bytes[i];
         }
         bytes[96] = self.is_public as u8;
-        bytes[97] = self.is_static as u8;
+        bytes[97] = self.hide_msg_sender as u8;
+        bytes[98] = self.is_static as u8;
         bytes
     }
 }

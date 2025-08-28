@@ -52,10 +52,13 @@ impl AppPayload {
                         call.target_address,
                         call.args_hash,
                         call.is_static,
-                        false, // TODO: update FunctionCall to include a
-// `hide_msg_sender: bool` item.
+                        call.hide_msg_sender,
                     );
                 } else {
+                    assert(
+                        !call.hide_msg_sender,
+                        "Incompatible flag. `hide_msg_sender = true` is only available for public calls.",
+                    );
                     let _result = context.call_private_function_with_args_hash(
                         call.target_address,
                         call.function_selector,
