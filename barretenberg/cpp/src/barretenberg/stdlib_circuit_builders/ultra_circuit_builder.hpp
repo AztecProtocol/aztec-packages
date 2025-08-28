@@ -221,6 +221,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     // Witnesses that can be in one gate, but that's intentional (used in boomerang catcher)
     std::vector<uint32_t> used_witnesses;
+    // Witnesses that can be in one gate in finalize methods (used in boomerang catcher)
+    std::unordered_set<uint32_t> finalize_witnesses;
     std::vector<cached_partial_non_native_field_multiplication> cached_partial_non_native_field_multiplications;
 
     bool circuit_finalized = false;
@@ -613,6 +615,19 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     std::vector<uint32_t> get_used_witnesses() const { return used_witnesses; }
 
     void update_used_witnesses(uint32_t var_idx) { used_witnesses.emplace_back(var_idx); }
+    void update_used_witnesses(const std::vector<uint32_t>& used_indices)
+    {
+        for (const auto& it : used_indices) {
+            used_witnesses.emplace_back(it);
+        }
+    }
+    void update_finalize_witnesses(uint32_t var_idx) { finalize_witnesses.insert(var_idx); }
+    void update_finalize_witnesses(const std::vector<uint32_t>& finalize_indices)
+    {
+        for (const auto& it : finalize_indices) {
+            finalize_witnesses.insert(it);
+        }
+    }
 
     /**x
      * @brief Print the number and composition of gates in the circuit
