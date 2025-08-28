@@ -99,8 +99,8 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
     pub_y.assert_is_in_field();
 
     // Step 4.
-    bool_ct signature_result = stdlib::ecdsa_verify_signature_prehashed_message_noassert<Builder, Curve, Fq, Fr, G1>(
-        hashed_message, public_key, { r, s });
+    bool_ct signature_result =
+        stdlib::ecdsa_verify_signature<Builder, Curve, Fq, Fr, G1>(hashed_message, public_key, { r, s });
 
     // Step 5.
     // Assert that signature verification returned the expected result
