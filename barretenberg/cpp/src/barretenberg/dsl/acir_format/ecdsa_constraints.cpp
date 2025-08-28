@@ -52,7 +52,7 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
     field_ct result_field = field_ct::from_witness_index(&builder, input.result);
 
     if (!has_valid_witness_assignments) {
-        // Fill the builder variables in case of empty witness assignment
+        // Fill builder variables in case of empty witness assignment
         create_dummy_ecdsa_constraint<Curve>(
             builder, hashed_message_fields, r_fields, s_fields, pub_x_fields, pub_y_fields, result_field);
     }
@@ -78,6 +78,7 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
     bool_ct signature_result = stdlib::ecdsa_verify_signature_prehashed_message_noassert<Builder, Curve, Fq, Fr, G1>(
         hashed_message, public_key, { r, s });
 
+    // Assert that signature verification returned the expected result
     signature_result.assert_equal(result);
 }
 
@@ -107,15 +108,15 @@ void create_dummy_ecdsa_constraint(typename Curve::Builder& builder,
         }
     };
 
+    // Vector of 32 copies of bb::fr::zero()
+    std::vector<bb::fr> mock_zeros(32, bb::fr::zero());
+
     // Hashed message
-    std::vector<bb::fr> mock_hash(32, bb::fr::zero());
-    populate_fields(hashed_message_fields, mock_hash);
+    populate_fields(hashed_message_fields, mock_zeros);
 
     // Signature
-    std::vector<bb::fr> mock_signature_component(32, bb::fr::zero());
-    mock_signature_component[31] = bb::fr::one(); // Ensure r != 0 and s != 0
-    populate_fields(r_fields, mock_signature_component);
-    populate_fields(s_fields, mock_signature_component);
+    populate_fields(r_fields, mock_zeros);
+    populate_fields(s_fields, mock_zeros);
 
     // Pub key
     std::array<uint8_t, 32> buffer_x;

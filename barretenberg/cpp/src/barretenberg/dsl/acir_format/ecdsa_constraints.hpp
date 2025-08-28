@@ -14,6 +14,21 @@ namespace acir_format {
 
 using namespace bb;
 
+/**
+ * @brief ECDSA constraints
+ *
+ * @details ECDSA constraints are composed of five arrays:
+ *  1. `hashed_message`, an array of length 32 representing the witness indices of the byte representation of the hash
+ *     of the message for which the signature must be verified
+ *  2. `signature`, an array of length 64 representing the witness indices of the signature \f$(r, s)\f$ which must be
+ *     verified. The components are represented as big-endian, 32-byte numbers.
+ *  3. `pub_x_indices`, an array of length 32 representing the witness indices of the byte representation the x
+ *     coordinate of the public key against which the signature should be verified.
+ *  4. `pub_y_indices`, an array of length 32 representing the witness indices of the byte representation the y
+ *     coordinate of the public key against which the signature should be verified.
+ *  5. `result`, an array of length 1 representing the witness index of the expected result of the signature
+ *     verification.
+ */
 struct EcdsaConstraint {
     // The byte representation of the hashed message.
     std::array<uint32_t, 32> hashed_message;
@@ -21,8 +36,9 @@ struct EcdsaConstraint {
     // The signature
     std::array<uint32_t, 64> signature;
 
-    // The public key against the signature must be verifid. Since Fr does not have enough bits to represent the
-    // prime field in secp256k1 or secp256r1, a byte array is used.
+    // The public key against which the signature must be verifid.
+    // Since Fr does not have enough bits to represent the prime field in
+    // secp256k1 or secp256r1, a byte array is used.
     std::array<uint32_t, 32> pub_x_indices;
     std::array<uint32_t, 32> pub_y_indices;
 
