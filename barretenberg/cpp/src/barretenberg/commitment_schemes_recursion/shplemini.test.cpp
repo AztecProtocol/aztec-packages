@@ -95,6 +95,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
                 });
             return elements_in_circuit;
         };
+        // WORKTODO: To pass the origin tags check: could either fix the witnesses of the claims or fiat shamir them
         auto stdlib_unshifted_commitments =
             commitments_to_witnesses(mock_claims.claim_batcher.get_unshifted().commitments);
         auto stdlib_to_be_shifted_commitments =
@@ -110,6 +111,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
         u_challenge_in_circuit.reserve(CONST_PROOF_SIZE_LOG_N);
 
         for (auto u : u_challenge) {
+            // WORKTODO: To pass the origin tags check: could either fix the witnesses of the claims or fiat shamir them
             u_challenge_in_circuit.emplace_back(Fr::from_witness(&builder, u));
         }
 

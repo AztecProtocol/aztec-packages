@@ -82,6 +82,7 @@ TYPED_TEST(ShplonkRecursionTest, Simple)
 
     // Convert opening claims to witnesses
     auto native_verifier_claims = ClaimData::verifier_opening_claims(setup);
+    // WORKTODO: To pass the origin tags check: could either fix the witnesses of the claims or fiat shamir them
     auto stdlib_opening_claims =
         this->native_to_stdlib_opening_claims(&builder, native_verifier_claims, native_verifier_claims.size());
 
@@ -89,7 +90,6 @@ TYPED_TEST(ShplonkRecursionTest, Simple)
     auto verifier_transcript = std::make_shared<Transcript>();
     verifier_transcript->load_proof(stdlib_proof);
     [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<Fr>("Init");
-    // To pass the origin tags: could either fix the witnesses of the claims or fiat shamir them to pass the origin tags
     [[maybe_unused]] auto batched_verifier_claim =
         ShplonkVerifier::reduce_verification(Commitment::one(&builder), stdlib_opening_claims, verifier_transcript);
 
@@ -135,9 +135,11 @@ TYPED_TEST(ShplonkRecursionTest, LinearlyDependent)
         Builder builder;
         StdlibProof stdlib_proof(builder, proof);
 
+        // WORKTODO: To pass the origin tags check: could either fix the witnesses of the claims or fiat shamir them
         auto coeff1 = Fr::from_witness(&builder, coefficients[0]);
         auto coeff2 = Fr::from_witness(&builder, coefficients[1]);
 
+        // WORKTODO: To pass the origin tags check: could either fix the witnesses of the claims or fiat shamir them
         // Convert opening claims to witnesses
         auto stdlib_opening_claims =
             this->native_to_stdlib_opening_claims(&builder, native_opening_claims, native_opening_claims.size() - 1);
@@ -146,6 +148,7 @@ TYPED_TEST(ShplonkRecursionTest, LinearlyDependent)
         Commitment commit = GroupElement::batch_mul(
             { stdlib_opening_claims[0].commitment, stdlib_opening_claims[1].commitment }, { coeff1, coeff2 });
 
+        // WORKTODO: To pass the origin tags check: could either fix the witnesses of the claims or fiat shamir them
         // Opening pair for the linear combination as it would be received by the Verifier from the Prover
         Fr r = Fr::from_witness(&builder, native_opening_claims[2].opening_pair.challenge);
         Fr eval = Fr::from_witness(&builder, native_opening_claims[2].opening_pair.evaluation);

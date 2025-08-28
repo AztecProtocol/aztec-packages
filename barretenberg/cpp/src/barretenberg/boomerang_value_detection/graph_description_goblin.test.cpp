@@ -87,6 +87,7 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
     // Merge commitments
     RecursiveMergeCommitments recursive_merge_commitments;
     for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
+        // WORKTODO: To pass the free witness check: could either fix the witnesses of the claims or fiat shamir them
         recursive_merge_commitments.t_commitments[idx] =
             RecursiveCommitment::from_witness(&builder, merge_commitments.t_commitments[idx]);
         recursive_merge_commitments.T_prev_commitments[idx] =
