@@ -642,6 +642,15 @@ sel * (1 - sel_execute_emit_unencrypted_log) * (prev_num_unencrypted_logs - num_
 #[NUM_L2_TO_L1_MESSAGES_NOT_CHANGED]
 sel * (1 - sel_execute_send_l2_to_l1_msg) * (prev_num_l2_to_l1_messages - num_l2_to_l1_messages) = 0;
 
+// Some opcodes cannot fail during opcode execution. They should not be able to set sel_opcode_error.
+// Note that some of these opcodes can fail in the stages before execution.
+// This list only takes into account the opcodes that are handled by the execution subtrace.
+// Infallible opcodes which are handled by other traces should constrain sel_opcode_error there.
+(sel_execute_mov + sel_execute_returndata_size + sel_execute_jump +
+ sel_execute_jumpi + sel_execute_debug_log + sel_execute_success_copy +
+ sel_execute_call + sel_execute_static_call + sel_execute_internal_call +
+ sel_execute_return + sel_execute_revert) * sel_opcode_error = 0;
+
 /**************************************************************************************************
  *  Temporality group 6: Register write.
  **************************************************************************************************/
