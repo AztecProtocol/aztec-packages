@@ -144,7 +144,7 @@ contract TallySlashingProposer is EIP712 {
    * @notice EIP-712 type hash for the Vote struct used in signature verification
    * @dev Defines the structure: Vote(uint256 slot,bytes votes) for EIP-712 signing
    */
-  bytes32 public constant VOTE_TYPEHASH = keccak256("Vote(uint256 slot,bytes votes)");
+  bytes32 public constant VOTE_TYPEHASH = keccak256("Vote(bytes votes,uint256 slot)");
 
   /**
    * @notice Type of slashing proposer (either Tally or Empire)
