@@ -8,6 +8,7 @@ import { DateProvider } from '@aztec/foundation/timer';
 import type { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import type { Abi, Narrow } from 'abitype';
+import { mkdir, writeFile } from 'fs/promises';
 import {
   type Chain,
   type ContractConstructorArgs,
@@ -15,6 +16,7 @@ import {
   type Hex,
   type PrivateKeyAccount,
   concatHex,
+  encodeAbiParameters,
   encodeDeployData,
   encodeFunctionData,
   getAddress,
@@ -90,6 +92,8 @@ export type DeployL1ContractsReturnType = {
   l1ContractAddresses: L1ContractAddresses;
   /** Version of the current rollup contract. */
   rollupVersion: number;
+  /** The fee asset owner address */
+  feeAssetOwnerAddress: EthAddress;
 };
 
 export interface LinkReferences {
@@ -127,6 +131,19 @@ export interface ContractArtifacts<TAbi extends Abi | readonly unknown[] = Abi> 
    */
   libraries?: Libraries;
 }
+
+export type VerificationLibraryEntry = {
+  file: string;
+  contract: string;
+  address: string;
+};
+
+export type VerificationRecord = {
+  name: string;
+  address: string;
+  constructorArgsHex: Hex;
+  libraries: VerificationLibraryEntry[];
+};
 
 export interface DeployL1ContractsArgs extends L1ContractsConfig {
   /** The vk tree root. */
@@ -272,6 +289,7 @@ export const deploySharedContracts = async (
       },
       { gasLimit: 100_000n },
     );
+
     logger.verbose(`Added coin issuer ${coinIssuerAddress} as minter on fee asset in ${txHash}`);
     txHashes.push(txHash);
   }
@@ -881,6 +899,7 @@ export const deployL1Contracts = async (
   logger: Logger,
   args: DeployL1ContractsArgs,
   txUtilsConfig: L1TxUtilsConfig = getL1TxUtilsConfigEnvVars(),
+  createVerificationJson: string | false = false,
 ): Promise<DeployL1ContractsReturnType> => {
   const l1Client = createExtendedL1Client(rpcUrls, account, chain);
 
@@ -917,6 +936,7 @@ export const deployL1Contracts = async (
     args.acceleratedTestDeployments,
     logger,
     txUtilsConfig,
+    !!createVerificationJson,
   );
 
   const {
@@ -929,6 +949,7 @@ export const deployL1Contracts = async (
     governanceAddress,
     rewardDistributorAddress,
     zkPassportVerifierAddress,
+    coinIssuerAddress,
   } = await deploySharedContracts(l1Client, deployer, args, logger);
   const { rollup, slashFactoryAddress } = await deployRollup(
     l1Client,
@@ -965,6 +986,26 @@ export const deployL1Contracts = async (
 
   logger.info(`Aztec L1 contracts initialized`, l1Contracts);
 
+  // Write verification data (constructor args + linked libraries) to file for later forge verify
+  if (createVerificationJson) {
+    try {
+      const date = new Date();
+      const formattedDate = date.toISOString().slice(2, 19).replace(/[-T:]/g, '');
+      // Ensure the verification output directory exists
+      await mkdir(createVerificationJson, { recursive: true });
+      const verificationOutputPath = `${createVerificationJson}/l1-verify-${chain.id}-${formattedDate.slice(0, 6)}-${formattedDate.slice(6)}.json`;
+      const verificationData = {
+        chainId: chain.id,
+        network: networkName,
+        records: deployer.verificationRecords,
+      };
+      await writeFile(verificationOutputPath, JSON.stringify(verificationData, null, 2));
+      logger.info(`Wrote L1 verification data to ${verificationOutputPath}`);
+    } catch (e) {
+      logger.warn(`Failed to write L1 verification data file: ${String(e)}`);
+    }
+  }
+
   if (isAnvilTestChain(chain.id)) {
     // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
     //        The edge case being that the genesis block is already occupying slot 0, so we cannot have another block.
@@ -997,7 +1038,9 @@ export const deployL1Contracts = async (
       feeAssetHandlerAddress,
       stakingAssetHandlerAddress,
       zkPassportVerifierAddress,
+      coinIssuerAddress,
     },
+    feeAssetOwnerAddress: l1Contracts.feeAssetOwnerAddress,
   };
 };
 
@@ -1005,6 +1048,7 @@ export class L1Deployer {
   private salt: Hex | undefined;
   private txHashes: Hex[] = [];
   public readonly l1TxUtils: L1TxUtils;
+  public readonly verificationRecords: VerificationRecord[] = [];
 
   constructor(
     public readonly client: ExtendedViemWalletClient,
@@ -1013,6 +1057,7 @@ export class L1Deployer {
     private acceleratedTestDeployments: boolean = false,
     private logger: Logger = createLogger('L1Deployer'),
     private txUtilsConfig?: L1TxUtilsConfig,
+    private createVerificationJson: boolean = false,
   ) {
     this.salt = maybeSalt ? padHex(numberToHex(maybeSalt), { size: 32 }) : undefined;
     this.l1TxUtils = createL1TxUtilsFromViemWallet(
@@ -1030,7 +1075,7 @@ export class L1Deployer {
   ): Promise<EthAddress> {
     this.logger.debug(`Deploying ${params.name} contract`, { args });
     try {
-      const { txHash, address } = await deployL1Contract(
+      const { txHash, address, deployedLibraries } = await deployL1Contract(
         this.client,
         params.contractAbi,
         params.contractBytecode,
@@ -1045,6 +1090,26 @@ export class L1Deployer {
         this.txHashes.push(txHash);
       }
       this.logger.debug(`Deployed ${params.name} at ${address}`, { args });
+
+      if (this.createVerificationJson) {
+        // Encode constructor args for verification
+        let constructorArgsHex: Hex = '0x';
+        try {
+          const abiItem: any = (params.contractAbi as any[]).find((x: any) => x && x.type === 'constructor');
+          const inputDefs: any[] = abiItem && Array.isArray(abiItem.inputs) ? abiItem.inputs : [];
+          constructorArgsHex =
+            inputDefs.length > 0 ? (encodeAbiParameters(inputDefs as any, (args ?? []) as any) as Hex) : ('0x' as Hex);
+        } catch {
+          constructorArgsHex = '0x' as Hex;
+        }
+
+        this.verificationRecords.push({
+          name: params.name,
+          address: address.toString(),
+          constructorArgsHex,
+          libraries: deployedLibraries ?? [],
+        });
+      }
       return address;
     } catch (error) {
       throw new Error(`Failed to deploy ${params.name}`, { cause: formatViemError(error) });
@@ -1094,9 +1159,10 @@ export async function deployL1Contract(
   logger?: Logger,
   l1TxUtils?: L1TxUtils,
   acceleratedTestDeployments: boolean = false,
-): Promise<{ address: EthAddress; txHash: Hex | undefined }> {
+): Promise<{ address: EthAddress; txHash: Hex | undefined; deployedLibraries?: VerificationLibraryEntry[] }> {
   let txHash: Hex | undefined = undefined;
   let resultingAddress: Hex | null | undefined = undefined;
+  const deployedLibraries: VerificationLibraryEntry[] = [];
 
   if (!l1TxUtils) {
     const config = getL1TxUtilsConfigEnvVars();
@@ -1132,8 +1198,27 @@ export async function deployL1Contract(
         acceleratedTestDeployments,
       );
 
+      // Log deployed library name and address for easier verification/triage
+      logger?.verbose(`Linked library deployed`, { library: libraryName, address: address.toString(), txHash });
+
       if (txHash) {
         libraryTxs.push(txHash);
+      }
+
+      // Try to find the source file for this library from linkReferences
+      let fileNameForLibrary: string | undefined = undefined;
+      for (const fileName in libraries.linkReferences) {
+        if (libraries.linkReferences[fileName] && libraries.linkReferences[fileName][libraryName]) {
+          fileNameForLibrary = fileName;
+          break;
+        }
+      }
+      if (fileNameForLibrary) {
+        deployedLibraries.push({
+          file: fileNameForLibrary,
+          contract: libraryName,
+          address: address.toString(),
+        });
       }
 
       for (const linkRef in libraries.linkReferences) {
@@ -1211,7 +1296,7 @@ export async function deployL1Contract(
     }
   }
 
-  return { address: EthAddress.fromString(resultingAddress!), txHash };
+  return { address: EthAddress.fromString(resultingAddress!), txHash, deployedLibraries };
 }
 
 export function getExpectedAddress(

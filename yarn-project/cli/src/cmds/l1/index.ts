@@ -46,6 +46,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .option('--sponsored-fpc', 'Populate genesis state with a testing sponsored FPC contract')
     .option('--accelerated-test-deployments', 'Fire and forget deployment transactions, use in testing only', false)
     .option('--real-verifier', 'Deploy the real verifier', false)
+    .option('--create-verification-json [path]', 'Create JSON file for etherscan contract verification', false)
     .action(async options => {
       const { deployL1Contracts } = await import('./deploy_l1_contracts.js');
 
@@ -62,6 +63,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         options.sponsoredFpc,
         options.acceleratedTestDeployments,
         options.json,
+        options.createVerificationJson,
         initialValidators,
         options.realVerifier,
         log,
