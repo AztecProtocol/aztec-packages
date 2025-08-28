@@ -1,28 +1,40 @@
 import { sumBigint } from '@aztec/foundation/bigint';
-import type { EthAddress } from '@aztec/foundation/eth-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
 
 import type { Offense, ValidatorSlashVote } from './types.js';
 
 /**
  * Creates a consensus-slash vote for a given set of committees based on a set of Offenses
+ * @param offenses - Array of offenses to consider
+ * @param committees - Array of committees (each containing array of validator addresses)
+ * @param settings - Settings including slashingAmounts and optional validator override lists
  * @returns Array of ValidatorSlashVote, where each vote is how many slash units the validator in that position should be slashed
  */
 export function getSlashConsensusVotesFromOffenses(
-  offenses: Offense[],
+  offenses: Pick<Offense, 'validator' | 'amount'>[],
   committees: EthAddress[][],
-  settings: { slashingAmounts: [bigint, bigint, bigint] },
+  settings: {
+    slashingAmounts: [bigint, bigint, bigint];
+  },
 ): ValidatorSlashVote[] {
   const { slashingAmounts } = settings;
-  const slashed: Set<string> = new Set();
+
+  const slashedSet: Set<string> = new Set();
+
   const votes = committees.flatMap(committee =>
     committee.map(validator => {
-      if (slashed.has(validator.toString())) {
-        return 0; // Already voted for slashing this validator
+      const validatorStr = validator.toString();
+
+      // If already voted for slashing this validator, skip
+      if (slashedSet.has(validatorStr)) {
+        return 0;
       }
+
+      // Normal offense-based slashing logic
       const validatorOffenses = offenses.filter(o => o.validator.equals(validator));
       const slashAmount = sumBigint(validatorOffenses.map(o => o.amount));
       const slashUnits = getSlashUnitsForAmount(slashAmount, slashingAmounts);
-      slashed.add(validator.toString());
+      slashedSet.add(validatorStr);
       return Number(slashUnits);
     }),
   );

@@ -9,7 +9,7 @@ import { AztecLMDBStoreV2 } from '@aztec/kv-store/lmdb-v2';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import type { Offense, ProposerSlashAction, SlashPayloadRound } from '@aztec/stdlib/slashing';
 
-import { createSlasherImplementation } from './factory.js';
+import { createSlasherImplementation } from './factory/create_implementation.js';
 import type { SlasherClientInterface } from './slasher_client_interface.js';
 import type { Watcher } from './watcher.js';
 

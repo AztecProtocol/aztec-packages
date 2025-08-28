@@ -27,6 +27,7 @@ import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { EmpireSlashingProposerContract } from './empire_slashing_proposer.js';
 import { GSEContract } from './gse.js';
+import { SlasherContract } from './slasher_contract.js';
 import { TallySlashingProposerContract } from './tally_slashing_proposer.js';
 import { checkBlockTag } from './utils.js';
 
@@ -265,6 +266,14 @@ export class RollupContract {
 
   getSlasher() {
     return this.rollup.read.getSlasher();
+  }
+
+  /**
+   * Returns a SlasherContract instance for interacting with the slasher contract.
+   */
+  async getSlasherContract(): Promise<SlasherContract> {
+    const slasherAddress = await this.getSlasher();
+    return new SlasherContract(this.client, EthAddress.fromString(slasherAddress));
   }
 
   getOwner() {

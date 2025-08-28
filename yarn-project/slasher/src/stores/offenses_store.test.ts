@@ -15,7 +15,10 @@ describe('SlasherOffensesStore', () => {
 
   beforeEach(async () => {
     kvStore = await openTmpStore('slasher-offenses-store-test');
-    store = new SlasherOffensesStore(kvStore, defaultSettings);
+    store = new SlasherOffensesStore(kvStore, {
+      ...defaultSettings,
+      slashOffenseExpirationRounds: 4,
+    });
   });
 
   afterEach(async () => {
@@ -311,7 +314,56 @@ describe('SlasherOffensesStore', () => {
   });
 
   describe('clearExpiredOffenses', () => {
-    it.todo('should clear expired offenses');
+    it('should clear expired offenses based on expiration rounds', async () => {
+      const currentRound = 8n;
+
+      // Round 6: slots 600-699, Round 1: slots 100-199, Round 0: slots 0-99
+      const recentOffense = createOffense(EthAddress.random(), 1000n, OffenseType.INACTIVITY, 650n / 32n); // Round 6, should not expire
+      const expiredOffense1 = createOffense(EthAddress.random(), 1000n, OffenseType.INACTIVITY, 150n / 32n); // Round 1, should expire
+      const expiredOffense2 = createOffense(EthAddress.random(), 1000n, OffenseType.INACTIVITY, 50n / 32n); // Round 0, should expire
+
+      await store.addPendingOffense(recentOffense);
+      await store.addPendingOffense(expiredOffense1);
+      await store.addPendingOffense(expiredOffense2);
+
+      // Verify all offenses are present
+      expect(await store.hasOffense(recentOffense)).toBe(true);
+      expect(await store.hasOffense(expiredOffense1)).toBe(true);
+      expect(await store.hasOffense(expiredOffense2)).toBe(true);
+
+      // Clear expired offenses
+      await store.clearExpiredOffenses(currentRound);
+
+      // Recent offense should remain, expired offenses should be gone
+      expect(await store.hasOffense(recentOffense)).toBe(true);
+      expect(await store.hasOffense(expiredOffense1)).toBe(false);
+      expect(await store.hasOffense(expiredOffense2)).toBe(false);
+    });
+
+    it('should not clear anything when expiration is disabled', async () => {
+      const storeWithNoExpiration = new SlasherOffensesStore(kvStore, {
+        ...defaultSettings,
+        slashOffenseExpirationRounds: 0,
+      });
+
+      const offense = createOffense(EthAddress.random(), 1000n, OffenseType.INACTIVITY, 10n);
+      await storeWithNoExpiration.addPendingOffense(offense);
+
+      await storeWithNoExpiration.clearExpiredOffenses(100n);
+
+      expect(await storeWithNoExpiration.hasOffense(offense)).toBe(true);
+    });
+
+    it('should not clear anything when not enough rounds have passed', async () => {
+      const currentRound = 2n; // Less than expiration rounds
+
+      const offense = createOffense(EthAddress.random(), 1000n, OffenseType.INACTIVITY, 10n);
+      await store.addPendingOffense(offense);
+
+      await store.clearExpiredOffenses(currentRound);
+
+      expect(await store.hasOffense(offense)).toBe(true);
+    });
   });
 
   describe('edge cases', () => {

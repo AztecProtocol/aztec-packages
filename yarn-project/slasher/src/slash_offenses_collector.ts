@@ -87,7 +87,10 @@ export class SlashOffensesCollector {
    */
   public async handleNewRound(round: bigint) {
     this.log.verbose(`Clearing expired offenses for new slashing round ${round}`);
-    await this.offensesStore.clearExpiredOffenses(round);
+    const cleared = await this.offensesStore.clearExpiredOffenses(round);
+    if (cleared && cleared > 0) {
+      this.log.verbose(`Cleared ${cleared} expired offenses`);
+    }
   }
 
   /**
