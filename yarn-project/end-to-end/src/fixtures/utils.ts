@@ -391,8 +391,9 @@ export async function setup(
   let anvil: Anvil | undefined;
   try {
     opts.aztecTargetCommitteeSize ??= 0;
+    opts.slasherFlavor ??= 'none';
 
-    const config: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), slasherFlavor: 'none', ...opts };
+    const config: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
     // use initialValidators for the node config
     config.validatorPrivateKeys = new SecretValue(opts.initialValidators?.map(v => v.privateKey) ?? []);
 

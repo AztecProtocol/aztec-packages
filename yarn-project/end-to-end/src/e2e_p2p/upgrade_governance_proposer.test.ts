@@ -48,7 +48,6 @@ describe('e2e_p2p_governance_proposer', () => {
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         listenAddress: '127.0.0.1',
-        governanceProposerQuorum: 6,
         governanceProposerRoundSize: 10,
         activationThreshold: 10n ** 22n,
         ejectionThreshold: 5n ** 22n,

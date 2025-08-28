@@ -90,7 +90,7 @@ export async function getL1ContractsConfig(
     activationThreshold,
     ejectionThreshold,
     slashingQuorum: Number(slashingQuorum),
-    slashingRoundSize: Number(slashingRoundSize),
+    slashingRoundSizeInEpochs: Number(slashingRoundSize / aztecEpochDuration),
     slashingLifetimeInRounds: Number(slashingLifetimeInRounds),
     slashingExecutionDelayInRounds: Number(slashingExecutionDelayInRounds),
     slashingVetoer: EthAddress.fromString(slashingVetoer),

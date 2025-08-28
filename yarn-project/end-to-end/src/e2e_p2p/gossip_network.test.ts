@@ -59,7 +59,7 @@ describe('e2e_p2p_network', () => {
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         aztecEpochDuration: 4,
-        slashingRoundSize: 8,
+        slashingRoundSizeInEpochs: 2,
         slashingQuorum: 5,
         listenAddress: '127.0.0.1',
       },
