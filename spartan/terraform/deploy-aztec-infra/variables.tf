@@ -79,10 +79,10 @@ variable "AZTEC_DOCKER_IMAGE" {
   default     = "aztecprotocol/aztec:staging"
 }
 
-variable "METRICS_NAMESPACE" {
-  description = "Namespace to deploy the metrics to"
+variable "OTEL_COLLECTOR_URL" {
+  description = "The URL of an OpenTelemtry collector to send metrics to"
   type        = string
-  default     = "metrics"
+  nullable    = true
 }
 
 variable "VALIDATOR_VALUES" {
