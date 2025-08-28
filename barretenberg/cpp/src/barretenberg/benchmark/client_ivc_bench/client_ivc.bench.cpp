@@ -50,7 +50,7 @@ BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
     auto precomputed_vks = precompute_vks(NUM_APP_CIRCUITS);
 
     for (auto _ : state) {
-        BB_REPORT_OP_COUNT_IN_BENCH(state);
+        GOOGLE_BB_BENCH_REPORTER(state);
         accumulate_and_prove_ivc_with_precomputed_vks(NUM_APP_CIRCUITS, precomputed_vks);
     }
 }

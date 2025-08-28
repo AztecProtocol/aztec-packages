@@ -1,5 +1,5 @@
 #ifndef __wasm__
-#include "op_count.hpp"
+#include "bb_bench.hpp"
 #include <iostream>
 #include <ostream>
 #include <sstream>
@@ -8,17 +8,17 @@
 namespace bb::detail {
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-bool use_op_count_time =
-    std::getenv("BB_USE_OP_COUNT_TIME") == nullptr ? false : std::string(std::getenv("BB_USE_OP_COUNT_TIME")) == "1";
+bool use_bb_bench =
+    std::getenv("BB_use_bb_bench") == nullptr ? false : std::string(std::getenv("BB_use_bb_bench")) == "1";
 
-GlobalOpCountContainer::~GlobalOpCountContainer()
+GlobalBenchStatsContainer::~GlobalBenchStatsContainer()
 {
     // This is useful for printing counts at the end of non-benchmarks.
     // See op_count_google_bench.hpp for benchmarks.
     // print();
 }
 
-void GlobalOpCountContainer::add_entry(const char* key, const std::shared_ptr<OpStats>& count)
+void GlobalBenchStatsContainer::add_entry(const char* key, const std::shared_ptr<TimeStats>& count)
 {
     std::unique_lock<std::mutex> lock(mutex);
     std::stringstream ss;
@@ -26,7 +26,7 @@ void GlobalOpCountContainer::add_entry(const char* key, const std::shared_ptr<Op
     counts.push_back({ key, ss.str(), count });
 }
 
-void GlobalOpCountContainer::print() const
+void GlobalBenchStatsContainer::print() const
 {
     std::cout << "print_op_counts() START" << std::endl;
     for (const Entry& entry : counts) {
@@ -41,7 +41,7 @@ void GlobalOpCountContainer::print() const
     std::cout << "print_op_counts() END" << std::endl;
 }
 
-std::map<std::string, std::size_t> GlobalOpCountContainer::get_aggregate_counts() const
+std::map<std::string, std::size_t> GlobalBenchStatsContainer::get_aggregate_counts() const
 {
     std::map<std::string, std::size_t> aggregate_counts;
     for (const Entry& entry : counts) {
@@ -55,7 +55,7 @@ std::map<std::string, std::size_t> GlobalOpCountContainer::get_aggregate_counts(
     return aggregate_counts;
 }
 
-void GlobalOpCountContainer::print_aggregate_counts(std::ostream& os, size_t indent) const
+void GlobalBenchStatsContainer::print_aggregate_counts(std::ostream& os, size_t indent) const
 {
     os << '{';
     bool first = true;
@@ -75,25 +75,25 @@ void GlobalOpCountContainer::print_aggregate_counts(std::ostream& os, size_t ind
     os << '}' << std::endl;
 }
 
-void GlobalOpCountContainer::clear()
+void GlobalBenchStatsContainer::clear()
 {
     std::unique_lock<std::mutex> lock(mutex);
     for (Entry& entry : counts) {
-        *entry.count = OpStats();
+        *entry.count = TimeStats();
     }
 }
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-GlobalOpCountContainer GLOBAL_OP_COUNTS;
+GlobalBenchStatsContainer GLOBAL_BENCH_STATS;
 
-OpCountTimeReporter::OpCountTimeReporter(OpStats* stats)
+BenchReporter::BenchReporter(TimeStats* stats)
     : stats(stats)
 {
     auto now = std::chrono::high_resolution_clock::now();
     auto now_ns = std::chrono::time_point_cast<std::chrono::nanoseconds>(now);
     time = static_cast<std::size_t>(now_ns.time_since_epoch().count());
 }
-OpCountTimeReporter::~OpCountTimeReporter()
+BenchReporter::~BenchReporter()
 {
     auto now = std::chrono::high_resolution_clock::now();
     auto now_ns = std::chrono::time_point_cast<std::chrono::nanoseconds>(now);

@@ -24,7 +24,7 @@
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/bbapi/c_bind.hpp"
-#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
@@ -560,10 +560,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
     slow_low_memory = flags.slow_low_memory;
 #ifndef __wasm__
     if (print_op_counts || !op_counts_out.empty()) {
-        bb::detail::use_op_count_time = true;
+        bb::detail::use_bb_bench = true;
     }
-    if (bb::detail::use_op_count_time) {
-        bb::detail::GLOBAL_OP_COUNTS.clear();
+    if (bb::detail::use_bb_bench) {
+        bb::detail::GLOBAL_BENCH_STATS.clear();
     }
 #endif
 
@@ -661,11 +661,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 api.prove(flags, ivc_inputs_path, output_path);
 #ifndef __wasm__
                 if (print_op_counts) {
-                    bb::detail::GLOBAL_OP_COUNTS.print_aggregate_counts(std::cout, 0);
+                    bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts(std::cout, 0);
                 }
                 if (!op_counts_out.empty()) {
                     std::ofstream file(op_counts_out);
-                    bb::detail::GLOBAL_OP_COUNTS.print_aggregate_counts(file, 2);
+                    bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts(file, 2);
                 }
 #endif
                 return 0;
@@ -684,11 +684,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 api.prove(flags, bytecode_path, witness_path, vk_path, output_path);
 #ifndef __wasm__
                 if (print_op_counts) {
-                    bb::detail::GLOBAL_OP_COUNTS.print_aggregate_counts(std::cout, 0);
+                    bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts(std::cout, 0);
                 }
                 if (!op_counts_out.empty()) {
                     std::ofstream file(op_counts_out);
-                    bb::detail::GLOBAL_OP_COUNTS.print_aggregate_counts(file, 2);
+                    bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts(file, 2);
                 }
 #endif
                 return 0;

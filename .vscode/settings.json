@@ -1,4 +1,5 @@
 {
+  "explorer.excludeGitIgnore": true,
   "files.associations": {
     "*.tf": "terraform",
     "*.tfvars": "terraform",
@@ -154,6 +155,7 @@
     "**/.pnp.*": true,
     "**/msgpack-c/**": true
   },
+  "search.useIgnoreFiles": true,
   "[terraform]": {
     "editor.defaultFormatter": "hashicorp.terraform"
   },

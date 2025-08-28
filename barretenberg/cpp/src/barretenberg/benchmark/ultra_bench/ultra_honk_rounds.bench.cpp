@@ -32,7 +32,7 @@ enum {
 BB_PROFILE void test_round_inner(State& state, MegaProver& prover, size_t index) noexcept
 {
     auto time_if_index = [&](size_t target_index, auto&& func) -> void {
-        BB_REPORT_OP_COUNT_IN_BENCH(state);
+        GOOGLE_BB_BENCH_REPORTER(state);
         if (index == target_index) {
             state.ResumeTiming();
         }
@@ -42,7 +42,7 @@ BB_PROFILE void test_round_inner(State& state, MegaProver& prover, size_t index)
             state.PauseTiming();
         } else {
             // We don't actually want to write to user-defined counters
-            BB_REPORT_OP_COUNT_BENCH_CANCEL();
+            GOOGLE_BB_BENCH_REPORTER_CANCEL();
         }
     };
     // why is this mega if the name of file is ultra

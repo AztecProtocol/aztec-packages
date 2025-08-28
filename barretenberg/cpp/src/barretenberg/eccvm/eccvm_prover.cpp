@@ -24,7 +24,7 @@ ECCVMProver::ECCVMProver(CircuitBuilder& builder,
     : transcript(transcript)
     , ipa_transcript(ipa_transcript)
 {
-    PROFILE_THIS_NAME("ECCVMProver(CircuitBuilder&)");
+    BB_BENCH_TRACY_NAME("ECCVMProver(CircuitBuilder&)");
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/939): Remove redundancy between
     // ProvingKey/ProverPolynomials and update the model to reflect what's done in all other proving systems.
@@ -207,7 +207,7 @@ ECCVMProof ECCVMProver::export_proof()
 
 ECCVMProof ECCVMProver::construct_proof()
 {
-    PROFILE_THIS_NAME("ECCVMProver::construct_proof");
+    BB_BENCH_TRACY_NAME("ECCVMProver::construct_proof");
 
     execute_preamble_round();
     execute_wire_commitments_round();
