@@ -66,14 +66,17 @@ runs:
         ref: ${{ inputs.ref }}
 
     - name: Authenticate to Google Cloud
+      if: ${{ inputs.cluster != 'kind' }}
       uses: google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f
       with:
         credentials_json: ${{ inputs.gcp_sa_key }}
 
     - name: Set up Cloud SDK
+      if: ${{ inputs.cluster != 'kind' }}
       uses: google-github-actions/setup-gcloud@6189d56e4096ee891640bb02ac264be376592d6a
 
     - name: Install GKE Auth Plugin
+      if: ${{ inputs.cluster != 'kind' }}
       shell: bash
       run: |
         gcloud components install gke-gcloud-auth-plugin --quiet
