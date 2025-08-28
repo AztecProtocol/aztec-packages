@@ -51,7 +51,14 @@ struct GlobalBenchStatsContainer {
     void print() const;
     // NOTE: Should be called when other threads aren't active
     void clear();
-    void add_entry(const char* key, TimeStatsEntry* count);
+    void add_entry(const char* key, TimeStatsEntry* entry);
+    void print_stats_recursive(const std::string& key,
+                               const TimeStats* stats,
+                               const std::string& thread_id,
+                               const std::string& indent) const;
+    void aggregate_stats_recursive(const std::string& key,
+                                   const TimeStats* stats,
+                                   std::map<std::string, std::size_t>& aggregate_counts) const;
     std::map<std::string, std::size_t> get_aggregate_counts() const;
     void print_aggregate_counts(std::ostream&, size_t) const;
 };
@@ -64,13 +71,20 @@ extern GlobalBenchStatsContainer GLOBAL_BENCH_STATS;
 // This allows measuring the direct contribution of nested operations to their parent,
 // but doesn't provide recursive parent-child relationships through the entire call stack.
 struct TimeStats {
-    TimeStats* parent = nullptr;
+    TimeStatsEntry* parent = nullptr;
     std::size_t count = 0;
     std::size_t time = 0;
     // Used if the parent changes from last call - chains to handle multiple parent contexts
     std::unique_ptr<TimeStats> next;
 
-    void track(TimeStats* current_parent, std::size_t time_val)
+    TimeStats() = default;
+    TimeStats(TimeStatsEntry* parent_ptr, std::size_t count_val, std::size_t time_val)
+        : parent(parent_ptr)
+        , count(count_val)
+        , time(time_val)
+    {}
+
+    void track(TimeStatsEntry* current_parent, std::size_t time_val)
     {
         // Try to track with current stats if parent matches
         // Check if 'next' already handles this parent to avoid creating duplicates
@@ -79,7 +93,7 @@ struct TimeStats {
         }
         // Create new TimeStats at the front of this linked list.
         auto new_next = std::make_unique<TimeStats>(parent, count, time);
-        new_next = std::move(next);
+        new_next->next = std::move(next);
         next = std::move(new_next);
 
         // Reset this node.
@@ -90,7 +104,7 @@ struct TimeStats {
 
   private:
     // Returns true if successfully tracked (parent matches), false otherwise
-    bool raw_track(TimeStats* expected_parent, std::size_t time_val)
+    bool raw_track(TimeStatsEntry* expected_parent, std::size_t time_val)
     {
         if (parent != expected_parent) {
             return false;
@@ -121,20 +135,20 @@ template <OperationLabel Op> struct ThreadBenchStats {
     // returns null if use_bb_bench not enabled
     static TimeStatsEntry* ensure_stats()
     {
-        if (!bb::detail::use_bb_bench && BB_UNLIKELY(stats.key.empty())) {
+        if (bb::detail::use_bb_bench && BB_UNLIKELY(stats.key.empty())) {
             GLOBAL_BENCH_STATS.add_entry(Op.value, &stats);
         }
-        return stats;
+        return bb::detail::use_bb_bench ? &stats : nullptr;
     }
 };
 
 // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions)
 // no-op if passed null stats
 struct BenchReporter {
-    TimeStats* parent;
+    TimeStatsEntry* parent;
     TimeStats* stats;
     std::size_t time;
-    BenchReporter(TimeStats* stats);
+    BenchReporter(TimeStatsEntry* entry);
     ~BenchReporter();
 };
 } // namespace bb::detail
@@ -162,9 +176,9 @@ struct BenchReporter {
 #define BB_BENCH_TRACY() BB_BENCH_NAME(__func__)
 #define BB_BENCH_TRACY_NAME(name) BB_BENCH_NAME(name)
 #define BB_BENCH_NAME(name)                                                                                            \
-    bb::detail::BenchReporter __bb_op_count_time(bb::detail::GlobalBenchStats<name>::ensure_stats())
+    bb::detail::BenchReporter __bb_op_count_time(bb::detail::ThreadBenchStats<name>::ensure_stats())
 #define BB_BENCH_ENABLE_NESTING()                                                                                      \
-    if (bb::detail::use_bb_bench)                                                                                      \
-        GlobalBenchStatsContainer::parent = __bb_op_count_time->stats;
+    if (bb::detail::use_bb_bench && __bb_op_count_time.stats)                                                          \
+        bb::detail::GlobalBenchStatsContainer::parent = __bb_op_count_time.stats;
 #define BB_BENCH() BB_BENCH_NAME(__func__)
 #endif
