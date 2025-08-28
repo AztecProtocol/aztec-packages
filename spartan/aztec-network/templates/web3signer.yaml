@@ -55,13 +55,18 @@ spec:
             - |
               set -euo pipefail
               KS_DIR=/shared/key-store
-              KS_FILE=$KS_DIR/attesters.yaml
-              mkdir -p "$KS_DIR"; : > "$KS_FILE"
+              ATTESTER_KS=$KS_DIR/attester.yaml
+              PROVER_KS=$KS_DIR/prover.yaml
+
+              mkdir -p "$KS_DIR"
+              : > "$ATTESTER_KS"
+              : > "$PROVER_KS"
+
               for ((i=0;i<VALIDATORS;i++)); do
                 idx=$((VALIDATOR_KEY_START + i))
                 pk="$(cast wallet private-key "$MNEMONIC" --mnemonic-index "$idx")"
-                [[ $i -gt 0 ]] && echo '---' >> "$KS_FILE"
-                cat >> "$KS_FILE" <<EOF
+                [[ $i -gt 0 ]] && echo '---' >> "$ATTESTER_KS"
+                cat >> "$ATTESTER_KS" <<EOF
               type: file-raw
               keyType: SECP256K1
               privateKey: "$pk"
@@ -69,8 +74,7 @@ spec:
               done
 
               pk="$(cast wallet private-key "$MNEMONIC" --mnemonic-index "$PROVER_KEY_START")"
-              cat >> "$KS_FILE" <<EOF
-              ---
+              cat >> "$PROVER_KS" <<EOF
               type: file-raw
               keyType: SECP256K1
               privateKey: "$pk"
