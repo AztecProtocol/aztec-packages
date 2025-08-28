@@ -165,7 +165,7 @@ TEST(MockVerifierInputsTest, MockMegaHonkProofSize)
  * @brief Check that the size of a mock Honk proof matches expectation for Ultra flavors
  *
  */
-TYPED_TEST(MockVerifierInputsTest, MockHonkProofSize)
+TYPED_TEST(MockVerifierInputsTest, MockUltraHonkProofSize)
 {
     using Flavor = TypeParam;
     using Builder = Flavor::CircuitBuilder;

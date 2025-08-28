@@ -10,11 +10,8 @@ import { basename, dirname, join } from 'path';
 import type { UltraHonkFlavor } from '../honk.js';
 
 export const VK_FILENAME = 'vk';
-export const VK_FIELDS_FILENAME = 'vk_fields.json';
 export const PUBLIC_INPUTS_FILENAME = 'public_inputs';
-export const PUBLIC_INPUTS_FIELDS_FILENAME = 'public_inputs_fields.json';
 export const PROOF_FILENAME = 'proof';
-export const PROOF_FIELDS_FILENAME = 'proof_fields.json';
 export const AVM_INPUTS_FILENAME = 'avm_inputs.bin';
 export const AVM_BYTECODE_FILENAME = 'avm_bytecode.bin';
 export const AVM_PUBLIC_INPUTS_FILENAME = 'avm_public_inputs.bin';
@@ -248,8 +245,6 @@ export async function generateProof(
     // TODO(#15043): Avoid write_vk flag here.
     const args = getArgs(flavor).concat([
       '--disable_zk',
-      '--output_format',
-      'bytes_and_fields',
       '--write_vk',
       '-o',
       outputPath,

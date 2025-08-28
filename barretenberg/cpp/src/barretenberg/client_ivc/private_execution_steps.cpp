@@ -1,4 +1,5 @@
 #include "private_execution_steps.hpp"
+#include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include <libdeflate.h>
@@ -132,8 +133,7 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
             // For backwards compatibility, but it affects performance and correctness.
             precomputed_vks[i] = nullptr;
         } else {
-            auto vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(step.vk);
-            precomputed_vks[i] = vk;
+            precomputed_vks[i] = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(step.vk);
         }
         function_names[i] = step.function_name;
     }
@@ -173,8 +173,6 @@ void PrivateExecutionStepRaw::compress_and_save(std::vector<PrivateExecutionStep
     for (PrivateExecutionStepRaw& step : steps) {
         step.bytecode = compress(step.bytecode);
         step.witness = compress(step.witness);
-        step.vk = step.vk;
-        step.function_name = step.function_name;
     }
 
     // Serialize to msgpack

@@ -51,8 +51,10 @@ void create_test_private_execution_steps(const std::filesystem::path& output_pat
 
     auto app_vk_response =
         bbapi::ClientIvcComputeStandaloneVk{ .circuit = { .name = "app_circuit", .bytecode = app_bytecode } }.execute();
-    auto app_vk = app_vk_response.bytes;
-    auto app_vk_fields = from_buffer<MegaFlavor::VerificationKey>(app_vk).to_field_elements();
+
+    // Decode VK to get field elements
+    auto app_vk = from_buffer<MegaFlavor::VerificationKey>(app_vk_response.bytes);
+    auto app_vk_fields = app_vk.to_field_elements();
 
     // Now create a kernel circuit that verifies the app circuit
     auto kernel_bytecode = acir_bincode_mocks::create_simple_kernel(app_vk_fields.size(), /*is_init_kernel=*/true);
@@ -65,8 +67,10 @@ void create_test_private_execution_steps(const std::filesystem::path& output_pat
 
     // Create PrivateExecutionStepRaw for the kernel
     std::vector<PrivateExecutionStepRaw> raw_steps;
-    raw_steps.push_back(
-        { .bytecode = app_bytecode, .witness = app_witness_data, .vk = app_vk, .function_name = "app_function" });
+    raw_steps.push_back({ .bytecode = app_bytecode,
+                          .witness = app_witness_data,
+                          .vk = app_vk_response.bytes,
+                          .function_name = "app_function" });
     raw_steps.push_back({ .bytecode = kernel_bytecode,
                           .witness = kernel_witness_data,
                           .vk = kernel_vk,
@@ -98,30 +102,33 @@ class ClientIVCAPITests : public ::testing::Test {
 
 namespace bb {
 std::vector<uint8_t> compress(const std::vector<uint8_t>& input);
-}
+} // namespace bb
 
-// Used to get a mock IVC vk.
+// Helper to get an IVC verification key for testing
 ClientIVC::MegaVerificationKey get_ivc_vk(const std::filesystem::path& test_dir)
 {
     auto [app_bytecode, app_witness_data] = acir_bincode_mocks::create_simple_circuit_bytecode();
     bbapi::BBApiRequest request;
     auto app_vk_response =
         bbapi::ClientIvcComputeStandaloneVk{ .circuit = { .name = "app_circuit", .bytecode = app_bytecode } }.execute();
-    auto app_vk = app_vk_response.bytes;
-    auto app_vk_fields = from_buffer<MegaFlavor::VerificationKey>(app_vk).to_field_elements();
-    // Use this to get the size of the vk.
-    auto bytecode = acir_bincode_mocks::create_simple_kernel(app_vk_fields.size(), /*is_init_kernel=*/false);
+
+    // Decode to get the field count
+    auto app_vk = from_buffer<MegaFlavor::VerificationKey>(app_vk_response.bytes);
+    size_t vk_field_count = app_vk.to_field_elements().size();
+
+    // Create a kernel circuit with the correct VK size
+    auto bytecode = acir_bincode_mocks::create_simple_kernel(vk_field_count, /*is_init_kernel=*/false);
     std::filesystem::path bytecode_path = test_dir / "circuit.acir";
     write_file(bytecode_path, bb::compress(bytecode));
 
     ClientIVCAPI::Flags write_vk_flags;
     write_vk_flags.verifier_type = "ivc";
-    write_vk_flags.output_format = "bytes";
 
     ClientIVCAPI api;
     api.write_vk(write_vk_flags, bytecode_path, test_dir);
 
-    return from_buffer<ClientIVC::MegaVerificationKey>(read_file(test_dir / "vk"));
+    auto buffer = read_file(test_dir / "vk");
+    return from_buffer<ClientIVC::MegaVerificationKey>(buffer);
 };
 
 // Test the ClientIVCAPI::prove flow, making sure --write_vk
@@ -149,7 +156,7 @@ TEST_F(ClientIVCAPITests, DISABLED_ProveAndVerifyFileBasedFlow)
     auto verify_vk_equivalence = [&](const std::filesystem::path& vk1_path, const ClientIVC::MegaVerificationKey& vk2) {
         auto vk1_data = read_file(vk1_path);
         auto vk1 = from_buffer<ClientIVC::MegaVerificationKey>(vk1_data);
-        ASSERT_TRUE(msgpack::msgpack_check_eq(vk1, vk2, "VK from prove should match VK from write_vk"));
+        ASSERT_EQ(vk1, vk2);
     };
 
     // Helper lambda to verify proof
@@ -180,20 +187,15 @@ TEST_F(ClientIVCAPITests, WriteVkFieldsSmokeTest)
     std::filesystem::path bytecode_path = test_dir / "circuit.acir";
     write_file(bytecode_path, bb::compress(bytecode));
 
-    // Test write_vk with fields output format
+    // Test write_vk
     ClientIVCAPI::Flags flags;
     flags.verifier_type = "standalone";
-    flags.output_format = "fields";
 
     ClientIVCAPI api;
     api.write_vk(flags, bytecode_path, test_dir);
 
-    // Read and verify the fields format
-    auto vk_data = read_file(test_dir / "vk_fields.json");
-    std::string vk_str(vk_data.begin(), vk_data.end());
-    // Just check that this looks a bit like JSON.
-    EXPECT_NE(vk_str.find('['), std::string::npos);
-    EXPECT_NE(vk_str.find(']'), std::string::npos);
+    // Verify the binary VK file was created
+    EXPECT_TRUE(std::filesystem::exists(test_dir / "vk"));
 }
 
 TEST_F(ClientIVCAPITests, WriteIVCVkSmokeTest)
@@ -208,7 +210,6 @@ TEST_F(ClientIVCAPITests, WriteIVCVkSmokeTest)
     // Set flags for VK generation
     ClientIVCAPI::Flags flags;
     flags.verifier_type = "ivc";
-    flags.output_format = "bytes";
 
     // Call write_vk
     ClientIVCAPI api;

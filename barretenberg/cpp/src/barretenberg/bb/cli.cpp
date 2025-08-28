@@ -142,7 +142,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     std::filesystem::path vk_path{ "./target/vk" };
     flags.scheme = "";
     flags.oracle_hash_type = "poseidon2";
-    flags.output_format = "bytes";
     flags.crs_path = srs::bb_crs_path();
     flags.include_gates_per_opcode = false;
     const auto add_output_path_option = [&](CLI::App* subcommand, auto& _output_path) {
@@ -191,18 +190,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 "has a privileged position due to the existence of an EVM precompile. Starknet is optimized "
                 "for verification in a Starknet smart contract, which can be generated using the Garaga library.")
             ->check(CLI::IsMember({ "poseidon2", "keccak", "starknet" }).name("is_member"));
-    };
-
-    const auto add_output_format_option = [&](CLI::App* subcommand) {
-        return subcommand
-            ->add_option(
-                "--output_format",
-                flags.output_format,
-                "The type of the data to be written by the command. If bytes, output the raw bytes prefixed with "
-                "header information for deserialization. If fields, output a string representation of an array of "
-                "field elements. If bytes_and_fields do both. If fields_msgpack, outputs a msgpack buffer of Fr "
-                "elements.")
-            ->check(CLI::IsMember({ "bytes", "fields", "bytes_and_fields", "fields_msgpack" }).name("is_member"));
     };
 
     const auto add_write_vk_flag = [&](CLI::App* subcommand) {
@@ -346,7 +333,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_debug_flag(prove);
     add_crs_path_option(prove);
     add_oracle_hash_option(prove);
-    add_output_format_option(prove);
     add_write_vk_flag(prove);
     add_ipa_accumulation_flag(prove);
     remove_zk_option(prove);
@@ -372,7 +358,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
 
     add_verbose_flag(write_vk);
     add_debug_flag(write_vk);
-    add_output_format_option(write_vk);
     add_crs_path_option(write_vk);
     add_oracle_hash_option(write_vk);
     add_ipa_accumulation_flag(write_vk);

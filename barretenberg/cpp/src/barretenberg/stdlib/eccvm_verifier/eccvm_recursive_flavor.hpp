@@ -91,8 +91,9 @@ class ECCVMRecursiveFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey
-        : public StdlibVerificationKey_<CircuitBuilder, ECCVMFlavor::PrecomputedEntities<Commitment>> {
+    class VerificationKey : public StdlibVerificationKey_<CircuitBuilder,
+                                                          ECCVMFlavor::PrecomputedEntities<Commitment>,
+                                                          VKSerializationMode::NO_METADATA> {
       public:
         VerifierCommitmentKey pcs_verification_key;
 
@@ -117,27 +118,6 @@ class ECCVMRecursiveFlavor {
             for (auto [native_commitment, commitment] : zip_view(native_key->get_all(), this->get_all())) {
                 commitment = Commitment::from_witness(builder, native_commitment);
             }
-        }
-
-        /**
-         * @brief Serialize verification key to field elements.
-         *
-         * @return std::vector<BF>
-         */
-        std::vector<BF> to_field_elements() const override
-        {
-            using namespace bb::stdlib::field_conversion;
-            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<FF>& buffer) {
-                std::vector<FF> input_fields = convert_to_bn254_frs<CircuitBuilder, T>(input);
-                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
-            };
-
-            std::vector<FF> elements;
-            for (const Commitment& commitment : this->get_all()) {
-                serialize_to_field_buffer(commitment, elements);
-            }
-
-            return elements;
         }
 
         /**

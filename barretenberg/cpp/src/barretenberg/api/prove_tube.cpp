@@ -1,9 +1,11 @@
 #include "prove_tube.hpp"
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/common/map.hpp"
+#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
+#include <memory>
 
 namespace bb {
 /**
@@ -70,27 +72,8 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     write_file(tubePublicInputsPath, to_buffer(public_inputs_and_proof.public_inputs));
     write_file(tubeProofPath, to_buffer(public_inputs_and_proof.proof));
 
-    std::string tubePublicInputsAsFieldsPath = output_path + "/public_inputs_fields.json";
-    std::string tubeProofAsFieldsPath = output_path + "/proof_fields.json";
-    const auto to_json = [](const std::vector<bb::fr>& data) {
-        if (data.empty()) {
-            return std::string("[]");
-        }
-        return format("[", join(transform::map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
-    };
-    auto public_inputs_data = to_json(public_inputs_and_proof.public_inputs);
-    auto proof_data = to_json(public_inputs_and_proof.proof);
-    write_file(tubePublicInputsAsFieldsPath, { public_inputs_data.begin(), public_inputs_data.end() });
-    write_file(tubeProofAsFieldsPath, { proof_data.begin(), proof_data.end() });
-
     std::string tubeVkPath = output_path + "/vk";
     write_file(tubeVkPath, to_buffer(tube_verification_key));
-
-    std::string tubeAsFieldsVkPath = output_path + "/vk_fields.json";
-    auto field_els = tube_verification_key->to_field_elements();
-    info("verificaton key length in fields:", field_els.size());
-    auto data = to_json(field_els);
-    write_file(tubeAsFieldsVkPath, { data.begin(), data.end() });
 
     info("Native verification of the tube_proof");
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);

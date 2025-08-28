@@ -105,20 +105,4 @@ AvmFlavor::ProvingKey::ProvingKey(const size_t circuit_size, const size_t num_pu
         // AvmComposer::compute_witness(). We should probably refactor this flow.
     };
 
-/**
- * @brief Serialize verification key to field elements
- *
- * @return std::vector<FF>
- */
-std::vector<AvmFlavor::FF> AvmFlavor::VerificationKey::to_field_elements() const
-{
-    std::vector<FF> elements = { FF(log_circuit_size), FF(num_public_inputs) };
-
-    for (auto const& comm : get_all()) {
-        std::vector<FF> comm_as_fields = field_conversion::convert_to_bn254_frs(comm);
-        elements.insert(elements.end(), comm_as_fields.begin(), comm_as_fields.end());
-    }
-    return elements;
-}
-
 } // namespace bb::avm2
