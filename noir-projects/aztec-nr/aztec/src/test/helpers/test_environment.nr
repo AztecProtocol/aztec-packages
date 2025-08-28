@@ -1,5 +1,7 @@
 use protocol_types::{
-    abis::function_selector::FunctionSelector, address::AztecAddress, traits::Deserialize,
+    abis::function_selector::FunctionSelector,
+    address::AztecAddress,
+    traits::{Deserialize, FromField},
 };
 
 use crate::{
@@ -638,16 +640,17 @@ impl TestEnvironment {
     ///
     /// Unlike `call_public`, no transaction is created and no block is mined (since `#[view]` functions are only
     /// executable in a static context, and these produce no side effects).
+    // Question: I guess it's omitted for convenience, but this function should technically have a
+    // `from` parameter, since msg_sender could affect the result of the call.
     pub unconstrained fn view_public<T, let M: u32>(
         _self: Self,
-        from: AztecAddress,
         call_interface: PublicStaticCallInterface<M, T>,
     ) -> T
     where
         T: Deserialize,
     {
         let (returns_hash, _) = txe_oracles::public_call_new_flow(
-            Option::some(from),
+            Option::some(AztecAddress::from_field(0)), // This seems like a bodge?
             call_interface.get_contract_address(),
             call_interface.get_selector(),
             call_interface.get_args(),
