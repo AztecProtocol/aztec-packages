@@ -25,7 +25,7 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return (in.q_poseidon2_external.is_zero());
+        return in.q_poseidon2_external.is_zero();
     }
 
     /**

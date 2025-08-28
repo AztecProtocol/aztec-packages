@@ -33,7 +33,8 @@ B_j = (a_{3j},, a_{3j+1},, a_{3j+2}) \quad\text{(pad missing entries with  0)},\
 m = \left\lceil \frac{N}{3}\right\rceil .
 \f]
 
-**Remark:** In Poseidon paper, the padding scheme for variable input length hashing suggests padding with \f$ 10^\ast\f$.
+### Padding
+In Poseidon paper, the padding scheme for variable input length hashing suggests padding with \f$ 10^\ast\f$.
 
 "Domain Separation for Poseidon" section (see 4.2 in [Poseidon](https://eprint.iacr.org/2019/458.pdf)) suggests using domain separation IV defined as follows
 \f[
@@ -43,6 +44,8 @@ Initialize the state:
 \f[
     \mathbf{s}^{(0)} = (0,0,0,\mathrm{IV}).
 \f]
+
+Since we only use Poseidon2 sponge with variable length inputs and the length is a part of domain separation, we can pad the inputs with \f$ 0^\ast \f$, which would not lead to collisions (tested \ref  StdlibPoseidon2< Builder >::test_padding_collisions "here").
 
 Note that we initialize \f$ \mathrm{IV} \f$ as a fixed witness. It ensures that the first invocation of the Poseidon2 permutation leads to a state where all entries are **normalized** witnesses, i.e. they have `multiplicative_constant` equal 1, and `additive_constant` equal 0.
 
@@ -80,6 +83,7 @@ Each permutation consists of:
 4. **Final external rounds** (same as step 2).
 
 Note that in general, step 1 requires 6 arithmetic gates, the steps 2-4 create total number of rounds + 3 gates. Hence a single invocation of Poseidon2 Permutation results in 73 gates.
+
 ### External Matrix
 As proposed in Section 5.1 of [Poseidon2 paper](https://eprint.iacr.org/2023/323.pdf), we set
 \f[
@@ -104,6 +108,15 @@ M_I =
     1   & 1   & 1   & D_4
     \end{bmatrix}
 \f]
+
+### Constants
+
+The constants are generated using the sage [script authored by Markus Schofnegger](https://github.com/HorizenLabs/poseidon2/blob/main/poseidon2_rust_params.sage) from Horizen Labs.
+
+### Security Level
+Based on Section 3.2 of [Poseidon2 paper](https://eprint.iacr.org/2023/323.pdf).
+
+Given \f$ R_P = 56 \f$, \f$ R_F = 8\f$, \f$ d = 5\f$, \f$ \log_2(p)  \approx 254 \f$, we get \f$ 128 \f$ bits of security.
 
 ## Custom Gate Relations
 

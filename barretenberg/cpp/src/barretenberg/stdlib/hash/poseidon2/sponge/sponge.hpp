@@ -18,24 +18,15 @@ namespace bb::stdlib {
 
 /**
  * @brief Implements the circuit form of a cryptographic sponge over prime fields.
- *        Implements the sponge specification from the Community Cryptographic Specification Project
- *        see https://github.com/C2SP/C2SP/blob/792c1254124f625d459bfe34417e8f6bdd02eb28/poseidon-sponge.md
- *        (Note: this spec was not accepted into the C2SP repo, we might want to reference something else!)
  *
- *        Note: If we ever use this sponge class for more than 1 hash functions, we should move this out of `poseidon2`
- *              and into its own directory
- * @tparam field_t
- * @tparam rate
- * @tparam capacity
- * @tparam t
- * @tparam Permutation
+ * @tparam Builder A circuit builder class. Can be Ultra- or MegaCircuitBuilder.
  */
 template <typename Builder> class FieldSponge {
-  public:
+  private:
     using Permutation = Poseidon2Permutation<Builder>;
-    static constexpr size_t t = crypto::Poseidon2Bn254ScalarFieldParams::t;
+    static constexpr size_t t = crypto::Poseidon2Bn254ScalarFieldParams::t; // = 4
     static constexpr size_t capacity = 1;
-    static constexpr size_t rate = t - capacity; // =3
+    static constexpr size_t rate = t - capacity; // = 3
 
     using field_t = stdlib::field_t<Builder>;
 
@@ -43,14 +34,14 @@ template <typename Builder> class FieldSponge {
     std::array<field_t, t> state{};
 
     // cached elements that have been absorbed.
-    std::array<field_t, rate> cache;
+    std::array<field_t, rate> cache{};
     size_t cache_size = 0;
     Builder* builder;
 
     FieldSponge(Builder* builder_, size_t in_len)
         : builder(builder_)
     {
-
+        // Add the domain separation to the initial state.
         field_t iv(static_cast<uint256_t>(in_len) << 64);
         iv.convert_constant_to_fixed_witness(builder);
         state[rate] = iv;
@@ -65,6 +56,9 @@ template <typename Builder> class FieldSponge {
 
         // Apply Poseidon2 permutation
         state = Permutation::permutation(builder, state);
+
+        // Reset the cache
+        cache = {};
     }
 
     void absorb(const field_t& input)
@@ -83,40 +77,42 @@ template <typename Builder> class FieldSponge {
 
     field_t squeeze()
     {
-        // Zero-pad cache
-        for (size_t i = cache_size; i < rate; ++i) {
-            cache[i] = 0;
-        }
 
         perform_duplex();
 
         return state[0];
     }
 
+  public:
     /**
-     * @brief Use the sponge to hash an input string
+     * @brief Use the sponge to hash an input vector.
      *
-     * @tparam out_len
-     * @tparam is_variable_length. Distinguishes between hashes where the preimage length is constant/not constant
-     * @param input
-     * @return std::array<field_t, out_len>
+     * @param input Circuit witnesses (a_0, ..., a_{N-1})
+     * @return Hash of the input, a single witness field element.
      */
-
     static field_t hash_internal(std::span<const field_t> input)
     {
+        // Ensure that all inputs belong to the same circuit and extract a pointer to the circuit object.
         Builder* builder = validate_context<Builder>(input);
 
+        // Ensure that the pointer is not a `nullptr`
+        ASSERT(builder);
+
+        // Initialize the sponge state. Input length is used for domain separation.
         const size_t in_len = input.size();
         FieldSponge sponge(builder, in_len);
 
+        // Absorb inputs in blocks of size r = 3. Make sure that all inputs are witneesses.
         for (size_t i = 0; i < in_len; ++i) {
             BB_ASSERT_EQ(input[i].is_constant(), false, "Sponge inputs should not be stdlib constants.");
             sponge.absorb(input[i]);
         }
 
+        // Perform final duplex call. At this point, cache contains `m = in_len % 3` input elements and 3 - m constant
+        // zeroes served as padding.
         field_t output = sponge.squeeze();
 
-        // The final state consists of 4 elements, we only take the first element, which means that the remaining
+        // The final state consists of 4 elements, we only use the first element, which means that the remaining
         // 3 witnesses are only used in a single gate.
         for (const auto& elem : sponge.state) {
             builder->update_used_witnesses(elem.witness_index);
