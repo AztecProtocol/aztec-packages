@@ -34,6 +34,12 @@ variable "ETH_DEVNET_VALUES" {
   default     = "eth-devnet.yaml"
 }
 
+variable "MNEMONIC" {
+  description = "The mnemonic to use for the eth devnet"
+  type        = string
+  default     = "test test test test test test test test test test test junk"
+  sensitive   = true
+}
 
 
 variable "CREATE_STATIC_IPS" {
