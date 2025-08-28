@@ -129,6 +129,30 @@ append_libraries_flags() {
 records_len=$(jq '.records | length' "$JSON_PATH")
 echo "Verifying $records_len contracts from $JSON_PATH on chain $CHAIN_VALUE"
 
+# First, verify all unique libraries referenced across records
+declare -A __libs_seen
+mapfile -t __all_libs < <(jq -c '.records[].libraries[]?' "$JSON_PATH")
+if [[ ${#__all_libs[@]} -gt 0 ]]; then
+  echo "Found ${#__all_libs[@]} library references. Verifying unique libraries first..."
+  for lib in "${__all_libs[@]}"; do
+    file=$(echo "$lib" | jq -r .file)
+    contract=$(echo "$lib" | jq -r .contract)
+    address=$(echo "$lib" | jq -r .address)
+    key="$file:$contract:$address"
+    if [[ -z "${__libs_seen[$key]:-}" ]]; then
+      __libs_seen[$key]=1
+      echo "==> Verifying library $contract at $address"
+      echo "    FQN: $file:$contract"
+      forge verify-contract \
+        --chain "$CHAIN_VALUE" \
+        --etherscan-api-key "$API_KEY_VALUE" \
+        "$address" "$file:$contract" \
+        --compiler-version v0.8.27 \
+        --verifier sourcify
+    fi
+  done
+fi
+
 for i in $(seq 0 $((records_len - 1))); do
   rec=$(jq -c ".records[$i]" "$JSON_PATH")
   name=$(echo "$rec" | jq -r .name)
