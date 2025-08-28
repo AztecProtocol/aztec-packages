@@ -806,7 +806,8 @@ export const addMultipleValidators = async (
         }),
       });
 
-      const validatorCount = await rollup.getActiveAttesterCount();
+      const entryQueueLengthBefore = await rollup.getEntryQueueLength();
+      const validatorCountBefore = await rollup.getActiveAttesterCount();
 
       logger.info(`Adding ${validators.length} validators to the rollup`);
 
@@ -824,10 +825,21 @@ export const addMultipleValidators = async (
         },
       );
 
+      const entryQueueLengthAfter = await rollup.getEntryQueueLength();
       const validatorCountAfter = await rollup.getActiveAttesterCount();
-      if (validatorCountAfter < validatorCount + BigInt(validators.length)) {
-        throw new Error(`Failed to add ${validators.length} validators. ${validatorCount} -> ${validatorCountAfter} `);
+
+      if (
+        entryQueueLengthAfter + validatorCountAfter <
+        entryQueueLengthBefore + validatorCountBefore + BigInt(validators.length)
+      ) {
+        throw new Error(
+          `Failed to add ${validators.length} validators. Active validators: ${validatorCountBefore} -> ${validatorCountAfter}. Queue: ${entryQueueLengthBefore} -> ${entryQueueLengthAfter}`,
+        );
       }
+
+      logger.info(
+        `Added ${validators.length} validators. Active validators: ${validatorCountBefore} -> ${validatorCountAfter}. Queue: ${entryQueueLengthBefore} -> ${entryQueueLengthAfter}`,
+      );
     }
   }
 };

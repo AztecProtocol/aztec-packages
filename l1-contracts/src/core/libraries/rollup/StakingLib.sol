@@ -303,7 +303,7 @@ library StakingLib {
    *      The function will revert if:
    *      - The current epoch is before nextFlushableEpoch (max 1 flush per epoch). This limit:
    *        1. Controls validator set growth by only allowing a fixed number of additions per epoch (we can flush at
-   *           most MAX_QUEUE_FLUSH_SIZE validators at once - hence the limit)
+   *           most maxQueueFlushSize validators at once - hence the limit)
    *        2. Aligns with committee selection which happens once per epoch anyway
    *        3. Groups validator additions into epoch-sized chunks for efficient binary searches (fewer snapshots in
    *           GSE)
@@ -509,7 +509,7 @@ library StakingLib {
    *      3. Normal phase: After the initial bootstrap and growth phases, returns a number proportional to the current
    *         set size for conservative steady-state growth, unless constrained by configuration (`normalFlushSizeMin`).
    *
-   *      All phases are subject to a hard cap of `MAX_QUEUE_FLUSH_SIZE`.
+   *      All phases are subject to a hard cap of `maxQueueFlushSize`.
    *
    *      The motivation for floodgates is that the whole system starts producing blocks with what is considered
    *      a sufficiently decentralized set of validators.
@@ -536,14 +536,14 @@ library StakingLib {
 
       // If growth:
       if (activeAttesterCount < config.bootstrapValidatorSetSize) {
-        return Math.min(config.bootstrapFlushSize, StakingQueueLib.MAX_QUEUE_FLUSH_SIZE);
+        return Math.min(config.bootstrapFlushSize, config.maxQueueFlushSize);
       }
     }
 
     // If normal:
     return Math.min(
       Math.max(activeAttesterCount / config.normalFlushSizeQuotient, config.normalFlushSizeMin),
-      StakingQueueLib.MAX_QUEUE_FLUSH_SIZE
+      config.maxQueueFlushSize
     );
   }
 
