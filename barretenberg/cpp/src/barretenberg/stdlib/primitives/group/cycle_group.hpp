@@ -13,6 +13,7 @@
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_scalar.hpp"
+#include "barretenberg/stdlib/primitives/group/straus_lookup_table.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base_params.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 #include <optional>
@@ -57,6 +58,7 @@ template <typename Builder> class cycle_group {
     static constexpr size_t PUBLIC_INPUTS_SIZE = 2;
 
     using cycle_scalar = ::bb::stdlib::cycle_scalar<Builder>;
+    using straus_lookup_table = ::bb::stdlib::straus_lookup_table<Builder>;
 
     /**
      * @brief straus_scalar_slice decomposes an input scalar into `table_bits` bit-slices.
@@ -69,51 +71,6 @@ template <typename Builder> class cycle_group {
         size_t _table_bits;
         std::vector<field_t> slices;
         std::vector<uint64_t> slices_native;
-    };
-
-    /**
-     * @brief straus_lookup_table computes a lookup table of size 1 << table_bits
-     *
-     * @details for an input base_point [P] and offset_generator point [G], where N = 1 << table_bits, the following is
-     * computed:
-     *
-     * { [G] + 0.[P], [G] + 1.[P], ..., [G] + (N - 1).[P] }
-     *
-     * The point [G] is used to ensure that we do not have to handle the point at infinity associated with 0.[P].
-     *
-     * For an HONEST Prover, the probability of [G] and [P] colliding is equivalent to solving the dlog problem.
-     * This allows us to partially ignore the incomplete addition formula edge-cases for short Weierstrass curves.
-     *
-     * When adding group elements in `batch_mul`, we can constrain+assert the x-coordinates of the operand points do not
-     * match. An honest prover will never trigger the case where x-coordinates match due to the above. Validating
-     * x-coordinates do not match is much cheaper than evaluating the full complete addition formulae for short
-     * Weierstrass curves.
-     *
-     * @note For the case of fixed-base scalar multipliation, all input points are defined at circuit compile.
-     * We can ensure that all Provers cannot create point collisions between the base points and offset generators.
-     * For this restricted case we can skip the x-coordiante collision checks when performing group operations.
-     *
-     * @note straus_lookup_table uses Ultra ROM tables if available. If not, we use simple conditional assignment
-     * constraints and restrict the table size to be 1 bit.
-     */
-    struct straus_lookup_table {
-      public:
-        static std::vector<Element> compute_straus_lookup_table_hints(const Element& base_point,
-                                                                      const Element& offset_generator,
-                                                                      size_t table_bits);
-
-        straus_lookup_table() = default;
-        straus_lookup_table(Builder* context,
-                            const cycle_group& base_point,
-                            const cycle_group& offset_generator,
-                            size_t table_bits,
-                            std::optional<std::span<AffineElement>> hints = std::nullopt);
-        cycle_group read(const field_t& index);
-        size_t _table_bits;
-        Builder* _context;
-        std::vector<cycle_group> point_table;
-        size_t rom_id = 0;
-        OriginTag tag{};
     };
 
   private:
