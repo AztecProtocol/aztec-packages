@@ -131,6 +131,8 @@ template <typename OpFormat> class EccOpsTable {
 
     size_t num_subtables() const { return table.size(); }
 
+    size_t get_unmerged_subtable_size() const { return current_subtable.size(); }
+
     auto& get() const { return table; }
 
     void push(const OpFormat& op)
@@ -236,6 +238,8 @@ class UltraEccOpsTable {
 
   public:
     size_t size() const { return table.size(); }
+    size_t get_unmerged_subtable_size() const { return table.get_unmerged_subtable_size(); }
+
     size_t ultra_table_size() const
     {
         size_t base_size = table.size() * NUM_ROWS_PER_OP;

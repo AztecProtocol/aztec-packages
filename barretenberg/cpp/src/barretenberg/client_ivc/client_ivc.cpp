@@ -255,6 +255,9 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     pairing_points.aggregate(nested_pairing_points);
     if (is_hiding_kernel) {
         pairing_points.aggregate(decider_pairing_points);
+        // placeholder for random ops
+        circuit.queue_ecc_no_op();
+        circuit.queue_ecc_no_op();
     }
 
     return { output_stdlib_verifier_accumulator, pairing_points, merged_table_commitments };
@@ -289,6 +292,8 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1511): this should check the queue is of size one and
     // contains an entry of type PG_TAIL, currently it might contain several entries in case it's a minimal transaction
     // produced by our tests which is not exactly realistic
+
+    // WORKTODO: we should be able to remove this?
     bool is_tail_kernel = std::any_of(stdlib_verification_queue.begin(),
                                       stdlib_verification_queue.end(),
                                       [](const auto& entry) { return entry.type == QUEUE_TYPE::PG_TAIL; });

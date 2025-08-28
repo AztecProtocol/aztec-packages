@@ -75,9 +75,9 @@ class ECCOpQueueTest {
         auto eccvm_table = op_queue->get_eccvm_ops();
 
         EXPECT_EQ(eccvm_table.size(), ultra_table.size());
-        for (size_t i = 0; i < eccvm_table.size(); ++i) {
-            EXPECT_EQ(ultra_table[2 * i], eccvm_table[i].op_code.value());
-            EXPECT_EQ(ultra_table[2 * i + 1], eccvm_table[i].op_code.value());
+
+        for (auto [ultra_op, eccvm_op] : zip_view(ultra_table, eccvm_table)) {
+            EXPECT_EQ(ultra_op.op_code.value(), eccvm_op.op_code.value());
         }
     };
 };

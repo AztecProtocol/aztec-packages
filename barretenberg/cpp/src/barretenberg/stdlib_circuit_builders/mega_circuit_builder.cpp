@@ -61,9 +61,10 @@ template <typename FF> void MegaCircuitBuilder_<FF>::add_mega_gates_to_ensure_al
     read_idx = this->add_variable(raw_read_idx);
     read_return_data(read_idx);
 
-    // add dummy mul accum op and an equality op
-    this->queue_ecc_mul_accum(bb::g1::affine_element::one(), 2);
-    this->queue_ecc_eq();
+    if (op_queue->get_unmerged_subtable_size() == 0) {
+        this->queue_ecc_add_accum(bb::g1::affine_element::one());
+        this->queue_ecc_eq();
+    }
 }
 
 /**
