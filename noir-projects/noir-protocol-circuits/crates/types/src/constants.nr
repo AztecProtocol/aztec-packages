@@ -188,7 +188,7 @@ pub global SIDE_EFFECT_MASKING_ADDRESS: AztecAddress = AztecAddress::from_field(
 
 // NULL MSG_SENDER CONTRACT ADDRESS (not part of the protocol contracts tree)
 pub global NULL_MSG_SENDER_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(
-    21888242871839275222246405745257275088548364400416034343698204186575808495616,
+    21888242871839275222246405745257275088548364400416034343698204186575808495616, // this is -1
 );
 
 // Randomly chosen slot for the bytecode capsule.

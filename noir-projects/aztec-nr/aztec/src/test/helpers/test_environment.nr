@@ -638,8 +638,32 @@ impl TestEnvironment {
     ///
     /// Unlike `call_public`, no transaction is created and no block is mined (since `#[view]` functions are only
     /// executable in a static context, and these produce no side effects).
-    // Question: shouldn't this have a `from` parameter, in case the result is dependent on msg_sender?
     pub unconstrained fn view_public<T, let M: u32>(
+        _self: Self,
+        from: AztecAddress,
+        call_interface: PublicStaticCallInterface<M, T>,
+    ) -> T
+    where
+        T: Deserialize,
+    {
+        let (returns_hash, _) = txe_oracles::public_call_new_flow(
+            Option::some(from),
+            call_interface.get_contract_address(),
+            call_interface.get_selector(),
+            call_interface.get_args(),
+            true,
+        );
+
+        // This shouldn't be using ReturnsHash, but I don't think CalldataHash is right either in this context
+        let returns: T = ReturnsHash::new(returns_hash).get_preimage();
+        returns
+    }
+
+    /// Variant of `view_public`, but the `from` address (`msg_sender`) is set to "null"
+    ///
+    /// Unlike `call_public`, no transaction is created and no block is mined (since `#[view]` functions are only
+    /// executable in a static context, and these produce no side effects).
+    pub unconstrained fn view_public_incognito<T, let M: u32>(
         _self: Self,
         call_interface: PublicStaticCallInterface<M, T>,
     ) -> T
@@ -647,7 +671,7 @@ impl TestEnvironment {
         T: Deserialize,
     {
         let (returns_hash, _) = txe_oracles::public_call_new_flow(
-            Option::some(AztecAddress::zero()),
+            Option::none(),
             call_interface.get_contract_address(),
             call_interface.get_selector(),
             call_interface.get_args(),
