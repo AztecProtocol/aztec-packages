@@ -7,8 +7,6 @@
 #include "poseidon2_permutation.hpp"
 
 #include "barretenberg/honk/execution_trace/gate_data.hpp"
-#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
 namespace bb::stdlib {
 

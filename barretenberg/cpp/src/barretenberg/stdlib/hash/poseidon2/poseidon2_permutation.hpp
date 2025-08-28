@@ -10,7 +10,6 @@
 #include <cstdint>
 
 #include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
-#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 
 namespace bb::stdlib {

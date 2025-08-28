@@ -5,10 +5,7 @@
 // =====================
 
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
-#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 namespace bb::stdlib {
-
-using namespace bb;
 
 /**
  * @brief Hash a vector of field_ct.

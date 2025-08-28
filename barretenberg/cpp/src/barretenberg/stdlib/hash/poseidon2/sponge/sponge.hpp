@@ -13,7 +13,6 @@
 
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2_permutation.hpp"
-#include "barretenberg/stdlib/primitives/field/field.hpp"
 
 namespace bb::stdlib {
 

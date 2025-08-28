@@ -7,10 +7,7 @@
 #pragma once
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/sponge/sponge.hpp"
-#include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-
-#include "../../primitives/circuit_builders/circuit_builders.hpp"
 
 namespace bb::stdlib {
 
@@ -24,7 +21,6 @@ template <typename Builder> class poseidon2 {
 
   private:
     using field_ct = stdlib::field_t<Builder>;
-    using bool_ct = stdlib::bool_t<Builder>;
     using Params = crypto::Poseidon2Bn254ScalarFieldParams;
     using Permutation = Poseidon2Permutation<Builder>;
     // We choose our rate to be t-1 = 3 and capacity to be 1.

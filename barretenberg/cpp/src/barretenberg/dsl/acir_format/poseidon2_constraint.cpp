@@ -31,17 +31,7 @@ template <typename Builder> void create_poseidon2_permutations(Builder& builder,
     State output_state;
     output_state = stdlib::Poseidon2Permutation<Builder>::permutation(&builder, state);
     for (size_t i = 0; i < output_state.size(); ++i) {
-        poly_triple assert_equal{
-            .a = output_state[i].get_normalized_witness_index(),
-            .b = constraint.result[i],
-            .c = 0,
-            .q_m = 0,
-            .q_l = 1,
-            .q_r = -1,
-            .q_o = 0,
-            .q_c = 0,
-        };
-        builder.create_poly_gate(assert_equal);
+        output_state[i].assert_equal(constraint.result[i]);
     }
 }
 
