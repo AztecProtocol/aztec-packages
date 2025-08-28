@@ -21,6 +21,7 @@ import {Governance} from "@aztec/governance/Governance.sol";
 import {TestConstants} from "../../../harnesses/TestConstants.sol";
 import {Proposal, ProposalState} from "@aztec/governance/interfaces/IGovernance.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
+import {UncompressedProposalWrapper} from "@test/governance/helpers/UncompressedProposalTestLib.sol";
 import {IGSE} from "@aztec/governance/GSE.sol";
 
 contract MisconfiguredPayload is IPayload {
@@ -81,7 +82,7 @@ contract FakeGSE {
 
 // https://linear.app/aztec-labs/issue/TMNT-143/spearbit-gov-finding-8-governance-deadlock
 contract TestTmnt143 is TestBase {
-  using ProposalLib for Proposal;
+  UncompressedProposalWrapper internal upw = new UncompressedProposalWrapper();
 
   TestERC20 public asset;
   Registry public registry;
@@ -150,14 +151,14 @@ contract TestTmnt143 is TestBase {
     // are fine with staying, they like the tech/deployment.
     gse.setSupplyOf(bonusInstance, 0);
 
-    vm.warp(Timestamp.unwrap(proposal.pendingThrough()) + 1);
+    vm.warp(Timestamp.unwrap(upw.pendingThrough(proposal)) + 1);
 
     governance.vote(0, 10_000e18, true);
 
-    vm.warp(Timestamp.unwrap(proposal.activeThrough()) + 1);
+    vm.warp(Timestamp.unwrap(upw.activeThrough(proposal)) + 1);
     assertTrue(governance.getProposalState(0) == ProposalState.Queued);
 
-    vm.warp(Timestamp.unwrap(proposal.queuedThrough()) + 1);
+    vm.warp(Timestamp.unwrap(upw.queuedThrough(proposal)) + 1);
     assertTrue(governance.getProposalState(0) == ProposalState.Executable);
     assertEq(governance.governanceProposer(), address(governanceProposer));
 
