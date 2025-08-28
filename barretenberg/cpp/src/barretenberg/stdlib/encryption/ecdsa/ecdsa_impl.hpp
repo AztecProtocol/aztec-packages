@@ -35,18 +35,18 @@ void validate_inputs(const stdlib::byte_array<Builder>& hashed_message,
                      const G1& public_key,
                      const ecdsa_signature<Builder>& sig)
 {
-    auto assert_smaller_than = [](const uint512_t& value,
-                                  const uint256_t& max_value,
-                                  const std::string& value_label,
-                                  const std::string& max_value_label) {
+    auto check_smaller_than = [](const uint512_t& value,
+                                 const uint512_t& max_value,
+                                 const std::string& value_label,
+                                 const std::string& max_value_label) {
         std::string msg =
             "The " + value_label + " is bigger than " + max_value_label + ". This will produce an unsatisfied circuit.";
-        if (value > max_value) {
+        if (value >= max_value) {
             info(msg);
         }
     };
 
-    auto assert_is_not_zero = [](const uint512_t& value, const std::string& label) {
+    auto check_is_not_zero = [](const uint512_t& value, const std::string& label) {
         std::string msg = "The " + label + " is equal to zero. This will produce an unsatisfied circuit.";
         if (value == 0) {
             info(msg);
@@ -55,7 +55,7 @@ void validate_inputs(const stdlib::byte_array<Builder>& hashed_message,
 
     // H(m) < n
     uint512_t hash_value = static_cast<uint512_t>(Fr(hashed_message).get_value());
-    assert_smaller_than(hash_value, Fr::modulus, "hash of the message", "order of the elliptic curve");
+    check_smaller_than(hash_value, Fr::modulus, "hash of the message", "order of the elliptic curve");
 
     // P \in E
     if (!public_key.get_value().on_curve()) {
@@ -64,13 +64,13 @@ void validate_inputs(const stdlib::byte_array<Builder>& hashed_message,
 
     // 0 < r < n
     uint512_t r_value = static_cast<uint512_t>(Fr(sig.r).get_value());
-    assert_smaller_than(r_value, Fr::modulus, "r component of the signature", "order of the elliptic curve");
-    assert_is_not_zero(r_value, "r component of the signature");
+    check_smaller_than(r_value, Fr::modulus, "r component of the signature", "order of the elliptic curve");
+    check_is_not_zero(r_value, "r component of the signature");
 
     // 0 < s < (n+1)/2
-    uint512_t s_value = static_cast<uint512_t>(Fr(sig.r).get_value());
-    assert_smaller_than(s_value, Fr::modulus, "s component of the signature", "order of the elliptic curve");
-    assert_is_not_zero(s_value, "s component of the signature");
+    uint512_t s_value = static_cast<uint512_t>(Fr(sig.s).get_value());
+    check_smaller_than(s_value, (Fr::modulus + 1) / 2, "s component of the signature", "order of the elliptic curve");
+    check_is_not_zero(s_value, "s component of the signature");
 }
 
 /**
@@ -95,24 +95,24 @@ void validate_inputs(const stdlib::byte_array<Builder>& hashed_message,
  * message \f$m\f$ and public key \f$P\f$, so is \f$(r,n-s)\f$. We protect against malleability by enforcing that
  * \f$s\f$ is always the lowest of the two possible values.
  *
- * @note In Ethereum signatures contain also a recovery byte \$v\$ which is used to recover the public key for which
+ * @note In Ethereum signatures contain also a recovery byte \f$v\f$ which is used to recover the public key for which
  * the signature is to be validated. As we receive the public key as part of the inputs to the verification function, we
- * do not handle the recovery byte. The signature which is the input to the verification function is given by \$(r,s)\$.
- * The users of the verification function should handle the recovery byte if that is in their interest.
+ * do not handle the recovery byte. The signature which is the input to the verification function is given by
+ * \f$(r,s)\f$. The users of the verification function should handle the recovery byte if that is in their interest.
  *
  * @note This function verifies that `sig` is a valid signature for the public key `public_key`. The function returns
  * an in-circuit boolean value which bears witness to whether the signature verification was successfull or not. The
  * boolean is NOT constrained to be equal to bool_t(true).
  *
  * @note The circuit introduces constraints for the following assertions:
- *          1. \$P\$ is on the curve
- *          2. \$H(m) < n\$
- *          3. \$0 < r < n\$
- *          4. \$0 < s < (n+1)/2\$
- *          5. \$Q := H(m) s^{-1} G + r s^{-1} P\$ is not the point at infinity
+ *          1. \f$P\f$ is on the curve
+ *          2. \f$H(m) < n\f$
+ *          3. \f$0 < r < n\f$
+ *          4. \f$0 < s < (n+1)/2\f$
+ *          5. \f$Q := H(m) s^{-1} G + r s^{-1} P\f$ is not the point at infinity
  * Therefore, if the witnesses passed to this function do not satisfy these constraints, the resulting circuit
  * will be unsatisfied. If a user wants to use the verification inside a in-circuit branch, then they need to supply
- * valid data for \$P, r, s\$, even though \$(r,s)\$ doesn't need to be a valid signature.
+ * valid data for \f$P, r, s\f$, even though \f$(r,s)\f$ doesn't need to be a valid signature.
  *
  * @tparam Builder
  * @tparam Curve
