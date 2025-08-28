@@ -16,6 +16,7 @@ struct CheatDepositArgs {
 
 interface IMultiAdder {
   function addValidators(CheatDepositArgs[] memory _args) external;
+  function addValidators(CheatDepositArgs[] memory _args, bool _skipFlush) external;
 }
 
 contract MultiAdder is IMultiAdder {
@@ -32,7 +33,11 @@ contract MultiAdder is IMultiAdder {
     stakingAsset.approve(address(STAKING), type(uint256).max);
   }
 
-  function addValidators(CheatDepositArgs[] memory _args) external override(IMultiAdder) {
+  function addValidators(CheatDepositArgs[] memory _args) public override(IMultiAdder) {
+    addValidators(_args, false);
+  }
+
+  function addValidators(CheatDepositArgs[] memory _args, bool _skipFlush) public override(IMultiAdder) {
     require(msg.sender == OWNER, NotOwner());
     for (uint256 i = 0; i < _args.length; i++) {
       STAKING.deposit(
@@ -45,7 +50,7 @@ contract MultiAdder is IMultiAdder {
       );
     }
 
-    if (STAKING.getCurrentEpoch() >= STAKING.getNextFlushableEpoch()) {
+    if (!_skipFlush && STAKING.getCurrentEpoch() >= STAKING.getNextFlushableEpoch()) {
       STAKING.flushEntryQueue();
     }
   }

@@ -18,6 +18,8 @@ import {Rollup} from "@aztec/core/Rollup.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 contract FlushEntryQueueTest is StakingBase {
+  uint256 public constant MAX_QUEUE_FLUSH_SIZE = 48;
+
   function test_GivenTheQueueHasAlreadyBeenFlushedThisEpoch() external {
     // it reverts
 
@@ -40,10 +42,11 @@ contract FlushEntryQueueTest is StakingBase {
     uint256 _normalFlushSizeQuotient
   ) internal {
     StakingQueueConfig memory stakingQueueConfig = StakingQueueConfig({
-      bootstrapValidatorSetSize: bound(_bootstrapValidatorSetSize, 0, type(uint64).max),
-      bootstrapFlushSize: bound(_bootstrapFlushSize, 0, type(uint64).max),
-      normalFlushSizeMin: bound(_normalFlushSizeMin, 0, type(uint64).max),
-      normalFlushSizeQuotient: bound(_normalFlushSizeQuotient, 0, type(uint64).max)
+      bootstrapValidatorSetSize: bound(_bootstrapValidatorSetSize, 0, type(uint32).max),
+      bootstrapFlushSize: bound(_bootstrapFlushSize, 0, type(uint32).max),
+      normalFlushSizeMin: bound(_normalFlushSizeMin, 0, type(uint32).max),
+      normalFlushSizeQuotient: bound(_normalFlushSizeQuotient, 0, type(uint32).max),
+      maxQueueFlushSize: MAX_QUEUE_FLUSH_SIZE
     });
     Rollup rollup = Rollup(address(registry.getCanonicalRollup()));
     vm.prank(rollup.owner());
@@ -67,7 +70,7 @@ contract FlushEntryQueueTest is StakingBase {
 
     _bootstrapValidatorSetSize = bound(_bootstrapValidatorSetSize, 1, 1000);
     _numValidators = bound(_numValidators, 0, _bootstrapValidatorSetSize - 1);
-    _bootstrapFlushSize = bound(_bootstrapFlushSize, 1, StakingQueueLib.MAX_QUEUE_FLUSH_SIZE);
+    _bootstrapFlushSize = bound(_bootstrapFlushSize, 1, MAX_QUEUE_FLUSH_SIZE);
 
     _setupQueueConfig(_bootstrapValidatorSetSize, _bootstrapFlushSize, _normalFlushSizeMin, _normalFlushSizeQuotient);
 
@@ -100,7 +103,7 @@ contract FlushEntryQueueTest is StakingBase {
     _bootstrapValidatorSetSize = bound(_bootstrapValidatorSetSize, 1, 1000);
     _numValidators = bound(_numValidators, _bootstrapValidatorSetSize, _bootstrapValidatorSetSize * 2);
     _bootstrapFlushSize = bound(_bootstrapFlushSize, 1, _bootstrapValidatorSetSize * 2);
-    uint256 effectiveFlushSize = Math.min(_bootstrapFlushSize, StakingQueueLib.MAX_QUEUE_FLUSH_SIZE);
+    uint256 effectiveFlushSize = Math.min(_bootstrapFlushSize, MAX_QUEUE_FLUSH_SIZE);
 
     _setupQueueConfig(_bootstrapValidatorSetSize, _bootstrapFlushSize, _normalFlushSizeMin, _normalFlushSizeQuotient);
 
@@ -122,7 +125,7 @@ contract FlushEntryQueueTest is StakingBase {
 
     _bootstrapValidatorSetSize = bound(_bootstrapValidatorSetSize, 3, 1000);
     _bootstrapFlushSize = bound(_bootstrapFlushSize, 1, _bootstrapValidatorSetSize / 3);
-    uint256 effectiveFlushSize = Math.min(_bootstrapFlushSize, StakingQueueLib.MAX_QUEUE_FLUSH_SIZE);
+    uint256 effectiveFlushSize = Math.min(_bootstrapFlushSize, MAX_QUEUE_FLUSH_SIZE);
 
     _setupQueueConfig(_bootstrapValidatorSetSize, _bootstrapFlushSize, _normalFlushSizeMin, _normalFlushSizeQuotient);
 
@@ -158,7 +161,7 @@ contract FlushEntryQueueTest is StakingBase {
     _normalFlushSizeMin = bound(_normalFlushSizeMin, 1, 500);
     _normalFlushSizeQuotient = bound(_normalFlushSizeQuotient, 1, 500);
     uint256 effectiveFlushSize = Math.max(_normalFlushSizeMin, _activeAttesterCount / _normalFlushSizeQuotient);
-    effectiveFlushSize = Math.min(effectiveFlushSize, StakingQueueLib.MAX_QUEUE_FLUSH_SIZE);
+    effectiveFlushSize = Math.min(effectiveFlushSize, MAX_QUEUE_FLUSH_SIZE);
 
     _setupQueueConfig(0, 0, _normalFlushSizeMin, _normalFlushSizeQuotient);
 
