@@ -105,7 +105,8 @@ function live_publish_log {
   publish_log
   echo -e "${blue}RUNNING${reset}${log_info:-}: $test_cmd"
   while [ -f $tmp_file ]; do
-    if [ $(( $(date +%s) - $(stat -c %Y "$tmp_file") )) -le 5 ]; then
+    local stat=$(stat -c %Y "$tmp_file" || echo 0)
+    if [ $(( $(date +%s) - "$stat" )) -le 5 ]; then
       publish_log
     fi
     sleep 5 &
