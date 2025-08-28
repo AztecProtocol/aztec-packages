@@ -205,7 +205,7 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
                                                                             prev_accum_hash,
                                                                             verifier_inputs.is_kernel);
         // Perform recursive decider verification
-        DeciderRecursiveVerifier decider{ &circuit, final_verifier_accumulator };
+        DeciderRecursiveVerifier decider{ &circuit, final_verifier_accumulator, accumulation_recursive_transcript };
         decider_pairing_points = decider.verify_proof(decider_proof);
 
         BB_ASSERT_EQ(output_verifier_accumulator, nullptr);
@@ -496,7 +496,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         break;
     case QUEUE_TYPE::PG_FINAL:
         proof = construct_pg_proof(proving_key, honk_vk, prover_accumulation_transcript, is_kernel);
-        decider_proof = construct_decider_proof();
+        decider_proof = construct_decider_proof(prover_accumulation_transcript);
         break;
     case QUEUE_TYPE::MEGA:
         proof = construct_mega_proof_for_hiding_kernel(circuit);
@@ -614,11 +614,11 @@ bool ClientIVC::verify(const Proof& proof) const
  *
  * @return HonkProof
  */
-HonkProof ClientIVC::construct_decider_proof()
+HonkProof ClientIVC::construct_decider_proof(const std::shared_ptr<Transcript>& transcript)
 {
     vinfo("prove decider...");
     fold_output.accumulator->commitment_key = bn254_commitment_key;
-    MegaDeciderProver decider_prover(fold_output.accumulator);
+    MegaDeciderProver decider_prover(fold_output.accumulator, transcript);
     decider_prover.construct_proof();
     return decider_prover.export_proof();
 }
