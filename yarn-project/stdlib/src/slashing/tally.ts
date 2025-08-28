@@ -1,10 +1,7 @@
-import { minBigint, sumBigint } from '@aztec/foundation/bigint';
+import { sumBigint } from '@aztec/foundation/bigint';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 
 import type { Offense, ValidatorSlashVote } from './types.js';
-
-/** How many slashing units a validator can be slashed in consensus-based slashing */
-const MAX_SLASH_UNITS_PER_VALIDATOR = 3n;
 
 /**
  * Creates a consensus-slash vote for a given set of committees based on a set of Offenses
@@ -13,9 +10,9 @@ const MAX_SLASH_UNITS_PER_VALIDATOR = 3n;
 export function getSlashConsensusVotesFromOffenses(
   offenses: Offense[],
   committees: EthAddress[][],
-  settings: { slashingUnit: bigint },
+  settings: { slashingAmounts: [bigint, bigint, bigint] },
 ): ValidatorSlashVote[] {
-  const { slashingUnit } = settings;
+  const { slashingAmounts } = settings;
   const slashed: Set<string> = new Set();
   const votes = committees.flatMap(committee =>
     committee.map(validator => {
@@ -24,12 +21,25 @@ export function getSlashConsensusVotesFromOffenses(
       }
       const validatorOffenses = offenses.filter(o => o.validator.equals(validator));
       const slashAmount = sumBigint(validatorOffenses.map(o => o.amount));
-      const slashUnits = minBigint(slashAmount / slashingUnit, MAX_SLASH_UNITS_PER_VALIDATOR);
+      const slashUnits = getSlashUnitsForAmount(slashAmount, slashingAmounts);
       slashed.add(validator.toString());
       return Number(slashUnits);
     }),
   );
   return votes;
+}
+
+/** Returns the slash vote for the given amount to slash. */
+function getSlashUnitsForAmount(amountToSlash: bigint, slashingAmounts: [bigint, bigint, bigint]): number {
+  if (amountToSlash >= slashingAmounts[2]) {
+    return 3;
+  } else if (amountToSlash >= slashingAmounts[1]) {
+    return 2;
+  } else if (amountToSlash >= slashingAmounts[0]) {
+    return 1;
+  } else {
+    return 0;
+  }
 }
 
 /**

@@ -48,7 +48,7 @@ describe('e2e_p2p_validators_sentinel', () => {
         slashingQuorum: EPOCH_DURATION + 1,
         validatorReexecute: false,
         sentinelEnabled: true,
-        slashInactivityEnabled: false,
+        slashInactivityPenalty: 0n, // Set to 0 to disable
       },
     });
 

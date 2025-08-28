@@ -24,7 +24,7 @@ library TallySlasherDeploymentExtLib {
     uint256 _roundSize,
     uint256 _lifetimeInRounds,
     uint256 _executionDelayInRounds,
-    uint256 _slashingUnit,
+    uint256[3] calldata _slashAmounts,
     uint256 _committeeSize,
     uint256 _epochDuration,
     uint256 _slashOffsetInRounds
@@ -40,7 +40,7 @@ library TallySlasherDeploymentExtLib {
       _roundSize,
       _lifetimeInRounds,
       _executionDelayInRounds,
-      _slashingUnit,
+      _slashAmounts,
       _committeeSize,
       _epochDuration,
       _slashOffsetInRounds

@@ -49,7 +49,9 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
         aztecProofSubmissionEpochs: 0, // reorg as soon as epoch ends
         slashingQuorum,
         slashingRoundSize,
-        slashingUnit,
+        slashAmountSmall: slashingUnit,
+        slashAmountMedium: slashingUnit * 2n,
+        slashAmountLarge: slashingUnit * 3n,
       },
     });
 
@@ -86,9 +88,7 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
     const slashingAmount = slashingUnit * 3n;
     expect(activationThreshold - slashingAmount).toBeLessThan(ejectionThreshold);
 
-    t.ctx.aztecNodeConfig.slashPruneEnabled = true;
     t.ctx.aztecNodeConfig.slashPrunePenalty = slashingAmount;
-    t.ctx.aztecNodeConfig.slashPruneMaxPenalty = slashingAmount;
     t.ctx.aztecNodeConfig.validatorReexecute = false;
     t.ctx.aztecNodeConfig.minTxsPerBlock = 0;
 

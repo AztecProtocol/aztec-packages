@@ -322,13 +322,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     if (validatorsSentinel) {
       // we can run a sentinel without trying to slash.
       await validatorsSentinel.start();
-      if (config.slashInactivityEnabled) {
+      if (config.slashInactivityPenalty > 0n) {
         watchers.push(validatorsSentinel);
       }
     }
 
     let epochPruneWatcher: EpochPruneWatcher | undefined;
-    if (config.slashPruneEnabled) {
+    if (config.slashPrunePenalty > 0n) {
       epochPruneWatcher = new EpochPruneWatcher(
         archiver,
         archiver,
@@ -343,7 +343,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     // We assume we want to slash for invalid attestations unless all max penalties are set to 0
     let attestationsBlockWatcher: AttestationsBlockWatcher | undefined;
-    if (config.slashProposeInvalidAttestationsMaxPenalty > 0n || config.slashAttestDescendantOfInvalidMaxPenalty > 0n) {
+    if (config.slashProposeInvalidAttestationsPenalty > 0n || config.slashAttestDescendantOfInvalidPenalty > 0n) {
       attestationsBlockWatcher = new AttestationsBlockWatcher(archiver, epochCache, config);
       await attestationsBlockWatcher.start();
       watchers.push(attestationsBlockWatcher);

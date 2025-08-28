@@ -43,7 +43,7 @@ describe('TallySlasherClient', () => {
     epochDuration: epochDuration,
     slashingLifetimeInRounds: 10,
     slashingOffsetInRounds: 2,
-    slashingUnit,
+    slashingAmounts: [slashingUnit, slashingUnit * 2n, slashingUnit * 3n],
     targetCommitteeSize: 100,
     l1GenesisTime: BigInt(Math.floor(Date.now() / 1000) - 10000),
     slotDuration: 4,
@@ -561,7 +561,7 @@ describe('TallySlasherClient', () => {
       const validator = EthAddress.random();
       const offense: WantToSlashArgs = {
         validator,
-        amount: 2n * settings.slashingUnit,
+        amount: settings.slashingAmounts[1],
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
         epochOrSlot: offenseRound * BigInt(roundSize),
       };
@@ -615,25 +615,25 @@ describe('TallySlasherClient', () => {
       await addPendingOffense({
         validator: committee[0],
         epochOrSlot: targetRound * BigInt(roundSize),
-        amount: 1n * settings.slashingUnit, // 1 unit
+        amount: settings.slashingAmounts[0], // 1 unit
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
       });
       await addPendingOffense({
         validator: committee[1],
         epochOrSlot: targetRound * BigInt(roundSize),
-        amount: 5n * settings.slashingUnit, // 5 units
+        amount: settings.slashingAmounts[0], // 1 units
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
       });
       await addPendingOffense({
         validator: committee[1], // same as above!
         epochOrSlot: targetRound * BigInt(roundSize) + 1n,
-        amount: 3n * settings.slashingUnit, // 3 units on top of the previous 5
+        amount: 2n * settings.slashingAmounts[0], // 2 units on top of the previous 1
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
       });
       await addPendingOffense({
         validator: committee[2],
         epochOrSlot: targetRound * BigInt(roundSize),
-        amount: 20n * settings.slashingUnit, // Exceeds max 3 units
+        amount: 20n * settings.slashingAmounts[0], // Exceeds max 3 units
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
       });
 

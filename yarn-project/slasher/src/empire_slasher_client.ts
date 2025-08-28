@@ -19,6 +19,7 @@ import {
   type ValidatorSlashOffense,
   getFirstEligibleRoundForOffense,
   getOffenseIdentifiersFromPayload,
+  getPenaltyForOffense,
   isOffenseUncontroversial,
   offenseDataComparator,
   offensesToValidatorSlash,
@@ -627,58 +628,13 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
     return [minAmount, maxAmount];
   }
 
-  /**
-   * Get minimum acceptable amount for an offense type
-   */
+  /** Get minimum acceptable amount for an offense type */
   private getMinAmountForOffense(offense: OffenseType): bigint {
-    // Use the configured penalty amounts as minimums
-    // TODO(palla/slash): Should we add a new set of variables for "min" amounts? Or just have a multiplier?
-    switch (offense) {
-      case OffenseType.VALID_EPOCH_PRUNED:
-      case OffenseType.DATA_WITHHOLDING:
-        return this.config.slashPrunePenalty;
-      case OffenseType.INACTIVITY:
-        return this.config.slashInactivityCreatePenalty;
-      case OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS:
-      case OffenseType.PROPOSED_INCORRECT_ATTESTATIONS:
-        return this.config.slashProposeInvalidAttestationsPenalty;
-      case OffenseType.ATTESTED_DESCENDANT_OF_INVALID:
-        return this.config.slashAttestDescendantOfInvalidPenalty;
-      case OffenseType.UNKNOWN:
-        return this.config.slashUnknownPenalty;
-      case OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL:
-        return this.config.slashBroadcastedInvalidBlockPenalty;
-      default: {
-        const _: never = offense;
-        throw new Error(`Unknown offense type: ${offense}`);
-      }
-    }
+    return (getPenaltyForOffense(offense, this.config) * BigInt(this.config.slashMinPenaltyPercentage * 1000)) / 1000n;
   }
 
-  /**
-   * Get maximum acceptable amount for an offense type
-   */
+  /** Get maximum acceptable amount for an offense type */
   private getMaxAmountForOffense(offense: OffenseType): bigint {
-    // Use the configured max penalty amounts
-    switch (offense) {
-      case OffenseType.VALID_EPOCH_PRUNED:
-      case OffenseType.DATA_WITHHOLDING:
-        return this.config.slashPruneMaxPenalty;
-      case OffenseType.INACTIVITY:
-        return this.config.slashInactivityMaxPenalty;
-      case OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS:
-      case OffenseType.PROPOSED_INCORRECT_ATTESTATIONS:
-        return this.config.slashProposeInvalidAttestationsMaxPenalty;
-      case OffenseType.ATTESTED_DESCENDANT_OF_INVALID:
-        return this.config.slashAttestDescendantOfInvalidMaxPenalty;
-      case OffenseType.UNKNOWN:
-        return this.config.slashUnknownMaxPenalty;
-      case OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL:
-        return this.config.slashBroadcastedInvalidBlockMaxPenalty;
-      default: {
-        const _: never = offense;
-        throw new Error(`Unknown offense type: ${offense}`);
-      }
-    }
+    return (getPenaltyForOffense(offense, this.config) * BigInt(this.config.slashMaxPenaltyPercentage * 1000)) / 1000n;
   }
 }

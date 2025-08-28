@@ -46,11 +46,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     protected store: SentinelStore,
     protected config: Pick<
       SlasherConfig,
-      | 'slashInactivityCreateTargetPercentage'
-      | 'slashInactivityCreatePenalty'
-      | 'slashInactivitySignalTargetPercentage'
-      | 'slashInactivityMaxPenalty'
-      | 'slashPayloadTtlSeconds'
+      'slashInactivityTargetPercentage' | 'slashInactivityPenalty' | 'slashPayloadTtlSeconds'
     >,
     protected logger = createLogger('node:sentinel'),
   ) {
@@ -171,13 +167,13 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   protected handleProvenPerformance(epoch: bigint, performance: ValidatorsEpochPerformance) {
     const criminals = Object.entries(performance)
       .filter(([_, { missed, total }]) => {
-        return missed / total >= this.config.slashInactivityCreateTargetPercentage;
+        return missed / total >= this.config.slashInactivityTargetPercentage;
       })
       .map(([address]) => address as `0x${string}`);
 
     const args = criminals.map(address => ({
       validator: EthAddress.fromString(address),
-      amount: this.config.slashInactivityCreatePenalty,
+      amount: this.config.slashInactivityPenalty,
       offenseType: OffenseType.INACTIVITY,
       epochOrSlot: epoch,
     }));

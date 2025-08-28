@@ -10,7 +10,7 @@ describe('TallySlashingHelpers', () => {
   const mockValidator4 = EthAddress.fromString('0x4567890123456789012345678901234567890123');
 
   describe('getSlashConsensusVotesFromOffenses', () => {
-    const settings = { slashingUnit: 10n };
+    const settings = { slashingAmounts: [10n, 20n, 30n] as [bigint, bigint, bigint] };
 
     it('creates votes based on offenses and committees', () => {
       const offenses: Offense[] = [

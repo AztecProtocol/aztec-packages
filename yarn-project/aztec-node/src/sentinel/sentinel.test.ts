@@ -47,16 +47,10 @@ describe('sentinel', () => {
   let l1Constants: L1RollupConstants;
   const config: Pick<
     SlasherConfig,
-    | 'slashInactivityCreateTargetPercentage'
-    | 'slashInactivityCreatePenalty'
-    | 'slashInactivitySignalTargetPercentage'
-    | 'slashInactivityMaxPenalty'
-    | 'slashPayloadTtlSeconds'
+    'slashInactivityTargetPercentage' | 'slashInactivityPenalty' | 'slashPayloadTtlSeconds'
   > = {
-    slashInactivityCreatePenalty: 100n,
-    slashInactivityCreateTargetPercentage: 0.8,
-    slashInactivitySignalTargetPercentage: 0.6,
-    slashInactivityMaxPenalty: 200n,
+    slashInactivityPenalty: 100n,
+    slashInactivityTargetPercentage: 0.8,
     slashPayloadTtlSeconds: 60 * 60,
   };
 
@@ -457,7 +451,7 @@ describe('sentinel', () => {
       expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
         {
           validator: validator2,
-          amount: config.slashInactivityCreatePenalty,
+          amount: config.slashInactivityPenalty,
           offenseType: OffenseType.INACTIVITY,
           epochOrSlot: 1n,
         },
@@ -474,11 +468,7 @@ class TestSentinel extends Sentinel {
     store: SentinelStore,
     config: Pick<
       SlasherConfig,
-      | 'slashInactivityCreateTargetPercentage'
-      | 'slashInactivityCreatePenalty'
-      | 'slashInactivitySignalTargetPercentage'
-      | 'slashInactivityMaxPenalty'
-      | 'slashPayloadTtlSeconds'
+      'slashInactivityTargetPercentage' | 'slashInactivityPenalty' | 'slashPayloadTtlSeconds'
     >,
     protected override blockStream: L2BlockStream,
   ) {

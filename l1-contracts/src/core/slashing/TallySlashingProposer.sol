@@ -80,7 +80,7 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
  *      - EXECUTION_DELAY_IN_ROUNDS: Rounds to wait before allowing execution
  *      - LIFETIME_IN_ROUNDS: Maximum age of rounds that can still be executed
  *      - SLASH_OFFSET_IN_ROUNDS: How far back to look for validators to slash
- *      - SLASHING_UNIT: Base amount of slashing per unit voted
+ *      - SLASH_AMOUNT_SMALL/MEDIUM/LARGE: Specific amounts for each slash unit level
  *      - COMMITTEE_SIZE: Number of validators per committee
  */
 contract TallySlashingProposer is EIP712 {
@@ -195,8 +195,19 @@ contract TallySlashingProposer is EIP712 {
   /**
    * @notice Base amount of stake to slash per slashing unit (in wei)
    * @dev Validators can be voted to be slashed by 1-3 units, multiplied by this base amount
+   * @notice Small slash amount for 1 unit votes (in wei)
    */
-  uint256 public immutable SLASHING_UNIT;
+  uint256 public immutable SLASH_AMOUNT_SMALL;
+
+  /**
+   * @notice Medium slash amount for 2 unit votes (in wei)
+   */
+  uint256 public immutable SLASH_AMOUNT_MEDIUM;
+
+  /**
+   * @notice Large slash amount for 3 unit votes (in wei)
+   */
+  uint256 public immutable SLASH_AMOUNT_LARGE;
 
   /**
    * @notice Minimum number of votes required to slash a validator
@@ -275,7 +286,7 @@ contract TallySlashingProposer is EIP712 {
    * _executionDelayInRounds and < ROUNDABOUT_SIZE)
    * @param _executionDelayInRounds The number of rounds to wait after a round ends before it can be executed (provides
    * time for review)
-   * @param _slashingUnit The base amount of stake to slash per slashing unit (must be > 0)
+   * @param _slashAmounts Array of 3 slash amounts [small, medium, large] for 1, 2, 3 unit votes (all must be > 0)
    * @param _committeeSize The number of validators in each committee (must be > 0)
    * @param _epochDuration The number of slots in each epoch (used to calculate ROUND_SIZE_IN_EPOCHS)
    * @param _slashOffsetInRounds How many rounds in the past to look when determining which validators to slash (must be
@@ -288,14 +299,16 @@ contract TallySlashingProposer is EIP712 {
     uint256 _roundSize,
     uint256 _lifetimeInRounds,
     uint256 _executionDelayInRounds,
-    uint256 _slashingUnit,
+    uint256[3] memory _slashAmounts,
     uint256 _committeeSize,
     uint256 _epochDuration,
     uint256 _slashOffsetInRounds
   ) EIP712("TallySlashingProposer", "1") {
     INSTANCE = _instance;
     SLASHER = _slasher;
-    SLASHING_UNIT = _slashingUnit;
+    SLASH_AMOUNT_SMALL = _slashAmounts[0];
+    SLASH_AMOUNT_MEDIUM = _slashAmounts[1];
+    SLASH_AMOUNT_LARGE = _slashAmounts[2];
     QUORUM = _quorum;
     ROUND_SIZE = _roundSize;
     ROUND_SIZE_IN_EPOCHS = _roundSize / _epochDuration;
@@ -318,7 +331,8 @@ contract TallySlashingProposer is EIP712 {
     require(ROUND_SIZE > 1, Errors.TallySlashingProposer__InvalidQuorumAndRoundSize(QUORUM, ROUND_SIZE));
     require(QUORUM > ROUND_SIZE / 2, Errors.TallySlashingProposer__InvalidQuorumAndRoundSize(QUORUM, ROUND_SIZE));
     require(QUORUM <= ROUND_SIZE, Errors.TallySlashingProposer__InvalidQuorumAndRoundSize(QUORUM, ROUND_SIZE));
-    require(SLASHING_UNIT > 0, Errors.TallySlashingProposer__SlashingUnitMustBeGreaterThanZero(SLASHING_UNIT));
+    require(_slashAmounts[0] <= _slashAmounts[1], Errors.TallySlashingProposer__InvalidSlashAmounts(_slashAmounts));
+    require(_slashAmounts[1] <= _slashAmounts[2], Errors.TallySlashingProposer__InvalidSlashAmounts(_slashAmounts));
     require(
       LIFETIME_IN_ROUNDS > EXECUTION_DELAY_IN_ROUNDS,
       Errors.TallySlashingProposer__LifetimeMustBeGreaterThanExecutionDelay(
@@ -863,11 +877,19 @@ contract TallySlashingProposer is EIP712 {
 
           // Check if this slash amount has reached quorum
           if (voteCountForValidator >= QUORUM) {
+            // Convert units to actual slash amount
+            uint256 slashAmount;
+            if (j == 1) {
+              slashAmount = SLASH_AMOUNT_SMALL;
+            } else if (j == 2) {
+              slashAmount = SLASH_AMOUNT_MEDIUM;
+            } else if (j == 3) {
+              slashAmount = SLASH_AMOUNT_LARGE;
+            }
+
             // Record the slashing action
-            actions[actionCount] = SlashAction({
-              validator: _committees[i / COMMITTEE_SIZE][i % COMMITTEE_SIZE],
-              slashAmount: SLASHING_UNIT * j
-            });
+            actions[actionCount] =
+              SlashAction({validator: _committees[i / COMMITTEE_SIZE][i % COMMITTEE_SIZE], slashAmount: slashAmount});
             ++actionCount;
 
             // Mark this committee as having at least one slashed validator
