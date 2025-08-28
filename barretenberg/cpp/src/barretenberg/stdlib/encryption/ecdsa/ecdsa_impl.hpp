@@ -154,7 +154,7 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
 
     // Turn the hashed message into an element of Fr
     // The assertion means that an honest prover has a small probability of not being able to generate a valid proof if
-    // H(m) > n. Enforcing this condition introduces a small number of gates, and ensures that signatures cannot be
+    // H(m) >= n. Enforcing this condition introduces a small number of gates, and ensures that signatures cannot be
     // forged by finding a collision of H modulo n. While finding such a collision is supposed to be hard even modulo n,
     // we protect against this case with this cheap check.
     Fr z(hashed_message);
