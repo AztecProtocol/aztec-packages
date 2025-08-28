@@ -7,198 +7,121 @@
 #include "barretenberg/common/test.hpp"
 #include "ecdsa.hpp"
 
+#include <gtest/gtest.h>
+
 using namespace bb;
 using namespace bb::crypto;
 
-using Builder = UltraCircuitBuilder;
-using curve_ = stdlib::secp256k1<Builder>;
-using curveR1 = stdlib::secp256r1<Builder>;
+template <class Curve> class EcdsaTests : public ::testing::Test {
+  public:
+    using Builder = Curve::Builder;
 
-TEST(stdlib_ecdsa, verify_signature)
-{
-    Builder builder = Builder();
+    // Native Types
+    using FrNative = Curve::fr;
+    using FqNative = Curve::fq;
+    using G1Native = Curve::g1;
 
-    // whaaablaghaaglerijgeriij
-    std::string message_string = "Instructions unclear, ask again later.";
+    // Stdlib types
+    using Fr = Curve::bigfr_ct;
+    using Fq = Curve::fq_ct;
+    using G1 = Curve::g1_bigfr_ct;
 
-    ecdsa_key_pair<curve_::fr, curve_::g1> account;
-    account.private_key = curve_::fr::random_element();
-    account.public_key = curve_::g1::one * account.private_key;
-
-    ecdsa_signature signature =
-        ecdsa_construct_signature<Sha256Hasher, curve_::fq, curve_::fr, curve_::g1>(message_string, account);
-
-    bool first_result = ecdsa_verify_signature<Sha256Hasher, curve_::fq, curve_::fr, curve_::g1>(
-        message_string, account.public_key, signature);
-    EXPECT_EQ(first_result, true);
-
-    curve_::g1_bigfr_ct public_key = curve_::g1_bigfr_ct::from_witness(&builder, account.public_key);
-
-    std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
-    std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
-
-    stdlib::ecdsa_signature<Builder> sig{
-        curve_::byte_array_ct(&builder, rr),
-        curve_::byte_array_ct(&builder, ss),
+    struct StdlibEcdsaData {
+        stdlib::byte_array<Builder> message;
+        G1 public_key;
+        stdlib::ecdsa_signature<Builder> sig;
     };
 
-    curve_::byte_array_ct message(&builder, message_string);
+    std::pair<ecdsa_key_pair<FrNative, G1Native>, ecdsa_signature> generate_dummy_ecdsa_data(std::string message_string,
+                                                                                             bool tamper_with_signature)
+    {
+        ecdsa_key_pair<FrNative, G1Native> account;
+        account.private_key = FrNative::random_element();
+        account.public_key = G1Native::one * account.private_key;
 
-    curve_::bool_ct signature_result =
-        stdlib::ecdsa_verify_signature<Builder, curve_, curve_::fq_ct, curve_::bigfr_ct, curve_::g1_bigfr_ct>(
-            message, public_key, sig);
+        ecdsa_signature signature =
+            ecdsa_construct_signature<Sha256Hasher, FqNative, FrNative, G1Native>(message_string, account);
 
-    EXPECT_EQ(signature_result.get_value(), true);
+        if (tamper_with_signature) {
+            signature.r[1] += 1;
+        }
 
-    std::cerr << "num gates = " << builder.get_estimated_num_finalized_gates() << std::endl;
-    benchmark_info(Builder::NAME_STRING,
-                   "ECDSA",
-                   "Signature Verification Test",
-                   "Gate Count",
-                   builder.get_estimated_num_finalized_gates());
-    bool proof_result = CircuitChecker::check(builder);
-    EXPECT_EQ(proof_result, true);
+        return { account, signature };
+    }
+
+    StdlibEcdsaData create_stdlib_ecdsa_data(Builder& builder,
+                                             std::string message_string,
+                                             ecdsa_key_pair<FrNative, G1Native>& account,
+                                             ecdsa_signature& signature)
+    {
+        stdlib::byte_array<Builder> message(&builder, message_string);
+
+        G1 pub_key = G1::from_witness(&builder, account.public_key);
+
+        std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
+        std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
+        std::vector<uint8_t> vv = { signature.v };
+
+        stdlib::ecdsa_signature<Builder> sig{ stdlib::byte_array<Builder>(&builder, rr),
+                                              stdlib::byte_array<Builder>(&builder, ss) };
+
+        return { message, pub_key, sig };
+    }
+
+    void test_verify_signature(bool tamper_with_signature)
+    {
+        // whaaablaghaaglerijgeriij
+        std::string message_string = "Instructions unclear, ask again later.";
+
+        auto [account, signature] =
+            generate_dummy_ecdsa_data(message_string, /*tamper_with_signature=*/tamper_with_signature);
+
+        // Natively verify the signature
+        bool native_verification = ecdsa_verify_signature<Sha256Hasher, FqNative, FrNative, G1Native>(
+            message_string, account.public_key, signature);
+        EXPECT_EQ(native_verification, !tamper_with_signature);
+
+        // Create ECDSA verification circuit
+        Builder builder;
+
+        auto [message, public_key, sig] = create_stdlib_ecdsa_data(builder, message_string, account, signature);
+
+        // Compute H(m)
+        stdlib::byte_array<Builder> hashed_message =
+            static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
+
+        // Verify signature
+        stdlib::bool_t<Builder> signature_result =
+            stdlib::ecdsa_verify_signature<Builder, Curve, Fq, Fr, G1>(hashed_message, public_key, sig);
+
+        // Enforce verification passed successfully
+        signature_result.assert_equal(stdlib::bool_t<Builder>(true));
+
+        EXPECT_EQ(signature_result.get_value(), !tamper_with_signature);
+
+        std::cerr << "num gates = " << builder.get_estimated_num_finalized_gates() << std::endl;
+        benchmark_info(Builder::NAME_STRING,
+                       "ECDSA",
+                       "Signature Verification Test",
+                       "Gate Count",
+                       builder.get_estimated_num_finalized_gates());
+        bool proof_result = CircuitChecker::check(builder);
+        EXPECT_EQ(proof_result, !tamper_with_signature);
+    }
+};
+
+using Curves = testing::Types<stdlib::secp256k1<UltraCircuitBuilder>,
+                              stdlib::secp256r1<UltraCircuitBuilder>>; // TODO(federicobarbacovi): Is
+                                                                       // UltraCircuitBuilder a valid assumption?
+
+TYPED_TEST_SUITE(EcdsaTests, Curves);
+
+TYPED_TEST(EcdsaTests, VerifySignature)
+{
+    TestFixture::test_verify_signature(/*tamper_with_signature=*/false);
 }
 
-TEST(stdlib_ecdsa, verify_r1_signature)
+TYPED_TEST(EcdsaTests, VerifySignatureFails)
 {
-    Builder builder = Builder();
-
-    std::string message_string = "Instructions unclear, ask again later.";
-
-    ecdsa_key_pair<curveR1::fr, curveR1::g1> account;
-    account.private_key = curveR1::fr::random_element();
-    account.public_key = curveR1::g1::one * account.private_key;
-
-    ecdsa_signature signature =
-        ecdsa_construct_signature<Sha256Hasher, curveR1::fq, curveR1::fr, curveR1::g1>(message_string, account);
-
-    bool first_result = ecdsa_verify_signature<Sha256Hasher, curveR1::fq, curveR1::fr, curveR1::g1>(
-        message_string, account.public_key, signature);
-    EXPECT_EQ(first_result, true);
-
-    curveR1::g1_bigfr_ct public_key = curveR1::g1_bigfr_ct::from_witness(&builder, account.public_key);
-
-    std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
-    std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
-
-    stdlib::ecdsa_signature<Builder> sig{ curveR1::byte_array_ct(&builder, rr), curveR1::byte_array_ct(&builder, ss) };
-
-    curveR1::byte_array_ct message(&builder, message_string);
-
-    curveR1::bool_ct signature_result =
-        stdlib::ecdsa_verify_signature<Builder, curveR1, curveR1::fq_ct, curveR1::bigfr_ct, curveR1::g1_bigfr_ct>(
-            message, public_key, sig);
-
-    EXPECT_EQ(signature_result.get_value(), true);
-
-    std::cerr << "num gates = " << builder.get_estimated_num_finalized_gates() << std::endl;
-    benchmark_info(Builder::NAME_STRING,
-                   "ECDSA",
-                   "Signature Verification Test",
-                   "Gate Count",
-                   builder.get_estimated_num_finalized_gates());
-    bool proof_result = CircuitChecker::check(builder);
-    EXPECT_EQ(proof_result, true);
-}
-
-TEST(stdlib_ecdsa, ecdsa_verify_signature_noassert_succeed)
-{
-    Builder builder = Builder();
-
-    // whaaablaghaaglerijgeriij
-    std::string message_string = "Instructions unclear, ask again later.";
-
-    ecdsa_key_pair<curve_::fr, curve_::g1> account;
-    account.private_key = curve_::fr::random_element();
-    account.public_key = curve_::g1::one * account.private_key;
-
-    ecdsa_signature signature =
-        ecdsa_construct_signature<Sha256Hasher, curve_::fq, curve_::fr, curve_::g1>(message_string, account);
-
-    bool first_result = ecdsa_verify_signature<Sha256Hasher, curve_::fq, curve_::fr, curve_::g1>(
-        message_string, account.public_key, signature);
-    EXPECT_EQ(first_result, true);
-
-    curve_::g1_bigfr_ct public_key = curve_::g1_bigfr_ct::from_witness(&builder, account.public_key);
-
-    std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
-    std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
-
-    stdlib::ecdsa_signature<Builder> sig{ curve_::byte_array_ct(&builder, rr), curve_::byte_array_ct(&builder, ss) };
-
-    curve_::byte_array_ct message(&builder, message_string);
-
-    stdlib::byte_array<Builder> hashed_message =
-        static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
-
-    curve_::bool_ct signature_result =
-        stdlib::ecdsa_verify_signature_prehashed_message_noassert<Builder,
-                                                                  curve_,
-                                                                  curve_::fq_ct,
-                                                                  curve_::bigfr_ct,
-                                                                  curve_::g1_bigfr_ct>(hashed_message, public_key, sig);
-
-    EXPECT_EQ(signature_result.get_value(), true);
-
-    std::cerr << "num gates = " << builder.get_estimated_num_finalized_gates() << std::endl;
-    benchmark_info(Builder::NAME_STRING,
-                   "ECDSA",
-                   "Signature Verification Test",
-                   "Gate Count",
-                   builder.get_estimated_num_finalized_gates());
-    bool proof_result = CircuitChecker::check(builder);
-    EXPECT_EQ(proof_result, true);
-}
-
-TEST(stdlib_ecdsa, ecdsa_verify_signature_noassert_fail)
-{
-    Builder builder = Builder();
-
-    // whaaablaghaaglerijgeriij
-    std::string message_string = "Instructions unclear, ask again later.";
-
-    ecdsa_key_pair<curve_::fr, curve_::g1> account;
-    account.private_key = curve_::fr::random_element();
-    account.public_key = curve_::g1::one * account.private_key;
-
-    ecdsa_signature signature =
-        ecdsa_construct_signature<Sha256Hasher, curve_::fq, curve_::fr, curve_::g1>(message_string, account);
-
-    // tamper w. signature to make fail
-    signature.r[0] += 1;
-
-    bool first_result = ecdsa_verify_signature<Sha256Hasher, curve_::fq, curve_::fr, curve_::g1>(
-        message_string, account.public_key, signature);
-    EXPECT_EQ(first_result, false);
-
-    curve_::g1_bigfr_ct public_key = curve_::g1_bigfr_ct::from_witness(&builder, account.public_key);
-
-    std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
-    std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
-
-    stdlib::ecdsa_signature<Builder> sig{ curve_::byte_array_ct(&builder, rr), curve_::byte_array_ct(&builder, ss) };
-
-    curve_::byte_array_ct message(&builder, message_string);
-
-    stdlib::byte_array<Builder> hashed_message =
-        static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
-
-    curve_::bool_ct signature_result =
-        stdlib::ecdsa_verify_signature_prehashed_message_noassert<Builder,
-                                                                  curve_,
-                                                                  curve_::fq_ct,
-                                                                  curve_::bigfr_ct,
-                                                                  curve_::g1_bigfr_ct>(hashed_message, public_key, sig);
-
-    EXPECT_EQ(signature_result.get_value(), false);
-
-    std::cerr << "num gates = " << builder.get_estimated_num_finalized_gates() << std::endl;
-    benchmark_info(Builder::NAME_STRING,
-                   "ECDSA",
-                   "Signature Verification Test",
-                   "Gate Count",
-                   builder.get_estimated_num_finalized_gates());
-    bool proof_result = CircuitChecker::check(builder);
-    EXPECT_EQ(proof_result, true);
+    TestFixture::test_verify_signature(/*tamper_with_signature=*/true);
 }

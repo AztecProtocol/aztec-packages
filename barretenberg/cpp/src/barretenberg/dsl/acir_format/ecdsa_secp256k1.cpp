@@ -51,7 +51,7 @@ void create_ecdsa_k1_verify_constraints(Builder& builder,
 
     auto new_sig = ecdsa_convert_signature(builder, input.signature);
 
-    byte_array_ct message = ecdsa_array_of_bytes_to_byte_array(builder, input.hashed_message);
+    byte_array_ct hashed_message = ecdsa_array_of_bytes_to_byte_array(builder, input.hashed_message);
     auto pub_key_x_byte_arr = ecdsa_array_of_bytes_to_byte_array(builder, input.pub_x_indices);
     auto pub_key_y_byte_arr = ecdsa_array_of_bytes_to_byte_array(builder, input.pub_y_indices);
 
@@ -74,16 +74,15 @@ void create_ecdsa_k1_verify_constraints(Builder& builder,
         pub_key_y_byte_arr[i].assert_equal(field_ct::from_witness_index(&builder, input.pub_y_indices[i]));
     }
     for (size_t i = 0; i < input.hashed_message.size(); ++i) {
-        message[i].assert_equal(field_ct::from_witness_index(&builder, input.hashed_message[i]));
+        hashed_message[i].assert_equal(field_ct::from_witness_index(&builder, input.hashed_message[i]));
     }
 
     bool_ct signature_result =
-        stdlib::ecdsa_verify_signature_prehashed_message_noassert<Builder,
-                                                                  secp256k1_ct,
-                                                                  typename secp256k1_ct::fq_ct,
-                                                                  typename secp256k1_ct::bigfr_ct,
-                                                                  typename secp256k1_ct::g1_bigfr_ct>(
-            message, public_key, sig);
+        stdlib::ecdsa_verify_signature<Builder,
+                                       secp256k1_ct,
+                                       typename secp256k1_ct::fq_ct,
+                                       typename secp256k1_ct::bigfr_ct,
+                                       typename secp256k1_ct::g1_bigfr_ct>(hashed_message, public_key, sig);
     bool_ct signature_result_normalized = signature_result.normalize();
     builder.assert_equal(signature_result_normalized.witness_index, input.result);
 }
