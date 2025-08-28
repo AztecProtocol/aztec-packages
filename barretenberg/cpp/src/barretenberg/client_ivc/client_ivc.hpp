@@ -279,7 +279,7 @@ class ClientIVC {
 
     bool prove_and_verify();
 
-    HonkProof construct_decider_proof();
+    HonkProof construct_decider_proof(const std::shared_ptr<Transcript>& transcript);
 
     VerificationKey get_vk() const;
 
