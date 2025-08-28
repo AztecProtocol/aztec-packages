@@ -39,6 +39,10 @@ if ! command -v forge >/dev/null 2>&1; then
   echo "forge is required" >&2
   exit 1
 fi
+if ! command -v curl >/dev/null 2>&1; then
+  echo "curl is required" >&2
+  exit 1
+fi
 
 if [[ $# -lt 1 ]]; then
   echo "Usage: scripts/verify-from-json.sh <path-to-l1-verify.json> [--chain <id|name>] [--api-key <key>]" >&2
@@ -77,6 +81,21 @@ if [[ -z "$API_KEY_VALUE" ]]; then
   echo "ETHERSCAN API key not provided. Set env ETHERSCAN_API_KEY or pass --api-key <key>." >&2
   exit 1
 fi
+
+# Sourcify server (can override via $SOURCIFY_SERVER_URL)
+SOURCIFY_SERVER_URL="${SOURCIFY_SERVER_URL:-https://sourcify.dev/server}"
+
+# Import a verified contract from Etherscan into Sourcify v2
+sourcify_import() {
+  local address="$1"
+  local chain_id="$CHAIN_VALUE"
+  local endpoint="$SOURCIFY_SERVER_URL/v2/verify/etherscan/$chain_id/$address"
+  local payload
+  # Only etherscanApiKey is required in body for this endpoint
+  payload=$(jq -n --arg key "$API_KEY_VALUE" '{apiKey:$key}')
+  echo "    Importing to Sourcify: $address (chain $chain_id)"
+  curl -sS -X POST -H 'Content-Type: application/json' -d "$payload" "$endpoint" | sed 's/^/      sourcify: /'
+}
 
 # Map deployment "name" to FQN "<path>:<ContractName>"
 resolve_fqn() {
@@ -147,8 +166,9 @@ if [[ ${#__all_libs[@]} -gt 0 ]]; then
         --chain "$CHAIN_VALUE" \
         --etherscan-api-key "$API_KEY_VALUE" \
         "$address" "$file:$contract" \
-        --compiler-version v0.8.27 \
-        --verifier sourcify
+        --compiler-version v0.8.27
+
+      sourcify_import "$address"
     fi
   done
 fi
@@ -180,6 +200,7 @@ for i in $(seq 0 $((records_len - 1))); do
   echo "    Command: ${cmd[*]}"
 
   "${cmd[@]}"
+  sourcify_import "$addr"
 done
 
 echo "All verification commands executed."
