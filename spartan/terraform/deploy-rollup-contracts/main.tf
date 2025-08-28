@@ -4,7 +4,7 @@ terraform {
   required_providers {
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "~> 2.24.0"
+      version = "~> 2.38.0"
     }
 
   }
@@ -41,6 +41,7 @@ locals {
     AZTEC_EJECTION_THRESHOLD             = var.AZTEC_EJECTION_THRESHOLD
     AZTEC_SLASHING_QUORUM                = var.AZTEC_SLASHING_QUORUM
     AZTEC_SLASHING_ROUND_SIZE            = var.AZTEC_SLASHING_ROUND_SIZE
+    AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS  = var.AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS
     AZTEC_GOVERNANCE_PROPOSER_QUORUM     = var.AZTEC_GOVERNANCE_PROPOSER_QUORUM
     AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE = var.AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE
     AZTEC_MANA_TARGET                    = var.AZTEC_MANA_TARGET

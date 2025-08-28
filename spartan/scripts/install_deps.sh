@@ -82,3 +82,17 @@ if command -v gcloud &> /dev/null; then
     gcloud components install gke-gcloud-auth-plugin
   fi
 fi
+
+
+# Sanity check commands
+require_cmd() { command -v "$1" >/dev/null 2>&1 || die "Required command not found: $1"; }
+
+require_cmd git
+require_cmd kubectl
+require_cmd terraform
+require_cmd sed
+require_cmd xargs
+require_cmd tr
+require_cmd cast
+require_cmd jq
+require_cmd gcloud

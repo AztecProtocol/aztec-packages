@@ -97,6 +97,11 @@ variable "AZTEC_SLASHING_ROUND_SIZE" {
   type        = string
 }
 
+variable "AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS" {
+  description = "Aztec slashing round size in epochs"
+  type        = string
+}
+
 variable "AZTEC_GOVERNANCE_PROPOSER_QUORUM" {
   description = "Aztec governance proposer quorum"
   type        = string

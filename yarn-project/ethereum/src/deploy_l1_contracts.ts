@@ -837,7 +837,7 @@ export const addMultipleValidators = async (
           }),
         },
         {
-          gasLimit: 45_000_000n,
+          gasLimit: 32_000_000n,
         },
       );
 
@@ -915,6 +915,7 @@ export const deployL1Contracts = async (
   args: DeployL1ContractsArgs,
   txUtilsConfig: L1TxUtilsConfig = getL1TxUtilsConfigEnvVars(),
 ): Promise<DeployL1ContractsReturnType> => {
+  logger.info(`Deploying L1 contracts with config: ${jsonStringify(args)}`);
   validateConfig(args);
 
   const l1Client = createExtendedL1Client(rpcUrls, account, chain);

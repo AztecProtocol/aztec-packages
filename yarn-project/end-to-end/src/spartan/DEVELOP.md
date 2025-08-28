@@ -1,10 +1,12 @@
 The flow is as follows:
 
 1. Install/start KIND locally
-2. Use act to deploy ethereum and aztec onto your local KIND
-3. Run tests in `yarn-project/end-to-end/src/spartan`
+2. Bootstrap (to build an aztec image)
+3. Load image into kind
+4. Deploy networks
+5. Run tests in `yarn-project/end-to-end/src/spartan`
 
-# setup KIND
+# Setup KIND
 
 KIND is a kubernetes cluster that runs locally out of docker containers.
 
@@ -32,45 +34,36 @@ That will run a port forward to your port `8443` . If you’re running in a remo
 
 Open the forwarded page, and copy/paste the token that was generated when you forwarded the dashboard.
 
-# deploy stuff
-
-It is good to use the same flows that are run as part of the CI/CD pipeline. To do that, you need https://nektosact.com/introduction.html, which you can install with
+# Build an aztecprotocol:aztec image
 
 ```bash
-curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+./bootstrap.sh
+export AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:$(docker images "aztecprotocol/aztec" --format json | \
+  jq -r 'select(.Tag != "latest") | .Tag' | \
+  head -1)"
+kind load docker-image $AZTEC_DOCKER_IMAGE
 ```
 
-That done, you need to set your config to use the big beefy docker image that most closely resembles what github actions use:
+If you just changed typescript, you can (after the initial bootstrap)
 
 ```bash
-❯ cat ~/.config/act/actrc
--P ubuntu-latest=catthehacker/ubuntu:full-latest
--P ubuntu-22.04=catthehacker/ubuntu:full-22.04
--P ubuntu-20.04=catthehacker/ubuntu:full-20.04
--P ubuntu-18.04=catthehacker/ubuntu:full-18.04
+./yarn-project/bootstrap.sh
+./release-image/bootstrap.sh
+export AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:$(docker images "aztecprotocol/aztec" --format json | \
+  jq -r 'select(.Tag != "latest") | .Tag' | \
+  head -1)"
+kind load docker-image $AZTEC_DOCKER_IMAGE
 ```
 
-In order to use the flows, you also need https://cli.github.com/
+The export is important there. The `AZTEC_DOCKER_IMAGE` env var is used as both:
 
-There is a script at `.github/local_workflow.sh` that conveniently wraps `act` . It is helpful to create an alias:
+- the container that runs the rollup contract deployment
+- the containers for the aztec infrastructure (validators, provers, etc)
 
-```bash
-alias lwfl=/your/path/to/the/repo/.github/local_workflow.sh
-```
-
-Now you want to deploy a network, likely based on the copy of the code you have checked out. So you can `./bootstrap.sh`, and then `docker images` and you should see the tag of the most recently created image. Copy the full one (not `latest` or `X.0.0`) and then you can load the image into your kind cluster with
+# Deploy stuff
 
 ```bash
-kind load docker-image aztecprotocol/aztec:yourtag
-```
-
-Then, from the repo root, you should be able to simply:
-
-```bash
-lwfl deploy_scenario_network \
---input cluster=kind \
---input namespace=scenario \
---input aztec_docker_image=aztecprotocol/aztec:yourtag
+./spartan/bootstrap.sh network_deploy scenario.local.env
 ```
 
 That will take 1-3 minutes. But at the end you should have everything you need.
@@ -80,20 +73,20 @@ You can (`k` is just an alias over `kubectl`)
 ```bash
 ❯ k get pods -n scenario
 NAME                                              READY   STATUS    RESTARTS   AGE
-aztec-infra-p2p-bootstrap-node-5fdf78d979-9wnnb   1/1     Running   0          119m
-aztec-infra-prover-agent-7fcc8f5cb8-mhtv2         1/1     Running   0          119m
-aztec-infra-prover-agent-7fcc8f5cb8-x4jdh         1/1     Running   0          119m
-aztec-infra-prover-broker-0                       1/1     Running   0          119m
-aztec-infra-prover-node-0                         1/1     Running   0          119m
-aztec-infra-rpc-aztec-node-0                      1/1     Running   0          119m
-aztec-infra-validator-0                           1/1     Running   0          119m
-aztec-infra-validator-1                           1/1     Running   0          119m
-aztec-infra-validator-2                           1/1     Running   0          119m
-aztec-infra-validator-3                           1/1     Running   0          119m
-eth-devnet-eth-beacon-0                           1/1     Running   0          135m
-eth-devnet-eth-execution-0                        1/1     Running   0          135m
-eth-devnet-eth-validator-0                        1/1     Running   0          135m
-
+deploy-rollup-contracts-2025-08-31-1511-w2dlb   0/1     Completed   0          2m34s
+scenario-eth-beacon-0                           1/1     Running     0          39m
+scenario-eth-execution-0                        1/1     Running     0          39m
+scenario-eth-validator-0                        1/1     Running     0          39m
+scenario-p2p-bootstrap-node-5cbf9658b9-6vd9b    1/1     Running     0          20m
+scenario-prover-agent-59bd96899d-46k5s          1/1     Running     0          116s
+scenario-prover-agent-59bd96899d-vzvkd          1/1     Running     0          116s
+scenario-prover-broker-0                        1/1     Running     0          116s
+scenario-prover-node-0                          1/1     Running     0          116s
+scenario-rpc-aztec-node-0                       1/1     Running     0          116s
+scenario-validator-0                            1/1     Running     0          116s
+scenario-validator-1                            1/1     Running     0          116s
+scenario-validator-2                            1/1     Running     0          116s
+scenario-validator-3                            1/1     Running     0          116s
 ```
 
 For example, you can forward back the ethereum node with
@@ -109,16 +102,14 @@ And then do whatever you like with it.
 With the cluster running, you can now easily run tests.
 
 ```bash
-cd yarn-project/end-to-end
-export AZTEC_REAL_PROOFS=1
-export LOG_LEVEL=verbose
-export K8S_CLUSTER=kind
-export NAMESPACE=scenario
-yarn test spartan/smoke.test.ts
-yarn test spartan/transfer.test.ts
+# run one
+./spartan/bootstrap.sh test_single scenario.local.env spartan/smoke.test.ts
+
+# run all (serially)
+./spartan/bootstrap.sh network_tests scenario.local.env
 ```
 
-If you make some changes to the image, and want to redeploy, just re-run your bootstrap (I think you might be able to just rebuild the typescript, and then `release-image/bootstrap.sh`), load the new image into kind, and then just rerun the `lwfl` with the new image. It should be fast, since the ethereum network creation, and the rollup contract deployment should do nothing, and just all the aztec pods will roll onto the new version (i.e. using the same L1 rollup contract).
+Right now, I recommend running the smoke test first, always, as it waits for the committee to exist.
 
 # Teardown
 
