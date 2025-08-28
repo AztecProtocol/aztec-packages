@@ -1195,6 +1195,29 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
+    static void test_equality_operator(InputType a_type, InputType b_type)
+    {
+        auto builder = Builder();
+        size_t num_repetitions = 10;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+
+            auto [a_native, a_ct] = get_random_element(&builder, a_type); // fq, fq_ct
+            auto [b_native, b_ct] = get_random_element(&builder, b_type); // fq, fq_ct
+
+            // Construct witness from a_native
+            fq_ct another_a_ct = fq_ct::create_from_u512_as_witness(&builder, uint512_t(a_native), true);
+            bool_ct equality_with_self = (a_ct == another_a_ct);
+            EXPECT_EQ(equality_with_self.get_value(), true);
+
+            // Check against b
+            bool expected = (a_native == b_native);
+            bool_ct result = (a_ct == b_ct);
+            EXPECT_EQ(result.get_value(), expected);
+        }
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
     static void test_assert_is_in_field_success()
     {
         auto builder = Builder();
@@ -1475,6 +1498,221 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
 
         bool check_result = CircuitChecker::check(builder);
         EXPECT_EQ(check_result, true);
+    }
+
+    static void test_unsafe_evaluate_multiply_and_add()
+    {
+        Builder builder;
+
+        // The circuit enforces:
+        // a * b + (c0 + c1 + ...) = q * p + (r0 + r1 + ...) mod 2^T
+        // a * b + (c0 + c1 + ...) = q * p + (r0 + r1 + ...) mod n
+
+        // Single addend and remainder
+        auto [a_native, a_ct] = get_random_witness(&builder);
+        auto [b_native, b_ct] = get_random_witness(&builder);
+        auto [c_native, c_ct] = get_random_witness(&builder);
+
+        // Get quotient and remainder for (a * b + c) from native values
+        uint512_t native_sum = uint512_t(a_native) * uint512_t(b_native) + uint512_t(c_native);
+        auto [q_native_uint512_t, r_native_uint512_t] = native_sum.divmod(uint512_t(fq_ct::modulus));
+        fq_ct q_ct = fq_ct::create_from_u512_as_witness(&builder, q_native_uint512_t, true);
+        fq_ct r_ct = fq_ct::create_from_u512_as_witness(&builder, r_native_uint512_t, true);
+
+        // Call unsafe_evaluate_multiply_add (via friendly class)
+        stdlib::bigfield_test_access::unsafe_evaluate_multiply_add(a_ct, b_ct, { c_ct }, q_ct, { r_ct });
+
+        // The above function does not protect against CRT overflows, i.e., check if lhs and rhs are less than
+        // M = (2^T * n). Verify that adding a multiple of M to both sides does not result in an unsatisfiable circuit.
+        uint512_t big_M = uint512_t(fr::modulus) * fq_ct::binary_basis.modulus;
+        uint512_t modified_c_native = uint512_t(c_native) + big_M;
+        uint512_t modified_r_native = uint512_t(r_native_uint512_t) + big_M;
+        fq_ct modified_c_ct = fq_ct::create_from_u512_as_witness(&builder, modified_c_native, true);
+        fq_ct modified_r_ct = fq_ct::create_from_u512_as_witness(&builder, modified_r_native, true);
+
+        // Call unsafe_evaluate_multiply_add (via friendly class)
+        stdlib::bigfield_test_access::unsafe_evaluate_multiply_add(
+            a_ct, b_ct, { modified_c_ct }, q_ct, { modified_r_ct });
+
+        // Native verification mod p
+        fq expected_lhs = a_native * b_native + c_native;
+        fq expected_rhs = fq(q_native_uint512_t.lo) * fq_ct::modulus + fq(r_native_uint512_t.lo);
+        EXPECT_EQ(expected_lhs, expected_rhs);
+
+        // Native verification mod 2^T
+        uint1024_t lhs_u512 = uint512_t(a_native) * uint512_t(b_native) + uint512_t(c_native);
+        uint1024_t rhs_u512 = q_native_uint512_t * fq_ct::modulus + r_native_uint512_t;
+        auto [quotient_lhs, remainder_lhs] = lhs_u512.divmod(fq_ct::binary_basis.modulus);
+        auto [quotient_rhs, remainder_rhs] = rhs_u512.divmod(fq_ct::binary_basis.modulus);
+        EXPECT_EQ(remainder_lhs, remainder_rhs);
+
+        // Native verification mod n
+        fr expected_lhs_fr = fr(a_native) * fr(b_native) + fr(c_native);
+        fr expected_rhs_fr = fr(q_native_uint512_t.lo) * fr(fq_ct::modulus) + fr(r_native_uint512_t.lo);
+        EXPECT_EQ(expected_lhs_fr, expected_rhs_fr);
+
+        // Check circuit correctness
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
+    static void test_unsafe_evaluate_multiply_and_add_fails()
+    {
+        Builder builder;
+
+        // The circuit enforces:
+        // a * b + (c0 + c1 + ...) = q * p + (r0 + r1 + ...) mod 2^T
+        // a * b + (c0 + c1 + ...) = q * p + (r0 + r1 + ...) mod n
+
+        // Single addend and remainder
+        auto [a_native, a_ct] = get_random_witness(&builder);
+        auto [b_native, b_ct] = get_random_witness(&builder);
+        auto [c_native, c_ct] = get_random_witness(&builder);
+
+        // Get quotient and remainder for (a * b + c) from native values
+        uint512_t native_sum = uint512_t(a_native) * uint512_t(b_native) + uint512_t(c_native);
+        auto [q_native_uint512_t, r_native_uint512_t] = native_sum.divmod(uint512_t(fq_ct::modulus));
+        fq_ct q_ct = fq_ct::create_from_u512_as_witness(
+            &builder, q_native_uint512_t + uint512_t(1), true); // Intentionally poisoned
+        fq_ct r_ct = fq_ct::create_from_u512_as_witness(&builder, r_native_uint512_t, true);
+
+        // Call unsafe_evaluate_multiply_add (via friendly class)
+        stdlib::bigfield_test_access::unsafe_evaluate_multiply_add(a_ct, b_ct, { c_ct }, q_ct, { r_ct });
+
+        // Check circuit correctness
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, false);
+
+        // Check that the error is due to range check failure on the carry hi (because the check of carry appears first)
+        const bool range_error_check = (builder.err() == "bigfield: carry_hi too large") ||
+                                       (builder.err() == "ultra_circuit_builder: sublimb of hi too large");
+        EXPECT_EQ(range_error_check, true);
+    }
+
+    static void test_unsafe_multiple_multiply_and_add()
+    {
+        Builder builder;
+
+        // The circuit enforces:
+        // a1 * b1 + a2 * b2 + ... + (c0 + c1 + ...) = q * p + (r0 + r1 + ...) mod 2^T
+        // a1 * b1 + a2 * b2 + ... + (c0 + c1 + ...) = q * p + (r0 + r1 + ...) mod n
+        size_t num_terms = 3;
+        std::vector<fq> a_natives;
+        std::vector<fq> b_natives;
+        std::vector<fq_ct> a_cts;
+        std::vector<fq_ct> b_cts;
+
+        for (size_t i = 0; i < num_terms; ++i) {
+            auto [a_native, a_ct] = get_random_witness(&builder);
+            auto [b_native, b_ct] = get_random_witness(&builder);
+            a_natives.push_back(a_native);
+            b_natives.push_back(b_native);
+            a_cts.push_back(a_ct);
+            b_cts.push_back(b_ct);
+        }
+
+        auto [c_native, c_ct] = get_random_witness(&builder);
+
+        // Get quotient and remainder for (sum of ai * bi + c) from native values
+        uint512_t native_sum = uint512_t(c_native);
+        for (size_t i = 0; i < num_terms; ++i) {
+            native_sum += uint512_t(a_natives[i]) * uint512_t(b_natives[i]);
+        }
+        auto [q_native_uint512_t, r_native_uint512_t] = native_sum.divmod(uint512_t(fq_ct::modulus));
+        fq_ct q_ct = fq_ct::create_from_u512_as_witness(&builder, q_native_uint512_t, true);
+        fq_ct r_ct = fq_ct::create_from_u512_as_witness(&builder, r_native_uint512_t, true);
+
+        // Call unsafe_evaluate_multiply_add (via friendly class)
+        stdlib::bigfield_test_access::unsafe_evaluate_multiple_multiply_add(a_cts, b_cts, { c_ct }, q_ct, { r_ct });
+
+        // The above function does not protect against CRT overflows, i.e., check if lhs and rhs are less than
+        // M = (2^T * n). Verify that adding a multiple of M to both sides does not result in an unsatisfiable circuit.
+        uint512_t big_M = uint512_t(fr::modulus) * fq_ct::binary_basis.modulus;
+        uint512_t modified_c_native = uint512_t(c_native) + big_M;
+        uint512_t modified_r_native = uint512_t(r_native_uint512_t) + big_M;
+        fq_ct modified_c_ct = fq_ct::create_from_u512_as_witness(&builder, modified_c_native, true);
+        fq_ct modified_r_ct = fq_ct::create_from_u512_as_witness(&builder, modified_r_native, true);
+
+        // Call unsafe_evaluate_multiply_add (via friendly class)
+        stdlib::bigfield_test_access::unsafe_evaluate_multiple_multiply_add(
+            a_cts, b_cts, { modified_c_ct }, q_ct, { modified_r_ct });
+
+        // Native verification mod p
+        fq expected_lhs = fq(c_native);
+        for (size_t i = 0; i < num_terms; ++i) {
+            expected_lhs += fq(a_natives[i]) * fq(b_natives[i]);
+        }
+        fq expected_rhs = fq(q_native_uint512_t.lo) * fq_ct::modulus + fq(r_native_uint512_t.lo);
+        EXPECT_EQ(expected_lhs, expected_rhs);
+
+        // Native verification mod 2^T
+        uint1024_t lhs_u512 = uint512_t(c_native);
+        for (size_t i = 0; i < num_terms; ++i) {
+            lhs_u512 += uint512_t(a_natives[i]) * uint512_t(b_natives[i]);
+        }
+        uint1024_t rhs_u512 = q_native_uint512_t * fq_ct::modulus + r_native_uint512_t;
+        auto [quotient_lhs, remainder_lhs] = lhs_u512.divmod(fq_ct::binary_basis.modulus);
+        auto [quotient_rhs, remainder_rhs] = rhs_u512.divmod(fq_ct::binary_basis.modulus);
+        EXPECT_EQ(remainder_lhs, remainder_rhs);
+
+        // Native verification mod n
+        fr expected_lhs_fr = fr(c_native);
+        for (size_t i = 0; i < num_terms; ++i) {
+            expected_lhs_fr += fr(a_natives[i]) * fr(b_natives[i]);
+        }
+        fr expected_rhs_fr = fr(q_native_uint512_t.lo) * fr(fq_ct::modulus) + fr(r_native_uint512_t.lo);
+        EXPECT_EQ(expected_lhs_fr, expected_rhs_fr);
+
+        // Check circuit correctness
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
+    static void test_unsafe_multiple_multiply_and_add_fails()
+    {
+        Builder builder;
+
+        // The circuit enforces:
+        // a1 * b1 + a2 * b2 + ... + (c0 + c1 + ...) = q * p + (r0 + r1 + ...) mod 2^T
+        // a1 * b1 + a2 * b2 + ... + (c0 + c1 + ...) = q * p + (r0 + r1 + ...) mod n
+        size_t num_terms = 3;
+        std::vector<fq> a_natives;
+        std::vector<fq> b_natives;
+        std::vector<fq_ct> a_cts;
+        std::vector<fq_ct> b_cts;
+
+        for (size_t i = 0; i < num_terms; ++i) {
+            auto [a_native, a_ct] = get_random_witness(&builder);
+            auto [b_native, b_ct] = get_random_witness(&builder);
+            a_natives.push_back(a_native);
+            b_natives.push_back(b_native);
+            a_cts.push_back(a_ct);
+            b_cts.push_back(b_ct);
+        }
+
+        auto [c_native, c_ct] = get_random_witness(&builder);
+
+        // Get quotient and remainder for (sum of ai * bi + c) from native values
+        uint512_t native_sum = uint512_t(c_native);
+        for (size_t i = 0; i < num_terms; ++i) {
+            native_sum += uint512_t(a_natives[i]) * uint512_t(b_natives[i]);
+        }
+        auto [q_native_uint512_t, r_native_uint512_t] = native_sum.divmod(uint512_t(fq_ct::modulus));
+        fq_ct q_ct =
+            fq_ct::create_from_u512_as_witness(&builder, q_native_uint512_t + uint512_t(1)); // Intentionally poisoned
+        fq_ct r_ct = fq_ct::create_from_u512_as_witness(&builder, r_native_uint512_t);
+
+        // Call unsafe_evaluate_multiply_add (via friendly class)
+        stdlib::bigfield_test_access::unsafe_evaluate_multiple_multiply_add(a_cts, b_cts, { c_ct }, q_ct, { r_ct });
+
+        // Check circuit correctness
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, false);
+
+        // Check that the error is due to range check failure on the carry hi (because the check of carry appears first)
+        const bool range_error_check = (builder.err() == "bigfield: carry_hi too large") ||
+                                       (builder.err() == "ultra_circuit_builder: sublimb of hi too large");
+        EXPECT_EQ(range_error_check, true);
     }
 
     static void test_nonnormalized_field_bug_regression()
@@ -1910,6 +2148,34 @@ TYPED_TEST(stdlib_bigfield, reduce)
 {
     TestFixture::test_reduce();
 }
+TYPED_TEST(stdlib_bigfield, equality)
+{
+    TestFixture::test_equality_operator(InputType::WITNESS, InputType::WITNESS); // w == w
+}
+TYPED_TEST(stdlib_bigfield, equality_with_constants)
+{
+    TestFixture::test_equality_operator(InputType::WITNESS, InputType::CONSTANT);  // w == c
+    TestFixture::test_equality_operator(InputType::CONSTANT, InputType::WITNESS);  // c == w
+    TestFixture::test_equality_operator(InputType::CONSTANT, InputType::CONSTANT); // c == c
+}
+
+TYPED_TEST(stdlib_bigfield, unsafe_evaluate_multiply_add)
+{
+    TestFixture::test_unsafe_evaluate_multiply_and_add();
+}
+TYPED_TEST(stdlib_bigfield, unsafe_evaluate_multiply_add_fails)
+{
+    TestFixture::test_unsafe_evaluate_multiply_and_add_fails();
+}
+TYPED_TEST(stdlib_bigfield, unsafe_evaluate_multiple_multiply_add)
+{
+    TestFixture::test_unsafe_multiple_multiply_and_add();
+}
+TYPED_TEST(stdlib_bigfield, unsafe_evaluate_multiple_multiply_add_fails)
+{
+    TestFixture::test_unsafe_multiple_multiply_and_add_fails();
+}
+
 TYPED_TEST(stdlib_bigfield, assert_is_in_field_success)
 {
     TestFixture::test_assert_is_in_field_success();
