@@ -41,7 +41,7 @@ pub contract AMM {
     };
     use dep::aztec::{
         macros::{functions::{initializer, internal, private, public, utility}, storage::storage},
-        protocol_types::address::AztecAddress,
+        protocol_types::{address::AztecAddress, traits::ToField},
         state_vars::PublicImmutable,
     };
 
@@ -331,6 +331,18 @@ pub contract AMM {
         amount_out_min: u128,
         authwit_nonce: Field,
     ) {
+        // TODO(DUPLICATE_NULLIFIER_ISSUE): Nuke this log once the issue is resolved.
+        aztec::oracle::debug_log::debug_log_format(
+            "swap_exact_tokens_for_tokens: token_in {0}, token_out {1}, amount_in {2}, amount_out_min {3}",
+            [
+                token_in.to_field(),
+                token_out.to_field(),
+                amount_in as Field,
+                amount_out_min as Field,
+            ],
+        );
+        // NUKE_END
+
         let config = storage.config.read();
 
         assert((token_in == config.token0) | (token_in == config.token1), "TOKEN_IN_IS_INVALID");
@@ -356,6 +368,10 @@ pub contract AMM {
                 token_out_partial_note,
             )
             .enqueue(&mut context);
+
+        // TODO(DUPLICATE_NULLIFIER_ISSUE): Nuke this log once the issue is resolved.
+        aztec::oracle::debug_log::debug_log_format("swap_exact_tokens_for_tokens end", []);
+        // NUKE_END
     }
 
     #[public]
