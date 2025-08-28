@@ -10,7 +10,7 @@ cd $(dirname $0)/..
 
 # Measure the benchmarks with ops time counting
 ./scripts/benchmark_remote.sh protogalaxy_bench\
-                              "BB_use_bb_bench=1 ./protogalaxy_bench --benchmark_filter=$FILTER\
+                              "BB_BENCH=1 ./protogalaxy_bench --benchmark_filter=$FILTER\
                                                   --benchmark_out=$TARGET.json\
                                                   --benchmark_out_format=json"\
                               clang20\
