@@ -95,7 +95,7 @@ TYPED_TEST(ShplonkRecursionTest, Simple)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
-TYPED_TEST(ShplonkRecursionTest, LineralyDependent)
+TYPED_TEST(ShplonkRecursionTest, LinearlyDependent)
 {
     using Builder = TypeParam;
     using Curve = stdlib::bn254<TypeParam>;
