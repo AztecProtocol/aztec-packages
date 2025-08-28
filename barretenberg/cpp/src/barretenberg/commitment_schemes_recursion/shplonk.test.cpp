@@ -89,6 +89,7 @@ TYPED_TEST(ShplonkRecursionTest, Simple)
     auto verifier_transcript = std::make_shared<Transcript>();
     verifier_transcript->load_proof(stdlib_proof);
     [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<Fr>("Init");
+    // To pass the origin tags: could either fix the witnesses of the claims or fiat shamir them to pass the origin tags
     [[maybe_unused]] auto batched_verifier_claim =
         ShplonkVerifier::reduce_verification(Commitment::one(&builder), stdlib_opening_claims, verifier_transcript);
 
