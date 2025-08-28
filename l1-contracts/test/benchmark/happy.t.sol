@@ -132,7 +132,10 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   uint256 internal PROOFS_PER_EPOCH; // given as e2, for simple decimals, e.g., 200 = 2.00
   uint256 internal VOTING_ROUND_SIZE = 500;
 
+  bool internal IS_IGNITION;
+
   Rollup internal rollup;
+  Slasher internal slasher;
 
   address internal coinbase = address(bytes20("MONEY MAKER"));
   TestERC20 internal asset;
@@ -191,7 +194,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
     asset = builder.getConfig().testERC20;
     rollup = builder.getConfig().rollup;
-    slashingProposer = Slasher(rollup.getSlasher()).PROPOSER();
+    slasher = Slasher(rollup.getSlasher());
+    slashingProposer = address(slasher) == address(0) ? address(0) : slasher.PROPOSER();
 
     SlashFactory slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
     address[] memory toSlash = new address[](0);
@@ -216,6 +220,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       MANA_TARGET = 0;
       TARGET_COMMITTEE_SIZE = 24;
       PROOFS_PER_EPOCH = 200; // 2.00
+
+      IS_IGNITION = true;
     } else {
       full = load("single_tx_block_1");
 
@@ -224,6 +230,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       MANA_TARGET = 1e8;
       TARGET_COMMITTEE_SIZE = 48;
       PROOFS_PER_EPOCH = 200; // 2.00
+
+      IS_IGNITION = false;
     }
 
     FeeLib.initialize(MANA_TARGET, EthValue.wrap(100));
@@ -460,9 +468,12 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     Slot nextSlot = Slot.wrap(EPOCH_DURATION * 3 + 1);
     Epoch nextEpoch = Epoch.wrap(4);
     bool warmedUp = false;
+
+    uint256 stopAtBlock = IS_IGNITION ? 200 : 150;
+
     // Loop through all of the L1 metadata
     for (uint256 i = 0; i < l1Metadata.length; i++) {
-      if (rollup.getPendingBlockNumber() >= 200) {
+      if (rollup.getPendingBlockNumber() >= stopAtBlock) {
         break;
       }
 

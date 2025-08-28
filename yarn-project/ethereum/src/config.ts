@@ -47,7 +47,7 @@ export type L1ContractsConfig = {
   slashingOffsetInRounds: number;
   /** Type of slasher proposer */
   slasherFlavor: 'empire' | 'tally';
-  /** Minimum slashing unit for consensus-based slashing (all slashes will be a 1-15x this value) */
+  /** Minimum slashing unit for consensus-based slashing (all slashes will be a 1-3x this value) */
   slashingUnit: bigint;
   /** Governance proposing quorum */
   governanceProposerQuorum: number;
@@ -69,9 +69,9 @@ export const DefaultL1ContractsConfig = {
   aztecProofSubmissionEpochs: 1, // you have a full epoch to submit a proof after the epoch to prove ends
   activationThreshold: BigInt(100e18),
   ejectionThreshold: BigInt(50e18),
-  slashingUnit: BigInt(5e18),
-  slashingQuorum: 101,
-  slashingRoundSize: 200,
+  slashingUnit: BigInt(20e18),
+  slashingRoundSize: 32 * 6, // 6 epochs
+  slashingQuorum: (32 * 6) / 2 + 1, // 6 epochs, majority of validators
   slashingLifetimeInRounds: 5,
   slashingExecutionDelayInRounds: 0, // round N may be submitted in round N + 1
   slashingVetoer: EthAddress.ZERO,
@@ -80,7 +80,7 @@ export const DefaultL1ContractsConfig = {
   manaTarget: BigInt(1e10),
   provingCostPerMana: BigInt(100),
   exitDelaySeconds: 2 * 24 * 60 * 60,
-  slasherFlavor: 'empire' as const,
+  slasherFlavor: 'tally' as const,
   slashingOffsetInRounds: 2,
 } satisfies L1ContractsConfig;
 
@@ -187,15 +187,17 @@ export const getRewardBoostConfig = (networkName: NetworkNames) => {
 const LocalEntryQueueConfig = {
   bootstrapValidatorSetSize: 0n,
   bootstrapFlushSize: 0n,
-  normalFlushSizeMin: 48n,
+  normalFlushSizeMin: 48n, // will effectively be bounded by maxQueueFlushSize
   normalFlushSizeQuotient: 2n,
+  maxQueueFlushSize: 48n,
 };
 
 const TestnetEntryQueueConfig = {
   bootstrapValidatorSetSize: 750n,
-  bootstrapFlushSize: 75n,
+  bootstrapFlushSize: 75n, // will effectively be bounded by maxQueueFlushSize
   normalFlushSizeMin: 1n,
   normalFlushSizeQuotient: 2475n,
+  maxQueueFlushSize: 32n, // Limited to 32 so flush cost are kept below 15M gas.
 };
 
 export const getEntryQueueConfig = (networkName: NetworkNames) => {
@@ -254,7 +256,7 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
   },
   slashingUnit: {
     env: 'AZTEC_SLASHING_UNIT',
-    description: 'Minimum slashing unit for consensus-based slashing (all slashes will be a 1-15x this value)',
+    description: 'Minimum slashing unit for consensus-based slashing (all slashes will be a 1-3x this value)',
     ...bigintConfigHelper(DefaultL1ContractsConfig.slashingUnit),
   },
   slashingQuorum: {

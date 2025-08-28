@@ -25,6 +25,7 @@ import {IGSE} from "@aztec/governance/GSE.sol";
 import {GSEPayload} from "@aztec/governance/GSEPayload.sol";
 import {TimeCheater} from "../../staking/TimeCheater.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
+import {UncompressedProposalWrapper} from "@test/governance/helpers/UncompressedProposalTestLib.sol";
 
 /**
  * @title UpgradeGovernanceProposerTest
@@ -32,7 +33,7 @@ import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
  * @notice A test that showcases an upgrade of the governance system, here the governanceProposer contract.
  */
 contract UpgradeGovernanceProposerTest is TestBase {
-  using ProposalLib for Proposal;
+  UncompressedProposalWrapper internal upw = new UncompressedProposalWrapper();
 
   TestERC20 internal token;
   Registry internal registry;
@@ -120,16 +121,16 @@ contract UpgradeGovernanceProposerTest is TestBase {
     governance.deposit(EMPEROR, 10_000 ether);
     vm.stopPrank();
 
-    vm.warp(Timestamp.unwrap(proposal.pendingThrough()) + 1);
+    vm.warp(Timestamp.unwrap(upw.pendingThrough(proposal)) + 1);
     assertTrue(governance.getProposalState(0) == ProposalState.Active);
 
     vm.prank(EMPEROR);
     governance.vote(0, 10_000 ether, true);
 
-    vm.warp(Timestamp.unwrap(proposal.activeThrough()) + 1);
+    vm.warp(Timestamp.unwrap(upw.activeThrough(proposal)) + 1);
     assertTrue(governance.getProposalState(0) == ProposalState.Queued);
 
-    vm.warp(Timestamp.unwrap(proposal.queuedThrough()) + 1);
+    vm.warp(Timestamp.unwrap(upw.queuedThrough(proposal)) + 1);
     assertTrue(governance.getProposalState(0) == ProposalState.Executable);
     assertEq(governance.governanceProposer(), address(governanceProposer));
 

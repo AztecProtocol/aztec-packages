@@ -16,6 +16,7 @@ gas_reports = [
   "CoinIssuer",
   "FeeJuicePortal",
   "Governance",
+  "TestGov",
   "GovernanceProposer",
   "GSE",
   "Inbox",
@@ -29,6 +30,7 @@ gas_reports = [
   "RollupWithPreheating",
   "EmpireSlashingProposer",
   "TallySlashingProposer",
+  "MultiAdder"
 ]
 
 remappings = [
@@ -36,38 +38,37 @@ remappings = [
   "@aztec/=src",
   "@test/=test",
   "@zkpassport/=lib/circuits/src/solidity/src/",
-  "@zkpassport-test/=lib/circuits/src/solidity/test"
+  "@zkpassport-test/=lib/circuits/src/solidity/test",
 ]
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
 
 fs_permissions = [
-  {access = "read", path = "./test/fixtures/bn254_constants.json"},
-  {access = "read", path = "./test/fixtures/mixed_block_1.json"},
-  {access = "read", path = "./test/fixtures/mixed_block_2.json"},
-  {access = "read", path = "./test/fixtures/single_tx_block_1.json"},
-  {access = "read", path = "./test/fixtures/single_tx_block_2.json"},
-  {access = "read", path = "./test/fixtures/empty_block_1.json"},
-  {access = "read", path = "./test/fixtures/empty_block_2.json"},
-  {access = "read", path = "./test/fixtures/fee_data_points.json"},
-  {access = "read", path = "./test/staking_asset_handler/zkpassport/fixtures/valid_proof.hex"},
-  {access = "read", path = "./test/staking_asset_handler/zkpassport/fixtures/valid_committed_inputs.hex"},
-  {access = "read", path = "./test/staking_asset_handler/zkpassport/fixtures/valid_public_inputs.json"},
-  {access = "read", path = "./test/fixtures/boosted_rewards/shares.json"},
-  {access = "read", path = "./test/fixtures/boosted_rewards/activity_scores.json"},
-  {access = "read", path = "./script/registration_data.json"},
+  { access = "read", path = "./test/fixtures/bn254_constants.json" },
+  { access = "read", path = "./test/fixtures/mixed_block_1.json" },
+  { access = "read", path = "./test/fixtures/mixed_block_2.json" },
+  { access = "read", path = "./test/fixtures/single_tx_block_1.json" },
+  { access = "read", path = "./test/fixtures/single_tx_block_2.json" },
+  { access = "read", path = "./test/fixtures/empty_block_1.json" },
+  { access = "read", path = "./test/fixtures/empty_block_2.json" },
+  { access = "read", path = "./test/fixtures/fee_data_points.json" },
+  { access = "read", path = "./test/staking_asset_handler/zkpassport/fixtures/valid_proof.hex" },
+  { access = "read", path = "./test/staking_asset_handler/zkpassport/fixtures/valid_committed_inputs.hex" },
+  { access = "read", path = "./test/staking_asset_handler/zkpassport/fixtures/valid_public_inputs.json" },
+  { access = "read", path = "./test/fixtures/boosted_rewards/shares.json" },
+  { access = "read", path = "./test/fixtures/boosted_rewards/activity_scores.json" },
+  { access = "read", path = "./script/registration_data.json" },
 ]
 
-no_match_contract="(ScreamAndShoutTest|UniswapPortalTest|MerkleCheck)"
+no_match_contract = "(ScreamAndShoutTest|UniswapPortalTest|MerkleCheck)"
 
 [fmt]
 line_length = 120
 tab_width = 2
-variable_override_spacing=false
+variable_override_spacing = false
 wrap_comments = true
 number_underscore = "thousands"
 override_spacing = false
 
 [rpc_endpoints]
-mainnet_fork="https://mainnet.infura.io/v3/9928b52099854248b3a096be07a6b23c"
-
+mainnet_fork = "https://mainnet.infura.io/v3/9928b52099854248b3a096be07a6b23c"

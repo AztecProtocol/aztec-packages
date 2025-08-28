@@ -206,7 +206,10 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         accumulator->relation_parameters = relation_parameters;
         accumulator->alphas = alphas;
 
-        auto deltas = compute_round_challenge_pows(log_size, FF::random_element());
+        std::vector<FF> deltas(log_size);
+        for (size_t idx = 0; idx < log_size; idx++) {
+            deltas[idx] = FF::random_element();
+        }
         auto perturbator = pg_internal.compute_perturbator(accumulator, deltas);
 
         // Ensure the constant coefficient of the perturbator is equal to the target sum as indicated by the paper

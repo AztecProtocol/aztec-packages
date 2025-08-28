@@ -3,6 +3,7 @@
 pragma solidity >=0.8.27;
 
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
+import {Ballot} from "@aztec/governance/libraries/compressed-data/Ballot.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 
 // @notice if this changes, please update the enum in governance.ts
@@ -34,13 +35,20 @@ struct Configuration {
   uint256 minimumVotes;
 }
 
-struct Ballot {
-  uint256 yea;
-  uint256 nay;
+// Configuration for proposals - same as Configuration but without proposeConfig
+// since proposeConfig is only used for proposeWithLock, not for the proposal itself
+struct ProposalConfiguration {
+  Timestamp votingDelay;
+  Timestamp votingDuration;
+  Timestamp executionDelay;
+  Timestamp gracePeriod;
+  uint256 quorum;
+  uint256 requiredYeaMargin;
+  uint256 minimumVotes;
 }
 
 struct Proposal {
-  Configuration config;
+  ProposalConfiguration config;
   ProposalState cachedState;
   IPayload payload;
   address proposer;
@@ -95,4 +103,5 @@ interface IGovernance {
   function getConfiguration() external view returns (Configuration memory);
   function getProposal(uint256 _proposalId) external view returns (Proposal memory);
   function getWithdrawal(uint256 _withdrawalId) external view returns (Withdrawal memory);
+  function getBallot(uint256 _proposalId, address _user) external view returns (Ballot memory);
 }

@@ -145,7 +145,6 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       slashInactivitySignalTargetPercentage: 0.5,
       slashInactivityCreatePenalty: 1000n,
       slashInactivityMaxPenalty: 1000n,
-      slashProposerRoundPollingIntervalSeconds: 1000,
       secondsBeforeInvalidatingBlockAsCommitteeMember: 0,
       secondsBeforeInvalidatingBlockAsNonCommitteeMember: 0,
       slashProposeInvalidAttestationsPenalty: 1000n,
@@ -157,7 +156,7 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       slashUnknownPenalty: 1000n,
       slashUnknownMaxPenalty: 1000n,
       slashGracePeriodL2Slots: 0,
-      slasherClientType: 'empire' as const,
+      slasherClientType: 'tally' as const,
     });
   }
   startSnapshotUpload(_location: string): Promise<void> {
