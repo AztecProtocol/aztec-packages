@@ -14,6 +14,26 @@ namespace acir_format {
 
 using namespace bb;
 
+/**
+ * @brief Create constraints to verify an ECDSA signature
+ *
+ * @details Given and ECDSA constraint system, add to the builder constraints that verify the ECDSA signature. We
+ * perform the following operations:
+ *  1. Reconstruct byte arrays from builder variables (we enforce that each variable fits in one byte and stack them in
+ *     a vector) and boolean result from the corresponding builder variable
+ *  2. Reconstruct the public key from the byte representations (big-endian, 32-byte numbers) of the \f$x\f$ and \f$y\f$
+ *     coordinates.
+ *  3. Enforce uniquess of the representation of the public key by asserting \f$x < q\f$ and \f$y < q\f$, where \f$q\f$
+ * is the modulus of the base field of the elliptic curve we are working with
+ *  4. Verify the signature against the public key and the hash of the message. We return a bool_t bearing witness to
+ *     whether the signature verification was successfull or not.
+ *  5. Enforce that the result of the signature verification matches the expected result.
+ *
+ * @tparam Curve
+ * @param builder
+ * @param input
+ * @param has_valid_witness_assignments
+ */
 template <typename Curve>
 void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
                                      const EcdsaConstraint& input,
@@ -57,27 +77,32 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
             builder, hashed_message_fields, r_fields, s_fields, pub_x_fields, pub_y_fields, result_field);
     }
 
+    // Step 1.
     // Construct inputs to signature verification from witness indices
     byte_array_ct hashed_message = fields_to_bytes(builder, hashed_message_fields);
     byte_array_ct pub_x_bytes = fields_to_bytes(builder, pub_x_fields);
     byte_array_ct pub_y_bytes = fields_to_bytes(builder, pub_y_fields);
     byte_array_ct r = fields_to_bytes(builder, r_fields);
     byte_array_ct s = fields_to_bytes(builder, s_fields);
-    bool_ct result = static_cast<bool_ct>(result_field);
+    bool_ct result = static_cast<bool_ct>(result_field); // Constructor enforces result_field = 0 or 1
 
+    // Step 2.
     // Reconstruct the public key from the byte representations of its coordinates
     Fq pub_x(pub_x_bytes);
     Fq pub_y(pub_y_bytes);
     G1 public_key(pub_x, pub_y);
 
+    // Step 3.
     // Ensure uniqueness of the public key by asserting each of its coordinates is smaller than the modulus of the base
     // field
     pub_x.assert_is_in_field();
     pub_y.assert_is_in_field();
 
+    // Step 4.
     bool_ct signature_result = stdlib::ecdsa_verify_signature_prehashed_message_noassert<Builder, Curve, Fq, Fr, G1>(
         hashed_message, public_key, { r, s });
 
+    // Step 5.
     // Assert that signature verification returned the expected result
     signature_result.assert_equal(result);
 }

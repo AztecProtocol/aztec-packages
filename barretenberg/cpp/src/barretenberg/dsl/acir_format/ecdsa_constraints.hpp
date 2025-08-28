@@ -36,7 +36,7 @@ struct EcdsaConstraint {
     // The signature
     std::array<uint32_t, 64> signature;
 
-    // The public key against which the signature must be verifid.
+    // The public key against which the signature must be verified.
     // Since Fr does not have enough bits to represent the prime field in
     // secp256k1 or secp256r1, a byte array is used.
     std::array<uint32_t, 32> pub_x_indices;
