@@ -327,6 +327,7 @@ export class PXEService implements PXE {
     return !!(await this.node.getNullifierMembershipWitness('latest', initNullifier));
   }
 
+  // TODO: how to give configurability over `hideMsgSender`? Do I have to expose it as a parameter to this function?
   async #getFunctionCall(functionName: string, args: any[], to: AztecAddress): Promise<FunctionCall> {
     const contract = await this.contractDataProvider.getContract(to);
     if (!contract) {
@@ -346,6 +347,7 @@ export class PXEService implements PXE {
       selector: await FunctionSelector.fromNameAndParameters(functionDao.name, functionDao.parameters),
       type: functionDao.functionType,
       to,
+      hideMsgSender: false, // TODO: this should be parametrised.
       isStatic: functionDao.isStatic,
       returnTypes: functionDao.returnTypes,
     };

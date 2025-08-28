@@ -1,5 +1,12 @@
 import { ExecutionPayload } from '@aztec/entrypoints/payload';
-import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi, encodeArguments } from '@aztec/stdlib/abi';
+import {
+  type FunctionAbi,
+  FunctionCall,
+  FunctionSelector,
+  FunctionType,
+  decodeFromAbi,
+  encodeArguments,
+} from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
@@ -94,14 +101,15 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   public override async request(options: RequestMethodOptions = {}): Promise<ExecutionPayload> {
     // docs:end:request
     const args = encodeArguments(this.functionDao, this.args);
-    const calls = [
+    const calls: [FunctionCall] = [
       {
         name: this.functionDao.name,
-        args,
+        to: this.contractAddress,
         selector: await FunctionSelector.fromNameAndParameters(this.functionDao.name, this.functionDao.parameters),
         type: this.functionDao.functionType,
-        to: this.contractAddress,
+        hideMsgSender: false /** Only set to `true` for enqueued public function calls */,
         isStatic: this.functionDao.isStatic,
+        args,
         returnTypes: this.functionDao.returnTypes,
       },
     ];

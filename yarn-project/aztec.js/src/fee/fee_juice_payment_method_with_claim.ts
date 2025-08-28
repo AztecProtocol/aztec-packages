@@ -35,6 +35,7 @@ export class FeeJuicePaymentMethodWithClaim extends FeeJuicePaymentMethod {
           to: ProtocolContractAddress.FeeJuice,
           name: 'claim',
           selector,
+          hideMsgSender: false,
           isStatic: false,
           args: [
             this.senderWallet.getAddress().toField(),

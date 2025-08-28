@@ -88,6 +88,7 @@ describe('Utility Execution test suite', () => {
         to: contractAddress,
         selector: FunctionSelector.empty(),
         type: FunctionType.UTILITY,
+        hideMsgSender: false,
         isStatic: false,
         args: encodeArguments(artifact, [owner]),
         returnTypes: artifact.returnTypes,
