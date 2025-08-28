@@ -441,7 +441,7 @@ void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
     // Now we can compute lookups and permutations.
     {
         auto jobs_interactions =
-            concatenate_jobs(MemoryTraceBuilder::get_all_jobs(),
+            concatenate_jobs(MemoryTraceBuilder::interactions.get_all_jobs(),
                              TxTraceBuilder::interactions.get_all_jobs(),
                              ExecutionTraceBuilder::interactions.get_all_jobs(),
                              AluTraceBuilder::interactions.get_all_jobs(),
@@ -460,7 +460,6 @@ void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
                              PublicDataTreeTraceBuilder::interactions.get_all_jobs(),
                              UpdateCheckTraceBuilder::interactions.get_all_jobs(),
                              NullifierTreeCheckTraceBuilder::interactions.get_all_jobs(),
-                             MemoryTraceBuilder::interactions.get_all_jobs(),
                              DataCopyTraceBuilder::interactions.get_all_jobs(),
                              CalldataTraceBuilder::interactions.get_all_jobs(),
                              NoteHashTreeCheckTraceBuilder::interactions.get_all_jobs(),

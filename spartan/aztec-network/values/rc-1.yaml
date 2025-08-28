@@ -60,4 +60,4 @@ bot:
       cpu: 7
 
 web3signer:
-  enabled: true
+  enabled: false

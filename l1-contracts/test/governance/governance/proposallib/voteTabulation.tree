@@ -19,8 +19,6 @@ VoteTabulationTest
                 ├── when differential config invalid
                 │   ├── when yea limit eq 0
                 │   │   └── it return (Invalid, YeaLimitEqZero)
-                │   ├── when yea limit gt uint256 max
-                │   │   └── it revert
                 │   └── when yea limit gt votes cast
                 │       └── it return (Invalid, YeaLimitGtVotesCast)
                 └── when differential config valid
