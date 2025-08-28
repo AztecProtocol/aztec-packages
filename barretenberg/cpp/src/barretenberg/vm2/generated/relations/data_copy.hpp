@@ -14,9 +14,9 @@ template <typename FF_> class data_copyImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 33> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 2, 3, 3, 3, 3, 3, 3, 3, 5,
-                                                                            3, 5, 7, 5, 3, 3, 4, 6, 3, 3, 6,
-                                                                            6, 3, 4, 5, 4, 5, 5, 6, 5, 5, 6 };
+    static constexpr std::array<size_t, 34> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 5,
+                                                                            7, 5, 3, 3, 4, 6, 3, 3, 6, 6, 3, 4,
+                                                                            5, 4, 5, 5, 6, 5, 5, 6, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -41,56 +41,56 @@ template <typename FF> class data_copy : public Relation<data_copyImpl<FF>> {
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case 10:
+        case 9:
             return "TOP_LEVEL_COND";
-        case 13:
+        case 12:
             return "SRC_OUT_OF_RANGE";
-        case 14:
+        case 13:
             return "DST_OUT_OF_RANGE";
-        case 17:
+        case 16:
             return "START_AFTER_END";
-        case 18:
+        case 17:
             return "END_WRITE_CONDITION";
-        case 19:
+        case 18:
             return "END_ON_ERR";
-        case 22:
+        case 21:
             return "INIT_READS_LEFT";
-        case 24:
+        case 23:
             return "DECR_COPY_SIZE";
-        case 25:
+        case 24:
             return "INCR_WRITE_ADDR";
-        case 26:
+        case 25:
             return "INIT_READ_ADDR";
-        case 27:
+        case 26:
             return "INCR_READ_ADDR";
-        case 28:
+        case 27:
             return "DECR_READ_COUNT";
-        case 29:
+        case 28:
             return "PADDING_CONDITION";
-        case 31:
+        case 30:
             return "PAD_VALUE";
-        case 32:
+        case 31:
             return "CD_COPY_COLUMN";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_TOP_LEVEL_COND = 10;
-    static constexpr size_t SR_SRC_OUT_OF_RANGE = 13;
-    static constexpr size_t SR_DST_OUT_OF_RANGE = 14;
-    static constexpr size_t SR_START_AFTER_END = 17;
-    static constexpr size_t SR_END_WRITE_CONDITION = 18;
-    static constexpr size_t SR_END_ON_ERR = 19;
-    static constexpr size_t SR_INIT_READS_LEFT = 22;
-    static constexpr size_t SR_DECR_COPY_SIZE = 24;
-    static constexpr size_t SR_INCR_WRITE_ADDR = 25;
-    static constexpr size_t SR_INIT_READ_ADDR = 26;
-    static constexpr size_t SR_INCR_READ_ADDR = 27;
-    static constexpr size_t SR_DECR_READ_COUNT = 28;
-    static constexpr size_t SR_PADDING_CONDITION = 29;
-    static constexpr size_t SR_PAD_VALUE = 31;
-    static constexpr size_t SR_CD_COPY_COLUMN = 32;
+    static constexpr size_t SR_TOP_LEVEL_COND = 9;
+    static constexpr size_t SR_SRC_OUT_OF_RANGE = 12;
+    static constexpr size_t SR_DST_OUT_OF_RANGE = 13;
+    static constexpr size_t SR_START_AFTER_END = 16;
+    static constexpr size_t SR_END_WRITE_CONDITION = 17;
+    static constexpr size_t SR_END_ON_ERR = 18;
+    static constexpr size_t SR_INIT_READS_LEFT = 21;
+    static constexpr size_t SR_DECR_COPY_SIZE = 23;
+    static constexpr size_t SR_INCR_WRITE_ADDR = 24;
+    static constexpr size_t SR_INIT_READ_ADDR = 25;
+    static constexpr size_t SR_INCR_READ_ADDR = 26;
+    static constexpr size_t SR_DECR_READ_COUNT = 27;
+    static constexpr size_t SR_PADDING_CONDITION = 28;
+    static constexpr size_t SR_PAD_VALUE = 30;
+    static constexpr size_t SR_CD_COPY_COLUMN = 31;
 };
 
 } // namespace bb::avm2

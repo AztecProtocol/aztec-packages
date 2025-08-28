@@ -1173,6 +1173,8 @@ void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_
           .contract_addr = parent_context.get_address(),
           .bytecode_id = parent_context.get_bytecode_manager().try_get_bytecode_id().value_or(FF(0)),
           .is_static = parent_context.get_is_static(),
+          .parent_cd_addr = parent_context.get_parent_cd_addr(),
+          .parent_cd_size = parent_context.get_parent_cd_size(),
           .parent_gas_used = parent_context.get_parent_gas_used(),
           .parent_gas_limit = parent_context.get_parent_gas_limit(),
           .tree_states = merkle_db.get_tree_state(),
