@@ -1,5 +1,7 @@
 include "context_stack.pil";
 
+// TODO: Usage of sel_error in this whole file has to be reconsidered.
+
 // This is a virtual gadget, which is part of the execution trace.
 // This subtrace is focused on managing the changes to the context.
 // By default (i.e. when not executing a context-changing opcode),
@@ -12,12 +14,12 @@ namespace execution;
 
     // Guaranteed to be boolean because sel_execute_call & sel_execute_static_call are mutually exclusive
     pol commit sel_enter_call;
-    // Handle error separately since it takes priority and may occur during an sel_x_call
-    sel_enter_call = (sel_execute_call + sel_execute_static_call) * (1 - sel_error);
+    // The following selectors will be 0 if there is an error during execution (before the opcode execution step).
+    sel_enter_call = sel_execute_call + sel_execute_static_call;
     // CALL & precomputed.first_row are mutually exclusive
     sel_enter_call * precomputed.first_row = 0;
 
-    // sel_exit_call is used to flag if we are returning or reverting or we error
+    // sel_exit_call is used to flag if we are returning or reverting or there has been ANY error during execution
     // sel_execute_revert & sel_execute_return are mutually exclusive
     pol commit sel_exit_call;
     sel_exit_call = 1 - (1 - sel_execute_revert - sel_execute_return) * (1 - sel_error);
