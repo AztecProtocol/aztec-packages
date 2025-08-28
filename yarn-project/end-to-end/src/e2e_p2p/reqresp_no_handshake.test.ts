@@ -41,6 +41,8 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
         p2pDisableStatusHandshake: true, // DIFFERENCE FROM reqresp.test.ts
         listenAddress: '127.0.0.1',
         aztecEpochDuration: 64, // stable committee
+        slashingRoundSize: 128,
+        slashingQuorum: 65,
       },
     });
     await t.applyBaseSnapshots();

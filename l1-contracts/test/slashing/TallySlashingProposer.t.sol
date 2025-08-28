@@ -595,4 +595,271 @@ contract TallySlashingProposerTest is TestBase {
     );
     slashingProposer.getRound(futureSlashRound);
   }
+
+  function test_voteStorageAndLoadingRoundTrip() public {
+    // Test that vote data is correctly stored and loaded without corruption
+    _jumpToSlashRound(FIRST_SLASH_ROUND);
+
+    // Create specific vote pattern to verify byte ordering
+    uint8[] memory slashAmounts = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
+    // Set specific patterns that would reveal byte order issues
+    slashAmounts[0] = 1; // First validator, 1 unit
+    slashAmounts[1] = 2; // Second validator, 2 units
+    slashAmounts[2] = 3; // Third validator, 3 units
+    slashAmounts[3] = 0; // Fourth validator, no slash
+    slashAmounts[4] = 1; // Fifth validator, 1 unit
+    slashAmounts[5] = 2; // Sixth validator, 2 units
+    slashAmounts[6] = 3; // Seventh validator, 3 units
+    slashAmounts[7] = 0; // Eighth validator, no slash
+
+    _castVote(slashAmounts);
+
+    // Retrieve the stored vote data
+    SlashRound currentRound = slashingProposer.getCurrentRound();
+    bytes memory storedVote = slashingProposer.getVotes(currentRound, 0);
+
+    // Verify the vote data matches what we sent
+    bytes memory expectedVote = _createVoteData(slashAmounts);
+    assertEq(storedVote.length, expectedVote.length, "Vote data length mismatch");
+
+    // Verify byte-by-byte to ensure no corruption
+    for (uint256 i = 0; i < expectedVote.length; i++) {
+      assertEq(uint8(storedVote[i]), uint8(expectedVote[i]), string.concat("Byte mismatch at index ", vm.toString(i)));
+    }
+  }
+
+  function test_partialChunkVoteStorage() public {
+    // Test storage of vote data that doesn't align to 32-byte boundaries
+    _jumpToSlashRound(FIRST_SLASH_ROUND);
+
+    // For a smaller committee that doesn't fill all chunks evenly
+    // COMMITTEE_SIZE=4, ROUND_SIZE_IN_EPOCHS=2, so we have 8 validators = 2 bytes of vote data
+    uint8[] memory slashAmounts = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
+    for (uint256 i = 0; i < slashAmounts.length; i++) {
+      slashAmounts[i] = uint8((i % 3) + 1); // Pattern: 1,2,3,1,2,3,1,2
+    }
+
+    _castVote(slashAmounts);
+
+    // Verify stored data
+    SlashRound currentRound = slashingProposer.getCurrentRound();
+    bytes memory storedVote = slashingProposer.getVotes(currentRound, 0);
+    bytes memory expectedVote = _createVoteData(slashAmounts);
+
+    assertEq(storedVote.length, expectedVote.length, "Stored vote length incorrect");
+    assertEq(storedVote, expectedVote, "Stored vote data incorrect");
+
+    // Verify no memory corruption: check that extra bytes beyond expectedLength are not included
+    // Even though we allocate rounded-up memory, the returned array should have correct length
+    assertTrue(storedVote.length == 2, "Vote data should be exactly 2 bytes");
+
+    // Verify the actual content byte-by-byte
+    for (uint256 i = 0; i < expectedVote.length; i++) {
+      assertEq(uint8(storedVote[i]), uint8(expectedVote[i]), string.concat("Byte mismatch at index ", vm.toString(i)));
+    }
+  }
+
+  function test_validatorIndexMapping() public {
+    // Test that validator indices map correctly to committees and epochs
+    // Jump far enough so committees are available for the target epochs
+    _jumpToSlashRound(10);
+
+    // Create a vote where only specific validators are slashed
+    uint8[] memory slashAmounts = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
+
+    // Slash validators at specific indices to verify mapping
+    // Validator 0 (first validator of first epoch): 3 units
+    slashAmounts[0] = 3;
+    // Validator 4 (first validator of second epoch): 2 units
+    slashAmounts[4] = 2;
+    // Validator 7 (last validator of second epoch): 1 unit
+    slashAmounts[7] = 1;
+
+    // Cast QUORUM votes to execute slashing
+    for (uint256 i = 0; i < QUORUM; i++) {
+      _castVote(slashAmounts);
+      if (i < QUORUM - 1) {
+        timeCheater.cheat__progressSlot();
+      }
+    }
+
+    // Jump to execution time
+    SlashRound targetRound = slashingProposer.getCurrentRound();
+    uint256 executionSlot = (SlashRound.unwrap(targetRound) + EXECUTION_DELAY_IN_ROUNDS + 1) * ROUND_SIZE;
+    timeCheater.cheat__jumpToSlot(executionSlot);
+
+    // Get committees for verification
+    address[][] memory committees = slashingProposer.getSlashTargetCommittees(targetRound);
+
+    // Execute and check the tally
+    TallySlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(targetRound, committees);
+
+    // Verify correct validators were identified for slashing
+    assertEq(actions.length, 3, "Should have 3 validators to slash");
+
+    // Check that the right validators are slashed with correct amounts
+    bool foundValidator0 = false;
+    bool foundValidator4 = false;
+    bool foundValidator7 = false;
+
+    for (uint256 i = 0; i < actions.length; i++) {
+      if (actions[i].validator == committees[0][0]) {
+        foundValidator0 = true;
+        assertEq(actions[i].slashAmount, 3 * SLASHING_UNIT, "Validator 0 slash amount incorrect");
+      } else if (actions[i].validator == committees[1][0]) {
+        foundValidator4 = true;
+        assertEq(actions[i].slashAmount, 2 * SLASHING_UNIT, "Validator 4 slash amount incorrect");
+      } else if (actions[i].validator == committees[1][3]) {
+        foundValidator7 = true;
+        assertEq(actions[i].slashAmount, 1 * SLASHING_UNIT, "Validator 7 slash amount incorrect");
+      }
+    }
+
+    assertTrue(foundValidator0, "Validator 0 not found in slash actions");
+    assertTrue(foundValidator4, "Validator 4 not found in slash actions");
+    assertTrue(foundValidator7, "Validator 7 not found in slash actions");
+  }
+
+  function test_32ByteChunkProcessing() public {
+    // Test processing of full 32-byte chunks for vote data
+    // This would require a large committee size, so we'll test the pattern
+    _jumpToSlashRound(FIRST_SLASH_ROUND);
+
+    // Create a repeating pattern across all validators
+    uint8[] memory slashAmounts = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
+    for (uint256 i = 0; i < slashAmounts.length; i++) {
+      // Create pattern: 0,1,2,3,0,1,2,3...
+      slashAmounts[i] = uint8(i % 4);
+    }
+
+    // Cast vote and verify it was stored
+    _castVote(slashAmounts);
+
+    SlashRound currentRound = slashingProposer.getCurrentRound();
+    bytes memory storedVote = slashingProposer.getVotes(currentRound, 0);
+
+    // Verify the pattern is preserved
+    bytes memory expectedVote = _createVoteData(slashAmounts);
+    assertEq(storedVote, expectedVote, "32-byte chunk processing failed");
+  }
+
+  function test_tallyMatrixPackingOverflow() public {
+    // Test that the tally matrix doesn't overflow with maximum votes
+    // With MAX_ROUND_SIZE=1024, we should be safe from overflow
+    _jumpToSlashRound(10);
+
+    uint8[] memory slashAmounts = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
+    slashAmounts[0] = 3; // Slash first validator with maximum units
+
+    // Cast maximum number of votes (up to ROUND_SIZE)
+    // In practice, limited by ROUND_SIZE slots
+    uint256 maxVotes = ROUND_SIZE < 100 ? ROUND_SIZE : 100; // Cap at reasonable number for test
+    for (uint256 i = 0; i < maxVotes; i++) {
+      _castVote(slashAmounts);
+      if (i < maxVotes - 1) {
+        timeCheater.cheat__progressSlot();
+      }
+    }
+
+    // Verify vote count
+    SlashRound currentRound = slashingProposer.getCurrentRound();
+    (,, uint256 voteCount) = slashingProposer.getRound(currentRound);
+    assertEq(voteCount, maxVotes, "Vote count incorrect");
+
+    // Jump to execution time
+    uint256 executionSlot = (SlashRound.unwrap(currentRound) + EXECUTION_DELAY_IN_ROUNDS + 1) * ROUND_SIZE;
+    timeCheater.cheat__jumpToSlot(executionSlot);
+
+    // Get tally - should not overflow
+    address[][] memory committees = slashingProposer.getSlashTargetCommittees(currentRound);
+    TallySlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(currentRound, committees);
+
+    // Should have slashed the first validator
+    assertEq(actions.length, 1, "Should slash exactly one validator");
+    assertEq(actions[0].slashAmount, 3 * SLASHING_UNIT, "Slash amount incorrect");
+  }
+
+  function test_emptyVoteProcessing() public {
+    // Test that empty votes (all zeros) are handled correctly
+    _jumpToSlashRound(10);
+
+    uint8[] memory slashAmounts = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
+    // All zeros - no one should be slashed
+
+    // Cast QUORUM empty votes
+    for (uint256 i = 0; i < QUORUM; i++) {
+      _castVote(slashAmounts);
+      if (i < QUORUM - 1) {
+        timeCheater.cheat__progressSlot();
+      }
+    }
+
+    // Jump to execution time
+    SlashRound currentRound = slashingProposer.getCurrentRound();
+    uint256 executionSlot = (SlashRound.unwrap(currentRound) + EXECUTION_DELAY_IN_ROUNDS + 1) * ROUND_SIZE;
+    timeCheater.cheat__jumpToSlot(executionSlot);
+
+    // Get tally - should be empty
+    address[][] memory committees = slashingProposer.getSlashTargetCommittees(currentRound);
+    TallySlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(currentRound, committees);
+
+    assertEq(actions.length, 0, "No validators should be slashed with empty votes");
+  }
+
+  function test_cumulativeVotingLogic() public {
+    // Test cumulative voting: vote for 3 units counts as votes for 2 and 1 unit as well
+    _jumpToSlashRound(10);
+
+    uint8[] memory slashAmounts = new uint8[](COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS);
+
+    // Vote patterns to test cumulative logic:
+    // Cumulative voting means: a vote for N units also counts toward quorum for amounts < N
+    // Validator 0: 3 votes for 3 units (reaches quorum for 3 units since 3 >= QUORUM)
+    // Validator 1: 2 votes for 2 units, 1 vote for 1 unit (reaches quorum for 1 unit with cumulative: 2+1=3)
+    // Validator 2: 3 votes for 1 unit (reaches quorum for 1 unit)
+
+    // Vote 1: 3 units for validator 0, 2 units for validator 1, 1 unit for validator 2
+    slashAmounts[0] = 3;
+    slashAmounts[1] = 2;
+    slashAmounts[2] = 1;
+    _castVote(slashAmounts);
+    timeCheater.cheat__progressSlot();
+
+    // Vote 2: 3 units for validator 0, 2 units for validator 1, 1 unit for validator 2
+    _castVote(slashAmounts);
+    timeCheater.cheat__progressSlot();
+
+    // Vote 3: 3 units for validator 0, 1 unit for validators 1 and 2
+    slashAmounts[0] = 3;
+    slashAmounts[1] = 1;
+    slashAmounts[2] = 1;
+    _castVote(slashAmounts);
+
+    // Jump to execution time
+    SlashRound currentRound = slashingProposer.getCurrentRound();
+    uint256 executionSlot = (SlashRound.unwrap(currentRound) + EXECUTION_DELAY_IN_ROUNDS + 1) * ROUND_SIZE;
+    timeCheater.cheat__jumpToSlot(executionSlot);
+
+    // Get tally
+    address[][] memory committees = slashingProposer.getSlashTargetCommittees(currentRound);
+    TallySlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(currentRound, committees);
+
+    // All three validators should be slashed
+    assertEq(actions.length, 3, "Should slash three validators");
+
+    // Verify slash amounts match cumulative voting logic
+    // With cumulative voting: votes for N units count toward quorum for all amounts <= N
+    for (uint256 i = 0; i < actions.length; i++) {
+      if (actions[i].validator == committees[0][0]) {
+        // 3 votes for 3 units -> reaches quorum at 3 units
+        assertEq(actions[i].slashAmount, 3 * SLASHING_UNIT, "Validator 0 should be slashed for 3 units");
+      } else if (actions[i].validator == committees[0][1]) {
+        // 2 votes for 2 units + 1 vote for 1 unit -> with cumulative, reaches quorum at 1 unit
+        assertEq(actions[i].slashAmount, 1 * SLASHING_UNIT, "Validator 1 should be slashed for 1 unit");
+      } else if (actions[i].validator == committees[0][2]) {
+        // 3 votes for 1 unit -> reaches quorum at 1 unit
+        assertEq(actions[i].slashAmount, 1 * SLASHING_UNIT, "Validator 2 should be slashed for 1 unit");
+      }
+    }
+  }
 }
