@@ -97,7 +97,7 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
     constexpr std::array<uint64_t, NUMBER_OF_POSSIBLE_OPCODES> possible_opcode_values = { 3, 4, 8 };
 
     // Assign random opcode values
-    for (size_t i = 2; i < mini_circuit_size; i++) {
+    for (size_t i = 2; i < mini_circuit_size; i += 2) {
         prover_polynomials.op.at(i) =
             possible_opcode_values[static_cast<size_t>(engine.get_random_uint8() % NUMBER_OF_POSSIBLE_OPCODES)];
     }

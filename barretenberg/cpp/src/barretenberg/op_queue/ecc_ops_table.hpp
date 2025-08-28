@@ -327,8 +327,7 @@ class UltraEccOpsTable {
         column_polynomials[1].at(row_idx) = op.x_lo;
         column_polynomials[2].at(row_idx) = op.x_hi;
         column_polynomials[3].at(row_idx) = op.y_lo;
-        column_polynomials[0].at(row_idx + 1) =
-            !op.op_code.is_random_op ? op.op_code.value() : op.op_code.random_value_2;
+        column_polynomials[0].at(row_idx + 1) = !op.op_code.is_random_op ? 0 : op.op_code.random_value_2;
         column_polynomials[1].at(row_idx + 1) = op.y_hi;
         column_polynomials[2].at(row_idx + 1) = op.z_1;
         column_polynomials[3].at(row_idx + 1) = op.z_2;

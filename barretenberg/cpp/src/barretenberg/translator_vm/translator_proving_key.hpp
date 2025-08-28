@@ -74,7 +74,6 @@ class TranslatorProvingKey {
         // at the end.
         for (size_t idx = Flavor::NUM_OP_QUEUE_WIRES; idx < wires.size(); idx++) {
             auto& wire = wires[idx];
-            info("wire end index: ", wire.end_index());
             for (size_t i = wire.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; i < wire.end_index(); i++) {
                 wire.at(i) = FF::random_element();
             }
