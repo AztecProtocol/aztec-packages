@@ -91,6 +91,11 @@ resource "helm_release" "eth_devnet" {
     value = var.MNEMONIC
   }
 
+  set {
+    name  = "fullnameOverride"
+    value = var.RELEASE_PREFIX
+  }
+
   timeout       = 300
   wait          = true
   wait_for_jobs = false

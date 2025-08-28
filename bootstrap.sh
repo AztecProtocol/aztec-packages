@@ -447,9 +447,9 @@ case "$cmd" in
   "ci-network-scenario")
     export CI=1
     export USE_TEST_CACHE=1
-    export CI_SCENARIO_TEST=1
     build
-    spartan/bootstrap.sh test
+    spartan/bootstrap.sh scenario_network $NETWORK_ENV_FILE
+    spartan/bootstrap.sh scenario_tests
     ;;
   "ci-release")
     export CI=1

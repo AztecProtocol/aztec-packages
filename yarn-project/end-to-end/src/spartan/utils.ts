@@ -9,31 +9,19 @@ import path from 'path';
 import { promisify } from 'util';
 import { z } from 'zod';
 
-export const RPC_SERVICE_NAME = 'services/aztec-infra-rpc-aztec-node';
-
 const execAsync = promisify(exec);
 
 const logger = createLogger('e2e:k8s-utils');
 
 const testConfigSchema = z.object({
-  NAMESPACE: z.string().min(1, 'NAMESPACE env variable must be set'),
-  L1_ACCOUNT_MNEMONIC: z.string().default('test test test test test test test test test test test junk'),
-  K8S_CLUSTER: z.string().min(1, 'K8S_CLUSTER env variable must be set'),
-  REGION: z.string().optional(),
-  PROJECT_ID: z.string().optional(),
-  AZTEC_REAL_PROOFS: z.coerce.boolean().default(false),
+  NAMESPACE: z.string().default('scenario'),
+  AZTEC_REAL_PROOFS: z.coerce.boolean().default(true),
 });
 
 export type TestConfig = z.infer<typeof testConfigSchema>;
 
 export function setupEnvironment(env: unknown): TestConfig {
-  const config = testConfigSchema.parse(env);
-
-  if (config.K8S_CLUSTER !== 'kind') {
-    const command = `gcloud container clusters get-credentials ${config.K8S_CLUSTER} --region=${config.REGION} --project=${config.PROJECT_ID}`;
-    execSync(command);
-  }
-  return config;
+  return testConfigSchema.parse(env);
 }
 
 /**
@@ -158,7 +146,7 @@ export async function startPortForward({
 
 export function startPortForwardForRPC(namespace: string) {
   return startPortForward({
-    resource: RPC_SERVICE_NAME,
+    resource: `services/${namespace}-rpc-aztec-node`,
     namespace,
     containerPort: 8080,
   });

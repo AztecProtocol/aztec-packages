@@ -14,6 +14,12 @@ name: Deploy Rollup Contracts
 # lwfl deploy_rollup_contracts --input cluster=aztec-gke-private --input namespace=mitch-eth-devnet --input aztec_docker_image="iamjustmitch/aztec:8ebe8d7c45190b002c77e29358f2b307a23b5336" --input l1_rpc_urls="http://34.83.173.208:8545" --input mnemonic="test test test test test test test test test test test junk" --input l1_chain_id="1337" --input salt="456" --input sponsored_fpc=true --input real_verifier=true --input aztec_target_commitee_size=48
 
 on:
+  workflow_dispatch:
+    inputs:
+      salt:
+        description: Salt for deployment
+        required: true
+        type: string
   workflow_call:
     inputs:
       cluster:
@@ -211,15 +217,23 @@ jobs:
     steps:
       - name: debug inputs
         run: |
+          echo "${{ github.event.action }}"
+          echo "${{ github.event_name }}"
+          echo "${{ github.triggering_actor }}"
+          echo "github.event.inputs.validators: ${{ github.event.inputs.validators }}"
           echo "cluster: ${{ inputs.cluster }}"
           echo "namespace: ${{ inputs.namespace }}"
           echo "ref: ${{ inputs.ref }}"
           echo "aztec_docker_image: ${{ inputs.aztec_docker_image }}"
           echo "l1_rpc_urls: ${{ inputs.l1_rpc_urls }}"
-          echo "l1_chain_id: ${{ inputs.l1_chain_id }}"
+          echo "inputs.l1_chain_id: ${{ inputs.l1_chain_id }}"
+          echo "github.event.inputs.l1_chain_id: ${{ github.event.inputs.l1_chain_id }}"
           echo "validators: ${{ inputs.validators }}"
+          echo "github.event.inputs.validators: ${{ github.event.inputs.validators }}"
           echo "sponsored_fpc: ${{ inputs.sponsored_fpc }}"
           echo "real_verifier: ${{ inputs.real_verifier }}"
+          echo "salt: ${{ inputs.salt }}"
+          echo "mnemonic: ${{ inputs.mnemonic }}"
 
       - name: Setup K8s and Terraform
         uses: ./.github/actions/setup-k8s-terraform

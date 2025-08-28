@@ -213,6 +213,23 @@ function run {
       echo 'GCP_SA_KEY decoded and saved to /tmp/gcp-key.json'
     fi
 
+    # Write network scenario env file to /tmp/network-scenario.env
+    cat > /tmp/network-scenario.env <<EOF
+    GCP_PROJECT_ID=${GCP_PROJECT_ID}
+    GCP_REGION=${GCP_REGION}
+    CLUSTER=${CLUSTER}
+    SALT=${SALT}
+    NAMESPACE=${NAMESPACE}
+    ETHEREUM_CHAIN_ID=${ETHEREUM_CHAIN_ID}
+    AZTEC_DOCKER_IMAGE=${AZTEC_DOCKER_IMAGE}
+    ETHEREUM_RPC_URLS='["${EXTERNAL_ETHEREUM_HOSTS}"]'
+    ETHEREUM_CONSENSUS_HOST_URLS='[ "${EXTERNAL_ETHEREUM_CONSENSUS_HOST}"]'
+    ETHEREUM_CONSENSUS_HOST_API_KEYS='[ "${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY}"]'
+    ETHEREUM_CONSENSUS_HOST_API_KEY_HEADERS='[ "${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER}"]'
+    FUNDING_PRIVATE_KEY="${FUNDING_PRIVATE_KEY}"
+    LABS_INFRA_MNEMONIC="${LABS_INFRA_MNEMONIC}"
+    EOF
+
     start_build() {
       echo Starting devbox...
       docker run --privileged --rm \${docker_args:-} \
@@ -237,6 +254,8 @@ function run {
         -e LOCAL_USER_ID=\$(id -u) \
         -e LOCAL_GROUP_ID=\$(id -g) \
         -e GCP_PROJECT_ID=${GCP_PROJECT_ID:-} \
+        -e GOOGLE_APPLICATION_CREDENTIALS='/tmp/gcp-key.json' \
+        -e NETWORK_ENV_FILE='/tmp/network-scenario.env' \
         -e EXTERNAL_ETHEREUM_HOSTS=${EXTERNAL_ETHEREUM_HOSTS:-} \
         -e EXTERNAL_ETHEREUM_CONSENSUS_HOST=${EXTERNAL_ETHEREUM_CONSENSUS_HOST:-} \
         -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY:-} \

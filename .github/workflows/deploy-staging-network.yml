@@ -1,0 +1,210 @@
+name: Deploy Staging Network
+
+on:
+  workflow_call:
+    inputs:
+      cluster:
+        description: The cluster to deploy to, e.g. aztec-gke-private or kind
+        required: true
+        type: string
+      namespace:
+        description: The namespace to deploy to
+        required: true
+        type: string
+      ref:
+        description: The branch name to deploy from
+        required: true
+        type: string
+        default: "next"
+      aztec_docker_image:
+        description: The Docker image to use for the Aztec contracts
+        required: true
+        type: string
+        default: "aztecprotocol/aztec:2.0.0-nightly.20250821"
+      ethereum_chain_id:
+        description: The Ethereum chain ID to use for funding the validators
+        required: true
+        type: number
+      funding_private_key:
+        description: The private key to use for funding the validators
+        required: false
+        type: string
+      mnemonic_to_fund:
+        description: The mnemonic to use for the funded accounts
+        required: false
+        type: string
+      ethereum_rpc_urls:
+        description: The Ethereum RPC URLs to use for funding the validators, as a JSON array
+        required: true
+        type: string
+      ethereum_consensus_host_urls:
+        description: The Ethereum consensus host URLs to use for funding the validators, as a JSON array
+        required: true
+        type: string
+      ethereum_consensus_host_api_keys:
+        description: The Ethereum consensus host API keys to use for funding the validators, as a JSON array
+        required: false
+        type: string
+      ethereum_consensus_host_api_key_headers:
+        description: The Ethereum consensus host API key headers to use for funding the validators, as a JSON array
+        required: false
+        type: string
+
+    secrets:
+      GCP_SA_KEY:
+        description: The JSON key for the GCP service account
+        required: false
+      KUBECONFIG_B64:
+        description: The base64 encoded kubeconfig
+        required: false
+
+jobs:
+  fund_validators:
+    runs-on: ubuntu-latest
+    outputs:
+      ethereum_csv_rpc_urls: ${{ steps.format_ethereum_rpc_urls.outputs.ethereum_csv_rpc_urls }}
+      validator_addresses: ${{ steps.format_validator_addresses.outputs.validator_addresses }}
+    steps:
+      - name: Print inputs
+        run: |
+          echo "cluster: ${{ inputs.cluster }}"
+          echo "namespace: ${{ inputs.namespace }}"
+          echo "ref: ${{ inputs.ref }}"
+          echo "aztec_docker_image: ${{ inputs.aztec_docker_image }}"
+          echo "ethereum_chain_id: ${{ inputs.ethereum_chain_id }}"
+          echo "ethereum_rpc_urls: ${{ inputs.ethereum_rpc_urls }}"
+          echo "ethereum_consensus_host_urls: ${{ inputs.ethereum_consensus_host_urls }}"
+          echo "ethereum_consensus_host_api_keys: ${{ inputs.ethereum_consensus_host_api_keys }}"
+          echo "ethereum_consensus_host_api_key_headers: ${{ inputs.ethereum_consensus_host_api_key_headers }}"
+          echo "funding_private_key: ${{ inputs.funding_private_key }}"
+          echo "mnemonic_to_fund: ${{ inputs.mnemonic_to_fund }}"
+
+      - name: Fund validators
+        run: |
+          echo "Funding validators!"
+
+      - name: Check if directory exists
+        id: check_dir
+        shell: bash
+        run: |
+          if [ -d ".git" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout code
+        if: ${{ steps.check_dir.outputs.exists != 'true' }}
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@82dee4ba654bd2146511f85f0d013af94670c4de
+
+      - name: Fund validators
+        run: |
+          export FUNDING_PRIVATE_KEY=${{ inputs.funding_private_key }}
+          export MNEMONIC="${{ inputs.mnemonic_to_fund }}"
+          export FUNDING_INDICES="0,1,2,3,4,1000"
+
+          # grab the first url from the ETHEREUM_RPC_URLS
+          RPC_URLS=${{ inputs.ethereum_rpc_urls }}
+          export ETHEREUM_HOST=$(echo $RPC_URLS | jq -r '.[0]')
+
+          # but if we are using kind, override the ETHEREUM_HOST to use the localhost url
+          # Note, you need to manually forward the port 8545 to your local machine.
+          if [ "${{ inputs.cluster }}" == "kind" ]; then
+            export ETHEREUM_HOST="http://localhost:8545"
+          fi
+
+          ./spartan/scripts/ensure_eth_balances.sh "$FUNDING_INDICES" "10"
+
+      - name: format ethereum rpc urls
+        id: format_ethereum_rpc_urls
+        run: |
+          RPC_URLS=${{ inputs.ethereum_rpc_urls }}
+          CSV_RPC_URLS=$(echo $RPC_URLS | jq -r 'join(",")')
+          echo "CSV_RPC_URLS: $CSV_RPC_URLS"
+          echo "ethereum_csv_rpc_urls=$CSV_RPC_URLS" >> $GITHUB_OUTPUT
+
+      - name: format validator addresses
+        id: format_validator_addresses
+        run: |
+          MNEMONIC="${{ inputs.mnemonic_to_fund }}"
+          INDICES="1,2,3,4"
+          ADDRESSES=$(echo $INDICES | tr ',' '\n' | xargs -I{} cast wallet address --mnemonic "$MNEMONIC" --mnemonic-index {} | tr '\n' ',' | sed 's/,$//')
+          echo "validator_addresses=\"$ADDRESSES\"" >> $GITHUB_OUTPUT
+
+  staging_dispatch_deploy_rollup_contracts:
+    uses: ./.github/workflows/deploy-rollup-contracts.yml
+    needs: fund_validators
+    with:
+      cluster: ${{ inputs.cluster }}
+      namespace: ${{ inputs.namespace }}
+      ref: ${{ inputs.ref }}
+      l1_rpc_urls: ${{ needs.fund_validators.outputs.ethereum_csv_rpc_urls }}
+      l1_chain_id: ${{ inputs.ethereum_chain_id }}
+      aztec_docker_image: ${{ inputs.aztec_docker_image }}
+      mnemonic: ${{ inputs.mnemonic_to_fund }}
+      salt: "789"
+      validators: ${{ needs.fund_validators.outputs.validator_addresses }}
+      sponsored_fpc: true
+      real_verifier: true
+      # Aztec environment variables
+      aztec_slot_duration: 36
+      aztec_epoch_duration: 32
+      aztec_target_committee_size: 4
+      aztec_proof_submission_epochs: 1
+      aztec_activation_threshold: 100
+      aztec_ejection_threshold: 50
+      aztec_slashing_quorum: 6
+      aztec_slashing_round_size: 10
+      aztec_governance_proposer_quorum: 6
+      aztec_governance_proposer_round_size: 10
+      aztec_mana_target: 1000000000
+      aztec_proving_cost_per_mana: 100
+    secrets:
+      GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+      KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
+
+  staging_dispatch_deploy_aztec_infra:
+    needs:
+      - staging_dispatch_deploy_rollup_contracts
+    uses: ./.github/workflows/deploy-aztec-infra.yml
+    with:
+      cluster: ${{ inputs.cluster }}
+      namespace: ${{ inputs.namespace }}
+      ref: ${{ inputs.ref }}
+      aztec_docker_image: ${{ inputs.aztec_docker_image }}
+      l1_rpc_urls: ${{ inputs.ethereum_rpc_urls }}
+      l1_consensus_host_urls: ${{ inputs.ethereum_consensus_host_urls }}
+      l1_consensus_host_api_keys: ${{ inputs.ethereum_consensus_host_api_keys }}
+      l1_consensus_host_api_key_headers: ${{ inputs.ethereum_consensus_host_api_key_headers }}
+      l1_chain_id: ${{ inputs.ethereum_chain_id }}
+      registry_address: ${{ needs.staging_dispatch_deploy_rollup_contracts.outputs.registry_address }}
+      slash_factory_address: ${{ needs.staging_dispatch_deploy_rollup_contracts.outputs.slash_factory_address }}
+      fee_asset_handler_address: ${{ needs.staging_dispatch_deploy_rollup_contracts.outputs.fee_asset_handler_address }}
+      validator_mnemonic: ${{ inputs.mnemonic_to_fund }}
+      validator_mnemonic_start_index: 1
+      validators_per_node: 1
+      validator_replicas: 4
+      prover_mnemonic: ${{ inputs.mnemonic_to_fund }}
+      prover_mnemonic_start_index: 1000
+      p2p_bootstrap_resource_profile: ${{ inputs.cluster == 'kind' && 'dev' || 'prod' }}
+      validator_resource_profile: ${{ inputs.cluster == 'kind' && 'dev' || 'prod' }}
+      prover_resource_profile: ${{ inputs.cluster == 'kind' && 'dev' || 'prod' }}
+      rpc_resource_profile: ${{ inputs.cluster == 'kind' && 'dev' || 'prod' }}
+      run_terraform_destroy: false
+    secrets:
+      GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+      KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
+
+  deploy_staging_network:
+    needs: staging_dispatch_deploy_aztec_infra
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy staging network
+        run: |
+          echo "Deployed staging network!"

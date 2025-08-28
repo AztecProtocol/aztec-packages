@@ -837,7 +837,7 @@ export const addMultipleValidators = async (
           }),
         },
         {
-          gasLimit: 45_000_000n,
+          gasLimit: 32_000_000n,
         },
       );
 

@@ -59,11 +59,6 @@ variable "GAS_LIMIT" {
   default     = "1000000000"
 }
 
-variable "MNEMONIC_SECRET_NAME" {
-  description = "Name of the Google Secret Manager secret containing the mnemonic"
-  type        = string
-  default     = "eth-devnet-genesis-mnemonic"
-}
 
 variable "PREFUNDED_MNEMONIC_INDICES" {
   description = "Comma-separated list of mnemonic indices to prefund with ETH"
