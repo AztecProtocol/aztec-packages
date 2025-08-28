@@ -58,7 +58,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
         aztecSlotDuration,
         aztecProofSubmissionEpochs: 0, // effectively forces instant reorgs
         slashingQuorum,
-        slashingRoundSize,
+        slashingRoundSizeInEpochs: slashingRoundSize / 2,
         slashAmountSmall: slashingUnit,
         slashAmountMedium: slashingUnit * 2n,
         slashAmountLarge: slashingUnit * 3n,
