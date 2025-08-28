@@ -20,6 +20,7 @@ template <class Curve> class EcdsaConstraintsTest : public ::testing::Test {
     using FrNative = Curve::fr;
     using FqNative = Curve::fq;
     using G1Native = Curve::g1;
+    using Flavor = std::conditional_t<std::is_same_v<Builder, UltraCircuitBuilder>, UltraFlavor, MegaFlavor>;
 
     static size_t generate_ecdsa_constraint(EcdsaConstraint& ecdsa_constraint, WitnessVector& witness_values)
     {
@@ -91,25 +92,19 @@ template <class Curve> class EcdsaConstraintsTest : public ::testing::Test {
         EcdsaConstraint ecdsa_constraint;
         WitnessVector witness_values;
         size_t num_variables = generate_ecdsa_constraint(ecdsa_constraint, witness_values);
-        AcirFormat constraint_system;
+        AcirFormat constraint_system = {
+            .varnum = static_cast<uint32_t>(num_variables),
+            .num_acir_opcodes = 1,
+            .public_inputs = {},
+            .original_opcode_indices = create_empty_original_opcode_indices(),
+        };
 
         if constexpr (Curve::type == bb::CurveType::SECP256K1) {
-            constraint_system = {
-                .varnum = static_cast<uint32_t>(num_variables),
-                .num_acir_opcodes = 1,
-                .public_inputs = {},
-                .ecdsa_k1_constraints = { ecdsa_constraint },
-                .original_opcode_indices = create_empty_original_opcode_indices(),
-            };
+            constraint_system.ecdsa_k1_constraints = { ecdsa_constraint };
         } else {
-            constraint_system = {
-                .varnum = static_cast<uint32_t>(num_variables),
-                .num_acir_opcodes = 1,
-                .public_inputs = {},
-                .ecdsa_r1_constraints = { ecdsa_constraint },
-                .original_opcode_indices = create_empty_original_opcode_indices(),
-            };
+            constraint_system.ecdsa_r1_constraints = { ecdsa_constraint };
         }
+
         mock_opcode_indices(constraint_system);
 
         return { constraint_system, witness_values };
@@ -119,29 +114,37 @@ template <class Curve> class EcdsaConstraintsTest : public ::testing::Test {
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
-using CurveTypes = testing::Types<stdlib::secp256k1<UltraCircuitBuilder>, stdlib::secp256r1<UltraCircuitBuilder>>;
+using CurveTypes = testing::Types<stdlib::secp256k1<MegaCircuitBuilder>,
+                                  stdlib::secp256r1<UltraCircuitBuilder>,
+                                  stdlib::secp256k1<MegaCircuitBuilder>,
+                                  stdlib::secp256r1<MegaCircuitBuilder>>;
 
 TYPED_TEST_SUITE(EcdsaConstraintsTest, CurveTypes);
 
 TYPED_TEST(EcdsaConstraintsTest, GenerateVKFromConstraints)
 {
-    using ProvingKey = DeciderProvingKey_<UltraFlavor>;
-    using VerificationKey = UltraFlavor::VerificationKey;
+    using Flavor = TestFixture::Flavor;
+    using Builder = TestFixture::Builder;
+    using ProvingKey = DeciderProvingKey_<Flavor>;
+    using VerificationKey = Flavor::VerificationKey;
 
     auto [constraint_system, witness_values] = TestFixture::generate_constraint_system();
 
     std::shared_ptr<VerificationKey> vk_from_witness;
     {
         AcirProgram program{ constraint_system, witness_values };
-        auto builder = create_circuit(program);
+        auto builder = create_circuit<Builder>(program);
         auto proving_key = std::make_shared<ProvingKey>(builder);
         vk_from_witness = std::make_shared<VerificationKey>(proving_key->get_precomputed());
+
+        // Validate the builder
+        EXPECT_TRUE(CircuitChecker::check(builder));
     }
 
     std::shared_ptr<VerificationKey> vk_from_constraint;
     {
         AcirProgram program{ constraint_system, /*witness=*/{} };
-        auto builder = create_circuit(program);
+        auto builder = create_circuit<Builder>(program);
         auto proving_key = std::make_shared<ProvingKey>(builder);
         vk_from_constraint = std::make_shared<VerificationKey>(proving_key->get_precomputed());
     }
