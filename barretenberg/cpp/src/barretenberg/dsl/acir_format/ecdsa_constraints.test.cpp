@@ -134,6 +134,8 @@ TYPED_TEST(EcdsaConstraintsTest, GenerateVKFromConstraints)
     {
         AcirProgram program{ constraint_system, witness_values };
         auto builder = create_circuit<Builder>(program);
+        info("Num gates: ", builder.get_estimated_num_finalized_gates());
+
         auto proving_key = std::make_shared<ProvingKey>(builder);
         vk_from_witness = std::make_shared<VerificationKey>(proving_key->get_precomputed());
 
