@@ -49,11 +49,11 @@ contract ZKPassportBase is Test {
     verifiers[0] = address(verifier);
 
     zkPassportVerifier.addVerifiers(vkeyHashes, verifiers);
-    zkPassportVerifier.addCertificateRegistryRoot(CERTIFICATE_REGISTRY_ROOT);
+    // zkPassportVerifier.addCertificateRegistryRoot(CERTIFICATE_REGISTRY_ROOT);
 
     // ( When the proof was made )
-    // Set the timestamp to 2025-07-16 20:26:48 UTC
-    vm.warp(1752697608);
+    // Set the timestamp to 1756239313
+    vm.warp(1756239313);
     realProof = makeValidProof();
     fakeProof = makeFakeProof();
 
@@ -77,7 +77,7 @@ contract ZKPassportBase is Test {
       publicInputs: publicInputs,
       committedInputs: committedInputs,
       committedInputCounts: committedInputCounts,
-      validityPeriodInDays: 7,
+      validityPeriodInSeconds: 7 days,
       domain: "zkpassport.id",
       scope: "bigproof",
       devMode: false
@@ -106,7 +106,7 @@ contract ZKPassportBase is Test {
       publicInputs: publicInputs,
       committedInputs: committedInputs,
       committedInputCounts: committedInputCounts,
-      validityPeriodInDays: 7,
+      validityPeriodInSeconds: 7 days,
       domain: "zkpassport.id",
       scope: "bigproof",
       devMode: true
