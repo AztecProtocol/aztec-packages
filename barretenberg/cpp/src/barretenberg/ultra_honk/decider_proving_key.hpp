@@ -55,13 +55,13 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
     ProverPolynomials polynomials; // the multilinear polynomials used by the prover
     SubrelationSeparators alphas;  // a challenge for each subrelation
     bb::RelationParameters<FF> relation_parameters;
-    std::vector<FF> gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
+    std::vector<FF> gate_challenges;
     FF target_sum{ 0 }; // Sumcheck target sum; typically nonzero for a ProtogalaxyProver's accumulator
 
     HonkProof ipa_proof; // utilized only for UltraRollupFlavor
 
-    bool is_accumulator = false; // whether this instance the result of a Protogalaxy folding
-    bool is_complete = false;    // whether this instance has been completely populated
+    bool from_first_instance = false; // whether this instance is the first one
+    bool is_complete = false;         // whether this instance has been completely populated
     std::vector<uint32_t> memory_read_records;
     std::vector<uint32_t> memory_write_records;
 
