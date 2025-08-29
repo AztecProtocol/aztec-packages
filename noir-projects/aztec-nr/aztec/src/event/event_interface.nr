@@ -162,14 +162,17 @@ where
         // oracle which we don't use for anything besides its side effects, therefore this is safe to call.
         unsafe { emit_offchain_message(ciphertext, recipient) };
     } else {
-        // When delivering through the private log stream, tagging is used so we must prefix the ciphertext with a tag.
+        // Safety: Despite being called CONSTRAINED_ONCHAIN, this delivery mode is currently NOT fully constrained.
+        // The tag prefixing is unconstrained, meaning a malicious sender could manipulate the tag to prevent
+        // recipient decryption. This is a significant security risk that needs to be addressed.
+        // TODO(#14565): Implement proper constrained tag prefixing to make this truly CONSTRAINED_ONCHAIN
         let log_content = prefix_with_tag(ciphertext, recipient);
 
         context.emit_private_log(log_content, log_content.len());
     }
 }
 
-// TODO: rename to emit_event_in_public
+// TODO(benesjan): rename to emit_event_in_public
 pub fn emit_event_in_public_log<Event>(event: Event, context: &mut PublicContext)
 where
     Event: EventInterface + Serialize,
