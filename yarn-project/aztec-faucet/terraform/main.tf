@@ -148,7 +148,7 @@ resource "aws_ecs_task_definition" "aztec-faucet" {
         },
         {
           name  = "EXTRA_ASSET_AMOUNT",
-          value = "1000000000000000000"
+          value = "1000000000000000000000"
         }
       ]
       logConfiguration = {
