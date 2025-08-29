@@ -67,10 +67,6 @@ class ClientIVCTests : public ::testing::Test {
         ClientIVC ivc{ num_circuits, trace_settings };
 
         for (size_t j = 0; j < num_circuits; ++j) {
-            // Use default test settings for the mock hiding kernel since it's size must always be consistent
-            if (j == num_circuits - 1) {
-                settings = TestSettings{};
-            }
             circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
         }
         return { ivc.prove(), ivc.get_vk() };

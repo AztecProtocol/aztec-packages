@@ -191,7 +191,8 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         hide_op_queue_accumulation_result(circuit);
 
         // Propagate the public inputs of the tail kernel by converting them to public inputs of the hiding circuit.
-        auto num_public_inputs = static_cast<size_t>(honk_vk->num_public_inputs);
+        auto num_public_inputs =
+            static_cast<size_t>(verifier_inputs.honk_vk_and_hash->vk->num_public_inputs.get_value());
         num_public_inputs -= KernelIO::PUBLIC_INPUTS_SIZE; // exclude fixed kernel_io public inputs
         for (size_t i = 0; i < num_public_inputs; i++) {
             verifier_inputs.proof[i].set_public();
@@ -488,22 +489,22 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     case QUEUE_TYPE::OINK:
         vinfo("Accumulating first app circuit with OINK");
         BB_ASSERT_EQ(is_kernel, false, "First circuit accumulated must always be an app");
-        proof = construct_oink_proof(proving_key, honk_vk, prover_accumulation_transcript);
+        proof = construct_oink_proof(proving_key, precomputed_vk, prover_accumulation_transcript);
         break;
     case QUEUE_TYPE::PG:
     case QUEUE_TYPE::PG_TAIL:
-        proof = construct_pg_proof(proving_key, honk_vk, prover_accumulation_transcript, is_kernel);
+        proof = construct_pg_proof(proving_key, precomputed_vk, prover_accumulation_transcript, is_kernel);
         break;
     case QUEUE_TYPE::PG_FINAL:
-        proof = construct_pg_proof(proving_key, honk_vk, prover_accumulation_transcript, is_kernel);
+        proof = construct_pg_proof(proving_key, precomputed_vk, prover_accumulation_transcript, is_kernel);
         decider_proof = construct_decider_proof(prover_accumulation_transcript);
         break;
     case QUEUE_TYPE::MEGA:
-        proof = construct_mega_proof_for_hiding_kernel(circuit);
+        proof = construct_honk_proof_for_hiding_kernel(circuit, precomputed_vk);
         break;
     }
 
-    VerifierInputs queue_entry{ std::move(proof), honk_vk, queue_type, is_kernel };
+    VerifierInputs queue_entry{ std::move(proof), precomputed_vk, queue_type, is_kernel };
     verification_queue.push_back(queue_entry);
 
     // Update native verifier accumulator and construct merge proof (excluded for hiding kernel since PG terminates with
@@ -541,14 +542,17 @@ void ClientIVC::hide_op_queue_accumulation_result(ClientCircuit& circuit)
  *
  * @return HonkProof - a ZK Mega proof
  */
-HonkProof ClientIVC::construct_mega_proof_for_hiding_kernel(ClientCircuit& circuit)
+HonkProof ClientIVC::construct_honk_proof_for_hiding_kernel(
+    ClientCircuit& circuit, [[maybe_unused]] const std::shared_ptr<MegaVerificationKey>& verification_key)
 {
     // Note: a structured trace is not used for the hiding kernel
     auto hiding_decider_pk = std::make_shared<DeciderZKProvingKey>(circuit, TraceSettings(), bn254_commitment_key);
-    honk_vk = std::make_shared<MegaZKVerificationKey>(hiding_decider_pk->get_precomputed());
-    auto& hiding_circuit_vk = honk_vk;
+    honk_vk = verification_key;
+
+    BB_ASSERT_EQ(*honk_vk, *verification_key, "Recomputed hiding VK disagrees!");
+
     // Hiding circuit is proven by a MegaZKProver
-    MegaZKProver prover(hiding_decider_pk, hiding_circuit_vk, transcript);
+    MegaZKProver prover(hiding_decider_pk, honk_vk, transcript);
     HonkProof proof = prover.construct_proof();
 
     return proof;
