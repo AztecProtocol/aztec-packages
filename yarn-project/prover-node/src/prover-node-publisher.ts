@@ -123,7 +123,7 @@ export class ProverNodePublisher {
       }
 
       // Tx was mined successfully
-      if (txReceipt.status) {
+      if (txReceipt.status === 'success') {
         const tx = await this.l1TxUtils.getTransactionStats(txReceipt.transactionHash);
         const stats: L1PublishProofStats = {
           gasPrice: txReceipt.effectiveGasPrice,
