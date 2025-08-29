@@ -221,8 +221,7 @@ class ClientIVC {
     std::shared_ptr<DeciderVerificationKey>
         recursive_verifier_native_accum; // native verifier accumulator used in recursive folding
     std::shared_ptr<DeciderVerificationKey>
-        native_verifier_accum;                    //  native verifier accumulator used in prover folding
-    std::shared_ptr<MegaVerificationKey> honk_vk; // honk vk to be completed and folded into the accumulator
+        native_verifier_accum; //  native verifier accumulator used in prover folding
 
     // Set of tuples {proof, verification_key, type (Oink/PG)} to be recursively verified
     VerificationQueue verification_queue;

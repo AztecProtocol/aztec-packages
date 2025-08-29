@@ -466,8 +466,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     proving_key->commitment_key = bn254_commitment_key;
     trace_usage_tracker.update(circuit);
 
-    honk_vk = precomputed_vk;
-
     // We're accumulating a kernel if the verification queue is empty (because the kernel circuit contains recursive
     // verifiers for all the entries previously present in the verification queue) and if it's not the first accumulate
     // call (which will always be for an app circuit).
@@ -547,12 +545,9 @@ HonkProof ClientIVC::construct_honk_proof_for_hiding_kernel(
 {
     // Note: a structured trace is not used for the hiding kernel
     auto hiding_decider_pk = std::make_shared<DeciderZKProvingKey>(circuit, TraceSettings(), bn254_commitment_key);
-    honk_vk = verification_key;
-
-    BB_ASSERT_EQ(*honk_vk, *verification_key, "Recomputed hiding VK disagrees!");
 
     // Hiding circuit is proven by a MegaZKProver
-    MegaZKProver prover(hiding_decider_pk, honk_vk, transcript);
+    MegaZKProver prover(hiding_decider_pk, verification_key, transcript);
     HonkProof proof = prover.construct_proof();
 
     return proof;
@@ -739,7 +734,10 @@ ClientIVC::Proof ClientIVC::Proof::from_file_msgpack(const std::string& filename
 // VerificationKey construction
 ClientIVC::VerificationKey ClientIVC::get_vk() const
 {
-    return { honk_vk, std::make_shared<ECCVMVerificationKey>(), std::make_shared<TranslatorVerificationKey>() };
+    auto verification_key = verification_queue.front().honk_vk;
+    return { verification_key,
+             std::make_shared<ECCVMVerificationKey>(),
+             std::make_shared<TranslatorVerificationKey>() };
 }
 
 void ClientIVC::update_native_verifier_accumulator(const VerifierInputs& queue_entry,
