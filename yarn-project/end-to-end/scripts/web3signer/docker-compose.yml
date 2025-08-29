@@ -7,7 +7,7 @@ configs:
 
 services:
   web3signer:
-    image: consensys/web3signer:25.3.0
+    image: consensys/web3signer:25.6.0
     ports:
       - "9000:9000"
     configs:
@@ -17,7 +17,7 @@ services:
       - --http-listen-port=9000
       - --http-host-allowlist=*
       - --key-store-path=/keys
-      - --logging=DEBUG
+      - --logging=ALL
       - eth1
       - --chain-id=31337
 
