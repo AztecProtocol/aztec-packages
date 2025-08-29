@@ -59,7 +59,9 @@ describe('e2e_p2p_data_withholding_slash', () => {
         aztecProofSubmissionEpochs: 0, // effectively forces instant reorgs
         slashingQuorum,
         slashingRoundSize,
-        slashingUnit,
+        slashAmountSmall: slashingUnit,
+        slashAmountMedium: slashingUnit * 2n,
+        slashAmountLarge: slashingUnit * 3n,
         minTxsPerBlock: 0,
       },
     });
@@ -100,9 +102,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
     const slashingAmount = slashingUnit * 3n;
     expect(activationThreshold - slashingAmount).toBeLessThan(ejectionThreshold);
 
-    t.ctx.aztecNodeConfig.slashPruneEnabled = true;
     t.ctx.aztecNodeConfig.slashPrunePenalty = slashingAmount;
-    t.ctx.aztecNodeConfig.slashPruneMaxPenalty = slashingAmount;
     t.ctx.aztecNodeConfig.validatorReexecute = false;
     t.ctx.aztecNodeConfig.minTxsPerBlock = 1;
 

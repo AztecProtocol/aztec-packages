@@ -1,4 +1,5 @@
 import { type L1RollupConstants, getEpochAtSlot, getSlotRangeForEpoch } from '../epoch-helpers/index.js';
+import type { SlasherConfig } from '../interfaces/slasher.js';
 import { type Offense, OffenseType } from './types.js';
 
 /** Returns the voting round number and voting slot within the round for a given L2 slot. */
@@ -37,6 +38,41 @@ export function getEpochsForRound(
     epochs.push(epoch);
   }
   return epochs;
+}
+
+/** Reads the configured penalty for a given offense type from a slasher config struct */
+export function getPenaltyForOffense(
+  offense: OffenseType,
+  config: Pick<
+    SlasherConfig,
+    | 'slashAttestDescendantOfInvalidPenalty'
+    | 'slashBroadcastedInvalidBlockPenalty'
+    | 'slashPrunePenalty'
+    | 'slashUnknownPenalty'
+    | 'slashInactivityPenalty'
+    | 'slashProposeInvalidAttestationsPenalty'
+  >,
+) {
+  switch (offense) {
+    case OffenseType.VALID_EPOCH_PRUNED:
+    case OffenseType.DATA_WITHHOLDING:
+      return config.slashPrunePenalty;
+    case OffenseType.INACTIVITY:
+      return config.slashInactivityPenalty;
+    case OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS:
+    case OffenseType.PROPOSED_INCORRECT_ATTESTATIONS:
+      return config.slashProposeInvalidAttestationsPenalty;
+    case OffenseType.ATTESTED_DESCENDANT_OF_INVALID:
+      return config.slashAttestDescendantOfInvalidPenalty;
+    case OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL:
+      return config.slashBroadcastedInvalidBlockPenalty;
+    case OffenseType.UNKNOWN:
+      return config.slashUnknownPenalty;
+    default: {
+      const _: never = offense;
+      throw new Error(`Unknown offense type: ${offense}`);
+    }
+  }
 }
 
 /** Returns whether the `epochOrSlot` field for an offense references an epoch or a slot */

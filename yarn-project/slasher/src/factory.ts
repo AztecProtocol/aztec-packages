@@ -165,7 +165,7 @@ async function createTallySlasher(
     slashingRoundSizeInEpochs,
     slashingLifetimeInRounds,
     slashingOffsetInRounds,
-    slashingUnit,
+    slashingAmounts,
     slashingQuorumSize,
     epochDuration,
     l1GenesisTime,
@@ -177,7 +177,7 @@ async function createTallySlasher(
     slashingProposer.getRoundSizeInEpochs(),
     slashingProposer.getLifetimeInRounds(),
     slashingProposer.getSlashOffsetInRounds(),
-    slashingProposer.getSlashingUnit(),
+    slashingProposer.getSlashingAmounts(),
     slashingProposer.getQuorumSize(),
     rollup.getEpochDuration(),
     rollup.getL1GenesisTime(),
@@ -195,7 +195,7 @@ async function createTallySlasher(
     l1GenesisTime: l1GenesisTime,
     slotDuration: Number(slotDuration),
     slashingOffsetInRounds: Number(slashingOffsetInRounds),
-    slashingUnit,
+    slashingAmounts,
     targetCommitteeSize: Number(targetCommitteeSize),
   };
 
