@@ -20,12 +20,13 @@ on:
         description: The Docker image to use for the Aztec contracts
         required: true
         type: string
-        default: "aztecprotocol/aztec:8ebe8d7c45190b002c77e29358f2b307a23b5336"
+        default: "aztecprotocol/aztec:2.0.0-nightly.20250821"
       devnet_mnemonic:
         description: The mnemonic to use for the devnet
         required: true
         type: string
         default: "test test test test test test test test test test test junk"
+
       rollup_deployment_mnemonic:
         description: The mnemonic to use for the rollup deployment
         required: true
@@ -60,12 +61,13 @@ on:
         description: The Docker image to use for the Aztec contracts
         required: true
         type: string
-        default: "aztecprotocol/aztec:8ebe8d7c45190b002c77e29358f2b307a23b5336"
+        default: "aztecprotocol/aztec:2.0.0-nightly.20250821"
       devnet_mnemonic:
         description: The mnemonic to use for the devnet
         required: true
         type: string
         default: "test test test test test test test test test test test junk"
+
       rollup_deployment_mnemonic:
         description: The mnemonic to use for the rollup deployment
         required: true
@@ -82,12 +84,13 @@ jobs:
       ref: ${{ inputs.ref }}
       # Prefilled values for scenario network
       chain_id: 1337
-      block_time: 4 # Faster block time for scenario testing
-      gas_limit: "32000000" # Higher gas limit for complex scenarios
+      block_time: 12
+      gas_limit: "32000000"
       resource_profile: ${{ inputs.cluster == 'kind' && 'dev' || 'prod' }}
-      create_static_ips: ${{ inputs.cluster == 'kind' && 'false' || 'true' }}
-      run_terraform_destroy: "false"
+      create_static_ips: false
+      run_terraform_destroy: false
       mnemonic: ${{ inputs.devnet_mnemonic }}
+      prefunded_mnemonic_indices: "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,1000,1001,1002,1003"
     secrets:
       GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
       KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
@@ -109,7 +112,7 @@ jobs:
       sponsored_fpc: true
       real_verifier: true
       # Aztec environment variables
-      aztec_slot_duration: 12
+      aztec_slot_duration: 36
       aztec_epoch_duration: 32
       aztec_target_committee_size: 4
       aztec_proof_submission_epochs: 1
@@ -125,8 +128,42 @@ jobs:
       GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
       KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
 
+  scenario_dispatch_deploy_aztec_infra:
+    needs:
+      - scenario_dispatch_deploy_rollup_contracts
+      - scenario_dispatch_deploy_eth_devnet
+    uses: ./.github/workflows/deploy-aztec-infra.yml
+    with:
+      cluster: ${{ inputs.cluster }}
+      namespace: ${{ inputs.namespace }}
+      ref: ${{ inputs.ref }}
+      aztec_docker_image: ${{ inputs.aztec_docker_image }}
+      l1_rpc_urls: '["${{ needs.scenario_dispatch_deploy_eth_devnet.outputs.rpc_url }}"]'
+      l1_consensus_host_urls: '["${{ needs.scenario_dispatch_deploy_eth_devnet.outputs.beacon_url }}"]'
+      l1_consensus_host_api_keys: '[""]'
+      l1_consensus_host_api_key_headers: '[""]'
+      l1_chain_id: ${{ needs.scenario_dispatch_deploy_eth_devnet.outputs.chain_id }}
+      registry_address: ${{ needs.scenario_dispatch_deploy_rollup_contracts.outputs.registry_address }}
+      slash_factory_address: ${{ needs.scenario_dispatch_deploy_rollup_contracts.outputs.slash_factory_address }}
+      fee_asset_handler_address: ${{ needs.scenario_dispatch_deploy_rollup_contracts.outputs.fee_asset_handler_address }}
+      validator_mnemonic: ${{ inputs.rollup_deployment_mnemonic }}
+      validator_mnemonic_start_index: 1
+      validators_per_node: 1
+      validator_replicas: 4
+      prover_mnemonic: ${{ inputs.rollup_deployment_mnemonic }}
+      prover_mnemonic_start_index: 1000
+      p2p_bootstrap_resource_profile: ${{ inputs.cluster == 'kind' && 'dev' || 'prod' }}
+      validator_resource_profile: ${{ inputs.cluster == 'kind' && 'dev' || 'prod' }}
+      prover_resource_profile: ${{ inputs.cluster == 'kind' && 'dev' || 'prod' }}
+      rpc_resource_profile: ${{ inputs.cluster == 'kind' && 'dev' || 'prod' }}
+      rpc_external_ingress: false
+      run_terraform_destroy: false
+    secrets:
+      GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+      KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
+
   deploy_scenario_network:
-    needs: scenario_dispatch_deploy_rollup_contracts
+    needs: scenario_dispatch_deploy_aztec_infra
     runs-on: ubuntu-latest
     env:
       TF_STATE_BUCKET: aztec-terraform
