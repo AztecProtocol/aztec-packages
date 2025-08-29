@@ -28,7 +28,7 @@ namespace bb {
  * Second term: tuple of (pc, P.x, P.y, scalar-multiplier), used in ECCVMWnafRelation and
  *              ECCVMPointTableRelation.
  * Input source: ECCVMPointTableRelation
- * Output source: ECCVMMSMRelation
+ * Output source: ECCVMTranscriptRelation
  *
  * Third term: tuple of (pc, P.x, P.y, msm-size) from ECCVMMSMRelation.
  * Input source: ECCVMMSMRelation
@@ -215,10 +215,10 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
      *        multi-scalar multiplication of size `msm-size`, starting at `pc`.
      *
      *        If msm_transition_shift = 1, this indicates the current row is the last row of a multiscalar
-     * multiplication evaluation. The output of the MSM will be present on `(msm_accumulator_x_shift,
-     * msm_accumulator_y_shift)`. The values of `msm_accumulator_x_shift, msm_accumulator_y_shift, msm_pc,
-     * msm_size_of_msm` must match up with equivalent values `transcript_msm_output_x, transcript_msm_output_y,
-     * transcript_pc, transcript_msm_count` present in the Transcript columns
+     *        multiplication evaluation. The output of the MSM will be present on `(msm_accumulator_x_shift,
+     *        msm_accumulator_y_shift)`. The values of `msm_accumulator_x_shift, msm_accumulator_y_shift, msm_pc,
+     *        msm_size_of_msm` must match up with equivalent values `transcript_msm_output_x, transcript_msm_output_y,
+     *        transcript_pc, transcript_msm_count` present in the Transcript columns
      */
     {
         const auto& lagrange_first = View(in.lagrange_first);

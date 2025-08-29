@@ -127,8 +127,9 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      */
 
     /**
-     * @brief Constraining addition rounds
+     * @brief Constraining addition rounds via a multiset-equality check
      *
+     * @details
      * The boolean column q_add describes whether a round is an ADDITION round.
      * The values of q_add are Prover-defined. We need to ensure they set q_add correctly. We will do this via a
      * multiset-equality check (formerly called a "strict lookup"), which allows the various tables to "communicate".
@@ -194,26 +195,41 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      *
      * Suppose the Prover sets `q_addK = 0` when an honest Prover would set `q_addK == 1`. Then there would be some (pc,
      * round, wnaf_slice) that the Precomputed table add to its multiset that the prover did not add. The Prover can
-     * _never_ "compensate" for this, as both `pc` and `round` are locally constrained to be monotonic; this means that
-     * the Prover has "lost their chance" to add this element to the multiset and hence the multiset equality check will
-     * fail.
+     * _never_ "compensate" for this, as `pc` is locally constrained to be monotonic and `round` is constrained to be
+     * periodic; this means that the Prover has "lost their chance" to add this element to the multiset and hence the
+     * multiset equality check will fail.
      *
      * Conversely, if the Prover sets `q_addK = 1` when it should be set to 0, there are several options: either
      * we are at the end of a `round` (so e.g. `q_add4 ` _should_ be 0), or we are at a double row, or we are at a row
      * that should be all 0s. In the first two cases, as long as the Precomputed table is correctly constrained, again
-     * we would be adding a tuple to the multiset that can never be hit by the Precomputed table due to `pc` and `round`
-     * monotonicty. In the final case, the only way we don't break the multiset check is if `wnaf_slice == 0` for the
-     * corresponding `q_addK` that is on. But then the lookup argument will fail, as there is no corresponding point
-     * when `pc = 0`. (Here it is helpful to remember that `pc` stands for _point-counter_.) RAJU: check the LOOKUP
-     * part. and the monotonicity part here.
+     * we would be adding a tuple to the multiset that can never be hit by the Precomputed table due to `precompute_pc`
+     * monotonicty and `precompute_round` periodicity(enforced in the precomputed columns.). In the final case, the only
+     * way we don't break the multiset check is if `wnaf_slice == 0` for the corresponding `q_addK` that is on. But then
+     * the lookup argument will fail, as there is no corresponding point when `pc = 0`. (Here it is helpful to remember
+     * that `pc` stands for _point-counter_.) RAJU: check the LOOKUP part.
      *
      *
-     * To ensure that all q_addK values are correctly set we apply consistency/continuity checks to
-     * q_add1/q_add2/q_add3/q_add4:
+     * We apply consistency/continuity checks to q_add1/q_add2/q_add3/q_add4:
      * 1. If q_add2 = 1, require q_add1 = 1
      * 2. If q_add3 = 1, require q_add2 = 1
      * 3. If q_add4 = 1, require q_add3 = 1
      * 4. If q_add1_shift = 1 AND round does not update between rows, require q_add4 = 1
+     *
+     */
+
+    /**
+     * @brief Constrain msm_size and output of MSM computation via multiset equality
+     *
+     * @details
+     * As explained in the section on constraining the addition wire values, to make everything work we also need to
+     * constrain `msm_size`, something directly computed in the Transcript columns. We also need to "send" the final
+     * output value of an MSM from the MSM table to the transcript table so it can continue its processing. (Send here
+     * is a euphemism for constrain.) We do this via a multiset equality check of the form:
+     *                      (pc, P.x, P.y, msm-size)
+     * From the perspective of the MSM table, we add such a tuple only at an `msm_transition`. The terms P.x and P.y
+     * refer to the output values of the MSM just computed by the MSM table. `msm_size` is the size of the _just
+     * completed_ MSM.
+     *
      *
      */
 
@@ -407,10 +423,6 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     std::get<8>(accumulator) += (x3_delta * collision_inverse3 - add_third_point) * scaling_factor;
     std::get<9>(accumulator) += (x4_delta * collision_inverse4 - add_fourth_point) * scaling_factor;
 
-    // Validate that if q_add = 1 or q_skew = 1, add1 also is 1
-    // Optimize(@zac-williamson): could just get rid of add1 as a column, as it is a linear combination, see issue #2222
-    std::get<32>(accumulator) += (add1 - q_add - q_skew) * scaling_factor;
-
     // When add_i = 0, force slice_i to ALSO be 0
     std::get<13>(accumulator) += (-add1 + 1) * slice1 * scaling_factor;
     std::get<14>(accumulator) += (-add2 + 1) * slice2 * scaling_factor;
@@ -421,6 +433,10 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // at most one of q_skew, q_double, q_add can be nonzero.
     // note that as we can expect our table to be zero padded, we _do not_ insist that q_add + q_double + q_skew == 1.
     std::get<17>(accumulator) += (q_add * q_double + q_add * q_skew + q_double * q_skew) * scaling_factor;
+
+    // Validate that if q_add = 1 or q_skew = 1, add1 also is 1
+    // Optimize(@zac-williamson): could just get rid of add1 as a column, as it is a linear combination, see issue #2222
+    std::get<32>(accumulator) += (add1 - q_add - q_skew) * scaling_factor;
 
     // ROUND TRANSITION LOGIC
     // `round_transition` describes whether we are transitioning between "rounds" of the MSM according to the Straus
@@ -438,19 +454,22 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     const auto round_transition = round_delta * (-msm_transition_shift + 1);
     std::get<18>(accumulator) += round_transition * (round_delta - 1) * scaling_factor;
 
-    // If `round_transition == 1`, then `round_delta == 1` and `msm_transition_shift == 0`. Therefore, the
-    // next row in the VM is either a double (if `round != 31`) or skew (if `round == 31`). In either case, the point is
-    // that we have finished processing a wNAF digit place and need to either perform the doublings to move on to the
-    // next place _or_ we are at the last place and need to perform the skew computation to finish. These are
+    // If `round_transition == 1`, then `round_delta == 1` and `msm_transition_shift == 0`. Therefore, we wish to
+    // constrain next row in the VM to either be a double (if `round != 31`) or skew (if `round == 31`). In either case,
+    // the point is that we have finished processing a wNAF digit place and need to either perform the doublings to move
+    // on to the next place _or_ we are at the last place and need to perform the skew computation to finish. These are
     // equationally represented as:
     //      round_transition * skew_shift * (round - 31) = 0 (if round tx and skew, then round == 31);
     //      round_transition * (skew_shift + double_shift - 1) = 0 (if round tx, then skew XOR double = 1).
+    //      (-round_delta + 1) * q_double_shift = 1 (if q_double_shift == 1, then round_transition = 1)
     // together, these have the following implications: if round tx and round != 31, then double_shift = 1.
-    // conversely, if round tx and double_shift == 0, then `skew_shift == 1` (which then forces `round == 31`).
-
+    // conversely, if round tx and double_shift == 0, then `q_skew_shift == 1` (which then forces `round == 31`).
+    // similarly, if q_double_shift == 1, then round_transition == 0,
+    // the fact that a round_transition occurs at the first time skew_shift == 1 follows from the fact that skew == 1
+    // implies round == 32 and the above three relations, together with the _definition_ of round_transition.
     std::get<19>(accumulator) += round_transition * q_skew_shift * (round - 31) * scaling_factor;
     std::get<20>(accumulator) += round_transition * (q_skew_shift + q_double_shift - 1) * scaling_factor;
-
+    std::get<35>(accumulator) += (-round_delta + 1) * q_double_shift * scaling_factor;
     // if the next is neither double nor skew, and we are not at an msm_transition, then round_delta = 0 and the next
     // "row" of our VM is processing the same wNAF digit place.
     std::get<21>(accumulator) += round_transition * (-q_double_shift + 1) * (-q_skew_shift + 1) * scaling_factor;
