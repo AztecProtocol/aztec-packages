@@ -485,13 +485,15 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
     };
 
     // Recursive function to print hierarchy
-    std::function<void(const std::string&, size_t, std::set<std::string>&, bool, bool, std::size_t)> print_hierarchy =
-        [&](const std::string& key,
-            size_t indent_level,
-            std::set<std::string>& visited,
-            bool is_last,
-            bool force_print,
-            std::size_t parent_time) {
+    std::function<void(
+        const std::string&, size_t, std::set<std::string>&, bool, bool, std::size_t, const TimeStatsEntry*)>
+        print_hierarchy = [&](const std::string& key,
+                              size_t indent_level,
+                              std::set<std::string>& visited,
+                              bool is_last,
+                              bool force_print,
+                              std::size_t parent_time,
+                              const TimeStatsEntry* parent_entry) {
             // Skip if already visited, unless we're forcing print for multi-parent entries
             if (!force_print && visited.contains(key)) {
                 return;
@@ -505,26 +507,13 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
             // Get the stats for this specific parent context if not a root
             StatInfo display_info = all_stats[key];
 
-            // If we have a parent and this is a multi-parent function, use parent-specific stats
-            if (indent_level > 0 && display_info.parents.size() > 1) {
-                // Find which parent we're under
-                const TimeStatsEntry* current_parent = nullptr;
-                for (const TimeStatsEntry* p : display_info.parents) {
-                    // Check if this parent is our ancestor in the current path
-                    // For now, we'll use the first parent that matches our context
-                    // This is a simplification - ideally we'd track the full path
-                    if (children_map.contains(p->key) && children_map[p->key].contains(key)) {
-                        current_parent = p;
-                        break;
-                    }
-                }
-
-                if (current_parent && display_info.per_parent_stats.contains(current_parent)) {
-                    // Use parent-specific stats for display
-                    auto [parent_time_val, parent_count] = display_info.per_parent_stats[current_parent];
-                    display_info.time = parent_time_val;
-                    display_info.count = parent_count;
-                }
+            // If we have a parent entry and this is a multi-parent function, use parent-specific stats
+            if (parent_entry && display_info.parents.size() > 1 &&
+                display_info.per_parent_stats.contains(parent_entry)) {
+                // Use parent-specific stats for display
+                auto [parent_time_val, parent_count] = display_info.per_parent_stats[parent_entry];
+                display_info.time = parent_time_val;
+                display_info.count = parent_count;
             }
 
             // Print this entry with parent time for percentage calculation
@@ -584,7 +573,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
                         }
                     }
 
-                    // Print children (passing current entry's time as parent time)
+                    // Print children (passing current entry's time as parent time and current entry as parent)
                     for (size_t i = 0; i < children_vec.size(); ++i) {
                         // Always allow multi-parent entries without children to be printed multiple times
                         bool allow_reprint = all_stats[children_vec[i]].parents.size() > 1;
@@ -594,7 +583,8 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
                                         visited,
                                         is_last_child,
                                         allow_reprint,
-                                        all_stats[key].time);
+                                        all_stats[key].time,
+                                        current_entry);
                     }
 
                     // Print "other" entry if needed
@@ -634,7 +624,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
     // Print hierarchies starting from roots
     std::set<std::string> visited;
     for (size_t i = 0; i < sorted_roots.size(); ++i) {
-        print_hierarchy(sorted_roots[i].first, 0, visited, i == sorted_roots.size() - 1, false, 0);
+        print_hierarchy(sorted_roots[i].first, 0, visited, i == sorted_roots.size() - 1, false, 0, nullptr);
     }
 
     // Print any unvisited entries (shouldn't happen with correct logic, but safety check)
