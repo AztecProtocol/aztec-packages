@@ -132,43 +132,88 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      * The boolean column q_add describes whether a round is an ADDITION round.
      * The values of q_add are Prover-defined. We need to ensure they set q_add correctly. We will do this via a
      * multiset-equality check (formerly called a "strict lookup"), which allows the various tables to "communicate".
-     * On a high level, we ensure that this table "reads" (pc, round, wnaf_slice), another table (PointTable) "writes" a
-     * potentially different set of (pc, round, wnaf_slice), and we demand that the reads match the writes.
+     * On a high level, we ensure that this table "reads" (pc, round, wnaf_slice), another table (Precomputed) "writes"
+     * a potentially different set of (pc, round, wnaf_slice), and we demand that the reads match the writes.
      * Alternatively said, the MSM columns spawn a multiset of tuples of the form (pc, round, wnaf_slice), the
-     * PointTable columns span a potentially different multiset of tuples of the form (pc, round, wnaf_slice), and we
-     * _check_ that these two multisets match.
+     * Precomputed Table columns spawn a potentially different multiset of tuples of the form (pc, round, wnaf_slice),
+     * and we _check_ that these two multisets match.
      *
-     * We rely on the following statements that we assume are constrained to be true (from other relations):
-     *      1. The set of reads into (pc, round, wnaf_slice) is constructed when q_add = 1
-     *      2. The set of reads into (pc, round, wnaf_slice) must match the set of writes from the point_table columns
-     *      3. The set of writes into (pc, round, wnaf_slice) from the point table columns is correct
-     *      4. `round` only updates when `q_add = 1` at current row and `q_add = 0` at next row
-     * If a Prover sets `q_add = 0` when an honest Prover would set `q_add = 1`,
-     * this will produce an inequality in the set of reads / writes into the (pc, round, wnaf_slice) table.
+     * The above description does not reference how we will _prove_ that the two multisets are equal. As usual, we use a
+     * grand product argument. A happy byproduct of this is that we can use the grand product technique is powerful
+     * enough to allow our multiset equality testing to support _conditional adds_; this means that we only add a tuple
+     * if some particular condition occurs.
      *
-     * The addition algorithm has several IF/ELSE statements based on comparing `count` with `msm_size`.
-     * Instead of directly constraining these, we define 4 boolean columns `q_add1, q_add2, q_add3, q_add4`.
-     * Like `q_add`, their values are Prover-defined. We need to ensure they are set correctly.
-     * We update the above conditions on reads into (pc, round, wnaf_slice) to the following:
-     *      1. The set of reads into (pc_{count}, round, wnaf_slice_{count}) is constructed when q_add = 1 AND q_add1 =
-     * 1
-     *      2. The set of reads into (pc_{count + 1}, round, wnaf_slice_{count + 1}) is constructed when q_add = 1 AND
-     * q_add2 = 1
-     *      3. The set of reads into (pc_{count + 2}, round, wnaf_slice_{count + 2}) is constructed when q_add = 1 AND
-     * q_add3 = 1
-     *      4. The set of reads into (pc_{count + 3}, round, wnaf_slice_{count + 3}) is constructed when q_add = 1 AND
-     * q_add4 = 1
+     * This (pc, round, wnaf_slice) multiset equality testing is made more difficult by the fact that the values of
+     * `precomputed_pc` are _not the same_ as the values of `msm_pc`. The former indexes over every (non-trivial, 128
+     * bit) scalar multiplication, while the latter jumps values and is constant on MSM rows corresponding to a fixed
+     * MSM. However, the transition values should match.
      *
-     * To ensure that all q_addi values are correctly set we apply consistency/continuity checks to
+     * Given a row of the MSM table, we have four selectors q_add1, q_add2, q_add3, q_add4, as well as a q_skew
+     * selector. For the MSM side of the multiset corresponding to (pc, round, wnaf_slice), we add:
+     *
+     *      1. (msm_pc - msm_count, round, wnaf_slice_{count}) when q_add1 = 1
+     *      2. (msm_pc - msm_count - 1, round, wnaf_slice_{count + 1}) when q_add2 = 1
+     *      3. (msm_pc - msm_count - 2, round, wnaf_slice_{count + 2}) when q_add3 = 1
+     *      4. (msm_pc - msm_count - 3, round, wnaf_slice_{count + 3}) when q_add4 = 1
+     *
+     * That this is "what we want" comes from the following facts: msm_pc is the number of (non-trivial, 128-bit) Point
+     * multiplications we have done _until the start of_ the current MSM, and `msm_count` is the number of Point * wNAF
+     * slice multiplications/lookups we have done _in this round_. (Recall that a round corresponds to a wNAF digit.) In
+     * particular, `msm_count` updates by the appropriate amount (usually 4, more accurately q_add1 + q_add2 + q_add3 +
+     * q_add4) per row of the MSM table.
+     *
+     * On the other side, given a row of the Precomputed columns, if `precompute_select == 1`, we add
+     *      1. (precompute_pc, 4 * precompute_round, w_1)
+     *      2. (precompute_pc, 4 * precompute_round + 1, w_2)
+     *      3. (precompute_pc, 4 * precompute_round + 2, w_3)
+     *      4. (precompute_pc, 4 * precompute_round + 3, w_4)
+     *      5. (precompute_pc, 4 * precompute_round + 4, precompute_skew) if precompute_point_transition == 1
+     *
+     * ELSE `precompute_select == 0` and we add:
+     *      1. (0, 0, 0)
+     *
+     * Here, w_K is the compressed wNAF slices corresponding to `precompute_sKhi` and `precompute_sKlo`, for K ∈ {1, 2,
+     * 3, 4} and precompute_skew ∈ {0, 7}.
+     *
+     * SKETCH OF PROOF: We now argue that, under the following assumptions, if the multiset equality holds, then the
+     * `q_addK` and also `q_add` are all correctly constrained for K ∈ {1, 2, 3, 4}.
+     *      1. The Precomputed table is correctly constrained; in particular, the values `precompute_pc`,
+     *      `precompute_round`, `precompute_skew`, `precompute_select`, and `wK` are all correctly constrained.
+     *      2. `round` is monotonic and only updates when RAJU ADD HERE. should this be more constrained??!
+     *      3. `pc` is monotonic and only updates when there is an `msm_transition`. Here, it updates by `msm_size`,
+     *      which must be constrained somewhere else by a multiset argument. We detail this below.
+     *      4. `q_add`, `q_skew`, and `q_double` are pairwise mutually exclusive.
+     *      5. `q_add1 == 1` iff either `q_add == 1` OR `q_skew == 1`.
+     *      6. The lookup table is implemented correctly. RAJU: check
+     *
+     * First of all, note the asymmetry: we do not explicitly add tuples corresponding to skew on the MSM side of the
+     * table. Indeeed, this in implicit with `msm_round == 32`. Now, the point is that the pair (pc, round) uniquely
+     * specifies the point + wNAF digit that we are processing (and adding to the accumulator) and both `pc` and `round`
+     * are directly constrained to be monotonic.
+     *
+     * Suppose the Prover sets `q_addK = 0` when an honest Prover would set `q_addK == 1`. Then there would be some (pc,
+     * round, wnaf_slice) that the Precomputed table add to its multiset that the prover did not add. The Prover can
+     * _never_ "compensate" for this, as both `pc` and `round` are locally constrained to be monotonic; this means that
+     * the Prover has "lost their chance" to add this element to the multiset and hence the multiset equality check will
+     * fail.
+     *
+     * Conversely, if the Prover sets `q_addK = 1` when it should be set to 0, there are several options: either
+     * we are at the end of a `round` (so e.g. `q_add4 ` _should_ be 0), or we are at a double row, or we are at a row
+     * that should be all 0s. In the first two cases, as long as the Precomputed table is correctly constrained, again
+     * we would be adding a tuple to the multiset that can never be hit by the Precomputed table due to `pc` and `round`
+     * monotonicty. In the final case, the only way we don't break the multiset check is if `wnaf_slice == 0` for the
+     * corresponding `q_addK` that is on. But then the lookup argument will fail, as there is no corresponding point
+     * when `pc = 0`. (Here it is helpful to remember that `pc` stands for _point-counter_.) RAJU: check the LOOKUP
+     * part. and the monotonicity part here.
+     *
+     *
+     * To ensure that all q_addK values are correctly set we apply consistency/continuity checks to
      * q_add1/q_add2/q_add3/q_add4:
      * 1. If q_add2 = 1, require q_add1 = 1
      * 2. If q_add3 = 1, require q_add2 = 1
      * 3. If q_add4 = 1, require q_add3 = 1
      * 4. If q_add1_shift = 1 AND round does not update between rows, require q_add4 = 1
      *
-     * We want to use all of the above to reason about the set of reads into (pc, round, wnaf_slice).
-     * The goal is to conclude that any case where the Prover incorrectly sets q_add/q_add1/q_add2/q_add3/q_add4 will
-     * produce a set inequality between the reads/writes into (pc, round, wnaf_slice)
      */
 
     /**
@@ -373,7 +418,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
 
     // SELECTORS ARE MUTUALLY EXCLUSIVE
     // at most one of q_skew, q_double, q_add can be nonzero.
-    // note that as we can expect our table to be zero padded, we do not insist that q_add + q_double + q_skew == 1.
+    // note that as we can expect our table to be zero padded, we _do not_ insist that q_add + q_double + q_skew == 1.
     std::get<17>(accumulator) += (q_add * q_double + q_add * q_skew + q_double * q_skew) * scaling_factor;
 
     // ROUND TRANSITION LOGIC
@@ -425,10 +470,12 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // this means that the first row with `round == 32` has q_skew == 1. then all subsequent q_skew entries must be 1,
     // _until_ we start our new MSM.
     std::get<33>(accumulator) += (-msm_transition_shift + 1) * q_skew * (-q_skew_shift + 1) * scaling_factor;
-
+    // if q_skew == 1, then round == 32. This is redundant.
+    std::get<34>(accumulator) += q_skew * (-round + 32) * scaling_factor;
     // UPDATING THE COUNT
 
-    // if we are changing the `round` (i.e. starting to process a new wNAF digit), the count_shift must be 0.
+    // if we are changing the `round` (i.e., starting to process a new wNAF digit or at an msm transition), the
+    // count_shift must be 0.
     std::get<23>(accumulator) += round_delta * count_shift * scaling_factor;
     // if msm_transition = 0 and round_transition = 0, then the next "row" of the VM is processing the same wNAF digit.
     // this means that the count must increase: count_shift = count + add1 + add2 + add3 + add4
@@ -444,7 +491,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
         is_not_first_row * (-msm_transition_shift + 1) * round_delta * count_shift * scaling_factor;
 
     // if msm_transition = 1, then count = 0 (as we are starting a new MSM and hence a new wNAF
-    // digit)
+    // digit). RAJU QUESTION: should I make this * round instead of * count? Probably...? TEST before pushing.
     std::get<26>(accumulator) += msm_transition * count * scaling_factor;
 
     // if msm_transition_shift = 1, pc = pc_shift + msm_size

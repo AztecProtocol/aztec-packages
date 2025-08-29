@@ -27,8 +27,10 @@ class ECCVMMSMMBuilder {
     static constexpr size_t NUM_WNAF_DIGITS_PER_SCALAR = bb::eccvm::NUM_WNAF_DIGITS_PER_SCALAR;
 
     struct alignas(64) MSMRow {
-        uint32_t pc = 0;        // decreasing counter over all half-length (128 bit) scalar muls used to compute
-                                // the required MSMs
+        uint32_t pc = 0; // decreasing point-counter, over all half-length (128 bit) scalar muls used to compute
+                         // the required MSMs. however, this value is _constant_ on a given MSM and more precisely
+                         //  refers to the of _completed_ half-length scalar muls completed up until we have started
+                         // the current MSM.
         uint32_t msm_size = 0;  // the number of points in (a.k.a. the length of) the MSM in whose computation
                                 // this VM row participates
         uint32_t msm_count = 0; // number of multiplications processed so far (not including this row) in current MSM
@@ -77,7 +79,7 @@ class ECCVMMSMMBuilder {
      * @brief Computes the row values for the Straus MSM columns of the ECCVM.
      *
      * For a detailed description of the Straus algorithm and its relation to the ECCVM, please see
-     * https://hackmd.io/@aztec-network/rJ5xhuCsn
+     * https://hackmd.io/@aztec-network/rJ5xhuCsn or, alternatively, the ECCVM readme.
      *
      * @param msms A vector of vectors of `ScalarMul`s, a.k.a. a vector of `MSM`s.
      * @param point_table_read_counts Table of read counts to be populated.
@@ -100,17 +102,23 @@ class ECCVMMSMMBuilder {
         //   row      = point_idx * rows_per_point_table + (some function of the slice value)
         //
         // Illustration:
-        //   Block Structure   Table structure:
-        //      | 0 | 1 |        | Block_{0}                      | <-- pc = total_number_of_muls
-        //      | - | - |        | Block_{1}                      | <-- pc = total_number_of_muls-(num muls in msm 0)
-        //    1 | # | # | -1     |   ...                          | ...
-        //    3 | # | # | -3     | Block_{total_number_of_muls-1} | <-- pc = num muls in last msm
+        //   Block Structure:
+        //      | 0 | 1 |
+        //      | - | - |
+        //    1 | # | # | -1
+        //    3 | # | # | -3
         //    5 | # | # | -5
         //    7 | # | # | -7
         //    9 | # | # | -9
         //   11 | # | # | -11
         //   13 | # | # | -13
         //   15 | # | # | -15
+        //
+        //   Table structure:
+        //    | Block_{0}                      | <-- pc = total_number_of_muls
+        //    | Block_{1}                      | <-- pc = total_number_of_muls-(num muls in msm 0)
+        //    |   ...                          | ...
+        //    | Block_{total_number_of_muls-1} | <-- pc = num muls in last msm
 
         const size_t num_rows_in_read_counts_table =
             static_cast<size_t>(total_number_of_muls) *
@@ -207,7 +215,7 @@ class ECCVMMSMMBuilder {
                             bool add = num_points_in_row > relative_point_idx;
                             const size_t point_idx = offset + relative_point_idx;
                             if (add) {
-                                // pc starts at total_number_of_muls and decreases non-uniformly to 0
+                                // `pc` starts at total_number_of_muls and decreases non-uniformly to 0.
                                 // -15 maps to the 1st point in the lookup table (array element 0)
                                 // -1 maps to the point in the lookup table that corresponds to the negation of the
                                 // original input point (i.e. the point we need to add into the accumulator if wnaf_skew

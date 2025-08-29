@@ -17,21 +17,25 @@ namespace bb {
  * @details ECCVMSetRelationImpl validates the correctness of the inputs/outputs of the three main algorithms evaluated
  * by the ECCVM.
  *
+ * Recall that `pc` stands for point-counter.
+ *
  * First term: tuple of (pc, round, wnaf_slice), computed when slicing scalar multipliers into slices,
- *             as part of ECCVMWnafRelation. (Recall that pc stands for "point counter". Here, round corresponds to
- *             `msm_round`.)
+ *             as part of ECCVMWnafRelation. (Here, round corresponds to `msm_round`.)
  * Input source: ECCVMWnafRelation
  * Output source: ECCVMMSMRelation
  *
  *
  * Second term: tuple of (pc, P.x, P.y, scalar-multiplier), used in ECCVMWnafRelation and
- *              ECCVMPointTableRelation. (Recall that pc stands for "point counter".)
+ *              ECCVMPointTableRelation.
  * Input source: ECCVMPointTableRelation
  * Output source: ECCVMMSMRelation
  *
- * Third term: tuple of (pc, P.x, P.y, msm-size) from ECCVMMSMRelation. (Recall that pc stands for "point counter".)
+ * Third term: tuple of (pc, P.x, P.y, msm-size) from ECCVMMSMRelation.
  * Input source: ECCVMMSMRelation
  * Output source: ECCVMTranscriptRelation
+ * Note that, from the latter table, this is only turned on when we are at an MSM transition, so we don't record the
+ * "intermediate" `transcript_pc` values from the Transcript columns. This is compatible with the fact that the `msm_pc`
+ * values are _constant_ on a fixed MSM.
  *
  * @tparam FF
  * @tparam AccumulatorTypes
@@ -123,6 +127,9 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
     }
     {
         const auto& eccvm_set_permutation_delta = params.eccvm_set_permutation_delta;
+        // if `precompute_select == 1`, don't change the numerator. if it is 0, then to get the grand product argument
+        // to work (as we have zero-padded the rows of the MSM table), we must multiply by
+        // `eccvm_set_permutation_delta` == (γ)·(γ + β²)·(γ + 2β²)·(γ + 3β²)
         numerator *= precompute_select * (-eccvm_set_permutation_delta + 1) + eccvm_set_permutation_delta; // degree-7
     }
 
