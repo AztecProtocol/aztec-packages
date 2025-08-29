@@ -274,23 +274,22 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
             prefix = is_last ? "└─ " : "├─ ";
         }
 
-        // Format name with level-specific alignment - each level aligns with peers at same level
-        size_t base_width = 80;                               // Base width for root level
-        size_t level_width = base_width - (indent_level * 2); // Reduce width per level for visual clarity
+        // Use exactly 80 characters for function name without indent
+        const size_t name_width = 80;
         std::string display_name = std::string(entry.key);
-        if (display_name.length() > level_width) {
-            display_name = display_name.substr(0, level_width - 3) + "...";
+        if (display_name.length() > name_width) {
+            display_name = display_name.substr(0, name_width - 3) + "...";
         }
 
         double time_ms = static_cast<double>(entry.time) / 1000000.0;
         auto colors = get_time_colors(time_ms);
 
-        // Print name with appropriate color
+        // Print indent + prefix + name (exactly 80 chars) + time/percentage/calls
         os << indent << prefix << colors.name_color;
         if (time_ms >= 1000.0 && colors.name_color == Colors::BOLD) {
             os << Colors::YELLOW; // Special case: bold yellow for >= 1s
         }
-        os << std::left << std::setw(static_cast<int>(level_width)) << display_name << Colors::RESET;
+        os << std::left << std::setw(static_cast<int>(name_width)) << display_name << Colors::RESET;
 
         // Print time if available
         if (entry.time > 0) {
@@ -376,13 +375,13 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
         }
     };
 
-    // Find root entries (those with empty parent key)
+    // Find root entries (those that ONLY have empty parent key and significant time)
     std::vector<OperationKey> roots;
     for (const auto& [key, parent_map] : aggregated) {
-        for (const auto& [parent_key, entry] : parent_map) {
-            if (parent_key.empty()) {
+        // Check if this operation has an empty parent key entry with significant time
+        if (auto empty_parent_it = parent_map.find(""); empty_parent_it != parent_map.end()) {
+            if (empty_parent_it->second.time > 0) {
                 roots.push_back(key);
-                break;
             }
         }
     }
