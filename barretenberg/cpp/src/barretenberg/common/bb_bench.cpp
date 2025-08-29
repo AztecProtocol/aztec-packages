@@ -395,20 +395,31 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
             printed_in_detail.insert(key);
         }
 
-        // Sort children by time (use total time across all parents)
+        // Sort children by their time in THIS parent context
         std::ranges::sort(children, [&](OperationKey a, OperationKey b) {
             uint64_t time_a = 0;
             uint64_t time_b = 0;
+
+            // Get time for child 'a' when called from THIS parent
             if (auto it = aggregated.find(a); it != aggregated.end()) {
-                for (const auto& [_, entry] : it->second) {
-                    time_a += entry.time;
+                for (const auto& [parent_key, entry] : it->second) {
+                    if (parent_key == key) {
+                        time_a = entry.time;
+                        break;
+                    }
                 }
             }
+
+            // Get time for child 'b' when called from THIS parent
             if (auto it = aggregated.find(b); it != aggregated.end()) {
-                for (const auto& [_, entry] : it->second) {
-                    time_b += entry.time;
+                for (const auto& [parent_key, entry] : it->second) {
+                    if (parent_key == key) {
+                        time_b = entry.time;
+                        break;
+                    }
                 }
             }
+
             return time_a > time_b;
         });
 
