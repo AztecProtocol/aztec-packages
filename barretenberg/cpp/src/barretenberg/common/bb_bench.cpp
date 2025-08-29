@@ -10,6 +10,7 @@
 #include <functional>
 #include <iomanip>
 #include <iostream>
+#include <mutex>
 #include <ostream>
 #include <set>
 #include <sstream>
@@ -214,10 +215,10 @@ AggregateData aggregate(const std::vector<TimeStatsEntry*>& counts)
     return result;
 }
 
-void GlobalBenchStatsContainer::~GlobalBenchStatsContainer()
+GlobalBenchStatsContainer::~GlobalBenchStatsContainer()
 {
     if (std::getenv("BB_BENCH") != nullptr) {
-        print_aggregate_counts_pretty(std::cerr);
+        print_aggregate_counts_hierarchical(std::cerr);
     }
 }
 

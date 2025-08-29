@@ -1,26 +1,20 @@
 
 #pragma once
 
+#include "barretenberg/common/compiler_hints.hpp"
+#include <iostream>
+#include <map>
 #include <memory>
 #include <ostream>
 #include <string_view>
 #include <tracy/Tracy.hpp>
+#include <vector>
 
 /**
  * Provides an abstraction that counts operations based on function names.
  * For efficiency, we spread out counts across threads.
  */
 
-#include "barretenberg/common/compiler_hints.hpp"
-#include <algorithm>
-#include <atomic>
-#include <cstdlib>
-#include <map>
-#include <mutex>
-#include <optional>
-#include <set>
-#include <string>
-#include <vector>
 namespace bb::detail {
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern bool use_bb_bench;
@@ -58,7 +52,6 @@ struct GlobalBenchStatsContainer {
     void print_stats_recursive(const OperationKey& key, const TimeStats* stats, const std::string& indent) const;
     std::map<OperationKey, std::size_t> get_aggregate_counts() const;
     void print_aggregate_counts(std::ostream&, size_t) const;
-    void print_aggregate_counts_pretty(std::ostream&) const;
     void print_aggregate_counts_hierarchical(std::ostream&) const;
 };
 
@@ -204,10 +197,10 @@ struct BenchReporter {
 #define BB_BENCH_TRACY() BB_BENCH_NAME(__func__)
 #define BB_BENCH_TRACY_NAME(name) BB_BENCH_NAME(name)
 #define BB_BENCH_NAME(name)                                                                                            \
-    bb::detail::BenchReporter __bb_op_count_time(bb::detail::ThreadBenchStats<name>::ensure_stats())
+    bb::detail::BenchReporter _bb_bench_reporter((bb::detail::ThreadBenchStats<name>::ensure_stats()))
 #define BB_BENCH_ENABLE_NESTING()                                                                                      \
-    if (bb::detail::use_bb_bench && __bb_op_count_time.stats)                                                          \
-        bb::detail::GlobalBenchStatsContainer::parent = __bb_op_count_time.stats;
+    if (bb::detail::use_bb_bench && _bb_bench_reporter.stats)                                                          \
+        bb::detail::GlobalBenchStatsContainer::parent = _bb_bench_reporter.stats;
 #define BB_BENCH() BB_BENCH_NAME(__func__)
 #endif
 #define BB_BENCH_NESTED_NAME(name)                                                                                     \

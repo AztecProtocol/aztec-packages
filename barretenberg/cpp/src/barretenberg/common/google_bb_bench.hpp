@@ -33,7 +33,7 @@ struct GoogleBbBenchReporter {
     ~GoogleBbBenchReporter()
     {
         if (std::getenv("BB_BENCH") != nullptr) {
-            bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts_pretty();
+            bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts_hierarchical();
         }
         // Allow for conditional reporting
         if (cancelled) {
