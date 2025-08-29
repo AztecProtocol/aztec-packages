@@ -188,24 +188,24 @@ describe('EthCheatCodes', () => {
       ).resolves.toEqual([3, 0, 1]);
     });
 
-    // it('reorgs with blocks with replacement txs with blobs', async () => {
-    //   await cheatCodes.mine(5);
+    it('reorgs with blocks with replacement txs with blobs', async () => {
+      await cheatCodes.mine(5);
 
-    //   const blobs = [new Uint8Array(131072).fill(1)];
-    //   const kzg = Blob.getViemKzgInstance();
-    //   const maxFeePerBlobGas = BigInt(1e10);
-    //   const txRequest = { to: sender, blobs, kzg, maxFeePerBlobGas };
-    //   const signed = await l1Client.signTransaction(await l1Client.prepareTransactionRequest(txRequest));
+      const blobs = [new Uint8Array(131072).fill(1)];
+      const kzg = Blob.getViemKzgInstance();
+      const maxFeePerBlobGas = BigInt(1e10);
+      const txRequest = { to: sender, blobs, kzg, maxFeePerBlobGas };
+      const signed = await l1Client.signTransaction(await l1Client.prepareTransactionRequest(txRequest));
 
-    //   await cheatCodes.reorgWithReplacement(3, [[signed], [], []]);
-    //   const blockNumber = await getBlockNumber();
-    //   const block = await l1Client.getBlock({ blockNumber: blockNumber - 2n, includeTransactions: true });
-    //   const [tx] = block.transactions;
-    //   const txReceipt = await l1Client.getTransactionReceipt({ hash: tx.hash });
+      await cheatCodes.reorgWithReplacement(3, [[signed], [], []]);
+      const blockNumber = await getBlockNumber();
+      const block = await l1Client.getBlock({ blockNumber: blockNumber - 2n, includeTransactions: true });
+      const [tx] = block.transactions;
+      const txReceipt = await l1Client.getTransactionReceipt({ hash: tx.hash });
 
-    //   expect(txReceipt.status).toEqual('success');
-    //   expect(tx.blobVersionedHashes?.length).toBeGreaterThan(0);
-    //   expect(tx.maxFeePerBlobGas).toBeGreaterThan(0);
-    // });
+      expect(txReceipt.status).toEqual('success');
+      expect(tx.blobVersionedHashes?.length).toBeGreaterThan(0);
+      expect(tx.maxFeePerBlobGas).toBeGreaterThan(0);
+    });
   });
 });
