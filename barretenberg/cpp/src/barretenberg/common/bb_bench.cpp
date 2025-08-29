@@ -152,7 +152,7 @@ void GlobalBenchStatsContainer::print_stats_recursive(const std::string& key,
                   << "ms\t[thread=" << thread_id << "]" << "\n";
     }
 
-    if (stats->next) {
+    if (stats->next != nullptr) {
         print_stats_recursive(key, stats->next.get(), thread_id, indent + "  ");
     }
 }
@@ -177,7 +177,7 @@ void GlobalBenchStatsContainer::aggregate_stats_recursive(const std::string& key
         aggregate_counts[key + "(t)"] += stats->time;
     }
 
-    if (stats->next) {
+    if (stats->next != nullptr) {
         aggregate_stats_recursive(key, stats->next.get(), aggregate_counts);
     }
 }
@@ -354,15 +354,15 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
         all_stats[entry->key].time += stats->time;
 
         // Track parent relationship from primary context
-        if (stats->parent) {
+        if (stats->parent != nullptr) {
             all_stats[entry->key].parents.insert(stats->parent);
         }
 
         // Now collect parent relationships from alternate contexts (but don't add their counts/times)
         stats = stats->next.get();
-        while (stats) {
+        while (stats != nullptr) {
             // Only track parent relationship, don't add counts/times from alternate contexts
-            if (stats->parent) {
+            if (stats->parent != nullptr) {
                 all_stats[entry->key].parents.insert(stats->parent);
             }
             stats = stats->next.get();
@@ -429,14 +429,12 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
         }
     }
 
-    // Calculate total time for percentage calculations
-    std::size_t total_time_for_percentage = 0;
-    for (const auto& [_, info] : all_stats) {
-        total_time_for_percentage += info.time;
-    }
-
     // Helper lambda to print a stat line with tree drawing
-    auto print_stat_tree = [&](const std::string& name, const StatInfo& info, size_t indent_level, bool is_last) {
+    auto print_stat_tree = [&](const std::string& name,
+                               const StatInfo& info,
+                               size_t indent_level,
+                               bool is_last,
+                               std::size_t parent_time = 0) {
         std::string indent(indent_level * 2, ' ');
         std::string prefix;
         if (indent_level > 0) {
@@ -461,7 +459,15 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
         // Print time if available
         if (info.time > 0) {
             os << "  " << colors.time_color << format_time_aligned(time_ms) << Colors::RESET;
-            os << format_percentage(static_cast<double>(info.time), static_cast<double>(total_time_for_percentage));
+
+            // Show percentage relative to parent (or none for roots)
+            if (indent_level == 0 || parent_time == 0) {
+                // Root entries or entries without valid parent time don't show percentage
+                os << "      "; // Keep alignment
+            } else {
+                os << format_percentage(static_cast<double>(info.time), static_cast<double>(parent_time));
+            }
+
             os << format_average(time_ms, info.count);
         } else if (info.count > 0) {
             os << "  " << Colors::DIM << std::setw(8) << info.count << " calls" << Colors::RESET;
@@ -476,12 +482,13 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
     };
 
     // Recursive function to print hierarchy
-    std::function<void(const std::string&, size_t, std::set<std::string>&, bool, bool)> print_hierarchy =
+    std::function<void(const std::string&, size_t, std::set<std::string>&, bool, bool, std::size_t)> print_hierarchy =
         [&](const std::string& key,
             size_t indent_level,
             std::set<std::string>& visited,
             bool is_last,
-            bool force_print) {
+            bool force_print,
+            std::size_t parent_time) {
             // Skip if already visited, unless we're forcing print for multi-parent entries
             if (!force_print && visited.contains(key)) {
                 return;
@@ -492,8 +499,8 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
                 visited.insert(key);
             }
 
-            // Print this entry
-            print_stat_tree(key, all_stats[key], indent_level, is_last);
+            // Print this entry with parent time for percentage calculation
+            print_stat_tree(key, all_stats[key], indent_level, is_last, parent_time);
 
             // Only print children if:
             // 1. Not a forced print (multi-parent entry being shown under a parent)
@@ -532,12 +539,17 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
                         }
                     }
 
-                    // Print children
+                    // Print children (passing current entry's time as parent time)
                     for (size_t i = 0; i < children_vec.size(); ++i) {
                         // Always allow multi-parent entries without children to be printed multiple times
                         bool allow_reprint = all_stats[children_vec[i]].parents.size() > 1;
                         bool is_last_child = (i == children_vec.size() - 1) && !need_other;
-                        print_hierarchy(children_vec[i], indent_level + 1, visited, is_last_child, allow_reprint);
+                        print_hierarchy(children_vec[i],
+                                        indent_level + 1,
+                                        visited,
+                                        is_last_child,
+                                        allow_reprint,
+                                        all_stats[key].time);
                     }
 
                     // Print "other" entry if needed
@@ -552,7 +564,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
                            << std::setw(static_cast<int>(name_width)) << "(other)" << Colors::RESET << "  "
                            << colors.time_color << format_time_aligned(time_ms) << Colors::RESET
                            << format_percentage(static_cast<double>(other_time),
-                                                static_cast<double>(total_time_for_percentage))
+                                                static_cast<double>(all_stats[key].time))
                            << "\n";
                     }
                 }
@@ -577,13 +589,13 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
     // Print hierarchies starting from roots
     std::set<std::string> visited;
     for (size_t i = 0; i < sorted_roots.size(); ++i) {
-        print_hierarchy(sorted_roots[i].first, 0, visited, i == sorted_roots.size() - 1, false);
+        print_hierarchy(sorted_roots[i].first, 0, visited, i == sorted_roots.size() - 1, false, 0);
     }
 
     // Print any unvisited entries (shouldn't happen with correct logic, but safety check)
     for (const auto& [key, info] : all_stats) {
         if (!visited.contains(key)) {
-            print_stat_tree(key, info, 0, true);
+            print_stat_tree(key, info, 0, true, 0);
             visited.insert(key);
         }
     }
