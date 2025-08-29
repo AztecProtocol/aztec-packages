@@ -92,8 +92,6 @@ export type DeployL1ContractsReturnType = {
   l1ContractAddresses: L1ContractAddresses;
   /** Version of the current rollup contract. */
   rollupVersion: number;
-  /** The fee asset owner address */
-  feeAssetOwnerAddress: EthAddress;
 };
 
 export interface LinkReferences {
@@ -1057,7 +1055,6 @@ export const deployL1Contracts = async (
       zkPassportVerifierAddress,
       coinIssuerAddress,
     },
-    feeAssetOwnerAddress: l1Contracts.coinIssuerAddress,
   };
 };
 
