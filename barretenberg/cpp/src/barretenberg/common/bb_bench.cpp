@@ -49,9 +49,14 @@ std::string format_time_aligned(double time_ms)
 {
     std::ostringstream oss;
     if (time_ms >= 1000.0) {
-        oss << std::fixed << std::setprecision(2) << std::setw(8) << (time_ms / 1000.0) << " s";
+        // Format seconds: "16.43s    " left aligned in 10 char field
+        std::string time_str =
+            (std::ostringstream{} << std::fixed << std::setprecision(2) << (time_ms / 1000.0) << "s").str();
+        oss << std::left << std::setw(10) << time_str;
     } else {
-        oss << std::fixed << std::setprecision(1) << std::setw(8) << time_ms << " ms";
+        // Format milliseconds: "443.0ms  " left aligned in 10 char field (no color here, applied outside)
+        std::string time_str = (std::ostringstream{} << std::fixed << std::setprecision(1) << time_ms << "ms").str();
+        oss << std::left << std::setw(10) << time_str;
     }
     return oss.str();
 }
@@ -71,7 +76,8 @@ std::string format_percentage(double value, double total, double min_threshold =
     const char* color = Colors::CYAN; // Default color
 
     std::ostringstream oss;
-    oss << color << " " << std::fixed << std::setprecision(1) << std::setw(5) << percentage << "%" << Colors::RESET;
+    oss << color << " " << std::left << std::fixed << std::setprecision(1) << std::setw(5) << percentage << "%"
+        << Colors::RESET;
     return oss.str();
 }
 
@@ -87,8 +93,12 @@ std::string format_aligned_section(double time_ms,
     // Add indent level indicator at the beginning with different color
     oss << Colors::MAGENTA << "[" << indent_level << "] " << Colors::RESET;
 
-    // Format time
-    oss << format_time_aligned(time_ms);
+    // Format time with appropriate color
+    if (time_ms >= 100.0 && time_ms < 1000.0) {
+        oss << Colors::DIM << format_time_aligned(time_ms) << Colors::RESET;
+    } else {
+        oss << format_time_aligned(time_ms);
+    }
 
     // Format percentage using the existing function
     if (parent_time > 0 && indent_level > 0) {
@@ -97,13 +107,15 @@ std::string format_aligned_section(double time_ms,
         oss << "       "; // Keep alignment for root entries
     }
 
-    // Format calls/threads info - only show thread info if num_threads > 1, make it DIM
-    if (num_threads > 1) {
-        oss << Colors::DIM << " (" << std::fixed << std::setprecision(2) << mean_ms << " ms x " << num_threads << ")"
-            << Colors::RESET;
-    } else if (count > 1) {
-        double avg_ms = time_ms / static_cast<double>(count);
-        oss << Colors::DIM << " (" << format_time(avg_ms) << " x " << count << ")" << Colors::RESET;
+    // Format calls/threads info - only show if >= 100ms, only show thread info if num_threads > 1, make it DIM
+    if (time_ms >= 100.0) {
+        if (num_threads > 1) {
+            oss << Colors::DIM << " (" << std::fixed << std::setprecision(2) << mean_ms << " ms x " << num_threads
+                << ")" << Colors::RESET;
+        } else if (count > 1) {
+            double avg_ms = time_ms / static_cast<double>(count);
+            oss << Colors::DIM << " (" << format_time(avg_ms) << " x " << count << ")" << Colors::RESET;
+        }
     }
 
     return oss.str();
@@ -325,17 +337,21 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
     };
 
     // Recursive function to print hierarchy
-    std::function<void(OperationKey, size_t, bool, uint64_t)> print_hierarchy;
-    print_hierarchy = [&](OperationKey key, size_t indent_level, bool is_last, uint64_t parent_time) -> void {
+    std::function<void(OperationKey, size_t, bool, uint64_t, OperationKey)> print_hierarchy;
+    print_hierarchy = [&](OperationKey key,
+                          size_t indent_level,
+                          bool is_last,
+                          uint64_t parent_time,
+                          OperationKey current_parent) -> void {
         auto it = aggregated.find(key);
         if (it == aggregated.end()) {
             return;
         }
 
-        // Find the entry with empty parent (root) or specific parent
+        // Find the entry with the specific parent context
         const AggregateEntry* entry_to_print = nullptr;
         for (const auto& [parent_key, entry] : it->second) {
-            if ((indent_level == 0 && parent_key.empty()) || (indent_level > 0 && !parent_key.empty())) {
+            if ((indent_level == 0 && parent_key.empty()) || (indent_level > 0 && parent_key == current_parent)) {
                 entry_to_print = &entry;
                 break;
             }
@@ -348,12 +364,12 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
         // Print this entry
         print_entry(*entry_to_print, indent_level, is_last, parent_time);
 
-        // Find and print children - operations that have this key as parent
+        // Find and print children - operations that have this key as parent (only those with meaningful time >= 0.5ms)
         std::vector<OperationKey> children;
         if (!printed_in_detail.contains(key)) {
             for (const auto& [child_key, parent_map] : aggregated) {
                 for (const auto& [parent_key, entry] : parent_map) {
-                    if (parent_key == key) {
+                    if (parent_key == key && entry.time >= 500000) { // 0.5ms in nanoseconds
                         children.push_back(child_key);
                         break;
                     }
@@ -385,7 +401,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
             if (auto it = aggregated.find(child_key); it != aggregated.end()) {
                 // Sum time for this child across all parent contexts where parent matches current key
                 for (const auto& [parent_key, entry] : it->second) {
-                    if (parent_key == key) {
+                    if (parent_key == key && entry.time >= 500000) { // 0.5ms in nanoseconds
                         children_total_time += entry.time;
                     }
                 }
@@ -404,17 +420,17 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
         }
 
         if (!children.empty() && keys_to_parents[key].size() > 1) {
-            os << std::string(indent_level * 2, ' ') << "  ├─ NOTE: Shared children. Will add up to > 100%.\n";
+            os << std::string(indent_level * 2, ' ') << "  ├─ NOTE: Shared children. Can add up to > 100%.\n";
         }
 
         // Print children
         for (size_t i = 0; i < children.size(); ++i) {
             bool is_last_child = (i == children.size() - 1) && !should_add_other;
-            print_hierarchy(children[i], indent_level + 1, is_last_child, entry_to_print->time);
+            print_hierarchy(children[i], indent_level + 1, is_last_child, entry_to_print->time, key);
         }
 
         // Print "(other)" category if significant unaccounted time exists
-        if (should_add_other) {
+        if (should_add_other && keys_to_parents[key].size() <= 1) {
             // Create fake AggregateEntry for (other)
             AggregateEntry other_entry;
             other_entry.key = "(other)";
@@ -456,7 +472,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
 
     // Print hierarchies starting from roots
     for (size_t i = 0; i < roots.size(); ++i) {
-        print_hierarchy(roots[i], 0, i == roots.size() - 1, 0);
+        print_hierarchy(roots[i], 0, i == roots.size() - 1, 0, "");
     }
 
     // Print summary
