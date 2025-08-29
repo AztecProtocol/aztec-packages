@@ -97,6 +97,10 @@ spec:
             - name: prover-node-data
               mountPath: {{ .Values.proverNode.dataDir }}
           env:
+            {{- if .Values.web3signer.enabled }}
+            - name: WEB3_SIGNER_URL
+              value: "http://{{ include "aztec-network.fullname" . }}-web3signer.{{ .Release.Namespace }}.svc.cluster.local:9000/"
+            {{- end }}
             - name: BOOTSTRAP_NODES
               value: "{{ .Values.aztec.bootstrapENRs }}"
             - name: REGISTRY_CONTRACT_ADDRESS
