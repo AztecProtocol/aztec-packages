@@ -100,12 +100,12 @@ export class RegistryContract {
       abi: TestERC20Abi,
       client,
     });
-    const feeAssetOwner = await feeAsset.read.owner();
+    const coinIssuer = await feeAsset.read.owner();
     return {
       registryAddress: registry.address,
       ...governanceAddresses,
       ...addresses,
-      coinIssuerAddress: EthAddress.fromString(feeAssetOwner),
+      coinIssuerAddress: EthAddress.fromString(coinIssuer),
     };
   }
 

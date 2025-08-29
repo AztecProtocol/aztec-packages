@@ -63,6 +63,8 @@ describe('Registry', () => {
       'stakingAssetHandlerAddress',
       'zkPassportVerifierAddress',
     );
+    // Updating the coin issuer address to the deployer address bc we don't yet set CoinIssuer contract as the owner of the fee asset
+    deployedAddresses.coinIssuerAddress = EthAddress.fromString(privateKey.address);
     registry = new RegistryContract(l1Client, deployedAddresses.registryAddress);
 
     const rollup = new RollupContract(l1Client, deployedAddresses.rollupAddress);
