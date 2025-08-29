@@ -69,19 +69,17 @@
         "mnemonic": "test test test test test test test test test test test junk",
         "addressCount": 1
       },
-      [
-        "0x5555555555555555555555555555555555555555555555555555555555555555",
-        "0x6666666666666666666666666666666666666666",
-        {
-          "address": "0x7777777777777777777777777777777777777777",
-          "remoteSignerUrl": "https://localhost:9300",
-          "certPath": "/path/to/prover-cert.pem"
-        },
-        {
-          "path": "/tmp/prover-publishers",
-          "password": "prover-pass"
-        }
-      ]
+      "0x5555555555555555555555555555555555555555555555555555555555555555",
+      "0x6666666666666666666666666666666666666666",
+      {
+        "address": "0x7777777777777777777777777777777777777777",
+        "remoteSignerUrl": "https://localhost:9300",
+        "certPath": "/path/to/prover-cert.pem"
+      },
+      {
+        "path": "/tmp/prover-publishers",
+        "password": "prover-pass"
+      }
     ]
   }
 }
