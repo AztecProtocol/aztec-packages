@@ -363,7 +363,9 @@ class ProtogalaxyRecursiveTests : public testing::Test {
 
         // Perform native verification then perform the pairing on the outputs of the recursive decider verifier and
         // check that the result agrees.
-        InnerDeciderVerifier native_decider_verifier(verifier_accumulator);
+        auto native_decider_verifier_transcript = std::make_shared<typename InnerFlavor::Transcript>();
+        native_decider_verifier_transcript->add_to_hash_buffer("accum_hash", native_accum_hash);
+        InnerDeciderVerifier native_decider_verifier(verifier_accumulator, native_decider_verifier_transcript);
         auto native_decider_output = native_decider_verifier.verify_proof(decider_proof);
         auto native_result = native_decider_output.check();
         NativeVerifierCommitmentKey pcs_vkey{};
@@ -391,13 +393,24 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         verifier_accumulator->target_sum = FF::random_element(&engine);
 
         // Create a decider proof for accumulator obtained through folding
-        InnerDeciderProver decider_prover(prover_accumulator);
+        auto decider_prover_transcript = std::make_shared<typename InnerFlavor::Transcript>();
+        auto accum_hash = verifier_accumulator->hash_through_transcript("", *decider_prover_transcript);
+        decider_prover_transcript->add_to_hash_buffer("accum_hash", accum_hash);
+        InnerDeciderProver decider_prover(prover_accumulator, decider_prover_transcript);
         decider_prover.construct_proof();
         auto decider_proof = decider_prover.export_proof();
 
         // Create a decider verifier circuit for recursively verifying the decider proof
         OuterBuilder decider_circuit;
-        DeciderRecursiveVerifier decider_verifier{ &decider_circuit, verifier_accumulator };
+        auto stdlib_verifier_accumulator =
+            std::make_shared<RecursiveDeciderVerificationKey>(&decider_circuit, verifier_accumulator);
+        auto stdlib_decider_verifier_transcript = std::make_shared<typename RecursiveFlavor::Transcript>();
+        auto stdlib_verifier_accum_hash =
+            stdlib_verifier_accumulator->hash_through_transcript("", *stdlib_decider_verifier_transcript);
+        stdlib_decider_verifier_transcript->add_to_hash_buffer("accum_hash", stdlib_verifier_accum_hash);
+        DeciderRecursiveVerifier decider_verifier{ &decider_circuit,
+                                                   stdlib_verifier_accumulator,
+                                                   stdlib_decider_verifier_transcript };
         [[maybe_unused]] auto output = decider_verifier.verify_proof(decider_proof);
         info("Decider Recursive Verifier: num gates = ", decider_circuit.num_gates);
 
@@ -422,9 +435,11 @@ class ProtogalaxyRecursiveTests : public testing::Test {
 
         // Generate a folding proof with the incorrect polynomials which would result in the prover having the wrong
         // target sum
-        InnerFoldingProver folding_prover({ prover_accumulator, prover_inst },
-                                          { verifier_accumulator, verifier_inst },
-                                          std::make_shared<typename InnerFoldingProver::Transcript>());
+        auto folding_prover_transcript = std::make_shared<typename InnerFoldingProver::Transcript>();
+        folding_prover_transcript->add_to_hash_buffer(
+            "accum_hash", verifier_accumulator->hash_through_transcript("", *folding_prover_transcript));
+        InnerFoldingProver folding_prover(
+            { prover_accumulator, prover_inst }, { verifier_accumulator, verifier_inst }, folding_prover_transcript);
         auto folding_proof = folding_prover.prove();
 
         // Create a folding verifier circuit
@@ -435,10 +450,13 @@ class ProtogalaxyRecursiveTests : public testing::Test {
         auto recursive_vk_and_hash_2 = std::make_shared<RecursiveVKAndHash>(folding_circuit, verifier_inst->vk);
         stdlib::Proof<OuterBuilder> stdlib_proof(folding_circuit, folding_proof.proof);
 
-        auto verifier = FoldingRecursiveVerifier{ &folding_circuit,
-                                                  recursive_decider_vk_1,
-                                                  { recursive_vk_and_hash_2 },
-                                                  std::make_shared<typename FoldingRecursiveVerifier::Transcript>() };
+        auto stdlib_folding_verifier_transcript = std::make_shared<typename FoldingRecursiveVerifier::Transcript>();
+        stdlib_folding_verifier_transcript->add_to_hash_buffer(
+            "accum_hash", recursive_decider_vk_1->hash_through_transcript("", *stdlib_folding_verifier_transcript));
+
+        auto verifier = FoldingRecursiveVerifier{
+            &folding_circuit, recursive_decider_vk_1, { recursive_vk_and_hash_2 }, stdlib_folding_verifier_transcript
+        };
         auto recursive_verifier_acc = verifier.verify_folding_proof(stdlib_proof);
 
         // Validate that the target sum between prover and verifier is now different
