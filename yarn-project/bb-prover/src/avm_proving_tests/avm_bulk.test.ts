@@ -34,7 +34,8 @@ describe('AVM proven bulk test', () => {
   it(
     'Prove and verify',
     async () => {
-      await bulkTest(tester, logger, AvmTestContractArtifact, (b: boolean) => expect(b).toBe(true));
+      const result = await bulkTest(tester, logger, AvmTestContractArtifact);
+      expect(result.revertCode.isOK()).toBe(true);
     },
     TIMEOUT,
   );

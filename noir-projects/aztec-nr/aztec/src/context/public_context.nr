@@ -881,22 +881,15 @@ pub unconstrained fn calldata_copy<let N: u32>(cdoffset: u32, copy_size: u32) ->
 }
 
 // `success_copy` is placed immediately after the CALL opcode to get the success value
-//
-// This function is temporarily exposed publicly to be able to test it in AVMTest contract.
-// TODO: Refactor tests to keep this implementation detail private within the crate.
-pub unconstrained fn success_copy() -> bool {
+unconstrained fn success_copy() -> bool {
     success_copy_opcode()
 }
 
-// This function is temporarily exposed publicly to be able to test it in AVMTest contract.
-// TODO: Refactor tests to keep this implementation detail private within the crate.
-pub unconstrained fn returndata_size() -> u32 {
+unconstrained fn returndata_size() -> u32 {
     returndata_size_opcode()
 }
 
-// This function is temporarily exposed publicly to be able to test it in AVMTest contract.
-// TODO: Refactor tests to keep this implementation detail private within the crate.
-pub unconstrained fn returndata_copy(rdoffset: u32, copy_size: u32) -> [Field] {
+unconstrained fn returndata_copy(rdoffset: u32, copy_size: u32) -> [Field] {
     returndata_copy_opcode(rdoffset, copy_size)
 }
 
@@ -908,10 +901,7 @@ pub unconstrained fn avm_return(returndata: [Field]) {
 // to do rethrows, where the revert data is the same as the original revert data.
 // For normal reverts, use Noir's `assert` which, on top of reverting, will also add
 // an error selector to the revert data.
-//
-// This function is temporarily exposed publicly to be able to test it in AVMTest contract.
-// TODO: Refactor tests to keep this implementation detail private within the crate.
-pub unconstrained fn avm_revert(revertdata: [Field]) {
+unconstrained fn avm_revert(revertdata: [Field]) {
     revert_opcode(revertdata)
 }
 
