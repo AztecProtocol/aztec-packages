@@ -268,6 +268,7 @@ template <typename Builder> void cycle_scalar<Builder>::validate_scalar_is_in_fi
     using FF = typename field_t::native;
     constexpr bool IS_ULTRA = Builder::CIRCUIT_TYPE == CircuitType::ULTRA;
 
+    // AUDITTODO: Investigate using field_t::split_at here per Sergei's suggestion
     if (!is_constant() && !skip_primality_test()) {
         // Check that scalar.hi * 2^LO_BITS + scalar.lo < cycle_group_modulus when evaluated over the integers
         const uint256_t cycle_group_modulus =
