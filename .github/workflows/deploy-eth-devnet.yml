@@ -26,9 +26,8 @@ on:
         type: string
       ref:
         description: The branch name to deploy from
-        required: false
+        required: true
         type: string
-        default: "next"
       chain_id:
         description: Ethereum chain ID for genesis generation
         required: false
@@ -46,14 +45,12 @@ on:
         default: "32000000"
       resource_profile:
         description: Resource profile to use (dev or prod)
-        required: false
+        required: true
         type: string
-        default: "prod"
       create_static_ips:
         description: Whether to create static IPs as part of the eth devnet for the execution and beacon nodes
-        required: false
+        required: true
         type: string
-        default: "false"
       run_terraform_destroy:
         description: Whether to run the terraform destroy
         required: false
@@ -64,6 +61,11 @@ on:
         required: false
         type: string
         default: "test test test test test test test test test test test junk"
+      prefunded_mnemonic_indices:
+        description: The indices of the prefunded mnemonic to use for the devnet
+        required: false
+        type: string
+        default: "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,1000,1001,1002,1003"
     secrets:
       GCP_SA_KEY:
         description: The JSON key for the GCP service account
@@ -89,19 +91,16 @@ on:
     inputs:
       cluster:
         description: The cluster to deploy to, e.g. aztec-gke-private or kind
-        required: false
+        required: true
         type: string
-        default: "kind"
       namespace:
         description: The namespace to deploy to
-        required: false
+        required: true
         type: string
-        default: "eth-devnet"
       ref:
         description: The branch name to deploy from.
-        required: false
+        required: true
         type: string
-        default: "next"
       chain_id:
         description: Ethereum chain ID for genesis generation
         required: false
@@ -119,14 +118,12 @@ on:
         default: "32000000"
       resource_profile:
         description: Resource profile to use (dev or prod)
-        required: false
+        required: true
         type: string
-        default: "prod"
       create_static_ips:
         description: Whether to create static IPs as part of the eth devnet for the execution and beacon nodes
-        required: false
+        required: true
         type: string
-        default: "false"
       run_terraform_destroy:
         description: Whether to run the terraform destroy
         required: false
@@ -137,6 +134,11 @@ on:
         required: false
         type: string
         default: "test test test test test test test test test test test junk"
+      prefunded_mnemonic_indices:
+        description: The indices of the prefunded mnemonic to use for the devnet
+        required: false
+        type: string
+        default: "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,1000,1001,1002,1003"
 
 jobs:
   deploy_eth_devnet:
@@ -150,13 +152,12 @@ jobs:
       TF_STATE_BUCKET: aztec-terraform
       REGION: us-west1-a
       # Common Terraform variables as environment variables
-      TF_VAR_NAMESPACE: ${{ inputs.namespace || 'eth-devnet' }}
-      TF_VAR_CHAIN_ID: ${{ inputs.chain_id || 1337 }}
-      TF_VAR_BLOCK_TIME: ${{ inputs.block_time || 12 }}
-      TF_VAR_GAS_LIMIT: ${{ inputs.gas_limit || '32000000' }}
-      TF_VAR_MNEMONIC_SECRET_NAME: eth-devnet-genesis-mnemonic
-      TF_VAR_PREFUNDED_MNEMONIC_INDICES: "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,1000,1001,1002,1003"
-      TF_VAR_RESOURCE_PROFILE: ${{ inputs.resource_profile || 'prod' }}
+      TF_VAR_NAMESPACE: ${{ inputs.namespace }}
+      TF_VAR_CHAIN_ID: ${{ inputs.chain_id }}
+      TF_VAR_BLOCK_TIME: ${{ inputs.block_time }}
+      TF_VAR_GAS_LIMIT: ${{ inputs.gas_limit }}
+      TF_VAR_PREFUNDED_MNEMONIC_INDICES: ${{ inputs.prefunded_mnemonic_indices }}
+      TF_VAR_RESOURCE_PROFILE: ${{ inputs.resource_profile }}
 
     steps:
       - name: Mask the mnemonic

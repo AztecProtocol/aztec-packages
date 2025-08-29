@@ -1,14 +1,3 @@
-global:
-  l1ExecutionUrls: []
-  l1ConsensusUrls: []
-  l1ConsensusHostApiKeys: []
-  l1ConsensusHostApiKeyHeaders: []
-
-  aztecImage:
-    repository: aztecprotocol/aztec
-    tag: staging
-    pullPolicy: Always
-
 nodeSelector:
   local-ssd: "false"
   node-type: "network"
@@ -29,27 +18,10 @@ replicaCount: 1
 hostNetwork: true
 
 node:
-  env:
-    OTEL_SERVICE_NAME: "node"
-    SPONSORED_FPC: true
-
-  preStartScript: |
-    until curl --silent --head --fail "${BOOT_NODE_HOST}/status" > /dev/null; do
-      echo "Waiting for boot node..."
-      sleep 1
-    done
-    echo "Boot node is ready!"
-
-    export BOOTSTRAP_NODES=$(curl -X POST --data '{"method": "bootstrap_getEncodedEnr"}' $BOOT_NODE_HOST | jq -r .result)
-
   resources:
     requests:
       cpu: "3"
       memory: "12Gi"
-  startCmd:
-    - --node
-    - --archiver
-
 persistence:
   enabled: true
 
@@ -76,5 +48,3 @@ service:
     enabled: true
   headless:
     enabled: false
-
-

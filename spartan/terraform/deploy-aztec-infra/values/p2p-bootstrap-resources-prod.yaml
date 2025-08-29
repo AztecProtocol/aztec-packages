@@ -1,15 +1,4 @@
-nameOverride: "node"
-
-global:
-  l1ExecutionUrls: []
-  l1ConsensusUrls: []
-  l1ConsensusHostApiKeys: []
-  l1ConsensusHostApiKeyHeaders: []
-
-  aztecImage:
-    repository: aztecprotocol/aztec
-    tag: staging
-    pullPolicy: Always
+hostNetwork: true
 
 nodeSelector:
   local-ssd: "false"
@@ -27,20 +16,11 @@ affinity:
         topologyKey: "kubernetes.io/hostname"
         namespaceSelector: {}
 
-replicaCount: 1
-
-hostNetwork: true
-
 node:
-  env:
-    OTEL_SERVICE_NAME: "boot-node"
-
   resources:
     requests:
       cpu: "1"
       memory: "2Gi"
-  startCmd:
-    - --p2p-bootstrap
 
 persistence:
   enabled: true
@@ -55,13 +35,3 @@ statefulSet:
         resources:
           requests:
             storage: 4Gi
-
-service:
-  p2p:
-    enabled: true
-    nodePortEnabled: false
-  admin:
-    enabled: false
-  headless:
-    enabled: false
-

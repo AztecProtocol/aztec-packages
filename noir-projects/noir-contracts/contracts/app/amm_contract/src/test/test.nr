@@ -9,9 +9,6 @@ global AUTHWIT_NONCE: Field = 1;
 global DEFAULT_AMOUNT_0_MIN: u128 = 0;
 global DEFAULT_AMOUNT_1_MIN: u128 = 0;
 
-// Note: Ideally this test would be split into 2 separate test cases - one for order creation and one for order
-// fulfillment, with the second test running on the state from the first test. Since this feature is not currently
-// supported, combining them into a single comprehensive test is the best approach.
 #[test]
 unconstrained fn add_liquidity_twice_and_remove_liquidity() {
     let (mut env, amm_address, token0_address, token1_address, liquidity_token_address, minter) =

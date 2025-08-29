@@ -118,9 +118,6 @@ namespace data_copy;
     pol commit sel_rd_copy;
     sel_rd_copy * (1 - sel_rd_copy) = 0;
 
-    // Two varieties depending of if we gate by error
-    pol SEL_NO_ERR = SEL * (1 - err);
-
     pol commit clk;
 
     // Things are range checked to 32 bits
@@ -226,11 +223,21 @@ namespace data_copy;
     #[START_AFTER_END]
     (sel_cd_copy' + sel_rd_copy') * sel_end * (sel_start' - 1) = 0;
 
+    pol commit sel_write_count_is_zero;
+    pol commit write_count_zero_inv; // Could optimise by using the existing write_count_minus_on_inv
+    // sel_write_count_is_zero = 1 IFF copy_size = 0 && sel_start = 1 (and there are no errors)
+    #[ZERO_SIZED_WRITE]
+    sel_start_no_err * (copy_size * (sel_write_count_is_zero * (1 - write_count_zero_inv) + write_count_zero_inv) - 1 + sel_write_count_is_zero) = 0;
+    #[END_IF_WRITE_IS_ZERO]
+    sel_start_no_err * sel_write_count_is_zero * (sel_end - 1) = 0;
+
+    pol SEL_PERFORM_COPY = SEL * (1 - err) * (1 - sel_write_count_is_zero);
+
     pol WRITE_COUNT_MINUS_ONE = copy_size - 1;
     pol commit write_count_minus_one_inv;
     // sel_end = 1 IFF copy_size - 1 = 0;
     #[END_WRITE_CONDITION]
-    SEL_NO_ERR * (WRITE_COUNT_MINUS_ONE * (sel_end * (1 - write_count_minus_one_inv) + write_count_minus_one_inv) - 1 + sel_end) = 0;
+    SEL_PERFORM_COPY * (WRITE_COUNT_MINUS_ONE * (sel_end * (1 - write_count_minus_one_inv) + write_count_minus_one_inv) - 1 + sel_end) = 0;
 
     #[END_ON_ERR] // sel_end = 1 if error
     err * (sel_end - 1) = 0;
@@ -248,7 +255,7 @@ namespace data_copy;
     // If sel_offset_gt_max_read = 1 (i.e. when offset > MAX_READ_INDEX, reads_left = 0)
     // otherwise, reads_left = MAX_READ_INDEX - offset
     #[INIT_READS_LEFT]
-    sel_start_no_err * ( reads_left - (max_read_index - offset) * (1 - offset_gt_max_read_index)) = 0;
+    sel_start_no_err * (1 - sel_write_count_is_zero) * (reads_left - (max_read_index - offset) * (1 - offset_gt_max_read_index)) = 0;
 
     //////////////////////////////
     // Execute Data Copy
@@ -256,7 +263,7 @@ namespace data_copy;
     // Most of these relations are either gated explicitly by an err or by sel_end (which is 1 when err = 1)
     // ===== Writing to dst_context_id =====
     pol commit sel_mem_write;
-    sel_mem_write = SEL_NO_ERR; // We write if there is no error
+    sel_mem_write = SEL_PERFORM_COPY; // We write if there is no error and copy_size != 0
     // Data copy size decrements for each row until we end
     #[DECR_COPY_SIZE]
     SEL * (1 - sel_end) * (copy_size' - copy_size + 1) = 0;
@@ -271,8 +278,8 @@ namespace data_copy;
 
     // ===== Reading for nested call =====
     pol commit read_addr;  // The addr to start reading the data from: src_addr + offset;
-    #[INIT_READ_ADDR]
-    SEL * sel_start_no_err * (read_addr - src_addr - offset) = 0;
+    #[INIT_READ_ADDR] // Only occurs at the start if we have not errored
+    sel_start_no_err * (1 - sel_write_count_is_zero) * (read_addr - src_addr - offset) = 0;
     // Subsequent read addrs are incremented by 1 unless this is a padding row
     #[INCR_READ_ADDR]
     SEL * (1 - padding) * (1 - sel_end) * (read_addr' - read_addr - 1) = 0;
@@ -283,16 +290,16 @@ namespace data_copy;
     pol commit padding; // Padding = 1 if reads_left = 0
     pol commit reads_left_inv;
     #[PADDING_CONDITION]
-    SEL_NO_ERR * (reads_left * (padding * (1 - reads_left_inv) + reads_left_inv) - 1 + padding) = 0;
+    SEL_PERFORM_COPY * (reads_left * (padding * (1 - reads_left_inv) + reads_left_inv) - 1 + padding) = 0;
 
     // Read from memory if we are not the top level call and not a padding row
     pol commit sel_mem_read; // If the current row is a memory op read
-    sel_mem_read = SEL_NO_ERR * (1 - is_top_level) * (1 - padding);
+    sel_mem_read = SEL_PERFORM_COPY * (1 - is_top_level) * (1 - padding);
 
     // === Value Padding ===
     pol commit value;
     #[PAD_VALUE]
-    SEL_NO_ERR * padding * value = 0;
+    SEL_PERFORM_COPY * padding * value = 0;
 
     #[MEM_READ]
     sel_mem_read { clk, read_addr, value, /*mem_tag=*/precomputed.zero/*FF*/, /*rw=*/precomputed.zero/*(read)*/, src_context_id }
@@ -305,7 +312,7 @@ namespace data_copy;
     // After calldata hashing
     pol commit cd_copy_col_read;
     #[CD_COPY_COLUMN]
-    cd_copy_col_read = SEL_NO_ERR * (1 - padding) * is_top_level * sel_cd_copy;
+    cd_copy_col_read = SEL_PERFORM_COPY * (1 - padding) * is_top_level * sel_cd_copy;
 
     #[COL_READ]
     cd_copy_col_read { value, dst_context_id, read_addr }
@@ -357,3 +364,4 @@ namespace data_copy;
         src_addr, src_data_size,
         sel_rd_copy, err
     };
+
