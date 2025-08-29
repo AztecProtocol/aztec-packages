@@ -325,77 +325,118 @@ void GlobalBenchStatsContainer::print_aggregate_counts_pretty(std::ostream& os) 
 
 void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream& os) const
 {
-
     if (counts.empty()) {
         os << "No benchmark data collected." << "\n";
         return;
     }
 
-    // Collect all stats with their parent relationships
-    struct StatInfo {
-        std::string key;
-        std::size_t count = 0;
-        std::size_t time = 0;
-        std::set<const TimeStatsEntry*> parents;
-        // Track time and count spent under each specific parent
-        std::map<const TimeStatsEntry*, std::pair<std::size_t, std::size_t>>
-            per_parent_stats; // parent -> (time, count)
-        // Track per-thread statistics for multi-threaded functions
-        std::vector<std::pair<std::size_t, std::size_t>> thread_stats; // (time, count) per thread
+    // Normalized benchmark entry - each represents a unique (function, parent) pair
+    struct NormalizedEntry {
+        std::string name;       // Function name
+        std::string parent_key; // Parent function name (empty for roots)
+        std::size_t time = 0;   // Total time for this function under this parent
+        std::size_t count = 0;  // Total count for this function under this parent
+
+        // Thread statistics (if multiple threads called this function)
+        std::size_t num_threads = 0;
+        double time_mean = 0;
+        double time_stddev = 0;
     };
 
-    std::map<std::string, StatInfo> all_stats;
-    std::set<const TimeStatsEntry*> all_entries;
+    // Phase 1: Collect and normalize all data
+    // Key is "parent_key|function_name" for uniqueness
+    std::map<std::string, NormalizedEntry> normalized_entries;
 
-    // First pass: collect all stats and their parent relationships
-    // Group entries by key to detect multi-threaded functions
-    std::map<std::string, std::vector<const TimeStatsEntry*>> entries_by_key;
+    // Additional indices for easy lookup
+    std::map<std::string, std::vector<std::string>> children_by_parent; // parent -> list of children
+    std::map<std::string, std::set<std::string>> parents_by_function;   // function -> set of parents
+    std::set<std::string> root_functions;                               // Functions with no parent
+
+    // Temporary structure for collecting raw data
+    struct RawStats {
+        std::size_t time = 0;
+        std::size_t count = 0;
+    };
+
+    // Collect raw data per (function, parent, thread) combination
+    // Key format: "parent_key|function_name|thread_id"
+    std::map<std::string, RawStats> raw_data;
+
     for (const TimeStatsEntry* entry : counts) {
-        all_entries.insert(entry);
-        entries_by_key[entry->key].push_back(entry);
+        const TimeStats* stats = &entry->count;
+
+        // Process all parent contexts for this entry
+        while (stats != nullptr) {
+            if (stats->count > 0 || stats->time > 0) {
+                // Determine parent key
+                std::string parent_key = stats->parent ? stats->parent->key : "";
+                std::string combined_key = parent_key + "|" + entry->key + "|" + entry->thread_id;
+
+                // Accumulate stats
+                raw_data[combined_key].time += stats->time;
+                raw_data[combined_key].count += stats->count;
+
+                // Track parent-child relationships
+                if (parent_key.empty()) {
+                    root_functions.insert(entry->key);
+                } else {
+                    children_by_parent[parent_key].push_back(entry->key);
+                    parents_by_function[entry->key].insert(parent_key);
+                }
+            }
+            stats = stats->next.get();
+        }
     }
 
-    // Process each unique function
-    for (const auto& [key, entries] : entries_by_key) {
-        auto& stat_info = all_stats[key];
-        stat_info.key = key;
+    // Phase 2: Aggregate by (function, parent) and calculate statistics
+    std::map<std::string, std::vector<RawStats>> stats_by_function_parent;
 
-        // Process each thread's entry for this function
-        for (const TimeStatsEntry* entry : entries) {
-            // Process all contexts to properly track per-parent statistics
-            const TimeStats* stats = &entry->count;
-            bool is_primary = true;
+    for (const auto& [key, stats] : raw_data) {
+        // Parse the combined key
+        size_t first_sep = key.find('|');
+        size_t second_sep = key.find('|', first_sep + 1);
+        std::string parent_key = key.substr(0, first_sep);
+        std::string function_name = key.substr(first_sep + 1, second_sep - first_sep - 1);
 
-            // Track this thread's primary stats
-            std::size_t thread_time = 0;
-            std::size_t thread_count = 0;
+        std::string function_parent_key = parent_key + "|" + function_name;
+        stats_by_function_parent[function_parent_key].push_back(stats);
+    }
 
-            while (stats != nullptr) {
-                // For the primary context, add to total and thread stats
-                if (is_primary) {
-                    stat_info.count += stats->count;
-                    stat_info.time += stats->time;
-                    thread_time += stats->time;
-                    thread_count += stats->count;
-                }
+    // Create normalized entries
+    for (const auto& [key, thread_stats] : stats_by_function_parent) {
+        size_t sep = key.find('|');
+        std::string parent_key = key.substr(0, sep);
+        std::string function_name = key.substr(sep + 1);
 
-                // Track parent relationship and per-parent stats
-                if (stats->parent != nullptr) {
-                    stat_info.parents.insert(stats->parent);
-                    // Track time and count for this specific parent
-                    stat_info.per_parent_stats[stats->parent].first += stats->time;
-                    stat_info.per_parent_stats[stats->parent].second += stats->count;
-                }
+        NormalizedEntry entry;
+        entry.name = function_name;
+        entry.parent_key = parent_key;
+        entry.num_threads = thread_stats.size();
 
-                stats = stats->next.get();
-                is_primary = false;
-            }
-
-            // Store this thread's stats
-            if (thread_time > 0 || thread_count > 0) {
-                stat_info.thread_stats.push_back({ thread_time, thread_count });
-            }
+        // Calculate totals and statistics
+        for (const auto& stats : thread_stats) {
+            entry.time += stats.time;
+            entry.count += stats.count;
         }
+
+        // Calculate mean and stddev if multi-threaded
+        if (entry.num_threads > 1) {
+            double sum_time = 0;
+            for (const auto& stats : thread_stats) {
+                sum_time += static_cast<double>(stats.time) / 1000000.0;
+            }
+            entry.time_mean = sum_time / static_cast<double>(entry.num_threads);
+
+            // Calculate variance
+            double variance = 0;
+            for (const auto& stats : thread_stats) {
+                double time_ms = static_cast<double>(stats.time) / 1000000.0;
+                variance += (time_ms - entry.time_mean) * (time_ms - entry.time_mean);
+            }
+            entry.time_stddev = std::sqrt(variance / static_cast<double>(entry.num_threads));
+        }
+
+        normalized_entries[key] = entry;
     }
 
     // Build parent-to-children map (include ALL children, even multi-parent ones)
