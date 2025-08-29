@@ -377,13 +377,14 @@ HonkProof ClientIVC::construct_oink_proof(const std::shared_ptr<DeciderProvingKe
     proving_key->gate_challenges =
         prover_accumulation_transcript->template get_powers_of_challenge<FF>("gate_challenge", CONST_PG_LOG_N);
 
-    fold_output.accumulator = proving_key; // initialize the prover accum with the completed key
+    prover_accumulator = proving_key; // initialize the prover accum with the completed key
 
     HonkProof oink_proof = oink_prover.export_proof();
     vinfo("oink proof constructed");
     return oink_proof;
 }
 
+// WORKTODO: could make these static by passing in and out the prover accumulator
 HonkProof ClientIVC::construct_pg_proof(const std::shared_ptr<DeciderProvingKey>& proving_key,
                                         const std::shared_ptr<MegaVerificationKey>& honk_vk,
                                         const std::shared_ptr<Transcript>& transcript,
@@ -399,13 +400,14 @@ HonkProof ClientIVC::construct_pg_proof(const std::shared_ptr<DeciderProvingKey>
         info("Accumulator hash in PG prover: ", accum_hash);
     }
     auto verifier_instance = std::make_shared<DeciderVerificationKey_<Flavor>>(honk_vk);
-    FoldingProver folding_prover({ fold_output.accumulator, proving_key },
+    FoldingProver folding_prover({ prover_accumulator, proving_key },
                                  { native_verifier_accum, verifier_instance },
                                  transcript,
                                  trace_usage_tracker);
-    fold_output = folding_prover.prove();
+    auto output = folding_prover.prove();
+    prover_accumulator = output.accumulator; // update the prover accumulator
     vinfo("pg proof constructed");
-    return fold_output.proof;
+    return output.proof;
 }
 
 /**
@@ -561,7 +563,7 @@ HonkProof ClientIVC::construct_honk_proof_for_hiding_kernel(
 ClientIVC::Proof ClientIVC::prove()
 {
     // deallocate the protogalaxy accumulator
-    fold_output.accumulator = nullptr;
+    prover_accumulator = nullptr;
     auto mega_proof = verification_queue.front().proof;
 
     // A transcript is shared between the Hiding circuit prover and the Goblin prover
@@ -616,8 +618,8 @@ bool ClientIVC::verify(const Proof& proof) const
 HonkProof ClientIVC::construct_decider_proof(const std::shared_ptr<Transcript>& transcript)
 {
     vinfo("prove decider...");
-    fold_output.accumulator->commitment_key = bn254_commitment_key;
-    MegaDeciderProver decider_prover(fold_output.accumulator, transcript);
+    prover_accumulator->commitment_key = bn254_commitment_key;
+    MegaDeciderProver decider_prover(prover_accumulator, transcript);
     decider_prover.construct_proof();
     return decider_prover.export_proof();
 }

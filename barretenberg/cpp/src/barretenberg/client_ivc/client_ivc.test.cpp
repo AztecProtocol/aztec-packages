@@ -344,7 +344,7 @@ TEST_F(ClientIVCTests, DynamicTraceOverflow)
                 ivc, { .log2_num_gates = test.log2_num_arith_gates[idx] });
         }
 
-        EXPECT_EQ(check_accumulator_target_sum_manual(ivc.fold_output.accumulator), true);
+        EXPECT_EQ(check_accumulator_target_sum_manual(ivc.prover_accumulator), true);
         EXPECT_TRUE(ivc.prove_and_verify());
     }
 }

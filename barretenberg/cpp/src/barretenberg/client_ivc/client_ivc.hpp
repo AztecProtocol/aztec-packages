@@ -215,8 +215,8 @@ class ClientIVC {
   public:
     size_t num_circuits_accumulated = 0; // number of circuits accumulated so far
 
-    ProverFoldOutput fold_output; // prover accumulator and fold proof
-    HonkProof decider_proof;      // decider proof to be verified in the hiding circuit
+    std::shared_ptr<DeciderProvingKey> prover_accumulator; // current PG prover accumulator instance
+    HonkProof decider_proof;                               // decider proof to be verified in the hiding circuit
 
     std::shared_ptr<DeciderVerificationKey>
         recursive_verifier_native_accum; // native verifier accumulator used in recursive folding
