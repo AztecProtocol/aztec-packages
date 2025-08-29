@@ -37,7 +37,7 @@ export type TallySlasherSettings = Prettify<
       slashingRoundSizeInEpochs: number;
       slashingOffsetInRounds: number;
       slashingQuorumSize: number;
-      slashingUnit: bigint;
+      slashingAmounts: [bigint, bigint, bigint];
       /** Committee size for block proposal */
       targetCommitteeSize: number;
     }

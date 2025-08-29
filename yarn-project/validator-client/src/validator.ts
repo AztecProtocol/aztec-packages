@@ -38,8 +38,6 @@ import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/te
 import { EventEmitter } from 'events';
 import type { TypedDataDefinition } from 'viem';
 
-// import { privateKeyToAccount } from 'viem/accounts';
-
 import type { ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
 import { NodeKeystoreAdapter } from './key_store/node_keystore_adapter.js';
@@ -98,12 +96,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     private txProvider: TxProvider,
     private config: ValidatorClientConfig &
       Pick<SequencerConfig, 'txPublicSetupAllowList'> &
-      Pick<
-        SlasherConfig,
-        | 'slashBroadcastedInvalidBlockEnabled'
-        | 'slashBroadcastedInvalidBlockPenalty'
-        | 'slashBroadcastedInvalidBlockMaxPenalty'
-      >,
+      Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty'>,
     private dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('validator'),
@@ -171,13 +164,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   static new(
-    config: ValidatorClientConfig &
-      Pick<
-        SlasherConfig,
-        | 'slashBroadcastedInvalidBlockEnabled'
-        | 'slashBroadcastedInvalidBlockPenalty'
-        | 'slashBroadcastedInvalidBlockMaxPenalty'
-      >,
+    config: ValidatorClientConfig & Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty'>,
     blockBuilder: IFullNodeBlockBuilder,
     epochCache: EpochCache,
     p2pClient: P2P,
@@ -222,22 +209,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     return this.keyStore.getFeeRecipient(attestor);
   }
 
-  public configureSlashing(
-    config: Partial<
-      Pick<
-        SlasherConfig,
-        | 'slashBroadcastedInvalidBlockEnabled'
-        | 'slashBroadcastedInvalidBlockPenalty'
-        | 'slashBroadcastedInvalidBlockMaxPenalty'
-      >
-    >,
-  ) {
-    this.config.slashBroadcastedInvalidBlockEnabled =
-      config.slashBroadcastedInvalidBlockEnabled ?? this.config.slashBroadcastedInvalidBlockEnabled;
+  public configureSlashing(config: Partial<Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty'>>) {
     this.config.slashBroadcastedInvalidBlockPenalty =
       config.slashBroadcastedInvalidBlockPenalty ?? this.config.slashBroadcastedInvalidBlockPenalty;
-    this.config.slashBroadcastedInvalidBlockMaxPenalty =
-      config.slashBroadcastedInvalidBlockMaxPenalty ?? this.config.slashBroadcastedInvalidBlockMaxPenalty;
   }
 
   public async start() {
@@ -401,7 +375,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     } catch (error: any) {
       this.metrics.incFailedAttestations(1, error instanceof Error ? error.name : 'unknown');
       this.log.error(`Error reexecuting txs while processing block proposal`, error, proposalInfo);
-      if (error instanceof ReExStateMismatchError && this.config.slashBroadcastedInvalidBlockEnabled) {
+      if (error instanceof ReExStateMismatchError && this.config.slashBroadcastedInvalidBlockPenalty > 0n) {
         this.log.warn(`Slashing proposer for invalid block proposal`, proposalInfo);
         this.slashInvalidBlock(proposal);
       }
