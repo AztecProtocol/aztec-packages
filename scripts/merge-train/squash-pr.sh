@@ -23,7 +23,7 @@ is_fork=$(echo "$pr_info" | jq -r '.isCrossRepository')
 
 # We'll use AztecBot as the committer
 author_name="AztecBot"
-author_email="tech@aztecprotocol.com"
+author_email="49558828+AztecBot@users.noreply.github.com"
 
 # Create a temporary worktree to do the squashing
 worktree_dir=$(mktemp -d)
