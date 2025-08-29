@@ -164,6 +164,12 @@ export class TallySlashingProposerContract extends EventEmitter {
     };
 
     const types = {
+      EIP712Domain: [
+        { name: 'name', type: 'string' },
+        { name: 'version', type: 'string' },
+        { name: 'chainId', type: 'uint256' },
+        { name: 'verifyingContract', type: 'address' },
+      ],
       Vote: [
         { name: 'votes', type: 'bytes' },
         { name: 'slot', type: 'uint256' },
