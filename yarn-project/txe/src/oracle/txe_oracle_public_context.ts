@@ -20,6 +20,7 @@ import {
   PublicDataTreeLeafPreimage,
 } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, TxEffect, TxHash } from '@aztec/stdlib/tx';
+import type { UInt32 } from '@aztec/stdlib/types';
 
 import { TXETypedOracle } from './txe_typed_oracle.js';
 
@@ -43,6 +44,30 @@ export class TXEOraclePublicContext extends TXETypedOracle {
       blockNumber: globalVariables.blockNumber,
       timestamp: globalVariables.timestamp,
     });
+  }
+
+  override avmOpcodeAddress(): Promise<AztecAddress> {
+    return Promise.resolve(this.contractAddress);
+  }
+
+  override avmOpcodeBlockNumber(): Promise<UInt32> {
+    return Promise.resolve(this.globalVariables.blockNumber);
+  }
+
+  override avmOpcodeTimestamp(): Promise<bigint> {
+    return Promise.resolve(this.globalVariables.timestamp);
+  }
+
+  override avmOpcodeIsStaticCall(): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+
+  override avmOpcodeChainId(): Promise<Fr> {
+    return Promise.resolve(this.globalVariables.chainId);
+  }
+
+  override avmOpcodeVersion(): Promise<Fr> {
+    return Promise.resolve(this.globalVariables.version);
   }
 
   override async avmOpcodeEmitNullifier(nullifier: Fr) {
@@ -101,23 +126,27 @@ export class TXEOraclePublicContext extends TXETypedOracle {
   }
 
   async close(): Promise<L2Block> {
-    const txEffect = this.makeTxEffect();
-
-    await this.insertSideEffectsIntoWorldTrees(txEffect);
-
-    await this.worldTrees.close();
-
-    this.logger.debug('Exiting PublicContext', {
-      contractAddress: this.contractAddress,
+    this.logger.debug('Exiting PublicContext, building block with collected side effects', {
       blockNumber: this.globalVariables.blockNumber,
-      timestamp: this.globalVariables.timestamp,
     });
 
-    return new L2Block(
-      makeAppendOnlyTreeSnapshot(this.globalVariables.blockNumber + 1),
+    const txEffect = this.makeTxEffect();
+    await this.insertSideEffectIntoWorldTrees(txEffect);
+
+    const block = new L2Block(
+      makeAppendOnlyTreeSnapshot(this.globalVariables.blockNumber),
       await this.makeBlockHeader(),
       new Body([txEffect]),
     );
+
+    await this.worldTrees.close();
+
+    this.logger.debug('Exited PublicContext with built block', {
+      blockNumber: block.number,
+      txEffects: block.body.txEffects,
+    });
+
+    return block;
   }
 
   private makeTxEffect(): TxEffect {
@@ -134,7 +163,7 @@ export class TXEOraclePublicContext extends TXETypedOracle {
     return txEffect;
   }
 
-  private async insertSideEffectsIntoWorldTrees(txEffect: TxEffect) {
+  private async insertSideEffectIntoWorldTrees(txEffect: TxEffect) {
     const l1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.zero);
 
     await this.worldTrees.appendLeaves(

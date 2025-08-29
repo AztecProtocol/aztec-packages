@@ -707,7 +707,7 @@ export class TXEService {
     const slot = fromSingle(foreignSlot);
     const value = fromSingle(foreignValue);
 
-    await this.oracleHandler.storageWrite(slot, [value]);
+    await this.oracleHandler.avmOpcodeStorageWrite(slot, value);
 
     return toForeignCallResult([]);
   }
@@ -780,38 +780,37 @@ export class TXEService {
   }
 
   async avmOpcodeAddress() {
-    const contractAddress = await this.oracleHandler.utilityGetContractAddress();
+    const contractAddress = await this.oracleHandler.avmOpcodeAddress();
 
     return toForeignCallResult([toSingle(contractAddress.toField())]);
   }
 
   async avmOpcodeBlockNumber() {
-    const blockNumber = await this.oracleHandler.utilityGetBlockNumber();
+    const blockNumber = await this.oracleHandler.avmOpcodeBlockNumber();
 
     return toForeignCallResult([toSingle(new Fr(blockNumber))]);
   }
 
   async avmOpcodeTimestamp() {
-    const timestamp = await this.oracleHandler.utilityGetTimestamp();
+    const timestamp = await this.oracleHandler.avmOpcodeTimestamp();
 
     return toForeignCallResult([toSingle(new Fr(timestamp))]);
   }
 
-  avmOpcodeIsStaticCall() {
-    // TestEnvironment::public_context is always static
-    const isStaticCall = true;
+  async avmOpcodeIsStaticCall() {
+    const isStaticCall = await this.oracleHandler.avmOpcodeIsStaticCall();
 
     return toForeignCallResult([toSingle(new Fr(isStaticCall ? 1 : 0))]);
   }
 
   async avmOpcodeChainId() {
-    const chainId = await this.oracleHandler.utilityGetChainId();
+    const chainId = await this.oracleHandler.avmOpcodeChainId();
 
     return toForeignCallResult([toSingle(chainId)]);
   }
 
   async avmOpcodeVersion() {
-    const version = await this.oracleHandler.utilityGetVersion();
+    const version = await this.oracleHandler.avmOpcodeVersion();
 
     return toForeignCallResult([toSingle(version)]);
   }

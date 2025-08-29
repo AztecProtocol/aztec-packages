@@ -1,4 +1,4 @@
-import { AztecAddress } from '@aztec/aztec.js';
+import { AztecAddress, Fr } from '@aztec/aztec.js';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -11,9 +11,11 @@ import {
   TaggingDataProvider,
 } from '@aztec/pxe/server';
 import type { PrivateContextInputs } from '@aztec/stdlib/kernel';
+import { makeGlobalVariables } from '@aztec/stdlib/testing';
 import type { UInt32 } from '@aztec/stdlib/types';
 
 import { TXE } from './oracle/txe_oracle.js';
+import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
 import type { TXETypedOracle } from './oracle/txe_typed_oracle.js';
 import { TXEStateMachine } from './state_machine/index.js';
 import { TXEService } from './txe_service/txe_service.js';
@@ -78,6 +80,7 @@ export class TXESession implements TXESessionStateHandler {
     private logger: Logger,
     private stateMachine: TXEStateMachine,
     private oracleHandler: TXETypedOracle,
+    private legacyTXEOracle: TXE,
   ) {}
 
   static async init(protocolContracts: ProtocolContract[]) {
@@ -115,7 +118,7 @@ export class TXESession implements TXESessionStateHandler {
     );
     await txeOracle.txeAdvanceBlocksBy(1);
 
-    return new TXESession(createLogger('txe:session'), stateMachine, txeOracle);
+    return new TXESession(createLogger('txe:session'), stateMachine, txeOracle, txeOracle);
   }
 
   /**
@@ -133,8 +136,15 @@ export class TXESession implements TXESessionStateHandler {
       await this.oracleHandler.txeAdvanceBlocksBy(1);
       this.oracleHandler.txeSetContractAddress(DEFAULT_ADDRESS);
     } else if (this.state == SessionState.PUBLIC) {
-      await this.oracleHandler.txeAdvanceBlocksBy(1);
-      this.oracleHandler.txeSetContractAddress(DEFAULT_ADDRESS);
+      const block = await (this.oracleHandler as TXEOraclePublicContext).close();
+
+      await this.stateMachine.handleL2Block(block);
+
+      this.legacyTXEOracle.baseFork = await this.stateMachine.synchronizer.nativeWorldStateService.fork();
+      this.legacyTXEOracle.txeSetContractAddress(DEFAULT_ADDRESS);
+      this.legacyTXEOracle.setBlockNumber(block.number + 1);
+
+      this.oracleHandler = this.legacyTXEOracle;
     } else if (this.state == SessionState.UTILITY) {
       this.oracleHandler.txeSetContractAddress(DEFAULT_ADDRESS);
     } else if (this.state == SessionState.TOP_LEVEL) {
@@ -147,17 +157,27 @@ export class TXESession implements TXESessionStateHandler {
     this.logger.debug(`Entered state ${SessionState[this.state]}`);
   }
 
-  setPublicContext(contractAddress?: AztecAddress): Promise<void> {
+  async setPublicContext(contractAddress?: AztecAddress): Promise<void> {
     this.assertInTopLevelState();
 
-    if (contractAddress) {
-      this.oracleHandler.txeSetContractAddress(contractAddress);
-    }
+    const globalVariables = makeGlobalVariables(undefined, {
+      blockNumber: await this.legacyTXEOracle.utilityGetBlockNumber(),
+      timestamp: await this.legacyTXEOracle.utilityGetTimestamp(),
+      version: await this.legacyTXEOracle.utilityGetVersion(),
+      chainId: await this.legacyTXEOracle.utilityGetChainId(),
+    });
+
+    const txRequestHash = new Fr(globalVariables.blockNumber + 6969);
+
+    this.oracleHandler = new TXEOraclePublicContext(
+      contractAddress ?? DEFAULT_ADDRESS,
+      await this.stateMachine.synchronizer.nativeWorldStateService.fork(),
+      txRequestHash,
+      globalVariables,
+    );
 
     this.state = SessionState.PUBLIC;
     this.logger.debug(`Entered state ${SessionState[this.state]}`);
-
-    return Promise.resolve();
   }
 
   async setPrivateContext(
