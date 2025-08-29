@@ -403,9 +403,10 @@ void TranslatorCircuitBuilder::assert_well_formed_accumulation_input(const Accum
 void TranslatorCircuitBuilder::populate_wires_from_ultra_op(const UltraOp& ultra_op)
 {
     auto& op_wire = std::get<WireIds::OP>(wires);
-    op_wire.push_back(add_variable(ultra_op.op_code.value()));
+    op_wire.push_back(
+        add_variable(ultra_op.op_code.is_random_op ? ultra_op.op_code.random_value_1 : ultra_op.op_code.value()));
     // Similarly to the ColumnPolynomials in the merge protocol, the op_wire is 0 at every second index
-    op_wire.push_back(zero_idx);
+    op_wire.push_back(add_variable(ultra_op.op_code.is_random_op ? ultra_op.op_code.random_value_2 : zero_idx));
 
     insert_pair_into_wire(WireIds::X_LOW_Y_HI, ultra_op.x_lo, ultra_op.y_hi);
 
@@ -534,9 +535,22 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     }
     num_gates += 2;
 
+    auto process_random_up = [&](const UltraOp& ultra_op) {
+        // ASSERT(ultra_op.op_code.is_random_op, "should be random op ");
+        populate_wires_from_ultra_op(ultra_op);
+        for (size_t i = WireIds::Y_LOW_Z_2 + 1; i < wires.size(); i++) {
+            wires[i].push_back(add_variable(zero_idx));
+            wires[i].push_back(add_variable(zero_idx));
+        }
+        num_gates += 2;
+    };
+
+    process_random_up(ultra_ops[1]);
+    process_random_up(ultra_ops[2]);
+
     // We need to precompute the accumulators at each step, because in the actual circuit we compute the values starting
     // from the later indices. We need to know the previous accumulator to create the gate
-    for (size_t i = 1; i < ultra_ops.size(); i++) {
+    for (size_t i = 3; i < ultra_ops.size() - 2; i++) {
 
         const auto& ultra_op = ultra_ops[ultra_ops.size() - i];
         if (ultra_op.op_code.value() == 0) {
@@ -560,7 +574,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
 
     std::array<Fr, NUM_BINARY_LIMBS> previous_accumulator_binary_limbs = split_fq_into_limbs(final_accumulator_state);
     // Generate witness values from all the UltraOps
-    for (size_t i = 1; i < ultra_ops.size(); i++) {
+    for (size_t i = 3; i < ultra_ops.size() - 2; i++) {
         const auto& ultra_op = ultra_ops[i];
         if (ultra_op.op_code.value() == 0) {
             for (size_t j = 0; j < ACCUMULATORS_BINARY_LIMBS_0; j++) {
@@ -595,5 +609,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         // And put them into the wires
         create_accumulation_gate(one_accumulation_step);
     }
+    process_random_up(ultra_ops[ultra_ops.size() - 2]);
+    process_random_up(ultra_ops[ultra_ops.size() - 1]);
 }
 } // namespace bb

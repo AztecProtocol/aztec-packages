@@ -687,7 +687,7 @@ class TranslatorFlavor {
 
             // Initialize some one-off polys with special structure
             lagrange_first = Polynomial{ /*size*/ 1, /*virtual_size*/ circuit_size };
-            lagrange_result_row = Polynomial{ /*size*/ 3, /*virtual_size*/ circuit_size };
+            lagrange_result_row = Polynomial{ /*size*/ RESULT_ROW + 1, /*virtual_size*/ circuit_size };
             lagrange_even_in_minicircuit = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE, /*virtual_size*/ circuit_size };
             lagrange_odd_in_minicircuit = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE, /*virtual_size*/ circuit_size };
 

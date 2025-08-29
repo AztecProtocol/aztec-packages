@@ -270,8 +270,8 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     if (is_hiding_kernel) {
         pairing_points.aggregate(decider_pairing_points);
         // Placeholder for randomness (will be removed)
-        circuit.queue_ecc_no_op();
-        circuit.queue_ecc_no_op();
+        circuit.queue_ecc_random_op();
+        circuit.queue_ecc_random_op();
         info("num ops in hiding kernel ", circuit.op_queue->get_unmerged_subtable_size());
     }
 
@@ -316,8 +316,8 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     // subtable is at the top of the final aggregate table since it is the last to be prepended).
     if (is_tail_kernel) {
         circuit.queue_ecc_no_op();
-        circuit.queue_ecc_no_op();
-        circuit.queue_ecc_no_op();
+        circuit.queue_ecc_random_op();
+        circuit.queue_ecc_random_op();
     }
     circuit.queue_ecc_eq();
 
