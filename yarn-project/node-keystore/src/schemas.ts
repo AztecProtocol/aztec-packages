@@ -51,17 +51,22 @@ const mnemonicConfigSchema = z.object({
 });
 
 // EthAccount schema
-const ethAccountSchema = z.union([ethPrivateKeySchema, remoteSignerAccountSchema, jsonKeyFileV3Schema]);
+const ethAccountSchema = z.union([
+  ethPrivateKeySchema,
+  remoteSignerAccountSchema,
+  jsonKeyFileV3Schema,
+  mnemonicConfigSchema,
+]);
 
 // EthAccounts schema
-const ethAccountsSchema = z.union([ethAccountSchema, z.array(ethAccountSchema), mnemonicConfigSchema]);
+const ethAccountsSchema = z.union([ethAccountSchema, z.array(ethAccountSchema)]);
 
 // Prover keystore schema
 const proverKeyStoreSchema = z.union([
   ethAccountSchema,
   z.object({
     id: ethAddressSchema,
-    publisher: z.array(ethAccountsSchema),
+    publisher: ethAccountsSchema,
   }),
 ]);
 

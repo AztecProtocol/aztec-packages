@@ -57,6 +57,17 @@ describe('Keystore Schema Validation', () => {
     expect((parsed.prover as any).publisher).toHaveLength(2);
   });
 
+  it('should validate prover with single publisher example', () => {
+    const keystore = loadExample('prover-with-single-publisher.json');
+    expect(() => keystoreSchema.parse(keystore)).not.toThrow();
+
+    const parsed = keystoreSchema.parse(keystore);
+    expect(parsed.schemaVersion).toBe(1);
+    expect(typeof parsed.prover).toBe('object');
+    expect((parsed.prover as any).id).toBe('0x1234567890123456789012345678901234567890');
+    expect((parsed.prover as any).publisher).toBe('0x1234567890123456789012345678901234567890123456789012345678901234');
+  });
+
   it('should reject keystore with invalid schema version', () => {
     const keystore = {
       schemaVersion: 2, // Invalid
