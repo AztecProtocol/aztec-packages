@@ -158,13 +158,9 @@ where
     context.push_nullifier(event_commitment);
 
     if emit_as_offchain_message {
-        // In the case of delivery via offchain message tagging is not used and the log content is the ciphertext
-        // itself.
-        let log_content = ciphertext;
-
         // Safety: Offchain messages are by definition unconstrained. They are emitted via the `emit_offchain_effect`
         // oracle which we don't use for anything besides its side effects, therefore this is safe to call.
-        unsafe { emit_offchain_message(log_content, recipient) };
+        unsafe { emit_offchain_message(ciphertext, recipient) };
     } else {
         // When delivering through the private log stream, tagging is used so we must prefix the ciphertext with a tag.
         let log_content = prefix_with_tag(ciphertext, recipient);
