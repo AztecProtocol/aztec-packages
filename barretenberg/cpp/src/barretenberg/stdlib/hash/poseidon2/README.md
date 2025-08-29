@@ -143,4 +143,19 @@ scaling factor arising from \ref bb::GateSeparatorPolynomial< FF > "GateSeparato
 \ref bb::Poseidon2InternalRelationImpl< FF_ > "Internal rounds" follow the same pattern, using \f$ M_I \f$ and the partial S-box on the first element.
 
 
+## Number of Gates
+
+Single element = 73 gates
+
+N elements
+
+We'll have \f$ P_N = \lceil N/3 \rceil \f$ permutation invocations. Each one costs 73 gates.
++ 1 gate to fix the IV witness
++ after each permutation invocation in absorb, we add 3 cache elements to the state. It happens \f$ P_N-1 \f$ times
++ To sqeeze, we compute \f$ P(s^{(m)})_{0}\f$. The number of gates here depends on the number of padded fields. Let \f$ N_3 = N\pmod{3} \f$, if
+\f$ N_3 =  0\f$, then we get
+\f$ 1 + P_N * 73 + (P_N - 1) * 3 \f$
+gates, otherwise we get
+\f$ 1 + P_N * 73 + (P_N - 1) * 3 + 3 + N_3\f$
+
 

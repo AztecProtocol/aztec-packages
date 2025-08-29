@@ -23,6 +23,24 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
   public:
     static field_ct w_hex(Builder& builder, const char* hex) { return witness_ct(&builder, uint256_t(hex)); }
     static field_ct w_u64(Builder& builder, uint64_t v) { return witness_ct(&builder, uint256_t(v)); }
+
+    static std::size_t gate_count(std::size_t N)
+    {
+        const size_t P_cost = (N == 1) ? 72 : 73;
+        const size_t D_full_adds = 3;
+        if (N == 1) {
+            P_cost + 1;
+        }
+        // Number of Poseidon2 permutation invocations
+        size_t P_N = (N + 2) / 3;
+        // Number of extra additions in sqeeze
+        size_t N_3 = N % 3;
+        if (N_3 == 0) {
+            return (1 + P_N * P_cost + (P_N - 1) * D_full_adds);
+        } else {
+            return (1 + P_N * P_cost + (P_N - 2) * D_full_adds + N_3);
+        }
+    }
     /**
      * @brief Call poseidon2 on a vector of inputs
      *
@@ -44,9 +62,8 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
 
         auto result = stdlib::poseidon2<Builder>::hash(inputs);
         auto expected = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(inputs_native);
-        if (num_inputs == 1) {
-            EXPECT_EQ(73, builder.get_estimated_num_finalized_gates() - num_gates_start);
-        }
+
+        EXPECT_EQ(gate_count(num_inputs), builder.get_estimated_num_finalized_gates() - num_gates_start);
 
         EXPECT_EQ(result.get_value(), expected);
 
@@ -175,24 +192,20 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
             // Length 2 inputs
             { { "0x0000000000000000000000000000000000000000000000000000000000000000",
                 "0x0000000000000000000000000000000000000000000000000000000000000000" },
-              "0x0b63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1",
-              "h2_a_0_0" },
+              "0x0b63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1" },
             { { "0x1762d324c2db6a912e607fd09664aaa02dfe45b90711c0dae9627d62a4207788",
                 "0x1047bd52da536f6bdd26dfe642d25d9092c458e64a78211298648e81414cbf35" },
-              "0x303cacb84a267e5f3f46914fd3262dcaa212930c27a2f9de22c080dd9857be35",
-              "h2_b" },
+              "0x303cacb84a267e5f3f46914fd3262dcaa212930c27a2f9de22c080dd9857be35" },
             { { "0x0a529bb6bbbf25ed33a47a4637dc70eb469a29893047482866748ae7f3a5afe1",
                 "0x1f5189751e18cf788deb219bdb95461e86ca08a882e4af5f8a6ec478e1ec73b4" },
-              "0x1f71000626ba87581561f94a17f7b9962be8f1aa8d0c69c6f95348c9ddffe542",
-              "h2_c" },
+              "0x1f71000626ba87581561f94a17f7b9962be8f1aa8d0c69c6f95348c9ddffe542" },
             { { "0x14ba77172ab2278bdf5a087ca0bd400e936bafe6dfc092c4e7a1b0950f1b6dbe",
                 "0x195c41f12d4fbac5e194c201536f3094541e73bf27d9f2413f09e731b3838733" },
-              "0x06b53c119381e6ccee8e3ac9845970ba96befbce39606fad3686a6e31ac7761e",
-              "h2_d" },
+              "0x06b53c119381e6ccee8e3ac9845970ba96befbce39606fad3686a6e31ac7761e" },
+
             { { "0x2079041f0d6becd26db3ec659c54f60464243d86c3982978f1217a5f1413ed3a",
                 "0x08146641a4e30689442ecd270a7efef725bdb3036bf3d837dff683161a455de1" },
-              "0x07512888968a4cfc7e5da7537c7f4448bf04d3679e711c3f16ca86351b0d1e6b",
-              "h2_e" },
+              "0x07512888968a4cfc7e5da7537c7f4448bf04d3679e711c3f16ca86351b0d1e6b" },
 
             // Length 3 inputs
             { { "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -326,11 +339,7 @@ TYPED_TEST(StdlibPoseidon2, TestHashZeros)
 
 TYPED_TEST(StdlibPoseidon2, TestHashSmall)
 {
-    TestFixture::test_hash(1); // 73
-    // TestFixture::test_hash(2);  // 74
-    // TestFixture::test_hash(3);  // 74
-    // TestFixture::test_hash(4);  // 148
-    // TestFixture::test_hash(5);  // 149
+    TestFixture::test_hash(1);
     TestFixture::test_hash(6);  // 150
     TestFixture::test_hash(10); // 300
     TestFixture::test_hash(16); // 452

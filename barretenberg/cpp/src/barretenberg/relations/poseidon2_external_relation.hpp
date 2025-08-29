@@ -90,8 +90,11 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
                            const Parameters&,
                            const FF& scaling_factor)
     {
+        // Univariates of degree 6 represented in Lagrange basis
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
+        // Low-degree univariates represented in monomial basis
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
+
         // Current state
         const auto w_1 = CoefficientAccumulator(in.w_l);
         const auto w_2 = CoefficientAccumulator(in.w_r);

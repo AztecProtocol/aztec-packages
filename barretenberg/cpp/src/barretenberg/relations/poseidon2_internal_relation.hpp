@@ -100,28 +100,32 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
                            const Parameters&,
                            const FF& scaling_factor)
     {
+        // Univariates of degree 6 represented in Lagrange basis
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
+        // Low-degree univariates represented in monomial basis
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 
-        // Low-degree univariates represented in monomial basis
-        const auto w_1_m = CoefficientAccumulator(in.w_l);
-        const auto w_1_shift_m = CoefficientAccumulator(in.w_l_shift);
-        const auto w_2_shift_m = CoefficientAccumulator(in.w_r_shift);
-        const auto w_3_shift_m = CoefficientAccumulator(in.w_o_shift);
-        const auto w_4_shift_m = CoefficientAccumulator(in.w_4_shift);
+        // Current state
+        const auto w_1 = CoefficientAccumulator(in.w_l);
+        const auto w_2 = CoefficientAccumulator(in.w_r);
+        const auto w_3 = CoefficientAccumulator(in.w_o);
+        const auto w_4 = CoefficientAccumulator(in.w_4);
+        // Expected state, contained in the next row
+        const auto w_1_shift = CoefficientAccumulator(in.w_l_shift);
+        const auto w_2_shift = CoefficientAccumulator(in.w_r_shift);
+        const auto w_3_shift = CoefficientAccumulator(in.w_o_shift);
+        const auto w_4_shift = CoefficientAccumulator(in.w_4_shift);
+        // Poseidon2 internal relation selector
+        const auto q_poseidon2_internal_m = CoefficientAccumulator(in.q_poseidon2_internal);
         // ĉ₀⁽ⁱ⁾ - the round constant in `i`-th  internal round
         const auto c_0_int = CoefficientAccumulator(in.q_l);
-        const auto q_poseidon2_internal_m = CoefficientAccumulator(in.q_poseidon2_internal);
-        const auto w_2_m = CoefficientAccumulator(in.w_r);
-        const auto w_3_m = CoefficientAccumulator(in.w_o);
-        const auto w_4_m = CoefficientAccumulator(in.w_4);
 
         Accumulator barycentric_term;
 
         // Add ĉ₀⁽ⁱ⁾ stored in the selector and convert to Lagrange basis
-        auto s1 = Accumulator(w_1_m + c_0_int);
+        auto s1 = Accumulator(w_1 + c_0_int);
 
-        // Apply s-box round. Note that the multiplication is performed point-wise
+        // Apply S-box. Note that the multiplication is performed point-wise
         auto u1 = s1.sqr();
         u1 = u1.sqr();
         u1 *= s1;
@@ -129,29 +133,29 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
         const auto q_pos_by_scaling_m = (q_poseidon2_internal_m * scaling_factor);
         const auto q_pos_by_scaling = Accumulator(q_pos_by_scaling_m);
         // Common terms
-        const auto partial_sum = w_2_m + w_3_m + w_4_m;
+        const auto partial_sum = w_2 + w_3 + w_4;
         const auto scaled_u1 = u1 * q_pos_by_scaling;
-        // Row 1:
 
+        // Row 1:
         barycentric_term = scaled_u1 * D1_plus_1;
-        auto monomial_term = partial_sum - w_1_shift_m;
+        auto monomial_term = partial_sum - w_1_shift;
         barycentric_term += Accumulator(monomial_term * q_pos_by_scaling_m);
         std::get<0>(evals) += barycentric_term;
 
         // Row 2:
-        auto v2_m = w_2_m * D2 + partial_sum - w_2_shift_m;
+        auto v2_m = w_2 * D2 + partial_sum - w_2_shift;
         barycentric_term = Accumulator(v2_m * q_pos_by_scaling_m);
         barycentric_term += scaled_u1;
         std::get<1>(evals) += barycentric_term;
 
         // Row 3:
-        auto v3_m = w_3_m * D3 + partial_sum - w_3_shift_m;
+        auto v3_m = w_3 * D3 + partial_sum - w_3_shift;
         barycentric_term = Accumulator(v3_m * q_pos_by_scaling_m);
         barycentric_term += scaled_u1;
         std::get<2>(evals) += barycentric_term;
 
         // Row 4:
-        auto v4_m = w_4_m * D4 + partial_sum - w_4_shift_m;
+        auto v4_m = w_4 * D4 + partial_sum - w_4_shift;
         barycentric_term = Accumulator(v4_m * q_pos_by_scaling_m);
         barycentric_term += scaled_u1;
         std::get<3>(evals) += barycentric_term;
