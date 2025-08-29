@@ -48,6 +48,7 @@ using OperationKey = std::string_view;
 struct GlobalBenchStatsContainer {
   public:
     static inline thread_local TimeStatsEntry* parent = nullptr;
+    ~GlobalBenchStatsContainer();
     std::mutex mutex;
     std::vector<TimeStatsEntry*> entries;
     void print() const;

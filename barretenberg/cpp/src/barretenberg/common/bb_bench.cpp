@@ -153,7 +153,6 @@ namespace bb::detail {
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 bool use_bb_bench = std::getenv("BB_BENCH") == nullptr ? false : std::string(std::getenv("BB_BENCH")) == "1";
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-bool debug_bench = std::getenv("BB_BENCH_DEBUG") != nullptr;
 using OperationKey = std::string_view;
 
 void AggregateEntry::add_thread_time_sample(const TimeAndCount& stats)
@@ -213,6 +212,13 @@ AggregateData aggregate(const std::vector<TimeStatsEntry*>& counts)
     }
 
     return result;
+}
+
+void GlobalBenchStatsContainer::~GlobalBenchStatsContainer()
+{
+    if (std::getenv("BB_BENCH") != nullptr) {
+        print_aggregate_counts_pretty(std::cerr);
+    }
 }
 
 void GlobalBenchStatsContainer::add_entry(const char* key, TimeStatsEntry* entry)
