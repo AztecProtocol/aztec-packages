@@ -1,3 +1,4 @@
+#include "barretenberg/common/assert.hpp"
 #include <cstdint>
 #include <sys/types.h>
 #ifndef __wasm__
@@ -120,8 +121,10 @@ std::string format_average(double time_ms, uint64_t count)
 // Print separator line
 void print_separator(std::ostream& os, bool thick = true)
 {
-    const char* line = thick ? "═══════════════════════════════════════════════════════════════════════════════"
-                             : "───────────────────────────────────────────────────────────────────────────────";
+    const char* line = thick ? "═══════════════════════════════════════════════════════════════════════════════════════"
+                               "═════════════════════"
+                             : "───────────────────────────────────────────────────────────────────────────────"
+                               "─────────────────────";
     os << Colors::BOLD << Colors::CYAN << line << Colors::RESET << "\n";
 }
 } // anonymous namespace
@@ -254,7 +257,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts(std::ostream& os, size_t 
 
 void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream& os) const
 {
-    auto aggregated = aggregate(entries);
+    AggregateData aggregated = aggregate(entries);
 
     if (aggregated.empty()) {
         os << "No benchmark data collected\n";
@@ -264,15 +267,16 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
     // Print header
     os << "\n";
     print_separator(os, true);
-    os << Colors::BOLD << "  Hierarchical Benchmark Results" << Colors::RESET << "\n";
+    os << Colors::BOLD << "  Benchmark Results" << Colors::RESET << "\n";
     print_separator(os, true);
-    os << "\n";
 
     std::map<OperationKey, std::set<OperationKey>> keys_to_parents;
     std::set<OperationKey> printed_in_detail;
     for (auto& [key, entry_map] : aggregated) {
         for (auto& [parent_key, entry] : entry_map) {
-            keys_to_parents[parent_key].insert(key);
+            if (entry.count > 0) {
+                keys_to_parents[key].insert(parent_key);
+            }
         }
     }
 
@@ -387,7 +391,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
         });
 
         if (!children.empty() && keys_to_parents[key].size() > 1) {
-            os << indent_level << "NOTE: Shared children. Will add up to > 100%.\n";
+            os << std::string(indent_level * 2, ' ') << "NOTE: Shared children. Will add up to > 100%.\n";
         }
 
         // Print children
@@ -431,7 +435,6 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
     }
 
     // Print summary
-    os << "\n";
     print_separator(os, false);
 
     // Calculate totals from root entries
@@ -440,18 +443,18 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
     std::set<OperationKey> unique_functions;
     uint64_t shared_count = 0;
 
-    for (const auto& [key, parent_map] : aggregated) {
+    for (auto& [key, parent_map] : aggregated) {
         unique_functions.insert(key);
 
         // Count as shared if has multiple parents
         if (parent_map.size() > 1) {
             shared_count++;
         }
-
-        // Add root time to total (parent_key empty)
-        if (auto it = parent_map.find(""); it != parent_map.end()) {
-            total_time += it->second.time;
-            total_calls += it->second.count;
+        auto& root_entry = parent_map[""];
+        total_time += root_entry.time;
+        // Sum ALL calls
+        for (auto& entry : parent_map) {
+            total_calls += entry.second.count;
         }
     }
 
@@ -462,7 +465,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
     if (shared_count > 0) {
         os << " (" << Colors::RED << shared_count << " shared" << Colors::RESET << ")";
     }
-    os << ", " << Colors::GREEN << total_calls << " calls" << Colors::RESET << ", ";
+    os << ", " << Colors::GREEN << total_calls << " measurements" << Colors::RESET << ", ";
 
     if (total_time_ms >= 1000.0) {
         os << Colors::YELLOW << std::fixed << std::setprecision(2) << (total_time_ms / 1000.0) << " seconds"
@@ -472,8 +475,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
     }
 
     os << "\n";
-    os << Colors::BOLD << Colors::CYAN
-       << "═══════════════════════════════════════════════════════════════════════════════" << Colors::RESET << "\n";
+    print_separator(os, true);
     os << "\n";
 }
 
