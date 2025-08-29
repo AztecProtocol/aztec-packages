@@ -51,12 +51,14 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
   it('AVM simulator bulk test', async () => {
     tester.setMetricsPrefix('AvmTest contract tests');
-    await bulkTest(tester, logger, AvmTestContractArtifact, (b: boolean) => expect(b).toBe(true));
+    const result = await bulkTest(tester, logger, AvmTestContractArtifact);
+    expect(result.revertCode.isOK()).toBe(true);
   });
 
   it('AVM simulator MEGA bulk test', async () => {
     tester.setMetricsPrefix('AvmTest contract tests');
-    await megaBulkTest(tester, logger, AvmTestContractArtifact, (b: boolean) => expect(b).toBe(true));
+    const result = await megaBulkTest(tester, logger, AvmTestContractArtifact);
+    expect(result.revertCode.isOK()).toBe(true);
   });
 
   it('AVM large calldata test', async () => {

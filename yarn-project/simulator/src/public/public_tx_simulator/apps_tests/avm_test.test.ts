@@ -13,6 +13,7 @@ describe('Public TX simulator apps tests: AvmTestContract', () => {
   });
 
   it('bulk testing', async () => {
-    await bulkTest(simTester, logger, AvmTestContractArtifact, (b: boolean) => expect(b).toBe(true));
+    const result = await bulkTest(simTester, logger, AvmTestContractArtifact);
+    expect(result.revertCode.isOK()).toBe(true);
   });
 });

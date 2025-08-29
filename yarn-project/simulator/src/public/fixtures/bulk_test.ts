@@ -10,7 +10,6 @@ export async function bulkTest(
   tester: PublicTxSimulationTester,
   logger: Logger,
   avmTestContractArtifact: ContractArtifact,
-  expectToBeTrue: (x: boolean) => void,
 ) {
   const timer = new Timer();
 
@@ -60,7 +59,6 @@ export async function bulkTest(
       },
     },
   );
-  expectToBeTrue(bulkResult.revertCode.isOK());
 
   logger.info(`Bulk test took ${timer.ms()}ms\n`);
 
@@ -71,7 +69,6 @@ export async function megaBulkTest(
   tester: PublicTxSimulationTester,
   logger: Logger,
   avmTestContractArtifact: ContractArtifact,
-  expectToBeTrue: (x: boolean) => void,
 ) {
   const timer = new Timer();
 
@@ -147,7 +144,6 @@ export async function megaBulkTest(
       },
     },
   );
-  expectToBeTrue(bulkResult.revertCode.isOK());
 
   logger.info(`Mega bulk test took ${timer.ms()}ms\n`);
 

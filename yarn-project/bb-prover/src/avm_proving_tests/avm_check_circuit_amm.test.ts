@@ -8,7 +8,7 @@ import path from 'path';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
 
-const TIMEOUT = 300_000;
+const TIMEOUT = 60_000;
 
 describe('AVM proven AMM', () => {
   const logger = createLogger('avm-proven-tests-amm');

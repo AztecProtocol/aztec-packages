@@ -21,7 +21,7 @@ describe('AVM check-circuit – unhappy paths 2', () => {
     );
   });
 
-  it.skip(
+  it(
     'an exceptional halt due to a nested call to non-existent contract is propagated to top-level',
     async () => {
       await tester.simProveVerifyAppLogic(
@@ -32,38 +32,44 @@ describe('AVM check-circuit – unhappy paths 2', () => {
     TIMEOUT,
   );
 
-  // TODO(#16099): Re-enable this test
-  // it(
-  //   'an exceptional halt due to a nested call to non-existent contract is recovered from in caller',
-  //   async () => {
-  //     await tester.simProveVerifyAppLogic(
-  //       { address: avmTestContractInstance.address, fnName: 'nested_call_to_nothing_recovers', args: [] },
-  //       /*expectRevert=*/ false,
-  //     );
-  //   },
-  //   TIMEOUT,
-  // );
+  it(
+    'an exceptional halt due to a nested call to non-existent contract is recovered from in caller',
+    async () => {
+      await tester.simProveVerifyAppLogic(
+        { address: avmTestContractInstance.address, fnName: 'nested_call_to_nothing_recovers', args: [] },
+        /*expectRevert=*/ false,
+      );
+    },
+    TIMEOUT,
+  );
 
-  it.skip('top-level exceptional halts due to a non-existent contract in app-logic and teardown', async () => {
+  it('top-level exceptional halts due to a non-existent contract in app-logic and teardown', async () => {
     // don't insert contracts into trees, and make sure retrieval fails
     const tester = await AvmProvingTester.new(/*checkCircuitOnly=*/ true);
+    // Note: we need to specify the contract artifacts here because we intentionally skip registration,
+    // so the tester can't retrieve them on its own.
     await tester.simProveVerify(
       sender,
       /*setupCalls=*/ [],
       /*appCalls=*/ [
-        { address: avmTestContractInstance.address, fnName: 'add_args_return', args: [new Fr(1), new Fr(2)] },
+        {
+          address: avmTestContractInstance.address,
+          fnName: 'add_args_return',
+          args: [new Fr(1), new Fr(2)],
+          contractArtifact: AvmTestContractArtifact,
+        },
       ],
       /*teardownCall=*/ {
         address: avmTestContractInstance.address,
         fnName: 'add_args_return',
         args: [new Fr(1), new Fr(2)],
+        contractArtifact: AvmTestContractArtifact,
       },
       /*expectRevert=*/ true,
     );
   });
 
-  // TODO: unskip once internalcall constraints are fixed (DEFAULT_PROPAGATE_CALL_ID in particular)
-  it.skip(
+  it(
     'enqueued calls in every phase, with enqueued calls that depend on each other',
     async () => {
       await tester.simProveVerify(
@@ -86,7 +92,7 @@ describe('AVM check-circuit – unhappy paths 2', () => {
     },
     TIMEOUT,
   );
-  it.skip(
+  it(
     'Should prove and verify a TX that reverts in teardown',
     async () => {
       await tester.simProveVerify(
