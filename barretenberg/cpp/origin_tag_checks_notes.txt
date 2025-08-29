@@ -1,83 +1,83 @@
 Notes:
 
-ShponkRecursionTest: from_witness in test
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/6336ebb85d71106d6336ebb85d71106d]8;;[0m): barretenberg/cpp/scripts/run_test.sh commitment_schemes_recursion_tests ShplonkRecursionTest/0.Simple (1s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/26c1ac9af222032226c1ac9af2220322]8;;[0m): barretenberg/cpp/scripts/run_test.sh commitment_schemes_recursion_tests ShplonkRecursionTest/1.Simple (1s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/21103d255242572d21103d255242572d]8;;[0m): barretenberg/cpp/scripts/run_test.sh commitment_schemes_recursion_tests ShplonkRecursionTest/1.LinearlyDependent (1s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/1e40141387fdd37a1e40141387fdd37a]8;;[0m): barretenberg/cpp/scripts/run_test.sh commitment_schemes_recursion_tests ShplonkRecursionTest/0.LinearlyDependent (1s) (code: 1)
+ShplonkRecursionTest: from_witness in test
+FAILED (http://ci.aztec-labs.com/6336ebb85d71106d): barretenberg/cpp/scripts/run_test.sh commitment_schemes_recursion_tests ShplonkRecursionTest/0.Simple (1s) (code: 1)
+FAILED (http://ci.aztec-labs.com/26c1ac9af2220322): barretenberg/cpp/scripts/run_test.sh commitment_schemes_recursion_tests ShplonkRecursionTest/1.Simple (1s) (code: 1)
+FAILED (http://ci.aztec-labs.com/21103d255242572d): barretenberg/cpp/scripts/run_test.sh commitment_schemes_recursion_tests ShplonkRecursionTest/1.LinearlyDependent (1s) (code: 1)
+FAILED (http://ci.aztec-labs.com/1e40141387fdd37a): barretenberg/cpp/scripts/run_test.sh commitment_schemes_recursion_tests ShplonkRecursionTest/0.LinearlyDependent (1s) (code: 1)
 
 ShpleminiRecursionTest: from_witness in test
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/0cd1bad973243d4e0cd1bad973243d4e]8;;[0m): barretenberg/cpp/scripts/run_test.sh commitment_schemes_recursion_tests ShpleminiRecursionTest.ProveAndVerifySingle (1s) (code: 1)
+FAILED (http://ci.aztec-labs.com/0cd1bad973243d4e): barretenberg/cpp/scripts/run_test.sh commitment_schemes_recursion_tests ShpleminiRecursionTest.ProveAndVerifySingle (1s) (code: 1)
 
 AcirHonkRecursionConstraint: ZK padding indicator causes different child tags
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/3aa2f1dc1650a7383aa2f1dc1650a738]8;;[0m): barretenberg/cpp/scripts/run_test.sh dsl_tests AcirHonkRecursionConstraint/3.TestHonkRecursionConstraintVKGeneration (0s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/fa6a390280d71d04fa6a390280d71d04]8;;[0m): barretenberg/cpp/scripts/run_test.sh dsl_tests AcirHonkRecursionConstraint/3.TestBasicSingleHonkRecursionConstraint (0s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/d776fb7868f782aed776fb7868f782ae]8;;[0m): barretenberg/cpp/scripts/run_test.sh dsl_tests AcirHonkRecursionConstraint/3.TestOneOuterRecursiveCircuit (0s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/dbd605134a70afdfdbd605134a70afdf]8;;[0m): barretenberg/cpp/scripts/run_test.sh dsl_tests AcirHonkRecursionConstraint/3.TestFullRecursiveComposition (0s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/ad26c2fa8720b7d6ad26c2fa8720b7d6]8;;[0m): barretenberg/cpp/scripts/run_test.sh dsl_tests AcirHonkRecursionConstraint/4.TestHonkRecursionConstraintVKGeneration (0s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/67ff89cbcee7d78067ff89cbcee7d780]8;;[0m): barretenberg/cpp/scripts/run_test.sh dsl_tests AcirHonkRecursionConstraint/4.TestBasicSingleHonkRecursionConstraint (0s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/ea6c957a386d4303ea6c957a386d4303]8;;[0m): barretenberg/cpp/scripts/run_test.sh dsl_tests AcirHonkRecursionConstraint/4.TestOneOuterRecursiveCircuit (0s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/53896e219f1d645853896e219f1d6458]8;;[0m): barretenberg/cpp/scripts/run_test.sh dsl_tests AcirHonkRecursionConstraint/4.TestFullRecursiveComposition (0s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/8eea2063dae7c28e8eea2063dae7c28e]8;;[0m): barretenberg/cpp/scripts/run_test.sh dsl_tests AcirHonkRecursionConstraint/3.TestBasicDoubleHonkRecursionConstraints (1s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/d49e08c9622614e1d49e08c9622614e1]8;;[0m): barretenberg/cpp/scripts/run_test.sh dsl_tests AcirHonkRecursionConstraint/4.TestBasicDoubleHonkRecursionConstraints (1s) (code: 1)
+FAILED (http://ci.aztec-labs.com/3aa2f1dc1650a738): barretenberg/cpp/scripts/run_test.sh dsl_tests AcirHonkRecursionConstraint/3.TestHonkRecursionConstraintVKGeneration (0s) (code: 1)
+FAILED (http://ci.aztec-labs.com/fa6a390280d71d04): barretenberg/cpp/scripts/run_test.sh dsl_tests AcirHonkRecursionConstraint/3.TestBasicSingleHonkRecursionConstraint (0s) (code: 1)
+FAILED (http://ci.aztec-labs.com/d776fb7868f782ae): barretenberg/cpp/scripts/run_test.sh dsl_tests AcirHonkRecursionConstraint/3.TestOneOuterRecursiveCircuit (0s) (code: 1)
+FAILED (http://ci.aztec-labs.com/dbd605134a70afdf): barretenberg/cpp/scripts/run_test.sh dsl_tests AcirHonkRecursionConstraint/3.TestFullRecursiveComposition (0s) (code: 1)
+FAILED (http://ci.aztec-labs.com/ad26c2fa8720b7d6): barretenberg/cpp/scripts/run_test.sh dsl_tests AcirHonkRecursionConstraint/4.TestHonkRecursionConstraintVKGeneration (0s) (code: 1)
+FAILED (http://ci.aztec-labs.com/67ff89cbcee7d780): barretenberg/cpp/scripts/run_test.sh dsl_tests AcirHonkRecursionConstraint/4.TestBasicSingleHonkRecursionConstraint (0s) (code: 1)
+FAILED (http://ci.aztec-labs.com/ea6c957a386d4303): barretenberg/cpp/scripts/run_test.sh dsl_tests AcirHonkRecursionConstraint/4.TestOneOuterRecursiveCircuit (0s) (code: 1)
+FAILED (http://ci.aztec-labs.com/53896e219f1d6458): barretenberg/cpp/scripts/run_test.sh dsl_tests AcirHonkRecursionConstraint/4.TestFullRecursiveComposition (0s) (code: 1)
+FAILED (http://ci.aztec-labs.com/8eea2063dae7c28e): barretenberg/cpp/scripts/run_test.sh dsl_tests AcirHonkRecursionConstraint/3.TestBasicDoubleHonkRecursionConstraints (1s) (code: 1)
+FAILED (http://ci.aztec-labs.com/d49e08c9622614e1): barretenberg/cpp/scripts/run_test.sh dsl_tests AcirHonkRecursionConstraint/4.TestBasicDoubleHonkRecursionConstraints (1s) (code: 1)
 
 BoomerangGoblinRecursiveVerifierTests: from_witness in test
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/26f12ee316eb964926f12ee316eb9649]8;;[0m): barretenberg/cpp/scripts/run_test.sh boomerang_value_detection_tests BoomerangGoblinRecursiveVerifierTests.graph_description_basic (11s) (code: 1)
+FAILED (http://ci.aztec-labs.com/26f12ee316eb9649): barretenberg/cpp/scripts/run_test.sh boomerang_value_detection_tests BoomerangGoblinRecursiveVerifierTests.graph_description_basic (11s) (code: 1)
 
 RecursiveVerifierTest: ZK padding indicator causes different child tags
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/51c58c9aeba28cd651c58c9aeba28cd6]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_honk_verifier_tests RecursiveVerifierTest/4.SingleRecursiveVerification (0s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/779f52f1c6315ce4779f52f1c6315ce4]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_honk_verifier_tests RecursiveVerifierTest/4.IndependentVKHash (0s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/aaa681f1c792f568aaa681f1c792f568]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_honk_verifier_tests RecursiveVerifierTest/4.SingleRecursiveVerificationFailure (0s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/e9a47c110031ef3de9a47c110031ef3d]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_honk_verifier_tests RecursiveVerifierTest/5.SingleRecursiveVerification (0s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/b7f3548ade204420b7f3548ade204420]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_honk_verifier_tests RecursiveVerifierTest/5.SingleRecursiveVerificationFailure (0s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/7df71347a3d730ec7df71347a3d730ec]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_honk_verifier_tests RecursiveVerifierTest/7.SingleRecursiveVerification (1s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/dfb61912affebfb8dfb61912affebfb8]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_honk_verifier_tests RecursiveVerifierTest/7.SingleRecursiveVerificationFailure (1s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/133421b1ffb802a3133421b1ffb802a3]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_honk_verifier_tests RecursiveVerifierTest/8.SingleRecursiveVerification (0s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/85533421ab159cd685533421ab159cd6]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_honk_verifier_tests RecursiveVerifierTest/8.IndependentVKHash (0s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/5cf52f7d857cafbf5cf52f7d857cafbf]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_honk_verifier_tests RecursiveVerifierTest/8.SingleRecursiveVerificationFailure (0s) (code: 1)
+FAILED (http://ci.aztec-labs.com/51c58c9aeba28cd6): barretenberg/cpp/scripts/run_test.sh stdlib_honk_verifier_tests RecursiveVerifierTest/4.SingleRecursiveVerification (0s) (code: 1)
+FAILED (http://ci.aztec-labs.com/779f52f1c6315ce4): barretenberg/cpp/scripts/run_test.sh stdlib_honk_verifier_tests RecursiveVerifierTest/4.IndependentVKHash (0s) (code: 1)
+FAILED (http://ci.aztec-labs.com/aaa681f1c792f568): barretenberg/cpp/scripts/run_test.sh stdlib_honk_verifier_tests RecursiveVerifierTest/4.SingleRecursiveVerificationFailure (0s) (code: 1)
+FAILED (http://ci.aztec-labs.com/e9a47c110031ef3d): barretenberg/cpp/scripts/run_test.sh stdlib_honk_verifier_tests RecursiveVerifierTest/5.SingleRecursiveVerification (0s) (code: 1)
+FAILED (http://ci.aztec-labs.com/b7f3548ade204420): barretenberg/cpp/scripts/run_test.sh stdlib_honk_verifier_tests RecursiveVerifierTest/5.SingleRecursiveVerificationFailure (0s) (code: 1)
+FAILED (http://ci.aztec-labs.com/7df71347a3d730ec): barretenberg/cpp/scripts/run_test.sh stdlib_honk_verifier_tests RecursiveVerifierTest/7.SingleRecursiveVerification (1s) (code: 1)
+FAILED (http://ci.aztec-labs.com/dfb61912affebfb8): barretenberg/cpp/scripts/run_test.sh stdlib_honk_verifier_tests RecursiveVerifierTest/7.SingleRecursiveVerificationFailure (1s) (code: 1)
+FAILED (http://ci.aztec-labs.com/133421b1ffb802a3): barretenberg/cpp/scripts/run_test.sh stdlib_honk_verifier_tests RecursiveVerifierTest/8.SingleRecursiveVerification (0s) (code: 1)
+FAILED (http://ci.aztec-labs.com/85533421ab159cd6): barretenberg/cpp/scripts/run_test.sh stdlib_honk_verifier_tests RecursiveVerifierTest/8.IndependentVKHash (0s) (code: 1)
+FAILED (http://ci.aztec-labs.com/5cf52f7d857cafbf): barretenberg/cpp/scripts/run_test.sh stdlib_honk_verifier_tests RecursiveVerifierTest/8.SingleRecursiveVerificationFailure (0s) (code: 1)
 
 RecursiveMergeVerifierTest: from_witness in test
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/5356d25b9f5567f25356d25b9f5567f2]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_merge_verifier_tests RecursiveMergeVerifierTest/0.DegreeCheckFailure (1s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/03662308a22e284803662308a22e2848]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_merge_verifier_tests RecursiveMergeVerifierTest/0.SingleRecursiveVerification (1s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/b951cc597e2c1b8bb951cc597e2c1b8b]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_merge_verifier_tests RecursiveMergeVerifierTest/0.MergeFailure (0s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/1341256539cedc591341256539cedc59]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_merge_verifier_tests RecursiveMergeVerifierTest/0.EvalFailure (0s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/fa4de7aab8853a47fa4de7aab8853a47]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_merge_verifier_tests RecursiveMergeVerifierTest/1.SingleRecursiveVerification (0s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/2167da1dc5e3fe622167da1dc5e3fe62]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_merge_verifier_tests RecursiveMergeVerifierTest/1.MergeFailure (0s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/991c5ac4ddb1a7e6991c5ac4ddb1a7e6]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_merge_verifier_tests RecursiveMergeVerifierTest/1.DegreeCheckFailure (0s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/660c3a018f9ee02a660c3a018f9ee02a]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_merge_verifier_tests RecursiveMergeVerifierTest/1.EvalFailure (0s) (code: 1)
+FAILED (http://ci.aztec-labs.com/5356d25b9f5567f2): barretenberg/cpp/scripts/run_test.sh stdlib_merge_verifier_tests RecursiveMergeVerifierTest/0.DegreeCheckFailure (1s) (code: 1)
+FAILED (http://ci.aztec-labs.com/03662308a22e2848): barretenberg/cpp/scripts/run_test.sh stdlib_merge_verifier_tests RecursiveMergeVerifierTest/0.SingleRecursiveVerification (1s) (code: 1)
+FAILED (http://ci.aztec-labs.com/b951cc597e2c1b8b): barretenberg/cpp/scripts/run_test.sh stdlib_merge_verifier_tests RecursiveMergeVerifierTest/0.MergeFailure (0s) (code: 1)
+FAILED (http://ci.aztec-labs.com/1341256539cedc59): barretenberg/cpp/scripts/run_test.sh stdlib_merge_verifier_tests RecursiveMergeVerifierTest/0.EvalFailure (0s) (code: 1)
+FAILED (http://ci.aztec-labs.com/fa4de7aab8853a47): barretenberg/cpp/scripts/run_test.sh stdlib_merge_verifier_tests RecursiveMergeVerifierTest/1.SingleRecursiveVerification (0s) (code: 1)
+FAILED (http://ci.aztec-labs.com/2167da1dc5e3fe62): barretenberg/cpp/scripts/run_test.sh stdlib_merge_verifier_tests RecursiveMergeVerifierTest/1.MergeFailure (0s) (code: 1)
+FAILED (http://ci.aztec-labs.com/991c5ac4ddb1a7e6): barretenberg/cpp/scripts/run_test.sh stdlib_merge_verifier_tests RecursiveMergeVerifierTest/1.DegreeCheckFailure (0s) (code: 1)
+FAILED (http://ci.aztec-labs.com/660c3a018f9ee02a): barretenberg/cpp/scripts/run_test.sh stdlib_merge_verifier_tests RecursiveMergeVerifierTest/1.EvalFailure (0s) (code: 1)
 
 ECCVMRecursiveTests: different child tags (unknown reason)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/41fa7d0e7ef45de041fa7d0e7ef45de0]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_eccvm_verifier_tests ECCVMRecursiveTests.SingleRecursiveVerificationFailure (5s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/6be93eae873ff4bc6be93eae873ff4bc]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_eccvm_verifier_tests ECCVMRecursiveTests.SingleRecursiveVerificationFailureTamperedProof (5s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/ff0808ac297cad4cff0808ac297cad4c]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_eccvm_verifier_tests ECCVMRecursiveTests.SingleRecursiveVerification (5s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/62780480afefecf562780480afefecf5]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_eccvm_verifier_tests ECCVMRecursiveTests.IndependentVKHash (7s) (code: 1)
+FAILED (http://ci.aztec-labs.com/41fa7d0e7ef45de0): barretenberg/cpp/scripts/run_test.sh stdlib_eccvm_verifier_tests ECCVMRecursiveTests.SingleRecursiveVerificationFailure (5s) (code: 1)
+FAILED (http://ci.aztec-labs.com/6be93eae873ff4bc): barretenberg/cpp/scripts/run_test.sh stdlib_eccvm_verifier_tests ECCVMRecursiveTests.SingleRecursiveVerificationFailureTamperedProof (5s) (code: 1)
+FAILED (http://ci.aztec-labs.com/ff0808ac297cad4c): barretenberg/cpp/scripts/run_test.sh stdlib_eccvm_verifier_tests ECCVMRecursiveTests.SingleRecursiveVerification (5s) (code: 1)
+FAILED (http://ci.aztec-labs.com/62780480afefecf5): barretenberg/cpp/scripts/run_test.sh stdlib_eccvm_verifier_tests ECCVMRecursiveTests.IndependentVKHash (7s) (code: 1)
 
 stdlib_bigfield: suspicious failure... possible bug
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/a689f474d60be0a7a689f474d60be0a7]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_primitives_tests stdlib_bigfield/0.assert_is_in_field_succes (0s) (code: 1)
+FAILED (http://ci.aztec-labs.com/a689f474d60be0a7): barretenberg/cpp/scripts/run_test.sh stdlib_primitives_tests stdlib_bigfield/0.assert_is_in_field_succes (0s) (code: 1)
 
 GoblinRecursiveVerifierTests: from_witness merge_commitments in test
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/361f78f79421f061361f78f79421f061]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_goblin_verifier_tests GoblinRecursiveVerifierTests.Basic (11s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/455fb7686e32bfff455fb7686e32bfff]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_goblin_verifier_tests GoblinRecursiveVerifierTests.IndependentVKHash (11s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/d4b5f43b0dc15445d4b5f43b0dc15445]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_goblin_verifier_tests GoblinRecursiveVerifierTests.TranslatorFailure (11s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/8986757f54244bc58986757f54244bc5]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_goblin_verifier_tests GoblinRecursiveVerifierTests.TranslatorMergeConsistencyFailure (12s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/9c34b027481528949c34b02748152894]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_goblin_verifier_tests GoblinRecursiveVerifierTests.TranslationEvaluationsFailure (12s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/e914211bdf232c25e914211bdf232c25]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_goblin_verifier_tests GoblinRecursiveVerifierTests.ECCVMFailure (12s) (code: 1)
+FAILED (http://ci.aztec-labs.com/361f78f79421f061): barretenberg/cpp/scripts/run_test.sh stdlib_goblin_verifier_tests GoblinRecursiveVerifierTests.Basic (11s) (code: 1)
+FAILED (http://ci.aztec-labs.com/455fb7686e32bfff): barretenberg/cpp/scripts/run_test.sh stdlib_goblin_verifier_tests GoblinRecursiveVerifierTests.IndependentVKHash (11s) (code: 1)
+FAILED (http://ci.aztec-labs.com/d4b5f43b0dc15445): barretenberg/cpp/scripts/run_test.sh stdlib_goblin_verifier_tests GoblinRecursiveVerifierTests.TranslatorFailure (11s) (code: 1)
+FAILED (http://ci.aztec-labs.com/8986757f54244bc5): barretenberg/cpp/scripts/run_test.sh stdlib_goblin_verifier_tests GoblinRecursiveVerifierTests.TranslatorMergeConsistencyFailure (12s) (code: 1)
+FAILED (http://ci.aztec-labs.com/9c34b02748152894): barretenberg/cpp/scripts/run_test.sh stdlib_goblin_verifier_tests GoblinRecursiveVerifierTests.TranslationEvaluationsFailure (12s) (code: 1)
+FAILED (http://ci.aztec-labs.com/e914211bdf232c25): barretenberg/cpp/scripts/run_test.sh stdlib_goblin_verifier_tests GoblinRecursiveVerifierTests.ECCVMFailure (12s) (code: 1)
 
-ProtogalaxyRecursiveTests: we don't fiat-shamir accmulator
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/4f52197c17c4597e4f52197c17c4597e]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_protogalaxy_verifier_tests ProtogalaxyRecursiveTests.RecursiveFoldingTest (2s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/89bd1d3c92ed60ce89bd1d3c92ed60ce]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_protogalaxy_verifier_tests ProtogalaxyRecursiveTests.RecursiveFoldingTwiceTest (2s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/8c40b598090787648c40b59809078764]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_protogalaxy_verifier_tests ProtogalaxyRecursiveTests.ConstantVerifierCircuit (2s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/e7e0a46be85da1b9e7e0a46be85da1b9]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_protogalaxy_verifier_tests ProtogalaxyRecursiveTests.FullProtogalaxyRecursiveTest (2s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/563a9d102568e80f563a9d102568e80f]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_protogalaxy_verifier_tests ProtogalaxyRecursiveTests.TamperedDeciderProof (3s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/f5771c2558668b0ff5771c2558668b0f]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_protogalaxy_verifier_tests ProtogalaxyRecursiveTests.TamperedAccumulator (3s) (code: 1)
+ProtogalaxyRecursiveTests: we don't fiat-shamir accumulator
+FAILED (http://ci.aztec-labs.com/4f52197c17c4597e): barretenberg/cpp/scripts/run_test.sh stdlib_protogalaxy_verifier_tests ProtogalaxyRecursiveTests.RecursiveFoldingTest (2s) (code: 1)
+FAILED (http://ci.aztec-labs.com/89bd1d3c92ed60ce): barretenberg/cpp/scripts/run_test.sh stdlib_protogalaxy_verifier_tests ProtogalaxyRecursiveTests.RecursiveFoldingTwiceTest (2s) (code: 1)
+FAILED (http://ci.aztec-labs.com/8c40b59809078764): barretenberg/cpp/scripts/run_test.sh stdlib_protogalaxy_verifier_tests ProtogalaxyRecursiveTests.ConstantVerifierCircuit (2s) (code: 1)
+FAILED (http://ci.aztec-labs.com/e7e0a46be85da1b9): barretenberg/cpp/scripts/run_test.sh stdlib_protogalaxy_verifier_tests ProtogalaxyRecursiveTests.FullProtogalaxyRecursiveTest (2s) (code: 1)
+FAILED (http://ci.aztec-labs.com/563a9d102568e80f): barretenberg/cpp/scripts/run_test.sh stdlib_protogalaxy_verifier_tests ProtogalaxyRecursiveTests.TamperedDeciderProof (3s) (code: 1)
+FAILED (http://ci.aztec-labs.com/f5771c2558668b0f): barretenberg/cpp/scripts/run_test.sh stdlib_protogalaxy_verifier_tests ProtogalaxyRecursiveTests.TamperedAccumulator (3s) (code: 1)
 
 TranslatorRecursiveTests: suspicious from_witness in test but fails with different child tags
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/5bee7e69afcf28fb5bee7e69afcf28fb]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_translator_vm_verifier_tests TranslatorRecursiveTests.IndependentVKHash (7s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/e2e1ac98738276bfe2e1ac98738276bf]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_translator_vm_verifier_tests TranslatorRecursiveTests.SingleRecursiveVerification (7s) (code: 1)
+FAILED (http://ci.aztec-labs.com/5bee7e69afcf28fb): barretenberg/cpp/scripts/run_test.sh stdlib_translator_vm_verifier_tests TranslatorRecursiveTests.IndependentVKHash (7s) (code: 1)
+FAILED (http://ci.aztec-labs.com/e2e1ac98738276bf): barretenberg/cpp/scripts/run_test.sh stdlib_translator_vm_verifier_tests TranslatorRecursiveTests.SingleRecursiveVerification (7s) (code: 1)
 
 CivcRecursionConstraintTest: fails with different child tags in zk recursive verifier
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/1f6db6eb0bc24ae31f6db6eb0bc24ae3]8;;[0m): barretenberg/cpp/scripts/run_test.sh dsl_tests CivcRecursionConstraintTest.GenerateRecursiveCivcVerifierVKFromConstraints (85s) (code: 1)
+FAILED (http://ci.aztec-labs.com/1f6db6eb0bc24ae3): barretenberg/cpp/scripts/run_test.sh dsl_tests CivcRecursionConstraintTest.GenerateRecursiveCivcVerifierVKFromConstraints (85s) (code: 1)
 
 ClientIVCRecursionTests: ZK padding indicator causes different child tags
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/28dafc2785419cbd28dafc2785419cbd]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_client_ivc_verifier_tests ClientIVCRecursionTests.TubeVKIndependentOfInputCircuits (64s) (code: 1)
-[38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/3fcb979b91b08b0c3fcb979b91b08b0c]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_client_ivc_verifier_tests ClientIVCRecursionTests.Basic (65s) (code: 1)
+FAILED (http://ci.aztec-labs.com/28dafc2785419cbd): barretenberg/cpp/scripts/run_test.sh stdlib_client_ivc_verifier_tests ClientIVCRecursionTests.TubeVKIndependentOfInputCircuits (64s) (code: 1)
+FAILED (http://ci.aztec-labs.com/3fcb979b91b08b0c): barretenberg/cpp/scripts/run_test.sh stdlib_client_ivc_verifier_tests ClientIVCRecursionTests.Basic (65s) (code: 1)
