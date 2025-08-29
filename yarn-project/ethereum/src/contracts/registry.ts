@@ -84,7 +84,7 @@ export class RegistryContract {
     client: ViemClient,
     registryAddress: Hex | EthAddress,
     rollupVersion: number | bigint | 'canonical',
-  ): Promise<Omit<L1ContractAddresses, 'coinIssuerAddress'> & { feeAssetOwnerAddress: EthAddress }> {
+  ): Promise<L1ContractAddresses & { feeAssetOwnerAddress: EthAddress }> {
     const registry = new RegistryContract(client, registryAddress);
     const governanceAddresses = await registry.getGovernanceAddresses();
     const rollupAddress = await registry.getRollupAddress(rollupVersion);
@@ -100,12 +100,13 @@ export class RegistryContract {
       abi: TestERC20Abi,
       client,
     });
-    const feeAssetOwner = await feeAsset.read.owner();
+    const feeAssetOwner = EthAddress.fromString(await feeAsset.read.owner());
     return {
       registryAddress: registry.address,
       ...governanceAddresses,
       ...addresses,
-      feeAssetOwnerAddress: EthAddress.fromString(feeAssetOwner),
+      coinIssuerAddress: feeAssetOwner,
+      feeAssetOwnerAddress: feeAssetOwner,
     };
   }
 
