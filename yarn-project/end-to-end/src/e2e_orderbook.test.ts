@@ -9,9 +9,10 @@ import { setup } from './fixtures/utils.js';
 
 const TIMEOUT = 120_000;
 
-// TODO(#14525): Write thorough Orderbook tests. Currently we test only a happy path here because we will migrate these
-// tests to TXE once TXE 2.0 is ready. Didn't write it in TXE now as there is no way to obtain public events and all of
-// TXE will be rewritten soon.
+// Unhappy path tests are written only in Noir.
+//
+// We keep this test around because it's the only TS test where we have async completion of a partial note (partial
+// note created in one tx and completed in another).
 describe('Orderbook', () => {
   jest.setTimeout(TIMEOUT);
 
