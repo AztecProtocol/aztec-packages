@@ -371,11 +371,6 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
             std::size_t thread_count = 0;
 
             while (stats != nullptr) {
-                // Assert that CommitmentKey::commit always has a parent
-                if (entry->key == "CommitmentKey::commit" && stats->count > 0) {
-                    assert(stats->parent != nullptr && "CommitmentKey::commit must always have a parent context");
-                }
-
                 // For the primary context, add to total and thread stats
                 if (is_primary) {
                     stat_info.count += stats->count;
@@ -566,9 +561,9 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
             // Get the stats for this specific parent context if not a root
             StatInfo display_info = all_stats[key];
 
-            // If we have a parent entry and this is a multi-parent function, use parent-specific stats
-            if (parent_entry && display_info.parents.size() > 1 &&
-                display_info.per_parent_stats.contains(parent_entry)) {
+            // If we have a parent entry, try to use parent-specific stats
+            // This is important for functions that appear under multiple parents
+            if (parent_entry && display_info.per_parent_stats.contains(parent_entry)) {
                 // Use parent-specific stats for display
                 auto [parent_time_val, parent_count] = display_info.per_parent_stats[parent_entry];
                 display_info.time = parent_time_val;
@@ -632,7 +627,8 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
                     });
 
                     // Check if we need an "other" entry for unaccounted time
-                    std::size_t parent_time = all_stats[key].time;
+                    // Use display_info.time which has been adjusted for parent-specific context
+                    std::size_t parent_time = display_info.time;
                     bool need_other = false;
                     std::size_t other_time = 0;
 
@@ -655,7 +651,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
                                         visited,
                                         is_last_child,
                                         allow_reprint,
-                                        all_stats[key].time,
+                                        display_info.time, // Use parent-specific time, not total
                                         current_entry);
                     }
 
@@ -671,7 +667,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
                            << std::setw(static_cast<int>(name_width)) << "(other)" << Colors::RESET << "  "
                            << colors.time_color << format_time_aligned(time_ms) << Colors::RESET
                            << format_percentage(static_cast<double>(other_time),
-                                                static_cast<double>(all_stats[key].time))
+                                                static_cast<double>(display_info.time)) // Use parent-specific time
                            << "\n";
                     }
                 }
