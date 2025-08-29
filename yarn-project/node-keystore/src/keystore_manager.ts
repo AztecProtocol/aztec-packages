@@ -218,19 +218,10 @@ export class KeystoreManager {
       };
     }
 
-    // Handle complex prover case with id and publishers
-    const proverConfig = this.keystore.prover;
-    const signers: EthSigner[] = [];
+    const id = EthAddress.fromString(this.keystore.prover.id);
+    const signers = this.createSignersFromEthAccounts(this.keystore.prover.publisher, this.keystore.remoteSigner);
 
-    for (const publisherAccounts of proverConfig.publisher) {
-      const publisherSigners = this.createSignersFromEthAccounts(publisherAccounts, this.keystore.remoteSigner);
-      signers.push(...publisherSigners);
-    }
-
-    return {
-      id: EthAddress.fromString(proverConfig.id),
-      signers,
-    };
+    return { id, signers };
   }
 
   /**
