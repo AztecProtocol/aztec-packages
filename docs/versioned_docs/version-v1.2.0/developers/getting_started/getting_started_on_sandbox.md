@@ -1,15 +1,15 @@
 ---
-title: Getting Started
-description: Quick start guide for developers to set up their environment and begin building on Aztec.
+title: Getting Started on Sandbox
+description: Guide for developers to get started with the Aztec sandbox, including account creation and contract deployment.
 sidebar_position: 0
-tags: [sandbox. testnet]
+tags: [sandbox, testnet]
 ---
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-Get started on your local environment using the sandbox. If you'd rather jump into testnet, read the [getting started on testnet guide](./guides/getting_started_on_testnet.md).
-     
+Get started on your local environment using the sandbox. If you'd rather jump into testnet, read the [getting started on testnet guide](../guides/getting_started_on_testnet.md).
+
 The Sandbox is an local development Aztec network running fully on your machine, and interacting with a development Ethereum node. You can develop and deploy on it just like on a testnet or mainnet (when the time comes). The sandbox makes it faster and easier to develop and test your Aztec applications.
 
 What's included in the sandbox:
@@ -50,6 +50,7 @@ This will install the following tools:
 
 - **aztec** - launches various infrastructure subsystems (full sandbox, sequencer, prover, pxe, etc) and provides utility commands to interact with the network
 - **aztec-nargo** - aztec's build of nargo, the noir compiler toolchain.
+- **aztec-postprocess-contract** - postprocessing tool for Aztec contracts (transpilation and VK generation).
 - **aztec-up** - a tool to upgrade the aztec toolchain to the latest, or specific versions.
 - **aztec-wallet** - a tool for interacting with the aztec network
 

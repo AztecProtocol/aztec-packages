@@ -10,7 +10,7 @@ You can deploy your contract using JS, which could come in handy (ex. if doing i
 ## Prerequisites
 
 - You should have your compiled contract ready (go to [How to Compile Contract](../smart_contracts/how_to_compile_contract.md) for instructions on how to compile contracts)
-- Aztec Sandbox running (go to [Getting Started](../../getting_started.md) for instructions on how to install and run the sandbox)
+- Aztec Sandbox running (go to [Getting Started](../../getting_started/getting_started_on_sandbox.md) for instructions on how to install and run the sandbox)
 
 ## Deploy
 
