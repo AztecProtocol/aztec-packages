@@ -83,7 +83,9 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
                            commitments.end(),
                            commitments_in_biggroup.begin(),
                            [&builder](const auto& native_commitment) {
-                               return Commitment::from_witness(&builder, native_commitment);
+                               auto comm = Commitment::from_witness(&builder, native_commitment);
+                               comm.fix_witness();
+                               return comm;
                            });
             return commitments_in_biggroup;
         };
@@ -91,11 +93,12 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
             std::vector<Fr> elements_in_circuit(elements.size());
             std::transform(
                 elements.begin(), elements.end(), elements_in_circuit.begin(), [&builder](const auto& native_element) {
-                    return Fr::from_witness(&builder, native_element);
+                    auto element = Fr::from_witness(&builder, native_element);
+                    element.fix_witness();
+                    return element;
                 });
             return elements_in_circuit;
         };
-        // WORKTODO: To pass the origin tags check: could either fix the witnesses of the claims or fiat shamir them
         auto stdlib_unshifted_commitments =
             commitments_to_witnesses(mock_claims.claim_batcher.get_unshifted().commitments);
         auto stdlib_to_be_shifted_commitments =
@@ -111,8 +114,8 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
         u_challenge_in_circuit.reserve(CONST_PROOF_SIZE_LOG_N);
 
         for (auto u : u_challenge) {
-            // WORKTODO: To pass the origin tags check: could either fix the witnesses of the claims or fiat shamir them
             u_challenge_in_circuit.emplace_back(Fr::from_witness(&builder, u));
+            u_challenge_in_circuit.back().fix_witness();
         }
 
         ClaimBatcher claim_batcher{
