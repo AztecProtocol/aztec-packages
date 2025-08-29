@@ -1057,7 +1057,7 @@ export const deployL1Contracts = async (
       zkPassportVerifierAddress,
       coinIssuerAddress,
     },
-    feeAssetOwnerAddress: l1Contracts.feeAssetOwnerAddress,
+    feeAssetOwnerAddress: l1Contracts.coinIssuerAddress,
   };
 };
 
