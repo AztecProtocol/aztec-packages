@@ -46,7 +46,6 @@ namespace {
  */
 void create_dummy_vkey_and_proof(Builder& builder,
                                  [[maybe_unused]] size_t proof_size,
-                                 size_t public_inputs_size,
                                  const std::vector<field_ct>& key_fields,
                                  const std::vector<field_ct>& proof_fields)
 {
@@ -70,27 +69,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset++;
     };
 
-    // Relevant source for proof layout: AvmFlavor::Transcript::serialize_full_transcript()
-    // TODO(#13390): Revive this assertion (and remove the >= 0 one) once we freeze the number of colums in AVM.
-    // assert((proof_size - Flavor::NUM_WITNESS_ENTITIES * Flavor::NUM_FRS_COM -
-    //         (Flavor::NUM_ALL_ENTITIES + 1) * Flavor::NUM_FRS_FR - Flavor::NUM_FRS_COM) %
-    //            (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * (Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1)) ==
-    //        0);
-
-    // Derivation of circuit size based on the proof
-    // TODO#13390): Revive the following code once we freeze the number of colums in AVM.
-    // const auto log_circuit_size =
-    //     (proof_size - Flavor::NUM_WITNESS_ENTITIES * Flavor::NUM_FRS_COM -
-    //      (Flavor::NUM_ALL_ENTITIES + 1) * Flavor::NUM_FRS_FR - Flavor::NUM_FRS_COM) /
-    //     (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * (Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1));
-    const auto log_circuit_size = numeric::get_msb(avm2::CIRCUIT_SUBGROUP_SIZE);
-
-    // First key field is log circuit size
-    builder.set_variable(key_fields[0].witness_index, log_circuit_size);
-    // Second key field is number of public inputs
-    builder.set_variable(key_fields[1].witness_index, public_inputs_size);
-
-    size_t offset = 2;
+    size_t offset = 0;
     for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
         set_dummy_commitment(key_fields, offset);
     }
@@ -106,7 +85,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
     }
 
     // now the univariates
-    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N * Flavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
+    for (size_t i = 0; i < avm2::MAX_AVM_TRACE_LOG_SIZE * Flavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
         set_dummy_evaluation_in_proof_fields(offset);
     }
 
@@ -116,12 +95,12 @@ void create_dummy_vkey_and_proof(Builder& builder,
     }
 
     // now the gemini fold commitments which are CONST_PROOF_SIZE_LOG_N - 1
-    for (size_t i = 1; i < CONST_PROOF_SIZE_LOG_N; i++) {
+    for (size_t i = 1; i < avm2::MAX_AVM_TRACE_LOG_SIZE; i++) {
         set_dummy_commitment(proof_fields, offset);
     }
 
     // the gemini fold evaluations which are CONST_PROOF_SIZE_LOG_N
-    for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
+    for (size_t i = 0; i < avm2::MAX_AVM_TRACE_LOG_SIZE; i++) {
         set_dummy_evaluation_in_proof_fields(offset);
     }
 
@@ -160,7 +139,7 @@ HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(
 
     // Populate the key fields and proof fields with dummy values to prevent issues (e.g. points must be on curve).
     if (!has_valid_witness_assignments) {
-        create_dummy_vkey_and_proof(builder, input.proof.size(), input.public_inputs.size(), key_fields, proof_fields);
+        create_dummy_vkey_and_proof(builder, input.proof.size(), key_fields, proof_fields);
     }
 
     // Execute the Goblin AVM2 recursive verifier

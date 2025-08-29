@@ -9,6 +9,7 @@
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
 
 namespace bb::avm2 {
@@ -107,7 +108,7 @@ void AvmProver::execute_relation_check_rounds()
 
     // Generate gate challenges
     std::vector<FF> gate_challenges =
-        transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", CONST_PROOF_SIZE_LOG_N);
+        transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", key->log_circuit_size);
 
     Sumcheck sumcheck(key->circuit_size,
                       prover_polynomials,
@@ -115,7 +116,7 @@ void AvmProver::execute_relation_check_rounds()
                       alpha,
                       gate_challenges,
                       relation_parameters,
-                      CONST_PROOF_SIZE_LOG_N);
+                      key->log_circuit_size);
 
     sumcheck_output = sumcheck.prove();
 }

@@ -43,6 +43,7 @@ export async function extractAvmVkData(vkDirectoryPath: string): Promise<Verific
     Array(AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED - fieldsArray.length).fill(new Fr(0)),
   );
   const vkAsFields = await VerificationKeyAsFields.fromKey(fieldsArrayPadded);
+  // TODO(#16644): We should have a different type for AVM verification keys since we don't have circuit size or num public inputs in AVM VKs.
   const vk = new VerificationKeyData(vkAsFields, rawBinary);
   return vk;
 }
