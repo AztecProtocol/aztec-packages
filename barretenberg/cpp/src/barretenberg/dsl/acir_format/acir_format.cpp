@@ -671,7 +671,7 @@ process_avm_recursion_constraints(Builder& builder,
  */
 template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata)
 {
-    BB_BENCH_TRACY();
+    BB_BENCH_NESTED();
     AcirFormat& constraints = program.constraints;
     WitnessVector& witness = program.witness;
 
@@ -692,7 +692,7 @@ template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const Progr
  */
 template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata)
 {
-    BB_BENCH_TRACY();
+    BB_BENCH_NESTED();
     AcirFormat& constraints = program.constraints;
     WitnessVector& witness = program.witness;
 

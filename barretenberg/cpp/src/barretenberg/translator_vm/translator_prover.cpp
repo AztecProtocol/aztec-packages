@@ -19,7 +19,7 @@ TranslatorProver::TranslatorProver(const std::shared_ptr<TranslatorProvingKey>& 
     : transcript(transcript)
     , key(key)
 {
-    BB_BENCH_TRACY();
+    BB_BENCH_NESTED();
     if (!key->proving_key->commitment_key.initialized()) {
         key->proving_key->commitment_key = CommitmentKey(key->proving_key->circuit_size);
     }

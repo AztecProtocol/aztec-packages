@@ -247,7 +247,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     Polynomial<FF> compute_perturbator(const std::shared_ptr<const DeciderPK>& accumulator,
                                        const std::vector<FF>& deltas)
     {
-        BB_BENCH_TRACY();
+        BB_BENCH_NESTED();
         auto full_honk_evaluations =
             compute_row_evaluations(accumulator->polynomials, accumulator->alphas, accumulator->relation_parameters);
         const auto betas = accumulator->gate_challenges;
@@ -354,7 +354,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                                          const UnivariateSubrelationSeparators& alphas,
                                                          TupleOfTuplesOfUnivariates& univariate_accumulators)
     {
-        BB_BENCH_TRACY();
+        BB_BENCH_NESTED();
 
         // Determine the number of threads over which to distribute the work
         // The polynomial size is given by the virtual size since the computation includes

@@ -83,7 +83,7 @@ class GoblinMockCircuits {
      */
     static void construct_mock_app_circuit(MegaBuilder& builder, bool large = false)
     {
-        BB_BENCH_TRACY();
+        BB_BENCH_NESTED();
 
         if (large) { // Results in circuit size 2^19
             generate_sha256_test_circuit<MegaBuilder>(builder, 9);
@@ -109,7 +109,7 @@ class GoblinMockCircuits {
      */
     static void add_some_ecc_op_gates(MegaBuilder& builder)
     {
-        BB_BENCH_TRACY();
+        BB_BENCH_NESTED();
 
         // Add some arbitrary ecc op gates
         for (size_t i = 0; i < 3; ++i) {
@@ -138,7 +138,7 @@ class GoblinMockCircuits {
      */
     static void construct_simple_circuit(MegaBuilder& builder, bool last_circuit = false)
     {
-        BB_BENCH_TRACY();
+        BB_BENCH_NESTED();
         // The last circuit to be accumulated must contain a no-op
         if (last_circuit) {
             builder.queue_ecc_no_op();
@@ -160,7 +160,7 @@ class GoblinMockCircuits {
      */
     static void construct_mock_folding_kernel(MegaBuilder& builder)
     {
-        BB_BENCH_TRACY();
+        BB_BENCH_NESTED();
 
         // Add operations representing general kernel logic e.g. state updates. Note: these are structured to make
         // the kernel "full" within the dyadic size 2^17
