@@ -545,7 +545,7 @@ export const deployRollup = async (
     exitDelaySeconds: BigInt(args.exitDelaySeconds),
     slasherFlavor: slasherFlavorToSolidityEnum(args.slasherFlavor),
     slashingOffsetInRounds: BigInt(args.slashingOffsetInRounds),
-    slashingUnit: args.slashingUnit,
+    slashAmounts: [args.slashAmountSmall, args.slashAmountMedium, args.slashAmountLarge],
   };
 
   const genesisStateArgs = {

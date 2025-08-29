@@ -91,9 +91,14 @@ contract SlashingTest is TestBase {
     // Create votes - for tally slashing we need to encode votes as bytes
     // Each validator gets a slash amount between 1-3 units
     // For simplicity, we'll vote to slash all validators by the same amount
-    uint256 slashUnits = _slashAmount / slashingProposer.SLASHING_UNIT();
-    if (slashUnits == 0) slashUnits = 1; // Minimum 1 unit
-    if (slashUnits > 3) slashUnits = 3; // Maximum 3 units
+    uint256 slashUnits;
+    if (_slashAmount >= slashingProposer.SLASH_AMOUNT_LARGE()) {
+      slashUnits = 3;
+    } else if (_slashAmount >= slashingProposer.SLASH_AMOUNT_MEDIUM()) {
+      slashUnits = 2;
+    } else {
+      slashUnits = 1;
+    }
 
     // Calculate expected vote length: (COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS) / 4
     uint256 totalValidators = slashingProposer.COMMITTEE_SIZE() * slashingProposer.ROUND_SIZE_IN_EPOCHS();
@@ -335,10 +340,18 @@ contract SlashingTest is TestBase {
     slashingProposer.executeRound(firstSlashingRound, committees);
 
     // Calculate actual slash amount (limited by max 3 units)
-    uint256 slashUnits = slashAmount1 / slashingProposer.SLASHING_UNIT();
-    if (slashUnits == 0) slashUnits = 1; // Minimum 1 unit
-    if (slashUnits > 3) slashUnits = 3; // Maximum 3 units
-    uint256 actualSlashAmount = slashUnits * slashingProposer.SLASHING_UNIT();
+    uint256 slashUnits;
+    uint256 actualSlashAmount;
+    if (slashAmount1 >= slashingProposer.SLASH_AMOUNT_LARGE()) {
+      slashUnits = 3;
+      actualSlashAmount = slashingProposer.SLASH_AMOUNT_LARGE();
+    } else if (slashAmount1 >= slashingProposer.SLASH_AMOUNT_MEDIUM()) {
+      slashUnits = 2;
+      actualSlashAmount = slashingProposer.SLASH_AMOUNT_MEDIUM();
+    } else {
+      slashUnits = 1;
+      actualSlashAmount = slashingProposer.SLASH_AMOUNT_SMALL();
+    }
 
     // Check balances
     for (uint256 i = 0; i < howManyToSlash; i++) {

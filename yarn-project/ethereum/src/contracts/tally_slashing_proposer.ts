@@ -63,8 +63,12 @@ export class TallySlashingProposerContract extends EventEmitter {
     return this.contract.read.EXECUTION_DELAY_IN_ROUNDS();
   }
 
-  public getSlashingUnit(): Promise<bigint> {
-    return this.contract.read.SLASHING_UNIT();
+  public getSlashingAmounts(): Promise<[bigint, bigint, bigint]> {
+    return Promise.all([
+      this.contract.read.SLASH_AMOUNT_SMALL(),
+      this.contract.read.SLASH_AMOUNT_MEDIUM(),
+      this.contract.read.SLASH_AMOUNT_LARGE(),
+    ]);
   }
 
   public getSlashOffsetInRounds(): Promise<bigint> {

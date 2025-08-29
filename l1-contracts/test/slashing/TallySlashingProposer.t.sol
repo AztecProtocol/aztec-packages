@@ -86,9 +86,11 @@ contract TallySlashingProposerTest is TestBase {
     RollupBuilder builder = new RollupBuilder(address(this)).setValidators(initialValidators).setTargetCommitteeSize(
       COMMITTEE_SIZE
     ).setSlashingQuorum(QUORUM).setSlashingRoundSize(ROUND_SIZE).setSlashingLifetimeInRounds(LIFETIME_IN_ROUNDS)
-      .setSlashingExecutionDelayInRounds(EXECUTION_DELAY_IN_ROUNDS).setEpochDuration(EPOCH_DURATION).setSlashingUnit(
+      .setSlashingExecutionDelayInRounds(EXECUTION_DELAY_IN_ROUNDS).setEpochDuration(EPOCH_DURATION).setSlashAmountSmall(
       SLASHING_UNIT
-    ).setSlasherFlavor(SlasherFlavor.TALLY);
+    ).setSlashAmountMedium(SLASHING_UNIT * 2).setSlashAmountLarge(SLASHING_UNIT * 3).setSlasherFlavor(
+      SlasherFlavor.TALLY
+    );
     builder.deploy();
 
     rollup = builder.getConfig().rollup;

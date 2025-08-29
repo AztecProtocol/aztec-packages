@@ -47,8 +47,12 @@ export type L1ContractsConfig = {
   slashingOffsetInRounds: number;
   /** Type of slasher proposer */
   slasherFlavor: 'empire' | 'tally' | 'none';
-  /** Minimum slashing unit for consensus-based slashing (all slashes will be a 1-3x this value) */
-  slashingUnit: bigint;
+  /** Minimum amount that can be slashed in tally slashing */
+  slashAmountSmall: bigint;
+  /** Medium amount to slash in tally slashing */
+  slashAmountMedium: bigint;
+  /** Largest amount that can be slashed per round in tally slashing */
+  slashAmountLarge: bigint;
   /** Governance proposing quorum */
   governanceProposerQuorum: number;
   /** Governance proposing round size */
@@ -69,7 +73,9 @@ export const DefaultL1ContractsConfig = {
   aztecProofSubmissionEpochs: 1, // you have a full epoch to submit a proof after the epoch to prove ends
   activationThreshold: BigInt(100e18),
   ejectionThreshold: BigInt(50e18),
-  slashingUnit: BigInt(20e18),
+  slashAmountSmall: BigInt(10e18),
+  slashAmountMedium: BigInt(20e18),
+  slashAmountLarge: BigInt(50e18),
   slashingRoundSize: 32 * 6, // 6 epochs
   slashingQuorum: (32 * 6) / 2 + 1, // 6 epochs, majority of validators
   slashingLifetimeInRounds: 5,
@@ -251,13 +257,23 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
   },
   slasherFlavor: {
     env: 'AZTEC_SLASHER_FLAVOR',
-    description: 'Type of slasher proposer (empire or tally)',
-    ...enumConfigHelper(['empire', 'tally'] as const, DefaultL1ContractsConfig.slasherFlavor),
+    description: 'Type of slasher proposer (empire, tally, or none)',
+    ...enumConfigHelper(['empire', 'tally', 'none'] as const, DefaultL1ContractsConfig.slasherFlavor),
   },
-  slashingUnit: {
-    env: 'AZTEC_SLASHING_UNIT',
-    description: 'Minimum slashing unit for consensus-based slashing (all slashes will be a 1-3x this value)',
-    ...bigintConfigHelper(DefaultL1ContractsConfig.slashingUnit),
+  slashAmountSmall: {
+    env: 'AZTEC_SLASH_AMOUNT_SMALL',
+    description: 'Small slashing amount for light offenses',
+    ...bigintConfigHelper(DefaultL1ContractsConfig.slashAmountSmall),
+  },
+  slashAmountMedium: {
+    env: 'AZTEC_SLASH_AMOUNT_MEDIUM',
+    description: 'Medium slashing amount for moderate offenses',
+    ...bigintConfigHelper(DefaultL1ContractsConfig.slashAmountMedium),
+  },
+  slashAmountLarge: {
+    env: 'AZTEC_SLASH_AMOUNT_LARGE',
+    description: 'Large slashing amount for severe offenses',
+    ...bigintConfigHelper(DefaultL1ContractsConfig.slashAmountLarge),
   },
   slashingQuorum: {
     env: 'AZTEC_SLASHING_QUORUM',

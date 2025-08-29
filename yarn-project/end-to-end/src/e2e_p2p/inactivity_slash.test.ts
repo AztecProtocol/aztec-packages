@@ -52,9 +52,10 @@ describe('e2e_p2p_inactivity_slash', () => {
         sentinelEnabled: true,
         slashingQuorum: SLASHING_QUORUM,
         slashingRoundSize: SLASHING_ROUND_SIZE,
-        slashInactivityCreateTargetPercentage: 0.5,
-        slashInactivitySignalTargetPercentage: 0.1,
-        slashingUnit: SLASHING_UNIT,
+        slashInactivityTargetPercentage: 0.5,
+        slashAmountSmall: SLASHING_UNIT,
+        slashAmountMedium: SLASHING_UNIT * 2n,
+        slashAmountLarge: SLASHING_UNIT * 3n,
       },
     });
 
@@ -68,9 +69,7 @@ describe('e2e_p2p_inactivity_slash', () => {
       rollup.getEjectionThreshold(),
     ]);
     expect(activationThreshold - SLASHING_AMOUNT).toBeLessThan(ejectionThreshold);
-    t.ctx.aztecNodeConfig.slashInactivityEnabled = true;
-    t.ctx.aztecNodeConfig.slashInactivityCreatePenalty = SLASHING_AMOUNT;
-    t.ctx.aztecNodeConfig.slashInactivityMaxPenalty = SLASHING_AMOUNT;
+    t.ctx.aztecNodeConfig.slashInactivityPenalty = SLASHING_AMOUNT;
 
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
