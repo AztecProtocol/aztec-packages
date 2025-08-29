@@ -109,7 +109,7 @@ void print_separator(std::ostream& os, bool thick = true)
 {
     const char* line = thick ? "═══════════════════════════════════════════════════════════════════════════════════════"
                                "═════════════════════"
-                             : "───────────────────────────────────────────────────────────────────────────────"
+                             : "───────────────────────────────────────────────────────────────────────────--------────"
                                "─────────────────────";
     os << Colors::BOLD << Colors::CYAN << line << Colors::RESET << "\n";
 }
@@ -312,17 +312,8 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
     };
 
     // Recursive function to print hierarchy
-    std::function<void(OperationKey, size_t, std::set<OperationKey>&, bool, uint64_t)> print_hierarchy;
-    print_hierarchy = [&](OperationKey key,
-                          size_t indent_level,
-                          std::set<OperationKey>& visited,
-                          bool is_last,
-                          uint64_t parent_time) -> void {
-        if (visited.contains(key)) {
-            return;
-        }
-        visited.insert(key);
-
+    std::function<void(OperationKey, size_t, bool, uint64_t)> print_hierarchy;
+    print_hierarchy = [&](OperationKey key, size_t indent_level, bool is_last, uint64_t parent_time) -> void {
         auto it = aggregated.find(key);
         if (it == aggregated.end()) {
             return;
@@ -381,7 +372,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
 
         // Print children
         for (size_t i = 0; i < children.size(); ++i) {
-            print_hierarchy(children[i], indent_level + 1, visited, i == children.size() - 1, entry_to_print->time);
+            print_hierarchy(children[i], indent_level + 1, i == children.size() - 1, entry_to_print->time);
         }
     };
 
@@ -414,9 +405,8 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
     });
 
     // Print hierarchies starting from roots
-    std::set<OperationKey> visited;
     for (size_t i = 0; i < roots.size(); ++i) {
-        print_hierarchy(roots[i], 0, visited, i == roots.size() - 1, 0);
+        print_hierarchy(roots[i], 0, i == roots.size() - 1, 0);
     }
 
     // Print summary
