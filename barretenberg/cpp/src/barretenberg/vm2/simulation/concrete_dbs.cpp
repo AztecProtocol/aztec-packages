@@ -38,10 +38,12 @@ TreeStates MerkleDB::get_tree_state() const
 {
     // No event generated.
     TreeSnapshots tree_snapshots = raw_merkle_db.get_tree_roots();
+    TreeCounters tree_counters = tree_counters_stack.top();
     return {
-        .noteHashTree = { .tree = tree_snapshots.noteHashTree, .counter = note_hash_counter },
-        .nullifierTree = { .tree = tree_snapshots.nullifierTree, .counter = nullifier_counter },
-        .l1ToL2MessageTree = { .tree = tree_snapshots.l1ToL2MessageTree, .counter = l2_to_l1_msg_counter },
+        .noteHashTree = { .tree = tree_snapshots.noteHashTree, .counter = tree_counters.note_hash_counter },
+        .nullifierTree = { .tree = tree_snapshots.nullifierTree, .counter = tree_counters.nullifier_counter },
+        .l1ToL2MessageTree = { .tree = tree_snapshots.l1ToL2MessageTree,
+                               .counter = tree_counters.l2_to_l1_msg_counter },
         .publicDataTree = { .tree = tree_snapshots.publicDataTree, .counter = written_public_data_slots.size() },
     };
 }
@@ -143,6 +145,7 @@ bool MerkleDB::siloed_nullifier_write(const FF& nullifier)
 
 bool MerkleDB::nullifier_write_internal(std::optional<AztecAddress> contract_address, const FF& nullifier)
 {
+    uint32_t nullifier_counter = tree_counters_stack.top().nullifier_counter;
     FF siloed_nullifier = nullifier;
     if (contract_address.has_value()) {
         // Unconstrained siloing to fetch the hint, since the hints are keyed by siloed data.
@@ -182,7 +185,7 @@ bool MerkleDB::nullifier_write_internal(std::optional<AztecAddress> contract_add
     assert(snapshot_after == raw_merkle_db.get_tree_roots().nullifierTree);
 
     if (!present) {
-        nullifier_counter++;
+        tree_counters_stack.top().nullifier_counter++;
     }
 
     return !present;
@@ -198,6 +201,8 @@ bool MerkleDB::note_hash_exists(uint64_t leaf_index, const FF& unique_note_hash)
 
 void MerkleDB::note_hash_write(const AztecAddress& contract_address, const FF& note_hash)
 {
+    uint32_t note_hash_counter = tree_counters_stack.top().note_hash_counter;
+
     AppendOnlyTreeSnapshot snapshot_before = raw_merkle_db.get_tree_roots().noteHashTree;
     // Unconstrained siloing and uniqueness to fetch the hint, since the hints are keyed by the unique note hash.
     // The siloing and uniqueness will later be constrained in the note hash tree check gadget.
@@ -214,11 +219,13 @@ void MerkleDB::note_hash_write(const AztecAddress& contract_address, const FF& n
     // Sanity check.
     assert(snapshot_after == raw_merkle_db.get_tree_roots().noteHashTree);
 
-    note_hash_counter++;
+    tree_counters_stack.top().note_hash_counter++;
 }
 
 void MerkleDB::siloed_note_hash_write(const FF& siloed_note_hash)
 {
+
+    uint32_t note_hash_counter = tree_counters_stack.top().note_hash_counter;
     AppendOnlyTreeSnapshot snapshot_before = raw_merkle_db.get_tree_roots().noteHashTree;
     // Unconstrained siloing and uniqueness to fetch the hint, since the hints are keyed by the unique note hash.
     // The siloing and uniqueness will later be constrained in the note hash tree check gadget.
@@ -233,11 +240,12 @@ void MerkleDB::siloed_note_hash_write(const FF& siloed_note_hash)
     // Sanity check.
     assert(snapshot_after == raw_merkle_db.get_tree_roots().noteHashTree);
 
-    note_hash_counter++;
+    tree_counters_stack.top().note_hash_counter++;
 }
 
 void MerkleDB::unique_note_hash_write(const FF& unique_note_hash)
 {
+    uint32_t note_hash_counter = tree_counters_stack.top().note_hash_counter;
     AppendOnlyTreeSnapshot snapshot_before = raw_merkle_db.get_tree_roots().noteHashTree;
     auto hint = raw_merkle_db.append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ unique_note_hash })[0];
 
@@ -248,7 +256,7 @@ void MerkleDB::unique_note_hash_write(const FF& unique_note_hash)
     // Sanity check.
     assert(snapshot_after == raw_merkle_db.get_tree_roots().noteHashTree);
 
-    note_hash_counter++;
+    tree_counters_stack.top().note_hash_counter++;
 }
 
 bool MerkleDB::l1_to_l2_msg_exists(uint64_t leaf_index, const FF& msg_hash) const
@@ -262,14 +270,17 @@ bool MerkleDB::l1_to_l2_msg_exists(uint64_t leaf_index, const FF& msg_hash) cons
 void MerkleDB::pad_trees()
 {
     // The public data tree is not padded.
-    raw_merkle_db.pad_tree(MerkleTreeId::NOTE_HASH_TREE, MAX_NOTE_HASHES_PER_TX - note_hash_counter);
-    raw_merkle_db.pad_tree(MerkleTreeId::NULLIFIER_TREE, MAX_NULLIFIERS_PER_TX - nullifier_counter);
+    raw_merkle_db.pad_tree(MerkleTreeId::NOTE_HASH_TREE,
+                           MAX_NOTE_HASHES_PER_TX - tree_counters_stack.top().note_hash_counter);
+    raw_merkle_db.pad_tree(MerkleTreeId::NULLIFIER_TREE,
+                           MAX_NULLIFIERS_PER_TX - tree_counters_stack.top().nullifier_counter);
 }
 
 void MerkleDB::create_checkpoint()
 {
     raw_merkle_db.create_checkpoint();
     written_public_data_slots.create_checkpoint();
+    tree_counters_stack.push(tree_counters_stack.top());
     for (auto& listener : checkpoint_listeners) {
         listener->on_checkpoint_created();
     }
@@ -279,6 +290,9 @@ void MerkleDB::commit_checkpoint()
 {
     raw_merkle_db.commit_checkpoint();
     written_public_data_slots.commit_checkpoint();
+    TreeCounters current_counters = tree_counters_stack.top();
+    tree_counters_stack.pop();
+    tree_counters_stack.top() = current_counters;
     for (auto& listener : checkpoint_listeners) {
         listener->on_checkpoint_committed();
     }
@@ -288,6 +302,7 @@ void MerkleDB::revert_checkpoint()
 {
     raw_merkle_db.revert_checkpoint();
     written_public_data_slots.revert_checkpoint();
+    tree_counters_stack.pop();
     for (auto& listener : checkpoint_listeners) {
         listener->on_checkpoint_reverted();
     }
