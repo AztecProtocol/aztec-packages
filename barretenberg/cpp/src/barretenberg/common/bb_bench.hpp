@@ -17,6 +17,7 @@
 #include <map>
 #include <mutex>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 namespace bb::detail {
@@ -44,7 +45,6 @@ struct TimeStatsEntry;
 // Contains all statically known op counts
 struct GlobalBenchStatsContainer {
   public:
-    ~GlobalBenchStatsContainer();
     static inline thread_local TimeStatsEntry* parent = nullptr;
     std::mutex mutex;
     std::vector<TimeStatsEntry*> counts;
@@ -67,6 +67,29 @@ struct GlobalBenchStatsContainer {
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern GlobalBenchStatsContainer GLOBAL_BENCH_STATS;
+
+// Normalized benchmark entry - each represents a unique (function, parent) pair
+struct NormalizedEntry {
+    std::string name;       // Function name
+    std::string parent_key; // Parent function name (empty for roots)
+    std::size_t time = 0;   // Total time for this function under this parent
+    std::size_t count = 0;  // Total count for this function under this parent
+
+    // Thread statistics (if multiple threads called this function)
+    std::size_t num_threads = 0;
+    double time_mean = 0;
+    double time_stddev = 0;
+};
+
+// Result of normalizing benchmark data
+struct NormalizedData {
+    std::map<std::string, NormalizedEntry> entries; // Key is "parent|function" or just "function" for roots
+    std::map<std::string, std::set<std::string>> parents_by_function; // function -> set of parents
+    std::set<std::string> root_functions;                             // Functions with no parent
+};
+
+// Normalize the raw benchmark data into a clean structure for display
+NormalizedData normalize_benchmark_data(const std::vector<TimeStatsEntry*>& counts);
 
 // Tracks operation statistics and links them to their immediate parent context.
 // Each stat is associated only with its direct parent, not the full call hierarchy.

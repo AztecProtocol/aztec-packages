@@ -26,7 +26,6 @@ struct Colors {
     static constexpr const char* MAGENTA = "\033[35m";
     static constexpr const char* DIM = "\033[2m";
     static constexpr const char* RED = "\033[31m";
-    static constexpr const char* ITALIC = "\033[3m";
 };
 
 // Format time value with appropriate unit
@@ -112,14 +111,126 @@ void print_separator(std::ostream& os, bool thick = true)
 
 namespace bb::detail {
 
+// use_bb_bench is also set by --print_bench and --bench_out flags
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 bool use_bb_bench = std::getenv("BB_BENCH") == nullptr ? false : std::string(std::getenv("BB_BENCH")) == "1";
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+bool debug_bench = std::getenv("BB_BENCH_DEBUG") != nullptr;
 
-GlobalBenchStatsContainer::~GlobalBenchStatsContainer()
+// Normalize the raw benchmark data into a clean structure for display
+NormalizedData normalize_benchmark_data(const std::vector<TimeStatsEntry*>& counts)
 {
-    // This is useful for printing counts at the end of non-benchmarks.
-    // See op_count_google_bench.hpp for benchmarks.
-    // print();
+    NormalizedData result;
+
+    // Temporary structure for collecting raw data
+    struct RawStats {
+        std::size_t time = 0;
+        std::size_t count = 0;
+    };
+
+    // Collect raw data per (function, parent, thread) combination
+    // Key format: "parent_key|function_name|thread_id"
+    std::map<std::string, RawStats> raw_data;
+
+    for (const TimeStatsEntry* entry : counts) {
+        const TimeStats* stats = &entry->count;
+
+        // Process all parent contexts for this entry
+        while (stats != nullptr) {
+            if (stats->count > 0 || stats->time > 0) {
+                // Determine parent key
+                std::string parent_key = stats->parent ? stats->parent->key : "";
+                std::string combined_key = parent_key + "|" + entry->key + "|" + entry->thread_id;
+
+                // Accumulate stats
+                raw_data[combined_key].time += stats->time;
+                raw_data[combined_key].count += stats->count;
+
+                // Track parent-child relationships
+                if (parent_key.empty()) {
+                    result.root_functions.insert(entry->key);
+                } else {
+                    result.parents_by_function[entry->key].insert(parent_key);
+                }
+            }
+            stats = stats->next.get();
+        }
+    }
+
+    // Aggregate by (function, parent) and calculate statistics
+    std::map<std::string, std::vector<RawStats>> stats_by_function_parent;
+
+    for (const auto& [key, stats] : raw_data) {
+        // Parse the combined key
+        size_t first_sep = key.find('|');
+        size_t second_sep = key.find('|', first_sep + 1);
+        std::string parent_key = key.substr(0, first_sep);
+        std::string function_name = key.substr(first_sep + 1, second_sep - first_sep - 1);
+
+        std::string function_parent_key = parent_key + "|" + function_name;
+        stats_by_function_parent[function_parent_key].push_back(stats);
+    }
+
+    // Create normalized entries
+    for (const auto& [key, thread_stats] : stats_by_function_parent) {
+        size_t sep = key.find('|');
+        std::string parent_key = key.substr(0, sep);
+        std::string function_name = key.substr(sep + 1);
+
+        NormalizedEntry entry;
+        entry.name = function_name;
+        entry.parent_key = parent_key;
+        entry.num_threads = thread_stats.size();
+
+        // Calculate totals and statistics
+        for (const auto& stats : thread_stats) {
+            entry.time += stats.time;
+            entry.count += stats.count;
+        }
+
+        // Calculate mean and stddev if multi-threaded
+        if (entry.num_threads > 1) {
+            double sum_time = 0;
+            for (const auto& stats : thread_stats) {
+                sum_time += static_cast<double>(stats.time) / 1000000.0;
+            }
+            entry.time_mean = sum_time / static_cast<double>(entry.num_threads);
+
+            // Calculate variance
+            double variance = 0;
+            for (const auto& stats : thread_stats) {
+                double time_ms = static_cast<double>(stats.time) / 1000000.0;
+                variance += (time_ms - entry.time_mean) * (time_ms - entry.time_mean);
+            }
+            entry.time_stddev = std::sqrt(variance / static_cast<double>(entry.num_threads));
+        }
+
+        result.entries[key] = entry;
+
+        if (debug_bench) {
+            std::cout << "  Entry[" << key << "]: name=" << entry.name << ", parent=" << entry.parent_key
+                      << ", time=" << entry.time << ", count=" << entry.count << "\n";
+        }
+    }
+
+    if (debug_bench) {
+        std::cout << "\n=== DEBUG: Parent-child relationships ===\n";
+        std::cout << "Parents by function:\n";
+        for (const auto& [func, parents] : result.parents_by_function) {
+            std::cout << "  " << func << " has parents: ";
+            for (const auto& p : parents) {
+                std::cout << p << " ";
+            }
+            std::cout << "\n";
+        }
+        std::cout << "Root functions: ";
+        for (const auto& r : result.root_functions) {
+            std::cout << r << " ";
+        }
+        std::cout << "\n=== END DEBUG ===\n\n";
+    }
+
+    return result;
 }
 
 void GlobalBenchStatsContainer::add_entry(const char* key, TimeStatsEntry* entry)
@@ -330,19 +441,6 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
         return;
     }
 
-    // Normalized benchmark entry - each represents a unique (function, parent) pair
-    struct NormalizedEntry {
-        std::string name;       // Function name
-        std::string parent_key; // Parent function name (empty for roots)
-        std::size_t time = 0;   // Total time for this function under this parent
-        std::size_t count = 0;  // Total count for this function under this parent
-
-        // Thread statistics (if multiple threads called this function)
-        std::size_t num_threads = 0;
-        double time_mean = 0;
-        double time_stddev = 0;
-    };
-
     // Phase 1: Collect and normalize all data
     // Key is "parent_key|function_name" for uniqueness
     std::map<std::string, NormalizedEntry> normalized_entries;
@@ -402,6 +500,27 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
         stats_by_function_parent[function_parent_key].push_back(stats);
     }
 
+    // Debug: print what we collected
+    if (debug_bench) {
+        std::cout << "=== DEBUG: Raw data collected ===\n";
+        for (const auto& [key, stats] : raw_data) {
+            std::cout << "  " << key << " -> time=" << stats.time << " count=" << stats.count << "\n";
+        }
+
+        std::cout << "\n=== DEBUG: Function-parent aggregation ===\n";
+        for (const auto& [key, stats_list] : stats_by_function_parent) {
+            size_t total_time = 0;
+            size_t total_count = 0;
+            for (const auto& stats : stats_list) {
+                total_time += stats.time;
+                total_count += stats.count;
+            }
+            std::cout << "  " << key << " -> time=" << total_time << " count=" << total_count << " (from "
+                      << stats_list.size() << " threads)\n";
+        }
+        std::cout << "\n=== DEBUG: Normalized entries ===\n";
+    }
+
     // Create normalized entries
     for (const auto& [key, thread_stats] : stats_by_function_parent) {
         size_t sep = key.find('|');
@@ -439,365 +558,181 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
         normalized_entries[key] = entry;
     }
 
-    // Build parent-to-children map (include ALL children, even multi-parent ones)
-    std::map<std::string, std::set<std::string>> children_map;
-    for (const auto& [key, info] : all_stats) {
-        for (const TimeStatsEntry* parent : info.parents) {
-            children_map[parent->key].insert(key);
-        }
-    }
-
-    // Find root entries (no parents)
-    std::set<std::string> roots;
-    for (const auto& [key, info] : all_stats) {
-        if (info.parents.empty()) {
-            roots.insert(key);
-        }
-    }
-
-    // Find the lowest common ancestor for multi-parent entries with children
-    // These will be shown as separate entries at the appropriate level
-    std::map<std::string, std::string> entry_common_ancestor;
-    std::set<std::string> multi_parent_with_children;
-
-    for (const auto& [key, info] : all_stats) {
-        if (info.parents.size() > 1 && children_map.contains(key) && !children_map[key].empty()) {
-            multi_parent_with_children.insert(key);
-
-            // Find common ancestor of all parents
-            std::vector<const TimeStatsEntry*> parent_vec(info.parents.begin(), info.parents.end());
-
-            // For simplicity, if no common ancestor or complex to find, make it a root
-            // In practice, most will either be siblings (same parent) or need to be roots
-            bool all_same_grandparent = true;
-            const TimeStatsEntry* first_grandparent = nullptr;
-
-            for (const auto* parent : parent_vec) {
-                if (all_stats[parent->key].parents.empty()) {
-                    // Parent is a root, so this entry should be at level 1
-                    all_same_grandparent = false;
-                    break;
-                }
-
-                const TimeStatsEntry* grandparent = *all_stats[parent->key].parents.begin();
-                if (!first_grandparent) {
-                    first_grandparent = grandparent;
-                } else if (first_grandparent != grandparent) {
-                    all_same_grandparent = false;
-                    break;
-                }
-            }
-
-            if (!all_same_grandparent || !first_grandparent) {
-                // No common ancestor, make it a root
-                roots.insert(key);
-            } else {
-                // Will be shown as child of common ancestor
-                entry_common_ancestor[key] = first_grandparent->key;
-                children_map[first_grandparent->key].insert(key);
-            }
-        }
-    }
-
-    // Helper lambda to print a stat line with tree drawing
-    auto print_stat_tree = [&](const std::string& name,
-                               const StatInfo& info,
-                               size_t indent_level,
-                               bool is_last,
-                               std::size_t parent_time = 0) {
-        std::string indent(indent_level * 2, ' ');
-        std::string prefix;
-        if (indent_level > 0) {
-            prefix = is_last ? "└─ " : "├─ ";
-        }
-
-        // Format name with proper width
-        size_t total_prefix_len = indent.length() + prefix.length();
-        size_t name_width = std::max<size_t>(30, 70 - total_prefix_len);
-        std::string display_name = name.length() > name_width ? name.substr(0, name_width - 3) + "..." : name;
-
-        double time_ms = static_cast<double>(info.time) / 1000000.0;
-        auto colors = get_time_colors(time_ms);
-
-        // Print name with appropriate color
-        os << indent << prefix << colors.name_color;
-        if (time_ms >= 1000.0 && colors.name_color == Colors::BOLD) {
-            os << Colors::YELLOW; // Special case: bold yellow for >= 1s
-        }
-        os << std::left << std::setw(static_cast<int>(name_width)) << display_name << Colors::RESET;
-
-        // Print time if available
-        if (info.time > 0) {
-            os << "  " << colors.time_color << format_time_aligned(time_ms) << Colors::RESET;
-
-            // Show percentage relative to parent (or none for roots)
-            if (indent_level == 0 || parent_time == 0) {
-                // Root entries or entries without valid parent time don't show percentage
-                os << "      "; // Keep alignment
-            } else {
-                os << format_percentage(static_cast<double>(info.time), static_cast<double>(parent_time));
-            }
-
-            // Show thread info for multi-threaded functions
-            if (info.thread_stats.size() > 1) {
-                // Calculate mean and variance
-                double total_thread_time = 0;
-                for (const auto& [t_time, t_count] : info.thread_stats) {
-                    total_thread_time += static_cast<double>(t_time) / 1000000.0;
-                }
-                double mean_time = total_thread_time / static_cast<double>(info.thread_stats.size());
-
-                // Calculate variance
-                double time_variance = 0;
-                for (const auto& [t_time, t_count] : info.thread_stats) {
-                    double thread_time_ms = static_cast<double>(t_time) / 1000000.0;
-                    time_variance += (thread_time_ms - mean_time) * (thread_time_ms - mean_time);
-                }
-                time_variance /= static_cast<double>(info.thread_stats.size());
-                double time_stddev = std::sqrt(time_variance);
-
-                // Show per-thread average with variance
-                os << Colors::DIM << " (" << info.thread_stats.size() << " threads: " << format_time(mean_time) << " ± "
-                   << format_time(time_stddev) << ")" << Colors::RESET;
-            } else {
-                // Single-threaded, show average per call if multiple calls
-                os << format_average(time_ms, info.count);
-            }
-        } else if (info.count > 0) {
-            os << "  " << Colors::DIM << std::setw(8) << info.count << " calls" << Colors::RESET;
-        }
-
-        // Show shared indicator only for multi-parent entries at root level
-        // Don't show it when they appear nested (as references)
-        if (multi_parent_with_children.contains(name) && indent_level == 0) {
-            os << Colors::RED << " [shared]" << Colors::RESET;
-        } else if (info.parents.size() > 1 && indent_level > 0) {
-            // This is a shared function appearing as a reference under a parent
-            // Don't show [shared] since we're not showing its children here
-        }
-
-        os << "\n";
-    };
-
-    // Recursive function to print hierarchy
-    std::function<void(
-        const std::string&, size_t, std::set<std::string>&, bool, bool, std::size_t, const TimeStatsEntry*)>
-        print_hierarchy = [&](const std::string& key,
-                              size_t indent_level,
-                              std::set<std::string>& visited,
-                              bool is_last,
-                              bool force_print,
-                              std::size_t parent_time,
-                              const TimeStatsEntry* parent_entry) {
-            // Skip if already visited, unless we're forcing print for multi-parent entries
-            if (!force_print && visited.contains(key)) {
-                return;
-            }
-
-            // Mark as visited only if this is the "canonical" appearance (not forced)
-            if (!force_print) {
-                visited.insert(key);
-            }
-
-            // Get the stats for this specific parent context if not a root
-            StatInfo display_info = all_stats[key];
-
-            // If we have a parent entry, try to use parent-specific stats
-            // This is important for functions that appear under multiple parents
-            if (parent_entry && display_info.per_parent_stats.contains(parent_entry)) {
-                // Use parent-specific stats for display
-                auto [parent_time_val, parent_count] = display_info.per_parent_stats[parent_entry];
-                display_info.time = parent_time_val;
-                display_info.count = parent_count;
-            }
-
-            // Print this entry with parent time for percentage calculation
-            print_stat_tree(key, display_info, indent_level, is_last, parent_time);
-
-            // Only print children if:
-            // 1. Not a forced print (multi-parent entry being shown under a parent)
-            // 2. Not a multi-parent entry with children (unless it's a root entry at indent_level 0)
-            bool should_print_children =
-                !force_print && (!multi_parent_with_children.contains(key) || indent_level == 0);
-
-            if (should_print_children) {
-                if (children_map.contains(key)) {
-                    std::vector<std::string> children_vec;
-                    std::size_t children_total_time = 0;
-
-                    // Find the current entry to use as parent reference
-                    // If we already have a parent_entry passed in, that means we're under a specific parent
-                    // Otherwise, find the entry for this key to use as parent
-                    const TimeStatsEntry* current_entry = parent_entry;
-                    if (!current_entry) {
-                        for (const TimeStatsEntry* e : all_entries) {
-                            if (e->key == key) {
-                                current_entry = e;
-                                break;
-                            }
-                        }
-                    }
-
-                    for (const auto& child : children_map[key]) {
-                        // Include ALL children, even multi-parent ones
-                        // They'll be marked with [shared] when displayed
-                        children_vec.push_back(child);
-
-                        // Calculate the appropriate time for this child
-                        std::size_t child_time_to_add = 0;
-
-                        if (current_entry && all_stats[child].per_parent_stats.contains(current_entry)) {
-                            // Use parent-specific time if available
-                            child_time_to_add = all_stats[child].per_parent_stats[current_entry].first;
-                        } else if (all_stats[child].parents.size() == 1) {
-                            // For single-parent children, use total time
-                            child_time_to_add = all_stats[child].time;
-                        } else if (!visited.contains(child)) {
-                            // For multi-parent children not yet visited, use total time
-                            // (this shouldn't happen often in practice)
-                            child_time_to_add = all_stats[child].time;
-                        }
-                        // For multi-parent children already visited without parent info, don't add time
-
-                        children_total_time += child_time_to_add;
-                    }
-
-                    // Sort children by time
-                    std::ranges::sort(children_vec, [&](const auto& a, const auto& b) {
-                        return all_stats[a].time > all_stats[b].time;
-                    });
-
-                    // Check if we need an "other" entry for unaccounted time
-                    // Use display_info.time which has been adjusted for parent-specific context
-                    std::size_t parent_time = display_info.time;
-                    bool need_other = false;
-                    std::size_t other_time = 0;
-
-                    if (parent_time > children_total_time) {
-                        other_time = parent_time - children_total_time;
-                        // Only show "other" if it's more than 1% of parent time or > 1ms
-                        double other_ms = static_cast<double>(other_time) / 1000000.0;
-                        if (other_ms > 1.0 || (other_time > parent_time / 100)) {
-                            need_other = true;
-                        }
-                    }
-
-                    // Print children (passing current entry's time as parent time and current entry as parent)
-                    for (size_t i = 0; i < children_vec.size(); ++i) {
-                        // Always allow multi-parent entries without children to be printed multiple times
-                        bool allow_reprint = all_stats[children_vec[i]].parents.size() > 1;
-                        bool is_last_child = (i == children_vec.size() - 1) && !need_other;
-                        print_hierarchy(children_vec[i],
-                                        indent_level + 1,
-                                        visited,
-                                        is_last_child,
-                                        allow_reprint,
-                                        display_info.time, // Use parent-specific time, not total
-                                        current_entry);
-                    }
-
-                    // Print "other" entry if needed
-                    if (need_other) {
-                        // Create a synthetic entry for unaccounted time
-                        std::string indent_str((indent_level + 1) * 2, ' ');
-                        double time_ms = static_cast<double>(other_time) / 1000000.0;
-                        auto colors = get_time_colors(time_ms);
-                        size_t name_width = std::max<size_t>(30, 70 - indent_str.length() - 4); // 4 for "└─ "
-
-                        os << indent_str << "└─ " << colors.name_color << Colors::ITALIC << std::left
-                           << std::setw(static_cast<int>(name_width)) << "(other)" << Colors::RESET << "  "
-                           << colors.time_color << format_time_aligned(time_ms) << Colors::RESET
-                           << format_percentage(static_cast<double>(other_time),
-                                                static_cast<double>(display_info.time)) // Use parent-specific time
-                           << "\n";
-                    }
-                }
-            }
-        };
-
-    // Print header
+    // Phase 3: Display the hierarchical structure
+    // First, print header
     os << "\n";
     print_separator(os, true);
     os << Colors::BOLD << "  Hierarchical Benchmark Results" << Colors::RESET << "\n";
     print_separator(os, true);
     os << "\n";
 
-    // Sort roots by time
-    std::vector<std::pair<std::string, std::size_t>> sorted_roots;
-    sorted_roots.reserve(roots.size());
-    for (const auto& root : roots) {
-        sorted_roots.push_back({ root, all_stats[root].time });
-    }
-    std::ranges::sort(sorted_roots, [](const auto& a, const auto& b) { return a.second > b.second; });
-
-    // Print hierarchies starting from roots
-    std::set<std::string> visited;
-    for (size_t i = 0; i < sorted_roots.size(); ++i) {
-        print_hierarchy(sorted_roots[i].first, 0, visited, i == sorted_roots.size() - 1, false, 0, nullptr);
-    }
-
-    // Print any unvisited entries (typically shared functions that were skipped in main hierarchy)
-    std::vector<std::string> unvisited_keys;
-    for (const auto& [key, info] : all_stats) {
-        if (!visited.contains(key)) {
-            unvisited_keys.push_back(key);
+    // Identify functions that appear under multiple parents
+    std::set<std::string> multi_parent_functions;
+    for (const auto& [func, parents] : parents_by_function) {
+        if (parents.size() > 1) {
+            multi_parent_functions.insert(func);
         }
     }
 
-    // Sort unvisited entries by time
-    std::ranges::sort(unvisited_keys,
-                      [&](const auto& a, const auto& b) { return all_stats[a].time > all_stats[b].time; });
+    // Helper lambda to print a stat line with tree drawing
+    auto print_stat_tree =
+        [&](const NormalizedEntry& entry, size_t indent_level, bool is_last, std::size_t parent_time = 0) {
+            std::string indent(indent_level * 2, ' ');
+            std::string prefix;
+            if (indent_level > 0) {
+                prefix = is_last ? "└─ " : "├─ ";
+            }
 
-    // Print shared functions section if there are any
-    if (!unvisited_keys.empty()) {
-        os << "\n";
-        os << Colors::DIM
-           << "Note: Functions below appear in multiple contexts. Times shown are totals across all contexts."
-           << Colors::RESET << "\n";
-        os << "\n";
+            // Format name with proper width
+            size_t total_prefix_len = indent.length() + prefix.length();
+            size_t name_width = std::max<size_t>(30, 70 - total_prefix_len);
+            std::string display_name =
+                entry.name.length() > name_width ? entry.name.substr(0, name_width - 3) + "..." : entry.name;
+
+            double time_ms = static_cast<double>(entry.time) / 1000000.0;
+            auto colors = get_time_colors(time_ms);
+
+            // Print name with appropriate color
+            os << indent << prefix << colors.name_color;
+            if (time_ms >= 1000.0 && colors.name_color == Colors::BOLD) {
+                os << Colors::YELLOW; // Special case: bold yellow for >= 1s
+            }
+            os << std::left << std::setw(static_cast<int>(name_width)) << display_name << Colors::RESET;
+
+            // Print time if available
+            if (entry.time > 0) {
+                os << "  " << colors.time_color << format_time_aligned(time_ms) << Colors::RESET;
+
+                // Show percentage relative to parent (or none for roots)
+                if (indent_level == 0 || parent_time == 0) {
+                    // Root entries or entries without valid parent time don't show percentage
+                    os << "      "; // Keep alignment
+                } else {
+                    os << format_percentage(static_cast<double>(entry.time), static_cast<double>(parent_time));
+                }
+
+                // Show thread info for multi-threaded functions
+                if (entry.num_threads > 1) {
+                    // Show per-thread average with variance
+                    os << Colors::DIM << " (" << entry.num_threads << " threads: " << format_time(entry.time_mean)
+                       << " ± " << format_time(entry.time_stddev) << ")" << Colors::RESET;
+                } else {
+                    // Single-threaded, show average per call if multiple calls
+                    os << format_average(time_ms, entry.count);
+                }
+            } else if (entry.count > 0) {
+                os << "  " << Colors::DIM << std::setw(8) << entry.count << " calls" << Colors::RESET;
+            }
+
+            // Show shared indicator for multi-parent functions appearing at root
+            if (multi_parent_functions.contains(entry.name) && indent_level == 0 &&
+                !children_by_parent[entry.name].empty()) {
+                os << Colors::RED << " [shared]" << Colors::RESET;
+            }
+
+            os << "\n";
+        };
+
+    // Recursive function to print hierarchy
+    std::function<void(const std::string&, size_t, std::set<std::string>&, bool, std::size_t)> print_hierarchy =
+        [&](const std::string& entry_key,
+            size_t indent_level,
+            std::set<std::string>& visited,
+            bool is_last,
+            std::size_t parent_time) {
+            // Skip if already visited
+            if (visited.contains(entry_key)) {
+                return;
+            }
+            visited.insert(entry_key);
+
+            // Get the entry
+            if (!normalized_entries.contains(entry_key)) {
+                return;
+            }
+            const auto& entry = normalized_entries[entry_key];
+
+            // Print this entry
+            print_stat_tree(entry, indent_level, is_last, parent_time);
+
+            // Find and print children - look for entries where parent_key matches this entry's name
+            std::vector<std::string> child_keys;
+            if (debug_bench && indent_level == 0) {
+                std::cout << "DEBUG: Looking for children of '" << entry.name << "'\n";
+            }
+            for (const auto& [key, child_entry] : normalized_entries) {
+                if (child_entry.parent_key == entry.name) {
+                    child_keys.push_back(key);
+                    if (debug_bench && indent_level == 0) {
+                        std::cout << "  Found child: " << child_entry.name << " (key=" << key
+                                  << ", time=" << child_entry.time << ", parent_time=" << entry.time << ")\n";
+                    }
+                }
+            }
+
+            // Sort children by time
+            std::ranges::sort(child_keys, [&](const auto& a, const auto& b) {
+                return normalized_entries[a].time > normalized_entries[b].time;
+            });
+
+            // Print children
+            for (size_t i = 0; i < child_keys.size(); ++i) {
+                print_hierarchy(child_keys[i], indent_level + 1, visited, i == child_keys.size() - 1, entry.time);
+            }
+        };
+
+    // Print root entries
+    std::vector<std::string> root_keys;
+    for (const auto& [key, entry] : normalized_entries) {
+        if (entry.parent_key.empty()) {
+            root_keys.push_back(key);
+        }
     }
 
-    for (size_t i = 0; i < unvisited_keys.size(); ++i) {
-        const auto& key = unvisited_keys[i];
-        // For shared functions at root level without parent context,
-        // just print them without children to avoid misleading percentages
-        print_stat_tree(key, all_stats[key], 0, i == unvisited_keys.size() - 1, 0);
-        visited.insert(key);
+    // Sort roots by time
+    std::ranges::sort(root_keys, [&](const auto& a, const auto& b) {
+        return normalized_entries[a].time > normalized_entries[b].time;
+    });
+
+    // Print hierarchies starting from roots
+    std::set<std::string> visited;
+    for (size_t i = 0; i < root_keys.size(); ++i) {
+        print_hierarchy(root_keys[i], 0, visited, i == root_keys.size() - 1, 0);
     }
 
     // Print summary
     os << "\n";
-    os << Colors::BOLD << Colors::CYAN
-       << "───────────────────────────────────────────────────────────────────────────────" << Colors::RESET << "\n";
+    print_separator(os, false);
 
-    // Calculate totals
+    // Calculate totals from normalized entries
     std::size_t total_time = 0;
     std::size_t total_calls = 0;
-    std::size_t single_parent_count = 0;
-    std::size_t multi_parent_count = 0;
+    std::set<std::string> unique_functions;
 
-    for (const auto& [_, info] : all_stats) {
-        total_calls += info.count;
-        total_time += info.time;
-        if (info.parents.size() == 1) {
-            single_parent_count++;
-        } else if (info.parents.size() > 1) {
-            multi_parent_count++;
+    for (const auto& [_, entry] : normalized_entries) {
+        if (entry.parent_key.empty()) {
+            // Only count root entries to avoid double-counting
+            total_time += entry.time;
+            total_calls += entry.count;
         }
+        unique_functions.insert(entry.name);
     }
 
     double total_time_ms = static_cast<double>(total_time) / 1000000.0;
-    os << "  " << Colors::BOLD << "Total: " << Colors::RESET << Colors::MAGENTA << all_stats.size() << " functions"
-       << Colors::RESET;
 
-    if (single_parent_count > 0 || multi_parent_count > 0) {
-        os << " (" << single_parent_count << " nested";
-        if (multi_parent_count > 0) {
-            os << ", " << multi_parent_count << " shared";
+    // Count shared functions
+    std::size_t shared_count = 0;
+    for (const auto& [func, parents] : parents_by_function) {
+        if (parents.size() > 1) {
+            shared_count++;
         }
-        os << ")";
     }
 
+    os << "  " << Colors::BOLD << "Total: " << Colors::RESET << Colors::MAGENTA << unique_functions.size()
+       << " functions" << Colors::RESET;
+    if (shared_count > 0) {
+        os << " (" << Colors::RED << shared_count << " shared" << Colors::RESET << ")";
+    }
     os << ", " << Colors::GREEN << total_calls << " calls" << Colors::RESET << ", ";
 
     if (total_time_ms >= 1000.0) {
