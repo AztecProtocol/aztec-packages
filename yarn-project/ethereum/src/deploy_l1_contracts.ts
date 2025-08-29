@@ -34,6 +34,7 @@ import {
   getGovernanceConfiguration,
   getRewardBoostConfig,
   getRewardConfig,
+  validateConfig,
 } from './config.js';
 import { GSEContract } from './contracts/gse.js';
 import { deployMulticall3 } from './contracts/multicall.js';
@@ -128,7 +129,7 @@ export interface ContractArtifacts<TAbi extends Abi | readonly unknown[] = Abi> 
   libraries?: Libraries;
 }
 
-export interface DeployL1ContractsArgs extends L1ContractsConfig {
+export interface DeployL1ContractsArgs extends Omit<L1ContractsConfig, keyof L1TxUtilsConfig> {
   /** The vk tree root. */
   vkTreeRoot: Fr;
   /** The protocol contract tree root. */
@@ -195,7 +196,7 @@ export const deploySharedContracts = async (
   const governanceProposerAddress = await deployer.deploy(GovernanceProposerArtifact, [
     registryAddress.toString(),
     gseAddress.toString(),
-    BigInt(args.governanceProposerQuorum),
+    BigInt(args.governanceProposerQuorum ?? args.governanceProposerRoundSize / 2 + 1),
     BigInt(args.governanceProposerRoundSize),
   ]);
   logger.verbose(`Deployed GovernanceProposer at ${governanceProposerAddress}`);
@@ -531,8 +532,8 @@ export const deployRollup = async (
     aztecEpochDuration: BigInt(args.aztecEpochDuration),
     targetCommitteeSize: BigInt(args.aztecTargetCommitteeSize),
     aztecProofSubmissionEpochs: BigInt(args.aztecProofSubmissionEpochs),
-    slashingQuorum: BigInt(args.slashingQuorum),
-    slashingRoundSize: BigInt(args.slashingRoundSize),
+    slashingQuorum: BigInt(args.slashingQuorum ?? (args.slashingRoundSizeInEpochs * args.aztecEpochDuration) / 2 + 1),
+    slashingRoundSize: BigInt(args.slashingRoundSizeInEpochs * args.aztecEpochDuration),
     slashingLifetimeInRounds: BigInt(args.slashingLifetimeInRounds),
     slashingExecutionDelayInRounds: BigInt(args.slashingExecutionDelayInRounds),
     slashingVetoer: args.slashingVetoer.toString(),
@@ -914,6 +915,8 @@ export const deployL1Contracts = async (
   args: DeployL1ContractsArgs,
   txUtilsConfig: L1TxUtilsConfig = getL1TxUtilsConfigEnvVars(),
 ): Promise<DeployL1ContractsReturnType> => {
+  validateConfig(args);
+
   const l1Client = createExtendedL1Client(rpcUrls, account, chain);
 
   // Deploy multicall3 if it does not exist in this network

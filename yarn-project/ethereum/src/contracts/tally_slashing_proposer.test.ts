@@ -65,7 +65,8 @@ describe('TallySlashingProposer', () => {
       genesisArchiveRoot: Fr.random(),
       realVerifier: false,
       slasherFlavor: 'tally' as const,
-      slashingRoundSize: testSlashingRoundSize,
+      slashingQuorum: testSlashingRoundSize / 2 + 1,
+      slashingRoundSizeInEpochs: testSlashingRoundSize / DefaultL1ContractsConfig.aztecEpochDuration,
       aztecTargetCommitteeSize: 4,
       initialValidators: validatorsAddresses.map(attester => ({
         attester,
@@ -96,12 +97,12 @@ describe('TallySlashingProposer', () => {
   describe('contract constants getters', () => {
     it('returns correct quorum size from deployed contract', async () => {
       const quorumSize = await tallySlashingProposer.getQuorumSize();
-      expect(quorumSize).toBe(BigInt(testConfig.slashingQuorum));
+      expect(quorumSize).toBe(BigInt(testConfig.slashingQuorum!));
     });
 
     it('returns correct round size from deployed contract', async () => {
       const roundSize = await tallySlashingProposer.getRoundSize();
-      expect(roundSize).toBe(BigInt(testConfig.slashingRoundSize));
+      expect(roundSize).toBe(BigInt(testConfig.slashingRoundSizeInEpochs * testConfig.aztecEpochDuration));
     });
 
     it('returns correct committee size from deployed contract', async () => {
@@ -111,7 +112,7 @@ describe('TallySlashingProposer', () => {
 
     it('returns correct round size in epochs from deployed contract', async () => {
       const roundSizeInEpochs = await tallySlashingProposer.getRoundSizeInEpochs();
-      const expectedValue = BigInt(testConfig.slashingRoundSize / testConfig.aztecEpochDuration);
+      const expectedValue = BigInt(testConfig.slashingRoundSizeInEpochs);
       expect(roundSizeInEpochs).toBe(expectedValue);
     });
 

@@ -306,9 +306,13 @@ async function setupFromFresh(
 
   const blobSinkPort = await getPort();
 
+  // Default to no slashing
+  opts.slasherFlavor ??= 'none';
+  deployL1ContractsArgs.slasherFlavor ??= opts.slasherFlavor;
+
   // Fetch the AztecNode config.
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
-  const aztecNodeConfig: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), slasherFlavor: 'none', ...opts };
+  const aztecNodeConfig: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
   aztecNodeConfig.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
   aztecNodeConfig.maxTxPoolSize = opts.maxTxPoolSize ?? TEST_MAX_TX_POOL_SIZE;
   // Only enable proving if specifically requested.

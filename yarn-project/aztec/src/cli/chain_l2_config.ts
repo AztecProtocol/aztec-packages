@@ -123,11 +123,7 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   /** The minimum stake for a validator. */
   ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
   /** The slashing round size */
-  slashingRoundSize: 32 * 6, // 6 epochs
-  /** The slashing quorum */
-  slashingQuorum: (32 * 6) / 2 + 1, // 6 epochs, majority of validators
-  /** Governance proposing quorum */
-  governanceProposerQuorum: 151,
+  slashingRoundSizeInEpochs: 4,
   /** Governance proposing round size */
   governanceProposerRoundSize: 300,
   /** The mana target for the rollup */
@@ -219,9 +215,9 @@ export async function getL2ChainConfig(
   return undefined;
 }
 
-function enrichVar(envVar: EnvVar, value: string) {
+function enrichVar(envVar: EnvVar, value: string | undefined) {
   // Don't override
-  if (process.env[envVar]) {
+  if (process.env[envVar] || value === undefined) {
     return;
   }
   process.env[envVar] = value;
@@ -306,9 +302,9 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('AZTEC_PROOF_SUBMISSION_EPOCHS', config.aztecProofSubmissionEpochs.toString());
   enrichVar('AZTEC_ACTIVATION_THRESHOLD', config.activationThreshold.toString());
   enrichVar('AZTEC_EJECTION_THRESHOLD', config.ejectionThreshold.toString());
-  enrichVar('AZTEC_SLASHING_QUORUM', config.slashingQuorum.toString());
-  enrichVar('AZTEC_SLASHING_ROUND_SIZE', config.slashingRoundSize.toString());
-  enrichVar('AZTEC_GOVERNANCE_PROPOSER_QUORUM', config.governanceProposerQuorum.toString());
+  enrichVar('AZTEC_SLASHING_QUORUM', config.slashingQuorum?.toString());
+  enrichVar('AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS', config.slashingRoundSizeInEpochs.toString());
+  enrichVar('AZTEC_GOVERNANCE_PROPOSER_QUORUM', config.governanceProposerQuorum?.toString());
   enrichVar('AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE', config.governanceProposerRoundSize.toString());
   enrichVar('AZTEC_MANA_TARGET', config.manaTarget.toString());
   enrichVar('AZTEC_PROVING_COST_PER_MANA', config.provingCostPerMana.toString());

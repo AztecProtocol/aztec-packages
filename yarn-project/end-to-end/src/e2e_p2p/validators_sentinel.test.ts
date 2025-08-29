@@ -44,8 +44,7 @@ describe('e2e_p2p_validators_sentinel', () => {
         listenAddress: '127.0.0.1',
         minTxsPerBlock: 0,
         aztecEpochDuration: EPOCH_DURATION,
-        slashingRoundSize: EPOCH_DURATION * 2,
-        slashingQuorum: EPOCH_DURATION + 1,
+        slashingRoundSizeInEpochs: 2,
         validatorReexecute: false,
         sentinelEnabled: true,
         slashInactivityPenalty: 0n, // Set to 0 to disable

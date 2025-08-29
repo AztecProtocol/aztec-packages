@@ -88,7 +88,7 @@ describe('veto slash', () => {
         slashAmountSmall: SLASHING_UNIT,
         slashAmountMedium: SLASHING_UNIT * 2n,
         slashAmountLarge: SLASHING_UNIT * 3n,
-        slashingRoundSize: SLASHING_ROUND_SIZE,
+        slashingRoundSizeInEpochs: SLASHING_ROUND_SIZE / EPOCH_DURATION,
         slashingQuorum: SLASHING_QUORUM,
         slashInactivityTargetPercentage: SLASH_INACTIVITY_TARGET_PERCENTAGE,
       },

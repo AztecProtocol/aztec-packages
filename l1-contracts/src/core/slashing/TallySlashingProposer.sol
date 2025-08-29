@@ -355,6 +355,11 @@ contract TallySlashingProposer is EIP712 {
     // We have allocated 4 bytes32 slots = 128 bytes maximum
     uint256 voteSize = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 4;
     require(voteSize <= 128, Errors.TallySlashingProposer__VoteSizeTooBig(voteSize, 128));
+
+    require(
+      COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS % 4 == 0,
+      Errors.TallySlashingProposer__VotesMustBeMultipleOf4(COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS)
+    );
   }
 
   /**

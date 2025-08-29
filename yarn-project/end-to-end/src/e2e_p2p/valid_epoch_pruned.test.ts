@@ -48,7 +48,7 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
         aztecSlotDuration,
         aztecProofSubmissionEpochs: 0, // reorg as soon as epoch ends
         slashingQuorum,
-        slashingRoundSize,
+        slashingRoundSizeInEpochs: slashingRoundSize / 2,
         slashSelfAllowed: true,
         slashAmountSmall: slashingUnit,
         slashAmountMedium: slashingUnit * 2n,
