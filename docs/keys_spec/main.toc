@@ -1,0 +1,48 @@
+\babel@toc {english}{}\relax 
+\contentsline {title}{Keys}{1}{chapter.1}%
+\authcount {1}
+\contentsline {author}{}{1}{chapter.1}%
+\contentsline {section}{\numberline {1}Introduction}{3}{section.1.1}%
+\contentsline {subsection}{\numberline {1.1}What's actually "in protocol"?}{3}{subsection.1.1.1}%
+\contentsline {section}{\numberline {2}Notation}{4}{section.1.2}%
+\contentsline {section}{\numberline {3}Keys}{5}{section.1.3}%
+\contentsline {subsection}{\numberline {3.1}Seed}{5}{subsection.1.3.1}%
+\contentsline {subsection}{\numberline {3.2}Master keys}{5}{subsection.1.3.2}%
+\contentsline {subsection}{\numberline {3.3}Aztec Addresses}{6}{subsection.1.3.3}%
+\contentsline {subsection}{\numberline {3.4}App-siloed keys}{6}{subsection.1.3.4}%
+\contentsline {subsubsection}{\numberline {3.4.1}Do we even want / need app-siloed viewing keys?}{7}{subsubsection.1.3.4.1}%
+\contentsline {subsubsection}{\numberline {3.4.2}App-siloed incoming viewing keys}{7}{subsubsection.1.3.4.2}%
+\contentsline {paragraph}{\numberline {3.4.2.1}Non-hardened derivation}{7}{paragraph.1.3.4.2.1}%
+\contentsline {paragraph}{\numberline {3.4.2.2}Hardened derivation}{8}{paragraph.1.3.4.2.2}%
+\contentsline {paragraph}{\numberline {3.4.2.3}Non-hardened, hardened, IBE, or master?}{8}{paragraph.1.3.4.2.3}%
+\contentsline {subsubsection}{\numberline {3.4.3}App-siloed nullifier keys}{9}{subsubsection.1.3.4.3}%
+\contentsline {paragraph}{\numberline {3.4.3.1}Approach A}{10}{paragraph.1.3.4.3.1}%
+\contentsline {paragraph}{\numberline {3.4.3.2}Approach B}{11}{paragraph.1.3.4.3.2}%
+\contentsline {subsubsection}{\numberline {3.4.4}App-siloed outgoing viewing keys}{12}{subsubsection.1.3.4.4}%
+\contentsline {paragraph}{\numberline {3.4.4.1}Approach A}{13}{paragraph.1.3.4.4.1}%
+\contentsline {paragraph}{\numberline {3.4.4.2}Approach B}{13}{paragraph.1.3.4.4.2}%
+\contentsline {subsection}{\numberline {3.5}Key rotation}{13}{subsection.1.3.5}%
+\contentsline {section}{\numberline {4}Encrypt}{15}{section.1.4}%
+\contentsline {subsection}{\numberline {4.1}Ephemeral Keypair}{16}{subsection.1.4.1}%
+\contentsline {subsection}{\numberline {4.2}Body ciphertext}{16}{subsection.1.4.2}%
+\contentsline {subsection}{\numberline {4.3}Outgoing ciphertext}{18}{subsection.1.4.3}%
+\contentsline {subsection}{\numberline {4.4}Header ciphertexts}{19}{subsection.1.4.4}%
+\contentsline {subsubsection}{\numberline {4.4.1}Incoming header ciphertext}{19}{subsubsection.1.4.4.1}%
+\contentsline {subsubsection}{\numberline {4.4.2}Outgoing header ciphertext}{20}{subsubsection.1.4.4.2}%
+\contentsline {subsubsection}{\numberline {4.4.3}The final log}{21}{subsubsection.1.4.4.3}%
+\contentsline {section}{\numberline {5}Decrypt}{21}{section.1.5}%
+\contentsline {subsection}{\numberline {5.1}Incoming Viewing Header}{21}{subsection.1.5.1}%
+\contentsline {subsection}{\numberline {5.2}Outgoing Viewing Header}{22}{subsection.1.5.2}%
+\contentsline {subsection}{\numberline {5.3}Outgoing ciphertext}{22}{subsection.1.5.3}%
+\contentsline {subsection}{\numberline {5.4}Body ciphertext}{23}{subsection.1.5.4}%
+\contentsline {subsection}{\numberline {5.5}Proving decryption without leaking secret keys to a contract or 3rd party}{23}{subsection.1.5.5}%
+\contentsline {section}{\numberline {6}Tagging}{24}{section.1.6}%
+\contentsline {subsection}{\numberline {6.1}High-level flow}{25}{subsection.1.6.1}%
+\contentsline {subsection}{\numberline {6.2}Handshaking}{25}{subsection.1.6.2}%
+\contentsline {subsubsection}{\numberline {6.2.1}Option A (informing the sender of the handshake)}{28}{subsubsection.1.6.2.1}%
+\contentsline {subsubsection}{\numberline {6.2.2}Option B (informing the sender of the handshake)}{29}{subsubsection.1.6.2.2}%
+\contentsline {subsubsection}{\numberline {6.2.3}Spanners}{29}{subsubsection.1.6.2.3}%
+\contentsline {subsection}{\numberline {6.3}Tagging}{31}{subsection.1.6.3}%
+\contentsline {subsection}{\numberline {6.4}How badly did we just increase proving time and costs?}{32}{subsection.1.6.4}%
+\contentsline {section}{\numberline {7}Log Layout}{33}{section.1.7}%
+\contentsline {section}{\numberline {A}Non-hardened key derivation}{36}{section.A.1}%

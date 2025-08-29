@@ -1,0 +1,359 @@
+\section{Tagging}
+
+\Mike{I've reverted to writing some stuff with pseudocode here, as it's easier for me to think about. So now we have a weird hybrid of maths symbols and code.}
+
+Tagging is the act of appending 'some extra data' to a ciphertext, so that the intended recipient can more-quickly identify that the ciphertext is for them.
+Note, we're being intentionally vague with the wording 'some extra data', because we want to leave the door open for better ideas to come along in future.\\
+\\
+This section explains the tagging scheme we'll initially be adopting in Aztec.
+The following logic will be implemented in a "precompile contract"; a special contract that is defined at the protocol level.
+
+\subsection{High-level flow}
+
+\begin{itemize}
+    \item Alice wants to send a note to Bob, via an app.
+    \item The app uses Bob's address to looks-up Bob's other info in the key registry. This info includes his master public keys, as well as the precompile contract address for his preferred tagging scheme. (Note: in the early days of the protocol, there are only two tagging options: don't tag; or use the scheme detailed below).
+    \item The app computes the note, and a ciphertext is computed.
+    \item The app then makes a call to Bob's preferred tagging precompile (the one detailed below) with a request to generate a tag.
+    \begin{itemize}
+        \item If Alice has never-before tagged Bob (using this tagging precompile), the tagging contact will establish a handshake shared secret, broadcast it, and store it for future reference.
+        \item If Alice has already established a handshake shared secret with Bob (in this tagging precompile), then the tagging contract will read that shared secret and use it to compute the next tag in the sequence. The tag will be concatenated with the ciphertext.
+    \end{itemize}
+\end{itemize}
+
+
+
+
+
+
+\subsection{Handshaking}
+
+The first time Alice wants to send a ciphertext to Bob:\\
+\\
+Inputs: Some identifiers for Alice \& Bob. \textit{Which} identifiers is still being debated (see some topics below).
+Whatever identifiers aren't passed-in as inputs would need to be looked-up from the Key Registry.\\
+\\
+It would be most efficient if the tagging contract didn't have to re-read the sender and recipient's master public keys from the Key Registry, and it could instead just accept some 'purported' master public keys passed to it by the app.
+This imparts some extra requirements on the app:
+\begin{itemize}
+    \item 1. If an app wants to make a call to such a tagging contract interface, it would need to contain logic to 'understand' the protocol-specified Grumpkin master keys, and the Key Registry. This makes it trickier for apps to experiment with "key abstraction" ideas. 
+    \item 2. The app will need to constrain the relationship between the user addresses and their keys.
+\end{itemize}
+\noindent
+We could perhaps offer a second, alternative interface to the tagging contract, that enables an app to instead simply specify the sender and recipient \textit{addresses} (instead of public keys), and the tagging contract then reads the registry.\\
+\\
+In the interest of commencing an implementation, let's say the inputs are:\\
+\\
+$[Npkm^A, Ovpkm^A, Ivpkm^B, \appaddress := \code{msg\_sender}]$\\
+\\
+Then, the tagging precompile does the following computations:\\
+\\
+$\eskhs \stackrel{\$}{\leftarrow} \Fr$\\
+\\
+$\Epkhs := \eskhs \cdot G \in \G$\\
+\\
+\Mike{Can we re-use the ephemeral public key that the \textit{app} will have used to derive its ciphertext?
+E.g. by having the app pass that Epk as another input to this circuit?
+It would remove a field from being broadcast on-chain.}\\
+\\
+$\sharedsecreths := \eskhs \cdot \Ivpkm^B$\\
+\\
+\Mike{Note: this notation is lazy, in the sense that Alice and/or Bob might rotate their keys.
+If they rotate their keys, a new shared secret would need to be established.
+A more-accurate notation would be $S_{hs}^{\eskhs \rightarrow \Ivpkm^B}$, but that's a mouthful.}\\
+\\
+$\hashedsecret := \poseidon(\text{"az\_fuzzy\_tag"}, \sharedsecreths)$\\
+\\
+$\fuzzytaghs := \hashedsecret[0: 8]$\\
+\\
+\Mike{Note: this is an optimisation borrowed from \href{https://eips.ethereum.org/EIPS/eip-5564}{EIP-5564: Stealth Addresses}.
+Upon reflection, I don't think this approach works here, because it doesn't give a 100\% guarantee that you are the intended recipient (it gives false positives to lots of users).
+We'd need a more conventional MAC.
+One approach might be to introduce another "tagging keypair", as I talk about in the big miro diagram - it would be a bit ugly to introduce yet another keypair just for this, though.}\\
+\\
+$\code{handshakes.slot} \leftarrow 1$ - assign storage slot 1 to the handshakes "state variable", which we'll loosely model as a mapping $\code{handshakes[from\_Ovpkm][to\_Ivpkm]}$.\\
+\\
+$\code{slot} \leftarrow \poseidon(\poseidon(\code{handshakes.slot}, \Ovpkm^A), \Ivpkm^B)$\\
+\\
+\begin{flalign*}
+    \sharedsecretnote := &\poseidon(\text{"az\_silo\_note"}, \text{tag\_address},\\
+    &\poseidon(\code{slot}, \poseidon(\sharedsecreths))\\
+    &)&&
+\end{flalign*}
+\noindent
+where $\text{tag\_address}$ is the address of the tagging precompile contract.
+Notice: randomness isn't needed within this note, since the shared secret is already plenty random enough.\\
+\\
+Prevent Alice from spamming Bob with more handshakes:\\
+\\
+$S_{hs}^{\ovskm^A \rightarrow \Ivpkm^B} := \ovskm^A \cdot \Ivpkm^B$\\
+\\
+\Mike{We could maybe use $\nskm^A$ here instead, to avoid the extra constraints of proving correctness of $\ovskm$}.
+\\
+$\code{slot} \leftarrow todo$
+
+\begin{flalign*}
+    \text{nullifier}^{\ovskm^A \rightarrow \Ivpkm^B} := &\poseidon(\text{"az\_silo\_nullifier"}, \text{tag\_address},\\
+    &\poseidon(\code{slot}, \poseidon(S_{hs}^{\ovskm^A \rightarrow \Ivpkm^B}, \nskm^A)))&&
+\end{flalign*}
+\noindent
+\Mike{Notice: we're using the master nullifier secret key here, as an optimisation to avoid app-siloed nullifier key derivation constraints.
+We're assuming we can trust a protocol-defined circuit with this information.
+If we think it's unacceptable for the PXE to inject this master secret key into any circuit, we'll need to instead derive the app-siloed nullifier secret key here.}\\
+\\
+\Mike{This "spam prevention" step might be of limited usefulness.
+Perhaps we should scrap it.
+If Alice rotates her $\ovskm$, she can generate a new handshake easily. 
+It will cost money to broadcast handshakes, so maybe that cost is a sufficient spam deterrent?\\
+\\
+This also adds constraints.
+If we're doing this once per note, those constraints will really add up to something horrible.\\
+\\
+I guess in addition to preventing spam, it also prevents \textit{accidental} duplication of handshakes.
+E.g. if Alice is generating a later tx to Bob using a different device that hasn't-yet synced all Alice's historic outgoing state, her PXE on the second device would claim that Alice hasn't handshaked with Bob yet.
+This check would prevent Alice from transacting that second time until she's brute-force located her previous handshake with Bob.
+Maybe that's a good thing, maybe that's a bad thing?
+\\
+Note, we would also need to be careful reviewing this handshaking protocol: can Alice or Bob 'brick' this handshaking protocol if they change only one of their keys in isolation?
+E.g. if Alice rotates her $\ovskm$ and not $nskm$?\\
+\\
+\textbf{On balance, I think we should scrap this "spam prevention" step.}}
+
+
+
+
+\subsubsection{Option A (informing the sender of the handshake)}\hfill\\
+\\
+\Mike{There are two options for informing the sender of a handshake.
+My first attempt was Option A.
+My now-preferred attempt is Option B (see reasons below) - although the cryptography doesn't seem secure yet, so would like review and new ideas from the Crypto Research team, please!}\\
+\\
+Compute an outgoing ciphertext, so that the sender (Alice) can re-discover this transaction:\\
+\\
+\Mike{This copies the same approach as encrypting the outgoing body (see the 'Encrypt' section)}.\\
+\\
+$\pthsout := [\eskhs, \Ivpkm^B, \address_B]$\\
+\\
+$\aesrandomnesshsout := \sha(\text{"az\_sym\_key\_hs\_out"}, \sharedsecreths)$\\
+\\
+\Mike{It'd be very good if we could use poseidon2 here instead for all the aes randomness values throughout.
+It would save thousands of constraints.
+We could perhaps then re-use $\hashedsecret$ as $\aesrandomnesshsout$.}\\
+\\
+$\symkeyhsout := \aesrandomnesshsout[0:128]$\\
+\\
+$\ivhsout := \aesrandomnesshsout[128:128 + 96]$\\
+\\
+$\cthsout := \aes(\pthsout; \ivhsout, \symkeyhsout)$\\
+\\
+Emit a so-called "unencrypted log" containing:\\
+\\
+$[\text{tag\_address}, \Epkhs, \text{plus some kind of "MAC"}, \cthsout]$\\
+\\
+along with:\\
+\\
+$[\sharedsecretnote]$\\
+\\
+\Mike{Note: "unencrypted log" is a confusing name in this context.
+This kind of log was originally designed to emit publicly-visible data from a publicly-visible contract address.
+Here, we want to make use of the property that the contract address emitting the log is publicly-visible, so that users can filter for logs solely from this contract, in order to efficiently brute-force handshakes.
+The contents of the log -- in this case -- are very much encrypted, as we've just shown.}
+
+
+
+
+
+\subsubsection{Option B (informing the sender of the handshake)}\hfill\\
+\\
+\Mike{There are two options for informing the sender of a handshake.
+My first attempt was Option A.
+My now-preferred attempt is Option B (see reasons below) - although the cryptography doesn't seem secure yet, so would like review and new ideas from the Crypto Research team, please!}\\
+\\
+All the AES encryption and hashing in Option A is getting expensive (constraint-wise).
+Is there something 'lighter' that we can do, to notify Alice about the handshakes she's establishing with Bob?\\
+\\
+Maybe Alice could emit her own shared secret from the ephemeral keypair, and use it to derive $sharedsecreths$.
+This is all very speculative.
+E.g.:\\
+\\
+$S_{hs}^A := \eskhs \cdot \Ovpkm^A$\\
+\\
+$S_{\Delta} := \sharedsecreths - S_{hs}^A$\\
+\\
+Then the data to broadcast would be:\\
+\\
+$[\text{tag\_address}, \Epkhs, \text{plus some kind of "MAC"}, S_{\Delta}]$\\
+\\
+along with:\\
+\\
+$[\sharedsecretnote]$\\
+\\
+The sender would then learn $\sharedsecreths$ by computing $\ovskm^A \cdot \Epkhs + S_{\Delta} = S_{hs}^A + S_{\Delta} = \sharedsecreths$.\\
+\\
+\Mike{\textbf{Is that safe?} It feels dangerous to broadcast this $S_\Delta$ perhaps?
+Is there a way for an observer to reverse-derive any of the important secrets $\sharedsecreths, \Ivpkm^B, \Ovpkm^A$?
+It seems an attacker would need either $\ovskm^A$ or $\ivskm^B$ to do that.}\\
+\\
+The reason it might be acceptable (with Option B) to omit details of \textit{who} the sender has established a handshake with, is if the calling app is already conveying this information via the app's own outgoing ciphertext.
+\Mike{I'm not sure if this is reasonable or not? It imposes on apps a deeper understanding of the optimisations of this tagging contract, and where its checks 'fall short'.}
+
+
+\subsubsection{Spanners}\hfill\\
+\\
+\textbf{Important spanner: How can the sender (Alice) tag herself?} Since we have a vision that multiple tagging options might exist in future, it could be that Alice and Bob will want to use differing tagging schemes in future.
+The tagging contract that the app has called (in this worked example) is that which \textit{Bob} prefers.
+If Alice prefers a different tagging contract, then this tagging contract would need to also be called, so that Alice can attach her own tags to each ciphertext.
+
+There are some ongoing discussions relating to log layouts (\href{https://hackmd.io/@aztec-network/S1CL7uZIA?type=view#Tx-Log-Layouts}{see this hackmd}).
+If we choose the option of rearranging logs in a dedicated circuit, Alice could potentially tag herself once at the start of the transaction, via her account contract.
+If we choose the simpler option of tagging every ciphertext, the app will need to make two tagging calls: a call to Bob's preferred tagging precompile contract (as explained above) and a call to some "tag myself" function in Alice's preferred tagging precompile contract.
+
+Alternatively, maybe we could simplify things and have one tagging precompile exist at a time, but it's unclear how the transition would happen, and that might result in a bad UX for users.
+Also, future tagging schemes might have tradeoffs that different users want to choose between.\\
+\\
+\textbf{Another important spanner: Does this tagging contract need to make an authwit call back to Alice's account contract?}
+So far in Aztec, we've made the security assumption that knowledge of someone's $\nskm$ and $\ovskm$ is insufficient to spend a users funds (or other kinds of notes): an attacker would also need to know whatever secret(s) are needed to pass the auth checks in the user's account contract.
+If this tagging precompile \textit{doesn't} do an authwit call back to Alice's account contract to ask "Are you sure you want this contract to be able to create/modify state, owned by you, on your behalf?", then we're kind-of violating that security assumption.
+Without the authwit call, any app could say "Please handshake/tag between A and B", and the tagging contract would have no guarantee that A's account contract was ever asked about this.
+It's a tricky question.
+Making the authwit call would add lots of extra constraints.\\
+\\
+\textbf{What would be the consequences of \textit{not} doing an authwit call?}\\
+\begin{itemize}
+    \item If taking the branch of creating a new handshake, an attacker would be able to generate new handshakes between the victim's keys and anyone else. What effect does this have?
+    \begin{itemize}
+        \item It might establish connections that the user didn't want to establish.
+        \item It would make non-repudiation difficult, since the user could deny having performed a transaction, due to a compromise of their PXE keys.
+        \item As long as generation of the outgoing handshake ciphertext is constrained, the actual user would be able to decrypt and discover the handshaking secrets that the attacker created. This is because the attacker would be forced to use the correct $\ovskm$ in deriving the outgoing handhsake ciphertext. If creation of this ciphertext is not constrained, the user wouldn't be able to learn the $\sharedsecreths$, and so might not be able to send notes to the recipient. If we relax the "spam prevention" step, then the sender would be able to send notes to the recipient, because they would be able to generate a new, replacement handshaking secret with the recipient. Sending a replacement handshaking secret under these same compromised keys, however, would be silly; a better thing to do would be for the user to rotate their keys and then generate a new handshake.
+        \item If the user is not tagged (see the section immediately above about how the sender can tag themselves), they would need to brute-force the handshakes to discover what handshakes they've created. This is perhaps acceptable, since a recipient also needs to brute-force the handshakes.
+        \item It might be confusing for the recipient. And again, it might result in connections that the recipient didn't want to establish.
+    \end{itemize}
+    \item If taking the branch of computing a tag from an already-previously-established handshake secret, an attacker would be able to increment the tag counter by nullifying the current counter value. 
+    \begin{itemize}
+        \item It would make non-repudiation difficult, since the user could deny having performed a transaction, due to a compromise of their PXE keys.
+        \item Assuming the user was able to learn of the handshake shared secret, they would be able to see these tags being emitted, so it wouldn't cause problems to the user wishing to transact in future. (And actually, the user should rotate their keys before they transact again).
+        \item It might be confusing for the recipient.
+    \end{itemize}
+\end{itemize}
+\noindent\\
+If tags are app-siloed, then the impact of all this is lessened.
+Good, well-designed apps will already do checks against $\code{msg.sender}$ or will do authwit calls back to the sender's account contract.
+If badly designed contracts don't do these checks, and that results in an attacker creating spammy, app-siloed tags, then because they're app-siloed it reduces the confusion that the actual sender and the recipient will feel.
+It's akin to receiving a spam, worthless airdrop on Ethereum; you just ignore it.\\
+\\
+\Mike{At the moment we're not doing authwit calls from the tagging contract. Thoughts and criticisms are welcome!}
+
+
+
+
+
+\subsection{Tagging}
+
+
+We would ideally like tags to be app-siloed, so that an app can quickly hone in on tags relating only to that app, at the time a user logs in to the app.\\
+\\
+With that in mind, we could define a sequence of tags for $i \in \Z$ and for some $\appaddress$ as:\\
+\\
+$\{tag_i^{\appaddress} := \poseidon(\text{"az\_tag"}, \sharedsecreths, \appaddress, i)\}_{i \in \Z}$\\
+\\
+(Arguments to the hash function are ordered from least specific to most specific).\\
+\\
+$\code{tag\_indices.slot} \leftarrow 2$ - assign storage slot 2 to the tag\_indices "state variable", which we'll loosely model as a mapping:\\
+$\code{tag\_indices[from\_Ovpkm][to\_Ivpkm][app\_address]}$.\\
+\\
+$\code{slot} \leftarrow \poseidon(\poseidon(\poseidon(\code{tag\_indices.slot}, \Ovpkm^A), \Ivpkm^B), \appaddress)$\\
+\\
+\begin{flalign*}
+    \tagcounternullifier := &\poseidon(\text{"az\_silo\_nullifier"}, \text{tag\_address},\\
+    &\poseidon(\code{slot}, \poseidon(i, \nskm^A))\\
+    &)&&
+\end{flalign*}
+\noindent
+\Mike{Notice: we're using the master nullifier secret key here, as an optimisation to avoid app-siloed nullifier key derivation constraints. We're assuming we can trust a protocol-defined circuit with this information.
+If we think it's unacceptable for the PXE to inject this master secret key into any circuit, we'll need to instead derive the app-siloed nullifier secret key.}\\
+\\
+Since this is a protocol circuit, and if PXE security allows, we could demonstrate $\nskm^A$'s correctness directly, via $\nskm^A \cdot G == \Npkm^A$.\\
+\\
+Broadcast:
+\begin{itemize}
+    \item $tag_i^{\appaddress}$.
+    \item $\tagcounternullifier$  
+\end{itemize}
+\noindent
+\textbf{Chicken and Egg:} if an app-siloed tag is defined as $tag := hash(S, \appaddress, i)$, then how does the intended recipient (who only knows $S$ and $i = 0$ initially) passively discover state for apps they're not inclined to interact with (e.g. airdrops)?
+It seems infeasible for a recipient to trial-hash every $\appaddress$ in existence, to compose a list of potential tags, because they'd have to then repeatedly query a server with all resulting potential tags, which costs too much time and money.
+
+Furthermore, the recipient doesn't know all app addresses (because some app addresses are not public), so they could never derive the tags created for private contract addresses with this method - they'd need to be told about the existence of such contract addresses off-chain. But actually that's always true of private contract addresses: you always need to be actively told about their existence, so maybe this paragraph is moot?
+
+One possible solution would be to create a new handshake for every $\appaddress$.
+But since we're already nervous about the sheer number of handshakes that will be created if each pair of people handshakes only once, it seems completely impractical to blow-up the number of handshakes to be "per pair of people, per app".
+
+
+\subsection{How badly did we just increase proving time and costs?}
+
+Possibly badly... let's have a rough look (and I do mean rough, given all the questions above):\\
+\\
+\begin{itemize}
+    \item Handshake (Option B):
+    \begin{itemize}
+        \item 3 ECMULS
+        \item 1 EDADD
+        \item 6 Poseidon2 hashes
+        \item Broadcast: 4+ fields in a log, and 1 new note\_hash.
+    \end{itemize}
+    \item Tag:
+    \begin{itemize}
+        \item 1 note read request (the handshaking shared secret).
+        \item 1 nullifier read request (the previous counter)
+        \item 7 Poseidon2 hashes
+        \item 1 nsk derivation
+        \item 1 tag, 1 new nullifier
+    \end{itemize}
+\end{itemize}
+\noindent
+But remember: if we want the tagging circuit to \textit{conditionally} compute a handshake or a tag (depending on whether a handshaking secret has been established in the past), we'll need to execute at least the constraints of the most constraint-heavy path (minus the read requests, which can be conditionally performed).\\
+\\
+\Mike{New idea: Store the handshaking shared secret \textit{inside} the tag\_index nullifier, to avoid having to perform two reads each time you tag.
+ALSO, have this nullifier \textit{be} the tag!
+So at the time you first perform a handshake, create a nullifier containing just the shared secret.
+When creating subsequent tag nullifiers, include the shared secret inside that nullifier, so that we don't have to also read the original shared secret nullifier.
+The tag nullifier can be considered to be \textit{the} tag, so we wouldn't have to emit both a tag \textit{and} a nullifier.\\
+\\
+This new idea causes problems elsewhere, though.
+See the log layouts section: tags are located in a special position in logs, so that the PXE (and big PIR servers) can locate the tags quickly.
+If instead we said that this tag nullifier \textit{is} the tag, then we've muddled the previously-distinct concepts of a tag and a nullifier.
+How, then would a user/server be able to identify just the tags?
+Perhaps we could still have a dedicated location in a log for tags, and we could make some tweaks to the kernel to inject these tags into the nullifier tree?
+This approach might work for our one tagging scheme, but if in future we introduce more tagging schemes, this might result in a complicated protocol.
+Furthermore, if we eventually get a VM in private-land, then users' account contracts can contain the tag computation logic.
+Then we'd need to give apps this ability to push tags to the tags array, and inject them into the nullifier tree.}.
+
+% \subsection{Summary}
+
+% I gave up, since I've already written everything in long form above. Eventually these summaries will be useful.
+
+% Currently, this would be the algorithm:
+% \begin{algorithm}
+%     \caption{An algorithm with caption}\label{alg:cap}
+%     \begin{algorithmic}[1]
+%         \State note $\gets$ \code{get\_note(handshakes[$\Ovpkm^A$][$\Ivpkm^B$])}
+%         \State $\tagcounternullifier$ $\gets$ \code{get\_nullifier(tag\_indices[$\Ovpkm^A$][$\Ivpkm^B$][$\appaddress$])}
+%         \If{note exists}
+%             \State $\code{hs_slot} \gets \poseidon(\poseidon(\code{handshakes.slot}, \Ovpkm^A), \Ivpkm^B)$
+%             \State Extract $i$ from $\tagcounternullifier$
+%             \State $tag_{i+1}^{\appaddress} \gets \poseidon(\text{"az\_tag"}, \sharedsecreths, \appaddress, i+1)$
+%             \State $\nexttagcounternullifier \gets \poseidon(\text{"az\_silo\_nullifier"}, \text{tag\_address}, \poseidon(\code{slot}, \poseidon(i+1, \nskm^A)))$
+%             \State Emit $[tag_{i+1}^{\appaddress}, \nexttagcounternullifier]$
+%         \Else
+%             \State $\eskhs \stackrel{\$}{\leftarrow} \Fr$
+%             \State $\Epkhs \gets \eskhs \cdot G$
+%             \State $\sharedsecreths \gets \eskhs \cdot \Ivpkm^B$
+%             \State $\code{slot} \gets \poseidon(\poseidon(\code{handshakes.slot}, \Ovpkm^A), \Ivpkm^B)$
+%             \State $\sharedsecretnote \gets \poseidon(\text{"az\_silo\_note"}, \text{tag\_address}, \poseidon(\code{slot}, \poseidon(\sharedsecreths)))$
+%         \EndIf
+%         % \State first line
+%         % \Statex continuing first line
+%         % \State \Call{Proc}{a1, a2}
+%         % \State \Output Hello World!
+%     \end{algorithmic}
+% \end{algorithm}
