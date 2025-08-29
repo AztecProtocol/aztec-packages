@@ -23,15 +23,12 @@ namespace {
 // TODO: This doesn't need to be a shared_ptr, but BB requires it.
 std::shared_ptr<AvmProver::ProvingKey> create_proving_key(AvmProver::ProverPolynomials& polynomials)
 {
-    // TODO: Why is num_public_inputs 0?
-    auto proving_key = std::make_shared<AvmProver::ProvingKey>(CIRCUIT_SUBGROUP_SIZE, /*num_public_inputs=*/0);
+    auto proving_key = std::make_shared<AvmProver::ProvingKey>();
 
     for (auto [key_poly, prover_poly] : zip_view(proving_key->get_all(), polynomials.get_unshifted())) {
         BB_ASSERT_EQ(flavor_get_label(*proving_key, key_poly), flavor_get_label(polynomials, prover_poly));
         key_poly = std::move(prover_poly);
     }
-
-    proving_key->commitment_key = AvmProver::PCSCommitmentKey(CIRCUIT_SUBGROUP_SIZE);
 
     return proving_key;
 }
@@ -44,26 +41,18 @@ std::shared_ptr<AvmVerifier::VerificationKey> AvmProvingHelper::create_verificat
     using VerificationKey = AvmVerifier::VerificationKey;
     std::vector<fr> vk_as_fields = many_from_buffer<AvmFlavorSettings::FF>(vk_data);
 
-    auto log_circuit_size = static_cast<uint64_t>(vk_as_fields[0]);
-    auto num_public_inputs = static_cast<uint64_t>(vk_as_fields[1]);
     std::span vk_span(vk_as_fields);
 
-    uint64_t circuit_size = 1UL << log_circuit_size;
     vinfo("vk fields size: ", vk_as_fields.size());
-    vinfo("dyadic circuit size: ", circuit_size);
-
-    // WARNING: The number of public inputs in the verification key is always 0!
-    // Apparently we use some other mechanism to check the public inputs.
-    vinfo("num of pub inputs: ", num_public_inputs);
 
     std::array<VerificationKey::Commitment, VerificationKey::NUM_PRECOMPUTED_COMMITMENTS> precomputed_cmts;
     for (size_t i = 0; i < VerificationKey::NUM_PRECOMPUTED_COMMITMENTS; i++) {
-        // Start at offset 2 and adds 4 (NUM_FRS_COM) fr elements per commitment. Therefore, index = 4 * i + 2.
+        // Adds 4 (NUM_FRS_COM) fr elements per commitment. Therefore, index = 4 * i.
         precomputed_cmts[i] = field_conversion::convert_from_bn254_frs<VerificationKey::Commitment>(
-            vk_span.subspan(AvmFlavor::NUM_FRS_COM * i + 2, AvmFlavor::NUM_FRS_COM));
+            vk_span.subspan(AvmFlavor::NUM_FRS_COM * i, AvmFlavor::NUM_FRS_COM));
     }
 
-    return std::make_shared<VerificationKey>(circuit_size, num_public_inputs, precomputed_cmts);
+    return std::make_shared<VerificationKey>(precomputed_cmts);
 }
 
 std::pair<AvmProvingHelper::Proof, AvmProvingHelper::VkData> AvmProvingHelper::prove(tracegen::TraceContainer&& trace)
