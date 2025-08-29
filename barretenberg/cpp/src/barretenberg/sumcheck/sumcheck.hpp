@@ -322,7 +322,6 @@ template <typename Flavor> class SumcheckProver {
         CommitmentKey ck;
 
         if constexpr (IsGrumpkinFlavor<Flavor>) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
             ck = CommitmentKey(BATCHED_RELATION_PARTIAL_LENGTH);
             // Compute the vector {0, 1, \ldots, BATCHED_RELATION_PARTIAL_LENGTH-1} needed to transform the round
             // univariates from Lagrange to monomial basis
