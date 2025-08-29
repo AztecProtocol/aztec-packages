@@ -82,6 +82,7 @@ export async function deployContractsToL1(
       salt: opts.salt,
       feeJuicePortalInitialBalance: opts.feeJuicePortalInitialBalance,
       aztecTargetCommitteeSize: 0, // no committee in sandbox
+      slasherFlavor: 'none', // no slashing in sandbox
       realVerifier: false,
     },
   );

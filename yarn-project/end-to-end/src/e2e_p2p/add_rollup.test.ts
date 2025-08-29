@@ -75,7 +75,6 @@ describe('e2e_p2p_add_rollup', () => {
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         listenAddress: '127.0.0.1',
-        governanceProposerQuorum: 6,
         governanceProposerRoundSize: 10,
       },
     });
@@ -158,7 +157,7 @@ describe('e2e_p2p_add_rollup', () => {
         aztecTargetCommitteeSize: t.ctx.aztecNodeConfig.aztecTargetCommitteeSize,
         aztecProofSubmissionEpochs: t.ctx.aztecNodeConfig.aztecProofSubmissionEpochs,
         slashingQuorum: t.ctx.aztecNodeConfig.slashingQuorum,
-        slashingRoundSize: t.ctx.aztecNodeConfig.slashingRoundSize,
+        slashingRoundSizeInEpochs: t.ctx.aztecNodeConfig.slashingRoundSizeInEpochs,
         slashingLifetimeInRounds: t.ctx.aztecNodeConfig.slashingLifetimeInRounds,
         slashingExecutionDelayInRounds: t.ctx.aztecNodeConfig.slashingExecutionDelayInRounds,
         slashingVetoer: t.ctx.aztecNodeConfig.slashingVetoer,

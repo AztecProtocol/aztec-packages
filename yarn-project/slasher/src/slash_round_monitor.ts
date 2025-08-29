@@ -1,4 +1,3 @@
-import type { L1ContractsConfig } from '@aztec/ethereum';
 import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { Prettify } from '@aztec/foundation/types';
@@ -6,8 +5,7 @@ import { type L1RollupConstants, getSlotAtTimestamp } from '@aztec/stdlib/epoch-
 import { getRoundForSlot } from '@aztec/stdlib/slashing';
 
 export type SlashRoundMonitorSettings = Prettify<
-  Pick<L1RollupConstants, 'epochDuration' | 'l1GenesisTime' | 'slotDuration'> &
-    Pick<L1ContractsConfig, 'slashingRoundSize'>
+  Pick<L1RollupConstants, 'epochDuration' | 'l1GenesisTime' | 'slotDuration'> & { slashingRoundSize: number }
 >;
 
 export class SlashRoundMonitor {
@@ -16,8 +14,7 @@ export class SlashRoundMonitor {
   private handler: ((round: bigint) => Promise<void>) | undefined = undefined;
 
   constructor(
-    private settings: Pick<L1RollupConstants, 'epochDuration' | 'l1GenesisTime' | 'slotDuration'> &
-      Pick<L1ContractsConfig, 'slashingRoundSize'>,
+    private settings: SlashRoundMonitorSettings,
     private dateProvider: DateProvider,
     private log = createLogger('slasher:round-monitor'),
   ) {}
