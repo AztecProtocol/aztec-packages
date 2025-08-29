@@ -20,9 +20,10 @@ import { createHash } from 'crypto';
 import { createReadStream } from 'fs';
 import { readFile, readdir } from 'fs/promises';
 import { join, parse } from 'path';
+import { Worker } from 'worker_threads';
 import { z } from 'zod';
 
-import { type TXEOracleFunctionName, TXESession } from './txe_session.js';
+import type { TXEOracleFunctionName } from './txe_session.js';
 import {
   type ForeignCallArgs,
   ForeignCallArgsSchema,
@@ -34,9 +35,15 @@ import {
   fromSingle,
   toSingle,
 } from './util/encoding.js';
+import { serializeForeignCallArgs, serializeProtocolContracts } from './util/serialization.js';
 import type { ContractArtifactWithHash } from './util/txe_contract_data_provider.js';
 
-const sessions = new Map<number, TXESession>();
+interface SessionWorker {
+  worker: Worker;
+  processing: boolean;
+}
+
+const sessionWorkers = new Map<number, SessionWorker>();
 
 /*
  * TXE typically has to load the same contract artifacts over and over again for multiple tests,
@@ -70,6 +77,90 @@ class TXEDispatcher {
   private protocolContracts!: ProtocolContract[];
 
   constructor(private logger: Logger) {}
+
+  private waitForWorkerReady(worker: Worker): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      worker.once('message', (msg: any) => {
+        if (msg.type === 'ready') {
+          resolve();
+        } else if (msg.type === 'error') {
+          reject(new Error(msg.error));
+        }
+      });
+    });
+  }
+
+  private async createSessionWorker(): Promise<SessionWorker> {
+    // Ensure protocol contracts are loaded
+    if (!this.protocolContracts) {
+      this.protocolContracts = await Promise.all(
+        protocolContractNames.map(name => new BundledProtocolContractsProvider().getProtocolContractArtifact(name)),
+      );
+    }
+
+    // Serialize protocol contracts for worker
+    const serializedProtocolContracts = serializeProtocolContracts(this.protocolContracts);
+
+    const worker = new Worker('./dest/session_worker.js', {
+      workerData: { serializedProtocolContracts },
+    });
+
+    // Wait for the worker to signal it's ready
+    await this.waitForWorkerReady(worker);
+
+    return {
+      worker,
+      processing: false,
+    };
+  }
+
+  private async getOrCreateWorker(sessionId: number): Promise<SessionWorker> {
+    if (!sessionWorkers.has(sessionId)) {
+      this.logger.debug(`Creating new worker for session ${sessionId}`);
+      const worker = await this.createSessionWorker();
+      sessionWorkers.set(sessionId, worker);
+    }
+    return sessionWorkers.get(sessionId)!;
+  }
+
+  private sendToWorker(
+    sessionWorker: SessionWorker,
+    sessionId: number,
+    functionName: TXEOracleFunctionName,
+    inputs: ForeignCallArgs,
+  ): Promise<ForeignCallResult> {
+    if (sessionWorker.processing) {
+      throw new Error(
+        `Session ${sessionId} is already processing a request. This should not happen as RPC requests are sequential.`,
+      );
+    }
+
+    sessionWorker.processing = true;
+
+    return new Promise((resolve, reject) => {
+      const onMessage = (msg: any) => {
+        sessionWorker.worker.off('message', onMessage);
+        sessionWorker.processing = false;
+
+        if (msg.type === 'result') {
+          resolve(msg.result);
+        } else if (msg.type === 'error') {
+          reject(new Error(msg.error));
+        }
+      };
+
+      sessionWorker.worker.on('message', onMessage);
+
+      // Serialize the inputs before sending to worker
+      const serializedInputs = serializeForeignCallArgs(inputs);
+
+      sessionWorker.worker.postMessage({
+        type: 'process',
+        functionName,
+        inputs: serializedInputs,
+      });
+    });
+  }
 
   private fastHashFile(path: string) {
     return new Promise(resolve => {
@@ -201,16 +292,7 @@ class TXEDispatcher {
     const { session_id: sessionId, function: functionName, inputs } = callData;
     this.logger.debug(`Calling ${functionName} on session ${sessionId}`);
 
-    if (!sessions.has(sessionId)) {
-      this.logger.debug(`Creating new session ${sessionId}`);
-      if (!this.protocolContracts) {
-        this.protocolContracts = await Promise.all(
-          protocolContractNames.map(name => new BundledProtocolContractsProvider().getProtocolContractArtifact(name)),
-        );
-      }
-      sessions.set(sessionId, await TXESession.init(this.protocolContracts));
-    }
-
+    // Process special functions that need preprocessing before sending to worker
     switch (functionName) {
       case 'txeDeploy': {
         await this.#processDeployInputs(callData);
@@ -222,7 +304,11 @@ class TXEDispatcher {
       }
     }
 
-    return await sessions.get(sessionId)!.processFunction(functionName, inputs);
+    // Get or create a worker for this session
+    const sessionWorker = await this.getOrCreateWorker(sessionId);
+
+    // Send the request to the worker and wait for the response
+    return await this.sendToWorker(sessionWorker, sessionId, functionName, inputs);
   }
 }
 
