@@ -81,15 +81,21 @@ function check_toolchains {
     exit 1
   fi
   # Check foundry version.
-  local foundry_version="nightly-99634144b6c9371982dcfc551a7975c5dbf9fad8"
+  local foundry_version="v1.3.3"
   for tool in forge anvil; do
     if ! $tool --version 2> /dev/null | grep "${foundry_version#nightly-}" > /dev/null; then
-      encourage_dev_container
       echo "$tool not in PATH or incorrect version (requires $foundry_version)."
-      echo "Installation: https://book.getfoundry.sh/getting-started/installation"
-      echo "  curl -L https://foundry.paradigm.xyz | bash"
-      echo "  foundryup -i $foundry_version"
-      exit 1
+      if [ "${CI:-0}" -eq 1 ]; then
+        echo "Attempting install of required foundry version $foundry_version"
+        curl -L https://foundry.paradigm.xyz | bash
+        ~/.foundry/bin/foundryup -i $foundry_version
+      else
+        encourage_dev_container
+        echo "Installation: https://book.getfoundry.sh/getting-started/installation"
+        echo "  curl -L https://foundry.paradigm.xyz | bash"
+        echo "  foundryup -i $foundry_version"
+        exit 1
+      fi
     fi
   done
   # Check Node.js version.
