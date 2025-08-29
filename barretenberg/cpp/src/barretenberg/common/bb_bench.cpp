@@ -544,14 +544,23 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
                         // They'll be marked with [shared] when displayed
                         children_vec.push_back(child);
 
-                        // Use parent-specific time if available
+                        // Calculate the appropriate time for this child
+                        std::size_t child_time_to_add = 0;
+
                         if (current_entry && all_stats[child].per_parent_stats.contains(current_entry)) {
-                            children_total_time += all_stats[child].per_parent_stats[current_entry].first;
-                        } else if (!visited.contains(child) || all_stats[child].parents.size() == 1) {
-                            // For single-parent children or first visit, use total time
-                            children_total_time += all_stats[child].time;
+                            // Use parent-specific time if available
+                            child_time_to_add = all_stats[child].per_parent_stats[current_entry].first;
+                        } else if (all_stats[child].parents.size() == 1) {
+                            // For single-parent children, use total time
+                            child_time_to_add = all_stats[child].time;
+                        } else if (!visited.contains(child)) {
+                            // For multi-parent children not yet visited, use total time
+                            // (this shouldn't happen often in practice)
+                            child_time_to_add = all_stats[child].time;
                         }
-                        // For multi-parent children already visited, don't add time (they're references)
+                        // For multi-parent children already visited without parent info, don't add time
+
+                        children_total_time += child_time_to_add;
                     }
 
                     // Sort children by time
@@ -627,12 +636,32 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
         print_hierarchy(sorted_roots[i].first, 0, visited, i == sorted_roots.size() - 1, false, 0, nullptr);
     }
 
-    // Print any unvisited entries (shouldn't happen with correct logic, but safety check)
+    // Print any unvisited entries (typically shared functions that were skipped in main hierarchy)
+    std::vector<std::string> unvisited_keys;
     for (const auto& [key, info] : all_stats) {
         if (!visited.contains(key)) {
-            print_stat_tree(key, info, 0, true, 0);
-            visited.insert(key);
+            unvisited_keys.push_back(key);
         }
+    }
+
+    // Sort unvisited entries by time
+    std::ranges::sort(unvisited_keys,
+                      [&](const auto& a, const auto& b) { return all_stats[a].time > all_stats[b].time; });
+
+    // Print shared functions section if there are any
+    if (!unvisited_keys.empty()) {
+        os << "\n";
+        os << Colors::DIM
+           << "Note: Functions below appear in multiple contexts. Times shown are totals across all contexts."
+           << Colors::RESET << "\n";
+        os << "\n";
+    }
+
+    for (size_t i = 0; i < unvisited_keys.size(); ++i) {
+        const auto& key = unvisited_keys[i];
+        // Just print the stat without children to avoid confusion with percentages
+        print_stat_tree(key, all_stats[key], 0, i == unvisited_keys.size() - 1, 0);
+        visited.insert(key);
     }
 
     // Print summary
