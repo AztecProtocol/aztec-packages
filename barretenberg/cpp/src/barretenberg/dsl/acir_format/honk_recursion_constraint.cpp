@@ -106,6 +106,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     requires(IsRecursiveFlavor<Flavor> && IsUltraHonk<typename Flavor::NativeFlavor>)
 {
     using Builder = typename Flavor::CircuitBuilder;
+    using bool_ct = bb::stdlib::bool_t<Builder>;
     using RecursiveVerificationKey = Flavor::VerificationKey;
     using RecursiveVKAndHash = Flavor::VKAndHash;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<Flavor>;
@@ -140,6 +141,21 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
             builder, size_of_proof_with_no_pub_inputs, total_num_public_inputs, key_fields, proof_fields);
     }
 
+    // Mock the proof if the predicate is false
+    if (!input.predicate.is_constant) {
+        auto predicate_value = builder.get_variable(input.predicate.index);
+        bool_ct predicate_witness = bool_ct(&builder, predicate_value == fr(1));
+        predicate_witness.witness_index = input.predicate.index;
+        bb::HonkProof mock_proof =
+            create_mock_honk_proof<typename Flavor::NativeFlavor, IO>(input.public_inputs.size());
+        stdlib::Proof<Builder> result;
+        result.reserve(proof_fields.size());
+        for (uint32_t i = 0; i < proof_fields.size(); ++i) {
+            auto valid_proof = field_ct<Builder>::conditional_assign(predicate_witness, proof_fields[i], mock_proof[i]);
+            result.push_back(valid_proof);
+        }
+        proof_fields = result;
+    }
     // Recursively verify the proof
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
     auto vk_and_hash = std::make_shared<RecursiveVKAndHash>(vkey, vk_hash);
