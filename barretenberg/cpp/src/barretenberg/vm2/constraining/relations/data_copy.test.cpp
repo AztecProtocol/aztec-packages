@@ -74,6 +74,29 @@ class NestedCdConstrainingBuilderTest : public DataCopyConstrainingBuilderTest {
     }
 };
 
+TEST_F(NestedCdConstrainingBuilderTest, CdZeroCopy)
+{
+    uint32_t copy_size = 0;
+    uint32_t cd_offset = 0; // Offset into calldata
+
+    EXPECT_CALL(context, get_calldata(cd_offset, copy_size)).WillOnce(::testing::Return(std::vector<FF>{}));
+
+    copy_data.cd_copy(context, copy_size, cd_offset, dst_addr);
+
+    tracegen::DataCopyTraceBuilder builder;
+    builder.process(event_emitter.dump_events(), trace);
+
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
+
+    check_relation<data_copy>(trace);
+    check_interaction<DataCopyTraceBuilder,
+                      lookup_data_copy_max_read_index_gt_settings,
+                      lookup_data_copy_offset_gt_max_read_index_settings,
+                      lookup_data_copy_check_src_addr_in_range_settings,
+                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
+}
+
 TEST_F(NestedCdConstrainingBuilderTest, SimpleNestedCdCopy)
 {
     uint32_t copy_size = static_cast<uint32_t>(data.size());
@@ -193,6 +216,29 @@ class EnqueuedCdConstrainingBuilderTest : public DataCopyConstrainingBuilderTest
         calldata_builder.process_retrieval({ cd_event }, trace);
     }
 };
+
+TEST_F(EnqueuedCdConstrainingBuilderTest, CdZeroCopy)
+{
+    uint32_t copy_size = 0;
+    uint32_t cd_offset = 0; // Offset into calldata
+
+    EXPECT_CALL(context, get_calldata(cd_offset, copy_size)).WillOnce(::testing::Return(std::vector<FF>{}));
+
+    copy_data.cd_copy(context, copy_size, cd_offset, dst_addr);
+
+    tracegen::DataCopyTraceBuilder builder;
+    builder.process(event_emitter.dump_events(), trace);
+
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
+
+    check_relation<data_copy>(trace);
+    check_interaction<DataCopyTraceBuilder,
+                      lookup_data_copy_max_read_index_gt_settings,
+                      lookup_data_copy_offset_gt_max_read_index_settings,
+                      lookup_data_copy_check_src_addr_in_range_settings,
+                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
+}
 
 TEST_F(EnqueuedCdConstrainingBuilderTest, SimpleEnqueuedCdCopy)
 {
@@ -341,6 +387,42 @@ TEST(DataCopyWithExecutionPerm, CdCopy)
     check_interaction<DataCopyTraceBuilder,
                       perm_data_copy_dispatch_cd_copy_settings,
                       perm_data_copy_dispatch_rd_copy_settings>(trace);
+}
+
+class NestedRdConstrainingBuilderTest : public DataCopyConstrainingBuilderTest {
+  protected:
+    NestedRdConstrainingBuilderTest()
+    {
+        // Set up parent context
+        EXPECT_CALL(context, has_parent).WillRepeatedly(Return(true));
+        EXPECT_CALL(context, get_last_child_id).WillRepeatedly(Return(2));
+        EXPECT_CALL(context, get_context_id).WillRepeatedly(Return(2));
+        EXPECT_CALL(context, get_last_rd_size).WillRepeatedly(Return(data.size()));
+        EXPECT_CALL(context, get_last_rd_addr).WillRepeatedly(Return(0));
+    }
+};
+
+TEST_F(NestedRdConstrainingBuilderTest, RdZeroCopy)
+{
+    uint32_t copy_size = 0;
+    uint32_t rd_offset = 0; // Offset into calldata
+
+    EXPECT_CALL(context, get_returndata(rd_offset, copy_size)).WillOnce(::testing::Return(std::vector<FF>{}));
+
+    copy_data.rd_copy(context, copy_size, rd_offset, dst_addr);
+
+    tracegen::DataCopyTraceBuilder builder;
+    builder.process(event_emitter.dump_events(), trace);
+
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
+
+    check_relation<data_copy>(trace);
+    check_interaction<DataCopyTraceBuilder,
+                      lookup_data_copy_max_read_index_gt_settings,
+                      lookup_data_copy_offset_gt_max_read_index_settings,
+                      lookup_data_copy_check_src_addr_in_range_settings,
+                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
 
 TEST(DataCopyWithExecutionPerm, RdCopy)
