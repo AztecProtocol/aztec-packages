@@ -32,6 +32,7 @@ Key characteristics:
 - Requires quorum to execute slashing
 - L1 contract determines which offenses reach consensus
 - Execution happens after a delay period for review
+- Slash payloads can be vetoed during the execution delay period
 
 ### Empire Model
 
@@ -56,13 +57,14 @@ Common interface implemented by both tally and empire clients. Provides methods 
 #### SlashOffensesCollector
 Collects slashable offenses from watchers and stores them in the offenses store. Features:
 - Subscribes to `WANT_TO_SLASH_EVENT` from watchers
-- Manages offense lifecycle and expiration
+- Manages offense lifecycle and automatic expiration
 
 #### SlasherOffensesStore
 Persistent storage for offenses. Tracks:
 - Pending offenses awaiting slashing
 - Executed offenses to prevent double slashing
 - Round-based offense organization
+- Automatic expiration of old offenses based on configurable rounds
 
 #### SlashRoundMonitor
 Monitors slashing rounds and triggers actions on round transitions:
@@ -84,6 +86,15 @@ Actions returned by the slasher client to the SequencerPublisher:
 3. **Action Generation**: When a validator is proposer, the slasher client generates ProposerSlashActions
 4. **Action Execution**: SequencerPublisher receives actions and executes them on L1
 5. **Round Monitoring**: SlashRoundMonitor tracks rounds and triggers execution when conditions are met
+
+## Vetoing
+
+The slashing system includes a veto mechanism that allows designated vetoers to block slash payloads during the execution delay period. When a slash payload is ready for execution, the system first checks if it has been vetoed before proceeding.
+
+Key features:
+- Slash payloads can be vetoed by authorized addresses on the L1 slasher contract
+- Veto checks are performed automatically before execution attempts
+- The veto mechanism provides a safety valve for incorrectly proposed slashes
 
 ## Slashable Offenses
 
@@ -132,15 +143,27 @@ Actions returned by the slasher client to the SequencerPublisher:
 
 ## Configuration
 
-### Slasher Configuration
-- `slashGracePeriodL2Slots`: Number of initial L2 slots where slashing is disabled
-- `slashMaxPayloadSize`: Maximum size of slash payloads (empire model)
-- `slashingRoundSize`: Number of slots per slashing round
+### L1 System Settings (L1ContractsConfig)
+These settings are deployed with the L1 contracts and apply system-wide to the protocol:
+
+- `slashingRoundSize`: Number of slots per slashing round (default: 192, must be multiple of epochs)
 - `slashingQuorumSize`: Votes required to slash (tally model)
 - `slashingOffsetInRounds`: How many rounds to look back for offenses (tally model)
 - `slashingExecutionDelayInRounds`: Rounds to wait before execution
 - `slashingLifetimeInRounds`: Maximum age of executable rounds
-- `slashingUnit`: Base slashing amount per unit
+- `slashingAmounts`: Valid values for each individual slash (tally model)
 
-### Environment Variables
-- `SLASHER_CLIENT_TYPE`: Select between 'tally' or 'empire' (default: 'tally')
+### Local Node Configuration (SlasherConfig)
+These settings are configured locally on each validator node:
+
+- `slashGracePeriodL2Slots`: Number of initial L2 slots where slashing is disabled
+- `slashMaxPayloadSize`: Maximum size of slash payloads (empire model)
+- `slashOffenseExpirationRounds`: Number of rounds after which pending offenses expire
+- `slashValidatorsAlways`: Array of validator addresses that should always be slashed
+- `slashValidatorsNever`: Array of validator addresses that should never be slashed (own validator addresses are automatically added to this list)
+- `slashPrunePenalty`: Penalty for DATA_WITHHOLDING and VALID_EPOCH_PRUNED offenses
+- `slashInactivityPenalty`: Penalty for INACTIVITY offenses
+- `slashBroadcastedInvalidBlockPenalty`: Penalty for broadcasting invalid blocks
+- `slashProposeInvalidAttestationsPenalty`: Penalty for proposing with insufficient/incorrect attestations
+- `slashAttestDescendantOfInvalidPenalty`: Penalty for attesting to descendants of invalid blocks
+- `slashUnknownPenalty`: Default penalty for unknown offense types

@@ -508,7 +508,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       await this.doRealWork();
     } catch (err) {
       if (err instanceof SequencerTooSlowError) {
-        this.log.warn(err.message);
+        // Log as warn only if we had to abort halfway through the block proposal
+        const logLvl = [SequencerState.INITIALIZING_PROPOSAL, SequencerState.PROPOSER_CHECK].includes(err.proposedState)
+          ? ('debug' as const)
+          : ('warn' as const);
+        this.log[logLvl](err.message, { now: this.dateProvider.nowInSeconds() });
       } else {
         // Re-throw other errors
         throw err;

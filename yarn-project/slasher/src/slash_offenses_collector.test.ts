@@ -45,7 +45,11 @@ describe('SlashOffensesCollector', () => {
 
   beforeEach(() => {
     kvStore = openTmpStore(true);
-    offensesStore = new SlasherOffensesStore(kvStore, { slashingRoundSize: 32 * 6, epochDuration: 32 });
+    offensesStore = new SlasherOffensesStore(kvStore, {
+      slashingRoundSize: 32 * 6,
+      epochDuration: 32,
+      slashOffenseExpirationRounds: 4,
+    });
     dummyWatcher = new DummyWatcher();
     logger = createLogger('test');
 

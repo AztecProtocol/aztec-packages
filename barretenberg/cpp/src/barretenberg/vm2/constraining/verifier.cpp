@@ -30,7 +30,7 @@ using FF = AvmFlavor::FF;
 // Evaluate the given public input column over the multivariate challenge points
 inline FF AvmVerifier::evaluate_public_input_column(const std::vector<FF>& points, std::vector<FF> challenges)
 {
-    Polynomial<FF> polynomial(points, 1UL << CONST_PROOF_SIZE_LOG_N);
+    Polynomial<FF> polynomial(points, (1 << key->log_circuit_size));
     return polynomial.evaluate_mle(challenges);
 }
 
@@ -76,16 +76,16 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     }
 
     // Execute Sumcheck Verifier
-    std::vector<FF> padding_indicator_array(CONST_PROOF_SIZE_LOG_N, 1);
+    std::vector<FF> padding_indicator_array(key->log_circuit_size, 1);
 
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    SumcheckVerifier<Flavor> sumcheck(transcript, alpha, CONST_PROOF_SIZE_LOG_N);
+    SumcheckVerifier<Flavor> sumcheck(transcript, alpha, key->log_circuit_size);
 
     // Get the gate challenges for sumcheck computation
     std::vector<FF> gate_challenges =
-        transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", CONST_PROOF_SIZE_LOG_N);
+        transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", key->log_circuit_size);
 
     SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
 
