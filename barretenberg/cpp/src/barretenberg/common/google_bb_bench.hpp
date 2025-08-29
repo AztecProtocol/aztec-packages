@@ -26,11 +26,15 @@ struct GoogleBbBenchReporter {
     GoogleBbBenchReporter(::benchmark::State& state)
         : state(state)
     {
+        bb::detail::use_bb_bench = true;
         // Intent: Clear when we enter the state loop
         bb::detail::GLOBAL_BENCH_STATS.clear();
     }
     ~GoogleBbBenchReporter()
     {
+        if (std::getenv("BB_BENCH") != nullptr) {
+            bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts_pretty();
+        }
         // Allow for conditional reporting
         if (cancelled) {
             return;
