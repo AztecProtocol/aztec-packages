@@ -94,8 +94,6 @@ spec:
               value: {{ .Values.validator.keysPerNode | quote }}
             - name: MNEMONIC
               value: {{ .Values.aztec.l1DeploymentMnemonic }}
-            - name: WEB3_SIGNER_ENABLED
-              value: {{ .Values.web3signer.enabled | quote }}
             - name: K8S_POD_UID
               valueFrom:
                 fieldRef:

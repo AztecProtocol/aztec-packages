@@ -47,7 +47,8 @@ coinbase=$address
 if [ -n "$WEB3_SIGNER_URL" ]; then
   remoteSigner=$(jq -n '{remoteSignerUrl: $url}' --arg url "$WEB3_SIGNER_URL")
   attesters=(${addresses[*]})
-  publisher=$address
+  # TODO: switch to address once web3signer supports EIP-4844 txs. See https://github.com/Consensys/web3signer/pull/1096
+  publisher=$private_key
 else
   remoteSigner="null"
   attesters=(${private_keys[*]})
@@ -61,12 +62,12 @@ jq -n '
 {
   schemaVersion: 1,
   remoteSigner: $remoteSigner,
-  validators: {
+  validators: [{
     attester: $ARGS.positional,
     coinbase: $coinbase,
     publisher: $publisher,
     feeRecipient: "0x0000000000000000000000000000000000000000000000000000000000000000"
-  }
+  }]
 }
 ' --argjson remoteSigner "$remoteSigner" \
   --arg publisher "$publisher" \
