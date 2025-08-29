@@ -540,7 +540,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
 
         const auto& ultra_op = ultra_ops[ultra_ops.size() - i];
         if (ultra_op.op_code.value() == 0) {
-            //  Skip  no-ops as
+            //  Skip no-ops as they should not affect the computation of the accumulator (or)
             continue;
         }
         current_accumulator *= evaluation_input_x;

@@ -74,6 +74,8 @@ struct UltraOp {
     Fr z_2;
     bool return_is_infinity;
 
+    bool operator==(const UltraOp& other) const = default;
+
     /**
      * @brief Get the point in standard form i.e. as two coordinates x and y in the base field or as a point at
      * infinity whose coordinates are set to (0,0).
@@ -237,7 +239,6 @@ class UltraEccOpsTable {
 
   public:
     size_t size() const { return table.size(); }
-    // size_t get_unmerged_subtable_size() const { return table.get_unmerged_subtable_size(); }
 
     size_t ultra_table_size() const
     {
@@ -249,7 +250,8 @@ class UltraEccOpsTable {
                 // The last subtable in deque is the fixed-location one
                 last_subtable_size = table.get().back().size() * NUM_ROWS_PER_OP;
             }
-            return std::max(base_size, fixed_append_offset.value() + last_subtable_size);
+            info("here");
+            return std::max(base_size, (fixed_append_offset.value() * NUM_ROWS_PER_OP) + last_subtable_size);
         }
         return base_size;
     }
@@ -275,7 +277,54 @@ class UltraEccOpsTable {
 
     size_t get_unmerged_subtable_size() const { return table.get_unmerged_subtable_size(); }
 
-    std::vector<UltraOp> get_reconstructed() const { return table.get_reconstructed(); }
+    std::vector<UltraOp> get_reconstructed() const
+    {
+        if (has_fixed_append) {
+            return get_reconstructed_with_fixed_append();
+        }
+        return table.get_reconstructed();
+    }
+    std::vector<UltraOp> get_reconstructed_with_fixed_append() const
+    {
+
+        ASSERT(get_unmerged_subtable_size() == 0,
+               "current subtable should be merged before reconstructing the full table of operations.");
+        info("Reconstructing with fixed append");
+
+        std::vector<UltraOp> reconstructed_table;
+        // reconstructed_table.reserve(reconstructed_table_size);
+
+        for (size_t subtable_idx = 0; subtable_idx < table.num_subtables() - 1; subtable_idx++) {
+            const auto& subtable = table.get()[subtable_idx];
+            for (const auto& op : subtable) {
+                reconstructed_table.push_back(op);
+            }
+        }
+        info("Size before shift: ", reconstructed_table.size());
+
+        // Add zeros if fixed offset is larger than current size
+        if (has_fixed_append && fixed_append_offset.has_value()) {
+            size_t current_size = reconstructed_table.size();
+            size_t target_offset = fixed_append_offset.value();
+
+            // Fill gap with no-ops if needed
+            while (current_size < target_offset) {
+                UltraOp no_op = {};
+                // no_op.op_code is already initialized with all false values (no operation)
+                reconstructed_table.push_back(no_op);
+                current_size++;
+            }
+        }
+
+        // Add the final subtable (appended at fixed location)
+        info("Size before appending final subtable: ", reconstructed_table.size());
+        const auto& final_subtable = table.get()[table.num_subtables() - 1];
+        for (const auto& op : final_subtable) {
+            reconstructed_table.push_back(op);
+        }
+        info("Reconstructed table size: ", reconstructed_table.size());
+        return reconstructed_table;
+    }
 
     // Construct the columns of the full ultra ecc ops table
     ColumnPolynomials construct_table_columns() const
@@ -283,6 +332,7 @@ class UltraEccOpsTable {
         const size_t poly_size = ultra_table_size();
 
         if (has_fixed_append) {
+            info("we should construct with fixed append ", poly_size);
             // Handle fixed-location append: prepended tables first, then appended table at fixed offset
             return construct_column_polynomials_with_fixed_append(poly_size);
         }
@@ -347,7 +397,7 @@ class UltraEccOpsTable {
 
         // Process all prepended subtables (all except last)
         size_t i = 0;
-        for (size_t subtable_idx = 0; subtable_idx < table.num_subtables() - 1; ++subtable_idx) {
+        for (size_t subtable_idx = 0; subtable_idx < table.num_subtables() - 1; subtable_idx++) {
             const auto& subtable = table.get()[subtable_idx];
             for (const auto& op : subtable) {
                 write_op_to_polynomials(column_polynomials, op, i);
@@ -356,7 +406,8 @@ class UltraEccOpsTable {
         }
 
         // Place the appended subtable at the fixed offset
-        size_t append_position = fixed_append_offset.value_or(i);
+        size_t append_position = fixed_append_offset.value_or(i) * NUM_ROWS_PER_OP;
+        info("append position: ", append_position);
         const auto& appended_subtable = table.get()[table.num_subtables() - 1];
 
         size_t j = append_position;

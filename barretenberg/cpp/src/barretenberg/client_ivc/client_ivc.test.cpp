@@ -88,7 +88,6 @@ TEST_F(ClientIVCTests, BasicStructured)
 
     EXPECT_TRUE(ClientIVC::verify(proof, vk));
 };
-
 /**
  * @brief Check that the IVC fails if an intermediate fold proof is invalid
  * @details When accumulating 4 circuits, there are 3 fold proofs to verify (the first two are recursively verfied and

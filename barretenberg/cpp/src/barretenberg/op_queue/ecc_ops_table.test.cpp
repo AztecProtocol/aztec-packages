@@ -329,6 +329,39 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendWithGap)
             EXPECT_EQ(ultra_op_poly.at(fixed_offset + row), expected_poly[row]);
         }
     }
+
+    // Mimic get_reconstructed by unifying all the ops from subtables into a single vector with the appropiate gap of
+    // no-ops
+    {
+        // Compute how many no-op operations are needed to span the gap (fixed_offset and prepended_size are in rows)
+
+        std::vector<UltraOp> expected_reconstructed;
+        expected_reconstructed.reserve(expected_num_ops + fixed_offset);
+
+        // Order: subtable[1], subtable[0], gap (no-ops), subtable[2]
+        for (const auto& op : subtables[1]) {
+            expected_reconstructed.push_back(op);
+        }
+        for (const auto& op : subtables[0]) {
+            expected_reconstructed.push_back(op);
+        }
+
+        // Construct a canonical "no-op" UltraOp (fields zeroed)
+        UltraOp no_op = {};
+        size_t size_before = expected_reconstructed.size();
+        for (size_t i = size_before; i < fixed_offset; i++) {
+            expected_reconstructed.push_back(no_op);
+        }
+
+        for (const auto& op : subtables[2]) {
+            expected_reconstructed.push_back(op);
+        }
+
+        EXPECT_EQ(expected_reconstructed.size(), ultra_ops_table.get_reconstructed().size());
+
+        // Compare to the op-queue's reconstruction (should include the gap as no-ops)
+        EXPECT_EQ(expected_reconstructed, ultra_ops_table.get_reconstructed());
+    }
 }
 
 // Ensure EccvmOpsTable correctly constructs a concatenated table from successively prepended subtables

@@ -48,6 +48,7 @@ class ECCOpQueue {
     EccvmRowTracker eccvm_row_tracker;
 
   public:
+    static const size_t OP_QUEUE_SIZE = 1 << 13;
     /**
      * @brief Instantiate an initial ECC op subtable.
      */
