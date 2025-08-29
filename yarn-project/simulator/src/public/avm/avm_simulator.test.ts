@@ -149,7 +149,12 @@ describe('AVM simulator: injected bytecode', () => {
 
 describe('AVM simulator: transpiled Noir contracts', () => {
   it('execution of a non-existent contract immediately reverts and consumes all allocated gas', async () => {
-    const context = initContext();
+    const treesDB = mock<PublicTreesDB>();
+    const persistableState = initPersistableStateManager({ treesDB });
+    const address = AztecAddress.fromNumber(1234);
+    const env = initExecutionEnvironment({ address });
+    const context = initContext({ env, persistableState });
+    mockCheckNullifierExists(treesDB, false);
     const results = await new AvmSimulator(context).execute();
 
     expect(results.reverted).toBe(true);

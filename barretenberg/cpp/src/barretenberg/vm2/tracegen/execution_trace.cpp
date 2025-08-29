@@ -476,7 +476,7 @@ void ExecutionTraceBuilder::process(
          **************************************************************************************************/
 
         // Along this function we need to set the info we get from the EXEC_SPEC_READ lookup.
-        bool should_read_exec_spec = !instruction_fetching_failed;
+        bool should_read_exec_spec = process_instruction_fetching && !instruction_fetching_failed;
         if (should_read_exec_spec) {
             process_execution_spec(ex_event, trace, row);
         }
@@ -557,6 +557,21 @@ void ExecutionTraceBuilder::process(
         // TODO: would is_err here catch any error at the opcode execution step which we dont want to consider?
         bool sel_exit_call = should_execute_return || should_execute_revert || is_err;
 
+        if (sel_exit_call) {
+            // We rollback if we revert or error and we have a parent context.
+            trace.set(row,
+                      { {
+                          // Exit reason - opcode or error
+                          { C::execution_sel_execute_return, should_execute_return ? 1 : 0 },
+                          { C::execution_sel_execute_revert, should_execute_revert ? 1 : 0 },
+                          { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
+                          { C::execution_nested_return, should_execute_return && has_parent ? 1 : 0 },
+                          // Enqueued or nested exit dependent on if we are a child context
+                          { C::execution_enqueued_call_end, !has_parent ? 1 : 0 },
+                          { C::execution_nested_exit_call, has_parent ? 1 : 0 },
+                      } });
+        }
+
         bool opcode_execution_failed = ex_event.error == ExecutionError::OPCODE_EXECUTION;
         if (should_execute_opcode) {
             // At this point we can assume instruction fetching succeeded, so this should never fail.
@@ -599,19 +614,6 @@ void ExecutionTraceBuilder::process(
                               { C::execution_call_allocated_left_l2_cmp_diff, allocated_left_l2_cmp_diff },
                               { C::execution_call_is_da_gas_allocated_lt_left, is_da_gas_allocated_lt_left },
                               { C::execution_call_allocated_left_da_cmp_diff, allocated_left_da_cmp_diff },
-                          } });
-            } else if (sel_exit_call) {
-                // We rollback if we revert or error and we have a parent context.
-                trace.set(row,
-                          { {
-                              // Exit reason - opcode or error
-                              { C::execution_sel_execute_return, should_execute_return ? 1 : 0 },
-                              { C::execution_sel_execute_revert, should_execute_revert ? 1 : 0 },
-                              { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
-                              { C::execution_nested_return, should_execute_return && has_parent ? 1 : 0 },
-                              // Enqueued or nested exit dependent on if we are a child context
-                              { C::execution_enqueued_call_end, !has_parent ? 1 : 0 },
-                              { C::execution_nested_exit_call, has_parent ? 1 : 0 },
                           } });
             }
             // Separate if-statement for opcodes.

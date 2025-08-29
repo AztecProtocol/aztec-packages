@@ -1105,6 +1105,7 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
         catch (const BytecodeNotFoundError& e) {
             vinfo("Bytecode not found: ", e.what());
             ex_event.error = ExecutionError::BYTECODE_NOT_FOUND;
+            ex_event.wire_instruction.opcode = WireOpCode::ADD_8; // dummy instruction 0
             handle_exceptional_halt(context);
         } catch (const InstructionFetchingError& e) {
             vinfo("Instruction fetching error: ", e.what());
