@@ -12,6 +12,10 @@ namespace execution;
     #[skippable_if]
     sel = 0;
 
+    // TODO: make sure that all uses of `sel_error` here really should be "error" only
+    // since `sel_error` will not be ` for the REVERT opcode. If we need "error or REVERT",
+    // use `sel_failure`.
+
     // Guaranteed to be boolean because sel_execute_call & sel_execute_static_call are mutually exclusive
     pol commit sel_enter_call;
     // The following selectors will be 0 if there is an error during execution (before the opcode execution step).

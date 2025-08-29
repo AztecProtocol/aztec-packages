@@ -147,7 +147,7 @@ sel_bytecode_retrieval_success {
 
 pol commit sel_instruction_fetching_success;
 // If sel = 0, we want sel_instruction_fetching_success = 0. We shouldn't be using it.
-sel_instruction_fetching_success = sel * (1 - sel_instruction_fetching_failure);
+sel_instruction_fetching_success = sel_bytecode_retrieval_success * (1 - sel_instruction_fetching_failure);
 
 #[INSTRUCTION_FETCHING_BODY]
 sel_instruction_fetching_success {

@@ -114,6 +114,7 @@ void TxExecution::simulate(const Tx& tx)
                 format("[SETUP] UNRECOVERABLE ERROR! Enqueued call to ", call.request.contractAddress, " failed"));
         }
     }
+    SideEffectStates end_setup_side_effect_states = tx_context.side_effect_states;
 
     // The checkpoint we should go back to if anything from now on reverts.
     merkle_db.create_checkpoint();
@@ -159,6 +160,7 @@ void TxExecution::simulate(const Tx& tx)
         info("Revertible failure while simulating tx ", tx.hash, ": ", e.what());
         // We revert to the post-setup state.
         merkle_db.revert_checkpoint();
+        tx_context.side_effect_states = end_setup_side_effect_states;
         // But we also create a new fork so that the teardown phase can transparently
         // commit or rollback to the end of teardown.
         merkle_db.create_checkpoint();

@@ -79,6 +79,8 @@ describe('External Calls', () => {
       // Define dst offset for SuccessCopy
       const successDstOffset = 6;
 
+      mockCheckNullifierExists(treesDB, false);
+
       const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
 
       context.machineState.memory.set(0, new Uint32(l2Gas));

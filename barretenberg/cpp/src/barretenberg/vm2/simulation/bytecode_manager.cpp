@@ -18,11 +18,14 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     // This handles nullifier checks, address derivation, and update validation
     auto maybe_instance = contract_instance_manager.get_contract_instance(address);
 
+    auto tree_states = merkle_db.get_tree_state();
     if (!maybe_instance.has_value()) {
         // Contract instance not found - emit error event and throw
         retrieval_events.emit({
             .bytecode_id = FF(0), // Use default ID for error case
             .address = address,
+            .nullifier_root = tree_states.nullifierTree.tree.root,
+            .public_data_tree_root = tree_states.publicDataTree.tree.root,
             .error = true,
         });
         vinfo("Contract ", field_to_string(address), " is not deployed!");
@@ -45,7 +48,6 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     // Check if we've already processed this bytecode. If so, don't do hashing and decomposition again!
     if (bytecodes.contains(bytecode_id)) {
         // Already processed this bytecode - just emit retrieval event and return
-        auto tree_states = merkle_db.get_tree_state();
         retrieval_events.emit({
             .bytecode_id = bytecode_id,
             .address = address,
@@ -68,8 +70,6 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
 
     // We now save the bytecode so that we don't repeat this process.
     bytecodes.emplace(bytecode_id, std::move(shared_bytecode));
-
-    auto tree_states = merkle_db.get_tree_state();
 
     retrieval_events.emit({
         .bytecode_id = bytecode_id,
