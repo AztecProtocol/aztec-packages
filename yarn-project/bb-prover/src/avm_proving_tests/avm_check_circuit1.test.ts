@@ -14,7 +14,7 @@ import { AvmProvingTester } from './avm_proving_tester.js';
 
 const TIMEOUT = 30_000;
 
-describe.skip('AVM check-circuit – unhappy paths 1', () => {
+describe('AVM check-circuit – unhappy paths 1', () => {
   let avmTestContractInstance: ContractInstanceWithAddress;
   let tester: AvmProvingTester;
 
