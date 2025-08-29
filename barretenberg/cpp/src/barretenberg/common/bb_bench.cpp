@@ -49,12 +49,10 @@ std::string format_time_aligned(double time_ms)
 {
     std::ostringstream oss;
     if (time_ms >= 1000.0) {
-        // Format seconds: "16.43s    " left aligned in 10 char field
         std::string time_str =
             (std::ostringstream{} << std::fixed << std::setprecision(2) << (time_ms / 1000.0) << "s").str();
         oss << std::left << std::setw(10) << time_str;
     } else {
-        // Format milliseconds: "443.0ms  " left aligned in 10 char field (no color here, applied outside)
         std::string time_str = (std::ostringstream{} << std::fixed << std::setprecision(1) << time_ms << "ms").str();
         oss << std::left << std::setw(10) << time_str;
     }
@@ -62,7 +60,7 @@ std::string format_time_aligned(double time_ms)
 }
 
 // Helper to format percentage with color based on percentage value
-std::string format_percentage(double value, double total, double min_threshold = 0.1)
+std::string format_percentage(double value, double total, double min_threshold = 0.0)
 {
     if (total <= 0) {
         return "       ";
@@ -107,7 +105,7 @@ std::string format_aligned_section(double time_ms,
         oss << "       "; // Keep alignment for root entries
     }
 
-    // Format calls/threads info - only show if >= 100ms, only show thread info if num_threads > 1, make it DIM
+    // Format calls/threads info - only show for >= 100ms, make it DIM
     if (time_ms >= 100.0) {
         if (num_threads > 1) {
             oss << Colors::DIM << " (" << std::fixed << std::setprecision(2) << mean_ms << " ms x " << num_threads
@@ -327,10 +325,29 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
 
         // Print time if available with aligned section including indent level
         if (entry.time > 0) {
-            double mean_ms = entry.num_threads > 1 ? entry.time_mean / 1000000.0 : 0.0;
-            std::string aligned_section = format_aligned_section(
-                time_ms, static_cast<double>(parent_time), entry.count, indent_level, entry.num_threads, mean_ms);
-            os << "  " << colors.time_color << std::setw(40) << std::left << aligned_section << Colors::RESET;
+            if (time_ms < 100.0) {
+                // Minimal format for <100ms: only [level] and percentage, no time display
+                std::ostringstream minimal_oss;
+                minimal_oss << Colors::MAGENTA << "[" << indent_level << "] " << Colors::RESET;
+
+                // Add spacing to replace where time would be (10 chars)
+                minimal_oss << std::setw(9) << "" << " ";
+
+                // Format percentage
+                if (parent_time > 0 && indent_level > 0) {
+                    minimal_oss << format_percentage(time_ms * 1000000.0, static_cast<double>(parent_time));
+                } else {
+                    minimal_oss << "       "; // Keep alignment for root entries
+                }
+
+                os << "  " << colors.time_color << std::setw(40) << std::left << minimal_oss.str() << Colors::RESET;
+            } else {
+                // Full format for >=100ms
+                double mean_ms = entry.num_threads > 1 ? entry.time_mean / 1000000.0 : 0.0;
+                std::string aligned_section = format_aligned_section(
+                    time_ms, static_cast<double>(parent_time), entry.count, indent_level, entry.num_threads, mean_ms);
+                os << "  " << colors.time_color << std::setw(40) << std::left << aligned_section << Colors::RESET;
+            }
         }
 
         os << "\n";
