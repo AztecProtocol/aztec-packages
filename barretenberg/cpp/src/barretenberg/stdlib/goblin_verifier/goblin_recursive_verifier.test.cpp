@@ -72,12 +72,12 @@ class GoblinRecursiveVerifierTests : public testing::Test {
         RecursiveMergeCommitments recursive_merge_commitments;
         if (outer_builder != nullptr) {
             for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
-                // WORKTODO: To pass the free witness check: could either fix the witnesses of the claims or fiat shamir
-                // them
                 recursive_merge_commitments.t_commitments[idx] =
                     RecursiveCommitment::from_witness(outer_builder, merge_commitments.t_commitments[idx]);
                 recursive_merge_commitments.T_prev_commitments[idx] =
                     RecursiveCommitment::from_witness(outer_builder, merge_commitments.T_prev_commitments[idx]);
+                recursive_merge_commitments.t_commitments[idx].fix_witness();
+                recursive_merge_commitments.T_prev_commitments[idx].fix_witness();
             }
         }
 
@@ -226,12 +226,12 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
 
         RecursiveMergeCommitments recursive_merge_commitments;
         for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
-            // WORKTODO: To pass the free witness check: could either fix the witnesses of the claims or fiat shamir
-            // them
             recursive_merge_commitments.t_commitments[idx] =
                 RecursiveCommitment::from_witness(&builder, merge_commitments.t_commitments[idx]);
             recursive_merge_commitments.T_prev_commitments[idx] =
                 RecursiveCommitment::from_witness(&builder, merge_commitments.T_prev_commitments[idx]);
+            recursive_merge_commitments.t_commitments[idx].fix_witness();
+            recursive_merge_commitments.T_prev_commitments[idx].fix_witness();
         }
 
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
@@ -255,12 +255,12 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
 
         RecursiveMergeCommitments recursive_merge_commitments;
         for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
-            // WORKTODO: To pass the free witness check: could either fix the witnesses of the claims or fiat shamir
-            // them
             recursive_merge_commitments.t_commitments[idx] =
                 RecursiveCommitment::from_witness(&builder, merge_commitments.t_commitments[idx]);
             recursive_merge_commitments.T_prev_commitments[idx] =
                 RecursiveCommitment::from_witness(&builder, merge_commitments.T_prev_commitments[idx]);
+            recursive_merge_commitments.t_commitments[idx].fix_witness();
+            recursive_merge_commitments.T_prev_commitments[idx].fix_witness();
         }
 
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
