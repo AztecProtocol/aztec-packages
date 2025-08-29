@@ -39,5 +39,7 @@ template <typename Flavor> struct SumcheckOutput {
     std::vector<bb::Polynomial<FF>> round_univariates = {};
     // For ECCVMProver/Verifier: evaluations of round univariates at 0, 1, and round challenge
     std::vector<std::array<FF, 3>> round_univariate_evaluations = {};
+    // Contains the results of intermediate checks. Used in tests and for debugging.
+    std::vector<bool> round_checks;
 };
 } // namespace bb

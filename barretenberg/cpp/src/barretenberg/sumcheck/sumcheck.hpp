@@ -723,6 +723,9 @@ template <typename Flavor> class SumcheckVerifier {
     {
         bool verified(true);
 
+        std::vector<bool> round_checks;
+        round_checks.reserve(virtual_log_n);
+
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges);
         // All but final round.
         // target_total_sum is initialized to zero then mutated in place.
@@ -749,6 +752,7 @@ template <typename Flavor> class SumcheckVerifier {
             multivariate_challenge.emplace_back(round_challenge);
 
             const bool checked = round.check_sum(round_univariate, padding_indicator_array[round_idx]);
+            round_checks.emplace_back(checked);
             round.compute_next_target_sum(round_univariate, round_challenge, padding_indicator_array[round_idx]);
             gate_separators.partially_evaluate(round_challenge, padding_indicator_array[round_idx]);
 
@@ -798,7 +802,8 @@ template <typename Flavor> class SumcheckVerifier {
         return SumcheckOutput<Flavor>{ .challenge = multivariate_challenge,
                                        .claimed_evaluations = purported_evaluations,
                                        .verified = verified,
-                                       .claimed_libra_evaluation = libra_evaluation };
+                                       .claimed_libra_evaluation = libra_evaluation,
+                                       .round_checks = round_checks };
     };
 
     /**

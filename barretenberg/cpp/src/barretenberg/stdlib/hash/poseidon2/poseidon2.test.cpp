@@ -4,6 +4,7 @@
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/ultra_honk/decider_proving_key.hpp"
 
 using namespace bb;
 namespace {
@@ -28,9 +29,7 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
     {
         const size_t P_cost = (N == 1) ? 72 : 73;
         const size_t D_full_adds = 3;
-        if (N == 1) {
-            P_cost + 1;
-        }
+
         // Number of Poseidon2 permutation invocations
         size_t P_N = (N + 2) / 3;
         // Number of extra additions in sqeeze
