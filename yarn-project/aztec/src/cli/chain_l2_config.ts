@@ -69,7 +69,6 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   provingCostPerMana: 0n,
 
   slasherFlavor: 'none',
-  slashPayloadTtlSeconds: 0,
   slashAmountSmall: 0n,
   slashAmountMedium: 0n,
   slashAmountLarge: 0n,
@@ -153,7 +152,6 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   slashAmountLarge: DefaultL1ContractsConfig.slashAmountLarge,
 
   // Slashing stuff
-  slashPayloadTtlSeconds: 36 * 32 * 6 * 6, // 6 rounds (a bit longer than lifetime)
   slashMinPenaltyPercentage: 0.5,
   slashMaxPenaltyPercentage: 2.0,
   slashInactivityTargetPercentage: 0.7,
@@ -325,7 +323,6 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichEthAddressVar('AZTEC_SLASHING_VETOER', config.slashingVetoer.toString());
 
   // Slashing
-  enrichVar('SLASH_PAYLOAD_TTL_SECONDS', config.slashPayloadTtlSeconds.toString());
   enrichVar('SLASH_MIN_PENALTY_PERCENTAGE', config.slashMinPenaltyPercentage.toString());
   enrichVar('SLASH_MAX_PENALTY_PERCENTAGE', config.slashMaxPenaltyPercentage.toString());
   enrichVar('SLASH_PRUNE_PENALTY', config.slashPrunePenalty.toString());

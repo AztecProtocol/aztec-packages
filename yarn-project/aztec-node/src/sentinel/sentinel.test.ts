@@ -45,13 +45,9 @@ describe('sentinel', () => {
   let epoch: bigint;
   let ts: bigint;
   let l1Constants: L1RollupConstants;
-  const config: Pick<
-    SlasherConfig,
-    'slashInactivityTargetPercentage' | 'slashInactivityPenalty' | 'slashPayloadTtlSeconds'
-  > = {
+  const config: Pick<SlasherConfig, 'slashInactivityTargetPercentage' | 'slashInactivityPenalty'> = {
     slashInactivityPenalty: 100n,
     slashInactivityTargetPercentage: 0.8,
-    slashPayloadTtlSeconds: 60 * 60,
   };
 
   beforeEach(async () => {
@@ -466,10 +462,7 @@ class TestSentinel extends Sentinel {
     archiver: L2BlockSource,
     p2p: P2PClient,
     store: SentinelStore,
-    config: Pick<
-      SlasherConfig,
-      'slashInactivityTargetPercentage' | 'slashInactivityPenalty' | 'slashPayloadTtlSeconds'
-    >,
+    config: Pick<SlasherConfig, 'slashInactivityTargetPercentage' | 'slashInactivityPenalty'>,
     protected override blockStream: L2BlockStream,
   ) {
     super(epochCache, archiver, p2p, store, config);

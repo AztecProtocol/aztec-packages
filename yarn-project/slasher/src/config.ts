@@ -1,17 +1,21 @@
 import type { ConfigMappingsType } from '@aztec/foundation/config';
-import { bigintConfigHelper, floatConfigHelper, numberConfigHelper } from '@aztec/foundation/config';
+import {
+  bigintConfigHelper,
+  booleanConfigHelper,
+  floatConfigHelper,
+  numberConfigHelper,
+} from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 
 export type { SlasherConfig };
 
 export const DefaultSlasherConfig: SlasherConfig = {
-  slashPayloadTtlSeconds: 60 * 60 * 24, // 1 day
   slashOverridePayload: undefined,
   slashMinPenaltyPercentage: 0.5, // 50% of penalty
   slashMaxPenaltyPercentage: 2.0, //2x of penalty
-  slashValidatorsAlways: '', // Empty by default
-  slashValidatorsNever: '', // Empty by default
+  slashValidatorsAlways: [], // Empty by default
+  slashValidatorsNever: [], // Empty by default
   slashPrunePenalty: 1n,
   slashInactivityTargetPercentage: 0.9,
   slashBroadcastedInvalidBlockPenalty: 1n,
@@ -22,14 +26,10 @@ export const DefaultSlasherConfig: SlasherConfig = {
   slashOffenseExpirationRounds: 4,
   slashMaxPayloadSize: 50,
   slashGracePeriodL2Slots: 0,
+  slashSelfAllowed: false,
 };
 
 export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
-  slashPayloadTtlSeconds: {
-    env: 'SLASH_PAYLOAD_TTL_SECONDS',
-    description: 'Time-to-live for slash payloads in seconds.',
-    ...numberConfigHelper(DefaultSlasherConfig.slashPayloadTtlSeconds),
-  },
   slashOverridePayload: {
     env: 'SLASH_OVERRIDE_PAYLOAD',
     description: 'An Ethereum address for a slash payload to vote for unconditionally.',
@@ -49,13 +49,23 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
   slashValidatorsAlways: {
     env: 'SLASH_VALIDATORS_ALWAYS',
     description: 'Comma-separated list of validator addresses that should always be slashed.',
-    parseEnv: (val: string) => val || '',
+    parseEnv: (val: string) =>
+      val
+        .split(',')
+        .map(addr => addr.trim())
+        .filter(addr => addr.length > 0)
+        .map(addr => EthAddress.fromString(addr)),
     defaultValue: DefaultSlasherConfig.slashValidatorsAlways,
   },
   slashValidatorsNever: {
     env: 'SLASH_VALIDATORS_NEVER',
     description: 'Comma-separated list of validator addresses that should never be slashed.',
-    parseEnv: (val: string) => val || '',
+    parseEnv: (val: string) =>
+      val
+        .split(',')
+        .map(addr => addr.trim())
+        .filter(addr => addr.length > 0)
+        .map(addr => EthAddress.fromString(addr)),
     defaultValue: DefaultSlasherConfig.slashValidatorsNever,
   },
   slashPrunePenalty: {
@@ -113,5 +123,9 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
     description: 'Number of L2 slots to wait before considering a slashing offense expired.',
     env: 'SLASH_GRACE_PERIOD_L2_SLOTS',
     ...numberConfigHelper(DefaultSlasherConfig.slashGracePeriodL2Slots),
+  },
+  slashSelfAllowed: {
+    description: 'Whether to allow slashes to own validators',
+    ...booleanConfigHelper(DefaultSlasherConfig.slashSelfAllowed),
   },
 };

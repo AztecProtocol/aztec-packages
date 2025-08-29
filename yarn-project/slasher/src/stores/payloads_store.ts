@@ -14,7 +14,12 @@ export class SlasherPayloadsStore {
   /** Map from `round:payload` to votes */
   private roundPayloadVotes: AztecAsyncMap<string, bigint>;
 
-  constructor(private kvStore: AztecAsyncKVStore) {
+  constructor(
+    private kvStore: AztecAsyncKVStore,
+    private settings?: {
+      slashingPayloadLifetimeInRounds?: number;
+    },
+  ) {
     this.payloads = kvStore.openMap('slash-payloads');
     this.roundPayloadVotes = kvStore.openMap('round-payload-votes');
   }
@@ -46,29 +51,69 @@ export class SlasherPayloadsStore {
 
   private async getVotesForRound(round: bigint): Promise<[string, bigint][]> {
     const votes: [string, bigint][] = [];
-    const roundPrefix = `${round.toString()}:`;
     for await (const [fullKey, roundVotes] of this.roundPayloadVotes.entriesAsync(
       this.getPayloadVotesKeyRangeForRound(round),
     )) {
       // Extract just the address part from the key (remove "round:" prefix)
-      const address = fullKey.substring(roundPrefix.length);
+      const address = fullKey.split(':')[1];
       votes.push([address, roundVotes]);
     }
     return votes;
   }
 
+  private getRoundKey(round: bigint): string {
+    return round.toString().padStart(16, '0');
+  }
+
   private getPayloadVotesKey(round: bigint, payloadAddress: EthAddress | string): string {
-    return `${round.toString()}:${payloadAddress.toString()}`;
+    return `${this.getRoundKey(round)}:${payloadAddress.toString()}`;
   }
 
   private getPayloadVotesKeyRangeForRound(round: bigint): { start: string; end: string } {
-    const start = `${round.toString()}:`;
-    const end = `${round.toString()}:Z`; // 'Z' sorts after any hex address, 0x-prefixed or not
+    const start = `${this.getRoundKey(round)}:`;
+    const end = `${this.getRoundKey(round)}:Z`; // 'Z' sorts after any hex address, 0x-prefixed or not
     return { start, end };
   }
 
-  public async clearExpiredPayloads(_currentRound: bigint): Promise<void> {
-    // TODO(palla/slash): Implement me!
+  /**
+   * Purge vote payload data for expired rounds. Does not delete actual payload data.
+   */
+  public async clearExpiredPayloads(currentRound: bigint): Promise<void> {
+    const lifetimeInRounds = this.settings?.slashingPayloadLifetimeInRounds ?? 0;
+    if (lifetimeInRounds <= 0) {
+      return; // No lifetime configured
+    }
+
+    const expiredBefore = currentRound - BigInt(lifetimeInRounds);
+    if (expiredBefore < 0) {
+      return; // Not enough rounds have passed to expire anything
+    }
+
+    // Collect expired payload votes by scanning round-payload keys
+    const expiredPayloads: string[] = [];
+    const expiredVoteKeys: string[] = [];
+
+    for await (const key of this.roundPayloadVotes.keysAsync({
+      end: `${this.getRoundKey(expiredBefore)}:Z`,
+    })) {
+      const [roundStr, payloadAddress] = key.split(':');
+      if (BigInt(roundStr) <= expiredBefore) {
+        expiredVoteKeys.push(key);
+        expiredPayloads.push(payloadAddress);
+      }
+    }
+
+    if (expiredVoteKeys.length === 0) {
+      return; // No expired payloads to clean up
+    }
+
+    // Remove expired payload vote records
+    // Note that we do not delete payload data since these could be repurposed in future votes
+    await this.kvStore.transactionAsync(async () => {
+      for (const key of expiredVoteKeys) {
+        await this.roundPayloadVotes.delete(key);
+      }
+    });
   }
 
   public async incrementPayloadVotes(payloadAddress: EthAddress, round: bigint): Promise<bigint> {

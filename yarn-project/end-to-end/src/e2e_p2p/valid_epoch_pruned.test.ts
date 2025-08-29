@@ -49,6 +49,7 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
         aztecProofSubmissionEpochs: 0, // reorg as soon as epoch ends
         slashingQuorum,
         slashingRoundSize,
+        slashSelfAllowed: true,
         slashAmountSmall: slashingUnit,
         slashAmountMedium: slashingUnit * 2n,
         slashAmountLarge: slashingUnit * 3n,
