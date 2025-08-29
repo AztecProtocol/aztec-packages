@@ -77,6 +77,15 @@ void create_ecdsa_k1_verify_constraints(Builder& builder,
         message[i].assert_equal(field_ct::from_witness_index(&builder, input.hashed_message[i]));
     }
 
+    if (!input.predicate.is_constant) {
+        auto predicate_value = builder.get_variable(input.predicate.index);
+        bool_ct predicate_witness = bool_ct(&builder, predicate_value == fr(1));
+        predicate_witness.witness_index = input.predicate.index;
+        predicate_witness.witness_inverted = true; // negate the predicate
+        pub_key_x_fq = pub_key_x_fq.conditional_select(bb::secp256k1::g1().one.x, predicate_witness);
+        pub_key_y_fq = pub_key_y_fq.conditional_select(bb::secp256k1::g1().one.y, predicate_witness);
+    }
+
     bool_ct signature_result =
         stdlib::ecdsa_verify_signature_prehashed_message_noassert<Builder,
                                                                   secp256k1_ct,

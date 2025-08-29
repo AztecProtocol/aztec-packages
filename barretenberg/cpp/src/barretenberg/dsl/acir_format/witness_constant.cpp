@@ -40,6 +40,31 @@ bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<FF>& 
     return input_point;
 }
 
+// Returns a valid point if the 'predicate' is a false witness
+template <typename Builder, typename FF>
+bb::stdlib::cycle_group<Builder> valid_point(const bb::stdlib::cycle_group<Builder>& input,
+                                             const WitnessOrConstant<FF>& predicate,
+                                             Builder& builder)
+{
+    using bool_ct = bb::stdlib::bool_t<Builder>;
+    if (predicate.is_constant) {
+        return input;
+    }
+    // creates a bool_ct from the index, without adding a boolean gate because a predicate is boolean by definition.
+    FF predicate_value = builder.get_variable(predicate.index);
+    bool_ct predicate_witness = bool_ct(&builder, predicate_value == FF(1));
+    predicate_witness.witness_index = predicate.index;
+
+    auto g1 = bb::grumpkin::g1::affine_one;
+    auto point_x = field_t<Builder>::conditional_assign(predicate_witness, input.x, g1.x).normalize();
+    auto point_y = field_t<Builder>::conditional_assign(predicate_witness, input.y, g1.y).normalize();
+    bool_ct g1_infinite = bool_ct(&builder, g1.is_point_at_infinity());
+    auto infinite =
+        bool_ct::conditional_assign(predicate_witness, input.is_point_at_infinity(), g1_infinite).normalize();
+    cycle_group<Builder> result(point_x, point_y, infinite);
+    return result;
+}
+
 template bb::stdlib::cycle_group<UltraCircuitBuilder> to_grumpkin_point(const WitnessOrConstant<fr>& input_x,
                                                                         const WitnessOrConstant<fr>& input_y,
                                                                         const WitnessOrConstant<fr>& input_infinite,
@@ -50,5 +75,13 @@ template bb::stdlib::cycle_group<MegaCircuitBuilder> to_grumpkin_point(const Wit
                                                                        const WitnessOrConstant<fr>& input_infinite,
                                                                        bool has_valid_witness_assignments,
                                                                        MegaCircuitBuilder& builder);
+template bb::stdlib::cycle_group<UltraCircuitBuilder> valid_point(
+    const bb::stdlib::cycle_group<UltraCircuitBuilder>& input,
+    const WitnessOrConstant<fr>& predicate,
+    UltraCircuitBuilder& builder);
+template bb::stdlib::cycle_group<MegaCircuitBuilder> valid_point(
+    const bb::stdlib::cycle_group<MegaCircuitBuilder>& input,
+    const WitnessOrConstant<fr>& predicate,
+    MegaCircuitBuilder& builder);
 
 } // namespace acir_format

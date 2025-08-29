@@ -18,13 +18,22 @@ struct EcAdd {
     WitnessOrConstant<bb::fr> input2_x;
     WitnessOrConstant<bb::fr> input2_y;
     WitnessOrConstant<bb::fr> input2_infinite;
+    WitnessOrConstant<bb::fr> predicate;
     uint32_t result_x;
     uint32_t result_y;
     uint32_t result_infinite;
 
     // for serialization, update with any new fields
-    MSGPACK_FIELDS(
-        input1_x, input1_y, input1_infinite, input2_x, input2_y, input2_infinite, result_x, result_y, result_infinite);
+    MSGPACK_FIELDS(input1_x,
+                   input1_y,
+                   input1_infinite,
+                   input2_x,
+                   input2_y,
+                   input2_infinite,
+                   result_x,
+                   predicate,
+                   result_y,
+                   result_infinite);
     friend bool operator==(EcAdd const& lhs, EcAdd const& rhs) = default;
 };
 
