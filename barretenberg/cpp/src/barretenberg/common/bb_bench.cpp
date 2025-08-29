@@ -56,23 +56,6 @@ std::string format_time_aligned(double time_ms)
     return oss.str();
 }
 
-// Get color based on time threshold
-struct TimeColor {
-    const char* name_color;
-    const char* time_color;
-};
-
-TimeColor get_time_colors(double time_ms)
-{
-    if (time_ms >= 1000.0) {
-        return { Colors::BOLD, Colors::WHITE }; // Bold white for >= 1 second
-    }
-    if (time_ms >= 100.0) {
-        return { Colors::YELLOW, Colors::YELLOW }; // Yellow for >= 100ms
-    }
-    return { Colors::DIM, Colors::DIM }; // Dim for < 100ms
-}
-
 // Helper to format percentage with color based on percentage value
 std::string format_percentage(double value, double total, double min_threshold = 0.1)
 {
@@ -92,16 +75,54 @@ std::string format_percentage(double value, double total, double min_threshold =
     return oss.str();
 }
 
-// Print average time if count > 1
-std::string format_average(double time_ms, uint64_t count)
+std::string format_aligned_section(double time_ms,
+                                   double parent_time,
+                                   uint64_t count,
+                                   size_t indent_level,
+                                   size_t num_threads = 1,
+                                   double mean_ms = 0.0)
 {
-    if (count <= 1) {
-        return "";
-    }
-    double avg_ms = time_ms / static_cast<double>(count);
     std::ostringstream oss;
-    oss << Colors::DIM << " (" << format_time(avg_ms) << " x " << count << ")" << Colors::RESET;
+
+    // Format time
+    oss << format_time_aligned(time_ms);
+
+    // Format percentage using the existing function
+    if (parent_time > 0 && indent_level > 0) {
+        oss << format_percentage(time_ms * 1000000.0, parent_time);
+    } else {
+        oss << "       "; // Keep alignment for root entries
+    }
+
+    // Format calls/threads info - only show thread info if num_threads > 1
+    if (num_threads > 1) {
+        oss << " (" << std::fixed << std::setprecision(2) << mean_ms << " ms x " << num_threads << ")";
+    } else if (count > 1) {
+        double avg_ms = time_ms / static_cast<double>(count);
+        oss << " (" << format_time(avg_ms) << " x " << count << ")";
+    }
+
+    // Add indent level indicator
+    oss << " [" << indent_level << "]";
+
     return oss.str();
+}
+
+// Get color based on time threshold
+struct TimeColor {
+    const char* name_color;
+    const char* time_color;
+};
+
+TimeColor get_time_colors(double time_ms)
+{
+    if (time_ms >= 1000.0) {
+        return { Colors::BOLD, Colors::WHITE }; // Bold white for >= 1 second
+    }
+    if (time_ms >= 100.0) {
+        return { Colors::YELLOW, Colors::YELLOW }; // Yellow for >= 100ms
+    }
+    return { Colors::DIM, Colors::DIM }; // Dim for < 100ms
 }
 
 // Print separator line
@@ -291,20 +312,12 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
         }
         os << std::left << std::setw(static_cast<int>(name_width)) << display_name << Colors::RESET;
 
-        // Print time if available
+        // Print time if available with aligned section including indent level
         if (entry.time > 0) {
-            os << "  " << colors.time_color << format_time_aligned(time_ms) << Colors::RESET;
-
-            // Show percentage relative to parent (or none for roots)
-            if (indent_level == 0 || parent_time == 0) {
-                // Root entries or entries without valid parent time don't show percentage
-                os << "       "; // Keep alignment (7 chars to match percentage format)
-            } else {
-                os << format_percentage(static_cast<double>(entry.time), static_cast<double>(parent_time));
-            }
-
-            // Show average per call if multiple calls
-            os << format_average(time_ms, entry.count);
+            double mean_ms = entry.num_threads > 1 ? entry.time_mean / 1000000.0 : 0.0;
+            std::string aligned_section = format_aligned_section(
+                time_ms, static_cast<double>(parent_time), entry.count, indent_level, entry.num_threads, mean_ms);
+            os << "  " << colors.time_color << std::setw(40) << std::left << aligned_section << Colors::RESET;
         }
 
         os << "\n";
@@ -365,13 +378,50 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
             return time_a > time_b;
         });
 
+        // Calculate time spent in children and add "(other)" if >5% unaccounted
+        uint64_t children_total_time = 0;
+        for (const auto& child_key : children) {
+            if (auto it = aggregated.find(child_key); it != aggregated.end()) {
+                // Sum time for this child across all parent contexts where parent matches current key
+                for (const auto& [parent_key, entry] : it->second) {
+                    if (parent_key == key) {
+                        children_total_time += entry.time;
+                    }
+                }
+            }
+        }
+
+        // Check if there's significant unaccounted time (>5%)
+        uint64_t parent_total_time = entry_to_print->time;
+        bool should_add_other = false;
+        uint64_t other_time = 0;
+        if (parent_total_time > 0 && children_total_time < parent_total_time) {
+            other_time = parent_total_time - children_total_time;
+            double other_percentage =
+                (static_cast<double>(other_time) / static_cast<double>(parent_total_time)) * 100.0;
+            should_add_other = other_percentage > 5.0;
+        }
+
         if (!children.empty() && keys_to_parents[key].size() > 1) {
             os << std::string(indent_level * 2, ' ') << "  ├─ NOTE: Shared children. Will add up to > 100%.\n";
         }
 
         // Print children
         for (size_t i = 0; i < children.size(); ++i) {
-            print_hierarchy(children[i], indent_level + 1, i == children.size() - 1, entry_to_print->time);
+            bool is_last_child = (i == children.size() - 1) && !should_add_other;
+            print_hierarchy(children[i], indent_level + 1, is_last_child, entry_to_print->time);
+        }
+
+        // Print "(other)" category if significant unaccounted time exists
+        if (should_add_other) {
+            // Create fake AggregateEntry for (other)
+            AggregateEntry other_entry;
+            other_entry.key = "(other)";
+            other_entry.time = other_time;
+            other_entry.count = 1;
+            other_entry.num_threads = 1;
+
+            print_entry(other_entry, indent_level + 1, true, parent_total_time); // always last
         }
     };
 
