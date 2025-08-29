@@ -21,9 +21,6 @@ FAILED (http://ci.aztec-labs.com/53896e219f1d6458): barretenberg/cpp/scripts/run
 FAILED (http://ci.aztec-labs.com/8eea2063dae7c28e): barretenberg/cpp/scripts/run_test.sh dsl_tests AcirHonkRecursionConstraint/3.TestBasicDoubleHonkRecursionConstraints (1s) (code: 1)
 FAILED (http://ci.aztec-labs.com/d49e08c9622614e1): barretenberg/cpp/scripts/run_test.sh dsl_tests AcirHonkRecursionConstraint/4.TestBasicDoubleHonkRecursionConstraints (1s) (code: 1)
 
-BoomerangGoblinRecursiveVerifierTests: from_witness in test
-FAILED (http://ci.aztec-labs.com/26f12ee316eb9649): barretenberg/cpp/scripts/run_test.sh boomerang_value_detection_tests BoomerangGoblinRecursiveVerifierTests.graph_description_basic (11s) (code: 1)
-
 RecursiveVerifierTest: ZK padding indicator causes different child tags
 FAILED (http://ci.aztec-labs.com/51c58c9aeba28cd6): barretenberg/cpp/scripts/run_test.sh stdlib_honk_verifier_tests RecursiveVerifierTest/4.SingleRecursiveVerification (0s) (code: 1)
 FAILED (http://ci.aztec-labs.com/779f52f1c6315ce4): barretenberg/cpp/scripts/run_test.sh stdlib_honk_verifier_tests RecursiveVerifierTest/4.IndependentVKHash (0s) (code: 1)
@@ -53,9 +50,11 @@ FAILED (http://ci.aztec-labs.com/ff0808ac297cad4c): barretenberg/cpp/scripts/run
 FAILED (http://ci.aztec-labs.com/62780480afefecf5): barretenberg/cpp/scripts/run_test.sh stdlib_eccvm_verifier_tests ECCVMRecursiveTests.IndependentVKHash (7s) (code: 1)
 
 stdlib_bigfield: suspicious failure... possible bug
-FAILED (http://ci.aztec-labs.com/a689f474d60be0a7): barretenberg/cpp/scripts/run_test.sh stdlib_primitives_tests stdlib_bigfield/0.assert_is_in_field_succes (0s) (code: 1)
+FAILED (http://ci.aztec-labs.com/a689f474d60be0a7): barretenberg/cpp/scripts/run_test.sh stdlib_primitives_tests stdlib_bigfield/0.assert_is_in_field_success (0s) (code: 1)
 
-GoblinRecursiveVerifierTests: from_witness merge_commitments in test
+GoblinRecursiveVerifierTests/BoomerangGoblinRecursiveVerifierTests: fails from different child tags in small subgroup IPA on: 
+        diff += lagrange_last * (grand_sum_eval - inner_product_eval_claim) - vanishing_poly_eval * quotient_eval;
+FAILED (http://ci.aztec-labs.com/26f12ee316eb9649): barretenberg/cpp/scripts/run_test.sh boomerang_value_detection_tests BoomerangGoblinRecursiveVerifierTests.graph_description_basic (11s) (code: 1)
 FAILED (http://ci.aztec-labs.com/361f78f79421f061): barretenberg/cpp/scripts/run_test.sh stdlib_goblin_verifier_tests GoblinRecursiveVerifierTests.Basic (11s) (code: 1)
 FAILED (http://ci.aztec-labs.com/455fb7686e32bfff): barretenberg/cpp/scripts/run_test.sh stdlib_goblin_verifier_tests GoblinRecursiveVerifierTests.IndependentVKHash (11s) (code: 1)
 FAILED (http://ci.aztec-labs.com/d4b5f43b0dc15445): barretenberg/cpp/scripts/run_test.sh stdlib_goblin_verifier_tests GoblinRecursiveVerifierTests.TranslatorFailure (11s) (code: 1)
