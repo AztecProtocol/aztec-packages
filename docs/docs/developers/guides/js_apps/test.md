@@ -10,7 +10,7 @@ In this guide we will cover how to interact with your Aztec.nr smart contracts i
 ## Prerequisites
 
 - A compiled contract with TS interface (read [how to compile](../smart_contracts/how_to_compile_contract.md))
-- Your sandbox running (read [getting started](../../getting_started.md))
+- Your sandbox running (read [getting started](../../getting_started/getting_started_on_sandbox.md))
 
 ## Create TS file and install libraries
 
