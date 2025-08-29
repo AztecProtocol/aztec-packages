@@ -65,7 +65,7 @@ struct TimeColor {
 TimeColor get_time_colors(double time_ms)
 {
     if (time_ms >= 1000.0) {
-        return { Colors::BOLD, Colors::WHITE }; // Bold for >= 1 second
+        return { Colors::BOLD, Colors::WHITE }; // Bold white for >= 1 second
     }
     if (time_ms >= 100.0) {
         return { Colors::YELLOW, Colors::YELLOW }; // Yellow for >= 100ms
@@ -73,8 +73,8 @@ TimeColor get_time_colors(double time_ms)
     return { Colors::DIM, Colors::DIM }; // Dim for < 100ms
 }
 
-// Helper to format percentage with color based on indent level
-std::string format_percentage(double value, double total, size_t indent_level, double min_threshold = 0.1)
+// Helper to format percentage with color based on percentage value
+std::string format_percentage(double value, double total, double min_threshold = 0.1)
 {
     if (total <= 0) {
         return "       ";
@@ -84,22 +84,8 @@ std::string format_percentage(double value, double total, size_t indent_level, d
         return "       ";
     }
 
-    // Choose color based on indent depth
-    const char* color;
-    switch (indent_level) {
-    case 0:
-        color = Colors::CYAN;
-        break; // Root level - cyan
-    case 1:
-        color = Colors::GREEN;
-        break; // First level - green
-    case 2:
-        color = Colors::YELLOW;
-        break; // Second level - yellow
-    default:
-        color = Colors::MAGENTA;
-        break; // Deeper levels - magenta
-    }
+    // Choose color based on percentage value (like time colors)
+    const char* color = Colors::CYAN; // Default color
 
     std::ostringstream oss;
     oss << color << " " << std::fixed << std::setprecision(1) << std::setw(5) << percentage << "%" << Colors::RESET;
@@ -288,12 +274,12 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
             prefix = is_last ? "└─ " : "├─ ";
         }
 
-        // Format name with proper width - use fixed width for better alignment
-        size_t total_prefix_len = indent.length() + prefix.length();
-        size_t name_width = std::max<size_t>(50, 85 - total_prefix_len);
+        // Format name with level-specific alignment - each level aligns with peers at same level
+        size_t base_width = 80;                               // Base width for root level
+        size_t level_width = base_width - (indent_level * 2); // Reduce width per level for visual clarity
         std::string display_name = std::string(entry.key);
-        if (display_name.length() > name_width) {
-            display_name = display_name.substr(0, name_width - 3) + "...";
+        if (display_name.length() > level_width) {
+            display_name = display_name.substr(0, level_width - 3) + "...";
         }
 
         double time_ms = static_cast<double>(entry.time) / 1000000.0;
@@ -304,7 +290,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
         if (time_ms >= 1000.0 && colors.name_color == Colors::BOLD) {
             os << Colors::YELLOW; // Special case: bold yellow for >= 1s
         }
-        os << std::left << std::setw(static_cast<int>(name_width)) << display_name << Colors::RESET;
+        os << std::left << std::setw(static_cast<int>(level_width)) << display_name << Colors::RESET;
 
         // Print time if available
         if (entry.time > 0) {
@@ -315,8 +301,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
                 // Root entries or entries without valid parent time don't show percentage
                 os << "       "; // Keep alignment (7 chars to match percentage format)
             } else {
-                os << format_percentage(
-                    static_cast<double>(entry.time), static_cast<double>(parent_time), indent_level);
+                os << format_percentage(static_cast<double>(entry.time), static_cast<double>(parent_time));
             }
 
             // Show average per call if multiple calls
@@ -447,7 +432,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
         unique_functions.insert(key);
 
         // Count as shared if has multiple parents
-        if (parent_map.size() > 1) {
+        if (keys_to_parents[key].size() > 1) {
             shared_count++;
         }
         auto& root_entry = parent_map[""];
