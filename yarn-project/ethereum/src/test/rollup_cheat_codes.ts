@@ -258,9 +258,6 @@ export class RollupCheatCodes {
    */
   public async setProvingCostPerMana(ethValue: bigint) {
     await this.asOwner(async (account, rollup) => {
-      // We are minting funds for the `account` since we seem to sometimes ends up with just a poor account :shrug:.
-      await this.ethCheatCodes.setBalance(EthAddress.fromString(account), 10n * 10n ** 18n);
-
       const hash = await rollup.write.setProvingCostPerMana([ethValue], {
         account,
         chain: this.client.chain,
