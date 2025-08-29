@@ -267,6 +267,7 @@ describe('sequencer', () => {
     validatorClient.createBlockProposal.mockImplementation(() => Promise.resolve(createBlockProposal()));
 
     slasherClient = mock<SlasherClientInterface>();
+    slasherClient.getProposerActions.mockResolvedValue([]);
 
     dateProvider = new TestDateProvider();
 
