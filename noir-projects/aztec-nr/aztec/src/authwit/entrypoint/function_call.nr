@@ -8,6 +8,11 @@ use std::meta::derive;
 // 3 * 32 + 3
 global FUNCTION_CALL_SIZE_IN_BYTES: u32 = 99;
 
+// @dev: If you change the following struct you have to update:
+// - account_entrypoint.ts (specifically `getEntrypointAbi()`)
+// - default_multi_call_entrypoint.ts (specifically `getEntrypointAbi()`)
+// - function_call.ts
+// - encoding.ts
 #[derive(Serialize)]
 pub struct FunctionCall {
     pub args_hash: Field, /* args_hash is calldata_hash if is_public is true */
