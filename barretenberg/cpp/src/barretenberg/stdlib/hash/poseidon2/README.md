@@ -145,17 +145,9 @@ scaling factor arising from \ref bb::GateSeparatorPolynomial< FF > "GateSeparato
 
 ## Number of Gates
 
-Single element = 73 gates
-
-N elements
-
-We'll have \f$ P_N = \lceil N/3 \rceil \f$ permutation invocations. Each one costs 73 gates.
-+ 1 gate to fix the IV witness
-+ after each permutation invocation in absorb, we add 3 cache elements to the state. It happens \f$ P_N-1 \f$ times
-+ To sqeeze, we compute \f$ P(s^{(m)})_{0}\f$. The number of gates here depends on the number of padded fields. Let \f$ N_3 = N\pmod{3} \f$, if
-\f$ N_3 =  0\f$, then we get
-\f$ 1 + P_N * 73 + (P_N - 1) * 3 \f$
+Hashing a single field element costs \f$ 73 \f$ gates. As above, let \f$ N > 1\f$ be the input size. Define \f$ m = \lceil N/3 \rceil \f$ and let \f$ N_3 = N\pmod{3} \f$. The number of gates depends on the number of padded fields equal to \f$ N_3 \f$. If \f$ N_3 =  0\f$, we get
+\f[ 1 +  73\cdot m + 3\cdot (m - 1) \f]
 gates, otherwise we get
-\f$ 1 + P_N * 73 + (P_N - 1) * 3 + 3 + N_3\f$
+\f[ 1 +  73\cdot m + 3\cdot (m - 2)  + N_3.\f]
 
-
+According to TACEO blog post [Poseidon{2} for Noir](https://core.taceo.io/articles/poseidon2-for-noir/), a single permutation cost for \f$ t = 4 \f$ implemented without Poseidon2 custom gates is \f$ 2313 \f$ gates.
