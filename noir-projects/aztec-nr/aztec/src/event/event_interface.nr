@@ -92,24 +92,24 @@ pub struct MessageDeliveryEnum {
     /// combination 1 above for details.
     pub CONSTRAINED_ONCHAIN: u8,
 
-    /// Unconstrained encryption + offchain message
-    ///
-    /// Useful when we trust the sender or the sender is incentivized to deliver the message. See combination 2
-    /// above for details.
-    pub UNCONSTRAINED_OFFCHAIN: u8,
-
     /// Unconstrained encryption + unconstrained tagging + private log stream
     ///
     /// As mentioned above, this combination is not meaningful but we keep it here as it's currently used in the
     /// codebase.
     /// TODO: Consider dropping this.
     pub UNCONSTRAINED_ONCHAIN: u8,
+
+    /// Unconstrained encryption + offchain message
+    ///
+    /// Useful when we trust the sender or the sender is incentivized to deliver the message. See combination 2
+    /// above for details.
+    pub UNCONSTRAINED_OFFCHAIN: u8,
 }
 
 pub global MessageDelivery: MessageDeliveryEnum = MessageDeliveryEnum {
     CONSTRAINED_ONCHAIN: 1,
-    UNCONSTRAINED_OFFCHAIN: 2,
-    UNCONSTRAINED_ONCHAIN: 3,
+    UNCONSTRAINED_ONCHAIN: 2,
+    UNCONSTRAINED_OFFCHAIN: 3,
 };
 
 /// Emits an event that can be delivered either via private logs or offchain messages, with configurable encryption and
