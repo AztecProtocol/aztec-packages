@@ -11,6 +11,8 @@ global FEE_PAYLOAD_SIZE_IN_BYTES: u32 = 228;
 
 global MAX_FEE_FUNCTION_CALLS: u32 = 2;
 
+// @dev: If you change the following struct you have to update:
+// - account_entrypoint.ts (specifically `getEntrypointAbi()`)
 // docs:start:fee-payload-struct
 #[derive(Serialize)]
 pub struct FeePayload {
@@ -47,8 +49,13 @@ impl FeePayload {
                         call.target_address,
                         call.args_hash,
                         call.is_static,
+                        call.hide_msg_sender,
                     );
                 } else {
+                    assert(
+                        !call.hide_msg_sender,
+                        "Incompatible flag. `hide_msg_sender = true` is only available for public calls.",
+                    );
                     let _result = context.call_private_function_with_args_hash(
                         call.target_address,
                         call.function_selector,

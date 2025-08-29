@@ -52,6 +52,7 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
     return Promise.resolve(txRequest);
   }
 
+  // This seems extremely brittle?
   private getEntrypointAbi() {
     return {
       name: 'entrypoint',
@@ -93,6 +94,7 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
                         },
                       },
                       { name: 'is_public', type: { kind: 'boolean' } },
+                      { name: 'hide_msg_sender', type: { kind: 'boolean' } },
                       { name: 'is_static', type: { kind: 'boolean' } },
                     ],
                   },

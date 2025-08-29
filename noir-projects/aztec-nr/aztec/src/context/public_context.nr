@@ -4,7 +4,7 @@ use crate::hash::{
 };
 use dep::protocol_types::abis::function_selector::FunctionSelector;
 use dep::protocol_types::address::{AztecAddress, EthAddress};
-use dep::protocol_types::constants::MAX_U32_VALUE;
+use dep::protocol_types::constants::{MAX_U32_VALUE, NULL_MSG_SENDER_CONTRACT_ADDRESS};
 use dep::protocol_types::traits::{Empty, FromField, Packable, Serialize, ToField};
 
 /// # PublicContext
@@ -432,34 +432,37 @@ impl PublicContext {
     ///
     /// This is similar to `msg.sender` in Solidity (hence the name).
     ///
-    /// Important Note: Since Aztec doesn't have a concept of an EoA (
-    /// Externally-owned Account), the msg_sender is "undefined" for the first
-    /// function call of every transaction. A value of `-1` is returned in such
-    /// cases, and is enforced by the protocol's kernel circuits.
-    /// The first function call of a tx is likely to be a call to the user's
-    /// account contract, so this quirk will most often be handled by account
-    /// contract developers.
+    /// Important Note: If the calling function is a _private_ function, then
+    /// it had the option of hiding its address when enqueuing this public
+    /// function call. In such cases, this `context.msg_sender()` method will
+    /// return `Option<AztecAddress>::none`.
+    /// If the calling function is a _public_ function, it will always return
+    /// an `Option<AztecAddress>::some` (i.e. a non-null value).
     ///
     /// # Returns
-    /// * `AztecAddress` - The address of the account or contract that called
-    ///   this function
-    ///
-    /// # Examples
-    /// ```rust
-    /// #[aztec(public)]
-    /// fn transfer(context: &mut PublicContext, to: AztecAddress, amount: u64) {
-    ///     let sender = context.msg_sender();
-    ///     // Only the sender can transfer their own tokens
-    ///     assert(sender == get_token_owner(), "Unauthorized");
-    /// }
-    /// ```
+    /// * `Option<AztecAddress>` - The address of the smart contract that called
+    ///   this function (be it an app contract or a user's account contract).
     ///
     /// # Advanced
     /// * Value is provided by the AVM sender opcode
     /// * In nested calls, this is the immediate caller, not the original
     ///   transaction sender
-    /// * Globally visible unlike private execution where it's contract-local
-    pub fn msg_sender(_self: Self) -> AztecAddress {
+    ///
+    pub fn msg_sender(_self: Self) -> Option<AztecAddress> {
+        // Safety: AVM opcodes are constrained by the AVM itself
+        let maybe_msg_sender = unsafe { sender() };
+        if maybe_msg_sender == NULL_MSG_SENDER_CONTRACT_ADDRESS {
+            Option::none()
+        } else {
+            Option::some(maybe_msg_sender)
+        }
+    }
+
+    /// "Unsafe" versus calling `context.msg_sender()`, because it doesn't
+    /// translate `NULL_MSG_SENDER_CONTRACT_ADDRESS` as
+    /// `Option<AztecAddress>::none`.
+    /// Used by some internal aztecnr functions.
+    pub fn msg_sender_unsafe(_self: Self) -> AztecAddress {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
             sender()

@@ -11,7 +11,10 @@ global APP_PAYLOAD_SIZE_IN_BYTES: u32 = 424;
 
 global ACCOUNT_MAX_CALLS: u32 = 4;
 
-// Note: If you change the following struct you have to update default_entrypoint.ts
+// @dev: If you change the following struct you have to update:
+// - default_entrypoint.ts
+// - account_entrypoint.ts (specifically `getEntrypointAbi()`)
+// - default_multi_call_entrypoint.ts (specifically `getEntrypointAbi()`)
 // docs:start:app-payload-struct
 #[derive(Serialize)]
 pub struct AppPayload {
@@ -52,8 +55,13 @@ impl AppPayload {
                         call.target_address,
                         call.args_hash,
                         call.is_static,
+                        call.hide_msg_sender,
                     );
                 } else {
+                    assert(
+                        !call.hide_msg_sender,
+                        "Incompatible flag. `hide_msg_sender = true` is only available for public calls.",
+                    );
                     let _result = context.call_private_function_with_args_hash(
                         call.target_address,
                         call.function_selector,

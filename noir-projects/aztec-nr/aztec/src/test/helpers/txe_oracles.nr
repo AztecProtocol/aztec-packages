@@ -3,7 +3,7 @@ use crate::{context::inputs::PrivateContextInputs, test::helpers::utils::TestAcc
 use protocol_types::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
-    constants::CONTRACT_INSTANCE_LENGTH,
+    constants::{CONTRACT_INSTANCE_LENGTH, NULL_MSG_SENDER_CONTRACT_ADDRESS},
     contract_instance::ContractInstance,
     traits::{Deserialize, ToField},
     utils::reader::Reader,
@@ -45,13 +45,15 @@ pub unconstrained fn private_call_new_flow(
 }
 
 pub unconstrained fn public_call_new_flow(
-    from: AztecAddress,
+    from: Option<AztecAddress>,
     contract_address: AztecAddress,
     function_selector: FunctionSelector,
     args: [Field],
     is_static_call: bool,
 ) -> (Field, Field) {
     let calldata = args.push_front(function_selector.to_field());
+
+    let from = from.unwrap_or(NULL_MSG_SENDER_CONTRACT_ADDRESS);
 
     let fields = public_call_new_flow_oracle(from, contract_address, calldata, is_static_call);
 
