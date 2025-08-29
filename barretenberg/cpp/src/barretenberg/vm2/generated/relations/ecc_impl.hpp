@@ -14,7 +14,7 @@ void eccImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_TRACY_NAME("accumulate/ecc");
+    BB_BENCH_NESTED_NAME("accumulate/ecc");
 
     const auto ecc_INFINITY_X = FF(0);
     const auto ecc_INFINITY_Y = FF(0);

@@ -14,7 +14,7 @@ void txImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_TRACY_NAME("accumulate/tx");
+    BB_BENCH_NESTED_NAME("accumulate/tx");
 
     const auto constants_MAX_NOTE_HASHES_PER_TX = FF(64);
     const auto constants_MAX_NULLIFIERS_PER_TX = FF(64);

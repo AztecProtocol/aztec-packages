@@ -185,7 +185,7 @@ struct BenchReporter {
 #define BB_TRACY() ZoneScopedN(__func__)
 #define BB_TRACY_NAME(name) ZoneScopedN(name)
 #define BB_BENCH_TRACY() ZoneScopedN(__func__)
-#define BB_BENCH_TRACY_NAME(name) ZoneScopedN(name)
+#define BB_BENCH_NESTED_NAME(name) ZoneScopedN(name)
 #define BB_BENCH_NAME(name) (void)0
 #define BB_BENCH_ENABLE_NESTING() (void)0
 #define BB_BENCH() (void)0
@@ -193,7 +193,7 @@ struct BenchReporter {
 #define BB_TRACY() (void)0
 #define BB_TRACY_NAME(name) (void)0
 #define BB_BENCH_TRACY() (void)0
-#define BB_BENCH_TRACY_NAME(name) (void)0
+#define BB_BENCH_NESTED_NAME(name) (void)0
 #define BB_BENCH_NAME(name) (void)0
 #define BB_BENCH_ENABLE_NESTING() (void)0
 #define BB_BENCH() (void)0
@@ -201,7 +201,7 @@ struct BenchReporter {
 #define BB_TRACY() (void)0
 #define BB_TRACY_NAME(name) (void)0
 #define BB_BENCH_TRACY() BB_BENCH_NAME(__func__)
-#define BB_BENCH_TRACY_NAME(name) BB_BENCH_NAME(name)
+#define BB_BENCH_NESTED_NAME(name) BB_BENCH_NAME(name)
 #define BB_BENCH_NAME(name)                                                                                            \
     bb::detail::BenchReporter __bb_op_count_time(bb::detail::ThreadBenchStats<name>::ensure_stats())
 #define BB_BENCH_ENABLE_NESTING()                                                                                      \
@@ -210,7 +210,7 @@ struct BenchReporter {
 #define BB_BENCH() BB_BENCH_NAME(__func__)
 #endif
 #define BB_BENCH_NESTED_NAME(name)                                                                                     \
-    BB_BENCH_TRACY_NAME(name);                                                                                         \
+    BB_BENCH_NESTED_NAME(name);                                                                                        \
     BB_BENCH_ENABLE_NESTING()
 
 #define BB_BENCH_NESTED()                                                                                              \

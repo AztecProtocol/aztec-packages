@@ -14,7 +14,7 @@ void merkle_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_TRACY_NAME("accumulate/merkle_check");
+    BB_BENCH_NESTED_NAME("accumulate/merkle_check");
 
     const auto merkle_check_NOT_END = in.get(C::merkle_check_sel) * (FF(1) - in.get(C::merkle_check_end));
     const auto merkle_check_LATCH_CONDITION = in.get(C::merkle_check_end) + in.get(C::precomputed_first_row);

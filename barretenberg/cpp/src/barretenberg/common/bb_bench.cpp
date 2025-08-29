@@ -91,18 +91,18 @@ std::string format_aligned_section(double time_ms,
     // Add indent level indicator at the beginning with different color
     oss << Colors::MAGENTA << "[" << indent_level << "] " << Colors::RESET;
 
-    // Format time with appropriate color
-    if (time_ms >= 100.0 && time_ms < 1000.0) {
-        oss << Colors::DIM << format_time_aligned(time_ms) << Colors::RESET;
-    } else {
-        oss << format_time_aligned(time_ms);
-    }
-
-    // Format percentage using the existing function
+    // Format percentage FIRST
     if (parent_time > 0 && indent_level > 0) {
         oss << format_percentage(time_ms * 1000000.0, parent_time);
     } else {
         oss << "       "; // Keep alignment for root entries
+    }
+
+    // Format time AFTER percentage with appropriate color (with more spacing)
+    if (time_ms >= 100.0 && time_ms < 1000.0) {
+        oss << "   " << Colors::DIM << format_time_aligned(time_ms) << Colors::RESET;
+    } else {
+        oss << "   " << format_time_aligned(time_ms);
     }
 
     // Format calls/threads info - only show for >= 100ms, make it DIM
@@ -330,15 +330,15 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
                 std::ostringstream minimal_oss;
                 minimal_oss << Colors::MAGENTA << "[" << indent_level << "] " << Colors::RESET;
 
-                // Add spacing to replace where time would be (10 chars)
-                minimal_oss << std::setw(9) << "" << " ";
-
-                // Format percentage
+                // Format percentage FIRST
                 if (parent_time > 0 && indent_level > 0) {
                     minimal_oss << format_percentage(time_ms * 1000000.0, static_cast<double>(parent_time));
                 } else {
                     minimal_oss << "       "; // Keep alignment for root entries
                 }
+
+                // Add spacing to replace where time would be (with extra spacing to match)
+                minimal_oss << "   " << std::setw(10) << "";
 
                 os << "  " << colors.time_color << std::setw(40) << std::left << minimal_oss.str() << Colors::RESET;
             } else {

@@ -89,7 +89,7 @@ template <class Curve> class CommitmentKey {
         // Note: this fn used to expand polynomials to the dyadic size,
         // due to a quirk in how our pippenger algo used to function.
         // The pippenger algo has been refactored and this is no longer an issue
-        BB_BENCH_TRACY_NAME("CommitmentKey::commit");
+        BB_BENCH_NESTED_NAME("CommitmentKey::commit");
         std::span<const G1> point_table = srs->get_monomial_points();
         size_t consumed_srs = polynomial.start_index + polynomial.size();
         if (consumed_srs > srs->get_monomial_size()) {
@@ -122,7 +122,7 @@ template <class Curve> class CommitmentKey {
                                  const std::vector<std::pair<size_t, size_t>>& active_ranges,
                                  size_t final_active_wire_idx = 0)
     {
-        BB_BENCH_TRACY_NAME("CommitmentKey::commit_structured");
+        BB_BENCH_NESTED_NAME("CommitmentKey::commit_structured");
         BB_ASSERT_LTE(polynomial.end_index(), srs->get_monomial_size(), "Polynomial size exceeds commitment key size.");
         BB_ASSERT_LTE(polynomial.end_index(), dyadic_size, "Polynomial size exceeds commitment key size.");
 
@@ -184,7 +184,7 @@ template <class Curve> class CommitmentKey {
                                                          const std::vector<std::pair<size_t, size_t>>& active_ranges,
                                                          size_t final_active_wire_idx = 0)
     {
-        BB_BENCH_TRACY_NAME("CommitmentKey::commit_structured_with_nonzero_complement");
+        BB_BENCH_NESTED_NAME("CommitmentKey::commit_structured_with_nonzero_complement");
         BB_ASSERT_LTE(polynomial.end_index(), srs->get_monomial_size(), "Polynomial size exceeds commitment key size.");
 
         using BatchedAddition = BatchedAffineAddition<Curve>;

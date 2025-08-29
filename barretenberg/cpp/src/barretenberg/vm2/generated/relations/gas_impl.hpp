@@ -14,7 +14,7 @@ void gasImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_TRACY_NAME("accumulate/gas");
+    BB_BENCH_NESTED_NAME("accumulate/gas");
 
     const auto execution_BASE_L2_GAS = in.get(C::execution_opcode_gas) + in.get(C::execution_addressing_gas);
     const auto execution_DYNAMIC_L2_GAS_USED =

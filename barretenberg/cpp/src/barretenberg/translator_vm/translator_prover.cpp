@@ -216,7 +216,7 @@ HonkProof TranslatorProver::export_proof()
 
 HonkProof TranslatorProver::construct_proof()
 {
-    BB_BENCH_TRACY_NAME("TranslatorProver::construct_proof");
+    BB_BENCH_NESTED_NAME("TranslatorProver::construct_proof");
 
     // Add circuit size public input size and public inputs to transcript.
     execute_preamble_round();

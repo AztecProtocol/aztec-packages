@@ -14,7 +14,7 @@ void bc_hashingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_TRACY_NAME("accumulate/bc_hashing");
+    BB_BENCH_NESTED_NAME("accumulate/bc_hashing");
 
     const auto bc_hashing_LATCH_CONDITION = in.get(C::bc_hashing_latch) + in.get(C::precomputed_first_row);
 

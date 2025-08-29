@@ -14,7 +14,7 @@ void bc_retrievalImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_TRACY_NAME("accumulate/bc_retrieval");
+    BB_BENCH_NESTED_NAME("accumulate/bc_retrieval");
 
     {
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;

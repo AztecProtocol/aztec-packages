@@ -246,7 +246,7 @@ template <typename Flavor> class SumcheckProver {
 
         vinfo("starting sumcheck rounds...");
         {
-            BB_BENCH_TRACY_NAME("rest of sumcheck round 1");
+            BB_BENCH_NESTED_NAME("rest of sumcheck round 1");
 
             // Place the evaluations of the round univariate into transcript.
             transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
@@ -260,7 +260,7 @@ template <typename Flavor> class SumcheckProver {
             // We operate on partially_evaluated_polynomials in place.
         }
         for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
-            BB_BENCH_TRACY_NAME("sumcheck loop");
+            BB_BENCH_NESTED_NAME("sumcheck loop");
 
             // Write the round univariate to the transcript
             round_univariate =
@@ -357,7 +357,7 @@ template <typename Flavor> class SumcheckProver {
         partially_evaluated_polynomials = PartiallyEvaluatedMultivariates(full_polynomials, multivariate_n);
 
         {
-            BB_BENCH_TRACY_NAME("rest of sumcheck round 1");
+            BB_BENCH_NESTED_NAME("rest of sumcheck round 1");
 
             if constexpr (!IsGrumpkinFlavor<Flavor>) {
                 // Place the evaluations of the round univariate into transcript.
@@ -383,7 +383,7 @@ template <typename Flavor> class SumcheckProver {
                                                       // We operate on partially_evaluated_polynomials in place.
         }
         for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
-            BB_BENCH_TRACY_NAME("sumcheck loop");
+            BB_BENCH_NESTED_NAME("sumcheck loop");
 
             // Computes the round univariate in two parts: first the contribution necessary to hide the polynomial and
             // account for having randomness at the end of the trace and then the contribution from the full

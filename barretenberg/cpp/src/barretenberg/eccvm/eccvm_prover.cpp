@@ -25,7 +25,7 @@ ECCVMProver::ECCVMProver(CircuitBuilder& builder,
     : transcript(transcript)
     , ipa_transcript(ipa_transcript)
 {
-    BB_BENCH_TRACY_NAME("ECCVMProver(CircuitBuilder&)");
+    BB_BENCH_NESTED_NAME("ECCVMProver(CircuitBuilder&)");
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/939): Remove redundancy between
     // ProvingKey/ProverPolynomials and update the model to reflect what's done in all other proving systems.

@@ -14,7 +14,7 @@ void poseidon2_memImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_TRACY_NAME("accumulate/poseidon2_mem");
+    BB_BENCH_NESTED_NAME("accumulate/poseidon2_mem");
 
     const auto constants_MEM_TAG_FF = FF(0);
     const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);

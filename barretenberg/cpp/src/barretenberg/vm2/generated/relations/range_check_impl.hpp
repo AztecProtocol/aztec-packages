@@ -14,7 +14,7 @@ void range_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_TRACY_NAME("accumulate/range_check");
+    BB_BENCH_NESTED_NAME("accumulate/range_check");
 
     const auto range_check_PX_0 = FF(0);
     const auto range_check_R7_0 = in.get(C::range_check_u16_r7);

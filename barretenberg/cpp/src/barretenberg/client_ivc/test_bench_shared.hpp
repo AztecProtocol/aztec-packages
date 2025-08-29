@@ -48,7 +48,7 @@ std::pair<ClientIVC::Proof, ClientIVC::VerificationKey> accumulate_and_prove_ivc
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
         MegaCircuitBuilder circuit;
         {
-            BB_BENCH_TRACY_NAME("construct_circuits");
+            BB_BENCH_NESTED_NAME("construct_circuits");
             circuit = circuit_producer.create_next_circuit(ivc);
         }
 

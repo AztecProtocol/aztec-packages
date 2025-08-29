@@ -54,7 +54,7 @@ Prover get_prover(void (*test_circuit_function)(typename Prover::Flavor::Circuit
     Builder builder;
     test_circuit_function(builder, num_iterations);
 
-    BB_BENCH_TRACY_NAME("creating prover");
+    BB_BENCH_NESTED_NAME("creating prover");
 
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());

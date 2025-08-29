@@ -14,7 +14,7 @@ void keccakf1600Impl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_TRACY_NAME("accumulate/keccakf1600");
+    BB_BENCH_NESTED_NAME("accumulate/keccakf1600");
 
     const auto constants_MEM_TAG_U64 = FF(5);
     const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);

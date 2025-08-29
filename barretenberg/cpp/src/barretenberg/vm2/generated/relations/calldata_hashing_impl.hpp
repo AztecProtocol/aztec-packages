@@ -14,7 +14,7 @@ void calldata_hashingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_TRACY_NAME("accumulate/calldata_hashing");
+    BB_BENCH_NESTED_NAME("accumulate/calldata_hashing");
 
     { // TRACE_CONTINUITY
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;

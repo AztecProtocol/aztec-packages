@@ -311,7 +311,7 @@ template <typename Fr> class Polynomial {
 
     static Polynomial random(size_t size, size_t start_index = 0)
     {
-        BB_BENCH_TRACY_NAME("generate random polynomial");
+        BB_BENCH_NESTED_NAME("generate random polynomial");
 
         return random(size - start_index, size, start_index);
     }

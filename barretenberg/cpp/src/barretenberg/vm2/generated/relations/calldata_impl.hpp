@@ -14,7 +14,7 @@ void calldataImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_TRACY_NAME("accumulate/calldata");
+    BB_BENCH_NESTED_NAME("accumulate/calldata");
 
     const auto calldata_FIRST_OR_LAST_CALLDATA = in.get(C::precomputed_first_row) + in.get(C::calldata_latch);
 

@@ -14,7 +14,7 @@ void sha256_memImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_TRACY_NAME("accumulate/sha256_mem");
+    BB_BENCH_NESTED_NAME("accumulate/sha256_mem");
 
     const auto constants_MEM_TAG_U32 = FF(4);
     const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);

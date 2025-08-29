@@ -72,7 +72,7 @@ void WitnessComputation<Flavor>::compute_logderivative_inverses(Flavor::ProverPo
                                                                 const size_t circuit_size,
                                                                 RelationParameters<FF>& relation_parameters)
 {
-    BB_BENCH_TRACY_NAME("compute_logderivative_inverses");
+    BB_BENCH_NESTED_NAME("compute_logderivative_inverses");
 
     // Compute inverses for conventional lookups
     LogDerivLookupRelation<FF>::compute_logderivative_inverse(polynomials, relation_parameters, circuit_size);

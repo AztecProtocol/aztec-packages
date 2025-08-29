@@ -46,7 +46,7 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_relatio
                       virtual_log_n);
     {
 
-        BB_BENCH_TRACY_NAME("sumcheck.prove");
+        BB_BENCH_NESTED_NAME("sumcheck.prove");
 
         if constexpr (Flavor::HasZK) {
             const size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
@@ -108,7 +108,7 @@ template <IsUltraOrMegaHonk Flavor> DeciderProver_<Flavor>::Proof DeciderProver_
 
 template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::construct_proof()
 {
-    BB_BENCH_TRACY_NAME("Decider::construct_proof");
+    BB_BENCH_NESTED_NAME("Decider::construct_proof");
 
     // Run sumcheck subprotocol.
     execute_relation_check_rounds();

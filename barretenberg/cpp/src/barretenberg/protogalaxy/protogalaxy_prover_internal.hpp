@@ -149,7 +149,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
     {
 
-        BB_BENCH_TRACY_NAME("ProtogalaxyProver_::compute_row_evaluations");
+        BB_BENCH_NESTED_NAME("ProtogalaxyProver_::compute_row_evaluations");
 
         const size_t polynomial_size = polynomials.get_polynomial_size();
         Polynomial<FF> aggregated_relation_evaluations(polynomial_size);
