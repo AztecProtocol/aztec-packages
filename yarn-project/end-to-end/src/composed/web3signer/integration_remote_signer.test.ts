@@ -6,7 +6,11 @@ import { jest } from '@jest/globals';
 import type { TransactionSerializable, TypedDataDefinition } from 'viem';
 import { privateKeyToAddress } from 'viem/accounts';
 
-const { WEB3_SIGNER_URL, L1_CHAIN_ID = '31337', TEST_PRIVATE_KEY } = process.env;
+const {
+  WEB3_SIGNER_URL = 'http://localhost:9000',
+  L1_CHAIN_ID = '31337',
+  TEST_PRIVATE_KEY = '0x1111111111111111111111111111111111111111111111111111111111111111',
+} = process.env;
 
 describe('RemoteSigner integration: Web3Signer (compose)', () => {
   jest.setTimeout(180_000);
@@ -41,22 +45,30 @@ describe('RemoteSigner integration: Web3Signer (compose)', () => {
     remoteSigner = new RemoteSigner(address, web3SignerUrl);
   });
 
-  // the remote signer ends up calling a client? I'm not sure this is implemented in web3signer
-  it.skip('signs EIP-712 typed data and matches r/s with local', async () => {
+  it('signs EIP-712 typed data and matches r/s with local', async () => {
     const typedData: TypedDataDefinition = {
-      domain: { name: 'Aztec', version: '1', chainId: 1 },
+      domain: {
+        name: 'TallySlashingProposer',
+        version: '1',
+        chainId,
+        verifyingContract: EthAddress.random().toString(),
+      },
       types: {
-        Mail: [
-          { name: 'from', type: 'address' },
-          { name: 'to', type: 'address' },
-          { name: 'contents', type: 'string' },
+        EIP712Domain: [
+          { name: 'name', type: 'string' },
+          { name: 'version', type: 'string' },
+          { name: 'chainId', type: 'uint256' },
+          { name: 'verifyingContract', type: 'address' },
+        ],
+        Vote: [
+          { name: 'votes', type: 'bytes' },
+          { name: 'slot', type: 'uint256' },
         ],
       },
-      primaryType: 'Mail',
+      primaryType: 'Vote',
       message: {
-        from: address.toString(),
-        to: address.toString(),
-        contents: 'hello',
+        votes: '0x1234',
+        slot: 42n,
       },
     };
 
