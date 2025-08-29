@@ -12,6 +12,7 @@ global APP_PAYLOAD_SIZE_IN_BYTES: u32 = 424;
 global ACCOUNT_MAX_CALLS: u32 = 4;
 
 // @dev: If you change the following struct you have to update:
+// - default_entrypoint.ts
 // - account_entrypoint.ts (specifically `getEntrypointAbi()`)
 // - default_multi_call_entrypoint.ts (specifically `getEntrypointAbi()`)
 // docs:start:app-payload-struct
