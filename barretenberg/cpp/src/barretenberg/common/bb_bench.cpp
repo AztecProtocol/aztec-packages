@@ -84,6 +84,9 @@ std::string format_aligned_section(double time_ms,
 {
     std::ostringstream oss;
 
+    // Add indent level indicator at the beginning with different color
+    oss << Colors::MAGENTA << "[" << indent_level << "] " << Colors::RESET;
+
     // Format time
     oss << format_time_aligned(time_ms);
 
@@ -94,16 +97,14 @@ std::string format_aligned_section(double time_ms,
         oss << "       "; // Keep alignment for root entries
     }
 
-    // Format calls/threads info - only show thread info if num_threads > 1
+    // Format calls/threads info - only show thread info if num_threads > 1, make it DIM
     if (num_threads > 1) {
-        oss << " (" << std::fixed << std::setprecision(2) << mean_ms << " ms x " << num_threads << ")";
+        oss << Colors::DIM << " (" << std::fixed << std::setprecision(2) << mean_ms << " ms x " << num_threads << ")"
+            << Colors::RESET;
     } else if (count > 1) {
         double avg_ms = time_ms / static_cast<double>(count);
-        oss << " (" << format_time(avg_ms) << " x " << count << ")";
+        oss << Colors::DIM << " (" << format_time(avg_ms) << " x " << count << ")" << Colors::RESET;
     }
-
-    // Add indent level indicator
-    oss << " [" << indent_level << "]";
 
     return oss.str();
 }
@@ -391,15 +392,15 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
             }
         }
 
-        // Check if there's significant unaccounted time (>5%)
+        // Check if there's significant unaccounted time (>5%) and we have children
         uint64_t parent_total_time = entry_to_print->time;
         bool should_add_other = false;
         uint64_t other_time = 0;
-        if (parent_total_time > 0 && children_total_time < parent_total_time) {
+        if (!children.empty() && parent_total_time > 0 && children_total_time < parent_total_time) {
             other_time = parent_total_time - children_total_time;
             double other_percentage =
                 (static_cast<double>(other_time) / static_cast<double>(parent_total_time)) * 100.0;
-            should_add_other = other_percentage > 5.0;
+            should_add_other = other_percentage > 5.0 && other_time > 0;
         }
 
         if (!children.empty() && keys_to_parents[key].size() > 1) {
