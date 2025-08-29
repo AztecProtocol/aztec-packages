@@ -273,7 +273,7 @@ TEST_F(ExecutionSimulationTest, Call)
     EXPECT_CALL(context, get_bytecode_manager).WillOnce(ReturnRef(bytecode_manager));
     EXPECT_CALL(bytecode_manager, try_get_bytecode_id);
     EXPECT_CALL(context, get_next_pc);
-    EXPECT_CALL(context, get_is_static);
+    EXPECT_CALL(context, get_is_static).WillRepeatedly(Return(false));
     EXPECT_CALL(context, get_msg_sender).WillOnce(ReturnRef(parent_address));
     EXPECT_CALL(context, get_transaction_fee).WillOnce(ReturnRef(zero));
     EXPECT_CALL(context, get_parent_cd_addr);
@@ -318,6 +318,127 @@ TEST_F(ExecutionSimulationTest, Call)
                    /*addr=*/3,
                    /*cd_size_offset=*/4,
                    /*cd_offset=*/5);
+}
+
+// Test staticness propagation for external calls (CALL vs STATICCALL)
+TEST_F(ExecutionSimulationTest, ExternalCallStaticnessPropagation)
+{
+    // Common test data setup
+    FF zero = 0;
+    AztecAddress parent_address = 0xdeadbeef;
+    AztecAddress nested_address = 0xc0ffee;
+    MemoryValue nested_address_value = MemoryValue::from<FF>(nested_address);
+    MemoryValue l2_gas_allocated = MemoryValue::from<uint32_t>(6);
+    MemoryValue da_gas_allocated = MemoryValue::from<uint32_t>(7);
+    MemoryValue cd_size = MemoryValue::from<uint32_t>(8);
+    AppendOnlyTreeSnapshot written_public_data_slots_tree_snapshot = AppendOnlyTreeSnapshot{
+        .root = 0x12345678,
+        .nextAvailableLeafIndex = 10,
+    };
+    TreeStates tree_states =
+        TreeStates{ .noteHashTree = { .tree = { .root = 10, .nextAvailableLeafIndex = 9 }, .counter = 8 },
+                    .nullifierTree = { .tree = { .root = 7, .nextAvailableLeafIndex = 6 }, .counter = 5 },
+                    .l1ToL2MessageTree = { .tree = { .root = 4, .nextAvailableLeafIndex = 3 }, .counter = 0 },
+                    .publicDataTree = { .tree = { .root = 2, .nextAvailableLeafIndex = 1 }, .counter = 1 } };
+    SideEffectStates side_effect_states = SideEffectStates{ .numUnencryptedLogs = 1, .numL2ToL1Messages = 2 };
+
+    auto setup_context_expectations = [&](bool parent_is_static) {
+        EXPECT_CALL(gas_tracker, compute_gas_limit_for_call(Gas{ 6, 7 })).WillOnce(Return(Gas{ 2, 3 }));
+        EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
+        EXPECT_CALL(context, get_context_id);
+        EXPECT_CALL(context, get_parent_id);
+        EXPECT_CALL(context, get_bytecode_manager).WillOnce(ReturnRef(bytecode_manager));
+        EXPECT_CALL(bytecode_manager, try_get_bytecode_id);
+        EXPECT_CALL(context, get_next_pc);
+        EXPECT_CALL(context, get_is_static).WillRepeatedly(Return(parent_is_static));
+        EXPECT_CALL(context, get_msg_sender).WillOnce(ReturnRef(parent_address));
+        EXPECT_CALL(context, get_transaction_fee).WillOnce(ReturnRef(zero));
+        EXPECT_CALL(context, get_parent_cd_addr);
+        EXPECT_CALL(context, get_parent_cd_size);
+        EXPECT_CALL(context, get_parent_gas_used);
+        EXPECT_CALL(context, get_parent_gas_limit);
+        EXPECT_CALL(context, get_written_public_data_slots_tree_snapshot)
+            .WillOnce(Return(written_public_data_slots_tree_snapshot));
+        EXPECT_CALL(context, get_side_effect_states).WillRepeatedly(ReturnRef(side_effect_states));
+        EXPECT_CALL(context, get_phase).WillOnce(Return(TransactionPhase::APP_LOGIC));
+        EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_states));
+        EXPECT_CALL(context, get_memory);
+        EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(parent_address));
+        EXPECT_CALL(memory, get(1)).WillOnce(ReturnRef(l2_gas_allocated));
+        EXPECT_CALL(memory, get(2)).WillOnce(ReturnRef(da_gas_allocated));
+        EXPECT_CALL(memory, get(3)).WillOnce(ReturnRef(nested_address_value));
+        EXPECT_CALL(memory, get(4)).WillOnce(ReturnRef(cd_size));
+    };
+
+    auto create_nested_context = []() {
+        auto nested = std::make_unique<NiceMock<MockContext>>();
+        ON_CALL(*nested, halted()).WillByDefault(Return(true));
+        return nested;
+    };
+
+    // Test Case 1: Non-static context + CALL -> nested context is non-static
+    setup_context_expectations(false);
+    EXPECT_CALL(context_provider,
+                make_nested_context(nested_address,
+                                    parent_address,
+                                    _,
+                                    _,
+                                    _,
+                                    _,
+                                    /*is_static=*/false,
+                                    Gas{ 2, 3 },
+                                    side_effect_states,
+                                    TransactionPhase::APP_LOGIC))
+        .WillOnce(Return(create_nested_context()));
+    execution.call(context, 1, 2, 3, 4, 5);
+
+    // Test Case 2: Non-static context + STATICCALL -> nested context is static
+    setup_context_expectations(false);
+    EXPECT_CALL(context_provider,
+                make_nested_context(nested_address,
+                                    parent_address,
+                                    _,
+                                    _,
+                                    _,
+                                    _,
+                                    /*is_static=*/true,
+                                    Gas{ 2, 3 },
+                                    side_effect_states,
+                                    TransactionPhase::APP_LOGIC))
+        .WillOnce(Return(create_nested_context()));
+    execution.static_call(context, 1, 2, 3, 4, 5);
+
+    // Test Case 3: Static context + CALL -> nested context remains static
+    setup_context_expectations(true);
+    EXPECT_CALL(context_provider,
+                make_nested_context(nested_address,
+                                    parent_address,
+                                    _,
+                                    _,
+                                    _,
+                                    _,
+                                    /*is_static=*/true,
+                                    Gas{ 2, 3 },
+                                    side_effect_states,
+                                    TransactionPhase::APP_LOGIC))
+        .WillOnce(Return(create_nested_context()));
+    execution.call(context, 1, 2, 3, 4, 5);
+
+    // Test Case 4: Static context + STATICCALL -> nested context remains static
+    setup_context_expectations(true);
+    EXPECT_CALL(context_provider,
+                make_nested_context(nested_address,
+                                    parent_address,
+                                    _,
+                                    _,
+                                    _,
+                                    _,
+                                    /*is_static=*/true,
+                                    Gas{ 2, 3 },
+                                    side_effect_states,
+                                    TransactionPhase::APP_LOGIC))
+        .WillOnce(Return(create_nested_context()));
+    execution.static_call(context, 1, 2, 3, 4, 5);
 }
 
 TEST_F(ExecutionSimulationTest, InternalCall)
