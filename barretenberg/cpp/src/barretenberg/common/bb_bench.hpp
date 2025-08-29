@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <ostream>
+#include <string_view>
 #include <tracy/Tracy.hpp>
 
 /**
@@ -41,25 +42,20 @@ template <std::size_t N> struct OperationLabel {
 
 struct TimeStats;
 struct TimeStatsEntry;
+using OperationKey = std::string_view;
 
 // Contains all statically known op counts
 struct GlobalBenchStatsContainer {
   public:
     static inline thread_local TimeStatsEntry* parent = nullptr;
     std::mutex mutex;
-    std::vector<TimeStatsEntry*> counts;
+    std::vector<TimeStatsEntry*> entries;
     void print() const;
     // NOTE: Should be called when other threads aren't active
     void clear();
     void add_entry(const char* key, TimeStatsEntry* entry);
-    void print_stats_recursive(const std::string& key,
-                               const TimeStats* stats,
-                               const std::string& thread_id,
-                               const std::string& indent) const;
-    void aggregate_stats_recursive(const std::string& key,
-                                   const TimeStats* stats,
-                                   std::map<std::string, std::size_t>& aggregate_counts) const;
-    std::map<std::string, std::size_t> get_aggregate_counts() const;
+    void print_stats_recursive(const OperationKey& key, const TimeStats* stats, const std::string& indent) const;
+    std::map<OperationKey, std::size_t> get_aggregate_counts() const;
     void print_aggregate_counts(std::ostream&, size_t) const;
     void print_aggregate_counts_pretty(std::ostream&) const;
     void print_aggregate_counts_hierarchical(std::ostream&) const;
@@ -68,28 +64,35 @@ struct GlobalBenchStatsContainer {
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern GlobalBenchStatsContainer GLOBAL_BENCH_STATS;
 
+struct TimeAndCount {
+    uint64_t time = 0;
+    uint64_t count = 0;
+};
 // Normalized benchmark entry - each represents a unique (function, parent) pair
-struct NormalizedEntry {
-    std::string name;       // Function name
-    std::string parent_key; // Parent function name (empty for roots)
-    std::size_t time = 0;   // Total time for this function under this parent
-    std::size_t count = 0;  // Total count for this function under this parent
-
-    // Thread statistics (if multiple threads called this function)
-    std::size_t num_threads = 0;
+struct AggregateEntry {
+    // For convenience, even though redundant with map store
+    OperationKey key;
+    OperationKey parent;
+    std::size_t time = 0;
+    std::size_t count = 0;
+    size_t num_threads = 0;
     double time_mean = 0;
     double time_stddev = 0;
+
+    // Welford's algorithm state
+    double time_m2 = 0; // sum of squared differences from mean
+
+    void add_thread_time_sample(const TimeAndCount& stats);
+    double get_std_dev() const;
 };
 
-// Result of normalizing benchmark data
-struct NormalizedData {
-    std::map<std::string, NormalizedEntry> entries; // Key is "parent|function" or just "function" for roots
-    std::map<std::string, std::set<std::string>> parents_by_function; // function -> set of parents
-    std::set<std::string> root_functions;                             // Functions with no parent
-};
+// AggregateData: Result of normalizing benchmark data
+// entries: Key -> ParentKey -> Entry
+// Empty string is used as key if the entry has no parent.
+using AggregateData = std::map<OperationKey, std::map<OperationKey, AggregateEntry>>;
 
 // Normalize the raw benchmark data into a clean structure for display
-NormalizedData normalize_benchmark_data(const std::vector<TimeStatsEntry*>& counts);
+AggregateData aggregate(const std::vector<TimeStatsEntry*>& counts);
 
 // Tracks operation statistics and links them to their immediate parent context.
 // Each stat is associated only with its direct parent, not the full call hierarchy.
@@ -143,8 +146,7 @@ struct TimeStats {
 // Each key will appear at most once *per thread*.
 // Each thread has its own count for thread-safety.
 struct TimeStatsEntry {
-    std::string key;
-    std::string thread_id;
+    OperationKey key;
     TimeStats count;
 };
 

@@ -1,3 +1,5 @@
+#include <cstdint>
+#include <sys/types.h>
 #ifndef __wasm__
 #include "bb_bench.hpp"
 #include <algorithm>
@@ -116,118 +118,62 @@ namespace bb::detail {
 bool use_bb_bench = std::getenv("BB_BENCH") == nullptr ? false : std::string(std::getenv("BB_BENCH")) == "1";
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 bool debug_bench = std::getenv("BB_BENCH_DEBUG") != nullptr;
+using OperationKey = std::string_view;
+
+void AggregateEntry::add_thread_time_sample(const TimeAndCount& stats)
+{
+    if (stats.count == 0) {
+        return;
+    }
+    // Account for aggregate time and count
+    time += stats.time;
+    count += stats.count;
+    // Use Welford's method to be able to track the variance
+    double time_ms = static_cast<double>(stats.time / stats.count) / 1000000.0;
+    num_threads++;
+    double delta = time_ms - time_mean;
+    time_mean += delta / static_cast<double>(num_threads);
+    double delta2 = time_ms - time_mean;
+    time_m2 += delta * delta2;
+}
+
+double AggregateEntry::get_std_dev() const
+{
+    // Calculate standard deviation
+    if (num_threads > 1) {
+        return std::sqrt(time_m2 / static_cast<double>(num_threads - 1));
+    } else {
+        return 0;
+    }
+}
 
 // Normalize the raw benchmark data into a clean structure for display
-NormalizedData normalize_benchmark_data(const std::vector<TimeStatsEntry*>& counts)
+AggregateData aggregate(const std::vector<TimeStatsEntry*>& counts)
 {
-    NormalizedData result;
+    AggregateData result;
 
-    // Temporary structure for collecting raw data
-    struct RawStats {
-        std::size_t time = 0;
-        std::size_t count = 0;
-    };
-
-    // Collect raw data per (function, parent, thread) combination
-    // Key format: "parent_key|function_name|thread_id"
-    std::map<std::string, RawStats> raw_data;
-
+    // Each count has a unique [thread, key] combo.
+    // We therefore treat each count as a thread's contribution to that key.
     for (const TimeStatsEntry* entry : counts) {
-        const TimeStats* stats = &entry->count;
+        // A map from parent key => AggregateEntry
+        auto& entry_map = result[entry->key];
+        // combine all entries with same parent key
+        std::map<OperationKey, TimeAndCount> parent_key_to_stats;
 
-        // Process all parent contexts for this entry
-        while (stats != nullptr) {
-            if (stats->count > 0 || stats->time > 0) {
-                // Determine parent key
-                std::string parent_key = stats->parent ? stats->parent->key : "";
-                std::string combined_key = parent_key + "|" + entry->key + "|" + entry->thread_id;
-
-                // Accumulate stats
-                raw_data[combined_key].time += stats->time;
-                raw_data[combined_key].count += stats->count;
-
-                // Track parent-child relationships
-                if (parent_key.empty()) {
-                    result.root_functions.insert(entry->key);
-                } else {
-                    result.parents_by_function[entry->key].insert(parent_key);
-                }
-            }
-            stats = stats->next.get();
-        }
-    }
-
-    // Aggregate by (function, parent) and calculate statistics
-    std::map<std::string, std::vector<RawStats>> stats_by_function_parent;
-
-    for (const auto& [key, stats] : raw_data) {
-        // Parse the combined key
-        size_t first_sep = key.find('|');
-        size_t second_sep = key.find('|', first_sep + 1);
-        std::string parent_key = key.substr(0, first_sep);
-        std::string function_name = key.substr(first_sep + 1, second_sep - first_sep - 1);
-
-        std::string function_parent_key = parent_key + "|" + function_name;
-        stats_by_function_parent[function_parent_key].push_back(stats);
-    }
-
-    // Create normalized entries
-    for (const auto& [key, thread_stats] : stats_by_function_parent) {
-        size_t sep = key.find('|');
-        std::string parent_key = key.substr(0, sep);
-        std::string function_name = key.substr(sep + 1);
-
-        NormalizedEntry entry;
-        entry.name = function_name;
-        entry.parent_key = parent_key;
-        entry.num_threads = thread_stats.size();
-
-        // Calculate totals and statistics
-        for (const auto& stats : thread_stats) {
-            entry.time += stats.time;
-            entry.count += stats.count;
+        // For collection-time performance, we allow multiple stat blocks with the same parent. It'd be simpler to have
+        // one but we just have to combine them here.
+        for (const TimeStats* stats = &entry->count; stats != nullptr; stats = stats->next.get()) {
+            OperationKey parent_key = stats->parent != nullptr ? stats->parent->key : "";
+            parent_key_to_stats[parent_key].count += stats->count;
+            parent_key_to_stats[parent_key].time += stats->time;
         }
 
-        // Calculate mean and stddev if multi-threaded
-        if (entry.num_threads > 1) {
-            double sum_time = 0;
-            for (const auto& stats : thread_stats) {
-                sum_time += static_cast<double>(stats.time) / 1000000.0;
-            }
-            entry.time_mean = sum_time / static_cast<double>(entry.num_threads);
-
-            // Calculate variance
-            double variance = 0;
-            for (const auto& stats : thread_stats) {
-                double time_ms = static_cast<double>(stats.time) / 1000000.0;
-                variance += (time_ms - entry.time_mean) * (time_ms - entry.time_mean);
-            }
-            entry.time_stddev = std::sqrt(variance / static_cast<double>(entry.num_threads));
+        for (auto [parent_key, stats] : parent_key_to_stats) {
+            auto& normalized_entry = entry_map[entry->key];
+            normalized_entry.key = entry->key;
+            normalized_entry.parent = parent_key;
+            normalized_entry.add_thread_time_sample(stats);
         }
-
-        result.entries[key] = entry;
-
-        if (debug_bench) {
-            std::cout << "  Entry[" << key << "]: name=" << entry.name << ", parent=" << entry.parent_key
-                      << ", time=" << entry.time << ", count=" << entry.count << "\n";
-        }
-    }
-
-    if (debug_bench) {
-        std::cout << "\n=== DEBUG: Parent-child relationships ===\n";
-        std::cout << "Parents by function:\n";
-        for (const auto& [func, parents] : result.parents_by_function) {
-            std::cout << "  " << func << " has parents: ";
-            for (const auto& p : parents) {
-                std::cout << p << " ";
-            }
-            std::cout << "\n";
-        }
-        std::cout << "Root functions: ";
-        for (const auto& r : result.root_functions) {
-            std::cout << r << " ";
-        }
-        std::cout << "\n=== END DEBUG ===\n\n";
     }
 
     return result;
@@ -236,62 +182,32 @@ NormalizedData normalize_benchmark_data(const std::vector<TimeStatsEntry*>& coun
 void GlobalBenchStatsContainer::add_entry(const char* key, TimeStatsEntry* entry)
 {
     std::unique_lock<std::mutex> lock(mutex);
-    std::stringstream ss;
-    ss << std::this_thread::get_id();
     entry->key = key;
-    entry->thread_id = ss.str();
-    counts.push_back(entry);
+    entries.push_back(entry);
 }
 
 void GlobalBenchStatsContainer::print() const
 {
     std::cout << "print_op_counts() START" << "\n";
-    for (const TimeStatsEntry* entry : counts) {
-        print_stats_recursive(entry->key, &entry->count, entry->thread_id, "");
+    for (const TimeStatsEntry* entry : entries) {
+        print_stats_recursive(entry->key, &entry->count, "");
     }
     std::cout << "print_op_counts() END" << "\n";
 }
 
-void GlobalBenchStatsContainer::print_stats_recursive(const std::string& key,
+void GlobalBenchStatsContainer::print_stats_recursive(const OperationKey& key,
                                                       const TimeStats* stats,
-                                                      const std::string& thread_id,
                                                       const std::string& indent) const
 {
     if (stats->count > 0) {
-        std::cout << indent << key << "\t" << stats->count << "\t[thread=" << thread_id << "]" << "\n";
+        std::cout << indent << key << "\t" << stats->count << "\n";
     }
     if (stats->time > 0) {
-        std::cout << indent << key << "(t)\t" << static_cast<double>(stats->time) / 1000000.0
-                  << "ms\t[thread=" << thread_id << "]" << "\n";
+        std::cout << indent << key << "(t)\t" << static_cast<double>(stats->time) / 1000000.0 << "ms\n";
     }
 
     if (stats->next != nullptr) {
-        print_stats_recursive(key, stats->next.get(), thread_id, indent + "  ");
-    }
-}
-
-std::map<std::string, std::size_t> GlobalBenchStatsContainer::get_aggregate_counts() const
-{
-    std::map<std::string, std::size_t> aggregate_counts;
-    for (const TimeStatsEntry* entry : counts) {
-        aggregate_stats_recursive(entry->key, &entry->count, aggregate_counts);
-    }
-    return aggregate_counts;
-}
-
-void GlobalBenchStatsContainer::aggregate_stats_recursive(const std::string& key,
-                                                          const TimeStats* stats,
-                                                          std::map<std::string, std::size_t>& aggregate_counts) const
-{
-    if (stats->count > 0) {
-        aggregate_counts[key] += stats->count;
-    }
-    if (stats->time > 0) {
-        aggregate_counts[key + "(t)"] += stats->time;
-    }
-
-    if (stats->next != nullptr) {
-        aggregate_stats_recursive(key, stats->next.get(), aggregate_counts);
+        print_stats_recursive(key, stats->next.get(), indent + "  ");
     }
 }
 
@@ -299,14 +215,20 @@ void GlobalBenchStatsContainer::print_aggregate_counts(std::ostream& os, size_t 
 {
     os << '{';
     bool first = true;
-    for (const auto& [key, value] : get_aggregate_counts()) {
+    for (const auto& [key, entry_map] : aggregate(entries)) {
+        // Loop for a flattened view
+        uint64_t time = 0;
+        for (auto& [parent_key, entry] : entry_map) {
+            time += entry.time;
+        }
+
         if (!first) {
             os << ',';
         }
         if (indent > 0) {
             os << "\n" << std::string(indent, ' ');
         }
-        os << '"' << key << "\":" << value;
+        os << '"' << key << "\":" << time;
         first = false;
     }
     if (indent > 0) {
@@ -315,268 +237,22 @@ void GlobalBenchStatsContainer::print_aggregate_counts(std::ostream& os, size_t 
     os << '}' << "\n";
 }
 
-void GlobalBenchStatsContainer::print_aggregate_counts_pretty(std::ostream& os) const
-{
-
-    auto counts = get_aggregate_counts();
-    if (counts.empty()) {
-        os << "No benchmark data collected." << "\n";
-        return;
-    }
-
-    // Organize by function name (without (t) suffix)
-    std::map<std::string, std::pair<std::size_t, std::size_t>> organized_stats;
-    for (const auto& [key, value] : counts) {
-        if (key.size() >= 3 && key.substr(key.size() - 3) == "(t)") {
-            std::string base_name = key.substr(0, key.size() - 3);
-            organized_stats[base_name].second = value; // time in nanoseconds
-        } else {
-            organized_stats[key].first = value; // count
-        }
-    }
-
-    // Calculate max widths for alignment
-    size_t max_name_width = 0;
-    for (const auto& [name, _] : organized_stats) {
-        max_name_width = std::max(max_name_width, name.length());
-    }
-    max_name_width = std::min(max_name_width, static_cast<size_t>(60)); // Cap at 60 chars
-
-    // Print header
-    os << "\n";
-    os << Colors::BOLD << Colors::CYAN
-       << "═══════════════════════════════════════════════════════════════════════════════" << Colors::RESET << "\n";
-    os << Colors::BOLD << "  Benchmark Results" << Colors::RESET << "\n";
-    os << Colors::BOLD << Colors::CYAN
-       << "═══════════════════════════════════════════════════════════════════════════════" << Colors::RESET << "\n";
-    os << "\n";
-
-    // Sort by total time descending
-    std::vector<std::pair<std::string, std::pair<std::size_t, std::size_t>>> sorted_stats(organized_stats.begin(),
-                                                                                          organized_stats.end());
-    std::ranges::sort(sorted_stats, [](const auto& a, const auto& b) { return a.second.second > b.second.second; });
-
-    // Print each function's stats
-    for (const auto& [name, stats] : sorted_stats) {
-        auto [count, time_ns] = stats;
-
-        // Skip entries with no time or count
-        if (count == 0 && time_ns == 0) {
-            continue;
-        }
-
-        // Format name (truncate if too long)
-        std::string display_name = name;
-        if (display_name.length() > max_name_width) {
-            display_name = display_name.substr(0, max_name_width - 3) + "...";
-        }
-
-        os << "  " << Colors::BLUE << std::left << std::setw(static_cast<int>(max_name_width) + 2) << display_name
-           << Colors::RESET;
-
-        // Print count if available
-        if (count > 0) {
-            os << Colors::GREEN << std::right << std::setw(8) << count << Colors::RESET << " calls";
-        } else {
-            os << std::string(14, ' ');
-        }
-
-        // Print time if available
-        if (time_ns > 0) {
-            double time_ms = static_cast<double>(time_ns) / 1000000.0;
-            auto colors = get_time_colors(time_ms);
-
-            // Use a custom formatting for this view
-            os << "  " << colors.time_color;
-            if (time_ms >= 1000.0) {
-                os << std::fixed << std::setprecision(2) << std::setw(10) << (time_ms / 1000.0) << " s";
-            } else if (time_ms >= 1.0) {
-                os << std::fixed << std::setprecision(2) << std::setw(10) << time_ms << " ms";
-            } else {
-                os << std::fixed << std::setprecision(3) << std::setw(10) << (time_ms * 1000.0) << " μs";
-            }
-            os << Colors::RESET;
-
-            // Show average time
-            os << format_average(time_ms, count);
-        }
-
-        os << "\n";
-    }
-
-    // Print summary
-    os << "\n";
-    os << Colors::BOLD << Colors::CYAN
-       << "───────────────────────────────────────────────────────────────────────────────" << Colors::RESET << "\n";
-
-    // Calculate totals
-    std::size_t total_time_ns = 0;
-    std::size_t total_calls = 0;
-    for (const auto& [_, stats] : organized_stats) {
-        total_calls += stats.first;
-        total_time_ns += stats.second;
-    }
-
-    double total_time_ms = static_cast<double>(total_time_ns) / 1000000.0;
-    os << "  " << Colors::BOLD << "Total: " << Colors::RESET << Colors::MAGENTA << organized_stats.size()
-       << " functions" << Colors::RESET << ", " << Colors::GREEN << total_calls << " calls" << Colors::RESET << ", ";
-
-    if (total_time_ms >= 1000.0) {
-        os << Colors::YELLOW << std::fixed << std::setprecision(2) << (total_time_ms / 1000.0) << " seconds"
-           << Colors::RESET;
-    } else {
-        os << Colors::YELLOW << std::fixed << std::setprecision(2) << total_time_ms << " ms" << Colors::RESET;
-    }
-
-    os << "\n";
-    os << Colors::BOLD << Colors::CYAN
-       << "═══════════════════════════════════════════════════════════════════════════════" << Colors::RESET << "\n";
-    os << "\n";
-}
-
 void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream& os) const
 {
-    if (counts.empty()) {
-        os << "No benchmark data collected." << "\n";
-        return;
-    }
-
-    // Phase 1: Collect and normalize all data
-    // Key is "parent_key|function_name" for uniqueness
-    std::map<std::string, NormalizedEntry> normalized_entries;
-
-    // Additional indices for easy lookup
-    std::map<std::string, std::vector<std::string>> children_by_parent; // parent -> list of children
-    std::map<std::string, std::set<std::string>> parents_by_function;   // function -> set of parents
-    std::set<std::string> root_functions;                               // Functions with no parent
-
-    // Temporary structure for collecting raw data
-    struct RawStats {
-        std::size_t time = 0;
-        std::size_t count = 0;
-    };
-
-    // Collect raw data per (function, parent, thread) combination
-    // Key format: "parent_key|function_name|thread_id"
-    std::map<std::string, RawStats> raw_data;
-
-    for (const TimeStatsEntry* entry : counts) {
-        const TimeStats* stats = &entry->count;
-
-        // Process all parent contexts for this entry
-        while (stats != nullptr) {
-            if (stats->count > 0 || stats->time > 0) {
-                // Determine parent key
-                std::string parent_key = stats->parent ? stats->parent->key : "";
-                std::string combined_key = parent_key + "|" + entry->key + "|" + entry->thread_id;
-
-                // Accumulate stats
-                raw_data[combined_key].time += stats->time;
-                raw_data[combined_key].count += stats->count;
-
-                // Track parent-child relationships
-                if (parent_key.empty()) {
-                    root_functions.insert(entry->key);
-                } else {
-                    children_by_parent[parent_key].push_back(entry->key);
-                    parents_by_function[entry->key].insert(parent_key);
-                }
-            }
-            stats = stats->next.get();
-        }
-    }
-
-    // Phase 2: Aggregate by (function, parent) and calculate statistics
-    std::map<std::string, std::vector<RawStats>> stats_by_function_parent;
-
-    for (const auto& [key, stats] : raw_data) {
-        // Parse the combined key
-        size_t first_sep = key.find('|');
-        size_t second_sep = key.find('|', first_sep + 1);
-        std::string parent_key = key.substr(0, first_sep);
-        std::string function_name = key.substr(first_sep + 1, second_sep - first_sep - 1);
-
-        std::string function_parent_key = parent_key + "|" + function_name;
-        stats_by_function_parent[function_parent_key].push_back(stats);
-    }
-
-    // Debug: print what we collected
-    if (debug_bench) {
-        std::cout << "=== DEBUG: Raw data collected ===\n";
-        for (const auto& [key, stats] : raw_data) {
-            std::cout << "  " << key << " -> time=" << stats.time << " count=" << stats.count << "\n";
-        }
-
-        std::cout << "\n=== DEBUG: Function-parent aggregation ===\n";
-        for (const auto& [key, stats_list] : stats_by_function_parent) {
-            size_t total_time = 0;
-            size_t total_count = 0;
-            for (const auto& stats : stats_list) {
-                total_time += stats.time;
-                total_count += stats.count;
-            }
-            std::cout << "  " << key << " -> time=" << total_time << " count=" << total_count << " (from "
-                      << stats_list.size() << " threads)\n";
-        }
-        std::cout << "\n=== DEBUG: Normalized entries ===\n";
-    }
-
-    // Create normalized entries
-    for (const auto& [key, thread_stats] : stats_by_function_parent) {
-        size_t sep = key.find('|');
-        std::string parent_key = key.substr(0, sep);
-        std::string function_name = key.substr(sep + 1);
-
-        NormalizedEntry entry;
-        entry.name = function_name;
-        entry.parent_key = parent_key;
-        entry.num_threads = thread_stats.size();
-
-        // Calculate totals and statistics
-        for (const auto& stats : thread_stats) {
-            entry.time += stats.time;
-            entry.count += stats.count;
-        }
-
-        // Calculate mean and stddev if multi-threaded
-        if (entry.num_threads > 1) {
-            double sum_time = 0;
-            for (const auto& stats : thread_stats) {
-                sum_time += static_cast<double>(stats.time) / 1000000.0;
-            }
-            entry.time_mean = sum_time / static_cast<double>(entry.num_threads);
-
-            // Calculate variance
-            double variance = 0;
-            for (const auto& stats : thread_stats) {
-                double time_ms = static_cast<double>(stats.time) / 1000000.0;
-                variance += (time_ms - entry.time_mean) * (time_ms - entry.time_mean);
-            }
-            entry.time_stddev = std::sqrt(variance / static_cast<double>(entry.num_threads));
-        }
-
-        normalized_entries[key] = entry;
-    }
-
-    // Phase 3: Display the hierarchical structure
+    // Phase 1: Display the hierarchical structure
     // First, print header
     os << "\n";
     print_separator(os, true);
-    os << Colors::BOLD << "  Hierarchical Benchmark Results" << Colors::RESET << "\n";
+    os << Colors::BOLD << "  Benchmark Results" << Colors::RESET << "\n";
     print_separator(os, true);
     os << "\n";
 
-    // Identify functions that appear under multiple parents
-    std::set<std::string> multi_parent_functions;
-    for (const auto& [func, parents] : parents_by_function) {
-        if (parents.size() > 1) {
-            multi_parent_functions.insert(func);
-        }
-    }
+    // Keep track of all operations that have already have their children printed.
+    std::set<OperationKey> printed_in_detail;
 
     // Helper lambda to print a stat line with tree drawing
     auto print_stat_tree =
-        [&](const NormalizedEntry& entry, size_t indent_level, bool is_last, std::size_t parent_time = 0) {
+        [&](const AggregateEntry& entry, size_t indent_level, bool is_last, std::size_t parent_time = 0) {
             std::string indent(indent_level * 2, ' ');
             std::string prefix;
             if (indent_level > 0) {
@@ -587,7 +263,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
             size_t total_prefix_len = indent.length() + prefix.length();
             size_t name_width = std::max<size_t>(30, 70 - total_prefix_len);
             std::string display_name =
-                entry.name.length() > name_width ? entry.name.substr(0, name_width - 3) + "..." : entry.name;
+                entry.key.length() > name_width ? entry.key.substr(0, name_width - 3) + std::string("...") : entry.key;
 
             double time_ms = static_cast<double>(entry.time) / 1000000.0;
             auto colors = get_time_colors(time_ms);
