@@ -95,7 +95,7 @@
 //           aztecProofSubmissionEpochs: 1,
 //           aztecTargetCommitteeSize: 48,
 //           slashingQuorum: 5,
-//           slashingRoundSize: 8,
+//           slashingRoundSizeInEpochs: 2,
 //           slashingLifetimeInRounds: 5,
 //           slashingExecutionDelayInRounds: 0,
 //           slashingVetoer: EthAddress.ZERO,
