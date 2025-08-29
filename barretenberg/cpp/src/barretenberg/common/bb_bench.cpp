@@ -1,6 +1,7 @@
 #ifndef __wasm__
 #include "bb_bench.hpp"
 #include <algorithm>
+#include <cassert>
 #include <chrono>
 #include <cmath>
 #include <functional>
@@ -370,6 +371,11 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
             std::size_t thread_count = 0;
 
             while (stats != nullptr) {
+                // Assert that CommitmentKey::commit always has a parent
+                if (entry->key == "CommitmentKey::commit" && stats->count > 0) {
+                    assert(stats->parent != nullptr && "CommitmentKey::commit must always have a parent context");
+                }
+
                 // For the primary context, add to total and thread stats
                 if (is_primary) {
                     stat_info.count += stats->count;
