@@ -1,5 +1,5 @@
 import { EpochCache } from '@aztec/epoch-cache';
-import type { L1ReaderConfig, ViemClient } from '@aztec/ethereum';
+import type { ViemClient } from '@aztec/ethereum';
 import {
   EmpireSlashingProposerContract,
   RollupContract,
@@ -9,49 +9,16 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
-import { AztecLMDBStoreV2, createStore } from '@aztec/kv-store/lmdb-v2';
+import { AztecLMDBStoreV2 } from '@aztec/kv-store/lmdb-v2';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 
-import { EmpireSlasherClient, type EmpireSlasherSettings } from './empire_slasher_client.js';
-import { NullSlasherClient } from './null_slasher_client.js';
-import { SlasherClientFacade } from './slasher_client_facade.js';
-import type { SlasherClientInterface } from './slasher_client_interface.js';
-import { SlasherOffensesStore } from './stores/offenses_store.js';
-import { SlasherPayloadsStore } from './stores/payloads_store.js';
-import { SCHEMA_VERSION } from './stores/schema_version.js';
-import { TallySlasherClient, type TallySlasherSettings } from './tally_slasher_client.js';
-import type { Watcher } from './watcher.js';
-
-/** Creates a slasher client facade that updates itself whenever the rollup slasher changes */
-export async function createSlasher(
-  config: SlasherConfig & DataStoreConfig & { ethereumSlotDuration: number },
-  l1Contracts: Pick<L1ReaderConfig['l1Contracts'], 'rollupAddress' | 'slashFactoryAddress'>,
-  l1Client: ViemClient,
-  watchers: Watcher[],
-  dateProvider: DateProvider,
-  epochCache: EpochCache,
-  logger = createLogger('slasher'),
-): Promise<SlasherClientInterface> {
-  if (!l1Contracts.rollupAddress || l1Contracts.rollupAddress.equals(EthAddress.ZERO)) {
-    throw new Error('Cannot initialize SlasherClient without a Rollup address');
-  }
-
-  const kvStore = await createStore('slasher', SCHEMA_VERSION, config, createLogger('slasher:lmdb'));
-  const rollup = new RollupContract(l1Client, l1Contracts.rollupAddress);
-
-  return new SlasherClientFacade(
-    config,
-    rollup,
-    l1Client,
-    l1Contracts.slashFactoryAddress,
-    watchers,
-    epochCache,
-    dateProvider,
-    kvStore,
-    logger,
-  );
-}
+import { EmpireSlasherClient, type EmpireSlasherSettings } from '../empire_slasher_client.js';
+import { NullSlasherClient } from '../null_slasher_client.js';
+import { SlasherOffensesStore } from '../stores/offenses_store.js';
+import { SlasherPayloadsStore } from '../stores/payloads_store.js';
+import { TallySlasherClient, type TallySlasherSettings } from '../tally_slasher_client.js';
+import type { Watcher } from '../watcher.js';
 
 /** Creates a slasher client implementation (either tally or empire) based on the slasher proposer type in the rollup */
 export async function createSlasherImplementation(
@@ -128,15 +95,20 @@ async function createEmpireSlasher(
     ethereumSlotDuration: config.ethereumSlotDuration,
   };
 
-  const payloadsStore = new SlasherPayloadsStore(kvStore);
-  const offensesStore = new SlasherOffensesStore(kvStore, settings);
+  const payloadsStore = new SlasherPayloadsStore(kvStore, {
+    slashingPayloadLifetimeInRounds: settings.slashingPayloadLifetimeInRounds,
+  });
+  const offensesStore = new SlasherOffensesStore(kvStore, {
+    ...settings,
+    slashOffenseExpirationRounds: config.slashOffenseExpirationRounds,
+  });
 
   return new EmpireSlasherClient(
     config,
     settings,
     slashFactoryContract,
     slashingProposer,
-    EthAddress.fromString(rollup.address),
+    rollup,
     watchers,
     dateProvider,
     offensesStore,
@@ -199,7 +171,10 @@ async function createTallySlasher(
     targetCommitteeSize: Number(targetCommitteeSize),
   };
 
-  const offensesStore = new SlasherOffensesStore(kvStore, settings);
+  const offensesStore = new SlasherOffensesStore(kvStore, {
+    ...settings,
+    slashOffenseExpirationRounds: config.slashOffenseExpirationRounds,
+  });
 
   return new TallySlasherClient(
     config,

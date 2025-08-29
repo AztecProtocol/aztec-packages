@@ -62,6 +62,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
         slashAmountSmall: slashingUnit,
         slashAmountMedium: slashingUnit * 2n,
         slashAmountLarge: slashingUnit * 3n,
+        slashSelfAllowed: true,
         minTxsPerBlock: 0,
       },
     });

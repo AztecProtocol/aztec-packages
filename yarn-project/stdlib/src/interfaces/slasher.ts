@@ -7,11 +7,11 @@ export type SlasherClientType = 'empire' | 'tally';
 
 export interface SlasherConfig {
   slashOverridePayload?: EthAddress;
-  slashPayloadTtlSeconds: number; // TTL for payloads, in seconds
   slashMinPenaltyPercentage: number;
   slashMaxPenaltyPercentage: number;
-  slashValidatorsAlways: string; // Comma-separated list of validator addresses
-  slashValidatorsNever: string; // Comma-separated list of validator addresses
+  slashSelfAllowed?: boolean; // Whether to allow slashes to own validators
+  slashValidatorsAlways: EthAddress[]; // Array of validator addresses
+  slashValidatorsNever: EthAddress[]; // Array of validator addresses
   slashInactivityTargetPercentage: number; // 0-1, 0.9 means 90%. Must be greater than 0
   slashPrunePenalty: bigint;
   slashInactivityPenalty: bigint;
@@ -26,11 +26,10 @@ export interface SlasherConfig {
 
 export const SlasherConfigSchema = z.object({
   slashOverridePayload: schemas.EthAddress.optional(),
-  slashPayloadTtlSeconds: z.number(),
   slashMinPenaltyPercentage: z.number(),
   slashMaxPenaltyPercentage: z.number(),
-  slashValidatorsAlways: z.string(),
-  slashValidatorsNever: z.string(),
+  slashValidatorsAlways: z.array(schemas.EthAddress),
+  slashValidatorsNever: z.array(schemas.EthAddress),
   slashPrunePenalty: schemas.BigInt,
   slashInactivityTargetPercentage: z.number(),
   slashInactivityPenalty: schemas.BigInt,
@@ -41,4 +40,5 @@ export const SlasherConfigSchema = z.object({
   slashMaxPayloadSize: z.number(),
   slashGracePeriodL2Slots: z.number(),
   slashBroadcastedInvalidBlockPenalty: schemas.BigInt,
+  slashSelfAllowed: z.boolean().optional(),
 }) satisfies ZodFor<SlasherConfig>;
