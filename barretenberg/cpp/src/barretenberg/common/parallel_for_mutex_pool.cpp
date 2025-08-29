@@ -1,3 +1,4 @@
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #ifndef NO_MULTITHREADING
@@ -104,8 +105,6 @@ ThreadPool::~ThreadPool()
 
 void ThreadPool::worker_loop(size_t /*unused*/)
 {
-    // Make sure nested stats accounting works under multithreading
-    bb::detail::GlobalBenchStatsContainer::parent = parent;
     // info("created worker ", worker_num);
     while (true) {
         {
@@ -116,6 +115,9 @@ void ThreadPool::worker_loop(size_t /*unused*/)
                 break;
             }
         }
+        // Make sure nested stats accounting works under multithreading
+        // Note: parent is a thread-local variable.
+        bb::detail::GlobalBenchStatsContainer::parent = parent;
         do_iterations();
     }
     // info("worker exit ", worker_num);

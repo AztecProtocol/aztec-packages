@@ -517,7 +517,15 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
                         // Include ALL children, even multi-parent ones
                         // They'll be marked with [shared] when displayed
                         children_vec.push_back(child);
-                        children_total_time += all_stats[child].time;
+
+                        // For multi-parent children that have already been visited,
+                        // don't count their time in the total (they're just references)
+                        if (visited.contains(child) && all_stats[child].parents.size() > 1) {
+                            // This is a reference to an already-printed shared node
+                            // Don't add its time to avoid double-counting
+                        } else {
+                            children_total_time += all_stats[child].time;
+                        }
                     }
 
                     // Sort children by time
