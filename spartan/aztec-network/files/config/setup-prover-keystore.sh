@@ -31,7 +31,7 @@ jq -n '
   remoteSigner: $remoteSigner,
   prover: {
     id: $proverId,
-    publisher: $publisher,
+    publisher: [$publisher],
   }
 }
 ' --argjson remoteSigner "$remoteSigner" \
