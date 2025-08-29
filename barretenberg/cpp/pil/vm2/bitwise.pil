@@ -54,9 +54,10 @@ pol commit start; // Identifies when we want to capture the output to the main t
 // Must be constrained as a boolean as any selector used in a lookup/permutation.
 start * (1 - start) = 0;
 
-// If start_keccak is 1, then start must be 1.
 // This is used to support the KeccakF1600 subtrace.
 pol commit start_keccak;
+start_keccak * (1 - start_keccak) = 0;
+// If start_keccak is 1, then start must be 1.
 start_keccak * (1 - start) = 0;
 
 // To support dynamically sized memory operands we use a counter against a lookup

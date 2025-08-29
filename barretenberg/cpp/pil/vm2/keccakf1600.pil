@@ -743,72 +743,72 @@ state_rho_44 = POW_ROT_LEN_44 * state_theta_low_44 + state_theta_hi_44;
 pol commit rot_len_02;
 sel * (rot_len_02 - ROT_LEN_02) = 0; // TODO: Remove once we support constants in lookups
 #[THETA_LIMB_02_RANGE]
-sel_no_error { state_theta_hi_02, rot_len_02 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_no_error { state_theta_hi_02, rot_len_02 } in range_check.sel_keccak { range_check.value, range_check.rng_chk_bits };
 
 pol commit rot_len_04;
 sel * (rot_len_04 - ROT_LEN_04) = 0; // TODO: Remove once we support constants in lookups
 #[THETA_LIMB_04_RANGE]
-sel_no_error { state_theta_hi_04, rot_len_04 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_no_error { state_theta_hi_04, rot_len_04 } in range_check.sel_keccak { range_check.value, range_check.rng_chk_bits };
 
 pol commit rot_len_10;
 sel * (rot_len_10 - ROT_LEN_10) = 0; // TODO: Remove once we support constants in lookups
 #[THETA_LIMB_10_RANGE]
-sel_no_error { state_theta_hi_10, rot_len_10 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_no_error { state_theta_hi_10, rot_len_10 } in range_check.sel_keccak { range_check.value, range_check.rng_chk_bits };
 
 pol commit rot_len_12;
 sel * (rot_len_12 - ROT_LEN_12) = 0; // TODO: Remove once we support constants in lookups
 #[THETA_LIMB_12_RANGE]
-sel_no_error { state_theta_hi_12, rot_len_12 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_no_error { state_theta_hi_12, rot_len_12 } in range_check.sel_keccak { range_check.value, range_check.rng_chk_bits };
 
 pol commit rot_len_14;
 sel * (rot_len_14 - ROT_LEN_14) = 0; // TODO: Remove once we support constants in lookups
 #[THETA_LIMB_14_RANGE]
-sel_no_error { state_theta_hi_14, rot_len_14 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_no_error { state_theta_hi_14, rot_len_14 } in range_check.sel_keccak { range_check.value, range_check.rng_chk_bits };
 
 pol commit rot_len_21;
 sel * (rot_len_21 - ROT_LEN_21) = 0; // TODO: Remove once we support constants in lookups
 #[THETA_LIMB_21_RANGE]
-sel_no_error { state_theta_hi_21, rot_len_21 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_no_error { state_theta_hi_21, rot_len_21 } in range_check.sel_keccak { range_check.value, range_check.rng_chk_bits };
 
 pol commit rot_len_23;
 sel * (rot_len_23 - ROT_LEN_23) = 0; // TODO: Remove once we support constants in lookups
 #[THETA_LIMB_23_RANGE]
-sel_no_error { state_theta_hi_23, rot_len_23 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_no_error { state_theta_hi_23, rot_len_23 } in range_check.sel_keccak { range_check.value, range_check.rng_chk_bits };
 
 pol commit rot_len_30;
 sel * (rot_len_30 - ROT_LEN_30) = 0; // TODO: Remove once we support constants in lookups
 #[THETA_LIMB_30_RANGE]
-sel_no_error { state_theta_hi_30, rot_len_30 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_no_error { state_theta_hi_30, rot_len_30 } in range_check.sel_keccak { range_check.value, range_check.rng_chk_bits };
 
 pol commit rot_len_32;
 sel * (rot_len_32 - ROT_LEN_32) = 0; // TODO: Remove once we support constants in lookups
 #[THETA_LIMB_32_RANGE]
-sel_no_error { state_theta_hi_32, rot_len_32 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_no_error { state_theta_hi_32, rot_len_32 } in range_check.sel_keccak { range_check.value, range_check.rng_chk_bits };
 
 pol commit rot_len_33;
 sel * (rot_len_33 - ROT_LEN_33) = 0; // TODO: Remove once we support constants in lookups
 #[THETA_LIMB_33_RANGE]
-sel_no_error { state_theta_hi_33, rot_len_33 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_no_error { state_theta_hi_33, rot_len_33 } in range_check.sel_keccak { range_check.value, range_check.rng_chk_bits };
 
 pol commit rot_len_40;
 sel * (rot_len_40 - ROT_LEN_40) = 0; // TODO: Remove once we support constants in lookups
 #[THETA_LIMB_40_RANGE]
-sel_no_error { state_theta_hi_40, rot_len_40 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_no_error { state_theta_hi_40, rot_len_40 } in range_check.sel_keccak { range_check.value, range_check.rng_chk_bits };
 
 pol commit rot_len_41;
 sel * (rot_len_41 - ROT_LEN_41) = 0; // TODO: Remove once we support constants in lookups
 #[THETA_LIMB_41_RANGE]
-sel_no_error { state_theta_hi_41, rot_len_41 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_no_error { state_theta_hi_41, rot_len_41 } in range_check.sel_keccak { range_check.value, range_check.rng_chk_bits };
 
 pol commit rot_len_43;
 sel * (rot_len_43 - ROT_LEN_43) = 0; // TODO: Remove once we support constants in lookups
 #[THETA_LIMB_43_RANGE]
-sel_no_error { state_theta_hi_43, rot_len_43 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_no_error { state_theta_hi_43, rot_len_43 } in range_check.sel_keccak { range_check.value, range_check.rng_chk_bits };
 
 pol commit rot_len_44;
 sel * (rot_len_44 - ROT_LEN_44) = 0; // TODO: Remove once we support constants in lookups
 #[THETA_LIMB_44_RANGE]
-sel_no_error { state_theta_hi_44, rot_len_44 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_no_error { state_theta_hi_44, rot_len_44 } in range_check.sel_keccak { range_check.value, range_check.rng_chk_bits };
 
 // Rotations with length > 32:
 // Indices:  01, 03, 11, 13, 20, 22, 24, 31, 34, 42
@@ -818,52 +818,52 @@ sel_no_error { state_theta_hi_44, rot_len_44 } in range_check.sel { range_check.
 pol commit rot_64_min_len_01;
 sel * (rot_64_min_len_01 - (64 - ROT_LEN_01)) = 0; // TODO: Remove once we support constants in lookups
 #[THETA_LIMB_01_RANGE]
-sel_no_error { state_theta_low_01, rot_64_min_len_01 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_no_error { state_theta_low_01, rot_64_min_len_01 } in range_check.sel_keccak { range_check.value, range_check.rng_chk_bits };
 
 pol commit rot_64_min_len_03;
 sel * (rot_64_min_len_03 - (64 - ROT_LEN_03)) = 0; // TODO: Remove once we support constants in lookups
 #[THETA_LIMB_03_RANGE]
-sel_no_error { state_theta_low_03, rot_64_min_len_03 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_no_error { state_theta_low_03, rot_64_min_len_03 } in range_check.sel_keccak { range_check.value, range_check.rng_chk_bits };
 
 pol commit rot_64_min_len_11;
 sel * (rot_64_min_len_11 - (64 - ROT_LEN_11)) = 0; // TODO: Remove once we support constants in lookups
 #[THETA_LIMB_11_RANGE]
-sel_no_error { state_theta_low_11, rot_64_min_len_11 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_no_error { state_theta_low_11, rot_64_min_len_11 } in range_check.sel_keccak { range_check.value, range_check.rng_chk_bits };
 
 pol commit rot_64_min_len_13;
 sel * (rot_64_min_len_13 - (64 - ROT_LEN_13)) = 0; // TODO: Remove once we support constants in lookups
 #[THETA_LIMB_13_RANGE]
-sel_no_error { state_theta_low_13, rot_64_min_len_13 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_no_error { state_theta_low_13, rot_64_min_len_13 } in range_check.sel_keccak { range_check.value, range_check.rng_chk_bits };
 
 pol commit rot_64_min_len_20;
 sel * (rot_64_min_len_20 - (64 - ROT_LEN_20)) = 0; // TODO: Remove once we support constants in lookups
 #[THETA_LIMB_20_RANGE]
-sel_no_error { state_theta_low_20, rot_64_min_len_20 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_no_error { state_theta_low_20, rot_64_min_len_20 } in range_check.sel_keccak { range_check.value, range_check.rng_chk_bits };
 
 pol commit rot_64_min_len_22;
 sel * (rot_64_min_len_22 - (64 - ROT_LEN_22)) = 0; // TODO: Remove once we support constants in lookups
 #[THETA_LIMB_22_RANGE]
-sel_no_error { state_theta_low_22, rot_64_min_len_22 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_no_error { state_theta_low_22, rot_64_min_len_22 } in range_check.sel_keccak { range_check.value, range_check.rng_chk_bits };
 
 pol commit rot_64_min_len_24;
 sel * (rot_64_min_len_24 - (64 - ROT_LEN_24)) = 0; // TODO: Remove once we support constants in lookups
 #[THETA_LIMB_24_RANGE]
-sel_no_error { state_theta_low_24, rot_64_min_len_24 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_no_error { state_theta_low_24, rot_64_min_len_24 } in range_check.sel_keccak { range_check.value, range_check.rng_chk_bits };
 
 pol commit rot_64_min_len_31;
 sel * (rot_64_min_len_31 - (64 - ROT_LEN_31)) = 0; // TODO: Remove once we support constants in lookups
 #[THETA_LIMB_31_RANGE]
-sel_no_error { state_theta_low_31, rot_64_min_len_31 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_no_error { state_theta_low_31, rot_64_min_len_31 } in range_check.sel_keccak { range_check.value, range_check.rng_chk_bits };
 
 pol commit rot_64_min_len_34;
 sel * (rot_64_min_len_34 - (64 - ROT_LEN_34)) = 0; // TODO: Remove once we support constants in lookups
 #[THETA_LIMB_34_RANGE]
-sel_no_error { state_theta_low_34, rot_64_min_len_34 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_no_error { state_theta_low_34, rot_64_min_len_34 } in range_check.sel_keccak { range_check.value, range_check.rng_chk_bits };
 
 pol commit rot_64_min_len_42;
 sel * (rot_64_min_len_42 - (64 - ROT_LEN_42)) = 0; // TODO: Remove once we support constants in lookups
 #[THETA_LIMB_42_RANGE]
-sel_no_error { state_theta_low_42, rot_64_min_len_42 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_no_error { state_theta_low_42, rot_64_min_len_42 } in range_check.sel_keccak { range_check.value, range_check.rng_chk_bits };
 
 //#############################################################################
 //                      Pi round function

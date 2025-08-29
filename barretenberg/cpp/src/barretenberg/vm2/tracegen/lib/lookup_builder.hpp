@@ -52,9 +52,12 @@ template <typename LookupSettings_> class IndexedLookupTraceBuilder : public Int
                 trace.get(LookupSettings::DST_SELECTOR, dst_row) != 1) {
                 trace.set(LookupSettings::DST_SELECTOR, dst_row, 1);
             }
+            // FIXME: WRONG! we now hae to do it in a separate stage if they can be shared.
+            // Set dummy inverse.
+            if (trace.get(LookupSettings::INVERSES, dst_row) == 0) {
+                trace.set(LookupSettings::INVERSES, dst_row, 0xdeadbeef);
+            }
         });
-
-        SetDummyInverses<LookupSettings_>(trace);
     }
 
   protected:
@@ -73,6 +76,12 @@ template <typename LookupSettings_> class IndexedLookupTraceBuilder : public Int
 template <typename LookupSettings_>
 class LookupIntoDynamicTableGeneric : public IndexedLookupTraceBuilder<LookupSettings_> {
   public:
+    LookupIntoDynamicTableGeneric()
+        : IndexedLookupTraceBuilder<LookupSettings_>()
+    {}
+    LookupIntoDynamicTableGeneric(Column outer_dst_selector)
+        : IndexedLookupTraceBuilder<LookupSettings_>(outer_dst_selector)
+    {}
     virtual ~LookupIntoDynamicTableGeneric() = default;
 
   protected:
@@ -154,6 +163,11 @@ template <typename LookupSettings> class LookupIntoDynamicTableSequential : publ
                         trace.set(LookupSettings::DST_SELECTOR, dst_row, 1);
                     }
 
+                    // Set dummy inverse.
+                    if (trace.get(LookupSettings::INVERSES, dst_row) == 0) {
+                        trace.set(LookupSettings::INVERSES, dst_row, 0xdeadbeef);
+                    }
+
                     found = true;
                     // We don't want to increment dst_row if we found a match.
                     // It could be that the next "query" will find the same tuple.
@@ -169,8 +183,6 @@ template <typename LookupSettings> class LookupIntoDynamicTableSequential : publ
                     "): " + column_values_to_string(src_values, LookupSettings::SRC_COLUMNS) +
                     "\nNOTE: Remember that you cannot use LookupIntoDynamicTableSequential with a deduplicated trace!");
             }
-
-            SetDummyInverses<LookupSettings>(trace);
         }
     }
 

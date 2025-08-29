@@ -29,6 +29,11 @@ template <typename LookupSettings> void SetDummyInverses(TraceContainer& trace)
                        [&](uint32_t row, const FF&) { trace.set(LookupSettings::INVERSES, row, 0xdeadbeef); });
     trace.visit_column(LookupSettings::DST_SELECTOR,
                        [&](uint32_t row, const FF&) { trace.set(LookupSettings::INVERSES, row, 0xdeadbeef); });
+    // uint32_t num_rows = std::max(trace.get_column_rows(LookupSettings::SRC_SELECTOR),
+    //                              trace.get_column_rows(LookupSettings::DST_SELECTOR));
+    // if (num_rows > 0) {
+    //     trace.set(LookupSettings::INVERSES, num_rows - 1, 0xdeadbeef);
+    // }
 }
 
 } // namespace bb::avm2::tracegen

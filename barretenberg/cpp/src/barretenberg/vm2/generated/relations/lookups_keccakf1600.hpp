@@ -1458,7 +1458,7 @@ struct lookup_keccakf1600_theta_limb_02_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_keccak;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_02_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_02_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -1482,7 +1482,7 @@ struct lookup_keccakf1600_theta_limb_04_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_keccak;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_04_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_04_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -1506,7 +1506,7 @@ struct lookup_keccakf1600_theta_limb_10_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_keccak;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_10_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_10_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -1530,7 +1530,7 @@ struct lookup_keccakf1600_theta_limb_12_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_keccak;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_12_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_12_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -1554,7 +1554,7 @@ struct lookup_keccakf1600_theta_limb_14_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_keccak;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_14_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_14_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -1578,7 +1578,7 @@ struct lookup_keccakf1600_theta_limb_21_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_keccak;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_21_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_21_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -1602,7 +1602,7 @@ struct lookup_keccakf1600_theta_limb_23_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_keccak;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_23_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_23_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -1626,7 +1626,7 @@ struct lookup_keccakf1600_theta_limb_30_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_keccak;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_30_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_30_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -1650,7 +1650,7 @@ struct lookup_keccakf1600_theta_limb_32_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_keccak;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_32_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_32_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -1674,7 +1674,7 @@ struct lookup_keccakf1600_theta_limb_33_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_keccak;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_33_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_33_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -1698,7 +1698,7 @@ struct lookup_keccakf1600_theta_limb_40_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_keccak;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_40_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_40_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -1722,7 +1722,7 @@ struct lookup_keccakf1600_theta_limb_41_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_keccak;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_41_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_41_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -1746,7 +1746,7 @@ struct lookup_keccakf1600_theta_limb_43_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_keccak;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_43_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_43_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -1770,7 +1770,7 @@ struct lookup_keccakf1600_theta_limb_44_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_keccak;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_44_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_44_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -1794,7 +1794,7 @@ struct lookup_keccakf1600_theta_limb_01_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_keccak;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_01_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_01_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -1818,7 +1818,7 @@ struct lookup_keccakf1600_theta_limb_03_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_keccak;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_03_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_03_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -1842,7 +1842,7 @@ struct lookup_keccakf1600_theta_limb_11_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_keccak;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_11_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_11_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -1866,7 +1866,7 @@ struct lookup_keccakf1600_theta_limb_13_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_keccak;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_13_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_13_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -1890,7 +1890,7 @@ struct lookup_keccakf1600_theta_limb_20_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_keccak;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_20_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_20_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -1914,7 +1914,7 @@ struct lookup_keccakf1600_theta_limb_22_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_keccak;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_22_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_22_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -1938,7 +1938,7 @@ struct lookup_keccakf1600_theta_limb_24_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_keccak;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_24_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_24_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -1962,7 +1962,7 @@ struct lookup_keccakf1600_theta_limb_31_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_keccak;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_31_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_31_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -1986,7 +1986,7 @@ struct lookup_keccakf1600_theta_limb_34_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_keccak;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_34_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_34_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -2010,7 +2010,7 @@ struct lookup_keccakf1600_theta_limb_42_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_keccak;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_42_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_42_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
