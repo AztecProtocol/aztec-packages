@@ -357,8 +357,11 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
      * @brief Third term: tuple of (pc, P.x, P.y, msm-size) from ECCVMTranscriptRelation.
      *        (P.x, P.y) is the *claimed* output of a multi-scalar-multiplication evaluated in ECCVMMSMRelation.
      *        We need to validate that the msm output produced in ECCVMMSMRelation is equivalent to the output present
-     * in `transcript_msm_output_x, transcript_msm_output_y`, for a given multi-scalar multiplication starting at
-     * `transcript_pc` and has size `transcript_msm_count`
+     *        in `transcript_msm_output_x, transcript_msm_output_y`, for a given multi-scalar multiplication starting at
+     *        `transcript_pc` and has size `transcript_msm_count`.
+     * @note  In the case of an honest prover, `(transcript_msm_output_x, transcript_msm_output_y)` is the value of the
+     *        just-completed MSM + `OFFSET` (as this is what the MSM table computes with to avoid branch logic.)
+     *
      */
     {
         auto transcript_pc_shift = View(in.transcript_pc_shift);
