@@ -376,7 +376,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
         });
 
         if (!children.empty() && keys_to_parents[key].size() > 1) {
-            os << std::string(indent_level * 2, ' ') << "NOTE: Shared children. Will add up to > 100%.\n";
+            os << std::string(indent_level * 2, ' ') << "  ├─ NOTE: Shared children. Will add up to > 100%.\n";
         }
 
         // Print children
