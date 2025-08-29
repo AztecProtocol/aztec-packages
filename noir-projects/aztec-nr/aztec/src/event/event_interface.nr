@@ -135,13 +135,13 @@ where
     assert_constant(delivery_mode);
 
     // The following maps out the 3 dimensions across which we configure message delivery.
-    let unconstrained_encryption = delivery_mode != MessageDelivery.CONSTRAINED_ONCHAIN;
+    let constrained_encryption = delivery_mode == MessageDelivery.CONSTRAINED_ONCHAIN;
     let emit_as_offchain_message = delivery_mode == MessageDelivery.UNCONSTRAINED_OFFCHAIN;
     // TODO(#14565): Add constrained tagging
     let _constrained_tagging = delivery_mode == MessageDelivery.CONSTRAINED_ONCHAIN;
 
     let (ciphertext, randomness) = remove_constraints_if(
-        unconstrained_encryption,
+        !constrained_encryption,
         || to_encrypted_private_event_message(event, recipient),
     );
 
