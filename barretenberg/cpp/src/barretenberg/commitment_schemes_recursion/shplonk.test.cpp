@@ -26,6 +26,9 @@ template <class Builder> class ShplonkRecursionTest : public CommitmentTest<type
             auto r = Fr::from_witness(builder, opening_claims[idx].opening_pair.challenge);
             auto eval = Fr::from_witness(builder, opening_claims[idx].opening_pair.evaluation);
             auto commit = Commitment::from_witness(builder, opening_claims[idx].commitment);
+            r.fix_witness();
+            eval.fix_witness();
+            commit.fix_witness();
             stdlib_opening_claims.emplace_back(OpeningClaim<Curve>({ r, eval }, commit));
         }
 
@@ -42,6 +45,9 @@ template <class Builder> class ShplonkRecursionTest : public CommitmentTest<type
             auto r = Fr::from_witness(builder, opening_claim.opening_pair.challenge);
             auto eval = Fr::from_witness(builder, opening_claim.opening_pair.evaluation);
             auto commit = Commitment::from_witness(builder, opening_claim.commitment);
+            r.fix_witness();
+            eval.fix_witness();
+            commit.fix_witness();
             stdlib_opening_pairs.emplace_back(OpeningPair<Curve>(r, eval));
             stdlib_commitments.emplace_back(commit);
         }
@@ -82,7 +88,6 @@ TYPED_TEST(ShplonkRecursionTest, Simple)
 
     // Convert opening claims to witnesses
     auto native_verifier_claims = ClaimData::verifier_opening_claims(setup);
-    // WORKTODO: To pass the origin tags check: could either fix the witnesses of the claims or fiat shamir them
     auto stdlib_opening_claims =
         this->native_to_stdlib_opening_claims(&builder, native_verifier_claims, native_verifier_claims.size());
 
@@ -135,11 +140,11 @@ TYPED_TEST(ShplonkRecursionTest, LinearlyDependent)
         Builder builder;
         StdlibProof stdlib_proof(builder, proof);
 
-        // WORKTODO: To pass the origin tags check: could either fix the witnesses of the claims or fiat shamir them
         auto coeff1 = Fr::from_witness(&builder, coefficients[0]);
         auto coeff2 = Fr::from_witness(&builder, coefficients[1]);
+        coeff1.fix_witness();
+        coeff2.fix_witness();
 
-        // WORKTODO: To pass the origin tags check: could either fix the witnesses of the claims or fiat shamir them
         // Convert opening claims to witnesses
         auto stdlib_opening_claims =
             this->native_to_stdlib_opening_claims(&builder, native_opening_claims, native_opening_claims.size() - 1);
@@ -148,10 +153,11 @@ TYPED_TEST(ShplonkRecursionTest, LinearlyDependent)
         Commitment commit = GroupElement::batch_mul(
             { stdlib_opening_claims[0].commitment, stdlib_opening_claims[1].commitment }, { coeff1, coeff2 });
 
-        // WORKTODO: To pass the origin tags check: could either fix the witnesses of the claims or fiat shamir them
         // Opening pair for the linear combination as it would be received by the Verifier from the Prover
         Fr r = Fr::from_witness(&builder, native_opening_claims[2].opening_pair.challenge);
         Fr eval = Fr::from_witness(&builder, native_opening_claims[2].opening_pair.evaluation);
+        r.fix_witness();
+        eval.fix_witness();
 
         // Opening claim for the linear combination
         stdlib_opening_claims.emplace_back(OpeningClaim({ r, eval }, commit));
@@ -180,6 +186,8 @@ TYPED_TEST(ShplonkRecursionTest, LinearlyDependent)
 
         auto coeff1 = Fr::from_witness(&builder, coefficients[0]);
         auto coeff2 = Fr::from_witness(&builder, coefficients[1]);
+        coeff1.fix_witness();
+        coeff2.fix_witness();
 
         // Convert opening claims to witnesses
         auto [stdlib_commitments, stdlib_opening_pairs] = this->native_to_stdlib_pairs_and_commitments(
@@ -188,6 +196,8 @@ TYPED_TEST(ShplonkRecursionTest, LinearlyDependent)
         // Opening pair for the linear combination as it would be received by the Verifier from the Prover
         Fr r = Fr::from_witness(&builder, native_opening_claims[2].opening_pair.challenge);
         Fr eval = Fr::from_witness(&builder, native_opening_claims[2].opening_pair.evaluation);
+        r.fix_witness();
+        eval.fix_witness();
 
         // Update data
         std::vector<typename ShplonkVerifier::LinearCombinationOfClaims> update_data = {
