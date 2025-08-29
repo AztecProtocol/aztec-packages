@@ -55,7 +55,7 @@ ECCVMRecursiveTests: different child tags (unknown reason)
 stdlib_bigfield: suspicious failure... possible bug
 [38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/a689f474d60be0a7a689f474d60be0a7]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_primitives_tests stdlib_bigfield/0.assert_is_in_field_succes (0s) (code: 1)
 
-GoblinRecursiveVerifierTests:
+GoblinRecursiveVerifierTests: from_witness merge_commitments in test
 [38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/361f78f79421f061361f78f79421f061]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_goblin_verifier_tests GoblinRecursiveVerifierTests.Basic (11s) (code: 1)
 [38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/455fb7686e32bfff455fb7686e32bfff]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_goblin_verifier_tests GoblinRecursiveVerifierTests.IndependentVKHash (11s) (code: 1)
 [38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/d4b5f43b0dc15445d4b5f43b0dc15445]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_goblin_verifier_tests GoblinRecursiveVerifierTests.TranslatorFailure (11s) (code: 1)
@@ -63,7 +63,7 @@ GoblinRecursiveVerifierTests:
 [38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/9c34b027481528949c34b02748152894]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_goblin_verifier_tests GoblinRecursiveVerifierTests.TranslationEvaluationsFailure (12s) (code: 1)
 [38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/e914211bdf232c25e914211bdf232c25]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_goblin_verifier_tests GoblinRecursiveVerifierTests.ECCVMFailure (12s) (code: 1)
 
-ProtogalaxyRecursiveTests:
+ProtogalaxyRecursiveTests: we don't fiat-shamir accmulator
 [38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/4f52197c17c4597e4f52197c17c4597e]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_protogalaxy_verifier_tests ProtogalaxyRecursiveTests.RecursiveFoldingTest (2s) (code: 1)
 [38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/89bd1d3c92ed60ce89bd1d3c92ed60ce]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_protogalaxy_verifier_tests ProtogalaxyRecursiveTests.RecursiveFoldingTwiceTest (2s) (code: 1)
 [38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/8c40b598090787648c40b59809078764]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_protogalaxy_verifier_tests ProtogalaxyRecursiveTests.ConstantVerifierCircuit (2s) (code: 1)
@@ -71,13 +71,13 @@ ProtogalaxyRecursiveTests:
 [38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/563a9d102568e80f563a9d102568e80f]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_protogalaxy_verifier_tests ProtogalaxyRecursiveTests.TamperedDeciderProof (3s) (code: 1)
 [38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/f5771c2558668b0ff5771c2558668b0f]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_protogalaxy_verifier_tests ProtogalaxyRecursiveTests.TamperedAccumulator (3s) (code: 1)
 
-TranslatorRecursiveTests:
+TranslatorRecursiveTests: suspicious from_witness in test but fails with different child tags
 [38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/5bee7e69afcf28fb5bee7e69afcf28fb]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_translator_vm_verifier_tests TranslatorRecursiveTests.IndependentVKHash (7s) (code: 1)
 [38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/e2e1ac98738276bfe2e1ac98738276bf]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_translator_vm_verifier_tests TranslatorRecursiveTests.SingleRecursiveVerification (7s) (code: 1)
 
-CivcRecursionConstraintTest:
+CivcRecursionConstraintTest: fails with different child tags in zk recursive verifier
 [38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/1f6db6eb0bc24ae31f6db6eb0bc24ae3]8;;[0m): barretenberg/cpp/scripts/run_test.sh dsl_tests CivcRecursionConstraintTest.GenerateRecursiveCivcVerifierVKFromConstraints (85s) (code: 1)
 
-ClientIVCRecursionTests:
+ClientIVCRecursionTests: ZK padding indicator causes different child tags
 [38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/28dafc2785419cbd28dafc2785419cbd]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_client_ivc_verifier_tests ClientIVCRecursionTests.TubeVKIndependentOfInputCircuits (64s) (code: 1)
 [38;2;230;69;83mFAILED[0m ([38;2;250;217;121m]8;;http://ci.aztec-labs.com/3fcb979b91b08b0c3fcb979b91b08b0c]8;;[0m): barretenberg/cpp/scripts/run_test.sh stdlib_client_ivc_verifier_tests ClientIVCRecursionTests.Basic (65s) (code: 1)
