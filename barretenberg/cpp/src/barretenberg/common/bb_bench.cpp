@@ -73,11 +73,13 @@ TimeColor get_time_colors(double time_ms)
 // Helper to format percentage with optional display
 std::string format_percentage(double value, double total, double min_threshold = 0.1)
 {
-    if (total <= 0)
+    if (total <= 0) {
         return "      ";
+    }
     double percentage = (value / total) * 100.0;
-    if (percentage < min_threshold)
+    if (percentage < min_threshold) {
         return "      ";
+    }
 
     std::ostringstream oss;
     oss << Colors::CYAN << " " << std::fixed << std::setprecision(1) << std::setw(5) << percentage << "%"
@@ -88,8 +90,9 @@ std::string format_percentage(double value, double total, double min_threshold =
 // Print average time if count > 1
 std::string format_average(double time_ms, std::size_t count)
 {
-    if (count <= 1)
+    if (count <= 1) {
         return "";
+    }
     double avg_ms = time_ms / static_cast<double>(count);
     std::ostringstream oss;
     oss << Colors::DIM << " (" << format_time(avg_ms) << " x " << count << ")" << Colors::RESET;
@@ -129,11 +132,11 @@ void GlobalBenchStatsContainer::add_entry(const char* key, TimeStatsEntry* entry
 
 void GlobalBenchStatsContainer::print() const
 {
-    std::cout << "print_op_counts() START" << std::endl;
+    std::cout << "print_op_counts() START" << "\n";
     for (const TimeStatsEntry* entry : counts) {
         print_stats_recursive(entry->key, &entry->count, entry->thread_id, "");
     }
-    std::cout << "print_op_counts() END" << std::endl;
+    std::cout << "print_op_counts() END" << "\n";
 }
 
 void GlobalBenchStatsContainer::print_stats_recursive(const std::string& key,
@@ -142,11 +145,11 @@ void GlobalBenchStatsContainer::print_stats_recursive(const std::string& key,
                                                       const std::string& indent) const
 {
     if (stats->count > 0) {
-        std::cout << indent << key << "\t" << stats->count << "\t[thread=" << thread_id << "]" << std::endl;
+        std::cout << indent << key << "\t" << stats->count << "\t[thread=" << thread_id << "]" << "\n";
     }
     if (stats->time > 0) {
         std::cout << indent << key << "(t)\t" << static_cast<double>(stats->time) / 1000000.0
-                  << "ms\t[thread=" << thread_id << "]" << std::endl;
+                  << "ms\t[thread=" << thread_id << "]" << "\n";
     }
 
     if (stats->next) {
@@ -188,7 +191,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts(std::ostream& os, size_t 
             os << ',';
         }
         if (indent > 0) {
-            os << std::endl << std::string(indent, ' ');
+            os << "\n" << std::string(indent, ' ');
         }
         os << '"' << key << "\":" << value;
         first = false;
@@ -196,7 +199,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts(std::ostream& os, size_t 
     if (indent > 0) {
         os << "\n";
     }
-    os << '}' << std::endl;
+    os << '}' << "\n";
 }
 
 void GlobalBenchStatsContainer::print_aggregate_counts_pretty(std::ostream& os) const
@@ -204,7 +207,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts_pretty(std::ostream& os) 
 
     auto counts = get_aggregate_counts();
     if (counts.empty()) {
-        os << "No benchmark data collected." << std::endl;
+        os << "No benchmark data collected." << "\n";
         return;
     }
 
@@ -224,13 +227,13 @@ void GlobalBenchStatsContainer::print_aggregate_counts_pretty(std::ostream& os) 
     for (const auto& [name, _] : organized_stats) {
         max_name_width = std::max(max_name_width, name.length());
     }
-    max_name_width = std::min(max_name_width, size_t(60)); // Cap at 60 chars
+    max_name_width = std::min(max_name_width, static_cast<size_t>(60)); // Cap at 60 chars
 
     // Print header
     os << "\n";
     os << Colors::BOLD << Colors::CYAN
        << "═══════════════════════════════════════════════════════════════════════════════" << Colors::RESET << "\n";
-    os << Colors::BOLD << "  Benchmark Results" << Colors::RESET << std::endl;
+    os << Colors::BOLD << "  Benchmark Results" << Colors::RESET << "\n";
     os << Colors::BOLD << Colors::CYAN
        << "═══════════════════════════════════════════════════════════════════════════════" << Colors::RESET << "\n";
     os << "\n";
@@ -238,17 +241,16 @@ void GlobalBenchStatsContainer::print_aggregate_counts_pretty(std::ostream& os) 
     // Sort by total time descending
     std::vector<std::pair<std::string, std::pair<std::size_t, std::size_t>>> sorted_stats(organized_stats.begin(),
                                                                                           organized_stats.end());
-    std::sort(sorted_stats.begin(), sorted_stats.end(), [](const auto& a, const auto& b) {
-        return a.second.second > b.second.second;
-    });
+    std::ranges::sort(sorted_stats, [](const auto& a, const auto& b) { return a.second.second > b.second.second; });
 
     // Print each function's stats
     for (const auto& [name, stats] : sorted_stats) {
         auto [count, time_ns] = stats;
 
         // Skip entries with no time or count
-        if (count == 0 && time_ns == 0)
+        if (count == 0 && time_ns == 0) {
             continue;
+        }
 
         // Format name (truncate if too long)
         std::string display_name = name;
@@ -323,7 +325,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
 {
 
     if (counts.empty()) {
-        os << "No benchmark data collected." << std::endl;
+        os << "No benchmark data collected." << "\n";
         return;
     }
 
@@ -389,7 +391,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
     std::set<std::string> multi_parent_with_children;
 
     for (const auto& [key, info] : all_stats) {
-        if (info.parents.size() > 1 && children_map.count(key) && !children_map[key].empty()) {
+        if (info.parents.size() > 1 && children_map.contains(key) && !children_map[key].empty()) {
             multi_parent_with_children.insert(key);
 
             // Find common ancestor of all parents
@@ -436,7 +438,10 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
     // Helper lambda to print a stat line with tree drawing
     auto print_stat_tree = [&](const std::string& name, const StatInfo& info, size_t indent_level, bool is_last) {
         std::string indent(indent_level * 2, ' ');
-        std::string prefix = indent_level > 0 ? (is_last ? "└─ " : "├─ ") : "";
+        std::string prefix;
+        if (indent_level > 0) {
+            prefix = is_last ? "└─ " : "├─ ";
+        }
 
         // Format name with proper width
         size_t total_prefix_len = indent.length() + prefix.length();
@@ -463,7 +468,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
         }
 
         // Show shared indicator
-        if (multi_parent_with_children.count(name)) {
+        if (multi_parent_with_children.contains(name)) {
             os << Colors::RED << " [shared]" << Colors::RESET;
         }
 
@@ -478,7 +483,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
             bool is_last,
             bool force_print) {
             // Skip if already visited, unless we're forcing print for multi-parent entries
-            if (!force_print && visited.count(key)) {
+            if (!force_print && visited.contains(key)) {
                 return;
             }
 
@@ -493,7 +498,8 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
             // Only print children if:
             // 1. Not a forced print (multi-parent entry being shown under a parent)
             // 2. Not a multi-parent entry with children (unless it's a root entry at indent_level 0)
-            bool should_print_children = !force_print && (!multi_parent_with_children.count(key) || indent_level == 0);
+            bool should_print_children =
+                !force_print && (!multi_parent_with_children.contains(key) || indent_level == 0);
 
             if (should_print_children) {
                 if (children_map.contains(key)) {
