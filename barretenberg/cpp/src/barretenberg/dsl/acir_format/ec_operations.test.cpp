@@ -35,6 +35,7 @@ size_t generate_ec_add_constraint(EcAdd& ec_add_constraint, WitnessVector& witne
     witness_values.push_back(result.y.get_value());
     witness_values.push_back(fr(0));
     witness_values.push_back(fr(0));
+    witness_values.push_back(fr(1)); // predicate
     ec_add_constraint = EcAdd{
         .input1_x = WitnessOrConstant<bb::fr>::from_index(1),
         .input1_y = WitnessOrConstant<bb::fr>::from_index(2),
@@ -42,6 +43,7 @@ size_t generate_ec_add_constraint(EcAdd& ec_add_constraint, WitnessVector& witne
         .input2_x = WitnessOrConstant<bb::fr>::from_index(3),
         .input2_y = WitnessOrConstant<bb::fr>::from_index(4),
         .input2_infinite = WitnessOrConstant<bb::fr>::from_index(7),
+        .predicate = WitnessOrConstant<bb::fr>::from_index(9),
         .result_x = 5,
         .result_y = 6,
         .result_infinite = 8,
@@ -92,6 +94,8 @@ TEST_F(EcOperations, TestECMultiScalarMul)
         fr("0x06ce1b0827aafa85ddeb49cdaa36306d19a74caa311e13d46d8bc688cdbffffe"),
         fr("0x1c122f81a3a14964909ede0ba2a6855fc93faf6fa1a788bf467be7e7a43f80ac"),
         fr(0),
+        // predicate
+        fr(1),
     };
     msm_constrain = MultiScalarMul{
         .points = { WitnessOrConstant<fr>{
@@ -144,9 +148,15 @@ TEST_F(EcOperations, TestECMultiScalarMul)
                          .value = fr(0),
                          .is_constant = false,
                      } },
+        .predicate =
+            WitnessOrConstant<fr>{
+                .index = 9,
+                .value = fr(1),
+                .is_constant = false,
+            },
         .out_point_x = 6,
         .out_point_y = 7,
-        .out_point_is_infinite = 0,
+        .out_point_is_infinite = 8,
     };
     auto res_x = fr("0x06ce1b0827aafa85ddeb49cdaa36306d19a74caa311e13d46d8bc688cdbffffe");
     auto assert_equal = poly_triple{
