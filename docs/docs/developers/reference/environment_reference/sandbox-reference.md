@@ -119,7 +119,7 @@ CounterContractArtifact
 CrowdfundingContractArtifact
 DocsExampleContractArtifact
 EasyPrivateTokenContractArtifact
-EasyPrivateVotingContractArtifact
+PrivateVotingContractArtifact
 EcdsaAccountContractArtifact
 EscrowContractArtifact
 FPCContractArtifact

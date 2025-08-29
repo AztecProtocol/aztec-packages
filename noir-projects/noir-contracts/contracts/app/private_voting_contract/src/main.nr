@@ -1,15 +1,20 @@
+mod test;
+// docs:start:declaration
 use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract PrivateVoting {
-    use dep::aztec::keys::getters::get_public_keys;
-    use dep::aztec::macros::{
-        functions::{initializer, internal, private, public, utility},
-        storage::storage,
+    // docs:end:declaration
+    // docs:start:imports
+    use dep::aztec::{
+        keys::getters::get_public_keys,
+        macros::{functions::{initializer, internal, private, public, utility}, storage::storage},
     };
-    use dep::aztec::state_vars::{Map, PublicImmutable, PublicMutable};
     use dep::aztec::protocol_types::{address::AztecAddress, traits::{Hash, ToField}};
+    use dep::aztec::state_vars::{Map, PublicImmutable, PublicMutable};
 
+    // docs:end:imports
+    // docs:start:storage_struct
     #[storage]
     struct Storage<Context> {
         admin: PublicMutable<AztecAddress, Context>, // admin can end vote
@@ -17,16 +22,22 @@ pub contract PrivateVoting {
         vote_ended: PublicMutable<bool, Context>, // vote_ended is boolean
         active_at_block: PublicImmutable<u32, Context>, // when people can start voting
     }
+    // docs:end:storage_struct
 
+    // docs:start:constructor
     #[public]
     #[initializer]
+    // annotation to mark function as a constructor
     fn constructor(admin: AztecAddress) {
         storage.admin.write(admin);
         storage.vote_ended.write(false);
         storage.active_at_block.initialize(context.block_number());
     }
+    // docs:end:constructor
 
+    // docs:start:cast_vote
     #[private]
+    // annotation to mark function as private and expose private context
     fn cast_vote(candidate: Field) {
         let msg_sender_npk_m_hash = get_public_keys(context.msg_sender()).npk_m.hash();
 
@@ -37,7 +48,9 @@ pub contract PrivateVoting {
             &mut context,
         );
     }
+    // docs:end:cast_vote
 
+    // docs:start:add_to_tally_public
     #[public]
     #[internal]
     fn add_to_tally_public(candidate: Field) {
@@ -45,15 +58,19 @@ pub contract PrivateVoting {
         let new_tally = storage.tally.at(candidate).read() + 1;
         storage.tally.at(candidate).write(new_tally);
     }
+    // docs:end:add_to_tally_public
 
+    // docs:start:end_vote
     #[public]
     fn end_vote() {
         assert(storage.admin.read().eq(context.msg_sender()), "Only admin can end votes"); // assert that caller is admin
         storage.vote_ended.write(true);
     }
-
+    // docs:end:end_vote
+    // docs:start:get_vote
     #[utility]
     unconstrained fn get_vote(candidate: Field) -> Field {
         storage.tally.at(candidate).read()
     }
+    // docs:end:get_vote
 }
