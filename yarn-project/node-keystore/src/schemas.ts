@@ -51,17 +51,22 @@ const mnemonicConfigSchema = z.object({
 });
 
 // EthAccount schema
-const ethAccountSchema = z.union([ethPrivateKeySchema, remoteSignerAccountSchema, jsonKeyFileV3Schema]);
+const ethAccountSchema = z.union([
+  ethPrivateKeySchema,
+  remoteSignerAccountSchema,
+  jsonKeyFileV3Schema,
+  mnemonicConfigSchema,
+]);
 
 // EthAccounts schema
-const ethAccountsSchema = z.union([ethAccountSchema, z.array(ethAccountSchema), mnemonicConfigSchema]);
+const ethAccountsSchema = z.union([ethAccountSchema, z.array(ethAccountSchema)]);
 
 // Prover keystore schema
 const proverKeyStoreSchema = z.union([
   ethAccountSchema,
   z.object({
     id: ethAddressSchema,
-    publisher: z.array(ethAccountsSchema),
+    publisher: ethAccountsSchema,
   }),
 ]);
 
@@ -71,7 +76,7 @@ const validatorKeyStoreSchema = z.object({
   coinbase: ethAddressSchema.optional(),
   publisher: ethAccountsSchema.optional(),
   feeRecipient: aztecAddressSchema,
-  remoteSigner: remoteSignerConfigSchema.optional(),
+  remoteSigner: remoteSignerConfigSchema.nullish(),
 });
 
 // Main keystore schema
@@ -80,7 +85,7 @@ export const keystoreSchema = z
     schemaVersion: z.literal(1),
     validators: z.array(validatorKeyStoreSchema).optional(),
     slasher: ethAccountsSchema.optional(),
-    remoteSigner: remoteSignerConfigSchema.optional(),
+    remoteSigner: remoteSignerConfigSchema.nullish(),
     prover: proverKeyStoreSchema.optional(),
   })
   .refine(data => data.validators || data.prover, {
