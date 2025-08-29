@@ -203,7 +203,9 @@ export class EpochProvingJob implements Traceable {
         return;
       }
       this.log.error(`Error running epoch ${epochNumber} prover job`, err, { uuid: this.uuid, epochNumber });
-      this.state = 'failed';
+      if (this.state === 'processing' || this.state === 'awaiting-prover' || this.state === 'publishing-proof') {
+        this.state = 'failed';
+      }
     } finally {
       clearTimeout(this.deadlineTimeoutHandler);
       await this.epochCheckPromise?.stop();
