@@ -19,46 +19,20 @@ namespace bb {
  */
 template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::prove()
 {
+    BB_BENCH_NESTED_NAME("OinkProver::prove");
     if (!proving_key->commitment_key.initialized()) {
         proving_key->commitment_key = CommitmentKey(proving_key->dyadic_size());
     }
-    {
-
-        BB_BENCH_TRACY_NAME("execute_preamble_round");
-
-        // Add circuit size public input size and public inputs to transcript->
-        execute_preamble_round();
-    }
-    {
-
-        BB_BENCH_TRACY_NAME("execute_wire_commitments_round");
-
-        // Compute first three wire commitments
-        execute_wire_commitments_round();
-    }
-    {
-
-        BB_BENCH_TRACY_NAME("execute_sorted_list_accumulator_round");
-
-        // Compute sorted list accumulator and commitment
-        execute_sorted_list_accumulator_round();
-    }
-
-    {
-
-        BB_BENCH_TRACY_NAME("execute_log_derivative_inverse_round");
-
-        // Fiat-Shamir: beta & gamma
-        execute_log_derivative_inverse_round();
-    }
-
-    {
-
-        BB_BENCH_TRACY_NAME("execute_grand_product_computation_round");
-
-        // Compute grand product(s) and commitments.
-        execute_grand_product_computation_round();
-    }
+    // Add circuit size public input size and public inputs to transcript->
+    execute_preamble_round();
+    // Compute first three wire commitments
+    execute_wire_commitments_round();
+    // Compute sorted list accumulator and commitment
+    execute_sorted_list_accumulator_round();
+    // Fiat-Shamir: beta & gamma
+    execute_log_derivative_inverse_round();
+    // Compute grand product(s) and commitments.
+    execute_grand_product_computation_round();
 
     // Generate relation separators alphas for sumcheck/combiner computation
     proving_key->alphas = generate_alphas_round();
@@ -104,11 +78,10 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_preamble_ro
  */
 template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commitments_round()
 {
-    BB_BENCH_TRACY_NAME("OinkProver::execute_wire_commitments_round");
+    BB_BENCH_NESTED_NAME("OinkProver::execute_wire_commitments_round");
     // Commit to the first three wire polynomials
     // We only commit to the fourth wire polynomial after adding memory recordss
     {
-        BB_BENCH_TRACY_NAME("COMMIT::wires");
         auto commit_type = (proving_key->get_is_structured()) ? CommitmentKey::CommitType::Structured
                                                               : CommitmentKey::CommitType::Default;
 
@@ -268,6 +241,7 @@ void OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial
                                                       const std::string& label,
                                                       const CommitmentKey::CommitType type)
 {
+    BB_BENCH_NESTED_NAME("OinkProver::commit_to_witness_polynomial");
     // Mask the polynomial when proving in zero-knowledge
     if constexpr (Flavor::HasZK) {
         polynomial.mask();

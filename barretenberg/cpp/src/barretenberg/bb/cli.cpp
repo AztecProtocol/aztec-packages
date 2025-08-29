@@ -282,14 +282,14 @@ int parse_and_run_cli_command(int argc, char* argv[])
         return subcommand->add_flag("--update_inputs", flags.update_inputs, "Update inputs if vk check fails.");
     };
 
-    bool print_op_counts = false;
-    const auto add_print_op_counts_flag = [&](CLI::App* subcommand) {
-        return subcommand->add_flag("--print_op_counts", print_op_counts, "Print op counts to json on one line.");
+    bool print_bench = false;
+    const auto add_print_bench_flag = [&](CLI::App* subcommand) {
+        return subcommand->add_flag("--print_bench", print_bench, "Print op counts to json on one line.");
     };
 
-    std::string op_counts_out;
-    const auto add_op_counts_out_option = [&](CLI::App* subcommand) {
-        return subcommand->add_option("--op_counts_out", op_counts_out, "Path to write the op counts in a json.");
+    std::string bench_out;
+    const auto add_bench_out_option = [&](CLI::App* subcommand) {
+        return subcommand->add_option("--bench_out", bench_out, "Path to write the op counts in a json.");
     };
 
     /***************************************************************************************************************
@@ -351,8 +351,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_ipa_accumulation_flag(prove);
     remove_zk_option(prove);
     add_slow_low_memory_flag(prove);
-    add_print_op_counts_flag(prove);
-    add_op_counts_out_option(prove);
+    add_print_bench_flag(prove);
+    add_bench_out_option(prove);
 
     prove->add_flag("--verify", "Verify the proof natively, resulting in a boolean output. Useful for testing.");
 
@@ -559,11 +559,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
     verbose_logging = debug_logging || flags.verbose;
     slow_low_memory = flags.slow_low_memory;
 #ifndef __wasm__
-    if (print_op_counts || !op_counts_out.empty()) {
+    if (print_bench || !bench_out.empty()) {
         bb::detail::use_bb_bench = true;
-    }
-    if (bb::detail::use_bb_bench) {
-        bb::detail::GLOBAL_BENCH_STATS.clear();
     }
 #endif
 
@@ -660,11 +657,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 }
                 api.prove(flags, ivc_inputs_path, output_path);
 #ifndef __wasm__
-                if (print_op_counts) {
-                    bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts(std::cout, 0);
+                if (print_bench) {
+                    bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts_hierarchical(std::cout);
                 }
-                if (!op_counts_out.empty()) {
-                    std::ofstream file(op_counts_out);
+                if (!bench_out.empty()) {
+                    std::ofstream file(bench_out);
                     bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts(file, 2);
                 }
 #endif
@@ -683,11 +680,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
             if (prove->parsed()) {
                 api.prove(flags, bytecode_path, witness_path, vk_path, output_path);
 #ifndef __wasm__
-                if (print_op_counts) {
-                    bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts(std::cout, 0);
+                if (print_bench) {
+                    bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts_hierarchical(std::cout);
                 }
-                if (!op_counts_out.empty()) {
-                    std::ofstream file(op_counts_out);
+                if (!bench_out.empty()) {
+                    std::ofstream file(bench_out);
                     bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts(file, 2);
                 }
 #endif

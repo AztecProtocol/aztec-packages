@@ -47,7 +47,7 @@ struct GlobalBenchStatsContainer {
     ~GlobalBenchStatsContainer();
     static inline thread_local TimeStatsEntry* parent = nullptr;
     std::mutex mutex;
-    std::vector<TimeStatsEntry> counts;
+    std::vector<TimeStatsEntry*> counts;
     void print() const;
     // NOTE: Should be called when other threads aren't active
     void clear();
@@ -61,6 +61,8 @@ struct GlobalBenchStatsContainer {
                                    std::map<std::string, std::size_t>& aggregate_counts) const;
     std::map<std::string, std::size_t> get_aggregate_counts() const;
     void print_aggregate_counts(std::ostream&, size_t) const;
+    void print_aggregate_counts_pretty(std::ostream&) const;
+    void print_aggregate_counts_hierarchical(std::ostream&) const;
 };
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
@@ -146,7 +148,7 @@ template <OperationLabel Op> struct ThreadBenchStats {
 // no-op if passed null stats
 struct BenchReporter {
     TimeStatsEntry* parent;
-    TimeStats* stats;
+    TimeStatsEntry* stats;
     std::size_t time;
     BenchReporter(TimeStatsEntry* entry);
     ~BenchReporter();
@@ -182,3 +184,10 @@ struct BenchReporter {
         bb::detail::GlobalBenchStatsContainer::parent = __bb_op_count_time.stats;
 #define BB_BENCH() BB_BENCH_NAME(__func__)
 #endif
+#define BB_BENCH_NESTED_NAME(name)                                                                                     \
+    BB_BENCH_TRACY_NAME(name);                                                                                         \
+    BB_BENCH_ENABLE_NESTING()
+
+#define BB_BENCH_NESTED()                                                                                              \
+    BB_BENCH_TRACY();                                                                                                  \
+    BB_BENCH_ENABLE_NESTING()

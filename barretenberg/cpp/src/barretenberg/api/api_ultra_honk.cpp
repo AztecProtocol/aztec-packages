@@ -3,6 +3,7 @@
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/api/get_bytecode.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
@@ -86,6 +87,7 @@ void UltraHonkAPI::prove(const Flags& flags,
                          const std::filesystem::path& vk_path,
                          const std::filesystem::path& output_dir)
 {
+    BB_BENCH_NESTED_NAME("UltraHonkAPI::prove");
     // Validate output directory
     if (output_dir == "-") {
         throw_or_abort("Stdout output is not supported. Please specify an output directory.");
@@ -121,6 +123,7 @@ bool UltraHonkAPI::verify(const Flags& flags,
                           const std::filesystem::path& proof_path,
                           const std::filesystem::path& vk_path)
 {
+    BB_BENCH_NESTED_NAME("UltraHonkAPI::verify");
     // Read input files
     auto public_inputs = many_from_buffer<uint256_t>(read_file(public_inputs_path));
     auto proof = many_from_buffer<uint256_t>(read_file(proof_path));
@@ -153,6 +156,7 @@ void UltraHonkAPI::write_vk(const Flags& flags,
                             const std::filesystem::path& bytecode_path,
                             const std::filesystem::path& output_dir)
 {
+    BB_BENCH_NESTED_NAME("UltraHonkAPI::write_vk");
     // Validate output directory
     if (output_dir == "-") {
         throw_or_abort("Stdout output is not supported. Please specify an output directory.");
@@ -178,6 +182,7 @@ void UltraHonkAPI::write_vk(const Flags& flags,
 void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
                          [[maybe_unused]] const std::filesystem::path& bytecode_path)
 {
+    BB_BENCH_NESTED_NAME("UltraHonkAPI::gates");
     // Get the bytecode directly
     auto bytecode = get_bytecode(bytecode_path);
 
@@ -230,6 +235,7 @@ void UltraHonkAPI::write_solidity_verifier(const Flags& flags,
                                            const std::filesystem::path& output_path,
                                            const std::filesystem::path& vk_path)
 {
+    BB_BENCH_NESTED_NAME("UltraHonkAPI::write_solidity_verifier");
     // Read VK file
     auto vk_bytes = read_file(vk_path);
 

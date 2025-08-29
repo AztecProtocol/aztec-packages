@@ -192,6 +192,7 @@ bool _verify(const bool ipa_accumulation,
 
 CircuitProve::Response CircuitProve::execute(BB_UNUSED const BBApiRequest& request) &&
 {
+    BB_BENCH_NESTED_NAME(MSGPACK_SCHEMA_NAME);
     // if the ipa accumulation flag is set we are using the UltraRollupFlavor
     if (settings.ipa_accumulation) {
         return _prove<UltraRollupFlavor>(
@@ -231,6 +232,7 @@ CircuitProve::Response CircuitProve::execute(BB_UNUSED const BBApiRequest& reque
 
 CircuitComputeVk::Response CircuitComputeVk::execute(BB_UNUSED const BBApiRequest& request) &&
 {
+    BB_BENCH_NESTED_NAME(MSGPACK_SCHEMA_NAME);
     std::vector<uint8_t> vk_bytes;
     std::vector<uint256_t> vk_fields;
     std::vector<uint8_t> vk_hash_bytes;
@@ -276,6 +278,7 @@ CircuitComputeVk::Response CircuitComputeVk::execute(BB_UNUSED const BBApiReques
 
 CircuitStats::Response CircuitStats::execute(BB_UNUSED const BBApiRequest& request) &&
 {
+    BB_BENCH_NESTED_NAME(MSGPACK_SCHEMA_NAME);
     // Parse the circuit to get gate count information
     auto constraint_system = acir_format::circuit_buf_to_acir_format(std::vector<uint8_t>(circuit.bytecode));
 
@@ -298,6 +301,7 @@ CircuitStats::Response CircuitStats::execute(BB_UNUSED const BBApiRequest& reque
 
 CircuitVerify::Response CircuitVerify::execute(BB_UNUSED const BBApiRequest& request) &&
 {
+    BB_BENCH_NESTED_NAME(MSGPACK_SCHEMA_NAME);
     const bool ipa_accumulation = settings.ipa_accumulation;
     bool verified = false;
 
@@ -327,6 +331,7 @@ CircuitVerify::Response CircuitVerify::execute(BB_UNUSED const BBApiRequest& req
 
 VkAsFields::Response VkAsFields::execute(BB_UNUSED const BBApiRequest& request) &&
 {
+    BB_BENCH_NESTED_NAME(MSGPACK_SCHEMA_NAME);
     std::vector<bb::fr> fields;
 
     // Standard UltraHonk flavors
@@ -338,6 +343,7 @@ VkAsFields::Response VkAsFields::execute(BB_UNUSED const BBApiRequest& request) 
 
 CircuitWriteSolidityVerifier::Response CircuitWriteSolidityVerifier::execute(BB_UNUSED const BBApiRequest& request) &&
 {
+    BB_BENCH_NESTED_NAME(MSGPACK_SCHEMA_NAME);
     using VK = UltraKeccakFlavor::VerificationKey;
     auto vk = std::make_shared<VK>(from_buffer<VK>(verification_key));
     std::string contract = settings.disable_zk ? get_honk_solidity_verifier(vk) : get_honk_zk_solidity_verifier(vk);

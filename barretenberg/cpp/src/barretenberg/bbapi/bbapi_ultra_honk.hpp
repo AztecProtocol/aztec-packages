@@ -18,10 +18,10 @@
 namespace bb::bbapi {
 
 struct CircuitComputeVk {
-    static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitComputeVk";
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "CircuitComputeVk";
 
     struct Response {
-        static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitComputeVkResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "CircuitComputeVkResponse";
 
         std::vector<uint8_t> bytes;    // Serialized verification key
         std::vector<uint256_t> fields; // VK as field elements (unless keccak, then just uint256_t's)
@@ -44,7 +44,7 @@ struct CircuitComputeVk {
  * This is used for one-shot proving, not our "IVC" scheme, ClientIVC-honk. For that, use the ClientIVC* commands.
  */
 struct CircuitProve {
-    static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitProve";
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "CircuitProve";
 
     /**
      * @brief Contains proof and public inputs.
@@ -52,7 +52,7 @@ struct CircuitProve {
      * Example uses of this Response would be verification in native BB, WASM BB, solidity or recursively through Noir.
      */
     struct Response {
-        static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitProveResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "CircuitProveResponse";
 
         std::vector<uint256_t> public_inputs;
         std::vector<uint256_t> proof;
@@ -75,10 +75,10 @@ struct CircuitProve {
  * Combines gate count, circuit size, and other metadata into a single command.
  */
 struct CircuitStats {
-    static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitStats";
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "CircuitStats";
 
     struct Response {
-        static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitInfoResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "CircuitInfoResponse";
 
         uint32_t num_gates{};
         uint32_t num_gates_dyadic{};
@@ -101,10 +101,10 @@ struct CircuitStats {
  * @brief Verify a proof against a verification key and public inputs.
  */
 struct CircuitVerify {
-    static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitVerify";
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "CircuitVerify";
 
     struct Response {
-        static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitVerifyResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "CircuitVerifyResponse";
 
         bool verified;
         MSGPACK_FIELDS(verified);
@@ -128,10 +128,10 @@ elements as well,
  * and having a simpler serialization method.
  */
 struct VkAsFields {
-    static constexpr const char* MSGPACK_SCHEMA_NAME = "VkAsFields";
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "VkAsFields";
 
     struct Response {
-        static constexpr const char* MSGPACK_SCHEMA_NAME = "VkAsFieldsResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "VkAsFieldsResponse";
 
         std::vector<bb::fr> fields;
         MSGPACK_FIELDS(fields);
@@ -148,10 +148,10 @@ struct VkAsFields {
  * @brief Command to generate Solidity verifier contract
  */
 struct CircuitWriteSolidityVerifier {
-    static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitWriteSolidityVerifier";
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "CircuitWriteSolidityVerifier";
 
     struct Response {
-        static constexpr const char* MSGPACK_SCHEMA_NAME = "CircuitWriteSolidityVerifierResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "CircuitWriteSolidityVerifierResponse";
 
         std::string solidity_code;
         MSGPACK_FIELDS(solidity_code);
