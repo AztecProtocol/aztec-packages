@@ -943,10 +943,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     );
   }
 
-  private getTxTimeoutForSlot(slotNumber: number | bigint): Date {
-    return new Date((this.getSlotStartBuildTimestamp(slotNumber) + this.aztecSlotDuration) * 1000);
-  }
-
   private getSecondsIntoSlot(slotNumber: number | bigint): number {
     const slotStartTimestamp = this.getSlotStartBuildTimestamp(slotNumber);
     return Number((this.dateProvider.now() / 1000 - slotStartTimestamp).toFixed(3));

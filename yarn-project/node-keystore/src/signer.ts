@@ -5,9 +5,10 @@
  */
 import type { EthSigner } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { Secp256k1Signer, toRecoveryBit } from '@aztec/foundation/crypto';
+import { Secp256k1Signer, randomBytes, toRecoveryBit } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature, type ViemTransactionSignature } from '@aztec/foundation/eth-signature';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { withHexPrefix } from '@aztec/foundation/string';
 
 import {
@@ -27,7 +28,7 @@ import type { EthRemoteSignerConfig } from './types.js';
 export class SignerError extends Error {
   constructor(
     message: string,
-    public method: 'eth_sign' | 'eth_signTransaction' | 'eth_signTypedData_v4',
+    public method: string,
     public url: string,
     public statusCode?: number,
     public errorCode?: number,
@@ -128,50 +129,12 @@ export class RemoteSigner implements EthSigner {
    * Make a JSON-RPC eth_sign request.
    */
   private async makeJsonRpcSignRequest(data: Buffer32): Promise<Signature> {
-    const url = this.getSignerUrl();
+    let signatureHex = await this.makeJsonRpcRequest('eth_sign', this.address.toString(), data.toString());
 
-    const body = {
-      jsonrpc: '2.0',
-      method: 'eth_sign',
-      params: [this.address.toString(), data.toString()],
-      id: 1,
-    };
-
-    const response = await this.fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new SignerError(
-        `Web3Signer request failed for eth_sign at ${url}: ${response.status} ${response.statusText} - ${errorText}`,
-        'eth_sign',
-        url,
-        response.status,
-      );
+    if (typeof signatureHex !== 'string') {
+      throw new Error('Invalid signature');
     }
 
-    const result = await response.json();
-
-    if (result.error) {
-      throw new SignerError(
-        `Web3Signer JSON-RPC error for eth_sign at ${url}: ${result.error.code} - ${result.error.message}`,
-        'eth_sign',
-        url,
-        undefined,
-        result.error.code,
-      );
-    }
-
-    if (!result.result) {
-      throw new Error('Invalid response from Web3Signer: no result found');
-    }
-
-    let signatureHex = result.result;
     if (!signatureHex.startsWith('0x')) {
       signatureHex = '0x' + signatureHex;
     }
@@ -183,50 +146,16 @@ export class RemoteSigner implements EthSigner {
    * Make a JSON-RPC eth_signTypedData_v4 request.
    */
   private async makeJsonRpcSignTypedDataRequest(typedData: TypedDataDefinition): Promise<Signature> {
-    const url = this.getSignerUrl();
+    let signatureHex = await this.makeJsonRpcRequest(
+      'eth_signTypedData',
+      this.address.toString(),
+      jsonStringify(typedData),
+    );
 
-    const body = {
-      jsonrpc: '2.0',
-      method: 'eth_signTypedData_v4',
-      params: [this.address.toString(), typedData],
-      id: 1,
-    };
-
-    const response = await this.fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new SignerError(
-        `Web3Signer request failed for eth_signTypedData_v4 at ${url}: ${response.status} ${response.statusText} - ${errorText}`,
-        'eth_signTypedData_v4',
-        url,
-        response.status,
-      );
+    if (typeof signatureHex !== 'string') {
+      throw new Error('Invalid signature');
     }
 
-    const result = await response.json();
-
-    if (result.error) {
-      throw new SignerError(
-        `Web3Signer JSON-RPC error for eth_signTypedData_v4 at ${url}: ${result.error.code} - ${result.error.message}`,
-        'eth_signTypedData_v4',
-        url,
-        undefined,
-        result.error.code,
-      );
-    }
-
-    if (!result.result) {
-      throw new Error('Invalid response from Web3Signer: no result found');
-    }
-
-    let signatureHex = result.result;
     if (!signatureHex.startsWith('0x')) {
       signatureHex = '0x' + signatureHex;
     }
@@ -241,8 +170,6 @@ export class RemoteSigner implements EthSigner {
     if (tx.type !== 'eip1559') {
       throw new Error('This signer does not support tx type: ' + tx.type);
     }
-
-    const url = this.getSignerUrl();
 
     const txObject: RemoteSignerTxObject = {
       from: this.address.toString(),
@@ -263,48 +190,12 @@ export class RemoteSigner implements EthSigner {
       // blobs: tx.blobs?.map(blob => (typeof blob === 'string' ? blob : bufferToHex(Buffer.from(blob)))),
     };
 
-    const body = {
-      jsonrpc: '2.0',
-      method: 'eth_signTransaction',
-      params: [txObject],
-      id: 1,
-    };
+    let rawTxHex = await this.makeJsonRpcRequest('eth_signTransaction', txObject);
 
-    const response = await this.fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new SignerError(
-        `Web3Signer request failed for eth_signTransaction at ${url}: ${response.status} ${response.statusText} - ${errorText}`,
-        'eth_signTransaction',
-        url,
-        response.status,
-      );
+    if (typeof rawTxHex !== 'string') {
+      throw new Error('Invalid signed tx');
     }
 
-    const result = await response.json();
-
-    if (result.error) {
-      throw new SignerError(
-        `Web3Signer JSON-RPC error for eth_signTransaction at ${url}: ${result.error.code} - ${result.error.message}`,
-        'eth_signTransaction',
-        url,
-        undefined,
-        result.error.code,
-      );
-    }
-
-    if (!result.result) {
-      throw new Error('Invalid response from Web3Signer: no result found');
-    }
-
-    let rawTxHex = result.result;
     if (!rawTxHex.startsWith('0x')) {
       rawTxHex = '0x' + rawTxHex;
     }
@@ -323,6 +214,50 @@ export class RemoteSigner implements EthSigner {
   }
 
   /**
+   * Sends a JSON-RPC request and returns its result
+   */
+  private async makeJsonRpcRequest(method: string, ...params: any[]): Promise<any> {
+    const url = this.getSignerUrl();
+    const id = this.generateId();
+
+    const response = await this.fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: jsonStringify({ jsonrpc: '2.0', method, params, id }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new SignerError(
+        `Web3Signer request failed for ${method} at ${url}: ${response.status} ${response.statusText} - ${errorText}`,
+        method,
+        url,
+        response.status,
+      );
+    }
+
+    const result = await response.json();
+
+    if (result.error) {
+      throw new SignerError(
+        `Web3Signer JSON-RPC error for ${method} at ${url}: ${result.error.code} - ${result.error.message}`,
+        method,
+        url,
+        response.status,
+        result.error.code,
+      );
+    }
+
+    if (!result.result) {
+      throw new Error('Invalid response from Web3Signer: no result found');
+    }
+
+    return result.result;
+  }
+
+  /**
    * Resolve the effective remote signer URL from config.
    */
   private getSignerUrl(): string {
@@ -330,5 +265,12 @@ export class RemoteSigner implements EthSigner {
       return this.config;
     }
     return this.config.remoteSignerUrl;
+  }
+
+  /**
+   * Generate an id to use for a JSON-RPC call
+   */
+  private generateId(): string {
+    return randomBytes(4).toString('hex');
   }
 }
