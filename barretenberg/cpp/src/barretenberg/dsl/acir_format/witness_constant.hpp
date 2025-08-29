@@ -5,7 +5,6 @@
 // =====================
 
 #pragma once
-#include "barretenberg/dsl/acir_format/ecdsa_secp256k1.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"

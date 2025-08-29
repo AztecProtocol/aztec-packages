@@ -5,6 +5,7 @@
 #include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
 #include "barretenberg/dsl/acir_format/avm2_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -80,23 +81,10 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
             const std::vector<fr> proof_witnesses = inner_circuit_data.proof;
             const std::vector<fr> public_inputs_witnesses = inner_circuit_data.public_inputs_flat;
 
-            // Helper to append some values to the witness vector and return their corresponding indices
-            auto add_to_witness_and_track_indices =
-                [&witness](const std::vector<bb::fr>& input) -> std::vector<uint32_t> {
-                std::vector<uint32_t> indices;
-                indices.reserve(input.size());
-                auto witness_idx = static_cast<uint32_t>(witness.size());
-                for (const auto& value : input) {
-                    witness.push_back(value);
-                    indices.push_back(witness_idx++);
-                }
-                return indices;
-            };
-
             RecursionConstraint avm_recursion_constraint{
-                .key = add_to_witness_and_track_indices(key_witnesses),
-                .proof = add_to_witness_and_track_indices(proof_witnesses),
-                .public_inputs = add_to_witness_and_track_indices(public_inputs_witnesses),
+                .key = add_to_witness_and_track_indices<bb::fr>(witness, key_witnesses),
+                .proof = add_to_witness_and_track_indices<bb::fr>(witness, proof_witnesses),
+                .public_inputs = add_to_witness_and_track_indices<bb::fr>(witness, public_inputs_witnesses),
                 .key_hash = 0, // not used
                 .proof_type = AVM,
             };
