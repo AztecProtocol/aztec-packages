@@ -176,7 +176,6 @@ namespace execution;
     #[BYTECODE_ID_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (bytecode_id' - bytecode_id) = 0;
 
-
     // transaction fee gets set at the start of an enqueued call and remains the same throughout
     // TODO(dbanks12): tracegen and test this
     #[TRANSACTION_FEE_NEXT_ROW]
@@ -207,23 +206,47 @@ namespace execution;
     NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_size' - register[3]) = 0;
 
     pol NESTED_RET_REV_ONLY = nested_exit_call * (1 - sel_error);
+
     // NESTED_RET_REV_ONLY = 1 ==> rop[1] (resolved operand 2 from execution trace)
-    // sel_error           = 1 ==> last_child_returndata_size' = 0;
+    // sel_error           = 1 ==> last_child_returndata_addr' = 0;
     // sel_enter_call      = 1 ==> last_child_returndata_addr' = 0;
+    // enqueued_call_start = 1 ==> last_child_returndata_addr  = 0; <-- This row is 0
     // otherwise           = 0 ==> last_child_returndata_addr' = last_child_returndata_addr
-    #[RD_OFFSET_NEXT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_addr' - last_child_returndata_addr) = 0;
+    #[RET_REV_RD_ADDR]
     NOT_LAST_EXEC * NESTED_RET_REV_ONLY * (last_child_returndata_addr' - rop[1]) = 0;
+    #[NEXT_RD_ADDR_IS_ZERO]
     NOT_LAST_EXEC * (sel_enter_call + sel_error) * last_child_returndata_addr' = 0;
+    #[RD_ADDR_IS_ZERO]
+    enqueued_call_start * last_child_returndata_addr = 0;
+    #[PROPAGATE_RD_ADDR]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_addr' - last_child_returndata_addr) = 0;
 
     // NESTED_RET_REV_ONLY = 1 ==> register[0] (intermediate register 1 from execution trace)
-    // sel_error               = 1 ==> last_child_returndata_size' = 0;
-    // sel_enter_call          = 1 ==> last_child_returndata_size' = 0;
-    // otherwise               = 0 ==> last_child_returndata_size' = last_child_returndata_size
-    #[RD_SIZE_OFFSET_NEXT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_size' - last_child_returndata_size) = 0;
+    // sel_error           = 1 ==> last_child_returndata_size' = 0;
+    // sel_enter_call      = 1 ==> last_child_returndata_size' = 0;
+    // enqueued_call_start = 1 ==> last_child_returndata_size  = 0; <-- Current row is 0
+    // otherwise           = 0 ==> last_child_returndata_size' = last_child_returndata_size
+    #[RET_REV_RD_SIZE]
     NOT_LAST_EXEC * NESTED_RET_REV_ONLY  * (last_child_returndata_size' - register[0]) = 0;
+    #[NEXT_RD_SIZE_IS_ZERO]
     NOT_LAST_EXEC * (sel_enter_call + sel_error) * last_child_returndata_size' = 0;
+    #[RD_SIZE_IS_ZERO]
+    enqueued_call_start * last_child_returndata_addr = 0;
+    #[PROPAGATE_RD_SIZE]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_size' - last_child_returndata_size) = 0;
+
+    // sel_exit_call       = 1 ==> last_child_id' = context_id;  <-- sel_exit_call includes error case
+    // sel_enter_call      = 1 ==> last_child_id' = 0;
+    // enqueued_call_start = 1 ==> last_child_id = 0; <-- Current row is 0
+    // otherwise           = 0 ==> last_child_id' = last_child_id;
+    #[EXIT_CALL_LAST_CHILD_ID]
+    NOT_LAST_EXEC * sel_exit_call * (last_child_id' - context_id) = 0;
+    #[ENTER_CALL_LAST_CHILD_ID]
+    NOT_LAST_EXEC * sel_enter_call * last_child_id' = 0;
+    #[LAST_CHILD_ID_IS_ZERO]
+    enqueued_call_start * last_child_id = 0;
+    #[PROPAGATE_LAST_CHILD_ID]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_id' - last_child_id) = 0;
 
     // nested_exit_call = 1 ==> l2_gas_limit' = parent_l2_gas_limit
     // sel_enter_call   = 1 ==> constraints come from call logic
@@ -397,7 +420,7 @@ namespace execution;
     };
 
     pol commit nested_return;
-    nested_return = nested_exit_call * sel_execute_return;
+    nested_return = nested_exit_call * sel_execute_return * (1 - sel_error);
     #[CTX_STACK_RETURN]
     nested_return {
         context_id,
