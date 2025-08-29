@@ -10,8 +10,7 @@ import { AvmProvingTester } from './avm_proving_tester.js';
 
 const TIMEOUT = 300_000;
 
-// TODO: unskip when check-circuit works for AMM. Confirm that it is fast enough to run in CI.
-describe.skip('AVM proven AMM', () => {
+describe('AVM proven AMM', () => {
   const logger = createLogger('avm-proven-tests-amm');
   const metrics = new TestExecutorMetrics();
   let tester: AvmProvingTester;
