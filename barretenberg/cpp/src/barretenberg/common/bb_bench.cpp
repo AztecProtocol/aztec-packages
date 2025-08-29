@@ -335,6 +335,9 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
         std::size_t count = 0;
         std::size_t time = 0;
         std::set<const TimeStatsEntry*> parents;
+        // Track time and count spent under each specific parent
+        std::map<const TimeStatsEntry*, std::pair<std::size_t, std::size_t>>
+            per_parent_stats; // parent -> (time, count)
     };
 
     std::map<std::string, StatInfo> all_stats;
@@ -344,28 +347,28 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
     for (const TimeStatsEntry* entry : counts) {
         all_entries.insert(entry);
 
-        // Process ONLY the primary context (not alternate parent contexts)
-        // This ensures we only count the stats for the actual parent, not all contexts
+        // Process all contexts to properly track per-parent statistics
         const TimeStats* stats = &entry->count;
+        bool is_primary = true;
 
-        // Update the stats for this entry - only for the primary context
-        all_stats[entry->key].key = entry->key;
-        all_stats[entry->key].count += stats->count;
-        all_stats[entry->key].time += stats->time;
-
-        // Track parent relationship from primary context
-        if (stats->parent != nullptr) {
-            all_stats[entry->key].parents.insert(stats->parent);
-        }
-
-        // Now collect parent relationships from alternate contexts (but don't add their counts/times)
-        stats = stats->next.get();
         while (stats != nullptr) {
-            // Only track parent relationship, don't add counts/times from alternate contexts
+            // For the primary context, add to total stats
+            if (is_primary) {
+                all_stats[entry->key].key = entry->key;
+                all_stats[entry->key].count += stats->count;
+                all_stats[entry->key].time += stats->time;
+            }
+
+            // Track parent relationship and per-parent stats
             if (stats->parent != nullptr) {
                 all_stats[entry->key].parents.insert(stats->parent);
+                // Track time and count for this specific parent
+                all_stats[entry->key].per_parent_stats[stats->parent].first += stats->time;
+                all_stats[entry->key].per_parent_stats[stats->parent].second += stats->count;
             }
+
             stats = stats->next.get();
+            is_primary = false;
         }
     }
 
@@ -499,8 +502,33 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
                 visited.insert(key);
             }
 
+            // Get the stats for this specific parent context if not a root
+            StatInfo display_info = all_stats[key];
+
+            // If we have a parent and this is a multi-parent function, use parent-specific stats
+            if (indent_level > 0 && display_info.parents.size() > 1) {
+                // Find which parent we're under
+                const TimeStatsEntry* current_parent = nullptr;
+                for (const TimeStatsEntry* p : display_info.parents) {
+                    // Check if this parent is our ancestor in the current path
+                    // For now, we'll use the first parent that matches our context
+                    // This is a simplification - ideally we'd track the full path
+                    if (children_map.contains(p->key) && children_map[p->key].contains(key)) {
+                        current_parent = p;
+                        break;
+                    }
+                }
+
+                if (current_parent && display_info.per_parent_stats.contains(current_parent)) {
+                    // Use parent-specific stats for display
+                    auto [parent_time_val, parent_count] = display_info.per_parent_stats[current_parent];
+                    display_info.time = parent_time_val;
+                    display_info.count = parent_count;
+                }
+            }
+
             // Print this entry with parent time for percentage calculation
-            print_stat_tree(key, all_stats[key], indent_level, is_last, parent_time);
+            print_stat_tree(key, display_info, indent_level, is_last, parent_time);
 
             // Only print children if:
             // 1. Not a forced print (multi-parent entry being shown under a parent)
@@ -513,19 +541,28 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
                     std::vector<std::string> children_vec;
                     std::size_t children_total_time = 0;
 
+                    // Find the current entry to use as parent reference
+                    const TimeStatsEntry* current_entry = nullptr;
+                    for (const TimeStatsEntry* e : all_entries) {
+                        if (e->key == key) {
+                            current_entry = e;
+                            break;
+                        }
+                    }
+
                     for (const auto& child : children_map[key]) {
                         // Include ALL children, even multi-parent ones
                         // They'll be marked with [shared] when displayed
                         children_vec.push_back(child);
 
-                        // For multi-parent children that have already been visited,
-                        // don't count their time in the total (they're just references)
-                        if (visited.contains(child) && all_stats[child].parents.size() > 1) {
-                            // This is a reference to an already-printed shared node
-                            // Don't add its time to avoid double-counting
-                        } else {
+                        // Use parent-specific time if available
+                        if (current_entry && all_stats[child].per_parent_stats.contains(current_entry)) {
+                            children_total_time += all_stats[child].per_parent_stats[current_entry].first;
+                        } else if (!visited.contains(child) || all_stats[child].parents.size() == 1) {
+                            // For single-parent children or first visit, use total time
                             children_total_time += all_stats[child].time;
                         }
+                        // For multi-parent children already visited, don't add time (they're references)
                     }
 
                     // Sort children by time
