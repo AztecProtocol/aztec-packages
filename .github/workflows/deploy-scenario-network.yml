@@ -38,7 +38,7 @@ on:
         required: true
       KUBECONFIG_B64:
         description: The base64 encoded kubeconfig
-        required: true
+        required: false
 
   workflow_dispatch:
     inputs:
@@ -122,7 +122,7 @@ jobs:
       aztec_slashing_round_size: 10
       aztec_governance_proposer_quorum: 6
       aztec_governance_proposer_round_size: 10
-      aztec_mana_target: 1000000
+      aztec_mana_target: 1000000000
       aztec_proving_cost_per_mana: 100
     secrets:
       GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}

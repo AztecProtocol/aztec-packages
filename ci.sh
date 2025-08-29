@@ -141,6 +141,17 @@ case "$cmd" in
       'run x4-full amd64 ci-full' \
       'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue CI run" $RUN_ID
     ;;
+  "network-scenario")
+    prep_vars
+    # Spin up ec2 instance and run the network scenario flow.
+    run() {
+      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh ci-network-scenario'"
+    }
+    export -f run
+    # We need to run the network scenario flow on both x86 and arm64.
+    parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
+      'run x-network-scenario amd64' | DUP=1 cache_log "Network scenario CI run" $RUN_ID
+    ;;
   "nightly")
     prep_vars
     # Spin up ec2 instance and run the nightly flow.

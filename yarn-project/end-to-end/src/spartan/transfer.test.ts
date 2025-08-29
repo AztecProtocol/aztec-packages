@@ -6,13 +6,8 @@ import { jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
 
 import { getSponsoredFPCAddress } from '../fixtures/utils.js';
-import {
-  type TestWallets,
-  deploySponsoredTestWallets,
-  setupTestWalletsWithTokens,
-  startCompatiblePXE,
-} from './setup_test_wallets.js';
-import { isK8sConfig, setupEnvironment, startPortForward } from './utils.js';
+import { type TestWallets, deploySponsoredTestWallets, startCompatiblePXE } from './setup_test_wallets.js';
+import { setupEnvironment, startPortForwardForRPC } from './utils.js';
 
 const config = setupEnvironment(process.env);
 
@@ -35,21 +30,12 @@ describe('token transfer test', () => {
   });
 
   beforeAll(async () => {
-    if (isK8sConfig(config)) {
-      const { process: sequencerProcess, port: sequencerPort } = await startPortForward({
-        resource: `svc/${config.INSTANCE_NAME}-aztec-network-validator`,
-        namespace: config.NAMESPACE,
-        containerPort: config.CONTAINER_SEQUENCER_PORT,
-      });
-      forwardProcesses.push(sequencerProcess);
-      const NODE_URL = `http://127.0.0.1:${sequencerPort}`;
+    const { process, port } = await startPortForwardForRPC(config.NAMESPACE);
+    forwardProcesses.push(process);
+    const rpcUrl = `http://127.0.0.1:${port}`;
 
-      ({ pxe, cleanup } = await startCompatiblePXE(NODE_URL, ['1', 'true'].includes(config.AZTEC_REAL_PROOFS), logger));
-      testWallets = await deploySponsoredTestWallets(pxe, MINT_AMOUNT, logger);
-    } else {
-      const PXE_URL = config.PXE_URL;
-      testWallets = await setupTestWalletsWithTokens(PXE_URL, MINT_AMOUNT, logger);
-    }
+    ({ pxe, cleanup } = await startCompatiblePXE(rpcUrl, config.AZTEC_REAL_PROOFS, logger));
+    testWallets = await deploySponsoredTestWallets(pxe, MINT_AMOUNT, logger);
     expect(ROUNDS).toBeLessThanOrEqual(MINT_AMOUNT);
   });
 
