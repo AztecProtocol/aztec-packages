@@ -3,7 +3,7 @@
 To add contracts to your application, we'll start by creating a new `aztec-nargo` project. We'll then compile the contracts, and write a simple script to deploy them to our Sandbox.
 
 :::info
-Follow the instructions [here](../../../../getting_started.md) to install `aztec-nargo` if you haven't done so already.
+Follow the instructions [here](../../../../getting_started/getting_started_on_sandbox.md) to install `aztec-nargo` if you haven't done so already.
 :::
 
 ## Initialize Aztec project
@@ -26,7 +26,7 @@ compressed_string = {git="https://github.com/AztecProtocol/aztec-packages/", tag
 
 Last, copy-paste the code from the `Token` contract into `contracts/token/main.nr`:
 
-```rust title="token_all" showLineNumbers 
+```rust title="token_all" showLineNumbers
 mod types;
 mod test;
 
@@ -684,7 +684,7 @@ The `Token` contract also requires some helper files. You can view the files [he
 
 Add this `balance_set.nr` file at `token/src/types/balance_set.nr`.
 
-```rust title="balance_set" showLineNumbers 
+```rust title="balance_set" showLineNumbers
 use dep::aztec::{
     context::{PrivateContext, UtilityContext},
     note::{

@@ -9,7 +9,7 @@ This tutorial goes over how to create the contracts necessary to create a portal
 In this tutorial, we will go over the components of a token bridge and how to deploy them, as well as show how to bridge tokens publicly from L1 to L2 and back, using aztec.js.
 
 :::note
-The JavaScript in this tutorial is for the sandbox and will need adjustments if deploying to testnet. Install the sandbox [here](../../../getting_started.md).
+The JavaScript in this tutorial is for the sandbox and will need adjustments if deploying to testnet. Install the sandbox [here](../../../getting_started/getting_started_on_sandbox.md).
 :::
 
 The first half of this page reviews the process and contracts for bridging token from Ethereum (L1) to Aztec (L2). The second half the page (starting with [Running with Aztec.js](#running-with-aztecjs)) goes over writing your own Typescript script for:
@@ -76,7 +76,7 @@ Note that because L1 is public, everyone can inspect and figure out the contentH
 
 #### `depositToAztecPublic` (TokenPortal.sol)
 
-```solidity title="deposit_public" showLineNumbers 
+```solidity title="deposit_public" showLineNumbers
 /**
  * @notice Deposit funds into the portal and adds an L2 message which can only be consumed publicly on Aztec
  * @param _to - The aztec address of the recipient
@@ -93,7 +93,7 @@ function depositToAztecPublic(bytes32 _to, uint256 _amount, bytes32 _secretHash)
 
 #### `depositToAztecPrivate` (TokenPortal.sol)
 
-```solidity title="deposit_private" showLineNumbers 
+```solidity title="deposit_private" showLineNumbers
 /**
  * @notice Deposit funds into the portal and adds an L2 message which can only be consumed privately on Aztec
  * @param _amount - The amount to deposit
@@ -117,7 +117,7 @@ The previous code snippets moved funds to the bridge and created a L1->L2 messag
 
 This happens inside the `TokenBridge` contract on Aztec.
 
-```rust title="claim_public" showLineNumbers 
+```rust title="claim_public" showLineNumbers
 // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount publicly
 #[public]
 fn claim_public(to: AztecAddress, amount: u128, secret: Field, message_leaf_index: Field) {
@@ -155,7 +155,7 @@ For both the public and private flow, we use the same mechanism to determine the
 
 #### `exit_to_L1_public` (TokenBridge.nr)
 
-```rust title="exit_to_l1_public" showLineNumbers 
+```rust title="exit_to_l1_public" showLineNumbers
 // Burns the appropriate amount of tokens and creates a L2 to L1 withdraw message publicly
 // Requires `msg.sender` to give approval to the bridge to burn tokens on their behalf using witness signatures
 #[public]
@@ -184,7 +184,7 @@ fn exit_to_l1_public(
 
 This function works very similarly to the public version, except here we burn user’s private notes.
 
-```rust title="exit_to_l1_private" showLineNumbers 
+```rust title="exit_to_l1_private" showLineNumbers
 // Burns the appropriate amount of tokens and creates a L2 to L1 withdraw message privately
 // Requires `msg.sender` (caller of the method) to give approval to the bridge to burn tokens on their behalf using witness signatures
 #[private]
@@ -221,7 +221,7 @@ A user must sign an approval message to let the contract burn tokens on their be
 
 After the transaction is completed on L2, the portal must call the outbox to successfully transfer funds to the user on L1. Like with deposits, things can be complex here. For example, what happens if the transaction was done on L2 to burn tokens but can’t be withdrawn to L1? Then the funds are lost forever! How do we prevent this?
 
-```solidity title="token_portal_withdraw" showLineNumbers 
+```solidity title="token_portal_withdraw" showLineNumbers
 /**
  * @notice Withdraw funds from the portal
  * @dev Second part of withdraw, must be initiated from L2 first as it will consume a message from outbox
@@ -280,7 +280,7 @@ Make sure you are using version v1.2.0 of the sandbox. Install with `aztec-up 1.
 
 ### Prerequisites
 
-Same prerequisites as the [getting started guide](../../../../developers/getting_started.md#prerequisites) and the sandbox.
+Same prerequisites as the [getting started guide](../../../../developers/getting_started/getting_started_on_sandbox.md#prerequisites) and the sandbox.
 
 ### ProjectSetup
 
@@ -339,7 +339,7 @@ You can run the script we will build in `index.ts` at any point with `yarn start
 
 Add the following imports to your `index.ts`:
 
-```typescript title="imports" showLineNumbers 
+```typescript title="imports" showLineNumbers
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
 import {
   EthAddress,
@@ -371,7 +371,7 @@ import { getContract } from 'viem';
 
 Add the following utility functions to your `index.ts` below the imports:
 
-```typescript title="utils" showLineNumbers 
+```typescript title="utils" showLineNumbers
 const MNEMONIC = 'test test test test test test test test test test test junk';
 const { ETHEREUM_HOSTS = 'http://localhost:8545' } = process.env;
 
@@ -455,7 +455,7 @@ Run the script with `yarn start` and you should see the L1 contract addresses pr
 
 Add the following code to `index.ts` to deploy the L2 token contract:
 
-```typescript title="deploy-l2-token" showLineNumbers 
+```typescript title="deploy-l2-token" showLineNumbers
 const l2TokenContract = await TokenContract.deploy(ownerWallet, ownerAztecAddress, 'L2 Token', 'L2', 18)
   .send()
   .deployed();
@@ -466,7 +466,7 @@ logger.info(`L2 token contract deployed at ${l2TokenContract.address}`);
 
 Add the following code to `index.ts` to deploy the L1 token contract and set up the `L1TokenManager` (a utility class to interact with the L1 token contract):
 
-```typescript title="deploy-l1-token" showLineNumbers 
+```typescript title="deploy-l1-token" showLineNumbers
 const l1TokenContract = await deployTestERC20();
 logger.info('erc20 contract deployed');
 
@@ -480,7 +480,7 @@ const l1TokenManager = new L1TokenManager(l1TokenContract, feeAssetHandler, l1Cl
 
 Add the following code to `index.ts` to deploy the L1 portal contract:
 
-```typescript title="deploy-portal" showLineNumbers 
+```typescript title="deploy-portal" showLineNumbers
 const l1PortalContractAddress = await deployTokenPortal();
 logger.info('L1 portal contract deployed');
 
@@ -495,7 +495,7 @@ const l1Portal = getContract({
 
 Add the following code to `index.ts` to deploy the L2 bridge contract:
 
-```typescript title="deploy-l2-bridge" showLineNumbers 
+```typescript title="deploy-l2-bridge" showLineNumbers
 const l2BridgeContract = await TokenBridgeContract.deploy(
   ownerWallet,
   l2TokenContract.address,
@@ -514,7 +514,7 @@ Run `yarn start` to confirm that all of the contracts are deployed.
 
 Add the following code to `index.ts` to authorize the L2 bridge contract to mint tokens on the L2 token contract:
 
-```typescript title="authorize-l2-bridge" showLineNumbers 
+```typescript title="authorize-l2-bridge" showLineNumbers
 await l2TokenContract.methods.set_minter(l2BridgeContract.address, true).send().wait();
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v1.2.0/yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L133-L135" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts#L133-L135</a></sub></sup>
@@ -522,7 +522,7 @@ await l2TokenContract.methods.set_minter(l2BridgeContract.address, true).send().
 
 Add the following code to `index.ts` to set up the L1 portal contract and `L1TokenPortalManager` (a utility class to interact with the L1 portal contract):
 
-```typescript title="setup-portal" showLineNumbers 
+```typescript title="setup-portal" showLineNumbers
 await l1Portal.write.initialize(
   [l1ContractAddresses.registryAddress.toString(), l1TokenContract.toString(), l2BridgeContract.address.toString()],
   {},
@@ -545,7 +545,7 @@ const l1PortalManager = new L1TokenPortalManager(
 
 Add the following code to `index.ts` to bridge tokens from L1 to L2:
 
-```typescript title="l1-bridge-public" showLineNumbers 
+```typescript title="l1-bridge-public" showLineNumbers
 const claim = await l1PortalManager.bridgeTokensPublic(ownerAztecAddress, MINT_AMOUNT, true);
 
 // Do 2 unrleated actions because
@@ -562,7 +562,7 @@ We have to send two additional transactions because the network must process 2 b
 
 Add the following code to `index.ts` to claim the tokens publicly on Aztec:
 
-```typescript title="claim" showLineNumbers 
+```typescript title="claim" showLineNumbers
 await l2BridgeContract.methods
   .claim_public(ownerAztecAddress, MINT_AMOUNT, claim.claimSecret, claim.messageLeafIndex)
   .send()
@@ -579,7 +579,7 @@ Run `yarn start` to confirm that tokens are claimed on Aztec.
 
 Add the following code to `index.ts` to start the withdraw the tokens to L1:
 
-```typescript title="setup-withdrawal" showLineNumbers 
+```typescript title="setup-withdrawal" showLineNumbers
 const withdrawAmount = 9n;
 const authwitNonce = Fr.random();
 
@@ -600,7 +600,7 @@ We have to send a public authwit to allow the bridge contract to burn tokens on 
 
 Add the following code to `index.ts` to start the withdraw process on Aztec:
 
-```typescript title="l2-withdraw" showLineNumbers 
+```typescript title="l2-withdraw" showLineNumbers
 const l2ToL1Message = await l1PortalManager.getL2ToL1MessageLeaf(
   withdrawAmount,
   EthAddress.fromString(ownerEthAddress),
@@ -620,7 +620,7 @@ logger.info(`New L2 balance of ${ownerAztecAddress} is ${newL2Balance}`);
 
 Add the following code to `index.ts` to complete the withdraw process on L1:
 
-```typescript title="l1-withdraw" showLineNumbers 
+```typescript title="l1-withdraw" showLineNumbers
 const [l2ToL1MessageIndex, siblingPath] = await pxe.getL2ToL1MembershipWitness(
   await pxe.getBlockNumber(),
   l2ToL1Message,

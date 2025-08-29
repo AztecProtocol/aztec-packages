@@ -32,7 +32,7 @@ To summarize:
 
 ## Running Aztec Noir tests
 
-If you have [the sandbox](../../getting_started.md) installed, you can run Noir tests using:
+If you have [the sandbox](../../getting_started/getting_started_on_sandbox.md) installed, you can run Noir tests using:
 
 `aztec test`
 

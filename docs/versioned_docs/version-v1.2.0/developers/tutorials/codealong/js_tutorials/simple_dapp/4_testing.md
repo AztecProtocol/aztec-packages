@@ -15,7 +15,7 @@ Start by installing our test runner, in this case jest:
 yarn add -D jest
 ```
 
-We'll need to [install and run the Sandbox](../../../../getting_started.md).
+We'll need to [install and run the Sandbox](../../../../getting_started/getting_started_on_sandbox.md).
 
 ## Test setup
 
@@ -38,7 +38,7 @@ describe("token contract", () => {
 
 Let's set up our test suite. We'll make sure the Sandbox is running, create two fresh accounts to test with, and deploy an instance of our contract. `aztec.js` provides the helper functions we need to do this:
 
-```javascript title="setup" showLineNumbers 
+```javascript title="setup" showLineNumbers
 let owner, recipient, token;
 
 beforeAll(async () => {
@@ -62,7 +62,7 @@ Instead of creating new accounts in our test suite, we can use the ones already 
 
 Now that we have a working test environment, we can write our first test for exercising the `transfer` function on the token contract. We will use the same `aztec.js` methods we used when building our dapp:
 
-```javascript title="test" showLineNumbers 
+```javascript title="test" showLineNumbers
 it('increases recipient funds on transfer', async () => {
   expect(await token.withWallet(recipient).methods.balance_of_private(recipient.getAddress()).simulate()).toEqual(0n);
   await token.methods.transfer(recipient.getAddress(), 20).send().wait();
