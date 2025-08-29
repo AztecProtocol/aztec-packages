@@ -476,9 +476,13 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
             os << "  " << Colors::DIM << std::setw(8) << info.count << " calls" << Colors::RESET;
         }
 
-        // Show shared indicator
-        if (multi_parent_with_children.contains(name)) {
+        // Show shared indicator only for multi-parent entries at root level
+        // Don't show it when they appear nested (as references)
+        if (multi_parent_with_children.contains(name) && indent_level == 0) {
             os << Colors::RED << " [shared]" << Colors::RESET;
+        } else if (info.parents.size() > 1 && indent_level > 0) {
+            // This is a shared function appearing as a reference under a parent
+            // Don't show [shared] since we're not showing its children here
         }
 
         os << "\n";
@@ -531,11 +535,15 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
                     std::size_t children_total_time = 0;
 
                     // Find the current entry to use as parent reference
-                    const TimeStatsEntry* current_entry = nullptr;
-                    for (const TimeStatsEntry* e : all_entries) {
-                        if (e->key == key) {
-                            current_entry = e;
-                            break;
+                    // If we already have a parent_entry passed in, that means we're under a specific parent
+                    // Otherwise, find the entry for this key to use as parent
+                    const TimeStatsEntry* current_entry = parent_entry;
+                    if (!current_entry) {
+                        for (const TimeStatsEntry* e : all_entries) {
+                            if (e->key == key) {
+                                current_entry = e;
+                                break;
+                            }
                         }
                     }
 
@@ -659,7 +667,8 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
 
     for (size_t i = 0; i < unvisited_keys.size(); ++i) {
         const auto& key = unvisited_keys[i];
-        // Just print the stat without children to avoid confusion with percentages
+        // For shared functions at root level without parent context,
+        // just print them without children to avoid misleading percentages
         print_stat_tree(key, all_stats[key], 0, i == unvisited_keys.size() - 1, 0);
         visited.insert(key);
     }
