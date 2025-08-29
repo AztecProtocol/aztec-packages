@@ -2,6 +2,7 @@
 #include "bb_bench.hpp"
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <functional>
 #include <iomanip>
 #include <iostream>
@@ -338,37 +339,61 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
         // Track time and count spent under each specific parent
         std::map<const TimeStatsEntry*, std::pair<std::size_t, std::size_t>>
             per_parent_stats; // parent -> (time, count)
+        // Track per-thread statistics for multi-threaded functions
+        std::vector<std::pair<std::size_t, std::size_t>> thread_stats; // (time, count) per thread
     };
 
     std::map<std::string, StatInfo> all_stats;
     std::set<const TimeStatsEntry*> all_entries;
 
     // First pass: collect all stats and their parent relationships
+    // Group entries by key to detect multi-threaded functions
+    std::map<std::string, std::vector<const TimeStatsEntry*>> entries_by_key;
     for (const TimeStatsEntry* entry : counts) {
         all_entries.insert(entry);
+        entries_by_key[entry->key].push_back(entry);
+    }
 
-        // Process all contexts to properly track per-parent statistics
-        const TimeStats* stats = &entry->count;
-        bool is_primary = true;
+    // Process each unique function
+    for (const auto& [key, entries] : entries_by_key) {
+        auto& stat_info = all_stats[key];
+        stat_info.key = key;
 
-        while (stats != nullptr) {
-            // For the primary context, add to total stats
-            if (is_primary) {
-                all_stats[entry->key].key = entry->key;
-                all_stats[entry->key].count += stats->count;
-                all_stats[entry->key].time += stats->time;
+        // Process each thread's entry for this function
+        for (const TimeStatsEntry* entry : entries) {
+            // Process all contexts to properly track per-parent statistics
+            const TimeStats* stats = &entry->count;
+            bool is_primary = true;
+
+            // Track this thread's primary stats
+            std::size_t thread_time = 0;
+            std::size_t thread_count = 0;
+
+            while (stats != nullptr) {
+                // For the primary context, add to total and thread stats
+                if (is_primary) {
+                    stat_info.count += stats->count;
+                    stat_info.time += stats->time;
+                    thread_time += stats->time;
+                    thread_count += stats->count;
+                }
+
+                // Track parent relationship and per-parent stats
+                if (stats->parent != nullptr) {
+                    stat_info.parents.insert(stats->parent);
+                    // Track time and count for this specific parent
+                    stat_info.per_parent_stats[stats->parent].first += stats->time;
+                    stat_info.per_parent_stats[stats->parent].second += stats->count;
+                }
+
+                stats = stats->next.get();
+                is_primary = false;
             }
 
-            // Track parent relationship and per-parent stats
-            if (stats->parent != nullptr) {
-                all_stats[entry->key].parents.insert(stats->parent);
-                // Track time and count for this specific parent
-                all_stats[entry->key].per_parent_stats[stats->parent].first += stats->time;
-                all_stats[entry->key].per_parent_stats[stats->parent].second += stats->count;
+            // Store this thread's stats
+            if (thread_time > 0 || thread_count > 0) {
+                stat_info.thread_stats.push_back({ thread_time, thread_count });
             }
-
-            stats = stats->next.get();
-            is_primary = false;
         }
     }
 
@@ -471,7 +496,31 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
                 os << format_percentage(static_cast<double>(info.time), static_cast<double>(parent_time));
             }
 
-            os << format_average(time_ms, info.count);
+            // Show thread info for multi-threaded functions
+            if (info.thread_stats.size() > 1) {
+                // Calculate mean and variance
+                double total_thread_time = 0;
+                for (const auto& [t_time, t_count] : info.thread_stats) {
+                    total_thread_time += static_cast<double>(t_time) / 1000000.0;
+                }
+                double mean_time = total_thread_time / static_cast<double>(info.thread_stats.size());
+
+                // Calculate variance
+                double time_variance = 0;
+                for (const auto& [t_time, t_count] : info.thread_stats) {
+                    double thread_time_ms = static_cast<double>(t_time) / 1000000.0;
+                    time_variance += (thread_time_ms - mean_time) * (thread_time_ms - mean_time);
+                }
+                time_variance /= static_cast<double>(info.thread_stats.size());
+                double time_stddev = std::sqrt(time_variance);
+
+                // Show per-thread average with variance
+                os << Colors::DIM << " (" << info.thread_stats.size() << " threads: " << format_time(mean_time) << " ± "
+                   << format_time(time_stddev) << ")" << Colors::RESET;
+            } else {
+                // Single-threaded, show average per call if multiple calls
+                os << format_average(time_ms, info.count);
+            }
         } else if (info.count > 0) {
             os << "  " << Colors::DIM << std::setw(8) << info.count << " calls" << Colors::RESET;
         }
