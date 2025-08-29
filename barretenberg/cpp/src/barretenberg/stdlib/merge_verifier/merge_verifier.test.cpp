@@ -95,12 +95,12 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         for (size_t idx = 0; idx < InnerFlavor::NUM_WIRES; idx++) {
             merge_commitments.t_commitments[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
             merge_commitments.T_prev_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_prev[idx]);
-            // WORKTODO: To pass the free witness check: could either fix the witnesses of the claims or fiat shamir
-            // them
             recursive_merge_commitments.t_commitments[idx] =
                 RecursiveMergeVerifier::Commitment::from_witness(&outer_circuit, merge_commitments.t_commitments[idx]);
             recursive_merge_commitments.T_prev_commitments[idx] = RecursiveMergeVerifier::Commitment::from_witness(
                 &outer_circuit, merge_commitments.T_prev_commitments[idx]);
+            recursive_merge_commitments.t_commitments[idx].fix_witness();
+            recursive_merge_commitments.T_prev_commitments[idx].fix_witness();
         }
 
         // Create a recursive merge verification circuit for the merge proof
