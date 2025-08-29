@@ -72,25 +72,41 @@ TimeColor get_time_colors(double time_ms)
     return { Colors::DIM, Colors::DIM }; // Dim for < 100ms
 }
 
-// Helper to format percentage with optional display
-std::string format_percentage(double value, double total, double min_threshold = 0.1)
+// Helper to format percentage with color based on indent level
+std::string format_percentage(double value, double total, size_t indent_level, double min_threshold = 0.1)
 {
     if (total <= 0) {
-        return "      ";
+        return "       ";
     }
     double percentage = (value / total) * 100.0;
     if (percentage < min_threshold) {
-        return "      ";
+        return "       ";
+    }
+
+    // Choose color based on indent depth
+    const char* color;
+    switch (indent_level) {
+    case 0:
+        color = Colors::CYAN;
+        break; // Root level - cyan
+    case 1:
+        color = Colors::GREEN;
+        break; // First level - green
+    case 2:
+        color = Colors::YELLOW;
+        break; // Second level - yellow
+    default:
+        color = Colors::MAGENTA;
+        break; // Deeper levels - magenta
     }
 
     std::ostringstream oss;
-    oss << Colors::CYAN << " " << std::fixed << std::setprecision(1) << std::setw(5) << percentage << "%"
-        << Colors::RESET;
+    oss << color << " " << std::fixed << std::setprecision(1) << std::setw(5) << percentage << "%" << Colors::RESET;
     return oss.str();
 }
 
 // Print average time if count > 1
-std::string format_average(double time_ms, std::size_t count)
+std::string format_average(double time_ms, uint64_t count)
 {
     if (count <= 1) {
         return "";
@@ -252,17 +268,25 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
     print_separator(os, true);
     os << "\n";
 
+    std::map<OperationKey, std::set<OperationKey>> keys_to_parents;
+    std::set<OperationKey> printed_in_detail;
+    for (auto& [key, entry_map] : aggregated) {
+        for (auto& [parent_key, entry] : entry_map) {
+            keys_to_parents[parent_key].insert(key);
+        }
+    }
+
     // Helper function to print a stat line with tree drawing
-    auto print_entry = [&](const AggregateEntry& entry, size_t indent_level, bool is_last, std::size_t parent_time) {
+    auto print_entry = [&](const AggregateEntry& entry, size_t indent_level, bool is_last, uint64_t parent_time) {
         std::string indent(indent_level * 2, ' ');
         std::string prefix;
         if (indent_level > 0) {
             prefix = is_last ? "└─ " : "├─ ";
         }
 
-        // Format name with proper width
+        // Format name with proper width - use fixed width for better alignment
         size_t total_prefix_len = indent.length() + prefix.length();
-        size_t name_width = std::max<size_t>(40, 80 - total_prefix_len);
+        size_t name_width = std::max<size_t>(50, 85 - total_prefix_len);
         std::string display_name = std::string(entry.key);
         if (display_name.length() > name_width) {
             display_name = display_name.substr(0, name_width - 3) + "...";
@@ -285,9 +309,10 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
             // Show percentage relative to parent (or none for roots)
             if (indent_level == 0 || parent_time == 0) {
                 // Root entries or entries without valid parent time don't show percentage
-                os << "      "; // Keep alignment
+                os << "       "; // Keep alignment (7 chars to match percentage format)
             } else {
-                os << format_percentage(static_cast<double>(entry.time), static_cast<double>(parent_time));
+                os << format_percentage(
+                    static_cast<double>(entry.time), static_cast<double>(parent_time), indent_level);
             }
 
             // Show average per call if multiple calls
@@ -298,12 +323,12 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
     };
 
     // Recursive function to print hierarchy
-    std::function<void(OperationKey, size_t, std::set<OperationKey>&, bool, std::size_t)> print_hierarchy;
+    std::function<void(OperationKey, size_t, std::set<OperationKey>&, bool, uint64_t)> print_hierarchy;
     print_hierarchy = [&](OperationKey key,
                           size_t indent_level,
                           std::set<OperationKey>& visited,
                           bool is_last,
-                          std::size_t parent_time) -> void {
+                          uint64_t parent_time) -> void {
         if (visited.contains(key)) {
             return;
         }
@@ -332,19 +357,22 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
 
         // Find and print children - operations that have this key as parent
         std::vector<OperationKey> children;
-        for (const auto& [child_key, parent_map] : aggregated) {
-            for (const auto& [parent_key, entry] : parent_map) {
-                if (parent_key == key) {
-                    children.push_back(child_key);
-                    break;
+        if (!printed_in_detail.contains(key)) {
+            for (const auto& [child_key, parent_map] : aggregated) {
+                for (const auto& [parent_key, entry] : parent_map) {
+                    if (parent_key == key) {
+                        children.push_back(child_key);
+                        break;
+                    }
                 }
             }
+            printed_in_detail.insert(key);
         }
 
         // Sort children by time (use total time across all parents)
         std::ranges::sort(children, [&](OperationKey a, OperationKey b) {
-            std::size_t time_a = 0;
-            std::size_t time_b = 0;
+            uint64_t time_a = 0;
+            uint64_t time_b = 0;
             if (auto it = aggregated.find(a); it != aggregated.end()) {
                 for (const auto& [_, entry] : it->second) {
                     time_a += entry.time;
@@ -357,6 +385,10 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
             }
             return time_a > time_b;
         });
+
+        if (!children.empty() && keys_to_parents[key].size() > 1) {
+            os << indent_level << "NOTE: Shared children. Will add up to > 100%.\n";
+        }
 
         // Print children
         for (size_t i = 0; i < children.size(); ++i) {
@@ -377,7 +409,8 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
 
     // Sort roots by time
     std::ranges::sort(roots, [&](OperationKey a, OperationKey b) {
-        std::size_t time_a = 0, time_b = 0;
+        uint64_t time_a = 0;
+        uint64_t time_b = 0;
         if (auto it = aggregated.find(a); it != aggregated.end()) {
             if (auto parent_it = it->second.find(""); parent_it != it->second.end()) {
                 time_a = parent_it->second.time;
@@ -402,10 +435,10 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
     print_separator(os, false);
 
     // Calculate totals from root entries
-    std::size_t total_time = 0;
-    std::size_t total_calls = 0;
+    uint64_t total_time = 0;
+    uint64_t total_calls = 0;
     std::set<OperationKey> unique_functions;
-    std::size_t shared_count = 0;
+    uint64_t shared_count = 0;
 
     for (const auto& [key, parent_map] : aggregated) {
         unique_functions.insert(key);
@@ -467,7 +500,7 @@ BenchReporter::BenchReporter(TimeStatsEntry* entry)
     parent = GlobalBenchStatsContainer::parent;
     auto now = std::chrono::high_resolution_clock::now();
     auto now_ns = std::chrono::time_point_cast<std::chrono::nanoseconds>(now);
-    time = static_cast<std::size_t>(now_ns.time_since_epoch().count());
+    time = static_cast<uint64_t>(now_ns.time_since_epoch().count());
 }
 BenchReporter::~BenchReporter()
 {
@@ -477,7 +510,7 @@ BenchReporter::~BenchReporter()
     auto now = std::chrono::high_resolution_clock::now();
     auto now_ns = std::chrono::time_point_cast<std::chrono::nanoseconds>(now);
     // Add, taking advantage of our parent context
-    stats->count.track(parent, static_cast<std::size_t>(now_ns.time_since_epoch().count()) - time);
+    stats->count.track(parent, static_cast<uint64_t>(now_ns.time_since_epoch().count()) - time);
 
     // Unwind to previous parent
     GlobalBenchStatsContainer::parent = parent;
