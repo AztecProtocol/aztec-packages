@@ -179,7 +179,8 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      * `q_addK` and also `q_add` are all correctly constrained for K ∈ {1, 2, 3, 4}.
      *      1. The Precomputed table is correctly constrained; in particular, the values `precompute_pc`,
      *      `precompute_round`, `precompute_skew`, `precompute_select`, and `wK` are all correctly constrained.
-     *      2. `round` is monotonic and only updates when RAJU ADD HERE. should this be more constrained??!
+     *      2. `round` monotonically increases from 0 to 32 before reseting back to 0. `round_shift - round == 1`
+     *      precisely when `q_double == 1`.
      *      3. `pc` is monotonic and only updates when there is an `msm_transition`. Here, it updates by `msm_size`,
      *      which must be constrained somewhere else by a multiset argument. We detail this below.
      *      4. `q_add`, `q_skew`, and `q_double` are pairwise mutually exclusive.
@@ -433,7 +434,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // `round_transition == 0` if `round_delta == 0` or the next row is an MSM transition.
     // if `round_transition != 1`, then `round_transition == round_delta == 1` by the following constraint.
     // in particular, `round_transition` is boolean. (`round_delta` is not boolean precisely one step before an MSM
-    // transition, but that does not concern us.)
+    // transition, but that does not concern us here.)
     const auto round_transition = round_delta * (-msm_transition_shift + 1);
     std::get<18>(accumulator) += round_transition * (round_delta - 1) * scaling_factor;
 
@@ -470,7 +471,8 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // this means that the first row with `round == 32` has q_skew == 1. then all subsequent q_skew entries must be 1,
     // _until_ we start our new MSM.
     std::get<33>(accumulator) += (-msm_transition_shift + 1) * q_skew * (-q_skew_shift + 1) * scaling_factor;
-    // if q_skew == 1, then round == 32. This is redundant.
+    // if q_skew == 1, then round == 32. This is almost certainly redundant but psychologically useful to "constrain
+    // both ends".
     std::get<34>(accumulator) += q_skew * (-round + 32) * scaling_factor;
     // UPDATING THE COUNT
 
@@ -490,9 +492,8 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     std::get<25>(accumulator) +=
         is_not_first_row * (-msm_transition_shift + 1) * round_delta * count_shift * scaling_factor;
 
-    // if msm_transition = 1, then count = 0 (as we are starting a new MSM and hence a new wNAF
-    // digit). RAJU QUESTION: should I make this * round instead of * count? Probably...? TEST before pushing.
-    std::get<26>(accumulator) += msm_transition * count * scaling_factor;
+    // if msm_transition = 1, then round = 0.
+    std::get<26>(accumulator) += msm_transition * round * scaling_factor;
 
     // if msm_transition_shift = 1, pc = pc_shift + msm_size
     // NB: `ecc_set_relation` ensures `msm_size` maps to `transcript.msm_count` for the current value of `pc`
