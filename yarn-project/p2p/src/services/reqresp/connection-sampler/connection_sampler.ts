@@ -125,6 +125,22 @@ export class ConnectionSampler {
     return { peer: lastPeer, sampledPeers };
   }
 
+  /*
+   * Returns all peers sorted by connection count ascending,
+   * meaning that the peers with the least number of active connections are earlier in an array
+   *
+   * @param: excluding - peers to exclude
+   * @return: list of peer ids
+   * */
+  public getPeerListSortedByConnectionCountAsc(excluding?: Set<string>): PeerId[] {
+    return this.libp2p
+      .getPeers()
+      .filter(id => !excluding?.has(id.toString()))
+      .map(id => ({ id, count: this.activeConnectionsCount.get(id.toString()) ?? 0 }))
+      .sort((a, b) => a.count - b.count)
+      .map(p => p.id);
+  }
+
   /**
    * Samples a batch of unique peers from the libp2p node, prioritizing peers without active connections
    *
