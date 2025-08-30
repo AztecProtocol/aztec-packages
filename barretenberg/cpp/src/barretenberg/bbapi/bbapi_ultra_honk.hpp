@@ -161,7 +161,7 @@ struct CircuitWriteSolidityVerifier {
     std::vector<uint8_t> verification_key;
     ProofSystemSettings settings;
     MSGPACK_FIELDS(verification_key, settings);
-    Response execute(bool optimized_verifier = false, const BBApiRequest& request = {}) &&;
+    Response execute(const BBApiRequest& request = {}) &&;
     bool operator==(const CircuitWriteSolidityVerifier&) const = default;
 };
 

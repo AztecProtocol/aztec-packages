@@ -237,11 +237,11 @@ void UltraHonkAPI::write_solidity_verifier(const Flags& flags,
     // Convert flags to ProofSystemSettings
     bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
                                          .oracle_hash_type = flags.oracle_hash_type,
-                                         .disable_zk = flags.disable_zk };
+                                         .disable_zk = flags.disable_zk,
+                                         .optimized_solidity_verifier = flags.optimized_solidity_verifier };
 
     // Execute solidity verifier command
-    auto response = bbapi::CircuitWriteSolidityVerifier{ .verification_key = vk_bytes, .settings = settings }.execute(
-        flags.optimized_solidity_verifier);
+    auto response = bbapi::CircuitWriteSolidityVerifier{ .verification_key = vk_bytes, .settings = settings }.execute();
 
     // Write output
     if (output_path == "-") {

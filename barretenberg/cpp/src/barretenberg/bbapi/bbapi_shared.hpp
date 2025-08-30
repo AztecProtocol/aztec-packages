@@ -92,7 +92,10 @@ struct ProofSystemSettings {
      */
     bool disable_zk = false;
 
-    MSGPACK_FIELDS(ipa_accumulation, oracle_hash_type, disable_zk);
+    // TODO
+    bool optimized_solidity_verifier = false;
+
+    MSGPACK_FIELDS(ipa_accumulation, oracle_hash_type, disable_zk, optimized_solidity_verifier);
     bool operator==(const ProofSystemSettings& other) const = default;
 };
 

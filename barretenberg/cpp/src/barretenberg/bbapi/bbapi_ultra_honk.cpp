@@ -337,14 +337,14 @@ VkAsFields::Response VkAsFields::execute(BB_UNUSED const BBApiRequest& request) 
     return { std::move(fields) };
 }
 
-CircuitWriteSolidityVerifier::Response CircuitWriteSolidityVerifier::execute(bool optimized_verifier = false,
-                                                                             BB_UNUSED const BBApiRequest& request) &&
+CircuitWriteSolidityVerifier::Response CircuitWriteSolidityVerifier::execute(BB_UNUSED const BBApiRequest& request) &&
 {
     using VK = UltraKeccakFlavor::VerificationKey;
     auto vk = std::make_shared<VK>(from_buffer<VK>(verification_key));
-    std::string contract = settings.disable_zk ? (optimized_verifier ? get_optimized_honk_solidity_verifier(vk)
-                                                                     : get_honk_solidity_verifier(vk))
-                                               : get_honk_zk_solidity_verifier(vk);
+    std::string contract = settings.disable_zk
+                               ? (settings.optimized_solidity_verifier ? get_optimized_honk_solidity_verifier(vk)
+                                                                       : get_honk_solidity_verifier(vk))
+                               : get_honk_zk_solidity_verifier(vk);
 
     return { std::move(contract) };
 }
