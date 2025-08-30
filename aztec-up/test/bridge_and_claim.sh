@@ -42,7 +42,7 @@ aztec-wallet \
   --register-only
 
 aztec-wallet \
-  bridge-fee-juice 1000000000000000000 accounts:main \
+  bridge-fee-juice 1000000000000000000000 accounts:main \
   --mint \
   --no-wait
 

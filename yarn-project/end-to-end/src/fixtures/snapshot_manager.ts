@@ -21,8 +21,6 @@ import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/serv
 import {
   type DeployL1ContractsArgs,
   type DeployL1ContractsReturnType,
-  FeeAssetArtifact,
-  RollupContract,
   createExtendedL1Client,
   deployMulticall3,
   getL1ContractsConfigEnvVars,
@@ -49,7 +47,7 @@ import fs from 'fs/promises';
 import getPort from 'get-port';
 import { tmpdir } from 'os';
 import path, { join } from 'path';
-import { type Hex, getContract } from 'viem';
+import type { Hex } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -382,31 +380,6 @@ async function setupFromFresh(
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
   aztecNodeConfig.rollupVersion = deployL1ContractsValues.rollupVersion;
   aztecNodeConfig.l1PublishRetryIntervalMS = 100;
-
-  if (opts.fundRewardDistributor) {
-    // Mints block rewards for 10000 blocks to the rewardDistributor contract
-
-    const rollup = new RollupContract(
-      deployL1ContractsValues.l1Client,
-      deployL1ContractsValues.l1ContractAddresses.rollupAddress,
-    );
-
-    const blockReward = await rollup.getBlockReward();
-    const mintAmount = 10_000n * (blockReward as bigint);
-
-    const feeJuice = getContract({
-      address: deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
-      abi: FeeAssetArtifact.contractAbi,
-      client: deployL1ContractsValues.l1Client,
-    });
-
-    const rewardDistributorMintTxHash = await feeJuice.write.mint(
-      [deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(), mintAmount],
-      {} as any,
-    );
-    await deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: rewardDistributorMintTxHash });
-    logger.info(`Funding rewardDistributor in ${rewardDistributorMintTxHash}`);
-  }
 
   const dateProvider = new TestDateProvider();
 

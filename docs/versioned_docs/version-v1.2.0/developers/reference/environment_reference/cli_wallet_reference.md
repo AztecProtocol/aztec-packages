@@ -143,7 +143,7 @@ First register an account, mint the fee asset on L1 and bridge it to fee juice:
 
 ```bash title="bridge-fee-juice" showLineNumbers
 aztec-wallet create-account -a main --register-only
-aztec-wallet bridge-fee-juice 1000000000000000000 main --mint --no-wait
+aztec-wallet bridge-fee-juice 1000000000000000000000 main --mint --no-wait
 ```
 
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v1.2.0/yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L8-L11" target="_blank" rel="noopener noreferrer">Source code: yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L8-L11</a></sub></sup>

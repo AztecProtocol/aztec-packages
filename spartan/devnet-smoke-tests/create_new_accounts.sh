@@ -35,7 +35,7 @@ if [ "$total_account_count" -lt "$max_accounts" ]; then
       -u $FAUCET_URL
 
     aztec-wallet \
-      bridge-fee-juice 1000000000000000000 accounts:main \
+      bridge-fee-juice 1000000000000000000000 accounts:main \
       --mint \
       --l1-rpc-urls $L1_URL \
       --l1-chain-id 1337 \

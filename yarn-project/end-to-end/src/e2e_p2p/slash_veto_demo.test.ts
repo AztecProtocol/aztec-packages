@@ -264,19 +264,26 @@ describe('veto slash', () => {
 
       const newSlasherAddress = await deployNewSlasher(vetoerL1Client, slasherType);
       debugLogger.info(`\n\nnewSlasherAddress: ${newSlasherAddress}\n\n`);
-      const { receipt } = await createL1TxUtilsFromViemWallet(
-        t.ctx.deployL1ContractsValues.l1Client,
-        t.logger,
-        t.ctx.dateProvider,
-      ).sendAndMonitorTransaction({
-        to: rollup.address,
-        data: encodeFunctionData({
-          abi: RollupAbi,
-          functionName: 'setSlasher',
-          args: [newSlasherAddress.toString()],
-        }),
+
+      // Need to impersonate governance to set the new slasher
+      await t.ctx.cheatCodes.eth.startImpersonating(
+        t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceAddress,
+      );
+
+      const setSlasherTx = await t.ctx.deployL1ContractsValues.l1Client.writeContract({
+        address: rollup.address,
+        abi: RollupAbi,
+        functionName: 'setSlasher',
+        args: [newSlasherAddress.toString()],
+        account: t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceAddress.toString(),
+      });
+      const receipt = await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({
+        hash: setSlasherTx,
       });
       expect(receipt.status).toEqual('success');
+
+      await t.ctx.cheatCodes.eth.stopImpersonating(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceAddress);
+
       const slasherAddress = await rollup.getSlasher();
       expect(slasherAddress.toLowerCase()).toEqual(newSlasherAddress.toString().toLowerCase());
       debugLogger.info(`\n\nnew slasher address: ${slasherAddress}\n\n`);

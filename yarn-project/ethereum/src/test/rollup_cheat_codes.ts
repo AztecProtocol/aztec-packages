@@ -258,7 +258,11 @@ export class RollupCheatCodes {
    */
   public async setProvingCostPerMana(ethValue: bigint) {
     await this.asOwner(async (account, rollup) => {
-      const hash = await rollup.write.setProvingCostPerMana([ethValue], { account, chain: this.client.chain });
+      const hash = await rollup.write.setProvingCostPerMana([ethValue], {
+        account,
+        chain: this.client.chain,
+        gasLimit: 1000000n,
+      });
       await this.client.waitForTransactionReceipt({ hash });
       this.logger.warn(`Updated proving cost per mana to ${ethValue}`);
     });

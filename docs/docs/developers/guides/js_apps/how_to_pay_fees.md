@@ -100,7 +100,7 @@ import { L1FeeJuicePortalManager } from "@aztec/aztec.js";
 **CLI:**
 
 ```bash
-aztec-wallet bridge-fee-juice 1000000000000000000 myAccount --mint --no-wait
+aztec-wallet bridge-fee-juice 1000000000000000000000 myAccount --mint --no-wait
 ```
 
 ### Testnet
@@ -114,7 +114,7 @@ cast call $FEE_ASSET_HANDLER_CONTRACT "mint(address)" $MY_L1_ADDRESS --rpc-url <
 Then bridge with CLI:
 
 ```bash
-aztec-wallet bridge-fee-juice 1000000000000000000 myAccount --no-wait \
+aztec-wallet bridge-fee-juice 1000000000000000000000 myAccount --no-wait \
   --l1-rpc-urls https://rpc.sepolia.ethpandaops.io \
   --l1-chain-id 11155111 \
   --l1-private-key <YOUR_L1_PRIVATE_KEY>

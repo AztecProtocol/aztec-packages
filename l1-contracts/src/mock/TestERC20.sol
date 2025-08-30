@@ -34,11 +34,8 @@ contract TestERC20 is ERC20, IMintableERC20, Ownable2Step {
   }
 
   function acceptOwnership() public virtual override(Ownable2Step) {
-    address oldOwner = owner();
     address newOwner = pendingOwner();
     super.acceptOwnership();
-
-    removeMinter(oldOwner);
     addMinter(newOwner);
   }
 }
