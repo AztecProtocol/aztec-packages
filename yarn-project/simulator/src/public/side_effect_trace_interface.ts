@@ -18,5 +18,6 @@ export interface PublicSideEffectTraceInterface {
   traceNewNullifier(siloedNullifier: Fr): void;
   traceNewL2ToL1Message(contractAddress: AztecAddress, recipient: Fr, content: Fr): void;
   tracePublicLog(contractAddress: AztecAddress, log: Fr[]): void;
+  traceDebugLog(messageId: number, fields: Fr[]): void;
   traceGetContractClass(contractClassId: Fr, exists: boolean): void;
 }

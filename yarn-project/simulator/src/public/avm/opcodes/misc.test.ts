@@ -1,7 +1,9 @@
 import { jest } from '@jest/globals';
+import { mock } from 'jest-mock-extended';
 
+import type { PublicSideEffectTraceInterface } from '../../side_effect_trace_interface.js';
 import { Field, Uint8, Uint32 } from '../avm_memory_types.js';
-import { initContext, initExecutionEnvironment } from '../fixtures/initializers.js';
+import { initContext, initExecutionEnvironment, initPersistableStateManager } from '../fixtures/initializers.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { DebugLog } from './misc.js';
 
@@ -30,7 +32,9 @@ describe('Misc Instructions', () => {
 
     it('Should execute DebugLog in client-initiated simulation mode', async () => {
       const env = initExecutionEnvironment({ clientInitiatedSimulation: true });
-      const context = initContext({ env });
+      const trace = mock<PublicSideEffectTraceInterface>();
+      const persistableState = initPersistableStateManager({ trace });
+      const context = initContext({ env, persistableState });
       // Set up memory with message and fields
       const messageOffset = 10;
       const fieldsOffset = 100;
@@ -64,6 +68,10 @@ describe('Misc Instructions', () => {
 
         // Check that logger.verbose was called with formatted message
         expect(mockVerbose).toHaveBeenCalledWith(`Hello ${fieldValue.toFr()}!`);
+
+        // expect debug log to be traced
+        const msgId = 0; // TODO(dbanks12): implement messageId
+        expect(trace.traceDebugLog).toHaveBeenCalledWith(msgId, [fieldValue.toFr()]);
       } finally {
         // Restore the mock
         mockIsVerbose.mockRestore();

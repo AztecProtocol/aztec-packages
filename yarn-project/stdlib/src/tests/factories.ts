@@ -1732,7 +1732,8 @@ export async function makeBloatedProcessedTx({
       },
       gasUsed,
       RevertCode.OK,
-      undefined /* revertReason */,
+      /*revertReason=*/ undefined,
+      /*publicDebuggedLogs=*/ [],
     );
   }
 }

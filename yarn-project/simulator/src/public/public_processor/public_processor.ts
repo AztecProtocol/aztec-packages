@@ -513,7 +513,7 @@ export class PublicProcessor implements Traceable {
   private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     const timer = new Timer();
 
-    const { avmProvingRequest, gasUsed, revertCode, revertReason, processedPhases } =
+    const { avmProvingRequest, gasUsed, revertCode, revertReason, processedPhases, publicDebuggedLogs } =
       await this.publicTxSimulator.simulate(tx);
 
     if (!avmProvingRequest) {
@@ -542,7 +542,14 @@ export class PublicProcessor implements Traceable {
     const durationMs = timer.ms();
     this.metrics.recordTx(phaseCount, durationMs, gasUsed.publicGas);
 
-    const processedTx = makeProcessedTxFromTxWithPublicCalls(tx, avmProvingRequest, gasUsed, revertCode, revertReason);
+    const processedTx = makeProcessedTxFromTxWithPublicCalls(
+      tx,
+      avmProvingRequest,
+      gasUsed,
+      revertCode,
+      revertReason,
+      publicDebuggedLogs,
+    );
 
     const returnValues = processedPhases.find(({ phase }) => phase === TxExecutionPhase.APP_LOGIC)?.returnValues ?? [];
 

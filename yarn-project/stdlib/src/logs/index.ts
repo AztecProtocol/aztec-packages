@@ -2,6 +2,7 @@ export * from './log_with_tx_data.js';
 export * from './indexed_tagging_secret.js';
 export * from './contract_class_log.js';
 export * from './public_log.js';
+export * from './public_debugged_log.js';
 export * from './private_log.js';
 export * from './pending_tagged_log.js';
 export * from './log_id.js';

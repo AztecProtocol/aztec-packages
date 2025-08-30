@@ -330,6 +330,15 @@ export class PublicPersistableStateManager {
   }
 
   /**
+   * Write a debug log
+   * @param messageId - message ID (currently always 0)
+   * @param fields - debug log fields
+   */
+  public writeDebugLog(messageId: number, fields: Fr[]) {
+    this.trace.traceDebugLog(messageId, fields);
+  }
+
+  /**
    * Get a contract instance.
    * @param contractAddress - address of the contract instance to retrieve.
    * @returns the contract instance or undefined if it does not exist.

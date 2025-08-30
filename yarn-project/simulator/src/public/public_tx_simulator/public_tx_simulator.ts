@@ -13,6 +13,7 @@ import {
 } from '@aztec/stdlib/avm';
 import { SimulationError } from '@aztec/stdlib/errors';
 import type { Gas, GasUsed } from '@aztec/stdlib/gas';
+import type { PublicDebuggedLog } from '@aztec/stdlib/logs';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import {
@@ -47,6 +48,8 @@ export type PublicTxResult = {
   /** Revert reason, if any */
   revertReason?: SimulationError;
   processedPhases: ProcessedPhase[];
+  /** Debug logs emitted during public execution */
+  publicDebuggedLogs: PublicDebuggedLog[];
 };
 
 export class PublicTxSimulator {
@@ -176,6 +179,7 @@ export class PublicTxSimulator {
         revertCode,
         revertReason: context.revertReason,
         processedPhases: processedPhases,
+        publicDebuggedLogs: context.getDebugLogs(),
       };
     } finally {
       // Make sure there are no new contracts in the tx-level cache.

@@ -8,6 +8,7 @@ import { Gas } from '../gas/gas.js';
 import type { GasUsed } from '../gas/gas_used.js';
 import { computeL2ToL1MessageHash } from '../hash/hash.js';
 import type { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
+import type { PublicDebuggedLog } from '../logs/public_debugged_log.js';
 import type { ClientIvcProof } from '../proofs/client_ivc_proof.js';
 import type { GlobalVariables } from './global_variables.js';
 import type { Tx } from './tx.js';
@@ -61,6 +62,10 @@ export type ProcessedTx = {
    * Reason the tx was reverted.
    */
   revertReason: SimulationError | undefined;
+  /**
+   * Debug logs emitted during public execution.
+   */
+  publicDebuggedLogs: PublicDebuggedLog[];
 };
 
 /**
@@ -125,6 +130,7 @@ export function makeProcessedTxFromPrivateOnlyTx(
     gasUsed,
     revertCode: RevertCode.OK,
     revertReason: undefined,
+    publicDebuggedLogs: [],
   };
 }
 
@@ -140,6 +146,7 @@ export function makeProcessedTxFromTxWithPublicCalls(
   gasUsed: GasUsed,
   revertCode: RevertCode,
   revertReason: SimulationError | undefined,
+  publicDebuggedLogs: PublicDebuggedLog[] = [],
 ): ProcessedTx {
   const avmPublicInputs = avmProvingRequest.inputs.publicInputs;
 
@@ -189,5 +196,6 @@ export function makeProcessedTxFromTxWithPublicCalls(
     gasUsed,
     revertCode,
     revertReason,
+    publicDebuggedLogs,
   };
 }

@@ -16,7 +16,7 @@ import { PublicDataUpdateRequest } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import { NoteHash, Nullifier } from '@aztec/stdlib/kernel';
-import { PublicLog } from '@aztec/stdlib/logs';
+import { PublicDebuggedLog, PublicLog } from '@aztec/stdlib/logs';
 import { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 
 import { strict as assert } from 'assert';
@@ -36,6 +36,7 @@ export type SideEffects = {
   nullifiers: Nullifier[];
   l2ToL1Msgs: ScopedL2ToL1Message[];
   publicLogs: PublicLog[];
+  publicDebuggedLogs: PublicDebuggedLog[];
 };
 
 export class SideEffectArrayLengths {
@@ -69,6 +70,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
   private nullifiers: Nullifier[] = [];
   private l2ToL1Messages: ScopedL2ToL1Message[] = [];
   private publicLogs: PublicLog[] = [];
+  private publicDebuggedLogs: PublicDebuggedLog[] = [];
 
   /** Make sure a forked trace is never merged twice. */
   private alreadyMergedIntoParent = false;
@@ -113,6 +115,9 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
 
     this.sideEffectCounter = forkedTrace.sideEffectCounter;
     this.uniqueClassIds.acceptAndMerge(forkedTrace.uniqueClassIds);
+
+    // Debug logs are always merged, even on revert
+    this.publicDebuggedLogs.push(...forkedTrace.publicDebuggedLogs);
 
     if (!reverted) {
       this.publicDataWrites.push(...forkedTrace.publicDataWrites);
@@ -237,6 +242,12 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     this.incrementSideEffectCounter();
   }
 
+  public traceDebugLog(messageId: number, fields: Fr[]) {
+    // Debug logs don't have a limit like other side effects
+    const debugLog = new PublicDebuggedLog(messageId, fields);
+    this.publicDebuggedLogs.push(debugLog);
+  }
+
   public traceGetContractClass(contractClassId: Fr, exists: boolean) {
     // We limit the number of unique contract class IDs due to hashing and the trace length limit.
     if (exists && !this.uniqueClassIds.has(contractClassId.toString())) {
@@ -260,6 +271,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
       nullifiers: this.nullifiers,
       l2ToL1Msgs: this.l2ToL1Messages,
       publicLogs: this.publicLogs,
+      publicDebuggedLogs: this.publicDebuggedLogs,
     };
   }
 }

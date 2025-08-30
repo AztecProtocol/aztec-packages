@@ -55,14 +55,19 @@ export class DebugLog extends Instruction {
       memory.checkTagsRange(TypeTag.UINT8, messageOffset, this.messageSize);
       memory.checkTagsRange(TypeTag.FIELD, fieldsOffset, fieldsSize);
 
-      // Interpret str<N> = [u8; N] to string.
-      const messageAsStr = rawMessage.map(field => String.fromCharCode(field.toNumber())).join('');
-      const formattedStr = applyStringFormatting(
-        messageAsStr,
-        fields.map(field => field.toFr()),
-      );
+      // Convert fields to Fr array for the side effect trace
+      const fieldsAsFr = fields.map(field => field.toFr());
 
-      DebugLog.logger.verbose(formattedStr);
+      const messageId = 0; // TODO(dbanks12): implement messageId as operand
+      context.persistableState.writeDebugLog(messageId, fieldsAsFr);
+
+      if (DebugLog.logger.isLevelEnabled('verbose')) {
+        // Interpret str<N> = [u8; N] to string.
+        const messageAsStr = rawMessage.map(field => String.fromCharCode(field.toNumber())).join('');
+        const formattedStr = applyStringFormatting(messageAsStr, fieldsAsFr);
+
+        DebugLog.logger.verbose(formattedStr);
+      }
     }
   }
 }

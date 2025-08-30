@@ -290,6 +290,13 @@ export class PublicTxContext {
   }
 
   /**
+   * Get the public debugged logs accumulated during this transaction.
+   */
+  public getDebugLogs() {
+    return this.trace.getSideEffects().publicDebuggedLogs;
+  }
+
+  /**
    * Generate the public inputs for the AVM circuit.
    */
   public async generateAvmCircuitPublicInputs(): Promise<AvmCircuitPublicInputs> {

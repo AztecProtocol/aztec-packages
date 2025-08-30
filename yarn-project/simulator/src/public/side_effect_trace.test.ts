@@ -15,7 +15,7 @@ import { PublicDataUpdateRequest } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import { NoteHash, Nullifier } from '@aztec/stdlib/kernel';
-import { PublicLog } from '@aztec/stdlib/logs';
+import { PublicDebuggedLog, PublicLog } from '@aztec/stdlib/logs';
 import { L2ToL1Message } from '@aztec/stdlib/messaging';
 import { makeContractClassPublic } from '@aztec/stdlib/testing';
 
@@ -31,6 +31,8 @@ describe('Public Side Effect Trace', () => {
   const recipient = Fr.random();
   const content = Fr.random();
   const log = [Fr.random(), Fr.random(), Fr.random()];
+  const debugLogMessageId = 42;
+  const debugLog = [new Fr(1), new Fr(2)];
 
   let startCounter: number;
   let startCounterPlus1: number;
@@ -86,6 +88,11 @@ describe('Public Side Effect Trace', () => {
     const expectedLog = new PublicLog(address, padArrayEnd(log, Fr.ZERO, PUBLIC_LOG_SIZE_IN_FIELDS), log.length);
 
     expect(trace.getSideEffects().publicLogs).toEqual([expectedLog]);
+  });
+
+  it('Should trace debug logs', () => {
+    trace.traceDebugLog(debugLogMessageId, debugLog);
+    expect(trace.getSideEffects().publicDebuggedLogs).toEqual([new PublicDebuggedLog(debugLogMessageId, debugLog)]);
   });
 
   describe('Maximum accesses', () => {
@@ -228,6 +235,7 @@ describe('Public Side Effect Trace', () => {
       testCounter++;
       nestedTrace.tracePublicLog(address, log);
       testCounter++;
+      nestedTrace.traceDebugLog(debugLogMessageId, debugLog); // no counter incr
 
       trace.merge(nestedTrace, reverted);
 
@@ -244,6 +252,8 @@ describe('Public Side Effect Trace', () => {
         expect(parentSideEffects.nullifiers).toEqual([]);
         expect(parentSideEffects.l2ToL1Msgs).toEqual([]);
         expect(parentSideEffects.publicLogs).toEqual([]);
+        // debug logs don't get dropped on revert
+        expect(parentSideEffects.publicDebuggedLogs).toEqual([new PublicDebuggedLog(debugLogMessageId, debugLog)]);
         // parent trace does not adopt nested call's writtenPublicDataSlots
         expect(trace.isStorageCold(address, slot)).toBe(true);
       } else {
