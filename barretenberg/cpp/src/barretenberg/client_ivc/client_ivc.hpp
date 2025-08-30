@@ -221,8 +221,7 @@ class ClientIVC {
     std::shared_ptr<DeciderVerificationKey>
         recursive_verifier_native_accum; // native verifier accumulator used in recursive folding
     std::shared_ptr<DeciderVerificationKey>
-        native_verifier_accum;                    //  native verifier accumulator used in prover folding
-    std::shared_ptr<MegaVerificationKey> honk_vk; // honk vk to be completed and folded into the accumulator
+        native_verifier_accum; //  native verifier accumulator used in prover folding
 
     // Set of tuples {proof, verification_key, type (Oink/PG)} to be recursively verified
     VerificationQueue verification_queue;
@@ -271,7 +270,6 @@ class ClientIVC {
     Proof prove();
 
     static void hide_op_queue_accumulation_result(ClientCircuit& circuit);
-    HonkProof construct_mega_proof_for_hiding_kernel(ClientCircuit& circuit);
 
     static bool verify(const Proof& proof, const VerificationKey& vk);
 
@@ -301,6 +299,9 @@ class ClientIVC {
                                  const std::shared_ptr<MegaVerificationKey>& honk_vk,
                                  const std::shared_ptr<Transcript>& transcript,
                                  bool is_kernel);
+
+    HonkProof construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
+                                                     const std::shared_ptr<MegaVerificationKey>& honk_vk);
 
     QUEUE_TYPE get_queue_type() const;
 
