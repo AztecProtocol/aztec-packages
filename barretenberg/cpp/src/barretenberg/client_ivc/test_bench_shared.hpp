@@ -14,23 +14,6 @@
 namespace bb {
 
 /**
- * @brief Verify an IVC proof
- *
- */
-bool verify_ivc(ClientIVC::Proof& proof, ClientIVC& ivc)
-{
-    bool verified = ivc.verify(proof);
-
-    // This is a benchmark, not a test, so just print success or failure to the log
-    if (verified) {
-        info("IVC successfully verified!");
-    } else {
-        info("IVC failed to verify.");
-    }
-    return verified;
-}
-
-/**
  * @brief Perform a specified number of circuit accumulation rounds
  *
  * @param NUM_CIRCUITS Number of circuits to accumulate (apps + kernels)

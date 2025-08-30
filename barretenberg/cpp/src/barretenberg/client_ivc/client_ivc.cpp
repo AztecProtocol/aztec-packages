@@ -602,17 +602,6 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
 }
 
 /**
- * @brief Verify a full proof of the IVC
- *
- * @param proof
- * @return bool
- */
-bool ClientIVC::verify(const Proof& proof) const
-{
-    return verify(proof, get_vk());
-}
-
-/**
  * @brief Internal method for constructing a decider proof
  *
  * @return HonkProof
@@ -624,30 +613,6 @@ HonkProof ClientIVC::construct_decider_proof(const std::shared_ptr<Transcript>& 
     MegaDeciderProver decider_prover(prover_accumulator, transcript);
     decider_prover.construct_proof();
     return decider_prover.export_proof();
-}
-
-/**
- * @brief Construct and verify a proof for the IVC
- * @note Use of this method only makes sense when the prover and verifier are the same entity, e.g. in
- * development/testing.
- *
- */
-bool ClientIVC::prove_and_verify()
-{
-    auto start = std::chrono::steady_clock::now();
-    const auto proof = prove();
-    auto end = std::chrono::steady_clock::now();
-    auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    vinfo("time to call ClientIVC::prove: ", diff.count(), " ms.");
-
-    start = end;
-    const bool verified = verify(proof);
-    end = std::chrono::steady_clock::now();
-
-    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    vinfo("time to verify ClientIVC proof: ", diff.count(), " ms.");
-
-    return verified;
 }
 
 // Proof methods

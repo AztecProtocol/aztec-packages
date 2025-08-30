@@ -108,7 +108,8 @@ TEST_F(ClientIVCTests, BadProofFailure)
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
         }
-        EXPECT_TRUE(ivc.prove_and_verify());
+        auto proof = ivc.prove();
+        EXPECT_TRUE(ClientIVC::verify(proof, ivc.get_vk()));
     }
 
     // The IVC throws an exception if the FIRST fold proof is tampered with
@@ -135,7 +136,8 @@ TEST_F(ClientIVCTests, BadProofFailure)
                                   num_public_inputs); // tamper with first proof
             }
         }
-        EXPECT_FALSE(ivc.prove_and_verify());
+        auto proof = ivc.prove();
+        EXPECT_FALSE(ClientIVC::verify(proof, ivc.get_vk()));
     }
 
     // The IVC fails if the SECOND fold proof is tampered with
@@ -156,7 +158,8 @@ TEST_F(ClientIVCTests, BadProofFailure)
                                   circuit.num_public_inputs()); // tamper with second proof
             }
         }
-        EXPECT_FALSE(ivc.prove_and_verify());
+        auto proof = ivc.prove();
+        EXPECT_FALSE(ClientIVC::verify(proof, ivc.get_vk()));
     }
 
     EXPECT_TRUE(true);
@@ -309,7 +312,8 @@ TEST_F(ClientIVCTests, StructuredTraceOverflow)
         log2_num_gates += 1;
     }
 
-    EXPECT_TRUE(ivc.prove_and_verify());
+    auto proof = ivc.prove();
+    EXPECT_TRUE(ClientIVC::verify(proof, ivc.get_vk()));
 };
 
 /**
@@ -345,7 +349,8 @@ TEST_F(ClientIVCTests, DynamicTraceOverflow)
         }
 
         EXPECT_EQ(check_accumulator_target_sum_manual(ivc.prover_accumulator), true);
-        EXPECT_TRUE(ivc.prove_and_verify());
+        auto proof = ivc.prove();
+        EXPECT_TRUE(ClientIVC::verify(proof, ivc.get_vk()));
     }
 }
 
@@ -417,5 +422,6 @@ TEST_F(ClientIVCTests, DatabusFailure)
         ivc.accumulate(circuit, vk);
     }
 
-    EXPECT_FALSE(ivc.prove_and_verify());
+    auto proof = ivc.prove();
+    EXPECT_FALSE(ClientIVC::verify(proof, ivc.get_vk()));
 };
