@@ -36,6 +36,7 @@ pub global OFFCHAIN_MESSAGE_IDENTIFIER: Field =
 ///
 /// * `message` - The message to emit.
 /// * `recipient` - The address of the recipient.
+// TODO(benesjan): Make this function constrained.
 pub unconstrained fn emit_offchain_message<T>(message: T, recipient: AztecAddress)
 where
     T: Serialize,
