@@ -288,8 +288,8 @@ comptime fn assert_has_packable(note: TypeDefinition) {
 
 /// Asserts that the note has an 'owner' field.
 ///
-/// We require notes implemented with #[note] macro macro to have an 'owner' field because our
-/// auto-generated nullifier functions expect it. This requirement is most likely only temporary.
+/// We require notes implemented with #[note] macro to have an 'owner' field because our auto-generated nullifier
+/// functions expect it. This requirement is most likely only temporary.
 comptime fn assert_has_owner(note: TypeDefinition) {
     let fields = note.fields_as_written();
     let mut has_owner = false;
