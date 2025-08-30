@@ -63,8 +63,12 @@ export class TallySlashingProposerContract extends EventEmitter {
     return this.contract.read.EXECUTION_DELAY_IN_ROUNDS();
   }
 
-  public getSlashingUnit(): Promise<bigint> {
-    return this.contract.read.SLASHING_UNIT();
+  public getSlashingAmounts(): Promise<[bigint, bigint, bigint]> {
+    return Promise.all([
+      this.contract.read.SLASH_AMOUNT_SMALL(),
+      this.contract.read.SLASH_AMOUNT_MEDIUM(),
+      this.contract.read.SLASH_AMOUNT_LARGE(),
+    ]);
   }
 
   public getSlashOffsetInRounds(): Promise<bigint> {
@@ -93,19 +97,29 @@ export class TallySlashingProposerContract extends EventEmitter {
   public async getPayload(
     round: bigint,
   ): Promise<{ actions: { slashAmount: bigint; validator: EthAddress }[]; address: EthAddress }> {
-    const { result } = await this.contract.simulate.getTally([round]);
-    const address = await this.contract.read.getPayloadAddress([round, result]);
-    const actions = result.map(({ validator, slashAmount }) => ({
-      validator: EthAddress.fromString(validator),
-      slashAmount,
-    }));
+    const { result: committees } = await this.contract.simulate.getSlashTargetCommittees([round]);
+    const tally = await this.contract.read.getTally([round, committees]);
+    const address = await this.contract.read.getPayloadAddress([round, tally]);
+    const actions = this.mapSlashActions(tally);
     return { actions, address: EthAddress.fromString(address) };
   }
 
   /** Returns the slash actions to be executed for a given round based on votes */
-  public async getTally(round: bigint): Promise<{ slashAmount: bigint; validator: EthAddress }[]> {
-    const { result } = await this.contract.simulate.getTally([round]);
-    return result.map(({ validator, slashAmount }) => ({ validator: EthAddress.fromString(validator), slashAmount }));
+  public async getTally(
+    round: bigint,
+  ): Promise<{ actions: { slashAmount: bigint; validator: EthAddress }[]; committees: EthAddress[][] }> {
+    const { result: committees } = await this.contract.simulate.getSlashTargetCommittees([round]);
+    const tally = await this.contract.read.getTally([round, committees]);
+    return { actions: this.mapSlashActions(tally), committees: committees.map(c => c.map(EthAddress.fromString)) };
+  }
+
+  private mapSlashActions(
+    actions: readonly { slashAmount: bigint; validator: Hex }[],
+  ): { slashAmount: bigint; validator: EthAddress }[] {
+    return actions.map(({ validator, slashAmount }) => ({
+      validator: EthAddress.fromString(validator),
+      slashAmount,
+    }));
   }
 
   /** Tries to extract a VoteCast event from the given logs. */
@@ -153,6 +167,12 @@ export class TallySlashingProposerContract extends EventEmitter {
     };
 
     const types = {
+      EIP712Domain: [
+        { name: 'name', type: 'string' },
+        { name: 'version', type: 'string' },
+        { name: 'chainId', type: 'uint256' },
+        { name: 'verifyingContract', type: 'address' },
+      ],
       Vote: [
         { name: 'votes', type: 'bytes' },
         { name: 'slot', type: 'uint256' },

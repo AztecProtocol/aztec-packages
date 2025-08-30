@@ -32,10 +32,13 @@ args=("$@")
 
 SA_KEY_JSON=$(cat "$GOOGLE_APPLICATION_CREDENTIALS")
 
+mkdir -p $REPO_ROOT/.github/.act-tool-cache
+
 act workflow_dispatch -j $workflow_name \
+  --env RUNNER_TOOL_CACHE=/work/toolcache \
   -s GITHUB_TOKEN="$(gh auth token)" \
   -s GCP_SA_KEY="$SA_KEY_JSON" \
   -s KUBECONFIG_B64="$(cat $HOME/.kube/config | base64 -w0)" \
-  --container-options "--user $(id -u):$(id -g)" \
+  --container-options "-v $REPO_ROOT/.github/.act-tool-cache:/work/toolcache --user $(id -u):$(id -g)" \
   --bind \
   --directory $REPO_ROOT "${args[@]}"

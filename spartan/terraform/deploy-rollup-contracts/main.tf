@@ -6,17 +6,10 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "~> 2.24.0"
     }
-    google = {
-      source  = "hashicorp/google"
-      version = "~> 5.0"
-    }
+
   }
 }
 
-provider "google" {
-  project = var.GCP_PROJECT
-  region  = var.GCP_REGION
-}
 
 provider "kubernetes" {
   alias          = "cluster"
@@ -31,7 +24,7 @@ locals {
     ["--l1-rpc-urls", var.L1_RPC_URLS],
     ["--mnemonic", var.MNEMONIC],
     ["--l1-chain-id", tostring(var.L1_CHAIN_ID)],
-    # ["--validators", var.VALIDATORS],
+    ["--validators", var.VALIDATORS],
     ["--json"], # Always output JSON for easier parsing
     var.SALT != null ? ["--salt", tostring(var.SALT)] : [],
     var.SPONSORED_FPC ? ["--sponsored-fpc"] : [],

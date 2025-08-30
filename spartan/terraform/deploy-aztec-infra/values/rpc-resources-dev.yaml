@@ -1,0 +1,25 @@
+replicaCount: 1
+
+persistence:
+  enabled: true
+
+statefulSet:
+  enabled: true
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 1Gi
+
+service:
+  type: ClusterIP
+  p2p:
+    enabled: true
+    nodePortEnabled: false
+  admin:
+    enabled: true
+  headless:
+    enabled: false

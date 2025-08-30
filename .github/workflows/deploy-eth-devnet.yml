@@ -26,9 +26,8 @@ on:
         type: string
       ref:
         description: The branch name to deploy from
-        required: false
+        required: true
         type: string
-        default: "next"
       chain_id:
         description: Ethereum chain ID for genesis generation
         required: false
@@ -46,19 +45,27 @@ on:
         default: "32000000"
       resource_profile:
         description: Resource profile to use (dev or prod)
-        required: false
+        required: true
         type: string
-        default: "prod"
       create_static_ips:
         description: Whether to create static IPs as part of the eth devnet for the execution and beacon nodes
-        required: false
+        required: true
         type: string
-        default: "false"
       run_terraform_destroy:
         description: Whether to run the terraform destroy
         required: false
         type: string
         default: "false"
+      mnemonic:
+        description: The mnemonic to use for the eth devnet
+        required: false
+        type: string
+        default: "test test test test test test test test test test test junk"
+      prefunded_mnemonic_indices:
+        description: The indices of the prefunded mnemonic to use for the devnet
+        required: false
+        type: string
+        default: "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,1000,1001,1002,1003"
     secrets:
       GCP_SA_KEY:
         description: The JSON key for the GCP service account
@@ -66,24 +73,34 @@ on:
       KUBECONFIG_B64:
         description: The base64 encoded kubeconfig
         required: true
+    outputs:
+      rpc_url:
+        description: The RPC URL for the eth devnet
+        value: ${{ jobs.deploy_eth_devnet.outputs.rpc_url }}
+      ws_url:
+        description: The WebSocket URL for the eth devnet
+        value: ${{ jobs.deploy_eth_devnet.outputs.ws_url }}
+      beacon_url:
+        description: The Beacon URL for the eth devnet
+        value: ${{ jobs.deploy_eth_devnet.outputs.beacon_url }}
+      chain_id:
+        description: The chain ID for the eth devnet
+        value: ${{ jobs.deploy_eth_devnet.outputs.chain_id }}
 
   workflow_dispatch:
     inputs:
       cluster:
         description: The cluster to deploy to, e.g. aztec-gke-private or kind
-        required: false
+        required: true
         type: string
-        default: "kind"
       namespace:
         description: The namespace to deploy to
-        required: false
+        required: true
         type: string
-        default: "eth-devnet"
       ref:
         description: The branch name to deploy from.
-        required: false
+        required: true
         type: string
-        default: "next"
       chain_id:
         description: Ethereum chain ID for genesis generation
         required: false
@@ -101,36 +118,53 @@ on:
         default: "32000000"
       resource_profile:
         description: Resource profile to use (dev or prod)
-        required: false
+        required: true
         type: string
-        default: "prod"
       create_static_ips:
         description: Whether to create static IPs as part of the eth devnet for the execution and beacon nodes
-        required: false
+        required: true
         type: string
-        default: "false"
       run_terraform_destroy:
         description: Whether to run the terraform destroy
         required: false
         type: string
         default: "false"
+      mnemonic:
+        description: The mnemonic to use for the eth devnet
+        required: false
+        type: string
+        default: "test test test test test test test test test test test junk"
+      prefunded_mnemonic_indices:
+        description: The indices of the prefunded mnemonic to use for the devnet
+        required: false
+        type: string
+        default: "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,1000,1001,1002,1003"
 
 jobs:
   deploy_eth_devnet:
     runs-on: ubuntu-latest
+    outputs:
+      rpc_url: ${{ steps.get-eth-devnet-results.outputs.rpc_url }}
+      ws_url: ${{ steps.get-eth-devnet-results.outputs.ws_url }}
+      beacon_url: ${{ steps.get-eth-devnet-results.outputs.beacon_url }}
+      chain_id: ${{ steps.get-eth-devnet-results.outputs.chain_id }}
     env:
       TF_STATE_BUCKET: aztec-terraform
       REGION: us-west1-a
       # Common Terraform variables as environment variables
-      TF_VAR_NAMESPACE: ${{ inputs.namespace || 'eth-devnet' }}
-      TF_VAR_CHAIN_ID: ${{ inputs.chain_id || 1337 }}
-      TF_VAR_BLOCK_TIME: ${{ inputs.block_time || 12 }}
-      TF_VAR_GAS_LIMIT: ${{ inputs.gas_limit || '32000000' }}
-      TF_VAR_MNEMONIC_SECRET_NAME: eth-devnet-genesis-mnemonic
-      TF_VAR_PREFUNDED_MNEMONIC_INDICES: "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,1000,1001,1002,1003"
-      TF_VAR_RESOURCE_PROFILE: ${{ inputs.resource_profile || 'prod' }}
+      TF_VAR_NAMESPACE: ${{ inputs.namespace }}
+      TF_VAR_CHAIN_ID: ${{ inputs.chain_id }}
+      TF_VAR_BLOCK_TIME: ${{ inputs.block_time }}
+      TF_VAR_GAS_LIMIT: ${{ inputs.gas_limit }}
+      TF_VAR_PREFUNDED_MNEMONIC_INDICES: ${{ inputs.prefunded_mnemonic_indices }}
+      TF_VAR_RESOURCE_PROFILE: ${{ inputs.resource_profile }}
 
     steps:
+      - name: Mask the mnemonic
+        id: mask-mnemonic
+        run: |
+          echo "::add-mask::${{ inputs.mnemonic }}"
+
       - name: Debug inputs
         run: |
           echo "cluster: ${{ inputs.cluster }}"
@@ -179,3 +213,27 @@ jobs:
         working-directory: ./spartan/terraform/deploy-eth-devnet
         run: |
           terraform apply tfplan
+
+      - name: Get eth devnet deployment results
+        id: get-eth-devnet-results
+        working-directory: ./spartan/terraform/deploy-eth-devnet
+
+        run: |
+          echo "=== Eth Devnet Deployment Results ==="
+
+          # Get outputs from the eth-devnet deployment
+          RPC_URL=$(terraform output -raw eth_execution_rpc_url)
+          WS_URL=$(terraform output -raw eth_execution_ws_url)
+          BEACON_URL=$(terraform output -raw eth_beacon_api_url)
+          CHAIN_ID=$(terraform output -raw chain_id)
+
+          echo "RPC_URL: $RPC_URL"
+          echo "WS_URL: $WS_URL"
+          echo "BEACON_URL: $BEACON_URL"
+          echo "CHAIN_ID: $CHAIN_ID"
+
+          # Export as outputs for other steps
+          echo "rpc_url=$RPC_URL" >> $GITHUB_OUTPUT
+          echo "ws_url=$WS_URL" >> $GITHUB_OUTPUT
+          echo "beacon_url=$BEACON_URL" >> $GITHUB_OUTPUT
+          echo "chain_id=$CHAIN_ID" >> $GITHUB_OUTPUT

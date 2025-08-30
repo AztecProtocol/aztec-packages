@@ -45,9 +45,8 @@ const SLASHING_ROUND_SIZE = 4;
 // how many block builders must signal for a single payload in a single round for it to be executable
 const SLASHING_QUORUM = 3;
 // an attester must not attest to 50% of proven blocks over an epoch to warrant a slash payload being created
-const SLASH_INACTIVITY_CREATE_TARGET_PERCENTAGE = 0.5;
+const SLASH_INACTIVITY_TARGET_PERCENTAGE = 0.5;
 // an attester must not attest to 10% of proven blocks over an epoch to agree with a slash
-const SLASH_INACTIVITY_SIGNAL_TARGET_PERCENTAGE = 0.1;
 // round N must be submitted in/before round N + LIFETIME_IN_ROUNDS
 const LIFETIME_IN_ROUNDS = 2;
 // round N must be submitted after round N + EXECUTION_DELAY_IN_ROUNDS
@@ -84,12 +83,14 @@ describe('veto slash', () => {
         aztecEpochDuration: EPOCH_DURATION,
         validatorReexecute: false,
         sentinelEnabled: true,
+        slashSelfAllowed: true,
         slashingOffsetInRounds: SLASH_OFFSET_IN_ROUNDS,
-        slashingUnit: SLASHING_UNIT,
-        slashingRoundSize: SLASHING_ROUND_SIZE,
+        slashAmountSmall: SLASHING_UNIT,
+        slashAmountMedium: SLASHING_UNIT * 2n,
+        slashAmountLarge: SLASHING_UNIT * 3n,
+        slashingRoundSizeInEpochs: SLASHING_ROUND_SIZE / EPOCH_DURATION,
         slashingQuorum: SLASHING_QUORUM,
-        slashInactivityCreateTargetPercentage: SLASH_INACTIVITY_CREATE_TARGET_PERCENTAGE,
-        slashInactivitySignalTargetPercentage: SLASH_INACTIVITY_SIGNAL_TARGET_PERCENTAGE,
+        slashInactivityTargetPercentage: SLASH_INACTIVITY_TARGET_PERCENTAGE,
       },
     });
 
@@ -124,15 +125,9 @@ describe('veto slash', () => {
     slashingAmount = SLASHING_UNIT * 3n;
     expect(activationThreshold - slashingAmount).toBeLessThan(ejectionThreshold);
 
-    t.ctx.aztecNodeConfig.slashInactivityEnabled = true;
-    t.ctx.aztecNodeConfig.slashInactivityCreatePenalty = slashingAmount;
-    t.ctx.aztecNodeConfig.slashInactivityMaxPenalty = slashingAmount;
+    t.ctx.aztecNodeConfig.slashInactivityPenalty = slashingAmount;
     for (const node of nodes) {
-      await node.setConfig({
-        slashInactivityEnabled: true,
-        slashInactivityCreatePenalty: slashingAmount,
-        slashInactivityMaxPenalty: slashingAmount,
-      });
+      await node.setConfig({ slashInactivityPenalty: slashingAmount });
     }
 
     await t.removeInitialNode();
@@ -186,7 +181,7 @@ describe('veto slash', () => {
         BigInt(SLASHING_ROUND_SIZE),
         BigInt(LIFETIME_IN_ROUNDS),
         BigInt(EXECUTION_DELAY_IN_ROUNDS),
-        BigInt(SLASHING_UNIT),
+        [SLASHING_UNIT, SLASHING_UNIT * 2n, SLASHING_UNIT * 3n],
         BigInt(COMMITEE_SIZE),
         BigInt(EPOCH_DURATION),
         BigInt(SLASH_OFFSET_IN_ROUNDS),

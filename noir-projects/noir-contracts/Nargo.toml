@@ -13,7 +13,7 @@ members = [
     "contracts/app/claim_contract",
     "contracts/app/crowdfunding_contract",
     "contracts/app/easy_private_token_contract",
-    "contracts/app/easy_private_voting_contract",
+    "contracts/app/private_voting_contract",
     "contracts/app/escrow_contract",
     "contracts/app/lending_contract",
     "contracts/app/nft_contract",
