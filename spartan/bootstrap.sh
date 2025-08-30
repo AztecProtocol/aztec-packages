@@ -82,7 +82,8 @@ function test_cmds {
   # fi
   if [ "$CI_SCENARIO_TEST" -eq 1 ]; then
     local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
-    NAMESPACE=${NAMESPACE:-"scenario"}
+    DEFAULT_NAMESPACE="scenario-$(git rev-parse --short HEAD)"
+    NAMESPACE=${NAMESPACE:-$DEFAULT_NAMESPACE}
     K8S_CLUSTER=${K8S_CLUSTER:-"aztec-gke-private"}
     PROJECT_ID=${PROJECT_ID:-"testnet-440309"}
     REGION=${REGION:-"us-west1-a"}
@@ -94,7 +95,7 @@ function test_cmds {
 
 function start_env {
   if [ "$CI_NIGHTLY" -eq 1 ] && [ "$(arch)" != "arm64" ]; then
-    NIGHTLY_NS=nightly-$(date -u +%Y%m%d)
+    NIGHTLY_NS=nightly-$(git rev-parse --short HEAD)
     export MONITOR_DEPLOYMENT=false
     export WAIT_FOR_DEPLOYMENT=false
     export CLUSTER_NAME=aztec-gke-private
