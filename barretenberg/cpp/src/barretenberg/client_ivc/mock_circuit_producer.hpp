@@ -88,11 +88,26 @@ class MockDatabusProducer {
 };
 
 /**
+ * @brief Customises the production of mock circuits for Client IVC testing
+ *
+ */
+struct TestSettings {
+    // number of public inputs to manually add to circuits, by default this would be 0 because we use the
+    // MockDatabusProducer to test public inputs handling
+    size_t num_public_inputs = 0;
+    // by default we will create more complex apps and kernel with various types of gates but in case we want to
+    // specifically test overflow behaviour or unstructured circuits we can manually construct simple circuits with a
+    // specified number of gates
+    size_t log2_num_gates = 0;
+};
+
+/**
  * @brief Manage the construction of mock app/kernel circuits for the private function execution setting
  * @details Per the medium complexity benchmark spec, the first app circuit is size 2^19. Subsequent app and kernel
  * circuits are size 2^17. Circuits produced are alternatingly app and kernel. Mock databus data is passed between the
  * circuits in a manor conistent with the real architecture in order to facilitate testing of databus consistency
- * checks.
+ * checks. Additionally, we allow for the creation of simpler circuits with public inputs set manually but also for
+ * testing consecutive kernels. These can be configured via TestSettings.
  */
 class PrivateFunctionExecutionMockCircuitProducer {
     using ClientCircuit = ClientIVC::ClientCircuit;
@@ -100,129 +115,107 @@ class PrivateFunctionExecutionMockCircuitProducer {
     using VerificationKey = Flavor::VerificationKey;
 
     size_t circuit_counter = 0;
+    std::vector<bool> is_kernel_flags;
 
     MockDatabusProducer mock_databus;
-
-    bool large_first_app = true; // if true, first app is 2^19, else 2^17
+    bool large_first_app = true;
+    constexpr static size_t NUM_TRAILING_KERNELS = 3; // reset, tail, hiding
 
   public:
-    PrivateFunctionExecutionMockCircuitProducer(bool large_first_app = true)
+    size_t total_num_circuits = 0;
+
+    PrivateFunctionExecutionMockCircuitProducer(size_t num_app_circuits, bool large_first_app = true)
         : large_first_app(large_first_app)
-    {}
+        , total_num_circuits(num_app_circuits * 2 +
+                             NUM_TRAILING_KERNELS) /*One kernel per app, plus a fixed number of final kernels*/
+    {
+        // Set flags indicating which circuits are kernels vs apps
+        is_kernel_flags.resize(total_num_circuits, true);
+        for (size_t i = 0; i < num_app_circuits; ++i) {
+            is_kernel_flags[2 * i] = false; // every other circuit is an app
+        }
+    }
+
+    /**
+     * @brief Precompute the verification key for the given circuit.
+     *
+     */
+    static std::shared_ptr<VerificationKey> get_verification_key(ClientCircuit& builder_in,
+                                                                 TraceSettings& trace_settings)
+    {
+        // This is a workaround to ensure that the circuit is finalized before we create the verification key
+        // In practice, this should not be needed as the circuit will be finalized when it is accumulated into the IVC
+        // but this is a workaround for the test setup.
+        MegaCircuitBuilder_<bb::fr> builder{ builder_in };
+
+        // Deepcopy the opqueue to avoid modifying the original one when finalising the circuit
+        builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
+        std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key =
+            std::make_shared<ClientIVC::DeciderProvingKey>(builder, trace_settings);
+        std::shared_ptr<VerificationKey> vk = std::make_shared<VerificationKey>(proving_key->get_precomputed());
+        return vk;
+    }
+
+    /**
+     * @brief Create either a circuit with certain number of gates or a more realistic circuit (withv various custom
+     * gates and databus usage) in case number of gates is not specified, that is also filled up to 2^17 or 2^19 if
+     * large.
+     *
+     */
+    ClientCircuit create_next_circuit(ClientIVC& ivc, size_t log2_num_gates = 0, size_t num_public_inputs = 0)
+    {
+        const bool is_kernel = is_kernel_flags[circuit_counter];
+
+        circuit_counter++;
+
+        ClientCircuit circuit{ ivc.goblin.op_queue };
+        // if the number of gates is specified we just add a number of arithmetic gates
+        if (log2_num_gates != 0) {
+            MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates, /* include_public_inputs= */ false);
+            // Add some public inputs
+            for (size_t i = 0; i < num_public_inputs; ++i) {
+                circuit.add_public_variable(13634816 + i); // arbitrary number
+            }
+        } else {
+            // If the number of gates is not specified we create a structured mock circuit
+            if (is_kernel) {
+                GoblinMockCircuits::construct_mock_folding_kernel(circuit); // construct mock base logic
+                mock_databus.populate_kernel_databus(circuit);              // populate databus inputs/outputs
+            } else {
+                bool use_large_circuit = large_first_app && (circuit_counter == 1); // first circuit is size 2^19
+                GoblinMockCircuits::construct_mock_app_circuit(circuit, use_large_circuit); // construct mock app
+                mock_databus.populate_app_databus(circuit);                                 // populate databus outputs
+            }
+        }
+
+        if (is_kernel) {
+            ivc.complete_kernel_circuit_logic(circuit);
+        } else {
+            stdlib::recursion::PairingPoints<ClientCircuit>::add_default_to_public_inputs(circuit);
+        }
+        return circuit;
+    }
 
     /**
      * @brief Create the next circuit (app/kernel) in a mocked private function execution stack
      */
-    ClientCircuit create_next_circuit(ClientIVC& ivc, bool force_is_kernel = false)
+    std::pair<ClientCircuit, std::shared_ptr<VerificationKey>> create_next_circuit_and_vk(ClientIVC& ivc,
+                                                                                          TestSettings settings = {})
     {
-        circuit_counter++;
+        auto circuit = create_next_circuit(ivc, settings.log2_num_gates, settings.num_public_inputs);
+        return { circuit, get_verification_key(circuit, ivc.trace_settings) };
+    }
 
-        // Assume only every second circuit is a kernel, unless force_is_kernel == true
-        bool is_kernel = (circuit_counter % 2 == 0) || force_is_kernel;
-
-        ClientCircuit circuit{ ivc.goblin.op_queue, is_kernel };
-        if (is_kernel) {
-            GoblinMockCircuits::construct_mock_folding_kernel(circuit); // construct mock base logic
-            mock_databus.populate_kernel_databus(circuit);              // populate databus inputs/outputs
-            ivc.complete_kernel_circuit_logic(circuit);                 // complete with recursive verifiers etc
-        } else {
-            bool use_large_circuit = large_first_app && (circuit_counter == 1);         // first circuit is size 2^19
-            GoblinMockCircuits::construct_mock_app_circuit(circuit, use_large_circuit); // construct mock app
-            mock_databus.populate_app_databus(circuit);                                 // populate databus outputs
-        }
-        return circuit;
+    void construct_and_accumulate_next_circuit(ClientIVC& ivc, TestSettings settings = {})
+    {
+        auto [circuit, vk] = create_next_circuit_and_vk(ivc, settings);
+        ivc.accumulate(circuit, vk);
     }
 
     /**
      * @brief Tamper with databus data to facilitate failure testing
      */
     void tamper_with_databus() { mock_databus.tamper_with_app_return_data(); }
-
-    /**
-     * @brief Compute and return the verification keys for a mocked private function execution IVC
-     * @details For testing/benchmarking only. This method is robust at the cost of being extremely inefficient. It
-     * simply executes a full IVC for a given number of circuits and stores the verification keys along the way. (In
-     * practice these VKs will be known to a client prover in advance).
-     *
-     * @param num_circuits
-     * @param trace_structure Trace structuring must be known in advance because it effects the VKs
-     * @return set of num_circuits-many verification keys
-     */
-    auto precompute_vks(const size_t num_circuits, TraceSettings trace_settings)
-    {
-        ClientIVC ivc{ num_circuits,
-                       trace_settings }; // temporary IVC instance needed to produce the complete kernel circuits
-
-        std::vector<std::shared_ptr<VerificationKey>> vks;
-
-        for (size_t idx = 0; idx < num_circuits; ++idx) {
-            ClientCircuit circuit = create_next_circuit(ivc); // create the next circuit
-            ivc.accumulate(circuit);                          // accumulate the circuit
-            vks.emplace_back(ivc.honk_vk);                    // save the VK for the circuit
-        }
-        circuit_counter = 0; // reset the internal circuit counter back to 0
-
-        return vks;
-    }
-};
-
-/**
- * @brief A test utility for generating alternating mock app and kernel circuits and precomputing verification keys
- *
- */
-class ClientIVCMockCircuitProducer {
-    using ClientCircuit = ClientIVC::ClientCircuit;
-
-    bool is_kernel = false;
-
-    /**
-     * @brief Construct mock circuit with arithmetic gates and goblin ops
-     * @details Defaulted to add 2^16 gates (which will bump to next power of two with the addition of dummy gates).
-     * The size of the baseline circuit needs to be ~2x the number of gates appended to the kernel circuits via
-     * recursive verifications (currently ~60k) to ensure that the circuits being folded are equal in size. (This is
-     * only necessary if the structured trace is not in use).
-     *
-     */
-    static ClientCircuit create_mock_circuit(ClientIVC& ivc, size_t log2_num_gates = 16, bool is_kernel = false)
-    {
-        ClientCircuit circuit{ ivc.goblin.op_queue, is_kernel };
-        MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates, /* include_public_inputs= */ false);
-        return circuit;
-    }
-
-  public:
-    ClientCircuit create_next_circuit(ClientIVC& ivc, size_t log2_num_gates = 16, const size_t num_public_inputs = 0)
-    {
-        ClientCircuit circuit = create_mock_circuit(ivc, log2_num_gates, is_kernel); // construct mock base logic
-        while (circuit.num_public_inputs() < num_public_inputs) {
-            circuit.add_public_variable(13634816); // arbitrary number
-        }
-        if (is_kernel) {
-            ivc.complete_kernel_circuit_logic(circuit); // complete with recursive verifiers etc
-        } else {
-            stdlib::recursion::PairingPoints<ClientCircuit>::add_default_to_public_inputs(circuit);
-        }
-        is_kernel = !is_kernel; // toggle is_kernel on/off alternatingly
-
-        return circuit;
-    }
-
-    auto precompute_vks(const size_t num_circuits, TraceSettings trace_settings, size_t log2_num_gates = 16)
-    {
-        ClientIVC ivc{ num_circuits,
-                       trace_settings }; // temporary IVC instance needed to produce the complete kernel circuits
-
-        std::vector<std::shared_ptr<MegaFlavor::VerificationKey>> vks;
-
-        for (size_t idx = 0; idx < num_circuits; ++idx) {
-            ClientCircuit circuit = create_next_circuit(ivc, log2_num_gates); // create the next circuit
-            ivc.accumulate(circuit);                                          // accumulate the circuit
-            vks.emplace_back(ivc.honk_vk);                                    // save the VK for the circuit
-        }
-        is_kernel = false;
-
-        return vks;
-    }
 };
 
 } // namespace

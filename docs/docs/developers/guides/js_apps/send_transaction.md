@@ -1,6 +1,7 @@
 ---
 title: How to Send a Transaction
 sidebar_position: 4
+description: Learn how to send transactions to the Aztec network using Aztec.js.
 ---
 
 This guide explains how to send a transaction using Aztec.js.
@@ -13,7 +14,7 @@ You can learn how to create wallets from [this guide](./create_account.md).
 
 You can learn how to deploy a contract [here](./deploy_contract.md).
 
-You can learn how to use fee juice [here](./pay_fees.md).
+You can learn how to use fee juice [here](./how_to_pay_fees.md).
 
 ## Relevant imports
 

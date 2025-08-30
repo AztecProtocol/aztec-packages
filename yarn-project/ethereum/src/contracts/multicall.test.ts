@@ -13,7 +13,7 @@ import { foundry } from 'viem/chains';
 import { createExtendedL1Client } from '../client.js';
 import { DefaultL1ContractsConfig } from '../config.js';
 import { type DeployL1ContractsReturnType, deployL1Contract, deployL1Contracts } from '../deploy_l1_contracts.js';
-import { L1TxUtils } from '../l1_tx_utils.js';
+import { L1TxUtils, createL1TxUtilsFromViemWallet } from '../l1_tx_utils.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ExtendedViemWalletClient } from '../types.js';
 import { FormattedViemError } from '../utils.js';
@@ -55,9 +55,7 @@ describe('Multicall3', () => {
       TestERC20Abi,
       TestERC20Bytecode,
       ['test', 'TST', privateKey.address],
-      '0x42',
-      undefined,
-      logger,
+      { salt: '0x42', logger },
     );
     expect(erc20TxHash).toBeDefined();
     await walletClient.waitForTransactionReceipt({ hash: erc20TxHash! });
@@ -68,7 +66,7 @@ describe('Multicall3', () => {
       client: walletClient,
     });
 
-    l1TxUtils = new L1TxUtils(walletClient, logger);
+    l1TxUtils = createL1TxUtilsFromViemWallet(walletClient, logger);
 
     const addMinterHash = await tokenContract.write.addMinter([MULTI_CALL_3_ADDRESS], { account: privateKey });
     await walletClient.waitForTransactionReceipt({ hash: addMinterHash });
@@ -112,7 +110,7 @@ describe('Multicall3', () => {
     expect(result).toBeDefined();
     expect(result).toBeInstanceOf(FormattedViemError);
     const formattedError = result as FormattedViemError;
-    expect(formattedError.message).toContain('ValidatorSelection__InsufficientCommitteeSize');
+    expect(formattedError.message).toContain('ValidatorSelection__InsufficientValidatorSetSize');
   });
 
   it('should not revert by default if a single call fails', async () => {

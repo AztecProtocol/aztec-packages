@@ -45,16 +45,24 @@ tests:
     error_regex: "field_t::range_constraint"
     owners:
       - *luke
-  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh"
     error_regex: "Failed to fetch"
     owners:
       - *adam
-  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh"
     error_regex: "RuntimeError: Out of bounds memory access"
     owners:
       - *adam
-  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh"
     error_regex: "call_indirect to a null table entry"
+    owners:
+      - *adam
+  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh"
+    error_regex: "Input is not large enough"
+    owners:
+      - *adam
+  - regex: "barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk"
+    error_regex: "Aborted.*core dumped"
     owners:
       - *adam
 
@@ -135,6 +143,10 @@ tests:
     owners:
       - *palla
   - regex: "src/e2e_p2p/preferred_gossip_network.test.ts"
+    owners:
+      - *palla
+  - regex: "src/e2e_p2p/gossip_network.test.ts"
+    error_regex: "Block 5 not yet synced"
     owners:
       - *palla
   - regex: "src/e2e_fees/private_payments"
@@ -242,17 +254,13 @@ tests:
   - regex: "ivc-integration/src/rollup_ivc_integration.test.ts"
     error_regex: "Exceeded timeout of"
     owners:
-      - *lucas
+      - *luke
   - regex: "e2e_prover/full"
     error_regex: "ProvingError: Failed to verify proof from key!"
   - regex: "slasher/src/slasher_client.test.ts"
     error_regex: "ContractFunctionExecutionError: The contract function"
     owners:
       - *mitch
-  - regex: "src/e2e_block_building"
-    error_regex: "✕ detects an upcoming reorg and builds a block for the correct slot"
-    owners:
-      - *palla
 
   # Nightly GKE tests
   - regex: "spartan/bootstrap.sh"

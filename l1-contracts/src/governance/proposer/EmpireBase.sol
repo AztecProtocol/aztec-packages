@@ -36,16 +36,18 @@ struct CompressedRoundAccounting {
  *
  * There are two primary implementations of this contract:
  * - The GovernanceProposer
- * - The SlashingProposer
+ * - The EmpireSlashingProposer
  *
- * The GovernanceProposer is used to signal support for payloads before they are submitted to the main Governance contract,
+ * The GovernanceProposer is used to signal support for payloads before they are submitted to the main Governance
+ * contract,
  * resulting in a two-stage governance process:
  * 1. Signal gathering (GovernanceProposer contract) - validators indicate support
  * 2. Formal governance (Governance contract) - actual voting and execution
  *
- * The SlashingProposer is used to signal support for payloads before they are submitted to a Rollup instance's Slasher,
+ * The EmpireSlashingProposer is used to signal support for payloads before they are submitted to a Rollup instance's
+ * Slasher,
  * resulting in a one-stage slashing process:
- * 1. Signal gathering (SlashingProposer contract) - validators indicate support
+ * 1. Signal gathering (EmpireSlashingProposer contract) - validators indicate support
  *
  * @dev KEY CONCEPTS:
  * **Payload**: A contract with a list of actions (contract calls) to perform.
@@ -53,8 +55,10 @@ struct CompressedRoundAccounting {
  * **Rounds**: Time is divided into rounds of ROUND_SIZE slots. Payloads compete for support
  * within a round.
  *
- * **Instances**: Refers to an instance of the rollup contract, which in this case is exposed via a simplified IEmperor interface.
- * This contract only needs the instance to determine the current slot (to compute the round), and the current block proposer.
+ * **Instances**: Refers to an instance of the rollup contract, which in this case is exposed via a simplified IEmperor
+ * interface.
+ * This contract only needs the instance to determine the current slot (to compute the round), and the current block
+ * proposer.
  *
  * **Signalers**: Each slot has a designated signaler (determined by IEmperor).
  * Only the current slot's signaler can signal support, either directly or via signature.
@@ -81,19 +85,22 @@ struct CompressedRoundAccounting {
  * 1. Direct signal: Current signaler calls `signal()`
  * 2. Delegated signal: Anyone submits with signaler's signature via `signalWithSig()`
  *    - Uses EIP-712 for signature verification
- *    - Includes nonce and round number to prevent replay attacks
+ *    - Includes slot and instance to prevent replay attacks
  *
  * @dev ABSTRACT FUNCTIONS:
  * Implementing contracts must provide:
  * - `getInstance()`: Returns the IEmperor instance for slot/signaler info
  * - `_handleRoundWinner(IPayload _payload)`: Called during `submitRoundWinner`
  *
- * Note this contract can support multiple instances/rollups. This is because the instance is retrieved dynamically from the
+ * Note this contract can support multiple instances/rollups. This is because the instance is retrieved dynamically from
+ * the
  * underlying implementation. For example, when the GovernanceProposer is used, the instance is the canonical rollup,
  * which will change whenever there is a new canonical rollup.
  *
- * This also means that if the new canonical rollup does not support the IEmperor interface, this contract will not work,
- * and a different implementation will need to be specified as part of the payload which deploys the new canonical instance.
+ * This also means that if the new canonical rollup does not support the IEmperor interface, this contract will not
+ * work,
+ * and a different implementation will need to be specified as part of the payload which deploys the new canonical
+ * instance.
  */
 abstract contract EmpireBase is EIP712, IEmpire {
   using SignatureLib for Signature;
@@ -101,49 +108,36 @@ abstract contract EmpireBase is EIP712, IEmpire {
   using CompressedTimeMath for CompressedSlot;
 
   // EIP-712 type hash for the Signal struct
-  bytes32 public constant SIGNAL_TYPEHASH =
-    keccak256("Signal(address payload,uint256 nonce,uint256 round)");
+  bytes32 public constant SIGNAL_TYPEHASH = keccak256("Signal(address payload,uint256 slot,address instance)");
 
   // The number of signals needed for a payload to be considered submittable.
   uint256 public immutable QUORUM_SIZE;
   // The number of slots per round.
   uint256 public immutable ROUND_SIZE;
-  // The number of rounds that a round winner may be submitted for.
+  // The number of rounds that a round winner may be submitted for, after it have passed.
   uint256 public immutable LIFETIME_IN_ROUNDS;
   // The number of rounds that must elapse before a round winner may be submitted.
   uint256 public immutable EXECUTION_DELAY_IN_ROUNDS;
 
   // Mapping of instance to round number to round accounting.
-  mapping(address instance => mapping(uint256 roundNumber => CompressedRoundAccounting)) internal
-    rounds;
-  // Mapping of instance signaler to nonce. Used to prevent replay attacks.
-  mapping(address signaler => uint256 nonce) public nonces;
+  mapping(address instance => mapping(uint256 roundNumber => CompressedRoundAccounting)) internal rounds;
 
-  constructor(
-    uint256 _quorumSize,
-    uint256 _roundSize,
-    uint256 _lifetimeInRounds,
-    uint256 _executionDelayInRounds
-  ) EIP712("EmpireBase", "1") {
+  constructor(uint256 _quorumSize, uint256 _roundSize, uint256 _lifetimeInRounds, uint256 _executionDelayInRounds)
+    EIP712("EmpireBase", "1")
+  {
     QUORUM_SIZE = _quorumSize;
     ROUND_SIZE = _roundSize;
     LIFETIME_IN_ROUNDS = _lifetimeInRounds;
     EXECUTION_DELAY_IN_ROUNDS = _executionDelayInRounds;
 
+    require(QUORUM_SIZE > ROUND_SIZE / 2, Errors.GovernanceProposer__InvalidQuorumAndRoundSize(QUORUM_SIZE, ROUND_SIZE));
     require(
-      QUORUM_SIZE > ROUND_SIZE / 2,
-      Errors.GovernanceProposer__InvalidQuorumAndRoundSize(QUORUM_SIZE, ROUND_SIZE)
-    );
-    require(
-      QUORUM_SIZE <= ROUND_SIZE,
-      Errors.GovernanceProposer__QuorumCannotBeLargerThanRoundSize(QUORUM_SIZE, ROUND_SIZE)
+      QUORUM_SIZE <= ROUND_SIZE, Errors.GovernanceProposer__QuorumCannotBeLargerThanRoundSize(QUORUM_SIZE, ROUND_SIZE)
     );
 
     require(
       LIFETIME_IN_ROUNDS > EXECUTION_DELAY_IN_ROUNDS,
-      Errors.GovernanceProposer__InvalidLifetimeAndExecutionDelay(
-        LIFETIME_IN_ROUNDS, EXECUTION_DELAY_IN_ROUNDS
-      )
+      Errors.GovernanceProposer__InvalidLifetimeAndExecutionDelay(LIFETIME_IN_ROUNDS, EXECUTION_DELAY_IN_ROUNDS)
     );
   }
 
@@ -168,11 +162,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
    *
    * @return True if executed successfully, false otherwise
    */
-  function signalWithSig(IPayload _payload, Signature memory _sig)
-    external
-    override(IEmpire)
-    returns (bool)
-  {
+  function signalWithSig(IPayload _payload, Signature memory _sig) external override(IEmpire) returns (bool) {
     return _internalSignal(_payload, _sig);
   }
 
@@ -207,15 +197,15 @@ abstract contract EmpireBase is EIP712, IEmpire {
 
     CompressedRoundAccounting storage round = rounds[instance][_roundNumber];
     require(!round.executed, Errors.GovernanceProposer__PayloadAlreadySubmitted(_roundNumber));
+
+    // If the payload with the most signals is address(0) there are nothing to execute and it is a no-op.
+    // This will be the case if no signals have been cast during a round, or if people have simple signalled
+    // for nothing to happen (the same as not signalling).
     require(
-      round.payloadWithMostSignals != IPayload(address(0)),
-      Errors.GovernanceProposer__PayloadCannotBeAddressZero()
+      round.payloadWithMostSignals != IPayload(address(0)), Errors.GovernanceProposer__PayloadCannotBeAddressZero()
     );
     uint256 signalsCast = round.signalCount[round.payloadWithMostSignals];
-    require(
-      signalsCast >= QUORUM_SIZE,
-      Errors.GovernanceProposer__InsufficientSignals(signalsCast, QUORUM_SIZE)
-    );
+    require(signalsCast >= QUORUM_SIZE, Errors.GovernanceProposer__InsufficientSignals(signalsCast, QUORUM_SIZE));
 
     round.executed = true;
 
@@ -257,11 +247,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
     return computeRound(currentSlot);
   }
 
-  function getRoundData(address _instance, uint256 _round)
-    external
-    view
-    returns (RoundAccounting memory)
-  {
+  function getRoundData(address _instance, uint256 _round) external view returns (RoundAccounting memory) {
     CompressedRoundAccounting storage compressedRound = rounds[_instance][_round];
     return RoundAccounting({
       lastSignalSlot: compressedRound.lastSignalSlot.decompress(),
@@ -281,13 +267,8 @@ abstract contract EmpireBase is EIP712, IEmpire {
     return Slot.unwrap(_slot) / ROUND_SIZE;
   }
 
-  function getSignalSignatureDigest(IPayload _payload, address _signaler, uint256 _round)
-    public
-    view
-    returns (bytes32)
-  {
-    return
-      _hashTypedDataV4(keccak256(abi.encode(SIGNAL_TYPEHASH, _payload, nonces[_signaler], _round)));
+  function getSignalSignatureDigest(IPayload _payload, Slot _slot) public view returns (bytes32) {
+    return _hashTypedDataV4(keccak256(abi.encode(SIGNAL_TYPEHASH, _payload, _slot, getInstance())));
   }
 
   // Virtual functions
@@ -298,40 +279,33 @@ abstract contract EmpireBase is EIP712, IEmpire {
     address instance = getInstance();
     require(instance.code.length > 0, Errors.GovernanceProposer__InstanceHaveNoCode(instance));
 
-    IEmperor sequencerSelection = IEmperor(instance);
-    Slot currentSlot = sequencerSelection.getCurrentSlot();
+    IEmperor selection = IEmperor(instance);
+    Slot currentSlot = selection.getCurrentSlot();
 
     uint256 roundNumber = computeRound(currentSlot);
 
     CompressedRoundAccounting storage round = rounds[instance][roundNumber];
 
+    // Ensure that time have progressed since the last slot. If not, the current proposer might send multiple signals
     require(
-      currentSlot > round.lastSignalSlot.decompress(),
-      Errors.GovernanceProposer__SignalAlreadyCastForSlot(currentSlot)
+      currentSlot > round.lastSignalSlot.decompress(), Errors.GovernanceProposer__SignalAlreadyCastForSlot(currentSlot)
     );
+    round.lastSignalSlot = currentSlot.compress();
 
-    address signaler = sequencerSelection.getCurrentProposer();
+    address signaler = selection.getCurrentProposer();
 
     if (_sig.isEmpty()) {
-      require(
-        msg.sender == signaler,
-        Errors.GovernanceProposer__OnlyProposerCanSignal(msg.sender, signaler)
-      );
+      require(msg.sender == signaler, Errors.GovernanceProposer__OnlyProposerCanSignal(msg.sender, signaler));
     } else {
-      bytes32 digest = getSignalSignatureDigest(_payload, signaler, roundNumber);
-      nonces[signaler]++;
+      bytes32 digest = getSignalSignatureDigest(_payload, currentSlot);
 
       // _sig.verify will throw if invalid, it is more my sanity that I am doing this for.
-      require(
-        _sig.verify(signaler, digest),
-        Errors.GovernanceProposer__OnlyProposerCanSignal(msg.sender, signaler)
-      );
+      require(_sig.verify(signaler, digest), Errors.GovernanceProposer__OnlyProposerCanSignal(msg.sender, signaler));
     }
 
     round.signalCount[_payload] += 1;
-    round.lastSignalSlot = currentSlot.compress();
 
-    // @todo We can optimise here for gas by storing some of it packed with the payloadWithMostSignals.
+    // @todo We can optimize here for gas by storing some of it packed with the payloadWithMostSignals.
     if (
       round.payloadWithMostSignals != _payload
         && round.signalCount[_payload] > round.signalCount[round.payloadWithMostSignals]

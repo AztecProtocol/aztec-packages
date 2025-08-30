@@ -19,7 +19,6 @@ const fs = require("fs");
 const macros = require("./src/katex-macros.js");
 const versions = require("./versions.json");
 
-/** @type {import('@docusaurus/types').Config} */
 const config = {
   title: "Privacy-first zkRollup | Aztec Documentation",
   tagline:
@@ -53,7 +52,7 @@ const config = {
       /** @type {import('@docusaurus/preset-classic').Options} */
       {
         docs: {
-          path: process.env.ENV === "dev" ? "docs" : "processed-docs",
+          path: "processed-docs",
           sidebarPath: "./sidebars.js",
           editUrl: (params) => {
             return (
@@ -63,7 +62,7 @@ const config = {
           },
           routeBasePath: "/",
           include: ["**/*.{md,mdx}"],
-          exclude: !process.env.PROTOCOL_SPECS ? ["protocol-specs/**"] : [],
+          exclude: ["protocol-specs/**"],
 
           remarkPlugins: [math],
           rehypePlugins: [
@@ -76,19 +75,12 @@ const config = {
               },
             ],
           ],
-          includeCurrentVersion: false,
-          versions: (() => {
-            const versionObject = {};
-            if (process.env.ENV === "dev") {
-              return versionObject;
-            }
-            versions.map((version) => {
-              versionObject[version] = {
-                banner: "none",
-              };
-            });
-            return versionObject;
-          })(),
+          versions: {
+            current: {
+              label: "dev",
+              path: "dev",
+            },
+          },
         },
         blog: false,
         theme: {
@@ -108,6 +100,21 @@ const config = {
   ],
   plugins: [
     [
+      "docusaurus-plugin-llms",
+      {
+        generateLLMsTxt: true,
+        generateLLMsFullTxt: true,
+        docsDir: `versioned_docs/version-${versions[0]}/`,
+        title: "Aztec Protocol Documentation",
+        excludeImports: true,
+        ignoreFiles: [`versioned_docs/**/protocol-specs/*`],
+        version: versions[0],
+        pathTransformation: {
+          ignorePaths: ["docs"],
+        },
+      },
+    ],
+    [
       "@docusaurus/plugin-ideal-image",
       {
         quality: 70,
@@ -115,60 +122,6 @@ const config = {
         min: 640, // min resized image's size. if original is lower, use that size.
         steps: 2, // the max number of images generated between min and max (inclusive)
         disableInDev: false,
-      },
-    ],
-    [
-      "docusaurus-plugin-typedoc",
-      {
-        id: "aztecjs/pxe",
-        entryPoints: ["../yarn-project/stdlib/src/interfaces/pxe.ts"],
-        tsconfig: "../yarn-project/stdlib/tsconfig.json",
-        entryPointStrategy: "expand",
-        out: "developers/reference/aztecjs/pxe",
-        readme: "none",
-        sidebar: {
-          categoryLabel: "Private Execution Environment (PXE)",
-        },
-        disableSources: true,
-      },
-    ],
-    [
-      "docusaurus-plugin-typedoc",
-      {
-        id: "aztecjs/aztec-js",
-        entryPoints: [
-          "../yarn-project/aztec.js/src/contract/index.ts",
-          "../yarn-project/aztec.js/src/account/index.ts",
-        ],
-        tsconfig: "../yarn-project/aztec.js/tsconfig.json",
-        entryPointStrategy: "resolve",
-        out: "developers/reference/aztecjs/aztec-js",
-        readme: "none",
-        sidebar: {
-          categoryLabel: "Aztec.js",
-        },
-        disableSources: true,
-      },
-    ],
-    [
-      "docusaurus-plugin-typedoc",
-      {
-        id: "aztecjs/accounts",
-        entryPoints: [
-          "../yarn-project/accounts/src/defaults/index.ts",
-          "../yarn-project/accounts/src/ecdsa/index.ts",
-          "../yarn-project/accounts/src/schnorr/index.ts",
-          "../yarn-project/accounts/src/single_key/index.ts",
-          "../yarn-project/accounts/src/testing/index.ts",
-        ],
-        tsconfig: "../yarn-project/accounts/tsconfig.json",
-        entryPointStrategy: "resolve",
-        out: "developers/reference/aztecjs/accounts",
-        readme: "none",
-        sidebar: {
-          categoryLabel: "Accounts",
-        },
-        disableSources: true,
       },
     ],
     // ["./src/plugins/plugin-embed-code", {}],
@@ -237,7 +190,7 @@ const config = {
             label: "Run a node",
           },
           {
-            to: "/developers/getting_started",
+            to: "/developers/getting_started/getting_started_on_sandbox",
             label: "Install Sandbox",
             position: "right",
           },
@@ -361,8 +314,8 @@ const config = {
                 href: "https://forum.aztec.network",
               },
               {
-                label: "Discord",
-                href: "https://discord.com/invite/aztec",
+                label: "Noir Discord",
+                href: "https://discord.com/invite/JtqzkdeQ6G",
               },
               {
                 label: "X (Twitter)",
@@ -431,19 +384,5 @@ const config = {
       },
     }),
 };
-
-if (process.env.PROTOCOL_SPECS) {
-  //@ts-ignore
-  const index = config.themeConfig.navbar.items.findIndex(
-    (e) => e.type == "dropdown"
-  );
-
-  //@ts-ignore
-  config.themeConfig.navbar.items.splice(index, 0, {
-    type: "docSidebar",
-    sidebarId: "protocolSpecSidebar",
-    label: "Protocol Specification",
-  });
-}
 
 module.exports = config;

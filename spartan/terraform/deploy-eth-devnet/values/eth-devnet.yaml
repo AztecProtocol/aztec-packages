@@ -1,0 +1,29 @@
+nameOverride: ""
+fullnameOverride: ""
+
+images:
+  reth:
+    image: ghcr.io/paradigmxyz/reth:v1.6.0
+    pullPolicy: IfNotPresent
+  geth:
+    image: ethereum/client-go:v1.15.5
+    pullPolicy: IfNotPresent
+  nethermind:
+    image: nethermind/nethermind:1.32.2
+    pullPolicy: IfNotPresent
+  lighthouse:
+    image: sigp/lighthouse:v7.1.0
+    pullPolicy: IfNotPresent
+
+ethereum:
+  chainId: 1337
+  blockTime: 12
+  gasLimit: "1000000000"
+  maxTxInputSizeBytes: "1310720"
+
+  execution:
+    client: "reth"
+
+  beacon: {}
+
+  validator: {}

@@ -5,7 +5,6 @@ use protocol_types::{
     address::AztecAddress,
     constants::CONTRACT_INSTANCE_LENGTH,
     contract_instance::ContractInstance,
-    public_keys::PublicKeys,
     traits::{Deserialize, ToField},
     utils::reader::Reader,
 };
@@ -18,14 +17,6 @@ pub unconstrained fn deploy<let N: u32, let P: u32>(
 ) -> ContractInstance {
     let instance_fields = deploy_oracle(path, initializer, args, secret);
     ContractInstance::deserialize(instance_fields)
-}
-
-pub unconstrained fn direct_storage_write<let N: u32>(
-    contract_address: AztecAddress,
-    storage_slot: Field,
-    fields: [Field; N],
-) {
-    let _hash = direct_storage_write_oracle(contract_address, storage_slot, fields);
 }
 
 pub unconstrained fn private_call_new_flow(
@@ -71,30 +62,27 @@ pub unconstrained fn public_call_new_flow(
     (returns_hash, tx_hash)
 }
 
-#[oracle(getLastBlockTimestamp)]
+#[oracle(txeGetLastBlockTimestamp)]
 pub unconstrained fn get_last_block_timestamp() -> u64 {}
 
-#[oracle(setContractAddress)]
+#[oracle(txeSetContractAddress)]
 pub unconstrained fn set_contract_address(address: AztecAddress) {}
 
-#[oracle(getContractAddress)]
+#[oracle(utilityGetContractAddress)]
 pub unconstrained fn get_contract_address() -> AztecAddress {}
 
-#[oracle(getSideEffectsCounter)]
-pub unconstrained fn get_side_effects_counter() -> u32 {}
-
-#[oracle(advanceBlocksBy)]
+#[oracle(txeAdvanceBlocksBy)]
 pub unconstrained fn advance_blocks_by(blocks: u32) {}
 
-#[oracle(advanceTimestampBy)]
+#[oracle(txeAdvanceTimestampBy)]
 pub unconstrained fn advance_timestamp_by(duration: u64) {}
 
-#[oracle(getPrivateContextInputs)]
+#[oracle(txeGetPrivateContextInputs)]
 pub unconstrained fn get_private_context_inputs(
     historical_block_number: Option<u32>,
 ) -> PrivateContextInputs {}
 
-#[oracle(deploy)]
+#[oracle(txeDeploy)]
 pub unconstrained fn deploy_oracle<let N: u32, let P: u32>(
     path: str<N>,
     initializer: str<P>,
@@ -102,26 +90,16 @@ pub unconstrained fn deploy_oracle<let N: u32, let P: u32>(
     secret: Field,
 ) -> [Field; CONTRACT_INSTANCE_LENGTH] {}
 
-#[oracle(directStorageWrite)]
-pub unconstrained fn direct_storage_write_oracle<let N: u32>(
-    _contract_address: AztecAddress,
-    _storage_slot: Field,
-    _values: [Field; N],
-) -> [Field; N] {}
-
-#[oracle(createAccount)]
+#[oracle(txeCreateAccount)]
 pub unconstrained fn create_account(secret: Field) -> TestAccount {}
 
-#[oracle(addAccount)]
+#[oracle(txeAddAccount)]
 pub unconstrained fn add_account(secret: Field) -> TestAccount {}
 
-#[oracle(deriveKeys)]
-pub unconstrained fn derive_keys(secret: Field) -> PublicKeys {}
-
-#[oracle(addAuthWitness)]
+#[oracle(txeAddAuthWitness)]
 pub unconstrained fn add_authwit(address: AztecAddress, message_hash: Field) {}
 
-#[oracle(privateCallNewFlow)]
+#[oracle(txePrivateCallNewFlow)]
 unconstrained fn private_call_new_flow_oracle(
     _from: AztecAddress,
     _contract_address: AztecAddress,
@@ -131,7 +109,7 @@ unconstrained fn private_call_new_flow_oracle(
     _is_static_call: bool,
 ) -> [Field; 3] {}
 
-#[oracle(publicCallNewFlow)]
+#[oracle(txePublicCallNewFlow)]
 unconstrained fn public_call_new_flow_oracle(
     from: AztecAddress,
     contract_address: AztecAddress,
@@ -139,17 +117,14 @@ unconstrained fn public_call_new_flow_oracle(
     is_static_call: bool,
 ) -> [Field; 2] {}
 
-#[oracle(enableContextChecks)]
-pub unconstrained fn enable_context_checks() {}
-
-#[oracle(setTopLevelTXEContext)]
+#[oracle(txeSetTopLevelTXEContext)]
 pub unconstrained fn set_top_level_txe_context() {}
 
-#[oracle(setPrivateTXEContext)]
+#[oracle(txeSetPrivateTXEContext)]
 pub unconstrained fn set_private_txe_context() {}
 
-#[oracle(setPublicTXEContext)]
+#[oracle(txeSetPublicTXEContext)]
 pub unconstrained fn set_public_txe_context() {}
 
-#[oracle(setUtilityTXEContext)]
+#[oracle(txeSetUtilityTXEContext)]
 pub unconstrained fn set_utility_txe_context() {}

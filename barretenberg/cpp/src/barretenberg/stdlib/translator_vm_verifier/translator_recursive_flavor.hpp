@@ -25,7 +25,7 @@ namespace bb {
  * Translator flavor. It is similar in structure to its native counterpart with two main differences: 1) the
  * curve types are stdlib types (e.g. field_t instead of field) and 2) it does not specify any Prover related types
  * (e.g. Polynomial, ExtendedEdges, etc.) since we do not emulate prover computation in circuits, i.e. it only makes
- * sense to instantiate a Verifier with this flavor. We reuse the native flavor to initialise identical  constructions.
+ * sense to instantiate a Verifier with this flavor. We reuse the native flavor to initialize identical  constructions.
  * @tparam BuilderType Determines the arithmetization of the verifier circuit defined based on this flavor.
  */
 class TranslatorRecursiveFlavor {
@@ -84,9 +84,6 @@ class TranslatorRecursiveFlavor {
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
-
-    // define the containers for storing the contributions from each relation in Sumcheck
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     /**
      * @brief A field element for each entity of the flavor.  These entities represent the prover polynomials
@@ -149,8 +146,8 @@ class TranslatorRecursiveFlavor {
          * @param domain_separator
          * @param transcript
          */
-        FF add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
-                                  [[maybe_unused]] Transcript& transcript) const override
+        FF hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
+                                   [[maybe_unused]] Transcript& transcript) const override
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }

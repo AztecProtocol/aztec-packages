@@ -164,7 +164,7 @@ describe('PXESchema', () => {
       true,
       false,
       true,
-      { msgSender: address, contracts: {} },
+      { contracts: {} },
       [],
     );
     expect(result).toBeInstanceOf(TxSimulationResult);
@@ -402,13 +402,10 @@ class MockPXE implements PXE {
     _simulatePublic: boolean,
     _skipTxValidation?: boolean,
     _skipFeeEnforcement?: boolean,
-    overrides?: SimulationOverrides,
+    _overrides?: SimulationOverrides,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
     expect(txRequest).toBeInstanceOf(TxExecutionRequest);
-    if (overrides?.msgSender) {
-      expect(overrides.msgSender).toBeInstanceOf(AztecAddress);
-    }
     if (scopes) {
       expect(scopes).toEqual([]);
     }

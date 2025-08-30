@@ -149,16 +149,10 @@ class ECCVMFlavor {
         /* 29 Shplonk Q commitment */ (num_frs_comm) +
         /* 30 IPA proof */ IPA_PROOF_LENGTH;
 
-    // Instantiate the BarycentricData needed to extend each Relation Univariate
-
-    // define the containers for storing the contributions from each relation in Sumcheck
-    using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
-
     // The sub-protocol `compute_translation_opening_claims` outputs an opening claim for the batched univariate
     // evaluation of `op`, `Px`, `Py`, `z1`, and `z2`, and an array of opening claims for the evaluations of the
     // SmallSubgroupIPA witness polynomials.
     static constexpr size_t NUM_TRANSLATION_OPENING_CLAIMS = NUM_SMALL_IPA_EVALUATIONS + 1;
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/989): refine access specifiers in flavors, this is
     // public as it is also used in the recursive flavor but the two could possibly me unified eventually
@@ -471,6 +465,9 @@ class ECCVMFlavor {
             }
         }
 
+#ifdef FUZZING
+        ProverPolynomials(const CircuitBuilder& builder, bool disable_fixed_dyadic_trace_size = false)
+#else
         /**
          * @brief Compute the ECCVM flavor polynomial data required to generate an ECCVM Proof
          *
@@ -563,6 +560,7 @@ class ECCVMFlavor {
          * @return ProverPolynomials
          */
         ProverPolynomials(const CircuitBuilder& builder)
+#endif
         {
             // compute rows for the three different sections of the ECCVM execution trace
             const auto transcript_rows =
@@ -584,7 +582,16 @@ class ECCVMFlavor {
                                std::to_string(ECCVM_FIXED_SIZE) + " actual size: " + std::to_string(dyadic_num_rows));
             }
 
+#ifdef FUZZING
+            // We don't want to spend all the time generating the full trace if we are just fuzzing eccvm.
+            if (disable_fixed_dyadic_trace_size) {
+                dyadic_num_rows = num_rows;
+            } else {
+                dyadic_num_rows = ECCVM_FIXED_SIZE;
+            }
+#else
             dyadic_num_rows = ECCVM_FIXED_SIZE;
+#endif
             size_t unmasked_witness_size = dyadic_num_rows - NUM_DISABLED_ROWS_IN_SUMCHECK;
 
             for (auto& poly : get_to_be_shifted()) {
@@ -847,8 +854,8 @@ class ECCVMFlavor {
          * @param transcript
          * @returns The hash of the verification key
          */
-        fr add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
-                                  [[maybe_unused]] Transcript& transcript) const override
+        fr hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
+                                   [[maybe_unused]] Transcript& transcript) const override
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }
@@ -1021,10 +1028,10 @@ class ECCVMFlavor {
             size_t old_proof_length = NativeTranscript::proof_data.size();
             NativeTranscript::proof_data.clear();
 
-            NativeTranscript::template serialize_to_buffer(ipa_poly_degree, NativeTranscript::proof_data);
+            NativeTranscript::serialize_to_buffer(ipa_poly_degree, NativeTranscript::proof_data);
             for (size_t i = 0; i < CONST_ECCVM_LOG_N; ++i) {
-                NativeTranscript::template serialize_to_buffer(ipa_l_comms[i], NativeTranscript::proof_data);
-                NativeTranscript::template serialize_to_buffer(ipa_r_comms[i], NativeTranscript::proof_data);
+                NativeTranscript::serialize_to_buffer(ipa_l_comms[i], NativeTranscript::proof_data);
+                NativeTranscript::serialize_to_buffer(ipa_r_comms[i], NativeTranscript::proof_data);
             }
 
             serialize_to_buffer(ipa_G_0_eval, proof_data);
@@ -1058,7 +1065,7 @@ class ECCVMFlavor {
         //    lookups i.e. `polynomials.msm_accumulator_x[last_edge_idx] will change z_perm[last_edge_idx - 1] and
         //    z_perm_shift[last_edge_idx - 1]
         //
-        // 3. The value of `transcript_mul` can be non-zero at the end of a long MSM of points-at-infinity, which will
+        // 3. The value of `transcript_mul` can be non-zero at the end of an MSM of points-at-infinity, which will
         //    cause `full_msm_count` to be non-zero while `transcript_msm_count` vanishes.
         //
         // 4. For similar reasons, we must add that `transcript_op==0`.

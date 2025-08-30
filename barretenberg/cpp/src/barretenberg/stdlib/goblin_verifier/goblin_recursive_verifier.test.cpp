@@ -23,8 +23,8 @@ class GoblinRecursiveVerifierTests : public testing::Test {
 
     using Commitment = MergeVerifier::Commitment;
     using RecursiveCommitment = GoblinRecursiveVerifier::MergeVerifier::Commitment;
-    using MergeCommitments = MergeVerifier::WitnessCommitments;
-    using RecursiveMergeCommitments = GoblinRecursiveVerifier::MergeVerifier::WitnessCommitments;
+    using MergeCommitments = MergeVerifier::InputCommitments;
+    using RecursiveMergeCommitments = GoblinRecursiveVerifier::MergeVerifier::InputCommitments;
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
@@ -54,8 +54,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
         Goblin goblin_final;
         goblin_final.op_queue = goblin.op_queue;
         MegaCircuitBuilder builder{ goblin_final.op_queue };
-        builder.queue_ecc_no_op();
-        GoblinMockCircuits::construct_simple_circuit(builder);
+        GoblinMockCircuits::construct_simple_circuit(builder, /*last_circuit=*/true);
 
         // Merge the ecc ops from the newly constructed circuit
         goblin_final.op_queue->merge();
@@ -63,9 +62,11 @@ class GoblinRecursiveVerifierTests : public testing::Test {
         // Subtable values and commitments - needed for (Recursive)MergeVerifier
         MergeCommitments merge_commitments;
         auto t_current = goblin_final.op_queue->construct_current_ultra_ops_subtable_columns();
+        auto T_prev = goblin_final.op_queue->construct_previous_ultra_ops_table_columns();
         CommitmentKey<curve::BN254> pcs_commitment_key(goblin_final.op_queue->get_ultra_ops_table_num_rows());
         for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
             merge_commitments.t_commitments[idx] = pcs_commitment_key.commit(t_current[idx]);
+            merge_commitments.T_prev_commitments[idx] = pcs_commitment_key.commit(T_prev[idx]);
         }
 
         RecursiveMergeCommitments recursive_merge_commitments;
@@ -73,6 +74,8 @@ class GoblinRecursiveVerifierTests : public testing::Test {
             for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
                 recursive_merge_commitments.t_commitments[idx] =
                     RecursiveCommitment::from_witness(outer_builder, merge_commitments.t_commitments[idx]);
+                recursive_merge_commitments.T_prev_commitments[idx] =
+                    RecursiveCommitment::from_witness(outer_builder, merge_commitments.T_prev_commitments[idx]);
             }
         }
 
@@ -94,7 +97,7 @@ TEST_F(GoblinRecursiveVerifierTests, NativeVerification)
 
     std::shared_ptr<Goblin::Transcript> verifier_transcript = std::make_shared<Goblin::Transcript>();
 
-    EXPECT_TRUE(Goblin::verify(proof, merge_commitments, merge_commitments.T_commitments, verifier_transcript));
+    EXPECT_TRUE(Goblin::verify(proof, merge_commitments, verifier_transcript));
 }
 
 /**
@@ -109,8 +112,7 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
         create_goblin_prover_output(&builder);
 
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    GoblinRecursiveVerifierOutput output =
-        verifier.verify(proof, recursive_merge_commitments, recursive_merge_commitments.T_commitments);
+    GoblinRecursiveVerifierOutput output = verifier.verify(proof, recursive_merge_commitments);
     output.points_accumulator.set_public();
 
     info("Recursive Verifier: num gates = ", builder.num_gates);
@@ -126,7 +128,7 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
         OuterProver prover(proving_key, verification_key);
         OuterVerifier verifier(verification_key);
         auto proof = prover.construct_proof();
-        bool verified = verifier.verify_proof(proof);
+        bool verified = verifier.template verify_proof<bb::DefaultIO>(proof).result;
 
         ASSERT_TRUE(verified);
     }
@@ -144,8 +146,7 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
             create_goblin_prover_output(&builder, inner_size);
 
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-        GoblinRecursiveVerifierOutput output =
-            verifier.verify(proof, recursive_merge_commitments, recursive_merge_commitments.T_commitments);
+        GoblinRecursiveVerifierOutput output = verifier.verify(proof, recursive_merge_commitments);
         output.points_accumulator.set_public();
 
         info("Recursive Verifier: num gates = ", builder.num_gates);
@@ -186,8 +187,7 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
     }
 
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    GoblinRecursiveVerifierOutput goblin_rec_verifier_output =
-        verifier.verify(proof, recursive_merge_commitments, recursive_merge_commitments.T_commitments);
+    GoblinRecursiveVerifierOutput goblin_rec_verifier_output = verifier.verify(proof, recursive_merge_commitments);
 
     srs::init_file_crs_factory(bb::srs::bb_crs_path());
     auto crs_factory = srs::get_grumpkin_crs_factory();
@@ -226,11 +226,12 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
         for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
             recursive_merge_commitments.t_commitments[idx] =
                 RecursiveCommitment::from_witness(&builder, merge_commitments.t_commitments[idx]);
+            recursive_merge_commitments.T_prev_commitments[idx] =
+                RecursiveCommitment::from_witness(&builder, merge_commitments.T_prev_commitments[idx]);
         }
 
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-        [[maybe_unused]] auto goblin_rec_verifier_output =
-            verifier.verify(tampered_proof, recursive_merge_commitments, recursive_merge_commitments.T_commitments);
+        [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(tampered_proof, recursive_merge_commitments);
         EXPECT_FALSE(CircuitChecker::check(builder));
     }
     // Tamper with the Translator proof non-preamble values
@@ -252,11 +253,12 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
         for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
             recursive_merge_commitments.t_commitments[idx] =
                 RecursiveCommitment::from_witness(&builder, merge_commitments.t_commitments[idx]);
+            recursive_merge_commitments.T_prev_commitments[idx] =
+                RecursiveCommitment::from_witness(&builder, merge_commitments.T_prev_commitments[idx]);
         }
 
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-        [[maybe_unused]] auto goblin_rec_verifier_output =
-            verifier.verify(tampered_proof, recursive_merge_commitments, recursive_merge_commitments.T_commitments);
+        [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(tampered_proof, recursive_merge_commitments);
         EXPECT_FALSE(CircuitChecker::check(builder));
     }
 }
@@ -279,8 +281,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslationEvaluationsFailure)
     proof.eccvm_proof.pre_ipa_proof[op_limb_index] += 1;
 
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    [[maybe_unused]] auto goblin_rec_verifier_output =
-        verifier.verify(proof, recursive_merge_commitments, recursive_merge_commitments.T_commitments);
+    [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(proof, recursive_merge_commitments);
 
     EXPECT_FALSE(CircuitChecker::check(builder));
 }
@@ -305,7 +306,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
         std::shared_ptr<Goblin::Transcript> verifier_transcript = std::make_shared<Goblin::Transcript>();
 
         // Check natively that the proof is correct.
-        EXPECT_TRUE(Goblin::verify(proof, merge_commitments, merge_commitments.T_commitments, verifier_transcript));
+        EXPECT_TRUE(Goblin::verify(proof, merge_commitments, verifier_transcript));
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1298):
         // Better recursion testing - create more flexible proof tampering tests.
@@ -318,11 +319,11 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
             static constexpr size_t offset = bb::field_conversion::calc_num_bn254_frs<BF>();
             // Extract `op` fields and convert them to a Commitment object
             auto element_frs = std::span{ translator_proof }.subspan(offset, num_frs_comm);
-            auto op_commitment = NativeTranscriptParams::template convert_from_bn254_frs<Commitment>(element_frs);
+            auto op_commitment = NativeTranscriptParams::template deserialize<Commitment>(element_frs);
             // Modify the commitment
             op_commitment = op_commitment * FF(2);
             // Serialize the tampered commitment into the proof (overwriting the valid one).
-            auto op_commitment_reserialized = bb::NativeTranscriptParams::convert_to_bn254_frs(op_commitment);
+            auto op_commitment_reserialized = bb::NativeTranscriptParams::serialize(op_commitment);
             std::copy(op_commitment_reserialized.begin(),
                       op_commitment_reserialized.end(),
                       translator_proof.begin() + static_cast<std::ptrdiff_t>(offset));
@@ -332,8 +333,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
         // Construct and check the Goblin Recursive Verifier circuit
 
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-        [[maybe_unused]] auto goblin_rec_verifier_output =
-            verifier.verify(proof, recursive_merge_commitments, recursive_merge_commitments.T_commitments);
+        [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(proof, recursive_merge_commitments);
 
         EXPECT_FALSE(CircuitChecker::check(builder));
     }

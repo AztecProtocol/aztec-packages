@@ -37,6 +37,23 @@ template <typename T> constexpr size_t calc_num_bn254_frs()
     }
 }
 
+/**
+ * @brief Calculates the size of a types in terms of uint256_t
+ * @tparam T
+ * @return constexpr size_t
+ */
+template <typename T> constexpr size_t calc_num_uint256_ts()
+{
+    if constexpr (IsAnyOf<T, uint32_t, uint64_t, uint256_t, bool, grumpkin::fr, bb::fr>) {
+        return 1;
+    } else if constexpr (IsAnyOf<T, curve::BN254::AffineElement, curve::Grumpkin::AffineElement>) {
+        return 2;
+    } else {
+        // Array or Univariate
+        return calc_num_bn254_frs<typename T::value_type>() * (std::tuple_size<T>::value);
+    }
+}
+
 grumpkin::fr convert_grumpkin_fr_from_bn254_frs(std::span<const bb::fr> fr_vec);
 
 /**
@@ -87,6 +104,40 @@ template <typename T> T convert_from_bn254_frs(std::span<const bb::fr> fr_vec)
     }
 }
 
+template <typename T> T convert_from_uint256_ts(std::span<const uint256_t> uint256_vec)
+{
+    if constexpr (IsAnyOf<T, bool>) {
+        BB_ASSERT_EQ(uint256_vec.size(), static_cast<size_t>(1));
+        return static_cast<bool>(uint256_vec[0]);
+    } else if constexpr (IsAnyOf<T, uint32_t, uint64_t, uint256_t, bb::fr, grumpkin::fr>) {
+        BB_ASSERT_EQ(uint256_vec.size(), static_cast<size_t>(1));
+        return static_cast<T>(uint256_vec[0]);
+    } else if constexpr (IsAnyOf<T, curve::BN254::AffineElement, curve::Grumpkin::AffineElement>) {
+        using BaseField = typename T::Fq;
+        constexpr size_t NUMBER_OF_ELEMENTS = calc_num_uint256_ts<BaseField>();
+        BB_ASSERT_EQ(uint256_vec.size(), 2 * NUMBER_OF_ELEMENTS);
+        T val;
+        val.x = convert_from_uint256_ts<BaseField>(uint256_vec.subspan(0, NUMBER_OF_ELEMENTS));
+        val.y = convert_from_uint256_ts<BaseField>(uint256_vec.subspan(NUMBER_OF_ELEMENTS, NUMBER_OF_ELEMENTS));
+        if (val.x == BaseField::zero() && val.y == BaseField::zero()) {
+            val.self_set_infinity();
+        }
+        ASSERT(val.on_curve());
+        return val;
+    } else {
+        // Array or Univariate
+        T val;
+        constexpr size_t ElementSize = calc_num_uint256_ts<typename T::value_type>();
+        BB_ASSERT_EQ(uint256_vec.size(), ElementSize * std::tuple_size<T>::value);
+        size_t i = 0;
+        for (auto& x : val) {
+            x = convert_from_uint256_ts<typename T::value_type>(uint256_vec.subspan(ElementSize * i, ElementSize));
+            ++i;
+        }
+        return val;
+    }
+}
+
 std::vector<bb::fr> convert_grumpkin_fr_to_bn254_frs(const grumpkin::fr& val);
 
 /**
@@ -130,6 +181,48 @@ template <typename T> std::vector<bb::fr> convert_to_bn254_frs(const T& val)
             fr_vec.insert(fr_vec.end(), tmp_vec.begin(), tmp_vec.end());
         }
         return fr_vec;
+    }
+}
+
+/**
+ * @brief Conversion from transcript values to bb::frs
+ * @details We want to support the following types: bool, size_t, uint32_t, uint64_t, bb::fr, grumpkin::fr,
+ * curve::BN254::AffineElement, curve::Grumpkin::AffineElement, bb::Univariate<FF, N>, std::array<FF, N>, for
+ * FF = bb::fr/grumpkin::fr, and N is arbitrary.
+ * @tparam T
+ * @param val
+ * @return std::vector<bb::fr>
+ */
+template <typename T> std::vector<uint256_t> convert_to_uint256(const T& val)
+{
+    if constexpr (IsAnyOf<T, bool, uint32_t, uint64_t, uint256_t, bb::fr, grumpkin::fr>) {
+        std::vector<uint256_t> uint256_vec{ val };
+        return uint256_vec;
+    } else if constexpr (IsAnyOf<T, curve::BN254::AffineElement, curve::Grumpkin::AffineElement>) {
+        using BaseField = typename T::Fq;
+
+        std::vector<uint256_t> uint256_vec_x;
+        std::vector<uint256_t> uint256_vec_y;
+        // When encountering a point at infinity we pass a zero point in the proof to ensure that on the receiving size
+        // there are no inconsistencies whenre constructing and hashing.
+        if (val.is_point_at_infinity()) {
+            uint256_vec_x = convert_to_uint256(BaseField::zero());
+            uint256_vec_y = convert_to_uint256(BaseField::zero());
+        } else {
+            uint256_vec_x = convert_to_uint256(val.x);
+            uint256_vec_y = convert_to_uint256(val.y);
+        }
+        std::vector<uint256_t> uint256_vec(uint256_vec_x.begin(), uint256_vec_x.end());
+        uint256_vec.insert(uint256_vec.end(), uint256_vec_y.begin(), uint256_vec_y.end());
+        return uint256_vec;
+    } else {
+        // Array or Univariate
+        std::vector<uint256_t> uint256_vec;
+        for (auto& x : val) {
+            auto tmp_vec = convert_to_uint256(x);
+            uint256_vec.insert(uint256_vec.end(), tmp_vec.begin(), tmp_vec.end());
+        }
+        return uint256_vec;
     }
 }
 

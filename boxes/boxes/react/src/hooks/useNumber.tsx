@@ -11,7 +11,9 @@ export function useNumber({ contract }: { contract: Contract }) {
 
     setWait(true);
     const deployerWallet = await deployerEnv.getWallet();
-    const viewTxReceipt = await contract!.methods.getNumber(deployerWallet.getCompleteAddress().address).simulate();
+    const viewTxReceipt = await contract!.methods
+      .getNumber(deployerWallet.getCompleteAddress().address)
+      .simulate({ from: deployerWallet.getAddress() });
     toast(`Number is: ${viewTxReceipt.value}`);
     setWait(false);
   };
@@ -28,11 +30,8 @@ export function useNumber({ contract }: { contract: Contract }) {
 
       await toast.promise(
         contract!.methods
-          .setNumber(
-            value,
-            deployerWallet.getCompleteAddress().address,
-          )
-          .send()
+          .setNumber(value, deployerWallet.getCompleteAddress().address)
+          .send({ from: deployerWallet.getAddress() })
           .wait(),
         {
           pending: 'Setting number...',

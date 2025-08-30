@@ -60,6 +60,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     using NativeVerificationKey = NativeFlavor::VerificationKey;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 
+    static constexpr size_t VIRTUAL_LOG_N = UltraFlavor::VIRTUAL_LOG_N;
     // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
     static constexpr bool USE_SHORT_MONOMIALS = UltraFlavor::USE_SHORT_MONOMIALS;
 
@@ -102,9 +103,6 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     // combiner) too much.
     static constexpr size_t NUM_SUBRELATIONS = NativeFlavor::NUM_SUBRELATIONS;
     using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
-
-    // define the container for storing the univariate contribution from each relation in Sumcheck
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)

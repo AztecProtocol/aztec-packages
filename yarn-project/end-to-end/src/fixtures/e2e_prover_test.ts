@@ -141,7 +141,7 @@ export class FullProverTest {
           FullProverTest.TOKEN_SYMBOL,
           FullProverTest.TOKEN_DECIMALS,
         )
-          .send()
+          .send({ from: this.wallets[0].getAddress() })
           .deployed();
         this.logger.verbose(`Token deployed to ${asset.address}`);
 
@@ -155,11 +155,14 @@ export class FullProverTest {
         this.tokenSim = new TokenSimulator(
           this.fakeProofsAsset,
           this.wallets[0],
+          this.wallets[0].getAddress(),
           this.logger,
           this.accounts.map(a => a.address),
         );
 
-        expect(await this.fakeProofsAsset.methods.get_admin().simulate()).toBe(this.accounts[0].address.toBigInt());
+        expect(await this.fakeProofsAsset.methods.get_admin().simulate({ from: this.accounts[0].address })).toBe(
+          this.accounts[0].address.toBigInt(),
+        );
       },
     );
   }
@@ -293,10 +296,10 @@ export class FullProverTest {
       ...this.context.aztecNodeConfig,
       txCollectionNodeRpcUrls: [],
       dataDirectory: undefined,
-      proverId: this.proverAddress.toField(),
+      proverId: this.proverAddress,
       realProofs: this.realProofs,
       proverAgentCount: 2,
-      publisherPrivateKey: new SecretValue(`0x${proverNodePrivateKey!.toString('hex')}` as const),
+      publisherPrivateKeys: [new SecretValue(`0x${proverNodePrivateKey!.toString('hex')}` as const)],
       proverNodeMaxPendingJobs: 100,
       proverNodeMaxParallelBlocksPerEpoch: 32,
       proverNodePollingIntervalMs: 100,
@@ -365,11 +368,14 @@ export class FullProverTest {
         this.logger.verbose(`Minting ${privateAmount + publicAmount} publicly...`);
         await asset.methods
           .mint_to_public(accounts[0].address, privateAmount + publicAmount)
-          .send()
+          .send({ from: accounts[0].address })
           .wait();
 
         this.logger.verbose(`Transferring ${privateAmount} to private...`);
-        await asset.methods.transfer_to_private(accounts[0].address, privateAmount).send().wait();
+        await asset.methods
+          .transfer_to_private(accounts[0].address, privateAmount)
+          .send({ from: accounts[0].address })
+          .wait();
 
         this.logger.verbose(`Minting complete.`);
 
@@ -383,16 +389,16 @@ export class FullProverTest {
         } = this;
         tokenSim.mintPublic(address, amount);
 
-        const publicBalance = await asset.methods.balance_of_public(address).simulate();
+        const publicBalance = await asset.methods.balance_of_public(address).simulate({ from: address });
         this.logger.verbose(`Public balance of wallet 0: ${publicBalance}`);
         expect(publicBalance).toEqual(this.tokenSim.balanceOfPublic(address));
 
         tokenSim.mintPrivate(address, amount);
-        const privateBalance = await asset.methods.balance_of_private(address).simulate();
+        const privateBalance = await asset.methods.balance_of_private(address).simulate({ from: address });
         this.logger.verbose(`Private balance of wallet 0: ${privateBalance}`);
         expect(privateBalance).toEqual(tokenSim.balanceOfPrivate(address));
 
-        const totalSupply = await asset.methods.total_supply().simulate();
+        const totalSupply = await asset.methods.total_supply().simulate({ from: address });
         this.logger.verbose(`Total supply: ${totalSupply}`);
         expect(totalSupply).toEqual(tokenSim.totalSupply);
 

@@ -81,6 +81,8 @@ export type ClientCircuitName =
   | 'private-kernel-reset'
   | 'private-kernel-tail'
   | 'private-kernel-tail-to-public'
+  | 'hiding-kernel-to-rollup'
+  | 'hiding-kernel-to-public'
   | 'app-circuit';
 
 export type ServerCircuitName =
@@ -200,9 +202,9 @@ export type L2BlockHandledStats = {
   /** Total duration in ms. */
   duration: number;
   /** Pending block number. */
-  unfinalisedBlockNumber: bigint;
+  unfinalizedBlockNumber: bigint;
   /** Proven block number. */
-  finalisedBlockNumber: bigint;
+  finalizedBlockNumber: bigint;
   /** Oldest historic block number. */
   oldestHistoricBlock: bigint;
 } & L2BlockStats;

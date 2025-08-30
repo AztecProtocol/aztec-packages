@@ -9,7 +9,6 @@
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
-#include "barretenberg/vm2/generated/relations/lookups_keccak_memory.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_keccakf1600.hpp"
 #include "barretenberg/vm2/generated/relations/perms_keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -481,6 +480,7 @@ void KeccakF1600TraceBuilder::process_permutation(
                           { C::keccakf1600_clk, event.execution_clk },
                           { C::keccakf1600_bitwise_xor_op_id, static_cast<uint8_t>(BitwiseOperation::XOR) },
                           { C::keccakf1600_bitwise_and_op_id, static_cast<uint8_t>(BitwiseOperation::AND) },
+                          { C::keccakf1600_tag_u64, static_cast<uint8_t>(MemoryTag::U64) },
                           { C::keccakf1600_round, round_idx + 1 }, // round is 1-indexed
                           { C::keccakf1600_round_cst, simulation::keccak_round_constants[round_idx] },
                           { C::keccakf1600_thirty_two, AVM_MEMORY_NUM_BITS },
@@ -794,8 +794,6 @@ const InteractionDefinition KeccakF1600TraceBuilder::interactions =
         // Range checks are de-duplicated and therefore we can't use the interaction builder
         // LookupIntoDynamicTableSequential.
         .add<lookup_keccakf1600_src_abs_diff_positive_settings, InteractionType::LookupGeneric>()
-        .add<lookup_keccakf1600_dst_abs_diff_positive_settings, InteractionType::LookupGeneric>()
-        // Keccak slice memory to memory sub-trace
-        .add<lookup_keccak_memory_slice_to_mem_settings, InteractionType::LookupSequential>();
+        .add<lookup_keccakf1600_dst_abs_diff_positive_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

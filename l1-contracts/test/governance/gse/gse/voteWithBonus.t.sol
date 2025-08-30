@@ -6,9 +6,12 @@ import {IPayload, Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
+import {UncompressedProposalWrapper} from "@test/governance/helpers/UncompressedProposalTestLib.sol";
 
 contract VoteWithBonusTest is WithGSE {
   using ProposalLib for Proposal;
+
+  UncompressedProposalWrapper internal upw = new UncompressedProposalWrapper();
 
   address internal BONUS_ADDRESS;
 
@@ -40,21 +43,20 @@ contract VoteWithBonusTest is WithGSE {
     _;
   }
 
-  function test_GivenAmountGreaterThanAvailableBonusPower(
-    address _instance,
-    address _attester,
-    uint256 _amount
-  ) external givenCallerIsLatestAtProposalTime(_instance) {
+  function test_GivenAmountGreaterThanAvailableBonusPower(address _instance, address _attester, uint256 _amount)
+    external
+    givenCallerIsLatestAtProposalTime(_instance)
+  {
     // it reverts
+
+    vm.assume(_attester != address(0));
 
     uint256 availablePower = _prepare(_instance, _attester);
     uint256 amount = bound(_amount, availablePower + 1, type(uint256).max);
 
     vm.prank(_instance);
     vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Delegation__InsufficientPower.selector, BONUS_ADDRESS, availablePower, amount
-      )
+      abi.encodeWithSelector(Errors.Delegation__InsufficientPower.selector, BONUS_ADDRESS, availablePower, amount)
     );
     gse.voteWithBonus(0, amount, true);
   }
@@ -67,6 +69,8 @@ contract VoteWithBonusTest is WithGSE {
   ) external givenCallerIsLatestAtProposalTime(_instance) {
     // it uses delegation power for bonus
     // it votes in governance
+
+    vm.assume(_attester != address(0));
 
     Proposal memory proposal = governance.getProposal(0);
     assertEq(proposal.summedBallot.yea, 0);
@@ -87,9 +91,9 @@ contract VoteWithBonusTest is WithGSE {
     cheat_deposit(_instance, _attester, _attester, true);
 
     Proposal memory proposal = governance.getProposal(0);
-    vm.warp(Timestamp.unwrap(proposal.pendingThroughMemory()) + 1);
+    vm.warp(Timestamp.unwrap(upw.pendingThrough(proposal)) + 1);
 
-    uint256 availablePower = gse.getVotingPowerAt(BONUS_ADDRESS, proposal.pendingThroughMemory());
+    uint256 availablePower = gse.getVotingPowerAt(BONUS_ADDRESS, upw.pendingThrough(proposal));
 
     return availablePower;
   }

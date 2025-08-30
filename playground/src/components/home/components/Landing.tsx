@@ -293,8 +293,8 @@ export function Landing() {
 
     switch (contractValue) {
       case PREDEFINED_CONTRACTS.SIMPLE_VOTING: {
-        ({ EasyPrivateVotingContractArtifact: contractArtifactJSON } = await import(
-          '@aztec/noir-contracts.js/EasyPrivateVoting'
+        ({ PrivateVotingContractArtifact: contractArtifactJSON } = await import(
+          '@aztec/noir-contracts.js/PrivateVoting'
         ));
 
         defaultContractCreationParams = {
@@ -388,6 +388,7 @@ export function Landing() {
 
       const deployMethod = await accountManager.getDeployMethod();
       const opts = {
+        from: accountWallet.getAddress(),
         contractAddressSalt: salt,
         fee: {
           paymentMethod: await accountManager.getSelfPaymentMethod(feePaymentMethod),

@@ -1,8 +1,9 @@
 import {
-  L1TxUtils,
+  GSEContract,
   RollupContract,
   createEthereumChain,
   createExtendedL1Client,
+  createL1TxUtilsFromViemWallet,
   getL1ContractsConfigEnvVars,
   getPublicClient,
   isAnvilTestChain,
@@ -59,10 +60,16 @@ export async function addL1Validator({
   stakingAssetHandlerAddress,
   merkleProof,
   proofParams,
+  blsSecretKey,
   log,
   debugLogger,
 }: StakingAssetHandlerCommandArgs &
-  LoggerArgs & { attesterAddress: EthAddress; proofParams: Buffer; merkleProof: string[] }) {
+  LoggerArgs & {
+    blsSecretKey: bigint; // scalar field element of BN254
+    attesterAddress: EthAddress;
+    proofParams: Buffer;
+    merkleProof: string[];
+  }) {
   const dualLog = makeDualLog(log, debugLogger);
   const account = getAccount(privateKey, mnemonic);
   const chain = createEthereumChain(rpcUrls, chainId);
@@ -74,10 +81,22 @@ export async function addL1Validator({
     client: l1Client,
   });
 
-  const rollup = await stakingAssetHandler.read.getRollup();
-  dualLog(`Adding validator ${attesterAddress} to rollup ${rollup.toString()}`);
+  const rollupAddress = await stakingAssetHandler.read.getRollup();
+  dualLog(`Adding validator ${attesterAddress} to rollup ${rollupAddress.toString()}`);
 
-  const l1TxUtils = new L1TxUtils(l1Client, debugLogger);
+  const rollup = getContract({
+    address: rollupAddress,
+    abi: RollupAbi,
+    client: l1Client,
+  });
+
+  const gseAddress = await rollup.read.getGSE();
+
+  const gse = new GSEContract(l1Client, gseAddress);
+
+  const registrationTuple = await gse.makeRegistrationTuple(blsSecretKey);
+
+  const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, debugLogger);
   const proofParamsObj = ZkPassportProofParams.fromBuffer(proofParams);
   const merkleProofArray = merkleProof.map(proof => addLeadingHex(proof));
 
@@ -86,7 +105,14 @@ export async function addL1Validator({
     data: encodeFunctionData({
       abi: StakingAssetHandlerAbi,
       functionName: 'addValidator',
-      args: [attesterAddress.toString(), merkleProofArray, proofParamsObj.toViem()],
+      args: [
+        attesterAddress.toString(),
+        merkleProofArray,
+        proofParamsObj.toViem(),
+        registrationTuple.publicKeyInG1,
+        registrationTuple.publicKeyInG2,
+        registrationTuple.proofOfPossession,
+      ],
     }),
     abi: StakingAssetHandlerAbi,
   });
@@ -119,7 +145,7 @@ export async function removeL1Validator({
   const account = getAccount(privateKey, mnemonic);
   const chain = createEthereumChain(rpcUrls, chainId);
   const l1Client = createExtendedL1Client(rpcUrls, account, chain.chainInfo);
-  const l1TxUtils = new L1TxUtils(l1Client, debugLogger);
+  const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, debugLogger);
 
   dualLog(`Removing validator ${validatorAddress.toString()} from rollup ${rollupAddress.toString()}`);
   const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
@@ -146,7 +172,7 @@ export async function pruneRollup({
   const account = getAccount(privateKey, mnemonic);
   const chain = createEthereumChain(rpcUrls, chainId);
   const l1Client = createExtendedL1Client(rpcUrls, account, chain.chainInfo);
-  const l1TxUtils = new L1TxUtils(l1Client, debugLogger);
+  const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, debugLogger);
 
   dualLog(`Trying prune`);
   const { receipt } = await l1TxUtils.sendAndMonitorTransaction({

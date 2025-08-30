@@ -12,18 +12,13 @@ import {TestConstants} from "@test/harnesses/TestConstants.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {IGSE} from "@aztec/governance/GSE.sol";
-import {
-  ProposalLib,
-  VoteTabulationReturn,
-  VoteTabulationInfo
-} from "@aztec/governance/libraries/ProposalLib.sol";
-
-import {
-  CallAssetPayload, UpgradePayload, CallRevertingPayload, EmptyPayload
-} from "./TestPayloads.sol";
+import {VoteTabulationReturn, VoteTabulationInfo} from "@aztec/governance/libraries/ProposalLib.sol";
+import {UncompressedProposalWrapper} from "@test/governance/helpers/UncompressedProposalTestLib.sol";
+import {TestGov} from "@test/governance/helpers/TestGov.sol";
+import {CallAssetPayload, UpgradePayload, CallRevertingPayload, EmptyPayload} from "./TestPayloads.sol";
 
 contract GovernanceBase is TestBase {
-  using ProposalLib for Proposal;
+  UncompressedProposalWrapper internal upw = new UncompressedProposalWrapper();
 
   IMintableERC20 internal token;
   Registry internal registry;
@@ -41,9 +36,8 @@ contract GovernanceBase is TestBase {
     registry = new Registry(address(this), token);
     governanceProposer = new GovernanceProposer(registry, IGSE(address(0x03)), 677, 1000);
 
-    governance = new Governance(
-      token, address(governanceProposer), address(this), TestConstants.getGovernanceConfiguration()
-    );
+    governance =
+      new TestGov(token, address(governanceProposer), address(this), TestConstants.getGovernanceConfiguration());
 
     vm.prank(address(governance));
     governance.openFloodgates();
@@ -97,7 +91,7 @@ contract GovernanceBase is TestBase {
     proposalId = proposalIds[_proposalName];
 
     // @note We jump to the point where it becomes active
-    vm.warp(Timestamp.unwrap(proposal.pendingThrough()) + 1);
+    vm.warp(Timestamp.unwrap(upw.pendingThrough(proposal)) + 1);
 
     assertTrue(governance.getProposalState(proposalId) == ProposalState.Active);
   }
@@ -119,18 +113,14 @@ contract GovernanceBase is TestBase {
     proposal = proposals[_proposalName];
     proposalId = proposalIds[_proposalName];
 
-    vm.warp(Timestamp.unwrap(proposal.activeThrough()) + 1);
+    vm.warp(Timestamp.unwrap(upw.activeThrough(proposal)) + 1);
 
     assertTrue(governance.getProposalState(proposalId) == ProposalState.Rejected);
   }
 
-  function _stateQueued(
-    bytes32 _proposalName,
-    address _voter,
-    uint256 _totalPower,
-    uint256 _votesCast,
-    uint256 _yeas
-  ) internal {
+  function _stateQueued(bytes32 _proposalName, address _voter, uint256 _totalPower, uint256 _votesCast, uint256 _yeas)
+    internal
+  {
     vm.assume(_voter != address(0));
     proposal = proposals[_proposalName];
     proposalId = proposalIds[_proposalName];
@@ -157,7 +147,7 @@ contract GovernanceBase is TestBase {
     governance.vote(proposalId, votesCast - yeas, false);
     vm.stopPrank();
 
-    vm.warp(Timestamp.unwrap(proposal.activeThrough()) + 1);
+    vm.warp(Timestamp.unwrap(upw.activeThrough(proposal)) + 1);
 
     assertEq(governance.getProposalState(proposalId), ProposalState.Queued, "invalid state");
   }
@@ -174,24 +164,20 @@ contract GovernanceBase is TestBase {
 
     _stateQueued(_proposalName, _voter, _totalPower, _votesCast, _yeas);
 
-    vm.warp(Timestamp.unwrap(proposal.queuedThrough()) + 1);
+    vm.warp(Timestamp.unwrap(upw.queuedThrough(proposal)) + 1);
 
     assertEq(governance.getProposalState(proposalId), ProposalState.Executable, "invalid state");
   }
 
-  function _stateExpired(
-    bytes32 _proposalName,
-    address _voter,
-    uint256 _totalPower,
-    uint256 _votesCast,
-    uint256 _yeas
-  ) internal {
+  function _stateExpired(bytes32 _proposalName, address _voter, uint256 _totalPower, uint256 _votesCast, uint256 _yeas)
+    internal
+  {
     proposal = proposals[_proposalName];
     proposalId = proposalIds[_proposalName];
 
     _stateExecutable(_proposalName, _voter, _totalPower, _votesCast, _yeas);
 
-    vm.warp(Timestamp.unwrap(proposal.executableThrough()) + 1);
+    vm.warp(Timestamp.unwrap(upw.executableThrough(proposal)) + 1);
 
     assertEq(governance.getProposalState(proposalId), ProposalState.Expired, "invalid state");
   }

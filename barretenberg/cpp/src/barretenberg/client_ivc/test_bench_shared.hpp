@@ -35,15 +35,15 @@ bool verify_ivc(ClientIVC::Proof& proof, ClientIVC& ivc)
  *
  * @param NUM_CIRCUITS Number of circuits to accumulate (apps + kernels)
  */
-void perform_ivc_accumulation_rounds(size_t NUM_CIRCUITS,
-                                     ClientIVC& ivc,
-                                     auto& precomputed_vks,
-                                     const bool& mock_vk = false,
-                                     const bool large_first_app = true)
+std::pair<ClientIVC::Proof, ClientIVC::VerificationKey> accumulate_and_prove_ivc_with_precomputed_vks(
+    size_t num_app_circuits, auto& precomputed_vks, const bool large_first_app = true)
 {
-    BB_ASSERT_EQ(precomputed_vks.size(), NUM_CIRCUITS, "There should be a precomputed VK for each circuit");
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer(num_app_circuits, large_first_app);
+    const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
+    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
+    ClientIVC ivc{ NUM_CIRCUITS, trace_settings };
 
-    PrivateFunctionExecutionMockCircuitProducer circuit_producer(large_first_app);
+    BB_ASSERT_EQ(precomputed_vks.size(), NUM_CIRCUITS, "There should be a precomputed VK for each circuit");
 
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
         MegaCircuitBuilder circuit;
@@ -52,21 +52,32 @@ void perform_ivc_accumulation_rounds(size_t NUM_CIRCUITS,
             circuit = circuit_producer.create_next_circuit(ivc);
         }
 
-        ivc.accumulate(circuit, precomputed_vks[circuit_idx], mock_vk);
+        ivc.accumulate(circuit, precomputed_vks[circuit_idx]);
     }
+    return { ivc.prove(), ivc.get_vk() };
 }
 
-std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> mock_vks(const size_t num_circuits)
+std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> precompute_vks(const size_t num_app_circuits,
+                                                                                  const bool large_first_app = true)
 {
+    using CircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
+    CircuitProducer circuit_producer(num_app_circuits, large_first_app);
+    const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
+    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
+    ClientIVC ivc{ NUM_CIRCUITS, trace_settings };
 
     std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> vkeys;
+    for (size_t j = 0; j < NUM_CIRCUITS; ++j) {
 
-    for (size_t idx = 0; idx < num_circuits; ++idx) {
-        auto key = std::make_shared<typename MegaFlavor::VerificationKey>();
-        for (auto& commitment : key->get_all()) {
-            commitment = MegaFlavor::Commitment::random_element();
+        auto circuit = circuit_producer.create_next_circuit(ivc);
+
+        // Hiding kernel does not use structured trace
+        if (j == NUM_CIRCUITS - 1) {
+            trace_settings = TraceSettings{};
         }
-        vkeys.push_back(key);
+        auto vk = CircuitProducer::get_verification_key(circuit, trace_settings);
+        vkeys.push_back(vk);
+        ivc.accumulate(circuit, vk);
     }
 
     return vkeys;

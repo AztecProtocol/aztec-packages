@@ -43,7 +43,7 @@ on:
         description: The branch name to deploy from
         required: false
         type: string
-        default: "master"
+        default: "next"
       sepolia_deployment:
         description: "Whether to deploy on Sepolia network (default: false)"
         required: false
@@ -112,7 +112,7 @@ jobs:
     with:
       values_file: ${{ inputs.values_file }}
       sepolia_accounts_mnemonic_secret_name: ${{ inputs.sepolia_accounts_mnemonic_secret_name || format('{0}-accounts-mnemonic', inputs.namespace) }}
-      ref: ${{ inputs.ref || github.ref || 'master' }}
+      ref: ${{ inputs.ref || github.ref || 'next' }}
     secrets:
       GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
       SEPOLIA_FUNDING_PRIVATE_KEY: ${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}

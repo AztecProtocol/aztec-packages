@@ -45,22 +45,19 @@ function run_bb_cli_bench {
   local runtime="$1"
   local output="$2"
   local args="$3"
-  export MAIN_ARGS="$args"
 
   if [[ "$runtime" == "native" ]]; then
-    memusage "./$native_build_dir/bin/bb_cli_bench" \
-      --benchmark_out=$output/op-counts.json \
-      --benchmark_out_format=json || {
-      echo "bb_cli_bench native failed with args: $args"
+    memusage "./$native_build_dir/bin/bb" $args \
+      --op_counts_out=$output/op-counts.json || {
+      echo "bb native failed with args: $args"
       exit 1
     }
   else # wasm
     export WASMTIME_ALLOWED_DIRS="--dir=$flow_folder --dir=$output"
     # TODO support wasm op count time preset
-    memusage scripts/wasmtime.sh $WASMTIME_ALLOWED_DIRS ./build-wasm-threads/bin/bb_cli_bench \
-      --benchmark_out=$output/op-counts.json \
-      --benchmark_out_format=json || {
-      echo "bb_cli_bench wasm failed with args: $args"
+    memusage scripts/wasmtime.sh $WASMTIME_ALLOWED_DIRS ./build-wasm-threads/bin/bb $args \
+      --op_counts_out=$output/op-counts.json || {
+      echo "bb wasm failed with args: $args"
       exit 1
     }
   fi
@@ -81,7 +78,7 @@ function client_ivc_flow {
 
   run_bb_cli_bench "$runtime" "$output" "prove -o $output --ivc_inputs_path $flow_folder/ivc-inputs.msgpack --scheme client_ivc -v"
 
-  if [[ "${NATIVE_PRESET:-}" == op-count-time && "$runtime" != wasm ]]; then
+  if [[ "$runtime" != wasm ]]; then
     python3 scripts/analyze_client_ivc_bench.py --prefix . --json $output/op-counts.json --benchmark ""
   fi
 

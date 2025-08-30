@@ -4,11 +4,13 @@
 pragma solidity >=0.8.27;
 
 import {Rollup, GenesisState, RollupConfigInput} from "@aztec/core/Rollup.sol";
+import {RollupWithPreheating} from "../RollupWithPreheating.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 import {EthValue} from "@aztec/core/interfaces/IRollup.sol";
+import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
@@ -17,6 +19,9 @@ import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQ
 import {Test} from "forge-std/Test.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {CoinIssuer} from "@aztec/governance/CoinIssuer.sol";
+import {stdStorage, StdStorage} from "forge-std/Test.sol";
+import {GSEWithSkip} from "@test/GSEWithSkip.sol";
+import {TestGov} from "@test/governance/helpers/TestGov.sol";
 
 // Stack the layers to avoid the stack too deep 🧌
 struct ConfigFlags {
@@ -24,6 +29,7 @@ struct ConfigFlags {
   bool makeGovernance;
   bool updateOwnerships;
   bool openFloodgates;
+  bool checkProofOfPossession;
 }
 
 struct ConfigValues {
@@ -38,7 +44,7 @@ struct Config {
   TestERC20 testERC20;
   Registry registry;
   Governance governance;
-  Rollup rollup;
+  RollupWithPreheating rollup;
   GSE gse;
   RewardDistributor rewardDistributor;
   GenesisState genesisState;
@@ -55,6 +61,8 @@ struct Config {
  *          the constructor and configuration options.
  */
 contract RollupBuilder is Test {
+  using stdStorage for StdStorage;
+
   Config public config;
 
   constructor(address _deployer) {
@@ -70,6 +78,7 @@ contract RollupBuilder is Test {
     config.flags.makeGovernance = true;
     config.flags.updateOwnerships = true;
     config.flags.openFloodgates = true;
+    config.flags.checkProofOfPossession = false;
   }
 
   function setTestERC20(TestERC20 _testERC20) public returns (RollupBuilder) {
@@ -92,18 +101,12 @@ contract RollupBuilder is Test {
     return this;
   }
 
-  function setRollupConfigInput(RollupConfigInput memory _rollupConfigInput)
-    public
-    returns (RollupBuilder)
-  {
+  function setRollupConfigInput(RollupConfigInput memory _rollupConfigInput) public returns (RollupBuilder) {
     config.rollupConfigInput = _rollupConfigInput;
     return this;
   }
 
-  function setRewardDistributor(RewardDistributor _rewardDistributor)
-    public
-    returns (RollupBuilder)
-  {
+  function setRewardDistributor(RewardDistributor _rewardDistributor) public returns (RollupBuilder) {
     config.rewardDistributor = _rewardDistributor;
     return this;
   }
@@ -140,6 +143,11 @@ contract RollupBuilder is Test {
 
   function setOpenFloodgates(bool _openFloodgates) public returns (RollupBuilder) {
     config.flags.openFloodgates = _openFloodgates;
+    return this;
+  }
+
+  function setCheckProofOfPossession(bool _checkProofOfPossession) public returns (RollupBuilder) {
+    config.flags.checkProofOfPossession = _checkProofOfPossession;
     return this;
   }
 
@@ -182,19 +190,38 @@ contract RollupBuilder is Test {
     return this;
   }
 
-  function setSlashingLifetimeInRounds(uint256 _slashingLifetimeInRounds)
-    public
-    returns (RollupBuilder)
-  {
+  function setSlashingLifetimeInRounds(uint256 _slashingLifetimeInRounds) public returns (RollupBuilder) {
     config.rollupConfigInput.slashingLifetimeInRounds = _slashingLifetimeInRounds;
     return this;
   }
 
-  function setSlashingExecutionDelayInRounds(uint256 _slashingExecutionDelayInRounds)
-    public
-    returns (RollupBuilder)
-  {
+  function setSlashingExecutionDelayInRounds(uint256 _slashingExecutionDelayInRounds) public returns (RollupBuilder) {
     config.rollupConfigInput.slashingExecutionDelayInRounds = _slashingExecutionDelayInRounds;
+    return this;
+  }
+
+  function setSlashingOffsetInRounds(uint256 _slashingOffsetInRounds) public returns (RollupBuilder) {
+    config.rollupConfigInput.slashingOffsetInRounds = _slashingOffsetInRounds;
+    return this;
+  }
+
+  function setSlashAmountSmall(uint256 _slashAmountSmall) public returns (RollupBuilder) {
+    config.rollupConfigInput.slashAmounts[0] = _slashAmountSmall;
+    return this;
+  }
+
+  function setSlashAmountMedium(uint256 _slashAmountMedium) public returns (RollupBuilder) {
+    config.rollupConfigInput.slashAmounts[1] = _slashAmountMedium;
+    return this;
+  }
+
+  function setSlashAmountLarge(uint256 _slashAmountLarge) public returns (RollupBuilder) {
+    config.rollupConfigInput.slashAmounts[2] = _slashAmountLarge;
+    return this;
+  }
+
+  function setSlasherFlavor(SlasherFlavor _slasherFlavor) public returns (RollupBuilder) {
+    config.rollupConfigInput.slasherFlavor = _slasherFlavor;
     return this;
   }
 
@@ -203,11 +230,18 @@ contract RollupBuilder is Test {
     return this;
   }
 
-  function setStakingQueueConfig(StakingQueueConfig memory _stakingQueueConfig)
-    public
-    returns (RollupBuilder)
-  {
+  function setStakingQueueConfig(StakingQueueConfig memory _stakingQueueConfig) public returns (RollupBuilder) {
     config.rollupConfigInput.stakingQueueConfig = _stakingQueueConfig;
+    return this;
+  }
+
+  function setEntryQueueFlushSizeMin(uint256 _flushSizeMin) public returns (RollupBuilder) {
+    config.rollupConfigInput.stakingQueueConfig.normalFlushSizeMin = _flushSizeMin;
+    return this;
+  }
+
+  function setEntryQueueFlushSizeQuotient(uint256 _flushSizeQuotient) public returns (RollupBuilder) {
+    config.rollupConfigInput.stakingQueueConfig.normalFlushSizeQuotient = _flushSizeQuotient;
     return this;
   }
 
@@ -232,9 +266,11 @@ contract RollupBuilder is Test {
     }
 
     if (address(config.gse) == address(0)) {
-      config.gse = new GSE(
-        address(this), config.testERC20, TestConstants.DEPOSIT_AMOUNT, TestConstants.MINIMUM_STAKE
+      config.gse = new GSEWithSkip(
+        address(this), config.testERC20, TestConstants.ACTIVATION_THRESHOLD, TestConstants.EJECTION_THRESHOLD
       );
+
+      GSEWithSkip(address(config.gse)).setCheckProofOfPossession(config.flags.checkProofOfPossession);
     }
 
     if (address(config.registry) == address(0)) {
@@ -245,14 +281,10 @@ contract RollupBuilder is Test {
     }
 
     if (config.flags.makeGovernance) {
-      GovernanceProposer proposer = new GovernanceProposer(
-        config.registry, config.gse, config.values.govProposerN, config.values.govProposerM
-      );
-      config.governance = new Governance(
-        config.testERC20,
-        address(proposer),
-        address(config.gse),
-        TestConstants.getGovernanceConfiguration()
+      GovernanceProposer proposer =
+        new GovernanceProposer(config.registry, config.gse, config.values.govProposerN, config.values.govProposerM);
+      config.governance = new TestGov(
+        config.testERC20, address(proposer), address(config.gse), TestConstants.getGovernanceConfiguration()
       );
       vm.label(address(config.governance), "Governance");
       vm.label(address(proposer), "GovernanceProposer");
@@ -270,7 +302,7 @@ contract RollupBuilder is Test {
 
     config.rollupConfigInput.rewardConfig.rewardDistributor = config.rewardDistributor;
 
-    config.rollup = new Rollup(
+    config.rollup = new RollupWithPreheating(
       config.testERC20,
       config.testERC20,
       config.gse,
@@ -279,8 +311,6 @@ contract RollupBuilder is Test {
       config.genesisState,
       config.rollupConfigInput
     );
-
-    config.rollup.preheatHeaders();
 
     if (config.flags.makeCanonical) {
       address feeAssetPortal = address(config.rollup.getFeeAssetPortal());
@@ -299,9 +329,7 @@ contract RollupBuilder is Test {
 
     if (config.validators.length > 0) {
       MultiAdder multiAdder = new MultiAdder(address(config.rollup), address(this));
-      config.testERC20.mint(
-        address(multiAdder), config.gse.DEPOSIT_AMOUNT() * config.validators.length
-      );
+      config.testERC20.mint(address(multiAdder), config.gse.ACTIVATION_THRESHOLD() * config.validators.length);
       multiAdder.addValidators(config.validators);
     }
 

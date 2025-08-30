@@ -61,11 +61,11 @@ impl PendingReadHint {
     }
 }
 
-pub trait SettledReadHint<let TREE_HEIGHT: u32, LEAF_PREIMAGE>
+pub trait SettledReadHint<let TreeHeight: u32, LEAF_PREIMAGE>
 where
     LEAF_PREIMAGE: LeafPreimage,
 {
-    fn membership_witness(self) -> MembershipWitness<TREE_HEIGHT>;
+    fn membership_witness(self) -> MembershipWitness<TreeHeight>;
     fn leaf_preimage(self) -> LEAF_PREIMAGE;
     fn skip(read_request_len: u32) -> Self;
 }
@@ -74,19 +74,19 @@ where
 // More info here:
 // - https://discourse.aztec.network/t/to-read-or-not-to-read/178
 // - https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180
-fn validate_pending_read_requests<let READ_REQUEST_LEN: u32, T, let PENDING_VALUE_LEN: u32, let PENDING_READ_HINTS_LEN: u32>(
-    read_requests: ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN>,
-    pending_values: ClaimedLengthArray<T, PENDING_VALUE_LEN>,
-    hints: [PendingReadHint; PENDING_READ_HINTS_LEN],
+fn validate_pending_read_requests<let ReadRequestLen: u32, T, let PendingValueLen: u32, let PendingReadHintsLen: u32>(
+    read_requests: ClaimedLengthArray<ScopedReadRequest, ReadRequestLen>,
+    pending_values: ClaimedLengthArray<T, PendingValueLen>,
+    hints: [PendingReadHint; PendingReadHintsLen],
 )
 where
     T: Readable<ScopedReadRequest>,
 {
-    for i in 0..PENDING_READ_HINTS_LEN {
+    for i in 0..PendingReadHintsLen {
         let hint = hints[i];
         let read_request_index = hint.read_request_index;
         let pending_value_index = hint.pending_value_index;
-        if read_request_index != READ_REQUEST_LEN {
+        if read_request_index != ReadRequestLen {
             assert(
                 pending_value_index < pending_values.length,
                 "Cannot read a pending value beyond claimed length",
@@ -100,19 +100,19 @@ where
 
 // Validate read requests against the historical tree root, for reading settled notes.
 // Use their membership witnesses to do so.
-fn validate_settled_read_requests<let READ_REQUEST_LEN: u32, let SETTLED_READ_HINTS_LEN: u32, H, let TREE_HEIGHT: u32, LEAF_PREIMAGE>(
-    read_requests: ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN>,
-    hints: [H; SETTLED_READ_HINTS_LEN],
+fn validate_settled_read_requests<let ReadRequestLen: u32, let SettledReadHintsLen: u32, H, let TreeHeight: u32, LEAF_PREIMAGE>(
+    read_requests: ClaimedLengthArray<ScopedReadRequest, ReadRequestLen>,
+    hints: [H; SettledReadHintsLen],
     tree_root: Field,
 )
 where
-    H: SettledReadHint<TREE_HEIGHT, LEAF_PREIMAGE> + ReadValueHint,
+    H: SettledReadHint<TreeHeight, LEAF_PREIMAGE> + ReadValueHint,
     LEAF_PREIMAGE: LeafPreimage + Readable<ScopedReadRequest>,
 {
-    for i in 0..SETTLED_READ_HINTS_LEN {
+    for i in 0..SettledReadHintsLen {
         let hint = hints[i];
         let read_request_index = hint.read_request_index();
-        if read_request_index != READ_REQUEST_LEN {
+        if read_request_index != ReadRequestLen {
             let read_request = read_requests.array[read_request_index];
             let leaf_preimage = hint.leaf_preimage();
             leaf_preimage.assert_match_read_request(read_request);
@@ -124,19 +124,19 @@ where
     }
 }
 
-fn verify_propagated_read_requests<let READ_REQUEST_LEN: u32, let PENDING_READ_HINTS_LEN: u32, T, let SETTLED_READ_HINTS_LEN: u32, S>(
-    read_requests: ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN>,
-    read_request_actions: [ReadRequestAction; READ_REQUEST_LEN],
-    pending_read_hints: [T; PENDING_READ_HINTS_LEN],
-    settled_read_hints: [S; SETTLED_READ_HINTS_LEN],
-    propagated_read_requests: ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN>,
+fn verify_propagated_read_requests<let ReadRequestLen: u32, let PendingReadHintsLen: u32, T, let SettledReadHintsLen: u32, S>(
+    read_requests: ClaimedLengthArray<ScopedReadRequest, ReadRequestLen>,
+    read_request_actions: [ReadRequestAction; ReadRequestLen],
+    pending_read_hints: [T; PendingReadHintsLen],
+    settled_read_hints: [S; SettledReadHintsLen],
+    propagated_read_requests: ClaimedLengthArray<ScopedReadRequest, ReadRequestLen>,
 )
 where
     T: ReadValueHint,
     S: ReadValueHint,
 {
     let mut num_propagated = 0;
-    for i in 0..READ_REQUEST_LEN {
+    for i in 0..ReadRequestLen {
         let read_request = read_requests.array[i];
         let status = read_request_actions[i];
         if status.action == ReadRequestActions.READ_AS_PENDING {
@@ -196,20 +196,20 @@ where
 // and `settled_read_amount` the same as `SETTLED_READ_HINTS_LEN`.
 // We created two variables because an array is not allowed to be empty (zero length). In the case a reset circuit skips
 // the read request verification, the array will contain empty items, and the [pending|settled]_read_amount will be zero.
-pub fn verify_reset_read_requests<let READ_REQUEST_LEN: u32, P, let PENDING_VALUE_LEN: u32, let PENDING_READ_HINTS_LEN: u32, let SETTLED_READ_HINTS_LEN: u32, H, let TREE_HEIGHT: u32, LEAF_PREIMAGE>(
-    read_requests: ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN>,
-    pending_values: ClaimedLengthArray<P, PENDING_VALUE_LEN>,
-    read_request_actions: [ReadRequestAction; READ_REQUEST_LEN],
-    pending_read_hints: [PendingReadHint; PENDING_READ_HINTS_LEN],
+pub fn verify_reset_read_requests<let ReadRequestLen: u32, P, let PendingValueLen: u32, let PendingReadHintsLen: u32, let SettledReadHintsLen: u32, H, let TreeHeight: u32, LEAF_PREIMAGE>(
+    read_requests: ClaimedLengthArray<ScopedReadRequest, ReadRequestLen>,
+    pending_values: ClaimedLengthArray<P, PendingValueLen>,
+    read_request_actions: [ReadRequestAction; ReadRequestLen],
+    pending_read_hints: [PendingReadHint; PendingReadHintsLen],
     pending_read_amount: u32,
-    settled_read_hints: [H; SETTLED_READ_HINTS_LEN],
+    settled_read_hints: [H; SettledReadHintsLen],
     settled_read_amount: u32,
     tree_root: Field,
-    propagated_read_requests: ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN>,
+    propagated_read_requests: ClaimedLengthArray<ScopedReadRequest, ReadRequestLen>,
 )
 where
     P: Readable<ScopedReadRequest>,
-    H: SettledReadHint<TREE_HEIGHT, LEAF_PREIMAGE> + ReadValueHint,
+    H: SettledReadHint<TreeHeight, LEAF_PREIMAGE> + ReadValueHint,
     LEAF_PREIMAGE: LeafPreimage + Readable<ScopedReadRequest>,
 {
     if pending_read_amount != 0 {
@@ -219,7 +219,7 @@ where
         // making it impossible to skip propagating a read request by referring to a hint that's not used.
         assert_eq(
             pending_read_amount,
-            PENDING_READ_HINTS_LEN,
+            PendingReadHintsLen,
             "pending_read_amount should be the same as the number of pending read hints",
         );
         validate_pending_read_requests(read_requests, pending_values, pending_read_hints);
@@ -227,10 +227,10 @@ where
         // Ensure all index hints are set to READ_REQUEST_LEN.
         // This guarantees that the hints cannot be used in verify_propagated_read_requests
         // to skip propagating a read request by referencing a valid read_request_index.
-        for i in 0..PENDING_READ_HINTS_LEN {
+        for i in 0..PendingReadHintsLen {
             assert_eq(
                 pending_read_hints[i].read_request_index(),
-                READ_REQUEST_LEN,
+                ReadRequestLen,
                 "Unused pending read hint should not point to a read request",
             );
         }
@@ -243,7 +243,7 @@ where
         // making it impossible to skip propagating a read request by referring to a hint that's not used.
         assert_eq(
             settled_read_amount,
-            SETTLED_READ_HINTS_LEN,
+            SettledReadHintsLen,
             "settled_read_amount should be the same as the number of settled read hints",
         );
         validate_settled_read_requests(read_requests, settled_read_hints, tree_root);
@@ -251,10 +251,10 @@ where
         // Ensure all index hints are set to READ_REQUEST_LEN.
         // This guarantees that the hints cannot be used in verify_propagated_read_requests
         // to skip propagating a read request by referencing a valid read_request_index.
-        for i in 0..SETTLED_READ_HINTS_LEN {
+        for i in 0..SettledReadHintsLen {
             assert_eq(
                 settled_read_hints[i].read_request_index(),
-                READ_REQUEST_LEN,
+                ReadRequestLen,
                 "Unused settled read hint should not point to a read request",
             );
         }
@@ -269,10 +269,10 @@ where
     );
 }
 
-pub unconstrained fn get_propagated_read_requests<let READ_REQUEST_LEN: u32>(
-    read_requests: ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN>,
-    read_request_actions: [ReadRequestAction; READ_REQUEST_LEN],
-) -> ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN> {
+pub unconstrained fn get_propagated_read_requests<let ReadRequestLen: u32>(
+    read_requests: ClaimedLengthArray<ScopedReadRequest, ReadRequestLen>,
+    read_request_actions: [ReadRequestAction; ReadRequestLen],
+) -> ClaimedLengthArray<ScopedReadRequest, ReadRequestLen> {
     let mut propagated_read_requests = ClaimedLengthArray::empty();
     for i in 0..read_requests.length {
         let read_request = read_requests.array[i];
@@ -288,7 +288,7 @@ pub unconstrained fn get_propagated_read_requests<let READ_REQUEST_LEN: u32>(
     // If not all read requests are propagated, we must still copy the first item beyond the claimed length into the
     // propagated array to prevent incorrect equality assertions in verify_propagated_read_requests.
     // See the implementation of verify_propagated_read_requests for more details.
-    if read_requests.length != READ_REQUEST_LEN {
+    if read_requests.length != ReadRequestLen {
         let num_propagated = propagated_read_requests.length;
         propagated_read_requests.array[num_propagated] = read_requests.array[read_requests.length];
     }
@@ -402,13 +402,13 @@ mod tests {
             TestSettledReadPartialHint { read_request_index: read_request_len, leaf_index: 0 }
         }
     }
-    struct TestBuilder<let READ_REQUEST_LEN: u32, let PENDING_VALUE_LEN: u32, let PENDING_READ_HINTS_LEN: u32, let SETTLED_READ_HINTS_LEN: u32> {
-        read_requests: ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN>,
-        read_request_actions: [ReadRequestAction; READ_REQUEST_LEN],
-        pending_values: ClaimedLengthArray<TestValue, PENDING_VALUE_LEN>,
-        pending_read_hints: [PendingReadHint; PENDING_READ_HINTS_LEN],
-        settled_read_partial_hints: [TestSettledReadPartialHint; SETTLED_READ_HINTS_LEN],
-        leaf_preimages: [TestLeafPreimage; SETTLED_READ_HINTS_LEN],
+    struct TestBuilder<let ReadRequestLen: u32, let PendingValueLen: u32, let PendingReadHintsLen: u32, let SettledReadHintsLen: u32> {
+        read_requests: ClaimedLengthArray<ScopedReadRequest, ReadRequestLen>,
+        read_request_actions: [ReadRequestAction; ReadRequestLen],
+        pending_values: ClaimedLengthArray<TestValue, PendingValueLen>,
+        pending_read_hints: [PendingReadHint; PendingReadHintsLen],
+        settled_read_partial_hints: [TestSettledReadPartialHint; SettledReadHintsLen],
+        leaf_preimages: [TestLeafPreimage; SettledReadHintsLen],
         pending_read_amount: u32,
         settled_read_amount: u32,
     }
@@ -484,7 +484,7 @@ mod tests {
         }
     }
 
-    impl<let READ_REQUEST_LEN: u32, let PENDING_VALUE_LEN: u32, let PENDING_READ_HINTS_LEN: u32, let SETTLED_READ_HINTS_LEN: u32> TestBuilder<READ_REQUEST_LEN, PENDING_VALUE_LEN, PENDING_READ_HINTS_LEN, SETTLED_READ_HINTS_LEN> {
+    impl<let ReadRequestLen: u32, let PendingValueLen: u32, let PendingReadHintsLen: u32, let SettledReadHintsLen: u32> TestBuilder<ReadRequestLen, PendingValueLen, PendingReadHintsLen, SettledReadHintsLen> {
         fn build_tree(self) -> NonEmptyMerkleTree<2, 3, 2, 1> {
             NonEmptyMerkleTree::new(
                 [self.leaf_preimages[0].as_leaf(), self.leaf_preimages[1].as_leaf()],
@@ -494,13 +494,11 @@ mod tests {
             )
         }
 
-        pub fn get_settled_read_hints(
-            self,
-        ) -> ([TestSettledReadHint; SETTLED_READ_HINTS_LEN], Field) {
+        pub fn get_settled_read_hints(self) -> ([TestSettledReadHint; SettledReadHintsLen], Field) {
             let tree = self.build_tree();
 
             let hints = self.settled_read_partial_hints.map(|hint| {
-                let membership_witness = if hint.read_request_index != READ_REQUEST_LEN {
+                let membership_witness = if hint.read_request_index != ReadRequestLen {
                     MembershipWitness {
                         leaf_index: hint.leaf_index as Field,
                         sibling_path: tree.get_sibling_path(hint.leaf_index),
@@ -509,7 +507,7 @@ mod tests {
                     MembershipWitness::empty()
                 };
 
-                let leaf_preimage = if hint.read_request_index != READ_REQUEST_LEN {
+                let leaf_preimage = if hint.read_request_index != ReadRequestLen {
                     self.leaf_preimages[hint.leaf_index]
                 } else {
                     TestLeafPreimage::empty()
@@ -554,13 +552,13 @@ mod tests {
                     .unwrap()
             };
             self.settled_read_partial_hints[hint_index] =
-                TestSettledReadPartialHint::skip(READ_REQUEST_LEN);
+                TestSettledReadPartialHint::skip(ReadRequestLen);
             self.read_request_actions[read_request_index] = ReadRequestAction::set_as_skip();
         }
 
         pub fn get_propagated_read_requests(
             self,
-        ) -> ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN> {
+        ) -> ClaimedLengthArray<ScopedReadRequest, ReadRequestLen> {
             // Safety: this is only used in tests.
             unsafe {
                 get_propagated_read_requests(self.read_requests, self.read_request_actions)
@@ -582,7 +580,7 @@ mod tests {
 
         pub fn validate_settled_read_requests_with_hints(
             self,
-            settled_hints: [TestSettledReadHint; SETTLED_READ_HINTS_LEN],
+            settled_hints: [TestSettledReadHint; SettledReadHintsLen],
             tree_root: Field,
         ) {
             validate_settled_read_requests(self.read_requests, settled_hints, tree_root);
@@ -590,7 +588,7 @@ mod tests {
 
         pub fn verify_with_propagated_read_requests(
             self,
-            propagated_read_requests: ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN>,
+            propagated_read_requests: ClaimedLengthArray<ScopedReadRequest, ReadRequestLen>,
         ) {
             let (settled_hints, tree_root) = self.get_settled_read_hints();
             verify_reset_read_requests(

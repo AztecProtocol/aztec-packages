@@ -9,6 +9,8 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeContractAddressFromInstance } from '@aztec/stdlib/contract';
 import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import {
+  HidingKernelToPublicPrivateInputs,
+  HidingKernelToRollupPrivateInputs,
   PaddedSideEffectAmounts,
   PrivateCallData,
   type PrivateExecutionStep,
@@ -91,7 +93,7 @@ export class PrivateKernelExecutionProver {
 
     const isPrivateOnlyTx = executionResult.publicFunctionCalldata.length === 0;
 
-    // Initialise an executionStack, beginning with the PrivateCallExecutionResult
+    // Initialize an executionStack, beginning with the PrivateCallExecutionResult
     // of the entrypoint function of the tx.
     const executionStack = [executionResult.entrypoint];
     let firstIteration = true;
@@ -192,14 +194,7 @@ export class PrivateKernelExecutionProver {
         });
       } else {
         const witgenTimer = new Timer();
-        const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(
-          output.verificationKey.keyAsFields,
-        );
-        const vkData = new VkData(
-          output.verificationKey,
-          Number(previousVkMembershipWitness.leafIndex),
-          previousVkMembershipWitness.siblingPath,
-        );
+        const vkData = await this.getVkData(output.verificationKey);
         const previousKernelData = new PrivateKernelData(output.publicInputs, vkData);
         const proofInput = new PrivateKernelInnerCircuitPrivateInputs(previousKernelData, privateCallData);
 
@@ -260,12 +255,7 @@ export class PrivateKernelExecutionProver {
       output.publicInputs.feePayer = new AztecAddress(Fr.MAX_FIELD_VALUE);
     }
     // Private tail.
-    const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey.keyAsFields);
-    const vkData = new VkData(
-      output.verificationKey,
-      Number(previousVkMembershipWitness.leafIndex),
-      previousVkMembershipWitness.siblingPath,
-    );
+    const vkData = await this.getVkData(output.verificationKey);
     const previousKernelData = new PrivateKernelData(output.publicInputs, vkData);
 
     this.log.debug(
@@ -308,6 +298,38 @@ export class PrivateKernelExecutionProver {
       },
     });
 
+    // Hiding circuit is only executed if we are generating witnesses.
+    // For simulation, we can end with the tail, since the hiding circuit will simply return the same tail output.
+    if (generateWitnesses) {
+      const previousKernelVkData = await this.getVkData(tailOutput.verificationKey);
+
+      const witgenTimer = new Timer();
+      let hidingOutput: PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>;
+      if (tailOutput.publicInputs.forPublic) {
+        const privateInputs = new HidingKernelToPublicPrivateInputs(
+          tailOutput.publicInputs.toPrivateToPublicKernelCircuitPublicInputs(),
+          previousKernelVkData,
+        );
+        hidingOutput = await this.proofCreator.generateHidingToPublicOutput(privateInputs);
+      } else {
+        const privateInputs = new HidingKernelToRollupPrivateInputs(
+          tailOutput.publicInputs.toPrivateToRollupKernelCircuitPublicInputs(),
+          previousKernelVkData,
+        );
+        hidingOutput = await this.proofCreator.generateHidingToRollupOutput(privateInputs);
+      }
+
+      executionSteps.push({
+        functionName: 'hiding_kernel',
+        bytecode: hidingOutput.bytecode,
+        witness: hidingOutput.outputWitness,
+        vk: hidingOutput.verificationKey.keyAsBytes,
+        timings: {
+          witgen: witgenTimer.ms(),
+        },
+      });
+    }
+
     if (profileMode == 'gates' || profileMode == 'full') {
       for (const entry of executionSteps) {
         const gateCountTimer = new Timer();
@@ -345,6 +367,15 @@ export class PrivateKernelExecutionProver {
       clientIvcProof,
       timings: provingTime ? { proving: provingTime } : undefined,
     };
+  }
+
+  private async getVkData(verificationKey: VerificationKeyData) {
+    const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(verificationKey.keyAsFields);
+    return new VkData(
+      verificationKey,
+      Number(previousVkMembershipWitness.leafIndex),
+      previousVkMembershipWitness.siblingPath,
+    );
   }
 
   private async createPrivateCallData({ publicInputs, vk: vkAsBuffer }: PrivateCallExecutionResult) {

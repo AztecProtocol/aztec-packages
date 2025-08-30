@@ -2,6 +2,7 @@
 import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import { deployFundedSchnorrAccounts, getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import { EthAddress } from '@aztec/aztec.js';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { setupSponsoredFPC } from '@aztec/cli/cli-utils';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
@@ -31,7 +32,7 @@ import {
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { type HDAccount, type PrivateKeyAccount, createPublicClient, fallback, http as httpViemTransport } from 'viem';
-import { mnemonicToAccount } from 'viem/accounts';
+import { mnemonicToAccount, privateKeyToAddress } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { createAccountLogs } from '../cli/util.js';
@@ -81,6 +82,7 @@ export async function deployContractsToL1(
       salt: opts.salt,
       feeJuicePortalInitialBalance: opts.feeJuicePortalInitialBalance,
       aztecTargetCommitteeSize: 0, // no committee in sandbox
+      slasherFlavor: 'none', // no slashing in sandbox
       realVerifier: false,
     },
   );
@@ -98,7 +100,7 @@ export type SandboxConfig = AztecNodeConfig & {
   /** Mnemonic used to derive the L1 deployer private key.*/
   l1Mnemonic: string;
   /** Salt used to deploy L1 contracts.*/
-  l1Salt: string;
+  deployAztecContractsSalt: string;
   /** Whether to expose PXE service on sandbox start.*/
   noPXE: boolean;
   /** Whether to deploy test accounts on sandbox start.*/
@@ -121,19 +123,21 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
   }
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
   const hdAccount = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic);
-  if (!aztecNodeConfig.publisherPrivateKey.getValue() || aztecNodeConfig.publisherPrivateKey.getValue() === NULL_KEY) {
+  if (
+    aztecNodeConfig.publisherPrivateKeys == undefined ||
+    !aztecNodeConfig.publisherPrivateKeys.length ||
+    aztecNodeConfig.publisherPrivateKeys[0].getValue() === NULL_KEY
+  ) {
     const privKey = hdAccount.getHdKey().privateKey;
-    aztecNodeConfig.publisherPrivateKey = new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const);
+    aztecNodeConfig.publisherPrivateKeys = [new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const)];
   }
   if (!aztecNodeConfig.validatorPrivateKeys?.getValue().length) {
     const privKey = hdAccount.getHdKey().privateKey;
     aztecNodeConfig.validatorPrivateKeys = new SecretValue([`0x${Buffer.from(privKey!).toString('hex')}`]);
   }
-  if (!aztecNodeConfig.slasherPrivateKey?.getValue() || aztecNodeConfig.slasherPrivateKey?.getValue() === NULL_KEY) {
-    const account = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic, { accountIndex: 1 });
-    const privKey = account.getHdKey().privateKey;
-    aztecNodeConfig.slasherPrivateKey = new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const);
-  }
+  aztecNodeConfig.coinbase = EthAddress.fromString(
+    privateKeyToAddress(aztecNodeConfig.validatorPrivateKeys.getValue()[0]),
+  );
 
   const initialAccounts = await (async () => {
     if (config.testAccounts === true || config.testAccounts === undefined) {
@@ -160,7 +164,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
     const l1ContractAddresses = await deployContractsToL1(aztecNodeConfig, hdAccount, undefined, {
       assumeProvenThroughBlockNumber: Number.MAX_SAFE_INTEGER,
       genesisArchiveRoot,
-      salt: config.l1Salt ? parseInt(config.l1Salt) : undefined,
+      salt: config.deployAztecContractsSalt ? parseInt(config.deployAztecContractsSalt) : undefined,
       feeJuicePortalInitialBalance: fundingNeeded,
     });
 

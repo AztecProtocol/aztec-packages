@@ -35,15 +35,15 @@ namespace bb::stdlib {
  * \f$ [b_0(x-1), \ldots, b_{N-1}(x-1)] \f$ only depends on \f$ N \f$ adding ~\f$ 4\cdot N \f$ gates to the circuit.
  *
  */
-template <typename Curve, size_t virtual_log_n>
-static std::array<typename Curve::ScalarField, virtual_log_n> compute_padding_indicator_array(
+template <typename Curve, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N>
+static std::vector<typename Curve::ScalarField> compute_padding_indicator_array(
     const typename Curve::ScalarField& log_n)
 {
     using Fr = typename Curve::ScalarField;
     // Create a domain of size `virtual_log_n` and compute Lagrange denominators
     using Data = BarycentricDataRunTime<Fr, virtual_log_n, /*num_evals=*/1>;
 
-    std::array<Fr, virtual_log_n> result{};
+    std::vector<Fr> result(virtual_log_n);
     // 1) Build prefix products:
     //    prefix[i] = ∏_{m=0..(i-1)} (x - 1 - big_domain[m]), with prefix[0] = 1.
     std::vector<Fr> prefix(virtual_log_n, Fr{ 1 });
@@ -79,29 +79,5 @@ static std::array<typename Curve::ScalarField, virtual_log_n> compute_padding_in
     }
 
     return result;
-}
-
-/**
- * @brief Given a witness `n` and a padding indicator array computed from `log_n`, check in-circuit that the latter is
- * indded the logarithm of `n`.
- *
- * @details It is crucial that `log_n` is constrained to be in range [1, virtual_log_n], as it forces the first `log_n`
- * entries of `padding_indicator_array` to be equal to 1 and the rest of the entries to be equal to 0. This implies that
- * `n` can be reconstructed by incrementing each entry in the array and taking their product.
- *
- * @tparam Fr
- * @tparam virtual_log_n
- * @param padding_indicator_array
- * @param n expected = 2^(log_n)
- */
-template <typename Fr, size_t virtual_log_n>
-static void constrain_log_circuit_size(const std::array<Fr, virtual_log_n>& padding_indicator_array, const Fr& n)
-{
-    Fr accumulated_circuit_size{ 1 };
-    for (auto& indicator : padding_indicator_array) {
-        accumulated_circuit_size *= indicator + Fr{ 1 };
-    };
-
-    n.assert_equal(accumulated_circuit_size);
 }
 } // namespace bb::stdlib

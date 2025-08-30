@@ -13,3 +13,5 @@ out/
 .foundry
 
 **/build*/*
+
+src/honk/keys

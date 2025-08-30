@@ -6,6 +6,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
+#include "barretenberg/common/op_count.hpp"
 
 namespace bb::{{snakeCase root_name}} {
 
@@ -36,22 +37,7 @@ template <typename FF_> class {{name}}Impl {
             const AllEntities& in,
             [[maybe_unused]] const RelationParameters<FF>&,
             [[maybe_unused]] const FF& scaling_factor
-        ){
-            using C = ColumnAndShifts;
-
-            {{#each alias_defs as |alias|}}
-            const auto {{alias.name}} = {{alias.expr}};
-            {{/each}}
-
-            {{#each identities}}
-            { {{#if label}}// {{ label }}{{/if}}
-                using Accumulator = typename std::tuple_element_t<{{@index}}, ContainerOverSubrelations>;
-                auto tmp = {{identity}};
-                tmp *= scaling_factor;
-                std::get<{{@index}}>(evals) += typename Accumulator::View(tmp);
-            }
-            {{/each}}
-        }
+        );
 };
 
 template <typename FF> class {{name}} : public Relation<{{name}}Impl<FF>> {

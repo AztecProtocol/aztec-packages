@@ -50,9 +50,7 @@ function compile_all {
   if cache_download yarn-project-$hash.tar.gz; then
     return
   fi
-  # hack, after running prettier foundation may fail to resolve hash.js dependency.
-  # it is only currently foundation, presumably because hash.js looks like a js file.
-  rm -rf foundation/node_modules
+
   compile_project ::: constants foundation stdlib builder ethereum l1-artifacts
 
   # Call all projects that have a generation stage.
@@ -99,6 +97,7 @@ function build {
 
 function test_cmds {
   local hash=$(hash)
+  local avm_flag=$(../barretenberg/cpp/bootstrap.sh hash | grep -qE no-avm && echo "no-avm" || echo "avm")
 
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
@@ -106,7 +105,7 @@ function test_cmds {
   for test in !(end-to-end|kv-store|aztec)/src/**/*.test.ts; do
     # If AVM is disabled, filter out avm_proving_tests/*.test.ts and avm_integration.test.ts
     # Also must filter out rollup_ivc_integration.test.ts as it includes AVM proving.
-    if ../barretenberg/cpp/bootstrap.sh hash | grep -qE no-avm && [[ "$test" =~ (avm_proving_tests|avm_integration|rollup_ivc_integration) ]]; then
+    if [[ $avm_flag == "no-avm" && "$test" =~ (avm_proving_tests|avm_integration|rollup_ivc_integration) ]]; then
       continue
     fi
 
@@ -136,14 +135,14 @@ function test_cmds {
     if [[ "$test" =~ ^prover-client/src/test/ ]]; then
       if [ "$CI_FULL" -eq 1 ]; then
         prefix+=":CPUS=16:MEM=96g"
-        cmd_env+=" LOG_LEVEL=verbose"
+        cmd_env+=" LOG_LEVEL=verbose HARDWARE_CONCURRENCY=16"
       else
         cmd_env+=" FAKE_PROOFS=1"
       fi
     fi
 
     if [[ "$test" =~ rollup_ivc_integration || "$test" =~ avm_integration ]]; then
-      cmd_env+=" LOG_LEVEL=trace BB_VERBOSE=1 "
+      cmd_env+=" LOG_LEVEL=debug BB_VERBOSE=1 "
     fi
 
     echo "${prefix}${cmd_env} yarn-project/scripts/run_test.sh $test"
@@ -153,14 +152,14 @@ function test_cmds {
   echo "$hash cd yarn-project/kv-store && yarn test"
   echo "$hash cd yarn-project/ivc-integration && yarn test:browser"
 
-  if [ "$CI" -eq 0 ] || [[ "${TARGET_BRANCH:-}" == "master" || "${TARGET_BRANCH:-}" == "staging" ]]; then
+  if [[ "${TARGET_BRANCH:-}" == "master" || "${TARGET_BRANCH:-}" == "staging" ]]; then
     echo "$hash yarn-project/scripts/run_test.sh aztec/src/testnet_compatibility.test.ts"
   fi
 }
 
 function test {
   echo_header "yarn-project test"
-  test_cmds | filter_test_cmds | parallelise
+  test_cmds | filter_test_cmds | parallelize
 }
 
 function bench_cmds {
@@ -171,6 +170,7 @@ function bench_cmds {
   echo "$hash BENCH_OUTPUT=bench-out/tx_pool.bench.json yarn-project/scripts/run_test.sh p2p/src/mem_pools/tx_pool/tx_pool_bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/tx.bench.json yarn-project/scripts/run_test.sh stdlib/src/tx/tx_bench.test.ts"
   echo "$hash:ISOLATE=1:CPUS=10:MEM=16g:LOG_LEVEL=silent BENCH_OUTPUT=bench-out/proving_broker.bench.json yarn-project/scripts/run_test.sh prover-client/src/test/proving_broker_testbench.test.ts"
+  echo "$hash:ISOLATE=1:CPUS=16:MEM=16g BENCH_OUTPUT=bench-out/avm_bulk_test.bench.json yarn-project/scripts/run_test.sh bb-prover/src/avm_proving_tests/avm_bulk.test.ts"
 }
 
 function release_packages {

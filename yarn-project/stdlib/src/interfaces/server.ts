@@ -1,7 +1,7 @@
 export * from './allowed_element.js';
+export * from './api_limit.js';
 export * from './archiver.js';
 export * from './aztec-node.js';
-export * from './api_limit.js';
 export * from './block-builder.js';
 export * from './configs.js';
 export * from './epoch-prover.js';
@@ -19,5 +19,6 @@ export * from './proving-job-source.js';
 export * from './proving-job.js';
 export * from './server_circuit_prover.js';
 export * from './service.js';
+export * from './slasher.js';
 export * from './tx_provider.js';
 export * from './world_state.js';

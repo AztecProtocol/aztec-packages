@@ -19,10 +19,13 @@ enum class SubtraceSel : uint8_t {
     TORADIXBE,
     POSEIDON2PERM,
     ECC,
-    DATACOPY,
+    CALLDATACOPY,
+    RETURNDATACOPY,
     EXECUTION,
     KECCAKF1600,
     GETCONTRACTINSTANCE,
+    EMITUNENCRYPTEDLOG,
+    SHA256COMPRESSION
 };
 
 struct SubtraceInfo {

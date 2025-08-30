@@ -2,6 +2,7 @@
 title: Implementing a note in Aztec.nr
 tags: [contracts, notes]
 keywords: [implementing note, note]
+description: Learn how to implement custom note types in your Aztec smart contracts.
 ---
 
 You may want to create your own note type if you need to use a specific type of private data or struct that is not already implemented in Aztec.nr, or if you want to experiment with custom note hashing and nullifier schemes. For custom hashing and nullifier schemes, use the `#[custom_note]` macro instead of `#[note]`, as it does not automatically derive the `NoteHash` trait.
@@ -22,7 +23,7 @@ In this example, we are implementing a card note that holds a number of `points`
 
 `randomness` is not enforced by the protocol and should be implemented by the application developer. If you do not include `randomness`, and the note preimage can be guessed by an attacker, it makes the note vulnerable to preimage attacks.
 
-`owner` is used when nullifying the note to obtain a nullifer secret key.
+`owner` is used when nullifying the note to obtain a nullifier secret key.
 It ensures that when a note is spent, only the owner can spend it and the note sender cannot figure out that the note has been spent!
 Providing the `owner` with improved privacy.
 

@@ -2,28 +2,28 @@ import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
   GovernanceProposerContract,
+  PublisherManager,
   RollupContract,
-  SlashingProposerContract,
-  createEthereumChain,
-  createExtendedL1Client,
+  getPublicClient,
   isAnvilTestChain,
 } from '@aztec/ethereum';
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
+import type { KeystoreManager } from '@aztec/node-keystore';
 import type { P2P } from '@aztec/p2p';
-import type { SlasherClient } from '@aztec/slasher';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { SlasherClientInterface } from '@aztec/slasher';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { IFullNodeBlockBuilder, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import type { TelemetryClient } from '@aztec/telemetry-client';
-import type { ValidatorClient } from '@aztec/validator-client';
+import { L1Metrics, type TelemetryClient } from '@aztec/telemetry-client';
+import { NodeKeystoreAdapter, type ValidatorClient } from '@aztec/validator-client';
 
 import type { SequencerClientConfig } from '../config.js';
 import { GlobalVariableBuilder } from '../global_variable_builder/index.js';
-import { SequencerPublisher } from '../publisher/index.js';
+import { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
 import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
 
 /**
@@ -31,8 +31,10 @@ import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
  */
 export class SequencerClient {
   constructor(
+    protected publisherManager: PublisherManager<L1TxUtilsWithBlobs>,
     protected sequencer: Sequencer,
     protected validatorClient?: ValidatorClient,
+    private l1Metrics?: L1Metrics,
   ) {}
 
   /**
@@ -53,16 +55,17 @@ export class SequencerClient {
       validatorClient: ValidatorClient | undefined; // allowed to be undefined while we migrate
       p2pClient: P2P;
       worldStateSynchronizer: WorldStateSynchronizer;
-      slasherClient: SlasherClient;
+      slasherClient: SlasherClientInterface | undefined;
       blockBuilder: IFullNodeBlockBuilder;
       l2BlockSource: L2BlockSource;
       l1ToL2MessageSource: L1ToL2MessageSource;
       telemetry: TelemetryClient;
-      publisher?: SequencerPublisher;
+      publisherFactory?: SequencerPublisherFactory;
       blobSinkClient?: BlobSinkClientInterface;
       dateProvider: DateProvider;
       epochCache?: EpochCache;
-      l1TxUtils?: L1TxUtilsWithBlobs;
+      l1TxUtils: L1TxUtilsWithBlobs[];
+      nodeKeyStore: KeystoreManager;
     },
   ) {
     const {
@@ -75,23 +78,26 @@ export class SequencerClient {
       l1ToL2MessageSource,
       telemetry: telemetryClient,
     } = deps;
-    const { l1RpcUrls: rpcUrls, l1ChainId: chainId, publisherPrivateKey } = config;
-    const chain = createEthereumChain(rpcUrls, chainId);
+    const { l1RpcUrls: rpcUrls, l1ChainId: chainId } = config;
     const log = createLogger('sequencer-client');
-    const l1Client = createExtendedL1Client(rpcUrls, publisherPrivateKey.getValue(), chain.chainInfo);
-    const l1TxUtils = deps.l1TxUtils ?? new L1TxUtilsWithBlobs(l1Client, log, deps.dateProvider, config);
-    const rollupContract = new RollupContract(l1Client, config.l1Contracts.rollupAddress.toString());
+    const publicClient = getPublicClient(config);
+    const l1TxUtils = deps.l1TxUtils;
+    const l1Metrics = new L1Metrics(
+      telemetryClient.getMeter('L1PublisherMetrics'),
+      publicClient,
+      l1TxUtils.map(x => x.getSenderAddress()),
+    );
+    const publisherManager = new PublisherManager(l1TxUtils);
+    const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
     const [l1GenesisTime, slotDuration] = await Promise.all([
       rollupContract.getL1GenesisTime(),
       rollupContract.getSlotDuration(),
     ] as const);
 
     const governanceProposerContract = new GovernanceProposerContract(
-      l1Client,
+      publicClient,
       config.l1Contracts.governanceProposerAddress.toString(),
     );
-    const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
-    const slashingProposerContract = new SlashingProposerContract(l1Client, slashingProposerAddress.toString());
     const epochCache =
       deps.epochCache ??
       (await EpochCache.create(
@@ -107,17 +113,23 @@ export class SequencerClient {
         { dateProvider: deps.dateProvider },
       ));
 
-    const publisher =
-      deps.publisher ??
-      new SequencerPublisher(config, {
-        l1TxUtils,
+    const slashFactoryContract = new SlashFactoryContract(
+      publicClient,
+      config.l1Contracts.slashFactoryAddress?.toString() ?? EthAddress.ZERO.toString(),
+    );
+
+    const publisherFactory =
+      deps.publisherFactory ??
+      new SequencerPublisherFactory(config, {
         telemetry: telemetryClient,
         blobSinkClient: deps.blobSinkClient,
-        rollupContract,
         epochCache,
         governanceProposerContract,
-        slashingProposerContract,
+        slashFactoryContract,
+        rollupContract,
         dateProvider: deps.dateProvider,
+        publisherManager,
+        nodeKeyStore: NodeKeystoreAdapter.fromKeyStoreManager(deps.nodeKeyStore),
       });
     const globalsBuilder = new GlobalVariableBuilder(config);
 
@@ -148,7 +160,7 @@ export class SequencerClient {
     };
 
     const sequencer = new Sequencer(
-      publisher,
+      publisherFactory,
       validatorClient,
       globalsBuilder,
       p2pClient,
@@ -159,10 +171,15 @@ export class SequencerClient {
       blockBuilder,
       l1Constants,
       deps.dateProvider,
+      epochCache,
+      rollupContract,
       { ...config, maxL1TxInclusionTimeIntoSlot, maxL2BlockGas: sequencerManaLimit },
       telemetryClient,
     );
-    return new SequencerClient(sequencer, validatorClient);
+
+    await sequencer.init();
+
+    return new SequencerClient(publisherManager, sequencer, validatorClient, l1Metrics);
   }
 
   /**
@@ -177,6 +194,7 @@ export class SequencerClient {
   public async start() {
     await this.validatorClient?.start();
     this.sequencer.start();
+    this.l1Metrics?.start();
   }
 
   /**
@@ -184,25 +202,12 @@ export class SequencerClient {
    */
   public async stop() {
     await this.sequencer.stop();
-  }
-
-  /**
-   * Restarts the sequencer after being stopped.
-   */
-  public resume() {
-    this.sequencer.resume();
+    this.publisherManager.interrupt();
+    this.l1Metrics?.stop();
   }
 
   public getSequencer(): Sequencer {
     return this.sequencer;
-  }
-
-  get coinbase(): EthAddress {
-    return this.sequencer.coinbase;
-  }
-
-  get feeRecipient(): AztecAddress {
-    return this.sequencer.feeRecipient;
   }
 
   get validatorAddresses(): EthAddress[] | undefined {

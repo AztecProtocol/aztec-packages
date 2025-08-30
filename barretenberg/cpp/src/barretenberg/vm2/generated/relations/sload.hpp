@@ -3,6 +3,7 @@
 
 #include <string_view>
 
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -26,26 +27,7 @@ template <typename FF_> class sloadImpl {
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
-                           [[maybe_unused]] const FF& scaling_factor)
-    {
-        using C = ColumnAndShifts;
-
-        const auto constants_MEM_TAG_FF = FF(0);
-
-        { // SLOAD_SUCCESS
-            using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_execute_sload) * in.get(C::execution_sel_opcode_error);
-            tmp *= scaling_factor;
-            std::get<0>(evals) += typename Accumulator::View(tmp);
-        }
-        { // SLOAD_FF_OUTPUT_TAG
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::execution_sel_execute_sload) * (constants_MEM_TAG_FF - in.get(C::execution_mem_tag_reg_1_));
-            tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
-        }
-    }
+                           [[maybe_unused]] const FF& scaling_factor);
 };
 
 template <typename FF> class sload : public Relation<sloadImpl<FF>> {
@@ -56,16 +38,16 @@ template <typename FF> class sload : public Relation<sloadImpl<FF>> {
     {
         switch (index) {
         case 0:
-            return "SLOAD_SUCCESS";
-        case 1:
             return "SLOAD_FF_OUTPUT_TAG";
+        case 1:
+            return "SLOAD_SUCCESS";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_SLOAD_SUCCESS = 0;
-    static constexpr size_t SR_SLOAD_FF_OUTPUT_TAG = 1;
+    static constexpr size_t SR_SLOAD_FF_OUTPUT_TAG = 0;
+    static constexpr size_t SR_SLOAD_SUCCESS = 1;
 };
 
 } // namespace bb::avm2

@@ -42,7 +42,7 @@ impl PreviousKernelValidatorBuilder {
 
     pub fn verify_proof<let N: u32>(self, allowed_vk_indices: [u32; N]) {
         let previous_kernel = self.previous_kernel.to_private_kernel_data();
-        PreviousKernelValidator::new(previous_kernel).verify_proof(allowed_vk_indices);
+        PreviousKernelValidator::new(previous_kernel).verify_proof(allowed_vk_indices, false);
     }
 }
 

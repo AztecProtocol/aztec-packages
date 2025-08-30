@@ -137,7 +137,7 @@ void TranslatorProver::execute_grand_product_computation_round()
  */
 void TranslatorProver::execute_relation_check_rounds()
 {
-    using Sumcheck = SumcheckProver<Flavor, Flavor::CONST_TRANSLATOR_LOG_N>;
+    using Sumcheck = SumcheckProver<Flavor>;
 
     // Each linearly independent subrelation contribution is multiplied by `alpha^i`, where
     //  i = 0, ..., NUM_SUBRELATIONS- 1.
@@ -150,11 +150,16 @@ void TranslatorProver::execute_relation_check_rounds()
 
     const size_t circuit_size = key->proving_key->circuit_size;
 
-    Sumcheck sumcheck(
-        circuit_size, key->proving_key->polynomials, transcript, alpha, gate_challenges, relation_parameters);
+    Sumcheck sumcheck(circuit_size,
+                      key->proving_key->polynomials,
+                      transcript,
+                      alpha,
+                      gate_challenges,
+                      relation_parameters,
+                      Flavor::CONST_TRANSLATOR_LOG_N);
 
     const size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Flavor::Curve::SUBGROUP_SIZE));
-    // Create a temporary commitment key that is only used to initialise the ZKSumcheckData
+    // Create a temporary commitment key that is only used to initialize the ZKSumcheckData
     // If proving in WASM, the commitment key that is part of the Translator proving key remains deallocated
     // until we enter the PCS round
     CommitmentKey ck(1 << (log_subgroup_size + 1));
@@ -177,7 +182,7 @@ void TranslatorProver::execute_pcs_rounds()
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
-    // Check whether the commitment key has been deallocated and reinitialise it if necessary
+    // Check whether the commitment key has been deallocated and reinitialize it if necessary
     auto& ck = key->proving_key->commitment_key;
     if (!ck.initialized()) {
         ck = CommitmentKey(key->proving_key->circuit_size);

@@ -1,4 +1,4 @@
-import { EthAddress, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress, EthAddress, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec/testing';
 import {
   type DeployL1ContractsReturnType,
@@ -24,12 +24,14 @@ const AZTEC_SLOT_DURATION = 16;
 const TXS_PER_BLOCK = 1;
 const ROUND_SIZE = 2;
 const QUORUM_SIZE = 2;
-const COMMITTEE_SIZE = 48;
+// Can't use 48 without chunking the addValidators call.
+const COMMITTEE_SIZE = 16;
 
 describe('e2e_gov_proposal', () => {
   let logger: Logger;
   let teardown: () => Promise<void>;
   let wallet: Wallet;
+  let defaultAccountAddress: AztecAddress;
   let aztecNodeAdmin: AztecNodeAdmin | undefined;
   let deployL1ContractsValues: DeployL1ContractsReturnType;
   let cheatCodes: CheatCodes;
@@ -43,22 +45,24 @@ describe('e2e_gov_proposal', () => {
       const address = EthAddress.fromString(account.address);
       return { attester: address, withdrawer: address, privateKey };
     });
-
-    ({ teardown, logger, wallet, aztecNodeAdmin, deployL1ContractsValues, cheatCodes, dateProvider } = await setup(1, {
-      anvilAccounts: 100,
-      aztecTargetCommitteeSize: 48,
-      initialValidators: validators,
-      validatorPrivateKeys: new SecretValue(validators.map(v => v.privateKey)), // sequencer runs with all validator keys
-      governanceProposerRoundSize: ROUND_SIZE,
-      governanceProposerQuorum: QUORUM_SIZE,
-      ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-      aztecSlotDuration: AZTEC_SLOT_DURATION,
-      aztecProofSubmissionEpochs: 128, // no pruning
-      salt: 420,
-      minTxsPerBlock: TXS_PER_BLOCK,
-      enforceTimeTable: true,
-      automineL1Setup: true, // speed up setup
-    }));
+    let accounts: AztecAddress[] = [];
+    ({ teardown, logger, wallet, aztecNodeAdmin, deployL1ContractsValues, cheatCodes, dateProvider, accounts } =
+      await setup(1, {
+        anvilAccounts: 100,
+        aztecTargetCommitteeSize: COMMITTEE_SIZE,
+        initialValidators: validators.map(v => ({ ...v, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) })),
+        validatorPrivateKeys: new SecretValue(validators.map(v => v.privateKey)), // sequencer runs with all validator keys
+        governanceProposerRoundSize: ROUND_SIZE,
+        governanceProposerQuorum: QUORUM_SIZE,
+        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        aztecSlotDuration: AZTEC_SLOT_DURATION,
+        aztecProofSubmissionEpochs: 128, // no pruning
+        salt: 420,
+        minTxsPerBlock: TXS_PER_BLOCK,
+        enforceTimeTable: true,
+        automineL1Setup: true, // speed up setup
+      }));
+    defaultAccountAddress = accounts[0];
   }, 3 * 60000);
 
   afterEach(() => teardown());
@@ -76,12 +80,12 @@ describe('e2e_gov_proposal', () => {
         NewGovernanceProposerPayloadAbi,
         NewGovernanceProposerPayloadBytecode,
         [registryAddress.toString(), gseAddress!.toString()],
-        '0x2a', // salt
+        { salt: '0x2a' },
       );
 
       // Deploy a test contract to send msgs via the outbox, since this increases
       // gas cost of a proposal, which has triggered oog errors in the past.
-      const testContract = await TestContract.deploy(wallet).send().deployed();
+      const testContract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
 
       await cheatCodes.rollup.advanceToEpoch(2n, { updateDateProvider: dateProvider });
 
@@ -119,7 +123,7 @@ describe('e2e_gov_proposal', () => {
         const txs = times(TXS_PER_BLOCK, () =>
           testContract.methods
             .create_l2_to_l1_message_arbitrary_recipient_private(Fr.random(), EthAddress.random())
-            .send(),
+            .send({ from: defaultAccountAddress }),
         );
         await Promise.all(
           txs.map(async (tx, j) => {

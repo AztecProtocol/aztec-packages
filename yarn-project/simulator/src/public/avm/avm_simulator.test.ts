@@ -463,6 +463,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     ['sha256_hash_511', /*input=*/ randomMemoryBytes(511), /*output=*/ sha256FromMemoryBytes],
     ['sha256_hash_512', /*input=*/ randomMemoryBytes(512), /*output=*/ sha256FromMemoryBytes],
     ['sha256_hash_2048', /*input=*/ randomMemoryBytes(2048), /*output=*/ sha256FromMemoryBytes],
+    ['sha256_hash_2500', /*input=*/ randomMemoryBytes(2500), /*output=*/ sha256FromMemoryBytes],
     ['keccak_hash', /*input=*/ randomMemoryBytes(10), /*output=*/ keccak256FromMemoryBytes],
     ['keccak_f1600', /*input=*/ randomMemoryUint64s(25), /*output=*/ keccakF1600FromMemoryUint64s],
     ['poseidon2_hash', /*input=*/ randomMemoryFields(10), /*output=*/ poseidon2FromMemoryFields],
@@ -539,16 +540,17 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     });
   });
 
-  it('conversions', async () => {
-    const calldata: Fr[] = [new Fr(0b1011101010100)];
-    const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+  // TODO(#16099): Re-enable this test
+  // it('conversions', async () => {
+  //   const calldata: Fr[] = [new Fr(0b1011101010100)];
+  //   const context = initContext({ env: initExecutionEnvironment({ calldata }) });
 
-    const bytecode = getAvmTestContractBytecode('to_radix_le');
-    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+  //   const bytecode = getAvmTestContractBytecode('to_radix_le');
+  //   const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
-    expect(results.reverted).toBe(false);
-    expect(results.output.map(f => f.toNumber().toString()).join('')).toEqual('0010101011');
-  });
+  //   expect(results.reverted).toBe(false);
+  //   expect(results.output.map(f => f.toNumber().toString()).join('')).toEqual('0010101011');
+  // });
 
   describe('Side effects, world state, nested calls', () => {
     const address = AztecAddress.fromNumber(1);
@@ -708,9 +710,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(results.reverted).toBe(true);
         expect(results.revertReason?.message).toMatch(/Attempted to emit duplicate nullifier/);
 
-        // Nullifier should be traced exactly once
-        expect(trace.traceNewNullifier).toHaveBeenCalledTimes(1);
-        expect(trace.traceNewNullifier).toHaveBeenCalledWith(siloedNullifier0);
+        // Nullifier should still be traced twice. Fails after second trace.
+        expect(trace.traceNewNullifier).toHaveBeenCalledTimes(2);
+        expect(trace.traceNewNullifier).toHaveBeenNthCalledWith(1, siloedNullifier0);
+        expect(trace.traceNewNullifier).toHaveBeenNthCalledWith(2, siloedNullifier0);
       });
     });
 

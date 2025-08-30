@@ -7,14 +7,15 @@ import {
     RecursiveHonkVerificationKey as VK,
     N,
     LOG_N,
-    NUMBER_OF_PUBLIC_INPUTS
+    NUMBER_OF_PUBLIC_INPUTS,
+    VK_HASH
 } from "../keys/RecursiveHonkVerificationKey.sol";
 
 import {Honk} from "../HonkTypes.sol";
 import {BaseZKHonkVerifier as BASE} from "../BaseZKHonkVerifier.sol";
 
 /// Smart contract verifier of honk proofs
-contract RecursiveHonkZKVerifier is BASE(N, LOG_N, NUMBER_OF_PUBLIC_INPUTS) {
+contract RecursiveHonkZKVerifier is BASE(N, LOG_N, VK_HASH, NUMBER_OF_PUBLIC_INPUTS) {
     function loadVerificationKey() internal pure override returns (Honk.VerificationKey memory) {
         return VK.loadVerificationKey();
     }

@@ -29,7 +29,7 @@ AvmProver::ProverPolynomials compute_polynomials(tracegen::TraceContainer& trace
 
                            poly = AvmProver::Polynomial(
                                /*memory size*/ allocated_size,
-                               /*largest possible index*/ CIRCUIT_SUBGROUP_SIZE,
+                               /*largest possible index*/ MAX_AVM_TRACE_SIZE, // TODO(#16660): use real size?
                                /*make shiftable with offset*/ 1);
                        }
                    }));
@@ -55,7 +55,7 @@ AvmProver::ProverPolynomials compute_polynomials(tracegen::TraceContainer& trace
                            // WARNING! Column-Polynomials order matters!
                            Column col = static_cast<Column>(i);
                            const auto num_rows = trace.get_column_rows(col);
-                           poly = AvmProver::Polynomial::create_non_parallel_zero_init(num_rows, CIRCUIT_SUBGROUP_SIZE);
+                           poly = AvmProver::Polynomial::create_non_parallel_zero_init(num_rows, MAX_AVM_TRACE_SIZE);
                        });
                    }));
 

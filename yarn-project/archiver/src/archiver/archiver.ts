@@ -10,6 +10,7 @@ import {
 } from '@aztec/ethereum';
 import { maxBigint } from '@aztec/foundation/bigint';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
+import { pick } from '@aztec/foundation/collection';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -87,7 +88,7 @@ import { InitialBlockNumberNotSequentialError, NoBlobBodiesFoundError } from './
 import { ArchiverInstrumentation } from './instrumentation.js';
 import type { InboxMessage } from './structs/inbox_message.js';
 import type { PublishedL2Block } from './structs/published.js';
-import { validateBlockAttestations } from './validation.js';
+import { type ValidateBlockResult, validateBlockAttestations } from './validation.js';
 
 /**
  * Helper interface to combine all sources this archiver implementation provides.
@@ -119,6 +120,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
   private l1BlockNumber: bigint | undefined;
   private l1Timestamp: bigint | undefined;
+  private pendingChainValidationStatus: ValidateBlockResult = { valid: true };
   private initialSyncComplete: boolean = false;
 
   public readonly tracer: Tracer;
@@ -352,11 +354,22 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         currentL1BlockNumber,
         currentL1Timestamp,
       );
+
+      // Update the pending chain validation status with the last block validation result.
+      // Again, we only update if validation status changed, so in a sequence of invalid blocks
+      // we keep track of the first invalid block so we can invalidate that one if needed.
+      if (
+        rollupStatus.validationResult &&
+        rollupStatus.validationResult?.valid !== this.pendingChainValidationStatus.valid
+      ) {
+        this.pendingChainValidationStatus = rollupStatus.validationResult;
+      }
+
       // And lastly we check if we are missing any L2 blocks behind us due to a possible L1 reorg.
       // We only do this if rollup cant prune on the next submission. Otherwise we will end up
       // re-syncing the blocks we have just unwound above. We also dont do this if the last block is invalid,
       // since the archiver will rightfully refuse to sync up to it.
-      if (!rollupCanPrune && !rollupStatus.lastBlockIsInvalid) {
+      if (!rollupCanPrune && this.pendingChainValidationStatus.valid) {
         await this.checkForNewBlocksBeforeL1SyncPoint(rollupStatus, blocksSynchedTo, currentL1BlockNumber);
       }
 
@@ -617,7 +630,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       provenArchive,
       pendingBlockNumber: Number(pendingBlockNumber),
       pendingArchive,
-      lastBlockIsInvalid: false,
+      validationResult: undefined as ValidateBlockResult | undefined,
     };
     this.log.trace(`Retrieved rollup status at current L1 block ${currentL1BlockNumber}.`, {
       localPendingBlockNumber,
@@ -792,17 +805,32 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       const validBlocks: PublishedL2Block[] = [];
 
       for (const block of publishedBlocks) {
-        const isProven = block.block.number <= provenBlockNumber;
-        if (!isProven && !(await validateBlockAttestations(block, this.epochCache, this.l1constants, this.log))) {
+        const validationResult = await validateBlockAttestations(block, this.epochCache, this.l1constants, this.log);
+
+        // Only update the validation result if it has changed, so we can keep track of the first invalid block
+        // in case there is a sequence of more than one invalid block, as we need to invalidate the first one.
+        if (rollupStatus.validationResult?.valid !== validationResult.valid) {
+          rollupStatus.validationResult = validationResult;
+        }
+
+        if (!validationResult.valid) {
           this.log.warn(`Skipping block ${block.block.number} due to invalid attestations`, {
             blockHash: block.block.hash(),
             l1BlockNumber: block.l1.blockNumber,
+            ...pick(validationResult, 'reason'),
           });
-          rollupStatus.lastBlockIsInvalid = true;
+
+          // Emit event for invalid block detection
+          this.emit(L2BlockSourceEvents.InvalidAttestationsBlockDetected, {
+            type: L2BlockSourceEvents.InvalidAttestationsBlockDetected,
+            validationResult,
+          });
+
+          // We keep consuming blocks if we find an invalid one, since we do not listen for BlockInvalidated events
+          // We just pretend the invalid ones are not there and keep consuming the next blocks
           continue;
         }
 
-        rollupStatus.lastBlockIsInvalid = false;
         validBlocks.push(block);
         this.log.debug(`Ingesting new L2 block ${block.block.number} with ${block.block.body.txEffects.length} txs`, {
           blockHash: block.block.hash(),
@@ -1200,6 +1228,14 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     return this.store.getDebugFunctionName(address, selector);
   }
 
+  getPendingChainValidationStatus(): Promise<ValidateBlockResult> {
+    return Promise.resolve(this.pendingChainValidationStatus);
+  }
+
+  isPendingChainInvalid(): Promise<boolean> {
+    return Promise.resolve(this.pendingChainValidationStatus.valid === false);
+  }
+
   async getL2Tips(): Promise<L2Tips> {
     const [latestBlockNumber, provenBlockNumber] = await Promise.all([
       this.getBlockNumber(),
@@ -1208,7 +1244,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
     // TODO(#13569): Compute proper finalized block number based on L1 finalized block.
     // We just force it 2 epochs worth of proven data for now.
-    // NOTE: update end-to-end/src/e2e_epochs/epochs_empty_blocks.test.ts as that uses finalised blocks in computations
+    // NOTE: update end-to-end/src/e2e_epochs/epochs_empty_blocks.test.ts as that uses finalized blocks in computations
     const finalizedBlockNumber = Math.max(provenBlockNumber - this.l1constants.epochDuration * 2, 0);
 
     const [latestBlockHeader, provenBlockHeader, finalizedBlockHeader] = await Promise.all([

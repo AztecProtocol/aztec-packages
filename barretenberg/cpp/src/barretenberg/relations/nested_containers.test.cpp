@@ -12,7 +12,7 @@ class NestedContainers : public testing::Test {};
 TEST_F(NestedContainers, Univariate)
 {
     static constexpr std::array<size_t, 3> LENGTHS = { 0, 1, 2 };
-    static constexpr TupleOfUnivariates<FF, LENGTHS> tuple;
+    static constexpr TupleOfUnivariates<FF, LENGTHS> tuple{};
     static constexpr auto result0 = Univariate<FF, 0>();
     static constexpr auto result1 = Univariate<FF, 1>();
     static constexpr auto result2 = Univariate<FF, 2>();

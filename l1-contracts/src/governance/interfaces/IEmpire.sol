@@ -24,10 +24,7 @@ interface IEmpire {
   function signalWithSig(IPayload _payload, Signature memory _sig) external returns (bool);
 
   function submitRoundWinner(uint256 _roundNumber) external returns (bool);
-  function signalCount(address _instance, uint256 _round, IPayload _payload)
-    external
-    view
-    returns (uint256);
+  function signalCount(address _instance, uint256 _round, IPayload _payload) external view returns (uint256);
   function computeRound(Slot _slot) external view returns (uint256);
   function getInstance() external view returns (address);
 }

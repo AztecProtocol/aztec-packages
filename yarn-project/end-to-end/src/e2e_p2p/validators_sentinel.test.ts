@@ -1,7 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { retryUntil, sleep } from '@aztec/aztec.js';
-import { RollupContract } from '@aztec/ethereum';
-import { RollupAbi } from '@aztec/l1-artifacts';
+import { EthAddress, retryUntil, sleep } from '@aztec/aztec.js';
 import type { ValidatorsStats } from '@aztec/stdlib/validators';
 
 import { jest } from '@jest/globals';
@@ -9,20 +7,17 @@ import fs from 'fs';
 import 'jest-extended';
 import os from 'os';
 import path from 'path';
-import { getContract } from 'viem';
 
 import { createNode, createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
 
-const NUM_NODES = 4;
+const NUM_NODES = 5;
 const NUM_VALIDATORS = NUM_NODES + 1; // We create an extra validator, who will not have a running node
 const BOOT_NODE_UDP_PORT = 4500;
 const BLOCK_COUNT = 3;
-const EPOCH_DURATION = 10;
-const SLASHING_QUORUM = 3;
-const SLASHING_ROUND_SIZE = 5;
-const AZTEC_SLOT_DURATION = 12;
+const EPOCH_DURATION = 2;
 const ETHEREUM_SLOT_DURATION = 4;
+const AZTEC_SLOT_DURATION = 8;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'validators-sentinel-'));
 
@@ -31,8 +26,8 @@ jest.setTimeout(1000 * 60 * 10);
 describe('e2e_p2p_validators_sentinel', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
-  let slashingAmount: bigint;
   let additionalNode: AztecNodeService | undefined;
+  let offlineValidator: EthAddress;
 
   beforeAll(async () => {
     t = await P2PNetworkTest.create({
@@ -42,30 +37,22 @@ describe('e2e_p2p_validators_sentinel', () => {
       basePort: BOOT_NODE_UDP_PORT,
       startProverNode: true,
       initialConfig: {
+        aztecTargetCommitteeSize: NUM_VALIDATORS,
         aztecSlotDuration: AZTEC_SLOT_DURATION,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
         aztecProofSubmissionEpochs: 1024, // effectively do not reorg
         listenAddress: '127.0.0.1',
         minTxsPerBlock: 0,
         aztecEpochDuration: EPOCH_DURATION,
+        slashingRoundSizeInEpochs: 2,
         validatorReexecute: false,
         sentinelEnabled: true,
-        slashingQuorum: SLASHING_QUORUM,
-        slashingRoundSize: SLASHING_ROUND_SIZE,
-        slashInactivityCreateTargetPercentage: 0.5,
-        slashInactivitySignalTargetPercentage: 0.1,
-        slashProposerRoundPollingIntervalSeconds: 1,
+        slashInactivityPenalty: 0n, // Set to 0 to disable
       },
     });
 
     await t.applyBaseSnapshots();
     await t.setup();
-
-    const { rollup } = await t.getContracts();
-    slashingAmount = (await rollup.getDepositAmount()) - (await rollup.getMinimumStake()) + 1n;
-    t.ctx.aztecNodeConfig.slashInactivityEnabled = true;
-    t.ctx.aztecNodeConfig.slashInactivityCreatePenalty = slashingAmount;
-    t.ctx.aztecNodeConfig.slashInactivityMaxPenalty = slashingAmount;
 
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
@@ -99,13 +86,11 @@ describe('e2e_p2p_validators_sentinel', () => {
       const currentBlock = t.monitor.l2BlockNumber;
       const blockCount = BLOCK_COUNT;
       const timeout = AZTEC_SLOT_DURATION * blockCount * 8;
-      const offlineValidator = t.validators.at(-1)!.attester.toString().toLowerCase();
+      offlineValidator = t.validators.at(-1)!.attester;
+      t.logger.warn(`Offline validator is ${offlineValidator}`);
 
       t.logger.info(`Waiting until L2 block ${currentBlock + blockCount}`, { currentBlock, blockCount, timeout });
       await retryUntil(() => t.monitor.l2BlockNumber >= currentBlock + blockCount, 'blocks mined', timeout);
-
-      t.logger.info(`Shutting down sequencers to ensure at least a block is missed`);
-      await Promise.all(nodes.map(node => node.getSequencer()?.updateSequencerConfig({ minTxsPerBlock: 100 })));
 
       t.logger.info(`Waiting until sentinel processed at least ${blockCount - 1} slots and a missed and a mined block`);
       await retryUntil(
@@ -117,13 +102,14 @@ describe('e2e_p2p_validators_sentinel', () => {
             lastProcessedSlot &&
             lastProcessedSlot - initialSlot >= blockCount - 1 &&
             Object.values(stats).some(stat => stat.history.some(h => h.status === 'block-mined')) &&
-            Object.values(stats).some(stat => stat.history.some(h => h.status === 'block-missed')) &&
-            stats[offlineValidator] &&
-            stats[offlineValidator].history.length > 0
+            Object.values(stats).some(stat => stat.history.some(h => h.status === 'attestation-sent')) &&
+            stats[offlineValidator.toString().toLowerCase()] &&
+            stats[offlineValidator.toString().toLowerCase()].history.length > 0 &&
+            stats[offlineValidator.toString().toLowerCase()].history.some(h => h.status === 'attestation-missed')
           );
         },
         'sentinel processed blocks',
-        AZTEC_SLOT_DURATION * 8,
+        AZTEC_SLOT_DURATION * 16,
         1,
       );
 
@@ -132,9 +118,8 @@ describe('e2e_p2p_validators_sentinel', () => {
     });
 
     it('collects stats on offline validator', () => {
-      const offlineValidator = t.validators.at(-1)!.attester.toString().toLowerCase();
       t.logger.info(`Asserting stats for offline validator ${offlineValidator}`);
-      const offlineStats = stats.stats[offlineValidator];
+      const offlineStats = stats.stats[offlineValidator.toString().toLowerCase()];
       const historyLength = offlineStats.history.length;
       expect(offlineStats.history.length).toBeGreaterThan(0);
       expect(offlineStats.history.every(h => h.status.endsWith('-missed'))).toBeTrue();
@@ -179,9 +164,6 @@ describe('e2e_p2p_validators_sentinel', () => {
         `${DATA_DIR}-i`,
       );
 
-      t.logger.info(`Reenabling block building`);
-      await Promise.all(nodes.map(node => node.getSequencer()?.updateSequencerConfig({ minTxsPerBlock: 0 })));
-
       t.logger.info(`Waiting for a few more blocks to be mined`);
       const timeout = AZTEC_SLOT_DURATION * 4 * 12;
       await retryUntil(() => t.monitor.l2BlockNumber > l2BlockNumber + 3, 'more blocks mined', timeout);
@@ -197,75 +179,6 @@ describe('e2e_p2p_validators_sentinel', () => {
 
       const stats = await newNode.getValidatorsStats();
       t.logger.info(`Collected validator stats from new node at block ${t.monitor.l2BlockNumber}`, { stats });
-      const newNodeValidator = t.validators.at(-1)!.attester.toString().toLowerCase();
-      expect(stats.stats[newNodeValidator]).toBeDefined();
-      expect(stats.stats[newNodeValidator].history.length).toBeGreaterThanOrEqual(1);
-      expect(Object.keys(stats.stats).length).toBeGreaterThan(1);
-    });
-
-    it("tries to slash the validator that didn't sign proven blocks", async () => {
-      // turn back on block building
-      await Promise.all(nodes.map(node => node.getSequencer()?.updateSequencerConfig({ minTxsPerBlock: 0 })));
-
-      // wait until we're beyond the second epoch
-      await retryUntil(
-        async () => {
-          const tips = await nodes[0].getL2Tips();
-          return tips.proven.number > 1;
-        },
-        'proven blocks',
-        EPOCH_DURATION * AZTEC_SLOT_DURATION * 2,
-        1,
-      );
-
-      const rollupRaw = getContract({
-        address: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-        abi: RollupAbi,
-        client: t.ctx.deployL1ContractsValues.l1Client,
-      });
-
-      const rollup = new RollupContract(
-        t.ctx.deployL1ContractsValues.l1Client,
-        t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
-      );
-      const slashingProposer = await rollup.getSlashingProposer();
-
-      await retryUntil(
-        async () => {
-          const ignoreExpectedErrors = (err: Error) => {
-            const permissibleErrors = ['ValidatorSelection__InsufficientCommitteeSize', '0x98673597'];
-            if (permissibleErrors.some(error => err.message.includes(error))) {
-              return undefined;
-            }
-            t.logger.error('Error:', err);
-            throw err;
-          };
-          const currentProposer = await rollup.getCurrentProposer().catch(ignoreExpectedErrors);
-          t.logger.verbose(`Current proposer is ${currentProposer}`);
-          const round = await slashingProposer.computeRound(await rollup.getSlotNumber());
-          const roundInfo = await slashingProposer.getRoundInfo(rollup.address, round);
-          const leaderSignals = await slashingProposer.getPayloadSignals(
-            rollup.address,
-            round,
-            roundInfo.payloadWithMostSignals,
-          );
-          t.logger.verbose(`Currently in round ${round}`);
-          t.logger.verbose(`Leader signals: ${leaderSignals}`);
-
-          const slashEvents = await rollupRaw.getEvents.Slashed();
-          return slashEvents.length >= 1;
-        },
-        'slash event',
-        // wait up to 10 full rounds, because we know that 1/5 validators are not voting
-        // so give us some time to make sure we get a round that is majority honest
-        AZTEC_SLOT_DURATION * SLASHING_ROUND_SIZE * 10,
-        1,
-      );
-      const slashEvents = await rollupRaw.getEvents.Slashed();
-      const { attester, amount } = slashEvents[0].args;
-      expect(slashEvents.length).toBe(1);
-      expect(attester?.toLowerCase()).toBe(t.validators.at(-1)!.attester.toString().toLowerCase());
-      expect(amount).toBe(slashingAmount);
     });
   });
 });

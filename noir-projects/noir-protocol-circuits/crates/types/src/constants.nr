@@ -60,8 +60,8 @@ pub global NOTE_HASH_TREE_ID: Field = 1;
 pub global PUBLIC_DATA_TREE_ID: Field = 2;
 pub global L1_TO_L2_MESSAGE_TREE_ID: Field = 3;
 pub global ARCHIVE_TREE_ID: Field = 4;
-pub global NOTE_HASH_TREE_LEAF_COUNT: u64 = 1 << (NOTE_HASH_TREE_HEIGHT as u8);
-pub global L1_TO_L2_MSG_TREE_LEAF_COUNT: u64 = 1 << (L1_TO_L2_MSG_TREE_HEIGHT as u8);
+pub global NOTE_HASH_TREE_LEAF_COUNT: u64 = 1 << (NOTE_HASH_TREE_HEIGHT as u64);
+pub global L1_TO_L2_MSG_TREE_LEAF_COUNT: u64 = 1 << (L1_TO_L2_MSG_TREE_HEIGHT as u64);
 
 // SUB-TREES RELATED CONSTANTS
 pub global NOTE_HASH_SUBTREE_HEIGHT: u32 = 6;
@@ -75,10 +75,12 @@ pub global NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH: u32 =
     NULLIFIER_TREE_HEIGHT - NULLIFIER_SUBTREE_HEIGHT;
 pub global L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH: u32 =
     L1_TO_L2_MSG_TREE_HEIGHT - L1_TO_L2_MSG_SUBTREE_HEIGHT;
+// Maximum number of subtrees a L2ToL1Msg wonky tree can have. Used when calculating the out hash of a tx.
+pub global MAX_L2_TO_L1_MSG_SUBTREES_PER_TX: u32 = 3; // ceil(log2(MAX_L2_TO_L1_MSGS_PER_TX))
 
 // "PER TRANSACTION" CONSTANTS
-pub global MAX_NOTE_HASHES_PER_TX: u32 = (1 as u8 << NOTE_HASH_SUBTREE_HEIGHT as u8) as u32;
-pub global MAX_NULLIFIERS_PER_TX: u32 = (1 as u8 << NULLIFIER_SUBTREE_HEIGHT as u8) as u32;
+pub global MAX_NOTE_HASHES_PER_TX: u32 = 1 << NOTE_HASH_SUBTREE_HEIGHT;
+pub global MAX_NULLIFIERS_PER_TX: u32 = 1 << NULLIFIER_SUBTREE_HEIGHT;
 pub global MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX: u32 = 8;
 pub global MAX_ENQUEUED_CALLS_PER_TX: u32 = 32;
 pub global PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX: u32 = 1;
@@ -108,20 +110,22 @@ pub comptime global PRIVATE_KERNEL_INIT_INDEX: u32 = 0;
 pub comptime global PRIVATE_KERNEL_INNER_INDEX: u32 = 1;
 pub comptime global PRIVATE_KERNEL_TAIL_INDEX: u32 = 2;
 pub comptime global PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX: u32 = 3;
-pub comptime global PRIVATE_TUBE_VK_INDEX: u32 = 4;
-pub comptime global PUBLIC_TUBE_VK_INDEX: u32 = 5;
-pub comptime global AVM_VK_INDEX: u32 = 6;
-pub comptime global PRIVATE_BASE_ROLLUP_VK_INDEX: u32 = 7;
-pub comptime global PUBLIC_BASE_ROLLUP_VK_INDEX: u32 = 8;
-pub comptime global MERGE_ROLLUP_INDEX: u32 = 9;
-pub comptime global BLOCK_ROOT_ROLLUP_INDEX: u32 = 10;
-pub comptime global BLOCK_ROOT_ROLLUP_SINGLE_TX_INDEX: u32 = 11;
-pub comptime global BLOCK_ROOT_ROLLUP_EMPTY_INDEX: u32 = 12;
-pub comptime global BLOCK_ROOT_ROLLUP_PADDING_INDEX: u32 = 13;
-pub comptime global BLOCK_MERGE_ROLLUP_INDEX: u32 = 14;
-pub comptime global ROOT_ROLLUP_INDEX: u32 = 15;
-pub comptime global BASE_PARITY_INDEX: u32 = 16;
-pub comptime global ROOT_PARITY_INDEX: u32 = 17;
+pub comptime global HIDING_KERNEL_TO_ROLLUP_VK_INDEX: u32 = 4;
+pub comptime global HIDING_KERNEL_TO_PUBLIC_VK_INDEX: u32 = 5;
+pub comptime global PRIVATE_TUBE_VK_INDEX: u32 = 6;
+pub comptime global PUBLIC_TUBE_VK_INDEX: u32 = 7;
+pub comptime global AVM_VK_INDEX: u32 = 8;
+pub comptime global PRIVATE_BASE_ROLLUP_VK_INDEX: u32 = 9;
+pub comptime global PUBLIC_BASE_ROLLUP_VK_INDEX: u32 = 10;
+pub comptime global MERGE_ROLLUP_INDEX: u32 = 11;
+pub comptime global BLOCK_ROOT_ROLLUP_INDEX: u32 = 12;
+pub comptime global BLOCK_ROOT_ROLLUP_SINGLE_TX_INDEX: u32 = 13;
+pub comptime global BLOCK_ROOT_ROLLUP_EMPTY_INDEX: u32 = 14;
+pub comptime global BLOCK_ROOT_ROLLUP_PADDING_INDEX: u32 = 15;
+pub comptime global BLOCK_MERGE_ROLLUP_INDEX: u32 = 16;
+pub comptime global ROOT_ROLLUP_INDEX: u32 = 17;
+pub comptime global BASE_PARITY_INDEX: u32 = 18;
+pub comptime global ROOT_PARITY_INDEX: u32 = 19;
 pub comptime global PRIVATE_KERNEL_RESET_INDEX: u32 = 20;
 // Important: Do not define indexes after the PRIVATE_KERNEL_RESET_INDEX. They are allocated for the variants of private kernel reset.
 
@@ -173,7 +177,7 @@ pub global CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE: Field =
     0x0e92f9f8a534e858fcf777da206e08b0c620ecf9deb21d13479813f6;
 
 // CANONICAL CONTRACT ADDRESSES
-pub global MAX_PROTOCOL_CONTRACTS: u32 = (1 << PROTOCOL_CONTRACT_TREE_HEIGHT as u8) - 1; // Index 0 can't be used.
+pub global MAX_PROTOCOL_CONTRACTS: u32 = (1 << PROTOCOL_CONTRACT_TREE_HEIGHT) - 1; // Index 0 can't be used.
 pub global CANONICAL_AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(1);
 pub global CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(2);
 pub global CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(3);
@@ -519,6 +523,7 @@ pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 pub global RECURSIVE_PROOF_LENGTH: u32 = 457;
 pub global NESTED_RECURSIVE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH;
 pub global IPA_PROOF_LENGTH: u32 = 68;
+pub global ULTRA_KECCAK_PROOF_LENGTH: u32 = 350; // See UltraKeccakFlavor for formula; based on root rollup log_n = 25
 pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
     RECURSIVE_PROOF_LENGTH + IPA_CLAIM_SIZE + IPA_PROOF_LENGTH;
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
@@ -630,8 +635,11 @@ pub global AVM_SUBTRACE_ID_POSEIDON_PERM: u32 = 2 * AVM_SUBTRACE_ID_BITWISE;
 pub global AVM_SUBTRACE_ID_TO_RADIX: u32 = 2 * AVM_SUBTRACE_ID_POSEIDON_PERM;
 pub global AVM_SUBTRACE_ID_ECC: u32 = 2 * AVM_SUBTRACE_ID_TO_RADIX;
 pub global AVM_SUBTRACE_ID_KECCAKF1600: u32 = 2 * AVM_SUBTRACE_ID_ECC;
-pub global AVM_SUBTRACE_ID_DATA_COPY: u32 = 2 * AVM_SUBTRACE_ID_KECCAKF1600;
-pub global AVM_SUBTRACE_ID_GETCONTRACTINSTANCE: u32 = 2 * AVM_SUBTRACE_ID_DATA_COPY;
+pub global AVM_SUBTRACE_ID_CALLDATA_COPY: u32 = 2 * AVM_SUBTRACE_ID_KECCAKF1600;
+pub global AVM_SUBTRACE_ID_GETCONTRACTINSTANCE: u32 = 2 * AVM_SUBTRACE_ID_CALLDATA_COPY;
+pub global AVM_SUBTRACE_ID_EMITUNENCRYPTEDLOG: u32 = 2 * AVM_SUBTRACE_ID_GETCONTRACTINSTANCE;
+pub global AVM_SUBTRACE_ID_SHA256_COMPRESSION: u32 = 2 * AVM_SUBTRACE_ID_EMITUNENCRYPTEDLOG;
+pub global AVM_SUBTRACE_ID_RETURNDATA_COPY: u32 = 2 * AVM_SUBTRACE_ID_SHA256_COMPRESSION;
 
 // Dynamic Gas Opcode IDs
 pub global AVM_DYN_GAS_ID_CALLDATACOPY: u32 = 1;
@@ -663,6 +671,7 @@ pub global AVM_EXEC_OP_ID_EMIT_NOTEHASH: u32 = 2 * AVM_EXEC_OP_ID_NOTEHASH_EXIST
 pub global AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS: u32 = 2 * AVM_EXEC_OP_ID_EMIT_NOTEHASH;
 pub global AVM_EXEC_OP_ID_NULLIFIER_EXISTS: u32 = 2 * AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS;
 pub global AVM_EXEC_OP_ID_EMIT_NULLIFIER: u32 = 2 * AVM_EXEC_OP_ID_NULLIFIER_EXISTS;
+pub global AVM_EXEC_OP_ID_SENDL2TOL1MSG: u32 = 2 * AVM_EXEC_OP_ID_EMIT_NULLIFIER;
 
 // Execution Opcode IDs for the ALU subtrace
 // Note: these are all powers of 2 to allow for binary decomposition.
@@ -894,9 +903,9 @@ pub global AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED: u32 = 20000;
 pub global AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED: u32 = 1000;
 
 // GAS DEFAULTS
-pub global DEFAULT_GAS_LIMIT: u32 = 1_000_000_000;
-pub global MAX_L2_GAS_PER_TX_PUBLIC_PORTION: u32 = 6_000_000;
-pub global DEFAULT_TEARDOWN_GAS_LIMIT: u32 = MAX_L2_GAS_PER_TX_PUBLIC_PORTION;
+// The maximum amount of l2 gas that the AVM can process safely.
+pub global AVM_MAX_PROCESSABLE_L2_GAS: u32 = 6_000_000;
+
 pub global DA_BYTES_PER_FIELD: u32 = 32;
 pub global DA_GAS_PER_BYTE: u32 = 16;
 // pays for preamble information in TX Effects
@@ -905,6 +914,26 @@ pub global FIXED_DA_GAS: u32 = 512;
 pub global FIXED_L2_GAS: u32 = 512;
 // base cost for a single public call
 pub global FIXED_AVM_STARTUP_L2_GAS: u32 = 20_000;
+
+pub global MAX_PROCESSABLE_DA_GAS_PER_BLOCK: u32 =
+    BLOBS_PER_BLOCK * FIELDS_PER_BLOB * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+
+// For gas estimation, we use the theoretical maximum amounts.
+// Since we split in teardown and total, teardown has the theoretical maximum and total is that times 2.
+// After gas estimation, we tune it down to the actual amount necessary.
+pub global GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT: u32 = AVM_MAX_PROCESSABLE_L2_GAS;
+pub global GAS_ESTIMATION_L2_GAS_LIMIT: u32 =
+    GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT + AVM_MAX_PROCESSABLE_L2_GAS;
+
+pub global GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_BLOCK;
+pub global GAS_ESTIMATION_DA_GAS_LIMIT: u32 =
+    GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT + MAX_PROCESSABLE_DA_GAS_PER_BLOCK;
+
+// Default gas limits. Users should use gas estimation, or they will overpay gas fees.
+pub global DEFAULT_TEARDOWN_L2_GAS_LIMIT: u32 = 1_000_000; // Arbitrary default number.
+pub global DEFAULT_L2_GAS_LIMIT: u32 = AVM_MAX_PROCESSABLE_L2_GAS; // Arbitrary default number.
+pub global DEFAULT_TEARDOWN_DA_GAS_LIMIT: u32 = 1_000_000; // Arbitrary default number.
+pub global DEFAULT_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_BLOCK; // Arbitrary default number.
 
 // Some tree insertions incur an additional cost associated with
 // the new database entry to be stored by all network participants.
@@ -1074,7 +1103,10 @@ pub global PROOF_TYPE_PG: u32 = 3;
 pub global PROOF_TYPE_AVM: u32 = 4;
 pub global PROOF_TYPE_ROLLUP_HONK: u32 = 5;
 pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
-pub global PROOF_TYPE_PG_FINAL: u32 = 7;
+// worktodo comment here where 7 is
+pub global PROOF_TYPE_PG_FINAL: u32 = 8;
+pub global PROOF_TYPE_PG_TAIL: u32 = 9;
+pub global PROOF_TYPE_CIVC: u32 = 10;
 
 pub global TWO_POW_64: Field = 18446744073709551616;
 // AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT = LOG2(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + 1)
@@ -1136,7 +1168,7 @@ mod test {
     #[test]
     unconstrained fn test_avm_written_public_data_slots_tree_height() {
         assert_eq(
-            (1 << (AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT as u8)),
+            1 << AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT,
             MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + 1,
         );
     }

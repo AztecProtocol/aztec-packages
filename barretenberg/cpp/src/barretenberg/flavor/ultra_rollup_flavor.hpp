@@ -7,6 +7,7 @@
 #pragma once
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 
 namespace bb {
 
@@ -14,9 +15,11 @@ class UltraRollupFlavor : public bb::UltraFlavor {
   public:
     static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
     static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
-    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
-        UltraFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + IPA_PROOF_LENGTH;
-    static constexpr size_t BACKEND_PUB_INPUTS_SIZE = PAIRING_POINTS_SIZE + IPA_CLAIM_SIZE;
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = VIRTUAL_LOG_N)
+    {
+        return UltraFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) + IPA_PROOF_LENGTH;
+    }
+    static constexpr size_t BACKEND_PUB_INPUTS_SIZE = RollupIO::PUBLIC_INPUTS_SIZE;
 
     using UltraFlavor::UltraFlavor;
 
@@ -55,7 +58,7 @@ class UltraRollupFlavor : public bb::UltraFlavor {
         // Don't statically check for object completeness.
         using MSGPACK_NO_STATIC_CHECK = std::true_type;
 
-        // For serialising and deserialising data
+        // For serialising and deserializing data
         MSGPACK_FIELDS(log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,

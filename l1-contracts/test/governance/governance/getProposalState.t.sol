@@ -7,18 +7,16 @@ import {GovernanceBase} from "./base.t.sol";
 import {Proposal, ProposalState} from "@aztec/governance/interfaces/IGovernance.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
-import {ProposalLib, VoteTabulationReturn} from "@aztec/governance/libraries/ProposalLib.sol";
+import {VoteTabulationReturn} from "@aztec/governance/libraries/ProposalLib.sol";
+import {TestGov} from "@test/governance/helpers/TestGov.sol";
 
 contract GetProposalStateTest is GovernanceBase {
-  using ProposalLib for Proposal;
   using stdStorage for StdStorage;
 
   function test_WhenProposalIsOutOfBounds(uint256 _index) external {
     // it revert
     uint256 index = bound(_index, governance.proposalCount(), type(uint256).max);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Governance__ProposalDoesNotExists.selector, index)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ProposalDoesNotExists.selector, index));
     governance.getProposalState(index);
   }
 
@@ -30,12 +28,11 @@ contract GetProposalStateTest is GovernanceBase {
     _;
   }
 
-  function test_GivenStateIsExecuted(
-    address _voter,
-    uint256 _totalPower,
-    uint256 _votesCast,
-    uint256 _yeas
-  ) external whenValidProposalId givenStateIsStable {
+  function test_GivenStateIsExecuted(address _voter, uint256 _totalPower, uint256 _votesCast, uint256 _yeas)
+    external
+    whenValidProposalId
+    givenStateIsStable
+  {
     // it return Executed
     _stateExecutable("empty", _voter, _totalPower, _votesCast, _yeas);
     governance.execute(proposalId);
@@ -44,11 +41,7 @@ contract GetProposalStateTest is GovernanceBase {
     assertEq(governance.getProposalState(proposalId), ProposalState.Executed);
   }
 
-  function test_GivenStateIsDropped(address _governanceProposer)
-    external
-    whenValidProposalId
-    givenStateIsStable
-  {
+  function test_GivenStateIsDropped(address _governanceProposer) external whenValidProposalId givenStateIsStable {
     // it return Dropped
     _stateDroppable("empty", _governanceProposer);
 
@@ -93,7 +86,7 @@ contract GetProposalStateTest is GovernanceBase {
     // it return Pending
     _statePending("empty");
 
-    uint256 time = bound(_timeJump, block.timestamp, Timestamp.unwrap(proposal.pendingThrough()));
+    uint256 time = bound(_timeJump, block.timestamp, Timestamp.unwrap(upw.pendingThrough(proposal)));
     vm.warp(time);
 
     assertEq(governance.getProposalState(proposalId), ProposalState.Pending);
@@ -113,7 +106,7 @@ contract GetProposalStateTest is GovernanceBase {
     // it return Active
     _stateActive("empty");
 
-    uint256 time = bound(_timeJump, block.timestamp, Timestamp.unwrap(proposal.activeThrough()));
+    uint256 time = bound(_timeJump, block.timestamp, Timestamp.unwrap(upw.activeThrough(proposal)));
     vm.warp(time);
 
     assertEq(governance.getProposalState(proposalId), ProposalState.Active);
@@ -134,18 +127,13 @@ contract GetProposalStateTest is GovernanceBase {
     // it return Rejected
     _stateRejected("empty");
 
-    uint256 totalPower = governance.totalPowerAt(Timestamp.wrap(block.timestamp));
-    (VoteTabulationReturn vtr,) = proposal.voteTabulation(totalPower);
+    uint256 totalPower = governance.totalPowerNow();
+    (VoteTabulationReturn vtr,) = upw.voteTabulation(proposal, totalPower);
     assertEq(vtr, VoteTabulationReturn.Rejected, "invalid return value");
     assertEq(governance.getProposalState(proposalId), ProposalState.Rejected);
   }
 
-  function test_GivenVoteTabulationIsInvalid(
-    address _voter,
-    uint256 _totalPower,
-    uint256 _votesCast,
-    uint256 _yeas
-  )
+  function test_GivenVoteTabulationIsInvalid(address _voter, uint256 _totalPower, uint256 _votesCast, uint256 _yeas)
     external
     whenValidProposalId
     givenStateIsUnstable
@@ -158,24 +146,18 @@ contract GetProposalStateTest is GovernanceBase {
 
     // We can overwrite the quorum to be 0 to hit an invalid case
     assertGt(governance.getProposal(proposalId).config.quorum, 0);
-    stdstore.target(address(governance)).sig("getProposal(uint256)").with_key(proposalId).depth(6)
-      .checked_write(uint256(0));
+    TestGov(address(governance)).test__overrideQuorum(proposalId, 0);
     assertEq(governance.getProposal(proposalId).config.quorum, 0);
 
-    uint256 totalPower = governance.totalPowerAt(Timestamp.wrap(block.timestamp));
+    uint256 totalPower = governance.totalPowerNow();
 
     proposal = governance.getProposal(proposalId);
-    (VoteTabulationReturn vtr,) = proposal.voteTabulation(totalPower);
+    (VoteTabulationReturn vtr,) = upw.voteTabulation(proposal, totalPower);
     assertEq(vtr, VoteTabulationReturn.Invalid, "invalid return value");
     assertEq(governance.getProposalState(proposalId), ProposalState.Rejected);
   }
 
-  modifier givenVoteTabulationIsAccepted(
-    address _voter,
-    uint256 _totalPower,
-    uint256 _votesCast,
-    uint256 _yeas
-  ) {
+  modifier givenVoteTabulationIsAccepted(address _voter, uint256 _totalPower, uint256 _votesCast, uint256 _yeas) {
     _stateQueued("empty", _voter, _totalPower, _votesCast, _yeas);
     _;
   }
@@ -196,14 +178,14 @@ contract GetProposalStateTest is GovernanceBase {
     givenVoteTabulationIsAccepted(_voter, _totalPower, _votesCast, _yeas)
   {
     // it return Queued
-    uint256 time = bound(_timeJump, block.timestamp, Timestamp.unwrap(proposal.queuedThrough()));
+    uint256 time = bound(_timeJump, block.timestamp, Timestamp.unwrap(upw.queuedThrough(proposal)));
     vm.warp(time);
 
     assertEq(governance.getProposalState(proposalId), ProposalState.Queued);
   }
 
   modifier givenExecutionDelayHavePassed() {
-    vm.warp(Timestamp.unwrap(proposal.queuedThrough()) + 1);
+    vm.warp(Timestamp.unwrap(upw.queuedThrough(proposal)) + 1);
     _;
   }
 
@@ -224,18 +206,13 @@ contract GetProposalStateTest is GovernanceBase {
     givenExecutionDelayHavePassed
   {
     // it return Executable
-    uint256 time = bound(_timeJump, block.timestamp, Timestamp.unwrap(proposal.executableThrough()));
+    uint256 time = bound(_timeJump, block.timestamp, Timestamp.unwrap(upw.executableThrough(proposal)));
     vm.warp(time);
 
     assertEq(governance.getProposalState(proposalId), ProposalState.Executable);
   }
 
-  function test_GivenGracePeriodHavePassed(
-    address _voter,
-    uint256 _totalPower,
-    uint256 _votesCast,
-    uint256 _yeas
-  )
+  function test_GivenGracePeriodHavePassed(address _voter, uint256 _totalPower, uint256 _votesCast, uint256 _yeas)
     external
     whenValidProposalId
     givenStateIsUnstable
@@ -246,7 +223,7 @@ contract GetProposalStateTest is GovernanceBase {
     givenExecutionDelayHavePassed
   {
     // it return Expired
-    vm.warp(Timestamp.unwrap(proposal.executableThrough()) + 1);
+    vm.warp(Timestamp.unwrap(upw.executableThrough(proposal)) + 1);
     assertEq(governance.getProposalState(proposalId), ProposalState.Expired);
   }
 }

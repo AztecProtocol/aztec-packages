@@ -38,7 +38,12 @@ class EccvmRowTracker {
     static uint32_t num_eccvm_msm_rows(const size_t msm_size)
     {
         const size_t rows_per_wnaf_digit =
-            (msm_size / eccvm::ADDITIONS_PER_ROW) + ((msm_size % eccvm::ADDITIONS_PER_ROW != 0) ? 1 : 0);
+            (msm_size / eccvm::ADDITIONS_PER_ROW) +
+            ((msm_size % eccvm::ADDITIONS_PER_ROW != 0)
+                 ? 1
+                 : 0); // the Straus algorithm proceeds by incrementing through the digit-slots and doing
+                       // computations *across* the MSMs. Each digit-slot therefore contributes the *ceiling* of
+                       // `msm_size`/`ADDITIONS_PER_ROW`.
         const size_t num_rows_for_all_rounds =
             (eccvm::NUM_WNAF_DIGITS_PER_SCALAR + 1) * rows_per_wnaf_digit; // + 1 round for skew
         const size_t num_double_rounds = eccvm::NUM_WNAF_DIGITS_PER_SCALAR - 1;

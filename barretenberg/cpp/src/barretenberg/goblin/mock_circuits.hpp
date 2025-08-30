@@ -19,6 +19,7 @@
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/protogalaxy_recursive_verifier.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 
 namespace bb {
@@ -27,7 +28,7 @@ template <typename Builder> void generate_sha256_test_circuit(Builder& builder, 
 {
     std::string in;
     in.resize(32);
-    stdlib::packed_byte_array<Builder> input(&builder, in);
+    stdlib::byte_array<Builder> input(&builder, in);
     for (size_t i = 0; i < num_iterations; i++) {
         input = stdlib::SHA256<Builder>::hash(input);
     }
@@ -69,13 +70,7 @@ class GoblinMockCircuits {
     using RecursiveVerifierAccumulator = std::shared_ptr<RecursiveDeciderVerificationKey>;
     using VerificationKey = Flavor::VerificationKey;
 
-    using PairingPoints = stdlib::recursion::PairingPoints<MegaBuilder>;
     static constexpr size_t NUM_WIRES = Flavor::NUM_WIRES;
-
-    struct KernelInput {
-        HonkProof proof;
-        std::shared_ptr<Flavor::VerificationKey> verification_key;
-    };
 
     /**
      * @brief Populate a builder with some arbitrary but nontrivial constraints
@@ -104,7 +99,7 @@ class GoblinMockCircuits {
         // MegaHonk circuits (where we don't explicitly need to add goblin ops), in IVC merge proving happens prior to
         // folding where the absense of goblin ecc ops will result in zero commitments.
         MockCircuits::construct_goblin_ecc_op_circuit(builder);
-        PairingPoints::add_default_to_public_inputs(builder);
+        bb::stdlib::recursion::honk::AppIO::add_default(builder);
     }
 
     /**
@@ -128,6 +123,15 @@ class GoblinMockCircuits {
     }
 
     /**
+     * @brief Add some randomness into the op queue.
+     */
+    static void randomise_op_queue(MegaBuilder& builder)
+    {
+        builder.queue_ecc_random_op();
+        builder.queue_ecc_random_op();
+    }
+
+    /**
      * @brief Generate a simple test circuit with some ECC op gates and conventional arithmetic gates
      *
      * @param builder
@@ -142,7 +146,7 @@ class GoblinMockCircuits {
 
         add_some_ecc_op_gates(builder);
         MockCircuits::construct_arithmetic_circuit(builder);
-        PairingPoints::add_default_to_public_inputs(builder);
+        bb::stdlib::recursion::honk::DefaultIO<MegaBuilder>::add_default(builder);
     }
 
     /**

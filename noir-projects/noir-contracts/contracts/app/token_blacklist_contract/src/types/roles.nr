@@ -15,6 +15,7 @@ pub struct UserFlags {
 impl Packable for UserFlags {
     let N: u32 = 1;
 
+    #[inline_always]
     fn pack(self) -> [Field; Self::N] {
         let mut value: u64 = 0;
 
@@ -33,6 +34,7 @@ impl Packable for UserFlags {
         [value.to_field()]
     }
 
+    #[inline_always]
     fn unpack(fields: [Field; Self::N]) -> Self {
         let value: u64 = fields[0] as u64;
         let is_admin = value & ADMIN_FLAG == ADMIN_FLAG;

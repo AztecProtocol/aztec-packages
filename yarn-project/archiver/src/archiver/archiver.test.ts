@@ -15,7 +15,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { bufferToHex, withoutHexPrefix } from '@aztec/foundation/string';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
+import { CommitteeAttestation, L2Block, L2BlockSourceEvents } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { PrivateLog } from '@aztec/stdlib/logs';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
@@ -23,6 +23,7 @@ import { makeBlockAttestationFromBlock } from '@aztec/stdlib/testing';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
+import assert from 'assert';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { type FormattedBlock, type Log, type Transaction, encodeFunctionData, multicall3Abi, toHex } from 'viem';
 
@@ -380,7 +381,7 @@ describe('Archiver', () => {
     });
   }, 10_000);
 
-  it('ignores block 2 because it had invalid attestations', async () => {
+  it('ignores blocks because of invalid attestations', async () => {
     let latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(0);
 
@@ -390,26 +391,36 @@ describe('Archiver', () => {
     const committee = signers.map(signer => signer.address);
     epochCache.getCommitteeForEpoch.mockResolvedValue({ committee } as EpochCommitteeInfo);
 
+    // Setup spy to listen for InvalidBlockDetected events
+    const invalidBlockDetectedSpy = jest.fn();
+    archiver.on(L2BlockSourceEvents.InvalidAttestationsBlockDetected, invalidBlockDetectedSpy);
+
     // Add the attestations from the signers to all 3 blocks
     const rollupTxs = await Promise.all(blocks.map(b => makeRollupTx(b, signers)));
     const blobHashes = await Promise.all(blocks.map(makeVersionedBlobHashes));
     const blobsFromBlocks = await Promise.all(blocks.map(b => makeBlobsFromBlock(b)));
 
-    // And define a bad block 2 with attestations from random signers
-    const badBlock2 = await makeBlock(2);
-    badBlock2.archive.root = new Fr(0x1002);
-    const badBlock2RollupTx = await makeRollupTx(badBlock2, times(3, Secp256k1Signer.random));
-    const badBlock2BlobHashes = await makeVersionedBlobHashes(badBlock2);
-    const badBlock2Blobs = await makeBlobsFromBlock(badBlock2);
+    // And define bad blocks with attestations from random signers
+    const makeBadBlock = async (blockNumber: number) => {
+      const badBlock = await makeBlock(blockNumber);
+      badBlock.archive.root = new Fr(0x1000 + blockNumber);
+      const badBlockRollupTx = await makeRollupTx(badBlock, times(3, Secp256k1Signer.random));
+      const badBlockBlobHashes = await makeVersionedBlobHashes(badBlock);
+      const badBlockBlobs = await makeBlobsFromBlock(badBlock);
+      return [badBlock, badBlockRollupTx, badBlockBlobHashes, badBlockBlobs] as const;
+    };
 
-    // Return the archive root for the bad block 2 when queried
+    const [badBlock2, badBlock2RollupTx, badBlock2BlobHashes, badBlock2Blobs] = await makeBadBlock(2);
+    const [badBlock3, badBlock3RollupTx, badBlock3BlobHashes, badBlock3Blobs] = await makeBadBlock(3);
+
+    // Return the archive root for the bad block 2 when L1 is queried
     mockRollupRead.archiveAt.mockImplementation((args: readonly [bigint]) =>
       Promise.resolve((args[0] === 2n ? badBlock2 : blocks[Number(args[0] - 1n)]).archive.root.toString()),
     );
 
-    logger.warn(`Created 3 valid blocks`);
-    blocks.forEach(block => logger.warn(`Block ${block.number} with root ${block.archive.root.toString()}`));
+    blocks.forEach(b => logger.warn(`Created valid block ${b.number} with root ${b.archive.root.toString()}`));
     logger.warn(`Created invalid block 2 with root ${badBlock2.archive.root.toString()}`);
+    logger.warn(`Created invalid block 3 with root ${badBlock3.archive.root.toString()}`);
 
     // During the first archiver loop, we fetch block 1 and the block 2 with bad attestations
     publicClient.getBlockNumber.mockResolvedValue(85n);
@@ -423,12 +434,63 @@ describe('Archiver', () => {
     await archiver.start(true);
     latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(1);
+    expect(await archiver.getPendingChainValidationStatus()).toEqual(
+      expect.objectContaining({
+        valid: false,
+        reason: 'invalid-attestation',
+        invalidIndex: 0,
+        committee,
+      }),
+    );
 
-    // Now we go for another loop, where a proper block 2 is proposed with correct attestations
+    // Check that InvalidBlockDetected event was emitted for the bad block
+    expect(invalidBlockDetectedSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: L2BlockSourceEvents.InvalidAttestationsBlockDetected,
+        validationResult: expect.objectContaining({ valid: false, reason: 'invalid-attestation', invalidIndex: 0 }),
+      }),
+    );
+
+    // Now another loop, where we propose a block 3 with bad attestations
+    logger.warn(`Adding new block 3 with bad attestations`);
+    publicClient.getBlockNumber.mockResolvedValue(90n);
+    makeL2BlockProposedEvent(85n, 3n, badBlock3.archive.root.toString(), badBlock3BlobHashes);
+    mockRollup.read.status.mockResolvedValue([
+      0n,
+      GENESIS_ROOT,
+      3n,
+      badBlock3.archive.root.toString(),
+      blocks[0].archive.root.toString(),
+    ]);
+    publicClient.getTransaction.mockResolvedValueOnce(badBlock3RollupTx);
+    blobSinkClient.getBlobSidecar.mockResolvedValueOnce(badBlock3Blobs);
+
+    // We should still be at block 1, and the pending chain validation status should still be invalid and point to block 2
+    // since we want the archiver to always return the earliest block with invalid attestations
+    await archiver.syncImmediate();
+    latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(1);
+    const validationStatus = await archiver.getPendingChainValidationStatus();
+    assert(!validationStatus.valid);
+    expect(validationStatus.block.block.number).toEqual(2);
+    expect(validationStatus.block.block.archive.root.toString()).toEqual(badBlock2.archive.root.toString());
+
+    // Check that InvalidBlockDetected event was also emitted for bad block 3
+    expect(invalidBlockDetectedSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: L2BlockSourceEvents.InvalidAttestationsBlockDetected,
+        validationResult: expect.objectContaining({ valid: false, reason: 'invalid-attestation', invalidIndex: 0 }),
+      }),
+    );
+
+    // Should have been called twice total (for blocks 2 and 3)
+    expect(invalidBlockDetectedSpy).toHaveBeenCalledTimes(2);
+
+    // Now we go for another loop, where proper blocks 2 and 3 are proposed with correct attestations
     // IRL there would be an "Invalidated" event, but we are not currently relying on it
-    logger.warn(`Adding new block 2 with correct attestations and a block 3`);
+    logger.warn(`Adding new blocks 2 and 3 with correct attestations`);
     publicClient.getBlockNumber.mockResolvedValue(100n);
-    makeL2BlockProposedEvent(90n, 2n, blocks[1].archive.root.toString(), blobHashes[1]);
+    makeL2BlockProposedEvent(94n, 2n, blocks[1].archive.root.toString(), blobHashes[1]);
     makeL2BlockProposedEvent(95n, 3n, blocks[2].archive.root.toString(), blobHashes[2]);
     mockRollup.read.status.mockResolvedValue([
       0n,
@@ -444,6 +506,7 @@ describe('Archiver', () => {
     );
 
     // Now we should move to block 3
+    await archiver.syncImmediate();
     await waitUntilArchiverBlock(3);
     latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(3);
@@ -453,6 +516,9 @@ describe('Archiver', () => {
     expect(block2.block.number).toEqual(2);
     expect(block2.block.archive.root.toString()).toEqual(blocks[1].archive.root.toString());
     expect(block2.attestations.length).toEqual(3);
+
+    // With a valid pending chain validation status
+    expect(await archiver.getPendingChainValidationStatus()).toEqual(expect.objectContaining({ valid: true }));
   }, 10_000);
 
   it('skip event search if no changes found', async () => {

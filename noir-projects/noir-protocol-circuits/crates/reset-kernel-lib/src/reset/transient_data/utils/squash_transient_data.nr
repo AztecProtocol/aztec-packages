@@ -24,15 +24,15 @@ use dep::types::{
 /// All non-note logs are retained. A note log is retained **only** if it's linked to a note hash that is not squashed.
 ///
 /// @returns Updated `note_hashes`, `nullifiers`, and `logs` arrays with the squashable elements removed.
-pub unconstrained fn squash_transient_data<let NOTE_HASHES_LEN: u32, let NULLIFIERS_LEN: u32, let LOGS_LEN: u32, let SQUASHING_HINTS_LEN: u32>(
-    note_hashes: ClaimedLengthArray<ScopedNoteHash, NOTE_HASHES_LEN>,
-    nullifiers: ClaimedLengthArray<ScopedNullifier, NULLIFIERS_LEN>,
-    logs: ClaimedLengthArray<Scoped<PrivateLogData>, LOGS_LEN>,
-    transient_data_squashing_hints: [TransientDataSquashingHint; SQUASHING_HINTS_LEN],
-    ) -> (ClaimedLengthArray<ScopedNoteHash, NOTE_HASHES_LEN>, ClaimedLengthArray<ScopedNullifier, NULLIFIERS_LEN>, ClaimedLengthArray<Scoped<PrivateLogData>, LOGS_LEN>) {
+pub unconstrained fn squash_transient_data<let NoteHashesLen: u32, let NullifiersLen: u32, let LogsLen: u32, let SquashingHintsLen: u32>(
+    note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
+    nullifiers: ClaimedLengthArray<ScopedNullifier, NullifiersLen>,
+    logs: ClaimedLengthArray<Scoped<PrivateLogData>, LogsLen>,
+    transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
+    ) -> (ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>, ClaimedLengthArray<ScopedNullifier, NullifiersLen>, ClaimedLengthArray<Scoped<PrivateLogData>, LogsLen>) {
     // Create a flag for each note hash and nullifier, indicating whether it is squashed.
-    let mut note_hash_squash_flags = [false; NOTE_HASHES_LEN];
-    let mut nullifier_squash_flags = [false; NULLIFIERS_LEN];
+    let mut note_hash_squash_flags = [false; NoteHashesLen];
+    let mut nullifier_squash_flags = [false; NullifiersLen];
     let num_active_squashing_hints =
         get_num_active_squashing_hints(transient_data_squashing_hints, nullifiers);
     for i in 0..num_active_squashing_hints {
@@ -42,7 +42,7 @@ pub unconstrained fn squash_transient_data<let NOTE_HASHES_LEN: u32, let NULLIFI
     }
 
     // Propagate note hashes that are not squashed:
-    let mut kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NOTE_HASHES_LEN> =
+    let mut kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen> =
         ClaimedLengthArray::empty();
     for i in 0..note_hashes.length {
         if !note_hash_squash_flags[i] {
@@ -51,7 +51,7 @@ pub unconstrained fn squash_transient_data<let NOTE_HASHES_LEN: u32, let NULLIFI
     }
 
     // Propagate nullifiers that are not squashed:
-    let mut kept_nullifiers: ClaimedLengthArray<ScopedNullifier, NULLIFIERS_LEN> =
+    let mut kept_nullifiers: ClaimedLengthArray<ScopedNullifier, NullifiersLen> =
         ClaimedLengthArray::empty();
     for i in 0..nullifiers.length {
         if !nullifier_squash_flags[i] {
@@ -59,7 +59,7 @@ pub unconstrained fn squash_transient_data<let NOTE_HASHES_LEN: u32, let NULLIFI
         }
     }
 
-    let mut kept_logs: ClaimedLengthArray<Scoped<PrivateLogData>, LOGS_LEN> =
+    let mut kept_logs: ClaimedLengthArray<Scoped<PrivateLogData>, LogsLen> =
         ClaimedLengthArray::empty();
     for i in 0..logs.length {
         let log = logs.array[i];

@@ -3,7 +3,7 @@ import { Field, TypeTag, Uint8, Uint16, Uint32, Uint64, Uint128 } from '../avm_m
 import { initContext } from '../fixtures/initializers.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { Addressing, AddressingMode } from './addressing_mode.js';
-import { Add, Div, FieldDiv, Mul, Sub } from './arithmetic.js';
+import { Add, Div, FieldDiv, Mul, Shl, Shr, Sub } from './arithmetic.js';
 
 describe('Arithmetic Instructions', () => {
   let context: AvmContext;
@@ -278,6 +278,166 @@ describe('Arithmetic Instructions', () => {
 
       const actual = context.machineState.memory.get(2);
       expect(actual).toEqual(new Field(2));
+    });
+  });
+
+  describe('SHR', () => {
+    it('Should deserialize correctly', () => {
+      const buf = Buffer.from([
+        Opcode.SHR_16, // opcode
+        0x01, // indirect
+        ...Buffer.from('1234', 'hex'), // aOffset
+        ...Buffer.from('2345', 'hex'), // bOffset
+        ...Buffer.from('3456', 'hex'), // dstOffset
+      ]);
+      const inst = new Shr(/*indirect=*/ 0x01, /*aOffset=*/ 0x1234, /*bOffset=*/ 0x2345, /*dstOffset=*/ 0x3456).as(
+        Opcode.SHR_16,
+        Shr.wireFormat16,
+      );
+
+      expect(Shr.as(Shr.wireFormat16).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
+    });
+
+    it('Should require shift amount to be the same type as the LHS', async () => {
+      const a = new Uint32(0b11111110010011100100n);
+      const b = new Uint8(0n);
+
+      context.machineState.memory.set(0, a);
+      context.machineState.memory.set(1, b);
+
+      await expect(
+        async () => await new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context),
+      ).rejects.toThrow(/got UINT8, expected UINT32/);
+    });
+
+    it('Should shift correctly 0 positions over integral types', async () => {
+      const a = new Uint32(0b11111110010011100100n);
+      const b = new Uint32(0n);
+
+      context.machineState.memory.set(0, a);
+      context.machineState.memory.set(1, b);
+
+      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+
+      const expected = a;
+      const actual = context.machineState.memory.get(2);
+      expect(actual).toEqual(expected);
+    });
+
+    it('Should shift correctly 2 positions over integral types', async () => {
+      const a = new Uint32(0b11111110010011100100n);
+      const b = new Uint32(2n);
+
+      context.machineState.memory.set(0, a);
+      context.machineState.memory.set(1, b);
+
+      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+
+      const expected = new Uint32(0b00111111100100111001n);
+      const actual = context.machineState.memory.get(2);
+      expect(actual).toEqual(expected);
+    });
+
+    it('Should shift correctly 19 positions over integral types', async () => {
+      const a = new Uint32(0b11111110010011100100n);
+      const b = new Uint32(19n);
+
+      context.machineState.memory.set(0, a);
+      context.machineState.memory.set(1, b);
+
+      await new Shr(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+
+      const expected = new Uint32(0b01n);
+      const actual = context.machineState.memory.get(2);
+      expect(actual).toEqual(expected);
+    });
+  });
+
+  describe('SHL', () => {
+    it('Should deserialize correctly', () => {
+      const buf = Buffer.from([
+        Opcode.SHL_16, // opcode
+        0x01, // indirect
+        ...Buffer.from('1234', 'hex'), // aOffset
+        ...Buffer.from('2345', 'hex'), // bOffset
+        ...Buffer.from('3456', 'hex'), // dstOffset
+      ]);
+      const inst = new Shl(/*indirect=*/ 0x01, /*aOffset=*/ 0x1234, /*bOffset=*/ 0x2345, /*dstOffset=*/ 0x3456).as(
+        Opcode.SHL_16,
+        Shl.wireFormat16,
+      );
+
+      expect(Shl.as(Shl.wireFormat16).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
+    });
+
+    it('Should require shift amount to be the same type as the LHS', async () => {
+      const a = new Uint32(0b11111110010011100100n);
+      const b = new Uint8(0n);
+
+      context.machineState.memory.set(0, a);
+      context.machineState.memory.set(1, b);
+
+      await expect(
+        async () => await new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context),
+      ).rejects.toThrow(/got UINT8, expected UINT32/);
+    });
+
+    it('Should shift correctly 0 positions over integral types', async () => {
+      const a = new Uint32(0b11111110010011100100n);
+      const b = new Uint32(0n);
+
+      context.machineState.memory.set(0, a);
+      context.machineState.memory.set(1, b);
+
+      await new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+
+      const expected = a;
+      const actual = context.machineState.memory.get(2);
+      expect(actual).toEqual(expected);
+    });
+
+    it('Should shift correctly 2 positions over integral types', async () => {
+      const a = new Uint32(0b11111110010011100100n);
+      const b = new Uint32(2n);
+
+      context.machineState.memory.set(0, a);
+      context.machineState.memory.set(1, b);
+
+      await new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+
+      const expected = new Uint32(0b1111111001001110010000n);
+      const actual = context.machineState.memory.get(2);
+      expect(actual).toEqual(expected);
+    });
+
+    it('Should shift correctly over bit limit over integral types', async () => {
+      const a = new Uint16(0b1110010011100111n);
+      const b = new Uint16(17n);
+
+      context.machineState.memory.set(0, a);
+      context.machineState.memory.set(1, b);
+
+      await new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+
+      const expected = new Uint16(0n);
+      const actual = context.machineState.memory.get(2);
+      expect(actual).toEqual(expected);
+    });
+
+    it('Should truncate when shifting over bit size over integral types', async () => {
+      const a = new Uint16(0b1110010011100111n);
+      const b = new Uint16(2n);
+
+      context.machineState.memory.set(0, a);
+      context.machineState.memory.set(1, b);
+
+      await new Shl(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).execute(context);
+
+      const expected = new Uint16(0b1001001110011100n);
+      const actual = context.machineState.memory.get(2);
+      expect(actual).toEqual(expected);
     });
   });
 });

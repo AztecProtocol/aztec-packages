@@ -23,7 +23,7 @@ CI3:
   - Restricting resources such a vcpus, memory and storage.
   - Building a single final slim release image from `release-image`.
 - Provides a consistent command interface on `./bootstrap.sh` scripts, e.g. `./bootstrap.sh clean|fast|full|test|test_cmds`.
-- Unifies how projects are tested allowing for a "build then test the entire repo" workflow. Projects expose their individual tests via `test_cmds` and they can all be parallelised at once to leverage maximum system throughput.
+- Unifies how projects are tested allowing for a "build then test the entire repo" workflow. Projects expose their individual tests via `test_cmds` and they can all be parallelized at once to leverage maximum system throughput.
 - Runs on a single (currently large, 128 vcpu) machine.
 - Significantly reduces the chance of flakey tests making their way into master, by "grinding" the tests in the master merge queue. This simply executes the tests as above, but across N instances. (TBD)
 - Provides a shared redis cache at the test level, meaning the same test never needs to be run twice in CI (except when grinding).
@@ -256,6 +256,43 @@ ci rlog
 
 This will also show the last completed log if the run has already completed. You can provide a GA run id (output by `ci trigger`) to see a historical run.
 
+## CI Labels and Automation
+
+### Pull Request Labels
+
+The following labels can be used to control CI behavior on pull requests:
+
+- **`ci-squash-and-merge`**: Automatically squashes all commits in your PR into a single commit. Add this label to trigger squashing. The label is automatically removed after squashing. Thanks to content-based caching (see below), subsequent CI runs will be skipped if the content hasn't changed.
+
+- **`ci-no-squash`**: Exempts the PR from the single-commit requirement. Use when multiple commits are intentional (e.g., merge-train PRs).
+
+- **`ci-merge-queue`**: Simulates merge queue behavior on your PR, running the full test suite.
+
+- **`ci-full`**: Forces a full CI run instead of the default fast run.
+
+- **`ci-docs`**: Runs only documentation-related CI checks.
+
+- **`ci-barretenberg`**: Runs only Barretenberg-related CI checks.
+
+- **`ci-no-cache`**: Disables build caching for this CI run.
+
+- **`ci-no-fail-fast`**: Continues running all tests even if some fail.
+
+### Squash Enforcement
+
+PRs targeting `next` must be squashed to a single commit unless labeled with `ci-no-squash`. PRs targeting other branches (like `merge-train/*`) are automatically exempt from this requirement.
+
+### Top-level Content-Based CI Caching
+
+CI3 has granular caching, but as well it includes an additional layer of caching based on git content. When CI completes successfully, it stores a success marker keyed by the hash of the repository's file tree. On subsequent runs, if the exact same content is detected (same tree hash), CI will skip execution entirely.
+
+This is particularly useful when:
+- You squash commits using `ci-squash-and-merge` - the resulting single commit has the same content, so CI won't re-run
+- You rebase without changes - if the final content is identical, CI is skipped
+- Multiple PRs have identical changes - only the first needs to run CI
+
+The content hash is computed using `git rev-parse HEAD^{tree}`, which provides a unique identifier for the entire file tree state, regardless of commit history.
+
 ## Denoise Logs
 
 When a CI run is taking place and it has a redis cache available, you will see logs like this:
@@ -286,7 +323,7 @@ dl e6b8532f0c020b44
 Let's say you open up a test run log, you'll see something like:
 
 ```
-Command: parallelise 64 (exit: 0)
+Command: parallelize 64 (exit: 0)
 Starting test run with max 64 jobs...
 PASSED (http://ci.aztec-labs.com/736ae186bdf66226): yarn-project/end-to-end/scripts/run_test.sh simple e2e_synching
 PASSED (http://ci.aztec-labs.com/066e837f7af23761): yarn-project/end-to-end/scripts/run_test.sh simple e2e_public_testnet_transfer

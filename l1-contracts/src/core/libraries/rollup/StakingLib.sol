@@ -12,13 +12,12 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {StakingQueueLib, StakingQueue, DepositArgs} from "@aztec/core/libraries/StakingQueue.sol";
 import {TimeLib, Timestamp, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
-import {GSE, AttesterConfig} from "@aztec/governance/GSE.sol";
+import {GSE, AttesterConfig, IGSECore} from "@aztec/governance/GSE.sol";
 import {Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
-import {
-  CompressedTimeMath, CompressedTimestamp
-} from "@aztec/shared/libraries/CompressedTimeMath.sol";
+import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
+import {CompressedTimeMath, CompressedTimestamp} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@oz/utils/math/Math.sol";
@@ -36,6 +35,30 @@ enum Status {
   EXITING
 }
 
+/**
+ * @notice Represents a validator's exit from the staking system
+ * @dev Used to track withdrawal details and timing for validators leaving the system.
+ *      The exit can be created in two scenarios:
+ *      1. Voluntary withdrawal: Validator calls initiateWithdraw() -> recipientOrWithdrawer is the final recipient
+ *      2. Slashing-induced exit: Validator gets slashed -> recipientOrWithdrawer is the withdrawer who must later
+ *         call initiateWithdraw() to specify a recipient
+ *
+ *      The recipientOrWithdrawer field serves dual purposes:
+ *      - When isRecipient=true: This address will receive the withdrawn funds
+ *      - When isRecipient=false: This address (the withdrawer) can call initiateWithdraw() to set a recipient
+ *
+ *      Workflow for slashing-induced exits:
+ *      1. Slashing occurs -> Exit created with recipientOrWithdrawer=withdrawer, isRecipient=false
+ *      2. Withdrawer calls initiateWithdraw() -> Updates to recipientOrWithdrawer=recipient, isRecipient=true
+ *      3. After delay period -> finalizeWithdraw() can transfer funds to the recipient
+ * @param withdrawalId Unique identifier for this withdrawal from the GSE contract
+ * @param amount The amount of stake being withdrawn
+ * @param exitableAt Timestamp when the stake becomes withdrawable after delay period
+ * @param recipientOrWithdrawer Address that can either receive funds (if isRecipient) or initiate withdrawal (if
+ * !isRecipient)
+ * @param isRecipient True if recipientOrWithdrawer is the recipient, false if it's the withdrawer
+ * @param exists True if this exit record exists, false if not yet created
+ */
 struct Exit {
   uint256 withdrawalId;
   uint256 amount;
@@ -100,32 +123,33 @@ library StakingLib {
     emit IStakingCore.SlasherUpdated(oldSlasher, _slasher);
   }
 
+  /**
+   * @notice Vote on a governance proposal with the rollup's voting power
+   * @dev Only votes if:
+   *      1. This rollup is the current canonical instance according to governance proposer
+   *      2. This rollup was canonical when the proposal was created
+   *      3. The proposal was created by the governance proposer
+   * @param _proposalId The ID of the proposal to vote on
+   */
   function vote(uint256 _proposalId) internal {
     StakingStorage storage store = getStorage();
     Governance gov = store.gse.getGovernance();
 
-    // We will vote if:
-    // 1. We are the canonical instance as seen be my the governance proposer
-    // 2. We are the actor that was canonical when the proposal was made in the governance proposer
-    // 3. The proposer in the governance is the governance proposer.
-    // This means that if we only vote if canonical and on our own proposals (assuming that the governance
-    // proposer don't lie to us).
-
     GovernanceProposer govProposer = GovernanceProposer(gov.governanceProposer());
+    // We only vote if we are the canonical instance
     require(address(this) == govProposer.getInstance(), Errors.Staking__NotCanonical(address(this)));
     address proposalProposer = govProposer.getProposalProposer(_proposalId);
+    // We only vote if we were canonical when the proposal was created
     require(
-      address(this) == proposalProposer,
-      Errors.Staking__NotOurProposal(_proposalId, address(this), proposalProposer)
+      address(this) == proposalProposer, Errors.Staking__NotOurProposal(_proposalId, address(this), proposalProposer)
     );
+    // We only vote if the proposal was created by the governance proposer
     Proposal memory proposal = gov.getProposal(_proposalId);
-    require(
-      proposal.proposer == address(govProposer), Errors.Staking__IncorrectGovProposer(_proposalId)
-    );
+    require(proposal.proposer == address(govProposer), Errors.Staking__IncorrectGovProposer(_proposalId));
 
-    Timestamp ts = proposal.pendingThroughMemory();
+    Timestamp ts = proposal.creation + proposal.config.votingDelay;
 
-    // Cast votes will all our power
+    // Cast votes with all our power
     uint256 vp = store.gse.getVotingPowerAt(address(this), ts);
     store.gse.vote(_proposalId, vp, true);
 
@@ -137,12 +161,18 @@ library StakingLib {
     }
   }
 
-  function finaliseWithdraw(address _attester) internal {
+  /**
+   * @notice Completes a validator's withdrawal after the exit delay period
+   * @param _attester The address of the validator completing withdrawal
+   * @dev Reverts if the attester has no valid exit request (Staking__NotExiting) or if the exit delay period has not
+   * elapsed (Staking__WithdrawalNotUnlockedYet)
+   */
+  function finalizeWithdraw(address _attester) internal {
     StakingStorage storage store = getStorage();
     // We load it into memory to cache it, as we will delete it before we use it.
     Exit memory exit = store.exits[_attester];
     require(exit.exists, Errors.Staking__NotExiting(_attester));
-    require(exit.isRecipient, Errors.Staking__NotExiting(_attester));
+    require(exit.isRecipient, Errors.Staking__InitiateWithdrawNeeded(_attester));
     require(
       exit.exitableAt <= Timestamp.wrap(block.timestamp),
       Errors.Staking__WithdrawalNotUnlockedYet(Timestamp.wrap(block.timestamp), exit.exitableAt)
@@ -150,10 +180,10 @@ library StakingLib {
 
     delete store.exits[_attester];
 
-    store.gse.finaliseHelper(exit.withdrawalId);
+    store.gse.finalizeWithdraw(exit.withdrawalId);
     store.stakingAsset.transfer(exit.recipientOrWithdrawer, exit.amount);
 
-    emit IStakingCore.WithdrawFinalised(_attester, exit.recipientOrWithdrawer, exit.amount);
+    emit IStakingCore.WithdrawFinalized(_attester, exit.recipientOrWithdrawer, exit.amount);
   }
 
   function trySlash(address _attester, uint256 _amount) internal returns (bool) {
@@ -164,6 +194,14 @@ library StakingLib {
     return true;
   }
 
+  /**
+   * @notice Slashes a validator's stake as punishment for misbehavior
+   * @dev Only callable by the authorized slasher contract. Handles slashing for both exiting and active validators.
+   *      For exiting validators, reduces their exit amount. For active validators, the balance will be reduced and
+   *      an exit will be created if the remaining stake falls below the ejection threshold.
+   * @param _attester The address of the validator to slash
+   * @param _amount The amount of stake to slash
+   */
   function slash(address _attester, uint256 _amount) internal {
     StakingStorage storage store = getStorage();
     require(msg.sender == store.slasher, Errors.Staking__NotSlasher(store.slasher, msg.sender));
@@ -171,16 +209,13 @@ library StakingLib {
     Exit storage exit = store.exits[_attester];
 
     if (exit.exists) {
-      require(
-        exit.exitableAt > Timestamp.wrap(block.timestamp),
-        Errors.Staking__CannotSlashExitedStake(_attester)
-      );
+      require(exit.exitableAt > Timestamp.wrap(block.timestamp), Errors.Staking__CannotSlashExitedStake(_attester));
 
       // If the slash amount is greater than the exit amount, bound it to the exit amount
       uint256 slashAmount = Math.min(_amount, exit.amount);
 
       if (exit.amount == slashAmount) {
-        // If we slashes the entire thing, nuke it entirely
+        // If we slash the entire thing, nuke it entirely
         delete store.exits[_attester];
       } else {
         exit.amount -= slashAmount;
@@ -188,18 +223,18 @@ library StakingLib {
 
       emit IStakingCore.Slashed(_attester, slashAmount);
     } else {
-      (address withdrawer, bool attesterExists,) = store.gse.getWithdrawer(address(this), _attester);
-      require(attesterExists, Errors.Staking__NoOneToSlash(_attester));
-
       // Get the effective balance of the attester
       uint256 effectiveBalance = store.gse.effectiveBalanceOf(address(this), _attester);
+      require(effectiveBalance > 0, Errors.Staking__NoOneToSlash(_attester));
+
+      address withdrawer = store.gse.getWithdrawer(_attester);
 
       // If the slash amount is greater than the effective balance, bound it to the effective balance
       uint256 slashAmount = Math.min(_amount, effectiveBalance);
 
-      (uint256 amountWithdrawn, bool isRemoved, uint256 withdrawalId) =
-        store.gse.withdraw(_attester, slashAmount);
+      (uint256 amountWithdrawn, bool isRemoved, uint256 withdrawalId) = store.gse.withdraw(_attester, slashAmount);
 
+      // The slashed amount remains in the contract permanently, effectively burning those tokens.
       uint256 toUser = amountWithdrawn - slashAmount;
       if (isRemoved && toUser > 0) {
         // Only if we remove the attester AND there is something left will we create an exit
@@ -217,61 +252,133 @@ library StakingLib {
     }
   }
 
-  function deposit(address _attester, address _withdrawer, bool _moveWithLatestRollup) internal {
+  /**
+   * @notice Deposits stake to add a new validator to the entry queue
+   * @dev Transfers stake from the caller and adds the validator to the entry queue.
+   *      The validator must not already be exiting. The attester and withdrawer addresses
+   *      must be non-zero. The stake amount is fixed at the activation threshold.
+   *      The validator will be processed from the queue in a future flushEntryQueue call.
+   *
+   * @param _attester The address that will act as the validator (sign attestations)
+   * @param _withdrawer The address that can withdraw the stake
+   * @param _publicKeyInG1 The G1 point for the BLS public key (used for efficient signature verification in GSE)
+   * @param _publicKeyInG2 The G2 point for the BLS public key (used for BLS aggregation and pairing operations in GSE)
+   * @param _proofOfPossession The proof of possession to show that the keys in G1 and G2 share the same secret key
+   * @param _moveWithLatestRollup Whether to automatically stake on a new rollup instance after an upgrade
+   */
+  function deposit(
+    address _attester,
+    address _withdrawer,
+    G1Point memory _publicKeyInG1,
+    G2Point memory _publicKeyInG2,
+    G1Point memory _proofOfPossession,
+    bool _moveWithLatestRollup
+  ) internal {
     require(
-      _attester != address(0) && _withdrawer != address(0),
-      Errors.Staking__InvalidDeposit(_attester, _withdrawer)
+      _attester != address(0) && _withdrawer != address(0), Errors.Staking__InvalidDeposit(_attester, _withdrawer)
     );
     StakingStorage storage store = getStorage();
     // We don't allow deposits, if we are currently exiting.
     require(!store.exits[_attester].exists, Errors.Staking__AlreadyExiting(_attester));
-    uint256 amount = store.gse.DEPOSIT_AMOUNT();
+    uint256 amount = store.gse.ACTIVATION_THRESHOLD();
 
     store.stakingAsset.transferFrom(msg.sender, address(this), amount);
-    store.entryQueue.enqueue(_attester, _withdrawer, _moveWithLatestRollup);
+    store.entryQueue.enqueue(
+      _attester, _withdrawer, _publicKeyInG1, _publicKeyInG2, _proofOfPossession, _moveWithLatestRollup
+    );
     emit IStakingCore.ValidatorQueued(_attester, _withdrawer);
   }
 
-  function flushEntryQueue(uint256 _maxAddableValidators) internal {
-    if (_maxAddableValidators == 0) {
+  /**
+   * @notice Processes the validator entry queue to add new validators to the active set
+   * @dev Processes up to _maxAddableValidators entries from the queue, attempting to deposit each validator into
+   *      the Governance Staking Escrow (GSE).
+   *
+   *      For each validator:
+   *      - Dequeues their entry from the queue
+   *      - Attempts to deposit them into the GSE contract
+   *      - On success: emits Deposit event
+   *      - On failure: refunds their stake and emits FailedDeposit event
+   *
+   *      The function will revert if:
+   *      - The current epoch is before nextFlushableEpoch (max 1 flush per epoch). This limit:
+   *        1. Controls validator set growth by only allowing a fixed number of additions per epoch (we can flush at
+   *           most maxQueueFlushSize validators at once - hence the limit)
+   *        2. Aligns with committee selection which happens once per epoch anyway
+   *        3. Groups validator additions into epoch-sized chunks for efficient binary searches (fewer snapshots in
+   *           GSE)
+   *      - A deposit fails due to out of gas (to prevent queue draining attacks)
+   *
+   *      The function approves the GSE contract to spend the total stake amount needed for all deposits,
+   *      then revokes the approval after processing is complete.
+   *
+   */
+  function flushEntryQueue() internal {
+    uint256 maxAddableValidators = getEntryQueueFlushSize();
+    if (maxAddableValidators == 0) {
       return;
     }
 
     Epoch currentEpoch = TimeLib.epochFromTimestamp(Timestamp.wrap(block.timestamp));
     StakingStorage storage store = getStorage();
-    require(
-      store.nextFlushableEpoch <= currentEpoch, Errors.Staking__QueueAlreadyFlushed(currentEpoch)
-    );
+    require(store.nextFlushableEpoch <= currentEpoch, Errors.Staking__QueueAlreadyFlushed(currentEpoch));
     store.nextFlushableEpoch = currentEpoch + Epoch.wrap(1);
-    uint256 amount = store.gse.DEPOSIT_AMOUNT();
+    uint256 amount = store.gse.ACTIVATION_THRESHOLD();
 
     uint256 queueLength = store.entryQueue.length();
-    uint256 numToDequeue = Math.min(_maxAddableValidators, queueLength);
+    uint256 numToDequeue = Math.min(maxAddableValidators, queueLength);
+    // Approve the GSE to spend the total stake amount needed for all deposits.
     store.stakingAsset.approve(address(store.gse), amount * numToDequeue);
     for (uint256 i = 0; i < numToDequeue; i++) {
       DepositArgs memory args = store.entryQueue.dequeue();
       (bool success, bytes memory data) = address(store.gse).call(
         abi.encodeWithSelector(
-          IStakingCore.deposit.selector, args.attester, args.withdrawer, args.moveWithLatestRollup
+          IGSECore.deposit.selector,
+          args.attester,
+          args.withdrawer,
+          args.publicKeyInG1,
+          args.publicKeyInG2,
+          args.proofOfPossession,
+          args.moveWithLatestRollup
         )
       );
       if (success) {
-        emit IStakingCore.Deposit(args.attester, args.withdrawer, amount);
+        emit IStakingCore.Deposit(
+          args.attester, args.withdrawer, args.publicKeyInG1, args.publicKeyInG2, args.proofOfPossession, amount
+        );
       } else {
-        // If the deposit fails, we generally ignore it, since we need to continue dequeuing to prevent DoS.
-        // However, if the data is empty, we can assume that the deposit failed due to out of gas, since
-        // we are only calling trusted contracts as part of gse.deposit.
-        // When this happens, we need to revert the whole transaction, else it is possible to
-        // empty the queue without making any deposits: e.g. the deposit always runs OOG, but
-        // we have enough gas to refund/dequeue.
+        // If the deposit fails, we need to handle two cases:
+        // 1. Normal failure (data.length > 0): We return the funds to the withdrawer and continue processing
+        //    the queue. This prevents a single failed deposit from blocking the entire queue.
+        // 2. Out of gas failure (data.length == 0): We revert the entire transaction. This prevents an attack
+        //    where someone could drain the queue without making any deposits.
+        //    We can safely assume data.length == 0 means out of gas since we only call trusted GSE contract.
         require(data.length > 0, Errors.Staking__DepositOutOfGas());
         store.stakingAsset.transfer(args.withdrawer, amount);
-        emit IStakingCore.FailedDeposit(args.attester, args.withdrawer);
+        emit IStakingCore.FailedDeposit(
+          args.attester, args.withdrawer, args.publicKeyInG1, args.publicKeyInG2, args.proofOfPossession
+        );
       }
     }
     store.stakingAsset.approve(address(store.gse), 0);
   }
 
+  /**
+   * @notice Initiates withdrawal of a validator's stake
+   * @dev Can be called by the registered withdrawer to start the exit process for a validator.
+   *      Handles two cases:
+   *      1. If an exit already exists (e.g. from slashing):
+   *         - Only allows updating recipient if caller is withdrawer
+   *         - Does not update the exit delay timer
+   *      2. If no exit exists:
+   *         - Requires validator has non-zero balance
+   *         - Only allows registered withdrawer to initiate
+   *         - Withdraws stake from GSE contract
+   *         - Creates new exit with delay timer
+   * @param _attester The validator address to withdraw stake for
+   * @param _recipient The address that will receive the withdrawn stake
+   * @return True if withdrawal was successfully initiated
+   */
   function initiateWithdraw(address _attester, address _recipient) internal returns (bool) {
     require(_recipient != address(0), Errors.Staking__InvalidRecipient(_recipient));
     StakingStorage storage store = getStorage();
@@ -291,13 +398,13 @@ library StakingLib {
 
       emit IStakingCore.WithdrawInitiated(_attester, _recipient, store.exits[_attester].amount);
     } else {
-      (address withdrawer, bool attesterExists,) = store.gse.getWithdrawer(address(this), _attester);
-      require(attesterExists, Errors.Staking__NothingToExit(_attester));
+      uint256 effectiveBalance = store.gse.effectiveBalanceOf(address(this), _attester);
+      require(effectiveBalance > 0, Errors.Staking__NothingToExit(_attester));
+
+      address withdrawer = store.gse.getWithdrawer(_attester);
       require(msg.sender == withdrawer, Errors.Staking__NotWithdrawer(withdrawer, msg.sender));
 
-      uint256 amount = store.gse.effectiveBalanceOf(address(this), _attester);
-      (uint256 actualAmount, bool removed, uint256 withdrawalId) =
-        store.gse.withdraw(_attester, amount);
+      (uint256 actualAmount, bool removed, uint256 withdrawalId) = store.gse.withdraw(_attester, effectiveBalance);
       require(removed, Errors.Staking__WithdrawFailed(_attester));
 
       store.exits[_attester] = Exit({
@@ -335,29 +442,19 @@ library StakingLib {
       return exit.exitableAt > Timestamp.wrap(block.timestamp);
     }
 
-    (, bool attesterExists,) = store.gse.getWithdrawer(address(this), _attester);
-    return attesterExists;
+    uint256 effectiveBalance = store.gse.effectiveBalanceOf(address(this), _attester);
+    return effectiveBalance > 0;
   }
 
   function getAttesterCountAtTime(Timestamp _timestamp) internal view returns (uint256) {
     return getStorage().gse.getAttesterCountAtTime(address(this), _timestamp);
   }
 
-  function getAttestersAtTime(Timestamp _timestamp) internal view returns (address[] memory) {
-    return getStorage().gse.getAttestersAtTime(address(this), _timestamp);
-  }
-
   function getAttesterAtIndex(uint256 _index) internal view returns (address) {
-    return getStorage().gse.getAttesterFromIndexAtTime(
-      address(this), _index, Timestamp.wrap(block.timestamp)
-    );
+    return getStorage().gse.getAttesterFromIndexAtTime(address(this), _index, Timestamp.wrap(block.timestamp));
   }
 
-  function getAttesterFromIndexAtTime(uint256 _index, Timestamp _timestamp)
-    internal
-    view
-    returns (address)
-  {
+  function getAttesterFromIndexAtTime(uint256 _index, Timestamp _timestamp) internal view returns (address) {
     return getStorage().gse.getAttesterFromIndexAtTime(address(this), _index, _timestamp);
   }
 
@@ -374,7 +471,7 @@ library StakingLib {
   }
 
   function getConfig(address _attester) internal view returns (AttesterConfig memory) {
-    return getStorage().gse.getConfig(address(this), _attester);
+    return getStorage().gse.getConfig(_attester);
   }
 
   function getAttesterView(address _attester) internal view returns (AttesterView memory) {
@@ -401,14 +498,27 @@ library StakingLib {
   }
 
   /**
-   * @notice Determines the maximum number of validators that can be flushed from the entry queue
-   * @dev Implements three-phase validator set management:
-   *      1. Bootstrap phase: When no validators exist, the queue must grow to the bootstrap validator set size
-   *      2. Growth phase: When validators are below target size, adds a large fixed batch size
-   *      3. Normal phase: When at target size, adds proportional amount based on current set size
+   * @notice Determines the maximum number of validators that could be flushed from the entry queue if there were
+   * an unlimited number of validators in the queue - this function provides a theoretical limit.
+   * @dev Implements three-phase validator set management to control initial validator onboarding (called floodgates):
+   *      1. Bootstrap phase: When no active validators exist, the queue must grow to the bootstrap validator set size
+   *         constant from config before any validators can be flushed. This creates an initial "floodgate" that
+   *         prevents small numbers of validators from activating before reaching the desired bootstrap size.
+   *      2. Growth phase: Once the bootstrap size is reached, allows a large fixed batch size (bootstrapFlushSize) to
+   *         be flushed at once. This enables the initial large cohort of validators to activate together.
+   *      3. Normal phase: After the initial bootstrap and growth phases, returns a number proportional to the current
+   *         set size for conservative steady-state growth, unless constrained by configuration (`normalFlushSizeMin`).
    *
-   *      All phases are subject to a hard cap of `MAX_QUEUE_FLUSH_SIZE`.
-   * @return - The maximum number of validators that can be flushed from the entry queue
+   *      All phases are subject to a hard cap of `maxQueueFlushSize`.
+   *
+   *      The motivation for floodgates is that the whole system starts producing blocks with what is considered
+   *      a sufficiently decentralized set of validators.
+   *
+   *      Note that Governance has the ability to close the validator set for this instance by setting
+   *      `normalFlushSizeMin` to zero and `normalFlushSizeQuotient` to a very high value. If this is done, this
+   *      function will always return zero and no new validator can enter.
+   *
+   * @return - The maximum number of validators that could be flushed from the entry queue.
    */
   function getEntryQueueFlushSize() internal view returns (uint256) {
     StakingStorage storage store = getStorage();
@@ -417,7 +527,7 @@ library StakingLib {
     uint256 activeAttesterCount = getAttesterCountAtTime(Timestamp.wrap(block.timestamp));
     uint256 queueSize = store.entryQueue.length();
 
-    // Only if there is bootstrap values configured will we look into boostrap or growth phases.
+    // Only if there is bootstrap values configured will we look into bootstrap or growth phases.
     if (config.bootstrapValidatorSetSize > 0) {
       // If bootstrap:
       if (activeAttesterCount == 0 && queueSize < config.bootstrapValidatorSetSize) {
@@ -426,13 +536,14 @@ library StakingLib {
 
       // If growth:
       if (activeAttesterCount < config.bootstrapValidatorSetSize) {
-        return Math.min(config.bootstrapFlushSize, StakingQueueLib.MAX_QUEUE_FLUSH_SIZE);
+        return Math.min(config.bootstrapFlushSize, config.maxQueueFlushSize);
       }
     }
 
+    // If normal:
     return Math.min(
       Math.max(activeAttesterCount / config.normalFlushSizeQuotient, config.normalFlushSizeMin),
-      StakingQueueLib.MAX_QUEUE_FLUSH_SIZE
+      config.maxQueueFlushSize
     );
   }
 

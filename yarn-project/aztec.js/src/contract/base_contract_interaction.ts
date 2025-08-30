@@ -1,8 +1,15 @@
+import {
+  GAS_ESTIMATION_DA_GAS_LIMIT,
+  GAS_ESTIMATION_L2_GAS_LIMIT,
+  GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT,
+  GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT,
+} from '@aztec/constants';
 import type { FeeOptions, TxExecutionOptions, UserFeeOptions } from '@aztec/entrypoints/interfaces';
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { createLogger } from '@aztec/foundation/log';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
-import { GasSettings } from '@aztec/stdlib/gas';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import type { Capsule, TxExecutionRequest, TxProvingResult } from '@aztec/stdlib/tx';
 
 import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
@@ -47,7 +54,12 @@ export abstract class BaseContractInteraction {
    * @param options - optional arguments to be used in the creation of the transaction
    * @returns The proving result.
    */
-  protected async proveInternal(options: SendMethodOptions = {}): Promise<TxProvingResult> {
+  protected async proveInternal(options: SendMethodOptions): Promise<TxProvingResult> {
+    if (options.from !== AztecAddress.ZERO && !options.from.equals(this.wallet.getAddress())) {
+      throw new Error(
+        `The address provided as from does not match the wallet address. Expected ${this.wallet.getAddress().toString()}, got ${options.from.toString()}.`,
+      );
+    }
     const txRequest = await this.create(options);
     return await this.wallet.proveTx(txRequest);
   }
@@ -58,7 +70,7 @@ export abstract class BaseContractInteraction {
    * @param options - optional arguments to be used in the creation of the transaction
    * @returns The resulting transaction
    */
-  public async prove(options: SendMethodOptions = {}): Promise<ProvenTx> {
+  public async prove(options: SendMethodOptions): Promise<ProvenTx> {
     // docs:end:prove
     const txProvingResult = await this.proveInternal(options);
     return new ProvenTx(
@@ -79,7 +91,7 @@ export abstract class BaseContractInteraction {
    * the AztecAddress of the sender. If not provided, the default address is used.
    * @returns A SentTx instance for tracking the transaction status and information.
    */
-  public send(options: SendMethodOptions = {}): SentTx {
+  public send(options: SendMethodOptions): SentTx {
     // docs:end:send
     const sendTx = async () => {
       const txProvingResult = await this.proveInternal(options);
@@ -91,26 +103,18 @@ export abstract class BaseContractInteraction {
   // docs:start:estimateGas
   /**
    * Estimates gas for a given tx request and returns gas limits for it.
-   * @param opts - Options.
-   * @param pad - Percentage to pad the suggested gas limits by, if empty, defaults to 10%.
+   * @param options - Options.
    * @returns Gas limits.
    */
   public async estimateGas(
-    opts?: Omit<SendMethodOptions, 'estimateGas'>,
+    options: Omit<SendMethodOptions, 'estimateGas'>,
   ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
     // docs:end:estimateGas
-    const txRequest = await this.create({ ...opts, fee: { ...opts?.fee, estimateGas: false } });
-    const simulationResult = await this.wallet.simulateTx(
-      txRequest,
-      true /*simulatePublic*/,
-      undefined /* skipTxValidation */,
-      true /* skipFeeEnforcement */,
-    );
-    const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(
-      simulationResult,
-      opts?.fee?.estimatedGasPadding,
-    );
-    return { gasLimits, teardownGasLimits };
+    const txRequest = await this.create({ ...options, fee: { ...options?.fee, estimateGas: true } });
+    return {
+      gasLimits: txRequest.txContext.gasSettings.gasLimits,
+      teardownGasLimits: txRequest.txContext.gasSettings.teardownGasLimits,
+    };
   }
 
   /**
@@ -147,7 +151,15 @@ export abstract class BaseContractInteraction {
 
     let gasSettings = defaultFeeOptions.gasSettings;
     if (fee?.estimateGas) {
-      const feeForEstimation: FeeOptions = { paymentMethod, gasSettings };
+      // Use unrealistically high gas limits for estimation to avoid running out of gas.
+      // They will be tuned down after the simulation.
+      const gasSettingsForEstimation = new GasSettings(
+        new Gas(GAS_ESTIMATION_DA_GAS_LIMIT, GAS_ESTIMATION_L2_GAS_LIMIT),
+        new Gas(GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT, GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT),
+        maxFeesPerGas,
+        maxPriorityFeesPerGas,
+      );
+      const feeForEstimation: FeeOptions = { paymentMethod, gasSettings: gasSettingsForEstimation };
       const txRequest = await this.wallet.createTxExecutionRequest(executionPayload, feeForEstimation, options);
       const simulationResult = await this.wallet.simulateTx(
         txRequest,
@@ -155,10 +167,7 @@ export abstract class BaseContractInteraction {
         undefined /* skipTxValidation */,
         true /* skipFeeEnforcement */,
       );
-      const { totalGas: gasLimits, teardownGas: teardownGasLimits } = getGasLimits(
-        simulationResult,
-        fee?.estimatedGasPadding,
-      );
+      const { gasLimits, teardownGasLimits } = getGasLimits(simulationResult, fee?.estimatedGasPadding);
       gasSettings = GasSettings.from({ maxFeesPerGas, maxPriorityFeesPerGas, gasLimits, teardownGasLimits });
       this.log.verbose(
         `Estimated gas limits for tx: DA=${gasLimits.daGas} L2=${gasLimits.l2Gas} teardownDA=${teardownGasLimits.daGas} teardownL2=${teardownGasLimits.l2Gas}`,

@@ -19,6 +19,9 @@
       "path": "../foundation"
     },
     {
+      "path": "../node-keystore"
+    },
+    {
       "path": "../p2p"
     },
     {

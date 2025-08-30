@@ -1,6 +1,7 @@
 ---
 title: Aztec.nr
 tags: [aztec.nr]
+description: Comprehensive guide to writing smart contracts for the Aztec network using Noir.
 ---
 
 import DocCardList from "@theme/DocCardList";
@@ -12,7 +13,7 @@ help you write Noir programs to deploy on the Aztec network.
 
 ### Prerequisites
 
-- Install [Aztec Sandbox and tooling](../../getting_started.md)
+- Install [Aztec Sandbox and tooling](../../getting_started/getting_started_on_sandbox.md)
 - Install the [Noir LSP](../local_env/installing_noir_lsp.md) for your editor.
 
 ### Flow
@@ -29,8 +30,8 @@ aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_
 2.  [Write your contracts](./writing_contracts/index.mdx).
 3.  [Profile](./profiling_transactions.md) the private functions in your contract to get
     a sense of how long generating client side proofs will take
-4.  Write unit tests [using the TXE](testing.md) and end-to-end
-    tests [with typescript](../js_apps/test.md)
+4.  Write unit tests [directly in Noir](testing.md) and end-to-end
+    tests [with TypeScript](../js_apps/test.md)
 5.  [Compile](how_to_compile_contract.md) your contract
 6.  [Deploy](../js_apps/deploy_contract.md) your contract with Aztec.js
 

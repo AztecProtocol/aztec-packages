@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/simulation/context_provider.hpp"
 #include "barretenberg/vm2/simulation/events/tx_context_event.hpp"
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
 #include "barretenberg/vm2/simulation/written_public_data_slots_tree_check.hpp"
@@ -10,7 +11,9 @@ namespace bb::avm2::simulation {
 struct TxContext {
     HighLevelMerkleDBInterface& merkle_db;
     WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree;
+    ContextProviderInterface& context_provider;
     Gas gas_used = { 0, 0 };
+    SideEffectStates side_effect_states = { 0, 0 };
 
     TxContextEvent serialize_tx_context_event() const
     {
@@ -18,6 +21,8 @@ struct TxContext {
             .gas_used = gas_used,
             .tree_states = merkle_db.get_tree_state(),
             .written_public_data_slots_tree_snapshot = written_public_data_slots_tree.snapshot(),
+            .side_effect_states = side_effect_states,
+            .next_context_id = context_provider.get_next_context_id(),
         };
     }
 };

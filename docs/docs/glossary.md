@@ -1,6 +1,7 @@
 ---
 title: Glossary
 tags: [protocol, glossary]
+description: Comprehensive glossary of terms used throughout the Aztec documentation and protocol.
 ---
 
 import { Glossary } from '@site/src/components/Snippets/glossary_snippets';
@@ -114,10 +115,6 @@ Previously in [Aztec Connect](https://medium.com/aztec-protocol/sunsetting-aztec
 Programs that run on the Aztec network are called smart contracts, similar to [programs](https://ethereum.org/en/developers/docs/smart-contracts/) that run on Ethereum.
 
 However, these will be written in the [Noir](https://noir-lang.org/index.html) programming language, and may optionally include private state and private functions.
-
-### Testing eXecution Environment (TXE)
-
-<Glossary.TXE />
 
 ### Proving Key
 

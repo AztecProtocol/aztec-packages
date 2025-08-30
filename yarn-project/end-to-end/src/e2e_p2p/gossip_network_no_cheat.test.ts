@@ -1,7 +1,8 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { EthAddress, sleep } from '@aztec/aztec.js';
+import { EthAddress, Fr, sleep } from '@aztec/aztec.js';
 import { addL1Validator } from '@aztec/cli/l1';
+import { RollupContract } from '@aztec/ethereum';
 import { MockZKPassportVerifierAbi } from '@aztec/l1-artifacts/MockZKPassportVerifierAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { StakingAssetHandlerAbi } from '@aztec/l1-artifacts/StakingAssetHandlerAbi';
@@ -91,6 +92,8 @@ describe('e2e_p2p_network', () => {
 
     const { validators } = t.getValidators();
 
+    const rollupWrapper = RollupContract.getFromL1ContractsValues(t.ctx.deployL1ContractsValues);
+
     const rollup = getContract({
       address: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
       abi: RollupAbi,
@@ -109,7 +112,7 @@ describe('e2e_p2p_network', () => {
       client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
-    expect((await rollup.read.getAttesters()).length).toBe(0);
+    expect((await rollupWrapper.getAttesters()).length).toBe(0);
 
     // Add the validators to the rollup using the same function as the CLI
     for (let i = 0; i < validators.length; i++) {
@@ -124,6 +127,7 @@ describe('e2e_p2p_network', () => {
         merkleProof: [], // empty merkle proof - check is disabled in the test
         stakingAssetHandlerAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetHandlerAddress!,
         proofParams: mockPassportProof,
+        blsSecretKey: Fr.random().toBigInt(),
         log: t.logger.info,
         debugLogger: t.logger,
       });
@@ -139,13 +143,13 @@ describe('e2e_p2p_network', () => {
       hash: await rollup.write.flushEntryQueue(),
     });
 
-    const attestersImmedatelyAfterAdding = await rollup.read.getAttesters();
+    const attestersImmedatelyAfterAdding = await rollupWrapper.getAttesters();
     expect(attestersImmedatelyAfterAdding.length).toBe(validators.length);
 
     // Check that the validators are added correctly
     const withdrawer = await stakingAssetHandler.read.withdrawer();
     for (const validator of validators) {
-      const info = await rollup.read.getAttesterView([validator.attester.toString()]);
+      const info = await rollupWrapper.getAttesterView(validator.attester.toString());
       expect(info.config.withdrawer).toBe(withdrawer);
     }
 
@@ -153,7 +157,7 @@ describe('e2e_p2p_network', () => {
     const timestamp = await t.ctx.cheatCodes.rollup.advanceToEpoch(2n);
 
     // Changes have now taken effect
-    const attesters = await rollup.read.getAttesters();
+    const attesters = await rollupWrapper.getAttesters();
     expect(attesters.length).toBe(validators.length);
     expect(attesters.length).toBe(NUM_VALIDATORS);
 

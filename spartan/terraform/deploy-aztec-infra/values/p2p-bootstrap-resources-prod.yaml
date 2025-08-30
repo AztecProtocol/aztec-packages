@@ -1,0 +1,37 @@
+hostNetwork: true
+
+nodeSelector:
+  local-ssd: "false"
+  node-type: "network"
+
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: app
+              operator: In
+              values:
+                - node
+        topologyKey: "kubernetes.io/hostname"
+        namespaceSelector: {}
+
+node:
+  resources:
+    requests:
+      cpu: "1"
+      memory: "2Gi"
+
+persistence:
+  enabled: true
+
+statefulSet:
+  enabled: true
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 4Gi

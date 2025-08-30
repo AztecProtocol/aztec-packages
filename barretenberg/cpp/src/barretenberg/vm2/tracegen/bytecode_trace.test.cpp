@@ -55,8 +55,9 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
                       ROW_FIELD_EQ(bc_decomposition_bytes_pc_plus_4, 0),
                       ROW_FIELD_EQ(bc_decomposition_pc, 0),
                       ROW_FIELD_EQ(bc_decomposition_bytes_remaining, 4),
-                      ROW_FIELD_EQ(bc_decomposition_sel_overflow_correction_needed, 1),
-                      ROW_FIELD_EQ(bc_decomposition_abs_diff, DECOMPOSE_WINDOW_SIZE - 4),
+                      ROW_FIELD_EQ(bc_decomposition_sel_windows_gt_remaining, 1),
+                      ROW_FIELD_EQ(bc_decomposition_windows_min_remaining_inv, FF(DECOMPOSE_WINDOW_SIZE - 4).invert()),
+                      ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, 0),
                       ROW_FIELD_EQ(bc_decomposition_bytes_to_read, 4),
                       ROW_FIELD_EQ(bc_decomposition_last_of_contract, 0)));
 
@@ -69,8 +70,9 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
                       ROW_FIELD_EQ(bc_decomposition_bytes_pc_plus_3, 0),
                       ROW_FIELD_EQ(bc_decomposition_pc, 1),
                       ROW_FIELD_EQ(bc_decomposition_bytes_remaining, 3),
-                      ROW_FIELD_EQ(bc_decomposition_sel_overflow_correction_needed, 1),
-                      ROW_FIELD_EQ(bc_decomposition_abs_diff, DECOMPOSE_WINDOW_SIZE - 3),
+                      ROW_FIELD_EQ(bc_decomposition_sel_windows_gt_remaining, 1),
+                      ROW_FIELD_EQ(bc_decomposition_windows_min_remaining_inv, FF(DECOMPOSE_WINDOW_SIZE - 3).invert()),
+                      ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, 0),
                       ROW_FIELD_EQ(bc_decomposition_bytes_to_read, 3),
                       ROW_FIELD_EQ(bc_decomposition_last_of_contract, 0)));
 
@@ -82,8 +84,9 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
                       ROW_FIELD_EQ(bc_decomposition_bytes_pc_plus_2, 0),
                       ROW_FIELD_EQ(bc_decomposition_pc, 2),
                       ROW_FIELD_EQ(bc_decomposition_bytes_remaining, 2),
-                      ROW_FIELD_EQ(bc_decomposition_sel_overflow_correction_needed, 1),
-                      ROW_FIELD_EQ(bc_decomposition_abs_diff, DECOMPOSE_WINDOW_SIZE - 2),
+                      ROW_FIELD_EQ(bc_decomposition_sel_windows_gt_remaining, 1),
+                      ROW_FIELD_EQ(bc_decomposition_windows_min_remaining_inv, FF(DECOMPOSE_WINDOW_SIZE - 2).invert()),
+                      ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, 0),
                       ROW_FIELD_EQ(bc_decomposition_bytes_to_read, 2),
                       ROW_FIELD_EQ(bc_decomposition_last_of_contract, 0)));
 
@@ -94,8 +97,9 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
                       ROW_FIELD_EQ(bc_decomposition_bytes_pc_plus_1, 0),
                       ROW_FIELD_EQ(bc_decomposition_pc, 3),
                       ROW_FIELD_EQ(bc_decomposition_bytes_remaining, 1),
-                      ROW_FIELD_EQ(bc_decomposition_sel_overflow_correction_needed, 1),
-                      ROW_FIELD_EQ(bc_decomposition_abs_diff, DECOMPOSE_WINDOW_SIZE - 1),
+                      ROW_FIELD_EQ(bc_decomposition_sel_windows_gt_remaining, 1),
+                      ROW_FIELD_EQ(bc_decomposition_windows_min_remaining_inv, FF(DECOMPOSE_WINDOW_SIZE - 1).invert()),
+                      ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, 0),
                       ROW_FIELD_EQ(bc_decomposition_bytes_to_read, 1),
                       ROW_FIELD_EQ(bc_decomposition_last_of_contract, 1)));
 }
@@ -135,8 +139,9 @@ TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
                       ROW_FIELD_EQ(bc_decomposition_bytes, first_byte),
                       ROW_FIELD_EQ(bc_decomposition_pc, 0),
                       ROW_FIELD_EQ(bc_decomposition_bytes_remaining, bytecode_size),
-                      ROW_FIELD_EQ(bc_decomposition_sel_overflow_correction_needed, 0),
-                      ROW_FIELD_EQ(bc_decomposition_abs_diff, 8),
+                      ROW_FIELD_EQ(bc_decomposition_sel_windows_gt_remaining, 0),
+                      ROW_FIELD_EQ(bc_decomposition_windows_min_remaining_inv, FF(-8).invert()),
+                      ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, 0),
                       ROW_FIELD_EQ(bc_decomposition_bytes_to_read, DECOMPOSE_WINDOW_SIZE),
                       ROW_FIELD_EQ(bc_decomposition_last_of_contract, 0)));
 
@@ -148,8 +153,9 @@ TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
                       ROW_FIELD_EQ(bc_decomposition_bytes, first_byte + 8),
                       ROW_FIELD_EQ(bc_decomposition_pc, 8),
                       ROW_FIELD_EQ(bc_decomposition_bytes_remaining, DECOMPOSE_WINDOW_SIZE),
-                      ROW_FIELD_EQ(bc_decomposition_sel_overflow_correction_needed, 0),
-                      ROW_FIELD_EQ(bc_decomposition_abs_diff, 0),
+                      ROW_FIELD_EQ(bc_decomposition_sel_windows_gt_remaining, 0),
+                      ROW_FIELD_EQ(bc_decomposition_windows_min_remaining_inv, 0),
+                      ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, 1),
                       ROW_FIELD_EQ(bc_decomposition_bytes_to_read, DECOMPOSE_WINDOW_SIZE),
                       ROW_FIELD_EQ(bc_decomposition_last_of_contract, 0)));
 
@@ -159,8 +165,9 @@ TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
                       ROW_FIELD_EQ(bc_decomposition_bytes, first_byte + 9),
                       ROW_FIELD_EQ(bc_decomposition_pc, 9),
                       ROW_FIELD_EQ(bc_decomposition_bytes_remaining, DECOMPOSE_WINDOW_SIZE - 1),
-                      ROW_FIELD_EQ(bc_decomposition_sel_overflow_correction_needed, 1),
-                      ROW_FIELD_EQ(bc_decomposition_abs_diff, 1),
+                      ROW_FIELD_EQ(bc_decomposition_sel_windows_gt_remaining, 1),
+                      ROW_FIELD_EQ(bc_decomposition_windows_min_remaining_inv, 1),
+                      ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, 0),
                       ROW_FIELD_EQ(bc_decomposition_bytes_to_read, DECOMPOSE_WINDOW_SIZE - 1),
                       ROW_FIELD_EQ(bc_decomposition_last_of_contract, 0)));
 
@@ -171,8 +178,9 @@ TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
                       ROW_FIELD_EQ(bc_decomposition_bytes, first_byte + bytecode_size - 1),
                       ROW_FIELD_EQ(bc_decomposition_pc, bytecode_size - 1),
                       ROW_FIELD_EQ(bc_decomposition_bytes_remaining, 1),
-                      ROW_FIELD_EQ(bc_decomposition_sel_overflow_correction_needed, 1),
-                      ROW_FIELD_EQ(bc_decomposition_abs_diff, DECOMPOSE_WINDOW_SIZE - 1),
+                      ROW_FIELD_EQ(bc_decomposition_sel_windows_gt_remaining, 1),
+                      ROW_FIELD_EQ(bc_decomposition_windows_min_remaining_inv, FF(DECOMPOSE_WINDOW_SIZE - 1).invert()),
+                      ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, 0),
                       ROW_FIELD_EQ(bc_decomposition_bytes_to_read, 1),
                       ROW_FIELD_EQ(bc_decomposition_last_of_contract, 1)));
 }
@@ -223,18 +231,20 @@ TEST(BytecodeTraceGenTest, MultipleEvents)
     for (uint32_t i = 0; i < 4; i++) {
         for (uint32_t j = 0; j < bc_sizes[i]; j++) {
             const auto bytes_rem = bc_sizes[i] - j;
-            EXPECT_THAT(rows.at(row_pos),
-                        AllOf(ROW_FIELD_EQ(bc_decomposition_sel, 1),
-                              ROW_FIELD_EQ(bc_decomposition_id, i),
-                              ROW_FIELD_EQ(bc_decomposition_pc, j),
-                              ROW_FIELD_EQ(bc_decomposition_bytes_remaining, bytes_rem),
-                              ROW_FIELD_EQ(bc_decomposition_sel_overflow_correction_needed,
-                                           bytes_rem < DECOMPOSE_WINDOW_SIZE ? 1 : 0),
-                              ROW_FIELD_EQ(bc_decomposition_abs_diff,
-                                           bytes_rem < DECOMPOSE_WINDOW_SIZE ? DECOMPOSE_WINDOW_SIZE - bytes_rem
-                                                                             : bytes_rem - DECOMPOSE_WINDOW_SIZE),
-                              ROW_FIELD_EQ(bc_decomposition_bytes_to_read, std::min(DECOMPOSE_WINDOW_SIZE, bytes_rem)),
-                              ROW_FIELD_EQ(bc_decomposition_last_of_contract, j == bc_sizes[i] - 1 ? 1 : 0)));
+            EXPECT_THAT(
+                rows.at(row_pos),
+                AllOf(
+                    ROW_FIELD_EQ(bc_decomposition_sel, 1),
+                    ROW_FIELD_EQ(bc_decomposition_id, i),
+                    ROW_FIELD_EQ(bc_decomposition_pc, j),
+                    ROW_FIELD_EQ(bc_decomposition_bytes_remaining, bytes_rem),
+                    ROW_FIELD_EQ(bc_decomposition_sel_windows_gt_remaining, DECOMPOSE_WINDOW_SIZE > bytes_rem ? 1 : 0),
+                    ROW_FIELD_EQ(
+                        bc_decomposition_windows_min_remaining_inv,
+                        bytes_rem == DECOMPOSE_WINDOW_SIZE ? 0 : (FF(DECOMPOSE_WINDOW_SIZE) - FF(bytes_rem)).invert()),
+                    ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, bytes_rem == DECOMPOSE_WINDOW_SIZE ? 1 : 0),
+                    ROW_FIELD_EQ(bc_decomposition_bytes_to_read, std::min(DECOMPOSE_WINDOW_SIZE, bytes_rem)),
+                    ROW_FIELD_EQ(bc_decomposition_last_of_contract, j == bc_sizes[i] - 1 ? 1 : 0)));
             row_pos++;
         }
     }

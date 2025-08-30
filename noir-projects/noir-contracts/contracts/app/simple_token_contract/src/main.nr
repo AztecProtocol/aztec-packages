@@ -89,7 +89,7 @@ pub contract SimpleToken {
     }
 
     #[utility]
-    pub(crate) unconstrained fn private_balance_of(owner: AztecAddress) -> u128 {
+    unconstrained fn private_balance_of(owner: AztecAddress) -> u128 {
         storage.balances.at(owner).balance_of()
     }
 

@@ -39,7 +39,6 @@ const { E2E_DATA_PATH: dataPath } = process.env;
 export class CrossChainMessagingTest {
   private snapshotManager: ISnapshotManager;
   logger: Logger;
-  wallets: AccountWallet[] = [];
   accounts: CompleteAddress[] = [];
   aztecNode!: AztecNode;
   pxe!: PXE;
@@ -49,7 +48,9 @@ export class CrossChainMessagingTest {
   l1Client!: ExtendedViemWalletClient | undefined;
 
   user1Wallet!: AccountWallet;
+  user1Address!: AztecAddress;
   user2Wallet!: AccountWallet;
+  user2Address!: AztecAddress;
   crossChainTestHarness!: CrossChainTestHarness;
   ethAccount!: EthAddress;
   ownerAddress!: AztecAddress;
@@ -99,12 +100,14 @@ export class CrossChainMessagingTest {
       '3_accounts',
       deployAccounts(3, this.logger),
       async ({ deployedAccounts }, { pxe, aztecNodeConfig, aztecNode }) => {
-        this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
-        this.accounts = this.wallets.map(w => w.getCompleteAddress());
-        this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
+        const wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
+        this.accounts = wallets.map(w => w.getCompleteAddress());
+        wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
 
-        this.user1Wallet = this.wallets[0];
-        this.user2Wallet = this.wallets[1];
+        this.user1Wallet = wallets[0];
+        this.user1Address = this.user1Wallet.getAddress();
+        this.user2Wallet = wallets[1];
+        this.user2Address = this.user2Wallet.getAddress();
 
         this.pxe = pxe;
         this.aztecNode = aztecNode;
@@ -118,7 +121,7 @@ export class CrossChainMessagingTest {
         // Create the token contract state.
         // Move this account thing to addAccounts above?
         this.logger.verbose(`Public deploy accounts...`);
-        await publicDeployAccounts(this.wallets[0], this.accounts.slice(0, 3));
+        await publicDeployAccounts(this.user1Wallet, this.accounts.slice(0, 3));
 
         this.l1Client = createExtendedL1Client(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
 
@@ -133,7 +136,8 @@ export class CrossChainMessagingTest {
           this.aztecNode,
           this.pxe,
           this.l1Client,
-          this.wallets[0],
+          this.user1Wallet,
+          this.user1Address,
           this.logger,
           underlyingERC20Address,
         );
@@ -176,6 +180,7 @@ export class CrossChainMessagingTest {
           l1Client,
           this.aztecNodeConfig.l1Contracts,
           this.user1Wallet,
+          this.user1Address,
         );
 
         this.l1Client = l1Client;

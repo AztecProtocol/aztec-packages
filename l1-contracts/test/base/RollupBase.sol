@@ -4,14 +4,8 @@ pragma solidity >=0.8.27;
 import {DecoderBase} from "./DecoderBase.sol";
 
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
-import {
-  IRollup,
-  BlockLog,
-  SubmitEpochRootProofArgs,
-  PublicInputArgs
-} from "@aztec/core/interfaces/IRollup.sol";
+import {IRollup, BlockLog, SubmitEpochRootProofArgs, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Strings} from "@oz/utils/Strings.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
@@ -22,10 +16,10 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {BlobLib} from "@aztec/core/libraries/rollup/BlobLib.sol";
 import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {
-  CommitteeAttestation,
-  CommitteeAttestations,
-  SignatureLib
-} from "@aztec/shared/libraries/SignatureLib.sol";
+  CommitteeAttestation, CommitteeAttestations, AttestationLib
+} from "@aztec/core/libraries/rollup/AttestationLib.sol";
+import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
+
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 
@@ -40,29 +34,19 @@ contract RollupBase is DecoderBase {
 
   mapping(uint256 => uint256) internal blockFees;
 
-  function _proveBlocks(string memory _name, uint256 _start, uint256 _end, address _prover)
-    internal
-  {
+  function _proveBlocks(string memory _name, uint256 _start, uint256 _end, address _prover) internal {
     _proveBlocks(_name, _start, _end, _prover, "");
   }
 
-  function _proveBlocksFail(
-    string memory _name,
-    uint256 _start,
-    uint256 _end,
-    address _prover,
-    bytes memory _revertMsg
-  ) internal {
+  function _proveBlocksFail(string memory _name, uint256 _start, uint256 _end, address _prover, bytes memory _revertMsg)
+    internal
+  {
     _proveBlocks(_name, _start, _end, _prover, _revertMsg);
   }
 
-  function _proveBlocks(
-    string memory _name,
-    uint256 _start,
-    uint256 _end,
-    address _prover,
-    bytes memory _revertMsg
-  ) private {
+  function _proveBlocks(string memory _name, uint256 _start, uint256 _end, address _prover, bytes memory _revertMsg)
+    private
+  {
     DecoderBase.Full memory startFull = load(string.concat(_name, Strings.toString(_start)));
     DecoderBase.Full memory endFull = load(string.concat(_name, Strings.toString(_end)));
 
@@ -76,17 +60,15 @@ contract RollupBase is DecoderBase {
 
     // What are these even?
     // ^ public inputs to the root proof?
-    PublicInputArgs memory args = PublicInputArgs({
-      previousArchive: parentBlockLog.archive,
-      endArchive: endFull.block.archive,
-      proverId: _prover
-    });
+    PublicInputArgs memory args =
+      PublicInputArgs({previousArchive: parentBlockLog.archive, endArchive: endFull.block.archive, proverId: _prover});
 
     bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
 
     uint256 size = endBlockNumber - startBlockNumber + 1;
     for (uint256 i = 0; i < size; i++) {
-      fees[i * 2] = bytes32(uint256(uint160(bytes20(("sequencer"))))); // Need the address to be left padded within the bytes32
+      fees[i * 2] = bytes32(uint256(uint160(bytes20(("sequencer"))))); // Need the address to be left padded within the
+        // bytes32
       fees[i * 2 + 1] = bytes32(uint256(blockFees[startBlockNumber + i]));
     }
 
@@ -118,12 +100,9 @@ contract RollupBase is DecoderBase {
     _proposeBlock(_name, _slotNumber, _manaUsed, extraBlobHashes, "");
   }
 
-  function _proposeBlockFail(
-    string memory _name,
-    uint256 _slotNumber,
-    uint256 _manaUsed,
-    bytes memory _revertMsg
-  ) public {
+  function _proposeBlockFail(string memory _name, uint256 _slotNumber, uint256 _manaUsed, bytes memory _revertMsg)
+    public
+  {
     bytes32[] memory extraBlobHashes = new bytes32[](0);
     _proposeBlock(_name, _slotNumber, _manaUsed, extraBlobHashes, _revertMsg);
   }
@@ -205,7 +184,7 @@ contract RollupBase is DecoderBase {
     if (_revertMsg.length > 0) {
       vm.expectRevert(_revertMsg);
     }
-    rollup.propose(args, SignatureLib.packAttestations(attestations), signers, blobCommitments);
+    rollup.propose(args, AttestationLibHelper.packAttestations(attestations), signers, blobCommitments);
 
     if (_revertMsg.length > 0) {
       return;
@@ -224,8 +203,7 @@ contract RollupBase is DecoderBase {
       uint256 subTreeHeight = full.messages.l2ToL1Messages.length == 0
         ? 0
         : merkleTestUtil.calculateTreeHeightFromSize(full.messages.l2ToL1Messages.length / numTxs);
-      uint256 outHashTreeHeight =
-        numTxs == 1 ? 0 : merkleTestUtil.calculateTreeHeightFromSize(numTxs);
+      uint256 outHashTreeHeight = numTxs == 1 ? 0 : merkleTestUtil.calculateTreeHeightFromSize(numTxs);
       uint256 numMessagesWithPadding = numTxs * Constants.MAX_L2_TO_L1_MSGS_PER_TX;
 
       uint256 treeHeight = subTreeHeight + outHashTreeHeight;
@@ -255,22 +233,21 @@ contract RollupBase is DecoderBase {
   }
 
   function _populateInbox(address _sender, bytes32 _recipient, bytes32[] memory _contents) internal {
+    if (rollup.getManaTarget() == 0) {
+      // If we are in ignition, we cannot populate the inbox.
+      return;
+    }
+
     inbox = Inbox(address(rollup.getInbox()));
     uint256 version = rollup.getVersion();
 
     for (uint256 i = 0; i < _contents.length; i++) {
       vm.prank(_sender);
-      inbox.sendL2Message(
-        DataStructures.L2Actor({actor: _recipient, version: version}), _contents[i], bytes32(0)
-      );
+      inbox.sendL2Message(DataStructures.L2Actor({actor: _recipient, version: version}), _contents[i], bytes32(0));
     }
   }
 
-  function getBlobHashes(bytes calldata _blobCommitments)
-    public
-    pure
-    returns (bytes32[] memory blobHashes)
-  {
+  function getBlobHashes(bytes calldata _blobCommitments) public pure returns (bytes32[] memory blobHashes) {
     uint8 numBlobs = uint8(_blobCommitments[0]);
     blobHashes = new bytes32[](numBlobs);
     // Add 1 for the numBlobs prefix
@@ -278,9 +255,7 @@ contract RollupBase is DecoderBase {
     for (uint256 i = 0; i < numBlobs; i++) {
       // blobInputs = [numBlobs, ...blobCommitments], numBlobs is one byte, each commitment is 48
       blobHashes[i] = BlobLib.calculateBlobHash(
-        abi.encodePacked(
-          _blobCommitments[blobInputStart:blobInputStart + Constants.BLS12_POINT_COMPRESSED_BYTES]
-        )
+        abi.encodePacked(_blobCommitments[blobInputStart:blobInputStart + Constants.BLS12_POINT_COMPRESSED_BYTES])
       );
       blobInputStart += Constants.BLS12_POINT_COMPRESSED_BYTES;
     }

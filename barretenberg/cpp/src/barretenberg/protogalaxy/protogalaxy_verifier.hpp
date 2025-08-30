@@ -28,14 +28,12 @@ template <class DeciderVerificationKeys> class ProtogalaxyVerifier_ {
 
     DeciderVerificationKeys keys_to_fold;
 
-    std::vector<FF> public_inputs; // extracted from the incoming instance
-
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
     ProtogalaxyVerifier_(const std::vector<std::shared_ptr<DeciderVK>>& keys,
                          const std::shared_ptr<Transcript>& transcript)
         : keys_to_fold(DeciderVerificationKeys(keys))
-        , transcript(transcript){};
+        , transcript(transcript) {};
     ~ProtogalaxyVerifier_() = default;
 
     /**

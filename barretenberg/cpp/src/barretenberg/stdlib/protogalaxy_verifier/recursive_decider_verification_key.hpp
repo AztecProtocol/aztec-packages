@@ -30,12 +30,14 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     using NativeVerificationKey = typename Flavor::NativeFlavor::VerificationKey;
     using NativeDeciderVerificationKey = bb::DeciderVerificationKey_<NativeFlavor>;
     using VerifierCommitmentKey = typename NativeFlavor::VerifierCommitmentKey;
+    using Transcript = typename Flavor::Transcript;
 
     Builder* builder;
 
     std::shared_ptr<VKAndHash> vk_and_hash;
 
-    bool is_accumulator = false;
+    bool is_complete = false;      // whether this instance has been completely populated
+    std::vector<FF> public_inputs; // to be extracted from the corresponding proof
 
     // An array {1, α₁, …, αₖ}, where k = NUM_SUBRELATIONS - 1.
     SubrelationSeparators alphas;
@@ -48,7 +50,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     CommitmentLabels commitment_labels;
 
     RecursiveDeciderVerificationKey_(Builder* builder)
-        : builder(builder){};
+        : builder(builder) {};
 
     // Constructor from native vk
     RecursiveDeciderVerificationKey_(Builder* builder, std::shared_ptr<NativeVerificationKey> vk)
@@ -60,13 +62,13 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     // Constructor from stdlib vk and hash
     RecursiveDeciderVerificationKey_(Builder* builder, std::shared_ptr<VKAndHash> vk_and_hash)
         : builder(builder)
-        , vk_and_hash(vk_and_hash){};
+        , vk_and_hash(vk_and_hash) {};
 
     RecursiveDeciderVerificationKey_(Builder* builder, std::shared_ptr<NativeDeciderVerificationKey> verification_key)
         : RecursiveDeciderVerificationKey_(builder, verification_key->vk)
     {
-        is_accumulator = verification_key->is_accumulator;
-        if (is_accumulator) {
+        is_complete = verification_key->is_complete;
+        if (is_complete) {
             for (size_t alpha_idx = 0; alpha_idx < Flavor::NUM_SUBRELATIONS - 1; alpha_idx++) {
                 alphas[alpha_idx] = FF::from_witness(builder, verification_key->alphas[alpha_idx]);
             }
@@ -91,8 +93,6 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
             relation_parameters.gamma = FF::from_witness(builder, verification_key->relation_parameters.gamma);
             relation_parameters.public_input_delta =
                 FF::from_witness(builder, verification_key->relation_parameters.public_input_delta);
-            relation_parameters.lookup_grand_product_delta =
-                FF::from_witness(builder, verification_key->relation_parameters.lookup_grand_product_delta);
         }
     }
 
@@ -116,7 +116,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
         }
 
         NativeDeciderVerificationKey decider_vk(native_honk_vk);
-        decider_vk.is_accumulator = is_accumulator;
+        decider_vk.is_complete = is_complete;
 
         for (auto [alpha, inst_alpha] : zip_view(alphas, decider_vk.alphas)) {
             inst_alpha = alpha.get_value();
@@ -139,9 +139,40 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
         decider_vk.relation_parameters.beta = relation_parameters.beta.get_value();
         decider_vk.relation_parameters.gamma = relation_parameters.gamma.get_value();
         decider_vk.relation_parameters.public_input_delta = relation_parameters.public_input_delta.get_value();
-        decider_vk.relation_parameters.lookup_grand_product_delta =
-            relation_parameters.lookup_grand_product_delta.get_value();
         return decider_vk;
+    }
+
+    FF hash_through_transcript(const std::string& domain_separator, Transcript& transcript) const
+    {
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_log_circuit_size",
+                                                  this->vk_and_hash->vk->log_circuit_size);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_num_public_inputs",
+                                                  this->vk_and_hash->vk->num_public_inputs);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_pub_inputs_offset",
+                                                  this->vk_and_hash->vk->pub_inputs_offset);
+
+        for (const Commitment& commitment : this->vk_and_hash->vk->get_all()) {
+            transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_precomputed_comm", commitment);
+        }
+        for (const Commitment& comm : witness_commitments.get_all()) {
+            transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_wit_comm", comm);
+        }
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_alphas", this->alphas);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_eta", this->relation_parameters.eta);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_eta_two",
+                                                  this->relation_parameters.eta_two);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_eta_three",
+                                                  this->relation_parameters.eta_three);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_beta", this->relation_parameters.beta);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_gamma",
+                                                  this->relation_parameters.gamma);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_public_input_delta",
+                                                  this->relation_parameters.public_input_delta);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_target_sum", this->target_sum);
+        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_gate_challenges",
+                                                  this->gate_challenges);
+
+        return transcript.hash_independent_buffer();
     }
 };
 } // namespace bb::stdlib::recursion::honk

@@ -14,8 +14,12 @@ const ClientCircuitArtifactNames: Record<ClientProtocolArtifact, string> = {
   PrivateKernelInnerArtifact: 'private_kernel_inner',
   PrivateKernelTailArtifact: 'private_kernel_tail',
   PrivateKernelTailToPublicArtifact: 'private_kernel_tail_to_public',
+  HidingKernelToRollup: 'hiding_kernel_to_rollup',
+  HidingKernelToPublic: 'hiding_kernel_to_public',
   ...PrivateKernelResetArtifactFileNames,
 };
+
+const artifactsWithoutSimulatedVersions = ['hiding_kernel_to_rollup', 'hiding_kernel_to_public'];
 
 function generateImports() {
   return `
@@ -37,14 +41,18 @@ function generateArtifactNames() {
   `;
 }
 
+function generateSimulatedArtifactName(artifactName: string) {
+  const isReset = artifactName.includes('private_kernel_reset');
+  return isReset
+    ? artifactName.replace('private_kernel_reset', 'private_kernel_reset_simulated')
+    : `${artifactName}_simulated`;
+}
+
 function generateCircuitArtifactImportFunction() {
   const cases = Object.values(ClientCircuitArtifactNames)
     .flatMap(artifactName => {
-      const isReset = artifactName.includes('private_kernel_reset');
-      const simulatedArtifactName = isReset
-        ? artifactName.replace('private_kernel_reset', 'private_kernel_reset_simulated')
-        : `${artifactName}_simulated`;
-      return [artifactName, simulatedArtifactName];
+      const hasSimulatedVersion = !artifactsWithoutSimulatedVersions.includes(artifactName);
+      return hasSimulatedVersion ? [artifactName, generateSimulatedArtifactName(artifactName)] : [artifactName];
     })
     .map(artifactName => {
       // Cannot assert this import as it's incompatible with browsers

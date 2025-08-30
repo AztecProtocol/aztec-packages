@@ -28,6 +28,7 @@ struct Index {
 // AddressSnapshotLib
 error AddressSnapshotLib__IndexOutOfBounds(uint256 index, uint256 size); // 0xd789b71a
 error AddressSnapshotLib__AddressNotInSet(address addr);
+error AddressSnapshotLib__CannotAddAddressZero();
 
 /**
  * @title AddressSnapshotLib
@@ -38,7 +39,8 @@ error AddressSnapshotLib__AddressNotInSet(address addr);
  *
  * The SnapshottedAddressSet is maintained such that the you can take a timestamp, and from it:
  * 1. Get the `size` of the set at that timestamp
- * 2. Query the first `size` indices in `indexToAddressHistory` at that timestamp to get a set of addresses of size `size`
+ * 2. Query the first `size` indices in `indexToAddressHistory` at that timestamp to get a set of addresses of size
+ * `size`
  */
 library AddressSnapshotLib {
   using SafeCast for *;
@@ -51,6 +53,7 @@ library AddressSnapshotLib {
    * @return bool True if the address was added, false if it was already present
    */
   function add(SnapshottedAddressSet storage _self, address _address) internal returns (bool) {
+    require(_address != address(0), AddressSnapshotLib__CannotAddAddressZero());
     // Prevent against double insertion
     if (_self.addressToCurrentIndex[_address].exists) {
       return false;
@@ -100,12 +103,10 @@ library AddressSnapshotLib {
    * @notice Removes a validator from the set
    * @param _self The storage reference to the set
    * @param _index The index of the validator to remove
+   * @param _address The address to remove
    * @return bool True if the validator was removed, reverts otherwise
    */
-  function _remove(SnapshottedAddressSet storage _self, uint224 _index, address _address)
-    internal
-    returns (bool)
-  {
+  function _remove(SnapshottedAddressSet storage _self, uint224 _index, address _address) internal returns (bool) {
     uint224 currentSize = _self.size.latest();
     if (_index >= currentSize) {
       revert AddressSnapshotLib__IndexOutOfBounds(_index, currentSize);
@@ -120,21 +121,18 @@ library AddressSnapshotLib {
     // then update Charlie in addressToCurrentIndex to reflect the new index of 1.
 
     uint224 lastIndex = currentSize - 1;
-    address lastValidator = address(_self.indexToAddressHistory[lastIndex].latest().toUint160());
-
     uint32 key = block.timestamp.toUint32();
 
-    // If we are removing the last item, we cannot swap it with anything
-    // so we append a new address of zero for this timestamp
-    // And since we are removing it, we set the location to 0
-    if (lastIndex == _index) {
-      _self.indexToAddressHistory[_index].push(key, uint224(0));
-    } else {
-      // Otherwise, we swap the last item with the item we are removing
-      // and update the location of the last item
+    // If not removing the last item, swap the value of the last item into the `_index` to remove
+    if (lastIndex != _index) {
+      address lastValidator = address(_self.indexToAddressHistory[lastIndex].latest().toUint160());
+
       _self.addressToCurrentIndex[lastValidator] = Index({exists: true, index: _index.toUint224()});
       _self.indexToAddressHistory[_index].push(key, uint160(lastValidator).toUint224());
     }
+
+    // Then "pop" the last index by setting the value to `address(0)`
+    _self.indexToAddressHistory[lastIndex].push(key, uint224(0));
 
     // Finally, we update the size to reflect the new size of the set.
     _self.size.push(key, (lastIndex).toUint224());
@@ -158,17 +156,38 @@ library AddressSnapshotLib {
    * @param _timestamp The timestamp to query
    * @return address The address at the given index and timestamp
    */
-  function getAddressFromIndexAtTimestamp(
-    SnapshottedAddressSet storage _self,
-    uint256 _index,
-    uint32 _timestamp
-  ) internal view returns (address) {
+  function getAddressFromIndexAtTimestamp(SnapshottedAddressSet storage _self, uint256 _index, uint32 _timestamp)
+    internal
+    view
+    returns (address)
+  {
     uint256 size = lengthAtTimestamp(_self, _timestamp);
     require(_index < size, AddressSnapshotLib__IndexOutOfBounds(_index, size));
 
     // Since the _index is less than the size, we know that the address at _index
     // exists at/before _timestamp.
     uint224 addr = _self.indexToAddressHistory[_index].upperLookup(_timestamp);
+    return address(addr.toUint160());
+  }
+
+  /**
+   * @notice Gets the address at a specific index and timestamp
+   *
+   * @dev     The caller MUST have ensure that `_index` < `size`
+   *          at the `_timestamp` provided.
+   * @dev     Primed for recent checkpoints in the address history.
+   *
+   * @param _self The storage reference to the set
+   * @param _index The index to query
+   * @param _timestamp The timestamp to query
+   * @return address The address at the given index and timestamp
+   */
+  function unsafeGetRecentAddressFromIndexAtTimestamp(
+    SnapshottedAddressSet storage _self,
+    uint256 _index,
+    uint32 _timestamp
+  ) internal view returns (address) {
+    uint224 addr = _self.indexToAddressHistory[_index].upperLookupRecent(_timestamp);
     return address(addr.toUint160());
   }
 
@@ -189,11 +208,7 @@ library AddressSnapshotLib {
    *
    * @dev Note, the values returned from this function are in flux if the timestamp is in the future.
    */
-  function lengthAtTimestamp(SnapshottedAddressSet storage _self, uint32 _timestamp)
-    internal
-    view
-    returns (uint256)
-  {
+  function lengthAtTimestamp(SnapshottedAddressSet storage _self, uint32 _timestamp) internal view returns (uint256) {
     return _self.size.upperLookup(_timestamp);
   }
 
@@ -238,11 +253,7 @@ library AddressSnapshotLib {
     return vals;
   }
 
-  function contains(SnapshottedAddressSet storage _self, address _address)
-    internal
-    view
-    returns (bool)
-  {
+  function contains(SnapshottedAddressSet storage _self, address _address) internal view returns (bool) {
     return _self.addressToCurrentIndex[_address].exists;
   }
 }

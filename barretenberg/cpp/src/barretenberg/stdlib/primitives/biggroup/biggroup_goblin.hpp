@@ -43,7 +43,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     using biggroup_tag = goblin_element; // Facilitates a constexpr check IsBigGroup
 
     // Number of bb::fr field elements used to represent a goblin element in the public inputs
-    static constexpr size_t PUBLIC_INPUTS_SIZE = Fq::PUBLIC_INPUTS_SIZE * 2;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = BIGGROUP_PUBLIC_INPUTS_SIZE;
 
     goblin_element() = default;
     goblin_element(const typename NativeGroup::affine_element& input)
@@ -99,6 +99,19 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         this->x.convert_constant_to_fixed_witness(builder);
         this->y.convert_constant_to_fixed_witness(builder);
         this->unset_free_witness_tag();
+    }
+
+    /**
+     * Fix a witness. The value of the witness is constrained with a selector
+     **/
+    void fix_witness()
+    {
+        // Origin tags should be updated within
+        this->x.fix_witness();
+        this->y.fix_witness();
+
+        // This is now effectively a constant
+        unset_free_witness_tag();
     }
 
     void validate_on_curve() const
@@ -292,7 +305,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
      * @brief Enforce x and y coordinates of a point to be (0,0) in the case of point at infinity
      *
      * @details We need to have a standard witness in Noir and the point at infinity can have non-zero random
-     * coefficients when we get it as output from our optimised algorithms. This function returns a (0,0) point, if
+     * coefficients when we get it as output from our optimized algorithms. This function returns a (0,0) point, if
      * it is a point at infinity
      */
     goblin_element get_standard_form() const

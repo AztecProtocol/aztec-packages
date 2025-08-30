@@ -302,15 +302,17 @@ impl FromField for u128 {
 /// Noir's intrinsic serialization and the implementation of this trait. If there is a mismatch, the function calls
 /// fail with an arguments hash mismatch error message.
 ///
-/// # Type Parameters
+/// # Associated Constants
 /// * `N` - The length of the output Field array, known at compile time
 ///
 /// # Example
 /// ```
-/// impl<let N: u32> Serialize<N> for str<N> {
-///     fn serialize(self) -> [Field; N] {
+/// impl<let N: u32> Serialize for str<N> {
+///     let N: u32 = N;
+///
+///     fn serialize(self) -> [Field; Self::N] {
 ///         let bytes = self.as_bytes();
-///         let mut fields = [0; N];
+///         let mut fields = [0; Self::N];
 ///         for i in 0..bytes.len() {
 ///             fields[i] = bytes[i] as Field;  // Each byte gets its own Field
 ///         }
@@ -360,6 +362,10 @@ impl<let M: u32> Serialize for str<M> {
 /// - T::N is the number of Fields needed to deserialize one item
 /// - M is the maximum length of the BoundedVec
 /// - +1 is for storing the length
+///
+/// # Note
+/// Not deriving this because it's not supported to call derive_deserialize on a "remote" struct (and it will never
+/// be supported).
 impl<T, let M: u32> Deserialize for BoundedVec<T, M>
 where
     T: Deserialize,
@@ -399,6 +405,8 @@ impl Deserialize for () {
     }
 }
 
+// Note: Not deriving this because it's not supported to call derive_serialize on a "remote" struct (and it will never
+// be supported).
 impl<T, let M: u32> Serialize for BoundedVec<T, M>
 where
     T: Serialize,

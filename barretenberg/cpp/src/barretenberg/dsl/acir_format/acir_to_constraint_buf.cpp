@@ -17,6 +17,7 @@
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/dsl/acir_format/ecdsa_constraints.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/honk/execution_trace/gate_data.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -651,7 +652,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 }
                 af.original_opcode_indices.blake3_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EcdsaSecp256k1>) {
-                af.ecdsa_k1_constraints.push_back(EcdsaSecp256k1Constraint{
+                af.ecdsa_k1_constraints.push_back(EcdsaConstraint{
                     .hashed_message =
                         transform::map(*arg.hashed_message, [](auto& e) { return get_witness_from_function_input(e); }),
                     .signature =
@@ -665,16 +666,16 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 af.constrained_witness.insert(af.ecdsa_k1_constraints.back().result);
                 af.original_opcode_indices.ecdsa_k1_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EcdsaSecp256r1>) {
-                af.ecdsa_r1_constraints.push_back(EcdsaSecp256r1Constraint{
+                af.ecdsa_r1_constraints.push_back(EcdsaConstraint{
                     .hashed_message =
                         transform::map(*arg.hashed_message, [](auto& e) { return get_witness_from_function_input(e); }),
+                    .signature =
+                        transform::map(*arg.signature, [](auto& e) { return get_witness_from_function_input(e); }),
                     .pub_x_indices =
                         transform::map(*arg.public_key_x, [](auto& e) { return get_witness_from_function_input(e); }),
                     .pub_y_indices =
                         transform::map(*arg.public_key_y, [](auto& e) { return get_witness_from_function_input(e); }),
                     .result = arg.output.value,
-                    .signature =
-                        transform::map(*arg.signature, [](auto& e) { return get_witness_from_function_input(e); }),
                 });
                 af.constrained_witness.insert(af.ecdsa_r1_constraints.back().result);
                 af.original_opcode_indices.ecdsa_r1_constraints.push_back(opcode_index);
@@ -749,13 +750,18 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     break;
                 case OINK:
                 case PG:
+                case PG_TAIL:
                 case PG_FINAL:
-                    af.ivc_recursion_constraints.push_back(c);
-                    af.original_opcode_indices.ivc_recursion_constraints.push_back(opcode_index);
+                    af.pg_recursion_constraints.push_back(c);
+                    af.original_opcode_indices.pg_recursion_constraints.push_back(opcode_index);
                     break;
                 case AVM:
                     af.avm_recursion_constraints.push_back(c);
                     af.original_opcode_indices.avm_recursion_constraints.push_back(opcode_index);
+                    break;
+                case CIVC:
+                    af.civc_recursion_constraints.push_back(c);
+                    af.original_opcode_indices.civc_recursion_constraints.push_back(opcode_index);
                     break;
                 default:
                     throw_or_abort("Invalid PROOF_TYPE in RecursionConstraint!");
@@ -861,7 +867,15 @@ bool is_rom(Acir::MemOp const& mem_op)
            uint256_t(mem_op.operation.q_c) == 0;
 }
 
-void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& block)
+uint32_t poly_to_witness(const poly_triple poly)
+{
+    if (poly.q_m == 0 && poly.q_r == 0 && poly.q_o == 0 && poly.q_l == 1 && poly.q_c == 0) {
+        return poly.a;
+    }
+    return 0;
+}
+
+void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, AcirFormat& af, BlockConstraint& block)
 {
     uint8_t access_type = 1;
     if (is_rom(mem_op.op)) {
@@ -873,9 +887,34 @@ void handle_memory_op(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& blo
         block.type = BlockType::RAM;
     }
 
-    MemOp acir_mem_op = MemOp{ .access_type = access_type,
-                               .index = serialize_arithmetic_gate(mem_op.op.index),
-                               .value = serialize_arithmetic_gate(mem_op.op.value) };
+    // Update the ranges of the index using the array length
+    poly_triple index = serialize_arithmetic_gate(mem_op.op.index);
+    int bit_range = std::bit_width(block.init.size());
+    uint32_t index_witness = poly_to_witness(index);
+    if (index_witness != 0 && bit_range > 0) {
+        unsigned int u_bit_range = static_cast<unsigned int>(bit_range);
+        // Updates both af.minimal_range and af.index_range with u_bit_range when it is lower.
+        // By doing so, we keep these invariants:
+        // - minimal_range contains the smallest possible range for a witness
+        // - index_range constains the smallest range for a witness implied by any array operation
+        if (af.minimal_range.contains(index_witness)) {
+            if (af.minimal_range[index_witness] > u_bit_range) {
+                af.minimal_range[index_witness] = u_bit_range;
+            }
+        } else {
+            af.minimal_range[index_witness] = u_bit_range;
+        }
+        if (af.index_range.contains(index_witness)) {
+            if (af.index_range[index_witness] > u_bit_range) {
+                af.index_range[index_witness] = u_bit_range;
+            }
+        } else {
+            af.index_range[index_witness] = u_bit_range;
+        }
+    }
+
+    MemOp acir_mem_op =
+        MemOp{ .access_type = access_type, .index = index, .value = serialize_arithmetic_gate(mem_op.op.value) };
     block.trace.push_back(acir_mem_op);
 }
 
@@ -908,7 +947,7 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
                     if (block == block_id_to_block_constraint.end()) {
                         throw_or_abort("unitialized MemoryOp");
                     }
-                    handle_memory_op(arg, block->second.first);
+                    handle_memory_op(arg, af, block->second.first);
                     block->second.second.push_back(i);
                 }
             },

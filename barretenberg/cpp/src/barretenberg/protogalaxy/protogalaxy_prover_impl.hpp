@@ -32,11 +32,12 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::run_oink_prover_on_each_incomplete_ke
     size_t idx = 0;
     auto& key = keys_to_fold[0];
     auto domain_separator = std::to_string(idx);
-    auto& vk = vks_to_fold[0];
-    if (!key->is_accumulator) {
-        run_oink_prover_on_one_incomplete_key(key, vk, domain_separator);
-        key->target_sum = 0;
-        key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
+    auto& verifier_accum = vks_to_fold[0];
+    if (!key->is_complete) {
+        run_oink_prover_on_one_incomplete_key(key, verifier_accum, domain_separator);
+        // Get the gate challenges for sumcheck/combiner computation
+        key->gate_challenges =
+            transcript->template get_powers_of_challenge<FF>(domain_separator + "_gate_challenge", CONST_PG_LOG_N);
     }
 
     idx++;
@@ -56,10 +57,9 @@ std::tuple<std::vector<typename Flavor::FF>, Polynomial<typename Flavor::FF>> Pr
 {
     PROFILE_THIS_NAME("ProtogalaxyProver_::perturbator_round");
 
-    const FF delta = transcript->template get_challenge<FF>("delta");
-    const std::vector<FF> deltas = compute_round_challenge_pows(CONST_PG_LOG_N, delta);
+    const std::vector<FF> deltas = transcript->template get_powers_of_challenge<FF>("delta", CONST_PG_LOG_N);
     // An honest prover with valid initial key computes that the perturbator is 0 in the first round
-    const Polynomial<FF> perturbator = accumulator->is_accumulator
+    const Polynomial<FF> perturbator = accumulator->from_first_instance
                                            ? pg_internal.compute_perturbator(accumulator, deltas)
                                            : Polynomial<FF>(CONST_PG_LOG_N + 1);
     // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
@@ -94,7 +94,8 @@ ProtogalaxyProver_<Flavor, NUM_KEYS>::combiner_quotient_round(const std::vector<
     const UnivariateRelationParameters relation_parameters =
         PGInternal::template compute_extended_relation_parameters<UnivariateRelationParameters>(keys);
 
-    TupleOfTuplesOfUnivariates accumulators;
+    // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
+    TupleOfTuplesOfUnivariates accumulators{};
     auto combiner = pg_internal.compute_combiner(keys, gate_separators, relation_parameters, alphas, accumulators);
 
     const FF perturbator_evaluation = perturbator.evaluate(perturbator_challenge);
@@ -123,7 +124,7 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::update_target_sum_and_fold(
 
     std::shared_ptr<DeciderPK> accumulator = keys[0];
     std::shared_ptr<DeciderPK> incoming = keys[1];
-    accumulator->is_accumulator = true;
+    accumulator->from_first_instance = true;
 
     // At this point the virtual sizes of the polynomials should already agree
     BB_ASSERT_EQ(accumulator->polynomials.w_l.virtual_size(), incoming->polynomials.w_l.virtual_size());
@@ -172,7 +173,6 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::update_target_sum_and_fold(
 
 template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS> FoldingResult<Flavor> ProtogalaxyProver_<Flavor, NUM_KEYS>::prove()
 {
-
     PROFILE_THIS_NAME("ProtogalaxyProver::prove");
 
     // Ensure keys are all of the same size

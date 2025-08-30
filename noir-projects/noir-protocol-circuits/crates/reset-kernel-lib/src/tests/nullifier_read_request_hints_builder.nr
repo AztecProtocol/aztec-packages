@@ -4,24 +4,24 @@ use crate::{
 };
 use dep::types::{constants::MAX_NULLIFIER_READ_REQUESTS_PER_TX, traits::Empty};
 
-pub struct NullifierReadRequestHintsBuilder<let PENDING_HINTS_LEN: u32, let SETTLED_HINTS_LEN: u32> {
+pub struct NullifierReadRequestHintsBuilder<let PendingHintsLen: u32, let SettledHintsLen: u32> {
     pub read_request_actions: [ReadRequestAction; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
-    pub pending_read_hints: BoundedVec<PendingReadHint, PENDING_HINTS_LEN>,
-    pub settled_read_hints: BoundedVec<NullifierSettledReadHint, SETTLED_HINTS_LEN>,
+    pub pending_read_hints: BoundedVec<PendingReadHint, PendingHintsLen>,
+    pub settled_read_hints: BoundedVec<NullifierSettledReadHint, SettledHintsLen>,
 }
 
-impl<let PENDING_HINTS_LEN: u32, let SETTLED_HINTS_LEN: u32> NullifierReadRequestHintsBuilder<PENDING_HINTS_LEN, SETTLED_HINTS_LEN> {
+impl<let PendingHintsLen: u32, let SettledHintsLen: u32> NullifierReadRequestHintsBuilder<PendingHintsLen, SettledHintsLen> {
     pub fn new() -> Self {
         NullifierReadRequestHintsBuilder {
             read_request_actions: [ReadRequestAction::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_TX],
             pending_read_hints: BoundedVec::from_parts_unchecked(
-                [PendingReadHint::skip(MAX_NULLIFIER_READ_REQUESTS_PER_TX); PENDING_HINTS_LEN],
+                [PendingReadHint::skip(MAX_NULLIFIER_READ_REQUESTS_PER_TX); PendingHintsLen],
                 0,
             ),
             settled_read_hints: BoundedVec::from_parts_unchecked(
                 [
                     NullifierSettledReadHint::skip(MAX_NULLIFIER_READ_REQUESTS_PER_TX);
-                         SETTLED_HINTS_LEN
+                         SettledHintsLen
                     ],
                 0,
             ),
@@ -36,7 +36,7 @@ impl<let PENDING_HINTS_LEN: u32, let SETTLED_HINTS_LEN: u32> NullifierReadReques
             ReadRequestAction::set_as_pending(hint_index);
     }
 
-    pub fn to_hints(self) -> NullifierReadRequestHints<PENDING_HINTS_LEN, SETTLED_HINTS_LEN> {
+    pub fn to_hints(self) -> NullifierReadRequestHints<PendingHintsLen, SettledHintsLen> {
         NullifierReadRequestHints {
             read_request_actions: self.read_request_actions,
             pending_read_hints: self.pending_read_hints.storage(),

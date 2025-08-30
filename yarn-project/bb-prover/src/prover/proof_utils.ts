@@ -3,6 +3,7 @@ import {
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   PAIRING_POINTS_SIZE,
+  ULTRA_KECCAK_PROOF_LENGTH,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
@@ -62,7 +63,9 @@ export async function readProofAsFields<PROOF_LENGTH extends number>(
 
   let numPublicInputs = vkData.numPublicInputs - PAIRING_POINTS_SIZE;
   assert(
-    proofLength == NESTED_RECURSIVE_PROOF_LENGTH || proofLength == NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+    proofLength == NESTED_RECURSIVE_PROOF_LENGTH ||
+      proofLength == NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH ||
+      proofLength == ULTRA_KECCAK_PROOF_LENGTH,
     `Proof length must be one of the expected proof lengths, received ${proofLength}`,
   );
   if (proofLength == NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH) {
@@ -77,7 +80,7 @@ export async function readProofAsFields<PROOF_LENGTH extends number>(
   // This buffer will have the form: [binary public inputs, binary proof]
   const binaryProofWithPublicInputs = Buffer.concat([binaryPublicInputs, binaryProof]);
   logger.debug(
-    `Circuit path: ${filePath}, complete proof length: ${json.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProofWithPublicInputs.length}`,
+    `Circuit path: ${filePath}, complete proof length: ${json.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, raw length: ${binaryProofWithPublicInputs.length}`,
   );
   assert(
     binaryProofWithPublicInputs.length == numPublicInputs * 32 + proofLength * 32,

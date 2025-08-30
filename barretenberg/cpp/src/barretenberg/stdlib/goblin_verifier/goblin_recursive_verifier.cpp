@@ -15,13 +15,12 @@ namespace bb::stdlib::recursion::honk {
  * @param t_commitments The commitments to the subtable for the merge being verified
  *
  */
-GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(
-    const GoblinProof& proof,
-    const SubtableCommitments& subtable_commitments,
-    std::array<Commitment, MegaFlavor::NUM_WIRES>& merged_table_commitment)
+GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof& proof,
+                                                              const MergeCommitments& merge_commitments,
+                                                              const MergeSettings merge_settings)
 {
     StdlibProof stdlib_proof(*builder, proof);
-    return verify(stdlib_proof, subtable_commitments, merged_table_commitment);
+    return verify(stdlib_proof, merge_commitments, merge_settings);
 }
 
 /**
@@ -31,15 +30,14 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(
  * @param t_commitments The commitments to the subtable for the merge being verified
  *
  */
-GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(
-    const StdlibProof& proof,
-    const SubtableCommitments& subtable_commitments,
-    std::array<Commitment, MegaFlavor::NUM_WIRES>& merged_table_commitment)
+GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const StdlibProof& proof,
+                                                              const MergeCommitments& merge_commitments,
+                                                              const MergeSettings merge_settings)
 {
     // Verify the final merge step
-    MergeVerifier merge_verifier{ builder, MergeSettings::PREPEND, transcript };
-    PairingPoints<Builder> merge_pairing_points =
-        merge_verifier.verify_proof(proof.merge_proof, subtable_commitments, merged_table_commitment);
+    MergeVerifier merge_verifier{ builder, merge_settings, transcript };
+    auto [merge_pairing_points, merged_table_commitments] =
+        merge_verifier.verify_proof(proof.merge_proof, merge_commitments);
 
     // Run the ECCVM recursive verifier
     ECCVMVerifier eccvm_verifier{ builder, verification_keys.eccvm_verification_key, transcript };
@@ -58,7 +56,7 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(
 
     // Verify the consistency between the commitments to polynomials representing the op queue received by translator
     // and final merge verifier
-    translator_verifier.verify_consistency_with_final_merge(merged_table_commitment);
+    translator_verifier.verify_consistency_with_final_merge(merged_table_commitments);
 
     return { translator_pairing_points, opening_claim, ipa_proof };
 }

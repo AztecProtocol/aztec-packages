@@ -1,6 +1,7 @@
 ---
 title: Wallet Architecture
 tags: [protocol, accounts]
+description: Understand the architecture of Aztec wallets and how they interact with the PXE to manage accounts and transactions.
 ---
 
 This page talks about the architecture of a wallet in Aztec. Wallets expose to dapps an interface that allows them to act on behalf of the user, such as querying private state or sending transactions. Bear in mind that, as in Ethereum, wallets should require user confirmation whenever carrying out a potentially sensitive action requested by a dapp.

@@ -2,6 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {SlashRound} from "@aztec/core/libraries/SlashRoundLib.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 
 /**
@@ -11,7 +12,8 @@ import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
  * Errors are prefixed with the contract name to make it easy to identify where the error originated
  * when there are multiple contracts that could have thrown the error.
  *
- * Sigs are provided for easy reference, but don't trust; verify! run `forge inspect src/core/libraries/Errors.sol:Errors errors`
+ * Sigs are provided for easy reference, but don't trust; verify! run `forge inspect
+ * src/core/libraries/Errors.sol:Errors errors`
  */
 library Errors {
   // DEVNET related
@@ -25,6 +27,7 @@ library Errors {
   error Inbox__ContentTooLarge(bytes32 content); // 0x47452014
   error Inbox__SecretHashTooLarge(bytes32 secretHash); // 0xecde7e2c
   error Inbox__MustBuildBeforeConsume(); // 0xc4901999
+  error Inbox__Ignition();
 
   // Outbox
   error Outbox__Unauthorized(); // 0x2c9490c2
@@ -94,6 +97,7 @@ library Errors {
 
   // MerkleLib
   error MerkleLib__InvalidRoot(bytes32 expected, bytes32 actual, bytes32 leaf, uint256 leafIndex); // 0x5f216bf1
+  error MerkleLib__InvalidIndexForPathLength();
 
   // SampleLib
   error SampleLib__IndexOutOfBounds(uint256 requested, uint256 bound); // 0xa12fc559
@@ -106,7 +110,7 @@ library Errors {
   error ValidatorSelection__InvalidDeposit(address attester, address proposer); // 0x533169bd
   error ValidatorSelection__InsufficientAttestations(uint256 minimumNeeded, uint256 provided); // 0xaf47297f
   error ValidatorSelection__InvalidCommitteeCommitment(bytes32 reconstructed, bytes32 expected); // 0xca8d5954
-  error ValidatorSelection__InsufficientCommitteeSize(uint256 actual, uint256 expected); // 0x98673597
+  error ValidatorSelection__InsufficientValidatorSetSize(uint256 actual, uint256 expected); // 0xf4f28e99
   error ValidatorSelection__ProposerIndexTooLarge(uint256 index);
 
   // Staking
@@ -123,6 +127,7 @@ library Errors {
   error Staking__InsufficientStake(uint256, uint256); // 0x903aee24
   error Staking__NoOneToSlash(address); // 0x7e2f7f1c
   error Staking__NotExiting(address); // 0xef566ee0
+  error Staking__InitiateWithdrawNeeded(address);
   error Staking__NotSlasher(address, address); // 0x23a6f432
   error Staking__NotWithdrawer(address, address); // 0x8e668e5d
   error Staking__NothingToExit(address); // 0xd2aac9b6
@@ -141,6 +146,7 @@ library Errors {
   error Staking__IncorrectGovProposer(uint256);
   error Staking__GovernanceAlreadySet();
   error Staking__InsufficientBootstrapValidators(uint256 queueSize, uint256 bootstrapFlushSize);
+  error Staking__InvalidStakingQueueConfig();
 
   // Fee Juice Portal
   error FeeJuicePortal__AlreadyInitialized(); // 0xc7a172fe
@@ -159,6 +165,41 @@ library Errors {
   // SignatureLib (duplicated)
   error SignatureLib__InvalidSignature(address, address); // 0xd9cbae6c
 
+  error AttestationLib__OutOfBounds(uint256, uint256);
+  error AttestationLib__SignatureIndicesSizeMismatch(uint256, uint256);
+  error AttestationLib__SignaturesOrAddressesSizeMismatch(uint256, uint256);
+  error AttestationLib__NotASignatureAtIndex(uint256 index);
+  error AttestationLib__NotAnAddressAtIndex(uint256 index);
+
   // RewardBooster
   error RewardBooster__OnlyRollup(address caller);
+
+  // TallySlashingProposer
+  error TallySlashingProposer__InvalidSignature();
+  error TallySlashingProposer__InvalidVoteLength(uint256 expected, uint256 actual);
+  error TallySlashingProposer__RoundAlreadyExecuted(SlashRound round);
+  error TallySlashingProposer__InvalidNumberOfCommittees(uint256 expected, uint256 actual);
+  error TallySlashingProposer__RoundNotComplete(SlashRound round);
+  error TallySlashingProposer__InvalidCommitteeSize(uint256 expected, uint256 actual);
+  error TallySlashingProposer__InvalidCommitteeCommitment();
+  error TallySlashingProposer__InvalidQuorumAndRoundSize(uint256 quorum, uint256 roundSize);
+  error TallySlashingProposer__QuorumMustBeGreaterThanZero();
+  error TallySlashingProposer__InvalidSlashAmounts(uint256[3] slashAmounts);
+  error TallySlashingProposer__LifetimeMustBeGreaterThanExecutionDelay(uint256 lifetime, uint256 executionDelay);
+  error TallySlashingProposer__LifetimeMustBeLessThanRoundabout(uint256 lifetime, uint256 roundabout);
+  error TallySlashingProposer__RoundSizeInEpochsMustBeGreaterThanZero(uint256 roundSizeInEpochs);
+  error TallySlashingProposer__RoundSizeTooLarge(uint256 roundSize, uint256 maxRoundSize);
+  error TallySlashingProposer__CommitteeSizeMustBeGreaterThanZero(uint256 committeeSize);
+  error TallySlashingProposer__SlashAmountTooLarge();
+  error TallySlashingProposer__VoteAlreadyCastInCurrentSlot(Slot slot);
+  error TallySlashingProposer__RoundOutOfRange(SlashRound round, SlashRound currentRound);
+  error TallySlashingProposer__RoundSizeMustBeMultipleOfEpochDuration(uint256 roundSize, uint256 epochDuration);
+  error TallySlashingProposer__VotingNotOpen(SlashRound currentRound);
+  error TallySlashingProposer__SlashOffsetMustBeGreaterThanZero(uint256 slashOffset);
+  error TallySlashingProposer__InvalidEpochIndex(uint256 epochIndex, uint256 roundSizeInEpochs);
+  error TallySlashingProposer__VoteSizeTooBig(uint256 voteSize, uint256 maxSize);
+  error TallySlashingProposer__VotesMustBeMultipleOf4(uint256 votes);
+
+  // SlashPayloadLib
+  error SlashPayload_ArraySizeMismatch(uint256 expected, uint256 actual);
 }

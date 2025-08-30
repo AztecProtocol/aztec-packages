@@ -30,7 +30,7 @@ class TxExecution final {
         , field_gt(field_gt)
         , poseidon2(poseidon2)
         , events(event_emitter)
-        , tx_context(merkle_db, written_public_data_slots_tree)
+        , tx_context(merkle_db, written_public_data_slots_tree, context_provider)
     {}
 
     void simulate(const Tx& tx);
@@ -53,10 +53,19 @@ class TxExecution final {
                                   TransactionPhase phase,
                                   const FF& transaction_fee,
                                   bool success,
-                                  const Gas& gas_limit,
+                                  const Gas& start_gas,
+                                  const Gas& end_gas,
                                   const TxContextEvent& state_before,
                                   const TxContextEvent& state_after);
     void pay_fee(const FF& fee_payer, const FF& fee, const uint128_t& fee_per_da_gas, const uint128_t& fee_per_l2_gas);
+
+    void emit_l2_to_l1_message(bool revertible, const ScopedL2ToL1Message& l2_to_l1_message);
+    void emit_nullifier(bool revertible, const FF& nullifier);
+    void emit_note_hash(bool revertible, const FF& note_hash);
+
+    void pad_trees();
+
+    void cleanup();
 };
 
 } // namespace bb::avm2::simulation

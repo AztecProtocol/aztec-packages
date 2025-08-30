@@ -1,6 +1,7 @@
 ---
 title: Using Value Notes in Aztec.nr
 tags: [contracts, notes]
+description: Learn how to use value notes to store and manage numerical values in your Aztec smart contracts.
 ---
 
 ValueNotes hold one main property - a `value` - and have utils useful for manipulating this value, such as incrementing and decrementing it similarly to an integer.
@@ -60,4 +61,3 @@ The `decrement` function works similarly except the `amount` is the number that 
 
 - [Keys, including nullifier keys and outgoing viewer](../../../../../aztec/concepts/accounts/keys.md)
 - [How to implement a note](./implementing_a_note.md)
-- [ValueNote reference](../../../../reference/smart_contract_reference/aztec-nr/value-note/value_note.md)

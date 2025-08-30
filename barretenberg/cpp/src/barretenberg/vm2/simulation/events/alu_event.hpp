@@ -13,17 +13,20 @@ enum class AluOperation {
     ADD,
     SUB,
     MUL,
+    DIV,
+    FDIV,
     EQ,
     LT,
     LTE,
     NOT,
+    SHL,
+    SHR,
     TRUNCATE,
 };
 
-// TODO(MW): Expand when adding new ops (e.g. when using max_bits for mul, we would cover bits related errors)
 enum class AluError {
-    // TODO(MW): Split into cases i.e. ab tags not equal, c tag not as expected, ..., ?
     TAG_ERROR,
+    DIV_0_ERROR,
 };
 
 inline std::string to_string(AluError e)
@@ -31,6 +34,8 @@ inline std::string to_string(AluError e)
     switch (e) {
     case AluError::TAG_ERROR:
         return "TAG_ERROR";
+    case AluError::DIV_0_ERROR:
+        return "DIV_0_ERROR";
     }
 
     // We should be catching all the cases above.

@@ -3,7 +3,8 @@
   "compilerOptions": {
     "outDir": "dest",
     "rootDir": "src",
-    "tsBuildInfoFile": ".tsbuildinfo"
+    "tsBuildInfoFile": ".tsbuildinfo",
+    "allowJs": true
   },
   "references": [
     {
@@ -61,6 +62,9 @@
       "path": "../merkle-tree"
     },
     {
+      "path": "../node-keystore"
+    },
+    {
       "path": "../noir-contracts.js"
     },
     {
@@ -106,6 +110,5 @@
       "path": "../world-state"
     }
   ],
-  "include": ["src"],
-  "exclude": ["*.mjs"]
+  "include": ["src"]
 }

@@ -15,7 +15,6 @@ namespace bb::stdlib::recursion::honk {
 struct GoblinRecursiveVerifierOutput {
     using Builder = UltraCircuitBuilder;
     using Curve = grumpkin<Builder>;
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using PairingAccumulator = PairingPoints<Builder>;
     PairingAccumulator points_accumulator;
     OpeningClaim<Curve> opening_claim;
@@ -39,8 +38,7 @@ class GoblinRecursiveVerifier {
     using VerificationKey = Goblin::VerificationKey;
 
     // Merge commitments
-    using SubtableCommitments = MergeVerifier::SubtableWitnessCommitments;
-    using Commitment = MergeVerifier::Commitment;
+    using MergeCommitments = MergeVerifier::InputCommitments;
 
     struct StdlibProof {
         using StdlibHonkProof = bb::stdlib::Proof<Builder>;
@@ -49,6 +47,8 @@ class GoblinRecursiveVerifier {
         StdlibHonkProof merge_proof;
         StdlibEccvmProof eccvm_proof; // contains pre-IPA and IPA proofs
         StdlibHonkProof translator_proof;
+
+        StdlibProof() = default;
 
         StdlibProof(Builder& builder, const GoblinProof& goblin_proof)
             : merge_proof(builder, goblin_proof.merge_proof)
@@ -63,16 +63,16 @@ class GoblinRecursiveVerifier {
                             const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
         : builder(builder)
         , verification_keys(verification_keys)
-        , transcript(transcript){};
+        , transcript(transcript) {};
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
         const GoblinProof&,
-        const SubtableCommitments& subtable_commitments,
-        std::array<Commitment, MegaFlavor::NUM_WIRES>& merged_table_commitment);
+        const MergeCommitments& merge_commitments,
+        const MergeSettings merge_settings = MergeSettings::PREPEND);
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
         const StdlibProof&,
-        const SubtableCommitments& subtable_commitments,
-        std::array<Commitment, MegaFlavor::NUM_WIRES>& merged_table_commitment);
+        const MergeCommitments& merge_commitments,
+        const MergeSettings merge_settings = MergeSettings::PREPEND);
 
   private:
     Builder* builder;

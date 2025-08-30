@@ -256,7 +256,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
   public getAs<T>(offset: number): T {
     assert(Number.isInteger(offset) && offset < TaggedMemory.MAX_MEMORY_SIZE);
     const word = this._mem.get(offset);
-    //TaggedMemory.log.trace(`get(${offset}) = ${word}`);
+    //TaggedMemory.log.trace(`Memory read: ${offset} -> ${word}`);
     if (word === undefined) {
       TaggedMemory.log.debug(`WARNING: Memory at offset ${offset} is undefined!`);
       return new Field(0) as T;
@@ -292,7 +292,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
   public set(offset: number, v: MemoryValue) {
     assert(Number.isInteger(offset) && offset < TaggedMemory.MAX_MEMORY_SIZE);
     this._mem.set(offset, v);
-    //TaggedMemory.log.trace(`set(${offset}, ${v})`);
+    //TaggedMemory.log.trace(`Memory write: ${offset} <- ${v}`);
   }
 
   public setSlice(offset: number, slice: MemoryValue[]) {

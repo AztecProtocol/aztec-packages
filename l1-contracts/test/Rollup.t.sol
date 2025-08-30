@@ -37,7 +37,8 @@ import {RollupBase, IInstance} from "./base/RollupBase.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {RollupBuilder} from "./builder/RollupBuilder.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
-import {SignatureLib, CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
+import {AttestationLib, CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
+import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -77,8 +78,7 @@ contract RollupTest is RollupBase {
     {
       DecoderBase.Full memory full = load(_name);
       uint256 slotNumber = Slot.unwrap(full.block.header.slotNumber);
-      uint256 initialTime =
-        Timestamp.unwrap(full.block.header.timestamp) - slotNumber * SLOT_DURATION;
+      uint256 initialTime = Timestamp.unwrap(full.block.header.timestamp) - slotNumber * SLOT_DURATION;
       vm.warp(initialTime);
     }
 
@@ -130,8 +130,7 @@ contract RollupTest is RollupBase {
     uint256 initialManaTarget = bound(_initialManaTarget, 0, type(uint64).max);
     uint256 newManaTarget = bound(_newManaTarget, initialManaTarget, type(uint64).max);
 
-    RollupBuilder builder =
-      new RollupBuilder(address(this)).setManaTarget(initialManaTarget).deploy();
+    RollupBuilder builder = new RollupBuilder(address(this)).setManaTarget(initialManaTarget).deploy();
 
     address governance = address(builder.getConfig().governance);
     rollup = IInstance(address(builder.getConfig().rollup));
@@ -153,8 +152,7 @@ contract RollupTest is RollupBase {
     uint256 initialManaTarget = bound(_initialManaTarget, 1, type(uint64).max);
     uint256 newManaTarget = bound(_newManaTarget, 0, initialManaTarget - 1);
 
-    RollupBuilder builder =
-      new RollupBuilder(address(this)).setManaTarget(initialManaTarget).deploy();
+    RollupBuilder builder = new RollupBuilder(address(this)).setManaTarget(initialManaTarget).deploy();
 
     address governance = address(builder.getConfig().governance);
     rollup = IInstance(address(builder.getConfig().rollup));
@@ -162,11 +160,7 @@ contract RollupTest is RollupBase {
     assertEq(rollup.getManaTarget(), initialManaTarget);
 
     // Cannot decrease the mana target
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Rollup__InvalidManaTarget.selector, initialManaTarget, newManaTarget
-      )
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidManaTarget.selector, initialManaTarget, newManaTarget));
     vm.prank(governance);
     rollup.updateManaTarget(newManaTarget);
     assertEq(rollup.getManaTarget(), initialManaTarget);
@@ -247,18 +241,15 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0)
     });
     bytes32 realBlobHash = this.getBlobHashes(data.blobCommitments)[0];
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Rollup__InvalidBlobHash.selector, blobHashes[0], realBlobHash)
-    );
-    rollup.propose(args, SignatureLib.packAttestations(attestations), signers, data.blobCommitments);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlobHash.selector, blobHashes[0], realBlobHash));
+    rollup.propose(args, AttestationLibHelper.packAttestations(attestations), signers, data.blobCommitments);
   }
 
   function testExtraBlobs() public setUpFor("mixed_block_1") {
     bytes32[] memory extraBlobHashes = new bytes32[](6);
     for (uint256 i = 0; i < extraBlobHashes.length; i++) {
       extraBlobHashes[i] = bytes32(
-        uint256(sha256(abi.encode("extraBlob", i)))
-          & 0x00FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+        uint256(sha256(abi.encode("extraBlob", i))) & 0x00FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
       ) | 0x0100000000000000000000000000000000000000000000000000000000000000;
     }
 
@@ -287,8 +278,9 @@ contract RollupTest is RollupBase {
     warpToL2Slot(1);
     _proposeBlock("mixed_block_1", 1);
     // we prove epoch 0
-    stdstore.enable_packed_slots().target(address(rollup)).sig("getProvenBlockNumber()")
-      .checked_write(rollup.getPendingBlockNumber());
+    stdstore.enable_packed_slots().target(address(rollup)).sig("getProvenBlockNumber()").checked_write(
+      rollup.getPendingBlockNumber()
+    );
 
     // jump to epoch 1
     warpToL2Slot(EPOCH_DURATION);
@@ -332,7 +324,7 @@ contract RollupTest is RollupBase {
       stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput(0)
     });
-    rollup.propose(args, SignatureLib.packAttestations(attestations), signers, data.blobCommitments);
+    rollup.propose(args, AttestationLibHelper.packAttestations(attestations), signers, data.blobCommitments);
   }
 
   function testInvalidL2Fee() public setUpFor("mixed_block_1") {
@@ -351,16 +343,14 @@ contract RollupTest is RollupBase {
     uint256 expectedFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
 
     // When not canonical, we expect the fee to be 0
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Rollup__InvalidManaBaseFee.selector, expectedFee, 1)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidManaBaseFee.selector, expectedFee, 1));
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: data.archive,
       stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput(0)
     });
-    rollup.propose(args, SignatureLib.packAttestations(attestations), signers, data.blobCommitments);
+    rollup.propose(args, AttestationLibHelper.packAttestations(attestations), signers, data.blobCommitments);
   }
 
   function testProvingFeeUpdates() public setUpFor("mixed_block_1") {
@@ -413,11 +403,7 @@ contract RollupTest is RollupBase {
 
     uint256 expectedProverRewards = rollup.getBlockReward() / 2 * 2 + proverFees;
 
-    assertEq(
-      rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(0)),
-      expectedProverRewards,
-      "invalid prover rewards"
-    );
+    assertEq(rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(0)), expectedProverRewards, "invalid prover rewards");
   }
 
   struct TestBlockFeeStruct {
@@ -455,8 +441,7 @@ contract RollupTest is RollupBase {
       assertEq(coinbaseBalance, 0, "invalid initial coinbase balance");
 
       skipBlobCheck(address(rollup));
-      interim.baseFee =
-        SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
+      interim.baseFee = SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
 
       header.gasFees.feePerL2Gas = interim.baseFee;
       header.totalManaUsed = interim.manaUsed;
@@ -471,9 +456,7 @@ contract RollupTest is RollupBase {
         stateReference: EMPTY_STATE_REFERENCE,
         oracleInput: OracleInput(0)
       });
-      rollup.propose(
-        args, SignatureLib.packAttestations(attestations), signers, data.blobCommitments
-      );
+      rollup.propose(args, AttestationLibHelper.packAttestations(attestations), signers, data.blobCommitments);
       assertEq(testERC20.balanceOf(header.coinbase), 0, "invalid coinbase balance");
     }
 
@@ -493,14 +476,7 @@ contract RollupTest is RollupBase {
         )
       );
       _submitEpochProofWithFee(
-        1,
-        1,
-        blockLog.archive,
-        data.archive,
-        data.batchedBlobInputs,
-        prover,
-        header.coinbase,
-        interim.feeAmount
+        1, 1, blockLog.archive, data.archive, data.batchedBlobInputs, prover, header.coinbase, interim.feeAmount
       );
     }
     assertEq(testERC20.balanceOf(header.coinbase), 0, "invalid coinbase balance");
@@ -514,46 +490,26 @@ contract RollupTest is RollupBase {
 
       // When the block is proven we should have received the funds
       _submitEpochProofWithFee(
-        1,
-        1,
-        blockLog.archive,
-        data.archive,
-        data.batchedBlobInputs,
-        address(42),
-        header.coinbase,
-        interim.feeAmount
+        1, 1, blockLog.archive, data.archive, data.batchedBlobInputs, address(42), header.coinbase, interim.feeAmount
       );
 
       {
         FeeAssetPerEthE9 price = rollup.getFeeAssetPerEth();
-        uint256 provingCosts = Math.mulDiv(
-          EthValue.unwrap(interim.provingCostPerManaInEth), FeeAssetPerEthE9.unwrap(price), 1e9
-        );
-        assertEq(
-          provingCosts,
-          FeeAssetValue.unwrap(interim.provingCostPerManaInFeeAsset),
-          "invalid proving costs"
-        );
+        uint256 provingCosts =
+          Math.mulDiv(EthValue.unwrap(interim.provingCostPerManaInEth), FeeAssetPerEthE9.unwrap(price), 1e9);
+        assertEq(provingCosts, FeeAssetValue.unwrap(interim.provingCostPerManaInFeeAsset), "invalid proving costs");
       }
 
-      uint256 expectedProverReward = rollup.getBlockReward() / 2
-        + FeeAssetValue.unwrap(interim.provingCostPerManaInFeeAsset) * interim.manaUsed;
+      uint256 expectedProverReward =
+        rollup.getBlockReward() / 2 + FeeAssetValue.unwrap(interim.provingCostPerManaInFeeAsset) * interim.manaUsed;
       uint256 expectedSequencerReward = rollup.getBlockReward() / 2 + interim.feeAmount
         - FeeAssetValue.unwrap(interim.provingCostPerManaInFeeAsset) * interim.manaUsed;
 
-      assertEq(
-        rollup.getSequencerRewards(header.coinbase),
-        expectedSequencerReward,
-        "invalid sequencer rewards"
-      );
+      assertEq(rollup.getSequencerRewards(header.coinbase), expectedSequencerReward, "invalid sequencer rewards");
 
       Epoch epoch = rollup.getBlock(1).slotNumber.epochFromSlot();
 
-      assertEq(
-        rollup.getCollectiveProverRewardsForEpoch(epoch),
-        expectedProverReward,
-        "invalid prover rewards"
-      );
+      assertEq(rollup.getCollectiveProverRewardsForEpoch(epoch), expectedProverReward, "invalid prover rewards");
     }
   }
 
@@ -593,10 +549,7 @@ contract RollupTest is RollupBase {
     assertEq(rollup.getProvenBlockNumber(), _toProve ? 1 : 0, "Invalid proven block number");
   }
 
-  function testConsecutiveSingleTxBlocks(uint256 _blocksToProve)
-    public
-    setUpFor("single_tx_block_1")
-  {
+  function testConsecutiveSingleTxBlocks(uint256 _blocksToProve) public setUpFor("single_tx_block_1") {
     uint256 toProve = bound(_blocksToProve, 0, 2);
 
     _proposeBlock("single_tx_block_1", 1);
@@ -620,11 +573,8 @@ contract RollupTest is RollupBase {
 
     BlockLog memory blockLog = rollup.getBlock(0);
 
-    PublicInputArgs memory args = PublicInputArgs({
-      previousArchive: blockLog.archive,
-      endArchive: data.archive,
-      proverId: address(0)
-    });
+    PublicInputArgs memory args =
+      PublicInputArgs({previousArchive: blockLog.archive, endArchive: data.archive, proverId: address(0)});
 
     bytes32[] memory fees = new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2);
 
@@ -634,9 +584,7 @@ contract RollupTest is RollupBase {
     bytes memory proof = "";
 
     vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Rollup__StartAndEndNotSameEpoch.selector, Epoch.wrap(0), Epoch.wrap(1)
-      )
+      abi.encodeWithSelector(Errors.Rollup__StartAndEndNotSameEpoch.selector, Epoch.wrap(0), Epoch.wrap(1))
     );
 
     rollup.submitEpochRootProof(
@@ -675,11 +623,7 @@ contract RollupTest is RollupBase {
 
     // Should fail here.
     _proveBlocksFail(
-      "mixed_block_",
-      2,
-      2,
-      address(0),
-      abi.encodeWithSelector(Errors.Rollup__StartIsNotFirstBlockOfEpoch.selector)
+      "mixed_block_", 2, 2, address(0), abi.encodeWithSelector(Errors.Rollup__StartIsNotFirstBlockOfEpoch.selector)
     );
 
     assertEq(rollup.getPendingBlockNumber(), 2, "Invalid pending block number");
@@ -731,7 +675,7 @@ contract RollupTest is RollupBase {
       stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput(0)
     });
-    rollup.propose(args, SignatureLib.packAttestations(attestations), signers, new bytes(144));
+    rollup.propose(args, AttestationLibHelper.packAttestations(attestations), signers, new bytes(144));
   }
 
   function testRevertInvalidCoinbase() public setUpFor("empty_block_1") {
@@ -754,7 +698,7 @@ contract RollupTest is RollupBase {
       stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput(0)
     });
-    rollup.propose(args, SignatureLib.packAttestations(attestations), signers, new bytes(144));
+    rollup.propose(args, AttestationLibHelper.packAttestations(attestations), signers, new bytes(144));
   }
 
   function testSubmitProofNonExistentBlock() public setUpFor("empty_block_1") {
@@ -763,11 +707,7 @@ contract RollupTest is RollupBase {
 
     BlockLog memory blockLog = rollup.getBlock(0);
     bytes32 wrong = bytes32(uint256(0xdeadbeef));
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Rollup__InvalidPreviousArchive.selector, blockLog.archive, wrong
-      )
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidPreviousArchive.selector, blockLog.archive, wrong));
     _submitEpochProof(1, 1, wrong, data.archive, data.batchedBlobInputs, address(0));
   }
 
@@ -778,9 +718,7 @@ contract RollupTest is RollupBase {
     bytes32 wrongArchive = bytes32(uint256(0xdeadbeef));
 
     BlockLog memory blockLog = rollup.getBlock(0);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Rollup__InvalidArchive.selector, data.archive, 0xdeadbeef)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidArchive.selector, data.archive, 0xdeadbeef));
     _submitEpochProof(1, 1, blockLog.archive, wrongArchive, data.batchedBlobInputs, address(0));
   }
 
@@ -791,7 +729,8 @@ contract RollupTest is RollupBase {
     bytes memory blobProofInputs = data.batchedBlobInputs;
     // mess with the data
     blobProofInputs[100] = 0x01;
-    // The below is the "blob hash" == bytes [0:32] of batchedBlobInputs = VERSIONED_HASH_VERSION_KZG + sha256(batchedBlobCommitment)[1:]
+    // The below is the "blob hash" == bytes [0:32] of batchedBlobInputs = VERSIONED_HASH_VERSION_KZG +
+    // sha256(batchedBlobCommitment)[1:]
     bytes32 blobHash;
     assembly {
       blobHash := mload(add(blobProofInputs, 0x20))
@@ -806,9 +745,11 @@ contract RollupTest is RollupBase {
     _proposeBlock("mixed_block_1", 1);
     DecoderBase.Data memory data = load("mixed_block_1").block;
 
-    // Set the pending block number to be Constants.AZTEC_MAX_EPOCH_DURATION + 2, so we don't revert early with a different case
-    stdstore.enable_packed_slots().target(address(rollup)).sig("getPendingBlockNumber()")
-      .checked_write(Constants.AZTEC_MAX_EPOCH_DURATION + 2);
+    // Set the pending block number to be Constants.AZTEC_MAX_EPOCH_DURATION + 2, so we don't revert early with a
+    // different case
+    stdstore.enable_packed_slots().target(address(rollup)).sig("getPendingBlockNumber()").checked_write(
+      Constants.AZTEC_MAX_EPOCH_DURATION + 2
+    );
 
     BlockLog memory blockLog = rollup.getBlock(0);
     vm.expectRevert(
@@ -819,12 +760,7 @@ contract RollupTest is RollupBase {
       )
     );
     _submitEpochProof(
-      1,
-      Constants.AZTEC_MAX_EPOCH_DURATION + 2,
-      blockLog.archive,
-      data.archive,
-      data.batchedBlobInputs,
-      address(0)
+      1, Constants.AZTEC_MAX_EPOCH_DURATION + 2, blockLog.archive, data.archive, data.batchedBlobInputs, address(0)
     );
   }
 
@@ -836,9 +772,7 @@ contract RollupTest is RollupBase {
     bytes memory _blobInputs,
     address _prover
   ) internal {
-    _submitEpochProofWithFee(
-      _start, _end, _prevArchive, _archive, _blobInputs, _prover, address(0), 0
-    );
+    _submitEpochProofWithFee(_start, _end, _prevArchive, _archive, _blobInputs, _prover, address(0), 0);
   }
 
   function _submitEpochProofWithFee(

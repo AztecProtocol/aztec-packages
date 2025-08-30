@@ -23,28 +23,6 @@ template <typename C> field_t<C> poseidon2<C>::hash(C& builder, const std::vecto
     return Sponge::hash_internal(builder, inputs);
 }
 
-/**
- * @brief Hash a byte_array.
- */
-template <typename C> field_t<C> poseidon2<C>::hash_buffer(C& builder, const stdlib::byte_array<C>& input)
-{
-    const size_t num_bytes = input.size();
-    const size_t bytes_per_element = 31; // 31 bytes in a fr element
-    size_t num_elements = static_cast<size_t>(num_bytes % bytes_per_element != 0) + (num_bytes / bytes_per_element);
-
-    std::vector<field_ct> elements;
-    for (size_t i = 0; i < num_elements; ++i) {
-        size_t bytes_to_slice = 0;
-        if (i == num_elements - 1) {
-            bytes_to_slice = num_bytes - (i * bytes_per_element);
-        } else {
-            bytes_to_slice = bytes_per_element;
-        }
-        auto element = static_cast<field_ct>(input.slice(i * bytes_per_element, bytes_to_slice));
-        elements.emplace_back(element);
-    }
-    return hash(builder, elements);
-}
 template class poseidon2<bb::MegaCircuitBuilder>;
 template class poseidon2<bb::UltraCircuitBuilder>;
 

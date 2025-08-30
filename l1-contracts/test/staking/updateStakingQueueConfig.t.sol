@@ -13,9 +13,7 @@ import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 
 contract UpdateStakingQueueConfigTest is StakingBase {
-  function test_GivenCallerIsNotTheRollupOwner(address _caller, StakingQueueConfig memory _config)
-    external
-  {
+  function test_GivenCallerIsNotTheRollupOwner(address _caller, StakingQueueConfig memory _config) external {
     // it reverts
     Rollup rollup = Rollup(address(registry.getCanonicalRollup()));
     vm.assume(rollup.owner() != _caller);
@@ -29,19 +27,16 @@ contract UpdateStakingQueueConfigTest is StakingBase {
     _;
   }
 
-  function test_GivenCallerIsRollupOwner(StakingQueueConfig memory _config)
-    external
-    givenCallerIsTheRollupOwner
-  {
+  function test_GivenCallerIsRollupOwner(StakingQueueConfig memory _config) external givenCallerIsTheRollupOwner {
     // it updates the staking queue config
     // it emits a {StakingQueueConfigUpdated} event
 
     // Update the config to have sane values that can be compressed
-    _config.bootstrapValidatorSetSize =
-      bound(_config.bootstrapValidatorSetSize, 0, type(uint64).max);
-    _config.bootstrapFlushSize = bound(_config.bootstrapFlushSize, 0, type(uint64).max);
-    _config.normalFlushSizeMin = bound(_config.normalFlushSizeMin, 0, type(uint64).max);
-    _config.normalFlushSizeQuotient = bound(_config.normalFlushSizeQuotient, 0, type(uint64).max);
+    _config.bootstrapValidatorSetSize = bound(_config.bootstrapValidatorSetSize, 0, type(uint32).max);
+    _config.bootstrapFlushSize = bound(_config.bootstrapFlushSize, 0, type(uint32).max);
+    _config.normalFlushSizeMin = bound(_config.normalFlushSizeMin, 0, type(uint32).max);
+    _config.normalFlushSizeQuotient = bound(_config.normalFlushSizeQuotient, 0, type(uint32).max);
+    _config.maxQueueFlushSize = bound(_config.maxQueueFlushSize, 0, type(uint32).max);
 
     Rollup rollup = Rollup(address(registry.getCanonicalRollup()));
     vm.prank(rollup.owner());

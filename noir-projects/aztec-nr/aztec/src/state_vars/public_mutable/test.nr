@@ -14,7 +14,7 @@ fn in_utility(context: UtilityContext) -> PublicMutable<MockStruct, UtilityConte
 
 #[test]
 unconstrained fn read_uninitialized_public_returns_zero() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.public_context(|context| {
         let state_var = in_public(context);
@@ -24,7 +24,7 @@ unconstrained fn read_uninitialized_public_returns_zero() {
 
 #[test]
 unconstrained fn read_uninitialized_utility_returns_default() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.utility_context(|context| {
         let state_var = in_utility(context);
@@ -34,7 +34,7 @@ unconstrained fn read_uninitialized_utility_returns_default() {
 
 #[test]
 unconstrained fn write_read_public_same_tx() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.public_context(|context| {
         let state_var = in_public(context);
@@ -47,7 +47,7 @@ unconstrained fn write_read_public_same_tx() {
 
 #[test]
 unconstrained fn write_read_public_other_tx() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     let value = MockStruct::new(5, 6);
 
@@ -64,7 +64,7 @@ unconstrained fn write_read_public_other_tx() {
 
 #[test]
 unconstrained fn write_read_utility() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
     let value = MockStruct::new(5, 6);
 
     env.public_context(|context| {

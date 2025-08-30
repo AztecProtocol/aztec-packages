@@ -9,7 +9,8 @@
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/lib/sha256_compression.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_context.hpp"
+#include "barretenberg/vm2/simulation/testing/fakes/fake_bitwise.hpp"
+#include "barretenberg/vm2/simulation/testing/fakes/fake_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 
 namespace bb::avm2::simulation {
@@ -24,13 +25,13 @@ using simulation::MockExecutionIdManager;
 TEST(Sha256CompressionSimulationTest, Sha256Compression)
 {
     MemoryStore mem;
-    StrictMock<MockContext> context;
-    EXPECT_CALL(context, get_memory()).WillRepeatedly(ReturnRef(mem));
     StrictMock<MockExecutionIdManager> execution_id_manager;
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly(Return(1));
+    FakeGreaterThan gt;
+    FakeBitwise bitwise;
 
     EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
-    Sha256 sha256(execution_id_manager, sha256_event_emitter);
+    Sha256 sha256(execution_id_manager, bitwise, gt, sha256_event_emitter);
 
     // TODO: actually can choose to mock, not even use a memory, check the events, etc.
     std::array<uint32_t, 8> state = { 0, 1, 2, 3, 4, 5, 6, 7 };
@@ -46,7 +47,7 @@ TEST(Sha256CompressionSimulationTest, Sha256Compression)
     }
     MemoryAddress dst_addr = 25;
 
-    sha256.compression(context, state_addr, input_addr, dst_addr);
+    sha256.compression(mem, state_addr, input_addr, dst_addr);
 
     auto result = sha256_block(state, input);
 

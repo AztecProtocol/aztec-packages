@@ -14,8 +14,6 @@ namespace bb::avm2::simulation {
 
 BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
 {
-    auto bytecode_id = next_bytecode_id++;
-
     // Use shared ContractInstanceManager for contract instance retrieval and validation
     // This handles nullifier checks, address derivation, and update validation
     auto maybe_instance = contract_instance_manager.get_contract_instance(address);
@@ -23,12 +21,12 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     if (!maybe_instance.has_value()) {
         // Contract instance not found - emit error event and throw
         retrieval_events.emit({
-            .bytecode_id = bytecode_id,
+            .bytecode_id = FF(0), // Use default ID for error case
             .address = address,
             .error = true,
         });
         vinfo("Contract ", field_to_string(address), " is not deployed!");
-        throw BytecodeNotFoundError(bytecode_id, "Contract " + field_to_string(address) + " is not deployed");
+        throw BytecodeNotFoundError("Contract " + field_to_string(address) + " is not deployed");
     }
 
     ContractClassId current_class_id = maybe_instance.value().current_class_id;
@@ -41,10 +39,29 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     auto& klass = maybe_klass.value();
     info("Bytecode for ", address, " successfully retrieved!");
 
-    // Bytecode hashing and decomposition
-    FF bytecode_commitment = bytecode_hasher.compute_public_bytecode_commitment(bytecode_id, klass.packed_bytecode);
-    (void)bytecode_commitment; // Avoid GCC unused parameter warning when asserts are disabled.
-    assert(bytecode_commitment == klass.public_bytecode_commitment);
+    // Bytecode hashing and decomposition, deduplicated by bytecode_id (commitment)
+    BytecodeId bytecode_id = klass.public_bytecode_commitment;
+
+    // Check if we've already processed this bytecode. If so, don't do hashing and decomposition again!
+    if (bytecodes.contains(bytecode_id)) {
+        // Already processed this bytecode - just emit retrieval event and return
+        auto tree_states = merkle_db.get_tree_state();
+        retrieval_events.emit({
+            .bytecode_id = bytecode_id,
+            .address = address,
+            .current_class_id = current_class_id,
+            .contract_class = klass,
+            .nullifier_root = tree_states.nullifierTree.tree.root,
+            .public_data_tree_root = tree_states.publicDataTree.tree.root,
+        });
+        return bytecode_id;
+    }
+
+    // First time seeing this bytecode - do hashing and decomposition
+    FF computed_commitment = bytecode_hasher.compute_public_bytecode_commitment(bytecode_id, klass.packed_bytecode);
+    (void)computed_commitment; // Avoid GCC unused parameter warning when asserts are disabled.
+    assert(computed_commitment == klass.public_bytecode_commitment);
+
     // We convert the bytecode to a shared_ptr because it will be shared by some events.
     auto shared_bytecode = std::make_shared<std::vector<uint8_t>>(std::move(klass.packed_bytecode));
     decomposition_events.emit({ .bytecode_id = bytecode_id, .bytecode = shared_bytecode });

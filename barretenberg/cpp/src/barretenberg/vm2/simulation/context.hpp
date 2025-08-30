@@ -36,6 +36,7 @@ class ContextInterface {
     virtual void halt() = 0;
     virtual uint32_t get_context_id() const = 0;
     virtual uint32_t get_parent_id() const = 0;
+    virtual uint32_t get_last_child_id() const = 0;
     virtual bool has_parent() const = 0;
 
     // Environment.
@@ -43,7 +44,12 @@ class ContextInterface {
     virtual const AztecAddress& get_msg_sender() const = 0;
     virtual const FF& get_transaction_fee() const = 0;
     virtual bool get_is_static() const = 0;
+    virtual SideEffectStates& get_side_effect_states() = 0;
+    virtual AppendOnlyTreeSnapshot get_written_public_data_slots_tree_snapshot() = 0;
+    virtual void set_side_effect_states(SideEffectStates side_effect_states) = 0;
     virtual const GlobalVariables& get_globals() const = 0;
+
+    virtual TransactionPhase get_phase() const = 0;
 
     virtual std::vector<FF> get_calldata(uint32_t cd_offset, uint32_t cd_size) const = 0;
     virtual std::vector<FF> get_returndata(uint32_t rd_addr, uint32_t rd_size) = 0;
@@ -95,7 +101,9 @@ class BaseContext : public ContextInterface {
                 std::unique_ptr<MemoryInterface> memory,
                 std::unique_ptr<InternalCallStackManagerInterface> internal_call_stack_manager,
                 HighLevelMerkleDBInterface& merkle_db,
-                WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree)
+                WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree,
+                SideEffectStates side_effect_states,
+                TransactionPhase phase)
         : merkle_db(merkle_db)
         , checkpoint_id_at_creation(merkle_db.get_checkpoint_id())
         , written_public_data_slots_tree(written_public_data_slots_tree)
@@ -104,13 +112,17 @@ class BaseContext : public ContextInterface {
         , transaction_fee(transaction_fee)
         , is_static(is_static)
         , globals(globals)
+        , side_effect_states(side_effect_states)
         , context_id(context_id)
         , gas_used(gas_used)
         , gas_limit(gas_limit)
         , bytecode(std::move(bytecode))
         , memory(std::move(memory))
         , internal_call_stack_manager(std::move(internal_call_stack_manager))
+        , phase(phase)
     {}
+
+    uint32_t get_last_child_id() const override;
 
     // Having getters and setters make it easier to mock the context.
     // Machine state.
@@ -135,6 +147,18 @@ class BaseContext : public ContextInterface {
     const AztecAddress& get_msg_sender() const override { return msg_sender; }
     const FF& get_transaction_fee() const override { return transaction_fee; }
     bool get_is_static() const override { return is_static; }
+    SideEffectStates& get_side_effect_states() override { return side_effect_states; }
+    void set_side_effect_states(SideEffectStates side_effect_states) override
+    {
+        this->side_effect_states = side_effect_states;
+    }
+
+    TransactionPhase get_phase() const override { return phase; }
+
+    AppendOnlyTreeSnapshot get_written_public_data_slots_tree_snapshot() override
+    {
+        return written_public_data_slots_tree.snapshot();
+    }
     const GlobalVariables& get_globals() const override { return globals; }
 
     ContextInterface& get_child_context() override { return *child_context; }
@@ -176,6 +200,7 @@ class BaseContext : public ContextInterface {
     FF transaction_fee;
     bool is_static;
     GlobalVariables globals;
+    SideEffectStates side_effect_states;
 
     uint32_t context_id;
 
@@ -194,6 +219,8 @@ class BaseContext : public ContextInterface {
     MemoryAddress last_child_rd_addr = 0;
     MemoryAddress last_child_rd_size = 0;
     bool last_child_success = false;
+
+    TransactionPhase phase;
 };
 
 // TODO(ilyas): move to cpp file
@@ -212,6 +239,8 @@ class EnqueuedCallContext : public BaseContext {
                         std::unique_ptr<InternalCallStackManagerInterface> internal_call_stack_manager,
                         HighLevelMerkleDBInterface& merkle_db,
                         WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree,
+                        SideEffectStates side_effect_states,
+                        TransactionPhase phase,
                         std::span<const FF> calldata)
         : BaseContext(context_id,
                       address,
@@ -225,7 +254,9 @@ class EnqueuedCallContext : public BaseContext {
                       std::move(memory),
                       std::move(internal_call_stack_manager),
                       merkle_db,
-                      written_public_data_slots_tree)
+                      written_public_data_slots_tree,
+                      side_effect_states,
+                      phase)
         , calldata(calldata.begin(), calldata.end())
     {}
 
@@ -262,9 +293,11 @@ class NestedContext : public BaseContext {
                   std::unique_ptr<InternalCallStackManagerInterface> internal_call_stack_manager,
                   HighLevelMerkleDBInterface& merkle_db,
                   WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree,
+                  SideEffectStates side_effect_states,
+                  TransactionPhase phase,
                   ContextInterface& parent_context,
                   MemoryAddress cd_offset_address, /* This is a direct mem address */
-                  MemoryAddress cd_size)
+                  uint32_t cd_size)
         : BaseContext(context_id,
                       address,
                       msg_sender,
@@ -277,14 +310,16 @@ class NestedContext : public BaseContext {
                       std::move(memory),
                       std::move(internal_call_stack_manager),
                       merkle_db,
-                      written_public_data_slots_tree)
+                      written_public_data_slots_tree,
+                      side_effect_states,
+                      phase)
         , parent_cd_addr(cd_offset_address)
         , parent_cd_size(cd_size)
         , parent_context(parent_context)
     {}
 
     uint32_t get_parent_id() const override { return parent_context.get_context_id(); }
-    bool has_parent() const override { return false; }
+    bool has_parent() const override { return true; }
 
     Gas get_parent_gas_used() const override { return parent_context.get_gas_used(); }
     Gas get_parent_gas_limit() const override { return parent_context.get_gas_limit(); }

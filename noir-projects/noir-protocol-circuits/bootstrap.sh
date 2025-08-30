@@ -3,6 +3,11 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
+working_dir=${2:-}
+# entrypoint for mock circuits
+if [ -n "$working_dir" ]; then
+  cd "$working_dir"
+fi
 
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
@@ -78,8 +83,7 @@ function compile {
     local write_vk_cmd="write_vk --scheme client_ivc --verifier_type standalone"
   elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
     local proto="ultra_rollup_honk"
-    # --honk_recursion 2 injects a fake ipa claim
-    local write_vk_cmd="write_vk --scheme ultra_honk --ipa_accumulation --honk_recursion 2"
+    local write_vk_cmd="write_vk --scheme ultra_honk --ipa_accumulation"
   elif echo "$name" | grep -qE "rollup_root"; then
     local proto="ultra_keccak_honk"
     # the root rollup does not need to inject a fake ipa claim
@@ -87,7 +91,7 @@ function compile {
     local write_vk_cmd="write_vk --scheme ultra_honk --oracle_hash keccak"
   else
     local proto="ultra_honk"
-    local write_vk_cmd="write_vk --scheme ultra_honk --init_kzg_accumulator --honk_recursion 1"
+    local write_vk_cmd="write_vk --scheme ultra_honk"
   fi
   # No vks needed for simulated circuits.
   [[ "$name" == *"simulated"* ]] && return
@@ -96,7 +100,7 @@ function compile {
   # Will require changing TS code downstream.
   bytecode_hash=$(jq -r '.bytecode' $json_path | sha256sum | tr -d ' -')
   hash=$(hash_str "$BB_HASH-$bytecode_hash-$proto")
-  if [ "${USE_CIRCUITS_CACHE:-0}" -eq 0 ] || ! cache_download vk-$hash.tar.gz 1>&2; then
+  if ! cache_download vk-$hash.tar.gz 1>&2; then
     local key_path="$key_dir/$name.vk.data.json"
     echo_stderr "Generating vk for function: $name..."
     SECONDS=0
@@ -192,7 +196,7 @@ function test_cmds {
 }
 
 function test {
-  test_cmds | filter_test_cmds | parallelise
+  test_cmds | filter_test_cmds | parallelize
 }
 
 function format {
@@ -205,11 +209,11 @@ function bench_cmds {
   for artifact in ./target/*.json; do
     [[ "$artifact" =~ _simulated ]] && continue
     if echo "$artifact" | grep -qEf <(printf '%s\n' "${ivc_patterns[@]}"); then
-      echo "$prefix $artifact client_ivc"
+      echo "$prefix $artifact --scheme client_ivc"
     elif echo "$artifact" | grep -qEf <(printf '%s\n' "${rollup_honk_patterns[@]}"); then
-      echo "$prefix $artifact ultra_honk 2"
+      echo "$prefix $artifact --scheme ultra_honk --ipa_accumulation"
     else
-      echo "$prefix $artifact ultra_honk 1"
+      echo "$prefix $artifact --scheme ultra_honk"
     fi
   done
 }
@@ -217,7 +221,7 @@ function bench_cmds {
 function bench {
   rm -rf bench-out && mkdir -p bench-out
 
-  bench_cmds | STRICT_SCHEDULING=1 parallelise
+  bench_cmds | STRICT_SCHEDULING=1 parallelize
 }
 
 case "$cmd" in

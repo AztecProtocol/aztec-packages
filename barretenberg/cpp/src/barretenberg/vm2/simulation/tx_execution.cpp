@@ -12,25 +12,40 @@
 #include "barretenberg/vm2/simulation/tx_context.hpp"
 
 namespace bb::avm2::simulation {
+namespace {
+
+// A tx-level exception that is expected to be handled.
+// This is in contrast to other runtime exceptions that might happen and should be propagated.
+class TxExecutionException : public std::runtime_error {
+  public:
+    TxExecutionException(const std::string& message)
+        : std::runtime_error(message)
+    {}
+};
+
+} // namespace
 
 void TxExecution::emit_public_call_request(const PublicCallRequestWithCalldata& call,
                                            TransactionPhase phase,
                                            const FF& transaction_fee,
                                            bool success,
-                                           const Gas& gas_limit,
+                                           const Gas& start_gas,
+                                           const Gas& end_gas,
                                            const TxContextEvent& state_before,
                                            const TxContextEvent& state_after)
 {
     events.emit(TxPhaseEvent{ .phase = phase,
                               .state_before = state_before,
                               .state_after = state_after,
+                              .reverted = !success,
                               .event = EnqueuedCallEvent{
                                   .msg_sender = call.request.msgSender,
                                   .contract_address = call.request.contractAddress,
                                   .transaction_fee = transaction_fee,
                                   .is_static = call.request.isStaticCall,
                                   .calldata_hash = call.request.calldataHash,
-                                  .gas_limit = gas_limit,
+                                  .start_gas = start_gas,
+                                  .end_gas = end_gas,
                                   .success = success,
                               } });
 }
@@ -45,10 +60,13 @@ void TxExecution::emit_public_call_request(const PublicCallRequestWithCalldata& 
 void TxExecution::simulate(const Tx& tx)
 {
     Gas gas_limit = tx.gasSettings.gasLimits;
+    Gas teardown_gas_limit = tx.gasSettings.teardownGasLimits;
     tx_context.gas_used = tx.gasUsedByPrivate;
 
     events.emit(TxStartupEvent{
         .state = tx_context.serialize_tx_context_event(),
+        .gas_limit = gas_limit,
+        .teardown_gas_limit = teardown_gas_limit,
     });
 
     info("Simulating tx ",
@@ -61,29 +79,40 @@ void TxExecution::simulate(const Tx& tx)
          tx.teardownEnqueuedCall ? "1 teardown enqueued call" : "no teardown enqueued call");
 
     // Insert non-revertibles. This can throw if there is a nullifier collision.
+    // That would result in an unprovable tx.
     insert_non_revertibles(tx);
 
     // Setup.
     for (const auto& call : tx.setupEnqueuedCalls) {
         info("[SETUP] Executing enqueued call to ", call.request.contractAddress);
         TxContextEvent state_before = tx_context.serialize_tx_context_event();
+        Gas start_gas = tx_context.gas_used;
         auto context = context_provider.make_enqueued_context(call.request.contractAddress,
                                                               call.request.msgSender,
                                                               /*transaction_fee=*/FF(0),
                                                               call.calldata,
                                                               call.request.isStaticCall,
                                                               gas_limit,
-                                                              tx_context.gas_used);
+                                                              start_gas,
+                                                              tx_context.side_effect_states,
+                                                              TransactionPhase::SETUP);
+        // This call should not throw unless it's an unexpected unrecoverable failure.
         ExecutionResult result = call_execution.execute(std::move(context));
+        tx_context.side_effect_states = result.side_effect_states;
         tx_context.gas_used = result.gas_used;
         emit_public_call_request(call,
                                  TransactionPhase::SETUP,
                                  /*transaction_fee=*/FF(0),
                                  result.success,
-                                 gas_limit,
+                                 start_gas,
+                                 tx_context.gas_used,
                                  state_before,
                                  tx_context.serialize_tx_context_event());
-        tx_context.gas_used = result.gas_used;
+        if (!result.success) {
+            // This will result in an unprovable tx.
+            throw TxExecutionException(
+                format("[SETUP] UNRECOVERABLE ERROR! Enqueued call to ", call.request.contractAddress, " failed"));
+        }
     }
 
     // The checkpoint we should go back to if anything from now on reverts.
@@ -91,98 +120,206 @@ void TxExecution::simulate(const Tx& tx)
 
     try {
         // Insert revertibles. This can throw if there is a nullifier collision.
+        // Such an exception should be handled and the tx be provable.
         insert_revertibles(tx);
 
         // App logic.
         for (const auto& call : tx.appLogicEnqueuedCalls) {
             info("[APP_LOGIC] Executing enqueued call to ", call.request.contractAddress);
             TxContextEvent state_before = tx_context.serialize_tx_context_event();
+            Gas start_gas = tx_context.gas_used;
             auto context = context_provider.make_enqueued_context(call.request.contractAddress,
                                                                   call.request.msgSender,
                                                                   /*transaction_fee=*/FF(0),
                                                                   call.calldata,
                                                                   call.request.isStaticCall,
                                                                   gas_limit,
-                                                                  tx_context.gas_used);
+                                                                  start_gas,
+                                                                  tx_context.side_effect_states,
+                                                                  TransactionPhase::APP_LOGIC);
+            // This call should not throw unless it's an unexpected unrecoverable failure.
             ExecutionResult result = call_execution.execute(std::move(context));
+            tx_context.side_effect_states = result.side_effect_states;
             tx_context.gas_used = result.gas_used;
             emit_public_call_request(call,
                                      TransactionPhase::APP_LOGIC,
                                      /*transaction_fee=*/FF(0),
                                      result.success,
-                                     gas_limit,
+                                     start_gas,
+                                     tx_context.gas_used,
                                      state_before,
                                      tx_context.serialize_tx_context_event());
             if (!result.success) {
-                throw std::runtime_error(
+                // This exception should be handled and the tx be provable.
+                throw TxExecutionException(
                     format("[APP_LOGIC] Enqueued call to ", call.request.contractAddress, " failed"));
             }
         }
-    } catch (const std::runtime_error& e) {
+    } catch (const TxExecutionException& e) {
         info("Revertible failure while simulating tx ", tx.hash, ": ", e.what());
-        // TODO(fcarreiro): Enable the following lines once we stop truncating the bulk trace.
-        // We can't execute this code because TS will not fail here, and therefore not revert and create a checkpoint.
-
         // We revert to the post-setup state.
-        // merkle_db.revert_checkpoint();
+        merkle_db.revert_checkpoint();
         // But we also create a new fork so that the teardown phase can transparently
         // commit or rollback to the end of teardown.
-        // merkle_db.create_checkpoint();
+        merkle_db.create_checkpoint();
     }
 
     // Compute the transaction fee here so it can be passed to teardown
+    Gas gas_used_before_teardown = tx_context.gas_used;
     uint128_t fee_per_da_gas = tx.effectiveGasFees.feePerDaGas;
     uint128_t fee_per_l2_gas = tx.effectiveGasFees.feePerL2Gas;
-    FF fee = FF(fee_per_da_gas) * FF(tx_context.gas_used.daGas) + FF(fee_per_l2_gas) * FF(tx_context.gas_used.l2Gas);
+    FF fee = FF(fee_per_da_gas) * FF(gas_used_before_teardown.daGas) +
+             FF(fee_per_l2_gas) * FF(gas_used_before_teardown.l2Gas);
 
     // Teardown.
     try {
         if (tx.teardownEnqueuedCall) {
             info("[TEARDOWN] Executing enqueued call to ", tx.teardownEnqueuedCall->request.contractAddress);
-            // Reset gas for teardown since it is tracked separately.
-            tx_context.gas_used = { 0, 0 };
+            // Teardown has its own gas limit and usage.
+            Gas start_gas = { 0, 0 };
+            gas_limit = teardown_gas_limit;
             TxContextEvent state_before = tx_context.serialize_tx_context_event();
             auto context = context_provider.make_enqueued_context(tx.teardownEnqueuedCall->request.contractAddress,
                                                                   tx.teardownEnqueuedCall->request.msgSender,
                                                                   fee,
                                                                   tx.teardownEnqueuedCall->calldata,
                                                                   tx.teardownEnqueuedCall->request.isStaticCall,
-                                                                  // Teardown has its own gas limit and usage.
-                                                                  tx.gasSettings.teardownGasLimits,
-                                                                  Gas{ 0, 0 });
+                                                                  gas_limit,
+                                                                  start_gas,
+                                                                  tx_context.side_effect_states,
+                                                                  TransactionPhase::TEARDOWN);
+            // This call should not throw unless it's an unexpected unrecoverable failure.
             ExecutionResult result = call_execution.execute(std::move(context));
+            tx_context.side_effect_states = result.side_effect_states;
             // Check what to do here for GAS
             emit_public_call_request(*tx.teardownEnqueuedCall,
-                                     // TODO(dbanks12): This should be TEARDOWN.
-                                     TransactionPhase::APP_LOGIC,
+                                     TransactionPhase::TEARDOWN,
                                      fee,
                                      result.success,
-                                     tx.gasSettings.teardownGasLimits,
+                                     start_gas,
+                                     result.gas_used,
                                      state_before,
                                      tx_context.serialize_tx_context_event());
             if (!result.success) {
-                throw std::runtime_error(format(
+                // This exception should be handled and the tx be provable.
+                throw TxExecutionException(format(
                     "[TEARDOWN] Enqueued call to ", tx.teardownEnqueuedCall->request.contractAddress, " failed"));
             }
         }
 
-        // TODO(fcarreiro): Enable the following lines once we stop truncating the bulk trace.
         // We commit the forked state and we are done.
-        // merkle_db.commit_checkpoint();
-    } catch (const std::runtime_error& e) {
+        merkle_db.commit_checkpoint();
+    } catch (const TxExecutionException& e) {
         info("Teardown failure while simulating tx ", tx.hash, ": ", e.what());
-        // TODO(fcarreiro): Enable the following lines once we stop truncating the bulk trace.
         // We rollback to the post-setup state.
-        // merkle_db.revert_checkpoint();
+        merkle_db.revert_checkpoint();
     }
 
     // Fee payment
     pay_fee(tx.feePayer, fee, fee_per_da_gas, fee_per_l2_gas);
+
+    pad_trees();
+
+    cleanup();
+}
+
+void TxExecution::emit_nullifier(bool revertible, const FF& nullifier)
+{
+    TransactionPhase phase =
+        revertible ? TransactionPhase::R_NULLIFIER_INSERTION : TransactionPhase::NR_NULLIFIER_INSERTION;
+    TxContextEvent state_before = tx_context.serialize_tx_context_event();
+    try {
+        uint32_t prev_nullifier_count = merkle_db.get_tree_state().nullifierTree.counter;
+
+        if (prev_nullifier_count == MAX_NULLIFIERS_PER_TX) {
+            throw TxExecutionException("Maximum number of nullifiers reached");
+        }
+        bool success = merkle_db.siloed_nullifier_write(nullifier);
+        if (!success) {
+            throw TxExecutionException("Nullifier collision");
+        }
+
+        events.emit(TxPhaseEvent{ .phase = phase,
+                                  .state_before = state_before,
+                                  .state_after = tx_context.serialize_tx_context_event(),
+                                  .event = PrivateAppendTreeEvent{ .leaf_value = nullifier } });
+
+    } catch (const TxExecutionException& e) {
+        events.emit(TxPhaseEvent{
+            .phase = phase,
+            .state_before = state_before,
+            .state_after = tx_context.serialize_tx_context_event(),
+            .reverted = true,
+            .event = PrivateAppendTreeEvent{ .leaf_value = nullifier },
+        });
+        // Rethrow the error
+        throw e;
+    }
+}
+
+void TxExecution::emit_note_hash(bool revertible, const FF& note_hash)
+{
+    TransactionPhase phase = revertible ? TransactionPhase::R_NOTE_INSERTION : TransactionPhase::NR_NOTE_INSERTION;
+    TxContextEvent state_before = tx_context.serialize_tx_context_event();
+
+    try {
+        uint32_t prev_note_hash_count = merkle_db.get_tree_state().noteHashTree.counter;
+
+        if (prev_note_hash_count == MAX_NOTE_HASHES_PER_TX) {
+            throw TxExecutionException("Maximum number of note hashes reached");
+        }
+
+        if (revertible) {
+            merkle_db.siloed_note_hash_write(note_hash);
+        } else {
+            merkle_db.unique_note_hash_write(note_hash);
+        }
+
+        events.emit(TxPhaseEvent{ .phase = phase,
+                                  .state_before = state_before,
+                                  .state_after = tx_context.serialize_tx_context_event(),
+                                  .event = PrivateAppendTreeEvent{ .leaf_value = note_hash } });
+    } catch (const TxExecutionException& e) {
+        events.emit(TxPhaseEvent{ .phase = phase,
+                                  .state_before = state_before,
+                                  .state_after = tx_context.serialize_tx_context_event(),
+                                  .reverted = true,
+                                  .event = PrivateAppendTreeEvent{ .leaf_value = note_hash } });
+        // Rethrow the error
+        throw e;
+    }
+}
+
+void TxExecution::emit_l2_to_l1_message(bool revertible, const ScopedL2ToL1Message& l2_to_l1_message)
+{
+    TransactionPhase phase = revertible ? TransactionPhase::R_L2_TO_L1_MESSAGE : TransactionPhase::NR_L2_TO_L1_MESSAGE;
+    TxContextEvent state_before = tx_context.serialize_tx_context_event();
+
+    try {
+        if (tx_context.side_effect_states.numL2ToL1Messages == MAX_L2_TO_L1_MSGS_PER_TX) {
+            throw TxExecutionException("Maximum number of L2 to L1 messages reached");
+        }
+        // TODO: We don't store the l2 to l1 message in the context since it's not needed until cpp has to generate
+        // public inputs.
+        tx_context.side_effect_states.numL2ToL1Messages++;
+        events.emit(TxPhaseEvent{ .phase = phase,
+                                  .state_before = state_before,
+                                  .state_after = tx_context.serialize_tx_context_event(),
+                                  .event = PrivateEmitL2L1MessageEvent{ .scoped_msg = l2_to_l1_message } });
+    } catch (const TxExecutionException& e) {
+        events.emit(TxPhaseEvent{ .phase = phase,
+                                  .state_before = state_before,
+                                  .state_after = tx_context.serialize_tx_context_event(),
+                                  .reverted = true,
+                                  .event = PrivateEmitL2L1MessageEvent{ .scoped_msg = l2_to_l1_message } });
+        // Rethrow the error
+        throw e;
+    }
 }
 
 // TODO: How to increment the context id here?
 // This function inserts the non-revertible accumulated data into the Merkle DB.
-// It might error if the limits for number of allowable inserts are exceeded, but this result in an unprovable tx
+// It might error if the limits for number of allowable inserts are exceeded, but this result in an unprovable tx.
 void TxExecution::insert_non_revertibles(const Tx& tx)
 {
     info("[NON_REVERTIBLE] Inserting ",
@@ -194,39 +331,19 @@ void TxExecution::insert_non_revertibles(const Tx& tx)
          " L2 to L1 messages for tx ",
          tx.hash);
 
-    TxContextEvent state_before = tx_context.serialize_tx_context_event();
     // 1. Write the already siloed nullifiers.
     for (const auto& nullifier : tx.nonRevertibleAccumulatedData.nullifiers) {
-        // TODO: handle the error case
-        merkle_db.siloed_nullifier_write(nullifier);
-        TxContextEvent state_after = tx_context.serialize_tx_context_event();
-        events.emit(TxPhaseEvent{ .phase = TransactionPhase::NR_NULLIFIER_INSERTION,
-                                  .state_before = state_before,
-                                  .state_after = state_after,
-                                  .event = PrivateAppendTreeEvent{ .leaf_value = nullifier } });
-        state_before = state_after;
+        emit_nullifier(false, nullifier);
     }
 
     // 2. Write already unique note hashes.
     for (const auto& unique_note_hash : tx.nonRevertibleAccumulatedData.noteHashes) {
-        merkle_db.unique_note_hash_write(unique_note_hash);
-        TxContextEvent state_after = tx_context.serialize_tx_context_event();
-        events.emit(TxPhaseEvent{ .phase = TransactionPhase::NR_NOTE_INSERTION,
-                                  .state_before = state_before,
-                                  .state_after = state_after,
-                                  .event = PrivateAppendTreeEvent{ .leaf_value = unique_note_hash } });
-        state_before = state_after;
+        emit_note_hash(false, unique_note_hash);
     }
 
     // 3. Write l2_l1 messages
     for (const auto& l2_to_l1_msg : tx.nonRevertibleAccumulatedData.l2ToL1Messages) {
-        // Tree state does not change when writing L2 to L1 messages.
-        TxContextEvent state_after = tx_context.serialize_tx_context_event();
-        events.emit(TxPhaseEvent{ .phase = TransactionPhase::NR_L2_TO_L1_MESSAGE,
-                                  .state_before = state_before,
-                                  .state_after = state_after,
-                                  .event = PrivateEmitL2L1MessageEvent{ .scoped_msg = l2_to_l1_msg } });
-        state_before = state_after;
+        emit_l2_to_l1_message(false, l2_to_l1_msg);
     }
 }
 
@@ -242,41 +359,19 @@ void TxExecution::insert_revertibles(const Tx& tx)
          " L2 to L1 messages for tx ",
          tx.hash);
 
-    TxContextEvent state_before = tx_context.serialize_tx_context_event();
     // 1. Write the already siloed nullifiers.
     for (const auto& siloed_nullifier : tx.revertibleAccumulatedData.nullifiers) {
-        // TODO: handle the error case
-        merkle_db.siloed_nullifier_write(siloed_nullifier);
-
-        TxContextEvent state_after = tx_context.serialize_tx_context_event();
-        events.emit(TxPhaseEvent{ .phase = TransactionPhase::R_NULLIFIER_INSERTION,
-                                  .state_before = state_before,
-                                  .state_after = state_after,
-                                  .event = PrivateAppendTreeEvent{ .leaf_value = siloed_nullifier } });
-        state_before = state_after;
+        emit_nullifier(true, siloed_nullifier);
     }
 
     // 2. Write the siloed non uniqued note hashes
     for (const auto& siloed_note_hash : tx.revertibleAccumulatedData.noteHashes) {
-        merkle_db.siloed_note_hash_write(siloed_note_hash);
-
-        TxContextEvent state_after = tx_context.serialize_tx_context_event();
-        events.emit(TxPhaseEvent{ .phase = TransactionPhase::R_NOTE_INSERTION,
-                                  .state_before = state_before,
-                                  .state_after = state_after,
-                                  .event = PrivateAppendTreeEvent{ .leaf_value = siloed_note_hash } });
-        state_before = state_after;
+        emit_note_hash(true, siloed_note_hash);
     }
 
     // 3. Write L2 to L1 messages.
     for (const auto& l2_to_l1_msg : tx.revertibleAccumulatedData.l2ToL1Messages) {
-        // Tree state does not change when writing L2 to L1 messages.
-        TxContextEvent state_after = tx_context.serialize_tx_context_event();
-        events.emit(TxPhaseEvent{ .phase = TransactionPhase::R_L2_TO_L1_MESSAGE,
-                                  .state_before = state_before,
-                                  .state_after = state_after,
-                                  .event = PrivateEmitL2L1MessageEvent{ .scoped_msg = l2_to_l1_msg } });
-        state_before = state_after;
+        emit_l2_to_l1_message(true, l2_to_l1_msg);
     }
 }
 
@@ -289,17 +384,14 @@ void TxExecution::pay_fee(const FF& fee_payer,
 
     FF fee_juice_balance_slot = poseidon2.hash({ FEE_JUICE_BALANCES_SLOT, fee_payer });
 
-    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
-    // FF fee_payer_balance = merkle_db.storage_read(FEE_JUICE_ADDRESS, fee_juice_balance_slot);
-    FF fee_payer_balance = FF::neg_one();
+    FF fee_payer_balance = merkle_db.storage_read(FEE_JUICE_ADDRESS, fee_juice_balance_slot);
 
     if (field_gt.ff_gt(fee, fee_payer_balance)) {
         // Unrecoverable error.
-        throw std::runtime_error("Not enough balance for fee payer to pay for transaction");
+        throw TxExecutionException("Not enough balance for fee payer to pay for transaction");
     }
 
-    // TODO: Commented out for now, to make the bulk test pass before all opcodes are implemented.
-    // merkle_db.storage_write(FEE_JUICE_ADDRESS, fee_juice_balance_slot, fee_payer_balance - fee, true);
+    merkle_db.storage_write(FEE_JUICE_ADDRESS, fee_juice_balance_slot, fee_payer_balance - fee, true);
 
     events.emit(TxPhaseEvent{ .phase = TransactionPhase::COLLECT_GAS_FEES,
                               .state_before = state_before,
@@ -312,6 +404,24 @@ void TxExecution::pay_fee(const FF& fee_payer,
                                   .fee_juice_balance_slot = fee_juice_balance_slot,
                                   .fee = fee,
                               } });
+}
+
+void TxExecution::pad_trees()
+{
+    TxContextEvent state_before = tx_context.serialize_tx_context_event();
+    merkle_db.pad_trees();
+    events.emit(TxPhaseEvent{ .phase = TransactionPhase::TREE_PADDING,
+                              .state_before = state_before,
+                              .state_after = tx_context.serialize_tx_context_event(),
+                              .event = PadTreesEvent{} });
+}
+
+void TxExecution::cleanup()
+{
+    events.emit(TxPhaseEvent{ .phase = TransactionPhase::CLEANUP,
+                              .state_before = tx_context.serialize_tx_context_event(),
+                              .state_after = tx_context.serialize_tx_context_event(),
+                              .event = CleanupEvent{} });
 }
 
 } // namespace bb::avm2::simulation

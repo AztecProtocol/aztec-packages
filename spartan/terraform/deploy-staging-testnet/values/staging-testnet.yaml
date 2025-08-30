@@ -1,9 +1,0 @@
-global:
-  aztecRollupVersion: "canonical"
-  customAztecNetwork:
-    enabled: true
-    l1ChainId: "11155111"
-    registryContractAddress: 0xe0ae427123986029daa4a34b5cf4f35125881457
-    slashFactoryContractAddress: 0x7ee7cd0d114b23d355fce47eb793e7c8bda62b82
-    feeAssetHandlerContractAddress: 0x0d603092ced538cda41d0af3a060f28a2e238bd5
-

@@ -32,14 +32,6 @@ function build_docs {
   cache_upload docs-$hash.tar.gz build
 }
 
-function release_docs {
-  echo "deploying docs to prod"
-  yarn install
-  yarn build
-
-  yarn netlify deploy --site aztec-docs-dev --prod 2>&1
-}
-
 function test_cmds {
   if [ "${CI:-0}" -eq 1 ] && [ $(arch) == arm64 ]; then
     # Not running docs tests for arm64 in CI.
@@ -52,7 +44,7 @@ function test_cmds {
 
 function test {
   echo_header "docs test"
-  test_cmds | parallelise
+  test_cmds | parallelize
 }
 
 case "$cmd" in
@@ -68,9 +60,6 @@ case "$cmd" in
     ;;
   "hash")
     echo "$hash"
-    ;;
-  "release-docs")
-    release_docs
     ;;
   test|test_cmds)
     $cmd

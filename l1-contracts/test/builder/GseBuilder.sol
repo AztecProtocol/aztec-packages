@@ -4,6 +4,7 @@
 pragma solidity >=0.8.27;
 
 import {GSE} from "@aztec/governance/GSE.sol";
+import {GSEWithSkip} from "@test/GSEWithSkip.sol";
 import {TestBase} from "@test/base/Base.sol";
 import {TestConstants} from "@test/harnesses/TestConstants.sol";
 
@@ -13,9 +14,11 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {stdStorage, StdStorage} from "forge-std/Test.sol";
 
 struct Flags {
   bool openFloodgates;
+  bool checkProofOfPossession;
 }
 
 struct Values {
@@ -35,12 +38,15 @@ struct Config {
 }
 
 contract GSEBuilder is TestBase {
+  using stdStorage for StdStorage;
+
   Config internal config;
 
   constructor() {
     config.values.govProposerN = 1;
     config.values.govProposerM = 1;
     config.flags.openFloodgates = true;
+    config.flags.checkProofOfPossession = false;
   }
 
   function setOpenFloodgates(bool _openFloodgates) public returns (GSEBuilder) {
@@ -65,10 +71,12 @@ contract GSEBuilder is TestBase {
     }
 
     if (address(config.gse) == address(0)) {
-      config.gse = new GSE(
-        address(this), config.testERC20, TestConstants.DEPOSIT_AMOUNT, TestConstants.MINIMUM_STAKE
+      config.gse = new GSEWithSkip(
+        address(this), config.testERC20, TestConstants.ACTIVATION_THRESHOLD, TestConstants.EJECTION_THRESHOLD
       );
       vm.label(address(config.gse), "GSE");
+
+      GSEWithSkip(address(config.gse)).setCheckProofOfPossession(config.flags.checkProofOfPossession);
     }
 
     if (address(config.registry) == address(0)) {
@@ -78,14 +86,10 @@ contract GSEBuilder is TestBase {
       vm.label(address(config.rewardDistributor), "RewardDistributor");
     }
 
-    GovernanceProposer proposer = new GovernanceProposer(
-      config.registry, config.gse, config.values.govProposerN, config.values.govProposerM
-    );
+    GovernanceProposer proposer =
+      new GovernanceProposer(config.registry, config.gse, config.values.govProposerN, config.values.govProposerM);
     config.governance = new Governance(
-      config.testERC20,
-      address(proposer),
-      address(config.gse),
-      TestConstants.getGovernanceConfiguration()
+      config.testERC20, address(proposer), address(config.gse), TestConstants.getGovernanceConfiguration()
     );
     vm.label(address(config.governance), "Governance");
     vm.label(address(proposer), "GovernanceProposer");

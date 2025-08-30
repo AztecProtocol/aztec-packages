@@ -7,7 +7,6 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 
@@ -64,8 +63,10 @@ template <typename Curve> class OpeningClaim {
     // commitment to univariate polynomial p(X)
     Commitment commitment;
 
-    // Size of public inputs representation of an opening claim over Grumpkin
-    static constexpr size_t PUBLIC_INPUTS_SIZE = IPA_CLAIM_SIZE;
+    static constexpr bool IS_GRUMPKIN =
+        std::is_same_v<Curve, curve::Grumpkin> || std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>;
+    // Size of public inputs representation of an opening claim over Grumpkin: 2 * 4 + 2 = 10
+    static constexpr size_t PUBLIC_INPUTS_SIZE = IS_GRUMPKIN ? GRUMPKIN_OPENING_CLAIM_SIZE : INVALID_PUBLIC_INPUTS_SIZE;
 
     /**
      * @brief Set the witness indices for the opening claim to public
@@ -91,8 +92,6 @@ template <typename Curve> class OpeningClaim {
         const std::span<const stdlib::field_t<Builder>, PUBLIC_INPUTS_SIZE>& limbs)
         requires(std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>)
     {
-        BB_ASSERT_EQ(2 * Fr::PUBLIC_INPUTS_SIZE + Commitment::PUBLIC_INPUTS_SIZE, PUBLIC_INPUTS_SIZE);
-
         const size_t FIELD_SIZE = Fr::PUBLIC_INPUTS_SIZE;
         const size_t COMMITMENT_SIZE = Commitment::PUBLIC_INPUTS_SIZE;
         std::span<const stdlib::field_t<Builder>, FIELD_SIZE> challenge_limbs{ limbs.data(), FIELD_SIZE };
@@ -111,19 +110,18 @@ template <typename Curve> class OpeningClaim {
      * @note Implemented for native curve::Grumpkin for use with IPA.
      *
      */
-    static OpeningClaim<Curve> reconstruct_from_public(const std::span<const bb::fr, IPA_CLAIM_SIZE>& ipa_claim_limbs)
+    static OpeningClaim<Curve> reconstruct_from_public(const std::span<const bb::fr, PUBLIC_INPUTS_SIZE>& limbs)
         requires(std::is_same_v<Curve, curve::Grumpkin>)
     {
-        size_t index = 0;
-        std::span<const bb::fr> challenge_limbs = ipa_claim_limbs.subspan(index, FQ_PUBLIC_INPUT_SIZE);
-        index += FQ_PUBLIC_INPUT_SIZE;
-        std::span<const bb::fr> evaluation_limbs = ipa_claim_limbs.subspan(index, FQ_PUBLIC_INPUT_SIZE);
-        index += FQ_PUBLIC_INPUT_SIZE;
-        std::span<const bb::fr> point_limbs = ipa_claim_limbs.subspan(index, 2 * FR_PUBLIC_INPUTS_SIZE);
+        const size_t FIELD_SIZE = Fr::PUBLIC_INPUTS_SIZE;
+        const size_t COMMITMENT_SIZE = Commitment::PUBLIC_INPUTS_SIZE;
+        std::span<const bb::fr, FIELD_SIZE> challenge_limbs{ limbs.data(), FIELD_SIZE };
+        std::span<const bb::fr, FIELD_SIZE> evaluation_limbs{ limbs.data() + FIELD_SIZE, FIELD_SIZE };
+        std::span<const bb::fr, COMMITMENT_SIZE> commitment_limbs{ limbs.data() + 2 * FIELD_SIZE, COMMITMENT_SIZE };
 
-        auto challenge = fq::reconstruct_from_public(challenge_limbs);
-        auto evaluation = fq::reconstruct_from_public(evaluation_limbs);
-        typename Curve::AffineElement commitment = Curve::AffineElement::reconstruct_from_public(point_limbs);
+        Fr challenge = Fr::reconstruct_from_public(challenge_limbs);
+        Fr evaluation = Fr::reconstruct_from_public(evaluation_limbs);
+        Commitment commitment = Commitment::reconstruct_from_public(commitment_limbs);
 
         return OpeningClaim<Curve>{ { challenge, evaluation }, commitment };
     }

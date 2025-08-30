@@ -4,7 +4,7 @@
 # - You can enable BUILD_SYSTEM_DEBUG=1 but the output is quite verbose that it's not much use by default.
 # - This flag however, isn't carried into exported functions. You need to do "set -x" in those functions manually.
 # - You can call ./bootstrap.sh compile <contract names> to compile and process select contracts.
-# - You can disable further parallelism by setting passing 1 as arg to 'parallelise' and with PARALLELISM=1.
+# - You can disable further parallelism by setting passing 1 as arg to 'parallelize' and with PARALLELISM=1.
 # - The exported functions called by parallel must enable their own flags at the start e.g. set -euo pipefail
 # - The exported functions are using stdin/stdout, so be very careful about what's printed where.
 # - The exported functions need to have external variables they require, to have been exported first.
@@ -148,15 +148,12 @@ function compile {
   local json_path="./target/$filename"
   contract_hash=$(get_contract_hash $1)
   if ! cache_download contract-$contract_hash.tar.gz; then
-    if [ "${VERBOSE:-0}" -eq 0 ]; then
-      local args="--silence-warnings"
-    fi
-    $NARGO compile ${args:-} --package $contract --inliner-aggressiveness 0 --pedantic-solving
+    $NARGO compile --package $contract --inliner-aggressiveness 0 --pedantic-solving --deny-warnings
     $TRANSPILER $json_path $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path
   fi
 
-  # We segregate equivalent vk's created by processs_function. This was done to narrow down potential edge cases with identical VKs
+  # We segregate equivalent vk's created by process_function. This was done to narrow down potential edge cases with identical VKs
   # reading from cache at the same time. Create this folder up-front.
   mkdir -p $tmp_dir/$contract_hash
 
@@ -214,7 +211,7 @@ function test {
   done
 
   export NARGO_FOREIGN_CALL_TIMEOUT=300000
-  test_cmds | filter_test_cmds | parallelise
+  test_cmds | filter_test_cmds | parallelize
 }
 
 function format {

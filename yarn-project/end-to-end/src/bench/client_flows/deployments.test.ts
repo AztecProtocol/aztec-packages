@@ -1,5 +1,5 @@
 import { AccountWallet, type AztecNode, type SimulateMethodOptions } from '@aztec/aztec.js';
-import { EasyPrivateVotingContract } from '@aztec/noir-contracts.js/EasyPrivateVoting';
+import { PrivateVotingContract } from '@aztec/noir-contracts.js/PrivateVoting';
 import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 
@@ -49,17 +49,18 @@ describe('Deployment benchmark', () => {
 
           beforeEach(async () => {
             isClassRegistered = !!(await node.getContractClass(
-              (await getContractClassFromArtifact(EasyPrivateVotingContract.artifact)).id,
+              (await getContractClassFromArtifact(PrivateVotingContract.artifact)).id,
             ));
           });
 
           it(`${accountType} contract deploys a TokenContract, pays using ${benchmarkingPaymentMethod}`, async () => {
             const paymentMethod = t.paymentMethods[benchmarkingPaymentMethod];
             const options: SimulateMethodOptions = {
+              from: benchysWallet.getAddress(),
               fee: { paymentMethod: await paymentMethod.forWallet(benchysWallet) },
             };
 
-            const deploymentInteraction = EasyPrivateVotingContract.deploy(benchysWallet, benchysWallet.getAddress());
+            const deploymentInteraction = PrivateVotingContract.deploy(benchysWallet, benchysWallet.getAddress());
 
             await captureProfile(
               `${accountType}+deploy_tokenContract_${
@@ -74,7 +75,8 @@ describe('Deployment benchmark', () => {
                 2 + // ContractClassRegistry assert_class_id_is_published + kernel inner
                 2 + // ContractInstanceRegistry publish + kernel inner
                 1 + // Kernel reset
-                1, // Kernel tail
+                1 + // Kernel tail
+                1, // Kernel hiding
             );
 
             if (process.env.SANITY_CHECKS) {

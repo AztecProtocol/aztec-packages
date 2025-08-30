@@ -4,7 +4,7 @@ include "bitwise.pil";
 include "memory.pil";
 include "keccakf1600.pil";
 include "precomputed.pil";
-include "sha256.pil";
+include "sha256_mem.pil";
 include "ecc_mem.pil";
 include "poseidon2_mem.pil";
 include "scalar_mul.pil";
@@ -48,6 +48,8 @@ include "opcodes/emit_notehash.pil";
 include "opcodes/l1_to_l2_message_exists.pil";
 include "opcodes/nullifier_exists.pil";
 include "opcodes/emit_nullifier.pil";
+include "opcodes/emit_unencrypted_log.pil";
+include "opcodes/send_l2_to_l1_msg.pil";
 
 namespace execution;
 
@@ -95,7 +97,6 @@ last = sel * (1 - sel');
  *  Temporality group 1: Bytecode retrieval (unconditional)
  **************************************************************************************************/
 
-pol commit bytecode_id;
 pol commit sel_bytecode_retrieval_failure;
 
 // TODO(dbanks12): since this lookup is no longer active for all rows,
@@ -377,6 +378,9 @@ sel_gas_sstore {
 #[SSTORE_DYN_L2_GAS_IS_ZERO]
 sel_execute_sstore * dynamic_l2_gas_factor = 0;
 
+sel_gas_emit_unencrypted_log * dynamic_l2_gas_factor = 0;
+sel_gas_emit_unencrypted_log * (/*log_size=*/ register[1] - dynamic_da_gas_factor) = 0;
+
 /**************************************************************************************************
  *  Temporality group 5: Opcode execution
  **************************************************************************************************/
@@ -404,9 +408,12 @@ pol commit sel_execute_to_radix;
 pol commit sel_execute_poseidon2_perm;
 pol commit sel_execute_ecc_add;
 pol commit sel_execute_execution;
-pol commit sel_execute_data_copy;
+pol commit sel_execute_calldata_copy;
+pol commit sel_execute_returndata_copy;
 pol commit sel_execute_keccakf1600;
 pol commit sel_execute_get_contract_instance;
+pol commit sel_execute_emit_unencrypted_log;
+pol commit sel_execute_sha256_compression;
 sel_execute_alu * (1 - sel_execute_alu) = 0;
 sel_execute_bitwise * (1 - sel_execute_bitwise) = 0;
 sel_execute_cast * (1 - sel_execute_cast) = 0;
@@ -415,9 +422,12 @@ sel_execute_to_radix * (1 - sel_execute_to_radix) = 0;
 sel_execute_poseidon2_perm * (1 - sel_execute_poseidon2_perm) = 0;
 sel_execute_ecc_add * (1 - sel_execute_ecc_add) = 0;
 sel_execute_execution * (1 - sel_execute_execution) = 0;
-sel_execute_data_copy * (1 - sel_execute_data_copy) = 0;
+sel_execute_calldata_copy * (1 - sel_execute_calldata_copy) = 0;
+sel_execute_returndata_copy * (1 - sel_execute_returndata_copy) = 0;
 sel_execute_keccakf1600 * (1 - sel_execute_keccakf1600) = 0;
 sel_execute_get_contract_instance * (1 - sel_execute_get_contract_instance) = 0;
+sel_execute_emit_unencrypted_log * (1 - sel_execute_emit_unencrypted_log) = 0;
+sel_execute_sha256_compression * (1 - sel_execute_sha256_compression) = 0;
 
 #[SUBTRACE_ID_DECOMPOSITION]
 sel_execute_execution * constants.AVM_SUBTRACE_ID_EXECUTION +
@@ -429,8 +439,11 @@ sel_execute_poseidon2_perm * constants.AVM_SUBTRACE_ID_POSEIDON_PERM +
 sel_execute_to_radix * constants.AVM_SUBTRACE_ID_TO_RADIX +
 sel_execute_ecc_add * constants.AVM_SUBTRACE_ID_ECC +
 sel_execute_keccakf1600 * constants.AVM_SUBTRACE_ID_KECCAKF1600 +
-sel_execute_data_copy * constants.AVM_SUBTRACE_ID_DATA_COPY +
-sel_execute_get_contract_instance * constants.AVM_SUBTRACE_ID_GETCONTRACTINSTANCE
+sel_execute_calldata_copy * constants.AVM_SUBTRACE_ID_CALLDATA_COPY +
+sel_execute_get_contract_instance * constants.AVM_SUBTRACE_ID_GETCONTRACTINSTANCE +
+sel_execute_emit_unencrypted_log * constants.AVM_SUBTRACE_ID_EMITUNENCRYPTEDLOG +
+sel_execute_sha256_compression * constants.AVM_SUBTRACE_ID_SHA256_COMPRESSION +
+sel_execute_returndata_copy * constants.AVM_SUBTRACE_ID_RETURNDATA_COPY
 // We force the selectors to be 0 if we are not executing an opcode.
 = sel_should_execute_opcode * subtrace_id;
 
@@ -458,6 +471,7 @@ pol commit sel_execute_emit_notehash;
 pol commit sel_execute_l1_to_l2_message_exists;
 pol commit sel_execute_nullifier_exists;
 pol commit sel_execute_emit_nullifier;
+pol commit sel_execute_send_l2_to_l1_msg;
 sel_execute_get_env_var * (1 - sel_execute_get_env_var) = 0;
 sel_execute_mov * (1 - sel_execute_mov) = 0;
 sel_execute_jump * (1 - sel_execute_jump) = 0;
@@ -478,6 +492,7 @@ sel_execute_emit_notehash * (1 - sel_execute_emit_notehash) = 0;
 sel_execute_l1_to_l2_message_exists * (1 - sel_execute_l1_to_l2_message_exists) = 0;
 sel_execute_nullifier_exists * (1 - sel_execute_nullifier_exists) = 0;
 sel_execute_emit_nullifier * (1 - sel_execute_emit_nullifier) = 0;
+sel_execute_send_l2_to_l1_msg * (1 - sel_execute_send_l2_to_l1_msg) = 0;
 
 #[EXEC_OP_ID_DECOMPOSITION]
 sel_execute_get_env_var * constants.AVM_EXEC_OP_ID_GETENVVAR +
@@ -499,7 +514,8 @@ sel_execute_notehash_exists * constants.AVM_EXEC_OP_ID_NOTEHASH_EXISTS +
 sel_execute_emit_notehash * constants.AVM_EXEC_OP_ID_EMIT_NOTEHASH +
 sel_execute_l1_to_l2_message_exists * constants.AVM_EXEC_OP_ID_L1_TO_L2_MESSAGE_EXISTS +
 sel_execute_nullifier_exists * constants.AVM_EXEC_OP_ID_NULLIFIER_EXISTS +
-sel_execute_emit_nullifier * constants.AVM_EXEC_OP_ID_EMIT_NULLIFIER
+sel_execute_emit_nullifier * constants.AVM_EXEC_OP_ID_EMIT_NULLIFIER +
+sel_execute_send_l2_to_l1_msg * constants.AVM_EXEC_OP_ID_SENDL2TOL1MSG
 // We force the selectors to be 0 if we are not executing an opcode
 // or when we are not in the execution subtrace.
 = sel_should_execute_opcode * sel_execute_execution * subtrace_operation_id;
@@ -600,6 +616,41 @@ sel_execute_returndata_size * (register[0] - last_child_returndata_size) = 0; //
 #[RETURNDATA_SIZE_U32_TAG]
 sel_execute_returndata_size * (mem_tag_reg[0] - constants.MEM_TAG_U32) = 0; // Write Tag must be U32
 
+// Tree and sideffect state can only change in specific opcodes.
+#[PUBLIC_DATA_TREE_ROOT_NOT_CHANGED]
+sel * (1 - sel_execute_sstore) * (prev_public_data_tree_root - public_data_tree_root) = 0;
+#[PUBLIC_DATA_TREE_SIZE_NOT_CHANGED]
+sel * (1 - sel_execute_sstore) * (prev_public_data_tree_size - public_data_tree_size) = 0;
+#[WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_NOT_CHANGED]
+sel * (1 - sel_execute_sstore) * (prev_written_public_data_slots_tree_root - written_public_data_slots_tree_root) = 0;
+#[WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_NOT_CHANGED]
+sel * (1 - sel_execute_sstore) * (prev_written_public_data_slots_tree_size - written_public_data_slots_tree_size) = 0;
+#[NOTE_HASH_TREE_ROOT_NOT_CHANGED]
+sel * (1 - sel_execute_emit_notehash) * (prev_note_hash_tree_root - note_hash_tree_root) = 0;
+#[NOTE_HASH_TREE_SIZE_NOT_CHANGED]
+sel * (1 - sel_execute_emit_notehash) * (prev_note_hash_tree_size - note_hash_tree_size) = 0;
+#[NUM_NOTE_HASHES_EMITTED_NOT_CHANGED]
+sel * (1 - sel_execute_emit_notehash) * (prev_num_note_hashes_emitted - num_note_hashes_emitted) = 0;
+#[NULLIFIER_TREE_ROOT_NOT_CHANGED]
+sel * (1 - sel_execute_emit_nullifier) * (prev_nullifier_tree_root - nullifier_tree_root) = 0;
+#[NULLIFIER_TREE_SIZE_NOT_CHANGED]
+sel * (1 - sel_execute_emit_nullifier) * (prev_nullifier_tree_size - nullifier_tree_size) = 0;
+#[NUM_NULLIFIERS_EMITTED_NOT_CHANGED]
+sel * (1 - sel_execute_emit_nullifier) * (prev_num_nullifiers_emitted - num_nullifiers_emitted) = 0;
+#[NUM_UNENCRYPTED_LOGS_NOT_CHANGED]
+sel * (1 - sel_execute_emit_unencrypted_log) * (prev_num_unencrypted_logs - num_unencrypted_logs) = 0;
+#[NUM_L2_TO_L1_MESSAGES_NOT_CHANGED]
+sel * (1 - sel_execute_send_l2_to_l1_msg) * (prev_num_l2_to_l1_messages - num_l2_to_l1_messages) = 0;
+
+// Some opcodes cannot fail during opcode execution. They should not be able to set sel_opcode_error.
+// Note that some of these opcodes can fail in the stages before execution.
+// This list only takes into account the opcodes that are handled by the execution subtrace.
+// Infallible opcodes which are handled by other traces should constrain sel_opcode_error there.
+(sel_execute_mov + sel_execute_returndata_size + sel_execute_jump +
+ sel_execute_jumpi + sel_execute_debug_log + sel_execute_success_copy +
+ sel_execute_call + sel_execute_static_call + sel_execute_internal_call +
+ sel_execute_return + sel_execute_revert) * sel_opcode_error = 0;
+
 /**************************************************************************************************
  *  Temporality group 6: Register write.
  **************************************************************************************************/
@@ -618,3 +669,4 @@ sel_should_write_registers = sel_should_execute_opcode * (1 - sel_opcode_error);
 pol commit sel_error;
 // Observe that the errors are mutually exclusive.
 sel_error = sel_bytecode_retrieval_failure + sel_instruction_fetching_failure + sel_addressing_error + sel_register_read_error + sel_out_of_gas + sel_opcode_error;
+

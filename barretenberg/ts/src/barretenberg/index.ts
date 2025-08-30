@@ -8,7 +8,7 @@ import { RawBuffer } from '../types/raw_buffer.js';
 import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 import { createDebugLogger } from '../log/index.js';
 import { AsyncApi } from '../cbind/generated/async.js';
-import { BbApiBase } from '../cbind/generated/api_types.js';
+import { BbApiBase, CircuitComputeVk, CircuitProve, CircuitVerify, ClientIvcAccumulate, ClientIvcComputeIvcVk, ClientIvcStats, ClientIvcLoad, ClientIvcProve, ClientIvcStart, ClientIvcVerify, VkAsFields } from '../cbind/generated/api_types.js';
 
 export { BarretenbergVerifier } from './verifier.js';
 export { UltraHonkBackend, AztecClientBackend } from './backend.js';
@@ -78,7 +78,8 @@ export class Barretenberg extends BarretenbergApi {
   }
 
   async initSRSForCircuitSize(circuitSize: number): Promise<void> {
-    const crs = await Crs.new(circuitSize + 1, this.options.crsPath, this.options.logger);
+    const minSRSSize = 2 ** 9; // 2**9 is the dyadic size for the SmallSubgroupIPA MSM.
+    const crs = await Crs.new(Math.max(circuitSize, minSRSSize) + 1, this.options.crsPath, this.options.logger);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1129): Do slab allocator initialization?
     // await this.commonInitSlabAllocator(circuitSize);
     await this.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
@@ -119,37 +120,53 @@ export class Barretenberg extends BarretenbergApi {
     return this.wasm;
   }
 
-  getBbApi(): BbApiBase {
-    return this.bbApi;
-  }
-
-  // Wrap ClientIVC methods used by AztecClientBackend
-  async clientIvcStart(command: Parameters<BbApiBase['clientIvcStart']>[0]) {
+  // Wrap ClientIVC methods used by AztecClientBackend and UltraHonkBackend
+  async clientIvcStart(command: ClientIvcStart) {
     return this.bbApi.clientIvcStart(command);
   }
 
-  async clientIvcLoad(command: Parameters<BbApiBase['clientIvcLoad']>[0]) {
+  async clientIvcLoad(command: ClientIvcLoad) {
     return this.bbApi.clientIvcLoad(command);
   }
 
-  async clientIvcAccumulate(command: Parameters<BbApiBase['clientIvcAccumulate']>[0]) {
+  async clientIvcAccumulate(command: ClientIvcAccumulate) {
     return this.bbApi.clientIvcAccumulate(command);
   }
 
-  async clientIvcProve(command: Parameters<BbApiBase['clientIvcProve']>[0]) {
+
+
+
+  async clientIvcProve(command: ClientIvcProve) {
     return this.bbApi.clientIvcProve(command);
   }
 
-  async clientIvcVerify(command: Parameters<BbApiBase['clientIvcVerify']>[0]) {
+  async clientIvcVerify(command: ClientIvcVerify) {
     return this.bbApi.clientIvcVerify(command);
   }
 
-  async clientIvcComputeIvcVk(command: Parameters<BbApiBase['clientIvcComputeIvcVk']>[0]) {
+  async clientIvcComputeIvcVk(command: ClientIvcComputeIvcVk) {
     return this.bbApi.clientIvcComputeIvcVk(command);
   }
 
-  async clientIvcGates(command: Parameters<BbApiBase['clientIvcGates']>[0]) {
-    return this.bbApi.clientIvcGates(command);
+  async clientIvcStats(command: ClientIvcStats) {
+    return this.bbApi.clientIvcStats(command);
+  }
+
+  // Wrap circuit methods used by BbApiUltraHonkBackend
+  async circuitProve(command: CircuitProve) {
+    return this.bbApi.circuitProve(command);
+  }
+
+  async circuitComputeVk(command: CircuitComputeVk) {
+    return this.bbApi.circuitComputeVk(command);
+  }
+
+  async circuitVerify(command: CircuitVerify) {
+    return this.bbApi.circuitVerify(command);
+  }
+
+  async vkAsFields(command: VkAsFields) {
+    return this.bbApi.vkAsFields(command);
   }
 }
 

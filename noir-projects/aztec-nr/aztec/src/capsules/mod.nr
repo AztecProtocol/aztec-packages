@@ -308,8 +308,8 @@ mod test {
             array.push(5);
             array.push(6);
 
-            // We test that the copyCapsule was never called, which is the expensive operation we want to avoid.
-            let mock = std::test::OracleMock::mock("copyCapsule");
+            // We test that the utilityCopyCapsule was never called, which is the expensive operation we want to avoid.
+            let mock = std::test::OracleMock::mock("utilityCopyCapsule");
 
             array.for_each(|index, _| { array.remove(index); });
 

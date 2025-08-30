@@ -15,9 +15,7 @@ contract DepositTest is GovernanceBase {
 
     uint256 amount = bound(_amount, 1, type(uint256).max);
     vm.expectRevert(
-      abi.encodeWithSelector(
-        IERC20Errors.ERC20InsufficientAllowance.selector, address(governance), 0, amount
-      )
+      abi.encodeWithSelector(IERC20Errors.ERC20InsufficientAllowance.selector, address(governance), 0, amount)
     );
     governance.deposit(address(this), amount);
   }
@@ -26,20 +24,13 @@ contract DepositTest is GovernanceBase {
     _;
   }
 
-  function test_WhenCallerHaveInsufficientFunds(uint256 _amount)
-    external
-    whenCallerHaveSufficientAllowance
-  {
+  function test_WhenCallerHaveInsufficientFunds(uint256 _amount) external whenCallerHaveSufficientAllowance {
     // it revert
     uint256 amount = bound(_amount, 1, type(uint256).max);
 
     token.approve(address(governance), amount);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        IERC20Errors.ERC20InsufficientBalance.selector, address(this), 0, amount
-      )
-    );
+    vm.expectRevert(abi.encodeWithSelector(IERC20Errors.ERC20InsufficientBalance.selector, address(this), 0, amount));
     governance.deposit(address(this), amount);
   }
 
@@ -73,13 +64,10 @@ contract DepositTest is GovernanceBase {
       emit IGovernance.Deposit(address(this), onBehalfOf, amount);
       governance.deposit(onBehalfOf, amount);
 
-      assertEq(
-        governance.powerAt(onBehalfOf, Timestamp.wrap(block.timestamp - 1)),
-        sums[onBehalfOf] - amount
-      );
-      assertEq(governance.powerAt(onBehalfOf, Timestamp.wrap(block.timestamp)), sums[onBehalfOf]);
+      assertEq(governance.powerAt(onBehalfOf, Timestamp.wrap(block.timestamp - 1)), sums[onBehalfOf] - amount);
+      assertEq(governance.powerNow(onBehalfOf), sums[onBehalfOf]);
       assertEq(governance.totalPowerAt(Timestamp.wrap(block.timestamp - 1)), sum - amount);
-      assertEq(governance.totalPowerAt(Timestamp.wrap(block.timestamp)), sum);
+      assertEq(governance.totalPowerNow(), sum);
 
       assertEq(token.balanceOf(address(this)), 0);
       assertEq(token.allowance(address(this), address(governance)), 0);

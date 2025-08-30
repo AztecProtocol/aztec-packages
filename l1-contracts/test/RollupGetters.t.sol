@@ -15,6 +15,7 @@ import {ValidatorSelectionTestBase} from "./validator-selection/ValidatorSelecti
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 /**
  * Testing the things that should be getters are not updating state!
@@ -80,6 +81,130 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
 
     (, bytes32[] memory writes) = vm.accesses(address(rollup));
     assertEq(writes.length, 0, "No writes should be done");
+  }
+
+  function test_getCurrentEpochCommitteeRecent() external setup(0, 48) {
+    // This test ensures that the replacement (removal and adding of new) validators
+    // which alter the size checkpoints but also the index checkpoints do not
+    // impact the gas costs unexpectedly.
+
+    timeCheater.cheat__jumpForwardEpochs(2);
+
+    uint256 activationThreshold = rollup.getGSE().ACTIVATION_THRESHOLD();
+
+    vm.prank(testERC20.owner());
+    testERC20.mint(address(this), 10e3 * activationThreshold);
+    testERC20.approve(address(rollup), type(uint256).max);
+
+    uint256 offset = 0;
+
+    for (uint256 i = 0; i < 50; i++) {
+      rollup.deposit(vm.addr(i + 1), address(this), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true);
+      rollup.flushEntryQueue();
+      timeCheater.cheat__jumpForwardEpochs(2);
+    }
+
+    uint256 gasSmall = gasleft();
+
+    rollup.getCurrentEpochCommittee();
+
+    gasSmall = gasSmall - gasleft();
+
+    for (uint256 i = 0; i < 15; i++) {
+      uint256 toRemove = rollup.getActiveAttesterCount();
+
+      for (uint256 j = 0; j < toRemove; j++) {
+        rollup.initiateWithdraw(vm.addr(offset + j + 1), address(this));
+        timeCheater.cheat__jumpForwardEpochs(2);
+      }
+
+      offset += toRemove;
+
+      for (uint256 j = 0; j < toRemove; j++) {
+        rollup.deposit(
+          vm.addr(offset + j + 1), address(this), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true
+        );
+        rollup.flushEntryQueue();
+        timeCheater.cheat__jumpForwardEpochs(2);
+      }
+    }
+
+    timeCheater.cheat__jumpForwardEpochs(10);
+
+    vm.record();
+
+    uint256 gasBig = gasleft();
+    rollup.getCurrentEpochCommittee();
+
+    gasBig = gasBig - gasleft();
+
+    (, bytes32[] memory writes) = vm.accesses(address(rollup.getGSE()));
+    assertEq(writes.length, 0, "No writes should be done");
+
+    // 16 insertions in total, so binary search should hit 4 values (3 extra).
+    // Since using recent, we should only hit 2 additional at most though, so
+    // we will compute the overhead as 2 extra (each 3K) for each of the members
+    assertGt(gasSmall + 3e3 * 2 * 48, gasBig, "growing too quickly");
+  }
+
+  function test_getCurrentEpochCommittee() external setup(0, 48) {
+    // This test ensures that the addition of a lot of new validators
+    // altering the size checkpoints do not heavily impact the gas costs.
+    timeCheater.cheat__jumpForwardEpochs(2);
+
+    uint256 activationThreshold = rollup.getGSE().ACTIVATION_THRESHOLD();
+
+    vm.prank(testERC20.owner());
+    testERC20.mint(address(this), 10e3 * activationThreshold);
+    testERC20.approve(address(rollup), type(uint256).max);
+
+    // Add a bunch of attesters to
+    for (uint256 i = 0; i < 200; i++) {
+      rollup.deposit(vm.addr(i + 1), address(this), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true);
+      rollup.flushEntryQueue();
+      timeCheater.cheat__jumpForwardEpochs(2);
+    }
+
+    uint256 gasSmall = 0;
+    uint256 gasBig = 0;
+
+    {
+      emit log_string("Getting the small epoch committee");
+      vm.record();
+      gasSmall = gasleft();
+      rollup.getCurrentEpochCommittee();
+      gasSmall = gasSmall - gasleft();
+
+      (bytes32[] memory reads, bytes32[] memory writes) = vm.accesses(address(rollup.getGSE()));
+      // assertEq(writes.length, 0, "No writes should be done");
+      emit log_named_uint("reads", reads.length);
+      emit log_named_uint("writes", writes.length);
+    }
+
+    for (uint256 i = 0; i < 800; i++) {
+      rollup.deposit(vm.addr(i + 200), address(this), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), true);
+      rollup.flushEntryQueue();
+      timeCheater.cheat__jumpForwardEpochs(2);
+    }
+
+    timeCheater.cheat__jumpForwardEpochs(10);
+
+    {
+      emit log_string("Getting the big epoch committee");
+      vm.record();
+      gasBig = gasleft();
+      rollup.getCurrentEpochCommittee();
+      gasBig = gasBig - gasleft();
+      (bytes32[] memory reads, bytes32[] memory writes) = vm.accesses(address(rollup.getGSE()));
+      assertEq(writes.length, 0, "No writes should be done");
+      emit log_named_uint("reads", reads.length);
+    }
+
+    emit log_named_uint("gasSmall", gasSmall);
+    emit log_named_uint("gasBig", gasBig);
+
+    // Should not have grown by more than 10K
+    assertGt(gasSmall + 1e4, gasBig, "growing too quickly");
   }
 
   function test_getProposerAt(uint16 _slot, bool _setup) external setup(4, 4) {
@@ -171,17 +296,9 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
       blockReward: 100e18
     });
 
-    assertNotEq(
-      address(config.rewardDistributor),
-      address(updated.rewardDistributor),
-      "invalid reward distributor"
-    );
+    assertNotEq(address(config.rewardDistributor), address(updated.rewardDistributor), "invalid reward distributor");
     assertNotEq(address(config.booster), address(updated.booster), "invalid booster");
-    assertEq(
-      Bps.unwrap(config.sequencerBps),
-      Bps.unwrap(defaultConfig.sequencerBps),
-      "invalid sequencerBps"
-    );
+    assertEq(Bps.unwrap(config.sequencerBps), Bps.unwrap(defaultConfig.sequencerBps), "invalid sequencerBps");
     assertEq(config.blockReward, defaultConfig.blockReward, "invalid initial blockReward");
 
     address owner = rollup.owner();
@@ -192,14 +309,8 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     rollup.setRewardConfig(updated);
     config = rollup.getRewardConfig();
 
-    assertEq(
-      Bps.unwrap(config.sequencerBps), Bps.unwrap(updated.sequencerBps), "invalid sequencerBps"
-    );
-    assertEq(
-      address(config.rewardDistributor),
-      address(updated.rewardDistributor),
-      "invalid reward distributor"
-    );
+    assertEq(Bps.unwrap(config.sequencerBps), Bps.unwrap(updated.sequencerBps), "invalid sequencerBps");
+    assertEq(address(config.rewardDistributor), address(updated.rewardDistributor), "invalid reward distributor");
     assertEq(address(config.booster), address(updated.booster), "invalid booster");
     assertEq(config.blockReward, updated.blockReward, "invalid blockReward");
   }

@@ -21,18 +21,19 @@ void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::run_oink_verifier_o
     transcript->load_proof(proof);
     auto key = keys_to_fold[0];
     auto domain_separator = std::to_string(0);
-    if (!key->is_accumulator) {
+    if (!key->is_complete) {
         OinkRecursiveVerifier_<Flavor> oink_verifier{ builder, key, transcript, domain_separator + '_' };
         oink_verifier.verify();
-        key->target_sum = 0;
-        key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
+        key->target_sum = FF::from_witness(builder, builder->zero_idx);
+        // Get the gate challenges for sumcheck/combiner computation
+        key->gate_challenges =
+            transcript->template get_powers_of_challenge<FF>(domain_separator + "_gate_challenge", CONST_PG_LOG_N);
     }
 
     key = keys_to_fold[1];
     domain_separator = std::to_string(1);
     OinkRecursiveVerifier_<Flavor> oink_verifier{ builder, key, transcript, domain_separator + '_' };
     oink_verifier.verify();
-    public_inputs = std::move(oink_verifier.public_inputs);
 }
 
 template <class DeciderVerificationKeys>
@@ -41,15 +42,16 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
 {
     static constexpr size_t BATCHED_EXTENDED_LENGTH = DeciderVerificationKeys::BATCHED_EXTENDED_LENGTH;
     static constexpr size_t NUM_KEYS = DeciderVerificationKeys::NUM;
+    // The degree of the combiner quotient (K in the paper) is dk - k - 1 = k(d - 1) - 1.
+    // Hence we need  k(d - 1) evaluations to represent it.
     static constexpr size_t COMBINER_LENGTH = BATCHED_EXTENDED_LENGTH - NUM_KEYS;
 
     run_oink_verifier_on_each_incomplete_key(proof);
 
-    std::shared_ptr<DeciderVK> accumulator = keys_to_fold[0];
+    const std::shared_ptr<DeciderVK>& accumulator = keys_to_fold[0];
 
     // Perturbator round
-    const FF delta = transcript->template get_challenge<FF>("delta");
-    const std::vector<FF> deltas = compute_round_challenge_pows(CONST_PG_LOG_N, delta);
+    const std::vector<FF> deltas = transcript->template get_powers_of_challenge<FF>("delta", CONST_PG_LOG_N);
     std::vector<FF> perturbator_coeffs(CONST_PG_LOG_N + 1, 0);
     for (size_t idx = 1; idx <= CONST_PG_LOG_N; idx++) {
         perturbator_coeffs[idx] = transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
@@ -60,9 +62,7 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     perturbator_coeffs[0] = accumulator->target_sum;
     const FF perturbator_evaluation = evaluate_perturbator(perturbator_coeffs, perturbator_challenge);
 
-    std::array<FF, COMBINER_LENGTH>
-        combiner_quotient_evals; // The degree of the combiner quotient (K in the paper) is dk - k - 1 = k(d - 1) - 1.
-                                 // Hence we need  k(d - 1) evaluations to represent it.
+    std::array<FF, COMBINER_LENGTH> combiner_quotient_evals;
     for (size_t idx = 0; idx < COMBINER_LENGTH; idx++) {
         combiner_quotient_evals[idx] =
             transcript->template receive_from_prover<FF>("combiner_quotient_" + std::to_string(idx + NUM_KEYS));
@@ -98,13 +98,13 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
         (1 - combiner_challenge).[A] + combiner_challenge.[B] == [C]
 
 
-        This reduces the relation to 3 large MSMs where each commitment requires 3 size-128bit scalar multiplications
-        For a flavor with 53 instance/witness commitments, this is 53 * 24 rows
+        This reduces the relation to 3 large MSMs where each commitment requires 3 size-128bit scalar
+       multiplications For a flavor with 53 instance/witness commitments, this is 53 * 24 rows
 
-        Note: there are more efficient ways to evaluate this relationship if one solely wants to reduce number of scalar
-       muls, however we must also consider the number of ECCVM operations being executed, as each operation incurs a
-       cost in the translator circuit Each ECCVM opcode produces 5 rows in the translator circuit, which is approx.
-       equivalent to 9 ECCVM rows. Something to pay attention to
+        Note: there are more efficient ways to evaluate this relationship if one solely wants to reduce number of
+       scalar muls, however we must also consider the number of ECCVM operations being executed, as each operation
+       incurs a cost in the translator circuit Each ECCVM opcode produces 5 rows in the translator circuit, which is
+       approx. equivalent to 9 ECCVM rows. Something to pay attention to
     */
 
     // New transcript for challenge generation
@@ -171,16 +171,15 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     output_sum.y.assert_equal(folded_sum.y);
 
     // Compute next folding parameters
-    accumulator->is_accumulator = true;
     accumulator->target_sum =
         perturbator_evaluation * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
 
     accumulator->gate_challenges = update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
-    // Set the accumulator circuit size data based on the max of the keys being accumulated
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Invalid out of circuit max operation
-    FF accumulator_log_circuit_size = keys_to_fold.get_max_log_circuit_size();
-    accumulator->vk_and_hash->vk->log_circuit_size = accumulator_log_circuit_size;
+    // Define a constant virtual log circuit size for the accumulator
+    FF virtual_log_n = FF::from_witness(builder, CONST_PG_LOG_N);
+    virtual_log_n.fix_witness();
+    accumulator->vk_and_hash->vk->log_circuit_size = virtual_log_n;
 
     // Fold the relation parameters
     for (auto [combination, to_combine] : zip_view(accumulator->alphas, keys_to_fold.get_alphas())) {

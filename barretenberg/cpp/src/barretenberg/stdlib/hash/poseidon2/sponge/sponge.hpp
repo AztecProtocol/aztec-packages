@@ -155,6 +155,7 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
         FieldSponge sponge(builder, iv);
 
         for (size_t i = 0; i < in_len; ++i) {
+            BB_ASSERT_EQ(input[i].witness_index == IS_CONSTANT, false, "Sponge inputs should not be stdlib constants.");
             sponge.absorb(input[i]);
         }
 
