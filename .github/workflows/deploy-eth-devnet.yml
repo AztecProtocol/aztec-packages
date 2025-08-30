@@ -69,7 +69,7 @@ on:
         required: false
       KUBECONFIG_B64:
         description: The base64 encoded kubeconfig
-        required: true
+        required: false
     outputs:
       rpc_url:
         description: The RPC URL for the eth devnet

@@ -16,7 +16,7 @@ terraform {
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "~> 2.24.0"
+      version = "~> 2.38.0"
     }
   }
 }
@@ -136,9 +136,9 @@ resource "helm_release" "releases" {
   force_update     = true
   recreate_pods    = true
   reuse_values     = true
-  timeout          = 300
-  wait             = false
-  wait_for_jobs    = false
+  timeout          = 600
+  wait             = true
+  wait_for_jobs    = true
 
   values = [for v in each.value.values : file("./values/${v}")]
 

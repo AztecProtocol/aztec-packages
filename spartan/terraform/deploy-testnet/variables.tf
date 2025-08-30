@@ -1,4 +1,4 @@
-variable "GCP_PROJECT" {
+variable "GCP_PROJECT_ID" {
   description = "GCP project id"
   type        = string
   default     = "testnet-440309"

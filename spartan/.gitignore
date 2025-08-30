@@ -3,3 +3,6 @@ scripts/logs
 scripts/LICENSE
 tfplan
 *_override.tf
+mnemonic.tmp
+scripts/*.env
+*.tfvars
