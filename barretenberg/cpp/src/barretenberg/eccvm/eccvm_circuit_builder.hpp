@@ -182,7 +182,7 @@ class ECCVMCircuitBuilder {
             msm.resize(msm_sizes[i]);
         }
         // populate result using the auxiliary vectors `msm_opqueue_index` and `msm_mul_index`, together with
-        // `eccvm_ops`. this first pass will *not* get the pc (program counter) correct. we explain why when we set it
+        // `eccvm_ops`. this first pass will *not* get the pc (point counter) correct. we explain why when we set it
         // correctly.
         parallel_for_range(msm_opqueue_index.size(), [&](size_t start, size_t end) {
             for (size_t i = start; i < end; i++) {
