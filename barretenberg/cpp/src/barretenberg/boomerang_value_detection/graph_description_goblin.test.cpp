@@ -116,6 +116,11 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
     auto graph = cdg::StaticAnalyzer(builder, false);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     EXPECT_EQ(variables_in_one_gate.size(), 0);
+    if (variables_in_one_gate.size() > 0) {
+        for (const auto& elem : variables_in_one_gate) {
+            info("elem == ", elem);
+        }
+    }
 }
 
 } // namespace bb::stdlib::recursion::honk
