@@ -16,10 +16,16 @@
 #include <memory>
 #ifndef __wasm__
 #include <sys/mman.h>
+#ifdef __linux__
+#include <linux/falloc.h>
+#endif
 #endif
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern bool slow_low_memory;
+
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+extern bool enable_memory_fallback;
 
 template <typename T> class AlignedMemory;
 
@@ -43,7 +49,18 @@ template <typename Fr> class BackingMemory {
     {
 #ifndef __wasm__
         if (slow_low_memory) {
-            return std::shared_ptr<BackingMemory<Fr>>(new FileBackedMemory<Fr>(size));
+            if (enable_memory_fallback) {
+                // With fallback enabled, catch exceptions and fall back to AlignedMemory
+                try {
+                    return std::shared_ptr<BackingMemory<Fr>>(new FileBackedMemory<Fr>(size));
+                } catch (const std::exception& e) {
+                    // Fall back to AlignedMemory if FileBackedMemory allocation fails
+                    return std::shared_ptr<BackingMemory<Fr>>(new AlignedMemory<Fr>(size));
+                }
+            } else {
+                // Without fallback, let exceptions propagate (will abort on failure)
+                return std::shared_ptr<BackingMemory<Fr>>(new FileBackedMemory<Fr>(size));
+            }
         }
 #endif
         return std::shared_ptr<BackingMemory<Fr>>(new AlignedMemory<Fr>(size));
@@ -101,6 +118,8 @@ template <typename T> class FileBackedMemory : public BackingMemory<T> {
     FileBackedMemory(size_t size)
         : BackingMemory<T>()
         , file_size(size * sizeof(T))
+        , fd(-1)
+        , memory(nullptr)
     {
         if (file_size == 0) {
             return;
@@ -126,12 +145,59 @@ template <typename T> class FileBackedMemory : public BackingMemory<T> {
 
         // Set file size
         if (ftruncate(fd, static_cast<off_t>(file_size)) != 0) {
+            close(fd);
+            std::filesystem::remove(filename);
             throw_or_abort("Failed to set file size");
+        }
+
+        // If fallback is enabled, ensure space is actually allocated on disk/tmpfs, so we can catch exceptions early
+        if (enable_memory_fallback) {
+#ifdef __linux__
+            // On Linux, use fallocate for efficient space allocation check
+            if (fallocate(fd, 0, 0, static_cast<off_t>(file_size)) != 0) {
+                close(fd);
+                std::filesystem::remove(filename);
+                throw_or_abort("Failed to allocate file space: " + std::string(std::strerror(errno)));
+            }
+#else
+            // On other platforms, only verify space by writing to specific positions
+            // This avoids the overhead of writing the entire file
+            char zero = 0;
+
+            // Write at the beginning
+            if (write(fd, &zero, 1) != 1) {
+                close(fd);
+                std::filesystem::remove(filename);
+                throw_or_abort("Failed to write to file: " + std::string(std::strerror(errno)));
+            }
+
+            // Write at the end to ensure the file can grow to full size
+            if (file_size > 1) {
+                if (lseek(fd, static_cast<off_t>(file_size - 1), SEEK_SET) < 0) {
+                    close(fd);
+                    std::filesystem::remove(filename);
+                    throw_or_abort("Failed to seek in file: " + std::string(std::strerror(errno)));
+                }
+                if (write(fd, &zero, 1) != 1) {
+                    close(fd);
+                    std::filesystem::remove(filename);
+                    throw_or_abort("Failed to allocate file space: " + std::string(std::strerror(errno)));
+                }
+                // Seek back to beginning for mmap
+                if (lseek(fd, 0, SEEK_SET) < 0) {
+                    close(fd);
+                    std::filesystem::remove(filename);
+                    throw_or_abort("Failed to seek to beginning of file");
+                }
+            }
+#endif
         }
 
         // Memory map the file
         void* addr = mmap(nullptr, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
         if (addr == MAP_FAILED) {
+            close(fd);
+            std::filesystem::remove(filename);
             throw_or_abort("Failed to mmap file: " + std::string(std::strerror(errno)));
         }
 
