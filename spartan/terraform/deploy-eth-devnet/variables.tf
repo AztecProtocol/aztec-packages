@@ -41,13 +41,6 @@ variable "MNEMONIC" {
   sensitive   = true
 }
 
-
-variable "CREATE_STATIC_IPS" {
-  description = "Whether to create static IP addresses for eth-devnet services"
-  type        = bool
-  default     = true
-}
-
 variable "CHAIN_ID" {
   description = "Ethereum chain ID"
   type        = number

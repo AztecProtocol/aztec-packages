@@ -49,12 +49,6 @@ variable "RPC_RESOURCE_PROFILE" {
   }
 }
 
-variable "RPC_EXTERNAL_INGRESS" {
-  description = "Whether to use an external ingress for the rpc"
-  type        = bool
-  default     = false
-}
-
 variable "K8S_CLUSTER_CONTEXT" {
   description = "GKE cluster context"
   type        = string

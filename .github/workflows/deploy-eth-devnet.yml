@@ -47,10 +47,7 @@ on:
         description: Resource profile to use (dev or prod)
         required: true
         type: string
-      create_static_ips:
-        description: Whether to create static IPs as part of the eth devnet for the execution and beacon nodes
-        required: true
-        type: string
+
       run_terraform_destroy:
         description: Whether to run the terraform destroy
         required: false
@@ -69,7 +66,7 @@ on:
     secrets:
       GCP_SA_KEY:
         description: The JSON key for the GCP service account
-        required: true
+        required: false
       KUBECONFIG_B64:
         description: The base64 encoded kubeconfig
         required: true
@@ -86,59 +83,6 @@ on:
       chain_id:
         description: The chain ID for the eth devnet
         value: ${{ jobs.deploy_eth_devnet.outputs.chain_id }}
-
-  workflow_dispatch:
-    inputs:
-      cluster:
-        description: The cluster to deploy to, e.g. aztec-gke-private or kind
-        required: true
-        type: string
-      namespace:
-        description: The namespace to deploy to
-        required: true
-        type: string
-      ref:
-        description: The branch name to deploy from.
-        required: true
-        type: string
-      chain_id:
-        description: Ethereum chain ID for genesis generation
-        required: false
-        type: number
-        default: 1337
-      block_time:
-        description: Block time in seconds for genesis generation
-        required: false
-        type: number
-        default: 12
-      gas_limit:
-        description: Gas limit for blocks in genesis generation
-        required: false
-        type: string
-        default: "32000000"
-      resource_profile:
-        description: Resource profile to use (dev or prod)
-        required: true
-        type: string
-      create_static_ips:
-        description: Whether to create static IPs as part of the eth devnet for the execution and beacon nodes
-        required: true
-        type: string
-      run_terraform_destroy:
-        description: Whether to run the terraform destroy
-        required: false
-        type: string
-        default: "false"
-      mnemonic:
-        description: The mnemonic to use for the eth devnet
-        required: false
-        type: string
-        default: "test test test test test test test test test test test junk"
-      prefunded_mnemonic_indices:
-        description: The indices of the prefunded mnemonic to use for the devnet
-        required: false
-        type: string
-        default: "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,1000,1001,1002,1003"
 
 jobs:
   deploy_eth_devnet:

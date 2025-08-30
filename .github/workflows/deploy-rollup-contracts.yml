@@ -112,10 +112,10 @@ on:
     secrets:
       GCP_SA_KEY:
         description: The JSON key for the GCP service account
-        required: true
+        required: false
       KUBECONFIG_B64:
         description: The base64 encoded kubeconfig
-        required: true
+        required: false
     outputs:
       registry_address:
         description: The address of the registry contract
@@ -162,103 +162,6 @@ on:
       coin_issuer_address:
         description: The address of the coin issuer contract
         value: ${{ jobs.deploy_rollup_contracts.outputs.coin_issuer_address }}
-
-  workflow_dispatch:
-    inputs:
-      cluster:
-        description: The cluster to deploy to, e.g. aztec-gke-private or kind
-        required: true
-        type: string
-      namespace:
-        description: The namespace to deploy to
-        required: true
-        type: string
-      ref:
-        description: The branch name to deploy from
-        required: true
-        type: string
-      aztec_docker_image:
-        description: Aztec Docker image with tag that will actually run deploy-l1-contracts
-        required: true
-        type: string
-      l1_rpc_urls:
-        description: Comma-separated list of L1 RPC URLs
-        required: true
-        type: string
-      mnemonic:
-        description: Mnemonic for deployment
-        required: true
-        type: string
-      l1_chain_id:
-        description: L1 chain ID
-        required: true
-        type: string
-      salt:
-        description: Salt for deployment
-        required: true
-        type: string
-      validators:
-        description: Comma-separated list of validators
-        required: true
-        type: string
-        default: ""
-      sponsored_fpc:
-        description: Enable sponsored FPC
-        required: true
-        type: boolean
-      real_verifier:
-        description: Deploy real verifier
-        required: true
-        type: boolean
-      # Aztec environment variables
-      aztec_slot_duration:
-        description: Aztec slot duration
-        required: true
-        type: string
-      aztec_epoch_duration:
-        description: Aztec epoch duration
-        required: true
-        type: string
-      aztec_target_committee_size:
-        description: Aztec target committee size
-        required: true
-        type: string
-      aztec_proof_submission_epochs:
-        description: Aztec proof submission epochs
-        required: true
-        type: string
-      aztec_activation_threshold:
-        description: Aztec activation threshold
-        required: true
-        type: string
-      aztec_ejection_threshold:
-        description: Aztec ejection threshold
-        required: true
-        type: string
-      aztec_slashing_quorum:
-        description: Aztec slashing quorum
-        required: true
-        type: string
-      aztec_slashing_round_size:
-        description: Aztec slashing round size
-        required: true
-        type: string
-      aztec_governance_proposer_quorum:
-        description: Aztec governance proposer quorum
-        required: true
-        type: string
-      aztec_governance_proposer_round_size:
-        description: Aztec governance proposer round size
-        required: true
-        type: string
-      aztec_mana_target:
-        description: Aztec mana target
-        required: true
-        type: string
-      aztec_proving_cost_per_mana:
-        description: Aztec proving cost per mana
-        required: true
-        type: string
 
 jobs:
   deploy_rollup_contracts:
