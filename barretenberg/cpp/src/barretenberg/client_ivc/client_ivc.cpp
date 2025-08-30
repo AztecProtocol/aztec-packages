@@ -173,8 +173,6 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     }
     case QUEUE_TYPE::PG:
     case QUEUE_TYPE::PG_TAIL: {
-        BB_ASSERT_NEQ(input_verifier_accumulator, nullptr);
-
         output_verifier_accumulator = perform_pg_recursive_verification(circuit,
                                                                         input_verifier_accumulator,
                                                                         verifier_instance,
@@ -185,7 +183,6 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         break;
     }
     case QUEUE_TYPE::PG_FINAL: {
-        BB_ASSERT_NEQ(input_verifier_accumulator, nullptr);
         BB_ASSERT_EQ(stdlib_verification_queue.size(), size_t(1));
 
         hide_op_queue_accumulation_result(circuit);
@@ -249,7 +246,7 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         kernel_input.output_pg_accum_hash.assert_equal(*prev_accum_hash);
 
         if (!is_hiding_kernel) {
-            // The hiding kernel has no return data but uses the traditional public-inputs mechanism
+            // The hiding kernel has no return data; it uses the traditional public-inputs mechanism
             bus_depot.set_kernel_return_data_commitment(witness_commitments.return_data);
         }
     } else {
@@ -703,6 +700,8 @@ ClientIVC::Proof ClientIVC::Proof::from_file_msgpack(const std::string& filename
 // VerificationKey construction
 ClientIVC::VerificationKey ClientIVC::get_vk() const
 {
+    BB_ASSERT_EQ(verification_queue.size(), 1UL);
+    BB_ASSERT_EQ(verification_queue.front().type, QUEUE_TYPE::MEGA);
     auto verification_key = verification_queue.front().honk_vk;
     return { verification_key,
              std::make_shared<ECCVMVerificationKey>(),
