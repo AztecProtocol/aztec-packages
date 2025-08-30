@@ -12,6 +12,9 @@
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/primitives/group/cycle_scalar.hpp"
+#include "barretenberg/stdlib/primitives/group/straus_lookup_table.hpp"
+#include "barretenberg/stdlib/primitives/group/straus_scalar_slice.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base_params.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 #include <optional>
@@ -20,8 +23,6 @@ namespace bb::stdlib {
 
 template <typename Builder>
 concept IsUltraArithmetic = (Builder::CIRCUIT_TYPE == CircuitType::ULTRA);
-template <typename Builder>
-concept IsNotUltraArithmetic = (Builder::CIRCUIT_TYPE != CircuitType::ULTRA);
 
 /**
  * @brief cycle_group represents a group Element of the proving system's embedded curve
@@ -57,157 +58,9 @@ template <typename Builder> class cycle_group {
     // Since the cycle_group base field is the circuit's native field, it can be stored using two public inputs.
     static constexpr size_t PUBLIC_INPUTS_SIZE = 2;
 
-  private:
-  public:
-    /**
-     * @brief cycle_scalar represents a member of the cycle curve SCALAR FIELD.
-     *        This is NOT the native circuit field type.
-     *        i.e. for a BN254 circuit, cycle_group will be Grumpkin and cycle_scalar will be Grumpkin::ScalarField
-     *        (BN254 native field is BN254::ScalarField == Grumpkin::BaseField)
-     *
-     * @details We convert scalar multiplication inputs into cycle_scalars to enable scalar multiplication to be
-     * *complete* i.e. Grumpkin points multiplied by BN254 scalars does not produce a cyclic group
-     * as BN254::ScalarField < Grumpkin::ScalarField
-     * This complexity *should* not leak outside the cycle_group / cycle_scalar implementations, as cycle_scalar
-     * performs all required conversions if the input scalars are stdlib::field_t elements
-     *
-     * @note We opted to create a new class to represent `cycle_scalar` instead of using `bigfield`,
-     * as `bigfield` is inefficient in this context. All required range checks for `cycle_scalar` can be obtained for
-     * free from the `batch_mul` algorithm, making the range checks performed by `bigfield` largely redundant.
-     */
-    struct cycle_scalar {
-        static constexpr size_t LO_BITS = field_t::native::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
-        static constexpr size_t HI_BITS = NUM_BITS - LO_BITS;
-        field_t lo;
-        field_t hi;
-
-      private:
-        size_t _num_bits = NUM_BITS;
-        bool _skip_primality_test = false;
-        // if our scalar multiplier is a bn254 FF scalar (e.g. pedersen hash),
-        // we want to validate the cycle_scalar < bn254::fr::modulus *not* grumpkin::fr::modulus
-        bool _use_bn254_scalar_field_for_primality_test = false;
-
-      public:
-        cycle_scalar(const field_t& _lo,
-                     const field_t& _hi,
-                     const size_t bits,
-                     const bool skip_primality_test,
-                     const bool use_bn254_scalar_field_for_primality_test)
-            : lo(_lo)
-            , hi(_hi)
-            , _num_bits(bits)
-            , _skip_primality_test(skip_primality_test)
-            , _use_bn254_scalar_field_for_primality_test(use_bn254_scalar_field_for_primality_test) {};
-        cycle_scalar(const ScalarField& _in = 0);
-        cycle_scalar(const field_t& _lo, const field_t& _hi);
-        cycle_scalar(const field_t& _in);
-        static cycle_scalar from_witness(Builder* context, const ScalarField& value);
-        static cycle_scalar from_witness_bitstring(Builder* context, const uint256_t& bitstring, size_t num_bits);
-        static cycle_scalar create_from_bn254_scalar(const field_t& _in, bool skip_primality_test = false);
-        [[nodiscard]] bool is_constant() const;
-        ScalarField get_value() const;
-        Builder* get_context() const { return lo.get_context() != nullptr ? lo.get_context() : hi.get_context(); }
-        [[nodiscard]] size_t num_bits() const { return _num_bits; }
-        [[nodiscard]] bool skip_primality_test() const { return _skip_primality_test; }
-        [[nodiscard]] bool use_bn254_scalar_field_for_primality_test() const
-        {
-            return _use_bn254_scalar_field_for_primality_test;
-        }
-        void validate_scalar_is_in_field() const;
-
-        explicit cycle_scalar(BigScalarField&);
-        /**
-         * @brief Get the origin tag of the cycle_scalar (a merge of the lo and hi tags)
-         *
-         * @return OriginTag
-         */
-        OriginTag get_origin_tag() const { return OriginTag(lo.get_origin_tag(), hi.get_origin_tag()); }
-        /**
-         * @brief Set the origin tag of lo and hi members of cycle scalar
-         *
-         * @param tag
-         */
-        void set_origin_tag(const OriginTag& tag) const
-        {
-            lo.set_origin_tag(tag);
-            hi.set_origin_tag(tag);
-        }
-        /**
-         * @brief Set the free witness flag for the cycle scalar's tags
-         */
-        void set_free_witness_tag()
-        {
-            lo.set_free_witness_tag();
-            hi.set_free_witness_tag();
-        }
-        /**
-         * @brief Unset the free witness flag for the cycle scalar's tags
-         */
-        void unset_free_witness_tag()
-        {
-            lo.unset_free_witness_tag();
-            hi.unset_free_witness_tag();
-        }
-    };
-
-    /**
-     * @brief straus_scalar_slice decomposes an input scalar into `table_bits` bit-slices.
-     * Used in `batch_mul`, which ses the Straus multiscalar multiplication algorithm.
-     *
-     */
-    struct straus_scalar_slice {
-        straus_scalar_slice(Builder* context, const cycle_scalar& scalars, size_t table_bits);
-        std::optional<field_t> read(size_t index);
-        size_t _table_bits;
-        std::vector<field_t> slices;
-        std::vector<uint64_t> slices_native;
-    };
-
-    /**
-     * @brief straus_lookup_table computes a lookup table of size 1 << table_bits
-     *
-     * @details for an input base_point [P] and offset_generator point [G], where N = 1 << table_bits, the following is
-     * computed:
-     *
-     * { [G] + 0.[P], [G] + 1.[P], ..., [G] + (N - 1).[P] }
-     *
-     * The point [G] is used to ensure that we do not have to handle the point at infinity associated with 0.[P].
-     *
-     * For an HONEST Prover, the probability of [G] and [P] colliding is equivalent to solving the dlog problem.
-     * This allows us to partially ignore the incomplete addition formula edge-cases for short Weierstrass curves.
-     *
-     * When adding group elements in `batch_mul`, we can constrain+assert the x-coordinates of the operand points do not
-     * match. An honest prover will never trigger the case where x-coordinates match due to the above. Validating
-     * x-coordinates do not match is much cheaper than evaluating the full complete addition formulae for short
-     * Weierstrass curves.
-     *
-     * @note For the case of fixed-base scalar multipliation, all input points are defined at circuit compile.
-     * We can ensure that all Provers cannot create point collisions between the base points and offset generators.
-     * For this restricted case we can skip the x-coordiante collision checks when performing group operations.
-     *
-     * @note straus_lookup_table uses Ultra ROM tables if available. If not, we use simple conditional assignment
-     * constraints and restrict the table size to be 1 bit.
-     */
-    struct straus_lookup_table {
-      public:
-        static std::vector<Element> compute_straus_lookup_table_hints(const Element& base_point,
-                                                                      const Element& offset_generator,
-                                                                      size_t table_bits);
-
-        straus_lookup_table() = default;
-        straus_lookup_table(Builder* context,
-                            const cycle_group& base_point,
-                            const cycle_group& offset_generator,
-                            size_t table_bits,
-                            std::optional<std::span<AffineElement>> hints = std::nullopt);
-        cycle_group read(const field_t& index);
-        size_t _table_bits;
-        Builder* _context;
-        std::vector<cycle_group> point_table;
-        size_t rom_id = 0;
-        OriginTag tag{};
-    };
+    using cycle_scalar = ::bb::stdlib::cycle_scalar<Builder>;
+    using straus_lookup_table = ::bb::stdlib::straus_lookup_table<Builder>;
+    using straus_scalar_slice = ::bb::stdlib::straus_scalar_slice<Builder>;
 
   private:
     /**
@@ -239,14 +92,9 @@ template <typename Builder> class cycle_group {
     void validate_is_on_curve() const;
     cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const
         requires IsUltraArithmetic<Builder>;
-    cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const
-        requires IsNotUltraArithmetic<Builder>;
     cycle_group unconditional_add(const cycle_group& other,
                                   const std::optional<AffineElement> hint = std::nullopt) const
         requires IsUltraArithmetic<Builder>;
-    cycle_group unconditional_add(const cycle_group& other,
-                                  const std::optional<AffineElement> hint = std::nullopt) const
-        requires IsNotUltraArithmetic<Builder>;
     cycle_group unconditional_subtract(const cycle_group& other,
                                        const std::optional<AffineElement> hint = std::nullopt) const;
     cycle_group checked_unconditional_add(const cycle_group& other,
@@ -384,10 +232,6 @@ template <typename Builder> class cycle_group {
                                                                     std::span<AffineElement> base_points,
                                                                     std::span<AffineElement const> offset_generators)
         requires IsUltraArithmetic<Builder>;
-    static batch_mul_internal_output _fixed_base_batch_mul_internal(std::span<cycle_scalar> scalars,
-                                                                    std::span<AffineElement> base_points,
-                                                                    std::span<AffineElement const> offset_generators)
-        requires IsNotUltraArithmetic<Builder>;
 };
 
 template <typename Builder> inline std::ostream& operator<<(std::ostream& os, cycle_group<Builder> const& v)
