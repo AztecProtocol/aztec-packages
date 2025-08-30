@@ -624,13 +624,13 @@
           "nextAvailableLeafIndex": 129
         },
         "stateAfter": {
-          "root": "0x0bba1f256d9a694bb1d5e583e19d0278e4662ad388386a076cda7a7df89018ae",
+          "root": "0x108c0c1c418843bb696eebce38302983b7f64e9da7a777cd16371adbf2274b37",
           "nextAvailableLeafIndex": 129
         },
         "treeId": 2,
         "leaf": {
           "slot": "0x07f7092a0dcf9bcea5791da60feb1bf4666ad16590d33d1ca86275efb2e7112e",
-          "value": "0x00000000000000000000000000000000000000000000000000000002540be3af"
+          "value": "0x00000000000000000000000000000000000000000000000000000002540be31f"
         },
         "lowLeavesWitnessData": {
           "leaf": {
@@ -1692,11 +1692,11 @@
         "nextAvailableLeafIndex": 193
       },
       "publicDataTree": {
-        "root": "0x0bba1f256d9a694bb1d5e583e19d0278e4662ad388386a076cda7a7df89018ae",
+        "root": "0x108c0c1c418843bb696eebce38302983b7f64e9da7a777cd16371adbf2274b37",
         "nextAvailableLeafIndex": 129
       }
     },
-    "endGasUsed": { "daGas": 0, "l2Gas": 27 },
+    "endGasUsed": { "daGas": 0, "l2Gas": 75 },
     "accumulatedDataArrayLengths": {
       "noteHashes": 0,
       "nullifiers": 1,
@@ -2052,7 +2052,7 @@
       "publicDataWrites": [
         {
           "leafSlot": "0x07f7092a0dcf9bcea5791da60feb1bf4666ad16590d33d1ca86275efb2e7112e",
-          "value": "0x00000000000000000000000000000000000000000000000000000002540be3af"
+          "value": "0x00000000000000000000000000000000000000000000000000000002540be31f"
         },
         {
           "leafSlot": "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -2308,7 +2308,7 @@
         }
       ]
     },
-    "transactionFee": "0x0000000000000000000000000000000000000000000000000000000000000051",
+    "transactionFee": "0x00000000000000000000000000000000000000000000000000000000000000e1",
     "reverted": false
   }
 }
