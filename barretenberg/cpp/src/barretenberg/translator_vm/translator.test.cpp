@@ -1,5 +1,6 @@
 #include "barretenberg/circuit_checker/translator_circuit_checker.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/honk/relation_checker.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
@@ -24,51 +25,109 @@ class TranslatorTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
-    // Construct a test circuit based on some random operations
-    static CircuitBuilder generate_test_circuit(const Fq& batching_challenge_v,
-                                                const Fq& evaluation_challenge_x,
-                                                const size_t circuit_size_parameter = 500)
+    // Helper function to add no-op operations
+    static void add_no_ops(std::shared_ptr<bb::ECCOpQueue>& op_queue, size_t count = 1)
+    {
+        for (size_t i = 0; i < count; i++) {
+            op_queue->no_op_ultra_only();
+        }
+    }
+
+    // Helper function to add mixed add and mul operations
+    static void add_mixed_ops(std::shared_ptr<bb::ECCOpQueue>& op_queue, size_t count = 100)
     {
         auto P1 = G1::random_element();
         auto P2 = G1::random_element();
         auto z = Fr::random_element();
-
-        // Add the same operations to the ECC op queue; the native computation is performed under the hood.
-        auto op_queue = std::make_shared<bb::ECCOpQueue>();
-        op_queue->no_op_ultra_only();
-
-        for (size_t i = 0; i < circuit_size_parameter; i++) {
+        for (size_t i = 0; i < count; i++) {
             op_queue->add_accumulate(P1);
             op_queue->mul_accumulate(P2, z);
         }
+        op_queue->eq_and_reset();
+    }
+
+    // Construct a test circuit based on some random operations
+    static CircuitBuilder generate_test_circuit(const Fq& batching_challenge_v,
+                                                const Fq& evaluation_challenge_x,
+                                                const size_t circuit_size_parameter = 500,
+                                                const bool add_no_ops_region = false)
+    {
+
+        // Add the same operations to the ECC op queue; the native computation is performed under the hood.
+        auto op_queue = std::make_shared<bb::ECCOpQueue>();
+        add_no_ops(op_queue);
+
+        add_mixed_ops(op_queue, circuit_size_parameter / 2);
+        if (add_no_ops_region) {
+            add_no_ops(op_queue, 4);
+        }
+
+        add_mixed_ops(op_queue, circuit_size_parameter / 2);
         op_queue->merge();
 
         return CircuitBuilder{ batching_challenge_v, evaluation_challenge_x, op_queue };
     }
-};
-} // namespace
 
-/**
- * @brief Check that size of a Translator proof matches the corresponding constant
- *@details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
- * - Proof length formula in translator_flavor.hpp, etc...
- * - translator_transcript.test.cpp
- * - constants in yarn-project in: constants.nr, constants.gen.ts, ConstantsGen.sol
- */
+    /**
+     * @brief Check that size of a Translator proof matches the corresponding constant
+     *@details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
+     * - Proof length formula in translator_flavor.hpp, etc...
+     * - translator_transcript.test.cpp
+     * - constants in yarn-project in: constants.nr, constants.gen.ts, ConstantsGen.sol
+     */
+
+    // Helper function to setup prover transcript with initial value
+    // Helper function to create a complete proof-verification setup
+    static bool prove_and_verify(const CircuitBuilder& circuit_builder,
+                                 const Fq& evaluation_challenge_x,
+                                 const Fq& batching_challenge_v)
+    {
+        // Setup prover transcript
+        auto prover_transcript = std::make_shared<Transcript>();
+        prover_transcript->send_to_verifier("init", Fq::random_element());
+        auto initial_transcript = prover_transcript->export_proof();
+
+        // Setup verifier transcript
+        auto verifier_transcript = std::make_shared<Transcript>();
+        verifier_transcript->load_proof(initial_transcript);
+        verifier_transcript->template receive_from_prover<Fq>("init");
+
+        // Create proving key and prover
+        auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
+        TranslatorProver prover{ proving_key, prover_transcript };
+
+        // Generate proof
+        auto proof = prover.construct_proof();
+
+        // Create verifier
+        auto verification_key = std::make_shared<TranslatorFlavor::VerificationKey>(proving_key->proving_key);
+        TranslatorVerifier verifier(verification_key, verifier_transcript);
+
+        // Verify proof and return result
+        return verifier.verify_proof(proof, evaluation_challenge_x, batching_challenge_v);
+    }
+};
+
 TEST_F(TranslatorTests, ProofLengthCheck)
 {
     using Fq = fq;
 
-    auto prover_transcript = std::make_shared<Transcript>();
     Fq batching_challenge_v = Fq::random_element();
     Fq evaluation_challenge_x = Fq::random_element();
 
     // Generate a circuit and its verification key (computed at runtime from the proving key)
     CircuitBuilder circuit_builder = generate_test_circuit(batching_challenge_v, evaluation_challenge_x);
 
+    // Setup prover transcript
+    auto prover_transcript = std::make_shared<Transcript>();
+    prover_transcript->send_to_verifier("init", Fq::random_element());
+    prover_transcript->export_proof();
     auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
     TranslatorProver prover{ proving_key, prover_transcript };
+
+    // Generate proof
     auto proof = prover.construct_proof();
+
     EXPECT_EQ(proof.size(), TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
 }
 
@@ -76,30 +135,34 @@ TEST_F(TranslatorTests, ProofLengthCheck)
  * @brief Test simple circuit with public inputs
  *
  */
-TEST_F(TranslatorTests, Basic)
+TEST_F(TranslatorTests, BasicWithoutNoOps)
 {
     using Fq = fq;
 
-    auto prover_transcript = std::make_shared<Transcript>();
-    prover_transcript->send_to_verifier("init", Fq::random_element());
-    auto initial_transcript = prover_transcript->export_proof();
+    Fq batching_challenge_v = Fq::random_element();
+    Fq evaluation_challenge_x = Fq::random_element();
+
+    // Generate a circuit without no-ops
+    CircuitBuilder circuit_builder = generate_test_circuit(batching_challenge_v, evaluation_challenge_x);
+
+    EXPECT_TRUE(TranslatorCircuitChecker::check(circuit_builder));
+    bool verified = prove_and_verify(circuit_builder, evaluation_challenge_x, batching_challenge_v);
+    EXPECT_TRUE(verified);
+}
+
+TEST_F(TranslatorTests, BasicWithNoOps)
+{
+    using Fq = fq;
+
     Fq batching_challenge_v = Fq::random_element();
     Fq evaluation_challenge_x = Fq::random_element();
 
     // Generate a circuit and its verification key (computed at runtime from the proving key)
-    CircuitBuilder circuit_builder = generate_test_circuit(batching_challenge_v, evaluation_challenge_x);
+    CircuitBuilder circuit_builder = generate_test_circuit(
+        batching_challenge_v, evaluation_challenge_x, /*circuit_size_parameter=*/500, /*add_no_ops_region=*/true);
 
     EXPECT_TRUE(TranslatorCircuitChecker::check(circuit_builder));
-    auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
-    TranslatorProver prover{ proving_key, prover_transcript };
-    auto proof = prover.construct_proof();
-
-    auto verifier_transcript = std::make_shared<Transcript>();
-    verifier_transcript->load_proof(initial_transcript);
-    verifier_transcript->template receive_from_prover<Fq>("init");
-    auto verification_key = std::make_shared<TranslatorFlavor::VerificationKey>(proving_key->proving_key);
-    TranslatorVerifier verifier(verification_key, verifier_transcript);
-    bool verified = verifier.verify_proof(proof, evaluation_challenge_x, batching_challenge_v);
+    bool verified = prove_and_verify(circuit_builder, evaluation_challenge_x, batching_challenge_v);
     EXPECT_TRUE(verified);
 }
 
@@ -149,3 +212,4 @@ TEST_F(TranslatorTests, FixedVK)
     compare_computed_vk_against_fixed(circuit_size_parameter_1);
     compare_computed_vk_against_fixed(circuit_size_parameter_2);
 }
+} // namespace
