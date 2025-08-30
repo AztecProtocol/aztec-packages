@@ -79,7 +79,7 @@ void fold_k(State& state) noexcept
     ProtogalaxyProver folding_prover(decider_pks, decider_vks, transcript);
 
     for (auto _ : state) {
-        BB_REPORT_OP_COUNT_IN_BENCH(state);
+        GOOGLE_BB_BENCH_REPORTER(state);
         auto proof = folding_prover.prove();
     }
 }

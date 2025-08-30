@@ -11,7 +11,7 @@ cd $(dirname $0)/..
 
 # Measure the benchmarks with ops time counting
 ./scripts/benchmark_remote.sh "$TARGET"\
-                              "BB_USE_OP_COUNT_TIME=1 ./$TARGET --benchmark_filter=$FILTER\
+                              "BB_BENCH=1 ./$TARGET --benchmark_filter=$FILTER\
                                          --benchmark_out=$TARGET.json\
                                          --benchmark_out_format=json"\
                               clang20\

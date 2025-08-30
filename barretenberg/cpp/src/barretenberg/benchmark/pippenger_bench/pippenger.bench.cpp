@@ -65,7 +65,7 @@ BENCHMARK_DEFINE_F(PippengerBench, Full)(benchmark::State& state)
     PolynomialSpan<Fr> scalars = PolynomialSpan<Fr>(0, span);
 
     for (auto _ : state) {
-        BB_REPORT_OP_COUNT_IN_BENCH(state);
+        GOOGLE_BB_BENCH_REPORTER(state);
         (scalar_multiplication::pippenger_unsafe<Curve>(scalars, points));
     }
 }

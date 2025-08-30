@@ -1,3 +1,5 @@
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #ifndef NO_MULTITHREADING
 #include "log.hpp"
@@ -26,6 +28,7 @@ class ThreadPool {
 
     void start_tasks(size_t num_iterations, const std::function<void(size_t)>& func)
     {
+        parent = bb::detail::GlobalBenchStatsContainer::parent;
         {
             std::unique_lock<std::mutex> lock(tasks_mutex);
             task_ = func;
@@ -44,6 +47,7 @@ class ThreadPool {
     }
 
   private:
+    bb::detail::TimeStatsEntry* parent = nullptr;
     std::vector<std::thread> workers;
     std::mutex tasks_mutex;
     std::function<void(size_t)> task_;
@@ -111,6 +115,9 @@ void ThreadPool::worker_loop(size_t /*unused*/)
                 break;
             }
         }
+        // Make sure nested stats accounting works under multithreading
+        // Note: parent is a thread-local variable.
+        bb::detail::GlobalBenchStatsContainer::parent = parent;
         do_iterations();
     }
     // info("worker exit ", worker_num);
