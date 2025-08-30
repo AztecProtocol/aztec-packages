@@ -306,7 +306,7 @@ namespace tx;
     execution.enqueued_call_end {
        execution.context_id,
        execution.next_context_id,
-       execution.sel_error,
+       execution.sel_failure,
        execution.discard,
        // Tree State
        execution.note_hash_tree_root,

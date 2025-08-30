@@ -340,6 +340,24 @@ export class PublicPersistableStateManager {
     const exists = instanceWithAddress !== undefined;
 
     const instance = exists ? new SerializableContractInstance(instanceWithAddress) : undefined;
+
+    const isCanonical = contractAddressIsCanonical(contractAddress);
+
+    if (!isCanonical) {
+      // If not canonical, we do the nullifier check. We do this regardless of whether or not the instance exists,
+      // as even for non-existence, we need to generate nullifier check hints.
+
+      // This will internally decide whether to check the nullifier tree or not depending on doMerkleOperations.
+      const nullifierExistsInTree = await this.checkNullifierExists(
+        AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
+        contractAddress.toField(),
+      );
+      assert(
+        exists == nullifierExistsInTree,
+        `Contract instance for address ${contractAddress} in DB: ${exists} != nullifier tree: ${nullifierExistsInTree}. This is a bug!`,
+      );
+    }
+
     if (!exists) {
       this.log.debug(`Contract instance NOT FOUND (address=${contractAddress})`);
       return undefined;
@@ -347,19 +365,9 @@ export class PublicPersistableStateManager {
 
     this.log.trace(`Got contract instance (address=${contractAddress}): instance=${jsonStringify(instance!)}`);
     // Canonical addresses do not trigger nullifier and update checks.
-    if (contractAddressIsCanonical(contractAddress)) {
+    if (isCanonical) {
       return instance;
     }
-
-    // This will decide internally whether to check the nullifier tree or not depending on doMerkleOperations.
-    const nullifierExistsInTree = await this.checkNullifierExists(
-      AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
-      contractAddress.toField(),
-    );
-    assert(
-      exists == nullifierExistsInTree,
-      `Contract instance for address ${contractAddress} in DB: ${exists} != nullifier tree: ${nullifierExistsInTree}. This is a bug!`,
-    );
 
     // All that is left is tocheck that the contract updatability information is correct.
     // That is, that the current and original contract class ids are correct.
@@ -455,6 +463,7 @@ export class PublicPersistableStateManager {
       this.log.debug(`Contract instance NOT FOUND (id=${classId})`);
     }
 
+    // TODO(dbanks12): does this need to be moved to before the DB accesses as was done with writeNullifier?
     this.trace.traceGetContractClass(classId, exists);
     return extendedClass;
   }

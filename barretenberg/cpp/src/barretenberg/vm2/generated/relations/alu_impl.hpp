@@ -138,7 +138,7 @@ void aluImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // C_TAG_CHECK
         using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-        auto tmp = (FF(1) - in.get(C::alu_sel_tag_err)) * (alu_EXPECTED_C_TAG - in.get(C::alu_ic_tag));
+        auto tmp = (FF(1) - in.get(C::alu_sel_err)) * (alu_EXPECTED_C_TAG - in.get(C::alu_ic_tag));
         tmp *= scaling_factor;
         std::get<8>(evals) += typename Accumulator::View(tmp);
     }
