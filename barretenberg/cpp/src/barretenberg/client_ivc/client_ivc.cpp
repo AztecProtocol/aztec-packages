@@ -699,7 +699,7 @@ ClientIVC::Proof ClientIVC::Proof::from_file_msgpack(const std::string& filename
 ClientIVC::VerificationKey ClientIVC::get_vk() const
 {
     BB_ASSERT_EQ(verification_queue.size(), 1UL);
-    BB_ASSERT_EQ(verification_queue.front().type, QUEUE_TYPE::MEGA);
+    BB_ASSERT(verification_queue.front().type == QUEUE_TYPE::MEGA, true);
     auto verification_key = verification_queue.front().honk_vk;
     return { verification_key,
              std::make_shared<ECCVMVerificationKey>(),
