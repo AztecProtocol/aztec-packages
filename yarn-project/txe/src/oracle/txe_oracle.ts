@@ -58,7 +58,6 @@ import {
   countArgumentsSize,
 } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
-import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ContractInstance, type ContractInstanceWithAddress, computePartialAddress } from '@aztec/stdlib/contract';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
@@ -80,7 +79,7 @@ import {
   PrivateToPublicAccumulatedData,
   PublicCallRequest,
 } from '@aztec/stdlib/kernel';
-import { ContractClassLog, IndexedTaggingSecret, PrivateLog, type PublicLog } from '@aztec/stdlib/logs';
+import { ContractClassLog, IndexedTaggingSecret, PrivateLog } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
 import {
@@ -93,7 +92,6 @@ import {
   AppendOnlyTreeSnapshot,
   MerkleTreeId,
   NullifierMembershipWitness,
-  PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
   PublicDataWitness,
 } from '@aztec/stdlib/trees';
@@ -132,11 +130,7 @@ export class TXE extends TXETypedOracle {
 
   private pxeOracleInterface: PXEOracleInterface;
 
-  private publicDataWrites: PublicDataWrite[] = [];
-  private uniqueNoteHashesFromPublic: Fr[] = [];
-  private siloedNullifiersFromPublic: Fr[] = [];
   private privateLogs: PrivateLog[] = [];
-  private publicLogs: PublicLog[] = [];
 
   private committedBlocks = new Set<number>();
 
@@ -166,7 +160,7 @@ export class TXE extends TXETypedOracle {
     private privateEventDataProvider: PrivateEventDataProvider,
     private accountDataProvider: TXEAccountDataProvider,
     private contractAddress: AztecAddress,
-    private baseFork: MerkleTreeWriteOperations,
+    public baseFork: MerkleTreeWriteOperations,
     private stateMachine: TXEStateMachine,
   ) {
     super();
@@ -311,7 +305,7 @@ export class TXE extends TXETypedOracle {
   }
 
   override async txeGetPrivateContextInputs(
-    blockNumber: number | null,
+    blockNumber?: number,
     sideEffectsCounter = this.sideEffectCounter,
     isStaticCall = false,
   ) {
@@ -350,15 +344,6 @@ export class TXE extends TXETypedOracle {
     this.authwits.set(authWitness.requestHash.toString(), authWitness);
   }
 
-  async addPublicDataWrites(writes: PublicDataWrite[]) {
-    this.publicDataWrites.push(...writes);
-
-    await this.baseFork.sequentialInsert(
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      writes.map(w => new PublicDataTreeLeaf(w.leafSlot, w.value).toBuffer()),
-    );
-  }
-
   async checkNullifiersNotInTree(contractAddress: AztecAddress, nullifiers: Fr[]) {
     const siloedNullifiers = await Promise.all(nullifiers.map(nullifier => siloNullifier(contractAddress, nullifier)));
     const db = this.baseFork;
@@ -369,14 +354,6 @@ export class TXE extends TXETypedOracle {
     if (nullifierIndexesInTree.some(index => index !== undefined)) {
       throw new Error(`Rejecting tx for emitting duplicate nullifiers`);
     }
-  }
-
-  addSiloedNullifiersFromPublic(siloedNullifiers: Fr[]) {
-    this.siloedNullifiersFromPublic.push(...siloedNullifiers);
-  }
-
-  addUniqueNoteHashesFromPublic(siloedNoteHashes: Fr[]) {
-    this.uniqueNoteHashesFromPublic.push(...siloedNoteHashes);
   }
 
   // TypedOracle
@@ -599,19 +576,6 @@ export class TXE extends TXETypedOracle {
     return values;
   }
 
-  override async storageWrite(startStorageSlot: Fr, values: Fr[]): Promise<Fr[]> {
-    const publicDataWrites = await Promise.all(
-      values.map(async (value, i) => {
-        const storageSlot = startStorageSlot.add(new Fr(i));
-        this.logger.debug(`Oracle storage write: slot=${storageSlot.toString()} value=${value}`);
-        return new PublicDataWrite(await computePublicDataTreeLeafSlot(this.contractAddress, storageSlot), value);
-      }),
-    );
-
-    await this.addPublicDataWrites(publicDataWrites);
-    return publicDataWrites.map(write => write.value);
-  }
-
   async commitState() {
     const blockNumber = await this.utilityGetBlockNumber();
     const { usedTxRequestHashForNonces } = this.noteCache.finish();
@@ -638,17 +602,14 @@ export class TXE extends TXETypedOracle {
           ),
         ),
     );
-    txEffect.noteHashes = [...uniqueNoteHashesFromPrivate, ...this.uniqueNoteHashesFromPublic];
-
-    txEffect.nullifiers = [...this.siloedNullifiersFromPublic, ...this.noteCache.getAllNullifiers()];
+    txEffect.noteHashes = uniqueNoteHashesFromPrivate;
+    txEffect.nullifiers = this.noteCache.getAllNullifiers();
 
     if (usedTxRequestHashForNonces) {
       txEffect.nullifiers.unshift(this.getTxRequestHash());
     }
 
-    txEffect.publicDataWrites = this.publicDataWrites;
     txEffect.privateLogs = this.privateLogs;
-    txEffect.publicLogs = this.publicLogs;
     txEffect.txHash = new TxHash(new Fr(blockNumber));
 
     const body = new Body([txEffect]);
@@ -713,11 +674,7 @@ export class TXE extends TXETypedOracle {
 
     await this.stateMachine.handleL2Block(l2Block);
 
-    this.publicDataWrites = [];
     this.privateLogs = [];
-    this.publicLogs = [];
-    this.uniqueNoteHashesFromPublic = [];
-    this.siloedNullifiersFromPublic = [];
     this.noteCache = new ExecutionNoteCache(this.getTxRequestHash());
   }
 
@@ -866,46 +823,6 @@ export class TXE extends TXETypedOracle {
       logRetrievalRequestsArrayBaseSlot,
       logRetrievalResponsesArrayBaseSlot,
     );
-  }
-
-  override async avmOpcodeNullifierExists(innerNullifier: Fr, targetAddress: AztecAddress): Promise<boolean> {
-    const nullifier = await siloNullifier(targetAddress, innerNullifier!);
-    const db = this.baseFork;
-
-    const treeIndex = (await db.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]))[0];
-    const transientIndex = this.siloedNullifiersFromPublic.find(n => n.equals(nullifier));
-
-    return treeIndex !== undefined || transientIndex !== undefined;
-  }
-
-  override async avmOpcodeEmitNullifier(nullifier: Fr) {
-    const siloedNullifier = await siloNullifier(this.contractAddress, nullifier);
-    this.addSiloedNullifiersFromPublic([siloedNullifier]);
-
-    return Promise.resolve();
-  }
-
-  // Doesn't this need to get hashed w/ the nonce ?
-  override async avmOpcodeEmitNoteHash(noteHash: Fr) {
-    const siloedNoteHash = await siloNoteHash(this.contractAddress, noteHash);
-    this.addUniqueNoteHashesFromPublic([siloedNoteHash]);
-    return Promise.resolve();
-  }
-
-  override async avmOpcodeStorageRead(slot: Fr) {
-    const leafSlot = await computePublicDataTreeLeafSlot(this.contractAddress, slot);
-
-    const lowLeafResult = await this.baseFork.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
-    if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
-      return Fr.ZERO;
-    }
-
-    const preimage = (await this.baseFork.getLeafPreimage(
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      lowLeafResult.index,
-    )) as PublicDataTreeLeafPreimage;
-
-    return preimage.leaf.value;
   }
 
   override utilityStoreCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
@@ -1307,8 +1224,6 @@ export class TXE extends TXETypedOracle {
     txEffect.noteHashes = processedTx!.txEffect.noteHashes;
     txEffect.nullifiers = processedTx!.txEffect.nullifiers;
     txEffect.privateLogs = processedTx!.txEffect.privateLogs;
-    txEffect.publicLogs = processedTx!.txEffect.publicLogs;
-    txEffect.publicDataWrites = processedTx!.txEffect.publicDataWrites;
 
     txEffect.txHash = new TxHash(new Fr(this.blockNumber));
 
