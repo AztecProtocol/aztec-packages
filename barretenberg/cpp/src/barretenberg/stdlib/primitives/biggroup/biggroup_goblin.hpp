@@ -249,6 +249,16 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         return result;
     }
 
+    goblin_element conditional_select(const goblin_element& other, const bool_ct& predicate) const
+    {
+        goblin_element result(*this);
+        result.x = Fq::conditional_assign(predicate, other.x, result.x);
+        result.y = Fq::conditional_assign(predicate, other.y, result.y);
+        result._is_infinity =
+            bool_ct::conditional_assign(predicate, other.is_point_at_infinity(), result.is_point_at_infinity());
+        return result;
+    }
+
     goblin_element normalize() const
     {
         // no need to normalize, all goblin eccvm operations are returned normalized

@@ -219,6 +219,25 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         return result;
     }
 
+    element conditional_select(const element& other, const bool_ct& predicate) const
+    {
+        // If predicate is constant, we can select out of circuit
+        if (predicate.is_constant()) {
+            return predicate.get_value() ? other : *this;
+        }
+
+        // Get the builder context
+        Builder* ctx = get_context(other) ? get_context(other) : predicate.get_context();
+        BB_ASSERT_NEQ(ctx, nullptr, "biggroup::conditional_select must have a context");
+
+        element result(*this);
+        result.x = result.x.conditional_select(other.x, predicate);
+        result.y = result.y.conditional_select(other.y, predicate);
+        result._is_infinity =
+            bool_ct::conditional_assign(predicate, other.is_point_at_infinity(), result.is_point_at_infinity());
+        return result;
+    }
+
     element normalize() const
     {
         element result(*this);
