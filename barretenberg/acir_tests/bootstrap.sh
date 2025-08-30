@@ -152,10 +152,18 @@ function test_cmds {
   for t in assert_statement a_1_mul slices verify_honk_proof; do
     echo "$sol_prefix $scripts/bb_prove_sol_verify.sh $t --disable_zk"
     echo "$sol_prefix $scripts/bb_prove_sol_verify.sh $t"
+    echo "$sol_prefix $scripts/bb_prove_sol_verify.sh $t --optimized"
   done
   # prove with bb cli and verify with bb.js classes
   echo "$sol_prefix $scripts/bb_prove_bbjs_verify.sh a_1_mul"
   echo "$sol_prefix $scripts/bb_prove_bbjs_verify.sh assert_statement"
+
+  # Solidity tests with optimized contract.
+  echo "$prefix FLOW=sol_honk USE_OPTIMIZED_CONTRACT=true $run_test assert_statement"
+  echo "$prefix FLOW=sol_honk USE_OPTIMIZED_CONTRACT=true $run_test a_1_mul"
+  echo "$prefix FLOW=sol_honk USE_OPTIMIZED_CONTRACT=true $run_test slices"
+  echo "$prefix FLOW=sol_honk USE_OPTIMIZED_CONTRACT=true $run_test verify_honk_proof"
+  echo "$prefix FLOW=sol_honk USE_OPTIMIZED_CONTRACT=true $run_test double_verify_honk_proof"
 
   # bb.js browser tests. Isolate because server.
   local browser_prefix="$tests_hash:ISOLATE=1:NET=1:CPUS=8"
