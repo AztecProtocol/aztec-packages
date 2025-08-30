@@ -512,7 +512,7 @@ class ECCVMFlavor {
          *          transcript_msm_count_at_transition_inverse: used to validate transcript_msm_count_zero_at_transition
          *          precompute_pc: point counter for Straus precomputation columns
          *          precompute_select: if 1, evaluate Straus precomputation algorithm at current row
-         *          precompute_point_transition: 1 if current row operating on a different point to previous row
+         *          precompute_point_transition: 1 if next row operating on a different point than current row.
          *          precompute_round: round counter for Straus precomputation algorithm
          *          precompute_scalar_sum: accumulating sum of Straus scalar slices
          *          precompute_s1hi/lo: 2-bit hi/lo components of a Straus 4-bit scalar slice

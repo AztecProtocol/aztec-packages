@@ -28,7 +28,7 @@ template <typename CycleGroup> struct ScalarMul {
     typename CycleGroup::affine_element base_point;
     std::array<int, NUM_WNAF_DIGITS_PER_SCALAR>
         wnaf_digits; // [a_{n-1}, a_{n-1}, ..., a_{0}], where each a_i ∈ {-2ʷ⁻¹ + 1, -2ʷ⁻¹ + 3, ..., 2ʷ⁻¹ - 3, 2ʷ⁻¹ -
-                     // 1} ∪ {0}. (here, w = `NUM_WNAF_DIGIT_BITS`). in particular, a_i is an odd integer with
+                     // 1}. (here, w = `NUM_WNAF_DIGIT_BITS`). in particular, a_i is an odd integer with
                      // absolute value less than 2ʷ. Represents the number `scalar` = ∑ᵢ aᵢ 2⁴ⁱ - `wnaf_skew`.
     bool wnaf_skew;  // necessary to represent _even_ integers
     // size bumped by 1 to record base_point.dbl()
