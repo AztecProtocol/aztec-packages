@@ -191,8 +191,8 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         hide_op_queue_accumulation_result(circuit);
 
         // Propagate the public inputs of the tail kernel by converting them to public inputs of the hiding circuit.
-        auto num_public_inputs =
-            static_cast<size_t>(verifier_inputs.honk_vk_and_hash->vk->num_public_inputs.get_value());
+        auto num_public_inputs = static_cast<size_t>(
+            static_cast<uint32_t>(verifier_inputs.honk_vk_and_hash->vk->num_public_inputs.get_value()));
         num_public_inputs -= KernelIO::PUBLIC_INPUTS_SIZE; // exclude fixed kernel_io public inputs
         for (size_t i = 0; i < num_public_inputs; i++) {
             verifier_inputs.proof[i].set_public();
