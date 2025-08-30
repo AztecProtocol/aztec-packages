@@ -10,6 +10,7 @@ import {
 } from '@aztec/ethereum';
 import { EthCheatCodes } from '@aztec/ethereum/test';
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi, StakingAssetHandlerAbi } from '@aztec/l1-artifacts';
@@ -50,6 +51,35 @@ export function generateL1Account() {
     privateKey,
     address: account.address,
   };
+}
+
+export async function makeRegistrationTuple({
+  l1RpcUrls,
+  l1ChainId,
+  rollupAddress,
+  blsSecretKey,
+}: {
+  l1RpcUrls: string[];
+  l1ChainId: number;
+  rollupAddress: EthAddress;
+  blsSecretKey: bigint; // scalar field element of BN254
+} & LoggerArgs) {
+  console.log(l1ChainId, l1RpcUrls, rollupAddress, blsSecretKey);
+  const publicClient = getPublicClient({ l1RpcUrls, l1ChainId });
+
+  const rollup = getContract({
+    address: rollupAddress.toString(),
+    abi: RollupAbi,
+    client: publicClient,
+  });
+
+  const gseAddress = await rollup.read.getGSE();
+
+  const gse = new GSEContract(publicClient, gseAddress);
+
+  const registrationTuple = await gse.makeRegistrationTuple(blsSecretKey);
+  console.log(`Registration tuple: ${jsonStringify(registrationTuple)}`);
+  return registrationTuple;
 }
 
 export async function addL1Validator({

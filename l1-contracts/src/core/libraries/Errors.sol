@@ -125,7 +125,7 @@ library Errors {
   error Staking__CannotSlashExitedStake(address); // 0x45bf4940
   error Staking__FailedToRemove(address); // 0xa7d7baab
   error Staking__InvalidDeposit(address attester, address proposer); // 0xf33fe8c6
-  error Staking__InvalidRecipient(address); // 0x7e2f7f1c
+  error Staking__InvalidRecipient(address); // 0x4faf4233
   error Staking__InsufficientStake(uint256, uint256); // 0x903aee24
   error Staking__NoOneToSlash(address); // 0x7e2f7f1c
   error Staking__NotExiting(address); // 0xef566ee0
@@ -140,14 +140,14 @@ library Errors {
   error Staking__RollupAlreadyRegistered(address); // 0x108a39c8
   error Staking__InvalidRollupAddress(address); // 0xd876720e
   error Staking__NotCanonical(address); // 0x6244212e
-  error Staking__InstanceDoesNotExist(address);
+  error Staking__InstanceDoesNotExist(address); // 0x429f9c54
   error Staking__InsufficientPower(uint256, uint256);
-  error Staking__AlreadyExiting(address);
-  error Staking__FatalError(string);
+  error Staking__AlreadyExiting(address); // 0x223622dc
+  error Staking__FatalError(string); // 0x5bdb08d8
   error Staking__NotOurProposal(uint256, address, address);
   error Staking__IncorrectGovProposer(uint256);
   error Staking__GovernanceAlreadySet();
-  error Staking__InsufficientBootstrapValidators(uint256 queueSize, uint256 bootstrapFlushSize);
+  error Staking__InsufficientBootstrapValidators(uint256 queueSize, uint256 bootstrapFlushSize); // 0xa10528d9
   error Staking__InvalidStakingQueueConfig();
   error Staking__InvalidNormalFlushSizeQuotient();
 

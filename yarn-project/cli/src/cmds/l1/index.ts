@@ -16,7 +16,7 @@ import {
   pxeOption,
 } from '../../utils/commands.js';
 
-export { addL1Validator } from './update_l1_validators.js';
+export { addL1Validator, makeRegistrationTuple } from './update_l1_validators.js';
 
 const l1RpcUrlsOption = new Option(
   '--l1-rpc-urls <string>',
@@ -25,7 +25,10 @@ const l1RpcUrlsOption = new Option(
   .env('ETHEREUM_HOSTS')
   .default([ETHEREUM_HOSTS])
   .makeOptionMandatory(true)
-  .argParser((arg: string) => arg.split(',').map(url => url.trim()));
+  .argParser((arg: string) => {
+    console.log(arg);
+    return arg.split(',').map(url => url.trim());
+  });
 
 const networkOption = new Option('--network <string>', 'Network to execute against').env('NETWORK');
 
@@ -284,6 +287,23 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
       const { generateL1Account } = await import('./update_l1_validators.js');
       const account = generateL1Account();
       log(JSON.stringify(account, null, 2));
+    });
+
+  program
+    .command('make-registration-tuple')
+    .description('Makes a registration tuple for a validator.')
+    .addOption(l1RpcUrlsOption)
+    .addOption(l1ChainIdOption)
+    .option('--rollup-address <address>', 'ethereum address of the rollup', parseEthereumAddress)
+    .option(
+      '--bls-secret-key <string>',
+      'The BN254 scalar field element used as a secret key for BLS signatures. Will be associated with the attester address.',
+      parseBigint,
+    )
+    .action(async options => {
+      console.log(options);
+      const { makeRegistrationTuple } = await import('./update_l1_validators.js');
+      await makeRegistrationTuple(options);
     });
 
   program
