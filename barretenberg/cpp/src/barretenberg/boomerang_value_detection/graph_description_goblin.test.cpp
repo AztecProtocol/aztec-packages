@@ -91,6 +91,8 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
             RecursiveCommitment::from_witness(&builder, merge_commitments.t_commitments[idx]);
         recursive_merge_commitments.T_prev_commitments[idx] =
             RecursiveCommitment::from_witness(&builder, merge_commitments.T_prev_commitments[idx]);
+        recursive_merge_commitments.t_commitments[idx].fix_witness();
+        recursive_merge_commitments.T_prev_commitments[idx].fix_witness();
     }
 
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };

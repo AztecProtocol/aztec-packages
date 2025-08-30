@@ -20,9 +20,7 @@
 #include <ostream>
 
 // Currently disabled, because there are violations of the tag invariant in the codebase everywhere.
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1409): Re-enable this once the tag invariant is restored.
-#define DISABLE_FREE_WITNESS_CHECK
-#define DISABLE_DIFFERENT_TRANSCRIPT_CHECKS
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1532): Re-enable this once we resolve these issues.
 #define DISABLE_CHILD_TAG_CHECKS
 
 // Disable origin tags in release builds

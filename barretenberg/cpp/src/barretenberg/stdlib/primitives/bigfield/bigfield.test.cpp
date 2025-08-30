@@ -885,6 +885,8 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         size_t num_repetitions = 10;
         for (size_t i = 0; i < num_repetitions; ++i) {
 
+            // WORKTODO: To pass the free witness check: could either fix the witnesses of the claims or fiat shamir
+            // them
             auto [a_native, a_ct] = get_random_witness(&builder); // fq, fq_ct
             auto [b_native, b_ct] = get_random_witness(&builder); // fq, fq_ct
 
@@ -1367,7 +1369,7 @@ TYPED_TEST(stdlib_bigfield, reduce)
 {
     TestFixture::test_reduce();
 }
-TYPED_TEST(stdlib_bigfield, assert_is_in_field_succes)
+TYPED_TEST(stdlib_bigfield, assert_is_in_field_success)
 {
     TestFixture::test_assert_is_in_field_success();
 }
