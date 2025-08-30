@@ -152,6 +152,7 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) {
     let context_finish = quote { context.finish() };
 
     let to_prepend = quote {
+        dep::aztec::oracle::version::assert_oracle_version_matches();
         $args_hasher
         $context_creation
         $assert_initializer
@@ -308,6 +309,7 @@ pub(crate) comptime fn transform_utility(f: FunctionDefinition) {
     // Inject context creation, storage initialization, and message discovery call at the beginning of the function
     // body.
     let to_prepend = quote {
+        dep::aztec::oracle::version::assert_oracle_version_matches();
         $context_creation
         $storage_init
         $message_discovery_call
@@ -375,7 +377,7 @@ pub(crate) comptime fn create_message_discovery_call() -> Quoted {
 ///   if (!from.eq(context.msg_sender())) {
 ///         assert_current_call_valid_authwit::<N>(&mut context, from);
 ///     } else {
-///         assert(authwit_nonce, "Invalid auhtwit nonce. When 'from' and 'msg_sender' are the same, authwit_nonce must be zero");
+///         assert(authwit_nonce, "Invalid authwit nonce. When 'from' and 'msg_sender' are the same, authwit_nonce must be zero");
 ///     }
 /// ```
 /// where `from` and `authwit_nonce` are the names of the parameters that are expected to be present in the function definition.

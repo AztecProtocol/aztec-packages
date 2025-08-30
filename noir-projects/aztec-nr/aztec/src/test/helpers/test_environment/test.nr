@@ -1,4 +1,5 @@
-use crate::test::helpers::test_environment::TestEnvironment;
+use crate::{oracle::version::ORACLE_VERSION, test::helpers::test_environment::TestEnvironment};
+use std::test::OracleMock;
 
 mod accounts;
 mod deployment;
@@ -309,4 +310,20 @@ unconstrained fn private_public_and_utility_context_share_default_chain_id() {
 
     assert_eq(private_chain_id, public_chain_id);
     assert_eq(private_chain_id, utility_chain_id);
+}
+
+#[test]
+unconstrained fn oracle_version_is_checked_upon_env_creation() {
+    // We mock the oracle to be able to check that it gets called and that it gets called with the correct version
+    let mock = OracleMock::mock("utilityAssertOracleVersionMatches");
+
+    // Creating the test environment should trigger the oracle version check
+    let _env = TestEnvironment::new();
+
+    assert_eq(mock.times_called(), 1, "Expected oracle version check to be called exactly once");
+    assert_eq(
+        mock.get_last_params::<Field>(),
+        ORACLE_VERSION,
+        "Oracle called with unexpected version",
+    );
 }
