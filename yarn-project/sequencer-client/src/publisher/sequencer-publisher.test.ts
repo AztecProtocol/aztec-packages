@@ -38,7 +38,19 @@ import { privateKeyToAccount } from 'viem/accounts';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
 import type { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
-import { SequencerPublisher } from './sequencer-publisher.js';
+import { type Action, SequencerPublisher, compareActions } from './sequencer-publisher.js';
+
+// Ensures proposal actions are sorted before slashing votes/signals
+
+describe('compareActions sorting', () => {
+  it('places propose before empire-slashing-signal and vote-offenses', () => {
+    const actions: Action[] = ['empire-slashing-signal', 'propose', 'vote-offenses'];
+    const sorted = [...actions].sort(compareActions);
+
+    expect(sorted.indexOf('propose')).toBeLessThan(sorted.indexOf('empire-slashing-signal'));
+    expect(sorted.indexOf('propose')).toBeLessThan(sorted.indexOf('vote-offenses'));
+  });
+});
 
 const mockRollupAddress = EthAddress.random().toString();
 const mockGovernanceProposerAddress = EthAddress.random().toString();
@@ -276,16 +288,16 @@ describe('SequencerPublisher', () => {
     expect(forwardSpy).toHaveBeenCalledWith(
       [
         {
+          to: mockRollupAddress,
+          data: encodeFunctionData({ abi: RollupAbi, functionName: 'propose', args }),
+        },
+        {
           to: mockGovernanceProposerAddress,
           data: encodeFunctionData({
             abi: EmpireBaseAbi,
             functionName: 'signalWithSig',
             args: [govPayload.toString(), voteSig.toViemSignature()],
           }),
-        },
-        {
-          to: mockRollupAddress,
-          data: encodeFunctionData({ abi: RollupAbi, functionName: 'propose', args }),
         },
       ],
       l1TxUtils,
