@@ -844,19 +844,51 @@ export const addMultipleValidators = async (
 
       logger.info(`Adding ${validators.length} validators to the rollup`);
 
-      await deployer.l1TxUtils.sendAndMonitorTransaction(
-        {
-          to: multiAdder.toString(),
-          data: encodeFunctionData({
-            abi: MultiAdderArtifact.contractAbi,
-            functionName: 'addValidators',
-            args: [validatorsTuples],
-          }),
-        },
-        {
-          gasLimit: 45_000_000n,
-        },
-      );
+      // Adding to the queue and flushing need to be done in two transactions
+      // if we are adding many validators.
+      if (validatorsTuples.length > 10) {
+        await deployer.l1TxUtils.sendAndMonitorTransaction(
+          {
+            to: multiAdder.toString(),
+            data: encodeFunctionData({
+              abi: MultiAdderArtifact.contractAbi,
+              functionName: 'addValidators',
+              args: [validatorsTuples, true],
+            }),
+          },
+          {
+            gasLimit: 40_000_000n,
+          },
+        );
+
+        await deployer.l1TxUtils.sendAndMonitorTransaction(
+          {
+            to: rollupAddress,
+            data: encodeFunctionData({
+              abi: RollupArtifact.contractAbi,
+              functionName: 'flushEntryQueue',
+              args: [],
+            }),
+          },
+          {
+            gasLimit: 40_000_000n,
+          },
+        );
+      } else {
+        await deployer.l1TxUtils.sendAndMonitorTransaction(
+          {
+            to: multiAdder.toString(),
+            data: encodeFunctionData({
+              abi: MultiAdderArtifact.contractAbi,
+              functionName: 'addValidators',
+              args: [validatorsTuples, false],
+            }),
+          },
+          {
+            gasLimit: 45_000_000n,
+          },
+        );
+      }
 
       const entryQueueLengthAfter = await rollup.getEntryQueueLength();
       const validatorCountAfter = await rollup.getActiveAttesterCount();
@@ -933,6 +965,7 @@ export const deployL1Contracts = async (
   txUtilsConfig: L1TxUtilsConfig = getL1TxUtilsConfigEnvVars(),
   createVerificationJson: string | false = false,
 ): Promise<DeployL1ContractsReturnType> => {
+  logger.info(`Deploying L1 contracts with config: ${jsonStringify(args)}`);
   validateConfig(args);
 
   const l1Client = createExtendedL1Client(rpcUrls, account, chain);

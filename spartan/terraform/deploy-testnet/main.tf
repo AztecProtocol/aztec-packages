@@ -16,7 +16,7 @@ terraform {
 }
 
 provider "google" {
-  project = var.GCP_PROJECT
+  project = var.GCP_PROJECT_ID
   region  = var.GCP_REGION
 }
 
@@ -37,7 +37,7 @@ provider "helm" {
 module "secret-manager" {
   source     = "GoogleCloudPlatform/secret-manager/google"
   version    = "~> 0.8"
-  project_id = var.GCP_PROJECT
+  project_id = var.GCP_PROJECT_ID
 }
 
 data "terraform_remote_state" "metrics" {

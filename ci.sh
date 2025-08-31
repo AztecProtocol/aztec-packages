@@ -23,6 +23,8 @@ function print_usage {
   echo_cmd "docs"           "Spin up an EC2 instance and run docs-only CI."
   echo_cmd "barretenberg"   "Spin up an EC2 instance and run barretenberg-only CI."
   echo_cmd "merge-queue"    "Spin up several EC2 instances to run the merge-queue jobs."
+  echo_cmd "network-deploy" "Spin up an EC2 instance to deploy a network."
+  echo_cmd "network-tests"  "Spin up an EC2 instance to run tests on a network."
   echo_cmd "nightly"        "Spin up an EC2 instance and run bootstrap nightly."
   echo_cmd "release"        "Spin up an EC2 instance and run bootstrap release."
   echo_cmd "shell-new"      "Spin up an EC2 instance, clone the repo, and drop into a shell."
@@ -141,16 +143,13 @@ case "$cmd" in
       'run x4-full amd64 ci-full' \
       'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue CI run" $RUN_ID
     ;;
-  "network-scenario")
-    prep_vars
-    # Spin up ec2 instance and run the network scenario flow.
-    run() {
-      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh ci-network-scenario'"
-    }
-    export -f run
-    # We need to run the network scenario flow on both x86 and arm64.
-    parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
-      'run x-network-scenario amd64' | DUP=1 cache_log "Network scenario CI run" $RUN_ID
+  "network-deploy")
+    export JOB_ID="x-${NAMESPACE}-network-deploy"
+    bootstrap_ec2 "./bootstrap.sh ci-network-deploy"
+    ;;
+  "network-tests")
+    export JOB_ID="x-${NAMESPACE}-network-tests"
+    bootstrap_ec2 "./bootstrap.sh ci-network-tests"
     ;;
   "nightly")
     prep_vars

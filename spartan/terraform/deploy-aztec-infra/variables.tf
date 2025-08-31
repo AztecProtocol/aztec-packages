@@ -1,4 +1,4 @@
-variable "GCP_PROJECT" {
+variable "GCP_PROJECT_ID" {
   description = "GCP project id"
   type        = string
   default     = "testnet-440309"
@@ -49,12 +49,6 @@ variable "RPC_RESOURCE_PROFILE" {
   }
 }
 
-variable "RPC_EXTERNAL_INGRESS" {
-  description = "Whether to use an external ingress for the rpc"
-  type        = bool
-  default     = false
-}
-
 variable "K8S_CLUSTER_CONTEXT" {
   description = "GKE cluster context"
   type        = string
@@ -77,12 +71,6 @@ variable "AZTEC_DOCKER_IMAGE" {
   description = "Docker image to use for the aztec network"
   type        = string
   default     = "aztecprotocol/aztec:staging"
-}
-
-variable "OTEL_COLLECTOR_URL" {
-  description = "The URL of an OpenTelemtry collector to send metrics to"
-  type        = string
-  nullable    = true
 }
 
 variable "VALIDATOR_VALUES" {
@@ -162,7 +150,7 @@ variable "VALIDATOR_MNEMONIC_START_INDEX" {
 variable "VALIDATORS_PER_NODE" {
   description = "The number of validators per node"
   type        = string
-  default     = 1
+  default     = 12
 }
 
 variable "VALIDATOR_REPLICAS" {
@@ -186,5 +174,89 @@ variable "PROVER_MNEMONIC_START_INDEX" {
 variable "OTEL_COLLECTOR_ENDPOINT" {
   description = "Optional OpenTelemetry collector endpoint URL (e.g., http://otel-collector:4318)"
   type        = string
-  default     = ""
+  default     = null
+  nullable    = true
+}
+
+variable "SENTINEL_ENABLED" {
+  description = "Whether to enable sentinel"
+  type        = string
+  default     = true
+}
+
+variable "SLASH_MIN_PENALTY_PERCENTAGE" {
+  description = "The slash min penalty percentage"
+  type        = string
+  nullable    = true
+}
+
+variable "SLASH_MAX_PENALTY_PERCENTAGE" {
+  description = "The slash max penalty percentage"
+  type        = string
+  nullable    = true
+}
+
+variable "SLASH_INACTIVITY_TARGET_PERCENTAGE" {
+  description = "The slash inactivity target percentage"
+  type        = string
+  nullable    = true
+}
+
+variable "SLASH_INACTIVITY_PENALTY" {
+  description = "The slash inactivity penalty"
+  type        = string
+  nullable    = true
+}
+
+variable "SLASH_PRUNE_PENALTY" {
+  description = "The slash prune penalty"
+  type        = string
+  nullable    = true
+}
+
+variable "SLASH_DATA_WITHHOLDING_PENALTY" {
+  description = "The slash data withholding penalty"
+  type        = string
+  nullable    = true
+}
+
+variable "SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY" {
+  description = "The slash propose invalid attestations penalty"
+  type        = string
+  default     = 0.0
+}
+
+variable "SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY" {
+  description = "The slash attest descendant of invalid penalty"
+  type        = string
+  nullable    = true
+}
+
+variable "SLASH_UNKNOWN_PENALTY" {
+  description = "The slash unknown penalty"
+  type        = string
+  nullable    = true
+}
+
+variable "SLASH_INVALID_BLOCK_PENALTY" {
+  description = "The slash invalid block penalty"
+  type        = string
+  nullable    = true
+}
+
+variable "SLASH_OFFENSE_EXPIRATION_ROUNDS" {
+  description = "The slash offense expiration rounds"
+  type        = string
+  nullable    = true
+}
+
+variable "SLASH_MAX_PAYLOAD_SIZE" {
+  description = "The slash max payload size"
+  type        = string
+  nullable    = true
+}
+
+variable "PROVER_REAL_PROOFS" {
+  description = "Whether to enable prover real proofs"
+  type        = string
 }

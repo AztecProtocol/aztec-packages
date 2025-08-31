@@ -194,6 +194,9 @@ EOF
 # We provide the host user and group ids to the entrypoint script to ensure alignment.
 # We raise the default pid limit to 32k.
 function run {
+  export GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-/tmp/gcp-key.json}
+  export NETWORK_ENV_FILE=${NETWORK_ENV_FILE:-/tmp/network.env}
+
   ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     # TODO: This should *not* be needed in a CI run. Remove watching code, e.g. in boxes.
     sudo sysctl fs.inotify.max_user_watches=1048576 &>/dev/null
@@ -207,12 +210,6 @@ function run {
 
     aws_token=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
 
-    # Save GCP_SA_KEY to a file if set (using base64 for safety)
-    if [ -n '${GCP_SA_KEY_B64:-}' ]; then
-      echo '${GCP_SA_KEY_B64:-}' | base64 -d > /tmp/gcp-key.json
-      echo 'GCP_SA_KEY decoded and saved to /tmp/gcp-key.json'
-    fi
-
     start_build() {
       echo Starting devbox...
       docker run --privileged --rm \${docker_args:-} \
@@ -222,8 +219,12 @@ function run {
         -v bootstrap_ci_repo:/home/aztec-dev/aztec-packages \
         -v \$HOME/.aws:/home/aztec-dev/.aws:ro \
         -v /mnt/bb-crs:/home/aztec-dev/.bb-crs \
-        -v /tmp:/tmp \
         -v /dev/kmsg:/dev/kmsg \
+        -v /tmp:/tmp \
+        -v ${GOOGLE_APPLICATION_CREDENTIALS}:${GOOGLE_APPLICATION_CREDENTIALS}:ro \
+        -v ${NETWORK_ENV_FILE}:${NETWORK_ENV_FILE}:ro \
+        -e GOOGLE_APPLICATION_CREDENTIALS="${GOOGLE_APPLICATION_CREDENTIALS}" \
+        -e NETWORK_ENV_FILE="${NETWORK_ENV_FILE}" \
         -e CI=1 \
         -e RUN_ID=${RUN_ID:-} \
         -e JOB_ID=${JOB_ID:-} \
@@ -253,7 +254,6 @@ function run {
         -e SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-} \
         -e AWS_TOKEN=\$aws_token \
         -e NAMESPACE=${NAMESPACE:-} \
-        -v /tmp/gcp-key.json:/tmp/gcp-key.json:ro \
         --pids-limit=32768 \
         aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
     }

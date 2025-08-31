@@ -12,6 +12,22 @@ function build {
   denoise ./spartan/scripts/check_env_vars.sh
 }
 
+function source_network_env {
+  local env_file="environments/$1"
+  # Optionally source an env file passed as first argument
+  if [[ -n "${env_file:-}" ]]; then
+    if [[ -f "$env_file" ]]; then
+      set -a
+      # shellcheck disable=SC1090
+      source "$env_file"
+      set +a
+    else
+      echo "Env file not found: $env_file" >&2
+      exit 1
+    fi
+  fi
+}
+
 function network_shaping {
   namespace="$1"
   chaos_values="$2"
@@ -54,44 +70,20 @@ function gke {
 }
 
 function test_cmds {
-  if [ "$(arch)" == "arm64" ]; then
-    # Currently maddiaa/eth2-testnet-genesis is not published for arm64. Skip KIND tests.
-    return
-  fi
-  # Note: commands that start with 'timeout ...' override the default timeout.
-  # TODO figure out why these take long sometimes.
-  # echo "$hash ./spartan/bootstrap.sh test-kind-smoke"
+  # the existing test flow is deprecated.
+  # we are moving things to use the same deployment flow as the scenario/staging networks.
+  :
+}
 
-  # if [ "$CI_NIGHTLY" -eq 1 ]; then
-  #   NIGHTLY_NS=nightly-$(date -u +%Y%m%d)
-  #   echo "$hash:TIMEOUT=20m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-transfer reth"
-  #   echo "$hash:TIMEOUT=20m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-transfer geth"
+function network_test_cmds {
+  local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
+  echo $run_test_script simple src/spartan/smoke.test.ts
+  echo $run_test_script simple src/spartan/transfer.test.ts
+}
 
-    # Nethermind test can be enabled once https://github.com/NethermindEth/nethermind/pull/8897 is released
-    # echo "$hash:TIMEOUT=20m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-transfer nethermind"
-
-    #echo "$hash:TIMEOUT=30m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-1tps"
-    #echo "$hash:TIMEOUT=30m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-4epochs"
-
-    # These tests get their own namespaces otherwise they'd interfere with the other tests
-    #echo "$hash:TIMEOUT=30m MONITOR_DEPLOYMENT=false NAME_POSTFIX='-$NIGHTLY_NS' ./spartan/bootstrap.sh test-gke-upgrade-rollup-version"
-    #echo "$hash:TIMEOUT=30m MONITOR_DEPLOYMENT=false NAME_POSTFIX='-$NIGHTLY_NS' ./spartan/bootstrap.sh test-gke-cli-upgrade"
-
-    # TODO(#12791) re-enable
-    # echo "$hash:TIMEOUT=50m ./spartan/bootstrap.sh test-kind-4epochs-sepolia"
-    # echo "$hash:TIMEOUT=30m ./spartan/bootstrap.sh test-prod-deployment"
-  # fi
-  if [ "$CI_SCENARIO_TEST" -eq 1 ]; then
-    local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
-    DEFAULT_NAMESPACE="scenario-$(git rev-parse --short HEAD)"
-    NAMESPACE=${NAMESPACE:-$DEFAULT_NAMESPACE}
-    K8S_CLUSTER=${K8S_CLUSTER:-"aztec-gke-private"}
-    PROJECT_ID=${PROJECT_ID:-"testnet-440309"}
-    REGION=${REGION:-"us-west1-a"}
-    local env_vars="NAMESPACE=$NAMESPACE K8S_CLUSTER=$K8S_CLUSTER PROJECT_ID=$PROJECT_ID REGION=$REGION"
-    echo "$hash:TIMEOUT=20m $env_vars $run_test_script simple src/spartan/smoke.test.ts"
-    echo "$hash:TIMEOUT=20m $env_vars $run_test_script simple src/spartan/transfer.test.ts"
-  fi
+function single_test {
+  local test_file="$1"
+  $root/yarn-project/end-to-end/scripts/run_test.sh simple $test_file
 }
 
 function start_env {
@@ -115,26 +107,83 @@ function stop_env {
   fi
 }
 
-function test {
-  echo_header "spartan test"
-  if [ "$CI" -eq 1 ]; then
+function gcp_auth {
+  # if the GCP_PROJECT_ID is set, activate the service account
+  if [[ -n "${GCP_PROJECT_ID:-}" && "${CLUSTER}" != "kind" ]]; then
     echo "Activating service account"
-    gcloud auth activate-service-account --key-file=/tmp/gcp-key.json
+    if [ "$CI" -eq 1 ]; then
+      gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
+    fi
     gcloud config set project "$GCP_PROJECT_ID"
+    gcloud container clusters get-credentials ${CLUSTER} --region=${GCP_REGION} --project=${GCP_PROJECT_ID}
   fi
+}
 
-  if [ "$CI_SCENARIO_TEST" -eq 1 ]; then
-    echo "Running network scenario tests sequentially"
-    test_cmds | filter_test_cmds
-  else
-    echo "Running spartan test"
-    test_cmds | filter_test_cmds | parallelize
+function test {
+  echo_header "spartan test (deprecated)"
+  # the existing test flow is deprecated.
+  # we are moving things to use the same deployment flow as the scenario/staging networks.
+  :
+}
+
+function network_tests {
+  echo_header "spartan scenario test"
+
+  # no parallelize here as we want to run the tests sequentially
+  network_test_cmds | filter_test_cmds | parallelize 1
+}
+
+function ensure_eth_balances {
+  amount="$1"
+  # if ETHEREUM_HOST is not set, use the first RPC URL
+  if [ -z "${ETHEREUM_HOST:-}" ]; then
+    # if using kind, prefer localhost RPC. Requires user to port-forward 8545.
+    if [[ "${CLUSTER:-kind}" == "kind" ]]; then
+      export ETHEREUM_HOST="http://localhost:8545"
+    else
+      export ETHEREUM_HOST=$(echo "${ETHEREUM_RPC_URLS}" | jq -r '.[0]')
+    fi
   fi
+  ./scripts/ensure_eth_balances.sh "$ETHEREUM_HOST" "$FUNDING_PRIVATE_KEY" "$LABS_INFRA_MNEMONIC" "$LABS_INFRA_INDICES" "$amount"
 }
 
 case "$cmd" in
   "")
     # do nothing but the install_deps.sh above
+    ;;
+  "ensure_eth_balances")
+    shift
+    env_file="$1"
+    amount="$2"
+
+    source_network_env $env_file
+    ensure_eth_balances "$amount"
+    ;;
+  "network_deploy")
+    shift
+    env_file="$1"
+    source_network_env $env_file
+
+    gcp_auth
+    ./scripts/deploy_network.sh
+    ;;
+  "single_test")
+    shift
+    env_file="$1"
+    test_file="$2"
+    source_network_env $env_file
+
+    gcp_auth
+    single_test $test_file
+    ;;
+
+  "network_tests")
+    shift
+    env_file="$1"
+    source_network_env $env_file
+
+    gcp_auth
+    network_tests
     ;;
   "kind")
     if ! kubectl config get-clusters | grep -q "^kind-kind$" || ! docker ps | grep -q "kind-control-plane"; then
@@ -175,7 +224,7 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  test|test_cmds|gke|build|start_env|stop_env)
+  test|test_cmds|gke|build|start_env|stop_env|gcp_auth)
     $cmd
     ;;
   "test-kind-smoke")

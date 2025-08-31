@@ -34,7 +34,7 @@ describe('token transfer test', () => {
     forwardProcesses.push(process);
     const rpcUrl = `http://127.0.0.1:${port}`;
 
-    ({ pxe, cleanup } = await startCompatiblePXE(rpcUrl, config.AZTEC_REAL_PROOFS, logger));
+    ({ pxe, cleanup } = await startCompatiblePXE(rpcUrl, config.REAL_VERIFIER, logger));
     testWallets = await deploySponsoredTestWallets(pxe, MINT_AMOUNT, logger);
     expect(ROUNDS).toBeLessThanOrEqual(MINT_AMOUNT);
   });

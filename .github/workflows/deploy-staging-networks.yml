@@ -1,7 +1,7 @@
 # CI for Aztec Network Scenarios.
 # Triggered by network-deployments event, which is emitted by ci3.yml when a tagged release passes "normal" CI.
-#
-name: Test Network Scenarios
+# Only runs on v2 releases.
+name: Deploy Staging Networks
 
 on:
   repository_dispatch:
@@ -9,11 +9,12 @@ on:
       - network-deployments
 
 concurrency:
-  group: test-network-scenarios-${{ github.event.client_payload.major_version }}
+  group: deploy-staging-networks-${{ github.event.client_payload.major_version }}
   cancel-in-progress: true
 
 jobs:
-  deploy-and-test-scenarios:
+  deploy-staging-networks:
+    if: ${{ github.event.client_payload.major_version == '2' }}
     runs-on: ubuntu-latest
     env:
       NETWORK_ENV_FILE: /tmp/network.env
@@ -40,34 +41,28 @@ jobs:
           echo "${{ secrets.GCP_SA_KEY }}" > ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
 
       # note: it is fine to log the mnemonic here. this is an internal,
-      # throwaway test network, which you can see gets destroyed before it is created each time.
-      - name: Write network env file
+      # throwaway test network.
+      - name: Write staging-public network env file
         run: |
           SEMVER_SALT = $(echo ${{ github.event.client_payload.major_version }} | md5sum | cut -d' ' -f1)
           cat > ${{ env.NETWORK_ENV_FILE }} <<EOF
-          DESTROY_ETH_DEVNET=true
-          CREATE_ETH_DEVNET=true
-          DESTROY_ROLLUP_CONTRACTS=true
-          DESTROY_AZTEC_INFRA=true
+          CREATE_ETH_DEVNET=false
           GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
           GCP_REGION=us-west1-a
           CLUSTER=aztec-gke-private
           SALT=${SEMVER_SALT}
-          NAMESPACE="v${{ github.event.client_payload.major_version }}-scenario"
+          NAMESPACE="v${{ github.event.client_payload.major_version }}-staging-public"
           AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${{ github.event.client_payload.semver }}"
-          ETHEREUM_CHAIN_ID=1337
-          LABS_INFRA_MNEMONIC="test test test test test test test test test test test junk"
+          ETHEREUM_CHAIN_ID=11155111
+          ETHEREUM_RPC_URLS=${{ secrets.SEPOLIA_RPC_URLS }}
+          ETHEREUM_CONSENSUS_HOST_URLS=${{ secrets.SEPOLIA_CONSENSUS_HOST_URLS }}
+          ETHEREUM_CONSENSUS_HOST_API_KEYS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEYS }}
+          ETHEREUM_CONSENSUS_HOST_API_KEY_HEADERS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEY_HEADERS }}
+          FUNDING_PRIVATE_KEY=${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
+          LABS_INFRA_MNEMONIC=${{ secrets.SEPOLIA_LABS_INFRA_MNEMONIC }}
+          LABS_INFRA_INDICES="0,1,2,3,4,1000"
+          VALIDATOR_INDICES="1,2,3,4"
           EOF
-
-      - name: Get Tree Hash
-        run: echo "TREE_HASH=$(git rev-parse HEAD^{tree})" >> $GITHUB_ENV
-
-      - name: Check CI Cache
-        id: ci_cache
-        uses: actions/cache@v3
-        with:
-          path: ci-success.txt
-          key: ci-network-scenario-${{ env.TREE_HASH }}
 
       #############
       # Run
@@ -86,8 +81,3 @@ jobs:
           # the network env file and gcp credentials file are mounted into the ec2 instance
           # see ci3/bootstrap_ec2
           exec ./ci.sh network-deploy
-          exec ./ci.sh network-tests
-
-      - name: Save CI Success
-        if: steps.ci_cache.outputs.cache-hit != 'true'
-        run: echo "success" > ci-success.txt

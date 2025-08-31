@@ -13,4 +13,4 @@ node:
       done
       echo "Boot node is ready!"
 
-      export BOOTSTRAP_NODES=$(curl -X POST --data '{"method": "bootstrap_getEncodedEnr"}' $BOOT_NODE_HOST | jq -r .result)
+      export BOOTSTRAP_NODES=$(curl -X POST -H "content-type: application/json" --data '{"method": "bootstrap_getEncodedEnr"}' $BOOT_NODE_HOST | jq -r .result)
