@@ -108,17 +108,24 @@ describe('Blob Batching', () => {
     expect(isValid).toBe(true);
   });
 
-  it('should construct and verify a batch of 3 full blobs', async () => {
+  it('should construct and verify a batch of BLOBS_PER_BLOCK full blobs', async () => {
     // The values here are used to test Noir's blob evaluation in noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr -> test_full_blobs_batched
-    // Initialize enough fields to require 3 blobs
-    const items = [new Fr(3), new Fr(4), new Fr(5)].map(f =>
-      new Array(FIELDS_PER_BLOB).fill(f).map((elt, i) => elt.mul(new Fr(i + 1))),
+    // Initialize enough fields to require 6 blobs
+    const items = Array.from({ length: BLOBS_PER_BLOCK }, (_, i) =>
+      Array.from({ length: FIELDS_PER_BLOB }, (_, j) => new Fr(3 + i).mul(new Fr(j + 1))),
     );
     const blobs = await Blob.getBlobsPerBlock(items.flat());
 
     // Challenge for the final opening (z)
     const zis = blobs.map(b => b.challengeZ);
-    const finalZ = await poseidon2Hash([await poseidon2Hash([zis[0], zis[1]]), zis[2]]);
+    if (BLOBS_PER_BLOCK < 2) {
+      // just because of how we're constructing this test.
+      throw new Error('This test assumes BLOBS_PER_BLOCK >= 2. Please update the test.');
+    }
+    let finalZ = await poseidon2Hash([zis[0], zis[1]]);
+    for (let i = 2; i < BLOBS_PER_BLOCK; i++) {
+      finalZ = await poseidon2Hash([finalZ, zis[i]]);
+    }
 
     // Batched commitment
     const commitments = blobs.map(b => BLS12Point.decompress(b.commitment));
@@ -132,19 +139,19 @@ describe('Blob Batching', () => {
     // Challenge gamma
     const evalYsToBLSBignum = evalYs.map(y => y.toNoirBigNum());
     const hashedEvals = await Promise.all(evalYsToBLSBignum.map(e => poseidon2Hash(e.limbs.map(Fr.fromHexString))));
-    const finalGamma = BLS12Fr.fromBN254Fr(
-      await poseidon2Hash([
-        await poseidon2Hash([await poseidon2Hash([hashedEvals[0], hashedEvals[1]]), hashedEvals[2]]),
-        finalZ,
-      ]),
-    );
+
+    let tempGamma = await poseidon2Hash([hashedEvals[0], hashedEvals[1]]);
+    for (let i = 2; i < BLOBS_PER_BLOCK; i++) {
+      tempGamma = await poseidon2Hash([tempGamma, hashedEvals[i]]);
+    }
+    const finalGamma = BLS12Fr.fromBN254Fr(await poseidon2Hash([tempGamma, finalZ]));
 
     let batchedC = BLS12Point.ZERO;
     let batchedQ = BLS12Point.ZERO;
     let finalY = BLS12Fr.ZERO;
     let powGamma = new BLS12Fr(1n); // Since we start at gamma^0 = 1
     let finalBlobCommitmentsHash: Buffer = Buffer.alloc(0);
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < BLOBS_PER_BLOCK; i++) {
       const cOperand = commitments[i].mul(powGamma);
       const yOperand = evalYs[i].mul(powGamma);
       const qOperand = qs[i].mul(powGamma);
@@ -165,6 +172,10 @@ describe('Blob Batching', () => {
 
     const isValid = verifyKzgProof(batchedC.compress(), finalZ.toBuffer(), finalY.toBuffer(), batchedQ.compress());
     expect(isValid).toBe(true);
+
+    // Used to print test constants for `blob_batching.nr` - `test_full_blobs_batched`.
+    // Uncomment to generate test data:
+    // printTestData(commitments, finalZ, finalGamma, finalY, batchedC, finalBlobCommitmentsHash);
   });
 
   it.each([
@@ -186,6 +197,51 @@ describe('Blob Batching', () => {
     await BatchedBlob.batch(blobs);
   });
 });
+
+// Uncomment to generate test data:
+// // Used to create the test data for `blob_batching.nr` - `test_full_blobs_batched`.
+// function formatCommitments(commitments: BLS12Point[]) {
+//   return (
+//     "[\n" +
+//     commitments
+//       .map(c => {
+//         const xLimbs = c.x.toNoirBigNum().limbs.map(l => `        ${l},`).join("\n");
+//         const yLimbs = c.y.toNoirBigNum().limbs.map(l => `        ${l},`).join("\n");
+//         return `    BatchingBlobCommitment::from_limbs(
+//         [
+// ${xLimbs}
+//         ],
+//         [
+// ${yLimbs}
+//         ],
+//     )
+//         .point`;
+//       })
+//       .join(",\n") +
+//     "\n];"
+//   );
+// }
+
+// // Used to create the test data for `blob_batching.nr` - `test_full_blobs_batched`.
+// function formatBLS12Fr(f: BLS12Fr) {
+//   const noirBigNum = f.toNoirBigNum();
+//   return `
+//   [
+// ${noirBigNum.limbs.map(l => `    ${l},`).join("\n")}
+//   ]`;
+// }
+
+// // Prints the test data for `blob_batching.nr` - `test_full_blobs_batched`.
+// function printTestData(commitments: BLS12Point[], finalZ: Fr, finalGamma: BLS12Fr, finalY: BLS12Fr, batchedC: BLS12Point, blobCommitmentsHash: Buffer<ArrayBufferLike>) {
+//   console.log("kzg_commitments_in:", formatCommitments(commitments));
+//   console.log("z:", finalZ);
+//   console.log("gamma:", formatBLS12Fr(finalGamma));
+//   console.log("expected_y (for comment):", finalY);
+//   console.log("expected_y:", formatBLS12Fr(finalY));
+//   console.log("expected_c (for comment):", batchedC);
+//   console.log("expected_c", formatCommitments([batchedC]));
+//   console.log("blobCommitmentsHash", Fr.fromBuffer(blobCommitmentsHash))
+// }
 
 describe('BatchedBlobAccumulator', () => {
   let acc: BatchedBlobAccumulator;

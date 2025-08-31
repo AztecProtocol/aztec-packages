@@ -18,7 +18,7 @@ library Constants {
   uint256 internal constant L1_TO_L2_MSG_SUBTREE_HEIGHT = 4;
   uint256 internal constant MAX_L2_TO_L1_MSGS_PER_TX = 8;
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
-  uint256 internal constant BLOBS_PER_BLOCK = 3;
+  uint256 internal constant BLOBS_PER_BLOCK = 6;
   uint256 internal constant AZTEC_MAX_EPOCH_DURATION = 48;
   uint256 internal constant GENESIS_ARCHIVE_ROOT =
     14_298_165_331_316_638_916_453_567_345_577_793_920_283_466_066_305_521_584_041_971_978_819_102_601_406;

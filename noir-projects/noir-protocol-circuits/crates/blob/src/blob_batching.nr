@@ -164,8 +164,8 @@ mod tests {
             ],
         )
             .point;
-        let kzg_commitments_in =
-            [kzg_commitment_in, BLSPoint::point_at_infinity(), BLSPoint::point_at_infinity()];
+        let mut kzg_commitments_in = [BLSPoint::point_at_infinity(); BLOBS_PER_BLOCK];
+        kzg_commitments_in[0] = kzg_commitment_in;
 
         let final_challenges = FinalBlobBatchingChallenges {
             // = z_0
@@ -209,7 +209,7 @@ mod tests {
         assert_eq(final_acc.c, blob_commitment.to_compressed_fields());
     }
 
-    // All hardcoded values in this test are taken from yarn-project/foundation/src/blob/blob_batching.test.ts -> 'should construct and verify a batch of 3 full blobs'
+    // All hardcoded values in this test are taken from blob_batching.test.ts -> 'should construct and verify a batch of BLOBS_PER_BLOCK full blobs'
     #[test]
     unconstrained fn test_full_blobs_batched() {
         // Fill three blobs completely with different values (to avoid a constant polynomial)
@@ -271,16 +271,61 @@ mod tests {
                 ],
             )
                 .point,
+            BatchingBlobCommitment::from_limbs(
+                [
+                    0x2ca633e7524caede7cbdd48c77e87b,
+                    0x89e1dbfa31596d3e2825325d6a7b61,
+                    0x938b99971ea67afa7609024dc180ff,
+                    0x058289,
+                ],
+                [
+                    0xb30ab66039f62e7a30e0e3c7954db8,
+                    0x67d7efea5253eede78e9df70b85292,
+                    0xe587ea21713d3b9bb963914866523a,
+                    0x0754b1,
+                ],
+            )
+                .point,
+            BatchingBlobCommitment::from_limbs(
+                [
+                    0xa1779f052e237e1f8d216890439059,
+                    0xbfcfc7bf7f952ee60a5cce2c40ef70,
+                    0x8d5a308f3b6e528ab5ecab0c0dcf73,
+                    0x19c23b,
+                ],
+                [
+                    0xc7ef27bbee5c316988aa5a63a30c1b,
+                    0xd85499ab4ff0c1a42d118e140d87e9,
+                    0x952bd7c9d15626844798c1b507adac,
+                    0x1314bb,
+                ],
+            )
+                .point,
+            BatchingBlobCommitment::from_limbs(
+                [
+                    0x6b07c07e983f96a2bd93e86dfd7fb2,
+                    0x6fee66da3e45dabc2c2efd0884c1d0,
+                    0x858a10a8c61e4abaf639f16ff97fcc,
+                    0x08364e,
+                ],
+                [
+                    0xdb4cc811dbdcc8419671018760cfc6,
+                    0x233cc9a637b358500e44b38811cae3,
+                    0x6660d63680f50c909493ab2937bb9a,
+                    0x087f18,
+                ],
+            )
+                .point,
         ];
 
         let final_challenges = FinalBlobBatchingChallenges {
             // - The final z value is injected and checked for correctness in root (see below final_acc)
-            z: 0x02d6a54e591ada73e5eea35188a02ac87779f4293ea3e7d675fa50ae7ff332ce,
+            z: 0x1ebbeb7ee3ec7b8ec5c92a8fbdb49e08e70361b72b3c24e6c616b430818ca929,
             // - The final gamma value is injected and checked for correctness in root (see below final_acc)
             gamma: F::from_limbs([
-                0x281287a8d44071d216177e06a02327,
-                0x16571aa3dcfef75c2447c705c6c68a,
-                0x16f2,
+                0x3449d892175348e980c1fcfe326de3,
+                0xa9886ca9c91d2d562c32a663588d5e,
+                0x0219,
             ]),
         };
         // Init. the accumulator
@@ -302,34 +347,34 @@ mod tests {
             final_challenges.gamma.__pow(F::from(BLOBS_PER_BLOCK as Field)),
         );
 
-        // y is a BLS Fr field with value 0x0cd2fd9a46ba70fd7f212d08ec7283024b0b1ff9446b1f78a482fb7443e49b57
+        // y is a BLS Fr field with value 0x4c31f422cd98d3439b4f6fc957fd2daea1fe6970eacda248498f6e1fd95b451f
         let expected_y = F::from_limbs([
-            0x0b1ff9446b1f78a482fb7443e49b57,
-            0xfd9a46ba70fd7f212d08ec7283024b,
-            0x0cd2,
+            0xfe6970eacda248498f6e1fd95b451f,
+            0xf422cd98d3439b4f6fc957fd2daea1,
+            0x4c31,
         ]);
 
         // C is a BLS point with value:
-        // x: 0x0f2f5f62cc6c3ab4c1ac1abcb9da9677e12796a76064f68c0d4f659f25a046a6d42616100269935afcb1b98c85d5e93e,
-        // y: 0x0af1e4abfa449daf65201c2b24507b1058d8ea9bf82ff948a1d01912615c4a8e507160da282e6c41bab917c868923254,
+        // x: 0x013c359b779fcee152d70f14336175f6b655d9638485d0174d7f8856dd892aa976e494070abe9e42c5ec5507cd46891b,
+        // y: 0x0aaee553933f7b6683d03c241616524f45471b916f491d1adfce83f32c080ebd4e19f28c14e8f7c87451d436621d2500,
         let expected_c = BatchingBlobCommitment::from_limbs(
             [
-                0x2616100269935afcb1b98c85d5e93e,
-                0x96a76064f68c0d4f659f25a046a6d4,
-                0x62cc6c3ab4c1ac1abcb9da9677e127,
-                0x0f2f5f,
+                0xe494070abe9e42c5ec5507cd46891b,
+                0xd9638485d0174d7f8856dd892aa976,
+                0x9b779fcee152d70f14336175f6b655,
+                0x013c35,
             ],
             [
-                0x7160da282e6c41bab917c868923254,
-                0xea9bf82ff948a1d01912615c4a8e50,
-                0xabfa449daf65201c2b24507b1058d8,
-                0x0af1e4,
+                0x19f28c14e8f7c87451d436621d2500,
+                0x1b916f491d1adfce83f32c080ebd4e,
+                0x53933f7b6683d03c241616524f4547,
+                0x0aaee5,
             ],
         );
 
-        // blob_commitments_hash is a BN Fr field with value 0x00d2f7bffbc5a9008207a188e348e753087f54557a686efd7f74c90cac52a9a1
+        // blob_commitments_hash is a BN Fr field
         let expected_blob_commitments_hash =
-            0xd2f7bffbc5a9008207a188e348e753087f54557a686efd7f74c90cac52a9a1;
+            0x0075c54179e6b1cc44571e6266a24a8bd1b8c145867cb145d9f3bff490951f22;
 
         assert_eq(final_acc.y, expected_y);
         assert_eq(final_acc.c, expected_c.to_compressed_fields());
