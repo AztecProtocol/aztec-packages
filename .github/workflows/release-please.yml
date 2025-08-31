@@ -3,6 +3,7 @@ name: release-please
 on:
   push:
     branches:
+      - "v[0-9]*"
       - master
 
 permissions:
@@ -26,6 +27,105 @@ jobs:
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           config-file: .github/release-please-${{ github.ref_name }}.json
           target-branch: ${{ github.ref_name }}
+
+  auto-tag:
+    needs: [release-please]
+    if: ${{ startsWith(github.ref, 'refs/heads/v') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      - name: Extract version from branch name
+        id: version
+        run: |
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          MAJOR_VERSION="${BRANCH_NAME#v}"
+          echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "major=$MAJOR_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Determine next version
+        id: next_version
+        run: |
+          # Read current version from release-please manifest and use it directly
+          if [ ! -f .release-please-manifest.json ]; then
+            echo "Error: .release-please-manifest.json not found"
+            exit 1
+          fi
+
+          MANIFEST_VERSION=$(jq -r '."."' .release-please-manifest.json)
+          echo "Manifest version: $MANIFEST_VERSION"
+
+          # Ensure manifest major matches vX branch major
+          BRANCH_MAJOR="${{ steps.version.outputs.major }}"
+          if [ -z "$BRANCH_MAJOR" ]; then
+            echo "Error: Branch major version not available from previous step"
+            exit 1
+          fi
+
+          MANIFEST_MAJOR="${MANIFEST_VERSION%%.*}"
+          if [ "$MANIFEST_MAJOR" != "$BRANCH_MAJOR" ]; then
+            echo "Error: Manifest major ($MANIFEST_MAJOR) does not match branch major ($BRANCH_MAJOR)"
+            exit 1
+          fi
+
+          if [[ "$MANIFEST_VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            NEXT_VERSION="$MANIFEST_VERSION"
+          else
+            echo "Error: Invalid manifest version format"
+            exit 1
+          fi
+
+          echo "version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+          echo "Next version will be: $NEXT_VERSION"
+
+      - name: Get next RC number
+        id: rc
+        run: |
+          # Get all existing RC tags for this specific version
+          EXISTING_TAGS=$(git tag -l "v${{ steps.next_version.outputs.version }}-rc.*" | sort -V)
+
+          if [ -z "$EXISTING_TAGS" ]; then
+            # No RC tags exist yet for this version, start with 1
+            NEXT_RC=1
+          else
+            # Extract the highest RC number and increment
+            LAST_TAG=$(echo "$EXISTING_TAGS" | tail -n 1)
+            LAST_RC=$(echo "$LAST_TAG" | sed 's/.*-rc\.\([0-9]\+\)$/\1/')
+            NEXT_RC=$((LAST_RC + 1))
+          fi
+
+          echo "number=$NEXT_RC" >> $GITHUB_OUTPUT
+          echo "Next RC number: $NEXT_RC"
+
+      - name: Check if commit already tagged
+        id: check_tag
+        run: |
+          # Check if current commit already has any RC tag
+          EXISTING_TAGS=$(git tag --points-at HEAD | grep "^v.*-rc\." || true)
+
+          if [ -n "$EXISTING_TAGS" ]; then
+            echo "Commit already tagged as: $EXISTING_TAGS"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create and push new RC tag
+        if: steps.check_tag.outputs.skip != 'true'
+        run: |
+          TAG_NAME="v${{ steps.next_version.outputs.version }}-rc.${{ steps.rc.outputs.number }}"
+
+          # Create annotated tag
+          git tag -a "$TAG_NAME" -m "Release candidate ${{ steps.rc.outputs.number }} for v${{ steps.next_version.outputs.version }}"
+          git push origin "$TAG_NAME"
+
+          echo "✅ Created tag: $TAG_NAME"
 
   update-docs:
     name: Update docs
