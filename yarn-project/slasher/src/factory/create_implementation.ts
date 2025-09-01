@@ -93,6 +93,7 @@ async function createEmpireSlasher(
     slotDuration: Number(slotDuration),
     l1StartBlock,
     ethereumSlotDuration: config.ethereumSlotDuration,
+    slashingAmounts: undefined,
   };
 
   const payloadsStore = new SlasherPayloadsStore(kvStore, {

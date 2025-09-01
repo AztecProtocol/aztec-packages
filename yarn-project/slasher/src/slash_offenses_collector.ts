@@ -8,7 +8,9 @@ import type { SlasherOffensesStore } from './stores/offenses_store.js';
 import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher } from './watcher.js';
 
 export type SlashOffensesCollectorConfig = Prettify<Pick<SlasherConfig, 'slashGracePeriodL2Slots'>>;
-export type SlashOffensesCollectorSettings = Prettify<Pick<L1RollupConstants, 'epochDuration'>>;
+export type SlashOffensesCollectorSettings = Prettify<
+  Pick<L1RollupConstants, 'epochDuration'> & { slashingAmounts: [bigint, bigint, bigint] | undefined }
+>;
 
 /**
  * Collects and manages slashable offenses from watchers.
@@ -74,6 +76,13 @@ export class SlashOffensesCollector {
       if (await this.offensesStore.hasOffense(pendingOffense)) {
         this.log.debug('Skipping repeated offense', pendingOffense);
         continue;
+      }
+
+      if (this.settings.slashingAmounts) {
+        const minSlash = this.settings.slashingAmounts[0];
+        if (arg.amount < minSlash) {
+          this.log.warn(`Offense amount ${arg.amount} is below minimum slashing amount ${minSlash}`);
+        }
       }
 
       this.log.info(`Adding pending offense for validator ${arg.validator}`, pendingOffense);
