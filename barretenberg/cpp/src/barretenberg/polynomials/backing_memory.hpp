@@ -27,6 +27,9 @@ extern size_t storage_budget;
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern std::atomic<size_t> current_storage_usage;
 
+// Parse storage size string (e.g., "500m", "2g", "1024k")
+size_t parse_size_string(const std::string& size_str);
+
 template <typename T> class AlignedMemory;
 
 #ifndef __wasm__

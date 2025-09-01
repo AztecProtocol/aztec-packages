@@ -266,10 +266,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
     };
 
     const auto add_storage_budget_option = [&](CLI::App* subcommand) {
-        return subcommand->add_option("--storage_budget_gb",
-                                      flags.storage_budget_gb,
-                                      "Storage budget in GB for FileBackedMemory. When exceeded, falls back to RAM "
-                                      "(requires --slow_low_memory).");
+        return subcommand->add_option("--storage_budget",
+                                      flags.storage_budget,
+                                      "Storage budget for FileBackedMemory (e.g. '500m', '2g'). When exceeded, falls "
+                                      "back to RAM (requires --slow_low_memory).");
     };
 
     const auto add_update_inputs_flag = [&](CLI::App* subcommand) {
@@ -558,8 +558,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
     debug_logging = flags.debug;
     verbose_logging = debug_logging || flags.verbose;
     slow_low_memory = flags.slow_low_memory;
-    if (flags.storage_budget_gb > 0) {
-        storage_budget = flags.storage_budget_gb * 1024ULL * 1024ULL * 1024ULL;
+    if (!flags.storage_budget.empty()) {
+        storage_budget = parse_size_string(flags.storage_budget);
     }
 #ifndef __wasm__
     if (print_bench || !bench_out.empty()) {
