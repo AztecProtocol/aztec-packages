@@ -1,3 +1,4 @@
+import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import type { ConfigMappingsType } from '@aztec/foundation/config';
 import {
   bigintConfigHelper,
@@ -16,13 +17,13 @@ export const DefaultSlasherConfig: SlasherConfig = {
   slashMaxPenaltyPercentage: 2.0, //2x of penalty
   slashValidatorsAlways: [], // Empty by default
   slashValidatorsNever: [], // Empty by default
-  slashPrunePenalty: 1n,
+  slashPrunePenalty: DefaultL1ContractsConfig.slashAmountSmall,
   slashInactivityTargetPercentage: 0.9,
-  slashBroadcastedInvalidBlockPenalty: 1n,
-  slashInactivityPenalty: 1n,
-  slashProposeInvalidAttestationsPenalty: 1n,
-  slashAttestDescendantOfInvalidPenalty: 1n,
-  slashUnknownPenalty: 1n,
+  slashBroadcastedInvalidBlockPenalty: DefaultL1ContractsConfig.slashAmountSmall,
+  slashInactivityPenalty: DefaultL1ContractsConfig.slashAmountSmall,
+  slashProposeInvalidAttestationsPenalty: DefaultL1ContractsConfig.slashAmountSmall,
+  slashAttestDescendantOfInvalidPenalty: DefaultL1ContractsConfig.slashAmountSmall,
+  slashUnknownPenalty: DefaultL1ContractsConfig.slashAmountSmall,
   slashOffenseExpirationRounds: 4,
   slashMaxPayloadSize: 50,
   slashGracePeriodL2Slots: 0,
