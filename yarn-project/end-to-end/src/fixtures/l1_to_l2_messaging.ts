@@ -48,20 +48,31 @@ export async function sendL1ToL2Message(
     throw new Error(`Receipt transaction hash mismatch: ${txReceipt.transactionHash} !== ${txHash}`);
   }
 
-  // Exactly 1 event should be emitted in the transaction
-  if (txReceipt.logs.length !== 1) {
+  // Filter for MessageSent events from the Inbox contract by trying to decode each log
+  const messageSentLogs = txReceipt.logs
+    .filter(log => log.address.toLowerCase() === ctx.l1ContractAddresses.inboxAddress.toString().toLowerCase())
+    .map(log => {
+      try {
+        const decoded = decodeEventLog({
+          abi: InboxAbi,
+          data: log.data,
+          topics: log.topics,
+        });
+        return { log, decoded };
+      } catch {
+        return null; // Not a decodable event from this ABI
+      }
+    })
+    .filter((item): item is { log: any; decoded: any } => item !== null && item.decoded.eventName === 'MessageSent');
+
+  if (messageSentLogs.length !== 1) {
     throw new Error(
-      `Wrong number of logs found in ${txHash} transaction (got ${txReceipt.logs.length} expected 1)\n${tryJsonStringify(txReceipt.logs)}`,
+      `Wrong number of MessageSent logs found in ${txHash} transaction (got ${messageSentLogs.length} expected 1)\n${tryJsonStringify(messageSentLogs.map(item => item.log))}`,
     );
   }
 
-  // We decode the event and get leaf out of it
-  const messageSentLog = txReceipt.logs[0];
-  const topics = decodeEventLog({
-    abi: InboxAbi,
-    data: messageSentLog.data,
-    topics: messageSentLog.topics,
-  });
+  // We already have the decoded event
+  const topics = messageSentLogs[0].decoded;
   const receivedMsgHash = topics.args.hash;
   const receivedGlobalLeafIndex = topics.args.index;
 
