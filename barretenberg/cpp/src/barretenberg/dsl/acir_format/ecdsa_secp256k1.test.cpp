@@ -3,6 +3,7 @@
 #include "acir_format_mocks.hpp"
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
 
+#include "barretenberg/dsl/acir_format/witness_constant.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 
 #include <gtest/gtest.h>
@@ -75,12 +76,16 @@ size_t generate_ecdsa_constraint(EcdsaSecp256k1Constraint& ecdsa_constraint, Wit
     const auto result_in = static_cast<uint32_t>(offset);
     offset += 1;
     witness_values.emplace_back(1);
-
+    // predicate
+    uint32_t predicate_index = static_cast<uint32_t>(witness_values.size());
+    witness_values.emplace_back(fr(1));
+    auto predicate = WitnessOrConstant<fr>::from_index(predicate_index);
     ecdsa_constraint = EcdsaSecp256k1Constraint{ .hashed_message = message_in,
                                                  .signature = signature_in,
                                                  .pub_x_indices = pub_x_indices_in,
                                                  .pub_y_indices = pub_y_indices_in,
-                                                 .result = result_in };
+                                                 .result = result_in,
+                                                 .predicate = predicate };
     return offset;
 }
 
@@ -153,6 +158,31 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintFail)
     AcirProgram program{ constraint_system, witness_values };
     auto builder = create_circuit(program);
     EXPECT_EQ(builder.get_variable(ecdsa_k1_constraint.result), 0);
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+TEST_F(ECDSASecp256k1, TestECDSAConstraintPredicate)
+{
+    EcdsaSecp256k1Constraint ecdsa_k1_constraint;
+    WitnessVector witness_values;
+    size_t num_variables = generate_ecdsa_constraint(ecdsa_k1_constraint, witness_values);
+    // witness_values[32] = 0; // Bad value - TODO: this should work
+    // Set predicate to false:
+    witness_values[162] = 0;
+    AcirFormat constraint_system{
+        .varnum = static_cast<uint32_t>(num_variables),
+        .num_acir_opcodes = 1,
+        .public_inputs = {},
+        .ecdsa_k1_constraints = { ecdsa_k1_constraint },
+        .original_opcode_indices = create_empty_original_opcode_indices(),
+    };
+    mock_opcode_indices(constraint_system);
+
+    AcirProgram program{ constraint_system, witness_values };
+    auto builder = create_circuit(program);
+
+    // EXPECT_EQ(builder.get_variable(ecdsa_k1_constraint.result), 0);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }

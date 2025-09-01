@@ -1,6 +1,7 @@
 #include "honk_recursion_constraint.hpp"
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
+#include "barretenberg/dsl/acir_format/witness_constant.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
@@ -172,12 +173,16 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
                 ProofSurgeon<fr>::populate_recursion_witness_data(
                     witness, proof_witnesses, key_witnesses, key_hash_witness, num_public_inputs_to_extract);
 
+            auto predicate = WitnessOrConstant<fr>::from_index(static_cast<uint32_t>(witness.size()));
+            witness.push_back(fr(1));
+
             RecursionConstraint honk_recursion_constraint{
                 .key = key_indices,
                 .proof = proof_indices,
                 .public_inputs = inner_public_inputs,
                 .key_hash = key_hash_index,
                 .proof_type = proof_type,
+                .predicate = predicate,
             };
             honk_recursion_constraints.push_back(honk_recursion_constraint);
         }

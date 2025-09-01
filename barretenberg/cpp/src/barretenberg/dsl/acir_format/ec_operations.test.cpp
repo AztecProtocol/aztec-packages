@@ -73,11 +73,31 @@ TEST_F(EcOperations, TestECOperations)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
-TEST_F(EcOperations, TestECMultiScalarMul)
+TEST_F(EcOperations, TestECPredicate)
 {
-    MultiScalarMul msm_constrain;
+    EcAdd ec_add_constraint;
 
     WitnessVector witness_values;
+    size_t num_variables = generate_ec_add_constraint(ec_add_constraint, witness_values);
+    witness_values[2] = fr(0); // Bad value
+    witness_values[9] = fr(0); // Set the predicate to false
+    AcirFormat constraint_system{
+        .varnum = static_cast<uint32_t>(num_variables + 1),
+        .num_acir_opcodes = 1,
+        .public_inputs = {},
+        .ec_add_constraints = { ec_add_constraint },
+        .original_opcode_indices = create_empty_original_opcode_indices(),
+    };
+    mock_opcode_indices(constraint_system);
+
+    AcirProgram program{ constraint_system, witness_values };
+    auto builder = create_circuit(program);
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+size_t generate_msm_constraint(MultiScalarMul& msm_constraint, WitnessVector& witness_values)
+{
     witness_values.emplace_back(fr(0));
 
     witness_values = {
@@ -97,7 +117,7 @@ TEST_F(EcOperations, TestECMultiScalarMul)
         // predicate
         fr(1),
     };
-    msm_constrain = MultiScalarMul{
+    msm_constraint = MultiScalarMul{
         .points = { WitnessOrConstant<fr>{
                         .index = 1,
                         .value = fr(0),
@@ -158,6 +178,13 @@ TEST_F(EcOperations, TestECMultiScalarMul)
         .out_point_y = 7,
         .out_point_is_infinite = 8,
     };
+    return witness_values.size();
+}
+TEST_F(EcOperations, TestECMultiScalarMul)
+{
+    MultiScalarMul msm_constrain;
+    WitnessVector witness_values;
+    generate_msm_constraint(msm_constrain, witness_values);
     auto res_x = fr("0x06ce1b0827aafa85ddeb49cdaa36306d19a74caa311e13d46d8bc688cdbffffe");
     auto assert_equal = poly_triple{
         .a = 6,
@@ -187,4 +214,39 @@ TEST_F(EcOperations, TestECMultiScalarMul)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
+TEST_F(EcOperations, TestECMsmPredicate)
+{
+    MultiScalarMul msm_constrain;
+    WitnessVector witness_values;
+    generate_msm_constraint(msm_constrain, witness_values);
+    witness_values[2] = fr(0); // bad value
+    witness_values[9] = fr(0); // false predicate
+    auto res_x = fr("0x06ce1b0827aafa85ddeb49cdaa36306d19a74caa311e13d46d8bc688cdbffffe");
+    auto assert_equal = poly_triple{
+        .a = 6,
+        .b = 0,
+        .c = 0,
+        .q_m = 0,
+        .q_l = fr::neg_one(),
+        .q_r = 0,
+        .q_o = 0,
+        .q_c = res_x,
+    };
+
+    size_t num_variables = witness_values.size();
+    AcirFormat constraint_system{
+        .varnum = static_cast<uint32_t>(num_variables + 1),
+        .num_acir_opcodes = 1,
+        .public_inputs = {},
+        .multi_scalar_mul_constraints = { msm_constrain },
+        .poly_triple_constraints = { assert_equal },
+        .original_opcode_indices = create_empty_original_opcode_indices(),
+    };
+    mock_opcode_indices(constraint_system);
+
+    AcirProgram program{ constraint_system, witness_values };
+    auto builder = create_circuit(program);
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
 } // namespace acir_format::tests
