@@ -3,6 +3,7 @@ use crate::oracle::notes::{
 };
 use dep::protocol_types::address::AztecAddress;
 
+// TODO(#14565): Add constrained tagging
 pub(crate) fn prefix_with_tag<let L: u32>(
     log_without_tag: [Field; L],
     recipient: AztecAddress,
