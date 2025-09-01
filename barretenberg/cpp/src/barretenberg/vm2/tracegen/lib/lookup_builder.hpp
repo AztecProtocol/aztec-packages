@@ -52,11 +52,6 @@ template <typename LookupSettings_> class IndexedLookupTraceBuilder : public Int
                 trace.get(LookupSettings::DST_SELECTOR, dst_row) != 1) {
                 trace.set(LookupSettings::DST_SELECTOR, dst_row, 1);
             }
-            // FIXME: WRONG! we now hae to do it in a separate stage if they can be shared.
-            // Set dummy inverse.
-            if (trace.get(LookupSettings::INVERSES, dst_row) == 0) {
-                trace.set(LookupSettings::INVERSES, dst_row, 0xdeadbeef);
-            }
         });
     }
 
@@ -161,11 +156,6 @@ template <typename LookupSettings> class LookupIntoDynamicTableSequential : publ
                     if (LookupSettings::DST_SELECTOR != this->outer_dst_selector &&
                         trace.get(LookupSettings::DST_SELECTOR, dst_row) != 1) {
                         trace.set(LookupSettings::DST_SELECTOR, dst_row, 1);
-                    }
-
-                    // Set dummy inverse.
-                    if (trace.get(LookupSettings::INVERSES, dst_row) == 0) {
-                        trace.set(LookupSettings::INVERSES, dst_row, 0xdeadbeef);
                     }
 
                     found = true;

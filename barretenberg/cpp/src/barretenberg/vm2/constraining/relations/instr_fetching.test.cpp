@@ -641,8 +641,6 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongBcDecompositionInteractions)
             const FF mutated_value = trace.get(col, 1) + 1; // Mutate to value + 1
             mutated_trace.set(col, 1, mutated_value);
 
-            // This sets the length of the inverse polynomial via SetDummyInverses, so we
-            // still need to call this even though we know it will fail.
             EXPECT_THROW_WITH_MESSAGE(
                 (check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_bytes_from_bc_dec_settings>(
                     mutated_trace)),
@@ -697,8 +695,6 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongBytecodeSizeBcDecompositionInte
         const FF mutated_value = trace.get(C::instr_fetching_bytecode_size, 1) + 1; // Mutate to value + 1
         mutated_trace.set(C::instr_fetching_bytecode_size, 1, mutated_value);
 
-        // This sets the length of the inverse polynomial via SetDummyInverses, so we still need to call this
-        // even though we know it will fail.
         EXPECT_THROW_WITH_MESSAGE(
             (check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_bytecode_size_from_bc_dec_settings>(
                 mutated_trace)),
