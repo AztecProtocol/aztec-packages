@@ -15,7 +15,7 @@ Aztec is in active development and this has only been tested on MacOS. Please re
 :::
 
 :::note
-This tutorial is for the sandbox and will need adjustments if you want to use it on testnet. Install the sandbox [here](../../getting_started.md).
+This tutorial is for the sandbox and will need adjustments if you want to use it on testnet. Install the sandbox [here](../../getting_started/getting_started_on_sandbox.md).
 :::
 
 ## Prerequisites
@@ -121,4 +121,4 @@ In this tutorial, we created an account with the Aztec's [CLI Wallet](./cli_wall
 
 You can use a multitude of authentication methods, for example with RSA you could use a passport as a recovery, or even as a signer in a multisig. All of this is based on the account contract.
 
-Next step is then to [code your own account contract!](../../tutorials/codealong/contract_tutorials/write_accounts_contract.md)
+Next step is then to [code your own account contract!](../../tutorials/contract_tutorials/write_accounts_contract.md)

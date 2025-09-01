@@ -39,6 +39,13 @@ export class GSEContract {
     this.gse = getContract({ address, abi: GSEAbi, client });
   }
 
+  getAttestersFromIndicesAtTime(instance: Hex | EthAddress, ts: bigint, indices: bigint[]) {
+    if (instance instanceof EthAddress) {
+      instance = instance.toString();
+    }
+    return this.gse.read.getAttestersFromIndicesAtTime([instance, ts, indices]);
+  }
+
   public async getRegistrationDigest(publicKey: ProjPointType<bigint>): Promise<ProjPointType<bigint>> {
     const affinePublicKey = publicKey.toAffine();
     const g1PointDigest = await this.gse.read.getRegistrationDigest([{ x: affinePublicKey.x, y: affinePublicKey.y }]);

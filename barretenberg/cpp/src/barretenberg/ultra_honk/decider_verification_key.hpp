@@ -30,7 +30,8 @@ template <IsUltraOrMegaHonk Flavor> class DeciderVerificationKey_ {
 
     std::shared_ptr<VerificationKey> vk;
 
-    bool is_complete = false; // whether this instance has been completely populated
+    bool is_complete = false;      // whether this instance has been completely populated
+    std::vector<FF> public_inputs; // to be extracted from the corresponding proof
 
     SubrelationSeparators alphas; // a challenge for each subrelation
     RelationParameters<FF> relation_parameters;
@@ -72,8 +73,6 @@ template <IsUltraOrMegaHonk Flavor> class DeciderVerificationKey_ {
                                                   this->relation_parameters.gamma);
         transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_public_input_delta",
                                                   this->relation_parameters.public_input_delta);
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_lookup_grand_product_delta",
-                                                  this->relation_parameters.lookup_grand_product_delta);
         transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_target_sum", this->target_sum);
         transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_gate_challenges",
                                                   this->gate_challenges);

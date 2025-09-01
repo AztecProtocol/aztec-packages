@@ -19,8 +19,7 @@
 #include "blake3_constraint.hpp"
 #include "block_constraint.hpp"
 #include "ec_operations.hpp"
-#include "ecdsa_secp256k1.hpp"
-#include "ecdsa_secp256r1.hpp"
+#include "ecdsa_constraints.hpp"
 #include "honk_recursion_constraint.hpp"
 #include "keccak_constraint.hpp"
 #include "logic_constraint.hpp"
@@ -89,8 +88,8 @@ struct AcirFormat {
     std::vector<RangeConstraint> range_constraints;
     std::vector<AES128Constraint> aes128_constraints;
     std::vector<Sha256Compression> sha256_compression;
-    std::vector<EcdsaSecp256k1Constraint> ecdsa_k1_constraints;
-    std::vector<EcdsaSecp256r1Constraint> ecdsa_r1_constraints;
+    std::vector<EcdsaConstraint> ecdsa_k1_constraints;
+    std::vector<EcdsaConstraint> ecdsa_r1_constraints;
     std::vector<Blake2sConstraint> blake2s_constraints;
     std::vector<Blake3Constraint> blake3_constraints;
     std::vector<Keccakf1600> keccak_permutations;
@@ -121,14 +120,14 @@ struct AcirFormat {
 
     // Number of gates added to the circuit per original opcode.
     // Has length equal to num_acir_opcodes.
-    std::vector<size_t> gates_per_opcode = {};
+    std::vector<size_t> gates_per_opcode;
 
     // Set of constrained witnesses
-    std::set<uint32_t> constrained_witness = {};
+    std::set<uint32_t> constrained_witness;
     // map witness with their minimal bit-range
-    std::map<uint32_t, uint32_t> minimal_range = {};
+    std::map<uint32_t, uint32_t> minimal_range;
     // map witness with their minimal bit-range implied by array operations
-    std::map<uint32_t, uint32_t> index_range = {};
+    std::map<uint32_t, uint32_t> index_range;
 
     // Indices of the original opcode that originated each constraint in AcirFormat.
     AcirFormatOriginalOpcodeIndices original_opcode_indices;

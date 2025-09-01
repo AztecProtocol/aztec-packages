@@ -34,6 +34,7 @@ import {ValidatorSelectionTestBase} from "./ValidatorSelectionBase.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {ECDSA} from "@oz/utils/cryptography/ECDSA.sol";
+import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
 
 import {
   BlockLog,
@@ -115,8 +116,19 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   bytes4 NO_REVERT = bytes4(0);
   bytes4 ANY_REVERT = bytes4(0xFFFFFFFF);
 
+  function getAttesters() internal view returns (address[] memory) {
+    GSE gse = rollup.getGSE();
+    uint256 count = rollup.getActiveAttesterCount();
+    address[] memory attesters = new address[](count);
+    for (uint256 i = 0; i < count; i++) {
+      attesters[i] = gse.getAttesterFromIndexAtTime(address(rollup), i, Timestamp.wrap(block.timestamp));
+    }
+
+    return attesters;
+  }
+
   function testInitialCommitteeMatch() public setup(4, 4) progressEpochs(2) {
-    address[] memory attesters = rollup.getAttesters();
+    address[] memory attesters = getAttesters();
     address[] memory committee = rollup.getCurrentEpochCommittee();
     assertEq(rollup.getCurrentEpoch(), 2);
     assertEq(attesters.length, 4, "Invalid validator set size");
@@ -164,7 +176,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
     Epoch post = rollup.getCurrentEpoch();
 
-    uint256 validatorSetSize = rollup.getAttesters().length;
+    uint256 validatorSetSize = rollup.getActiveAttesterCount();
     uint256 targetCommitteeSize = rollup.getTargetCommitteeSize();
     uint256 expectedSize = validatorSetSize > targetCommitteeSize ? targetCommitteeSize : validatorSetSize;
 
@@ -219,7 +231,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   function testValidatorSetLargerThanCommittee(bool _insufficientSigs) public setup(100, 48) progressEpochs(2) {
     uint256 committeeSize = rollup.getTargetCommitteeSize();
     uint256 signatureCount = committeeSize * 2 / 3 + (_insufficientSigs ? 0 : 1);
-    assertGt(rollup.getAttesters().length, committeeSize, "Not enough validators");
+    assertGt(rollup.getActiveAttesterCount(), committeeSize, "Not enough validators");
 
     ProposeTestData memory ree =
       _testBlock("mixed_block_1", NO_REVERT, signatureCount, committeeSize, TestFlagsLib.empty());
@@ -243,7 +255,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     uint256 blockNumber = rollup.getPendingBlockNumber();
 
     _proveBlocks(
-      "mixed_block_", blockNumber - 1, blockNumber, AttestationLib.packAttestations(ree2.attestations), NO_REVERT
+      "mixed_block_", blockNumber - 1, blockNumber, AttestationLibHelper.packAttestations(ree2.attestations), NO_REVERT
     );
   }
 
@@ -256,7 +268,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       "mixed_block_",
       blockNumber - 1,
       blockNumber,
-      AttestationLib.packAttestations(ree1.attestations),
+      AttestationLibHelper.packAttestations(ree1.attestations),
       Errors.Rollup__InvalidAttestations.selector
     );
   }
@@ -273,15 +285,15 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   function testNukeFromOrbit() public setup(4, 4) progressEpochs(2) {
     // We propose some blocks, and have a bunch of validators attest to them.
     // Then we slash EVERYONE that was in the committees because the epoch never
-    // got finalised.
+    // got finalized.
     // This is LIKELY, not the action you really want to take, you want to slash
     // the people actually attesting, etc, but for simplicity we can do this as showcase.
     _testBlock("mixed_block_1", NO_REVERT, 3, 4, TestFlagsLib.empty());
     _testBlock("mixed_block_2", NO_REVERT, 3, 4, TestFlagsLib.empty());
 
-    address[] memory attesters = rollup.getAttesters();
+    address[] memory attesters = getAttesters();
     uint256[] memory stakes = new uint256[](attesters.length);
-    uint256[] memory offenses = new uint256[](attesters.length);
+    uint128[][] memory offenses = new uint128[][](attesters.length);
     uint96[] memory amounts = new uint96[](attesters.length);
 
     // We say, these things are bad, call the baba yaga to take care of them!
@@ -290,6 +302,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
       stakes[i] = attesterView.effectiveBalance;
       amounts[i] = slashAmount;
+      offenses[i] = new uint128[](0); // Empty array of offenses for each validator
       assertTrue(attesterView.status == Status.VALIDATING, "Invalid status");
     }
 
@@ -358,7 +371,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       "mixed_block_",
       1,
       1,
-      AttestationLib.packAttestations(ree.attestations),
+      AttestationLibHelper.packAttestations(ree.attestations),
       Errors.Rollup__InvalidBlockNumber.selector
     );
   }
@@ -377,7 +390,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       "mixed_block_",
       1,
       1,
-      AttestationLib.packAttestations(ree.attestations),
+      AttestationLibHelper.packAttestations(ree.attestations),
       Errors.Rollup__InvalidBlockNumber.selector
     );
   }
@@ -396,7 +409,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       "mixed_block_",
       1,
       1,
-      AttestationLib.packAttestations(ree.attestations),
+      AttestationLibHelper.packAttestations(ree.attestations),
       Errors.Rollup__InvalidBlockNumber.selector
     );
   }
@@ -448,7 +461,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
   function _invalidateByAttestationCount(ProposeTestData memory ree, bytes4 _revertData) internal {
     uint256 blockNumber = rollup.getPendingBlockNumber();
-    CommitteeAttestations memory attestations = AttestationLib.packAttestations(ree.attestations);
+    CommitteeAttestations memory attestations = AttestationLibHelper.packAttestations(ree.attestations);
     if (_revertData != NO_REVERT) {
       vm.expectPartialRevert(_revertData);
     }
@@ -471,7 +484,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     uint256 _blockToInvalidate
   ) internal {
     uint256 blockNumber = rollup.getPendingBlockNumber();
-    CommitteeAttestations memory attestations = AttestationLib.packAttestations(ree.attestations);
+    CommitteeAttestations memory attestations = AttestationLibHelper.packAttestations(ree.attestations);
     if (_revertData != NO_REVERT) {
       vm.expectPartialRevert(_revertData);
     }
@@ -577,7 +590,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       // Only works in the same tx.
       rollup.validateHeaderWithAttestations(
         ree.proposeArgs.header,
-        AttestationLib.packAttestations(ree.attestations),
+        AttestationLibHelper.packAttestations(ree.attestations),
         ree.signers,
         digest,
         bytes32(0),
@@ -648,7 +661,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
     vm.prank(ree.sender);
     rollup.propose(
-      ree.proposeArgs, AttestationLib.packAttestations(ree.attestations), ree.signers, full.block.blobCommitments
+      ree.proposeArgs, AttestationLibHelper.packAttestations(ree.attestations), ree.signers, full.block.blobCommitments
     );
 
     if (_revertData != NO_REVERT) {

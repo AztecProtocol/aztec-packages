@@ -16,7 +16,7 @@ This highlights a key difference with how public vs private functions are writte
 :::info Writing efficiently
 
 - **Public functions** can be written intuitively - optimising for execution/gas as one would for EVM L2s
-- **Private functions** are optimised differently, as they are compiled to a circuit to be proven locally (see [Thinking in Circuits](https://noir-lang.org/docs/explainers/explainer-writing-noir))
+- **Private functions** are optimized differently, as they are compiled to a circuit to be proven locally (see [Thinking in Circuits](https://noir-lang.org/docs/explainers/explainer-writing-noir))
 
 :::
 
@@ -50,7 +50,7 @@ When private functions are called, the overhead of a "kernel circuit" is added e
 
 #### Profiling using FlameGraph
 
-Measuring the gate count across a private function can be seen at the end of the counter tutorial [here](../developers/tutorials/codealong/contract_tutorials/counter_contract#investigate-the-increment-function). Full profiling and flamegraph commands explained [here](../developers/guides/smart_contracts/profiling_transactions).
+Measuring the gate count across a private function can be seen at the end of the counter tutorial [here](../developers/tutorials/contract_tutorials/counter_contract#investigate-the-increment-function). Full profiling and flamegraph commands explained [here](../developers/guides/smart_contracts/profiling_transactions).
 
 ### L2 Data costs
 
@@ -284,7 +284,7 @@ unconstrained fn sort_array(array: [u32; ARRAY_SIZE]) -> [u32; ARRAY_SIZE] {
 
 Like before, the flamegraph command can be used to present the gate counts of the private functions, highlighting that 953 gates could be saved.
 
-Note: The stdlib provides a highly optimised version of sort on arrays, `array.sort()`, which saves even more gates.
+Note: The stdlib provides a highly optimized version of sort on arrays, `array.sort()`, which saves even more gates.
 
 ```rust
     #[private]

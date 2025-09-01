@@ -212,6 +212,44 @@ void Execution::op_not(ContextInterface& context, MemoryAddress src_addr, Memory
     }
 }
 
+void Execution::shl(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress c_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::SHL;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue c = alu.shl(a, b);
+        memory.set(c_addr, c);
+        set_output(opcode, c);
+    } catch (const AluException& e) {
+        throw OpcodeExecutionException("SHL Exception: " + std::string(e.what()));
+    }
+}
+
+void Execution::shr(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress c_addr)
+{
+    constexpr auto opcode = ExecutionOpCode::SHR;
+    auto& memory = context.get_memory();
+    MemoryValue a = memory.get(a_addr);
+    MemoryValue b = memory.get(b_addr);
+    set_and_validate_inputs(opcode, { a, b });
+
+    get_gas_tracker().consume_gas();
+
+    try {
+        MemoryValue c = alu.shr(a, b);
+        memory.set(c_addr, c);
+        set_output(opcode, c);
+    } catch (const AluException& e) {
+        throw OpcodeExecutionException("SHR Exception: " + std::string(e.what()));
+    }
+}
+
 void Execution::cast(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr, uint8_t dst_tag)
 {
     constexpr auto opcode = ExecutionOpCode::CAST;
@@ -918,7 +956,7 @@ void Execution::to_radix_be(ContextInterface& context,
     // The range check for a valid radix (2 <= radix <= 256) is done in the gadget.
     // However, in order to compute the dynamic gas value we need to constrain the radix
     // to be <= 256 since the `get_p_limbs_per_radix` lookup table is only defined for the range [0, 256].
-    // This does mean that the <= 256 check is duplicated - this can be optimised later.
+    // This does mean that the <= 256 check is duplicated - this can be optimized later.
 
     // The dynamic gas factor is the maximum of the num_limbs requested by the opcode and the number of limbs
     // the gadget that the field modulus, p, decomposes into given a radix (num_p_limbs).
@@ -1016,44 +1054,6 @@ void Execution::sha256_compression(ContextInterface& context,
     }
 }
 
-void Execution::shr(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress c_addr)
-{
-    constexpr auto opcode = ExecutionOpCode::SHR;
-    auto& memory = context.get_memory();
-    MemoryValue a = memory.get(a_addr);
-    MemoryValue b = memory.get(b_addr);
-    set_and_validate_inputs(opcode, { a, b });
-
-    get_gas_tracker().consume_gas();
-
-    try {
-        MemoryValue c = alu.shr(a, b);
-        memory.set(c_addr, c);
-        set_output(opcode, c);
-    } catch (const AluException& e) {
-        throw OpcodeExecutionException("SHR Exception: " + std::string(e.what()));
-    }
-}
-
-void Execution::shl(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress c_addr)
-{
-    constexpr auto opcode = ExecutionOpCode::SHL;
-    auto& memory = context.get_memory();
-    MemoryValue a = memory.get(a_addr);
-    MemoryValue b = memory.get(b_addr);
-    set_and_validate_inputs(opcode, { a, b });
-
-    get_gas_tracker().consume_gas();
-
-    try {
-        MemoryValue c = alu.shl(a, b);
-        memory.set(c_addr, c);
-        set_output(opcode, c);
-    } catch (const AluException& e) {
-        throw OpcodeExecutionException("SHL Exception: " + std::string(e.what()));
-    }
-}
-
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
 ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
@@ -1144,8 +1144,6 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
 
         // State after the opcode.
         ex_event.after_context_event = context.serialize_context_event();
-        // TODO(dbanks12): fix phase. Should come from TX execution and be forwarded to nested calls.
-        ex_event.after_context_event.phase = TransactionPhase::APP_LOGIC;
         events.emit(std::move(ex_event));
 
         // If the context has halted, we need to exit the external call.
@@ -1169,6 +1167,8 @@ void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_
           .contract_addr = parent_context.get_address(),
           .bytecode_id = parent_context.get_bytecode_manager().try_get_bytecode_id().value_or(FF(0)),
           .is_static = parent_context.get_is_static(),
+          .parent_cd_addr = parent_context.get_parent_cd_addr(),
+          .parent_cd_size = parent_context.get_parent_cd_size(),
           .parent_gas_used = parent_context.get_parent_gas_used(),
           .parent_gas_limit = parent_context.get_parent_gas_limit(),
           .tree_states = merkle_db.get_tree_state(),
@@ -1269,6 +1269,12 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::NOT:
         call_with_operands(&Execution::op_not, context, resolved_operands);
+        break;
+    case ExecutionOpCode::SHL:
+        call_with_operands(&Execution::shl, context, resolved_operands);
+        break;
+    case ExecutionOpCode::SHR:
+        call_with_operands(&Execution::shr, context, resolved_operands);
         break;
     case ExecutionOpCode::CAST:
         call_with_operands(&Execution::cast, context, resolved_operands);
@@ -1379,12 +1385,6 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::SHA256COMPRESSION:
         call_with_operands(&Execution::sha256_compression, context, resolved_operands);
-        break;
-    case ExecutionOpCode::SHR:
-        call_with_operands(&Execution::shr, context, resolved_operands);
-        break;
-    case ExecutionOpCode::SHL:
-        call_with_operands(&Execution::shl, context, resolved_operands);
         break;
     default:
         // NOTE: Keep this a `std::runtime_error` so that the main loop panics.

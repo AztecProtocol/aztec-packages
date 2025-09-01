@@ -92,7 +92,7 @@ For example, if you want to flamegraph the `cast_vote` function [aztec-starter](
 ```bash
 aztec-nargo compile        # generate contract artifacts
 aztec-postprocess-contract # transpile contract and generate verification keys
-aztec flamegraph target/easy_private_voting_contract-EasyPrivateVoting.json cast_vote
+aztec flamegraph target/private_voting_contract-PrivateVoting.json cast_vote
 ```
 
 This will generate a flamegraph of the `cast_vote` function and save the output svg to the `target` directory. You can open the svg file in your browser to visualize the flamegraph.
@@ -100,7 +100,7 @@ This will generate a flamegraph of the `cast_vote` function and save the output 
 You can also run the same command with `SERVE=1` to serve the flamegraph on a local server.
 
 ```bash
-SERVE=1 aztec flamegraph target/easy_private_voting_contract-EasyPrivateVoting.json cast_vote
+SERVE=1 aztec flamegraph target/private_voting_contract-PrivateVoting.json cast_vote
 ```
 
 This will serve the flamegraph on `http://localhost:8000`.

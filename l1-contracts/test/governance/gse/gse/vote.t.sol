@@ -6,9 +6,12 @@ import {IPayload, Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
+import {UncompressedProposalWrapper} from "@test/governance/helpers/UncompressedProposalTestLib.sol";
 
 contract VoteTest is WithGSE {
   using ProposalLib for Proposal;
+
+  UncompressedProposalWrapper internal upw = new UncompressedProposalWrapper();
 
   function setUp() public override {
     super.setUp();
@@ -87,11 +90,11 @@ contract VoteTest is WithGSE {
     }
 
     Proposal memory proposal = governance.getProposal(0);
-    vm.warp(Timestamp.unwrap(proposal.pendingThroughMemory()) + 1);
+    vm.warp(Timestamp.unwrap(upw.pendingThrough(proposal)) + 1);
 
     address voter = _delegate ? _delegatee : _attester;
 
-    uint256 availablePower = gse.getVotingPowerAt(voter, proposal.pendingThroughMemory());
+    uint256 availablePower = gse.getVotingPowerAt(voter, upw.pendingThrough(proposal));
 
     return (voter, availablePower);
   }

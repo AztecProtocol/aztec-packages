@@ -1,0 +1,11 @@
+# Development resource specifications for eth-devnet
+ethereum:
+  execution:
+    service:
+      type: ClusterIP
+      annotations: {}
+
+  beacon:
+    service:
+      type: ClusterIP
+      annotations: {}

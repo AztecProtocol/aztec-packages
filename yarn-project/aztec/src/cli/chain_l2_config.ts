@@ -1,83 +1,38 @@
 import { EthAddress } from '@aztec/aztec.js';
-import { DefaultL1ContractsConfig } from '@aztec/ethereum';
+import { DefaultL1ContractsConfig, type L1ContractsConfig } from '@aztec/ethereum';
 import type { EnvVar, NetworkNames } from '@aztec/foundation/config';
 import type { SharedNodeConfig } from '@aztec/node-lib/config';
+import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 
 import { mkdir, readFile, stat, writeFile } from 'fs/promises';
 import path, { dirname, join } from 'path';
 
 import publicIncludeMetrics from '../../public_include_metric_prefixes.json' with { type: 'json' };
 
-// REFACTOR: We should be `pick`ing keys from existing config types
-export type L2ChainConfig = {
-  l1ChainId: number;
-  testAccounts: boolean;
-  sponsoredFPC: boolean;
-  p2pEnabled: boolean;
-  p2pBootstrapNodes: string[];
-  registryAddress: string;
-  slashFactoryAddress: string;
-  feeAssetHandlerAddress: string;
-  seqMinTxsPerBlock: number;
-  seqMaxTxsPerBlock: number;
-  realProofs: boolean;
-  snapshotsUrl: string;
-  autoUpdate: SharedNodeConfig['autoUpdate'];
-  autoUpdateUrl?: string;
-  maxTxPoolSize: number;
-  publicIncludeMetrics?: string[];
-  publicMetricsCollectorUrl?: string;
-  publicMetricsCollectFrom?: string[];
+export type L2ChainConfig = L1ContractsConfig &
+  Omit<SlasherConfig, 'slashValidatorsNever' | 'slashValidatorsAlways'> & {
+    l1ChainId: number;
+    testAccounts: boolean;
+    sponsoredFPC: boolean;
+    p2pEnabled: boolean;
+    p2pBootstrapNodes: string[];
+    registryAddress: string;
+    slashFactoryAddress: string;
+    feeAssetHandlerAddress: string;
+    seqMinTxsPerBlock: number;
+    seqMaxTxsPerBlock: number;
+    realProofs: boolean;
+    snapshotsUrl: string;
+    autoUpdate: SharedNodeConfig['autoUpdate'];
+    autoUpdateUrl?: string;
+    maxTxPoolSize: number;
+    publicIncludeMetrics?: string[];
+    publicMetricsCollectorUrl?: string;
+    publicMetricsCollectFrom?: string[];
 
-  // Deployment stuff
-
-  /** How many seconds an L1 slot lasts. */
-  ethereumSlotDuration: number;
-  /** How many seconds an L2 slots lasts (must be multiple of ethereum slot duration). */
-  aztecSlotDuration: number;
-  /** How many L2 slots an epoch lasts. */
-  aztecEpochDuration: number;
-  /** The target validator committee size. */
-  aztecTargetCommitteeSize: number;
-  /** The number of epochs after an epoch ends that proofs are still accepted. */
-  aztecProofSubmissionEpochs: number;
-  /** The deposit amount for a validator */
-  activationThreshold: bigint;
-  /** The minimum stake for a validator. */
-  ejectionThreshold: bigint;
-  /** The slashing quorum */
-  slashingQuorum: number;
-  /** The slashing round size */
-  slashingRoundSize: number;
-  /** Governance proposing quorum */
-  governanceProposerQuorum: number;
-  /** Governance proposing round size */
-  governanceProposerRoundSize: number;
-  /** The mana target for the rollup */
-  manaTarget: bigint;
-  /** The proving cost per mana */
-  provingCostPerMana: bigint;
-
-  // slashing stuff
-  slashPayloadTtlSeconds: number;
-  slashPruneEnabled: boolean;
-  slashPrunePenalty: bigint;
-  slashPruneMaxPenalty: bigint;
-  slashInactivityEnabled: boolean;
-  slashInactivityCreateTargetPercentage: number;
-  slashInactivitySignalTargetPercentage: number;
-  slashInactivityCreatePenalty: bigint;
-  slashInactivityMaxPenalty: bigint;
-  slashInvalidBlockEnabled: boolean;
-  slashInvalidBlockPenalty: bigint;
-  slashInvalidBlockMaxPenalty: bigint;
-  slashProposeInvalidAttestationsPenalty: bigint;
-  slashProposeInvalidAttestationsMaxPenalty: bigint;
-  slashAttestDescendantOfInvalidPenalty: bigint;
-  slashAttestDescendantOfInvalidMaxPenalty: bigint;
-  // control whether sentinel is enabled or not. Needed for slashing
-  sentinelEnabled: boolean;
-};
+    // Control whether sentinel is enabled or not. Needed for slashing
+    sentinelEnabled: boolean;
+  };
 
 export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   l1ChainId: 11155111,
@@ -96,7 +51,8 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   autoUpdateUrl: undefined,
   maxTxPoolSize: 100_000_000, // 100MB
 
-  // Deployment stuff
+  ...DefaultL1ContractsConfig,
+
   /** How many seconds an L1 slot lasts. */
   ethereumSlotDuration: 12,
   /** How many seconds an L2 slots lasts (must be multiple of ethereum slot duration). */
@@ -107,40 +63,27 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   aztecTargetCommitteeSize: 48,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: 1,
-  /** The deposit amount for a validator */
-  activationThreshold: DefaultL1ContractsConfig.activationThreshold,
-  /** The minimum stake for a validator. */
-  ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
-  /** The slashing quorum */
-  slashingQuorum: DefaultL1ContractsConfig.slashingQuorum,
-  /** The slashing round size */
-  slashingRoundSize: DefaultL1ContractsConfig.slashingRoundSize,
-  /** Governance proposing quorum */
-  governanceProposerQuorum: DefaultL1ContractsConfig.governanceProposerQuorum,
-  /** Governance proposing round size */
-  governanceProposerRoundSize: DefaultL1ContractsConfig.governanceProposerRoundSize,
   /** The mana target for the rollup */
   manaTarget: 0n,
   /** The proving cost per mana */
   provingCostPerMana: 0n,
 
-  // slashing stuff
-  slashInactivityEnabled: false,
-  slashInactivityCreateTargetPercentage: 0,
-  slashInactivitySignalTargetPercentage: 0,
-  slashInactivityCreatePenalty: 0n,
-  slashInactivityMaxPenalty: 0n,
-  slashInvalidBlockEnabled: false,
-  slashPayloadTtlSeconds: 0,
-  slashPruneEnabled: false,
+  slasherFlavor: 'none',
+  slashAmountSmall: 0n,
+  slashAmountMedium: 0n,
+  slashAmountLarge: 0n,
+  slashMinPenaltyPercentage: 0.5,
+  slashMaxPenaltyPercentage: 200,
+  slashInactivityTargetPercentage: 0,
+  slashInactivityPenalty: 0n,
   slashPrunePenalty: 0n,
-  slashPruneMaxPenalty: 0n,
-  slashInvalidBlockPenalty: 0n,
-  slashInvalidBlockMaxPenalty: 0n,
   slashProposeInvalidAttestationsPenalty: 0n,
-  slashProposeInvalidAttestationsMaxPenalty: 0n,
   slashAttestDescendantOfInvalidPenalty: 0n,
-  slashAttestDescendantOfInvalidMaxPenalty: 0n,
+  slashBroadcastedInvalidBlockPenalty: 0n,
+  slashMaxPayloadSize: 50,
+  slashGracePeriodL2Slots: 0,
+  slashUnknownPenalty: 0n,
+  slashOffenseExpirationRounds: 10,
   sentinelEnabled: false,
 };
 
@@ -179,36 +122,44 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   activationThreshold: DefaultL1ContractsConfig.activationThreshold,
   /** The minimum stake for a validator. */
   ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
-  /** The slashing quorum */
-  slashingQuorum: 101,
   /** The slashing round size */
-  slashingRoundSize: 200,
-  /** Governance proposing quorum */
-  governanceProposerQuorum: 151,
+  slashingRoundSizeInEpochs: 4,
   /** Governance proposing round size */
   governanceProposerRoundSize: 300,
   /** The mana target for the rollup */
   manaTarget: DefaultL1ContractsConfig.manaTarget,
   /** The proving cost per mana */
   provingCostPerMana: DefaultL1ContractsConfig.provingCostPerMana,
+  /** Exit delay for stakers */
+  exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
+  /** Tally-style slashing */
+  slasherFlavor: 'tally',
+  /** Allow one round for vetoing */
+  slashingExecutionDelayInRounds: 1,
+  /** How long for a slash payload to be executed */
+  slashingLifetimeInRounds: 4,
+  /** Allow 2 rounds to discover faults */
+  slashingOffsetInRounds: 2,
+  /** No slash vetoer */
+  slashingVetoer: EthAddress.ZERO,
+  /** Use default slash amounts */
+  slashAmountSmall: DefaultL1ContractsConfig.slashAmountSmall,
+  slashAmountMedium: DefaultL1ContractsConfig.slashAmountMedium,
+  slashAmountLarge: DefaultL1ContractsConfig.slashAmountLarge,
 
-  // slashing stuff
-  slashPayloadTtlSeconds: 36 * 32 * 24, // 24 epochs
-  slashPruneEnabled: true,
-  slashPrunePenalty: 17n * (DefaultL1ContractsConfig.activationThreshold / 100n),
-  slashPruneMaxPenalty: 17n * (DefaultL1ContractsConfig.activationThreshold / 100n),
-  slashInactivityEnabled: true,
-  slashInactivityCreateTargetPercentage: 1,
-  slashInactivitySignalTargetPercentage: 0.67,
-  slashInactivityCreatePenalty: 17n * (DefaultL1ContractsConfig.activationThreshold / 100n),
-  slashInactivityMaxPenalty: 17n * (DefaultL1ContractsConfig.activationThreshold / 100n),
-  slashInvalidBlockEnabled: true,
-  slashInvalidBlockPenalty: DefaultL1ContractsConfig.activationThreshold,
-  slashInvalidBlockMaxPenalty: DefaultL1ContractsConfig.activationThreshold,
-  slashProposeInvalidAttestationsPenalty: DefaultL1ContractsConfig.activationThreshold,
-  slashProposeInvalidAttestationsMaxPenalty: DefaultL1ContractsConfig.activationThreshold,
-  slashAttestDescendantOfInvalidPenalty: DefaultL1ContractsConfig.activationThreshold,
-  slashAttestDescendantOfInvalidMaxPenalty: DefaultL1ContractsConfig.activationThreshold,
+  // Slashing stuff
+  slashMinPenaltyPercentage: 0.5,
+  slashMaxPenaltyPercentage: 2.0,
+  slashInactivityTargetPercentage: 0.7,
+  slashInactivityPenalty: DefaultL1ContractsConfig.slashAmountSmall,
+  slashPrunePenalty: DefaultL1ContractsConfig.slashAmountSmall,
+  slashProposeInvalidAttestationsPenalty: DefaultL1ContractsConfig.slashAmountLarge,
+  slashAttestDescendantOfInvalidPenalty: DefaultL1ContractsConfig.slashAmountLarge,
+  slashUnknownPenalty: DefaultL1ContractsConfig.slashAmountSmall,
+  slashBroadcastedInvalidBlockPenalty: DefaultL1ContractsConfig.slashAmountMedium,
+  slashMaxPayloadSize: 50,
+  slashGracePeriodL2Slots: 32 * 2, // Two epochs from genesis
+  slashOffenseExpirationRounds: 8,
   sentinelEnabled: true,
 };
 
@@ -264,9 +215,9 @@ export async function getL2ChainConfig(
   return undefined;
 }
 
-function enrichVar(envVar: EnvVar, value: string) {
+function enrichVar(envVar: EnvVar, value: string | undefined) {
   // Don't override
-  if (process.env[envVar]) {
+  if (process.env[envVar] || value === undefined) {
     return;
   }
   process.env[envVar] = value;
@@ -351,36 +302,34 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('AZTEC_PROOF_SUBMISSION_EPOCHS', config.aztecProofSubmissionEpochs.toString());
   enrichVar('AZTEC_ACTIVATION_THRESHOLD', config.activationThreshold.toString());
   enrichVar('AZTEC_EJECTION_THRESHOLD', config.ejectionThreshold.toString());
-  enrichVar('AZTEC_SLASHING_QUORUM', config.slashingQuorum.toString());
-  enrichVar('AZTEC_SLASHING_ROUND_SIZE', config.slashingRoundSize.toString());
-  enrichVar('AZTEC_GOVERNANCE_PROPOSER_QUORUM', config.governanceProposerQuorum.toString());
+  enrichVar('AZTEC_SLASHING_QUORUM', config.slashingQuorum?.toString());
+  enrichVar('AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS', config.slashingRoundSizeInEpochs.toString());
+  enrichVar('AZTEC_GOVERNANCE_PROPOSER_QUORUM', config.governanceProposerQuorum?.toString());
   enrichVar('AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE', config.governanceProposerRoundSize.toString());
   enrichVar('AZTEC_MANA_TARGET', config.manaTarget.toString());
   enrichVar('AZTEC_PROVING_COST_PER_MANA', config.provingCostPerMana.toString());
+  enrichVar('AZTEC_SLASH_AMOUNT_SMALL', config.slashAmountSmall.toString());
+  enrichVar('AZTEC_SLASH_AMOUNT_MEDIUM', config.slashAmountMedium.toString());
+  enrichVar('AZTEC_SLASH_AMOUNT_LARGE', config.slashAmountLarge.toString());
+  enrichVar('AZTEC_SLASHING_LIFETIME_IN_ROUNDS', config.slashingLifetimeInRounds.toString());
+  enrichVar('AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS', config.slashingExecutionDelayInRounds.toString());
+  enrichVar('AZTEC_SLASHING_OFFSET_IN_ROUNDS', config.slashingOffsetInRounds.toString());
+  enrichVar('AZTEC_SLASHER_FLAVOR', config.slasherFlavor);
+  enrichVar('AZTEC_EXIT_DELAY_SECONDS', config.exitDelaySeconds.toString());
+  enrichEthAddressVar('AZTEC_SLASHING_VETOER', config.slashingVetoer.toString());
 
   // Slashing
-  enrichVar('SLASH_PAYLOAD_TTL_SECONDS', config.slashPayloadTtlSeconds.toString());
-  enrichVar('SLASH_PRUNE_ENABLED', config.slashPruneEnabled.toString());
+  enrichVar('SLASH_MIN_PENALTY_PERCENTAGE', config.slashMinPenaltyPercentage.toString());
+  enrichVar('SLASH_MAX_PENALTY_PERCENTAGE', config.slashMaxPenaltyPercentage.toString());
   enrichVar('SLASH_PRUNE_PENALTY', config.slashPrunePenalty.toString());
-  enrichVar('SLASH_PRUNE_MAX_PENALTY', config.slashPruneMaxPenalty.toString());
-  enrichVar('SLASH_INACTIVITY_ENABLED', config.slashInactivityEnabled.toString());
-  enrichVar('SLASH_INACTIVITY_CREATE_TARGET_PERCENTAGE', config.slashInactivityCreateTargetPercentage.toString());
-  enrichVar('SLASH_INACTIVITY_SIGNAL_TARGET_PERCENTAGE', config.slashInactivitySignalTargetPercentage.toString());
-  enrichVar('SLASH_INACTIVITY_CREATE_PENALTY', config.slashInactivityCreatePenalty.toString());
-  enrichVar('SLASH_INACTIVITY_MAX_PENALTY', config.slashInactivityMaxPenalty.toString());
-  enrichVar('SLASH_INVALID_BLOCK_ENABLED', config.slashInvalidBlockEnabled.toString());
-  enrichVar('SLASH_INVALID_BLOCK_PENALTY', config.slashInvalidBlockPenalty.toString());
-  enrichVar('SLASH_INVALID_BLOCK_MAX_PENALTY', config.slashInvalidBlockMaxPenalty.toString());
+  enrichVar('SLASH_INACTIVITY_TARGET_PERCENTAGE', config.slashInactivityTargetPercentage.toString());
+  enrichVar('SLASH_INACTIVITY_PENALTY', config.slashInactivityPenalty.toString());
   enrichVar('SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY', config.slashProposeInvalidAttestationsPenalty.toString());
-  enrichVar(
-    'SLASH_PROPOSE_INVALID_ATTESTATIONS_MAX_PENALTY',
-    config.slashProposeInvalidAttestationsMaxPenalty.toString(),
-  );
   enrichVar('SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY', config.slashAttestDescendantOfInvalidPenalty.toString());
-  enrichVar(
-    'SLASH_ATTEST_DESCENDANT_OF_INVALID_MAX_PENALTY',
-    config.slashAttestDescendantOfInvalidMaxPenalty.toString(),
-  );
+  enrichVar('SLASH_UNKNOWN_PENALTY', config.slashUnknownPenalty.toString());
+  enrichVar('SLASH_INVALID_BLOCK_PENALTY', config.slashBroadcastedInvalidBlockPenalty.toString());
+  enrichVar('SLASH_OFFENSE_EXPIRATION_ROUNDS', config.slashOffenseExpirationRounds.toString());
+  enrichVar('SLASH_MAX_PAYLOAD_SIZE', config.slashMaxPayloadSize.toString());
 
   enrichVar('SENTINEL_ENABLED', config.sentinelEnabled.toString());
 }
