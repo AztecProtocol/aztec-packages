@@ -37,7 +37,8 @@ export type SequencerStateWithSlot =
   | SequencerState.INITIALIZING_PROPOSAL
   | SequencerState.CREATING_BLOCK
   | SequencerState.COLLECTING_ATTESTATIONS
-  | SequencerState.PUBLISHING_BLOCK;
+  | SequencerState.PUBLISHING_BLOCK
+  | SequencerState.PROPOSER_CHECK;
 
 export type SequencerStateCallback = () => SequencerState;
 

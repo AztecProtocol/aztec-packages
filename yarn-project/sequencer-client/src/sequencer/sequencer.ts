@@ -267,12 +267,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return;
     }
 
-    this.setState(SequencerState.PROPOSER_CHECK, undefined);
-
     const chainTipArchive = syncedTo.archive;
     const newBlockNumber = syncedTo.blockNumber + 1;
 
     const { slot, ts, now } = this.epochCache.getEpochAndSlotInNextL1Slot();
+
+    this.setState(SequencerState.PROPOSER_CHECK, slot);
 
     // Check that the archiver and dependencies have synced to the previous L1 slot at least
     // TODO(#14766): Archiver reports L1 timestamp based on L1 blocks seen, which means that a missed L1 block will
