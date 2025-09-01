@@ -16,7 +16,7 @@ Noir supports the `#[test]` annotation which can be used to write simple logic t
 
 #include_code pure_noir_testing /noir-projects/noir-contracts/contracts/app/card_game_contract/src/cards.nr rust
 
-To learn more about Noir testing, please refer to [the Noir docs](https://Noir-lang.org/docs/tooling/testing/).
+To learn more about Noir testing, please refer to [the Noir docs](https://Noir-lang.org/docs/tooling/tests/).
 
 ## TXE (pronounced "trixie")
 
