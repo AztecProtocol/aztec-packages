@@ -103,6 +103,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
     const slashingAmount = slashingUnit * 3n;
     expect(activationThreshold - slashingAmount).toBeLessThan(ejectionThreshold);
 
+    t.ctx.aztecNodeConfig.slashDataWithholdingPenalty = slashingAmount;
     t.ctx.aztecNodeConfig.slashPrunePenalty = slashingAmount;
     t.ctx.aztecNodeConfig.validatorReexecute = false;
     t.ctx.aztecNodeConfig.minTxsPerBlock = 1;

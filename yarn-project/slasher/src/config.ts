@@ -18,6 +18,7 @@ export const DefaultSlasherConfig: SlasherConfig = {
   slashValidatorsAlways: [], // Empty by default
   slashValidatorsNever: [], // Empty by default
   slashPrunePenalty: DefaultL1ContractsConfig.slashAmountSmall,
+  slashDataWithholdingPenalty: DefaultL1ContractsConfig.slashAmountSmall,
   slashInactivityTargetPercentage: 0.9,
   slashBroadcastedInvalidBlockPenalty: DefaultL1ContractsConfig.slashAmountSmall,
   slashInactivityPenalty: DefaultL1ContractsConfig.slashAmountSmall,
@@ -71,8 +72,13 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
   },
   slashPrunePenalty: {
     env: 'SLASH_PRUNE_PENALTY',
-    description: 'Penalty amount for slashing validators of a pruned epoch (set to 0 to disable).',
+    description: 'Penalty amount for slashing validators of a valid pruned epoch (set to 0 to disable).',
     ...bigintConfigHelper(DefaultSlasherConfig.slashPrunePenalty),
+  },
+  slashDataWithholdingPenalty: {
+    env: 'SLASH_DATA_WITHHOLDING_PENALTY',
+    description: 'Penalty amount for slashing validators for data withholding (set to 0 to disable).',
+    ...bigintConfigHelper(DefaultSlasherConfig.slashDataWithholdingPenalty),
   },
   slashBroadcastedInvalidBlockPenalty: {
     env: 'SLASH_INVALID_BLOCK_PENALTY',

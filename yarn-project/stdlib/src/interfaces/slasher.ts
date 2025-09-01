@@ -14,6 +14,7 @@ export interface SlasherConfig {
   slashValidatorsNever: EthAddress[]; // Array of validator addresses
   slashInactivityTargetPercentage: number; // 0-1, 0.9 means 90%. Must be greater than 0
   slashPrunePenalty: bigint;
+  slashDataWithholdingPenalty: bigint;
   slashInactivityPenalty: bigint;
   slashBroadcastedInvalidBlockPenalty: bigint;
   slashProposeInvalidAttestationsPenalty: bigint;
@@ -31,6 +32,7 @@ export const SlasherConfigSchema = z.object({
   slashValidatorsAlways: z.array(schemas.EthAddress),
   slashValidatorsNever: z.array(schemas.EthAddress),
   slashPrunePenalty: schemas.BigInt,
+  slashDataWithholdingPenalty: schemas.BigInt,
   slashInactivityTargetPercentage: z.number(),
   slashInactivityPenalty: schemas.BigInt,
   slashProposeInvalidAttestationsPenalty: schemas.BigInt,

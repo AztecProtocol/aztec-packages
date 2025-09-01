@@ -28,7 +28,8 @@ describe('EpochPruneWatcher', () => {
   let txProvider: MockProxy<Pick<ITxProvider, 'getAvailableTxs'>>;
   let blockBuilder: MockProxy<IFullNodeBlockBuilder>;
   let fork: MockProxy<MerkleTreeWriteOperations>;
-  const penalty = BigInt(1000000000000000000n);
+  const validEpochPrunedPenalty = BigInt(1000000000000000000n);
+  const dataWithholdingPenalty = BigInt(2000000000000000000n);
 
   beforeEach(async () => {
     l2BlockSource = new MockL2BlockSource() as unknown as L2BlockSourceEventEmitter;
@@ -40,7 +41,10 @@ describe('EpochPruneWatcher', () => {
     fork = mock<MerkleTreeWriteOperations>();
     blockBuilder.getFork.mockResolvedValue(fork);
 
-    watcher = new EpochPruneWatcher(l2BlockSource, l1ToL2MessageSource, epochCache, txProvider, blockBuilder, penalty);
+    watcher = new EpochPruneWatcher(l2BlockSource, l1ToL2MessageSource, epochCache, txProvider, blockBuilder, {
+      slashPrunePenalty: validEpochPrunedPenalty,
+      slashDataWithholdingPenalty: dataWithholdingPenalty,
+    });
     await watcher.start();
   });
 
@@ -79,13 +83,13 @@ describe('EpochPruneWatcher', () => {
     expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
       {
         validator: EthAddress.fromString(committee[0]),
-        amount: penalty,
+        amount: dataWithholdingPenalty,
         offenseType: OffenseType.DATA_WITHHOLDING,
         epochOrSlot: 1n,
       },
       {
         validator: EthAddress.fromString(committee[1]),
-        amount: penalty,
+        amount: dataWithholdingPenalty,
         offenseType: OffenseType.DATA_WITHHOLDING,
         epochOrSlot: 1n,
       },
@@ -129,13 +133,13 @@ describe('EpochPruneWatcher', () => {
     expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
       {
         validator: EthAddress.fromString(committee[0]),
-        amount: penalty,
+        amount: validEpochPrunedPenalty,
         offenseType: OffenseType.VALID_EPOCH_PRUNED,
         epochOrSlot: 1n,
       },
       {
         validator: EthAddress.fromString(committee[1]),
-        amount: penalty,
+        amount: validEpochPrunedPenalty,
         offenseType: OffenseType.VALID_EPOCH_PRUNED,
         epochOrSlot: 1n,
       },

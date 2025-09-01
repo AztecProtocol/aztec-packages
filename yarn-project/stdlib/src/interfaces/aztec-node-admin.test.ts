@@ -141,6 +141,7 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       slashValidatorsAlways: [],
       slashValidatorsNever: [],
       slashPrunePenalty: 1000n,
+      slashDataWithholdingPenalty: 1000n,
       slashInactivityTargetPercentage: 0.5,
       slashInactivityPenalty: 1000n,
       slashBroadcastedInvalidBlockPenalty: 1n,
