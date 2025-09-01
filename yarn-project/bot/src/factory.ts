@@ -19,7 +19,7 @@ import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { Timer } from '@aztec/foundation/timer';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
-import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
+import { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
@@ -189,11 +189,8 @@ export class BotFactory {
    * @param wallet - Wallet to deploy the token contract from.
    * @returns The TokenContract instance.
    */
-  private async setupToken(
-    wallet: AccountWallet,
-    sender: AztecAddress,
-  ): Promise<TokenContract | EasyPrivateTokenContract> {
-    let deploy: DeployMethod<TokenContract | EasyPrivateTokenContract>;
+  private async setupToken(wallet: AccountWallet, sender: AztecAddress): Promise<TokenContract | PrivateTokenContract> {
+    let deploy: DeployMethod<TokenContract | PrivateTokenContract>;
     const deployOpts: DeployOptions = {
       from: sender,
       contractAddressSalt: this.config.tokenSalt,
@@ -201,8 +198,8 @@ export class BotFactory {
     };
     if (this.config.contract === SupportedTokenContracts.TokenContract) {
       deploy = TokenContract.deploy(wallet, sender, 'BotToken', 'BOT', 18);
-    } else if (this.config.contract === SupportedTokenContracts.EasyPrivateTokenContract) {
-      deploy = EasyPrivateTokenContract.deploy(wallet, MINT_BALANCE, sender);
+    } else if (this.config.contract === SupportedTokenContracts.PrivateTokenContract) {
+      deploy = PrivateTokenContract.deploy(wallet, MINT_BALANCE, sender);
       deployOpts.skipInstancePublication = true;
       deployOpts.skipClassPublication = true;
       deployOpts.skipInitialization = false;
@@ -358,7 +355,7 @@ export class BotFactory {
    * Mints private and public tokens for the sender if their balance is below the minimum.
    * @param token - Token contract.
    */
-  private async mintTokens(token: TokenContract | EasyPrivateTokenContract, minter: AztecAddress) {
+  private async mintTokens(token: TokenContract | PrivateTokenContract, minter: AztecAddress) {
     const isStandardToken = isStandardTokenContract(token);
     let privateBalance = 0n;
     let publicBalance = 0n;

@@ -1,5 +1,5 @@
 import type { AccountWalletWithSecretKey, AztecAddress, Logger } from '@aztec/aztec.js';
-import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
+import { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 
 import { foundry, sepolia } from 'viem/chains';
 
@@ -47,7 +47,7 @@ describe(`deploys and transfers a private only token`, () => {
     const initialBalance = 100_000_000_000n;
     const transferValue = 5n;
 
-    const token = await EasyPrivateTokenContract.deploy(deployerWallet, initialBalance, deployerAddress)
+    const token = await PrivateTokenContract.deploy(deployerWallet, initialBalance, deployerAddress)
       .send({
         from: deployerAddress,
         universalDeploy: true,

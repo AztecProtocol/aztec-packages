@@ -58,11 +58,11 @@ describe('e2e_bot', () => {
       expect(bot2.recipient.toString()).toEqual(recipient.toString());
     });
 
-    it('sends token from the bot using EasyPrivateToken', async () => {
+    it('sends token from the bot using PrivateToken', async () => {
       const easyBot = await Bot.create(
         {
           ...config,
-          contract: SupportedTokenContracts.EasyPrivateTokenContract,
+          contract: SupportedTokenContracts.PrivateTokenContract,
         },
         { pxe },
       );

@@ -22,7 +22,7 @@ type BotFollowChain = (typeof BotFollowChain)[number];
 
 export enum SupportedTokenContracts {
   TokenContract = 'TokenContract',
-  EasyPrivateTokenContract = 'EasyPrivateTokenContract',
+  PrivateTokenContract = 'PrivateTokenContract',
 }
 
 export type BotConfig = {
