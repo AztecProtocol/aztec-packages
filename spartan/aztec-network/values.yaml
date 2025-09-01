@@ -370,7 +370,7 @@ proverAgent:
   testDelayFactor: 1
   gke:
     spotEnabled: true
-  logLevel: "debug; info: aztec:simulator, json-rpc"
+  logLevel: "verbose; info: aztec:simulator, json-rpc"
   bb:
     hardwareConcurrency: ""
   maxOldSpaceSize: "4608"
