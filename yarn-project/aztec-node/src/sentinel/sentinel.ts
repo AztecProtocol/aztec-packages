@@ -1,5 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { countWhile } from '@aztec/foundation/collection';
+import { countWhile, filterAsync } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -44,7 +44,10 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     protected archiver: L2BlockSource,
     protected p2p: P2PClient,
     protected store: SentinelStore,
-    protected config: Pick<SlasherConfig, 'slashInactivityTargetPercentage' | 'slashInactivityPenalty'>,
+    protected config: Pick<
+      SlasherConfig,
+      'slashInactivityTargetPercentage' | 'slashInactivityPenalty' | 'slashInactivityConsecutiveEpochThreshold'
+    >,
     protected logger = createLogger('node:sentinel'),
   ) {
     super();
@@ -118,7 +121,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     this.logger.info(`Computed proven performance for epoch ${epoch}`, performance);
 
     await this.updateProvenPerformance(epoch, performance);
-    this.handleProvenPerformance(epoch, performance);
+    await this.handleProvenPerformance(epoch, performance);
   }
 
   protected async computeProvenPerformance(epoch: bigint) {
@@ -161,12 +164,57 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     return this.store.updateProvenPerformance(epoch, performance);
   }
 
-  protected handleProvenPerformance(epoch: bigint, performance: ValidatorsEpochPerformance) {
-    const criminals = Object.entries(performance)
+  /**
+   * Checks if a validator has been inactive for the specified number of consecutive epochs for which we have data on it.
+   * @param validator The validator address to check
+   * @param currentEpoch Epochs strictly before the current one are evaluated only
+   * @param requiredConsecutiveEpochs Number of consecutive epochs required for slashing
+   */
+  protected async checkPastInactivity(
+    validator: EthAddress,
+    currentEpoch: bigint,
+    requiredConsecutiveEpochs: number,
+  ): Promise<boolean> {
+    if (requiredConsecutiveEpochs === 0) {
+      return true;
+    }
+
+    // Get all historical performance for this validator
+    const allPerformance = await this.store.getProvenPerformance(validator);
+
+    // If we don't have enough historical data, don't slash
+    if (allPerformance.length < requiredConsecutiveEpochs) {
+      this.logger.debug(
+        `Not enough historical data for slashing ${validator} for inactivity (${allPerformance.length} epochs < ${requiredConsecutiveEpochs} required)`,
+      );
+      return false;
+    }
+
+    // Sort by epoch descending to get most recent first, keep only epochs strictly before the current one, and get the first N
+    return allPerformance
+      .sort((a, b) => Number(b.epoch - a.epoch))
+      .filter(p => p.epoch < currentEpoch)
+      .slice(0, requiredConsecutiveEpochs)
+      .every(p => p.missed / p.total >= this.config.slashInactivityTargetPercentage);
+  }
+
+  protected async handleProvenPerformance(epoch: bigint, performance: ValidatorsEpochPerformance) {
+    const inactiveValidators = Object.entries(performance)
       .filter(([_, { missed, total }]) => {
         return missed / total >= this.config.slashInactivityTargetPercentage;
       })
       .map(([address]) => address as `0x${string}`);
+
+    this.logger.debug(`Found ${inactiveValidators.length} inactive validators in epoch ${epoch}`, {
+      inactiveValidators,
+      epoch,
+      inactivityTargetPercentage: this.config.slashInactivityTargetPercentage,
+    });
+
+    const epochThreshold = this.config.slashInactivityConsecutiveEpochThreshold;
+    const criminals: string[] = await filterAsync(inactiveValidators, address =>
+      this.checkPastInactivity(EthAddress.fromString(address), epoch, epochThreshold - 1),
+    );
 
     const args = criminals.map(address => ({
       validator: EthAddress.fromString(address),
@@ -176,7 +224,10 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     }));
 
     if (criminals.length > 0) {
-      this.logger.info(`Identified ${criminals.length} validators to slash due to inactivity`, { args });
+      this.logger.info(
+        `Identified ${criminals.length} validators to slash due to inactivity in at least ${epochThreshold} consecutive epochs`,
+        { ...args, epochThreshold },
+      );
       this.emit(WANT_TO_SLASH_EVENT, args);
     }
   }

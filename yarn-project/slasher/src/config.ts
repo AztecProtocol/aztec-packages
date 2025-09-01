@@ -20,6 +20,7 @@ export const DefaultSlasherConfig: SlasherConfig = {
   slashPrunePenalty: DefaultL1ContractsConfig.slashAmountSmall,
   slashDataWithholdingPenalty: DefaultL1ContractsConfig.slashAmountSmall,
   slashInactivityTargetPercentage: 0.9,
+  slashInactivityConsecutiveEpochThreshold: 1, // Default to 1 for backward compatibility
   slashBroadcastedInvalidBlockPenalty: DefaultL1ContractsConfig.slashAmountSmall,
   slashInactivityPenalty: DefaultL1ContractsConfig.slashAmountSmall,
   slashProposeInvalidAttestationsPenalty: DefaultL1ContractsConfig.slashAmountSmall,
@@ -94,6 +95,18 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
         throw new RangeError(`SLASH_INACTIVITY_TARGET_PERCENTAGE out of range. Expected (0, 1] got ${v}`);
       }
     }),
+  },
+  slashInactivityConsecutiveEpochThreshold: {
+    env: 'SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD',
+    description: 'Number of consecutive epochs a validator must be inactive before slashing (minimum 1).',
+    ...numberConfigHelper(DefaultSlasherConfig.slashInactivityConsecutiveEpochThreshold),
+    parseEnv: (val: string) => {
+      const parsed = parseInt(val, 10);
+      if (parsed < 1) {
+        throw new RangeError(`SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD must be at least 1 (got ${parsed})`);
+      }
+      return parsed;
+    },
   },
   slashInactivityPenalty: {
     env: 'SLASH_INACTIVITY_PENALTY',
