@@ -46,7 +46,7 @@ uint256 constant MAGIC_CONGESTION_VALUE_DIVISOR = 1e8;
 uint256 constant MAGIC_CONGESTION_VALUE_MULTIPLIER = 854_700_854;
 
 uint256 constant BLOB_GAS_PER_BLOB = 2 ** 17;
-uint256 constant BLOBS_PER_BLOCK = 6; // Q: why doesn't this use ConstantsGen.sol::BLOBS_PER_BLOCK?
+uint256 constant BLOBS_PER_BLOCK = 3;
 
 struct OracleInput {
   int256 feeAssetPriceModifier;
