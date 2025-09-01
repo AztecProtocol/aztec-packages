@@ -26,15 +26,17 @@ namespace bb {
  * | 0                | 6     | s24,s25,s26,s27 | 0      | \sum_{i=0}^24 16^i * s_{23 - i} |
  * | 1                | 7     | s28,s29,s30,s31 | s_skew | \sum_{i=0}^28 16^i * s_{27 - i} |
  *
- * The value of the input scalar is equal to the following: RAJU: check this, seems obviously right but need to make
- * sure set_relation is compatible etc.
+ * The value of the input scalar is equal to the following:
  *
  * scalar = 2^16 * scalar_sum + 2^12 * s28 + 2^8 * s29 + 2^4 * s30 + s31 - s_skew
- * We use a set equality check in `ecc_set_relation.hpp` to validate the above value maps to the correct input
- * scalar for a given value of `pc`.
  *
- * The column `point_transition` is committed to by the Prover, we must constrain it is correctly computed (see
- * `ecc_point_table_relation.cpp` for details)
+ * We use a multiset equality check in `ecc_set_relation.hpp` to validate the above value maps to the correct input
+ * scalar for a given value of `pc` (i.e., for a given non-trivial EC point). In other words, this constrains that the
+ * wNAF expansion is correct. Note that, from the perpsective of the Precomputed table, we only add the tuple (pc,
+ * round, slice) to the multiset when point_transition == 1.
+ *
+ * Furthermore, as the column `point_transition` is committed to by the Prover, we must constrain it is correctly
+ * computed (see also `ecc_point_table_relation.cpp` for a description of what the table looks like.)
  *
  * @tparam FF
  * @tparam AccumulatorTypes
@@ -159,38 +161,46 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
      * @brief Transition logic with `round` and `q_transition`.
      * Goal: `round` is an integer in [0, ... 7] that tracks how many slices we have processed for a given scalar.
      * i.e., the number of 4-bit WNAF slices processed = round * 4.
-     * We must ensure that `q_transition` is well-formed and that `round` is correctly constrained. For the former, we
-     * force the following:
+     * We must ensure that `q_transition` is well-formed and that `round` is correctly constrained. Recall that `pc`
+     * stands for point-counter.
+     *
+     * For the former, we force the following:
      *      1. When `q_transition == 1`, then `scalar_sum_shift == 0`, `round_shift == 0`, `round == 7`, and `pc_shift
      *      == pc - 1`.
      *      2. When `q_transition == 0`, then `round_shift - round == 1` and `pc_shift == pc`
-     * Note that we don't actually range-constrain `round` (expensive if we don't need to!). We claim this logic is
-     * nonetheless sufficient to correctly constrain `round`, because of the multiset checks. There are two multiset
-     * equality checks that we perform that implicate the wNAF relation (note that point-counter is the `pc`):
-     *      1. (point-counter, msm_round, wnaf_slice)
-     *      2. (point-counter, P.x, P.y, scalar-multiplier)
-     * Both are used communicate with the MSM relation. (The second also implicitly facilitates communication with the
-     * PointTable relation.)
+     *
+     * For the latter: note that we don't actually range-constrain `round` (expensive if we don't need to!). We
+     * nonetheless can correctly constrain `round`, because of the multiset checks. There are two multiset equality
+     * checks that we perform that implicate the wNAF relation:
+     *      1. (pc, msm_round, wnaf_slice)
+     *      2. (pc, P.x, P.y, scalar-multiplier)
+     * The first is used to communicate with the MSM table, to validate that the slice * point values the MSM tables use
+     * are indeed what we have precomputed. The second facilitates communication with the Transcript table, to ensure
+     * that the wNAF expansion of the scalar is indeed correct. Moreover, the second is only "sent" to the multiset when
+     * `q_transition == 1`. (It is helpful to recall that `pc` is monotonic: one per each point involved in a
+     * non-trivial scalar multiplication.)
      *
      * Here is the logic. We must ensure that `round` can never be set to a value > 7. If this were possible at row `i`,
-     * then `q_transition == 0` for all subsequent rows by the incrementing logic. The implicit MSM round (accounted for
-     in
-     * (1)) is between `4 * round` and `4 * round + 3` (in fact `4 * round + 4` iff we are at a skew). As the `round`
-     must increment,
-     * this means that the `msm_round` will be larger than 32, which RAJU: make sure this is all kosher.
-
-     * 1. When `q_transition = 1`, we use a set membership check to map the tuple of (pc, scalar_sum) into a set.
-     * We compare this set with an equivalent set generated from the transcript columns. The sets must match.
-     * 2. The only case where, at row `i`, a Prover can set `round` to value > 7 is if `q_transition = 0` for all j > i.
-     *  `precompute_pc` decrements by 1 when `q_transition` = 1
-     * We can infer from 1, 2, that if `round > 7`, the resulting wnafs will map into a set at a value of `pc` that is
-     * greater than all valid msm pc values (assuming the set equivalence check on the scalar sums is satisfied).
-     * The resulting msm output of such a computation cannot be mapped into the set of msm outputs in
-     * the transcript columns (see relations in ecc_msm_relation.cpp).
-     * Conclusion: not applying a strict range-check on `round` does not affect soundness (TODO(@zac-williamson)
-     * validate this! #2225)
+     * then `q_transition == 0` for all subsequent rows by the incrementing logic. There are (at least) two problems.
+     *
+     * 1. The implicit MSM round (accounted for in (1)) is between `4 * round` and `4 * round + 3` (in fact `4 *
+     * round + 4` iff we are at a skew). As the `round` must increment, this means that the `msm_round` will be
+     * larger than 32, which can't happen due to the internal constraints in the MSM table. In particular, the multiset
+     * equality check will fail, as the MSM tables can never send an entry with a round larger than 32.
+     *
+     * 2. This forces `precompute_pc` to be constant from here on out. This will violate the multiset equalities both
+     * of terms (1) _and_ (2). For the former, we will write too many entries with the given `pc`. (However, we've
+     * already shown how this multset equality fails due to `round`.) More importantly, for the latter, we will _never_
+     * "send" the tuple (pc, P.x, P.x, scalar-multiplier) to the multiset, for this value of `pc` and all potentially
+     * subsequent values. We explicate this latter failure. The transcript table will certainly fill _some_ values in
+     * for (pc, P.x, P.y, scalar-multipler) (at least with correct pc and scalar-multiplier values), which will cause
+     * the multiset equality check to fail.
+     *
+     * As always, we are relying on the monotonicity of the `pc` in these arguments.
+     *
      */
-    // We combine checks 0, 1 into a single relation
+
+    // We combine two checks into a single relation
     // q_transition * (round - 7) + (-q_transition + 1) * (round_shift - round - 1)
     // => q_transition * (round - 7 - round_shift + round + 1) + (round_shift - round - 1)
     // => q_transition * (2 * round - round_shift - 6) + (round_shift - round - 1)
