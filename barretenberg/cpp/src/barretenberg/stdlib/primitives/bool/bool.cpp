@@ -89,10 +89,10 @@ bool_t<Builder> bool_t<Builder>::from_witness_index_unsafe(Builder* ctx, const u
     ASSERT(witness_index != IS_CONSTANT);
     bool_t<Builder> result(ctx);
     result.witness_index = witness_index;
-    bb::fr value = ctx->get_variable(witness_index);
+    const bb::fr value = ctx->get_variable(witness_index);
     // It does not create a constraint.
     BB_ASSERT_EQ(value * value - value, 0, "bool_t: creating a witness bool from a non-boolean value");
-    result.witness_bool = (ctx->get_variable(witness_index) == 1);
+    result.witness_bool = (value == 1);
     result.witness_inverted = false;
     return result;
 }
