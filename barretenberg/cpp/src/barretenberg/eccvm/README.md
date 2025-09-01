@@ -451,7 +451,7 @@ This table is the most algorithmically involved.
 struct alignas(64) MSMRow {
         uint32_t pc = 0; // decreasing point-counter, over all half-length (128 bit) scalar muls used to compute
                          // the required MSMs. however, this value is _constant_ on a given MSM and more precisely
-                         //  refers to the of _completed_ half-length scalar muls completed up until we have started
+                         //  refers to the number of half-length scalar muls completed up until we have started
                          // the current MSM.
         uint32_t msm_size = 0;  // the number of points in the current MSM. (this is _constant_ on MSM blocks.)
         uint32_t msm_count = 0; // number of multiplications processed so far (not including this row) in current MSM

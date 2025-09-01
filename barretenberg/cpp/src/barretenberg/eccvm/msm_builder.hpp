@@ -27,12 +27,12 @@ class ECCVMMSMMBuilder {
     static constexpr size_t NUM_WNAF_DIGITS_PER_SCALAR = bb::eccvm::NUM_WNAF_DIGITS_PER_SCALAR;
 
     struct alignas(64) MSMRow {
-        uint32_t pc = 0; // decreasing point-counter, over all half-length (128 bit) scalar muls used to compute
-                         // the required MSMs. however, this value is _constant_ on a given MSM and more precisely
-                         //  refers to the of _completed_ half-length scalar muls completed up until we have started
-                         // the current MSM.
-        uint32_t msm_size = 0;  // the number of points in (a.k.a. the length of) the MSM in whose computation
-                                // this VM row participates
+        uint32_t pc = 0;       // decreasing point-counter, over all half-length (128 bit) scalar muls used to compute
+                               // the required MSMs. however, this value is _constant_ on a given MSM and more precisely
+                               //  refers to the number of half-length scalar muls completed up until we have started
+                               // the current MSM.
+        uint32_t msm_size = 0; // the number of points in (a.k.a. the length of) the MSM in whose computation
+                               // this VM row participates
         uint32_t msm_count = 0; // number of multiplications processed so far (not including this row) in current MSM
                                 // round (a.k.a. wNAF digit slot). this specifically refers to the number of wNAF-digit
                                 // * point scalar products we have looked up and accumulated.
@@ -79,7 +79,7 @@ class ECCVMMSMMBuilder {
      * @brief Computes the row values for the Straus MSM columns of the ECCVM.
      *
      * For a detailed description of the Straus algorithm and its relation to the ECCVM, please see
-     * https://hackmd.io/@aztec-network/rJ5xhuCsn or, alternatively, the ECCVM readme.
+     * https://hackmd.io/@aztec-network/rJ5xhuCsn or, alternatively, the [ECCVM readme](README.md).
      *
      * @param msms A vector of vectors of `ScalarMul`s, a.k.a. a vector of `MSM`s.
      * @param point_table_read_counts Table of read counts to be populated.

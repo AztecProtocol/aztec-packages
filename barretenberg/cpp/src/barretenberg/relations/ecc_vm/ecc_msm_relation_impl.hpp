@@ -16,7 +16,7 @@ namespace bb {
  *
  * @details
  * The Straus algorithm for a size-k MSM takes scalars/points (a_i, [P_i]) for i = 0 to k-1.
- * The specific algorithm we use is may be found in the README in the `eccvm` directory. We briefly reprise the
+ * The specific algorithm we use may be found [here](../../eccvm/README.md). We briefly reprise the
  * algorithm nonetheless.
  *
  * PHASE 1: Precomputation (performed in ecc_wnaf_relation.hpp, ecc_point_table_relation.hpp)
@@ -94,7 +94,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     const auto& q_double = View(in.msm_double); // is 1 iff we are at an DOUBLE row in Straus algorithm
     const auto& q_double_shift = View(in.msm_double_shift);
     const auto& msm_size = View(in.msm_size_of_msm);
-    const auto& pc = View(in.msm_pc);
+    const auto& pc = View(in.msm_pc); // pc stands for `point-counter`.
     const auto& pc_shift = View(in.msm_pc_shift);
     const auto& count = View(in.msm_count);
     const auto& count_shift = View(in.msm_count_shift);
