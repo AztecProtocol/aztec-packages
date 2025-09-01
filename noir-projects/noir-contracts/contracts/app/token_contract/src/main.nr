@@ -459,7 +459,7 @@ pub contract Token {
 
         // TODO(DUPLICATE_NULLIFIER_ISSUE): Nuke this log once the issue is resolved.
         aztec::oracle::debug_log::debug_log_format(
-            "nullifiers in context after emission transfer_to_public: {}",
+            "nullifiers in context after emission prepare_private_balance_increase: {}",
             context.nullifiers.storage().map(|n| n.value()),
         );
         // NUKE_END
