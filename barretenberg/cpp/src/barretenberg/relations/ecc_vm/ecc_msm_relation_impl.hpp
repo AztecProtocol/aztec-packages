@@ -186,7 +186,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      *      which must be constrained somewhere else by a multiset argument. We detail this below.
      *      4. `q_add`, `q_skew`, and `q_double` are pairwise mutually exclusive.
      *      5. `q_add1 == 1` iff either `q_add == 1` OR `q_skew == 1`.
-     *      6. The lookup table is implemented correctly. RAJU: check
+     *      6. The lookup table is implemented correctly.
      *
      * First of all, note the asymmetry: we do not explicitly add tuples corresponding to skew on the MSM side of the
      * table. Indeeed, this in implicit with `msm_round == 32`. Now, the point is that the pair (pc, round) uniquely
@@ -203,10 +203,10 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      * we are at the end of a `round` (so e.g. `q_add4 ` _should_ be 0), or we are at a double row, or we are at a row
      * that should be all 0s. In the first two cases, as long as the Precomputed table is correctly constrained, again
      * we would be adding a tuple to the multiset that can never be hit by the Precomputed table due to `precompute_pc`
-     * monotonicty and `precompute_round` periodicity(enforced in the precomputed columns.). In the final case, the only
-     * way we don't break the multiset check is if `wnaf_slice == 0` for the corresponding `q_addK` that is on. But then
-     * the lookup argument will fail, as there is no corresponding point when `pc = 0`. (Here it is helpful to remember
-     * that `pc` stands for _point-counter_.) RAJU: check the LOOKUP part.
+     * monotonicty and `precompute_round` periodicity (enforced in the precomputed columns.). In the final case, the
+     * only way we don't break the multiset check is if `wnaf_slice == 0` for the corresponding `q_addK` that is on. But
+     * then the lookup argument will fail, as there is no corresponding point when `pc = 0`. (Here it is helpful to
+     * remember that `pc` stands for _point-counter_.) Note that this requires that `precompute_pc` is well-formed.
      *
      *
      * We apply consistency/continuity checks to q_add1/q_add2/q_add3/q_add4:
@@ -230,6 +230,24 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      * refer to the output values of the MSM just computed by the MSM table. `msm_size` is the size of the _just
      * completed_ MSM.
      *
+     *
+     */
+
+    /**
+     * @brief Looking up the slice-point products {-15[P], -13[P], ..., 13[P], 15[P]}
+     *
+     * @details
+     * In the Point Table, for every point [P] that occurs in the MSM table, we compute the list of points: {-15[P],
+     * -13[P], ..., 13[P], 15[P]}. (Note that these never vanish, as we only send a point to each table if they are
+     * non-zero.) We then constrain the "slice products" that occur here via a lookup argument. For completeness, we
+     * briefly sketch this.
+     *
+     * The PointTable will "write"  the following row to the lookup table: (pc, slice, x, y), where if `pc` corresponds
+     * to an elliptic curve point [P] (`pc` is a decreasing counter of the non-zero points that occur in our
+     * computation), slice ∈ {0, ..., 15}, and (x, y) are the affine coordinates of (2 * slice - 15)[P].
+     *
+     * The MSM table will then read a row of the same form. This constrains the MSM table to have correctly used the
+     * wNAF * point in the Straus algorithm.
      *
      */
 
@@ -493,6 +511,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // if q_skew == 1, then round == 32. This is almost certainly redundant but psychologically useful to "constrain
     // both ends".
     std::get<34>(accumulator) += q_skew * (-round + 32) * scaling_factor;
+
     // UPDATING THE COUNT
 
     // if we are changing the `round` (i.e., starting to process a new wNAF digit or at an msm transition), the
