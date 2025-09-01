@@ -510,24 +510,10 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
         // if the next entry is false, we need to flip the sign of the current entry. i.e. make negative
         // This is a VERY hacky workaround to ensure that UltraBuilder will apply a basic
         // range constraint per bool, and not a full 1-bit range gate
-        if (next_entry == false) {
-            bool_ct bit(ctx, true);
-            bit.context = ctx;
-            bit.witness_index = witness_t<C>(ctx, true).witness_index; // flip sign
-            bit.witness_bool = true;
-            ctx->create_new_range_constraint(
-                bit.witness_index, 1, "biggroup_nafs: compute_naf extracted too many bits in non-next_entry case");
+        bool_ct bit(witness_t<C>(ctx, !next_entry));
 
-            naf_entries[num_rounds - i - 1] = bit;
-        } else {
-            bool_ct bit(ctx, false);
-            bit.witness_index = witness_t<C>(ctx, false).witness_index; // don't flip sign
-            bit.witness_bool = false;
-            ctx->create_new_range_constraint(
-                bit.witness_index, 1, "biggroup_nafs: compute_naf extracted too many bits in next_entry case");
+        naf_entries[num_rounds - i - 1] = bit;
 
-            naf_entries[num_rounds - i - 1] = bit;
-        }
         // We need to manually propagate the origin tag
         naf_entries[num_rounds - i - 1].set_origin_tag(scalar.get_origin_tag());
     }
