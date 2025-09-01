@@ -21,6 +21,12 @@
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern bool slow_low_memory;
 
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+extern size_t storage_budget;
+
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+extern std::atomic<size_t> current_storage_usage;
+
 template <typename T> class AlignedMemory;
 
 #ifndef __wasm__
@@ -43,7 +49,22 @@ template <typename Fr> class BackingMemory {
     {
 #ifndef __wasm__
         if (slow_low_memory) {
-            return std::shared_ptr<BackingMemory<Fr>>(new FileBackedMemory<Fr>(size));
+            size_t required_bytes = size * sizeof(Fr);
+            size_t current_usage = current_storage_usage.load();
+
+            // Check if we're under the storage budget
+            if (current_usage + required_bytes <= storage_budget) {
+                // Try to use FileBackedMemory
+                try {
+                    auto result = std::shared_ptr<BackingMemory<Fr>>(new FileBackedMemory<Fr>(size));
+                    current_storage_usage.fetch_add(required_bytes);
+                    return result;
+                } catch (const std::exception& e) {
+                    // FileBackedMemory allocation failed, fall back to AlignedMemory
+                    return std::shared_ptr<BackingMemory<Fr>>(new AlignedMemory<Fr>(size));
+                }
+            }
+            // Over budget, use AlignedMemory
         }
 #endif
         return std::shared_ptr<BackingMemory<Fr>>(new AlignedMemory<Fr>(size));
@@ -87,6 +108,8 @@ template <typename T> class FileBackedMemory : public BackingMemory<T> {
         }
         if (memory != nullptr && file_size > 0) {
             munmap(memory, file_size);
+            // Decrement storage usage when FileBackedMemory is freed
+            current_storage_usage.fetch_sub(file_size);
         }
         if (fd >= 0) {
             close(fd);
