@@ -245,7 +245,7 @@ describe('TallySlasherClient', () => {
         const targetRound = 3n;
 
         await addPendingOffense({
-          epochOrSlot: targetRound * BigInt(roundSize),
+          epochOrSlot: targetRound * BigInt(roundSize) + BigInt(epochDuration),
           offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
         });
 
