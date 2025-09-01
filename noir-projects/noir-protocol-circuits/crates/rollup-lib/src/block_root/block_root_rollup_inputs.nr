@@ -213,12 +213,12 @@ pub(crate) mod tests {
     fn correct_blobs_with_non_empty_fields() {
         // Note: this test will not run in unconstrained, because it reaches the foreign call
         // TODO(#10323): remove the oracle and switch this test to unconstrained
-        // Fill three blobs completely with different values (to avoid a constant polynomial)
+        // Fill BLOBS_PER_BLOCK blobs completely with different values (to avoid a constant polynomial)
         let mut blob: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK] =
             [0; FIELDS_PER_BLOB * BLOBS_PER_BLOCK];
         for j in 0..BLOBS_PER_BLOCK {
             for i in 0..FIELDS_PER_BLOB {
-                blob[j * FIELDS_PER_BLOB + i] = ((j + 3) * (i + 1)) as Field;
+                blob[j * FIELDS_PER_BLOB + i] = ((j + 3) * (i + 1)) as Field; // 3 is arbitrary.
             }
         }
         // Init. injected values:
