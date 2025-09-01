@@ -45,19 +45,9 @@ describe('sentinel', () => {
   let epoch: bigint;
   let ts: bigint;
   let l1Constants: L1RollupConstants;
-  const config: Pick<
-    SlasherConfig,
-    | 'slashInactivityCreateTargetPercentage'
-    | 'slashInactivityCreatePenalty'
-    | 'slashInactivitySignalTargetPercentage'
-    | 'slashInactivityMaxPenalty'
-    | 'slashPayloadTtlSeconds'
-  > = {
-    slashInactivityCreatePenalty: 100n,
-    slashInactivityCreateTargetPercentage: 0.8,
-    slashInactivitySignalTargetPercentage: 0.6,
-    slashInactivityMaxPenalty: 200n,
-    slashPayloadTtlSeconds: 60 * 60,
+  const config: Pick<SlasherConfig, 'slashInactivityTargetPercentage' | 'slashInactivityPenalty'> = {
+    slashInactivityPenalty: 100n,
+    slashInactivityTargetPercentage: 0.8,
   };
 
   beforeEach(async () => {
@@ -457,65 +447,11 @@ describe('sentinel', () => {
       expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
         {
           validator: validator2,
-          amount: config.slashInactivityCreatePenalty,
+          amount: config.slashInactivityPenalty,
           offenseType: OffenseType.INACTIVITY,
           epochOrSlot: 1n,
         },
       ] satisfies WantToSlashArgs[]);
-    });
-
-    it('should agree with slash', async () => {
-      const performance = Object.fromEntries(
-        Array.from({ length: 10 }, (_, i) => [
-          `0x000000000000000000000000000000000000000${i}`,
-          {
-            missed: i * 10,
-            total: 100,
-          },
-        ]),
-      );
-
-      await sentinel.updateProvenPerformance(1n, performance);
-      const emitSpy = jest.spyOn(sentinel, 'emit');
-
-      sentinel.handleProvenPerformance(1n, performance);
-      const penalty = config.slashInactivityCreatePenalty;
-
-      expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
-        {
-          validator: EthAddress.fromString(`0x0000000000000000000000000000000000000008`),
-          amount: penalty,
-          offenseType: OffenseType.INACTIVITY,
-          epochOrSlot: 1n,
-        },
-        {
-          validator: EthAddress.fromString(`0x0000000000000000000000000000000000000009`),
-          amount: penalty,
-          offenseType: OffenseType.INACTIVITY,
-          epochOrSlot: 1n,
-        },
-      ] satisfies WantToSlashArgs[]);
-
-      for (let i = 0; i < 10; i++) {
-        const expectedAgree = i >= 6;
-        const actualAgree = await sentinel.shouldSlash({
-          validator: EthAddress.fromString(`0x000000000000000000000000000000000000000${i}`),
-          amount: config.slashInactivityMaxPenalty,
-          offenseType: OffenseType.INACTIVITY,
-          epochOrSlot: 1n,
-        });
-        expect(actualAgree).toBe(expectedAgree);
-
-        // We never slash if the penalty is above the max penalty
-        await expect(
-          sentinel.shouldSlash({
-            validator: EthAddress.fromString(`0x000000000000000000000000000000000000000${i}`),
-            amount: config.slashInactivityMaxPenalty + 1n,
-            offenseType: OffenseType.INACTIVITY,
-            epochOrSlot: 1n,
-          }),
-        ).resolves.toBe(false);
-      }
     });
   });
 });
@@ -526,14 +462,7 @@ class TestSentinel extends Sentinel {
     archiver: L2BlockSource,
     p2p: P2PClient,
     store: SentinelStore,
-    config: Pick<
-      SlasherConfig,
-      | 'slashInactivityCreateTargetPercentage'
-      | 'slashInactivityCreatePenalty'
-      | 'slashInactivitySignalTargetPercentage'
-      | 'slashInactivityMaxPenalty'
-      | 'slashPayloadTtlSeconds'
-    >,
+    config: Pick<SlasherConfig, 'slashInactivityTargetPercentage' | 'slashInactivityPenalty'>,
     protected override blockStream: L2BlockStream,
   ) {
     super(epochCache, archiver, p2p, store, config);

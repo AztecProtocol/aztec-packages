@@ -123,7 +123,7 @@ export class ProverNodePublisher {
       }
 
       // Tx was mined successfully
-      if (txReceipt.status) {
+      if (txReceipt.status === 'success') {
         const tx = await this.l1TxUtils.getTransactionStats(txReceipt.transactionHash);
         const stats: L1PublishProofStats = {
           gasPrice: txReceipt.effectiveGasPrice,
@@ -218,18 +218,18 @@ export class ProverNodePublisher {
   }): Promise<TransactionReceipt | undefined> {
     const txArgs = [this.getSubmitEpochProofArgs(args)] as const;
 
-    this.log.info(`SubmitEpochProof proofSize=${args.proof.withoutPublicInputs().length} bytes`);
+    this.log.info(`Submitting epoch proof to L1 rollup contract`, {
+      proofSize: args.proof.withoutPublicInputs().length,
+      fromBlock: args.fromBlock,
+      toBlock: args.toBlock,
+    });
     const data = encodeFunctionData({
       abi: RollupAbi,
       functionName: 'submitEpochRootProof',
       args: txArgs,
     });
     try {
-      const { receipt } = await this.l1TxUtils.sendAndMonitorTransaction({
-        to: this.rollupContract.address,
-        data,
-      });
-
+      const { receipt } = await this.l1TxUtils.sendAndMonitorTransaction({ to: this.rollupContract.address, data });
       return receipt;
     } catch (err) {
       this.log.error(`Rollup submit epoch proof failed`, err);

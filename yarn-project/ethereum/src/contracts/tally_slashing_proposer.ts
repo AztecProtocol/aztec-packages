@@ -1,4 +1,5 @@
 import { type L1TxRequest, type ViemClient, tryExtractEvent } from '@aztec/ethereum';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { TallySlashingProposerAbi } from '@aztec/l1-artifacts/TallySlashingProposerAbi';
@@ -62,8 +63,12 @@ export class TallySlashingProposerContract extends EventEmitter {
     return this.contract.read.EXECUTION_DELAY_IN_ROUNDS();
   }
 
-  public getSlashingUnit(): Promise<bigint> {
-    return this.contract.read.SLASHING_UNIT();
+  public getSlashingAmounts(): Promise<[bigint, bigint, bigint]> {
+    return Promise.all([
+      this.contract.read.SLASH_AMOUNT_SMALL(),
+      this.contract.read.SLASH_AMOUNT_MEDIUM(),
+      this.contract.read.SLASH_AMOUNT_LARGE(),
+    ]);
   }
 
   public getSlashOffsetInRounds(): Promise<bigint> {
@@ -88,10 +93,33 @@ export class TallySlashingProposerContract extends EventEmitter {
     return { isExecuted, readyToExecute, voteCount };
   }
 
+  /** Returns the slash actions and payload address for a given round (zero if no slash actions) */
+  public async getPayload(
+    round: bigint,
+  ): Promise<{ actions: { slashAmount: bigint; validator: EthAddress }[]; address: EthAddress }> {
+    const { result: committees } = await this.contract.simulate.getSlashTargetCommittees([round]);
+    const tally = await this.contract.read.getTally([round, committees]);
+    const address = await this.contract.read.getPayloadAddress([round, tally]);
+    const actions = this.mapSlashActions(tally);
+    return { actions, address: EthAddress.fromString(address) };
+  }
+
   /** Returns the slash actions to be executed for a given round based on votes */
-  public async getTally(round: bigint): Promise<{ slashAmount: bigint; validator: EthAddress }[]> {
-    const { result } = await this.contract.simulate.getTally([round]);
-    return result.map(({ validator, slashAmount }) => ({ validator: EthAddress.fromString(validator), slashAmount }));
+  public async getTally(
+    round: bigint,
+  ): Promise<{ actions: { slashAmount: bigint; validator: EthAddress }[]; committees: EthAddress[][] }> {
+    const { result: committees } = await this.contract.simulate.getSlashTargetCommittees([round]);
+    const tally = await this.contract.read.getTally([round, committees]);
+    return { actions: this.mapSlashActions(tally), committees: committees.map(c => c.map(EthAddress.fromString)) };
+  }
+
+  private mapSlashActions(
+    actions: readonly { slashAmount: bigint; validator: Hex }[],
+  ): { slashAmount: bigint; validator: EthAddress }[] {
+    return actions.map(({ validator, slashAmount }) => ({
+      validator: EthAddress.fromString(validator),
+      slashAmount,
+    }));
   }
 
   /** Tries to extract a VoteCast event from the given logs. */
@@ -116,22 +144,7 @@ export class TallySlashingProposerContract extends EventEmitter {
     slot: bigint,
     signer: (msg: TypedDataDefinition) => Promise<Hex>,
   ): Promise<L1TxRequest> {
-    const domain = {
-      name: 'TallySlashingProposer',
-      version: '1',
-      chainId: this.client.chain.id,
-      verifyingContract: this.contract.address,
-    };
-
-    const types = {
-      Vote: [
-        { name: 'slot', type: 'uint256' },
-        { name: 'votes', type: 'bytes' },
-      ],
-    };
-
-    const message = { slot, votes };
-    const typedData: TypedDataDefinition = { domain, types, primaryType: 'Vote', message };
+    const typedData = this.buildVoteTypedData(votes, slot);
     const signature = Signature.fromString(await signer(typedData));
 
     return {
@@ -142,6 +155,36 @@ export class TallySlashingProposerContract extends EventEmitter {
         args: [votes, signature.toViemSignature()],
       }),
     };
+  }
+
+  /** Returns the typed data definition to EIP712-sign for voting */
+  public buildVoteTypedData(votes: Hex, slot: bigint): TypedDataDefinition {
+    const domain = {
+      name: 'TallySlashingProposer',
+      version: '1',
+      chainId: this.client.chain.id,
+      verifyingContract: this.contract.address,
+    };
+
+    const types = {
+      EIP712Domain: [
+        { name: 'name', type: 'string' },
+        { name: 'version', type: 'string' },
+        { name: 'chainId', type: 'uint256' },
+        { name: 'verifyingContract', type: 'address' },
+      ],
+      Vote: [
+        { name: 'votes', type: 'bytes' },
+        { name: 'slot', type: 'uint256' },
+      ],
+    };
+
+    return { domain, types, primaryType: 'Vote', message: { votes, slot } };
+  }
+
+  /** Gets the digest to sign for voting directly from the contract */
+  public async getVoteDataDigest(votes: Hex, slot: bigint): Promise<Buffer32> {
+    return Buffer32.fromString(await this.contract.read.getVoteSignatureDigest([votes, slot]));
   }
 
   /**
@@ -204,7 +247,9 @@ export class TallySlashingProposerContract extends EventEmitter {
    * @param callback - Callback function to handle round executed events
    * @returns Unwatch function
    */
-  public listenToRoundExecuted(callback: (args: { round: bigint; slashCount: bigint }) => void): () => void {
+  public listenToRoundExecuted(
+    callback: (args: { round: bigint; slashCount: bigint; l1BlockHash: Hex }) => void,
+  ): () => void {
     return this.contract.watchEvent.RoundExecuted(
       {},
       {
@@ -212,7 +257,7 @@ export class TallySlashingProposerContract extends EventEmitter {
           for (const log of logs) {
             const { round, slashCount } = log.args;
             if (round !== undefined && slashCount !== undefined) {
-              callback({ round, slashCount });
+              callback({ round, slashCount, l1BlockHash: log.blockHash });
             }
           }
         },
