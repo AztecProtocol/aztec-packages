@@ -10,6 +10,7 @@ import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } fro
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { computeTransactionFee } from '@aztec/stdlib/fees';
 import { Gas } from '@aztec/stdlib/gas';
 import type {
   MerkleTreeWriteOperations,
@@ -478,7 +479,7 @@ export class PublicProcessor implements Traceable {
   }))
   private async processPrivateOnlyTx(tx: Tx): Promise<[ProcessedTx, undefined]> {
     const gasFees = this.globalVariables.gasFees;
-    const transactionFee = tx.data.gasUsed.computeFee(gasFees);
+    const transactionFee = computeTransactionFee(gasFees, tx.data.constants.txContext.gasSettings, tx.data.gasUsed);
 
     const feePaymentPublicDataWrite = await this.performFeePaymentPublicDataWrite(transactionFee, tx.data.feePayer);
 
