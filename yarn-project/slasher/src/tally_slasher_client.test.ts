@@ -271,6 +271,26 @@ describe('TallySlasherClient', () => {
         expect(action.committees[0]).toHaveLength(settings.targetCommitteeSize);
         expect(action.committees[0][0].toString()).toEqual(EthAddress.ZERO.toString());
       });
+
+      it('should not return any action when computed votes are zero', async () => {
+        // Round 5 votes on round 3 (offset of 2)
+        const currentRound = 5n;
+        const currentSlot = currentRound * BigInt(roundSize);
+        const targetRound = 3n;
+
+        // Add slot-based offense for the target round
+        await offensesStore.addPendingOffense(
+          createOffense({
+            validator: committee[0],
+            epochOrSlot: targetRound * BigInt(roundSize),
+            offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
+            amount: 1n, // Too low to reach minimum slash unit
+          }),
+        );
+
+        const actions = await tallySlasherClient.getProposerActions(currentSlot);
+        expect(actions).toHaveLength(0);
+      });
     });
 
     describe('execute-slash', () => {
@@ -574,7 +594,7 @@ describe('TallySlasherClient', () => {
     it('should handle from offense detection to execution', async () => {
       // Round 3: Offense occurs
       const offenseRound = 3n;
-      const validator = EthAddress.random();
+      const validator = committee[0];
       const offense: WantToSlashArgs = {
         validator,
         amount: settings.slashingAmounts[1],
