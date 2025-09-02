@@ -91,7 +91,7 @@ void ClientIVCAPI::prove(const Flags& flags,
                          const std::filesystem::path& input_path,
                          const std::filesystem::path& output_dir)
 {
-
+    BB_BENCH_NAME("ClientIVCAPI::prove");
     bbapi::BBApiRequest request;
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
@@ -139,6 +139,7 @@ bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
                           const std::filesystem::path& proof_path,
                           const std::filesystem::path& vk_path)
 {
+    BB_BENCH_NAME("ClientIVCAPI::verify");
     auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
     auto vk_buffer = read_file(vk_path);
     auto response = bbapi::ClientIvcVerify{ .proof = std::move(proof), .vk = std::move(vk_buffer) }.execute();
@@ -160,6 +161,7 @@ bool ClientIVCAPI::prove_and_verify(const std::filesystem::path& input_path)
 
 void ClientIVCAPI::gates(const Flags& flags, const std::filesystem::path& bytecode_path)
 {
+    BB_BENCH_NAME("ClientIVCAPI::gates");
     gate_count_for_ivc(bytecode_path, flags.include_gates_per_opcode);
 }
 
@@ -167,11 +169,13 @@ void ClientIVCAPI::write_solidity_verifier([[maybe_unused]] const Flags& flags,
                                            [[maybe_unused]] const std::filesystem::path& output_path,
                                            [[maybe_unused]] const std::filesystem::path& vk_path)
 {
+    BB_BENCH_NAME("ClientIVCAPI::write_solidity_verifier");
     throw_or_abort("API function contract not implemented");
 }
 
 bool ClientIVCAPI::check_precomputed_vks(const Flags& flags, const std::filesystem::path& input_path)
 {
+    BB_BENCH_NAME("ClientIVCAPI::check_precomputed_vks");
     bbapi::BBApiRequest request;
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
@@ -204,7 +208,7 @@ void ClientIVCAPI::write_vk(const Flags& flags,
                             const std::filesystem::path& bytecode_path,
                             const std::filesystem::path& output_path)
 {
-
+    BB_BENCH_NAME("ClientIVCAPI::write_vk");
     if (flags.verifier_type == "ivc") {
         auto bytecode = get_bytecode(bytecode_path);
         write_civc_vk(flags.output_format, bytecode, output_path);
@@ -226,6 +230,7 @@ bool ClientIVCAPI::check([[maybe_unused]] const Flags& flags,
 
 void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per_opcode)
 {
+    BB_BENCH_NAME("gate_count_for_ivc");
     // All circuit reports will be built into the std::string below
     std::string functions_string = "{\"functions\": [\n  ";
 
@@ -260,7 +265,7 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
 
 void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem::path& output_dir)
 {
-
+    BB_BENCH_NAME("write_arbitrary_valid_client_ivc_proof_and_vk_to_file");
     PrivateFunctionExecutionMockCircuitProducer circuit_producer{ /*num_app_circuits=*/1 };
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
     ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };

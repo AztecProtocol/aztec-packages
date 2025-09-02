@@ -19,7 +19,7 @@ TranslatorProver::TranslatorProver(const std::shared_ptr<TranslatorProvingKey>& 
     : transcript(transcript)
     , key(key)
 {
-    PROFILE_THIS();
+    BB_BENCH();
     if (!key->proving_key->commitment_key.initialized()) {
         key->proving_key->commitment_key = CommitmentKey(key->proving_key->circuit_size);
     }
@@ -216,7 +216,7 @@ HonkProof TranslatorProver::export_proof()
 
 HonkProof TranslatorProver::construct_proof()
 {
-    PROFILE_THIS_NAME("TranslatorProver::construct_proof");
+    BB_BENCH_NAME("TranslatorProver::construct_proof");
 
     // Add circuit size public input size and public inputs to transcript.
     execute_preamble_round();

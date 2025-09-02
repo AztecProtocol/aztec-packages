@@ -279,7 +279,7 @@ class UltraFlavor {
         ProverPolynomials(size_t circuit_size)
         {
 
-            PROFILE_THIS_NAME("creating empty prover polys");
+            BB_BENCH_NAME("creating empty prover polys");
 
             for (auto& poly : get_to_be_shifted()) {
                 poly = Polynomial{ /*memory size*/ circuit_size - 1,
@@ -541,7 +541,7 @@ class UltraFlavor {
         PartiallyEvaluatedMultivariates() = default;
         PartiallyEvaluatedMultivariates(const size_t circuit_size)
         {
-            PROFILE_THIS_NAME("PartiallyEvaluatedMultivariates constructor");
+            BB_BENCH_NAME("PartiallyEvaluatedMultivariates constructor");
 
             // Storage is only needed after the first partial evaluation, hence polynomials of
             // size (n / 2)
@@ -551,7 +551,7 @@ class UltraFlavor {
         }
         PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials, size_t circuit_size)
         {
-            PROFILE_THIS_NAME("PartiallyEvaluatedMultivariates constructor");
+            BB_BENCH_NAME("PartiallyEvaluatedMultivariates constructor");
             for (auto [poly, full_poly] : zip_view(get_all(), full_polynomials.get_all())) {
                 // After the initial sumcheck round, the new size is CEIL(size/2).
                 size_t desired_size = full_poly.end_index() / 2 + full_poly.end_index() % 2;
