@@ -27,15 +27,18 @@ namespace { // anonymous namespace
  *
  * @param bytecode_path
  * @param witness_path
+ * @param use_structured_trace Whether to utilize structured trace when computing VK for circuit
  */
 void write_standalone_vk(const std::string& output_format,
                          const std::filesystem::path& bytecode_path,
-                         const std::filesystem::path& output_path)
+                         const std::filesystem::path& output_path,
+                         bool use_structured_trace = true)
 {
     auto bytecode = get_bytecode(bytecode_path);
+    auto trace_settings = use_structured_trace ? TraceSettings{ AZTEC_TRACE_STRUCTURE } : TraceSettings{};
     auto response = bbapi::ClientIvcComputeStandaloneVk{
         .circuit = { .name = "standalone_circuit", .bytecode = std::move(bytecode) }
-    }.execute();
+    }.execute({ .trace_settings = trace_settings });
 
     bool wrote_file = false;
     bool is_stdout = output_path == "-";
