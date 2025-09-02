@@ -92,8 +92,48 @@ variable "AZTEC_SLASHING_QUORUM" {
   type        = string
 }
 
-variable "AZTEC_SLASHING_ROUND_SIZE" {
-  description = "Aztec slashing round size"
+variable "AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS" {
+  description = "Aztec slashing round size in epochs"
+  type        = string
+}
+
+variable "AZTEC_SLASHING_LIFETIME_IN_ROUNDS" {
+  description = "Aztec slashing lifetime in rounds"
+  type        = string
+}
+
+variable "AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS" {
+  description = "Aztec slashing execution delay in rounds"
+  type        = string
+}
+
+variable "AZTEC_SLASHING_VETOER" {
+  description = "Aztec slashing vetoer address"
+  type        = string
+}
+
+variable "AZTEC_SLASHING_OFFSET_IN_ROUNDS" {
+  description = "Aztec slashing offset in rounds"
+  type        = string
+}
+
+variable "AZTEC_SLASH_AMOUNT_SMALL" {
+  description = "Small slashing amount for light offenses"
+  type        = string
+}
+
+variable "AZTEC_SLASH_AMOUNT_MEDIUM" {
+  description = "Medium slashing amount for moderate offenses"
+  type        = string
+}
+
+variable "AZTEC_SLASH_AMOUNT_LARGE" {
+  description = "Large slashing amount for severe offenses"
+  type        = string
+}
+
+variable "AZTEC_SLASHER_FLAVOR" {
+  description = "Type of slasher proposer (empire, tally, or none)"
   type        = string
 }
 

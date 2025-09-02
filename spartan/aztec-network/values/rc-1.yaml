@@ -9,10 +9,6 @@ aztec:
   realProofs: true
   testAccounts: true
   sponsoredFPC: true
-  slash:
-    pruneEnabled: true
-    inactivityEnabled: true
-    invalidBlockEnabled: true
 
 images:
   aztec:

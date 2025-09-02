@@ -9,6 +9,7 @@ dump_fail "flock scripts/logs/install_deps.lock retry scripts/install_deps.sh >&
 
 function build {
   denoise "helm lint ./aztec-network/"
+  denoise ./spartan/scripts/check_env_vars.sh
 }
 
 function network_shaping {
