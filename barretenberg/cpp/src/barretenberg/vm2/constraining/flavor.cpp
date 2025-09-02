@@ -97,21 +97,4 @@ AvmFlavor::ProvingKey::ProvingKey()
         // The proving key's polynomials are not allocated here because they are later overwritten
         // AvmComposer::compute_witness(). We should probably refactor this flow.
     };
-
-/**
- * @brief Serialize verification key to field elements
- *
- * @return std::vector<FF>
- */
-std::vector<AvmFlavor::FF> AvmFlavor::VerificationKey::to_field_elements() const
-{
-    std::vector<FF> elements;
-
-    for (auto const& comm : get_all()) {
-        std::vector<FF> comm_as_fields = field_conversion::convert_to_bn254_frs(comm);
-        elements.insert(elements.end(), comm_as_fields.begin(), comm_as_fields.end());
-    }
-    return elements;
-}
-
 } // namespace bb::avm2

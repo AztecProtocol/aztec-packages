@@ -56,6 +56,7 @@ ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request
 
     std::shared_ptr<ClientIVC::MegaVerificationKey> precomputed_vk;
     if (!request.loaded_circuit_vk.empty()) {
+        // Deserialize directly from buffer
         precomputed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(request.loaded_circuit_vk);
     }
 
@@ -100,8 +101,8 @@ ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
 ClientIvcVerify::Response ClientIvcVerify::execute(const BBApiRequest& /*request*/) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
-    // Deserialize the verification key from the byte buffer
-    const auto verification_key = from_buffer<ClientIVC::VerificationKey>(vk);
+    // Deserialize the verification key directly from buffer
+    ClientIVC::VerificationKey verification_key = from_buffer<ClientIVC::VerificationKey>(vk);
 
     // Verify the proof using ClientIVC's static verify method
     const bool verified = ClientIVC::verify(proof, verification_key);
@@ -169,12 +170,13 @@ ClientIvcCheckPrecomputedVk::Response ClientIvcCheckPrecomputedVk::execute(const
         throw_or_abort("Missing precomputed VK");
     }
 
+    // Deserialize directly from buffer
     auto precomputed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(circuit.verification_key);
 
     Response response;
     response.valid = true;
     std::string error_message = "Precomputed vk does not match computed vk for function " + circuit.name;
-    if (!msgpack::msgpack_check_eq(*computed_vk, *precomputed_vk, error_message)) {
+    if (*computed_vk != *precomputed_vk) {
         response.valid = false;
         response.actual_vk = to_buffer(computed_vk);
     }
@@ -204,7 +206,7 @@ ClientIvcStats::Response ClientIvcStats::execute(BBApiRequest& request) &&
     builder.finalize_circuit(/*ensure_nonzero=*/true);
 
     // Set response values
-    response.acir_opcodes = static_cast<uint32_t>(program.constraints.num_acir_opcodes);
+    response.acir_opcodes = program.constraints.num_acir_opcodes;
     response.circuit_size = static_cast<uint32_t>(builder.num_gates);
 
     // Optionally include gates per opcode

@@ -17,7 +17,6 @@ class API {
         bool ipa_accumulation{ false };       // indicate whether the command is doing IPA proof aggregation
         std::string scheme;                   // the proving system or IVC scheme
         std::string oracle_hash_type;         // which hash function does the prover use as a random oracle?
-        std::string output_format;            // output bytes, fields, both, or a msgpack buffer of fields
         std::string verifier_type; // is a verification key for use a single circuit verifier (e.g. a SNARK or folding
                                    // recursive verifier) or is it for an ivc verifier?
         bool write_vk{ false };    // should we addditionally write the verification key when writing the proof
@@ -37,7 +36,6 @@ class API {
                << "  ipa_accumulation: " << flags.ipa_accumulation << "\n"
                << "  scheme: " << flags.scheme << "\n"
                << "  oracle_hash_type: " << flags.oracle_hash_type << "\n"
-               << "  output_format: " << flags.output_format << "\n"
                << "  verifier_type: " << flags.verifier_type << "\n"
                << "  write_vk " << flags.write_vk << "\n"
                << "  include_gates_per_opcode " << flags.include_gates_per_opcode << "\n"

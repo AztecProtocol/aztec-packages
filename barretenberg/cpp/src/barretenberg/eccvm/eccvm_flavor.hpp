@@ -789,10 +789,6 @@ class ECCVMFlavor {
      */
     class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
-        // Serialized Verification Key length in fields
-        static constexpr size_t VERIFICATION_KEY_LENGTH =
-            /* 1. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
-
         bool operator==(const VerificationKey&) const = default;
 
         // IPA verification key requires one more point.
@@ -828,26 +824,6 @@ class ECCVMFlavor {
         }
 
         /**
-         * @brief Serialize verification key to field elements
-         *
-         * @return std::vector<FF>
-         */
-        std::vector<fr> to_field_elements() const override
-        {
-            using namespace bb::field_conversion;
-
-            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<fr>& buffer) {
-                std::vector<fr> input_fields = convert_to_bn254_frs<T>(input);
-                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
-            };
-
-            std::vector<fr> elements;
-            for (const Commitment& commitment : this->get_all()) {
-                serialize_to_field_buffer(commitment, elements);
-            }
-            return elements;
-        }
-        /**
          * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
          *
          * @param domain_separator
@@ -861,11 +837,7 @@ class ECCVMFlavor {
         }
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
-        // from MSGPACK and the verification key.
-        // Don't statically check for object completeness.
-        using MSGPACK_NO_STATIC_CHECK = std::true_type;
-        MSGPACK_FIELDS(
-            log_circuit_size, num_public_inputs, pub_inputs_offset, lagrange_first, lagrange_second, lagrange_last);
+        // from the verification key.
     };
 
     /**
@@ -1077,7 +1049,4 @@ class ECCVMFlavor {
                (polynomials.transcript_op[edge_idx] == 0 && polynomials.transcript_op[edge_idx + 1] == 0);
     }
 };
-
-// NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)
-
 } // namespace bb

@@ -82,4 +82,5 @@ template <IsUltraOrMegaHonk Flavor> class DeciderVerificationKey_ {
 
     MSGPACK_FIELDS(vk, relation_parameters, alphas, is_complete, gate_challenges, target_sum, witness_commitments);
 };
+
 } // namespace bb
