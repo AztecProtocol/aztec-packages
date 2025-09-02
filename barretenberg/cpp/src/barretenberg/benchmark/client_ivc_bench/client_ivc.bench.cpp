@@ -6,7 +6,7 @@
 #include <benchmark/benchmark.h>
 
 #include "barretenberg/client_ivc/test_bench_shared.hpp"
-#include "barretenberg/common/op_count_google_bench.hpp"
+#include "barretenberg/common/google_bb_bench.hpp"
 
 using namespace benchmark;
 using namespace bb;

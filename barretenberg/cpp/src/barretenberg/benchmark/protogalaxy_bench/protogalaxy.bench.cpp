@@ -1,6 +1,6 @@
 #include <benchmark/benchmark.h>
 
-#include "barretenberg/common/op_count_google_bench.hpp"
+#include "barretenberg/common/google_bb_bench.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"

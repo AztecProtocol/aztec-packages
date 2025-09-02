@@ -284,7 +284,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
 
     bool print_bench = false;
     const auto add_print_bench_flag = [&](CLI::App* subcommand) {
-        return subcommand->add_flag("--print_bench", print_bench, "Print op counts to json on one line.");
+        return subcommand->add_flag(
+            "--print_bench", print_bench, "Pretty print op counts to standard error in a human-readable format.");
     };
 
     std::string bench_out;

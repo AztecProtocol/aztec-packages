@@ -38,30 +38,11 @@ struct TimeStats;
 struct TimeStatsEntry;
 using OperationKey = std::string_view;
 
-// Contains all statically known op counts
-struct GlobalBenchStatsContainer {
-  public:
-    static inline thread_local TimeStatsEntry* parent = nullptr;
-    ~GlobalBenchStatsContainer();
-    std::mutex mutex;
-    std::vector<TimeStatsEntry*> entries;
-    void print() const;
-    // NOTE: Should be called when other threads aren't active
-    void clear();
-    void add_entry(const char* key, TimeStatsEntry* entry);
-    void print_stats_recursive(const OperationKey& key, const TimeStats* stats, const std::string& indent) const;
-    std::map<OperationKey, std::size_t> get_aggregate_counts() const;
-    void print_aggregate_counts(std::ostream&, size_t) const;
-    void print_aggregate_counts_hierarchical(std::ostream&) const;
-};
-
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-extern GlobalBenchStatsContainer GLOBAL_BENCH_STATS;
-
 struct TimeAndCount {
     uint64_t time = 0;
     uint64_t count = 0;
 };
+
 // Normalized benchmark entry - each represents a unique (function, parent) pair
 struct AggregateEntry {
     // For convenience, even though redundant with map store
@@ -85,8 +66,27 @@ struct AggregateEntry {
 // Empty string is used as key if the entry has no parent.
 using AggregateData = std::map<OperationKey, std::map<OperationKey, AggregateEntry>>;
 
-// Normalize the raw benchmark data into a clean structure for display
-AggregateData aggregate(const std::vector<TimeStatsEntry*>& counts);
+// Contains all statically known op counts
+struct GlobalBenchStatsContainer {
+  public:
+    static inline thread_local TimeStatsEntry* parent = nullptr;
+    ~GlobalBenchStatsContainer();
+    std::mutex mutex;
+    std::vector<TimeStatsEntry*> entries;
+    void print() const;
+    // NOTE: Should be called when other threads aren't active
+    void clear();
+    void add_entry(const char* key, TimeStatsEntry* entry);
+    void print_stats_recursive(const OperationKey& key, const TimeStats* stats, const std::string& indent) const;
+    void print_aggregate_counts(std::ostream&, size_t) const;
+    void print_aggregate_counts_hierarchical(std::ostream&) const;
+
+    // Normalize the raw benchmark data into a clean structure for display
+    AggregateData aggregate() const;
+};
+
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+extern GlobalBenchStatsContainer GLOBAL_BENCH_STATS;
 
 // Tracks operation statistics and links them to their immediate parent context.
 // Each stat is associated only with its direct parent, not the full call hierarchy.

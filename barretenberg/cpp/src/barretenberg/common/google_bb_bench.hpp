@@ -33,15 +33,18 @@ struct GoogleBbBenchReporter {
     ~GoogleBbBenchReporter()
     {
         if (std::getenv("BB_BENCH") != nullptr) {
-            bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts_hierarchical();
+            bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts_hierarchical(std::cerr);
         }
         // Allow for conditional reporting
         if (cancelled) {
             return;
         }
         // Intent: Collect results when we exit the state loop
-        for (auto& entry : bb::detail::GLOBAL_BENCH_STATS.get_aggregate_counts()) {
-            state.counters[entry.first] = static_cast<double>(entry.second);
+        for (auto& [key, parent_map] : bb::detail::GLOBAL_BENCH_STATS.aggregate()) {
+            for (auto& entry : parent_map) {
+                state.counters[std::string(key) + "(s)"] += static_cast<double>(entry.second.time);
+                state.counters[std::string(key)] += static_cast<double>(entry.second.count);
+            }
         }
     }
 };

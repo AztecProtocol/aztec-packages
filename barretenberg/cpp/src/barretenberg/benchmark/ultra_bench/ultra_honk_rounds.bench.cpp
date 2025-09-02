@@ -1,7 +1,7 @@
 #include <benchmark/benchmark.h>
 
 #include "barretenberg/benchmark/ultra_bench/mock_circuits.hpp"
-#include "barretenberg/common/op_count_google_bench.hpp"
+#include "barretenberg/common/google_bb_bench.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"

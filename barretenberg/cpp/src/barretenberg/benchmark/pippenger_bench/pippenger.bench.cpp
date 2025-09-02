@@ -6,7 +6,7 @@
 #include "barretenberg/srs/global_crs.hpp"
 #include <benchmark/benchmark.h>
 
-#include "barretenberg/common/op_count_google_bench.hpp"
+#include "barretenberg/common/google_bb_bench.hpp"
 
 #include <chrono>
 #include <cstdlib>

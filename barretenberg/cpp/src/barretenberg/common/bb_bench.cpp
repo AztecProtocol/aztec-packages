@@ -178,19 +178,18 @@ double AggregateEntry::get_std_dev() const
     // Calculate standard deviation
     if (num_threads > 1) {
         return std::sqrt(time_m2 / static_cast<double>(num_threads - 1));
-    } else {
-        return 0;
     }
+    return 0;
 }
 
 // Normalize the raw benchmark data into a clean structure for display
-AggregateData aggregate(const std::vector<TimeStatsEntry*>& counts)
+AggregateData GlobalBenchStatsContainer::aggregate() const
 {
     AggregateData result;
 
     // Each count has a unique [thread, key] combo.
     // We therefore treat each count as a thread's contribution to that key.
-    for (const TimeStatsEntry* entry : counts) {
+    for (const TimeStatsEntry* entry : entries) {
         // A map from parent key => AggregateEntry
         auto& entry_map = result[entry->key];
         // combine all entries with same parent key
@@ -231,11 +230,11 @@ void GlobalBenchStatsContainer::add_entry(const char* key, TimeStatsEntry* entry
 
 void GlobalBenchStatsContainer::print() const
 {
-    std::cout << "print_op_counts() START" << "\n";
+    std::cout << "GlobalBenchStatsContainer::print() START" << "\n";
     for (const TimeStatsEntry* entry : entries) {
         print_stats_recursive(entry->key, &entry->count, "");
     }
-    std::cout << "print_op_counts() END" << "\n";
+    std::cout << "GlobalBenchStatsContainer::print() END" << "\n";
 }
 
 void GlobalBenchStatsContainer::print_stats_recursive(const OperationKey& key,
@@ -258,7 +257,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts(std::ostream& os, size_t 
 {
     os << '{';
     bool first = true;
-    for (const auto& [key, entry_map] : aggregate(entries)) {
+    for (const auto& [key, entry_map] : aggregate()) {
         // Loop for a flattened view
         uint64_t time = 0;
         for (auto& [parent_key, entry] : entry_map) {
@@ -282,7 +281,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts(std::ostream& os, size_t 
 
 void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream& os) const
 {
-    AggregateData aggregated = aggregate(entries);
+    AggregateData aggregated = aggregate();
 
     if (aggregated.empty()) {
         os << "No benchmark data collected\n";
