@@ -103,9 +103,8 @@ describe('AVM Integration', () => {
   });
 
   it('Should generate and verify an ultra honk proof from an AVM verification of the bulk test', async () => {
-    const avmSimulationResult = await bulkTest(simTester, logger, AvmTestContractArtifact, (b: boolean) =>
-      expect(b).toBe(true),
-    );
+    const avmSimulationResult = await bulkTest(simTester, logger, AvmTestContractArtifact);
+    expect(avmSimulationResult.revertCode.isOK()).toBe(true);
     const avmCircuitInputs = avmSimulationResult.avmProvingRequest.inputs;
 
     await proveMockPublicBaseRollup(
