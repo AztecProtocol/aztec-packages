@@ -248,6 +248,7 @@ void TranslatorProvingKey::compute_lagrange_polynomials()
 
     // Location of randomness for wires defined within the mini circuit
     for (size_t i = dyadic_mini_circuit_size_without_masking; i < mini_circuit_dyadic_size; i++) {
+        proving_key->polynomials.lagrange_mini_masking.at(i - dyadic_mini_circuit_size_without_masking) = 1;
         proving_key->polynomials.lagrange_mini_masking.at(i) = 1;
     }
 

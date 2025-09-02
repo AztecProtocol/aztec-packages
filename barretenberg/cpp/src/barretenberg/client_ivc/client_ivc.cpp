@@ -268,16 +268,9 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     pairing_points.aggregate(nested_pairing_points);
     if (is_hiding_kernel) {
         pairing_points.aggregate(decider_pairing_points);
-<<<<<<< HEAD
-        // Placeholder for randomness (will be removed)
-        circuit.queue_ecc_random_op();
-        circuit.queue_ecc_random_op();
-        info("num ops in hiding kernel ", circuit.op_queue->get_unmerged_subtable_size());
-=======
         // Placeholder for randomness at the end of the hiding circuit
         circuit.queue_ecc_random_op();
         circuit.queue_ecc_random_op();
->>>>>>> mm/fix-op-queue
     }
 
     return { output_verifier_accumulator, pairing_points, merged_table_commitments };
