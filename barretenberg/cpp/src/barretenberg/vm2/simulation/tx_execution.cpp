@@ -83,35 +83,39 @@ void TxExecution::simulate(const Tx& tx)
     insert_non_revertibles(tx);
 
     // Setup.
-    for (const auto& call : tx.setupEnqueuedCalls) {
-        info("[SETUP] Executing enqueued call to ", call.request.contractAddress);
-        TxContextEvent state_before = tx_context.serialize_tx_context_event();
-        Gas start_gas = tx_context.gas_used;
-        auto context = context_provider.make_enqueued_context(call.request.contractAddress,
-                                                              call.request.msgSender,
-                                                              /*transaction_fee=*/FF(0),
-                                                              call.calldata,
-                                                              call.request.isStaticCall,
-                                                              gas_limit,
-                                                              start_gas,
-                                                              tx_context.side_effect_states,
-                                                              TransactionPhase::SETUP);
-        // This call should not throw unless it's an unexpected unrecoverable failure.
-        ExecutionResult result = call_execution.execute(std::move(context));
-        tx_context.side_effect_states = result.side_effect_states;
-        tx_context.gas_used = result.gas_used;
-        emit_public_call_request(call,
-                                 TransactionPhase::SETUP,
-                                 /*transaction_fee=*/FF(0),
-                                 result.success,
-                                 start_gas,
-                                 tx_context.gas_used,
-                                 state_before,
-                                 tx_context.serialize_tx_context_event());
-        if (!result.success) {
-            // This will result in an unprovable tx.
-            throw TxExecutionException(
-                format("[SETUP] UNRECOVERABLE ERROR! Enqueued call to ", call.request.contractAddress, " failed"));
+    if (tx.setupEnqueuedCalls.empty()) {
+        emit_empty_phase(TransactionPhase::SETUP);
+    } else {
+        for (const auto& call : tx.setupEnqueuedCalls) {
+            info("[SETUP] Executing enqueued call to ", call.request.contractAddress);
+            TxContextEvent state_before = tx_context.serialize_tx_context_event();
+            Gas start_gas = tx_context.gas_used;
+            auto context = context_provider.make_enqueued_context(call.request.contractAddress,
+                                                                  call.request.msgSender,
+                                                                  /*transaction_fee=*/FF(0),
+                                                                  call.calldata,
+                                                                  call.request.isStaticCall,
+                                                                  gas_limit,
+                                                                  start_gas,
+                                                                  tx_context.side_effect_states,
+                                                                  TransactionPhase::SETUP);
+            // This call should not throw unless it's an unexpected unrecoverable failure.
+            ExecutionResult result = call_execution.execute(std::move(context));
+            tx_context.side_effect_states = result.side_effect_states;
+            tx_context.gas_used = result.gas_used;
+            emit_public_call_request(call,
+                                     TransactionPhase::SETUP,
+                                     /*transaction_fee=*/FF(0),
+                                     result.success,
+                                     start_gas,
+                                     tx_context.gas_used,
+                                     state_before,
+                                     tx_context.serialize_tx_context_event());
+            if (!result.success) {
+                // This will result in an unprovable tx.
+                throw TxExecutionException(
+                    format("[SETUP] UNRECOVERABLE ERROR! Enqueued call to ", call.request.contractAddress, " failed"));
+            }
         }
     }
     SideEffectStates end_setup_side_effect_states = tx_context.side_effect_states;
@@ -125,35 +129,39 @@ void TxExecution::simulate(const Tx& tx)
         insert_revertibles(tx);
 
         // App logic.
-        for (const auto& call : tx.appLogicEnqueuedCalls) {
-            info("[APP_LOGIC] Executing enqueued call to ", call.request.contractAddress);
-            TxContextEvent state_before = tx_context.serialize_tx_context_event();
-            Gas start_gas = tx_context.gas_used;
-            auto context = context_provider.make_enqueued_context(call.request.contractAddress,
-                                                                  call.request.msgSender,
-                                                                  /*transaction_fee=*/FF(0),
-                                                                  call.calldata,
-                                                                  call.request.isStaticCall,
-                                                                  gas_limit,
-                                                                  start_gas,
-                                                                  tx_context.side_effect_states,
-                                                                  TransactionPhase::APP_LOGIC);
-            // This call should not throw unless it's an unexpected unrecoverable failure.
-            ExecutionResult result = call_execution.execute(std::move(context));
-            tx_context.side_effect_states = result.side_effect_states;
-            tx_context.gas_used = result.gas_used;
-            emit_public_call_request(call,
-                                     TransactionPhase::APP_LOGIC,
-                                     /*transaction_fee=*/FF(0),
-                                     result.success,
-                                     start_gas,
-                                     tx_context.gas_used,
-                                     state_before,
-                                     tx_context.serialize_tx_context_event());
-            if (!result.success) {
-                // This exception should be handled and the tx be provable.
-                throw TxExecutionException(
-                    format("[APP_LOGIC] Enqueued call to ", call.request.contractAddress, " failed"));
+        if (tx.appLogicEnqueuedCalls.empty()) {
+            emit_empty_phase(TransactionPhase::APP_LOGIC);
+        } else {
+            for (const auto& call : tx.appLogicEnqueuedCalls) {
+                info("[APP_LOGIC] Executing enqueued call to ", call.request.contractAddress);
+                TxContextEvent state_before = tx_context.serialize_tx_context_event();
+                Gas start_gas = tx_context.gas_used;
+                auto context = context_provider.make_enqueued_context(call.request.contractAddress,
+                                                                      call.request.msgSender,
+                                                                      /*transaction_fee=*/FF(0),
+                                                                      call.calldata,
+                                                                      call.request.isStaticCall,
+                                                                      gas_limit,
+                                                                      start_gas,
+                                                                      tx_context.side_effect_states,
+                                                                      TransactionPhase::APP_LOGIC);
+                // This call should not throw unless it's an unexpected unrecoverable failure.
+                ExecutionResult result = call_execution.execute(std::move(context));
+                tx_context.side_effect_states = result.side_effect_states;
+                tx_context.gas_used = result.gas_used;
+                emit_public_call_request(call,
+                                         TransactionPhase::APP_LOGIC,
+                                         /*transaction_fee=*/FF(0),
+                                         result.success,
+                                         start_gas,
+                                         tx_context.gas_used,
+                                         state_before,
+                                         tx_context.serialize_tx_context_event());
+                if (!result.success) {
+                    // This exception should be handled and the tx be provable.
+                    throw TxExecutionException(
+                        format("[APP_LOGIC] Enqueued call to ", call.request.contractAddress, " failed"));
+                }
             }
         }
     } catch (const TxExecutionException& e) {
@@ -175,7 +183,9 @@ void TxExecution::simulate(const Tx& tx)
 
     // Teardown.
     try {
-        if (tx.teardownEnqueuedCall) {
+        if (!tx.teardownEnqueuedCall) {
+            emit_empty_phase(TransactionPhase::TEARDOWN);
+        } else {
             info("[TEARDOWN] Executing enqueued call to ", tx.teardownEnqueuedCall->request.contractAddress);
             // Teardown has its own gas limit and usage.
             Gas start_gas = { 0, 0 };
@@ -334,18 +344,30 @@ void TxExecution::insert_non_revertibles(const Tx& tx)
          tx.hash);
 
     // 1. Write the already siloed nullifiers.
-    for (const auto& nullifier : tx.nonRevertibleAccumulatedData.nullifiers) {
-        emit_nullifier(false, nullifier);
+    if (tx.nonRevertibleAccumulatedData.nullifiers.empty()) {
+        emit_empty_phase(TransactionPhase::NR_NULLIFIER_INSERTION);
+    } else {
+        for (const auto& nullifier : tx.nonRevertibleAccumulatedData.nullifiers) {
+            emit_nullifier(false, nullifier);
+        }
     }
 
     // 2. Write already unique note hashes.
-    for (const auto& unique_note_hash : tx.nonRevertibleAccumulatedData.noteHashes) {
-        emit_note_hash(false, unique_note_hash);
+    if (tx.nonRevertibleAccumulatedData.noteHashes.empty()) {
+        emit_empty_phase(TransactionPhase::NR_NOTE_INSERTION);
+    } else {
+        for (const auto& unique_note_hash : tx.nonRevertibleAccumulatedData.noteHashes) {
+            emit_note_hash(false, unique_note_hash);
+        }
     }
 
     // 3. Write l2_l1 messages
-    for (const auto& l2_to_l1_msg : tx.nonRevertibleAccumulatedData.l2ToL1Messages) {
-        emit_l2_to_l1_message(false, l2_to_l1_msg);
+    if (tx.nonRevertibleAccumulatedData.l2ToL1Messages.empty()) {
+        emit_empty_phase(TransactionPhase::NR_L2_TO_L1_MESSAGE);
+    } else {
+        for (const auto& l2_to_l1_msg : tx.nonRevertibleAccumulatedData.l2ToL1Messages) {
+            emit_l2_to_l1_message(false, l2_to_l1_msg);
+        }
     }
 }
 
@@ -362,18 +384,30 @@ void TxExecution::insert_revertibles(const Tx& tx)
          tx.hash);
 
     // 1. Write the already siloed nullifiers.
-    for (const auto& siloed_nullifier : tx.revertibleAccumulatedData.nullifiers) {
-        emit_nullifier(true, siloed_nullifier);
+    if (tx.revertibleAccumulatedData.nullifiers.empty()) {
+        emit_empty_phase(TransactionPhase::R_NULLIFIER_INSERTION);
+    } else {
+        for (const auto& siloed_nullifier : tx.revertibleAccumulatedData.nullifiers) {
+            emit_nullifier(true, siloed_nullifier);
+        }
     }
 
     // 2. Write the siloed non uniqued note hashes
-    for (const auto& siloed_note_hash : tx.revertibleAccumulatedData.noteHashes) {
-        emit_note_hash(true, siloed_note_hash);
+    if (tx.revertibleAccumulatedData.noteHashes.empty()) {
+        emit_empty_phase(TransactionPhase::R_NOTE_INSERTION);
+    } else {
+        for (const auto& siloed_note_hash : tx.revertibleAccumulatedData.noteHashes) {
+            emit_note_hash(true, siloed_note_hash);
+        }
     }
 
     // 3. Write L2 to L1 messages.
-    for (const auto& l2_to_l1_msg : tx.revertibleAccumulatedData.l2ToL1Messages) {
-        emit_l2_to_l1_message(true, l2_to_l1_msg);
+    if (tx.revertibleAccumulatedData.l2ToL1Messages.empty()) {
+        emit_empty_phase(TransactionPhase::R_L2_TO_L1_MESSAGE);
+    } else {
+        for (const auto& l2_to_l1_msg : tx.revertibleAccumulatedData.l2ToL1Messages) {
+            emit_l2_to_l1_message(true, l2_to_l1_msg);
+        }
     }
 }
 
@@ -424,6 +458,16 @@ void TxExecution::cleanup()
                               .state_before = tx_context.serialize_tx_context_event(),
                               .state_after = tx_context.serialize_tx_context_event(),
                               .event = CleanupEvent{} });
+}
+
+void TxExecution::emit_empty_phase(TransactionPhase phase)
+{
+    TxContextEvent current_state = tx_context.serialize_tx_context_event();
+    events.emit(TxPhaseEvent{ .phase = phase,
+                              .state_before = current_state,
+                              .state_after = current_state,
+                              .reverted = false,
+                              .event = EmptyPhaseEvent{} });
 }
 
 } // namespace bb::avm2::simulation

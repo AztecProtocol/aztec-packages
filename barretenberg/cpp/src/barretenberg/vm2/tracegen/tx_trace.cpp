@@ -28,7 +28,7 @@ template <class... Ts> struct overloaded : Ts... {
 // explicit deduction guide (not needed as of C++20)
 template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
-constexpr size_t NUM_PHASES = 12; // See TransactionPhase enum
+constexpr size_t NUM_PHASES = static_cast<size_t>(TransactionPhase::LAST);
 
 bool is_revertible(TransactionPhase phase)
 {
@@ -529,7 +529,6 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
 
     // This is the tree state we will use during the "skipped" phases
     TxContextEvent propagated_state = startup_event_data.state;
-    TxContextEvent end_setup_snapshot = startup_event_data.state;
     // Used to track the gas limit for the "padded" phases.
     Gas current_gas_limit = startup_event_data.gas_limit;
     Gas teardown_gas_limit = startup_event_data.teardown_gas_limit;
@@ -538,6 +537,12 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
     // Go through each phase except startup and process the events in the phase
     for (uint32_t i = 0; i < NUM_PHASES; i++) {
         const auto& phase_events = phase_buckets[i];
+        if (phase_events.empty()) {
+            // There will be no events for a phase if it is skipped (jumped over) due to a revert.
+            // This is different from a phase that has an EmptyPhaseEvent, which is a phase that has no contents to
+            // process, like when app logic starts but has no enqueued calls.
+            continue;
+        }
 
         TransactionPhase phase = phase_array[i];
 
@@ -555,24 +560,6 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             current_gas_limit = teardown_gas_limit;
         }
 
-        if (phase_events.empty()) {
-            trace.set(row, insert_state(propagated_state, propagated_state));
-            trace.set(row, handle_padded_row(phase, gas_used, discard));
-            trace.set(row, handle_pi_read(phase, /*phase_length=*/0, /*read_counter*/ 0));
-            trace.set(row, handle_prev_gas_used(gas_used));
-            trace.set(row, handle_next_gas_used(gas_used));
-            trace.set(row, handle_gas_limit(current_gas_limit));
-            trace.set(row, handle_state_change_selectors(phase));
-            if (row == 1) {
-                trace.set(row, handle_first_row());
-            }
-            if (phase == TransactionPhase::SETUP) {
-                // If setup is empty, the end-setup-snapshot should just be current/propagated state
-                end_setup_snapshot = propagated_state;
-            }
-            row++;
-            continue;
-        }
         // Count the number of steps in this phase
         uint32_t phase_counter = 0;
         uint32_t phase_length = static_cast<uint32_t>(phase_events.size());
@@ -591,7 +578,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
                     { C::tx_discard, discard ? 1 : 0 },
                     { C::tx_phase_value, static_cast<uint8_t>(tx_phase_event->phase) },
                     { Column::tx_setup_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
-                    { C::tx_is_padded, 0 },
+                    { C::tx_is_padded, 0 }, // overidden below if this is a skipped phase event
                     { C::tx_start_phase, phase_counter == 0 ? 1 : 0 },
                     { C::tx_sel_read_phase_length, phase_counter == 0 && !is_one_shot_phase(tx_phase_event->phase) },
                     { C::tx_is_revertible, is_revertible(tx_phase_event->phase) ? 1 : 0 },
@@ -640,40 +627,23 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
                             [&](const simulation::CleanupEvent&) {
                                 trace.set(row, handle_pi_read(tx_phase_event->phase, 1, 0));
                                 trace.set(row, handle_cleanup());
+                            },
+                            [&](const simulation::EmptyPhaseEvent&) {
+                                // EmptyPhaseEvent represents a phase that is not explicitly skipped because of a
+                                // revert, but just has no contents to process, like when app logic starts but has no
+                                // enqueued calls.
+                                trace.set(row, handle_pi_read(tx_phase_event->phase, 0, 0));
+                                trace.set(row, handle_padded_row(tx_phase_event->phase, gas_used, discard));
                             } },
                 tx_phase_event->event);
             trace.set(row, handle_next_gas_used(gas_used));
             trace.set(row, handle_gas_limit(current_gas_limit));
 
-            // Handle a potential phase jump due to a revert, we dont need to check if we are in a revertible phase
-            // since our witgen will have exited for any reverts in a non-revertible phase.
-            // If we revert in a phase that isnt TEARDOWN, we jump to TEARDOWN
-            if (tx_phase_event->reverted && tx_phase_event->phase != TransactionPhase::TEARDOWN) {
-                // Jump to the TEARDOWN phase
-                // we need to -2 because of the loop increment and because the enum is 1-indexed
-                i = static_cast<uint8_t>(TransactionPhase::TEARDOWN) - 2;
-            }
             phase_counter++;
             row++;
         }
         // In case we encounter another skip row
         propagated_state = phase_events.back()->state_after;
-
-        if (phase == TransactionPhase::SETUP) {
-            // Store off the state at the end of setup to rollback to later on revert
-            end_setup_snapshot = phase_events.back()->state_after;
-        }
-        if (phase_events.back()->reverted) {
-            // On revert, roll back to end-setup-snapshot
-            // Even though tx-execution events should already do this,
-            // we need to update propagated state here so that any padded rows
-            // get the correct rolled-back state rather then the pre-rollback state.
-            propagated_state.tree_states = end_setup_snapshot.tree_states;
-            propagated_state.written_public_data_slots_tree_snapshot =
-                end_setup_snapshot.written_public_data_slots_tree_snapshot;
-            propagated_state.side_effect_states = end_setup_snapshot.side_effect_states;
-            // Note: we only rollback tree/side-effect states, not gas used or next_context_id.
-        }
     }
 }
 

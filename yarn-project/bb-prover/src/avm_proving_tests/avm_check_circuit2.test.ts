@@ -69,6 +69,34 @@ describe('AVM check-circuit – unhappy paths 2', () => {
     );
   });
 
+  it('error during revertible insertions - skips to teardown', async () => {
+    await tester.simProveVerify(
+      sender,
+      /*setupCalls=*/ [],
+      /*appCalls=*/ [
+        {
+          address: avmTestContractInstance.address,
+          fnName: 'add_args_return',
+          args: [new Fr(1), new Fr(2)],
+          contractArtifact: AvmTestContractArtifact,
+        },
+      ],
+      /*teardownCall=*/ {
+        address: avmTestContractInstance.address,
+        fnName: 'add_args_return',
+        args: [new Fr(1), new Fr(2)],
+        contractArtifact: AvmTestContractArtifact,
+      },
+      /*expectRevert=*/ true,
+      /*feePayer=*/ sender,
+      // duplicate nullifiers during revertible insertions!
+      /*privateInsertions=*/ {
+        revertible: { nullifiers: [new Fr(100_000), /*duplicate*/ new Fr(100_000)] },
+        nonRevertible: { nullifiers: [/*firstNullifier=*/ new Fr(66000)] },
+      },
+    );
+  });
+
   it(
     'enqueued calls in every phase, with enqueued calls that depend on each other',
     async () => {
