@@ -395,7 +395,7 @@ impl FixtureBuilder {
     pub fn to_block_constant_data(self) -> BlockConstantData {
         BlockConstantData {
             last_archive: self.archive_tree,
-            last_l1_to_l2: self.start_snapshots.l1_to_l2_message_tree,
+            new_l1_to_l2: self.start_snapshots.l1_to_l2_message_tree,
             vk_tree_root: self.vk_tree_root,
             protocol_contract_tree_root: self.protocol_contract_tree_root,
             global_variables: self.global_variables,

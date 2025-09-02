@@ -1,4 +1,4 @@
-import { Fr, type Logger, generateClaimSecret, retryUntil } from '@aztec/aztec.js';
+import { Fr, type Logger, TxStatus, generateClaimSecret, retryUntil } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
@@ -76,6 +76,18 @@ describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
 
     const provenBlockNumber = await context.aztecNode.getProvenBlockNumber();
     expect(provenBlockNumber).toBeGreaterThanOrEqual(txReceipt.blockNumber!);
+
+    // Should not be able to consume the message again.
+    const failedReceipt = await testContract.methods
+      .consume_message_from_arbitrary_sender_public(
+        message.content,
+        secret,
+        EthAddress.fromString(context.deployL1ContractsValues.l1Client.account.address),
+        globalLeafIndex.toBigInt(),
+      )
+      .send({ from: context.accounts[0] })
+      .wait({ dontThrowOnRevert: true });
+    expect(failedReceipt.status).toBe(TxStatus.APP_LOGIC_REVERTED);
 
     logger.info(`Test succeeded`);
   });
