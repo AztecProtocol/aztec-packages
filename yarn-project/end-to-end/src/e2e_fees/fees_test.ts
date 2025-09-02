@@ -9,7 +9,6 @@ import {
   sleep,
 } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec/testing';
-import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import { type DeployL1ContractsArgs, RollupContract, createExtendedL1Client } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -158,10 +157,13 @@ export class FeesTest {
     return { sequencerBlockRewards, proverBlockRewards };
   }
 
-  async mintAndBridgeFeeJuice(minter: AztecAddress, recipient: AztecAddress, amount: bigint) {
-    const claim = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(amount, recipient);
+  async mintAndBridgeFeeJuice(minter: AztecAddress, recipient: AztecAddress) {
+    const claim = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(recipient);
     const { claimSecret: secret, messageLeafIndex: index } = claim;
-    await this.feeJuiceContract.methods.claim(recipient, amount, secret, index).send({ from: minter }).wait();
+    await this.feeJuiceContract.methods
+      .claim(recipient, claim.claimAmount, secret, index)
+      .send({ from: minter })
+      .wait();
   }
 
   /** Alice mints bananaCoin tokens privately to the target address and redeems them. */
@@ -287,11 +289,7 @@ export class FeesTest {
 
         this.logger.info(`BananaPay deployed at ${bananaFPC.address}`);
 
-        await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(
-          FEE_FUNDING_FOR_TESTER_ACCOUNT,
-          bananaFPC.address,
-          this.aliceAddress,
-        );
+        await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(bananaFPC.address, this.aliceAddress);
 
         return {
           bananaFPCAddress: bananaFPC.address,

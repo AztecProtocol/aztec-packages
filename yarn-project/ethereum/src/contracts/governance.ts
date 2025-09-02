@@ -136,9 +136,12 @@ export class GovernanceContract extends ReadOnlyGovernanceContract {
   protected override readonly governanceContract: GetContractReturnType<typeof GovernanceAbi, ExtendedViemWalletClient>;
 
   constructor(
-    address: Hex,
+    address: Hex | EthAddress,
     public override readonly client: ExtendedViemWalletClient,
   ) {
+    if (address instanceof EthAddress) {
+      address = address.toString();
+    }
     super(address, client);
     if (!isExtendedClient(client)) {
       throw new Error('GovernanceContract has to be instantiated with a wallet client.');

@@ -92,7 +92,7 @@ export class EpochsTestContext {
       : DEFAULT_L1_BLOCK_TIME;
     const ethereumSlotDuration = opts.ethereumSlotDuration ?? envEthereumSlotDuration;
     const aztecSlotDuration = opts.aztecSlotDuration ?? ethereumSlotDuration * 2;
-    const aztecEpochDuration = opts.aztecEpochDuration ?? 4;
+    const aztecEpochDuration = opts.aztecEpochDuration ?? 6;
     const aztecProofSubmissionEpochs = opts.aztecProofSubmissionEpochs ?? 1;
     return { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionEpochs };
   }
@@ -278,7 +278,12 @@ export class EpochsTestContext {
   public async waitUntilEpochStarts(epoch: number) {
     const [start] = getTimestampRangeForEpoch(BigInt(epoch), this.constants);
     this.logger.info(`Waiting until L1 timestamp ${start} is reached as the start of epoch ${epoch}`);
-    await waitUntilL1Timestamp(this.l1Client, start - BigInt(this.L1_BLOCK_TIME_IN_S));
+    await waitUntilL1Timestamp(
+      this.l1Client,
+      start - BigInt(this.L1_BLOCK_TIME_IN_S),
+      undefined,
+      30 * this.epochDuration,
+    );
     return start;
   }
 

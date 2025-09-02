@@ -1,6 +1,6 @@
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
-import type { EthAddress } from '@aztec/foundation/eth-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 import type { TestDateProvider } from '@aztec/foundation/timer';
@@ -112,13 +112,18 @@ export class EthCheatCodes {
    * @param account - The account to set the balance for
    * @param balance - The balance to set
    */
-  public async setBalance(account: EthAddress, balance: bigint): Promise<void> {
+  public async setBalance(account: EthAddress | Hex, balance: bigint): Promise<void> {
     try {
       await this.rpcCall('anvil_setBalance', [account.toString(), toHex(balance)]);
     } catch (err) {
       throw new Error(`Error setting balance for ${account}: ${err}`);
     }
     this.logger.warn(`Set balance for ${account} to ${balance}`);
+  }
+
+  public async getBalance(account: EthAddress | Hex): Promise<bigint> {
+    const res = await this.rpcCall('eth_getBalance', [account.toString(), 'latest']);
+    return BigInt(res);
   }
 
   /**
@@ -300,6 +305,11 @@ export class EthCheatCodes {
    */
   public async startImpersonating(who: EthAddress | Hex): Promise<void> {
     try {
+      // Since the `who` impersonated will sometimes be a contract without funds, we fund it if needed.
+      if ((await this.getBalance(who)) === 0n) {
+        await this.setBalance(who, 10n * 10n ** 18n);
+      }
+
       await this.rpcCall('hardhat_impersonateAccount', [who.toString()]);
     } catch (err) {
       throw new Error(`Error impersonating ${who}: ${err}`);

@@ -16,7 +16,6 @@ import {
   createLogger,
 } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec/testing';
-import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import { type DeployL1ContractsArgs, RollupContract, createExtendedL1Client, deployL1Contract } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -155,10 +154,13 @@ export class ClientFlowsBenchmark {
     await this.snapshotManager.teardown();
   }
 
-  async mintAndBridgeFeeJuice(address: AztecAddress, amount: bigint) {
-    const claim = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(amount, address);
+  async mintAndBridgeFeeJuice(address: AztecAddress) {
+    const claim = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(address);
     const { claimSecret: secret, messageLeafIndex: index } = claim;
-    await this.feeJuiceContract.methods.claim(address, amount, secret, index).send({ from: this.adminAddress }).wait();
+    await this.feeJuiceContract.methods
+      .claim(address, claim.claimAmount, secret, index)
+      .send({ from: this.adminAddress })
+      .wait();
   }
 
   /** Admin mints bananaCoin tokens privately to the target address and redeems them. */
@@ -304,11 +306,7 @@ export class ClientFlowsBenchmark {
 
         this.logger.info(`BananaPay deployed at ${bananaFPC.address}`);
 
-        await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(
-          FEE_FUNDING_FOR_TESTER_ACCOUNT,
-          bananaFPC.address,
-          this.adminAddress,
-        );
+        await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(bananaFPC.address, this.adminAddress);
 
         return { bananaFPCAddress: bananaFPC.address };
       },
@@ -361,10 +359,7 @@ export class ClientFlowsBenchmark {
     const benchysAccountManager = await this.createBenchmarkingAccountManager(this.pxe, accountType);
     const benchysWallet = await benchysAccountManager.getWallet();
     const benchysAddress = benchysAccountManager.getAddress();
-    const claim = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(
-      FEE_FUNDING_FOR_TESTER_ACCOUNT,
-      benchysAddress,
-    );
+    const claim = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(benchysAddress);
     const paymentMethod = new FeeJuicePaymentMethodWithClaim(benchysWallet, claim);
     await benchysAccountManager.deploy({ fee: { paymentMethod } }).wait();
     // Register benchy on the user's PXE, where we're going to be interacting from
@@ -409,10 +404,7 @@ export class ClientFlowsBenchmark {
   }
 
   public async getBridgedFeeJuicePaymentMethodForWallet(wallet: Wallet) {
-    const claim = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(
-      FEE_FUNDING_FOR_TESTER_ACCOUNT,
-      wallet.getAddress(),
-    );
+    const claim = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(wallet.getAddress());
     return new FeeJuicePaymentMethodWithClaim(wallet, claim);
   }
 

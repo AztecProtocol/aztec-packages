@@ -38,7 +38,7 @@ describe('e2e_epochs/epochs_empty_blocks', () => {
     const blockNumberAtEndOfEpoch0 = Number(await rollup.getBlockNumber());
     logger.info(`Starting epoch 1 after L2 block ${blockNumberAtEndOfEpoch0}`);
 
-    await test.waitUntilProvenL2BlockNumber(blockNumberAtEndOfEpoch0, 120);
+    await test.waitUntilProvenL2BlockNumber(blockNumberAtEndOfEpoch0, 240);
     expect(monitor.l2BlockNumber).toEqual(blockNumberAtEndOfEpoch0);
     logger.info(`Test succeeded`);
   });
@@ -62,7 +62,7 @@ describe('e2e_epochs/epochs_empty_blocks', () => {
       logger.info(
         `Reached PENDING L2 block ${epochTargetBlockNumber}, proving should now start, waiting for PROVEN block to reach ${provenBlockNumber}`,
       );
-      await test.waitUntilProvenL2BlockNumber(provenBlockNumber, 120);
+      await test.waitUntilProvenL2BlockNumber(provenBlockNumber, 240);
       expect(Number(await rollup.getProvenBlockNumber())).toBeGreaterThanOrEqual(provenBlockNumber);
       logger.info(`Reached PROVEN block number ${provenBlockNumber}, epoch ${epochNumber} is now proven`);
       epochNumber++;

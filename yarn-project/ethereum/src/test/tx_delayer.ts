@@ -18,7 +18,12 @@ import {
 
 import { type ViemClient, isExtendedClient } from '../types.js';
 
-export function waitUntilBlock<T extends Client>(client: T, blockNumber: number | bigint, logger?: Logger) {
+export function waitUntilBlock<T extends Client>(
+  client: T,
+  blockNumber: number | bigint,
+  logger?: Logger,
+  timeout?: number,
+) {
   const publicClient =
     'getBlockNumber' in client && typeof client.getBlockNumber === 'function'
       ? (client as unknown as PublicClient)
@@ -31,12 +36,17 @@ export function waitUntilBlock<T extends Client>(client: T, blockNumber: number 
       return currentBlockNumber >= BigInt(blockNumber);
     },
     `Wait until L1 block ${blockNumber}`,
-    120,
+    timeout ?? 120,
     0.1,
   );
 }
 
-export function waitUntilL1Timestamp<T extends Client>(client: T, timestamp: number | bigint, logger?: Logger) {
+export function waitUntilL1Timestamp<T extends Client>(
+  client: T,
+  timestamp: number | bigint,
+  logger?: Logger,
+  timeout?: number,
+) {
   const publicClient =
     'getBlockNumber' in client && typeof client.getBlockNumber === 'function'
       ? (client as unknown as PublicClient)
@@ -56,7 +66,7 @@ export function waitUntilL1Timestamp<T extends Client>(client: T, timestamp: num
       return currentTs >= BigInt(timestamp);
     },
     `Wait until L1 timestamp ${timestamp}`,
-    120,
+    timeout ?? 120,
     0.1,
   );
 }

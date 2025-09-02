@@ -10,6 +10,9 @@ import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { createEthereumChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';
 import { DefaultL1ContractsConfig } from './config.js';
+import { GovernanceContract } from './contracts/governance.js';
+import { GSEContract } from './contracts/gse.js';
+import { RegistryContract } from './contracts/registry.js';
 import { RollupContract } from './contracts/rollup.js';
 import { type DeployL1ContractsArgs, type Operator, deployL1Contracts } from './deploy_l1_contracts.js';
 import { startAnvil } from './test/start_anvil.js';
@@ -159,4 +162,99 @@ describe('deploy_l1_contracts', () => {
       BigInt(initialValidators.length),
     );
   });
+
+  it('ensure governance is the owner', async () => {
+    // Runs the deployment script and checks if we have handed over things correctly to the governance.
+
+    const deployment = await deployL1Contracts(
+      [rpcUrl!],
+      privateKey,
+      createEthereumChain([rpcUrl!], chainId).chainInfo,
+      logger,
+      {
+        ...DefaultL1ContractsConfig,
+        salt: undefined,
+        vkTreeRoot,
+        protocolContractTreeRoot,
+        genesisArchiveRoot,
+        l1TxConfig: { checkIntervalMs: 100 },
+        realVerifier: false,
+      },
+    );
+
+    const governance = new GovernanceContract(deployment.l1ContractAddresses.governanceAddress, client);
+    const registry = new RegistryContract(client, deployment.l1ContractAddresses.registryAddress);
+    const rollup = new RollupContract(client, deployment.l1ContractAddresses.rollupAddress);
+    const gse = new GSEContract(client, await rollup.getGSE());
+
+    // Checking the shared
+    expect(await registry.getOwner()).toEqual(governance.address);
+    expect(await gse.getOwner()).toEqual(governance.address);
+    expect(await gse.getGovernance()).toEqual(governance.address);
+    expect(await getOwner(deployment.l1ContractAddresses.rewardDistributorAddress, 'REGISTRY')).toEqual(
+      registry.address,
+    );
+    expect(await getOwner(deployment.l1ContractAddresses.coinIssuerAddress)).toEqual(governance.address);
+
+    expect(await getOwner(deployment.l1ContractAddresses.feeJuiceAddress)).toEqual(
+      deployment.l1ContractAddresses.coinIssuerAddress,
+    );
+
+    // The rollup contract should be owned by the governance contract as well.
+    expect(await getOwner(EthAddress.fromString(rollup.address))).toEqual(governance.address);
+
+    // Make sure that the fee asset handler is the minter of the fee asset.
+    expect(
+      await isMinter(
+        deployment.l1ContractAddresses.feeJuiceAddress,
+        deployment.l1ContractAddresses.feeAssetHandlerAddress!,
+      ),
+    ).toBeTruthy();
+  });
+
+  const isContract = async (address: EthAddress) => {
+    const bytecode = await client.getBytecode({ address: address.toString() });
+    return bytecode !== undefined && bytecode !== '0x';
+  };
+
+  const getOwner = async (address: EthAddress, name: string = 'owner') => {
+    if (!(await isContract(address))) {
+      throw new Error(`Address ${address} have no bytecode, is it deployed?`);
+    }
+    return EthAddress.fromString(
+      await client.readContract({
+        address: address.toString(),
+        abi: [
+          {
+            name: name,
+            type: 'function',
+            inputs: [],
+            outputs: [{ type: 'address' }],
+            stateMutability: 'view',
+          },
+        ],
+        functionName: name,
+      }),
+    );
+  };
+
+  const isMinter = async (address: EthAddress, minter: EthAddress) => {
+    if (!(await isContract(address))) {
+      throw new Error(`Address ${address} have no bytecode, is it deployed?`);
+    }
+    return await client.readContract({
+      address: address.toString(),
+      abi: [
+        {
+          name: 'minters',
+          type: 'function',
+          inputs: [{ type: 'address' }],
+          outputs: [{ type: 'bool' }],
+          stateMutability: 'view',
+        },
+      ],
+      functionName: 'minters',
+      args: [minter.toString()],
+    });
+  };
 });
