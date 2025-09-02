@@ -756,9 +756,7 @@ TEST_F(TranslatorRelationConsistency, OpcodeConstraintRelation)
         // Opcode constraints - ensure op is 0, 3, 4, or 8
         expected_values[0] = op * (op - FF(3)) * (op - FF(4)) * (op - FF(8)) * (lagrange_mini_masking - FF(1));
 
-        auto shared =
-            (op - FF(3)) * (op - FF(4)) * (op - FF(8)) * (lagrange_mini_masking - FF(1)) * lagrange_even_in_minicircuit;
-        // Accumulator transfer constraints when op != 0
+        auto shared = (op - FF(3)) * (op - FF(4)) * (op - FF(8)) * lagrange_even_in_minicircuit;
         expected_values[1] = shared * (accumulators_binary_limbs_0 - accumulators_binary_limbs_0_shift);
         expected_values[2] = shared * (accumulators_binary_limbs_1 - accumulators_binary_limbs_1_shift);
         expected_values[3] = shared * (accumulators_binary_limbs_2 - accumulators_binary_limbs_2_shift);
