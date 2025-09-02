@@ -61,7 +61,7 @@ template <typename Builder> class bool_t {
     bool_t(const bool value = false);
     bool_t(Builder* parent_context);
     bool_t(Builder* parent_context, const bool value);
-    bool_t(const witness_t<Builder>& value);
+    bool_t(const witness_t<Builder>& value, const bool& use_range_constraint = false);
     bool_t(const bool_t& other);
     bool_t(bool_t&& other);
 

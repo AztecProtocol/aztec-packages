@@ -151,6 +151,39 @@ template <class Builder_> class BoolTest : public ::testing::Test {
                                   "((other.witness == bb::fr::one()) || (other.witness == bb::fr::zero()))");
         };
     }
+
+    void test_construct_from_witness_range_constraint()
+    {
+        const bool use_range_constraint = true;
+
+        for (size_t num_inputs = 1; num_inputs < 50; num_inputs++) {
+            Builder builder = Builder();
+            size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+
+            std::vector<uint32_t> indices;
+            for (size_t idx = 0; idx < num_inputs; idx++) {
+                indices.push_back(
+                    bool_ct(witness_ct(&builder, idx % 2), use_range_constraint).get_normalized_witness_index());
+            }
+
+            const size_t sorted_list_size = num_inputs + 2;
+
+            // Pin down the gate numbers. The point is that it is more efficient to use this constructor to constrain a
+            // batch of bool_t elements.
+            size_t expected = (num_inputs == 1) ? 4 : (sorted_list_size / 4) + 3;
+
+            EXPECT_EQ(builder.get_estimated_num_finalized_gates() - num_gates_start, expected);
+
+            builder.create_dummy_constraints(indices);
+
+            EXPECT_TRUE(CircuitChecker::check(builder));
+        }
+
+        // Failure test
+        Builder builder = Builder();
+        EXPECT_THROW_OR_ABORT(auto new_bool = bool_ct(witness_ct(&builder, 2), use_range_constraint),
+                              "bool_t: witness value is not 0 or 1");
+    }
     void test_AND()
     {
         test_binary_op(
@@ -450,6 +483,10 @@ TYPED_TEST(BoolTest, ConstructFromConstBool)
 TYPED_TEST(BoolTest, ConstructFromWitness)
 {
     TestFixture::test_construct_from_witness();
+}
+TYPED_TEST(BoolTest, ConstructFromWitnessRangeConstraint)
+{
+    TestFixture::test_construct_from_witness_range_constraint();
 }
 
 TYPED_TEST(BoolTest, Normalization)

@@ -32,16 +32,25 @@ bool_t<Builder>::bool_t(Builder* parent_context)
 /**
  * @brief Construct a `bool_t` object from a witness, note that the value stored at `witness_index` is constrained to be
  * 0 or 1.
+ * @param value A witness, which is constrained to be boolean inside of this constructor.
+ * @param use_range_constraint In case we need to create `bool_t` in a loop, it is more efficient to apply the range
+ * constraint gates instead of creating arithmetic gates.
  */
 template <typename Builder>
-bool_t<Builder>::bool_t(const witness_t<Builder>& value)
+bool_t<Builder>::bool_t(const witness_t<Builder>& value, const bool& use_range_constraint)
     : context(value.context)
 {
     ASSERT((value.witness == bb::fr::zero()) || (value.witness == bb::fr::one()),
            "bool_t: witness value is not 0 or 1");
     witness_index = value.witness_index;
-    // Constrain x := other.witness by the relation x^2 = x
-    context->create_bool_gate(witness_index);
+
+    if (use_range_constraint) {
+        // Create a range constraint gate
+        context->create_new_range_constraint(witness_index, 3, "bool_t: witness value is not 0 or 1");
+    } else {
+        // Create an arithmetic gate to enforce the relation x^2 = x
+        context->create_bool_gate(witness_index);
+    }
     witness_bool = (value.witness == bb::fr::one());
     witness_inverted = false;
     set_free_witness_tag();
@@ -135,7 +144,7 @@ template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(bool_t&&
     return *this;
 }
 /**
- * @brief Assigns a `witness_t` to a `bool_t`. As above,  he value stored at `witness_index` is constrained to be
+ * @brief Assigns a `witness_t` to a `bool_t`. As above,  the value stored at `witness_index` is constrained to be
  * 0 or 1.
  */
 template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const witness_t<Builder>& other)
