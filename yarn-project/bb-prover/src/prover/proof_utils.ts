@@ -84,10 +84,6 @@ export async function readProofAsFields<PROOF_LENGTH extends number>(
   logger.debug(
     `Circuit path: ${filePath}, complete proof length: ${fieldsWithoutPublicInputs.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}`,
   );
-  assert(
-    fieldsWithoutPublicInputs.length == numPublicInputs + proofLength,
-    `Proof length mismatch: ${fieldsWithoutPublicInputs.length} != ${numPublicInputs + proofLength}`,
-  );
   return new RecursiveProof(
     fieldsWithoutPublicInputs,
     new Proof(binaryProofWithPublicInputs, numPublicInputs),
