@@ -9,10 +9,6 @@ aztec:
   realProofs: true
   testAccounts: true
   sponsoredFPC: true
-  slash:
-    pruneEnabled: true
-    inactivityEnabled: true
-    invalidBlockEnabled: true
 
 images:
   aztec:
@@ -53,7 +49,7 @@ bot:
   ammTxs: true
   followChain: "PENDING"
   enabled: true
-  txIntervalSeconds: 1
+  txIntervalSeconds: 10
   resources:
     requests:
       memory: 15Gi

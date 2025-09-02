@@ -5,58 +5,7 @@ sidebar_position: 7
 description: Learn how to communicate with L1 contracts through portals in your Aztec smart contracts.
 ---
 
-- **What portals are**: An L1-side component (contract or EOA) associated with a specific L2 address. Portals bridge messaging between L1 and Aztec L2, enabling public L1 functions and private/public L2 functions to communicate.
-
-- **Why portals exist**: Direct, synchronous L1↔L2 calls would leak private inputs and conflict with Aztec’s execution model (users pre-prove private calls; public state executes at chain head). Portals enable asynchronous, unilateral message passing that preserves privacy.
-
-- **Objectives**
-  - **L2→L1**: L2 functions can call L1.
-  - **L1→L2**: L1 functions can call L2.
-  - **Efficiency**: Limit rollup-block size impact from messages.
-
-### Components and actors
-
-- **Portal (L1)**: The L1 part of an app linked to an L2 address; origin/target for cross-domain messages.
-- **Message Boxes**: One-way queues with pending and ready sets moving messages across domains via the rollup. Messages are “pulled” by recipients (not “pushed” as calldata) to avoid revealing private inputs.
-- **Rollup Contract (L1)**:
-  - Maintains L2 rollup state root, verifies proofs, ensures data availability.
-  - Moves messages pending→ready and publishes L2→L1 messages on-chain.
-- **Kernel Circuit (L2)**:
-  - For L2→L1: enforces messages have valid sender/recipient pairs present in the contracts tree and that sender is the emitting L2 contract.
-  - For L1→L2: creates nullifiers when consuming messages.
-- **Rollup Circuit (L2)**:
-  - Enforces state transition T(S, B) → S′.
-  - Inserts/nullifies L1→L2 messages in trees; publishes L2→L1 messages.
-  - Validates sender/recipient pairs exist in the contracts tree.
-
-### Message model and privacy
-
-- **Payload size**: Up to 32 bytes. If larger, send `sha256(content)` (fits ~254-bit field). The sender can reveal or log the full content on L2 as needed.
-- **Actors**:
-  - `L1Actor { address, chainId }`
-  - `L2Actor { actor (bytes32), version }`
-  - `L1ToL2Msg { sender(L1), recipient(L2), content(bytes32), secretHash(bytes32) }`
-  - `L2ToL1Msg { sender(L2), recipient(L1), content(bytes32) }`
-- **Commitment**: Only `sha256(LxToLyMsg)` is stored on-chain/in trees (single storage slot update).
-- **Duplicates & unlinkability**:
-  - Nullifier includes the message’s index to allow duplicates (e.g., repeated deposits).
-  - `secretHash` in `L1ToL2Msg` hides when a specific message is consumed; the `secretPreimage` participates in nullifier computation.
-
-### Ordering and flow
-
-- **Private→Public execution on L2**: Private functions first; public later at chain head.
-- **Unilateral, async**: Callers don’t know outcomes within the same rollup.
-- **Inclusion timing**:
-  - L1→L2 messages emitted on L1 can be ready at the start of a rollup and consumed in that same block.
-  - L2→L1 messages are added as they’re emitted; a response from L1 could appear by rollup n+1.
-- **Asymmetry**: The L2→L1 “pending” set is logical only; changes to L2 state are reflected directly on L1.
-
-### Developer implications
-
-- **Failure handling**: Apps must handle asynchronous failures and recovery paths (critical for bridges where funds may lock on one side).
-- **Contracts tree constraint**: Only messages whose sender/recipient pair exists in the contracts tree are valid and movable/consumable.
-
-For a deeper conceptual overview of cross-chain communication, see [Cross-Chain Communication](../../../aztec/concepts/communication/cross_chain_calls.md).
+Follow the [token bridge tutorial](../../../../../developers/tutorials/js_tutorials/token_bridge.md) for hands-on experience writing and deploying a Portal contract.
 
 ## Passing data to the rollup
 

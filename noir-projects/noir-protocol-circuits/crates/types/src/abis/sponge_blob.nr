@@ -49,7 +49,7 @@ impl SpongeBlob {
         self.fields += in_len;
     }
 
-    // Finalise the sponge and output poseidon2 hash of all fields absorbed
+    // Finalize the sponge and output poseidon2 hash of all fields absorbed
     pub fn squeeze(&mut self) -> Field {
         // If the blob sponge is not 'full', we append 1 to match Poseidon2::hash_internal()
         // NB: There is currently no use case in which we don't 'fill' a blob sponge, but adding for completeness

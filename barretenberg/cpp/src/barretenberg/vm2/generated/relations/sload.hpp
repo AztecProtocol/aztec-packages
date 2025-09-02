@@ -38,16 +38,16 @@ template <typename FF> class sload : public Relation<sloadImpl<FF>> {
     {
         switch (index) {
         case 0:
-            return "SLOAD_SUCCESS";
-        case 1:
             return "SLOAD_FF_OUTPUT_TAG";
+        case 1:
+            return "SLOAD_SUCCESS";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_SLOAD_SUCCESS = 0;
-    static constexpr size_t SR_SLOAD_FF_OUTPUT_TAG = 1;
+    static constexpr size_t SR_SLOAD_FF_OUTPUT_TAG = 0;
+    static constexpr size_t SR_SLOAD_SUCCESS = 1;
 };
 
 } // namespace bb::avm2

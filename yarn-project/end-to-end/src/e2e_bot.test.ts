@@ -1,6 +1,7 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import type { PXE } from '@aztec/aztec.js';
 import { AmmBot, Bot, type BotConfig, SupportedTokenContracts, getBotDefaultConfig } from '@aztec/bot';
+import { AVM_MAX_PROCESSABLE_L2_GAS, MAX_PROCESSABLE_DA_GAS_PER_BLOCK } from '@aztec/constants';
 
 import { setup } from './fixtures/utils.js';
 
@@ -40,7 +41,7 @@ describe('e2e_bot', () => {
     });
 
     it('sends token transfers with hardcoded gas and no simulation', async () => {
-      bot.updateConfig({ daGasLimit: 1e9, l2GasLimit: 1e9 });
+      bot.updateConfig({ daGasLimit: MAX_PROCESSABLE_DA_GAS_PER_BLOCK, l2GasLimit: AVM_MAX_PROCESSABLE_L2_GAS });
       const { recipient: recipientBefore } = await bot.getBalances();
 
       await bot.run();
@@ -57,11 +58,11 @@ describe('e2e_bot', () => {
       expect(bot2.recipient.toString()).toEqual(recipient.toString());
     });
 
-    it('sends token from the bot using EasyPrivateToken', async () => {
+    it('sends token from the bot using PrivateToken', async () => {
       const easyBot = await Bot.create(
         {
           ...config,
-          contract: SupportedTokenContracts.EasyPrivateTokenContract,
+          contract: SupportedTokenContracts.PrivateTokenContract,
         },
         { pxe },
       );

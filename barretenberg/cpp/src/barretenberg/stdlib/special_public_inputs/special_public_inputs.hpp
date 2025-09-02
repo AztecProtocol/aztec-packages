@@ -59,12 +59,13 @@ class KernelIO {
 
     using PublicPoint = stdlib::PublicInputComponent<G1>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
+    using PublicFF = stdlib::PublicInputComponent<FF>;
 
     PairingInputs pairing_inputs;   // Inputs {P0, P1} to an EC pairing check
     G1 kernel_return_data;          // Commitment to the return data of a kernel circuit
     G1 app_return_data;             // Commitment to the return data of an app circuit
     TableCommitments ecc_op_tables; // commitments to merged tables obtained from recursive Merge verification
-    // FF pg_acc_hash;
+    FF output_pg_accum_hash;        // hash of the output PG verifier accumulator
 
     // Total size of the kernel IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = KERNEL_PUBLIC_INPUTS_SIZE;
@@ -89,7 +90,8 @@ class KernelIO {
             table_commitment = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
             index += G1::PUBLIC_INPUTS_SIZE;
         }
-        // pg_acc_hash = FF::reconstruct(public_inputs, PublicComponentKey{ index });
+        output_pg_accum_hash = PublicFF::reconstruct(public_inputs, PublicComponentKey{ index });
+        index += FF::PUBLIC_INPUTS_SIZE;
     }
 
     /**
@@ -104,7 +106,7 @@ class KernelIO {
         for (auto& table_commitment : ecc_op_tables) {
             table_commitment.set_public();
         }
-        // pg_acc_hash.set_public();
+        output_pg_accum_hash.set_public();
 
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         Builder* builder = pairing_inputs.P0.get_context();
@@ -128,7 +130,9 @@ class KernelIO {
             table_commitment.convert_constant_to_fixed_witness(&builder);
             table_commitment.set_public();
         }
-    };
+        FF output_pg_accum_hash = FF::from_witness(&builder, 0);
+        output_pg_accum_hash.set_public();
+    }
 };
 
 /**

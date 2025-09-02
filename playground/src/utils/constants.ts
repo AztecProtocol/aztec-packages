@@ -4,12 +4,12 @@ export const VERSION = releasePleaseManifest['.'];
 
 
 export const ContractDescriptions = {
-    EasyPrivateVoting: 'Cast a vote privately without revealing who the voter is while maintaining the tally in public and preventing double voting - all without tracking the users. Display the results publicly.',
+    PrivateVoting: 'Cast a vote privately without revealing who the voter is while maintaining the tally in public and preventing double voting - all without tracking the users. Display the results publicly.',
     SimpleToken: 'Create a simplified token contract that enables you to mint & transfer tokens either privately or publicly. Privately minted tokens will not reveal the recipient of the token, while updating the total supply publicly. Privately transferring doesn’t reveal anything!',
 }
 
 export const ContractMethodDescriptions = {
-    EasyPrivateVoting: {
+    PrivateVoting: {
         cast_vote: 'Lets any account vote once (address is private but the vote is not). It enqueues call to a public function to update the tally with your vote. Uses nullifiers to prevent you from voting again.',
         get_vote: 'Get public vote result without seeing how accounts voted.',
         end_vote: 'Allows designated account to end the vote.',
@@ -39,12 +39,12 @@ export const ContractMethodDescriptions = {
 }
 
 export const ContractDocumentationLinks = {
-    EasyPrivateVoting: 'https://docs.aztec.network/developers/tutorials/codealong/contract_tutorials/private_voting_contract',
+    PrivateVoting: 'https://docs.aztec.network/developers/tutorials/codealong/contract_tutorials/private_voting_contract',
     SimpleToken: 'https://docs.aztec.network/developers/tutorials/codealong/contract_tutorials/private_voting_contract'
 }
 
 export const ContractMethodOrder = {
-    EasyPrivateVoting: [
+    PrivateVoting: [
         'cast_vote',
         'get_vote',
         'end_vote',

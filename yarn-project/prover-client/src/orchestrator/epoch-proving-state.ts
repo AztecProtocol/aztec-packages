@@ -5,6 +5,7 @@ import type {
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
@@ -80,7 +81,7 @@ export class EpochProvingState {
     lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     previousBlockHeader: BlockHeader,
-    proverId: Fr,
+    proverId: EthAddress,
   ): BlockProvingState {
     const index = globalVariables.blockNumber - this.firstBlockNumber;
     const block = new BlockProvingState(

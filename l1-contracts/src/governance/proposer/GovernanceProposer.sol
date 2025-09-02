@@ -17,8 +17,9 @@ import {EmpireBase} from "./EmpireBase.sol";
  *
  * Note: any payload which passes through this contract will have a call to GSEPayload.amIValid appended to the
  * list of actions before it is proposed to Governance.
- * This will cause the proposal to revert if 2/3 of all stake in the GSE are not staked on the canonical rollup after
- * the *original* payload is executed by Governance.
+ * This will cause the proposal to revert if >2/3 of all stake in the GSE are not staked on the latest rollup after
+ * the *original* payload is executed by Governance. Unless the latest and canonical rollup diverge, as that indicates
+ * a misconfiguration issue (see GSEPayload for more details).
  */
 contract GovernanceProposer is IGovernanceProposer, EmpireBase {
   IRegistry public immutable REGISTRY;

@@ -9,6 +9,30 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+## [Aztec Tools]
+
+### Contract compilation now requires two steps
+
+The `aztec-nargo` command is now a direct pass-through to vanilla nargo, without any special compilation flags or postprocessing. Contract compilation for Aztec now requires two explicit steps:
+
+1. Compile your contracts with `aztec-nargo compile`
+2. Run postprocessing with the new `aztec-postprocess-contract` command
+
+The postprocessing step includes:
+- Transpiling functions for the Aztec VM
+- Generating verification keys for private functions
+- Caching verification keys for faster subsequent compilations
+
+Update your build scripts accordingly:
+
+```diff
+- aztec-nargo compile
++ aztec-nargo compile
++ aztec-postprocess-contract
+```
+
+If you're using the `aztec-up` installer, the `aztec-postprocess-contract` command will be automatically installed alongside `aztec-nargo`.
+
 ## [Aztec.js] Mandatory `from`
 
 As we prepare for a bigger `Wallet` interface refactor and the upcoming `WalletSDK`, a new parameter has been added to contract interactions, which now should indicate *explicitly* the address of the entrypoint (usually the account contract) that will be used to authenticate the request. This will be checked in runtime against the current `this.wallet.getAddress()` value, to ensure consistent behavior while the rest of the API is reworked.
@@ -19,6 +43,17 @@ As we prepare for a bigger `Wallet` interface refactor and the upcoming `WalletS
 ```
 
 ## [Aztec.nr]
+
+### Private event emission API changes
+
+The private event emission API has been significantly reworked to provide clearer semantics around message delivery guarantees. The key changes are:
+
+1. `emit_event_in_private_log` has been renamed to `emit_event_in_private` and now takes a `delivery_mode` parameter instead of `constraints`
+2. `emit_event_as_offchain_message` has been removed in favor of using `emit_event_in_private` with `MessageDelivery.UNCONSTRAINED_OFFCHAIN`
+3. `PrivateLogContent` enum has been replaced with `MessageDelivery` enum with the following values:
+   - `CONSTRAINED_ONCHAIN`: For on-chain delivery with cryptographic guarantees (replaces `CONSTRAINED_ENCRYPTION`)
+   - `UNCONSTRAINED_OFFCHAIN`: For off-chain delivery without constraints
+   - `UNCONSTRAINED_ONCHAIN`: For on-chain delivery without constraints (replaces `NO_CONSTRAINTS`)
 
 ### Contract functions can no longer be `pub` or `pub(crate)`
 

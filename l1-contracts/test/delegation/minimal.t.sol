@@ -16,6 +16,7 @@ import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.
 import {Fakerollup} from "../governance/governance-proposer/mocks/Fakerollup.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
+import {UncompressedProposalWrapper} from "@test/governance/helpers/UncompressedProposalTestLib.sol";
 
 struct Timestamps {
   uint256 ts1;
@@ -31,6 +32,8 @@ struct Timestamps {
 // Not to be seen as full tests
 contract MinimalDelegationTest is GSEBase {
   using stdStorage for StdStorage;
+
+  UncompressedProposalWrapper internal upw = new UncompressedProposalWrapper();
 
   address bonus;
   uint256 activationThreshold;
@@ -54,7 +57,7 @@ contract MinimalDelegationTest is GSEBase {
     stdstore.target(proposer).sig("getProposalProposer(uint256)").with_key(proposalId).checked_write(address(ROLLUP));
     assertEq(GovernanceProposer(proposer).getProposalProposer(proposalId), address(ROLLUP));
 
-    uint256 votingTime = Timestamp.unwrap(ProposalLib.pendingThroughMemory(governance.getProposal(0)));
+    uint256 votingTime = Timestamp.unwrap(upw.pendingThrough(governance.getProposal(0)));
 
     Timestamps memory ts;
 
@@ -115,7 +118,7 @@ contract MinimalDelegationTest is GSEBase {
 
     vm.warp(ts.ts6);
 
-    assertEq(governance.totalPowerAt(Timestamp.wrap(ts.ts6)), activationThreshold * 3);
+    assertEq(governance.totalPowerNow(), activationThreshold * 3);
 
     if (_overwriteDelay) {
       stdstore.enable_packed_slots().target(address(ROLLUP)).sig("getExitDelay()").checked_write(5);
@@ -124,7 +127,7 @@ contract MinimalDelegationTest is GSEBase {
     vm.prank(WITHDRAWER);
     ROLLUP.initiateWithdraw(ATTESTER2, WITHDRAWER);
 
-    assertEq(governance.totalPowerAt(Timestamp.wrap(ts.ts6)), activationThreshold * 2);
+    assertEq(governance.totalPowerNow(), activationThreshold * 2);
 
     vm.warp(ts.ts7);
 
@@ -206,7 +209,7 @@ contract MinimalDelegationTest is GSEBase {
     gse.voteWithBonus(proposalId, powerToVoteSelf, true);
 
     {
-      // Finalise the exit. We are doing it down here because the timetravel messes with voting
+      // Finalize the exit. We are doing it down here because the timetravel messes with voting
       Timestamp govUnlocks = governance.getWithdrawal(0).unlocksAt;
       Timestamp exitAt = ROLLUP.getExit(ATTESTER2).exitableAt;
 
@@ -220,11 +223,11 @@ contract MinimalDelegationTest is GSEBase {
     }
 
     if (_claim) {
-      governance.finaliseWithdraw(0);
+      governance.finalizeWithdraw(0);
     }
-    ROLLUP.finaliseWithdraw(ATTESTER2);
+    ROLLUP.finalizeWithdraw(ATTESTER2);
 
-    assertEq(governance.totalPowerAt(Timestamp.wrap(block.timestamp)), activationThreshold * 2);
+    assertEq(governance.totalPowerNow(), activationThreshold * 2);
     assertEq(stakingAsset.balanceOf(WITHDRAWER), activationThreshold);
 
     assertEq(governance.getProposal(proposalId).summedBallot.yea, activationThreshold * 3, "yeas");

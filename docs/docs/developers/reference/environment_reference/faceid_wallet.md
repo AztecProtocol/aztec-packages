@@ -15,7 +15,7 @@ Aztec is in active development and this has only been tested on MacOS. Please re
 :::
 
 :::note
-This tutorial is for the sandbox and will need adjustments if you want to use it on testnet. Install the sandbox [here](../../getting_started.md).
+This tutorial is for the sandbox and will need adjustments if you want to use it on testnet. Install the sandbox [here](../../getting_started/getting_started_on_sandbox.md).
 :::
 
 ## Prerequisites
@@ -86,7 +86,8 @@ This creates a new project, skips running the sandbox (`-s`), and clones the con
 
 ```bash
 cd token_contract
-aztec-nargo compile
+aztec-nargo compile        # generate contract artifacts
+aztec-postprocess-contract # transpile contract and generate verification keys
 ```
 
 Great, our contract is ready to deploy with our TouchID wallet:

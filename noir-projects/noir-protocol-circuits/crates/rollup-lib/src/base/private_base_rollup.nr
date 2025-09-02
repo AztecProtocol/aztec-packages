@@ -49,6 +49,7 @@ impl PrivateBaseRollupInputs {
     pub fn execute(self) -> BaseOrMergeRollupPublicInputs {
         let tube_data_validator = PrivateTubeDataValidator::new(self.tube_data);
         tube_data_validator.validate_proof_and_vk();
+        tube_data_validator.validate_gas_settings();
         tube_data_validator.validate_with_block_constant_data(
             self.constants,
             self.archive_root_membership_witness,

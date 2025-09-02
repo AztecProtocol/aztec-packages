@@ -199,7 +199,7 @@ uint64_t WorldState::create_fork(const std::optional<block_number_t>& blockNumbe
         // we are forking at latest
         WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
         TreeMetaResponse archiveMeta = get_tree_info(revision, MerkleTreeId::ARCHIVE);
-        blockNumberForFork = archiveMeta.meta.unfinalisedBlockHeight;
+        blockNumberForFork = archiveMeta.meta.unfinalizedBlockHeight;
     } else {
         blockNumberForFork = blockNumber.value();
     }
@@ -716,10 +716,10 @@ GetLowIndexedLeafResponse WorldState::find_low_leaf_index(const WorldStateRevisi
     return low_leaf_info.inner;
 }
 
-WorldStateStatusSummary WorldState::set_finalised_blocks(const block_number_t& toBlockNumber)
+WorldStateStatusSummary WorldState::set_finalized_blocks(const block_number_t& toBlockNumber)
 {
     // This will throw if it fails
-    set_finalised_block(toBlockNumber);
+    set_finalized_block(toBlockNumber);
     WorldStateStatusSummary status;
     get_status_summary(status);
     return status;
@@ -730,27 +730,27 @@ WorldStateStatusFull WorldState::unwind_blocks(const block_number_t& toBlockNumb
     std::array<TreeMeta, NUM_TREES> responses;
     get_all_tree_info(revision, responses);
 
-    // Get the set of unfinalised block numbers and unwind to the target block
-    std::array<block_number_t, NUM_TREES> unfinalisedBlockNumbers{
-        responses[NULLIFIER_TREE].unfinalisedBlockHeight,
-        responses[NOTE_HASH_TREE].unfinalisedBlockHeight,
-        responses[PUBLIC_DATA_TREE].unfinalisedBlockHeight,
-        responses[L1_TO_L2_MESSAGE_TREE].unfinalisedBlockHeight,
-        responses[ARCHIVE].unfinalisedBlockHeight
+    // Get the set of unfinalized block numbers and unwind to the target block
+    std::array<block_number_t, NUM_TREES> unfinalizedBlockNumbers{
+        responses[NULLIFIER_TREE].unfinalizedBlockHeight,
+        responses[NOTE_HASH_TREE].unfinalizedBlockHeight,
+        responses[PUBLIC_DATA_TREE].unfinalizedBlockHeight,
+        responses[L1_TO_L2_MESSAGE_TREE].unfinalizedBlockHeight,
+        responses[ARCHIVE].unfinalizedBlockHeight
     };
 
-    auto* const it = std::max_element(std::begin(unfinalisedBlockNumbers), std::end(unfinalisedBlockNumbers));
-    block_number_t highestUnfinalisedBlock = *it;
+    auto* const it = std::max_element(std::begin(unfinalizedBlockNumbers), std::end(unfinalizedBlockNumbers));
+    block_number_t highestUnfinalizedBlock = *it;
 
-    if (toBlockNumber >= highestUnfinalisedBlock) {
+    if (toBlockNumber >= highestUnfinalizedBlock) {
         throw std::runtime_error(format("Unable to unwind blocks to block number ",
                                         toBlockNumber,
                                         ", current pending block ",
-                                        highestUnfinalisedBlock));
+                                        highestUnfinalizedBlock));
     }
 
     WorldStateStatusFull status;
-    for (block_number_t blockNumber = highestUnfinalisedBlock; blockNumber > toBlockNumber; blockNumber--) {
+    for (block_number_t blockNumber = highestUnfinalizedBlock; blockNumber > toBlockNumber; blockNumber--) {
         // This will throw if it fails
         unwind_block(blockNumber, status);
     }
@@ -787,7 +787,7 @@ WorldStateStatusFull WorldState::remove_historical_blocks(const block_number_t& 
     return status;
 }
 
-bool WorldState::set_finalised_block(const block_number_t& blockNumber)
+bool WorldState::set_finalized_block(const block_number_t& blockNumber)
 {
     Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
@@ -796,7 +796,7 @@ bool WorldState::set_finalised_block(const block_number_t& blockNumber)
     for (auto& [id, tree] : fork->_trees) {
         std::visit(
             [&signal, &local, blockNumber, id, &mtx](auto&& wrapper) {
-                wrapper.tree->finalise_block(blockNumber, [&signal, &local, &mtx, id](Response& resp) {
+                wrapper.tree->finalize_block(blockNumber, [&signal, &local, &mtx, id](Response& resp) {
                     {
                         std::lock_guard<std::mutex> lock(mtx);
                         local[id] = std::move(resp);
@@ -1013,22 +1013,22 @@ void WorldState::get_status_summary_from_meta_responses(WorldStateStatusSummary&
                                                         std::array<TreeMeta, NUM_TREES>& metaResponses)
 {
     TreeMeta& archive_state = metaResponses[MerkleTreeId::ARCHIVE];
-    status.unfinalisedBlockNumber = archive_state.unfinalisedBlockHeight;
-    status.finalisedBlockNumber = archive_state.finalisedBlockHeight;
+    status.unfinalizedBlockNumber = archive_state.unfinalizedBlockHeight;
+    status.finalizedBlockNumber = archive_state.finalizedBlockHeight;
     status.oldestHistoricalBlock = archive_state.oldestHistoricBlock;
     status.treesAreSynched = determine_if_synched(metaResponses);
 }
 
 void WorldState::populate_status_summary(WorldStateStatusFull& status)
 {
-    status.summary.finalisedBlockNumber = status.meta.archiveTreeMeta.finalisedBlockHeight;
-    status.summary.unfinalisedBlockNumber = status.meta.archiveTreeMeta.unfinalisedBlockHeight;
+    status.summary.finalizedBlockNumber = status.meta.archiveTreeMeta.finalizedBlockHeight;
+    status.summary.unfinalizedBlockNumber = status.meta.archiveTreeMeta.unfinalizedBlockHeight;
     status.summary.oldestHistoricalBlock = status.meta.archiveTreeMeta.oldestHistoricBlock;
     status.summary.treesAreSynched =
-        status.meta.messageTreeMeta.unfinalisedBlockHeight == status.summary.unfinalisedBlockNumber &&
-        status.meta.noteHashTreeMeta.unfinalisedBlockHeight == status.summary.unfinalisedBlockNumber &&
-        status.meta.nullifierTreeMeta.unfinalisedBlockHeight == status.summary.unfinalisedBlockNumber &&
-        status.meta.publicDataTreeMeta.unfinalisedBlockHeight == status.summary.unfinalisedBlockNumber;
+        status.meta.messageTreeMeta.unfinalizedBlockHeight == status.summary.unfinalizedBlockNumber &&
+        status.meta.noteHashTreeMeta.unfinalizedBlockHeight == status.summary.unfinalizedBlockNumber &&
+        status.meta.nullifierTreeMeta.unfinalizedBlockHeight == status.summary.unfinalizedBlockNumber &&
+        status.meta.publicDataTreeMeta.unfinalizedBlockHeight == status.summary.unfinalizedBlockNumber;
 }
 
 bool WorldState::is_same_state_reference(const WorldStateRevision& revision, const StateReference& state_ref) const
@@ -1049,13 +1049,13 @@ void WorldState::validate_trees_are_equally_synched()
 
 bool WorldState::determine_if_synched(std::array<TreeMeta, NUM_TREES>& metaResponses)
 {
-    block_number_t blockNumber = metaResponses[0].unfinalisedBlockHeight;
-    block_number_t finalisedBlockNumber = metaResponses[0].finalisedBlockHeight;
+    block_number_t blockNumber = metaResponses[0].unfinalizedBlockHeight;
+    block_number_t finalizedBlockNumber = metaResponses[0].finalizedBlockHeight;
     for (size_t i = 1; i < metaResponses.size(); i++) {
-        if (blockNumber != metaResponses[i].unfinalisedBlockHeight) {
+        if (blockNumber != metaResponses[i].unfinalizedBlockHeight) {
             return false;
         }
-        if (finalisedBlockNumber != metaResponses[i].finalisedBlockHeight) {
+        if (finalizedBlockNumber != metaResponses[i].finalizedBlockHeight) {
             return false;
         }
     }
@@ -1210,44 +1210,44 @@ WorldStateStatusFull WorldState::attempt_tree_resync()
                                                                   responses[L1_TO_L2_MESSAGE_TREE].oldestHistoricBlock,
                                                                   responses[ARCHIVE].oldestHistoricBlock };
 
-    // Get all unfinalised block numbers
-    std::array<block_number_t, NUM_TREES> unfinalisedBlockNumbers{
-        responses[NULLIFIER_TREE].unfinalisedBlockHeight,
-        responses[NOTE_HASH_TREE].unfinalisedBlockHeight,
-        responses[PUBLIC_DATA_TREE].unfinalisedBlockHeight,
-        responses[L1_TO_L2_MESSAGE_TREE].unfinalisedBlockHeight,
-        responses[ARCHIVE].unfinalisedBlockHeight
+    // Get all unfinalized block numbers
+    std::array<block_number_t, NUM_TREES> unfinalizedBlockNumbers{
+        responses[NULLIFIER_TREE].unfinalizedBlockHeight,
+        responses[NOTE_HASH_TREE].unfinalizedBlockHeight,
+        responses[PUBLIC_DATA_TREE].unfinalizedBlockHeight,
+        responses[L1_TO_L2_MESSAGE_TREE].unfinalizedBlockHeight,
+        responses[ARCHIVE].unfinalizedBlockHeight
     };
 
-    // Get all finalised block numbers
-    std::array<block_number_t, NUM_TREES> finalisedBlockNumbers{ responses[NULLIFIER_TREE].finalisedBlockHeight,
-                                                                 responses[NOTE_HASH_TREE].finalisedBlockHeight,
-                                                                 responses[PUBLIC_DATA_TREE].finalisedBlockHeight,
-                                                                 responses[L1_TO_L2_MESSAGE_TREE].finalisedBlockHeight,
-                                                                 responses[ARCHIVE].finalisedBlockHeight };
+    // Get all finalized block numbers
+    std::array<block_number_t, NUM_TREES> finalizedBlockNumbers{ responses[NULLIFIER_TREE].finalizedBlockHeight,
+                                                                 responses[NOTE_HASH_TREE].finalizedBlockHeight,
+                                                                 responses[PUBLIC_DATA_TREE].finalizedBlockHeight,
+                                                                 responses[L1_TO_L2_MESSAGE_TREE].finalizedBlockHeight,
+                                                                 responses[ARCHIVE].finalizedBlockHeight };
 
     // Get the min and max of each set of block numbers
     auto historicBlockRange = std::minmax_element(std::begin(historicalBlockNumbers), std::end(historicalBlockNumbers));
 
-    auto unfinalisedBlockRange =
-        std::minmax_element(std::begin(unfinalisedBlockNumbers), std::end(unfinalisedBlockNumbers));
+    auto unfinalizedBlockRange =
+        std::minmax_element(std::begin(unfinalizedBlockNumbers), std::end(unfinalizedBlockNumbers));
 
-    auto finalisedBlockRange = std::minmax_element(std::begin(finalisedBlockNumbers), std::end(finalisedBlockNumbers));
+    auto finalizedBlockRange = std::minmax_element(std::begin(finalizedBlockNumbers), std::end(finalizedBlockNumbers));
 
     // We re-sync by
-    // 1. Unwinding any blocks that are ahread of the lowest unfinalised block number
-    // 2. Increasing finalised block numbers to the highest finalised block number
+    // 1. Unwinding any blocks that are ahread of the lowest unfinalized block number
+    // 2. Increasing finalized block numbers to the highest finalized block number
     // 3. Removing any historical blocks that are lower then the highest historic block number
 
     WorldStateStatusFull status;
-    block_number_t blockToUnwind = *unfinalisedBlockRange.second;
-    while (blockToUnwind > *unfinalisedBlockRange.first) {
+    block_number_t blockToUnwind = *unfinalizedBlockRange.second;
+    while (blockToUnwind > *unfinalizedBlockRange.first) {
         unwind_block(blockToUnwind, status);
         blockToUnwind--;
     }
 
-    if (*finalisedBlockRange.first != *finalisedBlockRange.second) {
-        set_finalised_block(*finalisedBlockRange.second);
+    if (*finalizedBlockRange.first != *finalizedBlockRange.second) {
+        set_finalized_block(*finalizedBlockRange.second);
     }
 
     block_number_t blockToRemove = *historicBlockRange.first;

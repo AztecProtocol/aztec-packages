@@ -190,7 +190,7 @@ const config = {
             label: "Run a node",
           },
           {
-            to: "/developers/getting_started",
+            to: "/developers/getting_started/getting_started_on_sandbox",
             label: "Install Sandbox",
             position: "right",
           },
@@ -314,8 +314,8 @@ const config = {
                 href: "https://forum.aztec.network",
               },
               {
-                label: "Discord",
-                href: "https://discord.com/invite/aztec",
+                label: "Noir Discord",
+                href: "https://discord.com/invite/JtqzkdeQ6G",
               },
               {
                 label: "X (Twitter)",

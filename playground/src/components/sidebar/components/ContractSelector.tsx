@@ -84,8 +84,8 @@ export function ContractSelector() {
         let contractArtifactJSON;
         switch (contractValue) {
           case PREDEFINED_CONTRACTS.SIMPLE_VOTING:
-            ({ EasyPrivateVotingContractArtifact: contractArtifactJSON } = await import(
-              '@aztec/noir-contracts.js/EasyPrivateVoting'
+            ({ PrivateVotingContractArtifact: contractArtifactJSON } = await import(
+              '@aztec/noir-contracts.js/PrivateVoting'
             ));
             break;
           case PREDEFINED_CONTRACTS.SIMPLE_TOKEN:

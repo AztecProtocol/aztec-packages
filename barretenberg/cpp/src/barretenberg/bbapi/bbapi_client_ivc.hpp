@@ -92,31 +92,6 @@ struct ClientIvcAccumulate {
 };
 
 /**
- * @struct ClientIvcHidingKernel
- * @brief Accumulate the previously loaded circuit into the IVC proof
- */
-struct ClientIvcHidingKernel {
-    static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcHidingKernel";
-
-    /**
-     * @struct Response
-     * @brief Empty response indicating successful circuit accumulation
-     */
-    struct Response {
-        static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIvcHidingKernelResponse";
-        // Empty response - success indicated by no exception
-        void msgpack(auto&& pack_fn) { pack_fn(); }
-        bool operator==(const Response&) const = default;
-    };
-
-    /** @brief Serialized witness data for the last loaded circuit */
-    std::vector<uint8_t> witness;
-    Response execute(BBApiRequest& request) &&;
-    MSGPACK_FIELDS(witness);
-    bool operator==(const ClientIvcHidingKernel&) const = default;
-};
-
-/**
  * @struct ClientIvcProve
  * @brief Generate a proof for all accumulated circuits
  */

@@ -28,14 +28,5 @@ namespace bb::avm2 {
 INSTANTIATE_LOOKUP(lookup_sha256_mem_check_state_addr_in_range_relation);
 INSTANTIATE_LOOKUP(lookup_sha256_mem_check_input_addr_in_range_relation);
 INSTANTIATE_LOOKUP(lookup_sha256_mem_check_output_addr_in_range_relation);
-INSTANTIATE_LOOKUP(lookup_sha256_mem_mem_op_0_relation);
-INSTANTIATE_LOOKUP(lookup_sha256_mem_mem_op_1_relation);
-INSTANTIATE_LOOKUP(lookup_sha256_mem_mem_op_2_relation);
-INSTANTIATE_LOOKUP(lookup_sha256_mem_mem_op_3_relation);
-INSTANTIATE_LOOKUP(lookup_sha256_mem_mem_op_4_relation);
-INSTANTIATE_LOOKUP(lookup_sha256_mem_mem_op_5_relation);
-INSTANTIATE_LOOKUP(lookup_sha256_mem_mem_op_6_relation);
-INSTANTIATE_LOOKUP(lookup_sha256_mem_mem_op_7_relation);
-INSTANTIATE_LOOKUP(lookup_sha256_mem_mem_input_read_relation);
 
 } // namespace bb::avm2

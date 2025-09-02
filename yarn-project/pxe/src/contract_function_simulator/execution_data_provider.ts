@@ -209,6 +209,12 @@ export interface ExecutionDataProvider {
   getBlock(blockNumber: number): Promise<L2Block | undefined>;
 
   /**
+   * Assert that the oracle version is compatible with the expected version.
+   * @param version - The expected version.
+   */
+  assertCompatibleOracleVersion(version: number): void;
+
+  /**
    * Fetches the latest block number synchronized by the node.
    * @returns The block number.
    */

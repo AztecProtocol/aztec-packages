@@ -19,4 +19,7 @@ case "$type" in
     # TODO: Replace this file with test_simple.sh, and just emit the below as part of test_cmds.
     TEST=$test exec run_compose_test $test end-to-end $PWD
   ;;
+  "web3signer")
+    TEST=$test exec run_compose_test $test end-to-end $PWD/web3signer
+  ;;
 esac

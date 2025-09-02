@@ -36,13 +36,13 @@ TEST(GTTraceGenTest, TraceGenerationGT)
                                   ROW_FIELD_EQ(gt_input_b, 1),
                                   ROW_FIELD_EQ(gt_res, 1),
                                   ROW_FIELD_EQ(gt_abs_diff, 0),
-                                  ROW_FIELD_EQ(gt_constant_128, 128)),
+                                  ROW_FIELD_EQ(gt_num_bits, 16)),
                             AllOf(ROW_FIELD_EQ(gt_sel, 1),
                                   ROW_FIELD_EQ(gt_input_a, 1),
                                   ROW_FIELD_EQ(gt_input_b, u128_max),
                                   ROW_FIELD_EQ(gt_res, 0),
                                   ROW_FIELD_EQ(gt_abs_diff, u128_max - 1),
-                                  ROW_FIELD_EQ(gt_constant_128, 128))));
+                                  ROW_FIELD_EQ(gt_num_bits, 128))));
 }
 
 } // namespace

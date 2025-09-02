@@ -38,7 +38,8 @@ contract InvalidPointsFlushEntryQueueTest is StakingBase, BN254Fixtures {
       bootstrapValidatorSetSize: 0,
       bootstrapFlushSize: 0,
       normalFlushSizeMin: 2,
-      normalFlushSizeQuotient: 1
+      normalFlushSizeQuotient: 1,
+      maxQueueFlushSize: 48
     });
 
     Rollup rollup = Rollup(address(registry.getCanonicalRollup()));

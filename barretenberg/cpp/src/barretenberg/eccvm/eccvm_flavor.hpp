@@ -465,6 +465,9 @@ class ECCVMFlavor {
             }
         }
 
+#ifdef FUZZING
+        ProverPolynomials(const CircuitBuilder& builder, bool disable_fixed_dyadic_trace_size = false)
+#else
         /**
          * @brief Compute the ECCVM flavor polynomial data required to generate an ECCVM Proof
          *
@@ -557,6 +560,7 @@ class ECCVMFlavor {
          * @return ProverPolynomials
          */
         ProverPolynomials(const CircuitBuilder& builder)
+#endif
         {
             // compute rows for the three different sections of the ECCVM execution trace
             const auto transcript_rows =
@@ -578,7 +582,16 @@ class ECCVMFlavor {
                                std::to_string(ECCVM_FIXED_SIZE) + " actual size: " + std::to_string(dyadic_num_rows));
             }
 
+#ifdef FUZZING
+            // We don't want to spend all the time generating the full trace if we are just fuzzing eccvm.
+            if (disable_fixed_dyadic_trace_size) {
+                dyadic_num_rows = num_rows;
+            } else {
+                dyadic_num_rows = ECCVM_FIXED_SIZE;
+            }
+#else
             dyadic_num_rows = ECCVM_FIXED_SIZE;
+#endif
             size_t unmasked_witness_size = dyadic_num_rows - NUM_DISABLED_ROWS_IN_SUMCHECK;
 
             for (auto& poly : get_to_be_shifted()) {
@@ -1052,7 +1065,7 @@ class ECCVMFlavor {
         //    lookups i.e. `polynomials.msm_accumulator_x[last_edge_idx] will change z_perm[last_edge_idx - 1] and
         //    z_perm_shift[last_edge_idx - 1]
         //
-        // 3. The value of `transcript_mul` can be non-zero at the end of a long MSM of points-at-infinity, which will
+        // 3. The value of `transcript_mul` can be non-zero at the end of an MSM of points-at-infinity, which will
         //    cause `full_msm_count` to be non-zero while `transcript_msm_count` vanishes.
         //
         // 4. For similar reasons, we must add that `transcript_op==0`.

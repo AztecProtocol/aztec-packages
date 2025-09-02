@@ -9,7 +9,7 @@
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_poseidon2_hash.hpp"
 #include "barretenberg/vm2/generated/relations/poseidon2_hash.hpp"
-#include "barretenberg/vm2/generated/relations/poseidon2_perm.hpp"
+#include "barretenberg/vm2/optimized/relations/poseidon2_perm.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/range_check.hpp"
@@ -38,7 +38,7 @@ using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using poseidon2_hash = bb::avm2::poseidon2_hash<FF>;
-using poseidon2_perm = bb::avm2::poseidon2_perm<FF>;
+using poseidon2_perm = bb::avm2::optimized_poseidon2_perm<FF>;
 using poseidon2_mem = bb::avm2::poseidon2_mem<FF>;
 
 using simulation::EventEmitter;

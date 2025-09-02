@@ -110,7 +110,7 @@ fn merkle_crh(
 
 - Q: Do we need the domain separator "az_merkle" + tree_id, for each of the trees?
 - Q: do we need domain separation between different layers of the tree?
-- Q: Can we optimise the two domain separators to take up 1 Field, instead of 2, or does squashing them together add too many constraints?
+- Q: Can we optimize the two domain separators to take up 1 Field, instead of 2, or does squashing them together add too many constraints?
 - Note: if it helps with optimisation, we can reduce the bit-length of the domain separator strings.
 - Q: Can we specify the arguments to Poseidon as Fields, or do we need to specify them as bit-sequences?
 

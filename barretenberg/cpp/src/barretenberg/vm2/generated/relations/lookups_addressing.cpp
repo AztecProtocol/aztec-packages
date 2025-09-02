@@ -25,7 +25,6 @@
 
 namespace bb::avm2 {
 
-INSTANTIATE_LOOKUP(lookup_addressing_base_address_from_memory_relation);
 INSTANTIATE_LOOKUP(lookup_addressing_relative_overflow_range_0_relation);
 INSTANTIATE_LOOKUP(lookup_addressing_relative_overflow_range_1_relation);
 INSTANTIATE_LOOKUP(lookup_addressing_relative_overflow_range_2_relation);
@@ -33,12 +32,5 @@ INSTANTIATE_LOOKUP(lookup_addressing_relative_overflow_range_3_relation);
 INSTANTIATE_LOOKUP(lookup_addressing_relative_overflow_range_4_relation);
 INSTANTIATE_LOOKUP(lookup_addressing_relative_overflow_range_5_relation);
 INSTANTIATE_LOOKUP(lookup_addressing_relative_overflow_range_6_relation);
-INSTANTIATE_LOOKUP(lookup_addressing_indirect_from_memory_0_relation);
-INSTANTIATE_LOOKUP(lookup_addressing_indirect_from_memory_1_relation);
-INSTANTIATE_LOOKUP(lookup_addressing_indirect_from_memory_2_relation);
-INSTANTIATE_LOOKUP(lookup_addressing_indirect_from_memory_3_relation);
-INSTANTIATE_LOOKUP(lookup_addressing_indirect_from_memory_4_relation);
-INSTANTIATE_LOOKUP(lookup_addressing_indirect_from_memory_5_relation);
-INSTANTIATE_LOOKUP(lookup_addressing_indirect_from_memory_6_relation);
 
 } // namespace bb::avm2
