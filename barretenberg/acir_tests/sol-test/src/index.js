@@ -274,6 +274,9 @@ try {
         // Deploy the library
         console.log("Deploying ZKTranscriptLib library...");
         const libraryAddress = await deploy(signer, libraryAbi, libraryBytecode);
+
+        // Wait for the library deployment - for some reason we have an issue with nonces here
+        await new Promise((resolve) => setTimeout(resolve, 500));
         console.log("ZKTranscriptLib deployed at:", libraryAddress);
 
         // Link the library to the verifier bytecode

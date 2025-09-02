@@ -15,7 +15,7 @@ static const char HONK_CONTRACT_SOURCE[] = R"(
 pragma solidity ^0.8.27;
 
 interface IVerifier {
-    function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external view returns (bool);
+    function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external returns (bool);
 }
 
 type Fr is uint256;
@@ -68,7 +68,7 @@ library FrLib {
             mstore(add(free, 0x20), 0x20)
             mstore(add(free, 0x40), 0x20)
             mstore(add(free, 0x60), v)
-            mstore(add(free, 0x80), sub(MODULUS, 2))
+            mstore(add(free, 0x80), sub(MODULUS, 2)) 
             mstore(add(free, 0xa0), MODULUS)
             let success := staticcall(gas(), 0x05, free, 0xc0, 0x00, 0x20)
             if iszero(success) {
@@ -92,7 +92,7 @@ library FrLib {
             mstore(add(free, 0x20), 0x20)
             mstore(add(free, 0x40), 0x20)
             mstore(add(free, 0x60), b)
-            mstore(add(free, 0x80), v)
+            mstore(add(free, 0x80), v) 
             mstore(add(free, 0xa0), MODULUS)
             let success := staticcall(gas(), 0x05, free, 0xc0, 0x00, 0x20)
             if iszero(success) {
@@ -674,6 +674,7 @@ library RelationsLib {
         accumulateNnfRelation(purportedEvaluations, evaluations, powPartialEval);
         accumulatePoseidonExternalRelation(purportedEvaluations, evaluations, powPartialEval);
         accumulatePoseidonInternalRelation(purportedEvaluations, evaluations, powPartialEval);
+
         // batch the subrelations with the alpha challenges to obtain the full honk relation
         accumulator = scaleAndBatchSubrelations(evaluations, alphas);
     }
@@ -1051,7 +1052,7 @@ library RelationsLib {
         ap.index_delta = wire(p, WIRE.W_L_SHIFT) - wire(p, WIRE.W_L);
         ap.record_delta = wire(p, WIRE.W_4_SHIFT) - wire(p, WIRE.W_4);
 
-        ap.index_is_monotonically_increasing = ap.index_delta * ap.index_delta - ap.index_delta; // deg 2
+        ap.index_is_monotonically_increasing = ap.index_delta * (ap.index_delta - Fr.wrap(1)); // deg 2
 
         ap.adjacent_values_match_if_adjacent_indices_match = (ap.index_delta * MINUS_ONE + ONE) * ap.record_delta; // deg 2
 
@@ -1082,7 +1083,7 @@ library RelationsLib {
          * with a WRITE operation.
          */
         Fr access_type = (wire(p, WIRE.W_4) - ap.partial_record_check); // will be 0 or 1 for honest Prover; deg 1 or 4
-        ap.access_check = access_type * access_type - access_type; // check value is 0 or 1; deg 2 or 8
+        ap.access_check = access_type * (access_type - Fr.wrap(1)); // check value is 0 or 1; deg 2 or 8
 
         // reverse order we could re-use `ap.partial_record_check`  1 -  ((w3' * eta + w2') * eta + w1') * eta
         // deg 1 or 4
@@ -1256,7 +1257,7 @@ library RelationsLib {
     function accumulatePoseidonExternalRelation(
         Fr[NUMBER_OF_ENTITIES] memory p,
         Fr[NUMBER_OF_SUBRELATIONS] memory evals,
-        Fr domainSep // i guess this is the scaling factor?
+        Fr domainSep
     ) internal pure {
         PoseidonExternalParams memory ep;
 
@@ -1354,7 +1355,7 @@ library RelationsLib {
         Fr[NUMBER_OF_SUBRELATIONS] memory evaluations,
         Fr[NUMBER_OF_ALPHAS] memory subrelationChallenges
     ) internal pure returns (Fr accumulator) {
-        accumulator = accumulator + evaluations[0];
+        accumulator = evaluations[0];
 
         for (uint256 i = 1; i < NUMBER_OF_SUBRELATIONS; ++i) {
             accumulator = accumulator + evaluations[i] * subrelationChallenges[i - 1];
@@ -1421,10 +1422,9 @@ library CommitmentSchemeLib {
             );
             // Divide by the denominator
             batchedEvalRoundAcc = batchedEvalRoundAcc * (challengePower * (ONE - u) + u).invert();
-            if (i <= logSize) {
-                batchedEvalAccumulator = batchedEvalRoundAcc;
-                foldPosEvaluations[i - 1] = batchedEvalRoundAcc;
-            }
+
+            batchedEvalAccumulator = batchedEvalRoundAcc;
+            foldPosEvaluations[i - 1] = batchedEvalRoundAcc;
         }
         return foldPosEvaluations;
     }
@@ -2073,27 +2073,24 @@ abstract contract BaseHonkVerifier is IVerifier {
         // Compute Shplonk constant term contributions from Aₗ(± r^{2ˡ}) for l = 1, ..., m-1;
         // Compute scalar multipliers for each fold commitment
         for (uint256 i = 0; i < $LOG_N - 1; ++i) {
-            bool dummy_round = i >= ($LOG_N - 1);
+            // Update inverted denominators
+            mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[i + 1]).invert();
+            mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[i + 1]).invert();
 
-            if (!dummy_round) {
-                // Update inverted denominators
-                mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[i + 1]).invert();
-                mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[i + 1]).invert();
+            // Compute the scalar multipliers for Aₗ(± r^{2ˡ}) and [Aₗ]
+            mem.scalingFactorPos = mem.batchingChallenge * mem.posInvertedDenominator;
+            mem.scalingFactorNeg = mem.batchingChallenge * tp.shplonkNu * mem.negInvertedDenominator;
+            // [Aₗ] is multiplied by -v^{2l}/(z-r^{2^l}) - v^{2l+1} /(z+ r^{2^l})
+            scalars[NUMBER_UNSHIFTED + 1 + i] = mem.scalingFactorNeg.neg() + mem.scalingFactorPos.neg();
 
-                // Compute the scalar multipliers for Aₗ(± r^{2ˡ}) and [Aₗ]
-                mem.scalingFactorPos = mem.batchingChallenge * mem.posInvertedDenominator;
-                mem.scalingFactorNeg = mem.batchingChallenge * tp.shplonkNu * mem.negInvertedDenominator;
-                // [Aₗ] is multiplied by -v^{2l}/(z-r^{2^l}) - v^{2l+1} /(z+ r^{2^l})
-                scalars[NUMBER_UNSHIFTED + 1 + i] = mem.scalingFactorNeg.neg() + mem.scalingFactorPos.neg();
+            // Accumulate the const term contribution given by
+            // v^{2l} * Aₗ(r^{2ˡ}) /(z-r^{2^l}) + v^{2l+1} * Aₗ(-r^{2ˡ}) /(z+ r^{2^l})
+            Fr accumContribution = mem.scalingFactorNeg * proof.geminiAEvaluations[i + 1];
 
-                // Accumulate the const term contribution given by
-                // v^{2l} * Aₗ(r^{2ˡ}) /(z-r^{2^l}) + v^{2l+1} * Aₗ(-r^{2ˡ}) /(z+ r^{2^l})
-                Fr accumContribution = mem.scalingFactorNeg * proof.geminiAEvaluations[i + 1];
-                accumContribution = accumContribution + mem.scalingFactorPos * foldPosEvaluations[i + 1];
-                mem.constantTermAccumulator = mem.constantTermAccumulator + accumContribution;
-                // Update the running power of v
-                mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu * tp.shplonkNu;
-            }
+            accumContribution = accumContribution + mem.scalingFactorPos * foldPosEvaluations[i + 1];
+            mem.constantTermAccumulator = mem.constantTermAccumulator + accumContribution;
+            // Update the running power of v
+            mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu * tp.shplonkNu;
 
             commitments[NUMBER_UNSHIFTED + 1 + i] = proof.geminiFoldComms[i];
         }
