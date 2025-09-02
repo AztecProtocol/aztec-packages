@@ -32,6 +32,10 @@ export class UtilityExecutionOracle extends TypedOracle {
     super();
   }
 
+  public override utilityAssertCompatibleOracleVersion(version: number): void {
+    this.executionDataProvider.assertCompatibleOracleVersion(version);
+  }
+
   public override utilityGetRandomField(): Fr {
     return Fr.random();
   }
