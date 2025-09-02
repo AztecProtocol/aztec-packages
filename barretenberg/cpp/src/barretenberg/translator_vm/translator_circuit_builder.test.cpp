@@ -130,8 +130,9 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
             z_1_accumulator = z_1_accumulator * x_inv + uint256_t(ecc_op.z_1);
             z_2_accumulator = z_2_accumulator * x_inv + uint256_t(ecc_op.z_2);
         }
-        // The degree is ultra_ops.size() - 2 as we ignore the first no-op in computation
-        Fq x_pow = x.pow(ultra_ops.size() - (2 + no_op_count));
+        // Compute the degree ignoring the start no-op (which ensures we can shift polynomials) and also the no-op rage
+        // if one exists within the trace
+        Fq x_pow = x.pow(ultra_ops.size() - 1 - (1 + no_op_count));
 
         // Multiply by an appropriate power of x to get rid of the inverses
         Fq result =

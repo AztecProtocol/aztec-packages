@@ -63,7 +63,9 @@ namespace bb {
  * which we need to calculate non-permutation relations). All other indices are set to zero. Each EccOpQueue entry
  * (operation) occupies 2 rows in bn254 transcripts. So the Translator VM has a 2-row cycle and we need to
  * switch the checks being performed depending on which row we are at right now. We have half a cycle of
- * accumulation, where we perform this computation, and half a cycle where we just copy accumulator data.
+ * accumulation, where we perform this computation, and half a cycle where we just copy accumulator data. They also get
+ * multiplied by the op because the no-op range within the trace (if one exits) should imply the accumulator doesn't
+ * change (fully enforced by the AccumulatorTransferRelation and OpcodeRelation )
  *
  * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
  * @param in an std::array containing the fully extended Univariate edges.

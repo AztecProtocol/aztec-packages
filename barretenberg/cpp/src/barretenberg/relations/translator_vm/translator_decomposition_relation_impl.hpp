@@ -37,8 +37,9 @@ void TranslatorDecompositionRelationImpl<FF>::accumulate(ContainerOverSubrelatio
     static constexpr size_t NUM_LIMB_BITS = 68;       // Number of bits in a standard limb used for bigfield operations
     static constexpr size_t NUM_MICRO_LIMB_BITS = 14; // Number of bits in a standard limb used for bigfield operations
 
-    // Contribution 13, accumulator lowest limb decomposition
     [&]() {
+        // Within the no-op range i.e. when the op polynomial is 0 at even index the 2 Translator trace rows are empty
+        // except for the accumulator binary limbs which get transferred across the no-op range
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
 
@@ -74,7 +75,7 @@ void TranslatorDecompositionRelationImpl<FF>::accumulate(ContainerOverSubrelatio
         auto op = View(in.op);
         auto lagrange_even_in_minicircuit = View(in.lagrange_even_in_minicircuit);
 
-        // Contribution 13, accumulator lowest limb decomposition
+        // Contribution 1, accumulator lowest limb decomposition
         auto tmp_1 =
             ((accumulator_low_limbs_range_constraint_0 + accumulator_low_limbs_range_constraint_1 * MICRO_LIMB_SHIFT +
               accumulator_low_limbs_range_constraint_2 * MICRO_LIMB_SHIFTx2 +
@@ -85,7 +86,7 @@ void TranslatorDecompositionRelationImpl<FF>::accumulate(ContainerOverSubrelatio
         tmp_1 *= scaling_factor;
         std::get<0>(accumulators) += tmp_1;
 
-        // Contribution 14, accumulator second limb decomposition
+        // Contribution 2, accumulator second limb decomposition
         auto tmp_2 = ((accumulator_low_limbs_range_constraint_0_shift +
                        accumulator_low_limbs_range_constraint_1_shift * MICRO_LIMB_SHIFT +
                        accumulator_low_limbs_range_constraint_2_shift * MICRO_LIMB_SHIFTx2 +
@@ -96,7 +97,7 @@ void TranslatorDecompositionRelationImpl<FF>::accumulate(ContainerOverSubrelatio
         tmp_2 *= scaling_factor;
         std::get<1>(accumulators) += tmp_2;
 
-        // Contribution 15, accumulator second highest limb decomposition
+        // Contribution 3, accumulator second highest limb decomposition
         auto tmp_3 =
             ((accumulator_high_limbs_range_constraint_0 + accumulator_high_limbs_range_constraint_1 * MICRO_LIMB_SHIFT +
               accumulator_high_limbs_range_constraint_2 * MICRO_LIMB_SHIFTx2 +
@@ -107,7 +108,7 @@ void TranslatorDecompositionRelationImpl<FF>::accumulate(ContainerOverSubrelatio
         tmp_3 *= scaling_factor;
         std::get<2>(accumulators) += tmp_3;
 
-        // Contribution 16, accumulator highest limb decomposition
+        // Contribution 4, accumulator highest limb decomposition
         auto tmp_4 = ((accumulator_high_limbs_range_constraint_0_shift +
                        accumulator_high_limbs_range_constraint_1_shift * MICRO_LIMB_SHIFT +
                        accumulator_high_limbs_range_constraint_2_shift * MICRO_LIMB_SHIFTx2 +
@@ -367,7 +368,7 @@ void TranslatorDecompositionRelationImpl<FF>::accumulate(ContainerOverSubrelatio
         std::get<11>(accumulators) += tmp_12;
 
         // Contributions that decompose 50, 52, 68 or 84 bit limbs used for computation into range-constrained chunks
-        // Contribution 1 , P_x lowest limb decomposition
+        // Contribution 13, P_x lowest limb decomposition
         auto tmp_13 = ((p_x_low_limbs_range_constraint_0 + p_x_low_limbs_range_constraint_1 * MICRO_LIMB_SHIFT +
                         p_x_low_limbs_range_constraint_2 * MICRO_LIMB_SHIFTx2 +
                         p_x_low_limbs_range_constraint_3 * MICRO_LIMB_SHIFTx3 +
@@ -377,7 +378,7 @@ void TranslatorDecompositionRelationImpl<FF>::accumulate(ContainerOverSubrelatio
         tmp_13 *= scaling_factor;
         std::get<12>(accumulators) += tmp_13;
 
-        // Contribution 2 , P_x second lowest limb decomposition
+        // Contribution 14 , P_x second lowest limb decomposition
         auto tmp_14 =
             ((p_x_low_limbs_range_constraint_0_shift + p_x_low_limbs_range_constraint_1_shift * MICRO_LIMB_SHIFT +
               p_x_low_limbs_range_constraint_2_shift * MICRO_LIMB_SHIFTx2 +
@@ -388,7 +389,7 @@ void TranslatorDecompositionRelationImpl<FF>::accumulate(ContainerOverSubrelatio
         tmp_14 *= scaling_factor;
         std::get<13>(accumulators) += tmp_14;
 
-        // Contribution 3 , P_x third limb decomposition
+        // Contribution 15 , P_x third limb decomposition
         auto tmp_15 = ((p_x_high_limbs_range_constraint_0 + p_x_high_limbs_range_constraint_1 * MICRO_LIMB_SHIFT +
                         p_x_high_limbs_range_constraint_2 * MICRO_LIMB_SHIFTx2 +
                         p_x_high_limbs_range_constraint_3 * MICRO_LIMB_SHIFTx3 +
@@ -398,7 +399,7 @@ void TranslatorDecompositionRelationImpl<FF>::accumulate(ContainerOverSubrelatio
         tmp_15 *= scaling_factor;
         std::get<14>(accumulators) += tmp_15;
 
-        // Contribution 4 , P_x highest limb decomposition
+        // Contribution 16 , P_x highest limb decomposition
         auto tmp_16 =
             ((p_x_high_limbs_range_constraint_0_shift + p_x_high_limbs_range_constraint_1_shift * MICRO_LIMB_SHIFT +
               p_x_high_limbs_range_constraint_2_shift * MICRO_LIMB_SHIFTx2 +
@@ -408,7 +409,7 @@ void TranslatorDecompositionRelationImpl<FF>::accumulate(ContainerOverSubrelatio
         tmp_16 *= scaling_factor;
         std::get<15>(accumulators) += tmp_16;
 
-        // Contribution 15 , quotient lowest limb decomposition
+        // Contribution 17 , quotient lowest limb decomposition
         auto tmp_17 =
             ((quotient_low_limbs_range_constraint_0 + quotient_low_limbs_range_constraint_1 * MICRO_LIMB_SHIFT +
               quotient_low_limbs_range_constraint_2 * MICRO_LIMB_SHIFTx2 +
@@ -418,7 +419,7 @@ void TranslatorDecompositionRelationImpl<FF>::accumulate(ContainerOverSubrelatio
         tmp_17 *= lagrange_even_in_minicircuit;
         tmp_17 *= scaling_factor;
         std::get<16>(accumulators) += tmp_17;
-        // Contribution 16 , quotient second lowest limb decomposition
+        // Contribution 18 , quotient second lowest limb decomposition
         auto tmp_18 = ((quotient_low_limbs_range_constraint_0_shift +
                         quotient_low_limbs_range_constraint_1_shift * MICRO_LIMB_SHIFT +
                         quotient_low_limbs_range_constraint_2_shift * MICRO_LIMB_SHIFTx2 +

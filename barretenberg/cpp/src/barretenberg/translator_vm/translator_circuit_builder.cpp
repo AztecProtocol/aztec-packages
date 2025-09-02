@@ -537,10 +537,9 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     // We need to precompute the accumulators at each step, because in the actual circuit we compute the values starting
     // from the later indices. We need to know the previous accumulator to create the gate
     for (size_t i = 1; i < ultra_ops.size(); i++) {
-
         const auto& ultra_op = ultra_ops[ultra_ops.size() - i];
         if (ultra_op.op_code.value() == 0) {
-            //  Skip no-ops as they should not affect the computation of the accumulator (or)
+            //  Skip no-ops as they should not affect the computation of the accumulator
             continue;
         }
         current_accumulator *= evaluation_input_x;
@@ -554,7 +553,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         accumulator_trace.push_back(current_accumulator);
     }
 
-    // Accumulator final value is recomputed during witness generation anyway
+    // Accumulator final value,recomputed during witness generation and expected at RESULT_ROW
     Fq final_accumulator_state = accumulator_trace.back();
     accumulator_trace.pop_back();
 
@@ -563,6 +562,11 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     for (size_t i = 1; i < ultra_ops.size(); i++) {
         const auto& ultra_op = ultra_ops[i];
         if (ultra_op.op_code.value() == 0) {
+            // Within the no-op range the translator trace is empty except for the accumulator binary limbs which gets
+            // copied from the last row k where an op happened (i.e. the op wire the even index has a non-zero value).
+            // Then, during proving we perform all the checks to estabilish wires at k are well formed and that we
+            // appropriately transfered the accumulator value at k across the entire no-op range, both in even and odd
+            // indices.
             for (size_t j = 0; j < ACCUMULATORS_BINARY_LIMBS_0; j++) {
                 wires[j].push_back(add_variable(zero_idx));
                 wires[j].push_back(add_variable(zero_idx));

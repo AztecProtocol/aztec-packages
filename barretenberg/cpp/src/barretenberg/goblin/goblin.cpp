@@ -45,23 +45,6 @@ void Goblin::prove_translator()
     auto translator_key = std::make_shared<TranslatorProvingKey>(translator_builder, commitment_key);
     TranslatorProver translator_prover(translator_key, transcript);
     goblin_proof.translator_proof = translator_prover.construct_proof();
-    // auto op = op_queue->construct_ultra_ops_table_columns()[0];
-    // auto op_translator = op_queue->get_ultra_ops();
-    // info(op.size(), " ", op_translator.size());
-    // for (size_t i = 0; i < op_translator.size(); i++) {}
-
-    //     if
-    // info(op.size(), " ", translator_key->proving_key->polynomials.op.size());
-    // for (size_t i = 0; i < op.size(); i++) {
-    //     if (op.at(i) != translator_key->proving_key->polynomials.op[i]) {
-    //         info("mismatch at ",
-    //              i,
-    //              " op_queue: ",
-    //              op.at(i),
-    //              " translator_key: ",
-    //              translator_key->proving_key->polynomials.op[i]);
-    //     }
-    // }
 }
 
 GoblinProof Goblin::prove(const MergeSettings merge_settings)
@@ -69,7 +52,7 @@ GoblinProof Goblin::prove(const MergeSettings merge_settings)
     PROFILE_THIS_NAME("Goblin::prove");
 
     prove_merge(transcript, merge_settings); // Use shared transcript for merge proving
-    info("Constructing a Goblin proof with num ultra ops = ", op_queue->get_ultra_ops().size());
+    info("Constructing a Goblin proof with num ultra ops = ", op_queue->get_ultra_ops_table_num_rows());
 
     BB_ASSERT_EQ(merge_verification_queue.size(),
                  1U,

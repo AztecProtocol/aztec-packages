@@ -204,7 +204,6 @@ bool TranslatorVerifier::verify_translation(const TranslationEvaluations& transl
  */
 bool TranslatorVerifier::verify_consistency_with_final_merge(const std::array<Commitment, 4>& merge_commitments)
 {
-
     if (op_queue_commitments[0] != merge_commitments[0]) {
         info("Consistency check failed: op commitment mismatch");
         return false;
