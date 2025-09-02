@@ -21,6 +21,7 @@ describe('SlashOffensesCollector', () => {
 
   const settings: SlashOffensesCollectorSettings = {
     epochDuration: 32,
+    slashingAmounts: [100n, 200n, 300n],
   };
 
   const config: SlasherConfig = {

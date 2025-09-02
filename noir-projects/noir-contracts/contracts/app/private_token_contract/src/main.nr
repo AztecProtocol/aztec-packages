@@ -1,8 +1,8 @@
-// docs:start:easy_private_token_contract
+// docs:start:private_token_contract
 use dep::aztec::macros::aztec;
 
 #[aztec]
-pub contract EasyPrivateToken {
+pub contract PrivateToken {
     use dep::aztec::macros::{functions::{initializer, private, utility}, storage::storage};
     use dep::aztec::{protocol_types::address::AztecAddress, state_vars::Map};
     use dep::easy_private_state::EasyPrivateUint;
@@ -46,4 +46,4 @@ pub contract EasyPrivateToken {
         storage.balances.at(owner).get_value()
     }
 }
-// docs:end:easy_private_token_contract
+// docs:end:private_token_contract

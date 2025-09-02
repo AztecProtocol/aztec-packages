@@ -1,3 +1,4 @@
+import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import type { ConfigMappingsType } from '@aztec/foundation/config';
 import {
   bigintConfigHelper,
@@ -16,13 +17,14 @@ export const DefaultSlasherConfig: SlasherConfig = {
   slashMaxPenaltyPercentage: 2.0, //2x of penalty
   slashValidatorsAlways: [], // Empty by default
   slashValidatorsNever: [], // Empty by default
-  slashPrunePenalty: 1n,
+  slashPrunePenalty: DefaultL1ContractsConfig.slashAmountSmall,
+  slashDataWithholdingPenalty: DefaultL1ContractsConfig.slashAmountSmall,
   slashInactivityTargetPercentage: 0.9,
-  slashBroadcastedInvalidBlockPenalty: 1n,
-  slashInactivityPenalty: 1n,
-  slashProposeInvalidAttestationsPenalty: 1n,
-  slashAttestDescendantOfInvalidPenalty: 1n,
-  slashUnknownPenalty: 1n,
+  slashBroadcastedInvalidBlockPenalty: DefaultL1ContractsConfig.slashAmountSmall,
+  slashInactivityPenalty: DefaultL1ContractsConfig.slashAmountSmall,
+  slashProposeInvalidAttestationsPenalty: DefaultL1ContractsConfig.slashAmountSmall,
+  slashAttestDescendantOfInvalidPenalty: DefaultL1ContractsConfig.slashAmountSmall,
+  slashUnknownPenalty: DefaultL1ContractsConfig.slashAmountSmall,
   slashOffenseExpirationRounds: 4,
   slashMaxPayloadSize: 50,
   slashGracePeriodL2Slots: 0,
@@ -70,8 +72,13 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
   },
   slashPrunePenalty: {
     env: 'SLASH_PRUNE_PENALTY',
-    description: 'Penalty amount for slashing validators of a pruned epoch (set to 0 to disable).',
+    description: 'Penalty amount for slashing validators of a valid pruned epoch (set to 0 to disable).',
     ...bigintConfigHelper(DefaultSlasherConfig.slashPrunePenalty),
+  },
+  slashDataWithholdingPenalty: {
+    env: 'SLASH_DATA_WITHHOLDING_PENALTY',
+    description: 'Penalty amount for slashing validators for data withholding (set to 0 to disable).',
+    ...bigintConfigHelper(DefaultSlasherConfig.slashDataWithholdingPenalty),
   },
   slashBroadcastedInvalidBlockPenalty: {
     env: 'SLASH_INVALID_BLOCK_PENALTY',
