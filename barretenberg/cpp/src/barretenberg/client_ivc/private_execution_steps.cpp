@@ -77,7 +77,7 @@ template <typename T> T unpack_from_file(const std::filesystem::path& filename)
 // TODO(#7371) we should not have so many levels of serialization here.
 std::vector<PrivateExecutionStepRaw> PrivateExecutionStepRaw::load(const std::filesystem::path& input_path)
 {
-    PROFILE_THIS();
+    BB_BENCH();
     return unpack_from_file<std::vector<PrivateExecutionStepRaw>>(input_path);
 }
 
@@ -92,7 +92,7 @@ void PrivateExecutionStepRaw::self_decompress()
 std::vector<PrivateExecutionStepRaw> PrivateExecutionStepRaw::load_and_decompress(
     const std::filesystem::path& input_path)
 {
-    PROFILE_THIS();
+    BB_BENCH();
     auto raw_steps = load(input_path);
     for (PrivateExecutionStepRaw& step : raw_steps) {
         step.bytecode = decompress(step.bytecode.data(), step.bytecode.size());
@@ -112,7 +112,7 @@ std::vector<PrivateExecutionStepRaw> PrivateExecutionStepRaw::parse_uncompressed
 
 void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
 {
-    PROFILE_THIS();
+    BB_BENCH();
 
     // Preallocate space to write into diretly as push_back would not be thread safe
     folding_stack.resize(steps.size());

@@ -12,9 +12,9 @@ import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
 struct RegistrationData {
   address attester;
+  G1Point proofOfPossession;
   G1Point publicKeyInG1;
   G2Point publicKeyInG2;
-  G1Point proofOfPossession;
 }
 
 contract MigrationScript is Test {
@@ -46,7 +46,7 @@ contract MigrationScript is Test {
   function emulate() public {
     // If emulating we will deploy a rollup and other components ahead of time, otherwise
     // you should provide them by updating the values above.
-    RollupBuilder builder = new RollupBuilder(ME).setUpdateOwnerships(false).deploy();
+    RollupBuilder builder = new RollupBuilder(ME).setUpdateOwnerships(false).setCheckProofOfPossession(true).deploy();
 
     INSTANCE = IInstance(address(builder.getConfig().rollup));
     STAKING_ASSET = builder.getConfig().testERC20;
@@ -55,6 +55,20 @@ contract MigrationScript is Test {
     STAKING_ASSET.addMinter(ME);
 
     migrate();
+  }
+
+  function print() public {
+    RegistrationData memory r = $registrations[0];
+    emit log_named_address("Attester", r.attester);
+    emit log_named_address("Withdrawer", WITHDRAWER);
+    emit log_named_bytes32("PublicKeyInG1.x", bytes32(r.publicKeyInG1.x));
+    emit log_named_bytes32("PublicKeyInG1.y", bytes32(r.publicKeyInG1.y));
+    emit log_named_bytes32("PublicKeyInG2.x0", bytes32(r.publicKeyInG2.x0));
+    emit log_named_bytes32("PublicKeyInG2.x1", bytes32(r.publicKeyInG2.x1));
+    emit log_named_bytes32("PublicKeyInG2.y0", bytes32(r.publicKeyInG2.y0));
+    emit log_named_bytes32("PublicKeyInG2.y1", bytes32(r.publicKeyInG2.y1));
+    emit log_named_bytes32("ProofOfPossession.x", bytes32(r.proofOfPossession.x));
+    emit log_named_bytes32("ProofOfPossession.y", bytes32(r.proofOfPossession.y));
   }
 
   function migrate() public {
@@ -68,6 +82,8 @@ contract MigrationScript is Test {
     uint256 start = 0;
     uint256 end = $registrations.length;
     uint256 batchSize = 10;
+
+    uint256 sizeBefore = INSTANCE.getActiveAttesterCount() + INSTANCE.getEntryQueueLength();
 
     while (start < end) {
       uint256 batchEnd = start + batchSize;
@@ -91,8 +107,11 @@ contract MigrationScript is Test {
       vm.startBroadcast(ME);
       ADDER.addValidators(args);
       vm.stopBroadcast();
-
       start = batchEnd;
     }
+
+    uint256 sizeAfter = INSTANCE.getActiveAttesterCount() + INSTANCE.getEntryQueueLength();
+
+    assertGe(sizeAfter, sizeBefore + end);
   }
 }

@@ -308,12 +308,13 @@ case "$cmd" in
     export AZTEC_CACHE_COMMIT=$commit_hash
     # TODO currently does nothing! to reinstate in cache_download
     export FORCE_CACHE_DOWNLOAD=${FORCE_CACHE_DOWNLOAD:-1}
-    BOOTSTRAP_AFTER=barretenberg BOOSTRAP_TO=yarn-project ../../bootstrap.sh
+    # make sure that disabling the aztec VM does not interfere with cache results from CI.
+    DISABLE_AZTEC_VM="" BOOTSTRAP_AFTER=barretenberg BOOSTRAP_TO=yarn-project ../../bootstrap.sh
 
     rm -rf bench-out
 
     # Recreation of logic from bench.
-    ../../yarn-project/end-to-end/bootstrap.sh build_bench
+    DISABLE_AZTEC_VM="" ../../yarn-project/end-to-end/bootstrap.sh build_bench
 
     # Extract and filter benchmark commands by flow name and wasm/no-wasm
     function ivc_bench_cmds {

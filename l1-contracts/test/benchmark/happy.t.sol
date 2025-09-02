@@ -135,6 +135,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   bool internal IS_IGNITION;
 
   Rollup internal rollup;
+  Slasher internal slasher;
 
   address internal coinbase = address(bytes20("MONEY MAKER"));
   TestERC20 internal asset;
@@ -186,14 +187,16 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       uint256 tallyRoundSize = EPOCH_DURATION * 2; // 64; // 2 * EPOCH_DURATION (32) = 64
       uint256 tallyQuorum = tallyRoundSize / 2 + 1; // Must be > ROUND_SIZE / 2
       builder.setSlasherFlavor(SlasherFlavor.TALLY).setSlashingQuorum(tallyQuorum).setSlashingRoundSize(tallyRoundSize)
-        .setSlashingLifetimeInRounds(5).setSlashingExecutionDelayInRounds(1).setSlashingUnit(1e18);
+        .setSlashingLifetimeInRounds(5).setSlashingExecutionDelayInRounds(1).setSlashAmountSmall(1e18)
+        .setSlashAmountMedium(2e18).setSlashAmountLarge(3e18);
     }
 
     builder.deploy();
 
     asset = builder.getConfig().testERC20;
     rollup = builder.getConfig().rollup;
-    slashingProposer = Slasher(rollup.getSlasher()).PROPOSER();
+    slasher = Slasher(rollup.getSlasher());
+    slashingProposer = address(slasher) == address(0) ? address(0) : slasher.PROPOSER();
 
     SlashFactory slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
     address[] memory toSlash = new address[](0);

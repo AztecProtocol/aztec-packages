@@ -8,7 +8,9 @@ import type { SlasherOffensesStore } from './stores/offenses_store.js';
 import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher } from './watcher.js';
 
 export type SlashOffensesCollectorConfig = Prettify<Pick<SlasherConfig, 'slashGracePeriodL2Slots'>>;
-export type SlashOffensesCollectorSettings = Prettify<Pick<L1RollupConstants, 'epochDuration'>>;
+export type SlashOffensesCollectorSettings = Prettify<
+  Pick<L1RollupConstants, 'epochDuration'> & { slashingAmounts: [bigint, bigint, bigint] | undefined }
+>;
 
 /**
  * Collects and manages slashable offenses from watchers.
@@ -76,6 +78,13 @@ export class SlashOffensesCollector {
         continue;
       }
 
+      if (this.settings.slashingAmounts) {
+        const minSlash = this.settings.slashingAmounts[0];
+        if (arg.amount < minSlash) {
+          this.log.warn(`Offense amount ${arg.amount} is below minimum slashing amount ${minSlash}`);
+        }
+      }
+
       this.log.info(`Adding pending offense for validator ${arg.validator}`, pendingOffense);
       await this.offensesStore.addPendingOffense(pendingOffense);
     }
@@ -86,8 +95,11 @@ export class SlashOffensesCollector {
    * Clears expired offenses from stores.
    */
   public async handleNewRound(round: bigint) {
-    this.log.info(`Clearing expired offenses for new slashing round ${round}`);
-    await this.offensesStore.clearExpiredOffenses(round);
+    this.log.verbose(`Clearing expired offenses for new slashing round ${round}`);
+    const cleared = await this.offensesStore.clearExpiredOffenses(round);
+    if (cleared && cleared > 0) {
+      this.log.verbose(`Cleared ${cleared} expired offenses`);
+    }
   }
 
   /**

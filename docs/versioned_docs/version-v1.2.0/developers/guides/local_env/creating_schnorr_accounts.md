@@ -19,7 +19,7 @@ An in-depth explainer about accounts on aztec can be found [here](../../../aztec
 
 ## Pre-requisites
 
-Have a running Sandbox and a repository that interacts with it as explained [in the quickstart](../../getting_started.md).
+Have a running Sandbox and a repository that interacts with it as explained [in the quickstart](../../getting_started/getting_started_on_sandbox.md).
 
 Let's assume you have a file `src/index.ts` from the example used in the Sandbox page.
 
@@ -27,7 +27,7 @@ Let's assume you have a file `src/index.ts` from the example used in the Sandbox
 
 1. Import relevant modules:
 
-```typescript title="imports1" showLineNumbers 
+```typescript title="imports1" showLineNumbers
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 ```
@@ -36,7 +36,7 @@ import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 
 2. Code to create an account. You must run this inside of a function:
 
-```typescript title="create_accounts" showLineNumbers 
+```typescript title="create_accounts" showLineNumbers
 ////////////// CREATE SOME ACCOUNTS WITH SCHNORR SIGNERS //////////////
 
 // Use one of the pre-funded accounts to pay for the deployments.

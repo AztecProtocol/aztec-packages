@@ -119,6 +119,7 @@
 #include "relations/lookups_update_check.hpp"
 #include "relations/lookups_written_public_data_slots_tree_check.hpp"
 #include "relations/perms_addressing.hpp"
+#include "relations/perms_data_copy.hpp"
 #include "relations/perms_ecc_mem.hpp"
 #include "relations/perms_execution.hpp"
 #include "relations/perms_keccak_memory.hpp"
@@ -132,10 +133,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 133;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2928;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 316;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2936;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 317;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3377;
+    static constexpr size_t NUM_ALL_ENTITIES = 3386;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -259,13 +260,13 @@ struct AvmFlavorVariables {
         lookup_contract_instance_retrieval_address_derivation_relation<FF_>,
         lookup_contract_instance_retrieval_deployment_nullifier_read_relation<FF_>,
         lookup_contract_instance_retrieval_update_check_relation<FF_>,
+        lookup_data_copy_check_dst_addr_in_range_relation<FF_>,
+        lookup_data_copy_check_src_addr_in_range_relation<FF_>,
         lookup_data_copy_col_read_relation<FF_>,
+        lookup_data_copy_max_read_index_gt_relation<FF_>,
         lookup_data_copy_mem_read_relation<FF_>,
         lookup_data_copy_mem_write_relation<FF_>,
-        lookup_data_copy_range_max_read_size_diff_relation<FF_>,
-        lookup_data_copy_range_read_relation<FF_>,
-        lookup_data_copy_range_reads_left_relation<FF_>,
-        lookup_data_copy_range_write_relation<FF_>,
+        lookup_data_copy_offset_gt_max_read_index_relation<FF_>,
         lookup_ecc_mem_check_dst_addr_in_range_relation<FF_>,
         lookup_ecc_mem_input_output_ecc_add_relation<FF_>,
         lookup_ecc_mem_write_mem_0_relation<FF_>,
@@ -626,6 +627,8 @@ struct AvmFlavorVariables {
         perm_addressing_indirect_from_memory_4_relation<FF_>,
         perm_addressing_indirect_from_memory_5_relation<FF_>,
         perm_addressing_indirect_from_memory_6_relation<FF_>,
+        perm_data_copy_dispatch_cd_copy_relation<FF_>,
+        perm_data_copy_dispatch_rd_copy_relation<FF_>,
         perm_ecc_mem_dispatch_exec_ecc_add_relation<FF_>,
         perm_execution_dispatch_get_contract_instance_relation<FF_>,
         perm_execution_dispatch_keccakf1600_relation<FF_>,

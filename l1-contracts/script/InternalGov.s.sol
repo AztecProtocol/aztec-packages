@@ -13,7 +13,6 @@ import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {RegisterNewRollupVersionPayload} from "../test/governance/scenario/RegisterNewRollupVersionPayload.sol";
-import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {Fakerollup} from "../test/governance/governance-proposer/mocks/Fakerollup.sol";
 import {StakingAssetHandler} from "../src/mock/StakingAssetHandler.sol";
@@ -23,9 +22,10 @@ import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
 import {RoundAccounting} from "@aztec/governance/proposer/EmpireBase.sol";
+import {UncompressedProposalWrapper} from "@test/governance/helpers/UncompressedProposalTestLib.sol";
 
 contract GovScript is Test {
-  using ProposalLib for Proposal;
+  UncompressedProposalWrapper internal upw = new UncompressedProposalWrapper();
 
   address internal constant ME = address(0xf8d7d601759CBcfB78044bA7cA9B0c0D6301A54f);
 
@@ -138,14 +138,14 @@ contract GovScript is Test {
     proposal = governance.getProposal(_proposalId);
     ProposalState state = governance.getProposalState(_proposalId);
 
-    Timestamp pendingThrough = proposal.pendingThrough();
+    Timestamp pendingThrough = upw.pendingThrough(proposal);
 
     emit log_named_string("Proposal state", stateNames[uint256(state)]);
     emit log_named_address("Proposal payload", address(proposal.payload));
     emit log_named_uint("pendingThrough   ", Timestamp.unwrap(pendingThrough));
-    emit log_named_uint("activeThrough    ", Timestamp.unwrap(proposal.activeThrough()));
-    emit log_named_uint("queuedThrough    ", Timestamp.unwrap(proposal.queuedThrough()));
-    emit log_named_uint("executableThrough", Timestamp.unwrap(proposal.executableThrough()));
+    emit log_named_uint("activeThrough    ", Timestamp.unwrap(upw.activeThrough(proposal)));
+    emit log_named_uint("queuedThrough    ", Timestamp.unwrap(upw.queuedThrough(proposal)));
+    emit log_named_uint("executableThrough", Timestamp.unwrap(upw.executableThrough(proposal)));
     emit log_named_uint("creation         ", Timestamp.unwrap(proposal.creation));
     emit log_named_decimal_uint("yeaCount         ", proposal.summedBallot.yea, 18);
     emit log_named_decimal_uint("nayCount         ", proposal.summedBallot.nay, 18);
@@ -317,7 +317,7 @@ contract GovScript is Test {
 
     proposal = governance.getProposal(_proposalId);
 
-    uint256 power = governance.powerAt(ME, proposal.pendingThrough());
+    uint256 power = governance.powerAt(ME, upw.pendingThrough(proposal));
     emit log_named_decimal_uint("power", power, 18);
 
     vm.startBroadcast(ME);

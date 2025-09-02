@@ -412,18 +412,23 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     const enqueueGovernanceSignalPromise =
       this.governanceProposerPayload && !this.governanceProposerPayload.isZero()
-        ? publisher.enqueueGovernanceCastSignal(
-            this.governanceProposerPayload,
-            slot,
-            timestamp,
-            attestorAddress,
-            signerFn,
-          )
-        : Promise.resolve();
+        ? publisher
+            .enqueueGovernanceCastSignal(this.governanceProposerPayload, slot, timestamp, attestorAddress, signerFn)
+            .catch(err => {
+              this.log.error(`Error enqueuing governance vote`, err, { blockNumber: newBlockNumber, slot });
+              return false;
+            })
+        : Promise.resolve(false);
 
     const enqueueSlashingActionsPromise = this.slasherClient
-      ?.getProposerActions(slot)
-      ?.then(actions => publisher.enqueueSlashingActions(actions, slot, timestamp, attestorAddress, signerFn));
+      ? this.slasherClient
+          .getProposerActions(slot)
+          .then(actions => publisher.enqueueSlashingActions(actions, slot, timestamp, attestorAddress, signerFn))
+          .catch(err => {
+            this.log.error(`Error enqueuing slashing actions`, err, { blockNumber: newBlockNumber, slot });
+            return false;
+          })
+      : Promise.resolve(false);
 
     if (invalidateBlock && !this.config.skipInvalidateBlockAsProposer) {
       publisher.enqueueInvalidateBlock(invalidateBlock);
@@ -482,12 +487,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.emit('tx-count-check-failed', { minTxs: this.minTxsPerBlock, availableTxs: pendingTxCount });
     }
 
-    await enqueueGovernanceSignalPromise?.catch(err => {
-      this.log.error(`Error enqueuing governance vote`, err, { blockNumber: newBlockNumber, slot });
-    });
-    await enqueueSlashingActionsPromise?.catch(err => {
-      this.log.error(`Error enqueuing slashing actions`, err, { blockNumber: newBlockNumber, slot });
-    });
+    await Promise.all([enqueueGovernanceSignalPromise, enqueueSlashingActionsPromise]);
 
     const l1Response = await publisher.sendRequests();
     const proposedBlock = l1Response?.successfulActions.find(a => a === 'propose');
@@ -508,7 +508,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       await this.doRealWork();
     } catch (err) {
       if (err instanceof SequencerTooSlowError) {
-        this.log.warn(err.message);
+        // Log as warn only if we had to abort halfway through the block proposal
+        const logLvl = [SequencerState.INITIALIZING_PROPOSAL, SequencerState.PROPOSER_CHECK].includes(err.proposedState)
+          ? ('debug' as const)
+          : ('warn' as const);
+        this.log[logLvl](err.message, { now: this.dateProvider.nowInSeconds() });
       } else {
         // Re-throw other errors
         throw err;
@@ -941,10 +945,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       Number(slotNumber) * this.l1Constants.slotDuration -
       this.l1Constants.ethereumSlotDuration
     );
-  }
-
-  private getTxTimeoutForSlot(slotNumber: number | bigint): Date {
-    return new Date((this.getSlotStartBuildTimestamp(slotNumber) + this.aztecSlotDuration) * 1000);
   }
 
   private getSecondsIntoSlot(slotNumber: number | bigint): number {

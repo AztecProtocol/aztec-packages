@@ -37,13 +37,7 @@ import { type ValidatorClientConfig, validatorClientConfigMappings } from './con
 import { ValidatorClient } from './validator.js';
 
 describe('ValidatorClient', () => {
-  let config: ValidatorClientConfig &
-    Pick<
-      SlasherConfig,
-      | 'slashBroadcastedInvalidBlockEnabled'
-      | 'slashBroadcastedInvalidBlockPenalty'
-      | 'slashBroadcastedInvalidBlockMaxPenalty'
-    >;
+  let config: ValidatorClientConfig & Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty'>;
   let validatorClient: ValidatorClient;
   let p2pClient: MockProxy<P2P>;
   let blockSource: MockProxy<L2BlockSource>;
@@ -78,9 +72,7 @@ describe('ValidatorClient', () => {
       disableValidator: false,
       validatorReexecute: false,
       validatorReexecuteDeadlineMs: 6000,
-      slashBroadcastedInvalidBlockEnabled: true,
       slashBroadcastedInvalidBlockPenalty: 1n,
-      slashBroadcastedInvalidBlockMaxPenalty: 100n,
     };
 
     const keyStore: KeyStore = {
@@ -302,30 +294,10 @@ describe('ValidatorClient', () => {
           epochOrSlot: expect.any(BigInt),
         },
       ]);
-
-      // We "remember" that we want to slash this person, up to the max penalty...
-      await expect(
-        validatorClient.shouldSlash({
-          validator: EthAddress.fromString(proposer.toString()), // create a copy of the EthAddress
-          amount: config.slashBroadcastedInvalidBlockMaxPenalty,
-          offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
-          epochOrSlot: 1n,
-        }),
-      ).resolves.toBe(true);
-
-      // ...but no more than that
-      await expect(
-        validatorClient.shouldSlash({
-          validator: EthAddress.fromString(proposer.toString()),
-          amount: config.slashBroadcastedInvalidBlockMaxPenalty + 1n,
-          offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
-          epochOrSlot: 1n,
-        }),
-      ).resolves.toBe(false);
     });
 
     it('should not emit WANT_TO_SLASH_EVENT if slashing is disabled', async () => {
-      validatorClient.configureSlashing({ slashBroadcastedInvalidBlockEnabled: false });
+      validatorClient.configureSlashing({ slashBroadcastedInvalidBlockPenalty: 0n });
 
       const emitSpy = jest.spyOn(validatorClient, 'emit');
       enableReexecution();

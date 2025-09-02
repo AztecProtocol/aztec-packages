@@ -7,7 +7,7 @@ sidebar_position: 1
 
 :::tip
 
-For a quick start, follow the [guide](../../getting_started.md) to install the sandbox.
+For a quick start, follow the [guide](../../getting_started/getting_started_on_sandbox.md) to install the sandbox.
 
 :::
 
@@ -118,8 +118,8 @@ ContractInstanceRegistryContractArtifact
 CounterContractArtifact
 CrowdfundingContractArtifact
 DocsExampleContractArtifact
-EasyPrivateTokenContractArtifact
-EasyPrivateVotingContractArtifact
+PrivateTokenContractArtifact
+PrivateVotingContractArtifact
 EcdsaAccountContractArtifact
 EscrowContractArtifact
 FPCContractArtifact

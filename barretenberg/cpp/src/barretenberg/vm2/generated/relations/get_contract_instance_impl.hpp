@@ -14,7 +14,7 @@ void get_contract_instanceImpl<FF_>::accumulate(ContainerOverSubrelations& evals
 {
     using C = ColumnAndShifts;
 
-    PROFILE_THIS_NAME("accumulate/get_contract_instance");
+    BB_BENCH_NAME("accumulate/get_contract_instance");
 
     const auto constants_MEM_TAG_FF = FF(0);
     const auto constants_MEM_TAG_U1 = FF(1);

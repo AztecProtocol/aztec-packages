@@ -1,7 +1,7 @@
 import { EthAddress } from '@aztec/aztec.js';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { TallySlashingProposerContract } from '@aztec/ethereum/contracts';
-import { compactArray, times } from '@aztec/foundation/collection';
+import { RollupContract, TallySlashingProposerContract } from '@aztec/ethereum/contracts';
+import { compactArray, partition, times } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type { DateProvider } from '@aztec/foundation/timer';
@@ -15,6 +15,8 @@ import {
   getEpochsForRound,
   getSlashConsensusVotesFromOffenses,
 } from '@aztec/stdlib/slashing';
+
+import type { Hex } from 'viem';
 
 import {
   SlashOffensesCollector,
@@ -35,13 +37,14 @@ export type TallySlasherSettings = Prettify<
       slashingRoundSizeInEpochs: number;
       slashingOffsetInRounds: number;
       slashingQuorumSize: number;
-      slashingUnit: bigint;
+      slashingAmounts: [bigint, bigint, bigint];
       /** Committee size for block proposal */
       targetCommitteeSize: number;
     }
 >;
 
-export type TallySlasherClientConfig = SlashOffensesCollectorConfig;
+export type TallySlasherClientConfig = SlashOffensesCollectorConfig &
+  Pick<SlasherConfig, 'slashValidatorsAlways' | 'slashValidatorsNever'>;
 
 /**
  * The Tally Slasher client is responsible for managing slashable offenses using
@@ -84,6 +87,7 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
     private config: TallySlasherClientConfig,
     private settings: TallySlasherSettings,
     private tallySlashingProposer: TallySlashingProposerContract,
+    private rollup: RollupContract,
     watchers: Watcher[],
     private epochCache: EpochCache,
     private dateProvider: DateProvider,
@@ -102,8 +106,11 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
 
     // Listen for RoundExecuted events
     this.unwatchCallbacks.push(
-      this.tallySlashingProposer.listenToRoundExecuted(({ round, slashCount }) =>
-        this.handleRoundExecuted(round, slashCount),
+      this.tallySlashingProposer.listenToRoundExecuted(
+        ({ round, slashCount, l1BlockHash }) =>
+          void this.handleRoundExecuted(round, slashCount, l1BlockHash).catch(err =>
+            this.log.error('Error handling round executed', err),
+          ),
       ),
     );
 
@@ -149,8 +156,9 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
   }
 
   /** Called when we see a RoundExecuted event on the TallySlashingProposer (just for logging). */
-  protected handleRoundExecuted(round: bigint, slashCount: bigint) {
-    this.log.info(`Slashing round ${round} has been executed with ${slashCount} slashes`);
+  protected async handleRoundExecuted(round: bigint, slashCount: bigint, l1BlockHash: Hex) {
+    const slashes = await this.rollup.getSlashEvents(l1BlockHash);
+    this.log.info(`Slashing round ${round} has been executed with ${slashCount} slashes`, { slashes });
   }
 
   /**
@@ -171,37 +179,60 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
   protected async getExecuteSlashAction(slotNumber: bigint): Promise<ProposerSlashAction | undefined> {
     const { round: currentRound } = this.roundMonitor.getRoundForSlot(slotNumber);
     const slashingExecutionDelayInRounds = BigInt(this.settings.slashingExecutionDelayInRounds);
-    const roundToCheck = currentRound - slashingExecutionDelayInRounds - 1n;
-    if (roundToCheck < 0n) {
+    const executableRound = currentRound - slashingExecutionDelayInRounds - 1n;
+    if (executableRound < 0n) {
       return undefined;
     }
 
+    const logData = { currentRound, executableRound, slotNumber };
     try {
-      const roundInfo = await this.tallySlashingProposer.getRound(roundToCheck);
+      const roundInfo = await this.tallySlashingProposer.getRound(executableRound);
       if (roundInfo.isExecuted) {
-        this.log.verbose(`Round ${roundToCheck} has already been executed`);
+        this.log.verbose(`Round ${executableRound} has already been executed`, logData);
         return undefined;
       } else if (!roundInfo.readyToExecute) {
-        this.log.verbose(`Round ${roundToCheck} is not ready to execute yet`);
+        this.log.verbose(`Round ${executableRound} is not ready to execute yet`, logData);
         return undefined;
       } else if (roundInfo.voteCount < this.settings.slashingQuorumSize) {
-        this.log.verbose(`Round ${roundToCheck} does not have enough votes to execute`);
+        this.log.verbose(`Round ${executableRound} does not have enough votes to execute`, logData);
         return undefined;
       }
 
-      const slashActions = await this.tallySlashingProposer.getTally(roundToCheck);
+      const { actions: slashActions, committees } = await this.tallySlashingProposer.getTally(executableRound);
       if (slashActions.length === 0) {
-        this.log.verbose(`Round ${roundToCheck} does not resolve in any slashing`);
+        this.log.verbose(`Round ${executableRound} does not resolve in any slashing`, logData);
         return undefined;
-      } else {
-        this.log.info(`Round ${roundToCheck} is ready to execute with ${slashActions.length} slashes`, {
-          slashActions,
-        });
-        const committees = await this.collectCommitteesActiveDuringRound(this.getSlashedRound(roundToCheck));
-        return { type: 'execute-slash', round: roundToCheck, committees };
       }
+
+      // Check if the slash payload is vetoed
+      const payload = await this.tallySlashingProposer.getPayload(executableRound);
+      const slasherContract = await this.rollup.getSlasherContract();
+      const isVetoed = await slasherContract.isPayloadVetoed(payload.address);
+      if (isVetoed) {
+        this.log.warn(`Round ${executableRound} payload is vetoed (skipping execution)`, {
+          payloadAddress: payload.address.toString(),
+          ...logData,
+        });
+        return undefined;
+      }
+
+      this.log.info(`Round ${executableRound} is ready to execute with ${slashActions.length} slashes`, {
+        slashActions,
+        payloadAddress: payload.address.toString(),
+        ...logData,
+      });
+
+      // We only need to post committees that are actually slashed
+      const slashedCommittees = committees.map(c =>
+        c.some(validator => slashActions.some(action => action.validator.equals(validator))) ? c : [],
+      );
+      this.log.debug(`Collected ${committees.length} committees for executing round ${executableRound}`, {
+        slashedCommittees,
+        ...logData,
+      });
+      return { type: 'execute-slash', round: executableRound, committees: slashedCommittees };
     } catch (error) {
-      this.log.error(`Error checking round to execute ${roundToCheck}`, error);
+      this.log.error(`Error checking round to execute ${executableRound}`, error);
     }
 
     return undefined;
@@ -216,13 +247,41 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
       return undefined;
     }
 
-    const offensesToSlash = await this.gatherOffensesForRound(currentRound);
+    // Compute offenses to slash, by loading the offenses for this round, adding synthetic offenses
+    // for validators that should always be slashed, and removing the ones that should never be slashed.
+    const offensesForRound = await this.gatherOffensesForRound(currentRound);
+    const offensesFromAlwaysSlash = (this.config.slashValidatorsAlways ?? []).map(validator => ({
+      validator,
+      amount: this.settings.slashingAmounts[2],
+    }));
+    const [offensesToForgive, offensesToSlash] = partition([...offensesForRound, ...offensesFromAlwaysSlash], offense =>
+      this.config.slashValidatorsNever?.some(v => v.equals(offense.validator)),
+    );
+
+    if (offensesFromAlwaysSlash.length > 0) {
+      this.log.verbose(`Slashing ${offensesFromAlwaysSlash.length} validators due to always-slash config`, {
+        slotNumber,
+        currentRound,
+        slashedRound,
+        offensesToForgive,
+        slashValidatorsAlways: this.config.slashValidatorsAlways,
+      });
+    }
+
+    if (offensesToForgive.length > 0) {
+      this.log.verbose(`Skipping slashing of ${offensesToForgive.length} offenses`, {
+        slotNumber,
+        currentRound,
+        slashedRound,
+        offensesToForgive,
+        slashValidatorsNever: this.config.slashValidatorsNever,
+      });
+    }
+
     if (offensesToSlash.length === 0) {
       this.log.debug(`No offenses to slash for round ${slashedRound}`, { currentRound, slotNumber, slashedRound });
       return undefined;
     }
-
-    const committees = await this.collectCommitteesActiveDuringRound(slashedRound);
 
     this.log.info(`Voting to slash ${offensesToSlash.length} offenses`, {
       slotNumber,
@@ -231,7 +290,27 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
       offensesToSlash,
     });
 
+    const committees = await this.collectCommitteesActiveDuringRound(slashedRound);
     const votes = getSlashConsensusVotesFromOffenses(offensesToSlash, committees, this.settings);
+    if (votes.every(v => v === 0)) {
+      this.log.warn(`Computed votes for offenses are all zero. Skipping vote.`, {
+        slotNumber,
+        currentRound,
+        slashedRound,
+        offensesToSlash,
+        committees,
+      });
+      return undefined;
+    }
+
+    this.log.debug(`Computed votes for slashing ${offensesToSlash.length} offenses`, {
+      slashedRound,
+      currentRound,
+      votes,
+      committees,
+      settings: this.settings,
+    });
+
     return {
       type: 'vote-offenses',
       round: currentRound,

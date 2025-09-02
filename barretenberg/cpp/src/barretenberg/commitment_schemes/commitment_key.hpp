@@ -13,7 +13,7 @@
  * simplify the codebase.
  */
 
-#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/batched_affine_addition/batched_affine_addition.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
@@ -89,7 +89,7 @@ template <class Curve> class CommitmentKey {
         // Note: this fn used to expand polynomials to the dyadic size,
         // due to a quirk in how our pippenger algo used to function.
         // The pippenger algo has been refactored and this is no longer an issue
-        PROFILE_THIS_NAME("commit");
+        BB_BENCH_NAME("CommitmentKey::commit");
         std::span<const G1> point_table = srs->get_monomial_points();
         size_t consumed_srs = polynomial.start_index + polynomial.size();
         if (consumed_srs > srs->get_monomial_size()) {
@@ -122,7 +122,7 @@ template <class Curve> class CommitmentKey {
                                  const std::vector<std::pair<size_t, size_t>>& active_ranges,
                                  size_t final_active_wire_idx = 0)
     {
-        PROFILE_THIS_NAME("commit");
+        BB_BENCH_NAME("CommitmentKey::commit_structured");
         BB_ASSERT_LTE(polynomial.end_index(), srs->get_monomial_size(), "Polynomial size exceeds commitment key size.");
         BB_ASSERT_LTE(polynomial.end_index(), dyadic_size, "Polynomial size exceeds commitment key size.");
 
@@ -184,7 +184,7 @@ template <class Curve> class CommitmentKey {
                                                          const std::vector<std::pair<size_t, size_t>>& active_ranges,
                                                          size_t final_active_wire_idx = 0)
     {
-        PROFILE_THIS_NAME("commit");
+        BB_BENCH_NAME("CommitmentKey::commit_structured_with_nonzero_complement");
         BB_ASSERT_LTE(polynomial.end_index(), srs->get_monomial_size(), "Polynomial size exceeds commitment key size.");
 
         using BatchedAddition = BatchedAffineAddition<Curve>;

@@ -68,7 +68,7 @@ export type ProverKeyStore =
       /** Address that identifies the prover. This address will receive the rewards. */
       id: EthAddressHex;
       /** One or more EOAs used for sending proof L1 txs. */
-      publisher: EthAccounts[];
+      publisher: EthAccounts;
     }
   | EthAccount;
 

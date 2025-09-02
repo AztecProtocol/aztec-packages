@@ -1,0 +1,103 @@
+# CI for Aztec Network Scenarios.
+# Effectively runs CI_SCENARIO_TEST=1 spartan/bootstrap.sh test
+# Triggered by network-deployments event, which is emitted by ci3.yml when a tagged release passes "normal" CI.
+#
+name: Test Network Scenarios
+
+on:
+  repository_dispatch:
+    types:
+      - network-deployments
+
+concurrency:
+  group: network-scenarios-${{ github.event.client_payload.major_version }}
+  cancel-in-progress: true
+
+jobs:
+  test_network_scenarios_dispatch_deploy_scenario_network:
+    uses: ./.github/workflows/deploy-scenario-network.yml
+    with:
+      cluster: aztec-gke-private
+      namespace: v${{ github.event.client_payload.major_version }}-scenario
+      ref: ${{ github.event.client_payload.ref }}
+      aztec_docker_image: "aztecprotocol/aztec:${{ github.event.client_payload.semver }}"
+      devnet_mnemonic: "test test test test test test test test test test test junk"
+      rollup_deployment_mnemonic: "test test test test test test test test test test test junk"
+    secrets:
+      GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      #############
+      # Prepare Env
+      #############
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: CI Network Scenario Override
+        run: echo "CI_NETWORK_SCENARIO=1" >> $GITHUB_ENV
+
+      - name: Compute Target Branch
+        id: target_branch
+        run: |
+          if [ "${{ github.event_name }}" == "merge_group" ]; then
+            target_branch=${{ github.event.merge_group.base_ref }}
+          elif [ "${{ github.event_name }}" == "pull_request" ]; then
+            target_branch=${{ github.event.pull_request.base.ref }}
+          else
+            target_branch=${{ github.ref_name }}
+          fi
+          target_branch=${target_branch#refs/heads/}
+          echo "target_branch=$target_branch" >> $GITHUB_OUTPUT
+          echo "TARGET_BRANCH=${target_branch}" >> $GITHUB_ENV
+
+      - name: Setup
+        run: |
+          # Ensure we can SSH into the spot instances we request.
+          mkdir -p ~/.ssh
+          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
+          chmod 600 ~/.ssh/build_instance_key
+          sudo apt install -y --no-install-recommends redis-tools parallel
+
+      - name: Prepare GCP key
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          echo "$GCP_SA_KEY" | base64 -w 0 > gcp_sa_key.b64
+          echo "GCP_SA_KEY_B64=$(cat gcp_sa_key.b64)" >> $GITHUB_ENV
+
+      - name: Get Tree Hash
+        run: echo "TREE_HASH=$(git rev-parse HEAD^{tree})" >> $GITHUB_ENV
+
+      - name: Check CI Cache
+        id: ci_cache
+        uses: actions/cache@v3
+        with:
+          path: ci-success.txt
+          key: ci-network-scenario-${{ env.TREE_HASH }}
+
+      #############
+      # Run
+      #############
+      - name: Run
+        if: steps.ci_cache.outputs.cache-hit != 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          # Nightly test env vars.
+          GCP_SA_KEY_B64: ${{ env.GCP_SA_KEY_B64 }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          NAMESPACE: "v${{ github.event.client_payload.major_version }}-scenario"
+        run: |
+          exec ./ci.sh network-scenario
+
+      - name: Save CI Success
+        if: steps.ci_cache.outputs.cache-hit != 'true'
+        run: echo "success" > ci-success.txt

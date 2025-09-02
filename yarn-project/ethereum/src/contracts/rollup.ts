@@ -27,6 +27,7 @@ import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { EmpireSlashingProposerContract } from './empire_slashing_proposer.js';
 import { GSEContract } from './gse.js';
+import { SlasherContract } from './slasher_contract.js';
 import { TallySlashingProposerContract } from './tally_slashing_proposer.js';
 import { checkBlockTag } from './utils.js';
 
@@ -98,8 +99,9 @@ export type ViemAppendOnlyTreeSnapshot = {
 };
 
 export enum SlashingProposerType {
-  Empire = 0,
+  None = 0,
   Tally = 1,
+  Empire = 2,
 }
 
 export class RollupContract {
@@ -155,8 +157,14 @@ export class RollupContract {
     return this.rollup;
   }
 
-  public async getSlashingProposer(): Promise<EmpireSlashingProposerContract | TallySlashingProposerContract> {
+  public async getSlashingProposer(): Promise<
+    EmpireSlashingProposerContract | TallySlashingProposerContract | undefined
+  > {
     const slasherAddress = await this.rollup.read.getSlasher();
+    if (EthAddress.fromString(slasherAddress).isZero()) {
+      return undefined;
+    }
+
     const slasher = getContract({ address: slasherAddress, abi: SlasherAbi, client: this.client });
     const proposerAddress = await slasher.read.PROPOSER();
     const proposerAbi = [
@@ -258,6 +266,14 @@ export class RollupContract {
 
   getSlasher() {
     return this.rollup.read.getSlasher();
+  }
+
+  /**
+   * Returns a SlasherContract instance for interacting with the slasher contract.
+   */
+  async getSlasherContract(): Promise<SlasherContract> {
+    const slasherAddress = await this.getSlasher();
+    return new SlasherContract(this.client, EthAddress.fromString(slasherAddress));
   }
 
   getOwner() {
@@ -382,6 +398,10 @@ export class RollupContract {
 
   getTimestampForSlot(slot: bigint) {
     return this.rollup.read.getTimestampForSlot([slot]);
+  }
+
+  getEntryQueueLength() {
+    return this.rollup.read.getEntryQueueLength();
   }
 
   async getEpochNumber(blockNumber?: bigint) {
@@ -754,6 +774,29 @@ export class RollupContract {
             if (args.oldSlasher && args.newSlasher) {
               callback(args as { oldSlasher: `0x${string}`; newSlasher: `0x${string}` });
             }
+          }
+        },
+      },
+    );
+  }
+
+  public async getSlashEvents(l1BlockHash: Hex): Promise<{ amount: bigint; attester: EthAddress }[]> {
+    const events = await this.rollup.getEvents.Slashed({}, { blockHash: l1BlockHash, strict: true });
+    return events.map(event => ({
+      amount: event.args.amount!,
+      attester: EthAddress.fromString(event.args.attester!),
+    }));
+  }
+
+  public listenToSlash(callback: (args: { amount: bigint; attester: EthAddress }) => unknown) {
+    return this.rollup.watchEvent.Slashed(
+      {},
+      {
+        strict: true,
+        onLogs: logs => {
+          for (const log of logs) {
+            const args = log.args;
+            callback({ amount: args.amount!, attester: EthAddress.fromString(args.attester!) });
           }
         },
       },

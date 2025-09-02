@@ -365,7 +365,7 @@ class MegaFlavor {
         // fully-formed constructor
         ProverPolynomials(size_t circuit_size)
         {
-            PROFILE_THIS_NAME("ProverPolynomials(size_t)");
+            BB_BENCH_NAME("ProverPolynomials(size_t)");
 
             for (auto& poly : get_to_be_shifted()) {
                 poly = Polynomial{ /*memory size*/ circuit_size - 1,
