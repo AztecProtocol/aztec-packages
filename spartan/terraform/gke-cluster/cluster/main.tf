@@ -34,6 +34,10 @@ resource "google_container_cluster" "primary" {
       dataset_id = "egress_consumption"
     }
   }
+
+  node_config {
+    logging_variant = "MAX_THROUGHPUT"
+  }
 }
 
 # Create 2 core node pool with local ssd
