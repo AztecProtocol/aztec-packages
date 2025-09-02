@@ -58,6 +58,7 @@ locals {
     "global.customAztecNetwork.slashFactoryContractAddress"    = var.SLASH_FACTORY_CONTRACT_ADDRESS
     "global.customAztecNetwork.feeAssetHandlerContractAddress" = var.FEE_ASSET_HANDLER_CONTRACT_ADDRESS
     "global.customAztecNetwork.l1ChainId"                      = var.L1_CHAIN_ID
+    "global.otelCollectorEndpoint"                             = var.OTEL_COLLECTOR_URL
   }
 
   common_list_settings = {
