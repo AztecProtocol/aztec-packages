@@ -30,7 +30,7 @@ void ContextStackTraceBuilder::process(
                 { C::context_stack_bytecode_id, event.bytecode_id },
                 { C::context_stack_is_static, event.is_static },
                 { C::context_stack_parent_calldata_addr, event.parent_cd_addr },
-                { C::context_stack_parent_calldata_size, event.parent_cd_size_addr },
+                { C::context_stack_parent_calldata_size, event.parent_cd_size },
                 { C::context_stack_parent_l2_gas_limit, event.parent_gas_limit.l2Gas },
                 { C::context_stack_parent_da_gas_limit, event.parent_gas_limit.daGas },
                 { C::context_stack_parent_l2_gas_used, event.parent_gas_used.l2Gas },

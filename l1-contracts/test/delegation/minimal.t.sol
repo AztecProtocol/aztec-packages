@@ -16,6 +16,7 @@ import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.
 import {Fakerollup} from "../governance/governance-proposer/mocks/Fakerollup.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
+import {UncompressedProposalWrapper} from "@test/governance/helpers/UncompressedProposalTestLib.sol";
 
 struct Timestamps {
   uint256 ts1;
@@ -31,6 +32,8 @@ struct Timestamps {
 // Not to be seen as full tests
 contract MinimalDelegationTest is GSEBase {
   using stdStorage for StdStorage;
+
+  UncompressedProposalWrapper internal upw = new UncompressedProposalWrapper();
 
   address bonus;
   uint256 activationThreshold;
@@ -54,7 +57,7 @@ contract MinimalDelegationTest is GSEBase {
     stdstore.target(proposer).sig("getProposalProposer(uint256)").with_key(proposalId).checked_write(address(ROLLUP));
     assertEq(GovernanceProposer(proposer).getProposalProposer(proposalId), address(ROLLUP));
 
-    uint256 votingTime = Timestamp.unwrap(ProposalLib.pendingThroughMemory(governance.getProposal(0)));
+    uint256 votingTime = Timestamp.unwrap(upw.pendingThrough(governance.getProposal(0)));
 
     Timestamps memory ts;
 

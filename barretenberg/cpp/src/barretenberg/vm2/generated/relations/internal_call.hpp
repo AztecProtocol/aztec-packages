@@ -14,7 +14,7 @@ template <typename FF_> class internal_callImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 6, 3, 3, 6, 3, 6, 5 };
+    static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 7, 3, 3, 7, 3, 7, 5 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {

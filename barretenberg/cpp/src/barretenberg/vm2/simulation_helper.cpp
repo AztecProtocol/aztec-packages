@@ -193,7 +193,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                                      merkle_db,
                                      written_public_data_slots_tree_check,
                                      hints.globalVariables);
-    DataCopy data_copy(execution_id_manager, range_check, data_copy_emitter);
+    DataCopy data_copy(execution_id_manager, greater_than, data_copy_emitter);
 
     // Create GetContractInstance opcode component
     GetContractInstance get_contract_instance(

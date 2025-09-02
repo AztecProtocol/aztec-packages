@@ -1,43 +1,38 @@
-import { type PXE, createCompatibleClient } from '@aztec/aztec.js';
+import type { PXE } from '@aztec/aztec.js';
 import { RollupContract, getPublicClient } from '@aztec/ethereum';
 import { createLogger } from '@aztec/foundation/log';
 
 import type { ChildProcess } from 'child_process';
 import { foundry } from 'viem/chains';
 
-import { isK8sConfig, setupEnvironment, startPortForward } from './utils.js';
+import { startCompatiblePXE } from './setup_test_wallets.js';
+import { setupEnvironment, startPortForwardForRPC } from './utils.js';
 
 const config = setupEnvironment(process.env);
 
-const debugLogger = createLogger('e2e:spartan-test:smoke');
-
 describe('smoke test', () => {
+  const logger = createLogger('e2e:spartan-test:smoke');
   let pxe: PXE;
   const forwardProcesses: ChildProcess[] = [];
-  beforeAll(async () => {
-    let PXE_URL: string;
-    if (isK8sConfig(config)) {
-      const { process, port } = await startPortForward({
-        resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
-        namespace: config.NAMESPACE,
-        containerPort: config.CONTAINER_PXE_PORT,
-      });
-      forwardProcesses.push(process);
-      PXE_URL = `http://127.0.0.1:${port}`;
-    } else {
-      PXE_URL = config.PXE_URL;
-    }
-    pxe = await createCompatibleClient(PXE_URL, debugLogger);
+  let cleanup: undefined | (() => Promise<void>);
+
+  afterAll(async () => {
+    await cleanup?.();
+    forwardProcesses.forEach(p => p.kill());
   });
 
-  afterAll(() => {
-    forwardProcesses.forEach(p => p.kill());
+  beforeAll(async () => {
+    logger.info('Starting port forward for PXE');
+    const { process, port } = await startPortForwardForRPC(config.NAMESPACE);
+    forwardProcesses.push(process);
+    const rpcUrl = `http://127.0.0.1:${port}`;
+    ({ pxe, cleanup } = await startCompatiblePXE(rpcUrl, config.AZTEC_REAL_PROOFS, logger));
   });
 
   it('should be able to get node enr', async () => {
     const info = await pxe.getNodeInfo();
 
-    debugLogger.info(`info: ${JSON.stringify(info)}`);
+    logger.info(`info: ${JSON.stringify(info)}`);
     expect(info).toBeDefined();
     // expect enr to be a string starting with 'enr:-'
     expect(info.enr).toMatch(/^enr:-/);

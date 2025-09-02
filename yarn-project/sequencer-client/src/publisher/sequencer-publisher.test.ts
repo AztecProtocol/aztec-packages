@@ -37,7 +37,20 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
-import { SequencerPublisher } from './sequencer-publisher.js';
+import type { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
+import { type Action, SequencerPublisher, compareActions } from './sequencer-publisher.js';
+
+// Ensures proposal actions are sorted before slashing votes/signals
+
+describe('compareActions sorting', () => {
+  it('places propose before empire-slashing-signal and vote-offenses', () => {
+    const actions: Action[] = ['empire-slashing-signal', 'propose', 'vote-offenses'];
+    const sorted = [...actions].sort(compareActions);
+
+    expect(sorted.indexOf('propose')).toBeLessThan(sorted.indexOf('empire-slashing-signal'));
+    expect(sorted.indexOf('propose')).toBeLessThan(sorted.indexOf('vote-offenses'));
+  });
+});
 
 const mockRollupAddress = EthAddress.random().toString();
 const mockGovernanceProposerAddress = EthAddress.random().toString();
@@ -51,6 +64,7 @@ describe('SequencerPublisher', () => {
   let governanceProposerContract: MockProxy<GovernanceProposerContract>;
   let slashFactoryContract: MockProxy<SlashFactoryContract>;
   let l1TxUtils: MockProxy<L1TxUtilsWithBlobs>;
+  let l1Metrics: MockProxy<SequencerPublisherMetrics>;
   let forwardSpy: jest.SpiedFunction<typeof Multicall3.forward>;
 
   let proposeTxHash: `0x${string}`;
@@ -67,7 +81,7 @@ describe('SequencerPublisher', () => {
   // An l1 publisher with some private methods exposed
   let publisher: SequencerPublisher;
 
-  let testHarnessPrivateKey: PrivateKeyAccount;
+  let testHarnessAttesterAccount: PrivateKeyAccount;
 
   const GAS_GUESS = 300_000n;
 
@@ -92,16 +106,17 @@ describe('SequencerPublisher', () => {
       logs: [],
     } as unknown as GetTransactionReceiptReturnType;
 
+    testHarnessAttesterAccount = privateKeyToAccount(
+      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+    );
     l1TxUtils = mock<L1TxUtilsWithBlobs>();
     l1TxUtils.getBlock.mockResolvedValue({ timestamp: 12n } as any);
     l1TxUtils.getBlockNumber.mockResolvedValue(1n);
-    const publisherPrivateKey = `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`;
-    testHarnessPrivateKey = privateKeyToAccount(publisherPrivateKey);
+    l1TxUtils.getSenderAddress.mockReturnValue(EthAddress.fromString(testHarnessAttesterAccount.address));
     const config = {
       blobSinkUrl: BLOB_SINK_URL,
       l1RpcUrls: [`http://127.0.0.1:8545`],
       l1ChainId: 1,
-      publisherPrivateKey,
       l1Contracts: {
         rollupAddress: EthAddress.ZERO.toString(),
         governanceProposerAddress: mockGovernanceProposerAddress,
@@ -121,6 +136,8 @@ describe('SequencerPublisher', () => {
     forwardSpy = jest.spyOn(Multicall3, 'forward');
 
     slashingProposerContract = mock<EmpireSlashingProposerContract>();
+    l1Metrics = mock<SequencerPublisherMetrics>();
+
     governanceProposerContract = mock<GovernanceProposerContract>();
     slashFactoryContract = mock<SlashFactoryContract>();
 
@@ -137,6 +154,7 @@ describe('SequencerPublisher', () => {
       governanceProposerContract,
       slashFactoryContract,
       dateProvider: new TestDateProvider(),
+      metrics: l1Metrics,
     });
 
     (publisher as any)['l1TxUtils'] = l1TxUtils;
@@ -217,7 +235,6 @@ describe('SequencerPublisher', () => {
     expect(await publisher.enqueueProposeL2Block(l2Block)).toEqual(true);
     const govPayload = EthAddress.random();
     const voteSig = Signature.random();
-    publisher.setGovernancePayload(govPayload);
     governanceProposerContract.getRoundInfo.mockResolvedValue({
       lastSignalSlot: 1n,
       payloadWithMostSignals: govPayload.toString(),
@@ -234,10 +251,11 @@ describe('SequencerPublisher', () => {
     rollup.getProposerAt.mockResolvedValueOnce(mockForwarderAddress);
     expect(
       await publisher.enqueueGovernanceCastSignal(
+        govPayload,
         2n,
         1n,
-        EthAddress.fromString(testHarnessPrivateKey.address),
-        (msg: any) => testHarnessPrivateKey.signTypedData(msg),
+        EthAddress.fromString(testHarnessAttesterAccount.address),
+        msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
     ).toEqual(true);
 
@@ -270,16 +288,16 @@ describe('SequencerPublisher', () => {
     expect(forwardSpy).toHaveBeenCalledWith(
       [
         {
+          to: mockRollupAddress,
+          data: encodeFunctionData({ abi: RollupAbi, functionName: 'propose', args }),
+        },
+        {
           to: mockGovernanceProposerAddress,
           data: encodeFunctionData({
             abi: EmpireBaseAbi,
             functionName: 'signalWithSig',
             args: [govPayload.toString(), voteSig.toViemSignature()],
           }),
-        },
-        {
-          to: mockRollupAddress,
-          data: encodeFunctionData({ abi: RollupAbi, functionName: 'propose', args }),
         },
       ],
       l1TxUtils,

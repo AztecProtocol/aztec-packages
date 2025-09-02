@@ -529,6 +529,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
 
     // This is the tree state we will use during the "skipped" phases
     TxContextEvent propagated_state = startup_event_data.state;
+    TxContextEvent end_setup_snapshot = startup_event_data.state;
     // Used to track the gas limit for the "padded" phases.
     Gas current_gas_limit = startup_event_data.gas_limit;
     Gas teardown_gas_limit = startup_event_data.teardown_gas_limit;
@@ -565,6 +566,10 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             if (row == 1) {
                 trace.set(row, handle_first_row());
             }
+            if (phase == TransactionPhase::SETUP) {
+                // If setup is empty, the end-setup-snapshot should just be current/propagated state
+                end_setup_snapshot = propagated_state;
+            }
             row++;
             continue;
         }
@@ -590,7 +595,6 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
                     { C::tx_start_phase, phase_counter == 0 ? 1 : 0 },
                     { C::tx_sel_read_phase_length, phase_counter == 0 && !is_one_shot_phase(tx_phase_event->phase) },
                     { C::tx_is_revertible, is_revertible(tx_phase_event->phase) ? 1 : 0 },
-
                     { C::tx_end_phase, phase_counter == phase_events.size() - 1 ? 1 : 0 },
                 } });
             trace.set(row, handle_prev_gas_used(gas_used));
@@ -654,6 +658,22 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
         }
         // In case we encounter another skip row
         propagated_state = phase_events.back()->state_after;
+
+        if (phase == TransactionPhase::SETUP) {
+            // Store off the state at the end of setup to rollback to later on revert
+            end_setup_snapshot = phase_events.back()->state_after;
+        }
+        if (phase_events.back()->reverted) {
+            // On revert, roll back to end-setup-snapshot
+            // Even though tx-execution events should already do this,
+            // we need to update propagated state here so that any padded rows
+            // get the correct rolled-back state rather then the pre-rollback state.
+            propagated_state.tree_states = end_setup_snapshot.tree_states;
+            propagated_state.written_public_data_slots_tree_snapshot =
+                end_setup_snapshot.written_public_data_slots_tree_snapshot;
+            propagated_state.side_effect_states = end_setup_snapshot.side_effect_states;
+            // Note: we only rollback tree/side-effect states, not gas used or next_context_id.
+        }
     }
 }
 

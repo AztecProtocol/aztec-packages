@@ -53,7 +53,7 @@ contract SlashingTest is TestBase {
   uint256 constant VALIDATOR_COUNT = 128;
   uint256 constant COMMITTEE_SIZE = 48;
   uint256 constant HOW_MANY_SLASHED = 1;
-  uint256 constant ROUND_SIZE_IN_EPOCHS = 2;
+  uint256 constant ROUND_SIZE_IN_EPOCHS = 6;
   uint256 constant EPOCH_DURATION = 32;
   uint256 constant INITIAL_EPOCH = 6 + ROUND_SIZE_IN_EPOCHS;
 
@@ -91,9 +91,14 @@ contract SlashingTest is TestBase {
     // Create votes - for tally slashing we need to encode votes as bytes
     // Each validator gets a slash amount between 1-3 units
     // For simplicity, we'll vote to slash all validators by the same amount
-    uint256 slashUnits = _slashAmount / slashingProposer.SLASHING_UNIT();
-    if (slashUnits == 0) slashUnits = 1; // Minimum 1 unit
-    if (slashUnits > 3) slashUnits = 3; // Maximum 3 units
+    uint256 slashUnits;
+    if (_slashAmount >= slashingProposer.SLASH_AMOUNT_LARGE()) {
+      slashUnits = 3;
+    } else if (_slashAmount >= slashingProposer.SLASH_AMOUNT_MEDIUM()) {
+      slashUnits = 2;
+    } else {
+      slashUnits = 1;
+    }
 
     // Calculate expected vote length: (COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS) / 4
     uint256 totalValidators = slashingProposer.COMMITTEE_SIZE() * slashingProposer.ROUND_SIZE_IN_EPOCHS();
@@ -157,7 +162,7 @@ contract SlashingTest is TestBase {
       });
     }
 
-    uint256 roundSize = ROUND_SIZE_IN_EPOCHS * TestConstants.AZTEC_EPOCH_DURATION;
+    uint256 roundSize = ROUND_SIZE_IN_EPOCHS * EPOCH_DURATION;
     RollupBuilder builder = new RollupBuilder(address(this)).setValidators(initialValidators).setTargetCommitteeSize(
       COMMITTEE_SIZE
     ).setSlashingLifetimeInRounds(_slashingLifetimeInRounds).setSlashingExecutionDelayInRounds(
@@ -184,7 +189,10 @@ contract SlashingTest is TestBase {
     // We jump forward enough epochs so that when we vote for slashing epochs from the past,
     // those epochs actually have validators in them. With SLASH_OFFSET_IN_ROUNDS = 2,
     // we need to be far enough ahead that the epochs we're slashing had validators.
-    timeCheater.cheat__jumpForwardEpochs(INITIAL_EPOCH);
+    while (rollup.getCurrentEpoch() < Epoch.wrap(INITIAL_EPOCH)) {
+      if (rollup.getCurrentEpoch() > Epoch.wrap(1)) rollup.setupEpoch();
+      timeCheater.cheat__progressEpoch();
+    }
 
     assertEq(rollup.getActiveAttesterCount(), validatorCount, "Invalid attester count");
   }
@@ -272,7 +280,8 @@ contract SlashingTest is TestBase {
 
     // For tally slashing, we need to predict the payload address and veto it
     // Get the actual slash actions that will be created by calling getTally
-    TallySlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(firstSlashingRound);
+    address[][] memory slashCommittees = slashingProposer.getSlashTargetCommittees(firstSlashingRound);
+    TallySlashingProposer.SlashAction[] memory actions = slashingProposer.getTally(firstSlashingRound, slashCommittees);
     address payloadAddress = slashingProposer.getPayloadAddress(firstSlashingRound, actions);
 
     // Veto the predicted payload
@@ -331,10 +340,18 @@ contract SlashingTest is TestBase {
     slashingProposer.executeRound(firstSlashingRound, committees);
 
     // Calculate actual slash amount (limited by max 3 units)
-    uint256 slashUnits = slashAmount1 / slashingProposer.SLASHING_UNIT();
-    if (slashUnits == 0) slashUnits = 1; // Minimum 1 unit
-    if (slashUnits > 3) slashUnits = 3; // Maximum 3 units
-    uint256 actualSlashAmount = slashUnits * slashingProposer.SLASHING_UNIT();
+    uint256 slashUnits;
+    uint256 actualSlashAmount;
+    if (slashAmount1 >= slashingProposer.SLASH_AMOUNT_LARGE()) {
+      slashUnits = 3;
+      actualSlashAmount = slashingProposer.SLASH_AMOUNT_LARGE();
+    } else if (slashAmount1 >= slashingProposer.SLASH_AMOUNT_MEDIUM()) {
+      slashUnits = 2;
+      actualSlashAmount = slashingProposer.SLASH_AMOUNT_MEDIUM();
+    } else {
+      slashUnits = 1;
+      actualSlashAmount = slashingProposer.SLASH_AMOUNT_SMALL();
+    }
 
     // Check balances
     for (uint256 i = 0; i < howManyToSlash; i++) {

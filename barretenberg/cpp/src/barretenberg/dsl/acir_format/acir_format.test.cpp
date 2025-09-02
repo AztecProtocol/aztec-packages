@@ -8,7 +8,6 @@
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
 
 #include "barretenberg/serialize/test_helper.hpp"
-#include "ecdsa_secp256k1.hpp"
 
 using namespace bb;
 using namespace bb::crypto;
