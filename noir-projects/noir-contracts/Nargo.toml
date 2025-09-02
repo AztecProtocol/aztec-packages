@@ -46,6 +46,7 @@ members = [
     "contracts/test/no_constructor_contract",
     "contracts/test/note_getter_contract",
     "contracts/test/offchain_effect_contract",
+    "contracts/test/oracle_version_check_contract",
     "contracts/test/parent_contract",
     "contracts/test/pending_note_hashes_contract",
     "contracts/test/public_immutable_contract",

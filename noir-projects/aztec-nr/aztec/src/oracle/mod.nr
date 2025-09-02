@@ -22,6 +22,7 @@ pub mod logs;
 pub mod message_processing;
 pub mod notes;
 pub mod offchain_effect;
+pub mod version;
 pub mod random;
 pub mod shared_secret;
 pub mod storage;

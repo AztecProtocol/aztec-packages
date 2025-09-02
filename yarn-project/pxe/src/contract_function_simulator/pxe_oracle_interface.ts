@@ -34,6 +34,7 @@ import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { ExecutionDataProvider, ExecutionStats } from '../contract_function_simulator/execution_data_provider.js';
 import { MessageLoadOracleInputs } from '../contract_function_simulator/oracle/message_load_oracle_inputs.js';
+import { ORACLE_VERSION } from '../oracle_version.js';
 import type { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
 import type { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
 import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
@@ -230,6 +231,12 @@ export class PXEOracleInterface implements ExecutionDataProvider {
    */
   getBlockHeader(): Promise<BlockHeader> {
     return this.syncDataProvider.getBlockHeader();
+  }
+
+  public assertCompatibleOracleVersion(version: number): void {
+    if (version !== ORACLE_VERSION) {
+      throw new Error(`Incompatible oracle version. Expected version ${ORACLE_VERSION}, got ${version}.`);
+    }
   }
 
   /**
