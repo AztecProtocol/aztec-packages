@@ -199,7 +199,7 @@ You can enable proving on a per-transaction basis using the `aztec-wallet` CLI b
 PXE_PROVER_ENABLED=1 aztec-wallet create-account -a test
 ```
 
-Check the [Quickstart](../../getting_started.md) for a refresher on how to send transactions using `aztec-wallet` or check the [reference here](../../reference/environment_reference/cli_wallet_reference.md)
+Check the [Quickstart](../../getting_started/getting_started_on_sandbox.md) for a refresher on how to send transactions using `aztec-wallet` or check the [reference here](../../reference/environment_reference/cli_wallet_reference.md)
 
 Note that you do not need to restart the sandbox in order to start sending proven transactions. You can optionally set this for one-off transactions.
 

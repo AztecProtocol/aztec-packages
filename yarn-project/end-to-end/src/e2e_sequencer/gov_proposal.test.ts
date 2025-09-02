@@ -25,7 +25,7 @@ const TXS_PER_BLOCK = 1;
 const ROUND_SIZE = 2;
 const QUORUM_SIZE = 2;
 // Can't use 48 without chunking the addValidators call.
-const COMMITTEE_SIZE = 36;
+const COMMITTEE_SIZE = 16;
 
 describe('e2e_gov_proposal', () => {
   let logger: Logger;
@@ -80,7 +80,7 @@ describe('e2e_gov_proposal', () => {
         NewGovernanceProposerPayloadAbi,
         NewGovernanceProposerPayloadBytecode,
         [registryAddress.toString(), gseAddress!.toString()],
-        '0x2a', // salt
+        { salt: '0x2a' },
       );
 
       // Deploy a test contract to send msgs via the outbox, since this increases

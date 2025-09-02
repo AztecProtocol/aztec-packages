@@ -1,4 +1,6 @@
 import { createLogger } from '@aztec/foundation/log';
+import { AMMContractArtifact } from '@aztec/noir-contracts.js/AMM';
+import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { TestExecutorMetrics, ammTest, defaultGlobals } from '@aztec/simulator/public/fixtures';
 
 import { mkdirSync, writeFileSync } from 'fs';
@@ -8,8 +10,7 @@ import { AvmProvingTester } from './avm_proving_tester.js';
 
 const TIMEOUT = 300_000;
 
-// TODO: unskip when check-circuit works for AMM. Confirm that it is fast enough to run in CI.
-describe.skip('AVM proven AMM', () => {
+describe('AVM proven AMM', () => {
   const logger = createLogger('avm-proven-tests-amm');
   const metrics = new TestExecutorMetrics();
   let tester: AvmProvingTester;
@@ -34,7 +35,7 @@ describe.skip('AVM proven AMM', () => {
   it(
     'proven AMM operations: addLiquidity, swap, removeLiquidity (simulates constructors, set_minter)',
     async () => {
-      await ammTest(tester, logger, (b: boolean) => expect(b).toBe(true));
+      await ammTest(tester, logger, TokenContractArtifact, AMMContractArtifact, (b: boolean) => expect(b).toBe(true));
     },
     TIMEOUT,
   );

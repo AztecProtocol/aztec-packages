@@ -29,22 +29,20 @@ UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof
     transcript->load_proof(proof);
     OinkVerifier<Flavor> oink_verifier{ verification_key, transcript };
     oink_verifier.verify();
-    const PublicInputs& public_inputs = oink_verifier.public_inputs;
 
     // Determine the number of rounds in the sumcheck based on whether or not padding is employed
-    const uint64_t log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : verification_key->vk->log_circuit_size;
-
-    for (size_t idx = 0; idx < log_n; idx++) {
-        verification_key->gate_challenges.emplace_back(
-            transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx)));
-    }
+    const size_t log_n =
+        Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : static_cast<size_t>(verification_key->vk->log_circuit_size);
+    verification_key->target_sum = 0;
+    verification_key->gate_challenges =
+        transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", log_n);
 
     DeciderVerifier decider_verifier{ verification_key, transcript };
     auto decider_output = decider_verifier.verify();
 
     // Reconstruct the public inputs
     IO inputs;
-    inputs.reconstruct_from_public(public_inputs);
+    inputs.reconstruct_from_public(verification_key->public_inputs);
 
     // Aggregate new pairing points with those reconstructed from the public inputs
     decider_output.pairing_points.aggregate(inputs.pairing_inputs);

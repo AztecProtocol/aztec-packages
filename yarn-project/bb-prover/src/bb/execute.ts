@@ -434,8 +434,8 @@ export async function generateAvmProof(
     // Not a great error message here but it is difficult to decipher what comes from bb
     return {
       status: BB_RESULT.FAILURE,
-      reason: `Failed to generate proof. Exit code ${result.exitCode}. Signal ${result.signal}.`,
-      retry: !!result.signal,
+      reason: `Failed to generate proof. AVM proof for TX hash ${input.hints.tx.hash}. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+      retry: result.signal === 'SIGKILL', // retry on SIGKILL because the oomkiller might have stopped the process
     };
   } catch (error) {
     return { status: BB_RESULT.FAILURE, reason: `${error}` };

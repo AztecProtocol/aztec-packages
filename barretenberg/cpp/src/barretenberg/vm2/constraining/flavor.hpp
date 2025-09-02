@@ -13,6 +13,7 @@
 #include "barretenberg/transcript/transcript.hpp"
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/constraining/entities.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 
@@ -102,7 +103,7 @@ class AvmFlavor {
     // to see its value and then update `AVM_V2_PROOF_LENGTH_IN_FIELDS` in constants.nr.
     static constexpr size_t COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS =
         (NUM_WITNESS_ENTITIES + 1) * NUM_FRS_COM + (NUM_ALL_ENTITIES + 1) * NUM_FRS_FR +
-        CONST_PROOF_SIZE_LOG_N * (NUM_FRS_COM + NUM_FRS_FR * (BATCHED_RELATION_PARTIAL_LENGTH + 1));
+        MAX_AVM_TRACE_LOG_SIZE * (NUM_FRS_COM + NUM_FRS_FR * (BATCHED_RELATION_PARTIAL_LENGTH + 1));
 
     static_assert(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED >= COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS,
                   "\n The constant AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED is now too short\n"
@@ -197,7 +198,7 @@ class AvmFlavor {
 
     class Transcript : public NativeTranscript {
       public:
-        uint32_t circuit_size;
+        size_t log_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
 
         std::array<Commitment, NUM_WITNESS_ENTITIES> commitments;
 
@@ -219,17 +220,12 @@ class AvmFlavor {
         using FF = typename Polynomial::FF;
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>);
 
-        ProvingKey() = default;
-        ProvingKey(const size_t circuit_size, const size_t num_public_inputs);
+        size_t circuit_size = MAX_AVM_TRACE_SIZE; // Fixed size
+        size_t log_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
 
-        size_t circuit_size = 0;
-        size_t log_circuit_size = 0;
-        size_t num_public_inputs = 0;
+        ProvingKey();
 
         CommitmentKey commitment_key;
-
-        // Offset off the public inputs from the start of the execution trace
-        size_t pub_inputs_offset = 0;
 
         // The number of public inputs has to be the same for all instances because they are
         // folded element by element.
@@ -248,19 +244,17 @@ class AvmFlavor {
         VerificationKey() = default;
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
-            : NativeVerificationKey_(proving_key->circuit_size, static_cast<size_t>(proving_key->num_public_inputs))
         {
+            this->log_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
             for (auto [polynomial, commitment] :
                  zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
                 commitment = proving_key->commitment_key.commit(polynomial);
             }
         }
 
-        VerificationKey(const size_t circuit_size,
-                        const size_t num_public_inputs,
-                        std::array<Commitment, NUM_PRECOMPUTED_COMMITMENTS> const& precomputed_cmts)
-            : NativeVerificationKey_(circuit_size, num_public_inputs)
+        VerificationKey(std::array<Commitment, NUM_PRECOMPUTED_COMMITMENTS> const& precomputed_cmts)
         {
+            this->log_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
             for (auto [vk_cmt, cmt] : zip_view(this->get_all(), precomputed_cmts)) {
                 vk_cmt = cmt;
             }

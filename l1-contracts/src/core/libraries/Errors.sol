@@ -97,6 +97,7 @@ library Errors {
 
   // MerkleLib
   error MerkleLib__InvalidRoot(bytes32 expected, bytes32 actual, bytes32 leaf, uint256 leafIndex); // 0x5f216bf1
+  error MerkleLib__InvalidIndexForPathLength();
 
   // SampleLib
   error SampleLib__IndexOutOfBounds(uint256 requested, uint256 bound); // 0xa12fc559
@@ -183,7 +184,7 @@ library Errors {
   error TallySlashingProposer__InvalidCommitteeCommitment();
   error TallySlashingProposer__InvalidQuorumAndRoundSize(uint256 quorum, uint256 roundSize);
   error TallySlashingProposer__QuorumMustBeGreaterThanZero();
-  error TallySlashingProposer__SlashingUnitMustBeGreaterThanZero(uint256 slashingUnit);
+  error TallySlashingProposer__InvalidSlashAmounts(uint256[3] slashAmounts);
   error TallySlashingProposer__LifetimeMustBeGreaterThanExecutionDelay(uint256 lifetime, uint256 executionDelay);
   error TallySlashingProposer__LifetimeMustBeLessThanRoundabout(uint256 lifetime, uint256 roundabout);
   error TallySlashingProposer__RoundSizeInEpochsMustBeGreaterThanZero(uint256 roundSizeInEpochs);
@@ -196,4 +197,9 @@ library Errors {
   error TallySlashingProposer__VotingNotOpen(SlashRound currentRound);
   error TallySlashingProposer__SlashOffsetMustBeGreaterThanZero(uint256 slashOffset);
   error TallySlashingProposer__InvalidEpochIndex(uint256 epochIndex, uint256 roundSizeInEpochs);
+  error TallySlashingProposer__VoteSizeTooBig(uint256 voteSize, uint256 maxSize);
+  error TallySlashingProposer__VotesMustBeMultipleOf4(uint256 votes);
+
+  // SlashPayloadLib
+  error SlashPayload_ArraySizeMismatch(uint256 expected, uint256 actual);
 }
