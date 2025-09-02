@@ -28,7 +28,6 @@ ClientIVC::ClientIVC(size_t num_circuits, TraceSettings trace_settings)
     size_t commitment_key_size =
         std::max(trace_settings.dyadic_size(), 1UL << TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
     info("BN254 commitment key size: ", commitment_key_size);
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
     bn254_commitment_key = CommitmentKey<curve::BN254>(commitment_key_size);
 }
 
@@ -205,7 +204,7 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
                                                                             prev_accum_hash,
                                                                             verifier_inputs.is_kernel);
         // Perform recursive decider verification
-        DeciderRecursiveVerifier decider{ &circuit, final_verifier_accumulator };
+        DeciderRecursiveVerifier decider{ &circuit, final_verifier_accumulator, accumulation_recursive_transcript };
         decider_pairing_points = decider.verify_proof(decider_proof);
 
         BB_ASSERT_EQ(output_verifier_accumulator, nullptr);
@@ -269,10 +268,16 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     pairing_points.aggregate(nested_pairing_points);
     if (is_hiding_kernel) {
         pairing_points.aggregate(decider_pairing_points);
+<<<<<<< HEAD
         // Placeholder for randomness (will be removed)
         circuit.queue_ecc_random_op();
         circuit.queue_ecc_random_op();
         info("num ops in hiding kernel ", circuit.op_queue->get_unmerged_subtable_size());
+=======
+        // Placeholder for randomness at the end of the hiding circuit
+        circuit.queue_ecc_random_op();
+        circuit.queue_ecc_random_op();
+>>>>>>> mm/fix-op-queue
     }
 
     return { output_verifier_accumulator, pairing_points, merged_table_commitments };
@@ -464,7 +469,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     // If the current circuit overflows past the current size of the commitment key, reinitialize accordingly.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319)
     if (proving_key->dyadic_size() > bn254_commitment_key.dyadic_size) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
         bn254_commitment_key = CommitmentKey<curve::BN254>(proving_key->dyadic_size());
         goblin.commitment_key = bn254_commitment_key;
     }
@@ -502,7 +506,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
         break;
     case QUEUE_TYPE::PG_FINAL:
         proof = construct_pg_proof(proving_key, honk_vk, prover_accumulation_transcript, is_kernel);
-        decider_proof = construct_decider_proof();
+        decider_proof = construct_decider_proof(prover_accumulation_transcript);
         break;
     case QUEUE_TYPE::MEGA:
         proof = construct_mega_proof_for_hiding_kernel(circuit);
@@ -620,11 +624,11 @@ bool ClientIVC::verify(const Proof& proof) const
  *
  * @return HonkProof
  */
-HonkProof ClientIVC::construct_decider_proof()
+HonkProof ClientIVC::construct_decider_proof(const std::shared_ptr<Transcript>& transcript)
 {
     vinfo("prove decider...");
     fold_output.accumulator->commitment_key = bn254_commitment_key;
-    MegaDeciderProver decider_prover(fold_output.accumulator);
+    MegaDeciderProver decider_prover(fold_output.accumulator, transcript);
     decider_prover.construct_proof();
     return decider_prover.export_proof();
 }

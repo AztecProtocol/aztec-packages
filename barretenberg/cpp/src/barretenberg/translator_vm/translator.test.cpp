@@ -1,6 +1,5 @@
 #include "barretenberg/circuit_checker/translator_circuit_checker.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/honk/relation_checker.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
@@ -25,7 +24,7 @@ class TranslatorTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
-    // Helper function to add no-op operations
+    // Helper function to add no-ops
     static void add_no_ops(std::shared_ptr<bb::ECCOpQueue>& op_queue, size_t count = 1)
     {
         for (size_t i = 0; i < count; i++) {
@@ -33,7 +32,7 @@ class TranslatorTests : public ::testing::Test {
         }
     }
 
-    // Helper function to add mixed add and mul operations
+    // Helper function to create an MSM
     static void add_mixed_ops(std::shared_ptr<bb::ECCOpQueue>& op_queue, size_t count = 100)
     {
         auto P1 = G1::random_element();
@@ -68,16 +67,6 @@ class TranslatorTests : public ::testing::Test {
         return CircuitBuilder{ batching_challenge_v, evaluation_challenge_x, op_queue };
     }
 
-    /**
-     * @brief Check that size of a Translator proof matches the corresponding constant
-     *@details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
-     * - Proof length formula in translator_flavor.hpp, etc...
-     * - translator_transcript.test.cpp
-     * - constants in yarn-project in: constants.nr, constants.gen.ts, ConstantsGen.sol
-     */
-
-    // Helper function to setup prover transcript with initial value
-    // Helper function to create a complete proof-verification setup
     static bool prove_and_verify(const CircuitBuilder& circuit_builder,
                                  const Fq& evaluation_challenge_x,
                                  const Fq& batching_challenge_v)
@@ -108,6 +97,13 @@ class TranslatorTests : public ::testing::Test {
     }
 };
 
+/**
+ * @brief Check that size of a Translator proof matches the corresponding constant
+ *@details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
+ * - Proof length formula in translator_flavor.hpp, etc...
+ * - translator_transcript.test.cpp
+ * - constants in yarn-project in: constants.nr, constants.gen.ts, ConstantsGen.sol
+ */
 TEST_F(TranslatorTests, ProofLengthCheck)
 {
     using Fq = fq;
@@ -135,7 +131,7 @@ TEST_F(TranslatorTests, ProofLengthCheck)
  * @brief Test simple circuit with public inputs
  *
  */
-TEST_F(TranslatorTests, BasicWithoutNoOps)
+TEST_F(TranslatorTests, Basic)
 {
     using Fq = fq;
 

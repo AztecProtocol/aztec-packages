@@ -536,20 +536,27 @@ void ExecutionTraceBuilder::process(
          **************************************************************************************************/
 
         // TODO(ilyas): This can possibly be gated with some boolean but I'm not sure what is going on.
+        // TODO: this needs a refactor and is most likely wrong.
 
         // Overly verbose but maximising readibility here
         // FIXME(ilyas): We currently cannot move this into the if statement because they are used outside of this
         // temporality group (e.g. in recomputing discard)
-        bool is_call = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::CALL;
-        bool is_static_call = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::STATICCALL;
-        bool is_return = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::RETURN;
-        bool is_revert = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::REVERT;
-        bool is_err = ex_event.error != ExecutionError::NONE;
-        bool is_failure = is_revert || is_err;
-        bool sel_enter_call = (is_call || is_static_call) && !is_err;
-        bool sel_exit_call = is_return || is_revert || is_err;
-
         bool should_execute_opcode = should_check_gas && !oog;
+        bool should_execute_call =
+            should_execute_opcode && exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::CALL;
+        bool should_execute_static_call =
+            should_execute_opcode && exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::STATICCALL;
+        bool should_execute_return =
+            should_execute_opcode && exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::RETURN;
+        bool should_execute_revert =
+            should_execute_opcode && exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::REVERT;
+
+        bool is_err = ex_event.error != ExecutionError::NONE;
+        bool is_failure = should_execute_revert || is_err;
+        bool sel_enter_call = should_execute_call || should_execute_static_call;
+        // TODO: would is_err here catch any error at the opcode execution step which we dont want to consider?
+        bool sel_exit_call = should_execute_return || should_execute_revert || is_err;
+
         bool opcode_execution_failed = ex_event.error == ExecutionError::OPCODE_EXECUTION;
         if (should_execute_opcode) {
             // At this point we can assume instruction fetching succeeded, so this should never fail.
@@ -585,8 +592,8 @@ void ExecutionTraceBuilder::process(
                 trace.set(row,
                           { {
                               { C::execution_sel_enter_call, sel_enter_call ? 1 : 0 },
-                              { C::execution_sel_execute_call, is_call ? 1 : 0 },
-                              { C::execution_sel_execute_static_call, is_static_call ? 1 : 0 },
+                              { C::execution_sel_execute_call, should_execute_call ? 1 : 0 },
+                              { C::execution_sel_execute_static_call, should_execute_static_call ? 1 : 0 },
                               { C::execution_constant_32, 32 },
                               { C::execution_call_is_l2_gas_allocated_lt_left, is_l2_gas_allocated_lt_left },
                               { C::execution_call_allocated_left_l2_cmp_diff, allocated_left_l2_cmp_diff },
@@ -598,10 +605,10 @@ void ExecutionTraceBuilder::process(
                 trace.set(row,
                           { {
                               // Exit reason - opcode or error
-                              { C::execution_sel_execute_return, is_return ? 1 : 0 },
-                              { C::execution_sel_execute_revert, is_revert ? 1 : 0 },
+                              { C::execution_sel_execute_return, should_execute_return ? 1 : 0 },
+                              { C::execution_sel_execute_revert, should_execute_revert ? 1 : 0 },
                               { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
-                              { C::execution_nested_return, is_return && has_parent ? 1 : 0 },
+                              { C::execution_nested_return, should_execute_return && has_parent ? 1 : 0 },
                               // Enqueued or nested exit dependent on if we are a child context
                               { C::execution_enqueued_call_end, !has_parent ? 1 : 0 },
                               { C::execution_nested_exit_call, has_parent ? 1 : 0 },
@@ -731,7 +738,7 @@ void ExecutionTraceBuilder::process(
 
         // This is here instead of guarded by `should_execute_opcode` because is_err is a higher level error
         // than just an opcode error (i.e., it is on if there are any errors in any temporality group).
-        bool rollback_context = (is_revert || is_err) && has_parent;
+        bool rollback_context = (should_execute_revert || is_err) && has_parent;
 
         trace.set(
             row,

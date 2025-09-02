@@ -6,7 +6,7 @@ This guide shows you how to connect your application to a running Aztec sandbox.
 
 ## Prerequisites
 
-- A running Aztec sandbox (see [Quickstart](../../getting_started.md)) on port 8080
+- A running Aztec sandbox (see [Quickstart](../../getting_started/getting_started_on_sandbox.md)) on port 8080
 - Node.js installed
 - TypeScript project set up
 

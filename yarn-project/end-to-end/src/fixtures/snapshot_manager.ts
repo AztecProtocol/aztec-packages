@@ -306,6 +306,10 @@ async function setupFromFresh(
 
   const blobSinkPort = await getPort();
 
+  // Default to no slashing
+  opts.slasherFlavor ??= 'none';
+  deployL1ContractsArgs.slasherFlavor ??= opts.slasherFlavor;
+
   // Fetch the AztecNode config.
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };

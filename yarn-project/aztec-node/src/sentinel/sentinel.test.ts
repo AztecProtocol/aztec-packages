@@ -45,19 +45,9 @@ describe('sentinel', () => {
   let epoch: bigint;
   let ts: bigint;
   let l1Constants: L1RollupConstants;
-  const config: Pick<
-    SlasherConfig,
-    | 'slashInactivityCreateTargetPercentage'
-    | 'slashInactivityCreatePenalty'
-    | 'slashInactivitySignalTargetPercentage'
-    | 'slashInactivityMaxPenalty'
-    | 'slashPayloadTtlSeconds'
-  > = {
-    slashInactivityCreatePenalty: 100n,
-    slashInactivityCreateTargetPercentage: 0.8,
-    slashInactivitySignalTargetPercentage: 0.6,
-    slashInactivityMaxPenalty: 200n,
-    slashPayloadTtlSeconds: 60 * 60,
+  const config: Pick<SlasherConfig, 'slashInactivityTargetPercentage' | 'slashInactivityPenalty'> = {
+    slashInactivityPenalty: 100n,
+    slashInactivityTargetPercentage: 0.8,
   };
 
   beforeEach(async () => {
@@ -457,7 +447,7 @@ describe('sentinel', () => {
       expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
         {
           validator: validator2,
-          amount: config.slashInactivityCreatePenalty,
+          amount: config.slashInactivityPenalty,
           offenseType: OffenseType.INACTIVITY,
           epochOrSlot: 1n,
         },
@@ -472,14 +462,7 @@ class TestSentinel extends Sentinel {
     archiver: L2BlockSource,
     p2p: P2PClient,
     store: SentinelStore,
-    config: Pick<
-      SlasherConfig,
-      | 'slashInactivityCreateTargetPercentage'
-      | 'slashInactivityCreatePenalty'
-      | 'slashInactivitySignalTargetPercentage'
-      | 'slashInactivityMaxPenalty'
-      | 'slashPayloadTtlSeconds'
-    >,
+    config: Pick<SlasherConfig, 'slashInactivityTargetPercentage' | 'slashInactivityPenalty'>,
     protected override blockStream: L2BlockStream,
   ) {
     super(epochCache, archiver, p2p, store, config);

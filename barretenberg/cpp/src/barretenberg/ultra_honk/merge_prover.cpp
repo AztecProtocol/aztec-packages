@@ -26,9 +26,8 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
     // Merge the current subtable (for which a merge proof is being constructed) prior to
     // procedeing with proving.
     if (settings == MergeSettings::APPEND) {
-
-        op_queue->merge(settings, ECCOpQueue::OP_QUEUE_SIZE - 293);
-        info("hiding kernel subtable size? ", op_queue->get_current_ultra_ops_subtable_num_rows() / 2);
+        size_t last_subtable_size = op_queue->get_unmerged_subtable_size();
+        op_queue->merge(settings, ECCOpQueue::OP_QUEUE_SIZE - last_subtable_size);
 
     } else {
         op_queue->merge(settings);

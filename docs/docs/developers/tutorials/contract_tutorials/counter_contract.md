@@ -12,7 +12,7 @@ This tutorial is compatible with the Aztec version `#include_aztec_version`. Ins
 
 ## Prerequisites
 
-- You have followed the [quickstart](../../getting_started.md)
+- You have followed the [quickstart](../../getting_started/getting_started_on_sandbox.md)
 - Running Aztec Sandbox
 - Installed [Noir LSP](../../guides/local_env/installing_noir_lsp.md) (optional)
 

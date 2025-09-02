@@ -8,6 +8,11 @@ namespace bb {
 // permutation argument polynomials (sigmas, ids) are unique, e.g. id[i][j] == id[m][n] iff (i == m && j == n)
 constexpr uint32_t PERMUTATION_ARGUMENT_VALUE_SEPARATOR = 1 << 28;
 
+static constexpr uint32_t CONST_TRANSLATOR_MINI_CIRCUIT_LOG_SIZE = 14;
+
+// -1 as each op occupies two rows in Translator trace
+static constexpr uint32_t CONST_OP_QUEUE_LOG_SIZE = CONST_TRANSLATOR_MINI_CIRCUIT_LOG_SIZE - 1;
+
 // The log of the max circuit size assumed in order to achieve constant sized Honk proofs
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1046): Remove the need for const sized proofs
 static constexpr uint32_t CONST_PROOF_SIZE_LOG_N = 28;

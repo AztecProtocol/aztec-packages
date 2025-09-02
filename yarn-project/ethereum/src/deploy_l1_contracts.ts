@@ -34,11 +34,12 @@ import {
   getGovernanceConfiguration,
   getRewardBoostConfig,
   getRewardConfig,
+  validateConfig,
 } from './config.js';
 import { GSEContract } from './contracts/gse.js';
 import { deployMulticall3 } from './contracts/multicall.js';
 import { RegistryContract } from './contracts/registry.js';
-import { RollupContract } from './contracts/rollup.js';
+import { RollupContract, SlashingProposerType } from './contracts/rollup.js';
 import {
   CoinIssuerArtifact,
   FeeAssetArtifact,
@@ -128,7 +129,7 @@ export interface ContractArtifacts<TAbi extends Abi | readonly unknown[] = Abi> 
   libraries?: Libraries;
 }
 
-export interface DeployL1ContractsArgs extends L1ContractsConfig {
+export interface DeployL1ContractsArgs extends Omit<L1ContractsConfig, keyof L1TxUtilsConfig> {
   /** The vk tree root. */
   vkTreeRoot: Fr;
   /** The protocol contract tree root. */
@@ -195,7 +196,7 @@ export const deploySharedContracts = async (
   const governanceProposerAddress = await deployer.deploy(GovernanceProposerArtifact, [
     registryAddress.toString(),
     gseAddress.toString(),
-    BigInt(args.governanceProposerQuorum),
+    BigInt(args.governanceProposerQuorum ?? args.governanceProposerRoundSize / 2 + 1),
     BigInt(args.governanceProposerRoundSize),
   ]);
   logger.verbose(`Deployed GovernanceProposer at ${governanceProposerAddress}`);
@@ -472,6 +473,21 @@ export const deployUpgradePayload = async (
   return payloadAddress;
 };
 
+function slasherFlavorToSolidityEnum(flavor: DeployL1ContractsArgs['slasherFlavor']): number {
+  switch (flavor) {
+    case 'none':
+      return SlashingProposerType.None.valueOf();
+    case 'tally':
+      return SlashingProposerType.Tally.valueOf();
+    case 'empire':
+      return SlashingProposerType.Empire.valueOf();
+    default: {
+      const _: never = flavor;
+      throw new Error(`Unexpected slasher flavor ${flavor}`);
+    }
+  }
+}
+
 /**
  * Deploys a new rollup contract, funds and initializes the fee juice portal, and initializes the validator set.
  */
@@ -516,8 +532,8 @@ export const deployRollup = async (
     aztecEpochDuration: BigInt(args.aztecEpochDuration),
     targetCommitteeSize: BigInt(args.aztecTargetCommitteeSize),
     aztecProofSubmissionEpochs: BigInt(args.aztecProofSubmissionEpochs),
-    slashingQuorum: BigInt(args.slashingQuorum),
-    slashingRoundSize: BigInt(args.slashingRoundSize),
+    slashingQuorum: BigInt(args.slashingQuorum ?? (args.slashingRoundSizeInEpochs * args.aztecEpochDuration) / 2 + 1),
+    slashingRoundSize: BigInt(args.slashingRoundSizeInEpochs * args.aztecEpochDuration),
     slashingLifetimeInRounds: BigInt(args.slashingLifetimeInRounds),
     slashingExecutionDelayInRounds: BigInt(args.slashingExecutionDelayInRounds),
     slashingVetoer: args.slashingVetoer.toString(),
@@ -528,9 +544,9 @@ export const deployRollup = async (
     rewardBoostConfig: getRewardBoostConfig(networkName),
     stakingQueueConfig: getEntryQueueConfig(networkName),
     exitDelaySeconds: BigInt(args.exitDelaySeconds),
-    slasherFlavor: args.slasherFlavor === 'tally' ? 1 : 0,
+    slasherFlavor: slasherFlavorToSolidityEnum(args.slasherFlavor),
     slashingOffsetInRounds: BigInt(args.slashingOffsetInRounds),
-    slashingUnit: args.slashingUnit,
+    slashAmounts: [args.slashAmountSmall, args.slashAmountMedium, args.slashAmountLarge],
   };
 
   const genesisStateArgs = {
@@ -899,6 +915,8 @@ export const deployL1Contracts = async (
   args: DeployL1ContractsArgs,
   txUtilsConfig: L1TxUtilsConfig = getL1TxUtilsConfigEnvVars(),
 ): Promise<DeployL1ContractsReturnType> => {
+  validateConfig(args);
+
   const l1Client = createExtendedL1Client(rpcUrls, account, chain);
 
   // Deploy multicall3 if it does not exist in this network
@@ -1081,9 +1099,15 @@ export class L1Deployer {
       return;
     }
 
-    this.logger.info(`Waiting for ${this.txHashes.length} transactions to be mined...`);
-    await Promise.all(this.txHashes.map(txHash => this.client.waitForTransactionReceipt({ hash: txHash })));
-    this.logger.info('All transactions mined successfully');
+    this.logger.verbose(`Waiting for ${this.txHashes.length} transactions to be mined`, { txHashes: this.txHashes });
+    const receipts = await Promise.all(
+      this.txHashes.map(txHash => this.client.waitForTransactionReceipt({ hash: txHash })),
+    );
+    const failed = receipts.filter(r => r.status !== 'success');
+    if (failed.length > 0) {
+      throw new Error(`Some deployment txs have failed: ${failed.map(f => f.transactionHash).join(', ')}`);
+    }
+    this.logger.info('All transactions mined successfully', { txHashes: this.txHashes });
   }
 
   sendTransaction(
@@ -1206,6 +1230,12 @@ export async function deployL1Contract(
     resultingAddress = address;
     const existing = await extendedClient.getCode({ address: resultingAddress });
     if (existing === undefined || existing === '0x') {
+      try {
+        await l1TxUtils.simulate({ to: DEPLOYER_ADDRESS, data: concatHex([salt, calldata]) }, { gasLimit });
+      } catch (err) {
+        logger?.error(`Failed to simulate deployment tx using universal deployer`, err);
+        await l1TxUtils.simulate({ to: null, data: encodeDeployData({ abi, bytecode, args }) });
+      }
       const res = await l1TxUtils.sendTransaction(
         { to: DEPLOYER_ADDRESS, data: concatHex([salt, calldata]) },
         { gasLimit },
