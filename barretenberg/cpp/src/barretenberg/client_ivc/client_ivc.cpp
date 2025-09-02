@@ -268,7 +268,7 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     pairing_points.aggregate(nested_pairing_points);
     if (is_hiding_kernel) {
         pairing_points.aggregate(decider_pairing_points);
-        // Placeholder for randomness at the end of the hiding circuit
+        // Placeholder for randomness at the end of the hiding circuit (to be handled in subsequent PR)
         circuit.queue_ecc_no_op();
         circuit.queue_ecc_no_op();
     }
