@@ -17,10 +17,10 @@ template <typename FF_> class TranslatorOpcodeConstraintRelationImpl {
     static constexpr size_t RELATION_LENGTH = 6;
     static constexpr std::array<size_t, 5> SUBRELATION_PARTIAL_LENGTHS{
         6, // opcode constraint relation
-        7, // opcode constraint relation
-        7, // opcode constraint relation
-        7, // opcode constraint relation
-        7  // opcode constraint relation
+        6, // opcode constraint relation
+        6, // opcode constraint relation
+        6, // opcode constraint relation
+        6  // opcode constraint relation
     };
 
     /**
@@ -29,7 +29,7 @@ template <typename FF_> class TranslatorOpcodeConstraintRelationImpl {
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.lagrange_even_in_minicircuit.is_zero();
+        return (in.lagrange_even_in_minicircuit + in.lagrange_mini_masking).is_zero();
     }
     /**
      * @brief Expression for enforcing the value of the Opcode to be {0,3,4,8}
