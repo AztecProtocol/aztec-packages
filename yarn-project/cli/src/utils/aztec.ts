@@ -58,6 +58,7 @@ export async function deployAztecContracts(
   acceleratedTestDeployments: boolean,
   config: L1ContractsConfig,
   realVerifier: boolean,
+  createVerificationJson: string | false,
   debugLogger: Logger,
 ): Promise<DeployL1ContractsReturnType> {
   const { createEthereumChain, deployL1Contracts } = await import('@aztec/ethereum');
@@ -70,7 +71,7 @@ export async function deployAztecContracts(
 
   const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types/vk-tree');
 
-  return await deployL1Contracts(
+  const result = await deployL1Contracts(
     chain.rpcUrls,
     account,
     chain.chainInfo,
@@ -87,7 +88,10 @@ export async function deployAztecContracts(
       ...config,
     },
     config,
+    createVerificationJson,
   );
+
+  return result;
 }
 
 export async function deployNewRollupContracts(
