@@ -14,7 +14,7 @@ void context_stackImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    PROFILE_THIS_NAME("accumulate/context_stack");
+    BB_BENCH_NAME("accumulate/context_stack");
 
     {
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;

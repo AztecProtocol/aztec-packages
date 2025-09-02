@@ -14,7 +14,7 @@ void external_callImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    PROFILE_THIS_NAME("accumulate/external_call");
+    BB_BENCH_NAME("accumulate/external_call");
 
     const auto execution_L2_GAS_LEFT = (in.get(C::execution_l2_gas_limit) - in.get(C::execution_l2_gas_used));
     const auto execution_DA_GAS_LEFT = (in.get(C::execution_da_gas_limit) - in.get(C::execution_da_gas_used));

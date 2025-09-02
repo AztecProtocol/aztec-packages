@@ -10,8 +10,7 @@ import { createDebugLogger } from '../log/index.js';
 import { AsyncApi } from '../cbind/generated/async.js';
 import { BbApiBase, CircuitComputeVk, CircuitProve, CircuitVerify, ClientIvcAccumulate, ClientIvcComputeIvcVk, ClientIvcStats, ClientIvcLoad, ClientIvcProve, ClientIvcStart, ClientIvcVerify, VkAsFields } from '../cbind/generated/api_types.js';
 
-export { BarretenbergVerifier } from './verifier.js';
-export { UltraHonkBackend, AztecClientBackend } from './backend.js';
+export { UltraHonkBackend, UltraHonkVerifierBackend, AztecClientBackend } from './backend.js';
 
 export type BackendOptions = {
   /** @description Number of threads to run the backend worker on */
@@ -133,9 +132,6 @@ export class Barretenberg extends BarretenbergApi {
     return this.bbApi.clientIvcAccumulate(command);
   }
 
-
-
-
   async clientIvcProve(command: ClientIvcProve) {
     return this.bbApi.clientIvcProve(command);
   }
@@ -168,6 +164,7 @@ export class Barretenberg extends BarretenbergApi {
   async vkAsFields(command: VkAsFields) {
     return this.bbApi.vkAsFields(command);
   }
+
 }
 
 let barretenbergSyncSingletonPromise: Promise<BarretenbergSync>;

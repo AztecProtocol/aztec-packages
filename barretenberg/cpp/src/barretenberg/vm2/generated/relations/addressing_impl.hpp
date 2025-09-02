@@ -14,7 +14,7 @@ void addressingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    PROFILE_THIS_NAME("accumulate/addressing");
+    BB_BENCH_NAME("accumulate/addressing");
 
     const auto constants_MEM_TAG_U32 = FF(4);
     const auto execution_SEL_OP_IS_INDIRECT_EFFECTIVE_0_ =

@@ -108,19 +108,27 @@ aztec:
   ## The number of extra accounts to prefund
   extraAccounts: 10
 
+  # All slashing settings are empty so we rely on the defaults set on ts-land
   slash:
-    payloadTtlSeconds: "86400"
-    pruneEnabled: false
-    prunePenalty: "1"
-    pruneMaxPenalty: "100"
-    inactivityEnabled: false
-    inactivityCreateTargetPercentage: 0.9
-    inactivitySignalTargetPercentage: 0.6
-    inactivityCreatePenalty: "1"
-    inactivityMaxPenalty: "100"
-    invalidBlockEnabled: false
-    invalidBlockPenalty: "1"
-    invalidBlockMaxPenalty: "100"
+    # Penalty percentages for slashing offenses
+    minPenaltyPercentage: ""
+    maxPenaltyPercentage: ""
+    # Validator allowlists/denylists
+    validatorsAlways: []
+    validatorsNever: []
+    # Penalty amounts for different offense types
+    prunePenalty: ""
+    dataWithholdingPenalty: ""
+    inactivityPenalty: ""
+    inactivityTargetPercentage: ""
+    invalidBlockPenalty: ""
+    proposeInvalidAttestationsPenalty: ""
+    attestDescendantOfInvalidPenalty: ""
+    unknownPenalty: ""
+    # Slasher behavior configuration
+    gracePeriodL2Slots: ""
+    offenseExpirationRounds: ""
+    maxPayloadSize: ""
 
 bootNode:
   enabled: true
@@ -370,7 +378,7 @@ proverAgent:
   testDelayFactor: 1
   gke:
     spotEnabled: true
-  logLevel: "debug; info: aztec:simulator, json-rpc"
+  logLevel: "verbose; info: aztec:simulator, json-rpc"
   bb:
     hardwareConcurrency: ""
   maxOldSpaceSize: "4608"

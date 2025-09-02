@@ -111,3 +111,5 @@ inline void output_vk_sol_ultra_honk(std::ostream& os,
 
     os << std::flush;
 }
+
+

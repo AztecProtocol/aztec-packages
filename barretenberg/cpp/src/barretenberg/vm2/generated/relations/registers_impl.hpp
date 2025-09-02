@@ -14,7 +14,7 @@ void registersImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    PROFILE_THIS_NAME("accumulate/registers");
+    BB_BENCH_NAME("accumulate/registers");
 
     const auto execution_BATCHED_TAGS_DIFF_REG =
         in.get(C::execution_sel_tag_check_reg_0_) * FF(1) *
