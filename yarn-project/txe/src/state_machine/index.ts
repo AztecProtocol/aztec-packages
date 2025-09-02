@@ -2,7 +2,7 @@ import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import { SyncDataProvider } from '@aztec/pxe/server';
+import { SyncDataProvider } from '@aztec/pxe/client/lazy';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';

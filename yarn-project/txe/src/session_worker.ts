@@ -1,3 +1,4 @@
+import { Timer } from '@aztec/foundation/timer';
 import type { ProtocolContract } from '@aztec/protocol-contracts';
 
 import { parentPort, workerData } from 'worker_threads';

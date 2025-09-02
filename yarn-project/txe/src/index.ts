@@ -1,19 +1,19 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
-import {
-  AztecAddress,
-  type ContractInstanceWithAddress,
-  Fr,
-  type NoirCompiledContract,
-  PublicKeys,
-  deriveKeys,
-  getContractInstanceFromInstantiationParams,
-  loadContractArtifact,
-} from '@aztec/aztec.js';
+import { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import type { Logger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
 import { type ProtocolContract, protocolContractNames } from '@aztec/protocol-contracts';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
-import { computeArtifactHash } from '@aztec/stdlib/contract';
+import { loadContractArtifact } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import {
+  type ContractInstanceWithAddress,
+  computeArtifactHash,
+  getContractInstanceFromInstantiationParams,
+} from '@aztec/stdlib/contract';
+import { PublicKeys, deriveKeys } from '@aztec/stdlib/keys';
+import type { NoirCompiledContract } from '@aztec/stdlib/noir';
 import type { ApiSchemaFor, ZodFor } from '@aztec/stdlib/schemas';
 
 import { createHash } from 'crypto';
@@ -41,6 +41,7 @@ import type { ContractArtifactWithHash } from './util/txe_contract_data_provider
 interface SessionWorker {
   worker: Worker;
   processing: boolean;
+  timeout?: NodeJS.Timeout;
 }
 
 const sessionWorkers = new Map<number, SessionWorker>();
@@ -93,20 +94,28 @@ class TXEDispatcher {
   private async createSessionWorker(): Promise<SessionWorker> {
     // Ensure protocol contracts are loaded
     if (!this.protocolContracts) {
+      this.logger.debug('Loading protocol contracts');
+      const loadTimer = new Timer();
       this.protocolContracts = await Promise.all(
         protocolContractNames.map(name => new BundledProtocolContractsProvider().getProtocolContractArtifact(name)),
       );
+      this.logger.debug(`Protocol Contract loading took ${loadTimer.ms()}ms`);
     }
 
     // Serialize protocol contracts for worker
+    const serTimer = new Timer();
     const serializedProtocolContracts = serializeProtocolContracts(this.protocolContracts);
+    this.logger.debug(`Protocol Contract serialization took ${serTimer.ms()}ms`);
 
+    const createTimer = new Timer();
     const worker = new Worker('./dest/session_worker.js', {
       workerData: { serializedProtocolContracts },
     });
 
     // Wait for the worker to signal it's ready
     await this.waitForWorkerReady(worker);
+
+    this.logger.debug(`Worker creation took ${createTimer.ms()}ms`);
 
     return {
       worker,
@@ -307,8 +316,23 @@ class TXEDispatcher {
     // Get or create a worker for this session
     const sessionWorker = await this.getOrCreateWorker(sessionId);
 
+    if (sessionWorker.timeout) {
+      clearTimeout(sessionWorker.timeout);
+    }
+
     // Send the request to the worker and wait for the response
-    return await this.sendToWorker(sessionWorker, sessionId, functionName, inputs);
+    const result = await this.sendToWorker(sessionWorker, sessionId, functionName, inputs);
+
+    sessionWorker.timeout = setTimeout(() => {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
+      (async () => {
+        this.logger.debug(`Killing session ${sessionId}`);
+        sessionWorkers.delete(sessionId);
+        await sessionWorker.worker.terminate();
+      })();
+    }, 1500);
+
+    return result;
   }
 }
 

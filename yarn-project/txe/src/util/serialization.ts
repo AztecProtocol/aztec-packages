@@ -1,7 +1,9 @@
-import { AztecAddress, Fr, PublicKeys } from '@aztec/aztec.js';
+import { Fr } from '@aztec/foundation/fields';
 import type { ProtocolContract } from '@aztec/protocol-contracts';
 import { type ContractArtifact, type FunctionArtifact, FunctionSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractClassIdPreimage, ContractClassWithId, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { PublicKeys } from '@aztec/stdlib/keys';
 
 /**
  * Serializes an array of ProtocolContracts for worker thread communication.

@@ -1,7 +1,8 @@
-import { type ContractInstanceWithAddress, Fr, Point } from '@aztec/aztec.js';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { packAsRetrievedNote } from '@aztec/pxe/simulator';
 import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import type { TXETypedOracle } from '../oracle/txe_typed_oracle.js';

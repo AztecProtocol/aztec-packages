@@ -1,4 +1,3 @@
-import { AztecAddress } from '@aztec/aztec.js';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -9,7 +8,8 @@ import {
   NoteDataProvider,
   PrivateEventDataProvider,
   TaggingDataProvider,
-} from '@aztec/pxe/server';
+} from '@aztec/pxe/client/lazy';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { TXE } from './oracle/txe_oracle.js';
 import { TXEStateMachine } from './state_machine/index.js';

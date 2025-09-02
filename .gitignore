@@ -31,3 +31,6 @@ docs/docs/protocol-specs/public-vm/gen/
 # for those who use Claude Code
 CLAUDE.md
 .claude
+
+# 0x flamegraphs
+*.0x

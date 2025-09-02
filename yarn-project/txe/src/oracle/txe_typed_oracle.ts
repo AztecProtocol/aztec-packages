@@ -1,9 +1,10 @@
-import type { CompleteAddress, ContractArtifact, ContractInstanceWithAddress, TxHash } from '@aztec/aztec.js';
 import type { Fr } from '@aztec/foundation/fields';
 import { TypedOracle } from '@aztec/pxe/simulator';
-import type { FunctionSelector } from '@aztec/stdlib/abi';
+import type { ContractArtifact, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { CompleteAddress, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { PrivateContextInputs } from '@aztec/stdlib/kernel';
+import type { TxHash } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
 class OracleMethodNotAvailableError extends Error {

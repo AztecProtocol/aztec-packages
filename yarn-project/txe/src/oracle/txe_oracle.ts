@@ -1,4 +1,3 @@
-import { type AztecNode, Body, L2Block, Note } from '@aztec/aztec.js';
 import {
   CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
   DEFAULT_DA_GAS_LIMIT,
@@ -26,7 +25,7 @@ import {
   PrivateEventDataProvider,
   TaggingDataProvider,
   enrichPublicSimulationError,
-} from '@aztec/pxe/server';
+} from '@aztec/pxe/client/lazy';
 import {
   ExecutionNoteCache,
   HashedValuesCache,
@@ -60,6 +59,7 @@ import {
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { Body, L2Block } from '@aztec/stdlib/block';
 import { type ContractInstance, type ContractInstanceWithAddress, computePartialAddress } from '@aztec/stdlib/contract';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import {
@@ -71,7 +71,7 @@ import {
   siloNoteHash,
   siloNullifier,
 } from '@aztec/stdlib/hash';
-import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type { AztecNode, MerkleTreeReadOperations, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import {
   type KeyValidationRequest,
   PartialPrivateTailPublicInputsForPublic,
@@ -81,7 +81,7 @@ import {
   PublicCallRequest,
 } from '@aztec/stdlib/kernel';
 import { ContractClassLog, IndexedTaggingSecret, PrivateLog, type PublicLog } from '@aztec/stdlib/logs';
-import type { NoteStatus } from '@aztec/stdlib/note';
+import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
 import {
   makeAppendOnlyTreeSnapshot,
@@ -335,7 +335,7 @@ export class TXE extends TXETypedOracle {
     inputs.callContext = new CallContext(this.msgSender, this.contractAddress, this.functionSelector, isStaticCall);
     inputs.startSideEffectCounter = sideEffectsCounter;
 
-    this.logger.info(`Created private context for block ${blockNumber}`);
+    this.logger.verbose(`Created private context for block ${blockNumber}`);
 
     return inputs;
   }
@@ -705,7 +705,7 @@ export class TXE extends TXETypedOracle {
     header.globalVariables.version = new Fr(this.ROLLUP_VERSION);
     header.globalVariables.chainId = new Fr(this.CHAIN_ID);
 
-    this.logger.info(`Created block ${blockNumber} with timestamp ${header.globalVariables.timestamp}`);
+    this.logger.verbose(`Created block ${blockNumber} with timestamp ${header.globalVariables.timestamp}`);
 
     l2Block.header = header;
 
