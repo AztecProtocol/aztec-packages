@@ -76,12 +76,13 @@ export class UltraHonkBackend {
 
   private getProofSettingsFromOptions(
     options?: UltraHonkBackendOptions,
-  ): { ipaAccumulation: boolean; oracleHashType: string; disableZk: boolean } {
+  ): { ipaAccumulation: boolean; oracleHashType: string; disableZk: boolean, optimizedSolidityVerifier: boolean } {
     return {
       ipaAccumulation: false,
       oracleHashType: options?.keccak || options?.keccakZK ? 'keccak' : (options?.starknet || options?.starknetZK ? 'starknet' : 'poseidon2'),
       // TODO no current way to target non-zk poseidon2 hash
       disableZk: options?.keccak || options?.starknet ? true : false,
+      optimizedSolidityVerifier: false,
     };
   }
 

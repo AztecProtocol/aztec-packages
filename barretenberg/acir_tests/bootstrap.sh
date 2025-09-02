@@ -152,6 +152,7 @@ function test_cmds {
   for t in assert_statement a_1_mul slices verify_honk_proof; do
     echo "$sol_prefix $scripts/bb_prove_sol_verify.sh $t --disable_zk"
     echo "$sol_prefix $scripts/bb_prove_sol_verify.sh $t"
+    echo "$sol_prefix USE_OPTIMIZED_CONTRACT=true $scripts/bb_prove_sol_verify.sh $t"
   done
   # prove with bb cli and verify with bb.js classes
   echo "$sol_prefix $scripts/bb_prove_bbjs_verify.sh a_1_mul"

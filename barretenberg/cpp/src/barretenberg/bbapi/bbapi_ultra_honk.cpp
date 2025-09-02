@@ -9,6 +9,7 @@
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/serde/witness_stack.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
+#include "barretenberg/dsl/acir_proofs/honk_optimized_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_zk_contract.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
@@ -340,7 +341,16 @@ CircuitWriteSolidityVerifier::Response CircuitWriteSolidityVerifier::execute(BB_
 {
     using VK = UltraKeccakFlavor::VerificationKey;
     auto vk = std::make_shared<VK>(from_buffer<VK>(verification_key));
+
     std::string contract = settings.disable_zk ? get_honk_solidity_verifier(vk) : get_honk_zk_solidity_verifier(vk);
+
+// If in wasm, we dont include the optimized solidity verifier - due to its large bundle size
+// This will run generate twice, but this should only be run before deployment and not frequently
+#ifndef __wasm__
+    if (settings.disable_zk && settings.optimized_solidity_verifier) {
+        contract = get_optimized_honk_solidity_verifier(vk);
+    }
+#endif
 
     return { std::move(contract) };
 }

@@ -8,6 +8,7 @@
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
+#include "barretenberg/dsl/acir_proofs/honk_optimized_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_zk_contract.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -236,7 +237,8 @@ void UltraHonkAPI::write_solidity_verifier(const Flags& flags,
     // Convert flags to ProofSystemSettings
     bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
                                          .oracle_hash_type = flags.oracle_hash_type,
-                                         .disable_zk = flags.disable_zk };
+                                         .disable_zk = flags.disable_zk,
+                                         .optimized_solidity_verifier = flags.optimized_solidity_verifier };
 
     // Execute solidity verifier command
     auto response = bbapi::CircuitWriteSolidityVerifier{ .verification_key = vk_bytes, .settings = settings }.execute();
