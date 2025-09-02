@@ -1,6 +1,8 @@
 #!/bin/bash
 source $(git rev-parse --show-toplevel)/ci3/source
 
+# export bb as it is needed when using exported functions
+export bb=$(./find-bb)
 cd ..
 
 # NOTE: We pin the captured IVC inputs to a known master commit, exploiting that there won't be frequent changes.
@@ -11,7 +13,8 @@ cd ..
 # - Generate a hash for versioning: sha256sum bb-civc-inputs.tar.gz
 # - Upload the compressed results: aws s3 cp bb-civc-inputs.tar.gz s3://aztec-ci-artifacts/protocol/bb-civc-inputs-[hash(0:8)].tar.gz
 # Note: In case of the "Test suite failed to run ... Unexpected token 'with' " error, need to run: docker pull aztecprotocol/build:3.0
-pinned_short_hash="e5081516"
+
+pinned_short_hash="9c83acbc"
 pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-${pinned_short_hash}.tar.gz"
 
 function compress_and_upload {
@@ -44,7 +47,7 @@ if [[ "${1:-}" == "--update_inputs" ]]; then
     # Generate new inputs
     echo "Running bootstrap to generate new IVC inputs..."
 
-    ../../bootstrap.sh # bootstrap aztec-packages from root
+    BOOTSTRAP_TO=yarn-project ../../bootstrap.sh # bootstrap aztec-packages from root
     ../../yarn-project/end-to-end/bootstrap.sh build_bench # build bench to generate IVC inputs
 
     compress_and_upload ../../yarn-project/end-to-end/example-app-ivc-inputs-out
@@ -62,9 +65,9 @@ function check_circuit_vks {
   local flow_folder="$inputs_tmp_dir/$1"
 
   if [[ "${2:-}" == "--update_inputs" ]]; then
-    ./build/bin/bb check --update_inputs --scheme client_ivc --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" || { echo_stderr "Error: Likely VK change detected in $flow_folder! Updating inputs."; exit 1; }
+    $bb check --update_inputs --scheme client_ivc --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" || { echo_stderr "Error: Likely VK change detected in $flow_folder! Updating inputs."; exit 1; }
   else
-    ./build/bin/bb check --scheme client_ivc --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" || { echo_stderr "Error: Likely VK change detected in $flow_folder!"; exit 1; }
+    $bb check --scheme client_ivc --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack" || { echo_stderr "Error: Likely VK change detected in $flow_folder!"; exit 1; }
   fi
 }
 

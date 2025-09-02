@@ -1,8 +1,6 @@
 import { BackendOptions, Barretenberg, CircuitOptions } from './index.js';
 import { RawBuffer } from '../types/raw_buffer.js';
 import {
-  deflattenFields,
-  flattenFieldsAsArray,
   ProofData,
   reconstructHonkProof,
   splitHonkProof,
@@ -46,6 +44,59 @@ export type UltraHonkBackendOptions = {
    */
   starknetZK?: boolean;
 };
+
+
+function getProofSettingsFromOptions(
+  options?: UltraHonkBackendOptions,
+): { ipaAccumulation: boolean; oracleHashType: string; disableZk: boolean } {
+  return {
+    ipaAccumulation: false,
+    oracleHashType: options?.keccak || options?.keccakZK ? 'keccak' : (options?.starknet || options?.starknetZK ? 'starknet' : 'poseidon2'),
+    // TODO no current way to target non-zk poseidon2 hash
+    disableZk: options?.keccak || options?.starknet ? true : false,
+  };
+}
+
+export class UltraHonkVerifierBackend {
+  protected api!: Barretenberg;
+
+  constructor(
+    protected backendOptions: BackendOptions = { threads: 1 },
+    protected circuitOptions: CircuitOptions = { recursive: false },
+  ) {}
+  /** @ignore */
+  private async instantiate(): Promise<void> {
+    if (!this.api) {
+      const api = await Barretenberg.new(this.backendOptions);
+      const honkRecursion = true;
+      await api.initSRSForCircuitSize(0);
+
+      this.api = api;
+    }
+  }
+
+  async verifyProof(proofData: ProofData & { verificationKey: Uint8Array }, options?: UltraHonkBackendOptions): Promise<boolean> {
+    await this.instantiate();
+
+    const proofFrs: Uint8Array[] = [];
+    for (let i = 0; i < proofData.proof.length; i += 32) {
+      proofFrs.push(proofData.proof.slice(i, i + 32));
+    }
+    const { verified } = await this.api.circuitVerify({
+      verificationKey: proofData.verificationKey,
+      publicInputs: proofData.publicInputs.map(hexToUint8Array),
+      proof: proofFrs,
+      settings: getProofSettingsFromOptions(options),
+    });
+    return verified;
+  }
+  destroy(): Promise<void> {
+    if (!this.api) {
+      return Promise.resolve();
+    }
+    return this.api.destroy();
+  }
+}
 
 export class UltraHonkBackend {
   // These type assertions are used so that we don't
@@ -97,7 +148,7 @@ export class UltraHonkBackend {
         bytecode: Buffer.from(this.acirUncompressedBytecode),
         verificationKey: Buffer.from([]), // Empty VK - lower performance.
       },
-      settings: this.getProofSettingsFromOptions(options)
+      settings: getProofSettingsFromOptions(options)
     });
     console.log(`Generated proof for circuit with ${publicInputs.length} public inputs and ${proof.length} fields.`);
 
@@ -123,13 +174,13 @@ export class UltraHonkBackend {
         name: 'circuit',
         bytecode: this.acirUncompressedBytecode,
       },
-      settings: this.getProofSettingsFromOptions(options),
+      settings: getProofSettingsFromOptions(options),
     });
     const {verified} = await this.api.circuitVerify({
       verificationKey: vkResult.bytes,
       publicInputs: proofData.publicInputs.map(hexToUint8Array),
       proof: proofFrs,
-      settings: this.getProofSettingsFromOptions(options),
+      settings: getProofSettingsFromOptions(options),
     });
     return verified;
   }
@@ -142,7 +193,7 @@ export class UltraHonkBackend {
         name: 'circuit',
         bytecode: Buffer.from(this.acirUncompressedBytecode),
       },
-      settings: this.getProofSettingsFromOptions(options),
+      settings: getProofSettingsFromOptions(options),
     });
     return vkResult.bytes;
   }
@@ -177,13 +228,20 @@ export class UltraHonkBackend {
         name: 'circuit',
         bytecode: Buffer.from(this.acirUncompressedBytecode),
       },
-      settings: this.getProofSettingsFromOptions({}),
+      settings: getProofSettingsFromOptions({}),
     });
+
+    // Convert VK bytes to field elements (32-byte chunks)
+    const vkAsFields: string[] = [];
+    for (let i = 0; i < vkResult.bytes.length; i += 32) {
+      const chunk = vkResult.bytes.slice(i, i + 32);
+      vkAsFields.push(uint8ArrayToHex(chunk));
+    }
 
     return {
       // TODO(https://github.com/noir-lang/noir/issues/5661)
       proofAsFields: [],
-      vkAsFields: vkResult.fields.map(field => field.toString()),
+      vkAsFields,
       // We use an empty string for the vk hash here as it is unneeded as part of the recursive artifacts
       // The user can be expected to hash the vk inside their circuit to check whether the vk is the circuit
       // they expect

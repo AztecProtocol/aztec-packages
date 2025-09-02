@@ -169,7 +169,59 @@ class ClientIVC {
         std::shared_ptr<ECCVMVerificationKey> eccvm;
         std::shared_ptr<TranslatorVerificationKey> translator;
 
-        MSGPACK_FIELDS(mega, eccvm, translator);
+        /**
+         * @brief Calculate the number of field elements needed for serialization
+         * @return size_t Number of field elements
+         */
+        static size_t calc_num_data_types()
+        {
+            return MegaVerificationKey::calc_num_data_types() + ECCVMVerificationKey::calc_num_data_types() +
+                   TranslatorVerificationKey::calc_num_data_types();
+        }
+
+        /**
+         * @brief Serialize verification key to field elements
+         * @return std::vector<bb::fr> The serialized field elements
+         */
+        std::vector<bb::fr> to_field_elements() const
+        {
+            std::vector<bb::fr> elements;
+
+            auto mega_elements = mega->to_field_elements();
+            elements.insert(elements.end(), mega_elements.begin(), mega_elements.end());
+
+            auto eccvm_elements = eccvm->to_field_elements();
+            elements.insert(elements.end(), eccvm_elements.begin(), eccvm_elements.end());
+
+            auto translator_elements = translator->to_field_elements();
+            elements.insert(elements.end(), translator_elements.begin(), translator_elements.end());
+
+            return elements;
+        }
+
+        /**
+         * @brief Deserialize verification key from field elements
+         * @param elements The field elements to deserialize from
+         * @return size_t Number of field elements read
+         */
+        size_t from_field_elements(std::span<const bb::fr> elements)
+        {
+            size_t read_idx = 0;
+
+            mega = std::make_shared<MegaVerificationKey>();
+            size_t mega_read = mega->from_field_elements(elements.subspan(read_idx));
+            read_idx += mega_read;
+
+            eccvm = std::make_shared<ECCVMVerificationKey>();
+            size_t eccvm_read = eccvm->from_field_elements(elements.subspan(read_idx));
+            read_idx += eccvm_read;
+
+            translator = std::make_shared<TranslatorVerificationKey>();
+            size_t translator_read = translator->from_field_elements(elements.subspan(read_idx));
+            read_idx += translator_read;
+
+            return read_idx;
+        }
     };
 
     // Specifies proof type or equivalently the type of recursive verification to be performed on a given proof
@@ -319,5 +371,33 @@ class ClientIVC {
         std::optional<StdlibFF>& prev_accum_hash,
         bool is_kernel);
 };
+
+// Serialization methods for ClientIVC::VerificationKey
+inline void read(uint8_t const*& it, ClientIVC::VerificationKey& vk)
+{
+    using serialize::read;
+
+    size_t num_frs = ClientIVC::VerificationKey::calc_num_data_types();
+
+    // Read exactly num_frs field elements from the buffer
+    std::vector<bb::fr> field_elements(num_frs);
+    for (auto& element : field_elements) {
+        read(it, element);
+    }
+
+    // Then use from_field_elements to populate the verification key
+    vk.from_field_elements(field_elements);
+}
+
+inline void write(std::vector<uint8_t>& buf, ClientIVC::VerificationKey const& vk)
+{
+    using serialize::write;
+
+    // Convert to field elements and write them directly without length prefix
+    auto field_elements = vk.to_field_elements();
+    for (const auto& element : field_elements) {
+        write(buf, element);
+    }
+}
 
 } // namespace bb
