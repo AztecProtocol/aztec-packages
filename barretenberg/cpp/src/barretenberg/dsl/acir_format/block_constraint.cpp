@@ -179,14 +179,10 @@ void process_call_data_operations(Builder& builder,
             BB_ASSERT_EQ(op.access_type, 0);
             field_ct value = poly_to_field_ct(op.value, builder);
             field_ct index = poly_to_field_ct(op.index, builder);
-            fr w_value = 0;
-            if (has_valid_witness_assignments) {
-                // If witness are assigned, we use the correct value for w
-                w_value = index.get_value();
+            value.assert_equal(calldata_array[index]);
+            if (!has_valid_witness_assignments) {
+                index.is_zero();
             }
-            field_ct w = field_ct::from_witness(&builder, w_value);
-            value.assert_equal(calldata_array[w]);
-            w.assert_equal(index);
         }
     };
 
