@@ -90,7 +90,7 @@ template <size_t NUM_WIRES, bool generalized> struct PermutationMapping {
      */
     PermutationMapping(size_t circuit_size)
     {
-        PROFILE_THIS_NAME("PermutationMapping constructor");
+        BB_BENCH_NAME("PermutationMapping constructor");
 
         for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
             sigmas[wire_idx] = Mapping(circuit_size);
@@ -296,14 +296,14 @@ void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuil
     // Compute Honk-style sigma and ID polynomials from the corresponding mappings
     {
 
-        PROFILE_THIS_NAME("compute_honk_style_permutation_lagrange_polynomials_from_mapping");
+        BB_BENCH_NAME("compute_honk_style_permutation_lagrange_polynomials_from_mapping");
 
         compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
             polynomials.get_sigmas(), mapping.sigmas, active_region_data);
     }
     {
 
-        PROFILE_THIS_NAME("compute_honk_style_permutation_lagrange_polynomials_from_mapping");
+        BB_BENCH_NAME("compute_honk_style_permutation_lagrange_polynomials_from_mapping");
 
         compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
             polynomials.get_ids(), mapping.ids, active_region_data);

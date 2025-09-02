@@ -7,7 +7,7 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
-#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
 #include "barretenberg/crypto/merkle_tree/memory_store.hpp"
 #include "barretenberg/crypto/merkle_tree/merkle_tree.hpp"
@@ -83,7 +83,7 @@ class GoblinMockCircuits {
      */
     static void construct_mock_app_circuit(MegaBuilder& builder, bool large = false)
     {
-        PROFILE_THIS();
+        BB_BENCH();
 
         if (large) { // Results in circuit size 2^19
             generate_sha256_test_circuit<MegaBuilder>(builder, 9);
@@ -109,7 +109,7 @@ class GoblinMockCircuits {
      */
     static void add_some_ecc_op_gates(MegaBuilder& builder)
     {
-        PROFILE_THIS();
+        BB_BENCH();
 
         // Add some arbitrary ecc op gates
         for (size_t i = 0; i < 3; ++i) {
@@ -138,7 +138,7 @@ class GoblinMockCircuits {
      */
     static void construct_simple_circuit(MegaBuilder& builder, bool last_circuit = false)
     {
-        PROFILE_THIS();
+        BB_BENCH();
         // The last circuit to be accumulated must contain a no-op
         if (last_circuit) {
             builder.queue_ecc_no_op();
@@ -160,7 +160,7 @@ class GoblinMockCircuits {
      */
     static void construct_mock_folding_kernel(MegaBuilder& builder)
     {
-        PROFILE_THIS();
+        BB_BENCH();
 
         // Add operations representing general kernel logic e.g. state updates. Note: these are structured to make
         // the kernel "full" within the dyadic size 2^17

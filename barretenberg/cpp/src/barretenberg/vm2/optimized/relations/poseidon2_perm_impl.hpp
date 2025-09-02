@@ -19,7 +19,7 @@ void optimized_poseidon2_permImpl<FF_>::accumulate(ContainerOverSubrelations& ev
     using Poseidon2Params = crypto::Poseidon2Bn254ScalarFieldParams;
     using C = ColumnAndShifts;
 
-    PROFILE_THIS_NAME("accumulate/optimized/poseidon2_perm");
+    BB_BENCH_NAME("accumulate/optimized/poseidon2_perm");
 
     // Note this vector is arranged in *subrelation* order NOT in state order
     // Refer to generated/poseidon2_perm_impl.hpp for the order of subrelations in each round

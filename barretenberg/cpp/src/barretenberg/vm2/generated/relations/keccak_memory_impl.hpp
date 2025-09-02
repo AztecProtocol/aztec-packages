@@ -14,7 +14,7 @@ void keccak_memoryImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    PROFILE_THIS_NAME("accumulate/keccak_memory");
+    BB_BENCH_NAME("accumulate/keccak_memory");
 
     const auto constants_MEM_TAG_U64 = FF(5);
     const auto constants_AVM_KECCAKF1600_NUM_ROUNDS = FF(24);

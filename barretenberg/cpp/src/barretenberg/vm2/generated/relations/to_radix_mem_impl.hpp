@@ -14,7 +14,7 @@ void to_radix_memImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    PROFILE_THIS_NAME("accumulate/to_radix_mem");
+    BB_BENCH_NAME("accumulate/to_radix_mem");
 
     const auto constants_MEM_TAG_U1 = FF(1);
     const auto constants_MEM_TAG_U8 = FF(2);

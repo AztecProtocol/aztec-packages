@@ -14,7 +14,7 @@ void public_data_squashImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    PROFILE_THIS_NAME("accumulate/public_data_squash");
+    BB_BENCH_NAME("accumulate/public_data_squash");
 
     const auto public_data_squash_START =
         in.get(C::public_data_squash_sel_shift) * (FF(1) - in.get(C::public_data_squash_sel));

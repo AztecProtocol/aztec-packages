@@ -6,8 +6,8 @@
 
 #pragma once
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/mem.hpp"
-#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/constants.hpp"
@@ -311,7 +311,7 @@ template <typename Fr> class Polynomial {
 
     static Polynomial random(size_t size, size_t start_index = 0)
     {
-        PROFILE_THIS_NAME("generate random polynomial");
+        BB_BENCH_NAME("generate random polynomial");
 
         return random(size - start_index, size, start_index);
     }

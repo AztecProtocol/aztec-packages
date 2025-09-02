@@ -14,7 +14,7 @@ void written_public_data_slots_tree_checkImpl<FF_>::accumulate(ContainerOverSubr
 {
     using C = ColumnAndShifts;
 
-    PROFILE_THIS_NAME("accumulate/written_public_data_slots_tree_check");
+    BB_BENCH_NAME("accumulate/written_public_data_slots_tree_check");
 
     const auto constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT = FF(6);
     const auto constants_GENERATOR_INDEX__PUBLIC_LEAF_INDEX = FF(23);

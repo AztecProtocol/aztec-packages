@@ -145,7 +145,7 @@ class ClientIVC {
          * @return uint8_t* Double size-prefixed msgpack buffer
          */
         uint8_t* to_msgpack_heap_buffer() const;
-        static constexpr const char* MSGPACK_SCHEMA_NAME = "ClientIVCProof";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ClientIVCProof";
 
         class DeserializationError : public std::runtime_error {
           public:

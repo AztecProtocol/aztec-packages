@@ -86,7 +86,7 @@ template <typename Flavor> class SumcheckProverRound {
     SumcheckProverRound(size_t initial_round_size)
         : round_size(initial_round_size)
     {
-        PROFILE_THIS_NAME("SumcheckProverRound constructor");
+        BB_BENCH_NAME("SumcheckProverRound constructor");
 
         // Initialize univariate accumulators to 0
         Utils::zero_univariates(univariate_accumulators);
@@ -185,7 +185,7 @@ template <typename Flavor> class SumcheckProverRound {
         const bb::GateSeparatorPolynomial<FF>& gate_separators,
         const SubrelationSeparators& alphas)
     {
-        PROFILE_THIS_NAME("compute_univariate_with_chunking");
+        BB_BENCH_NAME("compute_univariate_with_chunking");
 
         // Determine number of threads for multithreading.
         // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
@@ -409,7 +409,7 @@ template <typename Flavor> class SumcheckProverRound {
         const bb::GateSeparatorPolynomial<FF>& gate_separators,
         const SubrelationSeparators alphas)
     {
-        PROFILE_THIS_NAME("compute_univariate_with_row_skipping");
+        BB_BENCH_NAME("compute_univariate_with_row_skipping");
 
         std::vector<BlockOfContiguousRows> round_manifest = compute_contiguous_round_size(polynomials);
         // Compute how many nonzero rows we have

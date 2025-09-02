@@ -65,7 +65,7 @@ class PGInternalTest : public ProtogalaxyProverInternal<DeciderProvingKeys_<Flav
         const UnivariateSubrelationSeparators& alphas,
         TupleOfTuplesOfUnivariatesNoOptimisticSkipping& univariate_accumulators)
     {
-        PROFILE_THIS();
+        BB_BENCH();
 
         // Determine the number of threads over which to distribute the work
         // The polynomial size is given by the virtual size since the computation includes
