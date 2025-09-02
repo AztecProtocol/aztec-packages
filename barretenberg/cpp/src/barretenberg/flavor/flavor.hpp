@@ -102,10 +102,9 @@ namespace bb {
 /**
  * @brief Enum to control verification key metadata serialization
  */
-enum class VKSerializationMode {
-    FULL,         // Serialize all metadata (log_circuit_size, num_public_inputs, pub_inputs_offset)
-    NO_METADATA,  // Serialize only commitments, no metadata
-    NO_PUB_OFFSET // Serialize log_circuit_size and num_public_inputs, but not pub_inputs_offset
+enum class VKSerializationMode : std::uint8_t {
+    FULL,       // Serialize all metadata (log_circuit_size, num_public_inputs, pub_inputs_offset)
+    NO_METADATA // Serialize only commitments, no metadata
 };
 
 // Specifies the regions of the execution trace containing non-trivial wire values
@@ -190,9 +189,6 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
         if constexpr (SerializeMetadata == VKSerializationMode::FULL) {
             // 3 metadata fields + commitments
             metadata_size = 3 * Transcript::template calc_num_data_types<uint64_t>();
-        } else if constexpr (SerializeMetadata == VKSerializationMode::NO_PUB_OFFSET) {
-            // 2 metadata fields + commitments
-            metadata_size = 2 * Transcript::template calc_num_data_types<uint64_t>();
         }
         // else NO_METADATA: metadata_size remains 0
         return metadata_size + commitments_size;
@@ -218,9 +214,6 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
             serialize(this->log_circuit_size, elements);
             serialize(this->num_public_inputs, elements);
             serialize(this->pub_inputs_offset, elements);
-        } else if constexpr (SerializeMetadata == VKSerializationMode::NO_PUB_OFFSET) {
-            serialize(this->log_circuit_size, elements);
-            serialize(this->num_public_inputs, elements);
         }
         // else NO_METADATA: skip metadata serialization
 
@@ -252,9 +245,6 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
             deserialize(this->log_circuit_size);
             deserialize(this->num_public_inputs);
             deserialize(this->pub_inputs_offset);
-        } else if constexpr (SerializeMetadata == VKSerializationMode::NO_PUB_OFFSET) {
-            deserialize(this->log_circuit_size);
-            deserialize(this->num_public_inputs);
         }
         // else NO_METADATA: skip metadata deserialization
 
@@ -309,7 +299,7 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
  * @tparam Builder
  * @tparam FF
  * @tparam PrecomputedCommitments
- * @tparam SerializeMetadata Controls how metadata is serialized (FULL, NO_METADATA, NO_PUB_OFFSET)
+ * @tparam SerializeMetadata Controls how metadata is serialized (FULL, NO_METADATA)
  */
 template <typename Builder_,
           typename PrecomputedCommitments,
