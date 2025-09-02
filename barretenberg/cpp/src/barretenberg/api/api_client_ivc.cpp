@@ -213,7 +213,9 @@ void ClientIVCAPI::write_vk(const Flags& flags,
         auto bytecode = get_bytecode(bytecode_path);
         write_civc_vk(flags.output_format, bytecode, output_path);
     } else if (flags.verifier_type == "standalone") {
-        write_standalone_vk(flags.output_format, bytecode_path, output_path);
+        write_standalone_vk(flags.output_format, bytecode_path, output_path, /*use_structured_trace=*/true);
+    } else if (flags.verifier_type == "hiding") {
+        write_standalone_vk(flags.output_format, bytecode_path, output_path, /*use_structured_trace=*/false);
     } else {
         const std::string msg = std::string("Can't write vk for verifier type ") + flags.verifier_type;
         throw_or_abort(msg);

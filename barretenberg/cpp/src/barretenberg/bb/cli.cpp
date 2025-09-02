@@ -256,7 +256,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
                          "use case where an IVC scheme is manually constructed via recursive UltraHonk proof "
                          "verification). `ivc` produces a verification key for verifying the stack of run though a "
                          "dedicated ivc verifier class (currently the only option is the ClientIVC class) ")
-            ->check(CLI::IsMember({ "standalone", "ivc" }).name("is_member"));
+            ->check(CLI::IsMember({ "standalone", "hiding", "ivc" }).name("is_member"));
     };
 
     const auto add_verbose_flag = [&](CLI::App* subcommand) {
