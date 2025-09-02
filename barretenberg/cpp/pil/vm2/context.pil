@@ -37,7 +37,9 @@ namespace execution;
     pol commit contract_address;
     pol commit bytecode_id;
     pol commit transaction_fee;
-    // Constrained boolean by tx trace (for enqueued call) and #[NEXT_IS_STATIC] for nested
+    // Constrained boolean by tx trace for enqueued call, #[IS_STATIC_NEXT_ROW] during normal execution,
+    // IS_STATIC_IF_STATIC_CALL+IS_STATIC_IF_CALL_FROM_STATIC_CONTEXT for nested calls,
+    // and CTX_STACK_CALL for returns or failures.
     pol commit is_static;
 
     pol commit parent_calldata_addr;
@@ -193,7 +195,12 @@ namespace execution;
     // otherwise        = 0 ==> is_static' = is_static
     #[IS_STATIC_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (is_static' - is_static) = 0;
-    NOT_LAST_EXEC * sel_enter_call  * (is_static' - sel_execute_static_call) = 0;
+    // An external call from a non-static context only creates a nested static context if the opcode is STATICCALL.
+    #[IS_STATIC_IF_STATIC_CALL]
+    NOT_LAST_EXEC * sel_enter_call * (1 - is_static) * (is_static' - sel_execute_static_call) = 0;
+    // An external call from a static context always creates a nested static context.
+    #[IS_STATIC_IF_CALL_FROM_STATIC_CONTEXT]
+    NOT_LAST_EXEC * sel_enter_call * is_static * (is_static' - 1) = 0;
 
     // nested_exit_call = 1 ==> constraints come from lookup
     // sel_enter_call   = 1 ==> parent_calldata_addr' = rop[4] (resolved operand 5 from execution trace)

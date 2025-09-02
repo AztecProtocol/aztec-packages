@@ -372,7 +372,7 @@ void Execution::call(ContextInterface& context,
                                                                /*parent_context=*/context,
                                                                /*cd_offset_address=*/cd_offset,
                                                                /*cd_size=*/cd_size.as<uint32_t>(),
-                                                               /*is_static=*/false,
+                                                               /*is_static=*/context.get_is_static(),
                                                                /*gas_limit=*/gas_limit,
                                                                /*side_effect_states=*/context.get_side_effect_states(),
                                                                /*phase=*/context.get_phase());
