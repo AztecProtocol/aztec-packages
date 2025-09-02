@@ -6,6 +6,7 @@ import {
   maxBy,
   mean,
   median,
+  partition,
   removeArrayPaddingEnd,
   stdDev,
   times,
@@ -259,5 +260,42 @@ describe('chunk', () => {
     const input = [1, 2, 3];
     const result = chunk(input, 1);
     expect(result).toEqual([[1], [2], [3]]);
+  });
+});
+
+describe('partition', () => {
+  it('partitions an array into pass and fail arrays based on the predicate', () => {
+    const input = [1, 2, 3, 4, 5];
+    const [even, odd] = partition(input, x => x % 2 === 0);
+    expect(even).toEqual([2, 4]);
+    expect(odd).toEqual([1, 3, 5]);
+  });
+
+  it('returns all items in the first array if all pass the predicate', () => {
+    const input = [2, 4, 6];
+    const [pass, fail] = partition(input, x => x % 2 === 0);
+    expect(pass).toEqual([2, 4, 6]);
+    expect(fail).toEqual([]);
+  });
+
+  it('returns all items in the second array if none pass the predicate', () => {
+    const input = [1, 3, 5];
+    const [pass, fail] = partition(input, x => x % 2 === 0);
+    expect(pass).toEqual([]);
+    expect(fail).toEqual([1, 3, 5]);
+  });
+
+  it('handles an empty array', () => {
+    const input: number[] = [];
+    const [pass, fail] = partition(input, x => x > 0);
+    expect(pass).toEqual([]);
+    expect(fail).toEqual([]);
+  });
+
+  it('works with objects and custom predicates', () => {
+    const input = [{ a: 1 }, { a: 2 }, { a: 3 }];
+    const [even, odd] = partition(input, obj => obj.a % 2 === 0);
+    expect(even).toEqual([{ a: 2 }]);
+    expect(odd).toEqual([{ a: 1 }, { a: 3 }]);
   });
 });

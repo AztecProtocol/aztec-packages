@@ -18,7 +18,7 @@ import { getDefaultInitializer } from '@aztec/stdlib/abi';
 import { SponsoredFPCContractArtifact } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 // @ts-ignore
-import { EasyPrivateVotingContract } from '../artifacts/EasyPrivateVoting.ts';
+import { PrivateVotingContract } from '../artifacts/PrivateVoting.ts';
 
 const AZTEC_NODE_URL = process.env.AZTEC_NODE_URL || 'http://localhost:8080';
 const PROVER_ENABLED = process.env.PROVER_ENABLED === 'false' ? false : true;
@@ -96,11 +96,11 @@ async function createAccount(pxe: PXE) {
 async function deployContract(pxe: PXE, deployer: Wallet) {
   const salt = Fr.random();
   const contract = await getContractInstanceFromInstantiationParams(
-    EasyPrivateVotingContract.artifact,
+    PrivateVotingContract.artifact,
     {
       publicKeys: PublicKeys.default(),
       constructorArtifact: getDefaultInitializer(
-        EasyPrivateVotingContract.artifact
+        PrivateVotingContract.artifact
       ),
       constructorArgs: [deployer.getAddress().toField()],
       deployer: deployer.getAddress(),
@@ -111,11 +111,11 @@ async function deployContract(pxe: PXE, deployer: Wallet) {
   const deployMethod = new DeployMethod(
     contract.publicKeys,
     deployer,
-    EasyPrivateVotingContract.artifact,
+    PrivateVotingContract.artifact,
     (address: AztecAddress, wallet: Wallet) =>
-      EasyPrivateVotingContract.at(address, wallet),
+      PrivateVotingContract.at(address, wallet),
     [deployer.getAddress().toField()],
-    getDefaultInitializer(EasyPrivateVotingContract.artifact)?.name
+    getDefaultInitializer(PrivateVotingContract.artifact)?.name
   );
 
   const sponsoredPFCContract = await getSponsoredPFCContract();
@@ -132,7 +132,7 @@ async function deployContract(pxe: PXE, deployer: Wallet) {
   await provenInteraction.send().wait({ timeout: 120 });
   await pxe.registerContract({
     instance: contract,
-    artifact: EasyPrivateVotingContract.artifact,
+    artifact: PrivateVotingContract.artifact,
   });
 
   return {

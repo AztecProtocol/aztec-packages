@@ -21,6 +21,7 @@ describe('SlashOffensesCollector', () => {
 
   const settings: SlashOffensesCollectorSettings = {
     epochDuration: 32,
+    slashingAmounts: [100n, 200n, 300n],
   };
 
   const config: SlasherConfig = {
@@ -45,7 +46,11 @@ describe('SlashOffensesCollector', () => {
 
   beforeEach(() => {
     kvStore = openTmpStore(true);
-    offensesStore = new SlasherOffensesStore(kvStore, { slashingRoundSize: 32 * 6, epochDuration: 32 });
+    offensesStore = new SlasherOffensesStore(kvStore, {
+      slashingRoundSize: 32 * 6,
+      epochDuration: 32,
+      slashOffenseExpirationRounds: 4,
+    });
     dummyWatcher = new DummyWatcher();
     logger = createLogger('test');
 

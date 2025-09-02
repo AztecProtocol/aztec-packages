@@ -228,9 +228,6 @@ void Execution::shl(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
         set_output(opcode, c);
     } catch (const AluException& e) {
         throw OpcodeExecutionException("SHL Exception: " + std::string(e.what()));
-    } catch (const std::exception& e) {
-        // We have some err not handled by TAG_ERROR (this is a coding error, we should not get here):
-        throw e;
     }
 }
 
@@ -250,9 +247,6 @@ void Execution::shr(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
         set_output(opcode, c);
     } catch (const AluException& e) {
         throw OpcodeExecutionException("SHR Exception: " + std::string(e.what()));
-    } catch (const std::exception& e) {
-        // We have some err not handled by TAG_ERROR (this is a coding error, we should not get here):
-        throw e;
     }
 }
 

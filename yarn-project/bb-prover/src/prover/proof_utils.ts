@@ -80,7 +80,7 @@ export async function readProofAsFields<PROOF_LENGTH extends number>(
   // This buffer will have the form: [binary public inputs, binary proof]
   const binaryProofWithPublicInputs = Buffer.concat([binaryPublicInputs, binaryProof]);
   logger.debug(
-    `Circuit path: ${filePath}, complete proof length: ${json.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProofWithPublicInputs.length}`,
+    `Circuit path: ${filePath}, complete proof length: ${json.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, raw length: ${binaryProofWithPublicInputs.length}`,
   );
   assert(
     binaryProofWithPublicInputs.length == numPublicInputs * 32 + proofLength * 32,
