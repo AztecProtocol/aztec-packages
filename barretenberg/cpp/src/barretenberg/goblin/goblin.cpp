@@ -24,14 +24,14 @@ Goblin::Goblin(CommitmentKey<curve::BN254> bn254_commitment_key, const std::shar
 
 void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript, const MergeSettings merge_settings)
 {
-    BB_BENCH_NESTED_NAME("Goblin::prove_merge");
+    BB_BENCH_NAME("Goblin::prove_merge");
     MergeProver merge_prover{ op_queue, merge_settings, commitment_key, transcript };
     merge_verification_queue.push_back(merge_prover.construct_proof());
 }
 
 void Goblin::prove_eccvm()
 {
-    BB_BENCH_NESTED_NAME("Goblin::prove_eccvm");
+    BB_BENCH_NAME("Goblin::prove_eccvm");
     ECCVMBuilder eccvm_builder(op_queue);
     ECCVMProver eccvm_prover(eccvm_builder, transcript);
     goblin_proof.eccvm_proof = eccvm_prover.construct_proof();
@@ -42,7 +42,7 @@ void Goblin::prove_eccvm()
 
 void Goblin::prove_translator()
 {
-    BB_BENCH_NESTED_NAME("Goblin::prove_translator");
+    BB_BENCH_NAME("Goblin::prove_translator");
     TranslatorBuilder translator_builder(translation_batching_challenge_v, evaluation_challenge_x, op_queue);
     auto translator_key = std::make_shared<TranslatorProvingKey>(translator_builder, commitment_key);
     TranslatorProver translator_prover(translator_key, transcript);
@@ -51,7 +51,7 @@ void Goblin::prove_translator()
 
 GoblinProof Goblin::prove(const MergeSettings merge_settings)
 {
-    BB_BENCH_NESTED_NAME("Goblin::prove");
+    BB_BENCH_NAME("Goblin::prove");
 
     prove_merge(transcript, merge_settings); // Use shared transcript for merge proving
     info("Constructing a Goblin proof with num ultra ops = ", op_queue->get_ultra_ops_table_num_rows());

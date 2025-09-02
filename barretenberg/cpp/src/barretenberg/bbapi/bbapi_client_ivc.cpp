@@ -15,7 +15,7 @@ namespace bb::bbapi {
 
 ClientIvcStart::Response ClientIvcStart::execute(BBApiRequest& request) &&
 {
-    BB_BENCH_NESTED_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     request.ivc_in_progress = std::make_shared<ClientIVC>(num_circuits, request.trace_settings);
     request.ivc_stack_depth = 0;
     return Response{};
@@ -23,7 +23,7 @@ ClientIvcStart::Response ClientIvcStart::execute(BBApiRequest& request) &&
 
 ClientIvcLoad::Response ClientIvcLoad::execute(BBApiRequest& request) &&
 {
-    BB_BENCH_NESTED_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     if (!request.ivc_in_progress) {
         throw_or_abort("ClientIVC not started. Call ClientIvcStart first.");
     }
@@ -39,7 +39,7 @@ ClientIvcLoad::Response ClientIvcLoad::execute(BBApiRequest& request) &&
 
 ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request) &&
 {
-    BB_BENCH_NESTED_NAME(MSGPACK_SCHEMA_NAME);
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     if (!request.ivc_in_progress) {
         throw_or_abort("ClientIVC not started. Call ClientIvcStart first.");
     }
@@ -71,7 +71,7 @@ ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request
 
 ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
 {
-    BB_BENCH_NESTED_NAME(MSGPACK_SCHEMA_NAME)
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     if (!request.ivc_in_progress) {
         throw_or_abort("ClientIVC not started. Call ClientIvcStart first.");
     }
@@ -99,7 +99,7 @@ ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
 
 ClientIvcVerify::Response ClientIvcVerify::execute(const BBApiRequest& /*request*/) &&
 {
-    BB_BENCH_NESTED_NAME(MSGPACK_SCHEMA_NAME)
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     // Deserialize the verification key from the byte buffer
     const auto verification_key = from_buffer<ClientIVC::VerificationKey>(vk);
 
@@ -120,7 +120,7 @@ static std::shared_ptr<ClientIVC::DeciderProvingKey> get_acir_program_decider_pr
 
 ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(const BBApiRequest& request) &&
 {
-    BB_BENCH_NESTED_NAME(MSGPACK_SCHEMA_NAME)
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     info("ClientIvcComputeStandaloneVk - deriving VK for circuit '", circuit.name, "'");
 
     auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
@@ -134,7 +134,7 @@ ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(con
 
 ClientIvcComputeIvcVk::Response ClientIvcComputeIvcVk::execute(BB_UNUSED const BBApiRequest& request) &&
 {
-    BB_BENCH_NESTED_NAME(MSGPACK_SCHEMA_NAME)
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     info("ClientIvcComputeIvcVk - deriving IVC VK for circuit '", circuit.name, "'");
 
     auto standalone_vk_response = bbapi::ClientIvcComputeStandaloneVk{
@@ -157,7 +157,7 @@ ClientIvcComputeIvcVk::Response ClientIvcComputeIvcVk::execute(BB_UNUSED const B
 
 ClientIvcCheckPrecomputedVk::Response ClientIvcCheckPrecomputedVk::execute(const BBApiRequest& request) &&
 {
-    BB_BENCH_NESTED_NAME(MSGPACK_SCHEMA_NAME)
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode)),
                                       /*witness=*/{} };
 
@@ -183,7 +183,7 @@ ClientIvcCheckPrecomputedVk::Response ClientIvcCheckPrecomputedVk::execute(const
 
 ClientIvcStats::Response ClientIvcStats::execute(BBApiRequest& request) &&
 {
-    BB_BENCH_NESTED_NAME(MSGPACK_SCHEMA_NAME)
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     Response response;
 
     const auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));

@@ -180,33 +180,33 @@ struct BenchReporter {
 #define BB_TRACY_NAME(name) ZoneScopedN(name)
 #define BB_BENCH_TRACY() ZoneScopedN(__func__)
 #define BB_BENCH_TRACY_NAME(name) ZoneScopedN(name)
-#define BB_BENCH_NAME(name) (void)0
+#define BB_BENCH_ONLY_NAME(name) (void)0
 #define BB_BENCH_ENABLE_NESTING() (void)0
-#define BB_BENCH() (void)0
+#define BB_BENCH_ONLY() (void)0
 #elif defined __wasm__
 #define BB_TRACY() (void)0
 #define BB_TRACY_NAME(name) (void)0
 #define BB_BENCH_TRACY() (void)0
 #define BB_BENCH_TRACY_NAME(name) (void)0
-#define BB_BENCH_NAME(name) (void)0
+#define BB_BENCH_ONLY_NAME(name) (void)0
 #define BB_BENCH_ENABLE_NESTING() (void)0
-#define BB_BENCH() (void)0
+#define BB_BENCH_ONLY() (void)0
 #else
 #define BB_TRACY() (void)0
 #define BB_TRACY_NAME(name) (void)0
-#define BB_BENCH_TRACY() BB_BENCH_NAME(__func__)
-#define BB_BENCH_TRACY_NAME(name) BB_BENCH_NAME(name)
-#define BB_BENCH_NAME(name)                                                                                            \
+#define BB_BENCH_TRACY() BB_BENCH_ONLY_NAME(__func__)
+#define BB_BENCH_TRACY_NAME(name) BB_BENCH_ONLY_NAME(name)
+#define BB_BENCH_ONLY_NAME(name)                                                                                       \
     bb::detail::BenchReporter _bb_bench_reporter((bb::detail::ThreadBenchStats<name>::ensure_stats()))
 #define BB_BENCH_ENABLE_NESTING()                                                                                      \
-    if (bb::detail::use_bb_bench && _bb_bench_reporter.stats)                                                          \
-        bb::detail::GlobalBenchStatsContainer::parent = _bb_bench_reporter.stats;
-#define BB_BENCH() BB_BENCH_NAME(__func__)
+    if (_bb_bench_reporter.stats)                                                                                      \
+    bb::detail::GlobalBenchStatsContainer::parent = _bb_bench_reporter.stats
+#define BB_BENCH_ONLY() BB_BENCH_ONLY_NAME(__func__)
 #endif
-#define BB_BENCH_NESTED_NAME(name)                                                                                     \
+#define BB_BENCH_NAME(name)                                                                                            \
     BB_BENCH_TRACY_NAME(name);                                                                                         \
     BB_BENCH_ENABLE_NESTING()
 
-#define BB_BENCH_NESTED()                                                                                              \
+#define BB_BENCH()                                                                                                     \
     BB_BENCH_TRACY();                                                                                                  \
     BB_BENCH_ENABLE_NESTING()
