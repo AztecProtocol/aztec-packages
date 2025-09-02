@@ -9,7 +9,7 @@ This guide explains how to set up and structure your project for Aztec smart con
 
 ## Before you start
 
-You should have installed the sandbox, which includes local development tools, as described in [the getting started guide](../../getting_started.md).
+You should have installed the sandbox, which includes local development tools, as described in [the getting started guide](../../getting_started/getting_started.md).
 
 ## Setup
 

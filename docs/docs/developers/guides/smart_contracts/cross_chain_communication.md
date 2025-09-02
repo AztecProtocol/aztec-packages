@@ -5,7 +5,7 @@ sidebar_position: 7
 description: Learn how to communicate with L1 contracts through portals in your Aztec smart contracts.
 ---
 
-Follow the [token bridge tutorial](../../../../../developers/tutorials/js_tutorials/token_bridge.md) for hands-on experience writing and deploying a Portal contract.
+Follow the [token bridge tutorial](../../tutorials/js_tutorials/token_bridge.md) for hands-on experience writing and deploying a Portal contract.
 
 ## Passing data to the rollup
 

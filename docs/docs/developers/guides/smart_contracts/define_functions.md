@@ -51,7 +51,7 @@ Internal functions are functions that are only callable within the same contract
 
 Mark an internal function with the `#[internal]` attribute.
 
-#include_code add_to_tally_public noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr rust
+#include_code add_to_tally_public noir-projects/noir-contracts/contracts/app/private_voting_contract/src/main.nr rust
 
 ## Initializer Functions
 
