@@ -151,157 +151,240 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     */
     template <typename Transcript>
     static void compute_opening_proof_internal(const CK& ck,
-                                               const ProverOpeningClaim<Curve>& opening_claim,
-                                               const std::shared_ptr<Transcript>& transcript)
+                                            const ProverOpeningClaim<Curve>& opening_claim,
+                                            const std::shared_ptr<Transcript>& transcript)
     {
+        using Fr           = typename Curve::ScalarField;
+        using Commitment   = typename Curve::AffineElement;
+        using GroupElement = typename Curve::Element;
+
+        // --- Step 0: absorb commitment, challenge (x), evaluation (y)
         const bb::Polynomial<Fr>& polynomial = opening_claim.polynomial;
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1150): Hash more things here.
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1408): Make IPA fuzzer compatible with `add_to_hash_buffer`.
-        //
-        // Step 1.
-        // Add the commitment, challenge, and evaluation to the hash buffer.
-        // NOTE:
-        //      a. This is a bit inefficient, as the prover otherwise doesn't need this commitment.
-        //      However, the effect to performance of this MSM (in practice of size 2^16) is tiny.
-        //      b. Note that we add these three pieces of information to the hash buffer, as opposed to
-        //      calling the `send_to_verifier` method, as the verifier knows them.
-
         const auto commitment = ck.commit(polynomial);
         transcript->add_to_hash_buffer("IPA:commitment", commitment);
         transcript->add_to_hash_buffer("IPA:challenge", opening_claim.opening_pair.challenge);
         transcript->add_to_hash_buffer("IPA:evaluation", opening_claim.opening_pair.evaluation);
 
-
-        // Step 2.
-        // Receive challenge for the auxiliary generator
+        // --- Step 1: auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
-
         if (generator_challenge.is_zero()) {
             throw_or_abort("The generator challenge can't be zero");
         }
+        const GroupElement U = Commitment::one() * generator_challenge;
 
-        // Step 3.
-        // Compute auxiliary generator U
-        auto aux_generator = Commitment::one() * generator_challenge;
+        // --- Step 2: sizes / sanity
+        auto a_vec = polynomial.full(); // monomial coeffs
+        const size_t poly_length = a_vec.size();
+        ASSERT((poly_length > 0) && ((poly_length & (poly_length - 1)) == 0) &&
+            "The polynomial degree plus 1 should be positive and a power of two");
+        ASSERT((size_t(1) << log_poly_length) == poly_length);
 
-        // Checks poly_degree is greater than zero and a power of two
-        // In the future, we might want to consider if non-powers of two are needed
-        ASSERT((poly_length > 0) && (!(poly_length & (poly_length - 1))) &&
-               "The polynomial degree plus 1 should be positive and a power of two");
-
-        // Step 4.
-        // Set initial vector a to the polynomial monomial coefficients and load vector G
-        // Ensure the polynomial copy is fully-formed
-        auto a_vec = polynomial.full();
-        std::span<Commitment> srs_elements = ck.srs->get_monomial_points();
-        std::vector<Commitment> G_vec_local(poly_length);
-
-        if (poly_length > srs_elements.size()) {
+        // --- Step 3: immutable SRS view
+        std::span<const Commitment> SRS = ck.srs->get_monomial_points();
+        if (poly_length > SRS.size()) {
             throw_or_abort("potential bug: Not enough SRS points for IPA!");
         }
 
-        // Copy the SRS into a local data structure as we need to mutate this vector for every round
-        parallel_for_heuristic(
-            poly_length,
-            [&](size_t i) {
-                G_vec_local[i] = srs_elements[i];
-            }, thread_heuristics::FF_COPY_COST);
-
-        // Step 5.
-        // Compute vector b (vector of the powers of the challenge)
+        // --- Step 4: b_vec[i] = x^i
         OpeningPair<Curve> opening_pair = opening_claim.opening_pair;
         std::vector<Fr> b_vec(poly_length);
-        parallel_for_heuristic(
-            poly_length,
-            [&](size_t start, size_t end, BB_UNUSED size_t chunk_index) {
-                Fr b_power = opening_pair.challenge.pow(start);
-                for (size_t i = start; i < end; i++) {
-                    b_vec[i] = b_power;
-                    b_power *= opening_pair.challenge;
+        {
+            // simple sequential fill (can be parallelized if desired)
+            Fr p = Fr::one();
+            for (size_t i = 0; i < poly_length; ++i) {
+                b_vec[i] = p;
+                p *= opening_pair.challenge;
+            }
+        }
+
+        // === New representation of folded bases (no point mul/add) ===
+        // Keep the current left/right halves of the *folded* basis as lists of spans into SRS with per-span scale.
+        std::vector<std::span<const Commitment>> basis_left_pts;
+        std::vector<std::span<const Commitment>> basis_right_pts;
+        std::vector<Fr>                          basis_left_scales;
+        std::vector<Fr>                          basis_right_scales;
+
+        size_t seg_len = poly_length / 2; // current segment length inside a half
+        basis_left_pts.emplace_back(SRS.first(seg_len));
+        basis_right_pts.emplace_back(SRS.subspan(seg_len, seg_len));
+        basis_left_scales.emplace_back(Fr::one());
+        basis_right_scales.emplace_back(Fr::one());
+
+        // Helper: expand a scalar block by repeating it once per segment.
+        auto expand_scalars = [&](const Fr* scalars_base, size_t base_len, size_t num_segments) -> std::vector<Fr> {
+            std::vector<Fr> out;
+            out.resize(base_len * num_segments);
+            for (size_t k = 0; k < num_segments; ++k) {
+                std::memcpy(out.data() + k * base_len, scalars_base, base_len * sizeof(Fr));
+            }
+            return out;
+        };
+
+        // Helper: MSM over concatenated spans, multiplying per-span scale into scalars.
+        auto msm_concat = [&](const std::vector<std::span<const Commitment>>& pt_spans,
+                            const std::vector<Fr>&                          span_scales,
+                            std::span<const Fr>                             expanded_scalars) -> GroupElement {
+            const size_t len_total = expanded_scalars.size();
+            std::vector<Commitment> pts; pts.reserve(len_total);
+            std::vector<Fr>         scs; scs.reserve(len_total);
+
+            size_t consumed = 0;
+            for (size_t k = 0; k < pt_spans.size(); ++k) {
+                auto sp = pt_spans[k];
+                const size_t m = sp.size();
+                const Fr s = span_scales[k];
+                pts.insert(pts.end(), sp.begin(), sp.end());
+                for (size_t j = 0; j < m; ++j) {
+                    scs.emplace_back(s * expanded_scalars[consumed + j]);
                 }
-            }, thread_heuristics::FF_COPY_COST + thread_heuristics::FF_MULTIPLICATION_COST);
+                consumed += m;
+            }
+            ASSERT(consumed == len_total);
+            info(pts.size());
+            return bb::scalar_multiplication::pippenger_unsafe<Curve>(
+                {/*start=*/0, std::span<const Fr>(scs)},
+                std::span<const Commitment>(pts));
+        };
 
-        // Iterate for log(poly_degree) rounds to compute the round commitments.
+        // Helper: update basis segment descriptors for next round using u^{-1}.
+        auto fold_basis_segments = [&](const Fr& u_inv) {
+            std::vector<std::span<const Commitment>> next_left, next_right;
+            std::vector<Fr>                          next_left_sc, next_right_sc;
+            const size_t half = seg_len / 2;
 
-        // Allocate space for L_i and R_i elements
-        GroupElement L_i;
-        GroupElement R_i;
-        std::size_t round_size = poly_length;
+            // G'_L = G_LL + u^{-1} G_RL
+            for (size_t k = 0; k < basis_left_pts.size(); ++k) {
+                next_left.emplace_back(basis_left_pts[k].first(half));
+                next_left_sc.emplace_back(basis_left_scales[k]);
+            }
+            for (size_t k = 0; k < basis_right_pts.size(); ++k) {
+                next_left.emplace_back(basis_right_pts[k].first(half));
+                next_left_sc.emplace_back(u_inv * basis_right_scales[k]);
+            }
 
-        // Step 6.
-        // Perform IPA reduction rounds
-        for (size_t i = 0; i < log_poly_length; i++) {
+            // G'_R = G_LR + u^{-1} G_RR
+            for (size_t k = 0; k < basis_left_pts.size(); ++k) {
+                next_right.emplace_back(basis_left_pts[k].subspan(half, half));
+                next_right_sc.emplace_back(basis_left_scales[k]);
+            }
+            for (size_t k = 0; k < basis_right_pts.size(); ++k) {
+                next_right.emplace_back(basis_right_pts[k].subspan(half, half));
+                next_right_sc.emplace_back(u_inv * basis_right_scales[k]);
+            }
+
+            basis_left_pts     = std::move(next_left);
+            basis_right_pts    = std::move(next_right);
+            basis_left_scales  = std::move(next_left_sc);
+            basis_right_scales = std::move(next_right_sc);
+            seg_len = half;
+        };
+
+        // --- Round loop
+        GroupElement L_i, R_i;
+        size_t round_size = poly_length;
+
+        for (size_t i = 0; i < log_poly_length-1; ++i) {
             round_size /= 2;
-            // Run scalar products in parallel
-            auto inner_prods = parallel_for_heuristic(
-                round_size,
-                std::pair{Fr::zero(), Fr::zero()},
-                [&](size_t j, std::pair<Fr, Fr>& inner_prod_left_right) {
-                    // Compute inner_prod_L := < a_vec_lo, b_vec_hi >
-                    inner_prod_left_right.first += a_vec[j] * b_vec[round_size + j];
-                    // Compute inner_prod_R := < a_vec_hi, b_vec_lo >
-                    inner_prod_left_right.second += a_vec[round_size + j] * b_vec[j];
-                }, thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
-            // Sum inner product contributions computed in parallel and unpack the std::pair
-            auto [inner_prod_L, inner_prod_R] = sum_pairs(inner_prods);
-            // Step 6.a (using letters, because doxygen automatically converts the sublist counters to letters :( )
-            // L_i = < a_vec_lo, G_vec_hi > + inner_prod_L * aux_generator
 
-            L_i = scalar_multiplication::pippenger_unsafe<Curve>({0, {&a_vec.at(0), /*size*/ round_size}},{&G_vec_local[round_size], round_size});
+            // (a) inner products c_L = <a_L, b_R>, c_R = <a_R, b_L>
+            Fr inner_prod_L = Fr::zero();
+            Fr inner_prod_R = Fr::zero();
+            for (size_t j = 0; j < round_size; ++j) {
+                inner_prod_L += a_vec.at(j) * b_vec[round_size + j];
+                inner_prod_R += a_vec.at(round_size + j) * b_vec[j];
+            }
 
-            L_i += aux_generator * inner_prod_L;
+            // (b) commitments L_i, R_i via concatenated MSMs (no SRS mutation)
+            // For each MSM, repeat the scalar block once per segment so total matches concatenated points (constant N/2).
+            const size_t segs_R = basis_right_pts.size();
+            const size_t segs_L = basis_left_pts.size();
+            auto aL_expanded = expand_scalars(&a_vec[0],            round_size, segs_R);
+            auto aR_expanded = expand_scalars(&a_vec[round_size],   round_size, segs_L);
 
-            // Step 6.b
-            // R_i = < a_vec_hi, G_vec_lo > + inner_prod_R * aux_generator
-            R_i = scalar_multiplication::pippenger_unsafe<Curve>({0, {&a_vec.at(round_size), /*size*/ round_size}},{&G_vec_local[0], /*size*/ round_size});
-            R_i += aux_generator * inner_prod_R;
+            GroupElement L_base = msm_concat(basis_right_pts, basis_right_scales,
+                                            std::span<const Fr>(aL_expanded));
+            GroupElement R_base = msm_concat(basis_left_pts,  basis_left_scales,
+                                            std::span<const Fr>(aR_expanded));
 
-            // Step 6.c
-            // Send commitments to the verifier
-            std::string index = std::to_string(log_poly_length - i - 1);
+            L_i = L_base + (U * inner_prod_L);
+            R_i = R_base + (U * inner_prod_R);
+
+            // (c) transcript send
+            const std::string index = std::to_string(log_poly_length - i - 1);
             transcript->send_to_verifier("IPA:L_" + index, Commitment(L_i));
             transcript->send_to_verifier("IPA:R_" + index, Commitment(R_i));
 
-            // Step 6.d
-            // Receive the challenge from the verifier
+            // (d) challenge u
             const Fr round_challenge = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
-
             if (round_challenge.is_zero()) {
                 throw_or_abort("IPA round challenge is zero");
             }
-            const Fr round_challenge_inv = round_challenge.invert();
+            const Fr u_inv = round_challenge.invert();
 
-            // Step 6.e
-            // G_vec_new = G_vec_lo + G_vec_hi * round_challenge_inv
-            auto G_hi_by_inverse_challenge = GroupElement::batch_mul_with_endomorphism(
-                std::span{ G_vec_local.begin() + static_cast<std::ptrdiff_t>(round_size),
-                           G_vec_local.begin() + static_cast<std::ptrdiff_t>(round_size * 2) },
-                round_challenge_inv);
-            GroupElement::batch_affine_add(
-                std::span{ G_vec_local.begin(), G_vec_local.begin() + static_cast<std::ptrdiff_t>(round_size) },
-                G_hi_by_inverse_challenge,
-                G_vec_local);
+            // (e) fold a and b (use a_vec.at(j) as requested)
+            for (size_t j = 0; j < round_size; ++j) {
+                a_vec.at(j) += round_challenge * a_vec[round_size + j];
+                b_vec[j]    += u_inv * b_vec[round_size + j];
+            }
 
-            // Steps 6.e and 6.f
-            // Update the vectors a_vec, b_vec.
-            // a_vec_new = a_vec_lo + a_vec_hi * round_challenge
-            // b_vec_new = b_vec_lo + b_vec_hi * round_challenge_inv
-            parallel_for_heuristic(
-                round_size,
-                [&](size_t j) {
-                    a_vec.at(j) += round_challenge * a_vec[round_size + j];
-                    b_vec[j] += round_challenge_inv * b_vec[round_size + j];
-                }, thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
+            // (f) update the basis descriptors for next round
+            fold_basis_segments(u_inv);
         }
 
-        // Step 7
-        // Send G_0 to the verifier
-        transcript->send_to_verifier("IPA:G_0", G_vec_local[0]);
 
-        // Step 8
-        // Send a_0 to the verifier
-        transcript->send_to_verifier("IPA:a_0", a_vec[0]);
+       // ---- Final round (i = logN-1), seg_len == 1 here ----
+        round_size /= 2;                  // now round_size == 1
+        // 1) c_L, c_R for the last time
+        Fr cL = a_vec.at(0) * b_vec[1];
+        Fr cR = a_vec.at(1) * b_vec[0];
+
+        // 2) L_{last}, R_{last} with concat-MSM (still over N/2 points each)
+        auto aL_exp = expand_scalars(&a_vec[0],          /*base_len=*/1, basis_right_pts.size());
+        auto aR_exp = expand_scalars(&a_vec[1],          /*base_len=*/1, basis_left_pts.size());
+
+        GroupElement L_base = msm_concat(basis_right_pts, basis_right_scales, std::span<const Fr>(aL_exp));
+        GroupElement R_base = msm_concat(basis_left_pts,  basis_left_scales,  std::span<const Fr>(aR_exp));
+
+        GroupElement L_last = L_base + U * cL;
+        GroupElement R_last = R_base + U * cR;
+
+        const std::string index_last = "0";
+        transcript->send_to_verifier("IPA:L_" + index_last, Commitment(L_last));
+        transcript->send_to_verifier("IPA:R_" + index_last, Commitment(R_last));
+
+        // 3) final challenge u, fold a,b (j=0 only)
+        const Fr u_last    = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index_last);
+        ASSERT(!u_last.is_zero());
+        const Fr u_last_inv = u_last.invert();
+
+        a_vec.at(0) += u_last * a_vec[1];
+        b_vec[0]    += u_last_inv * b_vec[1];
+
+        // 4) G_0 in *one* MSM over N terms:
+        //    points = [left_pts[k][0], right_pts[k][0]], scalars = [left_scales[k], u^{-1}*right_scales[k]]
+        {
+            const size_t L = basis_left_pts.size();
+            const size_t R = basis_right_pts.size();
+            std::vector<Commitment> pts; pts.reserve(L + R);
+            std::vector<Fr>         scs; scs.reserve(L + R);
+
+            for (size_t k = 0; k < L; ++k) {
+                pts.emplace_back(basis_left_pts[k][0]);
+                scs.emplace_back(basis_left_scales[k]);
+            }
+            for (size_t k = 0; k < R; ++k) {
+                pts.emplace_back(basis_right_pts[k][0]);
+                scs.emplace_back(u_last_inv * basis_right_scales[k]);
+            }
+
+            GroupElement G0 = bb::scalar_multiplication::pippenger_unsafe<Curve>(
+                {/*start=*/0, std::span<const Fr>(scs)},
+                std::span<const Commitment>(pts));
+
+            transcript->send_to_verifier("IPA:G_0", Commitment(G0));
+            transcript->send_to_verifier("IPA:a_0", a_vec[0]);
+            return;
+}
     }
 
     /**

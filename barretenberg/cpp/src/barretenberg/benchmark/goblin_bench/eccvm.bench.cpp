@@ -44,8 +44,9 @@ Builder generate_trace(size_t target_num_gates)
     return builder;
 }
 
-void eccvm_generate_prover(State& state) noexcept
+[[maybe_unused]] void eccvm_generate_prover(State& state) noexcept
 {
+    srs::init_file_crs_factory(srs::bb_crs_path());
 
     size_t target_num_gates = 1 << static_cast<size_t>(state.range(0));
     for (auto _ : state) {
@@ -57,6 +58,7 @@ void eccvm_generate_prover(State& state) noexcept
 
 void eccvm_prove(State& state) noexcept
 {
+    srs::init_file_crs_factory(srs::bb_crs_path());
 
     size_t target_num_gates = 1 << static_cast<size_t>(state.range(0));
     Builder builder = generate_trace(target_num_gates);
@@ -67,7 +69,7 @@ void eccvm_prove(State& state) noexcept
     };
 }
 
-BENCHMARK(eccvm_generate_prover)->Unit(kMillisecond)->DenseRange(12, CONST_ECCVM_LOG_N);
+// BENCHMARK(eccvm_generate_prover)->Unit(kMillisecond)->DenseRange(12, CONST_ECCVM_LOG_N);
 BENCHMARK(eccvm_prove)->Unit(kMillisecond)->DenseRange(12, CONST_ECCVM_LOG_N);
 } // namespace
 
