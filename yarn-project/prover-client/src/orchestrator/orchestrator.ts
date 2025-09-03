@@ -17,7 +17,7 @@ import { elapsed } from '@aztec/foundation/timer';
 import type { TreeNodeLocation } from '@aztec/foundation/trees';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { readAvmMinimalPublicTxInputsFromFile } from '@aztec/simulator/public/fixtures';
-import { L2Block } from '@aztec/stdlib/block';
+import { EthAddress, L2Block } from '@aztec/stdlib/block';
 import type {
   EpochProver,
   ForkMerkleTreeOperations,
@@ -89,7 +89,7 @@ export class ProvingOrchestrator implements EpochProver {
   constructor(
     private dbProvider: ForkMerkleTreeOperations,
     private prover: ServerCircuitProver,
-    private readonly proverId: Fr,
+    private readonly proverId: EthAddress,
     telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
     this.metrics = new ProvingOrchestratorMetrics(telemetryClient, 'ProvingOrchestrator');
@@ -99,7 +99,7 @@ export class ProvingOrchestrator implements EpochProver {
     return this.metrics.tracer;
   }
 
-  public getProverId(): Fr {
+  public getProverId(): EthAddress {
     return this.proverId;
   }
 
@@ -248,18 +248,19 @@ export class ProvingOrchestrator implements EpochProver {
    * Note that if the tube circuits are not started this way, they will be started nontheless after processing.
    */
   @trackSpan('ProvingOrchestrator.startTubeCircuits')
-  public async startTubeCircuits(txs: Tx[]) {
+  public startTubeCircuits(txs: Tx[]) {
     if (!this.provingState?.verifyState()) {
       throw new Error(`Invalid proving state, call startNewEpoch before starting tube circuits`);
     }
     for (const tx of txs) {
-      const txHash = (await tx.getTxHash()).toString();
+      const txHash = tx.getTxHash().toString();
       const tubeInputs = new TubeInputs(!!tx.data.forPublic, tx.clientIvcProof);
       const tubeProof = promiseWithResolvers<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>>();
       logger.debug(`Starting tube circuit for tx ${txHash}`);
       this.doEnqueueTube(txHash, tubeInputs, proof => tubeProof.resolve(proof));
       this.provingState?.cachedTubeProofs.set(txHash, tubeProof.promise);
     }
+    return Promise.resolve();
   }
 
   /**
@@ -276,7 +277,7 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     if (!provingState.spongeBlobState) {
-      // If we are completing an empty block, initialise the provingState.
+      // If we are completing an empty block, initialize the provingState.
       // We will have 0 txs and no blob fields.
       provingState.startNewBlock(0, 0);
     }
@@ -338,7 +339,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     await this.verifyBuiltBlockAgainstSyncedState(l2Block, newArchive);
 
-    logger.verbose(`Orchestrator finalised block ${l2Block.number}`);
+    logger.verbose(`Orchestrator finalized block ${l2Block.number}`);
     provingState.setBlock(l2Block);
   }
 
@@ -368,9 +369,9 @@ export class ProvingOrchestrator implements EpochProver {
   /**
    * Returns the proof for the current epoch.
    */
-  public async finaliseEpoch() {
+  public async finalizeEpoch() {
     if (!this.provingState || !this.provingPromise) {
-      throw new Error(`Invalid proving state, an epoch must be proven before it can be finalised`);
+      throw new Error(`Invalid proving state, an epoch must be proven before it can be finalized`);
     }
 
     const result = await this.provingPromise!;
@@ -382,7 +383,7 @@ export class ProvingOrchestrator implements EpochProver {
     // TODO(MW): EpochProvingState uses this.blocks.filter(b => !!b).length as total blocks, use this below:
     const finalBlock = this.provingState.blocks[this.provingState.totalNumBlocks - 1];
     if (!finalBlock || !finalBlock.endBlobAccumulator) {
-      throw new Error(`Epoch's final block not ready for finalise`);
+      throw new Error(`Epoch's final block not ready for finalize`);
     }
     const finalBatchedBlob = await finalBlock.endBlobAccumulator.finalize();
     this.provingState.setFinalBatchedBlob(finalBatchedBlob);
@@ -996,6 +997,7 @@ export class ProvingOrchestrator implements EpochProver {
             );
 
             try {
+              this.metrics.incAvmFallback();
               const snapshotAvmPrivateInputs = readAvmMinimalPublicTxInputsFromFile();
               return await this.prover.getAvmProof(snapshotAvmPrivateInputs, true, signal, provingState.epochNumber);
             } catch (err) {

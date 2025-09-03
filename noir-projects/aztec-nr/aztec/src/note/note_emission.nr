@@ -29,7 +29,7 @@ impl<Note> NoteEmission<Note> {
  * a change note in a token's transfer function only when there is "change" left).
  */
 pub struct OuterNoteEmission<Note> {
-    emission: Option<NoteEmission<Note>>,
+    pub emission: Option<NoteEmission<Note>>,
 }
 
 impl<Note> OuterNoteEmission<Note> {

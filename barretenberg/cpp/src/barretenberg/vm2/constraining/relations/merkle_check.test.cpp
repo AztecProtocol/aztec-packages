@@ -12,6 +12,8 @@
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
 #include "barretenberg/vm2/simulation/merkle_check.hpp"
 #include "barretenberg/vm2/simulation/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
@@ -21,12 +23,18 @@
 namespace bb::avm2::constraining {
 namespace {
 
+using ::testing::NiceMock;
+
 using simulation::EventEmitter;
 using simulation::MerkleCheck;
 using simulation::MerkleCheckEvent;
+using simulation::MockExecutionIdManager;
+using simulation::MockGreaterThan;
+using simulation::NoopEventEmitter;
 using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
+using simulation::Poseidon2PermutationMemoryEvent;
 using simulation::unconstrained_root_from_path;
 
 using tracegen::MerkleCheckTraceBuilder;
@@ -551,12 +559,22 @@ TEST(MerkleCheckConstrainingTest, WriteWithTracegen)
     check_relation<merkle_check>(trace);
 }
 
-TEST(MerkleCheckConstrainingTest, ReadWithInteractions)
-{
-    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
-    EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
+class MerkleCheckPoseidon2Test : public ::testing::Test {
+  protected:
+    MerkleCheckPoseidon2Test() = default;
 
+    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
+    NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
+    NoopEventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
+
+    NiceMock<MockExecutionIdManager> execution_id_manager;
+    NiceMock<MockGreaterThan> mock_gt;
+    Poseidon2 poseidon2 =
+        Poseidon2(execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
+};
+
+TEST_F(MerkleCheckPoseidon2Test, ReadWithInteractions)
+{
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check_sim(poseidon2, merkle_event_emitter);
 
@@ -588,12 +606,8 @@ TEST(MerkleCheckConstrainingTest, ReadWithInteractions)
     check_interaction<MerkleCheckTraceBuilder, lookup_merkle_check_merkle_poseidon2_write_settings>(trace);
 }
 
-TEST(MerkleCheckConstrainingTest, WriteWithInteractions)
+TEST_F(MerkleCheckPoseidon2Test, WriteWithInteractions)
 {
-    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
-    EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
-
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check_sim(poseidon2, merkle_event_emitter);
 
@@ -635,7 +649,7 @@ TEST(MerkleCheckConstrainingTest, WriteWithInteractions)
         "destination");
 }
 
-TEST(MerkleCheckConstrainingTest, MultipleWithTracegen)
+TEST_F(MerkleCheckPoseidon2Test, MultipleWithTracegen)
 {
     TestTraceContainer trace = TestTraceContainer::from_rows({
         { .precomputed_first_row = 1 },
@@ -691,12 +705,8 @@ TEST(MerkleCheckConstrainingTest, MultipleWithTracegen)
     check_relation<merkle_check>(trace);
 }
 
-TEST(MerkleCheckConstrainingTest, MultipleWithInteractions)
+TEST_F(MerkleCheckPoseidon2Test, MultipleWithInteractions)
 {
-    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
-    EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
-
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check_sim(poseidon2, merkle_event_emitter);
 

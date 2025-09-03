@@ -1,53 +1,58 @@
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { EmpireBaseAbi } from '@aztec/l1-artifacts/EmpireBaseAbi';
 
-import { type Hex, encodeFunctionData, hashTypedData } from 'viem';
+import { type Hex, type TypedDataDefinition, encodeFunctionData } from 'viem';
 
 import type { L1TxRequest } from '../l1_tx_utils.js';
 
 export interface IEmpireBase {
-  getRoundInfo(rollupAddress: Hex, round: bigint): Promise<{ lastVote: bigint; leader: Hex; executed: boolean }>;
+  get address(): EthAddress;
+  getRoundInfo(
+    rollupAddress: Hex,
+    round: bigint,
+  ): Promise<{ lastSignalSlot: bigint; payloadWithMostSignals: Hex; executed: boolean }>;
   computeRound(slot: bigint): Promise<bigint>;
-  createVoteRequest(payload: Hex): L1TxRequest;
-  createVoteRequestWithSignature(
+  createSignalRequest(payload: Hex): L1TxRequest;
+  createSignalRequestWithSignature(
     payload: Hex,
     round: bigint,
     chainId: number,
     signerAddress: Hex,
-    signer: (msg: Hex) => Promise<Hex>,
+    signer: (msg: TypedDataDefinition) => Promise<Hex>,
   ): Promise<L1TxRequest>;
 }
 
-export function encodeVote(payload: Hex): Hex {
+export function encodeSignal(payload: Hex): Hex {
   return encodeFunctionData({
     abi: EmpireBaseAbi,
-    functionName: 'vote',
+    functionName: 'signal',
     args: [payload],
   });
 }
 
-export function encodeVoteWithSignature(payload: Hex, signature: Signature) {
+export function encodeSignalWithSignature(payload: Hex, signature: Signature) {
   return encodeFunctionData({
     abi: EmpireBaseAbi,
-    functionName: 'voteWithSig',
+    functionName: 'signalWithSig',
     args: [payload, signature.toViemSignature()],
   });
 }
 
 /**
- * Signs a vote proposal using EIP-712 typed data for use with voteWithSig
+ * Signs a signal proposal using EIP-712 typed data for use with signalWithSig
  * @param walletClient - The viem wallet client to sign with
- * @param proposal - The proposal address to vote on
+ * @param payload - The payload address to signal
  * @param verifyingContract - The address of the EmpireBase contract
  * @param chainId - The chain ID where the contract is deployed
  * @param account - The account to sign with (optional if hoisted on wallet client)
  * @returns The EIP-712 signature
  */
-export async function signVoteWithSig(
-  signer: (msg: Hex) => Promise<Hex>,
-  proposal: Hex,
-  nonce: bigint,
-  round: bigint,
+export async function signSignalWithSig(
+  signer: (msg: TypedDataDefinition) => Promise<Hex>,
+  payload: Hex,
+  slot: bigint,
+  instance: Hex,
   verifyingContract: Hex,
   chainId: number,
 ): Promise<Signature> {
@@ -59,19 +64,25 @@ export async function signVoteWithSig(
   };
 
   const types = {
-    Vote: [
-      { name: 'proposal', type: 'address' },
-      { name: 'nonce', type: 'uint256' },
-      { name: 'round', type: 'uint256' },
+    EIP712Domain: [
+      { name: 'name', type: 'string' },
+      { name: 'version', type: 'string' },
+      { name: 'chainId', type: 'uint256' },
+      { name: 'verifyingContract', type: 'address' },
+    ],
+    Signal: [
+      { name: 'payload', type: 'address' },
+      { name: 'slot', type: 'uint256' },
+      { name: 'instance', type: 'address' },
     ],
   };
 
   const message = {
-    proposal,
-    nonce,
-    round,
+    payload,
+    slot,
+    instance,
   };
 
-  const msg = hashTypedData({ domain, types, primaryType: 'Vote', message });
-  return Signature.fromString(await signer(msg));
+  const typedData = { domain, types, primaryType: 'Signal', message };
+  return Signature.fromString(await signer(typedData));
 }

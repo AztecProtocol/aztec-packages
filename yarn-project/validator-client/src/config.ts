@@ -6,13 +6,17 @@ import {
   numberConfigHelper,
   secretValueConfigHelper,
 } from '@aztec/foundation/config';
+import { EthAddress } from '@aztec/foundation/eth-address';
 
 /**
  * The Validator Configuration
  */
 export interface ValidatorClientConfig {
   /** The private keys of the validators participating in attestation duties */
-  validatorPrivateKeys: SecretValue<`0x${string}`[]>;
+  validatorPrivateKeys?: SecretValue<`0x${string}`[]>;
+
+  /** The addresses of the validators to use with remote signers */
+  validatorAddresses?: EthAddress[];
 
   /** Do not run the validator */
   disableValidator: boolean;
@@ -35,6 +39,11 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
       val ? val.split(',').map<`0x${string}`>(key => `0x${key.replace('0x', '')}`) : [],
     ),
     fallback: ['VALIDATOR_PRIVATE_KEY'],
+  },
+  validatorAddresses: {
+    env: 'VALIDATOR_ADDRESSES',
+    description: 'List of addresses of the validators to use with remote signers',
+    parseEnv: (val: string) => val.split(',').map(address => EthAddress.fromString(address)),
   },
   disableValidator: {
     env: 'VALIDATOR_DISABLED',

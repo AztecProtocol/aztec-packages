@@ -138,7 +138,7 @@ describe('e2e_cheat_codes', () => {
 
   describe('L2 cheatcodes', () => {
     let wallet: Wallet;
-    let admin: AztecAddress;
+    let adminAddress: AztecAddress;
     let cc: CheatCodes;
     let teardown: () => Promise<void>;
 
@@ -148,20 +148,28 @@ describe('e2e_cheat_codes', () => {
 
     beforeAll(async () => {
       let deployL1ContractsValues;
-      ({ teardown, wallet, cheatCodes: cc, deployL1ContractsValues, watcher } = await setup());
+      ({
+        teardown,
+        wallet,
+        accounts: [adminAddress],
+        cheatCodes: cc,
+        deployL1ContractsValues,
+        watcher,
+      } = await setup());
       if (watcher) {
         watcher.setIsMarkingAsProven(false);
       }
 
-      admin = wallet.getAddress();
       rollup = RollupContract.getFromL1ContractsValues(deployL1ContractsValues);
-      token = await TokenContract.deploy(wallet, admin, 'TokenName', 'TokenSymbol', 18).send().deployed();
+      token = await TokenContract.deploy(wallet, adminAddress, 'TokenName', 'TokenSymbol', 18)
+        .send({ from: adminAddress })
+        .deployed();
     });
 
     afterAll(() => teardown());
 
     it('load public', async () => {
-      expect(admin.toField().equals(await cc.aztec.loadPublic(token.address, 1n))).toBeTrue();
+      expect(adminAddress.toField().equals(await cc.aztec.loadPublic(token.address, 1n))).toBeTrue();
     });
 
     it('load public returns 0 for non existent value', async () => {
@@ -170,7 +178,7 @@ describe('e2e_cheat_codes', () => {
     });
 
     it('load private works as expected for no notes', async () => {
-      const notes = await cc.aztec.loadPrivate(admin, token.address, 5n);
+      const notes = await cc.aztec.loadPrivate(adminAddress, token.address, 5n);
       const values = notes.map(note => note.items[0]);
       const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
       expect(balance).toEqual(0n);
@@ -181,13 +189,13 @@ describe('e2e_cheat_codes', () => {
       // docs:start:load_private_cheatcode
       const mintAmount = 100n;
 
-      await mintTokensToPrivate(token, wallet, admin, mintAmount);
-      await token.methods.sync_private_state().simulate();
+      await mintTokensToPrivate(token, adminAddress, wallet, adminAddress, mintAmount);
+      await token.methods.sync_private_state().simulate({ from: adminAddress });
 
-      const balancesAdminSlot = await cc.aztec.computeSlotInMap(TokenContract.storage.balances.slot, admin);
+      const balancesAdminSlot = await cc.aztec.computeSlotInMap(TokenContract.storage.balances.slot, adminAddress);
 
       // check if note was added to pending shield:
-      const notes = await cc.aztec.loadPrivate(admin, token.address, balancesAdminSlot);
+      const notes = await cc.aztec.loadPrivate(adminAddress, token.address, balancesAdminSlot);
 
       // @note If you get pain for dinner, this guys is the reason.
       // Assuming that it is still testing the token contract, you need to look at the balances,

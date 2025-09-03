@@ -3,7 +3,7 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract StaticParent {
-    use dep::aztec::{context::gas::GasOpts, macros::functions::{private, public, view}};
+    use dep::aztec::{context::gas::GasOpts, macros::functions::{private, public}};
     use dep::aztec::protocol_types::{
         abis::function_selector::FunctionSelector, address::AztecAddress,
     };

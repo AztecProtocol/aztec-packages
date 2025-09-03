@@ -68,9 +68,9 @@ impl UtilityContext {
         storage_read(self.this_address(), storage_slot, self.block_number())
     }
 
-    pub unconstrained fn storage_read<T, let N: u32>(self, storage_slot: Field) -> T
+    pub unconstrained fn storage_read<T>(self, storage_slot: Field) -> T
     where
-        T: Packable<N>,
+        T: Packable,
     {
         T::unpack(self.raw_storage_read(storage_slot))
     }

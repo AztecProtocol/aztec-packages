@@ -1,0 +1,70 @@
+include "../constants_gen.pil";
+include "../public_inputs.pil";
+
+/**
+ * This virtual gadget implements the SendL2ToL1Msg opcode, which attempts to send a message
+ * from L2 to L1. The message is written to the public inputs for later processing by the
+ * L1 contract.
+ *
+ *
+ * This opcode uses:
+ * - register[0] as the recipient address register (FF)
+ * - register[1] as the message content register (FF)
+ *
+ * Interactions:
+ * - The gadget performs a lookup into the public_inputs gadget to write the L2-to-L1 message.
+ *     - This lookup is only performed if no error occurs.
+ *
+ * Errors:
+ * - If the max L2-to-L1 message writes limit has been reached, the operation raises an opcode error.
+ * - If the operation is executed in a static context, the operation raises an opcode error.
+ *
+ */
+namespace execution; // this is a virtual gadget that shares rows with the execution trace
+
+    // No relations will be checked if this identity is satisfied.
+    #[skippable_if]
+    sel_execute_send_l2_to_l1_msg = 0; // from execution.pil.
+
+    // =========== VALIDATION ===========
+
+    pol REMAINING_L2_TO_L1_MSG_WRITES = constants.MAX_L2_TO_L1_MSGS_PER_TX -
+        prev_num_l2_to_l1_messages;
+
+    pol commit sel_l2_to_l1_msg_limit_error;
+    sel_l2_to_l1_msg_limit_error * (1 - sel_l2_to_l1_msg_limit_error) = 0;
+
+    pol commit remaining_l2_to_l1_msgs_inv;
+    // Limit error if REMAINING_L2_TO_L1_MSG_WRITES is 0
+    #[MAX_WRITES_REACHED]
+    sel_execute_send_l2_to_l1_msg * (REMAINING_L2_TO_L1_MSG_WRITES * (sel_l2_to_l1_msg_limit_error * (1 - remaining_l2_to_l1_msgs_inv) + remaining_l2_to_l1_msgs_inv) - 1 + sel_l2_to_l1_msg_limit_error) = 0;
+
+    // The opcode errors if we have reached the limit or if we are in a static context
+    #[OPCODE_ERROR]
+    sel_execute_send_l2_to_l1_msg * ((1 - sel_l2_to_l1_msg_limit_error) * (1 - is_static) - (1 - sel_opcode_error)) = 0;
+
+    // =========== LOOKUP PI ===========
+    pol commit sel_write_l2_to_l1_msg;
+    // We write to public inputs if there is no error and discard is off
+    #[SEND_L2_TO_L1_MSG_CONDITION]
+    sel_execute_send_l2_to_l1_msg * ((1 - sel_opcode_error) * (1 - discard) - sel_write_l2_to_l1_msg) = 0;
+
+    pol commit public_inputs_index;
+    sel_execute_send_l2_to_l1_msg * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX + prev_num_l2_to_l1_messages - public_inputs_index) = 0;
+
+    // Lookup public inputs to write
+    #[WRITE_L2_TO_L1_MSG]
+    sel_write_l2_to_l1_msg {
+        public_inputs_index,
+        register[0],          // recipient
+        register[1],          // content
+        contract_address      // current contract address (from context)
+    } in public_inputs.sel {
+        precomputed.clk,
+        public_inputs.cols[0],
+        public_inputs.cols[1],
+        public_inputs.cols[2]
+    };
+
+    #[EMIT_L2_TO_L1_MSG_NUM_L2_TO_L1_MSGS_EMITTED_INCREASE]
+    sel_execute_send_l2_to_l1_msg * (prev_num_l2_to_l1_messages + (1 - sel_opcode_error) - num_l2_to_l1_messages) = 0;

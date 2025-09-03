@@ -39,7 +39,7 @@ export type TestEnqueuedCall = {
  * transactions.
  */
 export class PublicTxSimulationTester extends BaseAvmSimulationTester {
-  private txCount = 0;
+  protected txCount: number = 0;
   private simulator: MeasuredPublicTxSimulator;
   private metricsPrefix?: string;
 
@@ -83,7 +83,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     teardownCall?: TestEnqueuedCall,
     feePayer: AztecAddress = sender,
     /* need some unique first nullifier for note-nonce computations */
-    privateInsertions: TestPrivateInsertions = { nonRevertible: { nullifiers: [new Fr(420000 + this.txCount++)] } },
+    privateInsertions: TestPrivateInsertions = { nonRevertible: { nullifiers: [new Fr(420000 + this.txCount)] } },
   ): Promise<Tx> {
     const setupCallRequests = await asyncMap(setupCalls, call =>
       this.#createPubicCallRequestForCall(call, call.sender ?? sender),
@@ -95,6 +95,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
       ? await this.#createPubicCallRequestForCall(teardownCall, teardownCall.sender ?? sender)
       : undefined;
 
+    this.txCount++;
     return createTxForPublicCalls(
       privateInsertions,
       setupCallRequests,
@@ -140,6 +141,12 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     return avmResult;
   }
 
+  /**
+   * Just simulate the transaction and return the result.
+   *
+   * This wrapper around simulation allows for easy labeling of a TX
+   * which is especially useful when reporting benchmarks or metrics.
+   */
   public async simulateTxWithLabel(
     txLabel: string,
     sender: AztecAddress,
@@ -150,6 +157,33 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     privateInsertions?: TestPrivateInsertions,
   ): Promise<PublicTxResult> {
     return await this.simulateTx(sender, setupCalls, appCalls, teardownCall, feePayer, privateInsertions, txLabel);
+  }
+
+  /**
+   * Execute a transaction and return the result.
+   *
+   * This function can be (it is) overridden by a subclass (AvmProvingTester)
+   * to do more work (like prove and verify) while still reusing existing
+   * test fixtures (like amm_test). That is why it is not named "simulate*".
+   */
+  public async executeTxWithLabel(
+    txLabel: string,
+    sender: AztecAddress,
+    setupCalls?: TestEnqueuedCall[],
+    appCalls?: TestEnqueuedCall[],
+    teardownCall?: TestEnqueuedCall,
+    feePayer?: AztecAddress,
+    privateInsertions?: TestPrivateInsertions,
+  ): Promise<PublicTxResult> {
+    return await this.simulateTxWithLabel(
+      txLabel,
+      sender,
+      setupCalls,
+      appCalls,
+      teardownCall,
+      feePayer,
+      privateInsertions,
+    );
   }
 
   public prettyPrintMetrics() {

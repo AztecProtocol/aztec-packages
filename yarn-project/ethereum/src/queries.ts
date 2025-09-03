@@ -1,7 +1,7 @@
-import type { EthAddress } from '@aztec/foundation/eth-address';
-import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
 
-import type { Hex } from 'viem';
+import { getContract } from 'viem';
 
 import type { L1ContractsConfig } from './config.js';
 import { ReadOnlyGovernanceContract } from './contracts/governance.js';
@@ -27,6 +27,8 @@ export async function getL1ContractsConfig(
   const rollupAddress = addresses.rollupAddress ?? (await governanceProposer.getRollupAddress());
   const rollup = new RollupContract(publicClient, rollupAddress.toString());
   const slasherProposer = await rollup.getSlashingProposer();
+  const slasherAddress = await rollup.getSlasher();
+  const slasher = getContract({ address: slasherAddress, abi: SlasherAbi, client: publicClient });
 
   const [
     l1StartBlock,
@@ -35,12 +37,17 @@ export async function getL1ContractsConfig(
     aztecSlotDuration,
     aztecProofSubmissionEpochs,
     aztecTargetCommitteeSize,
-    depositAmount,
-    minimumStake,
+    activationThreshold,
+    ejectionThreshold,
     governanceProposerQuorum,
     governanceProposerRoundSize,
     slashingQuorum,
     slashingRoundSize,
+    slashingLifetimeInRounds,
+    slashingExecutionDelayInRounds,
+    slashingOffsetInRounds,
+    slashingAmounts,
+    slashingVetoer,
     manaTarget,
     provingCostPerMana,
     rollupVersion,
@@ -53,12 +60,17 @@ export async function getL1ContractsConfig(
     rollup.getSlotDuration(),
     rollup.getProofSubmissionEpochs(),
     rollup.getTargetCommitteeSize(),
-    rollup.getDepositAmount(),
-    rollup.getMinimumStake(),
+    rollup.getActivationThreshold(),
+    rollup.getEjectionThreshold(),
     governanceProposer.getQuorumSize(),
     governanceProposer.getRoundSize(),
-    slasherProposer.getQuorumSize(),
-    slasherProposer.getRoundSize(),
+    slasherProposer?.getQuorumSize() ?? 0n,
+    slasherProposer?.getRoundSize() ?? 0n,
+    slasherProposer?.getLifetimeInRounds() ?? 0n,
+    slasherProposer?.getExecutionDelayInRounds() ?? 0n,
+    slasherProposer?.type === 'tally' ? slasherProposer.getSlashOffsetInRounds() : 0n,
+    slasherProposer?.type === 'tally' ? slasherProposer.getSlashingAmounts() : [0n, 0n, 0n],
+    slasher.read.VETOER(),
     rollup.getManaTarget(),
     rollup.getProvingCostPerMana(),
     rollup.getVersion(),
@@ -75,36 +87,22 @@ export async function getL1ContractsConfig(
     aztecTargetCommitteeSize: Number(aztecTargetCommitteeSize),
     governanceProposerQuorum: Number(governanceProposerQuorum),
     governanceProposerRoundSize: Number(governanceProposerRoundSize),
-    depositAmount,
-    minimumStake,
+    activationThreshold,
+    ejectionThreshold,
     slashingQuorum: Number(slashingQuorum),
-    slashingRoundSize: Number(slashingRoundSize),
+    slashingRoundSizeInEpochs: Number(slashingRoundSize / aztecEpochDuration),
+    slashingLifetimeInRounds: Number(slashingLifetimeInRounds),
+    slashingExecutionDelayInRounds: Number(slashingExecutionDelayInRounds),
+    slashingVetoer: EthAddress.fromString(slashingVetoer),
     manaTarget: manaTarget,
     provingCostPerMana: provingCostPerMana,
     rollupVersion: Number(rollupVersion),
     genesisArchiveTreeRoot,
     exitDelaySeconds: Number(exitDelay),
+    slasherFlavor: slasherProposer?.type ?? 'tally',
+    slashingOffsetInRounds: Number(slashingOffsetInRounds),
+    slashAmountSmall: slashingAmounts[0],
+    slashAmountMedium: slashingAmounts[1],
+    slashAmountLarge: slashingAmounts[2],
   };
-}
-
-export type L2BlockProposedEvent = {
-  versionedBlobHashes: readonly Hex[];
-  archive: Hex;
-  blockNumber: bigint;
-};
-
-export async function getL2BlockProposalEvents(
-  client: ViemPublicClient,
-  blockId: Hex,
-  rollupAddress?: EthAddress,
-): Promise<L2BlockProposedEvent[]> {
-  return (
-    await client.getContractEvents({
-      abi: RollupAbi,
-      address: rollupAddress?.toString(),
-      blockHash: blockId,
-      eventName: 'L2BlockProposed',
-      strict: true,
-    })
-  ).map(log => log.args);
 }

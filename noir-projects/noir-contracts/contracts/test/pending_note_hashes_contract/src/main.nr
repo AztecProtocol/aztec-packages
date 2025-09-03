@@ -2,26 +2,25 @@
 // read (eventually even nullified) in the same TX. This contract
 // also contains some "bad" test cases to ensure that notes cannot
 // be read/nullified before their creation etc.
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract PendingNoteHashes {
     // Libs
-    use dep::aztec::{
+    use aztec::{
         context::PrivateContext,
-        note::note_getter_options::NoteGetterOptions,
+        macros::{functions::private, storage::storage},
+        messages::logs::note::encode_and_encrypt_note,
+        note::{note_emission::NoteEmission, note_getter_options::NoteGetterOptions},
+        protocol_types::{
+            abis::function_selector::FunctionSelector,
+            address::AztecAddress,
+            constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL},
+            traits::{Packable, ToField},
+        },
         state_vars::{Map, PrivateSet},
     };
-    use dep::aztec::macros::{functions::private, storage::storage};
-    use dep::aztec::messages::logs::note::encode_and_encrypt_note;
-    use dep::aztec::note::note_emission::NoteEmission;
-    use dep::aztec::protocol_types::constants::{
-        MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
-    };
-    use dep::value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
-    use aztec::protocol_types::{
-        abis::function_selector::FunctionSelector, address::AztecAddress, traits::ToField,
-    };
+    use value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
 
     #[storage]
     struct Storage<Context> {
@@ -52,10 +51,10 @@ pub contract PendingNoteHashes {
         let notes = owner_balance.pop_notes(options);
 
         let note0 = notes.get(0);
-        assert(note.value == note0.value);
+        assert(note.value() == note0.value());
         assert(notes.len() == 1);
 
-        note0.value
+        note0.value()
     }
 
     // Confirm cannot access note hashes inserted later in same function
@@ -98,8 +97,10 @@ pub contract PendingNoteHashes {
     fn insert_note_static_randomness(amount: Field, owner: AztecAddress, sender: AztecAddress) {
         let owner_balance = storage.balances.at(owner);
 
-        let mut note = ValueNote::new(amount, owner);
-        note.randomness = 2;
+        let randomness = 2;
+        // Note that the following is severely misusing the Packable trait as we should never be messing with internal
+        // encoding. This is brittle but I don't care.
+        let note = ValueNote::unpack([amount.to_field(), owner.to_field(), randomness.to_field()]);
 
         // Insert note
         owner_balance.insert(note).emit(encode_and_encrypt_note(&mut context, owner));
@@ -131,7 +132,7 @@ pub contract PendingNoteHashes {
         options = options.set_limit(1);
         let note = owner_balance.pop_notes(options).get(0);
 
-        assert(expected_value == note.value);
+        assert(expected_value == note.value());
         expected_value
     }
 
@@ -297,7 +298,7 @@ pub contract PendingNoteHashes {
         sender: AztecAddress,
         how_many_recursions: u64,
     ) {
-        create_max_notes(owner, sender, storage, &mut context);
+        create_max_notes(owner, storage, &mut context);
 
         PendingNoteHashes::at(context.this_address())
             .recursively_destroy_and_create_notes(owner, sender, how_many_recursions)
@@ -313,7 +314,7 @@ pub contract PendingNoteHashes {
         assert(executions_left > 0);
 
         destroy_max_notes(owner, storage);
-        create_max_notes(owner, sender, storage, &mut context);
+        create_max_notes(owner, storage, &mut context);
 
         let executions_left = executions_left - 1;
 
@@ -351,7 +352,6 @@ pub contract PendingNoteHashes {
     #[contract_library_method]
     fn create_max_notes(
         owner: AztecAddress,
-        sender: AztecAddress,
         storage: Storage<&mut PrivateContext>,
         context: &mut PrivateContext,
     ) {

@@ -1,7 +1,6 @@
 mod parity_public_inputs;
 mod base;
-mod root;
-mod utils;
+pub mod root;
 
 pub use crate::base::base_parity_inputs::BaseParityInputs;
 pub use crate::parity_public_inputs::ParityPublicInputs;

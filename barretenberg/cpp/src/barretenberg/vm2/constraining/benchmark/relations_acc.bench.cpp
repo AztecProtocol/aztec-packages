@@ -1,3 +1,5 @@
+#ifdef AVM_COMPILE_BENCHMARKS
+
 #include <benchmark/benchmark.h>
 
 #include <cstddef>
@@ -5,25 +7,73 @@
 #include <tuple>
 
 #include "barretenberg/common/constexpr_utils.hpp"
+#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/constraining/flavor.hpp"
-#include "barretenberg/vm2/constraining/full_row.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
+
+#include "barretenberg/vm2/constraining/relations/interactions_base_impl.hpp"
+#include "barretenberg/vm2/generated/relations/relations_impls.hpp"
 
 using namespace benchmark;
 using namespace bb::avm2;
 
 namespace {
 
-AvmFullRow get_random_row()
+// Using a row of MAX_PARTIAL_RELATION_LENGTH univariates is a better approximation of what proving does.
+// Benchmarking with this would then take into account any gains via the use of Accumulator::View.
+// However, compilation time for the benchmark becomes as long as for prover.cpp.
+#ifdef AVM_USE_UNIVARIATES
+
+struct FakeUnivariateAllEntities {
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = AvmFlavor::MAX_PARTIAL_RELATION_LENGTH;
+    using DataType = bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>;
+
+    DataType fixed_random_value;
+
+    FakeUnivariateAllEntities(const DataType& fixed_random_value)
+        : fixed_random_value(fixed_random_value)
+    {}
+    const DataType& get(ColumnAndShifts) const { return fixed_random_value; }
+};
+
+FakeUnivariateAllEntities get_random_row()
 {
-    AvmFullRow row;
-    for (size_t i = 0; i < NUM_COLUMNS_WITH_SHIFTS; i++) {
-        row.get(static_cast<ColumnAndShifts>(i)) = FF::random_element();
-    }
-    return row;
+    return FakeUnivariateAllEntities(FakeUnivariateAllEntities::DataType::random_element());
 }
+
+template <typename Relation> auto allocate_result()
+{
+    return typename Relation::SumcheckTupleOfUnivariatesOverSubrelations{};
+}
+
+// Otherwise, we use a fake row of FFs, which is closer to what check-circuit does.
+// This disregards any gains via the use of Accumulator::View.
+#else
+
+struct FakeAvmFullRow {
+    using DataType = FF;
+
+    FakeAvmFullRow(const FF& fixed_random_value)
+        : fixed_random_value(fixed_random_value)
+    {}
+    const FF& get(ColumnAndShifts) const { return fixed_random_value; }
+
+    FF fixed_random_value;
+};
+
+FakeAvmFullRow get_random_row()
+{
+    return FakeAvmFullRow(FF::random_element());
+}
+
+template <typename Relation> auto allocate_result()
+{
+    return typename Relation::SumcheckArrayOfValuesOverSubrelations{};
+}
+
+#endif // AVM_USE_UNIVARIATES
 
 bb::RelationParameters<FF> get_params()
 {
@@ -32,7 +82,6 @@ bb::RelationParameters<FF> get_params()
         .beta = FF::random_element(),
         .gamma = FF::random_element(),
         .public_input_delta = 0,
-        .lookup_grand_product_delta = 0,
         .beta_sqr = 0,
         .beta_cube = 0,
         .eccvm_set_permutation_delta = 0,
@@ -45,7 +94,7 @@ template <typename Relation> void BM_accumulate_relation(State& state)
     auto params = get_params();
     FF scaling_factor = 1;
 
-    typename Relation::SumcheckArrayOfValuesOverSubrelations result{};
+    auto result = allocate_result<Relation>();
 
     for (auto _ : state) {
         Relation::accumulate(result, row, params, scaling_factor);
@@ -93,3 +142,15 @@ int main(int argc, char** argv)
     ::benchmark::Initialize(&argc, argv);
     ::benchmark::RunSpecifiedBenchmarks();
 }
+
+#else
+
+#include <iostream>
+
+int main(int, char**)
+{
+    std::cout << "This benchmark is disabled. To enable it, define AVM_COMPILE_BENCHMARKS." << std::endl;
+    return 0;
+}
+
+#endif // AVM_COMPILE_BENCHMARKS

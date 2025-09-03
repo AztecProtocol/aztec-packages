@@ -7,9 +7,12 @@ import {
   getDefaultConfig,
   numberConfigHelper,
 } from '@aztec/foundation/config';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import type { ViemTransactionSignature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
+import { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import pickBy from 'lodash.pickby';
@@ -24,15 +27,24 @@ import {
   type Hex,
   MethodNotFoundRpcError,
   MethodNotSupportedRpcError,
+  type NonceManager,
+  type PrepareTransactionRequestRequest,
   type StateOverride,
   type TransactionReceipt,
+  type TransactionSerializable,
+  type WalletClient,
+  createNonceManager,
   decodeErrorResult,
   formatGwei,
   getContractError,
   hexToBytes,
+  parseTransaction,
+  serializeTransaction,
 } from 'viem';
+import { jsonRpc } from 'viem/nonce';
 
-import { type ExtendedViemWalletClient, type ViemClient, isExtendedClient } from './types.js';
+import type { EthSigner } from './eth-signer/eth-signer.js';
+import type { ExtendedViemWalletClient, ViemClient } from './types.js';
 import { formatViemError } from './utils.js';
 
 // 1_000_000_000 Gwei = 1 ETH
@@ -208,6 +220,15 @@ export type TransactionStats = {
   calldataGas: number;
 };
 
+export enum TxUtilsState {
+  IDLE,
+  SENT,
+  SPEED_UP,
+  CANCELLED,
+  NOT_MINED,
+  MINED,
+}
+
 export class ReadOnlyL1TxUtils {
   public readonly config: L1TxUtilsConfig;
   protected interrupted = false;
@@ -215,6 +236,7 @@ export class ReadOnlyL1TxUtils {
   constructor(
     public client: ViemClient,
     protected logger: Logger = createLogger('ReadOnlyL1TxUtils'),
+    public readonly dateProvider: DateProvider,
     config?: Partial<L1TxUtilsConfig>,
     protected debugMaxGasLimit: boolean = false,
   ) {
@@ -535,27 +557,66 @@ export class ReadOnlyL1TxUtils {
   }
 }
 
+export type SigningCallback = (
+  transaction: TransactionSerializable,
+  signingAddress: EthAddress,
+) => Promise<ViemTransactionSignature>;
+
 export class L1TxUtils extends ReadOnlyL1TxUtils {
+  private txUtilsState: TxUtilsState = TxUtilsState.IDLE;
+  private lastMinedBlockNumber: bigint | undefined = undefined;
+  private nonceManager: NonceManager;
+
   constructor(
-    public override client: ExtendedViemWalletClient,
+    public override client: ViemClient,
+    public address: EthAddress,
+    private signer: SigningCallback,
     protected override logger: Logger = createLogger('L1TxUtils'),
+    dateProvider: DateProvider = new DateProvider(),
     config?: Partial<L1TxUtilsConfig>,
     debugMaxGasLimit: boolean = false,
   ) {
-    super(client, logger, config, debugMaxGasLimit);
-    if (!isExtendedClient(this.client)) {
-      throw new Error('L1TxUtils has to be instantiated with a wallet client.');
-    }
+    super(client, logger, dateProvider, config, debugMaxGasLimit);
+    this.nonceManager = createNonceManager({ source: jsonRpc() });
+  }
+
+  public get state() {
+    return this.txUtilsState;
+  }
+
+  public get lastMinedAtBlockNumber() {
+    return this.lastMinedBlockNumber;
+  }
+
+  private set lastMinedAtBlockNumber(blockNumber: bigint | undefined) {
+    this.lastMinedBlockNumber = blockNumber;
+  }
+
+  private set state(state: TxUtilsState) {
+    this.txUtilsState = state;
+    this.logger?.debug(
+      `L1TxUtils state changed to ${TxUtilsState[state]} for sender: ${this.getSenderAddress().toString()}`,
+    );
   }
 
   public getSenderAddress() {
-    return this.client.account.address;
+    return this.address;
   }
 
   public getSenderBalance(): Promise<bigint> {
     return this.client.getBalance({
-      address: this.getSenderAddress(),
+      address: this.getSenderAddress().toString(),
     });
+  }
+
+  private async signTransaction(txRequest: TransactionSerializable): Promise<`0x${string}`> {
+    const signature = await this.signer(txRequest, this.getSenderAddress());
+    return serializeTransaction(txRequest, signature);
+  }
+
+  protected async prepareSignedTransaction(txData: PrepareTransactionRequestRequest) {
+    const txRequest = await this.client.prepareTransactionRequest(txData);
+    return await this.signTransaction(txRequest as TransactionSerializable);
   }
 
   /**
@@ -568,12 +629,13 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     request: L1TxRequest,
     _gasConfig?: L1GasConfig,
     blobInputs?: L1BlobInputs,
+    stateChange: TxUtilsState = TxUtilsState.SENT,
   ): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
     try {
       const gasConfig = { ...this.config, ..._gasConfig };
-      const account = this.client.account;
-      let gasLimit: bigint;
+      const account = this.getSenderAddress().toString();
 
+      let gasLimit: bigint;
       if (this.debugMaxGasLimit) {
         gasLimit = LARGE_GAS_LIMIT;
       } else if (gasConfig.gasLimit) {
@@ -581,35 +643,48 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       } else {
         gasLimit = await this.estimateGas(account, request, gasConfig);
       }
-
-      this.logger?.debug('Gas limit', { gasLimit });
+      this.logger?.debug(`Gas limit for request is ${gasLimit}`, { gasLimit, ...request });
 
       const gasPrice = await this.getGasPrice(gasConfig, !!blobInputs);
 
-      if (gasConfig.txTimeoutAt && Date.now() > gasConfig.txTimeoutAt.getTime()) {
+      if (gasConfig.txTimeoutAt && this.dateProvider.now() > gasConfig.txTimeoutAt.getTime()) {
         throw new Error('Transaction timed out before sending');
       }
 
+      const nonce = await this.nonceManager.consume({
+        client: this.client,
+        address: account,
+        chainId: this.client.chain.id,
+      });
+
       let txHash: Hex;
       if (blobInputs) {
-        txHash = await this.client.sendTransaction({
+        const txData = {
           ...request,
           ...blobInputs,
           gas: gasLimit,
           maxFeePerGas: gasPrice.maxFeePerGas,
           maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
           maxFeePerBlobGas: gasPrice.maxFeePerBlobGas!,
-        });
+          nonce,
+        };
+
+        const signedRequest = await this.prepareSignedTransaction(txData);
+        txHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
       } else {
-        txHash = await this.client.sendTransaction({
+        const txData = {
           ...request,
           gas: gasLimit,
           maxFeePerGas: gasPrice.maxFeePerGas,
           maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
-        });
+          nonce,
+        };
+        const signedRequest = await this.prepareSignedTransaction(txData);
+        txHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
       }
+      this.state = stateChange;
       const cleanGasConfig = pickBy(gasConfig, (_, key) => key in l1TxUtilsConfigMappings);
-      this.logger?.verbose(`Sent L1 transaction ${txHash}`, {
+      this.logger?.info(`Sent L1 transaction ${txHash}`, {
         gasLimit,
         maxFeePerGas: formatGwei(gasPrice.maxFeePerGas),
         maxPriorityFeePerGas: formatGwei(gasPrice.maxPriorityFeePerGas),
@@ -644,7 +719,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
   ): Promise<TransactionReceipt> {
     const isBlobTx = !!_blobInputs;
     const gasConfig = { ...this.config, ..._gasConfig };
-    const account = this.client.account;
+    const account = this.getSenderAddress().toString();
 
     const blobInputs = _blobInputs || {};
     const makeGetTransactionBackoff = () =>
@@ -671,7 +746,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     const txHashes = new Set<Hex>([initialTxHash]);
     let currentTxHash = initialTxHash;
     let attempts = 0;
-    let lastAttemptSent = Date.now();
+    let lastAttemptSent = this.dateProvider.now();
     let lastGasPrice: GasPrice = {
       maxFeePerGas: tx.maxFeePerGas!,
       maxPriorityFeePerGas: tx.maxPriorityFeePerGas!,
@@ -680,15 +755,27 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     const initialTxTime = lastAttemptSent;
 
     let txTimedOut = false;
+    let latestBlockTimestamp: bigint | undefined;
+
+    // We check against the latestBlockTimestamp as opposed to the current time to avoid a race condition where
+    // the tx is mined in a block with the same timestamp as txTimeoutAt, but our execution node has not yet processed it,
+    // or the loop here has not yet checked the tx before that timeout.
     const isTimedOut = () =>
-      (gasConfig.txTimeoutAt && Date.now() > gasConfig.txTimeoutAt.getTime()) ||
-      (gasConfig.txTimeoutMs !== undefined && Date.now() - initialTxTime > gasConfig.txTimeoutMs) ||
+      (gasConfig.txTimeoutAt &&
+        latestBlockTimestamp !== undefined &&
+        Number(latestBlockTimestamp) * 1000 >= gasConfig.txTimeoutAt.getTime()) ||
+      (gasConfig.txTimeoutMs !== undefined && this.dateProvider.now() - initialTxTime > gasConfig.txTimeoutMs) ||
       this.interrupted ||
       false;
 
     while (!txTimedOut) {
       try {
-        const currentNonce = await this.client.getTransactionCount({ address: account.address });
+        ({ timestamp: latestBlockTimestamp } = await this.client.getBlock({
+          blockTag: 'latest',
+          includeTransactions: false,
+        }));
+
+        const currentNonce = await this.client.getTransactionCount({ address: account });
         if (currentNonce > nonce) {
           for (const hash of txHashes) {
             try {
@@ -699,6 +786,8 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
                 } else {
                   this.logger?.debug(`L1 transaction ${hash} mined`);
                 }
+                this.state = TxUtilsState.MINED;
+                this.lastMinedAtBlockNumber = receipt.blockNumber;
                 return receipt;
               }
             } catch (err) {
@@ -709,6 +798,16 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
           }
         }
 
+        this.logger?.trace(`Tx timeout check for ${currentTxHash}: ${isTimedOut()}`, {
+          latestBlockTimestamp: Number(latestBlockTimestamp) * 1000,
+          lastAttemptSent,
+          initialTxTime,
+          now: this.dateProvider.now(),
+          txTimeoutAt: gasConfig.txTimeoutAt?.getTime(),
+          txTimeoutMs: gasConfig.txTimeoutMs,
+          txStallTime: gasConfig.stallTimeMs,
+        });
+
         // Retry a few times, in case the tx is not yet propagated.
         const tx = await retry<GetTransactionReturnType>(
           () => this.client.getTransaction({ hash: currentTxHash }),
@@ -717,7 +816,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
           this.logger,
           true,
         );
-        const timePassed = Date.now() - lastAttemptSent;
+        const timePassed = this.dateProvider.now() - lastAttemptSent;
 
         if (tx && timePassed < gasConfig.stallTimeMs!) {
           this.logger?.debug(`L1 transaction ${currentTxHash} pending. Time passed: ${timePassed}ms.`);
@@ -758,14 +857,19 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
             },
           );
 
-          const newHash = await this.client.sendTransaction({
+          const txData = {
             ...request,
             ...blobInputs,
             nonce,
             gas: params.gasLimit,
             maxFeePerGas: newGasPrice.maxFeePerGas,
             maxPriorityFeePerGas: newGasPrice.maxPriorityFeePerGas,
-          });
+          };
+          const signedRequest = await this.prepareSignedTransaction(txData);
+          const newHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
+          if (!isCancelTx) {
+            this.state = TxUtilsState.SPEED_UP;
+          }
 
           const cleanGasConfig = pickBy(gasConfig, (_, key) => key in l1TxUtilsConfigMappings);
           this.logger?.verbose(`Sent L1 speed-up tx ${newHash}, replacing ${currentTxHash}`, {
@@ -779,7 +883,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
           currentTxHash = newHash;
 
           txHashes.add(currentTxHash);
-          lastAttemptSent = Date.now();
+          lastAttemptSent = this.dateProvider.now();
         }
         await sleep(gasConfig.checkIntervalMs!);
       } catch (err: any) {
@@ -794,7 +898,11 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       txTimedOut = isTimedOut();
     }
 
-    if (!isCancelTx && gasConfig.cancelTxOnTimeout) {
+    // The transaction has timed out. If it's a cancellation then we are giving up on it.
+    // Otherwise we may attempt to cancel it if configured to do so.
+    if (isCancelTx) {
+      this.state = TxUtilsState.NOT_MINED;
+    } else if (gasConfig.cancelTxOnTimeout) {
       // Fire cancellation without awaiting to avoid blocking the main thread
       this.attemptTxCancellation(currentTxHash, nonce, isBlobTx, lastGasPrice, attempts).catch(err => {
         const viemError = formatViemError(err);
@@ -802,12 +910,19 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
           metaMessages: viemError.metaMessages,
         });
       });
-
-      this.logger?.error(`L1 transaction ${currentTxHash} timed out`, {
-        txHash: currentTxHash,
-        ...tx,
-      });
     }
+
+    this.logger?.error(`L1 transaction ${currentTxHash} timed out`, {
+      txHash: currentTxHash,
+      txTimeoutAt: gasConfig.txTimeoutAt,
+      txTimeoutMs: gasConfig.txTimeoutMs,
+      txInitialTime: initialTxTime,
+      now: this.dateProvider.now(),
+      attempts,
+      isInterrupted: this.interrupted,
+      ...tx,
+    });
+
     throw new Error(`L1 transaction ${currentTxHash} timed out`);
   }
 
@@ -841,7 +956,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     const call: any = {
       to: request.to!,
       data: request.data,
-      from: request.from ?? this.client.account.address,
+      from: request.from ?? this.getSenderAddress().toString(),
       maxFeePerGas: gasPrice.maxFeePerGas,
       maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
       gas: request.gas ?? LARGE_GAS_LIMIT,
@@ -873,8 +988,6 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       throw new Error('Cannot cancel blob transactions, please use L1TxUtilsWithBlobsClass');
     }
 
-    const account = this.client.account;
-
     // Get gas price with higher priority fee for cancellation
     const cancelGasPrice = await this.getGasPrice(
       {
@@ -892,18 +1005,22 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       maxPriorityFeePerGas: formatGwei(cancelGasPrice.maxPriorityFeePerGas),
     });
     const request = {
-      to: account.address,
+      to: this.getSenderAddress().toString(),
       value: 0n,
     };
 
     // Send 0-value tx to self with higher gas price
-    const cancelTxHash = await this.client.sendTransaction({
+    const txData = {
       ...request,
       nonce,
       gas: 21_000n, // Standard ETH transfer gas
       maxFeePerGas: cancelGasPrice.maxFeePerGas,
       maxPriorityFeePerGas: cancelGasPrice.maxPriorityFeePerGas,
-    });
+    };
+    const signedRequest = await this.prepareSignedTransaction(txData);
+    const cancelTxHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
+
+    this.state = TxUtilsState.CANCELLED;
 
     this.logger?.debug(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`, { nonce });
 
@@ -918,6 +1035,60 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
     return receipt.transactionHash;
   }
+}
+
+export function createViemSigner(client: WalletClient) {
+  const signer: SigningCallback = async (
+    tx: TransactionSerializable,
+    _address: EthAddress,
+  ): Promise<ViemTransactionSignature> => {
+    const signedTx = await client.signTransaction(tx as any);
+
+    const parsed = parseTransaction(signedTx);
+
+    if (!parsed.r || !parsed.s || (parsed.yParity !== 0 && parsed.yParity !== 1)) {
+      throw new Error('Failed to extract signature from viem signed transaction');
+    }
+
+    return {
+      r: parsed.r,
+      s: parsed.s,
+      yParity: parsed.yParity,
+    };
+  };
+  return signer;
+}
+
+export function createL1TxUtilsFromViemWallet(
+  client: ExtendedViemWalletClient,
+  logger: Logger = createLogger('L1TxUtils'),
+  dateProvider: DateProvider = new DateProvider(),
+  config?: Partial<L1TxUtilsConfig>,
+  debugMaxGasLimit: boolean = false,
+) {
+  return new L1TxUtils(
+    client,
+    EthAddress.fromString(client.account.address),
+    createViemSigner(client),
+    logger,
+    dateProvider,
+    config,
+    debugMaxGasLimit,
+  );
+}
+
+export function createL1TxUtilsFromEthSigner(
+  client: ViemClient,
+  signer: EthSigner,
+  logger: Logger = createLogger('L1TxUtils'),
+  dateProvider: DateProvider = new DateProvider(),
+  config?: Partial<L1TxUtilsConfig>,
+  debugMaxGasLimit: boolean = false,
+) {
+  const callback: SigningCallback = async (transaction: TransactionSerializable, _signingAddress) => {
+    return (await signer.signTransaction(transaction)).toViemTransactionSignature();
+  };
+  return new L1TxUtils(client, signer.address, callback, logger, dateProvider, config, debugMaxGasLimit);
 }
 
 export function tryGetCustomErrorNameContractFunction(err: ContractFunctionExecutionError) {

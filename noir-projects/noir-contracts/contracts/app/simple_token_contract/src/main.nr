@@ -15,7 +15,7 @@ pub contract SimpleToken {
     use dep::aztec::{
         authwit::auth::compute_authwit_nullifier,
         context::{PrivateCallInterface, PrivateContext, PublicContext},
-        event::event_interface::{emit_event_in_private_log, PrivateLogContent},
+        event::event_interface::{emit_event_in_private, MessageDelivery},
         macros::{
             events::event,
             functions::{authorize_once, initializer, internal, private, public, utility, view},
@@ -89,7 +89,7 @@ pub contract SimpleToken {
     }
 
     #[utility]
-    pub(crate) unconstrained fn private_balance_of(owner: AztecAddress) -> u128 {
+    unconstrained fn private_balance_of(owner: AztecAddress) -> u128 {
         storage.balances.at(owner).balance_of()
     }
 
@@ -153,11 +153,11 @@ pub contract SimpleToken {
             to,
         ));
 
-        emit_event_in_private_log(
+        emit_event_in_private(
             Transfer { from, to, amount },
             &mut context,
             to,
-            PrivateLogContent.NO_CONSTRAINTS,
+            MessageDelivery.UNCONSTRAINED_ONCHAIN,
         );
     }
 

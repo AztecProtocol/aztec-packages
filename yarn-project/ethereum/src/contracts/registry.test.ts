@@ -63,6 +63,9 @@ describe('Registry', () => {
       'stakingAssetHandlerAddress',
       'zkPassportVerifierAddress',
     );
+    // Updating the coin issuer address to the deployer address bc we don't yet set CoinIssuer contract as the owner of the fee asset
+    // TODO: should remove once #16630 is merged
+    deployedAddresses.coinIssuerAddress = EthAddress.fromString(privateKey.address);
     registry = new RegistryContract(l1Client, deployedAddresses.registryAddress);
 
     const rollup = new RollupContract(l1Client, deployedAddresses.rollupAddress);
@@ -119,7 +122,7 @@ describe('Registry', () => {
   it('adds a version to the registry', async () => {
     const newVersionSalt = originalVersionSalt + 1;
 
-    const deployer = new L1Deployer(l1Client, newVersionSalt, undefined, logger, defaultL1TxUtilsConfig);
+    const deployer = new L1Deployer(l1Client, newVersionSalt, undefined, undefined, logger, defaultL1TxUtilsConfig);
 
     // We need to steal ownership of the registry to add a rollup without going through governance
     await setRegistryOwnership(EthAddress.fromString(deployer.client.account.address));

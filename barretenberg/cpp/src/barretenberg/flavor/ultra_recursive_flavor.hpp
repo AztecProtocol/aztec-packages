@@ -14,7 +14,6 @@
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
@@ -61,6 +60,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     using NativeVerificationKey = NativeFlavor::VerificationKey;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 
+    static constexpr size_t VIRTUAL_LOG_N = UltraFlavor::VIRTUAL_LOG_N;
     // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
     static constexpr bool USE_SHORT_MONOMIALS = UltraFlavor::USE_SHORT_MONOMIALS;
 
@@ -104,9 +104,6 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     static constexpr size_t NUM_SUBRELATIONS = NativeFlavor::NUM_SUBRELATIONS;
     using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
-    // define the container for storing the univariate contribution from each relation in Sumcheck
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
-
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
@@ -127,9 +124,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
          */
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
-            this->circuit_size = FF::from_witness(builder, native_key->circuit_size);
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Use stdlib get_msb.
-            this->log_circuit_size = FF::from_witness(builder, numeric::get_msb(native_key->circuit_size));
+            this->log_circuit_size = FF::from_witness(builder, native_key->log_circuit_size);
             this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
             this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
 
@@ -151,12 +146,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
 
             size_t num_frs_read = 0;
 
-            this->circuit_size = deserialize_from_frs<FF>(builder, elements, num_frs_read);
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1364): Improve VKs. log_circuit_size must be a
-            // witness to make the Recursive Verifier circuit constant. Seems that other members also need to be turned
-            // into witnesses.
-            this->log_circuit_size =
-                FF::from_witness(&builder, numeric::get_msb(static_cast<uint32_t>(this->circuit_size.get_value())));
+            this->log_circuit_size = deserialize_from_frs<FF>(builder, elements, num_frs_read);
             this->num_public_inputs = deserialize_from_frs<FF>(builder, elements, num_frs_read);
             this->pub_inputs_offset = deserialize_from_frs<FF>(builder, elements, num_frs_read);
 

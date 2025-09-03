@@ -1,8 +1,8 @@
 server:
   global:
-    evaluation_interval: 15s
-    scrape_interval: 15s
-    scrape_timeout: 10s
+    evaluation_interval: 30s
+    scrape_interval: 1m
+    scrape_timeout: 20s
   resources:
     requests:
       memory: 40Gi

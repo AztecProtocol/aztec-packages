@@ -120,6 +120,13 @@ template <typename Builder> class bool_t {
     OriginTag get_origin_tag() const { return tag; }
     void set_free_witness_tag() { tag.set_free_witness(); }
     void unset_free_witness_tag() { tag.unset_free_witness(); }
+    void fix_witness()
+    {
+        ASSERT(!is_constant());
+        ASSERT(context);
+        context->fix_witness(witness_index, get_value());
+        unset_free_witness_tag();
+    }
     mutable Builder* context = nullptr;
     mutable bool witness_bool = false;
     mutable bool witness_inverted = false;

@@ -29,7 +29,7 @@ export class CapsuleDataProvider implements DataProvider {
   async loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
     const dataBuffer = await this.#capsules.getAsync(dbSlotToKey(contractAddress, slot));
     if (!dataBuffer) {
-      this.logger.debug(`Data not found for contract ${contractAddress.toString()} and slot ${slot.toString()}`);
+      this.logger.trace(`Data not found for contract ${contractAddress.toString()} and slot ${slot.toString()}`);
       return null;
     }
     const capsule: Fr[] = [];

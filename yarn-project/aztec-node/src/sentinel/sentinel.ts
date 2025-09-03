@@ -5,8 +5,8 @@ import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { L2TipsMemoryStore, type L2TipsStore } from '@aztec/kv-store/stores';
 import type { P2PClient } from '@aztec/p2p';
-import type { SlasherConfig, WantToSlashArgs, Watcher, WatcherEmitter } from '@aztec/slasher/config';
-import { Offense, WANT_TO_SLASH_EVENT } from '@aztec/slasher/config';
+import { OffenseType, WANT_TO_SLASH_EVENT, type Watcher, type WatcherEmitter } from '@aztec/slasher';
+import type { SlasherConfig } from '@aztec/slasher/config';
 import {
   type L2BlockSource,
   L2BlockStream,
@@ -16,6 +16,7 @@ import {
 } from '@aztec/stdlib/block';
 import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
+  SingleValidatorStats,
   ValidatorStats,
   ValidatorStatusHistory,
   ValidatorStatusInSlot,
@@ -43,20 +44,17 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     protected archiver: L2BlockSource,
     protected p2p: P2PClient,
     protected store: SentinelStore,
-    protected config: Pick<
-      SlasherConfig,
-      | 'slashInactivityCreateTargetPercentage'
-      | 'slashInactivityCreatePenalty'
-      | 'slashInactivitySignalTargetPercentage'
-      | 'slashInactivityMaxPenalty'
-      | 'slashPayloadTtlSeconds'
-    >,
+    protected config: Pick<SlasherConfig, 'slashInactivityTargetPercentage' | 'slashInactivityPenalty'>,
     protected logger = createLogger('node:sentinel'),
   ) {
     super();
     this.l2TipsStore = new L2TipsMemoryStore();
     const interval = (epochCache.getL1Constants().ethereumSlotDuration * 1000) / 4;
     this.runningPromise = new RunningPromise(this.work.bind(this), logger, interval);
+  }
+
+  public updateConfig(config: Partial<SlasherConfig>) {
+    this.config = { ...this.config, ...config };
   }
 
   public async start() {
@@ -115,12 +113,12 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     }
 
     const epoch = getEpochAtSlot(block.header.getSlot(), await this.archiver.getL1Constants());
-    this.logger.info(`Computing proven performance for epoch ${epoch}`);
+    this.logger.debug(`Computing proven performance for epoch ${epoch}`);
     const performance = await this.computeProvenPerformance(epoch);
-    this.logger.info(`Proven performance for epoch ${epoch}`, performance);
+    this.logger.info(`Computed proven performance for epoch ${epoch}`, performance);
 
     await this.updateProvenPerformance(epoch, performance);
-    this.handleProvenPerformance(performance);
+    this.handleProvenPerformance(epoch, performance);
   }
 
   protected async computeProvenPerformance(epoch: bigint) {
@@ -163,49 +161,24 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     return this.store.updateProvenPerformance(epoch, performance);
   }
 
-  protected handleProvenPerformance(performance: ValidatorsEpochPerformance) {
+  protected handleProvenPerformance(epoch: bigint, performance: ValidatorsEpochPerformance) {
     const criminals = Object.entries(performance)
       .filter(([_, { missed, total }]) => {
-        return missed / total >= this.config.slashInactivityCreateTargetPercentage;
+        return missed / total >= this.config.slashInactivityTargetPercentage;
       })
       .map(([address]) => address as `0x${string}`);
 
     const args = criminals.map(address => ({
       validator: EthAddress.fromString(address),
-      amount: this.config.slashInactivityCreatePenalty,
-      offense: Offense.INACTIVITY,
+      amount: this.config.slashInactivityPenalty,
+      offenseType: OffenseType.INACTIVITY,
+      epochOrSlot: epoch,
     }));
 
-    this.logger.info(`Criminals: ${criminals.length}`, { args });
-
     if (criminals.length > 0) {
+      this.logger.info(`Identified ${criminals.length} validators to slash due to inactivity`, { args });
       this.emit(WANT_TO_SLASH_EVENT, args);
     }
-  }
-
-  public async shouldSlash({ validator, amount }: WantToSlashArgs): Promise<boolean> {
-    const l1Constants = this.epochCache.getL1Constants();
-    const ttlL2Slots = this.config.slashPayloadTtlSeconds / l1Constants.slotDuration;
-    const ttlEpochs = BigInt(Math.ceil(ttlL2Slots / l1Constants.epochDuration));
-
-    const currentEpoch = this.epochCache.getEpochAndSlotNow().epoch;
-    const performance = await this.store.getProvenPerformance(validator);
-    const isCriminal =
-      performance
-        .filter(p => p.epoch >= currentEpoch - ttlEpochs)
-        .findIndex(p => p.missed / p.total >= this.config.slashInactivitySignalTargetPercentage) !== -1;
-    if (isCriminal) {
-      if (amount <= this.config.slashInactivityMaxPenalty) {
-        return true;
-      } else {
-        this.logger.warn(`Validator ${validator} is a criminal but the penalty is too high`, {
-          amount,
-          maxPenalty: this.config.slashInactivityMaxPenalty,
-        });
-        return false;
-      }
-    }
-    return false;
   }
 
   /**
@@ -368,6 +341,47 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     }
     return {
       stats: result,
+      lastProcessedSlot: this.lastProcessedSlot,
+      initialSlot: this.initialSlot,
+      slotWindow: this.store.getHistoryLength(),
+    };
+  }
+
+  /** Computes stats for a single validator. */
+  public async getValidatorStats(
+    validatorAddress: EthAddress,
+    fromSlot?: bigint,
+    toSlot?: bigint,
+  ): Promise<SingleValidatorStats | undefined> {
+    const history = await this.store.getHistory(validatorAddress);
+
+    if (!history || history.length === 0) {
+      return undefined;
+    }
+
+    const slotNow = this.epochCache.getEpochAndSlotNow().slot;
+    const effectiveFromSlot = fromSlot ?? (this.lastProcessedSlot ?? slotNow) - BigInt(this.store.getHistoryLength());
+    const effectiveToSlot = toSlot ?? this.lastProcessedSlot ?? slotNow;
+
+    const historyLength = BigInt(this.store.getHistoryLength());
+    if (effectiveToSlot - effectiveFromSlot > historyLength) {
+      throw new Error(
+        `Slot range (${effectiveToSlot - effectiveFromSlot}) exceeds history length (${historyLength}). ` +
+          `Requested range: ${effectiveFromSlot} to ${effectiveToSlot}.`,
+      );
+    }
+
+    const validator = this.computeStatsForValidator(
+      validatorAddress.toString(),
+      history,
+      effectiveFromSlot,
+      effectiveToSlot,
+    );
+    const allTimeProvenPerformance = await this.store.getProvenPerformance(validatorAddress);
+
+    return {
+      validator,
+      allTimeProvenPerformance,
       lastProcessedSlot: this.lastProcessedSlot,
       initialSlot: this.initialSlot,
       slotWindow: this.store.getHistoryLength(),

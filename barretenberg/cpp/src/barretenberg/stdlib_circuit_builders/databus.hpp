@@ -6,9 +6,9 @@
 
 #pragma once
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
-#include "barretenberg/stdlib_circuit_builders/public_component_key.hpp"
+#include "barretenberg/public_input_component/public_component_key.hpp"
 #include <cstdint>
 namespace bb {
 
@@ -23,8 +23,9 @@ constexpr uint32_t PROPAGATED_DATABUS_COMMITMENTS_SIZE = PROPAGATED_DATABUS_COMM
  */
 struct BusVector {
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1138): A default value added to every databus column to
-    // avoid the point at infinity commitment and to ensure the validity of the databus commitment consistency checks.
+    // A default value added to every databus column to avoid the point at infinity commitment and to ensure the
+    // validity of the databus commitment consistency checks. Note: in principle we could allow point at infinity
+    // default commitment but there is precedent for avoiding this by default.
     static constexpr bb::fr DEFAULT_VALUE = 25;
 
     /**
@@ -42,19 +43,19 @@ struct BusVector {
 
     const uint32_t& operator[](size_t idx) const
     {
-        ASSERT(idx < size());
+        BB_ASSERT_LT(idx, size());
         return data[idx];
     }
 
     const uint32_t& get_read_count(size_t idx) const
     {
-        ASSERT(idx < read_counts.size());
+        BB_ASSERT_LT(idx, read_counts.size());
         return read_counts[idx];
     }
 
     void increment_read_count(size_t idx)
     {
-        ASSERT(idx < read_counts.size());
+        BB_ASSERT_LT(idx, read_counts.size());
         read_counts[idx]++;
     }
 

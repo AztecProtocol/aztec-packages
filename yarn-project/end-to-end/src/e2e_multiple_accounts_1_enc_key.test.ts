@@ -46,7 +46,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
       expect(account.publicKeys.masterIncomingViewingPublicKey).toEqual(encryptionPublicKey);
     }
 
-    token = await deployToken(wallets[0], initialBalance, logger);
+    token = await deployToken(wallets[0], accounts[0].address, initialBalance, logger);
   });
 
   afterEach(() => teardown());
@@ -64,7 +64,10 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
 
     const contractWithWallet = await TokenContract.at(token.address, wallets[senderIndex]);
 
-    await contractWithWallet.methods.transfer(receiver, transferAmount).send().wait();
+    await contractWithWallet.methods
+      .transfer(receiver, transferAmount)
+      .send({ from: accounts[senderIndex].address })
+      .wait();
 
     for (let i = 0; i < expectedBalances.length; i++) {
       await expectTokenBalance(wallets[i], token, wallets[i].getAddress(), expectedBalances[i], logger);

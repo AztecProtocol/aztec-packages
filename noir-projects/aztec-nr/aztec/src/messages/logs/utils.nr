@@ -3,6 +3,7 @@ use crate::oracle::notes::{
 };
 use dep::protocol_types::address::AztecAddress;
 
+// TODO(#14565): Add constrained tagging
 pub(crate) fn prefix_with_tag<let L: u32>(
     log_without_tag: [Field; L],
     recipient: AztecAddress,
@@ -48,10 +49,12 @@ mod test {
         // direct instantiation functionality is not exposed.
         let indexed_tagging_secret = IndexedTaggingSecret::deserialize([app_tagging_secret, index]);
 
-        // Mock the tagging oracles - note getSenderForTags returns none
-        let _ = OracleMock::mock("getSenderForTags").returns(Option::<AztecAddress>::none());
-        let _ = OracleMock::mock("getIndexedTaggingSecretAsSender").returns(indexed_tagging_secret);
-        let _ = OracleMock::mock("incrementAppTaggingSecretIndexAsSender").returns(());
+        // Mock the tagging oracles - note privateGetSenderForTags returns none
+        let _ = OracleMock::mock("privateGetSenderForTags").returns(Option::<AztecAddress>::none());
+        let _ = OracleMock::mock("utilityGetIndexedTaggingSecretAsSender").returns(
+            indexed_tagging_secret,
+        );
+        let _ = OracleMock::mock("privateIncrementAppTaggingSecretIndexAsSender").returns(());
 
         let log_without_tag = [1, 2, 3];
         let _ = prefix_with_tag(log_without_tag, recipient);
@@ -70,9 +73,11 @@ mod test {
         let indexed_tagging_secret = IndexedTaggingSecret::deserialize([app_tagging_secret, index]);
 
         // Mock the tagging oracles
-        let _ = OracleMock::mock("getSenderForTags").returns(Option::some(sender));
-        let _ = OracleMock::mock("getIndexedTaggingSecretAsSender").returns(indexed_tagging_secret);
-        let _ = OracleMock::mock("incrementAppTaggingSecretIndexAsSender").returns(());
+        let _ = OracleMock::mock("privateGetSenderForTags").returns(Option::some(sender));
+        let _ = OracleMock::mock("utilityGetIndexedTaggingSecretAsSender").returns(
+            indexed_tagging_secret,
+        );
+        let _ = OracleMock::mock("privateIncrementAppTaggingSecretIndexAsSender").returns(());
 
         let log_without_tag = [1, 2, 3];
         let log_with_tag = prefix_with_tag(log_without_tag, recipient);

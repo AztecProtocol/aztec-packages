@@ -35,6 +35,7 @@ describe('prover/orchestrator/public-functions', () => {
       tx.data.constants.historicalHeader = context.getBlockHeader(0);
       tx.data.constants.vkTreeRoot = getVKTreeRoot();
       tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
+      await tx.recomputeHash();
 
       // Since this TX is mocked/garbage, it will revert because it calls a non-existent contract,
       // but it reverts in app logic so it can still be included.
@@ -49,7 +50,7 @@ describe('prover/orchestrator/public-functions', () => {
       await context.orchestrator.addTxs(processed);
 
       const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
-      await context.orchestrator.finaliseEpoch();
+      await context.orchestrator.finalizeEpoch();
       expect(block.number).toEqual(context.blockNumber);
     });
 

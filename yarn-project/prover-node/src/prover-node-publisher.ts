@@ -1,6 +1,11 @@
 import { type BatchedBlob, FinalBlobAccumulatorPublicInputs } from '@aztec/blob-lib';
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
-import type { L1TxUtils, RollupContract } from '@aztec/ethereum';
+import {
+  type L1TxUtils,
+  type RollupContract,
+  RollupContract as RollupContractClass,
+  type ViemCommitteeAttestation,
+} from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
 import { areArraysEqual } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -21,9 +26,6 @@ import { type Hex, type TransactionReceipt, encodeFunctionData } from 'viem';
 
 import { ProverNodePublisherMetrics } from './metrics.js';
 
-/**
- * Stats for a sent transaction.
- */
 /** Arguments to the submitEpochProof method of the rollup contract */
 export type L1SubmitEpochProofArgs = {
   epochSize: number;
@@ -87,7 +89,7 @@ export class ProverNodePublisher {
   }
 
   public getSenderAddress() {
-    return EthAddress.fromString(this.l1TxUtils.getSenderAddress());
+    return this.l1TxUtils.getSenderAddress();
   }
 
   public async submitEpochProof(args: {
@@ -97,6 +99,7 @@ export class ProverNodePublisher {
     publicInputs: RootRollupPublicInputs;
     proof: Proof;
     batchedBlobInputs: BatchedBlob;
+    attestations: ViemCommitteeAttestation[];
   }): Promise<boolean> {
     const { epochNumber, fromBlock, toBlock } = args;
     const ctx = { epochNumber, fromBlock, toBlock };
@@ -111,13 +114,16 @@ export class ProverNodePublisher {
       }
 
       try {
-        this.metrics.recordSenderBalance(await this.l1TxUtils.getSenderBalance(), this.l1TxUtils.getSenderAddress());
+        this.metrics.recordSenderBalance(
+          await this.l1TxUtils.getSenderBalance(),
+          this.l1TxUtils.getSenderAddress().toString(),
+        );
       } catch (err) {
         this.log.warn(`Failed to record the ETH balance of the prover node: ${err}`);
       }
 
       // Tx was mined successfully
-      if (txReceipt.status) {
+      if (txReceipt.status === 'success') {
         const tx = await this.l1TxUtils.getTransactionStats(txReceipt.transactionHash);
         const stats: L1PublishProofStats = {
           gasPrice: txReceipt.effectiveGasPrice,
@@ -136,11 +142,11 @@ export class ProverNodePublisher {
       }
 
       this.metrics.recordFailedTx();
-      this.log.error(`Rollup.submitEpochProof tx status failed: ${txReceipt.transactionHash}`, ctx);
+      this.log.error(`Rollup.submitEpochProof tx status failed ${txReceipt.transactionHash}`, undefined, ctx);
       await this.sleepOrInterrupted();
     }
 
-    this.log.verbose('L2 block data syncing interrupted while processing blocks.', ctx);
+    this.log.verbose('L2 block data syncing interrupted', ctx);
     return false;
   }
 
@@ -150,6 +156,7 @@ export class ProverNodePublisher {
     publicInputs: RootRollupPublicInputs;
     proof: Proof;
     batchedBlobInputs: BatchedBlob;
+    attestations: ViemCommitteeAttestation[];
   }) {
     const { fromBlock, toBlock, publicInputs, batchedBlobInputs } = args;
 
@@ -207,21 +214,22 @@ export class ProverNodePublisher {
     publicInputs: RootRollupPublicInputs;
     proof: Proof;
     batchedBlobInputs: BatchedBlob;
+    attestations: ViemCommitteeAttestation[];
   }): Promise<TransactionReceipt | undefined> {
     const txArgs = [this.getSubmitEpochProofArgs(args)] as const;
 
-    this.log.info(`SubmitEpochProof proofSize=${args.proof.withoutPublicInputs().length} bytes`);
+    this.log.info(`Submitting epoch proof to L1 rollup contract`, {
+      proofSize: args.proof.withoutPublicInputs().length,
+      fromBlock: args.fromBlock,
+      toBlock: args.toBlock,
+    });
     const data = encodeFunctionData({
       abi: RollupAbi,
       functionName: 'submitEpochRootProof',
       args: txArgs,
     });
     try {
-      const { receipt } = await this.l1TxUtils.sendAndMonitorTransaction({
-        to: this.rollupContract.address,
-        data,
-      });
-
+      const { receipt } = await this.l1TxUtils.sendAndMonitorTransaction({ to: this.rollupContract.address, data });
       return receipt;
     } catch (err) {
       this.log.error(`Rollup submit epoch proof failed`, err);
@@ -246,6 +254,7 @@ export class ProverNodePublisher {
     toBlock: number;
     publicInputs: RootRollupPublicInputs;
     batchedBlobInputs: BatchedBlob;
+    attestations: ViemCommitteeAttestation[];
   }) {
     // Returns arguments for EpochProofLib.sol -> getEpochProofPublicInputs()
     return [
@@ -271,6 +280,7 @@ export class ProverNodePublisher {
     publicInputs: RootRollupPublicInputs;
     proof: Proof;
     batchedBlobInputs: BatchedBlob;
+    attestations: ViemCommitteeAttestation[];
   }) {
     // Returns arguments for EpochProofLib.sol -> submitEpochRootProof()
     const proofHex: Hex = `0x${args.proof.withoutPublicInputs().toString('hex')}`;
@@ -280,6 +290,7 @@ export class ProverNodePublisher {
       end: argsArray[1],
       args: argsArray[2],
       fees: argsArray[3],
+      attestations: RollupContractClass.packAttestations(args.attestations),
       blobInputs: argsArray[4],
       proof: proofHex,
     };

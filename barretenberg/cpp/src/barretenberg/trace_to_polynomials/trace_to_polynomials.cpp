@@ -21,19 +21,19 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder,
                                           ActiveRegionData& active_region_data)
 {
 
-    PROFILE_THIS_NAME("trace populate");
+    BB_BENCH_NAME("trace populate");
 
     auto copy_cycles = populate_wires_and_selectors_and_compute_copy_cycles(builder, polynomials, active_region_data);
 
     if constexpr (IsMegaFlavor<Flavor>) {
-        PROFILE_THIS_NAME("add_ecc_op_wires_to_proving_key");
+        BB_BENCH_NAME("add_ecc_op_wires_to_proving_key");
 
         add_ecc_op_wires_to_proving_key(builder, polynomials);
     }
 
     // Compute the permutation argument polynomials (sigma/id) and add them to proving key
     {
-        PROFILE_THIS_NAME("compute_permutation_argument_polynomials");
+        BB_BENCH_NAME("compute_permutation_argument_polynomials");
 
         compute_permutation_argument_polynomials<Flavor>(builder, polynomials, copy_cycles, active_region_data);
     }
@@ -44,13 +44,13 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
     Builder& builder, ProverPolynomials& polynomials, ActiveRegionData& active_region_data)
 {
 
-    PROFILE_THIS_NAME("construct_trace_data");
+    BB_BENCH_NAME("construct_trace_data");
 
     std::vector<CyclicPermutation> copy_cycles;
     copy_cycles.resize(builder.get_num_variables()); // at most one copy cycle per variable
 
     RefArray<Polynomial, NUM_WIRES> wires = polynomials.get_wires();
-    RefArray<Polynomial, NUM_SELECTORS> selectors = polynomials.get_selectors();
+    auto selectors = polynomials.get_selectors();
 
     // For each block in the trace, populate wire polys, copy cycles and selector polys
     for (auto& block : builder.blocks.get()) {
@@ -65,7 +65,7 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
         // Update wire polynomials and copy cycles
         // NB: The order of row/column loops is arbitrary but needs to be row/column to match old copy_cycle code
         {
-            PROFILE_THIS_NAME("populating wires and copy_cycles");
+            BB_BENCH_NAME("populating wires and copy_cycles");
 
             for (uint32_t block_row_idx = 0; block_row_idx < block_size; ++block_row_idx) {
                 for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
@@ -80,10 +80,11 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
             }
         }
 
+        RefVector<Selector<FF>> block_selectors = block.get_selectors();
         // Insert the selector values for this block into the selector polynomials at the correct offset
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/398): implicit arithmetization/flavor consistency
-        for (size_t selector_idx = 0; selector_idx < NUM_SELECTORS; selector_idx++) {
-            auto& selector = block.selectors[selector_idx];
+        for (size_t selector_idx = 0; selector_idx < block_selectors.size(); selector_idx++) {
+            auto& selector = block_selectors[selector_idx];
             for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
                 size_t trace_row_idx = row_idx + offset;
                 selectors[selector_idx].set_if_valid_index(trace_row_idx, selector[row_idx]);

@@ -4,20 +4,12 @@ pragma solidity >=0.8.27;
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {GovernanceBase} from "../base.t.sol";
-import {
-  IGovernance,
-  Proposal,
-  ProposalState,
-  Configuration
-} from "@aztec/governance/interfaces/IGovernance.sol";
+import {IGovernance, Proposal, ProposalState, Configuration} from "@aztec/governance/interfaces/IGovernance.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {UpgradePayload, FakeRollup} from "../TestPayloads.sol";
-import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 
 contract LockAndPassTest is GovernanceBase {
-  using ProposalLib for Proposal;
-
   function setUp() public override {
     super.setUp();
 
@@ -48,16 +40,16 @@ contract LockAndPassTest is GovernanceBase {
     token.approve(address(governance), config.minimumVotes);
     governance.deposit(address(this), config.minimumVotes);
 
-    vm.warp(Timestamp.unwrap(proposal.pendingThrough()) + 1);
+    vm.warp(Timestamp.unwrap(upw.pendingThrough(proposal)) + 1);
     assertEq(governance.getProposalState(proposalId), ProposalState.Active);
 
     vm.prank(address(this));
     governance.vote(proposalId, config.minimumVotes, true);
 
-    vm.warp(Timestamp.unwrap(proposal.activeThrough()) + 1);
+    vm.warp(Timestamp.unwrap(upw.activeThrough(proposal)) + 1);
     assertEq(governance.getProposalState(proposalId), ProposalState.Queued);
 
-    vm.warp(Timestamp.unwrap(proposal.queuedThrough()) + 1);
+    vm.warp(Timestamp.unwrap(upw.queuedThrough(proposal)) + 1);
     assertEq(governance.getProposalState(proposalId), ProposalState.Executable);
 
     assertNotEq(address(registry.getCanonicalRollup()), address(payload.NEW_ROLLUP()));

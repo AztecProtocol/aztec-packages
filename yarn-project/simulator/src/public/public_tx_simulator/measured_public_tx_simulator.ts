@@ -39,13 +39,6 @@ export class MeasuredPublicTxSimulator extends PublicTxSimulator {
     return avmResult;
   }
 
-  protected override async computeTxHash(tx: Tx) {
-    const timer = new Timer();
-    const txHash = await super.computeTxHash(tx);
-    this.metrics.recordTxHashComputation(timer.ms());
-    return txHash;
-  }
-
   protected override async insertNonRevertiblesFromPrivate(context: PublicTxContext, tx: Tx) {
     const timer = new Timer();
     await super.insertNonRevertiblesFromPrivate(context, tx);

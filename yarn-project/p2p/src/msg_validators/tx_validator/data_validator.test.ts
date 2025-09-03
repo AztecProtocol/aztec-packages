@@ -58,6 +58,7 @@ const mockTxsWithCCLog = (numTxs: number) =>
     );
     tx.contractClassLogFields.push(...logs);
     logHashes.forEach((hash, i) => (tx.data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes[i] = hash));
+    await tx.recomputeHash();
     return tx;
   });
 
@@ -70,11 +71,13 @@ describe('TxDataValidator', () => {
 
   const expectValid = async (txs: Tx[]) => {
     for (const tx of txs) {
+      await tx.recomputeHash();
       await expect(validator.validateTx(tx)).resolves.toEqual({ result: 'valid' });
     }
   };
 
   const expectInvalid = async (tx: Tx, reason: string) => {
+    await tx.recomputeHash();
     await expect(validator.validateTx(tx)).resolves.toEqual({ result: 'invalid', reason: [reason] });
   };
 

@@ -42,7 +42,7 @@ class PGInternalTest : public ProtogalaxyProverInternal<DeciderProvingKeys_<Flav
         const UnivariateRelationParametersNoOptimisticSkipping& relation_parameters,
         const UnivariateSubrelationSeparators& alphas)
     {
-        TupleOfTuplesOfUnivariatesNoOptimisticSkipping accumulators;
+        TupleOfTuplesOfUnivariatesNoOptimisticSkipping accumulators{};
         return compute_combiner_no_optimistic_skipping(
             keys, gate_separators, relation_parameters, alphas, accumulators);
     }
@@ -65,7 +65,7 @@ class PGInternalTest : public ProtogalaxyProverInternal<DeciderProvingKeys_<Flav
         const UnivariateSubrelationSeparators& alphas,
         TupleOfTuplesOfUnivariatesNoOptimisticSkipping& univariate_accumulators)
     {
-        PROFILE_THIS();
+        BB_BENCH();
 
         // Determine the number of threads over which to distribute the work
         // The polynomial size is given by the virtual size since the computation includes
@@ -73,10 +73,11 @@ class PGInternalTest : public ProtogalaxyProverInternal<DeciderProvingKeys_<Flav
         const size_t common_polynomial_size = keys[0]->polynomials.w_l.virtual_size();
         const size_t num_threads = compute_num_threads(common_polynomial_size);
 
-        // Univariates are optimised for usual PG, but we need the unoptimised version for tests (it's a version that
+        // Univariates are optimized for usual PG, but we need the unoptimized version for tests (it's a version that
         // doesn't skip computation), so we need to define types depending on the template instantiation
         using ThreadAccumulators = TupleOfTuplesOfUnivariatesNoOptimisticSkipping;
         // Construct univariate accumulator containers; one per thread
+        // Note: std::vector will trigger {}-initialization of the contents. Therefore no need to zero the univariates.
         std::vector<ThreadAccumulators> thread_univariate_accumulators(num_threads);
 
         // Distribute the execution trace rows across threads so that each handles an equal number of active rows
@@ -84,8 +85,6 @@ class PGInternalTest : public ProtogalaxyProverInternal<DeciderProvingKeys_<Flav
 
         // Accumulate the contribution from each sub-relation
         parallel_for(num_threads, [&](size_t thread_idx) {
-            // Initialize the thread accumulator to 0
-            RelationUtils::zero_univariates(thread_univariate_accumulators[thread_idx]);
             // Construct extended univariates containers; one per thread
             ExtendedUnivariatesTypeNoOptimisticSkipping extended_univariates;
 
@@ -93,7 +92,7 @@ class PGInternalTest : public ProtogalaxyProverInternal<DeciderProvingKeys_<Flav
                 for (size_t idx = range.first; idx < range.second; idx++) {
                     // Instantiate univariates, possibly with skipping toto ignore computation in those indices (they
                     // are still available for skipping relations, but all derived univariate will ignore those
-                    // evaluations) No need to initialise extended_univariates to 0, as it's assigned to.
+                    // evaluations) No need to initialize extended_univariates to 0, as it's assigned to.
                     constexpr size_t skip_count = 0;
                     extend_univariates<skip_count>(extended_univariates, keys, idx);
 
@@ -118,7 +117,7 @@ class PGInternalTest : public ProtogalaxyProverInternal<DeciderProvingKeys_<Flav
         }
         // This does nothing if TupleOfTuples is TupleOfTuplesOfUnivariates
         TupleOfTuplesOfUnivariatesNoOptimisticSkipping deoptimized_univariates =
-            deoptimise_univariates(univariate_accumulators);
+            deoptimize_univariates(univariate_accumulators);
         //  Batch the univariate contributions from each sub-relation to obtain the round univariate
         return batch_over_relations(deoptimized_univariates, alphas);
     }
@@ -180,7 +179,8 @@ TEST(Protogalaxy, CombinerOn2Keys)
         std::fill(polys.q_arith.coeffs().begin(), polys.q_arith.coeffs().end(), 1);
         std::fill(polys.q_delta_range.coeffs().begin(), polys.q_delta_range.coeffs().end(), 0);
         std::fill(polys.q_elliptic.coeffs().begin(), polys.q_elliptic.coeffs().end(), 0);
-        std::fill(polys.q_aux.coeffs().begin(), polys.q_aux.coeffs().end(), 0);
+        std::fill(polys.q_memory.coeffs().begin(), polys.q_memory.coeffs().end(), 0);
+        std::fill(polys.q_nnf.coeffs().begin(), polys.q_nnf.coeffs().end(), 0);
         std::fill(polys.q_lookup.coeffs().begin(), polys.q_lookup.coeffs().end(), 0);
         std::fill(polys.q_4.coeffs().begin(), polys.q_4.coeffs().end(), 0);
         std::fill(polys.q_poseidon2_external.coeffs().begin(), polys.q_poseidon2_external.coeffs().end(), 0);
@@ -215,18 +215,18 @@ TEST(Protogalaxy, CombinerOn2Keys)
             auto result_no_skipping = pg_internal.compute_combiner_no_optimistic_skipping(
                 keys, gate_separators, univariate_relation_parameters_no_skpping, alphas);
             // The expected_result values are computed by running the python script combiner_example_gen.py
-            auto expected_result = Univariate<FF, 12>(std::array<FF, 12>{ 11480UL,
-                                                                          14117208UL,
-                                                                          78456280UL,
-                                                                          230777432UL,
-                                                                          508829400UL,
-                                                                          950360920UL,
-                                                                          1593120728UL,
-                                                                          2474857560UL,
-                                                                          3633320152UL,
-                                                                          5106257240UL,
-                                                                          6931417560UL,
-                                                                          9146549848UL });
+            auto expected_result = Univariate<FF, 12>(std::array<FF, 12>{ 12104UL,
+                                                                          14414024UL,
+                                                                          79442504UL,
+                                                                          232846280UL,
+                                                                          512374088UL,
+                                                                          955774664UL,
+                                                                          1600796744UL,
+                                                                          2485189064UL,
+                                                                          3646700360UL,
+                                                                          5123079368UL,
+                                                                          6952074824UL,
+                                                                          9171435464UL });
             EXPECT_EQ(result_no_skipping, expected_result);
         } else {
             std::vector<std::shared_ptr<DeciderProvingKey>> keys_data(NUM_KEYS);
@@ -319,7 +319,8 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
         std::fill(polys.q_arith.coeffs().begin(), polys.q_arith.coeffs().end(), 1);
         std::fill(polys.q_delta_range.coeffs().begin(), polys.q_delta_range.coeffs().end(), 0);
         std::fill(polys.q_elliptic.coeffs().begin(), polys.q_elliptic.coeffs().end(), 0);
-        std::fill(polys.q_aux.coeffs().begin(), polys.q_aux.coeffs().end(), 0);
+        std::fill(polys.q_memory.coeffs().begin(), polys.q_memory.coeffs().end(), 0);
+        std::fill(polys.q_nnf.coeffs().begin(), polys.q_nnf.coeffs().end(), 0);
         std::fill(polys.q_lookup.coeffs().begin(), polys.q_lookup.coeffs().end(), 0);
         std::fill(polys.q_4.coeffs().begin(), polys.q_4.coeffs().end(), 0);
         std::fill(polys.w_4.coeffs().begin(), polys.w_4.coeffs().end(), 0);
@@ -333,7 +334,7 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
         // relation.
         if (is_random_input) {
             std::vector<std::shared_ptr<DeciderProvingKey>> keys_data(NUM_KEYS);
-            ASSERT(NUM_KEYS == 2); // Don't want to handle more here
+            ASSERT_EQ(NUM_KEYS, 2U); // Don't want to handle more here
 
             for (size_t idx = 0; idx < NUM_KEYS; idx++) {
                 auto key = std::make_shared<DeciderProvingKey>();
@@ -353,7 +354,9 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             // Relation parameters are all zeroes
             RelationParameters<FF> relation_parameters;
             // Temporary accumulator to compute the sumcheck on the second key
-            typename Flavor::TupleOfArraysOfValues temporary_accumulator;
+            // Note: {} is required to initialize the tuple contents. Otherwise the values contain garbage.
+            using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<typename Flavor::Relations>());
+            TupleOfArraysOfValues temporary_accumulator{};
 
             // Accumulate arithmetic relation over 2 rows on the second key
             for (size_t i = 0; i < 2; i++) {
@@ -388,8 +391,8 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             std::array<FF, UNIVARIATE_LENGTH> precomputed_result{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
             // Compute the sum for each index separately, treating each extended key independently
             for (size_t idx = 0; idx < UNIVARIATE_LENGTH; idx++) {
-
-                typename Flavor::TupleOfArraysOfValues accumulator;
+                // Note: {} is required to initialize the tuple contents. Otherwise the values contain garbage.
+                TupleOfArraysOfValues accumulator{};
                 if (idx < NUM_KEYS) {
                     for (size_t i = 0; i < 2; i++) {
                         UltraArithmeticRelation::accumulate(std::get<0>(accumulator),

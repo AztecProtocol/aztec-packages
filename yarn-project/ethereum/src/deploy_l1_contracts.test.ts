@@ -1,4 +1,5 @@
 import { times } from '@aztec/foundation/collection';
+import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -7,10 +8,12 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { createEthereumChain } from './chain.js';
+import { createExtendedL1Client } from './client.js';
 import { DefaultL1ContractsConfig } from './config.js';
 import { RollupContract } from './contracts/rollup.js';
 import { type DeployL1ContractsArgs, type Operator, deployL1Contracts } from './deploy_l1_contracts.js';
 import { startAnvil } from './test/start_anvil.js';
+import type { ExtendedViemWalletClient } from './types.js';
 
 describe('deploy_l1_contracts', () => {
   let privateKey: PrivateKeyAccount;
@@ -26,6 +29,7 @@ describe('deploy_l1_contracts', () => {
   // LOG_LEVEL=verbose L1_RPC_URL=http://localhost:8545 L1_CHAIN_ID=1337 yarn test deploy_l1_contracts
   const chainId = process.env.L1_CHAIN_ID ? parseInt(process.env.L1_CHAIN_ID, 10) : 31337;
   let rpcUrl = process.env.L1_RPC_URL;
+  let client: ExtendedViemWalletClient;
   let stop: () => Promise<void> = () => Promise.resolve();
 
   beforeAll(async () => {
@@ -38,11 +42,14 @@ describe('deploy_l1_contracts', () => {
     initialValidators = times(3, () => ({
       attester: EthAddress.random(),
       withdrawer: EthAddress.random(),
+      bn254SecretKey: new SecretValue(Fr.random().toBigInt()),
     }));
 
     if (!rpcUrl) {
       ({ stop, rpcUrl } = await startAnvil());
     }
+
+    client = createExtendedL1Client([rpcUrl], privateKey, createEthereumChain([rpcUrl], chainId).chainInfo);
   });
 
   afterAll(async () => {
@@ -70,13 +77,20 @@ describe('deploy_l1_contracts', () => {
   const getRollup = (deployed: Awaited<ReturnType<typeof deploy>>) =>
     new RollupContract(deployed.l1Client, deployed.l1ContractAddresses.rollupAddress);
 
+  const checkRollupDeploy = async (deployed: Awaited<ReturnType<typeof deploy>>) => {
+    const rollup = getRollup(deployed);
+    expect(await rollup.getEpochDuration()).toEqual(BigInt(DefaultL1ContractsConfig.aztecEpochDuration));
+    return rollup;
+  };
+
   it('deploys without salt', async () => {
-    await deploy();
+    const deployed = await deploy();
+    await checkRollupDeploy(deployed);
   });
 
   it('deploys initializing validators', async () => {
     const deployed = await deploy({ initialValidators });
-    const rollup = getRollup(deployed);
+    const rollup = await checkRollupDeploy(deployed);
     await Promise.all(
       initialValidators.map(async validator => {
         await retryUntil(
@@ -97,6 +111,8 @@ describe('deploy_l1_contracts', () => {
     const second = await deploy({ salt: 43 });
 
     expect(first.l1ContractAddresses).not.toEqual(second.l1ContractAddresses);
+    await checkRollupDeploy(first);
+    await checkRollupDeploy(second);
   });
 
   it('deploys twice with salt on same addresses', async () => {
@@ -104,6 +120,7 @@ describe('deploy_l1_contracts', () => {
     const second = await deploy({ salt: 44 });
 
     expect(first.l1ContractAddresses).toEqual(second.l1ContractAddresses);
+    await checkRollupDeploy(first);
   });
 
   it('deploys twice with salt on same addresses initializing validators', async () => {
@@ -124,5 +141,22 @@ describe('deploy_l1_contracts', () => {
         1,
       );
     }
+  });
+
+  it('deploys and adds 48 initialValidators', async () => {
+    // Adds 48 validators.
+    // Note, that not all 48 validators is necessarily added in the active set, some might be in the entry queue
+
+    const initialValidators = times(48, () => {
+      const addr = EthAddress.random();
+      const bn254SecretKey = new SecretValue(Fr.random().toBigInt());
+      return { attester: addr, withdrawer: addr, bn254SecretKey };
+    });
+    const info = await deploy({ initialValidators, aztecTargetCommitteeSize: initialValidators.length });
+    const rollup = new RollupContract(client, info.l1ContractAddresses.rollupAddress);
+
+    expect((await rollup.getActiveAttesterCount()) + (await rollup.getEntryQueueLength())).toEqual(
+      BigInt(initialValidators.length),
+    );
   });
 });

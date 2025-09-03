@@ -70,23 +70,24 @@
  */
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/common/std_vector.hpp"
+#include "barretenberg/common/tuple.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/honk/types/circuit_type.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/public_input_component/public_component_key.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
-#include "barretenberg/stdlib_circuit_builders/public_component_key.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 #include <array>
@@ -98,11 +99,19 @@
 
 namespace bb {
 
+/**
+ * @brief Enum to control verification key metadata serialization
+ */
+enum class VKSerializationMode : std::uint8_t {
+    FULL,       // Serialize all metadata (log_circuit_size, num_public_inputs, pub_inputs_offset)
+    NO_METADATA // Serialize only commitments, no metadata
+};
+
 // Specifies the regions of the execution trace containing non-trivial wire values
 struct ActiveRegionData {
     void add_range(const size_t start, const size_t end)
     {
-        ASSERT(start >= current_end); // ranges should be non-overlapping and increasing
+        BB_ASSERT_GTE(start, current_end, "Ranges should be non-overlapping and increasing.");
         ranges.emplace_back(start, end);
         for (size_t i = start; i < end; ++i) {
             idxs.push_back(i);
@@ -147,11 +156,12 @@ template <typename Polynomial, size_t NUM_PRECOMPUTED_ENTITIES> struct Precomput
  *
  * @tparam PrecomputedEntities An instance of PrecomputedEntities_ with affine_element data type and handle type.
  */
-template <typename PrecomputedCommitments, typename Transcript>
+template <typename PrecomputedCommitments,
+          typename Transcript,
+          VKSerializationMode SerializeMetadata = VKSerializationMode::FULL>
 class NativeVerificationKey_ : public PrecomputedCommitments {
   public:
     using Commitment = typename PrecomputedCommitments::DataType;
-    uint64_t circuit_size = 0;
     uint64_t log_circuit_size = 0;
     uint64_t num_public_inputs = 0;
     uint64_t pub_inputs_offset = 0;
@@ -161,51 +171,103 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     NativeVerificationKey_() = default;
     NativeVerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
     {
-        this->circuit_size = circuit_size;
         this->log_circuit_size = numeric::get_msb(circuit_size);
         this->num_public_inputs = num_public_inputs;
     };
+
+    /**
+     * @brief Calculate the number of field elements needed for serialization
+     * @return size_t Number of field elements
+     */
+    static size_t calc_num_data_types()
+    {
+        using namespace bb::field_conversion;
+        // Create a temporary instance to get the number of precomputed entities
+        size_t commitments_size =
+            PrecomputedCommitments::size() * Transcript::template calc_num_data_types<Commitment>();
+        size_t metadata_size = 0;
+        if constexpr (SerializeMetadata == VKSerializationMode::FULL) {
+            // 3 metadata fields + commitments
+            metadata_size = 3 * Transcript::template calc_num_data_types<uint64_t>();
+        }
+        // else NO_METADATA: metadata_size remains 0
+        return metadata_size + commitments_size;
+    }
 
     /**
      * @brief Serialize verification key to field elements
      *
      * @return std::vector<FF>
      */
-    virtual std::vector<fr> to_field_elements() const
+    virtual std::vector<typename Transcript::DataType> to_field_elements() const
     {
         using namespace bb::field_conversion;
 
-        auto serialize_to_field_buffer = [](const auto& input, std::vector<fr>& buffer) {
-            std::vector<fr> input_fields = convert_to_bn254_frs(input);
+        auto serialize = [](const auto& input, std::vector<typename Transcript::DataType>& buffer) {
+            std::vector<typename Transcript::DataType> input_fields = Transcript::serialize(input);
             buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
         };
 
-        std::vector<fr> elements;
+        std::vector<typename Transcript::DataType> elements;
 
-        serialize_to_field_buffer(this->circuit_size, elements);
-        serialize_to_field_buffer(this->num_public_inputs, elements);
-        serialize_to_field_buffer(this->pub_inputs_offset, elements);
+        if constexpr (SerializeMetadata == VKSerializationMode::FULL) {
+            serialize(this->log_circuit_size, elements);
+            serialize(this->num_public_inputs, elements);
+            serialize(this->pub_inputs_offset, elements);
+        }
+        // else NO_METADATA: skip metadata serialization
 
         for (const Commitment& commitment : this->get_all()) {
-            serialize_to_field_buffer(commitment, elements);
+            serialize(commitment, elements);
         }
 
+        NativeVerificationKey_ key;
+        key.from_field_elements(elements);
         return elements;
     };
+
+    /**
+     * @brief Populate verification key from field elements
+     * @param elements Field elements to deserialize from
+     */
+    size_t from_field_elements(const std::span<const typename Transcript::DataType>& elements)
+    {
+        using namespace bb::field_conversion;
+
+        size_t idx = 0;
+        auto deserialize = [&idx, &elements]<typename T>(T& target) {
+            size_t size = Transcript::template calc_num_data_types<T>();
+            target = Transcript::template deserialize<T>(elements.subspan(idx, size));
+            idx += size;
+        };
+
+        if constexpr (SerializeMetadata == VKSerializationMode::FULL) {
+            deserialize(this->log_circuit_size);
+            deserialize(this->num_public_inputs);
+            deserialize(this->pub_inputs_offset);
+        }
+        // else NO_METADATA: skip metadata deserialization
+
+        for (Commitment& commitment : this->get_all()) {
+            deserialize(commitment);
+        }
+        return idx;
+    }
 
     /**
      * @brief A model function to show how to compute the VK hash(without the Transcript abstracting things away)
      * @details Currently only used in testing.
      * @return FF
      */
-    fr hash()
+    fr hash() const
     {
-        fr vk_hash = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(this->to_field_elements());
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1498): should hash be dependent on transcript?
+        fr vk_hash = Transcript::hash(this->to_field_elements());
         return vk_hash;
     }
 
     /**
-     * @brief Adds the verification key hash to the transcript and returns the hash.
+     * @brief Hashes the vk using the transcript's independent buffer and returns the hash.
      * @details Needed to make sure the Origin Tag system works. We need to set the origin tags of the VK witnesses in
      * the transcript. If we instead did the hashing outside of the transcript and submitted just the hash, only the
      * origin tag of the hash would be set properly. We want to avoid backpropagating origin tags to the actual VK
@@ -216,9 +278,10 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      * @param transcript
      * @returns The hash of the verification key
      */
-    virtual fr add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const
+    virtual typename Transcript::DataType hash_through_transcript(const std::string& domain_separator,
+                                                                  Transcript& transcript) const
     {
-        transcript.add_to_independent_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
+        transcript.add_to_independent_hash_buffer(domain_separator + "vk_log_circuit_size", this->log_circuit_size);
         transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
         transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
 
@@ -226,8 +289,8 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
             transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
         }
 
-        return transcript.hash_independent_buffer(domain_separator + "vk_hash");
-    };
+        return transcript.hash_independent_buffer();
+    }
 };
 
 /**
@@ -236,15 +299,17 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
  * @tparam Builder
  * @tparam FF
  * @tparam PrecomputedCommitments
+ * @tparam SerializeMetadata Controls how metadata is serialized (FULL, NO_METADATA)
  */
-template <typename Builder_, typename PrecomputedCommitments>
+template <typename Builder_,
+          typename PrecomputedCommitments,
+          VKSerializationMode SerializeMetadata = VKSerializationMode::FULL>
 class StdlibVerificationKey_ : public PrecomputedCommitments {
   public:
     using Builder = Builder_;
     using FF = stdlib::field_t<Builder>;
     using Commitment = typename PrecomputedCommitments::DataType;
     using Transcript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
-    FF circuit_size;
     FF log_circuit_size;
     FF num_public_inputs;
     FF pub_inputs_offset = 0;
@@ -254,7 +319,6 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
     StdlibVerificationKey_() = default;
     StdlibVerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
     {
-        this->circuit_size = circuit_size;
         this->log_circuit_size = numeric::get_msb(circuit_size);
         this->num_public_inputs = num_public_inputs;
     };
@@ -275,7 +339,7 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
 
         std::vector<FF> elements;
 
-        serialize_to_field_buffer(this->circuit_size, elements);
+        serialize_to_field_buffer(this->log_circuit_size, elements);
         serialize_to_field_buffer(this->num_public_inputs, elements);
         serialize_to_field_buffer(this->pub_inputs_offset, elements);
 
@@ -299,7 +363,7 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
     }
 
     /**
-     * @brief Adds the verification key hash to the transcript and returns the hash.
+     * @brief Hashes the vk using the transcript's independent buffer and returns the hash.
      * @details Needed to make sure the Origin Tag system works. We need to set the origin tags of the VK witnesses in
      * the transcript. If we instead did the hashing outside of the transcript and submitted just the hash, only the
      * origin tag of the hash would be set properly. We want to avoid backpropagating origin tags to the actual VK
@@ -310,17 +374,16 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
      * @param transcript
      * @returns The hash of the verification key
      */
-    virtual FF add_hash_to_transcript(const std::string& domain_separator, Transcript& transcript) const
+    virtual FF hash_through_transcript(const std::string& domain_separator, Transcript& transcript) const
     {
-        transcript.add_to_independent_hash_buffer(domain_separator + "vk_circuit_size", this->circuit_size);
+        transcript.add_to_independent_hash_buffer(domain_separator + "vk_log_circuit_size", this->log_circuit_size);
         transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
         transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
         for (const Commitment& commitment : this->get_all()) {
             transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
         }
-
-        return transcript.hash_independent_buffer(domain_separator + "vk_hash");
-    };
+        return transcript.hash_independent_buffer();
+    }
 };
 
 template <typename FF, typename VerificationKey> class VKAndHash_ {
@@ -396,19 +459,19 @@ template <typename Tuple> constexpr size_t compute_number_of_subrelations()
  * tuple of univariates whose size is equal to the number of subrelations of the relation. The length of a
  * univariate in an inner tuple is determined by the corresponding subrelation length and the number of keys to be
  * folded.
- * @tparam optimised Enable optimised version with skipping some of the computation
+ * @tparam optimized Enable optimized version with skipping some of the computation
  */
-template <typename Tuple, size_t NUM_KEYS, bool optimised = false>
+template <typename Tuple, size_t NUM_KEYS, bool optimized = false>
 constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
 {
     constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
     return []<size_t... I>(std::index_sequence<I...>) {
-        if constexpr (optimised) {
-            return std::make_tuple(
+        if constexpr (optimized) {
+            return flat_tuple::make_tuple(
                 typename std::tuple_element_t<I, Tuple>::template ProtogalaxyTupleOfUnivariatesOverSubrelations<
                     NUM_KEYS>{}...);
         } else {
-            return std::make_tuple(
+            return flat_tuple::make_tuple(
                 typename std::tuple_element_t<I, Tuple>::
                     template ProtogalaxyTupleOfUnivariatesOverSubrelationsNoOptimisticSkipping<NUM_KEYS>{}...);
         }
@@ -421,17 +484,12 @@ constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
  * tuple of univariates whose size is equal to the number of subrelations of the relation. The length of a
  * univariate in an inner tuple is determined by the corresponding subrelation length.
  */
-template <typename Tuple, bool ZK = false> constexpr auto create_sumcheck_tuple_of_tuples_of_univariates()
+template <typename RelationsTuple> constexpr auto create_sumcheck_tuple_of_tuples_of_univariates()
 {
-    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
+    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<RelationsTuple>>();
     return []<size_t... I>(std::index_sequence<I...>) {
-        if constexpr (ZK) {
-            return std::make_tuple(
-                typename std::tuple_element_t<I, Tuple>::ZKSumcheckTupleOfUnivariatesOverSubrelations{}...);
-        } else {
-            return std::make_tuple(
-                typename std::tuple_element_t<I, Tuple>::SumcheckTupleOfUnivariatesOverSubrelations{}...);
-        }
+        return flat_tuple::make_tuple(
+            typename std::tuple_element_t<I, RelationsTuple>::SumcheckTupleOfUnivariatesOverSubrelations{}...);
     }(seq);
 }
 
@@ -440,11 +498,12 @@ template <typename Tuple, bool ZK = false> constexpr auto create_sumcheck_tuple_
  * @details Container for storing value of each identity in each relation. Each Relation contributes an array of
  * length num-identities.
  */
-template <typename Tuple> constexpr auto create_tuple_of_arrays_of_values()
+template <typename RelationsTuple> constexpr auto create_tuple_of_arrays_of_values()
 {
-    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
+    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<RelationsTuple>>();
     return []<size_t... I>(std::index_sequence<I...>) {
-        return std::make_tuple(typename std::tuple_element_t<I, Tuple>::SumcheckArrayOfValuesOverSubrelations{}...);
+        return flat_tuple::make_tuple(
+            typename std::tuple_element_t<I, RelationsTuple>::SumcheckArrayOfValuesOverSubrelations{}...);
     }(seq);
 }
 
@@ -474,6 +533,44 @@ template <typename BuilderType> class UltraZKRecursiveFlavor_;
 template <typename BuilderType> class UltraRollupRecursiveFlavor_;
 template <typename BuilderType> class MegaRecursiveFlavor_;
 template <typename BuilderType> class MegaZKRecursiveFlavor_;
+
+// Serialization methods for NativeVerificationKey_.
+// These should cover all base classes that do not need additional members, as long as the appropriate SerializeMetadata
+// is set in the template parameters.
+template <typename PrecomputedCommitments, typename Transcript, VKSerializationMode SerializeMetadata>
+inline void read(uint8_t const*& it, NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata>& vk)
+{
+    using serialize::read;
+
+    // Get the size directly from the static method
+    size_t num_frs =
+        NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata>::calc_num_data_types();
+
+    // Read exactly num_frs field elements from the buffer
+    std::vector<typename Transcript::DataType> field_elements(num_frs);
+    for (auto& element : field_elements) {
+        read(it, element);
+    }
+    // Then use from_field_elements to populate the verification key
+    vk.from_field_elements(field_elements);
+}
+
+template <typename PrecomputedCommitments, typename Transcript, VKSerializationMode SerializeMetadata>
+inline void write(std::vector<uint8_t>& buf,
+                  NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata> const& vk)
+{
+    using serialize::write;
+    size_t before = buf.size();
+    // Convert to field elements and write them directly without length prefix
+    auto field_elements = vk.to_field_elements();
+    for (const auto& element : field_elements) {
+        write(buf, element);
+    }
+    size_t after = buf.size();
+    size_t num_frs =
+        NativeVerificationKey_<PrecomputedCommitments, Transcript, SerializeMetadata>::calc_num_data_types();
+    BB_ASSERT_EQ(after - before, num_frs * sizeof(bb::fr), "VK serialization mismatch");
+}
 
 namespace avm2 {
 class AvmRecursiveFlavor;

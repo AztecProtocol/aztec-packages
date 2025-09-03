@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "circuit_builder_base.hpp"
 
@@ -92,7 +93,7 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_variable(const FF&
 
 template <typename FF_> void CircuitBuilderBase<FF_>::set_variable_name(uint32_t index, const std::string& name)
 {
-    ASSERT(variables.size() > index);
+    BB_ASSERT_GT(variables.size(), index);
     uint32_t first_idx = get_first_variable_in_class(index);
 
     if (variable_names.contains(first_idx)) {
@@ -125,30 +126,6 @@ template <typename FF_> void CircuitBuilderBase<FF_>::update_variable_names(uint
         return;
     }
     failure("No previously assigned names found");
-}
-
-template <typename FF_> void CircuitBuilderBase<FF_>::finalize_variable_names()
-{
-    std::vector<uint32_t> keys;
-    std::vector<uint32_t> firsts;
-
-    for (auto& tup : variable_names) {
-        keys.push_back(tup.first);
-        firsts.push_back(get_first_variable_in_class(tup.first));
-    }
-
-    for (size_t i = 0; i < keys.size() - 1; i++) {
-        for (size_t j = i + 1; j < keys.size(); i++) {
-            uint32_t first_idx_a = firsts[i];
-            uint32_t first_idx_b = firsts[j];
-            if (first_idx_a == first_idx_b) {
-                std::string substr1 = variable_names[keys[i]];
-                std::string substr2 = variable_names[keys[j]];
-                failure("Variables from the same equivalence class have separate names: " + substr2 + ", " + substr2);
-                update_variable_names(first_idx_b);
-            }
-        }
-    }
 }
 
 template <typename FF_> size_t CircuitBuilderBase<FF_>::get_circuit_subgroup_size(const size_t num_gates) const
@@ -236,7 +213,7 @@ template <typename FF_>
 void CircuitBuilderBase<FF_>::assert_valid_variables(const std::vector<uint32_t>& variable_indices)
 {
     for (const auto& variable_index : variable_indices) {
-        ASSERT(is_valid_variable(variable_index));
+        BB_ASSERT_LT(variable_index, variables.size());
     }
 }
 
@@ -259,8 +236,8 @@ template <typename FF_> void CircuitBuilderBase<FF_>::failure(std::string msg)
 {
 #ifndef FUZZING_DISABLE_WARNINGS
     if (!has_dummy_witnesses) {
-        // We have a builder failure when we have real witnesses which is a mistake.
-        info("(Experimental) WARNING: Builder failure when we have real witnesses!"); // not a catch-all error
+        // Not a catch-all error log. We have a builder failure when we have real witnesses which is a mistake.
+        info("(Experimental) WARNING: Builder failure when we have real witnesses! Ignore if writing vk.");
     }
 #endif
     _failed = true;

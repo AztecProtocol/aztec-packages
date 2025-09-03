@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/common/assert.hpp"
 #include <type_traits>
 namespace bb::numeric {
 
@@ -21,7 +22,7 @@ namespace bb::numeric {
  */
 template <typename T> constexpr T ceil_div(const T& numerator, const T& denominator)
 {
-    ASSERT(denominator > 0, "Denominator must be greater than zero.");
+    ASSERT_IN_CONSTEXPR(denominator > 0, "Denominator must be greater than zero.");
     static_assert(std::is_integral_v<T>, "Type must be an integral type.");
     return (numerator + denominator - 1) / denominator;
 }

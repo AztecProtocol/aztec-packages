@@ -25,7 +25,7 @@ namespace bb {
  * Translator flavor. It is similar in structure to its native counterpart with two main differences: 1) the
  * curve types are stdlib types (e.g. field_t instead of field) and 2) it does not specify any Prover related types
  * (e.g. Polynomial, ExtendedEdges, etc.) since we do not emulate prover computation in circuits, i.e. it only makes
- * sense to instantiate a Verifier with this flavor. We reuse the native flavor to initialise identical  constructions.
+ * sense to instantiate a Verifier with this flavor. We reuse the native flavor to initialize identical  constructions.
  * @tparam BuilderType Determines the arithmetization of the verifier circuit defined based on this flavor.
  */
 class TranslatorRecursiveFlavor {
@@ -85,9 +85,6 @@ class TranslatorRecursiveFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    // define the containers for storing the contributions from each relation in Sumcheck
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
-
     /**
      * @brief A field element for each entity of the flavor.  These entities represent the prover polynomials
      * evaluated at one point.
@@ -105,15 +102,14 @@ class TranslatorRecursiveFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey
-        : public StdlibVerificationKey_<CircuitBuilder, TranslatorFlavor::PrecomputedEntities<Commitment>> {
+    class VerificationKey : public StdlibVerificationKey_<CircuitBuilder,
+                                                          TranslatorFlavor::PrecomputedEntities<Commitment>,
+                                                          VKSerializationMode::NO_METADATA> {
       public:
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and
-            // `log_circuit_size` from MSGPACK and the verification key.
-            this->circuit_size = FF{ 1UL << TranslatorFlavor::CONST_TRANSLATOR_LOG_N };
-            this->circuit_size.convert_constant_to_fixed_witness(builder);
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `log_circuit_size` from MSGPACK
+            // and the verification key.
             this->log_circuit_size = FF{ uint64_t(TranslatorFlavor::CONST_TRANSLATOR_LOG_N) };
             this->log_circuit_size.convert_constant_to_fixed_witness(builder);
             this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
@@ -125,42 +121,22 @@ class TranslatorRecursiveFlavor {
         }
 
         /**
-         * @brief Serialize verification key to field elements.
-         *
-         * @return std::vector<FF>
-         */
-        std::vector<FF> to_field_elements() const override
-        {
-            using namespace bb::stdlib::field_conversion;
-            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<FF>& buffer) {
-                std::vector<FF> input_fields = convert_to_bn254_frs<CircuitBuilder, T>(input);
-                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
-            };
-
-            std::vector<FF> elements;
-            for (const Commitment& commitment : this->get_all()) {
-                serialize_to_field_buffer(commitment, elements);
-            }
-
-            return elements;
-        }
-
-        /**
-         * @brief Adds the verification key hash to the transcript and returns the hash.
-         * @details Needed to make sure the Origin Tag system works. See the base class function for
-         * more details.
+         * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
          *
          * @param domain_separator
          * @param transcript
          */
-        FF add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
-                                  [[maybe_unused]] Transcript& transcript) const override
+        FF hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
+                                   [[maybe_unused]] Transcript& transcript) const override
         {
-            for (const Commitment& commitment : this->get_all()) {
-                transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
-            }
+            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
+        }
 
-            return transcript.hash_independent_buffer(domain_separator + "vk_hash");
+        void fix_witness()
+        {
+            for (Commitment& commitment : this->get_all()) {
+                commitment.fix_witness();
+            }
         }
     };
 

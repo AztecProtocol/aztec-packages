@@ -9,8 +9,8 @@ impl Empty for Scalar {
     }
 }
 
-// Note: Not deriving this because it's currently not supported to call derive_serialize on a "remote" struct.
-// See this conversation on slack for more details: https://aztecprotocol.slack.com/archives/C04QF64EDNV/p1745445181590219
+// Note: Not deriving this because it's not supported to call derive_serialize on a "remote" struct (and it will never
+// be supported).
 impl Serialize for Scalar {
     let N: u32 = SCALAR_SIZE;
 

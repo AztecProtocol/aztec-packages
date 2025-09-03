@@ -5,6 +5,7 @@
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
+#include "gmock/gmock.h"
 #include <cstddef>
 #include <gtest/gtest.h>
 
@@ -112,7 +113,7 @@ TYPED_TEST(SafeUintTest, TestMultiplyOperationOutOfRangeFails)
         FAIL() << "Expected out of range error";
     } catch (std::runtime_error const& err) {
         EXPECT_TRUE(CircuitChecker::check(builder)); // no failing constraints should be created from multiply
-        EXPECT_EQ(err.what(), std::string("exceeded modulus in safe_uint class"));
+        EXPECT_THAT(err.what(), testing::HasSubstr("exceeded modulus in safe_uint class"));
     } catch (...) {
         FAIL() << "Expected std::runtime_error modulus in safe_uint class";
     }
@@ -145,7 +146,7 @@ TYPED_TEST(SafeUintTest, TestMultiplyOperationOnConstantsOutOfRangeFails)
         FAIL() << "Expected out of range error";
     } catch (std::runtime_error const& err) {
         EXPECT_TRUE(CircuitChecker::check(builder)); // no failing constraint from multiply
-        EXPECT_EQ(err.what(), std::string("exceeded modulus in safe_uint class"));
+        EXPECT_THAT(err.what(), testing::HasSubstr("exceeded modulus in safe_uint class"));
     } catch (...) {
         FAIL() << "Expected std::runtime_error modulus in safe_uint class";
     }
@@ -192,7 +193,7 @@ TYPED_TEST(SafeUintTest, TestAddOperationOutOfRangeFails)
         FAIL() << "Expected out of range error";
     } catch (std::runtime_error const& err) {
         EXPECT_TRUE(CircuitChecker::check(builder)); // no failing constraints from add or multiply
-        EXPECT_EQ(err.what(), std::string("exceeded modulus in safe_uint class"));
+        EXPECT_THAT(err.what(), testing::HasSubstr("exceeded modulus in safe_uint class"));
     } catch (...) {
         FAIL() << "Expected std::runtime_error modulus in safe_uint class";
     }

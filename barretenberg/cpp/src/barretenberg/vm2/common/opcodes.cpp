@@ -357,9 +357,6 @@ std::ostream& operator<<(std::ostream& os, const ExecutionOpCode& op)
     case ExecutionOpCode::ECADD:
         os << "ECADD";
         break;
-    case ExecutionOpCode::MSM:
-        os << "MSM";
-        break;
     case ExecutionOpCode::TORADIXBE:
         os << "TORADIXBE";
         break;

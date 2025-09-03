@@ -80,7 +80,7 @@ pub fn evaluate_blobs_and_batch(
                 //  - This will be checked in root, where the left input's start acc will be constrained to be zero
                 //  - No other accs can be zero since each block_merge checks left's end acc == right's start acc
                 // This can only happen at blob i = 0 for the first block of the epoch. Note: i == 0 was only added above in the hope
-                // that noir would be able to optimise out init gates for i > 0!
+                // that noir would be able to optimize out init gates for i > 0!
                 end_accumulator = BlobAccumulatorPublicInputs::init(
                     BlobAccumulationInputs { z_i, y_i, c_i },
                     final_blob_challenges.gamma,
@@ -128,7 +128,7 @@ mod tests {
         FinalBlobBatchingChallenges,
     };
     use super::{check_block_blob_sponge, evaluate_blobs_and_batch};
-    use bigcurve::{BigCurveTrait, curves::bls12_381::BLS12_381 as BLSPoint};
+    use bigcurve::{BigCurve, curves::bls12_381::BLS12_381 as BLSPoint};
     use bigint::{BigNum, BLS12_381_Fr as F};
     use types::{
         abis::sponge_blob::SpongeBlob,

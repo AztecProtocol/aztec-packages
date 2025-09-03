@@ -1,12 +1,12 @@
+import { RollupContract } from '@aztec/ethereum';
 import { timesParallel } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import type { P2PClient, TxProvider } from '@aztec/p2p';
 import type { PublicProcessorFactory } from '@aztec/simulator/server';
-import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import { CommitteeAttestation, L2Block, type L2BlockSource, PublishedL2Block } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import {
@@ -17,7 +17,8 @@ import {
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { type BlockHeader, TxHash, type TxWithHash } from '@aztec/stdlib/tx';
+import { type BlockHeader, type Tx, TxHash } from '@aztec/stdlib/tx';
+import { L1Metrics } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -27,6 +28,7 @@ import type { EpochProvingJob } from './job/epoch-proving-job.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
 import type { ProverNodePublisher } from './prover-node-publisher.js';
 import { ProverNode } from './prover-node.js';
+import { ProverPublisherFactory } from './prover-publisher-factory.js';
 
 describe('prover-node', () => {
   // Prover node dependencies
@@ -40,6 +42,9 @@ describe('prover-node', () => {
   let txProvider: MockProxy<TxProvider>;
   let epochMonitor: MockProxy<EpochMonitor>;
   let config: SpecificProverNodeConfig;
+  let rollupContract: MockProxy<RollupContract>;
+  let publisherFactory: MockProxy<ProverPublisherFactory>;
+  let l1Metrics: MockProxy<L1Metrics>;
 
   // L1 genesis time
   let l1GenesisTime: number;
@@ -49,6 +54,7 @@ describe('prover-node', () => {
 
   // Blocks returned by the archiver
   let blocks: L2Block[];
+  let lastBlock: PublishedL2Block;
   let previousBlockHeader: BlockHeader;
 
   // Address of the publisher
@@ -60,19 +66,21 @@ describe('prover-node', () => {
   const createProverNode = () =>
     new TestProverNode(
       prover,
-      publisher,
+      publisherFactory,
       l2BlockSource,
       l1ToL2MessageSource,
       contractDataSource,
       worldState,
       p2p,
       epochMonitor,
+      rollupContract,
+      l1Metrics,
       config,
     );
 
   beforeEach(async () => {
     prover = mock<EpochProverManager>({
-      getProverId: () => Fr.random(),
+      getProverId: () => EthAddress.random(),
     });
     publisher = mock<ProverNodePublisher>();
     l2BlockSource = mock<L2BlockSource>();
@@ -81,6 +89,12 @@ describe('prover-node', () => {
     worldState = mock<WorldStateSynchronizer>();
     epochMonitor = mock<EpochMonitor>();
     txProvider = mock<TxProvider>();
+
+    rollupContract = mock<RollupContract>();
+    publisherFactory = mock<ProverPublisherFactory>();
+    publisherFactory.create.mockResolvedValue(publisher);
+
+    l1Metrics = mock<L1Metrics>();
 
     p2p = mock<P2PClient>();
     p2p.getTxProvider.mockReturnValue(txProvider);
@@ -103,7 +117,7 @@ describe('prover-node', () => {
       syncSummary: {
         latestBlockNumber: 1,
         latestBlockHash: '',
-        finalisedBlockNumber: 0,
+        finalizedBlockNumber: 0,
         oldestHistoricBlockNumber: 0,
         treesAreSynched: true,
       },
@@ -116,6 +130,7 @@ describe('prover-node', () => {
     // We create 3 fake blocks with 1 tx effect each
     blocks = await timesParallel(3, async i => await L2Block.random(i + 20, 1));
     previousBlockHeader = await L2Block.random(19).then(b => b.header);
+    lastBlock = { block: blocks.at(-1)!, attestations: [CommitteeAttestation.random()] } as PublishedL2Block;
 
     // Archiver returns a bunch of fake blocks
     l2BlockSource.getBlocks.mockImplementation((from, limit) => {
@@ -130,6 +145,7 @@ describe('prover-node', () => {
     l1GenesisTime = Math.floor(Date.now() / 1000) - 3600;
     l2BlockSource.getL1Constants.mockResolvedValue({ ...EmptyL1RollupConstants, l1GenesisTime: BigInt(l1GenesisTime) });
     l2BlockSource.getBlocksForEpoch.mockResolvedValue(blocks);
+    l2BlockSource.getPublishedBlocks.mockResolvedValue([lastBlock]);
     l2BlockSource.getL2Tips.mockResolvedValue({
       latest: { number: blocks.at(-1)!.number, hash: (await blocks.at(-1)!.hash()).toString() },
       proven: { number: 0, hash: undefined },
@@ -150,7 +166,7 @@ describe('prover-node', () => {
     jobs = [];
   });
 
-  const makeTx = (txHash: TxHash): TxWithHash => ({ getTxHash: () => Promise.resolve(txHash), txHash }) as TxWithHash;
+  const makeTx = (txHash: TxHash): Tx => ({ getTxHash: () => txHash, txHash }) as Tx;
 
   afterEach(async () => {
     await proverNode.stop();
@@ -165,6 +181,11 @@ describe('prover-node', () => {
     expect(jobs[0].epochNumber).toEqual(10n);
     expect(jobs[0].job.getDeadline()).toEqual(new Date((l1GenesisTime + 10 + 2) * 1000));
     expect(proverNode.totalJobCount).toEqual(1);
+  });
+
+  it('requests a publisher for each epoch', async () => {
+    await proverNode.handleEpochReadyToProve(10n);
+    expect(publisherFactory.create).toHaveBeenCalledTimes(1);
   });
 
   it('does not start a proof if there are no blocks in the epoch', async () => {

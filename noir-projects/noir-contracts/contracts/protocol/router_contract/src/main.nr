@@ -1,5 +1,5 @@
 mod test;
-mod utils;
+pub mod utils;
 
 use dep::aztec::macros::aztec;
 

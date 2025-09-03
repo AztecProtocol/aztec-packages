@@ -59,6 +59,7 @@ describe('e2e_fees sponsored_public_payment', () => {
     const tx = await bananaCoin.methods
       .transfer_in_public(aliceAddress, bobAddress, bananasToSendToBob, 0)
       .send({
+        from: aliceAddress,
         fee: {
           gasSettings,
           paymentMethod: new SponsoredFeePaymentMethod(sponsoredFPC.address),

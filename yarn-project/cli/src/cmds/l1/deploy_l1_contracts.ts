@@ -1,6 +1,7 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
-import type { EthAddress } from '@aztec/aztec.js';
-import { type Operator, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { type EthAddress, Fr } from '@aztec/aztec.js';
+import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
+import { SecretValue } from '@aztec/foundation/config';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
@@ -18,6 +19,7 @@ export async function deployL1Contracts(
   sponsoredFPC: boolean,
   acceleratedTestDeployments: boolean,
   json: boolean,
+  createVerificationJson: string | false,
   initialValidators: EthAddress[],
   realVerifier: boolean,
   log: LogFn,
@@ -33,7 +35,8 @@ export async function deployL1Contracts(
   const initialValidatorOperators = initialValidators.map(a => ({
     attester: a,
     withdrawer: a,
-  })) as Operator[];
+    bn254SecretKey: new SecretValue(Fr.random().toBigInt()),
+  }));
 
   const { l1ContractAddresses } = await deployAztecContracts(
     rpcUrls,
@@ -48,13 +51,14 @@ export async function deployL1Contracts(
     acceleratedTestDeployments,
     config,
     realVerifier,
+    createVerificationJson,
     debugLogger,
   );
 
   if (json) {
     log(
       JSON.stringify(
-        Object.fromEntries(Object.entries(l1ContractAddresses).map(([k, v]) => [k, v.toString()])),
+        Object.fromEntries(Object.entries(l1ContractAddresses).map(([k, v]) => [k, v?.toString() ?? 'Not deployed'])),
         null,
         2,
       ),
@@ -75,6 +79,7 @@ export async function deployL1Contracts(
     log(`SlashFactory Address: ${l1ContractAddresses.slashFactoryAddress?.toString()}`);
     log(`FeeAssetHandler Address: ${l1ContractAddresses.feeAssetHandlerAddress?.toString()}`);
     log(`StakingAssetHandler Address: ${l1ContractAddresses.stakingAssetHandlerAddress?.toString()}`);
+    log(`ZK Passport Verifier Address: ${l1ContractAddresses.zkPassportVerifierAddress?.toString()}`);
     log(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
     log(`Initial validators: ${initialValidators.map(a => a.toString()).join(', ')}`);
     log(`Genesis archive root: ${genesisArchiveRoot.toString()}`);

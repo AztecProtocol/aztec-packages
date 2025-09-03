@@ -89,6 +89,7 @@ describe('prover/orchestrator/public-functions', () => {
           tx.data.constants.historicalHeader = context.getBlockHeader(0);
           tx.data.constants.vkTreeRoot = getVKTreeRoot();
           tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
+          await tx.recomputeHash();
         }
 
         const [processed, failed] = await context.processPublicFunctions(txs, numTransactions);
@@ -103,7 +104,7 @@ describe('prover/orchestrator/public-functions', () => {
         await context.orchestrator.addTxs(processed);
 
         const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
-        await context.orchestrator.finaliseEpoch();
+        await context.orchestrator.finalizeEpoch();
 
         expect(block.number).toEqual(context.blockNumber);
       },

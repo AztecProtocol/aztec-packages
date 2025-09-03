@@ -1,6 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
-import { Offense } from '@aztec/slasher';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
@@ -10,9 +9,9 @@ import path from 'path';
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
-import { awaitCommitteeExists, awaitCommitteeKicked } from './shared.js';
+import { awaitCommitteeExists, awaitCommitteeKicked, awaitOffenseDetected } from './shared.js';
 
-jest.setTimeout(1000000);
+jest.setTimeout(10 * 60_000); // 10 minutes
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_VALIDATORS = 4;
@@ -31,8 +30,9 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
   let nodes: AztecNodeService[];
 
   const slashingQuorum = 3;
-  const slashingRoundSize = 5;
-  const aztecSlotDuration = 12;
+  const slashingRoundSize = 4;
+  const aztecSlotDuration = 8;
+  const slashingUnit = BigInt(20e18);
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
@@ -43,12 +43,16 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         listenAddress: '127.0.0.1',
-        aztecEpochDuration: 1,
+        aztecEpochDuration: 2,
         ethereumSlotDuration: 4,
         aztecSlotDuration,
         aztecProofSubmissionEpochs: 0, // reorg as soon as epoch ends
         slashingQuorum,
-        slashingRoundSize,
+        slashingRoundSizeInEpochs: slashingRoundSize / 2,
+        slashSelfAllowed: true,
+        slashAmountSmall: slashingUnit,
+        slashAmountMedium: slashingUnit * 2n,
+        slashAmountLarge: slashingUnit * 3n,
       },
     });
 
@@ -76,11 +80,16 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
     }
 
     const { rollup, slashingProposer, slashFactory } = await t.getContracts();
+    const [activationThreshold, ejectionThreshold] = await Promise.all([
+      rollup.getActivationThreshold(),
+      rollup.getEjectionThreshold(),
+    ]);
 
-    const slashingAmount = (await rollup.getDepositAmount()) - (await rollup.getMinimumStake()) + 1n;
-    t.ctx.aztecNodeConfig.slashPruneEnabled = true;
+    // Slashing amount should be enough to kick validators out
+    const slashingAmount = slashingUnit * 3n;
+    expect(activationThreshold - slashingAmount).toBeLessThan(ejectionThreshold);
+
     t.ctx.aztecNodeConfig.slashPrunePenalty = slashingAmount;
-    t.ctx.aztecNodeConfig.slashPruneMaxPenalty = slashingAmount;
     t.ctx.aztecNodeConfig.validatorReexecute = false;
     t.ctx.aztecNodeConfig.minTxsPerBlock = 0;
 
@@ -104,29 +113,33 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
       shouldCollectMetrics(),
     );
 
-    // wait a bit for peers to discover each other
+    // Wait a bit for peers to discover each other
     await sleep(4000);
     await debugRollup();
 
-    // As noted above, we wait for them to exist...
+    // Wait for the committee to exist
     const committee = await awaitCommitteeExists({ rollup, logger: t.logger });
     await debugRollup();
 
-    // ... They'll be building blocks in the meantime, since minTxsPerBlock is 0...
+    // Wait for epoch to be pruned and the offense to be detected
+    const _offenses = await awaitOffenseDetected({
+      logger: t.logger,
+      nodeAdmin: nodes[0],
+      slashingRoundSize,
+      epochDuration: t.ctx.aztecNodeConfig.aztecEpochDuration,
+    });
 
-    // ...and then we wait for them to be kicked.
+    // And then wait for them to be kicked out
     await awaitCommitteeKicked({
-      offense: Offense.VALID_EPOCH_PRUNED,
       rollup,
       cheatCodes: t.ctx.cheatCodes.rollup,
       committee,
-      slashingAmount,
       slashFactory,
       slashingProposer,
       slashingRoundSize,
       aztecSlotDuration,
       logger: t.logger,
-      sendDummyTx: () => t.sendDummyTx().then(() => undefined),
+      dateProvider: t.ctx.dateProvider,
     });
-  }, 1_000_000);
+  });
 });

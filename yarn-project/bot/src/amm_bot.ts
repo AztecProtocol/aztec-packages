@@ -17,20 +17,24 @@ export class AmmBot extends BaseBot {
   protected constructor(
     pxe: PXE,
     wallet: Wallet,
+    defaultAccountAddress: AztecAddress,
     public readonly amm: AMMContract,
     public readonly token0: TokenContract,
     public readonly token1: TokenContract,
     config: BotConfig,
   ) {
-    super(pxe, wallet, config);
+    super(pxe, wallet, defaultAccountAddress, config);
   }
 
   static async create(
     config: BotConfig,
     dependencies: { pxe?: PXE; node?: AztecNode; nodeAdmin?: AztecNodeAdmin },
   ): Promise<AmmBot> {
-    const { pxe, wallet, token0, token1, amm } = await new BotFactory(config, dependencies).setupAmm();
-    return new AmmBot(pxe, wallet, amm, token0, token1, config);
+    const { pxe, wallet, defaultAccountAddress, token0, token1, amm } = await new BotFactory(
+      config,
+      dependencies,
+    ).setupAmm();
+    return new AmmBot(pxe, wallet, defaultAccountAddress, amm, token0, token1, config);
   }
 
   protected async createAndSendTx(logCtx: object): Promise<SentTx> {
@@ -51,16 +55,16 @@ export class AmmBot extends BaseBot {
 
     const swapAuthwit = await wallet.createAuthWit({
       caller: amm.address,
-      action: tokenIn.methods.transfer_to_public(wallet.getAddress(), amm.address, amountIn, authwitNonce),
+      action: tokenIn.methods.transfer_to_public(this.defaultAccountAddress, amm.address, amountIn, authwitNonce),
     });
 
     const amountOutMin = await amm.methods
       .get_amount_out_for_exact_in(
-        await tokenIn.methods.balance_of_public(amm.address).simulate(),
-        await tokenOut.methods.balance_of_public(amm.address).simulate(),
+        await tokenIn.methods.balance_of_public(amm.address).simulate({ from: this.defaultAccountAddress }),
+        await tokenOut.methods.balance_of_public(amm.address).simulate({ from: this.defaultAccountAddress }),
         amountIn,
       )
-      .simulate();
+      .simulate({ from: this.defaultAccountAddress });
 
     const swapExactTokensInteraction = amm.methods.swap_exact_tokens_for_tokens(
       tokenIn.address,
@@ -91,22 +95,22 @@ export class AmmBot extends BaseBot {
 
   public async getBalances(): Promise<{ senderPublic: Balances; senderPrivate: Balances; amm: Balances }> {
     return {
-      senderPublic: await this.getPublicBalanceFor(this.wallet.getAddress()),
-      senderPrivate: await this.getPrivateBalanceFor(this.wallet.getAddress()),
+      senderPublic: await this.getPublicBalanceFor(this.defaultAccountAddress),
+      senderPrivate: await this.getPrivateBalanceFor(this.defaultAccountAddress),
       amm: await this.getPublicBalanceFor(this.amm.address),
     };
   }
 
   private async getPublicBalanceFor(address: AztecAddress): Promise<Balances> {
     return {
-      token0: await this.token0.methods.balance_of_public(address).simulate(),
-      token1: await this.token1.methods.balance_of_public(address).simulate(),
+      token0: await this.token0.methods.balance_of_public(address).simulate({ from: address }),
+      token1: await this.token1.methods.balance_of_public(address).simulate({ from: address }),
     };
   }
   private async getPrivateBalanceFor(address: AztecAddress): Promise<Balances> {
     return {
-      token0: await this.token0.methods.balance_of_private(address).simulate(),
-      token1: await this.token1.methods.balance_of_private(address).simulate(),
+      token0: await this.token0.methods.balance_of_private(address).simulate({ from: address }),
+      token1: await this.token1.methods.balance_of_private(address).simulate({ from: address }),
     };
   }
 }

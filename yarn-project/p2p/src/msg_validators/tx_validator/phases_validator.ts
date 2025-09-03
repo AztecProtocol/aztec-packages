@@ -34,7 +34,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
 
       if (!tx.data.forPublic) {
         this.#log.debug(
-          `Tx ${await Tx.getHash(tx)} does not contain enqueued public functions. Skipping phases validation.`,
+          `Tx ${tx.getTxHash().toString()} does not contain enqueued public functions. Skipping phases validation.`,
         );
         return { result: 'valid' };
       }
@@ -43,7 +43,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       for (const setupFn of setupFns) {
         if (!(await this.isOnAllowList(setupFn, this.setupAllowList))) {
           this.#log.verbose(
-            `Rejecting tx ${await Tx.getHash(tx)} because it calls setup function not on allow list: ${
+            `Rejecting tx ${tx.getTxHash().toString()} because it calls setup function not on allow list: ${
               setupFn.request.contractAddress
             }:${setupFn.functionSelector}`,
             { allowList: this.setupAllowList },

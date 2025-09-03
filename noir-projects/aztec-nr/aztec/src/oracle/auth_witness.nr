@@ -1,4 +1,4 @@
-#[oracle(getAuthWitness)]
+#[oracle(utilityGetAuthWitness)]
 unconstrained fn get_auth_witness_oracle<let N: u32>(_message_hash: Field) -> [Field; N] {}
 
 /**

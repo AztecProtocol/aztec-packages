@@ -49,9 +49,11 @@ export class BarretenbergWasmBase {
           const m = this.getMemory();
           const str2 = `${str} (mem: ${(m.length / (1024 * 1024)).toFixed(2)}MiB)`;
           this.logger(str2);
-          // if (str2.startsWith('WARNING:')) {
-          //   this.logger(new Error().stack!);
-          // }
+        },
+
+        throw_or_abort_impl: (addr: number) => {
+          const str = this.stringFromAddress(addr);
+          throw new Error(str);
         },
 
         get_data: (keyAddr: number, outBufAddr: number) => {

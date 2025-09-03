@@ -35,7 +35,7 @@ import type { PrivateExecutionOracle } from './private_execution_oracle.js';
  * This does not execute any kernel circuits; only the user functions.
  *
  * If this private function execution results in any nested private function calls,
- * those nested calls are made via oracle calls to the `callPrivateFunction` oracle,
+ * those nested calls are made via oracle calls to the `privateCallPrivateFunction` oracle,
  * which in turn makes corresponding further calls to this function.
  */
 export async function executePrivateFunction(
@@ -82,7 +82,7 @@ export async function executePrivateFunction(
 
   const contractClassLogs = privateExecutionOracle.getContractClassLogs();
 
-  const rawReturnValues = await privateExecutionOracle.loadFromExecutionCache(publicInputs.returnsHash);
+  const rawReturnValues = await privateExecutionOracle.privateLoadFromExecutionCache(publicInputs.returnsHash);
 
   const noteHashLeafIndexMap = privateExecutionOracle.getNoteHashLeafIndexMap();
   const newNotes = privateExecutionOracle.getNewNotes();

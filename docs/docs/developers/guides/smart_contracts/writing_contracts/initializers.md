@@ -2,6 +2,7 @@
 title: Defining Initializer Functions
 sidebar_position: 1
 tags: [functions, contracts]
+description: Learn how to write and use initializer functions in your Aztec smart contracts.
 ---
 
 This page explains how to write an initializer function, also known as a constructor.
@@ -45,4 +46,4 @@ You can set multiple functions as an initializer function simply by annotating e
 
 Calling any one of the functions annotated with `#[initializer]` will mark the contract as initialized.
 
-To see an initializer in action, follow the [Counter codealong tutorial](../../../tutorials/codealong/contract_tutorials/counter_contract.md).
+To see an initializer in action, follow the [Counter codealong tutorial](../../../tutorials/contract_tutorials/counter_contract.md).

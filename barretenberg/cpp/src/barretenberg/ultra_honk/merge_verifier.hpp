@@ -32,14 +32,25 @@ class MergeVerifier {
 
   public:
     using Commitment = typename Curve::AffineElement;
+    using TableCommitments = std::array<Commitment, NUM_WIRES>; // Commitments to the subtables and the merged table
+
+    /**
+     * Commitments used by the verifier to run the verification algorithm. They contain:
+     *  - `t_commitments`: the subtable commitments data, containing the commitments to t_j read from the transcript by
+     *     the PG verifier with which the Merge verifier shares a transcript
+     *  - `T_prev_commitments`: the commitments to the full op_queue table after the previous iteration of merge
+     */
+    struct InputCommitments {
+        TableCommitments t_commitments;
+        TableCommitments T_prev_commitments;
+    };
 
     std::shared_ptr<Transcript> transcript;
-    std::array<Commitment, NUM_WIRES> T_commitments;
     MergeSettings settings;
 
-    explicit MergeVerifier(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
-                           MergeSettings settings = MergeSettings::PREPEND);
-    bool verify_proof(const HonkProof& proof, const RefArray<Commitment, NUM_WIRES>& t_commitments);
+    explicit MergeVerifier(const MergeSettings settings = MergeSettings::PREPEND,
+                           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    std::pair<bool, TableCommitments> verify_proof(const HonkProof& proof, const InputCommitments& input_commitments);
 };
 
 } // namespace bb

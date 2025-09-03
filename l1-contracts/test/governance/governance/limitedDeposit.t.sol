@@ -14,11 +14,7 @@ import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {IGSE} from "@aztec/governance/GSE.sol";
 import {TestConstants} from "@test/harnesses/TestConstants.sol";
 
-import {
-  ProposalLib,
-  VoteTabulationReturn,
-  VoteTabulationInfo
-} from "@aztec/governance/libraries/ProposalLib.sol";
+import {ProposalLib, VoteTabulationReturn, VoteTabulationInfo} from "@aztec/governance/libraries/ProposalLib.sol";
 
 contract LimitedDepositTest is TestBase {
   IMintableERC20 internal token;
@@ -37,16 +33,15 @@ contract LimitedDepositTest is TestBase {
     registry = new Registry(address(this), token);
     governanceProposer = new GovernanceProposer(registry, IGSE(address(0x03)), 677, 1000);
 
-    governance = new Governance(
-      token, address(governanceProposer), address(this), TestConstants.getGovernanceConfiguration()
-    );
+    governance =
+      new Governance(token, address(governanceProposer), address(this), TestConstants.getGovernanceConfiguration());
   }
 
   function test_WhenNotAllowedToDeposit(address _caller, address _depositor) external {
     // it reverts
 
     vm.assume(_caller != address(0) && _depositor != address(0));
-    vm.assume(!governance.isAllowedToDeposit(_depositor));
+    vm.assume(!governance.isPermittedInGovernance(_depositor));
 
     vm.prank(_caller);
     vm.expectRevert(abi.encodeWithSelector(Errors.Governance__DepositNotAllowed.selector));
@@ -58,7 +53,7 @@ contract LimitedDepositTest is TestBase {
     vm.assume(_caller != address(0) && _depositor != address(0));
 
     vm.prank(address(governance));
-    governance.addDepositor(_depositor);
+    governance.addBeneficiary(_depositor);
 
     token.mint(_caller, 1000);
 
@@ -68,7 +63,7 @@ contract LimitedDepositTest is TestBase {
     vm.prank(_caller);
     governance.deposit(_depositor, 1000);
 
-    assertEq(governance.powerAt(_depositor, Timestamp.wrap(block.timestamp)), 1000);
+    assertEq(governance.powerNow(_depositor), 1000);
   }
 
   function test_WhenFloodgatesAreOpen(address _caller, address _depositor) external {
@@ -87,6 +82,6 @@ contract LimitedDepositTest is TestBase {
     vm.prank(_caller);
     governance.deposit(_depositor, 1000);
 
-    assertEq(governance.powerAt(_depositor, Timestamp.wrap(block.timestamp)), 1000);
+    assertEq(governance.powerNow(_depositor), 1000);
   }
 }

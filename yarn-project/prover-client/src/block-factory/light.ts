@@ -73,6 +73,8 @@ export class LightweightBlockFactory implements IBlockFactory {
       this.db,
     );
 
+    header.state.validate();
+
     await this.db.updateArchive(header);
     const newArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db);
 
@@ -80,6 +82,7 @@ export class LightweightBlockFactory implements IBlockFactory {
     this.logger.debug(`Built block ${block.number}`, {
       globalVariables: this.globalVariables?.toInspect(),
       archiveRoot: newArchive.root.toString(),
+      stateReference: header.state.toInspect(),
       blockHash: (await block.hash()).toString(),
       txs: block.body.txEffects.map(tx => tx.txHash.toString()),
     });

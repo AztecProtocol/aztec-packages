@@ -14,11 +14,14 @@ import {Slot, Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
  */
 library Errors {
   error Governance__CallerNotGovernanceProposer(address caller, address governanceProposer);
+  error Governance__GovernanceProposerCannotBeSelf();
   error Governance__CallerNotSelf(address caller, address self);
   error Governance__NoCheckpointsFound();
   error Governance__InsufficientPower(address voter, uint256 have, uint256 required);
   error Governance__InvalidConfiguration();
-  error Governance__WithdrawalAlreadyclaimed();
+  error Governance__CannotWithdrawToAddressZero();
+  error Governance__WithdrawalNotInitiated();
+  error Governance__WithdrawalAlreadyClaimed();
   error Governance__WithdrawalNotUnlockedYet(Timestamp currentTime, Timestamp unlocksAt);
   error Governance__ProposalNotActive();
   error Governance__ProposalNotExecutable();
@@ -29,14 +32,15 @@ library Errors {
   error Governance__ProposalCannotBeDropped();
   error Governance__DepositNotAllowed();
 
-  error Governance__UserLib__NotInPast();
+  error Governance__CheckpointedUintLib__InsufficientValue(address owner, uint256 have, uint256 required);
+  error Governance__CheckpointedUintLib__NotInPast();
 
   error Governance__ConfigurationLib__InvalidMinimumVotes();
   error Governance__ConfigurationLib__LockAmountTooSmall();
+  error Governance__ConfigurationLib__LockAmountTooBig();
   error Governance__ConfigurationLib__QuorumTooSmall();
   error Governance__ConfigurationLib__QuorumTooBig();
-  error Governance__ConfigurationLib__DifferentialTooSmall();
-  error Governance__ConfigurationLib__DifferentialTooBig();
+  error Governance__ConfigurationLib__RequiredYeaMarginTooBig();
   error Governance__ConfigurationLib__TimeTooSmall(string name);
   error Governance__ConfigurationLib__TimeTooBig(string name);
 
@@ -46,18 +50,19 @@ library Errors {
   error Governance__ProposalLib__ZeroYeaVotesNeeded();
   error Governance__ProposalLib__MoreYeaVoteThanExistNeeded();
 
-  error GovernanceProposer__CanOnlyExecuteProposalInPast(); // 0x8bf1d3b8
-  error GovernanceProposer__FailedToPropose(IPayload proposal); // 0x8d94fbfc
-  error GovernanceProposer__InstanceHaveNoCode(address instance); // 0x5fa92625
-  error GovernanceProposer__InsufficientVotes(uint256 votesCast, uint256 votesNeeded); // 0xd4ad89c2
-  error GovernanceProposer__InvalidNAndMValues(uint256 n, uint256 m); // 0x520d9704
-  error GovernanceProposer__NCannotBeLargerTHanM(uint256 n, uint256 m); // 0x2fdfc063
-  error GovernanceProposer__OnlyProposerCanVote(address caller, address proposer); // 0xba27df38
-  error GovernanceProposer__ProposalAlreadyExecuted(uint256 roundNumber); // 0x7aeacb17
-  error GovernanceProposer__ProposalCannotBeAddressZero(); // 0x16ac1942
-  error GovernanceProposer__ProposalHaveNoCode(IPayload proposal); // 0xb69440a1
-  error GovernanceProposer__ProposalTooOld(uint256 roundNumber, uint256 currentRoundNumber); // 0xc3d7aa4f
-  error GovernanceProposer__VoteAlreadyCastForSlot(Slot slot); // 0x3a6150ca
+  error GovernanceProposer__FailedToSubmitRoundWinner(IPayload payload);
+  error GovernanceProposer__InstanceHaveNoCode(address instance);
+  error GovernanceProposer__InsufficientSignals(uint256 signalsCast, uint256 signalsNeeded);
+  error GovernanceProposer__InvalidQuorumAndRoundSize(uint256 quorumSize, uint256 roundSize);
+  error GovernanceProposer__QuorumCannotBeLargerThanRoundSize(uint256 quorumSize, uint256 roundSize);
+  error GovernanceProposer__InvalidLifetimeAndExecutionDelay(uint256 lifetimeInRounds, uint256 executionDelayInRounds);
+  error GovernanceProposer__OnlyProposerCanSignal(address caller, address proposer);
+  error GovernanceProposer__PayloadAlreadySubmitted(uint256 roundNumber);
+  error GovernanceProposer__PayloadCannotBeAddressZero();
+  error GovernanceProposer__PayloadHaveNoCode(IPayload payload);
+  error GovernanceProposer__RoundTooOld(uint256 roundNumber, uint256 currentRoundNumber);
+  error GovernanceProposer__RoundTooNew(uint256 roundNumber, uint256 currentRoundNumber);
+  error GovernanceProposer__SignalAlreadyCastForSlot(Slot slot);
   error GovernanceProposer__GSEPayloadInvalid();
 
   error CoinIssuer__InsufficientMintAvailable(uint256 available, uint256 needed); // 0xa1cc8799
@@ -72,15 +77,21 @@ library Errors {
   error GSE__GovernanceAlreadySet();
   error GSE__InvalidRollupAddress(address);
   error GSE__RollupAlreadyRegistered(address);
-  error GSE__NotCanonical(address);
+  error GSE__NotLatestRollup(address);
   error GSE__AlreadyRegistered(address, address);
   error GSE__NothingToExit(address);
-  error GSE__InsufficientStake(uint256, uint256);
+  error GSE__InsufficientBalance(uint256, uint256);
   error GSE__FailedToRemove(address);
   error GSE__InstanceDoesNotExist(address);
   error GSE__NotWithdrawer(address, address);
   error GSE__OutOfBounds(uint256, uint256);
   error GSE__FatalError(string);
+  error GSE__InvalidProofOfPossession();
+  error GSE__CannotChangePublicKeys(uint256 existingPk1x, uint256 existingPk1y);
+  error GSE__ProofOfPossessionAlreadySeen(bytes32 hashedPK1);
 
   error Delegation__InsufficientPower(address, uint256, uint256);
+
+  error Governance__BlsKeyInvalidG1Point(uint256[2]);
+  error Governance__BlsKeyInvalidG2Point(uint256[4]);
 }

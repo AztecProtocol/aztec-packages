@@ -4,6 +4,7 @@
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/address_derivation.hpp"
 #include "barretenberg/vm2/simulation/class_id_derivation.hpp"
+#include "barretenberg/vm2/simulation/l1_to_l2_message_tree_check.hpp"
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
 #include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
 #include "barretenberg/vm2/simulation/note_hash_tree_check.hpp"
@@ -12,6 +13,15 @@
 #include "barretenberg/vm2/simulation/written_public_data_slots_tree_check.hpp"
 
 namespace bb::avm2::simulation {
+
+struct TreeCounters {
+    uint32_t note_hash_counter;
+    uint32_t nullifier_counter;
+    uint32_t l2_to_l1_msg_counter;
+    // public data tree counter is tracked via the written public data slots tree
+
+    bool operator==(const TreeCounters& other) const = default;
+};
 
 // Generates events.
 class ContractDB final : public ContractDBInterface {
@@ -47,12 +57,14 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
              PublicDataTreeCheckInterface& public_data_tree_check,
              NullifierTreeCheckInterface& nullifier_tree_check,
              NoteHashTreeCheckInterface& note_hash_tree_check,
-             WrittenPublicDataSlotsInterface& written_public_data_slots)
+             WrittenPublicDataSlotsInterface& written_public_data_slots,
+             L1ToL2MessageTreeCheckInterface& l1_to_l2_msg_tree_check)
         : raw_merkle_db(raw_merkle_db)
         , public_data_tree_check(public_data_tree_check)
         , nullifier_tree_check(nullifier_tree_check)
         , note_hash_tree_check(note_hash_tree_check)
         , written_public_data_slots(written_public_data_slots)
+        , l1_to_l2_msg_tree_check(l1_to_l2_msg_tree_check)
     {}
 
     // Unconstrained.
@@ -60,6 +72,7 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     void create_checkpoint() override;
     void commit_checkpoint() override;
     void revert_checkpoint() override;
+    uint32_t get_checkpoint_id() const override;
 
     // Constrained.
     FF storage_read(const AztecAddress& contract_address, const FF& slot) const override;
@@ -76,10 +89,13 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     bool siloed_nullifier_write(const FF& nullifier) override;
 
     // Returns a unique note hash stored in the tree at leaf_index.
-    bool note_hash_exists(index_t leaf_index, const FF& unique_note_hash) const override;
+    bool note_hash_exists(uint64_t leaf_index, const FF& unique_note_hash) const override;
     void note_hash_write(const AztecAddress& contract_address, const FF& note_hash) override;
     void siloed_note_hash_write(const FF& note_hash) override;
     void unique_note_hash_write(const FF& note_hash) override;
+    bool l1_to_l2_msg_exists(uint64_t leaf_index, const FF& msg_hash) const override;
+
+    void pad_trees() override;
 
     void add_checkpoint_listener(CheckpointNotifiable& listener) { checkpoint_listeners.push_back(&listener); }
 
@@ -96,14 +112,16 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     NullifierTreeCheckInterface& nullifier_tree_check;
     NoteHashTreeCheckInterface& note_hash_tree_check;
     WrittenPublicDataSlotsInterface& written_public_data_slots;
+    L1ToL2MessageTreeCheckInterface& l1_to_l2_msg_tree_check;
 
-    // Counters only in the HighLevel interface.
-    uint32_t nullifier_counter = 0;
-    uint32_t note_hash_counter = 0;
-    uint32_t l2_to_l1_msg_counter = 0;
     // Set for semantics.
     using Slot = FF;
     std::vector<CheckpointNotifiable*> checkpoint_listeners;
+
+    // Stack of tree counters for checkpoints. Starts empty.
+    std::stack<TreeCounters> tree_counters_stack{
+        { { .note_hash_counter = 0, .nullifier_counter = 0, .l2_to_l1_msg_counter = 0 } }
+    };
 };
 
 } // namespace bb::avm2::simulation

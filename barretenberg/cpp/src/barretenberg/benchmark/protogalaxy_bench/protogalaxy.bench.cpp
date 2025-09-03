@@ -1,6 +1,6 @@
 #include <benchmark/benchmark.h>
 
-#include "barretenberg/common/op_count_google_bench.hpp"
+#include "barretenberg/common/google_bb_bench.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
@@ -17,7 +17,7 @@ using FF = typename Flavor::FF;
 
 void vector_of_evaluations(State& state) noexcept
 {
-    using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
+    using RelationEvaluations = decltype(create_tuple_of_arrays_of_values<typename Flavor::Relations>());
 
     for (auto _ : state) {
         std::vector<RelationEvaluations> evals(1 << state.range(0));
@@ -79,7 +79,7 @@ void fold_k(State& state) noexcept
     ProtogalaxyProver folding_prover(decider_pks, decider_vks, transcript);
 
     for (auto _ : state) {
-        BB_REPORT_OP_COUNT_IN_BENCH(state);
+        GOOGLE_BB_BENCH_REPORTER(state);
         auto proof = folding_prover.prove();
     }
 }

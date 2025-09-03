@@ -8,6 +8,7 @@ import {
   type CompleteAddress,
   type ContractFunctionInteraction,
   DefaultWaitForProvenOpts,
+  EthAddress,
   type Logger,
   type PXE,
   type Wallet,
@@ -20,10 +21,11 @@ import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/serv
 import {
   type DeployL1ContractsArgs,
   type DeployL1ContractsReturnType,
+  FeeAssetArtifact,
+  RollupContract,
   createExtendedL1Client,
   deployMulticall3,
   getL1ContractsConfigEnvVars,
-  l1Artifacts,
 } from '@aztec/ethereum';
 import { EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { asyncMap } from '@aztec/foundation/async-map';
@@ -304,6 +306,10 @@ async function setupFromFresh(
 
   const blobSinkPort = await getPort();
 
+  // Default to no slashing
+  opts.slasherFlavor ??= 'none';
+  deployL1ContractsArgs.slasherFlavor ??= opts.slasherFlavor;
+
   // Fetch the AztecNode config.
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
@@ -341,11 +347,14 @@ async function setupFromFresh(
   const publisherPrivKeyRaw = hdAccount.getHdKey().privateKey;
   const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
 
+  const l1Client = createExtendedL1Client([aztecNodeConfig.l1RpcUrls[0]], hdAccount, foundry);
+
   const validatorPrivKey = getPrivateKeyFromIndex(0);
   const proverNodePrivateKey = getPrivateKeyFromIndex(0);
 
-  aztecNodeConfig.publisherPrivateKey = new SecretValue<`0x${string}`>(`0x${publisherPrivKey!.toString('hex')}`);
+  aztecNodeConfig.publisherPrivateKeys = [new SecretValue<`0x${string}`>(`0x${publisherPrivKey!.toString('hex')}`)];
   aztecNodeConfig.validatorPrivateKeys = new SecretValue([`0x${validatorPrivKey!.toString('hex')}`]);
+  aztecNodeConfig.coinbase = opts.coinbase ?? EthAddress.fromString(`${hdAccount.address}`);
 
   const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls);
 
@@ -360,7 +369,6 @@ async function setupFromFresh(
     opts.initialAccountFeeJuice,
   );
 
-  const l1Client = createExtendedL1Client([aztecNodeConfig.l1RpcUrls[0]], hdAccount, foundry);
   await deployMulticall3(l1Client, logger);
 
   const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrls[0], hdAccount, logger, {
@@ -378,22 +386,24 @@ async function setupFromFresh(
   if (opts.fundRewardDistributor) {
     // Mints block rewards for 10000 blocks to the rewardDistributor contract
 
-    const rewardDistributor = getContract({
-      address: deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(),
-      abi: l1Artifacts.rewardDistributor.contractAbi,
-      client: deployL1ContractsValues.l1Client,
-    });
+    const rollup = new RollupContract(
+      deployL1ContractsValues.l1Client,
+      deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    );
 
-    const blockReward = await rewardDistributor.read.BLOCK_REWARD();
+    const blockReward = await rollup.getBlockReward();
     const mintAmount = 10_000n * (blockReward as bigint);
 
     const feeJuice = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
-      abi: l1Artifacts.feeAsset.contractAbi,
+      abi: FeeAssetArtifact.contractAbi,
       client: deployL1ContractsValues.l1Client,
     });
 
-    const rewardDistributorMintTxHash = await feeJuice.write.mint([rewardDistributor.address, mintAmount], {} as any);
+    const rewardDistributorMintTxHash = await feeJuice.write.mint(
+      [deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(), mintAmount],
+      {} as any,
+    );
     await deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: rewardDistributorMintTxHash });
     logger.info(`Funding rewardDistributor in ${rewardDistributorMintTxHash}`);
   }
@@ -436,7 +446,7 @@ async function setupFromFresh(
   );
   await blobSink.start();
 
-  logger.verbose('Creating and synching an aztec node...');
+  logger.info('Creating and synching an aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(
     aztecNodeConfig,
     { telemetry, dateProvider },
@@ -663,7 +673,7 @@ export async function publicDeployAccounts(
 
   const batch = new BatchCall(sender, calls);
 
-  const txReceipt = await batch.send().wait();
+  const txReceipt = await batch.send({ from: accountAddressesToDeploy[0] }).wait();
   if (waitUntilProven) {
     if (!pxeOrNode) {
       throw new Error('Need to provide a PXE or AztecNode to wait for proven.');

@@ -6,7 +6,7 @@ use crate::{
     abis::PaddedSideEffects,
     components::reset_output_composer::reset_output_hints::generate_reset_output_hints,
 };
-use dep::reset_kernel_lib::{PrivateValidationRequestProcessor, TransientDataIndexHint};
+use dep::reset_kernel_lib::{PrivateValidationRequestProcessor, TransientDataSquashingHint};
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
@@ -52,7 +52,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         previous_kernel: PrivateKernelCircuitPublicInputs,
         validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_HINTS_LEN>,
         padded_side_effects: PaddedSideEffects,
-        transient_data_index_hints: [TransientDataIndexHint; TRANSIENT_DATA_SQUASHING_HINTS_LEN],
+        transient_data_squashing_hints: [TransientDataSquashingHint; TRANSIENT_DATA_SQUASHING_HINTS_LEN],
         note_hash_siloing_amount: u32,
         nullifier_siloing_amount: u32,
         private_log_siloing_amount: u32,
@@ -61,7 +61,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         // - Squashing:
         //    - "Kept" arrays - Arrays containing only the to-be-propagated side-effects (i.e. with the transient note_hashes/nullifiers/private_logs splice-removed).
         //    - Sorting: Indices of the kept arrays, if the side-effects were to be sorted by counter.
-        let hints = generate_reset_output_hints(previous_kernel, transient_data_index_hints);
+        let hints = generate_reset_output_hints(previous_kernel, transient_data_squashing_hints);
 
         ResetOutputComposer {
             previous_kernel,

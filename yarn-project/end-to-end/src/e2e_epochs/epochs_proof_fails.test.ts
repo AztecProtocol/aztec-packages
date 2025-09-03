@@ -34,7 +34,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
   beforeEach(async () => {
     // Bumping the epoch duration to 5 because otherwise it takes a full epoch before the actual test starts,
     // which means the prover node is attempting to prove before we setup the mocks.
-    test = await EpochsTestContext.setup({ aztecEpochDuration: 5 });
+    test = await EpochsTestContext.setup({ ethereumSlotDuration: 8, aztecEpochDuration: 5 });
     ({ proverDelayer, sequencerDelayer, context, l1Client, rollup, constants, logger, monitor } = test);
     ({ L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);
   });
@@ -88,15 +88,15 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     // Inject a delay in prover node proving equal to the length of an epoch, to make sure deadline will be hit
     const epochProverManager = (context.proverNode as TestProverNode).prover;
     const originalCreate = epochProverManager.createEpochProver.bind(epochProverManager);
-    const finaliseEpochPromise = promiseWithResolvers<void>();
+    const finalizeEpochPromise = promiseWithResolvers<void>();
     jest.spyOn(epochProverManager, 'createEpochProver').mockImplementation(() => {
       const prover = originalCreate();
-      jest.spyOn(prover, 'finaliseEpoch').mockImplementation(async () => {
+      jest.spyOn(prover, 'finalizeEpoch').mockImplementation(async () => {
         const seconds = L2_SLOT_DURATION_IN_S * test.epochDuration;
-        logger.warn(`Finalise epoch: sleeping ${seconds}s.`);
+        logger.warn(`Finalize epoch: sleeping ${seconds}s.`);
         await sleep(L2_SLOT_DURATION_IN_S * test.epochDuration * 1000);
-        logger.warn(`Finalise epoch: returning.`);
-        finaliseEpochPromise.resolve();
+        logger.warn(`Finalize epoch: returning.`);
+        finalizeEpochPromise.resolve();
         const ourPublicInputs = RootRollupPublicInputs.random();
         const ourBatchedBlob = new BatchedBlob(
           ourPublicInputs.blobPublicInputs.blobCommitmentsHash,
@@ -120,9 +120,9 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     // No proof for epoch zero should have landed during epoch one
     expect(monitor.l2ProvenBlockNumber).toEqual(0);
 
-    // Wait until the prover job finalises (and a bit more) and check that it aborted and never attempted to submit a tx
-    logger.info(`Awaiting finalise epoch`);
-    await finaliseEpochPromise.promise;
+    // Wait until the prover job finalizes (and a bit more) and check that it aborted and never attempted to submit a tx
+    logger.info(`Awaiting finalize epoch`);
+    await finalizeEpochPromise.promise;
     await sleep(1000);
     expect(proverDelayer.getSentTxHashes().length - proverTxCount).toEqual(0);
   });

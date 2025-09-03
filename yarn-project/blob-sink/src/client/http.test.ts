@@ -10,14 +10,12 @@ import type { AddressInfo } from 'net';
 
 import { BlobSinkServer } from '../server/server.js';
 import { BlobWithIndex } from '../types/blob_with_index.js';
-import { runBlobSinkClientTests } from './blob-sink-client-tests.js';
 import { HttpBlobSinkClient } from './http.js';
+import { runBlobSinkClientTests } from './tests.js';
 
 describe('HttpBlobSinkClient', () => {
   runBlobSinkClientTests(async () => {
-    const server = new BlobSinkServer({
-      port: 0,
-    });
+    const server = new TestBlobSinkServer({ port: 0 });
     await server.start();
 
     const client = new HttpBlobSinkClient({
@@ -37,7 +35,7 @@ describe('HttpBlobSinkClient', () => {
     const blob = await Blob.fromFields([Fr.random()]);
     const blobHash = blob.getEthVersionedBlobHash();
 
-    const success = await client.sendBlobsToBlobSink('0x1234', [blob]);
+    const success = await client.sendBlobsToBlobSink([blob]);
     expect(success).toBe(false);
 
     const retrievedBlobs = await client.getBlobSidecar('0x1234', [blobHash]);
@@ -45,7 +43,7 @@ describe('HttpBlobSinkClient', () => {
   });
 
   describe('Mock Ethereum Clients', () => {
-    let blobSinkServer: BlobSinkServer;
+    let blobSinkServer: TestBlobSinkServer;
 
     let testEncodedBlob: Blob;
     let testEncodedBlobHash: Buffer;
@@ -178,12 +176,10 @@ describe('HttpBlobSinkClient', () => {
 
     // When the consensus host is not responding, we should still be able to request blobs with the block hash
     it('should handle no consensus host', async () => {
-      blobSinkServer = new BlobSinkServer({
-        port: 0,
-      });
+      blobSinkServer = new TestBlobSinkServer({ port: 0 });
       await blobSinkServer.start();
 
-      const blobSinkSpy = jest.spyOn((blobSinkServer as any).blobStore, 'getBlobSidecars');
+      const blobSinkSpy = jest.spyOn(blobSinkServer.blobStore, 'getBlobsByHashes');
 
       await startExecutionHostServer();
 
@@ -192,14 +188,14 @@ describe('HttpBlobSinkClient', () => {
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
       });
 
-      const success = await client.sendBlobsToBlobSink('0x1234', [testEncodedBlob]);
+      const success = await client.sendBlobsToBlobSink([testEncodedBlob]);
       expect(success).toBe(true);
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
       expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
 
-      // Check that the blob sink was called with the correct block hash and no index
-      expect(blobSinkSpy).toHaveBeenCalledWith('0x1234', undefined);
+      // Check that the blob sink was called with the correct blob hash
+      expect(blobSinkSpy).toHaveBeenCalledWith([testEncodedBlobHash]);
     });
 
     // When the consensus host is responding, we should request blobs from the consensus host
@@ -460,4 +456,8 @@ class TestHttpBlobSinkClient extends HttpBlobSinkClient {
   public getArchiveClient() {
     return this.archiveClient!;
   }
+}
+
+class TestBlobSinkServer extends BlobSinkServer {
+  declare public blobStore: BlobSinkServer['blobStore'];
 }

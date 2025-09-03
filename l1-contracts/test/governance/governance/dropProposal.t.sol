@@ -12,26 +12,24 @@ contract DropProposalTest is GovernanceBase {
 
   function test_GivenProposalIsDropped(address _governanceProposer) external givenProposalIsStable {
     // it revert
-    _stateDropped("empty", _governanceProposer);
-    assertEq(governance.getProposal(proposalId).state, ProposalState.Pending);
-    assertEq(governance.getProposalState(proposalId), ProposalState.Dropped);
+    _stateDroppable("empty", _governanceProposer);
+    assertEq(governance.getProposal(proposalId).cachedState, ProposalState.Pending);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Droppable);
     assertTrue(governance.dropProposal(proposalId));
-    assertEq(governance.getProposal(proposalId).state, ProposalState.Dropped);
+    assertEq(governance.getProposal(proposalId).cachedState, ProposalState.Dropped);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ProposalAlreadyDropped.selector));
     governance.dropProposal(proposalId);
   }
 
-  function test_GivenProposalIsExecuted(
-    address _voter,
-    uint256 _totalPower,
-    uint256 _votesCast,
-    uint256 _yeas
-  ) external givenProposalIsStable {
+  function test_GivenProposalIsExecuted(address _voter, uint256 _totalPower, uint256 _votesCast, uint256 _yeas)
+    external
+    givenProposalIsStable
+  {
     // it revert
     _stateExecutable("empty", _voter, _totalPower, _votesCast, _yeas);
     assertTrue(governance.execute(proposalId));
-    assertEq(governance.getProposal(proposalId).state, ProposalState.Executed);
+    assertEq(governance.getProposal(proposalId).cachedState, ProposalState.Executed);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ProposalCannotBeDropped.selector));
     governance.dropProposal(proposalId);
@@ -47,93 +45,74 @@ contract DropProposalTest is GovernanceBase {
     governance.dropProposal(proposalId);
   }
 
-  function test_WhenGetProposalStateIsPending()
-    external
-    givenProposalIsUnstable
-    whenGetProposalStateIsNotDropped
-  {
+  function test_WhenGetProposalStateIsPending() external givenProposalIsUnstable whenGetProposalStateIsNotDropped {
     // it revert
     _statePending("empty");
     assertEq(governance.getProposalState(proposalId), ProposalState.Pending);
   }
 
-  function test_WhenGetProposalStateIsActive()
-    external
-    givenProposalIsUnstable
-    whenGetProposalStateIsNotDropped
-  {
+  function test_WhenGetProposalStateIsActive() external givenProposalIsUnstable whenGetProposalStateIsNotDropped {
     // it revert
     _stateActive("empty");
     assertEq(governance.getProposalState(proposalId), ProposalState.Active);
   }
 
-  function test_WhenGetProposalStateIsQueued(
-    address _voter,
-    uint256 _totalPower,
-    uint256 _votesCast,
-    uint256 _yeas
-  ) external givenProposalIsUnstable whenGetProposalStateIsNotDropped {
-    // it revert
-    _stateQueued("empty", _voter, _totalPower, _votesCast, _yeas);
-    assertEq(governance.getProposalState(proposalId), ProposalState.Queued);
-  }
-
-  function test_WhenGetProposalStateIsExecutable(
-    address _voter,
-    uint256 _totalPower,
-    uint256 _votesCast,
-    uint256 _yeas
-  ) external givenProposalIsUnstable whenGetProposalStateIsNotDropped {
-    // it revert
-    _stateExecutable("empty", _voter, _totalPower, _votesCast, _yeas);
-    assertEq(governance.getProposalState(proposalId), ProposalState.Executable);
-  }
-
-  function test_WhenGetProposalStateIsRejected()
+  function test_WhenGetProposalStateIsQueued(address _voter, uint256 _totalPower, uint256 _votesCast, uint256 _yeas)
     external
     givenProposalIsUnstable
     whenGetProposalStateIsNotDropped
   {
     // it revert
+    _stateQueued("empty", _voter, _totalPower, _votesCast, _yeas);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Queued);
+  }
+
+  function test_WhenGetProposalStateIsExecutable(address _voter, uint256 _totalPower, uint256 _votesCast, uint256 _yeas)
+    external
+    givenProposalIsUnstable
+    whenGetProposalStateIsNotDropped
+  {
+    // it revert
+    _stateExecutable("empty", _voter, _totalPower, _votesCast, _yeas);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Executable);
+  }
+
+  function test_WhenGetProposalStateIsRejected() external givenProposalIsUnstable whenGetProposalStateIsNotDropped {
+    // it revert
     _stateRejected("empty");
     assertEq(governance.getProposalState(proposalId), ProposalState.Rejected);
   }
 
-  function test_WhenGetProposalStateIsExecuted(
-    address _voter,
-    uint256 _totalPower,
-    uint256 _votesCast,
-    uint256 _yeas
-  ) external givenProposalIsUnstable whenGetProposalStateIsNotDropped {
+  function test_WhenGetProposalStateIsExecuted(address _voter, uint256 _totalPower, uint256 _votesCast, uint256 _yeas)
+    external
+    givenProposalIsUnstable
+    whenGetProposalStateIsNotDropped
+  {
     // it revert
     _stateExecutable("empty", _voter, _totalPower, _votesCast, _yeas);
     assertTrue(governance.execute(proposalId));
     assertEq(governance.getProposalState(proposalId), ProposalState.Executed);
   }
 
-  function test_WhenGetProposalStateIsExpired(
-    address _voter,
-    uint256 _totalPower,
-    uint256 _votesCast,
-    uint256 _yeas
-  ) external givenProposalIsUnstable whenGetProposalStateIsNotDropped {
+  function test_WhenGetProposalStateIsExpired(address _voter, uint256 _totalPower, uint256 _votesCast, uint256 _yeas)
+    external
+    givenProposalIsUnstable
+    whenGetProposalStateIsNotDropped
+  {
     // it revert
     _stateExpired("empty", _voter, _totalPower, _votesCast, _yeas);
     assertEq(governance.getProposalState(proposalId), ProposalState.Expired);
   }
 
-  function test_WhenGetProposalStateIsDropped(address _governanceProposer)
-    external
-    givenProposalIsUnstable
-  {
+  function test_WhenGetProposalStateIsDropped(address _governanceProposer) external givenProposalIsUnstable {
     // it updates state to Dropped
     // it return true
 
-    _stateDropped("empty", _governanceProposer);
-    assertEq(governance.getProposal(proposalId).state, ProposalState.Pending);
-    assertEq(governance.getProposalState(proposalId), ProposalState.Dropped);
+    _stateDroppable("empty", _governanceProposer);
+    assertEq(governance.getProposal(proposalId).cachedState, ProposalState.Pending);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Droppable);
     assertTrue(governance.dropProposal(proposalId));
-    assertEq(governance.getProposal(proposalId).state, ProposalState.Dropped);
+    assertEq(governance.getProposal(proposalId).cachedState, ProposalState.Dropped);
     assertEq(governance.getProposalState(proposalId), ProposalState.Dropped);
   }
 }

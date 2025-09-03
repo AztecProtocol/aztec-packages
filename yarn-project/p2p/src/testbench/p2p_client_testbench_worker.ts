@@ -100,7 +100,7 @@ function mockWorldStateSynchronizer(): WorldStateSynchronizer {
         syncSummary: {
           latestBlockNumber: 0,
           latestBlockHash: '',
-          finalisedBlockNumber: 0,
+          finalizedBlockNumber: 0,
           treesAreSynched: false,
           oldestHistoricBlockNumber: 0,
         },
@@ -160,7 +160,7 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
       const tx = Tx.fromBuffer(p2pMessage.payload);
       this.node.services.pubsub.reportMessageValidationResult(msgId, source.toString(), TopicValidatorResult.Accept);
 
-      const txHash = await tx.getTxHash();
+      const txHash = tx.getTxHash();
       const txHashString = txHash.toString();
       this.logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()}.`);
       await this.mempools.txPool.addTxs([tx]);

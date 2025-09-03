@@ -39,13 +39,13 @@ impl<Note, Context> BalanceSet<Note, Context> {
 
 impl<Note> BalanceSet<Note, UtilityContext>
 where
-    Note: NoteType + NoteHash + OwnedNote + Packable<N> + Eq,
+    Note: NoteType + NoteHash + OwnedNote + Packable + Eq,
 {
-    pub unconstrained fn balance_of<let N: u32>(self: Self) -> u128 {
+    pub unconstrained fn balance_of(self: Self) -> u128 {
         self.balance_of_with_offset(0)
     }
 
-    pub unconstrained fn balance_of_with_offset<let N: u32>(self: Self, offset: u32) -> u128 {
+    pub unconstrained fn balance_of_with_offset(self: Self, offset: u32) -> u128 {
         let mut balance = 0 as u128;
         // docs:start:view_notes
         let mut options = NoteViewerOptions::new();
@@ -65,9 +65,9 @@ where
 }
 
 impl<Note> BalanceSet<Note, &mut PrivateContext> {
-    pub fn add<let N: u32>(self: Self, owner: AztecAddress, addend: u128) -> OuterNoteEmission<Note>
+    pub fn add(self: Self, owner: AztecAddress, addend: u128) -> OuterNoteEmission<Note>
     where
-        Note: NoteType + NoteHash + OwnedNote + Eq + Packable<N>,
+        Note: NoteType + NoteHash + OwnedNote + Eq + Packable,
     {
         if addend == 0 as u128 {
             OuterNoteEmission::new(Option::none())
@@ -80,13 +80,13 @@ impl<Note> BalanceSet<Note, &mut PrivateContext> {
         }
     }
 
-    pub fn sub<let N: u32>(self: Self, owner: AztecAddress, amount: u128) -> OuterNoteEmission<Note>
+    pub fn sub(self: Self, owner: AztecAddress, amount: u128) -> OuterNoteEmission<Note>
     where
-        Note: NoteType + NoteHash + OwnedNote + Eq + Packable<N>,
+        Note: NoteType + NoteHash + OwnedNote + Eq + Packable,
     {
         let subtracted = self.try_sub(amount, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL);
 
-        // try_sub may have substracted more or less than amount. We must ensure that we subtracted at least as much as
+        // try_sub may have subtracted more or less than amount. We must ensure that we subtracted at least as much as
         // we needed, and then create a new note for the owner for the change (if any).
         assert(subtracted >= amount, "Balance too low");
         self.add(owner, subtracted - amount)
@@ -101,9 +101,9 @@ impl<Note> BalanceSet<Note, &mut PrivateContext> {
     // The `max_notes` parameter is used to fine-tune the number of constraints created by this function. The gate count
     // scales relatively linearly with `max_notes`, but a lower `max_notes` parameter increases the likelihood of
     // `try_sub` subtracting an amount smaller than `target_amount`.
-    pub fn try_sub<let N: u32>(self: Self, target_amount: u128, max_notes: u32) -> u128
+    pub fn try_sub(self: Self, target_amount: u128, max_notes: u32) -> u128
     where
-        Note: NoteType + NoteHash + OwnedNote + Eq + Packable<N>,
+        Note: NoteType + NoteHash + OwnedNote + Eq + Packable,
     {
         // We are using a preprocessor here (filter applied in an unconstrained context) instead of a filter because
         // we do not need to prove correct execution of the preprocessor.

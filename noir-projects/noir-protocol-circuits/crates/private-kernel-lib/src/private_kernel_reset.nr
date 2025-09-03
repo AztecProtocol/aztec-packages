@@ -8,7 +8,7 @@ use crate::{
 };
 use dep::reset_kernel_lib::{
     KeyValidationHint, NoteHashReadRequestHints, NullifierReadRequestHints,
-    PrivateValidationRequestProcessor, TransientDataIndexHint,
+    PrivateValidationRequestProcessor, TransientDataSquashingHint,
 };
 use dep::types::{
     abis::private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
@@ -23,7 +23,7 @@ pub struct PrivateKernelResetHints<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u3
     note_hash_read_request_hints: NoteHashReadRequestHints<NH_RR_PENDING, NH_RR_SETTLED>,
     nullifier_read_request_hints: NullifierReadRequestHints<NLL_RR_PENDING, NLL_RR_SETTLED>,
     key_validation_hints: [KeyValidationHint; KEY_VALIDATION_HINTS_LEN],
-    transient_data_index_hints: [TransientDataIndexHint; TRANSIENT_DATA_SQUASHING_HINTS_LEN],
+    transient_data_squashing_hints: [TransientDataSquashingHint; TRANSIENT_DATA_SQUASHING_HINTS_LEN],
     validation_requests_split_counter: u32,
 }
 
@@ -72,7 +72,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
             self.previous_kernel.public_inputs,
             validation_request_processor,
             self.padded_side_effects,
-            self.hints.transient_data_index_hints,
+            self.hints.transient_data_squashing_hints,
             self.dimensions.NOTE_HASH_SILOING_AMOUNT,
             self.dimensions.NULLIFIER_SILOING_AMOUNT,
             self.dimensions.PRIVATE_LOG_SILOING_AMOUNT,
@@ -114,7 +114,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         // Validate inputs.
         let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
 
-        previous_kernel_validator.verify_proof(ALLOWED_PREVIOUS_CIRCUITS);
+        previous_kernel_validator.verify_proof(ALLOWED_PREVIOUS_CIRCUITS, false);
 
         // Generate output.
         // Safety: The output is validated below by ResetOutputValidator.
@@ -126,7 +126,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
                 output,
                 previous_public_inputs,
                 validation_request_processor,
-                self.hints.transient_data_index_hints,
+                self.hints.transient_data_squashing_hints,
                 self.dimensions.TRANSIENT_DATA_SQUASHING_AMOUNT,
                 self.dimensions.NOTE_HASH_SILOING_AMOUNT,
                 self.dimensions.NULLIFIER_SILOING_AMOUNT,
@@ -151,11 +151,8 @@ mod tests {
     };
     use dep::reset_kernel_lib::{
         reset::key_validation_request::KeyValidationHint,
-        tests::{
-            note_hash_read_request_hints_builder::NoteHashReadRequestHintsBuilder,
-            nullifier_read_request_hints_builder::NullifierReadRequestHintsBuilder,
-        },
-        TransientDataIndexHint,
+        tests::{NoteHashReadRequestHintsBuilder, NullifierReadRequestHintsBuilder},
+        TransientDataSquashingHint,
     };
     use dep::types::{
         abis::{
@@ -196,7 +193,7 @@ mod tests {
     struct PrivateKernelResetInputsBuilder {
         previous_kernel: FixtureBuilder,
         padded_side_effects: PaddedSideEffects,
-        transient_data_index_hints: [TransientDataIndexHint; TRANSIENT_DATA_SQUASHING_HINTS_LEN],
+        transient_data_squashing_hints: [TransientDataSquashingHint; TRANSIENT_DATA_SQUASHING_HINTS_LEN],
         note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder<NOTE_HASH_PENDING_READ_HINTS_LEN, NOTE_HASH_SETTLED_READ_HINTS_LEN>,
         nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder<NULLIFIER_PENDING_READ_HINTS_LEN, NULLIFIER_SETTLED_READ_HINTS_LEN>,
         key_validation_hints: BoundedVec<KeyValidationHint, KEY_VALIDATION_HINTS_LEN>,
@@ -222,8 +219,8 @@ mod tests {
 
             Self {
                 previous_kernel,
-                transient_data_index_hints: [
-                    TransientDataIndexHint::nada(MAX_NULLIFIERS_PER_TX, MAX_NOTE_HASHES_PER_TX);
+                transient_data_squashing_hints: [
+                    TransientDataSquashingHint::skip(MAX_NULLIFIERS_PER_TX, MAX_NOTE_HASHES_PER_TX);
                          TRANSIENT_DATA_SQUASHING_HINTS_LEN
                     ],
                 note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder::new(),
@@ -268,13 +265,15 @@ mod tests {
             // Safety: this is only used in tests.
             let num_hints = unsafe {
                 find_index_hint(
-                    self.transient_data_index_hints,
-                    |hint: TransientDataIndexHint| hint.nullifier_index == MAX_NULLIFIERS_PER_TX,
+                    self.transient_data_squashing_hints,
+                    |hint: TransientDataSquashingHint| {
+                        hint.nullifier_index == MAX_NULLIFIERS_PER_TX
+                    },
                 )
             }
                 .unwrap();
-            self.transient_data_index_hints[num_hints] =
-                TransientDataIndexHint { nullifier_index, note_hash_index };
+            self.transient_data_squashing_hints[num_hints] =
+                TransientDataSquashingHint { nullifier_index, note_hash_index };
 
             self.dimensions.TRANSIENT_DATA_SQUASHING_AMOUNT += 1;
         }
@@ -359,7 +358,7 @@ mod tests {
                 note_hash_read_request_hints,
                 nullifier_read_request_hints,
                 key_validation_hints: self.key_validation_hints.storage(),
-                transient_data_index_hints: self.transient_data_index_hints,
+                transient_data_squashing_hints: self.transient_data_squashing_hints,
                 validation_requests_split_counter: self.validation_requests_split_counter,
             };
 
@@ -566,10 +565,11 @@ mod tests {
         let mut builder = PrivateKernelResetInputsBuilder::new();
         builder.previous_kernel.append_note_hashes_with_logs(2);
         builder.previous_kernel.append_nullifiers(2);
-        // The nullifier at index 0 is nullifying the hash at index 1;
-        builder.nullify_pending_note_hash(0, 1);
         // The nullifier at index 1 is nullifying the hash at index 0;
         builder.nullify_pending_note_hash(1, 0);
+        // The nullifier at index 0 is nullifying the hash at index 1;
+        builder.nullify_pending_note_hash(0, 1);
+
         let public_inputs = builder.execute();
 
         assert(public_inputs.end.note_hashes.is_empty());
@@ -597,12 +597,12 @@ mod tests {
         builder.previous_kernel.nullifiers.set(2, builder.previous_kernel.nullifiers.get(1));
         builder.previous_kernel.nullifiers.set(1, tmp);
 
+        // The nullifier at index 2 is nullifying the note hash at index 0;
+        builder.nullify_pending_note_hash(2, 0);
         // The nullifier at index 0 is nullifying the note hash at index 1;
         builder.nullify_pending_note_hash(0, 1);
         // The nullifier at index 1 is nullifying the note hash at index 2;
         builder.nullify_pending_note_hash(1, 2);
-        // The nullifier at index 2 is nullifying the note hash at index 0;
-        builder.nullify_pending_note_hash(2, 0);
 
         let public_inputs = builder.execute();
 
@@ -621,7 +621,7 @@ mod tests {
         // The nullifier at index 1 is nullifying the hash at index 0;
         builder.nullify_pending_note_hash(1, 0);
         // Change the hint to point to a different nullifier.
-        builder.transient_data_index_hints[0].nullifier_index = 0;
+        builder.transient_data_squashing_hints[0].nullifier_index = 0;
         builder.failed();
     }
 

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
@@ -14,13 +15,14 @@
 namespace bb::stdlib::recursion::honk {
 
 template <typename Builder> struct StdlibTranscriptParams {
-    using Fr = stdlib::field_t<Builder>;
-    using Proof = std::vector<Fr>;
+    using DataType = stdlib::field_t<Builder>;
+    using Proof = std::vector<DataType>;
 
-    static inline Fr hash(const std::vector<Fr>& data)
+    static inline DataType hash(const std::vector<DataType>& data)
     {
 
-        ASSERT(!data.empty() && data[0].get_context() != nullptr);
+        ASSERT(!data.empty());
+        ASSERT(data[0].get_context() != nullptr);
 
         Builder* builder = data[0].get_context();
         return stdlib::poseidon2<Builder>::hash(*builder, data);
@@ -31,36 +33,37 @@ template <typename Builder> struct StdlibTranscriptParams {
      * This should provide significantly more than our security parameter bound: 100 bits
      *
      * @param challenge
-     * @return std::array<Fr, 2>
+     * @return std::array<DataType, 2>
      */
-    static inline std::array<Fr, 2> split_challenge(const Fr& challenge)
+    static inline std::array<DataType, 2> split_challenge(const DataType& challenge)
     {
         // use existing field-splitting code in cycle_scalar
         using cycle_scalar = typename stdlib::cycle_group<Builder>::cycle_scalar;
         const cycle_scalar scalar = cycle_scalar(challenge);
         scalar.lo.create_range_constraint(cycle_scalar::LO_BITS);
         scalar.hi.create_range_constraint(cycle_scalar::HI_BITS);
-        return std::array<Fr, 2>{ scalar.lo, scalar.hi };
+        return std::array<DataType, 2>{ scalar.lo, scalar.hi };
     }
-    template <typename T> static inline T convert_challenge(const Fr& challenge)
+    template <typename T> static inline T convert_challenge(const DataType& challenge)
     {
         Builder* builder = challenge.get_context();
         return bb::stdlib::field_conversion::convert_challenge<Builder, T>(*builder, challenge);
     }
 
-    template <typename T> static constexpr size_t calc_num_bn254_frs()
+    template <typename T> static constexpr size_t calc_num_data_types()
     {
         return bb::stdlib::field_conversion::calc_num_bn254_frs<Builder, T>();
     }
 
-    template <typename T> static inline T convert_from_bn254_frs(std::span<const Fr> frs)
+    template <typename T> static inline T deserialize(std::span<const DataType> frs)
     {
-        ASSERT(!frs.empty() && frs[0].get_context() != nullptr);
+        ASSERT(!frs.empty());
+        ASSERT(frs[0].get_context() != nullptr);
         Builder* builder = frs[0].get_context();
         return bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, T>(*builder, frs);
     }
 
-    template <typename T> static inline std::vector<Fr> convert_to_bn254_frs(const T& element)
+    template <typename T> static inline std::vector<DataType> serialize(const T& element)
     {
         return bb::stdlib::field_conversion::convert_to_bn254_frs<Builder, T>(element);
     }

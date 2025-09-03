@@ -77,16 +77,16 @@ export type FailedTx = {
   error: Error;
 };
 
-export async function makeProcessedTxFromPrivateOnlyTx(
+export function makeProcessedTxFromPrivateOnlyTx(
   tx: Tx,
   transactionFee: Fr,
   feePaymentPublicDataWrite: PublicDataWrite,
   globalVariables: GlobalVariables,
-): Promise<ProcessedTx> {
+): ProcessedTx {
   const data = tx.data.forRollup!;
   const txEffect = new TxEffect(
     RevertCode.OK,
-    await tx.getTxHash(),
+    tx.getTxHash(),
     transactionFee,
     data.end.noteHashes.filter(h => !h.isZero()),
     data.end.nullifiers.filter(h => !h.isZero()),
@@ -134,13 +134,13 @@ export function toNumBlobFields(txs: ProcessedTx[]): number {
   }, 0);
 }
 
-export async function makeProcessedTxFromTxWithPublicCalls(
+export function makeProcessedTxFromTxWithPublicCalls(
   tx: Tx,
   avmProvingRequest: AvmProvingRequest,
   gasUsed: GasUsed,
   revertCode: RevertCode,
   revertReason: SimulationError | undefined,
-): Promise<ProcessedTx> {
+): ProcessedTx {
   const avmPublicInputs = avmProvingRequest.inputs.publicInputs;
 
   const globalVariables = avmPublicInputs.globalVariables;
@@ -158,7 +158,7 @@ export async function makeProcessedTxFromTxWithPublicCalls(
 
   const txEffect = new TxEffect(
     revertCode,
-    await tx.getTxHash(),
+    tx.getTxHash(),
     avmPublicInputs.transactionFee,
     avmPublicInputs.accumulatedData.noteHashes.filter(h => !h.isZero()),
     avmPublicInputs.accumulatedData.nullifiers.filter(h => !h.isZero()),

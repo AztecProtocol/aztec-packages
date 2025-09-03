@@ -1,16 +1,15 @@
 import { BB_RESULT, verifyClientIvcProof, writeClientIVCProofToOutputDirectory } from '@aztec/bb-prover';
 import {
   AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
-  ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   TUBE_PROOF_LENGTH,
+  ULTRA_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
-import { PublicTxSimulationTester } from '@aztec/simulator/public/fixtures';
+import { PublicTxSimulationTester, bulkTest } from '@aztec/simulator/public/fixtures';
 import { AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
-import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
@@ -19,11 +18,13 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { getWorkingDirectory } from './bb_working_directory.js';
+import { proveAvm, proveClientIVC, proveRollupHonk, proveTube } from './prove_native.js';
+import type { KernelPublicInputs } from './types/index.js';
 import {
   MockRollupBasePrivateCircuit,
   MockRollupBasePublicCircuit,
   MockRollupMergeCircuit,
-  generate3FunctionTestingIVCStack,
+  generateTestingIVCStack,
   mapAvmProofToNoir,
   mapRecursiveProofToNoir,
   mapVerificationKeyToNoir,
@@ -31,13 +32,11 @@ import {
   witnessGenMockRollupBasePrivateCircuit,
   witnessGenMockRollupMergeCircuit,
   witnessGenMockRollupRootCircuit,
-} from './index.js';
-import { proveAvm, proveClientIVC, proveRollupHonk, proveTube } from './prove_native.js';
-import type { KernelPublicInputs } from './types/index.js';
+} from './witgen.js';
 
 /* eslint-disable camelcase */
 
-jest.setTimeout(120_000);
+jest.setTimeout(150_000);
 
 const logger = createLogger('ivc-integration:test:rollup-native');
 
@@ -57,7 +56,7 @@ describe('Rollup IVC Integration', () => {
 
     // Create a client IVC proof
     const clientIVCWorkingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-client-ivc-');
-    const [bytecodes, witnessStack, tailPublicInputs, vks] = await generate3FunctionTestingIVCStack();
+    const [bytecodes, witnessStack, tailPublicInputs, vks] = await generateTestingIVCStack(1, 0);
     clientIVCPublicInputs = tailPublicInputs;
     const proof = await proveClientIVC(bbBinaryPath, clientIVCWorkingDirectory, witnessStack, bytecodes, vks, logger);
     await writeClientIVCProofToOutputDirectory(proof, clientIVCWorkingDirectory);
@@ -75,28 +74,8 @@ describe('Rollup IVC Integration', () => {
     const avmWorkingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-avm-');
 
     const simTester = await PublicTxSimulationTester.create();
-    const avmTestContractInstance = await simTester.registerAndDeployContract(
-      /*constructorArgs=*/ [],
-      /*deployer=*/ AztecAddress.fromNumber(420),
-      AvmTestContractArtifact,
-    );
-    const argsField = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-    const argsU8 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-    const args = [
-      argsField,
-      argsU8,
-      /*getInstanceForAddress=*/ avmTestContractInstance.address.toField(),
-      /*expectedDeployer=*/ avmTestContractInstance.deployer.toField(),
-      /*expectedClassId=*/ avmTestContractInstance.currentContractClassId.toField(),
-      /*expectedInitializationHash=*/ avmTestContractInstance.initializationHash.toField(),
-    ];
-
-    const avmSimulationResult = await simTester.simulateTx(
-      /*sender=*/ AztecAddress.fromNumber(42),
-      /*setupCalls=*/ [],
-      /*appCalls=*/ [{ address: avmTestContractInstance.address, fnName: 'bulk_testing', args }],
-      /*teardownCall=*/ undefined,
-    );
+    const avmSimulationResult = await bulkTest(simTester, logger, AvmTestContractArtifact);
+    expect(avmSimulationResult.revertCode.isOK()).toBe(true);
 
     const avmCircuitInputs = avmSimulationResult.avmProvingRequest.inputs;
     ({
@@ -115,10 +94,7 @@ describe('Rollup IVC Integration', () => {
       tube_data: {
         public_inputs: clientIVCPublicInputs,
         proof: mapRecursiveProofToNoir(tubeProof.proof),
-        vk_data: mapVerificationKeyToNoir(
-          tubeProof.verificationKey.keyAsFields,
-          ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-        ),
+        vk_data: mapVerificationKeyToNoir(tubeProof.verificationKey.keyAsFields, ULTRA_VK_LENGTH_IN_FIELDS),
       },
     });
 
@@ -134,20 +110,14 @@ describe('Rollup IVC Integration', () => {
     const privateBaseRollupData = {
       base_or_merge_public_inputs: privateBaseRollupWitnessResult.publicInputs,
       proof: mapRecursiveProofToNoir(privateBaseProof.proof),
-      vk: mapVerificationKeyToNoir(
-        privateBaseProof.verificationKey.keyAsFields,
-        ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-      ),
+      vk: mapVerificationKeyToNoir(privateBaseProof.verificationKey.keyAsFields, ULTRA_VK_LENGTH_IN_FIELDS),
     };
 
     const publicBaseRollupWitnessResult = await witnessGenMockPublicBaseCircuit({
       tube_data: {
         public_inputs: clientIVCPublicInputs,
         proof: mapRecursiveProofToNoir(tubeProof.proof),
-        vk_data: mapVerificationKeyToNoir(
-          tubeProof.verificationKey.keyAsFields,
-          ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-        ),
+        vk_data: mapVerificationKeyToNoir(tubeProof.verificationKey.keyAsFields, ULTRA_VK_LENGTH_IN_FIELDS),
       },
       verification_key: mapVerificationKeyToNoir(avmVK, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED),
       proof: mapAvmProofToNoir(avmProof),
@@ -166,10 +136,7 @@ describe('Rollup IVC Integration', () => {
     const publicBaseRollupData = {
       base_or_merge_public_inputs: publicBaseRollupWitnessResult.publicInputs,
       proof: mapRecursiveProofToNoir(publicBaseProof.proof),
-      vk: mapVerificationKeyToNoir(
-        publicBaseProof.verificationKey.keyAsFields,
-        ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-      ),
+      vk: mapVerificationKeyToNoir(publicBaseProof.verificationKey.keyAsFields, ULTRA_VK_LENGTH_IN_FIELDS),
     };
 
     const mergeWitnessResult = await witnessGenMockRollupMergeCircuit({
@@ -189,10 +156,7 @@ describe('Rollup IVC Integration', () => {
     const mergeRollupData = {
       base_or_merge_public_inputs: mergeWitnessResult.publicInputs,
       proof: mapRecursiveProofToNoir(mergeProof.proof),
-      vk: mapVerificationKeyToNoir(
-        mergeProof.verificationKey.keyAsFields,
-        ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-      ),
+      vk: mapVerificationKeyToNoir(mergeProof.verificationKey.keyAsFields, ULTRA_VK_LENGTH_IN_FIELDS),
     };
 
     const rootWitnessResult = await witnessGenMockRollupRootCircuit({ a: privateBaseRollupData, b: mergeRollupData });

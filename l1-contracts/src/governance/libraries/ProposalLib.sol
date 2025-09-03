@@ -2,7 +2,8 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Proposal, ProposalState} from "@aztec/governance/interfaces/IGovernance.sol";
+import {CompressedProposal, CompressedProposalLib} from "@aztec/governance/libraries/compressed-data/Proposal.sol";
+import {CompressedTimestamp, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
@@ -27,35 +28,89 @@ enum VoteTabulationInfo {
 }
 
 /**
- * @notice  Library for dealing with proposal math
+ * @notice  Library for governance proposal evaluation and lifecycle management
  *
- *          In particular, dealing with the computation to evaluate
- *          whether a proposal should be rejected or not.
+ *          This library implements the core vote tabulation logic, and has helpers for getting timestamps
+ *          for the proposal lifecycle.
  *
- *          We will be using `Ceil` as the rounding.
- *          The intuition is fairly straight forward, see the voting
- *          as repaying a debt. We want to ensure that the protocol
- *          is never "underpaid" when it is to perform an election.
- *          So when it computes the total debt repayment needed to
- *          execute the proposal, it will be rounding up.
+ * @dev     VOTING MECHANICS:
  *
- *          If we do not round up, a mulDiv with small values could
- *          for example ending at 0, having a case where no votes are needed
+ *          The voting system uses three key parameters that interact to determine proposal outcomes:
+ *
+ *          1. **minimumVotes**: Absolute minimum voting power required in the system
+ *             - Prevents proposals when total power is too low for meaningful governance
+ *             - Must be > 0 and <= totalPower for valid proposals
+ *
+ *          2. **quorum**: Percentage of total power that must participate (in 1e18 precision)
+ *             - votesNeeded = ceil(totalPower * quorum / 1e18)
+ *             - Ensures sufficient community participation before decisions are made
+ *             - Example: 30% quorum (0.3e18) with 1000 total power requires ≥300 votes
+ *
+ *          3. **requiredYeaMargin**: the required minimum difference between the percentage of yea votes,
+ *                                    and the percentage of nay votes, in 1e18 precision
+ *             - requiredYeaVotesFraction = ceil((1e18 + requiredYeaMargin) / 2)
+ *             - requiredYeaVotes = ceil(votesCast * requiredYeaVotesFraction / 1e18)
+ *             - Yea votes must be > requiredYeaVotes to pass (strict inequality to avoid ties)
+ *             - Example: 20% requiredYeaMargin (0.2e18) means yea needs >60% of cast votes
+ *             - Example: 0% requiredYeaMargin means yea needs >50% of cast votes
+ *
+ *             To see why this is the case, let `y` be the percentage of yea votes,
+ *             and `n` be the percentage of nay votes, and `m` be the requiredYeaMargin.
+ *
+ *             The condition for the proposal to pass is `y - n > m`.
+ *             Thus, `y > m + n`, which is equivalent to `y > m + (1 - y)` => `2y > m + 1` => `y > (m + 1) / 2`.
+ *
+ *          These parameters are included on the proposal itself, which are copied from Governance at the
+ *          time the proposal is created.
+ *
+ * @dev     EXAMPLE SCENARIO:
+ *          - Total power: 1000 tokens
+ *          - Minimum votes: 100 tokens
+ *          - Quorum: 40% (0.4e18)
+ *          - Required yea margin: 10% (0.1e18)
+ *
+ *          For a proposal to pass:
+ *          1. Total power (1000) must be ≥ minimum votes (100) ✓
+ *          2. Votes needed = ceil(1000 * 0.4) = 400 votes minimum
+ *          3. If 500 votes cast (300 yea, 200 nay):
+ *             - Quorum met: 500 ≥ 400 ✓
+ *             - Required yea votes = ceil(500 * ceil(1.1e18/2) / 1e18) = ceil(500 * 0.55) = 275
+ *             - Proposal passes: 300 yea > 275 required yea votes ✓
+ *
+ * @dev     ROUNDING STRATEGY:
+ *          All calculations use ceiling rounding to ensure the protocol is never "underpaid"
+ *          in terms of required votes. This prevents edge cases where fractional vote
+ *          requirements could round down to zero or insufficient thresholds.
+ *
+ * @dev     PROPOSAL LIFECYCLE:
+ *          The library also manages proposal timing through four phases:
+ *          1. Pending: creation → creation + votingDelay
+ *          2. Active: pending end → pending end + votingDuration
+ *          3. Queued: active end → active end + executionDelay
+ *          4. Executable: queued end → queued end + gracePeriod
  */
 library ProposalLib {
-  function voteTabulation(Proposal storage _self, uint256 _totalPower)
+  using CompressedTimeMath for CompressedTimestamp;
+  using CompressedProposalLib for CompressedProposal;
+  /**
+   * @notice Tabulate the votes for a proposal.
+   * @dev This function is used to determine if a proposal has met the acceptance criteria.
+   *
+   * @param _self The proposal to tabulate the votes for.
+   * @param _totalPower The total power (in Governance) at proposal.pendingThrough().
+   * @return The vote tabulation result, and additional information.
+   */
+
+  function voteTabulation(CompressedProposal storage _self, uint256 _totalPower)
     internal
     view
     returns (VoteTabulationReturn, VoteTabulationInfo)
   {
-    if (_self.config.minimumVotes == 0) {
-      return (VoteTabulationReturn.Invalid, VoteTabulationInfo.MinimumEqZero);
-    }
-    if (_totalPower < _self.config.minimumVotes) {
+    if (_totalPower < _self.minimumVotes) {
       return (VoteTabulationReturn.Rejected, VoteTabulationInfo.TotalPowerLtMinimum);
     }
 
-    uint256 votesNeeded = Math.mulDiv(_totalPower, _self.config.quorum, 1e18, Math.Rounding.Ceil);
+    uint256 votesNeeded = Math.mulDiv(_totalPower, _self.quorum, 1e18, Math.Rounding.Ceil);
     if (votesNeeded == 0) {
       return (VoteTabulationReturn.Invalid, VoteTabulationInfo.VotesNeededEqZero);
     }
@@ -63,36 +118,37 @@ library ProposalLib {
       return (VoteTabulationReturn.Invalid, VoteTabulationInfo.VotesNeededGtTotalPower);
     }
 
-    uint256 votesCast = _self.summedBallot.nea + _self.summedBallot.yea;
+    (uint256 yea, uint256 nay) = _self.getVotes();
+    uint256 votesCast = nay + yea;
     if (votesCast < votesNeeded) {
       return (VoteTabulationReturn.Rejected, VoteTabulationInfo.VotesCastLtVotesNeeded);
     }
 
-    // Edge case where all the votes are yea, no need to compute differential
-    // Assumes a "sane" value for differential, e.g., you cannot require more votes
-    // to be yes than total votes.
-    if (_self.summedBallot.yea == votesCast) {
+    // Edge case where all the votes are yea, no need to compute requiredApprovalVotes.
+    // ConfigurationLib enforces that requiredYeaMargin is <= 1e18,
+    // i.e. we cannot require more votes to be yes than total votes.
+    if (yea == votesCast) {
       return (VoteTabulationReturn.Accepted, VoteTabulationInfo.YeaVotesEqVotesCast);
     }
 
-    uint256 yeaLimitFraction = Math.ceilDiv(1e18 + _self.config.voteDifferential, 2);
-    uint256 yeaLimit = Math.mulDiv(votesCast, yeaLimitFraction, 1e18, Math.Rounding.Ceil);
+    uint256 requiredApprovalVotesFraction = Math.ceilDiv(1e18 + _self.requiredYeaMargin, 2);
+    uint256 requiredApprovalVotes = Math.mulDiv(votesCast, requiredApprovalVotesFraction, 1e18, Math.Rounding.Ceil);
 
-    /*if (yeaLimit == 0) {
-      // It should be impossible to hit this case as `yeaLimitFraction` cannot be 0,
-      // and due to rounding, only way to hit this would be if `votesCast = 0`,
+    /*if (requiredApprovalVotes == 0) {
+      // It should be impossible to hit this case as `requiredApprovalVotesFraction` cannot be 0,
+      // and due to rounding up, only way to hit this would be if `votesCast = 0`,
       // which is already handled as `votesCast >= votesNeeded` and `votesNeeded > 0`.
       return (VoteTabulationReturn.Invalid, VoteTabulationInfo.YeaLimitEqZero);
     }*/
-    if (yeaLimit > votesCast) {
+    if (requiredApprovalVotes > votesCast) {
       return (VoteTabulationReturn.Invalid, VoteTabulationInfo.YeaLimitGtVotesCast);
     }
 
     // We want to see that there are MORE votes on yea than needed
-    // We explictly need MORE to ensure we don't "tie".
+    // We explicitly need MORE to ensure we don't "tie".
     // If we need as many yea as there are votes, we know it is impossible already.
     // due to the check earlier, that summedBallot.yea == votesCast.
-    if (_self.summedBallot.yea <= yeaLimit) {
+    if (yea <= requiredApprovalVotes) {
       return (VoteTabulationReturn.Rejected, VoteTabulationInfo.YeaVotesLeYeaLimit);
     }
 
@@ -100,30 +156,38 @@ library ProposalLib {
   }
 
   /**
-   * @notice	A stable state is one which cannoted be moved away from
+   * @notice Get when the pending phase ends
+   * @param _compressed Storage pointer to compressed proposal
+   * @return The timestamp when pending phase ends
    */
-  function isStable(Proposal storage _self) internal view returns (bool) {
-    ProposalState s = _self.state; // cache
-    return s == ProposalState.Executed || s == ProposalState.Dropped;
+  function pendingThrough(CompressedProposal storage _compressed) internal view returns (Timestamp) {
+    return _compressed.creation.decompress() + _compressed.votingDelay.decompress();
   }
 
-  function pendingThrough(Proposal storage _self) internal view returns (Timestamp) {
-    return _self.creation + _self.config.votingDelay;
+  /**
+   * @notice Get when the active phase ends
+   * @param _compressed Storage pointer to compressed proposal
+   * @return The timestamp when active phase ends
+   */
+  function activeThrough(CompressedProposal storage _compressed) internal view returns (Timestamp) {
+    return pendingThrough(_compressed) + _compressed.votingDuration.decompress();
   }
 
-  function activeThrough(Proposal storage _self) internal view returns (Timestamp) {
-    return ProposalLib.pendingThrough(_self) + _self.config.votingDuration;
+  /**
+   * @notice Get when the queued phase ends
+   * @param _compressed Storage pointer to compressed proposal
+   * @return The timestamp when queued phase ends
+   */
+  function queuedThrough(CompressedProposal storage _compressed) internal view returns (Timestamp) {
+    return activeThrough(_compressed) + _compressed.executionDelay.decompress();
   }
 
-  function queuedThrough(Proposal storage _self) internal view returns (Timestamp) {
-    return ProposalLib.activeThrough(_self) + _self.config.executionDelay;
-  }
-
-  function executableThrough(Proposal storage _self) internal view returns (Timestamp) {
-    return ProposalLib.queuedThrough(_self) + _self.config.gracePeriod;
-  }
-
-  function pendingThroughMemory(Proposal memory _self) internal pure returns (Timestamp) {
-    return _self.creation + _self.config.votingDelay;
+  /**
+   * @notice Get when the executable phase ends
+   * @param _compressed Storage pointer to compressed proposal
+   * @return The timestamp when executable phase ends
+   */
+  function executableThrough(CompressedProposal storage _compressed) internal view returns (Timestamp) {
+    return queuedThrough(_compressed) + _compressed.gracePeriod.decompress();
   }
 }

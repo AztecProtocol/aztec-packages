@@ -8,7 +8,7 @@ import { AvmProvingTester } from './avm_proving_tester.js';
 
 const TIMEOUT = 300_000;
 
-describe('AVM WitGen & Circuit – check circuit - contract class limits', () => {
+describe('AVM check-circuit - contract class limits', () => {
   const deployer = AztecAddress.fromNumber(42);
   let instances: ContractInstanceWithAddress[];
   let tester: AvmProvingTester;
@@ -38,7 +38,7 @@ describe('AVM WitGen & Circuit – check circuit - contract class limits', () =>
         .map(instance => instance.address)
         .slice(0, MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS);
 
-      // include the first contract again again at the end to ensure that we can call it even after the limit is reached
+      // include the first contract again at the end to ensure that we can call it even after the limit is reached
       instanceAddresses.push(instanceAddresses[0]);
 
       // include another contract address that reuses a class ID to ensure that we can call it even after the limit is reached

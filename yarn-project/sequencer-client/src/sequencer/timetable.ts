@@ -78,13 +78,10 @@ export class SequencerTimetable {
       this.attestationPropagationTime * 2 +
       this.blockValidationTime +
       this.l1PublishingTime;
+
     const initializeDeadline = this.aztecSlotDuration - allWorkToDo;
-    if (initializeDeadline <= 0) {
-      throw new Error(
-        `Block proposal initialize deadline cannot be negative (got ${initializeDeadline} from total time needed ${allWorkToDo} and a slot duration of ${this.aztecSlotDuration}).`,
-      );
-    }
     this.initializeDeadline = initializeDeadline;
+
     this.log.verbose(`Sequencer timetable initialized (${this.enforce ? 'enforced' : 'not enforced'})`, {
       ethereumSlotDuration: this.ethereumSlotDuration,
       aztecSlotDuration: this.aztecSlotDuration,
@@ -98,6 +95,12 @@ export class SequencerTimetable {
       enforce: this.enforce,
       allWorkToDo,
     });
+
+    if (initializeDeadline <= 0) {
+      throw new Error(
+        `Block proposal initialize deadline cannot be negative (got ${initializeDeadline} from total time needed ${allWorkToDo} and a slot duration of ${this.aztecSlotDuration}).`,
+      );
+    }
   }
 
   private get afterBlockBuildingTimeNeededWithoutReexec() {
@@ -138,8 +141,8 @@ export class SequencerTimetable {
       case SequencerState.STOPPED:
       case SequencerState.IDLE:
       case SequencerState.SYNCHRONIZING:
-      case SequencerState.PROPOSER_CHECK:
         return; // We don't really care about times for this states
+      case SequencerState.PROPOSER_CHECK:
       case SequencerState.INITIALIZING_PROPOSAL:
         return this.initializeDeadline;
       case SequencerState.CREATING_BLOCK:

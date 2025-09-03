@@ -120,7 +120,12 @@ export class SafeJsonRpcServer {
       app.use(middleware);
     }
     app.use(exceptionHandler);
-    app.use(bodyParser({ jsonLimit: this.config.maxBodySizeBytes, enableTypes: ['json'], detectJSON: () => true }));
+    app.use(
+      bodyParser({
+        jsonLimit: this.config.maxBodySizeBytes,
+        enableTypes: ['json'],
+      }),
+    );
     app.use(cors());
     app.use(router.routes());
     app.use(router.allowedMethods());
@@ -191,7 +196,11 @@ export class SafeJsonRpcServer {
       return { jsonrpc: '2.0', error: { code: -32600, message: 'Invalid Request' }, id: null };
     }
 
-    const { params = [], jsonrpc, id, method } = request;
+    const { params = [], jsonrpc = '2.0', id, method } = request;
+    if (typeof method !== 'string' || !method) {
+      return { jsonrpc: '2.0', id, error: { code: -32600, message: `Invalid request` } };
+    }
+
     // Fail if not a registered function in the proxy
     if (typeof method !== 'string' || method === 'constructor' || !this.proxy.hasMethod(method)) {
       return { jsonrpc, id, error: { code: -32601, message: `Method not found: ${method}` } };

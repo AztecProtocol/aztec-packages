@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {StakingAssetHandlerBase} from "./base.t.sol";
 import {StakingAssetHandler, IStakingAssetHandler} from "@aztec/mock/StakingAssetHandler.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
-
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import "forge-std/console.sol";
 
 // solhint-disable comprehensive-interface
@@ -33,9 +33,7 @@ contract SetWithdrawerTest is StakingAssetHandlerBase {
     assertEq(stakingAssetHandler.withdrawer(), _newWithdrawer);
   }
 
-  function test_WhenOwnerCallsAddValidatorAfterSettingTheWithdrawer(address _newWithdrawer)
-    external
-  {
+  function test_WhenOwnerCallsAddValidatorAfterSettingTheWithdrawer(address _newWithdrawer) external {
     // it uses the new withdrawer
     vm.assume(_newWithdrawer != address(0));
 
@@ -49,7 +47,9 @@ contract SetWithdrawerTest is StakingAssetHandlerBase {
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(rollup, attester, _newWithdrawer);
-    stakingAssetHandler.addValidator(attester, validMerkleProof, realProof);
+    stakingAssetHandler.addValidator(
+      attester, validMerkleProof, realProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
+    );
     assertEq(staking.getAttesterView(attester).config.withdrawer, _newWithdrawer);
   }
 }

@@ -49,6 +49,7 @@ impl PrivateBaseRollupInputs {
     pub fn execute(self) -> BaseOrMergeRollupPublicInputs {
         let tube_data_validator = PrivateTubeDataValidator::new(self.tube_data);
         tube_data_validator.validate_proof_and_vk();
+        tube_data_validator.validate_gas_settings();
         tube_data_validator.validate_with_block_constant_data(
             self.constants,
             self.archive_root_membership_witness,
@@ -224,12 +225,8 @@ mod tests {
         },
         data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::{compute_contract_class_log_hash, silo_l2_to_l1_message},
-        merkle_tree::MembershipWitness,
-        tests::{
-            fixture_builder::FixtureBuilder,
-            fixtures::{self, merkle_tree::generate_full_sha_tree},
-            merkle_tree_utils::NonEmptyMerkleTree,
-        },
+        merkle_tree::{MembershipWitness, MerkleTree},
+        tests::{fixture_builder::FixtureBuilder, fixtures, merkle_tree_utils::NonEmptyMerkleTree},
         traits::{Empty, FromField, Hash, ToField},
         utils::{
             arrays::get_sorted_tuple::get_sorted_tuple,
@@ -1022,7 +1019,7 @@ mod tests {
         ));
 
         // Since we fill the tree completely, we know to expect a full tree as below
-        let expected_tree = generate_full_sha_tree(siloed_l2_to_l1_msgs.storage());
+        let expected_tree = MerkleTree::new_sha(siloed_l2_to_l1_msgs.storage());
         assert_eq(out_hash, expected_tree.get_root());
     }
 

@@ -45,16 +45,24 @@ tests:
     error_regex: "field_t::range_constraint"
     owners:
       - *luke
-  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh"
     error_regex: "Failed to fetch"
     owners:
       - *adam
-  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh"
     error_regex: "RuntimeError: Out of bounds memory access"
     owners:
       - *adam
-  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh"
     error_regex: "call_indirect to a null table entry"
+    owners:
+      - *adam
+  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh"
+    error_regex: "Input is not large enough"
+    owners:
+      - *adam
+  - regex: "barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk"
+    error_regex: "Aborted.*core dumped"
     owners:
       - *adam
 
@@ -84,10 +92,6 @@ tests:
       - *tom
 
   # e2e tests skipped
-  - regex: "src/e2e_sequencer/gov_proposal"
-    skip: true
-    owners:
-      - *lasse
   - regex: "testbench/port_change.test.ts"
     skip: true
     owners:
@@ -139,6 +143,10 @@ tests:
     owners:
       - *palla
   - regex: "src/e2e_p2p/preferred_gossip_network.test.ts"
+    owners:
+      - *palla
+  - regex: "src/e2e_p2p/gossip_network.test.ts"
+    error_regex: "Block 5 not yet synced"
     owners:
       - *palla
   - regex: "src/e2e_fees/private_payments"
@@ -212,7 +220,12 @@ tests:
     error_regex: "✕ should stop after max retry attempts"
     owners:
       - *sean
-  - regex: "p2p/src/client/p2p_client.integration.test.ts" # http://ci.aztec-labs.com/31c4c9821b1a533c
+  - regex: "p2p/src/client/test/p2p_client.integration_message_propagation.test.ts"
+    error_regex: "will propagate messages to peers at the same version"
+    owners:
+      - *palla
+  - regex: "p2p/src/client/test/p2p_client.integration_status_handshake.test.ts"
+    error_regex: "Expected number of calls"
     owners:
       - *palla
   - regex: "yarn-project/kv-store"
@@ -234,10 +247,14 @@ tests:
     error_regex: "delays a transaction until a given L1 timestamp"
     owners:
       - *esau
+  - regex: "ethereum/src/l1_tx_utils.test.ts"
+    error_regex: "✕ attempts to cancel timed out blob transactions with correct parameters"
+    owners:
+      - *palla
   - regex: "ivc-integration/src/rollup_ivc_integration.test.ts"
     error_regex: "Exceeded timeout of"
     owners:
-      - *lucas
+      - *luke
   - regex: "e2e_prover/full"
     error_regex: "ProvingError: Failed to verify proof from key!"
   - regex: "slasher/src/slasher_client.test.ts"

@@ -72,14 +72,13 @@ contract VoteTest is GovernanceBase {
     assertEq(governance.getProposalState(proposalId), ProposalState.Rejected);
   }
 
-  function test_GivenStateIsDropped(
-    address _voter,
-    uint256 _amount,
-    bool _support,
-    address _proposer
-  ) external givenStateIsNotActive(_voter, _amount, _support) {
+  function test_GivenStateIsDropped(address _voter, uint256 _amount, bool _support, address _proposer)
+    external
+    givenStateIsNotActive(_voter, _amount, _support)
+  {
     // it revert
-    _stateDropped("empty", _proposer);
+    _stateDroppable("empty", _proposer);
+    governance.dropProposal(proposalId);
     assertEq(governance.getProposalState(proposalId), ProposalState.Dropped);
   }
 
@@ -107,7 +106,7 @@ contract VoteTest is GovernanceBase {
     vm.stopPrank();
 
     assertEq(token.balanceOf(address(governance)), depositPower);
-    assertEq(governance.powerAt(_voter, Timestamp.wrap(block.timestamp)), depositPower);
+    assertEq(governance.powerNow(_voter), depositPower);
 
     _stateActive("empty");
 
@@ -124,11 +123,7 @@ contract VoteTest is GovernanceBase {
 
     uint256 power = bound(_votePower, depositPower + 1, type(uint256).max);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Governance__InsufficientPower.selector, _voter, depositPower, power
-      )
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__InsufficientPower.selector, _voter, depositPower, power));
     vm.prank(_voter);
     governance.vote(proposalId, power, _support);
   }
@@ -157,14 +152,14 @@ contract VoteTest is GovernanceBase {
     assertEq(proposal.config.gracePeriod, fresh.config.gracePeriod, "gracePeriod");
     assertEq(proposal.config.minimumVotes, fresh.config.minimumVotes, "minimumVotes");
     assertEq(proposal.config.quorum, fresh.config.quorum, "quorum");
-    assertEq(proposal.config.voteDifferential, fresh.config.voteDifferential, "voteDifferential");
+    assertEq(proposal.config.requiredYeaMargin, fresh.config.requiredYeaMargin, "requiredYeaMargin");
     assertEq(proposal.config.votingDelay, fresh.config.votingDelay, "votingDelay");
     assertEq(proposal.config.votingDuration, fresh.config.votingDuration, "votingDuration");
     assertEq(proposal.creation, fresh.creation, "creation");
     assertEq(proposal.proposer, fresh.proposer, "governanceProposer");
-    assertEq(proposal.summedBallot.nea + (_support ? 0 : power), fresh.summedBallot.nea, "nea");
+    assertEq(proposal.summedBallot.nay + (_support ? 0 : power), fresh.summedBallot.nay, "nay");
     assertEq(proposal.summedBallot.yea + (_support ? power : 0), fresh.summedBallot.yea, "yea");
     // The "written" state is still the same.
-    assertTrue(proposal.state == fresh.state, "state");
+    assertTrue(proposal.cachedState == fresh.cachedState, "state");
   }
 }

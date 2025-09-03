@@ -1,12 +1,9 @@
-use crate::{
-    macros::{
-        dispatch::generate_public_dispatch,
-        functions::{stub_registry, utils::check_each_fn_macroified},
-        notes::{generate_note_export, NOTES},
-        storage::STORAGE_LAYOUT_NAME,
-        utils::{get_trait_impl_method, module_has_storage},
-    },
-    messages::discovery::private_notes::MAX_NOTE_PACKED_LEN,
+use crate::macros::{
+    dispatch::generate_public_dispatch,
+    functions::{stub_registry, utils::check_each_fn_macroified},
+    notes::NOTES,
+    storage::STORAGE_LAYOUT_NAME,
+    utils::{get_trait_impl_method, module_has_storage},
 };
 
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
@@ -39,12 +36,9 @@ pub comptime fn aztec(m: Module) -> Quoted {
     } else {
         quote {}
     };
-
-    let note_exports = generate_note_exports();
     let public_dispatch = generate_public_dispatch(m);
 
     quote {
-        $note_exports
         $interface
         $contract_library_method_compute_note_hash_and_nullifier
         $public_dispatch
@@ -125,34 +119,15 @@ comptime fn generate_contract_interface(m: Module) -> Quoted {
 /// discovery (to create the `aztec::messages::discovery::ComputeNoteHashAndNullifier` function) and to implement the
 /// `compute_note_hash_and_nullifier` unconstrained contract function.
 comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -> Quoted {
-    let notes = NOTES.entries();
-
-    if notes.len() > 0 {
-        let max_note_packed_len = notes.fold(
-            0,
-            |acc, (_, (_, len, _, _)): (Type, (TypeDefinition, u32, Field, [(Quoted, u32, bool)]))| {
-                if len > acc {
-                    len
-                } else {
-                    acc
-                }
-            },
-        );
-
-        if max_note_packed_len > MAX_NOTE_PACKED_LEN {
-            panic(
-                f"One of the notes has packed len {max_note_packed_len} but the maximum is {MAX_NOTE_PACKED_LEN}",
-            );
-        }
-
+    if NOTES.len() > 0 {
         // Contracts that do define notes produce an if-else chain where `note_type_id` is matched against the
         // `get_note_type_id()` function of each note type that we know of, in order to identify the note type. Once we
         // know it we call we correct `unpack` method from the `Packable` trait to obtain the underlying note type, and
         // compute the note hash (non-siloed) and inner nullifier (also non-siloed).
 
         let mut if_note_type_id_match_statements_list = &[];
-        for i in 0..notes.len() {
-            let (typ, (_, packed_note_length, _, _)) = notes[i];
+        for i in 0..NOTES.len() {
+            let typ = NOTES.get(i);
 
             let get_note_type_id = get_trait_impl_method(
                 typ,
@@ -161,7 +136,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
             );
             let unpack = get_trait_impl_method(
                 typ,
-                quote { crate::protocol_types::traits::Packable<_> },
+                quote { crate::protocol_types::traits::Packable },
                 quote { unpack },
             );
 
@@ -187,9 +162,9 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                 quote {
                     $if_or_else_if note_type_id == $get_note_type_id() {
                         // As an extra safety check we make sure that the packed_note BoundedVec has the expected
-                        // length, since we're about to interpret it's raw storage as a fixed-size array by calling the
+                        // length, since we're about to interpret its raw storage as a fixed-size array by calling the
                         // unpack function on it.
-                        let expected_len = $packed_note_length;
+                        let expected_len = <$typ as $crate::protocol_types::traits::Packable>::N;
                         let actual_len = packed_note.len();
                         assert(
                             actual_len == expected_len,
@@ -270,17 +245,6 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
             }
         }
     }
-}
-
-comptime fn generate_note_exports() -> Quoted {
-    let notes = NOTES.values();
-    // Second value in each tuple is `note_packed_len` and that is ignored here because it's only used when
-    // generating partial note helper functions.
-    notes
-        .map(|(s, _, note_type_id, fields): (TypeDefinition, u32, Field, [(Quoted, u32, bool)])| {
-            generate_note_export(s, note_type_id, fields)
-        })
-        .join(quote {})
 }
 
 comptime fn generate_sync_private_state() -> Quoted {

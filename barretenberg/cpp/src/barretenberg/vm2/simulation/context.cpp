@@ -33,6 +33,14 @@ std::vector<FF> BaseContext::get_returndata(uint32_t rd_offset, uint32_t rd_copy
     return padded_returndata;
 };
 
+uint32_t BaseContext::get_last_child_id() const
+{
+    if (child_context == nullptr) {
+        return 0; // No child context, so no last child id.
+    }
+    return child_context->get_context_id();
+}
+
 /////////////////////////////
 // Enqueued Context
 /////////////////////////////
@@ -59,13 +67,15 @@ ContextEvent EnqueuedCallContext::serialize_context_event()
     return {
         .id = get_context_id(),
         .parent_id = 0,
+        .last_child_id = get_last_child_id(),
         .pc = get_pc(),
         .msg_sender = get_msg_sender(),
         .contract_addr = get_address(),
+        .bytecode_id = get_bytecode_manager().try_get_bytecode_id().value_or(FF(0)),
         .transaction_fee = get_transaction_fee(),
         .is_static = get_is_static(),
         .parent_cd_addr = 0,
-        .parent_cd_size_addr = 0,
+        .parent_cd_size = get_parent_cd_size(),
         .last_child_rd_addr = get_last_rd_addr(),
         .last_child_rd_size = get_last_rd_size(),
         .last_child_success = get_last_success(),
@@ -77,9 +87,13 @@ ContextEvent EnqueuedCallContext::serialize_context_event()
         .internal_call_id = get_internal_call_stack_manager().get_call_id(),
         .internal_call_return_id = get_internal_call_stack_manager().get_return_call_id(),
         .next_internal_call_id = get_internal_call_stack_manager().get_next_call_id(),
-        // Tree states
+        // Tree States
         .tree_states = merkle_db.get_tree_state(),
         .written_public_data_slots_tree_snapshot = written_public_data_slots_tree.snapshot(),
+        // Side Effects
+        .side_effect_states = get_side_effect_states(),
+        // Phase
+        .phase = get_phase(),
     };
 };
 
@@ -112,13 +126,15 @@ ContextEvent NestedContext::serialize_context_event()
     return {
         .id = get_context_id(),
         .parent_id = get_parent_id(),
+        .last_child_id = get_last_child_id(),
         .pc = get_pc(),
         .msg_sender = get_msg_sender(),
         .contract_addr = get_address(),
+        .bytecode_id = get_bytecode_manager().try_get_bytecode_id().value_or(FF(0)),
         .transaction_fee = get_transaction_fee(),
         .is_static = get_is_static(),
         .parent_cd_addr = parent_cd_addr,
-        .parent_cd_size_addr = parent_cd_size,
+        .parent_cd_size = parent_cd_size,
         .last_child_rd_addr = get_last_rd_addr(),
         .last_child_rd_size = get_last_rd_size(),
         .last_child_success = get_last_success(),
@@ -133,6 +149,10 @@ ContextEvent NestedContext::serialize_context_event()
         // Tree states
         .tree_states = merkle_db.get_tree_state(),
         .written_public_data_slots_tree_snapshot = written_public_data_slots_tree.snapshot(),
+        // Side Effect
+        .side_effect_states = get_side_effect_states(),
+        // Phase
+        .phase = get_phase(),
     };
 };
 

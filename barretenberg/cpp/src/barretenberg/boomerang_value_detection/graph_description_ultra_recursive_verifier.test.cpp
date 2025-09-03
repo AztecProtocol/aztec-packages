@@ -47,6 +47,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
 
     using PairingObject = PairingPoints<OuterBuilder>;
     using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<OuterBuilder>;
+    using StdlibProof = bb::stdlib::Proof<OuterBuilder>;
 
     /**
      * @brief Create a non-trivial arbitrary inner circuit, the proof of which will be recursively verified
@@ -113,8 +114,11 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         RecursiveVerifier verifier{ &outer_circuit, stdlib_vk_and_hash };
         verifier.key->vk_and_hash->vk->num_public_inputs.fix_witness();
         verifier.key->vk_and_hash->vk->pub_inputs_offset.fix_witness();
+        // It's currently un-used
+        verifier.key->vk_and_hash->vk->log_circuit_size.fix_witness();
 
-        VerifierOutput output = verifier.verify_proof(inner_proof);
+        StdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
+        VerifierOutput output = verifier.template verify_proof<DefaultIO<OuterBuilder>>(stdlib_inner_proof);
         PairingObject pairing_points = output.points_accumulator;
         pairing_points.P0.x.fix_witness();
         pairing_points.P0.y.fix_witness();
@@ -132,7 +136,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         outer_circuit.finalize_circuit(false);
         auto graph = cdg::StaticAnalyzer(outer_circuit);
         auto connected_components = graph.find_connected_components();
-        EXPECT_EQ(connected_components.size(), 3);
+        EXPECT_EQ(connected_components.size(), 2);
         info("Connected components: ", connected_components.size());
         auto variables_in_one_gate = graph.show_variables_in_one_gate(outer_circuit);
         EXPECT_EQ(variables_in_one_gate.size(), 2);

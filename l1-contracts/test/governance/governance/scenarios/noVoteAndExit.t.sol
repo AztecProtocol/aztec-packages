@@ -6,19 +6,12 @@ import {Proposal, ProposalState, Withdrawal} from "@aztec/governance/interfaces/
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
-import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 
 contract NoVoteAndExitTest is GovernanceBase {
-  using ProposalLib for Proposal;
   // Ensure that it is not possible to BOTH vote on proposal AND withdraw the funds before
   // it can be executed
 
-  function test_CannotVoteAndExit(
-    address _voter,
-    uint256 _totalPower,
-    uint256 _votesCast,
-    uint256 _yeas
-  ) external {
+  function test_CannotVoteAndExit(address _voter, uint256 _totalPower, uint256 _votesCast, uint256 _yeas) external {
     bytes32 _proposalName = "empty";
 
     vm.assume(_voter != address(0));
@@ -29,7 +22,7 @@ contract NoVoteAndExitTest is GovernanceBase {
     uint256 votesNeeded = Math.mulDiv(totalPower, proposal.config.quorum, 1e18, Math.Rounding.Ceil);
     uint256 votesCast = bound(_votesCast, votesNeeded, totalPower);
 
-    uint256 yeaLimitFraction = Math.ceilDiv(1e18 + proposal.config.voteDifferential, 2);
+    uint256 yeaLimitFraction = Math.ceilDiv(1e18 + proposal.config.requiredYeaMargin, 2);
     uint256 yeaLimit = Math.mulDiv(votesCast, yeaLimitFraction, 1e18, Math.Rounding.Ceil);
 
     uint256 yeas = yeaLimit == votesCast ? votesCast : bound(_yeas, yeaLimit + 1, votesCast);
@@ -41,7 +34,7 @@ contract NoVoteAndExitTest is GovernanceBase {
     vm.stopPrank();
 
     // Jump up to the point where the proposal becomes active
-    vm.warp(Timestamp.unwrap(proposal.pendingThrough()) + 1);
+    vm.warp(Timestamp.unwrap(upw.pendingThrough(proposal)) + 1);
 
     assertEq(governance.getProposalState(proposalId), ProposalState.Active);
 
@@ -54,22 +47,20 @@ contract NoVoteAndExitTest is GovernanceBase {
     uint256 withdrawalId = governance.initiateWithdraw(_voter, totalPower);
 
     // Jump to the block just before we become executable.
-    vm.warp(Timestamp.unwrap(proposal.queuedThrough()));
+    vm.warp(Timestamp.unwrap(upw.queuedThrough(proposal)));
     assertEq(governance.getProposalState(proposalId), ProposalState.Queued);
 
-    vm.warp(Timestamp.unwrap(proposal.queuedThrough()) + 1);
+    vm.warp(Timestamp.unwrap(upw.queuedThrough(proposal)) + 1);
     assertEq(governance.getProposalState(proposalId), ProposalState.Executable);
 
     Withdrawal memory withdrawal = governance.getWithdrawal(withdrawalId);
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Governance__WithdrawalNotUnlockedYet.selector,
-        Timestamp.wrap(block.timestamp),
-        withdrawal.unlocksAt
+        Errors.Governance__WithdrawalNotUnlockedYet.selector, Timestamp.wrap(block.timestamp), withdrawal.unlocksAt
       )
     );
-    governance.finaliseWithdraw(withdrawalId);
+    governance.finalizeWithdraw(withdrawalId);
 
     governance.execute(proposalId);
   }

@@ -8,7 +8,7 @@
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/goblin/types.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/stdlib/pairing_points.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_flavor.hpp"
@@ -35,6 +35,7 @@ class TranslatorRecursiveVerifier {
     using StdlibProof = stdlib::Proof<Builder>;
 
     std::shared_ptr<VerificationKey> key;
+    FF vk_hash;
     std::shared_ptr<Transcript> transcript;
     VerifierCommitmentKey pcs_verification_key; // can remove maybe hopefully
     std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> op_queue_commitments;
@@ -65,6 +66,6 @@ class TranslatorRecursiveVerifier {
      * the same commitments to the op queue as part of the proof.
      */
     void verify_consistency_with_final_merge(
-        const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> merge_commitments);
+        const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& merge_commitments);
 };
 } // namespace bb

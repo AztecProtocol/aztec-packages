@@ -4,6 +4,7 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #define IPA_FUZZ_TEST
 #include "./mock_transcript.hpp"
@@ -75,7 +76,7 @@ extern "C" void LLVMFuzzerInitialize(int*, char***)
 // Don't use dereference casts, since the data may be not aligned and it causes segfault
 uint256_t read_uint256(const uint8_t* data, size_t buffer_size = 32)
 {
-    ASSERT(buffer_size <= 32);
+    BB_ASSERT_LTE(buffer_size, 32U);
 
     uint64_t parts[4] = { 0, 0, 0, 0 };
 

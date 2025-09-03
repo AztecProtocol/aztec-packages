@@ -617,7 +617,7 @@ describe('PXEOracleInterface', () => {
     });
   });
 
-  describe('bulkRetrieveLogs', () => {
+  describe('utilityBulkRetrieveLogs', () => {
     const unsiloedTag = Fr.random();
     const REQUEST_SLOT = Fr.random();
     const RESPONSE_SLOT = Fr.random();

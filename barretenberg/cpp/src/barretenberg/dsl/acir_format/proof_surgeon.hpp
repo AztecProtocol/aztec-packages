@@ -7,68 +7,20 @@
 #pragma once
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include <barretenberg/common/container.hpp>
 #include <cstdint>
 
 namespace acir_format {
 
-class ProofSurgeon {
-    using FF = bb::fr;
-
-    // construct a string of the form "[<fr_0 hex>, <fr_1 hex>, ...]"
-    static std::string to_json(const std::vector<bb::fr>& data)
-    {
-        return format(
-            "[", bb::join(bb::transform::map(data, [](auto fr) { return format("\"", fr, "\""); }), ", "), "]");
-    }
-
+template <typename FF> class ProofSurgeon {
   public:
-    /**
-     * @brief Construct a string containing the inputs to a noir verify_proof call (to be written to a .toml)
-     *
-     * @param proof A complete bberg style proof (i.e. contains the public inputs)
-     * @param verification_key
-     * @param toml_path
-     */
-    template <typename VerificationKey>
-    static std::string construct_recursion_inputs_toml_data(std::vector<FF>& proof,
-                                                            const std::shared_ptr<VerificationKey>& verification_key,
-                                                            bool ipa_accumulation)
-    {
-        // Convert verification key to fields
-        std::vector<FF> vk_fields = verification_key->to_field_elements();
-
-        // Get public inputs by cutting them out of the proof
-        size_t num_public_inputs_to_extract =
-            static_cast<uint32_t>(verification_key->num_public_inputs) - bb::PAIRING_POINTS_SIZE;
-        if (ipa_accumulation) {
-            num_public_inputs_to_extract -= bb::IPA_CLAIM_SIZE;
-        }
-        debug("proof size: ", proof.size());
-        debug("number of public inputs to extract: ", num_public_inputs_to_extract);
-        std::vector<FF> public_inputs =
-            acir_format::ProofSurgeon::cut_public_inputs_from_proof(proof, num_public_inputs_to_extract);
-
-        // Construct json-style output for each component
-        std::string proof_json = to_json(proof);
-        std::string pub_inputs_json = to_json(public_inputs);
-        std::string vk_json = to_json(vk_fields);
-
-        // Format with labels for noir recursion input
-        std::string toml_content = "key_hash = " + format("\"", FF(0), "\"") + "\n"; // not used by honk
-        toml_content += "proof = " + proof_json + "\n";
-        toml_content += "public_inputs = " + pub_inputs_json + "\n";
-        toml_content += "verification_key = " + vk_json + "\n";
-
-        return toml_content;
-    }
-
     /**
      * @brief Reconstruct a bberg style proof from a acir style proof + public inputs
      * @details Insert the public inputs in the middle the proof fields after 'inner_public_input_offset' because this
@@ -97,17 +49,17 @@ class ProofSurgeon {
      *
      * @param proof_witnesses Witness values of a bberg style proof containing public inputs
      * @param num_public_inputs The number of public inputs to extract from the proof
-     * @return std::vector<bb::fr> The extracted public input witness values
+     * @return std::vector<FF> The extracted public input witness values
      */
-    static std::vector<bb::fr> cut_public_inputs_from_proof(std::vector<bb::fr>& proof_witnesses,
-                                                            const size_t num_public_inputs_to_extract)
+    static std::vector<FF> cut_public_inputs_from_proof(std::vector<FF>& proof_witnesses,
+                                                        const size_t num_public_inputs_to_extract)
     {
         // Construct iterators pointing to the start and end of the public inputs within the proof
         auto pub_inputs_begin_itr = proof_witnesses.begin();
         auto pub_inputs_end_itr = proof_witnesses.begin() + static_cast<std::ptrdiff_t>(num_public_inputs_to_extract);
 
         // Construct the isolated public inputs
-        std::vector<bb::fr> public_input_witnesses{ pub_inputs_begin_itr, pub_inputs_end_itr };
+        std::vector<FF> public_input_witnesses{ pub_inputs_begin_itr, pub_inputs_end_itr };
 
         // Erase the public inputs from the proof
         proof_witnesses.erase(pub_inputs_begin_itr, pub_inputs_end_itr);
@@ -120,7 +72,7 @@ class ProofSurgeon {
      *
      * @param proof A bberg style stdlib proof (contains public inputs)
      * @param num_public_inputs The number of public input witness indices to get from the proof
-     * @return std::vector<bb::fr> The corresponding public input witness indices
+     * @return std::vector<FF> The corresponding public input witness indices
      */
     static std::vector<uint32_t> get_public_inputs_witness_indices_from_proof(
         const bb::stdlib::Proof<bb::MegaCircuitBuilder>& proof, const size_t num_public_inputs_to_extract)
@@ -157,34 +109,23 @@ class ProofSurgeon {
      * @param num_public_inputs
      * @return RecursionWitnessData
      */
-    static RecursionWitnessData populate_recursion_witness_data(bb::SlabVector<bb::fr>& witness,
-                                                                std::vector<bb::fr>& proof_witnesses,
-                                                                const std::vector<bb::fr>& key_witnesses,
-                                                                const bb::fr& key_hash_witness,
+    static RecursionWitnessData populate_recursion_witness_data(bb::SlabVector<FF>& witness,
+                                                                std::vector<FF>& proof_witnesses,
+                                                                const std::vector<FF>& key_witnesses,
+                                                                const FF& key_hash_witness,
                                                                 const size_t num_public_inputs_to_extract)
     {
         // Extract all public inputs except for those corresponding to the aggregation object
-        std::vector<bb::fr> public_input_witnesses =
+        std::vector<FF> public_input_witnesses =
             cut_public_inputs_from_proof(proof_witnesses, num_public_inputs_to_extract);
 
-        // Helper to append some values to the witness vector and return their corresponding indices
-        auto add_to_witness_and_track_indices = [](bb::SlabVector<bb::fr>& witness,
-                                                   const std::vector<bb::fr>& input) -> std::vector<uint32_t> {
-            std::vector<uint32_t> indices;
-            indices.reserve(input.size());
-            auto witness_idx = static_cast<uint32_t>(witness.size());
-            for (const auto& value : input) {
-                witness.push_back(value);
-                indices.push_back(witness_idx++);
-            }
-            return indices;
-        };
-
         // Append key, proof, and public inputs while storing the associated witness indices
-        std::vector<uint32_t> key_indices = add_to_witness_and_track_indices(witness, key_witnesses);
-        uint32_t key_hash_index = add_to_witness_and_track_indices(witness, { key_hash_witness })[0];
-        std::vector<uint32_t> proof_indices = add_to_witness_and_track_indices(witness, proof_witnesses);
-        std::vector<uint32_t> public_input_indices = add_to_witness_and_track_indices(witness, public_input_witnesses);
+        std::vector<uint32_t> key_indices = add_to_witness_and_track_indices<FF>(witness, key_witnesses);
+        uint32_t key_hash_index = static_cast<uint32_t>(witness.size());
+        witness.emplace_back(key_hash_witness);
+        std::vector<uint32_t> proof_indices = add_to_witness_and_track_indices<FF>(witness, proof_witnesses);
+        std::vector<uint32_t> public_input_indices =
+            add_to_witness_and_track_indices<FF>(witness, public_input_witnesses);
 
         return { key_indices, key_hash_index, proof_indices, public_input_indices };
     }

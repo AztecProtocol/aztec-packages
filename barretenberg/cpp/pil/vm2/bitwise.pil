@@ -195,7 +195,7 @@ sel {
     acc_ic, tag_c
 };
 
-// TODOs: See two following paragraphs
+// TODOs: See the following paragraphs
 
 // ################################################
 // Alternative implementation as potential speed-up
@@ -227,3 +227,17 @@ sel {
 // Then, we should activate the start selector where ctr == 2, and the following rows
 // represent a valid trace for this computation.
 // It is not clear if this would lead to some speed-up in practice.
+
+// ################################################
+// Tight counter
+// ################################################
+//
+// The counter is currently set to TAG_LEN, which is the maximum number of bytes of the two inputs.
+// This is not tight, and we can reduce the counter to the effective number of bytes of the largest
+// input. For instance, a == 0x23 and b == 0x123 with tag U64 can be computed with ctr == 2.
+// We can relax the lookup #[INTEGRAL_TAG_LENGTH] and have ctr being chosen "freely" in the
+// interval [1, 31]. Namely, if ctr is non-zero, the computation is triggered and if ctr is too short,
+// a relation will fail. If ctr is too large, then some rows are wasted. However, it is crucial that
+// ctr != 0, otherwise it is underconstrained and the bitwise operation can be completely faked (no lookup to precomputed.bitwise).
+// In addition, requesting a max value of 31 prevents the acc_ia, acc_ib, acc_ic values to overflow the field
+// which represents a potential attack vector.

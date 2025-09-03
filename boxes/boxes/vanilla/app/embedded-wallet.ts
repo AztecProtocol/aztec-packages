@@ -16,7 +16,10 @@ import { getEcdsaRAccount } from '@aztec/accounts/ecdsa/lazy';
 import { getSchnorrAccount } from '@aztec/accounts/schnorr/lazy';
 import { getPXEServiceConfig } from '@aztec/pxe/config';
 import { createPXEService } from '@aztec/pxe/client/lazy';
-import { type ContractArtifact, getDefaultInitializer } from '@aztec/stdlib/abi';
+import {
+  type ContractArtifact,
+  getDefaultInitializer,
+} from '@aztec/stdlib/abi';
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
 
 const PROVER_ENABLED = true;
@@ -78,7 +81,12 @@ export class EmbeddedWallet {
   async connectTestAccount(index: number) {
     const testAccounts = await getInitialTestAccounts();
     const account = testAccounts[index];
-    const schnorrAccount = await getSchnorrAccount(this.pxe, account.secret, account.signingKey, account.salt);
+    const schnorrAccount = await getSchnorrAccount(
+      this.pxe,
+      account.secret,
+      account.signingKey,
+      account.salt
+    );
 
     await schnorrAccount.register();
     const wallet = await schnorrAccount.getWallet();
@@ -110,6 +118,7 @@ export class EmbeddedWallet {
     const deployMethod = await ecdsaAccount.getDeployMethod();
     const sponsoredPFCContract = await this.#getSponsoredPFCContract();
     const deployOpts = {
+      from: AztecAddress.ZERO,
       contractAddressSalt: Fr.fromString(ecdsaAccount.salt.toString()),
       fee: {
         paymentMethod: await ecdsaAccount.getSelfPaymentMethod(
@@ -174,12 +183,15 @@ export class EmbeddedWallet {
     deploymentSalt: Fr,
     constructorArgs: any[]
   ) {
-    const instance = await getContractInstanceFromInstantiationParams(artifact, {
-      constructorArtifact: getDefaultInitializer(artifact),
-      constructorArgs: constructorArgs,
-      deployer: deployer,
-      salt: deploymentSalt,
-    });
+    const instance = await getContractInstanceFromInstantiationParams(
+      artifact,
+      {
+        constructorArtifact: getDefaultInitializer(artifact),
+        constructorArgs: constructorArgs,
+        deployer: deployer,
+        salt: deploymentSalt,
+      }
+    );
 
     await this.pxe.registerContract({
       instance,
@@ -191,6 +203,7 @@ export class EmbeddedWallet {
   async sendTransaction(interaction: ContractFunctionInteraction) {
     const sponsoredPFCContract = await this.#getSponsoredPFCContract();
     const provenInteraction = await interaction.prove({
+      from: this.connectedAccount.getAddress(),
       fee: {
         paymentMethod: new SponsoredFeePaymentMethod(
           sponsoredPFCContract.address
@@ -203,7 +216,9 @@ export class EmbeddedWallet {
 
   // Simulate a transaction
   async simulateTransaction(interaction: ContractFunctionInteraction) {
-    const res = await interaction.simulate();
+    const res = await interaction.simulate({
+      from: this.connectedAccount.getAddress(),
+    });
     return res;
   }
 }

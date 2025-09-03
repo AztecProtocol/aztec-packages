@@ -50,7 +50,6 @@ template <typename FF_> class DeltaRangeConstraintRelationImpl {
                                   const Parameters&,
                                   const FF& scaling_factor)
     {
-        PROFILE_THIS_NAME("DeltaRange::accumulate");
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
 

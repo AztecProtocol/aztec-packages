@@ -25,7 +25,7 @@ describe('tx_delayer', () => {
   let cheatCodes: EthCheatCodes;
   let dateProvider: TestDateProvider;
 
-  const ETHEREUM_SLOT_DURATION = 2;
+  const ETHEREUM_SLOT_DURATION = process.env.L1_SLOT_DURATION ? parseInt(process.env.L1_SLOT_DURATION) : 4;
 
   beforeAll(async () => {
     ({ anvil, rpcUrl } = await startAnvil({ l1BlockTime: ETHEREUM_SLOT_DURATION }));
@@ -70,8 +70,9 @@ describe('tx_delayer', () => {
   it('delays a transaction until a given L1 timestamp', async () => {
     const block = await client.getBlock({ includeTransactions: false });
     const timestamp = block.timestamp;
-    delayer.pauseNextTxUntilTimestamp(timestamp + 6n);
-    logger.info(`Pausing next tx until timestamp ${timestamp + 6n}`);
+    const targetTimestamp = timestamp + BigInt(ETHEREUM_SLOT_DURATION) * 3n;
+    delayer.pauseNextTxUntilTimestamp(targetTimestamp);
+    logger.info(`Pausing next tx until timestamp ${targetTimestamp}`);
 
     const delayedTxHash = await client.sendTransaction({ to: account.address });
     await expect(client.getTransactionReceipt({ hash: delayedTxHash })).rejects.toThrow(receiptNotFound);
@@ -109,8 +110,8 @@ describe('tx_delayer', () => {
     delayer.setMaxInclusionTimeIntoSlot(ETHEREUM_SLOT_DURATION - 1);
 
     const blockNumber = await client.getBlockNumber({ cacheTime: 0 });
-    await waitUntilBlock(client, blockNumber + 1n);
-    logger.info(`Block ${blockNumber + 1n} just mined. Waiting for nearing the end of the slot.`);
+    await waitUntilBlock(client, blockNumber + 2n);
+    logger.info(`Block ${blockNumber + 2n} just mined. Waiting for nearing the end of the slot.`);
     await sleep(ETHEREUM_SLOT_DURATION * 1000 - 500);
 
     logger.info(`Sending tx to be delayed.`);
@@ -119,19 +120,20 @@ describe('tx_delayer', () => {
 
     logger.info(`Delayed tx sent. Awaiting receipt.`);
     const delayedTxReceipt = await client.waitForTransactionReceipt({ hash: delayedTxHash });
-    expect(delayedTxReceipt.blockNumber).toEqual(blockNumber + 3n);
+    expect(delayedTxReceipt.blockNumber).toEqual(blockNumber + 4n);
   }, 20000);
 
   it('does not delay a transaction sent early in the slot', async () => {
     delayer.setMaxInclusionTimeIntoSlot(ETHEREUM_SLOT_DURATION - 1);
 
     const blockNumber = await client.getBlockNumber({ cacheTime: 0 });
-    await waitUntilBlock(client, blockNumber + 1n);
+    await waitUntilBlock(client, blockNumber + 2n);
     await sleep(100);
 
+    logger.info(`Sending tx to be mined immediately`);
     const txHash = await client.sendTransaction({ to: account.address });
     const txReceipt = await client.waitForTransactionReceipt({ hash: txHash });
-    expect(txReceipt.blockNumber).toEqual(blockNumber + 2n);
+    expect(txReceipt.blockNumber).toEqual(blockNumber + 3n);
   }, 20000);
 
   it('cancels a tx and sends it later manually', async () => {

@@ -10,4 +10,4 @@ AddRollupTest
         └── given rollup not registered
             ├── it adds rollup to instances
             ├── it sets rollup exists to true
-            └── it pushes rollup to canonical with timestamp
+            └── it pushes rollup to latest with timestamp

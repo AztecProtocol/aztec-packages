@@ -39,10 +39,10 @@ impl SettledReadHint<NOTE_HASH_TREE_HEIGHT, NoteHashLeafPreimage> for NoteHashSe
     }
 }
 
-pub struct NoteHashReadRequestHints<let PENDING_READ_HINTS_LEN: u32, let SETTLED_READ_HINTS_LEN: u32> {
+pub struct NoteHashReadRequestHints<let PendingReadHintsLen: u32, let SettledReadHintsLen: u32> {
     pub read_request_actions: [ReadRequestAction; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
-    pub pending_read_hints: [PendingReadHint; PENDING_READ_HINTS_LEN],
-    pub settled_read_hints: [NoteHashSettledReadHint; SETTLED_READ_HINTS_LEN],
+    pub pending_read_hints: [PendingReadHint; PendingReadHintsLen],
+    pub settled_read_hints: [NoteHashSettledReadHint; SettledReadHintsLen],
 }
 
 mod tests {
@@ -66,14 +66,14 @@ mod tests {
     };
     use types::utils::arrays::ClaimedLengthArray;
 
-    struct TestBuilder<let READ_REQUEST_LEN: u32, let PENDING_VALUE_LEN: u32, let PENDING_READ_HINTS_LEN: u32, let SETTLED_READ_HINTS_LEN: u32> {
+    struct TestBuilder<let ReadRequestLen: u32, let PendingValueLen: u32, let PendingReadHintsLen: u32, let SettledReadHintsLen: u32> {
         contract_address: AztecAddress,
-        read_requests: ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN>,
-        read_request_actions: [ReadRequestAction; READ_REQUEST_LEN],
-        pending_values: ClaimedLengthArray<ScopedNoteHash, PENDING_VALUE_LEN>,
-        pending_read_hints: [PendingReadHint; PENDING_READ_HINTS_LEN],
+        read_requests: ClaimedLengthArray<ScopedReadRequest, ReadRequestLen>,
+        read_request_actions: [ReadRequestAction; ReadRequestLen],
+        pending_values: ClaimedLengthArray<ScopedNoteHash, PendingValueLen>,
+        pending_read_hints: [PendingReadHint; PendingReadHintsLen],
         pending_read_amount: u32,
-        leaf_preimages: [NoteHashLeafPreimage; SETTLED_READ_HINTS_LEN],
+        leaf_preimages: [NoteHashLeafPreimage; SettledReadHintsLen],
         settled_read_amount: u32,
     }
 
@@ -145,7 +145,7 @@ mod tests {
         }
     }
 
-    impl<let READ_REQUEST_LEN: u32, let PENDING_VALUE_LEN: u32, let PENDING_READ_HINTS_LEN: u32, let SETTLED_READ_HINTS_LEN: u32> TestBuilder<READ_REQUEST_LEN, PENDING_VALUE_LEN, PENDING_READ_HINTS_LEN, SETTLED_READ_HINTS_LEN> {
+    impl<let ReadRequestLen: u32, let PendingValueLen: u32, let PendingReadHintsLen: u32, let SettledReadHintsLen: u32> TestBuilder<ReadRequestLen, PendingValueLen, PendingReadHintsLen, SettledReadHintsLen> {
         fn build_tree(
             self,
         ) -> NonEmptyMerkleTree<2, NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT - 1, 1> {
@@ -183,7 +183,7 @@ mod tests {
 
         pub unconstrained fn get_propagated_read_requests(
             self,
-        ) -> ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN> {
+        ) -> ClaimedLengthArray<ScopedReadRequest, ReadRequestLen> {
             get_propagated_read_requests(self.read_requests, self.read_request_actions)
         }
 

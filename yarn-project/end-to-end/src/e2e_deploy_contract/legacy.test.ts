@@ -22,9 +22,10 @@ describe('e2e_deploy_contract legacy', () => {
   let pxe: PXE;
   let logger: Logger;
   let wallet: Wallet;
+  let defaultAccountAddress: AztecAddress;
 
   beforeAll(async () => {
-    ({ pxe, logger, wallet } = await t.setup());
+    ({ pxe, logger, wallet, defaultAccountAddress } = await t.setup());
   });
 
   afterAll(() => t.teardown());
@@ -42,7 +43,10 @@ describe('e2e_deploy_contract legacy', () => {
       deployer: wallet.getAddress(),
     });
     const deployer = new ContractDeployer(TestContractArtifact, wallet, publicKeys);
-    const receipt = await deployer.deploy().send({ contractAddressSalt: salt }).wait({ wallet });
+    const receipt = await deployer
+      .deploy()
+      .send({ from: defaultAccountAddress, contractAddressSalt: salt })
+      .wait({ wallet });
     expect(receipt.contract.address).toEqual(deploymentData.address);
     expect((await pxe.getContractMetadata(deploymentData.address)).contractInstance).toBeDefined();
     expect((await pxe.getContractMetadata(deploymentData.address)).isContractPublished).toBeTrue();
@@ -56,7 +60,7 @@ describe('e2e_deploy_contract legacy', () => {
 
     for (let index = 0; index < 2; index++) {
       logger.info(`Deploying contract ${index + 1}...`);
-      await deployer.deploy().send({ contractAddressSalt: Fr.random() }).wait({ wallet });
+      await deployer.deploy().send({ from: defaultAccountAddress, contractAddressSalt: Fr.random() }).wait({ wallet });
     }
   });
 
@@ -68,9 +72,15 @@ describe('e2e_deploy_contract legacy', () => {
 
     for (let index = 0; index < 2; index++) {
       logger.info(`Deploying contract ${index + 1}...`);
-      const receipt = await deployer.deploy().send({ contractAddressSalt: Fr.random() }).wait({ wallet });
+      const receipt = await deployer
+        .deploy()
+        .send({ from: defaultAccountAddress, contractAddressSalt: Fr.random() })
+        .wait({ wallet });
       logger.info(`Sending TX to contract ${index + 1}...`);
-      await receipt.contract.methods.get_master_incoming_viewing_public_key(wallet.getAddress()).send().wait();
+      await receipt.contract.methods
+        .get_master_incoming_viewing_public_key(wallet.getAddress())
+        .send({ from: defaultAccountAddress })
+        .wait();
     }
   });
 
@@ -82,8 +92,10 @@ describe('e2e_deploy_contract legacy', () => {
     const contractAddressSalt = Fr.random();
     const deployer = new ContractDeployer(TestContractArtifact, wallet);
 
-    await deployer.deploy().send({ contractAddressSalt }).wait({ wallet });
-    await expect(deployer.deploy().send({ contractAddressSalt }).wait()).rejects.toThrow(TX_ERROR_EXISTING_NULLIFIER);
+    await deployer.deploy().send({ from: defaultAccountAddress, contractAddressSalt }).wait({ wallet });
+    await expect(deployer.deploy().send({ from: defaultAccountAddress, contractAddressSalt }).wait()).rejects.toThrow(
+      TX_ERROR_EXISTING_NULLIFIER,
+    );
   });
 
   it('should not deploy a contract which failed the public part of the execution', async () => {
@@ -96,8 +108,11 @@ describe('e2e_deploy_contract legacy', () => {
     const firstOpts: DeployOptions = {
       skipClassPublication: true,
       skipInstancePublication: true,
+      from: defaultAccountAddress,
     };
-    const secondOpts: DeployOptions = {};
+    const secondOpts: DeployOptions = {
+      from: defaultAccountAddress,
+    };
 
     await Promise.all([goodDeploy.prove(firstOpts), badDeploy.prove(secondOpts)]);
     const [goodTx, badTx] = [goodDeploy.send(firstOpts), badDeploy.send(secondOpts)];

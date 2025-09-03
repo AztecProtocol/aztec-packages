@@ -13,7 +13,35 @@ struct BlockType {
     static const size_t ARITHMETIC = 2;
     static const size_t DELTA_RANGE = 3;
     static const size_t ELLIPTIC = 4;
-    static const size_t AUX = 5;
+    static const size_t MEMORY = 5;
+    static const size_t NNF = 6;
+};
+
+struct SelectorType {
+    static const size_t q_m = 0;
+    static const size_t q_1 = 1;
+    static const size_t q_2 = 2;
+    static const size_t q_3 = 3;
+    static const size_t q_4 = 4;
+    static const size_t q_c = 5;
+    static const size_t q_arith = 6;
+    static const size_t q_delta_range = 7;
+    static const size_t q_elliptic = 8;
+    static const size_t q_memory = 9;
+    static const size_t q_nnf = 10;
+    static const size_t q_lookup = 11;
+    static const size_t curve_b = 12;
+};
+
+struct WireType {
+    static const size_t w_l = 0;
+    static const size_t w_r = 1;
+    static const size_t w_o = 2;
+    static const size_t w_4 = 3;
+    static const size_t w_l_shift = 4;
+    static const size_t w_r_shift = 5;
+    static const size_t w_o_shift = 6;
+    static const size_t w_4_shift = 7;
 };
 
 /**
@@ -24,13 +52,13 @@ struct BlockType {
  */
 class UltraCircuit : public CircuitBase {
   public:
-    // TODO(alex): check that there's no actual pub_inputs block
     std::vector<std::vector<std::vector<bb::fr>>> selectors;    // all selectors from the circuit
                                                                 // 1st entry are lookup selectors
                                                                 // 2nd entry are arithmetic selectors
                                                                 // 3rd entry are delta_range selectors
                                                                 // 4th entry are elliptic selectors
-                                                                // 5th entry are aux selectors
+                                                                // 5th entry are memory selectors
+                                                                // 6th entry are nnf selectors
     std::vector<std::vector<std::vector<uint32_t>>> wires_idxs; // values of the gates' wires idxs
 
     std::vector<std::vector<std::vector<bb::fr>>> lookup_tables;
@@ -73,7 +101,7 @@ class UltraCircuit : public CircuitBase {
     inline size_t get_num_gates() const
     {
         return selectors[0].size() + selectors[1].size() + selectors[2].size() + selectors[3].size() +
-               selectors[4].size() + selectors[5].size();
+               selectors[4].size() + selectors[5].size() + selectors[6].size();
     };
 
     bool simulate_circuit_eval(std::vector<bb::fr>& witness) const override;
@@ -83,13 +111,13 @@ class UltraCircuit : public CircuitBase {
     size_t handle_lookup_relation(size_t cursor);
     size_t handle_elliptic_relation(size_t cursor);
     size_t handle_delta_range_relation(size_t cursor);
-    size_t handle_aux_relation(size_t cursor);
+    size_t handle_nnf_relation(size_t cursor);
 
     void handle_range_constraints();
 
     void rom_table_read(uint32_t rom_array_idx, uint32_t index_idx, uint32_t value1_idx, uint32_t value2_idx);
     void ram_table_read(uint32_t ram_array_idx, uint32_t index_idx, uint32_t value_idx);
-    void ram_table_write(uint32_t rom_array_idx, uint32_t index_idx, uint32_t value_idx);
+    void ram_table_write(uint32_t ram_array_idx, uint32_t ram_index_idx, uint32_t read_from_value_idx);
     void handle_rom_tables();
     void handle_ram_tables();
 

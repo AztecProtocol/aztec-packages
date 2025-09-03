@@ -44,16 +44,12 @@ contract DepositToAztecPublic is Test {
   function test_RevertGiven_InsufficientBalance() external {
     // it should revert
     vm.expectRevert(
-      abi.encodeWithSelector(
-        IERC20Errors.ERC20InsufficientAllowance.selector, address(feeJuicePortal), 0, 1
-      )
+      abi.encodeWithSelector(IERC20Errors.ERC20InsufficientAllowance.selector, address(feeJuicePortal), 0, 1)
     );
     feeJuicePortal.depositToAztecPublic(bytes32(0x0), 1, bytes32(0x0));
 
     token.approve(address(feeJuicePortal), 1);
-    vm.expectRevert(
-      abi.encodeWithSelector(IERC20Errors.ERC20InsufficientBalance.selector, address(this), 0, 1)
-    );
+    vm.expectRevert(abi.encodeWithSelector(IERC20Errors.ERC20InsufficientBalance.selector, address(this), 0, 1));
     feeJuicePortal.depositToAztecPublic(bytes32(0x0), 1, bytes32(0x0));
   }
 
@@ -83,14 +79,14 @@ contract DepositToAztecPublic is Test {
 
     bytes32 expectedKey = message.sha256ToField();
 
+    vm.prank(token.owner());
     token.mint(address(this), amount);
     token.approve(address(feeJuicePortal), amount);
 
     Inbox inbox = Inbox(address(Rollup(address(registry.getCanonicalRollup())).getInbox()));
     assertEq(inbox.getTotalMessagesInserted(), 0);
 
-    bytes16 expectedHash =
-      bytes16(keccak256(abi.encodePacked(inbox.getState().rollingHash, expectedKey)));
+    bytes16 expectedHash = bytes16(keccak256(abi.encodePacked(inbox.getState().rollingHash, expectedKey)));
     vm.expectEmit(true, true, true, true, address(inbox));
     emit IInbox.MessageSent(2, expectedIndex, expectedKey, expectedHash);
     vm.expectEmit(true, true, true, true, address(feeJuicePortal));

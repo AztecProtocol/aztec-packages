@@ -22,7 +22,7 @@ export interface PubSubLibp2p extends Pick<Libp2p, 'status' | 'start' | 'stop' |
   services: {
     pubsub: Pick<
       GossipSub,
-      'addEventListener' | 'removeEventListener' | 'publish' | 'subscribe' | 'reportMessageValidationResult'
+      'addEventListener' | 'removeEventListener' | 'publish' | 'subscribe' | 'reportMessageValidationResult' | 'direct'
     > & { score: Pick<GossipSub['score'], 'score'> };
   };
 }

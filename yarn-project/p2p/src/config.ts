@@ -150,6 +150,17 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig, TxCollectionCo
 
   /** True to disable participating in discovery */
   p2pDiscoveryDisabled?: boolean;
+  /** Number of auth attempts to allow before peer is banned. Number is inclusive*/
+  p2pMaxFailedAuthAttemptsAllowed: number;
+
+  /** Whether transactions are disabled for this node. This means transactions will be rejected at the RPC and P2P layers. */
+  disableTransactions: boolean;
+
+  /** True to simulate discarding transactions. - For testing purposes only*/
+  dropTransactions: boolean;
+
+  /** The probability that a transaction is discarded. - For testing purposes only */
+  dropTransactionsProbability: number;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
@@ -378,6 +389,27 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   p2pAllowOnlyValidators: {
     env: 'P2P_ALLOW_ONLY_VALIDATORS',
     description: 'True to only permit validators to connect.',
+    ...booleanConfigHelper(false),
+  },
+  p2pMaxFailedAuthAttemptsAllowed: {
+    env: 'P2P_MAX_AUTH_FAILED_ATTEMPTS_ALLOWED',
+    description: 'Number of auth attempts to allow before peer is banned. Number is inclusive',
+    ...numberConfigHelper(3),
+  },
+  dropTransactions: {
+    env: 'P2P_DROP_TX',
+    description: 'True to simulate discarding transactions. - For testing purposes only',
+    ...booleanConfigHelper(false),
+  },
+  dropTransactionsProbability: {
+    env: 'P2P_DROP_TX_CHANCE',
+    description: 'The probability that a transaction is discarded. - For testing purposes only',
+    ...floatConfigHelper(0),
+  },
+  disableTransactions: {
+    env: 'TRANSACTIONS_DISABLED',
+    description:
+      'Whether transactions are disabled for this node. This means transactions will be rejected at the RPC and P2P layers.',
     ...booleanConfigHelper(false),
   },
   ...p2pReqRespConfigMappings,

@@ -15,7 +15,11 @@ policies:
           object_matchers:
             - - k8s_namespace_name
               - =~
-              - next-rc-1
+              - $STAGING_NAMESPACES_REGEX
+        - receiver: 'Slack #network-alerts channel'
+          object_matchers:
+            - - k8s_namespace_name
+              - =~
+              - $NIGHTLY_NAMESPACES_REGEX
           mute_time_intervals:
-            - next-rc-1_nightly_deployment
-
+            - nightly_deployment

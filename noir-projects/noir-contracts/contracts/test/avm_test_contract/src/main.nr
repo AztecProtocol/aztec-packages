@@ -1,4 +1,5 @@
 mod note;
+mod fake_public_context;
 use dep::aztec::macros::aztec;
 
 #[aztec]
@@ -11,15 +12,17 @@ pub contract AvmTest {
         0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef;
 
     // Libs
+    use crate::fake_public_context::{
+        avm_return, avm_revert, call, returndata_copy, returndata_size, success_copy,
+    };
     use dep::aztec::context::gas::GasOpts;
-    use dep::aztec::context::public_context::{call, returndata_size, success_copy};
     use dep::aztec::macros::{functions::{private, public}, storage::storage};
     use dep::aztec::oracle::get_contract_instance::{
         get_contract_instance_class_id_avm, get_contract_instance_deployer_avm,
         get_contract_instance_initialization_hash_avm,
     };
+    use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
     use dep::aztec::protocol_types::{
-        abis::function_selector::FunctionSelector,
         address::{AztecAddress, EthAddress},
         point::Point,
         scalar::Scalar,
@@ -32,6 +35,7 @@ pub contract AvmTest {
     };
     use dep::aztec::state_vars::Map;
     use dep::aztec::state_vars::PublicMutable;
+    use dep::aztec::state_vars::storage::HasStorageSlot;
     use dep::compressed_string::CompressedString;
     use aztec::protocol_types::traits::Serialize;
     use std::embedded_curve_ops::{EmbeddedCurvePoint, multi_scalar_mul};
@@ -85,7 +89,7 @@ pub contract AvmTest {
     fn set_storage_map(to: AztecAddress, amount: u32) -> Field {
         storage.map.at(to).write(amount);
         // returns storage slot for key
-        derive_storage_slot_in_map(storage.map.storage_slot, to)
+        derive_storage_slot_in_map(storage.map.get_storage_slot(), to)
     }
 
     #[public]
@@ -93,7 +97,7 @@ pub contract AvmTest {
         let new_balance = storage.map.at(to).read().add(amount);
         storage.map.at(to).write(new_balance);
         // returns storage slot for key
-        derive_storage_slot_in_map(storage.map.storage_slot, to)
+        derive_storage_slot_in_map(storage.map.get_storage_slot(), to)
     }
 
     #[public]
@@ -117,17 +121,17 @@ pub contract AvmTest {
      ************************************************************************/
     #[public]
     fn set_opcode_u8() -> u8 {
-        8 as u8
+        8
     }
 
     #[public]
     fn set_opcode_u32() -> u32 {
-        1 << 30 as u8
+        1 << 30
     }
 
     #[public]
     fn set_opcode_u64() -> u64 {
-        1 << 60 as u8
+        1 << 60
     }
 
     #[public]
@@ -204,6 +208,8 @@ pub contract AvmTest {
     fn bitwise_ops(x: u32, y: u32) -> u32 {
         let mut result = x & y;
         result = result | x;
+        result = result >> x;
+        result = result << y;
         result ^ y
     }
 
@@ -219,9 +225,20 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn to_radix_le(input: Field) -> [u8; 10] {
-        input.to_le_radix(/*base=*/ 2)
+    fn integer_division(x: u8, y: u8) -> u8 {
+        x / y
     }
+
+    #[public]
+    fn field_division(x: Field, y: Field) -> Field {
+        x / y
+    }
+
+    // TODO(#16099): Re-enable this test
+    // #[public]
+    // fn to_radix_le(input: Field) -> [u8; 10] {
+    //     input.to_le_radix(/*base=*/ 2)
+    // }
 
     // Helper functions to demonstrate an internal call stack in error messages
     #[contract_library_method]
@@ -252,7 +269,7 @@ pub contract AvmTest {
 
     #[public]
     fn external_call_to_divide_by_zero() {
-        AvmTest::at(context.this_address()).divide_by_zero().call(&mut context);
+        let _ = AvmTest::at(context.this_address()).divide_by_zero().call(&mut context);
     }
 
     #[public]
@@ -307,21 +324,21 @@ pub contract AvmTest {
 
     #[public]
     fn returndata_copy_oracle() {
-        AvmTest::at(context.this_address()).return_oracle().call(&mut context);
-        let returndatasize = dep::aztec::context::public_context::returndata_size();
-        let returndata = dep::aztec::context::public_context::returndata_copy(0, returndatasize);
+        let _ = AvmTest::at(context.this_address()).return_oracle().call(&mut context);
+        let returndatasize = returndata_size();
+        let returndata = returndata_copy(0, returndatasize);
         assert(returndata == &[1, 2, 3], "Returndata copy failed");
     }
 
     #[public]
     fn return_oracle() -> [Field; 3] {
-        dep::aztec::context::public_context::avm_return([1, 2, 3]);
+        avm_return([1, 2, 3]);
         [4, 5, 6] // Should not get here.
     }
 
     #[public]
     fn revert_oracle() -> [Field; 3] {
-        dep::aztec::context::public_context::avm_revert([1, 2, 3]);
+        avm_revert([1, 2, 3]);
         [4, 5, 6] // Should not get here.
     }
 
@@ -617,7 +634,7 @@ pub contract AvmTest {
 
     // function with large array as calldata (for benchmarking call interface macros)
     #[public]
-    fn fn_w_large_calldata(arr: [Field; 300]) -> pub Field {
+    fn fn_w_large_calldata(_arr: [Field; 300]) -> pub Field {
         // do nothing and return...
         5
     }
@@ -649,6 +666,7 @@ pub contract AvmTest {
         expected_deployer: AztecAddress,
         expected_class_id: ContractClassId,
         expected_initialization_hash: Field,
+        skip_strictly_limited_side_effects: bool,
     ) {
         dep::aztec::oracle::debug_log::debug_log("biwise_ops");
         let num = get_block_number();
@@ -668,11 +686,15 @@ pub contract AvmTest {
         dep::aztec::oracle::debug_log::debug_log("sha256_hash");
         let _ = sha256::sha256_var(args_u8, args_u8.len() as u64);
         dep::aztec::oracle::debug_log::debug_log("poseidon2_hash");
-        let _ = std::hash::poseidon2::Poseidon2::hash(args_field, args_field.len());
+        let _ = poseidon::poseidon2::Poseidon2::hash(args_field, args_field.len());
         dep::aztec::oracle::debug_log::debug_log("pedersen_hash");
         let _ = std::hash::pedersen_hash(args_field);
         dep::aztec::oracle::debug_log::debug_log("pedersen_hash_with_index");
         let _ = std::hash::pedersen_hash_with_separator(args_field, /*index=*/ 20);
+        dep::aztec::oracle::debug_log::debug_log("integer_division");
+        let _ = integer_division(args_u8[0], args_u8[1]);
+        dep::aztec::oracle::debug_log::debug_log("field_division");
+        let _ = field_division(args_field[0], args_field[1]);
         dep::aztec::oracle::debug_log::debug_log("test_get_contract_instance");
         test_get_contract_instance_matches(
             get_instance_for_address,
@@ -702,20 +724,24 @@ pub contract AvmTest {
         let _ = get_l2_gas_left();
         dep::aztec::oracle::debug_log::debug_log("get_da_gas_left");
         let _ = get_da_gas_left();
-        dep::aztec::oracle::debug_log::debug_log("emit_public_log");
-        let _ = emit_public_log();
+        if !skip_strictly_limited_side_effects {
+            dep::aztec::oracle::debug_log::debug_log("emit_public_log");
+            let _ = emit_public_log();
+        }
         dep::aztec::oracle::debug_log::debug_log("note_hash_exists");
         let _ = note_hash_exists(1, 2);
         dep::aztec::oracle::debug_log::debug_log("new_note_hash");
         let _ = new_note_hash(1);
         dep::aztec::oracle::debug_log::debug_log("new_nullifier");
-        let _ = new_nullifier(1);
+        let _ = new_nullifier(args_field[0]);
         dep::aztec::oracle::debug_log::debug_log("nullifier_exists");
         let _ = nullifier_exists(1);
         dep::aztec::oracle::debug_log::debug_log("l1_to_l2_msg_exists");
         let _ = l1_to_l2_msg_exists(1, 2);
-        dep::aztec::oracle::debug_log::debug_log("send_l2_to_l1_msg");
-        let _ = send_l2_to_l1_msg(EthAddress::from_field(0x2020), 1);
+        if !skip_strictly_limited_side_effects {
+            dep::aztec::oracle::debug_log::debug_log("send_l2_to_l1_msg");
+            let _ = send_l2_to_l1_msg(EthAddress::from_field(0x2020), 1);
+        }
         dep::aztec::oracle::debug_log::debug_log("storage_read_and_write");
         set_storage_single(read_storage_single());
         dep::aztec::oracle::debug_log::debug_log("nested_call_to_add");

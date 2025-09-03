@@ -3,6 +3,7 @@ title: Authentication Witness (Authwit)
 tags: [accounts, authwit]
 sidebar_position: 2
 keywords: [authwit, authentication witness, accounts]
+description: Learn about Aztec's Authentication Witness scheme that enables secure third-party actions on behalf of users, providing a privacy-preserving alternative to traditional token approvals.
 ---
 
 import Image from "@theme/IdealImage";

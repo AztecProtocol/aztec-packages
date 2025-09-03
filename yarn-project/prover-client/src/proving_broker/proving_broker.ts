@@ -95,7 +95,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
   /**
    * The broker keeps track of the highest epoch its seen.
    * This information is used for garbage collection: once it reaches the next epoch, it can start pruning the database of old state.
-   * It is important that this value is initialised to zero. This ensures that we don't delete any old jobs until the current
+   * It is important that this value is initialized to zero. This ensures that we don't delete any old jobs until the current
    * process instance receives a job request informing it of the actual current highest epoch
    * Example:
    * proving epoch 11 - the broker will wipe all jobs for epochs 9 and lower
@@ -572,7 +572,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
 
     if (jobsToClean.length > 0) {
       this.cleanUpProvingJobState(jobsToClean);
-      this.logger.info(`Cleaned up jobs=${jobsToClean.length}`);
+      this.logger.verbose(`Cleaned up proving jobs=${jobsToClean.length}`);
     }
   }
 

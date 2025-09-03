@@ -149,7 +149,6 @@ enum class ExecutionOpCode {
     SHA256COMPRESSION,
     KECCAKF1600,
     ECADD,
-    MSM,
     TORADIXBE,
 };
 

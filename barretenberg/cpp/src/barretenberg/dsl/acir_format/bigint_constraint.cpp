@@ -111,7 +111,7 @@ void create_bigint_addition_constraint(const BigIntOperation& input, DSLBigInts<
         break;
     }
     default: {
-        ASSERT(false);
+        throw_or_abort("Unexpected Modulus ID");
     }
     }
 }
@@ -157,7 +157,7 @@ void create_bigint_sub_constraint(const BigIntOperation& input, DSLBigInts<Build
         break;
     }
     default: {
-        ASSERT(false);
+        throw_or_abort("Unexpected Modulus ID");
     }
     }
 }
@@ -203,7 +203,7 @@ void create_bigint_mul_constraint(const BigIntOperation& input, DSLBigInts<Build
         break;
     }
     default: {
-        ASSERT(false);
+        throw_or_abort("Unexpected Modulus ID");
     }
     }
 }
@@ -259,7 +259,7 @@ void create_bigint_div_constraint(const BigIntOperation& input,
         break;
     }
     default: {
-        ASSERT(false);
+        throw_or_abort("Unexpected Modulus ID");
     }
     }
 }
@@ -287,7 +287,7 @@ void create_bigint_operations_constraint(const BigIntOperation& input,
         break;
     }
     default: {
-        ASSERT(false);
+        throw_or_abort("Unexpected BigIntOperationType");
     }
     }
 }
@@ -372,7 +372,7 @@ void create_bigint_from_le_bytes_constraint(Builder& builder,
     }
     case UNKNOWN:
     default:
-        ASSERT(false);
+        throw_or_abort("Unexpected Modulus ID");
         break;
     }
 }
@@ -431,11 +431,11 @@ void create_bigint_to_le_bytes_constraint(Builder& builder,
     }
     case UNKNOWN:
     default:
-        ASSERT(false);
+        throw_or_abort("Unexpected Modulus ID");
         break;
     }
     byte_array = byte_array.reverse();
-    ASSERT(input.result.size() <= byte_array.size());
+    BB_ASSERT_LTE(input.result.size(), byte_array.size());
     for (size_t i = 0; i < byte_array.size(); ++i) {
         if (i < input.result.size()) {
 

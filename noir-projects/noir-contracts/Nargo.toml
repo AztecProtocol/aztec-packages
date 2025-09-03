@@ -12,8 +12,8 @@ members = [
     "contracts/app/card_game_contract",
     "contracts/app/claim_contract",
     "contracts/app/crowdfunding_contract",
-    "contracts/app/easy_private_token_contract",
-    "contracts/app/easy_private_voting_contract",
+    "contracts/app/private_token_contract",
+    "contracts/app/private_voting_contract",
     "contracts/app/escrow_contract",
     "contracts/app/lending_contract",
     "contracts/app/nft_contract",
@@ -46,6 +46,7 @@ members = [
     "contracts/test/no_constructor_contract",
     "contracts/test/note_getter_contract",
     "contracts/test/offchain_effect_contract",
+    "contracts/test/oracle_version_check_contract",
     "contracts/test/parent_contract",
     "contracts/test/pending_note_hashes_contract",
     "contracts/test/public_immutable_contract",
@@ -57,7 +58,6 @@ members = [
     "contracts/test/static_parent_contract",
     "contracts/test/test_contract",
     "contracts/test/test_log_contract",
-    "contracts/test/txe_test_contract",
     "contracts/test/updatable_contract",
     "contracts/test/updated_contract"
 ]

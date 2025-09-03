@@ -1,8 +1,7 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import { Fr } from '@aztec/aztec.js';
 import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
-import { NULL_KEY, getPublicClient } from '@aztec/ethereum';
-import { SecretValue } from '@aztec/foundation/config';
+import { getPublicClient } from '@aztec/ethereum';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
 import type { LogFn } from '@aztec/foundation/log';
@@ -16,8 +15,6 @@ import {
 import { P2PApiSchema, ProverNodeApiSchema, type ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import { initTelemetryClient, makeTracedFetch, telemetryClientConfigMappings } from '@aztec/telemetry-client';
 import { getGenesisValues } from '@aztec/world-state/testing';
-
-import { mnemonicToAccount } from 'viem/accounts';
 
 import { getL1Config } from '../get_l1_config.js';
 import { extractRelevantOptions, preloadCrsDataForVerifying, setupUpdateMonitor } from '../util.js';
@@ -35,12 +32,6 @@ export async function startProverNode(
     process.exit(1);
   }
 
-  // Check if running on ARM and fast-fail if so.
-  if (process.arch.startsWith('arm')) {
-    userLog(`Prover node is not supported on ARM architecture (detected: ${process.arch}). Exiting.`);
-    process.exit(1);
-  }
-
   let proverConfig = {
     ...getProverNodeConfigFromEnv(), // get default config from env
     ...extractRelevantOptions<ProverNodeConfig>(options, proverNodeConfigMappings, 'proverNode'), // override with command line options
@@ -49,16 +40,6 @@ export async function startProverNode(
   if (!options.archiver && !proverConfig.archiverUrl) {
     userLog('--archiver.archiverUrl is required to start a Prover Node without --archiver option');
     process.exit(1);
-  }
-
-  if (proverConfig.publisherPrivateKey.getValue() === NULL_KEY) {
-    if (!options.l1Mnemonic) {
-      userLog(`--l1-mnemonic is required to start a Prover Node without --node.publisherPrivateKey`);
-      process.exit(1);
-    }
-    const hdAccount = mnemonicToAccount(options.l1Mnemonic);
-    const privKey = hdAccount.getHdKey().privateKey;
-    proverConfig.publisherPrivateKey = new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const);
   }
 
   if (!proverConfig.l1Contracts.registryAddress || proverConfig.l1Contracts.registryAddress.isZero()) {
@@ -96,7 +77,7 @@ export async function startProverNode(
   let broker: ProvingJobBroker;
   if (proverConfig.proverBrokerUrl) {
     // at 1TPS we'd enqueue ~1k tube proofs and ~1k AVM proofs immediately
-    // set a lower connectio  limit such that we don't overload the server
+    // set a lower connection limit such that we don't overload the server
     const fetch = makeTracedFetch([1, 2, 3], false, makeUndiciFetch(new Agent({ connections: 100 })));
     broker = createProvingJobBrokerClient(proverConfig.proverBrokerUrl, getVersions(proverConfig), fetch);
   } else if (options.proverBroker) {

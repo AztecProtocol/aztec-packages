@@ -14,29 +14,29 @@ use std::meta::derive;
 
 #[derive(Serialize)]
 pub struct InnerUtilityFunction {
-    selector: FunctionSelector,
-    metadata_hash: Field,
+    pub selector: FunctionSelector,
+    pub metadata_hash: Field,
 }
 
 #[derive(Serialize)]
 pub struct UtilityFunction {
-    selector: FunctionSelector,
-    metadata_hash: Field,
-    bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS],
+    pub selector: FunctionSelector,
+    pub metadata_hash: Field,
+    pub bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS],
 }
 
 // #[event]
 pub struct ClassUtilityFunctionBroadcasted {
-    contract_class_id: ContractClassId,
-    artifact_metadata_hash: Field,
-    private_functions_artifact_tree_root: Field,
-    artifact_function_tree_sibling_path: [Field; ARTIFACT_FUNCTION_TREE_MAX_HEIGHT],
-    artifact_function_tree_leaf_index: Field,
-    function: UtilityFunction,
+    pub contract_class_id: ContractClassId,
+    pub artifact_metadata_hash: Field,
+    pub private_functions_artifact_tree_root: Field,
+    pub artifact_function_tree_sibling_path: [Field; ARTIFACT_FUNCTION_TREE_MAX_HEIGHT],
+    pub artifact_function_tree_leaf_index: Field,
+    pub function: UtilityFunction,
 }
 
 impl ClassUtilityFunctionBroadcasted {
-    fn serialize_non_standard(
+    pub fn serialize_non_standard(
         self: Self,
     ) -> [Field; MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS + CLASS_REGISTRY_UTILITY_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS] {
         let mut packed = [

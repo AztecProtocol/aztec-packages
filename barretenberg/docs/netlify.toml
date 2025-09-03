@@ -1,0 +1,12 @@
+[build]
+  # Only build if changes are made in the docs directory
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF"
+
+# Redirect root to /docs
+[[redirects]]
+  from = "/"
+  to = "/docs"
+  status = 302
+
+# Serve static API files from /api
+# The API files are already in static/api directory which will be served at /api

@@ -22,16 +22,15 @@ export class TxProvingResult {
     public stats?: ProvingStats,
   ) {}
 
-  toTx(): Tx {
+  async toTx(): Promise<Tx> {
     const contractClassLogs = collectSortedContractClassLogs(this.privateExecutionResult);
 
-    const tx = new Tx(
-      this.publicInputs,
-      this.clientIvcProof,
-      contractClassLogs,
-      this.privateExecutionResult.publicFunctionCalldata,
-    );
-    return tx;
+    return await Tx.create({
+      data: this.publicInputs,
+      clientIvcProof: this.clientIvcProof,
+      contractClassLogFields: contractClassLogs,
+      publicFunctionCalldata: this.privateExecutionResult.publicFunctionCalldata,
+    });
   }
 
   getOffchainEffects(): OffchainEffect[] {

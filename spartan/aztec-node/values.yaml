@@ -17,7 +17,7 @@ global:
     enabled: false
     l1ChainId:
     registryContractAddress:
-    slashFactoryAddress:
+    slashFactoryContractAddress:
     feeAssetHandlerContractAddress:
 
   # -- Ethereum configuration
@@ -131,32 +131,38 @@ initContainers: []
 #   command: ['sh', '-c', 'echo hello']
 
 service:
-  ingress:
-    enabled: false
+  rpc:
+    enabled: true
+    port: 8080
     annotations: {}
-    # kubernetes.io/ingress.global-static-ip-name: my-static-ip
-    hosts: []
-    # - node.example.com
+    type: ClusterIP
+
+  admin:
+    enabled: false
+    port: 8880
+    annotations: {}
+    type: ClusterIP
 
   headless:
     enabled: false
+    annotations: {}
+    ports:
+      - port: 8080
+        name: rpc
+        targetPort: rpc
+        protocol: TCP
 
   p2p:
     enabled: true
     nodePortEnabled: true
     port: 40400
     announcePort: 40400
-  admin:
-    enabled: true
-    port: 8081
-  httpPort: 8080
 
-# Certificate configuration
-certificate:
-  enabled: false
-  domains: []
-  # - example.com
-  # - api.example.com
+ingress:
+  rpc:
+    enabled: false
+    annotations: {}
+    host:
 
 rbac:
   # -- Specifies whether RBAC resources are to be created

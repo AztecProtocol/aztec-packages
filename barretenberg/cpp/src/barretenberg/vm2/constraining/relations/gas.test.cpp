@@ -3,10 +3,13 @@
 
 #include <cstdint>
 
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/gas.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
@@ -23,6 +26,7 @@ using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using gas = bb::avm2::gas<FF>;
+using execution = bb::avm2::execution<FF>;
 
 TEST(GasConstrainingTest, EmptyRow)
 {
@@ -280,6 +284,105 @@ TEST(GasConstrainingTest, DynGasFactorBitwise)
     EXPECT_THROW_WITH_MESSAGE(
         (check_interaction<tracegen::ExecutionTraceBuilder, lookup_execution_dyn_l2_factor_bitwise_settings>(trace)),
         "Failed.*EXECUTION_DYN_L2_FACTOR_BITWISE. Could not find tuple in destination.");
+}
+
+TEST(GasConstrainingTest, DynGasFactorToRadix)
+{
+    PrecomputedTraceBuilder precomputed_builder;
+
+    uint32_t radix = 10;
+    uint32_t num_limbs = 20;
+    uint32_t num_p_limbs = static_cast<uint32_t>(get_p_limbs_per_radix()[radix].size());
+    TestTraceContainer trace(
+        { {
+              { C::execution_sel, 1 },
+              { C::execution_register_1_, radix },
+              { C::execution_register_2_, num_limbs },
+              { C::execution_sel_should_check_gas, 1 },
+              // To Radix BE Dynamic Gas
+              { C::execution_sel_gas_to_radix, 1 },
+              { C::execution_dyn_gas_id, AVM_DYN_GAS_ID_TORADIX },
+              { C::execution_two_five_six, 256 },
+              { C::execution_sel_radix_gt_256, 0 },
+              { C::execution_sel_lookup_num_p_limbs, 1 },
+              { C::execution_num_p_limbs, num_p_limbs },
+              { C::execution_sel_use_num_limbs, num_limbs > num_p_limbs ? 1 : 0 },
+              { C::execution_dynamic_l2_gas_factor, num_limbs > num_p_limbs ? num_limbs : num_p_limbs },
+              // GT Trace, used to check if radix > 256
+              { C::gt_sel, 1 },
+              { C::gt_input_a, radix },
+              { C::gt_input_b, 256 },
+              { C::gt_res, 0 },
+          },
+          {
+              // Gt Trace, compare num_limbs > num_p_limbs
+              { C::gt_sel, 1 },
+              { C::gt_input_a, num_limbs },
+              { C::gt_input_b, num_p_limbs },
+              { C::gt_res, num_limbs > num_p_limbs ? 1 : 0 },
+          } });
+
+    precomputed_builder.process_misc(trace, 257);
+    precomputed_builder.process_to_radix_safe_limbs(trace);
+
+    check_interaction<ExecutionTraceBuilder,
+                      lookup_execution_check_radix_gt_256_settings,
+                      lookup_execution_get_p_limbs_settings,
+                      lookup_execution_get_max_limbs_settings>(trace);
+    check_relation<execution>(trace, execution::SR_DYN_L2_FACTOR_TO_RADIX_BE, execution::SR_DYN_GAS_ID_DECOMPOSITION);
+
+    trace.set(C::execution_dynamic_l2_gas_factor, 0, 100); // Set to some random value is incorrect
+    EXPECT_THROW_WITH_MESSAGE((check_relation<execution>(trace, execution::SR_DYN_L2_FACTOR_TO_RADIX_BE)),
+                              ".*subrelation DYN_L2_FACTOR_TO_RADIX_BE failed.*");
+}
+
+TEST(GasConstrainingTest, DynGasFactorInvalidRadix)
+{
+    PrecomputedTraceBuilder precomputed_builder;
+
+    uint32_t radix = 1000;
+    uint32_t num_limbs = 20;
+    uint32_t num_p_limbs = 32; // When radix > 256, we set num_p_limbs to 32.
+    TestTraceContainer trace(
+        { {
+              { C::execution_sel, 1 },
+              { C::execution_register_1_, radix },
+              { C::execution_register_2_, num_limbs },
+              { C::execution_sel_should_check_gas, 1 },
+              // To Radix BE Dynamic Gas
+              { C::execution_sel_gas_to_radix, 1 },
+              { C::execution_dyn_gas_id, AVM_DYN_GAS_ID_TORADIX },
+              { C::execution_two_five_six, 256 },
+              { C::execution_sel_radix_gt_256, radix > 256 ? 1 : 0 },
+              { C::execution_sel_lookup_num_p_limbs, radix <= 256 ? 1 : 0 },
+              { C::execution_num_p_limbs, num_p_limbs },
+              { C::execution_sel_use_num_limbs, num_limbs > num_p_limbs ? 1 : 0 },
+              { C::execution_dynamic_l2_gas_factor, num_limbs > num_p_limbs ? num_limbs : num_p_limbs },
+              // GT Trace, used to check if radix > 256
+              { C::gt_sel, 1 },
+              { C::gt_input_a, radix },
+              { C::gt_input_b, 256 },
+              { C::gt_res, radix > 256 ? 1 : 0 },
+          },
+          {
+              // Gt Trace, compare num_limbs > num_p_limbs
+              { C::gt_sel, 1 },
+              { C::gt_input_a, num_limbs },
+              { C::gt_input_b, num_p_limbs },
+              { C::gt_res, num_limbs > num_p_limbs ? 1 : 0 },
+          } });
+
+    precomputed_builder.process_misc(trace, 257);
+    precomputed_builder.process_to_radix_safe_limbs(trace);
+
+    check_interaction<ExecutionTraceBuilder,
+                      lookup_execution_check_radix_gt_256_settings,
+                      lookup_execution_get_p_limbs_settings,
+                      lookup_execution_get_max_limbs_settings>(trace);
+    check_relation<execution>(trace,
+                              execution::SR_NUM_P_LIMBS_CEIL,
+                              execution::SR_DYN_L2_FACTOR_TO_RADIX_BE,
+                              execution::SR_DYN_GAS_ID_DECOMPOSITION);
 }
 
 } // namespace

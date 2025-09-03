@@ -8,6 +8,7 @@
 
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/fq2.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include <cstring>
@@ -27,6 +28,14 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
     using vec_in_buf = const uint8_t*;
     using out_buf = uint8_t*;
     using vec_out_buf = uint8_t**;
+
+    /**
+     * Number of bb::fr elements required to represent an affine_element in the public inputs
+     * @note In contrast to biggroup and biggroup_goblin this value cannot be computed for all instances of Fq because
+     * Fq::PUBLIC_INPUTS_SIZE depends on Fq, while bigfield and bigfield_goblin are always represented using 4 public
+     * inputs
+     */
+    static constexpr size_t PUBLIC_INPUTS_SIZE = Fq::PUBLIC_INPUTS_SIZE + Fq::PUBLIC_INPUTS_SIZE;
 
     affine_element() noexcept = default;
     ~affine_element() noexcept = default;
@@ -168,6 +177,20 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
         std::vector<uint8_t> buffer(sizeof(affine_element));
         affine_element::serialize_to_buffer(*this, &buffer[0]);
         return buffer;
+    }
+
+    static affine_element reconstruct_from_public(const std::span<const bb::fr, PUBLIC_INPUTS_SIZE>& limbs)
+    {
+        const std::span<const bb::fr, Fq::PUBLIC_INPUTS_SIZE> x_limbs(limbs.data(), Fq::PUBLIC_INPUTS_SIZE);
+        const std::span<const bb::fr, Fq::PUBLIC_INPUTS_SIZE> y_limbs(limbs.data() + Fq::PUBLIC_INPUTS_SIZE,
+                                                                      Fq::PUBLIC_INPUTS_SIZE);
+
+        affine_element result;
+        result.x = Fq::reconstruct_from_public(x_limbs);
+        result.y = Fq::reconstruct_from_public(y_limbs);
+
+        ASSERT(result.on_curve());
+        return result;
     }
 
     friend std::ostream& operator<<(std::ostream& os, const affine_element& a)

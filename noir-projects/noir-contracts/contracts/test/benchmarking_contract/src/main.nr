@@ -40,7 +40,7 @@ pub contract Benchmarking {
         let mut getter_options = NoteGetterOptions::new();
         let notes = owner_notes.pop_notes(getter_options.set_limit(1).set_offset(index));
         let note = notes.get(0);
-        increment(owner_notes, note.value, owner);
+        increment(owner_notes, note.value(), owner);
     }
 
     // Reads and writes to public storage and enqueues a call to another public function.

@@ -78,8 +78,8 @@ template <typename Transcript> class TranslationData {
         compute_concatenated_polynomials(transcript_polynomials);
 
         // Commit to  M(X) + Z_H(X)*R(X), where R is a random polynomial of WITNESS_MASKING_TERM_LENGTH.
-        transcript->template send_to_verifier("Translation:concatenated_masking_term_commitment",
-                                              commitment_key.commit(masked_concatenated_polynomial));
+        transcript->send_to_verifier("Translation:concatenated_masking_term_commitment",
+                                     commitment_key.commit(masked_concatenated_polynomial));
     }
     /**
      * @brief   Let \f$ T = NUM_TRANSLATION_EVALUATIONS \f$ and let \f$ m_0, ..., m_{T-1}\f$ be the vectors of last \f$

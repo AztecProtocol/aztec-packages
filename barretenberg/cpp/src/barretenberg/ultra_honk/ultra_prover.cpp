@@ -62,7 +62,7 @@ UltraProver_<Flavor>::UltraProver_(Builder&& circuit, const std::shared_ptr<Honk
     , commitment_key(proving_key->commitment_key)
 {}
 
-template <IsUltraOrMegaHonk Flavor> HonkProof UltraProver_<Flavor>::export_proof()
+template <IsUltraOrMegaHonk Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Flavor>::export_proof()
 {
     auto proof = transcript->export_proof();
 
@@ -78,14 +78,15 @@ template <IsUltraOrMegaHonk Flavor> HonkProof UltraProver_<Flavor>::export_proof
 
 template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::generate_gate_challenges()
 {
-    std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);
-    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
-        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-    }
-    proving_key->gate_challenges = gate_challenges;
+    // Determine the number of rounds in the sumcheck based on whether or not padding is employed
+    const size_t virtual_log_n =
+        Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : static_cast<size_t>(proving_key->log_dyadic_size());
+
+    proving_key->gate_challenges =
+        transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
 }
 
-template <IsUltraOrMegaHonk Flavor> HonkProof UltraProver_<Flavor>::construct_proof()
+template <IsUltraOrMegaHonk Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Flavor>::construct_proof()
 {
     OinkProver<Flavor> oink_prover(proving_key, honk_vk, transcript);
     oink_prover.prove();

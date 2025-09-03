@@ -14,8 +14,8 @@ namespace bb::avm2 {
 
 class TagMismatchException : public std::runtime_error {
   public:
-    TagMismatchException()
-        : std::runtime_error("Mismatched tags")
+    TagMismatchException(const std::string& msg)
+        : std::runtime_error("Mismatched tags: " + msg)
     {}
 };
 
@@ -23,6 +23,13 @@ class InvalidOperationTag : public std::runtime_error {
   public:
     InvalidOperationTag(const std::string& msg)
         : std::runtime_error("InvalidOperationTag: " + msg)
+    {}
+};
+
+class DivisionByZero : public std::runtime_error {
+  public:
+    DivisionByZero(const std::string& msg)
+        : std::runtime_error("Division by zero: " + msg)
     {}
 };
 

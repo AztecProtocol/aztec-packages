@@ -1,6 +1,5 @@
 pub mod contract_functions;
 pub mod contracts;
-pub mod merkle_tree;
 pub mod protocol_contract_tree;
 pub mod vk_tree;
 pub mod public_data_tree;

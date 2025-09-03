@@ -73,7 +73,7 @@ export function CreateAuthwitDialog({ open, contract, fnName, args, isPrivate, o
           { caller: AztecAddress.fromString(caller), action },
           true,
         );
-        const opts: SendMethodOptions = { fee: { paymentMethod: feePaymentMethod } };
+        const opts: SendMethodOptions = { from: wallet.getAddress(), fee: { paymentMethod: feePaymentMethod } };
         onClose(true, validateActionInteraction, opts);
       }
     } catch (e) {

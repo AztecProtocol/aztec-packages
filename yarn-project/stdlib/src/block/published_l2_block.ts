@@ -1,4 +1,6 @@
 // Ignoring import issue to fix portable inferred type issue in zod schema
+import { Buffer32 } from '@aztec/foundation/buffer';
+import { randomBigInt } from '@aztec/foundation/crypto';
 import { schemas } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
@@ -22,6 +24,14 @@ export class L1PublishedData {
       blockHash: z.string(),
     });
   }
+
+  static random() {
+    return new L1PublishedData(
+      randomBigInt(1000n) + 1n,
+      BigInt(Math.floor(Date.now() / 1000)),
+      Buffer32.random().toString(),
+    );
+  }
 }
 
 export class PublishedL2Block {
@@ -40,12 +50,11 @@ export class PublishedL2Block {
   }
 }
 
-export function getAttestationsFromPublishedL2Block(block: PublishedL2Block) {
+export function getAttestationsFromPublishedL2Block(
+  block: Pick<PublishedL2Block, 'attestations' | 'block'>,
+): BlockAttestation[] {
   const payload = ConsensusPayload.fromBlock(block.block);
   return block.attestations
     .filter(attestation => !attestation.signature.isEmpty())
-    .map(
-      attestation =>
-        new BlockAttestation(block.block.header.globalVariables.blockNumber, payload, attestation.signature),
-    );
+    .map(attestation => new BlockAttestation(block.block.number, payload, attestation.signature));
 }

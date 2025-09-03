@@ -36,7 +36,7 @@ TYPED_TEST(ShplonkTest, ShplonkSimple)
     // An intermediate check to confirm the opening of the shplonk prover witness Q
     this->verify_opening_pair(batched_opening_claim.opening_pair, batched_opening_claim.polynomial);
 
-    // Initialise verifier transcript from prover transcript
+    // Initialize verifier transcript from prover transcript
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
     // Execute the shplonk verifier functionality
@@ -127,7 +127,7 @@ TYPED_TEST(ShplonkTest, ExportBatchClaimAndVerify)
         // KZG verifier
         auto final_proof_points =
             KZG<curve::BN254>::reduce_verify_batch_opening_claim(batched_verifier_claim, verifier_transcript);
-        ASSERT(this->vk().pairing_check(final_proof_points[0], final_proof_points[1]));
+        ASSERT_TRUE(this->vk().pairing_check(final_proof_points[0], final_proof_points[1]));
     } else {
         // Verify IPA proof
         auto vk = create_verifier_commitment_key<VerifierCommitmentKey<curve::Grumpkin>>();

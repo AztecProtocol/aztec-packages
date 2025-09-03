@@ -5,7 +5,7 @@
 #include "barretenberg/client_ivc/private_execution_steps.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
-#include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
+#include "barretenberg/dsl/acir_format/pg_recursion_constraint.hpp"
 #include "barretenberg/honk/proving_key_inspector.hpp"
 
 #include <filesystem>
@@ -75,7 +75,9 @@ class AcirIntegrationTest : public ::testing::Test {
 
         // Verify Honk proof
         Verifier verifier{ verification_key };
-        return verifier.verify_proof(proof);
+        bool result = verifier.template verify_proof<DefaultIO>(proof).result;
+
+        return result;
     }
 
     void add_some_simple_RAM_gates(auto& circuit)
@@ -405,9 +407,9 @@ TEST_F(AcirIntegrationTest, DISABLED_DatabusTwoCalldata)
     const auto& secondary_calldata = builder.get_secondary_calldata();
     const auto& return_data = builder.get_return_data();
 
-    BB_ASSERT_EQ(calldata.size(), static_cast<size_t>(4));
-    BB_ASSERT_EQ(secondary_calldata.size(), static_cast<size_t>(3));
-    BB_ASSERT_EQ(return_data.size(), static_cast<size_t>(4));
+    ASSERT_EQ(calldata.size(), static_cast<size_t>(4));
+    ASSERT_EQ(secondary_calldata.size(), static_cast<size_t>(3));
+    ASSERT_EQ(return_data.size(), static_cast<size_t>(4));
 
     // Check that return data was computed from the two calldata inputs as expected
     ASSERT_EQ(builder.get_variable(calldata[0]) + builder.get_variable(secondary_calldata[0]),
@@ -536,7 +538,7 @@ TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
         {
             auto program = program_in;
             program.witness = {}; // erase the witness to mimmic the "dummy witness" case
-            auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
+            auto& ivc_constraints = program.constraints.pg_recursion_constraints;
             const acir_format::ProgramMetadata metadata{
                 .ivc = ivc_constraints.empty() ? nullptr
                                                : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
@@ -549,7 +551,7 @@ TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
         // Compute the verification key using the genuine witness
         {
             auto program = program_in;
-            auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
+            auto& ivc_constraints = program.constraints.pg_recursion_constraints;
             const acir_format::ProgramMetadata metadata{
                 .ivc = ivc_constraints.empty() ? nullptr
                                                : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)

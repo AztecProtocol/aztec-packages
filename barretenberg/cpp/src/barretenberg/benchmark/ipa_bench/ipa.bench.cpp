@@ -1,4 +1,5 @@
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include <benchmark/benchmark.h>
 

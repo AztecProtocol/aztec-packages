@@ -1,4 +1,4 @@
-import { AccountWallet, type AztecNode, Fr, type SimulateMethodOptions } from '@aztec/aztec.js';
+import { AccountWallet, AztecAddress, type AztecNode, Fr, type SimulateMethodOptions } from '@aztec/aztec.js';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
@@ -20,6 +20,7 @@ describe('Transfer benchmark', () => {
   const t = new ClientFlowsBenchmark('transfers');
   // The admin that aids in the setup of the test
   let adminWallet: AccountWallet;
+  let adminAddress: AztecAddress;
   // FPC that accepts bananas
   let bananaFPC: FPCContract;
   // BananaCoin Token contract, just used to pay fees in this scenario
@@ -40,7 +41,15 @@ describe('Transfer benchmark', () => {
     await t.applyDeployCandyBarTokenSnapshot();
     await t.applyDeploySponsoredFPCSnapshot();
 
-    ({ adminWallet, bananaFPC, bananaCoin, candyBarCoin, sponsoredFPC, aztecNode: node } = await t.setup());
+    ({
+      adminWallet,
+      adminAddress,
+      bananaFPC,
+      bananaCoin,
+      candyBarCoin,
+      sponsoredFPC,
+      aztecNode: node,
+    } = await t.setup());
   });
 
   afterAll(async () => {
@@ -86,6 +95,7 @@ describe('Transfer benchmark', () => {
             // Mint some CandyBarCoins for the user, separated in different notes
             totalAmount = await mintNotes(
               adminWallet,
+              adminAddress,
               benchysWallet.getAddress(),
               candyBarCoin,
               Array(notesToCreate).fill(BigInt(AMOUNT_PER_NOTE)),
@@ -106,7 +116,7 @@ describe('Transfer benchmark', () => {
               caller: adminWallet.getAddress(),
               action: interaction,
             });
-            await interaction.send({ authWitnesses: [witness] }).wait({ timeout: 120 });
+            await interaction.send({ from: adminAddress, authWitnesses: [witness] }).wait({ timeout: 120 });
           });
 
           // Ensure we create a change note, by sending an amount that is not a multiple of the note amount
@@ -115,6 +125,7 @@ describe('Transfer benchmark', () => {
           it(`${accountType} contract transfers ${amountToSend} tokens using ${recursions} recursions, pays using ${benchmarkingPaymentMethod}`, async () => {
             const paymentMethod = t.paymentMethods[benchmarkingPaymentMethod];
             const options: SimulateMethodOptions = {
+              from: benchysWallet.getAddress(),
               fee: { paymentMethod: await paymentMethod.forWallet(benchysWallet) },
             };
 
@@ -132,7 +143,8 @@ describe('Transfer benchmark', () => {
                 2 + // CandyBarCoin transfer + kernel inner
                 recursions * 2 + // (CandyBarCoin _recurse_subtract_balance + kernel inner) * recursions
                 1 + // Kernel reset
-                1, // Kernel tail
+                1 + // Kernel tail
+                1, // Kernel hiding
             );
 
             expectedChange = totalAmount - BigInt(amountToSend);
@@ -150,10 +162,11 @@ describe('Transfer benchmark', () => {
                * We should have created the following nullifiers:
                * - One per created note
                * - One for the transaction
+               * - One for the private event commitment (note transfer for the recipient)
                * - One for the fee note and one for the partial note validity commitment if we're using private fpc
                */
               expect(txEffects!.data.nullifiers.length).toBe(
-                notesToCreate + 1 + (benchmarkingPaymentMethod === 'private_fpc' ? 2 : 0),
+                notesToCreate + 1 + 1 + (benchmarkingPaymentMethod === 'private_fpc' ? 2 : 0),
               );
               /** We should have created 4 new notes,
                *  - One for the recipient
@@ -163,7 +176,9 @@ describe('Transfer benchmark', () => {
                */
               expect(txEffects!.data.noteHashes.length).toBe(2 + (benchmarkingPaymentMethod === 'private_fpc' ? 2 : 0));
 
-              const senderBalance = await asset.methods.balance_of_private(benchysWallet.getAddress()).simulate();
+              const senderBalance = await asset.methods
+                .balance_of_private(benchysWallet.getAddress())
+                .simulate({ from: benchysWallet.getAddress() });
               expect(senderBalance).toEqual(expectedChange);
             }
           });

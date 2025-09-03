@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -920,7 +921,7 @@ template <typename Builder> class BigFieldBase {
                     numerators.push_back(bigfield_t(this->bigfield.context, bb::fq(add)));
                     v += add;
                 }
-                ASSERT(v == this->base);
+                BB_ASSERT_EQ(v, this->base);
 
                 return ExecutionHandler(this->base / divisor,
                                         /* Multi-numerator division */

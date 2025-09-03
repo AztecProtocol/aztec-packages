@@ -7,6 +7,7 @@
 #pragma once
 #include <utility>
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 namespace bb {
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1317)
@@ -45,7 +46,7 @@ class TranslatorProvingKey {
         : batching_challenge_v(circuit.batching_challenge_v)
         , evaluation_input_x(circuit.evaluation_input_x)
     {
-        PROFILE_THIS_NAME("TranslatorProvingKey(TranslatorCircuit&)");
+        BB_BENCH_NAME("TranslatorProvingKey(TranslatorCircuit&)");
         // Check that the Translator Circuit does not exceed the fixed upper bound, the current value amounts to
         // a number of EccOps sufficient for 10 rounds of folding (so 20 circuits)
         if (circuit.num_gates > Flavor::MINI_CIRCUIT_SIZE - NUM_DISABLED_ROWS_IN_SUMCHECK) {
@@ -63,7 +64,7 @@ class TranslatorProvingKey {
                     if (i >= wire_poly.start_index() && i < wire_poly.end_index()) {
                         wire_poly.at(i) = circuit.get_variable(wire[i]);
                     } else {
-                        ASSERT(circuit.get_variable(wire[i]) == 0);
+                        BB_ASSERT_EQ(circuit.get_variable(wire[i]), 0);
                     }
                 }
             });

@@ -5,6 +5,7 @@ import path from 'node:path';
 import { type RecordableHistogram, createHistogram } from 'perf_hooks';
 
 import { mockTx, mockTxForRollup } from '../tests/mocks.js';
+import { Tx } from './tx.js';
 
 const RUNS = 100;
 describe('Tx', () => {
@@ -71,7 +72,7 @@ describe('Tx', () => {
     const tx = await mockTxForRollup(42);
     for (let i = 0; i < RUNS; i++) {
       const timer = new Timer();
-      await tx.getTxHash(true);
+      await Tx.computeTxHash(tx);
       privateTxHistogram.record(Math.max(1, Math.ceil(timer.ms())));
     }
   });
@@ -80,7 +81,7 @@ describe('Tx', () => {
     const tx = await mockTx(42);
     for (let i = 0; i < RUNS; i++) {
       const timer = new Timer();
-      await tx.getTxHash(true);
+      await Tx.computeTxHash(tx);
       publicTxHistogram.record(Math.max(1, Math.ceil(timer.ms())));
     }
   });

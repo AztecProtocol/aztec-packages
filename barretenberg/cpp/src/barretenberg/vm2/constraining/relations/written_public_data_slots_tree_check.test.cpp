@@ -16,6 +16,8 @@
 #include "barretenberg/vm2/simulation/field_gt.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
 #include "barretenberg/vm2/simulation/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 #include "barretenberg/vm2/simulation/written_public_data_slots_tree_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
@@ -41,10 +43,14 @@ using simulation::FieldGreaterThan;
 using simulation::FieldGreaterThanEvent;
 using simulation::MerkleCheck;
 using simulation::MerkleCheckEvent;
+using simulation::MockExecutionIdManager;
+using simulation::MockGreaterThan;
 using simulation::MockRangeCheck;
+using simulation::NoopEventEmitter;
 using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
+using simulation::Poseidon2PermutationMemoryEvent;
 using simulation::unconstrained_compute_leaf_slot;
 using simulation::unconstrained_root_from_path;
 using simulation::WrittenPublicDataSlotLeafValue;
@@ -64,7 +70,23 @@ using C = Column;
 using written_public_data_slots_tree_check = bb::avm2::written_public_data_slots_tree_check<FF>;
 using RawPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
-TEST(WrittenPublicDataSlotsTreeCheckConstrainingTest, EmptyRow)
+class WrittenPublicDataSlotsTreeCheckConstrainingTest : public ::testing::Test {
+  protected:
+    WrittenPublicDataSlotsTreeCheckConstrainingTest() = default;
+
+    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
+    // Interactions involve the poseidon2 hash, so the others can be noop
+    NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
+    NoopEventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
+
+    NiceMock<MockGreaterThan> mock_gt;
+    NiceMock<MockExecutionIdManager> mock_execution_id_manager;
+
+    Poseidon2 poseidon2 =
+        Poseidon2(mock_execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
+};
+
+TEST_F(WrittenPublicDataSlotsTreeCheckConstrainingTest, EmptyRow)
 {
     check_relation<written_public_data_slots_tree_check>(testing::empty_trace());
 }
@@ -100,15 +122,12 @@ std::vector<TestParams> positive_read_tests = {
         .pre_existing_leaves = { { WrittenPublicDataSlotLeafValue(unconstrained_compute_leaf_slot(27, 42) + FF(1)) } } }
 };
 
-class WrittenPublicDataSlotsReadPositiveTests : public TestWithParam<TestParams> {};
+class WrittenPublicDataSlotsReadPositiveTests : public WrittenPublicDataSlotsTreeCheckConstrainingTest,
+                                                public ::testing::WithParamInterface<TestParams> {};
 
 TEST_P(WrittenPublicDataSlotsReadPositiveTests, Positive)
 {
     const auto& param = GetParam();
-
-    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
-    EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
 
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
@@ -151,12 +170,8 @@ INSTANTIATE_TEST_SUITE_P(WrittenPublicDataSlotsTreeCheckConstrainingTest,
                          WrittenPublicDataSlotsReadPositiveTests,
                          ::testing::ValuesIn(positive_read_tests));
 
-TEST(WrittenPublicDataSlotsTreeCheckConstrainingTest, PositiveWriteAppend)
+TEST_F(WrittenPublicDataSlotsTreeCheckConstrainingTest, PositiveWriteAppend)
 {
-    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
-    EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
-
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
 
@@ -197,15 +212,12 @@ TEST(WrittenPublicDataSlotsTreeCheckConstrainingTest, PositiveWriteAppend)
     check_all_interactions<WrittenPublicDataSlotsTreeCheckTraceBuilder>(trace);
 }
 
-TEST(WrittenPublicDataSlotsTreeCheckConstrainingTest, PositiveWriteMembership)
+TEST_F(WrittenPublicDataSlotsTreeCheckConstrainingTest, PositiveWriteMembership)
 {
     FF slot = 42;
     AztecAddress contract_address = 27;
     FF leaf_slot = unconstrained_compute_leaf_slot(contract_address, slot);
     auto low_leaf = WrittenPublicDataSlotsTreeLeafPreimage(WrittenPublicDataSlotLeafValue(leaf_slot), 0, 0);
-    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
-    EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
-    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
 
     EventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
@@ -245,7 +257,7 @@ TEST(WrittenPublicDataSlotsTreeCheckConstrainingTest, PositiveWriteMembership)
     check_all_interactions<WrittenPublicDataSlotsTreeCheckTraceBuilder>(trace);
 }
 
-TEST(WrittenPublicDataSlotsTreeCheckConstrainingTest, NegativeExistsFlagCheck)
+TEST_F(WrittenPublicDataSlotsTreeCheckConstrainingTest, NegativeExistsFlagCheck)
 {
     // Test constraint: sel * (SLOT_LOW_LEAF_SLOT_DIFF * (EXISTS * (1 - slot_low_leaf_slot_diff_inv)
     // + slot_low_leaf_slot_diff_inv) - 1 + EXISTS) = 0
@@ -276,7 +288,7 @@ TEST(WrittenPublicDataSlotsTreeCheckConstrainingTest, NegativeExistsFlagCheck)
                               "EXISTS_CHECK");
 }
 
-TEST(WrittenPublicDataSlotsTreeCheckConstrainingTest, NegativeNextSlotIsZero)
+TEST_F(WrittenPublicDataSlotsTreeCheckConstrainingTest, NegativeNextSlotIsZero)
 {
     // Test constraint: leaf_not_exists * (low_leaf_next_slot * (NEXT_SLOT_IS_ZERO * (1 - next_slot_inv)
     // + next_slot_inv) - 1 + NEXT_SLOT_IS_ZERO) = 0

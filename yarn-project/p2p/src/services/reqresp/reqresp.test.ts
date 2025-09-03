@@ -93,7 +93,7 @@ describe('ReqResp', () => {
     await startNodes(nodes);
 
     // Spy on the logger to make sure the error message is logged
-    const loggerSpy = jest.spyOn((nodes[1].req as any).logger, 'warn');
+    const loggerSpy = jest.spyOn((nodes[1].req as any).logger, 'verbose');
 
     await sleep(500);
     await connectToPeers(nodes);
@@ -125,7 +125,7 @@ describe('ReqResp', () => {
   describe('Tx req protocol', () => {
     it('can request a Tx from TxHash', async () => {
       const tx = await mockTx();
-      const txHash = await tx.getTxHash();
+      const txHash = tx.getTxHash();
 
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
       protocolHandlers[ReqRespSubProtocol.TX] = (_peerId: PeerId, message: Buffer): Promise<Buffer> => {
@@ -148,7 +148,7 @@ describe('ReqResp', () => {
 
       // Set tx hash since expect will compare private properties
       const resTx = Tx.fromBuffer(resp.data);
-      await resTx.getTxHash();
+      resTx.getTxHash();
 
       expect(resTx).toEqual(tx);
     });
@@ -160,7 +160,6 @@ describe('ReqResp', () => {
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
       protocolHandlers[ReqRespSubProtocol.TX] = (_peerId: PeerId, message: Buffer): Promise<Buffer> => {
         const receivedHashes = TxHashArray.fromBuffer(message);
-        //@ts-expect-error - txHash is protected and might be undefined, but we are ok to access it here
         const toReturn = new TxArray(...txs.filter(t => receivedHashes.includes(t.txHash)));
         return Promise.resolve(toReturn.toBuffer());
       };
@@ -212,7 +211,7 @@ describe('ReqResp', () => {
 
     it('handles returning empty buffers', async () => {
       const tx = await mockTx();
-      const txHash = await tx.getTxHash();
+      const txHash = tx.getTxHash();
 
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
       protocolHandlers[ReqRespSubProtocol.TX] = (_peerId: PeerId, _message: Buffer): Promise<Buffer> => {

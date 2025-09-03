@@ -1,25 +1,31 @@
-import { type BlobWithIndex, BlobsWithIndexes } from '../types/index.js';
+import { bufferToHex } from '@aztec/foundation/string';
+
+import { BlobWithIndex } from '../types/index.js';
 import type { BlobStore } from './interface.js';
 
 export class MemoryBlobStore implements BlobStore {
   private blobs: Map<string, Buffer> = new Map();
 
-  public getBlobSidecars(blockId: string, indices?: number[]): Promise<BlobWithIndex[] | undefined> {
-    const blobBuffer = this.blobs.get(blockId);
-    if (!blobBuffer) {
-      return Promise.resolve(undefined);
+  public getBlobsByHashes(blobHashes: Buffer[]): Promise<BlobWithIndex[]> {
+    const results: BlobWithIndex[] = [];
+
+    for (const blobHash of blobHashes) {
+      const key = bufferToHex(blobHash);
+      const blobBuffer = this.blobs.get(key);
+      if (blobBuffer) {
+        results.push(BlobWithIndex.fromBuffer(blobBuffer));
+      }
     }
-    const blobsWithIndexes = BlobsWithIndexes.fromBuffer(blobBuffer);
-    if (indices) {
-      // If indices are provided, return the blobs at the specified indices
-      return Promise.resolve(blobsWithIndexes.getBlobsFromIndices(indices));
-    }
-    // If no indices are provided, return all blobs
-    return Promise.resolve(blobsWithIndexes.blobs);
+
+    return Promise.resolve(results);
   }
 
-  public addBlobSidecars(blockId: string, blobSidecars: BlobWithIndex[]): Promise<void> {
-    this.blobs.set(blockId, new BlobsWithIndexes(blobSidecars).toBuffer());
+  public addBlobs(blobs: BlobWithIndex[]): Promise<void> {
+    for (const blob of blobs) {
+      const blobHash = blob.blob.getEthVersionedBlobHash();
+      const key = bufferToHex(blobHash);
+      this.blobs.set(key, blob.toBuffer());
+    }
     return Promise.resolve();
   }
 }

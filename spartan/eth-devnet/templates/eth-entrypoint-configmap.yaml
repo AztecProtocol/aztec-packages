@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "eth-devnet.fullname" . }}-entrypoint-scripts
+  labels:
+    {{- include "eth-devnet.labels" . | nindent 4 }}
+data:
+  eth-validator.sh: {{ .Files.Get "entrypoints/eth-validator.sh" | quote }}
+  eth-beacon.sh: {{ .Files.Get "entrypoints/eth-beacon.sh" | quote }}
+  eth-execution.sh: {{ .Files.Get "entrypoints/eth-execution.sh" | quote }}
+  eth-execution-geth.sh: {{ .Files.Get "entrypoints/eth-execution-geth.sh" | quote }}
+  eth-execution-nethermind.sh: {{ .Files.Get "entrypoints/eth-execution-nethermind.sh" | quote }}
+  eth-execution-reth.sh: {{ .Files.Get "entrypoints/eth-execution-reth.sh" | quote }}

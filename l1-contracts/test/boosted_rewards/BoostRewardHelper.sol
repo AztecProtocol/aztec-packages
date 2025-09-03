@@ -17,9 +17,7 @@ contract BoostedHelper is RewardBooster {
   using SafeCast for uint256;
   using CompressedTimeMath for Epoch;
 
-  constructor(IValidatorSelection _rollup, RewardBoostConfig memory _config)
-    RewardBooster(_rollup, _config)
-  {}
+  constructor(IValidatorSelection _rollup, RewardBoostConfig memory _config) RewardBooster(_rollup, _config) {}
 
   // Usually we would be using cheatcodes directly, but with this in particular, it seems like the cheatcodes
   // is not having a good time and we end up overflowing it. Therefore we just update it directly instead

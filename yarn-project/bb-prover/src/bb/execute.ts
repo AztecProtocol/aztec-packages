@@ -10,11 +10,8 @@ import { basename, dirname, join } from 'path';
 import type { UltraHonkFlavor } from '../honk.js';
 
 export const VK_FILENAME = 'vk';
-export const VK_FIELDS_FILENAME = 'vk_fields.json';
 export const PUBLIC_INPUTS_FILENAME = 'public_inputs';
-export const PUBLIC_INPUTS_FIELDS_FILENAME = 'public_inputs_fields.json';
 export const PROOF_FILENAME = 'proof';
-export const PROOF_FIELDS_FILENAME = 'proof_fields.json';
 export const AVM_INPUTS_FILENAME = 'avm_inputs.bin';
 export const AVM_BYTECODE_FILENAME = 'avm_bytecode.bin';
 export const AVM_PUBLIC_INPUTS_FILENAME = 'avm_public_inputs.bin';
@@ -217,7 +214,6 @@ export async function generateProof(
   workingDirectory: string,
   circuitName: string,
   bytecode: Buffer,
-  recursive: boolean,
   inputWitnessFile: string,
   flavor: UltraHonkFlavor,
   log: Logger,
@@ -249,8 +245,6 @@ export async function generateProof(
     // TODO(#15043): Avoid write_vk flag here.
     const args = getArgs(flavor).concat([
       '--disable_zk',
-      '--output_format',
-      'bytes_and_fields',
       '--write_vk',
       '-o',
       outputPath,
@@ -260,9 +254,6 @@ export async function generateProof(
       inputWitnessFile,
       '-v',
     ]);
-    if (recursive) {
-      args.push('--init_kzg_accumulator');
-    }
     const loggingArg = log.level === 'debug' || log.level === 'trace' ? '-d' : log.level === 'verbose' ? '-v' : '';
     if (loggingArg !== '') {
       args.push(loggingArg);
@@ -438,8 +429,8 @@ export async function generateAvmProof(
     // Not a great error message here but it is difficult to decipher what comes from bb
     return {
       status: BB_RESULT.FAILURE,
-      reason: `Failed to generate proof. Exit code ${result.exitCode}. Signal ${result.signal}.`,
-      retry: !!result.signal,
+      reason: `Failed to generate proof. AVM proof for TX hash ${input.hints.tx.hash}. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+      retry: result.signal === 'SIGKILL', // retry on SIGKILL because the oomkiller might have stopped the process
     };
   } catch (error) {
     return { status: BB_RESULT.FAILURE, reason: `${error}` };

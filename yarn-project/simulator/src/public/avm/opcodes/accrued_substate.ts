@@ -199,7 +199,9 @@ export class L1ToL2MessageExists extends Instruction {
 
     const operands = [this.msgHashOffset, this.msgLeafIndexOffset, this.existsOffset];
     const [msgHashOffset, msgLeafIndexOffset, existsOffset] = addressing.resolve(operands, memory);
-    memory.checkTags(TypeTag.FIELD, msgHashOffset, msgLeafIndexOffset);
+
+    memory.checkTag(TypeTag.FIELD, msgHashOffset);
+    memory.checkTag(TypeTag.UINT64, msgLeafIndexOffset);
 
     const msgHash = memory.get(msgHashOffset).toFr();
     const msgLeafIndex = memory.get(msgLeafIndexOffset).toFr();

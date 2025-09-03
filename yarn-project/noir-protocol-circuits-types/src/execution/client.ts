@@ -1,8 +1,11 @@
+import { MEGA_VK_LENGTH_IN_FIELDS } from '@aztec/constants';
 import { pushTestData } from '@aztec/foundation/testing';
 import type { WitnessMap } from '@aztec/noir-acvm_js';
 import { abiDecode, abiEncode } from '@aztec/noir-noirc_abi';
 import type { Abi, InputMap } from '@aztec/noir-types';
 import type {
+  HidingKernelToPublicPrivateInputs,
+  HidingKernelToRollupPrivateInputs,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
@@ -24,8 +27,16 @@ import {
   mapPrivateKernelTailCircuitPublicInputsForRollupFromNoir,
   mapTxRequestToNoir,
 } from '../conversion/client.js';
-import { mapFieldToNoir, mapU64ToNoir } from '../conversion/common.js';
+import {
+  mapFieldToNoir,
+  mapPrivateToPublicKernelCircuitPublicInputsToNoir,
+  mapPrivateToRollupKernelCircuitPublicInputsToNoir,
+  mapU64ToNoir,
+  mapVkDataToNoir,
+} from '../conversion/common.js';
 import type {
+  HidingKernelToPublicInputType,
+  HidingKernelToRollupInputType,
   PrivateKernelInitInputType,
   PrivateKernelInitReturnType,
   PrivateKernelInnerInputType,
@@ -169,6 +180,28 @@ export function convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi(
   pushTestData('private-kernel-tail-to-public', mapped);
   const initialWitnessMap = abiEncode(privateKernelTailToPublicAbi, mapped);
   return initialWitnessMap;
+}
+
+export function convertHidingKernelToRollupInputsToWitnessMapWithAbi(
+  inputs: HidingKernelToRollupPrivateInputs,
+  abi: Abi,
+): WitnessMap {
+  const mapped: HidingKernelToRollupInputType = {
+    previous_kernel_public_inputs: mapPrivateToRollupKernelCircuitPublicInputsToNoir(inputs.previousKernelPublicInputs),
+    previous_kernel_vk_data: mapVkDataToNoir(inputs.previousKernelVkData, MEGA_VK_LENGTH_IN_FIELDS),
+  };
+  return abiEncode(abi, mapped);
+}
+
+export function convertHidingKernelPublicInputsToWitnessMapWithAbi(
+  inputs: HidingKernelToPublicPrivateInputs,
+  abi: Abi,
+): WitnessMap {
+  const mapped: HidingKernelToPublicInputType = {
+    previous_kernel_public_inputs: mapPrivateToPublicKernelCircuitPublicInputsToNoir(inputs.previousKernelPublicInputs),
+    previous_kernel_vk_data: mapVkDataToNoir(inputs.previousKernelVkData, MEGA_VK_LENGTH_IN_FIELDS),
+  };
+  return abiEncode(abi, mapped);
 }
 
 /**

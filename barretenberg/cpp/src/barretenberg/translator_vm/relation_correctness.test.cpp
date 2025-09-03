@@ -516,6 +516,7 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
             break;
         }
     }
+    op_queue->merge();
     const auto batching_challenge_v = BF::random_element(&engine);
     const auto evaluation_input_x = BF::random_element(&engine);
 

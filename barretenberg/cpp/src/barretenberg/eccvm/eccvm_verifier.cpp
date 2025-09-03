@@ -30,8 +30,9 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     transcript->load_proof(proof.pre_ipa_proof);
 
     // Fiat-Shamir the vk hash
-    typename Flavor::BF vkey_hash = key->add_hash_to_transcript("", *transcript);
-    vinfo("ECCVM vk hash in verifier: ", vkey_hash);
+    typename Flavor::BF vk_hash = key->hash();
+    transcript->add_to_hash_buffer("vk_hash", vk_hash);
+    vinfo("ECCVM vk hash in verifier: ", vk_hash);
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
@@ -62,7 +63,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
     // Execute Sumcheck Verifier
-    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck(transcript, alpha);
+    SumcheckVerifier<Flavor> sumcheck(transcript, alpha, CONST_ECCVM_LOG_N);
 
     std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {

@@ -13,7 +13,7 @@ import type { ViemPublicClient } from '../types.js';
  * A class that provides utility functions for interacting with ethereum (L1).
  */
 export class EthCheatCodes {
-  private publicClient: ViemPublicClient;
+  public readonly publicClient: ViemPublicClient;
   constructor(
     /**
      * The RPC URL to use for interacting with the chain
@@ -83,8 +83,8 @@ export class EthCheatCodes {
    * Advance the chain by a number of blocks
    * @param numberOfBlocks - The number of blocks to mine
    */
-  public async mine(numberOfBlocks = 1): Promise<void> {
-    await this.doMine(numberOfBlocks);
+  public async mine(numberOfBlocks: number | bigint = 1): Promise<void> {
+    await this.doMine(Number(numberOfBlocks));
     this.logger.warn(`Mined ${numberOfBlocks} L1 blocks`);
   }
 
@@ -206,9 +206,11 @@ export class EthCheatCodes {
    * Set the next block timestamp
    * @param timestamp - The timestamp to set the next block to
    */
-  public async setNextBlockTimestamp(timestamp: number): Promise<void> {
+  public async setNextBlockTimestamp(timestamp: number | Date): Promise<void> {
     try {
-      await this.rpcCall('evm_setNextBlockTimestamp', [timestamp]);
+      await this.rpcCall('evm_setNextBlockTimestamp', [
+        timestamp instanceof Date ? Math.floor(timestamp.getTime() / 1000) : timestamp,
+      ]);
     } catch (err: any) {
       throw new Error(`Error setting next block timestamp: ${err.message}`);
     }

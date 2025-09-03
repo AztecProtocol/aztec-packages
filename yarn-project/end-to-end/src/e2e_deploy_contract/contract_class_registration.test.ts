@@ -36,10 +36,11 @@ describe('e2e_deploy_contract contract class registration', () => {
   let pxe: PXE;
   let logger: Logger;
   let wallet: Wallet;
+  let defaultAccountAddress: AztecAddress;
   let aztecNode: AztecNode;
 
   beforeAll(async () => {
-    ({ pxe, logger, wallet, aztecNode } = await t.setup());
+    ({ pxe, logger, wallet, aztecNode, defaultAccountAddress } = await t.setup());
   });
 
   afterAll(() => t.teardown());
@@ -50,14 +51,18 @@ describe('e2e_deploy_contract contract class registration', () => {
 
   beforeAll(async () => {
     artifact = StatefulTestContract.artifact;
-    publicationTxReceipt = await publishContractClass(wallet, artifact).then(c => c.send().wait());
+    publicationTxReceipt = await publishContractClass(wallet, artifact).then(c =>
+      c.send({ from: defaultAccountAddress }).wait(),
+    );
     contractClass = await getContractClassFromArtifact(artifact);
     expect(await aztecNode.getContractClass(contractClass.id)).toBeDefined();
   });
 
   describe('publishing a contract class', () => {
     it('emits public bytecode', async () => {
-      const publicationTxReceipt = await publishContractClass(wallet, TestContract.artifact).then(c => c.send().wait());
+      const publicationTxReceipt = await publishContractClass(wallet, TestContract.artifact).then(c =>
+        c.send({ from: defaultAccountAddress }).wait(),
+      );
       const logs = await aztecNode.getContractClassLogs({ txHash: publicationTxReceipt.txHash });
       expect(logs.logs.length).toEqual(1);
     });
@@ -92,7 +97,9 @@ describe('e2e_deploy_contract contract class registration', () => {
         constructorArtifact.parameters,
       );
 
-      const tx = await (await broadcastPrivateFunction(wallet, artifact, selector)).send().wait();
+      const tx = await (await broadcastPrivateFunction(wallet, artifact, selector))
+        .send({ from: defaultAccountAddress })
+        .wait();
       const logs = await pxe.getContractClassLogs({ txHash: tx.txHash });
       const logData = logs.logs[0].log.toBuffer();
 
@@ -110,7 +117,9 @@ describe('e2e_deploy_contract contract class registration', () => {
     it('broadcasts a utility function', async () => {
       const functionArtifact = artifact.functions.find(fn => fn.functionType === FunctionType.UTILITY)!;
       const selector = await FunctionSelector.fromNameAndParameters(functionArtifact);
-      const tx = await (await broadcastUtilityFunction(wallet, artifact, selector)).send().wait();
+      const tx = await (await broadcastUtilityFunction(wallet, artifact, selector))
+        .send({ from: defaultAccountAddress })
+        .wait();
       const logs = await pxe.getContractClassLogs({ txHash: tx.txHash });
       const logData = logs.logs[0].log.toBuffer();
 
@@ -199,8 +208,11 @@ describe('e2e_deploy_contract contract class registration', () => {
 
         it('calls a public function with no init check on the deployed instance', async () => {
           const whom = await AztecAddress.random();
-          await contract.methods.increment_public_value_no_init_check(whom, 10).send().wait();
-          const stored = await contract.methods.get_public_value(whom).simulate();
+          await contract.methods
+            .increment_public_value_no_init_check(whom, 10)
+            .send({ from: defaultAccountAddress })
+            .wait();
+          const stored = await contract.methods.get_public_value(whom).simulate({ from: defaultAccountAddress });
           expect(stored).toEqual(10n);
         });
 
@@ -208,28 +220,28 @@ describe('e2e_deploy_contract contract class registration', () => {
           const whom = await AztecAddress.random();
           const receipt = await contract.methods
             .increment_public_value(whom, 10)
-            .send()
+            .send({ from: defaultAccountAddress })
             .wait({ dontThrowOnRevert: true });
           expect(receipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
 
           // Meanwhile we check we didn't increment the value
-          expect(await contract.methods.get_public_value(whom).simulate()).toEqual(0n);
+          expect(await contract.methods.get_public_value(whom).simulate({ from: defaultAccountAddress })).toEqual(0n);
         });
 
         it('refuses to initialize the instance with wrong args via a private function', async () => {
-          await expect(contract.methods.constructor(await AztecAddress.random(), 43).simulate()).rejects.toThrow(
-            /initialization hash does not match/i,
-          );
+          await expect(
+            contract.methods.constructor(await AztecAddress.random(), 43).simulate({ from: defaultAccountAddress }),
+          ).rejects.toThrow(/initialization hash does not match/i);
         });
 
         it('initializes the contract and calls a public function', async () => {
           await contract.methods
             .constructor(...initArgs)
-            .send()
+            .send({ from: defaultAccountAddress })
             .wait();
           const whom = await AztecAddress.random();
-          await contract.methods.increment_public_value(whom, 10).send().wait();
-          const stored = await contract.methods.get_public_value(whom).simulate();
+          await contract.methods.increment_public_value(whom, 10).send({ from: defaultAccountAddress }).wait();
+          const stored = await contract.methods.get_public_value(whom).simulate({ from: defaultAccountAddress });
           expect(stored).toEqual(10n);
         });
 
@@ -237,7 +249,7 @@ describe('e2e_deploy_contract contract class registration', () => {
           await expect(
             contract.methods
               .constructor(...initArgs)
-              .send()
+              .send({ from: defaultAccountAddress })
               .wait(),
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/5818): Make these a fixed error after transition.
           ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
@@ -253,19 +265,22 @@ describe('e2e_deploy_contract contract class registration', () => {
 
         it('refuses to initialize the instance with wrong args via a public function', async () => {
           const whom = await AztecAddress.random();
-          const receipt = await contract.methods.public_constructor(whom, 43).send().wait({ dontThrowOnRevert: true });
+          const receipt = await contract.methods
+            .public_constructor(whom, 43)
+            .send({ from: defaultAccountAddress })
+            .wait({ dontThrowOnRevert: true });
           expect(receipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
-          expect(await contract.methods.get_public_value(whom).simulate()).toEqual(0n);
+          expect(await contract.methods.get_public_value(whom).simulate({ from: defaultAccountAddress })).toEqual(0n);
         });
 
         it('initializes the contract and calls a public function', async () => {
           await contract.methods
             .public_constructor(...initArgs)
-            .send()
+            .send({ from: defaultAccountAddress })
             .wait();
           const whom = await AztecAddress.random();
-          await contract.methods.increment_public_value(whom, 10).send().wait();
-          const stored = await contract.methods.get_public_value(whom).simulate();
+          await contract.methods.increment_public_value(whom, 10).send({ from: defaultAccountAddress }).wait();
+          const stored = await contract.methods.get_public_value(whom).simulate({ from: defaultAccountAddress });
           expect(stored).toEqual(10n);
         });
 
@@ -273,7 +288,7 @@ describe('e2e_deploy_contract contract class registration', () => {
           await expect(
             contract.methods
               .public_constructor(...initArgs)
-              .send()
+              .send({ from: defaultAccountAddress })
               .wait(),
           ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
         });
@@ -283,15 +298,15 @@ describe('e2e_deploy_contract contract class registration', () => {
   testDeployingAnInstance('from a wallet', async instance => {
     // Calls the deployer contract directly from a wallet
     const deployMethod = await publishInstance(wallet, instance);
-    await deployMethod.send().wait();
+    await deployMethod.send({ from: defaultAccountAddress }).wait();
   });
 
   testDeployingAnInstance('from a contract', async instance => {
     // Register the instance to be deployed in the pxe
     await wallet.registerContract({ artifact, instance });
     // Set up the contract that calls the deployer (which happens to be the TestContract) and call it
-    const deployer = await TestContract.deploy(wallet).send().deployed();
-    await deployer.methods.publish_contract_instance(instance.address).send().wait();
+    const deployer = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
+    await deployer.methods.publish_contract_instance(instance.address).send({ from: defaultAccountAddress }).wait();
   });
 
   describe('error scenarios in deployment', () => {
@@ -300,14 +315,14 @@ describe('e2e_deploy_contract contract class registration', () => {
       const sender = whom;
       const instance = await t.registerContract(wallet, StatefulTestContract, { initArgs: [whom, sender, 42] });
       // Confirm that the tx reverts with the expected message
-      await expect(instance.methods.increment_public_value_no_init_check(whom, 10).simulate()).rejects.toThrow(
-        /No bytecode/,
-      );
+      await expect(
+        instance.methods.increment_public_value_no_init_check(whom, 10).simulate({ from: defaultAccountAddress }),
+      ).rejects.toThrow(/No bytecode/);
       // This time, don't throw on revert and confirm that the tx is included
       // despite reverting in app logic because of the call to a non-existent contract
       const tx = await instance.methods
         .increment_public_value_no_init_check(whom, 10)
-        .send()
+        .send({ from: defaultAccountAddress })
         .wait({ dontThrowOnRevert: true });
       expect(tx.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
     });

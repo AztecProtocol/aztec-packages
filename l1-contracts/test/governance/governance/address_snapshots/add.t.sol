@@ -6,11 +6,22 @@ import {AddressSnapshotsBase} from "./AddressSnapshotsBase.t.sol";
 import {
   AddressSnapshotLib,
   SnapshottedAddressSet,
-  AddressSnapshotLib__IndexOutOfBounds
+  AddressSnapshotLib__IndexOutOfBounds,
+  AddressSnapshotLib__CannotAddAddressZero
 } from "@aztec/governance/libraries/AddressSnapshotLib.sol";
 
 contract AddressSnapshotAddTest is AddressSnapshotsBase {
-  function test_WhenValidatorIsNotInTheSet(address _addr, uint16 _add2) public {
+  function test_WhenAddressIsZero() public {
+    vm.expectRevert(abi.encodeWithSelector(AddressSnapshotLib__CannotAddAddressZero.selector));
+    validatorSet.add(address(0));
+  }
+
+  modifier whenAddressIsNotZero(address _addr) {
+    vm.assume(_addr != address(0));
+    _;
+  }
+
+  function test_WhenValidatorIsNotInTheSet(address _addr, uint16 _add2) public whenAddressIsNotZero(_addr) {
     // It returns true
     // It increases the length
     // It creates a checkpoint for the next epoch
@@ -57,7 +68,7 @@ contract AddressSnapshotAddTest is AddressSnapshotsBase {
     assertEq(validatorSet.getAddressFromIndexAtTimestamp(0, ts2), _addr);
   }
 
-  function test_WhenValidatorIsAlreadyInTheSet(address _addr) public {
+  function test_WhenValidatorIsAlreadyInTheSet(address _addr) public whenAddressIsNotZero(_addr) {
     // It returns false
 
     validatorSet.add(_addr);
@@ -70,11 +81,7 @@ contract AddressSnapshotAddTest is AddressSnapshotsBase {
     assertEq(writes.length, 0);
   }
 
-  function test_WhenValidatorHasBeenRemovedFromTheSet(
-    address[] memory _addrs,
-    uint16 _add2,
-    uint16 _add3
-  ) public {
+  function test_WhenValidatorHasBeenRemovedFromTheSet(address[] memory _addrs, uint16 _add2, uint16 _add3) public {
     // It can be added again
 
     _addrs = boundUnique(_addrs);

@@ -78,7 +78,7 @@ const InteractionDefinition UpdateCheckTraceBuilder::interactions =
         .add<lookup_update_check_timestamp_from_public_inputs_settings, InteractionType::LookupGeneric>()
         .add<lookup_update_check_update_hash_poseidon2_settings, InteractionType::LookupSequential>()
         .add<lookup_update_check_delayed_public_mutable_slot_poseidon2_settings, InteractionType::LookupSequential>()
-        .add<lookup_update_check_update_hash_public_data_read_settings, InteractionType::LookupSequential>()
+        .add<lookup_update_check_update_hash_public_data_read_settings, InteractionType::LookupGeneric>()
         .add<lookup_update_check_update_hi_metadata_range_settings, InteractionType::LookupGeneric>()
         .add<lookup_update_check_update_lo_metadata_range_settings, InteractionType::LookupGeneric>()
         .add<lookup_update_check_timestamp_of_change_cmp_range_settings, InteractionType::LookupGeneric>();

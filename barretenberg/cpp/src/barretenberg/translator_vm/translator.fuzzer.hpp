@@ -11,6 +11,7 @@
  * @date 2024-02-25
  *
  */
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "translator_circuit_builder.hpp"
 
@@ -24,7 +25,7 @@ using G1 = curve::BN254::AffineElement;
 // Don't use dereference casts, since the data may be not aligned and it causes segfault
 uint256_t read_uint256(const uint8_t* data, size_t buffer_size = 32)
 {
-    ASSERT(buffer_size <= 32);
+    BB_ASSERT_LTE(buffer_size, 32U);
 
     uint64_t parts[4] = { 0, 0, 0, 0 };
 
@@ -50,7 +51,7 @@ std::vector<ECCVMOperation> parse_operations(const unsigned char* data, size_t s
     // Just iterate and parse until there's no data left
     while (size_left >= sizeof(ECCVMOperation)) {
         ECCVMOperation op;
-        std::memcpy(&op, data + (size - size_left), sizeof(ECCVMOperation));
+        std::memcpy(static_cast<void*>(&op), data + (size - size_left), sizeof(ECCVMOperation));
         eccvm_ops.emplace_back(op);
         size_left -= sizeof(ECCVMOperation);
     }

@@ -174,7 +174,7 @@ container_script=$(
   case \$code in
     155) ;;
     0) log_ci_run PASSED \$ci_log_id ;;
-    *) log_ci_run FAILED \$ci_log_id ;;
+    *) log_ci_run FAILED \$ci_log_id && merge_train_failure_slack_notify \$ci_log_id ;;
   esac
   exit \$code
 EOF
@@ -252,6 +252,7 @@ function run {
         -e NPM_TOKEN=${NPM_TOKEN:-} \
         -e SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-} \
         -e AWS_TOKEN=\$aws_token \
+        -e NAMESPACE=${NAMESPACE:-} \
         -v /tmp/gcp-key.json:/tmp/gcp-key.json:ro \
         --pids-limit=32768 \
         aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")

@@ -5,7 +5,15 @@ import { createLogger } from '@aztec/foundation/log';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
-import { type GetContractReturnType, type Hex, createPublicClient, fallback, getContract, http, keccak256 } from 'viem';
+import {
+  type GetContractReturnType,
+  type Hex,
+  createPublicClient,
+  fallback,
+  getContract,
+  hexToBigInt,
+  http,
+} from 'viem';
 import { foundry } from 'viem/chains';
 
 import { EthCheatCodes } from './eth_cheat_codes.js';
@@ -122,13 +130,22 @@ export class RollupCheatCodes {
   }
 
   /** Warps time in L1 until the next epoch */
-  public async advanceToNextEpoch() {
+  public async advanceToNextEpoch(
+    opts: {
+      /** Optional test date provider to update with the epoch timestamp */
+      updateDateProvider?: TestDateProvider;
+    } = {},
+  ) {
     const slot = await this.getSlot();
     const { epochDuration, slotDuration } = await this.getConfig();
     const slotsUntilNextEpoch = epochDuration - (slot % epochDuration) + 1n;
     const timeToNextEpoch = slotsUntilNextEpoch * slotDuration;
     const l1Timestamp = BigInt((await this.client.getBlock()).timestamp);
-    await this.ethCheatCodes.warp(Number(l1Timestamp + timeToNextEpoch), { silent: true, resetBlockInterval: true });
+    await this.ethCheatCodes.warp(Number(l1Timestamp + timeToNextEpoch), {
+      ...opts,
+      silent: true,
+      resetBlockInterval: true,
+    });
     this.logger.warn(`Advanced to next epoch`);
   }
 
@@ -174,10 +191,7 @@ export class RollupCheatCodes {
 
       // @note @LHerskind this is heavily dependent on the storage layout and size of values
       // The rollupStore is a struct and if the size of elements or the struct changes, this can break
-
-      // Convert string to bytes and then compute keccak256
-      const storageSlot = keccak256(Buffer.from('aztec.stf.storage', 'utf-8'));
-      const provenBlockNumberSlot = BigInt(storageSlot);
+      const provenBlockNumberSlot = hexToBigInt(RollupContract.stfStorageSlot);
 
       // Need to pack it as a single 32 byte word
       const newValue = (BigInt(tipsBefore.pending) << 128n) | BigInt(blockNumber);

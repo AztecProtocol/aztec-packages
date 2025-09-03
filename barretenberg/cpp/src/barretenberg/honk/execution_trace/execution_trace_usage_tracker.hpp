@@ -8,6 +8,7 @@
 
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include <iostream>
 
 namespace bb {
 
@@ -21,7 +22,6 @@ namespace bb {
 struct ExecutionTraceUsageTracker {
     using Range = std::pair<size_t, size_t>;
     using Builder = MegaCircuitBuilder;
-    using MegaTraceActiveRanges = MegaTraceBlockData<Range>;
     using MegaTraceFixedBlockSizes = MegaExecutionTraceBlocks;
 
     TraceStructure max_sizes;             // max utilization of each block
@@ -42,14 +42,15 @@ struct ExecutionTraceUsageTracker {
 
     // For printing only. Must match the order of the members in the arithmetization
 
-    static constexpr std::array<std::string_view, 13> block_labels{ "ecc_op",
+    static constexpr std::array<std::string_view, 14> block_labels{ "ecc_op",
                                                                     "busread",
                                                                     "lookup",
                                                                     "pub_inputs",
                                                                     "arithmetic",
                                                                     "delta_range",
                                                                     "elliptic",
-                                                                    "aux",
+                                                                    "memory",
+                                                                    "nnf",
                                                                     "poseidon2_external",
                                                                     "poseidon2_internal",
                                                                     "overflow",
@@ -98,19 +99,18 @@ struct ExecutionTraceUsageTracker {
             active_ranges.push_back(Range{ start_idx, end_idx });
         }
 
-        // The active ranges must also include the rows where the actual databus and lookup table data are stored.
-        // (Note: lookup tables are constructed from the beginning of the lookup block ; databus data is constructed at
-        // the start of the trace).
+        // The active range for lookup-style blocks consists of two components: (1) rows containing the lookup/read
+        // gates and (2) rows containing the table data itself. The Mega arithmetization contains two such blocks:
+        // conventional lookups (lookup block) and the databus (busread block). Here we add the ranges corresponding
+        // to the "table" data for these two blocks. The corresponding gate ranges were added above.
+        size_t databus_data_start = 0; // Databus column data starts at idx 0
+        size_t databus_data_end = databus_data_start + max_databus_size;
+        active_ranges.push_back(Range{ databus_data_start, databus_data_end }); // region where databus contains data
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1152): should be able to use simply Range{ 0,
-        // max_databus_size } but this breaks for certain choices of num_threads. It should also be possible to have the
-        // lookup table data be Range{lookup_start, max_tables_size} but that also breaks.
-        size_t databus_end =
-            std::max(max_databus_size, static_cast<size_t>(fixed_sizes.busread.trace_offset() + max_sizes.busread));
-        active_ranges.push_back(Range{ 0, databus_end });
-        size_t lookups_start = fixed_sizes.lookup.trace_offset();
-        size_t lookups_end = lookups_start + std::max(max_tables_size, static_cast<size_t>(max_sizes.lookup));
-        active_ranges.emplace_back(Range{ lookups_start, lookups_end });
+        // Note: start of table data is aligned with start of the lookup gates block
+        size_t tables_start = fixed_sizes.lookup.trace_offset();
+        size_t tables_end = tables_start + max_tables_size;
+        active_ranges.emplace_back(Range{ tables_start, tables_end }); // region where table data is stored
     }
 
     void print()
@@ -121,7 +121,7 @@ struct ExecutionTraceUsageTracker {
         info("Minimum required block sizes for structured trace: ");
         size_t idx = 0;
         for (auto max_size : max_sizes.get()) {
-            std::cout << std::left << std::setw(20) << block_labels[idx] << ": " << max_size << std::endl;
+            std::cerr << std::left << std::setw(20) << block_labels[idx] << ": " << max_size << std::endl;
             idx++;
         }
         info("");
@@ -131,7 +131,7 @@ struct ExecutionTraceUsageTracker {
     {
         info("Active regions of accumulator: ");
         for (auto [label, range] : zip_view(block_labels, active_ranges)) {
-            std::cout << std::left << std::setw(20) << label << ": (" << range.first << ", " << range.second << ")"
+            std::cerr << std::left << std::setw(20) << label << ": (" << range.first << ", " << range.second << ")"
                       << std::endl;
         }
         info("");
@@ -141,7 +141,7 @@ struct ExecutionTraceUsageTracker {
     {
         info("Active regions of previous accumulator: ");
         for (auto [label, range] : zip_view(block_labels, previous_active_ranges)) {
-            std::cout << std::left << std::setw(20) << label << ": (" << range.first << ", " << range.second << ")"
+            std::cerr << std::left << std::setw(20) << label << ": (" << range.first << ", " << range.second << ")"
                       << std::endl;
         }
         info("");
@@ -151,11 +151,11 @@ struct ExecutionTraceUsageTracker {
     {
         info("Thread ranges: ");
         for (const auto& ranges : thread_ranges) {
-            std::cout << "[" << std::endl;
+            std::cerr << "[" << std::endl;
             for (auto range : ranges) {
-                std::cout << "(" << range.first << ", " << range.second << ")" << std::endl;
+                std::cerr << "(" << range.first << ", " << range.second << ")" << std::endl;
             }
-            std::cout << "]" << std::endl;
+            std::cerr << "]" << std::endl;
         }
         info("");
     }

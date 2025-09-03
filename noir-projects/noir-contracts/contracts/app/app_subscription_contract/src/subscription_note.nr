@@ -1,13 +1,15 @@
-use dep::aztec::{
-    macros::notes::note, oracle::random::random, protocol_types::address::AztecAddress,
+use aztec::{
+    macros::notes::note,
+    oracle::random::random,
+    protocol_types::{address::AztecAddress, traits::Packable},
 };
 
+#[derive(Eq, Packable)]
 #[note]
-#[derive(Eq)]
 pub struct SubscriptionNote {
     owner: AztecAddress,
-    expiry_block_number: u32,
-    remaining_txs: u32,
+    pub expiry_block_number: u32,
+    pub remaining_txs: u32,
     // Randomness of the note to protect against note hash preimage attacks
     randomness: Field,
 }

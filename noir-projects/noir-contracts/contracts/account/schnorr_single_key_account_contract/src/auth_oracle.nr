@@ -6,9 +6,9 @@ use std::meta::derive;
 
 #[derive(Deserialize)]
 pub struct AuthWitness {
-    keys: PublicKeys,
-    signature: [u8; 64],
-    partial_address: PartialAddress,
+    pub keys: PublicKeys,
+    pub signature: [u8; 64],
+    pub partial_address: PartialAddress,
 }
 
 pub unconstrained fn get_auth_witness(message_hash: Field) -> AuthWitness {

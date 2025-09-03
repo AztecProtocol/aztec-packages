@@ -122,7 +122,7 @@ describe('prover/orchestrator', () => {
         // now finish the block
         await orchestrator.setBlockCompleted(context.blockNumber);
 
-        const result = await orchestrator.finaliseEpoch();
+        const result = await orchestrator.finalizeEpoch();
         expect(result.proof).toBeDefined();
       });
 
@@ -136,7 +136,7 @@ describe('prover/orchestrator', () => {
         processedTxs.forEach((tx, i) => (tx.clientIvcProof = ClientIvcProof.fake(i + 1)));
         // TODO(AD): we shouldn't be mocking complex objects like tx this way - easy to hit issues (I had to update to add data field)
         const txs = processedTxs.map(
-          tx => ({ getTxHash: () => Promise.resolve(tx.hash), clientIvcProof: tx.clientIvcProof, data: {} }) as Tx,
+          tx => ({ getTxHash: () => tx.hash, txHash: tx.hash, clientIvcProof: tx.clientIvcProof, data: {} }) as Tx,
         );
         await orchestrator.startTubeCircuits(txs);
 
@@ -148,7 +148,7 @@ describe('prover/orchestrator', () => {
         await context.setTreeRoots(processedTxs);
         await orchestrator.addTxs(processedTxs);
         await orchestrator.setBlockCompleted(context.blockNumber);
-        const result = await orchestrator.finaliseEpoch();
+        const result = await orchestrator.finalizeEpoch();
         expect(result.proof).toBeDefined();
         expect(getTubeSpy).toHaveBeenCalledTimes(0);
       });

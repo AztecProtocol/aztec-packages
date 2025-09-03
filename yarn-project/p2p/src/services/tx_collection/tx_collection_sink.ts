@@ -1,7 +1,7 @@
 import type { Logger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
-import { Tx, type TxHash, type TxWithHash } from '@aztec/stdlib/tx';
+import { Tx, type TxHash } from '@aztec/stdlib/tx';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import EventEmitter from 'node:events';
@@ -40,13 +40,13 @@ export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitt
     const [duration, txs] = await elapsed(async () => {
       try {
         const response = await collectValidTxsFn(requested);
-        return await Tx.toTxsWithHashes(response.filter(tx => tx !== undefined));
+        return response.filter(tx => tx !== undefined);
       } catch (err) {
         this.log.error(`Error collecting txs via ${info.description}`, err, {
           ...info,
           requestedTxs: requested.map(hash => hash.toString()),
         });
-        return [] as TxWithHash[];
+        return [] as Tx[];
       }
     });
 
@@ -60,14 +60,19 @@ export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitt
 
     this.log.verbose(
       `Collected ${txs.length} txs out of ${requested.length} requested via ${info.description} in ${duration}ms`,
-      { ...info, duration, txs: txs.map(t => t.txHash.toString()), requestedTxs: requested.map(t => t.toString()) },
+      {
+        ...info,
+        duration,
+        txs: txs.map(t => t.getTxHash().toString()),
+        requestedTxs: requested.map(t => t.toString()),
+      },
     );
 
     return await this.foundTxs(txs, { ...info, duration });
   }
 
   private async foundTxs(
-    txs: TxWithHash[],
+    txs: Tx[],
     info: Record<string, any> & { description: string; method: CollectionMethod; duration: number },
   ) {
     // Report metrics for the collection

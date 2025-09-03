@@ -65,7 +65,8 @@ template <typename Flavor, typename Relation> void execute_relation_for_pg_univa
 BENCHMARK(execute_relation_for_pg_univariates<UltraFlavor, UltraArithmeticRelation<Fr>>);
 BENCHMARK(execute_relation_for_pg_univariates<UltraFlavor, DeltaRangeConstraintRelation<Fr>>);
 BENCHMARK(execute_relation_for_pg_univariates<UltraFlavor, EllipticRelation<Fr>>);
-BENCHMARK(execute_relation_for_pg_univariates<UltraFlavor, AuxiliaryRelation<Fr>>);
+BENCHMARK(execute_relation_for_pg_univariates<UltraFlavor, MemoryRelation<Fr>>);
+BENCHMARK(execute_relation_for_pg_univariates<UltraFlavor, NonNativeFieldRelation<Fr>>);
 BENCHMARK(execute_relation_for_pg_univariates<UltraFlavor, LogDerivLookupRelation<Fr>>);
 BENCHMARK(execute_relation_for_pg_univariates<UltraFlavor, UltraPermutationRelation<Fr>>);
 
@@ -79,7 +80,8 @@ BENCHMARK(execute_relation_for_pg_univariates<MegaFlavor, Poseidon2InternalRelat
 BENCHMARK(execute_relation_for_univariates<UltraFlavor, UltraArithmeticRelation<Fr>>);
 BENCHMARK(execute_relation_for_univariates<UltraFlavor, DeltaRangeConstraintRelation<Fr>>);
 BENCHMARK(execute_relation_for_univariates<UltraFlavor, EllipticRelation<Fr>>);
-BENCHMARK(execute_relation_for_univariates<UltraFlavor, AuxiliaryRelation<Fr>>);
+BENCHMARK(execute_relation_for_univariates<UltraFlavor, MemoryRelation<Fr>>);
+BENCHMARK(execute_relation_for_univariates<UltraFlavor, NonNativeFieldRelation<Fr>>);
 BENCHMARK(execute_relation_for_univariates<UltraFlavor, LogDerivLookupRelation<Fr>>);
 BENCHMARK(execute_relation_for_univariates<UltraFlavor, UltraPermutationRelation<Fr>>);
 
@@ -93,7 +95,8 @@ BENCHMARK(execute_relation_for_univariates<MegaFlavor, Poseidon2InternalRelation
 BENCHMARK(execute_relation_for_values<UltraFlavor, UltraArithmeticRelation<Fr>>);
 BENCHMARK(execute_relation_for_values<UltraFlavor, DeltaRangeConstraintRelation<Fr>>);
 BENCHMARK(execute_relation_for_values<UltraFlavor, EllipticRelation<Fr>>);
-BENCHMARK(execute_relation_for_values<UltraFlavor, AuxiliaryRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<UltraFlavor, MemoryRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<UltraFlavor, NonNativeFieldRelation<Fr>>);
 BENCHMARK(execute_relation_for_values<UltraFlavor, LogDerivLookupRelation<Fr>>);
 BENCHMARK(execute_relation_for_values<UltraFlavor, UltraPermutationRelation<Fr>>);
 

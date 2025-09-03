@@ -109,7 +109,7 @@ bool get_value(Key& key, uint64_t& data, const LMDBDatabase& db, const bb::lmdbl
     if (!call_lmdb_func(mdb_get, tx.underlying(), db.underlying(), &dbKey, &dbVal)) {
         return false;
     }
-    // use the deserialise key method for deserialising the index
+    // use the deserialise key method for deserializing the index
     deserialise_key(dbVal.mv_data, data);
     return true;
 }

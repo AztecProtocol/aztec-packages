@@ -2,6 +2,7 @@
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 
 #include <cstdint>
@@ -65,7 +66,7 @@ generate_big_int_op_constraint_with_modulus(
         value = witness_values[lhs_id] / witness_values[rhs_id];
         break;
     default:
-        ASSERT(false);
+        throw_or_abort("Unexpected BigIntOperationType.");
         break;
     }
 
@@ -148,7 +149,7 @@ std::tuple<BigIntOperation, BigIntToLeBytes> generate_big_int_op_constraint_with
         value = witness_values[lhs_id] / witness_values[rhs_id];
         break;
     default:
-        ASSERT(false);
+        throw_or_abort("Unexpected BigIntOperationType.");
         break;
     }
 
@@ -169,29 +170,6 @@ TEST_F(BigIntTests, TestBigIntConstraintMultiple)
         .varnum = static_cast<uint32_t>(witness.size() + 1),
         .num_acir_opcodes = 5,
         .public_inputs = {},
-        .logic_constraints = {},
-        .range_constraints = {},
-        .aes128_constraints = {},
-        .sha256_compression = {},
-        .ecdsa_k1_constraints = {},
-        .ecdsa_r1_constraints = {},
-        .blake2s_constraints = {},
-        .blake3_constraints = {},
-        .keccak_permutations = {},
-        .poseidon2_constraints = {},
-        .multi_scalar_mul_constraints = {},
-        .ec_add_constraints = {},
-        .honk_recursion_constraints = {},
-        .avm_recursion_constraints = {},
-        .ivc_recursion_constraints = {},
-        .bigint_from_le_bytes_constraints = {},
-        .bigint_to_le_bytes_constraints = {},
-        .bigint_operations = {},
-        .assert_equalities = {},
-        .poly_triple_constraints = {},
-        .quad_constraints = {},
-        .big_quad_constraints = {},
-        .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     apply_constraints(constraint_system, contraints);
@@ -235,29 +213,9 @@ TEST_F(BigIntTests, TestBigIntConstraintSimple)
         .varnum = 5,
         .num_acir_opcodes = 3,
         .public_inputs = {},
-        .logic_constraints = {},
-        .range_constraints = {},
-        .aes128_constraints = {},
-        .sha256_compression = {},
-        .ecdsa_k1_constraints = {},
-        .ecdsa_r1_constraints = {},
-        .blake2s_constraints = {},
-        .blake3_constraints = {},
-        .keccak_permutations = {},
-        .poseidon2_constraints = {},
-        .multi_scalar_mul_constraints = {},
-        .ec_add_constraints = {},
-        .honk_recursion_constraints = {},
-        .avm_recursion_constraints = {},
-        .ivc_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = { from_le_bytes_constraint_bigint1 },
         .bigint_to_le_bytes_constraints = { result2_to_le_bytes },
         .bigint_operations = { add_constraint },
-        .assert_equalities = {},
-        .poly_triple_constraints = {},
-        .quad_constraints = {},
-        .big_quad_constraints = {},
-        .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     mock_opcode_indices(constraint_system);
@@ -286,29 +244,6 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse)
         .varnum = static_cast<uint32_t>(witness.size() + 1),
         .num_acir_opcodes = 5,
         .public_inputs = {},
-        .logic_constraints = {},
-        .range_constraints = {},
-        .aes128_constraints = {},
-        .sha256_compression = {},
-        .ecdsa_k1_constraints = {},
-        .ecdsa_r1_constraints = {},
-        .blake2s_constraints = {},
-        .blake3_constraints = {},
-        .keccak_permutations = {},
-        .poseidon2_constraints = {},
-        .multi_scalar_mul_constraints = {},
-        .ec_add_constraints = {},
-        .honk_recursion_constraints = {},
-        .avm_recursion_constraints = {},
-        .ivc_recursion_constraints = {},
-        .bigint_from_le_bytes_constraints = {},
-        .bigint_to_le_bytes_constraints = {},
-        .bigint_operations = {},
-        .assert_equalities = {},
-        .poly_triple_constraints = {},
-        .quad_constraints = {},
-        .big_quad_constraints = {},
-        .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     apply_constraints(constraint_system, contraints);
@@ -341,29 +276,6 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse2)
         .varnum = static_cast<uint32_t>(witness.size() + 1),
         .num_acir_opcodes = 5,
         .public_inputs = {},
-        .logic_constraints = {},
-        .range_constraints = {},
-        .aes128_constraints = {},
-        .sha256_compression = {},
-        .ecdsa_k1_constraints = {},
-        .ecdsa_r1_constraints = {},
-        .blake2s_constraints = {},
-        .blake3_constraints = {},
-        .keccak_permutations = {},
-        .poseidon2_constraints = {},
-        .multi_scalar_mul_constraints = {},
-        .ec_add_constraints = {},
-        .honk_recursion_constraints = {},
-        .avm_recursion_constraints = {},
-        .ivc_recursion_constraints = {},
-        .bigint_from_le_bytes_constraints = {},
-        .bigint_to_le_bytes_constraints = {},
-        .bigint_operations = {},
-        .assert_equalities = {},
-        .poly_triple_constraints = {},
-        .quad_constraints = {},
-        .big_quad_constraints = {},
-        .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     apply_constraints(constraint_system, contraints);
@@ -417,29 +329,9 @@ TEST_F(BigIntTests, TestBigIntDIV)
         .varnum = 5,
         .num_acir_opcodes = 4,
         .public_inputs = {},
-        .logic_constraints = {},
-        .range_constraints = {},
-        .aes128_constraints = {},
-        .sha256_compression = {},
-        .ecdsa_k1_constraints = {},
-        .ecdsa_r1_constraints = {},
-        .blake2s_constraints = {},
-        .blake3_constraints = {},
-        .keccak_permutations = {},
-        .poseidon2_constraints = {},
-        .multi_scalar_mul_constraints = {},
-        .ec_add_constraints = {},
-        .honk_recursion_constraints = {},
-        .avm_recursion_constraints = {},
-        .ivc_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = { from_le_bytes_constraint_bigint1, from_le_bytes_constraint_bigint2 },
         .bigint_to_le_bytes_constraints = { result3_to_le_bytes },
         .bigint_operations = { div_constraint },
-        .assert_equalities = {},
-        .poly_triple_constraints = {},
-        .quad_constraints = {},
-        .big_quad_constraints = {},
-        .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     mock_opcode_indices(constraint_system);

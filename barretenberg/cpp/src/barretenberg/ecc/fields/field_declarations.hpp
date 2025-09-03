@@ -43,6 +43,9 @@ template <class Params_> struct alignas(32) field {
     using out_buf = uint8_t*;
     using vec_out_buf = uint8_t**;
 
+    // The number of element required to represent field<Params_> in the public inputs of a circuit
+    static constexpr size_t PUBLIC_INPUTS_SIZE = Params::PUBLIC_INPUTS_SIZE;
+
 #if defined(__wasm__) || !defined(__SIZEOF_INT128__)
 #define WASM_NUM_LIMBS 9
 #define WASM_LIMB_BITS 29
@@ -137,7 +140,7 @@ template <class Params_> struct alignas(32) field {
     constexpr explicit operator bool() const
     {
         field out = from_montgomery_form();
-        ASSERT(out.data[0] == 0 || out.data[0] == 1);
+        ASSERT_IN_CONSTEXPR(out.data[0] == 0 || out.data[0] == 1);
         return static_cast<bool>(out.data[0]);
     }
 
@@ -280,9 +283,9 @@ template <class Params_> struct alignas(32) field {
         return result;
     }
 
-    static constexpr field coset_generator(const size_t idx)
+    template <size_t idx> static constexpr field coset_generator()
     {
-        ASSERT(idx < 7);
+        static_assert(idx < 7);
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
         const field result{
             Params::coset_generators_0[idx],
@@ -372,6 +375,8 @@ template <class Params_> struct alignas(32) field {
     static void serialize_to_buffer(const field& value, uint8_t* buffer) { write(buffer, value); }
 
     static field serialize_from_buffer(const uint8_t* buffer) { return from_buffer<field>(buffer); }
+
+    template <class V> static field reconstruct_from_public(const std::span<const field<V>, PUBLIC_INPUTS_SIZE>& limbs);
 
     [[nodiscard]] BB_INLINE std::vector<uint8_t> to_buffer() const { return ::to_buffer(*this); }
 

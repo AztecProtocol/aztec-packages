@@ -11,8 +11,8 @@ namespace bb::stdlib::recursion::goblin {
 
 template <typename CircuitBuilder>
 MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder* builder,
-                                                                 const std::shared_ptr<Transcript>& transcript,
-                                                                 MergeSettings settings)
+                                                                 const MergeSettings settings,
+                                                                 const std::shared_ptr<Transcript>& transcript)
     : builder(builder)
     , transcript(transcript)
     , settings(settings)
@@ -60,13 +60,15 @@ MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder*
  *
  * @tparam CircuitBuilder
  * @param proof
- * @param t_commitments The commitments to t_j read from the transcript by the PG recursive verifier with which
- * the Merge recursive verifier shares a transcript
- * @return PairingPoints Inputs to final pairing
+ * @param inputs_commitments The commitments used by the Merge verifier
+ * @return std::pair<PairingPoints, TableCommitments> Pair of the pairing inputs for final verification and the
+ * commitments to the merged tables as read from the proof
  */
 template <typename CircuitBuilder>
-MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<CircuitBuilder>::verify_proof(
-    const stdlib::Proof<CircuitBuilder>& proof, const RefArray<Commitment, NUM_WIRES> t_commitments)
+std::pair<typename MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints,
+          typename MergeRecursiveVerifier_<CircuitBuilder>::TableCommitments>
+MergeRecursiveVerifier_<CircuitBuilder>::verify_proof(const stdlib::Proof<CircuitBuilder>& proof,
+                                                      const InputCommitments& input_commitments)
 {
     using Claims = typename ShplonkVerifier_<Curve>::LinearCombinationOfClaims;
 
@@ -79,10 +81,10 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
     // The vector is composed of: [l_1], [r_1], [m_1], [g_1], ..., [l_4], [r_4], [m_4], [g_4]
     std::vector<Commitment> table_commitments;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1473): remove receiving commitment to T_prev
-        auto T_prev_commitment = transcript->template receive_from_prover<Commitment>("T_PREV_" + std::to_string(idx));
-        auto left_table = settings == MergeSettings::PREPEND ? t_commitments[idx] : T_prev_commitment;
-        auto right_table = settings == MergeSettings::PREPEND ? T_prev_commitment : t_commitments[idx];
+        auto left_table = settings == MergeSettings::PREPEND ? input_commitments.t_commitments[idx]
+                                                             : input_commitments.T_prev_commitments[idx];
+        auto right_table = settings == MergeSettings::PREPEND ? input_commitments.T_prev_commitments[idx]
+                                                              : input_commitments.t_commitments[idx];
 
         table_commitments.emplace_back(left_table);
         table_commitments.emplace_back(right_table);
@@ -93,8 +95,9 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
     }
 
     // Store T_commitments of the verifier
+    TableCommitments merged_table_commitments;
     size_t commitment_idx = 2; // Index of [m_j = T_j] in the vector of commitments
-    for (auto& commitment : T_commitments) {
+    for (auto& commitment : merged_table_commitments) {
         commitment = table_commitments[commitment_idx];
         commitment_idx += NUM_WIRES;
     }
@@ -151,7 +154,9 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
     auto batch_opening_claim = verifier.export_batch_opening_claim(Commitment::one(kappa.get_context()));
 
     // KZG verifier
-    return KZG::reduce_verify_batch_opening_claim(batch_opening_claim, transcript);
+    auto pairing_points = KZG::reduce_verify_batch_opening_claim(batch_opening_claim, transcript);
+
+    return { pairing_points, merged_table_commitments };
 }
 
 template class MergeRecursiveVerifier_<MegaCircuitBuilder>;

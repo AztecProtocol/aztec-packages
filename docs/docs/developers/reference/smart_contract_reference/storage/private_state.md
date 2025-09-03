@@ -1,5 +1,6 @@
 ---
 title: Private State
+description: Learn how to manage private state in your Aztec smart contracts.
 ---
 
 On this page we will look at how to manage private state in Aztec contracts. We will look at how to declare private state, how to read and write to it, and how to use it in your contracts.

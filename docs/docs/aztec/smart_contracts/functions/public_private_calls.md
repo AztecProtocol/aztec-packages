@@ -2,6 +2,7 @@
 title: Private <> Public Communication
 sidebar_position: 3
 tags: [functions]
+description: Learn how to make calls between public and private functions in Aztec contracts.
 ---
 
 

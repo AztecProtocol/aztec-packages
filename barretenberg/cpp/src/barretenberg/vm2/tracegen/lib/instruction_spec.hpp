@@ -13,14 +13,19 @@ namespace bb::avm2::tracegen {
 
 enum class SubtraceSel : uint8_t {
     ALU,
+    CAST,
+    SET,
     BITWISE,
     TORADIXBE,
     POSEIDON2PERM,
     ECC,
-    DATACOPY,
+    CALLDATACOPY,
+    RETURNDATACOPY,
     EXECUTION,
     KECCAKF1600,
     GETCONTRACTINSTANCE,
+    EMITUNENCRYPTEDLOG,
+    SHA256COMPRESSION
 };
 
 struct SubtraceInfo {

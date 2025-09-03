@@ -33,8 +33,8 @@ pub fn covered_by_collateral(
 }
 
 pub struct DebtReturn {
-    debt_value: u128,
-    static_debt: u128,
+    pub debt_value: u128,
+    pub static_debt: u128,
 }
 
 fn div_up(a: u128, b: u128) -> u128 {

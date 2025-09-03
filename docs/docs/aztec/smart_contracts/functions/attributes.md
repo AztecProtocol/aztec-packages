@@ -2,6 +2,7 @@
 title: Function Attributes and Macros
 sidebar_position: 4
 tags: [functions]
+description: Explore function attributes in Aztec contracts that control visibility, mutability, and execution context.
 ---
 
 On this page you will learn about function attributes and macros.
@@ -252,16 +253,6 @@ impl NoteHash for CustomNote {
 impl CustomNote {
     pub fn new(x: [u8; 32], y: [u8; 32], owner: AztecAddress) -> Self {
         CustomNote { x, y, owner }
-    }
-}
-
-impl Packable<2> for CustomNote {
-    fn pack(self) -> [Field; 2] {
-        [self.data, self.owner.to_field()]
-    }
-
-    fn unpack(packed_content: [Field; 2]) -> CustomNote {
-        CustomNote { data: packed_content[0], owner: AztecAddress { inner: packed_content[1] } }
     }
 }
 

@@ -109,10 +109,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     }
   }
 
-  public async sendBlobsToBlobSink(blockHash: string, blobs: Blob[]): Promise<boolean> {
-    // TODO(md): for now we are assuming the indexes of the blobs will be 0, 1, 2
-    // When in reality they will not, but for testing purposes this is fine
-    // Right now we fetch everything, then filter out the blobs that we don't want
+  public async sendBlobsToBlobSink(blobs: Blob[]): Promise<boolean> {
     if (!this.config.blobSinkUrl) {
       this.log.verbose('No blob sink url configured');
       return false;
@@ -120,12 +117,10 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
     this.log.verbose(`Sending ${blobs.length} blobs to blob sink`);
     try {
-      const res = await this.fetch(`${this.config.blobSinkUrl}/blob_sidecar`, {
+      const res = await this.fetch(`${this.config.blobSinkUrl}/blobs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          // eslint-disable-next-line camelcase
-          block_id: blockHash,
           // Snappy compress the blob buffer
           blobs: blobs.map((b, i) => ({ blob: outboundTransform(b.toBuffer()), index: i })),
         }),
@@ -137,10 +132,9 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
       this.log.error('Failed to send blobs to blob sink', { status: res.status });
       return false;
-    } catch {
-      this.log.warn(`Blob sink url configured, but unable to send blobs`, {
+    } catch (err) {
+      this.log.error(`Blob sink url configured, but unable to send blobs`, err, {
         blobSinkUrl: this.config.blobSinkUrl,
-        blockHash,
       });
       return false;
     }
@@ -173,7 +167,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
     if (blobSinkUrl) {
       this.log.trace(`Attempting to get blobs from blob sink`, { blobSinkUrl, ...ctx });
-      blobs = await this.getBlobSidecarFrom(blobSinkUrl, blockHash, blobHashes, indices);
+      blobs = await this.getBlobsFromSink(blobSinkUrl, blobHashes);
       this.log.debug(`Got ${blobs.length} blobs from blob sink`, { blobSinkUrl, ...ctx });
       if (blobs.length > 0) {
         return blobs;
@@ -229,6 +223,25 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
       archiveUrl: this.archiveClient?.getBaseUrl(),
     });
     return [];
+  }
+
+  private async getBlobsFromSink(blobSinkUrl: string, blobHashes: Buffer[]): Promise<BlobWithIndex[]> {
+    try {
+      const hashStrings = blobHashes.map(bufferToHex).join(',');
+      const res = await this.fetch(`${blobSinkUrl}/blobs?blobHashes=${hashStrings}`, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (res.ok) {
+        return getRelevantBlobs((await res.json()).data, blobHashes, this.log, this.opts.onBlobDeserializationError);
+      }
+
+      this.log.warn(`Failed to get blobs from blob sink: ${res.statusText} (${res.status})`);
+      return [];
+    } catch (error: any) {
+      this.log.error(`Error getting blobs from blob sink`, error);
+      return [];
+    }
   }
 
   public async getBlobSidecarFrom(

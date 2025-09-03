@@ -21,9 +21,13 @@ TranslatorRecursiveVerifier::TranslatorRecursiveVerifier(
     const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
     const std::shared_ptr<Transcript>& transcript)
     : key(std::make_shared<VerificationKey>(builder, native_verifier_key))
+    , vk_hash(stdlib::witness_t<Builder>(builder, native_verifier_key->hash()))
     , transcript(transcript)
     , builder(builder)
-{}
+{
+    key->fix_witness();    // fixed to a constant
+    vk_hash.fix_witness(); // fixed to a constant
+}
 
 // Relation params used in sumcheck which is done over FF but the received data is from BF
 void TranslatorRecursiveVerifier::put_translation_data_in_relation_parameters(const BF& evaluation_input_x,
@@ -87,7 +91,7 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
                                                                                      const BF& evaluation_input_x,
                                                                                      const BF& batching_challenge_v)
 {
-    using Sumcheck = ::bb::SumcheckVerifier<Flavor, TranslatorFlavor::CONST_TRANSLATOR_LOG_N>;
+    using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = Flavor::PCS;
     using Curve = Flavor::Curve;
     using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
@@ -100,10 +104,9 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
     transcript->load_proof(proof);
 
     // Fiat-Shamir the vk hash
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1472): Hardcode this into the circuit to avoid any
-    // in-circuit hashing.
-    typename Flavor::FF vkey_hash = key->add_hash_to_transcript("", *transcript);
-    vinfo("Translator vk hash in recursive verifier: ", vkey_hash);
+    // We do not need to hash the vk in-circuit because both the vk and vk hash are hardcoded as constants.
+    transcript->add_to_hash_buffer("vk_hash", vk_hash);
+    vinfo("Translator vk hash in recursive verifier: ", vk_hash);
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
@@ -137,7 +140,7 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
     //  i = 0, ..., NUM_SUBRELATIONS- 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    Sumcheck sumcheck(transcript, alpha);
+    Sumcheck sumcheck(transcript, alpha, TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
 
     std::vector<FF> gate_challenges(TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
@@ -150,7 +153,7 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
     FF one{ 1 };
     one.convert_constant_to_fixed_witness(builder);
 
-    std::array<FF, TranslatorFlavor::CONST_TRANSLATOR_LOG_N> padding_indicator_array;
+    std::vector<FF> padding_indicator_array(TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
     std::ranges::fill(padding_indicator_array, one);
 
     auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
@@ -209,7 +212,7 @@ void TranslatorRecursiveVerifier::verify_translation(const TranslationEvaluation
 }
 
 void TranslatorRecursiveVerifier::verify_consistency_with_final_merge(
-    const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> merge_commitments)
+    const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& merge_commitments)
 {
     // Check the consistency with final merge
     for (auto [merge_commitment, translator_commitment] : zip_view(merge_commitments, op_queue_commitments)) {

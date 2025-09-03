@@ -1,4 +1,3 @@
-mod test;
 // docs:start:setup
 use dep::aztec::macros::aztec;
 
@@ -8,11 +7,11 @@ pub contract Counter {
     // docs:start:imports
     use aztec::{
         macros::{functions::{initializer, private, public, utility}, storage::storage},
+        oracle::debug_log::debug_log_format,
         protocol_types::{address::AztecAddress, traits::ToField},
         state_vars::Map,
     };
     use easy_private_state::EasyPrivateUint;
-    use value_note::{balance_utils, value_note::ValueNote};
     // docs:end:imports
 
     // docs:start:storage_struct
@@ -35,12 +34,7 @@ pub contract Counter {
     // docs:start:increment
     #[private]
     fn increment(owner: AztecAddress) {
-        unsafe {
-            dep::aztec::oracle::debug_log::debug_log_format(
-                "Incrementing counter for owner {0}",
-                [owner.to_field()],
-            );
-        }
+        debug_log_format("Incrementing counter for owner {0}", [owner.to_field()]);
 
         Counter::at(context.this_address()).emit_in_public(12345).enqueue(&mut context);
 
@@ -51,12 +45,10 @@ pub contract Counter {
 
     #[private]
     fn increment_twice(owner: AztecAddress) {
-        unsafe {
-            dep::aztec::oracle::debug_log::debug_log_format(
-                "Incrementing counter twice for owner {0}",
-                [owner.to_field()],
-            );
-        }
+        debug_log_format(
+            "Incrementing counter twice for owner {0}",
+            [owner.to_field()],
+        );
         let counters = storage.counters;
         counters.at(owner).add(1, owner);
         counters.at(owner).add(1, owner);
@@ -64,12 +56,10 @@ pub contract Counter {
 
     #[private]
     fn increment_and_decrement(owner: AztecAddress) {
-        unsafe {
-            dep::aztec::oracle::debug_log::debug_log_format(
-                "Incrementing and decrementing counter for owner {0}",
-                [owner.to_field()],
-            );
-        }
+        debug_log_format(
+            "Incrementing and decrementing counter for owner {0}",
+            [owner.to_field()],
+        );
         let counters = storage.counters;
         counters.at(owner).add(1, owner);
         counters.at(owner).sub(1, owner);
@@ -77,12 +67,7 @@ pub contract Counter {
 
     #[private]
     fn decrement(owner: AztecAddress) {
-        unsafe {
-            dep::aztec::oracle::debug_log::debug_log_format(
-                "Decrementing counter for owner {0}",
-                [owner.to_field()],
-            );
-        }
+        debug_log_format("Decrementing counter for owner {0}", [owner.to_field()]);
         let counters = storage.counters;
         counters.at(owner).sub(1, owner);
     }
@@ -90,18 +75,13 @@ pub contract Counter {
     // docs:start:get_counter
     #[utility]
     unconstrained fn get_counter(owner: AztecAddress) -> Field {
-        let counters = storage.counters;
-        balance_utils::get_balance(counters.at(owner).set)
+        storage.counters.at(owner).get_value()
     }
+    // docs:end:get_counter
 
     #[private]
     fn increment_self_and_other(other_counter: AztecAddress, owner: AztecAddress) {
-        unsafe {
-            dep::aztec::oracle::debug_log::debug_log_format(
-                "Incrementing counter for other {0}",
-                [owner.to_field()],
-            );
-        }
+        debug_log_format("Incrementing counter for other {0}", [owner.to_field()]);
 
         let counters = storage.counters;
         counters.at(owner).add(1, owner);
@@ -115,111 +95,77 @@ pub contract Counter {
         context.push_note_hash(n);
     }
 
-    // docs:end:get_counter
-    // docs:start:test_imports
-    use crate::test;
-    use aztec::{
-        note::{
-            note_getter::{MAX_NOTES_PER_PAGE, view_notes},
-            note_viewer_options::NoteViewerOptions,
-        },
-        protocol_types::storage::map::derive_storage_slot_in_map,
-    };
+    mod test {
+        // docs:start:test_imports
+        use crate::Counter;
+        use aztec::{
+            protocol_types::address::AztecAddress, test::helpers::test_environment::TestEnvironment,
+        };
+        // docs:end:test_imports
 
-    // docs:end:test_imports
-    // docs:start:txe_test_increment
-    #[test]
-    unconstrained fn test_increment() {
-        let initial_value = 5;
-        let (mut env, contract_address, owner) = test::setup(initial_value);
+        // docs:start:txe_test_increment
+        pub unconstrained fn setup(
+            initial_value: Field,
+        ) -> (TestEnvironment, AztecAddress, AztecAddress) {
+            // Setup env, generate keys
+            let mut env = TestEnvironment::new();
+            let owner = env.create_light_account();
 
-        // docs:start:txe_test_read_notes
-        // Read the stored value in the note
-        let initial_counter =
-            env.simulate_utility(Counter::at(contract_address)._experimental_get_counter(owner));
-        assert(
-            initial_counter == initial_value,
-            f"Expected {initial_value} but got {initial_counter}",
-        );
-        // docs:end:txe_test_read_notes
+            // Deploy contract and initialize
+            let initializer = Counter::interface().initialize(initial_value as u64, owner);
+            let contract_address =
+                env.deploy("Counter").with_private_initializer(owner, initializer);
+            (env, contract_address, owner)
+        }
 
-        // Increment the counter
-        let _ = env.call_private_void(owner, Counter::at(contract_address).increment(owner));
+        #[test]
+        unconstrained fn test_increment() {
+            let initial_value = 5;
+            let (mut env, contract_address, owner) = setup(initial_value);
 
-        let incremented_counter =
-            env.simulate_utility(Counter::at(contract_address)._experimental_get_counter(owner));
-        let expected_current_value = initial_value + 1;
-        assert(
-            expected_current_value == incremented_counter,
-            f"Expected {expected_current_value} but got {incremented_counter}",
-        );
-    }
-    // docs:end:txe_test_increment
+            // Read the stored value in the note
+            let initial_counter =
+                env.simulate_utility(Counter::at(contract_address).get_counter(owner));
+            assert(
+                initial_counter == initial_value,
+                f"Expected {initial_value} but got {initial_counter}",
+            );
 
-    #[test]
-    unconstrained fn extended_incrementing_and_decrementing() {
-        let initial_value = 5;
-        let (env, contract_address, owner) = test::setup(initial_value);
+            // Increment the counter
+            env.call_private(owner, Counter::at(contract_address).increment(owner));
 
-        // Checking that the note was discovered from private logs
-        env.impersonate(contract_address);
-        sync_private_state();
-        let counter_slot = Counter::storage_layout().counters.slot;
-        let owner_storage_slot = derive_storage_slot_in_map(counter_slot, owner);
-        let mut options = NoteViewerOptions::new();
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
-            view_notes(owner_storage_slot, options);
-        let initial_note_value = notes.get(0).value;
-        assert(
-            initial_note_value == initial_value,
-            f"Expected {initial_value} but got {initial_note_value}",
-        );
+            let incremented_counter =
+                env.simulate_utility(Counter::at(contract_address).get_counter(owner));
+            let expected_current_value = initial_value + 1;
+            assert(
+                expected_current_value == incremented_counter,
+                f"Expected {expected_current_value} but got {incremented_counter}",
+            );
+        }
+        // docs:end:txe_test_increment
 
-        Counter::at(contract_address).increment_twice(owner).call(&mut env.private());
+        #[test]
+        unconstrained fn extended_incrementing_and_decrementing() {
+            let initial_value = 5;
+            let (env, contract_address, owner) = setup(initial_value);
 
-        // Checking from the note cache
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
-            view_notes(owner_storage_slot, options);
-        assert(notes.len() == 3);
-        assert(get_counter(owner) == 7);
+            // Checking that the note was discovered from private logs
+            let initial_note_value =
+                env.simulate_utility(Counter::at(contract_address).get_counter(owner));
+            assert(initial_note_value == initial_value);
 
-        // Checking that the note was discovered from private logs
-        env.mine_block();
-        sync_private_state();
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
-            view_notes(owner_storage_slot, options);
-        assert(get_counter(owner) == 7);
-        assert(notes.len() == 3);
+            env.call_private(owner, Counter::at(contract_address).increment_twice(owner));
 
-        // Checking from the note cache
-        Counter::at(contract_address).increment_and_decrement(owner).call(&mut env.private());
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
-            view_notes(owner_storage_slot, options);
-        assert(get_counter(owner) == 7);
-        // We have a change note of 0
-        assert(notes.len() == 4);
+            assert_eq(env.simulate_utility(Counter::at(contract_address).get_counter(owner)), 7);
 
-        // Checking that the note was discovered from private logs
-        env.mine_block();
-        sync_private_state();
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
-            view_notes(owner_storage_slot, options);
-        assert(notes.len() == 4);
-        assert(get_counter(owner) == 7);
+            let _ = env.call_private(
+                owner,
+                Counter::at(contract_address).increment_and_decrement(owner),
+            );
+            assert_eq(env.simulate_utility(Counter::at(contract_address).get_counter(owner)), 7);
 
-        // Checking from the note cache
-        Counter::at(contract_address).decrement(owner).call(&mut env.private());
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
-            view_notes(owner_storage_slot, options);
-        assert(get_counter(owner) == 6);
-        assert(notes.len() == 4);
-
-        // Checking that the note was discovered from private logs
-        env.mine_block();
-        sync_private_state();
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
-            view_notes(owner_storage_slot, options);
-        assert(get_counter(owner) == 6);
-        assert(notes.len() == 4);
+            env.call_private(owner, Counter::at(contract_address).decrement(owner));
+            assert_eq(env.simulate_utility(Counter::at(contract_address).get_counter(owner)), 6);
+        }
     }
 }

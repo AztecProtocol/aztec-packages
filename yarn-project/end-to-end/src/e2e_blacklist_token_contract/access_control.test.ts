@@ -23,12 +23,14 @@ describe('e2e_blacklist_token_contract access control', () => {
     await t.asset
       .withWallet(t.admin)
       .methods.update_roles(t.admin.getAddress(), adminMinterRole.toNoirStruct())
-      .send()
+      .send({ from: t.adminAddress })
       .wait();
 
     await t.crossTimestampOfChange();
 
-    expect(await t.asset.methods.get_roles(t.admin.getAddress()).simulate()).toEqual(adminMinterRole.toNoirStruct());
+    expect(await t.asset.methods.get_roles(t.admin.getAddress()).simulate({ from: t.adminAddress })).toEqual(
+      adminMinterRole.toNoirStruct(),
+    );
   });
 
   it('create a new admin', async () => {
@@ -36,21 +38,29 @@ describe('e2e_blacklist_token_contract access control', () => {
     await t.asset
       .withWallet(t.admin)
       .methods.update_roles(t.other.getAddress(), adminRole.toNoirStruct())
-      .send()
+      .send({ from: t.adminAddress })
       .wait();
 
     await t.crossTimestampOfChange();
 
-    expect(await t.asset.methods.get_roles(t.other.getAddress()).simulate()).toEqual(adminRole.toNoirStruct());
+    expect(await t.asset.methods.get_roles(t.other.getAddress()).simulate({ from: t.adminAddress })).toEqual(
+      adminRole.toNoirStruct(),
+    );
   });
 
   it('revoke the new admin', async () => {
     const noRole = new Role();
-    await t.asset.withWallet(t.admin).methods.update_roles(t.other.getAddress(), noRole.toNoirStruct()).send().wait();
+    await t.asset
+      .withWallet(t.admin)
+      .methods.update_roles(t.other.getAddress(), noRole.toNoirStruct())
+      .send({ from: t.adminAddress })
+      .wait();
 
     await t.crossTimestampOfChange();
 
-    expect(await t.asset.methods.get_roles(t.other.getAddress()).simulate()).toEqual(noRole.toNoirStruct());
+    expect(await t.asset.methods.get_roles(t.other.getAddress()).simulate({ from: t.adminAddress })).toEqual(
+      noRole.toNoirStruct(),
+    );
   });
 
   it('blacklist account', async () => {
@@ -58,12 +68,12 @@ describe('e2e_blacklist_token_contract access control', () => {
     await t.asset
       .withWallet(t.admin)
       .methods.update_roles(t.blacklisted.getAddress(), blacklistRole.toNoirStruct())
-      .send()
+      .send({ from: t.adminAddress })
       .wait();
 
     await t.crossTimestampOfChange();
 
-    expect(await t.asset.methods.get_roles(t.blacklisted.getAddress()).simulate()).toEqual(
+    expect(await t.asset.methods.get_roles(t.blacklisted.getAddress()).simulate({ from: t.adminAddress })).toEqual(
       blacklistRole.toNoirStruct(),
     );
   });
@@ -75,14 +85,17 @@ describe('e2e_blacklist_token_contract access control', () => {
         t.asset
           .withWallet(t.other)
           .methods.update_roles(await AztecAddress.random(), newRole.toNoirStruct())
-          .simulate(),
+          .simulate({ from: t.adminAddress }),
       ).rejects.toThrow('Assertion failed: caller is not admin');
     });
 
     it('revoke minter from non admin', async () => {
       const noRole = new Role();
       await expect(
-        t.asset.withWallet(t.other).methods.update_roles(t.admin.getAddress(), noRole.toNoirStruct()).simulate(),
+        t.asset
+          .withWallet(t.other)
+          .methods.update_roles(t.admin.getAddress(), noRole.toNoirStruct())
+          .simulate({ from: t.adminAddress }),
       ).rejects.toThrow('Assertion failed: caller is not admin');
     });
   });

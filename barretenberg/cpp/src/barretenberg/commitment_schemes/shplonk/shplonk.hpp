@@ -8,6 +8,7 @@
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -92,8 +93,8 @@ template <typename Curve> class ShplonkProver_ {
             current_nu *= nu;
         }
         // We use the same batching challenge for Gemini and Libra opening claims. The number of the claims
-        // batched before adding Libra commitments and evaluations is bounded by 2 * CONST_PROOF_SIZE_LOG_N + 2, where
-        // 2 * CONST_PROOF_SIZE_LOG_N is the number of fold claims including the dummy ones, and +2 is reserved for
+        // batched before adding Libra commitments and evaluations is bounded by 2 * `virtual_log_n` + 2, where
+        // 2 * `virtual_log_n` is the number of fold claims including the dummy ones, and +2 is reserved for
         // interleaving.
         if (!libra_opening_claims.empty()) {
             current_nu = nu.pow(2 * virtual_log_n + NUM_INTERLEAVING_CLAIMS);
@@ -373,14 +374,14 @@ template <typename Curve> class ShplonkVerifier_ {
         , commitments({ quotient })
         , scalars{ Fr{ 1 } }
     {
-        ASSERT(num_claims > 1, "Using Shplonk with just one claim. Should use batch reduction.");
+        BB_ASSERT_GT(num_claims, 1U, "Using Shplonk with just one claim. Should use batch reduction.");
         const size_t num_commitments = commitments.size();
         commitments.reserve(num_commitments);
         scalars.reserve(num_commitments);
         pows_of_nu.reserve(num_claims);
 
         commitments.insert(commitments.end(), polynomial_commitments.begin(), polynomial_commitments.end());
-        scalars.insert(scalars.end(), commitments.size() - 1, Fr(0)); // Initialised as circuit constants
+        scalars.insert(scalars.end(), commitments.size() - 1, Fr(0)); // Initialized as circuit constants
         // The first two powers of nu have already been initialized, we need another `num_claims - 2` powers to batch
         // all the claims
         for (size_t idx = 0; idx < num_claims - 2; idx++) {

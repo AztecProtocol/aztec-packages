@@ -101,7 +101,7 @@ export class SentinelStore {
     return histories;
   }
 
-  private async getHistory(address: EthAddress): Promise<ValidatorStatusHistory | undefined> {
+  public async getHistory(address: EthAddress): Promise<ValidatorStatusHistory | undefined> {
     const data = await this.historyMap.getAsync(address.toString());
     return data && this.deserializeHistory(data);
   }

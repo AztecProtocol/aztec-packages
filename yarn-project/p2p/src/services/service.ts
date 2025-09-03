@@ -1,3 +1,4 @@
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type { BlockAttestation, BlockProposal, Gossipable } from '@aztec/stdlib/p2p';
 import type { Tx } from '@aztec/stdlib/tx';
@@ -6,6 +7,7 @@ import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 import type EventEmitter from 'events';
 
+import type { P2PReqRespConfig } from './reqresp/config.js';
 import type { StatusMessage } from './reqresp/index.js';
 import type {
   ReqRespSubProtocol,
@@ -81,6 +83,11 @@ export interface P2PService {
   ): Promise<void>;
 
   handleAuthRequestFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage>;
+
+  updateConfig(config: Partial<P2PReqRespConfig>): void;
+
+  /** If node running this P2P stack is validator, passes in validator address to P2P layer */
+  registerThisValidatorAddresses(address: EthAddress[]): void;
 }
 
 /**

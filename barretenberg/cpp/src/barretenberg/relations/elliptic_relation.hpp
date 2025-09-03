@@ -54,8 +54,6 @@ template <typename FF_> class EllipticRelationImpl {
                                   const Parameters&,
                                   const FF& scaling_factor)
     {
-        PROFILE_THIS_NAME("Elliptic::accumulate");
-
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
         auto x_3_m = CoefficientAccumulator(in.w_r_shift);

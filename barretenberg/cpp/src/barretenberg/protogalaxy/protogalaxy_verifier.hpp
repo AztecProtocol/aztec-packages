@@ -33,13 +33,8 @@ template <class DeciderVerificationKeys> class ProtogalaxyVerifier_ {
     ProtogalaxyVerifier_(const std::vector<std::shared_ptr<DeciderVK>>& keys,
                          const std::shared_ptr<Transcript>& transcript)
         : keys_to_fold(DeciderVerificationKeys(keys))
-        , transcript(transcript){};
+        , transcript(transcript) {};
     ~ProtogalaxyVerifier_() = default;
-
-    /**
-     * @brief Process the public data ϕ for the decider verification keys to be folded.
-     */
-    void run_oink_verifier_on_one_incomplete_key(const std::shared_ptr<DeciderVK>&, const std::string&);
 
     /**
      * @brief Instatiate the vks and the transcript.

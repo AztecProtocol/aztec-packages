@@ -67,6 +67,9 @@ class TranslatorFlavor {
     // Log of size of interleaved_* and ordered_* polynomials
     static constexpr size_t CONST_TRANSLATOR_LOG_N = LOG_MINI_CIRCUIT_SIZE + numeric::get_msb(INTERLEAVING_GROUP_SIZE);
 
+    // For the translator, the genuine and virtual log circuit size coincide
+    static constexpr size_t VIRTUAL_LOG_N = CONST_TRANSLATOR_LOG_N;
+
     static constexpr size_t MINI_CIRCUIT_SIZE = 1UL << LOG_MINI_CIRCUIT_SIZE;
 
     // The number of interleaved_* wires
@@ -194,10 +197,6 @@ class TranslatorFlavor {
         /* 15. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fr) +
         /* 16. Shplonk Q commitment */ (num_frs_comm) +
         /* 17. KZG W commitment */ (num_frs_comm);
-
-    // define the containers for storing the contributions from each relation in Sumcheck
-    using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
@@ -657,7 +656,7 @@ class TranslatorFlavor {
       public:
         /**
          * @brief ProverPolynomials constructor
-         * @details Initialises wire polynomials efficiently to be only minicircuit size..
+         * @details Initializes wire polynomials efficiently to be only minicircuit size..
          */
         ProverPolynomials()
         {
@@ -712,7 +711,6 @@ class TranslatorFlavor {
          */
         [[nodiscard]] AllValues get_row(size_t row_idx) const
         {
-            PROFILE_THIS();
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
                 result_field = polynomial[row_idx];
@@ -755,10 +753,6 @@ class TranslatorFlavor {
      */
     class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
-        // Serialized Verification Key length in fields
-        static constexpr size_t VERIFICATION_KEY_LENGTH =
-            /* 1. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
-
         // Default constuct the fixed VK based on circuit size 1 << CONST_TRANSLATOR_LOG_N
         VerificationKey()
             : NativeVerificationKey_(1UL << CONST_TRANSLATOR_LOG_N, /*num_public_inputs=*/0)
@@ -774,7 +768,6 @@ class TranslatorFlavor {
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
         {
-            this->circuit_size = 1UL << CONST_TRANSLATOR_LOG_N;
             this->log_circuit_size = CONST_TRANSLATOR_LOG_N;
             this->num_public_inputs = 0;
             this->pub_inputs_offset = 0;
@@ -786,59 +779,16 @@ class TranslatorFlavor {
         }
 
         /**
-         * @brief Serialize verification key to field elements
-         *
-         * @return std::vector<FF>
-         */
-        std::vector<fr> to_field_elements() const override
-        {
-            using namespace bb::field_conversion;
-
-            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<fr>& buffer) {
-                std::vector<fr> input_fields = convert_to_bn254_frs<T>(input);
-                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
-            };
-
-            std::vector<fr> elements;
-            for (const Commitment& commitment : this->get_all()) {
-                serialize_to_field_buffer(commitment, elements);
-            }
-            return elements;
-        }
-
-        /**
-         * @brief Adds the verification key hash to the transcript and returns the hash.
-         * @details Needed to make sure the Origin Tag system works. See the base class function for
-         * more details.
+         * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
          *
          * @param domain_separator
          * @param transcript
-         * @returns The hash of the verification key
          */
-        fr add_hash_to_transcript([[maybe_unused]] const std::string& domain_separator,
-                                  [[maybe_unused]] Transcript& transcript) const override
+        fr hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
+                                   [[maybe_unused]] Transcript& transcript) const override
         {
-            for (const Commitment& commitment : this->get_all()) {
-                transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
-            }
-            return transcript.hash_independent_buffer(domain_separator + "vk_hash");
+            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }
-
-        // Don't statically check for object completeness.
-        using MSGPACK_NO_STATIC_CHECK = std::true_type;
-
-        MSGPACK_FIELDS(num_public_inputs,
-                       pub_inputs_offset,
-                       ordered_extra_range_constraints_numerator,
-                       lagrange_first,
-                       lagrange_last,
-                       lagrange_odd_in_minicircuit,
-                       lagrange_even_in_minicircuit,
-                       lagrange_result_row,
-                       lagrange_last_in_minicircuit,
-                       lagrange_masking,
-                       lagrange_mini_masking,
-                       lagrange_real_last);
     };
 
     /**
@@ -1006,7 +956,37 @@ class TranslatorFlavor {
             this->lagrange_mini_masking = verification_key->lagrange_mini_masking;
             this->lagrange_real_last = verification_key->lagrange_real_last;
         }
-    }; // namespace bb
+    };
+
+    /**
+     * @brief When evaluating the sumcheck protocol - can we skip evaluation of all relations for a given row?
+     *
+     * @details When used in ClientIVC, the Translator has a large fixed size, which is often not fully utilized.
+     *          If a row is completely empty, the values of z_perm and z_perm_shift will match,
+     *          we can use this as a proxy to determine if we can skip Sumcheck::compute_univariate
+     **/
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates, typename EdgeType>
+    static bool skip_entire_row([[maybe_unused]] const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
+                                [[maybe_unused]] const EdgeType edge_idx)
+    {
+        // TODO(@Rumata888) do you know of a more efficient way of determining if we can skip a row?
+        auto s0 = polynomials.ordered_range_constraints_0_shift[edge_idx];
+        auto s1 = polynomials.ordered_range_constraints_1_shift[edge_idx];
+        auto s2 = polynomials.ordered_range_constraints_2_shift[edge_idx];
+        auto s3 = polynomials.ordered_range_constraints_3_shift[edge_idx];
+        auto s4 = polynomials.ordered_range_constraints_4_shift[edge_idx];
+        auto s5 = polynomials.ordered_range_constraints_0_shift[edge_idx + 1];
+        auto s6 = polynomials.ordered_range_constraints_1_shift[edge_idx + 1];
+        auto s7 = polynomials.ordered_range_constraints_2_shift[edge_idx + 1];
+        auto s8 = polynomials.ordered_range_constraints_3_shift[edge_idx + 1];
+        auto s9 = polynomials.ordered_range_constraints_4_shift[edge_idx + 1];
+        auto shift_0 = (s0 == 0) && (s1 == 0) && (s2 == 0) && (s3 == 0) && (s4 == 0) && (s5 == 0) && (s6 == 0) &&
+                       (s7 == 0) && (s8 == 0) && (s9 == 0);
+        return shift_0 && (polynomials.z_perm[edge_idx] == polynomials.z_perm_shift[edge_idx]) &&
+               (polynomials.z_perm[edge_idx + 1] == polynomials.z_perm_shift[edge_idx + 1]) &&
+               polynomials.lagrange_last[edge_idx] == 0 && polynomials.lagrange_last[edge_idx + 1] == 0;
+    }
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 };
+
 } // namespace bb

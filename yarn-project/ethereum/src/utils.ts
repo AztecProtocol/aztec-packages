@@ -50,7 +50,7 @@ export function extractEvent<
   return event;
 }
 
-function tryExtractEvent<
+export function tryExtractEvent<
   const TAbi extends Abi | readonly unknown[],
   TEventName extends ContractEventName<TAbi>,
   TEventType = DecodeEventLogReturnType<TAbi, TEventName, Hex[], undefined, true>,

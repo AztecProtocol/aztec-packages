@@ -1,6 +1,7 @@
 #include <cstddef>
 #include <gtest/gtest.h>
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 
 // Simple test/demonstration of shifted functionality
@@ -143,13 +144,13 @@ TEST(Polynomial, AddScaledEdgeConditions)
         auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 1);
         poly.add_scaled(bb::Polynomial<FF>::random(4, /*start index*/ 0), 1);
     };
-    ASSERT_DEATH(test_subset_bad1(), ".*start_index.*other.start_index.*");
+    ASSERT_THROW_OR_ABORT(test_subset_bad1(), ".*start_index.*other.start_index.*");
     auto test_subset_bad2 = []() {
         // Not contained within poly
         auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 0);
         poly.add_scaled(bb::Polynomial<FF>::random(5, /*start index*/ 0), 1);
     };
-    ASSERT_DEATH(test_subset_bad2(), ".*end_index.*other.end_index.*");
+    ASSERT_THROW_OR_ABORT(test_subset_bad2(), ".*end_index.*other.end_index.*");
 }
 
 TEST(Polynomial, OperatorAddEdgeConditions)
@@ -168,13 +169,13 @@ TEST(Polynomial, OperatorAddEdgeConditions)
         auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 1);
         poly += bb::Polynomial<FF>::random(4, /*start index*/ 0);
     };
-    ASSERT_DEATH(test_subset_bad1(), ".*start_index.*other.start_index.*");
+    ASSERT_THROW_OR_ABORT(test_subset_bad1(), ".*start_index.*other.start_index.*");
     auto test_subset_bad2 = []() {
         // Not contained within poly
         auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 0);
         poly += bb::Polynomial<FF>::random(5, /*start index*/ 0);
     };
-    ASSERT_DEATH(test_subset_bad2(), ".*end_index.*other.end_index.*");
+    ASSERT_THROW_OR_ABORT(test_subset_bad2(), ".*end_index.*other.end_index.*");
 }
 
 TEST(Polynomial, OperatorSubtractEdgeConditions)
@@ -193,13 +194,13 @@ TEST(Polynomial, OperatorSubtractEdgeConditions)
         auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 1);
         poly -= bb::Polynomial<FF>::random(4, /*start index*/ 0);
     };
-    ASSERT_DEATH(test_subset_bad1(), ".*start_index.*other.start_index.*");
+    ASSERT_THROW_OR_ABORT(test_subset_bad1(), ".*start_index.*other.start_index.*");
     auto test_subset_bad2 = []() {
         // Not contained within poly
         auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 0);
         poly -= bb::Polynomial<FF>::random(5, /*start index*/ 0);
     };
-    ASSERT_DEATH(test_subset_bad2(), ".*end_index.*other.end_index.*");
+    ASSERT_THROW_OR_ABORT(test_subset_bad2(), ".*end_index.*other.end_index.*");
 }
 
 // Makes a vector fully of the virtual_size aka degree + 1
@@ -219,7 +220,7 @@ TEST(Polynomial, Full)
         auto poly = bb::Polynomial<FF>::random(1, degree_plus_1, /*start index*/ degree_plus_1 - 1);
         poly -= bb::Polynomial<FF>::random(degree_plus_1, /*start index*/ 0);
     };
-    ASSERT_DEATH(no_full_bad(), ".*start_index.*other.start_index.*");
+    ASSERT_THROW_OR_ABORT(no_full_bad(), ".*start_index.*other.start_index.*");
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1113): Optimizing based on actual sizes would involve using
@@ -243,21 +244,21 @@ TEST(Polynomial, Expand)
         // Expand beyond virtual size
         poly.expand(1, 11);
     };
-    ASSERT_DEATH(test_subset_bad1(), ".*new_end_index.*virtual_size.*");
+    ASSERT_THROW_OR_ABORT(test_subset_bad1(), ".*new_end_index.*virtual_size.*");
 
     auto test_subset_bad2 = []() {
         auto poly = bb::Polynomial<FF>::random(5, 10, /*start index*/ 1);
         // Expand illegally on start_index
         poly.expand(2, 7);
     };
-    ASSERT_DEATH(test_subset_bad2(), ".*new_start_index.*start_index.*");
+    ASSERT_THROW_OR_ABORT(test_subset_bad2(), ".*new_start_index.*start_index.*");
 
     auto test_subset_bad3 = []() {
         auto poly = bb::Polynomial<FF>::random(5, 10, /*start_index*/ 1);
         // Expand illegally on end_index
         poly.expand(1, 3);
     };
-    ASSERT_DEATH(test_subset_bad3(), ".*new_end_index.*end_index.*");
+    ASSERT_THROW_OR_ABORT(test_subset_bad3(), ".*new_end_index.*end_index.*");
 }
 
 #endif

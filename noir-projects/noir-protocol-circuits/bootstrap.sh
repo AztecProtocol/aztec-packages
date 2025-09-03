@@ -3,6 +3,11 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
+working_dir=${2:-}
+# entrypoint for mock circuits
+if [ -n "$working_dir" ]; then
+  cd "$working_dir"
+fi
 
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
@@ -35,6 +40,11 @@ function on_exit {
   rm -f joblog.txt
 }
 trap on_exit EXIT
+
+function hex_to_fields_json {
+  # 1. split encoded hex into 64-character lines 3. encode as JSON array of hex strings
+  fold -w64 | jq -R -s -c 'split("\n") | map(select(length > 0)) | map("0x" + .)'
+}
 
 function compile {
   set -euo pipefail
@@ -78,8 +88,7 @@ function compile {
     local write_vk_cmd="write_vk --scheme client_ivc --verifier_type standalone"
   elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
     local proto="ultra_rollup_honk"
-    # --honk_recursion 2 injects a fake ipa claim
-    local write_vk_cmd="write_vk --scheme ultra_honk --ipa_accumulation --honk_recursion 2"
+    local write_vk_cmd="write_vk --scheme ultra_honk --ipa_accumulation"
   elif echo "$name" | grep -qE "rollup_root"; then
     local proto="ultra_keccak_honk"
     # the root rollup does not need to inject a fake ipa claim
@@ -87,7 +96,7 @@ function compile {
     local write_vk_cmd="write_vk --scheme ultra_honk --oracle_hash keccak"
   else
     local proto="ultra_honk"
-    local write_vk_cmd="write_vk --scheme ultra_honk --init_kzg_accumulator --honk_recursion 1"
+    local write_vk_cmd="write_vk --scheme ultra_honk"
   fi
   # No vks needed for simulated circuits.
   [[ "$name" == *"simulated"* ]] && return
@@ -96,17 +105,19 @@ function compile {
   # Will require changing TS code downstream.
   bytecode_hash=$(jq -r '.bytecode' $json_path | sha256sum | tr -d ' -')
   hash=$(hash_str "$BB_HASH-$bytecode_hash-$proto")
-  if [ "${USE_CIRCUITS_CACHE:-0}" -eq 0 ] || ! cache_download vk-$hash.tar.gz 1>&2; then
+  if ! cache_download vk-$hash.tar.gz 1>&2; then
     local key_path="$key_dir/$name.vk.data.json"
     echo_stderr "Generating vk for function: $name..."
     SECONDS=0
     outdir=$(mktemp -d)
     trap "rm -rf $outdir" EXIT
-    local vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -b - -o $outdir --output_format bytes_and_fields"
+    local vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -b - -o $outdir"
     echo_stderr $vk_cmd
     dump_fail "$vk_cmd"
     vk_bytes=$(cat $outdir/vk | xxd -p -c 0)
-    vk_fields=$(cat $outdir/vk_fields.json)
+    # Split the hex-encoded vk bytes into fields boundaries (but still hex-encoded), first making 64-character lines and then encoding as JSON.
+    # This used to be done by barretenberg itself, but with serialization now always being in field elements we can do it outside of bb.
+    vk_fields=$(echo "$vk_bytes" | hex_to_fields_json)
     # echo_stderr $vkf_cmd
     jq -n --arg vk "$vk_bytes" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
     echo_stderr "Key output at: $key_path (${SECONDS}s)"
@@ -115,7 +126,7 @@ function compile {
       local verifier_path="$key_dir/${name}_verifier.sol"
       SECONDS=0
       # Generate solidity verifier for this contract.
-      echo "$vk_bytes" | xxd -r -p | $BB write_solidity_verifier --scheme ultra_honk --disable_zk -k - -o $verifier_path
+      echo "$vk_bytes" | xxd -r -p | $BB write_solidity_verifier --scheme ultra_honk --disable_zk -k - -o $verifier_path --optimized
       echo_stderr "Root rollup verifier at: $verifier_path (${SECONDS}s)"
       # Include the verifier path if we create it.
       cache_upload vk-$hash.tar.gz $key_path $verifier_path &> /dev/null
@@ -133,7 +144,7 @@ function compile {
     fi
   fi
 }
-export -f compile
+export -f hex_to_fields_json compile
 
 function build {
   set -eu
@@ -192,7 +203,7 @@ function test_cmds {
 }
 
 function test {
-  test_cmds | filter_test_cmds | parallelise
+  test_cmds | filter_test_cmds | parallelize
 }
 
 function format {
@@ -205,11 +216,11 @@ function bench_cmds {
   for artifact in ./target/*.json; do
     [[ "$artifact" =~ _simulated ]] && continue
     if echo "$artifact" | grep -qEf <(printf '%s\n' "${ivc_patterns[@]}"); then
-      echo "$prefix $artifact client_ivc"
+      echo "$prefix $artifact --scheme client_ivc"
     elif echo "$artifact" | grep -qEf <(printf '%s\n' "${rollup_honk_patterns[@]}"); then
-      echo "$prefix $artifact ultra_honk 2"
+      echo "$prefix $artifact --scheme ultra_honk --ipa_accumulation"
     else
-      echo "$prefix $artifact ultra_honk 1"
+      echo "$prefix $artifact --scheme ultra_honk"
     fi
   done
 }
@@ -217,7 +228,7 @@ function bench_cmds {
 function bench {
   rm -rf bench-out && mkdir -p bench-out
 
-  bench_cmds | STRICT_SCHEDULING=1 parallelise
+  bench_cmds | STRICT_SCHEDULING=1 parallelize
 }
 
 case "$cmd" in

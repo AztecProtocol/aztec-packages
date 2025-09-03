@@ -85,7 +85,7 @@ TEST_F(KZGTest, ZeroPolynomial)
     }
 
     // Sanity check
-    ASSERT(zero.is_zero());
+    ASSERT_TRUE(zero.is_zero());
 
     const Fr challenge = Fr::random_element();
     const Fr evaluation = zero.evaluate(challenge);

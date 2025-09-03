@@ -14,7 +14,7 @@ import {
 } from 'viem';
 
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
-import { L1TxUtils } from '../l1_tx_utils.js';
+import { createL1TxUtilsFromViemWallet } from '../l1_tx_utils.js';
 import { type ExtendedViemWalletClient, type ViemClient, isExtendedClient } from '../types.js';
 
 export type L1GovernanceContractAddresses = Pick<
@@ -184,7 +184,7 @@ export class GovernanceContract extends ReadOnlyGovernanceContract {
     retries: number;
     logger: Logger;
   }) {
-    const l1TxUtils = new L1TxUtils(this.client, logger);
+    const l1TxUtils = createL1TxUtilsFromViemWallet(this.client, logger);
     const retryDelaySeconds = 12;
 
     voteAmount = voteAmount ?? (await this.getPower());
@@ -227,9 +227,9 @@ export class GovernanceContract extends ReadOnlyGovernanceContract {
     }
     logger.info(`Voted [${inFavor ? 'yea' : 'nay'}] on proposal [${proposalId}]`);
     const proposal = await this.getProposal(proposalId);
-    logger.info(`Proposal [${proposalId}] has state [${proposal.state}]`);
+    logger.info(`Proposal [${proposalId}] has cached state [${proposal.cachedState}]`);
     logger.info(`Proposal [${proposalId}] has summedBallot yea [${proposal.summedBallot.yea}]`);
-    logger.info(`Proposal [${proposalId}] has summedBallot nea [${proposal.summedBallot.nea}]`);
+    logger.info(`Proposal [${proposalId}] has summedBallot nay [${proposal.summedBallot.nay}]`);
   }
 
   public async executeProposal({
@@ -241,7 +241,7 @@ export class GovernanceContract extends ReadOnlyGovernanceContract {
     retries: number;
     logger: Logger;
   }) {
-    const l1TxUtils = new L1TxUtils(this.client, logger);
+    const l1TxUtils = createL1TxUtilsFromViemWallet(this.client, logger);
     const retryDelaySeconds = 12;
     let success = false;
     for (let i = 0; i < retries; i++) {

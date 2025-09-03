@@ -7,7 +7,7 @@ pub fn merge_rollups(
 ) -> BaseOrMergeRollupPublicInputs {
     let num_txs = prev_rollup.num_txs + next_rollup.num_txs;
 
-    let out_hash = accumulate_sha256([prev_rollup.out_hash, next_rollup.out_hash]);
+    let out_hash = accumulate_sha256(prev_rollup.out_hash, next_rollup.out_hash);
 
     let accumulated_fees = prev_rollup.accumulated_fees + next_rollup.accumulated_fees;
 

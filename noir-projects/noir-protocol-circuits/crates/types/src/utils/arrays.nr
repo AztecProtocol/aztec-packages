@@ -6,6 +6,7 @@ pub mod assert_sorted_transformed_padded_array;
 pub mod assert_split_sorted_transformed_value_arrays;
 pub mod assert_split_transformed_padded_arrays;
 pub mod assert_split_transformed_value_arrays;
+pub mod find_index;
 pub mod get_sorted_result;
 pub mod get_sorted_tuple;
 pub mod sort_by;
@@ -33,7 +34,9 @@ pub use assert_split_sorted_transformed_value_arrays::{
     get_split_order_hints::{get_split_order_hints_asc, SplitOrderHints},
 };
 pub use assert_split_transformed_padded_arrays::assert_split_transformed_padded_arrays;
+pub use find_index::{find_first_index, find_last_index};
 pub use get_sorted_result::{get_sorted_result, SortedResult};
+pub use get_sorted_tuple::{get_sorted_tuple, SortedTuple};
 pub use sort_by_counter::sort_by_counter_asc;
 
 use crate::traits::{Deserialize, Empty, Serialize};
@@ -44,12 +47,12 @@ use super::for_loop::{for_i_in_0_, for_i_only_in_0_};
 //**********************************************************************************
 
 // TODO: Consider making this a part of the noir stdlib.
-pub fn subarray<let SRC_LEN: u32, let DST_LEN: u32>(
-    src: [Field; SRC_LEN],
+pub fn subarray<let SrcLen: u32, let DstLen: u32>(
+    src: [Field; SrcLen],
     offset: u32,
-) -> [Field; DST_LEN] {
-    let mut dst: [Field; DST_LEN] = std::mem::zeroed();
-    for i in 0..DST_LEN {
+) -> [Field; DstLen] {
+    let mut dst: [Field; DstLen] = std::mem::zeroed();
+    for i in 0..DstLen {
         dst[i] = src[i + offset];
     }
 
@@ -336,6 +339,7 @@ where
 /// Validation must include:
 /// - Asserting all items to the LHS of the length are nonempty (dense).
 /// - Asserting all items to the RHS of the length are empty.
+#[derive(Deserialize, Serialize)]
 pub struct ClaimedLengthArray<T, let N: u32> {
     pub array: [T; N],
     pub length: u32,
@@ -434,82 +438,6 @@ where
 {
     fn empty() -> Self {
         Self { array: [T::empty(); N], length: 0 }
-    }
-}
-
-/// Deserialize implementation for ClaimedLengthArray<T,M>
-///
-/// The serialized format is:
-/// - First M*N fields contain the serialized array elements, where N is the serialized length of type T
-/// - The last field contains the length of the array
-///
-/// For example, if T serializes to 2 fields and M=3 (max length), the format would be:
-/// [T1_field1, T1_field2, T2_field1, T2_field2, T3_field1, T3_field2, length]
-///
-/// The total serialized length is M*N + 1 fields, where:
-/// - M is the max length of the array
-/// - N is the serialized length of type T
-/// - +1 is for the length field
-impl<T, let M: u32> Deserialize for ClaimedLengthArray<T, M>
-where
-    T: Deserialize + Empty,
-{
-    let N: u32 = <T as Deserialize>::N * M + 1;
-
-    #[inline_always]
-    fn deserialize(fields: [Field; Self::N]) -> Self {
-        let mut new_arr: Self = Self::empty();
-
-        // Length is stored in the last field as we need to match intrinsic Noir serialization and the `len` struct
-        // field is after `storage` struct field.
-        let len = fields[<T as Deserialize>::N * M] as u32;
-
-        let mut within_length = true;
-        for i in 0..M {
-            if i == len {
-                within_length = false;
-            }
-
-            if within_length {
-                let mut nested_fields = [0; <T as Deserialize>::N];
-                for j in 0..<T as Deserialize>::N {
-                    nested_fields[j] = fields[i * <T as Deserialize>::N + j];
-                }
-
-                let item = T::deserialize(nested_fields);
-
-                new_arr.push(item);
-            }
-        }
-
-        assert(len == new_arr.length);
-
-        new_arr
-    }
-}
-
-impl<T, let M: u32> Serialize for ClaimedLengthArray<T, M>
-where
-    T: Serialize,
-{
-    let N: u32 = <T as Serialize>::N * M + 1;
-
-    #[inline_always]
-    fn serialize(self) -> [Field; Self::N] {
-        let mut fields = [0; Self::N];
-
-        for i in 0..M {
-            let serialized_item = self.array[i].serialize();
-
-            for j in 0..<T as Serialize>::N {
-                fields[i * <T as Serialize>::N + j] = serialized_item[j];
-            }
-        }
-
-        // Length is stored in the last field.
-        fields[<T as Serialize>::N * M] = self.length as Field;
-
-        fields
     }
 }
 

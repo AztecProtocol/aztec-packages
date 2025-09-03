@@ -1,5 +1,5 @@
 import { EcdsaRAccountContractArtifact } from '@aztec/accounts/ecdsa';
-import { AccountWallet, type DeployOptions, Fr, type PXE, publishContractClass } from '@aztec/aztec.js';
+import { AccountWallet, AztecAddress, type DeployOptions, Fr, type PXE, publishContractClass } from '@aztec/aztec.js';
 import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 
 import { jest } from '@jest/globals';
@@ -13,6 +13,7 @@ describe('Deployment benchmark', () => {
   const t = new ClientFlowsBenchmark('deployments');
   // The admin that aids in the setup of the test
   let adminWallet: AccountWallet;
+  let adminAddress: AztecAddress;
   // Sponsored FPC contract
   let sponsoredFPC: SponsoredFPCContract;
   // Benchmarking configuration
@@ -23,12 +24,12 @@ describe('Deployment benchmark', () => {
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyDeploySponsoredFPCSnapshot();
-    ({ adminWallet, sponsoredFPC, userPXE } = await t.setup());
+    ({ adminWallet, adminAddress, sponsoredFPC, userPXE } = await t.setup());
     // Ensure the ECDSAR1 contract is already registered, to avoid benchmarking an extra call to the ContractClassRegistry
     // The typical interaction would be for a user to deploy an account contract that is already registered in the
     // network.
     const publishContractClassInteraction = await publishContractClass(adminWallet, EcdsaRAccountContractArtifact);
-    await publishContractClassInteraction.send().wait();
+    await publishContractClassInteraction.send({ from: adminAddress }).wait();
   });
 
   afterAll(async () => {
@@ -60,6 +61,7 @@ describe('Deployment benchmark', () => {
           // Publicly deploy the contract, but skip the class registration as that is the
           // "typical" use case
           const options: DeployOptions = {
+            from: benchysWallet.getAddress(),
             fee,
             universalDeploy: true,
             skipClassPublication: true,
@@ -80,7 +82,8 @@ describe('Deployment benchmark', () => {
               2 + // Account entrypoint (wrapped fee payload) + kernel inner
               paymentMethod.circuits + // Payment method circuits
               1 + // Kernel reset
-              1, // Kernel tail
+              1 + // Kernel tail
+              1, // Kernel hiding
           );
 
           if (process.env.SANITY_CHECKS) {

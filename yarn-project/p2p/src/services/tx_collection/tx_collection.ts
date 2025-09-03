@@ -5,7 +5,7 @@ import { DateProvider } from '@aztec/foundation/timer';
 import type { BlockInfo, L2Block } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
-import { Tx, TxHash, type TxWithHash } from '@aztec/stdlib/tx';
+import { Tx, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import type { PeerId } from '@libp2p/interface';
@@ -32,7 +32,7 @@ export type FastCollectionRequest = FastCollectionRequestInput & {
   deadline: Date;
   blockInfo: BlockInfo;
   promise: PromiseWithResolvers<void>;
-  foundTxs: Map<string, TxWithHash>;
+  foundTxs: Map<string, Tx>;
 };
 
 /**
@@ -177,7 +177,7 @@ export class TxCollection {
   }
 
   /** Mark the given txs as found. Stops collecting them. */
-  private foundTxs(txs: TxWithHash[]) {
+  private foundTxs(txs: Tx[]) {
     this.slowCollection.foundTxs(txs);
     this.fastCollection.foundTxs(txs);
   }
@@ -203,10 +203,10 @@ export class TxCollection {
   /** Every now and then, check if the pool has received one of the txs we are looking for, just to catch any race conditions */
   private async reconcileFoundTxsWithPool() {
     const missingTxHashes = this.slowCollection.getMissingTxHashes();
-    const foundTxs = await Tx.toTxsWithHashes(compactArray(await this.txPool.getTxsByHash(missingTxHashes)));
+    const foundTxs = compactArray(await this.txPool.getTxsByHash(missingTxHashes));
     if (foundTxs.length > 0) {
       this.log.verbose(`Found ${foundTxs.length} txs in the pool during reconciliation`, {
-        foundTxs: foundTxs.map(t => t.txHash.toString()),
+        foundTxs: foundTxs.map(t => t.getTxHash().toString()),
       });
       this.foundTxs(foundTxs);
     }

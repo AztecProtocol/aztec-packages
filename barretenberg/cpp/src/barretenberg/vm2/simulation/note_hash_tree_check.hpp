@@ -14,7 +14,7 @@ class NoteHashTreeCheckInterface {
 
     virtual bool note_hash_exists(const FF& unique_note_hash,
                                   const FF& leaf_value,
-                                  index_t leaf_index,
+                                  uint64_t leaf_index,
                                   std::span<const FF> sibling_path,
                                   const AppendOnlyTreeSnapshot& snapshot) = 0;
     virtual FF get_first_nullifier() const = 0;
@@ -49,7 +49,7 @@ class NoteHashTreeCheck : public NoteHashTreeCheckInterface, public CheckpointNo
 
     bool note_hash_exists(const FF& unique_note_hash,
                           const FF& leaf_value,
-                          index_t leaf_index,
+                          uint64_t leaf_index,
                           std::span<const FF> sibling_path,
                           const AppendOnlyTreeSnapshot& snapshot) override;
     AppendOnlyTreeSnapshot append_note_hash(const FF& note_hash,

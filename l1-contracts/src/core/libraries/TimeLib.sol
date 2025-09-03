@@ -12,7 +12,9 @@ struct TimeStorage {
   uint32 slotDuration; // Number of seconds in a slot
   uint32 epochDuration; // Number of slots in an epoch
   /**
-   * @notice Number of epochs after the end of a given epoch that proofs are still accepted. For example, a value of 1 means that after epoch n ends, the proofs must land *before* epoch n+1 ends. A value of 0 would mean that the proofs for epoch n must land while the epoch is ongoing.
+   * @notice Number of epochs after the end of a given epoch that proofs are still accepted. For example, a value of 1
+   * means that after epoch n ends, the proofs must land *before* epoch n+1 ends. A value of 0 would mean that the
+   * proofs for epoch n must land while the epoch is ongoing.
    */
   uint32 proofSubmissionEpochs;
 }
@@ -71,6 +73,24 @@ library TimeLib {
     return _a + Epoch.wrap(store.proofSubmissionEpochs + 1);
   }
 
+  /**
+   * @notice Calculates the maximum number of blocks that can be pruned from the pending chain
+   * @dev The maximum prunable blocks is determined by:
+   *      - epochDuration: number of slots in an epoch
+   *      - proofSubmissionEpochs: number of epochs allowed for proof submission
+   *
+   *      The formula is: epochDuration * (proofSubmissionEpochs + 1)
+   *
+   *      The +1 accounts for blocks in the current epoch, ensuring they are included
+   *      in the prunable window along with blocks from previous epochs within the
+   *      proof submission window.
+   *
+   *      This value is used to:
+   *      1. Size the circular storage buffer (roundaboutSize = maxPrunableBlocks + 1)
+   *      2. Determine when blocks become stale and can be overwritten
+   *
+   * @return The maximum number of blocks that can be pruned.
+   */
   function maxPrunableBlocks() internal view returns (uint256) {
     TimeStorage storage store = getStorage();
     return uint256(store.epochDuration) * (uint256(store.proofSubmissionEpochs) + 1);
@@ -91,9 +111,7 @@ library TimeLib {
   function epochFromTimestamp(Timestamp _a) internal view returns (Epoch) {
     TimeStorage storage store = getStorage();
 
-    return Epoch.wrap(
-      (Timestamp.unwrap(_a) - store.genesisTime) / (store.epochDuration * store.slotDuration)
-    );
+    return Epoch.wrap((Timestamp.unwrap(_a) - store.genesisTime) / (store.epochDuration * store.slotDuration));
   }
 
   function epochFromSlot(Slot _a) internal view returns (Epoch) {
