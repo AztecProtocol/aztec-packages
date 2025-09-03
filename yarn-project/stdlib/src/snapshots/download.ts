@@ -55,5 +55,15 @@ export async function downloadSnapshot(
   localPaths: Record<SnapshotDataKeys, string>,
   store: ReadOnlyFileStore,
 ): Promise<void> {
-  await Promise.all(getEntries(localPaths).map(([key, path]) => store.download(snapshot.dataUrls[key], path)));
+  // If the store supports optimized multiple downloads, use it
+  if (store.downloadMultiple) {
+    const downloads = getEntries(localPaths).map(([key, path]) => ({
+      url: snapshot.dataUrls[key],
+      destPath: path,
+    }));
+    await store.downloadMultiple(downloads);
+  } else {
+    // Fallback to parallel downloads for stores that don't support the optimized method
+    await Promise.all(getEntries(localPaths).map(([key, path]) => store.download(snapshot.dataUrls[key], path)));
+  }
 }

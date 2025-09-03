@@ -6,6 +6,8 @@ export interface ReadOnlyFileStore {
   download(pathOrUrlStr: string, destPath: string): Promise<void>;
   /** Returns whether a file at the given path or URI exists. */
   exists(pathOrUrl: string): Promise<boolean>;
+  /** Downloads multiple files with optimized strategy for large files. Optional method. */
+  downloadMultiple?(downloads: Array<{ url: string; destPath: string }>): Promise<void>;
 }
 
 export type FileStoreSaveOptions = { public?: boolean; metadata?: Record<string, string>; compress?: boolean };
