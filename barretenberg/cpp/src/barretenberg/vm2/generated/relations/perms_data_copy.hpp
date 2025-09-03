@@ -11,6 +11,54 @@
 
 namespace bb::avm2 {
 
+/////////////////// perm_data_copy_mem_write ///////////////////
+
+struct perm_data_copy_mem_write_settings_ {
+    static constexpr std::string_view NAME = "PERM_DATA_COPY_MEM_WRITE";
+    static constexpr std::string_view RELATION_NAME = "data_copy";
+    static constexpr size_t COLUMNS_PER_SET = 6;
+    static constexpr Column SRC_SELECTOR = Column::data_copy_sel_mem_write;
+    static constexpr Column DST_SELECTOR = Column::memory_sel_data_copy_write;
+    static constexpr Column INVERSES = Column::perm_data_copy_mem_write_inv;
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
+        ColumnAndShifts::data_copy_clk,      ColumnAndShifts::data_copy_dst_context_id,
+        ColumnAndShifts::data_copy_dst_addr, ColumnAndShifts::data_copy_value,
+        ColumnAndShifts::precomputed_zero,   ColumnAndShifts::data_copy_sel_mem_write
+    };
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
+        ColumnAndShifts::memory_clk,   ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_address,
+        ColumnAndShifts::memory_value, ColumnAndShifts::memory_tag,      ColumnAndShifts::memory_rw
+    };
+};
+
+using perm_data_copy_mem_write_settings = permutation_settings<perm_data_copy_mem_write_settings_>;
+template <typename FF_>
+using perm_data_copy_mem_write_relation = permutation_relation_base<FF_, perm_data_copy_mem_write_settings>;
+
+/////////////////// perm_data_copy_mem_read ///////////////////
+
+struct perm_data_copy_mem_read_settings_ {
+    static constexpr std::string_view NAME = "PERM_DATA_COPY_MEM_READ";
+    static constexpr std::string_view RELATION_NAME = "data_copy";
+    static constexpr size_t COLUMNS_PER_SET = 6;
+    static constexpr Column SRC_SELECTOR = Column::data_copy_sel_mem_read;
+    static constexpr Column DST_SELECTOR = Column::memory_sel_data_copy_read;
+    static constexpr Column INVERSES = Column::perm_data_copy_mem_read_inv;
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
+        ColumnAndShifts::data_copy_clk,       ColumnAndShifts::data_copy_src_context_id,
+        ColumnAndShifts::data_copy_read_addr, ColumnAndShifts::data_copy_value,
+        ColumnAndShifts::precomputed_zero,    ColumnAndShifts::precomputed_zero
+    };
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
+        ColumnAndShifts::memory_clk,   ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_address,
+        ColumnAndShifts::memory_value, ColumnAndShifts::memory_tag,      ColumnAndShifts::memory_rw
+    };
+};
+
+using perm_data_copy_mem_read_settings = permutation_settings<perm_data_copy_mem_read_settings_>;
+template <typename FF_>
+using perm_data_copy_mem_read_relation = permutation_relation_base<FF_, perm_data_copy_mem_read_settings>;
+
 /////////////////// perm_data_copy_dispatch_cd_copy ///////////////////
 
 struct perm_data_copy_dispatch_cd_copy_settings_ {

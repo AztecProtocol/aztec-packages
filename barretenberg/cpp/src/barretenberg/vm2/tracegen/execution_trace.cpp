@@ -31,7 +31,6 @@
 #include "barretenberg/vm2/generated/relations/lookups_l1_to_l2_message_exists.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_notehash_exists.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_nullifier_exists.hpp"
-#include "barretenberg/vm2/generated/relations/lookups_registers.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_send_l2_to_l1_msg.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sload.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sstore.hpp"
@@ -1173,14 +1172,6 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_addressing_relative_overflow_range_4_settings, InteractionType::LookupGeneric>()
         .add<lookup_addressing_relative_overflow_range_5_settings, InteractionType::LookupGeneric>()
         .add<lookup_addressing_relative_overflow_range_6_settings, InteractionType::LookupGeneric>()
-        // Registers
-        .add<lookup_registers_mem_op_0_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_1_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_3_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_4_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_5_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_6_settings, InteractionType::LookupGeneric>()
         // Internal Call Stack
         .add<lookup_internal_call_push_call_stack_settings_, InteractionType::LookupSequential>()
         .add<lookup_internal_call_unwind_call_stack_settings_, InteractionType::LookupGeneric>()
