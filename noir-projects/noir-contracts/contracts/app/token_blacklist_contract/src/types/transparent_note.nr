@@ -21,6 +21,7 @@ pub struct TransparentNote {
     secret_hash: Field,
 }
 
+// docs:start:transparent_note_impl
 impl NoteHash for TransparentNote {
     fn compute_note_hash(self, storage_slot: Field) -> Field {
         let inputs = self.pack().concat([storage_slot]);
@@ -51,6 +52,7 @@ impl NoteHash for TransparentNote {
         self.compute_nullifier(zeroed(), note_hash_for_nullify)
     }
 }
+// docs:end:transparent_note_impl
 
 impl TransparentNote {
     // CONSTRUCTORS

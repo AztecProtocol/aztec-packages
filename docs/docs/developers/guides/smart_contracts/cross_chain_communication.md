@@ -1,10 +1,11 @@
 ---
-title: Communicating with L1
+title: Cross-Chain Communication
 tags: [contracts, portals]
+sidebar_position: 7
 description: Learn how to communicate with L1 contracts through portals in your Aztec smart contracts.
 ---
 
-Follow the [token bridge tutorial](../../../../../developers/tutorials/js_tutorials/token_bridge.md) for hands-on experience writing and deploying a Portal contract.
+Follow the [token bridge tutorial](../../tutorials/js_tutorials/token_bridge.md) for hands-on experience writing and deploying a Portal contract.
 
 ## Passing data to the rollup
 
@@ -42,7 +43,7 @@ Note that while the `secret` and the `content` are both hashed, they are actuall
 
 ### Token bridge example
 
-Computing the `content` must currently be done manually, as we are still adding a number of bytes utilities. A good example exists within the [Token bridge example (codealong tutorial)](../../../../../developers/tutorials/js_tutorials/token_bridge.md).
+Computing the `content` must currently be done manually, as we are still adding a number of bytes utilities. A good example exists within the [Token bridge example (codealong tutorial)](../../tutorials/js_tutorials/token_bridge.md).
 
 #include_code claim_public /noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr rust
 
@@ -141,7 +142,7 @@ bytes memory message abi.encodeWithSignature(
 
 Handling error when moving cross chain can quickly get tricky. Since the L1 and L2 calls are async and independent of each other, the L1 part of a deposit might execute just fine, with the L2 part failing. If this is not handled well, the funds may be lost forever! Developers should consider ways their application can fail cross chain, and handle all cases explicitly.
 
-First, entries in the outboxes **SHOULD** only be consumed if the execution is successful. For an L2 -> L1 call, the L1 execution can revert the transaction completely if anything fails. As the tx is atomic, the failure also reverts consumption.
+First, entries in the outboxes **SHOULD** only be consumed if the execution is successful. For an L2 to L1 call, the L1 execution can revert the transaction completely if anything fails. As the tx is atomic, the failure also reverts consumption.
 
 If it is possible to enter a state where the second part of the execution fails forever, the application builder should consider including additional failure mechanisms (for token withdraws this could be depositing them again etc).
 
@@ -181,6 +182,10 @@ Designated callers are enforced at the contract level for contracts that are not
 
 ## Examples of portals
 
-- Token bridge (Portal contract built for L1 -> L2, i.e., a non-native L2 asset)
+- Token bridge (Portal contract built for L1 to L2, i.e., a non-native L2 asset)
   - [Portal contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/l1-contracts/test/portals/TokenPortal.sol)
   - [Aztec contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr)
+
+## Further reading
+
+Follow the [token bridge tutorial](../../tutorials/js_tutorials/token_bridge.md) for hands-on experience writing and deploying a Portal contract.

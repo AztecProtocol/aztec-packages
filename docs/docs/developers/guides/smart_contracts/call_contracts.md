@@ -1,7 +1,7 @@
 ---
-title: Calling Other Contracts
-sidebar_position: 4
-tags: [functions, contracts]
+title: Contract Composability
+sidebar_position: 5
+tags: [functions, contracts, composability]
 description: Learn how to call other contracts from your Aztec smart contracts.
 ---
 
@@ -54,8 +54,8 @@ To call a public function from private, you will need to enqueue it like this:
 
 #include_code enqueue_public /noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr rust
 
-Public functions are always executed after private execution. To learn why, read the [concepts overview](../../../../aztec/index.md).
+Public functions are always executed after private execution. To learn why, read the [concepts overview](../../../aztec/index.md).
 
 #### Other call types
 
-There are other call types, for example to ensure no state changes are made. You can learn more about them in the [call types glossary](../../../../aztec/concepts/call_types.md).
+There are other call types, for example to ensure no state changes are made. You can learn more about them in the [call types glossary](../../../aztec/concepts/call_types.md).

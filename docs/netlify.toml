@@ -4,11 +4,19 @@
 
 [[redirects]]
     from = "/guides/smart_contracts/writing_contracts/initializers"
-    to = "/developers/guides/smart_contracts/writing_contracts/initializers"
+    to = "/developers/guides/smart_contracts/define_functions"
+
+[[redirects]]
+    from = "/guides/smart_contracts/writing_contracts/*"
+    to = "/developers/guides/smart_contracts/"
 
 [[redirects]]
     from = "/reference/aztecjs/accounts"
     to = "/developers/reference/aztecjs/accounts"
+
+[[redirects]]
+    from = "/developers/reference/smart_contract_reference/storage/*"
+    to = "/developers/guides/smart_contracts/storage_types"
 
 [[redirects]]
     from = "/getting_started"

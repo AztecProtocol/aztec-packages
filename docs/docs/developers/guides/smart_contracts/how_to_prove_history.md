@@ -1,6 +1,6 @@
 ---
-title: Using the Archive Tree
-sidebar_position: 4
+title: Prove Historic State
+sidebar_position: 8
 tags: [contracts]
 description: Learn how to prove historical state transitions in your Aztec smart contracts.
 ---

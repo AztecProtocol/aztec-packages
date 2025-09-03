@@ -1,7 +1,7 @@
 ---
-title: Profiling Transactions
-sidebar_position: 3
-tags: [contracts, profiling]
+title: Optimize Contracts
+sidebar_position: 8
+tags: [contracts, profiling, optimization]
 description: Learn how to profile your Aztec transactions to optimize performance and gas usage.
 ---
 
@@ -9,13 +9,13 @@ An Aztec transaction typically consists of a private and a public part. The priv
 
 Since proof generation is an expensive operation that needs to be done on the client side, it is important to optimize the private contract logic. It is desirable to keep the gate count of circuits representing the private contract logic as low as possible.
 
-A private transaction can involve multiple function calls. It starts with an account `entrypoint()` which may call several private functions to execute the application logic, which in turn might call other functions. Moreover, every private function call has to go through a round of kernel circuits. Read more about the transaction lifecycle [here](../../../aztec/concepts/transactions.md).
+A private transaction can involve multiple function calls. It starts with an account `entrypoint()` which may call several private functions to execute the application logic, which in turn might call other functions. Moreover, every private function call has to go through a round of kernel circuits. Read more about the transaction lifecycle [here](../../../../aztec/concepts/transactions.md).
 
 In this guide, we will look at how to profile the private execution of a transaction, allowing you to get the gate count of each private function within the transaction, including the kernel circuits.
 
 ## Prerequisites
 
-- `aztec-nargo` installed (go to [Sandbox section](../../reference/environment_reference/sandbox-reference.md) for installation instructions)
+- `aztec-nargo` installed (go to [Sandbox section](../../../reference/environment_reference/sandbox-reference.md) for installation instructions)
 - `aztec-wallet` installed (installed as part of the Sandbox)
 
 ## Profiling using aztec-wallet

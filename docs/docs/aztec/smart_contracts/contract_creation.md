@@ -61,7 +61,7 @@ Aztec makes an important distinction between initialization and public deploymen
 
 ### Initialization
 
-Contract constructors are not enshrined in the protocol, but handled at the application circuit level. Constructors are methods used for initializing a contract, either private or public, and contract classes may declare more than a single constructor. They can be declared by the `#[initializer]` macro. You can read more about how to use them on the [Defining Initializer Functions](../../developers/guides/smart_contracts/writing_contracts/initializers.md) page.
+Contract constructors are not enshrined in the protocol, but handled at the application circuit level. Constructors are methods used for initializing a contract, either private or public, and contract classes may declare more than a single constructor. They can be declared by the `#[initializer]` macro. You can read more about how to use them on the [Defining Initializer Functions](../../developers/guides/smart_contracts/define_functions.md#initializer-functions) page.
 
 A contract must ensure:
 

@@ -206,7 +206,7 @@ Note that you do not need to restart the sandbox in order to start sending prove
 If this is the first time you are sending transactions with proving enabled, it will take a while to download a CRS file (which is several MBs) that is required for proving.
 
 :::note
-You can also profile your transactions to get gate count, if you don't want to prove your transactions but check how many constraints it is. Follow the [guide here](../../guides/smart_contracts/profiling_transactions.md)
+You can also profile your transactions to get gate count, if you don't want to prove your transactions but check how many constraints it is. Follow the [guide here](../../guides/smart_contracts/advanced/profiling_transactions.md)
 :::
 
 ## Running Multiple PXEs in the Sandbox
