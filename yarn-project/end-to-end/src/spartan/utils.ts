@@ -9,31 +9,19 @@ import path from 'path';
 import { promisify } from 'util';
 import { z } from 'zod';
 
-export const RPC_SERVICE_NAME = 'services/aztec-infra-rpc-aztec-node';
-
 const execAsync = promisify(exec);
 
 const logger = createLogger('e2e:k8s-utils');
 
 const testConfigSchema = z.object({
-  NAMESPACE: z.string().min(1, 'NAMESPACE env variable must be set'),
-  L1_ACCOUNT_MNEMONIC: z.string().default('test test test test test test test test test test test junk'),
-  K8S_CLUSTER: z.string().min(1, 'K8S_CLUSTER env variable must be set'),
-  REGION: z.string().optional(),
-  PROJECT_ID: z.string().optional(),
-  AZTEC_REAL_PROOFS: z.coerce.boolean().default(false),
+  NAMESPACE: z.string().default('scenario'),
+  REAL_VERIFIER: z.coerce.boolean().default(true),
 });
 
 export type TestConfig = z.infer<typeof testConfigSchema>;
 
 export function setupEnvironment(env: unknown): TestConfig {
-  const config = testConfigSchema.parse(env);
-
-  if (config.K8S_CLUSTER !== 'kind') {
-    const command = `gcloud container clusters get-credentials ${config.K8S_CLUSTER} --region=${config.REGION} --project=${config.PROJECT_ID}`;
-    execSync(command);
-  }
-  return config;
+  return testConfigSchema.parse(env);
 }
 
 /**
@@ -158,9 +146,17 @@ export async function startPortForward({
 
 export function startPortForwardForRPC(namespace: string) {
   return startPortForward({
-    resource: RPC_SERVICE_NAME,
+    resource: `services/${namespace}-rpc-aztec-node`,
     namespace,
     containerPort: 8080,
+  });
+}
+
+export function startPortForwardForEthereum(namespace: string) {
+  return startPortForward({
+    resource: `services/${namespace}-eth-execution`,
+    namespace,
+    containerPort: 8545,
   });
 }
 
@@ -188,13 +184,17 @@ export async function deleteResourceByLabel({
   namespace,
   label,
   timeout = '5m',
+  force = false,
 }: {
   resource: string;
   namespace: string;
   label: string;
   timeout?: string;
+  force?: boolean;
 }) {
-  const command = `kubectl delete ${resource} -l ${label} -n ${namespace} --ignore-not-found=true --wait=true --timeout=${timeout}`;
+  const command = `kubectl delete ${resource} -l ${label} -n ${namespace} --ignore-not-found=true --wait=true --timeout=${timeout} ${
+    force ? '--force' : ''
+  }`;
   logger.info(`command: ${command}`);
   const { stdout } = await execAsync(command);
   return stdout;
@@ -306,13 +306,13 @@ export async function installChaosMeshChart({
     const deleteArgs = {
       resource: 'podchaos',
       namespace: chaosMeshNamespace,
-      name: `${targetNamespace}-${instanceName}`,
+      label: `app.kubernetes.io/instance=${instanceName}`,
     };
     logger.info(`Deleting podchaos resource`);
-    await deleteResourceByName(deleteArgs).catch(e => {
+    await deleteResourceByLabel(deleteArgs).catch(e => {
       logger.error(`Error deleting podchaos resource: ${e}`);
       logger.info(`Force deleting podchaos resource`);
-      return deleteResourceByName({ ...deleteArgs, force: true });
+      return deleteResourceByLabel({ ...deleteArgs, force: true });
     });
   }
 

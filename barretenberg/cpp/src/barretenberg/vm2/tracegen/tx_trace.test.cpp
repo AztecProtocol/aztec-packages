@@ -53,24 +53,10 @@ TEST(TxTraceGenTest, EnqueuedCallEvent)
 
     builder.process({ startup_event, tx_event }, trace);
     auto rows = trace.as_rows();
-    ASSERT_EQ(rows.size(), 13); // 12 tx trace rows + 1 precomputed row
-    EXPECT_THAT(rows[static_cast<uint8_t>(TransactionPhase::NR_NOTE_INSERTION)],
-                AllOf(ROW_FIELD_EQ(tx_sel, 1),
-                      ROW_FIELD_EQ(tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NOTE_INSERTION)),
-                      ROW_FIELD_EQ(tx_is_padded, 1),
-                      ROW_FIELD_EQ(tx_is_tree_insert_phase, 1),
-                      ROW_FIELD_EQ(tx_sel_non_revertible_append_note_hash, 1),
-                      ROW_FIELD_EQ(
-                          tx_read_pi_length_offset,
-                          AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX),
-                      ROW_FIELD_EQ(tx_read_pi_offset,
-                                   AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX),
-                      ROW_FIELD_EQ(tx_start_phase, 1),
-                      ROW_FIELD_EQ(tx_end_phase, 1),
-                      ROW_FIELD_EQ(tx_is_static, false)));
+    ASSERT_EQ(rows.size(), 2); // 0th precomputed, setup
 
     // Setup
-    EXPECT_THAT(rows[static_cast<uint8_t>(TransactionPhase::SETUP)],
+    EXPECT_THAT(rows[1],
                 AllOf(ROW_FIELD_EQ(tx_sel, 1),
                       ROW_FIELD_EQ(tx_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP)),
                       ROW_FIELD_EQ(tx_start_phase, 1),
@@ -83,7 +69,8 @@ TEST(TxTraceGenTest, EnqueuedCallEvent)
                       ROW_FIELD_EQ(tx_msg_sender, msg_sender),
                       ROW_FIELD_EQ(tx_contract_addr, contract_address),
                       ROW_FIELD_EQ(tx_calldata_hash, calldata_hash),
-                      ROW_FIELD_EQ(tx_end_phase, 1)));
+                      ROW_FIELD_EQ(tx_end_phase, 1),
+                      ROW_FIELD_EQ(tx_is_static, false)));
 };
 
 TEST(TxTraceGenTest, CollectFeeEvent)
@@ -121,9 +108,9 @@ TEST(TxTraceGenTest, CollectFeeEvent)
 
     builder.process({ startup_event, tx_event }, trace);
     auto rows = trace.as_rows();
-    ASSERT_EQ(rows.size(), 13); // 12 tx trace rows + 1 precomputed row
+    ASSERT_EQ(rows.size(), 2); // 0th precomputed, collect-gas-fees
 
-    EXPECT_THAT(rows[static_cast<uint8_t>(TransactionPhase::COLLECT_GAS_FEES)],
+    EXPECT_THAT(rows[1],
                 AllOf(ROW_FIELD_EQ(tx_sel, 1),
                       ROW_FIELD_EQ(tx_phase_value, static_cast<uint8_t>(TransactionPhase::COLLECT_GAS_FEES)),
                       ROW_FIELD_EQ(tx_is_padded, 0),
@@ -203,9 +190,9 @@ TEST(TxTraceGenTest, PadTreesEvent)
 
     builder.process({ startup_event, tx_event }, trace);
     auto rows = trace.as_rows();
-    ASSERT_EQ(rows.size(), 13); // 12 tx trace rows + 1 precomputed row
+    ASSERT_EQ(rows.size(), 2); // 0th precomputed, tree-padding
 
-    EXPECT_THAT(rows[static_cast<uint8_t>(TransactionPhase::TREE_PADDING)],
+    EXPECT_THAT(rows[1],
                 AllOf(ROW_FIELD_EQ(tx_sel, 1),
                       ROW_FIELD_EQ(tx_phase_value, static_cast<uint8_t>(TransactionPhase::TREE_PADDING)),
                       ROW_FIELD_EQ(tx_start_phase, 1),
@@ -246,10 +233,10 @@ TEST(TxTraceGenTest, CleanupEvent)
 
     builder.process({ startup_event, tx_event }, trace);
     auto rows = trace.as_rows();
-    ASSERT_EQ(rows.size(), 13); // 12 tx trace rows + 1 precomputed row
+    ASSERT_EQ(rows.size(), 2); // 0th precomputed, cleanup
 
     EXPECT_THAT(
-        rows[static_cast<uint8_t>(TransactionPhase::CLEANUP)],
+        rows[1],
         AllOf(ROW_FIELD_EQ(tx_sel, 1),
               ROW_FIELD_EQ(tx_phase_value, static_cast<uint8_t>(TransactionPhase::CLEANUP)),
               ROW_FIELD_EQ(tx_start_phase, 1),

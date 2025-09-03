@@ -7,8 +7,8 @@
 #include "acir_format.hpp"
 
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/civc_recursion_constraints.hpp"
 #include "barretenberg/dsl/acir_format/ecdsa_constraints.hpp"
@@ -674,7 +674,7 @@ process_avm_recursion_constraints(Builder& builder,
  */
 template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata)
 {
-    PROFILE_THIS();
+    BB_BENCH();
     AcirFormat& constraints = program.constraints;
     WitnessVector& witness = program.witness;
 
@@ -695,7 +695,7 @@ template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const Progr
  */
 template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata)
 {
-    PROFILE_THIS();
+    BB_BENCH();
     AcirFormat& constraints = program.constraints;
     WitnessVector& witness = program.witness;
 

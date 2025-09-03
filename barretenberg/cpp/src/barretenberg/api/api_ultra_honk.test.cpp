@@ -8,6 +8,7 @@
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
+#include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include <chrono>
 #include <cstddef>
 #include <cstdlib>
@@ -76,7 +77,6 @@ TEST_F(ApiUltraHonkTest, ProveAndVerify)
     auto [bytecode_path, witness_path] = create_test_circuit_files(test_dir);
 
     API::Flags flags;
-    flags.output_format = "bytes";
     flags.oracle_hash_type = "poseidon2"; // Set default oracle hash type
 
     UltraHonkAPI api;
@@ -107,7 +107,6 @@ TEST_F(ApiUltraHonkTest, ProveWithWriteVk)
     auto [bytecode_path, witness_path] = create_test_circuit_files(test_dir);
 
     API::Flags flags;
-    flags.output_format = "bytes_and_fields"; // Test both output formats
     flags.oracle_hash_type = "poseidon2";
     flags.write_vk = true;
 
@@ -123,8 +122,6 @@ TEST_F(ApiUltraHonkTest, ProveWithWriteVk)
     EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "public_inputs"));
     EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "vk"));
     EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "vk_hash"));
-    EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "vk_fields.json"));
-    EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "vk_hash_fields.json"));
 
     // Verify the proof
     bool verified =
@@ -136,9 +133,8 @@ TEST_F(ApiUltraHonkTest, ProveAndVerifyWithFields)
 {
     auto [bytecode_path, witness_path] = create_test_circuit_files(test_dir);
 
-    // First generate VK in bytes format for the prove step
+    // First generate VK for the prove step
     API::Flags vk_flags;
-    vk_flags.output_format = "bytes";
     vk_flags.oracle_hash_type = "poseidon2";
 
     UltraHonkAPI api;
@@ -148,19 +144,18 @@ TEST_F(ApiUltraHonkTest, ProveAndVerifyWithFields)
     api.write_vk(vk_flags, bytecode_path, vk_output_path);
     EXPECT_TRUE(std::filesystem::exists(vk_output_path / "vk"));
 
-    // Now test fields format for proof generation
+    // Now test proof generation
     API::Flags flags;
-    flags.output_format = "fields";
     flags.oracle_hash_type = "poseidon2";
 
-    // Generate proof with fields output
+    // Generate proof
     auto proof_output_dir = test_dir / "proof";
     std::filesystem::create_directories(proof_output_dir);
     api.prove(flags, bytecode_path, witness_path, vk_output_path / "vk", proof_output_dir);
 
-    // Check that proof field files were created
-    EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "proof_fields.json"));
-    EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "public_inputs_fields.json"));
+    // Check that proof files were created
+    EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "proof"));
+    EXPECT_TRUE(std::filesystem::exists(proof_output_dir / "public_inputs"));
 }
 
 TEST_F(ApiUltraHonkTest, ProveWithDifferentSettings)
@@ -176,7 +171,6 @@ TEST_F(ApiUltraHonkTest, ProveWithDifferentSettings)
 
     for (const auto& [oracle_hash_type, disable_zk] : test_cases) {
         API::Flags flags;
-        flags.output_format = "bytes";
         flags.oracle_hash_type = oracle_hash_type;
         flags.disable_zk = disable_zk;
         flags.write_vk = true;
@@ -198,43 +192,27 @@ TEST_F(ApiUltraHonkTest, ProveWithDifferentSettings)
 TEST_F(ApiUltraHonkTest, WriteVk)
 {
     auto [bytecode_path, witness_path] = create_test_circuit_files(test_dir);
+    API::Flags flags;
+    flags.oracle_hash_type = "poseidon2";
 
-    // Smoke test fields format (no real verification)
-    {
-        API::Flags flags;
-        flags.output_format = "fields";
-        flags.oracle_hash_type = "poseidon2";
+    UltraHonkAPI api;
+    api.write_vk(flags, bytecode_path, test_dir);
 
-        UltraHonkAPI api;
-        api.write_vk(flags, bytecode_path, test_dir);
+    // Test against bbapi::CircuitComputeVk
+    auto bytecode = read_file(bytecode_path);
+    auto expected_vk =
+        bbapi::CircuitComputeVk({ .circuit = { .bytecode = bb::decompress(bytecode.data(), bytecode.size()) },
+                                  .settings = { .oracle_hash_type = flags.oracle_hash_type } })
+            .execute();
 
-        EXPECT_TRUE(std::filesystem::exists(test_dir / "vk_fields.json"));
-        EXPECT_TRUE(std::filesystem::exists(test_dir / "vk_hash_fields.json"));
+    info("after write_vk, expected_vk size: {}", expected_vk.bytes.size());
+    EXPECT_EQ(expected_vk.bytes, read_file(test_dir / "vk"));
+    EXPECT_EQ(expected_vk.hash, read_file(test_dir / "vk_hash"));
 
-        EXPECT_FALSE(std::filesystem::exists(test_dir / "vk"));
-        EXPECT_FALSE(std::filesystem::exists(test_dir / "vk_hash"));
-    }
-
-    // Test with bytes format, simple vk recalculation
-    {
-        API::Flags flags;
-        flags.output_format = "bytes";
-        flags.oracle_hash_type = "poseidon2";
-
-        UltraHonkAPI api;
-        api.write_vk(flags, bytecode_path, test_dir);
-
-        // Test against bbapi::CircuitComputeVk
-        auto bytecode = read_file(bytecode_path);
-        auto expected_vk =
-            bbapi::CircuitComputeVk({ .circuit = { .bytecode = bb::decompress(bytecode.data(), bytecode.size()) },
-                                      .settings = { .oracle_hash_type = flags.oracle_hash_type } })
-                .execute();
-
-        info("after write_vk, expected_vk size: {}", expected_vk.bytes.size());
-        EXPECT_EQ(expected_vk.bytes, read_file(test_dir / "vk"));
-        EXPECT_EQ(expected_vk.hash, read_file(test_dir / "vk_hash"));
-    }
+    // Verify round-trip: decode the VK and check that to_field_elements() matches
+    auto vk_from_bytes = from_buffer<UltraFlavor::VerificationKey>(expected_vk.bytes);
+    auto vk_from_file = from_buffer<UltraFlavor::VerificationKey>(read_file(test_dir / "vk"));
+    EXPECT_EQ(vk_from_bytes.to_field_elements(), vk_from_file.to_field_elements());
 }
 
 // NOTE: very light test

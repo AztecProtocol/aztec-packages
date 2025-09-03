@@ -1910,7 +1910,7 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
  */
 template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::populate_public_inputs_block()
 {
-    PROFILE_THIS_NAME("populate_public_inputs_block");
+    BB_BENCH_NAME("populate_public_inputs_block");
 
     // Update the public inputs block
     for (const auto& idx : this->public_inputs()) {
