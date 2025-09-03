@@ -99,6 +99,34 @@ TEST(Databus, ConstantEntryAccess)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
+TEST(Databus, UnnormalizedEntryAccess)
+{
+
+    Builder builder;
+    databus_ct databus;
+    std::array<fr, 3> raw_calldata_entries = { 3, 2, 1 };
+    std::array<fr, 3> raw_returndata_entries = { 6, 4, 2 };
+    std::vector<field_ct> calldata_entries;
+    for (fr entry : raw_calldata_entries) {
+        field_ct entry_witness = witness_ct(&builder, entry);
+        // add the value to itself to make it unnormalized
+        calldata_entries.emplace_back(entry_witness + entry_witness);
+    }
+    std::vector<field_ct> returndata_entries;
+    for (fr entry : raw_returndata_entries) {
+        returndata_entries.emplace_back(witness_ct(&builder, entry));
+    }
+    databus.calldata.set_values(calldata_entries);
+    databus.return_data.set_values(returndata_entries);
+    field_ct idx_0 = witness_ct(&builder, 0);
+    field_ct idx_1 = witness_ct(&builder, 1);
+    field_ct idx_2 = witness_ct(&builder, 2);
+    databus.return_data[idx_0].assert_equal(databus.calldata[idx_0]);
+    databus.return_data[idx_1].assert_equal(databus.calldata[idx_1]);
+    databus.return_data[idx_2].assert_equal(databus.calldata[idx_2]);
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
 TEST(Databus, ConstantAndUnnormalizedIndices)
 {
     Builder builder;
@@ -127,9 +155,9 @@ TEST(Databus, ConstantAndUnnormalizedIndices)
     field_ct idx_2 = idx_1 + idx_1;
     field_ct sum = databus.calldata[idx_0] + databus.calldata[idx_1] + databus.calldata[idx_2];
 
-    databus.return_data[0].assert_equal(databus.calldata[0]);
-    databus.return_data[1].assert_equal(databus.calldata[1]);
-    databus.return_data[2].assert_equal(sum);
+    databus.return_data[idx_0].assert_equal(databus.calldata[idx_0]);
+    databus.return_data[idx_1].assert_equal(databus.calldata[idx_1]);
+    databus.return_data[idx_2].assert_equal(sum);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
