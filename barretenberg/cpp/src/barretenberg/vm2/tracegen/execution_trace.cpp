@@ -512,8 +512,10 @@ void ExecutionTraceBuilder::process(
 
         // Along this function we need to set the info we get from the EXEC_SPEC_READ lookup.
         bool should_read_exec_spec = process_instruction_fetching && !instruction_fetching_failed;
+        const ExecInstructionSpec* exec_spec_ptr = nullptr;
         if (should_read_exec_spec) {
-            process_execution_spec(ex_event, trace, row);
+            exec_spec_ptr = &EXEC_INSTRUCTION_SPEC.at(*exec_opcode);
+            process_execution_spec(ex_event, *exec_spec_ptr, trace, row);
         }
 
         bool should_resolve_address = should_read_exec_spec;
@@ -533,7 +535,7 @@ void ExecutionTraceBuilder::process(
         bool should_process_registers = should_resolve_address && !addressing_failed;
         bool register_processing_failed = ex_event.error == ExecutionError::REGISTER_READ;
         if (should_process_registers) {
-            process_registers(*exec_opcode, ex_event.inputs, ex_event.output, registers, trace, row);
+            process_registers(*exec_spec_ptr, ex_event.inputs, ex_event.output, registers, trace, row);
         }
 
         /**************************************************************************************************
@@ -544,7 +546,7 @@ void ExecutionTraceBuilder::process(
         bool oog = ex_event.error == ExecutionError::GAS;
         trace.set(C::execution_sel_should_check_gas, row, should_check_gas ? 1 : 0);
         if (should_check_gas) {
-            process_gas(ex_event.gas_event, *exec_opcode, trace, row);
+            process_gas(ex_event.gas_event, *exec_spec_ptr, trace, row);
             // todo(ilyas): this is a bad place to do this, but we need the register information to compute dyn gas
             // factor. process_gas does not have access to it and nor should it.
             if (*exec_opcode == ExecutionOpCode::TORADIXBE) {
@@ -746,7 +748,7 @@ void ExecutionTraceBuilder::process(
 
         bool should_process_register_write = should_execute_opcode && !opcode_execution_failed;
         if (should_process_register_write) {
-            process_registers_write(*exec_opcode, trace, row);
+            process_registers_write(*exec_spec_ptr, trace, row);
         }
 
         /**************************************************************************************************
@@ -864,12 +866,12 @@ void ExecutionTraceBuilder::process_instr_fetching(const simulation::Instruction
 }
 
 void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEvent& ex_event,
+                                                   const ExecInstructionSpec& exec_spec,
                                                    TraceContainer& trace,
                                                    uint32_t row)
 {
     // At this point we can assume instruction fetching succeeded, so this should never fail.
     ExecutionOpCode exec_opcode = ex_event.wire_instruction.get_exec_opcode();
-    const auto& exec_spec = EXEC_INSTRUCTION_SPEC.at(exec_opcode);
     const auto& gas_cost = exec_spec.gas_cost;
 
     // Gas.
@@ -910,7 +912,7 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
 }
 
 void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event,
-                                        ExecutionOpCode exec_opcode,
+                                        const ExecInstructionSpec& exec_spec,
                                         TraceContainer& trace,
                                         uint32_t row)
 {
@@ -930,7 +932,6 @@ void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event,
                   { C::execution_dynamic_da_gas_factor, gas_event.dynamic_gas_factor.daGas },
               } });
 
-    const auto& exec_spec = EXEC_INSTRUCTION_SPEC.at(exec_opcode);
     if (exec_spec.dyn_gas_id != 0) {
         trace.set(get_dyn_gas_selector(exec_spec.dyn_gas_id), row, 1);
     }
@@ -1078,7 +1079,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
         } });
 }
 
-void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
+void ExecutionTraceBuilder::process_registers(const ExecInstructionSpec& exec_spec,
                                               const std::vector<TaggedValue>& inputs,
                                               const TaggedValue& output,
                                               std::span<TaggedValue> registers,
@@ -1087,7 +1088,7 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
 {
     assert(registers.size() == AVM_MAX_REGISTERS);
     // At this point we can assume instruction fetching succeeded, so this should never fail.
-    const auto& register_info = EXEC_INSTRUCTION_SPEC.at(exec_opcode).register_info;
+    const auto& register_info = exec_spec.register_info;
 
     // Registers.
     size_t input_counter = 0;
@@ -1152,9 +1153,11 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
               } });
 }
 
-void ExecutionTraceBuilder::process_registers_write(ExecutionOpCode exec_opcode, TraceContainer& trace, uint32_t row)
+void ExecutionTraceBuilder::process_registers_write(const ExecInstructionSpec& exec_spec,
+                                                    TraceContainer& trace,
+                                                    uint32_t row)
 {
-    const auto& register_info = EXEC_INSTRUCTION_SPEC.at(exec_opcode).register_info;
+    const auto& register_info = exec_spec.register_info;
     trace.set(C::execution_sel_should_write_registers, row, 1);
 
     for (size_t i = 0; i < AVM_MAX_REGISTERS; i++) {

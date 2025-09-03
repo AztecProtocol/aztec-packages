@@ -18,9 +18,12 @@ class ExecutionTraceBuilder final {
 
     // Public for testing.
     void process_instr_fetching(const simulation::Instruction& instruction, TraceContainer& trace, uint32_t row);
-    void process_execution_spec(const simulation::ExecutionEvent& ex_event, TraceContainer& trace, uint32_t row);
+    void process_execution_spec(const simulation::ExecutionEvent& ex_event,
+                                const struct ExecInstructionSpec& exec_spec,
+                                TraceContainer& trace,
+                                uint32_t row);
     void process_gas(const simulation::GasEvent& gas_event,
-                     ExecutionOpCode exec_opcode,
+                     const struct ExecInstructionSpec& exec_spec,
                      TraceContainer& trace,
                      uint32_t row);
     void process_addressing(const simulation::AddressingEvent& addr_event,
@@ -28,14 +31,14 @@ class ExecutionTraceBuilder final {
                             TraceContainer& trace,
                             uint32_t row);
     // Sets global register information and reads.
-    void process_registers(ExecutionOpCode exec_opcode,
+    void process_registers(const struct ExecInstructionSpec& exec_spec,
                            const std::vector<TaggedValue>& inputs,
                            const TaggedValue& output,
                            std::span<TaggedValue> registers,
                            TraceContainer& trace,
                            uint32_t row);
     // Sets the writes.
-    void process_registers_write(ExecutionOpCode exec_opcode, TraceContainer& trace, uint32_t row);
+    void process_registers_write(const struct ExecInstructionSpec& exec_spec, TraceContainer& trace, uint32_t row);
     void process_get_env_var_opcode(TaggedValue envvar_enum, TaggedValue output, TraceContainer& trace, uint32_t row);
 
     static const InteractionDefinition interactions;
