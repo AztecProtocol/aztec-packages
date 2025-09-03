@@ -202,6 +202,11 @@ tests:
     error_regex: "expect\\(received\\).toContain\\(expected\\)"
     owners:
       - *palla
+  # http://ci.aztec-labs.com/3b197577b96c3639
+  - regex: "src/e2e_p2p/slash_veto_demo.test.ts"
+    error_regex: "timeout: sending signal TERM to command"
+    owners:
+      - *palla
 
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"
