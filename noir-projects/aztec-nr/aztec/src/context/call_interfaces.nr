@@ -4,6 +4,9 @@ use dep::protocol_types::{
     traits::{Deserialize, ToField},
 };
 
+// Phantom tür işaretçisi
+use dep::std::phantom::Phantom;
+
 use crate::context::{gas::GasOpts, private_context::PrivateContext, public_context::PublicContext};
 use crate::hash::{hash_args, hash_calldata};
 use crate::oracle::execution_cache;
@@ -24,7 +27,7 @@ pub struct PrivateCallInterface<let M: u32, T> {
     name: str<M>,
     args_hash: Field,
     args: [Field],
-    return_type: T,
+    phantom: Phantom<T>,
     is_static: bool,
 }
 
@@ -46,7 +49,7 @@ where
             name,
             args_hash,
             args,
-            return_type: std::mem::zeroed(),
+            phantom: Phantom::new(),
             is_static,
         }
     }
@@ -187,7 +190,7 @@ pub struct PrivateStaticCallInterface<let M: u32, T> {
     name: str<M>,
     args_hash: Field,
     args: [Field],
-    return_type: T,
+    phantom: Phantom<T>,
     is_static: bool,
 }
 
@@ -205,7 +208,7 @@ impl<let M: u32, T> PrivateStaticCallInterface<M, T> {
             name,
             args_hash,
             args,
-            return_type: std::mem::zeroed(),
+            phantom: Phantom::new(),
             is_static: true,
         }
     }
@@ -266,7 +269,7 @@ pub struct PublicCallInterface<let M: u32, T> {
     name: str<M>,
     args: [Field],
     gas_opts: GasOpts,
-    return_type: T,
+    phantom: Phantom<T>,
     is_static: bool,
 }
 
@@ -287,7 +290,7 @@ where
             name,
             args,
             gas_opts: GasOpts::default(),
-            return_type: std::mem::zeroed(),
+            phantom: Phantom::new(),
             is_static,
         }
     }
@@ -485,7 +488,7 @@ pub struct PublicStaticCallInterface<let M: u32, T> {
     selector: FunctionSelector,
     name: str<M>,
     args: [Field],
-    return_type: T,
+    phantom: Phantom<T>,
     is_static: bool,
     gas_opts: GasOpts,
 }
@@ -505,7 +508,7 @@ where
             selector,
             name,
             args,
-            return_type: std::mem::zeroed(),
+            phantom: Phantom::new(),
             is_static: true,
             gas_opts: GasOpts::default(),
         }
@@ -596,7 +599,7 @@ pub struct UtilityCallInterface<let M: u32, T> {
     name: str<M>,
     args_hash: Field,
     args: [Field],
-    return_type: T,
+    phantom: Phantom<T>,
 }
 
 impl<let M: u32, T> CallInterface<M> for UtilityCallInterface<M, T> {
@@ -629,7 +632,7 @@ impl<let M: u32, T> UtilityCallInterface<M, T> {
         args: [Field],
     ) -> Self {
         let args_hash = hash_args(args);
-        Self { target_contract, selector, name, args_hash, args, return_type: std::mem::zeroed() }
+        Self { target_contract, selector, name, args_hash, args, phantom: Phantom::new() }
     }
 
     pub fn get_args(self) -> [Field] {
