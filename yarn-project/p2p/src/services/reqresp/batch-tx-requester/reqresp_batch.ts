@@ -13,6 +13,7 @@ import type { ConnectionSampler } from '.././connection-sampler/connection_sampl
 import { type ReqRespInterface, ReqRespSubProtocol, type ReqRespSubProtocolValidators } from '.././interface.js';
 import { BlockTxsRequest, BlockTxsResponse } from '.././protocols/index.js';
 import { ReqRespStatus } from '.././status.js';
+import { type BatchTxRequesterOptions, type ITxMetadataCollection } from './interface.js';
 import { MissingTxMetadata, MissingTxMetadataCollection, TX_BATCH_SIZE } from './missing_txs.js';
 import { PeerCollection } from './peer_collection.js';
 
@@ -21,10 +22,8 @@ const DUMB_PEERS_TO_QUERY_IN_PARALLEL = 10;
 
 export class BatchTxRequester {
   private readonly peers: PeerCollection;
-  private readonly txsMetadata;
-
-  private readonly deadline;
-
+  private readonly txsMetadata: ITxMetadataCollection;
+  private readonly deadline: number;
   private readonly smartRequesterSemaphore = new Semaphore(0);
 
   constructor(
@@ -37,25 +36,30 @@ export class BatchTxRequester {
     private readonly txValidator: ReqRespSubProtocolValidators[ReqRespSubProtocol.TX],
     private readonly logger = createLogger('p2p:reqresp_batch'),
     private readonly dateProvider: DateProvider = new DateProvider(),
+    private readonly opts: BatchTxRequesterOptions = {
+      smartParallel: SMART_PEERS_TO_QUERY_IN_PARALLEL,
+      dumbParallel: DUMB_PEERS_TO_QUERY_IN_PARALLEL,
+    },
   ) {
-    this.txsMetadata = new MissingTxMetadataCollection(
-      missingTxs.map(txHash => [txHash.toString(), new MissingTxMetadata(txHash)]),
-    );
-    this.peers = new PeerCollection(this.connectionSampler.getPeerListSortedByConnectionCountAsc());
-    console.log(this.peers);
+    this.deadline = this.dateProvider.now() + this.timeoutMs;
+
+    const initialPeers = this.connectionSampler.getPeerListSortedByConnectionCountAsc();
+    this.peers = new PeerCollection(initialPeers);
 
     //Pinned peer is queried separately and thus always considered "in-flight" by both "dumb" and "smart" requester
     if (this.pinnedPeer) {
       this.peers.markPeerInFlight(this.pinnedPeer);
     }
 
-    this.deadline = this.dateProvider.now() + this.timeoutMs;
+    const entries: Array<[string, MissingTxMetadata]> = missingTxs.map(h => [h.toString(), new MissingTxMetadata(h)]);
+    this.txsMetadata = this.opts.txsMetadataFactory
+      ? this.opts.txsMetadataFactory(entries)
+      : new MissingTxMetadataCollection(entries);
   }
 
   public async run() {
     try {
       if (this.txsMetadata.getMissingTxHashes().size === 0) {
-        this.logger.debug('No missing txs to request');
         return;
       }
 
@@ -65,7 +69,7 @@ export class BatchTxRequester {
       //TODO: handle this via async iter
       return this.txsMetadata.getFetchedTxs();
     } finally {
-      for (let i = 0; i < SMART_PEERS_TO_QUERY_IN_PARALLEL; i++) {
+      for (let i = 0; i < this.opts.smartParallel; i++) {
         this.smartRequesterSemaphore.release();
       }
     }
@@ -116,7 +120,7 @@ export class BatchTxRequester {
     };
 
     const workers = Array.from(
-      { length: Math.min(SMART_PEERS_TO_QUERY_IN_PARALLEL, this.peers.getAllPeers().size) },
+      { length: Math.min(this.opts.smartParallel, this.peers.getAllPeers().size) },
       (_, index) => this.smartWorkerLoop(nextPeer, makeRequest, index + 1),
     );
 
@@ -145,10 +149,10 @@ export class BatchTxRequester {
       }
 
       if (chunks[idx] === undefined) {
-        console.error(`Dumb requester Chunk at index ${idx} is undefined, chunk length: ${chunks.length}`);
+        this.logger.error(`Dumb requester Chunk at index ${idx} is undefined, chunk length: ${chunks.length}`);
       }
       const txs = chunks[idx].map(t => TxHash.fromString(t));
-      console.log(`Dumb batch index: ${idx}, batches count: ${chunks.length}`);
+      this.logger.debug(`Dumb batch index: ${idx}, batches count: ${chunks.length}`);
       txs.forEach(tx => this.txsMetadata.markRequested(tx));
       return { blockRequest: BlockTxsRequest.fromBlockProposalAndMissingTxs(this.blockProposal, txs), txs };
     };
@@ -159,10 +163,11 @@ export class BatchTxRequester {
       return idx === undefined ? undefined : peerIdFromString(peers[idx]);
     };
 
-    const workers = Array.from(
-      { length: Math.min(DUMB_PEERS_TO_QUERY_IN_PARALLEL, this.peers.getAllPeers().size) },
-      (_, index) => this.dumbWorkerLoop(nextPeer, makeRequest, index + 1),
+    const workerCount = Math.min(this.opts.dumbParallel, this.peers.getAllPeers().size);
+    const workers = Array.from({ length: workerCount }, (_, index) =>
+      this.dumbWorkerLoop(nextPeer, makeRequest, index + 1),
     );
+
     await Promise.allSettled(workers);
   }
 
@@ -172,7 +177,7 @@ export class BatchTxRequester {
     workerIndex: number,
   ) {
     try {
-      console.log(`Dumb worker ${workerIndex} started`);
+      this.logger.debug(`Dumb worker ${workerIndex} started`);
       let count = 0;
       while (!this.shouldStop()) {
         count++;
@@ -180,39 +185,35 @@ export class BatchTxRequester {
         const weRanOutOfPeersToQuery = peerId === undefined;
         if (weRanOutOfPeersToQuery) {
           this.logger.debug(`Worker loop dumb: No more peers to query`);
-          console.log(`[${workerIndex}][${count}] Worker loop dumb: No more peers to query`);
           break;
         }
 
-        console.log(`[${workerIndex}] Worker loop dumb: count: ${count} for peerId: ${peerId.toString()}`);
+        this.logger.debug(`Worker loop dumb: count: ${count} for peerId: ${peerId.toString()}`);
 
         const nextBatchTxRequest = request(peerId);
         if (!nextBatchTxRequest) {
           this.logger.warn(`Worker loop dumb: Could not create next batch request`);
           // We retry with the next peer/batch
-          console.log(
-            `[${workerIndex}][${count}] Worker loop dumb: Could not create next batch request for peer ${peerId.toString()}`,
-          );
           continue;
         }
 
         //TODO: check this, this should only happen in case something bad happened
         const { blockRequest, txs } = nextBatchTxRequest;
         if (blockRequest === undefined) {
-          console.log(`[${workerIndex}] Dumb worker: BLOCK REQ undefined`);
+          this.logger.error(`Dumb worker: BLOCK REQ undefined`);
           break;
         }
 
-        console.log(
-          `[${workerIndex}][${count}] Worker type dumb: Requesting txs from peer ${peerId.toString()}: ${txs.map(tx => tx.toString()).join('\n')}`,
+        this.logger.debug(
+          `Worker type dumb: Requesting txs from peer ${peerId.toString()}: ${txs.map(tx => tx.toString()).join(', ')}`,
         );
 
         await this.requestTxBatch(peerId, blockRequest);
       }
     } catch (err: any) {
-      console.error(`Dumb worker ${workerIndex} encountered an error: ${err}`);
+      this.logger.error(`Dumb worker ${workerIndex} encountered an error: ${err}`);
     } finally {
-      console.log(`Dumb worker ${workerIndex} finished`);
+      this.logger.debug(`Dumb worker ${workerIndex} finished`);
     }
   }
 
@@ -221,37 +222,34 @@ export class BatchTxRequester {
     request: (pid: PeerId) => { blockRequest: BlockTxsRequest | undefined; txs: TxHash[] } | undefined,
     workerIndex: number,
   ) {
-    console.log(`Smart worker ${workerIndex} started`);
+    this.logger.debug(`Smart worker ${workerIndex} started`);
     let count = 0;
     await this.smartRequesterSemaphore.acquire();
-    console.log(`Smart worker ${workerIndex} acquired semaphore`);
+    this.logger.debug(`Smart worker ${workerIndex} acquired semaphore`);
 
     while (!this.shouldStop()) {
       count++;
       const peerId = pickNextPeer();
       const weRanOutOfPeersToQuery = peerId === undefined;
       if (weRanOutOfPeersToQuery) {
-        this.logger.debug(`Worker loop smart: No more no more peers to query`);
-        console.log(`[${workerIndex}][${count}] Worker loop smart: No more smart peers to query`);
+        this.logger.debug(`Worker loop smart: No more peers to query`);
 
         //If there are no more dumb peers to query then none of our peers can become smart,
         //thus we can simply exit this worker
         const noMoreDumbPeersToQuery = this.peers.getDumbPeersToQuery().length === 0;
         if (noMoreDumbPeersToQuery) {
-          console.log(`[${workerIndex}][${count}] Worker loop smart: No more smart peers to query, EXITING`);
+          this.logger.debug(`Worker loop smart: No more smart peers to query, EXITING`);
           break;
         }
 
         await this.smartRequesterSemaphore.acquire();
         this.logger.debug(`Worker loop smart: acquired next smart peer`);
-        console.log(`[${workerIndex}][${count}] Worker loop smart: acquired next smart peer`);
         continue;
       }
 
       const nextBatchTxRequest = request(peerId);
       if (!nextBatchTxRequest) {
         this.logger.warn(`Worker loop smart: Could not create next batch request`);
-        console.log(`[${workerIndex}][${count}] Worker loop smart: Could not create next batch request`);
         // We retry with the next peer/batch
         continue;
       }
@@ -259,12 +257,12 @@ export class BatchTxRequester {
       //TODO: check this, this should only happen in case something bad happened
       const { blockRequest, txs } = nextBatchTxRequest;
       if (blockRequest === undefined) {
-        console.log(`[${workerIndex}] Smart worker: BLOCK REQ undefined`);
+        this.logger.error(`Smart worker: BLOCK REQ undefined`);
         break;
       }
 
-      console.log(
-        `[${workerIndex}][${count}] Worker type smart : Requesting txs from peer ${peerId.toString()}: ${txs.map(tx => tx.toString()).join('\n')}`,
+      this.logger.debug(
+        `Worker type smart: Requesting txs from peer ${peerId.toString()}: ${txs.map(tx => tx.toString()).join(', ')}`,
       );
 
       await this.requestTxBatch(peerId, blockRequest);
@@ -273,7 +271,7 @@ export class BatchTxRequester {
       });
     }
 
-    console.log(`Smart worker ${workerIndex} finished`);
+    this.logger.debug(`Smart worker ${workerIndex} finished`);
   }
 
   private async requestTxBatch(peerId: PeerId, request: BlockTxsRequest): Promise<BlockTxsResponse | undefined> {
@@ -281,7 +279,7 @@ export class BatchTxRequester {
       this.peers.markPeerInFlight(peerId);
       const response = await this.reqresp.sendRequestToPeer(peerId, ReqRespSubProtocol.BLOCK_TXS, request.toBuffer());
       if (response.status !== ReqRespStatus.SUCCESS) {
-        console.log(`Peer ${peerId.toString()} failed to respond with status: ${response.status}`);
+        this.logger.debug(`Peer ${peerId.toString()} failed to respond with status: ${response.status}`);
         await this.handleFailResponseFromPeer(peerId, response.status);
         return;
       }
@@ -294,7 +292,6 @@ export class BatchTxRequester {
         error: err,
       });
 
-      console.error(`Peer ${peerId.toString()}\n${err}`);
       await this.handleFailResponseFromPeer(peerId, ReqRespStatus.UNKNOWN);
     } finally {
       // Don't mark pinned peer as not in flight
@@ -316,14 +313,14 @@ export class BatchTxRequester {
     // We mark peer as "smart" only if they have some txs we are missing
     // Otherwise we keep them as "dumb" in hope they'll receive some new txs we are missing in the future
     if (!this.peerHasSomeTxsWeAreMissing(peerId, response)) {
-      console.log(`${peerId.toString()} has no txs we are missing, skipping`);
+      this.logger.debug(`${peerId.toString()} has no txs we are missing, skipping`);
       return;
     }
 
     this.markTxsPeerHas(peerId, response);
     this.peers.markPeerSmart(peerId);
 
-    if (this.peers.getSmartPeers().size <= SMART_PEERS_TO_QUERY_IN_PARALLEL) {
+    if (this.peers.getSmartPeers().size <= this.opts.smartParallel) {
       this.smartRequesterSemaphore.release();
     }
   }
@@ -349,21 +346,21 @@ export class BatchTxRequester {
     const missingTxHashes = this.txsMetadata.getMissingTxHashes();
     if (missingTxHashes.size === 0) {
       // wake sleepers so they can see shouldStop() and exit
-      for (let i = 0; i < SMART_PEERS_TO_QUERY_IN_PARALLEL; i++) {
+      for (let i = 0; i < this.opts.smartParallel; i++) {
         this.smartRequesterSemaphore.release();
       }
     } else {
-      console.log(
-        `Missing txs: \n ${Array.from(this.txsMetadata.getMissingTxHashes())
+      this.logger.debug(
+        `Missing txs: ${Array.from(this.txsMetadata.getMissingTxHashes())
           .map(tx => tx.toString())
-          .join('\n')}`,
+          .join(', ')}`,
       );
     }
   }
 
   private markTxsPeerHas(peerId: PeerId, response: BlockTxsResponse) {
     const txsPeerHas = this.extractHashesPeerHasFromResponse(response);
-    console.log(`${peerId.toString()} has txs: ${txsPeerHas.map(tx => tx.toString()).join('\n')}`);
+    this.logger.debug(`${peerId.toString()} has txs: ${txsPeerHas.map(tx => tx.toString()).join(', ')}`);
     //TODO: validate txs
     this.txsMetadata.markPeerHas(peerId, txsPeerHas);
   }
@@ -408,7 +405,7 @@ export class BatchTxRequester {
   }
 
   private fetchedAllTxs() {
-    return this.txsMetadata.values().every(tx => tx.fetched);
+    return Array.from(this.txsMetadata.values()).every(tx => tx.fetched);
   }
 
   //TODO: abort signal here?
