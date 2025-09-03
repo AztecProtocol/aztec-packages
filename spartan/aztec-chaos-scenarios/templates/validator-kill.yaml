@@ -17,5 +17,5 @@ spec:
     namespaces:
       - {{ .Values.global.targetNamespace }}
     labelSelectors:
-      app: validator
+      app.kubernetes.io/component: validator
 {{- end }}

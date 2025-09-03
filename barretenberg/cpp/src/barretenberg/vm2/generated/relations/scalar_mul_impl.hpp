@@ -14,7 +14,7 @@ void scalar_mulImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    PROFILE_THIS_NAME("accumulate/scalar_mul");
+    BB_BENCH_NAME("accumulate/scalar_mul");
 
     const auto scalar_mul_LATCH_CONDITION = in.get(C::scalar_mul_end) + in.get(C::precomputed_first_row);
     const auto scalar_mul_should_pass = in.get(C::scalar_mul_not_end) * (FF(1) - in.get(C::scalar_mul_bit));

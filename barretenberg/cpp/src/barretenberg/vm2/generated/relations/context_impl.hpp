@@ -14,7 +14,7 @@ void contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    PROFILE_THIS_NAME("accumulate/context");
+    BB_BENCH_NAME("accumulate/context");
 
     const auto execution_NOT_LAST_EXEC = in.get(C::execution_sel) * in.get(C::execution_sel_shift);
     const auto execution_SWITCH_CTX = in.get(C::execution_sel_enter_call) + in.get(C::execution_sel_exit_call);

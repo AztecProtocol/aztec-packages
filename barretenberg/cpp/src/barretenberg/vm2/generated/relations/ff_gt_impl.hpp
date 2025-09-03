@@ -14,7 +14,7 @@ void ff_gtImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    PROFILE_THIS_NAME("accumulate/ff_gt");
+    BB_BENCH_NAME("accumulate/ff_gt");
 
     const auto ff_gt_SEL_START = in.get(C::ff_gt_sel_gt) + in.get(C::ff_gt_sel_dec);
     const auto ff_gt_POW_128 = FF(uint256_t{ 0UL, 0UL, 1UL, 0UL });
