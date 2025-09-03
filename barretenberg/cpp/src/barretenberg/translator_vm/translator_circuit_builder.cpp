@@ -524,20 +524,17 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     }
 
     // Process the first UltraOp - a no-op - and populate with zeros the beginning of all other wires to ensure all wire
-    // polynomials in translator start with 0 (required for shifted polynomials in the proving system). Technically,
-    // we'd need only first index to be a zero but, given each "real" UltraOp populates two indices in a polynomial we
-    // add two zeros for consistency.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1360): We'll also have to eventually process random
-    // data in the merge protocol (added for zero knowledge)/
+    // polynomials in translator start with 0 (required to enable shifts of witness polynomials when required).
     for (auto& wire : wires) {
         wire.push_back(add_variable(zero_idx));
         wire.push_back(add_variable(zero_idx));
     }
     num_gates += 2;
 
-    auto process_random_up = [&](const UltraOp& ultra_op) {
-        // ASSERT(ultra_op.op_code.is_random_op, "should be random op ");
+    auto process_random_op = [&](const UltraOp& ultra_op) {
+        ASSERT(ultra_op.op_code.is_random_op, "function should only be called to process a random op");
         populate_wires_from_ultra_op(ultra_op);
+        // Populate the other wires with zeros
         for (size_t i = WireIds::Y_LOW_Z_2 + 1; i < wires.size(); i++) {
             wires[i].push_back(add_variable(zero_idx));
             wires[i].push_back(add_variable(zero_idx));
@@ -545,13 +542,20 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         num_gates += 2;
     };
 
-    process_random_up(ultra_ops[1]);
-    process_random_up(ultra_ops[2]);
+    // Follow with two random ops, to ensure the commitment and evaluations of the op queue do not reveal data about the
+    // actual content of the op queue
+    process_random_op(ultra_ops[1]);
+    process_random_op(ultra_ops[2]);
 
     // We need to precompute the accumulators at each step, because in the actual circuit we compute the values starting
-    // from the later indices. We need to know the previous accumulator to create the gate
-    for (size_t i = 3; i < ultra_ops.size() - 2; i++) {
+    // from the later indices and we need to know the previous accumulator to create the gate. Both when computing the
+    // accumulator and the actual accumulation gates, we skip the beginning and end of the op queue (where first no-op
+    // and random ops exist) as they should not affectt he computation of the accumulation result. However, given the
+    // accumulation result (i.e. value at index RESULT_ROW) is sent as part of the proof, we also need to hide its
+    // context. However, we achieve this by ensuring a genuine operation, but with values generated randomly, is added
+    // to the op queue during the CIVC processing.
 
+    for (size_t i = 3; i < ultra_ops.size() - 2; i++) {
         const auto& ultra_op = ultra_ops[ultra_ops.size() - i];
         if (ultra_op.op_code.value() == 0) {
             //  Skip no-ops as they should not affect the computation of the accumulator
@@ -573,7 +577,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     accumulator_trace.pop_back();
 
     std::array<Fr, NUM_BINARY_LIMBS> previous_accumulator_binary_limbs = split_fq_into_limbs(final_accumulator_state);
-    // Generate witness values from all the UltraOps
+    // Generate witness values and accumulation gates from all the actual UltraOps
     for (size_t i = 3; i < ultra_ops.size() - 2; i++) {
         const auto& ultra_op = ultra_ops[i];
         if (ultra_op.op_code.value() == 0) {
@@ -614,7 +618,9 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         // And put them into the wires
         create_accumulation_gate(one_accumulation_step);
     }
-    process_random_up(ultra_ops[ultra_ops.size() - 2]);
-    process_random_up(ultra_ops[ultra_ops.size() - 1]);
+    // Also process the last two random ops present at the end of the op queue to hide the ecc ops of the last circuit
+    // whose ops are added to the op queue
+    process_random_op(ultra_ops[ultra_ops.size() - 2]);
+    process_random_op(ultra_ops[ultra_ops.size() - 1]);
 }
 } // namespace bb

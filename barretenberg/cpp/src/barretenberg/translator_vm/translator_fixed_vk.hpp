@@ -55,8 +55,8 @@ struct TranslatorFixedVKCommitments {
                             uint256_t("0x0e0602fc16675e0f0e11b9c509608a43fd8ac75d779ae3f69cbbba7a647c736a")),
 
                  // lagrange_mini_masking
-                 Commitment(uint256_t("0x0d196a5c600fbdd14809692103339b55ed2196ba9157657c154ce47583db6451"),
-                            uint256_t("0x168bd1b1498c739037b4ba885c603bf7db03fe1cf3401f16e3beac898abc52cf")),
+                 Commitment(uint256_t("0x0f30d7db2ef1e38f496c696565d2edbb6c7790c5e29aa5de577778ab50cc4bc8"),
+                            uint256_t("0x17bc6c20e905302778f27555c1ee2126de382211d6c31a85a0c592912d41fce1")),
 
                  // lagrange_real_last
                  // lagrange_last
