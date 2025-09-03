@@ -14,10 +14,10 @@ template <typename FF_> class executionImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 88> SUBRELATION_PARTIAL_LENGTHS = {
+    static constexpr std::array<size_t, 90> SUBRELATION_PARTIAL_LENGTHS = {
         3, 3, 3, 3, 2, 4, 3, 3, 3, 4, 3, 3, 3, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3, 3,
-        3, 3, 3, 4, 3, 5, 6, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 3, 2
+        3, 3, 3, 4, 3, 5, 6, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 3, 2
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -101,6 +101,10 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
             return "NUM_UNENCRYPTED_LOGS_NOT_CHANGED";
         case 84:
             return "NUM_L2_TO_L1_MESSAGES_NOT_CHANGED";
+        case 85:
+            return "RETRIEVED_BYTECODES_TREE_ROOT_NOT_CHANGED";
+        case 86:
+            return "RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED";
         }
         return std::to_string(index);
     }
@@ -136,6 +140,8 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
     static constexpr size_t SR_NUM_NULLIFIERS_EMITTED_NOT_CHANGED = 82;
     static constexpr size_t SR_NUM_UNENCRYPTED_LOGS_NOT_CHANGED = 83;
     static constexpr size_t SR_NUM_L2_TO_L1_MESSAGES_NOT_CHANGED = 84;
+    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_ROOT_NOT_CHANGED = 85;
+    static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED = 86;
 };
 
 } // namespace bb::avm2

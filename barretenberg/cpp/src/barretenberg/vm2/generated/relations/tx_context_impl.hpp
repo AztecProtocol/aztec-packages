@@ -35,6 +35,9 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT =
         FF(uint256_t{ 18071747219918308973UL, 16614632998898105071UL, 15723772623334795496UL, 2914032580688149866UL });
     const auto constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE = FF(1);
+    const auto constants_AVM_RETRIEVED_BYTECODES_TREE_INITIAL_ROOT =
+        FF(uint256_t{ 17709766335633262877UL, 1850405195690305185UL, 13873207743118759083UL, 1156198508456480057UL });
+    const auto constants_AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE = FF(1);
     const auto tx_NOT_LAST_ROW = in.get(C::tx_sel) * in.get(C::tx_sel_shift);
     const auto tx_NOT_LAST = in.get(C::tx_sel_shift) * in.get(C::tx_sel);
 
@@ -148,411 +151,455 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
-        auto tmp = in.get(C::tx_start_tx) *
-                   (constants_AVM_PUBLIC_INPUTS_START_GAS_USED_ROW_IDX - in.get(C::tx_gas_used_pi_offset));
+        auto tmp = in.get(C::tx_start_tx) * (constants_AVM_RETRIEVED_BYTECODES_TREE_INITIAL_ROOT -
+                                             in.get(C::tx_prev_retrieved_bytecodes_tree_root));
         tmp *= scaling_factor;
         std::get<16>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
-        auto tmp = in.get(C::tx_is_cleanup) *
-                   (constants_AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX - in.get(C::tx_gas_used_pi_offset));
+        auto tmp = in.get(C::tx_start_tx) * (constants_AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE -
+                                             in.get(C::tx_prev_retrieved_bytecodes_tree_size));
         tmp *= scaling_factor;
         std::get<17>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
-        auto tmp = (in.get(C::tx_should_read_gas_used) - (in.get(C::tx_start_tx) + in.get(C::tx_is_cleanup)));
+        auto tmp = in.get(C::tx_start_tx) *
+                   (constants_AVM_PUBLIC_INPUTS_START_GAS_USED_ROW_IDX - in.get(C::tx_gas_used_pi_offset));
         tmp *= scaling_factor;
         std::get<18>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
-        auto tmp = in.get(C::tx_start_tx) *
-                   (constants_AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX - in.get(C::tx_gas_limit_pi_offset));
+        auto tmp = in.get(C::tx_is_cleanup) *
+                   (constants_AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX - in.get(C::tx_gas_used_pi_offset));
         tmp *= scaling_factor;
         std::get<19>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
-        auto tmp =
-            in.get(C::tx_is_teardown_phase) *
-            (constants_AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX - in.get(C::tx_gas_limit_pi_offset));
+        auto tmp = (in.get(C::tx_should_read_gas_used) - (in.get(C::tx_start_tx) + in.get(C::tx_is_cleanup)));
         tmp *= scaling_factor;
         std::get<20>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
-        auto tmp = (in.get(C::tx_should_read_gas_limit) - (in.get(C::tx_start_tx) + in.get(C::tx_is_teardown_phase)));
+        auto tmp = in.get(C::tx_start_tx) *
+                   (constants_AVM_PUBLIC_INPUTS_GAS_SETTINGS_GAS_LIMITS_ROW_IDX - in.get(C::tx_gas_limit_pi_offset));
         tmp *= scaling_factor;
         std::get<21>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
-        auto tmp = in.get(C::tx_start_tx) * in.get(C::tx_prev_num_unencrypted_logs);
+        auto tmp =
+            in.get(C::tx_is_teardown_phase) *
+            (constants_AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX - in.get(C::tx_gas_limit_pi_offset));
         tmp *= scaling_factor;
         std::get<22>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
-        auto tmp = in.get(C::tx_start_tx) * in.get(C::tx_prev_num_l2_to_l1_messages);
+        auto tmp = (in.get(C::tx_should_read_gas_limit) - (in.get(C::tx_start_tx) + in.get(C::tx_is_teardown_phase)));
         tmp *= scaling_factor;
         std::get<23>(evals) += typename Accumulator::View(tmp);
     }
-    { // NOTE_HASH_ROOT_CONTINUITY
+    {
         using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
-        auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
-                   (in.get(C::tx_next_note_hash_tree_root) - in.get(C::tx_prev_note_hash_tree_root_shift));
+        auto tmp = in.get(C::tx_start_tx) * in.get(C::tx_prev_num_unencrypted_logs);
         tmp *= scaling_factor;
         std::get<24>(evals) += typename Accumulator::View(tmp);
     }
-    { // NOTE_HASH_TREE_SIZE_CONTINUITY
+    {
         using Accumulator = typename std::tuple_element_t<25, ContainerOverSubrelations>;
-        auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
-                   (in.get(C::tx_next_note_hash_tree_size) - in.get(C::tx_prev_note_hash_tree_size_shift));
+        auto tmp = in.get(C::tx_start_tx) * in.get(C::tx_prev_num_l2_to_l1_messages);
         tmp *= scaling_factor;
         std::get<25>(evals) += typename Accumulator::View(tmp);
     }
-    { // NUM_NOTE_HASHES_EMITTED_CONTINUITY
+    { // NOTE_HASH_ROOT_CONTINUITY
         using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
         auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
-                   (in.get(C::tx_next_num_note_hashes_emitted) - in.get(C::tx_prev_num_note_hashes_emitted_shift));
+                   (in.get(C::tx_next_note_hash_tree_root) - in.get(C::tx_prev_note_hash_tree_root_shift));
         tmp *= scaling_factor;
         std::get<26>(evals) += typename Accumulator::View(tmp);
     }
-    { // NULLIFIER_TREE_ROOT_CONTINUITY
+    { // NOTE_HASH_TREE_SIZE_CONTINUITY
         using Accumulator = typename std::tuple_element_t<27, ContainerOverSubrelations>;
         auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
-                   (in.get(C::tx_next_nullifier_tree_root) - in.get(C::tx_prev_nullifier_tree_root_shift));
+                   (in.get(C::tx_next_note_hash_tree_size) - in.get(C::tx_prev_note_hash_tree_size_shift));
         tmp *= scaling_factor;
         std::get<27>(evals) += typename Accumulator::View(tmp);
     }
-    { // NULLIFIER_TREE_SIZE_CONTINUITY
+    { // NUM_NOTE_HASHES_EMITTED_CONTINUITY
         using Accumulator = typename std::tuple_element_t<28, ContainerOverSubrelations>;
         auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
-                   (in.get(C::tx_next_nullifier_tree_size) - in.get(C::tx_prev_nullifier_tree_size_shift));
+                   (in.get(C::tx_next_num_note_hashes_emitted) - in.get(C::tx_prev_num_note_hashes_emitted_shift));
         tmp *= scaling_factor;
         std::get<28>(evals) += typename Accumulator::View(tmp);
     }
-    { // NUM_NULLIFIERS_EMITTED_CONTINUITY
+    { // NULLIFIER_TREE_ROOT_CONTINUITY
         using Accumulator = typename std::tuple_element_t<29, ContainerOverSubrelations>;
         auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
-                   (in.get(C::tx_next_num_nullifiers_emitted) - in.get(C::tx_prev_num_nullifiers_emitted_shift));
+                   (in.get(C::tx_next_nullifier_tree_root) - in.get(C::tx_prev_nullifier_tree_root_shift));
         tmp *= scaling_factor;
         std::get<29>(evals) += typename Accumulator::View(tmp);
     }
-    { // PUBLIC_DATA_TREE_ROOT_CONTINUITY
+    { // NULLIFIER_TREE_SIZE_CONTINUITY
         using Accumulator = typename std::tuple_element_t<30, ContainerOverSubrelations>;
         auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
-                   (in.get(C::tx_next_public_data_tree_root) - in.get(C::tx_prev_public_data_tree_root_shift));
+                   (in.get(C::tx_next_nullifier_tree_size) - in.get(C::tx_prev_nullifier_tree_size_shift));
         tmp *= scaling_factor;
         std::get<30>(evals) += typename Accumulator::View(tmp);
     }
-    { // PUBLIC_DATA_TREE_SIZE_CONTINUITY
+    { // NUM_NULLIFIERS_EMITTED_CONTINUITY
         using Accumulator = typename std::tuple_element_t<31, ContainerOverSubrelations>;
         auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
-                   (in.get(C::tx_next_public_data_tree_size) - in.get(C::tx_prev_public_data_tree_size_shift));
+                   (in.get(C::tx_next_num_nullifiers_emitted) - in.get(C::tx_prev_num_nullifiers_emitted_shift));
         tmp *= scaling_factor;
         std::get<31>(evals) += typename Accumulator::View(tmp);
     }
-    { // WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY
+    { // PUBLIC_DATA_TREE_ROOT_CONTINUITY
         using Accumulator = typename std::tuple_element_t<32, ContainerOverSubrelations>;
+        auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
+                   (in.get(C::tx_next_public_data_tree_root) - in.get(C::tx_prev_public_data_tree_root_shift));
+        tmp *= scaling_factor;
+        std::get<32>(evals) += typename Accumulator::View(tmp);
+    }
+    { // PUBLIC_DATA_TREE_SIZE_CONTINUITY
+        using Accumulator = typename std::tuple_element_t<33, ContainerOverSubrelations>;
+        auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
+                   (in.get(C::tx_next_public_data_tree_size) - in.get(C::tx_prev_public_data_tree_size_shift));
+        tmp *= scaling_factor;
+        std::get<33>(evals) += typename Accumulator::View(tmp);
+    }
+    { // WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY
+        using Accumulator = typename std::tuple_element_t<34, ContainerOverSubrelations>;
         auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
                    (in.get(C::tx_next_written_public_data_slots_tree_root) -
                     in.get(C::tx_prev_written_public_data_slots_tree_root_shift));
         tmp *= scaling_factor;
-        std::get<32>(evals) += typename Accumulator::View(tmp);
+        std::get<34>(evals) += typename Accumulator::View(tmp);
     }
     { // WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY
-        using Accumulator = typename std::tuple_element_t<33, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<35, ContainerOverSubrelations>;
         auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
                    (in.get(C::tx_next_written_public_data_slots_tree_size) -
                     in.get(C::tx_prev_written_public_data_slots_tree_size_shift));
         tmp *= scaling_factor;
-        std::get<33>(evals) += typename Accumulator::View(tmp);
-    }
-    { // L1_L2_TREE_ROOT_CONTINUITY
-        using Accumulator = typename std::tuple_element_t<34, ContainerOverSubrelations>;
-        auto tmp = tx_NOT_LAST_ROW * (in.get(C::tx_l1_l2_tree_root) - in.get(C::tx_l1_l2_tree_root_shift));
-        tmp *= scaling_factor;
-        std::get<34>(evals) += typename Accumulator::View(tmp);
-    }
-    { // NUM_UNENCRYPTED_LOGS_CONTINUITY
-        using Accumulator = typename std::tuple_element_t<35, ContainerOverSubrelations>;
-        auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
-                   (in.get(C::tx_next_num_unencrypted_logs) - in.get(C::tx_prev_num_unencrypted_logs_shift));
-        tmp *= scaling_factor;
         std::get<35>(evals) += typename Accumulator::View(tmp);
     }
-    { // NUM_L2_TO_L1_MESSAGES_CONTINUITY
+    { // L1_L2_TREE_ROOT_CONTINUITY
         using Accumulator = typename std::tuple_element_t<36, ContainerOverSubrelations>;
-        auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
-                   (in.get(C::tx_next_num_l2_to_l1_messages) - in.get(C::tx_prev_num_l2_to_l1_messages_shift));
+        auto tmp = tx_NOT_LAST_ROW * (in.get(C::tx_l1_l2_tree_root) - in.get(C::tx_l1_l2_tree_root_shift));
         tmp *= scaling_factor;
         std::get<36>(evals) += typename Accumulator::View(tmp);
     }
-    {
+    { // RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY
         using Accumulator = typename std::tuple_element_t<37, ContainerOverSubrelations>;
-        auto tmp = in.get(C::tx_sel) * (FF(4) - in.get(C::tx_setup_phase_value));
+        auto tmp = tx_NOT_LAST_ROW * (in.get(C::tx_next_retrieved_bytecodes_tree_root) -
+                                      in.get(C::tx_prev_retrieved_bytecodes_tree_root_shift));
         tmp *= scaling_factor;
         std::get<37>(evals) += typename Accumulator::View(tmp);
     }
-    { // PROPAGATE_L2_GAS_USED
+    { // RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY
         using Accumulator = typename std::tuple_element_t<38, ContainerOverSubrelations>;
-        auto tmp = tx_NOT_LAST_ROW * (in.get(C::tx_next_l2_gas_used) - in.get(C::tx_prev_l2_gas_used_shift));
+        auto tmp = tx_NOT_LAST_ROW * (in.get(C::tx_next_retrieved_bytecodes_tree_size) -
+                                      in.get(C::tx_prev_retrieved_bytecodes_tree_size_shift));
         tmp *= scaling_factor;
         std::get<38>(evals) += typename Accumulator::View(tmp);
     }
-    { // PROPAGATE_DA_GAS_USED
+    { // NUM_UNENCRYPTED_LOGS_CONTINUITY
         using Accumulator = typename std::tuple_element_t<39, ContainerOverSubrelations>;
-        auto tmp = tx_NOT_LAST_ROW * (in.get(C::tx_next_da_gas_used) - in.get(C::tx_prev_da_gas_used_shift));
+        auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
+                   (in.get(C::tx_next_num_unencrypted_logs) - in.get(C::tx_prev_num_unencrypted_logs_shift));
         tmp *= scaling_factor;
         std::get<39>(evals) += typename Accumulator::View(tmp);
     }
-    { // PROPAGATE_L2_GAS_LIMIT
+    { // NUM_L2_TO_L1_MESSAGES_CONTINUITY
         using Accumulator = typename std::tuple_element_t<40, ContainerOverSubrelations>;
-        auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_is_teardown_phase_shift)) *
-                   (in.get(C::tx_l2_gas_limit) - in.get(C::tx_l2_gas_limit_shift));
+        auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
+                   (in.get(C::tx_next_num_l2_to_l1_messages) - in.get(C::tx_prev_num_l2_to_l1_messages_shift));
         tmp *= scaling_factor;
         std::get<40>(evals) += typename Accumulator::View(tmp);
     }
-    { // PROPAGATE_DA_GAS_LIMIT
+    {
         using Accumulator = typename std::tuple_element_t<41, ContainerOverSubrelations>;
-        auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_is_teardown_phase_shift)) *
-                   (in.get(C::tx_da_gas_limit) - in.get(C::tx_da_gas_limit_shift));
+        auto tmp = in.get(C::tx_sel) * (FF(4) - in.get(C::tx_setup_phase_value));
         tmp *= scaling_factor;
         std::get<41>(evals) += typename Accumulator::View(tmp);
     }
-    { // NOTE_HASH_ROOT_IMMUTABILITY
+    { // PROPAGATE_L2_GAS_USED
         using Accumulator = typename std::tuple_element_t<42, ContainerOverSubrelations>;
-        auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_note_hash)) *
-                   (in.get(C::tx_prev_note_hash_tree_root) - in.get(C::tx_next_note_hash_tree_root));
+        auto tmp = tx_NOT_LAST_ROW * (in.get(C::tx_next_l2_gas_used) - in.get(C::tx_prev_l2_gas_used_shift));
         tmp *= scaling_factor;
         std::get<42>(evals) += typename Accumulator::View(tmp);
     }
-    { // NOTE_HASH_SIZE_IMMUTABILITY
+    { // PROPAGATE_DA_GAS_USED
         using Accumulator = typename std::tuple_element_t<43, ContainerOverSubrelations>;
-        auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_note_hash)) *
-                   (in.get(C::tx_prev_note_hash_tree_size) - in.get(C::tx_next_note_hash_tree_size));
+        auto tmp = tx_NOT_LAST_ROW * (in.get(C::tx_next_da_gas_used) - in.get(C::tx_prev_da_gas_used_shift));
         tmp *= scaling_factor;
         std::get<43>(evals) += typename Accumulator::View(tmp);
     }
-    { // NOTE_HASH_COUNT_IMMUTABILITY
+    { // PROPAGATE_L2_GAS_LIMIT
         using Accumulator = typename std::tuple_element_t<44, ContainerOverSubrelations>;
-        auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_note_hash)) *
-                   (in.get(C::tx_prev_num_note_hashes_emitted) - in.get(C::tx_next_num_note_hashes_emitted));
+        auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_is_teardown_phase_shift)) *
+                   (in.get(C::tx_l2_gas_limit) - in.get(C::tx_l2_gas_limit_shift));
         tmp *= scaling_factor;
         std::get<44>(evals) += typename Accumulator::View(tmp);
     }
-    { // NULLIFIER_ROOT_IMMUTABILITY
+    { // PROPAGATE_DA_GAS_LIMIT
         using Accumulator = typename std::tuple_element_t<45, ContainerOverSubrelations>;
-        auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_nullifier)) *
-                   (in.get(C::tx_prev_nullifier_tree_root) - in.get(C::tx_next_nullifier_tree_root));
+        auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_is_teardown_phase_shift)) *
+                   (in.get(C::tx_da_gas_limit) - in.get(C::tx_da_gas_limit_shift));
         tmp *= scaling_factor;
         std::get<45>(evals) += typename Accumulator::View(tmp);
     }
-    { // NULLIFIER_SIZE_IMMUTABILITY
+    { // NOTE_HASH_ROOT_IMMUTABILITY
         using Accumulator = typename std::tuple_element_t<46, ContainerOverSubrelations>;
-        auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_nullifier)) *
-                   (in.get(C::tx_prev_nullifier_tree_size) - in.get(C::tx_next_nullifier_tree_size));
+        auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_note_hash)) *
+                   (in.get(C::tx_prev_note_hash_tree_root) - in.get(C::tx_next_note_hash_tree_root));
         tmp *= scaling_factor;
         std::get<46>(evals) += typename Accumulator::View(tmp);
     }
-    { // NULLIFIER_COUNT_IMMUTABILITY
+    { // NOTE_HASH_SIZE_IMMUTABILITY
         using Accumulator = typename std::tuple_element_t<47, ContainerOverSubrelations>;
-        auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_nullifier)) *
-                   (in.get(C::tx_prev_num_nullifiers_emitted) - in.get(C::tx_next_num_nullifiers_emitted));
+        auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_note_hash)) *
+                   (in.get(C::tx_prev_note_hash_tree_size) - in.get(C::tx_next_note_hash_tree_size));
         tmp *= scaling_factor;
         std::get<47>(evals) += typename Accumulator::View(tmp);
     }
-    { // PUBLIC_DATA_ROOT_IMMUTABILITY
+    { // NOTE_HASH_COUNT_IMMUTABILITY
         using Accumulator = typename std::tuple_element_t<48, ContainerOverSubrelations>;
-        auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_write_public_data)) *
-                   (in.get(C::tx_prev_public_data_tree_root) - in.get(C::tx_next_public_data_tree_root));
+        auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_note_hash)) *
+                   (in.get(C::tx_prev_num_note_hashes_emitted) - in.get(C::tx_next_num_note_hashes_emitted));
         tmp *= scaling_factor;
         std::get<48>(evals) += typename Accumulator::View(tmp);
     }
-    { // PUBLIC_DATA_SIZE_IMMUTABILITY
+    { // NULLIFIER_ROOT_IMMUTABILITY
         using Accumulator = typename std::tuple_element_t<49, ContainerOverSubrelations>;
-        auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_write_public_data)) *
-                   (in.get(C::tx_prev_public_data_tree_size) - in.get(C::tx_next_public_data_tree_size));
+        auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_nullifier)) *
+                   (in.get(C::tx_prev_nullifier_tree_root) - in.get(C::tx_next_nullifier_tree_root));
         tmp *= scaling_factor;
         std::get<49>(evals) += typename Accumulator::View(tmp);
     }
-    { // WRITTEN_PUBLIC_DATA_SLOTS_ROOT_IMMUTABILITY
+    { // NULLIFIER_SIZE_IMMUTABILITY
         using Accumulator = typename std::tuple_element_t<50, ContainerOverSubrelations>;
-        auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_write_public_data)) *
-                   (in.get(C::tx_prev_written_public_data_slots_tree_root) -
-                    in.get(C::tx_next_written_public_data_slots_tree_root));
+        auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_nullifier)) *
+                   (in.get(C::tx_prev_nullifier_tree_size) - in.get(C::tx_next_nullifier_tree_size));
         tmp *= scaling_factor;
         std::get<50>(evals) += typename Accumulator::View(tmp);
     }
-    { // WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY
+    { // NULLIFIER_COUNT_IMMUTABILITY
         using Accumulator = typename std::tuple_element_t<51, ContainerOverSubrelations>;
+        auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_nullifier)) *
+                   (in.get(C::tx_prev_num_nullifiers_emitted) - in.get(C::tx_next_num_nullifiers_emitted));
+        tmp *= scaling_factor;
+        std::get<51>(evals) += typename Accumulator::View(tmp);
+    }
+    { // PUBLIC_DATA_ROOT_IMMUTABILITY
+        using Accumulator = typename std::tuple_element_t<52, ContainerOverSubrelations>;
+        auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_write_public_data)) *
+                   (in.get(C::tx_prev_public_data_tree_root) - in.get(C::tx_next_public_data_tree_root));
+        tmp *= scaling_factor;
+        std::get<52>(evals) += typename Accumulator::View(tmp);
+    }
+    { // PUBLIC_DATA_SIZE_IMMUTABILITY
+        using Accumulator = typename std::tuple_element_t<53, ContainerOverSubrelations>;
+        auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_write_public_data)) *
+                   (in.get(C::tx_prev_public_data_tree_size) - in.get(C::tx_next_public_data_tree_size));
+        tmp *= scaling_factor;
+        std::get<53>(evals) += typename Accumulator::View(tmp);
+    }
+    { // WRITTEN_PUBLIC_DATA_SLOTS_ROOT_IMMUTABILITY
+        using Accumulator = typename std::tuple_element_t<54, ContainerOverSubrelations>;
+        auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_write_public_data)) *
+                   (in.get(C::tx_prev_written_public_data_slots_tree_root) -
+                    in.get(C::tx_next_written_public_data_slots_tree_root));
+        tmp *= scaling_factor;
+        std::get<54>(evals) += typename Accumulator::View(tmp);
+    }
+    { // WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY
+        using Accumulator = typename std::tuple_element_t<55, ContainerOverSubrelations>;
         auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_write_public_data)) *
                    (in.get(C::tx_prev_written_public_data_slots_tree_size) -
                     in.get(C::tx_next_written_public_data_slots_tree_size));
         tmp *= scaling_factor;
-        std::get<51>(evals) += typename Accumulator::View(tmp);
+        std::get<55>(evals) += typename Accumulator::View(tmp);
     }
     { // UNENCRYPTED_LOG_COUNT_IMMUTABILITY
-        using Accumulator = typename std::tuple_element_t<52, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<56, ContainerOverSubrelations>;
         auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_unencrypted_log)) *
                    (in.get(C::tx_prev_num_unencrypted_logs) - in.get(C::tx_next_num_unencrypted_logs));
         tmp *= scaling_factor;
-        std::get<52>(evals) += typename Accumulator::View(tmp);
+        std::get<56>(evals) += typename Accumulator::View(tmp);
     }
     { // L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY
-        using Accumulator = typename std::tuple_element_t<53, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<57, ContainerOverSubrelations>;
         auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_l2_l1_msg)) *
                    (in.get(C::tx_prev_num_l2_to_l1_messages) - in.get(C::tx_next_num_l2_to_l1_messages));
         tmp *= scaling_factor;
-        std::get<53>(evals) += typename Accumulator::View(tmp);
-    }
-    { // NOTE_HASH_ROOT_PADDED_IMMUTABILITY
-        using Accumulator = typename std::tuple_element_t<54, ContainerOverSubrelations>;
-        auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
-                   (in.get(C::tx_prev_note_hash_tree_root) - in.get(C::tx_next_note_hash_tree_root));
-        tmp *= scaling_factor;
-        std::get<54>(evals) += typename Accumulator::View(tmp);
-    }
-    { // NOTE_HASH_SIZE_PADDED_IMMUTABILITY
-        using Accumulator = typename std::tuple_element_t<55, ContainerOverSubrelations>;
-        auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
-                   (in.get(C::tx_prev_note_hash_tree_size) - in.get(C::tx_next_note_hash_tree_size));
-        tmp *= scaling_factor;
-        std::get<55>(evals) += typename Accumulator::View(tmp);
-    }
-    { // NOTE_HASH_COUNT_PADDED_IMMUTABILITY
-        using Accumulator = typename std::tuple_element_t<56, ContainerOverSubrelations>;
-        auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
-                   (in.get(C::tx_prev_num_note_hashes_emitted) - in.get(C::tx_next_num_note_hashes_emitted));
-        tmp *= scaling_factor;
-        std::get<56>(evals) += typename Accumulator::View(tmp);
-    }
-    { // NULLIFIER_ROOT_PADDED_IMMUTABILITY
-        using Accumulator = typename std::tuple_element_t<57, ContainerOverSubrelations>;
-        auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
-                   (in.get(C::tx_prev_nullifier_tree_root) - in.get(C::tx_next_nullifier_tree_root));
-        tmp *= scaling_factor;
         std::get<57>(evals) += typename Accumulator::View(tmp);
     }
-    { // NULLIFIER_SIZE_PADDED_IMMUTABILITY
+    { // RETRIEVED_BYTECODES_TREE_ROOT_IMMUTABILITY
         using Accumulator = typename std::tuple_element_t<58, ContainerOverSubrelations>;
-        auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
-                   (in.get(C::tx_prev_nullifier_tree_size) - in.get(C::tx_next_nullifier_tree_size));
+        auto tmp =
+            in.get(C::tx_sel) * (FF(1) - in.get(C::tx_should_process_call_request)) *
+            (in.get(C::tx_prev_retrieved_bytecodes_tree_root) - in.get(C::tx_next_retrieved_bytecodes_tree_root));
         tmp *= scaling_factor;
         std::get<58>(evals) += typename Accumulator::View(tmp);
     }
-    { // NULLIFIER_COUNT_PADDED_IMMUTABILITY
+    { // RETRIEVED_BYTECODES_TREE_SIZE_IMMUTABILITY
         using Accumulator = typename std::tuple_element_t<59, ContainerOverSubrelations>;
-        auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
-                   (in.get(C::tx_prev_num_nullifiers_emitted) - in.get(C::tx_next_num_nullifiers_emitted));
+        auto tmp =
+            in.get(C::tx_sel) * (FF(1) - in.get(C::tx_should_process_call_request)) *
+            (in.get(C::tx_prev_retrieved_bytecodes_tree_size) - in.get(C::tx_next_retrieved_bytecodes_tree_size));
         tmp *= scaling_factor;
         std::get<59>(evals) += typename Accumulator::View(tmp);
     }
-    { // PUBLIC_DATA_ROOT_PADDED_IMMUTABILITY
+    { // NOTE_HASH_ROOT_PADDED_IMMUTABILITY
         using Accumulator = typename std::tuple_element_t<60, ContainerOverSubrelations>;
         auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
-                   (in.get(C::tx_prev_public_data_tree_root) - in.get(C::tx_next_public_data_tree_root));
+                   (in.get(C::tx_prev_note_hash_tree_root) - in.get(C::tx_next_note_hash_tree_root));
         tmp *= scaling_factor;
         std::get<60>(evals) += typename Accumulator::View(tmp);
     }
-    { // PUBLIC_DATA_SIZE_PADDED_IMMUTABILITY
+    { // NOTE_HASH_SIZE_PADDED_IMMUTABILITY
         using Accumulator = typename std::tuple_element_t<61, ContainerOverSubrelations>;
         auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
-                   (in.get(C::tx_prev_public_data_tree_size) - in.get(C::tx_next_public_data_tree_size));
+                   (in.get(C::tx_prev_note_hash_tree_size) - in.get(C::tx_next_note_hash_tree_size));
         tmp *= scaling_factor;
         std::get<61>(evals) += typename Accumulator::View(tmp);
     }
-    { // WRITTEN_PUBLIC_DATA_SLOTS_ROOT_PADDED_IMMUTABILITY
+    { // NOTE_HASH_COUNT_PADDED_IMMUTABILITY
         using Accumulator = typename std::tuple_element_t<62, ContainerOverSubrelations>;
+        auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
+                   (in.get(C::tx_prev_num_note_hashes_emitted) - in.get(C::tx_next_num_note_hashes_emitted));
+        tmp *= scaling_factor;
+        std::get<62>(evals) += typename Accumulator::View(tmp);
+    }
+    { // NULLIFIER_ROOT_PADDED_IMMUTABILITY
+        using Accumulator = typename std::tuple_element_t<63, ContainerOverSubrelations>;
+        auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
+                   (in.get(C::tx_prev_nullifier_tree_root) - in.get(C::tx_next_nullifier_tree_root));
+        tmp *= scaling_factor;
+        std::get<63>(evals) += typename Accumulator::View(tmp);
+    }
+    { // NULLIFIER_SIZE_PADDED_IMMUTABILITY
+        using Accumulator = typename std::tuple_element_t<64, ContainerOverSubrelations>;
+        auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
+                   (in.get(C::tx_prev_nullifier_tree_size) - in.get(C::tx_next_nullifier_tree_size));
+        tmp *= scaling_factor;
+        std::get<64>(evals) += typename Accumulator::View(tmp);
+    }
+    { // NULLIFIER_COUNT_PADDED_IMMUTABILITY
+        using Accumulator = typename std::tuple_element_t<65, ContainerOverSubrelations>;
+        auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
+                   (in.get(C::tx_prev_num_nullifiers_emitted) - in.get(C::tx_next_num_nullifiers_emitted));
+        tmp *= scaling_factor;
+        std::get<65>(evals) += typename Accumulator::View(tmp);
+    }
+    { // PUBLIC_DATA_ROOT_PADDED_IMMUTABILITY
+        using Accumulator = typename std::tuple_element_t<66, ContainerOverSubrelations>;
+        auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
+                   (in.get(C::tx_prev_public_data_tree_root) - in.get(C::tx_next_public_data_tree_root));
+        tmp *= scaling_factor;
+        std::get<66>(evals) += typename Accumulator::View(tmp);
+    }
+    { // PUBLIC_DATA_SIZE_PADDED_IMMUTABILITY
+        using Accumulator = typename std::tuple_element_t<67, ContainerOverSubrelations>;
+        auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
+                   (in.get(C::tx_prev_public_data_tree_size) - in.get(C::tx_next_public_data_tree_size));
+        tmp *= scaling_factor;
+        std::get<67>(evals) += typename Accumulator::View(tmp);
+    }
+    { // WRITTEN_PUBLIC_DATA_SLOTS_ROOT_PADDED_IMMUTABILITY
+        using Accumulator = typename std::tuple_element_t<68, ContainerOverSubrelations>;
         auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
                    (in.get(C::tx_prev_written_public_data_slots_tree_root) -
                     in.get(C::tx_next_written_public_data_slots_tree_root));
         tmp *= scaling_factor;
-        std::get<62>(evals) += typename Accumulator::View(tmp);
+        std::get<68>(evals) += typename Accumulator::View(tmp);
     }
     { // WRITTEN_PUBLIC_DATA_SLOTS_SIZE_PADDED_IMMUTABILITY
-        using Accumulator = typename std::tuple_element_t<63, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<69, ContainerOverSubrelations>;
         auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
                    (in.get(C::tx_prev_written_public_data_slots_tree_size) -
                     in.get(C::tx_next_written_public_data_slots_tree_size));
         tmp *= scaling_factor;
-        std::get<63>(evals) += typename Accumulator::View(tmp);
+        std::get<69>(evals) += typename Accumulator::View(tmp);
     }
     { // UNENCRYPTED_LOG_COUNT_PADDED_IMMUTABILITY
-        using Accumulator = typename std::tuple_element_t<64, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<70, ContainerOverSubrelations>;
         auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
                    (in.get(C::tx_prev_num_unencrypted_logs) - in.get(C::tx_next_num_unencrypted_logs));
         tmp *= scaling_factor;
-        std::get<64>(evals) += typename Accumulator::View(tmp);
+        std::get<70>(evals) += typename Accumulator::View(tmp);
     }
     { // L2_TO_L1_MESSAGE_COUNT_PADDED_IMMUTABILITY
-        using Accumulator = typename std::tuple_element_t<65, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<71, ContainerOverSubrelations>;
         auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
                    (in.get(C::tx_prev_num_l2_to_l1_messages) - in.get(C::tx_next_num_l2_to_l1_messages));
         tmp *= scaling_factor;
-        std::get<65>(evals) += typename Accumulator::View(tmp);
+        std::get<71>(evals) += typename Accumulator::View(tmp);
     }
     { // L2_GAS_USED_IMMUTABILITY
-        using Accumulator = typename std::tuple_element_t<66, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<72, ContainerOverSubrelations>;
         auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_should_process_call_request)) *
                    (in.get(C::tx_prev_l2_gas_used) - in.get(C::tx_next_l2_gas_used));
         tmp *= scaling_factor;
-        std::get<66>(evals) += typename Accumulator::View(tmp);
+        std::get<72>(evals) += typename Accumulator::View(tmp);
     }
     { // DA_GAS_USED_IMMUTABILITY
-        using Accumulator = typename std::tuple_element_t<67, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<73, ContainerOverSubrelations>;
         auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_should_process_call_request)) *
                    (in.get(C::tx_prev_da_gas_used) - in.get(C::tx_next_da_gas_used));
         tmp *= scaling_factor;
-        std::get<67>(evals) += typename Accumulator::View(tmp);
+        std::get<73>(evals) += typename Accumulator::View(tmp);
     }
     {
-        using Accumulator = typename std::tuple_element_t<68, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<74, ContainerOverSubrelations>;
         auto tmp = in.get(C::tx_is_cleanup) *
                    (constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX -
                     in.get(C::tx_array_length_note_hashes_pi_offset));
         tmp *= scaling_factor;
-        std::get<68>(evals) += typename Accumulator::View(tmp);
+        std::get<74>(evals) += typename Accumulator::View(tmp);
     }
     {
-        using Accumulator = typename std::tuple_element_t<69, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<75, ContainerOverSubrelations>;
         auto tmp = in.get(C::tx_is_cleanup) *
                    (constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX -
                     in.get(C::tx_array_length_nullifiers_pi_offset));
         tmp *= scaling_factor;
-        std::get<69>(evals) += typename Accumulator::View(tmp);
+        std::get<75>(evals) += typename Accumulator::View(tmp);
     }
     {
-        using Accumulator = typename std::tuple_element_t<70, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<76, ContainerOverSubrelations>;
         auto tmp = in.get(C::tx_is_cleanup) *
                    (constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX -
                     in.get(C::tx_array_length_l2_to_l1_messages_pi_offset));
         tmp *= scaling_factor;
-        std::get<70>(evals) += typename Accumulator::View(tmp);
+        std::get<76>(evals) += typename Accumulator::View(tmp);
     }
     {
-        using Accumulator = typename std::tuple_element_t<71, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<77, ContainerOverSubrelations>;
         auto tmp = in.get(C::tx_is_cleanup) *
                    (constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_LOGS_ROW_IDX -
                     in.get(C::tx_array_length_unencrypted_logs_pi_offset));
         tmp *= scaling_factor;
-        std::get<71>(evals) += typename Accumulator::View(tmp);
+        std::get<77>(evals) += typename Accumulator::View(tmp);
     }
     { // NEXT_CONTEXT_ID_INITIAL_VALUE
-        using Accumulator = typename std::tuple_element_t<72, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<78, ContainerOverSubrelations>;
         auto tmp = in.get(C::tx_start_tx) * (FF(1) - in.get(C::tx_next_context_id));
         tmp *= scaling_factor;
-        std::get<72>(evals) += typename Accumulator::View(tmp);
+        std::get<78>(evals) += typename Accumulator::View(tmp);
     }
     { // NEXT_CONTEXT_ID_CONTINUITY
-        using Accumulator = typename std::tuple_element_t<73, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<79, ContainerOverSubrelations>;
         auto tmp = tx_NOT_LAST * (FF(1) - in.get(C::tx_should_process_call_request)) *
                    (in.get(C::tx_next_context_id_shift) - in.get(C::tx_next_context_id));
         tmp *= scaling_factor;
-        std::get<73>(evals) += typename Accumulator::View(tmp);
+        std::get<79>(evals) += typename Accumulator::View(tmp);
     }
 }
 

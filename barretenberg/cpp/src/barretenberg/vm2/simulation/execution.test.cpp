@@ -271,7 +271,7 @@ TEST_F(ExecutionSimulationTest, Call)
     EXPECT_CALL(context, get_context_id);
     EXPECT_CALL(context, get_parent_id);
     EXPECT_CALL(context, get_bytecode_manager).WillOnce(ReturnRef(bytecode_manager));
-    EXPECT_CALL(bytecode_manager, try_get_bytecode_id);
+    EXPECT_CALL(bytecode_manager, get_retrieved_bytecode_id).WillOnce(Return(FF(1)));
     EXPECT_CALL(context, get_next_pc);
     EXPECT_CALL(context, get_is_static).WillRepeatedly(Return(false));
     EXPECT_CALL(context, get_msg_sender).WillOnce(ReturnRef(parent_address));
@@ -348,7 +348,7 @@ TEST_F(ExecutionSimulationTest, ExternalCallStaticnessPropagation)
         EXPECT_CALL(context, get_context_id);
         EXPECT_CALL(context, get_parent_id);
         EXPECT_CALL(context, get_bytecode_manager).WillOnce(ReturnRef(bytecode_manager));
-        EXPECT_CALL(bytecode_manager, try_get_bytecode_id);
+        EXPECT_CALL(bytecode_manager, get_retrieved_bytecode_id).WillOnce(Return(FF(1)));
         EXPECT_CALL(context, get_next_pc);
         EXPECT_CALL(context, get_is_static).WillRepeatedly(Return(parent_is_static));
         EXPECT_CALL(context, get_msg_sender).WillOnce(ReturnRef(parent_address));

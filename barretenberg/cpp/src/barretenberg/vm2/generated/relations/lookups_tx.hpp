@@ -148,7 +148,7 @@ using lookup_tx_read_public_call_request_phase_relation =
 struct lookup_tx_dispatch_exec_start_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_DISPATCH_EXEC_START";
     static constexpr std::string_view RELATION_NAME = "tx";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 23;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 25;
     static constexpr Column SRC_SELECTOR = Column::tx_should_process_call_request;
     static constexpr Column DST_SELECTOR = Column::execution_enqueued_call_start;
     static constexpr Column COUNTS = Column::lookup_tx_dispatch_exec_start_counts;
@@ -171,6 +171,8 @@ struct lookup_tx_dispatch_exec_start_settings_ {
         ColumnAndShifts::tx_prev_written_public_data_slots_tree_root,
         ColumnAndShifts::tx_prev_written_public_data_slots_tree_size,
         ColumnAndShifts::tx_l1_l2_tree_root,
+        ColumnAndShifts::tx_prev_retrieved_bytecodes_tree_root,
+        ColumnAndShifts::tx_prev_retrieved_bytecodes_tree_size,
         ColumnAndShifts::tx_prev_num_unencrypted_logs,
         ColumnAndShifts::tx_prev_num_l2_to_l1_messages,
         ColumnAndShifts::tx_prev_l2_gas_used_sent_to_enqueued_call,
@@ -196,6 +198,8 @@ struct lookup_tx_dispatch_exec_start_settings_ {
         ColumnAndShifts::execution_prev_written_public_data_slots_tree_root,
         ColumnAndShifts::execution_prev_written_public_data_slots_tree_size,
         ColumnAndShifts::execution_l1_l2_tree_root,
+        ColumnAndShifts::execution_prev_retrieved_bytecodes_tree_root,
+        ColumnAndShifts::execution_prev_retrieved_bytecodes_tree_size,
         ColumnAndShifts::execution_prev_num_unencrypted_logs,
         ColumnAndShifts::execution_prev_num_l2_to_l1_messages,
         ColumnAndShifts::execution_prev_l2_gas_used,
@@ -214,7 +218,7 @@ using lookup_tx_dispatch_exec_start_relation = lookup_relation_base<FF_, lookup_
 struct lookup_tx_dispatch_exec_end_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_DISPATCH_EXEC_END";
     static constexpr std::string_view RELATION_NAME = "tx";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 19;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 21;
     static constexpr Column SRC_SELECTOR = Column::tx_should_process_call_request;
     static constexpr Column DST_SELECTOR = Column::execution_enqueued_call_end;
     static constexpr Column COUNTS = Column::lookup_tx_dispatch_exec_end_counts;
@@ -235,6 +239,8 @@ struct lookup_tx_dispatch_exec_end_settings_ {
         ColumnAndShifts::tx_next_written_public_data_slots_tree_root,
         ColumnAndShifts::tx_next_written_public_data_slots_tree_size,
         ColumnAndShifts::tx_l1_l2_tree_root,
+        ColumnAndShifts::tx_next_retrieved_bytecodes_tree_root,
+        ColumnAndShifts::tx_next_retrieved_bytecodes_tree_size,
         ColumnAndShifts::tx_next_num_unencrypted_logs,
         ColumnAndShifts::tx_next_num_l2_to_l1_messages,
         ColumnAndShifts::tx_next_l2_gas_used_sent_to_enqueued_call,
@@ -256,6 +262,8 @@ struct lookup_tx_dispatch_exec_end_settings_ {
         ColumnAndShifts::execution_written_public_data_slots_tree_root,
         ColumnAndShifts::execution_written_public_data_slots_tree_size,
         ColumnAndShifts::execution_l1_l2_tree_root,
+        ColumnAndShifts::execution_retrieved_bytecodes_tree_root,
+        ColumnAndShifts::execution_retrieved_bytecodes_tree_size,
         ColumnAndShifts::execution_num_unencrypted_logs,
         ColumnAndShifts::execution_num_l2_to_l1_messages,
         ColumnAndShifts::execution_l2_gas_used,
