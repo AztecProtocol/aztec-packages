@@ -3,7 +3,6 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
-#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 
 using namespace bb;

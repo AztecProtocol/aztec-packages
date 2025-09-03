@@ -18,22 +18,62 @@ template <typename Flavor> class Poseidon2FailureTests : public ::testing::Test 
     using SubrelationSeparators = Flavor::SubrelationSeparators;
     using RelationParameters = RelationParameters<FF>;
 
-    void modify_polynomial(auto& selector)
+    void modify_selector(auto& selector)
     {
         size_t start_idx = selector.start_index();
         size_t end_idx = selector.end_index();
 
+        // Flip the first non-zero selector value.
         for (size_t idx = start_idx; idx < end_idx; idx++) {
             if (selector.at(idx) == 1) {
                 selector.at(idx) = 0;
-                continue;
+                break;
             }
         }
     }
 
-    void hash_input(Builder builder)
+    void modify_witness(const auto& selector, auto& witness)
+    {
+        size_t start_idx = selector.start_index();
+        size_t end_idx = selector.end_index();
+
+        size_t selector_enabled_idx{ 0 };
+        // Find the first row index where the selector is enabled.
+        for (size_t idx = start_idx; idx < end_idx; idx++) {
+            if (selector.at(idx) == 1) {
+                selector_enabled_idx = idx;
+                break;
+            }
+        }
+        // Modify the witness
+        witness.at(selector_enabled_idx) += 1;
+    }
+    void tamper_with_shifts(const auto& selector, auto& witness, bool external)
+    {
+        size_t start_idx = selector.start_index();
+        size_t end_idx = selector.end_index();
+
+        size_t selector_enabled_idx{ 0 };
+
+        for (size_t idx = start_idx; idx < end_idx; idx++) {
+            if (selector.at(idx) == 1) {
+                selector_enabled_idx = idx;
+                break;
+            }
+        }
+        const size_t round_size = external ? 4 : 56;
+        size_t shift_idx = selector_enabled_idx + round_size;
+        // The selector must be zero at the row corresponding to the shift.
+        EXPECT_EQ(selector.at(shift_idx), 0);
+        // Modify the witness value. As Poseidon2ExternalRelation is comparing this value to the result of applying the
+        // S-box and M_E to the previous row, this must lead to a sumcheck failure.
+        witness.at(shift_idx) += 1;
+    }
+
+    void hash_input(Builder& builder)
     {
         stdlib::field_t<Builder> random_input(stdlib::witness_t<Builder>(&builder, fr::random_element()));
+        random_input.fix_witness();
         [[maybe_unused]] auto hash = stdlib::poseidon2<Builder>::hash({ random_input });
     }
 
@@ -97,21 +137,70 @@ TYPED_TEST(Poseidon2FailureTests, WrongSelectorValues)
 
     Builder builder{};
 
+    // Construct a circuit that hashes a single witness field element.
     TestFixture::hash_input(builder);
 
+    // Convert circuit to polynomials.
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    {
+        // Disable Poseidon2 External selector in the first active row
+        TestFixture::modify_selector(proving_key->polynomials.q_poseidon2_external);
 
-    TestFixture::modify_polynomial(proving_key->polynomials.q_poseidon2_external);
+        // Run sumcheck on the invalidated data
+        TestFixture::prove_and_verify(proving_key, false);
+    }
+    {
+        // Disable Poseidon2 Internal selector in the first active row
+        TestFixture::modify_selector(proving_key->polynomials.q_poseidon2_internal);
 
-    TestFixture::prove_and_verify(proving_key, false);
+        // Run sumcheck on the invalidated data
+        TestFixture::prove_and_verify(proving_key, false);
+    }
 }
 
 TYPED_TEST(Poseidon2FailureTests, WrongWitnessValues)
 {
-    // auto circuit_builder = UltraCircuitBuilder();
+    using Flavor = TypeParam;
+    using Builder = Flavor::CircuitBuilder;
+
+    Builder builder{};
+
+    TestFixture::hash_input(builder);
+
+    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    {
+        TestFixture::modify_witness(proving_key->polynomials.q_poseidon2_external, proving_key->polynomials.w_l);
+
+        TestFixture::prove_and_verify(proving_key, false);
+    }
+    {
+        TestFixture::modify_witness(proving_key->polynomials.q_poseidon2_internal, proving_key->polynomials.w_r);
+
+        TestFixture::prove_and_verify(proving_key, false);
+    }
 }
 
-TYPED_TEST(Poseidon2FailureTests, TamperingWithDomainSeparation)
+TYPED_TEST(Poseidon2FailureTests, TamperingWithShifts)
 {
-    // auto builder = UltraCircuitBuilder();
+    using Flavor = TypeParam;
+    using Builder = Flavor::CircuitBuilder;
+
+    Builder builder{};
+
+    TestFixture::hash_input(builder);
+
+    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    {
+        TestFixture::tamper_with_shifts(
+            proving_key->polynomials.q_poseidon2_external, proving_key->polynomials.w_l, true);
+
+        TestFixture::prove_and_verify(proving_key, false);
+    }
+
+    {
+        TestFixture::tamper_with_shifts(
+            proving_key->polynomials.q_poseidon2_internal, proving_key->polynomials.w_l, false);
+
+        TestFixture::prove_and_verify(proving_key, false);
+    }
 }
