@@ -72,28 +72,18 @@ void KeccakF1600::permutation(MemoryInterface& memory, MemoryAddress dst_addr, M
     keccakf1600_event.src_addr = src_addr;
 
     try {
-        // We need to perform two range checks to determine whether dst_addr and src_addr correspond to
-        // a memory slice which is out-of-range. This is a clear circuit leakage into simulation.
+        // We need to perform two bound checks to determine whether dst_addr and src_addr correspond to
+        // a memory slice which is out-of-range.
         constexpr MemoryAddress HIGHEST_SLICE_ADDRESS = AVM_HIGHEST_MEM_ADDRESS - AVM_KECCAKF1600_STATE_SIZE + 1;
-        bool src_out_of_range = src_addr > HIGHEST_SLICE_ADDRESS;
-        bool dst_out_of_range = dst_addr > HIGHEST_SLICE_ADDRESS;
 
-        MemoryAddress src_abs_diff =
-            src_out_of_range ? src_addr - HIGHEST_SLICE_ADDRESS - 1 : HIGHEST_SLICE_ADDRESS - src_addr;
-        MemoryAddress dst_abs_diff =
-            dst_out_of_range ? dst_addr - HIGHEST_SLICE_ADDRESS - 1 : HIGHEST_SLICE_ADDRESS - dst_addr;
+        // We group both possible out-of-range errors in the same temporality group.
+        // Therefore, we perform both bound checks no matter what.
+        bool src_out_of_range = gt.gt(static_cast<uint128_t>(src_addr), static_cast<uint128_t>(HIGHEST_SLICE_ADDRESS));
+        bool dst_out_of_range = gt.gt(static_cast<uint128_t>(dst_addr), static_cast<uint128_t>(HIGHEST_SLICE_ADDRESS));
 
         keccakf1600_event.src_out_of_range = src_out_of_range;
         keccakf1600_event.dst_out_of_range = dst_out_of_range;
-        keccakf1600_event.src_abs_diff = src_abs_diff;
-        keccakf1600_event.dst_abs_diff = dst_abs_diff;
-
         keccakf1600_event.space_id = memory.get_space_id();
-
-        // We group both possible out-of-range errors in the same temporality group.
-        // Therefore, we perform both range checks no matter what.
-        range_check.assert_range(src_abs_diff, AVM_MEMORY_NUM_BITS);
-        range_check.assert_range(dst_abs_diff, AVM_MEMORY_NUM_BITS);
 
         if (src_out_of_range) {
             throw KeccakF1600Exception(format("Read slice out of range: ", src_addr));
