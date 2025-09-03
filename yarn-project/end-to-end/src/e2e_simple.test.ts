@@ -1,6 +1,5 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
 import { AztecAddress, type AztecNode, ContractDeployer, Fr, type Wallet, waitForProven } from '@aztec/aztec.js';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 
 import { jest } from '@jest/globals';
@@ -32,7 +31,6 @@ describe('e2e_simple', () => {
         config,
         aztecNode,
       } = await setup(1, {
-        customForwarderContractAddress: EthAddress.ZERO,
         archiverPollingIntervalMS: 200,
         transactionPollingIntervalMS: 200,
         worldStateBlockCheckIntervalMS: 200,

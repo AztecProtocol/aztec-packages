@@ -37,13 +37,8 @@ export async function startProverNode(
     ...extractRelevantOptions<ProverNodeConfig>(options, proverNodeConfigMappings, 'proverNode'), // override with command line options
   };
 
-  if (!options.archiver && !proverConfig.archiverUrl) {
-    userLog('--archiver.archiverUrl is required to start a Prover Node without --archiver option');
-    process.exit(1);
-  }
-
   if (!proverConfig.l1Contracts.registryAddress || proverConfig.l1Contracts.registryAddress.isZero()) {
-    throw new Error('L1 registry address is required to start a Prover Node with --archiver option');
+    throw new Error('L1 registry address is required to start a Prover Node');
   }
 
   const followsCanonicalRollup = typeof proverConfig.rollupVersion !== 'number';

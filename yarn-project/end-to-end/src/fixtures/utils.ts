@@ -382,9 +382,7 @@ export type EndToEndContext = {
  */
 export async function setup(
   numberOfAccounts = 1,
-  opts: SetupOptions = {
-    customForwarderContractAddress: EthAddress.ZERO,
-  },
+  opts: SetupOptions = {},
   pxeOpts: Partial<PXEServiceConfig> = {},
   chain: Chain = foundry,
 ): Promise<EndToEndContext> {

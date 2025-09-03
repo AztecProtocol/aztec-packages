@@ -1,26 +1,25 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
-import { faucetConfigMapping } from '@aztec/aztec-faucet/config';
 import { sequencerClientConfigMappings } from '@aztec/aztec-node/config';
 import { blobSinkConfigMappings } from '@aztec/blob-sink/server';
 import { botConfigMappings } from '@aztec/bot/config';
+import { l1ContractAddressesMapping, l1ContractsConfigMappings, l1ReaderConfigMappings } from '@aztec/ethereum';
+import { getKeys } from '@aztec/foundation/collection';
 import {
   type ConfigMapping,
   type EnvVar,
-  SecretValue,
   booleanConfigHelper,
   isBooleanConfigValue,
   omitConfigMappings,
 } from '@aztec/foundation/config';
-import { type P2PConfig, bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p/config';
-import {
-  type ProverAgentConfig,
-  type ProverBrokerConfig,
-  proverAgentConfigMappings,
-  proverBrokerConfigMappings,
-} from '@aztec/prover-client/broker';
+import { dataConfigMappings } from '@aztec/kv-store/config';
+import { sharedNodeConfigMappings } from '@aztec/node-lib/config';
+import { bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p/config';
+import { proverAgentConfigMappings, proverBrokerConfigMappings } from '@aztec/prover-client/broker';
 import { proverNodeConfigMappings } from '@aztec/prover-node/config';
 import { allPxeConfigMappings } from '@aztec/pxe/config';
+import { chainConfigMappings } from '@aztec/stdlib/config';
 import { telemetryClientConfigMappings } from '@aztec/telemetry-client';
+import { worldStateConfigMappings } from '@aztec/world-state';
 
 import { DefaultMnemonic } from '../mnemonic.js';
 
@@ -30,7 +29,7 @@ export interface AztecStartOption {
   description: string;
   defaultValue: any;
   printDefault?: (val: any) => string;
-  envVar: EnvVar | undefined;
+  env: EnvVar | undefined;
   fallback?: EnvVar[];
   parseVal?: (val: string) => any;
 }
@@ -49,7 +48,7 @@ export const getOptions = (namespace: string, configMappings: Record<string, Con
       description,
       defaultValue: def,
       printDefault,
-      envVar: env,
+      env: env,
       fallback,
       parseVal: parseEnv,
     });
@@ -57,17 +56,38 @@ export const getOptions = (namespace: string, configMappings: Record<string, Con
   return options;
 };
 
+const configToFlag = (flag: string, configMapping: ConfigMapping, overrideDefaultValue?: any): AztecStartOption => {
+  if (!configMapping.isBoolean) {
+    flag += ' <value>';
+  }
+
+  const flagConfig: AztecStartOption = {
+    flag,
+    env: undefined,
+    defaultValue: undefined,
+    parseVal: configMapping.parseEnv,
+    ...configMapping,
+  };
+
+  if (overrideDefaultValue !== undefined) {
+    flagConfig.defaultValue = overrideDefaultValue;
+  }
+
+  return flagConfig;
+};
+
 // These are options used by multiple modules so should be inputted once
 export const universalOptions = [
-  'l1RpcUrls',
   'l1ConsensusHostUrls',
   'l1ConsensusHostApiKeys',
   'l1ConsensusHostApiKeyHeaders',
-  'l1ChainId',
-  'l1Contracts',
   'p2pEnabled',
-  'dataDirectory',
-  'dataStoreMapSizeKb',
+  ...getKeys(chainConfigMappings),
+  ...getKeys(l1ContractsConfigMappings),
+  ...getKeys(l1ContractAddressesMapping),
+  ...getKeys(l1ReaderConfigMappings),
+  ...getKeys(dataConfigMappings),
+  ...getKeys(worldStateConfigMappings),
 ];
 
 export const NETWORK_FLAG = 'network';
@@ -79,45 +99,39 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       flag: `--${NETWORK_FLAG} <value>`,
       description: 'Network to run Aztec on',
       defaultValue: undefined,
-      envVar: 'NETWORK',
+      env: 'NETWORK',
     },
-    {
-      flag: `--auto-update <value>`,
-      description: 'Configure auto updates',
-      envVar: 'AUTO_UPDATE',
-      defaultValue: 'disabled',
-    },
-    {
-      flag: `--auto-update-url <value>`,
-      description: 'Configure where to get updates from',
-      envVar: 'AUTO_UPDATE_URL',
-      defaultValue: undefined,
-    },
+
+    configToFlag('--auto-update', sharedNodeConfigMappings.autoUpdate),
+    configToFlag('--auto-update-url', sharedNodeConfigMappings.autoUpdateUrl),
+
+    configToFlag('--sync-mode', sharedNodeConfigMappings.syncMode),
+    configToFlag('--snapshots-url', sharedNodeConfigMappings.snapshotsUrl),
   ],
   SANDBOX: [
     {
       flag: '--sandbox',
       description: 'Starts Aztec Sandbox',
       defaultValue: undefined,
-      envVar: undefined,
+      env: undefined,
     },
     {
       flag: '--sandbox.noPXE',
       description: 'Do not expose PXE service on sandbox start',
-      envVar: 'NO_PXE',
+      env: 'NO_PXE',
       ...booleanConfigHelper(),
     },
     {
       flag: '--sandbox.l1Mnemonic <value>',
       description: 'Mnemonic for L1 accounts. Will be used ',
       defaultValue: DefaultMnemonic,
-      envVar: 'MNEMONIC',
+      env: 'MNEMONIC',
     },
     {
       flag: '--sandbox.deployAztecContractsSalt <value>',
       description:
         'Numeric salt for deploying L1 Aztec contracts before starting the sandbox. Needs mnemonic or private key to be set.',
-      envVar: 'DEPLOY_AZTEC_CONTRACTS_SALT',
+      env: 'DEPLOY_AZTEC_CONTRACTS_SALT',
       defaultValue: undefined,
       parseVal: (val: string) => (val ? parseInt(val) : undefined),
     },
@@ -127,120 +141,43 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       flag: '--port <value>',
       description: 'Port to run the Aztec Services on',
       defaultValue: 8080,
-      envVar: 'AZTEC_PORT',
+      env: 'AZTEC_PORT',
       parseVal: val => parseInt(val, 10),
     },
     {
       flag: '--admin-port <value>',
       description: 'Port to run admin APIs of Aztec Services on on',
       defaultValue: 8880,
-      envVar: 'AZTEC_ADMIN_PORT',
+      env: 'AZTEC_ADMIN_PORT',
       parseVal: val => parseInt(val, 10),
     },
     {
       flag: '--api-prefix <value>',
       description: 'Prefix for API routes on any service that is started',
       defaultValue: '',
-      envVar: 'API_PREFIX',
+      env: 'API_PREFIX',
     },
   ],
   ETHEREUM: [
-    {
-      flag: '--l1-rpc-urls <value>',
-      description: 'List of URLs of the Ethereum RPC nodes that services will connect to (comma separated)',
-      defaultValue: ['http://localhost:8545'],
-      envVar: 'ETHEREUM_HOSTS',
-      parseVal: (val: string) => val.split(',').map(url => url.trim()),
-    },
-    {
-      flag: '--l1-chain-id <value>',
-      description: 'The L1 chain ID',
-      defaultValue: 31337,
-      envVar: 'L1_CHAIN_ID',
-      parseVal: val => parseInt(val, 10),
-    },
-    {
-      flag: '--l1-consensus-host-urls <value>',
-      description: 'List of URLs of the Ethereum consensus nodes that services will connect to (comma separated)',
-      defaultValue: [],
-      envVar: 'L1_CONSENSUS_HOST_URLS',
-      parseVal: (val: string) => val.split(',').map(url => url.trim().replace(/\/$/, '')),
-    },
-    {
-      flag: '--l1-consensus-host-api-keys <value>',
-      description: 'List of API keys for the corresponding Ethereum consensus nodes',
-      defaultValue: [],
-      envVar: 'L1_CONSENSUS_HOST_API_KEYS',
-      parseVal: (val: string) => val.split(',').map(key => new SecretValue(key)),
-    },
-    {
-      flag: '--l1-consensus-host-api-key-headers <value>',
-      description:
-        'List of API key headers for the corresponding Ethereum consensus nodes. If not set, the api key for the corresponding node will be appended to the URL as ?key=<api-key>',
-      defaultValue: [],
-      envVar: 'L1_CONSENSUS_HOST_API_KEY_HEADERS',
-      parseVal: (val: string) => val.split(',').map(url => url.trim()),
-    },
+    configToFlag('--l1-chain-id', l1ReaderConfigMappings.l1ChainId),
+    // Do not set default for CLI: keep undefined unless provided via flag or env
+    configToFlag('--l1-rpc-urls', { ...l1ReaderConfigMappings.l1RpcUrls, defaultValue: undefined }),
+    configToFlag('--l1-consensus-host-urls', blobSinkConfigMappings.l1ConsensusHostUrls),
+    configToFlag('--l1-consensus-host-api-keys', blobSinkConfigMappings.l1ConsensusHostApiKeys),
+    configToFlag('--l1-consensus-host-api-key-headers', blobSinkConfigMappings.l1ConsensusHostApiKeyHeaders),
+  ],
+  'L1 CONTRACTS': [
+    configToFlag('--registry-address', l1ContractAddressesMapping.registryAddress),
+    configToFlag('--rollup-version', chainConfigMappings.rollupVersion, 'canonical'),
   ],
   STORAGE: [
-    {
-      flag: '--data-directory <value>',
-      description: 'Where to store data for services. If not set, will store temporarily',
-      defaultValue: undefined,
-      envVar: 'DATA_DIRECTORY',
-    },
-    {
-      flag: '--data-store-map-size-kb <value>',
-      description:
-        'The maximum possible size of the data store DB in KB. Can be overridden by component-specific options.',
-      defaultValue: undefined,
-      envVar: 'DATA_STORE_MAP_SIZE_KB',
-      parseVal: (val: string) => parseInt(val, 10),
-    },
+    configToFlag('--data-directory', dataConfigMappings.dataDirectory),
+    configToFlag('--data-store-map-size-kb', dataConfigMappings.dataStoreMapSizeKB),
   ],
-  'L1 CONTRACT ADDRESSES': [
-    {
-      flag: '--rollup-address <value>',
-      description: 'The deployed L1 rollup contract address',
-      defaultValue: undefined,
-      envVar: 'ROLLUP_CONTRACT_ADDRESS',
-    },
-    {
-      flag: '--registry-address <value>',
-      description: 'The deployed L1 registry contract address',
-      defaultValue: undefined,
-      envVar: 'REGISTRY_CONTRACT_ADDRESS',
-    },
-    {
-      flag: '--inbox-address <value>',
-      description: 'The deployed L1 -> L2 inbox contract address',
-      defaultValue: undefined,
-      envVar: 'INBOX_CONTRACT_ADDRESS',
-    },
-    {
-      flag: '--outbox-address <value>',
-      description: 'The deployed L2 -> L1 outbox contract address',
-      defaultValue: undefined,
-      envVar: 'OUTBOX_CONTRACT_ADDRESS',
-    },
-    {
-      flag: '--fee-juice-address <value>',
-      description: 'The deployed L1 Fee Juice contract address',
-      defaultValue: undefined,
-      envVar: 'FEE_JUICE_CONTRACT_ADDRESS',
-    },
-    {
-      flag: '--staking-asset-address <value>',
-      description: 'The deployed L1 Staking Asset contract address',
-      defaultValue: undefined,
-      envVar: 'STAKING_ASSET_CONTRACT_ADDRESS',
-    },
-    {
-      flag: '--fee-juice-portal-address <value>',
-      description: 'The deployed L1 Fee Juice portal contract address',
-      defaultValue: undefined,
-      envVar: 'FEE_JUICE_PORTAL_CONTRACT_ADDRESS',
-    },
+  'WORLD STATE': [
+    configToFlag('--world-state-data-directory', worldStateConfigMappings.worldStateDataDirectory),
+    configToFlag('--world-state-db-map-size-kb', worldStateConfigMappings.worldStateDbMapSizeKb),
+    configToFlag('--world-state-block-history', worldStateConfigMappings.worldStateBlockHistory),
   ],
   // We can't easily auto-generate node options as they're parts of modules defined below
   'AZTEC NODE': [
@@ -248,87 +185,44 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       flag: '--node',
       description: 'Starts Aztec Node with options',
       defaultValue: undefined,
-      envVar: undefined,
+      env: undefined,
     },
-    {
-      flag: '--node.archiverUrl <value>',
-      description: 'URL for an archiver service',
-      defaultValue: undefined,
-      envVar: 'ARCHIVER_URL',
-    },
-    {
-      flag: '--node.assumeProvenThroughBlockNumber <value>',
-      description:
-        'Cheats the rollup contract into assuming every block until this one is proven. Useful for speeding up bootstraps.',
-      envVar: 'ASSUME_PROVEN_THROUGH_BLOCK_NUMBER',
-      parseVal: (val: string) => parseInt(val, 10),
-      defaultValue: 0,
-    },
-    {
-      flag: '--node.worldStateBlockCheckIntervalMS <value>',
-      description: 'Frequency in which to check for blocks in ms',
-      defaultValue: 100,
-      envVar: 'WS_BLOCK_CHECK_INTERVAL_MS',
-      parseVal: val => parseInt(val, 10),
-    },
-    {
-      flag: '--node.syncMode <value>',
-      description:
-        'Set sync mode to `full` to always sync via L1, `snapshot` to download a snapshot if there is no local data, `force-snapshot` to download even if there is local data.',
-      defaultValue: 'snapshot',
-      envVar: 'SYNC_MODE',
-    },
-    {
-      flag: '--node.snapshotsUrl <value>',
-      description: 'Base URL for downloading snapshots for snapshot sync.',
-      defaultValue: undefined,
-      envVar: 'SYNC_SNAPSHOTS_URL',
-    },
-  ],
-  'P2P SUBSYSTEM': [
-    {
-      flag: '--p2p-enabled [value]',
-      description: 'Enable P2P subsystem',
-      envVar: 'P2P_ENABLED',
-      ...booleanConfigHelper(),
-    },
-    ...getOptions('p2p', p2pConfigMappings),
-  ],
-  TELEMETRY: [...getOptions('tel', telemetryClientConfigMappings)],
-  PXE: [
-    {
-      flag: '--pxe',
-      description: 'Starts Aztec PXE with options',
-      defaultValue: undefined,
-      envVar: undefined,
-    },
-    ...getOptions('pxe', allPxeConfigMappings),
   ],
   ARCHIVER: [
     {
       flag: '--archiver',
       description: 'Starts Aztec Archiver with options',
       defaultValue: undefined,
-      envVar: undefined,
+      env: undefined,
     },
-    // filter out archiverUrl as it's passed separately in --node & --prover-node
-    ...getOptions('archiver', archiverConfigMappings).filter(opt => !opt.flag.includes('archiverUrl')),
+    ...getOptions(
+      'archiver',
+      omitConfigMappings(archiverConfigMappings, Object.keys(l1ContractsConfigMappings) as (keyof ArchiverConfig)[]),
+    ),
   ],
   SEQUENCER: [
     {
       flag: '--sequencer',
       description: 'Starts Aztec Sequencer with options',
       defaultValue: undefined,
-      envVar: undefined,
+      env: undefined,
     },
-    ...getOptions('sequencer', sequencerClientConfigMappings),
+    ...getOptions(
+      'sequencer',
+      omitConfigMappings(sequencerClientConfigMappings, [
+        'fakeProcessingDelayPerTxMs',
+        'skipCollectingAttestations',
+        'skipInvalidateBlockAsProposer',
+        'blobSinkMapSizeKb',
+      ]),
+    ),
   ],
   'BLOB SINK': [
     {
       flag: '--blob-sink',
       description: 'Starts Aztec Blob Sink with options',
       defaultValue: undefined,
-      envVar: undefined,
+      env: undefined,
     },
     ...getOptions('blobSink', blobSinkConfigMappings),
   ],
@@ -337,22 +231,18 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       flag: '--prover-node',
       description: 'Starts Aztec Prover Node with options',
       defaultValue: undefined,
-      envVar: undefined,
-    },
-    {
-      flag: '--proverNode.archiverUrl <value>',
-      description: 'URL for an archiver service',
-      defaultValue: undefined,
-      envVar: 'ARCHIVER_URL',
+      env: undefined,
     },
     ...getOptions(
       'proverNode',
       omitConfigMappings(proverNodeConfigMappings, [
         // filter out options passed separately
-        ...(Object.keys(archiverConfigMappings) as (keyof ArchiverConfig)[]),
-        ...(Object.keys(proverBrokerConfigMappings) as (keyof ProverBrokerConfig)[]),
-        ...(Object.keys(proverAgentConfigMappings) as (keyof ProverAgentConfig)[]),
-        ...(Object.keys(p2pConfigMappings) as (keyof P2PConfig)[]),
+        ...getKeys(archiverConfigMappings),
+        ...getKeys(proverBrokerConfigMappings),
+        ...getKeys(proverAgentConfigMappings),
+        ...getKeys(p2pConfigMappings),
+        ...getKeys(worldStateConfigMappings),
+        ...getKeys(sharedNodeConfigMappings),
       ]),
     ),
   ],
@@ -361,7 +251,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       flag: '--prover-broker',
       description: 'Starts Aztec proving job broker',
       defaultValue: undefined,
-      envVar: undefined,
+      env: undefined,
     },
     ...getOptions(
       'proverBroker',
@@ -374,16 +264,25 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       flag: '--prover-agent',
       description: 'Starts Aztec Prover Agent with options',
       defaultValue: undefined,
-      envVar: undefined,
+      env: undefined,
     },
     ...getOptions('proverAgent', proverAgentConfigMappings),
+  ],
+  'P2P SUBSYSTEM': [
+    {
+      flag: '--p2p-enabled [value]',
+      description: 'Enable P2P subsystem',
+      env: 'P2P_ENABLED',
+      ...booleanConfigHelper(),
+    },
+    ...getOptions('p2p', p2pConfigMappings),
   ],
   'P2P BOOTSTRAP': [
     {
       flag: '--p2p-bootstrap',
       description: 'Starts Aztec P2P Bootstrap with options',
       defaultValue: undefined,
-      envVar: undefined,
+      env: undefined,
     },
     ...getOptions(
       'p2pBootstrap',
@@ -396,43 +295,31 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       ]),
     ),
   ],
+  TELEMETRY: [...getOptions('tel', telemetryClientConfigMappings)],
   BOT: [
     {
       flag: '--bot',
       description: 'Starts Aztec Bot with options',
       defaultValue: undefined,
-      envVar: undefined,
+      env: undefined,
     },
     ...getOptions('bot', botConfigMappings),
+  ],
+  PXE: [
+    {
+      flag: '--pxe',
+      description: 'Starts Aztec PXE with options',
+      defaultValue: undefined,
+      env: undefined,
+    },
+    ...getOptions('pxe', allPxeConfigMappings),
   ],
   TXE: [
     {
       flag: '--txe',
       description: 'Starts Aztec TXE with options',
       defaultValue: undefined,
-      envVar: undefined,
+      env: undefined,
     },
-  ],
-  FAUCET: [
-    {
-      flag: '--faucet',
-      description: 'Starts the Aztec faucet',
-      defaultValue: undefined,
-      envVar: undefined,
-    },
-    {
-      flag: '--faucet.apiServer',
-      description: 'Starts a simple HTTP server to access the faucet',
-      defaultValue: true,
-      envVar: undefined,
-    },
-    {
-      flag: '--faucet.apiServerPort <value>',
-      description: 'The port on which to start the api server on',
-      defaultValue: 8080,
-      envVar: undefined,
-      parseVal: val => parseInt(val, 10),
-    },
-    ...getOptions('faucet', faucetConfigMapping),
   ],
 };

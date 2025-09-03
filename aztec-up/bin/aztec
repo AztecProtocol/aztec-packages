@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+!/usr/bin/env bash
 set -euo pipefail
 
 NETWORK=${NETWORK:-}
@@ -105,7 +105,6 @@ case ${1:-} in
       # We should not have to provide a binary path and working dir.
       # Why is this not just determined and chosen at runtime?
       # In fact almost none of these should not have to be set if we have sensible defaults.
-      export L1_CHAIN_ID=31337
       export ARCHIVER_POLLING_INTERVAL_MS=500
       export P2P_BLOCK_CHECK_INTERVAL_MS=500
       export SEQ_TX_POLLING_INTERVAL_MS=500
@@ -115,9 +114,11 @@ case ${1:-} in
       export LOG_LEVEL=${LOG_LEVEL:-info;silent:sequencer;verbose:debug_log}
       export DEPLOY_AZTEC_CONTRACTS_SALT=${DEPLOY_AZTEC_CONTRACTS_SALT:-$RANDOM}
 
-
       ANVIL_PORT=${ANVIL_PORT:-8545}
       anvil_port_assignment="$ANVIL_PORT:8545"
+
+      export L1_CHAIN_ID=${L1_CHAIN_ID:-31337}
+      export ETHEREUM_HOSTS=${ETHEREUM_HOSTS:-"http://127.0.0.1:${ANVIL_PORT}"}
 
       PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $anvil_port_assignment"
 

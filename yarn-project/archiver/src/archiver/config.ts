@@ -21,12 +21,6 @@ import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
  * The archiver configuration.
  */
 export type ArchiverConfig = {
-  /** URL for an archiver service. If set, will return an archiver client as opposed to starting a new one. */
-  archiverUrl?: string;
-
-  /** List of URLS for L1 consensus clients */
-  l1ConsensusHostUrls?: string[];
-
   /** The polling interval in ms for retrieving new L2 blocks and encrypted logs. */
   archiverPollingIntervalMS?: number;
 
@@ -51,16 +45,6 @@ export type ArchiverConfig = {
 
 export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
   ...blobSinkConfigMapping,
-  archiverUrl: {
-    env: 'ARCHIVER_URL',
-    description:
-      'URL for an archiver service. If set, will return an archiver client as opposed to starting a new one.',
-  },
-  l1ConsensusHostUrls: {
-    env: 'L1_CONSENSUS_HOST_URLS',
-    description: 'List of URLS for L1 consensus clients.',
-    parseEnv: (val: string) => val.split(',').map(url => url.trim().replace(/\/$/, '')),
-  },
   archiverPollingIntervalMS: {
     env: 'ARCHIVER_POLLING_INTERVAL_MS',
     description: 'The polling interval in ms for retrieving new L2 blocks and encrypted logs.',

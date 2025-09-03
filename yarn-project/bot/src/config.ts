@@ -1,6 +1,6 @@
 import {
   type ConfigMappingsType,
-  type SecretValue,
+  SecretValue,
   booleanConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
@@ -35,13 +35,13 @@ export type BotConfig = {
   /** Url of the ethereum host. */
   l1RpcUrls: string[] | undefined;
   /** The mnemonic for the account to bridge fee juice from L1. */
-  l1Mnemonic: SecretValue<string | undefined>;
+  l1Mnemonic: SecretValue<string> | undefined;
   /** The private key for the account to bridge fee juice from L1. */
-  l1PrivateKey: SecretValue<string | undefined>;
+  l1PrivateKey: SecretValue<string> | undefined;
   /** How long to wait for L1 to L2 messages to become available on L2 */
   l1ToL2MessageTimeoutSeconds: number;
   /** Signing private key for the sender account. */
-  senderPrivateKey: SecretValue<Fr | undefined>;
+  senderPrivateKey: SecretValue<Fr> | undefined;
   /** Optional salt to use to instantiate the sender account */
   senderSalt: Fr | undefined;
   /** Encryption secret for a recipient account. */
@@ -86,10 +86,10 @@ export const BotConfigSchema = z
     nodeAdminUrl: z.string().optional(),
     pxeUrl: z.string().optional(),
     l1RpcUrls: z.array(z.string()).optional(),
-    l1Mnemonic: schemas.SecretValue(z.string().optional()),
-    l1PrivateKey: schemas.SecretValue(z.string().optional()),
+    l1Mnemonic: schemas.SecretValue(z.string()).optional(),
+    l1PrivateKey: schemas.SecretValue(z.string()).optional(),
     l1ToL2MessageTimeoutSeconds: z.number(),
-    senderPrivateKey: schemas.SecretValue(schemas.Fr.optional()),
+    senderPrivateKey: schemas.SecretValue(schemas.Fr).optional(),
     senderSalt: schemas.Fr.optional(),
     recipientEncryptionSecret: schemas.SecretValue(schemas.Fr),
     tokenSalt: schemas.Fr,
@@ -117,6 +117,9 @@ export const BotConfigSchema = z
     senderSalt: undefined,
     l2GasLimit: undefined,
     daGasLimit: undefined,
+    l1Mnemonic: undefined,
+    l1PrivateKey: undefined,
+    senderPrivateKey: undefined,
     ...config,
   })) satisfies ZodFor<BotConfig>;
 
@@ -166,6 +169,7 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   recipientEncryptionSecret: {
     env: 'BOT_RECIPIENT_ENCRYPTION_SECRET',
     description: 'Encryption secret for a recipient account.',
+    printDefault: sv => sv?.getValue(),
     ...secretFrConfigHelper(Fr.fromHexString('0xcafecafe')),
   },
   tokenSalt: {

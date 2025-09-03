@@ -227,7 +227,6 @@ describe('L1Publisher integration', () => {
         l1ChainId: chainId,
         viemPollingIntervalMS: 100,
         ethereumSlotDuration: config.ethereumSlotDuration,
-        customForwarderContractAddress: EthAddress.ZERO,
       },
       {
         blobSinkClient,
