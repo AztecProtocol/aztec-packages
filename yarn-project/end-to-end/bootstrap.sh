@@ -14,13 +14,13 @@ function test_cmds {
   # Can't run full prover tests on ARM because AVM is disabled.
   if ../../barretenberg/cpp/bootstrap.sh hash | grep -qE no-avm; then
     if [ "$CI_FULL" -eq 1 ]; then
-      echo "$prefix:TIMEOUT=15m:CPUS=16:MEM=96g:NAME=e2e_prover_client_real $run_test_script simple e2e_prover/client"
+      echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=e2e_prover_client_real $run_test_script simple e2e_prover/client"
     else
       echo "$prefix:NAME=e2e_prover_client_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/client"
     fi
   else
     if [ "$CI_FULL" -eq 1 ]; then
-      echo "$prefix:TIMEOUT=15m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
+      echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
     else
       echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
     fi
