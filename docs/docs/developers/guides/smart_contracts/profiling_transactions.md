@@ -45,7 +45,6 @@ aztec-wallet send transfer -ca token --args accounts:test1 40 -f accounts:test0
 
 Instead of sending the above transaction, you can profile it by running the `profile` command with the same parameters.
 
-
 ```bash
 aztec-wallet profile transfer -ca token --args accounts:test1 40 -f accounts:test0
 ```
@@ -91,8 +90,9 @@ aztec flamegraph <artifact_path> <function_name>
 For example, if you want to flamegraph the `cast_vote` function [aztec-starter](https://github.com/AztecProtocol/aztec-starter/blob/main/src/main.nr), you can do
 
 ```bash
-aztec-nargo compile
-aztec flamegraph target/easy_private_voting_contract-EasyPrivateVoting.json cast_vote
+aztec-nargo compile        # generate contract artifacts
+aztec-postprocess-contract # transpile contract and generate verification keys
+aztec flamegraph target/private_voting_contract-PrivateVoting.json cast_vote
 ```
 
 This will generate a flamegraph of the `cast_vote` function and save the output svg to the `target` directory. You can open the svg file in your browser to visualize the flamegraph.
@@ -100,6 +100,7 @@ This will generate a flamegraph of the `cast_vote` function and save the output 
 You can also run the same command with `SERVE=1` to serve the flamegraph on a local server.
 
 ```bash
-SERVE=1 aztec flamegraph target/easy_private_voting_contract-EasyPrivateVoting.json cast_vote
+SERVE=1 aztec flamegraph target/private_voting_contract-PrivateVoting.json cast_vote
 ```
+
 This will serve the flamegraph on `http://localhost:8000`.

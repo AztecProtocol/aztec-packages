@@ -14,7 +14,7 @@ void emit_unencrypted_logImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    PROFILE_THIS_NAME("accumulate/emit_unencrypted_log");
+    BB_BENCH_NAME("accumulate/emit_unencrypted_log");
 
     const auto constants_MAX_PUBLIC_LOGS_PER_TX = FF(8);
     const auto constants_PUBLIC_LOG_SIZE_IN_FIELDS = FF(13);

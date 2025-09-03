@@ -1,5 +1,5 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
-import { Fr, type Logger, retryUntil, sleep } from '@aztec/aztec.js';
+import { EthAddress, type Logger, retryUntil, sleep } from '@aztec/aztec.js';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { downloadEpochProvingJob, rerunEpochProvingJob } from '@aztec/prover-node';
 import type { TestProverNode } from '@aztec/prover-node/test';
@@ -54,9 +54,9 @@ describe('e2e_epochs/epochs_upload_failed_proof', () => {
     const origCreateEpochProver = proverManager.createEpochProver.bind(proverManager);
     proverManager.createEpochProver = () => {
       const epochProver = origCreateEpochProver();
-      epochProver.finaliseEpoch = async () => {
+      epochProver.finalizeEpoch = async () => {
         await sleep(1000);
-        logger.warn(`Triggering error on finaliseEpoch`);
+        logger.warn(`Triggering error on finalizeEpoch`);
         throw new Error(`Fake error while proving epoch`);
       };
       return epochProver;
@@ -92,7 +92,7 @@ describe('e2e_epochs/epochs_upload_failed_proof', () => {
       dataStoreMapSizeKB: 1024 * 1024,
       dataDirectory: rerunDataDir,
       proverAgentCount: 2,
-      proverId: Fr.random(),
+      proverId: EthAddress.random(),
       ...(await getACVMConfig(logger)),
       ...(await getBBConfig(logger)),
     });

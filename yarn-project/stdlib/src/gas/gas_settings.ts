@@ -1,4 +1,10 @@
-import { DEFAULT_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT, GAS_SETTINGS_LENGTH } from '@aztec/constants';
+import {
+  DEFAULT_DA_GAS_LIMIT,
+  DEFAULT_L2_GAS_LIMIT,
+  DEFAULT_TEARDOWN_DA_GAS_LIMIT,
+  DEFAULT_TEARDOWN_L2_GAS_LIMIT,
+  GAS_SETTINGS_LENGTH,
+} from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
@@ -78,10 +84,10 @@ export class GasSettings {
     maxPriorityFeesPerGas?: GasFees;
   }) {
     return GasSettings.from({
-      gasLimits: overrides.gasLimits ?? { l2Gas: DEFAULT_GAS_LIMIT, daGas: DEFAULT_GAS_LIMIT },
+      gasLimits: overrides.gasLimits ?? { l2Gas: DEFAULT_L2_GAS_LIMIT, daGas: DEFAULT_DA_GAS_LIMIT },
       teardownGasLimits: overrides.teardownGasLimits ?? {
-        l2Gas: DEFAULT_TEARDOWN_GAS_LIMIT,
-        daGas: DEFAULT_TEARDOWN_GAS_LIMIT,
+        l2Gas: DEFAULT_TEARDOWN_L2_GAS_LIMIT,
+        daGas: DEFAULT_TEARDOWN_DA_GAS_LIMIT,
       },
       maxFeesPerGas: overrides.maxFeesPerGas,
       maxPriorityFeesPerGas: overrides.maxPriorityFeesPerGas ?? GasFees.empty(),

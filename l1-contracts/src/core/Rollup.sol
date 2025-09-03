@@ -390,17 +390,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   /**
-   * @notice  Get the attester set
-   *
-   * @dev     Consider removing this to replace with a `size` and individual getter.
-   *
-   * @return The validator set
-   */
-  function getAttesters() external view override(IValidatorSelection) returns (address[] memory) {
-    return StakingLib.getAttestersAtTime(Timestamp.wrap(block.timestamp));
-  }
-
-  /**
    * @notice  Get the current slot number
    *
    * @return The current slot number

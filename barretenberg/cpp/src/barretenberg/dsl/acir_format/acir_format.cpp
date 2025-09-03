@@ -7,10 +7,11 @@
 #include "acir_format.hpp"
 
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/civc_recursion_constraints.hpp"
+#include "barretenberg/dsl/acir_format/ecdsa_constraints.hpp"
 #include "barretenberg/dsl/acir_format/honk_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/pg_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
@@ -18,6 +19,8 @@
 #include "barretenberg/honk/proving_key_inspector.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
+#include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
+#include "barretenberg/stdlib/primitives/curves/secp256r1.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
@@ -185,7 +188,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     // Add ECDSA k1 constraints
     for (size_t i = 0; i < constraint_system.ecdsa_k1_constraints.size(); ++i) {
         const auto& constraint = constraint_system.ecdsa_k1_constraints.at(i);
-        create_ecdsa_k1_verify_constraints(builder, constraint, has_valid_witness_assignments);
+        create_ecdsa_verify_constraints<stdlib::secp256k1<Builder>>(builder, constraint, has_valid_witness_assignments);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.ecdsa_k1_constraints.at(i));
     }
@@ -193,7 +196,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     // Add ECDSA r1 constraints
     for (size_t i = 0; i < constraint_system.ecdsa_r1_constraints.size(); ++i) {
         const auto& constraint = constraint_system.ecdsa_r1_constraints.at(i);
-        create_ecdsa_r1_verify_constraints(builder, constraint, has_valid_witness_assignments);
+        create_ecdsa_verify_constraints<stdlib::secp256r1<Builder>>(builder, constraint, has_valid_witness_assignments);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.ecdsa_r1_constraints.at(i));
     }
@@ -671,7 +674,7 @@ process_avm_recursion_constraints(Builder& builder,
  */
 template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata)
 {
-    PROFILE_THIS();
+    BB_BENCH();
     AcirFormat& constraints = program.constraints;
     WitnessVector& witness = program.witness;
 
@@ -692,7 +695,7 @@ template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const Progr
  */
 template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata)
 {
-    PROFILE_THIS();
+    BB_BENCH();
     AcirFormat& constraints = program.constraints;
     WitnessVector& witness = program.witness;
 

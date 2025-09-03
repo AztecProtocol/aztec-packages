@@ -22,14 +22,16 @@ import {IProposerPayload} from "./interfaces/IProposerPayload.sol";
  * If/when the GSE payload is executed, Governance calls `getActions`, which copies the actions of the original
  * payload, and appends a call to `amIValid` to it.
  *
- * NB `amIValid` will fail if the 2/3 of the total stake is not "following canonical", irrespective
- * of what the original proposal does. Note that the GSE is used to perform these checks, hence the name.
+ * NB `amIValid` will fail if the 2/3 of the total stake is not "following latest", irrespective
+ * of what the original proposal does.
+ * Note that the GSE is used to perform these checks, hence the name.
+ * Note this check is skipped if the canonical rollup does not match the latest to avoid livelock cases.
  *
  * For example, if the original proposal is just to update a configuration parameter, but in the meantime
- * half of the stake has exited the canonical rollup in the GSE, `amIValid` will fail.
+ * half of the stake has exited the latest rollup in the GSE, `amIValid` will fail.
  *
  * In such an event, your recourse is either:
- * - wait for the canonical rollup to have at least 2/3 of the total stake
+ * - wait for the latest rollup to have at least 2/3 of the total stake
  * - `GSE.proposeWithLock`, which bypasses the GovernanceProposer
  */
 contract GSEPayload is IProposerPayload {
@@ -77,6 +79,8 @@ contract GSEPayload is IProposerPayload {
    * The validation passes when EITHER:
    * 1. The latest rollup (plus bonus instance) has >2/3 of total stake, OR
    * 2. A Registry/GSE mismatch is detected (fail-open to prevent governance livelock)
+   *
+   * @dev Beware that the >2/3 support means that 1/3 of the stake can be used to reject proposals.
    *
    * @dev The "bonus instance" is a special GSE mechanism where attesters automatically
    *      follow the latest rollup without re-depositing. Their stake counts toward

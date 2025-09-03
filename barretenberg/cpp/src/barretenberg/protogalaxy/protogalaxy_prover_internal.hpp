@@ -5,8 +5,8 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/container.hpp"
-#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
@@ -149,7 +149,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
     {
 
-        PROFILE_THIS_NAME("ProtogalaxyProver_::compute_row_evaluations");
+        BB_BENCH_NAME("ProtogalaxyProver_::compute_row_evaluations");
 
         const size_t polynomial_size = polynomials.get_polynomial_size();
         Polynomial<FF> aggregated_relation_evaluations(polynomial_size);
@@ -247,7 +247,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     Polynomial<FF> compute_perturbator(const std::shared_ptr<const DeciderPK>& accumulator,
                                        const std::vector<FF>& deltas)
     {
-        PROFILE_THIS();
+        BB_BENCH();
         auto full_honk_evaluations =
             compute_row_evaluations(accumulator->polynomials, accumulator->alphas, accumulator->relation_parameters);
         const auto betas = accumulator->gate_challenges;
@@ -354,7 +354,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                                          const UnivariateSubrelationSeparators& alphas,
                                                          TupleOfTuplesOfUnivariates& univariate_accumulators)
     {
-        PROFILE_THIS();
+        BB_BENCH();
 
         // Determine the number of threads over which to distribute the work
         // The polynomial size is given by the virtual size since the computation includes
@@ -362,7 +362,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         const size_t common_polynomial_size = keys[0]->polynomials.w_l.virtual_size();
         const size_t num_threads = compute_num_threads(common_polynomial_size);
 
-        // Univariates are optimised for usual PG, but we need the unoptimised version for tests (it's a version that
+        // Univariates are optimized for usual PG, but we need the unoptimized version for tests (it's a version that
         // doesn't skip computation), so we need to define types depending on the template instantiation
         using ThreadAccumulators = TupleOfTuplesOfUnivariates;
 
@@ -382,7 +382,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                 for (size_t idx = range.first; idx < range.second; idx++) {
                     // Instantiate univariates, possibly with skipping toto ignore computation in those indices
                     // (they are still available for skipping relations, but all derived univariate will ignore
-                    // those evaluations) No need to initialise extended_univariates to 0, as it's assigned to.
+                    // those evaluations) No need to initialize extended_univariates to 0, as it's assigned to.
                     constexpr size_t skip_count = DeciderPKs::NUM - 1;
                     extend_univariates<skip_count>(extended_univariates, keys, idx);
 
@@ -406,7 +406,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         }
         // This does nothing if TupleOfTuples is TupleOfTuplesOfUnivariates
         TupleOfTuplesOfUnivariatesNoOptimisticSkipping deoptimized_univariates =
-            deoptimise_univariates(univariate_accumulators);
+            deoptimize_univariates(univariate_accumulators);
         //  Batch the univariate contributions from each sub-relation to obtain the round univariate
         return batch_over_relations(deoptimized_univariates, alphas);
     }
@@ -422,12 +422,12 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     }
 
     /**
-     * @brief Convert univariates from optimised form to regular
-     * @details We need to convert before we batch relations, since optimised versions don't have enough information to
+     * @brief Convert univariates from optimized form to regular
+     * @details We need to convert before we batch relations, since optimized versions don't have enough information to
      * extend the univariates to maximum length
      */
     template <typename TupleOfTuplesOfUnivariatePossiblyOptimistic>
-    static TupleOfTuplesOfUnivariatesNoOptimisticSkipping deoptimise_univariates(
+    static TupleOfTuplesOfUnivariatesNoOptimisticSkipping deoptimize_univariates(
         const TupleOfTuplesOfUnivariatePossiblyOptimistic& tup)
     {
         // If input does not have optimized operators, return the input
@@ -436,14 +436,14 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             return tup;
         }
 
-        const auto deoptimise = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
+        const auto deoptimize = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
             auto& element_with_skipping = std::get<inner_idx>(std::get<outer_idx>(tup));
             element = element_with_skipping.convert();
         };
 
         // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
         TupleOfTuplesOfUnivariatesNoOptimisticSkipping result{};
-        RelationUtils::apply_to_tuple_of_tuples(result, deoptimise);
+        RelationUtils::apply_to_tuple_of_tuples(result, deoptimize);
         return result;
     }
 

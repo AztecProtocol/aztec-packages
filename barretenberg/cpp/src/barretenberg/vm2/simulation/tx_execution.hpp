@@ -66,6 +66,8 @@ class TxExecution final {
     void pad_trees();
 
     void cleanup();
+
+    void emit_empty_phase(TransactionPhase phase);
 };
 
 } // namespace bb::avm2::simulation

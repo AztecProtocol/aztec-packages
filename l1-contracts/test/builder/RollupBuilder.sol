@@ -21,6 +21,7 @@ import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {CoinIssuer} from "@aztec/governance/CoinIssuer.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
 import {GSEWithSkip} from "@test/GSEWithSkip.sol";
+import {TestGov} from "@test/governance/helpers/TestGov.sol";
 
 // Stack the layers to avoid the stack too deep 🧌
 struct ConfigFlags {
@@ -204,8 +205,18 @@ contract RollupBuilder is Test {
     return this;
   }
 
-  function setSlashingUnit(uint256 _slashingUnit) public returns (RollupBuilder) {
-    config.rollupConfigInput.slashingUnit = _slashingUnit;
+  function setSlashAmountSmall(uint256 _slashAmountSmall) public returns (RollupBuilder) {
+    config.rollupConfigInput.slashAmounts[0] = _slashAmountSmall;
+    return this;
+  }
+
+  function setSlashAmountMedium(uint256 _slashAmountMedium) public returns (RollupBuilder) {
+    config.rollupConfigInput.slashAmounts[1] = _slashAmountMedium;
+    return this;
+  }
+
+  function setSlashAmountLarge(uint256 _slashAmountLarge) public returns (RollupBuilder) {
+    config.rollupConfigInput.slashAmounts[2] = _slashAmountLarge;
     return this;
   }
 
@@ -221,6 +232,16 @@ contract RollupBuilder is Test {
 
   function setStakingQueueConfig(StakingQueueConfig memory _stakingQueueConfig) public returns (RollupBuilder) {
     config.rollupConfigInput.stakingQueueConfig = _stakingQueueConfig;
+    return this;
+  }
+
+  function setEntryQueueFlushSizeMin(uint256 _flushSizeMin) public returns (RollupBuilder) {
+    config.rollupConfigInput.stakingQueueConfig.normalFlushSizeMin = _flushSizeMin;
+    return this;
+  }
+
+  function setEntryQueueFlushSizeQuotient(uint256 _flushSizeQuotient) public returns (RollupBuilder) {
+    config.rollupConfigInput.stakingQueueConfig.normalFlushSizeQuotient = _flushSizeQuotient;
     return this;
   }
 
@@ -262,7 +283,7 @@ contract RollupBuilder is Test {
     if (config.flags.makeGovernance) {
       GovernanceProposer proposer =
         new GovernanceProposer(config.registry, config.gse, config.values.govProposerN, config.values.govProposerM);
-      config.governance = new Governance(
+      config.governance = new TestGov(
         config.testERC20, address(proposer), address(config.gse), TestConstants.getGovernanceConfiguration()
       );
       vm.label(address(config.governance), "Governance");

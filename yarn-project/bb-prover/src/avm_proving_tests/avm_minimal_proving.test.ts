@@ -2,7 +2,7 @@ import { createAvmMinimalPublicTx } from '@aztec/simulator/public/fixtures';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
 
-describe('AVM minimal tx', () => {
+describe('AVM proven minimal tx', () => {
   let tester: AvmProvingTester;
 
   beforeEach(async () => {

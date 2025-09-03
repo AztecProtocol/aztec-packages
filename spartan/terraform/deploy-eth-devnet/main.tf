@@ -1,8 +1,6 @@
 terraform {
-  backend "gcs" {
-    bucket = "aztec-terraform"
-    prefix = "network-deploy/us-west1-a/aztec-gke-private/eth-devnet/terraform.tfstate"
-  }
+
+  backend "local" {}
   required_providers {
     helm = {
       source  = "hashicorp/helm"
@@ -12,10 +10,6 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "~> 2.24.0"
     }
-    google = {
-      source  = "hashicorp/google"
-      version = "~> 5.0"
-    }
     null = {
       source  = "hashicorp/null"
       version = "~> 3.2"
@@ -23,50 +17,17 @@ terraform {
   }
 }
 
-provider "google" {
-  project = var.project
-  region  = var.region
-}
-
 provider "kubernetes" {
   alias          = "gke-cluster"
   config_path    = "~/.kube/config"
-  config_context = var.GKE_CLUSTER_CONTEXT
+  config_context = var.K8S_CLUSTER_CONTEXT
 }
 
 provider "helm" {
   alias = "gke-cluster"
   kubernetes {
     config_path    = "~/.kube/config"
-    config_context = var.GKE_CLUSTER_CONTEXT
-  }
-}
-
-# Get mnemonic from Google Secret Manager
-data "google_secret_manager_secret_version" "mnemonic_latest" {
-  secret = var.MNEMONIC_SECRET_NAME
-}
-
-# Static IP addresses for eth-devnet services
-resource "google_compute_address" "eth_execution_ip" {
-  provider     = google
-  name         = "${var.RELEASE_PREFIX}-execution-ip"
-  address_type = "EXTERNAL"
-  region       = var.region
-
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
-resource "google_compute_address" "eth_beacon_ip" {
-  provider     = google
-  name         = "${var.RELEASE_PREFIX}-beacon-ip"
-  address_type = "EXTERNAL"
-  region       = var.region
-
-  lifecycle {
-    prevent_destroy = true
+    config_context = var.K8S_CLUSTER_CONTEXT
   }
 }
 
@@ -76,19 +37,23 @@ resource "null_resource" "generate_genesis" {
     chain_id   = var.CHAIN_ID
     block_time = var.BLOCK_TIME
     gas_limit  = var.GAS_LIMIT
-    mnemonic   = data.google_secret_manager_secret_version.mnemonic_latest.secret_data
+    mnemonic   = var.MNEMONIC
   }
 
   provisioner "local-exec" {
     command = <<-EOT
       cd ../../eth-devnet
+      rm -rf out/ tmp/
 
       # Set environment variables for genesis generation
       export CHAIN_ID=${var.CHAIN_ID}
       export BLOCK_TIME=${var.BLOCK_TIME}
       export GAS_LIMIT="${var.GAS_LIMIT}"
-      export MNEMONIC="${data.google_secret_manager_secret_version.mnemonic_latest.secret_data}"
+      export MNEMONIC="${var.MNEMONIC}"
       export PREFUNDED_MNEMONIC_INDICES="${var.PREFUNDED_MNEMONIC_INDICES}"
+
+      # Use a custom directory for Foundry installation to avoid permission issues
+      export FOUNDRY_DIR="$HOME/.foundry"
 
       ./create_genesis.sh
     EOT
@@ -118,21 +83,17 @@ resource "helm_release" "eth_devnet" {
 
   values = [
     file("./values/${var.ETH_DEVNET_VALUES}"),
+    file("./values/resources-${var.RESOURCE_PROFILE}.yaml"),
   ]
 
   set {
     name  = "ethereum.validator.mnemonic"
-    value = data.google_secret_manager_secret_version.mnemonic_latest.secret_data
+    value = var.MNEMONIC
   }
 
   set {
-    name  = "ethereum.execution.service.loadBalancerIP"
-    value = google_compute_address.eth_execution_ip.address
-  }
-
-  set {
-    name  = "ethereum.beacon.service.loadBalancerIP"
-    value = google_compute_address.eth_beacon_ip.address
+    name  = "fullnameOverride"
+    value = var.RELEASE_PREFIX
   }
 
   timeout       = 300
@@ -140,3 +101,24 @@ resource "helm_release" "eth_devnet" {
   wait_for_jobs = false
 }
 
+data "kubernetes_service" "eth_execution" {
+  provider = kubernetes.gke-cluster
+
+  metadata {
+    name      = "${var.RELEASE_PREFIX}-eth-execution"
+    namespace = var.NAMESPACE
+  }
+
+  depends_on = [helm_release.eth_devnet]
+}
+
+data "kubernetes_service" "eth_beacon" {
+  provider = kubernetes.gke-cluster
+
+  metadata {
+    name      = "${var.RELEASE_PREFIX}-eth-beacon"
+    namespace = var.NAMESPACE
+  }
+
+  depends_on = [helm_release.eth_devnet]
+}

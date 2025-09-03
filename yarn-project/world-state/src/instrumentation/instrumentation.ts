@@ -33,8 +33,8 @@ export class WorldStateInstrumentation {
   private dbMapSize: Gauge;
   private dbPhysicalSize: Gauge;
   private treeSize: Gauge;
-  private unfinalisedHeight: Gauge;
-  private finalisedHeight: Gauge;
+  private unfinalizedHeight: Gauge;
+  private finalizedHeight: Gauge;
   private oldestBlock: Gauge;
   private dbNumItems: Gauge;
   private dbUsedSize: Gauge;
@@ -61,13 +61,13 @@ export class WorldStateInstrumentation {
       valueType: ValueType.INT,
     });
 
-    this.unfinalisedHeight = meter.createGauge(Metrics.WORLD_STATE_UNFINALISED_HEIGHT, {
-      description: `The unfinalised block height of each merkle tree`,
+    this.unfinalizedHeight = meter.createGauge(Metrics.WORLD_STATE_UNFINALIZED_HEIGHT, {
+      description: `The unfinalized block height of each merkle tree`,
       valueType: ValueType.INT,
     });
 
-    this.finalisedHeight = meter.createGauge(Metrics.WORLD_STATE_FINALISED_HEIGHT, {
-      description: `The finalised block height of each merkle tree`,
+    this.finalizedHeight = meter.createGauge(Metrics.WORLD_STATE_FINALIZED_HEIGHT, {
+      description: `The finalized block height of each merkle tree`,
       valueType: ValueType.INT,
     });
 
@@ -108,10 +108,10 @@ export class WorldStateInstrumentation {
     this.treeSize.record(Number(treeMeta.size), {
       [Attributes.MERKLE_TREE_NAME]: MerkleTreeId[tree],
     });
-    this.unfinalisedHeight.record(Number(treeMeta.unfinalisedBlockHeight), {
+    this.unfinalizedHeight.record(Number(treeMeta.unfinalizedBlockHeight), {
       [Attributes.MERKLE_TREE_NAME]: MerkleTreeId[tree],
     });
-    this.finalisedHeight.record(Number(treeMeta.finalisedBlockHeight), {
+    this.finalizedHeight.record(Number(treeMeta.finalizedBlockHeight), {
       [Attributes.MERKLE_TREE_NAME]: MerkleTreeId[tree],
     });
     this.oldestBlock.record(Number(treeMeta.oldestHistoricBlock), {

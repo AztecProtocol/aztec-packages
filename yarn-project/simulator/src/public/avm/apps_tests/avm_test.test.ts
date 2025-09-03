@@ -44,6 +44,7 @@ describe('AVM simulator apps tests: AvmTestContract', () => {
       /*expectedDeployer=*/ expectContractInstance.deployer,
       /*expectedClassId=*/ expectContractInstance.currentContractClassId,
       /*expectedInitializationHash=*/ expectContractInstance.initializationHash,
+      /*skip_strictly_limited_side_effects=*/ false,
     ];
     const results = await simTester.simulateCall(sender, /*address=*/ testContractAddress, 'bulk_testing', args);
     expect(results.reverted).toBe(false);
@@ -91,13 +92,12 @@ describe('AVM simulator apps tests: AvmTestContract', () => {
     expect(results.reverted).toBe(true);
   });
 
-  // TODO(#16099): Re-enable this test
-  // it('an exceptional halt due to a nested call to non-existent contract is recovered from in caller', async () => {
-  //   await simTester.simulateCall(
-  //     sender,
-  //     /*address=*/ testContractAddress,
-  //     'nested_call_to_nothing_recovers',
-  //     /*args=*/ [],
-  //   );
-  // });
+  it('an exceptional halt due to a nested call to non-existent contract is recovered from in caller', async () => {
+    await simTester.simulateCall(
+      sender,
+      /*address=*/ testContractAddress,
+      'nested_call_to_nothing_recovers',
+      /*args=*/ [],
+    );
+  });
 });

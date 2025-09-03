@@ -1,6 +1,11 @@
 import {
+  AVM_MAX_PROCESSABLE_L2_GAS,
   CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE,
   CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
+  GAS_ESTIMATION_DA_GAS_LIMIT,
+  GAS_ESTIMATION_L2_GAS_LIMIT,
+  GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT,
+  GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT,
   NULLIFIER_SUBTREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
@@ -47,17 +52,17 @@ describe('public_tx_simulator', () => {
   // Nullifier must be >=128 since tree starts with 128 entries pre-filled
   const MIN_NULLIFIER = 128;
   // Gas settings.
-  const gasLimits = new Gas(100, 150);
-  const teardownGasLimits = new Gas(20, 30);
+  let gasLimits = new Gas(100, 150);
+  let teardownGasLimits = new Gas(20, 30);
   const gasFees = new GasFees(2, 3);
   let maxFeesPerGas = gasFees;
   let maxPriorityFeesPerGas = GasFees.empty();
 
   // gasUsed for the tx after private execution, minus the teardownGasLimits.
-  const privateGasUsed = new Gas(13, 17);
+  let privateGasUsed = new Gas(13, 17);
 
   // gasUsed for each enqueued call.
-  const enqueuedCallGasUsed = new Gas(12, 34);
+  let enqueuedCallGasUsed = new Gas(12, 34);
 
   let merkleTrees: MerkleTreeWriteOperations;
   let merkleTreesCopy: MerkleTreeWriteOperations;
@@ -289,6 +294,12 @@ describe('public_tx_simulator', () => {
   };
 
   beforeEach(async () => {
+    gasLimits = new Gas(100, 150);
+    teardownGasLimits = new Gas(20, 30);
+
+    privateGasUsed = new Gas(13, 17);
+    enqueuedCallGasUsed = new Gas(12, 34);
+
     merkleTrees = await (await NativeWorldStateService.tmp()).fork();
     merkleTreesCopy = await (await NativeWorldStateService.tmp()).fork();
     contractsDB = new PublicContractsDB(mock<ContractDataSource>());
@@ -556,6 +567,22 @@ describe('public_tx_simulator', () => {
     );
 
     await expect(simulator.simulate(tx)).rejects.toThrow(setupFailureMsg);
+
+    expect(simulateInternal).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails a tx that consumes more than the AVM maximum processable gas', async () => {
+    gasLimits = new Gas(GAS_ESTIMATION_DA_GAS_LIMIT, GAS_ESTIMATION_L2_GAS_LIMIT);
+    teardownGasLimits = new Gas(GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT, GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT);
+    enqueuedCallGasUsed = new Gas(GAS_ESTIMATION_L2_GAS_LIMIT, AVM_MAX_PROCESSABLE_L2_GAS);
+
+    const tx = await mockTxWithPublicCalls({
+      numberOfAppLogicCalls: 1,
+    });
+
+    await expect(simulator.simulate(tx)).rejects.toThrow(
+      `exceeds the AVM maximum processable gas of ${AVM_MAX_PROCESSABLE_L2_GAS}`,
+    );
 
     expect(simulateInternal).toHaveBeenCalledTimes(1);
   });

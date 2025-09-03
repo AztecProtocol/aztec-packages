@@ -70,7 +70,7 @@ describe('p2p client integration block txs protocol ', () => {
       syncSummary: {
         latestBlockNumber: 0,
         latestBlockHash: '',
-        finalisedBlockNumber: 0,
+        finalizedBlockNumber: 0,
         treesAreSynched: false,
         oldestHistoricBlockNumber: 0,
       },

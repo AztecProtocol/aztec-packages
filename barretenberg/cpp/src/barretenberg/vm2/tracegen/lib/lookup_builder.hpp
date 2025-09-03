@@ -149,13 +149,3 @@ template <typename LookupSettings> class LookupIntoDynamicTableSequential : publ
 };
 
 } // namespace bb::avm2::tracegen
-
-// Define a hash function for std::array so that it can be used as a key in a std::unordered_map.
-template <typename T, size_t SIZE> struct std::hash<std::array<T, SIZE>> {
-    std::size_t operator()(const std::array<T, SIZE>& arr) const noexcept
-    {
-        return [&arr]<size_t... Is>(std::index_sequence<Is...>) {
-            return bb::utils::hash_as_tuple(arr[Is]...);
-        }(std::make_index_sequence<SIZE>{});
-    }
-};

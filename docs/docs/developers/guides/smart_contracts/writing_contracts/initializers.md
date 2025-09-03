@@ -46,4 +46,4 @@ You can set multiple functions as an initializer function simply by annotating e
 
 Calling any one of the functions annotated with `#[initializer]` will mark the contract as initialized.
 
-To see an initializer in action, follow the [Counter codealong tutorial](../../../tutorials/codealong/contract_tutorials/counter_contract.md).
+To see an initializer in action, follow the [Counter codealong tutorial](../../../tutorials/contract_tutorials/counter_contract.md).

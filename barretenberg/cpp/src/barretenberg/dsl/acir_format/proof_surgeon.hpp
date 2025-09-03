@@ -7,6 +7,7 @@
 #pragma once
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
@@ -118,24 +119,13 @@ template <typename FF> class ProofSurgeon {
         std::vector<FF> public_input_witnesses =
             cut_public_inputs_from_proof(proof_witnesses, num_public_inputs_to_extract);
 
-        // Helper to append some values to the witness vector and return their corresponding indices
-        auto add_to_witness_and_track_indices = [](bb::SlabVector<FF>& witness,
-                                                   const std::vector<FF>& input) -> std::vector<uint32_t> {
-            std::vector<uint32_t> indices;
-            indices.reserve(input.size());
-            auto witness_idx = static_cast<uint32_t>(witness.size());
-            for (const auto& value : input) {
-                witness.push_back(value);
-                indices.push_back(witness_idx++);
-            }
-            return indices;
-        };
-
         // Append key, proof, and public inputs while storing the associated witness indices
-        std::vector<uint32_t> key_indices = add_to_witness_and_track_indices(witness, key_witnesses);
-        uint32_t key_hash_index = add_to_witness_and_track_indices(witness, { key_hash_witness })[0];
-        std::vector<uint32_t> proof_indices = add_to_witness_and_track_indices(witness, proof_witnesses);
-        std::vector<uint32_t> public_input_indices = add_to_witness_and_track_indices(witness, public_input_witnesses);
+        std::vector<uint32_t> key_indices = add_to_witness_and_track_indices<FF>(witness, key_witnesses);
+        uint32_t key_hash_index = static_cast<uint32_t>(witness.size());
+        witness.emplace_back(key_hash_witness);
+        std::vector<uint32_t> proof_indices = add_to_witness_and_track_indices<FF>(witness, proof_witnesses);
+        std::vector<uint32_t> public_input_indices =
+            add_to_witness_and_track_indices<FF>(witness, public_input_witnesses);
 
         return { key_indices, key_hash_index, proof_indices, public_input_indices };
     }

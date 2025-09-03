@@ -17,7 +17,7 @@ global nullifier: Field = 9;
 
 #[test]
 unconstrained fn at_sets_contract_address() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
     let contract_address = AztecAddress::from_field(17);
 
     env.public_context_at(contract_address, |context| {
@@ -27,7 +27,7 @@ unconstrained fn at_sets_contract_address() {
 
 #[test]
 unconstrained fn default_storage_value() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.public_context(|context| {
         assert_eq(context.storage_read::<MockStruct>(storage_slot), zeroed());
@@ -36,7 +36,7 @@ unconstrained fn default_storage_value() {
 
 #[test]
 unconstrained fn storage_write_in_same_context() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.public_context(|context| {
         context.storage_write(storage_slot, value);
@@ -46,7 +46,7 @@ unconstrained fn storage_write_in_same_context() {
 
 #[test]
 unconstrained fn storage_write_in_future_context() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.public_context(|context| { context.storage_write(storage_slot, value); });
 
@@ -55,7 +55,7 @@ unconstrained fn storage_write_in_future_context() {
 
 #[test]
 unconstrained fn storage_multiple_writes_in_same_context() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.public_context(|context| {
         context.storage_write(storage_slot, value);
@@ -67,7 +67,7 @@ unconstrained fn storage_multiple_writes_in_same_context() {
 
 #[test]
 unconstrained fn storage_multiple_writes_in_future_context() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.public_context(|context| { context.storage_write(storage_slot, value); });
 
@@ -79,7 +79,7 @@ unconstrained fn storage_multiple_writes_in_future_context() {
 
 #[test]
 unconstrained fn read_nonexistent_nullifier() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.public_context(|context| {
         assert(!context.nullifier_exists(nullifier, context.this_address()));
@@ -88,7 +88,7 @@ unconstrained fn read_nonexistent_nullifier() {
 
 #[test]
 unconstrained fn read_public_nullifier_same_context() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.public_context(|context| {
         context.push_nullifier(nullifier);
@@ -98,7 +98,7 @@ unconstrained fn read_public_nullifier_same_context() {
 
 #[test]
 unconstrained fn read_public_nullifier_other_context() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.public_context(|context| { context.push_nullifier(nullifier); });
 
@@ -109,7 +109,7 @@ unconstrained fn read_public_nullifier_other_context() {
 
 #[test]
 unconstrained fn read_private_nullifier() {
-    let env = TestEnvironment::_new();
+    let env = TestEnvironment::new();
 
     env.private_context(|context| { context.push_nullifier(nullifier); });
 

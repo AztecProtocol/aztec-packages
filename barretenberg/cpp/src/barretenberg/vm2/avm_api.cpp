@@ -45,7 +45,7 @@ bool AvmAPI::check_circuit(const AvmAPI::ProvingInputs& inputs)
     info("Generating trace...");
     AvmTraceGenHelper tracegen_helper;
     tracegen::TraceContainer trace;
-    tracegen_helper.fill_trace_columns(trace, std::move(events), inputs.publicInputs);
+    AVM_TRACK_TIME("tracegen/all", tracegen_helper.fill_trace_columns(trace, std::move(events), inputs.publicInputs));
 
     // Go into interactive debug mode if requested.
     if (getenv("AVM_DEBUG") != nullptr) {
@@ -53,7 +53,7 @@ bool AvmAPI::check_circuit(const AvmAPI::ProvingInputs& inputs)
         debugger.run();
     }
 
-    tracegen_helper.fill_trace_interactions(trace);
+    AVM_TRACK_TIME("tracegen/all", tracegen_helper.fill_trace_interactions(trace));
 
     // Check circuit.
     info("Checking circuit...");

@@ -243,7 +243,7 @@ struct lookup_tx_dispatch_exec_end_settings_ {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::execution_context_id,
         ColumnAndShifts::execution_next_context_id,
-        ColumnAndShifts::execution_sel_error,
+        ColumnAndShifts::execution_sel_failure,
         ColumnAndShifts::execution_discard,
         ColumnAndShifts::execution_note_hash_tree_root,
         ColumnAndShifts::execution_note_hash_tree_size,
