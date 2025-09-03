@@ -825,9 +825,13 @@ void ExecutionTraceBuilder::process_instr_fetching(const simulation::Instruction
     assert(operands.size() <= AVM_MAX_OPERANDS);
     operands.resize(AVM_MAX_OPERANDS, simulation::Operand::from<FF>(0));
 
+    // Batch operand column updates into a single trace.set() call
+    std::vector<std::pair<Column, FF>> operand_updates;
+    operand_updates.reserve(AVM_MAX_OPERANDS);
     for (size_t i = 0; i < AVM_MAX_OPERANDS; i++) {
-        trace.set(OPERAND_COLUMNS[i], row, operands.at(i));
+        operand_updates.emplace_back(OPERAND_COLUMNS[i], operands.at(i));
     }
+    trace.set(row, operand_updates);
 }
 
 void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEvent& ex_event,
@@ -1071,15 +1075,19 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
         }
     }
 
+    // Batch register column updates into a single trace.set() call
+    std::vector<std::pair<Column, FF>> register_updates;
+    register_updates.reserve(AVM_MAX_REGISTERS * 3); // Estimate capacity
     for (size_t i = 0; i < AVM_MAX_REGISTERS; i++) {
-        trace.set(REGISTER_COLUMNS[i], row, registers[i]);
-        trace.set(REGISTER_MEM_TAG_COLUMNS[i], row, static_cast<uint8_t>(registers[i].get_tag()));
+        register_updates.emplace_back(REGISTER_COLUMNS[i], registers[i]);
+        register_updates.emplace_back(REGISTER_MEM_TAG_COLUMNS[i], static_cast<uint8_t>(registers[i].get_tag()));
         // This one is special because it sets the reads (but not the writes).
         // If we got here, sel_should_read_registers=1.
         if (register_info.is_active(i) && !register_info.is_write(i)) {
-            trace.set(REGISTER_OP_REG_EFFECTIVE_COLUMNS[i], row, 1);
+            register_updates.emplace_back(REGISTER_OP_REG_EFFECTIVE_COLUMNS[i], 1);
         }
     }
+    trace.set(row, register_updates);
 
     // Tag check.
     bool some_tag_check_failed = false;
