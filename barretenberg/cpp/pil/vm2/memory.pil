@@ -1,14 +1,59 @@
+include "constants_gen.pil";
+include "precomputed.pil";
 include "range_check.pil";
 
 namespace memory;
 
-pol commit sel;
-pol commit clk;
-pol commit address;
+// Link to design document: https://docs.google.com/document/d/1NM5zU39NG5xJReOjSObwWllbpqTCO4flr9v8kdRDK3E
+
+// Main memory values directly derived from the memory events.
 pol commit value;
 pol commit tag;
-pol commit rw;
-pol commit space_id;
+pol commit space_id; // Memory space identifier (16-bit).
+pol commit address; // Memory address (32-bit).
+pol commit clk; // Clock cycle. (32-bit) Row index of corresponding opcode in the execution trace.
+pol commit rw; // Memory operation type: 0 for read, 1 for write.
+
+// Boolean selectors.
+pol commit sel; // Main selector to toggle an active row (used by any interaction lookups.).
+pol commit last_access; // Last memory access for a given global address
+pol commit sel_rng_chk; // Every active row except the last one
+pol commit sel_tag_is_ff; // Toggles if tag == FF
+pol commit sel_rng_write; // Toggles if rw == 1 and tag != FF (Activate range check for write values.)
+
+// Derived values.
+pol commit global_addr; // Global unique address derived from space_id and address.
+pol commit timestamp; // Timestamp derived from clk and rw.
+pol commit diff; // Difference between timestamp or global_addr values of consecutive rows to prove that memory is correctly sorted.
+pol commit limb[3]; // 16-bit decomposition limbs for diff.
+
+// Others
+pol commit max_bits; // Number of bits corresponding to the tag. (Retrieved from precomputed subtrace.)
+
+// Trace entries ordering.
+// The memory entries are sorted in ascending order by space_id, address, clk, then rw.
+// Equivalently, they are sorted by global_addr and then timestamp.
+// last_access == 1 iff the last memory access for a given global address.
+
+// Trace shape
+
+// +-----+-----------+-------+-----+-----+---------------+------------+------------+--------------+-------------+
+// | sel | space_id | address | clk | rw | global_addr   | timestamp  | last_access|    diff      | sel_rng_chk |
+// +-----+-----------+-------+-----+-----+---------------+------------+------------+--------------+-------------+
+// |   0 |        0 |     0  |   0 |   0 |           0   |          0 |          0 |         11   |           0 |
+// |   1 |        1 |     27 |   5 |   1 |     2^32 + 27 |  5 * 2 + 1 |          1 |         1    |           1 |
+// |   1 |        1 |     28 |  12 |   1 |     2^32 + 28 | 12 * 2 + 1 |          1 | 2 * 2^32 + 3 |           1 |
+// |   1 |        3 |     31 |   7 |   0 | 3 * 2^32 + 31 |  7 * 2 + 0 |          0 |         3    |           1 |
+// |   1 |        3 |     31 |   8 |   1 | 3 * 2^32 + 31 |  8 * 2 + 1 |          1 |    2^32 + 15 |           1 |
+// |   1 |        4 |     46 |   5 |   0 | 4 * 2^32 + 46 |  5 * 2 + 0 |          0 |         0    |           1 |
+// |   1 |        4 |     46 |   5 |   0 | 4 * 2^32 + 46 |  5 * 2 + 0 |          0 |         1    |           1 |
+// |   1 |        4 |     46 |   5 |   1 | 4 * 2^32 + 46 |  5 * 2 + 1 |          0 |         1    |           1 |
+// |   1 |        4 |     46 |   6 |   1 | 4 * 2^32 + 46 |  6 * 2 + 1 |          1 |         43   |           1 |
+// |   1 |        4 |     89 |   2 |   1 | 4 * 2^32 + 89 |  2 * 2 + 1 |          1 |-4 * 2^32 - 89|           0 |
+// +-----+-----------+-------+-----+-------------+----------------------+----------+--------------+-------------+
+
+#[skippable_if]
+sel + precomputed.first_row = 0;
 
 // Permutation selectors (addressing.pil).
 pol commit sel_addressing_base;
@@ -53,11 +98,94 @@ sel = // Addressing.
     + sel_sha256_op[4] + sel_sha256_op[5] + sel_sha256_op[6] + sel_sha256_op[7];
 */
 
-#[skippable_if]
-sel = 0;
+// Other boolean constraints.
+sel * (1 - sel) = 0; // Ensure mutual exclusivity of the permutation selectors.
+last_access * (1 - last_access) = 0;
+rw * (1 - rw) = 0; // TODO: should already be constrained by each source of interaction lookups.
+sel_tag_is_ff * (1 - sel_tag_is_ff) = 0;
 
-sel * (sel - 1) = 0;
-rw * (1 - rw) = 0;
+// Trace must be contiguous.
+// Except on first row: sel == 0 ==> sel' == 0
+// As a consequence, the trace is empty or it starts just after the first row and
+// is contiguous.
+#[MEM_CONTIGUOUS]
+(1 - precomputed.first_row) * (1 - sel) * sel' = 0;
 
-// TODO: consider tag-value consistency checking.
-// TODO: consider address range checking.
+// Boolean toggles at all active rows except the last one.
+// It is boolean by definition.
+#[SEL_RNG_CHK]
+sel_rng_chk = sel * sel';
+
+// Derived values.
+
+#[GLOBAL_ADDR]
+global_addr = space_id * 2**32 + address;
+
+#[TIMESTAMP]
+timestamp = 2 * clk + rw;
+
+// last_access derivation
+// last_access == 0 iff global_addr' == global_addr
+pol GLOB_ADDR_DIFF = global_addr' - global_addr;
+pol commit glob_addr_diff_inv; // Helper column for non zero equality check
+#[LAST_ACCESS]
+sel_rng_chk * (GLOB_ADDR_DIFF * ((1 - last_access) * (1 - glob_addr_diff_inv) + glob_addr_diff_inv) - last_access) = 0;
+
+// diff derivation
+// We alternate between two different diffs:
+// - last_access == 1: diff = global_addr' - global_addr
+// - last_access == 0: diff = timestamp' - timestamp - rw' * rw
+#[DIFF]
+diff = sel_rng_chk * (last_access * GLOB_ADDR_DIFF + (1 - last_access) * (timestamp' - timestamp - rw' * rw));
+
+// Decompose diff into 16-bit limbs.
+#[DIFF_DECOMP]
+diff = limb[0] + limb[1] * 2**16 + limb[2] * 2**32;
+
+// Range check limbs
+
+#[RANGE_CHECK_LIMB_0]
+sel_rng_chk { limb[0] } in precomputed.sel_range_16 { precomputed.clk };
+#[RANGE_CHECK_LIMB_1]
+sel_rng_chk { limb[1] } in precomputed.sel_range_16 { precomputed.clk };
+#[RANGE_CHECK_LIMB_2]
+sel_rng_chk { limb[2] } in precomputed.sel_range_16 { precomputed.clk };
+
+// Memory Initialization
+#[MEMORY_INIT_VALUE]
+(last_access + precomputed.first_row) * (1 - rw') * value' = 0;
+#[MEMORY_INIT_TAG]
+(last_access + precomputed.first_row) * (1 - rw') * (tag' - constants.MEM_TAG_FF) = 0;
+
+// Read-Write Consistency
+// Note that last_access == 0 on the first row with our trace generation. If the first
+// memory entry is a READ, then the following constraints will be satisifed because
+// value == 0 and tag == MEM_TAG_FF == 0 will be set on the first row which corresponds
+// to an initial read.
+#[READ_WRITE_CONSISTENCY_VALUE]
+(1 - last_access) * (1 - rw') * (value' - value) = 0;
+#[READ_WRITE_CONSISTENCY_TAG]
+(1 - last_access) * (1 - rw') * (tag' - tag) = 0;
+
+
+// We prove that sel_tag_is_ff == 1 <==> tag == MEM_TAG_FF
+pol TAG_FF_DIFF = tag - constants.MEM_TAG_FF;
+pol commit tag_ff_diff_inv;
+#[TAG_IS_FF]
+sel * (TAG_FF_DIFF * (sel_tag_is_ff * (1 - tag_ff_diff_inv) + tag_ff_diff_inv) + sel_tag_is_ff - 1) = 0;
+
+// Boolean by definition.
+#[SEL_RNG_WRITE]
+sel_rng_write = rw * (1 - sel_tag_is_ff);
+
+// Retrieve the number of bits for the range check
+#[TAG_MAX_BITS]
+sel_rng_write { tag, max_bits }
+in
+precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_max_bits };
+
+// Range check for the tagged value validation
+#[RANGE_CHECK_WRITE_TAGGED_VALUE]
+sel_rng_write {value, max_bits}
+in
+range_check.sel { range_check.value, range_check.rng_chk_bits };
