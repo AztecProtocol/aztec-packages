@@ -78,6 +78,10 @@ TEST(Databus, CallDataAndReturnData)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
+/**
+ * @brief An expository test demonstrating the functionality of the databus in a small use case when the entries are
+ * constant witnesses
+ */
 TEST(Databus, ConstantEntryAccess)
 {
 
@@ -99,6 +103,10 @@ TEST(Databus, ConstantEntryAccess)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
+/**
+ * @brief An expository test demonstrating the functionality of the databus in a small use case when the entries of the
+ * bus_vector are not normalized
+ */
 TEST(Databus, UnnormalizedEntryAccess)
 {
 
@@ -114,7 +122,7 @@ TEST(Databus, UnnormalizedEntryAccess)
     std::vector<field_ct> returndata_entries;
     for (fr entry : raw_returndata_entries) {
         field_ct entry_witness = witness_ct(&builder, entry);
-        // add the value to itself to make it unnormalized
+        // add the value to itself to make it unnormalized (the multiplicative constant will be 2)
         returndata_entries.emplace_back(entry_witness + entry_witness);
     }
     databus.calldata.set_values(calldata_entries);
@@ -128,13 +136,16 @@ TEST(Databus, UnnormalizedEntryAccess)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
+/**
+ * @brief An expository test demonstrating the functionality of the databus in a small use case where the indices are
+ * constant and/or unnormalized
+ */
 TEST(Databus, ConstantAndUnnormalizedIndices)
 {
     Builder builder;
     databus_ct databus;
     std::array<fr, 3> raw_calldata_values = { 54, 32, 30 };
     std::array<fr, 3> raw_returndata_values = { 54, 32, 116 };
-    // make the two first elements constants and the second two elements non-normalized
     // Populate the calldata in the databus
     std::vector<field_ct> calldata_values;
     for (auto& value : raw_calldata_values) {
@@ -142,7 +153,7 @@ TEST(Databus, ConstantAndUnnormalizedIndices)
     }
     databus.calldata.set_values(calldata_values);
 
-    // Populate the return data in the databus std::vector<field_ct> return_data_values;
+    // Populate the return data in the databus
     std::vector<field_ct> returndata_values;
     for (auto& value : raw_returndata_values) {
         returndata_values.emplace_back(witness_ct(&builder, value));
