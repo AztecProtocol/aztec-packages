@@ -26,6 +26,10 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: bot
     spec:
+      {{- if .Values.bot.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.bot.nodeSelector | nindent 8 }}
+      {{- end }}
       {{- if and .Values.bot.gke.spotEnabled .Values.network.gke }}
       affinity:
         nodeAffinity:
