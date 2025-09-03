@@ -212,7 +212,7 @@ TEST(SStoreConstrainingTest, Interactions)
         .root = 42,
         .nextAvailableLeafIndex = 128,
     };
-    AppendOnlyTreeSnapshot written_slots_tree_before = written_public_data_slots_tree_check.snapshot();
+    AppendOnlyTreeSnapshot written_slots_tree_before = written_public_data_slots_tree_check.get_snapshot();
 
     EXPECT_CALL(poseidon2, hash(_)).WillRepeatedly([](const std::vector<FF>& inputs) {
         return RawPoseidon2::hash(inputs);
@@ -242,7 +242,7 @@ TEST(SStoreConstrainingTest, Interactions)
                                                                {},
                                                                false);
     written_public_data_slots_tree_check.insert(contract_address, slot);
-    auto written_slots_tree_after = written_public_data_slots_tree_check.snapshot();
+    auto written_slots_tree_after = written_public_data_slots_tree_check.get_snapshot();
 
     TestTraceContainer trace({
         {
