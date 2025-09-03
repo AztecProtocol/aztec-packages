@@ -1,0 +1,23 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "simple",
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": true,
+  "group-pull-request-title-pattern": "chore(v2): Release ${version}",
+  "pull-request-header": "Pending Aztec Packages v2 release",
+  "versioning": "always-bump-patch",
+  "include-component-in-tag": false,
+  "changelog-sections": [
+    { "type": "feat", "section": "Features", "hidden": false },
+    { "type": "fix", "section": "Bug Fixes", "hidden": false },
+    { "type": "chore", "section": "Miscellaneous", "hidden": false },
+    { "type": "test", "section": "Miscellaneous", "hidden": false },
+    { "type": "refactor", "section": "Miscellaneous", "hidden": false },
+    { "type": "docs", "section": "Documentation", "hidden": false }
+  ],
+  "packages": {
+    ".": {
+      "release-type": "simple"
+    }
+  }
+}

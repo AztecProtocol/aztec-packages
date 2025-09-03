@@ -549,6 +549,10 @@ class ECCVMFlavor {
          *          msm_lambda2: temp variable used for ecc point addition algorithm if msm_add2 = 1
          *          msm_lambda3: temp variable used for ecc point addition algorithm if msm_add3 = 1
          *          msm_lambda4: temp variable used for ecc point addition algorithm if msm_add4 = 1
+         *          msm_slice1: wNAF digit/slice for first add
+         *          msm_slice2: wNAF digit/slice for second add
+         *          msm_slice3: wNAF digit/slice for third add
+         *          msm_slice4: wNAF digit/slice for fourth add
          *          msm_collision_x1: used to ensure incomplete ecc addition exceptions not triggered if msm_add1 = 1
          *          msm_collision_x2: used to ensure incomplete ecc addition exceptions not triggered if msm_add2 = 1
          *          msm_collision_x3: used to ensure incomplete ecc addition exceptions not triggered if msm_add3 = 1

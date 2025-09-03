@@ -49,8 +49,10 @@ pub contract NFT {
         admin: PublicMutable<AztecAddress, Context>,
         // Addresses that can mint
         minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
+        // docs:start:private_map
         // Contains the NFTs owned by each address in private.
         private_nfts: Map<AztecAddress, PrivateSet<NFTNote, Context>, Context>,
+        // docs:end:private_map
         // A map from token ID to a boolean indicating if the NFT exists.
         nft_exists: Map<Field, PublicMutable<bool, Context>, Context>,
         // A map from token ID to the public owner of the NFT.

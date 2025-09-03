@@ -265,6 +265,13 @@ int parse_and_run_cli_command(int argc, char* argv[])
             "--slow_low_memory", flags.slow_low_memory, "Enable low memory mode (can be 2x slower or more).");
     };
 
+    const auto add_storage_budget_option = [&](CLI::App* subcommand) {
+        return subcommand->add_option("--storage_budget",
+                                      flags.storage_budget,
+                                      "Storage budget for FileBackedMemory (e.g. '500m', '2g'). When exceeded, falls "
+                                      "back to RAM (requires --slow_low_memory).");
+    };
+
     const auto add_update_inputs_flag = [&](CLI::App* subcommand) {
         return subcommand->add_flag("--update_inputs", flags.update_inputs, "Update inputs if vk check fails.");
     };
@@ -345,6 +352,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_slow_low_memory_flag(prove);
     add_print_bench_flag(prove);
     add_bench_out_option(prove);
+    add_storage_budget_option(prove);
 
     prove->add_flag("--verify", "Verify the proof natively, resulting in a boolean output. Useful for testing.");
 
@@ -550,6 +558,9 @@ int parse_and_run_cli_command(int argc, char* argv[])
     debug_logging = flags.debug;
     verbose_logging = debug_logging || flags.verbose;
     slow_low_memory = flags.slow_low_memory;
+    if (!flags.storage_budget.empty()) {
+        storage_budget = parse_size_string(flags.storage_budget);
+    }
 #ifndef __wasm__
     if (print_bench || !bench_out.empty()) {
         bb::detail::use_bb_bench = true;
