@@ -9,7 +9,11 @@ use crate::{
         ReturnsHash, UtilityCallInterface, UtilityContext,
     },
     hash::hash_args,
-    oracle::{execution::{get_block_number, get_timestamp}, execution_cache},
+    oracle::{
+        execution::{get_block_number, get_timestamp},
+        execution_cache,
+        version::assert_compatible_oracle_version,
+    },
     test::helpers::{txe_oracles, utils::ContractDeployment},
 };
 
@@ -102,6 +106,7 @@ impl PrivateContextOptions {
 impl TestEnvironment {
     /// Creates a new `TestEnvironment`. This function should only be called once per test.
     pub unconstrained fn new() -> Self {
+        assert_compatible_oracle_version();
         Self {
             light_account_secret: Counter::new(),
             contract_account_secret: Counter::new(),

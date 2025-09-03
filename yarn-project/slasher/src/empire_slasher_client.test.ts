@@ -48,6 +48,7 @@ describe('EmpireSlasherClient', () => {
     l1StartBlock: 0n,
     slotDuration: 4,
     ethereumSlotDuration: 12,
+    slashingAmounts: undefined,
   };
 
   const config: SlasherConfig = {

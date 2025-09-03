@@ -328,14 +328,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
 
     let epochPruneWatcher: EpochPruneWatcher | undefined;
-    if (config.slashPrunePenalty > 0n) {
+    if (config.slashPrunePenalty > 0n || config.slashDataWithholdingPenalty > 0n) {
       epochPruneWatcher = new EpochPruneWatcher(
         archiver,
         archiver,
         epochCache,
         p2pClient.getTxProvider(),
         blockBuilder,
-        config.slashPrunePenalty,
+        config,
       );
       await epochPruneWatcher.start();
       watchers.push(epochPruneWatcher);

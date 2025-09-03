@@ -141,6 +141,7 @@ describe('state_manager', () => {
     });
 
     it('Can get undefined contract instance', async () => {
+      mockCheckNullifierExists(treesDB, false);
       await persistableState.getContractInstance(address);
     });
   });
@@ -167,6 +168,7 @@ describe('state_manager', () => {
       );
     });
     it('Can get undefined bytecode', async () => {
+      mockCheckNullifierExists(treesDB, false);
       await persistableState.getBytecode(address);
     });
   });

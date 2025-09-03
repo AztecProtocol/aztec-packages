@@ -35,7 +35,8 @@ describe.skip('AVM proven MEGA bulk test', () => {
   it(
     'Prove and verify mega bulk test',
     async () => {
-      await megaBulkTest(tester, logger, AvmTestContractArtifact, (b: boolean) => expect(b).toBe(true));
+      const result = await megaBulkTest(tester, logger, AvmTestContractArtifact);
+      expect(result.revertCode.isOK()).toBe(true);
     },
     TIMEOUT,
   );

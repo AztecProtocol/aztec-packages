@@ -14,7 +14,7 @@ void class_id_derivationImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    PROFILE_THIS_NAME("accumulate/class_id_derivation");
+    BB_BENCH_NAME("accumulate/class_id_derivation");
 
     const auto constants_GENERATOR_INDEX__CONTRACT_LEAF = FF(16);
 

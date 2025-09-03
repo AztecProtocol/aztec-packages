@@ -26,7 +26,7 @@ target_sources(
 function(barretenberg_module MODULE_NAME)
     file(GLOB_RECURSE SOURCE_FILES *.cpp)
     file(GLOB_RECURSE HEADER_FILES *.hpp *.tcc)
-    list(FILTER SOURCE_FILES EXCLUDE REGEX ".*\.(fuzzer|test|bench).cpp$")
+    list(FILTER SOURCE_FILES EXCLUDE REGEX ".*\\.(fuzzer|test|bench)\\.cpp$")
 
     target_sources(
         barretenberg_headers
@@ -202,8 +202,8 @@ function(barretenberg_module MODULE_NAME)
             )
         endforeach()
     endif()
-
     file(GLOB_RECURSE BENCH_SOURCE_FILES *.bench.cpp)
+
     if(BENCH_SOURCE_FILES AND NOT FUZZING)
         foreach(BENCHMARK_SOURCE ${BENCH_SOURCE_FILES})
             get_filename_component(BENCHMARK_NAME ${BENCHMARK_SOURCE} NAME_WE) # extract name without extension
