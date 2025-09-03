@@ -364,9 +364,12 @@ void ExecutionTraceBuilder::process(
         }
 
         /**************************************************************************************************
-         *  Setup.
+         *  Setup and Temporality group 1: Bytecode retrieval.
          **************************************************************************************************/
 
+        bool bytecode_retrieval_failed = ex_event.error == ExecutionError::BYTECODE_RETRIEVAL;
+
+        // Batch all initial setup columns into a single trace.set() call
         trace.set(
             row,
             { {
@@ -464,27 +467,15 @@ void ExecutionTraceBuilder::process(
                 // Helpers for identifying parent context
                 { C::execution_has_parent_ctx, has_parent ? 1 : 0 },
                 { C::execution_is_parent_id_inv, cached_parent_id_inv },
+                // Internal stack
+                { C::execution_internal_call_id, ex_event.before_context_event.internal_call_id },
+                { C::execution_internal_call_return_id, ex_event.before_context_event.internal_call_return_id },
+                { C::execution_next_internal_call_id, ex_event.before_context_event.next_internal_call_id },
+                // Bytecode retrieval
+                { C::execution_sel_bytecode_retrieval_failure, bytecode_retrieval_failed ? 1 : 0 },
+                { C::execution_sel_bytecode_retrieval_success, !bytecode_retrieval_failed ? 1 : 0 },
+                { C::execution_bytecode_id, ex_event.after_context_event.bytecode_id },
             } });
-
-        // Internal stack
-        trace.set(row,
-                  { {
-                      { C::execution_internal_call_id, ex_event.before_context_event.internal_call_id },
-                      { C::execution_internal_call_return_id, ex_event.before_context_event.internal_call_return_id },
-                      { C::execution_next_internal_call_id, ex_event.before_context_event.next_internal_call_id },
-                  } });
-
-        /**************************************************************************************************
-         *  Temporality group 1: Bytecode retrieval.
-         **************************************************************************************************/
-
-        bool bytecode_retrieval_failed = ex_event.error == ExecutionError::BYTECODE_RETRIEVAL;
-        trace.set(row,
-                  { {
-                      { C::execution_sel_bytecode_retrieval_failure, bytecode_retrieval_failed ? 1 : 0 },
-                      { C::execution_sel_bytecode_retrieval_success, !bytecode_retrieval_failed ? 1 : 0 },
-                      { C::execution_bytecode_id, ex_event.after_context_event.bytecode_id },
-                  } });
 
         /**************************************************************************************************
          *  Temporality group 2: Instruction fetching.
@@ -494,16 +485,24 @@ void ExecutionTraceBuilder::process(
         std::optional<ExecutionOpCode> exec_opcode;
         bool process_instruction_fetching = !bytecode_retrieval_failed;
         bool instruction_fetching_failed = ex_event.error == ExecutionError::INSTRUCTION_FETCHING;
-        trace.set(C::execution_sel_instruction_fetching_failure, row, instruction_fetching_failed ? 1 : 0);
+
+        // Pre-compute next_pc value to avoid conditional within trace.set
+        FF next_pc = 0;
         if (process_instruction_fetching && !instruction_fetching_failed) {
             exec_opcode = ex_event.wire_instruction.get_exec_opcode();
+            next_pc = ex_event.before_context_event.pc + ex_event.wire_instruction.size_in_bytes();
             process_instr_fetching(ex_event.wire_instruction, trace, row);
-            // If we fetched an instruction successfully, we can set the next PC.
+        }
+
+        // Batch instruction fetching related columns
+        if (process_instruction_fetching && !instruction_fetching_failed) {
             trace.set(row,
                       { {
-                          { C::execution_next_pc,
-                            ex_event.before_context_event.pc + ex_event.wire_instruction.size_in_bytes() },
+                          { C::execution_sel_instruction_fetching_failure, 0 },
+                          { C::execution_next_pc, next_pc },
                       } });
+        } else {
+            trace.set(C::execution_sel_instruction_fetching_failure, row, instruction_fetching_failed ? 1 : 0);
         }
 
         /**************************************************************************************************
@@ -544,28 +543,35 @@ void ExecutionTraceBuilder::process(
 
         bool should_check_gas = should_process_registers && !register_processing_failed;
         bool oog = ex_event.error == ExecutionError::GAS;
-        trace.set(C::execution_sel_should_check_gas, row, should_check_gas ? 1 : 0);
+
         if (should_check_gas) {
             process_gas(ex_event.gas_event, *exec_spec_ptr, trace, row);
             // todo(ilyas): this is a bad place to do this, but we need the register information to compute dyn gas
             // factor. process_gas does not have access to it and nor should it.
+
+            // Prepare gas-specific columns based on opcode
+            std::vector<std::pair<Column, FF>> gas_columns = { { C::execution_sel_should_check_gas, 1 } };
+
             if (*exec_opcode == ExecutionOpCode::TORADIXBE) {
                 uint32_t radix = ex_event.inputs[1].as<uint32_t>();     // Safe since already tag checked
                 uint32_t num_limbs = ex_event.inputs[2].as<uint32_t>(); // Safe since already tag checked
                 uint32_t num_p_limbs = radix > 256 ? 32 : static_cast<uint32_t>(get_p_limbs_per_radix()[radix].size());
-                trace.set(row,
-                          { {
-                              // To Radix BE Dynamic Gas
-                              { C::execution_two_five_six, 256 },
-                              { C::execution_sel_radix_gt_256, radix > 256 ? 1 : 0 },
-                              { C::execution_sel_lookup_num_p_limbs, radix <= 256 ? 1 : 0 },
-                              { C::execution_num_p_limbs, num_p_limbs },
-                              { C::execution_sel_use_num_limbs, num_limbs > num_p_limbs ? 1 : 0 },
-                              // Don't set dyn gas factor here since already set in process_gas
-                          } });
+
+                gas_columns.insert(gas_columns.end(),
+                                   {
+                                       { C::execution_two_five_six, 256 },
+                                       { C::execution_sel_radix_gt_256, radix > 256 ? 1 : 0 },
+                                       { C::execution_sel_lookup_num_p_limbs, radix <= 256 ? 1 : 0 },
+                                       { C::execution_num_p_limbs, num_p_limbs },
+                                       { C::execution_sel_use_num_limbs, num_limbs > num_p_limbs ? 1 : 0 },
+                                   });
             } else if (exec_opcode == ExecutionOpCode::EMITUNENCRYPTEDLOG) {
-                trace.set(C::execution_dynamic_da_gas_factor, row, registers[1].as<uint32_t>());
+                gas_columns.push_back({ C::execution_dynamic_da_gas_factor, registers[1].as<uint32_t>() });
             }
+
+            trace.set(row, gas_columns);
+        } else {
+            trace.set(C::execution_sel_should_check_gas, row, 0);
         }
 
         /**************************************************************************************************
