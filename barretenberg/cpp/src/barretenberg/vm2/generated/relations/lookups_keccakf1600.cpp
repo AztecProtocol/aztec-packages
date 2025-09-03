@@ -151,7 +151,7 @@ INSTANTIATE_LOOKUP(lookup_keccakf1600_state_chi_43_relation);
 INSTANTIATE_LOOKUP(lookup_keccakf1600_state_chi_44_relation);
 INSTANTIATE_LOOKUP(lookup_keccakf1600_round_cst_relation);
 INSTANTIATE_LOOKUP(lookup_keccakf1600_state_iota_00_relation);
-INSTANTIATE_LOOKUP(lookup_keccakf1600_src_abs_diff_positive_relation);
-INSTANTIATE_LOOKUP(lookup_keccakf1600_dst_abs_diff_positive_relation);
+INSTANTIATE_LOOKUP(lookup_keccakf1600_src_out_of_range_toggle_relation);
+INSTANTIATE_LOOKUP(lookup_keccakf1600_dst_out_of_range_toggle_relation);
 
 } // namespace bb::avm2

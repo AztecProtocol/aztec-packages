@@ -3502,52 +3502,56 @@ using lookup_keccakf1600_state_iota_00_settings = lookup_settings<lookup_keccakf
 template <typename FF_>
 using lookup_keccakf1600_state_iota_00_relation = lookup_relation_base<FF_, lookup_keccakf1600_state_iota_00_settings>;
 
-/////////////////// lookup_keccakf1600_src_abs_diff_positive ///////////////////
+/////////////////// lookup_keccakf1600_src_out_of_range_toggle ///////////////////
 
-struct lookup_keccakf1600_src_abs_diff_positive_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_SRC_ABS_DIFF_POSITIVE";
+struct lookup_keccakf1600_src_out_of_range_toggle_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_SRC_OUT_OF_RANGE_TOGGLE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_start;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
-    static constexpr Column COUNTS = Column::lookup_keccakf1600_src_abs_diff_positive_counts;
-    static constexpr Column INVERSES = Column::lookup_keccakf1600_src_abs_diff_positive_inv;
+    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column COUNTS = Column::lookup_keccakf1600_src_out_of_range_toggle_counts;
+    static constexpr Column INVERSES = Column::lookup_keccakf1600_src_out_of_range_toggle_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::keccakf1600_src_abs_diff, ColumnAndShifts::keccakf1600_thirty_two
+        ColumnAndShifts::keccakf1600_src_addr,
+        ColumnAndShifts::keccakf1600_highest_slice_address,
+        ColumnAndShifts::keccakf1600_src_out_of_range_error
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
+                                                                                    ColumnAndShifts::gt_input_b,
+                                                                                    ColumnAndShifts::gt_res };
 };
 
-using lookup_keccakf1600_src_abs_diff_positive_settings =
-    lookup_settings<lookup_keccakf1600_src_abs_diff_positive_settings_>;
+using lookup_keccakf1600_src_out_of_range_toggle_settings =
+    lookup_settings<lookup_keccakf1600_src_out_of_range_toggle_settings_>;
 template <typename FF_>
-using lookup_keccakf1600_src_abs_diff_positive_relation =
-    lookup_relation_base<FF_, lookup_keccakf1600_src_abs_diff_positive_settings>;
+using lookup_keccakf1600_src_out_of_range_toggle_relation =
+    lookup_relation_base<FF_, lookup_keccakf1600_src_out_of_range_toggle_settings>;
 
-/////////////////// lookup_keccakf1600_dst_abs_diff_positive ///////////////////
+/////////////////// lookup_keccakf1600_dst_out_of_range_toggle ///////////////////
 
-struct lookup_keccakf1600_dst_abs_diff_positive_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_DST_ABS_DIFF_POSITIVE";
+struct lookup_keccakf1600_dst_out_of_range_toggle_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_DST_OUT_OF_RANGE_TOGGLE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_start;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
-    static constexpr Column COUNTS = Column::lookup_keccakf1600_dst_abs_diff_positive_counts;
-    static constexpr Column INVERSES = Column::lookup_keccakf1600_dst_abs_diff_positive_inv;
+    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column COUNTS = Column::lookup_keccakf1600_dst_out_of_range_toggle_counts;
+    static constexpr Column INVERSES = Column::lookup_keccakf1600_dst_out_of_range_toggle_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::keccakf1600_dst_abs_diff, ColumnAndShifts::keccakf1600_thirty_two
+        ColumnAndShifts::keccakf1600_dst_addr,
+        ColumnAndShifts::keccakf1600_highest_slice_address,
+        ColumnAndShifts::keccakf1600_dst_out_of_range_error
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
+                                                                                    ColumnAndShifts::gt_input_b,
+                                                                                    ColumnAndShifts::gt_res };
 };
 
-using lookup_keccakf1600_dst_abs_diff_positive_settings =
-    lookup_settings<lookup_keccakf1600_dst_abs_diff_positive_settings_>;
+using lookup_keccakf1600_dst_out_of_range_toggle_settings =
+    lookup_settings<lookup_keccakf1600_dst_out_of_range_toggle_settings_>;
 template <typename FF_>
-using lookup_keccakf1600_dst_abs_diff_positive_relation =
-    lookup_relation_base<FF_, lookup_keccakf1600_dst_abs_diff_positive_settings>;
+using lookup_keccakf1600_dst_out_of_range_toggle_relation =
+    lookup_relation_base<FF_, lookup_keccakf1600_dst_out_of_range_toggle_settings>;
 
 } // namespace bb::avm2

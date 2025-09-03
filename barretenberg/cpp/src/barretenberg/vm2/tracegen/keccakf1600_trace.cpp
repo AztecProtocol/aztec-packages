@@ -465,6 +465,8 @@ void KeccakF1600TraceBuilder::process_permutation(
 {
     trace.set(C::keccakf1600_last, 0, 1);
 
+    constexpr MemoryAddress HIGHEST_SLICE_ADDRESS = AVM_HIGHEST_MEM_ADDRESS - AVM_KECCAKF1600_STATE_SIZE + 1;
+
     uint32_t row = 1;
     for (const auto& event : events) {
         const bool out_of_range = event.src_out_of_range || event.dst_out_of_range;
@@ -483,7 +485,6 @@ void KeccakF1600TraceBuilder::process_permutation(
                           { C::keccakf1600_tag_u64, static_cast<uint8_t>(MemoryTag::U64) },
                           { C::keccakf1600_round, round_idx + 1 }, // round is 1-indexed
                           { C::keccakf1600_round_cst, simulation::keccak_round_constants[round_idx] },
-                          { C::keccakf1600_thirty_two, AVM_MEMORY_NUM_BITS },
                       } });
 
             // Setting the rotation length constants
@@ -503,11 +504,10 @@ void KeccakF1600TraceBuilder::process_permutation(
                 trace.set(row,
                           { {
                               { C::keccakf1600_start, 1 },
+                              { C::keccakf1600_highest_slice_address, HIGHEST_SLICE_ADDRESS },
                               { C::keccakf1600_src_addr, event.src_addr },
                               { C::keccakf1600_src_out_of_range_error, event.src_out_of_range ? 1 : 0 },
                               { C::keccakf1600_dst_out_of_range_error, event.dst_out_of_range ? 1 : 0 },
-                              { C::keccakf1600_src_abs_diff, event.src_abs_diff },
-                              { C::keccakf1600_dst_abs_diff, event.dst_abs_diff },
                               { C::keccakf1600_tag_error, event.tag_error ? 1 : 0 },
                               { C::keccakf1600_sel_slice_read, out_of_range ? 0 : 1 },
                               { C::keccakf1600_error, error ? 1 : 0 },
@@ -790,10 +790,10 @@ const InteractionDefinition KeccakF1600TraceBuilder::interactions =
         // Memory slices permutations
         .add<perm_keccakf1600_read_to_slice_settings, InteractionType::Permutation>()
         .add<perm_keccakf1600_write_to_slice_settings, InteractionType::Permutation>()
-        // Range check for slice memory ranges.
-        // Range checks are de-duplicated and therefore we can't use the interaction builder
+        // GT checks for slice memory ranges.
+        // GT checks are de-duplicated and therefore we can't use the interaction builder
         // LookupIntoDynamicTableSequential.
-        .add<lookup_keccakf1600_src_abs_diff_positive_settings, InteractionType::LookupGeneric>()
-        .add<lookup_keccakf1600_dst_abs_diff_positive_settings, InteractionType::LookupGeneric>();
+        .add<lookup_keccakf1600_src_out_of_range_toggle_settings, InteractionType::LookupGeneric>()
+        .add<lookup_keccakf1600_dst_out_of_range_toggle_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

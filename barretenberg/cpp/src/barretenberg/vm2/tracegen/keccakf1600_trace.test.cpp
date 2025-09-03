@@ -159,12 +159,14 @@ TEST(KeccakF1600TraceGenTest, MainKeccakTraceWithSimulation)
 
     // Specific checks on the first row of the keccakf1600 permutation subtrace.
     // A memory slice read is active.
-    EXPECT_THAT(rows.at(1),
-                AllOf(ROW_FIELD_EQ(keccakf1600_start, 1),
-                      ROW_FIELD_EQ(keccakf1600_sel_slice_read, 1),
-                      ROW_FIELD_EQ(keccakf1600_sel_slice_write, 0),
-                      ROW_FIELD_EQ(keccakf1600_src_addr, src_addr),
-                      ROW_FIELD_EQ(keccakf1600_last, 0)));
+    EXPECT_THAT(
+        rows.at(1),
+        AllOf(ROW_FIELD_EQ(keccakf1600_start, 1),
+              ROW_FIELD_EQ(keccakf1600_highest_slice_address, AVM_HIGHEST_MEM_ADDRESS - AVM_KECCAKF1600_STATE_SIZE + 1),
+              ROW_FIELD_EQ(keccakf1600_sel_slice_read, 1),
+              ROW_FIELD_EQ(keccakf1600_sel_slice_write, 0),
+              ROW_FIELD_EQ(keccakf1600_src_addr, src_addr),
+              ROW_FIELD_EQ(keccakf1600_last, 0)));
 
     // Check values on all rows of the keccakf1600 permutation subtrace.
     for (size_t i = 1; i < AVM_KECCAKF1600_NUM_ROUNDS + 1; i++) {
@@ -177,7 +179,6 @@ TEST(KeccakF1600TraceGenTest, MainKeccakTraceWithSimulation)
                           ROW_FIELD_EQ(keccakf1600_bitwise_and_op_id, static_cast<uint8_t>(BitwiseOperation::AND)),
                           ROW_FIELD_EQ(keccakf1600_tag_u64, static_cast<uint8_t>(MemoryTag::U64)),
                           ROW_FIELD_EQ(keccakf1600_round_cst, simulation::keccak_round_constants[i - 1]),
-                          ROW_FIELD_EQ(keccakf1600_thirty_two, AVM_MEMORY_NUM_BITS),
                           ROW_FIELD_EQ(keccakf1600_src_out_of_range_error, 0),
                           ROW_FIELD_EQ(keccakf1600_dst_out_of_range_error, 0),
                           ROW_FIELD_EQ(keccakf1600_tag_error, 0),

@@ -14,12 +14,12 @@ template <typename FF_> class keccakf1600Impl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 159> SUBRELATION_PARTIAL_LENGTHS = {
+    static constexpr std::array<size_t, 157> SUBRELATION_PARTIAL_LENGTHS = {
         3, 3, 3, 3, 4, 4, 3, 3, 3, 3, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2,
         2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
         2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 3, 4, 3, 3, 3, 3, 4, 3
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 4, 3
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -279,23 +279,19 @@ template <typename FF> class keccakf1600 : public Relation<keccakf1600Impl<FF>> 
             return "SRC_OUT_OF_RANGE_ERROR_BOOLEAN";
         case 148:
             return "DST_OUT_OF_RANGE_ERROR_BOOLEAN";
-        case 149:
-            return "SRC_OUT_OF_RANGE_TOGGLE";
         case 150:
-            return "DST_OUT_OF_RANGE_TOGGLE";
-        case 152:
             return "ERROR";
-        case 153:
+        case 151:
             return "DST_ADDR_PROPAGATION";
-        case 154:
+        case 152:
             return "CLK_PROPAGATION";
-        case 155:
+        case 153:
             return "SPACE_ID_PROPAGATION";
-        case 156:
+        case 154:
             return "SEL_NO_ERROR_PROPAGATION";
-        case 157:
+        case 155:
             return "SEL_SLICE_READ";
-        case 158:
+        case 156:
             return "SEL_SLICE_WRITE";
         }
         return std::to_string(index);
@@ -420,15 +416,13 @@ template <typename FF> class keccakf1600 : public Relation<keccakf1600Impl<FF>> 
     static constexpr size_t SR_NEXT_STATE_IN_44 = 146;
     static constexpr size_t SR_SRC_OUT_OF_RANGE_ERROR_BOOLEAN = 147;
     static constexpr size_t SR_DST_OUT_OF_RANGE_ERROR_BOOLEAN = 148;
-    static constexpr size_t SR_SRC_OUT_OF_RANGE_TOGGLE = 149;
-    static constexpr size_t SR_DST_OUT_OF_RANGE_TOGGLE = 150;
-    static constexpr size_t SR_ERROR = 152;
-    static constexpr size_t SR_DST_ADDR_PROPAGATION = 153;
-    static constexpr size_t SR_CLK_PROPAGATION = 154;
-    static constexpr size_t SR_SPACE_ID_PROPAGATION = 155;
-    static constexpr size_t SR_SEL_NO_ERROR_PROPAGATION = 156;
-    static constexpr size_t SR_SEL_SLICE_READ = 157;
-    static constexpr size_t SR_SEL_SLICE_WRITE = 158;
+    static constexpr size_t SR_ERROR = 150;
+    static constexpr size_t SR_DST_ADDR_PROPAGATION = 151;
+    static constexpr size_t SR_CLK_PROPAGATION = 152;
+    static constexpr size_t SR_SPACE_ID_PROPAGATION = 153;
+    static constexpr size_t SR_SEL_NO_ERROR_PROPAGATION = 154;
+    static constexpr size_t SR_SEL_SLICE_READ = 155;
+    static constexpr size_t SR_SEL_SLICE_WRITE = 156;
 };
 
 } // namespace bb::avm2

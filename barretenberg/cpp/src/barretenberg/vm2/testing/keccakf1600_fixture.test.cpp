@@ -10,6 +10,7 @@
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
 #include "barretenberg/vm2/tracegen/bitwise_trace.hpp"
+#include "barretenberg/vm2/tracegen/gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/keccakf1600_trace.hpp"
 #include "barretenberg/vm2/tracegen/memory_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
@@ -24,9 +25,12 @@ using MemorySimulator = simulation::Memory;
 using KeccakSimulator = simulation::KeccakF1600;
 using BitwiseSimulator = simulation::Bitwise;
 using RangeCheckSimulator = simulation::RangeCheck;
+using FieldGreaterThanSimulator = simulation::FieldGreaterThan;
+using GreaterThanSimulator = simulation::GreaterThan;
 using ExecutionIdManagerSimulator = simulation::ExecutionIdManager;
 using simulation::EventEmitter;
 using tracegen::BitwiseTraceBuilder;
+using tracegen::GreaterThanTraceBuilder;
 using tracegen::KeccakF1600TraceBuilder;
 using tracegen::MemoryTraceBuilder;
 using tracegen::PrecomputedTraceBuilder;
@@ -43,6 +47,7 @@ void generate_keccak_trace_impl(TestTraceContainer& trace,
     KeccakF1600TraceBuilder keccak_builder;
     BitwiseTraceBuilder bitwise_builder;
     RangeCheckTraceBuilder range_check_builder;
+    GreaterThanTraceBuilder greater_than_builder;
     PrecomputedTraceBuilder precomputed_builder;
     MemoryTraceBuilder memory_builder;
 
@@ -50,11 +55,15 @@ void generate_keccak_trace_impl(TestTraceContainer& trace,
     EventEmitter<simulation::KeccakF1600Event> keccak_event_emitter;
     EventEmitter<simulation::RangeCheckEvent> range_check_event_emitter;
     EventEmitter<simulation::MemoryEvent> memory_event_emitter;
+    EventEmitter<simulation::GreaterThanEvent> greater_than_event_emitter;
+    EventEmitter<simulation::FieldGreaterThanEvent> field_gt_event_emitter;
     ExecutionIdManagerSimulator execution_id_manager(1);
     RangeCheckSimulator range_check_simulator(range_check_event_emitter);
+    FieldGreaterThanSimulator field_gt_simulator(range_check_simulator, field_gt_event_emitter);
+    GreaterThanSimulator greater_than_simulator(field_gt_simulator, range_check_simulator, greater_than_event_emitter);
     BitwiseSimulator bitwise_simulator(bitwise_event_emitter);
     KeccakSimulator keccak_simulator(
-        execution_id_manager, keccak_event_emitter, bitwise_simulator, range_check_simulator);
+        execution_id_manager, keccak_event_emitter, bitwise_simulator, range_check_simulator, greater_than_simulator);
     MemorySimulator memory_simulator(space_id, range_check_simulator, execution_id_manager, memory_event_emitter);
 
     for (size_t i = 0; i < src_addresses.size(); i++) {
@@ -73,6 +82,7 @@ void generate_keccak_trace_impl(TestTraceContainer& trace,
     keccak_builder.process_memory_slices(keccak_events, trace);
     bitwise_builder.process(bitwise_event_emitter.dump_events(), trace);
     range_check_builder.process(range_check_event_emitter.dump_events(), trace);
+    greater_than_builder.process(greater_than_event_emitter.dump_events(), trace);
     memory_builder.process(memory_event_emitter.dump_events(), trace);
     precomputed_builder.process_keccak_round_constants(trace);
     precomputed_builder.process_misc(trace,

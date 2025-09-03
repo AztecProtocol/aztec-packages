@@ -133,10 +133,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 133;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2936;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2934;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 317;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3386;
+    static constexpr size_t NUM_ALL_ENTITIES = 3384;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -311,9 +311,9 @@ struct AvmFlavorVariables {
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
         lookup_internal_call_push_call_stack_relation<FF_>,
         lookup_internal_call_unwind_call_stack_relation<FF_>,
-        lookup_keccakf1600_dst_abs_diff_positive_relation<FF_>,
+        lookup_keccakf1600_dst_out_of_range_toggle_relation<FF_>,
         lookup_keccakf1600_round_cst_relation<FF_>,
-        lookup_keccakf1600_src_abs_diff_positive_relation<FF_>,
+        lookup_keccakf1600_src_out_of_range_toggle_relation<FF_>,
         lookup_keccakf1600_state_chi_00_relation<FF_>,
         lookup_keccakf1600_state_chi_01_relation<FF_>,
         lookup_keccakf1600_state_chi_02_relation<FF_>,

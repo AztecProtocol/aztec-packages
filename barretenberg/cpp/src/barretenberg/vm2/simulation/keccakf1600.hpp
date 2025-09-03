@@ -7,6 +7,7 @@
 #include "barretenberg/vm2/simulation/bitwise.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
+#include "barretenberg/vm2/simulation/gt.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
 #include "barretenberg/vm2/simulation/range_check.hpp"
@@ -55,11 +56,13 @@ class KeccakF1600 : public KeccakF1600Interface {
     KeccakF1600(ExecutionIdManagerInterface& execution_id_manager,
                 EventEmitterInterface<KeccakF1600Event>& keccakf1600_emitter,
                 BitwiseInterface& bitwise,
-                RangeCheckInterface& range_check)
+                RangeCheckInterface& range_check,
+                GreaterThanInterface& gt)
         : execution_id_manager(execution_id_manager)
         , perm_events(keccakf1600_emitter)
         , bitwise(bitwise)
         , range_check(range_check)
+        , gt(gt)
     {}
 
     void permutation(MemoryInterface& memory, MemoryAddress dst_addr, MemoryAddress src_addr) override;
@@ -69,6 +72,7 @@ class KeccakF1600 : public KeccakF1600Interface {
     EventEmitterInterface<KeccakF1600Event>& perm_events;
     BitwiseInterface& bitwise;
     RangeCheckInterface& range_check;
+    GreaterThanInterface& gt;
 };
 
 } // namespace bb::avm2::simulation

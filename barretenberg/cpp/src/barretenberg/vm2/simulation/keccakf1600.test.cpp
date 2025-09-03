@@ -27,7 +27,9 @@ class KeccakSimulationTest : public ::testing::Test {
         : execution_id_manager(1)
         , bitwise(bitwise_event_emitter)
         , range_check(range_check_event_emitter)
-        , keccak(execution_id_manager, keccak_event_emitter, bitwise, range_check)
+        , field_gt(range_check, field_gt_event_emitter)
+        , greater_than(field_gt, range_check, greater_than_event_emitter)
+        , keccak(execution_id_manager, keccak_event_emitter, bitwise, range_check, greater_than)
     {}
 
     MemoryStore memory;
@@ -35,8 +37,12 @@ class KeccakSimulationTest : public ::testing::Test {
     NoopEventEmitter<KeccakF1600Event> keccak_event_emitter;
     NoopEventEmitter<BitwiseEvent> bitwise_event_emitter;
     NoopEventEmitter<RangeCheckEvent> range_check_event_emitter;
+    NoopEventEmitter<GreaterThanEvent> greater_than_event_emitter;
+    NoopEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     Bitwise bitwise;
     RangeCheck range_check;
+    FieldGreaterThan field_gt;
+    GreaterThan greater_than;
     KeccakF1600 keccak;
 };
 
