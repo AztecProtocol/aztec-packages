@@ -31,7 +31,7 @@ template <typename Builder> void create_poseidon2_permutations(Builder& builder,
     State output_state;
     output_state = stdlib::Poseidon2Permutation<Builder>::permutation(&builder, state);
     for (size_t i = 0; i < output_state.size(); ++i) {
-        output_state[i].assert_equal(constraint.result[i]);
+        output_state[i].assert_equal(field_ct::from_witness_index(&builder, constraint.result[i]));
     }
 }
 

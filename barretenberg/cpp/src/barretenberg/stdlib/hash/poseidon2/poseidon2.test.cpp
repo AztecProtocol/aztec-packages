@@ -26,7 +26,10 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
 
     static std::size_t gate_count(std::size_t N)
     {
-        const size_t P_cost = (N == 1) ? 72 : 73;
+        if (N == 1) {
+            return 73;
+        }
+        const size_t P_cost = 73;
         const size_t D_full_adds = 3;
 
         // Number of Poseidon2 permutation invocations
@@ -338,13 +341,13 @@ TYPED_TEST(StdlibPoseidon2, TestHashZeros)
 TYPED_TEST(StdlibPoseidon2, TestHashSmall)
 {
     TestFixture::test_hash(1);
-    TestFixture::test_hash(6);  // 150
-    TestFixture::test_hash(10); // 300
-    TestFixture::test_hash(16); // 452
-    TestFixture::test_hash(17); // 453
-    TestFixture::test_hash(18); // 454
-    TestFixture::test_hash(23); // 454
-    TestFixture::test_hash(24); // 454
+    TestFixture::test_hash(6);
+    TestFixture::test_hash(10);
+    TestFixture::test_hash(16);
+    TestFixture::test_hash(17);
+    TestFixture::test_hash(18);
+    TestFixture::test_hash(23);
+    TestFixture::test_hash(24);
 }
 
 TYPED_TEST(StdlibPoseidon2, TestHashLarge)
