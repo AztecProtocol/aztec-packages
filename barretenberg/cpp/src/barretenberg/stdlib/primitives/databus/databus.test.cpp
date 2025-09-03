@@ -78,6 +78,62 @@ TEST(Databus, CallDataAndReturnData)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
+TEST(Databus, ConstantEntryAccess)
+{
+
+    Builder builder;
+    databus_ct databus;
+    fr value_0 = 13;
+    fr value_1 = 12;
+    auto constant_0 = witness_ct::create_constant_witness(&builder, value_0);
+    auto constant_1 = witness_ct::create_constant_witness(&builder, value_1);
+    databus.return_data.set_values({ constant_0, constant_1 });
+    field_ct idx_0(witness_ct(&builder, 0));
+    field_ct idx_1(witness_ct(&builder, 1));
+
+    field_ct read_result_0 = databus.return_data[idx_0];
+    field_ct read_result_1 = databus.return_data[idx_1];
+
+    EXPECT_EQ(value_0, read_result_0.get_value());
+    EXPECT_EQ(value_1, read_result_1.get_value());
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+TEST(Databus, ConstantAndUnnormalizedIndex)
+{
+    Builder builder;
+    databus_ct databus;
+    std::array<fr, 3> raw_calldata_values = { 54, 32, 30 };
+    std::array<fr, 3> raw_returndata_values = { 54, 32, 116 };
+    // make the two first elements constants and the second two elements non-normalized
+    // Populate the calldata in the databus
+    std::vector<field_ct> calldata_values;
+    for (auto& value : raw_calldata_values) {
+        calldata_values.emplace_back(witness_ct(&builder, value));
+    }
+    databus.calldata.set_values(calldata_values);
+
+    // Populate the return data in the databus std::vector<field_ct> return_data_values;
+    std::vector<field_ct> returndata_values;
+    for (auto& value : raw_returndata_values) {
+        returndata_values.emplace_back(witness_ct(&builder, value));
+    }
+    databus.return_data.set_values(returndata_values);
+
+    // constant first index
+    field_ct idx_0(witness_ct::create_constant_witness(&builder, 0));
+    field_ct idx_1(witness_ct(&builder, 1));
+    // un-normalized index (with multiplicative constant 2)
+    field_ct idx_2 = idx_1 + idx_1;
+    field_ct sum = databus.calldata[idx_0] + databus.calldata[idx_1] + databus.calldata[idx_2];
+
+    databus.return_data[0].assert_equal(databus.calldata[0]);
+    databus.return_data[1].assert_equal(databus.calldata[1]);
+    databus.return_data[2].assert_equal(sum);
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
 /**
  * @brief A failure test demonstrating that trying to prove (via a databus read) that an erroneous value is present in
  * the databus will result in an invalid witness.
