@@ -1,67 +1,98 @@
 ---
-title: Storage Types
-sidebar_position: 2
-tags: [data-types, smart-contracts]
-description: Learn about how data is stored in Aztec contracts.
+title: Declaring Contract Storage
+sidebar_position: 1
+tags: [contracts, storage, data-types, smart-contracts]
+description: Define and manage storage state in your Aztec smart contracts using various storage types.
 ---
 
-Interacting with the protocol in a reliable, private manner is simplified by using the storage types described below, provided by the Aztec.nr library for writing contracts.
+This guide shows you how to declare storage and use various storage types provided by Aztec.nr for managing contract state.
 
-## Map
+## Prerequisites
 
-A `map` is a state variable that "maps" a key to a value. It can be used with private or public storage variables.
+- An Aztec contract project set up with `aztec-nr` dependency
+- Understanding of Aztec's private and public state model
+- Familiarity with Noir struct syntax
+- Basic knowledge of maps and data structures
 
-:::info
-In Aztec.nr, keys are always `Field`s, or types that can be serialized as Fields, and values can be any type - even other maps. `Field`s are finite field elements, but you can think of them as integers.
-:::
+For storage concepts, see [storage overview](../../../aztec/concepts/storage/index.md).
 
-It includes a `Context` to specify the private or public domain, a `storage_slot` to specify where in storage the map is stored, and a `start_var_constructor` which tells the map how it should operate on the underlying type. This includes how to serialize and deserialize the type, as well as how commitments and nullifiers are computed for the type if it's private.
+## Define your storage struct
 
-You can view the implementation in the Aztec.nr library [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/aztec-nr).
+### Create a storage struct with #[storage]
 
-You can have multiple `map`s in your contract that each have a different underlying note type, due to note type IDs. These are identifiers for each note type that are unique within a contract.
+Declare storage using a struct annotated with `#[storage]`. For example:
 
-#### As private storage
-
-When declaring a mapping in private storage, we have to specify which type of Note to use. In the example below, we are specifying that we want to use the `PrivateMutable` note which will hold `ValueNote` types.
-
-In the Storage struct:
-
-#include_code private_map /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
-
-#### Public Example
-
-When declaring a public mapping in Storage, we have to specify that the type is public by declaring it as `PublicState` instead of specifying a note type like with private storage above.
-
-#include_code storage_minters /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
-
-### Accessing a value
-
-When dealing with a Map, we can access the value at a given key using the `::at` method. This takes the key as an argument and returns the value at that key.
-
-This function behaves similarly for both private and public maps. An example could be if we have a map with `minters`, which is mapping addresses to a flag for whether they are allowed to mint tokens or not.
-
-#include_code read_minter /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
-
-Above, we are specifying that we want to get the storage in the Map `at` the `msg_sender()`, read the value stored and check that `msg_sender()` is indeed a minter. Doing a similar operation in Solidity code would look like:
-
-```solidity
-require(minters[msg.sender], "caller is not minter");
+```rust
+#[storage]
+struct Storage<Context> {
+    // The symbol of the contract
+    symbol: PublicImmutable<FieldCompressedString, Context>,
+    // The name of the contract
+    name: PublicImmutable<FieldCompressedString, Context>,
+    // The admin of the contract
+    admin: PublicMutable<AztecAddress, Context>,
+    // Addresses that are authorized
+    authorized_users: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
+    // Contains the items owned by each address in private.
+    private_items: Map<AztecAddress, PrivateSet<MyNote, Context>, Context>,
+    // A map from item ID to a boolean indicating if the item exists.
+    item_exists: Map<Field, PublicMutable<bool, Context>, Context>,
+    // A map from item ID to the public owner of the item.
+    public_owners: Map<Field, PublicMutable<AztecAddress, Context>, Context>,
+}
 ```
 
-## Private Data Types
+### Access storage in functions
 
-To simplify the experience of writing private state, Aztec.nr provides three different types of private state variable:
+Use the `storage` keyword to access your storage variables in contract functions. The `Context` parameter provides execution mode information.
 
-- [PrivateMutable\<NoteType\>](#privatemutablenotetype)
-- [PrivateImmutable\<NoteType\>](#privateimmutablenotetype)
-- [PrivateSet\<NoteType\>](#privatesetnotetype)
+## Use maps for key-value storage
 
-These three structs abstract-away many of Aztec's protocol complexities, by providing intuitive methods to modify notes in the utxo tree in a privacy-preserving way.
+Maps store key-value pairs where keys are `Field` elements and values can be any type.
 
-Unlike public state variables, which can be arbitrary types, private state variables operate on `NoteType`. See [Note Types](./note_types.md) for more information about how to define your own note types.
+### Understand map structure
 
-Notes are the fundamental elements of private state.
+- Keys: Always `Field` or serializable types
+- Values: Any type, including other maps
+- Storage: Specified by `storage_slot` and type constructor
+- Multiple maps: Supported with unique note type IDs
+
+### Declare private maps
+
+Specify the note type for private storage maps:
+
+```rust
+// Contains the items owned by each address in private.
+private_items: Map<AztecAddress, PrivateSet<MyNote, Context>, Context>,
+```
+
+### Declare public maps
+
+Use `PublicState` for public storage maps:
+
+```rust
+authorized_users: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
+```
+
+### Access map values
+
+Use the `::at` method to access values by key:
+
+```rust
+assert(storage.authorized_users.at(context.msg_sender()).read(), "caller is not authorized");
+```
+
+This is equivalent to Solidity's `authorized_users[msg.sender]` pattern.
+
+## Use private storage types
+
+Aztec.nr provides three private state variable types:
+
+- `PrivateMutable<NoteType>`: Single mutable private value
+- `PrivateImmutable<NoteType>`: Single immutable private value
+- `PrivateSet<NoteType>`: Collection of private notes
+
+All private storage operates on note types rather than arbitrary data types.
 
 ### PrivateMutable
 
@@ -69,15 +100,19 @@ PrivateMutable is a private state variable that is unique in a way. When a Priva
 
 Like for public state, we define the struct to have context and a storage slot. You can view the implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/aztec-nr/aztec/src/state_vars/private_mutable.nr).
 
-An example of `PrivateMutable` usage in the account contracts is keeping track of public keys. The `PrivateMutable` is added to the `Storage` struct as follows:
+An example of `PrivateMutable` usage in contracts is keeping track of important values. The `PrivateMutable` is added to the `Storage` struct as follows:
 
-#include_code storage-private-mutable-declaration /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
+```rust
+my_value: PrivateMutable<MyNote, Context>,
+```
 
 #### `new`
 
 As part of the initialization of the `Storage` struct, the `PrivateMutable` is created as follows at the specified storage slot.
 
-#include_code start_vars_private_mutable /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
+```rust
+my_value: PrivateMutable::new(context, 3),
+```
 
 #### `initialize`
 
@@ -101,15 +136,20 @@ Extend on what happens if you try to use non-initialized state.
 
 An unconstrained method to check whether the PrivateMutable has been initialized or not. It takes an optional owner and returns a boolean. You can view the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/private_mutable.nr).
 
-#include_code private_mutable_is_initialized /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
+```rust
+let is_initialized = my_value.is_initialized();
+```
 
 #### `replace`
 
 To update the value of a `PrivateMutable`, we can use the `replace` method. The method takes a new note as input and replaces the current note with the new one. It emits a nullifier for the old value, and inserts the new note into the data tree.
 
-An example of this is seen in a example card game, where we create a new note (a `CardNote`) containing some new data, and replace the current note with it:
+An example of this is seen in a generic contract, where we create a new note (a `MyNote`) containing some new data, and replace the current note with it:
 
-#include_code state_vars-PrivateMutableReplace /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
+```rust
+let new_note = MyNote::new(new_value, owner);
+my_value.replace(&mut new_note).emit(encode_and_encrypt_note(&mut context, owner));
+```
 
 :::info
 
@@ -123,7 +163,9 @@ If two people are trying to modify the PrivateMutable at the same time, only one
 
 This function allows us to get the note of a PrivateMutable, essentially reading the value.
 
-#include_code state_vars-PrivateMutableGet /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
+```rust
+let note = my_value.get_note()
+```
 
 #### Nullifying Note reads
 
@@ -143,7 +185,9 @@ Functionally similar to [`get_note`](#get_note), but executed in unconstrained f
 
 As part of the initialization of the `Storage` struct, the `PrivateMutable` is created as follows, here at storage slot 1.
 
-#include_code storage-private-immutable-declaration /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
+```rust
+my_private_immutable: PrivateImmutable<MyNote, Context>,
+```
 
 #### `initialize`
 
@@ -157,7 +201,17 @@ For example, if the storage slot depends on the an address then it is possible t
 
 Set the value of an PrivateImmutable by calling the `initialize` method:
 
-#include_code initialize-private-mutable /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
+```rust
+#[private]
+fn initialize_private_immutable(my_value: u8) {
+    let new_note = MyNote::new(my_value, context.msg_sender());
+
+    storage.my_private_immutable.initialize(new_note).emit(encode_and_encrypt_note(
+        &mut context,
+        context.msg_sender(),
+    ));
+}
+```
 
 :::info
 
@@ -177,7 +231,12 @@ Similar to the `PrivateMutable`, we can use the `get_note` method to read the va
 
 Use this method to retrieve the value of an initialized PrivateImmutable.
 
-#include_code get_note-private-immutable /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
+```rust
+#[private]
+fn get_immutable_note() -> MyNote {
+    storage.my_private_immutable.get_note()
+}
+```
 
 Unlike a `PrivateMutable`, the `get_note` function for an PrivateImmutable doesn't nullify the current note in the background. This means that multiple accounts can concurrently call this function to read the value.
 
@@ -191,9 +250,11 @@ Functionally similar to `get_note`, but executed unconstrained and can be used b
 
 `PrivateSet` is used for managing a collection of notes. All notes in a `PrivateSet` are of the same `NoteType`. But whether these notes all belong to one entity, or are accessible and editable by different entities, is up to the developer.
 
-For example, adding a mapping of private NFTs to storage, indexed by `AztecAddress`:
+For example, adding a mapping of private items to storage, indexed by `AztecAddress`:
 
-#include_code private_map /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
+```rust
+private_items: Map<AztecAddress, PrivateSet<MyNote, Context>, Context>,
+```
 
 #### `insert`
 
@@ -201,7 +262,9 @@ Allows us to modify the storage by inserting a note into the `PrivateSet`.
 
 A hash of the note will be generated, and inserted into the note hash tree, allowing us to later use in contract interactions. Recall that the content of the note should be shared with the owner to allow them to use it, as mentioned this can be done via an encrypted log or offchain via web2, or completely offline.
 
-#include_code insert /noir-projects/aztec-nr/easy-private-state/src/easy_private_uint.nr rust
+```rust
+self.set.insert(addend_note).emit(encode_and_encrypt_note(self.context, owner));
+```
 
 :::info
 
@@ -225,7 +288,10 @@ Because of this limit, we should always consider using the second argument `Note
 
 An example of such options is using the [filter_notes_min_sum (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/value-note/src/filter.nr) to get "enough" notes to cover a given value. Essentially, this function will return just enough notes to cover the amount specified such that we don't need to read all our notes. For users with a lot of notes, this becomes increasingly important.
 
-#include_code pop_notes /noir-projects/aztec-nr/easy-private-state/src/easy_private_uint.nr rust
+```rust
+let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend as Field);
+let notes = self.set.pop_notes(options);
+```
 
 #### `get_notes`
 
@@ -241,7 +307,10 @@ Note that if you obtained the note you are about to remove via `get_notes` it's 
 
 Functionally similar to [`get_notes`](#get_notes), but executed unconstrained and can be used by the wallet to fetch notes for use by front-ends etc.
 
-#include_code view_notes /noir-projects/aztec-nr/value-note/src/balance_utils.nr rust
+```rust
+let mut options = NoteViewerOptions::new();
+let notes = set.view_notes(options.set_offset(offset));
+```
 
 There's also a limit on the maximum number of notes that can be returned in one go. To find the current limit, refer to [this file (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/constants.nr) and look for `MAX_NOTES_PER_PAGE`.
 
@@ -249,15 +318,15 @@ The key distinction is that this method is unconstrained. It does not perform a 
 
 This function requires a `NoteViewerOptions`. The `NoteViewerOptions` is essentially similar to the [`NoteGetterOptions`](#notegetteroptions), except that it doesn't take a custom filter.
 
-## Public Data Types
+## Use public storage types
 
 ### PublicMutable
 
-The `PublicMutable` struct is generic over the variable type `T`.
+Store mutable public state using `PublicMutable<T>`:
 
-The struct contains a `storage_slot` which, similar to Ethereum, is used to figure out _where_ in storage the variable is located.
-
-For a version of `PublicMutable` that can also be read in private, head to [`DelayedPublicMutable`](#delayed-public-mutable).
+- Generic over any serializable type `T`
+- Uses `storage_slot` to determine storage location
+- Similar to Ethereum storage model
 
 :::info
 An example using a larger struct can be found in the [lending example](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts/contracts/app/lending_contract)'s use of an [`Asset`](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/app/lending_contract/src/asset.nr).
@@ -265,51 +334,67 @@ An example using a larger struct can be found in the [lending example](https://g
 
 ##### Single value example
 
-To add `admin` public state variable into our storage struct, we can define it as:
+To add `config_value` public state variable into our storage struct, we can define it as:
 
-#include_code storage-leader-declaration /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
+```rust
+config_value: PublicMutable<MyStruct, Context>,
+```
 
 #### Mapping example
 
-To add a group of `minters` that are able to mint assets in our contract, and we want them in public storage:
+To add a group of `authorized_users` that are able to perform actions in our contract, and we want them in public storage:
 
-#include_code storage-minters-declaration /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
+```rust
+authorized_users: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
+```
 
 #### `read`
 
 On the `PublicMutable` structs we have a `read` method to read the value at the location in storage.
 
-##### Reading from our `admin` example
+##### Reading from our `config_value` example
 
-For our `admin` example from earlier, this could be used as follows to check that the stored value matches the `msg_sender()`.
+For our `config_value` example from earlier, this could be used as follows to check that the stored value matches the `msg_sender()`.
 
-#include_code read_admin /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
+```rust
+let admin = storage.admin.read();
+assert(admin == context.msg_sender(), "caller is not admin");
+```
 
-##### Reading from our `minters` example
+##### Reading from our `authorized_users` example
 
 As we saw in the Map earlier, a very similar operation can be done to perform a lookup in a map.
 
-#include_code read_minter /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
+```rust
+let is_authorized = storage.authorized_users.at(context.msg_sender()).read();
+assert(is_authorized, "caller is not authorized");
+```
 
 #### `write`
 
 We have a `write` method on the `PublicMutable` struct that takes the value to write as an input and saves this in storage. It uses the serialization method to serialize the value which inserts (possibly multiple) values into storage.
 
-##### Writing to our `admin` example
+##### Writing to our `config_value` example
 
-#include_code write_admin /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
+```rust
+storage.admin.write(new_admin);
+```
 
-##### Writing to our `minters` example
+##### Writing to our `authorized_users` example
 
-#include_code write_minter /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
+```rust
+storage.authorized_users.at(user_address).write(true);
+```
 
 ### PublicImmutable
 
-`PublicImmutable` is a type that is initialized from public once, typically during a contract deployment, but which can later be read from public, private and utility execution contexts. This state variable is useful for stuff that you would usually have in `immutable` values in Solidity, e.g. this can be the name of a token or its number of decimals.
+`PublicImmutable` is a type that is initialized from public once, typically during a contract deployment, but which can later be read from public, private and utility execution contexts. This state variable is useful for stuff that you would usually have in `immutable` values in Solidity, e.g. this can be the name of a contract or its version number.
 
 Just like the `PublicMutable` it is generic over the variable type `T`. The type `MUST` implement the `Serialize` and `Deserialize` traits.
 
-#include_code storage-public-immutable-declaration /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
+```rust
+my_public_immutable: PublicImmutable<MyStruct, Context>,
+```
 
 You can find the details of `PublicImmutable` in the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/public_immutable.nr).
 
@@ -317,25 +402,40 @@ You can find the details of `PublicImmutable` in the implementation [here (GitHu
 
 Is done exactly like the `PublicMutable` struct, but with the `PublicImmutable` struct.
 
-#include_code storage-public-immutable-declaration /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
+```rust
+my_public_immutable: PublicImmutable<MyStruct, Context>,
+```
 
 #### `initialize`
 
 This function sets the immutable value. It can only be called once.
 
-#include_code initialize_decimals /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
+```rust
+storage.my_public_immutable.initialize(my_value);
+```
 
 :::warning
 A `PublicImmutable`'s storage **must** only be set once via `initialize`. Attempting to override this by manually accessing the underlying storage slots breaks all properties of the data structure, rendering it useless.
 :::
 
-#include_code initialize_public_immutable /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
+```rust
+#[public]
+fn initialize_public_immutable(my_value: u8) {
+    let mut new_struct = MyStruct { account: context.msg_sender(), value: my_value };
+    storage.my_public_immutable.initialize(new_struct);
+}
+```
 
 #### `read`
 
 Returns the stored immutable value. This function is available in public, private and utility contexts.
 
-#include_code read_public_immutable /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
+```rust
+#[utility]
+unconstrained fn get_public_immutable() -> MyStruct {
+    storage.my_public_immutable.read()
+}
+```
 
 ## Delayed Public Mutable
 
@@ -387,7 +487,9 @@ This prevents the network-wide privacy set from being split between transactions
 
 Unlike other state variables, `DelayedPublicMutable` receives not only a type parameter for the underlying datatype, but also a `DELAY` type parameter with the value change delay as a number of seconds.
 
-#include_code delayed_public_mutable_storage /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
+```rust
+my_delayed_value: DelayedPublicMutable<MyType, MY_DELAY, Context>,
+```
 
 :::note
 `DelayedPublicMutable` requires that the underlying type `T` implements both the `ToField` and `FromField` traits, meaning it must fit in a single `Field` value. There are plans to extend support by requiring instead an implementation of the `Serialize` and `Deserialize` traits, therefore allowing for multi-field variables, such as complex structs.
@@ -401,7 +503,13 @@ This is the means by which a `DelayedPublicMutable` variable mutates its content
 
 This function can only be called in public, typically after some access control check:
 
-#include_code delayed_public_mutable_schedule /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
+```rust
+#[public]
+fn set_my_value(new_value: MyType) {
+    assert_eq(storage.admin.read(), context.msg_sender(), "caller is not admin");
+    storage.my_delayed_value.schedule_value_change(new_value);
+}
+```
 
 If one wishes to schedule a value change from private, simply enqueue a public call to a public `internal` contract function. Recall that **all scheduled value changes, including the new value and scheduled timestamp are public**.
 
@@ -413,16 +521,22 @@ A `DelayedPublicMutable`'s storage **must** only be mutated via `schedule_value_
 
 Returns the current value in a public, private or utility execution context. Once a value change is scheduled via `schedule_value_change` and the delay time passes, this automatically returns the new value.
 
-#include_code delayed_public_mutable_get_current_public /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
+```rust
+storage.my_delayed_value.get_current_value()
+```
 
 Also, calling in private will set the `include_by_timestamp` property of the transaction request, introducing a new validity condition to the entire transaction: it cannot be included in any block with a timestamp larger than `include_by_timestamp`. This could [potentially leak some privacy](#privacy-considerations).
 
-#include_code delayed_public_mutable_get_current_private /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
+```rust
+let current_value = storage.my_delayed_value.get_current_value();
+```
 
 ### `get_scheduled_value`
 
 Returns the last scheduled value change, along with the timestamp at which the scheduled value becomes the current value. This may either be a pending change, if the timestamp is in the future, or the last executed scheduled change if the timestamp is in the past (in which case there are no pending changes).
 
-#include_code delayed_public_mutable_get_scheduled_public /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
+```rust
+storage.my_delayed_value.get_scheduled_value()
+```
 
 It is not possible to call this function in private: doing so would not be very useful at it cannot be asserted that a scheduled value change will not be immediately replaced if `shcedule_value_change` where to be called.

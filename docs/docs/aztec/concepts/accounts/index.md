@@ -73,7 +73,7 @@ A request for executing an action requires:
 - The initial function to call (usually `entrypoint`).
 - The arguments (which encode the private and public calls to run as well as any signatures).
 
-Read more about how to write an account contract [here](../../../developers/tutorials/contract_tutorials/write_accounts_contract.md).
+Read more about how to write an account contract in the [account development guide](../../../developers/guides/js_apps/create_account.md).
 
 ### Non-standard entrypoints
 

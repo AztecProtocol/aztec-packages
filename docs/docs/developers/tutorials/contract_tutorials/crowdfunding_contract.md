@@ -198,11 +198,11 @@ See [claim_contract (GitHub link)](https://github.com/AztecProtocol/aztec-packag
 
 ### Build an accounts contract
 
-Follow the account contract tutorial on the [next page](./write_accounts_contract.md) and learn more about account abstraction.
+Learn more about [account abstraction](../../../aztec/concepts/accounts/index.md) and [creating accounts](../../guides/js_apps/create_account.md).
 
 ### Optional: Learn more about concepts mentioned here
 
-- [Initializer functions](../../guides/smart_contracts/define_functions.md#initializer-functions)
+- [Initializer functions](../../guides/smart_contracts/how_to_define_functions.md#initializer-functions)
 - [Versions and Updating](../../guides/local_env/sandbox.md#updating).
 - [Authorizing actions](../../../aztec/concepts/advanced/authwit.md)
 - [Public logs](../../guides/smart_contracts/how_to_emit_event.md)

@@ -13,7 +13,7 @@ help you write Noir programs to deploy on the Aztec network.
 
 ### Prerequisites
 
-- Install [Aztec Sandbox and tooling](../../getting_started/getting_started_on_sandbox.md)
+- Install [Aztec Sandbox and tooling](../../getting_started/getting_started.md)
 - Install the [Noir LSP](../local_env/installing_noir_lsp.md) for your editor.
 
 ### Flow
@@ -27,9 +27,9 @@ help you write Noir programs to deploy on the Aztec network.
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }
 ```
 
-2.  [Profile](./advanced/profiling_transactions.md) the private functions in your contract to get
+2.  [Profile](./advanced/how_to_profile_transactions.md) the private functions in your contract to get
     a sense of how long generating client side proofs will take
-3.  Write unit tests [directly in Noir](testing.md) and end-to-end
+3.  Write unit tests [directly in Noir](how_to_test_contracts.md) and end-to-end
     tests [with TypeScript](../js_apps/test.md)
 4.  [Compile](how_to_compile_contract.md) your contract
 5.  [Deploy](../js_apps/deploy_contract.md) your contract with Aztec.js

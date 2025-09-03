@@ -66,11 +66,6 @@ const sidebar = {
       label: "Build",
     },
     {
-      type: "doc",
-      label: "Get Inspired",
-      id: "developers/inspiration",
-    },
-    {
       type: "html",
       value: '<span class="sidebar-title">Getting Started</span>',
       className: "sidebar-title",
@@ -126,6 +121,11 @@ const sidebar = {
     {
       type: "html",
       value: '<span class="sidebar-divider" />',
+    },
+    {
+      type: "doc",
+      label: "Get Inspired",
+      id: "developers/inspiration",
     },
     {
       type: "doc",
