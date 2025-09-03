@@ -25,6 +25,15 @@ template <typename FF> struct WitnessOrConstant {
             .is_constant = false,
         };
     }
+
+    static WitnessOrConstant from_constant(FF value)
+    {
+        return WitnessOrConstant{
+            .index = 0,
+            .value = value,
+            .is_constant = true,
+        };
+    }
 };
 
 template <typename Builder, typename FF>

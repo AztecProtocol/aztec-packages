@@ -261,6 +261,10 @@ tests:
     error_regex: "ContractFunctionExecutionError: The contract function"
     owners:
       - *mitch
+  - regex: "e2e_prover/full"
+    error_regex: "Rollup submit epoch proof failed"
+    owners:
+      - *alex
 
   # Nightly GKE tests
   - regex: "spartan/bootstrap.sh"

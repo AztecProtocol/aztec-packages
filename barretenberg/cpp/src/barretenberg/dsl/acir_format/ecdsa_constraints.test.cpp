@@ -3,6 +3,7 @@
 #include "acir_format_mocks.hpp"
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
+#include "barretenberg/dsl/acir_format/witness_constant.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256r1.hpp"
 
@@ -86,6 +87,7 @@ template <class Curve> class EcdsaConstraintsTest : public ::testing::Test {
                                             .signature = signature_indices,
                                             .pub_x_indices = pub_x_indices,
                                             .pub_y_indices = pub_y_indices,
+                                            .predicate = WitnessOrConstant<bb::fr>::from_constant(bb::fr::one()),
                                             .result = result_index };
 
         return num_variables;
