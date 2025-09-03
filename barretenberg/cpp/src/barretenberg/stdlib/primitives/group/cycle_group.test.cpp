@@ -240,8 +240,8 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveInfinitySucceed)
     STDLIB_TYPE_ALIASES;
     Builder builder;
 
-    auto x = stdlib::field_t<Builder>::from_witness(&builder, 1);
-    auto y = stdlib::field_t<Builder>::from_witness(&builder, 1);
+    auto x = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(1));
+    auto y = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(1));
 
     cycle_group_ct a(x, y, /*_is_infinity=*/true); // marks this point as the point at infinity
     a.validate_is_on_curve();
@@ -259,8 +259,8 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveFail)
     STDLIB_TYPE_ALIASES;
     Builder builder;
 
-    auto x = stdlib::field_t<Builder>::from_witness(&builder, 1);
-    auto y = stdlib::field_t<Builder>::from_witness(&builder, 1);
+    auto x = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(1));
+    auto y = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(1));
 
     cycle_group_ct a(x, y, /*_is_infinity=*/false);
     a.validate_is_on_curve();
@@ -278,8 +278,8 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveFail2)
     STDLIB_TYPE_ALIASES;
     Builder builder;
 
-    auto x = stdlib::field_t<Builder>::from_witness(&builder, 1);
-    auto y = stdlib::field_t<Builder>::from_witness(&builder, 1);
+    auto x = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(1));
+    auto y = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(1));
 
     cycle_group_ct a(x, y, /*_is_infinity=*/bool_ct(witness_ct(&builder, false)));
     a.validate_is_on_curve();
@@ -300,8 +300,8 @@ TYPED_TEST(CycleGroupTest, TestStandardForm)
     input_b.set_point_at_infinity(true);
     input_d.set_point_at_infinity(true);
 
-    auto x = stdlib::field_t<Builder>::from_witness(&builder, 1);
-    auto y = stdlib::field_t<Builder>::from_witness(&builder, 1);
+    auto x = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(1));
+    auto y = stdlib::field_t<Builder>::from_witness(&builder, typename stdlib::field_t<Builder>::native(1));
     cycle_group_ct input_e = cycle_group_ct(x, y, true);
     cycle_group_ct input_f = cycle_group_ct(x, y, bool_ct(witness_ct(&builder, true)));
 

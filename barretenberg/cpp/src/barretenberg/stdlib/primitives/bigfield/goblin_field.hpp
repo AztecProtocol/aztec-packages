@@ -85,12 +85,16 @@ template <class Builder> class goblin_field {
         uint256_t converted(input);
         uint256_t lo_v = converted.slice(0, NUM_LIMB_BITS * 2);
         uint256_t hi_v = converted.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3 + NUM_LAST_LIMB_BITS);
-        field_ct lo = field_ct::from_witness(ctx, lo_v);
-        field_ct hi = field_ct::from_witness(ctx, hi_v);
+        field_ct lo = field_ct::from_witness(ctx, typename field_ct::native(lo_v));
+        field_ct hi = field_ct::from_witness(ctx, typename field_ct::native(hi_v));
         auto result = goblin_field(lo, hi);
         result.set_free_witness_tag();
         return result;
     }
+    // Disallow from_witness for non-bb::fq types to prevent implicit conversions (specifically, using indices rather
+    // than values)
+    template <typename OT> static goblin_field from_witness(Builder* ctx, const OT& input) = delete;
+    template <typename OT> static goblin_field from_witness(Builder* ctx, const OT input) = delete;
 
     /**
      * Create a witness from a constant. This way the value of the witness is fixed and public.

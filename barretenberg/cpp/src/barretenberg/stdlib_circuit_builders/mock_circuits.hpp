@@ -102,9 +102,9 @@ class MockCircuits {
      */
     template <typename Builder> static void add_RAM_gates(Builder& builder)
     {
-        std::array<uint32_t, 3> ram_values{ builder.add_variable(5),
-                                            builder.add_variable(10),
-                                            builder.add_variable(20) };
+        std::array<uint32_t, 3> ram_values{ builder.add_variable(bb::fr(5)),
+                                            builder.add_variable(bb::fr(10)),
+                                            builder.add_variable(bb::fr(20)) };
 
         size_t ram_id = builder.create_RAM_array(3);
 
@@ -112,9 +112,9 @@ class MockCircuits {
             builder.init_RAM_element(ram_id, i, ram_values[i]);
         }
 
-        auto val_idx_1 = builder.read_RAM_array(ram_id, builder.add_variable(1));
-        auto val_idx_2 = builder.read_RAM_array(ram_id, builder.add_variable(2));
-        auto val_idx_3 = builder.read_RAM_array(ram_id, builder.add_variable(0));
+        auto val_idx_1 = builder.read_RAM_array(ram_id, builder.add_variable(bb::fr(1)));
+        auto val_idx_2 = builder.read_RAM_array(ram_id, builder.add_variable(bb::fr(2)));
+        auto val_idx_3 = builder.read_RAM_array(ram_id, builder.add_variable(bb::fr(0)));
 
         builder.create_big_add_gate({
             val_idx_1,

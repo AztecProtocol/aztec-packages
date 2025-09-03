@@ -78,7 +78,7 @@ template <typename Flavor> class DataBusTests : public ::testing::Test {
         // Read from the bus at some random indices
         for (size_t i = 0; i < NUM_READS; ++i) {
             uint32_t read_idx = engine.get_random_uint32() % NUM_BUS_ENTRIES;
-            uint32_t read_idx_witness_idx = builder.add_variable(read_idx);
+            uint32_t read_idx_witness_idx = builder.add_variable(FF(read_idx));
             read_bus_data(builder, read_idx_witness_idx);
         }
 
@@ -194,7 +194,7 @@ TYPED_TEST(DataBusTests, CallDataDuplicateRead)
     std::vector<uint32_t> result_witness_indices;
     for (uint32_t& read_idx : read_indices) {
         // Create a variable corresponding to the index at which we want to read into calldata
-        uint32_t read_idx_witness_idx = builder.add_variable(read_idx);
+        uint32_t read_idx_witness_idx = builder.add_variable(FF(read_idx));
 
         auto value_witness_idx = builder.read_calldata(read_idx_witness_idx);
         result_witness_indices.emplace_back(value_witness_idx);

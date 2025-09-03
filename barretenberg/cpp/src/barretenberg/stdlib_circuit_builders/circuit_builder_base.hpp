@@ -181,6 +181,9 @@ template <typename FF_> class CircuitBuilderBase {
      * @return The index of the new variable in the variables vector
      */
     virtual uint32_t add_variable(const FF& in);
+    // Disallow add_variable for non-FF types to prevent implicit conversions (specifically, using indices rather
+    // than values)
+    template <typename OT> uint32_t add_variable(const OT& in) = delete;
 
     /**
      * Assign a name to a variable(equivalence class). Should be one name per equivalence class.
@@ -218,6 +221,9 @@ template <typename FF_> class CircuitBuilderBase {
      */
     virtual uint32_t add_public_variable(const FF& in);
 
+    // Disallow add_public_variable for non-FF types to prevent implicit conversions (specifically, using indices rather
+    // than values)
+    template <typename OT> uint32_t add_public_variable(const OT& in) = delete;
     /**
      * @brief Make a witness variable public.
      *

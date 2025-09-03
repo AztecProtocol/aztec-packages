@@ -177,7 +177,7 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     accumulator->gate_challenges = update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
     // Define a constant virtual log circuit size for the accumulator
-    FF virtual_log_n = FF::from_witness(builder, CONST_PG_LOG_N);
+    FF virtual_log_n = FF::from_witness(builder, typename FF::native(CONST_PG_LOG_N));
     virtual_log_n.fix_witness();
     accumulator->vk_and_hash->vk->log_circuit_size = virtual_log_n;
 

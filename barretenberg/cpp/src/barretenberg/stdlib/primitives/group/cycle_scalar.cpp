@@ -182,8 +182,8 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& 
             const uint256_t limb = limb0.get_value();
             const uint256_t lo_v = limb.slice(0, BigScalarField::NUM_LIMB_BITS);
             const uint256_t hi_v = limb >> BigScalarField::NUM_LIMB_BITS;
-            field_t lo = field_t::from_witness(ctx, lo_v);
-            field_t hi = field_t::from_witness(ctx, hi_v);
+            field_t lo = field_t::from_witness(ctx, typename field_t::native(lo_v));
+            field_t hi = field_t::from_witness(ctx, typename field_t::native(hi_v));
 
             uint256_t hi_max = (scalar.binary_basis_limbs[0].maximum_value >> BigScalarField::NUM_LIMB_BITS);
             const uint64_t hi_bits = hi_max.get_msb() + 1;
@@ -215,8 +215,8 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& 
         const uint256_t limb_1_lo_v = limb_1 - (limb_1_hi_v << lo_bits_in_limb_1);
 
         // Step 3: instantiate both slices as witnesses and validate their sum equals limb1
-        field_t limb_1_lo = field_t::from_witness(ctx, limb_1_lo_v);
-        field_t limb_1_hi = field_t::from_witness(ctx, limb_1_hi_v);
+        field_t limb_1_lo = field_t::from_witness(ctx, typename field_t::native(limb_1_lo_v));
+        field_t limb_1_hi = field_t::from_witness(ctx, typename field_t::native(limb_1_hi_v));
 
         // We need to propagate the origin tag to the chunks of limb1
         limb_1_lo.set_origin_tag(limb1.get_origin_tag());
@@ -277,7 +277,8 @@ template <typename Builder> void cycle_scalar<Builder>::validate_scalar_is_in_fi
         const uint256_t r_hi = cycle_group_modulus.slice(LO_BITS, HI_BITS);
 
         bool need_borrow = uint256_t(lo.get_value()) > r_lo;
-        field_t borrow = lo.is_constant() ? need_borrow : field_t::from_witness(get_context(), need_borrow);
+        field_t borrow = lo.is_constant() ? need_borrow
+                                          : field_t::from_witness(get_context(), typename field_t::native(need_borrow));
 
         // directly call `create_new_range_constraint` to avoid creating an arithmetic gate
         if (!lo.is_constant()) {

@@ -260,7 +260,6 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         pk_1->relation_parameters.eta = 1;
 
         Builder builder2;
-        builder2.add_variable(3);
         stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder2);
         auto pk_2 = std::make_shared<DeciderProvingKey>(builder2);
         pk_2->relation_parameters.eta = 3;
@@ -292,7 +291,6 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         pk_1->alphas.fill(2);
 
         Builder builder2;
-        builder2.add_variable(3);
         stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder2);
         auto pk_2 = std::make_shared<DeciderProvingKey>(builder2);
         pk_2->alphas.fill(4);

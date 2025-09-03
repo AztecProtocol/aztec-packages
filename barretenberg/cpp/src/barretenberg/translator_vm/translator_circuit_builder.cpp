@@ -403,7 +403,7 @@ void TranslatorCircuitBuilder::assert_well_formed_accumulation_input(const Accum
 void TranslatorCircuitBuilder::populate_wires_from_ultra_op(const UltraOp& ultra_op)
 {
     auto& op_wire = std::get<WireIds::OP>(wires);
-    op_wire.push_back(add_variable(ultra_op.op_code.value()));
+    op_wire.push_back(add_variable(bb::fr(ultra_op.op_code.value())));
     // Similarly to the ColumnPolynomials in the merge protocol, the op_wire is 0 at every second index
     op_wire.push_back(zero_idx);
 
