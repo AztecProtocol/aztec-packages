@@ -34,6 +34,18 @@ resource "google_storage_bucket" "snapshots-bucket" {
       with_state                 = "ANY"
     }
   }
+
+  # Delete all snapshot db files after 1 week
+  lifecycle_rule {
+    action {
+      type = "Delete"
+    }
+    condition {
+      age            = 7
+      matches_prefix = ["snapshots/"]
+      matches_suffix = [".db"]
+    }
+  }
 }
 
 resource "google_storage_managed_folder" "aztec_testnet_auto_update_folder" {
