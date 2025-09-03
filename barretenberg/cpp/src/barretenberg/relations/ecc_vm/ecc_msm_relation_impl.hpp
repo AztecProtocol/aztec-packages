@@ -133,16 +133,16 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      * The boolean column q_add describes whether a round is an ADDITION round.
      * The values of q_add are Prover-defined. We need to ensure they set q_add correctly. We will do this via a
      * multiset-equality check (formerly called a "strict lookup"), which allows the various tables to "communicate".
-     * On a high level, we ensure that this table "reads" (pc, round, wnaf_slice), another table (Precomputed) "writes"
+     * On a high level, this table "reads" (pc, round, wnaf_slice), another table (Precomputed) "writes"
      * a potentially different set of (pc, round, wnaf_slice), and we demand that the reads match the writes.
      * Alternatively said, the MSM columns spawn a multiset of tuples of the form (pc, round, wnaf_slice), the
      * Precomputed Table columns spawn a potentially different multiset of tuples of the form (pc, round, wnaf_slice),
      * and we _check_ that these two multisets match.
      *
      * The above description does not reference how we will _prove_ that the two multisets are equal. As usual, we use a
-     * grand product argument. A happy byproduct of this is that we can use the grand product technique is powerful
-     * enough to allow our multiset equality testing to support _conditional adds_; this means that we only add a tuple
-     * if some particular condition occurs.
+     * grand product argument. A happy byproduct of this is that we can use the grand product technique, which is
+     * powerful enough to allow our multiset equality testing to support _conditional adds_; this means that we only add
+     * a tuple if some particular condition occurs.
      *
      * This (pc, round, wnaf_slice) multiset equality testing is made more difficult by the fact that the values of
      * `precomputed_pc` are _not the same_ as the values of `msm_pc`. The former indexes over every (non-trivial, 128
@@ -189,12 +189,12 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
      *      6. The lookup table is implemented correctly.
      *
      * First of all, note the asymmetry: we do not explicitly add tuples corresponding to skew on the MSM side of the
-     * table. Indeeed, this in implicit with `msm_round == 32`. Now, the point is that the pair (pc, round) uniquely
+     * table. Indeeed, this is implicit with `msm_round == 32`. Now, the point is that the pair (pc, round) uniquely
      * specifies the point + wNAF digit that we are processing (and adding to the accumulator) and both `pc` and `round`
      * are directly constrained to be monotonic.
      *
      * Suppose the Prover sets `q_addK = 0` when an honest Prover would set `q_addK == 1`. Then there would be some (pc,
-     * round, wnaf_slice) that the Precomputed table add to its multiset that the prover did not add. The Prover can
+     * round, wnaf_slice) that the Precomputed table added to its multiset that the prover did not add. The Prover can
      * _never_ "compensate" for this, as `pc` is locally constrained to be monotonic and `round` is constrained to be
      * periodic; this means that the Prover has "lost their chance" to add this element to the multiset and hence the
      * multiset equality check will fail.
@@ -453,7 +453,7 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     std::get<17>(accumulator) += (q_add * q_double + q_add * q_skew + q_double * q_skew) * scaling_factor;
 
     // Validate that if q_add = 1 or q_skew = 1, add1 also is 1
-    // Optimize(@zac-williamson): could just get rid of add1 as a column, as it is a linear combination, see issue #2222
+    // NOTE(#2222): could just get rid of add1 as a column, as it is a linear combination.
     std::get<32>(accumulator) += (add1 - q_add - q_skew) * scaling_factor;
 
     // ROUND TRANSITION LOGIC
@@ -498,8 +498,8 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     // if double, next add = 1. As q_double, q_add, and q_skew are mutually exclusive, this suffices to force
     // q_double_shift == q_skew_shift == 0.
     std::get<22>(accumulator) += q_double * (-q_add_shift + 1) * scaling_factor;
-    // if the current row is has q_skew == 1 and the next row is _not_ an MSM transition, then q_skew_shift = 1.
-    // this forces q_skew to precisely correspond to the rows where `round == 32`. Indeed, not that the first q_skew
+    // if the current row has q_skew == 1 and the next row is _not_ an MSM transition, then q_skew_shift = 1.
+    // this forces q_skew to precisely correspond to the rows where `round == 32`. Indeed, note that the first q_skew
     // bit is set correctly:
     //      round == 31, round_transition == 1 ==> q_skew_shift == 1. (if, to the contrary, q_double_shift == 1, then
     //      the q_add_shift_shift == 1, but we assume that we have correctly constrained the q_adds via the multiset
