@@ -35,9 +35,9 @@ resource "google_container_cluster" "primary" {
     }
   }
 
-  node_config {
-    logging_variant = "MAX_THROUGHPUT"
-  }
+  # node_config {
+  #   logging_variant = "MAX_THROUGHPUT"
+  # }
 }
 
 # Create 2 core node pool with local ssd
@@ -360,38 +360,38 @@ resource "google_container_node_pool" "infra_nodes_16core_highmem" {
 }
 
 # Create 2 core node pool no ssd
-resource "google_container_node_pool" "aztec_arm_nodes-2core" {
-  name     = "${var.cluster_name}-arm-2core"
-  location = var.zone
-  cluster  = var.cluster_name
-  version  = var.node_version
-  # Enable autoscaling
-  autoscaling {
-    min_node_count = 0
-    max_node_count = 16
-  }
+# resource "google_container_node_pool" "aztec_arm_nodes-2core" {
+#   name     = "${var.cluster_name}-arm-2core"
+#   location = var.zone
+#   cluster  = var.cluster_name
+#   version  = var.node_version
+#   # Enable autoscaling
+#   autoscaling {
+#     min_node_count = 0
+#     max_node_count = 16
+#   }
 
-  # Node configuration
-  node_config {
-    machine_type = "t2a-standard-2"
+#   # Node configuration
+#   node_config {
+#     machine_type = "t2a-standard-2"
 
-    service_account = var.service_account
-    oauth_scopes = [
-      "https://www.googleapis.com/auth/cloud-platform"
-    ]
+#     service_account = var.service_account
+#     oauth_scopes = [
+#       "https://www.googleapis.com/auth/cloud-platform"
+#     ]
 
-    labels = {
-      env       = "production"
-      local-ssd = "false"
-      node-type = "network-arm"
-    }
-    tags = ["aztec-gke-node", "aztec", "arm"]
-  }
+#     labels = {
+#       env       = "production"
+#       local-ssd = "false"
+#       node-type = "network-arm"
+#     }
+#     tags = ["aztec-gke-node", "aztec", "arm"]
+#   }
 
-  # Management configuration
-  management {
-    auto_repair  = true
-    auto_upgrade = false
-  }
-}
+#   # Management configuration
+#   management {
+#     auto_repair  = true
+#     auto_upgrade = false
+#   }
+# }
 
