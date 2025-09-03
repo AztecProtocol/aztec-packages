@@ -97,6 +97,35 @@ constexpr std::array<Column, AVM_MAX_OPERANDS> OPERAND_RELATIVE_OOB_CHECK_DIFF_C
 };
 
 constexpr size_t TOTAL_INDIRECT_BITS = 16;
+
+/**
+ * @brief Cache for frequently computed field inversions to avoid expensive repeated calculations
+ */
+FF get_cached_inverse(const FF& value)
+{
+    static constexpr size_t MAX_CACHED_VALUES = 256;
+    static std::unordered_map<uint64_t, FF> cache;
+
+    if (value == 0) {
+        return 0; // 0 has no inverse, return 0 by convention
+    }
+
+    // For small integers, use cache
+    uint64_t val_as_int = static_cast<uint64_t>(value);
+    if (val_as_int < MAX_CACHED_VALUES) {
+        auto it = cache.find(val_as_int);
+        if (it != cache.end()) {
+            return it->second;
+        }
+
+        FF inverse = value.invert();
+        cache[val_as_int] = inverse;
+        return inverse;
+    }
+
+    // For larger values, compute directly without caching
+    return value.invert();
+}
 static_assert(AVM_MAX_OPERANDS * 2 <= TOTAL_INDIRECT_BITS);
 constexpr std::array<Column, TOTAL_INDIRECT_BITS / 2> OPERAND_IS_RELATIVE_WIRE_COLUMNS = {
     C::execution_sel_op_is_relative_wire_0_, C::execution_sel_op_is_relative_wire_1_,
@@ -324,14 +353,14 @@ void ExecutionTraceBuilder::process(
             is_phase_discarded(ex_event.after_context_event.phase, failures)) {
             discard = 1;
             dying_context_id = dying_context_for_phase(ex_event.after_context_event.phase, failures);
-            dying_context_id_inv = FF(dying_context_id).invert();
+            dying_context_id_inv = get_cached_inverse(dying_context_id);
         }
 
         // Cache the parent id inversion since we will repeatedly just be doing the same expensive inversion
         bool has_parent = ex_event.after_context_event.parent_id != 0;
         if (last_seen_parent_id != ex_event.after_context_event.parent_id) {
             last_seen_parent_id = ex_event.after_context_event.parent_id;
-            cached_parent_id_inv = has_parent ? FF(ex_event.after_context_event.parent_id).invert() : 0;
+            cached_parent_id_inv = has_parent ? get_cached_inverse(ex_event.after_context_event.parent_id) : 0;
         }
 
         /**************************************************************************************************
@@ -636,7 +665,7 @@ void ExecutionTraceBuilder::process(
                 trace.set(C::execution_internal_call_return_id_inv,
                           row,
                           ex_event.before_context_event.internal_call_return_id != 0
-                              ? FF(ex_event.before_context_event.internal_call_return_id).invert()
+                              ? get_cached_inverse(ex_event.before_context_event.internal_call_return_id)
                               : 0);
             } else if (exec_opcode == ExecutionOpCode::SSTORE) {
                 uint32_t remaining_data_writes = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX -
@@ -646,7 +675,7 @@ void ExecutionTraceBuilder::process(
                           { {
                               { C::execution_max_data_writes_reached, remaining_data_writes == 0 },
                               { C::execution_remaining_data_writes_inv,
-                                remaining_data_writes == 0 ? 0 : FF(remaining_data_writes).invert() },
+                                remaining_data_writes == 0 ? 0 : get_cached_inverse(remaining_data_writes) },
                               { C::execution_sel_write_public_data, !opcode_execution_failed },
                           } });
             } else if (exec_opcode == ExecutionOpCode::NOTEHASHEXISTS) {
@@ -667,7 +696,7 @@ void ExecutionTraceBuilder::process(
                           { {
                               { C::execution_sel_reached_max_note_hashes, remaining_note_hashes == 0 },
                               { C::execution_remaining_note_hashes_inv,
-                                remaining_note_hashes == 0 ? 0 : FF(remaining_note_hashes).invert() },
+                                remaining_note_hashes == 0 ? 0 : get_cached_inverse(remaining_note_hashes) },
                               { C::execution_sel_write_note_hash, !opcode_execution_failed },
                           } });
             } else if (exec_opcode == ExecutionOpCode::L1TOL2MSGEXISTS) {
@@ -690,7 +719,7 @@ void ExecutionTraceBuilder::process(
                           { {
                               { C::execution_sel_reached_max_nullifiers, remaining_nullifiers == 0 },
                               { C::execution_remaining_nullifiers_inv,
-                                remaining_nullifiers == 0 ? 0 : FF(remaining_nullifiers).invert() },
+                                remaining_nullifiers == 0 ? 0 : get_cached_inverse(remaining_nullifiers) },
                               { C::execution_sel_write_nullifier,
                                 remaining_nullifiers != 0 && !ex_event.before_context_event.is_static },
                           } });
@@ -701,7 +730,7 @@ void ExecutionTraceBuilder::process(
                 trace.set(row,
                           { { { C::execution_sel_l2_to_l1_msg_limit_error, remaining_l2_to_l1_msgs == 0 },
                               { C::execution_remaining_l2_to_l1_msgs_inv,
-                                remaining_l2_to_l1_msgs == 0 ? 0 : FF(remaining_l2_to_l1_msgs).invert() },
+                                remaining_l2_to_l1_msgs == 0 ? 0 : get_cached_inverse(remaining_l2_to_l1_msgs) },
                               { C::execution_sel_write_l2_to_l1_msg, !opcode_execution_failed && !discard },
                               {
                                   C::execution_public_inputs_index,
@@ -732,7 +761,7 @@ void ExecutionTraceBuilder::process(
             // Compute inversion when context_id != dying_context_id
             FF diff = FF(ex_event.after_context_event.id) - FF(dying_context_id);
             if (!diff.is_zero()) {
-                dying_context_diff_inv = diff.invert();
+                dying_context_diff_inv = get_cached_inverse(diff);
             }
         }
 
@@ -786,7 +815,7 @@ void ExecutionTraceBuilder::process(
             // context is dying. NOTE: if a [STATIC]CALL instruction _itself_ errors, we don't set the
             // discard flag because we aren't actually entering a new context!
             dying_context_id = ex_event.next_context_id;
-            dying_context_id_inv = FF(dying_context_id).invert();
+            dying_context_id_inv = get_cached_inverse(dying_context_id);
             discard = 1;
         }
         // Otherwise, we aren't entering or exiting a dying context,
@@ -985,11 +1014,12 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
     // Base address check.
     bool do_base_check = num_relative_operands != 0;
     bool base_address_invalid = do_base_check && addr_event.base_address.get_tag() != MemoryTag::U32;
-    FF base_address_tag_diff_inv =
-        base_address_invalid
-            ? (FF(static_cast<uint8_t>(addr_event.base_address.get_tag())) - FF(static_cast<uint8_t>(MemoryTag::U32)))
-                  .invert()
-            : 0;
+    FF base_address_tag_diff_inv = 0;
+    if (base_address_invalid) {
+        FF base_address_tag_diff =
+            FF(static_cast<uint8_t>(addr_event.base_address.get_tag())) - FF(static_cast<uint8_t>(MemoryTag::U32));
+        base_address_tag_diff_inv = get_cached_inverse(base_address_tag_diff);
+    }
 
     // Tag check after indirection.
     bool some_final_check_failed =
@@ -1005,47 +1035,47 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                 FF(is_indirect_effective[i]) * power_of_2 * (FF(resolved_operand_tag[i]) - FF(MEM_TAG_U32));
             power_of_2 *= 8; // 2^3
         }
-        batched_tags_diff_inv = batched_tags_diff != 0 ? batched_tags_diff.invert() : 0;
+        batched_tags_diff_inv = batched_tags_diff != 0 ? get_cached_inverse(batched_tags_diff) : 0;
     }
 
     // Collect addressing errors. See PIL file for reference.
     bool addressing_failed = std::any_of(addr_event.resolution_info.begin(),
                                          addr_event.resolution_info.end(),
                                          [](const auto& info) { return info.error.has_value(); });
-    FF addressing_error_collection_inv =
-        addressing_failed
-            ? FF(
-                  // Base address invalid.
-                  (base_address_invalid ? 1 : 0) +
-                  // Relative overflow.
-                  std::accumulate(addr_event.resolution_info.begin(),
-                                  addr_event.resolution_info.end(),
-                                  static_cast<uint32_t>(0),
-                                  [](uint32_t acc, const auto& info) {
-                                      return acc +
-                                             (info.error.has_value() &&
+    FF addressing_error_collection_inv = 0;
+    if (addressing_failed) {
+        FF addressing_error_collection = FF(
+            // Base address invalid.
+            (base_address_invalid ? 1 : 0) +
+            // Relative overflow.
+            std::accumulate(addr_event.resolution_info.begin(),
+                            addr_event.resolution_info.end(),
+                            static_cast<uint32_t>(0),
+                            [](uint32_t acc, const auto& info) {
+                                return acc + (info.error.has_value() &&
                                                       *info.error == AddressingEventError::RELATIVE_COMPUTATION_OOB
                                                   ? 1
                                                   : 0);
-                                  }) +
-                  // Some invalid address after indirection.
-                  (some_final_check_failed ? 1 : 0))
-                  .invert()
-            : 0;
+                            }) +
+            // Some invalid address after indirection.
+            (some_final_check_failed ? 1 : 0));
+        addressing_error_collection_inv = get_cached_inverse(addressing_error_collection);
+    }
 
-    trace.set(row,
-              { {
-                  { C::execution_sel_addressing_error, addressing_failed ? 1 : 0 },
-                  { C::execution_addressing_error_collection_inv, addressing_error_collection_inv },
-                  { C::execution_base_address_val, addr_event.base_address.as_ff() },
-                  { C::execution_base_address_tag, static_cast<uint8_t>(addr_event.base_address.get_tag()) },
-                  { C::execution_base_address_tag_diff_inv, base_address_tag_diff_inv },
-                  { C::execution_sel_base_address_failure, base_address_invalid ? 1 : 0 },
-                  { C::execution_num_relative_operands_inv, do_base_check ? FF(num_relative_operands).invert() : 0 },
-                  { C::execution_sel_do_base_check, do_base_check ? 1 : 0 },
-                  { C::execution_constant_32, 32 },
-                  { C::execution_two_to_32, 1ULL << 32 },
-              } });
+    trace.set(
+        row,
+        { {
+            { C::execution_sel_addressing_error, addressing_failed ? 1 : 0 },
+            { C::execution_addressing_error_collection_inv, addressing_error_collection_inv },
+            { C::execution_base_address_val, addr_event.base_address.as_ff() },
+            { C::execution_base_address_tag, static_cast<uint8_t>(addr_event.base_address.get_tag()) },
+            { C::execution_base_address_tag_diff_inv, base_address_tag_diff_inv },
+            { C::execution_sel_base_address_failure, base_address_invalid ? 1 : 0 },
+            { C::execution_num_relative_operands_inv, do_base_check ? get_cached_inverse(num_relative_operands) : 0 },
+            { C::execution_sel_do_base_check, do_base_check ? 1 : 0 },
+            { C::execution_constant_32, 32 },
+            { C::execution_two_to_32, 1ULL << 32 },
+        } });
 }
 
 void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
@@ -1111,7 +1141,7 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
             }
             power_of_2 *= 8; // 2^3
         }
-        batched_tags_diff_inv_reg = batched_tags_diff != 0 ? batched_tags_diff.invert() : 0;
+        batched_tags_diff_inv_reg = batched_tags_diff != 0 ? get_cached_inverse(batched_tags_diff) : 0;
     }
 
     trace.set(row,
