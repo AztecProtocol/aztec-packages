@@ -41,13 +41,6 @@ variable "MNEMONIC" {
   sensitive   = true
 }
 
-
-variable "CREATE_STATIC_IPS" {
-  description = "Whether to create static IP addresses for eth-devnet services"
-  type        = bool
-  default     = true
-}
-
 variable "CHAIN_ID" {
   description = "Ethereum chain ID"
   type        = number
@@ -66,11 +59,6 @@ variable "GAS_LIMIT" {
   default     = "1000000000"
 }
 
-variable "MNEMONIC_SECRET_NAME" {
-  description = "Name of the Google Secret Manager secret containing the mnemonic"
-  type        = string
-  default     = "eth-devnet-genesis-mnemonic"
-}
 
 variable "PREFUNDED_MNEMONIC_INDICES" {
   description = "Comma-separated list of mnemonic indices to prefund with ETH"

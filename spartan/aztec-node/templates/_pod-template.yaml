@@ -179,6 +179,70 @@ spec:
           value: "{{ .Values.service.p2p.enabled }}"
         - name: P2P_PORT
           value: "{{ .Values.service.p2p.port }}"
+        - name: PROVER_REAL_PROOFS
+          value: "{{ .Values.node.proverRealProofs }}"
+        - name: SENTINEL_ENABLED
+          value: "{{ .Values.node.sentinel.enabled }}"
+        {{- if .Values.node.slash.minPenaltyPercentage }}
+        - name: SLASH_MIN_PENALTY_PERCENTAGE
+          value: {{ .Values.node.slash.minPenaltyPercentage | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.maxPenaltyPercentage }}
+        - name: SLASH_MAX_PENALTY_PERCENTAGE
+          value: {{ .Values.node.slash.maxPenaltyPercentage | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.validatorsAlways }}
+        - name: SLASH_VALIDATORS_ALWAYS
+          value: {{ join "," .Values.node.slash.validatorsAlways | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.validatorsNever }}
+        - name: SLASH_VALIDATORS_NEVER
+          value: {{ join "," .Values.node.slash.validatorsNever | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.prunePenalty }}
+        - name: SLASH_PRUNE_PENALTY
+          value: {{ .Values.node.slash.prunePenalty | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.dataWithholdingPenalty }}
+        - name: SLASH_DATA_WITHHOLDING_PENALTY
+          value: {{ .Values.node.slash.dataWithholdingPenalty | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.inactivityPenalty }}
+        - name: SLASH_INACTIVITY_PENALTY
+          value: {{ .Values.node.slash.inactivityPenalty | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.inactivityTargetPercentage }}
+        - name: SLASH_INACTIVITY_TARGET_PERCENTAGE
+          value: {{ .Values.node.slash.inactivityTargetPercentage | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.invalidBlockPenalty }}
+        - name: SLASH_INVALID_BLOCK_PENALTY
+          value: {{ .Values.node.slash.invalidBlockPenalty | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.proposeInvalidAttestationsPenalty }}
+        - name: SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY
+          value: {{ .Values.node.slash.proposeInvalidAttestationsPenalty | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.attestDescendantOfInvalidPenalty }}
+        - name: SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY
+          value: {{ .Values.node.slash.attestDescendantOfInvalidPenalty | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.unknownPenalty }}
+        - name: SLASH_UNKNOWN_PENALTY
+          value: {{ .Values.node.slash.unknownPenalty | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.gracePeriodL2Slots }}
+        - name: SLASH_GRACE_PERIOD_L2_SLOTS
+          value: {{ .Values.node.slash.gracePeriodL2Slots | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.offenseExpirationRounds }}
+        - name: SLASH_OFFENSE_EXPIRATION_ROUNDS
+          value: {{ .Values.node.slash.offenseExpirationRounds | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.maxPayloadSize }}
+        - name: SLASH_MAX_PAYLOAD_SIZE
+          value: {{ .Values.node.slash.maxPayloadSize | quote }}
+        {{- end }}
         {{- if gt (len .Values.global.l1ExecutionUrls) 0 }}
         - name: ETHEREUM_HOSTS
           value: {{ join "," .Values.global.l1ExecutionUrls | quote }}
