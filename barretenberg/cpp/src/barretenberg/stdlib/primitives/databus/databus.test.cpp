@@ -99,7 +99,7 @@ TEST(Databus, ConstantEntryAccess)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
-TEST(Databus, ConstantAndUnnormalizedIndex)
+TEST(Databus, ConstantAndUnnormalizedIndices)
 {
     Builder builder;
     databus_ct databus;
