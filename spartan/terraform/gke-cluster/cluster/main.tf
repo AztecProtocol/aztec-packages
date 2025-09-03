@@ -179,6 +179,7 @@ resource "google_container_node_pool" "spot_nodes_32core" {
       pool      = "spot"
       local-ssd = "false"
       node-type = "network"
+      cores     = "32"
     }
     tags = ["aztec-gke-node", "spot"]
 
@@ -224,6 +225,7 @@ resource "google_container_node_pool" "spot_nodes_8core" {
       pool      = "spot"
       local-ssd = "false"
       node-type = "network"
+      cores     = "8"
     }
     tags = ["aztec-gke-node", "spot"]
 
