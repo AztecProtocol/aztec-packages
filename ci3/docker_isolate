@@ -6,6 +6,7 @@ NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 cmd=$1
 export CPUS=${CPUS:-2}
 export MEM=${MEM:-$((CPUS * 4))g}
+export TMPFS_SIZE=${TMPFS_SIZE:-1g}
 
 function cleanup {
   if [ -n "${cid:-}" ]; then
@@ -54,7 +55,7 @@ cid=$(docker run -d \
   --pid=host \
   --user $(id -u):$(id -g) \
   -v$HOME:$HOME \
-  --mount type=tmpfs,target=/tmp,tmpfs-size=1g \
+  --mount type=tmpfs,target=/tmp,tmpfs-size=$TMPFS_SIZE \
   --workdir $PWD \
   -e HOME \
   -e VERBOSE \
@@ -62,6 +63,7 @@ cid=$(docker run -d \
   -e FORCE_COLOR=true \
   -e CPUS \
   -e MEM \
+  -e TMPFS_SIZE \
   "${arg_env_vars[@]}" \
   aztecprotocol/build:3.0 \
   /bin/bash -c "$cmd")
