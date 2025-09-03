@@ -237,9 +237,8 @@ class AvmFlavor {
         auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<Polynomial>(*this); }
     };
 
-    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>,
-                                                          Transcript,
-                                                          VKSerializationMode::NO_PUB_OFFSET> {
+    class VerificationKey
+        : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript, VKSerializationMode::NO_METADATA> {
       public:
         static constexpr size_t NUM_PRECOMPUTED_COMMITMENTS = NUM_PRECOMPUTED_ENTITIES;
 
