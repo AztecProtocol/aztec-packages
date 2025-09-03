@@ -307,13 +307,13 @@ aztec-wallet create-account -a accBFJ --register-only
 If using the Sandbox, free-minting is allowed from it's anvil L1 to be bridged and claimed on its Aztec node:
 
 ```bash
-aztec-wallet bridge-fee-juice 1000000000000000000 accBFJ --mint --no-wait
+aztec-wallet bridge-fee-juice 1000000000000000000000 accBFJ --mint --no-wait
 ```
 
 If using Aztec testnet, you'll first need an L1 account with sepolia, and additional params for the bridge-fee-juice command:
 
 ```bash
-aztec-wallet bridge-fee-juice 1000000000000000000 accBFJ --mint --no-wait \
+aztec-wallet bridge-fee-juice 1000000000000000000000 accBFJ --mint --no-wait \
   --l1-rpc-urls <See https://chainlist.org/chain/11155111> \ # eg https://rpc.sepolia.ethpandaops.io
   --l1-chain-id 11155111 \
   --l1-private-key <L1 private key of account holding sepolia>
