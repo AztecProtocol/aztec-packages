@@ -2,6 +2,7 @@ import { createLogger, sleep } from '@aztec/aztec.js';
 import type { RollupCheatCodes } from '@aztec/aztec/testing';
 import type { Logger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
+import { schemas } from '@aztec/foundation/schemas';
 import { type AztecNodeAdminConfig, createAztecNodeAdminClient } from '@aztec/stdlib/interfaces/client';
 
 import { ChildProcess, exec, execSync, spawn } from 'child_process';
@@ -15,13 +16,15 @@ const logger = createLogger('e2e:k8s-utils');
 
 const testConfigSchema = z.object({
   NAMESPACE: z.string().default('scenario'),
-  REAL_VERIFIER: z.coerce.boolean().default(true),
+  REAL_VERIFIER: schemas.Boolean.optional().default(true),
 });
 
 export type TestConfig = z.infer<typeof testConfigSchema>;
 
 export function setupEnvironment(env: unknown): TestConfig {
-  return testConfigSchema.parse(env);
+  const config = testConfigSchema.parse(env);
+  logger.warn(`Loaded env config`, config);
+  return config;
 }
 
 /**
