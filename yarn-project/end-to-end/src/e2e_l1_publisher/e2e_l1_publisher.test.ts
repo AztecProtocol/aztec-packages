@@ -7,7 +7,6 @@ import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_P
 import { EpochCache } from '@aztec/epoch-cache';
 import {
   type DeployL1ContractsArgs,
-  EmpireSlashingProposerContract,
   type ExtendedViemWalletClient,
   GovernanceProposerContract,
   type L1ContractAddresses,
@@ -139,6 +138,7 @@ describe('L1Publisher integration', () => {
     deployerAccount = privateKeyToAccount(deployerPK);
     ({ l1ContractAddresses, l1Client } = await setupL1Contracts(config.l1RpcUrls, deployerAccount, logger, {
       aztecTargetCommitteeSize: 0,
+      slasherFlavor: 'none',
       ...deployL1ContractsArgs,
     }));
 
@@ -205,11 +205,7 @@ describe('L1Publisher integration', () => {
     const sequencerL1Client = createExtendedL1Client(config.l1RpcUrls, sequencerPK, foundry);
     const l1TxUtils = createL1TxUtilsWithBlobsFromViemWallet(sequencerL1Client, logger, dateProvider, config);
     const rollupContract = new RollupContract(sequencerL1Client, l1ContractAddresses.rollupAddress.toString());
-    const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
-    const slashingProposerContract = new EmpireSlashingProposerContract(
-      sequencerL1Client,
-      slashingProposerAddress.toString(),
-    );
+    const slashingProposerContract = await rollupContract.getSlashingProposer();
     governanceProposerContract = new GovernanceProposerContract(
       sequencerL1Client,
       l1ContractAddresses.governanceProposerAddress.toString(),
@@ -475,7 +471,7 @@ describe('L1Publisher integration', () => {
               {
                 target: rollupAddress,
                 callData: expectedRollupData,
-                allowFailure: false,
+                allowFailure: true,
               },
             ],
           ],
@@ -636,8 +632,10 @@ describe('L1Publisher integration', () => {
       const block = await buildSingleBlock();
 
       await publisher.enqueueProposeL2Block(block);
-      await publisher.enqueueSlashingActions(
-        [{ type: 'vote-empire-payload', payload: EthAddress.random() }],
+
+      // Should fail due to random signature
+      await publisher.enqueueGovernanceCastSignal(
+        EthAddress.random(),
         block.slot,
         block.timestamp,
         EthAddress.random(),
@@ -647,7 +645,7 @@ describe('L1Publisher integration', () => {
       const result = await publisher.sendRequests();
 
       expect(result!.successfulActions).toEqual(['propose']);
-      expect(result!.failedActions).toEqual(['slashing-signal']);
+      expect(result!.failedActions).toEqual(['governance-signal']);
     });
 
     it(`shows propose custom errors if tx simulation fails`, async () => {
