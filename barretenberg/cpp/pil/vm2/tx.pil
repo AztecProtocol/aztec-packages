@@ -38,6 +38,7 @@ namespace tx;
     #[NO_EARLY_END]
     sel * (1 - sel') * (1 - is_cleanup) = 0;
 
+    // Most of transaction initial constraints are in tx_context.pil
     pol commit start_tx;
     #[START_WITH_SEL]
     start_tx' = (1 - sel) * sel';
@@ -239,6 +240,8 @@ namespace tx;
         prev_written_public_data_slots_tree_root,
         prev_written_public_data_slots_tree_size,
         l1_l2_tree_root,
+        prev_retrieved_bytecodes_tree_root,
+        prev_retrieved_bytecodes_tree_size,
         // Side Effect States
         prev_num_unencrypted_logs,
         prev_num_l2_to_l1_messages,
@@ -267,6 +270,8 @@ namespace tx;
         execution.prev_written_public_data_slots_tree_root,
         execution.prev_written_public_data_slots_tree_size,
         execution.l1_l2_tree_root,
+        execution.prev_retrieved_bytecodes_tree_root,
+        execution.prev_retrieved_bytecodes_tree_size,
         // Side Effect States
         execution.prev_num_unencrypted_logs,
         execution.prev_num_l2_to_l1_messages,
@@ -296,6 +301,8 @@ namespace tx;
        next_written_public_data_slots_tree_root,
        next_written_public_data_slots_tree_size,
        l1_l2_tree_root,
+       next_retrieved_bytecodes_tree_root,
+       next_retrieved_bytecodes_tree_size,
        // Side Effect States
        next_num_unencrypted_logs,
        next_num_l2_to_l1_messages,
@@ -320,6 +327,8 @@ namespace tx;
        execution.written_public_data_slots_tree_root,
        execution.written_public_data_slots_tree_size,
        execution.l1_l2_tree_root,
+       execution.retrieved_bytecodes_tree_root,
+       execution.retrieved_bytecodes_tree_size,
        // Side Effect States
        execution.num_unencrypted_logs,
        execution.num_l2_to_l1_messages,
@@ -594,4 +603,5 @@ namespace tx;
     is_tree_padding * (prev_num_nullifiers_emitted - next_num_nullifiers_emitted) = 0;
 
     // ===== CLEANUP =====
+    // Most constraints for this phase are located in tx_context.pil
     pol commit is_cleanup;

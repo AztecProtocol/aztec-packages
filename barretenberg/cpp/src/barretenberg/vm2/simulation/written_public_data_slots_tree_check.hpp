@@ -29,7 +29,7 @@ class WrittenPublicDataSlotsInterface {
 class WrittenPublicDataSlotsTreeCheckInterface : public WrittenPublicDataSlotsInterface {
   public:
     // Abstraction leak: we need to track tree roots to implement the set in-circuit
-    virtual AppendOnlyTreeSnapshot snapshot() const = 0;
+    virtual AppendOnlyTreeSnapshot get_snapshot() const = 0;
 };
 
 class WrittenPublicDataSlotsTreeCheck : public WrittenPublicDataSlotsTreeCheckInterface {
@@ -51,7 +51,7 @@ class WrittenPublicDataSlotsTreeCheck : public WrittenPublicDataSlotsTreeCheckIn
 
     void insert(const AztecAddress& contract_address, const FF& slot) override;
 
-    AppendOnlyTreeSnapshot snapshot() const override;
+    AppendOnlyTreeSnapshot get_snapshot() const override;
 
     uint32_t size() const override;
 

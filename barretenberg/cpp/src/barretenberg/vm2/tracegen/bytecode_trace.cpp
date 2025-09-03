@@ -170,28 +170,48 @@ void BytecodeTraceBuilder::process_retrieval(
 
     uint32_t row = 1;
     for (const auto& event : events) {
-        trace.set(row,
-                  { {
-                      { C::bc_retrieval_sel, 1 },
-                      { C::bc_retrieval_bytecode_id, event.bytecode_id },
-                      { C::bc_retrieval_address, event.address },
-                      { C::bc_retrieval_error, event.error ? 1 : 0 },
+        uint64_t remaining_bytecodes = MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS +
+                                       AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE -
+                                       event.retrieved_bytecodes_snapshot_before.nextAvailableLeafIndex;
+        bool error = event.instance_not_found_error || event.limit_error;
+        trace.set(
+            row,
+            { {
+                { C::bc_retrieval_sel, 1 },
+                { C::bc_retrieval_bytecode_id, event.bytecode_id },
+                { C::bc_retrieval_address, event.address },
+                { C::bc_retrieval_error, error },
 
-                      // Contract instance members (for lookup into contract_instance_retrieval)
-                      { C::bc_retrieval_current_class_id, event.current_class_id },
+                // Contract instance members (for lookup into contract_instance_retrieval)
+                { C::bc_retrieval_current_class_id, event.current_class_id },
 
-                      // Tree context (for lookup into contract_instance_retrieval)
-                      { C::bc_retrieval_public_data_tree_root, event.public_data_tree_root },
-                      { C::bc_retrieval_nullifier_tree_root, event.nullifier_root },
+                // Tree context (for lookup into contract_instance_retrieval)
+                { C::bc_retrieval_public_data_tree_root, event.public_data_tree_root },
+                { C::bc_retrieval_nullifier_tree_root, event.nullifier_root },
 
-                      // Instance existence determined by shared contract instance retrieval
-                      { C::bc_retrieval_instance_exists, event.error ? 0 : 1 },
+                // Retrieved bytecodes tree state
+                { C::bc_retrieval_prev_retrieved_bytecodes_tree_root, event.retrieved_bytecodes_snapshot_before.root },
+                { C::bc_retrieval_prev_retrieved_bytecodes_tree_size,
+                  event.retrieved_bytecodes_snapshot_before.nextAvailableLeafIndex },
+                { C::bc_retrieval_next_retrieved_bytecodes_tree_root, event.retrieved_bytecodes_snapshot_after.root },
+                { C::bc_retrieval_next_retrieved_bytecodes_tree_size,
+                  event.retrieved_bytecodes_snapshot_after.nextAvailableLeafIndex },
 
-                      // Contract class for bytecode operations
-                      { C::bc_retrieval_artifact_hash, event.contract_class.artifact_hash },
-                      { C::bc_retrieval_private_function_root, event.contract_class.private_function_root },
+                // Instance existence determined by shared contract instance retrieval
+                { C::bc_retrieval_instance_exists, !event.instance_not_found_error },
 
-                  } });
+                // Limit handling
+                { C::bc_retrieval_no_remaining_bytecodes, remaining_bytecodes == 0 },
+                { C::bc_retrieval_remaining_bytecodes_inv,
+                  remaining_bytecodes == 0 ? 0 : FF(remaining_bytecodes).invert() },
+                { C::bc_retrieval_is_new_class, event.is_new_class },
+                { C::bc_retrieval_should_retrieve, !error },
+
+                // Contract class for bytecode operations
+                { C::bc_retrieval_artifact_hash, event.contract_class.artifact_hash },
+                { C::bc_retrieval_private_function_root, event.contract_class.private_function_root },
+
+            } });
         row++;
     }
 }
@@ -378,6 +398,8 @@ const InteractionDefinition BytecodeTraceBuilder::interactions =
         // .add<lookup_bc_retrieval_bytecode_hash_is_correct_settings, InteractionType::LookupSequential>()
         .add<lookup_bc_retrieval_class_id_derivation_settings, InteractionType::LookupGeneric>()
         .add<lookup_bc_retrieval_contract_instance_retrieval_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_retrieval_is_new_class_check_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_retrieval_retrieved_bytecodes_insertion_settings, InteractionType::LookupSequential>()
         // Bytecode Decomposition
         .add<lookup_bc_decomposition_bytes_are_bytes_settings, InteractionType::LookupIntoIndexedByClk>()
         // Instruction Fetching

@@ -493,6 +493,8 @@ TEST(ContextConstrainingTest, TreeStateContinuity)
                                    { C::execution_written_public_data_slots_tree_root, 2 },
                                    { C::execution_written_public_data_slots_tree_size, 1 },
                                    { C::execution_l1_l2_tree_root, 27 },
+                                   { C::execution_retrieved_bytecodes_tree_root, 26 },
+                                   { C::execution_retrieved_bytecodes_tree_size, 25 },
                                },
                                {
                                    // Second row of execution
@@ -508,6 +510,27 @@ TEST(ContextConstrainingTest, TreeStateContinuity)
                                    { C::execution_prev_written_public_data_slots_tree_root, 2 },
                                    { C::execution_prev_written_public_data_slots_tree_size, 1 },
                                    { C::execution_l1_l2_tree_root, 27 },
+                                   { C::execution_prev_retrieved_bytecodes_tree_root, 26 },
+                                   { C::execution_prev_retrieved_bytecodes_tree_size, 25 },
+                                   { C::execution_enqueued_call_end, 1 },
+                                   { C::execution_sel_exit_call, 1 },
+                               },
+                               {
+                                   // Third row of execution
+                                   { C::execution_sel, 1 },
+                                   { C::execution_prev_note_hash_tree_root, 100 },
+                                   { C::execution_prev_note_hash_tree_size, 90 },
+                                   { C::execution_prev_num_note_hashes_emitted, 80 },
+                                   { C::execution_prev_nullifier_tree_root, 70 },
+                                   { C::execution_prev_nullifier_tree_size, 60 },
+                                   { C::execution_prev_num_nullifiers_emitted, 50 },
+                                   { C::execution_prev_public_data_tree_root, 40 },
+                                   { C::execution_prev_public_data_tree_size, 30 },
+                                   { C::execution_prev_written_public_data_slots_tree_root, 20 },
+                                   { C::execution_prev_written_public_data_slots_tree_size, 10 },
+                                   { C::execution_l1_l2_tree_root, 27 },
+                                   { C::execution_prev_retrieved_bytecodes_tree_root, 260 },
+                                   { C::execution_prev_retrieved_bytecodes_tree_size, 250 },
                                } });
 
     check_relation<context>(trace,
@@ -521,7 +544,9 @@ TEST(ContextConstrainingTest, TreeStateContinuity)
                             context::SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY,
                             context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY,
                             context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY,
-                            context::SR_L1_L2_TREE_ROOT_CONTINUITY);
+                            context::SR_L1_L2_TREE_ROOT_CONTINUITY,
+                            context::SR_RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY,
+                            context::SR_RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY);
 
     // Negative test: change note hash tree root
     trace.set(C::execution_prev_note_hash_tree_root, 2, 100);
@@ -579,6 +604,16 @@ TEST(ContextConstrainingTest, TreeStateContinuity)
     trace.set(C::execution_l1_l2_tree_root, 2, 100);
     EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_L1_L2_TREE_ROOT_CONTINUITY),
                               "L1_L2_TREE_ROOT_CONTINUITY");
+
+    // Negative test: change retrieved bytecodes tree root
+    trace.set(C::execution_prev_retrieved_bytecodes_tree_root, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY),
+                              "RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY");
+
+    // Negative test: change retrieved bytecodes tree size
+    trace.set(C::execution_prev_retrieved_bytecodes_tree_size, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY),
+                              "RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY");
 }
 
 TEST(ContextConstrainingTest, SideEffectStateContinuity)

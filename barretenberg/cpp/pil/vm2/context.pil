@@ -83,6 +83,9 @@ namespace execution;
     // L1 to L2 tree doesn't evolve during execution of the AVM
     pol commit l1_l2_tree_root;
 
+    pol commit prev_retrieved_bytecodes_tree_root;
+    pol commit prev_retrieved_bytecodes_tree_size;
+
     // Next Tree State
     pol commit note_hash_tree_root; // TODO: Constrain root, sizes and emitted not changing unless specific opcode selectors are on
     pol commit note_hash_tree_size;
@@ -97,6 +100,9 @@ namespace execution;
 
     pol commit written_public_data_slots_tree_root;
     pol commit written_public_data_slots_tree_size;
+
+    pol commit retrieved_bytecodes_tree_root;
+    pol commit retrieved_bytecodes_tree_size;
 
     // Prev side effects state
     pol commit prev_num_unencrypted_logs;
@@ -307,6 +313,13 @@ namespace execution;
     #[PARENT_DA_GAS_USED_STORE_ON_ENTER]
     NOT_LAST_EXEC * sel_enter_call * (parent_da_gas_used' - da_gas_used) = 0;
 
+    // The state of the retrieved bytecodes tree should be continuous unless we have finished an enqueued call
+    // The tx trace looks up the tree state at the start and end of an enqueued call
+    #[RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY]
+    sel * (1 - enqueued_call_end) * (retrieved_bytecodes_tree_root - prev_retrieved_bytecodes_tree_root') = 0;
+    #[RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY]
+    sel * (1 - enqueued_call_end) * (retrieved_bytecodes_tree_size - prev_retrieved_bytecodes_tree_size') = 0;
+
     #[CTX_STACK_CALL]
     sel_enter_call {
         next_context_id,
@@ -333,6 +346,7 @@ namespace execution;
         public_data_tree_size,
         written_public_data_slots_tree_root,
         written_public_data_slots_tree_size,
+        // Retrieved bytecodes tree is not commited and restored, since it's a tx global state.
         num_unencrypted_logs,
         num_l2_to_l1_messages
     } in

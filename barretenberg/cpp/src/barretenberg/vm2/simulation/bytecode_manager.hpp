@@ -18,13 +18,14 @@
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/simulation/range_check.hpp"
+#include "barretenberg/vm2/simulation/retrieved_bytecodes_tree_check.hpp"
 #include "barretenberg/vm2/simulation/siloing.hpp"
 #include "barretenberg/vm2/simulation/update_check.hpp"
 
 namespace bb::avm2::simulation {
 
-struct BytecodeNotFoundError : public std::runtime_error {
-    BytecodeNotFoundError(const std::string& message)
+struct BytecodeRetrievalError : public std::runtime_error {
+    BytecodeRetrievalError(const std::string& message)
         : std::runtime_error(message)
     {}
 };
@@ -56,6 +57,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
                       BytecodeHashingInterface& bytecode_hasher,
                       RangeCheckInterface& range_check,
                       ContractInstanceManagerInterface& contract_instance_manager,
+                      RetrievedBytecodesTreeCheckInterface& retrieved_bytecodes_tree_check,
                       EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events,
                       EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events,
                       EventEmitterInterface<InstructionFetchingEvent>& fetching_events)
@@ -64,6 +66,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
         , bytecode_hasher(bytecode_hasher)
         , range_check(range_check)
         , contract_instance_manager(contract_instance_manager)
+        , retrieved_bytecodes_tree_check(retrieved_bytecodes_tree_check)
         , retrieval_events(retrieval_events)
         , decomposition_events(decomposition_events)
         , fetching_events(fetching_events)
@@ -78,6 +81,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
     BytecodeHashingInterface& bytecode_hasher;
     RangeCheckInterface& range_check;
     ContractInstanceManagerInterface& contract_instance_manager;
+    RetrievedBytecodesTreeCheckInterface& retrieved_bytecodes_tree_check;
     EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events;
     EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events;
     EventEmitterInterface<InstructionFetchingEvent>& fetching_events;
@@ -96,9 +100,9 @@ class BytecodeManagerInterface {
     // Throws BytecodeNotFoundError if contract does not exist.
     virtual BytecodeId get_bytecode_id() = 0;
 
-    // Returns the id of the current bytecode, or nullopt if contract does not exist.
-    // Does not throw (for use in during context serialization before execution is expecting errors)
-    virtual std::optional<BytecodeId> try_get_bytecode_id() = 0;
+    // Returns the id of the current bytecode if it has been retrieved, std::nullopt otherwise.
+    // Won't try to retrieve the bytecode.
+    virtual std::optional<BytecodeId> get_retrieved_bytecode_id() = 0;
 };
 
 class BytecodeManager : public BytecodeManagerInterface {
@@ -121,17 +125,7 @@ class BytecodeManager : public BytecodeManagerInterface {
         return bytecode_id.value();
     }
 
-    std::optional<BytecodeId> try_get_bytecode_id() override
-    {
-        if (!bytecode_id.has_value()) {
-            try {
-                bytecode_id = tx_bytecode_manager.get_bytecode(address);
-            } catch (const BytecodeNotFoundError&) {
-                return std::nullopt;
-            }
-        }
-        return bytecode_id.value();
-    }
+    std::optional<BytecodeId> get_retrieved_bytecode_id() override { return bytecode_id; }
 
   private:
     AztecAddress address;

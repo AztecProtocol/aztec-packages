@@ -49,6 +49,7 @@
 #include "barretenberg/vm2/generated/relations/public_data_squash_impl.hpp"
 #include "barretenberg/vm2/generated/relations/range_check_impl.hpp"
 #include "barretenberg/vm2/generated/relations/registers_impl.hpp"
+#include "barretenberg/vm2/generated/relations/retrieved_bytecodes_tree_check_impl.hpp"
 #include "barretenberg/vm2/generated/relations/scalar_mul_impl.hpp"
 #include "barretenberg/vm2/generated/relations/send_l2_to_l1_msg_impl.hpp"
 #include "barretenberg/vm2/generated/relations/sha256_impl.hpp"

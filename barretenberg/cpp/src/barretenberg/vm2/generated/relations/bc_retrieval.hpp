@@ -14,7 +14,7 @@ template <typename FF_> class bc_retrievalImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 7> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 4, 4, 4, 4 };
+    static constexpr std::array<size_t, 14> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 5, 4, 5, 3, 4, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -39,24 +39,27 @@ template <typename FF> class bc_retrieval : public Relation<bc_retrievalImpl<FF>
         switch (index) {
         case 1:
             return "TRACE_CONTINUITY";
-        case 3:
-            return "CURRENT_CLASS_ID_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST";
         case 4:
-            return "ARTIFACT_HASH_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST";
-        case 5:
-            return "PRIVATE_FUNCTION_ROOT_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST";
-        case 6:
-            return "BYTECODE_ID_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST";
+            return "NO_REMAINING_BYTECODES";
+        case 8:
+            return "CURRENT_CLASS_ID_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST";
+        case 9:
+            return "ARTIFACT_HASH_IS_ZERO_IF_ERROR";
+        case 10:
+            return "PRIVATE_FUNCTION_ROOT_IS_ZERO_IF_ERROR";
+        case 11:
+            return "BYTECODE_ID_IS_ZERO_IF_ERROR";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_TRACE_CONTINUITY = 1;
-    static constexpr size_t SR_CURRENT_CLASS_ID_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST = 3;
-    static constexpr size_t SR_ARTIFACT_HASH_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST = 4;
-    static constexpr size_t SR_PRIVATE_FUNCTION_ROOT_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST = 5;
-    static constexpr size_t SR_BYTECODE_ID_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST = 6;
+    static constexpr size_t SR_NO_REMAINING_BYTECODES = 4;
+    static constexpr size_t SR_CURRENT_CLASS_ID_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST = 8;
+    static constexpr size_t SR_ARTIFACT_HASH_IS_ZERO_IF_ERROR = 9;
+    static constexpr size_t SR_PRIVATE_FUNCTION_ROOT_IS_ZERO_IF_ERROR = 10;
+    static constexpr size_t SR_BYTECODE_ID_IS_ZERO_IF_ERROR = 11;
 };
 
 } // namespace bb::avm2

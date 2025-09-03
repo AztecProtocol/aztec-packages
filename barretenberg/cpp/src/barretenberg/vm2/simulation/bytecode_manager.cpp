@@ -14,25 +14,51 @@ namespace bb::avm2::simulation {
 
 BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
 {
+
     // Use shared ContractInstanceManager for contract instance retrieval and validation
     // This handles nullifier checks, address derivation, and update validation
+    auto tree_states = merkle_db.get_tree_state();
+    AppendOnlyTreeSnapshot before_snapshot = retrieved_bytecodes_tree_check.get_snapshot();
+
+    BytecodeRetrievalEvent retrieval_event = {
+        .bytecode_id = FF(0), // Use default ID for error cases
+        .address = address,
+        .nullifier_root = tree_states.nullifierTree.tree.root,
+        .public_data_tree_root = tree_states.publicDataTree.tree.root,
+        .retrieved_bytecodes_snapshot_before = before_snapshot,
+        .retrieved_bytecodes_snapshot_after = before_snapshot,
+    };
+
     auto maybe_instance = contract_instance_manager.get_contract_instance(address);
 
-    auto tree_states = merkle_db.get_tree_state();
     if (!maybe_instance.has_value()) {
+        retrieval_event.instance_not_found_error = true;
         // Contract instance not found - emit error event and throw
-        retrieval_events.emit({
-            .bytecode_id = FF(0), // Use default ID for error case
-            .address = address,
-            .nullifier_root = tree_states.nullifierTree.tree.root,
-            .public_data_tree_root = tree_states.publicDataTree.tree.root,
-            .error = true,
-        });
+        retrieval_events.emit(std::move(retrieval_event));
         vinfo("Contract ", field_to_string(address), " is not deployed!");
-        throw BytecodeNotFoundError("Contract " + field_to_string(address) + " is not deployed");
+        throw BytecodeRetrievalError("Contract " + field_to_string(address) + " is not deployed");
     }
 
-    ContractClassId current_class_id = maybe_instance.value().current_class_id;
+    ContractInstance instance = maybe_instance.value();
+    ContractClassId current_class_id = instance.current_class_id;
+    retrieval_event.current_class_id = current_class_id;
+
+    bool is_new_class = !retrieved_bytecodes_tree_check.contains(current_class_id);
+    retrieval_event.is_new_class = is_new_class;
+
+    uint32_t retrieved_bytecodes_count = retrieved_bytecodes_tree_check.size();
+
+    if (is_new_class && retrieved_bytecodes_count >= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS) {
+        retrieval_event.limit_error = true;
+        retrieval_events.emit(std::move(retrieval_event));
+        throw BytecodeRetrievalError("Can't retrieve more than " +
+                                     std::to_string(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS) +
+                                     " bytecodes per tx");
+    }
+
+    retrieved_bytecodes_tree_check.insert(current_class_id);
+    AppendOnlyTreeSnapshot snapshot_after = retrieved_bytecodes_tree_check.get_snapshot();
+    retrieval_event.retrieved_bytecodes_snapshot_after = snapshot_after;
 
     // Contract class retrieval and class ID validation
     std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(current_class_id);
@@ -40,22 +66,17 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     // that if a contract instance exists, the class has been registered.
     assert(maybe_klass.has_value());
     auto& klass = maybe_klass.value();
+    retrieval_event.contract_class = klass; // WARNING: this class has the whole bytecode.
     info("Bytecode for ", address, " successfully retrieved!");
 
     // Bytecode hashing and decomposition, deduplicated by bytecode_id (commitment)
     BytecodeId bytecode_id = klass.public_bytecode_commitment;
+    retrieval_event.bytecode_id = bytecode_id;
 
     // Check if we've already processed this bytecode. If so, don't do hashing and decomposition again!
     if (bytecodes.contains(bytecode_id)) {
         // Already processed this bytecode - just emit retrieval event and return
-        retrieval_events.emit({
-            .bytecode_id = bytecode_id,
-            .address = address,
-            .current_class_id = current_class_id,
-            .contract_class = klass,
-            .nullifier_root = tree_states.nullifierTree.tree.root,
-            .public_data_tree_root = tree_states.publicDataTree.tree.root,
-        });
+        retrieval_events.emit(std::move(retrieval_event));
         return bytecode_id;
     }
 
@@ -71,14 +92,7 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     // We now save the bytecode so that we don't repeat this process.
     bytecodes.emplace(bytecode_id, std::move(shared_bytecode));
 
-    retrieval_events.emit({
-        .bytecode_id = bytecode_id,
-        .address = address,
-        .current_class_id = current_class_id,
-        .contract_class = klass, // WARNING: this class has the whole bytecode.
-        .nullifier_root = tree_states.nullifierTree.tree.root,
-        .public_data_tree_root = tree_states.publicDataTree.tree.root,
-    });
+    retrieval_events.emit(std::move(retrieval_event));
 
     return bytecode_id;
 }
