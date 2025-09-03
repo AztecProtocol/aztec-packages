@@ -120,7 +120,6 @@ where
 
 mod test {
     use crate::{
-        oracle::random::random,
         test::{helpers::test_environment::TestEnvironment, mocks::mock_struct::MockStruct},
         utils::with_hash::WithHash,
     };
@@ -211,7 +210,7 @@ mod test {
             let value = MockStruct { a: 5, b: 3 };
             context.storage_write(STORAGE_SLOT, value);
 
-            let incorrect_hash = random();
+            let incorrect_hash = 13;
             let hash_storage_slot = STORAGE_SLOT + (value.pack().len() as Field);
             context.storage_write(hash_storage_slot, [incorrect_hash]);
         });

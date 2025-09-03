@@ -4,7 +4,7 @@ import { TypedOracle } from '@aztec/pxe/simulator';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { PrivateContextInputs } from '@aztec/stdlib/kernel';
-import type { UInt64 } from '@aztec/stdlib/types';
+import type { UInt32, UInt64 } from '@aztec/stdlib/types';
 
 class OracleMethodNotAvailableError extends Error {
   constructor(methodName: string) {
@@ -13,6 +13,30 @@ class OracleMethodNotAvailableError extends Error {
 }
 
 export class TXETypedOracle extends TypedOracle {
+  avmOpcodeAddress(): Promise<AztecAddress> {
+    throw new OracleMethodNotAvailableError('avmOpcodeAddress');
+  }
+
+  avmOpcodeBlockNumber(): Promise<UInt32> {
+    throw new OracleMethodNotAvailableError('avmOpcodeBlockNumber');
+  }
+
+  avmOpcodeTimestamp(): Promise<bigint> {
+    throw new OracleMethodNotAvailableError('avmOpcodeTimestamp');
+  }
+
+  avmOpcodeIsStaticCall(): Promise<boolean> {
+    throw new OracleMethodNotAvailableError('avmOpcodeIsStaticCall');
+  }
+
+  avmOpcodeChainId(): Promise<Fr> {
+    throw new OracleMethodNotAvailableError('avmOpcodeChainId');
+  }
+
+  avmOpcodeVersion(): Promise<Fr> {
+    throw new OracleMethodNotAvailableError('avmOpcodeVersion');
+  }
+
   avmOpcodeEmitNullifier(_nullifier: Fr): Promise<void> {
     throw new OracleMethodNotAvailableError('avmOpcodeEmitNullifier');
   }
@@ -33,7 +57,7 @@ export class TXETypedOracle extends TypedOracle {
     throw new OracleMethodNotAvailableError('avmOpcodeStorageRead');
   }
 
-  txeGetPrivateContextInputs(_blockNumber: number | null): Promise<PrivateContextInputs> {
+  txeGetPrivateContextInputs(_blockNumber?: number): Promise<PrivateContextInputs> {
     throw new OracleMethodNotAvailableError('txeGetPrivateContextInputs');
   }
 
