@@ -3,7 +3,8 @@ import {
   type L1ReaderConfig,
   RollupContract,
   type ViemPublicClient,
-  createEthereumChain,
+  // merkezî viem public client helper
+  getPublicClient,
 } from '@aztec/ethereum';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -12,8 +13,6 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { GlobalVariableBuilder as GlobalVariableBuilderInterface } from '@aztec/stdlib/tx';
 import { GlobalVariables } from '@aztec/stdlib/tx';
-
-import { createPublicClient, fallback, http } from 'viem';
 
 /**
  * Simple global variables builder.
@@ -31,16 +30,15 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
   private version?: Fr;
 
   constructor(config: L1ReaderConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>) {
-    const { l1RpcUrls, l1ChainId: chainId, l1Contracts } = config;
-
-    const chain = createEthereumChain(l1RpcUrls, chainId);
+    const { l1RpcUrls, l1ChainId, l1Contracts } = config;
 
     this.ethereumSlotDuration = config.ethereumSlotDuration;
 
-    this.publicClient = createPublicClient({
-      chain: chain.chainInfo,
-      transport: fallback(chain.rpcUrls.map(url => http(url))),
-      pollingInterval: config.viemPollingIntervalMS,
+    // Merkezî helper: viem fallback + rank + retries + Sepolia public RPC eklemeleri
+    this.publicClient = getPublicClient({
+      l1RpcUrls,
+      l1ChainId,
+      viemPollingIntervalMS: config.viemPollingIntervalMS,
     });
 
     this.rollupContract = new RollupContract(this.publicClient, l1Contracts.rollupAddress);
