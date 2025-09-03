@@ -1,0 +1,70 @@
+import type { SecretValue } from '@aztec/foundation/config';
+import type { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
+import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import type { SequencerConfig, SlasherConfig } from '@aztec/stdlib/interfaces/server';
+import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@aztec/stdlib/p2p';
+import type { ProposedBlockHeader, StateReference, Tx } from '@aztec/stdlib/tx';
+
+import type { PeerId } from '@libp2p/interface';
+import { z } from 'zod';
+
+/**
+ * Validator client configuration
+ */
+export interface ValidatorClientConfig {
+  /** The private keys of the validators participating in attestation duties */
+  validatorPrivateKeys?: SecretValue<`0x${string}`[]>;
+
+  /** The addresses of the validators to use with remote signers */
+  validatorAddresses?: EthAddress[];
+
+  /** Do not run the validator */
+  disableValidator: boolean;
+
+  /** Temporarily disable these specific validator addresses */
+  disabledValidators: EthAddress[];
+
+  /** Interval between polling for new attestations from peers */
+  attestationPollingIntervalMs: number;
+
+  /** Re-execute transactions before attesting */
+  validatorReexecute: boolean;
+
+  /** Will re-execute until this many milliseconds are left in the slot */
+  validatorReexecuteDeadlineMs: number;
+}
+
+export type ValidatorClientFullConfig = ValidatorClientConfig &
+  Pick<SequencerConfig, 'txPublicSetupAllowList'> &
+  Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty'>;
+
+export const ValidatorClientConfigSchema = z.object({
+  validatorAddresses: z.array(schemas.EthAddress).optional(),
+  disableValidator: z.boolean(),
+  disabledValidators: z.array(schemas.EthAddress),
+  attestationPollingIntervalMs: z.number().min(0),
+  validatorReexecute: z.boolean(),
+  validatorReexecuteDeadlineMs: z.number().min(0),
+}) satisfies ZodFor<Omit<ValidatorClientConfig, 'validatorPrivateKeys'>>;
+
+export interface Validator {
+  start(): Promise<void>;
+  registerBlockProposalHandler(): void;
+  updateConfig(config: Partial<ValidatorClientFullConfig>): void;
+
+  // Block validation responsibilities
+  createBlockProposal(
+    blockNumber: number,
+    header: ProposedBlockHeader,
+    archive: Fr,
+    stateReference: StateReference,
+    txs: Tx[],
+    proposerAddress: EthAddress | undefined,
+    options: BlockProposalOptions,
+  ): Promise<BlockProposal | undefined>;
+  attestToProposal(proposal: BlockProposal, sender: PeerId): Promise<BlockAttestation[] | undefined>;
+
+  broadcastBlockProposal(proposal: BlockProposal): Promise<void>;
+  collectAttestations(proposal: BlockProposal, required: number, deadline: Date): Promise<BlockAttestation[]>;
+}

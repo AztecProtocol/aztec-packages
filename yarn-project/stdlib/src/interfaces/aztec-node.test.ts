@@ -322,11 +322,13 @@ describe('AztecNodeApiSchema', () => {
           missedAttestations: {
             currentStreak: 1,
             count: 1,
+            total: 1,
           },
           missedProposals: {
             currentStreak: 1,
             rate: 1,
             count: 1,
+            total: 1,
           },
           history: [{ slot: 1n, status: 'block-mined' }],
         },
@@ -373,8 +375,8 @@ describe('AztecNodeApiSchema', () => {
       validator: {
         address: validatorAddress,
         totalSlots: 5,
-        missedAttestations: { currentStreak: 0, count: 0 },
-        missedProposals: { currentStreak: 0, count: 0 },
+        missedAttestations: { currentStreak: 0, count: 0, total: 1 },
+        missedProposals: { currentStreak: 0, count: 0, total: 1 },
         history: [{ slot: 1n, status: 'block-mined' }],
       },
       allTimeProvenPerformance: [],
@@ -398,8 +400,8 @@ describe('AztecNodeApiSchema', () => {
       validator: {
         address: validatorAddress,
         totalSlots: 3,
-        missedAttestations: { currentStreak: 0, count: 0 },
-        missedProposals: { currentStreak: 0, count: 0 },
+        missedAttestations: { currentStreak: 0, count: 0, total: 0 },
+        missedProposals: { currentStreak: 0, count: 0, total: 0 },
         history: [{ slot: 5n, status: 'attestation-sent' }],
       },
       allTimeProvenPerformance: [],

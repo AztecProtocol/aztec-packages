@@ -185,14 +185,19 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
       return undefined;
     }
 
-    const logData = { currentRound, executableRound, slotNumber };
+    let logData: Record<string, unknown> = { currentRound, executableRound, slotNumber };
+
     try {
       const roundInfo = await this.tallySlashingProposer.getRound(executableRound);
+      logData = { ...logData, roundInfo };
       if (roundInfo.isExecuted) {
         this.log.verbose(`Round ${executableRound} has already been executed`, logData);
         return undefined;
       } else if (!roundInfo.readyToExecute) {
         this.log.verbose(`Round ${executableRound} is not ready to execute yet`, logData);
+        return undefined;
+      } else if (roundInfo.voteCount === 0n) {
+        this.log.debug(`Round ${executableRound} received no votes`, logData);
         return undefined;
       } else if (roundInfo.voteCount < this.settings.slashingQuorumSize) {
         this.log.verbose(`Round ${executableRound} does not have enough votes to execute`, logData);

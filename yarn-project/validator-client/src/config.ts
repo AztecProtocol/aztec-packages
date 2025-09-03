@@ -1,35 +1,14 @@
 import {
   type ConfigMappingsType,
-  type SecretValue,
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
   secretValueConfigHelper,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import type { ValidatorClientConfig } from '@aztec/stdlib/interfaces/server';
 
-/**
- * The Validator Configuration
- */
-export interface ValidatorClientConfig {
-  /** The private keys of the validators participating in attestation duties */
-  validatorPrivateKeys?: SecretValue<`0x${string}`[]>;
-
-  /** The addresses of the validators to use with remote signers */
-  validatorAddresses?: EthAddress[];
-
-  /** Do not run the validator */
-  disableValidator: boolean;
-
-  /** Interval between polling for new attestations from peers */
-  attestationPollingIntervalMs: number;
-
-  /** Re-execute transactions before attesting */
-  validatorReexecute: boolean;
-
-  /** Will re-execute until this many milliseconds are left in the slot */
-  validatorReexecuteDeadlineMs: number;
-}
+export type { ValidatorClientConfig };
 
 export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientConfig> = {
   validatorPrivateKeys: {
@@ -43,12 +22,26 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
   validatorAddresses: {
     env: 'VALIDATOR_ADDRESSES',
     description: 'List of addresses of the validators to use with remote signers',
-    parseEnv: (val: string) => val.split(',').map(address => EthAddress.fromString(address)),
+    parseEnv: (val: string) =>
+      val
+        .split(',')
+        .filter(address => address && address.trim().length > 0)
+        .map(address => EthAddress.fromString(address.trim())),
+    defaultValue: [],
   },
   disableValidator: {
     env: 'VALIDATOR_DISABLED',
     description: 'Do not run the validator',
-    ...booleanConfigHelper(),
+    ...booleanConfigHelper(false),
+  },
+  disabledValidators: {
+    description: 'Temporarily disable these specific validator addresses',
+    parseEnv: (val: string) =>
+      val
+        .split(',')
+        .filter(address => address && address.trim().length > 0)
+        .map(address => EthAddress.fromString(address.trim())),
+    defaultValue: [],
   },
   attestationPollingIntervalMs: {
     env: 'VALIDATOR_ATTESTATIONS_POLLING_INTERVAL_MS',

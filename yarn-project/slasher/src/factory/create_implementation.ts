@@ -17,8 +17,9 @@ import { EmpireSlasherClient, type EmpireSlasherSettings } from '../empire_slash
 import { NullSlasherClient } from '../null_slasher_client.js';
 import { SlasherOffensesStore } from '../stores/offenses_store.js';
 import { SlasherPayloadsStore } from '../stores/payloads_store.js';
-import { TallySlasherClient, type TallySlasherSettings } from '../tally_slasher_client.js';
+import { TallySlasherClient } from '../tally_slasher_client.js';
 import type { Watcher } from '../watcher.js';
+import { getTallySlasherSettings } from './get_settings.js';
 
 /** Creates a slasher client implementation (either tally or empire) based on the slasher proposer type in the rollup */
 export async function createSlasherImplementation(
@@ -132,45 +133,7 @@ async function createTallySlasher(
     throw new Error('Slashing proposer contract is not of type tally');
   }
 
-  const [
-    slashingExecutionDelayInRounds,
-    slashingRoundSize,
-    slashingRoundSizeInEpochs,
-    slashingLifetimeInRounds,
-    slashingOffsetInRounds,
-    slashingAmounts,
-    slashingQuorumSize,
-    epochDuration,
-    l1GenesisTime,
-    slotDuration,
-    targetCommitteeSize,
-  ] = await Promise.all([
-    slashingProposer.getExecutionDelayInRounds(),
-    slashingProposer.getRoundSize(),
-    slashingProposer.getRoundSizeInEpochs(),
-    slashingProposer.getLifetimeInRounds(),
-    slashingProposer.getSlashOffsetInRounds(),
-    slashingProposer.getSlashingAmounts(),
-    slashingProposer.getQuorumSize(),
-    rollup.getEpochDuration(),
-    rollup.getL1GenesisTime(),
-    rollup.getSlotDuration(),
-    rollup.getTargetCommitteeSize(),
-  ]);
-
-  const settings: TallySlasherSettings = {
-    slashingExecutionDelayInRounds: Number(slashingExecutionDelayInRounds),
-    slashingRoundSize: Number(slashingRoundSize),
-    slashingRoundSizeInEpochs: Number(slashingRoundSizeInEpochs),
-    slashingLifetimeInRounds: Number(slashingLifetimeInRounds),
-    slashingQuorumSize: Number(slashingQuorumSize),
-    epochDuration: Number(epochDuration),
-    l1GenesisTime: l1GenesisTime,
-    slotDuration: Number(slotDuration),
-    slashingOffsetInRounds: Number(slashingOffsetInRounds),
-    slashingAmounts,
-    targetCommitteeSize: Number(targetCommitteeSize),
-  };
+  const settings = await getTallySlasherSettings(rollup, slashingProposer);
 
   const offensesStore = new SlasherOffensesStore(kvStore, {
     ...settings,

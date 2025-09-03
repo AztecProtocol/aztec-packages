@@ -1,13 +1,20 @@
 import { createLogger, sleep } from '@aztec/aztec.js';
 import type { RollupCheatCodes } from '@aztec/aztec/testing';
+import type { L1ContractAddresses, ViemPublicClient } from '@aztec/ethereum';
 import type { Logger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { schemas } from '@aztec/foundation/schemas';
-import { type AztecNodeAdminConfig, createAztecNodeAdminClient } from '@aztec/stdlib/interfaces/client';
+import {
+  type AztecNodeAdmin,
+  type AztecNodeAdminConfig,
+  createAztecNodeAdminClient,
+  createAztecNodeClient,
+} from '@aztec/stdlib/interfaces/client';
 
 import { ChildProcess, exec, execSync, spawn } from 'child_process';
 import path from 'path';
 import { promisify } from 'util';
+import { createPublicClient, fallback, http } from 'viem';
 import { z } from 'zod';
 
 const execAsync = promisify(exec);
@@ -17,6 +24,8 @@ const logger = createLogger('e2e:k8s-utils');
 const testConfigSchema = z.object({
   NAMESPACE: z.string().default('scenario'),
   REAL_VERIFIER: schemas.Boolean.optional().default(true),
+  CREATE_ETH_DEVNET: schemas.Boolean.optional().default(false),
+  L1_RPC_URLS_JSON: z.string().optional(),
 });
 
 export type TestConfig = z.infer<typeof testConfigSchema>;
@@ -87,7 +96,7 @@ export async function startPortForward({
 }> {
   const hostPortAsString = hostPort ? hostPort.toString() : '';
 
-  logger.info(`kubectl port-forward -n ${namespace} ${resource} ${hostPortAsString}:${containerPort}`);
+  logger.debug(`kubectl port-forward -n ${namespace} ${resource} ${hostPortAsString}:${containerPort}`);
 
   const process = spawn(
     'kubectl',
@@ -105,20 +114,20 @@ export async function startPortForward({
       const str = data.toString() as string;
       if (!isResolved && str.includes('Forwarding from')) {
         isResolved = true;
-        logger.info(str);
+        logger.debug(`Port forward for ${resource}: ${str}`);
         const port = str.search(/:\d+/);
         if (port === -1) {
           throw new Error('Port not found in port forward output');
         }
         const portNumber = parseInt(str.slice(port + 1));
-        logger.info(`Port forward connected: ${portNumber}`);
+        logger.verbose(`Port forwarded for ${resource} at ${portNumber}:${containerPort}`);
         resolve(portNumber);
       } else {
         logger.silent(str);
       }
     });
     process.stderr?.on('data', data => {
-      logger.info(data.toString());
+      logger.verbose(`Port forward for ${resource}: ${data.toString()}`);
       // It's a strange thing:
       // If we don't pipe stderr, then the port forwarding does not work.
       // Log to silent because this doesn't actually report errors,
@@ -128,16 +137,16 @@ export async function startPortForward({
     process.on('close', () => {
       if (!isResolved) {
         isResolved = true;
-        logger.warn('Port forward closed before connection established');
+        logger.warn(`Port forward for ${resource} closed before connection established`);
         resolve(0);
       }
     });
     process.on('error', error => {
-      logger.error(`Port forward error: ${error}`);
+      logger.error(`Port forward for ${resource} error: ${error}`);
       resolve(0);
     });
     process.on('exit', code => {
-      logger.info(`Port forward exited with code ${code}`);
+      logger.verbose(`Port forward for ${resource} exited with code ${code}`);
       resolve(0);
     });
   });
@@ -505,44 +514,110 @@ export async function enableValidatorDynamicBootNode(
   logger.info(`Validator dynamic boot node enabled`);
 }
 
-export async function updateSequencerConfig(url: string, config: Partial<AztecNodeAdminConfig>) {
-  const node = createAztecNodeAdminClient(url);
-  // Retry incase the port forward is not ready yet
-  await retry(() => node.setConfig(config), 'Update sequencer config', makeBackoff([1, 3, 6]), logger);
-}
-
 export async function getSequencers(namespace: string) {
-  const command = `kubectl get pods -l app=validator -n ${namespace} -o jsonpath='{.items[*].metadata.name}'`;
+  const command = `kubectl get pods -l app.kubernetes.io/component=validator -n ${namespace} -o jsonpath='{.items[*].metadata.name}'`;
   const { stdout } = await execAsync(command);
-  return stdout.split(' ');
+  const sequencers = stdout.split(' ');
+  logger.verbose(`Found sequencer pods ${sequencers.join(', ')}`);
+  return sequencers;
 }
 
-async function updateK8sSequencersConfig(args: {
-  containerPort: number;
-  namespace: string;
-  config: Partial<AztecNodeAdminConfig>;
-}) {
-  const { containerPort, namespace, config } = args;
+export function updateSequencersConfig(env: TestConfig, config: Partial<AztecNodeAdminConfig>) {
+  return withSequencersAdmin(env, async client => {
+    await client.setConfig(config);
+    return client.getConfig();
+  });
+}
+
+export function getSequencersConfig(env: TestConfig) {
+  return withSequencersAdmin(env, client => client.getConfig());
+}
+
+export async function withSequencersAdmin<T>(env: TestConfig, fn: (node: AztecNodeAdmin) => Promise<T>): Promise<T[]> {
+  const adminContainerPort = 8880;
+  const namespace = env.NAMESPACE;
   const sequencers = await getSequencers(namespace);
+  const results = [];
+
   for (const sequencer of sequencers) {
     const { process, port } = await startPortForward({
       resource: `pod/${sequencer}`,
       namespace,
-      containerPort,
+      containerPort: adminContainerPort,
     });
 
     const url = `http://localhost:${port}`;
-    await updateSequencerConfig(url, config);
+    await retry(
+      () => fetch(`${url}/status`).then(res => res.status === 200),
+      'forward node admin port',
+      makeBackoff([1, 1, 2, 6]),
+      logger,
+      true,
+    );
+    const client = createAztecNodeAdminClient(url);
+    results.push(await fn(client));
     process.kill();
+  }
+
+  return results;
+}
+
+/**
+ * Returns a public viem client to the eth execution node. If it was part of a local eth devnet,
+ * it first port-forwards the service and points to it. Otherwise, just uses the external RPC url.
+ */
+export async function getPublicViemClient(
+  env: TestConfig,
+  /** If set, will push the new process into it */
+  processes?: ChildProcess[],
+): Promise<{ url: string; client: ViemPublicClient; process?: ChildProcess }> {
+  const { NAMESPACE, CREATE_ETH_DEVNET, L1_RPC_URLS_JSON } = env;
+  if (CREATE_ETH_DEVNET) {
+    logger.info(`Creating port forward to eth execution node`);
+    const { process, port } = await startPortForward({
+      resource: `svc/${NAMESPACE}-eth-execution`,
+      namespace: NAMESPACE,
+      containerPort: 8545,
+    });
+    const url = `http://127.0.0.1:${port}`;
+    const client: ViemPublicClient = createPublicClient({ transport: fallback([http(url)]) });
+    if (processes) {
+      processes.push(process);
+    }
+    return { url, client, process };
+  } else {
+    logger.info(`Connecting to the eth execution node at ${L1_RPC_URLS_JSON}`);
+    if (!L1_RPC_URLS_JSON) {
+      throw new Error(`L1_RPC_URLS_JSON is not defined`);
+    }
+    const client: ViemPublicClient = createPublicClient({ transport: fallback([http(L1_RPC_URLS_JSON)]) });
+    return { url: L1_RPC_URLS_JSON, client };
   }
 }
 
-export async function updateSequencersConfig(env: TestConfig, config: Partial<AztecNodeAdminConfig>) {
-  await updateK8sSequencersConfig({
-    containerPort: 8880,
-    namespace: env.NAMESPACE,
-    config,
-  });
+/** Queries an Aztec node for the L1 deployment addresses */
+export async function getL1DeploymentAddresses(env: TestConfig): Promise<L1ContractAddresses> {
+  let forwardProcess: ChildProcess | undefined;
+  try {
+    const [sequencer] = await getSequencers(env.NAMESPACE);
+    const { process, port } = await startPortForward({
+      resource: `pod/${sequencer}`,
+      namespace: env.NAMESPACE,
+      containerPort: 8080,
+    });
+
+    forwardProcess = process;
+    const url = `http://127.0.0.1:${port}`;
+    const node = createAztecNodeClient(url);
+    return await retry(
+      () => node.getNodeInfo().then(i => i.l1ContractAddresses),
+      'get node info',
+      makeBackoff([1, 3, 6]),
+      logger,
+    );
+  } finally {
+    forwardProcess?.kill();
+  }
 }
 
 /**
