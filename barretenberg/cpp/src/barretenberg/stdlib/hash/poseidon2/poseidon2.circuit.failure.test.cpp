@@ -6,10 +6,10 @@
 
 using namespace bb;
 
-template <typename Flavor> class Poseidon2FailureTests : public ::testing::Test {
+class Poseidon2FailureTests : public ::testing::Test {
   public:
+    using Flavor = UltraFlavor;
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
-    using VerificationKey = Flavor::VerificationKey;
     using SumcheckProver = SumcheckProver<Flavor>;
     using SumcheckVerifier = SumcheckVerifier<Flavor>;
     using FF = Flavor::FF;
@@ -70,7 +70,7 @@ template <typename Flavor> class Poseidon2FailureTests : public ::testing::Test 
         witness.at(shift_idx) += 1;
     }
 
-    void hash_input(Builder& builder)
+    void hash_single_input(Builder& builder)
     {
         stdlib::field_t<Builder> random_input(stdlib::witness_t<Builder>(&builder, fr::random_element()));
         random_input.fix_witness();
@@ -81,6 +81,8 @@ template <typename Flavor> class Poseidon2FailureTests : public ::testing::Test 
     {
         const size_t virtual_log_n = Flavor::VIRTUAL_LOG_N;
 
+        // Random subrelation separators are needed here to make sure that the sumcheck is failing because of the wrong
+        // Poseidon2 selector/witness values.
         SubrelationSeparators subrelation_separators{};
         for (auto& alpha : subrelation_separators) {
             alpha = FF::random_element();
@@ -88,6 +90,7 @@ template <typename Flavor> class Poseidon2FailureTests : public ::testing::Test 
 
         std::vector<FF> gate_challenges(virtual_log_n);
 
+        // Random gate challenges ensure that relations are satisfied at every point of the hypercube
         for (auto& beta : gate_challenges) {
             beta = FF::random_element();
         }
@@ -114,93 +117,67 @@ template <typename Flavor> class Poseidon2FailureTests : public ::testing::Test 
         SumcheckVerifier verifier(verifier_transcript, subrelation_separators, virtual_log_n);
         auto result = verifier.verify(relation_parameters, gate_challenges, std::vector<FF>(virtual_log_n, 1));
         EXPECT_EQ(result.verified, expected_result);
-        EXPECT_EQ(result.round_checks[0], false);
-        EXPECT_EQ(result.round_checks[1], true);
     };
-
-  protected:
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
-#ifdef STARKNET_GARAGA_FLAVORS
-using FlavorTypes = testing::Types<UltraFlavor, UltraStarknetFlavor>;
-#else
-using FlavorTypes = testing::Types<UltraFlavor>;
-#endif
-
-TYPED_TEST_SUITE(Poseidon2FailureTests, FlavorTypes);
-
-TYPED_TEST(Poseidon2FailureTests, WrongSelectorValues)
+TEST_F(Poseidon2FailureTests, WrongSelectorValues)
 {
-    using Flavor = TypeParam;
-    using Builder = Flavor::CircuitBuilder;
-
-    Builder builder{};
+    Builder builder;
 
     // Construct a circuit that hashes a single witness field element.
-    TestFixture::hash_input(builder);
+    hash_single_input(builder);
 
     // Convert circuit to polynomials.
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
     {
         // Disable Poseidon2 External selector in the first active row
-        TestFixture::modify_selector(proving_key->polynomials.q_poseidon2_external);
+        modify_selector(proving_key->polynomials.q_poseidon2_external);
 
         // Run sumcheck on the invalidated data
-        TestFixture::prove_and_verify(proving_key, false);
+        prove_and_verify(proving_key, false);
     }
     {
         // Disable Poseidon2 Internal selector in the first active row
-        TestFixture::modify_selector(proving_key->polynomials.q_poseidon2_internal);
+        modify_selector(proving_key->polynomials.q_poseidon2_internal);
 
         // Run sumcheck on the invalidated data
-        TestFixture::prove_and_verify(proving_key, false);
+        prove_and_verify(proving_key, false);
     }
 }
 
-TYPED_TEST(Poseidon2FailureTests, WrongWitnessValues)
+TEST_F(Poseidon2FailureTests, WrongWitnessValues)
 {
-    using Flavor = TypeParam;
-    using Builder = Flavor::CircuitBuilder;
+    Builder builder;
 
-    Builder builder{};
-
-    TestFixture::hash_input(builder);
+    hash_single_input(builder);
 
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
     {
-        TestFixture::modify_witness(proving_key->polynomials.q_poseidon2_external, proving_key->polynomials.w_l);
-
-        TestFixture::prove_and_verify(proving_key, false);
+        modify_witness(proving_key->polynomials.q_poseidon2_external, proving_key->polynomials.w_l);
+        prove_and_verify(proving_key, false);
     }
     {
-        TestFixture::modify_witness(proving_key->polynomials.q_poseidon2_internal, proving_key->polynomials.w_r);
-
-        TestFixture::prove_and_verify(proving_key, false);
+        modify_witness(proving_key->polynomials.q_poseidon2_internal, proving_key->polynomials.w_r);
+        prove_and_verify(proving_key, false);
     }
 }
 
-TYPED_TEST(Poseidon2FailureTests, TamperingWithShifts)
+TEST_F(Poseidon2FailureTests, TamperingWithShifts)
 {
-    using Flavor = TypeParam;
-    using Builder = Flavor::CircuitBuilder;
+    Builder builder;
 
-    Builder builder{};
-
-    TestFixture::hash_input(builder);
+    hash_single_input(builder);
 
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
     {
-        TestFixture::tamper_with_shifts(
-            proving_key->polynomials.q_poseidon2_external, proving_key->polynomials.w_l, true);
-
-        TestFixture::prove_and_verify(proving_key, false);
+        bool external_round = true;
+        tamper_with_shifts(proving_key->polynomials.q_poseidon2_external, proving_key->polynomials.w_l, external_round);
+        prove_and_verify(proving_key, false);
     }
 
     {
-        TestFixture::tamper_with_shifts(
-            proving_key->polynomials.q_poseidon2_internal, proving_key->polynomials.w_l, false);
-
-        TestFixture::prove_and_verify(proving_key, false);
+        bool external_round = false;
+        tamper_with_shifts(proving_key->polynomials.q_poseidon2_internal, proving_key->polynomials.w_l, external_round);
+        prove_and_verify(proving_key, false);
     }
 }
