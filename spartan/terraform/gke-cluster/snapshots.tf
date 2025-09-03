@@ -3,6 +3,11 @@ resource "google_storage_bucket" "snapshots-bucket" {
   name     = "aztec-testnet"
   location = "us-west1"
 
+  logging {
+    log_bucket        = "usage_log_bucket"
+    log_object_prefix = "aztec-testnet"
+  }
+
   autoclass {
     enabled                = true
     terminal_storage_class = "ARCHIVE"

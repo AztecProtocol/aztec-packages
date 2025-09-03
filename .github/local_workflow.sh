@@ -30,11 +30,12 @@ fi
 shift
 args=("$@")
 
+# Only needed when running against GKE
 SA_KEY_JSON=$(cat "$GOOGLE_APPLICATION_CREDENTIALS")
 
 mkdir -p $REPO_ROOT/.github/.act-tool-cache
 
-act workflow_dispatch -j $workflow_name \
+act -j $workflow_name \
   --env RUNNER_TOOL_CACHE=/work/toolcache \
   -s GITHUB_TOKEN="$(gh auth token)" \
   -s GCP_SA_KEY="$SA_KEY_JSON" \
