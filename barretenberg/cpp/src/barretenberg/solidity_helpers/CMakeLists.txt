@@ -15,4 +15,16 @@ if (NOT(FUZZING))
     honk_solidity_proof_gen
     stdlib_solidity_helpers
   )
+  if(CHECK_CIRCUIT_STACKTRACES OR ENABLE_STACKTRACES)
+    target_link_libraries(
+        honk_solidity_proof_gen
+        PUBLIC
+        Backward::Interface
+    )
+    target_link_options(
+        honk_solidity_proof_gen
+        PRIVATE
+        -ldw -lelf
+    )
+  endif()
 endif()
