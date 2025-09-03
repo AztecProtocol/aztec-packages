@@ -21,9 +21,9 @@ pr_author=$(echo "$pr_info" | jq -r '.author.login')
 head_repo=$(echo "$pr_info" | jq -r '.headRepository.nameWithOwner')
 is_fork=$(echo "$pr_info" | jq -r '.isCrossRepository')
 
-# We'll use AztecBot as the committer
-author_name="AztecBot"
-author_email="49558828+AztecBot@users.noreply.github.com"
+# Get the PR author's name and email
+user_id=$(gh api "/users/$pr_author" --jq '.id')
+author_email="${user_id}+${pr_author}@users.noreply.github.com"
 
 # Create a temporary worktree to do the squashing
 worktree_dir=$(mktemp -d)
@@ -36,7 +36,7 @@ git worktree add "$worktree_dir" HEAD
 cd "$worktree_dir"
 
 # Configure git with author's identity in worktree
-git config user.name "$author_name"
+git config user.name "$pr_author"
 git config user.email "$author_email"
 
 # Save our current branch commits
@@ -58,11 +58,11 @@ merge_base=$(git merge-base "$original_head" "origin/$base_branch")
 # Get all commits between merge_base and HEAD, excluding merges
 authors_info=$(git log "$merge_base..$original_head" --no-merges --format='%an <%ae>' | sort -u)
 
-# Build Co-authored-by trailers
+# Build Co-authored-by trailers, excluding the main PR author
 co_authors=""
 while IFS= read -r author_line; do
-  # Skip empty lines and AztecBot itself
-  if [[ -n "$author_line" ]] && [[ "$author_line" != *"AztecBot"* ]] && [[ "$author_line" != *"tech@aztecprotocol.com"* ]]; then
+  # Skip empty lines, the main PR author, AztecBot, and tech@aztecprotocol.com
+  if [[ -n "$author_line" ]] && [[ "$author_line" != *"$pr_author"* ]] && [[ "$author_line" != *"$author_email"* ]] && [[ "$author_line" != *"AztecBot"* ]] && [[ "$author_line" != *"tech@aztecprotocol.com"* ]]; then
     co_authors="${co_authors}Co-authored-by: ${author_line}
 "
   fi
