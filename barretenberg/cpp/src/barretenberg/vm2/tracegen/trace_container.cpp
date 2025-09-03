@@ -52,8 +52,70 @@ void TraceContainer::set(Column col, uint32_t row, const FF& value)
 
 void TraceContainer::set(uint32_t row, std::span<const std::pair<Column, FF>> values)
 {
-    for (const auto& [col, value] : values) {
-        set(col, row, value);
+    // Fast path for single value (common case)
+    if (values.size() == 1) {
+        set(values[0].first, row, values[0].second);
+        return;
+    }
+
+    // Group values by column to minimize mutex acquisitions
+    // Use small_vector-like approach with stack allocation for common case
+    constexpr size_t STACK_SIZE = 32;
+    std::array<std::pair<Column, FF>, STACK_SIZE> stack_buffer;
+    std::vector<std::pair<Column, FF>> heap_buffer;
+
+    std::span<std::pair<Column, FF>> sorted_values;
+
+    if (values.size() <= STACK_SIZE) {
+        // Use stack allocation for small batches
+        for (size_t i = 0; i < values.size(); ++i) {
+            stack_buffer[i] = values[i];
+        }
+        sorted_values = std::span<std::pair<Column, FF>>(stack_buffer.data(), values.size());
+    } else {
+        // Use heap allocation for large batches
+        heap_buffer.reserve(values.size());
+        for (const auto& value : values) {
+            heap_buffer.push_back(value);
+        }
+        sorted_values = std::span<std::pair<Column, FF>>(heap_buffer);
+    }
+
+    // Sort by column to process each column in one batch and avoid deadlocks
+    std::sort(
+        sorted_values.begin(), sorted_values.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+
+    // Process each unique column in batches
+    auto& columns = *trace;
+    size_t start = 0;
+
+    while (start < sorted_values.size()) {
+        Column col = sorted_values[start].first;
+        size_t end = start;
+
+        // Find all values for this column
+        while (end < sorted_values.size() && sorted_values[end].first == col) {
+            ++end;
+        }
+
+        // Process this column's values in batch
+        auto& column_data = columns[static_cast<size_t>(col)];
+        std::unique_lock lock(column_data.mutex);
+
+        for (size_t i = start; i < end; ++i) {
+            const FF& value = sorted_values[i].second;
+            if (!value.is_zero()) {
+                column_data.rows.insert_or_assign(row, value);
+                column_data.max_row_number = std::max(column_data.max_row_number, static_cast<int64_t>(row));
+            } else {
+                auto num_erased = column_data.rows.erase(row);
+                if (column_data.max_row_number == row && num_erased > 0) {
+                    column_data.row_number_dirty = true;
+                }
+            }
+        }
+
+        start = end;
     }
 }
 
