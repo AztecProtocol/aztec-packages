@@ -25,7 +25,7 @@ project_name=$(basename "$PWD")
 # Hash of the entire protocol circuits.
 # Needed for test hash, as we presently don't have a program hash for each individual test.
 # Means if anything within the dir changes, the tests will rerun.
-export circuits_hash=$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-projects/$project_name/crates/"))
+export circuits_hash=$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-projects/$project_name/crates/" "^noir-projects/noir-protocol-circuits/bootstrap.sh"))
 
 # Circuits matching these patterns we have client-ivc keys computed, rather than ultra-honk.
 readarray -t ivc_patterns < <(jq -r '.[]' "../client_ivc_circuits.json")
@@ -59,7 +59,7 @@ function compile {
   # echo_stderr $program_hash_cmd
   program_hash=$(dump_fail "$program_hash_cmd")
   echo_stderr "Hash preimage: $NOIR_HASH-$program_hash"
-  hash=$(hash_str "$NOIR_HASH-$program_hash")
+  hash=$(hash_str "$NOIR_HASH-$program_hash" $(cache_content_hash "^noir-projects/noir-protocol-circuits/bootstrap.sh"))
 
   if ! cache_download circuit-$hash.tar.gz 1>&2; then
     SECONDS=0
