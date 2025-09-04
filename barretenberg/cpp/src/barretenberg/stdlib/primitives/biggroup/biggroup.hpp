@@ -370,7 +370,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     }
 
     bool_ct is_point_at_infinity() const { return _is_infinity; }
-    void set_point_at_infinity(const bool_ct& is_infinity) { _is_infinity = is_infinity; }
+    void set_point_at_infinity(const bool_ct& is_infinity, const bool& add_to_used_witnesses = false)
+    {
+        _is_infinity = is_infinity.normalize();
+        if (add_to_used_witnesses) {
+            _is_infinity.get_context()->update_used_witnesses(_is_infinity.get_normalized_witness_index());
+        };
+    }
     element get_standard_form() const;
 
     void set_origin_tag(OriginTag tag) const

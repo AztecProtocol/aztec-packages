@@ -164,7 +164,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
             if (!expected_to_be_constant) {
                 EXPECT_TRUE(CircuitChecker::check(builder));
-                EXPECT_TRUE(converted.witness_index == field_elt.witness_index);
+                EXPECT_TRUE(converted.get_normalized_witness_index() == field_elt.witness_index);
             }
         }
         // Check that the conversion aborts in the case of random field elements.

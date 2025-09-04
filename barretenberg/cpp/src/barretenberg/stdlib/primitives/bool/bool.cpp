@@ -32,16 +32,25 @@ bool_t<Builder>::bool_t(Builder* parent_context)
 /**
  * @brief Construct a `bool_t` object from a witness, note that the value stored at `witness_index` is constrained to be
  * 0 or 1.
+ * @param value A witness, which is constrained to be boolean inside of this constructor.
+ * @param use_range_constraint In case we need to create `bool_t` in a loop, it is more efficient to apply the range
+ * constraint gates instead of creating arithmetic gates.
  */
 template <typename Builder>
-bool_t<Builder>::bool_t(const witness_t<Builder>& value)
+bool_t<Builder>::bool_t(const witness_t<Builder>& value, const bool& use_range_constraint)
     : context(value.context)
 {
     ASSERT((value.witness == bb::fr::zero()) || (value.witness == bb::fr::one()),
            "bool_t: witness value is not 0 or 1");
     witness_index = value.witness_index;
-    // Constrain x := other.witness by the relation x^2 = x
-    context->create_bool_gate(witness_index);
+
+    if (use_range_constraint) {
+        // Create a range constraint gate
+        context->create_new_range_constraint(witness_index, 1, "bool_t: witness value is not 0 or 1");
+    } else {
+        // Create an arithmetic gate to enforce the relation x^2 = x
+        context->create_bool_gate(witness_index);
+    }
     witness_bool = (value.witness == bb::fr::one());
     witness_inverted = false;
     set_free_witness_tag();
@@ -78,6 +87,24 @@ bool_t<Builder>::bool_t(bool_t<Builder>&& other)
     , witness_index(other.witness_index)
     , tag(other.tag)
 {}
+
+/**
+ * @brief Create a `bool_t` from a witness index that is **known** to contain a constrained bool value.
+ * @warning The witness value **is not** constrained to be boolean. We simply perform an out-of-circuit sanity check.
+ */
+template <typename Builder>
+bool_t<Builder> bool_t<Builder>::from_witness_index_unsafe(Builder* ctx, const uint32_t witness_index)
+{
+    ASSERT(witness_index != IS_CONSTANT);
+    bool_t<Builder> result(ctx);
+    result.witness_index = witness_index;
+    const bb::fr value = ctx->get_variable(witness_index);
+    // It does not create a constraint.
+    BB_ASSERT_EQ(value * value - value, 0, "bool_t: creating a witness bool from a non-boolean value");
+    result.witness_bool = (value == 1);
+    result.witness_inverted = false;
+    return result;
+}
 
 /**
  * @brief Assigns a native `bool` to `bool_t` object.
@@ -117,7 +144,7 @@ template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(bool_t&&
     return *this;
 }
 /**
- * @brief Assigns a `witness_t` to a `bool_t`. As above,  he value stored at `witness_index` is constrained to be
+ * @brief Assigns a `witness_t` to a `bool_t`. As above,  the value stored at `witness_index` is constrained to be
  * 0 or 1.
  */
 template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const witness_t<Builder>& other)
