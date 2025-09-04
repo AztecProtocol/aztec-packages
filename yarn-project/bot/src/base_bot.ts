@@ -61,6 +61,15 @@ export abstract class BaseBot {
 
     await this.onTxMined(receipt, logCtx);
 
+    const txBlockNumber = receipt.blockNumber;
+
+    if (txBlockNumber === undefined) {
+      this.log.warn(`Bot tx with hash ${receipt.txHash} was not included in a block`);
+    } else {
+      // Wait until PXE is synced up to the block containing our transaction
+      await (this.pxe as any).waitForSyncedBlockNumber(txBlockNumber);
+    }
+
     return receipt;
   }
 

@@ -1132,4 +1132,13 @@ export class PXEService implements PXE {
   public stop(): Promise<void> {
     return this.jobQueue.end();
   }
+
+  public waitForSyncedBlockNumber(blockNumber: number): Promise<void> {
+    return this.#putInJobQueue(async () => {
+      while ((await this.synchronizer.getSynchedBlockNumber()) < blockNumber) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        await this.synchronizer.sync();
+      }
+    });
+  }
 }
