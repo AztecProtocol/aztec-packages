@@ -84,6 +84,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     feePayer: AztecAddress = sender,
     /* need some unique first nullifier for note-nonce computations */
     privateInsertions: TestPrivateInsertions = { nonRevertible: { nullifiers: [new Fr(420000 + this.txCount)] } },
+    historicalGlobals: GlobalVariables = defaultGlobals(), // to be put into tx as historical
   ): Promise<Tx> {
     const setupCallRequests = await asyncMap(setupCalls, call =>
       this.#createPubicCallRequestForCall(call, call.sender ?? sender),
@@ -103,7 +104,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
       teardownCallRequest,
       feePayer,
       /*gasUsedByPrivate*/ Gas.empty(),
-      defaultGlobals(),
+      historicalGlobals,
     );
   }
 
