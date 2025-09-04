@@ -302,7 +302,9 @@ pub contract NFT {
 
         let new_note = NFTNote::new(token_id, to);
 
+        // docs:start:insert
         nfts.at(to).insert(new_note).emit(encode_and_encrypt_note(&mut context, to));
+        // docs:end:insert
     }
     // docs:end:transfer_in_private
 

@@ -42,9 +42,7 @@ impl EasyPrivateUint<&mut PrivateContext> {
         let addend_note = ValueNote::new(addend as Field, owner);
 
         // Insert the new note to the owner's set of notes.
-        // docs:start:insert
         self.set.insert(addend_note).emit(encode_and_encrypt_note(self.context, owner));
-        // docs:end:insert
     }
 
     // Very similar to `value_note::utils::decrement`.

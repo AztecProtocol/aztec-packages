@@ -261,7 +261,7 @@ See `NoteEmission` for more details.
 We're planning a _significant_ refactor of this syntax, to make the syntax of how to encrypt and deliver notes much clearer, and to make the default options much clearer to developers. We will also be enabling easier ways to customize your own note encryption options.
 :::
 
-#include_code insert /noir-projects/aztec-nr/easy-private-state/src/easy_private_uint.nr rust
+#include_code insert /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 :::info
 
