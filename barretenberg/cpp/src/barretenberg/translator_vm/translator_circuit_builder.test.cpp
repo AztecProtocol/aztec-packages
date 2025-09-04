@@ -112,6 +112,7 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
 
     // Sample the evaluation input x
     Fq x = Fq::random_element();
+    // Compute x_pow (power given by the degree of the polynomial) to be number of real ultra ops - 1
     Fq x_pow = Fq(1);
     // Get an inverse
     Fq x_inv = x.invert();

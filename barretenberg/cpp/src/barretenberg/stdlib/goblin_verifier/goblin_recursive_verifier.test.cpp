@@ -40,13 +40,11 @@ class GoblinRecursiveVerifierTests : public testing::Test {
      *
      * @return ProverOutput
      */
-    static ProverOutput create_goblin_prover_output(Builder* outer_builder = nullptr,
-                                                    [[maybe_unused]] const size_t NUM_CIRCUITS = 3)
+    static ProverOutput create_goblin_prover_output(Builder* outer_builder = nullptr, const size_t num_circuits = 5)
     {
 
-        // TODO: do something here which is going to be painful
         Goblin goblin;
-        GoblinMockCircuits::construct_and_merge_mock_circuits(goblin, 5);
+        GoblinMockCircuits::construct_and_merge_mock_circuits(goblin, num_circuits);
 
         // Merge the ecc ops from the newly constructed circuit
         auto goblin_proof = goblin.prove(MergeSettings::APPEND);
@@ -152,11 +150,11 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
         return { builder.blocks, outer_verification_key };
     };
 
-    auto [blocks_2, verification_key_2] = get_blocks(2);
-    auto [blocks_4, verification_key_4] = get_blocks(4);
+    auto [blocks_5, verification_key_5] = get_blocks(5);
+    auto [blocks_6, verification_key_6] = get_blocks(6);
 
-    compare_ultra_blocks_and_verification_keys<OuterFlavor>({ blocks_2, blocks_4 },
-                                                            { verification_key_2, verification_key_4 });
+    compare_ultra_blocks_and_verification_keys<OuterFlavor>({ blocks_5, blocks_6 },
+                                                            { verification_key_5, verification_key_6 });
 }
 
 /**
