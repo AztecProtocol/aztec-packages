@@ -21,15 +21,6 @@
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern bool slow_low_memory;
 
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-extern size_t storage_budget;
-
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-extern std::atomic<size_t> current_storage_usage;
-
-// Parse storage size string (e.g., "500m", "2g", "1024k")
-size_t parse_size_string(const std::string& size_str);
-
 template <typename T> class AlignedMemory;
 
 #ifndef __wasm__
@@ -52,38 +43,12 @@ template <typename Fr> class BackingMemory {
     {
 #ifndef __wasm__
         if (slow_low_memory) {
-            auto file_backed = try_allocate_file_backed(size);
-            if (file_backed) {
-                return file_backed;
-            }
+            return std::shared_ptr<BackingMemory<Fr>>(new FileBackedMemory<Fr>(size));
         }
 #endif
         return std::shared_ptr<BackingMemory<Fr>>(new AlignedMemory<Fr>(size));
     }
 
-  private:
-#ifndef __wasm__
-    static std::shared_ptr<BackingMemory<Fr>> try_allocate_file_backed(size_t size)
-    {
-        size_t required_bytes = size * sizeof(Fr);
-        size_t current_usage = current_storage_usage.load();
-
-        // Check if we're under the storage budget
-        if (current_usage + required_bytes > storage_budget) {
-            return nullptr; // Over budget
-        }
-
-        // Attempt to create FileBackedMemory without exceptions
-        // We'll need to modify FileBackedMemory constructor to be noexcept
-        auto file_backed = FileBackedMemory<Fr>::try_create(size);
-        if (file_backed) {
-            current_storage_usage.fetch_add(required_bytes);
-        }
-        return file_backed;
-    }
-#endif
-
-  public:
     virtual ~BackingMemory() = default;
 };
 
@@ -115,57 +80,6 @@ template <typename T> class FileBackedMemory : public BackingMemory<T> {
 
     T* raw_data() { return memory; }
 
-    // Try to create file-backed memory, returns nullptr on failure
-    static std::shared_ptr<BackingMemory<T>> try_create(size_t size)
-    {
-        if (size == 0) {
-            return std::shared_ptr<BackingMemory<T>>(new FileBackedMemory<T>());
-        }
-
-        size_t file_size = size * sizeof(T);
-        static std::atomic<size_t> file_counter{ 0 };
-        size_t id = file_counter.fetch_add(1);
-
-        std::filesystem::path temp_dir;
-        try {
-            temp_dir = std::filesystem::temp_directory_path();
-        } catch (const std::exception&) {
-            // Fallback to current directory if temp_directory_path() fails
-            temp_dir = std::filesystem::current_path();
-        }
-
-        std::string filename = temp_dir / ("poly-mmap-" + std::to_string(getpid()) + "-" + std::to_string(id));
-
-        int fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0644);
-        if (fd < 0) {
-            return nullptr; // Failed to create file
-        }
-
-        // Set file size
-        if (ftruncate(fd, static_cast<off_t>(file_size)) != 0) {
-            close(fd);
-            std::filesystem::remove(filename);
-            return nullptr; // Failed to set file size
-        }
-
-        // Memory map the file
-        void* addr = mmap(nullptr, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-        if (addr == MAP_FAILED) {
-            close(fd);
-            std::filesystem::remove(filename);
-            return nullptr; // Failed to mmap
-        }
-
-        // Create the FileBackedMemory object using private constructor
-        auto memory = new FileBackedMemory<T>();
-        memory->file_size = file_size;
-        memory->filename = filename;
-        memory->fd = fd;
-        memory->memory = static_cast<T*>(addr);
-
-        return std::shared_ptr<BackingMemory<T>>(memory);
-    }
-
     ~FileBackedMemory()
     {
         if (file_size == 0) {
@@ -173,8 +87,6 @@ template <typename T> class FileBackedMemory : public BackingMemory<T> {
         }
         if (memory != nullptr && file_size > 0) {
             munmap(memory, file_size);
-            // Decrement storage usage when FileBackedMemory is freed
-            current_storage_usage.fetch_sub(file_size);
         }
         if (fd >= 0) {
             close(fd);
@@ -185,13 +97,46 @@ template <typename T> class FileBackedMemory : public BackingMemory<T> {
     }
 
   private:
-    // Default constructor for empty file-backed memory
-    FileBackedMemory()
+    // Create a new file-backed memory region
+    FileBackedMemory(size_t size)
         : BackingMemory<T>()
-        , file_size(0)
-        , fd(-1)
-        , memory(nullptr)
-    {}
+        , file_size(size * sizeof(T))
+    {
+        if (file_size == 0) {
+            return;
+        }
+
+        static std::atomic<size_t> file_counter{ 0 };
+        size_t id = file_counter.fetch_add(1);
+        std::filesystem::path temp_dir;
+        try {
+            temp_dir = std::filesystem::temp_directory_path();
+        } catch (const std::exception&) {
+            // Fallback to current directory if temp_directory_path() fails
+            temp_dir = std::filesystem::current_path();
+        }
+
+        filename = temp_dir / ("poly-mmap-" + std::to_string(getpid()) + "-" + std::to_string(id));
+
+        fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0644);
+        // Create file
+        if (fd < 0) {
+            throw_or_abort("Failed to create backing file: " + filename);
+        }
+
+        // Set file size
+        if (ftruncate(fd, static_cast<off_t>(file_size)) != 0) {
+            throw_or_abort("Failed to set file size");
+        }
+
+        // Memory map the file
+        void* addr = mmap(nullptr, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        if (addr == MAP_FAILED) {
+            throw_or_abort("Failed to mmap file: " + std::string(std::strerror(errno)));
+        }
+
+        memory = static_cast<T*>(addr);
+    }
 
     size_t file_size;
     std::string filename;
