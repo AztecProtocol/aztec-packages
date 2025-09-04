@@ -167,7 +167,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     merkle_db.add_checkpoint_listener(public_data_tree_check);
     merkle_db.add_checkpoint_listener(emit_unencrypted_log_component);
 
-    UpdateCheck update_check(poseidon2, range_check, merkle_db, update_check_emitter, hints.globalVariables);
+    UpdateCheck update_check(
+        poseidon2, range_check, greater_than, merkle_db, update_check_emitter, hints.globalVariables);
 
     BytecodeHasher bytecode_hasher(poseidon2, bytecode_hashing_emitter);
     Siloing siloing(siloing_emitter);

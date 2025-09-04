@@ -25,10 +25,6 @@ void update_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_GENERATOR_INDEX__PUBLIC_LEAF_INDEX = FF(23);
     const auto update_check_HASH_IS_ZERO = (FF(1) - in.get(C::update_check_hash_not_zero));
     const auto update_check_TWO_POW_32 = FF(4294967296UL);
-    const auto update_check_TIMESTAMP_LT_TIMESTAMP_OF_CHANGE =
-        ((in.get(C::update_check_timestamp_of_change) - FF(1)) - in.get(C::update_check_timestamp));
-    const auto update_check_TIMESTAMP_GTE_TIMESTAMP_OF_CHANGE =
-        (in.get(C::update_check_timestamp) - in.get(C::update_check_timestamp_of_change));
 
     {
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -128,22 +124,13 @@ void update_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
-        auto tmp = (((update_check_TIMESTAMP_LT_TIMESTAMP_OF_CHANGE - update_check_TIMESTAMP_GTE_TIMESTAMP_OF_CHANGE) *
-                         in.get(C::update_check_timestamp_is_lt_timestamp_of_change) +
-                     update_check_TIMESTAMP_GTE_TIMESTAMP_OF_CHANGE) -
-                    in.get(C::update_check_timestamp_of_change_subtraction));
-        tmp *= scaling_factor;
-        std::get<13>(evals) += typename Accumulator::View(tmp);
-    }
-    {
-        using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
         auto tmp = in.get(C::update_check_update_pre_class_id_is_zero) *
                    (FF(1) - in.get(C::update_check_update_pre_class_id_is_zero));
         tmp *= scaling_factor;
-        std::get<14>(evals) += typename Accumulator::View(tmp);
+        std::get<13>(evals) += typename Accumulator::View(tmp);
     }
     { // UPDATE_PRE_CLASS_IS_ZERO
-        using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
         auto tmp =
             in.get(C::update_check_hash_not_zero) * ((in.get(C::update_check_update_preimage_pre_class_id) *
                                                           (in.get(C::update_check_update_pre_class_id_is_zero) *
@@ -152,17 +139,17 @@ void update_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                                                       FF(1)) +
                                                      in.get(C::update_check_update_pre_class_id_is_zero));
         tmp *= scaling_factor;
-        std::get<15>(evals) += typename Accumulator::View(tmp);
+        std::get<14>(evals) += typename Accumulator::View(tmp);
     }
     {
-        using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
         auto tmp = in.get(C::update_check_update_post_class_id_is_zero) *
                    (FF(1) - in.get(C::update_check_update_post_class_id_is_zero));
         tmp *= scaling_factor;
-        std::get<16>(evals) += typename Accumulator::View(tmp);
+        std::get<15>(evals) += typename Accumulator::View(tmp);
     }
     { // UPDATE_POST_CLASS_IS_ZERO
-        using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
         auto tmp =
             in.get(C::update_check_hash_not_zero) * ((in.get(C::update_check_update_preimage_post_class_id) *
                                                           (in.get(C::update_check_update_post_class_id_is_zero) *
@@ -171,26 +158,26 @@ void update_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                                                       FF(1)) +
                                                      in.get(C::update_check_update_post_class_id_is_zero));
         tmp *= scaling_factor;
-        std::get<17>(evals) += typename Accumulator::View(tmp);
+        std::get<16>(evals) += typename Accumulator::View(tmp);
     }
     { // FUTURE_UPDATE_CLASS_ID_ASSIGNMENT
-        using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
         auto tmp = in.get(C::update_check_hash_not_zero) * in.get(C::update_check_timestamp_is_lt_timestamp_of_change) *
                    ((in.get(C::update_check_original_class_id) * in.get(C::update_check_update_pre_class_id_is_zero) +
                      in.get(C::update_check_update_preimage_pre_class_id)) -
                     in.get(C::update_check_current_class_id));
         tmp *= scaling_factor;
-        std::get<18>(evals) += typename Accumulator::View(tmp);
+        std::get<17>(evals) += typename Accumulator::View(tmp);
     }
     { // PAST_UPDATE_CLASS_ID_ASSIGNMENT
-        using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
         auto tmp = in.get(C::update_check_hash_not_zero) *
                    (FF(1) - in.get(C::update_check_timestamp_is_lt_timestamp_of_change)) *
                    ((in.get(C::update_check_original_class_id) * in.get(C::update_check_update_post_class_id_is_zero) +
                      in.get(C::update_check_update_preimage_post_class_id)) -
                     in.get(C::update_check_current_class_id));
         tmp *= scaling_factor;
-        std::get<19>(evals) += typename Accumulator::View(tmp);
+        std::get<18>(evals) += typename Accumulator::View(tmp);
     }
 }
 

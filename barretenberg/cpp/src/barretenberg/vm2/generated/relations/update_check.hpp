@@ -14,8 +14,8 @@ template <typename FF_> class update_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 20> SUBRELATION_PARTIAL_LENGTHS = { 3, 2, 3, 3, 3, 3, 3, 4, 3, 3,
-                                                                            3, 2, 3, 3, 3, 5, 3, 5, 5, 5 };
+    static constexpr std::array<size_t, 19> SUBRELATION_PARTIAL_LENGTHS = { 3, 2, 3, 3, 3, 3, 3, 4, 3, 3,
+                                                                            3, 2, 3, 3, 5, 3, 5, 5, 5 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -44,13 +44,13 @@ template <typename FF> class update_check : public Relation<update_checkImpl<FF>
             return "NEVER_UPDATED_CHECK";
         case 11:
             return "UPDATE_METADATA_DECOMPOSITION";
-        case 15:
+        case 14:
             return "UPDATE_PRE_CLASS_IS_ZERO";
-        case 17:
+        case 16:
             return "UPDATE_POST_CLASS_IS_ZERO";
-        case 18:
+        case 17:
             return "FUTURE_UPDATE_CLASS_ID_ASSIGNMENT";
-        case 19:
+        case 18:
             return "PAST_UPDATE_CLASS_ID_ASSIGNMENT";
         }
         return std::to_string(index);
@@ -60,10 +60,10 @@ template <typename FF> class update_check : public Relation<update_checkImpl<FF>
     static constexpr size_t SR_HASH_IS_ZERO_CHECK = 7;
     static constexpr size_t SR_NEVER_UPDATED_CHECK = 8;
     static constexpr size_t SR_UPDATE_METADATA_DECOMPOSITION = 11;
-    static constexpr size_t SR_UPDATE_PRE_CLASS_IS_ZERO = 15;
-    static constexpr size_t SR_UPDATE_POST_CLASS_IS_ZERO = 17;
-    static constexpr size_t SR_FUTURE_UPDATE_CLASS_ID_ASSIGNMENT = 18;
-    static constexpr size_t SR_PAST_UPDATE_CLASS_ID_ASSIGNMENT = 19;
+    static constexpr size_t SR_UPDATE_PRE_CLASS_IS_ZERO = 14;
+    static constexpr size_t SR_UPDATE_POST_CLASS_IS_ZERO = 16;
+    static constexpr size_t SR_FUTURE_UPDATE_CLASS_ID_ASSIGNMENT = 17;
+    static constexpr size_t SR_PAST_UPDATE_CLASS_ID_ASSIGNMENT = 18;
 };
 
 } // namespace bb::avm2

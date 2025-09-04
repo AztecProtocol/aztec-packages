@@ -4,6 +4,7 @@
 #include "barretenberg/vm2/simulation/events/update_check.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_merkle_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
@@ -46,10 +47,11 @@ TEST(AvmSimulationUpdateCheck, NeverWritten)
     NiceMock<MockHighLevelMerkleDB> merkle_db;
     StrictMock<MockLowLevelMerkleDB> low_level_merkle_db;
     StrictMock<MockRangeCheck> range_check;
+    StrictMock<MockGreaterThan> greater_than;
 
     EventEmitter<UpdateCheckEvent> event_emitter;
     GlobalVariables globals{ .timestamp = current_timestamp };
-    UpdateCheck update_check(poseidon2, range_check, merkle_db, event_emitter, globals);
+    UpdateCheck update_check(poseidon2, range_check, greater_than, merkle_db, event_emitter, globals);
 
     EXPECT_CALL(
         merkle_db,
@@ -189,9 +191,14 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
     NiceMock<MockLowLevelMerkleDB> mock_low_level_merkle_db;
     NiceMock<MockRangeCheck> range_check;
 
+    NoopEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    FieldGreaterThan mock_field_gt(range_check, field_gt_event_emitter);
+    NoopEventEmitter<GreaterThanEvent> greater_than_event_emitter;
+    GreaterThan greater_than(mock_field_gt, range_check, greater_than_event_emitter);
+
     EventEmitter<UpdateCheckEvent> event_emitter;
     GlobalVariables globals{ .timestamp = current_timestamp };
-    UpdateCheck update_check(poseidon2, range_check, merkle_db, event_emitter, globals);
+    UpdateCheck update_check(poseidon2, range_check, greater_than, merkle_db, event_emitter, globals);
 
     EXPECT_CALL(
         merkle_db,
@@ -272,10 +279,11 @@ TEST(AvmSimulationUpdateCheck, HashMismatch)
     NiceMock<MockHighLevelMerkleDB> merkle_db;
     NiceMock<MockLowLevelMerkleDB> mock_low_level_merkle_db;
     StrictMock<MockRangeCheck> range_check;
+    StrictMock<MockGreaterThan> greater_than;
 
     EventEmitter<UpdateCheckEvent> event_emitter;
     GlobalVariables globals{ .timestamp = current_timestamp };
-    UpdateCheck update_check(poseidon2, range_check, merkle_db, event_emitter, globals);
+    UpdateCheck update_check(poseidon2, range_check, greater_than, merkle_db, event_emitter, globals);
 
     EXPECT_CALL(
         merkle_db,

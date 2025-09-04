@@ -173,29 +173,30 @@ template <typename FF_>
 using lookup_update_check_update_lo_metadata_range_relation =
     lookup_relation_base<FF_, lookup_update_check_update_lo_metadata_range_settings>;
 
-/////////////////// lookup_update_check_timestamp_of_change_cmp_range ///////////////////
+/////////////////// lookup_update_check_timestamp_is_lt_timestamp_of_change ///////////////////
 
-struct lookup_update_check_timestamp_of_change_cmp_range_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_UPDATE_CHECK_TIMESTAMP_OF_CHANGE_CMP_RANGE";
+struct lookup_update_check_timestamp_is_lt_timestamp_of_change_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_UPDATE_CHECK_TIMESTAMP_IS_LT_TIMESTAMP_OF_CHANGE";
     static constexpr std::string_view RELATION_NAME = "update_check";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::update_check_hash_not_zero;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
-    static constexpr Column COUNTS = Column::lookup_update_check_timestamp_of_change_cmp_range_counts;
-    static constexpr Column INVERSES = Column::lookup_update_check_timestamp_of_change_cmp_range_inv;
+    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column COUNTS = Column::lookup_update_check_timestamp_is_lt_timestamp_of_change_counts;
+    static constexpr Column INVERSES = Column::lookup_update_check_timestamp_is_lt_timestamp_of_change_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::update_check_timestamp_of_change_subtraction,
-        ColumnAndShifts::update_check_timestamp_of_change_bit_size
+        ColumnAndShifts::update_check_timestamp_of_change,
+        ColumnAndShifts::update_check_timestamp,
+        ColumnAndShifts::update_check_timestamp_is_lt_timestamp_of_change
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
+                                                                                    ColumnAndShifts::gt_input_b,
+                                                                                    ColumnAndShifts::gt_res };
 };
 
-using lookup_update_check_timestamp_of_change_cmp_range_settings =
-    lookup_settings<lookup_update_check_timestamp_of_change_cmp_range_settings_>;
+using lookup_update_check_timestamp_is_lt_timestamp_of_change_settings =
+    lookup_settings<lookup_update_check_timestamp_is_lt_timestamp_of_change_settings_>;
 template <typename FF_>
-using lookup_update_check_timestamp_of_change_cmp_range_relation =
-    lookup_relation_base<FF_, lookup_update_check_timestamp_of_change_cmp_range_settings>;
+using lookup_update_check_timestamp_is_lt_timestamp_of_change_relation =
+    lookup_relation_base<FF_, lookup_update_check_timestamp_is_lt_timestamp_of_change_settings>;
 
 } // namespace bb::avm2
