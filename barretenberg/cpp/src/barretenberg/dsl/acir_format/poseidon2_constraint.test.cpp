@@ -33,6 +33,7 @@ TEST_F(Poseidon2Tests, TestPoseidon2Permutation)
                 WitnessOrConstant<bb::fr>::from_index(4),
  },
             .result = { 5, 6, 7, 8, },
+            .len = 4,
         };
 
     AcirFormat constraint_system{

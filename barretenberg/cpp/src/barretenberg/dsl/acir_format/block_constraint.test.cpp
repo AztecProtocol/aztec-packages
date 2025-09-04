@@ -165,7 +165,6 @@ TEST_F(MegaHonk, Databus)
         .block_constraints = { block },
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
-
     mock_opcode_indices(program.constraints);
 
     // Construct a bberg circuit from the acir representation

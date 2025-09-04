@@ -6,7 +6,6 @@
 
 #pragma once
 #include "barretenberg/common/serialize.hpp"
-#include "barretenberg/dsl/acir_format/witness_constant.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include <cstdint>
 #include <vector>
@@ -61,7 +60,6 @@ struct RecursionConstraint {
     std::vector<uint32_t> public_inputs;
     uint32_t key_hash;
     uint32_t proof_type;
-    WitnessOrConstant<bb::fr> predicate;
 
     friend bool operator==(RecursionConstraint const& lhs, RecursionConstraint const& rhs) = default;
 
@@ -85,7 +83,6 @@ template <typename B> inline void read(B& buf, RecursionConstraint& constraint)
     read(buf, constraint.proof);
     read(buf, constraint.public_inputs);
     read(buf, constraint.key_hash);
-    read(buf, constraint.predicate);
 }
 
 template <typename B> inline void write(B& buf, RecursionConstraint const& constraint)
@@ -95,7 +92,6 @@ template <typename B> inline void write(B& buf, RecursionConstraint const& const
     write(buf, constraint.proof);
     write(buf, constraint.public_inputs);
     write(buf, constraint.key_hash);
-    write(buf, constraint.predicate);
 }
 
 } // namespace acir_format
