@@ -50,8 +50,10 @@ TEST(TxContextConstrainingTest, Continuity)
             { C::tx_next_written_public_data_slots_tree_root, 9 },
             { C::tx_next_written_public_data_slots_tree_size, 10 },
             { C::tx_l1_l2_tree_root, 11 },
-            { C::tx_next_num_unencrypted_logs, 12 },
-            { C::tx_next_num_l2_to_l1_messages, 13 },
+            { C::tx_next_retrieved_bytecodes_tree_root, 12 },
+            { C::tx_next_retrieved_bytecodes_tree_size, 13 },
+            { C::tx_next_num_unencrypted_logs, 14 },
+            { C::tx_next_num_l2_to_l1_messages, 15 },
         },
         {
             // Row 1: app logic, reverts
@@ -68,8 +70,10 @@ TEST(TxContextConstrainingTest, Continuity)
             { C::tx_prev_written_public_data_slots_tree_root, 9 },
             { C::tx_prev_written_public_data_slots_tree_size, 10 },
             { C::tx_l1_l2_tree_root, 11 },
-            { C::tx_prev_num_unencrypted_logs, 12 },
-            { C::tx_prev_num_l2_to_l1_messages, 13 },
+            { C::tx_prev_retrieved_bytecodes_tree_root, 12 },
+            { C::tx_prev_retrieved_bytecodes_tree_size, 13 },
+            { C::tx_prev_num_unencrypted_logs, 14 },
+            { C::tx_prev_num_l2_to_l1_messages, 15 },
             { C::tx_next_note_hash_tree_root, 10 },
             { C::tx_next_note_hash_tree_size, 20 },
             { C::tx_next_num_note_hashes_emitted, 30 },
@@ -80,8 +84,10 @@ TEST(TxContextConstrainingTest, Continuity)
             { C::tx_next_public_data_tree_size, 80 },
             { C::tx_next_written_public_data_slots_tree_root, 90 },
             { C::tx_next_written_public_data_slots_tree_size, 100 },
-            { C::tx_next_num_unencrypted_logs, 120 },
-            { C::tx_next_num_l2_to_l1_messages, 130 },
+            { C::tx_next_retrieved_bytecodes_tree_root, 120 },
+            { C::tx_next_retrieved_bytecodes_tree_size, 130 },
+            { C::tx_next_num_unencrypted_logs, 140 },
+            { C::tx_next_num_l2_to_l1_messages, 150 },
         },
         {
             // Row 2: restored end of setup state
@@ -98,8 +104,10 @@ TEST(TxContextConstrainingTest, Continuity)
             { C::tx_prev_written_public_data_slots_tree_root, 9 },
             { C::tx_prev_written_public_data_slots_tree_size, 10 },
             { C::tx_l1_l2_tree_root, 11 },
-            { C::tx_prev_num_unencrypted_logs, 12 },
-            { C::tx_prev_num_l2_to_l1_messages, 13 },
+            { C::tx_prev_retrieved_bytecodes_tree_root, 120 },
+            { C::tx_prev_retrieved_bytecodes_tree_size, 130 },
+            { C::tx_prev_num_unencrypted_logs, 14 },
+            { C::tx_prev_num_l2_to_l1_messages, 15 },
         },
     });
 
@@ -115,6 +123,8 @@ TEST(TxContextConstrainingTest, Continuity)
                                tx_context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY,
                                tx_context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY,
                                tx_context::SR_L1_L2_TREE_ROOT_CONTINUITY,
+                               tx_context::SR_RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY,
+                               tx_context::SR_RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY,
                                tx_context::SR_NUM_UNENCRYPTED_LOGS_CONTINUITY,
                                tx_context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY);
 
@@ -155,6 +165,17 @@ TEST(TxContextConstrainingTest, Continuity)
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_L1_L2_TREE_ROOT_CONTINUITY),
                               "L1_L2_TREE_ROOT_CONTINUITY");
+
+    // Negative test: even in reverts, retrieved bytecodes tree root and size should not change
+    trace.set(C::tx_prev_retrieved_bytecodes_tree_root, 2, 12);
+    trace.set(C::tx_prev_retrieved_bytecodes_tree_size, 2, 13);
+
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<tx_context>(trace, tx_context::SR_RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY),
+        "RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<tx_context>(trace, tx_context::SR_RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY),
+        "RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY");
 }
 
 TEST(TxContextConstrainingTest, StateMutability)
@@ -167,6 +188,7 @@ TEST(TxContextConstrainingTest, StateMutability)
             { C::tx_sel_can_write_public_data, 1 },
             { C::tx_sel_can_emit_unencrypted_log, 1 },
             { C::tx_sel_can_emit_l2_l1_msg, 1 },
+            { C::tx_should_process_call_request, 1 },
             { C::tx_prev_note_hash_tree_root, 1 },
             { C::tx_prev_note_hash_tree_size, 2 },
             { C::tx_prev_num_note_hashes_emitted, 3 },
@@ -178,8 +200,10 @@ TEST(TxContextConstrainingTest, StateMutability)
             { C::tx_prev_written_public_data_slots_tree_root, 9 },
             { C::tx_prev_written_public_data_slots_tree_size, 10 },
             { C::tx_l1_l2_tree_root, 11 },
-            { C::tx_prev_num_unencrypted_logs, 12 },
-            { C::tx_prev_num_l2_to_l1_messages, 13 },
+            { C::tx_prev_retrieved_bytecodes_tree_root, 12 },
+            { C::tx_prev_retrieved_bytecodes_tree_size, 13 },
+            { C::tx_prev_num_unencrypted_logs, 13 },
+            { C::tx_prev_num_l2_to_l1_messages, 14 },
             { C::tx_next_note_hash_tree_root, 10 },
             { C::tx_next_note_hash_tree_size, 20 },
             { C::tx_next_num_note_hashes_emitted, 30 },
@@ -191,8 +215,10 @@ TEST(TxContextConstrainingTest, StateMutability)
             { C::tx_next_written_public_data_slots_tree_root, 90 },
             { C::tx_next_written_public_data_slots_tree_size, 100 },
             { C::tx_l1_l2_tree_root, 110 },
-            { C::tx_next_num_unencrypted_logs, 120 },
-            { C::tx_next_num_l2_to_l1_messages, 130 },
+            { C::tx_next_retrieved_bytecodes_tree_root, 120 },
+            { C::tx_next_retrieved_bytecodes_tree_size, 130 },
+            { C::tx_next_num_unencrypted_logs, 140 },
+            { C::tx_next_num_l2_to_l1_messages, 150 },
         },
     });
 
@@ -207,6 +233,8 @@ TEST(TxContextConstrainingTest, StateMutability)
                                tx_context::SR_PUBLIC_DATA_SIZE_IMMUTABILITY,
                                tx_context::SR_WRITTEN_PUBLIC_DATA_SLOTS_ROOT_IMMUTABILITY,
                                tx_context::SR_WRITTEN_PUBLIC_DATA_SLOTS_SIZE_IMMUTABILITY,
+                               tx_context::SR_RETRIEVED_BYTECODES_TREE_ROOT_IMMUTABILITY,
+                               tx_context::SR_RETRIEVED_BYTECODES_TREE_SIZE_IMMUTABILITY,
                                tx_context::SR_UNENCRYPTED_LOG_COUNT_IMMUTABILITY,
                                tx_context::SR_L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY);
 
@@ -255,6 +283,16 @@ TEST(TxContextConstrainingTest, StateMutability)
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY),
                               "L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY");
+
+    // Negative test: immutability check on retrieved bytecodes tree
+    trace.set(C::tx_should_process_call_request, 0, 0);
+
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<tx_context>(trace, tx_context::SR_RETRIEVED_BYTECODES_TREE_ROOT_IMMUTABILITY),
+        "RETRIEVED_BYTECODES_TREE_ROOT_IMMUTABILITY");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<tx_context>(trace, tx_context::SR_RETRIEVED_BYTECODES_TREE_SIZE_IMMUTABILITY),
+        "RETRIEVED_BYTECODES_TREE_SIZE_IMMUTABILITY");
 
     // Negative test: selectors enabled but it's a padded row
     trace.set(C::tx_sel_can_emit_note_hash, 0, 1);
@@ -329,6 +367,8 @@ TEST(TxContextConstrainingTest, InitialStateChecks)
             { C::tx_prev_public_data_tree_size, tree_snapshots.publicDataTree.nextAvailableLeafIndex },
             { C::tx_prev_written_public_data_slots_tree_root, FF(AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT) },
             { C::tx_prev_written_public_data_slots_tree_size, FF(AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE) },
+            { C::tx_prev_retrieved_bytecodes_tree_root, FF(AVM_RETRIEVED_BYTECODES_TREE_INITIAL_ROOT) },
+            { C::tx_prev_retrieved_bytecodes_tree_size, FF(AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE) },
             { C::tx_l1_l2_tree_root, tree_snapshots.l1ToL2MessageTree.root },
             { C::tx_prev_l2_gas_used, start_gas_used.l2Gas },
             { C::tx_prev_da_gas_used, start_gas_used.daGas },
@@ -356,6 +396,8 @@ TEST(TxContextConstrainingTest, InitialStateChecks)
             { C::tx_next_public_data_tree_size, tree_snapshots.publicDataTree.nextAvailableLeafIndex },
             { C::tx_next_written_public_data_slots_tree_root, FF(AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT) },
             { C::tx_next_written_public_data_slots_tree_size, FF(AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE) },
+            { C::tx_next_retrieved_bytecodes_tree_root, FF(AVM_RETRIEVED_BYTECODES_TREE_INITIAL_ROOT) },
+            { C::tx_next_retrieved_bytecodes_tree_size, FF(AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE) },
             { C::tx_next_l2_gas_used, start_gas_used.l2Gas },
             { C::tx_next_da_gas_used, start_gas_used.daGas },
             { C::tx_setup_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },

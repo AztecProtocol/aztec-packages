@@ -191,30 +191,66 @@ spec:
             - name: BLOB_SINK_URL
               value: "{{ .Values.blobs.remoteBlobSinkUrl }}"
           {{- end }}
-            - name: SLASH_PAYLOAD_TTL_SECONDS
-              value: {{ .Values.aztec.slash.payloadTtlSeconds | quote }}
-            - name: SLASH_PRUNE_ENABLED
-              value: {{ .Values.aztec.slash.pruneEnabled | quote }}
+            {{- if .Values.aztec.slash.minPenaltyPercentage }}
+            - name: SLASH_MIN_PENALTY_PERCENTAGE
+              value: {{ .Values.aztec.slash.minPenaltyPercentage | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.maxPenaltyPercentage }}
+            - name: SLASH_MAX_PENALTY_PERCENTAGE
+              value: {{ .Values.aztec.slash.maxPenaltyPercentage | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.validatorsAlways }}
+            - name: SLASH_VALIDATORS_ALWAYS
+              value: {{ join "," .Values.aztec.slash.validatorsAlways | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.validatorsNever }}
+            - name: SLASH_VALIDATORS_NEVER
+              value: {{ join "," .Values.aztec.slash.validatorsNever | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.prunePenalty }}
             - name: SLASH_PRUNE_PENALTY
               value: {{ .Values.aztec.slash.prunePenalty | quote }}
-            - name: SLASH_PRUNE_MAX_PENALTY
-              value: {{ .Values.aztec.slash.pruneMaxPenalty | quote }}
-            - name: SLASH_INACTIVITY_ENABLED
-              value: {{ .Values.aztec.slash.inactivityEnabled | quote }}
-            - name: SLASH_INACTIVITY_CREATE_TARGET_PERCENTAGE
-              value: {{ .Values.aztec.slash.inactivityCreateTargetPercentage | quote }}
-            - name: SLASH_INACTIVITY_SIGNAL_TARGET_PERCENTAGE
-              value: {{ .Values.aztec.slash.inactivitySignalTargetPercentage | quote }}
-            - name: SLASH_INACTIVITY_CREATE_PENALTY
-              value: {{ .Values.aztec.slash.inactivityCreatePenalty | quote }}
-            - name: SLASH_INACTIVITY_MAX_PENALTY
-              value: {{ .Values.aztec.slash.inactivityMaxPenalty | quote }}
-            - name: SLASH_INVALID_BLOCK_ENABLED
-              value: {{ .Values.aztec.slash.invalidBlockEnabled | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.dataWithholdingPenalty }}
+            - name: SLASH_DATA_WITHHOLDING_PENALTY
+              value: {{ .Values.aztec.slash.dataWithholdingPenalty | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.inactivityPenalty }}
+            - name: SLASH_INACTIVITY_PENALTY
+              value: {{ .Values.aztec.slash.inactivityPenalty | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.inactivityTargetPercentage }}
+            - name: SLASH_INACTIVITY_TARGET_PERCENTAGE
+              value: {{ .Values.aztec.slash.inactivityTargetPercentage | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.invalidBlockPenalty }}
             - name: SLASH_INVALID_BLOCK_PENALTY
               value: {{ .Values.aztec.slash.invalidBlockPenalty | quote }}
-            - name: SLASH_INVALID_BLOCK_MAX_PENALTY
-              value: {{ .Values.aztec.slash.invalidBlockMaxPenalty | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.proposeInvalidAttestationsPenalty }}
+            - name: SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY
+              value: {{ .Values.aztec.slash.proposeInvalidAttestationsPenalty | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.attestDescendantOfInvalidPenalty }}
+            - name: SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY
+              value: {{ .Values.aztec.slash.attestDescendantOfInvalidPenalty | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.unknownPenalty }}
+            - name: SLASH_UNKNOWN_PENALTY
+              value: {{ .Values.aztec.slash.unknownPenalty | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.gracePeriodL2Slots }}
+            - name: SLASH_GRACE_PERIOD_L2_SLOTS
+              value: {{ .Values.aztec.slash.gracePeriodL2Slots | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.offenseExpirationRounds }}
+            - name: SLASH_OFFENSE_EXPIRATION_ROUNDS
+              value: {{ .Values.aztec.slash.offenseExpirationRounds | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.maxPayloadSize }}
+            - name: SLASH_MAX_PAYLOAD_SIZE
+              value: {{ .Values.aztec.slash.maxPayloadSize | quote }}
+            {{- end }}
             - name: SENTINEL_ENABLED
               value: "{{ .Values.validator.sentinelEnabled }}"
             {{- if .Values.web3signer.enabled }}

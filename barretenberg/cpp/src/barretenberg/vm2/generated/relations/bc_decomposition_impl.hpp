@@ -14,7 +14,7 @@ void bc_decompositionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    PROFILE_THIS_NAME("accumulate/bc_decomposition");
+    BB_BENCH_NAME("accumulate/bc_decomposition");
 
     const auto bc_decomposition_WINDOW_SIZE = FF(37);
     const auto bc_decomposition_FIRST_OR_LAST_CONTRACT =

@@ -10,20 +10,11 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "~> 2.24.0"
     }
-    google = {
-      source  = "hashicorp/google"
-      version = "~> 5.0"
-    }
     null = {
       source  = "hashicorp/null"
       version = "~> 3.2"
     }
   }
-}
-
-provider "google" {
-  project = var.project
-  region  = var.region
 }
 
 provider "kubernetes" {
@@ -38,29 +29,6 @@ provider "helm" {
     config_path    = "~/.kube/config"
     config_context = var.K8S_CLUSTER_CONTEXT
   }
-}
-
-
-
-# Static IP addresses for eth-devnet services
-resource "google_compute_address" "eth_execution_ip" {
-  count        = var.CREATE_STATIC_IPS ? 1 : 0
-  provider     = google
-  name         = "${var.NAMESPACE}-${var.RELEASE_PREFIX}-execution-ip"
-  address_type = "EXTERNAL"
-  region       = var.region
-
-
-}
-
-resource "google_compute_address" "eth_beacon_ip" {
-  count        = var.CREATE_STATIC_IPS ? 1 : 0
-  provider     = google
-  name         = "${var.NAMESPACE}-${var.RELEASE_PREFIX}-beacon-ip"
-  address_type = "EXTERNAL"
-  region       = var.region
-
-
 }
 
 # Generate genesis files before deploying
@@ -123,21 +91,9 @@ resource "helm_release" "eth_devnet" {
     value = var.MNEMONIC
   }
 
-
-  dynamic "set" {
-    for_each = var.CREATE_STATIC_IPS ? [1] : []
-    content {
-      name  = "ethereum.execution.service.loadBalancerIP"
-      value = google_compute_address.eth_execution_ip[0].address
-    }
-  }
-
-  dynamic "set" {
-    for_each = var.CREATE_STATIC_IPS ? [1] : []
-    content {
-      name  = "ethereum.beacon.service.loadBalancerIP"
-      value = google_compute_address.eth_beacon_ip[0].address
-    }
+  set {
+    name  = "fullnameOverride"
+    value = var.RELEASE_PREFIX
   }
 
   timeout       = 300
@@ -146,7 +102,6 @@ resource "helm_release" "eth_devnet" {
 }
 
 data "kubernetes_service" "eth_execution" {
-  count    = var.CREATE_STATIC_IPS ? 0 : 1
   provider = kubernetes.gke-cluster
 
   metadata {
@@ -158,7 +113,6 @@ data "kubernetes_service" "eth_execution" {
 }
 
 data "kubernetes_service" "eth_beacon" {
-  count    = var.CREATE_STATIC_IPS ? 0 : 1
   provider = kubernetes.gke-cluster
 
   metadata {

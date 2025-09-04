@@ -1,43 +1,52 @@
 import { sumBigint } from '@aztec/foundation/bigint';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import type { PartialBy } from '@aztec/foundation/types';
 
+import { getEpochForOffense } from './helpers.js';
 import type { Offense, ValidatorSlashVote } from './types.js';
 
 /**
  * Creates a consensus-slash vote for a given set of committees based on a set of Offenses
  * @param offenses - Array of offenses to consider
  * @param committees - Array of committees (each containing array of validator addresses)
+ * @param epochsForCommittees - Array of epochs corresponding to each committee
  * @param settings - Settings including slashingAmounts and optional validator override lists
  * @returns Array of ValidatorSlashVote, where each vote is how many slash units the validator in that position should be slashed
  */
 export function getSlashConsensusVotesFromOffenses(
-  offenses: Pick<Offense, 'validator' | 'amount'>[],
+  offenses: PartialBy<Offense, 'epochOrSlot'>[],
   committees: EthAddress[][],
+  epochsForCommittees: bigint[],
   settings: {
     slashingAmounts: [bigint, bigint, bigint];
+    epochDuration: number;
   },
 ): ValidatorSlashVote[] {
   const { slashingAmounts } = settings;
 
-  const slashedSet: Set<string> = new Set();
+  if (committees.length !== epochsForCommittees.length) {
+    throw new Error('committees and epochsForCommittees must have the same length');
+  }
 
-  const votes = committees.flatMap(committee =>
-    committee.map(validator => {
-      const validatorStr = validator.toString();
+  const votes = committees.flatMap((committee, committeeIndex) => {
+    const committeeEpoch = epochsForCommittees[committeeIndex];
 
-      // If already voted for slashing this validator, skip
-      if (slashedSet.has(validatorStr)) {
-        return 0;
-      }
+    return committee.map(validator => {
+      // Find offenses for this validator in this specific epoch.
+      // If an offense has no epoch, it is considered for all epochs due to a slashAlways setting.
+      const validatorOffenses = offenses.filter(
+        o =>
+          o.validator.equals(validator) &&
+          (o.epochOrSlot === undefined || getEpochForOffense(o, settings) === committeeEpoch),
+      );
 
-      // Normal offense-based slashing logic
-      const validatorOffenses = offenses.filter(o => o.validator.equals(validator));
+      // Sum up the penalties for this validator in this epoch
       const slashAmount = sumBigint(validatorOffenses.map(o => o.amount));
       const slashUnits = getSlashUnitsForAmount(slashAmount, slashingAmounts);
-      slashedSet.add(validatorStr);
       return Number(slashUnits);
-    }),
-  );
+    });
+  });
+
   return votes;
 }
 

@@ -29,6 +29,7 @@ enum TransactionPhase {
     COLLECT_GAS_FEES = 10,
     TREE_PADDING = 11,
     CLEANUP = 12,
+    LAST = CLEANUP,
 };
 
 using InternalCallId = uint32_t;

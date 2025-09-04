@@ -61,10 +61,15 @@ pol commit private_function_root;
 // These should be looked up and constrained by the caller.
 pol commit public_data_tree_root;
 pol commit nullifier_tree_root;
+pol commit prev_retrieved_bytecodes_tree_root;
+pol commit prev_retrieved_bytecodes_tree_size;
+
+// next state
+pol commit next_retrieved_bytecodes_tree_root;
+pol commit next_retrieved_bytecodes_tree_size;
 
 pol commit instance_exists;
-// The only error that can happen is if the nullifier does not exist.
-error = sel * (1 - instance_exists);
+instance_exists * (1 - instance_exists) = 0;
 
 #[CONTRACT_INSTANCE_RETRIEVAL]
 sel {
@@ -81,11 +86,45 @@ sel {
     contract_instance_retrieval.nullifier_tree_root
 };
 
+pol commit no_remaining_bytecodes;
+no_remaining_bytecodes * (1 - no_remaining_bytecodes) = 0;
+
+// The tree size is 1 (AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE) + retrieved_bytecodes_count
+pol REMAINING_BYTECODES = constants.MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + constants.AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE - prev_retrieved_bytecodes_tree_size;
+
+pol commit remaining_bytecodes_inv;
+
+#[NO_REMAINING_BYTECODES]
+sel * (REMAINING_BYTECODES * (no_remaining_bytecodes * (1 - remaining_bytecodes_inv) + remaining_bytecodes_inv) - 1 + no_remaining_bytecodes) = 0;
+
+pol commit is_new_class;
+
+#[IS_NEW_CLASS_CHECK]
+instance_exists {
+    current_class_id,
+    is_new_class,
+    prev_retrieved_bytecodes_tree_root
+} in retrieved_bytecodes_tree_check.sel {
+    retrieved_bytecodes_tree_check.class_id,
+    retrieved_bytecodes_tree_check.leaf_not_exists,
+    retrieved_bytecodes_tree_check.root
+};
+
+sel * (1 - instance_exists) * is_new_class = 0;
+
+pol TOO_MANY_BYTECODES = no_remaining_bytecodes * is_new_class;
+
+// We error if instance doesn't exist or if we have too many bytecodes.
+sel * (instance_exists * (1 - TOO_MANY_BYTECODES) - (1 - error)) = 0;
+
+pol commit should_retrieve;
+should_retrieve = sel * (1 - error);
+
 // Observe the following also connects the current_class_id of the instance to the class members.
 // Note: only need to derive the class id if the instance exists.
 // TODO: Probably some latch is also needed.
 #[CLASS_ID_DERIVATION]
-instance_exists {
+should_retrieve {
   current_class_id,
   artifact_hash,
   private_function_root,
@@ -97,20 +136,42 @@ instance_exists {
   class_id_derivation.public_bytecode_commitment
 };
 
-// TODO(dbanks12): re-enable once C++ and PIL use standard poseidon2 hashing for bytecode commitments.
-// Note: only need to hash the bytecode if the instance exists. Otherwise there is nothing to hash!
-//#[BYTECODE_HASH_IS_CORRECT]
-//instance_exists { bytecode_id, /*public_bytecode_commitment=*/ bytecode_id } in bc_hashing.latch { bc_hashing.bytecode_id, bc_hashing.output_hash };
+#[RETRIEVED_BYTECODES_INSERTION]
+should_retrieve {
+    current_class_id,
+    should_retrieve, // 1
+    prev_retrieved_bytecodes_tree_root,
+    prev_retrieved_bytecodes_tree_size,
+    next_retrieved_bytecodes_tree_root,
+    next_retrieved_bytecodes_tree_size
+} in retrieved_bytecodes_tree_check.sel {
+    retrieved_bytecodes_tree_check.class_id,
+    retrieved_bytecodes_tree_check.write,
+    retrieved_bytecodes_tree_check.root,
+    retrieved_bytecodes_tree_check.tree_size_before_write,
+    retrieved_bytecodes_tree_check.write_root,
+    retrieved_bytecodes_tree_check.tree_size_after_write
+};
 
-// If class ID derivation is disabled (instance does not exist), force all members to 0.
+// TODO(dbanks12): re-enable once C++ and PIL use standard poseidon2 hashing for bytecode commitments.
+// Note: only need to hash the bytecode if there is no error. Otherwise there is nothing to hash!
+//#[BYTECODE_HASH_IS_CORRECT]
+//should_retrieve { bytecode_id, /*public_bytecode_commitment=*/ bytecode_id } in bc_hashing.latch { bc_hashing.bytecode_id, bc_hashing.output_hash };
+
+// If instance does not exist, force current_class_id to 0.
 #[CURRENT_CLASS_ID_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST]
 sel * (1 - instance_exists) * (current_class_id - 0) = 0;
-#[ARTIFACT_HASH_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST]
-sel * (1 - instance_exists) * (artifact_hash - 0) = 0;
-#[PRIVATE_FUNCTION_ROOT_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST]
-sel * (1 - instance_exists) * (private_function_root - 0) = 0;
-#[BYTECODE_ID_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST]
-sel * (1 - instance_exists) * (bytecode_id - 0) = 0;
+// If class ID derivation is disabled (error), force other members to 0.
+#[ARTIFACT_HASH_IS_ZERO_IF_ERROR]
+error * (artifact_hash - 0) = 0;
+#[PRIVATE_FUNCTION_ROOT_IS_ZERO_IF_ERROR]
+error * (private_function_root - 0) = 0;
+#[BYTECODE_ID_IS_ZERO_IF_ERROR]
+error * (bytecode_id - 0) = 0;
+
+// On error, constrain next root and size to be the same as the previous ones.
+error * (next_retrieved_bytecodes_tree_root - prev_retrieved_bytecodes_tree_root) = 0;
+error * (next_retrieved_bytecodes_tree_size - prev_retrieved_bytecodes_tree_size) = 0;
 
 // Note: we don't need to silo and check the class id because the deployer contract guarrantees
 // that if a contract instance exists, the class has been registered.

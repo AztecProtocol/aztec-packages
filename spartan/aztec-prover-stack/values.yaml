@@ -10,6 +10,7 @@ global:
   l1ConsensusHostApiKeyHeaders: []
 
 node:
+  nodeType: "prover-node"
   mnemonic: "test test test test test test test test test test test junk"
   mnemonicStartIndex: 1000
   privateKey:
@@ -51,6 +52,7 @@ node:
       enabled: false
 
 broker:
+  nodeType: "prover-broker"
   replicaCount: 1
   persistence:
     enabled: false
@@ -75,6 +77,7 @@ broker:
     create: false
 
 agent:
+  nodeType: "prover-agent"
   replicaCount: 1
 
   persistence:

@@ -1,0 +1,83 @@
+# CI for Aztec Network Scenarios.
+# Triggered by network-deployments event, which is emitted by ci3.yml when a tagged release passes "normal" CI.
+# Only runs on v2 releases.
+name: Deploy Staging Networks
+
+on:
+  repository_dispatch:
+    types:
+      - network-deployments
+
+concurrency:
+  group: deploy-staging-networks-${{ github.event.client_payload.major_version }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-staging-networks:
+    if: ${{ github.event.client_payload.major_version == '2' }}
+    runs-on: ubuntu-latest
+    env:
+      NETWORK_ENV_FILE: /tmp/network.env
+      GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
+    steps:
+      #############
+      # Prepare Env
+      #############
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.client_payload.sha }}
+          persist-credentials: false
+      - name: Setup
+        run: |
+          # Ensure we can SSH into the spot instances we request.
+          mkdir -p ~/.ssh
+          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
+          chmod 600 ~/.ssh/build_instance_key
+          sudo apt install -y --no-install-recommends redis-tools parallel
+
+      - name: Write GCP key into credentials file
+        run: |
+          echo "${{ secrets.GCP_SA_KEY }}" > ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
+
+      # note: it is fine to log the mnemonic here. this is an internal,
+      # throwaway test network.
+      - name: Write staging-public network env file
+        run: |
+          SEMVER_SALT = $(echo ${{ github.event.client_payload.major_version }} | md5sum | cut -d' ' -f1)
+          cat > ${{ env.NETWORK_ENV_FILE }} <<EOF
+          CREATE_ETH_DEVNET=false
+          GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
+          GCP_REGION=us-west1-a
+          CLUSTER=aztec-gke-private
+          SALT=${SEMVER_SALT}
+          NAMESPACE="v${{ github.event.client_payload.major_version }}-staging-public"
+          AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${{ github.event.client_payload.semver }}"
+          ETHEREUM_CHAIN_ID=11155111
+          ETHEREUM_RPC_URLS=${{ secrets.SEPOLIA_RPC_URLS }}
+          ETHEREUM_CONSENSUS_HOST_URLS=${{ secrets.SEPOLIA_CONSENSUS_HOST_URLS }}
+          ETHEREUM_CONSENSUS_HOST_API_KEYS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEYS }}
+          ETHEREUM_CONSENSUS_HOST_API_KEY_HEADERS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEY_HEADERS }}
+          FUNDING_PRIVATE_KEY=${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
+          LABS_INFRA_MNEMONIC=${{ secrets.SEPOLIA_LABS_INFRA_MNEMONIC }}
+          LABS_INFRA_INDICES="0,1,2,3,4,1000"
+          VALIDATOR_INDICES="1,2,3,4"
+          EOF
+
+      #############
+      # Run
+      #############
+      - name: Run
+        if: steps.ci_cache.outputs.cache-hit != 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          NETWORK_ENV_FILE: ${{ env.NETWORK_ENV_FILE }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
+        run: |
+          # the network env file and gcp credentials file are mounted into the ec2 instance
+          # see ci3/bootstrap_ec2
+          exec ./ci.sh network-deploy

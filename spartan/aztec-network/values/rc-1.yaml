@@ -9,10 +9,6 @@ aztec:
   realProofs: true
   testAccounts: true
   sponsoredFPC: true
-  slash:
-    pruneEnabled: true
-    inactivityEnabled: true
-    invalidBlockEnabled: true
 
 images:
   aztec:
@@ -58,6 +54,8 @@ bot:
     requests:
       memory: 15Gi
       cpu: 7
+  nodeSelector:
+    cores: "8"
 
 web3signer:
   enabled: true

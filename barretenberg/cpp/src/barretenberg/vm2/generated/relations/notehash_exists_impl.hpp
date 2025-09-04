@@ -14,7 +14,7 @@ void notehash_existsImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    PROFILE_THIS_NAME("accumulate/notehash_exists");
+    BB_BENCH_NAME("accumulate/notehash_exists");
 
     const auto constants_NOTE_HASH_TREE_LEAF_COUNT = FF(1099511627776UL);
     const auto constants_MEM_TAG_U1 = FF(1);

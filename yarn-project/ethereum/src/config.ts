@@ -423,78 +423,7 @@ export function validateConfig(config: Omit<L1ContractsConfig, keyof L1TxUtilsCo
 
   // TallySlashingProposer constructor validations
   if (config.slasherFlavor === 'tally') {
-    // From: require(SLASH_OFFSET_IN_ROUNDS > 0, Errors.TallySlashingProposer__SlashOffsetMustBeGreaterThanZero(...));
-    if (config.slashingOffsetInRounds <= 0) {
-      errors.push(`slashingOffsetInRounds (${config.slashingOffsetInRounds}) must be greater than 0`);
-    }
-
-    // From: require(ROUND_SIZE_IN_EPOCHS * _epochDuration == ROUND_SIZE, Errors.TallySlashingProposer__RoundSizeMustBeMultipleOfEpochDuration(...));
-    const roundSizeInSlots = config.slashingRoundSizeInEpochs * config.aztecEpochDuration;
-
-    // From: require(QUORUM > 0, Errors.TallySlashingProposer__QuorumMustBeGreaterThanZero());
-    if (slashingQuorum !== undefined && slashingQuorum <= 0) {
-      errors.push(`slashingQuorum (${slashingQuorum}) must be greater than 0`);
-    }
-
-    // From: require(ROUND_SIZE > 1, Errors.TallySlashingProposer__InvalidQuorumAndRoundSize(QUORUM, ROUND_SIZE));
-    if (roundSizeInSlots <= 1) {
-      errors.push(`slashing round size in slots (${roundSizeInSlots}) must be greater than 1`);
-    }
-
-    // From: require(_slashAmounts[0] <= _slashAmounts[1], Errors.TallySlashingProposer__InvalidSlashAmounts(_slashAmounts));
-    if (config.slashAmountSmall > config.slashAmountMedium) {
-      errors.push(
-        `slashAmountSmall (${config.slashAmountSmall}) must be less than or equal to slashAmountMedium (${config.slashAmountMedium})`,
-      );
-    }
-
-    // From: require(_slashAmounts[1] <= _slashAmounts[2], Errors.TallySlashingProposer__InvalidSlashAmounts(_slashAmounts));
-    if (config.slashAmountMedium > config.slashAmountLarge) {
-      errors.push(
-        `slashAmountMedium (${config.slashAmountMedium}) must be less than or equal to slashAmountLarge (${config.slashAmountLarge})`,
-      );
-    }
-
-    // From: require(LIFETIME_IN_ROUNDS < ROUNDABOUT_SIZE, Errors.TallySlashingProposer__LifetimeMustBeLessThanRoundabout(...));
-    const ROUNDABOUT_SIZE = 128; // Constant from TallySlashingProposer
-    if (config.slashingLifetimeInRounds >= ROUNDABOUT_SIZE) {
-      errors.push(`slashingLifetimeInRounds (${config.slashingLifetimeInRounds}) must be less than ${ROUNDABOUT_SIZE}`);
-    }
-
-    // From: require(ROUND_SIZE_IN_EPOCHS > 0, Errors.TallySlashingProposer__RoundSizeInEpochsMustBeGreaterThanZero(...));
-    if (config.slashingRoundSizeInEpochs <= 0) {
-      errors.push(`slashingRoundSizeInEpochs (${config.slashingRoundSizeInEpochs}) must be greater than 0`);
-    }
-
-    // From: require(ROUND_SIZE < MAX_ROUND_SIZE, Errors.TallySlashingProposer__RoundSizeTooLarge(ROUND_SIZE, MAX_ROUND_SIZE));
-    const MAX_ROUND_SIZE = 1024; // Constant from TallySlashingProposer
-    if (roundSizeInSlots >= MAX_ROUND_SIZE) {
-      errors.push(`slashing round size in slots (${roundSizeInSlots}) must be less than ${MAX_ROUND_SIZE}`);
-    }
-
-    // From: require(COMMITTEE_SIZE > 0, Errors.TallySlashingProposer__CommitteeSizeMustBeGreaterThanZero(COMMITTEE_SIZE));
-    if (config.aztecTargetCommitteeSize <= 0) {
-      errors.push(`aztecTargetCommitteeSize (${config.aztecTargetCommitteeSize}) must be greater than 0`);
-    }
-
-    // From: require(voteSize <= 128, Errors.TallySlashingProposer__VoteSizeTooBig(voteSize, 128));
-    // voteSize = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 4
-    const voteSize = (config.aztecTargetCommitteeSize * config.slashingRoundSizeInEpochs) / 4;
-    if (voteSize > 128) {
-      errors.push(`vote size (${voteSize}) must be <= 128 (committee size * round size in epochs / 4)`);
-    }
-
-    // From: require(COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS % 4 == 0, Errors.TallySlashingProposer__InvalidCommitteeAndRoundSize(...));
-    if ((config.aztecTargetCommitteeSize * config.slashingRoundSizeInEpochs) % 4 !== 0) {
-      errors.push(
-        `aztecTargetCommitteeSize * slashingRoundSizeInEpochs (${config.aztecTargetCommitteeSize * config.slashingRoundSizeInEpochs}) must be divisible by 4`,
-      );
-    }
-
-    // Slashing offset validation: should be positive to allow proper slashing timing
-    if (config.slashingOffsetInRounds < 0) {
-      errors.push('slashingOffsetInRounds cannot be negative');
-    }
+    validateTallySlasherConfig(config, errors);
   }
 
   // Epoch and slot duration validations
@@ -539,5 +468,85 @@ export function validateConfig(config: Omit<L1ContractsConfig, keyof L1TxUtilsCo
     throw new Error(
       `L1 contracts configuration validation failed with ${errors.length} error(s):\n${errors.map((error, index) => `${index + 1}. ${error}`).join('\n')}`,
     );
+  }
+}
+
+function validateTallySlasherConfig(config: L1ContractsConfig, errors: string[]) {
+  if (config.slasherFlavor !== 'tally') {
+    return;
+  }
+
+  // From: require(SLASH_OFFSET_IN_ROUNDS > 0, Errors.TallySlashingProposer__SlashOffsetMustBeGreaterThanZero(...));
+  if (config.slashingOffsetInRounds <= 0) {
+    errors.push(`slashingOffsetInRounds (${config.slashingOffsetInRounds}) must be greater than 0`);
+  }
+
+  // From: require(ROUND_SIZE_IN_EPOCHS * _epochDuration == ROUND_SIZE, Errors.TallySlashingProposer__RoundSizeMustBeMultipleOfEpochDuration(...));
+  const roundSizeInSlots = config.slashingRoundSizeInEpochs * config.aztecEpochDuration;
+
+  // From: require(QUORUM > 0, Errors.TallySlashingProposer__QuorumMustBeGreaterThanZero());
+  const { slashingQuorum } = config;
+  if (slashingQuorum !== undefined && slashingQuorum <= 0) {
+    errors.push(`slashingQuorum (${slashingQuorum}) must be greater than 0`);
+  }
+
+  // From: require(ROUND_SIZE > 1, Errors.TallySlashingProposer__InvalidQuorumAndRoundSize(QUORUM, ROUND_SIZE));
+  if (roundSizeInSlots <= 1) {
+    errors.push(`slashing round size in slots (${roundSizeInSlots}) must be greater than 1`);
+  }
+
+  // From: require(_slashAmounts[0] <= _slashAmounts[1], Errors.TallySlashingProposer__InvalidSlashAmounts(_slashAmounts));
+  if (config.slashAmountSmall > config.slashAmountMedium) {
+    errors.push(
+      `slashAmountSmall (${config.slashAmountSmall}) must be less than or equal to slashAmountMedium (${config.slashAmountMedium})`,
+    );
+  }
+
+  // From: require(_slashAmounts[1] <= _slashAmounts[2], Errors.TallySlashingProposer__InvalidSlashAmounts(_slashAmounts));
+  if (config.slashAmountMedium > config.slashAmountLarge) {
+    errors.push(
+      `slashAmountMedium (${config.slashAmountMedium}) must be less than or equal to slashAmountLarge (${config.slashAmountLarge})`,
+    );
+  }
+
+  // From: require(LIFETIME_IN_ROUNDS < ROUNDABOUT_SIZE, Errors.TallySlashingProposer__LifetimeMustBeLessThanRoundabout(...));
+  const ROUNDABOUT_SIZE = 128; // Constant from TallySlashingProposer
+  if (config.slashingLifetimeInRounds >= ROUNDABOUT_SIZE) {
+    errors.push(`slashingLifetimeInRounds (${config.slashingLifetimeInRounds}) must be less than ${ROUNDABOUT_SIZE}`);
+  }
+
+  // From: require(ROUND_SIZE_IN_EPOCHS > 0, Errors.TallySlashingProposer__RoundSizeInEpochsMustBeGreaterThanZero(...));
+  if (config.slashingRoundSizeInEpochs <= 0) {
+    errors.push(`slashingRoundSizeInEpochs (${config.slashingRoundSizeInEpochs}) must be greater than 0`);
+  }
+
+  // From: require(ROUND_SIZE < MAX_ROUND_SIZE, Errors.TallySlashingProposer__RoundSizeTooLarge(ROUND_SIZE, MAX_ROUND_SIZE));
+  const MAX_ROUND_SIZE = 1024; // Constant from TallySlashingProposer
+  if (roundSizeInSlots >= MAX_ROUND_SIZE) {
+    errors.push(`slashing round size in slots (${roundSizeInSlots}) must be less than ${MAX_ROUND_SIZE}`);
+  }
+
+  // From: require(COMMITTEE_SIZE > 0, Errors.TallySlashingProposer__CommitteeSizeMustBeGreaterThanZero(COMMITTEE_SIZE));
+  if (config.aztecTargetCommitteeSize <= 0) {
+    errors.push(`aztecTargetCommitteeSize (${config.aztecTargetCommitteeSize}) must be greater than 0`);
+  }
+
+  // From: require(voteSize <= 128, Errors.TallySlashingProposer__VoteSizeTooBig(voteSize, 128));
+  // voteSize = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 4
+  const voteSize = (config.aztecTargetCommitteeSize * config.slashingRoundSizeInEpochs) / 4;
+  if (voteSize > 128) {
+    errors.push(`vote size (${voteSize}) must be <= 128 (committee size * round size in epochs / 4)`);
+  }
+
+  // From: require(COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS % 4 == 0, Errors.TallySlashingProposer__InvalidCommitteeAndRoundSize(...));
+  if ((config.aztecTargetCommitteeSize * config.slashingRoundSizeInEpochs) % 4 !== 0) {
+    errors.push(
+      `aztecTargetCommitteeSize * slashingRoundSizeInEpochs (${config.aztecTargetCommitteeSize * config.slashingRoundSizeInEpochs}) must be divisible by 4`,
+    );
+  }
+
+  // Slashing offset validation: should be positive to allow proper slashing timing
+  if (config.slashingOffsetInRounds < 0) {
+    errors.push('slashingOffsetInRounds cannot be negative');
   }
 }

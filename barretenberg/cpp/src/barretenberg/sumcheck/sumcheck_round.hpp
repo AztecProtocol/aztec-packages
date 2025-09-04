@@ -86,7 +86,7 @@ template <typename Flavor> class SumcheckProverRound {
     SumcheckProverRound(size_t initial_round_size)
         : round_size(initial_round_size)
     {
-        PROFILE_THIS_NAME("SumcheckProverRound constructor");
+        BB_BENCH_NAME("SumcheckProverRound constructor");
 
         // Initialize univariate accumulators to 0
         Utils::zero_univariates(univariate_accumulators);
@@ -185,7 +185,7 @@ template <typename Flavor> class SumcheckProverRound {
         const bb::GateSeparatorPolynomial<FF>& gate_separators,
         const SubrelationSeparators& alphas)
     {
-        PROFILE_THIS_NAME("compute_univariate_with_chunking");
+        BB_BENCH_NAME("compute_univariate_with_chunking");
 
         // Determine number of threads for multithreading.
         // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
@@ -267,8 +267,8 @@ template <typename Flavor> class SumcheckProverRound {
             // Construct extended univariates containers; one per thread
             ExtendedEdges extended_edges;
             for (size_t chunk_idx = 0; chunk_idx < num_of_chunks; chunk_idx++) {
-                size_t start = chunk_idx * chunk_size + thread_idx * chunk_thread_portion_size;
-                size_t end = chunk_idx * chunk_size + (thread_idx + 1) * chunk_thread_portion_size;
+                size_t start = (chunk_idx * chunk_size) + (thread_idx * chunk_thread_portion_size);
+                size_t end = (chunk_idx * chunk_size) + ((thread_idx + 1) * chunk_thread_portion_size);
                 for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
                     extend_edges(extended_edges, polynomials, edge_idx);
                     // Compute the \f$ \ell \f$-th edge's univariate contribution,
@@ -409,7 +409,7 @@ template <typename Flavor> class SumcheckProverRound {
         const bb::GateSeparatorPolynomial<FF>& gate_separators,
         const SubrelationSeparators alphas)
     {
-        PROFILE_THIS_NAME("compute_univariate_with_row_skipping");
+        BB_BENCH_NAME("compute_univariate_with_row_skipping");
 
         std::vector<BlockOfContiguousRows> round_manifest = compute_contiguous_round_size(polynomials);
         // Compute how many nonzero rows we have

@@ -1,4 +1,5 @@
-use crate::test::helpers::test_environment::TestEnvironment;
+use crate::{oracle::version::ORACLE_VERSION, test::helpers::test_environment::TestEnvironment};
+use std::test::OracleMock;
 
 mod accounts;
 mod deployment;
@@ -309,4 +310,14 @@ unconstrained fn private_public_and_utility_context_share_default_chain_id() {
 
     assert_eq(private_chain_id, public_chain_id);
     assert_eq(private_chain_id, utility_chain_id);
+}
+
+#[test]
+unconstrained fn oracle_version_is_checked_upon_env_creation() {
+    let mock = OracleMock::mock("utilityAssertCompatibleOracleVersion");
+
+    let _env = TestEnvironment::new();
+
+    assert_eq(mock.times_called(), 1);
+    assert_eq(mock.get_last_params::<Field>(), ORACLE_VERSION);
 }

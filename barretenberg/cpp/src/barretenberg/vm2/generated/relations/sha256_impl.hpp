@@ -14,7 +14,7 @@ void sha256Impl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    PROFILE_THIS_NAME("accumulate/sha256");
+    BB_BENCH_NAME("accumulate/sha256");
 
     const auto sha256_SEL_NO_ERR = in.get(C::sha256_sel) * (FF(1) - in.get(C::sha256_err));
     const auto sha256_LAST = sha256_SEL_NO_ERR * in.get(C::sha256_latch);
