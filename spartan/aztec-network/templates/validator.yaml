@@ -88,10 +88,14 @@ spec:
           env:
             - name: KEY_INDEX_START
               value: {{ .Values.aztec.validatorKeyIndexStart | quote }}
+            - name: PUBLISHER_KEY_INDEX_START
+              value: {{ .Values.aztec.validatorPublisherIndexStart | quote }}
             - name: SLASHER_KEY_INDEX_START
               value: {{ .Values.aztec.slasherKeyIndexStart | quote }}
             - name: VALIDATORS_PER_NODE
               value: {{ .Values.validator.keysPerNode | quote }}
+            - name: PUBLISHERS_PER_VALIDATOR_KEY
+              value: {{ .Values.validator.publishersPerValidatorKey | quote }}
             - name: MNEMONIC
               value: {{ .Values.aztec.l1DeploymentMnemonic }}
             - name: K8S_POD_UID

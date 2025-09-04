@@ -2,7 +2,7 @@ import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
@@ -93,15 +93,17 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     this.log.verbose(`Initialized validator with addresses: ${myAddresses.map(a => a.toString()).join(', ')}`);
   }
 
-  public static validateKeyStoreConfiguration(keyStoreManager: KeystoreManager) {
+  public static validateKeyStoreConfiguration(keyStoreManager: KeystoreManager, logger?: Logger) {
     const validatorKeyStore = NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager);
     const validatorAddresses = validatorKeyStore.getAddresses();
     // Verify that we can retrieve all required data from the key store
     for (const address of validatorAddresses) {
       // Functions throw if required data is not available
+      let coinbase: EthAddress;
+      let feeRecipient: AztecAddress;
       try {
-        validatorKeyStore.getCoinbaseAddress(address);
-        validatorKeyStore.getFeeRecipient(address);
+        coinbase = validatorKeyStore.getCoinbaseAddress(address);
+        feeRecipient = validatorKeyStore.getFeeRecipient(address);
       } catch (error) {
         throw new Error(`Failed to retrieve required data for validator address ${address}, error: ${error}`);
       }
@@ -110,6 +112,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       if (!publisherAddresses.length) {
         throw new Error(`No publisher addresses found for validator address ${address}`);
       }
+      logger?.debug(
+        `Validator ${address.toString()} configured with coinbase ${coinbase.toString()}, feeRecipient ${feeRecipient.toString()} and publishers ${publisherAddresses.map(x => x.toString()).join()}`,
+      );
     }
   }
 

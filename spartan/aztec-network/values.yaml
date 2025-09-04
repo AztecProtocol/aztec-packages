@@ -96,7 +96,7 @@ aztec:
   l1DeploymentMnemonic: "test test test test test test test test test test test junk" # the mnemonic used when deploying contracts
   manaTarget: "" # use default value
 
-  # The derivation path of the calcualted private keys
+  # The derivation path of the calculated private keys
   # Starting from this index, the number of keys is equal to the number of replicas for the given service
   # Default accounts start at 0, and are used by the boot node to deploy the system contracts
   numberOfDefaultAccounts: 10
@@ -107,6 +107,12 @@ aztec:
   extraAccountsStartIndex: 4000
   ## The number of extra accounts to prefund
   extraAccounts: 10
+
+  # The number of publisher accounts per validator key and the index at which they start
+  validatorPublisherIndexStart: 5000
+
+  # The number of publisher accounts per prover key and the index at which they start
+  proverPublisherIndexStart: 4500
 
   # All slashing settings are empty so we rely on the defaults set on ts-land
   slash:
@@ -208,6 +214,7 @@ validator:
   dynamicBootNode: false
   replicas: 1
   keysPerNode: 1
+  publishersPerValidatorKey: 2
   gke:
     spotEnabled: false
   service:
@@ -243,6 +250,7 @@ validator:
 proverNode:
   externalHost: ""
   replicas: 1
+  publishersPerProver: 2
   gke:
     spotEnabled: false
   p2p:

@@ -56,11 +56,15 @@ spec:
               set -euo pipefail
               KS_DIR=/shared/key-store
               ATTESTER_KS=$KS_DIR/attester.yaml
+              ATTESTER_PUBLISHER_KS=$KS_DIR/attester_publisher.yaml
+              PROVER_PUBLISHER_KS=$KS_DIR/prover_publisher.yaml
               PROVER_KS=$KS_DIR/prover.yaml
 
               mkdir -p "$KS_DIR"
               : > "$ATTESTER_KS"
+              : > "ATTESTER_PUBLISHER_KS"
               : > "$PROVER_KS"
+              : > "PROVER_PUBLISHER_KS"
 
               for ((i=0;i<VALIDATORS;i++)); do
                 idx=$((VALIDATOR_KEY_START + i))
@@ -73,21 +77,51 @@ spec:
               EOF
               done
 
+              for ((i=0;i<VALIDATOR_PUBLISHERS;i++)); do
+                idx=$((VALIDATOR_PUBLISHER_KEY_START + i))
+                pk="$(cast wallet private-key "$MNEMONIC" --mnemonic-index "$idx")"
+                [[ $i -gt 0 ]] && echo '---' >> "$ATTESTER_PUBLISHER_KS"
+                cat >> "$ATTESTER_PUBLISHER_KS" <<EOF
+              type: file-raw
+              keyType: SECP256K1
+              privateKey: "$pk"
+              EOF
+              done
+
               pk="$(cast wallet private-key "$MNEMONIC" --mnemonic-index "$PROVER_KEY_START")"
               cat >> "$PROVER_KS" <<EOF
               type: file-raw
               keyType: SECP256K1
               privateKey: "$pk"
               EOF
+
+              for ((i=0;i<PROVER_PUBLISHERS;i++)); do
+                idx=$((PROVER_PUBLISHER_KEY_START + i))
+                pk="$(cast wallet private-key "$MNEMONIC" --mnemonic-index "$idx")"
+                [[ $i -gt 0 ]] && echo '---' >> "$PROVER_PUBLISHER_KS"
+                cat >> "$PROVER_PUBLISHER_KS" <<EOF
+              type: file-raw
+              keyType: SECP256K1
+              privateKey: "$pk"
+              EOF
+              done
           env:
             - name: MNEMONIC
               value: {{ .Values.aztec.l1DeploymentMnemonic | quote }}
             - name: VALIDATORS
               value: {{ mul .Values.validator.replicas .Values.validator.keysPerNode | toString | quote }}
+            - name: VALIDATOR_PUBLISHERS
+              values: {{ mul .Values.validator.replicas .Values.validator.keysPerNode .Values.validator.publishersPerValidatorKey | toString | quote }}
             - name: VALIDATOR_KEY_START
               value: {{ .Values.aztec.validatorKeyIndexStart | quote }}
+            - name: VALIDATOR_PUBLISHER_KEY_START
+              value: {{ .Values.aztec.validatorPublisherIndexStart | quote }}
             - name: PROVER_KEY_START
               value: {{ .Values.aztec.proverKeyIndexStart | quote }}
+            - name: PROVER_PUBLISHERS
+              values: {{ mul .Values.proverNode.replicas .Values.proverNode.publishersPerProver | toString | quote }}
+            - name: PROVER_PUBLISHER_KEY_START
+              value: {{ .Values.aztec.proverPublisherIndexStart | quote }}
           volumeMounts:
             - name: shared
               mountPath: /shared
