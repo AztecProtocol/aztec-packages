@@ -131,7 +131,7 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
     // TODO(https: // github.com/AztecProtocol/barretenberg/issues/1367): Report all failures more explicitly and
     // consider making use of relations.
 
-    for (size_t i = 2; i < circuit.num_gates - 1; i += 2) {
+    for (size_t i = 8; i < circuit.num_gates - 5; i += 2) {
 
         // Get the values of P.x
         Fr op_code = circuit.get_variable(op_wire[i]);

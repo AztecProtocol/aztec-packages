@@ -270,7 +270,7 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         pairing_points.aggregate(decider_pairing_points);
         // Add randomness at the end of the hiding kernel (whose ecc ops fall right at the end of the op queue) to
         // ensure the CIVC proof doesn't leak information about the actual content of the op queue
-        hide_op_queue_content(circuit);
+        hide_op_queue_content_in_hiding(circuit);
     }
 
     return { output_verifier_accumulator, pairing_points, merged_table_commitments };
@@ -316,7 +316,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         circuit.queue_ecc_no_op();
         // Add randomness at the begining of the tail kernel (whose ecc ops fall at the beginning of the op queue) to
         // ensure the CIVC proof doesn't leak information about the actual content of the op queue
-        hide_op_queue_content(circuit);
+        hide_op_queue_content_in_tail(circuit);
     }
     circuit.queue_ecc_eq();
 
@@ -568,7 +568,13 @@ void ClientIVC::hide_op_queue_accumulation_result(ClientCircuit& circuit)
  * ecc op queue table, merged_table in the merge protocol, there is an evaluation at κ in merge and two during
  * Translator proving given all polynomials except op will be shifted.
  */
-void ClientIVC::hide_op_queue_content(ClientCircuit& circuit)
+void ClientIVC::hide_op_queue_content_in_tail(ClientCircuit& circuit)
+{
+    circuit.queue_ecc_random_op();
+    circuit.queue_ecc_random_op();
+    circuit.queue_ecc_random_op();
+}
+void ClientIVC::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
 {
     circuit.queue_ecc_random_op();
     circuit.queue_ecc_random_op();
@@ -577,8 +583,6 @@ void ClientIVC::hide_op_queue_content(ClientCircuit& circuit)
 /**
  * @brief Construct a zero-knowledge proof for the hiding circuit, which recursively verifies the last folding,
  * merge and decider proof.
- *
- * @return HonkProof - a ZK Mega proof
  */
 HonkProof ClientIVC::construct_mega_proof_for_hiding_kernel(ClientCircuit& circuit)
 {

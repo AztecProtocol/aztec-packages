@@ -406,7 +406,7 @@ void TranslatorCircuitBuilder::populate_wires_from_ultra_op(const UltraOp& ultra
     op_wire.push_back(
         add_variable(ultra_op.op_code.is_random_op ? ultra_op.op_code.random_value_1 : ultra_op.op_code.value()));
     // Similarly to the ColumnPolynomials in the merge protocol, the op_wire is 0 at every second index
-    op_wire.push_back(add_variable(0));
+    op_wire.push_back(add_variable(ultra_op.op_code.is_random_op ? ultra_op.op_code.random_value_2 : 0));
 
     insert_pair_into_wire(WireIds::X_LOW_Y_HI, ultra_op.x_lo, ultra_op.y_hi);
 
@@ -546,6 +546,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     // actual content of the op queue
     process_random_op(ultra_ops[1]);
     process_random_op(ultra_ops[2]);
+    process_random_op(ultra_ops[3]);
 
     // We need to precompute the accumulators at each step, because in the actual circuit we compute the values starting
     // from the later indices and we need to know the previous accumulator to create the gate. Both when computing the
@@ -555,7 +556,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     // context. However, we achieve this by ensuring a genuine operation, but with values generated randomly, is added
     // to the op queue during the CIVC processing.
 
-    for (size_t i = 3; i < ultra_ops.size() - 2; i++) {
+    for (size_t i = 3; i < ultra_ops.size() - 3; i++) {
         const auto& ultra_op = ultra_ops[ultra_ops.size() - i];
         if (ultra_op.op_code.value() == 0) {
             //  Skip no-ops as they should not affect the computation of the accumulator
@@ -578,7 +579,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
 
     std::array<Fr, NUM_BINARY_LIMBS> previous_accumulator_binary_limbs = split_fq_into_limbs(final_accumulator_state);
     // Generate witness values and accumulation gates from all the actual UltraOps
-    for (size_t i = 3; i < ultra_ops.size() - 2; i++) {
+    for (size_t i = 4; i < ultra_ops.size() - 2; i++) {
         const auto& ultra_op = ultra_ops[i];
         if (ultra_op.op_code.value() == 0) {
             // Within the no-op range the translator trace is empty except for the accumulator binary limbs which gets
