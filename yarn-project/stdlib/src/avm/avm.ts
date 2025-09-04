@@ -408,15 +408,12 @@ export class AvmTxHint {
     public readonly feePayer: AztecAddress,
   ) {}
 
-  static fromTx(tx: Tx): AvmTxHint {
+  static fromTx(tx: Tx, gasFees: GasFees): AvmTxHint {
     const setupCallRequests = tx.getNonRevertiblePublicCallRequestsWithCalldata();
     const appLogicCallRequests = tx.getRevertiblePublicCallRequestsWithCalldata();
     const teardownCallRequest = tx.getTeardownPublicCallRequestWithCalldata();
     const gasSettings = tx.data.constants.txContext.gasSettings;
-    const effectiveGasFees = computeEffectiveGasFees(
-      tx.data.constants.historicalHeader.globalVariables.gasFees,
-      gasSettings,
-    );
+    const effectiveGasFees = computeEffectiveGasFees(gasFees, gasSettings);
 
     // For informational purposes. Assumed quick because it should be cached.
     const txHash = tx.getTxHash();

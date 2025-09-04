@@ -20,8 +20,7 @@ import { FullProverTest } from '../fixtures/e2e_prover_test.js';
 const TIMEOUT = 1_200_000;
 
 // This makes AVM proving throw if there's a failure.
-//process.env.AVM_PROVING_STRICT = '1';
-// TODO(dbanks12): re-enable ^ after debugging and fixing AVM proving failures.
+process.env.AVM_PROVING_STRICT = '1';
 
 describe('full_prover', () => {
   const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
