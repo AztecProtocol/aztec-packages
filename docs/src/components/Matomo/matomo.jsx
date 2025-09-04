@@ -64,6 +64,11 @@ export default function useMatomo() {
     pushInstruction("rememberConsentGiven");
     localStorage.setItem("matomoConsent", true);
     setShowBanner(false);
+    
+    // Sync any pending analytics events
+    if (typeof window !== 'undefined' && window.analytics) {
+      setTimeout(() => window.analytics.syncFallbackEvents(), 1000);
+    }
   };
 
   const optOut = () => {
