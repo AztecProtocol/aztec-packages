@@ -250,9 +250,9 @@ inline std::string generate_memory_offsets(int log_n)
     }
     for (int i = 0; i < log_n; ++i) {
         for (int j = 0; j < BARYCENTRIC_DOMAIN_SIZE; ++j) {
-            print_fr(bary_pointer,
+            print_fr(pointer,
                      "BARYCENTRIC_DENOMINATOR_INVERSES_" + std::to_string(i) + "_" + std::to_string(j) + "_LOC");
-            bary_pointer += 32;
+            pointer += 32;
         }
     }
     print_header_centered("SUMCHECK - RUNTIME MEMORY - BARYCENTRIC COMPLETE");
