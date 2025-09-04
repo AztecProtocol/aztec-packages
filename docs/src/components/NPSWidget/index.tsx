@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styles from './styles.module.css';
+import { analytics } from '@site/src/utils/analytics';
 
 interface NPSWidgetProps {
   siteId?: string;
@@ -93,6 +94,13 @@ export default function NPSWidget({
       hasShown = true;
       setIsVisible(true);
       
+      // Track widget shown event
+      analytics.trackNPSWidgetEvent('shown', {
+        pageViews: newPageViews,
+        timeOnSite: Math.round((Date.now() - startTime) / 1000),
+        scrollPercentage: Math.round((window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100)
+      });
+      
       // Add animation delay
       setTimeout(() => {
         setIsAnimatingIn(true);
@@ -173,6 +181,12 @@ export default function NPSWidget({
   };
 
   const handleClose = () => {
+    // Track dismissal
+    analytics.trackNPSWidgetEvent('dismissed', {
+      hadScore: score !== null,
+      hadFeedback: feedback.length > 0
+    });
+    
     // Store dismissal to prevent showing for a week
     localStorage.setItem(`nps-dismissed-${siteId}`, Date.now().toString());
     setIsDismissed(true);
@@ -184,45 +198,9 @@ export default function NPSWidget({
     }, 300);
   };
 
-  // Replace this with your actual analytics integration
+  // Send NPS data using improved analytics
   const sendNPSData = (data: NPSData) => {
-    // Example integrations:
-    
-    // 1. Console log for development
-    console.log('NPS Response:', data);
-    
-    // 2. Google Analytics 4
-    // if (typeof gtag !== 'undefined') {
-    //   gtag('event', 'nps_response', {
-    //     score: data.score,
-    //     feedback: data.feedback,
-    //     custom_parameter_url: data.url
-    //   });
-    // }
-    
-    // 3. PostHog
-    // if (typeof posthog !== 'undefined') {
-    //   posthog.capture('nps_response', {
-    //     score: data.score,
-    //     feedback: data.feedback,
-    //     url: data.url
-    //   });
-    // }
-    
-    // 4. Custom API endpoint
-    // fetch('/api/nps', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(data)
-    // });
-    
-    // 5. Matomo (if you prefer to use your existing setup)
-    // if (typeof _paq !== 'undefined') {
-    //   _paq.push(['trackEvent', 'NPS', 'Response', `Score: ${data.score}`, data.score]);
-    //   if (data.feedback) {
-    //     _paq.push(['trackEvent', 'NPS', 'Feedback', data.feedback]);
-    //   }
-    // }
+    analytics.trackNPSResponse(data);
   };
 
   if (!isVisible || isDismissed) return null;
