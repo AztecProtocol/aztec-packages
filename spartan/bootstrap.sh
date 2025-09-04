@@ -88,22 +88,13 @@ function single_test {
 
 function start_env {
   if [ "$CI_NIGHTLY" -eq 1 ] && [ "$(arch)" != "arm64" ]; then
-    NIGHTLY_NS=nightly-$(git rev-parse --short HEAD)
-    export MONITOR_DEPLOYMENT=false
-    export WAIT_FOR_DEPLOYMENT=false
-    export CLUSTER_NAME=aztec-gke-private
-    export ZONE=us-west1-a
-    export GCP_PROJECT_ID=${GCP_PROJECT_ID:-"testnet-440309"}
-    echo "Installing test network in namespace $NIGHTLY_NS"
-    ./scripts/deploy_k8s.sh gke "$NIGHTLY_NS" ci-fast-epoch.yaml false "mnemonic.tmp" "$NIGHTLY_NS" "$GCP_PROJECT_ID"
+    echo "Skipping start_env for nightly while we migrate to use the same deployment flow as the scenario/staging networks."
   fi
 }
 
 function stop_env {
   if [ "$CI_NIGHTLY" -eq 1 ] && [ "$(arch)" != "arm64" ]; then
-    NIGHTLY_NS=nightly-$(date -u +%Y%m%d)
-    echo "Uninstalling test network in namespace $NIGHTLY_NS"
-    ./scripts/cleanup_k8s.sh "$NIGHTLY_NS" "$NIGHTLY_NS"
+    echo "Skipping stop_env for nightly while we migrate to use the same deployment flow as the scenario/staging networks."
   fi
 }
 

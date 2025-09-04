@@ -91,9 +91,9 @@ jobs:
           chmod 600 ~/.ssh/build_instance_key
           sudo apt install -y --no-install-recommends redis-tools parallel
 
-      - name: Write GCP key into credentials file
+      - name: Store the GCP key in a base64 encoded string
         run: |
-          echo "${{ secrets.GCP_SA_KEY }}" > ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
+          echo "GCP_SA_KEY_B64=$(echo "${{ secrets.GCP_SA_KEY }}" | base64 -w 0)" >> $GITHUB_ENV
 
       - name: Get Tree Hash
         run: echo "TREE_HASH=$(git rev-parse HEAD^{tree})" >> $GITHUB_ENV
@@ -122,6 +122,7 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           # Nightly test env vars.
           GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
+          GCP_SA_KEY_B64: ${{ env.GCP_SA_KEY_B64 }}
           EXTERNAL_ETHEREUM_HOSTS: "https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }},${{ secrets.INFURA_SEPOLIA_URL }}"
           EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.GCP_SEPOLIA_URL }}"
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY: ${{ secrets.GCP_SEPOLIA_API_KEY }}
