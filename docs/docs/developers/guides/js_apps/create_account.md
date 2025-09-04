@@ -45,5 +45,4 @@ By default, Aztec.js provides several account implementations including Schnorr 
 
 ## Next Steps
 
-- Check out our section on [Writing your own Account Contract](../../tutorials/contract_tutorials/write_accounts_contract.md) leveraging our account abstraction
 - Learn how to [deploy contracts](./deploy_contract.md) with your new account

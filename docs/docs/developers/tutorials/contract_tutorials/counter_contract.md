@@ -170,10 +170,6 @@ For more information about writing efficient private functions, see [this page](
 
 ## Next Steps
 
-### Write a slightly more complex Aztec contract
-
-Follow the private voting contract tutorial on the [next page](./private_voting_contract.md).
-
 ### Optional: Learn more about concepts mentioned here
 
 - [Functions and annotations like `#[private]`](../../../aztec/smart_contracts/functions/function_transforms.md#private-functions)

@@ -73,8 +73,6 @@ A request for executing an action requires:
 - The initial function to call (usually `entrypoint`).
 - The arguments (which encode the private and public calls to run as well as any signatures).
 
-Read more about how to write an account contract [here](../../../developers/tutorials/contract_tutorials/write_accounts_contract.md).
-
 ### Non-standard entrypoints
 
 Since the `entrypoint` interface is not enshrined, there is nothing that differentiates an account contract from an application contract. This allows implementing functions that can be called by any user and are just intended to advance the state of a contract.
@@ -101,7 +99,7 @@ Account contracts are tightly coupled to the wallet software that users use to i
 
 When a user wants to interact with the network's **public** state, they need to deploy their account contract. A contract instance is considered to be publicly deployed when it has been broadcasted to the network via the canonical `ContractInstanceRegistry` contract, which also emits a deployment nullifier associated to the deployed instance.
 
-However, to send fully **private** transactions, it's enough to initialize the account contract (public deployment is not needed). The default state for any given address is to be uninitialized, meaning a function with the [initializer annotation](../../../developers/tutorials/contract_tutorials/nft_contract.md#initializer) has not been called. The contract is initialized when one of the functions marked with the `#[initializer]` annotation has been invoked. Multiple functions in the contract can be marked as initializers. Contracts may have functions that skip the initialization check (marked with `#[noinitcheck]`).
+However, to send fully **private** transactions, it's enough to initialize the account contract (public deployment is not needed). The default state for any given address is to be uninitialized, meaning a function with the initializer annotation has not been called. The contract is initialized when one of the functions marked with the `#[initializer]` annotation has been invoked. Multiple functions in the contract can be marked as initializers. Contracts may have functions that skip the initialization check (marked with `#[noinitcheck]`).
 
 Account deployment and initialization are not required to receive notes. The user address is deterministically derived from the encryption public key and the account contract they intend to deploy, so that funds can be sent to an account that hasn't been deployed yet.
 

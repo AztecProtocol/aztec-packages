@@ -7,8 +7,6 @@ description: Overview of wallet responsibilities in Aztec including account mana
 
 On this page we will cover the main responsibilities of a wallet in the Aztec network.
 
-Refer to [writing an account contract](../../../developers/tutorials/contract_tutorials/write_accounts_contract.md) for a tutorial on how to write a contract to back a user's account.
-
 Go to [wallet architecture](./architecture.md) for an overview of its architecture and a reference on the interface a wallet must implement.
 
 Wallets are the applications through which users manage their accounts. Users rely on wallets to browse through their accounts, monitor their balances, and create new accounts. Wallets also store seed phrases and private keys, or interact with external keystores such as hardware wallets.

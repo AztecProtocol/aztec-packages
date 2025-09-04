@@ -39,4 +39,3 @@ Here's a common layout for a basic Aztec.nr Contract project:
 ```
 
 - See the vanilla Noir docs for [more info on packages](https://noir-lang.org/docs/noir/modules_packages_crates/crates_and_packages).
-- You can review the structure of a complete contract in the NFT contract tutorial [here](../../developers/tutorials/contract_tutorials/nft_contract.md).
