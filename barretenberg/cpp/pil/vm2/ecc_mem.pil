@@ -8,7 +8,7 @@ include "execution.pil";
  * This trace writes the resulting embedded curve point to the addresses {dst,
  * dst + 1, and dst + 2 }. Embedded curve points consist of the tuple of types
  * {x: FF, y: FF, is_inf: U1 }.
- * 
+ *
  * Opcode operands (relevant in EXECUTION when interacting with this gadget):
  * - rop[0]: p_x_addr
  * - rop[1]: p_y_addr
@@ -143,41 +143,28 @@ namespace ecc_add_mem;
     ////////////////////////////////////////////////
     // Write output to memory
     ////////////////////////////////////////////////
-    // TODO: These need to be changed to permutations once we have the custom permutation selectors impl
     #[WRITE_MEM_0]
-    sel_should_exec { 
-        execution_clk, dst_addr[0],
-        res_x,         /*FF_mem_tag*/ precomputed.zero,
-        space_id,      /*rw=1*/ sel_should_exec
-    } in
-    memory.sel { 
-        memory.clk,      memory.address,
-        memory.value,    memory.tag,
-        memory.space_id, memory.rw
+    sel_should_exec {
+        execution_clk, space_id, dst_addr[0], res_x, /*FF_mem_tag*/ precomputed.zero, /*rw=1*/ sel_should_exec
+    } is
+    memory.sel_ecc_write[0] {
+        memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw
     };
 
     #[WRITE_MEM_1]
-    sel_should_exec { 
-        execution_clk, dst_addr[1],
-        res_y,         /*FF_mem_tag*/ precomputed.zero,
-        space_id,      /*rw=1*/ sel_should_exec
-    } in
-    memory.sel { 
-        memory.clk,      memory.address,
-        memory.value,    memory.tag,
-        memory.space_id, memory.rw
+    sel_should_exec {
+        execution_clk, space_id, dst_addr[1], res_y, /*FF_mem_tag*/ precomputed.zero, /*rw=1*/ sel_should_exec
+    } is
+    memory.sel_ecc_write[1] {
+        memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw
     };
 
     #[WRITE_MEM_2]
-    sel_should_exec { 
-        execution_clk,  dst_addr[2],
-        res_is_inf,     /*U1_mem_tag=1*/ sel_should_exec,
-        space_id,       /*rw=1*/ sel_should_exec
-    } in
-    memory.sel { 
-        memory.clk,      memory.address,
-        memory.value,    memory.tag,
-        memory.space_id, memory.rw
+    sel_should_exec {
+        execution_clk, space_id, dst_addr[2], res_is_inf, /*U1_mem_tag=1*/ sel_should_exec, /*rw=1*/ sel_should_exec
+    } is
+    memory.sel_ecc_write[2] {
+        memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw
     };
 
     ////////////////////////////////////////////////

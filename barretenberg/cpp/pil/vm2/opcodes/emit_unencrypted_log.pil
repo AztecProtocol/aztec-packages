@@ -246,14 +246,14 @@ namespace emit_unencrypted_log;
 
     #[READ_MEM]
     sel_should_read_memory {
-        execution_clk, log_address,
-        value,         tag,
-        space_id,      /*rw=0*/ precomputed.zero
-    } in
-    memory.sel {
-        memory.clk,      memory.address,
-        memory.value,    memory.tag,
-        memory.space_id, memory.rw
+        execution_clk,  space_id,
+        log_address,    value,
+        tag,            /*rw=0*/ precomputed.zero
+    } is
+    memory.sel_unencrypted_log_read {
+        memory.clk,     memory.space_id,
+        memory.address, memory.value,
+        memory.tag,     memory.rw
     };
 
     // If memory read is disabled, value is zero and tag is FF

@@ -55,7 +55,7 @@ pol commit max_bits; // Number of bits corresponding to the tag. (Retrieved from
 #[skippable_if]
 sel + precomputed.first_row = 0;
 
-// Permutation selectors (addressing.pil).
+// Permutation selectors (execution/addressing.pil).
 pol commit sel_addressing_base;
 pol commit sel_addressing_indirect[7];
 sel_addressing_base * (1 - sel_addressing_base) = 0;
@@ -66,6 +66,44 @@ sel_addressing_indirect[3] * (1 - sel_addressing_indirect[3]) = 0;
 sel_addressing_indirect[4] * (1 - sel_addressing_indirect[4]) = 0;
 sel_addressing_indirect[5] * (1 - sel_addressing_indirect[5]) = 0;
 sel_addressing_indirect[6] * (1 - sel_addressing_indirect[6]) = 0;
+
+// Permutation selectors (execution/registers.pil)
+pol commit sel_register_op[7];
+sel_register_op[0] * (1 - sel_register_op[0]) = 0;
+sel_register_op[1] * (1 - sel_register_op[1]) = 0;
+sel_register_op[2] * (1 - sel_register_op[2]) = 0;
+sel_register_op[3] * (1 - sel_register_op[3]) = 0;
+sel_register_op[4] * (1 - sel_register_op[4]) = 0;
+sel_register_op[5] * (1 - sel_register_op[5]) = 0;
+sel_register_op[6] * (1 - sel_register_op[6]) = 0;
+
+// Permutation selectors (data_copy.pil).
+pol commit sel_data_copy_read;
+pol commit sel_data_copy_write;
+sel_data_copy_read * (1 - sel_data_copy_read) = 0;
+sel_data_copy_write * (1 - sel_data_copy_write) = 0;
+
+// Permutation selectors (opcodes/get_contract_instance.pil).
+pol commit sel_get_contract_instance_exists_write;
+pol commit sel_get_contract_instance_member_write;
+sel_get_contract_instance_exists_write * (1 - sel_get_contract_instance_exists_write) = 0;
+sel_get_contract_instance_member_write * (1 - sel_get_contract_instance_member_write) = 0;
+
+// Permutation selectors (opcodes/emit_unencrypted_log.pil).
+pol commit sel_unencrypted_log_read;
+sel_unencrypted_log_read * (1 - sel_unencrypted_log_read) = 0;
+
+// Permutation selectors (poseidon2_mem.pil).
+pol commit sel_poseidon2_read[4];
+pol commit sel_poseidon2_write[4];
+sel_poseidon2_read[0] * (1 - sel_poseidon2_read[0]) = 0;
+sel_poseidon2_read[1] * (1 - sel_poseidon2_read[1]) = 0;
+sel_poseidon2_read[2] * (1 - sel_poseidon2_read[2]) = 0;
+sel_poseidon2_read[3] * (1 - sel_poseidon2_read[3]) = 0;
+sel_poseidon2_write[0] * (1 - sel_poseidon2_write[0]) = 0;
+sel_poseidon2_write[1] * (1 - sel_poseidon2_write[1]) = 0;
+sel_poseidon2_write[2] * (1 - sel_poseidon2_write[2]) = 0;
+sel_poseidon2_write[3] * (1 - sel_poseidon2_write[3]) = 0;
 
 // Permutation selectors (keccak_memory.pil).
 pol commit sel_keccak;
@@ -84,18 +122,49 @@ sel_sha256_op[5] * (1 - sel_sha256_op[5]) = 0;
 sel_sha256_op[6] * (1 - sel_sha256_op[6]) = 0;
 sel_sha256_op[7] * (1 - sel_sha256_op[7]) = 0;
 
+// Permutation selectors (ecc_mem.pil).
+pol commit sel_ecc_write[3];
+sel_ecc_write[0] * (1 - sel_ecc_write[0]) = 0;
+sel_ecc_write[1] * (1 - sel_ecc_write[1]) = 0;
+sel_ecc_write[2] * (1 - sel_ecc_write[2]) = 0;
+
+// Permutation selectors (to_radix_mem.pil).
+pol commit sel_to_radix_write;
+sel_to_radix_write * (1 - sel_to_radix_write) = 0;
+
 // Permutation consistency.
+// TODO(#16759): Enable the following relation ensuring that each memory entry is associated with a valid permutation selector.
+//               DebugLog opcode is generating some memory entries which should not be triggered.
 /*
+#[ACTIVE_ROW_NEEDS_PERM_SELECTOR]
 sel = // Addressing.
       sel_addressing_base
     + sel_addressing_indirect[0] + sel_addressing_indirect[1] + sel_addressing_indirect[2] + sel_addressing_indirect[3]
     + sel_addressing_indirect[4] + sel_addressing_indirect[5] + sel_addressing_indirect[6]
+    // Registers.
+    + sel_register_op[0] + sel_register_op[1] + sel_register_op[2] + sel_register_op[3] + sel_register_op[4]
+    + sel_register_op[5] + sel_register_op[6]
+    // Data Copy.
+    + sel_data_copy_read
+    + sel_data_copy_write
+    // Get Contract Instance.
+    + sel_get_contract_instance_exists_write
+    + sel_get_contract_instance_member_write
+    // Unencrypted Log.
+    + sel_unencrypted_log_read
+    // Poseidon2.
+    + sel_poseidon2_read[0] + sel_poseidon2_read[1] + sel_poseidon2_read[2] + sel_poseidon2_read[3]
+    + sel_poseidon2_write[0] + sel_poseidon2_write[1] + sel_poseidon2_write[2] + sel_poseidon2_write[3]
     // Keccak.
     + sel_keccak
     // Sha256.
     + sel_sha256_read
     + sel_sha256_op[0] + sel_sha256_op[1] + sel_sha256_op[2] + sel_sha256_op[3]
-    + sel_sha256_op[4] + sel_sha256_op[5] + sel_sha256_op[6] + sel_sha256_op[7];
+    + sel_sha256_op[4] + sel_sha256_op[5] + sel_sha256_op[6] + sel_sha256_op[7]
+    // ECC.
+    + sel_ecc_write[0] + sel_ecc_write[1] + sel_ecc_write[2]
+    // To Radix.
+    + sel_to_radix_write;
 */
 
 // Other boolean constraints.

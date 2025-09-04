@@ -63,32 +63,6 @@ template <typename FF_>
 using lookup_emit_unencrypted_log_check_memory_out_of_bounds_relation =
     lookup_relation_base<FF_, lookup_emit_unencrypted_log_check_memory_out_of_bounds_settings>;
 
-/////////////////// lookup_emit_unencrypted_log_read_mem ///////////////////
-
-struct lookup_emit_unencrypted_log_read_mem_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_EMIT_UNENCRYPTED_LOG_READ_MEM";
-    static constexpr std::string_view RELATION_NAME = "emit_unencrypted_log";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::emit_unencrypted_log_sel_should_read_memory;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
-    static constexpr Column COUNTS = Column::lookup_emit_unencrypted_log_read_mem_counts;
-    static constexpr Column INVERSES = Column::lookup_emit_unencrypted_log_read_mem_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::emit_unencrypted_log_execution_clk, ColumnAndShifts::emit_unencrypted_log_log_address,
-        ColumnAndShifts::emit_unencrypted_log_value,         ColumnAndShifts::emit_unencrypted_log_tag,
-        ColumnAndShifts::emit_unencrypted_log_space_id,      ColumnAndShifts::precomputed_zero
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk, ColumnAndShifts::memory_address,  ColumnAndShifts::memory_value,
-        ColumnAndShifts::memory_tag, ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_rw
-    };
-};
-
-using lookup_emit_unencrypted_log_read_mem_settings = lookup_settings<lookup_emit_unencrypted_log_read_mem_settings_>;
-template <typename FF_>
-using lookup_emit_unencrypted_log_read_mem_relation =
-    lookup_relation_base<FF_, lookup_emit_unencrypted_log_read_mem_settings>;
-
 /////////////////// lookup_emit_unencrypted_log_write_log_to_public_inputs ///////////////////
 
 struct lookup_emit_unencrypted_log_write_log_to_public_inputs_settings_ {

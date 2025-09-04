@@ -118,29 +118,4 @@ template <typename FF_>
 using lookup_to_radix_mem_input_output_to_radix_relation =
     lookup_relation_base<FF_, lookup_to_radix_mem_input_output_to_radix_settings>;
 
-/////////////////// lookup_to_radix_mem_write_mem ///////////////////
-
-struct lookup_to_radix_mem_write_mem_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_TO_RADIX_MEM_WRITE_MEM";
-    static constexpr std::string_view RELATION_NAME = "to_radix_mem";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
-    static constexpr Column SRC_SELECTOR = Column::to_radix_mem_sel_should_exec;
-    static constexpr Column DST_SELECTOR = Column::memory_sel;
-    static constexpr Column COUNTS = Column::lookup_to_radix_mem_write_mem_counts;
-    static constexpr Column INVERSES = Column::lookup_to_radix_mem_write_mem_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::to_radix_mem_execution_clk,     ColumnAndShifts::to_radix_mem_dst_addr,
-        ColumnAndShifts::to_radix_mem_output_limb_value, ColumnAndShifts::to_radix_mem_output_tag,
-        ColumnAndShifts::to_radix_mem_space_id,          ColumnAndShifts::to_radix_mem_sel_should_exec
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk, ColumnAndShifts::memory_address,  ColumnAndShifts::memory_value,
-        ColumnAndShifts::memory_tag, ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_rw
-    };
-};
-
-using lookup_to_radix_mem_write_mem_settings = lookup_settings<lookup_to_radix_mem_write_mem_settings_>;
-template <typename FF_>
-using lookup_to_radix_mem_write_mem_relation = lookup_relation_base<FF_, lookup_to_radix_mem_write_mem_settings>;
-
 } // namespace bb::avm2

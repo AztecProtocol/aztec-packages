@@ -513,16 +513,6 @@ void Poseidon2TraceBuilder::process_permutation_with_memory(
 const InteractionDefinition Poseidon2TraceBuilder::interactions =
     InteractionDefinition()
         .add<lookup_poseidon2_hash_poseidon2_perm_settings, InteractionType::LookupSequential>()
-        // These should be permutations (Read to Mem)
-        .add<lookup_poseidon2_mem_pos_read_mem_0_settings, InteractionType::LookupGeneric>()
-        .add<lookup_poseidon2_mem_pos_read_mem_1_settings, InteractionType::LookupGeneric>()
-        .add<lookup_poseidon2_mem_pos_read_mem_2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_poseidon2_mem_pos_read_mem_3_settings, InteractionType::LookupGeneric>()
-        // These should be permutations (Write to Mem)
-        .add<lookup_poseidon2_mem_pos_write_mem_0_settings, InteractionType::LookupGeneric>()
-        .add<lookup_poseidon2_mem_pos_write_mem_1_settings, InteractionType::LookupGeneric>()
-        .add<lookup_poseidon2_mem_pos_write_mem_2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_poseidon2_mem_pos_write_mem_3_settings, InteractionType::LookupGeneric>()
         // Poseidon2 Memory to Permutation Subtrace
         .add<lookup_poseidon2_mem_input_output_poseidon2_perm_settings, InteractionType::LookupSequential>()
         // Lookups to Greater Than Subtrace

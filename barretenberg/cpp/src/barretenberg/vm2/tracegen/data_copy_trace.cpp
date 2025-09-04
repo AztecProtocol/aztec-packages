@@ -184,9 +184,6 @@ void DataCopyTraceBuilder::process(
 
 const InteractionDefinition DataCopyTraceBuilder::interactions =
     InteractionDefinition()
-        // Mem Read / Writes (Need to be moved to permutations)
-        .add<lookup_data_copy_mem_read_settings, InteractionType::LookupGeneric>()
-        .add<lookup_data_copy_mem_write_settings, InteractionType::LookupGeneric>()
         // Enqueued Call Col Read
         .add<lookup_data_copy_col_read_settings, InteractionType::LookupGeneric>()
         // GT checks

@@ -13,8 +13,8 @@ include "gt.pil";
  * There are two errors that need to be handled as part of this trace
  * (1) MEM_OUT_OF_BOUNDS_ACCESS: If the reads or writes would access a memory address
  *     outside of the max AVM memory address (AVM_HIGHEST_MEM_ADDRESS).
- * (2) INVALID_READ_MEM_TAG: If any value that is read is not of type Field. 
- * 
+ * (2) INVALID_READ_MEM_TAG: If any value that is read is not of type Field.
+ *
  * N.B This subtrace will load the values directly into a row, (i.e. 4 input cols)
  * As a result of this, error (2) can only be captured after all 4 reads are performed
  * this is because gating each subsequent read would be expensive.
@@ -41,7 +41,7 @@ namespace poseidon2_perm_mem;
     read_address[1] = sel * (read_address[0] + 1);
     read_address[2] = sel * (read_address[0] + 2);
     read_address[3] = sel * (read_address[0] + 3); // This is the max read addr
-    
+
     #[WRITE_ADDR_INCR]
     write_address[1] = sel * (write_address[0] + 1);
     write_address[2] = sel * (write_address[0] + 2);
@@ -79,53 +79,52 @@ namespace poseidon2_perm_mem;
     pol commit sel_should_read_mem;
     sel_should_read_mem = sel * (1 - sel_src_out_of_range_err) * (1 - sel_dst_out_of_range_err);
 
-    // TODO: These need to be changed to permutations once we have the custom permutation selectors impl
     #[POS_READ_MEM_0]
-    sel_should_read_mem { 
-        execution_clk, read_address[0],
-        input[0],      input_tag[0],
-        space_id,      /*rw=*/ precomputed.zero
-    } in
-    memory.sel { 
-        memory.clk,      memory.address,
-        memory.value,    memory.tag,
-        memory.space_id, memory.rw
+    sel_should_read_mem {
+        execution_clk,    space_id,
+        read_address[0],  input[0],
+        input_tag[0],     /*rw=*/ precomputed.zero
+    } is
+    memory.sel_poseidon2_read[0] {
+        memory.clk,       memory.space_id,
+        memory.address,   memory.value,
+        memory.tag,       memory.rw
     };
 
     #[POS_READ_MEM_1]
-    sel_should_read_mem { 
-        execution_clk, read_address[1],
-        input[1],      input_tag[1],
-        space_id,      /*rw=*/ precomputed.zero
-    } in
-    memory.sel { 
-        memory.clk,      memory.address,
-        memory.value,    memory.tag,
-        memory.space_id, memory.rw
+    sel_should_read_mem {
+        execution_clk,    space_id,
+        read_address[1],  input[1],
+        input_tag[1],     /*rw=*/ precomputed.zero
+    } is
+    memory.sel_poseidon2_read[1] {
+        memory.clk,       memory.space_id,
+        memory.address,   memory.value,
+        memory.tag,       memory.rw
     };
 
     #[POS_READ_MEM_2]
-    sel_should_read_mem { 
-        execution_clk, read_address[2],
-        input[2],      input_tag[2],
-        space_id,      /*rw=*/ precomputed.zero
-    } in
-    memory.sel { 
-        memory.clk,      memory.address,
-        memory.value,    memory.tag,
-        memory.space_id, memory.rw
+    sel_should_read_mem {
+        execution_clk,    space_id,
+        read_address[2],  input[2],
+        input_tag[2],     /*rw=*/ precomputed.zero
+    } is
+    memory.sel_poseidon2_read[2] {
+        memory.clk,       memory.space_id,
+        memory.address,   memory.value,
+        memory.tag,       memory.rw
     };
 
     #[POS_READ_MEM_3]
-    sel_should_read_mem { 
-        execution_clk, read_address[3],
-        input[3],      input_tag[3],
-        space_id,      /*rw=*/ precomputed.zero
-    } in
-    memory.sel { 
-        memory.clk,      memory.address,
-        memory.value,    memory.tag,
-        memory.space_id, memory.rw
+    sel_should_read_mem {
+        execution_clk,    space_id,
+        read_address[3],  input[3],
+        input_tag[3],     /*rw=*/ precomputed.zero
+    } is
+    memory.sel_poseidon2_read[3] {
+        memory.clk,       memory.space_id,
+        memory.address,   memory.value,
+        memory.tag,       memory.rw
     };
 
     ////////////////////////////////////////////////
@@ -141,7 +140,7 @@ namespace poseidon2_perm_mem;
                           + 2**6 * INPUT_TAG_DIFF_2 + 2**9 * INPUT_TAG_DIFF_3;
 
     pol commit batch_tag_inv;
-    // BATCHED_TAG_CHECK != 0, sel_invalid_tag_err = 1 
+    // BATCHED_TAG_CHECK != 0, sel_invalid_tag_err = 1
     #[BATCH_ZERO_CHECK]
     BATCHED_TAG_CHECK * ((1 - sel_invalid_tag_err) * (1 - batch_tag_inv) + batch_tag_inv) - sel_invalid_tag_err = 0;
 
@@ -172,51 +171,51 @@ namespace poseidon2_perm_mem;
     ////////////////////////////////////////////////
     // TODO: These need to be changed to permutations once we have the custom permutation selectors
     #[POS_WRITE_MEM_0]
-    sel_should_exec { 
-        execution_clk, write_address[0],
-        output[0],     /*FF_mem_tag*/ precomputed.zero,
-        space_id,      /*rw=1*/ sel_should_exec
-    } in
-    memory.sel { 
-        memory.clk,      memory.address,
-        memory.value,    memory.tag,
-        memory.space_id, memory.rw
+    sel_should_exec {
+        execution_clk,                   space_id,
+        write_address[0],                output[0],
+       /*FF_mem_tag*/ precomputed.zero,  /*rw=1*/ sel_should_exec
+    } is
+    memory.sel_poseidon2_write[0] {
+        memory.clk,                      memory.space_id,
+        memory.address,                  memory.value,
+        memory.tag,                      memory.rw
     };
 
     #[POS_WRITE_MEM_1]
-    sel_should_exec { 
-        execution_clk, write_address[1],
-        output[1],     /*FF_mem_tag*/ precomputed.zero,
-        space_id,      /*rw=1*/ sel_should_exec
-    } in
-    memory.sel { 
-        memory.clk,      memory.address,
-        memory.value,    memory.tag,
-        memory.space_id, memory.rw
+    sel_should_exec {
+        execution_clk,                   space_id,
+        write_address[1],                output[1],
+        /*FF_mem_tag*/ precomputed.zero, /*rw=1*/ sel_should_exec
+    } is
+    memory.sel_poseidon2_write[1] {
+        memory.clk,                      memory.space_id,
+        memory.address,                  memory.value,
+        memory.tag,                      memory.rw
     };
 
     #[POS_WRITE_MEM_2]
-    sel_should_exec { 
-        execution_clk, write_address[2],
-        output[2],     /*FF_mem_tag*/ precomputed.zero,
-        space_id,      /*rw=1*/ sel_should_exec
-    } in
-    memory.sel { 
-        memory.clk,      memory.address,
-        memory.value,    memory.tag,
-        memory.space_id, memory.rw
+    sel_should_exec {
+        execution_clk,                   space_id,
+        write_address[2],                output[2],
+        /*FF_mem_tag*/ precomputed.zero, /*rw=1*/ sel_should_exec
+    } is
+    memory.sel_poseidon2_write[2] {
+        memory.clk,                      memory.space_id,
+        memory.address,                  memory.value,
+        memory.tag,                      memory.rw
     };
 
     #[POS_WRITE_MEM_3]
-    sel_should_exec { 
-        execution_clk, write_address[3],
-        output[3],     /*FF_mem_tag*/ precomputed.zero,
-        space_id,      /*rw=1*/ sel_should_exec
-    } in
-    memory.sel { 
-        memory.clk,      memory.address,
-        memory.value,    memory.tag,
-        memory.space_id, memory.rw
+    sel_should_exec {
+        execution_clk,                   space_id,
+        write_address[3],                output[3],
+        /*FF_mem_tag*/ precomputed.zero, /*rw=1*/ sel_should_exec
+    } is
+    memory.sel_poseidon2_write[3] {
+        memory.clk,                      memory.space_id,
+        memory.address,                  memory.value,
+        memory.tag,                      memory.rw
     };
 
     ////////////////////////////////////////////////

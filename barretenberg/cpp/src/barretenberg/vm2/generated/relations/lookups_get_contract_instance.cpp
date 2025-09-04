@@ -27,7 +27,5 @@ namespace bb::avm2 {
 
 INSTANTIATE_LOOKUP(lookup_get_contract_instance_precomputed_info_relation);
 INSTANTIATE_LOOKUP(lookup_get_contract_instance_contract_instance_retrieval_relation);
-INSTANTIATE_LOOKUP(lookup_get_contract_instance_mem_write_contract_instance_exists_relation);
-INSTANTIATE_LOOKUP(lookup_get_contract_instance_mem_write_contract_instance_member_relation);
 
 } // namespace bb::avm2

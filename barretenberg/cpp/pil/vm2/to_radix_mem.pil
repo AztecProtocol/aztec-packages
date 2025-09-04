@@ -8,7 +8,7 @@ include "precomputed.pil";
  * The reads are loaded and tag validated by the registers in the execution trace.
  * This trace writes a sequence of U1s or U8s (depending on the boolean is_output_bits) to the addresses
  * {dst, dst + 1, ... , dst + num_limbs - 1 }.
- * 
+ *
  * This trace has a vertical layout, where a single write is performed per row. This is due
  * to the dynamic amount of writes that can be performed. This has a benefit as we only require
  * a single permutation to the memory trace.
@@ -47,7 +47,7 @@ include "precomputed.pil";
  *
  * This subtrace is connected to the TORADIX subtrace via a lookup. TORADIX is used by
  * other subtraces internally (e.g., scalar mul ).
- * 
+ *
  * NOTE: The TORADIX subtrace performs the decomposition in LITTLE ENDIAN. This is more optimal
  *       for the internal gadget use. Therefore this subtrace needs to reverse the output of TORADIX
  *       since the opcode requires BIG ENDIAN.
@@ -77,12 +77,12 @@ namespace to_radix_mem;
     pol commit last; // Constrained in the Control flow section as depends on error
     last * (1 - last) = 0;
 
-    // Since sel has a shifted column (see CONTINUITY checks), sel must equal 0 in the first row 
+    // Since sel has a shifted column (see CONTINUITY checks), sel must equal 0 in the first row
     // Therefore, last must equal 0 in the first row as well.
     #[LAST_HAS_SEL_ON] // sel = 1 when last = 1
     last * (1 - sel) = 0;
     // This is now guaranteed to be mututally exclusive because of the above condition
-    pol LATCH_CONDITION = last + precomputed.first_row; 
+    pol LATCH_CONDITION = last + precomputed.first_row;
     // If the next row is active and the current row is last or first, then start is active
     // on the next row.
     #[START_AFTER_LAST]
@@ -228,21 +228,20 @@ namespace to_radix_mem;
     ////////////////////////////////////////////////
     // Write output to memory
     ////////////////////////////////////////////////
-    // TODO: These need to be changed to permutations once we have the custom permutation selectors impl
     pol commit output_tag;
     // Conditional Assignment: is_output_bits ? U1 : U8
     output_tag = sel_should_exec * ((constants.MEM_TAG_U1 - constants.MEM_TAG_U8) * is_output_bits + constants.MEM_TAG_U8);
 
     #[WRITE_MEM]
-    sel_should_exec { 
-        execution_clk,      dst_addr,
-        output_limb_value,  /*mem_tag*/ output_tag,
-        space_id,           /*rw=1*/ sel_should_exec
-    } in
-    memory.sel { 
-        memory.clk,      memory.address,
-        memory.value,    memory.tag,
-        memory.space_id, memory.rw
+    sel_should_exec {
+        execution_clk,           space_id,
+        dst_addr,                output_limb_value,
+        /*mem_tag*/ output_tag,  /*rw=1*/ sel_should_exec
+    } is
+    memory.sel_to_radix_write {
+        memory.clk,              memory.space_id,
+        memory.address,          memory.value,
+        memory.tag,              memory.rw
     };
 
 
