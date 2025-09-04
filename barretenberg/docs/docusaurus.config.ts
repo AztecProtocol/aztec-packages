@@ -15,30 +15,32 @@ const versions = require("./versions.json");
 // To redirect /api to the static/api directory in dev mode (netlify handles it in prod)
 function apiPlugin(context: any, options: any) {
   return {
-    name: 'api-static-plugin',
+    name: "api-static-plugin",
     configureWebpack(config: any, isServer: boolean, utils: any) {
       if (!isServer) {
         return {
-          mergeStrategy: { 'devServer.setupMiddlewares': 'replace' },
+          mergeStrategy: { "devServer.setupMiddlewares": "replace" },
           devServer: {
             setupMiddlewares: (middlewares: any, devServer: any) => {
-              const express = require('express');
-              devServer.app.use('/api', express.static(path.join(__dirname, 'static/api')));
+              const express = require("express");
+              devServer.app.use(
+                "/api",
+                express.static(path.join(__dirname, "static/api"))
+              );
               return middlewares;
             },
           },
         } as any;
       }
       return {};
-    }
-  }
+    },
+  };
 }
-
 
 const config: Config = {
   title: "Barretenberg",
   tagline: "Barretenberg is a fast, private and scalable zk-SNARK library.",
-  favicon: "img/icon.svg",
+  favicon: "img/Aztec_Symbol_Dark.png",
 
   // Set the production url of your site here
   url: "https://bb.aztec.network",
@@ -82,7 +84,7 @@ const config: Config = {
           ],
           versions: {
             current: {
-              label: "dev"
+              label: "dev",
             },
           },
           editUrl: (params) => {
@@ -133,7 +135,6 @@ const config: Config = {
     ],
 
     apiPlugin,
-
   ],
   themeConfig: {
     metadata: [
@@ -164,9 +165,9 @@ const config: Config = {
     navbar: {
       logo: {
         alt: "Aztec Logo",
-        srcDark: "img/logo-light.svg",
+        srcDark: "img/Aztec Wordmark_Light.svg",
         href: "/docs",
-        src: "img/logo-dark.svg",
+        src: "img/Aztec Wordmark_Dark.svg",
       },
       items: [
         {
