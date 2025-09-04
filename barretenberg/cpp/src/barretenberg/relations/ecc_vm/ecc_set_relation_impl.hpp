@@ -36,9 +36,10 @@ namespace bb {
  * Output source: ECCVMTranscriptRelation
  *
  * Note that, from the latter table, this is only turned on when we are at a `mul` instruction. Similarly, from the
- * former table, this is only turned on when `precompute_point_transition == 1`. THIRD TERM: tuple of (pc, P.x, P.y,
- * msm-size) from ECCVMMSMRelation, to link the output of the MSM computation from the MSM table to the values in the
- * Transcript tables.
+ * former table, this is only turned on when `precompute_point_transition == 1`.
+ *
+ * THIRD TERM: tuple of (pc, P.x, P.y,msm-size) from ECCVMMSMRelation, to link the output of the MSM computation from
+ * the MSM table to the values in the Transcript tables.
  *
  * Input source: ECCVMMSMRelation
  * Output source: ECCVMTranscriptRelation
