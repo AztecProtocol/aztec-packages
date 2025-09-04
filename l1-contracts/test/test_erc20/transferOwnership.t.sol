@@ -64,6 +64,8 @@ contract TransferOwnershipTest is TestERC20TestBase {
 
     assertEq(testERC20.owner(), _newOwner);
     assertEq(testERC20.minters(_newOwner), true);
-    assertEq(testERC20.minters(oldOwner), true);
+    if (_newOwner != oldOwner) {
+      assertEq(testERC20.minters(oldOwner), false);
+    }
   }
 }

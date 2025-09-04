@@ -21,11 +21,8 @@ export class GovernanceProposerContract implements IEmpireBase {
 
   constructor(
     public readonly client: ViemClient,
-    address: Hex | EthAddress,
+    address: Hex,
   ) {
-    if (address instanceof EthAddress) {
-      address = address.toString();
-    }
     this.proposer = getContract({ address, abi: GovernanceProposerAbi, client });
   }
 

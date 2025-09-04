@@ -9,22 +9,10 @@ export class FeeAssetHandlerContract {
   public address: EthAddress;
 
   constructor(
-    address: Hex | EthAddress,
+    address: Hex,
     public readonly txUtils: L1TxUtils,
   ) {
-    if (address instanceof EthAddress) {
-      address = address.toString();
-    }
     this.address = EthAddress.fromString(address);
-  }
-
-  public async getOwner(): Promise<EthAddress> {
-    const contract = getContract({
-      abi: FeeAssetHandlerAbi,
-      address: this.address.toString(),
-      client: this.txUtils.client,
-    });
-    return EthAddress.fromString(await contract.read.owner());
   }
 
   public getMintAmount() {
@@ -36,10 +24,7 @@ export class FeeAssetHandlerContract {
     return contract.read.mintAmount();
   }
 
-  public mint(recipient: Hex | EthAddress) {
-    if (recipient instanceof EthAddress) {
-      recipient = recipient.toString();
-    }
+  public mint(recipient: Hex) {
     return this.txUtils.sendAndMonitorTransaction({
       to: this.address.toString(),
       data: encodeFunctionData({
