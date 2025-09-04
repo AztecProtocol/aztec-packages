@@ -21,8 +21,14 @@ function test_cmds {
   else
     if [ "$CI_FULL" -eq 1 ]; then
       echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
+      echo "$prefix:NAME=e2e_prover_generate_sample_toml_real $run_test_script simple e2e_prover/generate_sample_toml"
+      echo "$prefix:NAME=e2e_prover_invalid_proofs_real $run_test_script simple e2e_prover/invalid_proofs"
+      echo "$prefix:NAME=e2e_prover_ddos_prevention_real $run_test_script simple e2e_prover/ddos_prevention"
     else
       echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
+      echo "$prefix:NAME=e2e_prover_generate_sample_toml_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/generate_sample_toml"
+      echo "$prefix:NAME=e2e_prover_invalid_proofs_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/invalid_proofs"
+      echo "$prefix:NAME=e2e_prover_ddos_prevention_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/ddos_prevention"
     fi
   fi
   echo "$prefix:TIMEOUT=15m:NAME=e2e_block_building $run_test_script simple e2e_block_building"
