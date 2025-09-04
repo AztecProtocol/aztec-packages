@@ -2228,8 +2228,11 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
     const auto [lo_idx, hi_idx] = ctx->evaluate_non_native_field_multiplication(witnesses);
 
     bb::fr neg_prime = -bb::fr(uint256_t(target_basis.modulus));
-    field_t<Builder>::evaluate_polynomial_identity(
-        left.prime_basis_limb, to_mul.prime_basis_limb, quotient.prime_basis_limb * neg_prime, -remainder_prime_limb);
+    field_t<Builder>::evaluate_polynomial_identity(left.prime_basis_limb,
+                                                   to_mul.prime_basis_limb,
+                                                   quotient.prime_basis_limb * neg_prime,
+                                                   -remainder_prime_limb,
+                                                   "bigfield: prime limb identity failed");
 
     field_t lo = field_t<Builder>::from_witness_index(ctx, lo_idx) + borrow_lo;
     field_t hi = field_t<Builder>::from_witness_index(ctx, hi_idx);
@@ -2524,7 +2527,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     field_t<Builder>::evaluate_polynomial_identity(left[0].prime_basis_limb,
                                                    right[0].prime_basis_limb,
                                                    quotient.prime_basis_limb * neg_prime,
-                                                   -remainder_prime_limb);
+                                                   -remainder_prime_limb,
+                                                   "bigfield: prime limb identity failed");
 
     field_t lo = field_t<Builder>::from_witness_index(ctx, lo_1_idx) + borrow_lo;
     field_t hi = field_t<Builder>::from_witness_index(ctx, hi_1_idx);
