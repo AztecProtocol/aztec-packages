@@ -262,19 +262,10 @@ tests:
     error_regex: "Exceeded timeout of"
     owners:
       - *luke
-  - regex: "e2e_prover/full"
-    error_regex: "ProvingError: Failed to verify proof from key!"
-    owners:
-      - *david
   - regex: "slasher/src/slasher_client.test.ts"
     error_regex: "ContractFunctionExecutionError: The contract function"
     owners:
       - *mitch
-  - regex: "e2e_prover/full"
-    error_regex: "Rollup submit epoch proof failed"
-    owners:
-      - *alex
-
   # Nightly GKE tests
   - regex: "spartan/bootstrap.sh"
     owners:
