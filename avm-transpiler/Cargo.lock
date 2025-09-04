@@ -63,6 +63,7 @@ dependencies = [
  "keccak",
  "libaes",
  "log",
+ "num-bigint",
  "p256",
  "sha2",
  "thiserror",
