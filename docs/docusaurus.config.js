@@ -28,7 +28,7 @@ const config = {
   trailingSlash: false,
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: process.env.ENV === "dev" ? "warn" : "throw",
-  favicon: "img/Aztec Symbol_Dark.png",
+  favicon: "img/Aztec_Symbol_Dark.png",
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
