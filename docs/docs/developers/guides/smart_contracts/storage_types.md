@@ -9,25 +9,36 @@ Interacting with the protocol in a reliable, private manner is simplified by usi
 
 ## Map
 
-A `map` is a state variable that "maps" a key to a value. It can be used with private or public storage variables.
+A `map` is a key-value storage container that maps keys to state variables. `Map` enables you to associate keys (like addresses or other identifiers)
+with state variables in your Aztec smart contract. This is conceptually similar to Solidity's `mapping(K => V)` syntax, where you can store and retrieve values by their associated keys.It can be used with private or public storage variables.
 
 :::info
 In Aztec.nr, keys are always `Field`s, or types that can be serialized as Fields, and values can be any type - even other maps. `Field`s are finite field elements, but you can think of them as integers.
 :::
 
-It includes a `Context` to specify the private or public domain, a `storage_slot` to specify where in storage the map is stored, and a `start_var_constructor` which tells the map how it should operate on the underlying type. This includes how to serialize and deserialize the type, as well as how commitments and nullifiers are computed for the type if it's private.
-
-You can view the implementation in the Aztec.nr library [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/aztec-nr).
+Maps are typically declared in your contract's #[storage] struct and
+accessed using the `.at(key)` method to get the state variable for a specific key.
+The resulting state variable can then be read from or written to using its
+own methods.
 
 You can have multiple `map`s in your contract that each have a different underlying note type, due to note type IDs. These are identifiers for each note type that are unique within a contract.
 
 #### As private storage
 
-When declaring a mapping in private storage, we have to specify which type of Note to use. In the example below, we are specifying that we want to use the `PrivateMutable` note which will hold `ValueNote` types.
+When declaring a mapping in private storage, we have to specify which type of Note to use. In the example below, we are specifying that we want to use a `PrivateSet` of `NFTNote` types.
 
-In the Storage struct:
+You can declare a state variable contained within a Map in your contract's `#[storage]` struct.
 
 #include_code private_map /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
+
+:::info
+
+The verbose `Context` in the declaration is a consequence of
+leveraging Noir's regular syntax for generics to ensure that certain
+state variable methods can only be called in some contexts (private,
+public, utility).
+
+:::
 
 #### Public Example
 
@@ -37,7 +48,7 @@ When declaring a public mapping in Storage, we have to specify that the type is 
 
 ### Accessing a value
 
-When dealing with a Map, we can access the value at a given key using the `::at` method. This takes the key as an argument and returns the value at that key.
+With a Map, we can access the value at a given key using the `.at()` method. This takes the key as an argument and returns the value at that key.
 
 This function behaves similarly for both private and public maps. An example could be if we have a map with `minters`, which is mapping addresses to a flag for whether they are allowed to mint tokens or not.
 
@@ -189,7 +200,38 @@ Functionally similar to `get_note`, but executed unconstrained and can be used b
 
 ### PrivateSet
 
-`PrivateSet` is used for managing a collection of notes. All notes in a `PrivateSet` are of the same `NoteType`. But whether these notes all belong to one entity, or are accessible and editable by different entities, is up to the developer.
+`PrivateSet` is a private state variable type, which enables you to read, mutate,
+and write private state within the #[private] functions of your smart contract.
+
+You can declare a state variable of type PrivateSet within your contract's #[storage] struct:
+
+E.g.:
+
+```rust
+your_variable: PrivateSet<YourNote, Context>
+```
+
+or:
+
+```rust
+your_mapping: Map<Field, PrivateSet<YourNote, Context>>
+```
+
+The PrivateSet type operates over notes, by facilitating
+
+- the insertion of new notes
+- the reading of existing notes
+- the nullification of existing
+  notes
+
+in a privacy-preserving way.
+
+The methods of PrivateSet are:
+
+- `insert`
+- `pop_notes`
+- `get_notes`
+- `remove`
 
 For example, adding a mapping of private NFTs to storage, indexed by `AztecAddress`:
 
@@ -197,9 +239,27 @@ For example, adding a mapping of private NFTs to storage, indexed by `AztecAddre
 
 #### `insert`
 
-Allows us to modify the storage by inserting a note into the `PrivateSet`.
+Inserts a new `note` into the PrivateSet. This function inserts the note into the protocol's Note Hash Tree.
 
-A hash of the note will be generated, and inserted into the note hash tree, allowing us to later use in contract interactions. Recall that the content of the note should be shared with the owner to allow them to use it, as mentioned this can be done via an encrypted log or offchain via web2, or completely offline.
+Arguments:
+
+- `note` - A newly-created note to insert into this PrivateSet.
+
+Returns:
+
+- `NoteEmission<Note>` - A type-safe wrapper which makes it clear to the smart contract dev that they now have a choice: they need to decide whether they would like to send the contents of the newly-created note to someone, or not. If they would like to, they have some further choices:
+  - What kind of log to use? (Private log, or offchain log).
+  - What kind of encryption scheme to use? (Currently only AES128 is supported)
+  - Whether to _constrain_ delivery of the note, or not.
+
+At the moment, aztec-nr provides limited options.
+You can call `.emit()` on the returned type to encrypt and log the note, or `.discard()` to skip emission.
+
+See `NoteEmission` for more details.
+
+:::info
+We're planning a _significant_ refactor of this syntax, to make the syntax of how to encrypt and deliver notes much clearer, and to make the default options much clearer to developers. We will also be enabling easier ways to customize your own note encryption options.
+:::
 
 #include_code insert /noir-projects/aztec-nr/easy-private-state/src/easy_private_uint.nr rust
 
@@ -208,12 +268,6 @@ A hash of the note will be generated, and inserted into the note hash tree, allo
 Calling `emit(encode_and_encrypt_note())` on `insert` will encrypt the new note and post it to the data availability layer so that the note information is retrievable by the recipient.
 
 :::
-
-#### `insert_from_public`
-
-The `insert_from_public` allow public function to insert notes into private storage. This is very useful when we want to support private function calls that have been initiated in public.
-
-The usage is similar to using the `insert` method with the difference that this one is called in public functions.
 
 #### `pop_notes`
 
