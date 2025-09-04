@@ -17,6 +17,7 @@
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
+#include "barretenberg/stdlib/primitives/curves/secp256r1.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 #include <array>
 #include <cstdint>
@@ -448,7 +449,9 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
 // Define types for which the above tests will be constructed.
 using CircuitTypes = testing::Types<typename bb::stdlib::bn254<UltraCircuitBuilder>::BaseField,
                                     typename bb::stdlib::secp256k1<UltraCircuitBuilder>::fq_ct,
-                                    typename bb::stdlib::secp256k1<UltraCircuitBuilder>::bigfr_ct>;
+                                    typename bb::stdlib::secp256k1<UltraCircuitBuilder>::bigfr_ct,
+                                    typename bb::stdlib::secp256r1<UltraCircuitBuilder>::fq_ct,
+                                    typename bb::stdlib::secp256r1<UltraCircuitBuilder>::bigfr_ct>;
 
 // Define the suite of tests.
 TYPED_TEST_SUITE(stdlib_bigfield_edge_cases, CircuitTypes);
