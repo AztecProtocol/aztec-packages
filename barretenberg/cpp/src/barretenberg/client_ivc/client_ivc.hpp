@@ -255,8 +255,6 @@ class ClientIVC {
     ExecutionTraceUsageTracker trace_usage_tracker;
 
   private:
-    using ProverFoldOutput = FoldingResult<Flavor>;
-
     // Transcript for CIVC prover (shared between Hiding circuit, Merge, ECCVM, and Translator)
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 

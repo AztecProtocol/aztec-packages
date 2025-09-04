@@ -372,7 +372,6 @@ HonkProof ClientIVC::construct_oink_proof(const std::shared_ptr<DeciderProvingKe
     return oink_proof;
 }
 
-// WORKTODO: could make these static by passing in and out the prover accumulator
 HonkProof ClientIVC::construct_pg_proof(const std::shared_ptr<DeciderProvingKey>& proving_key,
                                         const std::shared_ptr<MegaVerificationKey>& honk_vk,
                                         const std::shared_ptr<Transcript>& transcript,
