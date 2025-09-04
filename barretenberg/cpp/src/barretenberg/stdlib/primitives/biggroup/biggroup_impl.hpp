@@ -122,26 +122,24 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     // yes = infinity_predicate && !lhs_infinity && !rhs_infinity
     // yes = lhs_infinity && rhs_infinity
     // n.b. can likely optimize this
-    info("PRINT in BIGGROUP OLOLLLO");
-    info(lhs_infinity.witness_index);
-    info(rhs_infinity.witness_index);
     bool_ct result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
-    /*     if constexpr (IsUltraBuilder<C>) {
-            result_is_infinity.get_context()->update_used_witnesses(result_is_infinity.witness_index);
-        } */
-    info(result_is_infinity.witness_index);
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
-    /*     if constexpr (IsUltraBuilder<C>) {
-            result_is_infinity.get_context()->update_used_witnesses(result_is_infinity.witness_index);
-        } */
-    info(result_is_infinity.witness_index);
     result.set_point_at_infinity(result_is_infinity);
-    info(result_is_infinity.get_value());
-
     result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
+    if ((lhs_infinity.is_constant() && !rhs_infinity.is_constant())) {
+        // in this case (lhs_infninity && rhs_infninity) has witness_index == IS_CONSTANT, so
+        // in the last operation result_is_infinity's witness_index won't be changed and it will be in one gate
+        result_is_infinity.get_context()->update_used_witnesses(result_is_infinity.witness_index);
+    }
+    if (!lhs_infinity.is_constant() && !rhs_infinity.is_constant()) {
+        // if both variables lhs_infinity && rhs_infinity are not constant, first result_is_infinity will be in 2
+        // gates and second one will be in 1 gate
+        if constexpr (IsUltraBuilder<C>) {
+            result_is_infinity.get_context()->update_used_witnesses(result_is_infinity.witness_index);
+        }
+    }
     return result;
 }
-
 /**
  * @brief Enforce x and y coordinates of a point to be (0,0) in the case of point at infinity
  *
@@ -207,15 +205,21 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) con
     // yes = lhs_infinity && rhs_infinity
     // n.b. can likely optimize this
     bool_ct result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
-    if constexpr (IsUltraBuilder<C>) {
-        result_is_infinity.get_context()->update_used_witnesses(result_is_infinity.witness_index);
-    }
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
-    if constexpr (IsUltraBuilder<C>) {
-        result_is_infinity.get_context()->update_used_witnesses(result_is_infinity.witness_index);
-    }
     result.set_point_at_infinity(result_is_infinity);
     result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
+    if ((lhs_infinity.is_constant() && !rhs_infinity.is_constant())) {
+        // in this case (lhs_infninity && rhs_infninity) has witness_index == IS_CONSTANT, so
+        // in the last operation result_is_infinity's witness_index won't be changed and it will be in one gate
+        result_is_infinity.get_context()->update_used_witnesses(result_is_infinity.witness_index);
+    }
+    if (!lhs_infinity.is_constant() && !rhs_infinity.is_constant()) {
+        // if both variables lhs_infinity && rhs_infinity are not constant, first result_is_infinity will be in 2
+        // gates and second one will be in 1 gate
+        if constexpr (IsUltraBuilder<C>) {
+            result_is_infinity.get_context()->update_used_witnesses(result_is_infinity.witness_index);
+        }
+    }
     return result;
 }
 
