@@ -1,9 +1,6 @@
 import { BatchedBlob, Blob } from '@aztec/blob-lib';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
-import { range } from '@aztec/foundation/array';
-import { timesParallel } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
-import { fr } from '@aztec/stdlib/testing';
 
 import { TestContext } from '../mocks/test_context.js';
 
@@ -31,8 +28,7 @@ describe('prover/orchestrator/blocks', () => {
     });
 
     it('builds a block with 1 transaction', async () => {
-      const txs = [await context.makeProcessedTx(1)];
-      await context.setTreeRoots(txs);
+      const { txs } = await context.makePendingBlock(1);
 
       const blobFields = txs.map(tx => tx.txEffect.toBlobFields()).flat();
       const blobs = await Blob.getBlobsPerBlock(blobFields);
@@ -50,9 +46,7 @@ describe('prover/orchestrator/blocks', () => {
     });
 
     it('builds a block concurrently with transaction simulation', async () => {
-      const txs = await timesParallel(4, i => context.makeProcessedTx(i + 1));
-      await context.setTreeRoots(txs);
-      const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
+      const { txs, l1ToL2Messages } = await context.makePendingBlock(4, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
 
       const blobFields = txs.map(tx => tx.txEffect.toBlobFields()).flat();
       const blobs = await Blob.getBlobsPerBlock(blobFields);

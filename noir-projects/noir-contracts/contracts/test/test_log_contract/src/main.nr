@@ -3,7 +3,7 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract TestLog {
     use aztec::{
-        event::event_interface::{emit_event_in_private, emit_event_in_public_log, MessageDelivery},
+        event::event_interface::{emit_event_in_private, emit_event_in_public, MessageDelivery},
         macros::{events::event, functions::{private, public}, storage::storage},
         protocol_types::{address::AztecAddress, traits::FromField},
         state_vars::PrivateSet,
@@ -62,13 +62,13 @@ pub contract TestLog {
     #[public]
     fn emit_unencrypted_events(preimages: [Field; 4]) {
         // docs:start:emit_public
-        emit_event_in_public_log(
+        emit_event_in_public(
             ExampleEvent0 { value0: preimages[0], value1: preimages[1] },
             &mut context,
         );
         // docs:end:emit_public
 
-        emit_event_in_public_log(
+        emit_event_in_public(
             ExampleEvent1 {
                 value2: AztecAddress::from_field(preimages[2]),
                 value3: preimages[3] as u8,

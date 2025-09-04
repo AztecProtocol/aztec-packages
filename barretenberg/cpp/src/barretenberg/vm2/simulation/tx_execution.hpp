@@ -21,6 +21,7 @@ class TxExecution final {
                 ContextProviderInterface& context_provider,
                 HighLevelMerkleDBInterface& merkle_db,
                 WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree,
+                RetrievedBytecodesTreeCheckInterface& retrieved_bytecodes_tree,
                 FieldGreaterThanInterface& field_gt,
                 Poseidon2Interface& poseidon2,
                 EventEmitterInterface<TxEvent>& event_emitter)
@@ -30,7 +31,7 @@ class TxExecution final {
         , field_gt(field_gt)
         , poseidon2(poseidon2)
         , events(event_emitter)
-        , tx_context(merkle_db, written_public_data_slots_tree, context_provider)
+        , tx_context(merkle_db, written_public_data_slots_tree, retrieved_bytecodes_tree, context_provider)
     {}
 
     void simulate(const Tx& tx);
