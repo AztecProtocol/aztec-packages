@@ -105,7 +105,7 @@ pub fn emit_event_in_private<Event>(
     delivery_mode: u8,
 )
 where
-    Event: EventInterface + Serialize,
+    Event: EventInterface,
 {
     // This function relies on `delivery_mode` being a constant in order to reduce circuit constraints when unconstrained
     // usage is requested. If `delivery_mode` were a runtime value then performance would suffer.
@@ -127,7 +127,20 @@ where
     // - nullifiers require no nonce, and events, being non-spendable, don't need the guarantee that a "spending"
     // nullifier can be computed.
     // TODO(#11571): with decryption happening in Noir we can now use the Packable trait instead.
-    let serialized_event_with_randomness = [randomness].concat(event.serialize());
+
+    // TODO: NUKE THIS NOIR BUG WORKAROUND
+    // ####### WORKAROUND START #######
+    let serialized_event: [Field; <Event as Serialize>::N] = event.serialize();
+    let mut serialized_event_with_randomness: [Field; <Event as Serialize>::N + 1] =
+        std::mem::zeroed();
+    serialized_event_with_randomness[0] = randomness;
+    for i in 0..<Event as Serialize>::N {
+        serialized_event_with_randomness[i] = serialized_event[i];
+    }
+    // ####### WORKAROUND END #######
+
+    // let serialized_event_with_randomness = [randomness].concat(serialized_event);
+
     let event_commitment = poseidon2_hash_with_separator(
         serialized_event_with_randomness,
         GENERATOR_INDEX__EVENT_COMMITMENT,
@@ -147,7 +160,7 @@ where
 
 pub fn emit_event_in_public<Event>(event: Event, context: &mut PublicContext)
 where
-    Event: EventInterface + Serialize,
+    Event: EventInterface,
 {
     let mut log_content = [0; <Event as Serialize>::N + 1];
 
@@ -162,6 +175,10 @@ where
     context.emit_public_log(log_content);
 }
 
-pub trait EventInterface {
+pub trait EventInterface: Serialize {
     fn get_event_type_id() -> EventSelector;
+
+    fn emit_private(self, context: &mut PrivateContext, recipient: AztecAddress, delivery_mode: u8);
+
+    fn emit_public(self, context: &mut PublicContext);
 }

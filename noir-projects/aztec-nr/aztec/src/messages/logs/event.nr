@@ -20,7 +20,7 @@ pub fn to_encrypted_private_event_message<Event>(
     recipient: AztecAddress,
 ) -> ([Field; PRIVATE_LOG_CIPHERTEXT_LEN], Field)
 where
-    Event: EventInterface + Serialize,
+    Event: EventInterface,
 {
     // In private events, we automatically inject randomness to prevent event commitment preimage attacks and event
     // commitment collisions (the commitments are included in the nullifier tree and duplicate nullifiers are by
@@ -32,7 +32,19 @@ where
     let randomness = unsafe { random() };
 
     // TODO(#11571): with decryption happening in Noir we can now use the Packable trait instead.
-    let serialized_event_with_randomness = [randomness].concat(event.serialize());
+
+    // TODO: NUKE THIS NOIR BUG WORKAROUND
+    // ####### WORKAROUND START #######
+    let serialized_event: [Field; <Event as Serialize>::N] = event.serialize();
+    let mut serialized_event_with_randomness: [Field; <Event as Serialize>::N + 1] =
+        std::mem::zeroed();
+    serialized_event_with_randomness[0] = randomness;
+    for i in 0..<Event as Serialize>::N {
+        serialized_event_with_randomness[i] = serialized_event[i];
+    }
+    // ####### WORKAROUND END #######
+
+    // let serialized_event_with_randomness = [randomness].concat(event.serialize());
 
     // Private events are encoded by placing the event type id (which is expected to fit in 32 bits) in the metadata.
     let plaintext = encode_message(

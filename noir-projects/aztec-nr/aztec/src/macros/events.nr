@@ -29,6 +29,14 @@ comptime fn generate_event_interface_and_get_selector(s: TypeDefinition) -> (Quo
             fn get_event_type_id() -> aztec::event::event_selector::EventSelector {
                 $from_field($event_selector)
             }
+
+            fn emit_private(self, context: &mut aztec::context::PrivateContext, recipient: aztec::protocol_types::address::AztecAddress, delivery_mode: u8) {
+                aztec::event::event_interface::emit_event_in_private(self, context, recipient, delivery_mode);
+            }
+
+            fn emit_public(self, context: &mut aztec::context::PublicContext) {
+                aztec::event::event_interface::emit_event_in_public(self, context);
+            }
         }
     },
         event_selector,
@@ -46,15 +54,15 @@ comptime fn register_event_selector(event_selector: Field, event_name: Quoted) {
 }
 
 pub comptime fn event(s: TypeDefinition) -> Quoted {
+    let serialize_impl = derive_serialize_if_not_implemented(s);
+
     let (event_interface_impl, event_selector) = generate_event_interface_and_get_selector(s);
     register_event_selector(event_selector, s.name());
-
-    let serialize_impl = derive_serialize_if_not_implemented(s);
 
     s.add_attribute("abi(events)");
 
     quote {
-        $event_interface_impl
         $serialize_impl
+        $event_interface_impl
     }
 }

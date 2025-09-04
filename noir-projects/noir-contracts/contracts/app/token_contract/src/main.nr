@@ -20,7 +20,7 @@ pub contract Token {
 
     use dep::aztec::{
         context::{PrivateCallInterface, PrivateContext, PublicContext},
-        event::event_interface::{emit_event_in_private, MessageDelivery},
+        event::event_interface::{EventInterface, MessageDelivery},
         macros::{
             events::event,
             functions::{authorize_once, initializer, internal, private, public, utility, view},
@@ -301,8 +301,7 @@ pub contract Token {
         // another person where the payment is considered to be successful when the other party successfully decrypts a
         // note).
         // docs:start:encrypted_unconstrained
-        emit_event_in_private(
-            Transfer { from, to, amount },
+        Transfer { from, to, amount }.emit_private(
             &mut context,
             to,
             MessageDelivery.UNCONSTRAINED_ONCHAIN,
