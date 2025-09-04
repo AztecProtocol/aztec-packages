@@ -12,30 +12,41 @@
 namespace bb {
 
 /**
- * @brief Performs list-equivalence checks for the ECCVM
+ * @brief Performs multiset equality checks for the ECCVM. This faciliates "communication" between disjoint sets of
+ * columns, which we view as tables: the Precomputed table, the MSM table, and the Transcript table. This used to be
+ * called a strict lookup argument (where every element written was read _exactly_ once.)
  *
- * @details ECCVMSetRelationImpl validates the correctness of the inputs/outputs of the three main algorithms evaluated
- * by the ECCVM.
+ * @details ECCVMSetRelationImpl validates the correctness of the "inputs"/"outputs" of the three main algorithms
+ * evaluated by the ECCVM. Note that the terminology of "inputs" and "outputs" is _purely psychological_; they each just
+ * name the multiset we are adding to.
  *
- * Recall that `pc` stands for point-counter.
+ * It will be helpful to recall that `pc` always stands for point-counter. We use the terms interchangably.
  *
- * First term: tuple of (pc, round, wnaf_slice), computed when slicing scalar multipliers into slices,
- *             as part of ECCVMWnafRelation. (Here, round corresponds to `msm_round`.)
+ * FIRST TERM: tuple of (pc, round, wnaf_slice), computed when slicing scalar multipliers into slices, as part of
+ * ECCVMWnafRelation.
+ *
  * Input source: ECCVMWnafRelation
  * Output source: ECCVMMSMRelation
  *
  *
- * Second term: tuple of (pc, P.x, P.y, scalar-multiplier), used in ECCVMWnafRelation and
- *              ECCVMPointTableRelation.
+ *
+ * SECOND TERM: tuple of (pc, P.x, P.y, scalar-multiplier), used in ECCVMWnafRelation.
+ *
  * Input source: ECCVMPointTableRelation
  * Output source: ECCVMTranscriptRelation
  *
- * Third term: tuple of (pc, P.x, P.y, msm-size) from ECCVMMSMRelation.
+ * Note that, from the latter table, this is only turned on when we are at a `mul` instruction. Similarly, from the
+ * former table, this is only turned on when `precompute_point_transition == 1`.
+ *
+ * THIRD TERM: tuple of (pc, P.x, P.y,msm-size) from ECCVMMSMRelation, to link the output of the MSM computation from
+ * the MSM table to the values in the Transcript tables.
+ *
  * Input source: ECCVMMSMRelation
  * Output source: ECCVMTranscriptRelation
  * Note that, from the latter table, this is only turned on when we are at an MSM transition, so we don't record the
  * "intermediate" `transcript_pc` values from the Transcript columns. This is compatible with the fact that the `msm_pc`
  * values are _constant_ on a fixed MSM.
+ *
  *
  * @tparam FF
  * @tparam AccumulatorTypes
@@ -62,12 +73,19 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
     const auto& precompute_select = View(in.precompute_select);
 
     /**
-     * @brief First term: tuple of (pc, round, wnaf_slice), computed when slicing scalar multipliers into slices,
-     *        as part of ECCVMWnafRelation.
-     *        If precompute_select = 1, tuple entry = (wnaf-slice + pc * beta + msm-round * beta_sqr).
-     *        There are 4 tuple entries per row of the Precompute table. Moreover, the element that "increments" is
-     *        4 * `precompute_round`, due to the fact that the Precompute columns contain four "digits"/slices per row.
+     * @brief First term: tuple of (pc, round, wnaf_slice), computed when slicing scalar multipliers into slices, as
+     * part of ECCVMWnafRelation.
+     *
+     * @details
+     * There are 4 tuple entries per row of the Precompute table. Moreover, the element that "increments" is
+     * 4 * `precompute_round`, due to the fact that the Precompute columns contain four "digits"/slices per row.
+     *
+     * @note
+     * We only add this tuple if `precompute_select == 1`. Otherwise, we add a the tuple (0, 0, 0).
      */
+
+    // OPTIMIZE(@zac-williamson #2226) optimize degrees
+
     Accumulator numerator(1); // degree-0
     {
         const auto& s0 = View(in.precompute_s1hi);
@@ -77,7 +95,6 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         wnaf_slice += wnaf_slice;
         wnaf_slice += s1;
 
-        // TODO(@zac-williamson #2226) optimize
         const auto wnaf_slice_input0 = wnaf_slice + gamma + precompute_pc * beta + precompute_round4 * beta_sqr;
         numerator *= wnaf_slice_input0; // degree-1
     }
@@ -89,7 +106,6 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         wnaf_slice += wnaf_slice;
         wnaf_slice += s1;
 
-        // TODO(@zac-williamson #2226) optimize
         const auto wnaf_slice_input1 = wnaf_slice + gamma + precompute_pc * beta + (precompute_round4 + 1) * beta_sqr;
         numerator *= wnaf_slice_input1; // degree-2
     }
@@ -101,7 +117,6 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         wnaf_slice += wnaf_slice;
         wnaf_slice += s1;
 
-        // TODO(@zac-williamson #2226) optimize
         const auto wnaf_slice_input2 = wnaf_slice + gamma + precompute_pc * beta + (precompute_round4 + 2) * beta_sqr;
         numerator *= wnaf_slice_input2; // degree-3
     }
@@ -112,7 +127,6 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         auto wnaf_slice = s0 + s0;
         wnaf_slice += wnaf_slice;
         wnaf_slice += s1;
-        // TODO(@zac-williamson #2226) optimize
         const auto wnaf_slice_input3 = wnaf_slice + gamma + precompute_pc * beta + (precompute_round4 + 3) * beta_sqr;
         numerator *= wnaf_slice_input3; // degree-4
     }
@@ -130,15 +144,24 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         // if `precompute_select == 1`, don't change the numerator. if it is 0, then to get the grand product argument
         // to work (as we have zero-padded the rows of the MSM table), we must multiply by
         // `eccvm_set_permutation_delta` == (γ)·(γ + β²)·(γ + 2β²)·(γ + 3β²)
+        // if `precompute_select == 1`, don't change the numerator. if it is 0, then to get the grand product argument
+        // to work (as we have zero-padded the rows of the MSM table), we must multiply by
+        // `eccvm_set_permutation_delta` == (γ)·(γ + β²)·(γ + 2β²)·(γ + 3β²)
         numerator *= precompute_select * (-eccvm_set_permutation_delta + 1) + eccvm_set_permutation_delta; // degree-7
     }
 
     /**
      * @brief Second term: tuple of (pc, P.x, P.y, scalar-multiplier), used in ECCVMWnafRelation and
-     * ECCVMPointTableRelation. ECCVMWnafRelation validates the sum of the wnaf slices associated with pc
+     * ECCVMPointTableRelation.
+     *
+     * @details
+     * ECCVMWnafRelation validates the sum of the wnaf slices associated with point-counter
      * equals scalar-multiplier. ECCVMPointTableRelation computes a table of muliples of [P]: { -15[P], -13[P], ...,
-     * 15[P] }. We need to validate that scalar-multiplier and [P] = (P.x, P.y) come from MUL opcodes in the transcript
-     * columns.
+     * 15[P] }. We need to validate that the scalar-multiplier and [P] = (P.x, P.y) come from MUL opcodes in the
+     * transcript columns; in other words, that the wNAF expansion of the scalar-multiplier is correct.
+     *
+     * @note
+     * We only add the tuple to the multiset if `precompute_point_transition == 1`.
      */
     {
         const auto& table_x = View(in.precompute_tx);
@@ -210,15 +233,20 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
     }
     /**
      * @brief Third term: tuple of (pc, P.x, P.y, msm-size) from ECCVMMSMRelation.
+     * @brief Third term: tuple of (pc, P.x, P.y, msm-size) from ECCVMMSMRelation.
      *        (P.x, P.y) is the output of a multi-scalar-multiplication evaluated in ECCVMMSMRelation.
      *        We need to validate that the same values (P.x, P.y) are present in the Transcript columns and describe a
      *        multi-scalar multiplication of size `msm-size`, starting at `pc`.
+     *        multi-scalar multiplication of size `msm-size`, starting at `pc`.
      *
-     *        If msm_transition_shift = 1, this indicates the current row is the last row of a multiscalar
+     *        If `msm_transition_shift == 1`, this indicates the current row is the last row of a multiscalar
      *        multiplication evaluation. The output of the MSM will be present on `(msm_accumulator_x_shift,
      *        msm_accumulator_y_shift)`. The values of `msm_accumulator_x_shift, msm_accumulator_y_shift, msm_pc,
      *        msm_size_of_msm` must match up with equivalent values `transcript_msm_output_x, transcript_msm_output_y,
-     *        transcript_pc, transcript_msm_count` present in the Transcript columns
+     *        transcript_pc, transcript_msm_count` present in the Transcript columns.
+     *
+     *        Checking `msm_size` is correct (it is tied to the `pc`) is necessary to make sure the `msm_pc` increments
+     *        correctly after it completes an MSM.
      */
     {
         const auto& lagrange_first = View(in.lagrange_first);
@@ -257,8 +285,8 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
 {
     using View = typename Accumulator::View;
 
-    // TODO(@zac-williamson). The degree of this contribution is 17! makes overall relation degree 19.
-    // Can optimize by refining the algebra, once we have a stable base to iterate off of.
+    // OPTIMIZE(@zac-williamson). The degree of this contribution is 17! makes overall relation degree 19.
+    // Can potentially optimize by refining the algebra.
     const auto& gamma = params.gamma;
     const auto& beta = params.beta;
     const auto& beta_sqr = params.beta_sqr;
@@ -306,43 +334,52 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
     }
 
     /**
-     * @brief Second term: tuple of (transcript_pc, transcript_Px, transcript_Py, z1) OR (transcript_pc, \lambda *
-     * transcript_Px, -transcript_Py, z2) for each scalar multiplication in ECCVMTranscriptRelation columns. (the latter
-     * term uses the curve endomorphism: \lambda = cube root of unity). These values must be equivalent to the second
+     * @brief Second term: tuple of  the form `(transcript_pc, transcript_Px, transcript_Py, z1)` OR `(transcript_pc,
+     * \beta * transcript_Px, -transcript_Py, z2)` for each scalar multiplication in ECCVMTranscriptRelation columns.
+     * Here \f$\beta\f$ is a cube root of unity in \f$\mathbb f_q\f$. These values must be equivalent to the second
      * term values in `compute_grand_product_numerator`
+     *
+     * @details
+     * Recall that every element of \f$\mathbb F_r\f$ may be written as \f$z_1 + \zeta z_2  = z_1 - \beta z_2\f$, where
+     * the \f$z_i\f$ are 128 bit numbers and \f$\zeta = -\beta\f$ is a sixth root of unity.
      */
     {
         const auto& transcript_pc = View(in.transcript_pc);
 
-        auto transcript_Px = View(in.transcript_Px);
-        auto transcript_Py = View(in.transcript_Py);
-        auto z1 = View(in.transcript_z1);
-        auto z2 = View(in.transcript_z2);
-        auto z1_zero = View(in.transcript_z1zero);
-        auto z2_zero = View(in.transcript_z2zero);
-        auto base_infinity = View(in.transcript_base_infinity);
-        auto transcript_mul = View(in.transcript_mul);
+        const auto& transcript_Px = View(in.transcript_Px);
+        const auto& transcript_Py = View(in.transcript_Py);
+        const auto& z1 = View(in.transcript_z1);
+        const auto& z2 = View(in.transcript_z2);
+        const auto& z1_zero = View(in.transcript_z1zero);
+        const auto& z2_zero = View(in.transcript_z2zero);
+        const auto& base_infinity = View(in.transcript_base_infinity);
+        const auto& transcript_mul = View(in.transcript_mul);
 
-        auto lookup_first = (-z1_zero + 1);
-        auto lookup_second = (-z2_zero + 1);
-        FF endomorphism_base_field_shift = FF(bb::fq::cube_root_of_unity());
+        const auto& lookup_first = (-z1_zero + 1);
+        const auto& lookup_second = (-z2_zero + 1);
+        FF cube_root_unity = FF(bb::fq::cube_root_of_unity());
 
         auto transcript_input1 =
             transcript_pc + transcript_Px * beta + transcript_Py * beta_sqr + z1 * beta_cube; // degree = 1
-        auto transcript_input2 = (transcript_pc - 1) + transcript_Px * endomorphism_base_field_shift * beta -
+        auto transcript_input2 = (transcript_pc - 1) + transcript_Px * cube_root_unity * beta -
                                  transcript_Py * beta_sqr + z2 * beta_cube; // degree = 2
 
-        // | q_mul | z2_zero | z1_zero | base_infinity | lookup                 |
-        // | ----- | ------- | ------- | ------------- |----------------------- |
-        // | 0     | -       | -       |             - | 1                      |
-        // | 1     | 0       | 0       |             0 | 1                      |
-        // | 1     | 0       | 1       |             0 | X + gamma              |
-        // | 1     | 1       | 0       |             0 | Y + gamma              |
-        // | 1     | 1       | 1       |             0 | (X + gamma)(Y + gamma) |
-        // | 1     | 0       | 0       |             1 | 1                      |
-        // | 1     | 0       | 1       |             1 | 1                      |
-        // | 1     | 1       | 0       |             1 | 1                      |
-        // | 1     | 1       | 1       |             1 | 1                      |
+        // The following diagram expresses a fingerprint of part of the tuple. It does not include `transcript_pc` and
+        // has not weighted the X and Y with beta and beta_sqr respectively. The point is nonetheless to show exactly
+        // when a tuple is added to the multiset: iff it corresponds to a non-trivial (128-bit) scalar mul. If neither
+        // z1 nor z2 are zero, then we implicitly add _two_ tuples to the multiset.
+        //
+        // | q_mul | z2_zero | z1_zero | base_infinity | partial lookup              |
+        // | ----- | ------- | ------- | ------------- |-----------------------      |
+        // | 0     | -       | -       |             - | 1                           |
+        // | 1     | 0       | 0       |             0 | 1                           |
+        // | 1     | 0       | 1       |             0 | X + gamma                   |
+        // | 1     | 1       | 0       |             0 | Y + gamma                   |
+        // | 1     | 1       | 1       |             0 | (X + gamma)(Y + gamma)      |
+        // | 1     | 0       | 0       |             1 | 1                           |
+        // | 1     | 0       | 1       |             1 | 1                           |
+        // | 1     | 1       | 0       |             1 | 1                           |
+        // | 1     | 1       | 1       |             1 | 1                           |
         transcript_input1 = (transcript_input1 + gamma) * lookup_first + (-lookup_first + 1);   // degree 2
         transcript_input2 = (transcript_input2 + gamma) * lookup_second + (-lookup_second + 1); // degree 3
 
@@ -362,17 +399,22 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
      * @note  In the case of an honest prover, `(transcript_msm_output_x, transcript_msm_output_y)` is the value of the
      *        just-completed MSM + `OFFSET` (as this is what the MSM table computes with to avoid branch logic.)
      *
+     *        in `transcript_msm_output_x, transcript_msm_output_y`, for a given multi-scalar multiplication starting at
+     *        `transcript_pc` and has size `transcript_msm_count`.
+     * @note  In the case of an honest prover, `(transcript_msm_output_x, transcript_msm_output_y)` is the value of the
+     *        just-completed MSM + `OFFSET` (as this is what the MSM table computes with to avoid branch logic.)
+     *
      */
     {
-        auto transcript_pc_shift = View(in.transcript_pc_shift);
-        auto transcript_msm_x = View(in.transcript_msm_x);
-        auto transcript_msm_y = View(in.transcript_msm_y);
-        auto transcript_msm_transition = View(in.transcript_msm_transition);
-        auto transcript_msm_count = View(in.transcript_msm_count);
-        auto z1_zero = View(in.transcript_z1zero);
-        auto z2_zero = View(in.transcript_z2zero);
-        auto transcript_mul = View(in.transcript_mul);
-        auto base_infinity = View(in.transcript_base_infinity);
+        const auto& transcript_pc_shift = View(in.transcript_pc_shift);
+        const auto& transcript_msm_x = View(in.transcript_msm_x);
+        const auto& transcript_msm_y = View(in.transcript_msm_y);
+        const auto& transcript_msm_transition = View(in.transcript_msm_transition);
+        const auto& transcript_msm_count = View(in.transcript_msm_count);
+        const auto& z1_zero = View(in.transcript_z1zero);
+        const auto& z2_zero = View(in.transcript_z2zero);
+        const auto& transcript_mul = View(in.transcript_mul);
+        const auto& base_infinity = View(in.transcript_base_infinity);
 
         // do not add to count if point at infinity!
         auto full_msm_count =
