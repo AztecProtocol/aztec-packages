@@ -289,7 +289,6 @@ class UltraEccOpsTable {
                "current subtable should be merged before reconstructing the full table of operations.");
 
         std::vector<UltraOp> reconstructed_table;
-        // reconstructed_table.reserve(reconstructed_table_size);
 
         for (size_t subtable_idx = 0; subtable_idx < table.num_subtables() - 1; subtable_idx++) {
             const auto& subtable = table.get()[subtable_idx];
