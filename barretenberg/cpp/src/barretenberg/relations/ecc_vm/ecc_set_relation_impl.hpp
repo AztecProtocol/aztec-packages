@@ -144,6 +144,9 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         // if `precompute_select == 1`, don't change the numerator. if it is 0, then to get the grand product argument
         // to work (as we have zero-padded the rows of the MSM table), we must multiply by
         // `eccvm_set_permutation_delta` == (γ)·(γ + β²)·(γ + 2β²)·(γ + 3β²)
+        // if `precompute_select == 1`, don't change the numerator. if it is 0, then to get the grand product argument
+        // to work (as we have zero-padded the rows of the MSM table), we must multiply by
+        // `eccvm_set_permutation_delta` == (γ)·(γ + β²)·(γ + 2β²)·(γ + 3β²)
         numerator *= precompute_select * (-eccvm_set_permutation_delta + 1) + eccvm_set_permutation_delta; // degree-7
     }
 
@@ -230,8 +233,10 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
     }
     /**
      * @brief Third term: tuple of (pc, P.x, P.y, msm-size) from ECCVMMSMRelation.
+     * @brief Third term: tuple of (pc, P.x, P.y, msm-size) from ECCVMMSMRelation.
      *        (P.x, P.y) is the output of a multi-scalar-multiplication evaluated in ECCVMMSMRelation.
      *        We need to validate that the same values (P.x, P.y) are present in the Transcript columns and describe a
+     *        multi-scalar multiplication of size `msm-size`, starting at `pc`.
      *        multi-scalar multiplication of size `msm-size`, starting at `pc`.
      *
      *        If `msm_transition_shift == 1`, this indicates the current row is the last row of a multiscalar
@@ -386,9 +391,14 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_denominator(const Al
         denominator *= point_table_init_write; // degree 17
     }
     /**
-     * @brief Third term: tuple of (point-counter, P.x, P.y, msm-size) from ECCVMTranscriptRelation.
+     * @brief Third term: tuple of (pc, P.x, P.y, msm-size) from ECCVMTranscriptRelation.
      *        (P.x, P.y) is the *claimed* output of a multi-scalar-multiplication evaluated in ECCVMMSMRelation.
      *        We need to validate that the msm output produced in ECCVMMSMRelation is equivalent to the output present
+     *        in `transcript_msm_output_x, transcript_msm_output_y`, for a given multi-scalar multiplication starting at
+     *        `transcript_pc` and has size `transcript_msm_count`.
+     * @note  In the case of an honest prover, `(transcript_msm_output_x, transcript_msm_output_y)` is the value of the
+     *        just-completed MSM + `OFFSET` (as this is what the MSM table computes with to avoid branch logic.)
+     *
      *        in `transcript_msm_output_x, transcript_msm_output_y`, for a given multi-scalar multiplication starting at
      *        `transcript_pc` and has size `transcript_msm_count`.
      * @note  In the case of an honest prover, `(transcript_msm_output_x, transcript_msm_output_y)` is the value of the

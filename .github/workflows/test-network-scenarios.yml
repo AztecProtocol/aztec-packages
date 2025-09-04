@@ -1,5 +1,4 @@
 # CI for Aztec Network Scenarios.
-# Effectively runs CI_SCENARIO_TEST=1 spartan/bootstrap.sh test
 # Triggered by network-deployments event, which is emitted by ci3.yml when a tagged release passes "normal" CI.
 #
 name: Test Network Scenarios
@@ -10,24 +9,15 @@ on:
       - network-deployments
 
 concurrency:
-  group: network-scenarios-${{ github.event.client_payload.major_version }}
+  group: test-network-scenarios-${{ github.event.client_payload.major_version }}
   cancel-in-progress: true
 
 jobs:
-  test_network_scenarios_dispatch_deploy_scenario_network:
-    uses: ./.github/workflows/deploy-scenario-network.yml
-    with:
-      cluster: aztec-gke-private
-      namespace: v${{ github.event.client_payload.major_version }}-scenario
-      ref: ${{ github.event.client_payload.ref }}
-      aztec_docker_image: "aztecprotocol/aztec:${{ github.event.client_payload.semver }}"
-      devnet_mnemonic: "test test test test test test test test test test test junk"
-      rollup_deployment_mnemonic: "test test test test test test test test test test test junk"
-    secrets:
-      GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-
-  ci:
+  deploy-and-test-scenarios:
     runs-on: ubuntu-latest
+    env:
+      NETWORK_ENV_FILE: /tmp/network.env
+      GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
     steps:
       #############
       # Prepare Env
@@ -35,26 +25,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.client_payload.sha }}
           persist-credentials: false
-
-      - name: CI Network Scenario Override
-        run: echo "CI_NETWORK_SCENARIO=1" >> $GITHUB_ENV
-
-      - name: Compute Target Branch
-        id: target_branch
-        run: |
-          if [ "${{ github.event_name }}" == "merge_group" ]; then
-            target_branch=${{ github.event.merge_group.base_ref }}
-          elif [ "${{ github.event_name }}" == "pull_request" ]; then
-            target_branch=${{ github.event.pull_request.base.ref }}
-          else
-            target_branch=${{ github.ref_name }}
-          fi
-          target_branch=${target_branch#refs/heads/}
-          echo "target_branch=$target_branch" >> $GITHUB_OUTPUT
-          echo "TARGET_BRANCH=${target_branch}" >> $GITHUB_ENV
-
       - name: Setup
         run: |
           # Ensure we can SSH into the spot instances we request.
@@ -63,12 +35,29 @@ jobs:
           chmod 600 ~/.ssh/build_instance_key
           sudo apt install -y --no-install-recommends redis-tools parallel
 
-      - name: Prepare GCP key
-        env:
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+      - name: Write GCP key into credentials file
         run: |
-          echo "$GCP_SA_KEY" | base64 -w 0 > gcp_sa_key.b64
-          echo "GCP_SA_KEY_B64=$(cat gcp_sa_key.b64)" >> $GITHUB_ENV
+          echo "${{ secrets.GCP_SA_KEY }}" > ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
+
+      # note: it is fine to log the mnemonic here. this is an internal,
+      # throwaway test network, which you can see gets destroyed before it is created each time.
+      - name: Write network env file
+        run: |
+          SEMVER_SALT = $(echo ${{ github.event.client_payload.major_version }} | md5sum | cut -d' ' -f1)
+          cat > ${{ env.NETWORK_ENV_FILE }} <<EOF
+          DESTROY_ETH_DEVNET=true
+          CREATE_ETH_DEVNET=true
+          DESTROY_ROLLUP_CONTRACTS=true
+          DESTROY_AZTEC_INFRA=true
+          GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
+          GCP_REGION=us-west1-a
+          CLUSTER=aztec-gke-private
+          SALT=${SEMVER_SALT}
+          NAMESPACE="v${{ github.event.client_payload.major_version }}-scenario"
+          AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${{ github.event.client_payload.semver }}"
+          ETHEREUM_CHAIN_ID=1337
+          LABS_INFRA_MNEMONIC="test test test test test test test test test test test junk"
+          EOF
 
       - name: Get Tree Hash
         run: echo "TREE_HASH=$(git rev-parse HEAD^{tree})" >> $GITHUB_ENV
@@ -91,12 +80,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           RUN_ID: ${{ github.run_id }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          # Nightly test env vars.
-          GCP_SA_KEY_B64: ${{ env.GCP_SA_KEY_B64 }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          NAMESPACE: "v${{ github.event.client_payload.major_version }}-scenario"
+          NETWORK_ENV_FILE: ${{ env.NETWORK_ENV_FILE }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
         run: |
-          exec ./ci.sh network-scenario
+          # the network env file and gcp credentials file are mounted into the ec2 instance
+          # see ci3/bootstrap_ec2
+          exec ./ci.sh network-deploy
+          exec ./ci.sh network-tests
 
       - name: Save CI Success
         if: steps.ci_cache.outputs.cache-hit != 'true'

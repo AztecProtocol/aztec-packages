@@ -200,7 +200,7 @@ TEST(AvmSimulationWrittenPublicDataSlotsTree, InsertExists)
 
     written_public_data_slots_tree_check.insert(contract_address, slot);
 
-    EXPECT_EQ(written_public_data_slots_tree_check.snapshot(), snapshot);
+    EXPECT_EQ(written_public_data_slots_tree_check.get_snapshot(), snapshot);
 
     WrittenPublicDataSlotsTreeCheckEvent expect_event = {
         .contract_address = contract_address,
@@ -269,7 +269,7 @@ TEST(AvmSimulationWrittenPublicDataSlotsTree, InsertAppend)
 
     written_public_data_slots_tree_check.insert(contract_address, slot);
 
-    EXPECT_EQ(written_public_data_slots_tree_check.snapshot(), state_after_insert.get_snapshot());
+    EXPECT_EQ(written_public_data_slots_tree_check.get_snapshot(), state_after_insert.get_snapshot());
 
     WrittenPublicDataSlotsTreeCheckEvent expect_event = { .contract_address = contract_address,
                                                           .slot = slot,

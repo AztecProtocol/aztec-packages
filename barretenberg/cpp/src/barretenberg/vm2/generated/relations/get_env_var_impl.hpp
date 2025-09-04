@@ -14,7 +14,7 @@ void get_env_varImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    PROFILE_THIS_NAME("accumulate/get_env_var");
+    BB_BENCH_NAME("accumulate/get_env_var");
 
     { // FROM_PUBLIC_INPUTS
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;

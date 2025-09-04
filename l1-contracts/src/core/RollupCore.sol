@@ -37,6 +37,7 @@ import {RewardLib, RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.so
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {FeeConfigLib, CompressedFeeConfig} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
+import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 
 /**
  * @title RollupCore
@@ -177,6 +178,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   using TimeLib for Slot;
   using TimeLib for Epoch;
   using FeeConfigLib for CompressedFeeConfig;
+  using ChainTipsLib for CompressedChainTips;
 
   /**
    * @notice The L1 block number when this rollup was deployed
@@ -319,6 +321,13 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     uint256 currentManaTarget = FeeLib.getStorage().config.getManaTarget();
     require(_manaTarget >= currentManaTarget, Errors.Rollup__InvalidManaTarget(currentManaTarget, _manaTarget));
     FeeLib.updateManaTarget(_manaTarget);
+
+    // If we are going from 0 to non-zero mana limits, we need to catch up the inbox
+    if (currentManaTarget == 0 && _manaTarget > 0) {
+      RollupStore storage rollupStore = STFLib.getStorage();
+      rollupStore.config.inbox.catchUp(rollupStore.tips.getPendingBlockNumber());
+    }
+
     emit IRollupCore.ManaTargetUpdated(_manaTarget);
   }
 

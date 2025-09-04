@@ -50,6 +50,7 @@
 #include "relations/public_data_squash.hpp"
 #include "relations/range_check.hpp"
 #include "relations/registers.hpp"
+#include "relations/retrieved_bytecodes_tree_check.hpp"
 #include "relations/scalar_mul.hpp"
 #include "relations/send_l2_to_l1_msg.hpp"
 #include "relations/sha256.hpp"
@@ -96,6 +97,7 @@
 #include "relations/lookups_keccakf1600.hpp"
 #include "relations/lookups_l1_to_l2_message_exists.hpp"
 #include "relations/lookups_l1_to_l2_message_tree_check.hpp"
+#include "relations/lookups_memory.hpp"
 #include "relations/lookups_merkle_check.hpp"
 #include "relations/lookups_note_hash_tree_check.hpp"
 #include "relations/lookups_notehash_exists.hpp"
@@ -106,6 +108,7 @@
 #include "relations/lookups_public_data_check.hpp"
 #include "relations/lookups_range_check.hpp"
 #include "relations/lookups_registers.hpp"
+#include "relations/lookups_retrieved_bytecodes_tree_check.hpp"
 #include "relations/lookups_scalar_mul.hpp"
 #include "relations/lookups_send_l2_to_l1_msg.hpp"
 #include "relations/lookups_sha256.hpp"
@@ -133,10 +136,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 133;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2936;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 317;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 3014;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 327;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3386;
+    static constexpr size_t NUM_ALL_ENTITIES = 3474;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -191,6 +194,7 @@ struct AvmFlavorVariables {
         avm2::public_data_squash<FF_>,
         avm2::range_check<FF_>,
         avm2::registers<FF_>,
+        avm2::retrieved_bytecodes_tree_check<FF_>,
         avm2::scalar_mul<FF_>,
         avm2::send_l2_to_l1_msg<FF_>,
         avm2::sha256<FF_>,
@@ -247,6 +251,8 @@ struct AvmFlavorVariables {
         lookup_bc_hashing_iv_is_len_relation<FF_>,
         lookup_bc_retrieval_class_id_derivation_relation<FF_>,
         lookup_bc_retrieval_contract_instance_retrieval_relation<FF_>,
+        lookup_bc_retrieval_is_new_class_check_relation<FF_>,
+        lookup_bc_retrieval_retrieved_bytecodes_insertion_relation<FF_>,
         lookup_bitwise_byte_operations_relation<FF_>,
         lookup_bitwise_dispatch_exec_bitwise_relation<FF_>,
         lookup_bitwise_integral_tag_length_relation<FF_>,
@@ -311,9 +317,9 @@ struct AvmFlavorVariables {
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
         lookup_internal_call_push_call_stack_relation<FF_>,
         lookup_internal_call_unwind_call_stack_relation<FF_>,
-        lookup_keccakf1600_dst_abs_diff_positive_relation<FF_>,
+        lookup_keccakf1600_dst_out_of_range_toggle_relation<FF_>,
         lookup_keccakf1600_round_cst_relation<FF_>,
-        lookup_keccakf1600_src_abs_diff_positive_relation<FF_>,
+        lookup_keccakf1600_src_out_of_range_toggle_relation<FF_>,
         lookup_keccakf1600_state_chi_00_relation<FF_>,
         lookup_keccakf1600_state_chi_01_relation<FF_>,
         lookup_keccakf1600_state_chi_02_relation<FF_>,
@@ -442,6 +448,11 @@ struct AvmFlavorVariables {
         lookup_l1_to_l2_message_exists_l1_to_l2_msg_leaf_index_in_range_relation<FF_>,
         lookup_l1_to_l2_message_exists_l1_to_l2_msg_read_relation<FF_>,
         lookup_l1_to_l2_message_tree_check_merkle_check_relation<FF_>,
+        lookup_memory_range_check_limb_0_relation<FF_>,
+        lookup_memory_range_check_limb_1_relation<FF_>,
+        lookup_memory_range_check_limb_2_relation<FF_>,
+        lookup_memory_range_check_write_tagged_value_relation<FF_>,
+        lookup_memory_tag_max_bits_relation<FF_>,
         lookup_merkle_check_merkle_poseidon2_read_relation<FF_>,
         lookup_merkle_check_merkle_poseidon2_write_relation<FF_>,
         lookup_note_hash_tree_check_merkle_check_relation<FF_>,
@@ -504,6 +515,13 @@ struct AvmFlavorVariables {
         lookup_registers_mem_op_4_relation<FF_>,
         lookup_registers_mem_op_5_relation<FF_>,
         lookup_registers_mem_op_6_relation<FF_>,
+        lookup_retrieved_bytecodes_tree_check_low_leaf_class_id_validation_relation<FF_>,
+        lookup_retrieved_bytecodes_tree_check_low_leaf_merkle_check_relation<FF_>,
+        lookup_retrieved_bytecodes_tree_check_low_leaf_next_class_id_validation_relation<FF_>,
+        lookup_retrieved_bytecodes_tree_check_low_leaf_poseidon2_relation<FF_>,
+        lookup_retrieved_bytecodes_tree_check_new_leaf_merkle_check_relation<FF_>,
+        lookup_retrieved_bytecodes_tree_check_new_leaf_poseidon2_relation<FF_>,
+        lookup_retrieved_bytecodes_tree_check_updated_low_leaf_poseidon2_relation<FF_>,
         lookup_scalar_mul_add_relation<FF_>,
         lookup_scalar_mul_double_relation<FF_>,
         lookup_scalar_mul_to_radix_relation<FF_>,

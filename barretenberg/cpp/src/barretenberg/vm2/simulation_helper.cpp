@@ -120,6 +120,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<GetContractInstanceEvent> get_contract_instance_emitter;
     typename S::template DefaultEventEmitter<L1ToL2MessageTreeCheckEvent> l1_to_l2_msg_tree_check_emitter;
     typename S::template DefaultEventEmitter<EmitUnencryptedLogEvent> emit_unencrypted_log_emitter;
+    typename S::template DefaultEventEmitter<RetrievedBytecodesTreeCheckEvent> retrieved_bytecodes_tree_check_emitter;
 
     ExecutionIdManager execution_id_manager(1);
     RangeCheck range_check(range_check_emitter);
@@ -136,6 +137,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                                                                          field_gt,
                                                                          build_public_data_slots_tree(),
                                                                          written_public_data_slots_tree_check_emitter);
+    RetrievedBytecodesTreeCheck retrieved_bytecodes_tree_check(
+        poseidon2, merkle_check, field_gt, build_retrieved_bytecodes_tree(), retrieved_bytecodes_tree_check_emitter);
     NullifierTreeCheck nullifier_tree_check(poseidon2, merkle_check, field_gt, nullifier_tree_check_emitter);
     NoteHashTreeCheck note_hash_tree_check(
         hints.tx.nonRevertibleAccumulatedData.nullifiers[0], poseidon2, merkle_check, note_hash_tree_check_emitter);
@@ -144,7 +147,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     Alu alu(greater_than, field_gt, range_check, alu_emitter);
     Bitwise bitwise(bitwise_emitter);
     Sha256 sha256(execution_id_manager, bitwise, greater_than, sha256_compression_emitter);
-    KeccakF1600 keccakf1600(execution_id_manager, keccakf1600_emitter, bitwise, range_check);
+    KeccakF1600 keccakf1600(execution_id_manager, keccakf1600_emitter, bitwise, range_check, greater_than);
 
     Ecc ecc(execution_id_manager, greater_than, to_radix, ecc_add_emitter, scalar_mul_emitter, ecc_add_memory_emitter);
     AddressDerivation address_derivation(poseidon2, ecc, address_derivation_emitter);
@@ -178,6 +181,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                                        bytecode_hasher,
                                        range_check,
                                        contract_instance_manager,
+                                       retrieved_bytecodes_tree_check,
                                        bytecode_retrieval_emitter,
                                        bytecode_decomposition_emitter,
                                        instruction_fetching_emitter);
@@ -192,6 +196,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                                      internal_call_stack_manager_provider,
                                      merkle_db,
                                      written_public_data_slots_tree_check,
+                                     retrieved_bytecodes_tree_check,
                                      hints.globalVariables);
     DataCopy data_copy(execution_id_manager, greater_than, data_copy_emitter);
 
@@ -221,6 +226,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                              context_provider,
                              merkle_db,
                              written_public_data_slots_tree_check,
+                             retrieved_bytecodes_tree_check,
                              field_gt,
                              poseidon2,
                              tx_event_emitter);
@@ -267,6 +273,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
         get_contract_instance_emitter.dump_events(),
         l1_to_l2_msg_tree_check_emitter.dump_events(),
         emit_unencrypted_log_emitter.dump_events(),
+        retrieved_bytecodes_tree_check_emitter.dump_events(),
     };
 }
 

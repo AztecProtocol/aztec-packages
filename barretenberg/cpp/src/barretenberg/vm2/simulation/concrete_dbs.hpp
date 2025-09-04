@@ -14,6 +14,15 @@
 
 namespace bb::avm2::simulation {
 
+struct TreeCounters {
+    uint32_t note_hash_counter;
+    uint32_t nullifier_counter;
+    uint32_t l2_to_l1_msg_counter;
+    // public data tree counter is tracked via the written public data slots tree
+
+    bool operator==(const TreeCounters& other) const = default;
+};
+
 // Generates events.
 class ContractDB final : public ContractDBInterface {
   public:
@@ -105,13 +114,14 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     WrittenPublicDataSlotsInterface& written_public_data_slots;
     L1ToL2MessageTreeCheckInterface& l1_to_l2_msg_tree_check;
 
-    // Counters only in the HighLevel interface.
-    uint32_t nullifier_counter = 0;
-    uint32_t note_hash_counter = 0;
-    uint32_t l2_to_l1_msg_counter = 0;
     // Set for semantics.
     using Slot = FF;
     std::vector<CheckpointNotifiable*> checkpoint_listeners;
+
+    // Stack of tree counters for checkpoints. Starts empty.
+    std::stack<TreeCounters> tree_counters_stack{
+        { { .note_hash_counter = 0, .nullifier_counter = 0, .l2_to_l1_msg_counter = 0 } }
+    };
 };
 
 } // namespace bb::avm2::simulation

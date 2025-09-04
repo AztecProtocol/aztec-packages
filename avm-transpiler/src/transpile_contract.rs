@@ -53,7 +53,6 @@ pub struct AvmContractFunctionArtifact {
         deserialize_with = "ProgramDebugInfo::deserialize_compressed_base64_json"
     )]
     pub debug_symbols: ProgramDebugInfo,
-    pub brillig_names: Vec<String>,
 }
 
 /// Representation of an ACIR contract function but with
@@ -74,7 +73,6 @@ pub struct AcirContractFunctionArtifact {
         deserialize_with = "ProgramDebugInfo::deserialize_compressed_base64_json"
     )]
     pub debug_symbols: ProgramDebugInfo,
-    pub brillig_names: Vec<String>,
 }
 
 /// An enum that allows the TranspiledContract struct to contain
@@ -129,7 +127,6 @@ impl From<CompiledAcirContractArtifact> for TranspiledContractArtifact {
                         abi: function.abi,
                         bytecode: base64::prelude::BASE64_STANDARD.encode(avm_bytecode),
                         debug_symbols: ProgramDebugInfo { debug_infos },
-                        brillig_names: function.brillig_names,
                     },
                 ));
             } else {
@@ -210,7 +207,6 @@ fn create_revert_dispatch_fn() -> AvmOrAcirContractFunctionArtifact {
         },
         bytecode: base64::prelude::BASE64_STANDARD.encode(revert_bytecode),
         debug_symbols: ProgramDebugInfo { debug_infos: vec![DebugInfo::default()] },
-        brillig_names: vec!["public_dispatch".to_string()],
     };
 
     AvmOrAcirContractFunctionArtifact::Avm(empty_dispatch_fn)

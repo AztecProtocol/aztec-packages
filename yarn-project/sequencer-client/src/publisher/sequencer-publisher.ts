@@ -67,7 +67,9 @@ export enum SignalType {
   SLASHING,
 }
 
-const Actions = [
+export const Actions = [
+  'invalidate-by-invalid-attestation',
+  'invalidate-by-insufficient-attestations',
   'propose',
   'governance-signal',
   'empire-slashing-signal',
@@ -75,13 +77,11 @@ const Actions = [
   'execute-empire-payload',
   'vote-offenses',
   'execute-slash',
-  'invalidate-by-invalid-attestation',
-  'invalidate-by-insufficient-attestations',
 ] as const;
 export type Action = (typeof Actions)[number];
 
 // Sorting for actions such that invalidations go before proposals, and proposals go before votes
-const compareActions = (a: Action, b: Action) => Actions.indexOf(b) - Actions.indexOf(a);
+export const compareActions = (a: Action, b: Action) => Actions.indexOf(a) - Actions.indexOf(b);
 
 export type InvalidateBlockRequest = {
   request: L1TxRequest;

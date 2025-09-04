@@ -109,8 +109,8 @@ class ECCVMTranscriptBuilder {
 
     // maintains the state of the VM at any given "time" (i.e., at any given value of pc).
     struct VMState {
-        uint32_t pc = 0; // decreasing program counter that tracks the total number of multiplications that our virtual
-                         // machine has left to compute.
+        uint32_t pc = 0;    // decreasing point counter that tracks the total number of multiplications that our virtual
+                            // machine has left to compute.
         uint32_t count = 0; // Number of muls in the current MSM _excluding the current row_.
         Element accumulator = CycleGroup::affine_point_at_infinity; // accumulator for all group operations.
         Element msm_accumulator =
