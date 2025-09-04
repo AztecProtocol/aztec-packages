@@ -19,6 +19,7 @@ The `aztec-nargo` command is now a direct pass-through to vanilla nargo, without
 2. Run postprocessing with the new `aztec-postprocess-contract` command
 
 The postprocessing step includes:
+
 - Transpiling functions for the Aztec VM
 - Generating verification keys for private functions
 - Caching verification keys for faster subsequent compilations
@@ -35,7 +36,7 @@ If you're using the `aztec-up` installer, the `aztec-postprocess-contract` comma
 
 ## [Aztec.js] Mandatory `from`
 
-As we prepare for a bigger `Wallet` interface refactor and the upcoming `WalletSDK`, a new parameter has been added to contract interactions, which now should indicate *explicitly* the address of the entrypoint (usually the account contract) that will be used to authenticate the request. This will be checked in runtime against the current `this.wallet.getAddress()` value, to ensure consistent behavior while the rest of the API is reworked.
+As we prepare for a bigger `Wallet` interface refactor and the upcoming `WalletSDK`, a new parameter has been added to contract interactions, which now should indicate _explicitly_ the address of the entrypoint (usually the account contract) that will be used to authenticate the request. This will be checked in runtime against the current `this.wallet.getAddress()` value, to ensure consistent behavior while the rest of the API is reworked.
 
 ```diff
 - await contract.methods.my_func(arg).send().wait();
@@ -43,6 +44,10 @@ As we prepare for a bigger `Wallet` interface refactor and the upcoming `WalletS
 ```
 
 ## [Aztec.nr]
+
+### `emit_event_in_public_log` function renamed as `emit_event_in_public`
+
+This change was done to make the naming consistent with the private counterpart (`emit_event_in_private`).
 
 ### Private event emission API changes
 
@@ -193,6 +198,7 @@ The `private` and `public` methods are gone. Private, public and utility context
 #### Example Migration
 
 The following are two tests using the older version of `TestEnvironment`:
+
 ```noir
 #[test]
 unconstrained fn initial_empty_value() {

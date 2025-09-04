@@ -9,7 +9,7 @@ pub contract Crowdfunding {
     // docs:start:all-deps
     use crate::config::Config;
     use dep::aztec::{
-        event::event_interface::emit_event_in_public_log,
+        event::event_interface::emit_event_in_public,
         macros::{
             events::event,
             functions::{initializer, internal, private, public},
@@ -103,7 +103,7 @@ pub contract Crowdfunding {
     #[public]
     #[internal]
     fn _publish_donation_receipts(amount: u128, to: AztecAddress) {
-        emit_event_in_public_log(WithdrawalProcessed { amount, who: to }, &mut context);
+        emit_event_in_public(WithdrawalProcessed { amount, who: to }, &mut context);
     }
     // docs:end:operator-withdrawals
 }

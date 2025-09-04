@@ -36,11 +36,14 @@ pub global OFFCHAIN_MESSAGE_IDENTIFIER: Field =
 ///
 /// * `message` - The message to emit.
 /// * `recipient` - The address of the recipient.
-// TODO(benesjan): Make this function constrained.
-pub unconstrained fn emit_offchain_message<T>(message: T, recipient: AztecAddress)
+pub fn emit_offchain_message<T>(message: T, recipient: AztecAddress)
 where
     T: Serialize,
 {
-    emit_offchain_effect([OFFCHAIN_MESSAGE_IDENTIFIER, recipient.to_field()].concat(message
-        .serialize()));
+    // Safety: Offchain effects are by definition unconstrained. They are emitted via an oracle which we don't use for
+    // anything besides its side effects, therefore this is safe to call.
+    unsafe {
+        emit_offchain_effect([OFFCHAIN_MESSAGE_IDENTIFIER, recipient.to_field()].concat(message
+            .serialize()))
+    };
 }

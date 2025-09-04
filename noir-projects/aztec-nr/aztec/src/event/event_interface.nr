@@ -135,9 +135,7 @@ where
     context.push_nullifier(event_commitment);
 
     if emit_as_offchain_message {
-        // Safety: Offchain messages are by definition unconstrained. They are emitted via the `emit_offchain_effect`
-        // oracle which we don't use for anything besides its side effects, therefore this is safe to call.
-        unsafe { emit_offchain_message(ciphertext, recipient) };
+        emit_offchain_message(ciphertext, recipient);
     } else {
         // Safety: Currently unsafe. See description of CONSTRAINED_ONCHAIN in MessageDeliveryEnum.
         // TODO(#14565): Implement proper constrained tag prefixing to make this truly CONSTRAINED_ONCHAIN
@@ -147,8 +145,7 @@ where
     }
 }
 
-// TODO(benesjan): rename to emit_event_in_public
-pub fn emit_event_in_public_log<Event>(event: Event, context: &mut PublicContext)
+pub fn emit_event_in_public<Event>(event: Event, context: &mut PublicContext)
 where
     Event: EventInterface + Serialize,
 {

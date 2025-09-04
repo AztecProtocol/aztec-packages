@@ -424,7 +424,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
 
     const derivedCallContext = await this.deriveCallContext(targetContractAddress, targetArtifact, isStaticCall);
 
-    const context = new PrivateExecutionOracle(
+    const privateExecutionOracle = new PrivateExecutionOracle(
       argsHash,
       derivedTxContext,
       derivedCallContext,
@@ -446,7 +446,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
 
     const childExecutionResult = await executePrivateFunction(
       this.simulator,
-      context,
+      privateExecutionOracle,
       targetArtifact,
       targetContractAddress,
       functionSelector,
