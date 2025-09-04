@@ -77,6 +77,7 @@ const validatorKeyStoreSchema = z.object({
   publisher: ethAccountsSchema.nullish(),
   feeRecipient: aztecAddressSchema,
   remoteSigner: remoteSignerConfigSchema.nullish(),
+  fundingAccount: ethAccountSchema.nullish(),
 });
 
 // Main keystore schema
@@ -87,6 +88,7 @@ export const keystoreSchema = z
     slasher: ethAccountsSchema.nullish(),
     remoteSigner: remoteSignerConfigSchema.nullish(),
     prover: proverKeyStoreSchema.nullish(),
+    fundingAccount: ethAccountSchema.nullish(),
   })
   .refine(data => data.validators || data.prover, {
     message: 'Keystore must have at least validators or prover configuration',
