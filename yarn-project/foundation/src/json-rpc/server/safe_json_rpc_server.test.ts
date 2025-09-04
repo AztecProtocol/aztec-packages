@@ -9,6 +9,8 @@ import {
   makeHandler,
 } from './safe_json_rpc_server.js';
 
+const jsonrpc = '2.0';
+
 describe('SafeJsonRpcServer', () => {
   let testState: TestState;
   let testNotes: TestNote[];
@@ -19,7 +21,8 @@ describe('SafeJsonRpcServer', () => {
     testState = new TestState(testNotes);
   });
 
-  const send = (body: any) => request(server.getApp().callback()).post('/').send(body);
+  const send = (body: any, contentType = 'application/json') =>
+    request(server.getApp().callback()).post('/').send(body).set({ 'content-type': contentType });
   const sendBatch = (...body: any[]) => request(server.getApp().callback()).post('/').send(body);
 
   const expectError = (response: request.Response, httpCode: number, message: string) => {
@@ -32,9 +35,22 @@ describe('SafeJsonRpcServer', () => {
       server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema);
     });
 
+    it.each([
+      [JSON.stringify({ method: 'getNote', params: [1] }), ''],
+      [JSON.stringify({ method: 'getNote', params: [1] }), 'text/plain'],
+      [JSON.stringify({ method: 'getNote', params: [1] }), 'text/javascript'],
+      [new URLSearchParams({ method: 'count' }).toString(), 'application/x-www-formurlencoded'],
+      ['foo', 'text/plain'],
+      [Buffer.from([0x42]), 'application/octet-stream'],
+    ])('rejects non json request bodies', async (body, contentType) => {
+      const response = await send(body, contentType);
+      expect(response.text).toContain('Invalid request');
+      expect(response.status).toBe(400);
+    });
+
     it('calls an RPC function with a primitive parameter', async () => {
       const response = await send({ method: 'getNote', params: [1] });
-      expect(response.text).toEqual(JSON.stringify({ result: { data: 'b' } }));
+      expect(response.text).toEqual(JSON.stringify({ jsonrpc, result: { data: 'b' } }));
       expect(response.status).toBe(200);
     });
 
@@ -45,14 +61,14 @@ describe('SafeJsonRpcServer', () => {
 
     it('calls an RPC function with a primitive return type', async () => {
       const response = await send({ method: 'count', params: [] });
-      expect(response.text).toEqual(JSON.stringify({ result: 2 }));
+      expect(response.text).toEqual(JSON.stringify({ jsonrpc, result: 2 }));
       expect(response.status).toBe(200);
     });
 
     it('calls an RPC function with an array of classes', async () => {
       const response = await send({ method: 'addNotes', params: [[{ data: 'c' }, { data: 'd' }]] });
       expect(response.status).toBe(200);
-      expect(response.text).toBe(JSON.stringify({ result: ['a', 'b', 'c', 'd'].map(data => ({ data })) }));
+      expect(response.text).toBe(JSON.stringify({ jsonrpc, result: ['a', 'b', 'c', 'd'].map(data => ({ data })) }));
       expect(testState.notes).toEqual([new TestNote('a'), new TestNote('b'), new TestNote('c'), new TestNote('d')]);
       expect(testState.notes.every(note => note instanceof TestNote)).toBe(true);
     });
@@ -60,14 +76,14 @@ describe('SafeJsonRpcServer', () => {
     it('calls an RPC function with no inputs nor outputs', async () => {
       const response = await send({ method: 'clear', params: [] });
       expect(response.status).toBe(200);
-      expect(response.text).toEqual(JSON.stringify({}));
+      expect(response.text).toEqual(JSON.stringify({ jsonrpc }));
       expect(testState.notes).toEqual([]);
     });
 
     it('calls an RPC function that returns a primitive object and a bigint', async () => {
       const response = await send({ method: 'getStatus', params: [] });
       expect(response.status).toBe(200);
-      expect(response.text).toEqual(JSON.stringify({ result: { status: 'ok', count: '2' } }));
+      expect(response.text).toEqual(JSON.stringify({ jsonrpc, result: { status: 'ok', count: '2' } }));
     });
 
     it('calls an RPC function that throws an error', async () => {
@@ -170,11 +186,11 @@ describe('SafeJsonRpcServer', () => {
     it('routes to the correct namespace', async () => {
       const response = await send({ method: 'letters_getNote', params: [1] });
       expect(response.status).toBe(200);
-      expect(response.text).toEqual(JSON.stringify({ result: { data: 'b' } }));
+      expect(response.text).toEqual(JSON.stringify({ jsonrpc, result: { data: 'b' } }));
 
       const response2 = await send({ method: 'numbers_getNote', params: [1] });
       expect(response2.status).toBe(200);
-      expect(response2.text).toEqual(JSON.stringify({ result: { data: '2' } }));
+      expect(response2.text).toEqual(JSON.stringify({ jsonrpc, result: { data: '2' } }));
     });
 
     it('fails if namespace is not found', async () => {

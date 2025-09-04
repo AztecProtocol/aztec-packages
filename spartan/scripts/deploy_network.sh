@@ -1,0 +1,284 @@
+#!/bin/bash
+
+set -euo pipefail
+
+# Resolve repo root and script directory for reliable relative paths
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+source "${REPO_ROOT}/ci3/source"
+
+# Basic logging helpers
+log() { echo "[INFO]  $(date -Is) - $*"; }
+err() { echo "[ERROR] $(date -Is) - $*" >&2; }
+die() { err "$*"; exit 1; }
+
+########################
+# GLOBAL VARIABLES
+########################
+NAMESPACE=${NAMESPACE} # required
+CLUSTER=${CLUSTER:-kind}
+SALT=${SALT:-$(date +%s)}
+RESOURCE_PROFILE=$([[ "${CLUSTER}" == "kind" ]] && echo "dev" || echo "prod")
+BASE_STATE_PATH="${CLUSTER}/${NAMESPACE}"
+
+# GCP variables, unused if running on kind
+GCP_PROJECT_ID=${GCP_PROJECT_ID:-testnet-440309}
+GCP_REGION=${GCP_REGION:-us-west1-a}
+
+########################
+# ETHEREUM / DEVNET VARIABLES
+########################
+DESTROY_ETH_DEVNET=${DESTROY_ETH_DEVNET:-false}
+CREATE_ETH_DEVNET=${CREATE_ETH_DEVNET:-false}
+ETHEREUM_CHAIN_ID=${ETHEREUM_CHAIN_ID:-1337}
+ETHEREUM_BLOCK_TIME=${ETHEREUM_BLOCK_TIME:-12}
+ETHEREUM_GAS_LIMIT=${ETHEREUM_GAS_LIMIT:-45000000}
+LABS_INFRA_MNEMONIC=${LABS_INFRA_MNEMONIC:-test test test test test test test test test test test junk}
+LABS_INFRA_INDICES=${LABS_INFRA_INDICES:-0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,1000}
+
+########################
+# ROLLUP VARIABLES
+########################
+DESTROY_ROLLUP_CONTRACTS=${DESTROY_ROLLUP_CONTRACTS:-false}
+CREATE_ROLLUP_CONTRACTS=${CREATE_ROLLUP_CONTRACTS:-true}
+SPONSORED_FPC=${SPONSORED_FPC:-true}
+REAL_VERIFIER=${REAL_VERIFIER:-true}
+
+
+########################
+# AZTEC INFRA VARIABLES
+########################
+DESTROY_AZTEC_INFRA=${DESTROY_AZTEC_INFRA:-false}
+CREATE_AZTEC_INFRA=${CREATE_AZTEC_INFRA:-true}
+
+
+LABS_INFRA_MNEMONIC=${LABS_INFRA_MNEMONIC:-test test test test test test test test test test test junk}
+VALIDATOR_INDICES=${VALIDATOR_INDICES:-1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48}
+VALIDATOR_MNEMONIC_START_INDEX=${VALIDATOR_MNEMONIC_START_INDEX:-1}
+VALIDATORS_PER_NODE=${VALIDATORS_PER_NODE:-12}
+VALIDATOR_REPLICAS=${VALIDATOR_REPLICAS:-4}
+PROVER_MNEMONIC_START_INDEX=${PROVER_MNEMONIC_START_INDEX:-1000}
+PROVER_REAL_PROOFS=${REAL_VERIFIER:-true}
+
+OTEL_COLLECTOR_ENDPOINT=${OTEL_COLLECTOR_ENDPOINT:-}
+
+########################
+# CHAOS MESH VARIABLES
+########################
+DESTROY_CHAOS_MESH=${DESTROY_CHAOS_MESH:-false}
+CREATE_CHAOS_MESH=${CREATE_CHAOS_MESH:-false}
+
+
+# Compute validator addresses
+VALIDATOR_ADDRESSES=$(echo "$VALIDATOR_INDICES" | tr ',' '\n' | xargs -I{} cast wallet address --mnemonic "$LABS_INFRA_MNEMONIC" --mnemonic-index {} | tr '\n' ',' | sed 's/,$//')
+log "VALIDATOR_ADDRESSES: ${VALIDATOR_ADDRESSES}"
+
+# Ensure docker image provided
+if [[ -z "${AZTEC_DOCKER_IMAGE:-}" ]]; then
+  die "AZTEC_DOCKER_IMAGE is not set"
+fi
+
+K8S_CLUSTER_CONTEXT=$(kubectl config current-context)
+
+# Create the namespace if it doesn't exist
+kubectl get namespace "${NAMESPACE}" >/dev/null 2>&1 || kubectl create namespace "${NAMESPACE}"
+
+# DRY helper to init/plan/apply/destroy a terraform module
+tf_run() {
+  local dir="$1"
+  local destroy_flag="$2"
+  local create_flag="$3"
+
+  terraform -chdir="${dir}" init -reconfigure
+  if [[ "${destroy_flag}" == "true" ]]; then
+    terraform -chdir="${dir}" destroy -auto-approve
+  fi
+  if [[ "${create_flag}" == "true" ]]; then
+    terraform -chdir="${dir}" plan -out=tfplan
+    terraform -chdir="${dir}" apply tfplan
+  fi
+}
+
+# -------------------------------------------------------
+# Optionally deploy Ethereum devnet; otherwise use env URLs
+# -------------------------------------------------------
+CSV_RPC_URLS=""
+L1_RPC_URLS_JSON="[]"
+L1_CONSENSUS_HOST_URLS_JSON="[]"
+L1_CONSENSUS_HOST_API_KEYS_JSON="[]"
+L1_CONSENSUS_HOST_API_KEY_HEADERS_JSON="[]"
+
+if [[ "${CREATE_ETH_DEVNET}" == "true" ]]; then
+  log "CREATE_ETH_DEVNET=true - deploying Ethereum devnet"
+
+  DEPLOY_ETH_DEVNET_DIR="${SCRIPT_DIR}/../terraform/deploy-eth-devnet"
+  cat > "${DEPLOY_ETH_DEVNET_DIR}/terraform.tfvars" << EOF
+project = "${GCP_PROJECT_ID}"
+region = "${GCP_REGION}"
+K8S_CLUSTER_CONTEXT = "${K8S_CLUSTER_CONTEXT}"
+RELEASE_PREFIX = "${NAMESPACE}"
+NAMESPACE = "${NAMESPACE}"
+ETH_DEVNET_VALUES = "eth-devnet.yaml"
+MNEMONIC = "${LABS_INFRA_MNEMONIC}"
+CHAIN_ID = "${ETHEREUM_CHAIN_ID}"
+BLOCK_TIME = ${ETHEREUM_BLOCK_TIME}
+GAS_LIMIT = ${ETHEREUM_GAS_LIMIT}
+PREFUNDED_MNEMONIC_INDICES = "${LABS_INFRA_INDICES}"
+RESOURCE_PROFILE = "${RESOURCE_PROFILE}"
+EOF
+
+  "${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_ETH_DEVNET_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-eth-devnet"
+  tf_run "${DEPLOY_ETH_DEVNET_DIR}" "${DESTROY_ETH_DEVNET}" "${CREATE_ETH_DEVNET}"
+
+  L1_RPC_URL=$(terraform -chdir="${DEPLOY_ETH_DEVNET_DIR}" output -raw eth_execution_rpc_url)
+  L1_CONSENSUS_HOST_URL=$(terraform -chdir="${DEPLOY_ETH_DEVNET_DIR}" output -raw eth_beacon_api_url)
+  [[ -n "${L1_RPC_URL}" ]] || die "Failed to fetch eth_execution_rpc_url"
+  [[ -n "${L1_CONSENSUS_HOST_URL}" ]] || die "Failed to fetch eth_beacon_api_url"
+
+  # For downstream modules
+  CSV_RPC_URLS="${L1_RPC_URL}"
+  L1_RPC_URLS_JSON="[\"${L1_RPC_URL}\"]"
+  L1_CONSENSUS_HOST_URLS_JSON="[\"${L1_CONSENSUS_HOST_URL}\"]"
+  L1_CONSENSUS_HOST_API_KEYS_JSON='[""]'
+  L1_CONSENSUS_HOST_API_KEY_HEADERS_JSON='[""]'
+else
+  log "CREATE_ETH_DEVNET=false - using environment-provided Ethereum endpoints"
+
+  # Expect ETHEREUM_RPC_URLS (JSON array), and consensus host arrays and keys
+  if [[ -z "${ETHEREUM_RPC_URLS:-}" ]]; then
+    die "ETHEREUM_RPC_URLS is not set (expected JSON array, e.g. [\"https://...\"])"
+  fi
+  CSV_RPC_URLS=$(echo "${ETHEREUM_RPC_URLS}" | jq -r 'join(",")')
+
+  L1_RPC_URLS_JSON="${ETHEREUM_RPC_URLS}"
+  L1_CONSENSUS_HOST_URLS_JSON="${ETHEREUM_CONSENSUS_HOST_URLS:-[]}"
+  L1_CONSENSUS_HOST_API_KEYS_JSON="${ETHEREUM_CONSENSUS_HOST_API_KEYS:-[]}"
+  L1_CONSENSUS_HOST_API_KEY_HEADERS_JSON="${ETHEREUM_CONSENSUS_HOST_API_KEY_HEADERS:-[]}"
+fi
+
+# -------------------------------
+# Deploy rollup contracts
+# -------------------------------
+DEPLOY_ROLLUP_CONTRACTS_DIR="${SCRIPT_DIR}/../terraform/deploy-rollup-contracts"
+"${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_ROLLUP_CONTRACTS_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-rollup-contracts/${SALT}"
+
+cat > "${DEPLOY_ROLLUP_CONTRACTS_DIR}/terraform.tfvars" << EOF
+K8S_CLUSTER_CONTEXT = "${K8S_CLUSTER_CONTEXT}"
+NAMESPACE = "${NAMESPACE}"
+AZTEC_DOCKER_IMAGE = "${AZTEC_DOCKER_IMAGE}"
+L1_RPC_URLS = "${CSV_RPC_URLS}"
+MNEMONIC = "${LABS_INFRA_MNEMONIC}"
+L1_CHAIN_ID = "${ETHEREUM_CHAIN_ID}"
+SALT = "${SALT}"
+VALIDATORS = "${VALIDATOR_ADDRESSES}"
+SPONSORED_FPC = ${SPONSORED_FPC}
+REAL_VERIFIER = ${REAL_VERIFIER}
+AZTEC_SLOT_DURATION = ${AZTEC_SLOT_DURATION:-null}
+AZTEC_EPOCH_DURATION = ${AZTEC_EPOCH_DURATION:-null}
+AZTEC_TARGET_COMMITTEE_SIZE = ${AZTEC_TARGET_COMMITTEE_SIZE:-null}
+AZTEC_PROOF_SUBMISSION_EPOCHS = ${AZTEC_PROOF_SUBMISSION_EPOCHS:-null}
+AZTEC_ACTIVATION_THRESHOLD = ${AZTEC_ACTIVATION_THRESHOLD:-null}
+AZTEC_EJECTION_THRESHOLD = ${AZTEC_EJECTION_THRESHOLD:-null}
+AZTEC_SLASHING_QUORUM = ${AZTEC_SLASHING_QUORUM:-null}
+AZTEC_SLASHING_ROUND_SIZE = ${AZTEC_SLASHING_ROUND_SIZE:-null}
+AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS = ${AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS:-null}
+AZTEC_SLASHING_LIFETIME_IN_ROUNDS = ${AZTEC_SLASHING_LIFETIME_IN_ROUNDS:-null}
+AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS = ${AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS:-null}
+AZTEC_SLASHING_VETOER = ${AZTEC_SLASHING_VETOER:-null}
+AZTEC_SLASHING_OFFSET_IN_ROUNDS = ${AZTEC_SLASHING_OFFSET_IN_ROUNDS:-null}
+AZTEC_SLASH_AMOUNT_SMALL = ${AZTEC_SLASH_AMOUNT_SMALL:-null}
+AZTEC_SLASH_AMOUNT_MEDIUM = ${AZTEC_SLASH_AMOUNT_MEDIUM:-null}
+AZTEC_SLASH_AMOUNT_LARGE = ${AZTEC_SLASH_AMOUNT_LARGE:-null}
+AZTEC_SLASHER_FLAVOR = ${AZTEC_SLASHER_FLAVOR:-null}
+AZTEC_GOVERNANCE_PROPOSER_QUORUM = ${AZTEC_GOVERNANCE_PROPOSER_QUORUM:-null}
+AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE = ${AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE:-null}
+AZTEC_MANA_TARGET = ${AZTEC_MANA_TARGET:-null}
+AZTEC_PROVING_COST_PER_MANA = ${AZTEC_PROVING_COST_PER_MANA:-null}
+JOB_NAME = "deploy-rollup-contracts"
+JOB_BACKOFF_LIMIT = 3
+JOB_TTL_SECONDS_AFTER_FINISHED = 3600
+EOF
+
+tf_run "${DEPLOY_ROLLUP_CONTRACTS_DIR}" "${DESTROY_ROLLUP_CONTRACTS}" "${CREATE_ROLLUP_CONTRACTS}"
+log "Deployed rollup contracts"
+
+REGISTRY_ADDRESS=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw registry_address)
+SLASH_FACTORY_ADDRESS=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw slash_factory_address)
+FEE_ASSET_HANDLER_ADDRESS=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw fee_asset_handler_address)
+[[ -n "${REGISTRY_ADDRESS}" ]] || die "Failed to fetch registry_address"
+[[ -n "${SLASH_FACTORY_ADDRESS}" ]] || die "Failed to fetch slash_factory_address"
+[[ -n "${FEE_ASSET_HANDLER_ADDRESS}" ]] || die "Failed to fetch fee_asset_handler_address"
+log "Got rollup contract addresses"
+
+# -------------------------------
+# Deploy Aztec infra
+# -------------------------------
+DEPLOY_AZTEC_INFRA_DIR="${SCRIPT_DIR}/../terraform/deploy-aztec-infra"
+"${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_AZTEC_INFRA_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-aztec-infra/${SALT}"
+
+cat > "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars" << EOF
+K8S_CLUSTER_CONTEXT = "${K8S_CLUSTER_CONTEXT}"
+RELEASE_PREFIX = "${NAMESPACE}"
+NAMESPACE = "${NAMESPACE}"
+GCP_PROJECT_ID = "${GCP_PROJECT_ID}"
+GCP_REGION = "${GCP_REGION}"
+P2P_BOOTSTRAP_RESOURCE_PROFILE = "${RESOURCE_PROFILE}"
+VALIDATOR_RESOURCE_PROFILE = "${RESOURCE_PROFILE}"
+PROVER_RESOURCE_PROFILE = "${RESOURCE_PROFILE}"
+RPC_RESOURCE_PROFILE = "${RESOURCE_PROFILE}"
+AZTEC_DOCKER_IMAGE = "${AZTEC_DOCKER_IMAGE}"
+L1_CHAIN_ID = "${ETHEREUM_CHAIN_ID}"
+L1_RPC_URLS = ${L1_RPC_URLS_JSON}
+L1_CONSENSUS_HOST_URLS = ${L1_CONSENSUS_HOST_URLS_JSON}
+L1_CONSENSUS_HOST_API_KEYS = ${L1_CONSENSUS_HOST_API_KEYS_JSON}
+L1_CONSENSUS_HOST_API_KEY_HEADERS = ${L1_CONSENSUS_HOST_API_KEY_HEADERS_JSON}
+REGISTRY_CONTRACT_ADDRESS = "${REGISTRY_ADDRESS}"
+SLASH_FACTORY_CONTRACT_ADDRESS = "${SLASH_FACTORY_ADDRESS}"
+FEE_ASSET_HANDLER_CONTRACT_ADDRESS = "${FEE_ASSET_HANDLER_ADDRESS}"
+VALIDATOR_MNEMONIC = "${LABS_INFRA_MNEMONIC}"
+VALIDATOR_MNEMONIC_START_INDEX = ${VALIDATOR_MNEMONIC_START_INDEX}
+VALIDATORS_PER_NODE = ${VALIDATORS_PER_NODE}
+VALIDATOR_REPLICAS = ${VALIDATOR_REPLICAS}
+PROVER_MNEMONIC = "${LABS_INFRA_MNEMONIC}"
+PROVER_MNEMONIC_START_INDEX = ${PROVER_MNEMONIC_START_INDEX}
+SENTINEL_ENABLED = ${SENTINEL_ENABLED:-null}
+SLASH_MIN_PENALTY_PERCENTAGE = ${SLASH_MIN_PENALTY_PERCENTAGE:-null}
+SLASH_MAX_PENALTY_PERCENTAGE = ${SLASH_MAX_PENALTY_PERCENTAGE:-null}
+SLASH_INACTIVITY_TARGET_PERCENTAGE = ${SLASH_INACTIVITY_TARGET_PERCENTAGE:-null}
+SLASH_INACTIVITY_PENALTY = ${SLASH_INACTIVITY_PENALTY:-null}
+SLASH_PRUNE_PENALTY = ${SLASH_PRUNE_PENALTY:-null}
+SLASH_DATA_WITHHOLDING_PENALTY = ${SLASH_DATA_WITHHOLDING_PENALTY:-null}
+SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY = ${SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY:-null}
+SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY = ${SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY:-null}
+SLASH_UNKNOWN_PENALTY = ${SLASH_UNKNOWN_PENALTY:-null}
+SLASH_INVALID_BLOCK_PENALTY = ${SLASH_INVALID_BLOCK_PENALTY:-null}
+SLASH_OFFENSE_EXPIRATION_ROUNDS = ${SLASH_OFFENSE_EXPIRATION_ROUNDS:-null}
+SLASH_MAX_PAYLOAD_SIZE = ${SLASH_MAX_PAYLOAD_SIZE:-null}
+OTEL_COLLECTOR_ENDPOINT = "${OTEL_COLLECTOR_ENDPOINT}"
+PROVER_REAL_PROOFS = ${PROVER_REAL_PROOFS}
+EOF
+
+tf_run "${DEPLOY_AZTEC_INFRA_DIR}" "${DESTROY_AZTEC_INFRA}" "${CREATE_AZTEC_INFRA}"
+log "Deployed aztec infra"
+
+
+
+########################################
+# Optionally deploy Chaos Mesh via Helm
+########################################
+if [[ "${CREATE_CHAOS_MESH}" == "true" ]]; then
+  log "CREATE_CHAOS_MESH=true - deploying Chaos Mesh"
+  DEPLOY_CHAOS_MESH_DIR="${SCRIPT_DIR}/../terraform/deploy-chaos-mesh"
+  cat > "${DEPLOY_CHAOS_MESH_DIR}/terraform.tfvars" << EOF
+K8S_CLUSTER_CONTEXT = "${K8S_CLUSTER_CONTEXT}"
+RELEASE_NAME = "chaos"
+CHAOS_MESH_NAMESPACE = "chaos-mesh"
+EOF
+
+  "${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_CHAOS_MESH_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-chaos-mesh/${SALT}"
+  tf_run "${DEPLOY_CHAOS_MESH_DIR}" "${DESTROY_CHAOS_MESH}" "${CREATE_CHAOS_MESH}"
+  log "Chaos Mesh installed"
+else
+  log "CREATE_CHAOS_MESH=false - skipping Chaos Mesh installation"
+fi

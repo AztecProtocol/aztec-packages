@@ -22,7 +22,6 @@ void run_check_circuit(AvmFlavor::ProverPolynomials& polys, size_t num_rows, boo
         .beta = AvmFlavor::FF::random_element(),
         .gamma = AvmFlavor::FF::random_element(),
         .public_input_delta = 0,
-        .lookup_grand_product_delta = 0,
         .beta_sqr = 0,
         .beta_cube = 0,
         .eccvm_set_permutation_delta = 0,
@@ -59,7 +58,9 @@ void run_check_circuit(AvmFlavor::ProverPolynomials& polys, size_t num_rows, boo
                     }
                 }
             }
-            // Do final check for the linearly dependent part of the relation.
+            // Do final check (accumulation over all rows) for all the subrelations and in
+            // particular the linearly dependent ones. (Linearly independent sub-relations are
+            // checked to be zero as each row by the above loop so their accumulation is zero.)
             for (size_t j = 0; j < result.size(); ++j) {
                 if (!result[j].is_zero()) {
                     throw std::runtime_error(format(

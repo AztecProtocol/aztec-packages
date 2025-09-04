@@ -55,25 +55,39 @@ spec:
             - |
               set -euo pipefail
               KS_DIR=/shared/key-store
-              KS_FILE=$KS_DIR/attesters.yaml
-              mkdir -p "$KS_DIR"; : > "$KS_FILE"
+              ATTESTER_KS=$KS_DIR/attester.yaml
+              PROVER_KS=$KS_DIR/prover.yaml
+
+              mkdir -p "$KS_DIR"
+              : > "$ATTESTER_KS"
+              : > "$PROVER_KS"
+
               for ((i=0;i<VALIDATORS;i++)); do
-                idx=$((KEY_INDEX_START + i))
+                idx=$((VALIDATOR_KEY_START + i))
                 pk="$(cast wallet private-key "$MNEMONIC" --mnemonic-index "$idx")"
-                [[ $i -gt 0 ]] && echo '---' >> "$KS_FILE"
-                cat >> "$KS_FILE" <<EOF
+                [[ $i -gt 0 ]] && echo '---' >> "$ATTESTER_KS"
+                cat >> "$ATTESTER_KS" <<EOF
               type: file-raw
               keyType: SECP256K1
               privateKey: "$pk"
               EOF
               done
+
+              pk="$(cast wallet private-key "$MNEMONIC" --mnemonic-index "$PROVER_KEY_START")"
+              cat >> "$PROVER_KS" <<EOF
+              type: file-raw
+              keyType: SECP256K1
+              privateKey: "$pk"
+              EOF
           env:
             - name: MNEMONIC
               value: {{ .Values.aztec.l1DeploymentMnemonic | quote }}
             - name: VALIDATORS
               value: {{ mul .Values.validator.replicas .Values.validator.keysPerNode | toString | quote }}
-            - name: KEY_INDEX_START
+            - name: VALIDATOR_KEY_START
               value: {{ .Values.aztec.validatorKeyIndexStart | quote }}
+            - name: PROVER_KEY_START
+              value: {{ .Values.aztec.proverKeyIndexStart | quote }}
           volumeMounts:
             - name: shared
               mountPath: /shared

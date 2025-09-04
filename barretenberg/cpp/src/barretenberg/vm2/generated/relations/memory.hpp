@@ -3,7 +3,7 @@
 
 #include <string_view>
 
-#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -14,14 +14,16 @@ template <typename FF_> class memoryImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 20> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 59> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 4, 3, 2, 2, 5, 5, 2, 4, 4, 4, 4, 5, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
 
-        return (in.get(C::memory_sel)).is_zero();
+        return ((in.get(C::memory_sel) + in.get(C::precomputed_first_row))).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -37,9 +39,51 @@ template <typename FF> class memory : public Relation<memoryImpl<FF>> {
 
     static std::string get_subrelation_label(size_t index)
     {
-        switch (index) {}
+        switch (index) {
+        case 46:
+            return "MEM_CONTIGUOUS";
+        case 47:
+            return "SEL_RNG_CHK";
+        case 48:
+            return "GLOBAL_ADDR";
+        case 49:
+            return "TIMESTAMP";
+        case 50:
+            return "LAST_ACCESS";
+        case 51:
+            return "DIFF";
+        case 52:
+            return "DIFF_DECOMP";
+        case 53:
+            return "MEMORY_INIT_VALUE";
+        case 54:
+            return "MEMORY_INIT_TAG";
+        case 55:
+            return "READ_WRITE_CONSISTENCY_VALUE";
+        case 56:
+            return "READ_WRITE_CONSISTENCY_TAG";
+        case 57:
+            return "TAG_IS_FF";
+        case 58:
+            return "SEL_RNG_WRITE";
+        }
         return std::to_string(index);
     }
+
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_MEM_CONTIGUOUS = 46;
+    static constexpr size_t SR_SEL_RNG_CHK = 47;
+    static constexpr size_t SR_GLOBAL_ADDR = 48;
+    static constexpr size_t SR_TIMESTAMP = 49;
+    static constexpr size_t SR_LAST_ACCESS = 50;
+    static constexpr size_t SR_DIFF = 51;
+    static constexpr size_t SR_DIFF_DECOMP = 52;
+    static constexpr size_t SR_MEMORY_INIT_VALUE = 53;
+    static constexpr size_t SR_MEMORY_INIT_TAG = 54;
+    static constexpr size_t SR_READ_WRITE_CONSISTENCY_VALUE = 55;
+    static constexpr size_t SR_READ_WRITE_CONSISTENCY_TAG = 56;
+    static constexpr size_t SR_TAG_IS_FF = 57;
+    static constexpr size_t SR_SEL_RNG_WRITE = 58;
 };
 
 } // namespace bb::avm2

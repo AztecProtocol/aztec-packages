@@ -18,6 +18,9 @@ struct EcAdd {
     WitnessOrConstant<bb::fr> input2_x;
     WitnessOrConstant<bb::fr> input2_y;
     WitnessOrConstant<bb::fr> input2_infinite;
+    // Predicate indicating whether the constraint should be disabled:
+    // - true: the constraint is valid
+    // - false: the constraint is disabled, i.e it must not fail and can return whatever.
     WitnessOrConstant<bb::fr> predicate;
     uint32_t result_x;
     uint32_t result_y;
@@ -30,8 +33,8 @@ struct EcAdd {
                    input2_x,
                    input2_y,
                    input2_infinite,
-                   result_x,
                    predicate,
+                   result_x,
                    result_y,
                    result_infinite);
     friend bool operator==(EcAdd const& lhs, EcAdd const& rhs) = default;

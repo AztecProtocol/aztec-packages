@@ -23,6 +23,9 @@ namespace tx;
     // L1 to L2 tree doesn't evolve during execution of the AVM
     pol commit l1_l2_tree_root;
 
+    pol commit prev_retrieved_bytecodes_tree_root;
+    pol commit prev_retrieved_bytecodes_tree_size;
+
     // TODO: Constrain first row read from PI
     pol commit prev_l2_gas_used;
     pol commit prev_da_gas_used;
@@ -120,6 +123,10 @@ namespace tx;
         public_inputs.cols[0]
     };
 
+    // Ensure the retrieved bytecodes tree starts with the expected state on every tx execution.
+    start_tx * (constants.AVM_RETRIEVED_BYTECODES_TREE_INITIAL_ROOT - prev_retrieved_bytecodes_tree_root) = 0;
+    start_tx * (constants.AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE - prev_retrieved_bytecodes_tree_size) = 0;
+
     // Read start/end state of gas used from PI
     pol commit gas_used_pi_offset;
     start_tx * (constants.AVM_PUBLIC_INPUTS_START_GAS_USED_ROW_IDX - gas_used_pi_offset) = 0;
@@ -180,6 +187,9 @@ namespace tx;
     pol commit next_written_public_data_slots_tree_root;
     pol commit next_written_public_data_slots_tree_size;
 
+    pol commit next_retrieved_bytecodes_tree_root;
+    pol commit next_retrieved_bytecodes_tree_size;
+
     // Gas Info
     pol commit next_l2_gas_used;
     pol commit next_da_gas_used;
@@ -213,6 +223,10 @@ namespace tx;
     NOT_LAST_ROW * (1 - reverted) * (next_written_public_data_slots_tree_size - prev_written_public_data_slots_tree_size') = 0;
     #[L1_L2_TREE_ROOT_CONTINUITY]
     NOT_LAST_ROW * (l1_l2_tree_root - l1_l2_tree_root') = 0;
+    #[RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY]
+    NOT_LAST_ROW * (next_retrieved_bytecodes_tree_root - prev_retrieved_bytecodes_tree_root') = 0;
+    #[RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY]
+    NOT_LAST_ROW * (next_retrieved_bytecodes_tree_size - prev_retrieved_bytecodes_tree_size') = 0;
 
     #[NUM_UNENCRYPTED_LOGS_CONTINUITY]
     NOT_LAST_ROW * (1 - reverted) * (next_num_unencrypted_logs - prev_num_unencrypted_logs') = 0;
@@ -303,6 +317,11 @@ namespace tx;
     #[L2_TO_L1_MESSAGE_COUNT_IMMUTABILITY]
     sel * (1 - sel_can_emit_l2_l1_msg) * (prev_num_l2_to_l1_messages - next_num_l2_to_l1_messages) = 0;
 
+    #[RETRIEVED_BYTECODES_TREE_ROOT_IMMUTABILITY]
+    sel * (1 - should_process_call_request) * (prev_retrieved_bytecodes_tree_root - next_retrieved_bytecodes_tree_root) = 0;
+    #[RETRIEVED_BYTECODES_TREE_SIZE_IMMUTABILITY]
+    sel * (1 - should_process_call_request) * (prev_retrieved_bytecodes_tree_size - next_retrieved_bytecodes_tree_size) = 0;
+
     // Padded rows are not allowed to change the state
     #[NOTE_HASH_ROOT_PADDED_IMMUTABILITY]
     sel * is_padded * (prev_note_hash_tree_root - next_note_hash_tree_root) = 0;
@@ -326,6 +345,8 @@ namespace tx;
     sel * is_padded * (prev_written_public_data_slots_tree_root - next_written_public_data_slots_tree_root) = 0;
     #[WRITTEN_PUBLIC_DATA_SLOTS_SIZE_PADDED_IMMUTABILITY]
     sel * is_padded * (prev_written_public_data_slots_tree_size - next_written_public_data_slots_tree_size) = 0;
+
+    // The retrieved bytecodes tree is already immutable except for nonpadded call request rows
 
     #[UNENCRYPTED_LOG_COUNT_PADDED_IMMUTABILITY]
     sel * is_padded * (prev_num_unencrypted_logs - next_num_unencrypted_logs) = 0;

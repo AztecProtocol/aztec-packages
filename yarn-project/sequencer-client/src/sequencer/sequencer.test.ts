@@ -267,6 +267,7 @@ describe('sequencer', () => {
     validatorClient.createBlockProposal.mockImplementation(() => Promise.resolve(createBlockProposal()));
 
     slasherClient = mock<SlasherClientInterface>();
+    slasherClient.getProposerActions.mockResolvedValue([]);
 
     dateProvider = new TestDateProvider();
 
@@ -321,6 +322,7 @@ describe('sequencer', () => {
 
       expect(blockBuilder.buildBlock).not.toHaveBeenCalled();
       expect(publisher.enqueueProposeL2Block).not.toHaveBeenCalled();
+      expect(publisher.canProposeAtNextEthBlock).not.toHaveBeenCalled();
     });
 
     it('does not publish a block if it does not have enough time left in the slot after collecting attestations', async () => {

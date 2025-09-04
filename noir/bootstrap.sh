@@ -131,13 +131,14 @@ function build_packages {
 function install_deps {
   set -euo pipefail
   # TODO: Move to build image?
-  ./noir-repo/.github/scripts/wasm-bindgen-install.sh
   if ! command -v cargo-binstall &>/dev/null; then
     curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
   fi
-  if ! command -v cargo-nextest &>/dev/null; then
-    cargo-binstall cargo-nextest --version 0.9.67 -y --secure
+  if ! command -v just &>/dev/null; then
+    cargo-binstall just --version 1.42.4 -y --secure
   fi
+  just --justfile ./noir-repo/justfile install-rust-tools
+  just --justfile ./noir-repo/justfile install-js-tools
 }
 
 export -f build_native build_packages noir_content_hash install_deps

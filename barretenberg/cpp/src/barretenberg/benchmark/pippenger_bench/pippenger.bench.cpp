@@ -6,7 +6,7 @@
 #include "barretenberg/srs/global_crs.hpp"
 #include <benchmark/benchmark.h>
 
-#include "barretenberg/common/op_count_google_bench.hpp"
+#include "barretenberg/common/google_bb_bench.hpp"
 
 #include <chrono>
 #include <cstdlib>
@@ -65,7 +65,7 @@ BENCHMARK_DEFINE_F(PippengerBench, Full)(benchmark::State& state)
     PolynomialSpan<Fr> scalars = PolynomialSpan<Fr>(0, span);
 
     for (auto _ : state) {
-        BB_REPORT_OP_COUNT_IN_BENCH(state);
+        GOOGLE_BB_BENCH_REPORTER(state);
         (scalar_multiplication::pippenger_unsafe<Curve>(scalars, points));
     }
 }

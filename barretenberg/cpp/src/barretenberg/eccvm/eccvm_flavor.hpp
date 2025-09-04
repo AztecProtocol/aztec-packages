@@ -465,6 +465,9 @@ class ECCVMFlavor {
             }
         }
 
+#ifdef FUZZING
+        ProverPolynomials(const CircuitBuilder& builder, bool disable_fixed_dyadic_trace_size = false)
+#else
         /**
          * @brief Compute the ECCVM flavor polynomial data required to generate an ECCVM Proof
          *
@@ -546,6 +549,10 @@ class ECCVMFlavor {
          *          msm_lambda2: temp variable used for ecc point addition algorithm if msm_add2 = 1
          *          msm_lambda3: temp variable used for ecc point addition algorithm if msm_add3 = 1
          *          msm_lambda4: temp variable used for ecc point addition algorithm if msm_add4 = 1
+         *          msm_slice1: wNAF digit/slice for first add
+         *          msm_slice2: wNAF digit/slice for second add
+         *          msm_slice3: wNAF digit/slice for third add
+         *          msm_slice4: wNAF digit/slice for fourth add
          *          msm_collision_x1: used to ensure incomplete ecc addition exceptions not triggered if msm_add1 = 1
          *          msm_collision_x2: used to ensure incomplete ecc addition exceptions not triggered if msm_add2 = 1
          *          msm_collision_x3: used to ensure incomplete ecc addition exceptions not triggered if msm_add3 = 1
@@ -557,6 +564,7 @@ class ECCVMFlavor {
          * @return ProverPolynomials
          */
         ProverPolynomials(const CircuitBuilder& builder)
+#endif
         {
             // compute rows for the three different sections of the ECCVM execution trace
             const auto transcript_rows =
@@ -578,7 +586,16 @@ class ECCVMFlavor {
                                std::to_string(ECCVM_FIXED_SIZE) + " actual size: " + std::to_string(dyadic_num_rows));
             }
 
+#ifdef FUZZING
+            // We don't want to spend all the time generating the full trace if we are just fuzzing eccvm.
+            if (disable_fixed_dyadic_trace_size) {
+                dyadic_num_rows = num_rows;
+            } else {
+                dyadic_num_rows = ECCVM_FIXED_SIZE;
+            }
+#else
             dyadic_num_rows = ECCVM_FIXED_SIZE;
+#endif
             size_t unmasked_witness_size = dyadic_num_rows - NUM_DISABLED_ROWS_IN_SUMCHECK;
 
             for (auto& poly : get_to_be_shifted()) {
@@ -776,10 +793,6 @@ class ECCVMFlavor {
      */
     class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
-        // Serialized Verification Key length in fields
-        static constexpr size_t VERIFICATION_KEY_LENGTH =
-            /* 1. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
-
         bool operator==(const VerificationKey&) const = default;
 
         // IPA verification key requires one more point.
@@ -815,26 +828,6 @@ class ECCVMFlavor {
         }
 
         /**
-         * @brief Serialize verification key to field elements
-         *
-         * @return std::vector<FF>
-         */
-        std::vector<fr> to_field_elements() const override
-        {
-            using namespace bb::field_conversion;
-
-            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<fr>& buffer) {
-                std::vector<fr> input_fields = convert_to_bn254_frs<T>(input);
-                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
-            };
-
-            std::vector<fr> elements;
-            for (const Commitment& commitment : this->get_all()) {
-                serialize_to_field_buffer(commitment, elements);
-            }
-            return elements;
-        }
-        /**
          * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
          *
          * @param domain_separator
@@ -848,11 +841,7 @@ class ECCVMFlavor {
         }
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
-        // from MSGPACK and the verification key.
-        // Don't statically check for object completeness.
-        using MSGPACK_NO_STATIC_CHECK = std::true_type;
-        MSGPACK_FIELDS(
-            log_circuit_size, num_public_inputs, pub_inputs_offset, lagrange_first, lagrange_second, lagrange_last);
+        // from the verification key.
     };
 
     /**
@@ -1064,7 +1053,4 @@ class ECCVMFlavor {
                (polynomials.transcript_op[edge_idx] == 0 && polynomials.transcript_op[edge_idx + 1] == 0);
     }
 };
-
-// NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)
-
 } // namespace bb

@@ -1276,6 +1276,7 @@ dependencies = [
  "fm",
  "fxhash",
  "im",
+ "indexmap 2.10.0",
  "iter-extended",
  "noirc_errors",
  "noirc_frontend",

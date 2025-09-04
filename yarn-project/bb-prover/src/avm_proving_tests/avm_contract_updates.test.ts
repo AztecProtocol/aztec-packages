@@ -58,6 +58,7 @@ describe('AVM check-circuit - contract updates', () => {
         /*contractArtifact=*/ AvmTestContractArtifact,
         /*skipNullifierInsertion=*/ false,
         /*seed=*/ avmTestContractClassSeed,
+        /*contractClassSeed=*/ avmTestContractClassSeed,
         /*originalContractClassId=*/ originalClassId, // upgraded from
       );
 
@@ -95,6 +96,7 @@ describe('AVM check-circuit - contract updates', () => {
         /*contractArtifact=*/ AvmTestContractArtifact,
         /*skipNullifierInsertion=*/ false,
         /*seed=*/ avmTestContractClassSeed,
+        /*contractClassSeed=*/ avmTestContractClassSeed,
         /*originalContractClassId=*/ originalClassId, // upgraded from
       );
 

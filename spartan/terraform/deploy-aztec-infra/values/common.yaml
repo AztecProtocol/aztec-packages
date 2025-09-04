@@ -1,0 +1,4 @@
+global:
+  aztecRollupVersion: "canonical"
+  customAztecNetwork:
+    enabled: true

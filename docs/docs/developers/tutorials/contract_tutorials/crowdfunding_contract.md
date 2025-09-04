@@ -202,7 +202,7 @@ Follow the account contract tutorial on the [next page](./write_accounts_contrac
 
 ### Optional: Learn more about concepts mentioned here
 
-- [Initializer functions](../../guides/smart_contracts/writing_contracts/initializers.md)
+- [Initializer functions](../../guides/smart_contracts/define_functions.md#initializer-functions)
 - [Versions and Updating](../../guides/local_env/sandbox.md#updating).
 - [Authorizing actions](../../../aztec/concepts/advanced/authwit.md)
-- [Public logs](../../guides/smart_contracts/writing_contracts/how_to_emit_event.md)
+- [Public logs](../../guides/smart_contracts/how_to_emit_event.md)

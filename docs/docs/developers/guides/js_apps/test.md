@@ -10,7 +10,7 @@ In this guide we will cover how to interact with your Aztec.nr smart contracts i
 ## Prerequisites
 
 - A compiled contract with TS interface (read [how to compile](../smart_contracts/how_to_compile_contract.md))
-- Your sandbox running (read [getting started](../../getting_started.md))
+- Your sandbox running (read [getting started](../../getting_started/getting_started_on_sandbox.md))
 
 ## Create TS file and install libraries
 
@@ -103,7 +103,7 @@ WARN Error processing tx 06dc87c4d64462916ea58426ffcfaf20017880b353c9ec3e0f0ee5f
 
 We can check private or public state directly rather than going through view-only methods, as we did in the initial example by calling `token.methods.balance().simulate()`.
 
-To query storage directly, you'll need to know the slot you want to access. This can be checked in the [contract's `Storage` definition](../../reference/smart_contract_reference/storage/index.md) directly for most data types. However, when it comes to mapping types, as in most EVM languages, we'll need to calculate the slot for a given key. To do this, we'll use the [`CheatCodes`](../../reference/environment_reference/cheat_codes.md) utility class:
+To query storage directly, you'll need to know the slot you want to access. However, when it comes to mapping types, as in most EVM languages, we'll need to calculate the slot for a given key. To do this, we'll use the [`CheatCodes`](../../reference/environment_reference/cheat_codes.md) utility class:
 
 #include_code calc-slot /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 

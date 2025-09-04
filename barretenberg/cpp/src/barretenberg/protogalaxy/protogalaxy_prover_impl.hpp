@@ -5,7 +5,7 @@
 // =====================
 
 #pragma once
-#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/honk/relation_checker.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
@@ -20,7 +20,7 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::run_oink_prover_on_one_incomplete_key
                                                                                  const std::string& domain_separator)
 {
 
-    PROFILE_THIS_NAME("ProtogalaxyProver::run_oink_prover_on_one_incomplete_key");
+    BB_BENCH_NAME("ProtogalaxyProver::run_oink_prover_on_one_incomplete_key");
     OinkProver<typename DeciderProvingKeys::Flavor> oink_prover(key, vk->vk, transcript, domain_separator + '_');
     oink_prover.prove();
 }
@@ -28,13 +28,15 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::run_oink_prover_on_one_incomplete_key
 template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS>
 void ProtogalaxyProver_<Flavor, NUM_KEYS>::run_oink_prover_on_each_incomplete_key()
 {
-    PROFILE_THIS_NAME("ProtogalaxyProver_::run_oink_prover_on_each_incomplete_key");
     size_t idx = 0;
     auto& key = keys_to_fold[0];
     auto domain_separator = std::to_string(idx);
     auto& verifier_accum = vks_to_fold[0];
     if (!key->is_complete) {
         run_oink_prover_on_one_incomplete_key(key, verifier_accum, domain_separator);
+        // Get the gate challenges for sumcheck/combiner computation
+        key->gate_challenges =
+            transcript->template get_powers_of_challenge<FF>(domain_separator + "_gate_challenge", CONST_PG_LOG_N);
     }
 
     idx++;
@@ -52,12 +54,11 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS>
 std::tuple<std::vector<typename Flavor::FF>, Polynomial<typename Flavor::FF>> ProtogalaxyProver_<Flavor, NUM_KEYS>::
     perturbator_round(const std::shared_ptr<const DeciderPK>& accumulator)
 {
-    PROFILE_THIS_NAME("ProtogalaxyProver_::perturbator_round");
+    BB_BENCH_NAME("ProtogalaxyProver_::perturbator_round");
 
-    const FF delta = transcript->template get_challenge<FF>("delta");
-    const std::vector<FF> deltas = compute_round_challenge_pows(CONST_PG_LOG_N, delta);
+    const std::vector<FF> deltas = transcript->template get_powers_of_challenge<FF>("delta", CONST_PG_LOG_N);
     // An honest prover with valid initial key computes that the perturbator is 0 in the first round
-    const Polynomial<FF> perturbator = accumulator->is_accumulator
+    const Polynomial<FF> perturbator = accumulator->from_first_instance
                                            ? pg_internal.compute_perturbator(accumulator, deltas)
                                            : Polynomial<FF>(CONST_PG_LOG_N + 1);
     // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
@@ -81,7 +82,7 @@ ProtogalaxyProver_<Flavor, NUM_KEYS>::combiner_quotient_round(const std::vector<
                                                               const std::vector<FF>& deltas,
                                                               const DeciderProvingKeys& keys)
 {
-    PROFILE_THIS_NAME("ProtogalaxyProver_::combiner_quotient_round");
+    BB_BENCH_NAME("ProtogalaxyProver_::combiner_quotient_round");
 
     const FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
 
@@ -118,11 +119,11 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::update_target_sum_and_fold(
     const UnivariateRelationParameters& univariate_relation_parameters,
     const FF& perturbator_evaluation)
 {
-    PROFILE_THIS_NAME("ProtogalaxyProver_::update_target_sum_and_fold");
+    BB_BENCH_NAME("ProtogalaxyProver_::update_target_sum_and_fold");
 
     std::shared_ptr<DeciderPK> accumulator = keys[0];
     std::shared_ptr<DeciderPK> incoming = keys[1];
-    accumulator->is_accumulator = true;
+    accumulator->from_first_instance = true;
 
     // At this point the virtual sizes of the polynomials should already agree
     BB_ASSERT_EQ(accumulator->polynomials.w_l.virtual_size(), incoming->polynomials.w_l.virtual_size());
@@ -171,7 +172,7 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::update_target_sum_and_fold(
 
 template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS> FoldingResult<Flavor> ProtogalaxyProver_<Flavor, NUM_KEYS>::prove()
 {
-    PROFILE_THIS_NAME("ProtogalaxyProver::prove");
+    BB_BENCH_NAME("ProtogalaxyProver::prove");
 
     // Ensure keys are all of the same size
     size_t max_circuit_size = 0;

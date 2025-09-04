@@ -17,7 +17,11 @@ namespace acir_format {
 struct MultiScalarMul {
     std::vector<WitnessOrConstant<bb::fr>> points;
     std::vector<WitnessOrConstant<bb::fr>> scalars;
+    // Predicate indicating whether the constraint should be disabled:
+    // - true: the constraint is valid
+    // - false: the constraint is disabled, i.e it must not fail and can return whatever.
     WitnessOrConstant<bb::fr> predicate;
+
     uint32_t out_point_x;
     uint32_t out_point_y;
     uint32_t out_point_is_infinite;

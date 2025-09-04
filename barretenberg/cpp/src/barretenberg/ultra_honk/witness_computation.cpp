@@ -5,7 +5,7 @@
 // =====================
 
 #include "barretenberg/ultra_honk/witness_computation.hpp"
-#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
@@ -72,7 +72,7 @@ void WitnessComputation<Flavor>::compute_logderivative_inverses(Flavor::ProverPo
                                                                 const size_t circuit_size,
                                                                 RelationParameters<FF>& relation_parameters)
 {
-    PROFILE_THIS_NAME("compute_logderivative_inverses");
+    BB_BENCH_NAME("compute_logderivative_inverses");
 
     // Compute inverses for conventional lookups
     LogDerivLookupRelation<FF>::compute_logderivative_inverse(polynomials, relation_parameters, circuit_size);

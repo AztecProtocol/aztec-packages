@@ -19,8 +19,8 @@ const remoteSignerConfigSchema = z.union([
   urlSchema,
   z.object({
     remoteSignerUrl: urlSchema,
-    certPath: z.string().optional(),
-    certPass: z.string().optional(),
+    certPath: z.string().nullish(),
+    certPass: z.string().nullish(),
   }),
 ]);
 
@@ -29,59 +29,64 @@ const remoteSignerAccountSchema = z.union([
   ethAddressSchema,
   z.object({
     address: ethAddressSchema,
-    remoteSignerUrl: urlSchema.optional(),
-    certPath: z.string().optional(),
-    certPass: z.string().optional(),
+    remoteSignerUrl: urlSchema.nullish(),
+    certPath: z.string().nullish(),
+    certPass: z.string().nullish(),
   }),
 ]);
 
 // JSON V3 keystore schema
 const jsonKeyFileV3Schema = z.object({
   path: z.string(),
-  password: z.string().optional(),
+  password: z.string().nullish(),
 });
 
 // Mnemonic config schema
 const mnemonicConfigSchema = z.object({
   mnemonic: z.string().min(1, 'Mnemonic cannot be empty'),
-  addressIndex: z.number().int().min(0).optional(),
-  accountIndex: z.number().int().min(0).optional(),
-  addressCount: z.number().int().min(1).optional(),
-  accountCount: z.number().int().min(1).optional(),
+  addressIndex: z.number().int().min(0).default(0),
+  accountIndex: z.number().int().min(0).default(0),
+  addressCount: z.number().int().min(1).default(1),
+  accountCount: z.number().int().min(1).default(1),
 });
 
 // EthAccount schema
-const ethAccountSchema = z.union([ethPrivateKeySchema, remoteSignerAccountSchema, jsonKeyFileV3Schema]);
+const ethAccountSchema = z.union([
+  ethPrivateKeySchema,
+  remoteSignerAccountSchema,
+  jsonKeyFileV3Schema,
+  mnemonicConfigSchema,
+]);
 
 // EthAccounts schema
-const ethAccountsSchema = z.union([ethAccountSchema, z.array(ethAccountSchema), mnemonicConfigSchema]);
+const ethAccountsSchema = z.union([ethAccountSchema, z.array(ethAccountSchema)]);
 
 // Prover keystore schema
 const proverKeyStoreSchema = z.union([
   ethAccountSchema,
   z.object({
     id: ethAddressSchema,
-    publisher: z.array(ethAccountsSchema),
+    publisher: ethAccountsSchema,
   }),
 ]);
 
 // Validator keystore schema
 const validatorKeyStoreSchema = z.object({
   attester: ethAccountsSchema,
-  coinbase: ethAddressSchema.optional(),
-  publisher: ethAccountsSchema.optional(),
+  coinbase: ethAddressSchema.nullish(),
+  publisher: ethAccountsSchema.nullish(),
   feeRecipient: aztecAddressSchema,
-  remoteSigner: remoteSignerConfigSchema.optional(),
+  remoteSigner: remoteSignerConfigSchema.nullish(),
 });
 
 // Main keystore schema
 export const keystoreSchema = z
   .object({
     schemaVersion: z.literal(1),
-    validators: z.array(validatorKeyStoreSchema).optional(),
-    slasher: ethAccountsSchema.optional(),
-    remoteSigner: remoteSignerConfigSchema.optional(),
-    prover: proverKeyStoreSchema.optional(),
+    validators: z.array(validatorKeyStoreSchema).nullish(),
+    slasher: ethAccountsSchema.nullish(),
+    remoteSigner: remoteSignerConfigSchema.nullish(),
+    prover: proverKeyStoreSchema.nullish(),
   })
   .refine(data => data.validators || data.prover, {
     message: 'Keystore must have at least validators or prover configuration',

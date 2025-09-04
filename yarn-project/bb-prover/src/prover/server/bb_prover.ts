@@ -567,17 +567,13 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const operation = async (bbWorkingDirectory: string) => {
       const provingResult = await this.generateAvmProofWithBB(input, bbWorkingDirectory);
 
-      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6773): this VK data format is wrong.
-      // In particular, the number of public inputs, etc will be wrong.
-      const verificationKey = await extractAvmVkData(provingResult.vkDirectoryPath!);
-      const avmProof = await this.readAvmProofAsFields(provingResult.proofPath!, verificationKey);
+      const avmVK = await extractAvmVkData(provingResult.vkDirectoryPath!);
+      const avmProof = await this.readAvmProofAsFields(provingResult.proofPath!);
 
       const circuitType = 'avm-circuit' as const;
       const appCircuitName = 'unknown' as const;
       this.instrumentation.recordAvmDuration('provingDuration', appCircuitName, provingResult.durationMs);
       this.instrumentation.recordAvmSize('proofSize', appCircuitName, avmProof.binaryProof.buffer.length);
-      this.instrumentation.recordAvmSize('circuitPublicInputCount', appCircuitName, verificationKey.numPublicInputs);
-      this.instrumentation.recordAvmSize('circuitSize', appCircuitName, verificationKey.circuitSize);
 
       logger.info(
         `Generated proof for ${circuitType}(${input.hints.tx.hash}) in ${Math.ceil(provingResult.durationMs)} ms`,
@@ -589,12 +585,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
           proofSize: avmProof.binaryProof.buffer.length,
           eventName: 'circuit-proving',
           inputSize: input.serializeWithMessagePack().length,
-          circuitSize: verificationKey.circuitSize, // FIX: wrong in VK
-          numPublicInputs: verificationKey.numPublicInputs, // FIX: wrong in VK
+          circuitSize: 1 << 21,
+          numPublicInputs: 0,
         } satisfies CircuitProvingStats,
       );
 
-      return makeProofAndVerificationKey(avmProof, verificationKey);
+      return makeProofAndVerificationKey(avmProof, avmVK);
     };
     return await this.runInDirectory(operation);
   }
@@ -758,7 +754,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
   private async readAvmProofAsFields(
     proofFilename: string,
-    vkData: VerificationKeyData,
   ): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
     const rawProofBuffer = await fs.readFile(proofFilename);
     const reader = BufferReader.asReader(rawProofBuffer);
@@ -776,7 +771,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       Array(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED - proofFields.length).fill(new Fr(0)),
     );
 
-    const proof = new Proof(rawProofBuffer, vkData.numPublicInputs);
+    const proof = new Proof(rawProofBuffer, /*numPublicInputs=*/ 0);
     return new RecursiveProof(proofFieldsPadded, proof, true, AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
   }
 

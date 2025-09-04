@@ -450,7 +450,7 @@ In terms of general usage, you should be able to use scrolling or the WASD keys 
 
 ##### Adding Zones
 
-Zones are how you can keep track of where you are relative in the code and how you can bucket allocations together. All of the colored blocks in the Main Thread row and other threads' rows refer to zones. You can nest zones in deeper and deeper scopes, which leads to stacks of these zones. To add a named zone, all you have to do is add PROFILE_THIS() or PROFILE_THIS_NAME(<name>) to a scope and it will create a zone. Note that you can't create multiple zones in the same scope.
+Zones are how you can keep track of where you are relative in the code and how you can bucket allocations together. All of the colored blocks in the Main Thread row and other threads' rows refer to zones. You can nest zones in deeper and deeper scopes, which leads to stacks of these zones. To add a named zone, all you have to do is add BB_BENCH_TRACY() or BB_BENCH_TRACY_NAME(<name>) to a scope and it will create a zone. Note that you can't create multiple zones in the same scope.
 
 ##### Analyzing Fragmentation
 
