@@ -709,6 +709,9 @@ export class PXEService implements PXE {
         if (!privateExecutionResult) {
           const syncTimer = new Timer();
           await this.synchronizer.sync();
+          this.log.info(
+            `Synchronized PXE up to block ${await this.synchronizer.getSynchedBlockNumber()} in proveTx func`,
+          );
           syncTime = syncTimer.ms();
           contractFunctionSimulator = this.#getSimulatorForTx();
           privateExecutionResult = await this.#executePrivate(contractFunctionSimulator, txRequest);
