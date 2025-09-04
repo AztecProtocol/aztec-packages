@@ -74,6 +74,7 @@ void TranslatorDecompositionRelationImpl<FF>::accumulate(ContainerOverSubrelatio
         auto accumulator_high_limbs_range_constraint_3_shift = View(in.accumulator_high_limbs_range_constraint_3_shift);
         auto op = View(in.op);
         auto lagrange_even_in_minicircuit = View(in.lagrange_even_in_minicircuit);
+        auto not_even_or_no_op_scaled = lagrange_even_in_minicircuit * op * scaling_factor;
 
         // Contribution 1, accumulator lowest limb decomposition
         auto tmp_1 =
@@ -82,8 +83,7 @@ void TranslatorDecompositionRelationImpl<FF>::accumulate(ContainerOverSubrelatio
               accumulator_low_limbs_range_constraint_3 * MICRO_LIMB_SHIFTx3 +
               accumulator_low_limbs_range_constraint_4 * MICRO_LIMB_SHIFTx4) -
              accumulators_binary_limbs_0);
-        tmp_1 *= lagrange_even_in_minicircuit * op;
-        tmp_1 *= scaling_factor;
+        tmp_1 *= not_even_or_no_op_scaled;
         std::get<0>(accumulators) += tmp_1;
 
         // Contribution 2, accumulator second limb decomposition
@@ -93,8 +93,7 @@ void TranslatorDecompositionRelationImpl<FF>::accumulate(ContainerOverSubrelatio
                        accumulator_low_limbs_range_constraint_3_shift * MICRO_LIMB_SHIFTx3 +
                        accumulator_low_limbs_range_constraint_4_shift * MICRO_LIMB_SHIFTx4) -
                       accumulators_binary_limbs_1);
-        tmp_2 *= lagrange_even_in_minicircuit * op;
-        tmp_2 *= scaling_factor;
+        tmp_2 *= not_even_or_no_op_scaled;
         std::get<1>(accumulators) += tmp_2;
 
         // Contribution 3, accumulator second highest limb decomposition
@@ -104,8 +103,7 @@ void TranslatorDecompositionRelationImpl<FF>::accumulate(ContainerOverSubrelatio
               accumulator_high_limbs_range_constraint_3 * MICRO_LIMB_SHIFTx3 +
               accumulator_high_limbs_range_constraint_4 * MICRO_LIMB_SHIFTx4) -
              accumulators_binary_limbs_2);
-        tmp_3 *= lagrange_even_in_minicircuit * op;
-        tmp_3 *= scaling_factor;
+        tmp_3 *= not_even_or_no_op_scaled;
         std::get<2>(accumulators) += tmp_3;
 
         // Contribution 4, accumulator highest limb decomposition
@@ -114,8 +112,7 @@ void TranslatorDecompositionRelationImpl<FF>::accumulate(ContainerOverSubrelatio
                        accumulator_high_limbs_range_constraint_2_shift * MICRO_LIMB_SHIFTx2 +
                        accumulator_high_limbs_range_constraint_3_shift * MICRO_LIMB_SHIFTx3) -
                       accumulators_binary_limbs_3);
-        tmp_4 *= lagrange_even_in_minicircuit * op;
-        tmp_4 *= scaling_factor;
+        tmp_4 *= not_even_or_no_op_scaled;
         std::get<3>(accumulators) += tmp_4;
     }();
 

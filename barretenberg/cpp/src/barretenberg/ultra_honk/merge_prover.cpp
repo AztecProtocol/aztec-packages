@@ -26,10 +26,12 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
     // Merge the current subtable (for which a merge proof is being constructed) prior to
     // procedeing with proving.
     if (settings == MergeSettings::APPEND) {
+        info("appending now");
         size_t last_subtable_size = op_queue->get_unmerged_subtable_size();
         op_queue->merge(settings, ECCOpQueue::OP_QUEUE_SIZE - last_subtable_size);
 
     } else {
+        info("here");
         op_queue->merge(settings);
     }
 

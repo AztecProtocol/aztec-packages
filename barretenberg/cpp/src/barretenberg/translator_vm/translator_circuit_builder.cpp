@@ -406,7 +406,7 @@ void TranslatorCircuitBuilder::populate_wires_from_ultra_op(const UltraOp& ultra
     op_wire.push_back(
         add_variable(ultra_op.op_code.is_random_op ? ultra_op.op_code.random_value_1 : ultra_op.op_code.value()));
     // Similarly to the ColumnPolynomials in the merge protocol, the op_wire is 0 at every second index
-    op_wire.push_back(add_variable(ultra_op.op_code.is_random_op ? ultra_op.op_code.random_value_2 : zero_idx));
+    op_wire.push_back(add_variable(0));
 
     insert_pair_into_wire(WireIds::X_LOW_Y_HI, ultra_op.x_lo, ultra_op.y_hi);
 
@@ -526,8 +526,8 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     // Process the first UltraOp - a no-op - and populate with zeros the beginning of all other wires to ensure all wire
     // polynomials in translator start with 0 (required to enable shifts of witness polynomials when required).
     for (auto& wire : wires) {
-        wire.push_back(add_variable(zero_idx));
-        wire.push_back(add_variable(zero_idx));
+        wire.push_back(add_variable(0));
+        wire.push_back(add_variable(0));
     }
     num_gates += 2;
 
@@ -587,8 +587,8 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
             // appropriately transfered the accumulator value at k across the entire no-op range, both in even and odd
             // indices.
             for (size_t j = 0; j < ACCUMULATORS_BINARY_LIMBS_0; j++) {
-                wires[j].push_back(add_variable(zero_idx));
-                wires[j].push_back(add_variable(zero_idx));
+                wires[j].push_back(add_variable(0));
+                wires[j].push_back(add_variable(0));
             }
             size_t idx = 0;
             for (size_t j = ACCUMULATORS_BINARY_LIMBS_0; j < ACCUMULATORS_BINARY_LIMBS_3 + 1; j++) {
@@ -597,8 +597,8 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
                 idx++;
             }
             for (size_t j = ACCUMULATORS_BINARY_LIMBS_3 + 1; j < TOTAL_COUNT; j++) {
-                wires[j].push_back(add_variable(zero_idx));
-                wires[j].push_back(add_variable(zero_idx));
+                wires[j].push_back(add_variable(0));
+                wires[j].push_back(add_variable(0));
             }
             num_gates += 2;
             continue;
