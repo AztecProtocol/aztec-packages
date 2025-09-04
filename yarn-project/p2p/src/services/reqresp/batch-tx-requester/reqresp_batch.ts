@@ -37,8 +37,8 @@ export class BatchTxRequester {
     private readonly logger = createLogger('p2p:reqresp_batch'),
     private readonly dateProvider: DateProvider = new DateProvider(),
     private readonly opts: BatchTxRequesterOptions = {
-      smartParallel: SMART_PEERS_TO_QUERY_IN_PARALLEL,
-      dumbParallel: DUMB_PEERS_TO_QUERY_IN_PARALLEL,
+      smartParallelWorkerCount: SMART_PEERS_TO_QUERY_IN_PARALLEL,
+      dumbParallelWorkerCount: DUMB_PEERS_TO_QUERY_IN_PARALLEL,
     },
   ) {
     this.deadline = this.dateProvider.now() + this.timeoutMs;
@@ -52,9 +52,7 @@ export class BatchTxRequester {
     }
 
     const entries: Array<[string, MissingTxMetadata]> = missingTxs.map(h => [h.toString(), new MissingTxMetadata(h)]);
-    this.txsMetadata = this.opts.txsMetadataFactory
-      ? this.opts.txsMetadataFactory(entries)
-      : new MissingTxMetadataCollection(entries);
+    this.txsMetadata = new MissingTxMetadataCollection(entries);
   }
 
   public async run() {
@@ -69,7 +67,7 @@ export class BatchTxRequester {
       //TODO: handle this via async iter
       return this.txsMetadata.getFetchedTxs();
     } finally {
-      for (let i = 0; i < this.opts.smartParallel; i++) {
+      for (let i = 0; i < this.opts.smartParallelWorkerCount; i++) {
         this.smartRequesterSemaphore.release();
       }
     }
@@ -120,7 +118,7 @@ export class BatchTxRequester {
     };
 
     const workers = Array.from(
-      { length: Math.min(this.opts.smartParallel, this.peers.getAllPeers().size) },
+      { length: Math.min(this.opts.smartParallelWorkerCount, this.peers.getAllPeers().size) },
       (_, index) => this.smartWorkerLoop(nextPeer, makeRequest, index + 1),
     );
 
@@ -131,9 +129,22 @@ export class BatchTxRequester {
     const nextPeerIndex = this.makeRoundRobinIndexer();
     const nextBatchIndex = this.makeRoundRobinIndexer();
 
-    const txChunks = () =>
-      //TODO: wrap around  for last batch
-      chunk<string>(Array.from(this.txsMetadata.getMissingTxHashes()), TX_BATCH_SIZE);
+    const txChunks = () => {
+      const missingHashes = Array.from(this.txsMetadata.getMissingTxHashes());
+      if (missingHashes.length < TX_BATCH_SIZE) {
+        return [missingHashes];
+      }
+
+      // This ensures that peers are queried optimally - that no peer is queried for less than TX_BATCH_SIZE txs
+      const remainder = missingHashes.length % TX_BATCH_SIZE;
+      if (remainder === 0) {
+        return chunk<string>(missingHashes, TX_BATCH_SIZE);
+      }
+
+      const wrapAroundCount = TX_BATCH_SIZE - remainder;
+      const wrappedHashes = [...missingHashes, ...missingHashes.slice(0, wrapAroundCount)];
+      return chunk<string>(wrappedHashes, TX_BATCH_SIZE);
+    };
 
     const makeRequest = (_pid: PeerId) => {
       const chunks = txChunks();
@@ -156,7 +167,7 @@ export class BatchTxRequester {
       return idx === undefined ? undefined : peerIdFromString(peers[idx]);
     };
 
-    const workerCount = Math.min(this.opts.dumbParallel, this.peers.getAllPeers().size);
+    const workerCount = Math.min(this.opts.dumbParallelWorkerCount, this.peers.getAllPeers().size);
     const workers = Array.from({ length: workerCount }, (_, index) =>
       this.dumbWorkerLoop(nextPeer, makeRequest, index + 1),
     );
@@ -313,7 +324,7 @@ export class BatchTxRequester {
     this.markTxsPeerHas(peerId, response);
     this.peers.markPeerSmart(peerId);
 
-    if (this.peers.getSmartPeers().size <= this.opts.smartParallel) {
+    if (this.peers.getSmartPeers().size <= this.opts.smartParallelWorkerCount) {
       this.smartRequesterSemaphore.release();
     }
   }
@@ -339,7 +350,7 @@ export class BatchTxRequester {
     const missingTxHashes = this.txsMetadata.getMissingTxHashes();
     if (missingTxHashes.size === 0) {
       // wake sleepers so they can see shouldStop() and exit
-      for (let i = 0; i < this.opts.smartParallel; i++) {
+      for (let i = 0; i < this.opts.smartParallelWorkerCount; i++) {
         this.smartRequesterSemaphore.release();
       }
     } else {

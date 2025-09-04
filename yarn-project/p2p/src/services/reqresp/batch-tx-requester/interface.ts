@@ -18,10 +18,7 @@ export interface ITxMetadataCollection {
   getFetchedTxs(): Tx[];
 }
 
-export type TxsMetadataFactory = (entries: Array<[string, MissingTxMetadata]>) => ITxMetadataCollection;
-
 export interface BatchTxRequesterOptions {
-  smartParallel: number;
-  dumbParallel: number;
-  txsMetadataFactory?: TxsMetadataFactory;
+  smartParallelWorkerCount: number;
+  dumbParallelWorkerCount: number;
 }
