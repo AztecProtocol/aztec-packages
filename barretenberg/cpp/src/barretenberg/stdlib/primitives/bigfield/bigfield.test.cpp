@@ -1275,6 +1275,59 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
+    static void test_strict_assert_is_in_field()
+    {
+        auto builder = Builder();
+        size_t num_repetitions = 10;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            // Get a reduced input
+            auto [a_native, a_ct] = get_random_witness(&builder, true); // fq_native, fq_ct
+            a_ct.set_origin_tag(challenge_origin_tag);
+
+            a_ct.strict_assert_is_in_field();
+
+            // strict_assert_is_in_field preserves tags
+            EXPECT_EQ(a_ct.get_origin_tag(), challenge_origin_tag);
+
+            EXPECT_EQ(a_ct.get_value().get_msb() < (fq_ct::modulus.get_msb() + 1), true);
+        }
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
+    static void test_strict_assert_is_in_field_fails()
+    {
+        auto builder = Builder();
+        size_t num_repetitions = 100;
+        fq_ct c_ct = fq_ct::zero();
+        fq_native expected = fq_native::zero();
+        for (size_t i = 0; i < num_repetitions; ++i) {
+
+            auto [a_native, a_ct] = get_random_witness(&builder); // fq_native, fq_ct
+            auto [b_native, b_ct] = get_random_witness(&builder); // fq_native, fq_ct
+
+            for (size_t i = 0; i < 16; ++i) {
+                c_ct += a_ct * b_ct;
+                expected += a_native * b_native;
+            }
+        }
+
+        // Check if c has exceeded p
+        EXPECT_EQ(c_ct.get_value() >= fq_ct::modulus, true);
+
+        // this will fail because mult and add would have exceeded c > p
+        c_ct.strict_assert_is_in_field();
+
+        // results must match (reduction called after strict_assert_is_in_field)
+        c_ct.self_reduce();
+        uint256_t result_val = c_ct.get_value().lo;
+        EXPECT_EQ(result_val, uint256_t(expected));
+
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, false);
+        EXPECT_EQ(builder.err(), "decompose_into_default_range");
+    }
+
     static void test_assert_less_than_success()
     {
         auto builder = Builder();
@@ -2198,6 +2251,14 @@ TYPED_TEST(stdlib_bigfield, unsafe_evaluate_multiple_multiply_add_fails)
 TYPED_TEST(stdlib_bigfield, assert_is_in_field_success)
 {
     TestFixture::test_assert_is_in_field_success();
+}
+TYPED_TEST(stdlib_bigfield, strict_assert_is_in_field)
+{
+    TestFixture::test_strict_assert_is_in_field();
+}
+TYPED_TEST(stdlib_bigfield, strict_assert_is_in_field_fails)
+{
+    TestFixture::test_strict_assert_is_in_field_fails();
 }
 TYPED_TEST(stdlib_bigfield, assert_less_than_success)
 {

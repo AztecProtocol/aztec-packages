@@ -1815,7 +1815,20 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_is_in_
     assert_less_than(modulus);
 }
 
-template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_than(const uint256_t& upper_limit) const
+// A stricter version that requires the element to be fully reduced mod p.
+// While enforcing `this` < p we do not reduce `this`. The reduction does the following:
+// 1) Reduces the element mod p
+// 2) Enforces that the remainder is < 2^s where s = ceil(log2(p))
+//
+// This is useful in places where we want to ensure that the element is fully reduced, e.g. before
+// serializing to bytes.
+template <typename Builder, typename T> void bigfield<Builder, T>::strict_assert_is_in_field() const
+{
+    assert_less_than(modulus, false);
+}
+
+template <typename Builder, typename T>
+void bigfield<Builder, T>::assert_less_than(const uint256_t& upper_limit, const bool reduce_input) const
 {
     // Warning: this assumes we have run circuit construction at least once in debug mode where large non reduced
     // constants are NOT allowed via ASSERT
@@ -1828,7 +1841,9 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_t
     // The circuit checks that limit - this >= 0, so if we are doing a less_than comparison, we need to subtract 1
     // from the limit
     uint256_t strict_upper_limit = upper_limit - uint256_t(1);
-    self_reduce(); // this method in particular enforces limb vals are <2^b - needed for logic described above
+    if (reduce_input) {
+        self_reduce(); // this method in particular enforces limb vals are <2^b - needed for logic described above
+    }
     uint256_t value = get_value().lo;
 
     const uint256_t upper_limit_value_0 = strict_upper_limit.slice(0, NUM_LIMB_BITS);

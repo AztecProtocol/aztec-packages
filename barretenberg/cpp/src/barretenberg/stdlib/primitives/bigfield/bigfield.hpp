@@ -595,7 +595,8 @@ template <typename Builder, typename T> class bigfield {
     bool_t<Builder> operator==(const bigfield& other) const;
 
     void assert_is_in_field() const;
-    void assert_less_than(const uint256_t& upper_limit) const;
+    void strict_assert_is_in_field() const;
+    void assert_less_than(const uint256_t& upper_limit, const bool reduce_input = true) const;
     void assert_equal(const bigfield& other) const;
     void assert_is_not_equal(const bigfield& other) const;
 

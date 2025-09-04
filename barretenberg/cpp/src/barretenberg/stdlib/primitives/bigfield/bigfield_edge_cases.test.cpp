@@ -71,16 +71,16 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
 
   public:
     // Declare edge case values
-    constexpr static std::array<uint512_t, 6> edge_case_values = {
+    constexpr static std::array<uint512_t, 5> edge_case_values = {
         uint512_t(uint256_t(0)),                  // 0
         uint512_t(uint256_t(1)),                  // 1
         uint512_t(fr::modulus) - 1,               // n - 1
         uint512_t(fr::modulus),                   // n
         uint512_t(fq_ct::modulus) - uint512_t(1), // p - 1
-        uint512_t(fq_ct::modulus),                // p
     };
 
-    inline static const std::array<uint512_t, 10> values_larger_than_bigfield = {
+    inline static const std::array<uint512_t, 11> values_larger_than_bigfield = {
+        uint512_t(fq_ct::modulus), // p
         uint512_t(fq_ct::modulus) + uint512_t(1),
         uint512_t(fq_ct::modulus) + uint512_t(fr::modulus),
         (uint512_t(1) << 256) - 1,
@@ -407,6 +407,36 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
         EXPECT_EQ(result, true);
     }
 
+    static void test_strict_assert_is_in_field()
+    {
+        Builder builder = Builder();
+        for (const auto& value : edge_case_values) {
+            fq_ct edge_case = fq_ct::create_from_u512_as_witness(&builder, value, true);
+
+            // This should pass for values strictly less than modulus
+            edge_case.strict_assert_is_in_field();
+        }
+
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
+    static void test_strict_assert_is_in_field_fails()
+    {
+
+        Builder builder = Builder();
+        for (const auto& large_value : values_larger_than_bigfield) {
+            fq_ct large_case = fq_ct::create_from_u512_as_witness(&builder, large_value, true);
+
+            // For values larger than the field modulus, it should trigger a circuit error.
+            large_case.strict_assert_is_in_field();
+        }
+
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, false);
+        EXPECT_EQ(builder.err(), "decompose_into_default_range");
+    }
+
     static void test_assert_less_than()
     {
         Builder builder = Builder();
@@ -431,7 +461,7 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
 
         // One is n, other is (p + n)
         fq_ct value_n = fq_ct::create_from_u512_as_witness(&builder, edge_case_values[3], true);
-        fq_ct value_p_plus_n = fq_ct::create_from_u512_as_witness(&builder, values_larger_than_bigfield[1], true);
+        fq_ct value_p_plus_n = fq_ct::create_from_u512_as_witness(&builder, values_larger_than_bigfield[2], true);
 
         // Both should be equal to n mod p
         value_p_plus_n.assert_equal(value_n);
@@ -585,6 +615,14 @@ TYPED_TEST(stdlib_bigfield_edge_cases, invariants_during_negation)
 TYPED_TEST(stdlib_bigfield_edge_cases, assert_is_in_field)
 {
     TestFixture::test_assert_is_in_field();
+}
+TYPED_TEST(stdlib_bigfield_edge_cases, strict_assert_is_in_field)
+{
+    TestFixture::test_strict_assert_is_in_field();
+}
+TYPED_TEST(stdlib_bigfield_edge_cases, strict_assert_is_in_field_fails)
+{
+    TestFixture::test_strict_assert_is_in_field_fails();
 }
 TYPED_TEST(stdlib_bigfield_edge_cases, assert_less_than)
 {
