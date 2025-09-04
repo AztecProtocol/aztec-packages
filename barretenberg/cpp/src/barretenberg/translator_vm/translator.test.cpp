@@ -48,21 +48,17 @@ class TranslatorTests : public ::testing::Test {
     // Construct a test circuit based on some random operations
     static CircuitBuilder generate_test_circuit(const Fq& batching_challenge_v,
                                                 const Fq& evaluation_challenge_x,
-                                                const size_t circuit_size_parameter = 500,
-                                                const bool add_no_ops_region = false)
+                                                const size_t circuit_size_parameter = 500)
     {
 
         // Add the same operations to the ECC op queue; the native computation is performed under the hood.
         auto op_queue = std::make_shared<bb::ECCOpQueue>();
         add_no_ops(op_queue);
-
-        add_mixed_ops(op_queue, circuit_size_parameter / 2);
-        if (add_no_ops_region) {
-            add_no_ops(op_queue, 4);
-        }
-
         add_mixed_ops(op_queue, circuit_size_parameter / 2);
         op_queue->merge();
+        add_mixed_ops(op_queue, circuit_size_parameter / 2);
+        add_no_ops(op_queue, 2);
+        op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_unmerged_subtable_size());
 
         return CircuitBuilder{ batching_challenge_v, evaluation_challenge_x, op_queue };
     }
@@ -146,21 +142,21 @@ TEST_F(TranslatorTests, Basic)
     EXPECT_TRUE(verified);
 }
 
-TEST_F(TranslatorTests, BasicWithNoOps)
-{
-    using Fq = fq;
+// TEST_F(TranslatorTests, BasicWithNoOps)
+// {
+//     using Fq = fq;
 
-    Fq batching_challenge_v = Fq::random_element();
-    Fq evaluation_challenge_x = Fq::random_element();
+//     Fq batching_challenge_v = Fq::random_element();
+//     Fq evaluation_challenge_x = Fq::random_element();
 
-    // Generate a circuit and its verification key (computed at runtime from the proving key)
-    CircuitBuilder circuit_builder = generate_test_circuit(
-        batching_challenge_v, evaluation_challenge_x, /*circuit_size_parameter=*/500, /*add_no_ops_region=*/true);
+//     // Generate a circuit and its verification key (computed at runtime from the proving key)
+//     CircuitBuilder circuit_builder = generate_test_circuit(
+//         batching_challenge_v, evaluation_challenge_x, /*circuit_size_parameter=*/500, /*add_no_ops_region=*/true);
 
-    EXPECT_TRUE(TranslatorCircuitChecker::check(circuit_builder));
-    bool verified = prove_and_verify(circuit_builder, evaluation_challenge_x, batching_challenge_v);
-    EXPECT_TRUE(verified);
-}
+//     EXPECT_TRUE(TranslatorCircuitChecker::check(circuit_builder));
+//     bool verified = prove_and_verify(circuit_builder, evaluation_challenge_x, batching_challenge_v);
+//     EXPECT_TRUE(verified);
+// }
 
 /**
  * @brief Ensure that the fixed VK from the default constructor agrees with those computed manually for an arbitrary
