@@ -27,10 +27,6 @@ void UpdateCheckTraceBuilder::process(
 
         FF update_hash_inv = event.update_hash == 0 ? 0 : event.update_hash.invert();
 
-        FF timestamp_of_change_subtraction = timestamp_is_lt_timestamp_of_change
-                                                 ? (timestamp_of_change - 1 - event.current_timestamp)
-                                                 : (event.current_timestamp - timestamp_of_change);
-
         bool update_pre_class_id_is_zero = event.update_preimage_pre_class_id == 0;
         FF update_pre_class_inv = update_pre_class_id_is_zero ? 0 : event.update_preimage_pre_class_id.invert();
 
@@ -64,7 +60,6 @@ void UpdateCheckTraceBuilder::process(
                   UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE - TIMESTAMP_OF_CHANGE_BIT_SIZE },
                 { C::update_check_timestamp_of_change_bit_size, TIMESTAMP_OF_CHANGE_BIT_SIZE },
                 { C::update_check_timestamp_is_lt_timestamp_of_change, timestamp_is_lt_timestamp_of_change },
-                { C::update_check_timestamp_of_change_subtraction, timestamp_of_change_subtraction },
                 { C::update_check_update_pre_class_id_is_zero, update_pre_class_id_is_zero },
                 { C::update_check_update_pre_class_inv, update_pre_class_inv },
                 { C::update_check_update_post_class_id_is_zero, update_post_class_id_is_zero },
@@ -81,6 +76,6 @@ const InteractionDefinition UpdateCheckTraceBuilder::interactions =
         .add<lookup_update_check_update_hash_public_data_read_settings, InteractionType::LookupGeneric>()
         .add<lookup_update_check_update_hi_metadata_range_settings, InteractionType::LookupGeneric>()
         .add<lookup_update_check_update_lo_metadata_range_settings, InteractionType::LookupGeneric>()
-        .add<lookup_update_check_timestamp_of_change_cmp_range_settings, InteractionType::LookupGeneric>();
+        .add<lookup_update_check_timestamp_is_lt_timestamp_of_change_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen
