@@ -2,12 +2,9 @@ import { type AztecAddress, EthAddress, waitForProven } from '@aztec/aztec.js';
 
 import '@jest/globals';
 
-import {
-  type ProverTestContext,
-  REAL_PROOFS,
-  TIMEOUT,
-  setupProverTestEnvironment,
-} from './shared_prover_test_setup.js';
+import { type ProverTestContext, setupProverTestEnvironment } from './shared_prover_test_setup.js';
+
+export const TIMEOUT = 1_200_000;
 
 // This makes AVM proving throw if there's a failure.
 //process.env.AVM_PROVING_STRICT = '1';

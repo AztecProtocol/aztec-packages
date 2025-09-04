@@ -7,7 +7,6 @@ import { type GetContractReturnType, getContract } from 'viem';
 
 import { FullProverTest } from '../fixtures/e2e_prover_test.js';
 
-export const TIMEOUT = 1_200_000;
 export const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
 
 export interface ProverTestContext {
