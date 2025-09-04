@@ -133,13 +133,7 @@ export class BatchTxRequester {
 
     const txChunks = () =>
       //TODO: wrap around  for last batch
-      chunk<string>(
-        // this.txsMetadata
-        //   .getSortedByRequestedCountThenByInFlightCountAsc(Array.from(this.txsMetadata.getMissingTxHashes()))
-        //   .map(t => t.txHash.toString()),
-        Array.from(this.txsMetadata.getMissingTxHashes()),
-        TX_BATCH_SIZE,
-      );
+      chunk<string>(Array.from(this.txsMetadata.getMissingTxHashes()), TX_BATCH_SIZE);
 
     const makeRequest = (_pid: PeerId) => {
       const chunks = txChunks();
@@ -153,7 +147,6 @@ export class BatchTxRequester {
       }
       const txs = chunks[idx].map(t => TxHash.fromString(t));
       this.logger.debug(`Dumb batch index: ${idx}, batches count: ${chunks.length}`);
-      txs.forEach(tx => this.txsMetadata.markRequested(tx));
       return { blockRequest: BlockTxsRequest.fromBlockProposalAndMissingTxs(this.blockProposal, txs), txs };
     };
 

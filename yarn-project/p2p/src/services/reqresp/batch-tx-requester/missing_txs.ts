@@ -2,6 +2,8 @@ import { type Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
+import type { ITxMetadataCollection } from './interface.js';
+
 export const TX_BATCH_SIZE = 8;
 
 export class MissingTxMetadata {
@@ -47,7 +49,7 @@ export class MissingTxMetadata {
  * This could be better optimized but given expected count of missing txs (N < 100)
  * At the moment there is no need for it. And benefit is that we have everything in single store
  * */
-export class MissingTxMetadataCollection extends Map<string, MissingTxMetadata> {
+export class MissingTxMetadataCollection extends Map<string, MissingTxMetadata> implements ITxMetadataCollection {
   public getSortedByRequestedCountAsc(txs: string[]): MissingTxMetadata[] {
     return Array.from(this.values().filter(txMeta => txs.includes(txMeta.txHash.toString()))).sort(
       (a, b) => a.requestedCount - b.requestedCount,

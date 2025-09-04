@@ -2,6 +2,7 @@ import { chunk } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { waitFor } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
@@ -125,21 +126,10 @@ describe('BatchTxRequester Testability Improvements', () => {
         },
       );
 
-      const expectedMarks = txCount;
       const runPromise = requester.run();
 
-      // Poll until we've seen enough planned txs - start immediately, not after delay
-      await new Promise<void>(resolve => {
-        const interval = setInterval(() => {
-          if (record.requested.size < expectedMarks) {
-            return;
-          }
-
-          clock.advanceTo(deadline + 1);
-          clearInterval(interval);
-          resolve();
-        }, 10);
-      });
+      await waitFor(() => record.requested.size === txCount);
+      clock.advanceTo(deadline + 1);
 
       await runPromise;
 
@@ -149,9 +139,106 @@ describe('BatchTxRequester Testability Improvements', () => {
         TX_BATCH_SIZE,
       );
 
-      expect(requestLog.get(peerId.toString())).toEqual(batches);
       expect(batches.map(b => b.length)).toEqual(expectedBatches.map(b => b.length));
       expect(batches).toEqual(expectedBatches);
+
+      // We are requesting single dumb peer so batches should map 1:1 to what we requested from the peer
+      expect(requestLog.get(peerId.toString())).toEqual(batches);
+    });
+
+    it.only('should distribute batches correctly across 3 peers with multiple rounds', async () => {
+      const txCount = 3 * TX_BATCH_SIZE + 1;
+      const numberOfRounds = 2; //Number of requests per peer
+
+      const deadline = 10_000;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        header: makeHeader(1, 1),
+        archive: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId(), createSecp256k1PeerId()]);
+
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
+
+      const requestLog: Map<string, Array<{ indices: number[]; txs: string[] }>> = new Map();
+      let requestCount = 0;
+
+      reqresp.sendRequestToPeer.mockImplementation(async (peerId, _sub, data) => {
+        const request = BlockTxsRequest.fromBuffer(data);
+        const indices = request.txIndices.getTrueIndices();
+        const txHashes = indices.map(idx => blockProposal.txHashes[idx].toString());
+
+        if (!requestLog.has(peerId.toString())) {
+          requestLog.set(peerId.toString(), []);
+        }
+        requestLog.get(peerId.toString())!.push({ indices, txs: txHashes });
+
+        requestCount++;
+
+        await sleep(10);
+        return {
+          status: ReqRespStatus.SUCCESS,
+          data: BlockTxsResponse.empty().toBuffer(),
+        } as any;
+      });
+
+      const clock = new TestClock();
+      const record = new RecordingMetadata(missing.map(h => [h.toString(), new MissingTxMetadata(h)]));
+
+      const requester = new BatchTxRequester(
+        missing,
+        blockProposal,
+        undefined,
+        deadline,
+        reqresp,
+        connectionSampler,
+        txValidator,
+        logger,
+        clock,
+        {
+          smartParallel: 0,
+          dumbParallel: 3,
+          txsMetadataFactory: _ => record,
+        },
+      );
+
+      const runPromise = requester.run();
+
+      await waitFor(() => requestCount == numberOfRounds * peers.length);
+      clock.advanceTo(deadline + 1);
+
+      await runPromise;
+
+      // 2 rounds of requests per peer
+      expect(requestCount / peers.length).toEqual(numberOfRounds);
+      expect(
+        Array.from(requestLog.values())
+          .map(r => r.length)
+          .every(v => v == numberOfRounds),
+      ).toBeTruthy();
+
+      // Note we cannot do here: const [peer1, peer2, peer3] = peers;
+      // This is because we have 3 concurrent workers, and it might be
+      // that first peer in the list above is not the first one that is able to make the request
+      const [peer1, peer2, peer3] = requestLog.keys();
+
+      const peer1Requests = requestLog.get(peer1.toString()) || [];
+      const peer2Requests = requestLog.get(peer2.toString()) || [];
+      const peer3Requests = requestLog.get(peer3.toString()) || [];
+
+      // Verify first round: peer distribution should be [0-7], [8-15], [16-24]
+      expect(peer1Requests[0].indices).toEqual(Array.from({ length: TX_BATCH_SIZE }, (_, i) => i));
+      expect(peer2Requests[0].indices).toEqual(Array.from({ length: TX_BATCH_SIZE }, (_, i) => i + TX_BATCH_SIZE));
+      expect(peer3Requests[0].indices).toEqual(Array.from({ length: TX_BATCH_SIZE }, (_, i) => i + 2 * TX_BATCH_SIZE));
+
+      // Second round should be [25], [0-7], [8-15]
+      expect(peer1Requests[1].indices).toEqual([txCount - 1]);
+      expect(peer2Requests[1].indices).toEqual(Array.from({ length: TX_BATCH_SIZE }, (_, i) => i));
+      expect(peer3Requests[1].indices).toEqual(Array.from({ length: TX_BATCH_SIZE }, (_, i) => i + TX_BATCH_SIZE));
     });
   });
 
