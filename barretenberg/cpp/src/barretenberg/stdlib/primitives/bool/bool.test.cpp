@@ -169,8 +169,9 @@ template <class Builder_> class BoolTest : public ::testing::Test {
             const size_t sorted_list_size = num_inputs + 2;
 
             // Pin down the gate numbers. The point is that it is more efficient to use this constructor to constrain a
-            // batch of bool_t elements.
-            size_t expected = (num_inputs == 1) ? 4 : (sorted_list_size / 4) + 3;
+            // batch of bool_t elements. 4 is a special case, otherwise the number of gates is just
+            // ceil(sorted_list_size) + 2.
+            size_t expected = (sorted_list_size == 4) ? 4 : ((sorted_list_size + 3) / 4) + 2;
 
             EXPECT_EQ(builder.get_estimated_num_finalized_gates() - num_gates_start, expected);
 
