@@ -558,10 +558,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
     debug_logging = flags.debug;
     verbose_logging = debug_logging || flags.verbose;
     slow_low_memory = flags.slow_low_memory;
+#ifndef __wasm__
     if (!flags.storage_budget.empty()) {
         storage_budget = parse_size_string(flags.storage_budget);
     }
-#ifndef __wasm__
     if (print_bench || !bench_out.empty()) {
         bb::detail::use_bb_bench = true;
     }
