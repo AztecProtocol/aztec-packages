@@ -636,19 +636,19 @@ Note that in the regime where we have a few long MSMs, this is asymptotic to \f$
 
 ## Multisets and Lookups
 
-As explained in the introduction, we psychologically treat these three sets of disjoint columns as three separate tables. There must therefore be a mechanism to ensure that they "communicate" with each other. We do _not_ use bare copy-constraints; instead, we use three multisets equality checks. (These were formerly called "strict lookup arguments", where every write had to have precisely one corresponding read.) The goal of these section is to sketch how these constraints, together with the lookups, fully piece together the ECCVM. We emphasize that this is merely a sketch; for full details, please see the [set relation](../relations/ecc_vm/ecc_set_relation_impl.hpp).
+As explained in the introduction, we sometimes treat these three sets of disjoint columns as three separate tables. There must be a mechanism to ensure that they "communicate" with each other. We do _not_ use bare copy-constraints; instead, we use three multisets equality checks. (These were formerly called "strict lookup arguments", where every write had to have precisely one corresponding read.) The goal of these section is to sketch how these constraints, together with the lookups, fully piece together the ECCVM. We emphasize that this is merely a sketch; for full details, please see the [set relation](../relations/ecc_vm/ecc_set_relation_impl.hpp).
 
 ### Multisets
 
-The basic structure: each term corresponds to _two_ multisets. (One could refer to these as an input multiset and an output multiset, but this directionality is purely psychological and we avoid it.) One table contributes to one of the multisets, another to the second multiset, and the term is _satisfied_ if the two multisets are equal.
+The basic structure: each term corresponds to _two_ multisets. (One could refer to these as an input multiset and an output multiset, but this directionality is purely psychological and we avoid it.) One table contributes to one of the multisets, another table constributes to the other multiset, and the term is _satisfied_ if the two multisets are equal.
 
 #### First term: `(pc, round, wnaf_slice)`
 
-This facilitates communication between the Precomputed table and the MSM table. Recall that `pc` stands for point-counter. `round` refers to the wNAF digit-place being processed and `wnaf_slice` is the _compressed_ digit (i.e., it is a way of representing the actual wNAF digit). Recall that the skew digit's place corresponds to `round == 32`.
+This facilitates communication between the Precomputed table and the MSM table. Recall that `pc` stands for point-counter. `round` refers to the wNAF digit-place being processed and `wnaf_slice` is the _compressed_ digit (i.e., it is a way of representing the actual wNAF digit). Recall that the skew digit's place corresponds to `round == 32`. This multiset check ensures that at every `round`, for a given point, the wNAF digit computed by the Precomputed table is actually being used by the MSM table.
 
 #### Second term: `(pc, P.x, P.y, scalar-multiplier)`
 
-This facilitates communication between the Precomputed table (and more specifically, the PointTable) and the Transcript table. More precisely, it ensures that the Precomputed table has done the wNAF decomposition correctly for the point `(P.x, P.y)`, which further precisely corresponds to `pc`.
+This facilitates communication between the Precomputed table (and more specifically, the PointTable) and the Transcript table. More precisely, it ensures that the Precomputed table has done the wNAF decomposition correctly for the scalar corresponding to the point at position `pc`.
 
 #### Third term: `(pc, P.x, P.y, msm-size)`
 
