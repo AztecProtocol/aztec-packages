@@ -75,7 +75,7 @@ In this situation, try to mark the public function as `internal`. This ensures y
 
 ### Moving public data into the private domain
 
-See [partial notes](../../../../aztec/concepts/advanced/storage/partial_notes.md). Partial notes are how public balances are transferred to private [in the NFT contract](../../../tutorials/contract_tutorials/nft_contract.md).
+See [partial notes](../../../../aztec/concepts/advanced/storage/partial_notes.md).
 
 ### Discovering my notes
 
