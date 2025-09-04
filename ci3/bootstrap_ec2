@@ -196,6 +196,14 @@ EOF
 function run {
   export GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-/tmp/gcp-key.json}
   export NETWORK_ENV_FILE=${NETWORK_ENV_FILE:-/tmp/network.env}
+  # if the google application credentials exist, load them into a base64 encoded string
+  if [ -f ${GOOGLE_APPLICATION_CREDENTIALS} ]; then
+    export GCP_SA_KEY_B64=$(cat ${GOOGLE_APPLICATION_CREDENTIALS} | base64 -w 0)
+  fi
+  # if the network env file exists, load it into a base64 encoded string
+  if [ -f ${NETWORK_ENV_FILE} ]; then
+    export NETWORK_ENV_FILE_B64=$(cat ${NETWORK_ENV_FILE} | base64 -w 0)
+  fi
 
   ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     # TODO: This should *not* be needed in a CI run. Remove watching code, e.g. in boxes.

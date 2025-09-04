@@ -1,19 +1,29 @@
 # CI for Aztec Network Scenarios.
-# Triggered by network-deployments event, which is emitted by ci3.yml when a tagged release passes "normal" CI.
+# Triggered by CI3 workflow completion on tagged releases.
 #
 name: Test Network Scenarios
 
 on:
-  repository_dispatch:
+  workflow_run:
+    workflows: ["CI3"]
     types:
-      - network-deployments
+      - completed
+  workflow_dispatch:
+    inputs:
+      semver:
+        description: Semver version (e.g., 1.2.3)
+        required: true
+        type: string
 
 concurrency:
-  group: test-network-scenarios-${{ github.event.client_payload.major_version }}
+  group: test-network-scenarios-${{ (github.event_name == 'workflow_run' && github.event.workflow_run.head_sha) || (github.event_name == 'workflow_dispatch' && inputs.semver) || github.sha }}
   cancel-in-progress: true
 
 jobs:
   deploy-and-test-scenarios:
+    if: |
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     env:
       NETWORK_ENV_FILE: /tmp/network.env
@@ -22,12 +32,42 @@ jobs:
       #############
       # Prepare Env
       #############
-      - name: Checkout
+      - name: Checkout (workflow_run)
+        if: github.event_name == 'workflow_run'
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ github.event.client_payload.sha }}
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
           persist-credentials: false
+      - name: Checkout (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: refs/tags/v${{ inputs.semver }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Determine semver from tag
+        if: github.event_name == 'workflow_run'
+        run: |
+          git fetch --tags --force
+          tag=$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" | head -n1)
+          if ! echo "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+'; then
+            echo "No semver tag found for head_sha: ${{ github.event.workflow_run.head_sha }}. Skipping."
+            exit 0
+          fi
+          semver="${tag#v}"
+          major_version="${semver%%.*}"
+          echo "SEMVER=$semver" >> $GITHUB_ENV
+          echo "MAJOR_VERSION=$major_version" >> $GITHUB_ENV
+      - name: Set semver from input
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          semver="${{ inputs.semver }}"
+          major_version="${semver%%.*}"
+          echo "SEMVER=$semver" >> $GITHUB_ENV
+          echo "MAJOR_VERSION=$major_version" >> $GITHUB_ENV
       - name: Setup
+        if: env.SEMVER != ''
         run: |
           # Ensure we can SSH into the spot instances we request.
           mkdir -p ~/.ssh
@@ -35,15 +75,17 @@ jobs:
           chmod 600 ~/.ssh/build_instance_key
           sudo apt install -y --no-install-recommends redis-tools parallel
 
-      - name: Store the GCP key in a base64 encoded string
+      - name: Write GCP key to file
+        if: env.SEMVER != ''
         run: |
-          echo "GCP_SA_KEY_B64=$(echo "${{ secrets.GCP_SA_KEY }}" | base64 -w 0)" >> $GITHUB_ENV
+          echo "${{ secrets.GCP_SA_KEY }}" > ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
 
       # note: it is fine to log the mnemonic here. this is an internal,
       # throwaway test network, which you can see gets destroyed before it is created each time.
-      - name: Write network env file into a base64 encoded string
+      - name: Write network env file
+        if: env.SEMVER != ''
         run: |
-          SEMVER_SALT = $(echo ${{ github.event.client_payload.major_version }} | md5sum | cut -d' ' -f1)
+          SEMVER_SALT=$(echo "${MAJOR_VERSION}" | md5sum | cut -d' ' -f1)
           cat > ${{ env.NETWORK_ENV_FILE }} <<EOF
           DESTROY_ETH_DEVNET=true
           CREATE_ETH_DEVNET=true
@@ -53,18 +95,20 @@ jobs:
           GCP_REGION=us-west1-a
           CLUSTER=aztec-gke-private
           SALT=${SEMVER_SALT}
-          NAMESPACE="v${{ github.event.client_payload.major_version }}-scenario"
-          AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${{ github.event.client_payload.semver }}"
+          NAMESPACE="v${MAJOR_VERSION}-scenario"
+          AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${SEMVER}"
           ETHEREUM_CHAIN_ID=1337
           LABS_INFRA_MNEMONIC="test test test test test test test test test test test junk"
+          OTEL_COLLECTOR_ENDPOINT=${{ secrets.OTEL_COLLECTOR_URL }}
           EOF
-          echo "NETWORK_ENV_FILE_B64=$(echo "${{ env.NETWORK_ENV_FILE }}" | base64 -w 0)" >> $GITHUB_ENV
 
       - name: Get Tree Hash
+        if: env.SEMVER != ''
         run: echo "TREE_HASH=$(git rev-parse HEAD^{tree})" >> $GITHUB_ENV
 
       - name: Check CI Cache
         id: ci_cache
+        if: env.SEMVER != ''
         uses: actions/cache@v3
         with:
           path: ci-success.txt
@@ -74,18 +118,15 @@ jobs:
       # Run
       #############
       - name: Run
-        if: steps.ci_cache.outputs.cache-hit != 'true'
+        if: env.SEMVER != '' && steps.ci_cache.outputs.cache-hit != 'true'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           RUN_ID: ${{ github.run_id }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          # Pass the base64 encoded strings, and where they should be decoded to
           NETWORK_ENV_FILE: ${{ env.NETWORK_ENV_FILE }}
-          NETWORK_ENV_FILE_B64: ${{ env.NETWORK_ENV_FILE_B64 }}
           GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
-          GCP_SA_KEY_B64: ${{ env.GCP_SA_KEY_B64 }}
         run: |
           # the network env file and gcp credentials file are mounted into the ec2 instance
           # see ci3/bootstrap_ec2
@@ -93,5 +134,5 @@ jobs:
           exec ./ci.sh network-tests
 
       - name: Save CI Success
-        if: steps.ci_cache.outputs.cache-hit != 'true'
+        if: env.SEMVER != '' && steps.ci_cache.outputs.cache-hit != 'true'
         run: echo "success" > ci-success.txt
