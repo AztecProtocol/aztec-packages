@@ -411,37 +411,41 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
 }
 
 /**
- * @brief Will evaluate ECC point addition over `*this` and `other`.
- *        Incomplete addition formula edge cases are *NOT* checked!
- *        Only use this method if you know the x-coordinates of the operands cannot collide
- *        and none of the operands is a point at infinity
- *        Ultra version that uses ecc group gate
+ * @brief Will evaluate ECC point addition or subtraction over `*this` and `other`.
+ * @details Incomplete addition formula edge cases are *NOT* checked! Only use this method if you know the x-coordinates
+ * of the operands cannot collide and none of the operands is a point at infinity. Uses Ultra-arithmetic elliptic curve
+ * addition gate.
  *
  * @tparam Builder
  * @param other
+ * @param is_addition : true for addition, false for subtraction
  * @param hint : value of output point witness, if known ahead of time (used to avoid modular inversions during witgen)
  * @return cycle_group<Builder>
  */
 template <typename Builder>
-cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& other,
-                                                             const std::optional<AffineElement> hint) const
-    requires IsUltraArithmetic<Builder>
+cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const cycle_group& other,
+                                                                          bool is_addition,
+                                                                          const std::optional<AffineElement> hint) const
 {
     auto context = get_context(other);
 
+    bb::fr sign_coefficient = is_addition ? 1 : -1;
+
+    // if one or the other point is constant, construct a corresponding fixed witness in order to utilize the custom
+    // ecc_add gate
     const bool lhs_constant = is_constant();
     const bool rhs_constant = other.is_constant();
     if (lhs_constant && !rhs_constant) {
         auto lhs = cycle_group::from_constant_witness(context, get_value());
         // We need to manually propagate the origin tag
         lhs.set_origin_tag(get_origin_tag());
-        return lhs.unconditional_add(other, hint);
+        return lhs._unconditional_add_or_subtract(other, is_addition, hint);
     }
     if (!lhs_constant && rhs_constant) {
         auto rhs = cycle_group::from_constant_witness(context, other.get_value());
         // We need to manually propagate the origin tag
         rhs.set_origin_tag(other.get_origin_tag());
-        return unconditional_add(rhs, hint);
+        return _unconditional_add_or_subtract(rhs, is_addition, hint);
     }
     cycle_group result;
     if (hint.has_value()) {
@@ -454,7 +458,7 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
     } else {
         const auto p1 = get_value();
         const auto p2 = other.get_value();
-        AffineElement p3(Element(p1) + Element(p2));
+        AffineElement p3 = is_addition ? (Element(p1) + Element(p2)) : (Element(p1) - Element(p2));
         if (lhs_constant && rhs_constant) {
             auto result = cycle_group(p3);
             // We need to manually propagate the origin tag
@@ -465,14 +469,14 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
         field_t r_y(witness_t(context, p3.y));
         result = cycle_group(r_x, r_y, /*is_infinity=*/false);
     }
-    bb::ecc_add_gate_<FF> add_gate{
+    bb::ecc_add_gate_<bb::fr> add_gate{
         .x1 = x.get_witness_index(),
         .y1 = y.get_witness_index(),
         .x2 = other.x.get_witness_index(),
         .y2 = other.y.get_witness_index(),
         .x3 = result.x.get_witness_index(),
         .y3 = result.y.get_witness_index(),
-        .sign_coefficient = 1,
+        .sign_coefficient = sign_coefficient,
     };
     context->create_ecc_add_gate(add_gate);
 
@@ -481,78 +485,18 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
     return result;
 }
 
-/**
- * @brief will evaluate ECC point subtraction over `*this` and `other`.
- *        Incomplete addition formula edge cases are *NOT* checked!
- *        Only use this method if you know the x-coordinates of the operands cannot collide
- *        and none of the operands is a point at infinity
- *
- * @tparam Builder
- * @param other
- * @param hint : value of output point witness, if known ahead of time (used to avoid modular inversions during witgen)
- * @return cycle_group<Builder>
- */
+template <typename Builder>
+cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& other,
+                                                             const std::optional<AffineElement> hint) const
+{
+    return _unconditional_add_or_subtract(other, /*is_addition=*/true, hint);
+}
+
 template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_group& other,
                                                                   const std::optional<AffineElement> hint) const
 {
-    if constexpr (!IS_ULTRA) {
-        return unconditional_add(-other, hint);
-    } else {
-        auto context = get_context(other);
-
-        const bool lhs_constant = is_constant();
-        const bool rhs_constant = other.is_constant();
-
-        if (lhs_constant && !rhs_constant) {
-            auto lhs = cycle_group<Builder>::from_constant_witness(context, get_value());
-            // We need to manually propagate the origin tag
-            lhs.set_origin_tag(get_origin_tag());
-            return lhs.unconditional_subtract(other, hint);
-        }
-        if (!lhs_constant && rhs_constant) {
-            auto rhs = cycle_group<Builder>::from_constant_witness(context, other.get_value());
-            // We need to manually propagate the origin tag
-            rhs.set_origin_tag(other.get_origin_tag());
-            return unconditional_subtract(rhs);
-        }
-        cycle_group result;
-        if (hint.has_value()) {
-            auto x3 = hint.value().x;
-            auto y3 = hint.value().y;
-            if (lhs_constant && rhs_constant) {
-                return cycle_group(x3, y3, /*is_infinity=*/false);
-            }
-            result = cycle_group(witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false);
-        } else {
-            auto p1 = get_value();
-            auto p2 = other.get_value();
-            AffineElement p3(Element(p1) - Element(p2));
-            if (lhs_constant && rhs_constant) {
-                auto result = cycle_group(p3);
-                // We need to manually propagate the origin tag
-                result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
-                return result;
-            }
-            field_t r_x(witness_t(context, p3.x));
-            field_t r_y(witness_t(context, p3.y));
-            result = cycle_group(r_x, r_y, /*is_infinity=*/false);
-        }
-        bb::ecc_add_gate_<FF> add_gate{
-            .x1 = x.get_witness_index(),
-            .y1 = y.get_witness_index(),
-            .x2 = other.x.get_witness_index(),
-            .y2 = other.y.get_witness_index(),
-            .x3 = result.x.get_witness_index(),
-            .y3 = result.y.get_witness_index(),
-            .sign_coefficient = -1,
-        };
-        context->create_ecc_add_gate(add_gate);
-
-        // We need to manually propagate the origin tag (merging the tag of two inputs)
-        result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
-        return result;
-    }
+    return _unconditional_add_or_subtract(other, /*is_addition=*/false, hint);
 }
 
 /**

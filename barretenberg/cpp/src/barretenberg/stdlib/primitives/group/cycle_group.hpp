@@ -93,8 +93,7 @@ template <typename Builder> class cycle_group {
     cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const
         requires IsUltraArithmetic<Builder>;
     cycle_group unconditional_add(const cycle_group& other,
-                                  const std::optional<AffineElement> hint = std::nullopt) const
-        requires IsUltraArithmetic<Builder>;
+                                  const std::optional<AffineElement> hint = std::nullopt) const;
     cycle_group unconditional_subtract(const cycle_group& other,
                                        const std::optional<AffineElement> hint = std::nullopt) const;
     cycle_group checked_unconditional_add(const cycle_group& other,
@@ -232,6 +231,11 @@ template <typename Builder> class cycle_group {
                                                                     std::span<AffineElement> base_points,
                                                                     std::span<AffineElement const> offset_generators)
         requires IsUltraArithmetic<Builder>;
+
+    // Internal implementation for unconditional_add and unconditional_subtract
+    cycle_group _unconditional_add_or_subtract(const cycle_group& other,
+                                               bool is_addition,
+                                               const std::optional<AffineElement> hint) const;
 };
 
 template <typename Builder> inline std::ostream& operator<<(std::ostream& os, cycle_group<Builder> const& v)
