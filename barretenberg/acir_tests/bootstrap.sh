@@ -104,12 +104,6 @@ function compile {
   denoise "parallel --joblog joblog.txt --line-buffered 'cd {} && rm -rf target && $nargo compile --silence-warnings && $nargo execute && mv ./target/\$(basename {}).json ./target/program.json && mv ./target/\$(basename {}).gz ./target/witness.gz' ::: ./acir_tests/*"
 }
 
-function compile {
-  echo_header "Compiling acir_tests"
-  local nargo=$(realpath ../../noir/noir-repo/target/release/nargo)
-  denoise "parallel --joblog joblog.txt --line-buffered 'cd {} && rm -rf target && $nargo compile --silence-warnings && $nargo execute && mv ./target/\$(basename {}).json ./target/program.json && mv ./target/\$(basename {}).gz ./target/witness.gz' ::: ./acir_tests/*"
-}
-
 function build {
   echo_header "acir_tests build"
 
