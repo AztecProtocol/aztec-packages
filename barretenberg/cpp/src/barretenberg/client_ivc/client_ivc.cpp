@@ -5,7 +5,7 @@
 // =====================
 
 #include "barretenberg/client_ivc/client_ivc.hpp"
-#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/honk/proving_key_inspector.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
@@ -313,6 +313,9 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     // to ensure the op queue wires in translator are shiftable, i.e. their 0th coefficient is 0. (The tail kernel
     // subtable is at the top of the final aggregate table since it is the last to be prepended).
     if (is_tail_kernel) {
+        BB_ASSERT_EQ(circuit.op_queue->get_unmerged_subtable_size(),
+                     0U,
+                     "tail kernel ecc ops table should be empty at this point");
         circuit.queue_ecc_no_op();
         // Add randomness at the begining of the tail kernel (whose ecc ops fall at the beginning of the op queue) to
         // ensure the CIVC proof doesn't leak information about the actual content of the op queue
@@ -706,7 +709,6 @@ std::vector<ClientIVC::FF> ClientIVC::Proof::to_field_elements() const
         proof.end(), goblin_proof.eccvm_proof.pre_ipa_proof.begin(), goblin_proof.eccvm_proof.pre_ipa_proof.end());
     proof.insert(proof.end(), goblin_proof.eccvm_proof.ipa_proof.begin(), goblin_proof.eccvm_proof.ipa_proof.end());
     proof.insert(proof.end(), goblin_proof.translator_proof.begin(), goblin_proof.translator_proof.end());
-
     return proof;
 };
 

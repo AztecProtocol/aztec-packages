@@ -116,6 +116,8 @@ TEST(ExecutionConstrainingTest, TreeStateNotChanged)
             { C::execution_prev_public_data_tree_size, 3 },
             { C::execution_prev_written_public_data_slots_tree_root, 2 },
             { C::execution_prev_written_public_data_slots_tree_size, 1 },
+            { C::execution_prev_retrieved_bytecodes_tree_root, 12 },
+            { C::execution_prev_retrieved_bytecodes_tree_size, 13 },
             { C::execution_note_hash_tree_root, 10 },
             { C::execution_note_hash_tree_size, 9 },
             { C::execution_num_note_hashes_emitted, 8 },
@@ -126,6 +128,8 @@ TEST(ExecutionConstrainingTest, TreeStateNotChanged)
             { C::execution_public_data_tree_size, 3 },
             { C::execution_written_public_data_slots_tree_root, 2 },
             { C::execution_written_public_data_slots_tree_size, 1 },
+            { C::execution_retrieved_bytecodes_tree_root, 12 },
+            { C::execution_retrieved_bytecodes_tree_size, 13 },
         },
     });
 
@@ -139,7 +143,9 @@ TEST(ExecutionConstrainingTest, TreeStateNotChanged)
                               execution::SR_PUBLIC_DATA_TREE_ROOT_NOT_CHANGED,
                               execution::SR_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED,
                               execution::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_NOT_CHANGED,
-                              execution::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_NOT_CHANGED);
+                              execution::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_NOT_CHANGED,
+                              execution::SR_RETRIEVED_BYTECODES_TREE_ROOT_NOT_CHANGED,
+                              execution::SR_RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED);
 
     // Negative test: change note hash tree root
     trace.set(C::execution_note_hash_tree_root, 1, 100);
@@ -192,6 +198,16 @@ TEST(ExecutionConstrainingTest, TreeStateNotChanged)
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<execution>(trace, execution::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_NOT_CHANGED),
         "WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_NOT_CHANGED");
+
+    // Negative test: change retrieved bytecodes tree root
+    trace.set(C::execution_retrieved_bytecodes_tree_root, 1, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_RETRIEVED_BYTECODES_TREE_ROOT_NOT_CHANGED),
+                              "RETRIEVED_BYTECODES_TREE_ROOT_NOT_CHANGED");
+
+    // Negative test: change retrieved bytecodes tree size
+    trace.set(C::execution_retrieved_bytecodes_tree_size, 1, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED),
+                              "RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED");
 }
 
 TEST(ExecutionConstrainingTest, SideEffectStateNotChanged)

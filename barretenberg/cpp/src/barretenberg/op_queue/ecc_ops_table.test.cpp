@@ -331,7 +331,7 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendWithGap)
         }
     }
 
-    // Mimic get_reconstructed by unifying all the ops from subtables into a single vector with the appropiate append
+    // Mimic get_reconstructed by unifying all the ops from subtables into a single vector with the appropriate append
     // offset
     {
         std::vector<UltraOp> expected_reconstructed;

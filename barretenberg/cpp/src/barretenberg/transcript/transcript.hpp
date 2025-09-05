@@ -350,9 +350,19 @@ template <typename TranscriptParams> class BaseTranscript {
      * @param element
      * @return std::vector<DataType>
      */
-    template <typename T> static inline std::vector<DataType> serialize(const T& element)
+    template <typename T> static std::vector<DataType> serialize(const T& element)
     {
         return TranscriptParams::serialize(element);
+    }
+
+    template <typename T> static T deserialize(std::span<const DataType> frs)
+    {
+        return TranscriptParams::template deserialize<T>(frs);
+    }
+
+    template <typename T> static size_t calc_num_data_types()
+    {
+        return TranscriptParams::template calc_num_data_types<T>();
     }
 
     /**

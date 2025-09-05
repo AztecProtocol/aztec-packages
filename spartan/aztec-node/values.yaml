@@ -3,6 +3,9 @@ nameOverride: ""
 # -- Overrides the chart computed fullname
 fullnameOverride: ""
 
+# -- Node type - node, validator, prover, bot, etc label on the pod
+nodeType: "node"
+
 # -- Pod management policy
 podManagementPolicy: Parallel
 
@@ -114,6 +117,31 @@ node:
     failureThreshold: 3
   resources: {}
 
+  proverRealProofs: true
+
+  sentinel:
+    enabled: true
+  slash:
+    # Penalty percentages for slashing offenses
+    minPenaltyPercentage: ""
+    maxPenaltyPercentage: ""
+    # Validator allowlists/denylists
+    validatorsAlways: []
+    validatorsNever: []
+    # Penalty amounts for different offense types
+    prunePenalty: ""
+    dataWithholdingPenalty: ""
+    inactivityPenalty: ""
+    inactivityTargetPercentage: ""
+    invalidBlockPenalty: ""
+    proposeInvalidAttestationsPenalty: ""
+    attestDescendantOfInvalidPenalty: ""
+    unknownPenalty: ""
+    # Slasher behavior configuration
+    gracePeriodL2Slots: ""
+    offenseExpirationRounds: ""
+    maxPayloadSize: ""
+
 persistence:
   # -- Uses an emptyDir when not enabled
   enabled: false
@@ -170,25 +198,25 @@ rbac:
   # -- Required ClusterRole rules
   # @default -- See `values.yaml`
   clusterRules:
-     # Required to obtain the nodes external IP
+    # Required to obtain the nodes external IP
     - apiGroups: [""]
       resources:
-      - "nodes"
+        - "nodes"
       verbs:
-      - "get"
-      - "list"
-      - "watch"
+        - "get"
+        - "list"
+        - "watch"
   # -- Required ClusterRole rules
   # @default -- See `values.yaml`
   rules:
     # Required to get information about the services nodePort.
     - apiGroups: [""]
       resources:
-      - "services"
+        - "services"
       verbs:
-      - "get"
-      - "list"
-      - "watch"
+        - "get"
+        - "list"
+        - "watch"
 
 serviceAccount:
   # -- Create a service account

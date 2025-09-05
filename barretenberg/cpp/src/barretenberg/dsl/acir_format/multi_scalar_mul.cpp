@@ -49,7 +49,8 @@ void create_multi_scalar_mul_constraint(Builder& builder,
     if (output_point.is_point_at_infinity().is_constant()) {
         builder.fix_witness(input.out_point_is_infinite, output_point.is_point_at_infinity().get_value());
     } else {
-        builder.assert_equal(output_point.is_point_at_infinity().witness_index, input.out_point_is_infinite);
+        builder.assert_equal(output_point.is_point_at_infinity().get_normalized_witness_index(),
+                             input.out_point_is_infinite);
     }
     if (output_point.x.is_constant()) {
         builder.fix_witness(input.out_point_x, output_point.x.get_value());

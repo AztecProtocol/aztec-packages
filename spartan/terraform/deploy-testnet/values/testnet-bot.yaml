@@ -27,6 +27,7 @@ bot:
   nodeSelector:
     local-ssd: "false"
     node-type: "network"
+    cores: "8"
 
   affinity:
     nodeAffinity:

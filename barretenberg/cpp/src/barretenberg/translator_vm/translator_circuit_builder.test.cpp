@@ -101,7 +101,7 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
     // Placeholder for randomness
     op_queue->no_op_ultra_only();
     op_queue->no_op_ultra_only();
-    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_unmerged_subtable_size());
+    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
 
     Fq op_accumulator = 0;
     Fq p_x_accumulator = 0;

@@ -9,6 +9,7 @@ import type { Prettify } from '@aztec/foundation/types';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import {
   type Offense,
+  OffenseType,
   type ProposerSlashAction,
   type ProposerSlashActionProvider,
   type SlashPayloadRound,
@@ -253,6 +254,7 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
     const offensesFromAlwaysSlash = (this.config.slashValidatorsAlways ?? []).map(validator => ({
       validator,
       amount: this.settings.slashingAmounts[2],
+      offenseType: OffenseType.UNKNOWN,
     }));
     const [offensesToForgive, offensesToSlash] = partition([...offensesForRound, ...offensesFromAlwaysSlash], offense =>
       this.config.slashValidatorsNever?.some(v => v.equals(offense.validator)),
@@ -291,7 +293,8 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
     });
 
     const committees = await this.collectCommitteesActiveDuringRound(slashedRound);
-    const votes = getSlashConsensusVotesFromOffenses(offensesToSlash, committees, this.settings);
+    const epochsForCommittees = getEpochsForRound(slashedRound, this.settings);
+    const votes = getSlashConsensusVotesFromOffenses(offensesToSlash, committees, epochsForCommittees, this.settings);
     if (votes.every(v => v === 0)) {
       this.log.warn(`Computed votes for offenses are all zero. Skipping vote.`, {
         slotNumber,

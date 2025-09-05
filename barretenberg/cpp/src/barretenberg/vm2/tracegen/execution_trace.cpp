@@ -31,7 +31,6 @@
 #include "barretenberg/vm2/generated/relations/lookups_l1_to_l2_message_exists.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_notehash_exists.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_nullifier_exists.hpp"
-#include "barretenberg/vm2/generated/relations/lookups_registers.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_send_l2_to_l1_msg.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sload.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sstore.hpp"
@@ -415,6 +414,15 @@ void ExecutionTraceBuilder::process(
                 { C::execution_num_note_hashes_emitted, ex_event.after_context_event.tree_states.noteHashTree.counter },
                 // Context - tree states - L1 to L2 message tree
                 { C::execution_l1_l2_tree_root, ex_event.after_context_event.tree_states.l1ToL2MessageTree.tree.root },
+                // Context - tree states - Retrieved bytecodes tree
+                { C::execution_prev_retrieved_bytecodes_tree_root,
+                  ex_event.before_context_event.retrieved_bytecodes_tree_snapshot.root },
+                { C::execution_prev_retrieved_bytecodes_tree_size,
+                  ex_event.before_context_event.retrieved_bytecodes_tree_snapshot.nextAvailableLeafIndex },
+                { C::execution_retrieved_bytecodes_tree_root,
+                  ex_event.after_context_event.retrieved_bytecodes_tree_snapshot.root },
+                { C::execution_retrieved_bytecodes_tree_size,
+                  ex_event.after_context_event.retrieved_bytecodes_tree_snapshot.nextAvailableLeafIndex },
                 // Context - side effects
                 { C::execution_prev_num_unencrypted_logs,
                   ex_event.before_context_event.side_effect_states.numUnencryptedLogs },
@@ -424,8 +432,6 @@ void ExecutionTraceBuilder::process(
                   ex_event.before_context_event.side_effect_states.numL2ToL1Messages },
                 { C::execution_num_l2_to_l1_messages,
                   ex_event.after_context_event.side_effect_states.numL2ToL1Messages },
-                // Other.
-                { C::execution_bytecode_id, ex_event.before_context_event.bytecode_id },
                 // Helpers for identifying parent context
                 { C::execution_has_parent_ctx, has_parent ? 1 : 0 },
                 { C::execution_is_parent_id_inv, cached_parent_id_inv },
@@ -443,12 +449,12 @@ void ExecutionTraceBuilder::process(
          *  Temporality group 1: Bytecode retrieval.
          **************************************************************************************************/
 
-        bool bytecode_retrieval_failed = ex_event.error == ExecutionError::BYTECODE_NOT_FOUND;
+        bool bytecode_retrieval_failed = ex_event.error == ExecutionError::BYTECODE_RETRIEVAL;
         trace.set(row,
                   { {
                       { C::execution_sel_bytecode_retrieval_failure, bytecode_retrieval_failed ? 1 : 0 },
                       { C::execution_sel_bytecode_retrieval_success, !bytecode_retrieval_failed ? 1 : 0 },
-                      { C::execution_bytecode_id, ex_event.before_context_event.bytecode_id },
+                      { C::execution_bytecode_id, ex_event.after_context_event.bytecode_id },
                   } });
 
         /**************************************************************************************************
@@ -476,7 +482,7 @@ void ExecutionTraceBuilder::process(
          **************************************************************************************************/
 
         // Along this function we need to set the info we get from the EXEC_SPEC_READ lookup.
-        bool should_read_exec_spec = !instruction_fetching_failed;
+        bool should_read_exec_spec = process_instruction_fetching && !instruction_fetching_failed;
         if (should_read_exec_spec) {
             process_execution_spec(ex_event, trace, row);
         }
@@ -557,6 +563,21 @@ void ExecutionTraceBuilder::process(
         // TODO: would is_err here catch any error at the opcode execution step which we dont want to consider?
         bool sel_exit_call = should_execute_return || should_execute_revert || is_err;
 
+        if (sel_exit_call) {
+            // We rollback if we revert or error and we have a parent context.
+            trace.set(row,
+                      { {
+                          // Exit reason - opcode or error
+                          { C::execution_sel_execute_return, should_execute_return ? 1 : 0 },
+                          { C::execution_sel_execute_revert, should_execute_revert ? 1 : 0 },
+                          { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
+                          { C::execution_nested_return, should_execute_return && has_parent ? 1 : 0 },
+                          // Enqueued or nested exit dependent on if we are a child context
+                          { C::execution_enqueued_call_end, !has_parent ? 1 : 0 },
+                          { C::execution_nested_exit_call, has_parent ? 1 : 0 },
+                      } });
+        }
+
         bool opcode_execution_failed = ex_event.error == ExecutionError::OPCODE_EXECUTION;
         if (should_execute_opcode) {
             // At this point we can assume instruction fetching succeeded, so this should never fail.
@@ -599,19 +620,6 @@ void ExecutionTraceBuilder::process(
                               { C::execution_call_allocated_left_l2_cmp_diff, allocated_left_l2_cmp_diff },
                               { C::execution_call_is_da_gas_allocated_lt_left, is_da_gas_allocated_lt_left },
                               { C::execution_call_allocated_left_da_cmp_diff, allocated_left_da_cmp_diff },
-                          } });
-            } else if (sel_exit_call) {
-                // We rollback if we revert or error and we have a parent context.
-                trace.set(row,
-                          { {
-                              // Exit reason - opcode or error
-                              { C::execution_sel_execute_return, should_execute_return ? 1 : 0 },
-                              { C::execution_sel_execute_revert, should_execute_revert ? 1 : 0 },
-                              { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
-                              { C::execution_nested_return, should_execute_return && has_parent ? 1 : 0 },
-                              // Enqueued or nested exit dependent on if we are a child context
-                              { C::execution_enqueued_call_end, !has_parent ? 1 : 0 },
-                              { C::execution_nested_exit_call, has_parent ? 1 : 0 },
                           } });
             }
             // Separate if-statement for opcodes.
@@ -1164,14 +1172,6 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_addressing_relative_overflow_range_4_settings, InteractionType::LookupGeneric>()
         .add<lookup_addressing_relative_overflow_range_5_settings, InteractionType::LookupGeneric>()
         .add<lookup_addressing_relative_overflow_range_6_settings, InteractionType::LookupGeneric>()
-        // Registers
-        .add<lookup_registers_mem_op_0_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_1_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_3_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_4_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_5_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_6_settings, InteractionType::LookupGeneric>()
         // Internal Call Stack
         .add<lookup_internal_call_push_call_stack_settings_, InteractionType::LookupSequential>()
         .add<lookup_internal_call_unwind_call_stack_settings_, InteractionType::LookupGeneric>()

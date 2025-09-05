@@ -48,6 +48,7 @@ export function getPenaltyForOffense(
     | 'slashAttestDescendantOfInvalidPenalty'
     | 'slashBroadcastedInvalidBlockPenalty'
     | 'slashPrunePenalty'
+    | 'slashDataWithholdingPenalty'
     | 'slashUnknownPenalty'
     | 'slashInactivityPenalty'
     | 'slashProposeInvalidAttestationsPenalty'
@@ -55,8 +56,9 @@ export function getPenaltyForOffense(
 ) {
   switch (offense) {
     case OffenseType.VALID_EPOCH_PRUNED:
-    case OffenseType.DATA_WITHHOLDING:
       return config.slashPrunePenalty;
+    case OffenseType.DATA_WITHHOLDING:
+      return config.slashDataWithholdingPenalty;
     case OffenseType.INACTIVITY:
       return config.slashInactivityPenalty;
     case OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS:
@@ -69,8 +71,8 @@ export function getPenaltyForOffense(
     case OffenseType.UNKNOWN:
       return config.slashUnknownPenalty;
     default: {
-      const _: never = offense;
-      throw new Error(`Unknown offense type: ${offense}`);
+      const _exhaustiveCheck: never = offense;
+      throw new Error(`Unknown offense type: ${_exhaustiveCheck}`);
     }
   }
 }
@@ -89,8 +91,8 @@ export function getTimeUnitForOffense(offense: OffenseType): 'epoch' | 'slot' {
     case OffenseType.VALID_EPOCH_PRUNED:
       return 'epoch';
     default: {
-      const _: never = offense;
-      throw new Error(`Unknown offense type: ${offense}`);
+      const _exhaustiveCheck: never = offense;
+      throw new Error(`Unknown offense type: ${_exhaustiveCheck}`);
     }
   }
 }
@@ -104,12 +106,23 @@ export function getSlotForOffense(
   return getTimeUnitForOffense(offenseType) === 'epoch' ? epochOrSlot * BigInt(constants.epochDuration) : epochOrSlot;
 }
 
-/** Returns the epoch for a given offense. */
+/** Returns the epoch for a given offense. If the offense type or epoch is not defined, returns undefined. */
 export function getEpochForOffense(
   offense: Pick<Offense, 'epochOrSlot' | 'offenseType'>,
   constants: Pick<L1RollupConstants, 'epochDuration'>,
-): bigint {
+): bigint;
+export function getEpochForOffense(
+  offense: Partial<Pick<Offense, 'epochOrSlot' | 'offenseType'>>,
+  constants: Pick<L1RollupConstants, 'epochDuration'>,
+): bigint | undefined;
+export function getEpochForOffense(
+  offense: Partial<Pick<Offense, 'epochOrSlot' | 'offenseType'>>,
+  constants: Pick<L1RollupConstants, 'epochDuration'>,
+): bigint | undefined {
   const { epochOrSlot, offenseType } = offense;
+  if (epochOrSlot === undefined || offenseType === undefined) {
+    return undefined;
+  }
   return getTimeUnitForOffense(offenseType) === 'epoch' ? epochOrSlot : epochOrSlot / BigInt(constants.epochDuration);
 }
 

@@ -14,7 +14,7 @@ void l1_to_l2_message_tree_checkImpl<FF_>::accumulate(ContainerOverSubrelations&
 {
     using C = ColumnAndShifts;
 
-    PROFILE_THIS_NAME("accumulate/l1_to_l2_message_tree_check");
+    BB_BENCH_NAME("accumulate/l1_to_l2_message_tree_check");
 
     const auto constants_L1_TO_L2_MSG_TREE_HEIGHT = FF(39);
     const auto l1_to_l2_message_tree_check_LEAF_VALUE_MSG_HASH_DIFF =
