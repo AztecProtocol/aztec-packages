@@ -246,7 +246,6 @@ export async function generateProof(
     await Promise.all([fs.writeFile(bytecodePath, bytecode), fs.writeFile(vkPath, verificationKey)]);
     const args = getArgs(flavor).concat([
       '--disable_zk',
-      '--write_vk',
       '-o',
       outputPath,
       '-b',
