@@ -153,9 +153,3 @@ ingress:
     cloud.google.com/healthcheck-path: "/"
 
     # networking.gke.io/managed-certificates: null
-  hosts:
-    - host: null
-      paths:
-        - path: /
-          pathType: Prefix
-          port: 4318

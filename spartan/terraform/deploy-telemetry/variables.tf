@@ -20,8 +20,8 @@ variable "RELEASE_NAME" {
   default     = "public-telemetry"
 }
 
-variable "HOSTNAME" {
+variable "HOSTS" {
   description = "The public hostname for the ingress"
-  type        = string
-  default     = "telemetry.alpha-testnet.aztec.network"
+  type        = list(string)
+  default     = ["telemetry.alpha-testnet.aztec-labs.com", "telemetry.alpha-testnet.aztec.network"]
 }
