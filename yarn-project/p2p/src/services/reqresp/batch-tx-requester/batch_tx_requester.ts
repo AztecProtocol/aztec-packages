@@ -382,6 +382,7 @@ export class BatchTxRequester {
   private async handleFailResponseFromPeer(peerId: PeerId, responseStatus: ReqRespStatus) {
     if (responseStatus === ReqRespStatus.FAILURE || responseStatus === ReqRespStatus.UNKNOWN) {
       this.peers.markPeerAsBad(peerId);
+      return;
     }
 
     //TODO: handle this properly

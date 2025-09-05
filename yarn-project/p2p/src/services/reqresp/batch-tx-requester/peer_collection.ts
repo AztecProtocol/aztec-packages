@@ -1,6 +1,6 @@
 import type { PeerId } from '@libp2p/interface';
 
-const BAD_PEER_THRESHOLD = 3;
+export const BAD_PEER_THRESHOLD = 3;
 
 export interface IPeerCollection {
   getAllPeers(): Set<string>;

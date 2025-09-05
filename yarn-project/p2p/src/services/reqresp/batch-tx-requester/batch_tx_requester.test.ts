@@ -20,7 +20,7 @@ import { BitVector, BlockTxsRequest, BlockTxsResponse } from '../protocols/index
 import { ReqRespStatus } from '../status.js';
 import { BatchTxRequester } from './batch_tx_requester.js';
 import { TX_BATCH_SIZE } from './missing_txs.js';
-import { PeerCollection } from './peer_collection.js';
+import { BAD_PEER_THRESHOLD, PeerCollection } from './peer_collection.js';
 
 const TEST_TIMEOUT = 10_000;
 jest.setTimeout(TEST_TIMEOUT);
@@ -239,7 +239,7 @@ describe('BatchTxRequester', () => {
         return {
           status: ReqRespStatus.SUCCESS,
           data: response.toBuffer(),
-        } as any;
+        };
       });
 
       const requester = new BatchTxRequester(
@@ -482,6 +482,245 @@ describe('BatchTxRequester', () => {
       expect(result!.length).toBe(txCount);
 
       expect(semaphore.acquiredCount).toBe(1);
+    });
+  });
+
+  describe('Bad peer threshold and recovery', () => {
+    it('should mark peer as bad after exceeding threshold and exclude from queries', async () => {
+      const txCount = 16;
+      const deadline = 1_000;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        header: makeHeader(1, 1),
+        archive: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
+
+      const peerCollection = new PeerCollection(peers);
+
+      // Mock implementation that makes peer0 fail consistently, peer1 succeed
+      const { mockImplementation } = createRequestLogger(blockProposal, new Set([peers[0].toString()]));
+      reqresp.sendRequestToPeer.mockImplementation(mockImplementation);
+      const requester = new BatchTxRequester(
+        missing,
+        blockProposal,
+        undefined,
+        deadline,
+        reqresp,
+        connectionSampler,
+        txValidator,
+        logger,
+        new DateProvider(),
+        {
+          smartParallelWorkerCount: 2,
+          dumbParallelWorkerCount: 2,
+          peerCollection,
+        },
+      );
+
+      await requester.run();
+
+      // Verify that peer0 is marked as bad after exceeding threshold (3 failures)
+      // and peer1 is not marked as bad
+      expect(peerCollection.getBadPeers()).toContain(peers[0].toString());
+      expect(peerCollection.getBadPeers()).not.toContain(peers[1].toString());
+
+      // Verify bad peer is excluded from queries - peer0 should be in bad peers
+      expect(peerCollection.getDumbPeersToQuery()).not.toContain(peers[0].toString());
+      expect(peerCollection.getDumbPeersToQuery()).toContain(peers[1].toString());
+    });
+
+    it('should recover bad peer after successful response', async () => {
+      const txCount = 8;
+      const deadline = 1_000;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        header: makeHeader(1, 1),
+        archive: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
+
+      const peerCollection = new PeerCollection(peers);
+      let requestCount = 0;
+
+      // Mock implementation: first 4 requests fail (exceed threshold), then succeed
+      reqresp.sendRequestToPeer.mockImplementation(async peerId => {
+        if (peerId.toString() === peers[0].toString()) {
+          requestCount++;
+
+          if (requestCount <= BAD_PEER_THRESHOLD - 1) {
+            return {
+              status: ReqRespStatus.FAILURE,
+              data: Buffer.alloc(0),
+            };
+          }
+        }
+
+        const someTxs = missing.slice(0, missing.length / 2).map(h => makeTx(h));
+        const response = new BlockTxsResponse(
+          blockProposal.archive,
+          new TxArray(...someTxs),
+          BitVector.init(blockProposal.txHashes.length, []),
+        );
+
+        return {
+          status: ReqRespStatus.SUCCESS,
+          data: response.toBuffer(),
+        };
+      });
+
+      const requester = new BatchTxRequester(
+        missing,
+        blockProposal,
+        undefined,
+        deadline,
+        reqresp,
+        connectionSampler,
+        txValidator,
+        logger,
+        new DateProvider(),
+        {
+          smartParallelWorkerCount: 0,
+          dumbParallelWorkerCount: 1,
+          peerCollection,
+        },
+      );
+
+      await requester.run();
+
+      // Verify peer was initially marked bad but then recovered
+      // Since peer succeeded in the end, it should not be in bad peers list
+      expect(peerCollection.getBadPeers()).not.toContain(peers[0].toString());
+      expect(peerCollection.getDumbPeersToQuery()).toContain(peers[0].toString());
+    });
+
+    it('should handle multiple peers with different bad peer states', async () => {
+      const txCount = 16;
+      const deadline = 5_000;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        header: makeHeader(1, 1),
+        archive: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peers = await Promise.all([
+        createSecp256k1PeerId(), // peer0: will be marked bad
+        createSecp256k1PeerId(), // peer1: will stay good
+        createSecp256k1PeerId(), // peer2: will be marked bad then recover
+      ]);
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
+
+      const peerTransactions = new Map([
+        [peers[0].toString(), Array.from({ length: 3 }, (_, i) => i)], // peer1: txs 0-3
+        [peers[1].toString(), Array.from({ length: 10 }, (_, i) => i)], // peer2: txs 0-9
+        [peers[2].toString(), Array.from({ length: 9 }, (_, i) => i + 8)], // peer3: txs 8 - 16
+      ]);
+
+      const peerCollection = new PeerCollection(peers);
+      const peerRequestCounts = new Map<string, number>();
+
+      reqresp.sendRequestToPeer.mockImplementation(async (peerId: any, _sub: any, data: any) => {
+        const peerStr = peerId.toString();
+        const currentCount = peerRequestCounts.get(peerStr) || 0;
+        peerRequestCounts.set(peerStr, currentCount + 1);
+
+        if (peerStr === peers[0].toString()) {
+          // peer0: always fails (will be marked permanently bad)
+          return {
+            status: ReqRespStatus.FAILURE,
+            data: Buffer.alloc(0),
+          };
+        }
+
+        const request = BlockTxsRequest.fromBuffer(data);
+        const requestedIndices = request.txIndices.getTrueIndices();
+        const peerHasIndices = peerTransactions.get(peerId.toString()) || [];
+        const availableIndices = requestedIndices.filter(idx => peerHasIndices.includes(idx));
+        const availableTxHashes = availableIndices.map(idx => blockProposal.txHashes[idx]);
+        const availableTxs = availableTxHashes.map(h => makeTx(h));
+
+        // peer1: always succeeds
+        if (peerStr === peers[1].toString()) {
+          const response = new BlockTxsResponse(
+            blockProposal.archive,
+            new TxArray(...availableTxs),
+            BitVector.init(blockProposal.txHashes.length, availableIndices),
+          );
+          return {
+            status: ReqRespStatus.SUCCESS,
+            data: response.toBuffer(),
+          };
+        }
+
+        if (peerStr === peers[2].toString()) {
+          // peer2: fails first 4 times, then succeeds (recovery scenario)
+          if (currentCount <= BAD_PEER_THRESHOLD - 1) {
+            return {
+              status: ReqRespStatus.FAILURE,
+              data: Buffer.alloc(0),
+            };
+          }
+          const response = new BlockTxsResponse(
+            blockProposal.archive,
+            new TxArray(...availableTxs),
+            BitVector.init(blockProposal.txHashes.length, availableIndices),
+          );
+          return {
+            status: ReqRespStatus.SUCCESS,
+            data: response.toBuffer(),
+          };
+        }
+
+        return {
+          status: ReqRespStatus.FAILURE,
+          data: Buffer.alloc(0),
+        };
+      });
+
+      const requester = new BatchTxRequester(
+        missing,
+        blockProposal,
+        undefined,
+        deadline,
+        reqresp,
+        connectionSampler,
+        txValidator,
+        logger,
+        new DateProvider(),
+        {
+          smartParallelWorkerCount: 0,
+          dumbParallelWorkerCount: 3,
+          peerCollection,
+        },
+      );
+
+      const result = await requester.run();
+      expect(result).toBeDefined();
+      expect(result!.length).toBe(txCount);
+
+      // Verify final peer states
+      expect(peerCollection.getBadPeers()).toContain(peers[0].toString()); // peer0: permanently bad
+      expect(peerCollection.getBadPeers()).not.toContain(peers[1].toString()); // peer1: always good
+      expect(peerCollection.getBadPeers()).not.toContain(peers[2].toString()); // peer2: recovered
+
+      // Verify query availability
+      const dumbPeersToQuery = peerCollection.getDumbPeersToQuery();
+      expect(dumbPeersToQuery).not.toContain(peers[0].toString()); // bad peer excluded
+      expect(dumbPeersToQuery).toContain(peers[1].toString()); // good peer included
+      expect(dumbPeersToQuery).toContain(peers[2].toString()); // recovered peer included
     });
   });
 
