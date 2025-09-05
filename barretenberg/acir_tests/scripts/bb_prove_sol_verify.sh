@@ -16,8 +16,6 @@ for arg in "$@"; do
     flags+=" $arg"
 done
 
-<<<<<<< HEAD
-=======
 USE_OPTIMIZED_CONTRACT=${USE_OPTIMIZED_CONTRACT:-false}
 
 write_contract_flags=$flags
@@ -25,7 +23,6 @@ if [[ "$USE_OPTIMIZED_CONTRACT" == "true" ]]; then
     write_contract_flags+=" --optimized"
 fi
 
->>>>>>> origin/merge-train/barretenberg
 # Check if --disable_zk is in the flags to determine HAS_ZK
 if [[ "$flags" == *"--disable_zk"* ]]; then
     has_zk="false"
@@ -37,26 +34,15 @@ mkdir -p output-$$
 trap "rm -rf output-$$" EXIT
 
 # Create a proof, write the solidity contract, write the proof as fields in order to extract the public inputs
-<<<<<<< HEAD
 $bb prove $flags -b target/program.json --oracle_hash keccak --output_format bytes_and_fields --write_vk -o output-$$
 $bb verify $flags --oracle_hash keccak -i output-$$/public_inputs -k output-$$/vk -p output-$$/proof
-$bb write_solidity_verifier $flags -k output-$$/vk -o output-$$/Verifier.sol
-=======
-$bb prove $flags -b target/program.json --oracle_hash keccak --write_vk -o output-$$
-$bb verify $flags --oracle_hash keccak -i output-$$/public_inputs -k output-$$/vk -p output-$$/proof
 $bb write_solidity_verifier $write_contract_flags -k output-$$/vk -o output-$$/Verifier.sol
->>>>>>> origin/merge-train/barretenberg
 
 # Use solcjs to compile the generated key contract with the template verifier and test contract
 # index.js will start an anvil, on a random port
 # Deploy the verifier then send a test transaction
 PROOF="output-$$/proof" \
-<<<<<<< HEAD
-PROOF_AS_FIELDS="output-$$/proof_fields.json" \
-PUBLIC_INPUTS_AS_FIELDS="output-$$/public_inputs_fields.json" \
-=======
 PUBLIC_INPUTS="output-$$/public_inputs" \
->>>>>>> origin/merge-train/barretenberg
 VERIFIER_PATH="output-$$/Verifier.sol" \
 TEST_PATH="../../sol-test/HonkTest.sol" \
 HAS_ZK="$has_zk" \

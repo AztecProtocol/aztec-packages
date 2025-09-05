@@ -163,10 +163,7 @@ function test_cmds {
   for t in assert_statement a_1_mul slices verify_honk_proof; do
     echo "$sol_prefix $scripts/bb_prove_sol_verify.sh $t --disable_zk"
     echo "$sol_prefix $scripts/bb_prove_sol_verify.sh $t"
-<<<<<<< HEAD
-=======
     echo "$sol_prefix USE_OPTIMIZED_CONTRACT=true $scripts/bb_prove_sol_verify.sh $t --disable_zk"
->>>>>>> origin/merge-train/barretenberg
   done
   # prove with bb cli and verify with bb.js classes
   echo "$sol_prefix $scripts/bb_prove_bbjs_verify.sh a_1_mul"
@@ -174,17 +171,10 @@ function test_cmds {
 
   # bb.js browser tests. Isolate because server.
   local browser_prefix="$tests_hash:ISOLATE=1:NET=1:CPUS=8"
-<<<<<<< HEAD
-  echo "$browser_prefix:NAME=chrome_verify_honk_proof $scripts/browser_prove.sh verify_honk_proof chrome"
-  echo "$browser_prefix:NAME=chrome_a_1_mul $scripts/browser_prove.sh a_1_mul chrome"
-  echo "$browser_prefix:NAME=webkit_verify_honk_proof $scripts/browser_prove.sh verify_honk_proof webkit"
-  echo "$browser_prefix:NAME=webkit_a_1_mul $scripts/browser_prove.sh a_1_mul webkit"
-=======
   echo "$browser_prefix $scripts/browser_prove.sh verify_honk_proof chrome"
   echo "$browser_prefix $scripts/browser_prove.sh a_1_mul chrome"
   echo "$browser_prefix $scripts/browser_prove.sh verify_honk_proof webkit"
   echo "$browser_prefix $scripts/browser_prove.sh a_1_mul webkit"
->>>>>>> origin/merge-train/barretenberg
 
   # bb.js tests.
   # ecdsa_secp256r1_3x through bb.js on node to check 256k support.
