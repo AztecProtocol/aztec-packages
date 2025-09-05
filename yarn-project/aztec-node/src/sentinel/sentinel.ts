@@ -1,11 +1,17 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { countWhile, filterAsync } from '@aztec/foundation/collection';
+import { countWhile, filterAsync, fromEntries, getEntries, mapValues } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { L2TipsMemoryStore, type L2TipsStore } from '@aztec/kv-store/stores';
 import type { P2PClient } from '@aztec/p2p';
-import { OffenseType, WANT_TO_SLASH_EVENT, type Watcher, type WatcherEmitter } from '@aztec/slasher';
+import {
+  OffenseType,
+  WANT_TO_SLASH_EVENT,
+  type WantToSlashArgs,
+  type Watcher,
+  type WatcherEmitter,
+} from '@aztec/slasher';
 import type { SlasherConfig } from '@aztec/slasher/config';
 import {
   type L2BlockSource,
@@ -14,7 +20,7 @@ import {
   type L2BlockStreamEventHandler,
   getAttestationsFromPublishedL2Block,
 } from '@aztec/stdlib/block';
-import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import { getEpochAtSlot, getSlotRangeForEpoch, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
   SingleValidatorStats,
   ValidatorStats,
@@ -115,53 +121,38 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       return;
     }
 
-    const epoch = getEpochAtSlot(block.header.getSlot(), await this.archiver.getL1Constants());
+    // TODO(palla/slash): We should only be computing proven performance if this is
+    // a full proof epoch and not a partial one, otherwise we'll end up with skewed stats.
+    const epoch = getEpochAtSlot(block.header.getSlot(), this.epochCache.getL1Constants());
     this.logger.debug(`Computing proven performance for epoch ${epoch}`);
     const performance = await this.computeProvenPerformance(epoch);
     this.logger.info(`Computed proven performance for epoch ${epoch}`, performance);
 
-    await this.updateProvenPerformance(epoch, performance);
+    await this.store.updateProvenPerformance(epoch, performance);
     await this.handleProvenPerformance(epoch, performance);
   }
 
-  protected async computeProvenPerformance(epoch: bigint) {
-    const headers = await this.archiver.getBlockHeadersForEpoch(epoch);
-    const provenSlots = headers.map(h => h.getSlot());
-    const fromSlot = provenSlots[0];
-    const toSlot = provenSlots[provenSlots.length - 1];
+  protected async computeProvenPerformance(epoch: bigint): Promise<ValidatorsEpochPerformance> {
+    const [fromSlot, toSlot] = getSlotRangeForEpoch(epoch, this.epochCache.getL1Constants());
     const { committee } = await this.epochCache.getCommittee(fromSlot);
     if (!committee) {
       this.logger.trace(`No committee found for slot ${fromSlot}`);
       return {};
     }
-    const stats = await this.computeStats({ fromSlot, toSlot });
-    this.logger.debug(`Stats for epoch ${epoch}`, stats);
 
-    const performance: ValidatorsEpochPerformance = {};
-    for (const validator of Object.keys(stats.stats)) {
-      let address;
-      try {
-        address = EthAddress.fromString(validator);
-      } catch (e) {
-        this.logger.error(`Invalid validator address ${validator}`, e);
-        continue;
-      }
-      if (!committee.find(v => v.equals(address))) {
-        continue;
-      }
-      let missed = 0;
-      for (const history of stats.stats[validator].history) {
-        if (provenSlots.includes(history.slot) && history.status === 'attestation-missed') {
-          missed++;
-        }
-      }
-      performance[address.toString()] = { missed, total: provenSlots.length };
-    }
-    return performance;
-  }
+    const stats = await this.computeStats({ fromSlot, toSlot, validators: committee });
+    this.logger.debug(`Stats for epoch ${epoch}`, { ...stats, fromSlot, toSlot, epoch });
 
-  protected updateProvenPerformance(epoch: bigint, performance: ValidatorsEpochPerformance) {
-    return this.store.updateProvenPerformance(epoch, performance);
+    // Note that we are NOT using the total slots in the epoch as `total` here, since we only
+    // compute missed attestations over the blocks that had a proposal in them. So, let's say
+    // we have an epoch with 10 slots, but only 5 had a block proposal. A validator that was
+    // offline, assuming they were not picked as proposer, will then be reported as having missed
+    // 5/5 attestations. If we used the total, they'd be reported as 5/10, which would probably
+    // allow them to avoid being slashed.
+    return mapValues(stats.stats, stat => ({
+      missed: stat.missedAttestations.count + stat.missedProposals.count,
+      total: stat.missedAttestations.total + stat.missedProposals.total,
+    }));
   }
 
   /**
@@ -199,11 +190,9 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   }
 
   protected async handleProvenPerformance(epoch: bigint, performance: ValidatorsEpochPerformance) {
-    const inactiveValidators = Object.entries(performance)
-      .filter(([_, { missed, total }]) => {
-        return missed / total >= this.config.slashInactivityTargetPercentage;
-      })
-      .map(([address]) => address as `0x${string}`);
+    const inactiveValidators = getEntries(performance)
+      .filter(([_, { missed, total }]) => missed / total >= this.config.slashInactivityTargetPercentage)
+      .map(([address]) => address);
 
     this.logger.debug(`Found ${inactiveValidators.length} inactive validators in epoch ${epoch}`, {
       inactiveValidators,
@@ -216,7 +205,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       this.checkPastInactivity(EthAddress.fromString(address), epoch, epochThreshold - 1),
     );
 
-    const args = criminals.map(address => ({
+    const args: WantToSlashArgs[] = criminals.map(address => ({
       validator: EthAddress.fromString(address),
       amount: this.config.slashInactivityPenalty,
       offenseType: OffenseType.INACTIVITY,
@@ -326,15 +315,18 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     // (contains the ones synced from mined blocks, which we may have missed from p2p).
     const block = this.slotNumberToBlock.get(slot);
     const p2pAttested = await this.p2p.getAttestationsForSlot(slot, block?.archive);
-    const attestors = new Set([
-      ...p2pAttested.map(a => a.getSender().toString()),
-      ...(block?.attestors.map(a => a.toString()) ?? []),
-    ]);
+    const attestors = new Set(
+      [...p2pAttested.map(a => a.getSender().toString()), ...(block?.attestors.map(a => a.toString()) ?? [])].filter(
+        addr => proposer.toString() !== addr, // Exclude the proposer from the attestors
+      ),
+    );
 
-    // We assume that there was a block proposal if at least one of the validators attested to it.
+    // We assume that there was a block proposal if at least one of the validators (other than the proposer) attested to it.
     // It could be the case that every single validator failed, and we could differentiate it by having
     // this node re-execute every block proposal it sees and storing it in the attestation pool.
     // But we'll leave that corner case out to reduce pressure on the node.
+    // TODO(palla/slash): This breaks if a given node has more than one validator in the current committee,
+    // since they will attest to their own proposal it even if it's not re-executable.
     const blockStatus = block ? 'mined' : attestors.size > 0 ? 'proposed' : 'missed';
     this.logger.debug(`Block for slot ${slot} was ${blockStatus}`, { ...block, slot });
 
@@ -378,20 +370,24 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
 
   /** Computes stats to be returned based on stored data. */
   public async computeStats({
-    fromSlot: _fromSlot,
-    toSlot: _toSlot,
-  }: { fromSlot?: bigint; toSlot?: bigint } = {}): Promise<ValidatorsStats> {
-    const histories = await this.store.getHistories();
+    fromSlot,
+    toSlot,
+    validators,
+  }: { fromSlot?: bigint; toSlot?: bigint; validators?: EthAddress[] } = {}): Promise<ValidatorsStats> {
+    const histories = validators
+      ? fromEntries(await Promise.all(validators.map(async v => [v.toString(), await this.store.getHistory(v)])))
+      : await this.store.getHistories();
+
     const slotNow = this.epochCache.getEpochAndSlotNow().slot;
-    const fromSlot = _fromSlot ?? (this.lastProcessedSlot ?? slotNow) - BigInt(this.store.getHistoryLength());
-    const toSlot = _toSlot ?? this.lastProcessedSlot ?? slotNow;
-    const result: Record<`0x${string}`, ValidatorStats> = {};
-    for (const [address, history] of Object.entries(histories)) {
-      const validatorAddress = address as `0x${string}`;
-      result[validatorAddress] = this.computeStatsForValidator(validatorAddress, history, fromSlot, toSlot);
-    }
+    fromSlot ??= (this.lastProcessedSlot ?? slotNow) - BigInt(this.store.getHistoryLength());
+    toSlot ??= this.lastProcessedSlot ?? slotNow;
+
+    const stats = mapValues(histories, (history, address) =>
+      this.computeStatsForValidator(address, history ?? [], fromSlot, toSlot),
+    );
+
     return {
-      stats: result,
+      stats,
       lastProcessedSlot: this.lastProcessedSlot,
       initialSlot: this.initialSlot,
       slotWindow: this.store.getHistoryLength(),
@@ -447,30 +443,31 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   ): ValidatorStats {
     let history = fromSlot ? allHistory.filter(h => h.slot >= fromSlot) : allHistory;
     history = toSlot ? history.filter(h => h.slot <= toSlot) : history;
+    const lastProposal = history.filter(h => h.status === 'block-proposed' || h.status === 'block-mined').at(-1);
+    const lastAttestation = history.filter(h => h.status === 'attestation-sent').at(-1);
     return {
       address: EthAddress.fromString(address),
-      lastProposal: this.computeFromSlot(
-        history.filter(h => h.status === 'block-proposed' || h.status === 'block-mined').at(-1)?.slot,
-      ),
-      lastAttestation: this.computeFromSlot(history.filter(h => h.status === 'attestation-sent').at(-1)?.slot),
+      lastProposal: this.computeFromSlot(lastProposal?.slot),
+      lastAttestation: this.computeFromSlot(lastAttestation?.slot),
       totalSlots: history.length,
-      missedProposals: this.computeMissed(history, 'block', 'block-missed'),
-      missedAttestations: this.computeMissed(history, 'attestation', 'attestation-missed'),
+      missedProposals: this.computeMissed(history, 'block', ['block-missed']),
+      missedAttestations: this.computeMissed(history, 'attestation', ['attestation-missed']),
       history,
     };
   }
 
   protected computeMissed(
     history: ValidatorStatusHistory,
-    computeOverPrefix: ValidatorStatusType,
-    filter: ValidatorStatusInSlot,
+    computeOverPrefix: ValidatorStatusType | undefined,
+    filter: ValidatorStatusInSlot[],
   ) {
-    const relevantHistory = history.filter(h => h.status.startsWith(computeOverPrefix));
-    const filteredHistory = relevantHistory.filter(h => h.status === filter);
+    const relevantHistory = history.filter(h => !computeOverPrefix || h.status.startsWith(computeOverPrefix));
+    const filteredHistory = relevantHistory.filter(h => filter.includes(h.status));
     return {
-      currentStreak: countWhile([...relevantHistory].reverse(), h => h.status === filter),
+      currentStreak: countWhile([...relevantHistory].reverse(), h => filter.includes(h.status)),
       rate: relevantHistory.length === 0 ? undefined : filteredHistory.length / relevantHistory.length,
       count: filteredHistory.length,
+      total: relevantHistory.length,
     };
   }
 

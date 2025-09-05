@@ -343,7 +343,7 @@ describe('e2e_synching', () => {
 
       // Now we create all of our interesting blocks.
       // Alter the block requirements for the sequencer such that we ensure blocks sizes as desired.
-      sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
+      sequencer?.updateConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
 
       // The setup will mint tokens (private and public)
       const accountsToBeDeployed = initialFundedAccounts.slice(1); // The first one has been deployed in setup.
@@ -685,7 +685,7 @@ describe('e2e_synching', () => {
 
           const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
 
-          sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
+          sequencer?.updateConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
           const txs = await variant.createAndSendTxs();
           await Promise.all(txs.map(tx => tx.wait({ timeout: 1200 })));
 
@@ -744,7 +744,7 @@ describe('e2e_synching', () => {
 
           const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
 
-          sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
+          sequencer?.updateConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
           const txs = await variant.createAndSendTxs();
           await Promise.all(txs.map(tx => tx.wait({ timeout: 1200 })));
 
