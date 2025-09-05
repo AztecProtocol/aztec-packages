@@ -42,11 +42,10 @@ The archiver component complements this process by maintaining historical chain 
 
 A computer running Linux or MacOS with the following specifictions:
 
-- CPU: 8-cores
-- RAM: 16 GiB
-- Storage: 1 TB SSD
-
-A Network connection of at least 25 Mbps up/down.
+- 2 core / 4 vCPU
+- 16 GB RAM
+- 1 TB NVMe SDD
+- 25 Mbps network connection
 
 ### Installation
 
