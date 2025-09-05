@@ -1,5 +1,5 @@
 import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum';
-import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
+import { type ConfigMappingsType, getConfigFromMappings, omitConfigMappings } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
 
@@ -20,7 +20,7 @@ export const blobSinkConfigMappings: ConfigMappingsType<BlobSinkConfig> = {
     env: 'BLOB_SINK_PORT',
     description: 'The port to run the blob sink server on',
   },
-  ...blobSinkClientConfigMapping,
+  ...omitConfigMappings(blobSinkClientConfigMapping, ['blobSinkUrl']),
   ...dataConfigMappings,
   ...chainConfigMappings,
   ...l1ReaderConfigMappings,

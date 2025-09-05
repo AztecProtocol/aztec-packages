@@ -1367,7 +1367,7 @@ TYPED_TEST(stdlib_bigfield, reduce)
 {
     TestFixture::test_reduce();
 }
-TYPED_TEST(stdlib_bigfield, assert_is_in_field_succes)
+TYPED_TEST(stdlib_bigfield, assert_is_in_field_success)
 {
     TestFixture::test_assert_is_in_field_success();
 }

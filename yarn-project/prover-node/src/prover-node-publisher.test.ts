@@ -32,7 +32,6 @@ describe('prover-node-publisher', () => {
       publisherPrivateKeys: [new SecretValue('0x1234')],
       l1PublishRetryIntervalMS: 1000,
       viemPollingIntervalMS: 1000,
-      customForwarderContractAddress: EthAddress.random(),
       l1Contracts: {
         rollupAddress: EthAddress.random(),
         registryAddress: EthAddress.random(),

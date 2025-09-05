@@ -25,7 +25,7 @@ project_name=$(basename "$PWD")
 # Hash of the entire protocol circuits.
 # Needed for test hash, as we presently don't have a program hash for each individual test.
 # Means if anything within the dir changes, the tests will rerun.
-export circuits_hash=$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-projects/$project_name/crates/"))
+export circuits_hash=$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-projects/$project_name/crates/" "^noir-projects/noir-protocol-circuits/bootstrap.sh"))
 
 # Circuits matching these patterns we have client-ivc keys computed, rather than ultra-honk.
 readarray -t ivc_patterns < <(jq -r '.[]' "../client_ivc_circuits.json")
@@ -59,7 +59,7 @@ function compile {
   # echo_stderr $program_hash_cmd
   program_hash=$(dump_fail "$program_hash_cmd")
   echo_stderr "Hash preimage: $NOIR_HASH-$program_hash"
-  hash=$(hash_str "$NOIR_HASH-$program_hash")
+  hash=$(hash_str "$NOIR_HASH-$program_hash" $(cache_content_hash "^noir-projects/noir-protocol-circuits/bootstrap.sh"))
 
   if ! cache_download circuit-$hash.tar.gz 1>&2; then
     SECONDS=0
@@ -104,7 +104,7 @@ function compile {
   # TODO: Change this to add verification_key to original json, like contracts does.
   # Will require changing TS code downstream.
   bytecode_hash=$(jq -r '.bytecode' $json_path | sha256sum | tr -d ' -')
-  hash=$(hash_str "$BB_HASH-$bytecode_hash-$proto")
+  hash=$(hash_str "$BB_HASH-$bytecode_hash-$proto-$(cache_content_hash "^noir-projects/noir-protocol-circuits/bootstrap.sh")")
   if ! cache_download vk-$hash.tar.gz 1>&2; then
     local key_path="$key_dir/$name.vk.data.json"
     echo_stderr "Generating vk for function: $name..."
@@ -126,7 +126,9 @@ function compile {
       local verifier_path="$key_dir/${name}_verifier.sol"
       SECONDS=0
       # Generate solidity verifier for this contract.
-      echo "$vk_bytes" | xxd -r -p | $BB write_solidity_verifier --scheme ultra_honk --disable_zk -k - -o $verifier_path --optimized
+      # TODO(AD) ensure this passes.
+      #echo "$vk_bytes" | xxd -r -p | $BB write_solidity_verifier --scheme ultra_honk --disable_zk -k - -o $verifier_path --optimized
+      echo "$vk_bytes" | xxd -r -p | $BB write_solidity_verifier --scheme ultra_honk --disable_zk -k - -o $verifier_path
       echo_stderr "Root rollup verifier at: $verifier_path (${SECONDS}s)"
       # Include the verifier path if we create it.
       cache_upload vk-$hash.tar.gz $key_path $verifier_path &> /dev/null

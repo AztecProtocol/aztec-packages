@@ -119,6 +119,4 @@ aztec-wallet simulate balance_of_public -ca contracts:devtoken --args accounts:n
 
 In this tutorial, we created an account with the Aztec's [CLI Wallet](./cli_wallet_reference.md), using the Apple Mac's Secure Enclave to store the private key.
 
-You can use a multitude of authentication methods, for example with RSA you could use a passport as a recovery, or even as a signer in a multisig. All of this is based on the account contract.
-
-Next step is then to [code your own account contract!](../../tutorials/contract_tutorials/write_accounts_contract.md)
+You can use a multitude of authentication methods, for example with RSA you could use a passport as a recovery, or even as a signer in a multisig. All of this is based on the [account contract](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/account).
