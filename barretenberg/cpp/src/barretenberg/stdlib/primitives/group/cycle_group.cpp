@@ -429,8 +429,6 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
 {
     auto context = get_context(other);
 
-    const bb::fr sign_coefficient = is_addition ? 1 : -1;
-
     // if one or the other point is constant, construct a corresponding fixed witness in order to utilize the custom
     // ecc_add gate
     const bool lhs_constant = is_constant();
@@ -474,7 +472,7 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
         .y2 = other.y.get_witness_index(),
         .x3 = result.x.get_witness_index(),
         .y3 = result.y.get_witness_index(),
-        .sign_coefficient = sign_coefficient,
+        .sign_coefficient = is_addition ? 1 : -1,
     };
     context->create_ecc_add_gate(add_gate);
 
