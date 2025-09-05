@@ -16,13 +16,13 @@ import {
 import { jest } from '@jest/globals';
 import { type MockProxy, mockDeep } from 'jest-mock-extended';
 import assert from 'node:assert';
-import EventEmitter from 'node:events';
 
 import { DefaultSlasherConfig } from './config.js';
 import { EmpireSlasherClient, type EmpireSlasherSettings } from './empire_slasher_client.js';
 import { SlasherOffensesStore } from './stores/offenses_store.js';
 import { SlasherPayloadsStore } from './stores/payloads_store.js';
-import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEmitter } from './watcher.js';
+import { DummyWatcher } from './test/dummy_watcher.js';
+import type { WantToSlashArgs, Watcher } from './watcher.js';
 
 describe('EmpireSlasherClient', () => {
   let slasherClient: TestEmpireSlasherClient;
@@ -716,11 +716,5 @@ class TestEmpireSlasherClient extends EmpireSlasherClient {
 
   public get offensesCollectorPublic() {
     return (this as any).offensesCollector;
-  }
-}
-
-class DummyWatcher extends (EventEmitter as new () => WatcherEmitter) implements Watcher {
-  public triggerSlash(args: WantToSlashArgs[]) {
-    this.emit(WANT_TO_SLASH_EVENT, args);
   }
 }

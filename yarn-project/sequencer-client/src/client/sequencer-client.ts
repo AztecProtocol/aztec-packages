@@ -37,6 +37,7 @@ export class SequencerClient {
   constructor(
     protected publisherManager: PublisherManager<L1TxUtilsWithBlobs>,
     protected sequencer: Sequencer,
+    protected blockBuilder: IFullNodeBlockBuilder,
     protected validatorClient?: ValidatorClient,
     private l1Metrics?: L1Metrics,
   ) {}
@@ -183,7 +184,7 @@ export class SequencerClient {
 
     await sequencer.init();
 
-    return new SequencerClient(publisherManager, sequencer, validatorClient, l1Metrics);
+    return new SequencerClient(publisherManager, sequencer, blockBuilder, validatorClient, l1Metrics);
   }
 
   /**
@@ -192,6 +193,7 @@ export class SequencerClient {
    */
   public updateConfig(config: SequencerConfig & Partial<ValidatorClientFullConfig>) {
     this.sequencer.updateConfig(config);
+    this.blockBuilder.updateConfig(config);
     this.validatorClient?.updateConfig(config);
   }
 

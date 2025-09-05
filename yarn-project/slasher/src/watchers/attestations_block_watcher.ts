@@ -1,4 +1,5 @@
 import { EpochCache } from '@aztec/epoch-cache';
+import { merge, pick } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   type InvalidBlockDetectedEvent,
@@ -13,6 +14,13 @@ import EventEmitter from 'node:events';
 
 import type { SlasherConfig } from '../config.js';
 import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEmitter } from '../watcher.js';
+
+const AttestationsBlockWatcherConfigKeys = [
+  'slashAttestDescendantOfInvalidPenalty',
+  'slashProposeInvalidAttestationsPenalty',
+] as const;
+
+type AttestationsBlockWatcherConfig = Pick<SlasherConfig, (typeof AttestationsBlockWatcherConfigKeys)[number]>;
 
 /**
  * This watcher is responsible for detecting invalid blocks and creating slashing arguments for offenders.
@@ -44,13 +52,15 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
   constructor(
     private l2BlockSource: L2BlockSourceEventEmitter,
     private epochCache: EpochCache,
-    private config: Pick<
-      SlasherConfig,
-      'slashAttestDescendantOfInvalidPenalty' | 'slashProposeInvalidAttestationsPenalty'
-    >,
+    private config: AttestationsBlockWatcherConfig,
   ) {
     super();
-    this.log.info('InvalidBlockWatcher initialized');
+    this.log.info('AttestationsBlockWatcher initialized');
+  }
+
+  public updateConfig(newConfig: Partial<AttestationsBlockWatcherConfig>) {
+    this.config = merge(this.config, pick(newConfig, ...AttestationsBlockWatcherConfigKeys));
+    this.log.verbose('AttestationsBlockWatcher config updated', this.config);
   }
 
   public start() {

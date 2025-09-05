@@ -545,7 +545,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.timetable.assertTimeLeft(proposedState, secondsIntoSlot);
     }
 
-    this.log.debug(`Transitioning from ${this.state} to ${proposedState}`, { slotNumber, secondsIntoSlot });
+    const boringStates = [SequencerState.IDLE, SequencerState.SYNCHRONIZING];
+    const logLevel =
+      boringStates.includes(proposedState) && boringStates.includes(this.state)
+        ? ('trace' as const)
+        : ('debug' as const);
+    this.log[logLevel](`Transitioning from ${this.state} to ${proposedState}`, { slotNumber, secondsIntoSlot });
+
     this.emit('state-changed', {
       oldState: this.state,
       newState: proposedState,
