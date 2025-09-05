@@ -168,7 +168,9 @@ contract AttestationLibTest is TestBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.AttestationLib__OutOfBounds.selector, dataSize, $attestations.signaturesOrAddresses.length
+        Errors.AttestationLib__SignaturesOrAddressesSizeMismatch.selector,
+        dataSize,
+        $attestations.signaturesOrAddresses.length
       )
     );
 

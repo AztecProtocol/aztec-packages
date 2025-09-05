@@ -67,6 +67,13 @@ contract OutboxTest is Test {
     outbox.insert(1, root);
   }
 
+  function testRevertIfPathTooLong() public {
+    DataStructures.L2ToL1Msg memory fakeMessage = _fakeMessage(address(this), 123);
+    bytes32[] memory path = new bytes32[](256);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__PathTooLong.selector));
+    outbox.consume(fakeMessage, 1, 0, path);
+  }
+
   // This function tests the insertion of random arrays of L2 to L1 messages
   // We make a naive tree with a computed height, insert the leafs into it, and compute a root. We then add the root as
   // the root of the

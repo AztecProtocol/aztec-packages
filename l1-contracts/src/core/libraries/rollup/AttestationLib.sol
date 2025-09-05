@@ -237,13 +237,6 @@ library AttestationLib {
       }
     }
 
-    // Ensure that the reads were within the boundaries of the data.
-    // As `dataPtr` will always be increasing (and unlikely to wrap around because it would require insane size)
-    // we can just check that the last dataPtr value is inside the limit, as all the others would be as well then.
-    uint256 upperLimit = offset + _attestations.signaturesOrAddresses.length;
-    // As the offset was added already part of both values, we can subtract to give a more meaningful error.
-    require(dataPtr <= upperLimit, Errors.AttestationLib__OutOfBounds(dataPtr - offset, upperLimit - offset));
-
     // Ensure that the size of data provided actually matches what we expect
     uint256 sizeOfSignaturesAndAddresses =
       (signersIndex * SIGNATURE_LENGTH) + ((_length - signersIndex) * ADDRESS_LENGTH);
@@ -253,6 +246,17 @@ library AttestationLib {
         sizeOfSignaturesAndAddresses, _attestations.signaturesOrAddresses.length
       )
     );
+    require(signersIndex == _signers.length, Errors.AttestationLib__SignersSizeMismatch(signersIndex, _signers.length));
+
+    // Ensure that the reads were within the boundaries of the data, and that we have read all the data.
+    // This check is an extra precaution. There are two cases, we we would end up with an invalid
+    // read, and both should be covered by the above checks.
+    // 1. If trying to read beyond the expected data, the bitmap must have more ones than signatures,
+    // but this will make the the `sizeOfSignaturesAndAddresses` larger than passed data.
+    // 2. If trying to read less than expected data, the bitmap must have fewer ones than signatures,
+    // but this will make the the `sizeOfSignaturesAndAddresses` smaller than passed data.
+    uint256 upperLimit = offset + _attestations.signaturesOrAddresses.length;
+    require(dataPtr == upperLimit, Errors.AttestationLib__InvalidDataSize(dataPtr - offset, upperLimit - offset));
 
     return addresses;
   }
