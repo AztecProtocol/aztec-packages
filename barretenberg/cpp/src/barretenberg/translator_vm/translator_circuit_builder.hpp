@@ -324,7 +324,10 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     TranslatorCircuitBuilder(Fq batching_challenge_v_, Fq evaluation_input_x_)
         : CircuitBuilderBase(DEFAULT_TRANSLATOR_VM_LENGTH)
         , batching_challenge_v(batching_challenge_v_)
-        , evaluation_input_x(evaluation_input_x_) {};
+        , evaluation_input_x(evaluation_input_x_)
+    {
+        this->zero_idx = add_variable(Fr::zero());
+    };
 
     /**
      * @brief Construct a new Translator Circuit Builder object and feed op_queue inside

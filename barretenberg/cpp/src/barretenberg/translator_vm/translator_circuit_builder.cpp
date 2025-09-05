@@ -405,7 +405,7 @@ void TranslatorCircuitBuilder::populate_wires_from_ultra_op(const UltraOp& ultra
     auto& op_wire = std::get<WireIds::OP>(wires);
     op_wire.push_back(add_variable(ultra_op.op_code.value()));
     // Similarly to the ColumnPolynomials in the merge protocol, the op_wire is 0 at every second index
-    op_wire.push_back(add_variable(0));
+    op_wire.push_back(zero_idx);
 
     insert_pair_into_wire(WireIds::X_LOW_Y_HI, ultra_op.x_lo, ultra_op.y_hi);
 
@@ -529,8 +529,8 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1360): We'll also have to eventually process random
     // data in the merge protocol (added for zero knowledge)/
     for (auto& wire : wires) {
-        wire.push_back(add_variable(0));
-        wire.push_back(add_variable(0));
+        wire.push_back(zero_idx);
+        wire.push_back(zero_idx);
     }
     num_gates += 2;
 
@@ -568,8 +568,8 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
             // appropriately transfered the accumulator value at k across the entire no-op range, both in even and odd
             // indices.
             for (size_t j = 0; j < ACCUMULATORS_BINARY_LIMBS_0; j++) {
-                wires[j].push_back(add_variable(0));
-                wires[j].push_back(add_variable(0));
+                wires[j].push_back(zero_idx);
+                wires[j].push_back(zero_idx);
             }
             size_t idx = 0;
             for (size_t j = ACCUMULATORS_BINARY_LIMBS_0; j < ACCUMULATORS_BINARY_LIMBS_3 + 1; j++) {
@@ -578,8 +578,8 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
                 idx++;
             }
             for (size_t j = ACCUMULATORS_BINARY_LIMBS_3 + 1; j < TOTAL_COUNT; j++) {
-                wires[j].push_back(add_variable(0));
-                wires[j].push_back(add_variable(0));
+                wires[j].push_back(zero_idx);
+                wires[j].push_back(zero_idx);
             }
             num_gates += 2;
             continue;
