@@ -790,6 +790,13 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     const size_t num_points = scalars.size();
 
     std::vector<straus_scalar_slice> scalar_slices;
+    scalar_slices.reserve(num_points);
+    for (size_t i = 0; i < num_points; ++i) {
+        scalar_slices.emplace_back(straus_scalar_slice(context, scalars[i], TABLE_BITS));
+        // AUDITTODO: temporary safety check. See test MixedLengthScalarsIsNotSupported
+        BB_ASSERT_EQ(
+            scalar_slices[i].slices_native.size() == num_rounds, true, "Scalars of different sizes not supported!");
+    }
 
     /**
      * Compute the witness values of the batch_mul algorithm natively, as Element types with a Z-coordinate.
@@ -811,8 +818,6 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
             native_straus_tables.emplace_back(native_straus_table);
         }
         for (size_t i = 0; i < num_points; ++i) {
-            scalar_slices.emplace_back(straus_scalar_slice(context, scalars[i], TABLE_BITS));
-
             auto table_transcript = straus_lookup_table::compute_straus_lookup_table_hints(
                 base_points[i].get_value(), offset_generators[i + 1], TABLE_BITS);
             std::copy(table_transcript.begin() + 1, table_transcript.end(), std::back_inserter(operation_transcript));
@@ -829,10 +834,6 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
                 }
             }
             for (size_t j = 0; j < num_points; ++j) {
-                // AUDITTODO: temporary safety check. See test MixedLengthScalarsIsNotSupported
-                BB_ASSERT_EQ(scalar_slices[j].slices_native.size() == num_rounds,
-                             true,
-                             "Scalars of different sizes not supported!");
                 const Element point =
                     native_straus_tables[j][static_cast<size_t>(scalar_slices[j].slices_native[num_rounds - i - 1])];
 
@@ -860,7 +861,6 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         std::span<AffineElement> table_hints(&operation_hints[i * hints_per_table], hints_per_table);
         // Merge tags
         tag = OriginTag(tag, scalars[i].get_origin_tag(), base_points[i].get_origin_tag());
-        scalar_slices.emplace_back(straus_scalar_slice(context, scalars[i], TABLE_BITS));
         point_tables.emplace_back(straus_lookup_table(context, base_points[i], offset_generators[i + 1], TABLE_BITS));
     }
 
