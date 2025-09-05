@@ -229,6 +229,35 @@ case "$cmd" in
       get_projects | compile_project
     fi
     ;;
+  instrumented_profile)
+    # Automatically hooks sites with benchmarking instrumentation.
+    if [ "$#" -gt 1 ]; then
+      echo "Usage: ./bootstrap.sh profile <command>"
+      exit 1
+    fi
+    cmd=$1
+    # Refuse to continue if there are uncommitted changes to tracked files.
+    if [ -n "$(git status --porcelain | grep -v '^??')" ]; then
+      echo "Please commit or stash your changes before running this command."
+      exit 1
+    fi
+    rm -f profile-*.json
+    echo "NOTE: If you interrupt this you may have a dirty git state or build state. Otherwise it will clean up."
+    ( cd ./scripts/instrumenting-profiler && npm install )
+    ./scripts/instrumenting-profiler/instrument.sh
+    denoise "./bootstrap.sh compile"
+    pwd=$(pwd)
+    cleanup_instrumentation() {
+      # we may have changed paths
+      git checkout "$pwd"
+      denoise "cd '$pwd' && ./bootstrap.sh compile"
+      for f in profile-*.json; do
+        echo "To print: ./scripts/instrumenting-profiler/print.mjs $(pwd)/$f"
+      done
+    }
+    trap cleanup_instrumentation EXIT
+    eval "$cmd"
+    ;;
   lint|format)
     $cmd "$@"
     ;;
