@@ -1,47 +1,28 @@
 import { type BlobSinkConfig, blobSinkConfigMapping } from '@aztec/blob-sink/client';
 import {
-  type L1ContractAddresses,
   type L1ContractsConfig,
   type L1ReaderConfig,
   l1ContractAddressesMapping,
   l1ContractsConfigMappings,
   l1ReaderConfigMappings,
 } from '@aztec/ethereum';
-import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import {
+  type ConfigMappingsType,
+  booleanConfigHelper,
+  getConfigFromMappings,
+  numberConfigHelper,
+} from '@aztec/foundation/config';
 import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
+import type { ArchiverSpecificConfig } from '@aztec/stdlib/interfaces/server';
 
 /**
+ * The archiver configuration.
  * There are 2 polling intervals used in this configuration. The first is the archiver polling interval, archiverPollingIntervalMS.
  * This is the interval between successive calls to eth_blockNumber via viem.
  * Results of calls to eth_blockNumber are cached by viem with this cache being updated periodically at the interval specified by viemPollingIntervalMS.
  * As a result the maximum observed polling time for new blocks will be viemPollingIntervalMS + archiverPollingIntervalMS.
  */
-
-/**
- * The archiver configuration.
- */
-export type ArchiverConfig = {
-  /** The polling interval in ms for retrieving new L2 blocks and encrypted logs. */
-  archiverPollingIntervalMS?: number;
-
-  /** The number of L2 blocks the archiver will attempt to download at a time. */
-  archiverBatchSize?: number;
-
-  /** The polling interval viem uses in ms */
-  viemPollingIntervalMS?: number;
-
-  /** The deployed L1 contract addresses */
-  l1Contracts: L1ContractAddresses;
-
-  /** The max number of logs that can be obtained in 1 "getPublicLogs" call. */
-  maxLogs?: number;
-
-  /** The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKB. */
-  archiverStoreMapSizeKb?: number;
-} & L1ReaderConfig &
-  L1ContractsConfig &
-  BlobSinkConfig &
-  ChainConfig;
+export type ArchiverConfig = ArchiverSpecificConfig & L1ReaderConfig & L1ContractsConfig & BlobSinkConfig & ChainConfig;
 
 export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
   ...blobSinkConfigMapping,
@@ -64,6 +45,10 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     env: 'ARCHIVER_STORE_MAP_SIZE_KB',
     parseEnv: (val: string | undefined) => (val ? +val : undefined),
     description: 'The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKB.',
+  },
+  skipValidateBlockAttestations: {
+    description: 'Whether to skip validating block attestations (use only for testing).',
+    ...booleanConfigHelper(false),
   },
   ...chainConfigMappings,
   ...l1ReaderConfigMappings,

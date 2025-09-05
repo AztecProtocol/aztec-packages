@@ -82,36 +82,52 @@ export class EpochCache implements EpochCacheInterface {
   }
 
   static async create(
-    rollupAddress: EthAddress,
+    rollupOrAddress: EthAddress | RollupContract,
     config?: EpochCacheConfig,
     deps: { dateProvider?: DateProvider } = {},
   ) {
     config = config ?? getEpochCacheConfigEnvVars();
 
-    const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
-    const publicClient = createPublicClient({
-      chain: chain.chainInfo,
-      transport: fallback(config.l1RpcUrls.map(url => http(url))),
-      pollingInterval: config.viemPollingIntervalMS,
-    });
+    // Load the rollup contract if we were given an address
+    let rollup: RollupContract;
+    if ('address' in rollupOrAddress) {
+      rollup = rollupOrAddress;
+    } else {
+      const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
+      const publicClient = createPublicClient({
+        chain: chain.chainInfo,
+        transport: fallback(config.l1RpcUrls.map(url => http(url))),
+        pollingInterval: config.viemPollingIntervalMS,
+      });
+      rollup = new RollupContract(publicClient, rollupOrAddress.toString());
+    }
 
-    const rollup = new RollupContract(publicClient, rollupAddress.toString());
-    const [l1StartBlock, l1GenesisTime, initialValidators, sampleSeed, epochNumber, proofSubmissionEpochs] =
-      await Promise.all([
-        rollup.getL1StartBlock(),
-        rollup.getL1GenesisTime(),
-        rollup.getCurrentEpochCommittee(),
-        rollup.getCurrentSampleSeed(),
-        rollup.getEpochNumber(),
-        rollup.getProofSubmissionEpochs(),
-      ] as const);
+    const [
+      l1StartBlock,
+      l1GenesisTime,
+      initialValidators,
+      sampleSeed,
+      epochNumber,
+      proofSubmissionEpochs,
+      slotDuration,
+      epochDuration,
+    ] = await Promise.all([
+      rollup.getL1StartBlock(),
+      rollup.getL1GenesisTime(),
+      rollup.getCurrentEpochCommittee(),
+      rollup.getCurrentSampleSeed(),
+      rollup.getEpochNumber(),
+      rollup.getProofSubmissionEpochs(),
+      rollup.getSlotDuration(),
+      rollup.getEpochDuration(),
+    ] as const);
 
     const l1RollupConstants: L1RollupConstants = {
       l1StartBlock,
       l1GenesisTime,
       proofSubmissionEpochs: Number(proofSubmissionEpochs),
-      slotDuration: config.aztecSlotDuration,
-      epochDuration: config.aztecEpochDuration,
+      slotDuration: Number(slotDuration),
+      epochDuration: Number(epochDuration),
       ethereumSlotDuration: config.ethereumSlotDuration,
     };
 
@@ -236,7 +252,7 @@ export class EpochCache implements EpochCacheInterface {
    * We return the next proposer's attester address as the node will check if it is the proposer at the next ethereum block,
    * which can be the next slot. If this is the case, then it will send proposals early.
    */
-  async getProposerAttesterAddressInCurrentOrNextSlot(): Promise<{
+  public async getProposerAttesterAddressInCurrentOrNextSlot(): Promise<{
     currentSlot: bigint;
     nextSlot: bigint;
     currentProposer: EthAddress | undefined;
@@ -254,13 +270,22 @@ export class EpochCache implements EpochCacheInterface {
   }
 
   /**
+   * Get the proposer attester address in the gien slot
+   * @returns The proposer attester address. If the committee does not exist, we throw a NoCommitteeError.
+   * If the committee is empty (i.e. target committee size is 0, and anyone can propose), we return undefined.
+   */
+  public getProposerAttesterAddressInSlot(slot: bigint): Promise<EthAddress | undefined> {
+    const epochAndSlot = this.getEpochAndSlotAtSlot(slot);
+    return this.getProposerAttesterAddressAt(epochAndSlot);
+  }
+
+  /**
    * Get the proposer attester address in the next slot
    * @returns The proposer attester address. If the committee does not exist, we throw a NoCommitteeError.
    * If the committee is empty (i.e. target committee size is 0, and anyone can propose), we return undefined.
    */
-  getProposerAttesterAddressInNextSlot(): Promise<EthAddress | undefined> {
+  public getProposerAttesterAddressInNextSlot(): Promise<EthAddress | undefined> {
     const epochAndSlot = this.getEpochAndSlotInNextL1Slot();
-
     return this.getProposerAttesterAddressAt(epochAndSlot);
   }
 

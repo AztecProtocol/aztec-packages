@@ -10,7 +10,7 @@ import {
 } from '@aztec/ethereum';
 import { maxBigint } from '@aztec/foundation/bigint';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
-import { pick } from '@aztec/foundation/collection';
+import { merge, pick } from '@aztec/foundation/collection';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -102,6 +102,14 @@ export type ArchiverDeps = {
   dateProvider?: DateProvider;
 };
 
+function mapArchiverConfig(config: Partial<ArchiverConfig>) {
+  return {
+    pollingIntervalMs: config.archiverPollingIntervalMS,
+    batchSize: config.archiverBatchSize,
+    skipValidateBlockAttestations: config.skipValidateBlockAttestations,
+  };
+}
+
 /**
  * Pulls L2 blocks in a non-blocking manner and provides interface for their retrieval.
  * Responsible for handling robust L1 polling so that other components do not need to
@@ -138,7 +146,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     private readonly publicClient: ViemPublicClient,
     private readonly l1Addresses: { rollupAddress: EthAddress; inboxAddress: EthAddress; registryAddress: EthAddress },
     readonly dataStore: ArchiverDataStore,
-    private readonly config: { pollingIntervalMs: number; batchSize: number },
+    private config: { pollingIntervalMs: number; batchSize: number; skipValidateBlockAttestations?: boolean },
     private readonly blobSinkClient: BlobSinkClientInterface,
     private readonly epochCache: EpochCache,
     private readonly instrumentation: ArchiverInstrumentation,
@@ -198,10 +206,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       proofSubmissionEpochs: Number(proofSubmissionEpochs),
     };
 
-    const opts = {
-      pollingIntervalMs: config.archiverPollingIntervalMS ?? 10_000,
-      batchSize: config.archiverBatchSize ?? 100,
-    };
+    const opts = merge({ pollingIntervalMs: 10_000, batchSize: 100 }, mapArchiverConfig(config));
 
     const epochCache = deps.epochCache ?? (await EpochCache.create(config.l1Contracts.rollupAddress, config, deps));
     const telemetry = deps.telemetry ?? getTelemetryClient();
@@ -218,6 +223,11 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     );
     await archiver.start(blockUntilSynced);
     return archiver;
+  }
+
+  /** Updates archiver config */
+  public updateConfig(newConfig: Partial<ArchiverConfig>) {
+    this.config = merge(this.config, mapArchiverConfig(newConfig));
   }
 
   /**
@@ -796,7 +806,9 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       const validBlocks: PublishedL2Block[] = [];
 
       for (const block of publishedBlocks) {
-        const validationResult = await validateBlockAttestations(block, this.epochCache, this.l1constants, this.log);
+        const validationResult = this.config.skipValidateBlockAttestations
+          ? { valid: true as const }
+          : await validateBlockAttestations(block, this.epochCache, this.l1constants, this.log);
 
         // Only update the validation result if it has changed, so we can keep track of the first invalid block
         // in case there is a sequence of more than one invalid block, as we need to invalidate the first one.

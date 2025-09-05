@@ -5,7 +5,9 @@ import { asyncMap } from '@aztec/foundation/async-map';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { bufferToHex } from '@aztec/foundation/string';
+import { timeoutPromise } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { OffenseType } from '@aztec/slasher';
@@ -18,8 +20,8 @@ import { EpochsTestContext } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
-const NODE_COUNT = 3;
-const VALIDATOR_COUNT = 3;
+const NODE_COUNT = 5;
+const VALIDATOR_COUNT = 5;
 
 describe('e2e_epochs/epochs_invalidate_block', () => {
   let context: EndToEndContext;
@@ -42,6 +44,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
 
     // Setup context with the given set of validators, mocked gossip sub network, and no anvil test watcher.
     test = await EpochsTestContext.setup({
+      ethereumSlotDuration: 8,
       numberOfAccounts: 1,
       initialValidators: validators,
       mockGossipSubNetwork: true,
@@ -164,6 +167,170 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     expect(offenses.length).toBeGreaterThan(0);
     const invalidBlockOffense = offenses.find(o => o.offenseType === OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS);
     expect(invalidBlockOffense).toBeDefined();
+
+    logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
+  });
+
+  // Regression for an issue where, if the invalidator proposed another invalid block, the next proposer would
+  // try invalidating the first one, which would fail due to mismatching attestations. For example:
+  // Slot S:   Block N is proposed with invalid attestations
+  // Slot S+1: Block N is invalidated, and block N' (same number) is proposed instead, but also has invalid attestations
+  // Slot S+2: Proposer tries to invalidate block N, when they should invalidate block N' instead, and fails
+  it('chain progresses if an invalid block is invalidated with an invalid one', async () => {
+    // Configure all sequencers to skip collecting attestations before starting and always build blocks
+    logger.warn('Configuring all sequencers to skip attestation collection');
+    const sequencers = nodes.map(node => node.getSequencer()!);
+    sequencers.forEach(sequencer => {
+      sequencer.updateConfig({ skipCollectingAttestations: true, minTxsPerBlock: 0 });
+    });
+
+    // Start all sequencers
+    await Promise.all(sequencers.map(s => s.start()));
+    logger.warn(`Started all sequencers with skipCollectingAttestations=true`);
+
+    // Wait until we see two invalidations, both should be for the same block
+    let lastInvalidatedBlockNumber: bigint | undefined;
+    const invalidatePromise = promiseWithResolvers<void>();
+    const unsubscribe = rollupContract.listenToBlockInvalidated(data => {
+      logger.warn(`Block ${data.blockNumber} has been invalidated`, data);
+      if (lastInvalidatedBlockNumber === undefined) {
+        lastInvalidatedBlockNumber = data.blockNumber;
+      } else {
+        expect(data.blockNumber).toEqual(lastInvalidatedBlockNumber);
+        invalidatePromise.resolve();
+        unsubscribe();
+      }
+    });
+    await Promise.race([timeoutPromise(1000 * test.L2_SLOT_DURATION_IN_S * 8), invalidatePromise.promise]);
+
+    // Disable skipCollectingAttestations
+    sequencers.forEach(sequencer => {
+      sequencer.updateConfig({ skipCollectingAttestations: false });
+    });
+
+    // Ensure chain progresses
+    const targetBlock = lastInvalidatedBlockNumber! + 2n;
+    logger.warn(`Waiting until block ${targetBlock} has been mined`);
+    await test.monitor.waitUntilL2Block(targetBlock);
+
+    // Wait for all nodes to sync the new block
+    logger.warn(`Waiting for all nodes to sync to block ${targetBlock}`);
+    await retryUntil(
+      async () => {
+        const blockNumbers = await Promise.all(nodes.map(node => node.getBlockNumber()));
+        logger.info(`Node synced block numbers: ${blockNumbers.join(', ')}`);
+        return blockNumbers.every(bn => bn > targetBlock);
+      },
+      'Node sync check',
+      test.L2_SLOT_DURATION_IN_S * 5,
+      0.5,
+    );
+
+    logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
+  });
+
+  // Here we disable invalidation checks from two of the proposers. Our goal is to get two invalid blocks
+  // in a row, so the third proposer invalidates the earliest one, and the chain progresses. Note that the
+  // second invalid block will also have invalid attestations, we are *not* testing the scenario where the
+  // committee is malicious (or incompetent) and attests for the descendent of an invalid block.
+  it('proposer invalidates multiple blocks', async () => {
+    const initialSlot = (await test.monitor.run()).l2SlotNumber;
+
+    // Disable validation and attestation gathering for the proposers of two consecutive slots
+    // Note that we dont do this on the immediate next slot in case it has already started being built
+    const badProposers = await Promise.all([
+      test.epochCache.getProposerAttesterAddressInSlot(initialSlot + 2n),
+      test.epochCache.getProposerAttesterAddressInSlot(initialSlot + 3n),
+    ]);
+
+    const badNodes = [];
+    for (const badProposer of badProposers) {
+      logger.warn(`Disabling invalidation checks and attestation gathering for proposer ${badProposer}`);
+      const node = nodes.find(n => n.getSequencer()!.validatorAddresses!.some(a => a.equals(badProposer!)));
+      if (!node) {
+        throw new Error(`Could not find node for proposer ${badProposer}`);
+      }
+      badNodes.push(node);
+      await node.setConfig({
+        skipInvalidateBlockAsProposer: true,
+        skipCollectingAttestations: true,
+        skipValidateBlockAttestations: true,
+        minTxsPerBlock: 0,
+      });
+    }
+
+    // Start all sequencers
+    const sequencers = nodes.map(node => node.getSequencer()!);
+    await Promise.all(sequencers.map(s => s.start()));
+    logger.warn(`Started all sequencers`);
+
+    // We should see two invalid blocks being proposed by the bad proposers in those two slots
+    const firstBlockPromise = promiseWithResolvers<number>();
+    const secondBlockPromise = promiseWithResolvers<number>();
+    test.monitor.on('l2-block', ({ l2BlockNumber, l2SlotNumber }) => {
+      logger.warn(`L2 block ${l2BlockNumber} at slot ${l2SlotNumber} has been mined`);
+      if (l2SlotNumber === Number(initialSlot + 2n)) {
+        firstBlockPromise.resolve(l2BlockNumber);
+      }
+      if (l2SlotNumber === Number(initialSlot + 3n)) {
+        secondBlockPromise.resolve(l2BlockNumber);
+      }
+    });
+
+    // Wait for both blocks to be mined
+    logger.warn(`Waiting for two blocks to be mined on slots ${initialSlot + 2n} and ${initialSlot + 3n}`);
+    const [firstBlock, secondBlock] = await Promise.race([
+      await Promise.all([firstBlockPromise.promise, secondBlockPromise.promise]),
+      timeoutPromise(test.L2_SLOT_DURATION_IN_S * 8 * 1000).then(() => [0, 0]),
+    ]);
+
+    // Subscribe to block invalidation events
+    const invalidatePromise = promiseWithResolvers<bigint>();
+    const unsubscribe = rollupContract.listenToBlockInvalidated(event => {
+      logger.warn(`Block ${event.blockNumber} has been invalidated`, event);
+      invalidatePromise.resolve(event.blockNumber);
+      unsubscribe();
+    });
+
+    // Wait for a slot with a good proposer
+    logger.warn(`Blocks ${firstBlock} and ${secondBlock} have been mined. Waiting for slot with good proposer.`);
+    const goodProposer = await retryUntil(async () => {
+      const { currentProposer } = await test.epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
+      if (badProposers.every(p => !p!.equals(currentProposer!))) {
+        return currentProposer;
+      }
+    });
+
+    // As soon as it's the turn of a good proposer, we should see the first block being invalidated
+    logger.warn(`Turn for ${goodProposer}. Waiting for invalidation.`);
+    const invalidatedBlock = await Promise.race([
+      invalidatePromise.promise,
+      timeoutPromise(test.L2_SLOT_DURATION_IN_S * 4 * 1000).then(() => 0n),
+    ]);
+
+    // The invalidated block should be the first one
+    // Note that it may also be a block *before* the first one that gets mined in `initialSlot + 1n`
+    expect(invalidatedBlock).toBeLessThanOrEqual(BigInt(firstBlock));
+    expect(invalidatedBlock).toBeGreaterThanOrEqual(BigInt(firstBlock - 1));
+
+    // Restore bad nodes back to normal. They should eventually detect that their archive root does not
+    // match the value on chain and roll back their invalid nodes.
+    await Promise.all(
+      badNodes.map(async node => {
+        await node.setConfig({
+          skipInvalidateBlockAsProposer: false,
+          skipCollectingAttestations: false,
+          skipValidateBlockAttestations: false,
+        });
+      }),
+    );
+
+    // And wait for more blocks to be mined
+    logger.warn(`Waiting until more blocks have been mined to ensure the chain can progress`);
+    await Promise.all(nodes.map(node => node.setConfig({ minTxsPerBlock: 0 })));
+    await test.waitUntilL2BlockNumber(firstBlock + 3, test.L2_SLOT_DURATION_IN_S * 16);
+
+    logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   });
 
   it('proposer invalidates previous block without publishing its own', async () => {
@@ -216,6 +383,8 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     logger.warn(`BlockInvalidated event emitted`, { event });
     expect(event.args.blockNumber).toBeGreaterThan(initialBlockNumber);
     expect(await test.rollup.getBlockNumber()).toEqual(BigInt(initialBlockNumber));
+
+    logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   });
 
   it('committee member invalidates a block if proposer does not come through', async () => {
@@ -279,5 +448,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // And check that the invalidation happened at least after the specified timeout
     const { timestamp: invalidationTimestamp } = await l1Client.getBlock({ blockNumber: event.blockNumber });
     expect(invalidationTimestamp).toBeGreaterThanOrEqual(invalidBlockTimestamp! + BigInt(invalidationDelay));
+
+    logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
   });
 });

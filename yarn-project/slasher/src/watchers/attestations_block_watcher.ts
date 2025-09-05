@@ -37,6 +37,8 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
   // All invalid archive roots seen
   private invalidArchiveRoots: Set<string> = new Set();
 
+  private config: AttestationsBlockWatcherConfig;
+
   private boundHandleInvalidBlock = (event: InvalidBlockDetectedEvent) => {
     try {
       this.handleInvalidBlock(event);
@@ -51,9 +53,10 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
   constructor(
     private l2BlockSource: L2BlockSourceEventEmitter,
     private epochCache: EpochCache,
-    private config: AttestationsBlockWatcherConfig,
+    config: AttestationsBlockWatcherConfig,
   ) {
     super();
+    this.config = pick(config, ...AttestationsBlockWatcherConfigKeys);
     this.log.info('AttestationsBlockWatcher initialized');
   }
 
