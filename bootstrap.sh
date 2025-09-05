@@ -128,6 +128,7 @@ set -euo pipefail
 ./yarn-project/precommit.sh
 ./noir-projects/precommit.sh
 ./yarn-project/constants/precommit.sh
+./yarn-project/protocol-contracts/precommit.sh
 EOF
   chmod +x $hooks_dir/pre-commit
   echo "(cd noir && ./postcheckout.sh \$@)" >$hooks_dir/post-checkout

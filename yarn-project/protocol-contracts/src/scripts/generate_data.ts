@@ -19,6 +19,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { type NoirCompiledContract } from '@aztec/stdlib/noir';
 
+import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
 import path from 'path';
 
@@ -31,6 +32,7 @@ const srcPath = path.join(noirContractsRoot, './target');
 const destArtifactsDir = './artifacts';
 const outputFilePath = './src/protocol_contract_data.ts';
 const cppOutputFilePath = '../../barretenberg/cpp/src/barretenberg/vm2/common/protocol_contract_data.hpp';
+const artifactsCheckSum = './.artifacts_checksum';
 
 const salt = new Fr(1);
 
@@ -212,6 +214,23 @@ const std::unordered_map<CanonicalAddress, DerivedAddress> derived_addresses = {
   await fs.writeFile(cppOutputFilePath.replace('.hpp', '.cpp'), content);
 }
 
+// This function has to match computed_artifacts_checksum in precommit.sh
+async function saveNewArtifactsChecksum() {
+  // Read artifacts directory and compute md5 checksum of all files
+  const files = await fs.readdir(destArtifactsDir);
+  const fileHashes: string[] = [];
+  for (const file of files.filter(f => !f.endsWith('.ts'))) {
+    const fileContent = await fs.readFile(path.join(destArtifactsDir, file));
+    const hash = createHash('md5').update(fileContent);
+    fileHashes.push(hash.digest('hex'));
+  }
+  fileHashes.sort();
+
+  const combinedHashString = fileHashes.join('\n') + '\n'; // this trailing newline is important since bash adds it
+  const combinedHash = createHash('md5').update(combinedHashString, 'utf8').digest('hex');
+  fs.writeFile(artifactsCheckSum, combinedHash);
+}
+
 async function main() {
   await clearDestDir();
 
@@ -232,11 +251,12 @@ async function main() {
 
   await generateCppOutputFile(destNames, leaves);
   await generateOutputFile(destNames, leaves);
+  await saveNewArtifactsChecksum();
 }
 
 try {
   await main();
 } catch (err: unknown) {
-  log(`Error copying protocol contract artifacts: ${err}`);
+  log(`Error copying protocol contract artifacts: ${err} `);
   process.exit(1);
 }
