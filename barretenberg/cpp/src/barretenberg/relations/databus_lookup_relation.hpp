@@ -174,6 +174,12 @@ template <typename FF_> class DatabusLookupRelationImpl {
         const auto read_tag_m =
             CoefficientAccumulator(BusData<bus_idx, AllEntities>::read_tags(in)); // does row contain data being read
         const Accumulator read_tag(read_tag_m);
+        // Relation checking: is_read_gate == 1 || read_tag == 1
+        // Important note: the following relation sattisfies the above condition if is_read_gate and read_tag are
+        // boolean values
+        // if not this is a linear relation in each variable and the value can be set to zero independent of the value
+        // of is_read_gate or read_tag. This would lead to terms in the sum being skipped when they shouldn't be which
+        // would be a soundness issue
         //         degree 2(2)   1             2 (2)        1       // Degree 3 (3)
         return is_read_gate + read_tag - (is_read_gate * read_tag); // Degree 3 (5)
     }
