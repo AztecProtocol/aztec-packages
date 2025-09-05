@@ -20,7 +20,7 @@ export enum WorldStateRunningState {
 export interface WorldStateSyncStatus {
   latestBlockNumber: number;
   latestBlockHash: string;
-  finalisedBlockNumber: number;
+  finalizedBlockNumber: number;
   oldestHistoricBlockNumber: number;
   treesAreSynched: boolean;
 }
@@ -84,7 +84,7 @@ export interface WorldStateSynchronizer extends ForkMerkleTreeOperations {
 }
 
 export const WorldStateSyncStatusSchema = z.object({
-  finalisedBlockNumber: z.number().int().nonnegative(),
+  finalizedBlockNumber: z.number().int().nonnegative(),
   latestBlockNumber: z.number().int().nonnegative(),
   latestBlockHash: z.string(),
   oldestHistoricBlockNumber: z.number().int().nonnegative(),

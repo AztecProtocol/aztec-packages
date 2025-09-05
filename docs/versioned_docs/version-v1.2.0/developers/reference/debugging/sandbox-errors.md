@@ -1,5 +1,6 @@
 ---
 title: Aztec Sandbox Errors
+description: Common Aztec sandbox errors and how to resolve them.
 tags: [sandbox]
 ---
 

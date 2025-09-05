@@ -2,6 +2,7 @@
 title: Aztec Overview
 sidebar_position: 0
 tags: [protocol]
+description: Overview of Aztec, a privacy-first Layer 2 on Ethereum supporting smart contracts with private and public state and execution.
 ---
 
 import Image from "@theme/IdealImage";

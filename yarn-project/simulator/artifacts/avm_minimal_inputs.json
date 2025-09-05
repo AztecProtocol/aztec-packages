@@ -11,9 +11,9 @@
       "gasFees": { "feePerDaGas": "2", "feePerL2Gas": "3" }
     },
     "tx": {
-      "hash": "0x2e66b847ce85cbaf436186eca1e6a2da444cb6d47be3f2d2c65777936ade05ff",
+      "hash": "0x163c46f0521b97ce6899de56363a018548f78d331df7561a503fd72da72be6fe",
       "gasSettings": {
-        "gasLimits": { "daGas": 1000000000, "l2Gas": 6000000 },
+        "gasLimits": { "daGas": 6291456, "l2Gas": 6000000 },
         "teardownGasLimits": { "daGas": 0, "l2Gas": 0 },
         "maxFeesPerGas": { "feePerDaGas": "10", "feePerL2Gas": "10" },
         "maxPriorityFeesPerGas": { "feePerDaGas": "0", "feePerL2Gas": "0" }
@@ -890,7 +890,7 @@
     },
     "startGasUsed": { "daGas": 0, "l2Gas": 0 },
     "gasSettings": {
-      "gasLimits": { "daGas": 1000000000, "l2Gas": 6000000 },
+      "gasLimits": { "daGas": 6291456, "l2Gas": 6000000 },
       "teardownGasLimits": { "daGas": 0, "l2Gas": 0 },
       "maxFeesPerGas": { "feePerDaGas": "10", "feePerL2Gas": "10" },
       "maxPriorityFeesPerGas": { "feePerDaGas": "0", "feePerL2Gas": "0" }

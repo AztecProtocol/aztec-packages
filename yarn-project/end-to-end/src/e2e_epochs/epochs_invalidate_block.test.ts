@@ -8,7 +8,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { bufferToHex } from '@aztec/foundation/string';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
-import { Offense } from '@aztec/slasher';
+import { OffenseType } from '@aztec/slasher';
 
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -20,7 +20,6 @@ jest.setTimeout(1000 * 60 * 10);
 
 const NODE_COUNT = 3;
 const VALIDATOR_COUNT = 3;
-const SLASHER_PRIVATE_KEYS_START_INDEX = 12;
 
 describe('e2e_epochs/epochs_invalidate_block', () => {
   let context: EndToEndContext;
@@ -53,6 +52,9 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       archiverPollingIntervalMS: 200,
       anvilAccounts: 20,
       anvilPort: ++anvilPort,
+      slashingRoundSizeInEpochs: 4,
+      slashingOffsetInRounds: 256,
+      slasherFlavor: 'tally',
     });
 
     ({ context, logger, l1Client } = test);
@@ -65,12 +67,11 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // Start the validator nodes
     logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);
     const validatorNodes = validators.slice(0, NODE_COUNT);
-    nodes = await asyncMap(validatorNodes, ({ privateKey }, i) =>
+    nodes = await asyncMap(validatorNodes, ({ privateKey }) =>
       test.createValidatorNode([privateKey], {
         dontStartSequencer: true,
         minTxsPerBlock: 1,
         maxTxsPerBlock: 1,
-        slasherPrivateKey: new SecretValue(bufferToHex(getPrivateKeyFromIndex(SLASHER_PRIVATE_KEYS_START_INDEX + i)!)),
       }),
     );
     logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validatorNodes.map(v => v.attester) });
@@ -92,7 +93,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // Configure all sequencers to skip collecting attestations before starting
     logger.warn('Configuring all sequencers to skip attestation collection');
     sequencers.forEach(sequencer => {
-      sequencer.updateSequencerConfig({ skipCollectingAttestations: true });
+      sequencer.updateConfig({ skipCollectingAttestations: true });
     });
 
     // Send a transaction so the sequencer builds a block
@@ -103,7 +104,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     test.monitor.once('l2-block', ({ l2BlockNumber }) => {
       logger.warn(`Disabling skipCollectingAttestations after L2 block ${l2BlockNumber} has been mined`);
       sequencers.forEach(sequencer => {
-        sequencer.updateSequencerConfig({ skipCollectingAttestations: false });
+        sequencer.updateConfig({ skipCollectingAttestations: false });
       });
     });
 
@@ -158,10 +159,11 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     expect(receipt.status).toBe('success');
     logger.warn(`Transaction included in block ${receipt.blockNumber}`);
 
-    // Check that we have created a slash payload for the proposer of the invalidated block
-    const monitoredPayloads = await context.aztecNodeAdmin!.getSlasherMonitoredPayloads();
-    expect(monitoredPayloads).toHaveLength(1);
-    expect(monitoredPayloads[0].offenses).toEqual([Offense.PROPOSED_INSUFFICIENT_ATTESTATIONS]);
+    // Check that we have tagged an offense for that
+    const offenses = await context.aztecNodeAdmin!.getSlashOffenses('all');
+    expect(offenses.length).toBeGreaterThan(0);
+    const invalidBlockOffense = offenses.find(o => o.offenseType === OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS);
+    expect(invalidBlockOffense).toBeDefined();
   });
 
   it('proposer invalidates previous block without publishing its own', async () => {
@@ -171,14 +173,14 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // Configure all sequencers to skip collecting attestations before starting
     logger.warn('Configuring all sequencers to skip attestation collection and always publish blocks');
     sequencers.forEach(sequencer => {
-      sequencer.updateSequencerConfig({ skipCollectingAttestations: true, minTxsPerBlock: 0 });
+      sequencer.updateConfig({ skipCollectingAttestations: true, minTxsPerBlock: 0 });
     });
 
     // Disable skipCollectingAttestations after the first block is mined and prevent sequencers from publishing any more blocks
     test.monitor.once('l2-block', ({ l2BlockNumber }) => {
       logger.warn(`Disabling skipCollectingAttestations after L2 block ${l2BlockNumber} has been mined`);
       sequencers.forEach(sequencer => {
-        sequencer.updateSequencerConfig({ skipCollectingAttestations: false, minTxsPerBlock: 100 });
+        sequencer.updateConfig({ skipCollectingAttestations: false, minTxsPerBlock: 100 });
       });
     });
 
@@ -224,7 +226,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     logger.warn('Configuring all sequencers to skip attestation collection and invalidation as proposer');
     const invalidationDelay = test.L1_BLOCK_TIME_IN_S * 4;
     sequencers.forEach(sequencer => {
-      sequencer.updateSequencerConfig({
+      sequencer.updateConfig({
         skipCollectingAttestations: true,
         minTxsPerBlock: 0,
         skipInvalidateBlockAsProposer: true,
@@ -238,7 +240,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       logger.warn(`Disabling skipCollectingAttestations after L2 block ${l2BlockNumber} has been mined`);
       invalidBlockTimestamp = timestamp;
       sequencers.forEach(sequencer => {
-        sequencer.updateSequencerConfig({ skipCollectingAttestations: false });
+        sequencer.updateConfig({ skipCollectingAttestations: false });
       });
     });
 

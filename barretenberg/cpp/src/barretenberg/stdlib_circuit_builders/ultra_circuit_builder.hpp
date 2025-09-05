@@ -286,7 +286,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         , range_lists(other.range_lists)
         , cached_partial_non_native_field_multiplications(other.cached_partial_non_native_field_multiplications)
         , circuit_finalized(other.circuit_finalized)
-        , ipa_proof(other.ipa_proof){};
+        , ipa_proof(other.ipa_proof) {};
     UltraCircuitBuilder_& operator=(const UltraCircuitBuilder_& other) = default;
     UltraCircuitBuilder_& operator=(UltraCircuitBuilder_&& other) noexcept
     {
@@ -514,7 +514,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      * 3) Number of Rom array-associated gates
      * 4) Number of range-list associated gates
      * 5) Number of non-native field multiplication gates.
-     * !!! WARNING: This function is predictive and might report an incorrect number. Make sure to finalise the circuit
+     * !!! WARNING: This function is predictive and might report an incorrect number. Make sure to finalize the circuit
      * and then check the number of gates for a precise result. Kesha: it's basically voodoo
      *
      * @return size_t

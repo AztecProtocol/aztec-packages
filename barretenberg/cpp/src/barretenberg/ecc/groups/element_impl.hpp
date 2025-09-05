@@ -6,7 +6,7 @@
 
 #pragma once
 #include "barretenberg/common/assert.hpp"
-#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/groups/element.hpp"
 #include "element.hpp"
@@ -794,7 +794,7 @@ template <class Fq, class Fr, class T>
 std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomorphism(
     const std::span<const affine_element<Fq, Fr, T>>& points, const Fr& scalar) noexcept
 {
-    PROFILE_THIS();
+    BB_BENCH();
     typedef affine_element<Fq, Fr, T> affine_element;
     const size_t num_points = points.size();
 
@@ -899,8 +899,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     // hot loop since the slow the computation down. So it's better to just handle it here.
     if (scalar == -Fr::one()) {
         std::vector<affine_element> results(num_points);
-        parallel_for_heuristic(
-            num_points, [&](size_t i) { results[i] = -points[i]; }, thread_heuristics::FF_COPY_COST);
+        parallel_for_heuristic(num_points, [&](size_t i) { results[i] = -points[i]; }, thread_heuristics::FF_COPY_COST);
         return results;
     }
     // Compute wnaf for scalar
@@ -911,8 +910,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
         affine_element result{ Fq::zero(), Fq::zero() };
         result.self_set_infinity();
         std::vector<affine_element> results(num_points);
-        parallel_for_heuristic(
-            num_points, [&](size_t i) { results[i] = result; }, thread_heuristics::FF_COPY_COST);
+        parallel_for_heuristic(num_points, [&](size_t i) { results[i] = result; }, thread_heuristics::FF_COPY_COST);
         return results;
     }
 

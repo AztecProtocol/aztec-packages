@@ -2,6 +2,7 @@
 title: Run Aztec in a Sandbox
 sidebar_position: 0
 tags: [sandbox, PXE]
+description: Information about running the Aztec sandbox development environment.
 ---
 
 - Current version: `#include_aztec_version`
@@ -137,11 +138,12 @@ To update the aztec.nr packages manually, update the tags of the `aztec.nr` depe
 +value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="noir-projects/aztec-nr/value-note" }
 ```
 
-Go to the contract directory and try compiling it with `aztec-nargo compile` to verify that the update was successful:
+Go to the contract directory and try compiling it to verify that the update was successful:
 
 ```shell
 cd /your/contract/directory
-aztec-nargo compile
+aztec-nargo compile        # generate contract artifacts
+aztec-postprocess-contract # transpile contract and generate verification keys
 ```
 
 If the dependencies fail to resolve ensure that the tag matches a tag in the [aztec-packages repository (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tags).
@@ -197,14 +199,14 @@ You can enable proving on a per-transaction basis using the `aztec-wallet` CLI b
 PXE_PROVER_ENABLED=1 aztec-wallet create-account -a test
 ```
 
-Check the [Quickstart](../../getting_started.md) for a refresher on how to send transactions using `aztec-wallet` or check the [reference here](../../reference/environment_reference/cli_wallet_reference.md)
+Check the [Quickstart](../../getting_started/getting_started_on_sandbox.md) for a refresher on how to send transactions using `aztec-wallet` or check the [reference here](../../reference/environment_reference/cli_wallet_reference.md)
 
 Note that you do not need to restart the sandbox in order to start sending proven transactions. You can optionally set this for one-off transactions.
 
 If this is the first time you are sending transactions with proving enabled, it will take a while to download a CRS file (which is several MBs) that is required for proving.
 
 :::note
-You can also profile your transactions to get gate count, if you don't want to prove your transactions but check how many constraints it is. Follow the [guide here](../../guides/smart_contracts/profiling_transactions.md)
+You can also profile your transactions to get gate count, if you don't want to prove your transactions but check how many constraints it is. Follow the [guide here](../../guides/smart_contracts/advanced/profiling_transactions.md)
 :::
 
 ## Running Multiple PXEs in the Sandbox

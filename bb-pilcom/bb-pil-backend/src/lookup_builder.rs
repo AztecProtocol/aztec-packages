@@ -82,12 +82,11 @@ impl LookupBuilder for BBFiles {
                     .map(|stem| stem.to_string_lossy().into_owned())
                     .unwrap_or_default()
                     .replace(".pil", "");
-                let file_name = format!("lookups_{}.hpp", relation);
                 let name = format!("lookup_{}_{}", relation, label);
                 Lookup {
                     name: name.clone(),
-                    owning_relation: relation,
-                    file_name: file_name,
+                    owning_relation: relation.clone(),
+                    file_name: format!("lookups_{}.hpp", relation),
                     inverse: format!("{}_inv", &name),
                     counts_poly: format!("{}_counts", &name),
                     left: get_lookup_side(&lookup.left),
@@ -96,7 +95,7 @@ impl LookupBuilder for BBFiles {
             })
             .collect_vec();
 
-        let lookups_per_file = lookups.iter().into_group_map_by(|lookup| &lookup.file_name);
+        let lookups_per_relation = lookups.iter().into_group_map_by(|lookup| &lookup.owning_relation);
 
         let mut handlebars = Handlebars::new();
 
@@ -106,8 +105,15 @@ impl LookupBuilder for BBFiles {
                 std::str::from_utf8(include_bytes!("../templates/lookup.hpp.hbs")).unwrap(),
             )
             .unwrap();
+        // All instantiations together.
+        handlebars
+            .register_template_string(
+                "lookup.cpp",
+                std::str::from_utf8(include_bytes!("../templates/lookup.cpp.hbs")).unwrap(),
+            )
+            .unwrap();
 
-        for (file_name, lookups) in lookups_per_file {
+        for (owning_relation, lookups) in lookups_per_relation {
             let datas = lookups
                 .iter()
                 .map(|lookup| create_lookup_settings_data(lookup))
@@ -115,11 +121,22 @@ impl LookupBuilder for BBFiles {
             let data_wrapper = json!({
                 "root_name": vm_name,
                 "lookups": datas,
+                "owning_relation": owning_relation,
+                "lookup_names": lookups.iter().map(|lookup| lookup.name.clone()).collect_vec(),
             });
             let lookup_settings = handlebars.render("lookup.hpp", &data_wrapper).unwrap();
+            let lookup_instantiations = handlebars.render("lookup.cpp", &data_wrapper).unwrap();
 
-            self.write_file(Some(&self.relations), file_name, &lookup_settings);
+            self.write_file(Some(&self.relations), &format!("lookups_{}.hpp", owning_relation), &lookup_settings);
+            self.write_file(Some(&self.relations), &format!("lookups_{}.cpp", owning_relation), &lookup_instantiations);
         }
+
+        // let data_wrapper = json!({
+        //     "root_name": vm_name,
+        //     "lookups": lookups.iter().map(|lookup| lookup.name.clone()).collect_vec(),
+        // });
+        // let lookup_instantiations = handlebars.render("lookup.cpp", &data_wrapper).unwrap();
+        // self.write_file(Some(&self.relations), "lookup_instantiations.cpp", &lookup_instantiations);
 
         lookups
     }

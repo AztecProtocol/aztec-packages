@@ -52,10 +52,10 @@ function check_toolchains {
     exit 1
   fi
   # Check clang version.
-  if ! clang++-16 --version | grep "clang version 16." > /dev/null; then
+  if ! clang++-20 --version | grep "clang version 20." > /dev/null; then
     encourage_dev_container
     echo "clang 16 not installed."
-    echo "Installation: sudo apt install clang-16"
+    echo "Installation: sudo apt install clang-20"
     exit 1
   fi
   # Check rustup installed.
@@ -73,23 +73,29 @@ function check_toolchains {
     echo -e "${bold}${yellow}WARN: Rust ${rust_version} is not installed. Performance will be degraded.${reset}"
   fi
   # Check wasi-sdk version.
-  if ! cat /opt/wasi-sdk/VERSION 2> /dev/null | grep 22.0 > /dev/null; then
+  if ! cat /opt/wasi-sdk/VERSION 2> /dev/null | grep 27.0 > /dev/null; then
     encourage_dev_container
-    echo "wasi-sdk-22 not found at /opt/wasi-sdk."
+    echo "wasi-sdk-27 not found at /opt/wasi-sdk."
     echo "Use dev container, build from source, or you can install linux x86 version with:"
-    echo "  curl -s -L https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-22/wasi-sdk-22.0-linux.tar.gz | tar zxf - && sudo mv wasi-sdk-22.0 /opt/wasi-sdk"
+    echo "  curl -s -L https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-27/wasi-sdk-27.0-x86_64-linux.tar.gz | tar zxf - && sudo mv wasi-sdk-27.0-x86_64-linux /opt/wasi-sdk"
     exit 1
   fi
   # Check foundry version.
-  local foundry_version="nightly-99634144b6c9371982dcfc551a7975c5dbf9fad8"
+  local foundry_version="v1.3.3"
   for tool in forge anvil; do
     if ! $tool --version 2> /dev/null | grep "${foundry_version#nightly-}" > /dev/null; then
-      encourage_dev_container
       echo "$tool not in PATH or incorrect version (requires $foundry_version)."
-      echo "Installation: https://book.getfoundry.sh/getting-started/installation"
-      echo "  curl -L https://foundry.paradigm.xyz | bash"
-      echo "  foundryup -i $foundry_version"
-      exit 1
+      if [ "${CI:-0}" -eq 1 ]; then
+        echo "Attempting install of required foundry version $foundry_version"
+        curl -L https://foundry.paradigm.xyz | bash
+        ~/.foundry/bin/foundryup -i $foundry_version
+      else
+        encourage_dev_container
+        echo "Installation: https://book.getfoundry.sh/getting-started/installation"
+        echo "  curl -L https://foundry.paradigm.xyz | bash"
+        echo "  foundryup -i $foundry_version"
+        exit 1
+      fi
     fi
   done
   # Check Node.js version.
@@ -209,7 +215,7 @@ function test {
   [ -z "$tests" ] && num=0 || num=$(echo "$tests" | wc -l)
   echo "Gathered $num tests."
 
-  echo "$tests" | parallelise
+  echo "$tests" | parallelize
 }
 
 function build {
@@ -229,13 +235,13 @@ function build {
     noir-projects
     l1-contracts
     yarn-project
+    release-image
   )
   # These projects can be built in parallel.
   parallel_cmds=(
     boxes/bootstrap.sh
     playground/bootstrap.sh
     docs/bootstrap.sh
-    release-image/bootstrap.sh
     spartan/bootstrap.sh
     aztec-up/bootstrap.sh
   )
@@ -304,7 +310,7 @@ function bench {
   echo_header "bench all"
   build_bench
   find . -type d -iname bench-out | xargs rm -rf
-  bench_cmds | STRICT_SCHEDULING=1 parallelise
+  bench_cmds | STRICT_SCHEDULING=1 parallelize
   rm -rf bench-out
   mkdir -p bench-out
   bench_merge
@@ -437,6 +443,15 @@ case "$cmd" in
     release-image/bootstrap.sh push
     test
     release
+    ;;
+  "ci-network-deploy")
+    export CI=1
+    spartan/bootstrap.sh network_deploy $NETWORK_ENV_FILE
+    ;;
+  "ci-network-tests")
+    export CI=1
+    build
+    spartan/bootstrap.sh network_tests $NETWORK_ENV_FILE
     ;;
   "ci-release")
     export CI=1

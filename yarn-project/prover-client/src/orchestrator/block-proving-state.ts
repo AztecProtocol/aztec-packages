@@ -14,7 +14,7 @@ import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import type { L2Block } from '@aztec/stdlib/block';
+import type { EthAddress, L2Block } from '@aztec/stdlib/block';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
 import { type ParityPublicInputs, RootParityInput, RootParityInputs } from '@aztec/stdlib/parity';
 import {
@@ -76,12 +76,12 @@ export class BlockProvingState {
     public readonly newL1ToL2Messages: Fr[],
     public readonly l1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
     private readonly l1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
-    private readonly l1ToL2MessageTreeSnapshotAfterInsertion: AppendOnlyTreeSnapshot,
+    public readonly l1ToL2MessageTreeSnapshotAfterInsertion: AppendOnlyTreeSnapshot,
     private readonly lastArchiveSnapshot: AppendOnlyTreeSnapshot,
     private readonly lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     private readonly newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     private readonly previousBlockHeader: BlockHeader,
-    private readonly proverId: Fr,
+    private readonly proverId: EthAddress,
     private readonly parentEpoch: EpochProvingState,
   ) {
     this.baseParityProvingOutputs = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }).map(_ => undefined);
@@ -101,7 +101,7 @@ export class BlockProvingState {
     }
 
     this.baseOrMergeProvingOutputs = new UnbalancedTreeStore(numTxs);
-    // Initialise the sponge which will eventually absorb all tx effects to be added to the blob.
+    // Initialize the sponge which will eventually absorb all tx effects to be added to the blob.
     // Like l1 to l2 messages, we need to know beforehand how many effects will be absorbed.
     this.spongeBlobState = SpongeBlob.init(numBlobFields);
     this.totalNumTxs = numTxs;
@@ -223,7 +223,7 @@ export class BlockProvingState {
     if (this.totalNumTxs === 0) {
       const constants = BlockConstantData.from({
         lastArchive: this.lastArchiveSnapshot,
-        lastL1ToL2: this.l1ToL2MessageTreeSnapshot,
+        newL1ToL2: this.l1ToL2MessageTreeSnapshotAfterInsertion,
         globalVariables: this.globalVariables,
         vkTreeRoot: getVKTreeRoot(),
         protocolContractTreeRoot,
@@ -265,7 +265,7 @@ export class BlockProvingState {
     const constants = EpochConstantData.from({
       vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
-      proverId: this.proverId,
+      proverId: this.proverId.toField(),
     });
 
     return PaddingBlockRootRollupInputs.from({
@@ -358,7 +358,7 @@ export class BlockProvingState {
       previousBlockHeader: this.previousBlockHeader,
       startBlobAccumulator: BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(this.startBlobAccumulator!),
       finalBlobChallenges: this.startBlobAccumulator!.finalBlobChallenges,
-      proverId: this.proverId,
+      proverId: this.proverId.toField(),
     });
   }
 

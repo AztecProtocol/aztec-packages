@@ -65,7 +65,7 @@ export function recoverAddress(hash: Buffer32, signature: Signature): EthAddress
  * @param yParityOrV - The yParityOrV value to convert.
  * @returns The recovery bit.
  */
-function toRecoveryBit(yParityOrV: number) {
+export function toRecoveryBit(yParityOrV: number) {
   if (yParityOrV === 0 || yParityOrV === 1) {
     return yParityOrV;
   }

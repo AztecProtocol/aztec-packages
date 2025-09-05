@@ -1,5 +1,6 @@
 ---
 title: Aztec macros
+description: Learn about macros available in Aztec.nr for code generation and abstraction.
 sidebar_position: 6
 tags: [contracts, functions]
 ---

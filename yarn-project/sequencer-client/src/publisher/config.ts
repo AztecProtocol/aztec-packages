@@ -2,16 +2,10 @@ import { type BlobSinkConfig, blobSinkConfigMapping } from '@aztec/blob-sink/cli
 import {
   type L1ReaderConfig,
   type L1TxUtilsConfig,
-  NULL_KEY,
   l1ReaderConfigMappings,
   l1TxUtilsConfigMappings,
 } from '@aztec/ethereum';
-import {
-  type ConfigMappingsType,
-  type SecretValue,
-  getConfigFromMappings,
-  secretValueConfigHelper,
-} from '@aztec/foundation/config';
+import { type ConfigMappingsType, SecretValue, getConfigFromMappings } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 /**
@@ -21,12 +15,12 @@ export type TxSenderConfig = L1ReaderConfig & {
   /**
    * The private key to be used by the publisher.
    */
-  publisherPrivateKey: SecretValue<`0x${string}`>;
+  publisherPrivateKeys?: SecretValue<`0x${string}`>[];
 
   /**
-   * The address of the custom forwarder contract.
+   * Publisher addresses to be used with a remote signer
    */
-  customForwarderContractAddress: EthAddress;
+  publisherAddresses?: EthAddress[];
 };
 
 /**
@@ -44,16 +38,18 @@ export const getTxSenderConfigMappings: (
   scope: 'PROVER' | 'SEQ',
 ) => ConfigMappingsType<Omit<TxSenderConfig, 'l1Contracts'>> = (scope: 'PROVER' | 'SEQ') => ({
   ...l1ReaderConfigMappings,
-  customForwarderContractAddress: {
-    env: `CUSTOM_FORWARDER_CONTRACT_ADDRESS`,
-    parseEnv: (val: string) => EthAddress.fromString(val),
-    description: 'The address of the custom forwarder contract.',
-    defaultValue: EthAddress.ZERO,
+  publisherPrivateKeys: {
+    env: scope === 'PROVER' ? `PROVER_PUBLISHER_PRIVATE_KEYS` : `SEQ_PUBLISHER_PRIVATE_KEYS`,
+    description: 'The private keys to be used by the publisher.',
+    parseEnv: (val: string) => val.split(',').map(key => new SecretValue(`0x${key.replace('0x', '')}`)),
+    defaultValue: [],
+    fallback: scope === 'PROVER' ? ['PROVER_PUBLISHER_PRIVATE_KEY'] : ['SEQ_PUBLISHER_PRIVATE_KEY'],
   },
-  publisherPrivateKey: {
-    env: scope === 'PROVER' ? `PROVER_PUBLISHER_PRIVATE_KEY` : `SEQ_PUBLISHER_PRIVATE_KEY`,
-    description: 'The private key to be used by the publisher.',
-    ...secretValueConfigHelper(val => (val ? `0x${val.replace('0x', '')}` : NULL_KEY)),
+  publisherAddresses: {
+    env: scope === 'PROVER' ? `PROVER_PUBLISHER_ADDRESSES` : `SEQ_PUBLISHER_ADDRESSES`,
+    description: 'The addresses of the publishers to use with remote signers',
+    parseEnv: (val: string) => val.split(',').map(address => EthAddress.fromString(address)),
+    defaultValue: [],
   },
 });
 

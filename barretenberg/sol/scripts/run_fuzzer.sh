@@ -4,7 +4,7 @@ FLAVOR=${1:-"ultra"}
 CIRCUIT=${2:-"blake"}
 INPUTS=${3:-"1,2,3,4"}
 
-BIN="../cpp/build/bin/solidity_proof_gen"
+BIN="../cpp/build/bin/honk_solidity_proof_gen"
 
 INPUTS="$( sed 's/\\n//g' <<<"$INPUTS" )"
 

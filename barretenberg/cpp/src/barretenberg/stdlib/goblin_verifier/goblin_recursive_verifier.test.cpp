@@ -54,8 +54,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
         Goblin goblin_final;
         goblin_final.op_queue = goblin.op_queue;
         MegaCircuitBuilder builder{ goblin_final.op_queue };
-        builder.queue_ecc_no_op();
-        GoblinMockCircuits::construct_simple_circuit(builder);
+        GoblinMockCircuits::construct_simple_circuit(builder, /*last_circuit=*/true);
 
         // Merge the ecc ops from the newly constructed circuit
         goblin_final.op_queue->merge();
@@ -77,6 +76,10 @@ class GoblinRecursiveVerifierTests : public testing::Test {
                     RecursiveCommitment::from_witness(outer_builder, merge_commitments.t_commitments[idx]);
                 recursive_merge_commitments.T_prev_commitments[idx] =
                     RecursiveCommitment::from_witness(outer_builder, merge_commitments.T_prev_commitments[idx]);
+                // Removing the free witness tag, since the merge commitments in the full scheme are supposed to
+                // be fiat-shamirred earlier
+                recursive_merge_commitments.t_commitments[idx].unset_free_witness_tag();
+                recursive_merge_commitments.T_prev_commitments[idx].unset_free_witness_tag();
             }
         }
 
@@ -229,6 +232,8 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
                 RecursiveCommitment::from_witness(&builder, merge_commitments.t_commitments[idx]);
             recursive_merge_commitments.T_prev_commitments[idx] =
                 RecursiveCommitment::from_witness(&builder, merge_commitments.T_prev_commitments[idx]);
+            recursive_merge_commitments.t_commitments[idx].fix_witness();
+            recursive_merge_commitments.T_prev_commitments[idx].fix_witness();
         }
 
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
@@ -256,6 +261,8 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
                 RecursiveCommitment::from_witness(&builder, merge_commitments.t_commitments[idx]);
             recursive_merge_commitments.T_prev_commitments[idx] =
                 RecursiveCommitment::from_witness(&builder, merge_commitments.T_prev_commitments[idx]);
+            recursive_merge_commitments.t_commitments[idx].fix_witness();
+            recursive_merge_commitments.T_prev_commitments[idx].fix_witness();
         }
 
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };

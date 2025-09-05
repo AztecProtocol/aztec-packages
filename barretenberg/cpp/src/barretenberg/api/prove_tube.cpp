@@ -1,9 +1,11 @@
 #include "prove_tube.hpp"
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/common/map.hpp"
+#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
+#include <memory>
 
 namespace bb {
 /**
@@ -27,11 +29,10 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
     auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
 
-    auto builder = std::make_shared<Builder>();
+    Builder builder;
+    ClientIVCRecursiveVerifier verifier{ &builder, vk.mega };
 
-    ClientIVCRecursiveVerifier verifier{ builder, vk };
-
-    StdlibProof stdlib_proof(*builder, proof);
+    StdlibProof stdlib_proof(builder, proof);
     ClientIVCRecursiveVerifier::Output client_ivc_rec_verifier_output = verifier.verify(stdlib_proof);
 
     // The public inputs in the proof are propagated to the base rollup by making them public inputs of this circuit.
@@ -49,12 +50,12 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     inputs.set_public();
 
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA proof
-    builder->ipa_proof = client_ivc_rec_verifier_output.ipa_proof.get_value();
-    BB_ASSERT_EQ(builder->ipa_proof.size(), IPA_PROOF_LENGTH, "IPA proof should be set.");
+    builder.ipa_proof = client_ivc_rec_verifier_output.ipa_proof.get_value();
+    BB_ASSERT_EQ(builder.ipa_proof.size(), IPA_PROOF_LENGTH, "IPA proof should be set.");
 
     using Prover = UltraProver_<UltraRollupFlavor>;
     using Verifier = UltraVerifier_<UltraRollupFlavor>;
-    auto proving_key = std::make_shared<DeciderProvingKey_<UltraRollupFlavor>>(*builder);
+    auto proving_key = std::make_shared<DeciderProvingKey_<UltraRollupFlavor>>(builder);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1201): Precompute tube vk and pass it in.
     info("WARNING: computing tube vk in prove_tube, but a precomputed vk should be passed in.");
     auto tube_verification_key = std::make_shared<UltraRollupFlavor::VerificationKey>(proving_key->get_precomputed());
@@ -71,27 +72,8 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     write_file(tubePublicInputsPath, to_buffer(public_inputs_and_proof.public_inputs));
     write_file(tubeProofPath, to_buffer(public_inputs_and_proof.proof));
 
-    std::string tubePublicInputsAsFieldsPath = output_path + "/public_inputs_fields.json";
-    std::string tubeProofAsFieldsPath = output_path + "/proof_fields.json";
-    const auto to_json = [](const std::vector<bb::fr>& data) {
-        if (data.empty()) {
-            return std::string("[]");
-        }
-        return format("[", join(transform::map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
-    };
-    auto public_inputs_data = to_json(public_inputs_and_proof.public_inputs);
-    auto proof_data = to_json(public_inputs_and_proof.proof);
-    write_file(tubePublicInputsAsFieldsPath, { public_inputs_data.begin(), public_inputs_data.end() });
-    write_file(tubeProofAsFieldsPath, { proof_data.begin(), proof_data.end() });
-
     std::string tubeVkPath = output_path + "/vk";
     write_file(tubeVkPath, to_buffer(tube_verification_key));
-
-    std::string tubeAsFieldsVkPath = output_path + "/vk_fields.json";
-    auto field_els = tube_verification_key->to_field_elements();
-    info("verificaton key length in fields:", field_els.size());
-    auto data = to_json(field_els);
-    write_file(tubeAsFieldsVkPath, { data.begin(), data.end() });
 
     info("Native verification of the tube_proof");
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);

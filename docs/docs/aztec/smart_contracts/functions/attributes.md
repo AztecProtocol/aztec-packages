@@ -2,6 +2,7 @@
 title: Function Attributes and Macros
 sidebar_position: 4
 tags: [functions]
+description: Explore function attributes in Aztec contracts that control visibility, mutability, and execution context.
 ---
 
 On this page you will learn about function attributes and macros.

@@ -6,7 +6,7 @@
 
 #include "decider_prover.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
-#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
@@ -33,7 +33,7 @@ DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<DeciderPK>& proving
  */
 template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_relation_check_rounds()
 {
-    const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : proving_key->log_dyadic_size();
+    const size_t virtual_log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : proving_key->log_dyadic_size();
 
     using Sumcheck = SumcheckProver<Flavor>;
     size_t polynomial_size = proving_key->dyadic_size();
@@ -46,7 +46,7 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_relatio
                       virtual_log_n);
     {
 
-        PROFILE_THIS_NAME("sumcheck.prove");
+        BB_BENCH_NAME("sumcheck.prove");
 
         if constexpr (Flavor::HasZK) {
             const size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
@@ -108,7 +108,7 @@ template <IsUltraOrMegaHonk Flavor> DeciderProver_<Flavor>::Proof DeciderProver_
 
 template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::construct_proof()
 {
-    PROFILE_THIS_NAME("Decider::construct_proof");
+    BB_BENCH_NAME("Decider::construct_proof");
 
     // Run sumcheck subprotocol.
     execute_relation_check_rounds();

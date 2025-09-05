@@ -36,7 +36,8 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
 
     std::shared_ptr<VKAndHash> vk_and_hash;
 
-    bool is_complete = false; // whether this instance has been completely populated
+    bool is_complete = false;      // whether this instance has been completely populated
+    std::vector<FF> public_inputs; // to be extracted from the corresponding proof
 
     // An array {1, α₁, …, αₖ}, where k = NUM_SUBRELATIONS - 1.
     SubrelationSeparators alphas;
@@ -49,7 +50,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     CommitmentLabels commitment_labels;
 
     RecursiveDeciderVerificationKey_(Builder* builder)
-        : builder(builder){};
+        : builder(builder) {};
 
     // Constructor from native vk
     RecursiveDeciderVerificationKey_(Builder* builder, std::shared_ptr<NativeVerificationKey> vk)
@@ -61,7 +62,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     // Constructor from stdlib vk and hash
     RecursiveDeciderVerificationKey_(Builder* builder, std::shared_ptr<VKAndHash> vk_and_hash)
         : builder(builder)
-        , vk_and_hash(vk_and_hash){};
+        , vk_and_hash(vk_and_hash) {};
 
     RecursiveDeciderVerificationKey_(Builder* builder, std::shared_ptr<NativeDeciderVerificationKey> verification_key)
         : RecursiveDeciderVerificationKey_(builder, verification_key->vk)
@@ -92,8 +93,6 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
             relation_parameters.gamma = FF::from_witness(builder, verification_key->relation_parameters.gamma);
             relation_parameters.public_input_delta =
                 FF::from_witness(builder, verification_key->relation_parameters.public_input_delta);
-            relation_parameters.lookup_grand_product_delta =
-                FF::from_witness(builder, verification_key->relation_parameters.lookup_grand_product_delta);
         }
     }
 
@@ -140,8 +139,6 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
         decider_vk.relation_parameters.beta = relation_parameters.beta.get_value();
         decider_vk.relation_parameters.gamma = relation_parameters.gamma.get_value();
         decider_vk.relation_parameters.public_input_delta = relation_parameters.public_input_delta.get_value();
-        decider_vk.relation_parameters.lookup_grand_product_delta =
-            relation_parameters.lookup_grand_product_delta.get_value();
         return decider_vk;
     }
 
@@ -171,8 +168,6 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
                                                   this->relation_parameters.gamma);
         transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_public_input_delta",
                                                   this->relation_parameters.public_input_delta);
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_lookup_grand_product_delta",
-                                                  this->relation_parameters.lookup_grand_product_delta);
         transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_target_sum", this->target_sum);
         transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_gate_challenges",
                                                   this->gate_challenges);

@@ -159,7 +159,7 @@ class AvmGoblinRecursiveVerifier {
 
         // Validate the consistency of the AVM2 verifier inputs {\pi, pub_inputs, VK}_{AVM2} between the inner (Mega)
         // circuit and the outer (Ultra) by asserting equality on the independently computed hashes of this data.
-        const FF ultra_hash = stdlib::poseidon2<UltraBuilder>::hash(ultra_builder, hash_buffer);
+        const FF ultra_hash = stdlib::poseidon2<UltraBuilder>::hash(hash_buffer);
         mega_verifier_output.mega_hash.assert_equal(ultra_hash);
 
         // Return ipa proof, ipa claim and output aggregation object produced from verifying the Mega + Goblin proofs
@@ -220,7 +220,7 @@ class AvmGoblinRecursiveVerifier {
         mega_vk_hash.fix_witness(); // fix witness because vk hash should be a circuit constant
 
         // Compute the hash and set it public
-        const FF mega_hash = stdlib::poseidon2<MegaBuilder>::hash(mega_builder, mega_hash_buffer);
+        const FF mega_hash = stdlib::poseidon2<MegaBuilder>::hash(mega_hash_buffer);
 
         // Construct a Mega-arithmetized AVM2 recursive verifier circuit
         auto stdlib_key = std::make_shared<AvmRecursiveVerificationKey>(mega_builder, std::span<FF>(key_fields));
@@ -237,6 +237,11 @@ class AvmGoblinRecursiveVerifier {
         std::shared_ptr<Goblin::Transcript> transcript = std::make_shared<Goblin::Transcript>();
         // Construct Mega proof \pi_M of the AVM recursive verifier circuit
         auto mega_proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(mega_builder);
+        // Detect when MEGA_AVM_LOG_N needs to be bumped.
+        BB_ASSERT_LTE(
+            mega_proving_key->log_dyadic_size(),
+            MEGA_AVM_LOG_N,
+            "AVMRecursiveVerifier: circuit size exceeded current upper bound. If expected, bump MEGA_AVM_LOG_N");
         auto mega_vk = std::make_shared<MegaVerificationKey>(mega_proving_key->get_precomputed());
         MegaProver mega_prover(mega_proving_key, mega_vk, transcript);
         HonkProof mega_proof = mega_prover.construct_proof();

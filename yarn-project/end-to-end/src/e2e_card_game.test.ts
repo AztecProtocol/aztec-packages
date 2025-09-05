@@ -141,7 +141,7 @@ describe('e2e_card_game', () => {
     beforeEach(async () => {
       await Promise.all([
         contract.methods.buy_pack(seed).send({ from: firstPlayer }).wait(),
-        contractAsSecondPlayer.methods.buy_pack(seed).send({ from: firstPlayer }).wait(),
+        contractAsSecondPlayer.methods.buy_pack(seed).send({ from: secondPlayer }).wait(),
       ]);
       firstPlayerCollection = boundedVecToArray(
         await contract.methods.view_collection_cards(firstPlayer, 0).simulate({ from: firstPlayer }),

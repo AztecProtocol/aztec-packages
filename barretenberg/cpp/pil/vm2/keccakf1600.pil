@@ -1355,25 +1355,18 @@ src_out_of_range_error * (1 - src_out_of_range_error) = 0;
 dst_out_of_range_error * (1 - dst_out_of_range_error) = 0;
 
 pol HIGHEST_SLICE_ADDRESS = constants.AVM_HIGHEST_MEM_ADDRESS - constants.AVM_KECCAKF1600_STATE_SIZE + 1;
-// start == 1 ==> [src_out_of_range_error == 1 && src_addr > HIGHEST_SLICE_ADDRESS]
-pol commit src_abs_diff;
-#[SRC_OUT_OF_RANGE_TOGGLE]
-src_abs_diff = start * ((2 * src_out_of_range_error - 1) * (src_addr - HIGHEST_SLICE_ADDRESS) - src_out_of_range_error);
-
-// start == 1 ==> [dst_out_of_range_error == 1 && dst_addr > HIGHEST_SLICE_ADDRESS]
-pol commit dst_abs_diff;
-#[DST_OUT_OF_RANGE_TOGGLE]
-dst_abs_diff = start * ((2 * dst_out_of_range_error - 1) * (dst_addr - HIGHEST_SLICE_ADDRESS) - dst_out_of_range_error);
-
 // TODO: remove this column when we support constants in lookup tuples.
-pol commit thirty_two;
-sel * (thirty_two - 32) = 0;
+pol commit highest_slice_address;
+start * (highest_slice_address - HIGHEST_SLICE_ADDRESS) = 0;
 
-#[SRC_ABS_DIFF_POSITIVE]
-start { src_abs_diff, thirty_two } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+// start == 1 ==> [src_out_of_range_error == 1 <==> src_addr > HIGHEST_SLICE_ADDRESS]
+#[SRC_OUT_OF_RANGE_TOGGLE]
+start { src_addr, highest_slice_address, src_out_of_range_error } in gt.sel { gt.input_a, gt.input_b, gt.res };
 
-#[DST_ABS_DIFF_POSITIVE]
-start { dst_abs_diff, thirty_two } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+// start == 1 ==> [dst_out_of_range_error == 1 <==> dst_addr > HIGHEST_SLICE_ADDRESS]
+#[DST_OUT_OF_RANGE_TOGGLE]
+start { dst_addr, highest_slice_address, dst_out_of_range_error } in gt.sel { gt.input_a, gt.input_b, gt.res };
+
 
 // error = src_out_of_range_error || dst_out_of_range_error || tag_error
 // boolean by definition

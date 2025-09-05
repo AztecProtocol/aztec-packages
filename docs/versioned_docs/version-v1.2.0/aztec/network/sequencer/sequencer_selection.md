@@ -1,5 +1,6 @@
 ---
 title: Sequencer Selection
+description: Learn about the sequencer selection mechanism in Aztec and how sequencers are chosen for block production.
 tags: [protocol, sequencer]
 draft: true
 ---
@@ -95,7 +96,7 @@ In a batching model, proving for each block happens immediately as the block is 
 
 ![](https://hackmd.io/_uploads/H1Y61ABJT.png)
 
-Here all individual block proofs are valid as candidates to finalise the current batch. This opens the door to dynamic batch sizes, so the proof could be verified on L1 when it's economically convenient.
+Here all individual block proofs are valid as candidates to finalize the current batch. This opens the door to dynamic batch sizes, so the proof could be verified on L1 when it's economically convenient.
 
 ## Resources
 

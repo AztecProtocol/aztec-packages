@@ -1,5 +1,6 @@
 ---
 title: Importing Aztec.nr
+description: Learn how to manage dependencies in your Aztec smart contract projects.
 tags: [contracts]
 sidebar_position: 5
 ---

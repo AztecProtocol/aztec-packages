@@ -17,7 +17,7 @@ contract DepositTest is WithGSE {
 
     vm.prank(_instance);
     vm.expectRevert(abi.encodeWithSelector(Errors.GSE__NotRollup.selector, _instance));
-    gse.deposit(address(0), address(0), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), onBonus);
+    gse.deposit(address(1), address(0), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), onBonus);
   }
 
   modifier whenCallerIsRegisteredRollup(address _instance) {
@@ -45,7 +45,7 @@ contract DepositTest is WithGSE {
 
     vm.prank(_instance1);
     vm.expectRevert(abi.encodeWithSelector(Errors.GSE__NotLatestRollup.selector, _instance1));
-    gse.deposit(address(0), address(0), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), onBonus);
+    gse.deposit(address(1), address(0), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), onBonus);
   }
 
   modifier givenCallerIsLatest() {
@@ -58,6 +58,7 @@ contract DepositTest is WithGSE {
     address _withdrawer
   ) external whenCallerIsRegisteredRollup(_instance) givenOnBonusEqTrue givenCallerIsLatest {
     // it reverts
+    vm.assume(_attester != address(0));
 
     uint256 activationThreshold = gse.ACTIVATION_THRESHOLD();
 
@@ -81,6 +82,7 @@ contract DepositTest is WithGSE {
     givenCallerIsLatest
   {
     // it reverts
+    vm.assume(_attester != address(0));
 
     uint256 activationThreshold = gse.ACTIVATION_THRESHOLD();
 
@@ -113,6 +115,8 @@ contract DepositTest is WithGSE {
     // it approves staking asset to governance
     // it deposits staking asset to governance
     // it emits Deposit event
+
+    vm.assume(_attester != address(0));
 
     uint256 activationThreshold = gse.ACTIVATION_THRESHOLD();
 
@@ -165,6 +169,8 @@ contract DepositTest is WithGSE {
     // the only diff is `onBonus = false` here. We could consider slamming them together, but to be
     // explicit we are not doing that.
 
+    vm.assume(_attester != address(0));
+
     uint256 activationThreshold = gse.ACTIVATION_THRESHOLD();
 
     vm.prank(stakingAsset.owner());
@@ -186,6 +192,8 @@ contract DepositTest is WithGSE {
     address _withdrawer
   ) external whenCallerIsRegisteredRollup(_instance) givenOnBonusEqFalse {
     // it reverts
+
+    vm.assume(_attester != address(0));
 
     // Again, this one is essentially same as test_GivenAttesterAlreadyRegisteredOnBonus but with false.
 
@@ -223,6 +231,8 @@ contract DepositTest is WithGSE {
     // it approves staking asset to governance
     // it deposits staking asset to governance
     // it emits Deposit event
+
+    vm.assume(_attester != address(0));
 
     uint256 activationThreshold = gse.ACTIVATION_THRESHOLD();
 
@@ -274,6 +284,8 @@ contract DepositTest is WithGSE {
     // it approves staking asset to governance
     // it deposits staking asset to governance
     // it emits Deposit event
+
+    vm.assume(_attester != address(0));
 
     // @todo exactly the same as above, with only diff being not latest
 

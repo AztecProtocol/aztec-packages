@@ -9,10 +9,6 @@ aztec:
   realProofs: true
   testAccounts: true
   sponsoredFPC: true
-  slash:
-    pruneEnabled: true
-    inactivityEnabled: true
-    invalidBlockEnabled: true
 
 images:
   aztec:
@@ -53,12 +49,13 @@ bot:
   ammTxs: true
   followChain: "PENDING"
   enabled: true
-  txIntervalSeconds: 1
+  txIntervalSeconds: 10
   resources:
     requests:
       memory: 15Gi
       cpu: 7
+  nodeSelector:
+    cores: "8"
 
-jobs:
-  deployL1Verifier:
-    enable: true
+web3signer:
+  enabled: true

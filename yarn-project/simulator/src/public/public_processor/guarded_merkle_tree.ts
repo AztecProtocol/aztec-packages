@@ -15,7 +15,7 @@ import type { BlockHeader, StateReference } from '@aztec/stdlib/tx';
 /**
  * Wraps an instance of `MerkleTreeWriteOperations` to allow the sequencer to gate access.
  * If transactions execution goes past the deadline, the simulator will continue to execute and update the world state
- * The public processor however requires that the world state remain constant after the deadline in order to finalise the block
+ * The public processor however requires that the world state remain constant after the deadline in order to finalize the block
  * The public processor provides this implementation of MerkleTreeWriteOperations to the simulator
  */
 

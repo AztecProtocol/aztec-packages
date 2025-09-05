@@ -288,7 +288,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     // Generate Libra polynomials, compute masked concatenated Libra polynomial, commit to it
     ZKData zk_sumcheck_data(this->log_n, prover_transcript, ck);
 
-    // Generate multivariate challenge of size CONST_PROOF_SIZE_LOG_N
+    // Generate multivariate challenge
     std::vector<Fr> mle_opening_point = this->random_evaluation_point(this->log_n);
 
     // Generate random prover polynomials, compute their evaluations and commitments

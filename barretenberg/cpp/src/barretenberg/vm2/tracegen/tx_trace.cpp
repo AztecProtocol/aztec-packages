@@ -28,7 +28,7 @@ template <class... Ts> struct overloaded : Ts... {
 // explicit deduction guide (not needed as of C++20)
 template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
-constexpr size_t NUM_PHASES = 12; // See TransactionPhase enum
+constexpr size_t NUM_PHASES = static_cast<size_t>(TransactionPhase::LAST);
 
 bool is_revertible(TransactionPhase phase)
 {
@@ -111,6 +111,10 @@ std::vector<std::pair<Column, FF>> insert_state(const TxContextEvent& prev_state
           prev_state.written_public_data_slots_tree_snapshot.nextAvailableLeafIndex },
         // L1 to L2 Message Tree Roots
         { Column::tx_l1_l2_tree_root, prev_state.tree_states.l1ToL2MessageTree.tree.root },
+        // Retrieved bytecodes Tree Roots
+        { Column::tx_prev_retrieved_bytecodes_tree_root, prev_state.retrieved_bytecodes_tree_snapshot.root },
+        { Column::tx_prev_retrieved_bytecodes_tree_size,
+          prev_state.retrieved_bytecodes_tree_snapshot.nextAvailableLeafIndex },
 
         // Next Tree State
         { Column::tx_next_note_hash_tree_root, next_state.tree_states.noteHashTree.tree.root },
@@ -128,6 +132,10 @@ std::vector<std::pair<Column, FF>> insert_state(const TxContextEvent& prev_state
           next_state.written_public_data_slots_tree_snapshot.root },
         { Column::tx_next_written_public_data_slots_tree_size,
           next_state.written_public_data_slots_tree_snapshot.nextAvailableLeafIndex },
+        // Retrieved bytecodes Tree Roots
+        { Column::tx_next_retrieved_bytecodes_tree_root, next_state.retrieved_bytecodes_tree_snapshot.root },
+        { Column::tx_next_retrieved_bytecodes_tree_size,
+          next_state.retrieved_bytecodes_tree_snapshot.nextAvailableLeafIndex },
 
         // Prev sideffect state
         { Column::tx_prev_num_unencrypted_logs, prev_state.side_effect_states.numUnencryptedLogs },
@@ -136,6 +144,9 @@ std::vector<std::pair<Column, FF>> insert_state(const TxContextEvent& prev_state
         // Next sideffect state
         { Column::tx_next_num_unencrypted_logs, next_state.side_effect_states.numUnencryptedLogs },
         { Column::tx_next_num_l2_to_l1_messages, next_state.side_effect_states.numL2ToL1Messages },
+
+        // Execution context
+        { Column::tx_next_context_id, prev_state.next_context_id },
     };
 }
 
@@ -209,24 +220,22 @@ std::vector<std::pair<Column, FF>> handle_gas_limit(Gas gas_limit)
 std::vector<std::pair<Column, FF>> handle_enqueued_call_event(TransactionPhase phase,
                                                               const simulation::EnqueuedCallEvent& event)
 {
-    return {
-        { Column::tx_is_public_call_request, 1 },
-        { Column::tx_should_process_call_request, 1 },
-        { Column::tx_is_teardown_phase, is_teardown_phase(phase) },
-        { Column::tx_msg_sender, event.msg_sender },
-        { Column::tx_contract_addr, event.contract_address },
-        { Column::tx_fee, event.transaction_fee },
-        { Column::tx_is_static, event.is_static },
-        { Column::tx_calldata_hash, event.calldata_hash },
-        { Column::tx_reverted, !event.success },
-        { Column::tx_prev_da_gas_used_sent_to_enqueued_call, event.start_gas.daGas },
-        { Column::tx_prev_l2_gas_used_sent_to_enqueued_call, event.start_gas.l2Gas },
-        { Column::tx_next_da_gas_used_sent_to_enqueued_call, event.end_gas.daGas },
-        { Column::tx_next_l2_gas_used_sent_to_enqueued_call, event.end_gas.l2Gas },
-        { Column::tx_gas_limit_pi_offset,
-          is_teardown_phase(phase) ? AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX : 0 },
-        { Column::tx_should_read_gas_limit, is_teardown_phase(phase) },
-    };
+    return { { Column::tx_is_public_call_request, 1 },
+             { Column::tx_should_process_call_request, 1 },
+             { Column::tx_is_teardown_phase, is_teardown_phase(phase) },
+             { Column::tx_msg_sender, event.msg_sender },
+             { Column::tx_contract_addr, event.contract_address },
+             { Column::tx_fee, event.transaction_fee },
+             { Column::tx_is_static, event.is_static },
+             { Column::tx_calldata_hash, event.calldata_hash },
+             { Column::tx_reverted, !event.success },
+             { Column::tx_prev_da_gas_used_sent_to_enqueued_call, event.start_gas.daGas },
+             { Column::tx_prev_l2_gas_used_sent_to_enqueued_call, event.start_gas.l2Gas },
+             { Column::tx_next_da_gas_used_sent_to_enqueued_call, event.end_gas.daGas },
+             { Column::tx_next_l2_gas_used_sent_to_enqueued_call, event.end_gas.l2Gas },
+             { Column::tx_gas_limit_pi_offset,
+               is_teardown_phase(phase) ? AVM_PUBLIC_INPUTS_GAS_SETTINGS_TEARDOWN_GAS_LIMITS_ROW_IDX : 0 },
+             { Column::tx_should_read_gas_limit, is_teardown_phase(phase) } };
 };
 
 std::vector<std::pair<Column, FF>> handle_note_hash_append(const simulation::PrivateAppendTreeEvent& event,
@@ -536,6 +545,12 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
     // Go through each phase except startup and process the events in the phase
     for (uint32_t i = 0; i < NUM_PHASES; i++) {
         const auto& phase_events = phase_buckets[i];
+        if (phase_events.empty()) {
+            // There will be no events for a phase if it is skipped (jumped over) due to a revert.
+            // This is different from a phase that has an EmptyPhaseEvent, which is a phase that has no contents to
+            // process, like when app logic starts but has no enqueued calls.
+            continue;
+        }
 
         TransactionPhase phase = phase_array[i];
 
@@ -553,20 +568,6 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             current_gas_limit = teardown_gas_limit;
         }
 
-        if (phase_events.empty()) {
-            trace.set(row, insert_state(propagated_state, propagated_state));
-            trace.set(row, handle_padded_row(phase, gas_used, discard));
-            trace.set(row, handle_pi_read(phase, /*phase_length=*/0, /*read_counter*/ 0));
-            trace.set(row, handle_prev_gas_used(gas_used));
-            trace.set(row, handle_next_gas_used(gas_used));
-            trace.set(row, handle_gas_limit(current_gas_limit));
-            trace.set(row, handle_state_change_selectors(phase));
-            if (row == 1) {
-                trace.set(row, handle_first_row());
-            }
-            row++;
-            continue;
-        }
         // Count the number of steps in this phase
         uint32_t phase_counter = 0;
         uint32_t phase_length = static_cast<uint32_t>(phase_events.size());
@@ -585,11 +586,10 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
                     { C::tx_discard, discard ? 1 : 0 },
                     { C::tx_phase_value, static_cast<uint8_t>(tx_phase_event->phase) },
                     { Column::tx_setup_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
-                    { C::tx_is_padded, 0 },
+                    { C::tx_is_padded, 0 }, // overidden below if this is a skipped phase event
                     { C::tx_start_phase, phase_counter == 0 ? 1 : 0 },
                     { C::tx_sel_read_phase_length, phase_counter == 0 && !is_one_shot_phase(tx_phase_event->phase) },
                     { C::tx_is_revertible, is_revertible(tx_phase_event->phase) ? 1 : 0 },
-
                     { C::tx_end_phase, phase_counter == phase_events.size() - 1 ? 1 : 0 },
                 } });
             trace.set(row, handle_prev_gas_used(gas_used));
@@ -635,19 +635,18 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
                             [&](const simulation::CleanupEvent&) {
                                 trace.set(row, handle_pi_read(tx_phase_event->phase, 1, 0));
                                 trace.set(row, handle_cleanup());
+                            },
+                            [&](const simulation::EmptyPhaseEvent&) {
+                                // EmptyPhaseEvent represents a phase that is not explicitly skipped because of a
+                                // revert, but just has no contents to process, like when app logic starts but has no
+                                // enqueued calls.
+                                trace.set(row, handle_pi_read(tx_phase_event->phase, 0, 0));
+                                trace.set(row, handle_padded_row(tx_phase_event->phase, gas_used, discard));
                             } },
                 tx_phase_event->event);
             trace.set(row, handle_next_gas_used(gas_used));
             trace.set(row, handle_gas_limit(current_gas_limit));
 
-            // Handle a potential phase jump due to a revert, we dont need to check if we are in a revertible phase
-            // since our witgen will have exited for any reverts in a non-revertible phase.
-            // If we revert in a phase that isnt TEARDOWN, we jump to TEARDOWN
-            if (tx_phase_event->reverted && tx_phase_event->phase != TransactionPhase::TEARDOWN) {
-                // Jump to the TEARDOWN phase
-                // we need to -2 because of the loop increment and because the enum is 1-indexed
-                i = static_cast<uint8_t>(TransactionPhase::TEARDOWN) - 2;
-            }
             phase_counter++;
             row++;
         }
@@ -663,8 +662,8 @@ const InteractionDefinition TxTraceBuilder::interactions =
         .add<lookup_tx_phase_jump_on_revert_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_phase_length_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_public_call_request_phase_settings, InteractionType::LookupGeneric>()
-        // .add<lookup_tx_dispatch_exec_start_settings, InteractionType::LookupGeneric>()
-        // .add<lookup_tx_dispatch_exec_get_revert_settings, InteractionType::LookupGeneric>()
+        .add<lookup_tx_dispatch_exec_start_settings, InteractionType::LookupGeneric>()
+        .add<lookup_tx_dispatch_exec_end_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_tree_insert_value_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_l2_l1_msg_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_write_l2_l1_msg_settings, InteractionType::LookupGeneric>()

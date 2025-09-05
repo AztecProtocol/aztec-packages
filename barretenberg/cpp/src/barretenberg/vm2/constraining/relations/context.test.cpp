@@ -9,6 +9,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_context.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
+#include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
@@ -19,8 +20,6 @@ using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using context = bb::avm2::context<FF>;
-using stack_call_interaction = bb::avm2::lookup_context_ctx_stack_call_relation<FF>;
-using stack_return_interaction = bb::avm2::lookup_context_ctx_stack_return_relation<FF>;
 
 TEST(ContextConstrainingTest, EmptyRow)
 {
@@ -53,8 +52,138 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
               { C::context_stack_parent_da_gas_limit, 4000 },
               { C::context_stack_parent_l2_gas_used, 500 },
               { C::context_stack_parent_da_gas_used, 1500 },
+          },
+          // First Row of execution
+          {
+              { C::execution_sel, 1 },
+              { C::execution_pc, 0 },
+              { C::execution_next_pc, 1 },
+              { C::execution_context_id, 1 },
+              { C::execution_next_context_id, 2 },
+              { C::execution_bytecode_id, top_bytecode_id },
+              { C::execution_is_static, 0 }, // Non-static context
+              { C::execution_parent_l2_gas_limit, 2000 },
+              { C::execution_parent_da_gas_limit, 4000 },
+              { C::execution_parent_l2_gas_used, 500 },
+              { C::execution_parent_da_gas_used, 1500 },
+              { C::execution_enqueued_call_start, 1 },
+          },
+          // CALL
+          {
+              { C::execution_sel, 1 },
+              { C::execution_pc, 1 },
+              { C::execution_next_pc, 2 },
+              { C::execution_sel_execute_call, 1 },
+              { C::execution_sel_execute_static_call, 0 }, // Regular CALL, not STATICCALL
+              { C::execution_sel_enter_call, 1 },
+              { C::execution_context_id, 1 },
+              { C::execution_next_context_id, 2 },
+              { C::execution_bytecode_id, top_bytecode_id }, // Same as previous row (propagated)
+              { C::execution_is_static, 0 },                 // Still non-static
+              { C::execution_rop_4_, /*cd offset=*/10 },
+              { C::execution_register_2_, /*contract address=*/0xdeadbeef },
+              { C::execution_register_3_, /*cd size=*/1 },
+              { C::execution_parent_l2_gas_limit, 2000 },
+              { C::execution_parent_da_gas_limit, 4000 },
+              { C::execution_parent_l2_gas_used, 500 },
+              { C::execution_parent_da_gas_used, 1500 },
+          },
+          // First Row in new context
+          {
+              { C::execution_sel, 1 },
+              { C::execution_pc, 0 }, // pc=0 because it is after a CALL
+              { C::execution_next_pc, 20 },
+              { C::execution_context_id, 2 },      // Previous row next_context_id
+              { C::execution_next_context_id, 3 }, // Incremented due to previous call
+              { C::execution_parent_id, 1 },       // Previous row context id
+              { C::execution_is_parent_id_inv, 1 },
+              { C::execution_has_parent_ctx, 1 },
+              { C::execution_contract_address, 0xdeadbeef },
+              { C::execution_bytecode_id, nested_bytecode_id }, // New bytecode_id on entering new context
+              { C::execution_is_static, 0 },                    // Remains non-static after regular CALL
+              { C::execution_parent_calldata_addr, 10 },
+              { C::execution_parent_calldata_size, 1 },
+          },
+          // Return Row
+          {
+              { C::execution_sel, 1 },
+              { C::execution_pc, 20 },
+              { C::execution_next_pc, 30 },
+              { C::execution_sel_execute_return, 1 },
+              { C::execution_rop_0_, 500 },      // Return data size offset
+              { C::execution_rop_1_, 600 },      // Return data offset
+              { C::execution_register_0_, 200 }, // Return data size
+              { C::execution_sel_exit_call, 1 },
+              { C::execution_nested_exit_call, 1 },
+              { C::execution_nested_return, 1 },
+              { C::execution_context_id, 2 },
+              { C::execution_next_context_id, 3 },
+              { C::execution_parent_id, 1 },
+              { C::execution_is_parent_id_inv, 1 },
+              { C::execution_has_parent_ctx, 1 },
+              { C::execution_contract_address, 0xdeadbeef },
+              { C::execution_bytecode_id, nested_bytecode_id }, // Propagated within same context
+              { C::execution_parent_calldata_addr, 10 },
+              { C::execution_parent_calldata_size, 1 },
+          },
+          {
+              { C::execution_sel, 1 },
+              { C::execution_next_context_id, 3 },
+              { C::execution_context_id, 1 },
+              { C::execution_parent_id, 0 },
+              { C::execution_last_child_id, 2 }, // Previous context id
+              { C::execution_pc, 2 },            // Based on next_pc of CALL step
+              { C::execution_msg_sender, 0 },
+              { C::execution_contract_address, 0 },
+              { C::execution_bytecode_id, top_bytecode_id }, // Restored from context stack
+              { C::execution_is_static, 0 },
+              { C::execution_parent_calldata_addr, 0 },
+              { C::execution_parent_calldata_size, 0 },
+              { C::execution_last_child_returndata_size, 200 }, // Return data size
+              { C::execution_last_child_returndata_addr, 600 }, // Return data offset
+              { C::execution_parent_l2_gas_limit, 2000 },
+              { C::execution_parent_da_gas_limit, 4000 },
+              { C::execution_parent_l2_gas_used, 500 },
+              { C::execution_parent_da_gas_used, 1500 },
+          },
+          {
+              { C::execution_sel, 0 },
+              { C::execution_last, 1 },
+          } });
+
+    check_relation<context>(trace);
+
+    check_interaction<tracegen::ExecutionTraceBuilder,
+                      lookup_context_ctx_stack_call_settings,
+                      lookup_context_ctx_stack_rollback_settings,
+                      lookup_context_ctx_stack_return_settings>(trace);
+}
+
+TEST(ContextConstrainingTest, ContextSwitchingExceptionalHalt)
+{
+    constexpr uint32_t top_bytecode_id = 0x12345678;
+    constexpr uint32_t nested_bytecode_id = 0x456789ab;
+
+    TestTraceContainer trace(
+        { {
+              { C::execution_next_context_id, 0 },
+              { C::precomputed_first_row, 1 },
+              // Context Stack Rows
+              { C::context_stack_sel, 1 },
+              { C::context_stack_entered_context_id, 2 },
+              { C::context_stack_context_id, 1 },
+              { C::context_stack_parent_id, 0 },
+              { C::context_stack_next_pc, 2 },
+              { C::context_stack_msg_sender, 0 },
+              { C::context_stack_contract_address, 0 },
+              { C::context_stack_bytecode_id, top_bytecode_id },
+              { C::context_stack_is_static, 0 },
               { C::context_stack_parent_calldata_addr, 0 },
               { C::context_stack_parent_calldata_size, 0 },
+              { C::context_stack_parent_l2_gas_limit, 2000 },
+              { C::context_stack_parent_da_gas_limit, 4000 },
+              { C::context_stack_parent_l2_gas_used, 500 },
+              { C::context_stack_parent_da_gas_used, 1500 },
           },
           // First Row of execution
           {
@@ -68,6 +197,7 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
               { C::execution_parent_da_gas_limit, 4000 },
               { C::execution_parent_l2_gas_used, 500 },
               { C::execution_parent_da_gas_used, 1500 },
+              { C::execution_enqueued_call_start, 1 },
           },
           // CALL
           {
@@ -102,7 +232,7 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
               { C::execution_parent_calldata_addr, 10 },
               { C::execution_parent_calldata_size, 1 },
           },
-          // Return Row
+          // Exceptional Halt Row
           {
               { C::execution_sel, 1 },
               { C::execution_pc, 20 },
@@ -113,7 +243,7 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
               { C::execution_register_0_, 200 }, // Return data size
               { C::execution_sel_exit_call, 1 },
               { C::execution_nested_exit_call, 1 },
-              { C::execution_nested_return, 1 },
+              { C::execution_sel_error, 1 }, // Exceptional Halt
               { C::execution_context_id, 2 },
               { C::execution_next_context_id, 3 },
               { C::execution_parent_id, 1 },
@@ -129,23 +259,21 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
               { C::execution_next_context_id, 3 },
               { C::execution_context_id, 1 },
               { C::execution_parent_id, 0 },
-              { C::execution_pc, 2 }, // Based on next_pc of CALL step
+              { C::execution_last_child_id, 2 }, // Previous context id
+              { C::execution_pc, 2 },            // Based on next_pc of CALL step
+              { C::execution_next_pc, 3 },
               { C::execution_msg_sender, 0 },
               { C::execution_contract_address, 0 },
               { C::execution_bytecode_id, top_bytecode_id }, // Restored from context stack
               { C::execution_is_static, 0 },
               { C::execution_parent_calldata_addr, 0 },
               { C::execution_parent_calldata_size, 0 },
-              { C::execution_last_child_returndata_size, 200 }, // Return data size
-              { C::execution_last_child_returndata_addr, 600 }, // Return data offset
+              { C::execution_last_child_returndata_size, 0 }, // Return data size reset
+              { C::execution_last_child_returndata_addr, 0 }, // Return data offset reset
               { C::execution_parent_l2_gas_limit, 2000 },
               { C::execution_parent_da_gas_limit, 4000 },
               { C::execution_parent_l2_gas_used, 500 },
               { C::execution_parent_da_gas_used, 1500 },
-              { C::execution_parent_calldata_addr, 0 },
-              { C::execution_parent_calldata_size, 0 },
-              { C::execution_last_child_returndata_size, 200 }, // Return data size
-              { C::execution_last_child_returndata_addr, 600 }, // Return data offset
           },
           {
               { C::execution_sel, 0 },
@@ -154,9 +282,10 @@ TEST(ContextConstrainingTest, ContextSwitchingCallReturn)
 
     check_relation<context>(trace);
 
-    // TODO: Migrate to check_interaction pattern once these lookups are added in a builder
-    tracegen::LookupIntoDynamicTableSequential<stack_call_interaction::Settings>().process(trace);
-    tracegen::LookupIntoDynamicTableSequential<stack_return_interaction::Settings>().process(trace);
+    check_interaction<tracegen::ExecutionTraceBuilder,
+                      lookup_context_ctx_stack_call_settings,
+                      lookup_context_ctx_stack_rollback_settings,
+                      lookup_context_ctx_stack_return_settings>(trace);
 }
 
 TEST(ContextConstrainingTest, GasNextRow)
@@ -364,6 +493,8 @@ TEST(ContextConstrainingTest, TreeStateContinuity)
                                    { C::execution_written_public_data_slots_tree_root, 2 },
                                    { C::execution_written_public_data_slots_tree_size, 1 },
                                    { C::execution_l1_l2_tree_root, 27 },
+                                   { C::execution_retrieved_bytecodes_tree_root, 26 },
+                                   { C::execution_retrieved_bytecodes_tree_size, 25 },
                                },
                                {
                                    // Second row of execution
@@ -379,6 +510,27 @@ TEST(ContextConstrainingTest, TreeStateContinuity)
                                    { C::execution_prev_written_public_data_slots_tree_root, 2 },
                                    { C::execution_prev_written_public_data_slots_tree_size, 1 },
                                    { C::execution_l1_l2_tree_root, 27 },
+                                   { C::execution_prev_retrieved_bytecodes_tree_root, 26 },
+                                   { C::execution_prev_retrieved_bytecodes_tree_size, 25 },
+                                   { C::execution_enqueued_call_end, 1 },
+                                   { C::execution_sel_exit_call, 1 },
+                               },
+                               {
+                                   // Third row of execution
+                                   { C::execution_sel, 1 },
+                                   { C::execution_prev_note_hash_tree_root, 100 },
+                                   { C::execution_prev_note_hash_tree_size, 90 },
+                                   { C::execution_prev_num_note_hashes_emitted, 80 },
+                                   { C::execution_prev_nullifier_tree_root, 70 },
+                                   { C::execution_prev_nullifier_tree_size, 60 },
+                                   { C::execution_prev_num_nullifiers_emitted, 50 },
+                                   { C::execution_prev_public_data_tree_root, 40 },
+                                   { C::execution_prev_public_data_tree_size, 30 },
+                                   { C::execution_prev_written_public_data_slots_tree_root, 20 },
+                                   { C::execution_prev_written_public_data_slots_tree_size, 10 },
+                                   { C::execution_l1_l2_tree_root, 27 },
+                                   { C::execution_prev_retrieved_bytecodes_tree_root, 260 },
+                                   { C::execution_prev_retrieved_bytecodes_tree_size, 250 },
                                } });
 
     check_relation<context>(trace,
@@ -392,7 +544,9 @@ TEST(ContextConstrainingTest, TreeStateContinuity)
                             context::SR_PUBLIC_DATA_TREE_SIZE_CONTINUITY,
                             context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_CONTINUITY,
                             context::SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_CONTINUITY,
-                            context::SR_L1_L2_TREE_ROOT_CONTINUITY);
+                            context::SR_L1_L2_TREE_ROOT_CONTINUITY,
+                            context::SR_RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY,
+                            context::SR_RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY);
 
     // Negative test: change note hash tree root
     trace.set(C::execution_prev_note_hash_tree_root, 2, 100);
@@ -450,6 +604,16 @@ TEST(ContextConstrainingTest, TreeStateContinuity)
     trace.set(C::execution_l1_l2_tree_root, 2, 100);
     EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_L1_L2_TREE_ROOT_CONTINUITY),
                               "L1_L2_TREE_ROOT_CONTINUITY");
+
+    // Negative test: change retrieved bytecodes tree root
+    trace.set(C::execution_prev_retrieved_bytecodes_tree_root, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY),
+                              "RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY");
+
+    // Negative test: change retrieved bytecodes tree size
+    trace.set(C::execution_prev_retrieved_bytecodes_tree_size, 2, 100);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY),
+                              "RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY");
 }
 
 TEST(ContextConstrainingTest, SideEffectStateContinuity)
@@ -507,6 +671,209 @@ TEST(ContextConstrainingTest, BytecodeIdPropagation)
     trace.set(C::execution_bytecode_id, 1, 99);
     EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_BYTECODE_ID_NEXT_ROW),
                               "BYTECODE_ID_NEXT_ROW"); // Should fail constraint
+}
+
+TEST(ContextConstrainingTest, IsStaticRegularCallFromNonStaticContext)
+{
+    // Non-static context making a regular CALL - should remain non-static
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+        {
+            { C::execution_sel, 1 },
+            { C::execution_context_id, 1 },
+            { C::execution_next_context_id, 2 },
+            { C::execution_is_static, 0 }, // Non-static context
+            { C::execution_sel_enter_call, 1 },
+            { C::execution_sel_execute_call, 1 }, // Regular CALL
+            { C::execution_sel_execute_static_call, 0 },
+        },
+        {
+            { C::execution_sel, 1 },
+            { C::execution_context_id, 2 },
+            { C::execution_next_context_id, 3 },
+            { C::execution_is_static, 0 }, // Should remain non-static
+        },
+    });
+    check_relation<context>(
+        trace, context::SR_IS_STATIC_IF_STATIC_CALL, context::SR_IS_STATIC_IF_CALL_FROM_STATIC_CONTEXT);
+
+    // Negative test: change is_static
+    // regular call from non-static context cannot become static
+    trace.set(C::execution_is_static, 2, 1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_IS_STATIC_IF_STATIC_CALL),
+                              "IS_STATIC_IF_STATIC_CALL");
+
+    // reset is_static
+    trace.set(C::execution_is_static, 2, 0);
+}
+
+TEST(ContextConstrainingTest, IsStaticStaticCallFromNonStaticContext)
+{
+    // Non-static context making a STATICCALL - should become static
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+        {
+            { C::execution_sel, 1 },
+            { C::execution_context_id, 1 },
+            { C::execution_next_context_id, 2 },
+            { C::execution_is_static, 0 }, // Non-static context
+            { C::execution_sel_enter_call, 1 },
+            { C::execution_sel_execute_call, 0 },
+            { C::execution_sel_execute_static_call, 1 }, // STATICCALL
+        },
+        {
+            { C::execution_sel, 1 },
+            { C::execution_context_id, 2 },
+            { C::execution_next_context_id, 3 },
+            { C::execution_is_static, 1 }, // Should become static
+        },
+    });
+    check_relation<context>(
+        trace, context::SR_IS_STATIC_IF_STATIC_CALL, context::SR_IS_STATIC_IF_CALL_FROM_STATIC_CONTEXT);
+
+    // Negative test: change is_static
+    // static call from non-static context MUST become static
+    trace.set(C::execution_is_static, 2, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_IS_STATIC_IF_STATIC_CALL),
+                              "IS_STATIC_IF_STATIC_CALL");
+
+    // reset is_static
+    trace.set(C::execution_is_static, 2, 1);
+}
+
+TEST(ContextConstrainingTest, IsStaticCallFromStaticContext)
+{
+    // Static context making any call - must remain static
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+        {
+            { C::execution_sel, 1 },
+            { C::execution_context_id, 1 },
+            { C::execution_next_context_id, 2 },
+            { C::execution_is_static, 1 }, // Static context
+            { C::execution_sel_enter_call, 1 },
+            { C::execution_sel_execute_call, 1 }, // Regular CALL
+            { C::execution_sel_execute_static_call, 0 },
+        },
+        {
+            { C::execution_sel, 1 },
+            { C::execution_context_id, 2 },
+            { C::execution_next_context_id, 3 },
+            { C::execution_is_static, 1 }, // Must remain static
+        },
+    });
+    check_relation<context>(
+        trace, context::SR_IS_STATIC_IF_STATIC_CALL, context::SR_IS_STATIC_IF_CALL_FROM_STATIC_CONTEXT);
+
+    // Negative test: change is_static
+    // static call from static context MUST remain static
+    trace.set(C::execution_is_static, 2, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_IS_STATIC_IF_CALL_FROM_STATIC_CONTEXT),
+                              "IS_STATIC_IF_CALL_FROM_STATIC_CONTEXT");
+
+    // reset is_static
+    trace.set(C::execution_is_static, 2, 1);
+}
+
+TEST(ContextConstrainingTest, IsStaticPropagationWithoutCalls)
+{
+    // is_static propagation without calls
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+        {
+            { C::execution_sel, 1 },
+            { C::execution_context_id, 1 },
+            { C::execution_next_context_id, 1 },
+            { C::execution_is_static, 1 }, // Static context
+        },
+        {
+            { C::execution_sel, 1 },
+            { C::execution_context_id, 1 },
+            { C::execution_next_context_id, 1 },
+            { C::execution_is_static, 1 }, // Should propagate
+        },
+    });
+    check_relation<context>(trace, context::SR_IS_STATIC_NEXT_ROW);
+
+    // Negative test: change is_static
+    // staticness must propagate without calls
+    trace.set(C::execution_is_static, 2, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_IS_STATIC_NEXT_ROW), "IS_STATIC_NEXT_ROW");
+
+    // reset is_static
+    trace.set(C::execution_is_static, 2, 1);
+}
+
+TEST(ContextConstrainingTest, ContextIdPropagation)
+{
+    TestTraceContainer trace({
+        {
+            { C::precomputed_first_row, 1 },
+        },
+        {
+            { C::execution_sel, 1 },
+            { C::execution_enqueued_call_start, 1 },
+            { C::execution_context_id, 1 },
+            { C::execution_next_context_id, 2 },
+            { C::execution_sel_enter_call, 1 },
+        },
+        {
+            { C::execution_sel, 1 },
+            { C::execution_context_id, 2 },
+            { C::execution_next_context_id, 3 },
+            { C::execution_sel_exit_call, 1 },
+            { C::execution_nested_exit_call, 1 },
+            { C::execution_parent_id, 1 },
+        },
+        {
+            { C::execution_sel, 1 },
+            { C::execution_context_id, 1 },
+            { C::execution_next_context_id, 3 },
+        },
+        {
+            { C::execution_sel, 1 },
+            { C::execution_context_id, 1 },
+            { C::execution_next_context_id, 3 },
+        },
+    });
+    check_relation<context>(trace,
+                            context::SR_ENQUEUED_CALL_START_NEXT_CTX_ID,
+                            context::SR_INCR_NEXT_CONTEXT_ID,
+                            context::SR_CONTEXT_ID_NEXT_ROW,
+                            context::SR_CONTEXT_ID_EXT_CALL,
+                            context::SR_CONTEXT_ID_NESTED_EXIT);
+
+    // Negative test: next context id should be context id + 1 on enqueued call start
+    trace.set(C::execution_next_context_id, 1, 3);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_ENQUEUED_CALL_START_NEXT_CTX_ID),
+                              "ENQUEUED_CALL_START_NEXT_CTX_ID");
+    trace.set(C::execution_next_context_id, 1, 2);
+
+    // Negative test: next context id should increase on external call
+    trace.set(C::execution_next_context_id, 2, 2);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_INCR_NEXT_CONTEXT_ID), "INCR_NEXT_CONTEXT_ID");
+    trace.set(C::execution_next_context_id, 2, 3);
+
+    // Negative test: next context id should be propagated
+    trace.set(C::execution_next_context_id, 4, 4);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_INCR_NEXT_CONTEXT_ID), "INCR_NEXT_CONTEXT_ID");
+    trace.set(C::execution_next_context_id, 4, 3);
+
+    // Negative test: context id should be propagated
+    trace.set(C::execution_context_id, 4, 2);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_CONTEXT_ID_NEXT_ROW), "CONTEXT_ID_NEXT_ROW");
+    trace.set(C::execution_context_id, 4, 1);
+
+    // Negative test: context id should be next context id when entering call
+    trace.set(C::execution_context_id, 2, 1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_CONTEXT_ID_EXT_CALL), "CONTEXT_ID_EXT_CALL");
+    trace.set(C::execution_context_id, 2, 2);
+
+    // Negative test: context id should be restored on exit
+    trace.set(C::execution_context_id, 3, 2);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_CONTEXT_ID_NESTED_EXIT),
+                              "CONTEXT_ID_NESTED_EXIT");
+    trace.set(C::execution_context_id, 3, 1);
 }
 
 } // namespace

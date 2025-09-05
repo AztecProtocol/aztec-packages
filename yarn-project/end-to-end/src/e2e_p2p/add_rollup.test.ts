@@ -10,6 +10,7 @@ import {
   L1TxUtils,
   RegistryContract,
   RollupContract,
+  createL1TxUtilsFromViemWallet,
   defaultL1TxUtilsConfig,
   deployL1Contract,
   deployRollupForUpgrade,
@@ -74,7 +75,6 @@ describe('e2e_p2p_add_rollup', () => {
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         listenAddress: '127.0.0.1',
-        governanceProposerQuorum: 6,
         governanceProposerRoundSize: 10,
       },
     });
@@ -83,7 +83,7 @@ describe('e2e_p2p_add_rollup', () => {
     await t.setup();
     await t.removeInitialNode();
 
-    l1TxUtils = new L1TxUtils(t.ctx.deployL1ContractsValues.l1Client);
+    l1TxUtils = createL1TxUtilsFromViemWallet(t.ctx.deployL1ContractsValues.l1Client);
   });
 
   afterAll(async () => {
@@ -157,7 +157,7 @@ describe('e2e_p2p_add_rollup', () => {
         aztecTargetCommitteeSize: t.ctx.aztecNodeConfig.aztecTargetCommitteeSize,
         aztecProofSubmissionEpochs: t.ctx.aztecNodeConfig.aztecProofSubmissionEpochs,
         slashingQuorum: t.ctx.aztecNodeConfig.slashingQuorum,
-        slashingRoundSize: t.ctx.aztecNodeConfig.slashingRoundSize,
+        slashingRoundSizeInEpochs: t.ctx.aztecNodeConfig.slashingRoundSizeInEpochs,
         slashingLifetimeInRounds: t.ctx.aztecNodeConfig.slashingLifetimeInRounds,
         slashingExecutionDelayInRounds: t.ctx.aztecNodeConfig.slashingExecutionDelayInRounds,
         slashingVetoer: t.ctx.aztecNodeConfig.slashingVetoer,
@@ -166,6 +166,11 @@ describe('e2e_p2p_add_rollup', () => {
         feeJuicePortalInitialBalance: fundingNeeded,
         realVerifier: false,
         exitDelaySeconds: t.ctx.aztecNodeConfig.exitDelaySeconds,
+        slasherFlavor: t.ctx.aztecNodeConfig.slasherFlavor,
+        slashingOffsetInRounds: t.ctx.aztecNodeConfig.slashingOffsetInRounds,
+        slashAmountSmall: t.ctx.aztecNodeConfig.slashAmountSmall,
+        slashAmountMedium: t.ctx.aztecNodeConfig.slashAmountMedium,
+        slashAmountLarge: t.ctx.aztecNodeConfig.slashAmountLarge,
       },
       t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress,
       t.logger,

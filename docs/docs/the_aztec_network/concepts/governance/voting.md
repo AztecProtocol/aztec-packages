@@ -1,6 +1,7 @@
 ---
 sidebar_position: 1
 title: Voting on Proposals
+description: Learn about the voting process for governance on the Aztec network.
 ---
 
 Holders have the ability to vote on proposals as long as they lock any Hypothetical Assets within the Governance contract. The act of locking the funds can be thought of as “activatingˮ the voting power of Hypothetical Asset. Locked Hypothetical Assets used to vote on a proposal must wait a delay before being withdrawn to prevent malicious governance attacks.

@@ -1,6 +1,7 @@
 ---
 sidebar_position: 5
 title: Useful Commands
+description: Learn about useful commands for interacting with the Aztec network.
 ---
 
 These commands are useful to sequencer operators. If you're trying to do something that is not listed here, ask in the appropriate discord channel.
@@ -8,7 +9,7 @@ These commands are useful to sequencer operators. If you're trying to do somethi
 ## Prerequisites
 
 - You'll need a way to query the L1 contracts, this guide assumes you have `foundry` installed.
-- Have the `aztec` tool [installed](../../developers/getting_started.md#install-the-sandbox)
+- Have the `aztec` tool [installed](../../developers/getting_started/getting_started_on_sandbox.md#install-the-sandbox)
 - Ethereum EL RPC endpoint
 
 ## Basics

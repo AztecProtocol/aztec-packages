@@ -62,6 +62,9 @@
       "path": "../merkle-tree"
     },
     {
+      "path": "../node-keystore"
+    },
+    {
       "path": "../noir-contracts.js"
     },
     {

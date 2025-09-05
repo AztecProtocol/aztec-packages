@@ -24,7 +24,7 @@ project_name=$(basename "$PWD")
 # Hash of the entire protocol circuits.
 # Needed for test hash, as we presently don't have a program hash for each individual test.
 # Means if anything within the dir changes, the tests will rerun.
-export circuits_hash=$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-projects/$project_name/crates/"))
+export circuits_hash=$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-projects/$project_name/crates/" "^noir-projects/noir-protocol-circuits/bootstrap.sh"))
 
 # Circuits matching these patterns we have client-ivc keys computed, rather than ultra-honk.
 readarray -t ivc_patterns < <(jq -r '.[]' "../client_ivc_circuits.json")
@@ -40,6 +40,11 @@ function on_exit {
 }
 trap on_exit EXIT
 
+function hex_to_fields_json {
+  # 1. split encoded hex into 64-character lines 3. encode as JSON array of hex strings
+  fold -w64 | jq -R -s -c 'split("\n") | map(select(length > 0)) | map("0x" + .)'
+}
+
 function compile {
   set -euo pipefail
   local dir=$1
@@ -52,7 +57,7 @@ function compile {
   # echo_stderr $program_hash_cmd
   local program_hash=$(dump_fail "$program_hash_cmd")
   echo_stderr "Hash preimage: $NOIR_HASH-$program_hash"
-  local hash=$(hash_str "$NOIR_HASH-$program_hash")
+  local hash=$(hash_str "$NOIR_HASH-$program_hash" $(cache_content_hash "^noir-projects/noir-protocol-circuits/bootstrap.sh"))
 
   if ! cache_download circuit-$hash.tar.gz 1>&2; then
     SECONDS=0
@@ -88,21 +93,23 @@ function compile {
       set -x
       if echo "$name" | grep -qE "${private_tail_regex}"; then
         # We still need the standalone IVC vk. We also create the final IVC vk from the tail (specifically, the number of public inputs is used from it).
-        denoise "$BB write_vk --scheme client_ivc --verifier_type standalone -b - -o $outdir --output_format bytes_and_fields"
+        denoise "$BB write_vk --scheme client_ivc --verifier_type standalone -b - -o $outdir"
       elif echo "$name" | grep -qE "${ivc_regex}"; then
-        denoise "$BB write_vk --scheme client_ivc --verifier_type standalone -b - -o $outdir --output_format bytes_and_fields"
+        denoise "$BB write_vk --scheme client_ivc --verifier_type standalone -b - -o $outdir"
       elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
-        denoise "$BB write_vk --scheme ultra_honk --ipa_accumulation -b - -o $outdir --output_format bytes_and_fields"
+        denoise "$BB write_vk --scheme ultra_honk --ipa_accumulation -b - -o $outdir"
       elif echo "$name" | grep -qE "rollup_root"; then
-        denoise "$BB write_vk --scheme ultra_honk --oracle_hash keccak -b - -o $outdir --output_format bytes_and_fields"
+        denoise "$BB write_vk --scheme ultra_honk --oracle_hash keccak -b - -o $outdir"
       else
-        denoise "$BB write_vk --scheme ultra_honk -b - -o $outdir --output_format bytes_and_fields"
+        denoise "$BB write_vk --scheme ultra_honk -b - -o $outdir"
       fi
     }
     echo_stderr "Generating vk for function: $name..."
     jq -r '.bytecode' $json_path | base64 -d | gunzip | write_vk
     vk_bytes=$(cat $outdir/vk | xxd -p -c 0)
-    vk_fields=$(cat $outdir/vk_fields.json)
+    # Split the hex-encoded vk bytes into fields boundaries (but still hex-encoded), first making 64-character lines and then encoding as JSON.
+    # This used to be done by barretenberg itself, but with serialization now always being in field elements we can do it outside of bb.
+    vk_fields=$(echo "$vk_bytes" | hex_to_fields_json)
     if [ -f $outdir/vk_hash ]; then
       # not created in civc
       vk_hash=$(cat $outdir/vk_hash | xxd -p -c 0)
@@ -118,6 +125,8 @@ function compile {
       local verifier_path="$key_dir/${name}_verifier.sol"
       SECONDS=0
       # Generate solidity verifier for this contract.
+      # TODO(AD) ensure this passes.
+      #echo "$vk_bytes" | xxd -r -p | $BB write_solidity_verifier --scheme ultra_honk --disable_zk -k - -o $verifier_path --optimized
       echo "$vk_bytes" | xxd -r -p | $BB write_solidity_verifier --scheme ultra_honk --disable_zk -k - -o $verifier_path
       echo_stderr "Root rollup verifier at: $verifier_path (${SECONDS}s)"
       # Include the verifier path if we create it.
@@ -141,7 +150,7 @@ function compile {
   # remove temporary json file
   rm $key_path
 }
-export -f compile
+export -f hex_to_fields_json compile
 
 function build {
   set -eu
@@ -200,7 +209,7 @@ function test_cmds {
 }
 
 function test {
-  test_cmds | filter_test_cmds | parallelise
+  test_cmds | filter_test_cmds | parallelize
 }
 
 function format {
@@ -225,7 +234,7 @@ function bench_cmds {
 function bench {
   rm -rf bench-out && mkdir -p bench-out
 
-  bench_cmds | STRICT_SCHEDULING=1 parallelise
+  bench_cmds | STRICT_SCHEDULING=1 parallelize
 }
 
 case "$cmd" in

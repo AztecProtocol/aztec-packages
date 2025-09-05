@@ -289,6 +289,7 @@ describe('e2e_block_building', () => {
 
     beforeAll(async () => {
       ({ teardown, pxe, logger, wallet: owner } = await setup(1));
+      ownerAddress = owner.getAddress();
       contract = await TestContract.deploy(owner).send({ from: ownerAddress }).deployed();
       logger.info(`Test contract deployed at ${contract.address}`);
     });
@@ -515,6 +516,7 @@ describe('e2e_block_building', () => {
         skipProtocolContracts: true,
         ethereumSlotDuration: 6,
       }));
+      ownerAddress = owner.getAddress();
 
       logger.info('Deploying token contract');
       const token = await TokenContract.deploy(owner, owner.getCompleteAddress(), 'TokenName', 'TokenSymbol', 18)
@@ -553,7 +555,7 @@ describe('e2e_block_building', () => {
       logger.warn(`Test contract deployed at ${testContract.address}`);
 
       // Send two txs that emit two nullifiers each, one from private and one from public.
-      context.sequencer?.updateSequencerConfig({ minTxsPerBlock: 2 });
+      context.sequencer?.updateConfig({ minTxsPerBlock: 2 });
       const makeBatch = () =>
         new BatchCall(context.wallets[0], [
           testContract.methods.emit_nullifier(Fr.random()),
@@ -571,7 +573,7 @@ describe('e2e_block_building', () => {
       const spy = jest.spyOn(Set.prototype, 'execute').mockImplementation(async function (...args: any[]) {
         setCount++;
         if (setCount === 1) {
-          context.sequencer?.updateSequencerConfig({ minTxsPerBlock: 1 });
+          context.sequencer?.updateConfig({ minTxsPerBlock: 1 });
         } else if (setCount === 48) {
           throw new Error('Simulated failure in AVM opcode SET');
         }

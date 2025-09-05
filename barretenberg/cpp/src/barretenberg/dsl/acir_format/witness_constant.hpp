@@ -5,7 +5,6 @@
 // =====================
 
 #pragma once
-#include "barretenberg/dsl/acir_format/ecdsa_secp256k1.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
@@ -24,6 +23,15 @@ template <typename FF> struct WitnessOrConstant {
             .index = index,
             .value = FF::zero(),
             .is_constant = false,
+        };
+    }
+
+    static WitnessOrConstant from_constant(FF value)
+    {
+        return WitnessOrConstant{
+            .index = 0,
+            .value = value,
+            .is_constant = true,
         };
     }
 };

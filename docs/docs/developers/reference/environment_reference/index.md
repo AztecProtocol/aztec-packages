@@ -1,5 +1,6 @@
 ---
 title: Developer Environment
+description: Reference documentation for the Aztec development environment.
 tags: [sandbox]
 sidebar_position: 0
 ---

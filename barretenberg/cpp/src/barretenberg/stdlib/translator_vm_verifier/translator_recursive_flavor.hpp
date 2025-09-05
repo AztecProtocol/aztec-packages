@@ -25,7 +25,7 @@ namespace bb {
  * Translator flavor. It is similar in structure to its native counterpart with two main differences: 1) the
  * curve types are stdlib types (e.g. field_t instead of field) and 2) it does not specify any Prover related types
  * (e.g. Polynomial, ExtendedEdges, etc.) since we do not emulate prover computation in circuits, i.e. it only makes
- * sense to instantiate a Verifier with this flavor. We reuse the native flavor to initialise identical  constructions.
+ * sense to instantiate a Verifier with this flavor. We reuse the native flavor to initialize identical  constructions.
  * @tparam BuilderType Determines the arithmetization of the verifier circuit defined based on this flavor.
  */
 class TranslatorRecursiveFlavor {
@@ -102,8 +102,9 @@ class TranslatorRecursiveFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey
-        : public StdlibVerificationKey_<CircuitBuilder, TranslatorFlavor::PrecomputedEntities<Commitment>> {
+    class VerificationKey : public StdlibVerificationKey_<CircuitBuilder,
+                                                          TranslatorFlavor::PrecomputedEntities<Commitment>,
+                                                          VKSerializationMode::NO_METADATA> {
       public:
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
@@ -117,27 +118,6 @@ class TranslatorRecursiveFlavor {
             for (auto [native_comm, comm] : zip_view(native_key->get_all(), this->get_all())) {
                 comm = Commitment::from_witness(builder, native_comm);
             }
-        }
-
-        /**
-         * @brief Serialize verification key to field elements.
-         *
-         * @return std::vector<FF>
-         */
-        std::vector<FF> to_field_elements() const override
-        {
-            using namespace bb::stdlib::field_conversion;
-            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<FF>& buffer) {
-                std::vector<FF> input_fields = convert_to_bn254_frs<CircuitBuilder, T>(input);
-                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
-            };
-
-            std::vector<FF> elements;
-            for (const Commitment& commitment : this->get_all()) {
-                serialize_to_field_buffer(commitment, elements);
-            }
-
-            return elements;
         }
 
         /**

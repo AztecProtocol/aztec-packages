@@ -1,5 +1,6 @@
 ---
 title: Using Value Notes in Aztec.nr
+description: Learn how to use value notes to store and manage numerical values in your Aztec smart contracts.
 tags: [contracts, notes]
 ---
 

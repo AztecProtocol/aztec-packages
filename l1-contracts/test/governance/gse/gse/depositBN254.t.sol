@@ -6,6 +6,7 @@ import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {AttesterConfig} from "@aztec/governance/GSE.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
 import {WithGSE} from "./base.sol";
+import {GSEWithSkip} from "@test/GSEWithSkip.sol";
 
 contract DepositBN254Test is WithGSE {
   using stdStorage for StdStorage;
@@ -23,7 +24,7 @@ contract DepositBN254Test is WithGSE {
 
   function setUp() public override {
     super.setUp();
-    stdstore.target(address(gse)).sig("checkProofOfPossession()").checked_write(true);
+    GSEWithSkip(address(gse)).setCheckProofOfPossession(true);
     // See yarn-project/ethereum/src/test/bn254_registration.test.ts for construction of pk2
     // Prefilling here, and the rest of the data will be generated using the helper
     // generateProofsOfPossession()
@@ -61,7 +62,7 @@ contract DepositBN254Test is WithGSE {
     // it reverts
     vm.prank(_instance);
     vm.expectRevert(abi.encodeWithSelector(BN254Lib.NotOnCurve.selector, 0, 0));
-    gse.deposit(address(0), address(0), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), _moveWithLatestRollup);
+    gse.deposit(address(1), address(0), BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero(), _moveWithLatestRollup);
   }
 
   function test_WhenTheDepositKeysPassTheProofOfPossessionCheck(
@@ -71,6 +72,8 @@ contract DepositBN254Test is WithGSE {
     address _withdrawer,
     bool _moveWithLatestRollup
   ) external whenCallerIsRegisteredRollup(_instance) {
+    vm.assume(_attester1 != address(0));
+    vm.assume(_attester2 != address(0));
     vm.assume(_attester1 != _attester2);
     // it adds the keys if they are new
     uint256 activationThreshold = gse.ACTIVATION_THRESHOLD();

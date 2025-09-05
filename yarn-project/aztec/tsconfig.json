@@ -58,6 +58,9 @@
       "path": "../l1-artifacts"
     },
     {
+      "path": "../node-lib"
+    },
+    {
       "path": "../noir-contracts.js"
     },
     {

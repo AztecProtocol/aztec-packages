@@ -2,6 +2,7 @@
 id: governance
 sidebar_position: 3
 title: Governance Overview
+description: Learn about the governance process on the Aztec network.
 ---
 
 import Image from "@theme/IdealImage";

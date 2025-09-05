@@ -13,6 +13,7 @@ import {Rollup} from "@aztec/core/Rollup.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {BN254Fixtures} from "../shared/BN254Fixtures.t.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
+import {GSEWithSkip} from "@test/GSEWithSkip.sol";
 
 contract InvalidPointsFlushEntryQueueTest is StakingBase, BN254Fixtures {
   using stdStorage for StdStorage;
@@ -31,13 +32,14 @@ contract InvalidPointsFlushEntryQueueTest is StakingBase, BN254Fixtures {
     StakingBase.setUp();
 
     GSE gse = staking.getGSE();
-    stdstore.target(address(gse)).sig("checkProofOfPossession()").checked_write(true);
+    GSEWithSkip(address(gse)).setCheckProofOfPossession(true);
 
     StakingQueueConfig memory stakingQueueConfig = StakingQueueConfig({
       bootstrapValidatorSetSize: 0,
       bootstrapFlushSize: 0,
       normalFlushSizeMin: 2,
-      normalFlushSizeQuotient: 1
+      normalFlushSizeQuotient: 1,
+      maxQueueFlushSize: 48
     });
 
     Rollup rollup = Rollup(address(registry.getCanonicalRollup()));

@@ -19,7 +19,6 @@ const fs = require("fs");
 const macros = require("./src/katex-macros.js");
 const versions = require("./versions.json");
 
-/** @type {import('@docusaurus/types').Config} */
 const config = {
   title: "Privacy-first zkRollup | Aztec Documentation",
   tagline:
@@ -29,7 +28,7 @@ const config = {
   trailingSlash: false,
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: process.env.ENV === "dev" ? "warn" : "throw",
-  favicon: "img/Aztec_icon_minified.svg",
+  favicon: "img/Aztec_Symbol_Dark.png",
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
@@ -78,8 +77,8 @@ const config = {
           ],
           versions: {
             current: {
-              label: 'dev',
-              path: 'dev',
+              label: "dev",
+              path: "dev",
             },
           },
         },
@@ -100,6 +99,21 @@ const config = {
     },
   ],
   plugins: [
+    [
+      "docusaurus-plugin-llms",
+      {
+        generateLLMsTxt: true,
+        generateLLMsFullTxt: true,
+        docsDir: `versioned_docs/version-${versions[0]}/`,
+        title: "Aztec Protocol Documentation",
+        excludeImports: true,
+        ignoreFiles: [`versioned_docs/**/protocol-specs/*`],
+        version: versions[0],
+        pathTransformation: {
+          ignorePaths: ["docs"],
+        },
+      },
+    ],
     [
       "@docusaurus/plugin-ideal-image",
       {
@@ -146,9 +160,9 @@ const config = {
       navbar: {
         logo: {
           alt: "Aztec Logo",
-          srcDark: "img/new_logo-01.svg",
+          srcDark: "img/Aztec Wordmark_Light.svg",
           href: "/",
-          src: "img/Aztec_logo_dark-01.svg",
+          src: "img/Aztec Wordmark_Dark.svg",
         },
         items: [
           {
@@ -176,7 +190,7 @@ const config = {
             label: "Run a node",
           },
           {
-            to: "/developers/getting_started",
+            to: "/developers/getting_started/getting_started_on_sandbox",
             label: "Install Sandbox",
             position: "right",
           },
@@ -300,8 +314,8 @@ const config = {
                 href: "https://forum.aztec.network",
               },
               {
-                label: "Discord",
-                href: "https://discord.com/invite/aztec",
+                label: "Noir Discord",
+                href: "https://discord.com/invite/JtqzkdeQ6G",
               },
               {
                 label: "X (Twitter)",

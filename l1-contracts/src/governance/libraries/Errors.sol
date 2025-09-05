@@ -19,6 +19,8 @@ library Errors {
   error Governance__NoCheckpointsFound();
   error Governance__InsufficientPower(address voter, uint256 have, uint256 required);
   error Governance__InvalidConfiguration();
+  error Governance__CannotWithdrawToAddressZero();
+  error Governance__WithdrawalNotInitiated();
   error Governance__WithdrawalAlreadyClaimed();
   error Governance__WithdrawalNotUnlockedYet(Timestamp currentTime, Timestamp unlocksAt);
   error Governance__ProposalNotActive();
@@ -35,6 +37,7 @@ library Errors {
 
   error Governance__ConfigurationLib__InvalidMinimumVotes();
   error Governance__ConfigurationLib__LockAmountTooSmall();
+  error Governance__ConfigurationLib__LockAmountTooBig();
   error Governance__ConfigurationLib__QuorumTooSmall();
   error Governance__ConfigurationLib__QuorumTooBig();
   error Governance__ConfigurationLib__RequiredYeaMarginTooBig();

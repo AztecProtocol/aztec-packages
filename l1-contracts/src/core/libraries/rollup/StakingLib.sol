@@ -50,7 +50,7 @@ enum Status {
  *      Workflow for slashing-induced exits:
  *      1. Slashing occurs -> Exit created with recipientOrWithdrawer=withdrawer, isRecipient=false
  *      2. Withdrawer calls initiateWithdraw() -> Updates to recipientOrWithdrawer=recipient, isRecipient=true
- *      3. After delay period -> finaliseWithdraw() can transfer funds to the recipient
+ *      3. After delay period -> finalizeWithdraw() can transfer funds to the recipient
  * @param withdrawalId Unique identifier for this withdrawal from the GSE contract
  * @param amount The amount of stake being withdrawn
  * @param exitableAt Timestamp when the stake becomes withdrawable after delay period
@@ -147,7 +147,7 @@ library StakingLib {
     Proposal memory proposal = gov.getProposal(_proposalId);
     require(proposal.proposer == address(govProposer), Errors.Staking__IncorrectGovProposer(_proposalId));
 
-    Timestamp ts = proposal.pendingThroughMemory();
+    Timestamp ts = proposal.creation + proposal.config.votingDelay;
 
     // Cast votes with all our power
     uint256 vp = store.gse.getVotingPowerAt(address(this), ts);
@@ -167,12 +167,12 @@ library StakingLib {
    * @dev Reverts if the attester has no valid exit request (Staking__NotExiting) or if the exit delay period has not
    * elapsed (Staking__WithdrawalNotUnlockedYet)
    */
-  function finaliseWithdraw(address _attester) internal {
+  function finalizeWithdraw(address _attester) internal {
     StakingStorage storage store = getStorage();
     // We load it into memory to cache it, as we will delete it before we use it.
     Exit memory exit = store.exits[_attester];
     require(exit.exists, Errors.Staking__NotExiting(_attester));
-    require(exit.isRecipient, Errors.Staking__NotExiting(_attester));
+    require(exit.isRecipient, Errors.Staking__InitiateWithdrawNeeded(_attester));
     require(
       exit.exitableAt <= Timestamp.wrap(block.timestamp),
       Errors.Staking__WithdrawalNotUnlockedYet(Timestamp.wrap(block.timestamp), exit.exitableAt)
@@ -180,10 +180,10 @@ library StakingLib {
 
     delete store.exits[_attester];
 
-    store.gse.finaliseWithdraw(exit.withdrawalId);
+    store.gse.finalizeWithdraw(exit.withdrawalId);
     store.stakingAsset.transfer(exit.recipientOrWithdrawer, exit.amount);
 
-    emit IStakingCore.WithdrawFinalised(_attester, exit.recipientOrWithdrawer, exit.amount);
+    emit IStakingCore.WithdrawFinalized(_attester, exit.recipientOrWithdrawer, exit.amount);
   }
 
   function trySlash(address _attester, uint256 _amount) internal returns (bool) {
@@ -303,7 +303,7 @@ library StakingLib {
    *      The function will revert if:
    *      - The current epoch is before nextFlushableEpoch (max 1 flush per epoch). This limit:
    *        1. Controls validator set growth by only allowing a fixed number of additions per epoch (we can flush at
-   *           most MAX_QUEUE_FLUSH_SIZE validators at once - hence the limit)
+   *           most maxQueueFlushSize validators at once - hence the limit)
    *        2. Aligns with committee selection which happens once per epoch anyway
    *        3. Groups validator additions into epoch-sized chunks for efficient binary searches (fewer snapshots in
    *           GSE)
@@ -450,10 +450,6 @@ library StakingLib {
     return getStorage().gse.getAttesterCountAtTime(address(this), _timestamp);
   }
 
-  function getAttestersAtTime(Timestamp _timestamp) internal view returns (address[] memory) {
-    return getStorage().gse.getAttestersAtTime(address(this), _timestamp);
-  }
-
   function getAttesterAtIndex(uint256 _index) internal view returns (address) {
     return getStorage().gse.getAttesterFromIndexAtTime(address(this), _index, Timestamp.wrap(block.timestamp));
   }
@@ -513,7 +509,7 @@ library StakingLib {
    *      3. Normal phase: After the initial bootstrap and growth phases, returns a number proportional to the current
    *         set size for conservative steady-state growth, unless constrained by configuration (`normalFlushSizeMin`).
    *
-   *      All phases are subject to a hard cap of `MAX_QUEUE_FLUSH_SIZE`.
+   *      All phases are subject to a hard cap of `maxQueueFlushSize`.
    *
    *      The motivation for floodgates is that the whole system starts producing blocks with what is considered
    *      a sufficiently decentralized set of validators.
@@ -540,14 +536,14 @@ library StakingLib {
 
       // If growth:
       if (activeAttesterCount < config.bootstrapValidatorSetSize) {
-        return Math.min(config.bootstrapFlushSize, StakingQueueLib.MAX_QUEUE_FLUSH_SIZE);
+        return Math.min(config.bootstrapFlushSize, config.maxQueueFlushSize);
       }
     }
 
     // If normal:
     return Math.min(
       Math.max(activeAttesterCount / config.normalFlushSizeQuotient, config.normalFlushSizeMin),
-      StakingQueueLib.MAX_QUEUE_FLUSH_SIZE
+      config.maxQueueFlushSize
     );
   }
 

@@ -305,7 +305,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
      * @brief Enforce x and y coordinates of a point to be (0,0) in the case of point at infinity
      *
      * @details We need to have a standard witness in Noir and the point at infinity can have non-zero random
-     * coefficients when we get it as output from our optimised algorithms. This function returns a (0,0) point, if
+     * coefficients when we get it as output from our optimized algorithms. This function returns a (0,0) point, if
      * it is a point at infinity
      */
     goblin_element get_standard_form() const

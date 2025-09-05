@@ -1,5 +1,8 @@
 import { BatchedBlob, Blob } from '@aztec/blob-lib';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { asyncPool } from '@aztec/foundation/async-pool';
+import { padArrayEnd } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
@@ -11,6 +14,7 @@ import {
   EpochProvingJobTerminalState,
   type ForkMerkleTreeOperations,
 } from '@aztec/stdlib/interfaces/server';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { ProcessedTx, Tx } from '@aztec/stdlib/tx';
 import { Attributes, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
@@ -21,7 +25,7 @@ import type { ProverNodePublisher } from '../prover-node-publisher.js';
 import { type EpochProvingJobData, validateEpochProvingJobData } from './epoch-proving-job-data.js';
 
 /**
- * Job that grabs a range of blocks from the unfinalised chain from L1, gets their txs given their hashes,
+ * Job that grabs a range of blocks from the unfinalized chain from L1, gets their txs given their hashes,
  * re-executes their public calls, generates a rollup proof, and submits it to L1. This job will update the
  * world state as part of public call execution via the public processor.
  */
@@ -151,7 +155,7 @@ export class EpochProvingJob implements Traceable {
         await this.prover.startNewBlock(globalVariables, l1ToL2Messages, previousHeader);
 
         // Process public fns
-        const db = await this.dbProvider.fork(block.number - 1);
+        const db = await this.createFork(block.number - 1, l1ToL2Messages);
         const publicProcessor = this.publicProcessorFactory.create(db, globalVariables, true);
         const processed = await this.processTxs(publicProcessor, txs);
         await this.prover.addTxs(processed);
@@ -169,8 +173,8 @@ export class EpochProvingJob implements Traceable {
       const executionTime = timer.ms();
 
       this.progressState('awaiting-prover');
-      const { publicInputs, proof, batchedBlobInputs } = await this.prover.finaliseEpoch();
-      this.log.info(`Finalised proof for epoch ${epochNumber}`, { epochNumber, uuid: this.uuid, duration: timer.ms() });
+      const { publicInputs, proof, batchedBlobInputs } = await this.prover.finalizeEpoch();
+      this.log.info(`Finalized proof for epoch ${epochNumber}`, { epochNumber, uuid: this.uuid, duration: timer.ms() });
 
       this.progressState('publishing-proof');
 
@@ -203,13 +207,35 @@ export class EpochProvingJob implements Traceable {
         return;
       }
       this.log.error(`Error running epoch ${epochNumber} prover job`, err, { uuid: this.uuid, epochNumber });
-      this.state = 'failed';
+      if (this.state === 'processing' || this.state === 'awaiting-prover' || this.state === 'publishing-proof') {
+        this.state = 'failed';
+      }
     } finally {
       clearTimeout(this.deadlineTimeoutHandler);
       await this.epochCheckPromise?.stop();
       await this.prover.stop();
       resolve();
     }
+  }
+
+  /**
+   * Create a new db fork for tx processing, inserting all L1 to L2.
+   * REFACTOR: The prover already spawns a db fork of its own for each block, so we may be able to do away with just one fork.
+   */
+  private async createFork(blockNumber: number, l1ToL2Messages: Fr[]) {
+    const db = await this.dbProvider.fork(blockNumber);
+    const l1ToL2MessagesPadded = padArrayEnd(
+      l1ToL2Messages,
+      Fr.ZERO,
+      NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+      'Too many L1 to L2 messages',
+    );
+    this.log.verbose(`Creating fork at ${blockNumber} with ${l1ToL2Messages.length} L1 to L2 messages`, {
+      blockNumber,
+      l1ToL2Messages: l1ToL2MessagesPadded.map(m => m.toString()),
+    });
+    await db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
+    return db;
   }
 
   private progressState(state: EpochProvingJobState) {

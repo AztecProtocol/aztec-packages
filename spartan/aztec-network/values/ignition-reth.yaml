@@ -60,6 +60,3 @@ ethereum:
       requests:
         cpu: "0.5"
 
-jobs:
-  deployL1Verifier:
-    enable: true

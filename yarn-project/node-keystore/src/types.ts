@@ -68,7 +68,7 @@ export type ProverKeyStore =
       /** Address that identifies the prover. This address will receive the rewards. */
       id: EthAddressHex;
       /** One or more EOAs used for sending proof L1 txs. */
-      publisher: EthAccounts[];
+      publisher: EthAccounts;
     }
   | EthAccount;
 
@@ -96,6 +96,10 @@ export type ValidatorKeyStore = {
    * Default remote signer for all accounts in this block.
    */
   remoteSigner?: EthRemoteSignerConfig;
+  /**
+   * Used for automatically funding publisher accounts in this block.
+   */
+  fundingAccount?: EthAccount;
 };
 
 export type KeyStore = {
@@ -109,4 +113,6 @@ export type KeyStore = {
   remoteSigner?: EthRemoteSignerConfig;
   /** Prover configuration. Only one prover configuration is allowed. */
   prover?: ProverKeyStore;
+  /** Used for automatically funding publisher accounts if there is none defined in the corresponding  ValidatorKeyStore*/
+  fundingAccount?: EthAccount;
 };

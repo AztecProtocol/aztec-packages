@@ -66,22 +66,26 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     transcript->load_proof(honk_proof);
     OinkVerifier oink_verifier{ builder, key, transcript };
     oink_verifier.verify();
-    const std::vector<FF>& public_inputs = oink_verifier.public_inputs;
+    const std::vector<FF>& public_inputs = key->public_inputs;
 
     VerifierCommitments commitments{ key->vk_and_hash->vk, key->witness_commitments };
-
-    auto gate_challenges = std::vector<FF>(CONST_PROOF_SIZE_LOG_N);
-    for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
-        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-    }
+    static constexpr size_t VIRTUAL_LOG_N = Flavor::NativeFlavor::VIRTUAL_LOG_N;
+    // Get the gate challenges for sumcheck computation
+    key->gate_challenges = transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", VIRTUAL_LOG_N);
 
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u
 
-    const auto padding_indicator_array =
-        compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(key->vk_and_hash->vk->log_circuit_size);
+    std::vector<FF> padding_indicator_array(VIRTUAL_LOG_N, 1);
+    if constexpr (Flavor::HasZK) {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1521): ZK Recursive verifiers need to evaluate
+        // RowDisablingPolynomial, which requires knowing the actual `log_circuit_size`. Can be fixed by reserving the
+        // first rows of the trace for masking.
+        padding_indicator_array =
+            compute_padding_indicator_array<Curve, VIRTUAL_LOG_N>(key->vk_and_hash->vk->log_circuit_size);
+    }
 
-    Sumcheck sumcheck(transcript, key->alphas, CONST_PROOF_SIZE_LOG_N);
+    Sumcheck sumcheck(transcript, key->alphas, VIRTUAL_LOG_N);
 
     // Receive commitments to Libra masking polynomials
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
@@ -89,7 +93,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
         libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
     }
     SumcheckOutput<Flavor> sumcheck_output =
-        sumcheck.verify(key->relation_parameters, gate_challenges, padding_indicator_array);
+        sumcheck.verify(key->relation_parameters, key->gate_challenges, padding_indicator_array);
 
     // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
     if constexpr (Flavor::HasZK) {

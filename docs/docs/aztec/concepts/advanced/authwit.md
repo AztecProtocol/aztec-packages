@@ -3,6 +3,7 @@ title: Authentication Witness (Authwit)
 tags: [accounts, authwit]
 sidebar_position: 2
 keywords: [authwit, authentication witness, accounts]
+description: Learn about Aztec's Authentication Witness scheme that enables secure third-party actions on behalf of users, providing a privacy-preserving alternative to traditional token approvals.
 ---
 
 import Image from "@theme/IdealImage";
@@ -140,4 +141,4 @@ We don't need to limit ourselves to the `transfer` function, we can use the same
 
 ### Next Steps
 
-Check out the [developer documentation](../../../developers/guides/smart_contracts/writing_contracts/authwit.md) to see how to implement this in your own contracts.
+Check out the [developer documentation](../../../developers/guides/smart_contracts/authwit.md) to see how to implement this in your own contracts.

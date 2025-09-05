@@ -1,6 +1,7 @@
 ---
 sidebar_position: 4
 title: Reacting to Upgrades
+description: Learn how to react to upgrades on the Aztec network.
 ---
 
 This is a guide for sequencer operators to understand how to react to protocol upgrades. To learn about how upgrades work, read the [concept section](../concepts/governance/upgrades.md).

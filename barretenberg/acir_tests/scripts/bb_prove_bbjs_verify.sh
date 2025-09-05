@@ -22,7 +22,10 @@ $bb prove \
   -b target/program.json \
   -w target/witness.gz \
   -k output-$$/vk \
+<<<<<<< HEAD
   --output_format bytes_and_fields \
+=======
+>>>>>>> origin/merge-train/barretenberg
   -o output-$$
 
 # Verify the proof with bb.js classes

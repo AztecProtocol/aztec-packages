@@ -2,6 +2,7 @@
 title: How to Pay Fees
 tags: [fees, transactions, accounts, cli, contracts]
 sidebar_position: 3
+description: This guide shows you how to pay fees for transactions in Aztec using different payment methods.
 ---
 
 import { Fees, General, CLI_Fees, Gas_Settings, Gas_Settings_Components } from '@site/src/components/Snippets/general_snippets';
@@ -76,11 +77,11 @@ aztec-wallet create-account -a alice --payment method=fee_juice,feePayer=test0
 import { FeeJuicePaymentMethod } from "@aztec/aztec.js";
 
 const paymentMethod = new FeeJuicePaymentMethod(fundedAccount.getAddress());
-await newAccount.deploy({ 
-  fee: { 
-    deployWallet: fundedAccount, 
-    paymentMethod 
-  } 
+await newAccount.deploy({
+  fee: {
+    deployWallet: fundedAccount,
+    paymentMethod
+  }
 }).wait();
 ```
 
@@ -99,7 +100,7 @@ import { L1FeeJuicePortalManager } from "@aztec/aztec.js";
 **CLI:**
 
 ```bash
-aztec-wallet bridge-fee-juice 1000000000000000000 myAccount --mint --no-wait
+aztec-wallet bridge-fee-juice 1000000000000000000000 myAccount --mint --no-wait
 ```
 
 ### Testnet
@@ -113,7 +114,7 @@ cast call $FEE_ASSET_HANDLER_CONTRACT "mint(address)" $MY_L1_ADDRESS --rpc-url <
 Then bridge with CLI:
 
 ```bash
-aztec-wallet bridge-fee-juice 1000000000000000000 myAccount --no-wait \
+aztec-wallet bridge-fee-juice 1000000000000000000000 myAccount --no-wait \
   --l1-rpc-urls https://rpc.sepolia.ethpandaops.io \
   --l1-chain-id 11155111 \
   --l1-private-key <YOUR_L1_PRIVATE_KEY>
@@ -280,4 +281,4 @@ new PrivateFeePaymentMethod(fpcAddress, wallet)
 
 - [Fees on Aztec](../../../aztec/concepts/fees.md)
 - [CLI Wallet Reference](../../reference/environment_reference/cli_wallet_reference.md)
-- [Token Bridge Tutorial](../../tutorials/codealong/js_tutorials/token_bridge.md)
+- [Token Bridge Tutorial](../../tutorials/js_tutorials/token_bridge.md)

@@ -248,7 +248,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         Fq y3_prev;
         bool is_element = false;
 
-        chain_add_accumulator(){};
+        chain_add_accumulator() {};
         explicit chain_add_accumulator(const element& input)
         {
             x3_prev = input.x;
@@ -370,7 +370,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     }
 
     bool_ct is_point_at_infinity() const { return _is_infinity; }
-    void set_point_at_infinity(const bool_ct& is_infinity) { _is_infinity = is_infinity; }
+    void set_point_at_infinity(const bool_ct& is_infinity, const bool& add_to_used_witnesses = false)
+    {
+        _is_infinity = is_infinity.normalize();
+        if (add_to_used_witnesses) {
+            _is_infinity.get_context()->update_used_witnesses(_is_infinity.get_normalized_witness_index());
+        };
+    }
     element get_standard_form() const;
 
     void set_origin_tag(OriginTag tag) const
@@ -424,7 +430,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     static typename NativeGroup::affine_element compute_table_offset_generator();
 
     struct four_bit_table_plookup {
-        four_bit_table_plookup(){};
+        four_bit_table_plookup() {};
         four_bit_table_plookup(const element& input);
 
         four_bit_table_plookup(const four_bit_table_plookup& other) = default;
@@ -441,7 +447,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         enum CurveType { BN254, SECP256K1, SECP256R1 };
         eight_bit_fixed_base_table(const CurveType input_curve_type, bool use_endo)
             : curve_type(input_curve_type)
-            , use_endomorphism(use_endo){};
+            , use_endomorphism(use_endo) {};
 
         eight_bit_fixed_base_table(const eight_bit_fixed_base_table& other) = default;
         eight_bit_fixed_base_table& operator=(const eight_bit_fixed_base_table& other) = default;

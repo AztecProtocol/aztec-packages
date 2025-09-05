@@ -44,6 +44,10 @@ class OracleMethodNotAvailableError extends Error {
  * and are unavailable by default.
  */
 export abstract class TypedOracle {
+  utilityAssertCompatibleOracleVersion(_version: number): void {
+    throw new OracleMethodNotAvailableError('utilityAssertCompatibleOracleVersion');
+  }
+
   utilityGetRandomField(): Fr {
     throw new OracleMethodNotAvailableError('utilityGetRandomField');
   }

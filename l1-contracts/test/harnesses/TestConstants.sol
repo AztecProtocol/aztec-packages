@@ -11,6 +11,7 @@ import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributo
 import {RewardBoostConfig, IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {Configuration, ProposeConfiguration} from "@aztec/governance/interfaces/IGovernance.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
+import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 
 library TestConstants {
   uint256 internal constant ETHEREUM_SLOT_DURATION = 12;
@@ -22,12 +23,17 @@ library TestConstants {
   uint256 internal constant AZTEC_SLASHING_ROUND_SIZE = 10;
   uint256 internal constant AZTEC_SLASHING_LIFETIME_IN_ROUNDS = 5;
   uint256 internal constant AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS = 0;
+  uint256 internal constant AZTEC_SLASHING_OFFSET_IN_ROUNDS = 2;
   address internal constant AZTEC_SLASHING_VETOER = address(0);
+  uint256 internal constant AZTEC_SLASH_AMOUNT_SMALL = 20e18;
+  uint256 internal constant AZTEC_SLASH_AMOUNT_MEDIUM = 40e18;
+  uint256 internal constant AZTEC_SLASH_AMOUNT_LARGE = 60e18;
   uint256 internal constant AZTEC_MANA_TARGET = 100_000_000;
   uint256 internal constant AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN = 4;
   uint256 internal constant AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT = 2;
   uint256 internal constant AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE = 0;
   uint256 internal constant AZTEC_ENTRY_QUEUE_BOOTSTRAP_FLUSH_SIZE = 0;
+  uint256 internal constant AZTEC_ENTRY_QUEUE_MAX_FLUSH_SIZE = 480;
   uint256 internal constant AZTEC_EXIT_DELAY_SECONDS = 2 * 24 * 60 * 60; // 2 days
   EthValue internal constant AZTEC_PROVING_COST_PER_MANA = EthValue.wrap(100);
 
@@ -78,7 +84,8 @@ library TestConstants {
       bootstrapValidatorSetSize: AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE,
       bootstrapFlushSize: AZTEC_ENTRY_QUEUE_BOOTSTRAP_FLUSH_SIZE,
       normalFlushSizeMin: AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN,
-      normalFlushSizeQuotient: AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT
+      normalFlushSizeQuotient: AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT,
+      maxQueueFlushSize: AZTEC_ENTRY_QUEUE_MAX_FLUSH_SIZE
     });
   }
 
@@ -92,6 +99,7 @@ library TestConstants {
       slashingRoundSize: AZTEC_SLASHING_ROUND_SIZE,
       slashingLifetimeInRounds: AZTEC_SLASHING_LIFETIME_IN_ROUNDS,
       slashingExecutionDelayInRounds: AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS,
+      slashingOffsetInRounds: AZTEC_SLASHING_OFFSET_IN_ROUNDS,
       slashingVetoer: AZTEC_SLASHING_VETOER,
       manaTarget: AZTEC_MANA_TARGET,
       exitDelaySeconds: AZTEC_EXIT_DELAY_SECONDS,
@@ -99,7 +107,9 @@ library TestConstants {
       version: 0,
       rewardConfig: getRewardConfig(),
       rewardBoostConfig: getRewardBoostConfig(),
-      stakingQueueConfig: getStakingQueueConfig()
+      stakingQueueConfig: getStakingQueueConfig(),
+      slashAmounts: [AZTEC_SLASH_AMOUNT_SMALL, AZTEC_SLASH_AMOUNT_MEDIUM, AZTEC_SLASH_AMOUNT_LARGE],
+      slasherFlavor: SlasherFlavor.EMPIRE
     });
 
     // For the version we derive it based on the config (with a 0 version)

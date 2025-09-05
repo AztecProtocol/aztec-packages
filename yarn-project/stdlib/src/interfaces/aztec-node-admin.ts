@@ -3,11 +3,12 @@ import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rp
 import { z } from 'zod';
 
 import type { ApiSchemaFor } from '../schemas/schemas.js';
-import { type MonitoredSlashPayload, MonitoredSlashPayloadSchema } from '../slashing/index.js';
+import { type Offense, OffenseSchema, type SlashPayloadRound, SlashPayloadRoundSchema } from '../slashing/index.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
 import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
 import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
 import { type SlasherConfig, SlasherConfigSchema } from './slasher.js';
+import { ValidatorClientConfigSchema, type ValidatorClientFullConfig } from './validator.js';
 
 /**
  * Aztec node admin API.
@@ -43,14 +44,21 @@ export interface AztecNodeAdmin {
   /** Resumes archiver and world state syncing. */
   resumeSync(): Promise<void>;
 
-  /** Returns all monitored payloads by the slasher. */
-  getSlasherMonitoredPayloads(): Promise<MonitoredSlashPayload[]>;
+  /** Returns all monitored payloads by the slasher for the current round. */
+  getSlashPayloads(): Promise<SlashPayloadRound[]>;
+
+  /** Returns all offenses applicable for the given round. */
+  getSlashOffenses(round: bigint | 'all' | 'current'): Promise<Offense[]>;
 }
 
-export type AztecNodeAdminConfig = SequencerConfig & ProverConfig & SlasherConfig & { maxTxPoolSize: number };
+export type AztecNodeAdminConfig = ValidatorClientFullConfig &
+  SequencerConfig &
+  ProverConfig &
+  SlasherConfig & { maxTxPoolSize: number };
 
 export const AztecNodeAdminConfigSchema = SequencerConfigSchema.merge(ProverConfigSchema)
   .merge(SlasherConfigSchema)
+  .merge(ValidatorClientConfigSchema)
   .merge(z.object({ maxTxPoolSize: z.number() }));
 
 export const AztecNodeAdminApiSchema: ApiSchemaFor<AztecNodeAdmin> = {
@@ -60,7 +68,11 @@ export const AztecNodeAdminApiSchema: ApiSchemaFor<AztecNodeAdmin> = {
   rollbackTo: z.function().args(z.number()).returns(z.void()),
   pauseSync: z.function().returns(z.void()),
   resumeSync: z.function().returns(z.void()),
-  getSlasherMonitoredPayloads: z.function().returns(z.array(MonitoredSlashPayloadSchema)),
+  getSlashPayloads: z.function().returns(z.array(SlashPayloadRoundSchema)),
+  getSlashOffenses: z
+    .function()
+    .args(z.union([z.bigint(), z.literal('all'), z.literal('current')]))
+    .returns(z.array(OffenseSchema)),
 };
 
 export function createAztecNodeAdminClient(

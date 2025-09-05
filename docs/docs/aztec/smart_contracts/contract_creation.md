@@ -2,6 +2,7 @@
 title: Contract Deployment
 sidebar_position: 1
 tags: [contracts, protocol]
+description: Learn how contract classes and instances are created and deployed on the Aztec network.
 ---
 
 In the Aztec protocol, contracts are created as _instances_ of contract _classes_. The deployment process consists of two main steps: first publishing the contract _class_ (if not already published), and then creating a contract _instance_ that references this class.
@@ -60,7 +61,7 @@ Aztec makes an important distinction between initialization and public deploymen
 
 ### Initialization
 
-Contract constructors are not enshrined in the protocol, but handled at the application circuit level. Constructors are methods used for initializing a contract, either private or public, and contract classes may declare more than a single constructor. They can be declared by the `#[initializer]` macro. You can read more about how to use them on the [Defining Initializer Functions](../../developers/guides/smart_contracts/writing_contracts/initializers.md) page.
+Contract constructors are not enshrined in the protocol, but handled at the application circuit level. Constructors are methods used for initializing a contract, either private or public, and contract classes may declare more than a single constructor. They can be declared by the `#[initializer]` macro. You can read more about how to use them on the [Defining Initializer Functions](../../developers/guides/smart_contracts/define_functions.md#initializer-functions) page.
 
 A contract must ensure:
 
@@ -83,4 +84,4 @@ This modular approach to contract deployment creates a flexible system that supp
 
 ## Further reading
 
-To see how to deploy a contract in practice, check out the [dapp development tutorial](../../developers/tutorials/codealong/js_tutorials/simple_dapp/index.md).
+To see how to deploy a contract in practice, check out the [dapp development tutorial](../../developers/tutorials/js_tutorials/aztecjs-getting-started.md).

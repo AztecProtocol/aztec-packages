@@ -1,5 +1,6 @@
 ---
 title: How to Participate?
+description: Learn how to participate in the Aztec network as a user, developer, or node operator.
 sidebar_position: 4
 ---
 

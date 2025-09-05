@@ -1,6 +1,7 @@
 ---
 title: Keys
 tags: [accounts, keys]
+description: Understand the key pairs used in Aztec accounts - nullifier keys, address keys, incoming viewing keys, and signing keys - and how they enable privacy and authentication.
 ---
 
 import Image from "@theme/IdealImage";
@@ -105,7 +106,7 @@ When it comes to storing the signing key in a private note, there are several de
 
 #### Using Delayed Public Mutable state
 
-By [Delayed Public Mutable](../../../developers/reference/smart_contract_reference/storage/delayed_public_mutable.md#delayedpublicmutable) we mean privately readable publicly mutable state.
+By [Delayed Public Mutable](../../../developers/guides/smart_contracts/storage_types.md#delayed-public-mutable) we mean privately readable publicly mutable state.
 
 To make public state accessible privately, there is a delay window in public state updates. One needs this window to be able to generate proofs client-side. This approach would not generate additional nullifiers and commitments for each transaction while allowing the user to rotate their key. However, this causes every transaction to now have a time-to-live determined by the frequency of the delayed mutable state, as well as imposing restrictions on how fast keys can be rotated due to minimum delays.
 

@@ -39,7 +39,7 @@ describe('prover/orchestrator/public-functions', () => {
 
       // Since this TX is mocked/garbage, it will revert because it calls a non-existent contract,
       // but it reverts in app logic so it can still be included.
-      const [processed, _] = await context.processPublicFunctions([tx], 1);
+      const [processed, _] = await context.processPublicFunctions([tx]);
       const blobs = await Blob.getBlobsPerBlock(processed.map(tx => tx.txEffect.toBlobFields()).flat());
       const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
 
@@ -50,7 +50,7 @@ describe('prover/orchestrator/public-functions', () => {
       await context.orchestrator.addTxs(processed);
 
       const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
-      await context.orchestrator.finaliseEpoch();
+      await context.orchestrator.finalizeEpoch();
       expect(block.number).toEqual(context.blockNumber);
     });
 
@@ -66,7 +66,7 @@ describe('prover/orchestrator/public-functions', () => {
       tx.data.constants.vkTreeRoot = getVKTreeRoot();
       tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
 
-      const [processed, _] = await context.processPublicFunctions([tx], 1);
+      const [processed, _] = await context.processPublicFunctions([tx]);
       const blobs = await Blob.getBlobsPerBlock(processed.map(tx => tx.txEffect.toBlobFields()).flat());
       const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
       context.orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);

@@ -8,6 +8,8 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/decider_verification_key.hpp"
+#include <algorithm>
+#include <ranges>
 
 namespace bb {
 
@@ -92,6 +94,16 @@ template <IsUltraOrMegaHonk Flavor_, size_t NUM_ = 2> struct DeciderProvingKeys_
         return results;
     }
 
+    /**
+     * @brief Get the maximum dyadic circuit size among all decider proving keys
+     * @return The maximum dyadic size
+     */
+    size_t get_max_dyadic_size() const
+    {
+        return std::ranges::max(
+            _data | std::views::transform([](const auto& dpk) { return dpk != nullptr ? dpk->dyadic_size() : 0; }));
+    }
+
   private:
     // Returns a vector containing pointer views to the prover polynomials corresponding to each proving key.
     auto get_polynomials_views() const
@@ -130,20 +142,6 @@ template <IsUltraOrMegaHonk Flavor_, size_t NUM_ = 2> struct DeciderVerification
             _data[idx] = std::move(data[idx]);
         }
     };
-
-    /**
-     * @brief Get the max log circuit size from the set of decider verification keys
-     *
-     * @return size_t
-     */
-    size_t get_max_log_circuit_size() const
-    {
-        size_t max_log_circuit_size{ 0 };
-        for (auto key : _data) {
-            max_log_circuit_size = std::max(max_log_circuit_size, static_cast<size_t>(key->vk->log_circuit_size));
-        }
-        return max_log_circuit_size;
-    }
 
     /**
      * @brief Get the precomputed commitments grouped by commitment index

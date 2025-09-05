@@ -1,5 +1,6 @@
 mod config;
 mod order;
+mod test;
 
 use aztec::macros::aztec;
 
@@ -33,7 +34,7 @@ use aztec::macros::aztec;
 pub contract Orderbook {
     use crate::{config::Config, order::Order};
     use aztec::{
-        event::event_interface::emit_event_in_public_log,
+        event::event_interface::emit_event_in_public,
         macros::{
             events::event,
             functions::{initializer, internal, private, public, utility},
@@ -97,7 +98,7 @@ pub contract Orderbook {
         let maker_partial_note =
             Token::at(ask_token).prepare_private_balance_increase(maker).call(&mut context);
 
-        // We use the partial note's as the order ID. Because partial notes emit a nullifier when created they are
+        // We use the partial note as the order ID. Because partial notes emit a nullifier when created they are
         // unique, and so this guarantees that our order IDs are also unique without having to keep track of past
         // ones.
         let order_id = maker_partial_note.to_field();
@@ -115,7 +116,7 @@ pub contract Orderbook {
         // unique.
         storage.orders.at(order_id).initialize(order);
 
-        emit_event_in_public_log(OrderCreated { order_id }, &mut context);
+        emit_event_in_public(OrderCreated { order_id }, &mut context);
     }
 
     /// Privately fulfills an existing order in the orderbook
@@ -172,7 +173,7 @@ pub contract Orderbook {
             &mut context,
         );
 
-        emit_event_in_public_log(OrderFulfilled { order_id }, &mut context);
+        emit_event_in_public(OrderFulfilled { order_id }, &mut context);
     }
 
     /// Returns the order and whether it has been fulfilled.

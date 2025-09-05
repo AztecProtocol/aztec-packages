@@ -1,5 +1,6 @@
 ---
 title: Note Discovery
+description: Understand how Aztec's note tagging system allows users to efficiently discover and decrypt notes that belong to them without relying on brute force or off-chain communication.
 tags: [storage, concepts, advanced, notes]
 sidebar_position: 3
 ---

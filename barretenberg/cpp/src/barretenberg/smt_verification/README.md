@@ -8,15 +8,13 @@ Then just build with `smt-verification` preset.
 
 ## 1. Setting variable names during circuit creation and exporting the circuit.
 
-### There're four new methods inside Standard and Ultra CircuitBuilders
+### There're four new methods inside the CircuitBuilder
 
 - ```set_variable_name(u32 index, str name)``` - assignes a name to a variable. Specifically, binds a name with the first index of an equivalence class.
 
 **!NOTE that somtimes you may encounter variables that are set to be `assert_equal` to `zero`. Their name will be erased no matter what first variable in class says.**
 
 - ```update_variable_names(u32 idx)``` - in case you've called ```assert_equal``` and ```update_real_variable_indices``` somewhere and you know that two or more variables from the equivalence class have separate names, call this method. Idx is the index of one of the variables of this class. The name of the first variable in class will remain.
-
-- ```finalize_variable_names()``` - in case you don't want to mess with previous method, this one finds all the collisions and removes them.
 
 - ```export_circuit()``` - exports all variables, gates, and assigned names to an msgpack-compatible buffer namely `msgpack::sbuffer`.
 
@@ -118,19 +116,16 @@ To store it on the disk just do the following
 
     Now we can create symbolic circuit
 
-    - ```smt_circuit::StandardCircuit circuit(CircuitSchema c_info, Solver* s, TermType type, str tag="", bool optimizations=true)```
     - ```smt_circuit::UltraCircuit circuit(CircuitSchema c_info, Solver* s, TermType type, str tag="", bool optimizations=true)```
 
 	It will generate all the symbolic values of the circuit wires, add all the gate constrains, create a map `term_name->STerm` and the inverse of it. Where `term_name` is the name you provided earlier.
 
     In case you want to create two similar circuits with the same `solver` and `schema`, then you should specify the `tag`(name) of a circuit.
 
-    **Advanced** If you don't want the circuit optimizations to be applied then you should set `optimizations` to `false`. Optimizations interchange the complex circuits like bitwise XOR with simple XOR operation. More on optimizations can be found [standard_circuit.cpp](circuit/standard_circuit.cpp)
+    **Advanced** If you don't want the circuit optimizations to be applied then you should set `optimizations` to `false`. Optimizations interchange the complex circuits like bitwise XOR with simple XOR operation. More on optimizations can be found [ultra_circuit.cpp](circuit/ultra_circuit.cpp)
 
 
     After the symbolic circuit is initialized, you can get the previously named variables via `circuit[name]` or any other variable by `circuit[idx]`.
-
-    There is a method `Circuit::simulate_circuit_eval(vector<fr> w)`. It checks that the evaluation process is correct for this particular witness. (Only in Standard for now).
 
 4. Terms creation
 
@@ -287,17 +282,15 @@ You can then import the saved witness using one of the following functions:
 - `vec<fr> import_witness_single(str fname)`
 
 ## 4. Automated verification of a unique witness
-There's a static member of `StandardCircuit` and `UltraCircuit`
+There's a static member in `UltraCircuit`
 
-- `pair<StandardCircuit, StandardCircuit> StandardCircuit::unique_wintes(CircuitSchema circuit_info, Solver*, TermType type, vector<str> equal, bool optimizations)`
 - `pair<UltraCircuit, UltraCircuit> UltraCircuit::unique_wintes(CircuitSchema circuit_info, Solver*, TermType type, vector<str> equal, bool optimizations)`
 
 They will create two separate circuits, constrain variables with names from `equal` to be equal acrosss the circuits, and set all the other variables to be not equal at the same time.
 
 Another one is
 
-- `pair<StandardCircuit, StandardCircuit> StandardCircuit::unique_witness_ext(CircuitSchema circuit_info, Solver* s, TermType type, vector<str> equal_variables, vector<str> nequal_variables, vector<str> at_least_one_equal_variable, vector<str> at_least_one_nequal_variable)` that does the same but provides you with more flexible settings.
-- Same in `UltraCircuit`
+- `pair<UltraCircuit, UltraCircuit> UltraCircuit::unique_witness_ext(CircuitSchema circuit_info, Solver* s, TermType type, vector<str> equal_variables, vector<str> nequal_variables, vector<str> at_least_one_equal_variable, vector<str> at_least_one_nequal_variable)` that does the same but provides you with more flexible settings.
 
 The return circuits can be useful, if you want to define some additional constraints, that are not covered by the above functions.
 You can call `s.check`, `s.model`, `smt_timer` or `default_model` further.
@@ -351,9 +344,7 @@ Avalaible test suits in `smt_verification_tests`:
 - `SymbolicSet*`
 ---
 
-- `Subcircuits*`
-- `Standard_circuit*`
-- `Ultra_circuit*`
+- `UltraCircuitSMT*`
 ---
 
 - `SMT_Example*`
@@ -363,7 +354,7 @@ Avalaible test suits in `smt_verification_tests`:
 
 ### Function Equality
 ```cpp
-    StandardCircuitBuilder builder = StandardCircuitBuilder();
+    UltraCircuitBuilder builder;
 
     field_t a(witness_t(&builder, fr::random_element()));
     field_t b(witness_t(&builder, fr::random_element()));
@@ -378,7 +369,7 @@ Avalaible test suits in `smt_verification_tests`:
 
     smt_circuit::CircuitSchema circuit_info = smt_circuit::unpack_from_buffer(buf);
     smt_solver::Solver s(circuit_info.modulus);
-    smt_circuit::StandardCircuit circuit(circuit_info, &s, smt_terms::TermType::FFTerm);
+    smt_circuit::UltraCircuit circuit(circuit_info, &s, smt_terms::TermType::FFTerm);
     smt_terms::STerm a1 = circuit["a"];
     smt_terms::STerm b1 = circuit["b"];
     smt_terms::STerm c1 = circuit["c"];
@@ -393,7 +384,7 @@ Avalaible test suits in `smt_verification_tests`:
 ```
 ### Function Equality with mistake
 ```cpp
-    StandardCircuitBuilder builder = StandardCircuitBuilder();
+    UltraCircuitBuilder builder;
 
     field_t a(witness_t(&builder, fr::random_element()));
     field_t b(witness_t(&builder, fr::random_element()));
@@ -408,7 +399,7 @@ Avalaible test suits in `smt_verification_tests`:
 
     smt_circuit::CircuitSchema circuit_info = smt_circuit::unpack_from_buffer(buf);
     smt_solver::Solver s(circuit_info.modulus);
-    smt_circuit::StandardCircuit circuit(circuit_info, &s, smt_terms::TermType::FFTerm);
+    smt_circuit::UltraCircuit circuit(circuit_info, &s, smt_terms::TermType::FFTerm);
 
     smt_terms::STerm a1 = circuit["a"];
     smt_terms::STerm b1 = circuit["b"];
@@ -438,7 +429,7 @@ Avalaible test suits in `smt_verification_tests`:
     // witness using unique_witness_ext function
     // Find both roots of a quadratic equation x^2 + a * x + b = s
 
-    StandardCircuitBuilder builder = StandardCircuitBuilder();
+    UltraCircuitBuilder builder;
 
     field_t a(pub_witness_t(&builder, fr::random_element()));
     field_t b(pub_witness_t(&builder, fr::random_element()));
@@ -455,7 +446,7 @@ Avalaible test suits in `smt_verification_tests`:
     smt_solver::Solver s(circuit_info.modulus);
 
     auto cirs =
-        smt_circuit::StandardCircuit::unique_witness_ext(circuit_info, &s, smt_terms::TermType::FFTerm, { "ev" }, { "z" });
+        smt_circuit::UltraCircuit::unique_witness_ext(circuit_info, &s, smt_terms::TermType::FFTerm, { "ev" }, { "z" });
 
     bool res = s.check();
     ASSERT_TRUE(res);
@@ -490,6 +481,6 @@ More examples can be found in
 - [terms/ffterm.test.cpp](terms/ffterm.test.cpp), [terms/ffiterm.test.cpp](terms/ffiterm.test.cpp), [terms/bvterm.test.cpp](terms/bvterm.test.cpp), [terms/iterm.test.cpp](terms/iterm.test.cpp)
 - [terms/bool.test.cpp](terms/bool.test.cpp)
 - [terms/data_types.test.cpp]
-- [circuit/standard_circuit.test.cpp](circuit/standard_circuit.test.cpp), [circuit/ultra_circuit](circuit/ultra_circuit.test.cpp)
+- [circuit/ultra_circuit](circuit/ultra_circuit.test.cpp)
 - [smt_polynomials.test.cpp](smt_polynomials.test.cpp), [smt_examples.test.cpp](smt_examples.test.cpp)
 - [bb_tests](bb_tests)

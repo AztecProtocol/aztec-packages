@@ -42,7 +42,6 @@ template <typename FF> void MegaCircuitBuilder_<FF>::add_mega_gates_to_ensure_al
 {
     // Add a single default value to all databus columns. Note: This value must be equal across all columns in order for
     // inter-circuit databus commitment checks to pass in IVC settings.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1138): Consider default value.
 
     // Create an arbitrary calldata read gate
     add_public_calldata(this->add_variable(BusVector::DEFAULT_VALUE));    // add one entry in calldata

@@ -13,6 +13,7 @@
 #include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/common/constants.hpp"
 
 namespace bb::avm2 {
 
@@ -32,11 +33,10 @@ AvmRecursiveVerifier::AvmRecursiveVerifier(Builder& builder, const std::shared_p
 AvmRecursiveVerifier::FF AvmRecursiveVerifier::evaluate_public_input_column(const std::vector<FF>& points,
                                                                             const std::vector<FF>& challenges)
 {
-    size_t circuit_size = 1 << static_cast<uint32_t>(key->log_circuit_size.get_value());
     auto coefficients = SharedShiftedVirtualZeroesArray<FF>{
         .start_ = 0,
         .end_ = points.size(),
-        .virtual_size_ = circuit_size,
+        .virtual_size_ = MAX_AVM_TRACE_SIZE,
         .backing_memory_ = BackingMemory<FF>::allocate(points.size()),
     };
 
@@ -83,21 +83,43 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     // TODO(#14234)[Unconditional PIs validation]: Remove the next 3 lines
     StdlibProof stdlib_proof = stdlib_proof_with_pi_flag;
     bool_t<Builder> pi_validation = !bool_t<Builder>(stdlib_proof.at(0));
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/16716) Origin Tag security mechanism is screaming
+    // that there is a free witness affecting proof verificaton. Because it is and this bool allows completely disabling
+    // public input logic. So this has to be removed in the future.
+    pi_validation.unset_free_witness_tag();
     stdlib_proof.erase(stdlib_proof.begin());
 
     if (public_inputs.size() != AVM_NUM_PUBLIC_INPUT_COLUMNS) {
         throw_or_abort("AvmRecursiveVerifier::verify_proof: public inputs size mismatch");
+    }
+    for (const auto& public_input : public_inputs) {
+        if (public_input.size() != AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH) {
+            throw_or_abort("AvmRecursiveVerifier::verify_proof: public input size mismatch");
+        }
     }
 
     transcript->load_proof(stdlib_proof);
 
     // TODO(#15892): Fiat-Shamir the vk hash by uncommenting the add_to_hash_buffer.
     // transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/16716) For now we are unsetting the free witness tags
+    // to stop triggering the Origin Tag security mechanism, but the problem is that the VK is not hashed.
+    for (auto& comm : key->get_all()) {
+        comm.unset_free_witness_tag();
+    }
+
     info("AVM vk hash in recursive verifier: ", vk_hash);
 
     RelationParams relation_parameters;
     VerifierCommitments commitments{ key };
 
+    // Add public inputs to transcript
+    for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
+        for (size_t j = 0; j < public_inputs[i].size(); j++) {
+            transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
+                                           public_inputs[i][j]);
+        }
+    }
     // Get commitments to VM wires
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitments.get_wires_labels())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
@@ -112,29 +134,24 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
         commitment = transcript->template receive_from_prover<Commitment>(label);
     }
 
-    // unconstrained
-    const size_t log_circuit_size = static_cast<uint32_t>(key->log_circuit_size.get_value());
-    const auto padding_indicator_array =
-        stdlib::compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(FF(log_circuit_size));
+    FF one{ 1 };
+    one.convert_constant_to_fixed_witness(&builder);
+
+    std::vector<FF> padding_indicator_array(key->log_fixed_circuit_size);
+    std::ranges::fill(padding_indicator_array, one);
 
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    SumcheckVerifier<Flavor> sumcheck(transcript, alpha, CONST_PROOF_SIZE_LOG_N);
+    SumcheckVerifier<Flavor> sumcheck(transcript, alpha, key->log_fixed_circuit_size);
 
-    auto gate_challenges = std::vector<FF>(log_circuit_size);
-    for (size_t idx = 0; idx < log_circuit_size; idx++) {
-        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-    }
+    std::vector<FF> gate_challenges =
+        transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", key->log_fixed_circuit_size);
 
     // No need to constrain that sumcheck_verified is true as this is guaranteed by the implementation of
     // when called over a "circuit field" types.
     SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
     vinfo("verified sumcheck: ", (output.verified));
-
-    // Public columns evaluation checks
-    std::vector<FF> mle_challenge(output.challenge.begin(),
-                                  output.challenge.begin() + static_cast<int>(log_circuit_size));
 
     std::array<FF, AVM_NUM_PUBLIC_INPUT_COLUMNS> claimed_evaluations = {
         output.claimed_evaluations.public_inputs_cols_0_,
@@ -146,7 +163,7 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     // TODO(#14234)[Unconditional PIs validation]: Inside of loop, replace pi_validation.must_imply() by
     // public_input_evaluation.assert_equal(claimed_evaluations[i]
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
-        FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], mle_challenge);
+        FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], output.challenge);
         vinfo("public_input_evaluation failed, public inputs col ", i);
         pi_validation.must_imply(public_input_evaluation == claimed_evaluations[i], "public_input_evaluation failed");
     }

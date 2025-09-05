@@ -31,7 +31,10 @@ describe('prover/bb_prover/full-rollup', () => {
       return prover;
     };
     log = createLogger('prover-client:test:bb-prover-full-rollup');
-    context = await TestContext.new(log, 1, FAKE_PROOFS ? undefined : buildProver);
+    context = await TestContext.new(log, {
+      proverCount: 1,
+      createProver: FAKE_PROOFS ? undefined : buildProver,
+    });
     previousBlockHeader = context.getPreviousBlockHeader();
   });
 
@@ -61,7 +64,7 @@ describe('prover/bb_prover/full-rollup', () => {
         });
 
         log.info(`Processing public functions`);
-        const [processed, failed] = await context.processPublicFunctions(txs, nonEmptyTxs);
+        const [processed, failed] = await context.processPublicFunctions(txs);
         expect(processed.length).toBe(nonEmptyTxs);
         expect(failed.length).toBe(0);
         processedTxs[blockNum] = processed;
@@ -91,7 +94,7 @@ describe('prover/bb_prover/full-rollup', () => {
       }
 
       log.info(`Awaiting proofs`);
-      const epochResult = await context.orchestrator.finaliseEpoch();
+      const epochResult = await context.orchestrator.finalizeEpoch();
 
       if (prover) {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13188): Handle the pairing point object without these hacks.
@@ -129,7 +132,7 @@ describe('prover/bb_prover/full-rollup', () => {
       Fr.random,
     );
 
-    const [processed, failed] = await context.processPublicFunctions(txs, numTransactions);
+    const [processed, failed] = await context.processPublicFunctions(txs);
 
     expect(processed.length).toBe(numTransactions);
     expect(failed.length).toBe(0);
@@ -145,7 +148,7 @@ describe('prover/bb_prover/full-rollup', () => {
 
     await context.orchestrator.setBlockCompleted(context.blockNumber);
 
-    const result = await context.orchestrator.finaliseEpoch();
+    const result = await context.orchestrator.finalizeEpoch();
     if (prover) {
       await expect(prover.verifyProof('RootRollupArtifact', result.proof)).resolves.not.toThrow();
     }

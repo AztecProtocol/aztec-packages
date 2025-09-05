@@ -15,7 +15,7 @@ pub contract SimpleToken {
     use dep::aztec::{
         authwit::auth::compute_authwit_nullifier,
         context::{PrivateCallInterface, PrivateContext, PublicContext},
-        event::event_interface::{emit_event_in_private_log, PrivateLogContent},
+        event::event_interface::{emit_event_in_private, MessageDelivery},
         macros::{
             events::event,
             functions::{authorize_once, initializer, internal, private, public, utility, view},
@@ -153,11 +153,11 @@ pub contract SimpleToken {
             to,
         ));
 
-        emit_event_in_private_log(
+        emit_event_in_private(
             Transfer { from, to, amount },
             &mut context,
             to,
-            PrivateLogContent.NO_CONSTRAINTS,
+            MessageDelivery.UNCONSTRAINED_ONCHAIN,
         );
     }
 
@@ -321,6 +321,7 @@ pub contract SimpleToken {
         context.push_nullifier(nullifier);
     }
 
+    // docs:start:subtract_balance
     #[contract_library_method]
     fn subtract_balance(
         context: &mut PrivateContext,
@@ -338,6 +339,7 @@ pub contract SimpleToken {
             compute_recurse_subtract_balance_call(*context, account, remaining).call(context)
         }
     }
+    // docs:end:subtract_balance
 
     #[no_predicates]
     #[contract_library_method]

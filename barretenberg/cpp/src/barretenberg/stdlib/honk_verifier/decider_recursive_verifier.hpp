@@ -31,7 +31,7 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
   public:
     explicit DeciderRecursiveVerifier_(Builder* builder, std::shared_ptr<NativeDeciderVK> accumulator)
         : builder(builder)
-        , accumulator(std::make_shared<RecursiveDeciderVK>(builder, accumulator)){};
+        , accumulator(std::make_shared<RecursiveDeciderVK>(builder, accumulator)) {};
 
     /**
      * @brief Construct a decider recursive verifier directly from a stdlib accumulator, returned by a prior iteration
@@ -42,8 +42,11 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
      * @param builder
      * @param accumulator
      */
-    explicit DeciderRecursiveVerifier_(Builder* builder, std::shared_ptr<RecursiveDeciderVK> accumulator)
+    explicit DeciderRecursiveVerifier_(Builder* builder,
+                                       std::shared_ptr<RecursiveDeciderVK> accumulator,
+                                       const std::shared_ptr<Transcript>& transcript)
         : builder(builder)
+        , transcript(transcript)
     {
         if (this->builder == accumulator->builder) {
             this->accumulator = std::move(accumulator);

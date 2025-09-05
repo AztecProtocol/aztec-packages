@@ -26,7 +26,7 @@ import type { BlobSinkServer } from '@aztec/blob-sink/server';
 import type { DeployL1ContractsReturnType } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { SecretValue } from '@aztec/foundation/config';
-import { TestERC20Abi } from '@aztec/l1-artifacts';
+import { FeeAssetHandlerAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import type { PXEService } from '@aztec/pxe/server';
@@ -289,17 +289,17 @@ export class FullProverTest {
     this.proverAddress = EthAddress.fromString(proverNodeSenderAddress);
 
     this.logger.verbose(`Funding prover node at ${proverNodeSenderAddress}`);
-    await this.mintL1ERC20(proverNodeSenderAddress, 100_000_000n);
+    await this.mintFeeJuice(proverNodeSenderAddress);
 
     this.logger.verbose('Starting prover node');
     const proverConfig: ProverNodeConfig = {
       ...this.context.aztecNodeConfig,
       txCollectionNodeRpcUrls: [],
       dataDirectory: undefined,
-      proverId: this.proverAddress.toField(),
+      proverId: this.proverAddress,
       realProofs: this.realProofs,
       proverAgentCount: 2,
-      publisherPrivateKey: new SecretValue(`0x${proverNodePrivateKey!.toString('hex')}` as const),
+      publisherPrivateKeys: [new SecretValue(`0x${proverNodePrivateKey!.toString('hex')}` as const)],
       proverNodeMaxPendingJobs: 100,
       proverNodeMaxParallelBlocksPerEpoch: 32,
       proverNodePollingIntervalMs: 100,
@@ -328,11 +328,12 @@ export class FullProverTest {
     return this;
   }
 
-  private async mintL1ERC20(recipient: Hex, amount: bigint) {
-    const erc20Address = this.context.deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress;
+  private async mintFeeJuice(recipient: Hex) {
+    const handlerAddress = this.context.deployL1ContractsValues.l1ContractAddresses.feeAssetHandlerAddress!;
+    this.logger.verbose(`Minting fee juice to ${recipient} using handler at ${handlerAddress}`);
     const client = this.context.deployL1ContractsValues.l1Client;
-    const erc20 = getContract({ abi: TestERC20Abi, address: erc20Address.toString(), client });
-    const hash = await erc20.write.mint([recipient, amount]);
+    const handler = getContract({ abi: FeeAssetHandlerAbi, address: handlerAddress.toString(), client });
+    const hash = await handler.write.mint([recipient]);
     await this.context.deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash });
   }
 

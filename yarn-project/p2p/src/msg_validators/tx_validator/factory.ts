@@ -20,6 +20,7 @@ import { DoubleSpendTxValidator } from './double_spend_validator.js';
 import { GasTxValidator } from './gas_validator.js';
 import { MetadataTxValidator } from './metadata_validator.js';
 import { PhasesTxValidator } from './phases_validator.js';
+import { TxPermittedValidator } from './tx_permitted_validator.js';
 import { TxProofValidator } from './tx_proof_validator.js';
 
 export interface MessageValidator {
@@ -39,12 +40,17 @@ export function createTxMessageValidators(
   protocolContractTreeRoot: Fr,
   contractDataSource: ContractDataSource,
   proofVerifier: ClientProtocolCircuitVerifier,
+  txsPermitted: boolean,
   allowedInSetup: AllowedElement[] = [],
 ): Record<string, MessageValidator>[] {
   const merkleTree = worldStateSynchronizer.getCommitted();
 
   return [
     {
+      txsPermittedValidator: {
+        validator: new TxPermittedValidator(txsPermitted),
+        severity: PeerErrorSeverity.MidToleranceError,
+      },
       dataValidator: {
         validator: new DataTxValidator(),
         severity: PeerErrorSeverity.HighToleranceError,

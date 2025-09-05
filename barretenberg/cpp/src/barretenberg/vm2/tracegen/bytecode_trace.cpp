@@ -42,11 +42,8 @@ void BytecodeTraceBuilder::process_decomposition(
         for (uint32_t i = 0; i < bytecode_len; i++) {
             const uint32_t remaining = bytecode_len - i;
             const uint32_t bytes_to_read = std::min(remaining, DECOMPOSE_WINDOW_SIZE);
-            const uint32_t abs_diff = DECOMPOSE_WINDOW_SIZE > remaining ? DECOMPOSE_WINDOW_SIZE - remaining
-                                                                        : remaining - DECOMPOSE_WINDOW_SIZE;
             const bool is_last = remaining == 1;
-            const uint16_t abs_diff_lo = static_cast<uint16_t>(abs_diff);
-            const uint8_t abs_diff_hi = static_cast<uint8_t>(abs_diff >> 16);
+            const bool is_windows_eq_remaining = remaining == DECOMPOSE_WINDOW_SIZE;
 
             // Check that we still expect the max public bytecode in bytes to fit within 24 bits (i.e. <= 0xffffff).
             static_assert(MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS * 32 <= 0xffffff);
@@ -62,11 +59,11 @@ void BytecodeTraceBuilder::process_decomposition(
                     { C::bc_decomposition_bytes_remaining, remaining },
                     { C::bc_decomposition_bytes_rem_inv, FF(remaining).invert() }, // remaining != 0 for activated rows
                     { C::bc_decomposition_bytes_rem_min_one_inv, is_last ? 0 : FF(remaining - 1).invert() },
-                    { C::bc_decomposition_abs_diff, abs_diff },
-                    { C::bc_decomposition_abs_diff_lo, abs_diff_lo },
-                    { C::bc_decomposition_abs_diff_hi, abs_diff_hi },
                     { C::bc_decomposition_bytes_to_read, bytes_to_read },
-                    { C::bc_decomposition_sel_overflow_correction_needed, remaining < DECOMPOSE_WINDOW_SIZE ? 1 : 0 },
+                    { C::bc_decomposition_sel_windows_gt_remaining, DECOMPOSE_WINDOW_SIZE > remaining ? 1 : 0 },
+                    { C::bc_decomposition_windows_min_remaining_inv,
+                      is_windows_eq_remaining ? 0 : (FF(DECOMPOSE_WINDOW_SIZE) - FF(remaining)).invert() },
+                    { C::bc_decomposition_is_windows_eq_remaining, is_windows_eq_remaining ? 1 : 0 },
                     // Sliding window.
                     { C::bc_decomposition_bytes, bytecode_at(i) },
                     { C::bc_decomposition_bytes_pc_plus_1, bytecode_at(i + 1) },
@@ -173,28 +170,48 @@ void BytecodeTraceBuilder::process_retrieval(
 
     uint32_t row = 1;
     for (const auto& event : events) {
-        trace.set(row,
-                  { {
-                      { C::bc_retrieval_sel, 1 },
-                      { C::bc_retrieval_bytecode_id, event.bytecode_id },
-                      { C::bc_retrieval_address, event.address },
-                      { C::bc_retrieval_error, event.error ? 1 : 0 },
+        uint64_t remaining_bytecodes = MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS +
+                                       AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE -
+                                       event.retrieved_bytecodes_snapshot_before.nextAvailableLeafIndex;
+        bool error = event.instance_not_found_error || event.limit_error;
+        trace.set(
+            row,
+            { {
+                { C::bc_retrieval_sel, 1 },
+                { C::bc_retrieval_bytecode_id, event.bytecode_id },
+                { C::bc_retrieval_address, event.address },
+                { C::bc_retrieval_error, error },
 
-                      // Contract instance members (for lookup into contract_instance_retrieval)
-                      { C::bc_retrieval_current_class_id, event.current_class_id },
+                // Contract instance members (for lookup into contract_instance_retrieval)
+                { C::bc_retrieval_current_class_id, event.current_class_id },
 
-                      // Tree context (for lookup into contract_instance_retrieval)
-                      { C::bc_retrieval_public_data_tree_root, event.public_data_tree_root },
-                      { C::bc_retrieval_nullifier_tree_root, event.nullifier_root },
+                // Tree context (for lookup into contract_instance_retrieval)
+                { C::bc_retrieval_public_data_tree_root, event.public_data_tree_root },
+                { C::bc_retrieval_nullifier_tree_root, event.nullifier_root },
 
-                      // Instance existence determined by shared contract instance retrieval
-                      { C::bc_retrieval_instance_exists, event.error ? 0 : 1 },
+                // Retrieved bytecodes tree state
+                { C::bc_retrieval_prev_retrieved_bytecodes_tree_root, event.retrieved_bytecodes_snapshot_before.root },
+                { C::bc_retrieval_prev_retrieved_bytecodes_tree_size,
+                  event.retrieved_bytecodes_snapshot_before.nextAvailableLeafIndex },
+                { C::bc_retrieval_next_retrieved_bytecodes_tree_root, event.retrieved_bytecodes_snapshot_after.root },
+                { C::bc_retrieval_next_retrieved_bytecodes_tree_size,
+                  event.retrieved_bytecodes_snapshot_after.nextAvailableLeafIndex },
 
-                      // Contract class for bytecode operations
-                      { C::bc_retrieval_artifact_hash, event.contract_class.artifact_hash },
-                      { C::bc_retrieval_private_function_root, event.contract_class.private_function_root },
+                // Instance existence determined by shared contract instance retrieval
+                { C::bc_retrieval_instance_exists, !event.instance_not_found_error },
 
-                  } });
+                // Limit handling
+                { C::bc_retrieval_no_remaining_bytecodes, remaining_bytecodes == 0 },
+                { C::bc_retrieval_remaining_bytecodes_inv,
+                  remaining_bytecodes == 0 ? 0 : FF(remaining_bytecodes).invert() },
+                { C::bc_retrieval_is_new_class, event.is_new_class },
+                { C::bc_retrieval_should_retrieve, !error },
+
+                // Contract class for bytecode operations
+                { C::bc_retrieval_artifact_hash, event.contract_class.artifact_hash },
+                { C::bc_retrieval_private_function_root, event.contract_class.private_function_root },
+
+            } });
         row++;
     }
 }
@@ -379,12 +396,12 @@ const InteractionDefinition BytecodeTraceBuilder::interactions =
         // .add<lookup_bc_hashing_poseidon2_hash_settings, InteractionType::LookupSequential>()
         // Bytecode Retrieval
         // .add<lookup_bc_retrieval_bytecode_hash_is_correct_settings, InteractionType::LookupSequential>()
-        .add<lookup_bc_retrieval_class_id_derivation_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_retrieval_class_id_derivation_settings, InteractionType::LookupGeneric>()
         .add<lookup_bc_retrieval_contract_instance_retrieval_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_retrieval_is_new_class_check_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_retrieval_retrieved_bytecodes_insertion_settings, InteractionType::LookupSequential>()
         // Bytecode Decomposition
         .add<lookup_bc_decomposition_bytes_are_bytes_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_bc_decomposition_abs_diff_lo_is_u16_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_bc_decomposition_abs_diff_hi_is_u8_settings, InteractionType::LookupIntoIndexedByClk>()
         // Instruction Fetching
         .add<lookup_instr_fetching_bytes_from_bc_dec_settings, InteractionType::LookupGeneric>()
         .add<lookup_instr_fetching_bytecode_size_from_bc_dec_settings, InteractionType::LookupGeneric>()

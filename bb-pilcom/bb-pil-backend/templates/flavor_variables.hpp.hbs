@@ -8,6 +8,13 @@
 #include "relations/{{r}}.hpp"
 {{/each}}
 
+{{#each optimized_relations_file_names as |o|}}
+{{#if @first}} {{!-- If an optimized relation exists --}}
+// Optimized Relations
+{{/if}}
+#include "barretenberg/vm2/optimized/relations/{{o}}.hpp"
+{{/each}}
+
 // Lookup and permutation relations
 {{#each lookup_and_perm_file_names as |file_name|}}
 #include "relations/{{file_name}}"
@@ -25,8 +32,16 @@ struct AvmFlavorVariables {
     // Need to be templated for recursive verifier
     template <typename FF_>
     using MainRelations_ = flat_tuple::tuple<
+    {{!-- It's easier to handle the optimized relations first --}}
+    {{#each optimized_relations_file_names as |item|}}
+      {{#if @first}} {{!-- If an optimized relation exists --}}
+      // Optimized Relations
+      {{/if}}
+      {{snakeCase ../name}}::optimized_{{item}}<FF_>,
+    {{/each}}
+    {{!-- Standard Generated Relations --}}
       // Relations
-      {{#each relation_file_names as |item|}}{{#if @index}},{{/if}}{{snakeCase ../name}}::{{item}}<FF_>{{/each}}
+    {{#each relation_file_names as |item|}}{{snakeCase ../name}}::{{item}}<FF_>{{#unless @last}}, {{/unless}}{{/each}}
     >;
 
     // Need to be templated for recursive verifier

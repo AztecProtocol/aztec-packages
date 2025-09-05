@@ -1,5 +1,6 @@
 ---
 title: ACIR Simulator
+description: Learn about the ACIR Simulator that handles the execution and simulation of Aztec smart contract functions, including private, public, and utility functions.
 ---
 
 The ACIR Simulator is responsible for simulation Aztec smart contract function execution. This component helps with correct execution of Aztec transactions.

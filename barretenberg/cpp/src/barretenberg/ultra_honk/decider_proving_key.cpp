@@ -38,7 +38,7 @@ template <IsUltraOrMegaHonk Flavor> size_t DeciderProvingKey_<Flavor>::compute_d
 
 template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_wires()
 {
-    PROFILE_THIS_NAME("allocate_wires");
+    BB_BENCH_NAME("allocate_wires");
 
     for (auto& wire : polynomials.get_wires()) {
         wire = Polynomial::shiftable(dyadic_size());
@@ -47,7 +47,7 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_wi
 
 template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_permutation_argument_polynomials()
 {
-    PROFILE_THIS_NAME("allocate_permutation_argument_polynomials");
+    BB_BENCH_NAME("allocate_permutation_argument_polynomials");
 
     for (auto& sigma : polynomials.get_sigmas()) {
         sigma = Polynomial(dyadic_size());
@@ -60,7 +60,7 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_pe
 
 template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_lagrange_polynomials()
 {
-    PROFILE_THIS_NAME("allocate_lagrange_polynomials");
+    BB_BENCH_NAME("allocate_lagrange_polynomials");
 
     // First and last lagrange polynomials (in the full circuit size)
     polynomials.lagrange_first = Polynomial(
@@ -75,7 +75,7 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_la
 
 template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_selectors(const Circuit& circuit)
 {
-    PROFILE_THIS_NAME("allocate_selectors");
+    BB_BENCH_NAME("allocate_selectors");
 
     // Define gate selectors over the block they are isolated to
     for (auto [selector, block] : zip_view(polynomials.get_gate_selectors(), circuit.blocks.get_gate_blocks())) {
@@ -100,7 +100,7 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_se
 template <IsUltraOrMegaHonk Flavor>
 void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit& circuit)
 {
-    PROFILE_THIS_NAME("allocate_table_lookup_and_lookup_read_polynomials");
+    BB_BENCH_NAME("allocate_table_lookup_and_lookup_read_polynomials");
 
     size_t table_offset = circuit.blocks.lookup.trace_offset();
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1193): can potentially improve memory footprint
@@ -135,7 +135,7 @@ template <IsUltraOrMegaHonk Flavor>
 void DeciderProvingKey_<Flavor>::allocate_ecc_op_polynomials(const Circuit& circuit)
     requires IsMegaFlavor<Flavor>
 {
-    PROFILE_THIS_NAME("allocate_ecc_op_polynomials");
+    BB_BENCH_NAME("allocate_ecc_op_polynomials");
 
     // Allocate the ecc op wires and selector
     const size_t ecc_op_block_size = circuit.blocks.ecc_op.get_fixed_size(is_structured);
@@ -149,7 +149,7 @@ template <IsUltraOrMegaHonk Flavor>
 void DeciderProvingKey_<Flavor>::allocate_databus_polynomials(const Circuit& circuit)
     requires HasDataBus<Flavor>
 {
-    PROFILE_THIS_NAME("allocate_databus_and_lookup_inverse_polynomials");
+    BB_BENCH_NAME("allocate_databus_and_lookup_inverse_polynomials");
     polynomials.calldata = Polynomial(MAX_DATABUS_SIZE, dyadic_size());
     polynomials.calldata_read_counts = Polynomial(MAX_DATABUS_SIZE, dyadic_size());
     polynomials.calldata_read_tags = Polynomial(MAX_DATABUS_SIZE, dyadic_size());
@@ -160,16 +160,20 @@ void DeciderProvingKey_<Flavor>::allocate_databus_polynomials(const Circuit& cir
     polynomials.return_data_read_counts = Polynomial(MAX_DATABUS_SIZE, dyadic_size());
     polynomials.return_data_read_tags = Polynomial(MAX_DATABUS_SIZE, dyadic_size());
 
-    polynomials.databus_id = Polynomial(MAX_DATABUS_SIZE, dyadic_size());
-
     // Allocate log derivative lookup argument inverse polynomials
     const size_t q_busread_end =
         circuit.blocks.busread.trace_offset() + circuit.blocks.busread.get_fixed_size(is_structured);
-    polynomials.calldata_inverses = Polynomial(std::max(circuit.get_calldata().size(), q_busread_end), dyadic_size());
+    const size_t calldata_size = circuit.get_calldata().size();
+    const size_t secondary_calldata_size = circuit.get_secondary_calldata().size();
+    const size_t return_data_size = circuit.get_return_data().size();
+
+    polynomials.databus_id = Polynomial(
+        std::max({ calldata_size, secondary_calldata_size, return_data_size, q_busread_end }), dyadic_size());
+
+    polynomials.calldata_inverses = Polynomial(std::max(calldata_size, q_busread_end), dyadic_size());
     polynomials.secondary_calldata_inverses =
-        Polynomial(std::max(circuit.get_secondary_calldata().size(), q_busread_end), dyadic_size());
-    polynomials.return_data_inverses =
-        Polynomial(std::max(circuit.get_return_data().size(), q_busread_end), dyadic_size());
+        Polynomial(std::max(secondary_calldata_size, q_busread_end), dyadic_size());
+    polynomials.return_data_inverses = Polynomial(std::max(return_data_size, q_busread_end), dyadic_size());
 }
 
 /**
@@ -197,7 +201,8 @@ void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     const auto& secondary_calldata = circuit.get_secondary_calldata();
     const auto& return_data = circuit.get_return_data();
 
-    // Note: We do not utilize a zero row for databus columns
+    // Note: Databus columns start from index 0. If this ever changes, make sure to also update the active range
+    // construction in ExecutionTraceUsageTracker::update(). We do not utilize a zero row for databus columns.
     for (size_t idx = 0; idx < calldata.size(); ++idx) {
         calldata_poly.at(idx) = circuit.get_variable(calldata[idx]);        // calldata values
         calldata_read_counts.at(idx) = calldata.get_read_count(idx);        // read counts

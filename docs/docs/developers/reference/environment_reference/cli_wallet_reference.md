@@ -1,5 +1,6 @@
 ---
 title: CLI Wallet
+description: Comprehensive reference for the Aztec wallet command-line interface (CLI).
 tags: [sandbox, wallet, cli]
 keywords: [wallet, cli wallet]
 sidebar_position: 3
@@ -10,8 +11,8 @@ For development, it may be useful to deploy, transact, or create notes in a non-
 - Deploying contracts
 - Sending transactions
 - Bridging L1 "Fee Juice" into Aztec
-- Pushing arbitrary [notes](../../guides/smart_contracts/writing_contracts/notes/index.md) to your PXE
-- Creating [authwits](../../guides/smart_contracts/writing_contracts/authwit.md)
+- Pushing arbitrary [notes](../../guides/smart_contracts/note_types.md) to your PXE
+- Creating [authwits](../../guides/smart_contracts/authwit.md)
 - Aliasing info and secrets for further usage
 - Proving your transactions and profile gate counts
 

@@ -1,5 +1,6 @@
 ---
 title: Storage Slots
+description: Learn how Aztec manages public and private storage slots, siloing data by contract address to maintain privacy and prevent cross-contract data collisions.
 tags: [storage, concepts, advanced]
 sidebar_position: 1
 ---
@@ -56,5 +57,3 @@ By doing this address-siloing at the kernel circuit we _force_ the inserted comm
 :::info
 To ensure that nullifiers don't collide across contracts we also force this contract siloing at the kernel level.
 :::
-
-For an example of this see [developer documentation on storage](../../../../developers/reference/smart_contract_reference/storage/index.md).

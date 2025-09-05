@@ -1,5 +1,4 @@
 import { AccountWallet, AztecAddress, type AztecNode, Fr, type SimulateMethodOptions } from '@aztec/aztec.js';
-import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -68,7 +67,7 @@ describe('Transfer benchmark', () => {
       beforeAll(async () => {
         benchysWallet = await t.createAndFundBenchmarkingWallet(accountType);
         // Fund benchy with bananas, so they can pay for the transfers using the private FPC
-        await t.mintPrivateBananas(FEE_FUNDING_FOR_TESTER_ACCOUNT, benchysWallet.getAddress());
+        await t.mintPrivateBananas(1000n * 10n ** 18n, benchysWallet.getAddress());
         // Register admin as sender in benchy's wallet, since we need it to discover the minted bananas
         await benchysWallet.registerSender(adminWallet.getAddress());
         // Register both FPC and BananCoin on the user's Wallet so we can simulate and prove
@@ -116,9 +115,7 @@ describe('Transfer benchmark', () => {
               caller: adminWallet.getAddress(),
               action: interaction,
             });
-            await interaction
-              .send({ from: benchysWallet.getAddress(), authWitnesses: [witness] })
-              .wait({ timeout: 120 });
+            await interaction.send({ from: adminAddress, authWitnesses: [witness] }).wait({ timeout: 120 });
           });
 
           // Ensure we create a change note, by sending an amount that is not a multiple of the note amount

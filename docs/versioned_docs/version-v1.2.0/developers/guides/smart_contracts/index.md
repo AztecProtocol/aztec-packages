@@ -1,5 +1,6 @@
 ---
 title: Aztec.nr
+description: Comprehensive guide to writing smart contracts for the Aztec network using Noir.
 tags: [aztec.nr]
 ---
 
@@ -12,7 +13,7 @@ help you write Noir programs to deploy on the Aztec network.
 
 ### Prerequisites
 
-- Install [Aztec Sandbox and tooling](../../getting_started.md)
+- Install [Aztec Sandbox and tooling](../../getting_started/getting_started_on_sandbox.md)
 - Install the [Noir LSP](../local_env/installing_noir_lsp.md) for your editor.
 
 ### Flow

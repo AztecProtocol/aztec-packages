@@ -2,6 +2,7 @@
 id: index
 sidebar_position: 0
 title: Build
+description: Start building on Aztec with tutorials, guides, and resources for smart contract development and dApp creation.
 ---
 
 # Build
@@ -22,7 +23,7 @@ title: Build
 ## Build applications
 
 <div className="card-container">
-  <Card shadow='tl' link='developers/tutorials/codealong/contract_tutorials/counter_contract'>
+  <Card shadow='tl' link='developers/tutorials/contract_tutorials/counter_contract'>
     <CardHeader>
       <h3>Contract Tutorials</h3>
     </CardHeader>
@@ -31,7 +32,7 @@ title: Build
     </CardBody>
   </Card>
 
-  <Card shadow='tl' link='developers/tutorials/codealong/js_tutorials/simple_dapp'>
+  <Card shadow='tl' link='developers/tutorials/js_tutorials/aztecjs-getting-started'>
     <CardHeader>
       <h3>Full stack app on Aztec</h3>
     </CardHeader>

@@ -11,6 +11,78 @@
 
 namespace bb::avm2 {
 
+/////////////////// perm_ecc_mem_write_mem_0 ///////////////////
+
+struct perm_ecc_mem_write_mem_0_settings_ {
+    static constexpr std::string_view NAME = "PERM_ECC_MEM_WRITE_MEM_0";
+    static constexpr std::string_view RELATION_NAME = "ecc_mem";
+    static constexpr size_t COLUMNS_PER_SET = 6;
+    static constexpr Column SRC_SELECTOR = Column::ecc_add_mem_sel_should_exec;
+    static constexpr Column DST_SELECTOR = Column::memory_sel_ecc_write_0_;
+    static constexpr Column INVERSES = Column::perm_ecc_mem_write_mem_0_inv;
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
+        ColumnAndShifts::ecc_add_mem_execution_clk, ColumnAndShifts::ecc_add_mem_space_id,
+        ColumnAndShifts::ecc_add_mem_dst_addr_0_,   ColumnAndShifts::ecc_add_mem_res_x,
+        ColumnAndShifts::precomputed_zero,          ColumnAndShifts::ecc_add_mem_sel_should_exec
+    };
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
+        ColumnAndShifts::memory_clk,   ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_address,
+        ColumnAndShifts::memory_value, ColumnAndShifts::memory_tag,      ColumnAndShifts::memory_rw
+    };
+};
+
+using perm_ecc_mem_write_mem_0_settings = permutation_settings<perm_ecc_mem_write_mem_0_settings_>;
+template <typename FF_>
+using perm_ecc_mem_write_mem_0_relation = permutation_relation_base<FF_, perm_ecc_mem_write_mem_0_settings>;
+
+/////////////////// perm_ecc_mem_write_mem_1 ///////////////////
+
+struct perm_ecc_mem_write_mem_1_settings_ {
+    static constexpr std::string_view NAME = "PERM_ECC_MEM_WRITE_MEM_1";
+    static constexpr std::string_view RELATION_NAME = "ecc_mem";
+    static constexpr size_t COLUMNS_PER_SET = 6;
+    static constexpr Column SRC_SELECTOR = Column::ecc_add_mem_sel_should_exec;
+    static constexpr Column DST_SELECTOR = Column::memory_sel_ecc_write_1_;
+    static constexpr Column INVERSES = Column::perm_ecc_mem_write_mem_1_inv;
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
+        ColumnAndShifts::ecc_add_mem_execution_clk, ColumnAndShifts::ecc_add_mem_space_id,
+        ColumnAndShifts::ecc_add_mem_dst_addr_1_,   ColumnAndShifts::ecc_add_mem_res_y,
+        ColumnAndShifts::precomputed_zero,          ColumnAndShifts::ecc_add_mem_sel_should_exec
+    };
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
+        ColumnAndShifts::memory_clk,   ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_address,
+        ColumnAndShifts::memory_value, ColumnAndShifts::memory_tag,      ColumnAndShifts::memory_rw
+    };
+};
+
+using perm_ecc_mem_write_mem_1_settings = permutation_settings<perm_ecc_mem_write_mem_1_settings_>;
+template <typename FF_>
+using perm_ecc_mem_write_mem_1_relation = permutation_relation_base<FF_, perm_ecc_mem_write_mem_1_settings>;
+
+/////////////////// perm_ecc_mem_write_mem_2 ///////////////////
+
+struct perm_ecc_mem_write_mem_2_settings_ {
+    static constexpr std::string_view NAME = "PERM_ECC_MEM_WRITE_MEM_2";
+    static constexpr std::string_view RELATION_NAME = "ecc_mem";
+    static constexpr size_t COLUMNS_PER_SET = 6;
+    static constexpr Column SRC_SELECTOR = Column::ecc_add_mem_sel_should_exec;
+    static constexpr Column DST_SELECTOR = Column::memory_sel_ecc_write_2_;
+    static constexpr Column INVERSES = Column::perm_ecc_mem_write_mem_2_inv;
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
+        ColumnAndShifts::ecc_add_mem_execution_clk,   ColumnAndShifts::ecc_add_mem_space_id,
+        ColumnAndShifts::ecc_add_mem_dst_addr_2_,     ColumnAndShifts::ecc_add_mem_res_is_inf,
+        ColumnAndShifts::ecc_add_mem_sel_should_exec, ColumnAndShifts::ecc_add_mem_sel_should_exec
+    };
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
+        ColumnAndShifts::memory_clk,   ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_address,
+        ColumnAndShifts::memory_value, ColumnAndShifts::memory_tag,      ColumnAndShifts::memory_rw
+    };
+};
+
+using perm_ecc_mem_write_mem_2_settings = permutation_settings<perm_ecc_mem_write_mem_2_settings_>;
+template <typename FF_>
+using perm_ecc_mem_write_mem_2_relation = permutation_relation_base<FF_, perm_ecc_mem_write_mem_2_settings>;
+
 /////////////////// perm_ecc_mem_dispatch_exec_ecc_add ///////////////////
 
 struct perm_ecc_mem_dispatch_exec_ecc_add_settings_ {

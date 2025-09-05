@@ -166,7 +166,7 @@ describe('Keystore Duplication Validation', () => {
       'simple-validator.json',
       'multiple-validators-remote.json',
       'simple-prover.json',
-      'prover-with-publishers.json',
+      'prover-with-publishers-and-funding-account.json',
       'everything.json',
     ];
 
@@ -191,6 +191,10 @@ describe('Keystore Duplication Validation', () => {
     // File-level remote signer
     expect(ks.remoteSigner).toBeDefined();
 
+    // File-level funding account
+    expect(ks.fundingAccount).toBeDefined();
+    expect(ks.fundingAccount).toBe('0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+
     // Slasher: array with mixed account types (private key, address, remote signer account, mnemonic)
     expect(ks.slasher).toBeDefined();
     expect(Array.isArray(ks.slasher)).toBe(true);
@@ -214,6 +218,8 @@ describe('Keystore Duplication Validation', () => {
     expect(Array.isArray(v1.attester)).toBe(true);
     expect(v1.publisher).toBeDefined(); // mnemonic config
     expect(v1.feeRecipient).toMatch(/^0x[0-9a-fA-F]{64}$/);
+    expect(v1.fundingAccount).toBeDefined();
+    expect(v1.fundingAccount).toBe('0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
 
     // Prover complex type
     expect(ks.prover).toBeDefined();

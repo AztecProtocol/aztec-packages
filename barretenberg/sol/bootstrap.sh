@@ -12,7 +12,7 @@ export hash=$(cache_content_hash \
 
 function test {
     echo_header "sol testing"
-    test_cmds | filter_test_cmds | parallelise 64
+    test_cmds | filter_test_cmds | parallelize 64
 }
 
 function test_cmds {
@@ -34,7 +34,7 @@ function build_sol {
         # Ensure libraries are at the correct version
         git submodule update --init --recursive ./lib
 
-        forge fmt
+        forge fmt || true
         forge build
 
         cache_upload $artifact out
@@ -70,7 +70,8 @@ function bench {
 
   # Run forge test with gas report using JSON flag
   echo "Running gas report for verifier contracts..."
-  FORGE_GAS_REPORT=true forge test --no-match-contract Base --json > gas_report.json 2>&1
+  # Do not include foundry std err messages in the output
+  FORGE_GAS_REPORT=true forge test --no-match-contract Base --json 2>&1 | grep -v "non-empty stderr" > gas_report.json
 
   # Check if we got any output
   if [ ! -s gas_report.json ]; then
