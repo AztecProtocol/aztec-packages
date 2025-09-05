@@ -64,7 +64,7 @@ class ECCOpQueue {
         ultra_ops_table.create_new_subtable();
     }
 
-    size_t get_unmerged_subtable_size() const { return ultra_ops_table.get_unmerged_subtable_size(); }
+    size_t get_current_subtable_size() const { return ultra_ops_table.get_current_subtable_size(); }
 
     void merge(MergeSettings settings = MergeSettings::PREPEND, std::optional<size_t> ultra_fixed_offset = std::nullopt)
     {
