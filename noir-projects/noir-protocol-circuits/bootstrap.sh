@@ -90,7 +90,6 @@ function compile {
     local outdir=$(mktemp -d)
     trap "rm -rf $outdir" EXIT
     function write_vk {
-      set -x
       if echo "$name" | grep -qE "${private_tail_regex}"; then
         # We still need the standalone IVC vk. We also create the final IVC vk from the tail (specifically, the number of public inputs is used from it).
         denoise "$BB write_vk --scheme client_ivc --verifier_type standalone -b - -o $outdir"
