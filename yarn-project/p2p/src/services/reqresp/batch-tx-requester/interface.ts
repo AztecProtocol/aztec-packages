@@ -1,4 +1,4 @@
-import { Semaphore as RealSemaphore } from '@aztec/foundation/queue';
+import type { ISemaphore } from '@aztec/foundation/queue';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
@@ -21,4 +21,6 @@ export interface ITxMetadataCollection {
 export interface BatchTxRequesterOptions {
   smartParallelWorkerCount: number;
   dumbParallelWorkerCount: number;
+  //Semaphore is injectable for testing purposes
+  semaphore?: ISemaphore;
 }

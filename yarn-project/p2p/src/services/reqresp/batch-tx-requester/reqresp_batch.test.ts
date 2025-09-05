@@ -3,11 +3,12 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { waitFor } from '@aztec/foundation/promise';
+import { type ISemaphore, Semaphore } from '@aztec/foundation/queue';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { makeBlockProposal, makeHeader } from '@aztec/stdlib/testing';
-import { TxHash } from '@aztec/stdlib/tx';
+import { Tx, TxArray, TxHash } from '@aztec/stdlib/tx';
 
 import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -15,7 +16,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { createSecp256k1PeerId } from '../../../index.js';
 import type { ConnectionSampler } from '../connection-sampler/connection_sampler.js';
 import { type ReqRespInterface, ReqRespSubProtocol, type ReqRespSubProtocolValidators } from '../interface.js';
-import { BlockTxsRequest, BlockTxsResponse } from '../protocols/index.js';
+import { BitVector, BlockTxsRequest, BlockTxsResponse } from '../protocols/index.js';
 import { ReqRespStatus } from '../status.js';
 import { TX_BATCH_SIZE } from './missing_txs.js';
 import { BatchTxRequester } from './reqresp_batch.js';
@@ -35,33 +36,75 @@ class TestClock extends DateProvider {
   }
 }
 
-function createRequestLogger(blockProposal: BlockProposal, sleepMs = 10) {
+const makeTx = (txHash?: string | TxHash) => Tx.random({ txHash }) as Tx;
+const createRequestLogger = (
+  blockProposal: BlockProposal,
+  peersToReturnFailureFor: Set<string> = new Set(),
+  peerTransactions: Map<string, number[]> = new Map(),
+  sleepMs = 10,
+) => {
   const requestLog: Map<string, Array<{ indices: number[]; txs: string[] }>> = new Map();
   let requestCount = 0;
 
   const mockImplementation = async (peerId: any, _sub: any, data: any) => {
     const request = BlockTxsRequest.fromBuffer(data);
-    const indices = request.txIndices.getTrueIndices();
-    const txHashes = indices.map(idx => blockProposal.txHashes[idx].toString());
+    const requestedIndices = request.txIndices.getTrueIndices();
+    const txHashes = requestedIndices.map(idx => blockProposal.txHashes[idx].toString());
 
     if (!requestLog.has(peerId.toString())) {
       requestLog.set(peerId.toString(), []);
     }
-    requestLog.get(peerId.toString())!.push({ indices, txs: txHashes });
+    requestLog.get(peerId.toString())!.push({ indices: requestedIndices, txs: txHashes });
 
     requestCount++;
     await sleep(sleepMs);
 
+    if (peersToReturnFailureFor.has(peerId.toString())) {
+      return {
+        status: ReqRespStatus.FAILURE,
+        data: Buffer.alloc(0),
+      };
+    }
+
+    // Succeed on even-numbered requests - return actual transactions
+    const peerHasIndices = peerTransactions.get(peerId.toString()) || [];
+    const availableIndices = requestedIndices.filter(idx => peerHasIndices.includes(idx));
+    const availableTxHashes = availableIndices.map(idx => blockProposal.txHashes[idx]);
+    const availableTxs = availableTxHashes.map(h => makeTx(h));
+
+    const response = new BlockTxsResponse(
+      blockProposal.archive,
+      new TxArray(...availableTxs),
+      BitVector.init(blockProposal.txHashes.length, peerHasIndices),
+    );
+
     return {
       status: ReqRespStatus.SUCCESS,
-      data: BlockTxsResponse.empty().toBuffer(),
-    } as any;
+      data: response.toBuffer(),
+    };
   };
 
   return { requestLog, requestCount: () => requestCount, mockImplementation };
+};
+
+export class TestSemaphore implements ISemaphore {
+  public acquiredCount = 0;
+  public releasedCount = 0;
+
+  constructor(private readonly inner: Semaphore) {}
+
+  async acquire() {
+    this.acquiredCount++;
+    return this.inner.acquire();
+  }
+
+  release() {
+    this.releasedCount++;
+    this.inner.release();
+  }
 }
 
-describe('BatchTxRequester Testability Improvements', () => {
+describe('BatchTxRequester', () => {
   let logger: Logger;
   let blockProposal: BlockProposal;
   let connectionSampler: MockProxy<ConnectionSampler>;
@@ -84,7 +127,7 @@ describe('BatchTxRequester Testability Improvements', () => {
     });
   });
 
-  describe('Dumb batching logic', () => {
+  describe('Dumb peers', () => {
     it('should create correct TX_BATCH_SIZE chunks with single dumb worker', async () => {
       const txCount = 16;
       const deadline = 10_000;
@@ -216,6 +259,194 @@ describe('BatchTxRequester Testability Improvements', () => {
       expect(peer2Requests[1].indices).toEqual(Array.from({ length: TX_BATCH_SIZE }, (_, i) => i));
       expect(peer3Requests[1].indices).toEqual(Array.from({ length: TX_BATCH_SIZE }, (_, i) => i + TX_BATCH_SIZE));
     });
+
+    it('should make sure dumb peers return transactions they have', async () => {
+      const txCount = 20;
+      const deadline = 10_000;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        header: makeHeader(1, 1),
+        archive: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId(), createSecp256k1PeerId()]);
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
+
+      // Define which transactions each peer has (same as happy path)
+      const peerTransactions = new Map([
+        [peers[0].toString(), Array.from({ length: 10 }, (_, i) => i)], // peer1: txs 0-9
+        [peers[1].toString(), Array.from({ length: 7 }, (_, i) => i + 7)], // peer2: txs 7-13
+        [peers[2].toString(), Array.from({ length: 11 }, (_, i) => i + 9)], // peer3: txs 9-19
+      ]);
+
+      const peerRequestCounts = new Map<string, number>();
+
+      reqresp.sendRequestToPeer.mockImplementation(async (peerId, _sub, data) => {
+        const request = BlockTxsRequest.fromBuffer(data);
+        const requestedIndices = request.txIndices.getTrueIndices();
+
+        // This is to make sure that even if the peers fail to respond each request
+        // We will eventually get all the transactions
+        const currentCount = peerRequestCounts.get(peerId.toString()) || 0;
+        peerRequestCounts.set(peerId.toString(), currentCount + 1);
+        const isOddRequest = (currentCount + 1) % 2 === 1;
+
+        // Fail on odd-numbered requests
+        await sleep(10);
+        if (isOddRequest) {
+          return {
+            status: ReqRespStatus.FAILURE,
+            data: Buffer.alloc(0),
+          } as any;
+        }
+
+        // Succeed on even-numbered requests - return actual transactions
+        const peerHasIndices = peerTransactions.get(peerId.toString()) || [];
+        const availableIndices = requestedIndices.filter(idx => peerHasIndices.includes(idx));
+        const availableTxHashes = availableIndices.map(idx => blockProposal.txHashes[idx]);
+        const availableTxs = availableTxHashes.map(h => makeTx(h));
+
+        const response = new BlockTxsResponse(
+          blockProposal.archive,
+          new TxArray(...availableTxs),
+          BitVector.init(blockProposal.txHashes.length, peerHasIndices),
+        );
+
+        return {
+          status: ReqRespStatus.SUCCESS,
+          data: response.toBuffer(),
+        } as any;
+      });
+
+      const requester = new BatchTxRequester(
+        missing,
+        blockProposal,
+        undefined,
+        deadline,
+        reqresp,
+        connectionSampler,
+        txValidator,
+        logger,
+        new DateProvider(),
+        {
+          smartParallelWorkerCount: 0,
+          dumbParallelWorkerCount: 3,
+        },
+      );
+
+      const result = await requester.run();
+      expect(result).toBeDefined();
+
+      // Verify all transactions were eventually fetched despite failures
+      expect(result!.length).toBe(txCount);
+      expect(new Set(result!.map(tx => tx.txHash.toString()))).toEqual(new Set(missing.map(tx => tx.toString())));
+    });
+  });
+
+  describe('Smart peers', () => {
+    it('If dumb peers returned no transactions there should not be any smart peers', async () => {
+      const txCount = 16;
+      const deadline = 1_000;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        header: makeHeader(1, 1),
+        archive: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
+
+      const { mockImplementation } = createRequestLogger(blockProposal, new Set(peers.map(p => p.toString())));
+      reqresp.sendRequestToPeer.mockImplementation(mockImplementation);
+
+      const semaphore = new TestSemaphore(new Semaphore(0));
+
+      const requester = new BatchTxRequester(
+        missing,
+        blockProposal,
+        undefined,
+        deadline,
+        reqresp,
+        connectionSampler,
+        txValidator,
+        logger,
+        new DateProvider(),
+        {
+          semaphore, // inject test semaphore
+          smartParallelWorkerCount: 1, // start one smart worker that will block on acquire()
+          dumbParallelWorkerCount: 2,
+        },
+      );
+
+      await requester.run();
+
+      // This acquire/release here has to be 1 because we have to release semaphore on smart worker loops once we are done
+      // So that they don't block indefinitely on acquire() in the end
+      expect(semaphore.releasedCount).toBe(1);
+      expect(semaphore.acquiredCount).toBe(1);
+    });
+
+    it('Correctly promote single peer to smart peers', async () => {
+      const txCount = 16;
+      const deadline = 2_000;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        header: makeHeader(1, 1),
+        archive: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
+
+      const peerTransactions = new Map([
+        [peers[0].toString(), Array.from({ length: 16 }, (_, i) => i)], // peer1 has all transactions, peer2 none
+      ]);
+
+      const { mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions);
+      reqresp.sendRequestToPeer.mockImplementation(mockImplementation);
+
+      const semaphore = new TestSemaphore(new Semaphore(0));
+      const requester = new BatchTxRequester(
+        missing,
+        blockProposal,
+        undefined,
+        deadline,
+        reqresp,
+        connectionSampler,
+        txValidator,
+        logger,
+        new DateProvider(),
+        {
+          semaphore,
+          smartParallelWorkerCount: 2,
+          dumbParallelWorkerCount: 2,
+        },
+      );
+
+      const result = await requester.run();
+      expect(result).toBeDefined();
+      expect(result!.length).toBe(txCount);
+
+      //Why 5?
+      // - We have 1 release for the peer being promoted to the smart peer
+      // - We have 1 release after the dumb workers are done because this.shouldStop() will return true
+      // - We have 1 release on finally block on run
+      // - More than 3 is because last 2 will be called 2 times because we have 2 smart worker loops so once for each of those
+      expect(semaphore.releasedCount).toBe(5);
+      // Both smart workers will acquire semaphore
+      // - The first one once it is promoted to smart peer
+      // - The second one when dumb workers call release
+      expect(semaphore.acquiredCount).toBe(2);
+    });
   });
 
   describe('Deadline expiration', () => {
@@ -235,7 +466,12 @@ describe('BatchTxRequester Testability Improvements', () => {
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peerId]);
 
       // Slow responses to test deadline
-      const { requestLog, mockImplementation } = createRequestLogger(blockProposal, shortDeadline / 4);
+      const { requestLog, mockImplementation } = createRequestLogger(
+        blockProposal,
+        new Set(),
+        new Map(),
+        shortDeadline / 4,
+      );
       reqresp.sendRequestToPeer.mockImplementation(mockImplementation);
 
       const clock = new TestClock();
