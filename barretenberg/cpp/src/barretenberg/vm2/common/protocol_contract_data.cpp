@@ -2,17 +2,18 @@
 #include "protocol_contract_data.hpp"
 
 namespace bb::avm2 {
+
 const std::unordered_map<CanonicalAddress, DerivedAddress> derived_addresses = {
     { CANONICAL_AUTH_REGISTRY_ADDRESS,
-      AztecAddress("0x0b64cb0ec11e5a4c7993adf3efbee15a6169014ef199abb1ea833d1ca6aacb64") },
+      AztecAddress("0x288ca72d9121175bf02bf3d1db95420b3a3b71ecab2df6836e82bb7eab016b03") },
     { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
-      AztecAddress("0x03008ed8fef2000c0d7dba08a371e347e9d0c0faa661b91a2590685025fcecc6") },
+      AztecAddress("0x15b43fb84cb3f1cfddbb1ce47383e8fabf1ebbff402f8cd3ace2a703bde0f42c") },
     { CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
-      AztecAddress("0x2e23d9e1294bd13ece2b1f00abc6287c54083330d9586c8064747fe3740b2591") },
+      AztecAddress("0x2bf5f175f63f44f4b861c46ce6c186928c9cebba7fd3a5ba3bc19ca43fca28cb") },
     { MULTI_CALL_ENTRYPOINT_ADDRESS,
-      AztecAddress("0x23933a4726afa800a1a75c8ac74a084a9ec96ffbd3a7b070ab1ac1bc3c181a27") },
-    { FEE_JUICE_ADDRESS, AztecAddress("0x00c161d04b6d7d0f6d8a8cac6ad161ecb3a0cc3b097d172671b9d6e204406f87") },
-    { ROUTER_ADDRESS, AztecAddress("0x2791f7aa707ad3dce5885a29cf0f4d52c579e2a51fb47ea80c91c24ef02eae8c") }
+      AztecAddress("0x1b0f47860b942aa342a69c59d0e2626dd191760fdac6c89fc1ecad74baaad798") },
+    { FEE_JUICE_ADDRESS, AztecAddress("0x17ed1ecf287e9cbcd4b3b591a3c873d08aa90de0888e369e31dd5b37e3046e20") },
+    { ROUTER_ADDRESS, AztecAddress("0x2c0c3298030d7fcf0ec09cf0066437bfb09eba45d130c88bb87a5ab011caac2e") }
 };
 
 } // namespace bb::avm2
