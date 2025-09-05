@@ -47,6 +47,25 @@ void AvmProver::execute_preamble_round()
 }
 
 /**
+ * @brief Add public inputs to transcript
+ *
+ */
+void AvmProver::execute_public_inputs_round()
+{
+    // We take the starting values of the public inputs polynomials to add to the transcript
+    const auto public_inputs_cols = std::vector({ &prover_polynomials.public_inputs_cols_0_,
+                                                  &prover_polynomials.public_inputs_cols_1_,
+                                                  &prover_polynomials.public_inputs_cols_2_,
+                                                  &prover_polynomials.public_inputs_cols_3_ });
+    for (size_t i = 0; i < public_inputs_cols.size(); ++i) {
+        for (size_t j = 0; j < AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH; ++j) {
+            // The public inputs are added to the hash buffer, but do not increase the size of the proof
+            transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
+                                           j < public_inputs_cols[i]->size() ? public_inputs_cols[i]->at(j) : FF(0));
+        }
+    }
+}
+/**
  * @brief Compute commitments to all of the witness wires (apart from the logderivative inverse wires)
  *
  */
@@ -145,6 +164,9 @@ HonkProof AvmProver::construct_proof()
 {
     // Add circuit size public input size and public inputs to transcript.
     execute_preamble_round();
+
+    // Add public inputs to transcript.
+    AVM_TRACK_TIME("prove/public_inputs_round", execute_public_inputs_round());
 
     // Compute wire commitments.
     AVM_TRACK_TIME("prove/wire_commitments_round", execute_wire_commitments_round());

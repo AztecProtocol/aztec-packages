@@ -156,9 +156,6 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     {
         const bb::Polynomial<Fr>& polynomial = opening_claim.polynomial;
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1150): Hash more things here.
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1408): Make IPA fuzzer compatible with `add_to_hash_buffer`.
-        //
         // Step 1.
         // Add the commitment, challenge, and evaluation to the hash buffer.
         // NOTE:

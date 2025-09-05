@@ -83,21 +83,43 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     // TODO(#14234)[Unconditional PIs validation]: Remove the next 3 lines
     StdlibProof stdlib_proof = stdlib_proof_with_pi_flag;
     bool_t<Builder> pi_validation = !bool_t<Builder>(stdlib_proof.at(0));
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/16716) Origin Tag security mechanism is screaming
+    // that there is a free witness affecting proof verificaton. Because it is and this bool allows completely disabling
+    // public input logic. So this has to be removed in the future.
+    pi_validation.unset_free_witness_tag();
     stdlib_proof.erase(stdlib_proof.begin());
 
     if (public_inputs.size() != AVM_NUM_PUBLIC_INPUT_COLUMNS) {
         throw_or_abort("AvmRecursiveVerifier::verify_proof: public inputs size mismatch");
+    }
+    for (const auto& public_input : public_inputs) {
+        if (public_input.size() != AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH) {
+            throw_or_abort("AvmRecursiveVerifier::verify_proof: public input size mismatch");
+        }
     }
 
     transcript->load_proof(stdlib_proof);
 
     // TODO(#15892): Fiat-Shamir the vk hash by uncommenting the add_to_hash_buffer.
     // transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/16716) For now we are unsetting the free witness tags
+    // to stop triggering the Origin Tag security mechanism, but the problem is that the VK is not hashed.
+    for (auto& comm : key->get_all()) {
+        comm.unset_free_witness_tag();
+    }
+
     info("AVM vk hash in recursive verifier: ", vk_hash);
 
     RelationParams relation_parameters;
     VerifierCommitments commitments{ key };
 
+    // Add public inputs to transcript
+    for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
+        for (size_t j = 0; j < public_inputs[i].size(); j++) {
+            transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
+                                           public_inputs[i][j]);
+        }
+    }
     // Get commitments to VM wires
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitments.get_wires_labels())) {
         comm = transcript->template receive_from_prover<Commitment>(label);

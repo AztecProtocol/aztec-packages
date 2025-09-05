@@ -172,10 +172,13 @@ class TranslatorRecursiveTests : public ::testing::Test {
             [[maybe_unused]] auto _ = transcript->template receive_from_prover<typename RecursiveFlavor::BF>("init");
 
             RecursiveVerifier verifier{ &outer_circuit, verification_key, transcript };
+            // Manually hashing the evaluation and batching challenges to ensure they get a proper origin tag
+            auto stdlib_evaluation_challenge_x = TranslatorBF::from_witness(&outer_circuit, evaluation_challenge_x);
+            auto stdlib_batching_challenge_v = TranslatorBF::from_witness(&outer_circuit, batching_challenge_v);
+            transcript->add_to_hash_buffer("evaluation_challenge_x", stdlib_evaluation_challenge_x);
+            transcript->add_to_hash_buffer("batching_challenge_v", stdlib_batching_challenge_v);
             typename RecursiveVerifier::PairingPoints pairing_points =
-                verifier.verify_proof(inner_proof,
-                                      TranslatorBF::from_witness(&outer_circuit, evaluation_challenge_x),
-                                      TranslatorBF::from_witness(&outer_circuit, batching_challenge_v));
+                verifier.verify_proof(inner_proof, stdlib_evaluation_challenge_x, stdlib_batching_challenge_v);
             pairing_points.set_public();
 
             auto outer_proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);

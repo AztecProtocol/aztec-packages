@@ -560,18 +560,9 @@ template <typename TranscriptParams> class BaseTranscript {
     template <class T> void send_to_verifier(const std::string& label, const T& element)
     {
         DEBUG_LOG(label, element);
-
-        auto element_frs = TranscriptParams::serialize(element);
-        proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
-        num_frs_written += element_frs.size();
-
-#ifdef LOG_INTERACTIONS
-        if constexpr (Loggable<T>) {
-            info("sent:     ", label, ": ", element);
-        }
-#endif
-        BaseTranscript::add_element_frs_to_hash_buffer(label, element_frs);
         // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
+        // It's important to do this before adding the element to the hash buffer, otherwise we might get an origin tag
+        // violation inside the hasher
         if constexpr (in_circuit) {
             // The prover is sending data to the verifier. If before this we were in the challenge generation phase,
             // then we need to increment the round index
@@ -589,6 +580,17 @@ template <typename TranscriptParams> class BaseTranscript {
                 element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
             }
         }
+
+        auto element_frs = TranscriptParams::serialize(element);
+        proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
+        num_frs_written += element_frs.size();
+
+#ifdef LOG_INTERACTIONS
+        if constexpr (Loggable<T>) {
+            info("sent:     ", label, ": ", element);
+        }
+#endif
+        BaseTranscript::add_element_frs_to_hash_buffer(label, element_frs);
     }
 
     /**
@@ -753,7 +755,8 @@ template <typename TranscriptParams> class BaseTranscript {
         BaseTranscript branched_transcript;
 
         // Need to fetch_sub because the constructor automatically increases unique_transcript_index by 1
-        branched_transcript.transcript_index = unique_transcript_index.fetch_sub(1);
+        unique_transcript_index.fetch_sub(1);
+        branched_transcript.transcript_index = transcript_index;
         branched_transcript.round_index = round_index;
         branched_transcript.add_to_hash_buffer("init", previous_challenge);
         round_index += BRANCHING_JUMP;

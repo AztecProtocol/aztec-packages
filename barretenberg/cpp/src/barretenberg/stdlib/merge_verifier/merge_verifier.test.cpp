@@ -99,6 +99,10 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
                 RecursiveMergeVerifier::Commitment::from_witness(&outer_circuit, merge_commitments.t_commitments[idx]);
             recursive_merge_commitments.T_prev_commitments[idx] = RecursiveMergeVerifier::Commitment::from_witness(
                 &outer_circuit, merge_commitments.T_prev_commitments[idx]);
+            // Removing the free witness tag, since the merge commitments in the full scheme are supposed to
+            // be fiat-shamirred earlier
+            recursive_merge_commitments.t_commitments[idx].unset_free_witness_tag();
+            recursive_merge_commitments.T_prev_commitments[idx].unset_free_witness_tag();
         }
 
         // Create a recursive merge verification circuit for the merge proof
