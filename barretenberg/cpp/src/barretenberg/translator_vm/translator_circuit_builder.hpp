@@ -314,7 +314,6 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
 
     /**
      * @brief Construct a new Translator Circuit Builder object
-     *
      * @details Translator Circuit builder has to be initializaed with evaluation input and batching challenge
      * (they are used to compute witness and to store the value for the prover)
      *
