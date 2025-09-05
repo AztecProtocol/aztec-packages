@@ -237,7 +237,13 @@ library ProposeLib {
     {
       // Verify that the proposer is the correct one for this slot by checking their signature in the attestations
       ValidatorSelectionLib.verifyProposer(
-        v.header.slotNumber, v.currentEpoch, _attestations, _signers, v.payloadDigest, _attestationsAndSignersSignature
+        v.header.slotNumber,
+        v.currentEpoch,
+        _attestations,
+        _signers,
+        v.payloadDigest,
+        _attestationsAndSignersSignature,
+        true
       );
     }
 
