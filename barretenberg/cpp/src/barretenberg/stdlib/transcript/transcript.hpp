@@ -22,10 +22,8 @@ template <typename Builder> struct StdlibTranscriptParams {
     {
 
         ASSERT(!data.empty());
-        ASSERT(data[0].get_context() != nullptr);
 
-        Builder* builder = data[0].get_context();
-        return stdlib::poseidon2<Builder>::hash(*builder, data);
+        return stdlib::poseidon2<Builder>::hash(data);
     }
     /**
      * @brief Split a challenge field element into two half-width challenges

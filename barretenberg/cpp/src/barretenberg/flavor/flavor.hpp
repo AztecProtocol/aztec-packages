@@ -356,9 +356,9 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
      * @param builder
      * @return FF
      */
-    FF hash(Builder& builder)
+    FF hash()
     {
-        FF vk_hash = stdlib::poseidon2<Builder>::hash(builder, to_field_elements());
+        FF vk_hash = stdlib::poseidon2<Builder>::hash(to_field_elements());
         return vk_hash;
     }
 

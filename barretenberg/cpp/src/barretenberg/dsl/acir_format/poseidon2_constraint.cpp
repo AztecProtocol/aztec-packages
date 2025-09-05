@@ -17,8 +17,7 @@ using namespace bb;
 template <typename Builder> void create_poseidon2_permutations(Builder& builder, const Poseidon2Constraint& constraint)
 {
     using field_ct = stdlib::field_t<Builder>;
-    using Poseidon2Params = crypto::Poseidon2Bn254ScalarFieldParams;
-    using State = std::array<field_ct, Poseidon2Params::t>;
+    using State = stdlib::Poseidon2Permutation<Builder>::State;
 
     BB_ASSERT_EQ(constraint.state.size(), 4U);
     BB_ASSERT_EQ(constraint.result.size(), 4U);
@@ -29,19 +28,9 @@ template <typename Builder> void create_poseidon2_permutations(Builder& builder,
         state[i] = to_field_ct(constraint.state[i], builder);
     }
     State output_state;
-    output_state = stdlib::Poseidon2Permutation<Poseidon2Params, Builder>::permutation(&builder, state);
+    output_state = stdlib::Poseidon2Permutation<Builder>::permutation(&builder, state);
     for (size_t i = 0; i < output_state.size(); ++i) {
-        poly_triple assert_equal{
-            .a = output_state[i].normalize().witness_index,
-            .b = constraint.result[i],
-            .c = 0,
-            .q_m = 0,
-            .q_l = 1,
-            .q_r = -1,
-            .q_o = 0,
-            .q_c = 0,
-        };
-        builder.create_poly_gate(assert_equal);
+        output_state[i].assert_equal(field_ct::from_witness_index(&builder, constraint.result[i]));
     }
 }
 

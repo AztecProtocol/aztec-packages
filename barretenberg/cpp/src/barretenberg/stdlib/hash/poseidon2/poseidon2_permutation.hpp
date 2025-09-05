@@ -10,24 +10,32 @@
 #include <cstdint>
 
 #include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
-#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 
 namespace bb::stdlib {
 
-template <typename Params, typename Builder> class Poseidon2Permutation {
+/**
+ * @brief Circuit form of Poseidon2 permutation from https://eprint.iacr.org/2023/323.
+ * @details The permutation consists of one initial linear layer, then a set of external rounds, a set of internal
+ * rounds, and a set of external rounds.
+ *
+ * Note that except for the inital linear layer, we compute the round results natively and record them into Poseidon2
+ * custom gates. This allows us to heavily reduce the number of arithmetic gates, that would have been otherwise
+ * required to perform expensive non-linear S-box operations in-circuit.
+ *
+ * The external rounds are constrained via `Poseidon2ExternalRelationImpl`.
+ * The internal rounds are constrained via `Poseidon2InternalRelationImpl`.
+ *
+ */
+template <typename Builder> class Poseidon2Permutation {
   public:
+    using Params = crypto::Poseidon2Bn254ScalarFieldParams;
     using NativePermutation = crypto::Poseidon2Permutation<Params>;
     // t = sponge permutation size (in field elements)
     // t = rate + capacity
-    // capacity = 1 field element (256 bits)
+    // capacity = 1 field element
     // rate = number of field elements that can be compressed per permutation
     static constexpr size_t t = Params::t;
-    // d = degree of s-box polynomials. For a given field, `d` is the smallest element of `p` such that gdc(d, p - 1) =
-    // 1 (excluding 1) For bn254/grumpkin, d = 5
-    static constexpr size_t d = Params::d;
-    // sbox size = number of bits in p
-    static constexpr size_t sbox_size = Params::sbox_size;
     // number of full sbox rounds
     static constexpr size_t rounds_f = Params::rounds_f;
     // number of partial sbox rounds
@@ -53,19 +61,28 @@ template <typename Params, typename Builder> class Poseidon2Permutation {
     static State permutation(Builder* builder, const State& input);
 
     /**
-     * @brief Separate function to do just the first linear layer (equivalent to external matrix mul).
-     * @details We use 6 arithmetic gates to implement:
-     *          gate 1: Compute tmp1 = state[0] + state[1] + 2 * state[3]
-     *          gate 2: Compute tmp2 = 2 * state[1] + state[2] + state[3]
-     *          gate 3: Compute v2 = 4 * state[0] + 4 * state[1] + tmp2
-     *          gate 4: Compute v1 = v2 + tmp1
-     *          gate 5: Compute v4 = tmp1 + 4 * state[2] + 4 * state[3]
-     *          gate 6: Compute v3 = v4 + tmp2
-     *          output state is [v1, v2, v3, v4]
-     * @param builder
-     * @param state
+     * @brief In-circuit method to efficiently multiply the inital state by the external matrix \f$ M_E \f$. Uses 6
+     * aritmetic gates.
      */
-    static void matrix_multiplication_external(Builder* builder, State& state);
+    static void matrix_multiplication_external(State& state);
+
+    /**
+     * @brief  The result of applying a round of Poseidon2 is stored in the next row and is accessed by Poseidon2
+     * Internal and External Relations via the shifts mechanism. Note that it does not activate any selectors since it
+     * only serves to store the values. See `Poseidon2ExternalRelationImpl` and `Poseidon2InternalRelationImpl` docs.
+     *
+     * @param builder
+     * @param state an array of `t` field_t elements
+     * @param block Either `poseidon2_external` or `poseidon2_internal` block of the Execution Trace
+     */
+    static void propagate_current_state_to_next_row(Builder* builder, const State& state, auto& block)
+    {
+        builder->create_dummy_gate(block,
+                                   state[0].get_witness_index(),
+                                   state[1].get_witness_index(),
+                                   state[2].get_witness_index(),
+                                   state[3].get_witness_index());
+    };
 };
 
 } // namespace bb::stdlib
