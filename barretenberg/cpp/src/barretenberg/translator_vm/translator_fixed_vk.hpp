@@ -35,16 +35,16 @@ struct TranslatorFixedVKCommitments {
                             uint256_t("0x174caee01a8d7fb79e7834367d842900e5893e35054a6cbbc67dfa8b0aa6bea5")),
 
                  // lagrange_odd_in_minicircuit
-                 Commitment(uint256_t("0x23a983a5963d5075a40b895e7864c215e84ba1c92a5585485057ab8981e763ff"),
-                            uint256_t("0x062238be20d523bd606a9c2727fcf1567babbb86f24c5ae0d2d008e10a5270ca")),
+                 Commitment(uint256_t("0x16491ef34583b8dcf02b72539420bd9f6f136d67f0b89bb1f5a6cf4807262e41"),
+                            uint256_t("0x0245dde06e03313da7eb50fd0abb975e7815123c78cba60f7c1ffd5fccac3130")),
 
                  // lagrange_even_in_minicircuit
-                 Commitment(uint256_t("0x08033ad1c8aa97c7b58d5053702f7795ec1f421523626e88ca5161c09533f03c"),
-                            uint256_t("0x25730345e6886b41058e42f29586102a2e00fd46650628d67156b1445d358608")),
+                 Commitment(uint256_t("0x26e60bb02bfab925e3c071d634db06c34cc13f374f6d428d7f53026879729685"),
+                            uint256_t("0x009edf9703a9135d5b60254628aa1fb96fe3d07aedbfef6f2bb985af12c595a7")),
 
                  // lagrange_result_row
-                 Commitment(uint256_t("0x262d212add82bcbcf96d0773c59926e1b8e68e45c662f9348f2e4f64770595b3"),
-                            uint256_t("0x2fe4de705da2b7bfb03cb3baa199ed4cc97e6ce620d0e939b603493223e88703")),
+                 Commitment(uint256_t("0x2c4e3788efe883d91b423233818890599ad233cecf88be80debce9e5ac727e29"),
+                            uint256_t("0x0d79fb9abbbde1fdb4c53d148cfcf083e84f3153e6817f5a19f0560e831dda8f")),
 
                  // lagrange_last_in_minicircuit
                  Commitment(uint256_t("0x199c9a28f7a5d9e583b74f41c6a8b85a659a6bfd134ed40158d2e46c882db82d"),
@@ -55,8 +55,8 @@ struct TranslatorFixedVKCommitments {
                             uint256_t("0x0e0602fc16675e0f0e11b9c509608a43fd8ac75d779ae3f69cbbba7a647c736a")),
 
                  // lagrange_mini_masking
-                 Commitment(uint256_t("0x0f30d7db2ef1e38f496c696565d2edbb6c7790c5e29aa5de577778ab50cc4bc8"),
-                            uint256_t("0x17bc6c20e905302778f27555c1ee2126de382211d6c31a85a0c592912d41fce1")),
+                 Commitment(uint256_t("0x22b8edd8420b3d1a0bc80615304be63370f52186965801d4dfdec63b5566420e"),
+                            uint256_t("0x23b5474c89f47b8de3ed3a606fbe4889a1cd22fd88ffb11d10b229ad07ee7b2d")),
 
                  // lagrange_real_last
                  // lagrange_last

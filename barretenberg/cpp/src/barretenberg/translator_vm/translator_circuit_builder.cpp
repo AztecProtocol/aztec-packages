@@ -536,8 +536,8 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         populate_wires_from_ultra_op(ultra_op);
         // Populate the other wires with zeros
         for (size_t i = WireIds::Y_LOW_Z_2 + 1; i < wires.size(); i++) {
-            wires[i].push_back(add_variable(zero_idx));
-            wires[i].push_back(add_variable(zero_idx));
+            wires[i].push_back(add_variable(0));
+            wires[i].push_back(add_variable(0));
         }
         num_gates += 2;
     };
