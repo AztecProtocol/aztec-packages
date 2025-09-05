@@ -37,7 +37,7 @@ export function promiseWithResolvers<T>(): PromiseWithResolvers<T> {
  * @param timeout - The maximum time in milliseconds to wait before rejecting (default: 5000ms)
  * @param dateProvider - An optional DateProvider instance for getting the current time (default: new DateProvider())
  */
-export async function waitFor(pred: () => boolean, interval = 10, timeout = 5_000, dateProvider = new DateProvider()) {
+export function waitFor(pred: () => boolean, interval = 10, timeout = 5_000, dateProvider = new DateProvider()) {
   const started = dateProvider.now();
   return new Promise<void>((resolve, reject) => {
     const id = setInterval(() => {
