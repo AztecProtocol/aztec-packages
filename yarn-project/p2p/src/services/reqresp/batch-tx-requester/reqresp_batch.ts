@@ -1,8 +1,8 @@
 import { chunk } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
-import { Semaphore } from '@aztec/foundation/queue';
+import { type ISemaphore, Semaphore } from '@aztec/foundation/queue';
 import { sleep } from '@aztec/foundation/sleep';
-import { DateProvider } from '@aztec/foundation/timer';
+import { DateProvider, executeTimeout } from '@aztec/foundation/timer';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { type TxArray, TxHash } from '@aztec/stdlib/tx';
 
@@ -24,7 +24,7 @@ export class BatchTxRequester {
   private readonly peers: PeerCollection;
   private readonly txsMetadata: ITxMetadataCollection;
   private readonly deadline: number;
-  private readonly smartRequesterSemaphore = new Semaphore(0);
+  private readonly smartRequesterSemaphore: ISemaphore;
 
   constructor(
     missingTxs: TxHash[],
@@ -53,6 +53,7 @@ export class BatchTxRequester {
 
     const entries: Array<[string, MissingTxMetadata]> = missingTxs.map(h => [h.toString(), new MissingTxMetadata(h)]);
     this.txsMetadata = new MissingTxMetadataCollection(entries);
+    this.smartRequesterSemaphore = this.opts.semaphore ?? new Semaphore(0);
   }
 
   public async run() {
@@ -173,6 +174,12 @@ export class BatchTxRequester {
     );
 
     await Promise.allSettled(workers);
+    const inCaseWeAreDoneRemoveSmartLocks = this.shouldStop();
+    if (inCaseWeAreDoneRemoveSmartLocks) {
+      for (let i = 0; i < this.opts.smartParallelWorkerCount; i++) {
+        this.smartRequesterSemaphore.release();
+      }
+    }
   }
 
   private async dumbWorkerLoop(
@@ -228,7 +235,7 @@ export class BatchTxRequester {
   ) {
     this.logger.debug(`Smart worker ${workerIndex} started`);
     let count = 0;
-    await this.smartRequesterSemaphore.acquire();
+    await executeTimeout((_: AbortSignal) => this.smartRequesterSemaphore.acquire(), this.timeoutMs);
     this.logger.debug(`Smart worker ${workerIndex} acquired semaphore`);
 
     while (!this.shouldStop()) {
@@ -322,8 +329,13 @@ export class BatchTxRequester {
     }
 
     this.markTxsPeerHas(peerId, response);
-    this.peers.markPeerSmart(peerId);
 
+    const smartPeersAreDisabled = this.opts.smartParallelWorkerCount === 0;
+    if (smartPeersAreDisabled) {
+      return;
+    }
+
+    this.peers.markPeerSmart(peerId);
     if (this.peers.getSmartPeers().size <= this.opts.smartParallelWorkerCount) {
       this.smartRequesterSemaphore.release();
     }
@@ -350,9 +362,6 @@ export class BatchTxRequester {
     const missingTxHashes = this.txsMetadata.getMissingTxHashes();
     if (missingTxHashes.size === 0) {
       // wake sleepers so they can see shouldStop() and exit
-      for (let i = 0; i < this.opts.smartParallelWorkerCount; i++) {
-        this.smartRequesterSemaphore.release();
-      }
     } else {
       this.logger.debug(
         `Missing txs: ${Array.from(this.txsMetadata.getMissingTxHashes())
