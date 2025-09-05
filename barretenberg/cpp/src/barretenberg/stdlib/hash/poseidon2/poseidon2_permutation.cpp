@@ -42,7 +42,7 @@ typename Poseidon2Permutation<Builder>::State Poseidon2Permutation<Builder>::per
         }
     }
 
-    record_current_state_into_next_row(builder, current_state, builder->blocks.poseidon2_external);
+    propagate_current_state_to_next_row(builder, current_state, builder->blocks.poseidon2_external);
 
     // Internal rounds
     const size_t p_end = rounds_f_beginning + rounds_p;
@@ -61,7 +61,7 @@ typename Poseidon2Permutation<Builder>::State Poseidon2Permutation<Builder>::per
         }
     }
 
-    record_current_state_into_next_row(builder, current_state, builder->blocks.poseidon2_internal);
+    propagate_current_state_to_next_row(builder, current_state, builder->blocks.poseidon2_internal);
 
     // Remaining external rounds
     for (size_t i = p_end; i < NUM_ROUNDS; ++i) {
@@ -80,7 +80,7 @@ typename Poseidon2Permutation<Builder>::State Poseidon2Permutation<Builder>::per
         }
     }
 
-    record_current_state_into_next_row(builder, current_state, builder->blocks.poseidon2_external);
+    propagate_current_state_to_next_row(builder, current_state, builder->blocks.poseidon2_external);
 
     return current_state;
 }

@@ -32,7 +32,6 @@ bb::stdlib::field_t<Builder> to_field_ct(const WitnessOrConstant<FF>& input, Bui
 {
     using field_ct = bb::stdlib::field_t<Builder>;
     if (input.is_constant) {
-        info("input const ");
         return field_ct(input.value);
     }
     return field_ct::from_witness_index(&builder, input.index);

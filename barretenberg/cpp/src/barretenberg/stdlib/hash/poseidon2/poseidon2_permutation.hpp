@@ -75,7 +75,7 @@ template <typename Builder> class Poseidon2Permutation {
      * @param state an array of `t` field_t elements
      * @param block Either `poseidon2_external` or `poseidon2_internal` block of the Execution Trace
      */
-    static void record_current_state_into_next_row(Builder* builder, const State& state, auto& block)
+    static void propagate_current_state_to_next_row(Builder* builder, const State& state, auto& block)
     {
         builder->create_dummy_gate(block,
                                    state[0].get_witness_index(),

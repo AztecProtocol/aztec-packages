@@ -17,8 +17,7 @@ using namespace bb;
 template <typename Builder> void create_poseidon2_permutations(Builder& builder, const Poseidon2Constraint& constraint)
 {
     using field_ct = stdlib::field_t<Builder>;
-    using Poseidon2Params = crypto::Poseidon2Bn254ScalarFieldParams;
-    using State = std::array<field_ct, Poseidon2Params::t>;
+    using State = stdlib::Poseidon2Permutation<Builder>::State;
 
     BB_ASSERT_EQ(constraint.state.size(), constraint.len);
     BB_ASSERT_EQ(constraint.result.size(), constraint.len);

@@ -39,14 +39,14 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
      * @brief Expression for the Poseidon2 internal round relation, based on I_i in Section 6 of
      * https://eprint.iacr.org/2023/323.pdf.
      *
-     * @details Let the internal round matrix M_I be the 4×4 “diagonal-plus-ones” matrix
+     * @details Let the internal round matrix M_I be the 4×4 matrix
      * \f[
      *   M_I =
      *   \begin{bmatrix}
-     *     D_1 & 1   & 1   & 1 \\
-     *     1   & D_2 & 1   & 1 \\
-     *     1   & 1   & D_3 & 1 \\
-     *     1   & 1   & 1   & D_4
+     *     D_1 + 1 &     1   &     1   &     1   \\
+     *         1   & D_2 + 1 &     1   &     1   \\
+     *         1   &     1   & D_3 + 1 &     1   \\
+     *         1   &     1   &     1   & D_4 + 1
      *   \end{bmatrix},
      * \quad
      * \text{where } D_i \text{ are the diagonal entries of } M_I.
