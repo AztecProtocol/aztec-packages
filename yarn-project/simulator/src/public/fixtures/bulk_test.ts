@@ -20,6 +20,9 @@ export async function bulkTest(
     avmTestContractArtifact,
   );
 
+  // Needed since we invoke the Fee Juice Contract in the bulk test.registerFeeJuiceContract
+  await tester.registerFeeJuiceContract();
+
   // Get a deployed contract instance to pass to the contract
   // for it to use as "expected" values when testing contract instance retrieval.
   const expectContractInstance = avmTestContract;
