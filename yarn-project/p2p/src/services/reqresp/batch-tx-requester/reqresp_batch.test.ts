@@ -19,6 +19,7 @@ import { type ReqRespInterface, ReqRespSubProtocol, type ReqRespSubProtocolValid
 import { BitVector, BlockTxsRequest, BlockTxsResponse } from '../protocols/index.js';
 import { ReqRespStatus } from '../status.js';
 import { TX_BATCH_SIZE } from './missing_txs.js';
+import { type IPeerCollection, PeerCollection } from './peer_collection.js';
 import { BatchTxRequester } from './reqresp_batch.js';
 
 const TEST_TIMEOUT = 10_000;
@@ -407,6 +408,7 @@ describe('BatchTxRequester', () => {
       const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
 
+      const peerCollection = new PeerCollection(peers);
       const peerTransactions = new Map([
         [peers[0].toString(), Array.from({ length: 16 }, (_, i) => i)], // peer1 has all transactions, peer2 none
       ]);
@@ -429,6 +431,7 @@ describe('BatchTxRequester', () => {
           semaphore,
           smartParallelWorkerCount: 2,
           dumbParallelWorkerCount: 2,
+          peerCollection,
         },
       );
 
@@ -436,16 +439,129 @@ describe('BatchTxRequester', () => {
       expect(result).toBeDefined();
       expect(result!.length).toBe(txCount);
 
+      // Verify peer promotion behavior
+      expect(peerCollection.getSmartPeers().size).toBe(1);
+      expect(peerCollection.getSmartPeers()).toContain(peers[0].toString());
+      expect(peerCollection.getSmartPeers()).not.toContain(peers[1].toString());
+
       //Why 5?
       // - We have 1 release for the peer being promoted to the smart peer
       // - We have 1 release after the dumb workers are done because this.shouldStop() will return true
       // - We have 1 release on finally block on run
-      // - More than 3 is because last 2 will be called 2 times because we have 2 smart worker loops so once for each of those
+      // - The last 2 will be called 2 times because we have 2 smart worker loops so once for each of those
       expect(semaphore.releasedCount).toBe(5);
       // Both smart workers will acquire semaphore
       // - The first one once it is promoted to smart peer
       // - The second one when dumb workers call release
       expect(semaphore.acquiredCount).toBe(2);
+    });
+
+    it('Should track smart peer collection behavior with multiple promotions', async () => {
+      const txCount = 20;
+      const deadline = 3_000;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        header: makeHeader(1, 1),
+        archive: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId(), createSecp256k1PeerId()]);
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
+
+      const peerCollection = new PeerCollection(peers);
+
+      // Define which transactions each peer has
+      const peerTransactions = new Map([
+        [peers[0].toString(), Array.from({ length: 10 }, (_, i) => i)], // peer1: txs 0-9
+        [peers[1].toString(), Array.from({ length: 10 }, (_, i) => i + 5)], // peer2: txs 5-14
+        [peers[2].toString(), Array.from({ length: 10 }, (_, i) => i + 10)], // peer3: txs 10-19
+      ]);
+
+      const { mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions);
+      reqresp.sendRequestToPeer.mockImplementation(mockImplementation);
+
+      const semaphore = new TestSemaphore(new Semaphore(0));
+      const requester = new BatchTxRequester(
+        missing,
+        blockProposal,
+        undefined,
+        deadline,
+        reqresp,
+        connectionSampler,
+        txValidator,
+        logger,
+        new DateProvider(),
+        {
+          semaphore,
+          smartParallelWorkerCount: 3,
+          dumbParallelWorkerCount: 3,
+          peerCollection,
+        },
+      );
+
+      const result = await requester.run();
+      expect(result).toBeDefined();
+      expect(result!.length).toBe(txCount);
+
+      // Verify all peers were promoted to smart
+      expect(peerCollection.getSmartPeers().size).toBe(peers.length);
+      expect(semaphore.acquiredCount).toBe(3);
+    });
+
+    it('Everything should work ok with multiple peers and only 1 smart and 1 dumb worker', async () => {
+      const txCount = 20;
+      const deadline = 5_000;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        header: makeHeader(1, 1),
+        archive: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId(), createSecp256k1PeerId()]);
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
+
+      const peerCollection = new PeerCollection(peers);
+
+      // Define which transactions each peer has
+      const peerTransactions = new Map([
+        [peers[0].toString(), Array.from({ length: 6 }, (_, i) => i)], // peer1: txs 0-5
+        [peers[1].toString(), Array.from({ length: 8 }, (_, i) => i + 6)], // peer2: txs 6-13
+        [peers[2].toString(), Array.from({ length: 6 }, (_, i) => i + 14)], // peer3: txs 14-19
+      ]);
+
+      const { mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions);
+      reqresp.sendRequestToPeer.mockImplementation(mockImplementation);
+
+      const semaphore = new TestSemaphore(new Semaphore(0));
+      const requester = new BatchTxRequester(
+        missing,
+        blockProposal,
+        undefined,
+        deadline,
+        reqresp,
+        connectionSampler,
+        txValidator,
+        logger,
+        new DateProvider(),
+        {
+          semaphore,
+          smartParallelWorkerCount: 1,
+          dumbParallelWorkerCount: 1,
+          peerCollection,
+        },
+      );
+
+      const result = await requester.run();
+      expect(result).toBeDefined();
+      expect(result!.length).toBe(txCount);
+
+      expect(semaphore.acquiredCount).toBe(1);
     });
   });
 

@@ -2,7 +2,20 @@ import type { PeerId } from '@libp2p/interface';
 
 const BAD_PEER_THRESHOLD = 3;
 
-export class PeerCollection {
+export interface IPeerCollection {
+  getAllPeers(): Set<string>;
+  getSmartPeers(): Set<string>;
+  markPeerSmart(peerId: PeerId): void;
+  getSmartPeersToQuery(): Array<string>;
+  getDumbPeersToQuery(): Array<string>;
+  markPeerAsBad(peerId: PeerId): void;
+  unMarkPeerAsBad(peerId: PeerId): void;
+  getBadPeers(): Set<string>;
+  markPeerInFlight(peerId: PeerId): void;
+  unMarkPeerInFlight(peerId: PeerId): void;
+}
+
+export class PeerCollection implements IPeerCollection {
   private readonly peers;
 
   private readonly smartPeers = new Set<string>();
