@@ -14,7 +14,6 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include "bigint_constraint.hpp"
 #include "blake2s_constraint.hpp"
 #include "blake3_constraint.hpp"
 #include "block_constraint.hpp"
@@ -57,9 +56,6 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> avm_recursion_constraints;
     std::vector<size_t> pg_recursion_constraints;
     std::vector<size_t> civc_recursion_constraints;
-    std::vector<size_t> bigint_from_le_bytes_constraints;
-    std::vector<size_t> bigint_to_le_bytes_constraints;
-    std::vector<size_t> bigint_operations;
     std::vector<size_t> assert_equalities;
     std::vector<size_t> poly_triple_constraints;
     std::vector<size_t> quad_constraints;
@@ -100,9 +96,6 @@ struct AcirFormat {
     std::vector<RecursionConstraint> avm_recursion_constraints;
     std::vector<RecursionConstraint> pg_recursion_constraints;
     std::vector<RecursionConstraint> civc_recursion_constraints;
-    std::vector<BigIntFromLeBytes> bigint_from_le_bytes_constraints;
-    std::vector<BigIntToLeBytes> bigint_to_le_bytes_constraints;
-    std::vector<BigIntOperation> bigint_operations;
     std::vector<bb::poly_triple_<bb::curve::BN254::ScalarField>> assert_equalities;
 
     // A standard plonk arithmetic constraint, as defined in the poly_triple struct, consists of selector values
@@ -155,9 +148,6 @@ struct AcirFormat {
                    quad_constraints,
                    big_quad_constraints,
                    block_constraints,
-                   bigint_from_le_bytes_constraints,
-                   bigint_to_le_bytes_constraints,
-                   bigint_operations,
                    assert_equalities);
 
     friend bool operator==(AcirFormat const& lhs, AcirFormat const& rhs) = default;

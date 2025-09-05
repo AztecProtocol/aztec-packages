@@ -89,7 +89,8 @@ ProtogalaxyProver_<Flavor, NUM_KEYS>::combiner_quotient_round(const std::vector<
     const std::vector<FF> updated_gate_challenges =
         update_gate_challenges(perturbator_challenge, gate_challenges, deltas);
     const UnivariateSubrelationSeparators alphas = PGInternal::compute_and_extend_alphas(keys);
-    const GateSeparatorPolynomial<FF> gate_separators{ updated_gate_challenges, CONST_PG_LOG_N };
+    const GateSeparatorPolynomial<FF> gate_separators{ updated_gate_challenges,
+                                                       numeric::get_msb(keys.get_max_dyadic_size()) };
     const UnivariateRelationParameters relation_parameters =
         PGInternal::template compute_extended_relation_parameters<UnivariateRelationParameters>(keys);
 

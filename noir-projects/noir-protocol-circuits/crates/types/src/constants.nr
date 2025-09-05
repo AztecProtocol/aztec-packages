@@ -468,7 +468,7 @@ pub global AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = GLOBAL_VARIABLES_LENGTH
     + 1 /* reverted */;
 
 pub global BLOCK_CONSTANT_DATA_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* last_archive */
-    + APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* last_l1_to_l2_message_tree */
+    + APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* new_l1_to_l2_message_tree */
     + 1 /* vk_tree_root */
     + 1 /* protocol_contract_tree_root */
     + GLOBAL_VARIABLES_LENGTH;
@@ -879,15 +879,14 @@ pub global AVM_NUM_PUBLIC_INPUT_COLUMNS: u32 = 4;
 pub global AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH: u32 =
     AVM_NUM_PUBLIC_INPUT_COLUMNS * AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
 
-// `AVM_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
+// REMARK: This comment will be relevant when we decommission the "padded" constants below and revive the
+// non-padded constants: `AVM_V2_PROOF_LENGTH_IN_FIELDS` and `AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS`.
+// `AVM_V2_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
-// in barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.hpp
+// in barretenberg/cpp/src/barretenberg/vm2/constraining/flavor.hpp
 // This also changes the length of inputs for the public base rollup circuit, so its Prover.toml must be updated.
 // To do so: run: 'AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/prover-client test orchestrator_public_functions' from yarn-project.
-pub global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 4154;
-pub global AVM_PUBLIC_COLUMN_MAX_SIZE: u32 = 1024;
 
-pub global AVM_V2_PUBLIC_INPUTS_FLATTENED_SIZE: u32 = 1;
 // pub global AVM_V2_PROOF_LENGTH_IN_FIELDS: u32 = 5452;
 // VK is composed of
 // - circuit size encoded as a fr field element (32 bytes)
@@ -1109,12 +1108,18 @@ pub global PROOF_TYPE_PG_TAIL: u32 = 9;
 pub global PROOF_TYPE_CIVC: u32 = 10;
 
 pub global TWO_POW_64: Field = 18446744073709551616;
-// AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT = LOG2(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + 1)
+// AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT = CEIL(LOG2(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + 1))
 // +1 due to the tree prefill
 pub global AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT: u32 = 6;
 pub global AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT: Field =
     0x2870b93163d4fd6ada360fe48ee1e8e8e69308af34cdfaeffacbbe5929e2466d;
 pub global AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE: u32 = 1;
+// AVM_RETRIEVED_BYTECODES_TREE_HEIGHT = CEIL(LOG2(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 1))
+// +1 due to the tree prefill
+pub global AVM_RETRIEVED_BYTECODES_TREE_HEIGHT: u32 = 5;
+pub global AVM_RETRIEVED_BYTECODES_TREE_INITIAL_ROOT: Field =
+    0x100ba46aea628d39c08788f05fcad4ab19adf5b8bba866a1f5c5baa6e297891d;
+pub global AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE: u32 = 1;
 
 // Note that by casting timestamp to u32 we make this explode in year 2106. We do not care.
 pub global TIMESTAMP_OF_CHANGE_BIT_SIZE: u32 = 32;
@@ -1144,7 +1149,8 @@ pub global GRUMPKIN_ONE_Y: Field = 176316838811849753701652558875517816157483885
 
 mod test {
     use crate::constants::{
-        AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+        AVM_RETRIEVED_BYTECODES_TREE_HEIGHT, AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT,
+        MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     };
 
@@ -1170,6 +1176,18 @@ mod test {
         assert_eq(
             1 << AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT,
             MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + 1,
+        );
+    }
+
+    #[test]
+    unconstrained fn test_avm_retrieved_bytecodes_tree_height() {
+        assert(
+            1 << AVM_RETRIEVED_BYTECODES_TREE_HEIGHT
+                >= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 1,
+        );
+        assert(
+            1 << (AVM_RETRIEVED_BYTECODES_TREE_HEIGHT - 1)
+                < MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 1,
         );
     }
 

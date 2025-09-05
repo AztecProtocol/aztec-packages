@@ -13,6 +13,7 @@ export interface SlasherConfig {
   slashValidatorsAlways: EthAddress[]; // Array of validator addresses
   slashValidatorsNever: EthAddress[]; // Array of validator addresses
   slashInactivityTargetPercentage: number; // 0-1, 0.9 means 90%. Must be greater than 0
+  slashInactivityConsecutiveEpochThreshold: number; // Number of consecutive epochs a validator must be inactive before slashing
   slashPrunePenalty: bigint;
   slashDataWithholdingPenalty: bigint;
   slashInactivityPenalty: bigint;
@@ -34,6 +35,7 @@ export const SlasherConfigSchema = z.object({
   slashPrunePenalty: schemas.BigInt,
   slashDataWithholdingPenalty: schemas.BigInt,
   slashInactivityTargetPercentage: z.number(),
+  slashInactivityConsecutiveEpochThreshold: z.number(),
   slashInactivityPenalty: schemas.BigInt,
   slashProposeInvalidAttestationsPenalty: schemas.BigInt,
   slashAttestDescendantOfInvalidPenalty: schemas.BigInt,

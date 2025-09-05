@@ -19,8 +19,8 @@ template <typename Builder> void create_poseidon2_permutations(Builder& builder,
     using field_ct = stdlib::field_t<Builder>;
     using State = stdlib::Poseidon2Permutation<Builder>::State;
 
-    BB_ASSERT_EQ(constraint.state.size(), constraint.len);
-    BB_ASSERT_EQ(constraint.result.size(), constraint.len);
+    BB_ASSERT_EQ(constraint.state.size(), 4U);
+    BB_ASSERT_EQ(constraint.result.size(), 4U);
     // Get the witness assignment for each witness index
     // Write the witness assignment to the byte array state
     State state;

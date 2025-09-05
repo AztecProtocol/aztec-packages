@@ -27,6 +27,7 @@
 #include "barretenberg/vm2/simulation/update_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
+#include "barretenberg/vm2/tracegen/gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
@@ -48,6 +49,8 @@ using simulation::EventEmitter;
 using simulation::ExecutionIdManager;
 using simulation::FieldGreaterThan;
 using simulation::FieldGreaterThanEvent;
+using simulation::GreaterThan;
+using simulation::GreaterThanEvent;
 using simulation::MerkleDB;
 using simulation::MockFieldGreaterThan;
 using simulation::MockGreaterThan;
@@ -96,6 +99,7 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     NoopEventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
     NoopEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    NoopEventEmitter<GreaterThanEvent> greater_than_event_emitter;
 
     EventEmitter<RangeCheckEvent> range_check_event_emitter;
     RangeCheck range_check(range_check_event_emitter);
@@ -107,8 +111,8 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
     NiceMock<MockWrittenPublicDataSlotsTreeCheck> mock_written_public_data_slots_tree_check;
     NiceMock<MockL1ToL2MessageTreeCheck> mock_l1_to_l2_message_tree_check;
 
-    NiceMock<MockGreaterThan> mock_gt;
-    Poseidon2 poseidon2(execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
+    GreaterThan gt(mock_field_gt, range_check, greater_than_event_emitter);
+    Poseidon2 poseidon2(execution_id_manager, gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check(
         poseidon2, mock_merkle_check, mock_field_gt, execution_id_manager, public_data_tree_check_event_emitter);
@@ -124,7 +128,7 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
 
     EventEmitter<UpdateCheckEvent> update_check_event_emitter;
     UpdateCheck update_check(
-        poseidon2, range_check, merkle_db, update_check_event_emitter, { .timestamp = current_timestamp });
+        poseidon2, range_check, gt, merkle_db, update_check_event_emitter, { .timestamp = current_timestamp });
 
     uint32_t leaf_index = 27;
     EXPECT_CALL(mock_low_level_merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
@@ -143,6 +147,7 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
 
     Poseidon2TraceBuilder poseidon2_builder;
     RangeCheckTraceBuilder range_check_builder;
+    GreaterThanTraceBuilder greater_than_builder;
     PublicDataTreeTraceBuilder public_data_check_builder;
     UpdateCheckTraceBuilder update_check_builder;
 
@@ -150,6 +155,7 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     range_check_builder.process(range_check_event_emitter.dump_events(), trace);
+    greater_than_builder.process(greater_than_event_emitter.dump_events(), trace);
     public_data_check_builder.process(public_data_tree_check_event_emitter.dump_events(), trace);
     update_check_builder.process(update_check_event_emitter.dump_events(), trace);
 
@@ -159,7 +165,7 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
                                     lookup_update_check_update_hash_public_data_read_settings,
                                     lookup_update_check_update_hi_metadata_range_settings,
                                     lookup_update_check_update_lo_metadata_range_settings,
-                                    lookup_update_check_timestamp_of_change_cmp_range_settings>(trace);
+                                    lookup_update_check_timestamp_is_lt_timestamp_of_change_settings>(trace);
 }
 
 TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
@@ -193,9 +199,10 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
     NiceMock<MockNoteHashTreeCheck> mock_note_hash_tree_check;
     NiceMock<MockWrittenPublicDataSlotsTreeCheck> mock_written_public_data_slots_tree_check;
     NiceMock<MockL1ToL2MessageTreeCheck> mock_l1_to_l2_message_tree_check;
-    NiceMock<MockGreaterThan> mock_gt;
 
-    Poseidon2 poseidon2(execution_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
+    EventEmitter<GreaterThanEvent> greater_than_event_emitter;
+    GreaterThan gt(mock_field_gt, range_check, greater_than_event_emitter);
+    Poseidon2 poseidon2(execution_id_manager, gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check(
@@ -212,7 +219,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
 
     EventEmitter<UpdateCheckEvent> update_check_event_emitter;
     GlobalVariables globals{ .timestamp = current_timestamp };
-    UpdateCheck update_check(poseidon2, range_check, merkle_db, update_check_event_emitter, globals);
+    UpdateCheck update_check(poseidon2, range_check, gt, merkle_db, update_check_event_emitter, globals);
 
     FF update_metadata = FF(static_cast<uint64_t>(123) << 32) + update_timestamp_of_change;
 
@@ -252,6 +259,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
 
     Poseidon2TraceBuilder poseidon2_builder;
     RangeCheckTraceBuilder range_check_builder;
+    GreaterThanTraceBuilder greater_than_builder;
     PublicDataTreeTraceBuilder public_data_check_builder;
     UpdateCheckTraceBuilder update_check_builder;
 
@@ -259,6 +267,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     range_check_builder.process(range_check_event_emitter.dump_events(), trace);
+    greater_than_builder.process(greater_than_event_emitter.dump_events(), trace);
     public_data_check_builder.process(public_data_tree_check_event_emitter.dump_events(), trace);
     update_check_builder.process(update_check_event_emitter.dump_events(), trace);
 
@@ -268,7 +277,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
                                     lookup_update_check_update_hash_public_data_read_settings,
                                     lookup_update_check_update_hi_metadata_range_settings,
                                     lookup_update_check_update_lo_metadata_range_settings,
-                                    lookup_update_check_timestamp_of_change_cmp_range_settings>(trace);
+                                    lookup_update_check_timestamp_is_lt_timestamp_of_change_settings>(trace);
 }
 
 } // namespace

@@ -28,6 +28,7 @@ include "trees/nullifier_check.pil";
 include "trees/public_data_check.pil";
 include "trees/written_public_data_slots_tree_check.pil";
 include "trees/l1_to_l2_message_tree_check.pil";
+include "trees/retrieved_bytecodes_tree_check.pil";
 
 include "bytecode/address_derivation.pil";
 include "bytecode/bc_decomposition.pil";
@@ -108,12 +109,20 @@ sel_first_row_in_context {
     contract_address,
     prev_nullifier_tree_root, // from context.pil
     prev_public_data_tree_root, // from context.pil
+    prev_retrieved_bytecodes_tree_root, // from context.pil
+    prev_retrieved_bytecodes_tree_size, // from context.pil
+    retrieved_bytecodes_tree_root, // from context.pil
+    retrieved_bytecodes_tree_size, // from context.pil
     sel_bytecode_retrieval_failure
 } in bc_retrieval.sel {
     bc_retrieval.bytecode_id,
     bc_retrieval.address,
     bc_retrieval.nullifier_tree_root,
     bc_retrieval.public_data_tree_root,
+    bc_retrieval.prev_retrieved_bytecodes_tree_root,
+    bc_retrieval.prev_retrieved_bytecodes_tree_size,
+    bc_retrieval.next_retrieved_bytecodes_tree_root,
+    bc_retrieval.next_retrieved_bytecodes_tree_size,
     bc_retrieval.error
 };
 
@@ -641,6 +650,11 @@ sel * (1 - sel_execute_emit_nullifier) * (prev_num_nullifiers_emitted - num_null
 sel * (1 - sel_execute_emit_unencrypted_log) * (prev_num_unencrypted_logs - num_unencrypted_logs) = 0;
 #[NUM_L2_TO_L1_MESSAGES_NOT_CHANGED]
 sel * (1 - sel_execute_send_l2_to_l1_msg) * (prev_num_l2_to_l1_messages - num_l2_to_l1_messages) = 0;
+// Retrieved bytecodes tree state can only change in the first row of a new context
+#[RETRIEVED_BYTECODES_TREE_ROOT_NOT_CHANGED]
+sel * (1 - sel_first_row_in_context) * (prev_retrieved_bytecodes_tree_root - retrieved_bytecodes_tree_root) = 0;
+#[RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED]
+sel * (1 - sel_first_row_in_context) * (prev_retrieved_bytecodes_tree_size - retrieved_bytecodes_tree_size) = 0;
 
 // Some opcodes cannot fail during opcode execution. They should not be able to set sel_opcode_error.
 // Note that some of these opcodes can fail in the stages before execution.
