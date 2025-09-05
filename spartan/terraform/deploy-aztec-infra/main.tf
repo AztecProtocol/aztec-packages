@@ -124,6 +124,7 @@ locals {
         "validator.slash.maxPayloadSize"                    = var.SLASH_MAX_PAYLOAD_SIZE
         "validator.node.env.TRANSACTIONS_DISABLED"          = var.TRANSACTIONS_DISABLED
         "validator.node.env.NETWORK"                        = var.NETWORK
+        "validator.node.proverRealProofs"                   = var.PROVER_REAL_PROOFS
       }
       boot_node_host_path  = "validator.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "validator.node.env.BOOTSTRAP_NODES"
@@ -160,8 +161,9 @@ locals {
         "rpc-resources-${var.RPC_RESOURCE_PROFILE}.yaml"
       ]
       custom_settings = {
-        "nodeType"         = "rpc"
-        "node.env.NETWORK" = var.NETWORK
+        "nodeType"              = "rpc"
+        "node.env.NETWORK"      = var.NETWORK
+        "node.proverRealProofs" = var.PROVER_REAL_PROOFS
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"

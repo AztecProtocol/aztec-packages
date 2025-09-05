@@ -93,6 +93,12 @@ if [[ -z "${AZTEC_DOCKER_IMAGE:-}" ]]; then
   die "AZTEC_DOCKER_IMAGE is not set"
 fi
 
+# Load image into kind
+if [[ "${CLUSTER}" == "kind" ]]; then
+  log "Loading ${AZTEC_DOCKER_IMAGE} into kind cluster"
+  kind load docker-image "${AZTEC_DOCKER_IMAGE}"
+fi
+
 K8S_CLUSTER_CONTEXT=$(kubectl config current-context)
 
 if [[ "${DESTROY_NAMESPACE:-}" == "true" ]]; then

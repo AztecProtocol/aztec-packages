@@ -7,7 +7,7 @@ import type { ChildProcess } from 'child_process';
 
 import { getSponsoredFPCAddress } from '../fixtures/utils.js';
 import { type TestAccounts, deploySponsoredTestAccounts, startCompatiblePXE } from './setup_test_wallets.js';
-import { setupEnvironment, startPortForwardForRPC } from './utils.js';
+import { getSequencersConfig, setupEnvironment, startPortForwardForRPC } from './utils.js';
 
 const config = setupEnvironment(process.env);
 
@@ -33,6 +33,9 @@ describe('token transfer test', () => {
     const { process, port } = await startPortForwardForRPC(config.NAMESPACE);
     forwardProcesses.push(process);
     const rpcUrl = `http://127.0.0.1:${port}`;
+
+    const configs = await getSequencersConfig(config);
+    configs.forEach(c => logger.info(`Loaded initial sequencer config`, c));
 
     ({ pxe, cleanup } = await startCompatiblePXE(rpcUrl, config.REAL_VERIFIER, logger));
 

@@ -5,6 +5,7 @@ import type { Logger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { schemas } from '@aztec/foundation/schemas';
 import {
+  type AztecNode,
   type AztecNodeAdmin,
   type AztecNodeAdminConfig,
   createAztecNodeAdminClient,
@@ -593,6 +594,33 @@ export async function getPublicViemClient(
     const client: ViemPublicClient = createPublicClient({ transport: fallback([http(L1_RPC_URLS_JSON)]) });
     return { url: L1_RPC_URLS_JSON, client };
   }
+}
+
+/** Returns a client to the RPC of the given sequencer (defaults to first) */
+export async function getNodeClient(
+  env: TestConfig,
+  index: number = 0,
+): Promise<{ node: AztecNode; port: number; process: ChildProcess }> {
+  const namespace = env.NAMESPACE;
+  const containerPort = 8080;
+  const sequencer = (await getSequencers(env.NAMESPACE))[index];
+  const { process, port } = await startPortForward({
+    resource: `pod/${sequencer}`,
+    namespace,
+    containerPort,
+  });
+
+  const url = `http://localhost:${port}`;
+  await retry(
+    () => fetch(`${url}/status`).then(res => res.status === 200),
+    'forward port',
+    makeBackoff([1, 1, 2, 6]),
+    logger,
+    true,
+  );
+
+  const client = createAztecNodeClient(url);
+  return { node: client, port, process };
 }
 
 /** Queries an Aztec node for the L1 deployment addresses */
