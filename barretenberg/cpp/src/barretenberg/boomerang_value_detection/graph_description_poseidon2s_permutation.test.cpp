@@ -20,7 +20,7 @@ auto& engine = numeric::get_debug_randomness();
 
 using Params = crypto::Poseidon2Bn254ScalarFieldParams;
 using Builder = UltraCircuitBuilder;
-using Permutation = stdlib::Poseidon2Permutation<Params, Builder>;
+using Permutation = stdlib::Poseidon2Permutation<Builder>;
 using field_t = stdlib::field_t<Builder>;
 using witness_t = stdlib::witness_t<Builder>;
 using _curve = stdlib::bn254<Builder>;
@@ -70,7 +70,7 @@ void test_poseidon2s_circuit(size_t num_inputs = 5)
     for (auto& elem : inputs) {
         elem.fix_witness();
     }
-    [[maybe_unused]] auto result = stdlib::poseidon2<Builder>::hash(builder, inputs);
+    [[maybe_unused]] auto result = stdlib::poseidon2<Builder>::hash(inputs);
     auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
@@ -104,7 +104,7 @@ void test_poseidon2s_hash_repeated_pairs(size_t num_inputs = 5)
     std::unordered_set<uint32_t> outputs{ left.witness_index };
     // num_inputs - 1 iterations since the first hash hashes two elements
     for (size_t i = 0; i < num_inputs - 1; ++i) {
-        left = stdlib::poseidon2<Builder>::hash(builder, { left, right });
+        left = stdlib::poseidon2<Builder>::hash({ left, right });
         outputs.insert(left.witness_index + 1);
         outputs.insert(left.witness_index + 2);
         outputs.insert(left.witness_index + 3);
