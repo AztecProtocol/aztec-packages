@@ -85,7 +85,7 @@ cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity)
  * @param is_infinity
  */
 template <typename Builder>
-cycle_group<Builder>::cycle_group(const FF& _x, const FF& _y, bool is_infinity)
+cycle_group<Builder>::cycle_group(const bb::fr& _x, const bb::fr& _y, bool is_infinity)
     : x(is_infinity ? 0 : _x)
     , y(is_infinity ? 0 : _y)
     , _is_infinity(is_infinity)
@@ -151,8 +151,8 @@ cycle_group<Builder> cycle_group<Builder>::from_witness(Builder* _context, const
     // Since we are not using these coordinates anyway
     // We can set them both to be zero
     if (_in.is_point_at_infinity()) {
-        result.x = field_t(witness_t(_context, FF::zero()));
-        result.y = field_t(witness_t(_context, FF::zero()));
+        result.x = field_t(witness_t(_context, bb::fr::zero()));
+        result.y = field_t(witness_t(_context, bb::fr::zero()));
     } else {
         result.x = field_t(witness_t(_context, _in.x));
         result.y = field_t(witness_t(_context, _in.y));
@@ -186,8 +186,8 @@ cycle_group<Builder> cycle_group<Builder>::from_constant_witness(Builder* _conte
     // Since we are not using these coordinates anyway
     // We can set them both to be zero
     if (_in.is_point_at_infinity()) {
-        result.x = FF::zero();
-        result.y = FF::zero();
+        result.x = bb::fr::zero();
+        result.y = bb::fr::zero();
         result._is_constant = true;
     } else {
         result.x = field_t(witness_t(_context, _in.x));
@@ -397,7 +397,7 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
         result = cycle_group(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
     }
 
-    context->create_ecc_dbl_gate(bb::ecc_dbl_gate_<FF>{
+    context->create_ecc_dbl_gate(bb::ecc_dbl_gate_<bb::fr>{
         .x1 = x.get_witness_index(),
         .y1 = modified_y.get_witness_index(),
         .x3 = result.x.get_witness_index(),
@@ -1066,7 +1066,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_group>& base_points,
                                                      const std::vector<cycle_scalar>& scalars,
-                                                     const GeneratorContext context)
+                                                     const GeneratorContext& context)
 {
     BB_ASSERT_EQ(scalars.size(), base_points.size());
 

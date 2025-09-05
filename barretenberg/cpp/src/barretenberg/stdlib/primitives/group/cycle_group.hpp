@@ -38,29 +38,28 @@ template <typename Builder> class cycle_group {
     using field_t = stdlib::field_t<Builder>;
     using bool_t = stdlib::bool_t<Builder>;
     using witness_t = stdlib::witness_t<Builder>;
-    using FF = typename Builder::FF;
-    using Curve = typename Builder::EmbeddedCurve;
-    using Group = typename Curve::Group;
-    using Element = typename Curve::Element;
-    using AffineElement = typename Curve::AffineElement;
+
+    using Curve = bb::curve::Grumpkin;
+    using Group = bb::grumpkin::g1;
+    using Element = bb::grumpkin::g1::element;
+    using AffineElement = bb::grumpkin::g1::affine_element;
     using GeneratorContext = crypto::GeneratorContext<Curve>;
-    using ScalarField = typename Curve::ScalarField;
-    using BigScalarField = stdlib::bigfield<Builder, typename ScalarField::Params>;
+
+    using BigScalarField = stdlib::bigfield<Builder, bb::fq::Params>;
+    using cycle_scalar = ::bb::stdlib::cycle_scalar<Builder>;
+    using straus_lookup_table = ::bb::stdlib::straus_lookup_table<Builder>;
+    using straus_scalar_slice = ::bb::stdlib::straus_scalar_slice<Builder>;
 
     static constexpr size_t STANDARD_NUM_TABLE_BITS = 1;
     static constexpr size_t ULTRA_NUM_TABLE_BITS = 4;
     static constexpr bool IS_ULTRA = Builder::CIRCUIT_TYPE == CircuitType::ULTRA;
     static constexpr size_t TABLE_BITS = IS_ULTRA ? ULTRA_NUM_TABLE_BITS : STANDARD_NUM_TABLE_BITS;
-    static constexpr size_t NUM_BITS = ScalarField::modulus.get_msb() + 1;
+    static constexpr size_t NUM_BITS = bb::fq::modulus.get_msb() + 1;
     static constexpr size_t NUM_ROUNDS = (NUM_BITS + TABLE_BITS - 1) / TABLE_BITS;
-    inline static constexpr std::string_view OFFSET_GENERATOR_DOMAIN_SEPARATOR = "cycle_group_offset_generator";
+    static constexpr std::string_view OFFSET_GENERATOR_DOMAIN_SEPARATOR = "cycle_group_offset_generator";
 
     // Since the cycle_group base field is the circuit's native field, it can be stored using two public inputs.
     static constexpr size_t PUBLIC_INPUTS_SIZE = 2;
-
-    using cycle_scalar = ::bb::stdlib::cycle_scalar<Builder>;
-    using straus_lookup_table = ::bb::stdlib::straus_lookup_table<Builder>;
-    using straus_scalar_slice = ::bb::stdlib::straus_scalar_slice<Builder>;
 
   private:
     /**
@@ -75,7 +74,7 @@ template <typename Builder> class cycle_group {
   public:
     cycle_group(Builder* _context = nullptr);
     cycle_group(field_t _x, field_t _y, bool_t _is_infinity);
-    cycle_group(const FF& _x, const FF& _y, bool _is_infinity);
+    cycle_group(const bb::fr& _x, const bb::fr& _y, bool _is_infinity);
     cycle_group(const AffineElement& _in);
     static cycle_group one(Builder* _context);
     static cycle_group from_witness(Builder* _context, const AffineElement& _in);
@@ -117,7 +116,7 @@ template <typename Builder> class cycle_group {
     }
     static cycle_group batch_mul(const std::vector<cycle_group>& base_points,
                                  const std::vector<cycle_scalar>& scalars,
-                                 GeneratorContext context = {});
+                                 const GeneratorContext& context = {});
     cycle_group operator*(const cycle_scalar& scalar) const;
     cycle_group& operator*=(const cycle_scalar& scalar);
     cycle_group operator*(const BigScalarField& scalar) const;
