@@ -1,0 +1,19 @@
+{
+  "name": "getting-started",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "scripts": {
+    "build": "npx tsc",
+    "start": "npm run build && node dist/src/index.js"
+  },
+  "dependencies": {
+    "@aztec/accounts": "^1.2.0",
+    "@aztec/aztec.js": "^1.2.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

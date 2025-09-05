@@ -1,0 +1,9 @@
+[package]
+name = "starter_token_contract"
+authors = [""]
+compiler_version = ">=1.0.0"
+type = "contract"
+
+[dependencies]
+aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v1.2.0", directory = "noir-projects/aztec-nr/aztec" }
+easy_private_state = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v1.2.0", directory = "noir-projects/aztec-nr/easy-easy_private-state" }
