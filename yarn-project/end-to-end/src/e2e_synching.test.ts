@@ -56,7 +56,6 @@ import {
 } from '@aztec/ethereum';
 import { createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { SecretValue } from '@aztec/foundation/config';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
@@ -438,7 +437,6 @@ describe('e2e_synching', () => {
         viemPollingIntervalMS: 100,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
         blobSinkUrl: `http://localhost:${blobSink?.port ?? 5052}`,
-        customForwarderContractAddress: EthAddress.ZERO,
       },
       {
         blobSinkClient,
