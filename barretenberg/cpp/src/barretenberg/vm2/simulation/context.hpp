@@ -102,11 +102,13 @@ class BaseContext : public ContextInterface {
                 std::unique_ptr<InternalCallStackManagerInterface> internal_call_stack_manager,
                 HighLevelMerkleDBInterface& merkle_db,
                 WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree,
+                RetrievedBytecodesTreeCheckInterface& retrieved_bytecodes_tree,
                 SideEffectStates side_effect_states,
                 TransactionPhase phase)
         : merkle_db(merkle_db)
         , checkpoint_id_at_creation(merkle_db.get_checkpoint_id())
         , written_public_data_slots_tree(written_public_data_slots_tree)
+        , retrieved_bytecodes_tree(retrieved_bytecodes_tree)
         , address(address)
         , msg_sender(msg_sender)
         , transaction_fee(transaction_fee)
@@ -157,7 +159,7 @@ class BaseContext : public ContextInterface {
 
     AppendOnlyTreeSnapshot get_written_public_data_slots_tree_snapshot() override
     {
-        return written_public_data_slots_tree.snapshot();
+        return written_public_data_slots_tree.get_snapshot();
     }
     const GlobalVariables& get_globals() const override { return globals; }
 
@@ -192,6 +194,7 @@ class BaseContext : public ContextInterface {
     HighLevelMerkleDBInterface& merkle_db;
     uint32_t checkpoint_id_at_creation; // DB id when the context was created.
     WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree;
+    RetrievedBytecodesTreeCheckInterface& retrieved_bytecodes_tree;
 
   private:
     // Environment.
@@ -239,6 +242,7 @@ class EnqueuedCallContext : public BaseContext {
                         std::unique_ptr<InternalCallStackManagerInterface> internal_call_stack_manager,
                         HighLevelMerkleDBInterface& merkle_db,
                         WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree,
+                        RetrievedBytecodesTreeCheckInterface& retrieved_bytecodes_tree,
                         SideEffectStates side_effect_states,
                         TransactionPhase phase,
                         std::span<const FF> calldata)
@@ -255,6 +259,7 @@ class EnqueuedCallContext : public BaseContext {
                       std::move(internal_call_stack_manager),
                       merkle_db,
                       written_public_data_slots_tree,
+                      retrieved_bytecodes_tree,
                       side_effect_states,
                       phase)
         , calldata(calldata.begin(), calldata.end())
@@ -293,6 +298,7 @@ class NestedContext : public BaseContext {
                   std::unique_ptr<InternalCallStackManagerInterface> internal_call_stack_manager,
                   HighLevelMerkleDBInterface& merkle_db,
                   WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree,
+                  RetrievedBytecodesTreeCheckInterface& retrieved_bytecodes_tree,
                   SideEffectStates side_effect_states,
                   TransactionPhase phase,
                   ContextInterface& parent_context,
@@ -311,6 +317,7 @@ class NestedContext : public BaseContext {
                       std::move(internal_call_stack_manager),
                       merkle_db,
                       written_public_data_slots_tree,
+                      retrieved_bytecodes_tree,
                       side_effect_states,
                       phase)
         , parent_cd_addr(cd_offset_address)

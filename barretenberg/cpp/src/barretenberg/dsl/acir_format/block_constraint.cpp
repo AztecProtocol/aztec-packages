@@ -119,8 +119,9 @@ void process_ROM_operations(Builder& builder,
         // The rom_table won't work with a constant read because the table may not be initialized
         ASSERT(op.index.q_l != 0);
 
+        // In case of invalid witness assignment, we set the value of index value to zero to not hit out of bound in
+        // ROM table
         if (!has_valid_witness_assignments) {
-            // If witness are not assigned, we set the index value to 0
             builder.set_variable(index.witness_index, 0);
         }
         value.assert_equal(table[index]);
@@ -140,9 +141,9 @@ void process_RAM_operations(Builder& builder,
     for (auto& op : constraint.trace) {
         field_ct value = poly_to_field_ct(op.value, builder);
         field_ct index = poly_to_field_ct(op.index, builder);
-
+        // In case of invalid witness assignment, we set the value of index value to zero to not hit out of bound in
+        // RAM table
         if (!has_valid_witness_assignments) {
-            // If witness are not assigned, we set the index value to 0
             builder.set_variable(index.witness_index, 0);
         }
 
@@ -174,8 +175,9 @@ void process_call_data_operations(Builder& builder,
             BB_ASSERT_EQ(op.access_type, 0);
             field_ct value = poly_to_field_ct(op.value, builder);
             field_ct index = poly_to_field_ct(op.index, builder);
+            // In case of invalid witness assignment, we set the value of index value to zero to not hit out of bound in
+            // calldata-array
             if (!has_valid_witness_assignments) {
-                // If witness are not assigned, we set the index value to 0
                 builder.set_variable(index.witness_index, 0);
             }
             value.assert_equal(calldata_array[index]);

@@ -193,6 +193,10 @@ namespace to_radix;
     limb_lt_p * (LIMB_LT_P - limb_p_diff) = 0;
     sel * (1 - limb_lt_p) * ((LIMB_EQ_P - LIMB_GT_P) * limb_eq_p + LIMB_GT_P - limb_p_diff) = 0;
 
+    // Remark: We do not want to migrate this to "gt gadget" for multiple reasons:
+    //         - Current 8-bit range check is small. (gt uses at least a 16-bit range check internally)
+    //         - There is a special trick above to capture the EQ case.
+    //         - gt gadget would introduce circuit leakage in simulation.
     #[LIMB_P_DIFF_RANGE]
     not_padding_limb { limb_p_diff }
     in

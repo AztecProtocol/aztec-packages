@@ -12,10 +12,10 @@ import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
  */
 export class TreeSnapshots {
   constructor(
-    public readonly l1ToL2MessageTree: AppendOnlyTreeSnapshot,
-    public readonly noteHashTree: AppendOnlyTreeSnapshot,
-    public readonly nullifierTree: AppendOnlyTreeSnapshot,
-    public readonly publicDataTree: AppendOnlyTreeSnapshot,
+    public l1ToL2MessageTree: AppendOnlyTreeSnapshot,
+    public noteHashTree: AppendOnlyTreeSnapshot,
+    public nullifierTree: AppendOnlyTreeSnapshot,
+    public publicDataTree: AppendOnlyTreeSnapshot,
   ) {}
 
   static get schema() {

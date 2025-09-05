@@ -75,8 +75,10 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   slashMinPenaltyPercentage: 0.5,
   slashMaxPenaltyPercentage: 200,
   slashInactivityTargetPercentage: 0,
+  slashInactivityConsecutiveEpochThreshold: 1,
   slashInactivityPenalty: 0n,
   slashPrunePenalty: 0n,
+  slashDataWithholdingPenalty: 0n,
   slashProposeInvalidAttestationsPenalty: 0n,
   slashAttestDescendantOfInvalidPenalty: 0n,
   slashBroadcastedInvalidBlockPenalty: 0n,
@@ -151,8 +153,10 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   slashMinPenaltyPercentage: 0.5,
   slashMaxPenaltyPercentage: 2.0,
   slashInactivityTargetPercentage: 0.7,
+  slashInactivityConsecutiveEpochThreshold: 1,
   slashInactivityPenalty: DefaultL1ContractsConfig.slashAmountSmall,
   slashPrunePenalty: DefaultL1ContractsConfig.slashAmountSmall,
+  slashDataWithholdingPenalty: DefaultL1ContractsConfig.slashAmountSmall,
   slashProposeInvalidAttestationsPenalty: DefaultL1ContractsConfig.slashAmountLarge,
   slashAttestDescendantOfInvalidPenalty: DefaultL1ContractsConfig.slashAmountLarge,
   slashUnknownPenalty: DefaultL1ContractsConfig.slashAmountSmall,
@@ -322,7 +326,9 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('SLASH_MIN_PENALTY_PERCENTAGE', config.slashMinPenaltyPercentage.toString());
   enrichVar('SLASH_MAX_PENALTY_PERCENTAGE', config.slashMaxPenaltyPercentage.toString());
   enrichVar('SLASH_PRUNE_PENALTY', config.slashPrunePenalty.toString());
+  enrichVar('SLASH_DATA_WITHHOLDING_PENALTY', config.slashDataWithholdingPenalty.toString());
   enrichVar('SLASH_INACTIVITY_TARGET_PERCENTAGE', config.slashInactivityTargetPercentage.toString());
+  enrichVar('SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD', config.slashInactivityConsecutiveEpochThreshold.toString());
   enrichVar('SLASH_INACTIVITY_PENALTY', config.slashInactivityPenalty.toString());
   enrichVar('SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY', config.slashProposeInvalidAttestationsPenalty.toString());
   enrichVar('SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY', config.slashAttestDescendantOfInvalidPenalty.toString());

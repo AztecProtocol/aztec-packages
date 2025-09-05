@@ -14,7 +14,7 @@ void to_radixImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    PROFILE_THIS_NAME("accumulate/to_radix");
+    BB_BENCH_NAME("accumulate/to_radix");
 
     const auto to_radix_LATCH_CONDITION = in.get(C::to_radix_end) + in.get(C::precomputed_first_row);
     const auto to_radix_REM = (in.get(C::to_radix_value) - in.get(C::to_radix_acc));

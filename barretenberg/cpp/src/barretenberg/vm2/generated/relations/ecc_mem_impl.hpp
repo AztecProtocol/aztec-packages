@@ -14,7 +14,7 @@ void ecc_memImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    PROFILE_THIS_NAME("accumulate/ecc_mem");
+    BB_BENCH_NAME("accumulate/ecc_mem");
 
     const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);
     const auto ecc_add_mem_P_X3 = in.get(C::ecc_add_mem_p_x) * in.get(C::ecc_add_mem_p_x) * in.get(C::ecc_add_mem_p_x);

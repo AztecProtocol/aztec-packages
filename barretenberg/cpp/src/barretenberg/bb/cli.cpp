@@ -24,7 +24,7 @@
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/bbapi/c_bind.hpp"
-#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
@@ -142,7 +142,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     std::filesystem::path vk_path{ "./target/vk" };
     flags.scheme = "";
     flags.oracle_hash_type = "poseidon2";
-    flags.output_format = "bytes";
     flags.crs_path = srs::bb_crs_path();
     flags.include_gates_per_opcode = false;
     const auto add_output_path_option = [&](CLI::App* subcommand, auto& _output_path) {
@@ -191,18 +190,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 "has a privileged position due to the existence of an EVM precompile. Starknet is optimized "
                 "for verification in a Starknet smart contract, which can be generated using the Garaga library.")
             ->check(CLI::IsMember({ "poseidon2", "keccak", "starknet" }).name("is_member"));
-    };
-
-    const auto add_output_format_option = [&](CLI::App* subcommand) {
-        return subcommand
-            ->add_option(
-                "--output_format",
-                flags.output_format,
-                "The type of the data to be written by the command. If bytes, output the raw bytes prefixed with "
-                "header information for deserialization. If fields, output a string representation of an array of "
-                "field elements. If bytes_and_fields do both. If fields_msgpack, outputs a msgpack buffer of Fr "
-                "elements.")
-            ->check(CLI::IsMember({ "bytes", "fields", "bytes_and_fields", "fields_msgpack" }).name("is_member"));
     };
 
     const auto add_write_vk_flag = [&](CLI::App* subcommand) {
@@ -278,18 +265,31 @@ int parse_and_run_cli_command(int argc, char* argv[])
             "--slow_low_memory", flags.slow_low_memory, "Enable low memory mode (can be 2x slower or more).");
     };
 
+    const auto add_storage_budget_option = [&](CLI::App* subcommand) {
+        return subcommand->add_option("--storage_budget",
+                                      flags.storage_budget,
+                                      "Storage budget for FileBackedMemory (e.g. '500m', '2g'). When exceeded, falls "
+                                      "back to RAM (requires --slow_low_memory).");
+    };
+
     const auto add_update_inputs_flag = [&](CLI::App* subcommand) {
         return subcommand->add_flag("--update_inputs", flags.update_inputs, "Update inputs if vk check fails.");
     };
 
-    bool print_op_counts = false;
-    const auto add_print_op_counts_flag = [&](CLI::App* subcommand) {
-        return subcommand->add_flag("--print_op_counts", print_op_counts, "Print op counts to json on one line.");
+    const auto add_optimized_solidity_verifier_flag = [&](CLI::App* subcommand) {
+        return subcommand->add_flag(
+            "--optimized", flags.optimized_solidity_verifier, "Use the optimized Solidity verifier.");
     };
 
-    std::string op_counts_out;
-    const auto add_op_counts_out_option = [&](CLI::App* subcommand) {
-        return subcommand->add_option("--op_counts_out", op_counts_out, "Path to write the op counts in a json.");
+    bool print_bench = false;
+    const auto add_print_bench_flag = [&](CLI::App* subcommand) {
+        return subcommand->add_flag(
+            "--print_bench", print_bench, "Pretty print op counts to standard error in a human-readable format.");
+    };
+
+    std::string bench_out;
+    const auto add_bench_out_option = [&](CLI::App* subcommand) {
+        return subcommand->add_option("--bench_out", bench_out, "Path to write the op counts in a json.");
     };
 
     /***************************************************************************************************************
@@ -346,13 +346,13 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_debug_flag(prove);
     add_crs_path_option(prove);
     add_oracle_hash_option(prove);
-    add_output_format_option(prove);
     add_write_vk_flag(prove);
     add_ipa_accumulation_flag(prove);
     remove_zk_option(prove);
     add_slow_low_memory_flag(prove);
-    add_print_op_counts_flag(prove);
-    add_op_counts_out_option(prove);
+    add_print_bench_flag(prove);
+    add_bench_out_option(prove);
+    add_storage_budget_option(prove);
 
     prove->add_flag("--verify", "Verify the proof natively, resulting in a boolean output. Useful for testing.");
 
@@ -372,7 +372,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
 
     add_verbose_flag(write_vk);
     add_debug_flag(write_vk);
-    add_output_format_option(write_vk);
     add_crs_path_option(write_vk);
     add_oracle_hash_option(write_vk);
     add_ipa_accumulation_flag(write_vk);
@@ -412,6 +411,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_verbose_flag(write_solidity_verifier);
     remove_zk_option(write_solidity_verifier);
     add_crs_path_option(write_solidity_verifier);
+    add_optimized_solidity_verifier_flag(write_solidity_verifier);
 
     /***************************************************************************************************************
      * Subcommand: OLD_API
@@ -559,11 +559,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
     verbose_logging = debug_logging || flags.verbose;
     slow_low_memory = flags.slow_low_memory;
 #ifndef __wasm__
-    if (print_op_counts || !op_counts_out.empty()) {
-        bb::detail::use_op_count_time = true;
+    if (!flags.storage_budget.empty()) {
+        storage_budget = parse_size_string(flags.storage_budget);
     }
-    if (bb::detail::use_op_count_time) {
-        bb::detail::GLOBAL_OP_COUNTS.clear();
+    if (print_bench || !bench_out.empty()) {
+        bb::detail::use_bb_bench = true;
     }
 #endif
 
@@ -660,12 +660,12 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 }
                 api.prove(flags, ivc_inputs_path, output_path);
 #ifndef __wasm__
-                if (print_op_counts) {
-                    bb::detail::GLOBAL_OP_COUNTS.print_aggregate_counts(std::cout, 0);
+                if (print_bench) {
+                    bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts_hierarchical(std::cout);
                 }
-                if (!op_counts_out.empty()) {
-                    std::ofstream file(op_counts_out);
-                    bb::detail::GLOBAL_OP_COUNTS.print_aggregate_counts(file, 2);
+                if (!bench_out.empty()) {
+                    std::ofstream file(bench_out);
+                    bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts(file, 2);
                 }
 #endif
                 return 0;
@@ -683,12 +683,12 @@ int parse_and_run_cli_command(int argc, char* argv[])
             if (prove->parsed()) {
                 api.prove(flags, bytecode_path, witness_path, vk_path, output_path);
 #ifndef __wasm__
-                if (print_op_counts) {
-                    bb::detail::GLOBAL_OP_COUNTS.print_aggregate_counts(std::cout, 0);
+                if (print_bench) {
+                    bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts_hierarchical(std::cout);
                 }
-                if (!op_counts_out.empty()) {
-                    std::ofstream file(op_counts_out);
-                    bb::detail::GLOBAL_OP_COUNTS.print_aggregate_counts(file, 2);
+                if (!bench_out.empty()) {
+                    std::ofstream file(bench_out);
+                    bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts(file, 2);
                 }
 #endif
                 return 0;

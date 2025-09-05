@@ -8,6 +8,8 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/decider_verification_key.hpp"
+#include <algorithm>
+#include <ranges>
 
 namespace bb {
 
@@ -90,6 +92,16 @@ template <IsUltraOrMegaHonk Flavor_, size_t NUM_ = 2> struct DeciderProvingKeys_
             dpk_idx++;
         }
         return results;
+    }
+
+    /**
+     * @brief Get the maximum dyadic circuit size among all decider proving keys
+     * @return The maximum dyadic size
+     */
+    size_t get_max_dyadic_size() const
+    {
+        return std::ranges::max(
+            _data | std::views::transform([](const auto& dpk) { return dpk != nullptr ? dpk->dyadic_size() : 0; }));
     }
 
   private:

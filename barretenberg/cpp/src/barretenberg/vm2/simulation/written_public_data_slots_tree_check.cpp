@@ -121,7 +121,7 @@ void WrittenPublicDataSlotsTreeCheck::insert(const AztecAddress& contract_addres
     });
 }
 
-AppendOnlyTreeSnapshot WrittenPublicDataSlotsTreeCheck::snapshot() const
+AppendOnlyTreeSnapshot WrittenPublicDataSlotsTreeCheck::get_snapshot() const
 {
     return written_public_data_slots_tree_stack.top().get_snapshot();
 }
@@ -139,6 +139,7 @@ void WrittenPublicDataSlotsTreeCheck::create_checkpoint()
 
 void WrittenPublicDataSlotsTreeCheck::commit_checkpoint()
 {
+    // Commit the current top of the stack down one level.
     WrittenPublicDataSlotsTree current_tree = std::move(written_public_data_slots_tree_stack.top());
     written_public_data_slots_tree_stack.pop();
     written_public_data_slots_tree_stack.top() = std::move(current_tree);
