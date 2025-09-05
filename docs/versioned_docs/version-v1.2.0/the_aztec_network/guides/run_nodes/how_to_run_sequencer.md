@@ -81,7 +81,7 @@ aztec start --node --archiver --sequencer \
   --network alpha-testnet \
   --l1-rpc-urls $ETHEREUM_HOSTS \
   --l1-consensus-host-urls $L1_CONSENSUS_HOST_URLS \
-  --sequencer.validatorPrivateKey $VALIDATOR_PRIVATE_KEY \
+  --sequencer.validatorPrivateKeys $VALIDATOR_PRIVATE_KEY \
   --sequencer.coinbase $COINBASE \
   --p2p.p2pIp $P2P_IP
 ```
@@ -146,7 +146,7 @@ To use the `aztec start` command, you need to obtain the following:
 
 #### Ethereum Keys
 
-You will need an Ethereum private key and the corresponding public address. The private key is set via the `--sequencer.validatorPrivateKey` flag while the public address should be specified via the `--sequencer.coinbase ` flag.
+You will need an Ethereum private key and the corresponding public address. The private key is set via the `--sequencer.validatorPrivateKeys` flag while the public address should be specified via the `--sequencer.coinbase ` flag.
 
 The private key is needed as your validator will post blocks to Ethereum, and the public address will be the recipient of any block rewards.
 
@@ -176,7 +176,7 @@ aztec start --node --archiver --sequencer \
   --network alpha-testnet \
   --l1-rpc-urls https://example.com \
   --l1-consensus-host-urls https://example.com \
-  --sequencer.validatorPrivateKey 0xYourPrivateKey \
+  --sequencer.validatorPrivateKeys 0xYourPrivateKey \
   --sequencer.coinbase 0xYourAddress \
   --p2p.p2pIp 999.99.999.99 \
   --p2p.maxTxPoolSize 1000000000

@@ -301,7 +301,7 @@ aztec start --port 8081 --pxe --pxe.nodeUrl=$BOOTNODE --pxe.proverEnabled true -
 #### Example Usage
 
 ```bash
-aztec start --network alpha-testnet --l1-rpc-urls https://example.com --l1-consensus-host-urls https://example.com --sequencer.blobSinkUrl http://34.82.117.158:5052  --sequencer.validatorPrivateKey 0xYourPrivateKey --sequencer.coinbase 0xYourAddress --p2p.p2pIp 999.99.999.99
+aztec start --network alpha-testnet --l1-rpc-urls https://example.com --l1-consensus-host-urls https://example.com --sequencer.blobSinkUrl http://34.82.117.158:5052  --sequencer.validatorPrivateKeys 0xYourPrivateKey --sequencer.coinbase 0xYourAddress --p2p.p2pIp 999.99.999.99
 ```
 
 #### Blob Sink Options
