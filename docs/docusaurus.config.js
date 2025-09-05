@@ -28,7 +28,7 @@ const config = {
   trailingSlash: false,
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: process.env.ENV === "dev" ? "warn" : "throw",
-  favicon: "img/Aztec_icon_minified.svg",
+  favicon: "img/Aztec_Symbol_Dark.png",
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
@@ -160,9 +160,9 @@ const config = {
       navbar: {
         logo: {
           alt: "Aztec Logo",
-          srcDark: "img/new_logo-01.svg",
+          srcDark: "img/Aztec Wordmark_Light.svg",
           href: "/",
-          src: "img/Aztec_logo_dark-01.svg",
+          src: "img/Aztec Wordmark_Dark.svg",
         },
         items: [
           {

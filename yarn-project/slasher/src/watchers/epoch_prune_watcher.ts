@@ -22,6 +22,11 @@ import EventEmitter from 'node:events';
 
 import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEmitter } from '../watcher.js';
 
+type EpochPruneWatcherPenalties = {
+  slashPrunePenalty: bigint;
+  slashDataWithholdingPenalty: bigint;
+};
+
 /**
  * This watcher is responsible for detecting chain prunes and creating slashing arguments for the committee.
  * It only wants to slash if:
@@ -40,10 +45,12 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     private epochCache: EpochCache,
     private txProvider: Pick<ITxProvider, 'getAvailableTxs'>,
     private blockBuilder: IFullNodeBlockBuilder,
-    private penalty: bigint,
+    private penalties: EpochPruneWatcherPenalties,
   ) {
     super();
-    this.log.info(`EpochPruneWatcher initialized with penalty ${penalty}`);
+    this.log.verbose(
+      `EpochPruneWatcher initialized with penalties: valid epoch pruned=${penalties.slashPrunePenalty} data withholding=${penalties.slashDataWithholdingPenalty}`,
+    );
   }
 
   public start() {
@@ -161,9 +168,13 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     offenseType: OffenseType,
     epochOrSlot: bigint,
   ): WantToSlashArgs[] {
+    const penalty =
+      offenseType === OffenseType.DATA_WITHHOLDING
+        ? this.penalties.slashDataWithholdingPenalty
+        : this.penalties.slashPrunePenalty;
     return validators.map(v => ({
       validator: v,
-      amount: this.penalty,
+      amount: penalty,
       offenseType,
       epochOrSlot,
     }));

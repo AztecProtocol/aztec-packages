@@ -22,7 +22,7 @@ For easier development, install the Noir extension/LSP for VSCode ([download](ht
 
 Once the prerequisites are met, run this command to install the Aztec toolchain:
 
-`aztec-up #include_version_without_prefix`
+`aztec-up -v 1.2.0`
 
 (optional) To set up the LSP for Aztec programming, go to the Noir extension settings in VSCode and under `Noir: Nargo Path` set this value to the location of `aztec-nargo` installed in the command above (this should be in `~/.aztec/bin/aztec-nargo`). `aztec-nargo` is the Noir build tool pinned at a version bundled with each Aztec release to ensure compatibility.
 
@@ -54,7 +54,7 @@ compiler_version = ">=1.0.0"
 type = "contract"
 
 [dependencies]
-aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v1.2.1", directory = "noir-projects/aztec-nr/aztec" }
+aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v1.2.0", directory = "noir-projects/aztec-nr/aztec" }
 ```
 
 This file is required and defines the contract's metadata and dependencies (including Aztec.nr).
@@ -217,8 +217,8 @@ As setup, first import `easy_private_state` by adding it to your `[dependencies]
 
 ```
 [dependencies]
-aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v1.2.1", directory = "noir-projects/aztec-nr/aztec" }
-easy_private_state = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v1.2.1", directory = "noir-projects/aztec-nr/easy-easy_private-state" }
+aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v1.2.0", directory = "noir-projects/aztec-nr/aztec" }
+easy_private_state = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v1.2.0", directory = "noir-projects/aztec-nr/easy-easy_private-state" }
 ```
 
 Then import `EasyPrivateUint` at the top of your contract:

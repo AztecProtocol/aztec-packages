@@ -1131,17 +1131,17 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
 }
 
 /*
- Create range constraint:
-  * add variable index to a list of range constrained variables
-  * data structures: vector of lists, each list contains:
-  *    - the range size
-  *    - the list of variables in the range
-  *    - a generalized permutation tag
-  *
-  * create range constraint parameters: variable index && range size
-  *
-  * std::map<uint64_t, RangeList> range_lists;
-*/
+ * Create range constraint:
+ * add variable index to a list of range constrained variables
+ * data structures: vector of lists, each list contains:
+ *    - the range size
+ *    - the list of variables in the range
+ *    - a generalized permutation tag
+ *
+ * create range constraint parameters: variable index && range size
+ *
+ * std::map<uint64_t, RangeList> range_lists;
+ */
 // Check for a sequence of variables that neighboring differences are at most 3 (used for batched range checkj)
 template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint(const std::vector<uint32_t>& variable_index)
@@ -1180,7 +1180,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint(const std::vec
 }
 
 // useful to put variables in the witness that aren't already used - e.g. the dummy variables of the range constraint in
-// multiples of three
+// multiples of four
 template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::create_dummy_constraints(const std::vector<uint32_t>& variable_index)
 {
@@ -1910,7 +1910,7 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
  */
 template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::populate_public_inputs_block()
 {
-    PROFILE_THIS_NAME("populate_public_inputs_block");
+    BB_BENCH_NAME("populate_public_inputs_block");
 
     // Update the public inputs block
     for (const auto& idx : this->public_inputs()) {

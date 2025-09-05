@@ -74,9 +74,8 @@ describe('Rollup IVC Integration', () => {
     const avmWorkingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-avm-');
 
     const simTester = await PublicTxSimulationTester.create();
-    const avmSimulationResult = await bulkTest(simTester, logger, AvmTestContractArtifact, (b: boolean) =>
-      expect(b).toBe(true),
-    );
+    const avmSimulationResult = await bulkTest(simTester, logger, AvmTestContractArtifact);
+    expect(avmSimulationResult.revertCode.isOK()).toBe(true);
 
     const avmCircuitInputs = avmSimulationResult.avmProvingRequest.inputs;
     ({

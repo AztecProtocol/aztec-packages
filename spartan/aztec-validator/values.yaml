@@ -10,6 +10,7 @@ global:
   l1ConsensusHostApiKeyHeaders: []
 
 validator:
+  nodeType: "validator"
   mnemonic: "test test test test test test test test test test test junk"
   mnemonicStartIndex: 2000
   validatorsPerNode: 1
@@ -48,4 +49,3 @@ validator:
       enabled: true
     headless:
       enabled: true
-
