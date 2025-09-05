@@ -374,24 +374,12 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   }
 
   function testInvalidAddressAttestation() public setup(4, 4) progressEpochs(2) {
-    ProposeTestData memory ree =
-      _testBlock("mixed_block_1", NO_REVERT, 3, 4, TestFlagsLib.empty().invalidateAddressAttestation());
-
-    // We try to invalidate the count, but it got sufficient, so tx should revert
-    _invalidateByAttestationCount(ree, Errors.ValidatorSelection__InsufficientAttestations.selector);
-
-    // We now invalidate the wrong attestation, no revert
-    // https://www.youtube.com/watch?v=glN0W8WogK8
-    _invalidateByAttestationSig(ree, ree.invalidAddressAttestationIndex, NO_REVERT);
-
-    // Try to prove to show that it can explode at this point, and we could not do anything before it.
-    // This should revert but won't if we did not invalidate
-    _proveBlocks(
-      "mixed_block_",
-      1,
-      1,
-      AttestationLibHelper.packAttestations(ree.attestations),
-      Errors.Rollup__InvalidBlockNumber.selector
+    _testBlock(
+      "mixed_block_1",
+      Errors.ValidatorSelection__InvalidCommitteeCommitment.selector,
+      3,
+      4,
+      TestFlagsLib.empty().invalidateAddressAttestation()
     );
   }
 
@@ -592,8 +580,6 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       }
     }
 
-    // @todo figure out the attestationsAndSignersSignature
-
     if (_flags.senderIsNotProposer) {
       ree.sender = address(uint160(uint256(keccak256(abi.encode("invalid", ree.proposer)))));
     }
@@ -615,19 +601,6 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
           )
         ).signature;
       }
-
-      // By using this function we end up caching the correct proposer so we can skip the check in the real submission
-      // Only works in the same tx.
-      rollup.validateHeaderWithAttestations(
-        ree.proposeArgs.header,
-        AttestationLibHelper.packAttestations(ree.attestations),
-        ree.signers,
-        ree.attestationsAndSignersSignature,
-        digest,
-        bytes32(0),
-        BlockHeaderValidationFlags({ignoreDA: true})
-      );
-
       // Change the last element in the committee (since it don't need a sig as we have enough earlier)
       // to be a random address instead of the expected one.
       address invalidAddress = address(uint160(uint256(keccak256(abi.encode("invalid", block.timestamp)))));

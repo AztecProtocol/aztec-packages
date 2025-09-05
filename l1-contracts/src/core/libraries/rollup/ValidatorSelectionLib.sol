@@ -193,6 +193,7 @@ library ValidatorSelectionLib {
    * to recover them from their attestations' signatures (and hence save gas). The addresses of the non-signing
    * committee members are directly included in the attestations.
    * @param _digest The digest of the block being proposed
+   * @param _updateCache Flag to identify that the proposer should be written to transient cache.
    * @custom:reverts Errors.ValidatorSelection__InvalidCommitteeCommitment if reconstructed committee doesn't match
    * stored commitment
    * @custom:reverts Errors.ValidatorSelection__MissingProposerSignature if proposer hasn't signed their attestation
@@ -204,13 +205,13 @@ library ValidatorSelectionLib {
     CommitteeAttestations memory _attestations,
     address[] memory _signers,
     bytes32 _digest,
-    Signature memory _attestationsAndSignersSignature
+    Signature memory _attestationsAndSignersSignature,
+    bool _updateCache
   ) internal {
-    // Try load the proposer from cache
-    (address proposer, uint256 proposerIndex) = getCachedProposer(_slot);
+    uint256 proposerIndex;
+    address proposer;
 
-    // If not in cache, grab from the committee, reconstructed from the attestations and signers
-    if (proposer == address(0)) {
+    {
       // Load the committee commitment for the epoch
       (bytes32 committeeCommitment, uint256 committeeSize) = getCommitteeCommitmentAt(_epochNumber);
 
@@ -234,12 +235,6 @@ library ValidatorSelectionLib {
       uint256 sampleSeed = getSampleSeed(_epochNumber);
       proposerIndex = computeProposerIndex(_epochNumber, _slot, sampleSeed, committeeSize);
       proposer = committee[proposerIndex];
-
-      setCachedProposer(_slot, proposer, proposerIndex);
-    } else {
-      // Assert that the size of the attestations is as expected, to avoid memory abuse on sizes.
-      // These checks are also performed inside `reconstructCommitteeFromSigners`.
-      _attestations.assertSizes(getStorage().targetCommitteeSize);
     }
 
     // We check that the proposer agrees with the proposal by checking that he attested to it. If we fail to get
@@ -259,6 +254,10 @@ library ValidatorSelectionLib {
     bytes32 attestationsAndSignersDigest =
       _attestations.getAttestationsAndSignersDigest(_signers).toEthSignedMessageHash();
     SignatureLib.verify(_attestationsAndSignersSignature, proposer, attestationsAndSignersDigest);
+
+    if (_updateCache) {
+      setCachedProposer(_slot, proposer, proposerIndex);
+    }
   }
 
   /**
@@ -349,8 +348,6 @@ library ValidatorSelectionLib {
       }
     }
 
-    address proposer = stack.reconstructedCommittee[stack.proposerIndex];
-
     require(
       stack.signaturesRecovered >= stack.needed,
       Errors.ValidatorSelection__InsufficientAttestations(stack.needed, stack.signaturesRecovered)
@@ -361,8 +358,6 @@ library ValidatorSelectionLib {
     if (reconstructedCommitment != committeeCommitment) {
       revert Errors.ValidatorSelection__InvalidCommitteeCommitment(reconstructedCommitment, committeeCommitment);
     }
-
-    setCachedProposer(_slot, proposer, stack.proposerIndex);
   }
 
   /**
