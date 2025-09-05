@@ -2,7 +2,6 @@ import { sha256 } from '@aztec/foundation/crypto';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
-import type { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import * as proc from 'child_process';
 import { promises as fs } from 'fs';
