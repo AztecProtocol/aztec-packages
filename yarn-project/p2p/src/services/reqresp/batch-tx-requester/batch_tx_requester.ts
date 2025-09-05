@@ -13,7 +13,7 @@ import type { ConnectionSampler } from '.././connection-sampler/connection_sampl
 import { type ReqRespInterface, ReqRespSubProtocol, type ReqRespSubProtocolValidators } from '.././interface.js';
 import { BlockTxsRequest, BlockTxsResponse } from '.././protocols/index.js';
 import { ReqRespStatus } from '.././status.js';
-import { type BatchTxRequesterOptions, type ITxMetadataCollection } from './interface.js';
+import type { BatchTxRequesterOptions, ITxMetadataCollection } from './interface.js';
 import { MissingTxMetadata, MissingTxMetadataCollection, TX_BATCH_SIZE } from './missing_txs.js';
 import { type IPeerCollection, PeerCollection } from './peer_collection.js';
 
@@ -194,17 +194,13 @@ export class BatchTxRequester {
   ) {
     try {
       this.logger.debug(`Dumb worker ${workerIndex} started`);
-      let count = 0;
       while (!this.shouldStop()) {
-        count++;
         const peerId = pickNextPeer();
         const weRanOutOfPeersToQuery = peerId === undefined;
         if (weRanOutOfPeersToQuery) {
           this.logger.debug(`Worker loop dumb: No more peers to query`);
           break;
         }
-
-        this.logger.debug(`Worker loop dumb: count: ${count} for peerId: ${peerId.toString()}`);
 
         const nextBatchTxRequest = request(peerId);
         if (!nextBatchTxRequest) {
@@ -239,12 +235,10 @@ export class BatchTxRequester {
     workerIndex: number,
   ) {
     this.logger.debug(`Smart worker ${workerIndex} started`);
-    let count = 0;
     await executeTimeout((_: AbortSignal) => this.smartRequesterSemaphore.acquire(), this.timeoutMs);
     this.logger.debug(`Smart worker ${workerIndex} acquired semaphore`);
 
     while (!this.shouldStop()) {
-      count++;
       const peerId = pickNextPeer();
       const weRanOutOfPeersToQuery = peerId === undefined;
       if (weRanOutOfPeersToQuery) {

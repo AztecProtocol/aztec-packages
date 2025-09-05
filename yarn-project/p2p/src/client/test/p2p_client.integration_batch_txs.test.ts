@@ -17,7 +17,7 @@ import type { P2PClient } from '../../client/p2p_client.js';
 import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
 import type { AttestationPool } from '../../mem_pools/attestation_pool/attestation_pool.js';
 import type { TxPool } from '../../mem_pools/tx_pool/index.js';
-import { BatchTxRequester } from '../../services/reqresp/batch-tx-requester/reqresp_batch.js';
+import { BatchTxRequester } from '../../services/reqresp/batch-tx-requester/batch_tx_requester.js';
 import type { ConnectionSampler } from '../../services/reqresp/connection-sampler/connection_sampler.js';
 import { generatePeerIdPrivateKeys } from '../../test-helpers/generate-peer-id-private-keys.js';
 import { getPorts } from '../../test-helpers/get-ports.js';
@@ -155,13 +155,12 @@ describe('p2p client integration batch txs', () => {
     logger.info('Finished waiting for clients to connect');
   }
 
-  it.only('batch requester fetches all missing txs from multiple peers', async () => {
+  it('batch requester fetches all missing txs from multiple peers', async () => {
     const NUMBER_OF_PEERS = 4;
 
     const txCount = 20;
     const txs = await Promise.all(times(txCount, () => mockTx()));
     const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
-    console.log(txHashes.map(tx => tx.toString()));
 
     const blockNumber = 5;
     const blockHash = Fr.random();
@@ -223,10 +222,6 @@ describe('p2p client integration batch txs', () => {
     // Verify all transactions were fetched
     expect(fetchedTxs).toBeDefined();
     const fetchedHashes = await Promise.all(fetchedTxs!.map(tx => tx.getTxHash()));
-    if (fetchedTxs?.length !== missingTxHashes.length) {
-      const diff = new Set(fetchedHashes.map(h => h.toString())).difference(new Set(txHashes.map(h => h.toString())));
-      console.log(`${Array.from(diff)}`);
-    }
     expect(
       new Set(fetchedHashes.map(h => h.toString())).difference(new Set(txHashes.map(h => h.toString()))).size,
     ).toBe(0);

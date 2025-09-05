@@ -18,92 +18,12 @@ import type { ConnectionSampler } from '../connection-sampler/connection_sampler
 import { type ReqRespInterface, ReqRespSubProtocol, type ReqRespSubProtocolValidators } from '../interface.js';
 import { BitVector, BlockTxsRequest, BlockTxsResponse } from '../protocols/index.js';
 import { ReqRespStatus } from '../status.js';
+import { BatchTxRequester } from './batch_tx_requester.js';
 import { TX_BATCH_SIZE } from './missing_txs.js';
-import { type IPeerCollection, PeerCollection } from './peer_collection.js';
-import { BatchTxRequester } from './reqresp_batch.js';
+import { PeerCollection } from './peer_collection.js';
 
 const TEST_TIMEOUT = 10_000;
 jest.setTimeout(TEST_TIMEOUT);
-
-class TestClock extends DateProvider {
-  private t = 0;
-
-  override now() {
-    return this.t;
-  }
-
-  advanceTo(ms: number) {
-    this.t = ms;
-  }
-}
-
-const makeTx = (txHash?: string | TxHash) => Tx.random({ txHash }) as Tx;
-const createRequestLogger = (
-  blockProposal: BlockProposal,
-  peersToReturnFailureFor: Set<string> = new Set(),
-  peerTransactions: Map<string, number[]> = new Map(),
-  sleepMs = 10,
-) => {
-  const requestLog: Map<string, Array<{ indices: number[]; txs: string[] }>> = new Map();
-  let requestCount = 0;
-
-  const mockImplementation = async (peerId: any, _sub: any, data: any) => {
-    const request = BlockTxsRequest.fromBuffer(data);
-    const requestedIndices = request.txIndices.getTrueIndices();
-    const txHashes = requestedIndices.map(idx => blockProposal.txHashes[idx].toString());
-
-    if (!requestLog.has(peerId.toString())) {
-      requestLog.set(peerId.toString(), []);
-    }
-    requestLog.get(peerId.toString())!.push({ indices: requestedIndices, txs: txHashes });
-
-    requestCount++;
-    await sleep(sleepMs);
-
-    if (peersToReturnFailureFor.has(peerId.toString())) {
-      return {
-        status: ReqRespStatus.FAILURE,
-        data: Buffer.alloc(0),
-      };
-    }
-
-    // Succeed on even-numbered requests - return actual transactions
-    const peerHasIndices = peerTransactions.get(peerId.toString()) || [];
-    const availableIndices = requestedIndices.filter(idx => peerHasIndices.includes(idx));
-    const availableTxHashes = availableIndices.map(idx => blockProposal.txHashes[idx]);
-    const availableTxs = availableTxHashes.map(h => makeTx(h));
-
-    const response = new BlockTxsResponse(
-      blockProposal.archive,
-      new TxArray(...availableTxs),
-      BitVector.init(blockProposal.txHashes.length, peerHasIndices),
-    );
-
-    return {
-      status: ReqRespStatus.SUCCESS,
-      data: response.toBuffer(),
-    };
-  };
-
-  return { requestLog, requestCount: () => requestCount, mockImplementation };
-};
-
-export class TestSemaphore implements ISemaphore {
-  public acquiredCount = 0;
-  public releasedCount = 0;
-
-  constructor(private readonly inner: Semaphore) {}
-
-  async acquire() {
-    this.acquiredCount++;
-    return this.inner.acquire();
-  }
-
-  release() {
-    this.releasedCount++;
-    this.inner.release();
-  }
-}
 
 describe('BatchTxRequester', () => {
   let logger: Logger;
@@ -623,3 +543,82 @@ describe('BatchTxRequester', () => {
     });
   });
 });
+
+const makeTx = (txHash?: string | TxHash) => Tx.random({ txHash }) as Tx;
+const createRequestLogger = (
+  blockProposal: BlockProposal,
+  peersToReturnFailureFor: Set<string> = new Set(),
+  peerTransactions: Map<string, number[]> = new Map(),
+  sleepMs = 10,
+) => {
+  const requestLog: Map<string, Array<{ indices: number[]; txs: string[] }>> = new Map();
+  let requestCount = 0;
+
+  const mockImplementation = async (peerId: any, _sub: any, data: any) => {
+    const request = BlockTxsRequest.fromBuffer(data);
+    const requestedIndices = request.txIndices.getTrueIndices();
+    const txHashes = requestedIndices.map(idx => blockProposal.txHashes[idx].toString());
+
+    if (!requestLog.has(peerId.toString())) {
+      requestLog.set(peerId.toString(), []);
+    }
+    requestLog.get(peerId.toString())!.push({ indices: requestedIndices, txs: txHashes });
+
+    requestCount++;
+    await sleep(sleepMs);
+
+    if (peersToReturnFailureFor.has(peerId.toString())) {
+      return {
+        status: ReqRespStatus.FAILURE,
+        data: Buffer.alloc(0),
+      };
+    }
+
+    const peerHasIndices = peerTransactions.get(peerId.toString()) || [];
+    const availableIndices = requestedIndices.filter(idx => peerHasIndices.includes(idx));
+    const availableTxHashes = availableIndices.map(idx => blockProposal.txHashes[idx]);
+    const availableTxs = availableTxHashes.map(h => makeTx(h));
+
+    const response = new BlockTxsResponse(
+      blockProposal.archive,
+      new TxArray(...availableTxs),
+      BitVector.init(blockProposal.txHashes.length, peerHasIndices),
+    );
+
+    return {
+      status: ReqRespStatus.SUCCESS,
+      data: response.toBuffer(),
+    };
+  };
+
+  return { requestLog, requestCount: () => requestCount, mockImplementation };
+};
+
+class TestClock extends DateProvider {
+  private t = 0;
+
+  override now() {
+    return this.t;
+  }
+
+  advanceTo(ms: number) {
+    this.t = ms;
+  }
+}
+
+export class TestSemaphore implements ISemaphore {
+  public acquiredCount = 0;
+  public releasedCount = 0;
+
+  constructor(private readonly inner: Semaphore) {}
+
+  acquire() {
+    this.acquiredCount++;
+    return this.inner.acquire();
+  }
+
+  release() {
+    this.releasedCount++;
+    this.inner.release();
+  }
+}
