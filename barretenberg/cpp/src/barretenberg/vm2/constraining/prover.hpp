@@ -31,6 +31,7 @@ class AvmProver {
     // Note: all the following methods are virtual to allow Avm2 to tweak the behaviour.
     // We can remove this once the transition is done.
     virtual void execute_preamble_round();
+    virtual void execute_public_inputs_round();
     virtual void execute_wire_commitments_round();
     virtual void execute_log_derivative_inverse_round();
     virtual void execute_log_derivative_inverse_commitments_round();
