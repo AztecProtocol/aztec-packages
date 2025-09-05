@@ -83,9 +83,6 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     } else if (options.sequencer) {
       userLog(`Cannot run a standalone sequencer without a node`);
       process.exit(1);
-    } else if (options.faucet) {
-      const { startFaucet } = await import('./cmds/start_faucet.js');
-      await startFaucet(options, signalHandlers, services, userLog);
     } else {
       userLog(`No module specified to start`);
       process.exit(1);

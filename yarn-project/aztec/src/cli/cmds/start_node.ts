@@ -91,16 +91,6 @@ export async function startNode(
     ...config,
   };
 
-  if (!options.archiver) {
-    // expect archiver url in node config
-    const archiverUrl = nodeConfig.archiverUrl;
-    if (!archiverUrl) {
-      userLog('Archiver Service URL is required to start Aztec Node without --archiver option');
-      throw new Error('Archiver Service URL is required to start Aztec Node without --archiver option');
-    }
-    nodeConfig.archiverUrl = archiverUrl;
-  }
-
   if (!options.sequencer) {
     nodeConfig.disableValidator = true;
   } else {

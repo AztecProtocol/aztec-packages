@@ -91,9 +91,9 @@ jobs:
           chmod 600 ~/.ssh/build_instance_key
           sudo apt install -y --no-install-recommends redis-tools parallel
 
-      - name: Store the GCP key in a base64 encoded string
+      - name: Store the GCP key in a file
         run: |
-          echo "GCP_SA_KEY_B64=$(echo "${{ secrets.GCP_SA_KEY }}" | base64 -w 0)" >> $GITHUB_ENV
+          echo "${{ secrets.GCP_SA_KEY }}" > ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
 
       - name: Get Tree Hash
         run: echo "TREE_HASH=$(git rev-parse HEAD^{tree})" >> $GITHUB_ENV
@@ -122,7 +122,6 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           # Nightly test env vars.
           GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
-          GCP_SA_KEY_B64: ${{ env.GCP_SA_KEY_B64 }}
           EXTERNAL_ETHEREUM_HOSTS: "https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }},${{ secrets.INFURA_SEPOLIA_URL }}"
           EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.GCP_SEPOLIA_URL }}"
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY: ${{ secrets.GCP_SEPOLIA_API_KEY }}
@@ -148,25 +147,6 @@ jobs:
       - name: Save CI Success
         if: steps.ci_cache.outputs.cache-hit != 'true'
         run: echo "success" > ci-success.txt
-
-      - name: Get Semver from Tag
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        id: semver
-        run: |
-          semver="${{ github.ref_name }}"
-          # Remove 'v' prefix if present (e.g., v1.2.3 -> 1.2.3)
-          semver=${semver#v}
-          # Extract major version (e.g., 1.2.3 -> 1)
-          major_version=${semver%%.*}
-          echo "semver=$semver" >> $GITHUB_OUTPUT
-          echo "major_version=$major_version" >> $GITHUB_OUTPUT
-
-      - name: Trigger Network Deployments
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        uses: peter-evans/repository-dispatch@0ee9de00feb82e6165438c503f0bc29f628b8317
-        with:
-          event-type: network-deployments
-          client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}", "semver": "${{ steps.semver.outputs.semver }}", "major_version": "${{ steps.semver.outputs.major_version }}"}'
 
       # If we have passed CI and labelled with ci-squash-and-merge, squash the PR.
       # This will rerun CI on the squash commit - but is intended to be a no-op due to caching.

@@ -118,10 +118,15 @@ const TestnetGovernanceConfiguration = {
 };
 
 export const getGovernanceConfiguration = (networkName: NetworkNames) => {
-  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
-    return TestnetGovernanceConfiguration;
+  switch (networkName) {
+    case 'alpha-testnet':
+    case 'testnet':
+      return TestnetGovernanceConfiguration;
+    case 'local':
+      return LocalGovernanceConfiguration;
+    default:
+      throw new Error('Unrecognized network name: ' + networkName);
   }
-  return LocalGovernanceConfiguration;
 };
 
 const TestnetGSEConfiguration = {
@@ -135,10 +140,15 @@ const LocalGSEConfiguration = {
 };
 
 export const getGSEConfiguration = (networkName: NetworkNames) => {
-  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
-    return TestnetGSEConfiguration;
+  switch (networkName) {
+    case 'alpha-testnet':
+    case 'testnet':
+      return TestnetGSEConfiguration;
+    case 'local':
+      return LocalGSEConfiguration;
+    default:
+      throw new Error('Unrecognized network name: ' + networkName);
   }
-  return LocalGSEConfiguration;
 };
 
 // Making a default config here as we are only using it thought the deployment
@@ -159,10 +169,15 @@ const TestnetRewardConfig = {
 };
 
 export const getRewardConfig = (networkName: NetworkNames) => {
-  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
-    return TestnetRewardConfig;
+  switch (networkName) {
+    case 'alpha-testnet':
+    case 'testnet':
+      return TestnetRewardConfig;
+    case 'local':
+      return LocalRewardConfig;
+    default:
+      throw new Error('Unrecognized network name: ' + networkName);
   }
-  return LocalRewardConfig;
 };
 
 const LocalRewardBoostConfig = {
@@ -182,10 +197,15 @@ const TestnetRewardBoostConfig = {
 };
 
 export const getRewardBoostConfig = (networkName: NetworkNames) => {
-  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
-    return TestnetRewardBoostConfig;
+  switch (networkName) {
+    case 'alpha-testnet':
+    case 'testnet':
+      return TestnetRewardBoostConfig;
+    case 'local':
+      return LocalRewardBoostConfig;
+    default:
+      throw new Error('Unrecognized network name: ' + networkName);
   }
-  return LocalRewardBoostConfig;
 };
 
 // Similar to the above, no need for environment variables for this.
@@ -206,10 +226,15 @@ const TestnetEntryQueueConfig = {
 };
 
 export const getEntryQueueConfig = (networkName: NetworkNames) => {
-  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
-    return TestnetEntryQueueConfig;
+  switch (networkName) {
+    case 'alpha-testnet':
+    case 'testnet':
+      return TestnetEntryQueueConfig;
+    case 'local':
+      return LocalEntryQueueConfig;
+    default:
+      throw new Error('Unrecognized network name: ' + networkName);
   }
-  return LocalEntryQueueConfig;
 };
 
 export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = {
