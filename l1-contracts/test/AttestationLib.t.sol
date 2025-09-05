@@ -17,10 +17,6 @@ contract AttestationLibWrapper {
     return AttestationLib.isEmpty(_attestations);
   }
 
-  function assertSizes(CommitteeAttestations memory _attestations, uint256 _expectedCount) external pure {
-    AttestationLib.assertSizes(_attestations, _expectedCount);
-  }
-
   function reconstructCommitteeFromSigners(
     CommitteeAttestations memory _attestations,
     address[] memory _signers,
@@ -76,52 +72,6 @@ contract AttestationLibTest is TestBase {
     $attestations = attestationLibWrapper.packAttestations(attestations);
 
     _;
-  }
-
-  function test_assertSizes(uint256 _signatureCount) public createValidAttestations(_signatureCount) {
-    attestationLibWrapper.assertSizes($attestations, SIZE);
-  }
-
-  function test_assertSizes_wrongBitmapSize(uint256 _signatureCount, bool _over)
-    public
-    createValidAttestations(_signatureCount)
-  {
-    uint256 bitmapSize = $attestations.signatureIndices.length;
-    if (_over) {
-      $attestations.signatureIndices = new bytes(bitmapSize + 1);
-    } else {
-      $attestations.signatureIndices = new bytes(bitmapSize - 1);
-    }
-
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.AttestationLib__SignatureIndicesSizeMismatch.selector, bitmapSize, $attestations.signatureIndices.length
-      )
-    );
-
-    attestationLibWrapper.assertSizes($attestations, SIZE);
-  }
-
-  function test_assertSizes_wrongSignaturesOrAddressesSize(uint256 _signatureCount, bool _over)
-    public
-    createValidAttestations(_signatureCount)
-  {
-    uint256 dataSize = $attestations.signaturesOrAddresses.length;
-    if (_over) {
-      $attestations.signaturesOrAddresses = new bytes(dataSize + 1);
-    } else {
-      $attestations.signaturesOrAddresses = new bytes(dataSize - 1);
-    }
-
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.AttestationLib__SignaturesOrAddressesSizeMismatch.selector,
-        dataSize,
-        $attestations.signaturesOrAddresses.length
-      )
-    );
-
-    attestationLibWrapper.assertSizes($attestations, SIZE);
   }
 
   function test_reconstructCommitteeFromSigners(uint256 _signatureCount)
