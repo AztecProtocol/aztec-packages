@@ -14,6 +14,7 @@ names:
   - akosh: &akosh "U07PQ3Y4GHJ"
   - alex: &alex "U05QWV669JB"
   - charlie: &charlie "UKUMA5J7K"
+  - david: &david "U03T2QRT1NW"
   - grego: &grego "U0689QRCE9L"
   - lasse: &lasse "U03E5SYLY3Z"
   - leila: &leila "UBLTU1NJ3"
@@ -261,17 +262,10 @@ tests:
     error_regex: "Exceeded timeout of"
     owners:
       - *luke
-  - regex: "e2e_prover/full"
-    error_regex: "ProvingError: Failed to verify proof from key!"
   - regex: "slasher/src/slasher_client.test.ts"
     error_regex: "ContractFunctionExecutionError: The contract function"
     owners:
       - *mitch
-  - regex: "e2e_prover/full"
-    error_regex: "Rollup submit epoch proof failed"
-    owners:
-      - *alex
-
   # Nightly GKE tests
   - regex: "spartan/bootstrap.sh"
     owners:

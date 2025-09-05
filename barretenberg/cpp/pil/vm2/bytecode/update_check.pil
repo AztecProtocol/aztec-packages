@@ -138,19 +138,15 @@ namespace update_check;
     update_hi_metadata * TWO_POW_32 + timestamp_of_change - update_preimage_metadata = 0;
 
     // ======== CLASS ID CHECK ========
-    // We are going to use the standard way to compare integers.
-    // We request the boolean as a hint, and then we constrain it by subtracting in one direction or the other depending on it.
-    // If the boolean hint is incorrect, then the subtraction will overflow the field and the range constraint will fail.
+    // We are going to use the gt gadget to compare `timestamp` and `timestamp_of_change` and derive
+    // the boolean value of `timestamp_is_lt_timestamp_of_change`.
     pol commit timestamp_is_lt_timestamp_of_change;
     timestamp_is_lt_timestamp_of_change * (1 - timestamp_is_lt_timestamp_of_change) = 0;
-    pol commit timestamp_of_change_subtraction;
-    pol TIMESTAMP_LT_TIMESTAMP_OF_CHANGE = timestamp_of_change - 1 - timestamp;
-    pol TIMESTAMP_GTE_TIMESTAMP_OF_CHANGE =  timestamp - timestamp_of_change;
-    (TIMESTAMP_LT_TIMESTAMP_OF_CHANGE - TIMESTAMP_GTE_TIMESTAMP_OF_CHANGE) * timestamp_is_lt_timestamp_of_change + TIMESTAMP_GTE_TIMESTAMP_OF_CHANGE - timestamp_of_change_subtraction = 0;
 
-    #[TIMESTAMP_OF_CHANGE_CMP_RANGE]
-    hash_not_zero { timestamp_of_change_subtraction, timestamp_of_change_bit_size }
-    in range_check.sel { range_check.value, range_check.rng_chk_bits };
+    // Equivalent to "timestamp_of_change > timestamp"
+    #[TIMESTAMP_IS_LT_TIMESTAMP_OF_CHANGE]
+    hash_not_zero { timestamp_of_change, timestamp, timestamp_is_lt_timestamp_of_change }
+    in gt.sel { gt.input_a, gt.input_b, gt.res };
 
     pol commit update_pre_class_id_is_zero;
     update_pre_class_id_is_zero * (1 - update_pre_class_id_is_zero) = 0;
