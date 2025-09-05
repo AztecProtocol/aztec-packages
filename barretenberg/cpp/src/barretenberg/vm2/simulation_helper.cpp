@@ -186,7 +186,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                                        bytecode_retrieval_emitter,
                                        bytecode_decomposition_emitter,
                                        instruction_fetching_emitter);
-    ExecutionComponentsProvider execution_components(range_check, instruction_info_db);
+    ExecutionComponentsProvider execution_components(range_check, greater_than, instruction_info_db);
 
     MemoryProvider memory_provider(range_check, execution_id_manager, memory_emitter);
     CalldataHashingProvider calldata_hashing_provider(poseidon2, calldata_emitter);

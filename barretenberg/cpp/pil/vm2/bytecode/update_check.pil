@@ -140,8 +140,7 @@ namespace update_check;
     // ======== CLASS ID CHECK ========
     // We are going to use the gt gadget to compare `timestamp` and `timestamp_of_change` and derive
     // the boolean value of `timestamp_is_lt_timestamp_of_change`.
-    pol commit timestamp_is_lt_timestamp_of_change;
-    timestamp_is_lt_timestamp_of_change * (1 - timestamp_is_lt_timestamp_of_change) = 0;
+    pol commit timestamp_is_lt_timestamp_of_change; // Boolean value enforced by gt gadget (under condition hash_not_zero == 1).
 
     // Equivalent to "timestamp_of_change > timestamp"
     #[TIMESTAMP_IS_LT_TIMESTAMP_OF_CHANGE]

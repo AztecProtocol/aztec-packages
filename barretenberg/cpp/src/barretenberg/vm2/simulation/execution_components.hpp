@@ -13,6 +13,7 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/gas_tracker.hpp"
+#include "barretenberg/vm2/simulation/gt.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
 #include "barretenberg/vm2/simulation/range_check.hpp"
 
@@ -29,8 +30,11 @@ class ExecutionComponentsProviderInterface {
 
 class ExecutionComponentsProvider : public ExecutionComponentsProviderInterface {
   public:
-    ExecutionComponentsProvider(RangeCheckInterface& range_check, const InstructionInfoDBInterface& instruction_info_db)
+    ExecutionComponentsProvider(RangeCheckInterface& range_check,
+                                GreaterThanInterface& gt,
+                                const InstructionInfoDBInterface& instruction_info_db)
         : range_check(range_check)
+        , gt(gt)
         , instruction_info_db(instruction_info_db)
     {}
     std::unique_ptr<AddressingInterface> make_addressing(AddressingEvent& event) override;
@@ -41,6 +45,7 @@ class ExecutionComponentsProvider : public ExecutionComponentsProviderInterface 
 
   private:
     RangeCheckInterface& range_check;
+    GreaterThanInterface& gt;
     const InstructionInfoDBInterface& instruction_info_db;
 
     // Sadly someone has to own these.
