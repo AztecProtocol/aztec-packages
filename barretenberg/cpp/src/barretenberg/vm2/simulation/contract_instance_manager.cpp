@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/simulation/contract_instance_manager.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/common/protocol_contracts.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -31,21 +32,31 @@ std::optional<ContractInstance> ContractInstanceManager::get_contract_instance(c
     // Note: this call to get_contract_instance performs address derivation.
     std::optional<ContractInstance> maybe_instance = contract_db.get_contract_instance(contract_address);
 
-    // Note: skip canonical/magic address handling for now.
-    // TODO(dbanks12): Add magic address handling and skip other checks if it is a magic address.
+    const auto& tree_state = merkle_db.get_tree_state();
+    // If this is a protocol contract, we are done with our checks - address derivation done by get_contract_instance
+    if (is_protocol_contract(contract_address)) {
+        assert(maybe_instance.has_value() && "Contract instance should be found if for protocol contracts");
+        const ContractInstance& instance = maybe_instance.value();
+        event_emitter.emit({ .address = contract_address,
+                             .contract_instance = instance,
+                             // Tree context
+                             .nullifier_tree_root = tree_state.nullifierTree.tree.root,
+                             .public_data_tree_root = tree_state.publicDataTree.tree.root,
+                             .exists = true, // Protocol Contract Instance Always Exists!
+                             .error = false });
+
+        return instance;
+    }
 
     if (!merkle_db.nullifier_exists(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, contract_address)) {
         // Emit error event
-        const auto& tree_state = merkle_db.get_tree_state();
-        event_emitter.emit(
-            { .address = contract_address,
-              .contract_instance = {}, // Empty instance for error case
-              .nullifier_tree_root = tree_state.nullifierTree.tree.root,
-              .public_data_tree_root = tree_state.publicDataTree.tree.root,
-              .deployment_nullifier = contract_address,
-              .nullifier_exists = false, // Nullifier not found!
-              .deployer_protocol_contract_address = AztecAddress(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
-              .error = true });
+        event_emitter.emit({ .address = contract_address,
+                             .contract_instance = {}, // Empty instance for error case
+                             .nullifier_tree_root = tree_state.nullifierTree.tree.root,
+                             .public_data_tree_root = tree_state.publicDataTree.tree.root,
+                             .deployment_nullifier = contract_address,
+                             .exists = false, // Nullifier not found!
+                             .error = true });
 
         return std::nullopt;
     }
@@ -56,17 +67,14 @@ std::optional<ContractInstance> ContractInstanceManager::get_contract_instance(c
     // Validate that the contract instance is the latest if there have been any updates.
     update_check.check_current_class_id(contract_address, instance);
 
-    const auto& tree_state = merkle_db.get_tree_state();
-    event_emitter.emit(
-        { .address = contract_address,
-          .contract_instance = instance,
-          // Tree context
-          .nullifier_tree_root = tree_state.nullifierTree.tree.root,
-          .public_data_tree_root = tree_state.publicDataTree.tree.root,
-          .deployment_nullifier = contract_address, // Contract address nullifier
-          .nullifier_exists = true,                 // Nullifier found!
-          .deployer_protocol_contract_address = AztecAddress(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
-          .error = false });
+    event_emitter.emit({ .address = contract_address,
+                         .contract_instance = instance,
+                         // Tree context
+                         .nullifier_tree_root = tree_state.nullifierTree.tree.root,
+                         .public_data_tree_root = tree_state.publicDataTree.tree.root,
+                         .deployment_nullifier = contract_address, // Contract address nullifier
+                         .exists = true,                           // Nullifier found!
+                         .error = false });
 
     return instance;
 }

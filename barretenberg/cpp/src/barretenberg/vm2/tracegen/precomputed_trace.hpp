@@ -28,6 +28,7 @@ class PrecomputedTraceBuilder final {
     void process_keccak_round_constants(TraceContainer& trace);
     void process_get_env_var_table(TraceContainer& trace);
     void process_get_contract_instance_table(TraceContainer& trace);
+    void process_protocol_contract_addresses(TraceContainer& trace);
 };
 
 } // namespace bb::avm2::tracegen
