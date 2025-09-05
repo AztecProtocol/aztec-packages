@@ -4,6 +4,7 @@ import type { Tx, TxHash } from '@aztec/stdlib/tx';
 import type { PeerId } from '@libp2p/interface';
 
 import type { MissingTxMetadata } from './missing_txs.js';
+import type { IPeerCollection } from './peer_collection.js';
 
 export interface ITxMetadataCollection {
   size: number;
@@ -21,6 +22,7 @@ export interface ITxMetadataCollection {
 export interface BatchTxRequesterOptions {
   smartParallelWorkerCount: number;
   dumbParallelWorkerCount: number;
-  //Semaphore is injectable for testing purposes
+  //Injectable for testing purposes
   semaphore?: ISemaphore;
+  peerCollection?: IPeerCollection;
 }

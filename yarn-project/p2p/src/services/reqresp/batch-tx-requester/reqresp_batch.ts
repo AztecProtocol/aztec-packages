@@ -15,13 +15,13 @@ import { BlockTxsRequest, BlockTxsResponse } from '.././protocols/index.js';
 import { ReqRespStatus } from '.././status.js';
 import { type BatchTxRequesterOptions, type ITxMetadataCollection } from './interface.js';
 import { MissingTxMetadata, MissingTxMetadataCollection, TX_BATCH_SIZE } from './missing_txs.js';
-import { PeerCollection } from './peer_collection.js';
+import { type IPeerCollection, PeerCollection } from './peer_collection.js';
 
 const SMART_PEERS_TO_QUERY_IN_PARALLEL = 10;
 const DUMB_PEERS_TO_QUERY_IN_PARALLEL = 10;
 
 export class BatchTxRequester {
-  private readonly peers: PeerCollection;
+  private readonly peers: IPeerCollection;
   private readonly txsMetadata: ITxMetadataCollection;
   private readonly deadline: number;
   private readonly smartRequesterSemaphore: ISemaphore;
@@ -43,8 +43,12 @@ export class BatchTxRequester {
   ) {
     this.deadline = this.dateProvider.now() + this.timeoutMs;
 
-    const initialPeers = this.connectionSampler.getPeerListSortedByConnectionCountAsc();
-    this.peers = new PeerCollection(initialPeers);
+    if (this.opts.peerCollection) {
+      this.peers = this.opts.peerCollection;
+    } else {
+      const initialPeers = this.connectionSampler.getPeerListSortedByConnectionCountAsc();
+      this.peers = new PeerCollection(initialPeers);
+    }
 
     //Pinned peer is queried separately and thus always considered "in-flight" by both "dumb" and "smart" requester
     if (this.pinnedPeer) {
@@ -158,6 +162,7 @@ export class BatchTxRequester {
         this.logger.error(`Dumb requester Chunk at index ${idx} is undefined, chunk length: ${chunks.length}`);
       }
       const txs = chunks[idx].map(t => TxHash.fromString(t));
+
       this.logger.debug(`Dumb batch index: ${idx}, batches count: ${chunks.length}`);
       return { blockRequest: BlockTxsRequest.fromBlockProposalAndMissingTxs(this.blockProposal, txs), txs };
     };
