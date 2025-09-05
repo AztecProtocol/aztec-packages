@@ -289,6 +289,7 @@ class UltraEccOpsTable {
                "current subtable should be merged before reconstructing the full table of operations.");
 
         std::vector<UltraOp> reconstructed_table;
+        reconstructed_table.reserve(1 << CONST_OP_QUEUE_LOG_SIZE);
 
         for (size_t subtable_idx = 0; subtable_idx < table.num_subtables() - 1; subtable_idx++) {
             const auto& subtable = table.get()[subtable_idx];
@@ -301,14 +302,8 @@ class UltraEccOpsTable {
         if (has_fixed_append && fixed_append_offset.has_value()) {
             size_t current_size = reconstructed_table.size();
             size_t target_offset = fixed_append_offset.value();
-
             // Fill gap with no-ops if needed
-            while (current_size < target_offset) {
-                UltraOp no_op = {};
-                // no_op.op_code is already initialized with all false values (no operation)
-                reconstructed_table.push_back(no_op);
-                current_size++;
-            }
+            reconstructed_table.insert(reconstructed_table.end(), target_offset - current_size, UltraOp{ /*no-op*/ });
         }
 
         // Add the final subtable (appended at fixed location)

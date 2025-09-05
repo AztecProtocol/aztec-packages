@@ -78,7 +78,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
         op_queue->merge();
         add_mixed_ops(op_queue, circuit_size_parameter / 2);
         add_no_ops(op_queue, 2);
-        op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_unmerged_subtable_size());
+        op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
 
         return InnerBuilder{ batching_challenge_v, evaluation_challenge_x, op_queue };
     }

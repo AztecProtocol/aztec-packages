@@ -313,6 +313,9 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     // to ensure the op queue wires in translator are shiftable, i.e. their 0th coefficient is 0. (The tail kernel
     // subtable is at the top of the final aggregate table since it is the last to be prepended).
     if (is_tail_kernel) {
+        BB_ASSERT_EQ(circuit.op_queue->get_unmerged_subtable_size(),
+                     0U,
+                     "tail kernel ecc ops table should be empty at this point");
         circuit.queue_ecc_no_op();
         // Placeholder for randomness at the beginning of tail circuit
         circuit.queue_ecc_no_op();
