@@ -362,8 +362,8 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
 
     cycle_group result;
     if (hint.has_value()) {
-        auto x3 = hint.value().x;
-        auto y3 = hint.value().y;
+        const bb::fr x3 = hint.value().x;
+        const bb::fr y3 = hint.value().y;
         if (is_constant()) {
             result = cycle_group(x3, y3, is_point_at_infinity());
             // We need to manually propagate the origin tag
@@ -374,19 +374,19 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
 
         result = cycle_group(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
     } else {
-        auto x1 = x.get_value();
-        auto y1 = modified_y.get_value();
+        const bb::fr x1 = x.get_value();
+        const bb::fr y1 = modified_y.get_value();
 
         // N.B. the formula to derive the witness value for x3 mirrors the formula in elliptic_relation.hpp
         // Specifically, we derive x^4 via the Short Weierstrass curve formula `y^2 = x^3 + b`
         // i.e. x^4 = x * (y^2 - b)
         // We must follow this pattern exactly to support the edge-case where the input is the point at infinity.
-        auto y_pow_2 = y1.sqr();
-        auto x_pow_4 = x1 * (y_pow_2 - Group::curve_b);
-        auto lambda_squared = (x_pow_4 * 9) / (y_pow_2 * 4);
-        auto lambda = (x1 * x1 * 3) / (y1 + y1);
-        auto x3 = lambda_squared - x1 - x1;
-        auto y3 = lambda * (x1 - x3) - y1;
+        const bb::fr y_pow_2 = y1.sqr();
+        const bb::fr x_pow_4 = x1 * (y_pow_2 - Group::curve_b);
+        const bb::fr lambda_squared = (x_pow_4 * 9) / (y_pow_2 * 4);
+        const bb::fr lambda = (x1 * x1 * 3) / (y1 + y1);
+        const bb::fr x3 = lambda_squared - x1 - x1;
+        const bb::fr y3 = lambda * (x1 - x3) - y1;
         if (is_constant()) {
             auto result = cycle_group(x3, y3, is_point_at_infinity().get_value());
             // We need to manually propagate the origin tag
@@ -429,7 +429,7 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
 {
     auto context = get_context(other);
 
-    bb::fr sign_coefficient = is_addition ? 1 : -1;
+    const bb::fr sign_coefficient = is_addition ? 1 : -1;
 
     // if one or the other point is constant, construct a corresponding fixed witness in order to utilize the custom
     // ecc_add gate
@@ -449,15 +449,15 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
     }
     cycle_group result;
     if (hint.has_value()) {
-        auto x3 = hint.value().x;
-        auto y3 = hint.value().y;
+        const bb::fr x3 = hint.value().x;
+        const bb::fr y3 = hint.value().y;
         if (lhs_constant && rhs_constant) {
             return cycle_group(x3, y3, /*is_infinity=*/false);
         }
         result = cycle_group(witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false);
     } else {
-        const auto p1 = get_value();
-        const auto p2 = other.get_value();
+        const AffineElement p1 = get_value();
+        const AffineElement p2 = other.get_value();
         AffineElement p3 = is_addition ? (Element(p1) + Element(p2)) : (Element(p1) - Element(p2));
         if (lhs_constant && rhs_constant) {
             auto result = cycle_group(p3);
@@ -465,9 +465,7 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
             result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
             return result;
         }
-        field_t r_x(witness_t(context, p3.x));
-        field_t r_y(witness_t(context, p3.y));
-        result = cycle_group(r_x, r_y, /*is_infinity=*/false);
+        result = cycle_group(witness_t(context, p3.x), witness_t(context, p3.y), /*is_infinity=*/false);
     }
     bb::ecc_add_gate_<bb::fr> add_gate{
         .x1 = x.get_witness_index(),
@@ -516,7 +514,7 @@ template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::checked_unconditional_add(const cycle_group& other,
                                                                      const std::optional<AffineElement> hint) const
 {
-    field_t x_delta = this->x - other.x;
+    const field_t x_delta = this->x - other.x;
     if (x_delta.is_constant()) {
         ASSERT(x_delta.get_value() != 0);
     } else {
@@ -542,7 +540,7 @@ template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::checked_unconditional_subtract(const cycle_group& other,
                                                                           const std::optional<AffineElement> hint) const
 {
-    field_t x_delta = this->x - other.x;
+    const field_t x_delta = this->x - other.x;
     if (x_delta.is_constant()) {
         ASSERT(x_delta.get_value() != 0);
     } else {
@@ -575,13 +573,13 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
     const bool_t double_predicate = (x_coordinates_match && y_coordinates_match);
     const bool_t infinity_predicate = (x_coordinates_match && !y_coordinates_match);
 
-    auto x1 = x;
-    auto y1 = y;
-    auto x2 = other.x;
-    auto y2 = other.y;
+    const field_t x1 = x;
+    const field_t y1 = y;
+    const field_t x2 = other.x;
+    const field_t y2 = other.y;
     // if x_coordinates match, lambda triggers a divide by zero error.
     // Adding in `x_coordinates_match` ensures that lambda will always be well-formed
-    auto x_diff = x2.add_two(-x1, x_coordinates_match);
+    const field_t x_diff = x2.add_two(-x1, x_coordinates_match);
     // Computes lambda = (y2-y1)/x_diff, using the fact that x_diff is never 0
     field_t lambda;
     if ((y1.is_constant() && y2.is_constant()) || x_diff.is_constant()) {
@@ -594,11 +592,11 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
         field_t::evaluate_polynomial_identity(x_diff, lambda, -y2, y1);
     }
 
-    auto x3 = lambda.madd(lambda, -(x2 + x1));
-    auto y3 = lambda.madd(x1 - x3, -y1);
+    const field_t x3 = lambda.madd(lambda, -(x2 + x1));
+    const field_t y3 = lambda.madd(x1 - x3, -y1);
     cycle_group add_result(x3, y3, x_coordinates_match);
 
-    auto dbl_result = dbl();
+    const cycle_group dbl_result = dbl();
 
     // dbl if x_match, y_match
     // infinity if x_match, !y_match
@@ -650,11 +648,11 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     if (!infinity_predicate.is_constant()) {
         infinity_predicate.get_context()->update_used_witnesses(infinity_predicate.get_normalized_witness_index());
     }
-    auto x1 = x;
-    auto y1 = y;
-    auto x2 = other.x;
-    auto y2 = other.y;
-    auto x_diff = x2.add_two(-x1, x_coordinates_match);
+    const field_t x1 = x;
+    const field_t y1 = y;
+    const field_t x2 = other.x;
+    const field_t y2 = other.y;
+    const field_t x_diff = x2.add_two(-x1, x_coordinates_match);
     // Computes lambda = (-y2-y1)/x_diff, using the fact that x_diff is never 0
     field_t lambda;
     if ((y1.is_constant() && y2.is_constant()) || x_diff.is_constant()) {
@@ -667,16 +665,16 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
         field_t::evaluate_polynomial_identity(x_diff, lambda, y2, y1);
     }
 
-    auto x3 = lambda.madd(lambda, -(x2 + x1));
-    auto y3 = lambda.madd(x1 - x3, -y1);
+    const field_t x3 = lambda.madd(lambda, -(x2 + x1));
+    const field_t y3 = lambda.madd(x1 - x3, -y1);
     cycle_group add_result(x3, y3, x_coordinates_match);
 
-    auto dbl_result = dbl();
+    const cycle_group dbl_result = dbl();
 
     // dbl if x_match, !y_match
     // infinity if x_match, y_match
-    auto result_x = field_t::conditional_assign(double_predicate, dbl_result.x, add_result.x);
-    auto result_y = field_t::conditional_assign(double_predicate, dbl_result.y, add_result.y);
+    field_t result_x = field_t::conditional_assign(double_predicate, dbl_result.x, add_result.x);
+    field_t result_y = field_t::conditional_assign(double_predicate, dbl_result.y, add_result.y);
 
     if constexpr (IsUltraBuilder<Builder>) {
         if (result_x.get_context()) {
