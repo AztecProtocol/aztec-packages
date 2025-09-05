@@ -15,6 +15,7 @@ node ../../bbjs-test prove \
   -o output-$$
 
 # The proof and public_inputs are already in binary format from bbjs-test
+
 bb=$(../../../cpp/scripts/find-bb)
 # Verify the proof with bb cli
 $bb verify \
