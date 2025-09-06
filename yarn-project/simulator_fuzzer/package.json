@@ -1,36 +1,17 @@
 {
-  "name": "@aztec/simulator",
+  "name": "@aztec/simulator_fuzzer",
   "version": "0.1.0",
   "type": "module",
-  "exports": {
-    "./server": "./dest/server.js",
-    "./client": "./dest/client.js",
-    "./testing": "./dest/testing.js",
-    "./public/fixtures": "./dest/public/fixtures/index.js",
-    "./public/avm/opcodes": "./dest/public/avm/opcodes/index.js",
-
-    "./public/avm/avm_simulator": "./dest/public/avm/avm_simulator.js",
-    "./public/side_effect_trace": "./dest/public/side_effect_trace.js",
-    "./public/public_db_sources": "./dest/public/public_db_sources.js",
-    "./public/state_manager": "./dest/public/state_manager/index.js",
-    "./public/avm/fixtures/simple_contract_data_source": "./dest/public/avm/fixtures/simple_contract_data_source.js"
-  },
-  "typedocOptions": {
-    "entryPoints": [
-      "./src/index.ts"
-    ],
-    "name": "Simulator",
-    "tsconfig": "./tsconfig.json"
-  },
+  "inherits": [
+    "../package.common.json"
+  ],
   "scripts": {
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
+    "bb": "node --no-warnings ./dest/bb/index.js",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
-  "inherits": [
-    "../package.common.json"
-  ],
   "jest": {
     "moduleNameMapper": {
       "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
@@ -69,35 +50,28 @@
     ]
   },
   "dependencies": {
+    "@aztec/simulator": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
-    "@aztec/noir-acvm_js": "portal:../../noir/packages/acvm_js",
-    "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi",
-    "@aztec/noir-protocol-circuits-types": "workspace:^",
-    "@aztec/noir-types": "portal:../../noir/packages/types",
-    "@aztec/protocol-contracts": "workspace:^",
     "@aztec/stdlib": "workspace:^",
-    "@aztec/telemetry-client": "workspace:^",
     "@aztec/world-state": "workspace:^",
-    "lodash.clonedeep": "^4.5.0",
-    "lodash.merge": "^4.6.2",
-    "tslib": "^2.4.0"
+    "express": "^4.18.2",
+    "source-map-support": "^0.5.21",
+    "tslib": "^2.4.0",
+    "viem": "2.23.7",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@aztec/kv-store": "workspace:^",
-    "@aztec/merkle-tree": "workspace:^",
-    "@aztec/noir-contracts.js": "workspace:^",
-    "@aztec/noir-test-contracts.js": "workspace:^",
+    "@aztec/aztec.js": "workspace:^",
     "@jest/globals": "^30.0.0",
+    "@types/express": "^4.17.21",
     "@types/jest": "^30.0.0",
-    "@types/lodash.clonedeep": "^4.5.7",
-    "@types/lodash.merge": "^4.6.9",
     "@types/node": "^22.15.17",
+    "@types/source-map-support": "^0.5.10",
     "jest": "^30.0.0",
     "jest-mock-extended": "^4.0.0",
     "ts-node": "^10.9.1",
-    "typescript": "^5.3.3",
-    "viem": "2.23.7"
+    "typescript": "^5.3.3"
   },
   "files": [
     "dest",

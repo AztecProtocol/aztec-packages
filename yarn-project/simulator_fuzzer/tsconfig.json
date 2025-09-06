@@ -1,0 +1,26 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../simulator"
+    },
+    {
+      "path": "../constants"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../stdlib"
+    },
+    {
+      "path": "../world-state"
+    }
+  ],
+  "include": ["src"]
+}

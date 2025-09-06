@@ -1,0 +1,7 @@
+services:
+  transpiler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "51447:51447"

@@ -1375,6 +1375,22 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/simulator_fuzzer@workspace:simulator_fuzzer":
+  version: 0.0.0-use.local
+  resolution: "@aztec/simulator_fuzzer@workspace:simulator_fuzzer"
+  dependencies:
+    "@aztec/constants": "workspace:^"
+    "@aztec/foundation": "workspace:^"
+    "@aztec/simulator": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
+    "@aztec/world-state": "workspace:^"
+    "@jest/globals": "npm:^30.0.0"
+    jest: "npm:^30.0.0"
+    ts-node: "npm:^10.9.1"
+    typescript: "npm:^5.3.3"
+  languageName: unknown
+  linkType: soft
+
 "@aztec/slasher@workspace:^, @aztec/slasher@workspace:slasher":
   version: 0.0.0-use.local
   resolution: "@aztec/slasher@workspace:slasher"
