@@ -2,6 +2,10 @@
 
 Coverage based fuzzing AVM vs Brillig based on [ssa_fuzzer](https://github.com/noir-lang/noir/tree/master/tooling/ssa_fuzzer)
 
+# Requirements
+1) Cargo Fuzz: `cargo install cargo-fuzz`
+2) Rust Nightly compiler: `rustup install nightly`
+
 ## Overview
 How fuzz loop looks like:
 1) Fuzzer generates Noir [SSA](https://en.wikipedia.org/wiki/Static_single-assignment_form), compiles it into Brillig bytecode and executes it
