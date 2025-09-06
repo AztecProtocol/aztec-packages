@@ -76,8 +76,13 @@ jobs:
 
       - name: Store the GCP key in a file
         if: env.SEMVER != '' && env.MAJOR_VERSION == '2'
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
         run: |
-          echo "${{ secrets.GCP_SA_KEY }}" > ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
+          set +x
+          umask 077
+          printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
+          jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
 
       # note: it is fine to log the mnemonic here. this is an internal,
       # throwaway test network.

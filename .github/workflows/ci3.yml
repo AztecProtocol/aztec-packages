@@ -92,8 +92,13 @@ jobs:
           sudo apt install -y --no-install-recommends redis-tools parallel
 
       - name: Store the GCP key in a file
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
         run: |
-          echo "${{ secrets.GCP_SA_KEY }}" > ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
+          set +x
+          umask 077
+          printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
+          jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
 
       - name: Get Tree Hash
         run: echo "TREE_HASH=$(git rev-parse HEAD^{tree})" >> $GITHUB_ENV

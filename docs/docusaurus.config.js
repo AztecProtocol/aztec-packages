@@ -253,12 +253,6 @@ const config = {
                 className: "no-external-icon",
               },
               {
-                type: "docSidebar",
-                sidebarId: "roadmapSidebar",
-                label: "Roadmap",
-                className: "no-external-icon",
-              },
-              {
                 to: "https://noir-lang.org/docs",
                 label: "Noir docs",
                 target: "_blank",
