@@ -81,6 +81,10 @@ fi
 
 K8S_CLUSTER_CONTEXT=$(kubectl config current-context)
 
+if [[ "${DESTROY_NAMESPACE:-}" == "true" ]]; then
+  kubectl delete namespace "${NAMESPACE}" --ignore-not-found=true
+fi
+
 # Create the namespace if it doesn't exist
 kubectl get namespace "${NAMESPACE}" >/dev/null 2>&1 || kubectl create namespace "${NAMESPACE}"
 
