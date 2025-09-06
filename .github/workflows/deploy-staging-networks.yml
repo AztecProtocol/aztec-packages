@@ -102,6 +102,8 @@ jobs:
           FUNDING_PRIVATE_KEY=${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
           LABS_INFRA_MNEMONIC=${{ secrets.SEPOLIA_LABS_INFRA_MNEMONIC }}
           OTEL_COLLECTOR_ENDPOINT=${{ secrets.OTEL_COLLECTOR_URL }}
+          VERIFY_CONTRACTS=true
+          ETHERSCAN_API_KEY=${{ secrets.ETHERSCAN_API_KEY }}
           EOF
           echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
 
