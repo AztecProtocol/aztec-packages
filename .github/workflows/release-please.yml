@@ -147,8 +147,10 @@ jobs:
           ref: ${{ fromJSON(needs.release-please.outputs.release-pr).headBranchName }}
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
-      - name: Run corepack enable
-        run: corepack enable
+      - name: Setup dependencies
+        run: |
+          sudo apt install -y --no-install-recommends doxygen
+          corepack enable
 
       - name: Configure Git
         run: |
