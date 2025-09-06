@@ -220,15 +220,15 @@ function run {
 
 
     # Save GCP_SA_KEY to a file if set
-    if [ -n '${GCP_SA_KEY_B64:-}' ]; then
-      echo '${GCP_SA_KEY_B64:-}' | base64 -d > ${GOOGLE_APPLICATION_CREDENTIALS}
-      echo 'GCP_SA_KEY decoded and saved to ${GOOGLE_APPLICATION_CREDENTIALS}'
+    if [ -n "${GCP_SA_KEY_B64:-}" ]; then
+      echo "${GCP_SA_KEY_B64:-}" | base64 -d > ${GOOGLE_APPLICATION_CREDENTIALS}
+      echo "GCP_SA_KEY decoded and saved to ${GOOGLE_APPLICATION_CREDENTIALS}"
     fi
 
     # Save NETWORK_ENV_FILE to a file if set
-    if [ -n '${NETWORK_ENV_FILE_B64:-}' ]; then
-      echo '${NETWORK_ENV_FILE_B64:-}' | base64 -d > ${NETWORK_ENV_FILE}
-      echo 'NETWORK_ENV_FILE decoded and saved to ${NETWORK_ENV_FILE}'
+    if [ -n "${NETWORK_ENV_FILE_B64:-}" ]; then
+      echo "${NETWORK_ENV_FILE_B64:-}" | base64 -d > ${NETWORK_ENV_FILE}
+      echo "NETWORK_ENV_FILE decoded and saved to ${NETWORK_ENV_FILE}"
     fi
 
     start_build() {
