@@ -72,7 +72,7 @@ resource "null_resource" "generate_genesis" {
 
 # Deploy eth-devnet helm chart
 resource "helm_release" "eth_devnet" {
-  depends_on       = [null_resource.generate_genesis]
+  depends_on       = [null_resource.generate_genesis, null_resource.cleanup_pvcs]
   provider         = helm.gke-cluster
   name             = var.RELEASE_PREFIX
   repository       = "../../"
@@ -121,4 +121,27 @@ data "kubernetes_service" "eth_beacon" {
   }
 
   depends_on = [helm_release.eth_devnet]
+}
+
+# Cleanup PVCs created by the Helm release on destroy
+resource "null_resource" "cleanup_pvcs" {
+  triggers = {
+    release   = var.RELEASE_PREFIX
+    namespace = var.NAMESPACE
+    context   = var.K8S_CLUSTER_CONTEXT
+  }
+
+  # Run during terraform destroy. We delete by Helm's standard labels to target only this release's PVCs.
+  provisioner "local-exec" {
+    when    = destroy
+    command = <<-EOT
+      set -eu
+      # Delete PVCs labeled with Helm v3 standard label
+      kubectl --context="${var.K8S_CLUSTER_CONTEXT}" -n "${var.NAMESPACE}" delete pvc -l "app.kubernetes.io/instance=eth-devnet" --ignore-not-found --wait=true || true
+      kubectl --context="${var.K8S_CLUSTER_CONTEXT}" -n "${var.NAMESPACE}" delete configmaps -l "app.kubernetes.io/instance=eth-devnet" --ignore-not-found --wait=true || true
+
+    EOT
+  }
+  # Note: helm_release depends on this null_resource so on destroy the Helm release is removed first,
+  # then this cleanup runs to delete any remaining PVCs.
 }

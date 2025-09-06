@@ -446,6 +446,7 @@ case "$cmd" in
     ;;
   "ci-network-deploy")
     export CI=1
+    build
     spartan/bootstrap.sh network_deploy $NETWORK_ENV_FILE
     ;;
   "ci-network-tests")
