@@ -13,7 +13,13 @@ function build {
 }
 
 function source_network_env {
-  local env_file="environments/$1"
+  local env_file
+  # Check if the argument is an absolute path
+  if [[ "$1" = /* ]]; then
+    env_file="$1"
+  else
+    env_file="environments/$1"
+  fi
   # Optionally source an env file passed as first argument
   if [[ -n "${env_file:-}" ]]; then
     if [[ -f "$env_file" ]]; then

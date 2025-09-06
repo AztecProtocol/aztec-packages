@@ -130,6 +130,7 @@ jobs:
           NETWORK_ENV_FILE: ${{ env.NETWORK_ENV_FILE }}
           GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
           NAMESPACE: ${{ env.NAMESPACE }}
+          REF_NAME: "v${{ env.SEMVER }}"
         run: |
           # the network env file and gcp credentials file are mounted into the ec2 instance
           # see ci3/bootstrap_ec2
