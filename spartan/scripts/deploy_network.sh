@@ -203,6 +203,10 @@ EOF
 tf_run "${DEPLOY_ROLLUP_CONTRACTS_DIR}" "${DESTROY_ROLLUP_CONTRACTS}" "${CREATE_ROLLUP_CONTRACTS}"
 log "Deployed rollup contracts"
 
+terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw verification_json_b64 | base64 -d > $HOME/l1-verify.json
+cat $HOME/l1-verify.json
+exit 0
+
 REGISTRY_ADDRESS=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw registry_address)
 SLASH_FACTORY_ADDRESS=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw slash_factory_address)
 FEE_ASSET_HANDLER_ADDRESS=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw fee_asset_handler_address)
