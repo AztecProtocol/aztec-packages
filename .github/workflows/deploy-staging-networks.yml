@@ -89,14 +89,13 @@ jobs:
       - name: Write staging-public network env file
         if: env.SEMVER != '' && env.MAJOR_VERSION == '2'
         run: |
-          SEMVER_SALT=$(echo "${MAJOR_VERSION}" | md5sum | cut -d' ' -f1)
           NAMESPACE="v${MAJOR_VERSION}-staging-public"
           cat > ${{ env.NETWORK_ENV_FILE }} <<EOF
           CREATE_ETH_DEVNET=false
           GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
           GCP_REGION=us-west1-a
           CLUSTER=aztec-gke-private
-          SALT=${SEMVER_SALT}
+          SALT=1757186075
           NAMESPACE=${NAMESPACE}
           AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${SEMVER}"
           ETHEREUM_CHAIN_ID=11155111
