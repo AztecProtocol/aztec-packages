@@ -203,9 +203,10 @@ EOF
 tf_run "${DEPLOY_ROLLUP_CONTRACTS_DIR}" "${DESTROY_ROLLUP_CONTRACTS}" "${CREATE_ROLLUP_CONTRACTS}"
 log "Deployed rollup contracts"
 
-terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw verification_json_b64 | base64 -d > $HOME/l1-verify.json
-cat $HOME/l1-verify.json
-exit 0
+if [[ "${VERIFY_CONTRACTS:-}" == "true" ]]; then
+  terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw verification_json_b64 | base64 -d > $HOME/l1-verify.json
+  ${REPO_ROOT}/l1-contracts/scripts/verify-from-json.sh $HOME/l1-verify.json --api-key $ETHERSCAN_API_KEY
+fi
 
 REGISTRY_ADDRESS=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw registry_address)
 SLASH_FACTORY_ADDRESS=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw slash_factory_address)
