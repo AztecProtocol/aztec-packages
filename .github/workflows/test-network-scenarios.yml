@@ -92,6 +92,7 @@ jobs:
         run: |
           NAMESPACE="v${MAJOR_VERSION}-scenario"
           cat > ${{ env.NETWORK_ENV_FILE }} <<EOF
+          DESTROY_NAMESPACE=true
           DESTROY_ETH_DEVNET=true
           CREATE_ETH_DEVNET=true
           DESTROY_ROLLUP_CONTRACTS=true
