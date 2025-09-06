@@ -41,7 +41,7 @@ describe('AVM proven spammy txs', () => {
   it(
     'Proving keccak spam',
     async () => {
-      const result = await executeKeccakSpamPublicTx(tester, /*numKeccakf1600s=*/ 100);
+      const result = await executeKeccakSpamPublicTx(tester);
       expect(result.revertCode.isOK()).toBe(true);
     },
     TIMEOUT,
@@ -50,7 +50,7 @@ describe('AVM proven spammy txs', () => {
   it(
     'Proving DIV spam',
     async () => {
-      const result = await executeDivSpamPublicTx(tester, /*numDivs=*/ 200);
+      const result = await executeDivSpamPublicTx(tester);
       expect(result.revertCode.isOK()).toBe(true);
     },
     TIMEOUT,
@@ -59,7 +59,7 @@ describe('AVM proven spammy txs', () => {
   it(
     'Proving XOR spam',
     async () => {
-      const result = await executeXorSpamPublicTx(tester, /*numXors=*/ 200);
+      const result = await executeXorSpamPublicTx(tester);
       expect(result.revertCode.isOK()).toBe(true);
     },
     TIMEOUT,
@@ -68,7 +68,7 @@ describe('AVM proven spammy txs', () => {
   it(
     'Proving Poseidon2 spam',
     async () => {
-      const result = await executePoseidonSpamPublicTx(tester, /*numPoseidons=*/ 200);
+      const result = await executePoseidonSpamPublicTx(tester);
       expect(result.revertCode.isOK()).toBe(true);
     },
     TIMEOUT,
@@ -77,7 +77,7 @@ describe('AVM proven spammy txs', () => {
   it(
     'Proving SHA256 compression spam',
     async () => {
-      const result = await executeSha256SpamPublicTx(tester, /*numSha256s=*/ 200);
+      const result = await executeSha256SpamPublicTx(tester);
       expect(result.revertCode.isOK()).toBe(true);
     },
     TIMEOUT,
