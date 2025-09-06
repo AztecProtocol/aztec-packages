@@ -92,6 +92,7 @@ jobs:
         run: |
           NAMESPACE="v${MAJOR_VERSION}-scenario"
           cat > ${{ env.NETWORK_ENV_FILE }} <<EOF
+          RUN_TESTS=true
           DESTROY_NAMESPACE=true
           DESTROY_ETH_DEVNET=true
           CREATE_ETH_DEVNET=true
@@ -140,7 +141,6 @@ jobs:
           # the network env file and gcp credentials file are mounted into the ec2 instance
           # see ci3/bootstrap_ec2
           exec ./ci.sh network-deploy
-          exec ./ci.sh network-tests
 
       - name: Save CI Success
         if: env.SEMVER != '' && steps.ci_cache.outputs.cache-hit != 'true'
