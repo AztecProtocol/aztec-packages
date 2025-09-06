@@ -85,13 +85,14 @@ jobs:
         if: env.SEMVER != '' && env.MAJOR_VERSION == '2'
         run: |
           SEMVER_SALT=$(echo "${MAJOR_VERSION}" | md5sum | cut -d' ' -f1)
+          NAMESPACE="v${MAJOR_VERSION}-staging-public"
           cat > ${{ env.NETWORK_ENV_FILE }} <<EOF
           CREATE_ETH_DEVNET=false
           GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
           GCP_REGION=us-west1-a
           CLUSTER=aztec-gke-private
           SALT=${SEMVER_SALT}
-          NAMESPACE="v${MAJOR_VERSION}-staging-public"
+          NAMESPACE=${NAMESPACE}
           AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${SEMVER}"
           ETHEREUM_CHAIN_ID=11155111
           ETHEREUM_RPC_URLS=${{ secrets.SEPOLIA_RPC_URLS }}
@@ -102,6 +103,7 @@ jobs:
           LABS_INFRA_MNEMONIC=${{ secrets.SEPOLIA_LABS_INFRA_MNEMONIC }}
           OTEL_COLLECTOR_ENDPOINT=${{ secrets.OTEL_COLLECTOR_URL }}
           EOF
+          echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
 
       #############
       # Run
@@ -117,6 +119,7 @@ jobs:
           # Pass the base64 encoded strings, and where they should be decoded to
           NETWORK_ENV_FILE: ${{ env.NETWORK_ENV_FILE }}
           GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
+          NAMESPACE: ${{ env.NAMESPACE }}
         run: |
           # the network env file and gcp credentials file are mounted into the ec2 instance
           # see ci3/bootstrap_ec2
