@@ -164,6 +164,12 @@ case "$cmd" in
 
     gcp_auth
     ./scripts/deploy_network.sh
+    echo "Deployed network"
+
+    if [[ "${RUN_TESTS:-}" == "true" ]]; then
+      echo "Running tests"
+      network_tests
+    fi
     ;;
   "single_test")
     shift
