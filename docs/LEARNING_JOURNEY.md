@@ -67,7 +67,7 @@ Our current documentation demonstrates strong implementation of the Diataxis fra
 ### Proposed Information Architecture
 
 ```
-📚 Getting Started with Aztec (Main Learning Journey)
+📚 Learn (Complete Progressive Learning Journey - Phases 1-8)
 ├── 🎯 Phase 1: Why Privacy Matters
 │   ├── The Privacy Problem
 │   ├── Digital Dignity  
@@ -109,28 +109,36 @@ Our current documentation demonstrates strong implementation of the Diataxis fra
     ├── Cross-chain Application Patterns
     └── Deployment and Monitoring
 
-📖 Reference & Deep Dive
-├── 📋 Quick Reference
-│   ├── Data Types Cheatsheet
-│   ├── Storage Patterns  
-│   └── Common Snippets
-├── 📚 Complete API Reference
-│   ├── Aztec.nr Types & Methods
+🛠️ Build (Diataxis Framework for Experienced Developers)
+├── 📚 Tutorials (Learning-oriented)
+│   ├── Your First Private Contract
+│   ├── Building a Token Contract  
+│   ├── Creating an NFT Contract
+│   ├── Full-Stack dApp Tutorial
+│   └── Cross-chain Integration Tutorial
+├── 📖 How-To Guides (Problem-oriented)
+│   ├── How to set up your development environment
+│   ├── How to deploy and verify contracts
+│   ├── How to implement authorization patterns
+│   ├── How to optimize circuit performance
+│   ├── How to test private contract logic
+│   ├── How to integrate with frontend applications
+│   ├── How to handle cross-chain messaging
+│   └── How to debug private execution
+├── 📋 Reference (Information-oriented)
+│   ├── Aztec.nr Complete API Reference
 │   ├── Aztec.js SDK Reference
-│   └── Configuration Options
-├── 🔬 Protocol Specifications
-│   ├── Cryptography Details
-│   ├── Circuit Specifications
-│   └── Network Protocol
-└── 🛠️ Advanced Topics
-    ├── Performance Optimization
-    ├── Security Considerations
-    └── Debugging Guides
-
-🏃‍♂️ Quick Starts (For Experienced Devs)
-├── "I know blockchain, teach me privacy"
-├── "I know ZK, teach me Aztec"  
-└── "I know Aztec v1, what's new?"
+│   ├── CLI Commands Reference
+│   ├── Configuration Options Reference
+│   ├── Error Codes & Messages
+│   └── Protocol Specifications
+└── 💡 Explanation (Understanding-oriented)
+    ├── Smart Contract Architecture Concepts
+    ├── Privacy Design Patterns
+    ├── Gas & Performance Considerations
+    ├── Security Best Practices
+    ├── Integration Patterns
+    └── Protocol Deep Dives
 ```
 
 ## Detailed Learning Journey Phases
@@ -262,43 +270,61 @@ Clear explanations of how each concept enables the next level, creating cumulati
 ### 6. Just-in-Time Reference
 Comprehensive reference materials available when needed without cluttering the learning path.
 
-## Reference & Deep Dive Structure
+## Dual Architecture Benefits
 
-### Quick Reference Section
-**Purpose:** Fast lookup for developers actively building
+### **Learn Section: Complete Progressive Journey**
+**Purpose:** Guided learning experience from privacy motivation to full-stack mastery
 
-**Components:**
-- **Data Types Cheatsheet:** All Aztec.nr types with methods and use cases
-- **Storage Patterns:** Common patterns for private/public state management
-- **Common Snippets:** Copy-paste code for frequent operations
-- **Function Signatures:** Quick API reference for all major functions
+**Key Features:**
+- **Progressive Knowledge Building:** Each phase builds on previous understanding
+- **Integrated Theory + Practice:** Concepts immediately applied through coding
+- **Clear Progression Indicators:** Users always know where they are and what's next
+- **Narrative Threading:** Connects all concepts to the broader privacy mission
 
-### Complete API Reference
-**Purpose:** Comprehensive technical specifications
+**Target Users:**
+- New developers learning Aztec
+- Blockchain developers new to privacy
+- Anyone wanting comprehensive understanding
+- Developers who prefer guided learning
 
-**Components:**
-- **Aztec.nr Types & Methods:** Complete documentation of all types, traits, and functions
-- **Aztec.js SDK Reference:** Frontend integration library documentation
-- **Configuration Options:** Environment setup and configuration parameters
-- **Error Codes:** Comprehensive error handling reference
+### **Build Section: Diataxis Framework**
+**Purpose:** Task-oriented and reference materials for experienced developers
 
-### Protocol Specifications
-**Purpose:** Deep technical understanding for advanced users
+#### **Tutorials (Learning-oriented)**
+**Characteristics:**
+- Step-by-step learning experiences
+- Safe learning environment with predictable outcomes
+- Focus on getting users to complete a project successfully
+- Minimal explanations, maximum hands-on experience
 
-**Components:**
-- **Cryptography Details:** Complete cryptographic specifications
-- **Circuit Specifications:** Detailed circuit descriptions and constraints
-- **Network Protocol:** P2P communication and consensus mechanisms
-- **Gas and Fee Models:** Economic mechanism specifications
+**Target Users:** Developers who want to learn by doing specific projects
 
-### Advanced Topics
-**Purpose:** Specialized knowledge for specific use cases
+#### **How-To Guides (Problem-oriented)**
+**Characteristics:**
+- Goal-oriented instructions for specific problems
+- Assume knowledge of fundamentals
+- Focus on practical steps to achieve specific outcomes
+- Include troubleshooting and alternative approaches
 
-**Components:**
-- **Performance Optimization:** Circuit optimization strategies and benchmarking
-- **Security Considerations:** Threat models and security best practices
-- **Debugging Guides:** Troubleshooting private contract development
-- **Migration Guides:** Version upgrade and migration strategies
+**Target Users:** Developers solving specific implementation challenges
+
+#### **Reference (Information-oriented)**
+**Characteristics:**
+- Comprehensive, accurate technical descriptions
+- Systematically structured for easy lookup
+- Minimal explanatory content, maximum factual information
+- Complete API documentation and specifications
+
+**Target Users:** Developers actively building who need quick technical lookups
+
+#### **Explanation (Understanding-oriented)**
+**Characteristics:**
+- Clarifies and illuminates topics
+- Provides context and background
+- Explains design decisions and trade-offs
+- Discusses alternatives and connections between concepts
+
+**Target Users:** Developers who need deeper conceptual understanding
 
 ## Implementation Strategy
 
@@ -346,13 +372,60 @@ Comprehensive reference materials available when needed without cluttering the l
 - **Increase in advanced feature adoption**
 - **Community growth and engagement**
 
+## How the Two Sections Work Together
+
+### **User Flow Patterns**
+
+#### **New to Aztec**: 
+`Learn (Phases 1-8)` → Build (for specific lookups and advanced topics)
+
+#### **Experienced Developer**:
+`Build (Tutorials/How-to)` → Learn (for conceptual gaps) → Build (Reference)
+
+#### **Blockchain Developer New to Privacy**:
+`Learn (Phases 1-4)` → Build (Tutorials) → Learn (Phases 5-8) → Build (How-to/Reference)
+
+#### **ZK Developer New to Aztec**:
+`Learn (Phases 1, 4)` → Build (Tutorials) → Learn (Phases 5-8) → Build (Reference)
+
+### **Content Relationship Strategy**
+
+**No Duplication**: Build tutorials can be more concise since Learn provides comprehensive foundational understanding
+
+**Cross-References**: Learn phases link to relevant Build sections for deeper exploration
+
+**Complementary Depth**: Learn provides context and progression, Build provides task-specific focus
+
+## Key Advantages of This Dual Architecture
+
+### **1. Serves All Learning Styles**
+- **Linear learners**: Complete Learn journey
+- **Exploratory learners**: Browse Build categories  
+- **Task-oriented learners**: Jump to Build how-to guides
+- **Reference seekers**: Use Build reference materials
+
+### **2. Eliminates Content Conflicts**
+- Learn: Progressive, narrative-driven, contextual
+- Build: Task-focused, categorical, reference-oriented
+- Clear purposes prevent competing approaches
+
+### **3. Reduces Maintenance Overhead**
+- Learn content focuses on learning progression
+- Build content focuses on task completion and reference
+- No duplicate explanations of the same concepts
+
+### **4. Scalable Architecture**
+- New concepts added to Learn journey with clear placement
+- New tools/features added to Build reference without disrupting learning flow
+- Community contributions can target appropriate section based on purpose
+
 ## Conclusion
 
-This learning journey design addresses the core limitation of traditional technical documentation: the assumption that users can effectively learn complex, paradigm-shifting technology through categorical browsing. Instead, it provides a guided narrative path that builds understanding progressively while maintaining comprehensive reference materials for just-in-time lookup.
+This dual architecture design addresses different user needs while maintaining coherent documentation strategy. The Learn section provides the progressive learning journey that addresses the core limitation of traditional technical documentation, while the Build section provides the familiar Diataxis framework that experienced developers expect.
 
-The unified approach eliminates artificial barriers between "learning" and "building," recognizing that understanding privacy-first development requires experiential learning integrated with conceptual understanding. This design serves multiple user types while maintaining a clear primary path for beginners and comprehensive resources for advanced users.
+The Learn section transforms documentation from reference material into an exceptional learning experience that effectively onboards developers into the privacy-first blockchain paradigm. Meanwhile, the Build section ensures that once developers are onboarded, they have the task-oriented resources they need to build effectively.
 
-By implementing this learning journey, Aztec documentation can transform from excellent reference material into an exceptional learning experience that effectively onboards developers into the privacy-first blockchain paradigm.
+Together, these sections create a comprehensive documentation ecosystem that serves users from their first encounter with Aztec through their development of sophisticated privacy-preserving applications.
 
 ---
 
