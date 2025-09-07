@@ -82,10 +82,11 @@ function test_cmds {
 }
 
 function network_test_cmds {
+  local prefix="disabled-cache:CPUS=10:MEM=16g"
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
-  echo $run_test_script simple src/spartan/smoke.test.ts
-  echo $run_test_script simple src/spartan/transfer.test.ts
-  echo $run_test_script simple src/spartan/slash_inactivity.test.ts
+  echo $prefix $run_test_script simple src/spartan/smoke.test.ts
+  echo $prefix $run_test_script simple src/spartan/transfer.test.ts
+  echo $prefix $run_test_script simple src/spartan/slash_inactivity.test.ts
 }
 
 function single_test {
