@@ -6,6 +6,7 @@
 #include "barretenberg/vm2/simulation/events/contract_instance_retrieval_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
+#include "barretenberg/vm2/simulation/protocol_contracts.hpp"
 #include "barretenberg/vm2/simulation/update_check.hpp"
 
 namespace bb::avm2::simulation {
@@ -43,6 +44,7 @@ class ContractInstanceManager : public ContractInstanceManagerInterface {
     ContractInstanceManager(ContractDBInterface& contract_db,
                             HighLevelMerkleDBInterface& merkle_db,
                             UpdateCheckInterface& update_check,
+                            ProtocolContractSetInterface& protocol_contracts_set,
                             EventEmitterInterface<ContractInstanceRetrievalEvent>& event_emitter);
 
     std::optional<ContractInstance> get_contract_instance(const FF& contract_address) override;
@@ -51,6 +53,7 @@ class ContractInstanceManager : public ContractInstanceManagerInterface {
     ContractDBInterface& contract_db;
     HighLevelMerkleDBInterface& merkle_db;
     UpdateCheckInterface& update_check;
+    ProtocolContractSetInterface& protocol_contracts_set;
     EventEmitterInterface<ContractInstanceRetrievalEvent>& event_emitter;
 };
 

@@ -1,5 +1,6 @@
 // GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
 namespace constants;
+    pol PROTOCOL_CONTRACT_TREE_HEIGHT = 3;
     pol NOTE_HASH_TREE_HEIGHT = 40;
     pol PUBLIC_DATA_TREE_HEIGHT = 40;
     pol NULLIFIER_TREE_HEIGHT = 40;
