@@ -742,11 +742,10 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       const { data: _, ...blockHashAndNum } = nullifierIndex;
       await this.noteDataProvider.removeNullifiedNotes([{ data: siloedNullifier, ...blockHashAndNum }], recipient);
 
-      this.log.verbose(`Removed just-added note`, {
+      this.log.verbose(`Removed just-added note with nullifier ${siloedNullifier.toString()}`, {
         contract: contractAddress,
         slot: storageSlot,
         noteHash: noteHash,
-        nullifier: siloedNullifier.toString(),
       });
     }
   }
@@ -913,13 +912,15 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   }
 
   public async removeNullifiedNotes(contractAddress: AztecAddress) {
-    this.log.verbose('Searching for nullifiers of known notes', { contract: contractAddress });
-
     // We avoid making node queries at 'latest' since we mark notes as nullified only if the corresponding nullifier
     // has been included in a block up to which PXE has synced. Note that while this technically results in historical
     // queries, we perform it at the latest locally synced block number which *should* be recent enough to be
     // available, even for non-archive nodes.
     const syncedBlockNumber = await this.syncDataProvider.getBlockNumber();
+
+    this.log.verbose(`Searching for nullifiers of known notes. PXE synced up to block ${syncedBlockNumber}`, {
+      contract: contractAddress,
+    });
 
     for (const recipient of await this.keyStore.getAccounts()) {
       const currentNotesForRecipient = await this.noteDataProvider.getNotes({ contractAddress, recipient });
@@ -949,6 +950,15 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         )
       ).flat();
 
+      this.log.verbose(
+        `Looked for note nullifiers:\n${nullifiersToCheck
+          .map(
+            (n, i) =>
+              `  - ${n.toString()}: ${nullifierIndexes[i]?.data !== undefined ? `found at index ${nullifierIndexes[i].data}` : 'not found'}`,
+          )
+          .join('\n')}`,
+      );
+
       const foundNullifiers = nullifiersToCheck
         .map((nullifier, i) => {
           if (nullifierIndexes[i] !== undefined) {
@@ -959,11 +969,13 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
       const nullifiedNotes = await this.noteDataProvider.removeNullifiedNotes(foundNullifiers, recipient);
       nullifiedNotes.forEach(noteDao => {
-        this.log.verbose(`Removed note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`, {
-          contract: noteDao.contractAddress,
-          slot: noteDao.storageSlot,
-          nullifier: noteDao.siloedNullifier.toString(),
-        });
+        this.log.verbose(
+          `Removed note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot} with nullifier ${noteDao.siloedNullifier.toString()}`,
+          {
+            contract: noteDao.contractAddress,
+            slot: noteDao.storageSlot,
+          },
+        );
       });
     }
   }

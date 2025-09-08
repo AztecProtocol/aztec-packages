@@ -32,7 +32,8 @@ pub contract Token {
 
     use dep::uint_note::uint_note::{PartialUintNote, UintNote};
     use aztec::protocol_types::{
-        abis::side_effect::OrderedValue, address::AztecAddress, traits::ToField,
+        abis::side_effect::OrderedValue, address::AztecAddress, hash::compute_siloed_nullifier,
+        traits::ToField,
     };
 
     // docs:start:import_authwit
@@ -244,7 +245,14 @@ pub contract Token {
         );
         aztec::oracle::debug_log::debug_log_format(
             "nullifiers in context before emission transfer_to_public: {}",
-            context.nullifiers.storage().map(|n| n.value()),
+            context.nullifiers.storage().map(|n| {
+                let value = n.value();
+                if value != 0 {
+                    compute_siloed_nullifier(context.this_address(), value)
+                } else {
+                    value
+                }
+            }),
         );
         // NUKE_END
 
@@ -253,7 +261,14 @@ pub contract Token {
         // TODO(DUPLICATE_NULLIFIER_ISSUE): Nuke this log once the issue is resolved.
         aztec::oracle::debug_log::debug_log_format(
             "nullifiers in context after emission transfer_to_public: {}",
-            context.nullifiers.storage().map(|n| n.value()),
+            context.nullifiers.storage().map(|n| {
+                let value = n.value();
+                if value != 0 {
+                    compute_siloed_nullifier(context.this_address(), value)
+                } else {
+                    value
+                }
+            }),
         );
         // NUKE_END
 
@@ -444,25 +459,25 @@ pub contract Token {
     /// returned partial note.
     #[private]
     fn prepare_private_balance_increase(to: AztecAddress) -> PartialUintNote {
-        // TODO(DUPLICATE_NULLIFIER_ISSUE): Nuke this log once the issue is resolved.
-        aztec::oracle::debug_log::debug_log_format(
-            "prepare_private_balance_increase, to: {0}",
-            [to.to_field()],
-        );
-        aztec::oracle::debug_log::debug_log_format(
-            "nullifiers in context before emission prepare_private_balance_increase: {}",
-            context.nullifiers.storage().map(|n| n.value()),
-        );
-        // NUKE_END
+        // // TODO(DUPLICATE_NULLIFIER_ISSUE): Nuke this log once the issue is resolved.
+        // aztec::oracle::debug_log::debug_log_format(
+        //     "prepare_private_balance_increase, to: {0}",
+        //     [to.to_field()],
+        // );
+        // aztec::oracle::debug_log::debug_log_format(
+        //     "nullifiers in context before emission prepare_private_balance_increase: {}",
+        //     context.nullifiers.storage().map(|n| n.value()),
+        // );
+        // // NUKE_END
 
         let partial_note = _prepare_private_balance_increase(to, &mut context, storage);
 
-        // TODO(DUPLICATE_NULLIFIER_ISSUE): Nuke this log once the issue is resolved.
-        aztec::oracle::debug_log::debug_log_format(
-            "nullifiers in context after emission prepare_private_balance_increase: {}",
-            context.nullifiers.storage().map(|n| n.value()),
-        );
-        // NUKE_END
+        // // TODO(DUPLICATE_NULLIFIER_ISSUE): Nuke this log once the issue is resolved.
+        // aztec::oracle::debug_log::debug_log_format(
+        //     "nullifiers in context after emission prepare_private_balance_increase: {}",
+        //     context.nullifiers.storage().map(|n| n.value()),
+        // );
+        // // NUKE_END
 
         partial_note
     }
