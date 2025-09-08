@@ -12,12 +12,10 @@ use powdr_ast::{
 };
 use powdr_number::FieldElement;
 
-#[derive(Debug, Clone)]
-pub enum ExpressionPlaceholder {
-    Column(String),
-    Alias(String),
-}
-
+// A polynomial expression is a flattened and simplified PIL expression
+// together with information about the placeholders.
+// For example `{sel} - FF(0) + {some_alias}` is a polynomial expression with two placeholders.
+// In this case, `sel` will be a column, and `some_alias` will be an alias.
 #[derive(Debug, Clone)]
 pub struct PolynomialExpression {
     // The flattened expression with column/aliases placeholders.
@@ -28,14 +26,15 @@ pub struct PolynomialExpression {
     pub placeholders: HashMap<String, ExpressionPlaceholder>,
 }
 
-impl PolynomialExpression {
-    pub fn instantiate(&self) -> String {
-        self.instantiate_with_handler(|placeholder| match placeholder {
-            ExpressionPlaceholder::Column(col) => format!("in.get(C::{})", col),
-            ExpressionPlaceholder::Alias(alias) => alias.clone(),
-        })
-    }
+// A placeholder is a column or an alias.
+#[derive(Debug, Clone)]
+pub enum ExpressionPlaceholder {
+    Column(String),
+    Alias(String),
+}
 
+impl PolynomialExpression {
+    // The accumulate function in the relation needs instantiations that use `View`.
     pub fn instantiate_with_view(&self) -> String {
         self.instantiate_with_handler(|placeholder| match placeholder {
             ExpressionPlaceholder::Column(col) => format!("static_cast<View>(in.get(C::{}))", col),
@@ -43,6 +42,16 @@ impl PolynomialExpression {
         })
     }
 
+    // Other parts of the file do not use `View`.
+    pub fn instantiate(&self) -> String {
+        self.instantiate_with_handler(|placeholder| match placeholder {
+            ExpressionPlaceholder::Column(col) => format!("in.get(C::{})", col),
+            ExpressionPlaceholder::Alias(alias) => alias.clone(),
+        })
+    }
+
+    // Once we want to write an expression to a file, we need to instantiate the placeholders.
+    // This method creates an instantiated string given a way to instantiate the placeholders.
     fn instantiate_with_handler<F>(&self, handler: F) -> String
     where
         F: Fn(&ExpressionPlaceholder) -> String,
@@ -55,7 +64,7 @@ impl PolynomialExpression {
         result
     }
 
-    /// Get the (one-level) aliases in the expression.
+    /// Get the (one-level) aliases used in the expression.
     pub fn get_aliases(&self) -> HashSet<String> {
         self.placeholders
             .values()
@@ -187,7 +196,7 @@ pub fn compute_expression<F: FieldElement>(
     compute_expression_(current_expr, alias_names, None)
 }
 
-pub fn compute_expression_<F: FieldElement>(
+fn compute_expression_<F: FieldElement>(
     current_expr: &AlgebraicExpression<F>,
     alias_names: &HashSet<String>,
     parent_expr: Option<&AlgebraicExpression<F>>,

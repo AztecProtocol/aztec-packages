@@ -128,11 +128,6 @@ impl RelationBuilder for BBFiles {
                 &identities.iter().collect_vec(),
                 &alias_expressions_in_order,
             );
-            println!(
-                "Found {} aliases for relation: {}",
-                filtered_aliases.len(),
-                relation_name
-            );
 
             let filtered_subrelation_lengths = all_degrees
                 .iter()
