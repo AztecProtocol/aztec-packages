@@ -20,7 +20,12 @@ import { BitVector, BlockTxsRequest, BlockTxsResponse } from '../protocols/index
 import { ReqRespStatus } from '../status.js';
 import { BatchTxRequester } from './batch_tx_requester.js';
 import { TX_BATCH_SIZE } from './missing_txs.js';
-import { BAD_PEER_THRESHOLD, PeerCollection } from './peer_collection.js';
+import {
+  BAD_PEER_THRESHOLD,
+  type IPeerCollection,
+  PeerCollection,
+  RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL,
+} from './peer_collection.js';
 
 const TEST_TIMEOUT = 10_000;
 jest.setTimeout(TEST_TIMEOUT);
@@ -809,6 +814,142 @@ describe('BatchTxRequester', () => {
       expect(totalRequestedTxs).toBeLessThan(txCount);
     });
   });
+
+  describe('Rate limit handling', () => {
+    it('should automatically recover peers after TTL expiration', async () => {
+      const clock = new TestClock();
+      const pinnedPeer = undefined;
+
+      const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
+
+      const peerCollection = new TestPeerCollection(new PeerCollection(peers, pinnedPeer, clock));
+
+      // Manually mark peer as rate limited
+      peerCollection.markPeerRateLimitExceeded(peers[0]);
+
+      // Verify peer is initially rate limited and excluded
+      expect(peerCollection.getRateLimitExceededPeers()).toContain(peers[0].toString());
+      expect(peerCollection.getDumbPeersToQuery()).not.toContain(peers[0].toString());
+
+      // Test TTL behavior at different time points
+
+      // Just before TTL expiration: still rate limited
+      clock.advanceTo(RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL - 1);
+      expect(peerCollection.getRateLimitExceededPeers()).toContain(peers[0].toString());
+      expect(peerCollection.getDumbPeersToQuery()).not.toContain(peers[0].toString());
+
+      // Right at TTL expiration: still rate limited (boundary case)
+      clock.advanceTo(RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL);
+      expect(peerCollection.getRateLimitExceededPeers()).toContain(peers[0].toString());
+      expect(peerCollection.getDumbPeersToQuery()).not.toContain(peers[0].toString());
+
+      // After TTL expiration: recovered
+      clock.advanceTo(RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL + 1);
+      expect(peerCollection.getRateLimitExceededPeers()).not.toContain(peers[0].toString());
+      expect(peerCollection.getDumbPeersToQuery()).toContain(peers[0].toString());
+
+      // Test multiple rate limit cycles
+      peerCollection.markPeerRateLimitExceeded(peers[0]); // Rate limit again
+      expect(peerCollection.getRateLimitExceededPeers()).toContain(peers[0].toString());
+
+      clock.advanceTo(clock.now() + RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL + 1);
+      expect(peerCollection.getRateLimitExceededPeers()).not.toContain(peers[0].toString());
+      expect(peerCollection.getDumbPeersToQuery()).toContain(peers[0].toString());
+    });
+
+    it('should exclude rate limited peer from queries and recover after TTL expiration', async () => {
+      const txCount = 8;
+      const deadline = 2_000;
+      const clock = new TestClock();
+      const pinnedPeer = undefined;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        header: makeHeader(1, 1),
+        archive: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
+
+      const innerPeerCollection = new PeerCollection(peers, pinnedPeer, clock);
+      const peerCollection = new TestPeerCollection(innerPeerCollection);
+
+      const peerTransactions = new Map([
+        [peers[1].toString(), Array.from({ length: txCount }, (_, i) => i)], // peer1 has all transactions
+      ]);
+
+      let requestCount = 0;
+      reqresp.sendRequestToPeer.mockImplementation(async (peerId: any) => {
+        const peerStr = peerId.toString();
+        // First 2 request to peer0 will be rate limited
+        if (peerStr === peers[0].toString() && requestCount < 1) {
+          requestCount++;
+          return {
+            status: ReqRespStatus.RATE_LIMIT_EXCEEDED,
+            data: Buffer.alloc(0),
+          };
+        }
+
+        // All other requests succeed
+        const peerHasIndices = peerTransactions.get(peerStr) || [];
+        const availableTxHashes = peerHasIndices.map(idx => blockProposal.txHashes[idx]);
+        const availableTxs = availableTxHashes.map(h => makeTx(h));
+
+        const response = new BlockTxsResponse(
+          blockProposal.archive,
+          new TxArray(...availableTxs),
+          BitVector.init(blockProposal.txHashes.length, peerHasIndices),
+        );
+
+        return {
+          status: ReqRespStatus.SUCCESS,
+          data: response.toBuffer(),
+        };
+      });
+
+      const requester = new BatchTxRequester(
+        missing,
+        blockProposal,
+        pinnedPeer,
+        deadline,
+        reqresp,
+        connectionSampler,
+        txValidator,
+        logger,
+        clock,
+        {
+          smartParallelWorkerCount: 0,
+          dumbParallelWorkerCount: 2,
+          peerCollection,
+        },
+      );
+
+      // Start the requester
+      const runPromise = requester.run();
+
+      // Let some time for requests to be sent
+      await sleep(RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL + 1);
+
+      //Advance time to make sure we are done
+      clock.advanceTo(Math.max(deadline, RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL + 1));
+
+      // Wait for the requester to complete
+      await runPromise;
+
+      // Peer0 should have been rate limited
+      expect(peerCollection.peersMarkedRateLimitExceeded).toContain(peers[0].toString());
+      expect(peerCollection.peersMarkedRateLimitExceeded).not.toContain(peers[1].toString());
+
+      // Verify peer0 is no longer rate limited after TTL expiration
+      expect(peerCollection.getRateLimitExceededPeers().size).toBe(0);
+      expect(peerCollection.getDumbPeersToQuery()).toContain(peers[0].toString());
+      expect(peerCollection.getDumbPeersToQuery()).toContain(peers[1].toString());
+    });
+  });
 });
 
 const makeTx = (txHash?: string | TxHash) => Tx.random({ txHash }) as Tx;
@@ -887,5 +1028,74 @@ export class TestSemaphore implements ISemaphore {
   release() {
     this.releasedCount++;
     this.inner.release();
+  }
+}
+
+export class TestPeerCollection implements IPeerCollection {
+  public smartPeersMarked: string[] = [];
+  public peersMarkedBad: string[] = [];
+  public peersMarkedInFlight: string[] = [];
+  public peersUnmarkedBad: string[] = [];
+  public peersUnmarkedInFlight: string[] = [];
+  public peersMarkedRateLimitExceeded: string[] = [];
+
+  constructor(private readonly inner: PeerCollection) {}
+
+  getAllPeers(): Set<string> {
+    return this.inner.getAllPeers();
+  }
+
+  getSmartPeers(): Set<string> {
+    return this.inner.getSmartPeers();
+  }
+
+  markPeerSmart(peerId: any): void {
+    this.smartPeersMarked.push(peerId.toString());
+    return this.inner.markPeerSmart(peerId);
+  }
+
+  getSmartPeersToQuery(): Array<string> {
+    return this.inner.getSmartPeersToQuery();
+  }
+
+  getDumbPeersToQuery(): Array<string> {
+    return this.inner.getDumbPeersToQuery();
+  }
+
+  thereAreSomeDumbRatelimitExceededPeers(): boolean {
+    return this.inner.thereAreSomeDumbRatelimitExceededPeers();
+  }
+
+  markPeerAsBad(peerId: any): void {
+    this.peersMarkedBad.push(peerId.toString());
+    return this.inner.markPeerAsBad(peerId);
+  }
+
+  unMarkPeerAsBad(peerId: any): void {
+    this.peersUnmarkedBad.push(peerId.toString());
+    return this.inner.unMarkPeerAsBad(peerId);
+  }
+
+  getBadPeers(): Set<string> {
+    return this.inner.getBadPeers();
+  }
+
+  markPeerInFlight(peerId: any): void {
+    this.peersMarkedInFlight.push(peerId.toString());
+    return this.inner.markPeerInFlight(peerId);
+  }
+
+  unMarkPeerInFlight(peerId: any): void {
+    this.peersUnmarkedInFlight.push(peerId.toString());
+    return this.inner.unMarkPeerInFlight(peerId);
+  }
+
+  markPeerRateLimitExceeded(peerId: any): void {
+    this.peersMarkedRateLimitExceeded.push(peerId.toString());
+    return this.inner.markPeerRateLimitExceeded(peerId);
+  }
+
+  getRateLimitExceededPeers(): Set<string> {
+    return this.inner.getRateLimitExceededPeers();
   }
 }
