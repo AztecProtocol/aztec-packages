@@ -1,0 +1,129 @@
+{"level":25,"time":1757359204889,"pid":1643576,"hostname":"david-box","module":"logger","msg":"Logger initialized with level debug"}
+{"level":20,"time":1757359206405,"pid":1643576,"hostname":"david-box","name":"bb.js","name":"bb_wasm_sync","msg":"Fetching bb wasm from default location"}
+[19:20:06.556] [34mDEBUG[39m: [36m[1mworld-state:database[22m [0mCreated temporary world state database at: /tmp/aztec-world-state-5QGSNH with tree map size: 10485760[0m[39m
+[19:20:06.566] [32mINFO[39m: [36m[1mworld-state:database[22m [0mCreating world state data store at directory /tmp/aztec-world-state-5QGSNH/world_state with map sizes {"archiveTreeMapSizeKb":10485760,"nullifierTreeMapSizeKb":10485760,"noteHashTreeMapSizeKb":10485760,"messageTreeMapSizeKb":10485760,"publicDataTreeMapSizeKb":10485760} and 16 threads.[0m[39m
+{"level":20,"time":1757359206524,"pid":1643576,"hostname":"david-box","name":"bb.js","name":"bb_wasm_sync","msg":"Compiling bb wasm of 9244522 bytes"}
+{"level":20,"time":1757359206542,"pid":1643576,"hostname":"david-box","name":"bb.js","name":"bb_wasm_sync","msg":"Compilation of bb wasm complete"}
+{"level":20,"time":1757359206542,"pid":1643576,"hostname":"david-box","name":"bb.js","name":"bb_wasm_sync","msg":"Initializing bb wasm: initial memory 32 pages 2MiB; max memory: 65536 pages, 4096MiB; threads: 1; shared memory: true"}
+[19:20:06.699] [34mDEBUG[39m: [36m[1mavm-simulation-tester[22m [0m[Poseidon2] Init gas: 108 (4 × 27)[0m[39m
+[19:20:06.700] [34mDEBUG[39m: [36m[1mavm-simulation-tester[22m [0m[Poseidon2] Return gas: 36[0m[39m
+[19:20:06.700] [34mDEBUG[39m: [36m[1mavm-simulation-tester[22m [0m[Poseidon2] Safety margin: 10000[0m[39m
+[19:20:06.701] [34mDEBUG[39m: [36m[1mavm-simulation-tester[22m [0m[Poseidon2] Available gas for operations: 5989856[0m[39m
+[19:20:06.701] [34mDEBUG[39m: [36m[1mavm-simulation-tester[22m [0m[Poseidon2] Gas per operation: 24[0m[39m
+[19:20:06.701] [34mDEBUG[39m: [36m[1mavm-simulation-tester[22m [0m[Poseidon2] Max operations without loop overhead: 249577[0m[39m
+[19:20:06.702] [34mDEBUG[39m: [36m[1mavm-simulation-tester[22m [0m[Poseidon2] Need loop for 249577 operations[0m[39m
+[19:20:06.702] [34mDEBUG[39m: [36m[1mavm-simulation-tester[22m [0m[Poseidon2] Gas after loop setup: 5989775[0m[39m
+[19:20:06.703] [34mDEBUG[39m: [36m[1mavm-simulation-tester[22m [0m[Poseidon2] Gas per iteration: 24063 (1000 × 24 + 63)[0m[39m
+[19:20:06.703] [34mDEBUG[39m: [36m[1mavm-simulation-tester[22m [0m[Poseidon2] Max iterations: 248[0m[39m
+[19:20:06.703] [34mDEBUG[39m: [36m[1mavm-simulation-tester[22m [0m[Poseidon2] Total operations with loop: 248000[0m[39m
+[19:20:06.703] [34mDEBUG[39m: [36m[1mavm-simulation-tester[22m [0m[Poseidon2] Total gas to be used: 5967705 (available: 5989856)[0m[39m
+[19:20:06.703] [35mVERBOSE[39m: [36m[1mavm-simulation-tester[22m [0mSpamming 248000 Poseidon2 operations (max allowed: 248000)[0m[39m
+[19:20:06.706] [35mVERBOSE[39m: [36m[1mavm-simulation-tester[22m [0mUsing loop with 248 iterations of 1000 Poseidon2s each[0m[39m
+[19:20:06.706] [34mDEBUG[39m: [36m[1mavm-simulation-tester[22m [0mLoop structure: 248 iterations × 1000 ops/iteration = 248000 total Poseidon2s[0m[39m
+[19:20:06.706] [34mDEBUG[39m: [36m[1mavm-simulation-tester[22m [0mLoop gas breakdown: 81 (setup) + 248 × 63 (overhead) = 15705 total loop overhead[0m[39m
+[19:20:06.706] [34mDEBUG[39m: [36m[1mavm-simulation-tester[22m [0m[Poseidon2] Final instruction count: 1012[0m[39m
+[19:20:06.706] [34mDEBUG[39m: [36m[1mavm-simulation-tester[22m [0m[Poseidon2] Estimated total gas: 5967849[0m[39m
+[19:20:06.730] [34mDEBUG[39m: [36m[1msimple-contract-data-source[22m [0mRetrieved contract artifact for address: 0x28a43e08a64308121192fb3f79bf411fed6868e4f60fe9bef3194169d12a3bcb[0m[39m
+[19:20:06.731] [34mDEBUG[39m: [36m[1msimple-contract-data-source[22m [0mContract class ID: 0x2e9049bfac289edba17d0a5ddb5c988fb6e01499715bf067bac0b4461d47d7af[0m[39m
+[19:20:06.760] [34mDEBUG[39m: [36m[1msimulator:public_tx_simulator[22m [0mSimulating 1 public calls for tx 0x230bc4662264d853117017bd5917c48d84f57705f9d0d0d5a5f6268e54f3c16d[0m[39m [90m{"txHash":"0x230bc4662264d853117017bd5917c48d84f57705f9d0d0d5a5f6268e54f3c16d"}[39m
+[19:20:06.767] [34mDEBUG[39m: [36m[1msimulator:public-trees-db[22m [0mChecked nullifier exists (nullifier=0x00000000000000000000000000000000000000000000000000000000000668a0, exists=false)[0m[39m [90m{"eventName":"public-db-access","duration":2.542928999999731,"operation":"check-nullifier-exists"}[39m
+[19:20:06.770] [34mDEBUG[39m: [36m[1msimulator:public-trees-db[22m [0mWrote nullifier (nullifier=0x00000000000000000000000000000000000000000000000000000000000668a0)[0m[39m [90m{"eventName":"public-db-access","duration":1.9797020000000884,"operation":"write-nullifier"}[39m
+[19:20:06.771] [34mDEBUG[39m: [36m[1msimulator:public_phase_state_manager[22m [0mForking phase state manager[0m[39m
+[19:20:06.774] [34mDEBUG[39m: [36m[1msimulator:public_tx_simulator[22m [0mProcessing phase APP_LOGIC for tx 0x230bc4662264d853117017bd5917c48d84f57705f9d0d0d5a5f6268e54f3c16d[0m[39m [90m{"txHash":"0x230bc4662264d853117017bd5917c48d84f57705f9d0d0d5a5f6268e54f3c16d","phase":"APP_LOGIC","callRequests":1}[39m
+[19:20:06.774] [33mWARN[39m: [36m[1msimple-contract-data-source[22m [0mCouldn't get fn name for debugging. Using selector:0x0d6ab3ae instead...[0m[39m
+[19:20:06.775] [34mDEBUG[39m: [36m[1msimulator:public_tx_simulator[22m [0mExecuting enqueued public call to external function 0x0d6ab3ae@0x28a43e08a64308121192fb3f79bf411fed6868e4f60fe9bef3194169d12a3bcb with 6000000 allocated L2 gas.[0m[39m
+[19:20:06.776] [33mWARN[39m: [36m[1msimple-contract-data-source[22m [0mCouldn't get fn name for debugging. Using selector:0x0d6ab3ae instead...[0m[39m
+[19:20:06.776] [34mDEBUG[39m: [36m[1msimulator:state_manager[22m [0mGetting bytecode for contract address 0x28a43e08a64308121192fb3f79bf411fed6868e4f60fe9bef3194169d12a3bcb[0m[39m
+[19:20:06.781] [34mDEBUG[39m: [36m[1msimulator:public-trees-db[22m [0mChecked nullifier exists (nullifier=0x29c0286c572ebfabb7336be1503124798d5845b5aa8344a28730be4a6649c3db, exists=true)[0m[39m [90m{"eventName":"public-db-access","duration":4.846321999999873,"operation":"check-nullifier-exists"}[39m
+[19:20:06.784] [34mDEBUG[39m: [36m[1msimulator:public-trees-db[22m [0mStorage read (contract=0x0000000000000000000000000000000000000000000000000000000000000002, slot=0x1e6caa16a2405c1162ffc395e6993bcbafc2e3f039a85c0d02dc4fc4061a52a9, value=0x0000000000000000000000000000000000000000000000000000000000000000)[0m[39m [90m{"eventName":"public-db-access","duration":1.9333379999998215,"operation":"storage-read"}[39m
+[19:20:06.786] [34mDEBUG[39m: [36m[1msimulator:public-trees-db[22m [0mStorage read (contract=0x0000000000000000000000000000000000000000000000000000000000000002, slot=0x1e6caa16a2405c1162ffc395e6993bcbafc2e3f039a85c0d02dc4fc4061a52a6, value=0x0000000000000000000000000000000000000000000000000000000000000000)[0m[39m [90m{"eventName":"public-db-access","duration":1.3281379999998535,"operation":"storage-read"}[39m
+[19:20:06.788] [34mDEBUG[39m: [36m[1msimulator:public-trees-db[22m [0mStorage read (contract=0x0000000000000000000000000000000000000000000000000000000000000002, slot=0x1e6caa16a2405c1162ffc395e6993bcbafc2e3f039a85c0d02dc4fc4061a52a7, value=0x0000000000000000000000000000000000000000000000000000000000000000)[0m[39m [90m{"eventName":"public-db-access","duration":1.4410749999997279,"operation":"storage-read"}[39m
+[19:20:06.789] [34mDEBUG[39m: [36m[1msimulator:public-trees-db[22m [0mStorage read (contract=0x0000000000000000000000000000000000000000000000000000000000000002, slot=0x1e6caa16a2405c1162ffc395e6993bcbafc2e3f039a85c0d02dc4fc4061a52a8, value=0x0000000000000000000000000000000000000000000000000000000000000000)[0m[39m [90m{"eventName":"public-db-access","duration":1.3442889999996623,"operation":"storage-read"}[39m
+[19:20:06.796] [33mWARN[39m: [36m[1mposeidon2-avm[22m [0mPoseidon2AVM.permutation called with 4 fields[0m[39m
+  [2mconsole.log[22m
+    Raw result buffer length: 132
+[2m[22m
+[2m      [2mat BarretenbergSync.rawPoseidon2Permutation ([22m[2m../../../barretenberg/ts/src/barretenberg_api/index.ts[2m:819:13)[22m[2m[22m
+
+  [2mconsole.log[22m
+    First 16 bytes (hex): 40 ea 1e 00 00 00 00 00 00 00 00 00 00 00 00 00
+[2m[22m
+[2m      [2mat BarretenbergSync.rawPoseidon2Permutation ([22m[2m../../../barretenberg/ts/src/barretenberg_api/index.ts[2m:823:13)[22m[2m[22m
+
+  [2mconsole.log[22m
+    Buffer format: with length prefix (132 bytes)
+[2m[22m
+[2m      [2mat BarretenbergSync.rawPoseidon2Permutation ([22m[2m../../../barretenberg/ts/src/barretenberg_api/index.ts[2m:839:15)[22m[2m[22m
+
+  [2mconsole.log[22m
+    Number of fields (little-endian): 2026048
+[2m[22m
+[2m      [2mat BarretenbergSync.rawPoseidon2Permutation ([22m[2m../../../barretenberg/ts/src/barretenberg_api/index.ts[2m:845:15)[22m[2m[22m
+
+  [2mconsole.log[22m
+    Number of fields (big-endian): 1089084928
+[2m[22m
+[2m      [2mat BarretenbergSync.rawPoseidon2Permutation ([22m[2m../../../barretenberg/ts/src/barretenberg_api/index.ts[2m:846:15)[22m[2m[22m
+
+  [2mconsole.log[22m
+    Using field count: 4
+[2m[22m
+[2m      [2mat BarretenbergSync.rawPoseidon2Permutation ([22m[2m../../../barretenberg/ts/src/barretenberg_api/index.ts[2m:850:15)[22m[2m[22m
+
+[19:20:13.435] [33mWARN[39m: [36m[1mposeidon2-avm[22m [0mPoseidon2AVM.permutation called with 4 fields[0m[39m
+[19:20:13.476] [35mVERBOSE[39m: [36m[1msimulator:avm(f:0x0d6ab3ae)[22m [0mExceptional halt (revert by something other than REVERT opcode)[0m[39m
+[19:20:13.476] [31mERROR[39m: [36m[1msimulator:avm(f:0x0d6ab3ae)[22m [0mUnknown error thrown by AVM: RuntimeError: null function or function signature mismatch[0m[39m
+[19:20:13.476] [34mDEBUG[39m: [36m[1msimulator:public_tx_simulator[22m [0mRuntimeError: null function or function signature mismatch[0m[39m
+[19:20:13.476] [34mDEBUG[39m: [36m[1msimulator:public_phase_state_manager[22m [0mDiscarding forked state[0m[39m
+[19:20:13.489] [34mDEBUG[39m: [36m[1msimulator:public_phase_state_manager[22m [0mForking phase state manager[0m[39m
+[19:20:13.490] [34mDEBUG[39m: [36m[1msimulator:public_phase_state_manager[22m [0mMerging in forked state[0m[39m
+[19:20:13.492] [34mDEBUG[39m: [36m[1msimulator:public_tx_context[22m [0mComputed tx fee[0m[39m [90m{"txFee":"0x0000000000000000000000000000000000000000000000000000000000000000","gasUsed":"Gas { daGas=0 l2Gas=0 }","gasFees":"GasFees { feePerDaGas=2 feePerL2Gas=3 }"}[39m
+[19:20:13.492] [34mDEBUG[39m: [36m[1msimulator:public_tx_simulator[22m [0mDeducting 0 balance in Fee Juice for 0x000000000000000000000000000000000000000000000000000000000000002a[0m[39m
+[19:20:13.494] [34mDEBUG[39m: [36m[1msimulator:public-trees-db[22m [0mStorage read (contract=0x0000000000000000000000000000000000000000000000000000000000000005, slot=0x1002eb9ddebc6b0bb401f6e194d4c420de780cfa41551fa5ecbd731b6104cde0, value=0x0000000000000000000000000000000000000000000000000000000000000000)[0m[39m [90m{"eventName":"public-db-access","duration":1.5697039999995468,"operation":"storage-read"}[39m
+[19:20:13.497] [34mDEBUG[39m: [36m[1msimulator:public-trees-db[22m [0mStorage write (contract=0x0000000000000000000000000000000000000000000000000000000000000005, slot=0x1002eb9ddebc6b0bb401f6e194d4c420de780cfa41551fa5ecbd731b6104cde0, value=0x0000000000000000000000000000000000000000000000000000000000000000)[0m[39m [90m{"eventName":"public-db-access","duration":2.0974889999997686,"operation":"storage-write"}[39m
+[19:20:13.500] [34mDEBUG[39m: [36m[1msimulator:public-trees-db[22m [0mPadded tree (tree=NOTE_HASH_TREE, leavesToInsert=64)[0m[39m [90m{"eventName":"public-db-access","duration":2.155603000001065,"operation":"pad-tree"}[39m
+[19:20:13.512] [34mDEBUG[39m: [36m[1msimulator:public-trees-db[22m [0mPadded tree (tree=NULLIFIER_TREE, leavesToInsert=63)[0m[39m [90m{"eventName":"public-db-access","duration":12.177309000000605,"operation":"pad-tree"}[39m
+[19:20:13.514] [34mDEBUG[39m: [36m[1msimulator:public_tx_context[22m [0mComputed tx fee[0m[39m [90m{"txFee":"0x0000000000000000000000000000000000000000000000000000000000000000","gasUsed":"Gas { daGas=0 l2Gas=0 }","gasFees":"GasFees { feePerDaGas=2 feePerL2Gas=3 }"}[39m
+[19:20:13.514] [34mDEBUG[39m: [36m[1msimulator:test_executor_metrics[22m [0mPublic TX simulation of PoseidonSpamContract/0 took 6754.356739000001ms[0m[39m
+[19:20:13.515] [34mDEBUG[39m: [36m[1mavm-simulation-tester[22m [0m[Poseidon2] Execution time: 6808.1043979999995ms[0m[39m
+[19:20:13.515] [34mDEBUG[39m: [36m[1mavm-simulation-tester[22m [0m[Poseidon2] Execution time: 6808.28292ms[0m[39m
+[19:20:13.515] [34mDEBUG[39m: [36m[1mavm-simulation-tester[22m [0m[Poseidon2] Execution time: 6808.450031ms[0m[39m
+[19:20:13.515] [34mDEBUG[39m: [36m[1mavm-simulation-tester[22m [0m[Poseidon2] Execution time: 6808.634942999999ms[0m[39m
+[19:20:13.517] [33mWARN[39m: [36m[1mposeidon2-avm[22m [0m
+=== Poseidon2AVM Performance Statistics ===[0m[39m
+[19:20:13.517] [33mWARN[39m: [36m[1mposeidon2-avm[22m [0mTotal calls: 1[0m[39m
+[19:20:13.517] [33mWARN[39m: [36m[1mposeidon2-avm[22m [0m
+Cumulative times (ms):[0m[39m
+[19:20:13.517] [33mWARN[39m: [36m[1mposeidon2-avm[22m [0m  Field extraction: 0.001[0m[39m
+[19:20:13.517] [33mWARN[39m: [36m[1mposeidon2-avm[22m [0m  Buffer access: 0.039[0m[39m
+[19:20:13.518] [33mWARN[39m: [36m[1mposeidon2-avm[22m [0m  Native call: 6638.543[0m[39m
+[19:20:13.518] [33mWARN[39m: [36m[1mposeidon2-avm[22m [0m  Result conversion: 0.147[0m[39m
+[19:20:13.518] [33mWARN[39m: [36m[1mposeidon2-avm[22m [0m  Total: 6638.758[0m[39m
+[19:20:13.518] [33mWARN[39m: [36m[1mposeidon2-avm[22m [0m
+Average times per call (ms):[0m[39m
+[19:20:13.518] [33mWARN[39m: [36m[1mposeidon2-avm[22m [0m  Field extraction: 0.001[0m[39m
+[19:20:13.518] [33mWARN[39m: [36m[1mposeidon2-avm[22m [0m  Buffer access: 0.039[0m[39m
+[19:20:13.518] [33mWARN[39m: [36m[1mposeidon2-avm[22m [0m  Native call: 6638.543[0m[39m
+[19:20:13.519] [33mWARN[39m: [36m[1mposeidon2-avm[22m [0m  Result conversion: 0.147[0m[39m
+[19:20:13.519] [33mWARN[39m: [36m[1mposeidon2-avm[22m [0m  Total: 6638.758[0m[39m
+[19:20:13.519] [33mWARN[39m: [36m[1mposeidon2-avm[22m [0m
+Percentage breakdown:[0m[39m
+[19:20:13.519] [33mWARN[39m: [36m[1mposeidon2-avm[22m [0m  Field extraction: 0.0%[0m[39m
+[19:20:13.519] [33mWARN[39m: [36m[1mposeidon2-avm[22m [0m  Buffer access: 0.0%[0m[39m
+[19:20:13.519] [33mWARN[39m: [36m[1mposeidon2-avm[22m [0m  Native call: 100.0%[0m[39m
+[19:20:13.519] [33mWARN[39m: [36m[1mposeidon2-avm[22m [0m  Result conversion: 0.0%[0m[39m
+[19:20:13.519] [33mWARN[39m: [36m[1mposeidon2-avm[22m [0m=====================================
+[0m[39m
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2msrc/public/public_tx_simulator/apps_tests/[22m[1mavm_spammy.test.ts[22m ([0m[1m[41m8.783 s[49m[22m[0m)
+  Public TX simulator apps tests: Spammy contracts
+    [32m✓[39m [2mPoseidon2 Spam Tx works (6968 ms)[22m
+    [33m○[39m [2mskipped Keccak Spam Tx works[22m
+    [33m○[39m [2mskipped DIV Spam Tx works[22m
+    [33m○[39m [2mskipped XOR Spam Tx works[22m
+    [33m○[39m [2mskipped SHA256 Compression Spam Tx works[22m
+
+[1mTest Suites: [22m[1m[32m1 passed[39m[22m, 1 total
+[1mTests:       [22m[1m[33m4 skipped[39m[22m, [1m[32m1 passed[39m[22m, 5 total
+[1mSnapshots:   [22m0 total
+[1mTime:[22m        8.855 s, estimated 9 s
+[2mRan all test suites[22m[2m matching [22msrc/public/public_tx_simulator/apps_tests/avm_spammy.test.ts[2m with tests matching [22m"Pose"[2m.[22m

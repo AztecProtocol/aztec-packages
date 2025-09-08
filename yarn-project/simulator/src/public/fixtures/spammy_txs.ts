@@ -456,7 +456,7 @@ export async function executePoseidonSpamPublicTx(
   tester.logger.debug(`[Poseidon2] Safety margin: ${GAS_SAFETY_MARGIN}`);
   const maxPoseidons = calculateMaxOperationsWithLoopOverhead(
     availableGas,
-    AVM_POSEIDON2_BASE_L2_GAS + 2, // FIXME: adding a buffer here because we overflowed the memory trace!
+    AVM_POSEIDON2_BASE_L2_GAS,
     tester,
     'Poseidon2',
   );
