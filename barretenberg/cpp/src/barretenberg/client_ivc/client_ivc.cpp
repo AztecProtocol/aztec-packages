@@ -544,34 +544,47 @@ void ClientIVC::hide_op_queue_accumulation_result(ClientCircuit& circuit)
 }
 
 /**
- * @brief Adds thre random ops to the tail kernel.
+ * @brief Adds three random ops to the tail kernel.
+ *
+ * @note The explanation below does not serve as a proof of zero-knowledge but rather as intuition for why the number
+ * of random ops and their position in the op queue.
  *
  * @details The ClientIVC proof is sent to the rollup and so it has to be zero-knowledge. In turn, this implies that
  * commitments and evaluations to the op queue, when regarded as 4 polynomials in UltraOp format (op, x_lo_y_hi,
- * x_hi_z_1, y_lo_z_2 ), should not leak information about the actual content of the op queue with provenence from
- * circuit operations that have been accumulated in CIVC. Since the op queue  is used across several provers,
- * randomising these polynomials has to be handled in a special way. Normally, to hide a witness we'd add randomness at
- * proving time when populating ProverPolynomials. However, due to the consistency checks present throughout CIVC to
- * ensure all components use the same op queue data (Merge and Translator on the entire op queue table and Merge and
- * Mega on each subtable), randomness has to be added in a common place, this place naturally being ClientIVC. ECCVM is
- * not affected by the concerns above, randomness being add to wires at proving time as per usual, because the
- * consistency of ECCVMOps processing and UltraOps processing between Translator and ECCVM is achieved via the
- * translation evalution check and avoiding an information leak there is ensured by
+ * x_hi_z_1, y_lo_z_2), should not leak information about the actual content of the op queue with provenance from
+ * circuit operations that have been accumulated in CIVC. Since the op queue is used across several provers,
+ * randomising these polynomials has to be handled in a special way. Normally, to hide a witness we'd add random
+ * coefficients at proving time when populating ProverPolynomials. However, due to the consistency checks present
+ * throughout CIVC, to ensure all components use the same op queue data (Merge and Translator on the entire op queue
+ * table and Merge and Oink on each subtable), randomness has to be added in a common place, this place naturally
+ * being ClientIVC. ECCVM is not affected by the concerns above, randomness being added to wires at proving time as per
+ * usual, because the consistency of ECCVMOps processing and UltraOps processing between Translator and ECCVM is
+ * achieved via the translation evaluation check and avoiding an information leak there is ensured by
  * `ClientIVC::hide_op_queue_accumulation_result()` and SmallSubgroupIPA in ECCVM.
  *
- * We need each op queue polynomial to have 9 random coefficient (so the op queue needs to contain 6 random ops).
+ * We need each op queue polynomial to have 9 random coefficients (so the op queue needs to contain 6 random ops).
  *
- * For the last subtable of ecc ops, merged via appended to the full op queue, its data appears as the ecc_op_wires in
- * the MegaZK proof, wires that are not going to be shifted, so the proof containts, for each wire, its commitment and
- * evaluation to the Sumcheck challenge. In the Merge protocol, as the subtable has been appended, it's evaluation at
- * kappa only
+ * For the last subtable of ecc ops belonging to the hiding kernel, merged via appended to the full op queue, its data
+ * appears as the ecc_op_wires in the MegaZK proof, wires that are not going to be shifted, so the proof contains,
+ * for each wire, its commitment and evaluation to the Sumcheck challenge. As at least 3 random coefficients are
+ * needed in each op queue polynomial, we add 2 random ops to the hiding kernel.
  *
- * The op queue state previous to the append of the last subtable, left_table in the merge protocol, is also evaluated
- * at κ and κ^{-1} in the last iteration of Merge and also "left_table_reversed" is evaluated at κ and commited to, so
- * for these we need four random coefficients. For the full ecc op queue table, merged_table in the merge protocol,
- * there is an evaluation at κ in merge and two during Translator proving given all polynomials except op will also be
- * shifted in Translator, So, we add three random ops at the beginning of the tail kernel subtable which will fall at
- * the beginning of the op queue.
+ * The op queue state previous to the append of the last subtable, is the `left_table` in the merge protocol, so for
+ * the degree check, we construct its inverse polynomial `left_table_inverse`. The MergeProof will contain the
+ * commitment to the `left_table_inverse` plus its evaluation at Merge protocol challenge κ. Also for the degree check,
+ * prover needs to send the evaluation of the `left_table` at κ⁻¹. We need to ensure random coefficients are added to
+ * one of the kernels as not to affect Apps verification keys so the best choice is to add them to the beginning of the
+ * tail kernel as to not complicate Translator relations. The above advises that another 4 random coefficients are
+ * needed in the `left_table` (so, 2 random ops).
+ *
+ * Finally, the 4 polynomials representing the full ecc op queue table are committed to (in fact, in both Merge
+ * protocol and Translator but they are commitments to the same data). `x_lo_y_hi`, `x_hi_z_1` and `x_lo_z_2` are
+ * shifted polynomials in Translator so the Translator proof will contain their evaluation and evaluation of their
+ * shifts at the Sumcheck challenge. On top of that, the Shplonk proof sent in the last iteration of Merge also
+ * ascertains the opening of partially_evaluated_difference = left_table + κ^{shift -1 } * right_table - merged_table
+ * at κ is 0, so a batched quotient commitment is sent in the Merge proof. In total, for each op queue polynomial (or
+ * parts of its data), there are 4 commitments and 5 evaluations across the CIVC proof so the sweet spot is 5 random
+ * ops.
  */
 void ClientIVC::hide_op_queue_content_in_tail(ClientCircuit& circuit)
 {
@@ -583,7 +596,10 @@ void ClientIVC::hide_op_queue_content_in_tail(ClientCircuit& circuit)
 /**
  * @brief Adds two random ops to the hiding kernel.
  *
- * @details See `hide_op_queue_content_in_tail`.
+ * @details For the last subtable of ecc ops belonging to the hiding kernel, merged via appended to the full op
+ * queue, its data appears as the ecc_op_wires in the MegaZK proof, wires that are not going to be shifted, so the proof
+ * containts, for each wire, its commitment and evaluation to the Sumcheck challenge. As at least 3 random coefficients
+ * are needed in each op queue polynomial, we add 2 random ops. More details in `hide_op_queue_content_in_tail`.
  */
 void ClientIVC::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
 {
