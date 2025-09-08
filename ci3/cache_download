@@ -41,5 +41,4 @@ else
     exit 1
   fi
 fi
-echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" > /dev/tty
 echo_stderr "Cache download and extraction of $tar_file complete in ${SECONDS}s."
