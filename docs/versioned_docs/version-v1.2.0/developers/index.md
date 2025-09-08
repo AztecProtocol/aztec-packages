@@ -42,39 +42,15 @@ description: Start building on Aztec with tutorials, guides, and resources for s
   </Card>
 </div>
 
-## Clone a repo
-
-<Card shadow='tl' link='https://github.com/AztecProtocol/aztec-starter'>
-  <a href="https://github.com/AztecProtocol/aztec-starter" target="_blank" rel="noopener noreferrer">
-    <img
-      src="@site/static/img/logos/github_light_mode.svg"
-      style={{
-        width: '30px',
-        height: '30px',
-        marginLeft: '8px',
-        paddingLeft: '8px',
-        paddingTop: '10px'
-      }}
-      alt="GitHub Icon"
-    />
-  </a>
-  <CardHeader>
-    <h3>Full stack app on Aztec</h3>
-  </CardHeader>
-  <CardBody>
-    Learn how everything works together by building an app in JavaScript that connects to a contract
-  </CardBody>
-</Card>
-
 ## Get inspired
 
 <div className="card-container full-width">
-  <Card shadow='tl' link='/developers/inspiration'>
+  <Card shadow='tl' link='https://github.com/AztecProtocol/Horizon'>
     <CardHeader>
       <h3>What to build on Aztec</h3>
     </CardHeader>
     <CardBody>
-      Find requests for applications, potential designs, and existing ecosystem projects
+      Discover curated app ideas and architectural blueprints for privacy-first applications
     </CardBody>
   </Card>
 </div>

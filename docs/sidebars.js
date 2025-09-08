@@ -66,9 +66,9 @@ const sidebar = {
       label: "Build",
     },
     {
-      type: "doc",
+      type: "link",
       label: "Get Inspired",
-      id: "developers/inspiration",
+      href: "https://github.com/AztecProtocol/horizon",
     },
     {
       type: "html",
@@ -81,7 +81,7 @@ const sidebar = {
     },
     {
       type: "link",
-      label: "Aztec Starter GitHub repo",
+      label: "Aztec Starter Repository",
       href: "https://github.com/AztecProtocol/aztec-starter",
     },
     {
