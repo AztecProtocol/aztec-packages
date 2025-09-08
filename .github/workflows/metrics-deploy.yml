@@ -31,7 +31,7 @@ on:
         description: The branch name to deploy from
         required: false
         type: string
-        default: "master"
+        default: "next"
       grafana_dashboard_password_secret_name:
         description: The name of the secret which holds the Grafana dashboard password
         required: true
@@ -70,7 +70,7 @@ on:
       ref:
         description: The branch name to deploy from
         required: false
-        default: "master"
+        default: "next"
       grafana_dashboard_password_secret_name:
         description: The name of the secret which holds the Grafana dashboard password
         required: true
