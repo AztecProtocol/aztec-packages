@@ -4,6 +4,7 @@ description: Comprehensive reference for the Aztec command-line interface (CLI).
 tags: [sandbox]
 sidebar_position: 2
 ---
+
 import { AztecTestnetVersion } from '@site/src/components/Snippets/general_snippets';
 
 This reference guide provides documentation for the Aztec CLI commands (`aztec`) and their options. The CLI is a powerful tool for interacting with the Aztec network, managing accounts, deploying contracts, and more.
@@ -131,7 +132,7 @@ export BLOB_SINK_URL=<blob-sink-url>
 export LOG_LEVEL=info
 export IP=Your_IP_address_here
 
-aztec start --node --network alpha-testnet
+aztec start --node --network testnet
     --l1-rpc-urls ...
     --l1-consensus-host-urls ...
     --l1-consensus-host-api-keys ...
@@ -301,7 +302,7 @@ aztec start --port 8081 --pxe --pxe.nodeUrl=$BOOTNODE --pxe.proverEnabled true -
 #### Example Usage
 
 ```bash
-aztec start --network alpha-testnet --l1-rpc-urls https://example.com --l1-consensus-host-urls https://example.com --sequencer.blobSinkUrl http://34.82.117.158:5052  --sequencer.validatorPrivateKeys 0xYourPrivateKey --sequencer.coinbase 0xYourAddress --p2p.p2pIp 999.99.999.99
+aztec start --network testnet --l1-rpc-urls https://example.com --l1-consensus-host-urls https://example.com --sequencer.blobSinkUrl http://34.82.117.158:5052  --sequencer.validatorPrivateKeys 0xYourPrivateKey --sequencer.coinbase 0xYourAddress --p2p.p2pIp 999.99.999.99
 ```
 
 #### Blob Sink Options

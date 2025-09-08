@@ -183,7 +183,7 @@ export const deploySharedContracts = async (
   args: DeployL1ContractsArgs,
   logger: Logger,
 ) => {
-  logger.info(`Deploying shared contracts for network configration: ${networkName}`);
+  logger.info(`Deploying shared contracts for network configuration: ${networkName}`);
 
   const txHashes: Hex[] = [];
 

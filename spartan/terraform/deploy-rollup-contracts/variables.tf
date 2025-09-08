@@ -181,6 +181,12 @@ variable "AZTEC_PROVING_COST_PER_MANA" {
   nullable    = true
 }
 
+variable "AZTEC_EXIT_DELAY_SECONDS" {
+  description = "Aztec exit delay seconds"
+  type        = string
+  nullable    = true
+}
+
 variable "JOB_NAME" {
   description = "Name for the Kubernetes job"
   type        = string

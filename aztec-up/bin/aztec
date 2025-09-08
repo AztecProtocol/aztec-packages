@@ -4,6 +4,7 @@ set -euo pipefail
 NETWORK=${NETWORK:-}
 VERSION=${VERSION:-${NETWORK:-"latest"}}
 
+DOCKER_REPO=${DOCKER_REPO:-"aztecprotocol/aztec"}
 # Take copy of command-line arguments, so we can mutate to parse.
 if [ $# -eq 0 ]; then
   args=("--help")
@@ -55,7 +56,7 @@ done
 set -- "${args[@]}"
 
 function get_env_vars {
-  docker run --rm --entrypoint /bin/bash aztecprotocol/aztec:$VERSION -c "cat /usr/src/yarn-project/foundation/src/config/env_var.ts" |
+  docker run --rm --entrypoint /bin/bash $DOCKER_REPO:$VERSION -c "cat /usr/src/yarn-project/foundation/src/config/env_var.ts" |
     awk -F"'" '{for(i=2;i<=NF;i+=2) printf $i " "}'
 }
 
@@ -95,7 +96,7 @@ case ${1:-} in
     export CONTAINER_NAME=aztec-start-$(printf "%08x" $((RANDOM * RANDOM)))
 
     if [ "${1:-}" == "--sandbox" ]; then
-      if [ "$SUPERVISED" == "1" ]; then 
+      if [ "$SUPERVISED" == "1" ]; then
         echo "supervised-start is not compatible with --sandbox. Please use regular start command"
         exit 1
       fi
@@ -209,7 +210,7 @@ case ${1:-} in
       --env SERVE=${SERVE:-0} \
       $([ "${SERVE:-0}" == "1" ] && echo "-p 8000:8000" || echo "") \
       -v $(realpath $(dirname $2))/:/tmp \
-      aztecprotocol/aztec:$VERSION /tmp/$(basename $2) $3
+      $DOCKER_REPO:$VERSION /tmp/$(basename $2) $3
     ;;
   *)
     export ENV_VARS_TO_INJECT="SECRET_KEY"
