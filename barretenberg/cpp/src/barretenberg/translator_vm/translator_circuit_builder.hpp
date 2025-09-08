@@ -318,6 +318,8 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     // The input we evaluate polynomials on
     Fq evaluation_input_x;
 
+    bool avm_mode = false;
+
     std::array<SlabVector<uint32_t>, NUM_WIRES> wires;
 
     /**
@@ -328,10 +330,11 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
      * @param batching_challenge_v_
      * @param evaluation_input_x_
      */
-    TranslatorCircuitBuilder(Fq batching_challenge_v_, Fq evaluation_input_x_)
+    TranslatorCircuitBuilder(Fq batching_challenge_v_, Fq evaluation_input_x_, bool avm_mode_ = false)
         : CircuitBuilderBase(DEFAULT_TRANSLATOR_VM_LENGTH)
         , batching_challenge_v(batching_challenge_v_)
         , evaluation_input_x(evaluation_input_x_)
+        , avm_mode(avm_mode_)
     {
         this->zero_idx = add_variable(Fr::zero());
     };
@@ -346,8 +349,12 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
      * @param evaluation_input_x_
      * @param op_queue
      */
-    TranslatorCircuitBuilder(Fq batching_challenge_v_, Fq evaluation_input_x_, std::shared_ptr<ECCOpQueue> op_queue)
-        : TranslatorCircuitBuilder(batching_challenge_v_, evaluation_input_x_)
+    TranslatorCircuitBuilder(Fq batching_challenge_v_,
+                             Fq evaluation_input_x_,
+                             std::shared_ptr<ECCOpQueue> op_queue,
+                             bool avm_mode = false)
+        : TranslatorCircuitBuilder(batching_challenge_v_, evaluation_input_x_, avm_mode)
+
     {
         BB_BENCH_NAME("TranslatorCircuitBuilder::constructor");
         feed_ecc_op_queue_into_circuit(std::move(op_queue));
@@ -419,7 +426,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
      *
      * @param ecc_op_queue The queue
      */
-    void feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue> ecc_op_queue);
+    void feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue>& ecc_op_queue);
 
     static AccumulationInput generate_witness_values(const UltraOp& ultra_op,
                                                      const Fq& previous_accumulator,

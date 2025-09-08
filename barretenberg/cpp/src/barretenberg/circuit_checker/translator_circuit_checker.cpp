@@ -27,9 +27,6 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
         return false;
     };
 
-    BB_ASSERT_EQ(
-        circuit.num_gates, 1U << CONST_TRANSLATOR_MINI_CIRCUIT_LOG_SIZE, "TranslatorCircuit size is incorrect");
-
     // Compute the limbs of evaluation_input_x and powers of batching_challenge_v (these go into the relation)
     RelationInputs relation_inputs =
         compute_relation_inputs_limbs(circuit.batching_challenge_v, circuit.evaluation_input_x);
@@ -148,7 +145,8 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
     // consider making use of relations.
     auto in_random_range = [&](size_t i) {
         return (i >= 2 * Builder::NUM_NO_OPS_START && i < RESULT_ROW) ||
-               (i >= circuit.num_gates - 2 * Builder::NUM_RANDOM_OPS_END && i < circuit.num_gates);
+               (i >= circuit.num_gates - (circuit.avm_mode ? 0 : 2 * Builder::NUM_RANDOM_OPS_END) &&
+                i < circuit.num_gates);
     };
     for (size_t i = 2; i < circuit.num_gates - 1; i += 2) {
 

@@ -141,6 +141,26 @@ TEST_F(TranslatorTests, Basic)
     EXPECT_TRUE(verified);
 }
 
+TEST_F(TranslatorTests, BasicAvmMode)
+{
+    using Fq = fq;
+
+    Fq batching_challenge_v = Fq::random_element();
+    Fq evaluation_challenge_x = Fq::random_element();
+
+    // Add the same operations to the ECC op queue; the native computation is performed under the hood.
+    auto op_queue = std::make_shared<bb::ECCOpQueue>();
+    op_queue->no_op_ultra_only();
+    add_random_ops(op_queue, CircuitBuilder::NUM_RANDOM_OPS_START);
+    add_mixed_ops(op_queue, 100);
+    op_queue->merge();
+    auto circuit_builder = CircuitBuilder{ batching_challenge_v, evaluation_challenge_x, op_queue, true };
+
+    EXPECT_TRUE(TranslatorCircuitChecker::check(circuit_builder));
+    bool verified = prove_and_verify(circuit_builder, evaluation_challenge_x, batching_challenge_v);
+    EXPECT_TRUE(verified);
+}
+
 /**
  * @brief Ensure that the fixed VK from the default constructor agrees with those computed manually for an arbitrary
  * circuit

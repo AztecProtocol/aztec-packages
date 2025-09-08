@@ -517,7 +517,7 @@ void TranslatorCircuitBuilder::create_accumulation_gate(const AccumulationInput&
     bb::constexpr_for<0, TOTAL_COUNT, 1>([&]<size_t i>() { BB_ASSERT_EQ(std::get<i>(wires).size(), num_gates); });
 }
 
-void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue> ecc_op_queue)
+void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue>& ecc_op_queue)
 {
     using Fq = bb::fq;
     const auto& ultra_ops = ecc_op_queue->get_ultra_ops();
@@ -556,10 +556,10 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     for (size_t i = NUM_NO_OPS_START; i <= NUM_RANDOM_OPS_START; ++i) {
         process_random_op(ultra_ops[i]);
     }
-
+    const size_t ops_end = avm_mode ? ultra_ops.size() : ultra_ops.size() - NUM_RANDOM_OPS_END;
     // Range of UltraOps for which we should construct accumulation gates
     std::span ultra_ops_span(ultra_ops.begin() + static_cast<std::ptrdiff_t>(NUM_NO_OPS_START + NUM_RANDOM_OPS_START),
-                             ultra_ops.begin() + static_cast<std::ptrdiff_t>(ultra_ops.size() - NUM_RANDOM_OPS_END));
+                             ultra_ops.begin() + static_cast<std::ptrdiff_t>(ops_end));
 
     // We need to precompute the accumulators at each step, because in the actual circuit we compute the values starting
     // from the later indices and we need to know the previous accumulator to create the gate. Both when computing the
@@ -632,7 +632,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     }
     // Also process the last two random ops present at the end of the op queue to hide the ecc ops of the last circuit
     // whose ops are added to the op queue
-    for (size_t i = ultra_ops.size() - NUM_RANDOM_OPS_END; i < ultra_ops.size(); ++i) {
+    for (size_t i = ops_end; i < ultra_ops.size(); ++i) {
         process_random_op(ultra_ops[i]);
     }
 }

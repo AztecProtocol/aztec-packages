@@ -43,7 +43,7 @@ void Goblin::prove_eccvm()
 void Goblin::prove_translator()
 {
     BB_BENCH_NAME("Goblin::prove_translator");
-    TranslatorBuilder translator_builder(translation_batching_challenge_v, evaluation_challenge_x, op_queue);
+    TranslatorBuilder translator_builder(translation_batching_challenge_v, evaluation_challenge_x, op_queue, avm_mode);
     auto translator_key = std::make_shared<TranslatorProvingKey>(translator_builder, commitment_key);
     TranslatorProver translator_prover(translator_key, transcript);
     goblin_proof.translator_proof = translator_prover.construct_proof();

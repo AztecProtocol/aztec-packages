@@ -191,7 +191,9 @@ class AvmGoblinRecursiveVerifier {
         Goblin goblin;
         MegaBuilder mega_builder(goblin.op_queue);
         mega_builder.queue_ecc_no_op();
-
+        mega_builder.queue_ecc_random_op();
+        mega_builder.queue_ecc_random_op();
+        mega_builder.queue_ecc_random_op();
         // lambda to convert from Ultra to Mega stdlib field buffer and add all elements to respective hash buffers
         std::vector<FF> mega_hash_buffer;
         auto convert_stdlib_ultra_to_stdlib_mega = [&](const std::vector<UltraFF>& ultra_object) {
@@ -246,6 +248,7 @@ class AvmGoblinRecursiveVerifier {
         MegaProver mega_prover(mega_proving_key, mega_vk, transcript);
         HonkProof mega_proof = mega_prover.construct_proof();
         goblin.transcript = transcript;
+        goblin.avm_mode = true;
 
         // Construct corresponding Goblin proof \pi_G (includes Merge, ECCVM, and Translator proofs)
         GoblinProof goblin_proof = goblin.prove();

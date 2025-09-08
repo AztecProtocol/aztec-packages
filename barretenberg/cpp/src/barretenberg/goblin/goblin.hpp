@@ -56,6 +56,11 @@ class Goblin {
 
     std::deque<MergeProof> merge_verification_queue; // queue of merge proofs to be verified
 
+    // In AVM we only use Goblin for a single circuit (it's recursive verifier) whose proof is not required to be
+    // zero-knowledge. While Translator will still expect to find random ops at the beginning to ensure the accumulation
+    // result remains at a fixed row we opt for not adding random ops at the end of the op queue.
+    bool avm_mode = false;
+
     struct VerificationKey {
         std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key = std::make_shared<ECCVMVerificationKey>();
         std::shared_ptr<TranslatorVerificationKey> translator_verification_key =
