@@ -679,7 +679,7 @@ See an example of how to handle a `TransparentNote`:
         // do_process_log expects a standard aztec-nr encoded note, which has the following shape:
         // [ storage_slot, note_type_id, ...packed_note ]
         let note = TransparentNote::new(amount, secret_hash);
-        let log_plaintext = BoundedVec::from_array(array_concat(
+        let log_plaintext = BoundedVec::from_array(.concat(
             [
                 MyContract::storage_layout().my_state_variable.slot,
                 TransparentNote::get_note_type_id(),
@@ -854,7 +854,7 @@ If you have no need for a custom implementation of the `compute_note_hash` funct
 
 ```
 fn compute_note_hash(self, storage_slot: Field) -> Field {
-    let inputs = aztec::protocol_types::utils::arrays::array_concat(self.pack(), [storage_slot]);
+    let inputs = aztec::protocol_types::utils::arrays::.concat(self.pack(), [storage_slot]);
     aztec::protocol_types::hash::poseidon2_hash_with_separator(inputs, aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_HASH)
 }
 ```

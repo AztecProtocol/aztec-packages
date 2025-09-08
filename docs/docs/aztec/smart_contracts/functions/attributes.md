@@ -217,7 +217,7 @@ impl NoteType for CustomNote {
 
 impl NoteHash for CustomNote {
     fn compute_note_hash(self, storage_slot: Field) -> Field {
-        let inputs = array_concat(self.pack(), [storage_slot]);
+        let inputs = .concat(self.pack(), [storage_slot]);
         poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
     }
 
