@@ -85,7 +85,7 @@ cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity)
  * @param is_infinity
  */
 template <typename Builder>
-cycle_group<Builder>::cycle_group(const FF& _x, const FF& _y, bool is_infinity)
+cycle_group<Builder>::cycle_group(const bb::fr& _x, const bb::fr& _y, bool is_infinity)
     : x(is_infinity ? 0 : _x)
     , y(is_infinity ? 0 : _y)
     , _is_infinity(is_infinity)
@@ -151,8 +151,8 @@ cycle_group<Builder> cycle_group<Builder>::from_witness(Builder* _context, const
     // Since we are not using these coordinates anyway
     // We can set them both to be zero
     if (_in.is_point_at_infinity()) {
-        result.x = field_t(witness_t(_context, FF::zero()));
-        result.y = field_t(witness_t(_context, FF::zero()));
+        result.x = field_t(witness_t(_context, bb::fr::zero()));
+        result.y = field_t(witness_t(_context, bb::fr::zero()));
     } else {
         result.x = field_t(witness_t(_context, _in.x));
         result.y = field_t(witness_t(_context, _in.y));
@@ -186,8 +186,8 @@ cycle_group<Builder> cycle_group<Builder>::from_constant_witness(Builder* _conte
     // Since we are not using these coordinates anyway
     // We can set them both to be zero
     if (_in.is_point_at_infinity()) {
-        result.x = FF::zero();
-        result.y = FF::zero();
+        result.x = bb::fr::zero();
+        result.y = bb::fr::zero();
         result._is_constant = true;
     } else {
         result.x = field_t(witness_t(_context, _in.x));
@@ -362,8 +362,8 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
 
     cycle_group result;
     if (hint.has_value()) {
-        auto x3 = hint.value().x;
-        auto y3 = hint.value().y;
+        const bb::fr x3 = hint.value().x;
+        const bb::fr y3 = hint.value().y;
         if (is_constant()) {
             result = cycle_group(x3, y3, is_point_at_infinity());
             // We need to manually propagate the origin tag
@@ -374,19 +374,19 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
 
         result = cycle_group(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
     } else {
-        auto x1 = x.get_value();
-        auto y1 = modified_y.get_value();
+        const bb::fr x1 = x.get_value();
+        const bb::fr y1 = modified_y.get_value();
 
         // N.B. the formula to derive the witness value for x3 mirrors the formula in elliptic_relation.hpp
         // Specifically, we derive x^4 via the Short Weierstrass curve formula `y^2 = x^3 + b`
         // i.e. x^4 = x * (y^2 - b)
         // We must follow this pattern exactly to support the edge-case where the input is the point at infinity.
-        auto y_pow_2 = y1.sqr();
-        auto x_pow_4 = x1 * (y_pow_2 - Group::curve_b);
-        auto lambda_squared = (x_pow_4 * 9) / (y_pow_2 * 4);
-        auto lambda = (x1 * x1 * 3) / (y1 + y1);
-        auto x3 = lambda_squared - x1 - x1;
-        auto y3 = lambda * (x1 - x3) - y1;
+        const bb::fr y_pow_2 = y1.sqr();
+        const bb::fr x_pow_4 = x1 * (y_pow_2 - Group::curve_b);
+        const bb::fr lambda_squared = (x_pow_4 * 9) / (y_pow_2 * 4);
+        const bb::fr lambda = (x1 * x1 * 3) / (y1 + y1);
+        const bb::fr x3 = lambda_squared - x1 - x1;
+        const bb::fr y3 = lambda * (x1 - x3) - y1;
         if (is_constant()) {
             auto result = cycle_group(x3, y3, is_point_at_infinity().get_value());
             // We need to manually propagate the origin tag
@@ -397,7 +397,7 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
         result = cycle_group(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
     }
 
-    context->create_ecc_dbl_gate(bb::ecc_dbl_gate_<FF>{
+    context->create_ecc_dbl_gate(bb::ecc_dbl_gate_<bb::fr>{
         .x1 = x.get_witness_index(),
         .y1 = modified_y.get_witness_index(),
         .x3 = result.x.get_witness_index(),
@@ -411,68 +411,68 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
 }
 
 /**
- * @brief Will evaluate ECC point addition over `*this` and `other`.
- *        Incomplete addition formula edge cases are *NOT* checked!
- *        Only use this method if you know the x-coordinates of the operands cannot collide
- *        and none of the operands is a point at infinity
- *        Ultra version that uses ecc group gate
+ * @brief Will evaluate ECC point addition or subtraction over `*this` and `other`.
+ * @details Incomplete addition formula edge cases are *NOT* checked! Only use this method if you know the x-coordinates
+ * of the operands cannot collide and none of the operands is a point at infinity. Uses Ultra-arithmetic elliptic curve
+ * addition gate.
  *
  * @tparam Builder
  * @param other
+ * @param is_addition : true for addition, false for subtraction
  * @param hint : value of output point witness, if known ahead of time (used to avoid modular inversions during witgen)
  * @return cycle_group<Builder>
  */
 template <typename Builder>
-cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& other,
-                                                             const std::optional<AffineElement> hint) const
-    requires IsUltraArithmetic<Builder>
+cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const cycle_group& other,
+                                                                          bool is_addition,
+                                                                          const std::optional<AffineElement> hint) const
 {
     auto context = get_context(other);
 
+    // if one or the other point is constant, construct a corresponding fixed witness in order to utilize the custom
+    // ecc_add gate
     const bool lhs_constant = is_constant();
     const bool rhs_constant = other.is_constant();
     if (lhs_constant && !rhs_constant) {
         auto lhs = cycle_group::from_constant_witness(context, get_value());
         // We need to manually propagate the origin tag
         lhs.set_origin_tag(get_origin_tag());
-        return lhs.unconditional_add(other, hint);
+        return lhs._unconditional_add_or_subtract(other, is_addition, hint);
     }
     if (!lhs_constant && rhs_constant) {
         auto rhs = cycle_group::from_constant_witness(context, other.get_value());
         // We need to manually propagate the origin tag
         rhs.set_origin_tag(other.get_origin_tag());
-        return unconditional_add(rhs, hint);
+        return _unconditional_add_or_subtract(rhs, is_addition, hint);
     }
     cycle_group result;
     if (hint.has_value()) {
-        auto x3 = hint.value().x;
-        auto y3 = hint.value().y;
+        const bb::fr x3 = hint.value().x;
+        const bb::fr y3 = hint.value().y;
         if (lhs_constant && rhs_constant) {
             return cycle_group(x3, y3, /*is_infinity=*/false);
         }
         result = cycle_group(witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false);
     } else {
-        const auto p1 = get_value();
-        const auto p2 = other.get_value();
-        AffineElement p3(Element(p1) + Element(p2));
+        const AffineElement p1 = get_value();
+        const AffineElement p2 = other.get_value();
+        AffineElement p3 = is_addition ? (Element(p1) + Element(p2)) : (Element(p1) - Element(p2));
         if (lhs_constant && rhs_constant) {
             auto result = cycle_group(p3);
             // We need to manually propagate the origin tag
             result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
             return result;
         }
-        field_t r_x(witness_t(context, p3.x));
-        field_t r_y(witness_t(context, p3.y));
-        result = cycle_group(r_x, r_y, /*is_infinity=*/false);
+        result = cycle_group(witness_t(context, p3.x), witness_t(context, p3.y), /*is_infinity=*/false);
     }
-    bb::ecc_add_gate_<FF> add_gate{
+    bb::ecc_add_gate_<bb::fr> add_gate{
         .x1 = x.get_witness_index(),
         .y1 = y.get_witness_index(),
         .x2 = other.x.get_witness_index(),
         .y2 = other.y.get_witness_index(),
         .x3 = result.x.get_witness_index(),
         .y3 = result.y.get_witness_index(),
-        .sign_coefficient = 1,
+        .sign_coefficient = is_addition ? 1 : -1,
     };
     context->create_ecc_add_gate(add_gate);
 
@@ -481,78 +481,18 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
     return result;
 }
 
-/**
- * @brief will evaluate ECC point subtraction over `*this` and `other`.
- *        Incomplete addition formula edge cases are *NOT* checked!
- *        Only use this method if you know the x-coordinates of the operands cannot collide
- *        and none of the operands is a point at infinity
- *
- * @tparam Builder
- * @param other
- * @param hint : value of output point witness, if known ahead of time (used to avoid modular inversions during witgen)
- * @return cycle_group<Builder>
- */
+template <typename Builder>
+cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& other,
+                                                             const std::optional<AffineElement> hint) const
+{
+    return _unconditional_add_or_subtract(other, /*is_addition=*/true, hint);
+}
+
 template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_group& other,
                                                                   const std::optional<AffineElement> hint) const
 {
-    if constexpr (!IS_ULTRA) {
-        return unconditional_add(-other, hint);
-    } else {
-        auto context = get_context(other);
-
-        const bool lhs_constant = is_constant();
-        const bool rhs_constant = other.is_constant();
-
-        if (lhs_constant && !rhs_constant) {
-            auto lhs = cycle_group<Builder>::from_constant_witness(context, get_value());
-            // We need to manually propagate the origin tag
-            lhs.set_origin_tag(get_origin_tag());
-            return lhs.unconditional_subtract(other, hint);
-        }
-        if (!lhs_constant && rhs_constant) {
-            auto rhs = cycle_group<Builder>::from_constant_witness(context, other.get_value());
-            // We need to manually propagate the origin tag
-            rhs.set_origin_tag(other.get_origin_tag());
-            return unconditional_subtract(rhs);
-        }
-        cycle_group result;
-        if (hint.has_value()) {
-            auto x3 = hint.value().x;
-            auto y3 = hint.value().y;
-            if (lhs_constant && rhs_constant) {
-                return cycle_group(x3, y3, /*is_infinity=*/false);
-            }
-            result = cycle_group(witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false);
-        } else {
-            auto p1 = get_value();
-            auto p2 = other.get_value();
-            AffineElement p3(Element(p1) - Element(p2));
-            if (lhs_constant && rhs_constant) {
-                auto result = cycle_group(p3);
-                // We need to manually propagate the origin tag
-                result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
-                return result;
-            }
-            field_t r_x(witness_t(context, p3.x));
-            field_t r_y(witness_t(context, p3.y));
-            result = cycle_group(r_x, r_y, /*is_infinity=*/false);
-        }
-        bb::ecc_add_gate_<FF> add_gate{
-            .x1 = x.get_witness_index(),
-            .y1 = y.get_witness_index(),
-            .x2 = other.x.get_witness_index(),
-            .y2 = other.y.get_witness_index(),
-            .x3 = result.x.get_witness_index(),
-            .y3 = result.y.get_witness_index(),
-            .sign_coefficient = -1,
-        };
-        context->create_ecc_add_gate(add_gate);
-
-        // We need to manually propagate the origin tag (merging the tag of two inputs)
-        result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
-        return result;
-    }
+    return _unconditional_add_or_subtract(other, /*is_addition=*/false, hint);
 }
 
 /**
@@ -572,7 +512,7 @@ template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::checked_unconditional_add(const cycle_group& other,
                                                                      const std::optional<AffineElement> hint) const
 {
-    field_t x_delta = this->x - other.x;
+    const field_t x_delta = this->x - other.x;
     if (x_delta.is_constant()) {
         ASSERT(x_delta.get_value() != 0);
     } else {
@@ -598,7 +538,7 @@ template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::checked_unconditional_subtract(const cycle_group& other,
                                                                           const std::optional<AffineElement> hint) const
 {
-    field_t x_delta = this->x - other.x;
+    const field_t x_delta = this->x - other.x;
     if (x_delta.is_constant()) {
         ASSERT(x_delta.get_value() != 0);
     } else {
@@ -631,13 +571,13 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
     const bool_t double_predicate = (x_coordinates_match && y_coordinates_match);
     const bool_t infinity_predicate = (x_coordinates_match && !y_coordinates_match);
 
-    auto x1 = x;
-    auto y1 = y;
-    auto x2 = other.x;
-    auto y2 = other.y;
+    const field_t x1 = x;
+    const field_t y1 = y;
+    const field_t x2 = other.x;
+    const field_t y2 = other.y;
     // if x_coordinates match, lambda triggers a divide by zero error.
     // Adding in `x_coordinates_match` ensures that lambda will always be well-formed
-    auto x_diff = x2.add_two(-x1, x_coordinates_match);
+    const field_t x_diff = x2.add_two(-x1, x_coordinates_match);
     // Computes lambda = (y2-y1)/x_diff, using the fact that x_diff is never 0
     field_t lambda;
     if ((y1.is_constant() && y2.is_constant()) || x_diff.is_constant()) {
@@ -650,11 +590,11 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
         field_t::evaluate_polynomial_identity(x_diff, lambda, -y2, y1);
     }
 
-    auto x3 = lambda.madd(lambda, -(x2 + x1));
-    auto y3 = lambda.madd(x1 - x3, -y1);
+    const field_t x3 = lambda.madd(lambda, -(x2 + x1));
+    const field_t y3 = lambda.madd(x1 - x3, -y1);
     cycle_group add_result(x3, y3, x_coordinates_match);
 
-    auto dbl_result = dbl();
+    const cycle_group dbl_result = dbl();
 
     // dbl if x_match, y_match
     // infinity if x_match, !y_match
@@ -706,11 +646,11 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     if (!infinity_predicate.is_constant()) {
         infinity_predicate.get_context()->update_used_witnesses(infinity_predicate.get_normalized_witness_index());
     }
-    auto x1 = x;
-    auto y1 = y;
-    auto x2 = other.x;
-    auto y2 = other.y;
-    auto x_diff = x2.add_two(-x1, x_coordinates_match);
+    const field_t x1 = x;
+    const field_t y1 = y;
+    const field_t x2 = other.x;
+    const field_t y2 = other.y;
+    const field_t x_diff = x2.add_two(-x1, x_coordinates_match);
     // Computes lambda = (-y2-y1)/x_diff, using the fact that x_diff is never 0
     field_t lambda;
     if ((y1.is_constant() && y2.is_constant()) || x_diff.is_constant()) {
@@ -723,16 +663,16 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
         field_t::evaluate_polynomial_identity(x_diff, lambda, y2, y1);
     }
 
-    auto x3 = lambda.madd(lambda, -(x2 + x1));
-    auto y3 = lambda.madd(x1 - x3, -y1);
+    const field_t x3 = lambda.madd(lambda, -(x2 + x1));
+    const field_t y3 = lambda.madd(x1 - x3, -y1);
     cycle_group add_result(x3, y3, x_coordinates_match);
 
-    auto dbl_result = dbl();
+    const cycle_group dbl_result = dbl();
 
     // dbl if x_match, !y_match
     // infinity if x_match, y_match
-    auto result_x = field_t::conditional_assign(double_predicate, dbl_result.x, add_result.x);
-    auto result_y = field_t::conditional_assign(double_predicate, dbl_result.y, add_result.y);
+    field_t result_x = field_t::conditional_assign(double_predicate, dbl_result.x, add_result.x);
+    field_t result_y = field_t::conditional_assign(double_predicate, dbl_result.y, add_result.y);
 
     if constexpr (IsUltraBuilder<Builder>) {
         if (result_x.get_context()) {
@@ -850,6 +790,13 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     const size_t num_points = scalars.size();
 
     std::vector<straus_scalar_slice> scalar_slices;
+    scalar_slices.reserve(num_points);
+    for (size_t i = 0; i < num_points; ++i) {
+        scalar_slices.emplace_back(straus_scalar_slice(context, scalars[i], TABLE_BITS));
+        // AUDITTODO: temporary safety check. See test MixedLengthScalarsIsNotSupported
+        BB_ASSERT_EQ(
+            scalar_slices[i].slices_native.size() == num_rounds, true, "Scalars of different sizes not supported!");
+    }
 
     /**
      * Compute the witness values of the batch_mul algorithm natively, as Element types with a Z-coordinate.
@@ -871,8 +818,6 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
             native_straus_tables.emplace_back(native_straus_table);
         }
         for (size_t i = 0; i < num_points; ++i) {
-            scalar_slices.emplace_back(straus_scalar_slice(context, scalars[i], TABLE_BITS));
-
             auto table_transcript = straus_lookup_table::compute_straus_lookup_table_hints(
                 base_points[i].get_value(), offset_generators[i + 1], TABLE_BITS);
             std::copy(table_transcript.begin() + 1, table_transcript.end(), std::back_inserter(operation_transcript));
@@ -889,7 +834,6 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
                 }
             }
             for (size_t j = 0; j < num_points; ++j) {
-
                 const Element point =
                     native_straus_tables[j][static_cast<size_t>(scalar_slices[j].slices_native[num_rounds - i - 1])];
 
@@ -917,7 +861,6 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         std::span<AffineElement> table_hints(&operation_hints[i * hints_per_table], hints_per_table);
         // Merge tags
         tag = OriginTag(tag, scalars[i].get_origin_tag(), base_points[i].get_origin_tag());
-        scalar_slices.emplace_back(straus_scalar_slice(context, scalars[i], TABLE_BITS));
         point_tables.emplace_back(straus_lookup_table(context, base_points[i], offset_generators[i + 1], TABLE_BITS));
     }
 
@@ -1122,7 +1065,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_group>& base_points,
                                                      const std::vector<cycle_scalar>& scalars,
-                                                     const GeneratorContext context)
+                                                     const GeneratorContext& context)
 {
     BB_ASSERT_EQ(scalars.size(), base_points.size());
 

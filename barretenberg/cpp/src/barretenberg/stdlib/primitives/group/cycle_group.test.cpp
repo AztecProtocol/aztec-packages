@@ -1091,4 +1091,34 @@ TYPED_TEST(CycleGroupTest, TestBatchMulIsConsistent)
     run_test(/*construct_witnesses=*/true);
     run_test(/*construct_witnesses=*/false);
 }
+
+/**
+ * @brief Temporary debugging test demonstrating that batch_mul with scalars of different bit lengths is not supported
+ *
+ */
+TYPED_TEST(CycleGroupTest, MixedLengthScalarsIsNotSupported)
+{
+    STDLIB_TYPE_ALIASES
+    Builder builder;
+
+    // Create two points
+    std::vector<cycle_group_ct> points;
+    points.push_back(cycle_group_ct::from_witness(&builder, TestFixture::generators[0]));
+    points.push_back(cycle_group_ct::from_witness(&builder, TestFixture::generators[1]));
+
+    // Create two scalars with DIFFERENT bit lengths
+    std::vector<typename cycle_group_ct::cycle_scalar> scalars;
+
+    // First scalar: 256 bits
+    uint256_t scalar1_value = uint256_t(123456789);
+    scalars.push_back(cycle_group_ct::cycle_scalar::from_witness(&builder, typename Curve::ScalarField(scalar1_value)));
+
+    // Second scalar: 128 bits
+    uint256_t scalar2_value = uint256_t(987654321);
+    scalars.push_back(cycle_group_ct::cycle_scalar::from_witness_bitstring(&builder, scalar2_value, 128));
+
+    // The different sized scalars results in different sized scalar slices arrays which is not handled in batch_mul
+    EXPECT_THROW_OR_ABORT(cycle_group_ct::batch_mul(points, scalars),
+                          "Assertion failed: (scalar_slices[j].slices_native.size() == num_rounds == true)");
+}
 #pragma GCC diagnostic pop
