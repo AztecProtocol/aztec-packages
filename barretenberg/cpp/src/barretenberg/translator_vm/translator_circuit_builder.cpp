@@ -403,11 +403,15 @@ void TranslatorCircuitBuilder::assert_well_formed_accumulation_input(const Accum
 void TranslatorCircuitBuilder::populate_wires_from_ultra_op(const UltraOp& ultra_op)
 {
     auto& op_wire = std::get<WireIds::OP>(wires);
-    op_wire.push_back(
-        add_variable(ultra_op.op_code.is_random_op ? ultra_op.op_code.random_value_1 : ultra_op.op_code.value()));
-    // Similarly to the ColumnPolynomials in the merge protocol, the op_wire is 0 at every second index
-    op_wire.push_back(add_variable(ultra_op.op_code.is_random_op ? ultra_op.op_code.random_value_2 : 0));
-
+    if (ultra_op.op_code.is_random_op) {
+        op_wire.push_back(add_variable(ultra_op.op_code.random_value_1));
+        op_wire.push_back(add_variable(ultra_op.op_code.random_value_2));
+    } else {
+        op_wire.push_back(add_variable(ultra_op.op_code.value()));
+        // Similarly to the ColumnPolynomials in the merge protocol, the op_wire is 0 at every second index for a
+        // genuine op
+        op_wire.push_back(zero_idx);
+    }
     insert_pair_into_wire(WireIds::X_LOW_Y_HI, ultra_op.x_lo, ultra_op.y_hi);
 
     insert_pair_into_wire(WireIds::X_HIGH_Z_1, ultra_op.x_hi, ultra_op.z_1);
@@ -542,8 +546,11 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         num_gates += 2;
     };
 
-    // Follow with two random ops, to ensure the commitment and evaluations of the op queue do not reveal data about the
-    // actual content of the op queue
+    // When encountering the random operation in the op queue, populate the op wire without creating accumulation gates
+    // These are present in the op queue at the beginning and end to ensure commitments and evaluations to op queue
+    // polynomials do not reveal information about data in the op queue
+    // The position and number of these random ops are explained in ClientIVC::hide_op_queue_content_tail_kernel and
+    // ClientIVC::hide_op_queue_content_hiding_kernel
     process_random_op(ultra_ops[1]);
     process_random_op(ultra_ops[2]);
     process_random_op(ultra_ops[3]);

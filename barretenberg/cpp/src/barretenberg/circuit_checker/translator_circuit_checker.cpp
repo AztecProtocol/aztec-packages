@@ -27,6 +27,9 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
         return false;
     };
 
+    BB_ASSERT_EQ(
+        circuit.num_gates, 1U << CONST_TRANSLATOR_MINI_CIRCUIT_LOG_SIZE, "TranslatorCircuit size is incorrect");
+
     // Compute the limbs of evaluation_input_x and powers of batching_challenge_v (these go into the relation)
     RelationInputs relation_inputs =
         compute_relation_inputs_limbs(circuit.batching_challenge_v, circuit.evaluation_input_x);
@@ -128,13 +131,34 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
             return check_accumulator_transfer(previous_accumulator, gate + 1);
         };
 
+    auto check_random_op_code = [&](const Fr op_code, size_t gate) {
+        if (gate % 2 == 0) {
+            if (op_code == Fr(0) || op_code == Fr(3) || op_code == Fr(4) || op_code == Fr(8)) {
+                return report_fail("Opcode should be random value at even gate = ", gate);
+            }
+        } else {
+            if (op_code == Fr(0)) {
+                return report_fail("Opcode should be 0 at odd gate = ", gate);
+            }
+        }
+        return true;
+    };
+
     // TODO(https: // github.com/AztecProtocol/barretenberg/issues/1367): Report all failures more explicitly and
     // consider making use of relations.
+    auto in_random_range = [&](size_t i) {
+        return (i >= 2 && i < RESULT_ROW) || (i > circuit.num_gates - 5 && i < circuit.num_gates);
+    };
+    for (size_t i = 2; i < circuit.num_gates - 1; i += 2) {
 
-    for (size_t i = 8; i < circuit.num_gates - 5; i += 2) {
-
-        // Get the values of P.x
+        // Ensure random op is present in in expected ranges
         Fr op_code = circuit.get_variable(op_wire[i]);
+        if (in_random_range(i)) {
+            check_random_op_code(op_code, i);
+            Fr op_code_next = circuit.get_variable(op_wire[i + 1]);
+            check_random_op_code(op_code_next, i + 1);
+            continue;
+        }
 
         // Current accumulator (updated value)
         const std::vector current_accumulator_binary_limbs = {

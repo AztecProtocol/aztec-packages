@@ -125,7 +125,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
 
     // If Sumcheck did not verify, return false
     if (!sumcheck_output.verified) {
-        info("translator verifier: sumcheck failed");
+        vinfo("translator verifier: sumcheck failed");
         return false;
     }
 

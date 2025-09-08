@@ -268,7 +268,7 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     pairing_points.aggregate(nested_pairing_points);
     if (is_hiding_kernel) {
         pairing_points.aggregate(decider_pairing_points);
-        // Add randomness at the end of the hiding kernel (whose ecc ops fall right at the end of the op queue) to
+        // Add randomness at the end of the hiding kernel (whose ecc ops fall right at the end of the op queue table) to
         // ensure the CIVC proof doesn't leak information about the actual content of the op queue
         hide_op_queue_content_in_hiding(circuit);
     }
@@ -313,12 +313,12 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     // to ensure the op queue wires in translator are shiftable, i.e. their 0th coefficient is 0. (The tail kernel
     // subtable is at the top of the final aggregate table since it is the last to be prepended).
     if (is_tail_kernel) {
-        BB_ASSERT_EQ(circuit.op_queue->get_unmerged_subtable_size(),
+        BB_ASSERT_EQ(circuit.op_queue->get_current_subtable_size(),
                      0U,
                      "tail kernel ecc ops table should be empty at this point");
         circuit.queue_ecc_no_op();
-        // Add randomness at the begining of the tail kernel (whose ecc ops fall at the beginning of the op queue) to
-        // ensure the CIVC proof doesn't leak information about the actual content of the op queue
+        // Add randomness at the begining of the tail kernel (whose ecc ops fall at the beginning of the op queue table)
+        // to ensure the CIVC proof doesn't leak information about the actual content of the op queue
         hide_op_queue_content_in_tail(circuit);
     }
     circuit.queue_ecc_eq();
@@ -524,7 +524,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
 }
 
 /**
- * @brief Add a *real* operation but with random data to the op queue to hide its content in Translator computation.
+ * @brief Add a *real* operation but with random data to the op queue to avoid information leak in Translator
+ * computation.
  *
  * @details Translator circuit builder computes the evaluation at some random challenge x of a batched polynomial
  * derived from processing the ultra_op version of op_queue. This result (referred to as accumulated_result in
@@ -543,33 +544,34 @@ void ClientIVC::hide_op_queue_accumulation_result(ClientCircuit& circuit)
 }
 
 /**
- * @brief Adds two random ops to the circuit, called in the tail and hiding kernel.
+ * @brief Adds thre random ops to the tail kernel.
  *
  * @details The ClientIVC proof is sent to the rollup and so it has to be zero-knowledge. In turn, this implies that
- * commitments and evaluations to the op queue ,when regarded as 4 polynomials (op, x_lo_y_hi, x_hi_z_1, y_lo_z_2 in
- * UltraOp format), have to not leak information about the actual content of the op queue. Since this data is used
- * across several provers, they have to be treated differently. Normally, to hide a witness we'd add randomness at
- * proving time in a specific prover. However, due to the consistency checks present throughout CIVC to ensure all
- * components use the same op queue data (Merge and Translator on the entire op queue table and Merge and Mega on each
- * subtable), randomness has to be added in a common place, this place naturally being ClientIVC. ECCVM is not affected
- * by the above (and so adds randomness to all its wires at proving time) as the consistency of ECCVMOps processing and
- * UltraOps processing between Translator and ECCVM is achieved via the translation evalution check and avoiding an
- * information leak there is ensured by `ClientIVC::hide_op_queue_accumulation_result()` and SmallSubgroupIPA in ECCVM.
+ * commitments and evaluations to the op queue, when regarded as 4 polynomials in UltraOp format (op, x_lo_y_hi,
+ * x_hi_z_1, y_lo_z_2 ), should not leak information about the actual content of the op queue with provenence from
+ * circuit operations that have been accumulated in CIVC. Since the op queue  is used across several provers,
+ * randomising these polynomials has to be handled in a special way. Normally, to hide a witness we'd add randomness at
+ * proving time when populating ProverPolynomials. However, due to the consistency checks present throughout CIVC to
+ * ensure all components use the same op queue data (Merge and Translator on the entire op queue table and Merge and
+ * Mega on each subtable), randomness has to be added in a common place, this place naturally being ClientIVC. ECCVM is
+ * not affected by the concerns above, randomness being add to wires at proving time as per usual, because the
+ * consistency of ECCVMOps processing and UltraOps processing between Translator and ECCVM is achieved via the
+ * translation evalution check and avoiding an information leak there is ensured by
+ * `ClientIVC::hide_op_queue_accumulation_result()` and SmallSubgroupIPA in ECCVM.
  *
- * We need 8 random rows (so four random ops) in total to cover for all evaluations needed in CIVC proving, following
- * the rule that if a polynomial requires to be evaluated at n points, we need n+1 random coefficients for the n
- * evaluations to be hidden.
+ * We need each op queue polynomial to have 9 random coefficient (so the op queue needs to contain 6 random ops).
  *
- * For the last subtable of ecc ops being appended to the full op queue, its data appears as the ecc_op_wires for the
- * MegaZK proof, wires that are not going to be shifted, so needing two random values to hide the random evaluation
- * point produced in Sumcheck. Furthermore, it appears as the right_table in the last iteration of the merge protocol,
- * which we evaluate at another point κ so for that proof to also be zero-knowledge we need another random value. So, at
- * the end of the hiding kernel subtable we add two random ops.
+ * For the last subtable of ecc ops, merged via appended to the full op queue, its data appears as the ecc_op_wires in
+ * the MegaZK proof, wires that are not going to be shifted, so the proof containts, for each wire, its commitment and
+ * evaluation to the Sumcheck challenge. In the Merge protocol, as the subtable has been appended, it's evaluation at
+ * kappa only
  *
  * The op queue state previous to the append of the last subtable, left_table in the merge protocol, is also evaluated
- * at κ and κ^{-1} in the last iteration of Merge and also "left_table_reversed" is evaluated at \kappa. For the full
- * ecc op queue table, merged_table in the merge protocol, there is an evaluation at κ in merge and two during
- * Translator proving given all polynomials except op will be shifted.
+ * at κ and κ^{-1} in the last iteration of Merge and also "left_table_reversed" is evaluated at κ and commited to, so
+ * for these we need four random coefficients. For the full ecc op queue table, merged_table in the merge protocol,
+ * there is an evaluation at κ in merge and two during Translator proving given all polynomials except op will also be
+ * shifted in Translator, So, we add three random ops at the beginning of the tail kernel subtable which will fall at
+ * the beginning of the op queue.
  */
 void ClientIVC::hide_op_queue_content_in_tail(ClientCircuit& circuit)
 {
@@ -577,6 +579,12 @@ void ClientIVC::hide_op_queue_content_in_tail(ClientCircuit& circuit)
     circuit.queue_ecc_random_op();
     circuit.queue_ecc_random_op();
 }
+
+/**
+ * @brief Adds two random ops to the hiding kernel.
+ *
+ * @details See `hide_op_queue_content_in_tail`.
+ */
 void ClientIVC::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
 {
     circuit.queue_ecc_random_op();

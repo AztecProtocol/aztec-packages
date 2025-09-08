@@ -132,7 +132,7 @@ template <typename OpFormat> class EccOpsTable {
     }
 
     size_t num_subtables() const { return table.size(); }
-    size_t get_unmerged_subtable_size() const { return current_subtable.size(); }
+    size_t get_current_subtable_size() const { return current_subtable.size(); }
 
     auto& get() const { return table; }
 
@@ -273,7 +273,7 @@ class UltraEccOpsTable {
         }
     }
 
-    size_t get_unmerged_subtable_size() const { return table.get_unmerged_subtable_size(); }
+    size_t get_current_subtable_size() const { return table.get_current_subtable_size(); }
 
     std::vector<UltraOp> get_reconstructed() const
     {
@@ -285,7 +285,7 @@ class UltraEccOpsTable {
     std::vector<UltraOp> get_reconstructed_with_fixed_append() const
     {
 
-        ASSERT(get_unmerged_subtable_size() == 0,
+        ASSERT(get_current_subtable_size() == 0,
                "current subtable should be merged before reconstructing the full table of operations.");
 
         std::vector<UltraOp> reconstructed_table;
