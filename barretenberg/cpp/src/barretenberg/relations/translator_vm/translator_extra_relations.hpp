@@ -81,7 +81,9 @@ template <typename FF_> class TranslatorAccumulatorTransferRelationImpl {
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return (in.lagrange_odd_in_minicircuit + in.lagrange_last_in_minicircuit + in.lagrange_result_row).is_zero();
+        return (in.lagrange_odd_in_minicircuit + in.lagrange_last_in_minicircuit + in.lagrange_result_row +
+                in.lagrange_mini_masking)
+            .is_zero();
     }
     /**
      * @brief Relation enforcing non-arithmetic transitions of accumulator (value that is tracking the batched
@@ -190,7 +192,9 @@ template <typename FF_> class TranslatorZeroConstraintsRelationImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         static constexpr auto minus_one = -FF(1);
-        return (in.lagrange_even_in_minicircuit + in.lagrange_last_in_minicircuit + minus_one).is_zero();
+        return (in.lagrange_even_in_minicircuit + in.lagrange_last_in_minicircuit + in.lagrange_mini_masking +
+                minus_one)
+            .is_zero();
     }
     /**
      * @brief Relation enforcing all the range-constraint polynomials to be zero after the minicircuit
