@@ -38,15 +38,25 @@ namespace bb {
  * subrelations can be expressed as follows:
  *
  *  (1) I_i * (read_term_i) * (write_term_i) - 1 = 0
+ * In reality this relation is I_i * (read_term_i) * (write_term_i) - inverse_exists = 0, i.e. it is only checked for
+ * active gates (more explanation below).
  *
  *  (2) \sum_{i=0}^{n-1} [q_{logderiv_lookup} * I_i * write_term_i + read_count_i * I_i * read_term_i] = 0
  *
  * Each column of the DataBus requires its own pair of subrelations. The column being read is selected via a unique
  * product, i.e. a lookup from bus column j is selected via q_busread * q_j (j = 1,2,...).
  *
- * Note: that the latter subrelation is "linearly dependent" in the sense that it establishes that a sum across all
- * rows of the exectution trace is zero, rather than that some expression holds independently at each row. Accordingly,
- * this subrelation is not multiplied by a scaling factor at each accumulation step.
+ * To not compute the inverse terms packed in I_i for indexes that not included in the sum we introduce we introduce a
+ * witness called inverse_exists, which is zero when either read_count_i is nonzero (a boolean called read_tag) or we
+ * have a read gate. This is represented by setting inveser_exists = 1- (1- read_tag)*(1- is_read_gate). Since read_gate
+ * is only dependent on selector values, we can assume that the verifier can check that it is boolean. However, if
+ * read_tag (which is a derived witness), is not constrained to be boolean, one can set the inverse_exists to 0, even
+ * when is_read_gate is 1, because inverse_exists is a linear function of read_tag then. Thus we have a third
+ * subrelation, that ensures that read_tag is a boolean value.
+ * (3) read_tag * read_tag - read_tag = 0
+ * Note: that subrelation (2) is "linearly dependent" in the sense that it establishes that a sum
+ * across all rows of the exectution trace is zero, rather than that some expression holds independently at each row.
+ * Accordingly, this subrelation is not multiplied by a scaling factor at each accumulation step.
  *
  */
 template <typename FF_> class DatabusLookupRelationImpl {
@@ -162,6 +172,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
      * @brief Compute the Accumulator whose values indicate whether the inverse is computed or not
      * @details This is needed for efficiency since we don't need to compute the inverse unless the log derivative
      * lookup relation is active at a given row.
+     * we skip the inverse computation for all the rows that read_count_i == 0 AND read_selector is 0
      * @note read_counts is constructed such that read_count_i <= 1 and is thus treated as boolean.
      *
      */
@@ -175,11 +186,10 @@ template <typename FF_> class DatabusLookupRelationImpl {
             CoefficientAccumulator(BusData<bus_idx, AllEntities>::read_tags(in)); // does row contain data being read
         const Accumulator read_tag(read_tag_m);
         // Relation checking: is_read_gate == 1 || read_tag == 1
-        // Important note: the following relation sattisfies the above condition if is_read_gate and read_tag are
-        // boolean values
-        // if not this is a linear relation in each variable and the value can be set to zero independent of the value
-        // of is_read_gate or read_tag. This would lead to terms in the sum being skipped when they shouldn't be which
-        // would be a soundness issue
+        // Important note: the relation written below assumes that is_read_gate and read_tag are boolean values,
+        // if not, fixing one of the two, the return value is a linear function in the other variable and can be
+        // set to an arbitrary value independent of the fixed value. Check the boolean_check subrelation for more
+        // explanation.
         //         degree 2(2)   1             2 (2)        1       // Degree 3 (3)
         return is_read_gate + read_tag - (is_read_gate * read_tag); // Degree 3 (5)
     }
@@ -333,9 +343,11 @@ template <typename FF_> class DatabusLookupRelationImpl {
         const auto read_selector = get_read_selector<Accumulator, bus_idx>(in);       // Degree 2 (2)
 
         // Determine which pair of subrelations to update based on which bus column is being read
+        // The inverse relation subrelation index
         constexpr size_t subrel_idx_1 = NUM_SUB_RELATION_PER_IDX * bus_idx;
+        // The lookup relation subrelation index
         constexpr size_t subrel_idx_2 = NUM_SUB_RELATION_PER_IDX * bus_idx + 1;
-        // the subrelation index for checking the read_tag is boolean
+        // The read_tag boolean check subrelation index
         constexpr size_t subrel_idx_3 = NUM_SUB_RELATION_PER_IDX * bus_idx + 2;
 
         // Establish the correctness of the polynomial of inverses I. Note: inverses is computed so that the value
