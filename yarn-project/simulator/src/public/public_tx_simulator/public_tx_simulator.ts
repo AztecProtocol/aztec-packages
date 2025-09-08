@@ -358,7 +358,7 @@ export class PublicTxSimulator {
       context.revert(
         TxExecutionPhase.APP_LOGIC,
         new SimulationError(
-          `Nullifier collision encountered when inserting revertible nullifiers from private.\nDetails: ${String(e)}`,
+          `Nullifier collision encountered when inserting revertible nullifiers from private from tx ${tx.txHash.toString()}.\nDetails: ${String(e)}`,
           [],
         ),
       );
