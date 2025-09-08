@@ -296,7 +296,6 @@ TEST(ContractInstanceRetrievalConstrainingTest, ProtocolContractInstance)
     });
 
     precomputed_builder.process_misc(trace, 6); // Need clk from 1 - 6 to set up protocol canonical addresses
-    precomputed_builder.process_protocol_contract_addresses(trace);
 
     check_relation<contract_instance_retrieval>(trace);
     check_interaction<ContractInstanceRetrievalTraceBuilder,

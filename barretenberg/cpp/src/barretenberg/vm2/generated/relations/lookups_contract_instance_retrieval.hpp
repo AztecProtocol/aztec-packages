@@ -49,7 +49,7 @@ struct lookup_contract_instance_retrieval_protocol_contract_derived_address_sett
     static constexpr std::string_view NAME = "LOOKUP_CONTRACT_INSTANCE_RETRIEVAL_PROTOCOL_CONTRACT_DERIVED_ADDRESS";
     static constexpr std::string_view RELATION_NAME = "contract_instance_retrieval";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::contract_instance_retrieval_is_protocol_contract;
+    static constexpr Column SRC_SELECTOR = Column::precomputed_zero;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_protocol_contract;
     static constexpr Column COUNTS =
         Column::lookup_contract_instance_retrieval_protocol_contract_derived_address_counts;
@@ -75,7 +75,7 @@ struct lookup_contract_instance_retrieval_address_derivation_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_CONTRACT_INSTANCE_RETRIEVAL_ADDRESS_DERIVATION";
     static constexpr std::string_view RELATION_NAME = "contract_instance_retrieval";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 13;
-    static constexpr Column SRC_SELECTOR = Column::contract_instance_retrieval_exists;
+    static constexpr Column SRC_SELECTOR = Column::precomputed_zero;
     static constexpr Column DST_SELECTOR = Column::address_derivation_sel;
     static constexpr Column COUNTS = Column::lookup_contract_instance_retrieval_address_derivation_counts;
     static constexpr Column INVERSES = Column::lookup_contract_instance_retrieval_address_derivation_inv;

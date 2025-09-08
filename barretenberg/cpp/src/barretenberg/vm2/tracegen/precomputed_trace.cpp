@@ -629,18 +629,4 @@ void PrecomputedTraceBuilder::process_get_contract_instance_table(TraceContainer
     }
 }
 
-void PrecomputedTraceBuilder::process_protocol_contract_addresses(TraceContainer& trace)
-{
-    using C = Column;
-
-    for (const auto& [canonical_addr, derived_addr] : derived_addresses) {
-        // The canonical address is the row value (which is the execution clk)
-        trace.set(static_cast<uint32_t>(canonical_addr),
-                  { {
-                      { C::precomputed_sel_protocol_contract, 1 },
-                      { C::precomputed_protocol_contract_derived_address, derived_addr },
-                  } });
-    }
-}
-
 } // namespace bb::avm2::tracegen

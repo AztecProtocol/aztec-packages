@@ -133,12 +133,12 @@ namespace contract_instance_retrieval;
     sel * (1 - is_protocol_contract) * (derived_address - address) = 0;
 
     #[PROTOCOL_CONTRACT_DERIVED_ADDRESS]
-    is_protocol_contract { address, derived_address } in
+    /*is_protocol_contract*/ precomputed.zero { address, derived_address } in
     precomputed.sel_protocol_contract { precomputed.clk, precomputed.protocol_contract_derived_address };
 
     // Address derivation lookup (only if the nullifier exists or for protocol contract instances)
     #[ADDRESS_DERIVATION]
-    exists {
+    /*exists*/ precomputed.zero {
         derived_address,
         salt, // hinted
         deployer_addr,
