@@ -70,7 +70,7 @@ template <typename Builder> class bool_t {
     bool_t& operator=(const bool_t& other);
     bool_t& operator=(bool_t&& other);
 
-    static bool_t from_witness_index_unsafe(Builder* ctx, uint32_t witness_index);
+    static bool_t from_witness_index_unsafe(Builder* ctx, uint32_t witness_index, const bool witness_inverted = false);
 
     // bitwise operations
     bool_t operator&(const bool_t& other) const;

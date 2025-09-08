@@ -143,9 +143,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
 
     // Mock the proof if the predicate is false
     if (!input.predicate.is_constant) {
-        auto predicate_value = builder.get_variable(input.predicate.index);
-        bool_ct predicate_witness = bool_ct(&builder, predicate_value == fr(1));
-        predicate_witness.witness_index = input.predicate.index;
+        bool_ct predicate_witness = bool_ct::from_witness_index_unsafe(&builder, input.predicate.index);
         bb::HonkProof mock_proof =
             create_mock_honk_proof<typename Flavor::NativeFlavor, IO>(input.public_inputs.size());
         stdlib::Proof<Builder> result;

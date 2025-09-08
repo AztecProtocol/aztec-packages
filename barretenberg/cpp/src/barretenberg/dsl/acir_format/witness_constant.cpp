@@ -51,9 +51,7 @@ bb::stdlib::cycle_group<Builder> valid_point(const bb::stdlib::cycle_group<Build
         return input;
     }
     // creates a bool_ct from the index, without adding a boolean gate because a predicate is boolean by definition.
-    FF predicate_value = builder.get_variable(predicate.index);
-    bool_ct predicate_witness = bool_ct(&builder, predicate_value == FF(1));
-    predicate_witness.witness_index = predicate.index;
+    bool_ct predicate_witness = bool_ct::from_witness_index_unsafe(&builder, predicate.index);
 
     auto g1 = bb::grumpkin::g1::affine_one;
     auto point_x = field_t<Builder>::conditional_assign(predicate_witness, input.x, g1.x).normalize();

@@ -93,10 +93,7 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
     G1 public_key(pub_x, pub_y);
     // Update it depending on the predicate
     if (!input.predicate.is_constant) {
-        auto predicate_value = builder.get_variable(input.predicate.index);
-        bool_ct predicate_witness = bool_ct(&builder, predicate_value == fr(1));
-        predicate_witness.witness_index = input.predicate.index;
-        predicate_witness.witness_inverted = true; // negate the predicate
+        bool_ct predicate_witness = bool_ct::from_witness_index_unsafe(&builder, input.predicate.index, true);
         pub_x = pub_x.conditional_select(Curve::g1::one.x, predicate_witness);
         pub_y = pub_y.conditional_select(Curve::g1::one.y, predicate_witness);
     }
