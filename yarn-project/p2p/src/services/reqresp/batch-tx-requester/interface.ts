@@ -25,4 +25,5 @@ export interface BatchTxRequesterOptions {
   //Injectable for testing purposes
   semaphore?: ISemaphore;
   peerCollection?: IPeerCollection;
+  abortSignal?: AbortSignal;
 }

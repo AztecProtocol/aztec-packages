@@ -15,7 +15,7 @@ import { BlockTxsRequest, BlockTxsResponse } from '.././protocols/index.js';
 import { ReqRespStatus } from '.././status.js';
 import type { BatchTxRequesterOptions, ITxMetadataCollection } from './interface.js';
 import { MissingTxMetadata, MissingTxMetadataCollection, TX_BATCH_SIZE } from './missing_txs.js';
-import { type IPeerCollection, PeerCollection } from './peer_collection.js';
+import { type IPeerCollection, PeerCollection, RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL } from './peer_collection.js';
 
 const SMART_PEERS_TO_QUERY_IN_PARALLEL = 10;
 const DUMB_PEERS_TO_QUERY_IN_PARALLEL = 10;
@@ -47,14 +47,8 @@ export class BatchTxRequester {
       this.peers = this.opts.peerCollection;
     } else {
       const initialPeers = this.connectionSampler.getPeerListSortedByConnectionCountAsc();
-      this.peers = new PeerCollection(initialPeers);
+      this.peers = new PeerCollection(initialPeers, pinnedPeer, dateProvider);
     }
-
-    //Pinned peer is queried separately and thus always considered "in-flight" by both "dumb" and "smart" requester
-    if (this.pinnedPeer) {
-      this.peers.markPeerInFlight(this.pinnedPeer);
-    }
-
     const entries: Array<[string, MissingTxMetadata]> = missingTxs.map(h => [h.toString(), new MissingTxMetadata(h)]);
     this.txsMetadata = new MissingTxMetadataCollection(entries);
     this.smartRequesterSemaphore = this.opts.semaphore ?? new Semaphore(0);
@@ -66,15 +60,19 @@ export class BatchTxRequester {
         return;
       }
 
-      //TODO: executeTimeout?
-      await Promise.allSettled([this.smartRequester(), this.dumbRequester(), this.pinnedPeerRequester()]);
+      await executeTimeout(
+        () => Promise.allSettled([this.smartRequester(), this.dumbRequester(), this.pinnedPeerRequester()]),
+        this.timeoutMs,
+      );
 
       //TODO: handle this via async iter
       return this.txsMetadata.getFetchedTxs();
+    } catch (e: any) {
+      this.logger.error(`Batch tx requester failed with error: ${e.message}`, { error: e });
+
+      return [];
     } finally {
-      for (let i = 0; i < this.opts.smartParallelWorkerCount; i++) {
-        this.smartRequesterSemaphore.release();
-      }
+      this.unlockSmartRequesterSemaphores();
     }
   }
 
@@ -181,9 +179,6 @@ export class BatchTxRequester {
     await Promise.allSettled(workers);
     const inCaseWeAreDoneRemoveSmartLocks = this.shouldStop();
     if (inCaseWeAreDoneRemoveSmartLocks) {
-      for (let i = 0; i < this.opts.smartParallelWorkerCount; i++) {
-        this.smartRequesterSemaphore.release();
-      }
     }
   }
 
@@ -198,13 +193,20 @@ export class BatchTxRequester {
         const peerId = pickNextPeer();
         const weRanOutOfPeersToQuery = peerId === undefined;
         if (weRanOutOfPeersToQuery) {
-          this.logger.debug(`Worker loop dumb: No more peers to query`);
-          break;
+          if (!this.peers.thereAreSomeDumbRatelimitExceededPeers()) {
+            this.logger.debug(`Worker loop dumb: No more peers to query`);
+            break;
+          } else {
+            // There are still some dumb peers to query but they have been rate limited
+            // Sleep until they get unblocked
+            await sleep(RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL);
+            continue;
+          }
         }
 
         const nextBatchTxRequest = request(peerId);
         if (!nextBatchTxRequest) {
-          this.logger.warn(`Worker loop dumb: Could not create next batch request`);
+          this.logger.debug(`Worker loop dumb: Could not create next batch request`);
           // We retry with the next peer/batch
           continue;
         }
@@ -248,10 +250,19 @@ export class BatchTxRequester {
         //thus we can simply exit this worker
         const noMoreDumbPeersToQuery = this.peers.getDumbPeersToQuery().length === 0;
         if (noMoreDumbPeersToQuery) {
+          // These might be either smart peers that will get unblocked after _some time_
+          // Or dumb peers that might become smart, so let's not 'kill' this worker, but sleep
+          const thereAreSomeRateLimitedPeers = this.peers.getRateLimitExceededPeers().size > 0;
+          if (thereAreSomeRateLimitedPeers) {
+            await sleep(RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL);
+            continue;
+          }
+
           this.logger.debug(`Worker loop smart: No more smart peers to query, EXITING`);
           break;
         }
 
+        // Otherwise we wait until some peer becomes smart
         await this.smartRequesterSemaphore.acquire();
         this.logger.debug(`Worker loop smart: acquired next smart peer`);
         continue;
@@ -259,8 +270,8 @@ export class BatchTxRequester {
 
       const nextBatchTxRequest = request(peerId);
       if (!nextBatchTxRequest) {
-        this.logger.warn(`Worker loop smart: Could not create next batch request`);
         // We retry with the next peer/batch
+        this.logger.warn(`Worker loop smart: Could not create next batch request`);
         continue;
       }
 
@@ -320,6 +331,11 @@ export class BatchTxRequester {
       return;
     }
 
+    const smartPeersAreDisabled = this.opts.smartParallelWorkerCount === 0;
+    if (smartPeersAreDisabled) {
+      return;
+    }
+
     // We mark peer as "smart" only if they have some txs we are missing
     // Otherwise we keep them as "dumb" in hope they'll receive some new txs we are missing in the future
     if (!this.peerHasSomeTxsWeAreMissing(peerId, response)) {
@@ -329,11 +345,6 @@ export class BatchTxRequester {
 
     this.markTxsPeerHas(peerId, response);
 
-    const smartPeersAreDisabled = this.opts.smartParallelWorkerCount === 0;
-    if (smartPeersAreDisabled) {
-      return;
-    }
-
     this.peers.markPeerSmart(peerId);
     if (this.peers.getSmartPeers().size <= this.opts.smartParallelWorkerCount) {
       this.smartRequesterSemaphore.release();
@@ -341,7 +352,7 @@ export class BatchTxRequester {
   }
 
   private isBlockResponseValid(response: BlockTxsResponse): boolean {
-    //TODO: maybe ban peer if this does not match?
+    //TODO: should we  ban peer if this does not match?
     const blockIdsMatch = this.blockProposal.archive.toString() === response.blockHash.toString();
     const peerHasSomeTxsFromProposal = !response.txIndices.isEmpty();
     return blockIdsMatch && peerHasSomeTxsFromProposal;
@@ -360,9 +371,10 @@ export class BatchTxRequester {
 
     const missingTxHashes = this.txsMetadata.getMissingTxHashes();
     if (missingTxHashes.size === 0) {
-      // wake sleepers so they can see shouldStop() and exit
+      // wake sleepers so they can see shouldStop() and exit before waiting on timeout
+      this.unlockSmartRequesterSemaphores();
     } else {
-      this.logger.debug(
+      this.logger.trace(
         `Missing txs: ${Array.from(this.txsMetadata.getMissingTxHashes())
           .map(tx => tx.toString())
           .join(', ')}`,
@@ -377,17 +389,15 @@ export class BatchTxRequester {
     this.txsMetadata.markPeerHas(peerId, txsPeerHas);
   }
 
-  //TODO: are we missing something here?
-  // banning the peers?
   private async handleFailResponseFromPeer(peerId: PeerId, responseStatus: ReqRespStatus) {
     if (responseStatus === ReqRespStatus.FAILURE || responseStatus === ReqRespStatus.UNKNOWN) {
+      //TODO: Should we ban these peers?
       this.peers.markPeerAsBad(peerId);
       return;
     }
 
-    //TODO: handle this properly
     if (responseStatus === ReqRespStatus.RATE_LIMIT_EXCEEDED) {
-      await sleep(1000);
+      this.peers.markPeerRateLimitExceeded(peerId);
     }
   }
 
@@ -421,8 +431,16 @@ export class BatchTxRequester {
     return Array.from(this.txsMetadata.values()).every(tx => tx.fetched);
   }
 
-  //TODO: abort signal here?
   private shouldStop() {
-    return this.txsMetadata.size === 0 || this.fetchedAllTxs() || this.dateProvider.now() > this.deadline;
+    const aborted = this.opts.abortSignal?.aborted ?? false;
+    return aborted || this.txsMetadata.size === 0 || this.fetchedAllTxs() || this.dateProvider.now() > this.deadline;
+  }
+
+  // Helper function which unlocks all smart requester semaphores
+  // This is needed otherwise they will block forever
+  private unlockSmartRequesterSemaphores() {
+    for (let i = 0; i < this.opts.smartParallelWorkerCount; i++) {
+      this.smartRequesterSemaphore.release();
+    }
   }
 }
