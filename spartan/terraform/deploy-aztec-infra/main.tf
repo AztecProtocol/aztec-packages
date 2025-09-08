@@ -176,7 +176,7 @@ resource "helm_release" "releases" {
       each.value.boot_node_host_path != "" && local.internal_boot_node_url != "" ? {
         (each.value.boot_node_host_path) = local.internal_boot_node_url
       } : {},
-      each.value.bootstrap_nodes_path != "" && len(var.EXTERNAL_BOOTNODES) > 0 ? {
+      each.value.bootstrap_nodes_path != "" && length(var.EXTERNAL_BOOTNODES) > 0 ? {
         (each.value.bootstrap_nodes_path) = join(",", var.EXTERNAL_BOOTNODES)
       } : {}
     ) : k => v if v != null }
