@@ -531,8 +531,6 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     // polynomials in translator start with 0 (required for shifted polynomials in the proving system). Technically,
     // we'd need only first index to be a zero but, given each "real" UltraOp populates two indices in a polynomial we
     // add two zeros for consistency.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1360): We'll also have to eventually process random
-    // data in the merge protocol (added for zero knowledge)/
     for (auto& wire : wires) {
         wire.push_back(zero_idx);
         wire.push_back(zero_idx);
