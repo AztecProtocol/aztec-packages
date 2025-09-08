@@ -14,6 +14,7 @@ import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
@@ -121,6 +122,7 @@ contract GSECore is IGSECore, Ownable {
   using SafeCast for uint224;
   using Checkpoints for Checkpoints.Trace224;
   using DepositDelegationLib for DepositAndDelegationAccounting;
+  using SafeERC20 for IERC20;
 
   /**
    * Create a special "bonus" address for use by the latest rollup.
@@ -336,7 +338,7 @@ contract GSECore is IGSECore, Ownable {
     delegation.delegate(recipientInstance, _attester, recipientInstance);
     delegation.increaseBalance(recipientInstance, _attester, ACTIVATION_THRESHOLD);
 
-    ASSET.transferFrom(msg.sender, address(this), ACTIVATION_THRESHOLD);
+    ASSET.safeTransferFrom(msg.sender, address(this), ACTIVATION_THRESHOLD);
 
     Governance gov = getGovernance();
     ASSET.approve(address(gov), ACTIVATION_THRESHOLD);
@@ -469,7 +471,7 @@ contract GSECore is IGSECore, Ownable {
     Governance gov = getGovernance();
     uint256 amount = gov.getConfiguration().proposeConfig.lockAmount;
 
-    ASSET.transferFrom(msg.sender, address(this), amount);
+    ASSET.safeTransferFrom(msg.sender, address(this), amount);
     ASSET.approve(address(gov), amount);
 
     gov.deposit(address(this), amount);

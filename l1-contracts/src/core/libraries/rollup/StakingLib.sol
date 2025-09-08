@@ -193,7 +193,7 @@ library StakingLib {
     delete store.exits[_attester];
 
     store.gse.finalizeWithdraw(exit.withdrawalId);
-    store.stakingAsset.transfer(exit.recipientOrWithdrawer, exit.amount);
+    store.stakingAsset.safeTransfer(exit.recipientOrWithdrawer, exit.amount);
 
     emit IStakingCore.WithdrawFinalized(_attester, exit.recipientOrWithdrawer, exit.amount);
   }
@@ -297,7 +297,7 @@ library StakingLib {
     require(!store.exits[_attester].exists, Errors.Staking__AlreadyExiting(_attester));
     uint256 amount = store.gse.ACTIVATION_THRESHOLD();
 
-    store.stakingAsset.transferFrom(msg.sender, address(this), amount);
+    store.stakingAsset.safeTransferFrom(msg.sender, address(this), amount);
     store.entryQueue.enqueue(
       _attester, _withdrawer, _publicKeyInG1, _publicKeyInG2, _proofOfPossession, _moveWithLatestRollup
     );
@@ -369,7 +369,7 @@ library StakingLib {
         //    where someone could drain the queue without making any deposits.
         //    We can safely assume data.length == 0 means out of gas since we only call trusted GSE contract.
         require(data.length > 0, Errors.Staking__DepositOutOfGas());
-        store.stakingAsset.transfer(args.withdrawer, amount);
+        store.stakingAsset.safeTransfer(args.withdrawer, amount);
         emit IStakingCore.FailedDeposit(
           args.attester, args.withdrawer, args.publicKeyInG1, args.publicKeyInG2, args.proofOfPossession
         );
