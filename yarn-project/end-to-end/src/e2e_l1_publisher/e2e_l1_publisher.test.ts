@@ -31,11 +31,22 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { buildBlockWithCleanDB } from '@aztec/prover-client/block-factory';
 import { SequencerPublisher, SequencerPublisherMetrics } from '@aztec/sequencer-client';
-import { type CommitteeAttestation, type L2Tips, PublishedL2Block, Signature } from '@aztec/stdlib/block';
+import {
+  type CommitteeAttestation,
+  CommitteeAttestationsAndSigners,
+  type L2Tips,
+  PublishedL2Block,
+  Signature,
+} from '@aztec/stdlib/block';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import { orderAttestations } from '@aztec/stdlib/p2p';
-import { fr, makeBloatedProcessedTx, makeBlockAttestationFromBlock } from '@aztec/stdlib/testing';
+import {
+  fr,
+  makeAndSignCommitteeAttestationsAndSigners,
+  makeBloatedProcessedTx,
+  makeBlockAttestationFromBlock,
+} from '@aztec/stdlib/testing';
 import type { BlockHeader, ProcessedTx } from '@aztec/stdlib/tx';
 import {
   type MerkleTreeAdminDatabase,
@@ -212,10 +223,6 @@ describe('L1Publisher integration', () => {
       sequencerL1Client,
       l1ContractAddresses.governanceProposerAddress.toString(),
     );
-    const slashFactoryContract = new SlashFactoryContract(
-      sequencerL1Client,
-      l1ContractAddresses.slashFactoryAddress!.toString(),
-    );
     epochCache = await EpochCache.create(l1ContractAddresses.rollupAddress, config, { dateProvider });
     const blobSinkClient = createBlobSinkClient();
     const sequencerPublisherMetrics: MockProxy<SequencerPublisherMetrics> = mock<SequencerPublisherMetrics>();
@@ -237,7 +244,7 @@ describe('L1Publisher integration', () => {
         epochCache,
         governanceProposerContract,
         slashingProposerContract,
-        slashFactoryContract,
+        slashFactoryContract: undefined as unknown as SlashFactoryContract,
         dateProvider,
         metrics: sequencerPublisherMetrics,
         lastActions: {},
@@ -262,6 +269,9 @@ describe('L1Publisher integration', () => {
 
     ({ committee } = await epochCache.getCommittee());
     ({ currentProposer: proposer } = await epochCache.getProposerAttesterAddressInCurrentOrNextSlot());
+
+    logger.warn('committee', committee);
+    logger.warn('proposer', proposer);
   };
 
   afterEach(async () => {
@@ -417,7 +427,7 @@ describe('L1Publisher integration', () => {
           deployerAccount.address,
         );
 
-        await publisher.enqueueProposeL2Block(block);
+        await publisher.enqueueProposeL2Block(block, CommitteeAttestationsAndSigners.empty(), Signature.empty());
         await publisher.sendRequests();
 
         const logs = await l1Client.getLogs({
@@ -460,8 +470,9 @@ describe('L1Publisher integration', () => {
                 feeAssetPriceModifier: 0n,
               },
             },
-            RollupContract.packAttestations([]),
+            CommitteeAttestationsAndSigners.empty().getPackedAttestations(),
             [],
+            Signature.empty().toViemSignature(),
             Blob.getPrefixedEthBlobCommitments(blockBlobs),
           ],
         });
@@ -529,8 +540,8 @@ describe('L1Publisher integration', () => {
       });
     });
 
-    const expectPublishBlock = async (block: L2Block, attestations: CommitteeAttestation[]) => {
-      await publisher.enqueueProposeL2Block(block, attestations);
+    const expectPublishBlock = async (block: L2Block, attestations: CommitteeAttestation[], signature: Signature) => {
+      await publisher.enqueueProposeL2Block(block, new CommitteeAttestationsAndSigners(attestations), signature);
       const result = await publisher.sendRequests();
       expect(result!.successfulActions).toEqual(['propose']);
       expect(result!.failedActions).toEqual([]);
@@ -546,7 +557,15 @@ describe('L1Publisher integration', () => {
       expect(canPropose?.slot).toEqual(block.header.getSlot());
       await publisher.validateBlockHeader(block.header.toPropose());
 
-      await expectPublishBlock(block, attestations);
+      const proposerSigner = validators.find(v => v.address.equals(proposer!));
+
+      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
+      const attestationsAndSignersSignature = makeAndSignCommitteeAttestationsAndSigners(
+        attestationsAndSigners,
+        proposerSigner!,
+      );
+
+      await expectPublishBlock(block, attestations, attestationsAndSignersSignature);
     });
 
     it('fails to publish a block without the proposer attestation', async () => {
@@ -555,12 +574,13 @@ describe('L1Publisher integration', () => {
 
       // Reverse attestations to break proposer attestation
       const attestations = orderAttestations(blockAttestations, committee!).reverse();
+      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
 
       const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
       await publisher.validateBlockHeader(block.header.toPropose());
 
-      await expect(publisher.enqueueProposeL2Block(block, attestations)).rejects.toThrow(
+      await expect(publisher.enqueueProposeL2Block(block, attestationsAndSigners, Signature.empty())).rejects.toThrow(
         /ValidatorSelection__InvalidCommitteeCommitment/,
       );
     });
@@ -574,7 +594,13 @@ describe('L1Publisher integration', () => {
         .map(v => makeBlockAttestationFromBlock(badBlock, v));
       const badAttestations = orderAttestations(badBlockAttestations, committee!);
 
-      await expectPublishBlock(badBlock, badAttestations);
+      const badAttestationsAndSigners = new CommitteeAttestationsAndSigners(badAttestations);
+      const badAttestationsAndSignersSignature = makeAndSignCommitteeAttestationsAndSigners(
+        badAttestationsAndSigners,
+        validators.find(v => v.address.equals(proposer!))!,
+      );
+
+      await expectPublishBlock(badBlock, badAttestations, badAttestationsAndSignersSignature);
       await progressTimeBySlot();
 
       logger.warn(`Published bad block ${badBlock.number} with archive root ${badBlock.archive.root}`);
@@ -616,10 +642,19 @@ describe('L1Publisher integration', () => {
       await expect(publisher.validateBlockHeader(block.header.toPropose())).rejects.toThrow(/Rollup__InvalidArchive/);
       await publisher.validateBlockHeader(block.header.toPropose(), { forcePendingBlockNumber });
 
+      // At this point I'm gonna need to propose the correct signature ye? So confused actually here.
+      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
+      const attestationsAndSignersSignature = makeAndSignCommitteeAttestationsAndSigners(
+        attestationsAndSigners,
+        validators.find(v => v.address.equals(proposer!))!,
+      );
+
       // Invalidate and propose
       logger.warn('Enqueuing requests to invalidate and propose the block');
       publisher.enqueueInvalidateBlock(invalidateRequest);
-      await publisher.enqueueProposeL2Block(block, attestations, undefined, { forcePendingBlockNumber });
+      await publisher.enqueueProposeL2Block(block, attestationsAndSigners, attestationsAndSignersSignature, {
+        forcePendingBlockNumber,
+      });
       const result = await publisher.sendRequests();
       expect(result!.successfulActions).toEqual(['invalidate-by-insufficient-attestations', 'propose']);
       expect(result!.failedActions).toEqual([]);
@@ -634,9 +669,7 @@ describe('L1Publisher integration', () => {
     it(`succeeds proposing new block when vote fails`, async () => {
       const block = await buildSingleBlock();
 
-      await publisher.enqueueProposeL2Block(block);
-
-      // Should fail due to random signature
+      await publisher.enqueueProposeL2Block(block, CommitteeAttestationsAndSigners.empty(), Signature.empty());
       await publisher.enqueueGovernanceCastSignal(
         EthAddress.random(),
         block.slot,
@@ -660,7 +693,9 @@ describe('L1Publisher integration', () => {
 
       // Expect the simulation to fail
       const loggerErrorSpy = jest.spyOn((publisher as any).log, 'error');
-      await expect(publisher.enqueueProposeL2Block(block)).rejects.toThrow(/Rollup__InvalidInHash/);
+      await expect(
+        publisher.enqueueProposeL2Block(block, CommitteeAttestationsAndSigners.empty(), Signature.empty()),
+      ).rejects.toThrow(/Rollup__InvalidInHash/);
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
         2,
         expect.stringMatching('Rollup__InvalidInHash'),
