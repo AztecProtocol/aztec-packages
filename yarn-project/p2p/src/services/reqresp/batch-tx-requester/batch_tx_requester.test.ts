@@ -316,6 +316,8 @@ describe('BatchTxRequester', () => {
     it('Correctly promote single peer to smart peers', async () => {
       const txCount = 16;
       const deadline = 2_000;
+      const dateProvider = new DateProvider();
+      const pinnedPeer = undefined;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
       blockProposal = makeBlockProposal({
@@ -328,7 +330,7 @@ describe('BatchTxRequester', () => {
       const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
 
-      const peerCollection = new PeerCollection(peers);
+      const peerCollection = new PeerCollection(peers, pinnedPeer, dateProvider);
       const peerTransactions = new Map([
         [peers[0].toString(), Array.from({ length: 16 }, (_, i) => i)], // peer1 has all transactions, peer2 none
       ]);
@@ -340,13 +342,13 @@ describe('BatchTxRequester', () => {
       const requester = new BatchTxRequester(
         missing,
         blockProposal,
-        undefined,
+        pinnedPeer,
         deadline,
         reqresp,
         connectionSampler,
         txValidator,
         logger,
-        new DateProvider(),
+        dateProvider,
         {
           semaphore,
           smartParallelWorkerCount: 2,
@@ -366,10 +368,11 @@ describe('BatchTxRequester', () => {
 
       //Why 5?
       // - We have 1 release for the peer being promoted to the smart peer
+      // - We have 1 release after we successfully fetch all transactions
       // - We have 1 release after the dumb workers are done because this.shouldStop() will return true
       // - We have 1 release on finally block on run
-      // - The last 2 will be called 2 times because we have 2 smart worker loops so once for each of those
-      expect(semaphore.releasedCount).toBe(5);
+      // - The last 3 will be called 2 times because we have 2 smart worker loops so once for each of those
+      expect(semaphore.releasedCount).toBe(7);
       // Both smart workers will acquire semaphore
       // - The first one once it is promoted to smart peer
       // - The second one when dumb workers call release
@@ -379,6 +382,8 @@ describe('BatchTxRequester', () => {
     it('Should track smart peer collection behavior with multiple promotions', async () => {
       const txCount = 20;
       const deadline = 3_000;
+      const dateProvider = new DateProvider();
+      const pinnedPeer = undefined;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
       blockProposal = makeBlockProposal({
@@ -391,7 +396,7 @@ describe('BatchTxRequester', () => {
       const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId(), createSecp256k1PeerId()]);
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
 
-      const peerCollection = new PeerCollection(peers);
+      const peerCollection = new PeerCollection(peers, pinnedPeer, dateProvider);
 
       // Define which transactions each peer has
       const peerTransactions = new Map([
@@ -407,13 +412,13 @@ describe('BatchTxRequester', () => {
       const requester = new BatchTxRequester(
         missing,
         blockProposal,
-        undefined,
+        pinnedPeer,
         deadline,
         reqresp,
         connectionSampler,
         txValidator,
         logger,
-        new DateProvider(),
+        dateProvider,
         {
           semaphore,
           smartParallelWorkerCount: 3,
@@ -434,6 +439,8 @@ describe('BatchTxRequester', () => {
     it('Everything should work ok with multiple peers and only 1 smart and 1 dumb worker', async () => {
       const txCount = 20;
       const deadline = 5_000;
+      const dateProvider = new DateProvider();
+      const pinnedPeer = undefined;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
       blockProposal = makeBlockProposal({
@@ -446,7 +453,7 @@ describe('BatchTxRequester', () => {
       const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId(), createSecp256k1PeerId()]);
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
 
-      const peerCollection = new PeerCollection(peers);
+      const peerCollection = new PeerCollection(peers, pinnedPeer, dateProvider);
 
       // Define which transactions each peer has
       const peerTransactions = new Map([
@@ -462,13 +469,13 @@ describe('BatchTxRequester', () => {
       const requester = new BatchTxRequester(
         missing,
         blockProposal,
-        undefined,
+        pinnedPeer,
         deadline,
         reqresp,
         connectionSampler,
         txValidator,
         logger,
-        new DateProvider(),
+        dateProvider,
         {
           semaphore,
           smartParallelWorkerCount: 1,
@@ -489,6 +496,8 @@ describe('BatchTxRequester', () => {
     it('should mark peer as bad after exceeding threshold and exclude from queries', async () => {
       const txCount = 16;
       const deadline = 1_000;
+      const dateProvider = new DateProvider();
+      const pinnedPeer = undefined;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
       blockProposal = makeBlockProposal({
@@ -499,25 +508,33 @@ describe('BatchTxRequester', () => {
       });
 
       const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
+      const peerTransactions = new Map([
+        [peers[1].toString(), Array.from({ length: 8 }, (_, i) => i)], // peer1 has only half of txs
+      ]);
+
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
 
-      const peerCollection = new PeerCollection(peers);
+      const peerCollection = new PeerCollection(peers, pinnedPeer, dateProvider);
 
       // Mock implementation that makes peer0 fail consistently, peer1 succeed
-      const { mockImplementation } = createRequestLogger(blockProposal, new Set([peers[0].toString()]));
+      const { mockImplementation } = createRequestLogger(
+        blockProposal,
+        new Set([peers[0].toString()]),
+        peerTransactions,
+      );
       reqresp.sendRequestToPeer.mockImplementation(mockImplementation);
       const requester = new BatchTxRequester(
         missing,
         blockProposal,
-        undefined,
+        pinnedPeer,
         deadline,
         reqresp,
         connectionSampler,
         txValidator,
         logger,
-        new DateProvider(),
+        dateProvider,
         {
-          smartParallelWorkerCount: 2,
+          smartParallelWorkerCount: 0,
           dumbParallelWorkerCount: 2,
           peerCollection,
         },
@@ -538,6 +555,8 @@ describe('BatchTxRequester', () => {
     it('should recover bad peer after successful response', async () => {
       const txCount = 8;
       const deadline = 1_000;
+      const dateProvider = new DateProvider();
+      const pinnedPeer = undefined;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
       blockProposal = makeBlockProposal({
@@ -550,7 +569,7 @@ describe('BatchTxRequester', () => {
       const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
 
-      const peerCollection = new PeerCollection(peers);
+      const peerCollection = new PeerCollection(peers, pinnedPeer, dateProvider);
       let requestCount = 0;
 
       // Mock implementation: first 4 requests fail (exceed threshold), then succeed
@@ -582,13 +601,13 @@ describe('BatchTxRequester', () => {
       const requester = new BatchTxRequester(
         missing,
         blockProposal,
-        undefined,
+        pinnedPeer,
         deadline,
         reqresp,
         connectionSampler,
         txValidator,
         logger,
-        new DateProvider(),
+        dateProvider,
         {
           smartParallelWorkerCount: 0,
           dumbParallelWorkerCount: 1,
@@ -607,6 +626,8 @@ describe('BatchTxRequester', () => {
     it('should handle multiple peers with different bad peer states', async () => {
       const txCount = 16;
       const deadline = 5_000;
+      const dateProvider = new DateProvider();
+      const pinnedPeer = undefined;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
       blockProposal = makeBlockProposal({
@@ -630,7 +651,7 @@ describe('BatchTxRequester', () => {
       ]);
 
       const semaphore = new TestSemaphore(new Semaphore(0));
-      const peerCollection = new PeerCollection(peers);
+      const peerCollection = new PeerCollection(peers, pinnedPeer, dateProvider);
       const peerRequestCounts = new Map<string, number>();
 
       reqresp.sendRequestToPeer.mockImplementation(async (peerId: any, _sub: any, data: any) => {
@@ -694,13 +715,13 @@ describe('BatchTxRequester', () => {
       const requester = new BatchTxRequester(
         missing,
         blockProposal,
-        undefined,
+        pinnedPeer,
         deadline,
         reqresp,
         connectionSampler,
         txValidator,
         logger,
-        new DateProvider(),
+        dateProvider,
         {
           semaphore,
           peerCollection,
