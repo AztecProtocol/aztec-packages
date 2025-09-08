@@ -8,6 +8,7 @@ import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { CommitteeAttestation } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
+import type { CommitteeAttestationsAndSigners } from '../block/proposal/attestations_and_signers.js';
 import type { PublishedL2Block } from '../block/published_l2_block.js';
 import { computeContractAddressFromInstance } from '../contract/contract_address.js';
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
@@ -271,6 +272,17 @@ const makeAndSignConsensusPayload = (
   const signature = signer.sign(hash);
 
   return { blockNumber: header.globalVariables.blockNumber, payload, signature };
+};
+
+export const makeAndSignCommitteeAttestationsAndSigners = (
+  attestationsAndSigners: CommitteeAttestationsAndSigners,
+  signer: Secp256k1Signer = Secp256k1Signer.random(),
+) => {
+  const hash = getHashedSignaturePayloadEthSignedMessage(
+    attestationsAndSigners,
+    SignatureDomainSeparator.attestationsAndSigners,
+  );
+  return signer.sign(hash);
 };
 
 export const makeBlockProposal = (options?: MakeConsensusPayloadOptions): BlockProposal => {

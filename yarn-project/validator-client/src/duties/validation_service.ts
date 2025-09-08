@@ -3,6 +3,7 @@ import { keccak256 } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import type { Fr } from '@aztec/foundation/fields';
+import type { CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
 import {
   BlockAttestation,
   BlockProposal,
@@ -75,5 +76,15 @@ export class ValidationService {
     );
     //await this.keyStore.signMessage(buf);
     return signatures.map(sig => new BlockAttestation(proposal.blockNumber, proposal.payload, sig));
+  }
+
+  async signAttestationsAndSigners(
+    attestationsAndSigners: CommitteeAttestationsAndSigners,
+    proposer: EthAddress,
+  ): Promise<Signature> {
+    const buf = Buffer32.fromBuffer(
+      keccak256(attestationsAndSigners.getPayloadToSign(SignatureDomainSeparator.attestationsAndSigners)),
+    );
+    return await this.keyStore.signMessageWithAddress(proposer, buf);
   }
 }

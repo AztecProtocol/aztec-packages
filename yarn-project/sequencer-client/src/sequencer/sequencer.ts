@@ -4,6 +4,7 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { FormattedViemError, NoCommitteeError, type RollupContract } from '@aztec/ethereum';
 import { omit, pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -11,7 +12,12 @@ import { type DateProvider, Timer } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
-import type { CommitteeAttestation, L2BlockSource, ValidateBlockResult } from '@aztec/stdlib/block';
+import {
+  type CommitteeAttestation,
+  CommitteeAttestationsAndSigners,
+  type L2BlockSource,
+  type ValidateBlockResult,
+} from '@aztec/stdlib/block';
 import { type L1RollupConstants, getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import {
@@ -21,19 +27,11 @@ import {
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import type { BlockProposalOptions } from '@aztec/stdlib/p2p';
-import { orderAttestations } from '@aztec/stdlib/p2p';
+import { type BlockProposalOptions, orderAttestations } from '@aztec/stdlib/p2p';
 import { pickFromSchema } from '@aztec/stdlib/schemas';
 import type { L2BlockBuiltStats } from '@aztec/stdlib/stats';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import {
-  ContentCommitment,
-  type FailedTx,
-  GlobalVariables,
-  ProposedBlockHeader,
-  Tx,
-  type TxHash,
-} from '@aztec/stdlib/tx';
+import { ContentCommitment, type FailedTx, GlobalVariables, ProposedBlockHeader, Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 import type { ValidatorClient } from '@aztec/validator-client';
@@ -675,7 +673,21 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         this.log.verbose(`Collected ${attestations.length} attestations`, { blockHash, blockNumber });
       }
 
-      await this.enqueuePublishL2Block(block, attestations, txHashes, invalidateBlock, publisher);
+      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations ?? []);
+      const attestationsAndSignersSignature = this.validatorClient
+        ? await this.validatorClient.signAttestationsAndSigners(
+            attestationsAndSigners,
+            proposerAddress ?? publisher.getSenderAddress(),
+          )
+        : Signature.empty();
+
+      await this.enqueuePublishL2Block(
+        block,
+        attestationsAndSigners,
+        attestationsAndSignersSignature,
+        invalidateBlock,
+        publisher,
+      );
       this.metrics.recordBuiltBlock(blockBuildDuration, publicGas.l2Gas);
       return block;
     } catch (err) {
@@ -751,7 +763,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.metrics.recordRequiredAttestations(numberOfRequiredAttestations, attestationTimeAllowed);
 
     const timer = new Timer();
-    let collectedAttestionsCount: number = 0;
+    let collectedAttestationsCount: number = 0;
     try {
       const attestationDeadline = new Date(this.dateProvider.now() + attestationTimeAllowed * 1000);
       const attestations = await this.validatorClient.collectAttestations(
@@ -760,17 +772,17 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         attestationDeadline,
       );
 
-      collectedAttestionsCount = attestations.length;
+      collectedAttestationsCount = attestations.length;
 
       // note: the smart contract requires that the signatures are provided in the order of the committee
       return orderAttestations(attestations, committee);
     } catch (err) {
       if (err && err instanceof AttestationTimeoutError) {
-        collectedAttestionsCount = err.collectedCount;
+        collectedAttestationsCount = err.collectedCount;
       }
       throw err;
     } finally {
-      this.metrics.recordCollectedAttestations(collectedAttestionsCount, timer.ms());
+      this.metrics.recordCollectedAttestations(collectedAttestationsCount, timer.ms());
     }
   }
 
@@ -783,8 +795,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }))
   protected async enqueuePublishL2Block(
     block: L2Block,
-    attestations: CommitteeAttestation[] | undefined,
-    txHashes: TxHash[],
+    attestationsAndSigners: CommitteeAttestationsAndSigners,
+    attestationsAndSignersSignature: Signature,
     invalidateBlock: InvalidateBlockRequest | undefined,
     publisher: SequencerPublisher,
   ): Promise<void> {
@@ -795,10 +807,15 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const slot = block.header.globalVariables.slotNumber.toNumber();
     const txTimeoutAt = new Date((this.getSlotStartBuildTimestamp(slot) + this.aztecSlotDuration) * 1000);
 
-    const enqueued = await publisher.enqueueProposeL2Block(block, attestations, txHashes, {
-      txTimeoutAt,
-      forcePendingBlockNumber: invalidateBlock?.forcePendingBlockNumber,
-    });
+    const enqueued = await publisher.enqueueProposeL2Block(
+      block,
+      attestationsAndSigners,
+      attestationsAndSignersSignature,
+      {
+        txTimeoutAt,
+        forcePendingBlockNumber: invalidateBlock?.forcePendingBlockNumber,
+      },
+    );
 
     if (!enqueued) {
       throw new Error(`Failed to enqueue publish of block ${block.number}`);

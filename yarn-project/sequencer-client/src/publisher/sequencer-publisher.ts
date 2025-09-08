@@ -27,17 +27,17 @@ import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs'
 import { sumBigint } from '@aztec/foundation/bigint';
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, ErrorsAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { type ProposerSlashAction, encodeSlashConsensusVotes } from '@aztec/slasher';
-import { CommitteeAttestation, type ValidateBlockResult } from '@aztec/stdlib/block';
+import { CommitteeAttestation, CommitteeAttestationsAndSigners, type ValidateBlockResult } from '@aztec/stdlib/block';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
-import { ConsensusPayload, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
 import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
-import { type ProposedBlockHeader, StateReference, TxHash } from '@aztec/stdlib/tx';
+import { type ProposedBlockHeader, StateReference } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
@@ -56,10 +56,10 @@ type L1ProcessArgs = {
   stateReference: StateReference;
   /** L2 block blobs containing all tx effects. */
   blobs: Blob[];
-  /** L2 block tx hashes */
-  txHashes: TxHash[];
   /** Attestations */
-  attestations?: CommitteeAttestation[];
+  attestationsAndSigners: CommitteeAttestationsAndSigners;
+  /** Attestations and signers signature */
+  attestationsAndSignersSignature: Signature;
 };
 
 export enum SignalType {
@@ -346,8 +346,9 @@ export class SequencerPublisher {
 
     const args = [
       header.toViem(),
-      RollupContract.packAttestations([]),
+      CommitteeAttestationsAndSigners.empty().getPackedAttestations(),
       [], // no signers
+      Signature.empty().toViemSignature(),
       `0x${'0'.repeat(64)}`, // 32 empty bytes
       header.contentCommitment.blobsHash.toString(),
       flags,
@@ -446,17 +447,19 @@ export class SequencerPublisher {
     const logData = { ...block.block.toBlockInfo(), reason };
     this.log.debug(`Simulating invalidate block ${block.block.number}`, logData);
 
+    const attestationsAndSigners = new CommitteeAttestationsAndSigners(block.attestations).getPackedAttestations();
+
     if (reason === 'invalid-attestation') {
       return this.rollupContract.buildInvalidateBadAttestationRequest(
         block.block.number,
-        block.attestations.map(a => a.toViem()),
+        attestationsAndSigners,
         committee,
         validationResult.invalidIndex,
       );
     } else if (reason === 'insufficient-attestations') {
       return this.rollupContract.buildInvalidateInsufficientAttestationsRequest(
         block.block.number,
-        block.attestations.map(a => a.toViem()),
+        attestationsAndSigners,
         committee,
       );
     } else {
@@ -476,24 +479,22 @@ export class SequencerPublisher {
    */
   public async validateBlockForSubmission(
     block: L2Block,
-    attestationData: { digest: Buffer; attestations: CommitteeAttestation[] } = {
-      digest: Buffer.alloc(32),
-      attestations: [],
-    },
+    attestationsAndSigners: CommitteeAttestationsAndSigners,
+    attestationsAndSignersSignature: Signature,
     options: { forcePendingBlockNumber?: number },
   ): Promise<bigint> {
     const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
 
     // If we have no attestations, we still need to provide the empty attestations
     // so that the committee is recalculated correctly
-    const ignoreSignatures = attestationData.attestations.length === 0;
+    const ignoreSignatures = attestationsAndSigners.attestations.length === 0;
     if (ignoreSignatures) {
       const { committee } = await this.epochCache.getCommittee(block.header.globalVariables.slotNumber.toBigInt());
       if (!committee) {
         this.log.warn(`No committee found for slot ${block.header.globalVariables.slotNumber.toBigInt()}`);
         throw new Error(`No committee found for slot ${block.header.globalVariables.slotNumber.toBigInt()}`);
       }
-      attestationData.attestations = committee.map(committeeMember =>
+      attestationsAndSigners.attestations = committee.map(committeeMember =>
         CommitteeAttestation.fromAddress(committeeMember),
       );
     }
@@ -501,23 +502,18 @@ export class SequencerPublisher {
     const blobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
     const blobInput = Blob.getPrefixedEthBlobCommitments(blobs);
 
-    const formattedAttestations = attestationData.attestations.map(attest => attest.toViem());
-    const signers = attestationData.attestations
-      .filter(attest => !attest.signature.isEmpty())
-      .map(attest => attest.address.toString());
-
     const args = [
       {
         header: block.header.toPropose().toViem(),
         archive: toHex(block.archive.root.toBuffer()),
         stateReference: block.header.state.toViem(),
-        txHashes: block.body.txEffects.map(txEffect => txEffect.txHash.toString()),
         oracleInput: {
           feeAssetPriceModifier: 0n,
         },
       },
-      RollupContract.packAttestations(formattedAttestations),
-      signers,
+      attestationsAndSigners.getPackedAttestations(),
+      attestationsAndSigners.getSigners().map(signer => signer.toString()),
+      attestationsAndSignersSignature.toViemSignature(),
       blobInput,
     ] as const;
 
@@ -766,14 +762,11 @@ export class SequencerPublisher {
    */
   public async enqueueProposeL2Block(
     block: L2Block,
-    attestations?: CommitteeAttestation[],
-    txHashes?: TxHash[],
+    attestationsAndSigners: CommitteeAttestationsAndSigners,
+    attestationsAndSignersSignature: Signature,
     opts: { txTimeoutAt?: Date; forcePendingBlockNumber?: number } = {},
   ): Promise<boolean> {
     const proposedBlockHeader = block.header.toPropose();
-
-    const consensusPayload = ConsensusPayload.fromBlock(block);
-    const digest = getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
 
     const blobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
     const proposeTxArgs = {
@@ -782,8 +775,8 @@ export class SequencerPublisher {
       stateReference: block.header.state,
       body: block.body.toBuffer(),
       blobs,
-      attestations,
-      txHashes: txHashes ?? [],
+      attestationsAndSigners,
+      attestationsAndSignersSignature,
     };
 
     let ts: bigint;
@@ -793,9 +786,8 @@ export class SequencerPublisher {
       //        This means that we can avoid the simulation issues in later checks.
       //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
       //        make time consistency checks break.
-      const attestationData = { digest: digest.toBuffer(), attestations: attestations ?? [] };
       // TODO(palla): Check whether we're validating twice, once here and once within addProposeTx, since we call simulateProposeTx in both places.
-      ts = await this.validateBlockForSubmission(block, attestationData, opts);
+      ts = await this.validateBlockForSubmission(block, attestationsAndSigners, attestationsAndSignersSignature, opts);
     } catch (err: any) {
       this.log.error(`Block validation failed. ${err instanceof Error ? err.message : 'No error message'}`, err, {
         ...block.getStats(),
@@ -932,12 +924,7 @@ export class SequencerPublisher {
         throw new Error('Failed to validate blobs');
       });
 
-    const attestations = encodedData.attestations ? encodedData.attestations.map(attest => attest.toViem()) : [];
-    const txHashes = encodedData.txHashes ? encodedData.txHashes.map(txHash => txHash.toString()) : [];
-
-    const signers = encodedData.attestations
-      ?.filter(attest => !attest.signature.isEmpty())
-      .map(attest => attest.address.toString());
+    const signers = encodedData.attestationsAndSigners.getSigners().map(signer => signer.toString());
 
     const args = [
       {
@@ -948,10 +935,10 @@ export class SequencerPublisher {
           // We are currently not modifying these. See #9963
           feeAssetPriceModifier: 0n,
         },
-        txHashes,
       },
-      RollupContract.packAttestations(attestations),
-      signers ?? [],
+      encodedData.attestationsAndSigners.getPackedAttestations(),
+      signers,
+      encodedData.attestationsAndSignersSignature.toViemSignature(),
       blobInput,
     ] as const;
 
@@ -972,13 +959,13 @@ export class SequencerPublisher {
         readonly header: ViemHeader;
         readonly archive: `0x${string}`;
         readonly stateReference: ViemStateReference;
-        readonly txHashes: `0x${string}`[];
         readonly oracleInput: {
           readonly feeAssetPriceModifier: 0n;
         };
       },
       ViemCommitteeAttestations,
-      `0x${string}`[],
+      `0x${string}`[], // Signers
+      ViemSignature,
       `0x${string}`,
     ],
     timestamp: bigint,
