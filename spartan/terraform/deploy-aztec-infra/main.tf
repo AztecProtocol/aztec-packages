@@ -41,7 +41,7 @@ locals {
     tag        = split(":", var.AZTEC_DOCKER_IMAGE)[1]
   }
 
-  boot_node_url = "http://${var.RELEASE_PREFIX}-p2p-bootstrap-node.${var.NAMESPACE}.svc.cluster.local:8080"
+  internal_boot_node_url = var.DEPLOY_INTERNAL_BOOTNODE ? "http://${var.RELEASE_PREFIX}-p2p-bootstrap-node.${var.NAMESPACE}.svc.cluster.local:8080" : ""
 
   # Common settings for all releases
   common_settings = {
@@ -64,7 +64,7 @@ locals {
 
   # Define all releases in a map
   helm_releases = {
-    p2p_bootstrap = {
+    p2p_bootstrap = var.DEPLOY_INTERNAL_BOOTNODE ? {
       name  = "${var.RELEASE_PREFIX}-p2p-bootstrap"
       chart = "aztec-node"
       values = [
@@ -76,7 +76,7 @@ locals {
         "nodeType" = "p2p-bootstrap"
       }
       boot_node_path = ""
-    }
+    } : null
 
     validators = {
       name  = "${var.RELEASE_PREFIX}-validator"
@@ -105,8 +105,10 @@ locals {
         "validator.slash.invalidBlockPenalty"               = var.SLASH_INVALID_BLOCK_PENALTY
         "validator.slash.offenseExpirationRounds"           = var.SLASH_OFFENSE_EXPIRATION_ROUNDS
         "validator.slash.maxPayloadSize"                    = var.SLASH_MAX_PAYLOAD_SIZE
+        "validator.node.env.TRANSACTIONS_DISABLED"          = var.TRANSACTIONS_DISABLED
       }
-      boot_node_path = "validator.node.env.BOOT_NODE_HOST"
+      boot_node_host_path  = "validator.node.env.BOOT_NODE_HOST"
+      bootstrap_nodes_path = "validator.node.env.BOOTSTRAP_NODES"
     }
 
     prover = {
@@ -124,7 +126,8 @@ locals {
         "broker.node.proverRealProofs" = var.PROVER_REAL_PROOFS
         "agent.node.proverRealProofs"  = var.PROVER_REAL_PROOFS
       }
-      boot_node_path = "node.node.env.BOOT_NODE_HOST"
+      boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"
+      bootstrap_nodes_path = "node.node.env.BOOTSTRAP_NODES"
     }
 
     rpc = {
@@ -138,14 +141,15 @@ locals {
       custom_settings = {
         "nodeType" = "rpc"
       }
-      boot_node_path = "node.env.BOOT_NODE_HOST"
+      boot_node_host_path  = "node.env.BOOT_NODE_HOST"
+      bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
     }
   }
 }
 
 # Create all helm releases using for_each
 resource "helm_release" "releases" {
-  for_each = local.helm_releases
+  for_each = { for k, v in local.helm_releases : k => v if v != null }
 
   provider         = helm.gke-cluster
   name             = each.value.name
@@ -169,8 +173,11 @@ resource "helm_release" "releases" {
       local.common_settings,
       each.value.custom_settings,
       # Add boot node if needed
-      each.value.boot_node_path != "" ? {
-        (each.value.boot_node_path) = local.boot_node_url
+      each.value.boot_node_host_path != "" && local.internal_boot_node_url != "" ? {
+        (each.value.boot_node_host_path) = local.internal_boot_node_url
+      } : {},
+      each.value.bootstrap_nodes_path != "" && len(var.EXTERNAL_BOOTNODES) > 0 ? {
+        (each.value.bootstrap_nodes_path) = join(",", var.EXTERNAL_BOOTNODES)
       } : {}
     ) : k => v if v != null }
     content {
