@@ -100,7 +100,7 @@ export class PeerCollection implements IPeerCollection {
     const rateLimitedPeers = new Set<string>();
 
     for (const [peerId, expirationTime] of this.rateLimitExceededPeers) {
-      if (expirationTime >= now) {
+      if (expirationTime < now) {
         this.rateLimitExceededPeers.delete(peerId);
       } else {
         rateLimitedPeers.add(peerId);
