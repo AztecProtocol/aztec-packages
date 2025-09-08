@@ -15,6 +15,7 @@ L1_CHAIN_ID="${L1_CHAIN_ID}"
 NETWORK_NAME="${NETWORK_NAME}"
 TAG="${TAG}"
 OTEL_COLLECTOR_URL="${OTEL_COLLECTOR_URL}"
+REGION="${REGION}"
 
 # Update system packages
 echo "Updating system packages..."
@@ -100,6 +101,7 @@ CONTAINER_NAME="aztec-bootnode"
 REPO=aztecprotocol
 IMAGE=aztec
 LOG_LEVEL=verbose
+OTEL_RESOURCE_ATTRIBUTES="region=${REGION},ip=${PUBLIC_IP},network=${NETWORK_NAME}"
 
 cat <<EOF > /home/$SSH_USER/tag.sh
 #!/usr/bin/env bash
@@ -121,6 +123,7 @@ echo "Bootnode enrs: $BOOTSTRAP_NODES"
 docker system prune -f
 docker pull $REPO/$IMAGE:$TAG
 docker run \
+ --entrypoint node \
  --restart=always \
  --name $CONTAINER_NAME \
  --volume $DATA_DIRECTORY:$DATA_DIRECTORY \
@@ -136,7 +139,8 @@ docker run \
  --env BOOTSTRAP_NODES \
  --env LOG_LEVEL \
  --env OTEL_EXPORTER_OTLP_METRICS_ENDPOINT \
- $REPO/$IMAGE:$TAG node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --p2p-bootstrap
+ --env OTEL_RESOURCE_ATTRIBUTES \
+ $REPO/$IMAGE:$TAG /usr/src/yarn-project/aztec/dest/bin/index.js start --p2p-bootstrap
 EOF
 chmod +x /home/$SSH_USER/start.sh
 
@@ -173,6 +177,7 @@ Environment="IMAGE=$IMAGE"
 Environment="TAG=$TAG"
 Environment="CONTAINER_NAME=$CONTAINER_NAME"
 Environment="OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=$OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"
+Environment="OTEL_RESOURCE_ATTRIBUTES=$OTEL_RESOURCE_ATTRIBUTES"
 ExecStartPre=-/usr/bin/docker rm -f $CONTAINER_NAME
 ExecStart=/home/$SSH_USER/start.sh
 ExecStop=/usr/bin/docker stop $CONTAINER_NAME
