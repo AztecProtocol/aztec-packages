@@ -22,7 +22,7 @@ import {
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
-import type { IFullNodeBlockBuilder, SequencerConfig } from '@aztec/stdlib/interfaces/server';
+import type { IFullNodeBlockBuilder, Validator, ValidatorClientFullConfig } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@aztec/stdlib/p2p';
 import { GlobalVariables, type ProposedBlockHeader, type StateReference, type Tx } from '@aztec/stdlib/tx';
@@ -47,26 +47,6 @@ import { ValidatorMetrics } from './metrics.js';
 // Just cap the set to avoid unbounded growth.
 const MAX_PROPOSERS_OF_INVALID_BLOCKS = 1000;
 
-export interface Validator {
-  start(): Promise<void>;
-  registerBlockProposalHandler(): void;
-
-  // Block validation responsibilities
-  createBlockProposal(
-    blockNumber: number,
-    header: ProposedBlockHeader,
-    archive: Fr,
-    stateReference: StateReference,
-    txs: Tx[],
-    proposerAddress: EthAddress | undefined,
-    options: BlockProposalOptions,
-  ): Promise<BlockProposal | undefined>;
-  attestToProposal(proposal: BlockProposal, sender: PeerId): Promise<BlockAttestation[] | undefined>;
-
-  broadcastBlockProposal(proposal: BlockProposal): Promise<void>;
-  collectAttestations(proposal: BlockProposal, required: number, deadline: Date): Promise<BlockAttestation[]>;
-}
-
 /**
  * Validator Client
  */
@@ -78,7 +58,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   // Used to check if we are sending the same proposal twice
   private previousProposal?: BlockProposal;
 
-  private myAddresses: EthAddress[];
   private lastEpochForCommitteeUpdateLoop: bigint | undefined;
   private epochCacheUpdateLoop: RunningPromise;
 
@@ -94,9 +73,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     private blockSource: L2BlockSource,
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private txProvider: TxProvider,
-    private config: ValidatorClientConfig &
-      Pick<SequencerConfig, 'txPublicSetupAllowList'> &
-      Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty'>,
+    private config: ValidatorClientFullConfig,
     private dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('validator'),
@@ -110,10 +87,10 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     this.blockProposalValidator = new BlockProposalValidator(epochCache);
 
     // Refresh epoch cache every second to trigger alert if participation in committee changes
-    this.myAddresses = this.keyStore.getAddresses();
     this.epochCacheUpdateLoop = new RunningPromise(this.handleEpochCommitteeUpdate.bind(this), log, 1000);
 
-    this.log.verbose(`Initialized validator with addresses: ${this.myAddresses.map(a => a.toString()).join(', ')}`);
+    const myAddresses = this.getValidatorAddresses();
+    this.log.verbose(`Initialized validator with addresses: ${myAddresses.map(a => a.toString()).join(', ')}`);
   }
 
   public static validateKeyStoreConfiguration(keyStoreManager: KeystoreManager) {
@@ -144,7 +121,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         return;
       }
       if (epoch !== this.lastEpochForCommitteeUpdateLoop) {
-        const me = this.myAddresses;
+        const me = this.getValidatorAddresses();
         const committeeSet = new Set(committee.map(v => v.toString()));
         const inCommittee = me.filter(a => committeeSet.has(a.toString()));
         if (inCommittee.length > 0) {
@@ -194,7 +171,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   public getValidatorAddresses() {
-    return this.keyStore.getAddresses();
+    return this.keyStore
+      .getAddresses()
+      .filter(addr => !this.config.disabledValidators.some(disabled => disabled.equals(addr)));
   }
 
   public signWithAddress(addr: EthAddress, msg: TypedDataDefinition) {
@@ -209,16 +188,19 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     return this.keyStore.getFeeRecipient(attestor);
   }
 
-  public configureSlashing(config: Partial<Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty'>>) {
-    this.config.slashBroadcastedInvalidBlockPenalty =
-      config.slashBroadcastedInvalidBlockPenalty ?? this.config.slashBroadcastedInvalidBlockPenalty;
+  public getConfig(): ValidatorClientFullConfig {
+    return this.config;
+  }
+
+  public updateConfig(config: Partial<ValidatorClientFullConfig>) {
+    this.config = { ...this.config, ...config };
   }
 
   public async start() {
     // Sync the committee from the smart contract
     // https://github.com/AztecProtocol/aztec-packages/issues/7962
 
-    const myAddresses = this.keyStore.getAddresses();
+    const myAddresses = this.getValidatorAddresses();
 
     const inCommittee = await this.epochCache.filterInCommittee('now', myAddresses);
     if (inCommittee.length > 0) {
@@ -254,7 +236,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const proposer = proposal.getSender();
 
     // Check that I have any address in current committee before attesting
-    const inCommittee = await this.epochCache.filterInCommittee(slotNumber, this.keyStore.getAddresses());
+    const inCommittee = await this.epochCache.filterInCommittee(slotNumber, this.getValidatorAddresses());
     const partOfCommittee = inCommittee.length > 0;
 
     const proposalInfo = {
@@ -510,7 +492,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   async collectOwnAttestations(proposal: BlockProposal): Promise<BlockAttestation[]> {
     const slot = proposal.payload.header.slotNumber.toBigInt();
-    const inCommittee = await this.epochCache.filterInCommittee(slot, this.keyStore.getAddresses());
+    const inCommittee = await this.epochCache.filterInCommittee(slot, this.getValidatorAddresses());
     this.log.debug(`Collecting ${inCommittee.length} self-attestations for slot ${slot}`, { inCommittee });
     return this.doAttestToProposal(proposal, inCommittee);
   }
@@ -530,7 +512,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     await this.collectOwnAttestations(proposal);
 
     const proposalId = proposal.archive.toString();
-    const myAddresses = this.keyStore.getAddresses();
+    const myAddresses = this.getValidatorAddresses();
 
     let attestations: BlockAttestation[] = [];
     while (true) {

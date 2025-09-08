@@ -1,6 +1,6 @@
 output "otel_ingress_hostname" {
   description = "Public otel ingress"
-  value       = "https://${var.HOSTNAME}"
+  value       = "https://${var.HOSTS[0]}"
 }
 
 output "otel_ingress_ip" {

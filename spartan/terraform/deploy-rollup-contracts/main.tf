@@ -26,10 +26,13 @@ locals {
     ["--l1-chain-id", tostring(var.L1_CHAIN_ID)],
     ["--validators", var.VALIDATORS],
     ["--json"], # Always output JSON for easier parsing
+    ["--create-verification-json", "/tmp/l1-verify"],
     var.SALT != null ? ["--salt", tostring(var.SALT)] : [],
     var.SPONSORED_FPC ? ["--sponsored-fpc"] : [],
     var.REAL_VERIFIER ? ["--real-verifier"] : []
   )
+
+
 
   # Environment variables for the container (omit keys with null values)
   env_vars = { for k, v in {
@@ -61,6 +64,8 @@ locals {
   job_name = "${var.JOB_NAME}-${formatdate("YYYY-MM-DD-hhmm", timestamp())}"
 }
 
+
+
 resource "kubernetes_job_v1" "deploy_rollup_contracts" {
   provider = kubernetes.cluster
 
@@ -91,9 +96,13 @@ resource "kubernetes_job_v1" "deploy_rollup_contracts" {
         container {
           name    = "deploy-rollup-contracts"
           image   = var.AZTEC_DOCKER_IMAGE
-          command = ["node"]
+          command = ["/bin/sh"]
           args = concat(
-            ["--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"],
+            [
+              "-lc",
+              "set -e; node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js \"$@\"; F=; if [ -f /tmp/l1-verify.json ]; then F=/tmp/l1-verify.json; elif [ -d /tmp/l1-verify ]; then F=$(ls -1t /tmp/l1-verify/*.json 2>/dev/null | head -n1 || true); fi; if [ -n \"$F\" ] && [ -f \"$F\" ]; then echo '[VERIFICATION_JSON_BEGIN]'; cat \"$F\"; echo; echo '[VERIFICATION_JSON_END]'; fi",
+              "sh"
+            ],
             local.deploy_args
           )
 
@@ -157,8 +166,35 @@ data "external" "contract_addresses" {
     # Extract logs from the pod
     LOGS=$(kubectl logs $POD_NAME -n ${var.NAMESPACE} 2>/dev/null || echo "{}")
 
+    # Consider only logs BEFORE the verification JSON markers (if present)
+    BEFORE=$(echo "$LOGS" | sed -n '1,/\[VERIFICATION_JSON_BEGIN\]/p' | sed '$d' || true)
+    [ -z "$BEFORE" ] && BEFORE="$LOGS"
+
     # Extract the final JSON object from logs
-    echo "$LOGS" | grep -v "^\[" | sed -n '/^{$/,/^}$/p' | jq '.'
+    echo "$BEFORE" | grep -v "^\[" | sed -n '/^{$/,/^}$/p' | jq -s '.[-1]'
+  EOT
+  ]
+}
+
+# Extract verification JSON file content printed between markers in deploy job logs
+data "external" "verification_json" {
+  depends_on = [kubernetes_job_v1.deploy_rollup_contracts]
+
+  program = ["bash", "-c", <<-EOT
+    set -e
+
+    POD_NAME=$(kubectl get pods -n ${var.NAMESPACE} -l job-name=${kubernetes_job_v1.deploy_rollup_contracts.metadata[0].name} -o jsonpath='{.items[0].metadata.name}')
+
+    LOGS=$(kubectl logs $POD_NAME -n ${var.NAMESPACE} 2>/dev/null || echo "")
+
+    CONTENT=$(echo "$LOGS" | sed -n '/\[VERIFICATION_JSON_BEGIN\]/,/\[VERIFICATION_JSON_END\]/p' | sed '1d;$d')
+
+    if [ -z "$CONTENT" ]; then
+      echo '{"b64":""}'
+    else
+      B64=$(echo "$CONTENT" | base64 | tr -d '\n')
+      echo "{\"b64\":\"$B64\"}"
+    fi
   EOT
   ]
 }

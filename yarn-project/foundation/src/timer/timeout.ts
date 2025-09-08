@@ -1,4 +1,5 @@
 import { TimeoutError } from '../error/index.js';
+import { promiseWithResolvers } from '../promise/utils.js';
 
 /**
  * TimeoutTask class creates an instance for managing and executing a given asynchronous function with a specified timeout duration.
@@ -89,4 +90,16 @@ export async function executeTimeout<T>(
       : () => new TimeoutError(`Timeout running ${errorOrFnName ?? 'function'} after ${timeout}ms.`);
   const task = new TimeoutTask(fn, timeout, errorFn, onAbort);
   return await task.exec();
+}
+
+/** Returns a promise that rejects after the given timeout */
+export function timeoutPromise(timeoutMs: number, errorMessage?: string) {
+  const promise = promiseWithResolvers<never>();
+
+  const timer = setTimeout(() => {
+    promise.reject(new TimeoutError(errorMessage ?? `Operation timed out after ${timeoutMs}ms`));
+  }, timeoutMs);
+
+  const cleanup = () => clearTimeout(timer);
+  return promise.promise.finally(cleanup);
 }
