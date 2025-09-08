@@ -266,3 +266,15 @@ variable "TRANSACTIONS_DISABLED" {
   type        = string
   nullable    = true
 }
+
+variable "DEPLOY_INTERNAL_BOOTNODE" {
+  description = "Whether to deploy an internal"
+  type        = bool
+  default     = false
+}
+
+variable "EXTERNAL_BOOTNODES" {
+  description = "Whether to use externally deployed bootnodes"
+  type        = list(string)
+  default     = []
+}
