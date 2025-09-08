@@ -24,12 +24,13 @@ async function createAndDeployAztecNode() {
  * Create and start a new Aztec Node HTTP Server
  */
 async function main() {
-  logger.info(`Setting up Aztec Node...`);
+  // Use structured logs
+  logger.info({}, 'Setting up Aztec Node...');
 
   const aztecNode = await createAndDeployAztecNode();
 
   const shutdown = async () => {
-    logger.info('Shutting down...');
+    logger.info({}, 'Shutting down...');
     await aztecNode.stop();
     process.exit(0);
   };
@@ -45,10 +46,10 @@ async function main() {
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   const httpServer = http.createServer(app.callback());
   httpServer.listen(+AZTEC_NODE_PORT);
-  logger.info(`Aztec Node JSON-RPC Server listening on port ${AZTEC_NODE_PORT}`);
+  logger.info({ port: AZTEC_NODE_PORT }, 'Aztec Node JSON-RPC Server listening');
 }
 
 main().catch(err => {
-  logger.error(err);
+  logger.error({ err }, 'Failed to start Aztec Node');
   process.exit(1);
 });
