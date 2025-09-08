@@ -16,11 +16,10 @@ import {
   type NESTED_RECURSIVE_PROOF_LENGTH,
   type NULLIFIER_TREE_HEIGHT,
   RECURSIVE_PROOF_LENGTH,
-  type TUBE_PROOF_LENGTH,
   ULTRA_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
 import { BLS12Fq, BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
-import { assertLength, mapTuple } from '@aztec/foundation/serialize';
+import { type Bufferable, assertLength, mapTuple } from '@aztec/foundation/serialize';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import {
   type AvmAccumulatedData,
@@ -29,9 +28,13 @@ import {
   PublicDataHint,
   RevertCode,
 } from '@aztec/stdlib/avm';
-import type { PrivateToAvmAccumulatedData, PrivateToAvmAccumulatedDataArrayLengths } from '@aztec/stdlib/kernel';
+import {
+  type PrivateToAvmAccumulatedData,
+  type PrivateToAvmAccumulatedDataArrayLengths,
+  PrivateToPublicKernelCircuitPublicInputs,
+} from '@aztec/stdlib/kernel';
 import { BaseParityInputs, ParityPublicInputs, type RootParityInput, RootParityInputs } from '@aztec/stdlib/parity';
-import type { RecursiveProof } from '@aztec/stdlib/proofs';
+import type { ProofData, RecursiveProof } from '@aztec/stdlib/proofs';
 import {
   type AvmProofData,
   BaseOrMergeRollupPublicInputs,
@@ -50,9 +53,8 @@ import {
   type PreviousRollupData,
   type PrivateBaseRollupInputs,
   type PrivateBaseStateDiffHints,
-  type PrivateTubeData,
   type PublicBaseRollupInputs,
-  type PublicTubeData,
+  PublicTubePrivateInputs,
   type RootRollupInputs,
   RootRollupPublicInputs,
   type SingleTxBlockRootRollupInputs,
@@ -94,10 +96,11 @@ import type {
   PrivateBaseStateDiffHints as PrivateBaseStateDiffHintsNoir,
   PrivateToAvmAccumulatedDataArrayLengths as PrivateToAvmAccumulatedDataArrayLengthsNoir,
   PrivateToAvmAccumulatedData as PrivateToAvmAccumulatedDataNoir,
-  PrivateTubeData as PrivateTubeDataNoir,
+  PrivateToPublicKernelCircuitPublicInputs as PrivateToPublicKernelCircuitPublicInputsNoir,
+  ProofData as ProofDataNoir,
   PublicBaseRollupInputs as PublicBaseRollupInputsNoir,
   PublicDataHint as PublicDataHintNoir,
-  PublicTubeData as PublicTubeDataNoir,
+  PublicTubePrivateInputs as PublicTubePrivateInputsNoir,
   RootParityInputs as RootParityInputsNoir,
   RootRollupInputs as RootRollupInputsNoir,
   RootRollupParityInput as RootRollupParityInputNoir,
@@ -109,6 +112,7 @@ import type {
 import {
   mapAppendOnlyTreeSnapshotFromNoir,
   mapAppendOnlyTreeSnapshotToNoir,
+  mapAztecAddressFromNoir,
   mapAztecAddressToNoir,
   mapEthAddressFromNoir,
   mapEthAddressToNoir,
@@ -116,6 +120,7 @@ import {
   mapFieldFromNoir,
   mapFieldToNoir,
   mapGasFeesToNoir,
+  mapGasFromNoir,
   mapGasSettingsToNoir,
   mapGasToNoir,
   mapGlobalVariablesFromNoir,
@@ -127,15 +132,19 @@ import {
   mapNumberToNoir,
   mapPartialStateReferenceFromNoir,
   mapPartialStateReferenceToNoir,
+  mapPrivateToPublicAccumulatedDataFromNoir,
   mapPrivateToPublicKernelCircuitPublicInputsToNoir,
   mapPrivateToRollupKernelCircuitPublicInputsToNoir,
   mapPublicCallRequestArrayLengthsToNoir,
+  mapPublicCallRequestFromNoir,
   mapPublicCallRequestToNoir,
   mapPublicDataTreePreimageToNoir,
   mapPublicDataWriteToNoir,
   mapPublicLogToNoir,
   mapScopedL2ToL1MessageToNoir,
   mapTupleFromNoir,
+  mapTxConstantDataFromNoir,
+  mapU64FromNoir,
   mapVerificationKeyToNoir,
   mapVkDataToNoir,
 } from './common.js';
@@ -438,6 +447,18 @@ export function mapRecursiveProofToNoir<PROOF_LENGTH extends number>(
   };
 }
 
+function mapProofDataToNoir<T extends Bufferable, TN, PROOF_LENGTH extends number, VK_LENGTH extends number>(
+  proofData: ProofData<T, PROOF_LENGTH>,
+  publicInputsToNoir: (inputs: T) => TN,
+  vkLength: VK_LENGTH = proofData.vkData.vk.keyAsFields.key.length as VK_LENGTH,
+): ProofDataNoir<TN, PROOF_LENGTH, VK_LENGTH> {
+  return {
+    public_inputs: publicInputsToNoir(proofData.publicInputs),
+    proof: mapFieldArrayToNoir(proofData.proof.proof),
+    vk_data: mapVkDataToNoir(proofData.vkData, vkLength as VK_LENGTH),
+  };
+}
+
 export function mapRootParityInputToNoir(
   rootParityInput: RootParityInput<typeof RECURSIVE_PROOF_LENGTH>,
 ): ParityRootParityInputNoir {
@@ -736,6 +757,20 @@ export function mapRootRollupInputsToNoir(rootRollupInputs: RootRollupInputs): R
   };
 }
 
+export function mapPrivateToPublicKernelCircuitPublicInputsFromNoir(
+  inputs: PrivateToPublicKernelCircuitPublicInputsNoir,
+) {
+  return new PrivateToPublicKernelCircuitPublicInputs(
+    mapTxConstantDataFromNoir(inputs.constants),
+    mapPrivateToPublicAccumulatedDataFromNoir(inputs.non_revertible_accumulated_data),
+    mapPrivateToPublicAccumulatedDataFromNoir(inputs.revertible_accumulated_data),
+    mapPublicCallRequestFromNoir(inputs.public_teardown_call_request),
+    mapGasFromNoir(inputs.gas_used),
+    mapAztecAddressFromNoir(inputs.fee_payer),
+    mapU64FromNoir(inputs.include_by_timestamp),
+  );
+}
+
 /**
  * Maps a base or merge rollup public inputs from noir to the stdlib type.
  * @param baseOrMergeRollupPublicInputs - The noir base or merge rollup public inputs.
@@ -802,11 +837,12 @@ export function mapRootParityInputsToNoir(inputs: RootParityInputs): RootParityI
   };
 }
 
-function mapPrivateTubeDataToNoir(data: PrivateTubeData): PrivateTubeDataNoir {
+export function mapPublicTubePrivateInputsToNoir(inputs: PublicTubePrivateInputs): PublicTubePrivateInputsNoir {
   return {
-    public_inputs: mapPrivateToRollupKernelCircuitPublicInputsToNoir(data.publicInputs),
-    proof: mapRecursiveProofToNoir<typeof TUBE_PROOF_LENGTH>(data.proof),
-    vk_data: mapVkDataToNoir(data.vkData, ULTRA_VK_LENGTH_IN_FIELDS),
+    hiding_kernel_proof_data: mapProofDataToNoir(
+      inputs.hidingKernelProofData,
+      mapPrivateToPublicKernelCircuitPublicInputsToNoir,
+    ),
   };
 }
 
@@ -817,7 +853,10 @@ function mapPrivateTubeDataToNoir(data: PrivateTubeData): PrivateTubeDataNoir {
  */
 export function mapPrivateBaseRollupInputsToNoir(inputs: PrivateBaseRollupInputs): PrivateBaseRollupInputsNoir {
   return {
-    tube_data: mapPrivateTubeDataToNoir(inputs.tubeData),
+    hiding_kernel_proof_data: mapProofDataToNoir(
+      inputs.hidingKernelProofData,
+      mapPrivateToRollupKernelCircuitPublicInputsToNoir,
+    ),
     start: mapPartialStateReferenceToNoir(inputs.hints.start),
     start_sponge_blob: mapSpongeBlobToNoir(inputs.hints.startSpongeBlob),
     state_diff_hints: mapPrivateBaseStateDiffHintsToNoir(inputs.hints.stateDiffHints),
@@ -827,14 +866,6 @@ export function mapPrivateBaseRollupInputsToNoir(inputs: PrivateBaseRollupInputs
       mapFieldArrayToNoir(p.fields, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS),
     ),
     constants: mapBlockConstantDataToNoir(inputs.hints.constants),
-  };
-}
-
-function mapPublicTubeDataToNoir(data: PublicTubeData): PublicTubeDataNoir {
-  return {
-    public_inputs: mapPrivateToPublicKernelCircuitPublicInputsToNoir(data.publicInputs),
-    proof: mapRecursiveProofToNoir<typeof TUBE_PROOF_LENGTH>(data.proof),
-    vk_data: mapVkDataToNoir(data.vkData, ULTRA_VK_LENGTH_IN_FIELDS),
   };
 }
 
@@ -848,7 +879,10 @@ function mapAvmProofDataToNoir(data: AvmProofData): AvmProofDataNoir {
 
 export function mapPublicBaseRollupInputsToNoir(inputs: PublicBaseRollupInputs): PublicBaseRollupInputsNoir {
   return {
-    tube_data: mapPublicTubeDataToNoir(inputs.tubeData),
+    public_tube_proof_data: mapProofDataToNoir(
+      inputs.publicTubeProofData,
+      mapPrivateToPublicKernelCircuitPublicInputsToNoir,
+    ),
     avm_proof_data: mapAvmProofDataToNoir(inputs.avmProofData),
     start_sponge_blob: mapSpongeBlobToNoir(inputs.hints.startSpongeBlob),
     last_archive: mapAppendOnlyTreeSnapshotToNoir(inputs.hints.lastArchive),

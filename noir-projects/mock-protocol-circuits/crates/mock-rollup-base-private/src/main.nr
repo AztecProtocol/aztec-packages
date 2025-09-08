@@ -1,6 +1,6 @@
-use dep::mock_types::{RollupPublicInputs, TubeData};
+use dep::mock_types::{CivcProofData, RollupPublicInputs};
 
-fn main(tube_data: TubeData) -> pub RollupPublicInputs {
-    tube_data.verify();
+fn main(civc_proof_data: CivcProofData) -> pub RollupPublicInputs {
+    civc_proof_data.verify();
     RollupPublicInputs::new(1)
 }
