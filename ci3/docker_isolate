@@ -7,6 +7,7 @@ cmd=$1
 export CPUS=${CPUS:-2}
 export MEM=${MEM:-$((CPUS * 4))g}
 export TMPFS_SIZE=${TMPFS_SIZE:-1g}
+export USE_HOME_TMP=${USE_HOME_TMP:-0}
 
 function cleanup {
   if [ -n "${cid:-}" ]; then
@@ -41,6 +42,16 @@ done
 network_arg="--net=none"
 [ "${NET:-0}" -eq 1 ] && network_arg=""
 
+# Set up tmp mount - default to tmpfs, optionally use $HOME/tmp
+if [ "${USE_HOME_TMP}" -eq 1 ]; then
+  # Ensure $HOME/tmp exists
+  mkdir -p $HOME/tmp
+  tmp_mount="-v$HOME/tmp:/tmp:z"
+else
+  # Default: use tmpfs with specified size
+  tmp_mount="--mount type=tmpfs,target=/tmp,tmpfs-size=$TMPFS_SIZE"
+fi
+
 # Launch the container in the background.
 # Don't launch in the foreground or you can't process SIGINT/SIGTERM.
 # Don't use & as we want to block, and be sure it starts before processing any signals.
@@ -55,7 +66,7 @@ cid=$(docker run -d \
   --pid=host \
   --user $(id -u):$(id -g) \
   -v$HOME:$HOME \
-  --mount type=tmpfs,target=/tmp,tmpfs-size=$TMPFS_SIZE \
+  $tmp_mount \
   --workdir $PWD \
   -e HOME \
   -e VERBOSE \
@@ -64,6 +75,7 @@ cid=$(docker run -d \
   -e CPUS \
   -e MEM \
   -e TMPFS_SIZE \
+  -e USE_HOME_TMP \
   "${arg_env_vars[@]}" \
   aztecprotocol/build:3.0 \
   /bin/bash -c "$cmd")
