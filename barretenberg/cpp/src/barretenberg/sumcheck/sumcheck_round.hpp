@@ -126,15 +126,15 @@ template <typename Flavor> class SumcheckProverRound {
                       const size_t edge_idx)
     {
         for (auto [extended_edge, multivariate] : zip_view(extended_edges.get_all(), multivariates.get_all())) {
-            bb::Univariate<FF, 2> edge({ multivariate[edge_idx], multivariate[edge_idx + 1] });
             if constexpr (Flavor::USE_SHORT_MONOMIALS) {
-                extended_edge = edge;
+                extended_edge = bb::Univariate<FF, 2>({ multivariate[edge_idx], multivariate[edge_idx + 1] });
             } else {
                 if (multivariate.end_index() < edge_idx) {
                     static const auto zero_univariate = bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>::zero();
                     extended_edge = zero_univariate;
                 } else {
-                    extended_edge = edge.template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+                    extended_edge = bb::Univariate<FF, 2>({ multivariate[edge_idx], multivariate[edge_idx + 1] })
+                                        .template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
                 }
             }
         }
