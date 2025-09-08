@@ -15,12 +15,15 @@ function resolveRelativePath(relativePath: string) {
 
 async function generateFakeTubeVK(name: string) {
   const tubeVK = VerificationKeyData.makeFakeRollupHonk();
-  const tubeVKPath = resolveRelativePath(`../../artifacts/keys/${name}.vk.data.json`);
+  const tubeVKPath = resolveRelativePath(`../../artifacts/${name}.json`);
   await fs.writeFile(
     tubeVKPath,
     JSON.stringify({
-      keyAsBytes: tubeVK.keyAsBytes.toString('hex'),
-      keyAsFields: tubeVK.keyAsFields.key.map((field: Fr) => field.toString()),
+      verificationKey: {
+        bytes: tubeVK.keyAsBytes.toString('hex'),
+        fields: tubeVK.keyAsFields.key.map((field: Fr) => field.toString()),
+        hash: tubeVK.keyAsFields.hash.toString(),
+      },
     }),
   );
 }
@@ -31,15 +34,16 @@ const main = async () => {
   await generateFakeTubeVK('private_tube');
   await generateFakeTubeVK('public_tube');
 
-  const files = await fs.readdir(resolveRelativePath('../../artifacts/keys'));
+  const files = await fs.readdir(resolveRelativePath('../../artifacts'));
   for (const fileName of files) {
-    if (fileName.endsWith('.vk.data.json')) {
-      const keyPath = join(resolveRelativePath(`../../artifacts/keys`), fileName);
+    if (fileName.endsWith('.json')) {
+      const keyPath = join(resolveRelativePath(`../../artifacts`), fileName);
       const content = JSON.parse(await fs.readFile(keyPath, 'utf-8'));
-      if (!content.vkHash) {
-        const { keyAsFields } = content;
+      // Check if this has verificationKey field (from noir-protocol-circuits)
+      if (content.verificationKey && !content.verificationKey.hash) {
+        const { fields } = content.verificationKey;
 
-        content.vkHash = (await hashVK(keyAsFields.map((str: string) => Fr.fromHexString(str)))).toString();
+        content.verificationKey.hash = (await hashVK(fields.map((str: string) => Fr.fromHexString(str)))).toString();
         await fs.writeFile(keyPath, JSON.stringify(content, null, 2));
       }
     }

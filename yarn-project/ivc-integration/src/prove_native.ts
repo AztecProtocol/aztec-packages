@@ -29,11 +29,26 @@ import { makeProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
 import type { ClientIvcProof, Proof } from '@aztec/stdlib/proofs';
 import { enhanceProofWithPiValidationFlag } from '@aztec/stdlib/rollup';
-import { VerificationKeyAsFields, type VerificationKeyData } from '@aztec/stdlib/vks';
+import { VerificationKeyAsFields, VerificationKeyData } from '@aztec/stdlib/vks';
 
 import * as fs from 'fs/promises';
 import { Encoder } from 'msgpackr';
 import * as path from 'path';
+
+/**
+ * Converts verification key bytes from a compiled circuit to VerificationKeyData format
+ * @param vkBytes - The verification key bytes from the circuit
+ * @returns The verification key data
+ */
+async function convertVkBytesToVkData(vkBytes: Buffer): Promise<VerificationKeyData> {
+  // Convert binary to field elements (32 bytes per field)
+  const numFields = vkBytes.length / Fr.SIZE_IN_BYTES;
+  const reader = BufferReader.asReader(vkBytes);
+  const fields = reader.readArray(numFields, Fr);
+
+  const vkAsFields = await VerificationKeyAsFields.fromKey(fields);
+  return new VerificationKeyData(vkAsFields, vkBytes);
+}
 
 export async function proveClientIVC(
   bbBinaryPath: string,
@@ -120,11 +135,13 @@ async function proveRollupCircuit<T extends UltraHonkFlavor, ProofLength extends
   proofLength: ProofLength,
 ) {
   await fs.writeFile(path.join(workingDirectory, 'witness.gz'), witness);
+  const vkBuffer = Buffer.from(circuit.verificationKey.bytes, 'hex');
   const proofResult = await generateProof(
     pathToBB,
     workingDirectory,
     name,
     Buffer.from(circuit.bytecode, 'base64'),
+    vkBuffer,
     path.join(workingDirectory, 'witness.gz'),
     flavor,
     logger,
@@ -134,7 +151,7 @@ async function proveRollupCircuit<T extends UltraHonkFlavor, ProofLength extends
     throw new Error(`Failed to generate proof for ${name} with flavor ${flavor}`);
   }
 
-  const vk = await extractVkData(proofResult.vkDirectoryPath!);
+  const vk = await convertVkBytesToVkData(vkBuffer);
   const proof = await readProofAsFields(proofResult.proofPath!, vk, proofLength, logger);
 
   await verifyProofWithKey(pathToBB, workingDirectory, vk, proof.binaryProof, flavor, logger);

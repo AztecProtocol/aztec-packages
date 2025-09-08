@@ -3,10 +3,9 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
-working_dir=${2:-}
 # entrypoint for mock circuits
-if [ -n "$working_dir" ]; then
-  cd "$working_dir"
+if [ -n "${NOIR_PROTOCOL_CIRCUITS_WORKING_DIR:-}" ]; then
+  cd "$NOIR_PROTOCOL_CIRCUITS_WORKING_DIR"
 fi
 
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
@@ -52,14 +51,13 @@ function compile {
   local name=${dir//-/_}
   local filename="$name.json"
   local json_path="./target/$filename"
-  local program_hash hash bytecode_hash vk vk_fields
 
   # We get the monomorphized program hash from nargo. If this changes, we have to recompile.
   local program_hash_cmd="$NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
   # echo_stderr $program_hash_cmd
-  program_hash=$(dump_fail "$program_hash_cmd")
+  local program_hash=$(dump_fail "$program_hash_cmd")
   echo_stderr "Hash preimage: $NOIR_HASH-$program_hash"
-  hash=$(hash_str "$NOIR_HASH-$program_hash" $(cache_content_hash "^noir-projects/noir-protocol-circuits/bootstrap.sh"))
+  local hash=$(hash_str "$NOIR_HASH-$program_hash" $(cache_content_hash "^noir-projects/noir-protocol-circuits/bootstrap.sh"))
 
   if ! cache_download circuit-$hash.tar.gz 1>&2; then
     SECONDS=0
@@ -79,48 +77,48 @@ function compile {
     cache_upload circuit-$hash.tar.gz $json_path &> /dev/null
   fi
 
-  if echo "$name" | grep -qE "${private_tail_regex}"; then
-    local proto="client_ivc_tail"
-    # We still need the standalone IVC vk. We also create the final IVC vk from the tail (specifically, the number of public inputs is used from it).
-    local write_vk_cmd="write_vk --scheme client_ivc --verifier_type standalone"
-  elif echo "$name" | grep -qE "${ivc_regex}"; then
-    local proto="client_ivc"
-    local write_vk_cmd="write_vk --scheme client_ivc --verifier_type standalone"
-  elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
-    local proto="ultra_rollup_honk"
-    local write_vk_cmd="write_vk --scheme ultra_honk --ipa_accumulation"
-  elif echo "$name" | grep -qE "rollup_root"; then
-    local proto="ultra_keccak_honk"
-    # the root rollup does not need to inject a fake ipa claim
-    # and does not need to inject a default agg obj, so no -h flag
-    local write_vk_cmd="write_vk --scheme ultra_honk --oracle_hash keccak"
-  else
-    local proto="ultra_honk"
-    local write_vk_cmd="write_vk --scheme ultra_honk"
-  fi
   # No vks needed for simulated circuits.
   [[ "$name" == *"simulated"* ]] && return
 
-  # TODO: Change this to add verification_key to original json, like contracts does.
-  # Will require changing TS code downstream.
-  bytecode_hash=$(jq -r '.bytecode' $json_path | sha256sum | tr -d ' -')
-  hash=$(hash_str "$BB_HASH-$bytecode_hash-$proto-$(cache_content_hash "^noir-projects/noir-protocol-circuits/bootstrap.sh")")
+  # Add verification key to original json, similar to contracts.
+  # This adds keyAsBytes and keyAsFields to the JSON artifact.
+  local bytecode_hash=$(jq -r '.bytecode' $json_path | sha256sum | tr -d ' -')
+  local hash=$(hash_str "$BB_HASH-$bytecode_hash-$name-3")
+  local key_path="$key_dir/$name.vk.data.json"
   if ! cache_download vk-$hash.tar.gz 1>&2; then
-    local key_path="$key_dir/$name.vk.data.json"
-    echo_stderr "Generating vk for function: $name..."
     SECONDS=0
-    outdir=$(mktemp -d)
+    local outdir=$(mktemp -d)
     trap "rm -rf $outdir" EXIT
-    local vk_cmd="jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB $write_vk_cmd -b - -o $outdir"
-    echo_stderr $vk_cmd
-    dump_fail "$vk_cmd"
+    function write_vk {
+      if echo "$name" | grep -qE "${private_tail_regex}"; then
+        # We still need the standalone IVC vk. We also create the final IVC vk from the tail (specifically, the number of public inputs is used from it).
+        denoise "$BB write_vk --scheme client_ivc --verifier_type standalone -b - -o $outdir"
+      elif echo "$name" | grep -qE "${ivc_regex}"; then
+        denoise "$BB write_vk --scheme client_ivc --verifier_type standalone -b - -o $outdir"
+      elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
+        denoise "$BB write_vk --scheme ultra_honk --ipa_accumulation -b - -o $outdir"
+      elif echo "$name" | grep -qE "rollup_root"; then
+        denoise "$BB write_vk --scheme ultra_honk --oracle_hash keccak -b - -o $outdir"
+      else
+        denoise "$BB write_vk --scheme ultra_honk -b - -o $outdir"
+      fi
+    }
+    echo_stderr "Generating vk for function: $name..."
+    jq -r '.bytecode' $json_path | base64 -d | gunzip | write_vk
     vk_bytes=$(cat $outdir/vk | xxd -p -c 0)
     # Split the hex-encoded vk bytes into fields boundaries (but still hex-encoded), first making 64-character lines and then encoding as JSON.
     # This used to be done by barretenberg itself, but with serialization now always being in field elements we can do it outside of bb.
     vk_fields=$(echo "$vk_bytes" | hex_to_fields_json)
-    # echo_stderr $vkf_cmd
-    jq -n --arg vk "$vk_bytes" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
+    if [ -f $outdir/vk_hash ]; then
+      # not created in civc
+      vk_hash=$(cat $outdir/vk_hash | xxd -p -c 0)
+    else
+      vk_hash=""
+    fi
+    jq -n --arg vk "$vk_bytes" --argjson vk_fields "$vk_fields" --arg vk_hash "$vk_hash" \
+      '{verificationKey: {bytes: $vk, fields: $vk_fields, hash: $vk_hash}}' > $key_path
     echo_stderr "Key output at: $key_path (${SECONDS}s)"
+
     if echo "$name" | grep -qE "rollup_root"; then
       # If we are a rollup root circuit, we also need to generate the solidity verifier.
       local verifier_path="$key_dir/${name}_verifier.sol"
@@ -145,6 +143,11 @@ function compile {
       cache_upload vk-$hash.tar.gz $key_path &> /dev/null
     fi
   fi
+  # VK was downloaded from cache, update the JSON artifact with VK information
+  jq -s '.[0] * .[1]' "$json_path" "$key_path" > "${json_path}.tmp"
+  mv "${json_path}.tmp" "$json_path"
+  # remove temporary json file
+  rm $key_path
 }
 export -f hex_to_fields_json compile
 

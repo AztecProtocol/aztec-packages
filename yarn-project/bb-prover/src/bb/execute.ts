@@ -214,6 +214,7 @@ export async function generateProof(
   workingDirectory: string,
   circuitName: string,
   bytecode: Buffer,
+  verificationKey: Buffer,
   inputWitnessFile: string,
   flavor: UltraHonkFlavor,
   log: Logger,
@@ -227,6 +228,7 @@ export async function generateProof(
 
   // The bytecode is written to e.g. /workingDirectory/BaseParityArtifact-bytecode
   const bytecodePath = `${workingDirectory}/${circuitName}-bytecode`;
+  const vkPath = `${workingDirectory}/${circuitName}-vk`;
 
   // The proof is written to e.g. /workingDirectory/ultra_honk/proof
   const outputPath = `${workingDirectory}`;
@@ -240,16 +242,16 @@ export async function generateProof(
   }
 
   try {
-    // Write the bytecode to the working directory
-    await fs.writeFile(bytecodePath, bytecode);
-    // TODO(#15043): Avoid write_vk flag here.
+    // Write the bytecode and vk to the working directory
+    await Promise.all([fs.writeFile(bytecodePath, bytecode), fs.writeFile(vkPath, verificationKey)]);
     const args = getArgs(flavor).concat([
       '--disable_zk',
-      '--write_vk',
       '-o',
       outputPath,
       '-b',
       bytecodePath,
+      '-k',
+      vkPath,
       '-w',
       inputWitnessFile,
       '-v',
