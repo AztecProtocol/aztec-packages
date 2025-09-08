@@ -133,7 +133,7 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
      * i.e. next_scalar_sum - 2^{16} * current_scalar_sum - 2^12 * w_0 - 2^8 * w_1 - 2^4 * w_2 - w_3 = 0
      * @note We only perform slice_consistency check when next row is processing the same scalar as the current row!
      *       i.e. when q_transition  = 0
-     * TODO(@zac-williamson) Optimize WNAF use (#2224)
+     * Note(@zac-williamson): improve WNAF use (#2224)
      */
     auto row_slice = w0; // row_slice will eventually contain the truncated scalar corresponding to the current row,
                          // which is 2^12 * w_0 + 2^8 * w_1 + 2^4 * w_2 + w_3. (If one just looks at the wNAF digits in
@@ -234,7 +234,9 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
      * 2: in ecc_msm_relation. Final MSM round uses skew to conditionally subtract a point from the accumulator
      */
     std::get<13>(accumulator) += precompute_select * (precompute_skew * (precompute_skew - 7)) * scaling_factor;
-    // set round slices, pc, and round all to zero when `precompute_select == 0`.
+
+    // Set slices (a.k.a. compressed digits), pc, and round all to zero when `precompute_select == 0`.
+    // (this is for one of the multiset equality checks.)
     const auto precompute_select_zero = (-precompute_select + 1) * scaling_factor;
     std::get<14>(accumulator) += precompute_select_zero * (w0 + 15);
     std::get<15>(accumulator) += precompute_select_zero * (w1 + 15);
@@ -244,7 +246,7 @@ void ECCVMWnafRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulato
     std::get<18>(accumulator) += precompute_select_zero * round;
     std::get<19>(accumulator) += precompute_select_zero * pc;
 
-    // Optimize(@zac-williamson #2226)
+    // Note(@zac-williamson #2226)
     // if precompute_select = 0, validate pc, round, slice values are all zero
     // If we do this we can reduce the degree of the set equivalence relations
     // (currently when checking pc/round/wnaf tuples from WNAF columns match those from MSM columns,
