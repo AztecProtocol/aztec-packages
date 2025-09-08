@@ -95,6 +95,8 @@ class ECCVMRecursiveTests : public ::testing::Test {
         auto [opening_claim, ipa_transcript] = verifier.verify_proof(proof);
         stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(outer_circuit);
 
+        const size_t fixed_size = 218783;
+        info("Fixed size ", fixed_size);
         info("Recursive Verifier: num gates = ", outer_circuit.get_estimated_num_finalized_gates());
 
         // Check for a failure flag in the recursive verifier circuit

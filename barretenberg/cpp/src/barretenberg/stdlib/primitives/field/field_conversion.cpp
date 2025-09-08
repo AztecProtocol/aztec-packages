@@ -44,7 +44,7 @@ template <typename Builder> fq<Builder> convert_to_grumpkin_fr(Builder& builder,
     builder.assert_equal(f.witness_index, sum.witness_index, "assert_equal");
 
     std::vector<fr<Builder>> fr_vec{ low, hi };
-    return convert_from_bn254_frs<Builder, fq<Builder>>(builder, fr_vec);
+    return convert_from_bn254_frs<Builder, fq<Builder>>(fr_vec);
 }
 
 template fq<UltraCircuitBuilder> convert_to_grumpkin_fr<UltraCircuitBuilder>(UltraCircuitBuilder& builder,

@@ -45,6 +45,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     element();
     element(const typename NativeGroup::affine_element& input);
     element(const Fq& x, const Fq& y);
+    element(const Fq& x, const Fq& y, const bool_ct& is_infinity);
 
     element(const element& other);
     element(element&& other) noexcept;

@@ -11,21 +11,21 @@ template <typename Builder> using grumpkin_element = cycle_group<Builder>;
 
 template <typename Builder> class StdlibFieldConversionTests : public ::testing::Test {
   public:
-    template <typename T> void check_conversion(Builder& builder, T x)
+    template <typename T> void check_conversion(T x)
     {
         size_t len = bb::stdlib::field_conversion::calc_num_bn254_frs<Builder, T>();
         auto frs = bb::stdlib::field_conversion::convert_to_bn254_frs<Builder, T>(x);
         EXPECT_EQ(len, frs.size());
-        auto y = bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, T>(builder, frs);
+        auto y = bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, T>(frs);
         EXPECT_EQ(x.get_value(), y.get_value());
     }
 
-    template <typename T> void check_conversion_iterable(Builder& builder, T x)
+    template <typename T> void check_conversion_iterable(T x)
     {
         size_t len = bb::stdlib::field_conversion::calc_num_bn254_frs<Builder, T>();
         auto frs = bb::stdlib::field_conversion::convert_to_bn254_frs<Builder, T>(x);
         EXPECT_EQ(len, frs.size());
-        auto y = bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, T>(builder, frs);
+        auto y = bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, T>(frs);
         EXPECT_EQ(x.size(), y.size());
         for (auto [val1, val2] : zip_view(x, y)) {
             EXPECT_EQ(val1.get_value(), val2.get_value());
@@ -46,15 +46,15 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionFr)
     Builder builder;
     bb::fr x1_val(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")); // 256 bits
     fr<Builder> x1(&builder, x1_val);
-    this->check_conversion(builder, x1);
+    this->check_conversion(x1);
 
     bb::fr x2_val(bb::fr::modulus_minus_two); // modulus - 2
     fr<Builder> x2(&builder, x2_val);
-    this->check_conversion(builder, x2);
+    this->check_conversion(x2);
 
     bb::fr x3_val(1);
     fr<Builder> x3(&builder, x3_val);
-    this->check_conversion(builder, x3);
+    this->check_conversion(x3);
 }
 
 /**
@@ -68,7 +68,7 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionGrumpkinFr)
     // Constructing bigfield objects with grumpkin::fr values
     grumpkin::fr x1_val(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")); // 256 bits
     fq<Builder> x1(&builder, x1_val);
-    this->check_conversion(builder, x1);
+    this->check_conversion(x1);
 }
 
 /**
@@ -83,11 +83,11 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionBN254AffineElement)
     // Constructing element objects with curve::BN254::AffineElement values
     curve::BN254::AffineElement x1_val(1, 2);
     bn254_element<Builder> x1 = bn254_element<Builder>::from_witness(&builder, x1_val);
-    this->check_conversion(builder, x1);
+    this->check_conversion(x1);
 
     curve::BN254::AffineElement x2_val(1, grumpkin::fr::modulus_minus_two);
     bn254_element<Builder> x2 = bn254_element<Builder>::from_witness(&builder, x2_val);
-    this->check_conversion(builder, x2);
+    this->check_conversion(x2);
 }
 
 /**
@@ -102,11 +102,11 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionGrumpkinAffineElement)
     // Constructing element objects with curve::Grumpkin::AffineElement values
     curve::Grumpkin::AffineElement x1_val(12, 100);
     grumpkin_element<Builder> x1 = grumpkin_element<Builder>::from_witness(&builder, x1_val);
-    this->check_conversion(builder, x1);
+    this->check_conversion(x1);
 
     curve::Grumpkin::AffineElement x2_val(1, grumpkin::fr::modulus_minus_two);
     grumpkin_element<Builder> x2 = grumpkin_element<Builder>::from_witness(&builder, x2_val);
-    this->check_conversion(builder, x2);
+    this->check_conversion(x2);
 }
 
 /**
@@ -121,7 +121,7 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionArrayBn254Fr)
     std::array<fr<Builder>, 4> x1{
         fr<Builder>(&builder, 1), fr<Builder>(&builder, 2), fr<Builder>(&builder, 3), fr<Builder>(&builder, 4)
     };
-    this->check_conversion_iterable(builder, x1);
+    this->check_conversion_iterable(x1);
 
     std::array<fr<Builder>, 7> x2{ fr<Builder>(&builder, bb::fr::modulus_minus_two),
                                    fr<Builder>(&builder, bb::fr::modulus_minus_two - 123),
@@ -130,7 +130,7 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionArrayBn254Fr)
                                    fr<Builder>(&builder, 367032),
                                    fr<Builder>(&builder, 12985028),
                                    fr<Builder>(&builder, bb::fr::modulus_minus_two - 125015028) };
-    this->check_conversion_iterable(builder, x2);
+    this->check_conversion_iterable(x2);
 }
 
 /**
@@ -156,7 +156,7 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionArrayGrumpkinFr)
             &builder,
             static_cast<grumpkin::fr>(std::string("018555a8eb50cf07f64b019ebaf3af3c925c93e631f3ecd455db07bbb52bbdd3"))),
     };
-    this->check_conversion_iterable(builder, x1);
+    this->check_conversion_iterable(x1);
 }
 
 /**
@@ -171,7 +171,7 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionUnivariateBn254Fr)
     Univariate<fr<Builder>, 4> x{
         { fr<Builder>(&builder, 1), fr<Builder>(&builder, 2), fr<Builder>(&builder, 3), fr<Builder>(&builder, 4) }
     };
-    this->check_conversion_iterable(builder, x);
+    this->check_conversion_iterable(x);
 }
 
 /**
@@ -197,7 +197,7 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionUnivariateGrumpkinFr)
                       static_cast<grumpkin::fr>(
                           std::string("2bf1eaf87f7d27e8dc4056e9af975985bccc89077a21891d6c7b6ccce0631f95"))) }
     };
-    this->check_conversion_iterable(builder, x);
+    this->check_conversion_iterable(x);
 }
 
 /**
