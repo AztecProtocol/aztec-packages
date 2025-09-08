@@ -77,6 +77,7 @@ library RewardLib {
   address public constant BURN_ADDRESS = address(bytes20("CUAUHXICALLI"));
 
   function setConfig(RewardConfig memory _config) internal {
+    require(Bps.unwrap(_config.sequencerBps) <= 10_000, Errors.RewardLib__InvalidSequencerBps());
     RewardStorage storage rewardStorage = getStorage();
     rewardStorage.config = _config;
   }
@@ -86,8 +87,11 @@ library RewardLib {
 
     RollupStore storage rollupStore = STFLib.getStorage();
     uint256 amount = rewardStorage.sequencerRewards[_sequencer];
-    rewardStorage.sequencerRewards[_sequencer] = 0;
-    rollupStore.config.feeAsset.transfer(_sequencer, amount);
+
+    if (amount > 0) {
+      rewardStorage.sequencerRewards[_sequencer] = 0;
+      rollupStore.config.feeAsset.safeTransfer(_sequencer, amount);
+    }
 
     return amount;
   }
@@ -119,7 +123,7 @@ library RewardLib {
       }
     }
 
-    rollupStore.config.feeAsset.transfer(_prover, accumulatedRewards);
+    rollupStore.config.feeAsset.safeTransfer(_prover, accumulatedRewards);
 
     return accumulatedRewards;
   }
@@ -215,7 +219,7 @@ library RewardLib {
       }
 
       if (t.totalBurn > 0) {
-        rollupStore.config.feeAsset.transfer(BURN_ADDRESS, t.totalBurn);
+        rollupStore.config.feeAsset.safeTransfer(BURN_ADDRESS, t.totalBurn);
       }
     }
   }
