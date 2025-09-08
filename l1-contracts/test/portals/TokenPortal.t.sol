@@ -1,5 +1,6 @@
 pragma solidity >=0.8.27;
 
+/// forge-lint: disable-next-item(unaliased-plain-import)
 import "forge-std/Test.sol";
 
 // Rollup Processor
