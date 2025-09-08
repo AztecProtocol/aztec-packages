@@ -222,7 +222,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
           'KEY STORE CREATED FROM ENVIRONMENT, IT IS RECOMMENDED TO USE A FILE-BASED KEY STORE IN PRODUCTION ENVIRONMENTS',
         );
       }
-      ValidatorClient.validateKeyStoreConfiguration(keyStoreManager);
+      ValidatorClient.validateKeyStoreConfiguration(keyStoreManager, log);
     }
 
     // validate that the actual chain id matches that specified in configuration
