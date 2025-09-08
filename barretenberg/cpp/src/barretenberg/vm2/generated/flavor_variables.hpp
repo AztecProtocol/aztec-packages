@@ -138,10 +138,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 133;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 3014;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 3012;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 327;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3474;
+    static constexpr size_t NUM_ALL_ENTITIES = 3472;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -291,13 +291,13 @@ struct AvmFlavorVariables {
         lookup_execution_get_p_limbs_relation<FF_>,
         lookup_execution_instruction_fetching_body_relation<FF_>,
         lookup_execution_instruction_fetching_result_relation<FF_>,
-        lookup_external_call_call_allocated_left_da_range_relation<FF_>,
-        lookup_external_call_call_allocated_left_l2_range_relation<FF_>,
+        lookup_external_call_call_is_da_gas_allocated_lt_left_relation<FF_>,
+        lookup_external_call_call_is_l2_gas_allocated_lt_left_relation<FF_>,
         lookup_ff_gt_a_hi_range_relation<FF_>,
         lookup_ff_gt_a_lo_range_relation<FF_>,
         lookup_gas_addressing_gas_read_relation<FF_>,
-        lookup_gas_limit_used_da_range_relation<FF_>,
-        lookup_gas_limit_used_l2_range_relation<FF_>,
+        lookup_gas_is_out_of_gas_da_relation<FF_>,
+        lookup_gas_is_out_of_gas_l2_relation<FF_>,
         lookup_get_contract_instance_contract_instance_retrieval_relation<FF_>,
         lookup_get_contract_instance_precomputed_info_relation<FF_>,
         lookup_get_env_var_precomputed_info_relation<FF_>,

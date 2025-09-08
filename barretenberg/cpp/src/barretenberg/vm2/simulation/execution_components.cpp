@@ -9,7 +9,7 @@ namespace bb::avm2::simulation {
 std::unique_ptr<AddressingInterface> ExecutionComponentsProvider::make_addressing(AddressingEvent& event)
 {
     auto event_emitter = std::make_unique<OneShotEventEmitter<AddressingEvent>>(event);
-    auto addressing = std::make_unique<Addressing>(instruction_info_db, gt, *event_emitter);
+    auto addressing = std::make_unique<Addressing>(instruction_info_db, greater_than, *event_emitter);
     addressing_event_emitters.push_back(std::move(event_emitter));
     return addressing;
 }
@@ -18,7 +18,7 @@ std::unique_ptr<GasTrackerInterface> ExecutionComponentsProvider::make_gas_track
                                                                                    const Instruction& instruction,
                                                                                    ContextInterface& context)
 {
-    return std::make_unique<GasTracker>(gas_event, instruction, instruction_info_db, context, range_check);
+    return std::make_unique<GasTracker>(gas_event, instruction, instruction_info_db, context, greater_than);
 }
 
 } // namespace bb::avm2::simulation
