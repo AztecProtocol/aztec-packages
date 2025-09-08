@@ -41,6 +41,7 @@ using poseidon2_hash = bb::avm2::poseidon2_hash<FF>;
 using poseidon2_perm = bb::avm2::optimized_poseidon2_perm<FF>;
 using poseidon2_mem = bb::avm2::poseidon2_mem<FF>;
 
+using simulation::DeduplicatingEventEmitter;
 using simulation::EventEmitter;
 using simulation::ExecutionIdManager;
 using simulation::FieldGreaterThan;
@@ -65,7 +66,7 @@ class Poseidon2ConstrainingTest : public ::testing::Test {
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     EventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
-    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     EventEmitter<GreaterThanEvent> gt_event_emitter;
 
     ExecutionIdManager execution_id_manager;

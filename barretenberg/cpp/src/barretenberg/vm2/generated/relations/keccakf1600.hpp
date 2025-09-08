@@ -14,12 +14,12 @@ template <typename FF_> class keccakf1600Impl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 157> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 3, 3, 3, 4, 4, 3, 3, 3, 3, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-        2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 4, 3
+    static constexpr std::array<size_t, 155> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 3, 3, 3, 4, 4, 3, 3, 3, 3, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 2,
+        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 4, 3
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -157,15 +157,13 @@ template <typename FF> class keccakf1600 : public Relation<keccakf1600Impl<FF>> 
     static constexpr size_t SR_NEXT_STATE_IN_42 = 144;
     static constexpr size_t SR_NEXT_STATE_IN_43 = 145;
     static constexpr size_t SR_NEXT_STATE_IN_44 = 146;
-    static constexpr size_t SR_SRC_OUT_OF_RANGE_ERROR_BOOLEAN = 147;
-    static constexpr size_t SR_DST_OUT_OF_RANGE_ERROR_BOOLEAN = 148;
-    static constexpr size_t SR_ERROR = 150;
-    static constexpr size_t SR_DST_ADDR_PROPAGATION = 151;
-    static constexpr size_t SR_CLK_PROPAGATION = 152;
-    static constexpr size_t SR_SPACE_ID_PROPAGATION = 153;
-    static constexpr size_t SR_SEL_NO_ERROR_PROPAGATION = 154;
-    static constexpr size_t SR_SEL_SLICE_READ = 155;
-    static constexpr size_t SR_SEL_SLICE_WRITE = 156;
+    static constexpr size_t SR_ERROR = 148;
+    static constexpr size_t SR_DST_ADDR_PROPAGATION = 149;
+    static constexpr size_t SR_CLK_PROPAGATION = 150;
+    static constexpr size_t SR_SPACE_ID_PROPAGATION = 151;
+    static constexpr size_t SR_SEL_NO_ERROR_PROPAGATION = 152;
+    static constexpr size_t SR_SEL_SLICE_READ = 153;
+    static constexpr size_t SR_SEL_SLICE_WRITE = 154;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -402,10 +400,6 @@ template <typename FF> class keccakf1600 : public Relation<keccakf1600Impl<FF>> 
             return "NEXT_STATE_IN_43";
         case SR_NEXT_STATE_IN_44:
             return "NEXT_STATE_IN_44";
-        case SR_SRC_OUT_OF_RANGE_ERROR_BOOLEAN:
-            return "SRC_OUT_OF_RANGE_ERROR_BOOLEAN";
-        case SR_DST_OUT_OF_RANGE_ERROR_BOOLEAN:
-            return "DST_OUT_OF_RANGE_ERROR_BOOLEAN";
         case SR_ERROR:
             return "ERROR";
         case SR_DST_ADDR_PROPAGATION:
