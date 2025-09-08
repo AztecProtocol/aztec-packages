@@ -1,4 +1,8 @@
 apiVersion: 1
+
+x-common-labels: &common_labels
+  gcp_project: testnet-440309
+
 groups:
     - orgId: 1
       name: Every minute
@@ -80,12 +84,98 @@ groups:
                 maxDataPoints: 43200
                 refId: C
                 type: threshold
+          dashboardUid: ""
+          panelId: 0
           noDataState: NoData
           execErrState: Error
           for: 1m
-          annotations: {}
-          labels: {}
+          labels:
+            <<: *common_labels
           isPaused: true
+        - uid: riogq2ag4gdbvv
+          title: AVM fallback used
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: spartan-metrics-prometheus
+              model:
+                editorMode: code
+                expr: max by (k8s_namespace_name) (increase(aztec_proving_orchestrator_avm_fallback_count{k8s_namespace_name!=""}[$__rate_interval]))
+                instant: true
+                intervalMs: 60000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - B
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 1
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          dashboardUid: ""
+          panelId: 0
+          noDataState: NoData
+          execErrState: Error
+          for: 0s
+          annotations:
+            summary: AVM fallback was used in {{ ` {{ $labels.k8s_namespace_name  }} ` }}
+          labels:
+            <<: *common_labels
+          isPaused: false
         - uid: bef0du59q8sg0b
           title: Chain - no new blocks
           condition: C
@@ -160,12 +250,15 @@ groups:
                 maxDataPoints: 43200
                 refId: C
                 type: threshold
+          dashboardUid: ""
+          panelId: 0
           noDataState: NoData
           execErrState: Error
           for: 10m
           annotations:
             summary: Pending chain in {{ ` {{ $labels.k8s_namespace_name  }} ` }} hasn't advanced in 5 minutes
-          labels: {}
+          labels:
+            <<: *common_labels
           isPaused: false
         - uid: def0g11bn64n4a
           title: Chain - reorg
@@ -241,12 +334,15 @@ groups:
                 maxDataPoints: 43200
                 refId: C
                 type: threshold
+          dashboardUid: ""
+          panelId: 0
           noDataState: NoData
           execErrState: Error
           for: 0s
           annotations:
             summary: Pending chain has re-orged in {{ ` {{ $labels.k8s_namespace_name  }} ` }}
-          labels: {}
+          labels:
+            <<: *common_labels
           isPaused: false
         - uid: fef0j7owjyebkf
           title: Sequencer - slow attestation gathering
@@ -322,12 +418,15 @@ groups:
                 maxDataPoints: 43200
                 refId: C
                 type: threshold
+          dashboardUid: ""
+          panelId: 0
           noDataState: NoData
           execErrState: Error
           for: 1m
           annotations:
             summary: Attestations collection is taking over 10 seconds in {{ ` {{ $labels.k8s_namespace_name  }} ` }}
-          labels: {}
+          labels:
+            <<: *common_labels
           isPaused: false
         - uid: fef0jfew2nls0e
           title: Process - high CPU
@@ -403,12 +502,15 @@ groups:
                 maxDataPoints: 43200
                 refId: C
                 type: threshold
+          dashboardUid: ""
+          panelId: 0
           noDataState: NoData
           execErrState: Error
           for: 5m
           annotations:
-            summary: High CPU usage in {{ ` {{ $labels.k8s_namespace_name }} by {{ $labels.service_name  }} ` }}
-          labels: {}
+            summary: High CPU usage in {{ ` {{ $labels.k8s_namespace_name  }} ` }} by {{ ` {{ $labels.service_name  }} ` }}
+          labels:
+            <<: *common_labels
           isPaused: false
         - uid: cef0js2plm8zka
           title: Process - high memory
@@ -484,12 +586,15 @@ groups:
                 maxDataPoints: 43200
                 refId: C
                 type: threshold
+          dashboardUid: ""
+          panelId: 0
           noDataState: NoData
           execErrState: Error
           for: 5m
           annotations:
-            summary: High memory usage in {{ ` {{ $labels.k8s_namespace_name }} by {{ $labels.service_name  }} ` }}
-          labels: {}
+            summary: High memory usage in {{ ` {{ $labels.k8s_namespace_name  }} ` }} by {{ ` {{ $labels.service_name  }} ` }}
+          labels:
+            <<: *common_labels
           isPaused: false
         - uid: cef0k7rx404qof
           title: Process - high event loop lag
@@ -565,12 +670,15 @@ groups:
                 maxDataPoints: 43200
                 refId: C
                 type: threshold
+          dashboardUid: ""
+          panelId: 0
           noDataState: NoData
           execErrState: Error
           for: 1m
           annotations:
-            summary: Something is blocking the main thread in {{ ` {{ $labels.service_name }} ({{ $labels.k8s_namespace_name  }} ` }})
-          labels: {}
+            summary: Something is blocking the main thread in {{ ` {{ $labels.service_name  }} ` }} ({{ ` {{ $labels.k8s_namespace_name  }} ` }})
+          labels:
+            <<: *common_labels
           isPaused: false
         - uid: eef0km6vckxs0a
           title: World State - critical errors
@@ -646,12 +754,15 @@ groups:
                 maxDataPoints: 43200
                 refId: C
                 type: threshold
+          dashboardUid: ""
+          panelId: 0
           noDataState: NoData
           execErrState: Error
           for: 1m
           annotations:
-            summary: Critical errors in the WorldState of {{ ` {{ $labels.service_name }} ({{ $labels.k8s_namespace_name }}) ` }}
-          labels: {}
+            summary: Critical errors in the WorldState of {{ ` {{ $labels.service_name  }} ` }} ({{ ` {{ $labels.k8s_namespace_name  }} ` }})
+          labels:
+            <<: *common_labels
           isPaused: false
         - uid: feferpbufao74d
           title: L1 - ETH Balance Low
@@ -727,11 +838,13 @@ groups:
                 maxDataPoints: 43200
                 refId: C
                 type: threshold
+          dashboardUid: ""
+          panelId: 0
           noDataState: NoData
           execErrState: Error
           for: 1m
-          annotations: {}
-          labels: {}
+          labels:
+            <<: *common_labels
           isPaused: false
     - orgId: 1
       name: Every minute
@@ -812,92 +925,13 @@ groups:
                 maxDataPoints: 43200
                 refId: C
                 type: threshold
+          dashboardUid: ""
+          panelId: 0
           noDataState: NoData
           execErrState: Error
           for: 1m
           annotations:
             summary: Prometheus scraping for job {{ ` {{ $labels.job  }} ` }} takes more than 7.5s
-          labels: {}
+          labels:
+            <<: *common_labels
           isPaused: false
-        - uid: riogq2ag4gdbvv
-          title: AVM fallback used
-          condition: C
-          data:
-            - refId: A
-              relativeTimeRange:
-                from: 600
-                to: 0
-              datasourceUid: spartan-metrics-prometheus
-              model:
-                editorMode: code
-                expr: max by (k8s_namespace_name) (increase(aztec_proving_orchestrator_avm_fallback_count{k8s_namespace_name!=""}[$__rate_interval]))
-                instant: true
-                intervalMs: 60000
-                legendFormat: __auto
-                maxDataPoints: 43200
-                range: false
-                refId: A
-            - refId: B
-              relativeTimeRange:
-                from: 600
-                to: 0
-              datasourceUid: __expr__
-              model:
-                conditions:
-                    - evaluator:
-                        params: []
-                        type: gt
-                      operator:
-                        type: and
-                      query:
-                        params:
-                            - B
-                      reducer:
-                        params: []
-                        type: last
-                      type: query
-                datasource:
-                    type: __expr__
-                    uid: __expr__
-                expression: A
-                intervalMs: 1000
-                maxDataPoints: 43200
-                reducer: last
-                refId: B
-                type: reduce
-            - refId: C
-              relativeTimeRange:
-                from: 600
-                to: 0
-              datasourceUid: __expr__
-              model:
-                conditions:
-                    - evaluator:
-                        params:
-                            - 1
-                        type: gt
-                      operator:
-                        type: and
-                      query:
-                        params:
-                            - C
-                      reducer:
-                        params: []
-                        type: last
-                      type: query
-                datasource:
-                    type: __expr__
-                    uid: __expr__
-                expression: B
-                intervalMs: 1000
-                maxDataPoints: 43200
-                refId: C
-                type: threshold
-          noDataState: NoData
-          execErrState: Error
-          for: 0s
-          annotations:
-            summary: AVM fallback was used in {{ ` {{ $labels.k8s_namespace_name  }} ` }}
-          labels: {}
-          isPaused: false
-
