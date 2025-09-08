@@ -86,6 +86,8 @@ export async function createProverNode(
     );
   }
 
+  log.info(`Creating prover with publishers ${proverSigners.signers.map(signer => signer.address.toString()).join()}`);
+
   // Only consider user provided config if it is valid
   const proverIdInUserConfig = config.proverId === undefined || config.proverId.isZero() ? undefined : config.proverId;
 

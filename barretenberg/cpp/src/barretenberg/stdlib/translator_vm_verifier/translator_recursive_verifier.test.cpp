@@ -73,19 +73,19 @@ class TranslatorRecursiveTests : public ::testing::Test {
 
         // Add the same operations to the ECC op queue; the native computation is performed under the hood.
         auto op_queue = std::make_shared<bb::ECCOpQueue>();
+<<<<<<< HEAD
         op_queue->no_op_ultra_only();
         add_random_ops(op_queue, 3);
         add_mixed_ops(op_queue, circuit_size_parameter / 2);
         op_queue->merge();
         add_mixed_ops(op_queue, circuit_size_parameter / 2);
         add_random_ops(op_queue, 2);
-        op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
-
-        return InnerBuilder{ batching_challenge_v, evaluation_challenge_x, op_queue };
-    }
-
-    static void test_recursive_verification()
-    {
+        add_no_ops(op_queue);
+        add_mixed_ops(op_queue, circuit_size_parameter / 2);
+        op_queue->merge();
+        add_mixed_ops(op_queue, circuit_size_parameter / 2);
+        add_no_ops(op_queue, 2);
+>>>>>>> origin/merge-train/barretenberg
         using NativeVerifierCommitmentKey = InnerFlavor::VerifierCommitmentKey;
         // Add the same operations to the ECC op queue; the native computation is performed under the hood.
 
@@ -191,10 +191,13 @@ class TranslatorRecursiveTests : public ::testing::Test {
             [[maybe_unused]] auto _ = transcript->template receive_from_prover<typename RecursiveFlavor::BF>("init");
 
             RecursiveVerifier verifier{ &outer_circuit, verification_key, transcript };
+            // Manually hashing the evaluation and batching challenges to ensure they get a proper origin tag
+            auto stdlib_evaluation_challenge_x = TranslatorBF::from_witness(&outer_circuit, evaluation_challenge_x);
+            auto stdlib_batching_challenge_v = TranslatorBF::from_witness(&outer_circuit, batching_challenge_v);
+            transcript->add_to_hash_buffer("evaluation_challenge_x", stdlib_evaluation_challenge_x);
+            transcript->add_to_hash_buffer("batching_challenge_v", stdlib_batching_challenge_v);
             typename RecursiveVerifier::PairingPoints pairing_points =
-                verifier.verify_proof(inner_proof,
-                                      TranslatorBF::from_witness(&outer_circuit, evaluation_challenge_x),
-                                      TranslatorBF::from_witness(&outer_circuit, batching_challenge_v));
+                verifier.verify_proof(inner_proof, stdlib_evaluation_challenge_x, stdlib_batching_challenge_v);
             pairing_points.set_public();
 
             auto outer_proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);

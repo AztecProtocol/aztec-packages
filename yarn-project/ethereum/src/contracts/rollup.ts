@@ -264,6 +264,35 @@ export class RollupContract {
     return block.archive;
   }
 
+  /**
+   * Returns rollup constants used for epoch queries.
+   * Return type is `L1RollupConstants` which is defined in stdlib,
+   * so we cant reference it until we move this contract to that package.
+   */
+  @memoize
+  public async getRollupConstants(): Promise<{
+    l1StartBlock: bigint;
+    l1GenesisTime: bigint;
+    slotDuration: number;
+    epochDuration: number;
+    proofSubmissionEpochs: number;
+  }> {
+    const [l1StartBlock, l1GenesisTime, slotDuration, epochDuration, proofSubmissionEpochs] = await Promise.all([
+      this.getL1StartBlock(),
+      this.getL1GenesisTime(),
+      this.getSlotDuration(),
+      this.getEpochDuration(),
+      this.getProofSubmissionEpochs(),
+    ]);
+    return {
+      l1StartBlock,
+      l1GenesisTime,
+      slotDuration: Number(slotDuration),
+      epochDuration: Number(epochDuration),
+      proofSubmissionEpochs: Number(proofSubmissionEpochs),
+    };
+  }
+
   getSlasher() {
     return this.rollup.read.getSlasher();
   }

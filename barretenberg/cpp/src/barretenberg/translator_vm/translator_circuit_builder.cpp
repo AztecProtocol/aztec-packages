@@ -528,10 +528,14 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     }
 
     // Process the first UltraOp - a no-op - and populate with zeros the beginning of all other wires to ensure all wire
-    // polynomials in translator start with 0 (required to enable shifts of witness polynomials when required).
+    // polynomials in translator start with 0 (required for shifted polynomials in the proving system). Technically,
+    // we'd need only first index to be a zero but, given each "real" UltraOp populates two indices in a polynomial we
+    // add two zeros for consistency.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1360): We'll also have to eventually process random
+    // data in the merge protocol (added for zero knowledge)/
     for (auto& wire : wires) {
-        wire.push_back(add_variable(0));
-        wire.push_back(add_variable(0));
+        wire.push_back(zero_idx);
+        wire.push_back(zero_idx);
     }
     num_gates += 2;
 
@@ -540,8 +544,8 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         populate_wires_from_ultra_op(ultra_op);
         // Populate the other wires with zeros
         for (size_t i = WireIds::Y_LOW_Z_2 + 1; i < wires.size(); i++) {
-            wires[i].push_back(add_variable(0));
-            wires[i].push_back(add_variable(0));
+            wires[i].push_back(zero_idx);
+            wires[i].push_back(zero_idx);
         }
         num_gates += 2;
     };
@@ -595,8 +599,8 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
             // appropriately transfered the accumulator value at k across the entire no-op range, both in even and odd
             // indices.
             for (size_t j = 0; j < ACCUMULATORS_BINARY_LIMBS_0; j++) {
-                wires[j].push_back(add_variable(0));
-                wires[j].push_back(add_variable(0));
+                wires[j].push_back(zero_idx);
+                wires[j].push_back(zero_idx);
             }
             size_t idx = 0;
             for (size_t j = ACCUMULATORS_BINARY_LIMBS_0; j < ACCUMULATORS_BINARY_LIMBS_3 + 1; j++) {
@@ -605,8 +609,8 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
                 idx++;
             }
             for (size_t j = ACCUMULATORS_BINARY_LIMBS_3 + 1; j < TOTAL_COUNT; j++) {
-                wires[j].push_back(add_variable(0));
-                wires[j].push_back(add_variable(0));
+                wires[j].push_back(zero_idx);
+                wires[j].push_back(zero_idx);
             }
             num_gates += 2;
             continue;

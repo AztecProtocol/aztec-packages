@@ -15,20 +15,20 @@ export interface L1ReaderConfig {
 }
 
 export const l1ReaderConfigMappings: ConfigMappingsType<L1ReaderConfig> = {
-  l1RpcUrls: {
-    env: 'ETHEREUM_HOSTS',
-    description: 'The RPC Url of the ethereum host.',
-    parseEnv: (val: string) => val.split(',').map(url => url.trim()),
+  l1Contracts: {
+    description: 'The deployed L1 contract addresses',
+    nested: l1ContractAddressesMapping,
   },
   l1ChainId: {
     env: 'L1_CHAIN_ID',
     parseEnv: (val: string) => +val,
-    defaultValue: 31337,
     description: 'The chain ID of the ethereum host.',
   },
-  l1Contracts: {
-    description: 'The deployed L1 contract addresses',
-    nested: l1ContractAddressesMapping,
+  l1RpcUrls: {
+    env: 'ETHEREUM_HOSTS',
+    description: 'The RPC Url of the ethereum host.',
+    parseEnv: (val: string) => val.split(',').map(url => url.trim()),
+    defaultValue: [],
   },
   viemPollingIntervalMS: {
     env: 'L1_READER_VIEM_POLLING_INTERVAL_MS',

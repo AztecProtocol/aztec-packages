@@ -118,16 +118,13 @@ void process_ROM_operations(Builder& builder,
         // For a ROM table, constant read should be optimized out:
         // The rom_table won't work with a constant read because the table may not be initialized
         ASSERT(op.index.q_l != 0);
-        // We create a new witness w to avoid issues with non-valid witness assignements:
-        // if witness are not assigned, then w will be zero and table[w] will work
-        fr w_value = 0;
-        if (has_valid_witness_assignments) {
-            // If witness are assigned, we use the correct value for w
-            w_value = index.get_value();
+
+        // In case of invalid witness assignment, we set the value of index value to zero to not hit out of bound in
+        // ROM table
+        if (!has_valid_witness_assignments) {
+            builder.set_variable(index.witness_index, 0);
         }
-        field_ct w = field_ct::from_witness(&builder, w_value);
-        value.assert_equal(table[w]);
-        w.assert_equal(index);
+        value.assert_equal(table[index]);
     }
 }
 
@@ -144,12 +141,11 @@ void process_RAM_operations(Builder& builder,
     for (auto& op : constraint.trace) {
         field_ct value = poly_to_field_ct(op.value, builder);
         field_ct index = poly_to_field_ct(op.index, builder);
-
-        // We create a new witness w to avoid issues with non-valid witness assignements.
-        // If witness are not assigned, then index will be zero and table[index] won't hit bounds check.
-        fr index_value = has_valid_witness_assignments ? index.get_value() : 0;
-        // Create new witness and ensure equal to index.
-        field_ct::from_witness(&builder, index_value).assert_equal(index);
+        // In case of invalid witness assignment, we set the value of index value to zero to not hit out of bound in
+        // RAM table
+        if (!has_valid_witness_assignments) {
+            builder.set_variable(index.witness_index, 0);
+        }
 
         if (op.access_type == 0) {
             value.assert_equal(table.read(index));
@@ -179,14 +175,12 @@ void process_call_data_operations(Builder& builder,
             BB_ASSERT_EQ(op.access_type, 0);
             field_ct value = poly_to_field_ct(op.value, builder);
             field_ct index = poly_to_field_ct(op.index, builder);
-            fr w_value = 0;
-            if (has_valid_witness_assignments) {
-                // If witness are assigned, we use the correct value for w
-                w_value = index.get_value();
+            // In case of invalid witness assignment, we set the value of index value to zero to not hit out of bound in
+            // calldata-array
+            if (!has_valid_witness_assignments) {
+                builder.set_variable(index.witness_index, 0);
             }
-            field_ct w = field_ct::from_witness(&builder, w_value);
-            value.assert_equal(calldata_array[w]);
-            w.assert_equal(index);
+            value.assert_equal(calldata_array[index]);
         }
     };
 

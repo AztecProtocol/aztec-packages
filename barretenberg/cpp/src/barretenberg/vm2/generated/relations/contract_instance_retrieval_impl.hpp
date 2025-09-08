@@ -32,45 +32,85 @@ void contract_instance_retrievalImpl<FF_>::accumulate(ContainerOverSubrelations&
         tmp *= scaling_factor;
         std::get<1>(evals) += typename Accumulator::View(tmp);
     }
-    { // INSTANCE_MEMBER_SALT_IS_ZERO_IF_DNE
+    {
         using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
+        auto tmp = in.get(C::contract_instance_retrieval_is_protocol_contract) *
+                   (FF(1) - in.get(C::contract_instance_retrieval_is_protocol_contract));
+        tmp *= scaling_factor;
+        std::get<2>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
+        auto tmp = in.get(C::contract_instance_retrieval_sel) *
+                   in.get(C::contract_instance_retrieval_is_protocol_contract) *
+                   (FF(1) - in.get(C::contract_instance_retrieval_exists));
+        tmp *= scaling_factor;
+        std::get<3>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
+        auto tmp = (in.get(C::contract_instance_retrieval_should_check_nullifier) -
+                    in.get(C::contract_instance_retrieval_sel) *
+                        (FF(1) - in.get(C::contract_instance_retrieval_is_protocol_contract)));
+        tmp *= scaling_factor;
+        std::get<4>(evals) += typename Accumulator::View(tmp);
+    }
+    { // INSTANCE_MEMBER_SALT_IS_ZERO_IF_DNE
+        using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
         auto tmp = in.get(C::contract_instance_retrieval_sel) *
                    (FF(1) - in.get(C::contract_instance_retrieval_exists)) *
                    in.get(C::contract_instance_retrieval_salt);
         tmp *= scaling_factor;
-        std::get<2>(evals) += typename Accumulator::View(tmp);
+        std::get<5>(evals) += typename Accumulator::View(tmp);
     }
     { // INSTANCE_MEMBER_DEPLOYER_IS_ZERO_IF_DNE
-        using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
         auto tmp = in.get(C::contract_instance_retrieval_sel) *
                    (FF(1) - in.get(C::contract_instance_retrieval_exists)) *
                    in.get(C::contract_instance_retrieval_deployer_addr);
         tmp *= scaling_factor;
-        std::get<3>(evals) += typename Accumulator::View(tmp);
+        std::get<6>(evals) += typename Accumulator::View(tmp);
     }
     { // INSTANCE_MEMBER_CLASS_ID_IS_ZERO_IF_DNE
-        using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
         auto tmp = in.get(C::contract_instance_retrieval_sel) *
                    (FF(1) - in.get(C::contract_instance_retrieval_exists)) *
                    in.get(C::contract_instance_retrieval_current_class_id);
         tmp *= scaling_factor;
-        std::get<4>(evals) += typename Accumulator::View(tmp);
+        std::get<7>(evals) += typename Accumulator::View(tmp);
     }
     { // INSTANCE_MEMBER_ORIGINAL_CLASS_ID_IS_ZERO_IF_DNE
-        using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
         auto tmp = in.get(C::contract_instance_retrieval_sel) *
                    (FF(1) - in.get(C::contract_instance_retrieval_exists)) *
                    in.get(C::contract_instance_retrieval_original_class_id);
         tmp *= scaling_factor;
-        std::get<5>(evals) += typename Accumulator::View(tmp);
+        std::get<8>(evals) += typename Accumulator::View(tmp);
     }
     { // INSTANCE_MEMBER_INIT_HASH_IS_ZERO_IF_DNE
-        using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
         auto tmp = in.get(C::contract_instance_retrieval_sel) *
                    (FF(1) - in.get(C::contract_instance_retrieval_exists)) *
                    in.get(C::contract_instance_retrieval_init_hash);
         tmp *= scaling_factor;
-        std::get<6>(evals) += typename Accumulator::View(tmp);
+        std::get<9>(evals) += typename Accumulator::View(tmp);
+    }
+    { // UNCHANGED_ADDRESS_NON_PROTOCOL
+        using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
+        auto tmp =
+            in.get(C::contract_instance_retrieval_sel) *
+            (FF(1) - in.get(C::contract_instance_retrieval_is_protocol_contract)) *
+            (in.get(C::contract_instance_retrieval_derived_address) - in.get(C::contract_instance_retrieval_address));
+        tmp *= scaling_factor;
+        std::get<10>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
+        auto tmp = (in.get(C::contract_instance_retrieval_should_check_for_update) -
+                    in.get(C::contract_instance_retrieval_should_check_nullifier) *
+                        in.get(C::contract_instance_retrieval_exists));
+        tmp *= scaling_factor;
+        std::get<11>(evals) += typename Accumulator::View(tmp);
     }
 }
 

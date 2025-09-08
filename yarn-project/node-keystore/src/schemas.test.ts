@@ -47,7 +47,7 @@ describe('Keystore Schema Validation', () => {
   });
 
   it('should validate prover with publishers example', () => {
-    const keystore = loadExample('prover-with-publishers.json');
+    const keystore = loadExample('prover-with-publishers-and-funding-account.json');
     expect(() => keystoreSchema.parse(keystore)).not.toThrow();
 
     const parsed = keystoreSchema.parse(keystore);
@@ -55,6 +55,7 @@ describe('Keystore Schema Validation', () => {
     expect(typeof parsed.prover).toBe('object');
     expect((parsed.prover as any).id).toBe('0x1234567890123456789012345678901234567890');
     expect((parsed.prover as any).publisher).toHaveLength(2);
+    expect(parsed.fundingAccount).toBe('0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd');
   });
 
   it('should validate prover with single publisher example', () => {

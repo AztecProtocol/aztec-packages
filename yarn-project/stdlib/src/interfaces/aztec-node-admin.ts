@@ -8,6 +8,7 @@ import { type ComponentsVersions, getVersioningResponseHandler } from '../versio
 import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
 import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
 import { type SlasherConfig, SlasherConfigSchema } from './slasher.js';
+import { ValidatorClientConfigSchema, type ValidatorClientFullConfig } from './validator.js';
 
 /**
  * Aztec node admin API.
@@ -50,10 +51,14 @@ export interface AztecNodeAdmin {
   getSlashOffenses(round: bigint | 'all' | 'current'): Promise<Offense[]>;
 }
 
-export type AztecNodeAdminConfig = SequencerConfig & ProverConfig & SlasherConfig & { maxTxPoolSize: number };
+export type AztecNodeAdminConfig = ValidatorClientFullConfig &
+  SequencerConfig &
+  ProverConfig &
+  SlasherConfig & { maxTxPoolSize: number };
 
 export const AztecNodeAdminConfigSchema = SequencerConfigSchema.merge(ProverConfigSchema)
   .merge(SlasherConfigSchema)
+  .merge(ValidatorClientConfigSchema)
   .merge(z.object({ maxTxPoolSize: z.number() }));
 
 export const AztecNodeAdminApiSchema: ApiSchemaFor<AztecNodeAdmin> = {
