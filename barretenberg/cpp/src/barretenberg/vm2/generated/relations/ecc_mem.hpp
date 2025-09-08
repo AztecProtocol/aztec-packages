@@ -34,29 +34,29 @@ template <typename FF> class ecc_mem : public Relation<ecc_memImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "ecc_mem";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 0:
-            return "WRITE_INCR_DST_ADDR";
-        case 6:
-            return "P_CURVE_EQN";
-        case 7:
-            return "P_ON_CURVE_CHECK";
-        case 8:
-            return "Q_CURVE_EQN";
-        case 9:
-            return "Q_ON_CURVE_CHECK";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_WRITE_INCR_DST_ADDR = 0;
     static constexpr size_t SR_P_CURVE_EQN = 6;
     static constexpr size_t SR_P_ON_CURVE_CHECK = 7;
     static constexpr size_t SR_Q_CURVE_EQN = 8;
     static constexpr size_t SR_Q_ON_CURVE_CHECK = 9;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_WRITE_INCR_DST_ADDR:
+            return "WRITE_INCR_DST_ADDR";
+        case SR_P_CURVE_EQN:
+            return "P_CURVE_EQN";
+        case SR_P_ON_CURVE_CHECK:
+            return "P_ON_CURVE_CHECK";
+        case SR_Q_CURVE_EQN:
+            return "Q_CURVE_EQN";
+        case SR_Q_ON_CURVE_CHECK:
+            return "Q_ON_CURVE_CHECK";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

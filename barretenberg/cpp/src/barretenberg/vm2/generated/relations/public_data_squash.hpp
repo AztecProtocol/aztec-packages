@@ -34,26 +34,26 @@ template <typename FF> class public_data_squash : public Relation<public_data_sq
   public:
     static constexpr const std::string_view NAME = "public_data_squash";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 1:
-            return "START_CONDITION";
-        case 4:
-            return "CHECK_SAME_LEAF_SLOT";
-        case 9:
-            return "FINAL_VALUE_PROPAGATION";
-        case 10:
-            return "FINAL_VALUE_CHECK";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_START_CONDITION = 1;
     static constexpr size_t SR_CHECK_SAME_LEAF_SLOT = 4;
     static constexpr size_t SR_FINAL_VALUE_PROPAGATION = 9;
     static constexpr size_t SR_FINAL_VALUE_CHECK = 10;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_START_CONDITION:
+            return "START_CONDITION";
+        case SR_CHECK_SAME_LEAF_SLOT:
+            return "CHECK_SAME_LEAF_SLOT";
+        case SR_FINAL_VALUE_PROPAGATION:
+            return "FINAL_VALUE_PROPAGATION";
+        case SR_FINAL_VALUE_CHECK:
+            return "FINAL_VALUE_CHECK";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

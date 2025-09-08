@@ -34,20 +34,20 @@ template <typename FF> class gas : public Relation<gasImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "gas";
 
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_L2_CMP_DIFF = 3;
+    static constexpr size_t SR_DA_CMP_DIFF = 4;
+
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case 3:
+        case SR_L2_CMP_DIFF:
             return "L2_CMP_DIFF";
-        case 4:
+        case SR_DA_CMP_DIFF:
             return "DA_CMP_DIFF";
         }
         return std::to_string(index);
     }
-
-    // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_L2_CMP_DIFF = 3;
-    static constexpr size_t SR_DA_CMP_DIFF = 4;
 };
 
 } // namespace bb::avm2

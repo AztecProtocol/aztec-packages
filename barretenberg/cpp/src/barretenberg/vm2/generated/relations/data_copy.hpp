@@ -38,43 +38,6 @@ template <typename FF> class data_copy : public Relation<data_copyImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "data_copy";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 6:
-            return "TOP_LEVEL_COND";
-        case 17:
-            return "START_AFTER_END";
-        case 18:
-            return "ZERO_SIZED_WRITE";
-        case 19:
-            return "END_IF_WRITE_IS_ZERO";
-        case 20:
-            return "END_WRITE_CONDITION";
-        case 21:
-            return "END_ON_ERR";
-        case 22:
-            return "INIT_READS_LEFT";
-        case 24:
-            return "DECR_COPY_SIZE";
-        case 25:
-            return "INCR_WRITE_ADDR";
-        case 26:
-            return "INIT_READ_ADDR";
-        case 27:
-            return "INCR_READ_ADDR";
-        case 28:
-            return "DECR_READ_COUNT";
-        case 29:
-            return "PADDING_CONDITION";
-        case 31:
-            return "PAD_VALUE";
-        case 32:
-            return "CD_COPY_COLUMN";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_TOP_LEVEL_COND = 6;
     static constexpr size_t SR_START_AFTER_END = 17;
@@ -91,6 +54,43 @@ template <typename FF> class data_copy : public Relation<data_copyImpl<FF>> {
     static constexpr size_t SR_PADDING_CONDITION = 29;
     static constexpr size_t SR_PAD_VALUE = 31;
     static constexpr size_t SR_CD_COPY_COLUMN = 32;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_TOP_LEVEL_COND:
+            return "TOP_LEVEL_COND";
+        case SR_START_AFTER_END:
+            return "START_AFTER_END";
+        case SR_ZERO_SIZED_WRITE:
+            return "ZERO_SIZED_WRITE";
+        case SR_END_IF_WRITE_IS_ZERO:
+            return "END_IF_WRITE_IS_ZERO";
+        case SR_END_WRITE_CONDITION:
+            return "END_WRITE_CONDITION";
+        case SR_END_ON_ERR:
+            return "END_ON_ERR";
+        case SR_INIT_READS_LEFT:
+            return "INIT_READS_LEFT";
+        case SR_DECR_COPY_SIZE:
+            return "DECR_COPY_SIZE";
+        case SR_INCR_WRITE_ADDR:
+            return "INCR_WRITE_ADDR";
+        case SR_INIT_READ_ADDR:
+            return "INIT_READ_ADDR";
+        case SR_INCR_READ_ADDR:
+            return "INCR_READ_ADDR";
+        case SR_DECR_READ_COUNT:
+            return "DECR_READ_COUNT";
+        case SR_PADDING_CONDITION:
+            return "PADDING_CONDITION";
+        case SR_PAD_VALUE:
+            return "PAD_VALUE";
+        case SR_CD_COPY_COLUMN:
+            return "CD_COPY_COLUMN";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

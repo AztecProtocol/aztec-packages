@@ -34,23 +34,23 @@ template <typename FF> class notehash_exists : public Relation<notehash_existsIm
   public:
     static constexpr const std::string_view NAME = "notehash_exists";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 2:
-            return "NOTE_HASH_EXISTS_OUT_OF_RANGE_FALSE";
-        case 3:
-            return "NOTEHASH_EXISTS_U1_OUTPUT_TAG";
-        case 4:
-            return "NOTE_HASH_EXISTS_SUCCESS";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_NOTE_HASH_EXISTS_OUT_OF_RANGE_FALSE = 2;
     static constexpr size_t SR_NOTEHASH_EXISTS_U1_OUTPUT_TAG = 3;
     static constexpr size_t SR_NOTE_HASH_EXISTS_SUCCESS = 4;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_NOTE_HASH_EXISTS_OUT_OF_RANGE_FALSE:
+            return "NOTE_HASH_EXISTS_OUT_OF_RANGE_FALSE";
+        case SR_NOTEHASH_EXISTS_U1_OUTPUT_TAG:
+            return "NOTEHASH_EXISTS_U1_OUTPUT_TAG";
+        case SR_NOTE_HASH_EXISTS_SUCCESS:
+            return "NOTE_HASH_EXISTS_SUCCESS";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2
