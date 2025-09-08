@@ -16,18 +16,20 @@ void emit_unencrypted_logImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 
     BB_BENCH_NAME("accumulate/emit_unencrypted_log");
 
-    const auto constants_MAX_PUBLIC_LOGS_PER_TX = FF(8);
-    const auto constants_PUBLIC_LOG_SIZE_IN_FIELDS = FF(13);
+    const auto constants_PUBLIC_LOGS_HEADER_LENGTH = FF(1);
+    const auto constants_PUBLIC_LOGS_PAYLOAD_LENGTH = FF(4096);
+    const auto constants_PUBLIC_LOG_HEADER_LENGTH = FF(2);
     const auto constants_MEM_TAG_FF = FF(0);
     const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);
-    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX = FF(511);
+    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX = FF(510);
     const auto emit_unencrypted_log_NOT_END =
         in.get(C::emit_unencrypted_log_sel) * (FF(1) - in.get(C::emit_unencrypted_log_end));
     const auto emit_unencrypted_log_LATCH_CONDITION =
         in.get(C::emit_unencrypted_log_end) + in.get(C::precomputed_first_row);
-    const auto emit_unencrypted_log_MAX_LOGS_MINUS_EMITTED =
-        (constants_MAX_PUBLIC_LOGS_PER_TX - in.get(C::emit_unencrypted_log_prev_num_unencrypted_logs));
-    const auto emit_unencrypted_log_WRONG_TAG = (FF(1) - in.get(C::emit_unencrypted_log_correct_tag));
+    const auto emit_unencrypted_log_TOTAL_LOG_FIELDS_SIZE =
+        constants_PUBLIC_LOG_HEADER_LENGTH + in.get(C::emit_unencrypted_log_log_size);
+    const auto emit_unencrypted_log_IS_WRITE_LOG_LENGTH = in.get(C::emit_unencrypted_log_start);
+    const auto emit_unencrypted_log_WRONG_NEXT_TAG = (FF(1) - in.get(C::emit_unencrypted_log_correct_tag_shift));
 
     {
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -82,7 +84,8 @@ void emit_unencrypted_logImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
         auto tmp = in.get(C::emit_unencrypted_log_start) *
-                   ((constants_PUBLIC_LOG_SIZE_IN_FIELDS - FF(1)) - in.get(C::emit_unencrypted_log_remaining_rows));
+                   (((constants_PUBLIC_LOG_HEADER_LENGTH + in.get(C::emit_unencrypted_log_log_size)) - FF(1)) -
+                    in.get(C::emit_unencrypted_log_remaining_rows));
         tmp *= scaling_factor;
         std::get<8>(evals) += typename Accumulator::View(tmp);
     }
@@ -107,202 +110,193 @@ void emit_unencrypted_logImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
-        auto tmp =
-            in.get(C::emit_unencrypted_log_error_too_large) * (FF(1) - in.get(C::emit_unencrypted_log_error_too_large));
+        auto tmp = in.get(C::emit_unencrypted_log_error_out_of_bounds) *
+                   (FF(1) - in.get(C::emit_unencrypted_log_error_out_of_bounds));
         tmp *= scaling_factor;
         std::get<11>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
         auto tmp = in.get(C::emit_unencrypted_log_start) *
-                   (in.get(C::emit_unencrypted_log_max_log_size) - constants_PUBLIC_LOG_SIZE_IN_FIELDS);
+                   (in.get(C::emit_unencrypted_log_max_mem_addr) - constants_AVM_HIGHEST_MEM_ADDRESS);
         tmp *= scaling_factor;
         std::get<12>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
-        auto tmp = in.get(C::emit_unencrypted_log_error_out_of_bounds) *
-                   (FF(1) - in.get(C::emit_unencrypted_log_error_out_of_bounds));
+        auto tmp = in.get(C::emit_unencrypted_log_start) *
+                   (((in.get(C::emit_unencrypted_log_log_address) + in.get(C::emit_unencrypted_log_log_size)) - FF(1)) -
+                    in.get(C::emit_unencrypted_log_end_log_address));
         tmp *= scaling_factor;
         std::get<13>(evals) += typename Accumulator::View(tmp);
     }
-    {
+    { // ERROR_OUT_OF_BOUNDS_CONSISTENCY
         using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
-        auto tmp = in.get(C::emit_unencrypted_log_start) *
-                   (in.get(C::emit_unencrypted_log_max_mem_addr) - constants_AVM_HIGHEST_MEM_ADDRESS);
+        auto tmp = emit_unencrypted_log_NOT_END * (in.get(C::emit_unencrypted_log_error_out_of_bounds_shift) -
+                                                   in.get(C::emit_unencrypted_log_error_out_of_bounds));
         tmp *= scaling_factor;
         std::get<14>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
-        auto tmp = in.get(C::emit_unencrypted_log_start) *
-                   (((in.get(C::emit_unencrypted_log_log_address) + in.get(C::emit_unencrypted_log_log_size)) - FF(1)) -
-                    in.get(C::emit_unencrypted_log_end_log_address));
+        auto tmp = in.get(C::emit_unencrypted_log_error_too_many_log_fields) *
+                   (FF(1) - in.get(C::emit_unencrypted_log_error_too_many_log_fields));
         tmp *= scaling_factor;
         std::get<15>(evals) += typename Accumulator::View(tmp);
     }
-    { // ERROR_OUT_OF_BOUNDS_CONSISTENCY
+    {
         using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
-        auto tmp = emit_unencrypted_log_NOT_END * (in.get(C::emit_unencrypted_log_error_out_of_bounds_shift) -
-                                                   in.get(C::emit_unencrypted_log_error_out_of_bounds));
+        auto tmp =
+            in.get(C::emit_unencrypted_log_start) * ((in.get(C::emit_unencrypted_log_prev_num_unencrypted_log_fields) +
+                                                      emit_unencrypted_log_TOTAL_LOG_FIELDS_SIZE) -
+                                                     in.get(C::emit_unencrypted_log_expected_next_log_fields));
         tmp *= scaling_factor;
         std::get<16>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
-        auto tmp = in.get(C::emit_unencrypted_log_error_too_many_logs) *
-                   (FF(1) - in.get(C::emit_unencrypted_log_error_too_many_logs));
+        auto tmp = in.get(C::emit_unencrypted_log_start) *
+                   (in.get(C::emit_unencrypted_log_public_logs_payload_length) - constants_PUBLIC_LOGS_PAYLOAD_LENGTH);
         tmp *= scaling_factor;
         std::get<17>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
-        auto tmp = in.get(C::emit_unencrypted_log_start) *
-                   ((emit_unencrypted_log_MAX_LOGS_MINUS_EMITTED *
-                         (in.get(C::emit_unencrypted_log_error_too_many_logs) *
-                              (FF(1) - in.get(C::emit_unencrypted_log_max_logs_minus_emitted_inv)) +
-                          in.get(C::emit_unencrypted_log_max_logs_minus_emitted_inv)) -
-                     FF(1)) +
-                    in.get(C::emit_unencrypted_log_error_too_many_logs));
-        tmp *= scaling_factor;
-        std::get<18>(evals) += typename Accumulator::View(tmp);
-    }
-    {
-        using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
         auto tmp = in.get(C::emit_unencrypted_log_error_tag_mismatch) *
                    (FF(1) - in.get(C::emit_unencrypted_log_error_tag_mismatch));
         tmp *= scaling_factor;
-        std::get<19>(evals) += typename Accumulator::View(tmp);
+        std::get<18>(evals) += typename Accumulator::View(tmp);
     }
     { // ERROR_TAG_MISMATCH_CONSISTENCY
-        using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
         auto tmp = emit_unencrypted_log_NOT_END * (in.get(C::emit_unencrypted_log_error_tag_mismatch_shift) -
                                                    in.get(C::emit_unencrypted_log_error_tag_mismatch));
+        tmp *= scaling_factor;
+        std::get<19>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
+        auto tmp =
+            in.get(C::emit_unencrypted_log_seen_wrong_tag) * (FF(1) - in.get(C::emit_unencrypted_log_seen_wrong_tag));
         tmp *= scaling_factor;
         std::get<20>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
-        auto tmp =
-            in.get(C::emit_unencrypted_log_seen_wrong_tag) * (FF(1) - in.get(C::emit_unencrypted_log_seen_wrong_tag));
+        auto tmp = in.get(C::emit_unencrypted_log_start) * in.get(C::emit_unencrypted_log_seen_wrong_tag);
         tmp *= scaling_factor;
         std::get<21>(evals) += typename Accumulator::View(tmp);
     }
-    {
+    { // WRONG_TAG_CHECK
         using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
-        auto tmp = in.get(C::emit_unencrypted_log_start) *
-                   (emit_unencrypted_log_WRONG_TAG - in.get(C::emit_unencrypted_log_seen_wrong_tag));
+        auto tmp = emit_unencrypted_log_NOT_END *
+                   (((FF(1) - in.get(C::emit_unencrypted_log_seen_wrong_tag)) * emit_unencrypted_log_WRONG_NEXT_TAG +
+                     in.get(C::emit_unencrypted_log_seen_wrong_tag)) -
+                    in.get(C::emit_unencrypted_log_seen_wrong_tag_shift));
         tmp *= scaling_factor;
         std::get<22>(evals) += typename Accumulator::View(tmp);
     }
-    { // WRONG_TAG_CHECK
+    {
         using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
-        auto tmp = emit_unencrypted_log_NOT_END *
-                   (((FF(1) - in.get(C::emit_unencrypted_log_seen_wrong_tag)) * emit_unencrypted_log_WRONG_TAG +
-                     in.get(C::emit_unencrypted_log_seen_wrong_tag)) -
-                    in.get(C::emit_unencrypted_log_seen_wrong_tag_shift));
+        auto tmp = in.get(C::emit_unencrypted_log_end) * (in.get(C::emit_unencrypted_log_error_tag_mismatch) -
+                                                          in.get(C::emit_unencrypted_log_seen_wrong_tag));
         tmp *= scaling_factor;
         std::get<23>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
-        auto tmp = in.get(C::emit_unencrypted_log_end) * (in.get(C::emit_unencrypted_log_error_tag_mismatch) -
-                                                          in.get(C::emit_unencrypted_log_seen_wrong_tag));
+        auto tmp = in.get(C::emit_unencrypted_log_start) *
+                   ((FF(1) - in.get(C::emit_unencrypted_log_error_too_many_log_fields)) *
+                        (FF(1) - in.get(C::emit_unencrypted_log_error_tag_mismatch)) *
+                        (FF(1) - in.get(C::emit_unencrypted_log_is_static)) -
+                    (FF(1) - in.get(C::emit_unencrypted_log_error_too_many_logs_wrong_tag_is_static)));
         tmp *= scaling_factor;
         std::get<24>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<25, ContainerOverSubrelations>;
         auto tmp = in.get(C::emit_unencrypted_log_start) *
-                   ((FF(1) - in.get(C::emit_unencrypted_log_error_too_many_logs)) *
-                        (FF(1) - in.get(C::emit_unencrypted_log_error_tag_mismatch)) *
-                        (FF(1) - in.get(C::emit_unencrypted_log_is_static)) -
-                    (FF(1) - in.get(C::emit_unencrypted_log_error_too_many_logs_wrong_tag_is_static)));
+                   ((FF(1) - in.get(C::emit_unencrypted_log_error_out_of_bounds)) *
+                        (FF(1) - in.get(C::emit_unencrypted_log_error_too_many_logs_wrong_tag_is_static)) -
+                    (FF(1) - in.get(C::emit_unencrypted_log_error)));
         tmp *= scaling_factor;
         std::get<25>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
-        auto tmp = in.get(C::emit_unencrypted_log_start) *
-                   ((FF(1) - in.get(C::emit_unencrypted_log_error_too_large)) *
-                        (FF(1) - in.get(C::emit_unencrypted_log_error_out_of_bounds)) *
-                        (FF(1) - in.get(C::emit_unencrypted_log_error_too_many_logs_wrong_tag_is_static)) -
-                    (FF(1) - in.get(C::emit_unencrypted_log_error)));
-        tmp *= scaling_factor;
-        std::get<26>(evals) += typename Accumulator::View(tmp);
-    }
-    {
-        using Accumulator = typename std::tuple_element_t<27, ContainerOverSubrelations>;
         auto tmp =
             in.get(C::emit_unencrypted_log_start) *
             ((FF(1) - in.get(C::emit_unencrypted_log_error)) * (FF(1) - in.get(C::emit_unencrypted_log_discard)) -
              in.get(C::emit_unencrypted_log_sel_should_write_to_public_inputs));
         tmp *= scaling_factor;
-        std::get<27>(evals) += typename Accumulator::View(tmp);
+        std::get<26>(evals) += typename Accumulator::View(tmp);
     }
     { // SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY
-        using Accumulator = typename std::tuple_element_t<28, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<27, ContainerOverSubrelations>;
         auto tmp =
             emit_unencrypted_log_NOT_END * (in.get(C::emit_unencrypted_log_sel_should_write_to_public_inputs_shift) -
                                             in.get(C::emit_unencrypted_log_sel_should_write_to_public_inputs));
+        tmp *= scaling_factor;
+        std::get<27>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<28, ContainerOverSubrelations>;
+        auto tmp = in.get(C::emit_unencrypted_log_start) *
+                   ((in.get(C::emit_unencrypted_log_prev_num_unencrypted_log_fields) +
+                     (FF(1) - in.get(C::emit_unencrypted_log_error)) * emit_unencrypted_log_TOTAL_LOG_FIELDS_SIZE) -
+                    in.get(C::emit_unencrypted_log_next_num_unencrypted_log_fields));
         tmp *= scaling_factor;
         std::get<28>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<29, ContainerOverSubrelations>;
-        auto tmp = in.get(C::emit_unencrypted_log_sel) * ((in.get(C::emit_unencrypted_log_prev_num_unencrypted_logs) +
-                                                           (FF(1) - in.get(C::emit_unencrypted_log_error))) -
-                                                          in.get(C::emit_unencrypted_log_next_num_unencrypted_logs));
+        auto tmp = in.get(C::emit_unencrypted_log_is_write_contract_address) *
+                   (FF(1) - in.get(C::emit_unencrypted_log_is_write_contract_address));
         tmp *= scaling_factor;
         std::get<29>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<30, ContainerOverSubrelations>;
         auto tmp =
-            in.get(C::emit_unencrypted_log_is_padding_row) * (FF(1) - in.get(C::emit_unencrypted_log_is_padding_row));
+            (in.get(C::emit_unencrypted_log_start) - in.get(C::emit_unencrypted_log_is_write_contract_address_shift));
         tmp *= scaling_factor;
         std::get<30>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<31, ContainerOverSubrelations>;
-        auto tmp = in.get(C::emit_unencrypted_log_start) *
-                   (in.get(C::emit_unencrypted_log_log_size) - in.get(C::emit_unencrypted_log_remaining_log_size));
+        auto tmp = in.get(C::emit_unencrypted_log_is_write_memory_value) *
+                   (FF(1) - in.get(C::emit_unencrypted_log_is_write_memory_value));
         tmp *= scaling_factor;
         std::get<31>(evals) += typename Accumulator::View(tmp);
     }
-    { // REMAINING_LOG_SIZE_DECREMENT
+    {
         using Accumulator = typename std::tuple_element_t<32, ContainerOverSubrelations>;
-        auto tmp = emit_unencrypted_log_NOT_END * (FF(1) - in.get(C::emit_unencrypted_log_is_padding_row)) *
-                   ((in.get(C::emit_unencrypted_log_remaining_log_size) - FF(1)) -
-                    in.get(C::emit_unencrypted_log_remaining_log_size_shift));
+        auto tmp = in.get(C::emit_unencrypted_log_start) * in.get(C::emit_unencrypted_log_is_write_memory_value);
         tmp *= scaling_factor;
         std::get<32>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<33, ContainerOverSubrelations>;
-        auto tmp = in.get(C::emit_unencrypted_log_sel) *
-                   ((in.get(C::emit_unencrypted_log_remaining_log_size) *
-                         (in.get(C::emit_unencrypted_log_is_padding_row) *
-                              (FF(1) - in.get(C::emit_unencrypted_log_remaining_log_size_inv)) +
-                          in.get(C::emit_unencrypted_log_remaining_log_size_inv)) -
-                     FF(1)) +
-                    in.get(C::emit_unencrypted_log_is_padding_row));
+        auto tmp = emit_unencrypted_log_NOT_END * ((in.get(C::emit_unencrypted_log_is_write_memory_value) +
+                                                    in.get(C::emit_unencrypted_log_is_write_contract_address)) -
+                                                   in.get(C::emit_unencrypted_log_is_write_memory_value_shift));
         tmp *= scaling_factor;
         std::get<33>(evals) += typename Accumulator::View(tmp);
     }
     {
         using Accumulator = typename std::tuple_element_t<34, ContainerOverSubrelations>;
-        auto tmp =
-            in.get(C::emit_unencrypted_log_sel) * ((FF(1) - in.get(C::emit_unencrypted_log_error_out_of_bounds)) *
-                                                       (FF(1) - in.get(C::emit_unencrypted_log_is_padding_row)) -
-                                                   in.get(C::emit_unencrypted_log_sel_should_read_memory));
+        auto tmp = (in.get(C::emit_unencrypted_log_sel_should_read_memory) -
+                    in.get(C::emit_unencrypted_log_is_write_memory_value) *
+                        (FF(1) - in.get(C::emit_unencrypted_log_error_out_of_bounds)));
         tmp *= scaling_factor;
         std::get<34>(evals) += typename Accumulator::View(tmp);
     }
     { // LOG_ADDRESS_INCREMENT
         using Accumulator = typename std::tuple_element_t<35, ContainerOverSubrelations>;
-        auto tmp = emit_unencrypted_log_NOT_END * ((in.get(C::emit_unencrypted_log_log_address) + FF(1)) -
-                                                   in.get(C::emit_unencrypted_log_log_address_shift));
+        auto tmp =
+            emit_unencrypted_log_NOT_END *
+            ((in.get(C::emit_unencrypted_log_log_address) + in.get(C::emit_unencrypted_log_is_write_memory_value)) -
+             in.get(C::emit_unencrypted_log_log_address_shift));
         tmp *= scaling_factor;
         std::get<35>(evals) += typename Accumulator::View(tmp);
     }
@@ -355,10 +349,11 @@ void emit_unencrypted_logImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using Accumulator = typename std::tuple_element_t<42, ContainerOverSubrelations>;
-        auto tmp = in.get(C::emit_unencrypted_log_start) *
-                   ((constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX +
-                     in.get(C::emit_unencrypted_log_prev_num_unencrypted_logs) * constants_PUBLIC_LOG_SIZE_IN_FIELDS) -
-                    in.get(C::emit_unencrypted_log_public_inputs_index));
+        auto tmp =
+            in.get(C::emit_unencrypted_log_start) *
+            ((constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX +
+              constants_PUBLIC_LOGS_HEADER_LENGTH + in.get(C::emit_unencrypted_log_prev_num_unencrypted_log_fields)) -
+             in.get(C::emit_unencrypted_log_public_inputs_index));
         tmp *= scaling_factor;
         std::get<42>(evals) += typename Accumulator::View(tmp);
     }
@@ -376,12 +371,27 @@ void emit_unencrypted_logImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         tmp *= scaling_factor;
         std::get<44>(evals) += typename Accumulator::View(tmp);
     }
-    { // LOG_SIZE_CONSISTENCY
+    {
         using Accumulator = typename std::tuple_element_t<45, ContainerOverSubrelations>;
-        auto tmp = emit_unencrypted_log_NOT_END *
-                   (in.get(C::emit_unencrypted_log_log_size) - in.get(C::emit_unencrypted_log_log_size_shift));
+        auto tmp = emit_unencrypted_log_IS_WRITE_LOG_LENGTH *
+                   (in.get(C::emit_unencrypted_log_log_size) - in.get(C::emit_unencrypted_log_public_inputs_value));
         tmp *= scaling_factor;
         std::get<45>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<46, ContainerOverSubrelations>;
+        auto tmp =
+            in.get(C::emit_unencrypted_log_is_write_contract_address) *
+            (in.get(C::emit_unencrypted_log_contract_address) - in.get(C::emit_unencrypted_log_public_inputs_value));
+        tmp *= scaling_factor;
+        std::get<46>(evals) += typename Accumulator::View(tmp);
+    }
+    {
+        using Accumulator = typename std::tuple_element_t<47, ContainerOverSubrelations>;
+        auto tmp = in.get(C::emit_unencrypted_log_is_write_memory_value) *
+                   (in.get(C::emit_unencrypted_log_value) - in.get(C::emit_unencrypted_log_public_inputs_value));
+        tmp *= scaling_factor;
+        std::get<47>(evals) += typename Accumulator::View(tmp);
     }
 }
 

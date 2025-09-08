@@ -586,7 +586,8 @@ void contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // NUM_UNENCRYPTED_LOGS_CONTINUITY
         using Accumulator = typename std::tuple_element_t<76, ContainerOverSubrelations>;
         auto tmp = execution_NOT_LAST_EXEC * execution_DEFAULT_OR_NESTED_RETURN *
-                   (in.get(C::execution_num_unencrypted_logs) - in.get(C::execution_prev_num_unencrypted_logs_shift));
+                   (in.get(C::execution_num_unencrypted_log_fields) -
+                    in.get(C::execution_prev_num_unencrypted_log_fields_shift));
         tmp *= scaling_factor;
         std::get<76>(evals) += typename Accumulator::View(tmp);
     }

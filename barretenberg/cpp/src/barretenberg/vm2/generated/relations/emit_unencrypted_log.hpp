@@ -14,10 +14,10 @@ template <typename FF_> class emit_unencrypted_logImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 46> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 5, 3,
-                                                                            3, 3, 3, 3, 4, 3, 5, 3, 4, 3, 3, 5,
-                                                                            3, 5, 5, 4, 4, 3, 3, 3, 5, 5, 4, 4,
-                                                                            4, 4, 4, 4, 3, 5, 3, 4, 4, 4 };
+    static constexpr std::array<size_t, 48> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 5, 3,
+                                                                            3, 3, 4, 3, 3, 3, 3, 4, 3, 3, 5, 3,
+                                                                            5, 4, 4, 4, 4, 3, 2, 3, 3, 4, 3, 4,
+                                                                            4, 4, 4, 4, 3, 5, 3, 4, 4, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -50,16 +50,14 @@ template <typename FF> class emit_unencrypted_log : public Relation<emit_unencry
             return "SELECTOR_ON_END";
         case 9:
             return "REMAINING_ROWS_DECREMENT";
-        case 16:
+        case 14:
             return "ERROR_OUT_OF_BOUNDS_CONSISTENCY";
-        case 20:
+        case 19:
             return "ERROR_TAG_MISMATCH_CONSISTENCY";
-        case 23:
+        case 22:
             return "WRONG_TAG_CHECK";
-        case 28:
+        case 27:
             return "SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY";
-        case 32:
-            return "REMAINING_LOG_SIZE_DECREMENT";
         case 35:
             return "LOG_ADDRESS_INCREMENT";
         case 36:
@@ -68,8 +66,6 @@ template <typename FF> class emit_unencrypted_log : public Relation<emit_unencry
             return "SPACE_ID_CONSISTENCY";
         case 44:
             return "CONTRACT_ADDRESS_CONSISTENCY";
-        case 45:
-            return "LOG_SIZE_CONSISTENCY";
         }
         return std::to_string(index);
     }
@@ -80,16 +76,14 @@ template <typename FF> class emit_unencrypted_log : public Relation<emit_unencry
     static constexpr size_t SR_SELECTOR_CONSISTENCY = 6;
     static constexpr size_t SR_SELECTOR_ON_END = 7;
     static constexpr size_t SR_REMAINING_ROWS_DECREMENT = 9;
-    static constexpr size_t SR_ERROR_OUT_OF_BOUNDS_CONSISTENCY = 16;
-    static constexpr size_t SR_ERROR_TAG_MISMATCH_CONSISTENCY = 20;
-    static constexpr size_t SR_WRONG_TAG_CHECK = 23;
-    static constexpr size_t SR_SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY = 28;
-    static constexpr size_t SR_REMAINING_LOG_SIZE_DECREMENT = 32;
+    static constexpr size_t SR_ERROR_OUT_OF_BOUNDS_CONSISTENCY = 14;
+    static constexpr size_t SR_ERROR_TAG_MISMATCH_CONSISTENCY = 19;
+    static constexpr size_t SR_WRONG_TAG_CHECK = 22;
+    static constexpr size_t SR_SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY = 27;
     static constexpr size_t SR_LOG_ADDRESS_INCREMENT = 35;
     static constexpr size_t SR_EXEC_CLK_CONSISTENCY = 36;
     static constexpr size_t SR_SPACE_ID_CONSISTENCY = 37;
     static constexpr size_t SR_CONTRACT_ADDRESS_CONSISTENCY = 44;
-    static constexpr size_t SR_LOG_SIZE_CONSISTENCY = 45;
 };
 
 } // namespace bb::avm2

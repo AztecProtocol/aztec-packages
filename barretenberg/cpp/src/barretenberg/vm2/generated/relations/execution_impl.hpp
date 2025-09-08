@@ -671,8 +671,9 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // NUM_UNENCRYPTED_LOGS_NOT_CHANGED
         using Accumulator = typename std::tuple_element_t<83, ContainerOverSubrelations>;
-        auto tmp = in.get(C::execution_sel) * (FF(1) - in.get(C::execution_sel_execute_emit_unencrypted_log)) *
-                   (in.get(C::execution_prev_num_unencrypted_logs) - in.get(C::execution_num_unencrypted_logs));
+        auto tmp =
+            in.get(C::execution_sel) * (FF(1) - in.get(C::execution_sel_execute_emit_unencrypted_log)) *
+            (in.get(C::execution_prev_num_unencrypted_log_fields) - in.get(C::execution_num_unencrypted_log_fields));
         tmp *= scaling_factor;
         std::get<83>(evals) += typename Accumulator::View(tmp);
     }

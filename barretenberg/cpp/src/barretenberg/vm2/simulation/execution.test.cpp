@@ -262,7 +262,7 @@ TEST_F(ExecutionSimulationTest, Call)
         }
     };
 
-    SideEffectStates side_effect_states = SideEffectStates{ .numUnencryptedLogs = 1, .numL2ToL1Messages = 2 };
+    SideEffectStates side_effect_states = SideEffectStates{ .numUnencryptedLogFields = 1, .numL2ToL1Messages = 2 };
 
     EXPECT_CALL(gas_tracker, compute_gas_limit_for_call(Gas{ 6, 7 })).WillOnce(Return(Gas{ 2, 3 }));
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
@@ -340,7 +340,7 @@ TEST_F(ExecutionSimulationTest, ExternalCallStaticnessPropagation)
                     .nullifierTree = { .tree = { .root = 7, .nextAvailableLeafIndex = 6 }, .counter = 5 },
                     .l1ToL2MessageTree = { .tree = { .root = 4, .nextAvailableLeafIndex = 3 }, .counter = 0 },
                     .publicDataTree = { .tree = { .root = 2, .nextAvailableLeafIndex = 1 }, .counter = 1 } };
-    SideEffectStates side_effect_states = SideEffectStates{ .numUnencryptedLogs = 1, .numL2ToL1Messages = 2 };
+    SideEffectStates side_effect_states = SideEffectStates{ .numUnencryptedLogFields = 1, .numL2ToL1Messages = 2 };
 
     auto setup_context_expectations = [&](bool parent_is_static) {
         EXPECT_CALL(gas_tracker, compute_gas_limit_for_call(Gas{ 6, 7 })).WillOnce(Return(Gas{ 2, 3 }));

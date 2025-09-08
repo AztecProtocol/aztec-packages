@@ -31,7 +31,7 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX = FF(370);
     const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX = FF(371);
     const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX = FF(372);
-    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_LOGS_ROW_IDX = FF(373);
+    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX = FF(510);
     const auto constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT =
         FF(uint256_t{ 18071747219918308973UL, 16614632998898105071UL, 15723772623334795496UL, 2914032580688149866UL });
     const auto constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE = FF(1);
@@ -206,7 +206,7 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
-        auto tmp = in.get(C::tx_start_tx) * in.get(C::tx_prev_num_unencrypted_logs);
+        auto tmp = in.get(C::tx_start_tx) * in.get(C::tx_prev_num_unencrypted_log_fields);
         tmp *= scaling_factor;
         std::get<24>(evals) += typename Accumulator::View(tmp);
     }
@@ -310,8 +310,9 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // NUM_UNENCRYPTED_LOGS_CONTINUITY
         using Accumulator = typename std::tuple_element_t<39, ContainerOverSubrelations>;
-        auto tmp = tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
-                   (in.get(C::tx_next_num_unencrypted_logs) - in.get(C::tx_prev_num_unencrypted_logs_shift));
+        auto tmp =
+            tx_NOT_LAST_ROW * (FF(1) - in.get(C::tx_reverted)) *
+            (in.get(C::tx_next_num_unencrypted_log_fields) - in.get(C::tx_prev_num_unencrypted_log_fields_shift));
         tmp *= scaling_factor;
         std::get<39>(evals) += typename Accumulator::View(tmp);
     }
@@ -429,7 +430,7 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // UNENCRYPTED_LOG_COUNT_IMMUTABILITY
         using Accumulator = typename std::tuple_element_t<56, ContainerOverSubrelations>;
         auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel_can_emit_unencrypted_log)) *
-                   (in.get(C::tx_prev_num_unencrypted_logs) - in.get(C::tx_next_num_unencrypted_logs));
+                   (in.get(C::tx_prev_num_unencrypted_log_fields) - in.get(C::tx_next_num_unencrypted_log_fields));
         tmp *= scaling_factor;
         std::get<56>(evals) += typename Accumulator::View(tmp);
     }
@@ -531,7 +532,7 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // UNENCRYPTED_LOG_COUNT_PADDED_IMMUTABILITY
         using Accumulator = typename std::tuple_element_t<70, ContainerOverSubrelations>;
         auto tmp = in.get(C::tx_sel) * in.get(C::tx_is_padded) *
-                   (in.get(C::tx_prev_num_unencrypted_logs) - in.get(C::tx_next_num_unencrypted_logs));
+                   (in.get(C::tx_prev_num_unencrypted_log_fields) - in.get(C::tx_next_num_unencrypted_log_fields));
         tmp *= scaling_factor;
         std::get<70>(evals) += typename Accumulator::View(tmp);
     }
@@ -582,9 +583,8 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using Accumulator = typename std::tuple_element_t<77, ContainerOverSubrelations>;
-        auto tmp = in.get(C::tx_is_cleanup) *
-                   (constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_LOGS_ROW_IDX -
-                    in.get(C::tx_array_length_unencrypted_logs_pi_offset));
+        auto tmp = in.get(C::tx_is_cleanup) * (constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX -
+                                               in.get(C::tx_fields_length_unencrypted_logs_pi_offset));
         tmp *= scaling_factor;
         std::get<77>(evals) += typename Accumulator::View(tmp);
     }
