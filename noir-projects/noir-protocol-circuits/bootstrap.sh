@@ -183,7 +183,12 @@ function build {
 
 function test_cmds {
   $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
-    echo "$circuits_hash noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
+    if [[ "$package" == "rollup_lib" && "$test" == "block_root::block_root_rollup_inputs::tests::correct_blobs_with_non_empty_fields" ]]; then
+      # Set a custom timeout > 10m for this test.
+      echo "$circuits_hash:TIMEOUT=15m noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
+    else
+      echo "$circuits_hash noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
+    fi
   done
   # We don't blindly execute all circuits as some will have no `Prover.toml`.
   circuits_to_execute="
