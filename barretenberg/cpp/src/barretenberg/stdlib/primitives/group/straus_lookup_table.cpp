@@ -30,11 +30,10 @@ std::vector<typename straus_lookup_table<Builder>::Element> straus_lookup_table<
                                                 size_t table_bits)
 {
     const size_t table_size = 1UL << table_bits;
-    Element base = base_point.is_point_at_infinity() ? Group::one : base_point;
     std::vector<Element> hints;
     hints.emplace_back(offset_generator);
     for (size_t i = 1; i < table_size; ++i) {
-        hints.emplace_back(hints[i - 1] + base);
+        hints.emplace_back(hints[i - 1] + base_point);
     }
     return hints;
 }
