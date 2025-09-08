@@ -555,9 +555,13 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     // polynomials do not reveal information about data in the op queue
     // The position and number of these random ops are explained in ClientIVC::hide_op_queue_content_tail_kernel and
     // ClientIVC::hide_op_queue_content_hiding_kernel
-    process_random_op(ultra_ops[1]);
-    process_random_op(ultra_ops[2]);
-    process_random_op(ultra_ops[3]);
+    for (size_t i = NUM_NO_OPS_START; i <= NUM_RANDOM_OPS_START; ++i) {
+        process_random_op(ultra_ops[i]);
+    }
+
+    // Range of UltraOps for which we should construct accumulation gates
+    std::span ultra_ops_span(ultra_ops.begin() + static_cast<std::ptrdiff_t>(NUM_NO_OPS_START + NUM_RANDOM_OPS_START),
+                             ultra_ops.begin() + static_cast<std::ptrdiff_t>(ultra_ops.size() - NUM_RANDOM_OPS_END));
 
     // We need to precompute the accumulators at each step, because in the actual circuit we compute the values starting
     // from the later indices and we need to know the previous accumulator to create the gate. Both when computing the
@@ -566,9 +570,8 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     // accumulation result (i.e. value at index RESULT_ROW) is sent as part of the proof, we also need to hide its
     // context. However, we achieve this by ensuring a genuine operation, but with values generated randomly, is added
     // to the op queue during the CIVC processing.
-
-    for (size_t i = 3; i < ultra_ops.size() - 3; i++) {
-        const auto& ultra_op = ultra_ops[ultra_ops.size() - i];
+    // Processes the range of actual ecc ops in reverse order
+    for (const auto& ultra_op : std::ranges::reverse_view(ultra_ops_span)) {
         if (ultra_op.op_code.value() == 0) {
             //  Skip no-ops as they should not affect the computation of the accumulator
             continue;
@@ -589,9 +592,8 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     accumulator_trace.pop_back();
 
     std::array<Fr, NUM_BINARY_LIMBS> previous_accumulator_binary_limbs = split_fq_into_limbs(final_accumulator_state);
-    // Generate witness values and accumulation gates from all the actual UltraOps
-    for (size_t i = 4; i < ultra_ops.size() - 2; i++) {
-        const auto& ultra_op = ultra_ops[i];
+    // Generate witness values and accumulation gates from all the actual UltraOps, starting from beginning
+    for (const auto& ultra_op : ultra_ops_span) {
         if (ultra_op.op_code.value() == 0) {
             // Within the no-op range the translator trace is empty except for the accumulator binary limbs which gets
             // copied from the last row k where an op happened (i.e. the op wire the even index has a non-zero value).
@@ -632,7 +634,8 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     }
     // Also process the last two random ops present at the end of the op queue to hide the ecc ops of the last circuit
     // whose ops are added to the op queue
-    process_random_op(ultra_ops[ultra_ops.size() - 2]);
-    process_random_op(ultra_ops[ultra_ops.size() - 1]);
+    for (size_t i = ultra_ops.size() - NUM_RANDOM_OPS_END; i < ultra_ops.size(); ++i) {
+        process_random_op(ultra_ops[i]);
+    }
 }
 } // namespace bb

@@ -239,9 +239,15 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     static constexpr auto MAX_HIGH_WIDE_LIMB_SIZE = (uint256_t(1) << (NUM_LIMB_BITS + NUM_LAST_LIMB_BITS)) - 1;
 
     // Index at which the evaluation result is stored in the circuit, preceeded by one no-op that ensures translator
-    // polynomials are shiftable and three random ops that contribute to ensuring the Translator proof does not lead
+    // polynomials are shiftable and three random ops that contribute to ensuring the Translator proof does not leak
     // information about the op queue content linked to the circuits being proven
     static constexpr size_t RESULT_ROW = 8;
+    static constexpr size_t NUM_NO_OPS_START = 1;
+    static_assert(NUM_NO_OPS_START == 1);
+    static constexpr size_t NUM_RANDOM_OPS_START = 3;
+    static_assert(NUM_RANDOM_OPS_START == 3);
+    static constexpr size_t NUM_RANDOM_OPS_END = 2;
+    static_assert(NUM_RANDOM_OPS_END == 2);
 
     // How much you'd need to multiply a value by to perform a shift to a higher binary limb
     static constexpr auto SHIFT_1 = uint256_t(1) << NUM_LIMB_BITS;

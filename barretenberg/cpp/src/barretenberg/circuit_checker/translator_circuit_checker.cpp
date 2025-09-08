@@ -147,11 +147,12 @@ bool TranslatorCircuitChecker::check(const Builder& circuit)
     // TODO(https: // github.com/AztecProtocol/barretenberg/issues/1367): Report all failures more explicitly and
     // consider making use of relations.
     auto in_random_range = [&](size_t i) {
-        return (i >= 2 && i < RESULT_ROW) || (i > circuit.num_gates - 5 && i < circuit.num_gates);
+        return (i >= 2 * Builder::NUM_NO_OPS_START && i < RESULT_ROW) ||
+               (i >= circuit.num_gates - 2 * Builder::NUM_RANDOM_OPS_END && i < circuit.num_gates);
     };
     for (size_t i = 2; i < circuit.num_gates - 1; i += 2) {
 
-        // Ensure random op is present in in expected ranges
+        // Ensure random op is present  in expected ranges
         Fr op_code = circuit.get_variable(op_wire[i]);
         if (in_random_range(i)) {
             check_random_op_code(op_code, i);

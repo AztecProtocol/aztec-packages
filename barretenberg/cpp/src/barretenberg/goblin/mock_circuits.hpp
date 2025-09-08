@@ -155,7 +155,7 @@ class GoblinMockCircuits {
             if (idx == num_circuits - 2) {
                 // Last circuit appended needs to begin with a no-op for translator to be shiftable
                 builder.queue_ecc_no_op();
-                randomise_op_queue(builder, 3);
+                randomise_op_queue(builder, TranslatorCircuitBuilder::NUM_RANDOM_OPS_START);
             }
             construct_simple_circuit(builder);
             goblin.prove_merge();
@@ -164,7 +164,7 @@ class GoblinMockCircuits {
         }
         MegaCircuitBuilder builder{ goblin.op_queue };
         GoblinMockCircuits::construct_simple_circuit(builder);
-        randomise_op_queue(builder, 2);
+        randomise_op_queue(builder, TranslatorCircuitBuilder::NUM_RANDOM_OPS_END);
     }
 
     /**
