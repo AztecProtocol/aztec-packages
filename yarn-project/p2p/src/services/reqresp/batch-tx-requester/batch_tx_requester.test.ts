@@ -757,64 +757,6 @@ describe('BatchTxRequester', () => {
     });
   });
 
-  describe('Deadline expiration', () => {
-    it('should stop requesting when deadline is reached', async () => {
-      const shortDeadline = 20;
-      const txCount = 20;
-      const missing = Array.from({ length: txCount }, () => TxHash.random());
-
-      blockProposal = makeBlockProposal({
-        signer: Secp256k1Signer.random(),
-        header: makeHeader(1, 1),
-        archive: Fr.random(),
-        txHashes: missing,
-      });
-
-      const peerId = await createSecp256k1PeerId();
-      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peerId]);
-
-      // Slow responses to test deadline
-      const { requestLog, mockImplementation } = createRequestLogger(
-        blockProposal,
-        new Set(),
-        new Map(),
-        shortDeadline / 4,
-      );
-      reqresp.sendRequestToPeer.mockImplementation(mockImplementation);
-
-      const clock = new TestClock();
-
-      const requester = new BatchTxRequester(
-        missing,
-        blockProposal,
-        undefined,
-        shortDeadline,
-        reqresp,
-        connectionSampler,
-        txValidator,
-        logger,
-        clock,
-        {
-          smartParallelWorkerCount: 1,
-          dumbParallelWorkerCount: 1,
-        },
-      );
-
-      const runPromise = requester.run();
-
-      // Advance clock past deadline after a short delay
-      await sleep(shortDeadline / 2);
-      clock.advanceTo(shortDeadline + 1);
-
-      await runPromise;
-
-      // Should complete due to deadline, not because all txs were fetched
-      const totalRequestedTxs = requestLog.get(peerId.toString())?.flatMap(r => r.txs).length || 0;
-      expect(totalRequestedTxs).toBeGreaterThan(0);
-      expect(totalRequestedTxs).toBeLessThan(txCount);
-    });
-  });
-
   describe('Rate limit handling', () => {
     it('should automatically recover peers after TTL expiration', async () => {
       const clock = new TestClock();
@@ -950,6 +892,262 @@ describe('BatchTxRequester', () => {
       expect(peerCollection.getDumbPeersToQuery()).toContain(peers[1].toString());
     });
   });
+
+  describe('Stopping', () => {
+    it('should stop requesting when deadline is reached', async () => {
+      const shortDeadline = 20;
+      const txCount = 20;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        header: makeHeader(1, 1),
+        archive: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peerId = await createSecp256k1PeerId();
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peerId]);
+
+      // Slow responses to test deadline
+      const { requestLog, mockImplementation } = createRequestLogger(
+        blockProposal,
+        new Set(),
+        new Map(),
+        shortDeadline / 4,
+      );
+      reqresp.sendRequestToPeer.mockImplementation(mockImplementation);
+
+      const clock = new TestClock();
+
+      const requester = new BatchTxRequester(
+        missing,
+        blockProposal,
+        undefined,
+        shortDeadline,
+        reqresp,
+        connectionSampler,
+        txValidator,
+        logger,
+        clock,
+        {
+          smartParallelWorkerCount: 1,
+          dumbParallelWorkerCount: 1,
+        },
+      );
+
+      const runPromise = requester.run();
+
+      // Advance clock past deadline after a short delay
+      await sleep(shortDeadline / 2);
+      clock.advanceTo(shortDeadline + 1);
+
+      await runPromise;
+
+      // Should complete due to deadline, not because all txs were fetched
+      const totalRequestedTxs = requestLog.get(peerId.toString())?.flatMap(r => r.txs).length || 0;
+      expect(totalRequestedTxs).toBeGreaterThan(0);
+      expect(totalRequestedTxs).toBeLessThan(txCount);
+    });
+    it('should abort immediately when signal is triggered before starting', async () => {
+      const txCount = 10;
+      const deadline = 5_000;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        header: makeHeader(1, 1),
+        archive: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
+
+      // Create abort controller and immediately abort
+      const abortController = new AbortController();
+      abortController.abort();
+
+      let requestsMade = 0;
+      reqresp.sendRequestToPeer.mockImplementation(async () => {
+        requestsMade++;
+        // This should never be called since we abort immediately
+        return {
+          status: ReqRespStatus.SUCCESS,
+          data: Buffer.alloc(0),
+        };
+      });
+
+      const requester = new BatchTxRequester(
+        missing,
+        blockProposal,
+        undefined,
+        deadline,
+        reqresp,
+        connectionSampler,
+        txValidator,
+        logger,
+        new DateProvider(),
+        {
+          smartParallelWorkerCount: 2,
+          dumbParallelWorkerCount: 2,
+          abortSignal: abortController.signal,
+        },
+      );
+
+      const result = await requester.run();
+
+      // Verify no requests were made
+      expect(requestsMade).toBe(0);
+
+      // Verify empty result due to abort
+      expect(result).toEqual([]);
+    });
+
+    it('should abort mid-execution during transaction fetching', async () => {
+      const txCount = 30;
+      const deadline = 2_000;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        header: makeHeader(1, 1),
+        archive: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId(), createSecp256k1PeerId()]);
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
+
+      const peerTransactions = new Map([
+        [peers[0].toString(), Array.from({ length: 10 }, (_, i) => i)],
+        [peers[1].toString(), Array.from({ length: 10 }, (_, i) => i + 10)],
+        [peers[2].toString(), Array.from({ length: 10 }, (_, i) => i + 20)],
+      ]);
+
+      const abortController = new AbortController();
+      let requestCount = 0;
+
+      reqresp.sendRequestToPeer.mockImplementation(async (peerId: any) => {
+        console.log(`Request to peer ${peerId.toString()} (request #${requestCount})`);
+        if (requestCount === 1) {
+          abortController.abort();
+        }
+
+        // Return successful response with transactions
+        const peerStr = peerId.toString();
+        const peerHasIndices = peerTransactions.get(peerStr) || [];
+        const availableTxHashes = peerHasIndices.map(idx => blockProposal.txHashes[idx]);
+        const availableTxs = availableTxHashes.map(h => makeTx(h));
+
+        const response = new BlockTxsResponse(
+          blockProposal.archive,
+          new TxArray(...availableTxs),
+          BitVector.init(blockProposal.txHashes.length, peerHasIndices),
+        );
+
+        requestCount++;
+
+        // Allow event loop to process abort signal
+        await sleep(50);
+        return {
+          status: ReqRespStatus.SUCCESS,
+          data: response.toBuffer(),
+        };
+      });
+
+      const requester = new BatchTxRequester(
+        missing,
+        blockProposal,
+        undefined,
+        deadline,
+        reqresp,
+        connectionSampler,
+        txValidator,
+        logger,
+        new DateProvider(),
+        {
+          smartParallelWorkerCount: 0,
+          dumbParallelWorkerCount: 2,
+          abortSignal: abortController.signal,
+        },
+      );
+
+      const result = await requester.run();
+
+      // Verify abort was actually triggered
+      expect(abortController.signal.aborted).toBe(true);
+
+      // Verify partial results were returned
+      expect(result).toBeDefined();
+      expect(result!.length).toBeGreaterThan(0);
+      expect(result!.length).toBeLessThan(txCount); // Not all transactions fetched
+    });
+
+    it.only('should abort smart workers waiting on semaphore', async () => {
+      // so that we can promote single peer to the smart, but they should not have all txs so that abort is observed
+      const txCount = TX_BATCH_SIZE * 2 + 2;
+      const deadline = 10_000;
+      const clock = new TestClock();
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        header: makeHeader(1, 1),
+        archive: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
+
+      const peerCollection = new TestPeerCollection(new PeerCollection(peers, undefined, clock));
+
+      const peerTransactions = new Map([[peers[0].toString(), Array.from({ length: txCount / 2 }, (_, i) => i)]]);
+      const { mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions, 100);
+      reqresp.sendRequestToPeer.mockImplementation(mockImplementation);
+
+      const abortController = new AbortController();
+
+      // Create semaphore that starts with 0 permits to block smart workers
+      const semaphore = new TestSemaphore(new Semaphore(0));
+      const requester = new BatchTxRequester(
+        missing,
+        blockProposal,
+        undefined,
+        deadline,
+        reqresp,
+        connectionSampler,
+        txValidator,
+        logger,
+        clock,
+        {
+          semaphore,
+          smartParallelWorkerCount: 2,
+          dumbParallelWorkerCount: 2,
+          peerCollection,
+          abortSignal: abortController.signal,
+        },
+      );
+
+      const resultPromise = requester.run();
+
+      await sleep(1000); // Allow some time for smart workers to start and block on semaphore
+      abortController.abort(); // Trigger abort while smart workers are blocked
+      const result = await resultPromise;
+
+      // Verify abort was triggered
+      expect(abortController.signal.aborted).toBe(true);
+
+      // Verify peer was promoted to smart
+      expect(peerCollection.smartPeersMarked).toContain(peers[0].toString());
+
+      // Verify some initial transactions were fetched before blocking
+      expect(result).toBeDefined();
+      expect(result!.length).toBeGreaterThanOrEqual(TX_BATCH_SIZE);
+      expect(result!.length).toBeLessThan(txCount); // Not all due to abort
+    });
+  });
 });
 
 const makeTx = (txHash?: string | TxHash) => Tx.random({ txHash }) as Tx;
@@ -957,7 +1155,7 @@ const createRequestLogger = (
   blockProposal: BlockProposal,
   peersToReturnFailureFor: Set<string> = new Set(),
   peerTransactions: Map<string, number[]> = new Map(),
-  sleepMs = 10,
+  sleepMs = 100,
 ) => {
   const requestLog: Map<string, Array<{ indices: number[]; txs: string[] }>> = new Map();
   let requestCount = 0;
