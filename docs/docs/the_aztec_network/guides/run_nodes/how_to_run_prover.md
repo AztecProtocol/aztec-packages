@@ -47,19 +47,32 @@ The Aztec prover involves three key components: the Prover Node, the Proving Bro
 
 The Prover Node is responsible for polling the L1 for unproven epochs and initiating the proof process. When an epoch is ready to be proven, the prover node creates proving jobs and distributes them to the broker. The Prover Node is also responsible for submitting the final rollup proof to the rollup contract.
 
-- **Resources**: Up to 8 cores, 16GB RAM, ~1TB disk for storing state.
+Minimum specifications:
+
+- 2 core / 4 vCPU
+- 16 GB RAM
+- 1 TB NVMe SDD
+- 25 Mbps network connection
 
 #### Proving Broker
 
 Manages a queue of proving jobs, distributing them to available agents and forwarding results back to the node.
 
-- **Resources**: Up to 4 cores, 16GB RAM, ~1GB disk.
+Minimum specifications:
+
+- 2 core / 4 vCPU
+- 16 GB RAM
+- 10 GB SDD
 
 #### Proving Agents
 
 Executes the actual proof jobs. Agents are stateless, fetch work from the broker, and return the results.
 
-- **Resources**: Each agent may use up to 16 cores and 128GB RAM.
+Minimum specifications:
+
+- 32 core / 64 vCPU
+- 128 GB RAM
+- 10 GB SDD
 
 ## Setting Up Your Prover
 
