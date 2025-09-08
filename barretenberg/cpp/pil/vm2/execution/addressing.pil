@@ -2,6 +2,7 @@ include "../memory.pil";
 include "../precomputed.pil";
 include "../range_check.pil";
 include "../constants_gen.pil";
+include "../gt.pil";
 
 // This gadget constrains the resolution of the operands from instruction fetching.
 // The input operands are op[0], ..., op[6] (from execution.pil).
@@ -155,15 +156,12 @@ BASE_CHECK_X * (BASE_CHECK_E * (1 - BASE_CHECK_Y) + BASE_CHECK_Y) - 1 + BASE_CHE
 pol commit op_after_relative[7];
 // Whether relative resolution overflowed the address space.
 pol commit sel_relative_overflow[7];
-sel_relative_overflow[0] * (1 - sel_relative_overflow[0]) = 0;
-sel_relative_overflow[1] * (1 - sel_relative_overflow[1]) = 0;
-sel_relative_overflow[2] * (1 - sel_relative_overflow[2]) = 0;
-sel_relative_overflow[3] * (1 - sel_relative_overflow[3]) = 0;
-sel_relative_overflow[4] * (1 - sel_relative_overflow[4]) = 0;
-sel_relative_overflow[5] * (1 - sel_relative_overflow[5]) = 0;
-sel_relative_overflow[6] * (1 - sel_relative_overflow[6]) = 0;
+// sel_relative_overflow[i] is a boolean value:
+// - sel_op_is_relative_effective[i] == 0, we enforce below that sel_relative_overflow[i] == 0 (see #[NOT_RELATIVE_NO_OVERFLOW_i]).
+// - sel_op_is_relative_effective[i] == 1, we enforce through the lookup #[RELATIVE_OVERFLOW_RESULT_i] that sel_relative_overflow[i]
+//   is boolean. This is enforced by the gt gadget.
 
-// If sel_op_is_relative_effective[i] is 0, then sel_relative_overflow[i] must be 0.
+// If sel_op_is_relative_effective[i] == 0, then sel_relative_overflow[i] must be 0.
 #[NOT_RELATIVE_NO_OVERFLOW_0]
 sel_relative_overflow[0] * (1 - sel_op_is_relative_effective[0]) = 0;
 #[NOT_RELATIVE_NO_OVERFLOW_1]
@@ -197,39 +195,24 @@ op_after_relative[5] = op[5] + sel_op_is_relative_effective[5] * RELATIVE_RESOLU
 op_after_relative[6] = op[6] + sel_op_is_relative_effective[6] * RELATIVE_RESOLUTION_FILTER;
 
 // Helper columns for overflow range check.
-pol commit two_to_32;
-SEL_SHOULD_RESOLVE_ADDRESS * (two_to_32 - 2**32) = 0;
-pol commit overflow_range_check_result[7];
+pol commit highest_address;
+// TODO: remove when we support constants in a lookup tuple.
+SEL_SHOULD_RESOLVE_ADDRESS * (highest_address - constants.AVM_HIGHEST_MEM_ADDRESS) = 0;
+// sel_relative_overflow[i] == 1 iff op_after_relative[i] > highest_address.
 #[RELATIVE_OVERFLOW_RESULT_0]
-overflow_range_check_result[0] = sel_op_is_relative_effective[0] * ((1 - sel_relative_overflow[0]) * (2 * two_to_32 - 2 * op_after_relative[0] - 1) + op_after_relative[0] - two_to_32);
+sel_op_is_relative_effective[0] { op_after_relative[0], highest_address, sel_relative_overflow[0] } in gt.sel { gt.input_a, gt.input_b, gt.res };
 #[RELATIVE_OVERFLOW_RESULT_1]
-overflow_range_check_result[1] = sel_op_is_relative_effective[1] * ((1 - sel_relative_overflow[1]) * (2 * two_to_32 - 2 * op_after_relative[1] - 1) + op_after_relative[1] - two_to_32);
+sel_op_is_relative_effective[1] { op_after_relative[1], highest_address, sel_relative_overflow[1] } in gt.sel { gt.input_a, gt.input_b, gt.res };
 #[RELATIVE_OVERFLOW_RESULT_2]
-overflow_range_check_result[2] = sel_op_is_relative_effective[2] * ((1 - sel_relative_overflow[2]) * (2 * two_to_32 - 2 * op_after_relative[2] - 1) + op_after_relative[2] - two_to_32);
+sel_op_is_relative_effective[2] { op_after_relative[2], highest_address, sel_relative_overflow[2] } in gt.sel { gt.input_a, gt.input_b, gt.res };
 #[RELATIVE_OVERFLOW_RESULT_3]
-overflow_range_check_result[3] = sel_op_is_relative_effective[3] * ((1 - sel_relative_overflow[3]) * (2 * two_to_32 - 2 * op_after_relative[3] - 1) + op_after_relative[3] - two_to_32);
+sel_op_is_relative_effective[3] { op_after_relative[3], highest_address, sel_relative_overflow[3] } in gt.sel { gt.input_a, gt.input_b, gt.res };
 #[RELATIVE_OVERFLOW_RESULT_4]
-overflow_range_check_result[4] = sel_op_is_relative_effective[4] * ((1 - sel_relative_overflow[4]) * (2 * two_to_32 - 2 * op_after_relative[4] - 1) + op_after_relative[4] - two_to_32);
+sel_op_is_relative_effective[4] { op_after_relative[4], highest_address, sel_relative_overflow[4] } in gt.sel { gt.input_a, gt.input_b, gt.res };
 #[RELATIVE_OVERFLOW_RESULT_5]
-overflow_range_check_result[5] = sel_op_is_relative_effective[5] * ((1 - sel_relative_overflow[5]) * (2 * two_to_32 - 2 * op_after_relative[5] - 1) + op_after_relative[5] - two_to_32);
+sel_op_is_relative_effective[5] { op_after_relative[5], highest_address, sel_relative_overflow[5] } in gt.sel { gt.input_a, gt.input_b, gt.res };
 #[RELATIVE_OVERFLOW_RESULT_6]
-overflow_range_check_result[6] = sel_op_is_relative_effective[6] * ((1 - sel_relative_overflow[6]) * (2 * two_to_32 - 2 * op_after_relative[6] - 1) + op_after_relative[6] - two_to_32);
-
-// Note column constant_32 is defined in other file.
-#[RELATIVE_OVERFLOW_RANGE_0]
-sel_op_is_relative_effective[0] { overflow_range_check_result[0], constant_32 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
-#[RELATIVE_OVERFLOW_RANGE_1]
-sel_op_is_relative_effective[1] { overflow_range_check_result[1], constant_32 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
-#[RELATIVE_OVERFLOW_RANGE_2]
-sel_op_is_relative_effective[2] { overflow_range_check_result[2], constant_32 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
-#[RELATIVE_OVERFLOW_RANGE_3]
-sel_op_is_relative_effective[3] { overflow_range_check_result[3], constant_32 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
-#[RELATIVE_OVERFLOW_RANGE_4]
-sel_op_is_relative_effective[4] { overflow_range_check_result[4], constant_32 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
-#[RELATIVE_OVERFLOW_RANGE_5]
-sel_op_is_relative_effective[5] { overflow_range_check_result[5], constant_32 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
-#[RELATIVE_OVERFLOW_RANGE_6]
-sel_op_is_relative_effective[6] { overflow_range_check_result[6], constant_32 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_op_is_relative_effective[6] { op_after_relative[6], highest_address, sel_relative_overflow[6] } in gt.sel { gt.input_a, gt.input_b, gt.res };
 
 /**************************************************************************************************
  *  Indirection Resolution
