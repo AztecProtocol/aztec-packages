@@ -90,7 +90,7 @@ resource "kubernetes_manifest" "otel_ingress_backend" {
 }
 
 locals {
-  prefixes   = jsondecode(file("../../../yarn-project/aztec/public_include_metric_prefixes.json"))
+  prefixes   = jsondecode(file("../../../yarn-project/cli/public_include_metric_prefixes.json"))
   registries = ["0xec4156431d0f3df66d4e24ba3d30dcb4c85fa309"]
   roles      = ["sequencer"]
 

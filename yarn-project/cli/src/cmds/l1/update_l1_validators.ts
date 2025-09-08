@@ -131,6 +131,80 @@ export async function addL1Validator({
   }
 }
 
+export async function addL1ValidatorViaRollup({
+  rpcUrls,
+  chainId,
+  privateKey,
+  mnemonic,
+  attesterAddress,
+  withdrawerAddress,
+  blsSecretKey,
+  moveWithLatestRollup,
+  rollupAddress,
+  log,
+  debugLogger,
+}: RollupCommandArgs &
+  LoggerArgs & {
+    blsSecretKey: bigint; // scalar field element of BN254
+    attesterAddress: EthAddress;
+    moveWithLatestRollup: boolean;
+  }) {
+  const dualLog = makeDualLog(log, debugLogger);
+  const account = getAccount(privateKey, mnemonic);
+  const chain = createEthereumChain(rpcUrls, chainId);
+  const l1Client = createExtendedL1Client(rpcUrls, account, chain.chainInfo);
+
+  dualLog(`Adding validator ${attesterAddress} to rollup ${rollupAddress.toString()} via direct deposit`);
+
+  if (!withdrawerAddress) {
+    throw new Error(`Withdrawer address required`);
+  }
+
+  const rollup = getContract({
+    address: rollupAddress.toString(),
+    abi: RollupAbi,
+    client: l1Client,
+  });
+
+  const gseAddress = await rollup.read.getGSE();
+
+  const gse = new GSEContract(l1Client, gseAddress);
+
+  const registrationTuple = await gse.makeRegistrationTuple(blsSecretKey);
+
+  const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, debugLogger);
+
+  const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
+    to: rollupAddress.toString(),
+    data: encodeFunctionData({
+      abi: RollupAbi,
+      functionName: 'deposit',
+      args: [
+        attesterAddress.toString(),
+        withdrawerAddress.toString(),
+        registrationTuple.publicKeyInG1,
+        registrationTuple.publicKeyInG2,
+        registrationTuple.proofOfPossession,
+        moveWithLatestRollup,
+      ],
+    }),
+    abi: StakingAssetHandlerAbi,
+  });
+  dualLog(`Transaction hash: ${receipt.transactionHash}`);
+  await l1Client.waitForTransactionReceipt({ hash: receipt.transactionHash });
+  if (isAnvilTestChain(chainId)) {
+    dualLog(`Funding validator on L1`);
+    const cheatCodes = new EthCheatCodes(rpcUrls, debugLogger);
+    await cheatCodes.setBalance(attesterAddress, 10n ** 20n);
+  } else {
+    const balance = await l1Client.getBalance({ address: attesterAddress.toString() });
+    dualLog(`Validator balance: ${formatEther(balance)} ETH`);
+    if (balance === 0n) {
+      dualLog(`WARNING: Proposer has no balance. Remember to fund it!`);
+    }
+  }
+}
+
 export async function removeL1Validator({
   rpcUrls,
   chainId,
