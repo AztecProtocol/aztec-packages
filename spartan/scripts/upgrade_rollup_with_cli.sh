@@ -98,7 +98,7 @@ cleanup() {
 
 # if aztec-docker-tag is set, use it
 if [ -n "$AZTEC_DOCKER_IMAGE" ]; then
-  EXE="docker run --rm --network=host --env-file .env.tmp $AZTEC_DOCKER_IMAGE node --no-warnings $AZTEC_BIN"
+  EXE="docker run --rm --network=host --env-file .env.tmp $AZTEC_DOCKER_IMAGE"
   # Check if the image exists locally before pulling it
   if ! docker images $AZTEC_DOCKER_IMAGE -q; then
     echo "Pulling docker image $AZTEC_DOCKER_IMAGE"
