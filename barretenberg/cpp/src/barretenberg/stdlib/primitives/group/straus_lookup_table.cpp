@@ -80,6 +80,9 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
     field_t modded_x = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.x, base_point.x);
     field_t modded_y = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.y, base_point.y);
     cycle_group<Builder> modded_base_point(modded_x, modded_y, false);
+    // We assume that the native hints (if present) do not account for the point at infinity edge case in the same way
+    // so we avoid using any provided hints in this case. (This minor inefficiency allows other code to be simpler).
+    const bool hint_available = hints.has_value() && !base_point.is_point_at_infinity().get_value();
 
     // if the input point is constant, it is cheaper to fix the point as a witness and then derive the table, than it is
     // to derive the table and fix its witnesses to be constant! (due to group additions = 1 gate, and fixing x/y coords
@@ -89,7 +92,7 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
         point_table[0] = cycle_group<Builder>::from_constant_witness(_context, offset_generator.get_value());
         for (size_t i = 1; i < table_size; ++i) {
             std::optional<AffineElement> hint =
-                hints.has_value() ? std::optional<AffineElement>(hints.value()[i - 1]) : std::nullopt;
+                hint_available ? std::optional<AffineElement>(hints.value()[i - 1]) : std::nullopt;
             point_table[i] = point_table[i - 1].unconditional_add(modded_base_point, hint);
         }
     } else {
@@ -97,7 +100,7 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
         // ensure all of the ecc add gates are lined up so that we can pay 1 gate per add and not 2
         for (size_t i = 1; i < table_size; ++i) {
             std::optional<AffineElement> hint =
-                hints.has_value() ? std::optional<AffineElement>(hints.value()[i - 1]) : std::nullopt;
+                hint_available ? std::optional<AffineElement>(hints.value()[i - 1]) : std::nullopt;
             x_coordinate_checks.emplace_back(point_table[i - 1].x, modded_base_point.x);
             point_table[i] = point_table[i - 1].unconditional_add(modded_base_point, hint);
         }

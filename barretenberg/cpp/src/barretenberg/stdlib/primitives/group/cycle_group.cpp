@@ -848,7 +848,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         std::span<AffineElement> table_hints(&operation_hints[i * hints_per_table], hints_per_table);
         // Merge tags
         tag = OriginTag(tag, scalars[i].get_origin_tag(), base_points[i].get_origin_tag());
-        point_tables.emplace_back(straus_lookup_table(context, base_points[i], offset_generators[i + 1], TABLE_BITS));
+        point_tables.emplace_back(context, base_points[i], offset_generators[i + 1], TABLE_BITS, table_hints);
     }
 
     AffineElement* hint_ptr = &operation_hints[num_points * hints_per_table];
@@ -895,7 +895,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     // because `assert_is_not_zero` witness generation needs a modular inversion (expensive)
     field_t coordinate_check_product = 1;
     for (auto& [x1, x2] : x_coordinate_checks) {
-        auto x_diff = x2 - x1;
+        const field_t x_diff = x2 - x1;
         coordinate_check_product *= x_diff;
     }
     coordinate_check_product.assert_is_not_zero("_variable_base_batch_mul_internal x-coordinate collision");
