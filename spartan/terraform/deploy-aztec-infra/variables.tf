@@ -260,3 +260,9 @@ variable "PROVER_REAL_PROOFS" {
   description = "Whether to enable prover real proofs"
   type        = string
 }
+
+variable "TRANSACTIONS_DISABLED" {
+  description = "Whether transactions are disabled by the nodes"
+  type        = string
+  nullable    = true
+}

@@ -105,6 +105,7 @@ locals {
         "validator.slash.invalidBlockPenalty"               = var.SLASH_INVALID_BLOCK_PENALTY
         "validator.slash.offenseExpirationRounds"           = var.SLASH_OFFENSE_EXPIRATION_ROUNDS
         "validator.slash.maxPayloadSize"                    = var.SLASH_MAX_PAYLOAD_SIZE
+        "validator.node.env.TRANSACTIONS_DISABLED"          = var.TRANSACTIONS_DISABLED
       }
       boot_node_path = "validator.node.env.BOOT_NODE_HOST"
     }

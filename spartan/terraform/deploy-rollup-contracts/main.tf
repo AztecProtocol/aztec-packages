@@ -57,6 +57,7 @@ locals {
     AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE     = var.AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE
     AZTEC_MANA_TARGET                        = var.AZTEC_MANA_TARGET
     AZTEC_PROVING_COST_PER_MANA              = var.AZTEC_PROVING_COST_PER_MANA
+    AZTEC_EXIT_DELAY_SECONDS                 = var.AZTEC_EXIT_DELAY_SECONDS
     LOG_LEVEL                                = "debug"
   } : k => v if v != null }
 
