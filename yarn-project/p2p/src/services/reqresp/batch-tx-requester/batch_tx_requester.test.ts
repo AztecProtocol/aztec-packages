@@ -629,6 +629,7 @@ describe('BatchTxRequester', () => {
         [peers[2].toString(), Array.from({ length: 9 }, (_, i) => i + 8)], // peer3: txs 8 - 16
       ]);
 
+      const semaphore = new TestSemaphore(new Semaphore(0));
       const peerCollection = new PeerCollection(peers);
       const peerRequestCounts = new Map<string, number>();
 
@@ -701,9 +702,10 @@ describe('BatchTxRequester', () => {
         logger,
         new DateProvider(),
         {
+          semaphore,
+          peerCollection,
           smartParallelWorkerCount: 0,
           dumbParallelWorkerCount: 3,
-          peerCollection,
         },
       );
 
@@ -721,6 +723,11 @@ describe('BatchTxRequester', () => {
       expect(dumbPeersToQuery).not.toContain(peers[0].toString()); // bad peer excluded
       expect(dumbPeersToQuery).toContain(peers[1].toString()); // good peer included
       expect(dumbPeersToQuery).toContain(peers[2].toString()); // recovered peer included
+
+      // Peers might be marked as smart but no semaphore releases should happen
+      // because smartParallelWorkerCount is 0
+      expect(semaphore.releasedCount).toBe(0);
+      expect(semaphore.acquiredCount).toBe(0);
     });
   });
 
@@ -762,7 +769,7 @@ describe('BatchTxRequester', () => {
         logger,
         clock,
         {
-          smartParallelWorkerCount: 0,
+          smartParallelWorkerCount: 1,
           dumbParallelWorkerCount: 1,
         },
       );
