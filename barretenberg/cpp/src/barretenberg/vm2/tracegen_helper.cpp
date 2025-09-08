@@ -94,6 +94,8 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
                            precomputed_builder.process_get_env_var_table(trace));
             AVM_TRACK_TIME("tracegen/precomputed/get_contract_instance_table",
                            precomputed_builder.process_get_contract_instance_table(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/protocol_contract_instance_addresses",
+                           precomputed_builder.process_protocol_contract_addresses(trace));
         },
     };
 }

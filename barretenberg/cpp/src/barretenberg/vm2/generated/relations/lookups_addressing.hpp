@@ -11,172 +11,186 @@
 
 namespace bb::avm2 {
 
-/////////////////// lookup_addressing_relative_overflow_range_0 ///////////////////
+/////////////////// lookup_addressing_relative_overflow_result_0 ///////////////////
 
-struct lookup_addressing_relative_overflow_range_0_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RANGE_0";
+struct lookup_addressing_relative_overflow_result_0_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_0";
     static constexpr std::string_view RELATION_NAME = "addressing";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_0_;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
-    static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_range_0_counts;
-    static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_range_0_inv;
+    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_result_0_counts;
+    static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_result_0_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_overflow_range_check_result_0_, ColumnAndShifts::execution_constant_32
+        ColumnAndShifts::execution_op_after_relative_0_,
+        ColumnAndShifts::execution_highest_address,
+        ColumnAndShifts::execution_sel_relative_overflow_0_
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
+                                                                                    ColumnAndShifts::gt_input_b,
+                                                                                    ColumnAndShifts::gt_res };
 };
 
-using lookup_addressing_relative_overflow_range_0_settings =
-    lookup_settings<lookup_addressing_relative_overflow_range_0_settings_>;
+using lookup_addressing_relative_overflow_result_0_settings =
+    lookup_settings<lookup_addressing_relative_overflow_result_0_settings_>;
 template <typename FF_>
-using lookup_addressing_relative_overflow_range_0_relation =
-    lookup_relation_base<FF_, lookup_addressing_relative_overflow_range_0_settings>;
+using lookup_addressing_relative_overflow_result_0_relation =
+    lookup_relation_base<FF_, lookup_addressing_relative_overflow_result_0_settings>;
 
-/////////////////// lookup_addressing_relative_overflow_range_1 ///////////////////
+/////////////////// lookup_addressing_relative_overflow_result_1 ///////////////////
 
-struct lookup_addressing_relative_overflow_range_1_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RANGE_1";
+struct lookup_addressing_relative_overflow_result_1_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_1";
     static constexpr std::string_view RELATION_NAME = "addressing";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_1_;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
-    static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_range_1_counts;
-    static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_range_1_inv;
+    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_result_1_counts;
+    static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_result_1_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_overflow_range_check_result_1_, ColumnAndShifts::execution_constant_32
+        ColumnAndShifts::execution_op_after_relative_1_,
+        ColumnAndShifts::execution_highest_address,
+        ColumnAndShifts::execution_sel_relative_overflow_1_
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
+                                                                                    ColumnAndShifts::gt_input_b,
+                                                                                    ColumnAndShifts::gt_res };
 };
 
-using lookup_addressing_relative_overflow_range_1_settings =
-    lookup_settings<lookup_addressing_relative_overflow_range_1_settings_>;
+using lookup_addressing_relative_overflow_result_1_settings =
+    lookup_settings<lookup_addressing_relative_overflow_result_1_settings_>;
 template <typename FF_>
-using lookup_addressing_relative_overflow_range_1_relation =
-    lookup_relation_base<FF_, lookup_addressing_relative_overflow_range_1_settings>;
+using lookup_addressing_relative_overflow_result_1_relation =
+    lookup_relation_base<FF_, lookup_addressing_relative_overflow_result_1_settings>;
 
-/////////////////// lookup_addressing_relative_overflow_range_2 ///////////////////
+/////////////////// lookup_addressing_relative_overflow_result_2 ///////////////////
 
-struct lookup_addressing_relative_overflow_range_2_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RANGE_2";
+struct lookup_addressing_relative_overflow_result_2_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_2";
     static constexpr std::string_view RELATION_NAME = "addressing";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_2_;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
-    static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_range_2_counts;
-    static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_range_2_inv;
+    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_result_2_counts;
+    static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_result_2_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_overflow_range_check_result_2_, ColumnAndShifts::execution_constant_32
+        ColumnAndShifts::execution_op_after_relative_2_,
+        ColumnAndShifts::execution_highest_address,
+        ColumnAndShifts::execution_sel_relative_overflow_2_
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
+                                                                                    ColumnAndShifts::gt_input_b,
+                                                                                    ColumnAndShifts::gt_res };
 };
 
-using lookup_addressing_relative_overflow_range_2_settings =
-    lookup_settings<lookup_addressing_relative_overflow_range_2_settings_>;
+using lookup_addressing_relative_overflow_result_2_settings =
+    lookup_settings<lookup_addressing_relative_overflow_result_2_settings_>;
 template <typename FF_>
-using lookup_addressing_relative_overflow_range_2_relation =
-    lookup_relation_base<FF_, lookup_addressing_relative_overflow_range_2_settings>;
+using lookup_addressing_relative_overflow_result_2_relation =
+    lookup_relation_base<FF_, lookup_addressing_relative_overflow_result_2_settings>;
 
-/////////////////// lookup_addressing_relative_overflow_range_3 ///////////////////
+/////////////////// lookup_addressing_relative_overflow_result_3 ///////////////////
 
-struct lookup_addressing_relative_overflow_range_3_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RANGE_3";
+struct lookup_addressing_relative_overflow_result_3_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_3";
     static constexpr std::string_view RELATION_NAME = "addressing";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_3_;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
-    static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_range_3_counts;
-    static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_range_3_inv;
+    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_result_3_counts;
+    static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_result_3_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_overflow_range_check_result_3_, ColumnAndShifts::execution_constant_32
+        ColumnAndShifts::execution_op_after_relative_3_,
+        ColumnAndShifts::execution_highest_address,
+        ColumnAndShifts::execution_sel_relative_overflow_3_
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
+                                                                                    ColumnAndShifts::gt_input_b,
+                                                                                    ColumnAndShifts::gt_res };
 };
 
-using lookup_addressing_relative_overflow_range_3_settings =
-    lookup_settings<lookup_addressing_relative_overflow_range_3_settings_>;
+using lookup_addressing_relative_overflow_result_3_settings =
+    lookup_settings<lookup_addressing_relative_overflow_result_3_settings_>;
 template <typename FF_>
-using lookup_addressing_relative_overflow_range_3_relation =
-    lookup_relation_base<FF_, lookup_addressing_relative_overflow_range_3_settings>;
+using lookup_addressing_relative_overflow_result_3_relation =
+    lookup_relation_base<FF_, lookup_addressing_relative_overflow_result_3_settings>;
 
-/////////////////// lookup_addressing_relative_overflow_range_4 ///////////////////
+/////////////////// lookup_addressing_relative_overflow_result_4 ///////////////////
 
-struct lookup_addressing_relative_overflow_range_4_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RANGE_4";
+struct lookup_addressing_relative_overflow_result_4_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_4";
     static constexpr std::string_view RELATION_NAME = "addressing";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_4_;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
-    static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_range_4_counts;
-    static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_range_4_inv;
+    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_result_4_counts;
+    static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_result_4_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_overflow_range_check_result_4_, ColumnAndShifts::execution_constant_32
+        ColumnAndShifts::execution_op_after_relative_4_,
+        ColumnAndShifts::execution_highest_address,
+        ColumnAndShifts::execution_sel_relative_overflow_4_
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
+                                                                                    ColumnAndShifts::gt_input_b,
+                                                                                    ColumnAndShifts::gt_res };
 };
 
-using lookup_addressing_relative_overflow_range_4_settings =
-    lookup_settings<lookup_addressing_relative_overflow_range_4_settings_>;
+using lookup_addressing_relative_overflow_result_4_settings =
+    lookup_settings<lookup_addressing_relative_overflow_result_4_settings_>;
 template <typename FF_>
-using lookup_addressing_relative_overflow_range_4_relation =
-    lookup_relation_base<FF_, lookup_addressing_relative_overflow_range_4_settings>;
+using lookup_addressing_relative_overflow_result_4_relation =
+    lookup_relation_base<FF_, lookup_addressing_relative_overflow_result_4_settings>;
 
-/////////////////// lookup_addressing_relative_overflow_range_5 ///////////////////
+/////////////////// lookup_addressing_relative_overflow_result_5 ///////////////////
 
-struct lookup_addressing_relative_overflow_range_5_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RANGE_5";
+struct lookup_addressing_relative_overflow_result_5_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_5";
     static constexpr std::string_view RELATION_NAME = "addressing";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_5_;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
-    static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_range_5_counts;
-    static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_range_5_inv;
+    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_result_5_counts;
+    static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_result_5_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_overflow_range_check_result_5_, ColumnAndShifts::execution_constant_32
+        ColumnAndShifts::execution_op_after_relative_5_,
+        ColumnAndShifts::execution_highest_address,
+        ColumnAndShifts::execution_sel_relative_overflow_5_
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
+                                                                                    ColumnAndShifts::gt_input_b,
+                                                                                    ColumnAndShifts::gt_res };
 };
 
-using lookup_addressing_relative_overflow_range_5_settings =
-    lookup_settings<lookup_addressing_relative_overflow_range_5_settings_>;
+using lookup_addressing_relative_overflow_result_5_settings =
+    lookup_settings<lookup_addressing_relative_overflow_result_5_settings_>;
 template <typename FF_>
-using lookup_addressing_relative_overflow_range_5_relation =
-    lookup_relation_base<FF_, lookup_addressing_relative_overflow_range_5_settings>;
+using lookup_addressing_relative_overflow_result_5_relation =
+    lookup_relation_base<FF_, lookup_addressing_relative_overflow_result_5_settings>;
 
-/////////////////// lookup_addressing_relative_overflow_range_6 ///////////////////
+/////////////////// lookup_addressing_relative_overflow_result_6 ///////////////////
 
-struct lookup_addressing_relative_overflow_range_6_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RANGE_6";
+struct lookup_addressing_relative_overflow_result_6_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_6";
     static constexpr std::string_view RELATION_NAME = "addressing";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_op_is_relative_effective_6_;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
-    static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_range_6_counts;
-    static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_range_6_inv;
+    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column COUNTS = Column::lookup_addressing_relative_overflow_result_6_counts;
+    static constexpr Column INVERSES = Column::lookup_addressing_relative_overflow_result_6_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_overflow_range_check_result_6_, ColumnAndShifts::execution_constant_32
+        ColumnAndShifts::execution_op_after_relative_6_,
+        ColumnAndShifts::execution_highest_address,
+        ColumnAndShifts::execution_sel_relative_overflow_6_
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
+                                                                                    ColumnAndShifts::gt_input_b,
+                                                                                    ColumnAndShifts::gt_res };
 };
 
-using lookup_addressing_relative_overflow_range_6_settings =
-    lookup_settings<lookup_addressing_relative_overflow_range_6_settings_>;
+using lookup_addressing_relative_overflow_result_6_settings =
+    lookup_settings<lookup_addressing_relative_overflow_result_6_settings_>;
 template <typename FF_>
-using lookup_addressing_relative_overflow_range_6_relation =
-    lookup_relation_base<FF_, lookup_addressing_relative_overflow_range_6_settings>;
+using lookup_addressing_relative_overflow_result_6_relation =
+    lookup_relation_base<FF_, lookup_addressing_relative_overflow_result_6_settings>;
 
 } // namespace bb::avm2

@@ -467,6 +467,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       workingDirectory,
       circuitType,
       Buffer.from(artifact.bytecode, 'base64'),
+      this.getVerificationKeyDataForCircuit(circuitType).keyAsBytes,
       outputWitnessFile,
       getUltraHonkFlavorForCircuit(circuitType),
       logger,
