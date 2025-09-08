@@ -211,9 +211,9 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
 
     // Logging
     if (is_signature_valid.get_value()) {
-        info("Signature verification succeeded.");
+        vinfo("Signature verification succeeded.");
     } else {
-        info("Signature verification failed");
+        vinfo("Signature verification failed");
     }
 
     return is_signature_valid;

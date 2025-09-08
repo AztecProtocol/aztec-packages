@@ -25,7 +25,14 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
 {
     // Merge the current subtable (for which a merge proof is being constructed) prior to
     // procedeing with proving.
-    op_queue->merge(settings);
+    if (settings == MergeSettings::APPEND) {
+        size_t last_subtable_size = op_queue->get_current_subtable_size();
+        op_queue->merge(settings, ECCOpQueue::OP_QUEUE_SIZE - last_subtable_size);
+
+    } else {
+        op_queue->merge(settings);
+    }
+
     pcs_commitment_key =
         commitment_key.initialized() ? commitment_key : CommitmentKey(op_queue->get_ultra_ops_table_num_rows());
 };

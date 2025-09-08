@@ -49,7 +49,7 @@ class TranslatorProvingKey {
         BB_BENCH_NAME("TranslatorProvingKey(TranslatorCircuit&)");
         // Check that the Translator Circuit does not exceed the fixed upper bound, the current value amounts to
         // a number of EccOps sufficient for 10 rounds of folding (so 20 circuits)
-        if (circuit.num_gates > Flavor::MINI_CIRCUIT_SIZE - NUM_DISABLED_ROWS_IN_SUMCHECK) {
+        if (circuit.num_gates > Flavor::MINI_CIRCUIT_SIZE) {
             throw_or_abort("The Translator circuit size has exceeded the fixed upper bound");
         }
 

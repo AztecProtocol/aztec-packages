@@ -44,29 +44,49 @@ class TranslatorRecursiveTests : public ::testing::Test {
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
-    static std::shared_ptr<bb::ECCOpQueue> create_op_queue(const size_t num_ops)
+    // Helper function to add no-ops
+    static void add_no_ops(std::shared_ptr<bb::ECCOpQueue>& op_queue, size_t count = 1)
+    {
+        for (size_t i = 0; i < count; i++) {
+            op_queue->no_op_ultra_only();
+        }
+    }
+
+    // Helper function to create an MSM
+    static void add_mixed_ops(std::shared_ptr<bb::ECCOpQueue>& op_queue, size_t count = 100)
     {
         auto P1 = InnerG1::random_element();
         auto P2 = InnerG1::random_element();
         auto z = InnerFF::random_element();
-
-        // Add the same operations to the ECC op queue; the native computation is performed under the hood.
-        auto op_queue = std::make_shared<bb::ECCOpQueue>();
-        op_queue->no_op_ultra_only();
-
-        for (size_t i = 0; i < num_ops; i++) {
+        for (size_t i = 0; i < count; i++) {
             op_queue->add_accumulate(P1);
             op_queue->mul_accumulate(P2, z);
         }
+        op_queue->eq_and_reset();
+    }
+
+    // Construct a test circuit based on some random operations
+    static InnerBuilder generate_test_circuit(const InnerBF& batching_challenge_v,
+                                              const InnerBF& evaluation_challenge_x,
+                                              const size_t circuit_size_parameter = 500)
+    {
+
+        // Add the same operations to the ECC op queue; the native computation is performed under the hood.
+        auto op_queue = std::make_shared<bb::ECCOpQueue>();
+        add_no_ops(op_queue);
+        add_mixed_ops(op_queue, circuit_size_parameter / 2);
         op_queue->merge();
-        return op_queue;
+        add_mixed_ops(op_queue, circuit_size_parameter / 2);
+        add_no_ops(op_queue, 2);
+        op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+
+        return InnerBuilder{ batching_challenge_v, evaluation_challenge_x, op_queue };
     }
 
     static void test_recursive_verification()
     {
         using NativeVerifierCommitmentKey = InnerFlavor::VerifierCommitmentKey;
         // Add the same operations to the ECC op queue; the native computation is performed under the hood.
-        auto op_queue = create_op_queue(500);
 
         auto prover_transcript = std::make_shared<Transcript>();
         prover_transcript->send_to_verifier("init", InnerBF::random_element());
@@ -76,7 +96,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
         InnerBF batching_challenge_v = InnerBF::random_element();
         InnerBF evaluation_challenge_x = InnerBF::random_element();
 
-        auto circuit_builder = InnerBuilder(batching_challenge_v, evaluation_challenge_x, op_queue);
+        InnerBuilder circuit_builder = generate_test_circuit(batching_challenge_v, evaluation_challenge_x);
         EXPECT_TRUE(TranslatorCircuitChecker::check(circuit_builder));
         auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
         InnerProver prover{ proving_key, prover_transcript };
@@ -142,8 +162,6 @@ class TranslatorRecursiveTests : public ::testing::Test {
         // Retrieves the trace blocks (each consisting of a specific gate) from the recursive verifier circuit
         auto get_blocks = [](size_t num_ops)
             -> std::tuple<OuterBuilder::ExecutionTrace, std::shared_ptr<OuterFlavor::VerificationKey>> {
-            auto op_queue = create_op_queue(num_ops);
-
             auto prover_transcript = std::make_shared<Transcript>();
             prover_transcript->send_to_verifier("init", InnerBF::random_element());
 
@@ -152,7 +170,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
             InnerBF batching_challenge_v = InnerBF::random_element();
             InnerBF evaluation_challenge_x = InnerBF::random_element();
 
-            auto inner_circuit = InnerBuilder(batching_challenge_v, evaluation_challenge_x, op_queue);
+            InnerBuilder inner_circuit = generate_test_circuit(batching_challenge_v, evaluation_challenge_x, num_ops);
 
             // Generate a proof over the inner circuit
             auto inner_proving_key = std::make_shared<TranslatorProvingKey>(inner_circuit);

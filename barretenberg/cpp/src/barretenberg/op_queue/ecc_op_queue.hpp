@@ -48,6 +48,7 @@ class ECCOpQueue {
     EccvmRowTracker eccvm_row_tracker;
 
   public:
+    static const size_t OP_QUEUE_SIZE = 1 << CONST_OP_QUEUE_LOG_SIZE;
     /**
      * @brief Instantiate an initial ECC op subtable.
      */
@@ -63,6 +64,8 @@ class ECCOpQueue {
         ultra_ops_table.create_new_subtable();
     }
 
+    size_t get_current_subtable_size() const { return ultra_ops_table.get_current_subtable_size(); }
+
     void merge(MergeSettings settings = MergeSettings::PREPEND, std::optional<size_t> ultra_fixed_offset = std::nullopt)
     {
         eccvm_ops_table.merge(settings);
@@ -75,7 +78,8 @@ class ECCOpQueue {
         return ultra_ops_table.construct_table_columns();
     }
 
-    // Construct polys corresponding to the columns of the aggregate ultra ops table, excluding the most recent subtable
+    // Construct polys corresponding to the columns of the aggregate ultra ops table, excluding the most recent
+    // subtable
     std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_previous_ultra_ops_table_columns() const
     {
         return ultra_ops_table.construct_previous_table_columns();
@@ -97,8 +101,8 @@ class ECCOpQueue {
     size_t get_current_ultra_ops_subtable_num_rows() const { return ultra_ops_table.current_ultra_subtable_size(); }
     size_t get_previous_ultra_ops_table_num_rows() const { return ultra_ops_table.previous_ultra_table_size(); }
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1339): Consider making the ultra and eccvm ops getters
-    // more memory efficient
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1339): Consider making the ultra and eccvm ops
+    // getters more memory efficient
 
     // Get the full table of ECCVM ops in contiguous memory; construct it if it has not been constructed already
     std::vector<ECCVMOperation>& get_eccvm_ops()
@@ -225,8 +229,8 @@ class ECCOpQueue {
     /**
      * @brief Writes randomness to the ultra ops table but adds no eccvm operations.
      *
-     * @details This method is used to add randomness to the ultra ops table with the aim of randomising the commitment
-     * and evaluations of its corresponding columns
+     * @details This method is used to add randomness to the ultra ops table with the aim of randomising the
+     * commitment and evaluations of its corresponding columns
      * @return UltraOp
      */
     UltraOp random_op_ultra_only()

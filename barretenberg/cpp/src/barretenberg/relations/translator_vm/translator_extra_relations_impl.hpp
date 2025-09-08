@@ -45,6 +45,54 @@ void TranslatorOpcodeConstraintRelationImpl<FF>::accumulate(ContainerOverSubrela
     tmp_1 *= (lagrange_mini_masking + minus_one);
     tmp_1 *= scaling_factor;
     std::get<0>(accumulators) += tmp_1;
+
+    auto lagrange_even_in_minicircuit = View(in.lagrange_even_in_minicircuit);
+
+    auto accumulators_binary_limbs_0 = View(in.accumulators_binary_limbs_0);
+    auto accumulators_binary_limbs_1 = View(in.accumulators_binary_limbs_1);
+    auto accumulators_binary_limbs_2 = View(in.accumulators_binary_limbs_2);
+    auto accumulators_binary_limbs_3 = View(in.accumulators_binary_limbs_3);
+    auto accumulators_binary_limbs_0_shift = View(in.accumulators_binary_limbs_0_shift);
+    auto accumulators_binary_limbs_1_shift = View(in.accumulators_binary_limbs_1_shift);
+    auto accumulators_binary_limbs_2_shift = View(in.accumulators_binary_limbs_2_shift);
+    auto accumulators_binary_limbs_3_shift = View(in.accumulators_binary_limbs_3_shift);
+
+    // Contribution (2) (2-5 ensure that the accumulator stays the same at even indices within the no-op range if
+    // one exists)
+    auto tmp_2 = (accumulators_binary_limbs_0 - accumulators_binary_limbs_0_shift);
+    tmp_2 *= (op + minus_three);
+    tmp_2 *= (op + minus_four);
+    tmp_2 *= (op + minus_eight);
+    tmp_2 *= lagrange_even_in_minicircuit;
+    tmp_2 *= scaling_factor;
+    std::get<1>(accumulators) += tmp_2;
+
+    // Contribution (3)
+    auto tmp_3 = (accumulators_binary_limbs_1 - accumulators_binary_limbs_1_shift);
+    tmp_3 *= (op + minus_three);
+    tmp_3 *= (op + minus_four);
+    tmp_3 *= (op + minus_eight);
+    tmp_3 *= lagrange_even_in_minicircuit;
+    tmp_3 *= scaling_factor;
+    std::get<2>(accumulators) += tmp_3;
+
+    // Contribution (4)
+    auto tmp_4 = (accumulators_binary_limbs_2 - accumulators_binary_limbs_2_shift);
+    tmp_4 *= (op + minus_three);
+    tmp_4 *= (op + minus_four);
+    tmp_4 *= (op + minus_eight);
+    tmp_4 *= lagrange_even_in_minicircuit;
+    tmp_4 *= scaling_factor;
+    std::get<3>(accumulators) += tmp_4;
+
+    // Contribution (5)
+    auto tmp_5 = (accumulators_binary_limbs_3 - accumulators_binary_limbs_3_shift);
+    tmp_5 *= (op + minus_three);
+    tmp_5 *= (op + minus_four);
+    tmp_5 *= (op + minus_eight);
+    tmp_5 *= lagrange_even_in_minicircuit;
+    tmp_5 *= scaling_factor;
+    std::get<4>(accumulators) += tmp_5;
 };
 
 /**
@@ -75,8 +123,8 @@ void TranslatorAccumulatorTransferRelationImpl<FF>::accumulate(ContainerOverSubr
     // Lagrange ensuring the accumulator result is validated at the correct row
     auto lagrange_result_row = View(in.lagrange_result_row);
 
-    // Lagrange at index (size of minicircuit - 1) is used to enforce that the accumulator is initialized to zero in the
-    // circuit
+    // Lagrange at index (size of minicircuit - 1) is used to enforce that the accumulator is initialized to zero in
+    // the circuit
     auto lagrange_last_in_minicircuit = View(in.lagrange_last_in_minicircuit);
 
     // Locations of randomness in the minicircuit

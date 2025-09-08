@@ -54,7 +54,9 @@ class ECCOpQueueTest {
             } else {
                 // APPEND merge performs concatenation directly to end of previous table or at a specified fixed offset
                 const size_t prev_table_size = op_queue->get_previous_ultra_ops_table_num_rows(); // k
-                const size_t shift_magnitude = ultra_fixed_offset.value_or(prev_table_size);
+                const size_t shift_magnitude = ultra_fixed_offset.has_value()
+                                                   ? ultra_fixed_offset.value() * bb::UltraEccOpsTable::NUM_ROWS_PER_OP
+                                                   : prev_table_size; // k
                 // T(x) = T_prev(x) + x^k * t_current(x), where k is the shift magnitude
                 const Fr prev_table_eval = prev_table_poly.evaluate(eval_challenge); // T_prev(x)
                 const Fr shifted_subtable_eval =
@@ -74,10 +76,12 @@ class ECCOpQueueTest {
         auto ultra_table = op_queue->get_ultra_ops();
         auto eccvm_table = op_queue->get_eccvm_ops();
 
-        EXPECT_EQ(eccvm_table.size(), ultra_table.size());
-
-        for (auto [ultra_op, eccvm_op] : zip_view(ultra_table, eccvm_table)) {
-            EXPECT_EQ(ultra_op.op_code.value(), eccvm_op.op_code.value());
+        size_t j = 0;
+        for (const auto& ultra_op : ultra_table) {
+            if (ultra_op.op_code.value() == 0) {
+                continue;
+            }
+            EXPECT_EQ(ultra_op.op_code.value(), eccvm_table[j++].op_code.value());
         }
     };
 };
