@@ -77,7 +77,7 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
                 // We store the offset as an FF operand. If the circuit needs to prove overflow, it will
                 // need the full value.
                 resolution_info.after_relative = Operand::from<FF>(offset);
-                if (!is_valid_address(offset)) {
+                if (is_address_out_of_range(offset)) {
                     // If this happens, it means that the relative computation overflowed. However both the base and
                     // operand addresses by themselves were valid.
                     throw AddressingEventError::RELATIVE_COMPUTATION_OOB;
@@ -130,18 +130,13 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
     return resolved_operands;
 }
 
-bool Addressing::is_valid_address(const FF& address)
+bool Addressing::is_address_out_of_range(const FF& address)
 {
     // Precondition: address should fit in 33 bits.
     uint128_t address_u128 = uint128_t(address);
     assert(address_u128 <= 0x1FFFFFFFF);
-    // This leaks circuit information.
-    // See https://hackmd.io/moq6viBpRJeLpWrHAogCZw?view#Comparison-between-range-constrained-numbers.
-    bool address_lt_32_bits = (static_cast<uint32_t>(address_u128) == address_u128);
-    uint128_t two_to_32 = uint128_t(1) << 32;
-    uint128_t result = address_lt_32_bits ? two_to_32 - address_u128 - 1 : address_u128 - two_to_32;
-    range_check.assert_range(result, 32);
-    return address_lt_32_bits;
+
+    return gt.gt(address_u128, AVM_HIGHEST_MEM_ADDRESS);
 }
 
 } // namespace bb::avm2::simulation
