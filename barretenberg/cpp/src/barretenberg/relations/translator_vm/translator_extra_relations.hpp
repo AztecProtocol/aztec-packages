@@ -110,7 +110,7 @@ template <typename FF_> class TranslatorZeroConstraintsRelationImpl {
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 4; // degree((some lagrange)(A)) = 2
 
-    static constexpr std::array<size_t, 64> SUBRELATION_PARTIAL_LENGTHS{
+    static constexpr std::array<size_t, 68> SUBRELATION_PARTIAL_LENGTHS{
         4, // p_x_low_limbs_range_constraint_0 is zero outside of the minicircuit
         4, // p_x_low_limbs_range_constraint_1 is zero outside of the minicircuit
         4, // p_x_low_limbs_range_constraint_2 is zero outside of the minicircuit
@@ -175,6 +175,10 @@ template <typename FF_> class TranslatorZeroConstraintsRelationImpl {
         4, // accumulator_high_limbs_range_constraint_tail is zero outside of the minicircuit
         4, // quotient_low_limbs_range_constraint_tail is zero outside of the minicircuit
         4, // quotient_high_limbs_range_constraint_tail is zero outside of the minicircuit
+        4, // op is zero outside of the minicircuit
+        4, // x_lo_y_hi is zero outside of the minicircuit
+        4, // x_hi_z_1 is zero outside of the minicircuit
+        4, // y_lo_z_2 is zero outside of the minicircuit
 
     };
 
