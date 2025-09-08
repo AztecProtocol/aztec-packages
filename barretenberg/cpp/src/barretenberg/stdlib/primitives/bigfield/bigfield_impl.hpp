@@ -1983,7 +1983,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_is_not
         diff = diff * (base_diff + prime_basis_accumulator);
         prime_basis_accumulator += prime_basis;
     }
-    diff.assert_is_not_zero();
+    diff.assert_is_not_zero("bigfield: prime limb diff is zero, but expected non-zero");
 }
 
 // We reduce an element's mod 2^t representation (t=4*NUM_LIMB_BITS) to size 2^s for smallest s with 2^s>p
