@@ -433,6 +433,10 @@ export class BatchTxRequester {
 
   private shouldStop() {
     const aborted = this.opts.abortSignal?.aborted ?? false;
+    if (aborted) {
+      this.unlockSmartRequesterSemaphores();
+    }
+
     return aborted || this.txsMetadata.size === 0 || this.fetchedAllTxs() || this.dateProvider.now() > this.deadline;
   }
 
