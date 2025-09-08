@@ -117,7 +117,6 @@ TEST(Databus, UnnormalizedEntryAccess)
     std::vector<field_ct> calldata_entries;
     for (fr entry : raw_calldata_entries) {
         calldata_entries.emplace_back(witness_ct(&builder, entry));
-        field_ct entry_witness = witness_ct(&builder, entry);
     }
     std::vector<field_ct> returndata_entries;
     for (fr entry : raw_returndata_entries) {

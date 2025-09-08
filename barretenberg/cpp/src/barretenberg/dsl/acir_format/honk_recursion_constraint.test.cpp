@@ -206,7 +206,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
         }
         AcirProgram program{ constraint_system, witness };
         BuilderType outer_circuit = create_circuit<BuilderType>(program, metadata);
-
+        info("the hash of the circuit: ", outer_circuit.hash_circuit());
         return outer_circuit;
     }
 
