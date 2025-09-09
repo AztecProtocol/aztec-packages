@@ -795,7 +795,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     const std::span<const affine_element<Fq, Fr, T>>& points, const Fr& scalar) noexcept
 {
     BB_BENCH();
-    typedef affine_element<Fq, Fr, T> affine_element;
+    using affine_element = affine_element<Fq, Fr, T>;
     const size_t num_points = points.size();
 
     // Space for temporary values
