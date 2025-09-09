@@ -65,6 +65,7 @@
     "cimg",
     "ciphertext",
     "ciphertexts",
+    "civc",
     "clonedeep",
     "clonedeepwith",
     "cmd",
@@ -394,9 +395,5 @@
     "lib",
     "*.cmake"
   ],
-  "flagWords": [
-    "anonymous",
-    "offence",
-    "offences"
-  ]
+  "flagWords": ["anonymous", "offence", "offences"]
 }

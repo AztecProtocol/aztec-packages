@@ -1,6 +1,7 @@
 import { BatchedBlobAccumulator, Blob, type SpongeBlob } from '@aztec/blob-lib';
 import {
   ARCHIVE_HEIGHT,
+  CIVC_PROOF_LENGTH,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
@@ -16,16 +17,18 @@ import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256ToField, sha256Trunc } from '@aztec/foundation/crypto';
 import { BLS12Point, Fr } from '@aztec/foundation/fields';
-import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
+import { type Bufferable, type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { MembershipWitness, MerkleTreeCalculator, computeUnbalancedMerkleTreeRoot } from '@aztec/foundation/trees';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { getVkData } from '@aztec/noir-protocol-circuits-types/server/vks';
+import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { PublicDataHint } from '@aztec/stdlib/avm';
 import { Body } from '@aztec/stdlib/block';
-import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type { MerkleTreeWriteOperations, PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
 import { ContractClassLogFields } from '@aztec/stdlib/logs';
 import type { ParityPublicInputs } from '@aztec/stdlib/parity';
+import { Proof, ProofData, RecursiveProof } from '@aztec/stdlib/proofs';
 import {
   type BaseOrMergeRollupPublicInputs,
   BlockConstantData,
@@ -33,6 +36,7 @@ import {
   PrivateBaseRollupHints,
   PrivateBaseStateDiffHints,
   PublicBaseRollupHints,
+  PublicTubePrivateInputs,
 } from '@aztec/stdlib/rollup';
 import {
   AppendOnlyTreeSnapshot,
@@ -49,8 +53,10 @@ import {
   PartialStateReference,
   type ProcessedTx,
   StateReference,
+  Tx,
   TxEffect,
 } from '@aztec/stdlib/tx';
+import { VkData } from '@aztec/stdlib/vks';
 import { Attributes, type Span, runInSpan } from '@aztec/telemetry-client';
 import type { MerkleTreeReadOperations } from '@aztec/world-state';
 
@@ -244,6 +250,23 @@ export async function getPublicDataHint(db: MerkleTreeWriteOperations, leafSlot:
   const value = exists ? leafPreimage.leaf.value : Fr.ZERO;
 
   return new PublicDataHint(new Fr(leafSlot), value, membershipWitness, leafPreimage);
+}
+
+export function getCivcProofFromTx(tx: Tx | ProcessedTx) {
+  const proofFields = tx.clientIvcProof.proof;
+  const numPublicInputs = proofFields.length - CIVC_PROOF_LENGTH;
+  const binaryProof = new Proof(Buffer.concat(proofFields.map(field => field.toBuffer())), numPublicInputs);
+  const proofFieldsWithoutPublicInputs = proofFields.slice(numPublicInputs);
+  return new RecursiveProof(proofFieldsWithoutPublicInputs, binaryProof, true, CIVC_PROOF_LENGTH);
+}
+
+export function getPublicTubePrivateInputsFromTx(tx: Tx | ProcessedTx) {
+  const proofData = new ProofData(
+    tx.data.toPrivateToPublicKernelCircuitPublicInputs(),
+    getCivcProofFromTx(tx),
+    getVkData('HidingKernelToPublic'),
+  );
+  return new PublicTubePrivateInputs(proofData);
 }
 
 export const buildBlobHints = runInSpan(
@@ -554,4 +577,13 @@ export function validateTx(tx: ProcessedTx) {
   if (txHeader.state.partial.publicDataTree.isEmpty()) {
     throw new Error(`Empty public data tree in tx: ${toFriendlyJSON(tx)}`);
   }
+}
+
+export function toProofData<T extends Bufferable, PROOF_LENGTH extends number>(
+  { inputs, proof, verificationKey }: PublicInputsAndRecursiveProof<T, PROOF_LENGTH>,
+  vkIndex?: number,
+) {
+  const leafIndex = vkIndex || getVKIndex(verificationKey.keyAsFields);
+  const vkData = new VkData(verificationKey, leafIndex, getVKSiblingPath(leafIndex));
+  return new ProofData(inputs, proof, vkData);
 }

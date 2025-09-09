@@ -133,22 +133,22 @@ const proofDistributionTestCases = [
   {
     name: 'minimum epoch',
     description: '1 block, 8 transactions', // 8 transactions per block = 8 total transactions
-    proofCounts: [1, 0, 0, 1, 6, 4, 4, 4, 8, 1, 4, 0],
+    proofCounts: [1, 0, 0, 1, 6, 4, 4, 4, 4, 1, 4, 0],
   },
   {
     name: 'small epoch',
     description: '6 blocks, 48 transactions', // 8 transactions per block = 48 total transactions
-    proofCounts: [6, 0, 4, 1, 36, 24, 24, 24, 48, 6, 24, 0],
+    proofCounts: [6, 0, 4, 1, 36, 24, 24, 24, 24, 6, 24, 0],
   },
   {
     name: 'medium epoch',
     description: '20 blocks, 400 transactions', // 20 transactions per block = 400 total transactions
-    proofCounts: [20, 0, 18, 1, 360, 200, 200, 200, 400, 20, 80, 0],
+    proofCounts: [20, 0, 18, 1, 360, 200, 200, 200, 200, 20, 80, 0],
   },
   {
     name: 'large epoch',
     description: '32 blocks, 6400 transactions', // 200 transactions per block = 6400 total transactions
-    proofCounts: [32, 0, 30, 1, 6336, 3200, 3200, 3200, 6400, 32, 128, 0],
+    proofCounts: [32, 0, 30, 1, 6336, 3200, 3200, 3200, 3200, 32, 128, 0],
   },
   {
     name: 'maximum epoch',
@@ -373,12 +373,14 @@ describe('Proving Broker: Benchmarks', () => {
     const totalBaseRollup =
       (proofTypeCounts.get(ProvingRequestType.PRIVATE_BASE_ROLLUP) ?? 0) +
       (proofTypeCounts.get(ProvingRequestType.PUBLIC_BASE_ROLLUP) ?? 0);
+    expect(proofTypeCounts.get(ProvingRequestType.PUBLIC_TUBE)).toBe(
+      proofTypeCounts.get(ProvingRequestType.PUBLIC_BASE_ROLLUP),
+    );
 
     // Per-block rules (scaled by number of blocks)
     expect(proofTypeCounts.get(ProvingRequestType.BASE_PARITY) ?? 0).toBe(4 * expectedBlocks); // 4 base parity jobs per block
     expect(proofTypeCounts.get(ProvingRequestType.ROOT_PARITY) ?? 0).toBe(1 * expectedBlocks); // 1 root parity job per block
     expect(proofTypeCounts.get(ProvingRequestType.BLOCK_ROOT_ROLLUP) ?? 0).toBe(1 * expectedBlocks); // 1 block root per block
-    expect(proofTypeCounts.get(ProvingRequestType.TUBE_PROOF) ?? 0).toBe(totalTransactions); // n tube proofs per block
     expect(totalBaseRollup).toBe(totalTransactions); // n base rollup jobs per block
     expect(proofTypeCounts.get(ProvingRequestType.PUBLIC_VM) ?? 0).toBe(
       proofTypeCounts.get(ProvingRequestType.PUBLIC_BASE_ROLLUP) ?? 0,

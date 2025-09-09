@@ -44,7 +44,7 @@ type EnqueuedProvingJob = Pick<ProvingJob, 'id' | 'epochNumber'>;
 export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Traceable {
   private queues: ProvingQueues = {
     [ProvingRequestType.PUBLIC_VM]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.TUBE_PROOF]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.PUBLIC_TUBE]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
 
     [ProvingRequestType.PRIVATE_BASE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.PUBLIC_BASE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
@@ -681,7 +681,7 @@ export const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
   ProvingRequestType.PUBLIC_BASE_ROLLUP,
   ProvingRequestType.PRIVATE_BASE_ROLLUP,
   ProvingRequestType.PUBLIC_VM,
-  ProvingRequestType.TUBE_PROOF,
+  ProvingRequestType.PUBLIC_TUBE,
   ProvingRequestType.ROOT_PARITY,
   ProvingRequestType.BASE_PARITY,
   ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP,

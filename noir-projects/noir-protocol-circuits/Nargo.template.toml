@@ -20,6 +20,7 @@ members = [
     "crates/reset-kernel-lib",
     "crates/hiding-kernel-to-rollup",
     "crates/hiding-kernel-to-public",
+    "crates/tube-public",
     "crates/rollup-lib",
     "crates/rollup-merge",
     "crates/rollup-base-private",

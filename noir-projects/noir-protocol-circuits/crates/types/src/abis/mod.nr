@@ -56,5 +56,3 @@ pub mod private_kernel_data;
 pub mod private_circuit_public_inputs;
 
 pub mod sponge_blob;
-
-pub mod tube;

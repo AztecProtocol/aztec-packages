@@ -15,11 +15,13 @@ import SingleTxBlockRootRollupJson from '../../artifacts/rollup_block_root_singl
 import SingleTxBlockRootRollupSimulatedJson from '../../artifacts/rollup_block_root_single_tx_simulated.json' with { type: 'json' };
 import MergeRollupJson from '../../artifacts/rollup_merge.json' with { type: 'json' };
 import RootRollupJson from '../../artifacts/rollup_root.json' with { type: 'json' };
+import PublicTubeJson from '../../artifacts/tube_public.json' with { type: 'json' };
 import type { ServerProtocolArtifact } from './types.js';
 
 export const ServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiledCircuit> = {
   BaseParityArtifact: BaseParityJson as NoirCompiledCircuit,
   RootParityArtifact: RootParityJson as NoirCompiledCircuit,
+  PublicTube: PublicTubeJson as NoirCompiledCircuit,
   PrivateBaseRollupArtifact: PrivateBaseRollupJson as NoirCompiledCircuit,
   PublicBaseRollupArtifact: PublicBaseRollupJson as NoirCompiledCircuit,
   MergeRollupArtifact: MergeRollupJson as NoirCompiledCircuit,
@@ -34,6 +36,7 @@ export const ServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiled
 export const SimulatedServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiledCircuit> = {
   BaseParityArtifact: BaseParityJson as NoirCompiledCircuit,
   RootParityArtifact: RootParityJson as NoirCompiledCircuit,
+  PublicTube: PublicTubeJson as NoirCompiledCircuit,
   PrivateBaseRollupArtifact: PrivateBaseRollupSimulatedJson as NoirCompiledCircuit,
   PublicBaseRollupArtifact: PublicBaseRollupSimulatedJson as NoirCompiledCircuit,
   MergeRollupArtifact: MergeRollupJson as NoirCompiledCircuit,

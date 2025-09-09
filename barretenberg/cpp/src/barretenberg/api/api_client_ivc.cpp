@@ -27,13 +27,16 @@ namespace { // anonymous namespace
  *
  * @param bytecode_path
  * @param witness_path
+ * @param use_structured_trace Whether to utilize structured trace when computing VK for circuit
  */
-void write_standalone_vk(const std::filesystem::path& bytecode_path, const std::filesystem::path& output_path)
+void write_standalone_vk(std::vector<uint8_t> bytecode,
+                         const std::filesystem::path& output_path,
+                         bool use_structured_trace = true)
 {
-    auto bytecode = get_bytecode(bytecode_path);
+    auto trace_settings = use_structured_trace ? TraceSettings{ AZTEC_TRACE_STRUCTURE } : TraceSettings{};
     auto response = bbapi::ClientIvcComputeStandaloneVk{
         .circuit = { .name = "standalone_circuit", .bytecode = std::move(bytecode) }
-    }.execute();
+    }.execute({ .trace_settings = trace_settings });
 
     bool is_stdout = output_path == "-";
     if (is_stdout) {
@@ -84,17 +87,18 @@ void ClientIVCAPI::prove(const Flags& flags,
     const bool output_to_stdout = output_dir == "-";
 
     const auto write_proof = [&]() {
-        const auto buf = to_buffer(proof);
+        const auto buf = to_buffer(proof.to_field_elements());
         if (output_to_stdout) {
             vinfo("writing ClientIVC proof to stdout");
             write_bytes_to_stdout(buf);
         } else {
             vinfo("writing ClientIVC proof in directory ", output_dir);
-            proof.to_file_msgpack(output_dir / "proof");
+            write_file(output_dir / "proof", buf);
         }
     };
 
     write_proof();
+
     if (flags.write_vk) {
         vinfo("writing ClientIVC vk in directory ", output_dir);
         // write CIVC vk using the bytecode of the hiding circuit (the last step of the execution)
@@ -108,8 +112,11 @@ bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
                           const std::filesystem::path& vk_path)
 {
     BB_BENCH_NAME("ClientIVCAPI::verify");
-    auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
+    auto proof_fields = many_from_buffer<fr>(read_file(proof_path));
+    auto proof = ClientIVC::Proof::from_field_elements(proof_fields);
+
     auto vk_buffer = read_file(vk_path);
+
     auto response = bbapi::ClientIvcVerify{ .proof = std::move(proof), .vk = std::move(vk_buffer) }.execute();
     return response.valid;
 }
@@ -177,10 +184,14 @@ void ClientIVCAPI::write_vk(const Flags& flags,
                             const std::filesystem::path& output_path)
 {
     BB_BENCH_NAME("ClientIVCAPI::write_vk");
+    auto bytecode = get_bytecode(bytecode_path);
     if (flags.verifier_type == "ivc") {
-        write_civc_vk(get_bytecode(bytecode_path), output_path);
+        write_civc_vk(bytecode, output_path);
     } else if (flags.verifier_type == "standalone") {
-        write_standalone_vk(bytecode_path, output_path);
+        write_standalone_vk(bytecode, output_path);
+    } else if (flags.verifier_type == "standalone_hiding") {
+        // write the VK for the hiding kernel which DOES NOT utilize a structured trace
+        write_standalone_vk(bytecode, output_path, false);
     } else {
         const std::string msg = std::string("Can't write vk for verifier type ") + flags.verifier_type;
         throw_or_abort(msg);

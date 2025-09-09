@@ -128,6 +128,10 @@ export class ProvingJobController {
         return await this.circuitProver.getAvmProof(inputs, undefined, signal, this.epochNumber);
       }
 
+      case ProvingRequestType.PUBLIC_TUBE: {
+        return await this.circuitProver.getPublicTubeProof(inputs, signal, this.epochNumber);
+      }
+
       case ProvingRequestType.PRIVATE_BASE_ROLLUP: {
         return await this.circuitProver.getPrivateBaseRollupProof(inputs, signal, this.epochNumber);
       }
@@ -170,10 +174,6 @@ export class ProvingJobController {
 
       case ProvingRequestType.ROOT_PARITY: {
         return await this.circuitProver.getRootParityProof(inputs, signal, this.epochNumber);
-      }
-
-      case ProvingRequestType.TUBE_PROOF: {
-        return await this.circuitProver.getTubeProof(inputs, signal, this.epochNumber);
       }
 
       default: {

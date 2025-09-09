@@ -3,10 +3,10 @@ import type {
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   RECURSIVE_PROOF_LENGTH,
-  TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
 
 import type { AvmCircuitInputs } from '../avm/avm.js';
+import type { PrivateToPublicKernelCircuitPublicInputs } from '../kernel/private_to_public_kernel_circuit_public_inputs.js';
 import type { BaseParityInputs } from '../parity/base_parity_inputs.js';
 import type { ParityPublicInputs } from '../parity/parity_public_inputs.js';
 import type { RootParityInputs } from '../parity/root_parity_inputs.js';
@@ -15,12 +15,11 @@ import type { BlockMergeRollupInputs } from '../rollup/block_merge_rollup.js';
 import type { BlockRootOrBlockMergePublicInputs } from '../rollup/block_root_or_block_merge_public_inputs.js';
 import type { BlockRootRollupInputs, SingleTxBlockRootRollupInputs } from '../rollup/block_root_rollup.js';
 import type { EmptyBlockRootRollupInputs } from '../rollup/empty_block_root_rollup_inputs.js';
-import type { PaddingBlockRootRollupInputs } from '../rollup/index.js';
+import type { PaddingBlockRootRollupInputs, PublicTubePrivateInputs } from '../rollup/index.js';
 import type { MergeRollupInputs } from '../rollup/merge_rollup.js';
 import type { PrivateBaseRollupInputs } from '../rollup/private_base_rollup_inputs.js';
 import type { PublicBaseRollupInputs } from '../rollup/public_base_rollup_inputs.js';
 import type { RootRollupInputs, RootRollupPublicInputs } from '../rollup/root_rollup.js';
-import type { TubeInputs } from '../rollup/tube_inputs.js';
 import type { Tx } from '../tx/tx.js';
 import type { ProofAndVerificationKey, PublicInputsAndRecursiveProof } from './proving-job.js';
 
@@ -48,6 +47,17 @@ export interface ServerCircuitProver {
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH>>;
 
+  getPublicTubeProof(
+    inputs: PublicTubePrivateInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<
+    PublicInputsAndRecursiveProof<
+      PrivateToPublicKernelCircuitPublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >
+  >;
+
   /**
    * Creates a proof for the given input.
    * @param input - Input to the circuit.
@@ -67,16 +77,6 @@ export interface ServerCircuitProver {
   ): Promise<
     PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
   >;
-
-  /**
-   * Get a recursively verified client IVC proof (making it a compatible honk proof for the rest of the rollup).
-   * @param input - Input to the circuit.
-   */
-  getTubeProof(
-    tubeInput: TubeInputs,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>>;
 
   /**
    * Creates a proof for the given input.

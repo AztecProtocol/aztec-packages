@@ -5,7 +5,7 @@ pub(crate) mod include_by_timestamp;
 pub(crate) mod nullifier_tree;
 pub(crate) mod public_data_tree;
 
-mod private_tube_data_validator;
-mod public_tube_data_validator;
-pub(crate) use private_tube_data_validator::PrivateTubeDataValidator;
-pub(crate) use public_tube_data_validator::PublicTubeDataValidator;
+mod private_tx_base_inputs_validator;
+mod public_tx_base_inputs_validator;
+pub(crate) use private_tx_base_inputs_validator::PrivateTxBaseInputsValidator;
+pub(crate) use public_tx_base_inputs_validator::PublicTxBaseInputsValidator;

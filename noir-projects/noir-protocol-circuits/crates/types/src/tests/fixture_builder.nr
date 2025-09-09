@@ -42,7 +42,6 @@ use crate::{
         side_effect::{Counted, Ordered, scoped::Scoped},
         transaction::{tx_context::TxContext, tx_request::TxRequest},
         tree_snapshots::TreeSnapshots,
-        tube::{PrivateTubeData, PublicTubeData},
         tx_constant_data::TxConstantData,
         validation_requests::{
             KeyValidationRequest, KeyValidationRequestAndGenerator, PrivateValidationRequests,
@@ -80,6 +79,7 @@ use crate::{
     messaging::l2_to_l1_message::L2ToL1Message,
     point::Point,
     proof::{
+        proof_data::ProofData,
         recursive_proof::NestedRecursiveProof,
         verification_key::{ClientIVCVerificationKey, HonkVerificationKey, VerificationKey},
         vk_data::VkData,
@@ -88,10 +88,14 @@ use crate::{
     storage::map::derive_storage_slot_in_map,
     tests::{
         fixtures::{
-            self, contract_functions::ContractFunction, contracts::ContractData,
+            self,
+            contract_functions::ContractFunction,
+            contracts::ContractData,
             public_data_tree::empty_public_data_tree,
+            vk_tree::{generate_fake_vk_for_index, VK_MERKLE_TREE},
         },
         merkle_tree_utils::NonEmptyMerkleTree,
+        utils::pad_end_with_empty,
     },
     traits::{Deserialize, Empty, FromField, Hash, Packable, ToField},
     utils::arrays::ClaimedLengthArray,
@@ -381,6 +385,29 @@ impl FixtureBuilder {
     pub fn is_first_call(&mut self) -> Self {
         self.msg_sender = AztecAddress::from_field(MAX_FIELD_VALUE);
         *self
+    }
+
+    pub fn make_proof_data<T, let ProofLen: u32, let VkLen: u32>(
+        public_inputs: T,
+        vk_index: u32,
+    ) -> ProofData<T, ProofLen, VkLen> {
+        let value_offset = vk_index as Field * 8976;
+        ProofData {
+            public_inputs,
+            proof: pad_end_with_empty([
+                value_offset + 79427943,
+                value_offset + 94340,
+                value_offset + 4789150,
+                value_offset + 524,
+            ]),
+            vk_data: Self::get_vk_data(vk_index),
+        }
+    }
+
+    pub fn get_vk_data<let VkLen: u32>(vk_index: u32) -> VkData<VkLen> {
+        let vk = generate_fake_vk_for_index(vk_index);
+        let sibling_path = VK_MERKLE_TREE.get_sibling_path(vk_index);
+        VkData { vk, leaf_index: vk_index, sibling_path }
     }
 
     pub fn to_tx_constant_data(self) -> TxConstantData {
@@ -751,18 +778,6 @@ impl FixtureBuilder {
             fee_payer: self.fee_payer,
             include_by_timestamp: self.include_by_timestamp,
         }
-    }
-
-    pub fn to_private_tube_data(self) -> PrivateTubeData {
-        let mut result: PrivateTubeData = std::mem::zeroed();
-        result.public_inputs = self.to_private_to_rollup_kernel_circuit_public_inputs();
-        result
-    }
-
-    pub fn to_public_tube_data(self) -> PublicTubeData {
-        let mut result: PublicTubeData = std::mem::zeroed();
-        result.public_inputs = self.to_private_to_public_kernel_circuit_public_inputs();
-        result
     }
 
     pub fn to_avm_accumulated_data(self) -> AvmAccumulatedData {

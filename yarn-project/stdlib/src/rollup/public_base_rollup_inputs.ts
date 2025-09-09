@@ -3,13 +3,14 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import type { FieldsOf } from '@aztec/foundation/types';
 
+import { PrivateToPublicKernelCircuitPublicInputs } from '../kernel/private_to_public_kernel_circuit_public_inputs.js';
+import { ProofData, type RollupHonkProofData } from '../proofs/proof_data.js';
 import { AvmProofData } from './avm_proof_data.js';
 import { PublicBaseRollupHints } from './base_rollup_hints.js';
-import { PublicTubeData } from './public_tube_data.js';
 
 export class PublicBaseRollupInputs {
   constructor(
-    public tubeData: PublicTubeData,
+    public publicTubeProofData: RollupHonkProofData<PrivateToPublicKernelCircuitPublicInputs>,
     public avmProofData: AvmProofData,
     public hints: PublicBaseRollupHints,
   ) {}
@@ -19,13 +20,13 @@ export class PublicBaseRollupInputs {
   }
 
   static getFields(fields: FieldsOf<PublicBaseRollupInputs>) {
-    return [fields.tubeData, fields.avmProofData, fields.hints] as const;
+    return [fields.publicTubeProofData, fields.avmProofData, fields.hints] as const;
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): PublicBaseRollupInputs {
     const reader = BufferReader.asReader(buffer);
     return new PublicBaseRollupInputs(
-      reader.readObject(PublicTubeData),
+      ProofData.fromBuffer(reader, PrivateToPublicKernelCircuitPublicInputs),
       reader.readObject(AvmProofData),
       reader.readObject(PublicBaseRollupHints),
     );
@@ -41,10 +42,6 @@ export class PublicBaseRollupInputs {
 
   toString() {
     return bufferToHex(this.toBuffer());
-  }
-
-  static empty() {
-    return new PublicBaseRollupInputs(PublicTubeData.empty(), AvmProofData.empty(), PublicBaseRollupHints.empty());
   }
 
   /** Returns a representation for JSON serialization. */

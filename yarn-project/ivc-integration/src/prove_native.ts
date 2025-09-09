@@ -8,26 +8,24 @@ import {
   extractVkData,
   generateAvmProof,
   generateProof,
-  generateTubeProof,
-  readClientIVCProofFromOutputDirectory,
-  readProofAsFields,
+  readProofsFromOutputDirectory,
   verifyAvmProof,
   verifyProof,
 } from '@aztec/bb-prover';
 import {
   AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
+  CIVC_PROOF_LENGTH,
   NESTED_RECURSIVE_PROOF_LENGTH,
   RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import type { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
-import { makeProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
+import { type ProofAndVerificationKey, makeProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
-import type { ClientIvcProof, Proof } from '@aztec/stdlib/proofs';
+import type { Proof } from '@aztec/stdlib/proofs';
 import { enhanceProofWithPiValidationFlag } from '@aztec/stdlib/rollup';
 import { VerificationKeyAsFields, VerificationKeyData } from '@aztec/stdlib/vks';
 
@@ -57,7 +55,7 @@ export async function proveClientIVC(
   bytecodes: string[],
   vks: string[],
   logger: Logger,
-): Promise<ClientIvcProof> {
+): Promise<ProofAndVerificationKey<typeof CIVC_PROOF_LENGTH>> {
   const stepToStruct = (bytecode: string, index: number) => {
     return {
       bytecode: Buffer.from(bytecode, 'base64'),
@@ -82,7 +80,10 @@ export async function proveClientIVC(
     throw new Error(provingResult.reason);
   }
 
-  return readClientIVCProofFromOutputDirectory(bbWorkingDirectory);
+  const vk = await extractVkData(provingResult.vkDirectoryPath!);
+  const proof = await readProofsFromOutputDirectory(provingResult.proofPath!, vk, CIVC_PROOF_LENGTH, logger);
+
+  return makeProofAndVerificationKey(proof, vk);
 }
 
 async function verifyProofWithKey(
@@ -106,22 +107,6 @@ async function verifyProofWithKey(
     throw new Error(`Failed to verify proof from key!`);
   }
   logger.info(`Successfully verified proof from key in ${result.durationMs} ms`);
-}
-
-export async function proveTube(pathToBB: string, workingDirectory: string, logger: Logger) {
-  const tubeResult = await generateTubeProof(pathToBB, workingDirectory, workingDirectory.concat('/vk'), logger.info);
-
-  if (tubeResult.status != BB_RESULT.SUCCESS) {
-    throw new Error('Failed to prove tube');
-  }
-
-  const tubeVK = await extractVkData(tubeResult.vkDirectoryPath!);
-  const tubeProof = await readProofAsFields(tubeResult.proofPath!, tubeVK, TUBE_PROOF_LENGTH, logger);
-
-  // Sanity check the tube proof
-  await verifyProofWithKey(pathToBB, workingDirectory, tubeVK, tubeProof.binaryProof, 'ultra_rollup_honk', logger);
-
-  return makeProofAndVerificationKey(tubeProof, tubeVK);
 }
 
 async function proveRollupCircuit<T extends UltraHonkFlavor, ProofLength extends number>(
@@ -152,7 +137,7 @@ async function proveRollupCircuit<T extends UltraHonkFlavor, ProofLength extends
   }
 
   const vk = await convertVkBytesToVkData(vkBuffer);
-  const proof = await readProofAsFields(proofResult.proofPath!, vk, proofLength, logger);
+  const proof = await readProofsFromOutputDirectory(proofResult.proofPath!, vk, proofLength, logger);
 
   await verifyProofWithKey(pathToBB, workingDirectory, vk, proof.binaryProof, flavor, logger);
 

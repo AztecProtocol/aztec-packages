@@ -1,7 +1,8 @@
-import { BB_RESULT, verifyClientIvcProof, writeClientIVCProofToOutputDirectory } from '@aztec/bb-prover';
+import { BB_RESULT, verifyClientIvcProof } from '@aztec/bb-prover';
 import {
   AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
-  TUBE_PROOF_LENGTH,
+  CIVC_PROOF_LENGTH,
+  CIVC_VK_LENGTH_IN_FIELDS,
   ULTRA_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
@@ -17,8 +18,9 @@ import { jest } from '@jest/globals';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+import MockHidingJson from '../artifacts/mock_hiding.json' with { type: 'json' };
 import { getWorkingDirectory } from './bb_working_directory.js';
-import { proveAvm, proveClientIVC, proveRollupHonk, proveTube } from './prove_native.js';
+import { proveAvm, proveClientIVC, proveRollupHonk } from './prove_native.js';
 import type { KernelPublicInputs } from './types/index.js';
 import {
   MockRollupBasePrivateCircuit,
@@ -43,7 +45,7 @@ const logger = createLogger('ivc-integration:test:rollup-native');
 describe('Rollup IVC Integration', () => {
   let bbBinaryPath: string;
 
-  let tubeProof: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>;
+  let ivcProof: ProofAndVerificationKey<typeof CIVC_PROOF_LENGTH>;
   let avmVK: VerificationKeyAsFields;
   let avmProof: Fr[];
   let avmPublicInputs: AvmCircuitPublicInputs;
@@ -58,17 +60,15 @@ describe('Rollup IVC Integration', () => {
     const clientIVCWorkingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-client-ivc-');
     const [bytecodes, witnessStack, tailPublicInputs, vks] = await generateTestingIVCStack(1, 0);
     clientIVCPublicInputs = tailPublicInputs;
-    const proof = await proveClientIVC(bbBinaryPath, clientIVCWorkingDirectory, witnessStack, bytecodes, vks, logger);
-    await writeClientIVCProofToOutputDirectory(proof, clientIVCWorkingDirectory);
-    const verifyResult = await verifyClientIvcProof(
+
+    ivcProof = await proveClientIVC(bbBinaryPath, clientIVCWorkingDirectory, witnessStack, bytecodes, vks, logger);
+    const ivcVerifyResult = await verifyClientIvcProof(
       bbBinaryPath,
       clientIVCWorkingDirectory.concat('/proof'),
       clientIVCWorkingDirectory.concat('/vk'),
       logger.info,
     );
-    expect(verifyResult.status).toEqual(BB_RESULT.SUCCESS);
-
-    tubeProof = await proveTube(bbBinaryPath, clientIVCWorkingDirectory, logger);
+    expect(ivcVerifyResult.status).toEqual(BB_RESULT.SUCCESS);
 
     // Create an AVM proof
     const avmWorkingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-avm-');
@@ -90,11 +90,16 @@ describe('Rollup IVC Integration', () => {
   });
 
   it('Should be able to generate a proof of a 3 transaction rollup', async () => {
+    // Use the pre-generated standalone vk to verify the proof recursively.
+    const ivcVk = await VerificationKeyAsFields.fromKey(
+      MockHidingJson.verificationKey.fields.map((str: string) => Fr.fromHexString(str)),
+    );
+
     const privateBaseRollupWitnessResult = await witnessGenMockRollupBasePrivateCircuit({
-      tube_data: {
+      civc_proof_data: {
         public_inputs: clientIVCPublicInputs,
-        proof: mapRecursiveProofToNoir(tubeProof.proof),
-        vk_data: mapVerificationKeyToNoir(tubeProof.verificationKey.keyAsFields, ULTRA_VK_LENGTH_IN_FIELDS),
+        proof: mapRecursiveProofToNoir(ivcProof.proof),
+        vk_data: mapVerificationKeyToNoir(ivcVk, CIVC_VK_LENGTH_IN_FIELDS),
       },
     });
 
@@ -114,10 +119,10 @@ describe('Rollup IVC Integration', () => {
     };
 
     const publicBaseRollupWitnessResult = await witnessGenMockPublicBaseCircuit({
-      tube_data: {
+      civc_proof_data: {
         public_inputs: clientIVCPublicInputs,
-        proof: mapRecursiveProofToNoir(tubeProof.proof),
-        vk_data: mapVerificationKeyToNoir(tubeProof.verificationKey.keyAsFields, ULTRA_VK_LENGTH_IN_FIELDS),
+        proof: mapRecursiveProofToNoir(ivcProof.proof),
+        vk_data: mapVerificationKeyToNoir(ivcVk, CIVC_VK_LENGTH_IN_FIELDS),
       },
       verification_key: mapVerificationKeyToNoir(avmVK, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED),
       proof: mapAvmProofToNoir(avmProof),

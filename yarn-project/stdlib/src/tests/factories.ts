@@ -5,6 +5,7 @@ import {
   AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   AZTEC_MAX_EPOCH_DURATION,
   BLOBS_PER_BLOCK,
+  CIVC_PROOF_LENGTH,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
   FIELDS_PER_BLOB,
   FIXED_DA_GAS,
@@ -41,7 +42,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_LOG_SIZE_IN_FIELDS,
   RECURSIVE_PROOF_LENGTH,
-  TUBE_PROOF_LENGTH,
+  RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
 import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/array';
@@ -131,6 +132,7 @@ import { ParityPublicInputs } from '../parity/parity_public_inputs.js';
 import { RootParityInput } from '../parity/root_parity_input.js';
 import { RootParityInputs } from '../parity/root_parity_inputs.js';
 import { Proof } from '../proofs/proof.js';
+import { ProofData } from '../proofs/proof_data.js';
 import { ProvingRequestType } from '../proofs/proving_request_type.js';
 import { makeRecursiveProof } from '../proofs/recursive_proof.js';
 import { AvmProofData } from '../rollup/avm_proof_data.js';
@@ -151,9 +153,7 @@ import { MergeRollupInputs } from '../rollup/merge_rollup.js';
 import { PreviousRollupBlockData } from '../rollup/previous_rollup_block_data.js';
 import { PreviousRollupData } from '../rollup/previous_rollup_data.js';
 import { PrivateBaseRollupInputs } from '../rollup/private_base_rollup_inputs.js';
-import { PrivateTubeData } from '../rollup/private_tube_data.js';
 import { PublicBaseRollupInputs } from '../rollup/public_base_rollup_inputs.js';
-import { PublicTubeData } from '../rollup/public_tube_data.js';
 import { RootRollupInputs, RootRollupPublicInputs } from '../rollup/root_rollup.js';
 import { PrivateBaseStateDiffHints } from '../rollup/state_diff_hints.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
@@ -412,7 +412,7 @@ export function makePrivateKernelTailCircuitPublicInputs(
   );
 }
 
-function makePrivateToPublicKernelCircuitPublicInputs(seed = 1) {
+export function makePrivateToPublicKernelCircuitPublicInputs(seed = 1) {
   return new PrivateToPublicKernelCircuitPublicInputs(
     makeTxConstantData(seed),
     makePrivateToPublicAccumulatedData(seed + 0x200),
@@ -1083,10 +1083,14 @@ function makeVkData(seed = 1) {
   return new VkData(VerificationKeyData.makeFakeHonk(), seed, makeTuple(VK_TREE_HEIGHT, fr, seed + 0x100));
 }
 
-function makePrivateTubeData(seed = 1, kernelPublicInputs?: PrivateToRollupKernelCircuitPublicInputs) {
-  return new PrivateTubeData(
-    kernelPublicInputs ?? makePrivateToRollupKernelCircuitPublicInputs(seed, true),
-    makeRecursiveProof<typeof TUBE_PROOF_LENGTH>(TUBE_PROOF_LENGTH, seed + 0x100),
+export function makeProofData<T extends Bufferable, PROOF_LENGTH extends number>(
+  seed = 0,
+  makePublicInputs: (seed: number) => T,
+  proofSize: PROOF_LENGTH = NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH as PROOF_LENGTH,
+) {
+  return new ProofData(
+    makePublicInputs(seed),
+    makeRecursiveProof<PROOF_LENGTH>(proofSize, seed + 0x100),
     makeVkData(seed + 0x200),
   );
 }
@@ -1131,21 +1135,10 @@ function makePublicBaseRollupHints(seed = 1) {
 }
 
 export function makePrivateBaseRollupInputs(seed = 0) {
-  const tubeData = makePrivateTubeData(seed);
-  const hints = makePrivateBaseRollupHints(seed + 0x100);
-
   return PrivateBaseRollupInputs.from({
-    tubeData,
-    hints,
+    hidingKernelProofData: makeProofData(seed, makePrivateToRollupKernelCircuitPublicInputs, CIVC_PROOF_LENGTH),
+    hints: makePrivateBaseRollupHints(seed + 0x100),
   });
-}
-
-function makePublicTubeData(seed = 1) {
-  return new PublicTubeData(
-    makePrivateToPublicKernelCircuitPublicInputs(seed),
-    makeRecursiveProof<typeof TUBE_PROOF_LENGTH>(TUBE_PROOF_LENGTH, seed + 0x100),
-    makeVkData(seed + 0x200),
-  );
 }
 
 function makeAvmProofData(seed = 1) {
@@ -1157,12 +1150,16 @@ function makeAvmProofData(seed = 1) {
 }
 
 export function makePublicBaseRollupInputs(seed = 0) {
-  const tubeData = makePublicTubeData(seed);
+  const publicTubeProofData = makeProofData(
+    seed,
+    makePrivateToPublicKernelCircuitPublicInputs,
+    RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  );
   const avmProofData = makeAvmProofData(seed + 0x100);
   const hints = makePublicBaseRollupHints(seed + 0x200);
 
   return PublicBaseRollupInputs.from({
-    tubeData,
+    publicTubeProofData,
     avmProofData,
     hints,
   });

@@ -1,5 +1,6 @@
 import {
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
+  MAX_ENQUEUED_CALLS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
@@ -855,6 +856,17 @@ export function mapPrivateToRollupAccumulatedDataFromNoir(
   );
 }
 
+export function mapPrivateToPublicAccumulatedDataFromNoir(data: PrivateToPublicAccumulatedDataNoir) {
+  return new PrivateToPublicAccumulatedData(
+    mapTupleFromNoir(data.note_hashes, MAX_NOTE_HASHES_PER_TX, mapFieldFromNoir),
+    mapTupleFromNoir(data.nullifiers, MAX_NULLIFIERS_PER_TX, mapFieldFromNoir),
+    mapTupleFromNoir(data.l2_to_l1_msgs, MAX_L2_TO_L1_MSGS_PER_TX, mapScopedL2ToL1MessageFromNoir),
+    mapTupleFromNoir(data.private_logs, MAX_PRIVATE_LOGS_PER_TX, mapPrivateLogFromNoir),
+    mapTupleFromNoir(data.contract_class_logs_hashes, MAX_CONTRACT_CLASS_LOGS_PER_TX, mapScopedLogHashFromNoir),
+    mapTupleFromNoir(data.public_call_requests, MAX_ENQUEUED_CALLS_PER_TX, mapPublicCallRequestFromNoir),
+  );
+}
+
 function mapPrivateToPublicAccumulatedDataToNoir(
   data: PrivateToPublicAccumulatedData,
 ): PrivateToPublicAccumulatedDataNoir {
@@ -891,6 +903,15 @@ export function mapTxContextFromNoir(txContext: TxContextNoir): TxContext {
     mapFieldFromNoir(txContext.chain_id),
     mapFieldFromNoir(txContext.version),
     mapGasSettingsFromNoir(txContext.gas_settings),
+  );
+}
+
+export function mapTxConstantDataFromNoir(data: TxConstantDataNoir) {
+  return new TxConstantData(
+    mapHeaderFromNoir(data.historical_header),
+    mapTxContextFromNoir(data.tx_context),
+    mapFieldFromNoir(data.vk_tree_root),
+    mapFieldFromNoir(data.protocol_contract_tree_root),
   );
 }
 

@@ -17,6 +17,7 @@ export type ServerProtocolArtifact =
   | 'BaseParityArtifact'
   | 'RootParityArtifact'
   | 'PrivateBaseRollupArtifact'
+  | 'PublicTube'
   | 'PublicBaseRollupArtifact'
   | 'MergeRollupArtifact'
   | 'BlockRootRollupArtifact'
@@ -29,8 +30,8 @@ export type ServerProtocolArtifact =
 export type ProtocolArtifact = ServerProtocolArtifact | ClientProtocolArtifact;
 
 // TODO: Change the names in the Artifact types above to not include the word 'Artifact'.
-export type ServerProtocolCircuitName = ServerProtocolArtifact | 'PrivateTube' | 'PublicTube';
-export type ProtocolCircuitName = ProtocolArtifact | 'PrivateTube' | 'PublicTube';
+export type ServerProtocolCircuitName = ServerProtocolArtifact;
+export type ProtocolCircuitName = ProtocolArtifact;
 
 export interface ArtifactProvider {
   getClientCircuitArtifactByName(artifact: ClientProtocolArtifact): Promise<NoirCompiledCircuitWithName>;

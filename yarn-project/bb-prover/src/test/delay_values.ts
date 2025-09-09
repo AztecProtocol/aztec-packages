@@ -12,7 +12,7 @@ export const WITGEN_DELAY_MS: Record<ProvingRequestType, number> = {
   [ProvingRequestType.PUBLIC_BASE_ROLLUP]: 470_000,
   [ProvingRequestType.ROOT_PARITY]: 100,
   [ProvingRequestType.ROOT_ROLLUP]: 650,
-  [ProvingRequestType.TUBE_PROOF]: 0,
+  [ProvingRequestType.PUBLIC_TUBE]: 0,
   [ProvingRequestType.PUBLIC_VM]: 0,
 };
 
@@ -28,6 +28,6 @@ export const PROOF_DELAY_MS: Record<ProvingRequestType, number> = {
   [ProvingRequestType.PUBLIC_BASE_ROLLUP]: 160_000,
   [ProvingRequestType.ROOT_PARITY]: 30_000,
   [ProvingRequestType.ROOT_ROLLUP]: 15_000,
-  [ProvingRequestType.TUBE_PROOF]: 30_000,
+  [ProvingRequestType.PUBLIC_TUBE]: 30_000,
   [ProvingRequestType.PUBLIC_VM]: 0,
 };

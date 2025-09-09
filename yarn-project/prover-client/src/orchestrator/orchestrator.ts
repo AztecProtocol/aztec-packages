@@ -2,9 +2,9 @@ import { BlobAccumulatorPublicInputs, FinalBlobBatchingChallenges } from '@aztec
 import {
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
-  type TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { AbortError } from '@aztec/foundation/error';
@@ -22,16 +22,17 @@ import type {
   EpochProver,
   ForkMerkleTreeOperations,
   MerkleTreeWriteOperations,
-  ProofAndVerificationKey,
+  PublicInputsAndRecursiveProof,
   ServerCircuitProver,
 } from '@aztec/stdlib/interfaces/server';
+import type { PrivateToPublicKernelCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import { BaseParityInputs } from '@aztec/stdlib/parity';
 import {
   type BaseRollupHints,
   EmptyBlockRootRollupInputs,
   PrivateBaseRollupInputs,
+  PublicTubePrivateInputs,
   SingleTxBlockRootRollupInputs,
-  TubeInputs,
 } from '@aztec/stdlib/rollup';
 import type { CircuitName } from '@aztec/stdlib/stats';
 import { type AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
@@ -50,6 +51,7 @@ import { inspect } from 'util';
 import {
   buildHeaderAndBodyFromTxs,
   getLastSiblingPath,
+  getPublicTubePrivateInputsFromTx,
   getRootTreeSiblingPath,
   getSubtreeSiblingPath,
   getTreeSnapshot,
@@ -230,10 +232,13 @@ export class ProvingOrchestrator implements EpochProver {
         const [hints, treeSnapshots] = await this.prepareTransaction(tx, provingState);
         const txProvingState = new TxProvingState(tx, hints, treeSnapshots);
         const txIndex = provingState.addNewTx(txProvingState);
-        this.getOrEnqueueTube(provingState, txIndex);
         if (txProvingState.requireAvmProof) {
+          this.getOrEnqueueTube(provingState, txIndex);
           logger.debug(`Enqueueing public VM for tx ${txIndex}`);
           this.enqueueVM(provingState, txIndex);
+        } else {
+          logger.debug(`Enqueueing base rollup for private-only tx ${txIndex}`);
+          this.enqueueBaseRollup(provingState, txIndex);
         }
       } catch (err: any) {
         throw new Error(`Error adding transaction ${tx.hash.toString()} to block ${blockNumber}: ${err.message}`, {
@@ -252,12 +257,21 @@ export class ProvingOrchestrator implements EpochProver {
     if (!this.provingState?.verifyState()) {
       throw new Error(`Invalid proving state, call startNewEpoch before starting tube circuits`);
     }
-    for (const tx of txs) {
+    const publicTxs = txs.filter(tx => tx.data.forPublic);
+    for (const tx of publicTxs) {
       const txHash = tx.getTxHash().toString();
-      const tubeInputs = new TubeInputs(!!tx.data.forPublic, tx.clientIvcProof);
-      const tubeProof = promiseWithResolvers<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>>();
+      const privateInputs = getPublicTubePrivateInputsFromTx(tx);
+      const tubeProof =
+        promiseWithResolvers<
+          PublicInputsAndRecursiveProof<
+            PrivateToPublicKernelCircuitPublicInputs,
+            typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+          >
+        >();
       logger.debug(`Starting tube circuit for tx ${txHash}`);
-      this.doEnqueueTube(txHash, tubeInputs, proof => tubeProof.resolve(proof));
+      this.doEnqueueTube(txHash, privateInputs, proof => {
+        tubeProof.resolve(proof);
+      });
       this.provingState?.cachedTubeProofs.set(txHash, tubeProof.promise);
     }
     return Promise.resolve();
@@ -519,8 +533,6 @@ export class ProvingOrchestrator implements EpochProver {
 
     const db = this.dbs.get(provingState.blockNumber)!;
 
-    // We build the base rollup inputs using a mock proof and verification key.
-    // These will be overwritten later once we have proven the tube circuit and any public kernels
     const [ms, hints] = await elapsed(
       insertSideEffectsAndBuildBaseRollupHints(
         tx,
@@ -593,8 +605,8 @@ export class ProvingOrchestrator implements EpochProver {
     );
   }
 
-  // Enqueues the tube circuit for a given transaction index, or reuses the one already enqueued
-  // Once completed, will enqueue the next circuit, either a public kernel or the base rollup
+  // Enqueues the public tube circuit for a given transaction index, or reuses the one already enqueued.
+  // Once completed, will enqueue the the public tx base rollup.
   private getOrEnqueueTube(provingState: BlockProvingState, txIndex: number) {
     if (!provingState.verifyState()) {
       logger.debug('Not running tube circuit, state invalid');
@@ -603,12 +615,17 @@ export class ProvingOrchestrator implements EpochProver {
 
     const txProvingState = provingState.getTxProvingState(txIndex);
     const txHash = txProvingState.processedTx.hash.toString();
-
-    const handleResult = (result: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>) => {
+    NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
+    const handleResult = (
+      result: PublicInputsAndRecursiveProof<
+        PrivateToPublicKernelCircuitPublicInputs,
+        typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+      >,
+    ) => {
       logger.debug(`Got tube proof for tx index: ${txIndex}`, { txHash });
-      txProvingState.setTubeProof(result);
+      txProvingState.setPublicTubeProof(result);
       this.provingState?.cachedTubeProofs.delete(txHash);
-      this.checkAndEnqueueNextTxCircuit(provingState, txIndex);
+      this.checkAndEnqueueBaseRollup(provingState, txIndex);
     };
 
     if (this.provingState?.cachedTubeProofs.has(txHash)) {
@@ -618,13 +635,18 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     logger.debug(`Enqueuing tube circuit for tx index: ${txIndex}`);
-    this.doEnqueueTube(txHash, txProvingState.getTubeInputs(), handleResult);
+    this.doEnqueueTube(txHash, txProvingState.getPublicTubePrivateInputs(), handleResult);
   }
 
   private doEnqueueTube(
     txHash: string,
-    inputs: TubeInputs,
-    handler: (result: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>) => void,
+    inputs: PublicTubePrivateInputs,
+    handler: (
+      result: PublicInputsAndRecursiveProof<
+        PrivateToPublicKernelCircuitPublicInputs,
+        typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+      >,
+    ) => void,
     provingState: EpochProvingState | BlockProvingState = this.provingState!,
   ) {
     if (!provingState?.verifyState()) {
@@ -636,12 +658,12 @@ export class ProvingOrchestrator implements EpochProver {
       provingState,
       wrapCallbackInSpan(
         this.tracer,
-        'ProvingOrchestrator.prover.getTubeProof',
+        'ProvingOrchestrator.prover.getPublicTubeProof',
         {
           [Attributes.TX_HASH]: txHash,
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'tube-circuit' satisfies CircuitName,
+          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'public-tube' satisfies CircuitName,
         },
-        signal => this.prover.getTubeProof(inputs, signal, this.provingState!.epochNumber),
+        signal => this.prover.getPublicTubeProof(inputs, signal, this.provingState!.epochNumber),
       ),
       handler,
     );
@@ -1012,11 +1034,11 @@ export class ProvingOrchestrator implements EpochProver {
     this.deferredProving(provingState, doAvmProving, proofAndVk => {
       logger.debug(`Proven VM for tx index: ${txIndex}`);
       txProvingState.setAvmProof(proofAndVk);
-      this.checkAndEnqueueNextTxCircuit(provingState, txIndex);
+      this.checkAndEnqueueBaseRollup(provingState, txIndex);
     });
   }
 
-  private checkAndEnqueueNextTxCircuit(provingState: BlockProvingState, txIndex: number) {
+  private checkAndEnqueueBaseRollup(provingState: BlockProvingState, txIndex: number) {
     const txProvingState = provingState.getTxProvingState(txIndex);
     if (!txProvingState.ready()) {
       return;

@@ -1,22 +1,24 @@
-import { BB_RESULT, verifyClientIvcProof, writeClientIVCProofToOutputDirectory } from '@aztec/bb-prover';
 import {
   AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
-  TUBE_PROOF_LENGTH,
-  ULTRA_VK_LENGTH_IN_FIELDS,
+  CIVC_PROOF_LENGTH,
+  CIVC_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { PublicTxSimulationTester, bulkTest, createAvmMinimalPublicTx } from '@aztec/simulator/public/fixtures';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import type { ProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
+import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
 import { jest } from '@jest/globals';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+import MockHidingJson from '../artifacts/mock_hiding.json' with { type: 'json' };
 import { getWorkingDirectory } from './bb_working_directory.js';
-import { proveAvm, proveClientIVC, proveRollupHonk, proveTube } from './prove_native.js';
+import { proveAvm, proveClientIVC, proveRollupHonk } from './prove_native.js';
 import type { KernelPublicInputs } from './types/index.js';
 import {
   MockRollupBasePublicCircuit,
@@ -39,7 +41,7 @@ async function proveMockPublicBaseRollup(
   bbWorkingDirectory: string,
   bbBinaryPath: string,
   clientIVCPublicInputs: KernelPublicInputs,
-  tubeProof: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>,
+  civcProof: ProofAndVerificationKey<typeof CIVC_PROOF_LENGTH>,
   skipPublicInputsValidation: boolean = false,
 ) {
   const { vk, proof, publicInputs } = await proveAvm(
@@ -49,11 +51,15 @@ async function proveMockPublicBaseRollup(
     skipPublicInputsValidation,
   );
 
+  // Use the pre-generated standalone vk to verify the proof recursively.
+  const ivcVk = await VerificationKeyAsFields.fromKey(
+    MockHidingJson.verificationKey.fields.map((str: string) => Fr.fromHexString(str)),
+  );
   const baseWitnessResult = await witnessGenMockPublicBaseCircuit({
-    tube_data: {
+    civc_proof_data: {
       public_inputs: clientIVCPublicInputs,
-      proof: mapRecursiveProofToNoir(tubeProof.proof),
-      vk_data: mapVerificationKeyToNoir(tubeProof.verificationKey.keyAsFields, ULTRA_VK_LENGTH_IN_FIELDS),
+      proof: mapRecursiveProofToNoir(civcProof.proof),
+      vk_data: mapVerificationKeyToNoir(ivcVk, CIVC_VK_LENGTH_IN_FIELDS),
     },
     verification_key: mapVerificationKeyToNoir(vk, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED),
     proof: mapAvmProofToNoir(proof),
@@ -73,7 +79,7 @@ async function proveMockPublicBaseRollup(
 describe('AVM Integration', () => {
   let bbWorkingDirectory: string;
   let bbBinaryPath: string;
-  let tubeProof: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>;
+  let civcProof: ProofAndVerificationKey<typeof CIVC_PROOF_LENGTH>;
   let clientIVCPublicInputs: KernelPublicInputs;
 
   let simTester: PublicTxSimulationTester;
@@ -83,16 +89,7 @@ describe('AVM Integration', () => {
     bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
     const [bytecodes, witnessStack, tailPublicInputs, vks] = await generateTestingIVCStack(1, 0);
     clientIVCPublicInputs = tailPublicInputs;
-    const proof = await proveClientIVC(bbBinaryPath, clientIVCProofPath, witnessStack, bytecodes, vks, logger);
-    await writeClientIVCProofToOutputDirectory(proof, clientIVCProofPath);
-    const verifyResult = await verifyClientIvcProof(
-      bbBinaryPath,
-      clientIVCProofPath.concat('/proof'),
-      clientIVCProofPath.concat('/vk'),
-      logger.info,
-    );
-    expect(verifyResult.status).toEqual(BB_RESULT.SUCCESS);
-    tubeProof = await proveTube(bbBinaryPath, clientIVCProofPath, logger);
+    civcProof = await proveClientIVC(bbBinaryPath, clientIVCProofPath, witnessStack, bytecodes, vks, logger);
   });
 
   beforeEach(async () => {
@@ -112,7 +109,7 @@ describe('AVM Integration', () => {
       bbWorkingDirectory,
       bbBinaryPath,
       clientIVCPublicInputs,
-      tubeProof,
+      civcProof,
     );
   }, 240_000);
 
@@ -125,7 +122,7 @@ describe('AVM Integration', () => {
       bbWorkingDirectory,
       bbBinaryPath,
       clientIVCPublicInputs,
-      tubeProof,
+      civcProof,
       true,
     );
   }, 240_000);

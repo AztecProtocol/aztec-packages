@@ -34,7 +34,8 @@ pub fn compute_effective_gas_fees(gas_fees: GasFees, gas_settings: GasSettings) 
     let max_priority_fees = gas_settings.max_priority_fees_per_gas;
     let max_fees = gas_settings.max_fees_per_gas;
 
-    // max_fees are guaranteed to be greater than or equal to gas_fees, which is checked in tube_data_validator.
+    // max_fees are guaranteed to be greater than or equal to gas_fees, which is checked in validate_max_fees_per_gas
+    // called from validate_tx_constant_data.nr.
     let priority_fees = GasFees::new(
         min(
             max_priority_fees.fee_per_da_gas,
