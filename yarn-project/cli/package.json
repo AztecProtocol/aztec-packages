@@ -12,7 +12,8 @@
     "./misc": "./dest/cmds/misc/index.js",
     "./setup-contracts": "./dest/cmds/misc/setup_contracts.js",
     "./utils": "./dest/utils/index.js",
-    "./inspect": "./dest/utils/inspect.js"
+    "./inspect": "./dest/utils/inspect.js",
+    "./config": "./dest/config/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -76,6 +77,7 @@
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
+    "@aztec/node-lib": "workspace:^",
     "@aztec/p2p": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "@aztec/world-state": "workspace:^",
