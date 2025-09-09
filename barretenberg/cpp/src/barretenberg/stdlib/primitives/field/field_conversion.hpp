@@ -20,10 +20,6 @@ template <typename Builder> using fr = field_t<Builder>;
 template <typename Builder> using fq = bigfield<Builder, bb::Bn254FqParams>;
 template <typename Builder> using bn254_element = element<Builder, fq<Builder>, fr<Builder>, curve::BN254::Group>;
 template <typename Builder> using grumpkin_element = cycle_group<Builder>;
-
-static constexpr uint64_t NUM_LIMB_BITS = NUM_LIMB_BITS_IN_FIELD_SIMULATION;
-static constexpr uint64_t TOTAL_BITS = 254;
-
 /**
  * @brief Under the assumption that (x, y) is a point on the curve (bn254 or Grumpkin), check whether it
  * corresponds to (0, 0), which is the point at infinity in our conventions.
@@ -69,6 +65,8 @@ inline std::vector<fr<Builder>> convert_goblin_fr_to_bn254_frs(const goblin_fiel
 
 template <typename Builder> inline std::vector<fr<Builder>> convert_grumpkin_fr_to_bn254_frs(const fq<Builder>& input)
 {
+    static constexpr uint64_t NUM_LIMB_BITS = fq<Builder>::NUM_LIMB_BITS;
+
     static constexpr bb::fr shift(static_cast<uint256_t>(1) << NUM_LIMB_BITS);
     std::vector<fr<Builder>> result(2);
     result[0] = input.binary_basis_limbs[0].element + (input.binary_basis_limbs[1].element * shift);
@@ -142,12 +140,14 @@ template <typename Builder, typename T> T convert_from_bn254_frs(std::span<const
         return T(x, y, check_point_at_infinity<Builder, T>(fr_vec));
     } else {
         // Array or Univariate
-        using field_type = typename T::value_type;
         T val;
-        const size_t target_size = val.size();
-        constexpr size_t scalar_frs = expected_size / target_size;
-        for (size_t i = 0; i < target_size; i++) {
-            val[i] = convert_from_bn254_frs<Builder, field_type>(fr_vec.subspan(scalar_frs * i, scalar_frs));
+        using element_type = typename T::value_type;
+        const size_t scalar_frs = calc_num_bn254_frs<Builder, element_type>();
+
+        size_t i = 0;
+        for (auto& x : val) {
+            x = convert_from_bn254_frs<Builder, element_type>(fr_vec.subspan(scalar_frs * i, scalar_frs));
+            ++i;
         }
         return val;
     }
@@ -177,8 +177,8 @@ template <typename Builder, typename T> std::vector<fr<Builder>> convert_to_bn25
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1527): Consider handling point at infinity.
         using BaseField = T::BaseField;
 
-        BaseField fr_vec_x = convert_to_bn254_frs<Builder, BaseField>(val.x);
-        BaseField fr_vec_y = convert_to_bn254_frs<Builder, BaseField>(val.y);
+        std::vector<fr<Builder>> fr_vec_x = convert_to_bn254_frs<Builder, BaseField>(val.x);
+        std::vector<fr<Builder>> fr_vec_y = convert_to_bn254_frs<Builder, BaseField>(val.y);
         std::vector<fr<Builder>> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
         fr_vec.insert(fr_vec.end(), fr_vec_y.begin(), fr_vec_y.end());
         return fr_vec;
