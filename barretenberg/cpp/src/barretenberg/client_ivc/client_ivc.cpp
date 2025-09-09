@@ -562,7 +562,8 @@ void ClientIVC::hide_op_queue_accumulation_result(ClientCircuit& circuit)
  * achieved via the translation evaluation check and avoiding an information leak there is ensured by
  * `ClientIVC::hide_op_queue_accumulation_result()` and SmallSubgroupIPA in ECCVM.
  *
- * We need each op queue polynomial to have 9 random coefficients (so the op queue needs to contain 6 random ops).
+ * We need each op queue polynomial to have 9 random coefficients (so the op queue needs to contain 5 random ops, every
+ * UltraOp adding two coefficients to each of the 4 polynomials).
  *
  * For the last subtable of ecc ops belonging to the hiding kernel, merged via appended to the full op queue, its data
  * appears as the ecc_op_wires in the MegaZK proof, wires that are not going to be shifted, so the proof contains,
