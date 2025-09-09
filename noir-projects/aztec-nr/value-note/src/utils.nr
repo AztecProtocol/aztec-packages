@@ -2,7 +2,7 @@ use crate::{filter::filter_notes_min_sum, value_note::ValueNote};
 
 use aztec::{
     context::PrivateContext,
-    messages::logs::note::encode_and_encrypt_note,
+    event::event_interface::MessageDelivery,
     note::{note_getter_options::{NoteGetterOptions, SortOrder}, note_interface::NoteProperties},
     protocol_types::{address::AztecAddress, traits::Packable},
     state_vars::PrivateSet,
@@ -33,7 +33,7 @@ pub fn increment(
     let note = ValueNote::new(amount, recipient);
     // Insert the new note to the owner's set of notes and emit the log if value is non-zero.
     // TODO: consider how to give devs choice over this `encode_and_encrypt_note` function. At the moment, it's hard-coded as one of many potential strategies.
-    balance.insert(note).emit(encode_and_encrypt_note(balance.context, recipient));
+    balance.insert(note).emit(balance.context, recipient, MessageDelivery.CONSTRAINED_ONCHAIN);
 }
 
 // Find some of the `owner`'s notes whose values add up to the `amount`.

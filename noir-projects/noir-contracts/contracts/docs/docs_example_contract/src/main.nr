@@ -9,8 +9,8 @@ pub contract DocsExample {
     // how to import dependencies defined in your workspace
     use aztec::{
         context::PrivateContext,
+        event::event_interface::MessageDelivery,
         macros::{functions::{private, public, utility}, storage::{storage, storage_no_init}},
-        messages::logs::note::encode_and_encrypt_note,
         note::{note_interface::NoteProperties, note_viewer_options::NoteViewerOptions},
         protocol_types::{address::AztecAddress, traits::Hash},
         state_vars::{
@@ -101,10 +101,11 @@ pub contract DocsExample {
     fn initialize_private_immutable(points: u8) {
         let new_card = CardNote::new(points, context.msg_sender());
 
-        storage.private_immutable.initialize(new_card).emit(encode_and_encrypt_note(
+        storage.private_immutable.initialize(new_card).emit(
             &mut context,
             context.msg_sender(),
-        ));
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
     }
     // docs:end:initialize-private-mutable
 
@@ -127,10 +128,11 @@ pub contract DocsExample {
         let new_card = CardNote::new(points, context.msg_sender());
 
         // docs:start:state_vars-PrivateMutableReplace
-        storage.legendary_card.replace(new_card).emit(encode_and_encrypt_note(
+        storage.legendary_card.replace(new_card).emit(
             &mut context,
             context.msg_sender(),
-        ));
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
         // docs:end:state_vars-PrivateMutableReplace
     }
 

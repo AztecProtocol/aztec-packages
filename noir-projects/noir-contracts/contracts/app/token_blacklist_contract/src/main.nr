@@ -1,6 +1,6 @@
 mod types;
 
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 // NOTE: This contract is stale and is kept around only as a reference of how to implement a blacklist.
 // Don't take into consideration the interface of this contract. The TransparentNote "shield" flow is
@@ -18,15 +18,13 @@ use dep::aztec::macros::aztec;
 pub contract TokenBlacklist {
     // Libs
     use aztec::{
+        event::event_interface::MessageDelivery,
         hash::compute_secret_hash,
         macros::{
             functions::{authorize_once, initializer, internal, private, public, utility, view},
             storage::storage,
         },
-        messages::{
-            discovery::private_notes::attempt_note_discovery,
-            logs::note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
-        },
+        messages::discovery::private_notes::attempt_note_discovery,
         note::{
             note_getter_options::NoteGetterOptions,
             note_interface::{NoteHash, NoteProperties, NoteType},
@@ -192,7 +190,7 @@ pub contract TokenBlacklist {
         assert(notes.len() == 1, "note not popped");
 
         // Add the token note to user's balances set
-        storage.balances.add(to, amount).emit(encode_and_encrypt_note(&mut context, to));
+        storage.balances.add(to, amount).emit(&mut context, to, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[authorize_once("from", "authwit_nonce")]
@@ -203,7 +201,11 @@ pub contract TokenBlacklist {
         let to_roles = storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
-        storage.balances.sub(from, amount).emit(encode_and_encrypt_note(&mut context, from));
+        storage.balances.sub(from, amount).emit(
+            &mut context,
+            from,
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
 
         TokenBlacklist::at(context.this_address())._increase_public_balance(to, amount).enqueue(
             &mut context,
@@ -219,14 +221,16 @@ pub contract TokenBlacklist {
         let to_roles = storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
-        storage.balances.sub(from, amount).emit(encode_and_encrypt_note_unconstrained(
+        storage.balances.sub(from, amount).emit(
             &mut context,
             from,
-        ));
-        storage.balances.add(to, amount).emit(encode_and_encrypt_note_unconstrained(
+            MessageDelivery.UNCONSTRAINED_ONCHAIN,
+        );
+        storage.balances.add(to, amount).emit(
             &mut context,
             to,
-        ));
+            MessageDelivery.UNCONSTRAINED_ONCHAIN,
+        );
     }
 
     #[authorize_once("from", "authwit_nonce")]
@@ -235,7 +239,11 @@ pub contract TokenBlacklist {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
 
-        storage.balances.sub(from, amount).emit(encode_and_encrypt_note(&mut context, from));
+        storage.balances.sub(from, amount).emit(
+            &mut context,
+            from,
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
 
         TokenBlacklist::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }

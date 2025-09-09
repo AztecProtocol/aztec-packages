@@ -13,9 +13,9 @@ pub contract SchnorrAccount {
             entrypoint::{app::AppPayload, fee::FeePayload},
         },
         context::PrivateContext,
+        event::event_interface::MessageDelivery,
         hash::compute_siloed_nullifier,
         macros::{functions::{initializer, noinitcheck, private, utility, view}, storage::storage},
-        messages::logs::note::encode_and_encrypt_note,
         oracle::{
             auth_witness::get_auth_witness,
             get_nullifier_membership_witness::get_low_nullifier_membership_witness,
@@ -54,10 +54,11 @@ pub contract SchnorrAccount {
 
         // Safety: Comment from above applies here as well.
         unsafe { set_sender_for_tags(this) };
-        storage.signing_public_key.initialize(pub_key_note).emit(encode_and_encrypt_note(
+        storage.signing_public_key.initialize(pub_key_note).emit(
             &mut context,
             this,
-        ));
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
         // Safety: Comment from above applies here as well.
         unsafe { set_sender_for_tags(original_sender) };
     }

@@ -9,8 +9,8 @@ pub contract PendingNoteHashes {
     // Libs
     use aztec::{
         context::PrivateContext,
+        event::event_interface::MessageDelivery,
         macros::{functions::private, storage::storage},
-        messages::logs::note::encode_and_encrypt_note,
         note::{note_emission::NoteEmission, note_getter_options::NoteGetterOptions},
         protocol_types::{
             abis::function_selector::FunctionSelector,
@@ -44,7 +44,7 @@ pub contract PendingNoteHashes {
         let note = ValueNote::new(amount, owner);
 
         // Insert note
-        owner_balance.insert(note).emit(encode_and_encrypt_note(&mut context, owner));
+        owner_balance.insert(note).emit(&mut context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
         // get note inserted above
@@ -87,7 +87,7 @@ pub contract PendingNoteHashes {
         let note = ValueNote::new(amount, owner);
 
         // Insert note
-        owner_balance.insert(note).emit(encode_and_encrypt_note(&mut context, owner));
+        owner_balance.insert(note).emit(&mut context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     // Nested/inner function to create and insert a note
@@ -103,7 +103,7 @@ pub contract PendingNoteHashes {
         let note = ValueNote::unpack([amount.to_field(), owner.to_field(), randomness.to_field()]);
 
         // Insert note
-        owner_balance.insert(note).emit(encode_and_encrypt_note(&mut context, owner));
+        owner_balance.insert(note).emit(&mut context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     // Nested/inner function to create and insert a note
@@ -117,10 +117,10 @@ pub contract PendingNoteHashes {
         // Insert note
         let emission = owner_balance.insert(note);
 
-        emission.emit(encode_and_encrypt_note(&mut context, owner));
+        emission.emit(&mut context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
 
         // Emit note again
-        emission.emit(encode_and_encrypt_note(&mut context, owner));
+        emission.emit(&mut context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     // Nested/inner function to get a note and confirm it matches the expected value
@@ -335,7 +335,7 @@ pub contract PendingNoteHashes {
         let good_note = ValueNote::new(10, owner);
         // Insert good note with real log
         let good_note_emission = owner_balance.insert(good_note);
-        good_note_emission.emit(encode_and_encrypt_note(&mut context, owner));
+        good_note_emission.emit(&mut context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
 
         // We will emit a note log with an incorrect preimage to ensure the pxe throws
         // This note has not been inserted...
@@ -346,7 +346,7 @@ pub contract PendingNoteHashes {
             good_note_emission.note_hash_counter,
         );
 
-        bad_note_emission.emit(encode_and_encrypt_note(&mut context, owner));
+        bad_note_emission.emit(&mut context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[contract_library_method]
@@ -359,7 +359,7 @@ pub contract PendingNoteHashes {
 
         for i in 0..max_notes_per_call() {
             let note = ValueNote::new(i as Field, owner);
-            owner_balance.insert(note).emit(encode_and_encrypt_note(context, owner));
+            owner_balance.insert(note).emit(context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
         }
     }
 
@@ -367,7 +367,7 @@ pub contract PendingNoteHashes {
     fn destroy_max_notes(owner: AztecAddress, storage: Storage<&mut PrivateContext>) {
         let owner_balance = storage.balances.at(owner);
         // Note that we're relying on PXE actually returning the notes, we're not constraining that any specific
-        // numer of notes are deleted.
+        // number of notes are deleted.
         let _ = owner_balance.pop_notes(NoteGetterOptions::new());
     }
 

@@ -1,11 +1,11 @@
-use dep::aztec::{
+use aztec::{
     context::{PrivateContext, UtilityContext},
-    messages::logs::note::encode_and_encrypt_note,
+    event::event_interface::MessageDelivery,
     note::note_getter_options::NoteGetterOptions,
     protocol_types::address::AztecAddress,
     state_vars::{PrivateSet, storage::HasStorageSlot},
 };
-use dep::value_note::{balance_utils, filter::filter_notes_min_sum, value_note::ValueNote};
+use value_note::{balance_utils, filter::filter_notes_min_sum, value_note::ValueNote};
 
 /// @deprecated (soon) (https://github.com/AztecProtocol/aztec-packages/issues/15959) because:
 /// - Its functionality is a subset of `BalanceSet`
@@ -43,7 +43,7 @@ impl EasyPrivateUint<&mut PrivateContext> {
 
         // Insert the new note to the owner's set of notes.
         // docs:start:insert
-        self.set.insert(addend_note).emit(encode_and_encrypt_note(self.context, owner));
+        self.set.insert(addend_note).emit(self.context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
         // docs:end:insert
     }
 
@@ -67,7 +67,7 @@ impl EasyPrivateUint<&mut PrivateContext> {
         // Creates change note for the owner.
         let result_value = minuend - subtrahend;
         let result_note = ValueNote::new(result_value as Field, owner);
-        self.set.insert(result_note).emit(encode_and_encrypt_note(self.context, owner));
+        self.set.insert(result_note).emit(self.context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 }
 

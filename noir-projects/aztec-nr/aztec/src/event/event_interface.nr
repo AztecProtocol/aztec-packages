@@ -40,6 +40,7 @@ use dep::protocol_types::{
 /// over unconstrained encryption and is slower to prove (requiring more constraints).
 ///
 /// There are three available delivery modes described below.
+// TODO(#16771): This is now used by notes as well. Move it.
 pub struct MessageDeliveryEnum {
     /// 1. Constrained On-chain
     /// - Uses constrained encryption and in the future constrained tagging (issue #14565) with on-chain delivery
