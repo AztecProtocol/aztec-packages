@@ -804,6 +804,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     std::vector<Element> operation_transcript;
     Element offset_generator_accumulator = offset_generators[0];
     {
+        // Construct native straus lookup table for each point
         std::vector<std::vector<Element>> native_straus_tables;
         for (size_t i = 0; i < num_points; ++i) {
             std::vector<Element> table_transcript = straus_lookup_table::compute_straus_lookup_table_hints(
@@ -812,6 +813,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
             native_straus_tables.push_back(std::move(table_transcript));
         }
 
+        // Perform the Straus algorithm natively to generate the witness values (hints) for all intermediate points
         Element accumulator = offset_generators[0];
         for (size_t i = 0; i < num_rounds; ++i) {
             if (i != 0) {
@@ -833,7 +835,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         }
     }
 
-    // Normalize the computed witness points and convert into AffineElement type
+    // Normalize the computed witness points and convert them into AffineElements
     Element::batch_normalize(&operation_transcript[0], operation_transcript.size());
     std::vector<AffineElement> operation_hints;
     operation_hints.reserve(operation_transcript.size());
@@ -841,13 +843,15 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         operation_hints.emplace_back(element.x, element.y);
     }
 
+    // Construct an in-circuit straus lookup table for each point
     std::vector<straus_lookup_table> point_tables;
     const size_t hints_per_table = (1ULL << TABLE_BITS) - 1;
     OriginTag tag{};
     for (size_t i = 0; i < num_points; ++i) {
-        std::span<AffineElement> table_hints(&operation_hints[i * hints_per_table], hints_per_table);
         // Merge tags
         tag = OriginTag(tag, scalars[i].get_origin_tag(), base_points[i].get_origin_tag());
+
+        std::span<AffineElement> table_hints(&operation_hints[i * hints_per_table], hints_per_table);
         point_tables.emplace_back(context, base_points[i], offset_generators[i + 1], TABLE_BITS, table_hints);
     }
 
@@ -867,23 +871,25 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         }
     }
 
+    // Perform the Straus algorithm in-circuit, using the previously computed native hints
     std::vector<std::tuple<field_t, field_t>> x_coordinate_checks;
     size_t point_counter = 0;
     for (size_t i = 0; i < num_rounds; ++i) {
+        // perform once-per-round doublings (except for first round)
         if (i != 0) {
             for (size_t j = 0; j < TABLE_BITS; ++j) {
                 accumulator = accumulator.dbl(*hint_ptr);
                 hint_ptr++;
             }
         }
-
+        // perform each round's additions
         for (size_t j = 0; j < num_points; ++j) {
             field_t scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
 
             BB_ASSERT_EQ(scalar_slice.get_value(), scalar_slices[j].slices_native[num_rounds - i - 1]);
             const auto& point = points_to_add[point_counter++];
             if (!unconditional_add) {
-                x_coordinate_checks.push_back({ accumulator.x, point.x });
+                x_coordinate_checks.emplace_back(accumulator.x, point.x);
             }
             accumulator = accumulator.unconditional_add(point, *hint_ptr);
             hint_ptr++;
