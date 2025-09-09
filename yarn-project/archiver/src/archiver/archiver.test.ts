@@ -15,11 +15,16 @@ import { sleep } from '@aztec/foundation/sleep';
 import { bufferToHex, withoutHexPrefix } from '@aztec/foundation/string';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { CommitteeAttestation, L2Block, L2BlockSourceEvents } from '@aztec/stdlib/block';
+import {
+  CommitteeAttestation,
+  CommitteeAttestationsAndSigners,
+  L2Block,
+  L2BlockSourceEvents,
+} from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { PrivateLog } from '@aztec/stdlib/logs';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
-import { makeBlockAttestationFromBlock } from '@aztec/stdlib/testing';
+import { makeAndSignCommitteeAttestationsAndSigners, makeBlockAttestationFromBlock } from '@aztec/stdlib/testing';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
@@ -967,6 +972,14 @@ async function makeRollupTx(l2Block: L2Block, signers: Secp256k1Signer[] = []) {
   const blobInput = Blob.getPrefixedEthBlobCommitments(await Blob.getBlobsPerBlock(l2Block.body.toBlobFields()));
   const archive = toHex(l2Block.archive.root.toBuffer());
   const stateReference = l2Block.header.state.toViem();
+  const attestationsAndSigners = new CommitteeAttestationsAndSigners(
+    attestations.map(attestation => CommitteeAttestation.fromViem(attestation)),
+  );
+
+  const attestationsAndSignersSignature = makeAndSignCommitteeAttestationsAndSigners(
+    attestationsAndSigners,
+    signers[0],
+  );
   const rollupInput = encodeFunctionData({
     abi: RollupAbi,
     functionName: 'propose',
@@ -977,8 +990,9 @@ async function makeRollupTx(l2Block: L2Block, signers: Secp256k1Signer[] = []) {
         stateReference,
         oracleInput: { feeAssetPriceModifier: 0n },
       },
-      RollupContract.packAttestations(attestations),
-      signers.map(signer => signer.address.toString()),
+      attestationsAndSigners.getPackedAttestations(),
+      attestationsAndSigners.getSigners().map(signer => signer.toString()),
+      attestationsAndSignersSignature.toViemSignature(),
       blobInput,
     ],
   });

@@ -490,6 +490,7 @@ export class RollupContract {
       ViemHeader,
       ViemCommitteeAttestations,
       `0x${string}`[],
+      ViemSignature,
       `0x${string}`,
       `0x${string}`,
       {
@@ -510,77 +511,6 @@ export class RollupContract {
     } catch (error: unknown) {
       throw formatViemError(error);
     }
-  }
-
-  /**
-   * Packs an array of committee attestations into the format expected by the Solidity contract
-   *
-   * @param attestations - Array of committee attestations with addresses and signatures
-   * @returns Packed attestations with bitmap and tightly packed signature/address data
-   */
-  static packAttestations(attestations: ViemCommitteeAttestation[]): ViemCommitteeAttestations {
-    const length = attestations.length;
-
-    // Calculate bitmap size (1 bit per attestation, rounded up to nearest byte)
-    const bitmapSize = Math.ceil(length / 8);
-    const signatureIndices = new Uint8Array(bitmapSize);
-
-    // Calculate total data size needed
-    let totalDataSize = 0;
-    for (let i = 0; i < length; i++) {
-      const signature = attestations[i].signature;
-      // Check if signature is empty (v = 0)
-      const isEmpty = signature.v === 0;
-
-      if (!isEmpty) {
-        totalDataSize += 65; // v (1) + r (32) + s (32)
-      } else {
-        totalDataSize += 20; // address only
-      }
-    }
-
-    const signaturesOrAddresses = new Uint8Array(totalDataSize);
-    let dataIndex = 0;
-
-    // Pack the data
-    for (let i = 0; i < length; i++) {
-      const attestation = attestations[i];
-      const signature = attestation.signature;
-
-      // Check if signature is empty
-      const isEmpty = signature.v === 0;
-
-      if (!isEmpty) {
-        // Set bit in bitmap (bit 7-0 in each byte, left to right)
-        const byteIndex = Math.floor(i / 8);
-        const bitIndex = 7 - (i % 8);
-        signatureIndices[byteIndex] |= 1 << bitIndex;
-
-        // Pack signature: v + r + s
-        signaturesOrAddresses[dataIndex] = signature.v;
-        dataIndex++;
-
-        // Pack r (32 bytes)
-        const rBytes = Buffer.from(signature.r.slice(2), 'hex');
-        signaturesOrAddresses.set(rBytes, dataIndex);
-        dataIndex += 32;
-
-        // Pack s (32 bytes)
-        const sBytes = Buffer.from(signature.s.slice(2), 'hex');
-        signaturesOrAddresses.set(sBytes, dataIndex);
-        dataIndex += 32;
-      } else {
-        // Pack address only (20 bytes)
-        const addrBytes = Buffer.from(attestation.addr.slice(2), 'hex');
-        signaturesOrAddresses.set(addrBytes, dataIndex);
-        dataIndex += 20;
-      }
-    }
-
-    return {
-      signatureIndices: `0x${Buffer.from(signatureIndices).toString('hex')}`,
-      signaturesOrAddresses: `0x${Buffer.from(signaturesOrAddresses).toString('hex')}`,
-    };
   }
 
   /**
@@ -647,7 +577,7 @@ export class RollupContract {
   /** Creates a request to Rollup#invalidateBadAttestation to be simulated or sent */
   public buildInvalidateBadAttestationRequest(
     blockNumber: number,
-    attestations: ViemCommitteeAttestation[],
+    attestationsAndSigners: ViemCommitteeAttestations,
     committee: EthAddress[],
     invalidIndex: number,
   ): L1TxRequest {
@@ -658,7 +588,7 @@ export class RollupContract {
         functionName: 'invalidateBadAttestation',
         args: [
           BigInt(blockNumber),
-          RollupContract.packAttestations(attestations),
+          attestationsAndSigners,
           committee.map(addr => addr.toString()),
           BigInt(invalidIndex),
         ],
@@ -669,7 +599,7 @@ export class RollupContract {
   /** Creates a request to Rollup#invalidateInsufficientAttestations to be simulated or sent */
   public buildInvalidateInsufficientAttestationsRequest(
     blockNumber: number,
-    attestations: ViemCommitteeAttestation[],
+    attestationsAndSigners: ViemCommitteeAttestations,
     committee: EthAddress[],
   ): L1TxRequest {
     return {
@@ -677,11 +607,7 @@ export class RollupContract {
       data: encodeFunctionData({
         abi: RollupAbi,
         functionName: 'invalidateInsufficientAttestations',
-        args: [
-          BigInt(blockNumber),
-          RollupContract.packAttestations(attestations),
-          committee.map(addr => addr.toString()),
-        ],
+        args: [BigInt(blockNumber), attestationsAndSigners, committee.map(addr => addr.toString())],
       }),
     };
   }

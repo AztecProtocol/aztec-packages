@@ -13,7 +13,8 @@ uint256 constant ADDRESS_LENGTH = 20;
  */
 enum SignatureDomainSeparator {
   blockProposal,
-  blockAttestation
+  blockAttestation,
+  attestationsAndSigners
 }
 
 // A committee attestation can be made up of a signature and an address.
@@ -254,5 +255,13 @@ library AttestationLib {
     );
 
     return addresses;
+  }
+
+  function getAttestationsAndSignersDigest(CommitteeAttestations memory _attestations, address[] memory _signers)
+    internal
+    pure
+    returns (bytes32)
+  {
+    return keccak256(abi.encode(SignatureDomainSeparator.attestationsAndSigners, _attestations, _signers));
   }
 }

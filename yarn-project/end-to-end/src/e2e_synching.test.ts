@@ -56,6 +56,7 @@ import {
 } from '@aztec/ethereum';
 import { createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { SecretValue } from '@aztec/foundation/config';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
@@ -64,7 +65,7 @@ import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import type { PXEService } from '@aztec/pxe/server';
 import { SequencerPublisher, SequencerPublisherMetrics } from '@aztec/sequencer-client';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2Block } from '@aztec/stdlib/block';
+import { CommitteeAttestationsAndSigners, L2Block } from '@aztec/stdlib/block';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
@@ -462,7 +463,7 @@ describe('e2e_synching', () => {
         await cheatCodes.eth.mine();
       }
       // If it breaks here, first place you should look is the pruning.
-      await publisher.enqueueProposeL2Block(block);
+      await publisher.enqueueProposeL2Block(block, CommitteeAttestationsAndSigners.empty(), Signature.empty());
 
       await cheatCodes.rollup.markAsProven(provenThrough);
     }
