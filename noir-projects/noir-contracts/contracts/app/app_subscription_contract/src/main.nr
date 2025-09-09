@@ -44,8 +44,8 @@ pub contract AppSubscription {
 
     use aztec::{
         authwit::auth::assert_current_call_valid_authwit,
-        event::event_interface::MessageDelivery,
         macros::{functions::{initializer, private, public, utility}, storage::storage},
+        messages::message_delivery::MessageDelivery,
         oracle::notes::set_sender_for_tags,
         protocol_types::{address::AztecAddress, constants::MAX_FIELD_VALUE, traits::ToField},
         state_vars::{Map, PrivateMutable, PublicImmutable},

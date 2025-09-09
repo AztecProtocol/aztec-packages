@@ -65,7 +65,7 @@ First you need to update imports in your contract:
 - aztec::messages::logs::note::encode_and_encrypt_note;
 - aztec::messages::logs::note::encode_and_encrypt_note_unconstrained;
 - aztec::messages::logs::note::encode_and_encrypt_note_and_emit_as_offchain_message;
-+ aztec::event::event_interface::MessageDelivery;
++ aztec::messages::message_delivery::MessageDelivery;
 ```
 
 Then update the emissions:
@@ -96,9 +96,9 @@ The private event emission API has been significantly reworked to provide cleare
 1. `emit_event_in_private_log` has been renamed to `emit_event_in_private` and now takes a `delivery_mode` parameter instead of `constraints`
 2. `emit_event_as_offchain_message` has been removed in favor of using `emit_event_in_private` with `MessageDelivery.UNCONSTRAINED_OFFCHAIN`
 3. `PrivateLogContent` enum has been replaced with `MessageDelivery` enum with the following values:
-   - `CONSTRAINED_ONCHAIN`: For on-chain delivery with cryptographic guarantees (replaces `CONSTRAINED_ENCRYPTION`)
-   - `UNCONSTRAINED_OFFCHAIN`: For off-chain delivery without constraints
-   - `UNCONSTRAINED_ONCHAIN`: For on-chain delivery without constraints (replaces `NO_CONSTRAINTS`)
+   - `CONSTRAINED_ONCHAIN`: For on-chain delivery with cryptographic guarantees that recipients can discover and decrypt messages. Uses constrained encryption but is slower to prove. Best for critical messages that contracts need to verify.
+   - `UNCONSTRAINED_ONCHAIN`: For on-chain delivery without encryption constraints. Faster proving but trusts the sender. Good when the sender is incentivized to perform encryption correctly (e.g. they are buying something and will only get it if the recipient sees the note). No guarantees that recipients will be able to find or decrypt messages.
+   - `UNCONSTRAINED_OFFCHAIN`: For off-chain delivery (e.g. cloud storage) without constraints. Lowest cost since no on-chain storage needed. Requires custom infrastructure for delivery. No guarantees that messages will be delivered or that recipients will ever find them.
 
 ### Contract functions can no longer be `pub` or `pub(crate)`
 

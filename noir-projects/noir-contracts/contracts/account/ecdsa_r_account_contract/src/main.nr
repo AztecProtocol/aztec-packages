@@ -6,8 +6,8 @@ pub contract EcdsaRAccount {
     use dep::aztec::{
         authwit::{account::AccountActions, entrypoint::{app::AppPayload, fee::FeePayload}},
         context::PrivateContext,
-        event::event_interface::MessageDelivery,
         macros::{functions::{initializer, noinitcheck, private, view}, storage::storage},
+        messages::message_delivery::MessageDelivery,
         oracle::{auth_witness::get_auth_witness, notes::{get_sender_for_tags, set_sender_for_tags}},
         state_vars::PrivateImmutable,
     };

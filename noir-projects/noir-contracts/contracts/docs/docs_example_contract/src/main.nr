@@ -9,8 +9,8 @@ pub contract DocsExample {
     // how to import dependencies defined in your workspace
     use aztec::{
         context::PrivateContext,
-        event::event_interface::MessageDelivery,
         macros::{functions::{private, public, utility}, storage::{storage, storage_no_init}},
+        messages::message_delivery::MessageDelivery,
         note::{note_interface::NoteProperties, note_viewer_options::NoteViewerOptions},
         protocol_types::{address::AztecAddress, traits::Hash},
         state_vars::{

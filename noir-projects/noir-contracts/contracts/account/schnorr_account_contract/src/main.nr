@@ -13,9 +13,9 @@ pub contract SchnorrAccount {
             entrypoint::{app::AppPayload, fee::FeePayload},
         },
         context::PrivateContext,
-        event::event_interface::MessageDelivery,
         hash::compute_siloed_nullifier,
         macros::{functions::{initializer, noinitcheck, private, utility, view}, storage::storage},
+        messages::message_delivery::MessageDelivery,
         oracle::{
             auth_witness::get_auth_witness,
             get_nullifier_membership_witness::get_low_nullifier_membership_witness,

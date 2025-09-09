@@ -5,8 +5,8 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract NoConstructor {
     use aztec::{
-        event::event_interface::MessageDelivery,
         macros::{functions::{private, public, utility}, storage::storage},
+        messages::message_delivery::MessageDelivery,
         state_vars::PrivateMutable,
     };
 

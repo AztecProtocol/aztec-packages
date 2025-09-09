@@ -4,8 +4,9 @@ use aztec::macros::aztec;
 #[aztec]
 contract OffchainEffect {
     use aztec::{
-        event::event_interface::{emit_event_in_private, MessageDelivery},
+        event::event_emission::emit_event_in_private,
         macros::{events::event, functions::{private, utility}, storage::storage},
+        messages::message_delivery::MessageDelivery,
         note::note_viewer_options::NoteViewerOptions,
         oracle::offchain_effect::emit_offchain_effect,
         protocol_types::{address::AztecAddress, traits::Serialize},

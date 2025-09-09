@@ -4,8 +4,8 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract Escrow {
     use aztec::{
-        event::event_interface::MessageDelivery,
         macros::{functions::{initializer, private}, storage::storage},
+        messages::message_delivery::MessageDelivery,
         protocol_types::address::AztecAddress,
         state_vars::PrivateImmutable,
     };

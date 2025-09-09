@@ -5,8 +5,9 @@ use aztec::macros::aztec;
 #[aztec]
 contract EventOnly {
     use aztec::{
-        event::event_interface::{emit_event_in_private, MessageDelivery},
+        event::event_emission::emit_event_in_private,
         macros::{events::event, functions::private},
+        messages::message_delivery::MessageDelivery,
     };
 
     #[event]

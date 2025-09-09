@@ -4,8 +4,8 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract StateVars {
     use aztec::{
-        event::event_interface::MessageDelivery,
         macros::{functions::{private, public, utility, view}, storage::{storage, storage_no_init}},
+        messages::message_delivery::MessageDelivery,
         protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}},
         state_vars::{PrivateImmutable, PrivateMutable, PublicImmutable, PublicMutable},
     };

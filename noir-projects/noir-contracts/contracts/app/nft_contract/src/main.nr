@@ -12,11 +12,11 @@ pub contract NFT {
     use aztec::{
         authwit::auth::compute_authwit_nullifier,
         context::{PrivateContext, PublicContext},
-        event::event_interface::MessageDelivery,
         macros::{
             functions::{authorize_once, initializer, internal, private, public, utility, view},
             storage::storage,
         },
+        messages::message_delivery::MessageDelivery,
         note::{
             constants::MAX_NOTES_PER_PAGE, note_getter_options::NoteGetterOptions,
             note_interface::NoteProperties, note_viewer_options::NoteViewerOptions,
