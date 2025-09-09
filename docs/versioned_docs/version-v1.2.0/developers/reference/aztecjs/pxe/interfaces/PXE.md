@@ -494,7 +494,7 @@ ___
 ▸ **proveTx**(`txRequest`, `privateExecutionResult?`): `Promise`\<`TxProvingResult`\>
 
 Proves the private portion of a simulated transaction, ready to send to the network
-(where validators prove the public portion).
+(where sequencers prove the public portion).
 
 #### Parameters
 

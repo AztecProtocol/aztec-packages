@@ -97,7 +97,7 @@ services:
         condition: service_started
         required: true
     environment:
-      # PROVER_COORDINATION_NODE_URL: "http://:8080" # this can point to your own validator - using this replaces the need for the prover node to be on the P2P network and uses your validator as a sentry node of some sort.
+      # PROVER_COORDINATION_NODE_URL: "http://:8080" # this can point to your own sequencer - using this replaces the need for the prover node to be on the P2P network and uses your sequencer as a sentry node of some sort.
       # P2P_ENABLED: "false" # Switch to false if you provide a PROVER_COORDINATION_NODE_URL
       DATA_DIRECTORY: /data
       DATA_STORE_MAP_SIZE_KB: "134217728"
