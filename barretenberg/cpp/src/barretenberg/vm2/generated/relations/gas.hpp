@@ -14,7 +14,7 @@ template <typename FF_> class gasImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 7> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 5, 5, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -36,9 +36,18 @@ template <typename FF> class gas : public Relation<gasImpl<FF>> {
 
     static std::string get_subrelation_label(size_t index)
     {
-        switch (index) {}
+        switch (index) {
+        case 3:
+            return "L2_CMP_DIFF";
+        case 4:
+            return "DA_CMP_DIFF";
+        }
         return std::to_string(index);
     }
+
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_L2_CMP_DIFF = 3;
+    static constexpr size_t SR_DA_CMP_DIFF = 4;
 };
 
 } // namespace bb::avm2

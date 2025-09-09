@@ -594,19 +594,26 @@ void ExecutionTraceBuilder::process(
 
                 uint32_t allocated_l2_gas = registers[0].as<uint32_t>();
                 bool is_l2_gas_allocated_lt_left = allocated_l2_gas < gas_left.l2Gas;
+                uint32_t allocated_left_l2_cmp_diff = is_l2_gas_allocated_lt_left
+                                                          ? gas_left.l2Gas - allocated_l2_gas - 1
+                                                          : allocated_l2_gas - gas_left.l2Gas;
 
                 uint32_t allocated_da_gas = registers[1].as<uint32_t>();
                 bool is_da_gas_allocated_lt_left = allocated_da_gas < gas_left.daGas;
+                uint32_t allocated_left_da_cmp_diff = is_da_gas_allocated_lt_left
+                                                          ? gas_left.daGas - allocated_da_gas - 1
+                                                          : allocated_da_gas - gas_left.daGas;
 
                 trace.set(row,
                           { {
                               { C::execution_sel_enter_call, sel_enter_call ? 1 : 0 },
                               { C::execution_sel_execute_call, should_execute_call ? 1 : 0 },
                               { C::execution_sel_execute_static_call, should_execute_static_call ? 1 : 0 },
-                              { C::execution_l2_gas_left, gas_left.l2Gas },
-                              { C::execution_da_gas_left, gas_left.daGas },
+                              { C::execution_constant_32, 32 },
                               { C::execution_call_is_l2_gas_allocated_lt_left, is_l2_gas_allocated_lt_left },
+                              { C::execution_call_allocated_left_l2_cmp_diff, allocated_left_l2_cmp_diff },
                               { C::execution_call_is_da_gas_allocated_lt_left, is_da_gas_allocated_lt_left },
+                              { C::execution_call_allocated_left_da_cmp_diff, allocated_left_da_cmp_diff },
                           } });
             }
             // Separate if-statement for opcodes.
@@ -876,12 +883,12 @@ void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event,
                   { C::execution_sel_out_of_gas, oog ? 1 : 0 },
                   // Base gas.
                   { C::execution_addressing_gas, gas_event.addressing_gas },
+                  { C::execution_limit_used_l2_cmp_diff, gas_event.limit_used_l2_comparison_witness },
+                  { C::execution_limit_used_da_cmp_diff, gas_event.limit_used_da_comparison_witness },
+                  { C::execution_constant_64, 64 },
                   // Dynamic gas.
                   { C::execution_dynamic_l2_gas_factor, gas_event.dynamic_gas_factor.l2Gas },
                   { C::execution_dynamic_da_gas_factor, gas_event.dynamic_gas_factor.daGas },
-                  // Derived cumulative gas used.
-                  { C::execution_total_gas_l2, gas_event.total_gas_used_l2 },
-                  { C::execution_total_gas_da, gas_event.total_gas_used_da },
               } });
 
     const auto& exec_spec = EXEC_INSTRUCTION_SPEC.at(exec_opcode);
@@ -1157,8 +1164,8 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_internal_call_unwind_call_stack_settings_, InteractionType::LookupGeneric>()
         // Gas
         .add<lookup_gas_addressing_gas_read_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_gas_is_out_of_gas_l2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_gas_is_out_of_gas_da_settings, InteractionType::LookupGeneric>()
+        .add<lookup_gas_limit_used_l2_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_gas_limit_used_da_range_settings, InteractionType::LookupGeneric>()
         .add<lookup_execution_dyn_l2_factor_bitwise_settings, InteractionType::LookupGeneric>()
         // Gas - ToRadix BE
         .add<lookup_execution_check_radix_gt_256_settings, InteractionType::LookupGeneric>()
@@ -1169,8 +1176,8 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_context_ctx_stack_rollback_settings, InteractionType::LookupGeneric>()
         .add<lookup_context_ctx_stack_return_settings, InteractionType::LookupGeneric>()
         // External Call
-        .add<lookup_external_call_call_is_l2_gas_allocated_lt_left_settings, InteractionType::LookupGeneric>()
-        .add<lookup_external_call_call_is_da_gas_allocated_lt_left_settings, InteractionType::LookupGeneric>()
+        .add<lookup_external_call_call_allocated_left_l2_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_external_call_call_allocated_left_da_range_settings, InteractionType::LookupGeneric>()
         // Dispatch to gadget sub-traces
         .add<perm_execution_dispatch_keccakf1600_settings, InteractionType::Permutation>()
         // GetEnvVar opcode
