@@ -284,3 +284,16 @@ variable "NETWORK" {
   type        = string
   nullable    = true
 }
+
+variable "STORE_SNAPSHOT_URL" {
+  description = "Location to store snapshots in"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "SNAPSHOT_CRON" {
+  description = "Location to store snapshots in"
+  type        = string
+  default     = "0 */12 * * *"
+}

@@ -43,6 +43,8 @@ locals {
 
   internal_boot_node_url = var.DEPLOY_INTERNAL_BOOTNODE ? "http://${var.RELEASE_PREFIX}-p2p-bootstrap-node.${var.NAMESPACE}.svc.cluster.local:8080" : ""
 
+  internal_rpc_admin_url = "http://${var.RELEASE_PREFIX}-rpc-aztec-node-admin.${var.NAMESPACE}.svc.cluster.local:8880"
+
   # Common settings for all releases
   common_settings = {
     "global.aztecImage.repository"                             = local.aztec_image.repository
@@ -64,6 +66,18 @@ locals {
 
   # Define all releases in a map
   helm_releases = {
+    snapshot = var.STORE_SNAPSHOT_URL != null ? {
+      name   = "${var.RELEASE_PREFIX}-snapshot"
+      chart  = "aztec-snapshots"
+      values = []
+      custom_settings = {
+        "snapshots.aztecNodeAdminUrl" = local.internal_rpc_admin_url
+        "snapshots.uploadLocation"    = var.STORE_SNAPSHOT_URL
+        "snapshots.frequency"         = var.SNAPSHOT_CRON
+      }
+      boot_node_path = ""
+    } : null
+
     p2p_bootstrap = var.DEPLOY_INTERNAL_BOOTNODE ? {
       name  = "${var.RELEASE_PREFIX}-p2p-bootstrap"
       chart = "aztec-node"
