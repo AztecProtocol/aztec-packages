@@ -999,8 +999,8 @@ pub global AVM_GETCONTRACTINSTANCE_BASE_L2_GAS: u32 = 1527; // does scalar mul
 pub global AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS: u32 = 42;
 pub global AVM_SENDL2TOL1MSG_BASE_L2_GAS: u32 = 9 + L2_GAS_PER_L2_TO_L1_MSG;
 // See PR https://github.com/AztecProtocol/aztec-packages/pull/15495 on why we need this buffer.
-pub global AVM_CALL_BASE_L2_GAS: u32 = 1527; // does scalar mul
-pub global AVM_STATICCALL_BASE_L2_GAS: u32 = 1527; // does scalar mul
+pub global AVM_CALL_BASE_L2_GAS: u32 = 3300; // 1100 poseidon rows to hash max bytecode
+pub global AVM_STATICCALL_BASE_L2_GAS: u32 = 3300; // 1100 poseidon rows to hash max bytecode
 pub global AVM_RETURN_BASE_L2_GAS: u32 = 9;
 pub global AVM_REVERT_BASE_L2_GAS: u32 = 9;
 pub global AVM_DEBUGLOG_BASE_L2_GAS: u32 = 9;
