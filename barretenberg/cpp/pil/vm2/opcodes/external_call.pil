@@ -42,5 +42,5 @@ pol commit call_is_da_gas_allocated_lt_left; // Guaranteed to be boolean through
 #[CALL_IS_DA_GAS_ALLOCATED_LT_LEFT]
 sel_enter_call { da_gas_left, register[1], call_is_da_gas_allocated_lt_left } in gt.sel { gt.input_a, gt.input_b, gt.res };
 
-// next row's da_gas_limit = if call_is_da_gas_allocated_lt_left { register[1] } else { da_gas_left }
+// next row's da_gas_limit = if call_is_da_gas_allocated_lt_left { reg2 } else { da_gas_left }
 sel_enter_call * ((register[1] - da_gas_left) * call_is_da_gas_allocated_lt_left + da_gas_left - da_gas_limit') = 0;
