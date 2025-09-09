@@ -1106,9 +1106,9 @@ export class PXEService implements PXE {
       .map(log => {
         // +1 for the event selector
         const expectedLength = eventMetadataDef.fieldNames.length + 1;
-        if (log.log.emittedLength !== expectedLength) {
+        if (log.log.fields.length !== expectedLength) {
           throw new Error(
-            `Something is weird here, we have matching EventSelectors, but the actual payload has mismatched length. Expected ${expectedLength}. Got ${log.log.emittedLength}.`,
+            `Something is weird here, we have matching EventSelectors, but the actual payload has mismatched length. Expected ${expectedLength}. Got ${log.log.fields.length}.`,
           );
         }
 

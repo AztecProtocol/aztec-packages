@@ -81,7 +81,7 @@ import {
   PrivateToPublicAccumulatedData,
   PublicCallRequest,
 } from '@aztec/stdlib/kernel';
-import { ContractClassLog, IndexedTaggingSecret, PrivateLog, type PublicLog } from '@aztec/stdlib/logs';
+import { ContractClassLog, IndexedTaggingSecret, PrivateLog, type PublicLog, PublicLogs } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
 import {
@@ -657,7 +657,7 @@ export class TXE extends TXETypedOracle {
 
     txEffect.publicDataWrites = this.publicDataWrites;
     txEffect.privateLogs = this.privateLogs;
-    txEffect.publicLogs = this.publicLogs;
+    txEffect.publicLogs = new PublicLogs(this.publicLogs);
     txEffect.txHash = new TxHash(new Fr(blockNumber));
 
     const body = new Body([txEffect]);

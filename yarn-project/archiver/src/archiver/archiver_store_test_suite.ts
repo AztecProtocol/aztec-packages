@@ -2,7 +2,6 @@ import {
   INITIAL_L2_BLOCK_NUM,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PRIVATE_LOG_SIZE_IN_FIELDS,
-  PUBLIC_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
@@ -19,7 +18,7 @@ import {
   SerializableContractInstance,
   computePublicBytecodeCommitment,
 } from '@aztec/stdlib/contract';
-import { LogId, PrivateLog, PublicLog } from '@aztec/stdlib/logs';
+import { LogId, PrivateLog, PublicLog, PublicLogs } from '@aztec/stdlib/logs';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
 import {
   makeContractClassPublic,
@@ -728,8 +727,8 @@ export function describeArchiverDataStore(
       const makePublicLog = (tag: Fr) =>
         PublicLog.from({
           contractAddress: AztecAddress.fromNumber(1),
-          fields: makeTuple(PUBLIC_LOG_SIZE_IN_FIELDS, i => (!i ? tag : new Fr(tag.toNumber() + i))),
-          emittedLength: PUBLIC_LOG_SIZE_IN_FIELDS,
+          // Arbitrary length
+          fields: new Array(10).fill(null).map((_, i) => (!i ? tag : new Fr(tag.toNumber() + i))),
         });
 
       const mockPrivateLogs = (blockNumber: number, txIndex: number) => {
@@ -740,10 +739,12 @@ export function describeArchiverDataStore(
       };
 
       const mockPublicLogs = (blockNumber: number, txIndex: number) => {
-        return times(numPublicLogsPerTx, (logIndex: number) => {
-          const tag = makeTag(blockNumber, txIndex, logIndex, /* isPublic */ true);
-          return makePublicLog(tag);
-        });
+        return new PublicLogs(
+          times(numPublicLogsPerTx, (logIndex: number) => {
+            const tag = makeTag(blockNumber, txIndex, logIndex, /* isPublic */ true);
+            return makePublicLog(tag);
+          }),
+        );
       };
 
       const mockBlockWithLogs = async (blockNumber: number): Promise<PublishedL2Block> => {
@@ -953,7 +954,7 @@ export function describeArchiverDataStore(
         const targetTxIndex = randomInt(txsPerBlock);
         const targetLogIndex = randomInt(numPublicLogs * numPublicFunctionCalls);
         const targetContractAddress =
-          blocks[targetBlockIndex].block.body.txEffects[targetTxIndex].publicLogs[targetLogIndex].contractAddress;
+          blocks[targetBlockIndex].block.body.txEffects[targetTxIndex].publicLogs.logs[targetLogIndex].contractAddress;
 
         const response = await store.getPublicLogs({ contractAddress: targetContractAddress });
 

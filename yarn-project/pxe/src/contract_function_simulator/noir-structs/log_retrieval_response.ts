@@ -1,9 +1,12 @@
-import { MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_CIPHERTEXT_LEN, PUBLIC_LOG_PLAINTEXT_LEN } from '@aztec/constants';
+import { MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
 import { range } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import type { TxHash } from '@aztec/stdlib/tx';
 
-const MAX_LOG_CONTENT_LEN = Math.max(PUBLIC_LOG_PLAINTEXT_LEN, PRIVATE_LOG_CIPHERTEXT_LEN);
+import { MAX_NOTE_PACKED_LEN } from './note_validation_request.js';
+
+const MAX_PUBLIC_LOG_LEN_FOR_NOTE_COMPLETION = MAX_NOTE_PACKED_LEN;
+const MAX_LOG_CONTENT_LEN = Math.max(MAX_PUBLIC_LOG_LEN_FOR_NOTE_COMPLETION, PRIVATE_LOG_CIPHERTEXT_LEN);
 
 /**
  * Intermediate struct used to perform batch log retrieval by PXE. The `utilityBulkRetrieveLogs` oracle stores values of this
@@ -19,7 +22,7 @@ export class LogRetrievalResponse {
 
   toFields(): Fr[] {
     return [
-      ...serializeBoundedVec(this.logPayload, MAX_LOG_CONTENT_LEN),
+      ...serializeBoundedVec(this.logPayload, MAX_LOG_CONTENT_LEN), // TODO(Alvaro): This will fail if public log is too large.
       this.txHash.hash,
       ...serializeBoundedVec(this.uniqueNoteHashesInTx, MAX_NOTE_HASHES_PER_TX),
       this.firstNullifierInTx,

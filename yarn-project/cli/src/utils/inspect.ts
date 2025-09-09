@@ -64,9 +64,9 @@ export async function inspectTx(
 
   // Public logs
   const publicLogs = effects.publicLogs;
-  if (publicLogs.length > 0) {
+  if (!publicLogs.isEmpty()) {
     log(' Logs:');
-    for (const publicLog of publicLogs) {
+    for (const publicLog of publicLogs.logs) {
       log(`  ${publicLog.toHumanReadable()}`);
     }
   }

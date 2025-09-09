@@ -35,7 +35,7 @@ import { PublicDataWrite } from '../avm/public_data_write.js';
 import { RevertCode } from '../avm/revert_code.js';
 import { ContractClassLog } from '../logs/contract_class_log.js';
 import { PrivateLog } from '../logs/private_log.js';
-import { PublicLog } from '../logs/public_log.js';
+import { PublicLog, PublicLogs } from '../logs/public_log.js';
 import { TxHash } from './tx_hash.js';
 
 // This will appear as 0x74785f7374617274 in logs
@@ -83,7 +83,7 @@ export class TxEffect {
     /**
      * The public logs.
      */
-    public publicLogs: PublicLog[],
+    public publicLogs: PublicLogs,
     /**
      * The contract class logs.
      */
@@ -149,7 +149,7 @@ export class TxEffect {
       serializeArrayOfBufferableToVector(this.l2ToL1Msgs, 1),
       serializeArrayOfBufferableToVector(this.publicDataWrites, 1),
       serializeArrayOfBufferableToVector(this.privateLogs, 1),
-      serializeArrayOfBufferableToVector(this.publicLogs, 1),
+      this.publicLogs,
       serializeArrayOfBufferableToVector(this.contractClassLogs, 1),
     ]);
   }
@@ -169,8 +169,7 @@ export class TxEffect {
       this.publicDataWrites.every((h, i) => h.equals(other.publicDataWrites[i])) &&
       this.privateLogs.length === other.privateLogs.length &&
       this.privateLogs.every((h, i) => h.equals(other.privateLogs[i])) &&
-      this.publicLogs.length === other.publicLogs.length &&
-      this.publicLogs.every((h, i) => h.equals(other.publicLogs[i])) &&
+      this.publicLogs.equals(other.publicLogs) &&
       this.contractClassLogs.length === other.contractClassLogs.length &&
       this.contractClassLogs.every((h, i) => h.equals(other.contractClassLogs[i]))
     );
@@ -198,7 +197,7 @@ export class TxEffect {
       reader.readVectorUint8Prefix(Fr),
       reader.readVectorUint8Prefix(PublicDataWrite),
       reader.readVectorUint8Prefix(PrivateLog),
-      reader.readVectorUint8Prefix(PublicLog),
+      PublicLogs.fromBuffer(reader),
       reader.readVectorUint8Prefix(ContractClassLog),
     );
   }
@@ -244,13 +243,17 @@ export class TxEffect {
         PublicDataWrite.random,
       ),
       makeTuple(MAX_PRIVATE_LOGS_PER_TX, () => PrivateLog.random()),
-      await makeTupleAsync(numPublicCallsPerTx * numPublicLogsPerCall, async () => await PublicLog.random()),
+      new PublicLogs(
+        await Promise.all(
+          new Array(numPublicCallsPerTx * numPublicLogsPerCall).fill(null).map(() => PublicLog.random()),
+        ),
+      ),
       await makeTupleAsync(MAX_CONTRACT_CLASS_LOGS_PER_TX, ContractClassLog.random),
     );
   }
 
   static empty(): TxEffect {
-    return new TxEffect(RevertCode.OK, TxHash.zero(), Fr.ZERO, [], [], [], [], [], [], []);
+    return new TxEffect(RevertCode.OK, TxHash.zero(), Fr.ZERO, [], [], [], [], [], PublicLogs.empty(), []);
   }
 
   isEmpty(): boolean {
@@ -378,9 +381,10 @@ export class TxEffect {
       flattened.push(this.toPrefix(PRIVATE_LOGS_PREFIX, this.privateLogs.length));
       flattened.push(...this.privateLogs.flatMap(l => l.toBlobFields()));
     }
-    if (this.publicLogs.length) {
-      flattened.push(this.toPrefix(PUBLIC_LOGS_PREFIX, this.publicLogs.length));
-      flattened.push(...this.publicLogs.flatMap(l => l.toBlobFields()));
+    if (!this.publicLogs.isEmpty()) {
+      const { fieldsCount, fields } = this.publicLogs.toBlobFields();
+      flattened.push(this.toPrefix(PUBLIC_LOGS_PREFIX, fieldsCount));
+      flattened.push(...fields);
     }
     if (this.contractClassLogs.length) {
       flattened.push(this.toPrefix(CONTRACT_CLASS_LOGS_PREFIX, this.contractClassLogs.length));
@@ -454,8 +458,8 @@ export class TxEffect {
           break;
         }
         case PUBLIC_LOGS_PREFIX: {
-          ensureEmpty(effect.publicLogs);
-          effect.publicLogs = Array.from({ length }, () => PublicLog.fromBlobFields(reader));
+          ensureEmpty(effect.publicLogs.logs);
+          effect.publicLogs = PublicLogs.fromBlobFields(length, reader);
           break;
         }
         case CONTRACT_CLASS_LOGS_PREFIX: {
@@ -498,7 +502,7 @@ export class TxEffect {
         l2ToL1Msgs: z.array(schemas.Fr),
         publicDataWrites: z.array(PublicDataWrite.schema),
         privateLogs: z.array(PrivateLog.schema),
-        publicLogs: z.array(PublicLog.schema),
+        publicLogs: PublicLogs.schema,
         contractClassLogs: z.array(ContractClassLog.schema),
       })
       .transform(TxEffect.from);
@@ -514,7 +518,7 @@ export class TxEffect {
       l2ToL1Msgs: [${this.l2ToL1Msgs.map(h => h.toString()).join(', ')}],
       publicDataWrites: [${this.publicDataWrites.map(h => h.toString()).join(', ')}],
       privateLogs: [${this.privateLogs.map(l => l.fields.map(f => f.toString()).join(',')).join(', ')}],
-      publicLogs: [${this.publicLogs.map(l => l.fields.map(f => f.toString()).join(',')).join(', ')}],
+      publicLogs: ${inspect(this.publicLogs)},
       contractClassLogs: [${this.contractClassLogs
         .map(l =>
           l

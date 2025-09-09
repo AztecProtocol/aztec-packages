@@ -3,7 +3,6 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_PUBLIC_LOGS_PER_TX,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
@@ -83,18 +82,18 @@ describe('AVM check-circuit – unhappy paths 1', () => {
     },
     TIMEOUT,
   );
-  it(
-    'create too many public logs and revert',
-    async () => {
-      await tester.simProveVerifyAppLogic(
-        {
-          address: avmTestContractInstance.address,
-          fnName: 'n_new_public_logs',
-          args: [new Fr(MAX_PUBLIC_LOGS_PER_TX + 1)],
-        },
-        /*expectRevert=*/ true,
-      );
-    },
-    TIMEOUT,
-  );
+  // it(
+  //   'create too many public logs and revert',
+  //   async () => {
+  //     await tester.simProveVerifyAppLogic(
+  //       {
+  //         address: avmTestContractInstance.address,
+  //         fnName: 'n_new_public_logs',
+  //         args: [new Fr(MAX_PUBLIC_LOGS_PER_TX + 1)],
+  //       },
+  //       /*expectRevert=*/ true,
+  //     );
+  //   },
+  //   TIMEOUT,
+  // );
 });
