@@ -4,7 +4,7 @@ node:
     SPONSORED_FPC: true
 
   preStartScript: |
-    if [ -n "${BOOT_NODE_HOST:-}" ]; then
+    if [ -n "${BOOT_NODE_HOST:-}" ] && [ -z "${NETWORK:-}" ]; then
       until curl --silent --head --fail "${BOOT_NODE_HOST}/status" > /dev/null; do
         echo "Waiting for boot node..."
         sleep 1
