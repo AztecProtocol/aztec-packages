@@ -24,6 +24,29 @@ template <typename Builder> using grumpkin_element = cycle_group<Builder>;
 static constexpr uint64_t NUM_LIMB_BITS = NUM_LIMB_BITS_IN_FIELD_SIMULATION;
 static constexpr uint64_t TOTAL_BITS = 254;
 
+/**
+ * @brief Under the assumption that (x, y) is a point on the curve (bn254 or Grumpkin), check whether it
+ * corresponds to (0, 0), which is the point at infinity in our conventions.
+ *
+ * BN254: In the case of a bn254 point, the bigfield limbs (x_lo, x_hi, y_lo, y_hi) are range constrained, and their sum
+ * is a non-negative integer not exceeding 2^138, i.e. it does not overflow the fq modulus, hence all limbs must be 0.
+ *
+ * Grumpkin: We are using the fact that (x^2 + y^2 = 0) has no non-trivial solutions on Grumpkin, as Grumpkin modulus is
+ * == 3 mod 4.
+ *
+ * @return
+ */
+template <typename Builder, typename T> bool_t<Builder> check_point_at_infinity(std::span<const fr<Builder>> fr_vec)
+{
+    if constexpr (IsAnyOf<T, bn254_element<Builder>>) {
+        return (field_t<Builder>::accumulate(std::vector<field_t<Builder>>(fr_vec.begin(), fr_vec.end())).is_zero());
+    } else {
+        field_t<Builder> x_sqr = fr_vec[0].sqr();
+        field_t<Builder> y = fr_vec[1];
+        return (y.madd(y, x_sqr).is_zero());
+    }
+}
+
 template <typename Builder> fq<Builder> convert_to_grumpkin_fr(Builder& builder, const fr<Builder>& f);
 
 template <typename Builder, typename T> inline T convert_challenge(Builder& builder, const fr<Builder>& challenge)
@@ -46,7 +69,7 @@ inline std::vector<fr<Builder>> convert_goblin_fr_to_bn254_frs(const goblin_fiel
 
 template <typename Builder> inline std::vector<fr<Builder>> convert_grumpkin_fr_to_bn254_frs(const fq<Builder>& input)
 {
-    fr<Builder> shift(static_cast<uint256_t>(1) << NUM_LIMB_BITS);
+    static constexpr bb::fr shift(static_cast<uint256_t>(1) << NUM_LIMB_BITS);
     std::vector<fr<Builder>> result(2);
     result[0] = input.binary_basis_limbs[0].element + (input.binary_basis_limbs[1].element * shift);
     result[1] = input.binary_basis_limbs[2].element + (input.binary_basis_limbs[3].element * shift);
@@ -95,8 +118,6 @@ template <typename Builder, typename T> T convert_from_bn254_frs(std::span<const
 {
     using field_ct = fr<Builder>;
     using bigfield_ct = fq<Builder>;
-    // Can be bigfield or goblin_field
-    using basefield_ct = bn254_element<Builder>::BaseField;
 
     constexpr size_t expected_size = calc_num_bn254_frs<Builder, T>();
     BB_ASSERT_EQ(fr_vec.size(), expected_size);
@@ -108,39 +129,25 @@ template <typename Builder, typename T> T convert_from_bn254_frs(std::span<const
         return fr_vec[0];
     } else if constexpr (IsAnyOf<T, bigfield_ct, goblin_field<Builder>>) {
         // Cases 2 and 3: a field_ct element needs to be represented in bigfield/goblin_field
-        T result(fr_vec[0], fr_vec[1]);
-        return result;
-    } else if constexpr (IsAnyOf<T, bn254_element<Builder>>) {
-        // Case 4: Convert a vector of field_ct to a BN254 point
+        return T(fr_vec[0], fr_vec[1]);
+    } else if constexpr (IsAnyOf<T, bn254_element<Builder>, grumpkin_element<Builder>>) {
+        // Case 4 and 5: Convert a vector of frs to a group element
+        using basefield_ct = typename T::BaseField;
 
-        constexpr size_t BASE_FIELD_SCALAR_SIZE = calc_num_bn254_frs<Builder, bigfield_ct>();
+        constexpr size_t base_field_frs = expected_size / 2;
 
-        basefield_ct x = convert_from_bn254_frs<Builder, basefield_ct>(fr_vec.subspan(0, BASE_FIELD_SCALAR_SIZE));
-        basefield_ct y = convert_from_bn254_frs<Builder, basefield_ct>(
-            fr_vec.subspan(BASE_FIELD_SCALAR_SIZE, BASE_FIELD_SCALAR_SIZE));
+        basefield_ct x = convert_from_bn254_frs<Builder, basefield_ct>(fr_vec.subspan(0, base_field_frs));
+        basefield_ct y = convert_from_bn254_frs<Builder, basefield_ct>(fr_vec.subspan(base_field_frs, base_field_frs));
 
-        // We have a convention that the group element is at infinity if both x/y coordinates are 0.
-        // We also know that all bn254 field elements are 136-bit scalars.
-        // Therefore we can do a cheap "iszero" check by checking the vector sum is 0
-        fr<Builder> sum = field_ct::accumulate(std::vector<field_t<Builder>>(fr_vec.begin(), fr_vec.end()));
-        return bn254_element<Builder>(x, y, sum.is_zero());
-    } else if constexpr (IsAnyOf<T, grumpkin_element<Builder>>) {
-        constexpr size_t BASE_FIELD_SCALAR_SIZE = calc_num_bn254_frs<Builder, field_ct>();
-        field_ct x = convert_from_bn254_frs<Builder, field_ct>(fr_vec.subspan(0, BASE_FIELD_SCALAR_SIZE));
-        field_ct y =
-            convert_from_bn254_frs<Builder, field_ct>(fr_vec.subspan(BASE_FIELD_SCALAR_SIZE, BASE_FIELD_SCALAR_SIZE));
-        grumpkin_element<Builder> result(x, y, x.is_zero() && y.is_zero());
-        return result;
+        return T(x, y, check_point_at_infinity<Builder, T>(fr_vec));
     } else {
         // Array or Univariate
+        using field_type = typename T::value_type;
         T val;
-        constexpr size_t FieldScalarSize = calc_num_bn254_frs<Builder, typename T::value_type>();
-        BB_ASSERT_EQ(fr_vec.size(), FieldScalarSize * std::tuple_size<T>::value);
-        size_t i = 0;
-        for (auto& x : val) {
-            x = convert_from_bn254_frs<Builder, typename T::value_type>(
-                fr_vec.subspan(FieldScalarSize * i, FieldScalarSize));
-            ++i;
+        const size_t target_size = val.size();
+        constexpr size_t scalar_frs = expected_size / target_size;
+        for (size_t i = 0; i < target_size; i++) {
+            val[i] = convert_from_bn254_frs<Builder, field_type>(fr_vec.subspan(scalar_frs * i, scalar_frs));
         }
         return val;
     }
@@ -166,18 +173,12 @@ template <typename Builder, typename T> std::vector<fr<Builder>> convert_to_bn25
         return convert_grumpkin_fr_to_bn254_frs(val);
     } else if constexpr (IsAnyOf<T, goblin_field<Builder>>) {
         return convert_goblin_fr_to_bn254_frs(val);
-    } else if constexpr (IsAnyOf<T, bn254_element<Builder>>) {
+    } else if constexpr (IsAnyOf<T, bn254_element<Builder>, grumpkin_element<Builder>>) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1527): Consider handling point at infinity.
-        using BaseField = bn254_element<Builder>::BaseField;
-        auto fr_vec_x = convert_to_bn254_frs<Builder, BaseField>(val.x);
-        auto fr_vec_y = convert_to_bn254_frs<Builder, BaseField>(val.y);
-        std::vector<fr<Builder>> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
-        fr_vec.insert(fr_vec.end(), fr_vec_y.begin(), fr_vec_y.end());
-        return fr_vec;
-    } else if constexpr (IsAnyOf<T, grumpkin_element<Builder>>) {
-        using BaseField = fr<Builder>;
-        auto fr_vec_x = convert_to_bn254_frs<Builder, BaseField>(val.x);
-        auto fr_vec_y = convert_to_bn254_frs<Builder, BaseField>(val.y);
+        using BaseField = T::BaseField;
+
+        BaseField fr_vec_x = convert_to_bn254_frs<Builder, BaseField>(val.x);
+        BaseField fr_vec_y = convert_to_bn254_frs<Builder, BaseField>(val.y);
         std::vector<fr<Builder>> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
         fr_vec.insert(fr_vec.end(), fr_vec_y.begin(), fr_vec_y.end());
         return fr_vec;
@@ -203,7 +204,7 @@ template <typename Builder, typename T> std::vector<fr<Builder>> convert_to_bn25
 template <typename TargetType, typename Builder>
 TargetType deserialize_from_frs(std::span<fr<Builder>> elements, size_t& num_frs_read)
 {
-    size_t num_frs = calc_num_bn254_frs<Builder, TargetType>();
+    constexpr size_t num_frs = calc_num_bn254_frs<Builder, TargetType>();
     BB_ASSERT_GTE(elements.size(), num_frs_read + num_frs);
     TargetType result = convert_from_bn254_frs<Builder, TargetType>(elements.subspan(num_frs_read, num_frs));
     num_frs_read += num_frs;

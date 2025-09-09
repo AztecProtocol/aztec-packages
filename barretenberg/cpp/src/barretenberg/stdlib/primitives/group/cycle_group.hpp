@@ -36,6 +36,7 @@ concept IsUltraArithmetic = (Builder::CIRCUIT_TYPE == CircuitType::ULTRA);
 template <typename Builder> class cycle_group {
   public:
     using field_t = stdlib::field_t<Builder>;
+    using BaseField = field_t;
     using bool_t = stdlib::bool_t<Builder>;
     using witness_t = stdlib::witness_t<Builder>;
     using FF = typename Builder::FF;
