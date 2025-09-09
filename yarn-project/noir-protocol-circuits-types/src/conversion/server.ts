@@ -539,7 +539,7 @@ function mapPrivateToAvmAccumulatedDataArrayLengthsToNoir(
 }
 
 function mapPublicLogsToNoir(logs: PublicLogs): PublicLogsNoir {
-  const { fields } = logs.toBlobFields();
+  const fields = logs.flattenLogs();
   if (fields.length > PUBLIC_LOGS_PAYLOAD_LENGTH) {
     throw new Error('Public logs payload length exceeds target length');
   }

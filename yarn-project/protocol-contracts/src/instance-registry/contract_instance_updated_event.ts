@@ -25,7 +25,7 @@ export class ContractInstanceUpdatedEvent {
   }
 
   static fromLog(log: PublicLog) {
-    const bufferWithoutAddressAndTag = log.toBuffer().subarray(64);
+    const bufferWithoutAddressAndTag = log.toBuffer().subarray(68); //TODO(Alvaro): Brittle. Move to fields reader on the payload.
     const reader = new BufferReader(bufferWithoutAddressAndTag);
     const address = reader.readObject(AztecAddress);
     const prevContractClassId = reader.readObject(Fr);

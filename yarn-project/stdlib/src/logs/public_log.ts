@@ -9,28 +9,6 @@ import { z } from 'zod';
 
 import { AztecAddress } from '../aztec-address/index.js';
 
-// export class FlatPublicLogs {
-//   constructor(
-//     public length: number,
-//     public payload: Fr[], // Can't use tuple here due to excessive length
-//   ) {
-//     if (payload.length !== PUBLIC_LOGS_PAYLOAD_LENGTH) {
-//       throw new Error(
-//         `Invalid number of fields for FlatPublicLogs. Expected ${PUBLIC_LOGS_PAYLOAD_LENGTH}, got ${payload.length}`,
-//       );
-//     }
-//   }
-
-//   static get schema(): ZodFor<FlatPublicLogs> {
-//     return z
-//       .object({
-//         length: z.number(),
-//         payload: z.array(schemas.Fr).length(PUBLIC_LOGS_PAYLOAD_LENGTH),
-//       })
-//       .transform(({ length, payload }) => new FlatPublicLogs(length, payload));
-//   }
-// }
-
 export class PublicLogs {
   constructor(public logs: PublicLog[]) {}
 
@@ -62,25 +40,17 @@ export class PublicLogs {
     return /* log count */ 1 + this.logs.reduce((acc, log) => acc + log.sizeInFields(), 0);
   }
 
-  toBlobFields(): {
-    fieldsCount: number;
-    fields: Fr[];
-  } {
-    const flattenedPublicLogs = this.logs.reduce((acc, log) => acc.concat(log.toFields()), [] as Fr[]);
-    return {
-      // TODO remove fields count. Maybe make FlatPublicLogs?
-      fieldsCount: flattenedPublicLogs.length,
-      fields: flattenedPublicLogs,
-    };
+  flattenLogs() {
+    return this.logs.flatMap(log => log.toFields());
   }
 
-  static fromBlobFields(fieldsCount: number, fields: Fr[] | FieldReader) {
+  static fromFlattenedLogs(length: number, fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
     const logs = [];
-    while (logs.reduce((acc, log) => acc + log.sizeInFields(), 0) < fieldsCount) {
+    while (logs.reduce((acc, log) => acc + log.sizeInFields(), 0) < length) {
       logs.push(PublicLog.fromFields(reader));
     }
-    if (logs.reduce((acc, log) => acc + log.sizeInFields(), 0) !== fieldsCount) {
+    if (logs.reduce((acc, log) => acc + log.sizeInFields(), 0) !== length) {
       throw new Error('Invalid fields count given to PublicLogs.fromBlobFields()');
     }
     return new PublicLogs(logs);

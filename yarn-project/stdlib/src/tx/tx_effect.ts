@@ -382,8 +382,8 @@ export class TxEffect {
       flattened.push(...this.privateLogs.flatMap(l => l.toBlobFields()));
     }
     if (!this.publicLogs.isEmpty()) {
-      const { fieldsCount, fields } = this.publicLogs.toBlobFields();
-      flattened.push(this.toPrefix(PUBLIC_LOGS_PREFIX, fieldsCount));
+      const fields = this.publicLogs.flattenLogs();
+      flattened.push(this.toPrefix(PUBLIC_LOGS_PREFIX, fields.length));
       flattened.push(...fields);
     }
     if (this.contractClassLogs.length) {
@@ -459,7 +459,7 @@ export class TxEffect {
         }
         case PUBLIC_LOGS_PREFIX: {
           ensureEmpty(effect.publicLogs.logs);
-          effect.publicLogs = PublicLogs.fromBlobFields(length, reader);
+          effect.publicLogs = PublicLogs.fromFlattenedLogs(length, reader);
           break;
         }
         case CONTRACT_CLASS_LOGS_PREFIX: {
