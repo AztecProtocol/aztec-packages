@@ -191,7 +191,7 @@ jobs:
       - name: Write testnet network env file
         if: env.SEMVER != '' && env.MAJOR_VERSION == '2' && !contains(env.SEMVER, '-')
         run: |
-          NAMESPACE="testnet"
+          NAMESPACE="v2-testnet"
           cat > ${{ env.NETWORK_ENV_FILE }} <<EOF
           CREATE_ETH_DEVNET=false
           GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
