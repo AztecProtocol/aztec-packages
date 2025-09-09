@@ -4,8 +4,8 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract StaticChild {
     use dep::aztec::{
-        event::event_interface::MessageDelivery,
         macros::{functions::{private, public, view}, storage::storage},
+        messages::message_delivery::MessageDelivery,
         note::note_getter_options::NoteGetterOptions,
         protocol_types::address::AztecAddress,
         state_vars::{PrivateSet, PublicMutable},

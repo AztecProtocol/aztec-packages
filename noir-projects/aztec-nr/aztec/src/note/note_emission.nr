@@ -1,8 +1,8 @@
 use crate::{
     context::PrivateContext,
-    event::event_interface::MessageDelivery,
     messages::{
         logs::{note::compute_note_message_ciphertext, utils::prefix_with_tag},
+        message_delivery::MessageDelivery,
         msg_type::PRIVATE_NOTE_MSG_TYPE_ID,
         offchain_messages::emit_offchain_message,
     },
