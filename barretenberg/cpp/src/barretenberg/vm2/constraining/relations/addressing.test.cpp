@@ -19,6 +19,7 @@
 namespace bb::avm2::constraining {
 namespace {
 
+using tracegen::ExecutionTraceBuilder;
 using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
@@ -352,7 +353,6 @@ TEST(AddressingConstrainingTest, RelativeAddressPropagationWhenBaseAddressIsInva
 
 TEST(AddressingConstrainingTest, RelativeOverflowCheck)
 {
-    using tracegen::ExecutionTraceBuilder;
     FF base_address_val = 100;
 
     std::array<FF, 7> resolved_addrs = {
