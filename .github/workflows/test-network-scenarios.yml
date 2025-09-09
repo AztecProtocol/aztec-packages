@@ -104,6 +104,7 @@ jobs:
           SALT=1757186002
           NAMESPACE=${NAMESPACE}
           AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${SEMVER}"
+          AZTEC_EPOCH_DURATION=8
           ETHEREUM_CHAIN_ID=1337
           LABS_INFRA_MNEMONIC="test test test test test test test test test test test junk"
           OTEL_COLLECTOR_ENDPOINT=${{ secrets.OTEL_COLLECTOR_URL }}

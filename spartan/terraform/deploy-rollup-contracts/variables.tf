@@ -181,6 +181,12 @@ variable "AZTEC_PROVING_COST_PER_MANA" {
   nullable    = true
 }
 
+variable "AZTEC_EXIT_DELAY_SECONDS" {
+  description = "Aztec exit delay seconds"
+  type        = string
+  nullable    = true
+}
+
 variable "JOB_NAME" {
   description = "Name for the Kubernetes job"
   type        = string
@@ -197,4 +203,10 @@ variable "JOB_TTL_SECONDS_AFTER_FINISHED" {
   description = "TTL in seconds for job cleanup after completion"
   type        = number
   default     = 3600
+}
+
+variable "NETWORK" {
+  description = "One of the existing network names to use default config for"
+  type        = string
+  nullable    = true
 }

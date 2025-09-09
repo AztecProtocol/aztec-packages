@@ -133,6 +133,8 @@ class ClientIVC {
          */
         std::vector<FF> to_field_elements() const;
 
+        static Proof from_field_elements(const std::vector<ClientIVC::FF>& fields);
+
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1299): The following msgpack methods are generic
         // and should leverage some kind of shared msgpack utility.
         msgpack::sbuffer to_msgpack_buffer() const;
@@ -323,6 +325,8 @@ class ClientIVC {
     Proof prove();
 
     static void hide_op_queue_accumulation_result(ClientCircuit& circuit);
+    static void hide_op_queue_content_in_tail(ClientCircuit& circuit);
+    static void hide_op_queue_content_in_hiding(ClientCircuit& circuit);
     HonkProof construct_mega_proof_for_hiding_kernel(ClientCircuit& circuit);
 
     static bool verify(const Proof& proof, const VerificationKey& vk);

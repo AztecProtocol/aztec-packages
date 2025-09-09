@@ -1,28 +1,28 @@
 import {
   AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   AVM_VK_INDEX,
-  PRIVATE_TUBE_VK_INDEX,
-  PUBLIC_TUBE_VK_INDEX,
-  type TUBE_PROOF_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
 } from '@aztec/constants';
+import { getVkData } from '@aztec/noir-protocol-circuits-types/server/vks';
 import { getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
-import type { ProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
+import type { ProofAndVerificationKey, PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
+import type { PrivateToPublicKernelCircuitPublicInputs } from '@aztec/stdlib/kernel';
+import { ProofData } from '@aztec/stdlib/proofs';
 import {
   AvmProofData,
   type BaseRollupHints,
   PrivateBaseRollupHints,
   PrivateBaseRollupInputs,
-  PrivateTubeData,
   PublicBaseRollupHints,
   PublicBaseRollupInputs,
-  PublicTubeData,
-  TubeInputs,
 } from '@aztec/stdlib/rollup';
 import type { CircuitName } from '@aztec/stdlib/stats';
 import type { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 import type { ProcessedTx } from '@aztec/stdlib/tx';
 import { VerificationKeyData, VkData } from '@aztec/stdlib/vks';
+
+import { getCivcProofFromTx, getPublicTubePrivateInputsFromTx, toProofData } from './block-building-helpers.js';
 
 /**
  * Helper class to manage the proving cycle of a transaction
@@ -30,7 +30,10 @@ import { VerificationKeyData, VkData } from '@aztec/stdlib/vks';
  * Also stores the inputs to the base rollup for this transaction and the tree snapshots
  */
 export class TxProvingState {
-  private tube?: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>;
+  private publicTube?: PublicInputsAndRecursiveProof<
+    PrivateToPublicKernelCircuitPublicInputs,
+    typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+  >;
   private avm?: ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>;
 
   constructor(
@@ -44,15 +47,15 @@ export class TxProvingState {
   }
 
   public ready() {
-    return !!this.tube && (!this.requireAvmProof || !!this.avm);
-  }
-
-  public getTubeInputs() {
-    return new TubeInputs(!!this.processedTx.data.forPublic, this.processedTx.clientIvcProof);
+    return !this.requireAvmProof || (!!this.avm && !!this.publicTube);
   }
 
   public getAvmInputs(): AvmCircuitInputs {
     return this.processedTx.avmProvingRequest!.inputs;
+  }
+
+  public getPublicTubePrivateInputs() {
+    return getPublicTubePrivateInputsFromTx(this.processedTx);
   }
 
   public getBaseRollupTypeAndInputs() {
@@ -69,8 +72,13 @@ export class TxProvingState {
     }
   }
 
-  public setTubeProof(tubeProofAndVk: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>) {
-    this.tube = tubeProofAndVk;
+  public setPublicTubeProof(
+    publicTubeProofAndVk: PublicInputsAndRecursiveProof<
+      PrivateToPublicKernelCircuitPublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >,
+  ) {
+    this.publicTube = publicTubeProofAndVk;
   }
 
   public setAvmProof(avmProofAndVk: ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>) {
@@ -78,39 +86,34 @@ export class TxProvingState {
   }
 
   #getPrivateBaseInputs() {
-    if (!this.tube) {
-      throw new Error('Tx not ready for proving base rollup.');
-    }
-
-    const vkData = this.#getVkData(this.tube!.verificationKey, PRIVATE_TUBE_VK_INDEX);
-    const tubeData = new PrivateTubeData(
-      this.processedTx.data.toPrivateToRollupKernelCircuitPublicInputs(),
-      this.tube.proof,
-      vkData,
-    );
-
     if (!(this.baseRollupHints instanceof PrivateBaseRollupHints)) {
       throw new Error('Mismatched base rollup hints, expected private base rollup hints');
     }
-    return new PrivateBaseRollupInputs(tubeData, this.baseRollupHints);
+
+    const privateTailProofData = new ProofData(
+      this.processedTx.data.toPrivateToRollupKernelCircuitPublicInputs(),
+      getCivcProofFromTx(this.processedTx),
+      getVkData('HidingKernelToRollup'),
+    );
+
+    return new PrivateBaseRollupInputs(privateTailProofData, this.baseRollupHints);
   }
 
   #getPublicBaseInputs() {
     if (!this.processedTx.avmProvingRequest) {
       throw new Error('Should create private base rollup for a tx not requiring avm proof.');
     }
-    if (!this.tube) {
-      throw new Error('Tx not ready for proving base rollup: tube proof undefined');
+    if (!this.publicTube) {
+      throw new Error('Tx not ready for proving base rollup: public tube proof undefined');
     }
     if (!this.avm) {
       throw new Error('Tx not ready for proving base rollup: avm proof undefined');
     }
+    if (!(this.baseRollupHints instanceof PublicBaseRollupHints)) {
+      throw new Error('Mismatched base rollup hints, expected public base rollup hints');
+    }
 
-    const tubeData = new PublicTubeData(
-      this.processedTx.data.toPrivateToPublicKernelCircuitPublicInputs(),
-      this.tube.proof,
-      this.#getVkData(this.tube!.verificationKey, PUBLIC_TUBE_VK_INDEX),
-    );
+    const publicTubeProofData = toProofData(this.publicTube);
 
     const avmProofData = new AvmProofData(
       this.processedTx.avmProvingRequest.inputs.publicInputs,
@@ -118,11 +121,7 @@ export class TxProvingState {
       this.#getVkData(this.avm!.verificationKey, AVM_VK_INDEX),
     );
 
-    if (!(this.baseRollupHints instanceof PublicBaseRollupHints)) {
-      throw new Error('Mismatched base rollup hints, expected public base rollup hints');
-    }
-
-    return new PublicBaseRollupInputs(tubeData, avmProofData, this.baseRollupHints);
+    return new PublicBaseRollupInputs(publicTubeProofData, avmProofData, this.baseRollupHints);
   }
 
   #getVkData(verificationKey: VerificationKeyData, vkIndex: number) {

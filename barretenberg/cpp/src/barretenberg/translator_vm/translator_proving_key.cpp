@@ -246,6 +246,10 @@ void TranslatorProvingKey::compute_lagrange_polynomials()
         proving_key->polynomials.lagrange_masking.at(i) = 1;
     }
 
+    for (size_t i = Flavor::CircuitBuilder::NUM_NO_OPS_START * 2; i < Flavor::RESULT_ROW; i++) {
+        proving_key->polynomials.lagrange_mini_masking.at(i) = 1;
+    }
+
     // Location of randomness for wires defined within the mini circuit
     for (size_t i = dyadic_mini_circuit_size_without_masking; i < mini_circuit_dyadic_size; i++) {
         proving_key->polynomials.lagrange_mini_masking.at(i) = 1;
@@ -253,8 +257,9 @@ void TranslatorProvingKey::compute_lagrange_polynomials()
 
     // Translator VM processes two rows of its execution trace at a time, establishing different relations between
     // polynomials at even and odd indices, as such we need corresponding lagranges for determining whic relations
-    // should trigger at odd indices and which at even.
-    for (size_t i = 2; i < dyadic_mini_circuit_size_without_masking; i += 2) {
+    // should trigger at odd indices and which at even. These polynomials need to only be active within the range of
+    // Translator trace that processes actual ecc ops.
+    for (size_t i = Flavor::RESULT_ROW; i < dyadic_mini_circuit_size_without_masking; i += 2) {
         proving_key->polynomials.lagrange_even_in_minicircuit.at(i) = 1;
         proving_key->polynomials.lagrange_odd_in_minicircuit.at(i + 1) = 1;
     }
