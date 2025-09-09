@@ -90,7 +90,7 @@ template <typename Builder> class cycle_group {
     void standardize();
     bool is_standard() const { return this->_is_standard; };
     cycle_group get_standard_form();
-    void validate_is_on_curve() const;
+    void validate_on_curve() const;
     cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const
         requires IsUltraArithmetic<Builder>;
     cycle_group unconditional_add(const cycle_group& other,

@@ -137,7 +137,9 @@ template <typename Builder, typename T> T convert_from_bn254_frs(std::span<const
         basefield_ct x = convert_from_bn254_frs<Builder, basefield_ct>(fr_vec.subspan(0, base_field_frs));
         basefield_ct y = convert_from_bn254_frs<Builder, basefield_ct>(fr_vec.subspan(base_field_frs, base_field_frs));
 
-        return T(x, y, check_point_at_infinity<Builder, T>(fr_vec));
+        T out(x, y, check_point_at_infinity<Builder, T>(fr_vec));
+        out.validate_on_curve();
+        return out;
     } else {
         // Array or Univariate
         T val;
