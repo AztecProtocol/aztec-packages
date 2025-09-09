@@ -33,6 +33,10 @@ library ValidatorOperationsExtLib {
     StakingLib.setSlasher(_slasher);
   }
 
+  function setLocalEjectionThreshold(uint256 _localEjectionThreshold) external {
+    StakingLib.setLocalEjectionThreshold(_localEjectionThreshold);
+  }
+
   function vote(uint256 _proposalId) external {
     StakingLib.vote(_proposalId);
   }

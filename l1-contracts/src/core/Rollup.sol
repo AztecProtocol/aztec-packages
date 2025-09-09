@@ -205,6 +205,10 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return StakingLib.getStorage().slasher;
   }
 
+  function getLocalEjectionThreshold() external view override(IStaking) returns (uint256) {
+    return StakingLib.getStorage().localEjectionThreshold;
+  }
+
   function getStakingAsset() external view override(IStaking) returns (IERC20) {
     return StakingLib.getStorage().stakingAsset;
   }

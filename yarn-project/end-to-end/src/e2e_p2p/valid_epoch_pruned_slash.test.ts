@@ -39,7 +39,7 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
   const aztecSlotDuration = 8;
   const aztecEpochDuration = 2;
   const initialEpoch = 8;
-  const slashingUnit = BigInt(20e18);
+  const slashingUnit = BigInt(1e18);
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
@@ -90,14 +90,16 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
     }
 
     const { rollup, slashingProposer, slashFactory } = await t.getContracts();
-    const [activationThreshold, ejectionThreshold] = await Promise.all([
+    const [activationThreshold, ejectionThreshold, localEjectionThreshold] = await Promise.all([
       rollup.getActivationThreshold(),
       rollup.getEjectionThreshold(),
+      rollup.getLocalEjectionThreshold(),
     ]);
 
     // Slashing amount should be enough to kick validators out
     const slashingAmount = slashingUnit * 3n;
-    expect(activationThreshold - slashingAmount).toBeLessThan(ejectionThreshold);
+    const biggestEjection = ejectionThreshold > localEjectionThreshold ? ejectionThreshold : localEjectionThreshold;
+    expect(activationThreshold - slashingAmount).toBeLessThan(biggestEjection);
 
     t.ctx.aztecNodeConfig.slashPrunePenalty = slashingAmount;
     t.ctx.aztecNodeConfig.validatorReexecute = false;

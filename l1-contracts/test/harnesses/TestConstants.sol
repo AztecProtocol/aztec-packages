@@ -109,7 +109,8 @@ library TestConstants {
       rewardBoostConfig: getRewardBoostConfig(),
       stakingQueueConfig: getStakingQueueConfig(),
       slashAmounts: [AZTEC_SLASH_AMOUNT_SMALL, AZTEC_SLASH_AMOUNT_MEDIUM, AZTEC_SLASH_AMOUNT_LARGE],
-      slasherFlavor: SlasherFlavor.EMPIRE
+      slasherFlavor: SlasherFlavor.EMPIRE,
+      localEjectionThreshold: 0 // The same as it being off, and only using the global.
     });
 
     // For the version we derive it based on the config (with a 0 version)

@@ -222,6 +222,11 @@ export class RollupContract {
   }
 
   @memoize
+  getLocalEjectionThreshold() {
+    return this.rollup.read.getLocalEjectionThreshold();
+  }
+
+  @memoize
   getActivationThreshold() {
     return this.rollup.read.getActivationThreshold();
   }
