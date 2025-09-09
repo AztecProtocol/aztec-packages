@@ -26,7 +26,7 @@ using plookup::MultiTableId;
  *
  * @details When reading a group element *out* of the ROM table, we must know the maximum value of each coordinate's
  * limbs. We take this value to be the maximum of the maximum values of the input limbs into the table!
- * @return std::array<twin_rom_table<C>, 5>
+ * @return std::array<twin_rom_table<C>, Fq::NUM_LIMBS + 1>
  */
 template <typename C, class Fq, class Fr, class G>
 template <size_t num_elements>
@@ -60,7 +60,7 @@ std::array<twin_rom_table<C>, Fq::NUM_LIMBS + 1> element<C, Fq, Fr, G>::create_g
         prime_limbs.emplace_back(
             std::array<field_t<C>, 2>{ rom_data[i].x.prime_basis_limb, rom_data[i].y.prime_basis_limb });
     }
-    std::array<twin_rom_table<C>, 5> output_tables;
+    std::array<twin_rom_table<C>, Fq::NUM_LIMBS + 1> output_tables;
     output_tables[0] = twin_rom_table<C>(x_lo_limbs);
     output_tables[1] = twin_rom_table<C>(x_hi_limbs);
     output_tables[2] = twin_rom_table<C>(y_lo_limbs);
@@ -188,6 +188,8 @@ template <typename C, class Fq, class Fr, class G>
 template <size_t length>
 element<C, Fq, Fr, G>::lookup_table_plookup<length>::lookup_table_plookup(const std::array<element, length>& inputs)
 {
+    static_assert(length <= 6, "lookup_table_plookup only supports up to 6 input elements");
+
     if constexpr (length == 2) {
         auto [A0, A1] = inputs[1].checked_unconditional_add_sub(inputs[0]);
         element_table[0] = A0;
@@ -226,14 +228,14 @@ element<C, Fq, Fr, G>::lookup_table_plookup<length>::lookup_table_plookup(const 
         auto [E0, E3] = inputs[4].checked_unconditional_add_sub(T2); // E ± (D + C)
         auto [E1, E2] = inputs[4].checked_unconditional_add_sub(T3); // E ± (D - C)
 
-        auto [F0, F3] = E0.checked_unconditional_add_sub(A0);
-        auto [F1, F2] = E0.checked_unconditional_add_sub(A1);
-        auto [F4, F7] = E1.checked_unconditional_add_sub(A0);
-        auto [F5, F6] = E1.checked_unconditional_add_sub(A1);
-        auto [F8, F11] = E2.checked_unconditional_add_sub(A0);
-        auto [F9, F10] = E2.checked_unconditional_add_sub(A1);
-        auto [F12, F15] = E3.checked_unconditional_add_sub(A0);
-        auto [F13, F14] = E3.checked_unconditional_add_sub(A1);
+        auto [F0, F3] = E0.checked_unconditional_add_sub(A0);   // E + (D + C) ± (B + A)
+        auto [F1, F2] = E0.checked_unconditional_add_sub(A1);   // E + (D + C) ± (B - A)
+        auto [F4, F7] = E1.checked_unconditional_add_sub(A0);   // E + (D - C) ± (B + A)
+        auto [F5, F6] = E1.checked_unconditional_add_sub(A1);   // E + (D - C) ± (B - A)
+        auto [F8, F11] = E2.checked_unconditional_add_sub(A0);  // E - (D - C) ± (B + A)
+        auto [F9, F10] = E2.checked_unconditional_add_sub(A1);  // E - (D - C) ± (B - A)
+        auto [F12, F15] = E3.checked_unconditional_add_sub(A0); // E - (D + C) ± (B + A)
+        auto [F13, F14] = E3.checked_unconditional_add_sub(A1); // E - (D + C) ± (B - A)
 
         element_table[0] = F0;
         element_table[1] = F1;
@@ -317,96 +319,6 @@ element<C, Fq, Fr, G>::lookup_table_plookup<length>::lookup_table_plookup(const 
         element_table[29] = W5;
         element_table[30] = W6;
         element_table[31] = W7;
-    } else if constexpr (length == 7) {
-        // 82 adds! This one is not worth using...
-
-        element A0 = inputs[1] + inputs[0]; // B + A
-        element A1 = inputs[1] - inputs[0]; // B - A
-
-        element D0 = inputs[3] + inputs[2]; // D + C
-        element D1 = inputs[3] - inputs[2]; // D - C
-
-        element E0 = D0 + A0; // D + C + B + A
-        element E1 = D0 + A1; // D + C + B - A
-        element E2 = D0 - A1; // D + C - B + A
-        element E3 = D0 - A0; // D + C - B - A
-        element E4 = D1 + A0; // D - C + B + A
-        element E5 = D1 + A1; // D - C + B - A
-        element E6 = D1 - A1; // D - C - B + A
-        element E7 = D1 - A0; // D - C - B - A
-
-        element F0 = inputs[5] + inputs[4]; // F + E
-        element F1 = inputs[5] - inputs[4]; // F - E
-
-        element G0 = inputs[6] + F0; // G + F + E
-        element G1 = inputs[6] + F1; // G + F - E
-        element G2 = inputs[6] - F1; // G - F + E
-        element G3 = inputs[6] - F0; // G - F - E
-
-        element_table[0] = G0 + E0;
-        element_table[1] = G0 + E1;
-        element_table[2] = G0 + E2;
-        element_table[3] = G0 + E3;
-        element_table[4] = G0 + E4;
-        element_table[5] = G0 + E5;
-        element_table[6] = G0 + E6;
-        element_table[7] = G0 + E7;
-        element_table[8] = G0 - E7;
-        element_table[9] = G0 - E6;
-        element_table[10] = G0 - E5;
-        element_table[11] = G0 - E4;
-        element_table[12] = G0 - E3;
-        element_table[13] = G0 - E2;
-        element_table[14] = G0 - E1;
-        element_table[15] = G0 - E0;
-        element_table[16] = G1 + E0;
-        element_table[17] = G1 + E1;
-        element_table[18] = G1 + E2;
-        element_table[19] = G1 + E3;
-        element_table[20] = G1 + E4;
-        element_table[21] = G1 + E5;
-        element_table[22] = G1 + E6;
-        element_table[23] = G1 + E7;
-        element_table[24] = G1 - E7;
-        element_table[25] = G1 - E6;
-        element_table[26] = G1 - E5;
-        element_table[27] = G1 - E4;
-        element_table[28] = G1 - E3;
-        element_table[29] = G1 - E2;
-        element_table[30] = G1 - E1;
-        element_table[31] = G1 - E0;
-        element_table[32] = G2 + E0;
-        element_table[33] = G2 + E1;
-        element_table[34] = G2 + E2;
-        element_table[35] = G2 + E3;
-        element_table[36] = G2 + E4;
-        element_table[37] = G2 + E5;
-        element_table[38] = G2 + E6;
-        element_table[39] = G2 + E7;
-        element_table[40] = G2 - E7;
-        element_table[41] = G2 - E6;
-        element_table[42] = G2 - E5;
-        element_table[43] = G2 - E4;
-        element_table[44] = G2 - E3;
-        element_table[45] = G2 - E2;
-        element_table[46] = G2 - E1;
-        element_table[47] = G2 - E0;
-        element_table[48] = G3 + E0;
-        element_table[49] = G3 + E1;
-        element_table[50] = G3 + E2;
-        element_table[51] = G3 + E3;
-        element_table[52] = G3 + E4;
-        element_table[53] = G3 + E5;
-        element_table[54] = G3 + E6;
-        element_table[55] = G3 + E7;
-        element_table[56] = G3 - E7;
-        element_table[57] = G3 - E6;
-        element_table[58] = G3 - E5;
-        element_table[59] = G3 - E4;
-        element_table[60] = G3 - E3;
-        element_table[61] = G3 - E2;
-        element_table[62] = G3 - E1;
-        element_table[63] = G3 - E0;
     }
     for (size_t i = 0; i < table_size / 2; ++i) {
         element_table[i + (table_size / 2)] = (-element_table[(table_size / 2) - 1 - i]);
@@ -428,7 +340,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::lookup_table_plookup<length>::get(
 }
 
 /**
- * @brief Create a endo pair four bit table plookup object
+ * @brief Create a endo pair four bit table for the given group element
  *
  * @tparam C
  * @tparam Fq
