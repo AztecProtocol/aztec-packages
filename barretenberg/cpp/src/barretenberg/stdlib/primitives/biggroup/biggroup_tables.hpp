@@ -30,8 +30,8 @@ using plookup::MultiTableId;
  */
 template <typename C, class Fq, class Fr, class G>
 template <size_t num_elements>
-std::array<twin_rom_table<C>, 5> element<C, Fq, Fr, G>::create_group_element_rom_tables(
-    const std::array<element, num_elements>& rom_data, std::array<uint256_t, 8>& limb_max)
+std::array<twin_rom_table<C>, Fq::NUM_LIMBS + 1> element<C, Fq, Fr, G>::create_group_element_rom_tables(
+    const std::array<element, num_elements>& rom_data, std::array<uint256_t, Fq::NUM_LIMBS * 2>& limb_max)
 {
     std::vector<std::array<field_t<C>, 2>> x_lo_limbs;
     std::vector<std::array<field_t<C>, 2>> x_hi_limbs;
@@ -72,7 +72,9 @@ std::array<twin_rom_table<C>, 5> element<C, Fq, Fr, G>::create_group_element_rom
 template <typename C, class Fq, class Fr, class G>
 template <size_t>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::read_group_element_rom_tables(
-    const std::array<twin_rom_table<C>, 5>& tables, const field_t<C>& index, const std::array<uint256_t, 8>& limb_max)
+    const std::array<twin_rom_table<C>, Fq::NUM_LIMBS + 1>& tables,
+    const field_t<C>& index,
+    const std::array<uint256_t, Fq::NUM_LIMBS * 2>& limb_max)
 {
     const auto xlo = tables[0][index];
     const auto xhi = tables[1][index];

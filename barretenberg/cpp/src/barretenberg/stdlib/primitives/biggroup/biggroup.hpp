@@ -446,13 +446,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     bool_ct _is_infinity;
 
     template <size_t num_elements>
-    static std::array<twin_rom_table<Builder>, 5> create_group_element_rom_tables(
-        const std::array<element, num_elements>& rom_data, std::array<uint256_t, 8>& limb_max);
+    static std::array<twin_rom_table<Builder>, Fq::NUM_LIMBS + 1> create_group_element_rom_tables(
+        const std::array<element, num_elements>& rom_data, std::array<uint256_t, Fq::NUM_LIMBS * 2>& limb_max);
 
     template <size_t num_elements>
-    static element read_group_element_rom_tables(const std::array<twin_rom_table<Builder>, 5>& tables,
+    static element read_group_element_rom_tables(const std::array<twin_rom_table<Builder>, Fq::NUM_LIMBS + 1>& tables,
                                                  const field_t<Builder>& index,
-                                                 const std::array<uint256_t, 8>& limb_max);
+                                                 const std::array<uint256_t, Fq::NUM_LIMBS * 2>& limb_max);
 
     static std::pair<element, element> compute_offset_generators(const size_t num_rounds);
     static typename NativeGroup::affine_element compute_table_offset_generator();
