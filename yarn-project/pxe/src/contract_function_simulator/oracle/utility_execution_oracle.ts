@@ -29,7 +29,7 @@ export class UtilityExecutionOracle extends TypedOracle {
     protected log = createLogger('simulator:client_view_context'),
     protected readonly scopes?: AztecAddress[],
   ) {
-    super();
+    super('UtilityExecutionOracle');
   }
 
   public override utilityAssertCompatibleOracleVersion(version: number): void {
@@ -142,7 +142,7 @@ export class UtilityExecutionOracle extends TypedOracle {
    * @returns A complete address associated with the input address.
    * @throws An error if the account is not registered in the database.
    */
-  public override utilityGetCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {
+  public override utilityGetPublicKeysAndPartialAddress(account: AztecAddress): Promise<CompleteAddress> {
     return this.executionDataProvider.getCompleteAddress(account);
   }
 

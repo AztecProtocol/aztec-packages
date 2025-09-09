@@ -163,9 +163,11 @@ unconstrained fn swap_exact_tokens_for_tokens() {
     env.call_private(minter, token0.mint_to_private(swapper, amount_in));
 
     // Create authwit for transferring tokens to AMM
-    let transfer_call_interface =
-        token0.transfer_to_public(swapper, amm_address, amount_in, AUTHWIT_NONCE);
-    add_private_authwit_from_call_interface(swapper, amm_address, transfer_call_interface);
+    add_private_authwit_from_call_interface(
+        swapper,
+        amm_address,
+        token0.transfer_to_public(swapper, amm_address, amount_in, AUTHWIT_NONCE),
+    );
 
     env.call_private(
         swapper,

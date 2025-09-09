@@ -136,36 +136,37 @@ unconstrained fn initialize_or_replace_uninitialized() {
     });
 }
 
-#[test]
-unconstrained fn initialize_or_replace_initialized_pending() {
-    let env = TestEnvironment::new();
+// TODO(#16800): restore this test once we correctly fetch a transient nullifier
+// #[test]
+// unconstrained fn initialize_or_replace_initialized_pending() {
+//     let env = TestEnvironment::new();
 
-    env.private_context(|context| {
-        let state_var = in_private(context);
+//     env.private_context(|context| {
+//         let state_var = in_private(context);
 
-        let note = MockNote::new(VALUE).build_note();
+//         let note = MockNote::new(VALUE).build_note();
 
-        let _ = state_var.initialize(note);
+//         let _ = state_var.initialize(note);
 
-        let note_hash_read_requests_pre_replace = context.note_hash_read_requests.len();
-        let nullifiers_pre_replace = context.nullifiers.len();
-        let note_hashes_pre_replace = context.note_hashes.len();
+//         let note_hash_read_requests_pre_replace = context.note_hash_read_requests.len();
+//         let nullifiers_pre_replace = context.nullifiers.len();
+//         let note_hashes_pre_replace = context.note_hashes.len();
 
-        let replacement_value = VALUE + 1;
-        let replacement_note = MockNote::new(replacement_value).build_note();
-        let emission = state_var.initialize_or_replace(replacement_note);
+//         let replacement_value = VALUE + 1;
+//         let replacement_note = MockNote::new(replacement_value).build_note();
+//         let emission = state_var.initialize_or_replace(replacement_note);
 
-        assert_eq(emission.note, replacement_note);
-        assert_eq(emission.storage_slot, STORAGE_SLOT);
+//         assert_eq(emission.note, replacement_note);
+//         assert_eq(emission.storage_slot, STORAGE_SLOT);
 
-        // Replacing a PrivateMutable results in:
-        // - a read request for the read value
-        // - a nullifier for the read note
-        // - a new note for the replacement note
-        // This would only succeed if the variable had already been initialized, as otherwise the read request would
-        // fail.
-        assert_eq(context.note_hash_read_requests.len(), note_hash_read_requests_pre_replace + 1);
-        assert_eq(context.nullifiers.len(), nullifiers_pre_replace + 1);
-        assert_eq(context.note_hashes.len(), note_hashes_pre_replace + 1);
-    });
-}
+//         // Replacing a PrivateMutable results in:
+//         // - a read request for the read value
+//         // - a nullifier for the read note
+//         // - a new note for the replacement note
+//         // This would only succeed if the variable had already been initialized, as otherwise the read request would
+//         // fail.
+//         assert_eq(context.note_hash_read_requests.len(), note_hash_read_requests_pre_replace + 1);
+//         assert_eq(context.nullifiers.len(), nullifiers_pre_replace + 1);
+//         assert_eq(context.note_hashes.len(), note_hashes_pre_replace + 1);
+//     });
+// }

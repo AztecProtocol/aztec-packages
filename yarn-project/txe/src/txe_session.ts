@@ -1,4 +1,4 @@
-import { AztecAddress, Fr } from '@aztec/aztec.js';
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -7,21 +7,28 @@ import {
   AddressDataProvider,
   CapsuleDataProvider,
   NoteDataProvider,
+  PXEOracleInterface,
   PrivateEventDataProvider,
   TaggingDataProvider,
 } from '@aztec/pxe/server';
-import type { PrivateContextInputs } from '@aztec/stdlib/kernel';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { GasSettings } from '@aztec/stdlib/gas';
+import { PrivateContextInputs } from '@aztec/stdlib/kernel';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
+import { CallContext, GlobalVariables, TxContext } from '@aztec/stdlib/tx';
 import type { UInt32 } from '@aztec/stdlib/types';
 
 import { TXE } from './oracle/txe_oracle.js';
 import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
+import { TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.js';
 import type { TXETypedOracle } from './oracle/txe_typed_oracle.js';
 import { TXEStateMachine } from './state_machine/index.js';
 import { TXEService } from './txe_service/txe_service.js';
 import type { ForeignCallArgs, ForeignCallResult } from './util/encoding.js';
 import { TXEAccountDataProvider } from './util/txe_account_data_provider.js';
 import { TXEContractDataProvider } from './util/txe_contract_data_provider.js';
+import { getSingleTxBlockRequestHash } from './utils/block_creation.js';
 
 /**
  * A TXE Session can be ine one of four states, which change as the test progresses and different oracles are called.
@@ -74,13 +81,20 @@ const DEFAULT_ADDRESS = AztecAddress.fromNumber(42);
  * state, etc., independent of all other tests running in parallel.
  */
 export class TXESession implements TXESessionStateHandler {
-  state = SessionState.TOP_LEVEL;
+  private state = SessionState.TOP_LEVEL;
 
   constructor(
     private logger: Logger,
     private stateMachine: TXEStateMachine,
     private oracleHandler: TXETypedOracle,
-    private legacyTXEOracle: TXE,
+    private contractDataProvider: TXEContractDataProvider,
+    private keyStore: KeyStore,
+    private addressDataProvider: AddressDataProvider,
+    private accountDataProvider: TXEAccountDataProvider,
+    private chainId: Fr,
+    private version: Fr,
+    private nextBlockTimestamp: bigint,
+    private pxeOracleInterface: PXEOracleInterface,
   ) {}
 
   static async init(protocolContracts: ProtocolContract[]) {
@@ -103,22 +117,48 @@ export class TXESession implements TXESessionStateHandler {
 
     const stateMachine = await TXEStateMachine.create(store);
 
-    const txeOracle = new TXE(
+    const nextBlockTimestamp = BigInt(Math.floor(new Date().getTime() / 1000));
+    const version = new Fr(await stateMachine.node.getVersion());
+    const chainId = new Fr(await stateMachine.node.getChainId());
+
+    const pxeOracleInterface = new PXEOracleInterface(
+      stateMachine.node,
       keyStore,
       contractDataProvider,
       noteDataProvider,
       capsuleDataProvider,
+      stateMachine.syncDataProvider,
       taggingDataProvider,
       addressDataProvider,
       privateEventDataProvider,
-      accountDataProvider,
-      DEFAULT_ADDRESS,
-      await stateMachine.synchronizer.nativeWorldStateService.fork(),
-      stateMachine,
     );
-    await txeOracle.txeAdvanceBlocksBy(1);
 
-    return new TXESession(createLogger('txe:session'), stateMachine, txeOracle, txeOracle);
+    const topLevelOracleHandler = new TXEOracleTopLevelContext(
+      stateMachine,
+      contractDataProvider,
+      keyStore,
+      addressDataProvider,
+      accountDataProvider,
+      pxeOracleInterface,
+      nextBlockTimestamp,
+      version,
+      chainId,
+    );
+    await topLevelOracleHandler.txeAdvanceBlocksBy(1);
+
+    return new TXESession(
+      createLogger('txe:session'),
+      stateMachine,
+      topLevelOracleHandler,
+      contractDataProvider,
+      keyStore,
+      addressDataProvider,
+      accountDataProvider,
+      version,
+      chainId,
+      nextBlockTimestamp,
+      pxeOracleInterface,
+    );
   }
 
   /**
@@ -131,48 +171,52 @@ export class TXESession implements TXESessionStateHandler {
     return (new TXEService(this, this.oracleHandler) as any)[functionName](...inputs);
   }
 
-  async setTopLevelContext(): Promise<void> {
+  async setTopLevelContext() {
     if (this.state == SessionState.PRIVATE) {
-      await this.oracleHandler.txeAdvanceBlocksBy(1);
-      this.oracleHandler.txeSetContractAddress(DEFAULT_ADDRESS);
+      await this.exitPrivateContext();
     } else if (this.state == SessionState.PUBLIC) {
-      const block = await (this.oracleHandler as TXEOraclePublicContext).close();
-
-      await this.stateMachine.handleL2Block(block);
-
-      this.legacyTXEOracle.baseFork = await this.stateMachine.synchronizer.nativeWorldStateService.fork();
-      this.legacyTXEOracle.txeSetContractAddress(DEFAULT_ADDRESS);
-      this.legacyTXEOracle.setBlockNumber(block.number + 1);
-
-      this.oracleHandler = this.legacyTXEOracle;
+      await this.exitPublicContext();
     } else if (this.state == SessionState.UTILITY) {
-      this.oracleHandler.txeSetContractAddress(DEFAULT_ADDRESS);
+      this.exitUtilityContext();
     } else if (this.state == SessionState.TOP_LEVEL) {
       throw new Error(`Expected to be in state other than ${SessionState[SessionState.TOP_LEVEL]}`);
     } else {
       throw new Error(`Unexpected state '${this.state}'`);
     }
 
+    this.oracleHandler = new TXEOracleTopLevelContext(
+      this.stateMachine,
+      this.contractDataProvider,
+      this.keyStore,
+      this.addressDataProvider,
+      this.accountDataProvider,
+      this.pxeOracleInterface,
+      this.nextBlockTimestamp,
+      this.version,
+      this.chainId,
+    );
+
     this.state = SessionState.TOP_LEVEL;
     this.logger.debug(`Entered state ${SessionState[this.state]}`);
   }
 
-  async setPublicContext(contractAddress?: AztecAddress): Promise<void> {
-    this.assertInTopLevelState();
+  async setPublicContext(contractAddress?: AztecAddress) {
+    this.exitTopLevelContext();
 
+    // The PublicContext will create a block with a single transaction in it, containing the effects of what was done in
+    // the test. The block therefore gets the *next* block number and timestamp.
+    const latestBlockNumber = (await this.stateMachine.node.getBlockHeader('latest'))!.globalVariables.blockNumber;
     const globalVariables = makeGlobalVariables(undefined, {
-      blockNumber: await this.legacyTXEOracle.utilityGetBlockNumber(),
-      timestamp: await this.legacyTXEOracle.utilityGetTimestamp(),
-      version: await this.legacyTXEOracle.utilityGetVersion(),
-      chainId: await this.legacyTXEOracle.utilityGetChainId(),
+      blockNumber: latestBlockNumber + 1,
+      timestamp: this.nextBlockTimestamp,
+      version: this.version,
+      chainId: this.chainId,
     });
-
-    const txRequestHash = new Fr(globalVariables.blockNumber + 6969);
 
     this.oracleHandler = new TXEOraclePublicContext(
       contractAddress ?? DEFAULT_ADDRESS,
       await this.stateMachine.synchronizer.nativeWorldStateService.fork(),
-      txRequestHash,
+      getSingleTxBlockRequestHash(globalVariables.blockNumber),
       globalVariables,
     );
 
@@ -180,17 +224,42 @@ export class TXESession implements TXESessionStateHandler {
     this.logger.debug(`Entered state ${SessionState[this.state]}`);
   }
 
-  async setPrivateContext(
-    contractAddress?: AztecAddress,
-    historicalBlockNumber?: UInt32,
-  ): Promise<PrivateContextInputs> {
-    this.assertInTopLevelState();
+  async setPrivateContext(contractAddress?: AztecAddress, anchorBlockNumber?: UInt32): Promise<PrivateContextInputs> {
+    this.exitTopLevelContext();
 
-    if (contractAddress) {
-      this.oracleHandler.txeSetContractAddress(contractAddress);
-    }
+    // A PrivateContext has two associated block numbers: the anchor block (i.e. the historical block that is used to build the
+    // proof), and the *next* block, i.e. the one the PrivateContext will create with the single transaction that
+    // contains the effects of what was done in the test.
+    const anchorBlock = await this.stateMachine.node.getBlockHeader(anchorBlockNumber ?? 'latest');
+    const latestBlock = await this.stateMachine.node.getBlockHeader('latest');
 
-    const privateContextInputs = await this.oracleHandler.txeGetPrivateContextInputs(historicalBlockNumber);
+    const anchorBlockGlobalVariables = makeGlobalVariables(undefined, {
+      blockNumber: anchorBlock!.globalVariables.blockNumber,
+      timestamp: anchorBlock!.globalVariables.timestamp,
+      version: this.version,
+      chainId: this.chainId,
+    });
+
+    const nextBlockGlobalVariables = makeGlobalVariables(undefined, {
+      blockNumber: latestBlock!.globalVariables.blockNumber + 1,
+      timestamp: this.nextBlockTimestamp,
+      version: this.version,
+      chainId: this.chainId,
+    });
+
+    const privateContextInputs = await this.getPrivateContextInputs(
+      anchorBlockGlobalVariables.blockNumber,
+      contractAddress ?? DEFAULT_ADDRESS,
+    );
+
+    this.oracleHandler = new TXE(
+      contractAddress ?? DEFAULT_ADDRESS,
+      this.pxeOracleInterface,
+      await this.stateMachine.synchronizer.nativeWorldStateService.fork(),
+      anchorBlockGlobalVariables,
+      nextBlockGlobalVariables,
+      getSingleTxBlockRequestHash(nextBlockGlobalVariables.blockNumber), // The tx will be inserted in the *next* block
+    );
 
     this.state = SessionState.PRIVATE;
     this.logger.debug(`Entered state ${SessionState[this.state]}`);
@@ -198,24 +267,71 @@ export class TXESession implements TXESessionStateHandler {
     return privateContextInputs;
   }
 
-  setUtilityContext(contractAddress?: AztecAddress): Promise<void> {
-    this.assertInTopLevelState();
+  async setUtilityContext(contractAddress?: AztecAddress) {
+    this.exitTopLevelContext();
 
-    if (contractAddress) {
-      this.oracleHandler.txeSetContractAddress(contractAddress);
-    }
+    // A UtilityContext is built using the latest block as a reference, mimicking what would happen if PXE had synced
+    // all the way to the tip of the chain.
+    const latestBlock = await this.stateMachine.node.getBlockHeader('latest');
+
+    this.oracleHandler = new TXE(
+      contractAddress ?? DEFAULT_ADDRESS,
+      this.pxeOracleInterface,
+      await this.stateMachine.synchronizer.nativeWorldStateService.fork(),
+      latestBlock!.globalVariables,
+      GlobalVariables.empty(), // unused - will be removed after private/utility split
+      Fr.random(), // unused - will be removed after private/utility split
+    );
 
     this.state = SessionState.UTILITY;
     this.logger.debug(`Entered state ${SessionState[this.state]}`);
-
-    return Promise.resolve();
   }
 
-  private assertInTopLevelState() {
-    if (this.state != SessionState.TOP_LEVEL) {
-      throw new Error(
-        `Expected to be in state ${SessionState[SessionState.TOP_LEVEL]}, but got '${SessionState[this.state]}' instead`,
-      );
+  private exitTopLevelContext() {
+    this.assertState(SessionState.TOP_LEVEL);
+
+    // Note that while all public and private contexts do is build a single block that we then process when exiting
+    // those, the top level context performs a large number of actions not captured in the following 'close' call. Among
+    // others, it will create empty blocks (via `txeAdvanceBlocksBy` and `deploy`), create blocks with transactions via
+    // `txePrivateCallNewFlow` and `txePublicCallNewFlow`, add accounts to PXE via `txeAddAccount`, etc. This is a
+    // slight inconsistency in the working model of this class, but is not too bad.
+    this.nextBlockTimestamp = (this.oracleHandler as TXEOracleTopLevelContext).close();
+  }
+
+  private async exitPublicContext() {
+    this.assertState(SessionState.PUBLIC);
+
+    const block = await (this.oracleHandler as TXEOraclePublicContext).close();
+    await this.stateMachine.handleL2Block(block);
+  }
+
+  private async exitPrivateContext() {
+    this.assertState(SessionState.PRIVATE);
+
+    const block = await (this.oracleHandler as TXE).close();
+    await this.stateMachine.handleL2Block(block);
+  }
+
+  private exitUtilityContext() {
+    this.assertState(SessionState.UTILITY);
+  }
+
+  private assertState(state: SessionState) {
+    if (this.state != state) {
+      throw new Error(`Expected to be in state ${SessionState[state]}, but got '${SessionState[this.state]}' instead`);
     }
+  }
+
+  private async getPrivateContextInputs(anchorBlockNumber: number, contractAddress: AztecAddress) {
+    this.logger.info(`Creating private context for block ${anchorBlockNumber}`);
+
+    const sender = await AztecAddress.random();
+
+    return new PrivateContextInputs(
+      new CallContext(sender, contractAddress, FunctionSelector.empty(), false),
+      (await this.stateMachine.node.getBlockHeader(anchorBlockNumber))!,
+      new TxContext(this.chainId, this.version, GasSettings.empty()),
+      0,
+    );
   }
 }

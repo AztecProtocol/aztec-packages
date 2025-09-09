@@ -1,4 +1,4 @@
-import type { CompleteAddress, ContractArtifact, ContractInstanceWithAddress, TxHash } from '@aztec/aztec.js';
+import type { CompleteAddress, ContractArtifact, ContractInstanceWithAddress } from '@aztec/aztec.js';
 import type { Fr } from '@aztec/foundation/fields';
 import { TypedOracle } from '@aztec/pxe/simulator';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
@@ -7,78 +7,82 @@ import type { PrivateContextInputs } from '@aztec/stdlib/kernel';
 import type { UInt32, UInt64 } from '@aztec/stdlib/types';
 
 class OracleMethodNotAvailableError extends Error {
-  constructor(methodName: string) {
-    super(`Oracle method ${methodName} is not available.`);
+  constructor(className: string, methodName: string) {
+    super(`Oracle method ${methodName} is not implemented in handler ${className}.`);
   }
 }
 
 export class TXETypedOracle extends TypedOracle {
   avmOpcodeAddress(): Promise<AztecAddress> {
-    throw new OracleMethodNotAvailableError('avmOpcodeAddress');
+    throw new OracleMethodNotAvailableError(this.className, 'avmOpcodeAddress');
   }
 
   avmOpcodeBlockNumber(): Promise<UInt32> {
-    throw new OracleMethodNotAvailableError('avmOpcodeBlockNumber');
+    throw new OracleMethodNotAvailableError(this.className, 'avmOpcodeBlockNumber');
   }
 
   avmOpcodeTimestamp(): Promise<bigint> {
-    throw new OracleMethodNotAvailableError('avmOpcodeTimestamp');
+    throw new OracleMethodNotAvailableError(this.className, 'avmOpcodeTimestamp');
   }
 
   avmOpcodeIsStaticCall(): Promise<boolean> {
-    throw new OracleMethodNotAvailableError('avmOpcodeIsStaticCall');
+    throw new OracleMethodNotAvailableError(this.className, 'avmOpcodeIsStaticCall');
   }
 
   avmOpcodeChainId(): Promise<Fr> {
-    throw new OracleMethodNotAvailableError('avmOpcodeChainId');
+    throw new OracleMethodNotAvailableError(this.className, 'avmOpcodeChainId');
   }
 
   avmOpcodeVersion(): Promise<Fr> {
-    throw new OracleMethodNotAvailableError('avmOpcodeVersion');
+    throw new OracleMethodNotAvailableError(this.className, 'avmOpcodeVersion');
   }
 
   avmOpcodeEmitNullifier(_nullifier: Fr): Promise<void> {
-    throw new OracleMethodNotAvailableError('avmOpcodeEmitNullifier');
+    throw new OracleMethodNotAvailableError(this.className, 'avmOpcodeEmitNullifier');
   }
 
   avmOpcodeEmitNoteHash(_noteHash: Fr): Promise<void> {
-    throw new OracleMethodNotAvailableError('avmOpcodeEmitNoteHash');
+    throw new OracleMethodNotAvailableError(this.className, 'avmOpcodeEmitNoteHash');
   }
 
   avmOpcodeNullifierExists(_innerNullifier: Fr, _targetAddress: AztecAddress): Promise<boolean> {
-    throw new OracleMethodNotAvailableError('avmOpcodeNullifierExists');
+    throw new OracleMethodNotAvailableError(this.className, 'avmOpcodeNullifierExists');
   }
 
   avmOpcodeStorageWrite(_slot: Fr, _value: Fr): Promise<void> {
-    throw new OracleMethodNotAvailableError('avmOpcodeStorageWrite');
+    throw new OracleMethodNotAvailableError(this.className, 'avmOpcodeStorageWrite');
   }
 
   avmOpcodeStorageRead(_slot: Fr): Promise<Fr> {
-    throw new OracleMethodNotAvailableError('avmOpcodeStorageRead');
+    throw new OracleMethodNotAvailableError(this.className, 'avmOpcodeStorageRead');
   }
 
   txeGetPrivateContextInputs(_blockNumber?: number): Promise<PrivateContextInputs> {
-    throw new OracleMethodNotAvailableError('txeGetPrivateContextInputs');
+    throw new OracleMethodNotAvailableError(this.className, 'txeGetPrivateContextInputs');
+  }
+
+  txeGetNextBlockNumber(): Promise<number> {
+    throw new OracleMethodNotAvailableError(this.className, 'txeGetNextBlockNumber');
+  }
+
+  txeGetNextBlockTimestamp(): Promise<UInt64> {
+    throw new OracleMethodNotAvailableError(this.className, 'txeGetNextBlockTimestamp');
   }
 
   txeAdvanceBlocksBy(_blocks: number): Promise<void> {
-    throw new OracleMethodNotAvailableError('txeAdvanceBlocksBy');
+    throw new OracleMethodNotAvailableError(this.className, 'txeAdvanceBlocksBy');
   }
 
   txeAdvanceTimestampBy(_duration: UInt64) {
-    throw new OracleMethodNotAvailableError('txeAdvanceTimestampBy');
-  }
-
-  txeSetContractAddress(_contractAddress: AztecAddress) {
-    throw new OracleMethodNotAvailableError('txeSetContractAddress');
+    throw new OracleMethodNotAvailableError(this.className, 'txeAdvanceTimestampBy');
   }
 
   txeDeploy(_artifact: ContractArtifact, _instance: ContractInstanceWithAddress, _foreignSecret: Fr): Promise<void> {
-    throw new OracleMethodNotAvailableError('txeDeploy');
+    throw new OracleMethodNotAvailableError(this.className, 'txeDeploy');
   }
 
   txeCreateAccount(_secret: Fr): Promise<CompleteAddress> {
-    throw new OracleMethodNotAvailableError('txeCreateAccount');
+    throw new OracleMethodNotAvailableError(this.className, 'txeCreateAccount');
   }
 
   txeAddAccount(
@@ -86,23 +90,23 @@ export class TXETypedOracle extends TypedOracle {
     _instance: ContractInstanceWithAddress,
     _secret: Fr,
   ): Promise<CompleteAddress> {
-    throw new OracleMethodNotAvailableError('txeAddAccount');
+    throw new OracleMethodNotAvailableError(this.className, 'txeAddAccount');
   }
 
   txeAddAuthWitness(_address: AztecAddress, _messageHash: Fr): Promise<void> {
-    throw new OracleMethodNotAvailableError('txeAddAuthWitness');
+    throw new OracleMethodNotAvailableError(this.className, 'txeAddAuthWitness');
   }
 
   txeGetLastBlockTimestamp(): Promise<bigint> {
-    throw new OracleMethodNotAvailableError('txeGetLastBlockTimestamp');
+    throw new OracleMethodNotAvailableError(this.className, 'txeGetLastBlockTimestamp');
   }
 
   storageWrite(_startStorageSlot: Fr, _values: Fr[]): Promise<Fr[]> {
-    throw new OracleMethodNotAvailableError('storageWrite');
+    throw new OracleMethodNotAvailableError(this.className, 'storageWrite');
   }
 
   getMsgSender(): AztecAddress {
-    throw new OracleMethodNotAvailableError('getMsgSender');
+    throw new OracleMethodNotAvailableError(this.className, 'getMsgSender');
   }
 
   txePrivateCallNewFlow(
@@ -112,20 +116,16 @@ export class TXETypedOracle extends TypedOracle {
     _args: Fr[],
     _argsHash: Fr,
     _isStaticCall: boolean,
-  ): Promise<{
-    endSideEffectCounter: Fr;
-    returnsHash: Fr;
-    txHash: TxHash;
-  }> {
-    throw new OracleMethodNotAvailableError('txePrivateCallNewFlow');
+  ): Promise<Fr[]> {
+    throw new OracleMethodNotAvailableError(this.className, 'txePrivateCallNewFlow');
   }
 
-  simulateUtilityFunction(
+  txeSimulateUtilityFunction(
     _targetContractAddress: AztecAddress,
     _functionSelector: FunctionSelector,
-    _argsHash: Fr,
-  ): Promise<Fr> {
-    throw new OracleMethodNotAvailableError('simulateUtilityFunction');
+    _args: Fr[],
+  ): Promise<Fr[]> {
+    throw new OracleMethodNotAvailableError(this.className, 'simulateUtilityFunction');
   }
 
   txePublicCallNewFlow(
@@ -133,10 +133,7 @@ export class TXETypedOracle extends TypedOracle {
     _targetContractAddress: AztecAddress,
     _calldata: Fr[],
     _isStaticCall: boolean,
-  ): Promise<{
-    returnsHash: Fr;
-    txHash: TxHash;
-  }> {
-    throw new OracleMethodNotAvailableError('txePublicCallNewFlow');
+  ): Promise<Fr[]> {
+    throw new OracleMethodNotAvailableError(this.className, 'txePublicCallNewFlow');
   }
 }

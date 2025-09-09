@@ -94,6 +94,18 @@ export class TXEService {
 
   // TXE-specific oracles
 
+  async txeGetNextBlockNumber() {
+    const nextBlockNumber = await this.oracleHandler.txeGetNextBlockNumber();
+
+    return toForeignCallResult([toSingle(nextBlockNumber)]);
+  }
+
+  async txeGetNextBlockTimestamp() {
+    const nextBlockTimestamp = await this.oracleHandler.txeGetNextBlockTimestamp();
+
+    return toForeignCallResult([toSingle(nextBlockTimestamp)]);
+  }
+
   async txeAdvanceBlocksBy(foreignBlocks: ForeignCallSingle) {
     const blocks = fromSingle(foreignBlocks).toNumber();
 
@@ -409,7 +421,7 @@ export class TXEService {
   async utilityGetPublicKeysAndPartialAddress(foreignAddress: ForeignCallSingle) {
     const address = addressFromSingle(foreignAddress);
 
-    const { publicKeys, partialAddress } = await this.oracleHandler.utilityGetCompleteAddress(address);
+    const { publicKeys, partialAddress } = await this.oracleHandler.utilityGetPublicKeysAndPartialAddress(address);
 
     return toForeignCallResult([toArray([...publicKeys.toFields(), partialAddress])]);
   }
@@ -881,7 +893,7 @@ export class TXEService {
     const argsHash = fromSingle(foreignArgsHash);
     const isStaticCall = fromSingle(foreignIsStaticCall).toBool();
 
-    const result = await this.oracleHandler.txePrivateCallNewFlow(
+    const returnValues = await this.oracleHandler.txePrivateCallNewFlow(
       from,
       targetContractAddress,
       functionSelector,
@@ -890,21 +902,26 @@ export class TXEService {
       isStaticCall,
     );
 
-    return toForeignCallResult([toArray([result.endSideEffectCounter, result.returnsHash, result.txHash.hash])]);
+    return toForeignCallResult([toArray(returnValues)]);
   }
 
-  async simulateUtilityFunction(
+  async txeSimulateUtilityFunction(
     foreignTargetContractAddress: ForeignCallSingle,
     foreignFunctionSelector: ForeignCallSingle,
-    foreignArgsHash: ForeignCallSingle,
+    _foreignArgsLength: ForeignCallSingle,
+    foreignArgs: ForeignCallArray,
   ) {
     const targetContractAddress = addressFromSingle(foreignTargetContractAddress);
     const functionSelector = FunctionSelector.fromField(fromSingle(foreignFunctionSelector));
-    const argsHash = fromSingle(foreignArgsHash);
+    const args = fromArray(foreignArgs);
 
-    const result = await this.oracleHandler.simulateUtilityFunction(targetContractAddress, functionSelector, argsHash);
+    const returnValues = await this.oracleHandler.txeSimulateUtilityFunction(
+      targetContractAddress,
+      functionSelector,
+      args,
+    );
 
-    return toForeignCallResult([toSingle(result)]);
+    return toForeignCallResult([toArray(returnValues)]);
   }
 
   async txePublicCallNewFlow(
@@ -919,9 +936,9 @@ export class TXEService {
     const calldata = fromArray(foreignCalldata);
     const isStaticCall = fromSingle(foreignIsStaticCall).toBool();
 
-    const result = await this.oracleHandler.txePublicCallNewFlow(from, address, calldata, isStaticCall);
+    const returnValues = await this.oracleHandler.txePublicCallNewFlow(from, address, calldata, isStaticCall);
 
-    return toForeignCallResult([toArray([result.returnsHash, result.txHash.hash])]);
+    return toForeignCallResult([toArray(returnValues)]);
   }
 
   async privateGetSenderForTags() {
