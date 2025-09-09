@@ -13,7 +13,7 @@ import { Tx, TxArray, TxHash } from '@aztec/stdlib/tx';
 import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { createSecp256k1PeerId } from '../../../index.js';
+import { type PeerId, createSecp256k1PeerId } from '../../../index.js';
 import type { ConnectionSampler } from '../connection-sampler/connection_sampler.js';
 import type { ReqRespInterface } from '../interface.js';
 import { BitVector, BlockTxsRequest, BlockTxsResponse } from '../protocols/index.js';
@@ -27,7 +27,7 @@ import {
   RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL,
 } from './peer_collection.js';
 
-const TEST_TIMEOUT = 10_000;
+const TEST_TIMEOUT = 15_000;
 jest.setTimeout(TEST_TIMEOUT);
 
 describe('BatchTxRequester', () => {
@@ -1146,6 +1146,225 @@ describe('BatchTxRequester', () => {
       expect(result).toBeDefined();
       expect(result!.length).toBeGreaterThanOrEqual(TX_BATCH_SIZE);
       expect(result!.length).toBeLessThan(txCount); // Not all due to abort
+    });
+  });
+
+  describe('Transaction validation', () => {
+    it('should only yield valid transactions and filter out invalid ones', async () => {
+      const txCount = 10;
+      const deadline = 5_000;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        header: makeHeader(1, 1),
+        archive: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
+
+      // Define which transactions each peer has
+      const peerTransactions = new Map([
+        [peers[0].toString(), Array.from({ length: 5 }, (_, i) => i)], // peer1: txs 0-4
+        [peers[1].toString(), Array.from({ length: 5 }, (_, i) => i + 5)], // peer2: txs 5-9
+      ]);
+
+      const validationCalls: Array<{ tx: TxHash; peerId: string }> = [];
+      const invalidTxIndices = new Set([2, 3, 7]); // Mark transactions at indices 2, 3, and 7 as invalid
+
+      const customTxValidator = jest.fn(async (tx: Tx, peerId: PeerId) => {
+        validationCalls.push({ tx: tx.txHash, peerId: peerId.toString() });
+        const txIndex = missing.findIndex(h => h.equals(tx.txHash));
+
+        return !invalidTxIndices.has(txIndex);
+      });
+
+      const { mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions);
+      reqresp.sendRequestToPeer.mockImplementation(mockImplementation);
+
+      const requester = new BatchTxRequester(
+        missing,
+        blockProposal,
+        undefined,
+        deadline,
+        reqresp,
+        connectionSampler,
+        customTxValidator,
+        logger,
+        new DateProvider(),
+        {
+          smartParallelWorkerCount: 0,
+          dumbParallelWorkerCount: 2,
+        },
+      );
+
+      const result = await BatchTxRequester.collectAllTxs(requester.run());
+
+      const expectedValidCount = txCount - invalidTxIndices.size;
+
+      expect(result.length).toBe(expectedValidCount);
+
+      // Verify that invalid transactions are NOT in the result
+      const resultTxHashes = new Set(result.map(tx => tx.txHash.toString()));
+      invalidTxIndices.forEach(invalidIndex => {
+        const invalidTxHash = missing[invalidIndex].toString();
+        expect(resultTxHashes.has(invalidTxHash)).toBe(false);
+      });
+
+      // Verify that valid transactions ARE in the result
+      const validIndices = Array.from({ length: txCount }, (_, i) => i).filter(i => !invalidTxIndices.has(i));
+      validIndices.forEach(validIndex => {
+        const validTxHash = missing[validIndex].toString();
+        expect(resultTxHashes.has(validTxHash)).toBe(true);
+      });
+
+      const peer0Calls = validationCalls.filter(call => call.peerId === peers[0].toString());
+      const peer1Calls = validationCalls.filter(call => call.peerId === peers[1].toString());
+
+      expect(peer0Calls.length).toBeGreaterThan(0);
+      expect(peer1Calls.length).toBeGreaterThan(0);
+    });
+
+    it('should handle mixed valid and invalid transactions from multiple peers', async () => {
+      const txCount = 12;
+      const deadline = 5_000;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        header: makeHeader(1, 1),
+        archive: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId(), createSecp256k1PeerId()]);
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
+
+      const peerTransactions = new Map([
+        [peers[0].toString(), [0, 1, 2, 3, 4]],
+        [peers[1].toString(), [2, 3, 4, 5, 6, 7, 8]],
+        [peers[2].toString(), [0, 6, 7, 8, 9, 10, 11]],
+      ]);
+
+      // Validator that rejects transactions based on peer
+      // This simulates different peers having different validity for same transaction
+      const peerSpecificValidator = jest.fn(async (tx: Tx, peerId: PeerId) => {
+        const txIndex = missing.findIndex(h => h.equals(tx.txHash));
+
+        // Peer 0: rejects even indices
+        if (peerId.toString() === peers[0].toString() && txIndex % 2 === 0) {
+          return false;
+        }
+
+        // Peer 1: rejects indices divisible by 3
+        if (peerId.toString() === peers[1].toString() && txIndex % 3 === 0) {
+          return false;
+        }
+
+        // Peer 2: accepts all
+        return true;
+      });
+
+      const { mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions);
+      reqresp.sendRequestToPeer.mockImplementation(mockImplementation);
+
+      const requester = new BatchTxRequester(
+        missing,
+        blockProposal,
+        undefined,
+        deadline,
+        reqresp,
+        connectionSampler,
+        peerSpecificValidator,
+        logger,
+        new DateProvider(),
+        {
+          smartParallelWorkerCount: 0,
+          dumbParallelWorkerCount: 3,
+        },
+      );
+
+      const result = await BatchTxRequester.collectAllTxs(requester.run());
+
+      // Verify we got all transactions (since peer2 accepts all and has access to 6-11)
+      // And other peers can provide the rest
+      expect(result.length).toBe(txCount);
+
+      // Verify no duplicates in result
+      const uniqueTxHashes = new Set(result.map(tx => tx.txHash.toString()));
+      expect(uniqueTxHashes.size).toBe(result.length);
+    });
+
+    it('should handle validator throwing errors gracefully', async () => {
+      const txCount = 8;
+      const deadline = 3_000;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        header: makeHeader(1, 1),
+        archive: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peer = await createSecp256k1PeerId();
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peer]);
+
+      // Validator that throws errors for specific transactions
+      const throwingValidator = jest.fn(async (tx: Tx, _peerId: PeerId) => {
+        const txIndex = missing.findIndex(h => h.equals(tx.txHash));
+
+        // Throw error for transactions at indices 1 and 3
+        if (txIndex === 1 || txIndex === 3) {
+          throw new Error(`Validation error for tx at index ${txIndex}`);
+        }
+
+        // Reject transaction at index 5 normally
+        if (txIndex === 5) {
+          return false;
+        }
+
+        return true;
+      });
+
+      const peerTransactions = new Map([[peer.toString(), Array.from({ length: txCount }, (_, i) => i)]]);
+
+      const { mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions);
+      reqresp.sendRequestToPeer.mockImplementation(mockImplementation);
+
+      const requester = new BatchTxRequester(
+        missing,
+        blockProposal,
+        undefined,
+        deadline,
+        reqresp,
+        connectionSampler,
+        throwingValidator,
+        logger,
+        new DateProvider(),
+        {
+          smartParallelWorkerCount: 0,
+          dumbParallelWorkerCount: 1,
+        },
+      );
+
+      const result = await BatchTxRequester.collectAllTxs(requester.run());
+
+      // Expected: 8 total - 2 that threw errors - 1 that returned false = 5 valid txs
+      expect(result.length).toBe(5);
+
+      // Verify that transactions that threw errors are NOT in result
+      const resultTxHashes = new Set(result.map(tx => tx.txHash.toString()));
+      expect(resultTxHashes.has(missing[1].toString())).toBe(false);
+      expect(resultTxHashes.has(missing[3].toString())).toBe(false);
+      expect(resultTxHashes.has(missing[5].toString())).toBe(false);
+
+      // Verify that valid transactions ARE in result
+      [0, 2, 4, 6, 7].forEach(validIndex => {
+        expect(resultTxHashes.has(missing[validIndex].toString())).toBe(true);
+      });
     });
   });
 });

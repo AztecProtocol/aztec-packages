@@ -106,6 +106,7 @@ export class BatchTxRequester {
   public static async collectAllTxs(generator: AsyncGenerator<Tx, Tx | undefined, unknown>): Promise<Tx[]> {
     const txs: Tx[] = [];
     for await (const tx of generator) {
+      if (tx === undefined) break;
       txs.push(tx);
     }
     return txs;
@@ -295,7 +296,7 @@ export class BatchTxRequester {
         }
 
         // Otherwise we wait until some peer becomes smart
-        await this.smartRequesterSemaphore.acquire();
+        await executeTimeout((_: AbortSignal) => this.smartRequesterSemaphore.acquire(), this.timeoutMs);
         this.logger.debug(`Worker loop smart: acquired next smart peer`);
         continue;
       }
@@ -347,7 +348,6 @@ export class BatchTxRequester {
 
       this.handleFailResponseFromPeer(peerId, ReqRespStatus.UNKNOWN);
     } finally {
-      // Don't mark pinned peer as not in flight
       this.peers.unMarkPeerInFlight(peerId);
     }
   }
@@ -429,7 +429,6 @@ export class BatchTxRequester {
   private markTxsPeerHas(peerId: PeerId, response: BlockTxsResponse) {
     const txsPeerHas = this.extractHashesPeerHasFromResponse(response);
     this.logger.debug(`${peerId.toString()} has txs: ${txsPeerHas.map(tx => tx.toString()).join(', ')}`);
-    //TODO: validate txs
     this.txsMetadata.markPeerHas(peerId, txsPeerHas);
   }
 
