@@ -204,3 +204,9 @@ variable "JOB_TTL_SECONDS_AFTER_FINISHED" {
   type        = number
   default     = 3600
 }
+
+variable "NETWORK" {
+  description = "One of the existing network names to use default config for"
+  type        = string
+  nullable    = true
+}
