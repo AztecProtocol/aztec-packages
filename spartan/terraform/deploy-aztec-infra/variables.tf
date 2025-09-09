@@ -278,3 +278,9 @@ variable "EXTERNAL_BOOTNODES" {
   type        = list(string)
   default     = []
 }
+
+variable "NETWORK" {
+  description = "One of the existing network names to use default config for"
+  type        = string
+  nullable    = true
+}

@@ -106,6 +106,7 @@ locals {
         "validator.slash.offenseExpirationRounds"           = var.SLASH_OFFENSE_EXPIRATION_ROUNDS
         "validator.slash.maxPayloadSize"                    = var.SLASH_MAX_PAYLOAD_SIZE
         "validator.node.env.TRANSACTIONS_DISABLED"          = var.TRANSACTIONS_DISABLED
+        "validator.node.env.NETWORK"                        = var.NETWORK
       }
       boot_node_host_path  = "validator.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "validator.node.env.BOOTSTRAP_NODES"
@@ -123,8 +124,11 @@ locals {
         "node.mnemonic"                = var.PROVER_MNEMONIC
         "node.mnemonicStartIndex"      = var.PROVER_MNEMONIC_START_INDEX
         "node.node.proverRealProofs"   = var.PROVER_REAL_PROOFS
+        "node.node.env.NETWORK"        = var.NETWORK
         "broker.node.proverRealProofs" = var.PROVER_REAL_PROOFS
+        "broker.node.env.NETWORK"      = var.NETWORK
         "agent.node.proverRealProofs"  = var.PROVER_REAL_PROOFS
+        "agent.node.env.NETWORK"       = var.NETWORK
       }
       boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.node.env.BOOTSTRAP_NODES"
@@ -139,7 +143,8 @@ locals {
         "rpc-resources-${var.RPC_RESOURCE_PROFILE}.yaml"
       ]
       custom_settings = {
-        "nodeType" = "rpc"
+        "nodeType"         = "rpc"
+        "node.env.NETWORK" = var.NETWORK
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"

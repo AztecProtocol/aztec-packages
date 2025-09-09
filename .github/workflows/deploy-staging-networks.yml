@@ -92,13 +92,13 @@ jobs:
       - name: Write staging-public network env file
         if: env.SEMVER != '' && env.MAJOR_VERSION == '2'
         run: |
-          NAMESPACE="staging-public"
+          NAMESPACE=staging-public
           cat > ${{ env.NETWORK_ENV_FILE }} <<EOF
           CREATE_ETH_DEVNET=false
           GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
           GCP_REGION=us-west1-a
           CLUSTER=aztec-gke-private
-          SALT=1757265513
+          SALT=1757376707
           NETWORK=staging-public
           NAMESPACE=${NAMESPACE}
           AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${SEMVER}"
@@ -140,17 +140,17 @@ jobs:
       - name: Write staging-ignition network env file
         if: env.SEMVER != '' && env.MAJOR_VERSION == '2'
         run: |
-          NAMESPACE="v${MAJOR_VERSION}-staging-ignition"
+          NAMESPACE=staging-ignition
           cat > ${{ env.NETWORK_ENV_FILE }} <<EOF
           CREATE_ETH_DEVNET=false
           GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
           GCP_REGION=us-west1-a
           CLUSTER=aztec-gke-private
-          SALT=1757252408
+          SALT=11757379062
           NAMESPACE=${NAMESPACE}
           AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${SEMVER}"
           TRANSACTIONS_DISABLED=true
-          AZTEC_MANA_TARGET=0
+          NETWORK=staging-ignition
 
           ETHEREUM_CHAIN_ID=11155111
           ETHEREUM_RPC_URLS=${{ secrets.SEPOLIA_RPC_URLS }}
@@ -191,15 +191,16 @@ jobs:
       - name: Write testnet network env file
         if: env.SEMVER != '' && env.MAJOR_VERSION == '2' && !contains(env.SEMVER, '-')
         run: |
-          NAMESPACE="v${MAJOR_VERSION}-testnet"
+          NAMESPACE="testnet"
           cat > ${{ env.NETWORK_ENV_FILE }} <<EOF
           CREATE_ETH_DEVNET=false
           GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
           GCP_REGION=us-west1-a
           CLUSTER=aztec-gke-public
-          SALT=1757252783
+          SALT=1757380290
           NAMESPACE=${NAMESPACE}
           AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${SEMVER}"
+          NETWORK=testnet
 
           ETHEREUM_CHAIN_ID=11155111
           ETHEREUM_RPC_URLS=${{ secrets.SEPOLIA_RPC_URLS }}
@@ -211,6 +212,7 @@ jobs:
           OTEL_COLLECTOR_ENDPOINT=${{ secrets.OTEL_COLLECTOR_URL }}
           VERIFY_CONTRACTS=true
           ETHERSCAN_API_KEY=${{ secrets.ETHERSCAN_API_KEY }}
+          DEPLOY_INTERNAL_BOOTNODE=false
           EOF
           echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
 

@@ -40,7 +40,7 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   sponsoredFPC: false,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
-  registryAddress: '0x12b3ebc176a1646b911391eab3760764f2e05fe3',
+  registryAddress: '0xf299347e765cfb27f913bde8e4983fd0f195676f',
   slashFactoryAddress: '',
   feeAssetHandlerAddress: '',
   seqMinTxsPerBlock: 0,
@@ -95,9 +95,9 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   sponsoredFPC: true,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
-  registryAddress: '0x8b98f6f1be418079ab6b1985b6d791e714403c21',
-  slashFactoryAddress: '0x2f0a8bf8d36755f112975dae901214ff9a29fa21',
-  feeAssetHandlerAddress: '0xedebab7f3c1aaa5392ee09a54df4d6a4ab4e251e',
+  registryAddress: '0x2e48addca360da61e4d6c21ff2b1961af56eb83b',
+  slashFactoryAddress: '0xe19410632fd00695bc5a08dd82044b7b26317742',
+  feeAssetHandlerAddress: '0xb46dc3d91f849999330b6dd93473fa29fc45b076',
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 20,
   realProofs: true,
@@ -170,15 +170,15 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   sponsoredFPC: true,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
-  registryAddress: '0xec4156431d0f3df66d4e24ba3d30dcb4c85fa309',
-  slashFactoryAddress: '0x8b1566249dc8fb47234037538ce491f9500480b1',
-  feeAssetHandlerAddress: '0x4f0376b8bcbdf72ddb38c38f48317c00e9c9aec3',
+  registryAddress: '0xcfe61b2574984326679cd15c6566fbd4a724f3b4',
+  slashFactoryAddress: '0x58dc5b14f9d3085c9106f5b8208a1026f94614f0',
+  feeAssetHandlerAddress: '0x7abdec6e68ae27c37feb6a77371382a109ec4763',
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 20,
   realProofs: true,
   snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/',
   autoUpdate: 'config-and-version',
-  autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/alpha-testnet.json',
+  autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/testnet.json',
   maxTxPoolSize: 100_000_000, // 100MB
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
@@ -200,9 +200,9 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   /** The minimum stake for a validator. */
   ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
   /** The slashing round size */
-  slashingRoundSizeInEpochs: 4,
+  slashingRoundSizeInEpochs: DefaultL1ContractsConfig.slashingRoundSizeInEpochs,
   /** Governance proposing round size */
-  governanceProposerRoundSize: 300,
+  governanceProposerRoundSize: DefaultL1ContractsConfig.governanceProposerRoundSize,
   /** The mana target for the rollup */
   manaTarget: DefaultL1ContractsConfig.manaTarget,
   /** The proving cost per mana */
@@ -214,7 +214,7 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   /** Allow one round for vetoing */
   slashingExecutionDelayInRounds: 1,
   /** How long for a slash payload to be executed */
-  slashingLifetimeInRounds: 4,
+  slashingLifetimeInRounds: 5,
   /** Allow 2 rounds to discover faults */
   slashingOffsetInRounds: 2,
   /** No slash vetoer */
