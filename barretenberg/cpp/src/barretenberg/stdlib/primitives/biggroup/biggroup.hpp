@@ -445,8 +445,10 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         element operator[](const field_t<Builder>& index) const;
         element operator[](const size_t idx) const { return element_table[idx]; }
         std::array<element, 16> element_table;
-        std::array<twin_rom_table<Builder>, 5> coordinates;
-        std::array<uint256_t, 8> limb_max; // tracks the maximum limb size represented in each element_table entry
+
+        // Each coordinate is an Fq element, which has 4 binary basis limbs and 1 prime basis limb
+        std::array<twin_rom_table<Builder>, Fq::NUM_LIMBS + 1> coordinates;
+        std::array<uint256_t, Fq::NUM_LIMBS * 2> limb_max; // tracks the maximum size of each binary basis limb
     };
 
     struct eight_bit_fixed_base_table {
