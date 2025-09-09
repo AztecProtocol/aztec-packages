@@ -52,6 +52,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
 
     ~element() = default;
 
+    /**
+     * @brief Construct a dummy element (the group generator) and return its limbs as fr constants
+     *
+     * @return std::array<fr, PUBLIC_INPUTS_SIZE>
+     */
     static std::array<fr, PUBLIC_INPUTS_SIZE> construct_dummy()
     {
         const typename NativeGroup::affine_element& native_val = NativeGroup::affine_element::one();
@@ -67,6 +72,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         BB_ASSERT_EQ(idx, PUBLIC_INPUTS_SIZE);
         return limb_vals;
     }
+
     /**
      * @brief Set the witness indices for the x and y coordinates to public
      *
@@ -95,6 +101,14 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         return { Fq::reconstruct_from_public(x_limbs), Fq::reconstruct_from_public(y_limbs) };
     }
 
+    /**
+     * @brief Create a biggroup witness from a native group element, allocating new witnesses as necessary
+     *
+     * @param ctx
+     * @param input
+     * @return element
+     * @warning Use this carefully, as its creating free witnesses.
+     */
     static element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
     {
         element out;
@@ -117,6 +131,9 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         return out;
     }
 
+    /**
+     * @brief Check that the point is on the curve
+     */
     void validate_on_curve() const
     {
         Fq b(get_context(), uint256_t(NativeGroup::curve_b));
@@ -146,7 +163,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     }
 
     /**
-     * Fix a witness. The value of the witness is constrained with a selector
+     * @brief Fix a witness. The value of the witness is constrained with a selector
      **/
     void fix_witness()
     {
@@ -158,6 +175,9 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         unset_free_witness_tag();
     }
 
+    /**
+     * @brief Creates a constant group generator.
+     */
     static element one(Builder* ctx)
     {
         uint256_t x = uint256_t(NativeGroup::one.x);
@@ -181,6 +201,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     element& operator=(const element& other);
     element& operator=(element&& other) noexcept;
 
+    /**
+     * @brief Serialize the element to a byte array in form: (yhi || ylo || xhi || xlo).
+     *
+     * @return byte_array<Builder>
+     */
     byte_array<Builder> to_byte_array() const
     {
         byte_array<Builder> result(get_context());
@@ -432,6 +457,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     static std::pair<element, element> compute_offset_generators(const size_t num_rounds);
     static typename NativeGroup::affine_element compute_table_offset_generator();
 
+    /**
+     * @brief Four-bit variable-base table for scalar multiplication
+     * @details We store precomputed multiples of a group element in ROM tables. These precomputed multiples of the
+     * group element are used for scalar multiplication using 4-bit wNAF window.
+     */
     struct four_bit_table_plookup {
         four_bit_table_plookup() = default;
         four_bit_table_plookup(const element& input);
@@ -451,6 +481,12 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         std::array<uint256_t, Fq::NUM_LIMBS * 2> limb_max; // tracks the maximum size of each binary basis limb
     };
 
+    /**
+     * @brief Eight-bit fixed base table for scalar multiplication
+     * @details This lookup table is used for fixed-base scalar multiplication using 8-bit windows.
+     * It stores precomputed multiples of the generator of bn254 / secp256k1 / secp256r1 depending on
+     * which curve operations are used in the circuit.
+     */
     struct eight_bit_fixed_base_table {
         enum CurveType { BN254, SECP256K1, SECP256R1 };
         eight_bit_fixed_base_table(const CurveType input_curve_type, bool use_endo)
@@ -476,9 +512,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         const element& input);
 
     /**
-     * The Plookup version of the above lookup table
-     *
-     * Uses ROM tables to efficiently access lookup table
+     * @brief Generic lookup table that uses ROM tables internally to access group elements.
+     * @details Can access elements in the table using bit-decomposed index.
      **/
     template <size_t length> struct lookup_table_plookup {
         static constexpr size_t table_size = (1ULL << (length));
@@ -497,6 +532,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         std::array<element, table_size> element_table;
 
         // Each coordinate is an Fq element, which has 4 binary basis limbs and 1 prime basis limb
+        // ROM tables: (idx, x0, x1), (idx, x2, x3), (idx, y0, y1), (idx, y2, y3), (idx, xp, yp)
         std::array<twin_rom_table<Builder>, Fq::NUM_LIMBS + 1> coordinates;
         std::array<uint256_t, Fq::NUM_LIMBS * 2> limb_max;
     };
@@ -526,14 +562,12 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         }
 
         endo_table.coordinates = create_group_element_rom_tables<16>(endo_table.element_table, endo_table.limb_max);
-        return std::make_pair<quad_lookup_table, quad_lookup_table>(static_cast<quad_lookup_table>(base_table),
-                                                                    static_cast<quad_lookup_table>(endo_table));
+        return std::make_pair<quad_lookup_table, quad_lookup_table>(base_table, endo_table);
     }
 
     /**
-     * Helper class to split a set of points into lookup table subsets
+     * Helper struct to split a set of points into lookup table subsets
      *
-     * Ultra version
      **/
     struct batch_lookup_table_plookup {
         batch_lookup_table_plookup(const std::vector<element>& points)
@@ -592,22 +626,22 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
             size_t offset = 0;
             for (size_t i = 0; i < num_sixes; ++i) {
                 six_tables.push_back(lookup_table_plookup<6>({
-                    points[offset + 6 * i],
-                    points[offset + 6 * i + 1],
-                    points[offset + 6 * i + 2],
-                    points[offset + 6 * i + 3],
-                    points[offset + 6 * i + 4],
-                    points[offset + 6 * i + 5],
+                    points[offset + (6 * i)],
+                    points[offset + (6 * i) + 1],
+                    points[offset + (6 * i) + 2],
+                    points[offset + (6 * i) + 3],
+                    points[offset + (6 * i) + 4],
+                    points[offset + (6 * i) + 5],
                 }));
             }
             offset += 6 * num_sixes;
             for (size_t i = 0; i < num_fives; ++i) {
                 five_tables.push_back(lookup_table_plookup<5>({
-                    points[offset + 5 * i],
-                    points[offset + 5 * i + 1],
-                    points[offset + 5 * i + 2],
-                    points[offset + 5 * i + 3],
-                    points[offset + 5 * i + 4],
+                    points[offset + (5 * i)],
+                    points[offset + (5 * i) + 1],
+                    points[offset + (5 * i) + 2],
+                    points[offset + (5 * i) + 3],
+                    points[offset + (5 * i) + 4],
                 }));
             }
             offset += 5 * num_fives;
@@ -693,19 +727,19 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
             std::vector<element> round_accumulator;
             for (size_t j = 0; j < num_sixes; ++j) {
                 round_accumulator.push_back(six_tables[j].get({ naf_entries[6 * j],
-                                                                naf_entries[6 * j + 1],
-                                                                naf_entries[6 * j + 2],
-                                                                naf_entries[6 * j + 3],
-                                                                naf_entries[6 * j + 4],
-                                                                naf_entries[6 * j + 5] }));
+                                                                naf_entries[(6 * j) + 1],
+                                                                naf_entries[(6 * j) + 2],
+                                                                naf_entries[(6 * j) + 3],
+                                                                naf_entries[(6 * j) + 4],
+                                                                naf_entries[(6 * j) + 5] }));
             }
             size_t offset = num_sixes * 6;
             for (size_t j = 0; j < num_fives; ++j) {
-                round_accumulator.push_back(five_tables[j].get({ naf_entries[offset + j * 5],
-                                                                 naf_entries[offset + j * 5 + 1],
-                                                                 naf_entries[offset + j * 5 + 2],
-                                                                 naf_entries[offset + j * 5 + 3],
-                                                                 naf_entries[offset + j * 5 + 4] }));
+                round_accumulator.push_back(five_tables[j].get({ naf_entries[offset + (j * 5)],
+                                                                 naf_entries[offset + (j * 5) + 1],
+                                                                 naf_entries[offset + (j * 5) + 2],
+                                                                 naf_entries[offset + (j * 5) + 3],
+                                                                 naf_entries[offset + (j * 5) + 4] }));
             }
             offset += num_fives * 5;
             if (has_quad) {
@@ -748,21 +782,21 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         {
             std::vector<element> round_accumulator;
             for (size_t j = 0; j < num_sixes; ++j) {
-                round_accumulator.push_back(six_tables[j].get({ naf_entries[6 * j],
-                                                                naf_entries[6 * j + 1],
-                                                                naf_entries[6 * j + 2],
-                                                                naf_entries[6 * j + 3],
-                                                                naf_entries[6 * j + 4],
-                                                                naf_entries[6 * j + 5] }));
+                round_accumulator.push_back(six_tables[j].get({ naf_entries[(6 * j)],
+                                                                naf_entries[(6 * j) + 1],
+                                                                naf_entries[(6 * j) + 2],
+                                                                naf_entries[(6 * j) + 3],
+                                                                naf_entries[(6 * j) + 4],
+                                                                naf_entries[(6 * j) + 5] }));
             }
             size_t offset = num_sixes * 6;
 
             for (size_t j = 0; j < num_fives; ++j) {
-                round_accumulator.push_back(five_tables[j].get({ naf_entries[offset + 5 * j],
-                                                                 naf_entries[offset + 5 * j + 1],
-                                                                 naf_entries[offset + 5 * j + 2],
-                                                                 naf_entries[offset + 5 * j + 3],
-                                                                 naf_entries[offset + 5 * j + 4] }));
+                round_accumulator.push_back(five_tables[j].get({ naf_entries[offset + (5 * j)],
+                                                                 naf_entries[offset + (5 * j) + 1],
+                                                                 naf_entries[offset + (5 * j) + 2],
+                                                                 naf_entries[offset + (5 * j) + 3],
+                                                                 naf_entries[offset + (5 * j) + 4] }));
             }
 
             offset += num_fives * 5;

@@ -407,7 +407,7 @@ element<C, Fq, Fr, G>::lookup_table_plookup<length>::lookup_table_plookup(const 
         element_table[63] = G3 - E0;
     }
     for (size_t i = 0; i < table_size / 2; ++i) {
-        element_table[i + table_size / 2] = (-element_table[table_size / 2 - 1 - i]);
+        element_table[i + (table_size / 2)] = (-element_table[(table_size / 2) - 1 - i]);
     }
     coordinates = create_group_element_rom_tables<table_size>(element_table, limb_max);
 }
