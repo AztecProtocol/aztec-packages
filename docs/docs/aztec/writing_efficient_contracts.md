@@ -37,6 +37,7 @@ Since proof generation is a significant local burden, being mindful of the gate-
 An explanation of efficient use of Noir for circuits should be considered for each subsection under [writing efficient Noir](https://noir-lang.org/docs/explainers/explainer-writing-noir#writing-efficient-noir-for-performant-products) to avoid hitting local limits. The general theme is to use language features that favour the underlying primitives and representation of a circuit from code.
 
 A couple of examples:
+
 - Since the underlying cryptography uses an equation made of additions and multiplications, these are more efficient (wrt gate count) in Noir than say bit-shifting.
 - Unconstrained functions by definition do not constrain their operations/output, so do not contribute to gate count. Using them carefully can bring in some savings, but the results must then be constrained so that proofs are meaningful for your application.
 
@@ -50,7 +51,7 @@ When private functions are called, the overhead of a "kernel circuit" is added e
 
 #### Profiling using FlameGraph
 
-Measuring the gate count across a private function can be seen at the end of the counter tutorial [here](../developers/tutorials/contract_tutorials/counter_contract#investigate-the-increment-function). Full profiling and flamegraph commands explained [here](../developers/guides/smart_contracts/profiling_transactions).
+Measuring the gate count across a private function can be seen at the end of the counter tutorial [here](../developers/tutorials/contract_tutorials/counter_contract#investigate-the-increment-function). Full profiling and flamegraph commands explained [here](../developers/guides/smart_contracts/advanced/profiling_transactions).
 
 ### L2 Data costs
 
@@ -62,7 +63,6 @@ While most zk rollups don't leverage the zero-knowledge property like Aztec, the
 That is, what is stored in an L1 contract is simply a hash.
 
 For data availability, blobs are utilized since data storage is often cheaper here than in contracts. Like other L2s such costs are factored into the L2 fee mechanisms. These limits can be seen and iterated on when a transaction is simulated/estimated.
-
 
 ## Examples for private functions (reducing gate count)
 
@@ -78,14 +78,14 @@ For example, the resulting flamegraph (as an .svg file) of a counter's increment
 
 To get a sense of things, here is a table of gate counts for common operations:
 
-Gates | Operation
------ | ----------
-~75   | Hashing 3 fields with Poseidon2
-3500  | Reading a value from a tree (public data tree, note hash tree, nullifier tree)
-4000  | Reading a delayed public mutable read
-X000  | Calculating sha256
-X000  | Constrained encryption of a log of Y fields
-X000  | Constrained encryption and tag a log of Y fields
+| Gates | Operation                                                                      |
+| ----- | ------------------------------------------------------------------------------ |
+| ~75   | Hashing 3 fields with Poseidon2                                                |
+| 3500  | Reading a value from a tree (public data tree, note hash tree, nullifier tree) |
+| 4000  | Reading a delayed public mutable read                                          |
+| X000  | Calculating sha256                                                             |
+| X000  | Constrained encryption of a log of Y fields                                    |
+| X000  | Constrained encryption and tag a log of Y fields                               |
 
 ### Optimization: use arithmetic instead of non-arithmetic operations
 
@@ -114,7 +114,6 @@ When comparing the flamegraph of the two functions, the inefficient shift exampl
 In the same vein bitwise `AND`/`OR`, and inequality relational operators (`>`, `<`) are expensive. Try avoid these in your circuits.
 
 For example, use boolean equality effectively instead of `>=`:
-
 
 ```rust
 {
@@ -147,6 +146,7 @@ For example, use boolean equality effectively instead of `>=`:
 ```
 
 So for a loop of 1000 iterations, 751 gates were saved by:
+
 - Adding an equivalence check and a boolean assignment
 - Replacing `>=` with a boolean equivalence check
 
@@ -161,9 +161,11 @@ Since private functions are circuits, their size must be known at compile time, 
 See [this example](https://github.com/noir-lang/noir-examples/blob/master/noir_by_example/loops/noir/src/main.nr#L11) for how to use loops when dynamic execution lengths (ie variable number of loops) is not possible.
 
 ### Optimization: considered use of `unconstrained` functions
+
 #### Example - calculating square root
 
 Consider the following example of an implementation of the `sqrt` function:
+
 ```rust
 use dep::aztec::macros::aztec;
 
@@ -226,6 +228,7 @@ The two implementations after the contract differ in one being constrained vs un
 Measuring the two, we find the `sqrt_inefficient` to require around 1500 extra gates compared to `sqrt_efficient`.
 
 To see each flamegraph:
+
 - `SERVE=1 aztec flamegraph target/optimisation_example-OptimisationExample.json sqrt_inefficient`
 - `SERVE=1 aztec flamegraph target/optimisation_example-OptimisationExample.json sqrt_efficient`
 - (if you make changes to the code, you will need to compile and regenerate the flamegraph, then refresh in your browser to use the latest svg file)
@@ -355,5 +358,5 @@ unconstrained fn refactor_array(array: [u32; ARRAY_SIZE]) -> [u32; ARRAY_SIZE] {
 If a struct has many fields to be read, we can design an extra variable maintained as the hash of all values within it (like a checksum). When it comes to reading, we can now do an unconstrained read (incurring no read requests), and then check the hash of the result against that stored for the struct. This final check is thus only one read request rather than one per variable.
 
 :::note Leverage unconstrained functions
-When needing to make use of large private operations (eg private execution or  many read requests), use of [unconstrained functions](https://noir-lang.org/docs/explainers/explainer-writing-noir#leverage-unconstrained-execution) wisely to reduce the gate count of private functions.
+When needing to make use of large private operations (eg private execution or many read requests), use of [unconstrained functions](https://noir-lang.org/docs/explainers/explainer-writing-noir#leverage-unconstrained-execution) wisely to reduce the gate count of private functions.
 :::

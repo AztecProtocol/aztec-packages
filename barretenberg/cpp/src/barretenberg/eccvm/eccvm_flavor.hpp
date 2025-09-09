@@ -512,7 +512,7 @@ class ECCVMFlavor {
          *          transcript_msm_count_at_transition_inverse: used to validate transcript_msm_count_zero_at_transition
          *          precompute_pc: point counter for Straus precomputation columns
          *          precompute_select: if 1, evaluate Straus precomputation algorithm at current row
-         *          precompute_point_transition: 1 if current row operating on a different point to previous row
+         *          precompute_point_transition: 1 if next row operating on a different point than current row.
          *          precompute_round: round counter for Straus precomputation algorithm
          *          precompute_scalar_sum: accumulating sum of Straus scalar slices
          *          precompute_s1hi/lo: 2-bit hi/lo components of a Straus 4-bit scalar slice
@@ -549,6 +549,10 @@ class ECCVMFlavor {
          *          msm_lambda2: temp variable used for ecc point addition algorithm if msm_add2 = 1
          *          msm_lambda3: temp variable used for ecc point addition algorithm if msm_add3 = 1
          *          msm_lambda4: temp variable used for ecc point addition algorithm if msm_add4 = 1
+         *          msm_slice1: wNAF digit/slice for first add
+         *          msm_slice2: wNAF digit/slice for second add
+         *          msm_slice3: wNAF digit/slice for third add
+         *          msm_slice4: wNAF digit/slice for fourth add
          *          msm_collision_x1: used to ensure incomplete ecc addition exceptions not triggered if msm_add1 = 1
          *          msm_collision_x2: used to ensure incomplete ecc addition exceptions not triggered if msm_add2 = 1
          *          msm_collision_x3: used to ensure incomplete ecc addition exceptions not triggered if msm_add3 = 1

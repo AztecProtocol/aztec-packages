@@ -272,9 +272,9 @@ namespace data_copy;
     (1 - precomputed.first_row) * SEL * (1 - sel_end) * (dst_addr' - dst_addr - 1) = 0;
 
     #[MEM_WRITE]
-    sel_mem_write { clk, dst_addr, value, /*mem_tag=*/precomputed.zero/*(FF)*/, /*rw=*/sel_mem_write/*(write)*/, dst_context_id }
-    in
-    memory.sel { memory.clk, memory.address, memory.value, memory.tag, memory.rw, memory.space_id };
+    sel_mem_write { clk, dst_context_id, dst_addr, value, /*mem_tag=*/precomputed.zero/*(FF)*/, /*rw=*/sel_mem_write/*(write)*/ }
+    is
+    memory.sel_data_copy_write { memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw };
 
     // ===== Reading for nested call =====
     pol commit read_addr;  // The addr to start reading the data from: src_addr + offset;
@@ -302,9 +302,9 @@ namespace data_copy;
     SEL_PERFORM_COPY * padding * value = 0;
 
     #[MEM_READ]
-    sel_mem_read { clk, read_addr, value, /*mem_tag=*/precomputed.zero/*FF*/, /*rw=*/precomputed.zero/*(read)*/, src_context_id }
-    in
-    memory.sel { memory.clk, memory.address, memory.value, memory.tag, memory.rw, memory.space_id };
+    sel_mem_read { clk, src_context_id, read_addr, value, /*mem_tag=*/precomputed.zero/*FF*/, /*rw=*/precomputed.zero/*(read)*/ }
+    is
+    memory.sel_data_copy_read { memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw };
 
     // ===== Reading cd column for top level cd copy =====
     // Reading from column

@@ -6,7 +6,6 @@ contract OffchainEffect {
     use aztec::{
         event::event_interface::{emit_event_in_private, MessageDelivery},
         macros::{events::event, functions::{private, utility}, storage::storage},
-        messages::logs::note::encode_and_encrypt_note_and_emit_as_offchain_message,
         note::note_viewer_options::NoteViewerOptions,
         oracle::offchain_effect::emit_offchain_effect,
         protocol_types::{address::AztecAddress, traits::Serialize},
@@ -64,10 +63,9 @@ contract OffchainEffect {
         let note = UintNote::new(value, owner);
 
         storage.balances.at(owner).insert(note).emit(
-            encode_and_encrypt_note_and_emit_as_offchain_message(
-                &mut context,
-                context.msg_sender(),
-            ),
+            &mut context,
+            context.msg_sender(),
+            MessageDelivery.UNCONSTRAINED_OFFCHAIN,
         );
     }
 

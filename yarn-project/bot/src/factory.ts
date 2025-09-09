@@ -124,7 +124,7 @@ export class BotFactory {
    * @returns The sender wallet.
    */
   private async setupAccount() {
-    const privateKey = this.config.senderPrivateKey.getValue();
+    const privateKey = this.config.senderPrivateKey?.getValue();
     if (privateKey) {
       return await this.setupAccountWithPrivateKey(privateKey);
     } else {

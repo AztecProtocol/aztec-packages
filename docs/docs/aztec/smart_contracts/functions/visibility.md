@@ -7,8 +7,6 @@ description: Understand function visibility modifiers in Aztec and how they affe
 
 In Aztec there are multiple different types of visibility that can be applied to functions. Namely we have `data visibility` and `function visibility`. This page explains these types of visibility.
 
-For a practical guide of using multiple types of data and function visibility, follow the [NFT tutorial](../../../developers/tutorials/contract_tutorials/nft_contract.md).
-
 ### Data Visibility
 
 Data visibility is used to describe whether the data (or state) used in a function is generally accessible (public) or on a need to know basis (private).

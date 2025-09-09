@@ -192,38 +192,37 @@ namespace get_contract_instance;
     member_tag = is_valid_writes_in_bounds * constants.MEM_TAG_FF;
 
     // Write to memory (write both exists and member)
-    // FIXME: these should eventually be a permutation.
     #[MEM_WRITE_CONTRACT_INSTANCE_EXISTS]
     is_valid_member_enum {
         clk,
+        space_id,
         /*address=*/ dst_offset, // (aka exists_write_offset)
         /*value=*/ instance_exists,
         /*tag=*/ exists_tag,
-        /*rw=*/ is_valid_member_enum, // 1: write
-        space_id
-    } in memory.sel {
+        /*rw=*/ is_valid_member_enum // 1: write
+    } is memory.sel_get_contract_instance_exists_write {
         memory.clk,
+        memory.space_id,
         memory.address,
         memory.value,
         memory.tag,
-        memory.rw,
-        memory.space_id
+        memory.rw
     };
     // TODO(dbanks12): consider reusing a single memory permutation for both writes,
     // or do the first write in execution (after returning `exists` to execution).
     #[MEM_WRITE_CONTRACT_INSTANCE_MEMBER]
     is_valid_member_enum {
         clk,
+        space_id,
         /*address=*/ member_write_offset,
         /*value=*/ selected_member,
         /*tag=*/ member_tag,
-        /*rw=*/ is_valid_member_enum, // 1: write
-        space_id
-    } in memory.sel {
+        /*rw=*/ is_valid_member_enum // 1: write
+    } is memory.sel_get_contract_instance_member_write {
         memory.clk,
+        memory.space_id,
         memory.address,
         memory.value,
         memory.tag,
-        memory.rw,
-        memory.space_id
+        memory.rw
     };

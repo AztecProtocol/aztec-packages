@@ -19,7 +19,7 @@ use types::{
         L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, L1_TO_L2_MSG_TREE_HEIGHT,
         PUBLIC_BASE_ROLLUP_VK_INDEX, ROOT_PARITY_INDEX,
     },
-    merkle_tree::MerkleTree,
+    merkle_tree::{append_only_tree, calculate_empty_tree_root, MerkleTree},
     proof::vk_data::VkData,
     tests::{fixtures, merkle_tree_utils::{compute_zero_hashes, NonEmptyMerkleTree}},
     traits::{Empty, Hash, Serialize},
@@ -31,6 +31,7 @@ pub struct RollupFixtureBuilder {
     pub previous_block_hash: Field,
     pub last_l1_to_l2: AppendOnlyTreeSnapshot,
     pub last_l1_to_l2_subtree_sibling_path: [Field; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
+    pub new_l1_to_l2: AppendOnlyTreeSnapshot,
     pub last_archive: AppendOnlyTreeSnapshot,
     pub last_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
     pub new_archive: AppendOnlyTreeSnapshot,
@@ -61,6 +62,7 @@ impl RollupFixtureBuilder {
             previous_block_hash: 0,
             last_l1_to_l2: AppendOnlyTreeSnapshot::empty(),
             last_l1_to_l2_subtree_sibling_path: [0; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
+            new_l1_to_l2: AppendOnlyTreeSnapshot::empty(),
             last_archive: AppendOnlyTreeSnapshot::empty(),
             last_archive_sibling_path: [0; ARCHIVE_HEIGHT],
             new_archive: AppendOnlyTreeSnapshot::empty(),
@@ -201,6 +203,16 @@ impl RollupFixtureBuilder {
         self.last_l1_to_l2 = snapshot;
         self.last_l1_to_l2_subtree_sibling_path = sibling_path;
 
+        let converted_root = self.to_root_rollup_parity_input().public_inputs.converted_root;
+        let empty_l1_to_l2_subtree_root = calculate_empty_tree_root(L1_TO_L2_MSG_SUBTREE_HEIGHT);
+        self.new_l1_to_l2 = append_only_tree::insert_subtree_to_snapshot_tree(
+            snapshot,
+            sibling_path,
+            empty_l1_to_l2_subtree_root,
+            converted_root,
+            L1_TO_L2_MSG_SUBTREE_HEIGHT as u8,
+        );
+
         *self
     }
 
@@ -237,7 +249,7 @@ impl RollupFixtureBuilder {
     pub fn to_block_constant_data(self) -> BlockConstantData {
         BlockConstantData {
             last_archive: self.last_archive,
-            last_l1_to_l2: self.last_l1_to_l2,
+            new_l1_to_l2: self.new_l1_to_l2,
             vk_tree_root: self.vk_tree_root,
             protocol_contract_tree_root: self.protocol_contract_tree_root,
             global_variables: self.global_variables,

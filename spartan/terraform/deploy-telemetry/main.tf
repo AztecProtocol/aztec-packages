@@ -62,9 +62,7 @@ resource "kubernetes_manifest" "otel_ingress_certificate" {
       "namespace" = kubernetes_namespace.ns.metadata[0].name
     }
     "spec" = {
-      "domains" = [
-        var.HOSTNAME
-      ]
+      "domains" = var.HOSTS
     }
   }
 }
@@ -118,6 +116,22 @@ resource "helm_release" "otel_collector" {
   # base values file
   values = [
     file("./values/public-otel-collector.yaml"),
+    yamlencode({
+      ingress = {
+        hosts = [
+          for index, host in var.HOSTS : ({
+            host = host
+            paths = [
+              {
+                path     = "/"
+                pathType = "Prefix"
+                port     = 4318
+              }
+            ]
+          })
+        ]
+      }
+    }),
     # have to use a heredoc because of quotation issues with OTTL
     <<-EOF
 config:
@@ -139,11 +153,6 @@ EOF
   set {
     name  = "ingress.annotations.networking\\.gke\\.io\\/managed-certificates"
     value = "otel-ingress-cert"
-  }
-
-  set {
-    name  = "ingress.hosts[0].host"
-    value = var.HOSTNAME
   }
 
   timeout         = 300

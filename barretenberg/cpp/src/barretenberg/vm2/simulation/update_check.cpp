@@ -80,12 +80,7 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         FF pre_class = update_preimage_pre_class_id == 0 ? instance.original_class_id : update_preimage_pre_class_id;
         FF post_class = update_preimage_post_class_id == 0 ? instance.original_class_id : update_preimage_post_class_id;
 
-        FF expected_current_class_id = current_timestamp < timestamp_of_change ? pre_class : post_class;
-        uint64_t timestamp_of_change_subtraction = current_timestamp < timestamp_of_change
-                                                       ? timestamp_of_change - 1 - current_timestamp
-                                                       : current_timestamp - timestamp_of_change;
-
-        range_check.assert_range(timestamp_of_change_subtraction, TIMESTAMP_OF_CHANGE_BIT_SIZE);
+        FF expected_current_class_id = gt.gt(timestamp_of_change, current_timestamp) ? pre_class : post_class;
 
         if (expected_current_class_id != instance.current_class_id) {
             throw std::runtime_error(

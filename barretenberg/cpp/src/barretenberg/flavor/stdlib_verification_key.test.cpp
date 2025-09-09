@@ -79,7 +79,7 @@ TYPED_TEST(StdlibVerificationKeyTests, VKHashingConsistency)
     }
     FF vk_hash_1 = transcript.hash_independent_buffer();
     // Second method of hashing: using hash().
-    FF vk_hash_2 = vk.hash(outer_builder);
+    FF vk_hash_2 = vk.hash();
     EXPECT_EQ(vk_hash_1.get_value(), vk_hash_2.get_value());
     // Third method of hashing: using hash_through_transcript.
     if constexpr (!IsAnyOf<Flavor, TranslatorRecursiveFlavor, ECCVMRecursiveFlavor>) {

@@ -96,6 +96,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     const bool_ct double_predicate = (x_coordinates_match && y_coordinates_match);
     const bool_ct lhs_infinity = is_point_at_infinity();
     const bool_ct rhs_infinity = other.is_point_at_infinity();
+    const bool_ct has_infinity_input = lhs_infinity || rhs_infinity;
 
     // Compute the gradient `lambda`. If we add, `lambda = (y2 - y1)/(x2 - x1)`, else `lambda = 3x1*x1/2y1
     const Fq add_lambda_numerator = other.y - y;
@@ -110,8 +111,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     // divide by zero error.
     // Note: if either inputs are points at infinity we will not use the result of this computation.
     Fq safe_edgecase_denominator = Fq(1);
-    lambda_denominator = Fq::conditional_assign(
-        lhs_infinity || rhs_infinity || infinity_predicate, safe_edgecase_denominator, lambda_denominator);
+    lambda_denominator =
+        Fq::conditional_assign(has_infinity_input || infinity_predicate, safe_edgecase_denominator, lambda_denominator);
     const Fq lambda = Fq::div_without_denominator_check({ lambda_numerator }, lambda_denominator);
 
     const Fq x3 = lambda.sqradd({ -other.x, -x });
@@ -129,15 +130,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     // yes = infinity_predicate && !lhs_infinity && !rhs_infinity
     // yes = lhs_infinity && rhs_infinity
     // n.b. can likely optimize this
-    bool_ct result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
-    if constexpr (IsUltraBuilder<C>) {
-        result_is_infinity.get_context()->update_used_witnesses(result_is_infinity.witness_index);
-    }
-    result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
-    if constexpr (IsUltraBuilder<C>) {
-        result_is_infinity.get_context()->update_used_witnesses(result_is_infinity.witness_index);
-    }
-    result.set_point_at_infinity(result_is_infinity);
+    bool_ct result_is_infinity = (infinity_predicate && !has_infinity_input) || (lhs_infinity && rhs_infinity);
+    result.set_point_at_infinity(result_is_infinity, /* add_to_used_witnesses */ true);
 
     result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     return result;
@@ -174,6 +168,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) con
     const bool_ct double_predicate = (x_coordinates_match && !y_coordinates_match);
     const bool_ct lhs_infinity = is_point_at_infinity();
     const bool_ct rhs_infinity = other.is_point_at_infinity();
+    const bool_ct has_infinity_input = lhs_infinity || rhs_infinity;
 
     // Compute the gradient `lambda`. If we add, `lambda = (y2 - y1)/(x2 - x1)`, else `lambda = 3x1*x1/2y1
     const Fq add_lambda_numerator = -other.y - y;
@@ -188,8 +183,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) con
     // divide by zero error.
     // (if either inputs are points at infinity we will not use the result of this computation)
     Fq safe_edgecase_denominator = Fq(1);
-    lambda_denominator = Fq::conditional_assign(
-        lhs_infinity || rhs_infinity || infinity_predicate, safe_edgecase_denominator, lambda_denominator);
+    lambda_denominator =
+        Fq::conditional_assign(has_infinity_input || infinity_predicate, safe_edgecase_denominator, lambda_denominator);
     const Fq lambda = Fq::div_without_denominator_check({ lambda_numerator }, lambda_denominator);
 
     const Fq x3 = lambda.sqradd({ -other.x, -x });
@@ -207,15 +202,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) con
     // yes = infinity_predicate && !lhs_infinity && !rhs_infinity
     // yes = lhs_infinity && rhs_infinity
     // n.b. can likely optimize this
-    bool_ct result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
-    if constexpr (IsUltraBuilder<C>) {
-        result_is_infinity.get_context()->update_used_witnesses(result_is_infinity.witness_index);
-    }
-    result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
-    if constexpr (IsUltraBuilder<C>) {
-        result_is_infinity.get_context()->update_used_witnesses(result_is_infinity.witness_index);
-    }
-    result.set_point_at_infinity(result_is_infinity);
+    bool_ct result_is_infinity = (infinity_predicate && !has_infinity_input) || (lhs_infinity && rhs_infinity);
+
+    result.set_point_at_infinity(result_is_infinity, /* add_to_used_witnesses */ true);
     result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     return result;
 }

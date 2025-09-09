@@ -14,16 +14,23 @@ template <typename FF_> class TranslatorOpcodeConstraintRelationImpl {
     using FF = FF_;
 
     // 1 + polynomial degree of this relation
-    static constexpr size_t RELATION_LENGTH = 6; // degree((lagrange_masking - 1)⋅op ⋅(op - 3)⋅(op - 4)⋅(op - 8)) = 5
-    static constexpr std::array<size_t, 1> SUBRELATION_PARTIAL_LENGTHS{
-        6 // opcode constraint relation
+    static constexpr size_t RELATION_LENGTH = 6;
+    static constexpr std::array<size_t, 5> SUBRELATION_PARTIAL_LENGTHS{
+        6, // opcode constraint relation
+        6, // opcode constraint relation
+        6, // opcode constraint relation
+        6, // opcode constraint relation
+        6  // opcode constraint relation
     };
 
     /**
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
      */
-    template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.op.is_zero(); }
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return (in.lagrange_even_in_minicircuit + in.lagrange_mini_masking).is_zero();
+    }
     /**
      * @brief Expression for enforcing the value of the Opcode to be {0,3,4,8}
      * @details This relation enforces the opcode to be one of described values. Since we don't care about even

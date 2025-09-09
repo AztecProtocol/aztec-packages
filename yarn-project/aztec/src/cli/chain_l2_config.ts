@@ -34,22 +34,25 @@ export type L2ChainConfig = L1ContractsConfig &
     sentinelEnabled: boolean;
   };
 
-export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
+export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   l1ChainId: 11155111,
   testAccounts: true,
   sponsoredFPC: false,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
-  registryAddress: '0x12b3ebc176a1646b911391eab3760764f2e05fe3',
+  registryAddress: '0xf299347e765cfb27f913bde8e4983fd0f195676f',
   slashFactoryAddress: '',
   feeAssetHandlerAddress: '',
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 0,
   realProofs: true,
   snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/',
-  autoUpdate: 'disabled',
-  autoUpdateUrl: undefined,
+  autoUpdate: 'config-and-version',
+  autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-ignition.json',
   maxTxPoolSize: 100_000_000, // 100MB
+  publicIncludeMetrics,
+  publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
+  publicMetricsCollectFrom: ['sequencer'],
 
   ...DefaultL1ContractsConfig,
 
@@ -75,6 +78,7 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   slashMinPenaltyPercentage: 0.5,
   slashMaxPenaltyPercentage: 200,
   slashInactivityTargetPercentage: 0,
+  slashInactivityConsecutiveEpochThreshold: 1,
   slashInactivityPenalty: 0n,
   slashPrunePenalty: 0n,
   slashDataWithholdingPenalty: 0n,
@@ -88,24 +92,102 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   sentinelEnabled: false,
 };
 
-export const alphaTestnetL2ChainConfig: L2ChainConfig = {
+export const stagingPublicL2ChainConfig: L2ChainConfig = {
   l1ChainId: 11155111,
   testAccounts: false,
   sponsoredFPC: true,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
-  registryAddress: '0xec4156431d0f3df66d4e24ba3d30dcb4c85fa309',
-  slashFactoryAddress: '0x8b1566249dc8fb47234037538ce491f9500480b1',
-  feeAssetHandlerAddress: '0x4f0376b8bcbdf72ddb38c38f48317c00e9c9aec3',
+  registryAddress: '0x2e48addca360da61e4d6c21ff2b1961af56eb83b',
+  slashFactoryAddress: '0xe19410632fd00695bc5a08dd82044b7b26317742',
+  feeAssetHandlerAddress: '0xb46dc3d91f849999330b6dd93473fa29fc45b076',
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 20,
   realProofs: true,
   snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/',
   autoUpdate: 'config-and-version',
-  autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/alpha-testnet.json',
+  autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-public.json',
+  publicIncludeMetrics,
+  publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
+  publicMetricsCollectFrom: ['sequencer'],
+  maxTxPoolSize: 100_000_000, // 100MB
+
+  // Deployment stuff
+  /** How many seconds an L1 slot lasts. */
+  ethereumSlotDuration: 12,
+  /** How many seconds an L2 slots lasts (must be multiple of ethereum slot duration). */
+  aztecSlotDuration: 36,
+  /** How many L2 slots an epoch lasts. */
+  aztecEpochDuration: 32,
+  /** The target validator committee size. */
+  aztecTargetCommitteeSize: 48,
+  /** The number of epochs after an epoch ends that proofs are still accepted. */
+  aztecProofSubmissionEpochs: 1,
+  /** The deposit amount for a validator */
+  activationThreshold: DefaultL1ContractsConfig.activationThreshold,
+  /** The minimum stake for a validator. */
+  ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
+  /** The slashing round size */
+  slashingRoundSizeInEpochs: DefaultL1ContractsConfig.slashingRoundSizeInEpochs,
+  /** Governance proposing round size */
+  governanceProposerRoundSize: DefaultL1ContractsConfig.governanceProposerRoundSize,
+  /** The mana target for the rollup */
+  manaTarget: DefaultL1ContractsConfig.manaTarget,
+  /** The proving cost per mana */
+  provingCostPerMana: DefaultL1ContractsConfig.provingCostPerMana,
+  /** Exit delay for stakers */
+  exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
+  /** Tally-style slashing */
+  slasherFlavor: 'tally',
+  /** Allow one round for vetoing */
+  slashingExecutionDelayInRounds: 1,
+  /** How long for a slash payload to be executed */
+  slashingLifetimeInRounds: 5,
+  /** Allow 2 rounds to discover faults */
+  slashingOffsetInRounds: 2,
+  /** No slash vetoer */
+  slashingVetoer: EthAddress.ZERO,
+  /** Use default slash amounts */
+  slashAmountSmall: DefaultL1ContractsConfig.slashAmountSmall,
+  slashAmountMedium: DefaultL1ContractsConfig.slashAmountMedium,
+  slashAmountLarge: DefaultL1ContractsConfig.slashAmountLarge,
+
+  // Slashing stuff
+  slashMinPenaltyPercentage: 0.5,
+  slashMaxPenaltyPercentage: 2.0,
+  slashInactivityTargetPercentage: 0.7,
+  slashInactivityConsecutiveEpochThreshold: 1,
+  slashInactivityPenalty: DefaultL1ContractsConfig.slashAmountSmall,
+  slashPrunePenalty: DefaultL1ContractsConfig.slashAmountSmall,
+  slashDataWithholdingPenalty: DefaultL1ContractsConfig.slashAmountSmall,
+  slashProposeInvalidAttestationsPenalty: DefaultL1ContractsConfig.slashAmountLarge,
+  slashAttestDescendantOfInvalidPenalty: DefaultL1ContractsConfig.slashAmountLarge,
+  slashUnknownPenalty: DefaultL1ContractsConfig.slashAmountSmall,
+  slashBroadcastedInvalidBlockPenalty: DefaultL1ContractsConfig.slashAmountMedium,
+  slashMaxPayloadSize: 50,
+  slashGracePeriodL2Slots: 32 * 2, // Two epochs from genesis
+  slashOffenseExpirationRounds: 8,
+  sentinelEnabled: true,
+};
+
+export const testnetL2ChainConfig: L2ChainConfig = {
+  l1ChainId: 11155111,
+  testAccounts: false,
+  sponsoredFPC: true,
+  p2pEnabled: true,
+  p2pBootstrapNodes: [],
+  registryAddress: '0xcfe61b2574984326679cd15c6566fbd4a724f3b4',
+  slashFactoryAddress: '0x58dc5b14f9d3085c9106f5b8208a1026f94614f0',
+  feeAssetHandlerAddress: '0x7abdec6e68ae27c37feb6a77371382a109ec4763',
+  seqMinTxsPerBlock: 0,
+  seqMaxTxsPerBlock: 20,
+  realProofs: true,
+  snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/',
+  autoUpdate: 'config-and-version',
+  autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/testnet.json',
   maxTxPoolSize: 100_000_000, // 100MB
   publicIncludeMetrics,
-  publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec.network/v1/metrics',
+  publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
 
   // Deployment stuff
@@ -124,9 +206,9 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   /** The minimum stake for a validator. */
   ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
   /** The slashing round size */
-  slashingRoundSizeInEpochs: 4,
+  slashingRoundSizeInEpochs: DefaultL1ContractsConfig.slashingRoundSizeInEpochs,
   /** Governance proposing round size */
-  governanceProposerRoundSize: 300,
+  governanceProposerRoundSize: DefaultL1ContractsConfig.governanceProposerRoundSize,
   /** The mana target for the rollup */
   manaTarget: DefaultL1ContractsConfig.manaTarget,
   /** The proving cost per mana */
@@ -138,7 +220,7 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   /** Allow one round for vetoing */
   slashingExecutionDelayInRounds: 1,
   /** How long for a slash payload to be executed */
-  slashingLifetimeInRounds: 4,
+  slashingLifetimeInRounds: 5,
   /** Allow 2 rounds to discover faults */
   slashingOffsetInRounds: 2,
   /** No slash vetoer */
@@ -152,6 +234,7 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   slashMinPenaltyPercentage: 0.5,
   slashMaxPenaltyPercentage: 2.0,
   slashInactivityTargetPercentage: 0.7,
+  slashInactivityConsecutiveEpochThreshold: 1,
   slashInactivityPenalty: DefaultL1ContractsConfig.slashAmountSmall,
   slashPrunePenalty: DefaultL1ContractsConfig.slashAmountSmall,
   slashDataWithholdingPenalty: DefaultL1ContractsConfig.slashAmountSmall,
@@ -205,16 +288,23 @@ export async function getL2ChainConfig(
   networkName: NetworkNames,
   cacheDir?: string,
 ): Promise<L2ChainConfig | undefined> {
-  if (networkName === 'testnet-ignition') {
-    const config = { ...testnetIgnitionL2ChainConfig };
-    config.p2pBootstrapNodes = await getBootnodes(networkName, cacheDir);
-    return config;
-  } else if (networkName === 'alpha-testnet' || networkName === 'testnet') {
-    const config = { ...alphaTestnetL2ChainConfig };
-    config.p2pBootstrapNodes = await getBootnodes('alpha-testnet', cacheDir);
-    return config;
+  let config: L2ChainConfig | undefined;
+  if (networkName === 'staging-public') {
+    config = { ...stagingPublicL2ChainConfig };
+  } else if (networkName === 'testnet') {
+    config = { ...testnetL2ChainConfig };
+  } else if (networkName === 'staging-ignition') {
+    config = { ...stagingIgnitionL2ChainConfig };
   }
-  return undefined;
+  if (!config) {
+    return undefined;
+  }
+  // If the bootnodes are not set, get them from the network
+  const bootnodeKey: EnvVar = 'BOOTSTRAP_NODES';
+  if (!process.env[bootnodeKey]) {
+    config.p2pBootstrapNodes = await getBootnodes(networkName, cacheDir);
+  }
+  return config;
 }
 
 function enrichVar(envVar: EnvVar, value: string | undefined) {
@@ -235,16 +325,7 @@ function enrichEthAddressVar(envVar: EnvVar, value: string) {
 }
 
 function getDefaultDataDir(networkName: NetworkNames): string {
-  let prefix: string;
-  if (networkName === 'testnet-ignition') {
-    prefix = 'testnet-ignition';
-  } else if (networkName === 'alpha-testnet' || networkName === 'testnet') {
-    prefix = 'alpha-testnet';
-  } else {
-    prefix = networkName;
-  }
-
-  return path.join(process.env.HOME || '~', '.aztec', prefix, 'data');
+  return path.join(process.env.HOME || '~', '.aztec', networkName, 'data');
 }
 
 export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames) {
@@ -326,6 +407,7 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('SLASH_PRUNE_PENALTY', config.slashPrunePenalty.toString());
   enrichVar('SLASH_DATA_WITHHOLDING_PENALTY', config.slashDataWithholdingPenalty.toString());
   enrichVar('SLASH_INACTIVITY_TARGET_PERCENTAGE', config.slashInactivityTargetPercentage.toString());
+  enrichVar('SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD', config.slashInactivityConsecutiveEpochThreshold.toString());
   enrichVar('SLASH_INACTIVITY_PENALTY', config.slashInactivityPenalty.toString());
   enrichVar('SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY', config.slashProposeInvalidAttestationsPenalty.toString());
   enrichVar('SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY', config.slashAttestDescendantOfInvalidPenalty.toString());

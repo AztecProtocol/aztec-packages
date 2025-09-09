@@ -46,6 +46,7 @@
     "buildx",
     "bytecodes",
     "calldatacopy",
+    "callsite",
     "callsites",
     "callstack",
     "callstacks",
@@ -64,6 +65,7 @@
     "cimg",
     "ciphertext",
     "ciphertexts",
+    "civc",
     "clonedeep",
     "clonedeepwith",
     "cmd",
@@ -326,6 +328,7 @@
     "tsbuildinfo",
     "tsdoc",
     "tstore",
+    "turbofish",
     "txes",
     "typechain",
     "typecheck",
@@ -392,9 +395,5 @@
     "lib",
     "*.cmake"
   ],
-  "flagWords": [
-    "anonymous",
-    "offence",
-    "offences"
-  ]
+  "flagWords": ["anonymous", "offence", "offences"]
 }

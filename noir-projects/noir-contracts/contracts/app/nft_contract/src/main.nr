@@ -12,11 +12,11 @@ pub contract NFT {
     use aztec::{
         authwit::auth::compute_authwit_nullifier,
         context::{PrivateContext, PublicContext},
+        event::event_interface::MessageDelivery,
         macros::{
             functions::{authorize_once, initializer, internal, private, public, utility, view},
             storage::storage,
         },
-        messages::logs::note::encode_and_encrypt_note,
         note::{
             constants::MAX_NOTES_PER_PAGE, note_getter_options::NoteGetterOptions,
             note_interface::NoteProperties, note_viewer_options::NoteViewerOptions,
@@ -49,8 +49,10 @@ pub contract NFT {
         admin: PublicMutable<AztecAddress, Context>,
         // Addresses that can mint
         minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
+        // docs:start:private_map
         // Contains the NFTs owned by each address in private.
         private_nfts: Map<AztecAddress, PrivateSet<NFTNote, Context>, Context>,
+        // docs:end:private_map
         // A map from token ID to a boolean indicating if the NFT exists.
         nft_exists: Map<Field, PublicMutable<bool, Context>, Context>,
         // A map from token ID to the public owner of the NFT.
@@ -300,7 +302,7 @@ pub contract NFT {
 
         let new_note = NFTNote::new(token_id, to);
 
-        nfts.at(to).insert(new_note).emit(encode_and_encrypt_note(&mut context, to));
+        nfts.at(to).insert(new_note).emit(&mut context, to, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
     // docs:end:transfer_in_private
 

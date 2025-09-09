@@ -17,12 +17,14 @@ class UpdateCheck : public UpdateCheckInterface {
   public:
     UpdateCheck(Poseidon2Interface& poseidon2,
                 RangeCheckInterface& range_check,
+                GreaterThanInterface& gt,
                 HighLevelMerkleDBInterface& merkle_db,
                 EventEmitterInterface<UpdateCheckEvent>& read_event_emitter,
                 const GlobalVariables& globals)
         : update_check_events(read_event_emitter)
         , poseidon2(poseidon2)
         , range_check(range_check)
+        , gt(gt)
         , merkle_db(merkle_db)
         , globals(globals)
     {}
@@ -33,6 +35,7 @@ class UpdateCheck : public UpdateCheckInterface {
     EventEmitterInterface<UpdateCheckEvent>& update_check_events;
     Poseidon2Interface& poseidon2;
     RangeCheckInterface& range_check;
+    GreaterThanInterface& gt;
     HighLevelMerkleDBInterface& merkle_db;
     const GlobalVariables& globals;
 };
