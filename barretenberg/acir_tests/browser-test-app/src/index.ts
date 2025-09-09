@@ -1,5 +1,5 @@
 import type { ProofData } from "@aztec/bb.js";
-import { pino } from "pino";
+import pino from "pino";
 import { unpack } from "msgpackr";
 import { ungzip } from "pako";
 

@@ -2,7 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import { Command } from "commander";
 import assert from "assert";
-import { pino } from "pino";
+import pino from "pino";
 
 const logger = pino({
   name: "bbjs-test",
