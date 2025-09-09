@@ -792,8 +792,8 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 
     std::vector<straus_scalar_slice> scalar_slices;
     scalar_slices.reserve(num_points);
-    for (size_t i = 0; i < num_points; ++i) {
-        scalar_slices.emplace_back(straus_scalar_slice(context, scalars[i], TABLE_BITS));
+    for (const auto& scalar : scalars) {
+        scalar_slices.emplace_back(context, scalar, TABLE_BITS);
     }
 
     /**
@@ -811,7 +811,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
             std::vector<Element> table_transcript = straus_lookup_table::compute_straus_lookup_table_hints(
                 base_points[i].get_value(), offset_generators[i + 1], TABLE_BITS);
             std::copy(table_transcript.begin() + 1, table_transcript.end(), std::back_inserter(operation_transcript));
-            native_straus_tables.push_back(std::move(table_transcript));
+            native_straus_tables.emplace_back(std::move(table_transcript));
         }
 
         // Perform the Straus algorithm natively to generate the witness values (hints) for all intermediate points
@@ -830,7 +830,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 
                 accumulator += point;
 
-                operation_transcript.emplace_back(accumulator);
+                operation_transcript.push_back(accumulator);
                 offset_generator_accumulator = offset_generator_accumulator + Element(offset_generators[j + 1]);
             }
         }
@@ -868,7 +868,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         for (size_t j = 0; j < num_points; ++j) {
             const field_t scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
             const cycle_group point = point_tables[j].read(scalar_slice);
-            points_to_add.emplace_back(point);
+            points_to_add.push_back(point);
         }
     }
 
