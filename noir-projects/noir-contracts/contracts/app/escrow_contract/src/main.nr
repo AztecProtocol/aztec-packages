@@ -1,18 +1,19 @@
 // Sample escrow contract that stores a balance of a private token on behalf of an owner.
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract Escrow {
-    use dep::aztec::{
+    use aztec::{
+        event::event_interface::MessageDelivery,
         macros::{functions::{initializer, private}, storage::storage},
-        messages::logs::note::encode_and_encrypt_note,
+        protocol_types::address::AztecAddress,
+        state_vars::PrivateImmutable,
     };
-    use dep::aztec::{protocol_types::address::AztecAddress, state_vars::PrivateImmutable};
 
     // docs:start:addressnote_import
-    use dep::address_note::address_note::AddressNote;
+    use address_note::address_note::AddressNote;
     // docs:end:addressnote_import
-    use dep::token::Token;
+    use token::Token;
 
     #[storage]
     struct Storage<Context> {
@@ -26,7 +27,7 @@ pub contract Escrow {
         // docs:start:addressnote_new
         let note = AddressNote::new(owner, owner);
         // docs:end:addressnote_new
-        storage.owner.initialize(note).emit(encode_and_encrypt_note(&mut context, owner));
+        storage.owner.initialize(note).emit(&mut context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     // docs:start:withdraw

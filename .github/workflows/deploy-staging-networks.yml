@@ -84,20 +84,123 @@ jobs:
           printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
           jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
 
-      # note: it is fine to log the mnemonic here. this is an internal,
-      # throwaway test network.
+      #############
+      # Deploy staging-public network
+      # We don't need to deploy rollup contracts for this network
+      # because they're already deployed.
+      #############
       - name: Write staging-public network env file
         if: env.SEMVER != '' && env.MAJOR_VERSION == '2'
         run: |
-          NAMESPACE="v${MAJOR_VERSION}-staging-public"
+          NAMESPACE="staging-public"
           cat > ${{ env.NETWORK_ENV_FILE }} <<EOF
           CREATE_ETH_DEVNET=false
           GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
           GCP_REGION=us-west1-a
           CLUSTER=aztec-gke-private
-          SALT=1757186075
+          SALT=1757265513
+          NETWORK=staging-public
           NAMESPACE=${NAMESPACE}
           AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${SEMVER}"
+          ETHEREUM_CHAIN_ID=11155111
+          ETHEREUM_RPC_URLS=${{ secrets.SEPOLIA_RPC_URLS }}
+          ETHEREUM_CONSENSUS_HOST_URLS=${{ secrets.SEPOLIA_CONSENSUS_HOST_URLS }}
+          ETHEREUM_CONSENSUS_HOST_API_KEYS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEYS }}
+          ETHEREUM_CONSENSUS_HOST_API_KEY_HEADERS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEY_HEADERS }}
+          FUNDING_PRIVATE_KEY=${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
+          LABS_INFRA_MNEMONIC=${{ secrets.SEPOLIA_LABS_INFRA_MNEMONIC }}
+          OTEL_COLLECTOR_ENDPOINT=${{ secrets.OTEL_COLLECTOR_URL }}
+          VERIFY_CONTRACTS=true
+          ETHERSCAN_API_KEY=${{ secrets.ETHERSCAN_API_KEY }}
+          DEPLOY_INTERNAL_BOOTNODE=false
+          EOF
+          echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
+
+      - name: Run
+        if: env.SEMVER != '' && env.MAJOR_VERSION == '2'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          # Pass the base64 encoded strings, and where they should be decoded to
+          NETWORK_ENV_FILE: ${{ env.NETWORK_ENV_FILE }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
+          NAMESPACE: ${{ env.NAMESPACE }}
+          REF_NAME: "v${{ env.SEMVER }}"
+        run: |
+          # the network env file and gcp credentials file are mounted into the ec2 instance
+          # see ci3/bootstrap_ec2
+          exec ./ci.sh network-deploy
+
+      #############
+      # Deploy staging-ignition network
+      #############
+      - name: Write staging-ignition network env file
+        if: env.SEMVER != '' && env.MAJOR_VERSION == '2'
+        run: |
+          NAMESPACE="v${MAJOR_VERSION}-staging-ignition"
+          cat > ${{ env.NETWORK_ENV_FILE }} <<EOF
+          CREATE_ETH_DEVNET=false
+          GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
+          GCP_REGION=us-west1-a
+          CLUSTER=aztec-gke-private
+          SALT=1757252408
+          NAMESPACE=${NAMESPACE}
+          AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${SEMVER}"
+          TRANSACTIONS_DISABLED=true
+          AZTEC_MANA_TARGET=0
+
+          ETHEREUM_CHAIN_ID=11155111
+          ETHEREUM_RPC_URLS=${{ secrets.SEPOLIA_RPC_URLS }}
+          ETHEREUM_CONSENSUS_HOST_URLS=${{ secrets.SEPOLIA_CONSENSUS_HOST_URLS }}
+          ETHEREUM_CONSENSUS_HOST_API_KEYS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEYS }}
+          ETHEREUM_CONSENSUS_HOST_API_KEY_HEADERS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEY_HEADERS }}
+          FUNDING_PRIVATE_KEY=${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
+          LABS_INFRA_MNEMONIC=${{ secrets.SEPOLIA_LABS_INFRA_MNEMONIC }}
+          OTEL_COLLECTOR_ENDPOINT=${{ secrets.OTEL_COLLECTOR_URL }}
+          VERIFY_CONTRACTS=true
+          ETHERSCAN_API_KEY=${{ secrets.ETHERSCAN_API_KEY }}
+
+          DEPLOY_INTERNAL_BOOTNODE=false
+          EOF
+          echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
+
+      - name: Run
+        if: env.SEMVER != '' && env.MAJOR_VERSION == '2'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          # Pass the base64 encoded strings, and where they should be decoded to
+          NETWORK_ENV_FILE: ${{ env.NETWORK_ENV_FILE }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
+          NAMESPACE: ${{ env.NAMESPACE }}
+          REF_NAME: "v${{ env.SEMVER }}"
+        run: |
+          # the network env file and gcp credentials file are mounted into the ec2 instance
+          # see ci3/bootstrap_ec2
+          exec ./ci.sh network-deploy
+
+      #############
+      # Deploy testnet if we are not a pre-release (i.e. semver does not contain a hyphen)
+      #############
+      - name: Write testnet network env file
+        if: env.SEMVER != '' && env.MAJOR_VERSION == '2' && !contains(env.SEMVER, '-')
+        run: |
+          NAMESPACE="v${MAJOR_VERSION}-testnet"
+          cat > ${{ env.NETWORK_ENV_FILE }} <<EOF
+          CREATE_ETH_DEVNET=false
+          GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
+          GCP_REGION=us-west1-a
+          CLUSTER=aztec-gke-public
+          SALT=1757252783
+          NAMESPACE=${NAMESPACE}
+          AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${SEMVER}"
+
           ETHEREUM_CHAIN_ID=11155111
           ETHEREUM_RPC_URLS=${{ secrets.SEPOLIA_RPC_URLS }}
           ETHEREUM_CONSENSUS_HOST_URLS=${{ secrets.SEPOLIA_CONSENSUS_HOST_URLS }}
@@ -111,11 +214,8 @@ jobs:
           EOF
           echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
 
-      #############
-      # Run
-      #############
       - name: Run
-        if: env.SEMVER != '' && env.MAJOR_VERSION == '2' && (steps.ci_cache.outputs.cache-hit != 'true' || true)
+        if: env.SEMVER != '' && env.MAJOR_VERSION == '2' && !contains(env.SEMVER, '-')
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
