@@ -87,8 +87,22 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
     // Add the same operations to the ECC op queue; the native computation is performed under the hood.
     auto op_queue = std::make_shared<ECCOpQueue>();
     op_queue->no_op_ultra_only();
+
     op_queue->add_accumulate(P1);
     op_queue->mul_accumulate(P2, z);
+    op_queue->eq_and_reset();
+    op_queue->merge();
+
+    op_queue->add_accumulate(P1);
+    op_queue->mul_accumulate(P2, z);
+    op_queue->add_accumulate(P1);
+    op_queue->mul_accumulate(P2, z);
+    op_queue->eq_and_reset();
+    // Placeholder for randomness
+    op_queue->no_op_ultra_only();
+    op_queue->no_op_ultra_only();
+    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+
     Fq op_accumulator = 0;
     Fq p_x_accumulator = 0;
     Fq p_y_accumulator = 0;
@@ -96,28 +110,28 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
     Fq z_2_accumulator = 0;
     Fq batching_challenge = fq::random_element();
 
-    op_queue->eq_and_reset();
-    op_queue->empty_row_for_testing();
-    op_queue->merge();
-
     // Sample the evaluation input x
     Fq x = Fq::random_element();
+    // Compute x_pow (power given by the degree of the polynomial) to be number of real ultra ops - 1
+    Fq x_pow = Fq(1);
     // Get an inverse
     Fq x_inv = x.invert();
     // Compute the batched evaluation of polynomials (multiplying by inverse to go from lower to higher)
     const auto& ultra_ops = op_queue->get_ultra_ops();
     for (size_t i = 1; i < ultra_ops.size(); i++) {
         const auto& ecc_op = ultra_ops[i];
+        if (ecc_op.op_code.value() == 0) {
+            continue;
+        }
         op_accumulator = op_accumulator * x_inv + ecc_op.op_code.value();
         const auto [x_u256, y_u256] = ecc_op.get_base_point_standard_form();
         p_x_accumulator = p_x_accumulator * x_inv + x_u256;
         p_y_accumulator = p_y_accumulator * x_inv + y_u256;
         z_1_accumulator = z_1_accumulator * x_inv + uint256_t(ecc_op.z_1);
         z_2_accumulator = z_2_accumulator * x_inv + uint256_t(ecc_op.z_2);
+        x_pow *= x;
     }
-    // The degree is ultra_ops.size() - 2 as we ignore the first no-op in computation
-    Fq x_pow = x.pow(ultra_ops.size() - 2);
-
+    x_pow *= x_inv;
     // Multiply by an appropriate power of x to get rid of the inverses
     Fq result = ((((z_2_accumulator * batching_challenge + z_1_accumulator) * batching_challenge + p_y_accumulator) *
                       batching_challenge +

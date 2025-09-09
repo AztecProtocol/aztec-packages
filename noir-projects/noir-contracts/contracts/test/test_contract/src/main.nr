@@ -2,7 +2,7 @@ mod test;
 mod test_note;
 
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 // DEPRECATED: This contract is deprecated. If you want to test new features, create a simple new contract used
 // to test only that one feature. See NoConstructor contract for example.
@@ -11,44 +11,47 @@ pub contract Test {
     // Note: If you import a new kind of note you will most likely need to update the test_note_type_id test
     // as the note type ids of current notes might have changed.
 
-    use dep::aztec::messages::logs::note::encode_and_encrypt_note;
-    use dep::aztec::{
-        note::{note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions},
+    use aztec::{
+        // Note related imports
+        note::{
+            constants::MAX_NOTES_PER_PAGE,
+            lifecycle::{create_note, destroy_note_unsafe},
+            note_getter::{get_notes, view_notes},
+            note_getter_options::{NoteGetterOptions, NoteStatus},
+            note_viewer_options::NoteViewerOptions,
+            retrieved_note::RetrievedNote,
+        },
+        // State variable types
         state_vars::{
             DelayedPublicMutable, Map, PrivateImmutable, PrivateMutable, PrivateSet,
             PublicImmutable,
         },
-    };
-
-    use dep::aztec::protocol_types::{
-        abis::function_selector::FunctionSelector,
-        address::{AztecAddress, EthAddress},
-        constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_LOG_SIZE_IN_FIELDS},
-        traits::{Hash, Packable, Serialize},
-    };
-
-    use dep::aztec::keys::getters::get_public_keys;
-    use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
-
-    use dep::aztec::{
+        // Protocol types and constants
+        protocol_types::{
+            abis::function_selector::FunctionSelector,
+            address::{AztecAddress, EthAddress},
+            constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_LOG_SIZE_IN_FIELDS},
+            traits::{Hash, Packable, Serialize},
+        },
+        // Event related
         event::event_interface::{emit_event_in_private, MessageDelivery},
+        // Hashing
         hash::{ArgsHasher, pedersen_hash},
+        // History and inclusion proofs
         history::note_inclusion::ProveNoteInclusion,
+        // Key management
+        keys::getters::get_public_keys,
+        // Macros
         macros::{
             events::event,
             functions::{initializer, internal, noinitcheck, private, public, utility},
             storage::storage,
         },
-        note::{
-            lifecycle::{create_note, destroy_note_unsafe},
-            note_getter::{get_notes, view_notes},
-            note_getter_options::NoteStatus,
-            retrieved_note::RetrievedNote,
-        },
+        // Contract instance management
         publish_contract_instance::publish_contract_instance_for_public_execution,
     };
-    use dep::token_portal_content_hash_lib::get_mint_to_private_content_hash;
     use std::meta::derive;
+    use token_portal_content_hash_lib::get_mint_to_private_content_hash;
 
     // We are importing different kinds of notes to test the note type ids
     use crate::test_note::TestNote;
@@ -137,10 +140,11 @@ pub contract Test {
     ) {
         // docs:start:create_note
         let note = UintNote::new(value, owner);
-        create_note(&mut context, storage_slot, note).emit(encode_and_encrypt_note(
+        create_note(&mut context, storage_slot, note).emit(
             &mut context,
             owner,
-        ));
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
         // docs:end:create_note
 
         if make_tx_hybrid {

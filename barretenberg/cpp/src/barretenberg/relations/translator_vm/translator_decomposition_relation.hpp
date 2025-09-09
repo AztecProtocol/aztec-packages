@@ -16,12 +16,12 @@ template <typename FF_> class TranslatorDecompositionRelationImpl {
 
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH =
-        3; // degree(lagrange_even_in_minicircuit_in_minicircuit(a - a_0 - a_1*2¹⁴ ... - a_l⋅2¹⁴ˡ )) = 2
+        4; // degree(lagrange_even_in_minicircuit_in_minicircuit(a - a_0 - a_1*2¹⁴ ... - a_l⋅2¹⁴ˡ )op) = 3
     static constexpr std::array<size_t, 48> SUBRELATION_PARTIAL_LENGTHS{
-        3, // decomposition of P.x limb 0 into microlimbs subrelation
-        3, // decomposition of P.x limb 1 into microlimbs subrelation
-        3, // decomposition of P.x limb 2 into microlimbs subrelation
-        3, // decomposition of P.x limb 3 into microlimbs subrelation
+        4, // decomposition of accumulator limb 0 into microlimbs subrelation
+        4, // decomposition of accumulator limb 1 into microlimbs subrelation
+        4, // decomposition of accumulator limb 2 into microlimbs subrelation
+        4, // decomposition of accumulator limb 3 into microlimbs subrelation
         3, // decomposition of P.y limb 0 into microlimbs subrelation
         3, // decomposition of P.y limb 1 into microlimbs subrelation
         3, // decomposition of P.y limb 2 into microlimbs subrelation
@@ -30,10 +30,10 @@ template <typename FF_> class TranslatorDecompositionRelationImpl {
         3, // decomposition of z2 limb 0 into microlimbs subrelation
         3, // decomposition of z1 limb 1 into microlimbs subrelation
         3, // decomposition of z2 limb 1 into microlimbs subrelation
-        3, // decomposition of accumulator limb 0 into microlimbs subrelation
-        3, // decomposition of accumulator limb 1 into microlimbs subrelation
-        3, // decomposition of accumulator limb 2 into microlimbs subrelation
-        3, // decomposition of accumulator limb 3 into microlimbs subrelation
+        3, // decomposition of P.x limb 0 into microlimbs subrelation
+        3, // decomposition of P.x limb 1 into microlimbs subrelation
+        3, // decomposition of P.x limb 2 into microlimbs subrelation
+        3, // decomposition of P.x limb 3 into microlimbs subrelation
         3, // decomposition of quotient limb 0 into microlimbs subrelation
         3, // decomposition of quotient limb 1 into microlimbs subrelation
         3, // decomposition of quotient limb 2 into microlimbs subrelation

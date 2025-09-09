@@ -1,14 +1,14 @@
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 contract BoxReact {
-    use dep::aztec::{
-        messages::logs::note::encode_and_encrypt_note,
+    use aztec::{
+        event::event_interface::MessageDelivery,
         macros::{functions::{initializer, private, utility}, storage::storage},
         protocol_types::address::AztecAddress,
         state_vars::{Map, PrivateMutable},
     };
-    use dep::value_note::value_note::ValueNote;
+    use value_note::value_note::ValueNote;
 
     #[storage]
     struct Storage<Context> {
@@ -21,10 +21,11 @@ contract BoxReact {
         let numbers = storage.numbers;
         let mut new_number = ValueNote::new(number, owner);
 
-        numbers.at(owner).initialize(new_number).emit(encode_and_encrypt_note(
+        numbers.at(owner).initialize(new_number).emit(
             &mut context,
             owner,
-        ));
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
     }
 
     #[private]
@@ -32,10 +33,11 @@ contract BoxReact {
         let numbers = storage.numbers;
         let mut new_number = ValueNote::new(number, owner);
 
-        numbers.at(owner).replace(new_number).emit(encode_and_encrypt_note(
+        numbers.at(owner).replace(new_number).emit(
             &mut context,
             owner,
-        ));
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
     }
 
     #[utility]

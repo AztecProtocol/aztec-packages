@@ -138,10 +138,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 133;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 3013;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 3012;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 327;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3473;
+    static constexpr size_t NUM_ALL_ENTITIES = 3472;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -226,13 +226,13 @@ struct AvmFlavorVariables {
         lookup_address_derivation_public_keys_hash_poseidon2_4_relation<FF_>,
         lookup_address_derivation_salted_initialization_hash_poseidon2_0_relation<FF_>,
         lookup_address_derivation_salted_initialization_hash_poseidon2_1_relation<FF_>,
-        lookup_addressing_relative_overflow_range_0_relation<FF_>,
-        lookup_addressing_relative_overflow_range_1_relation<FF_>,
-        lookup_addressing_relative_overflow_range_2_relation<FF_>,
-        lookup_addressing_relative_overflow_range_3_relation<FF_>,
-        lookup_addressing_relative_overflow_range_4_relation<FF_>,
-        lookup_addressing_relative_overflow_range_5_relation<FF_>,
-        lookup_addressing_relative_overflow_range_6_relation<FF_>,
+        lookup_addressing_relative_overflow_result_0_relation<FF_>,
+        lookup_addressing_relative_overflow_result_1_relation<FF_>,
+        lookup_addressing_relative_overflow_result_2_relation<FF_>,
+        lookup_addressing_relative_overflow_result_3_relation<FF_>,
+        lookup_addressing_relative_overflow_result_4_relation<FF_>,
+        lookup_addressing_relative_overflow_result_5_relation<FF_>,
+        lookup_addressing_relative_overflow_result_6_relation<FF_>,
         lookup_alu_exec_dispatching_cast_relation<FF_>,
         lookup_alu_exec_dispatching_set_relation<FF_>,
         lookup_alu_ff_gt_relation<FF_>,
@@ -267,6 +267,7 @@ struct AvmFlavorVariables {
         lookup_context_ctx_stack_rollback_relation<FF_>,
         lookup_contract_instance_retrieval_address_derivation_relation<FF_>,
         lookup_contract_instance_retrieval_deployment_nullifier_read_relation<FF_>,
+        lookup_contract_instance_retrieval_protocol_contract_derived_address_relation<FF_>,
         lookup_contract_instance_retrieval_update_check_relation<FF_>,
         lookup_data_copy_check_dst_addr_in_range_relation<FF_>,
         lookup_data_copy_check_src_addr_in_range_relation<FF_>,
@@ -290,13 +291,13 @@ struct AvmFlavorVariables {
         lookup_execution_get_p_limbs_relation<FF_>,
         lookup_execution_instruction_fetching_body_relation<FF_>,
         lookup_execution_instruction_fetching_result_relation<FF_>,
-        lookup_external_call_call_allocated_left_da_range_relation<FF_>,
-        lookup_external_call_call_allocated_left_l2_range_relation<FF_>,
+        lookup_external_call_call_is_da_gas_allocated_lt_left_relation<FF_>,
+        lookup_external_call_call_is_l2_gas_allocated_lt_left_relation<FF_>,
         lookup_ff_gt_a_hi_range_relation<FF_>,
         lookup_ff_gt_a_lo_range_relation<FF_>,
         lookup_gas_addressing_gas_read_relation<FF_>,
-        lookup_gas_limit_used_da_range_relation<FF_>,
-        lookup_gas_limit_used_l2_range_relation<FF_>,
+        lookup_gas_is_out_of_gas_da_relation<FF_>,
+        lookup_gas_is_out_of_gas_l2_relation<FF_>,
         lookup_get_contract_instance_contract_instance_retrieval_relation<FF_>,
         lookup_get_contract_instance_precomputed_info_relation<FF_>,
         lookup_get_env_var_precomputed_info_relation<FF_>,

@@ -26,7 +26,7 @@
 namespace bb::avm2 {
 
 INSTANTIATE_LOOKUP(lookup_gas_addressing_gas_read_relation);
-INSTANTIATE_LOOKUP(lookup_gas_limit_used_l2_range_relation);
-INSTANTIATE_LOOKUP(lookup_gas_limit_used_da_range_relation);
+INSTANTIATE_LOOKUP(lookup_gas_is_out_of_gas_l2_relation);
+INSTANTIATE_LOOKUP(lookup_gas_is_out_of_gas_da_relation);
 
 } // namespace bb::avm2

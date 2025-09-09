@@ -42,11 +42,10 @@ The archiver component complements this process by maintaining historical chain 
 
 A computer running Linux or MacOS with the following specifictions:
 
-- CPU: 8-cores
-- RAM: 16 GiB
-- Storage: 1 TB SSD
-
-A Network connection of at least 25 Mbps up/down.
+- 2 core / 4 vCPU
+- 16 GB RAM
+- 1 TB NVMe SDD
+- 25 Mbps network connection
 
 ### Installation
 
@@ -72,16 +71,16 @@ The following variable names are specific to the `aztec start` command, set them
 
 Now in a terminal start your node as a sequencer and archiver:
 
-If the above variables are set you can simply use: `aztec start --node --archiver --sequencer --network alpha-testnet`
+If the above variables are set you can simply use: `aztec start --node --archiver --sequencer --network testnet`
 
 Otherwise you can specify values via the CLI flags (using values in place of the variable names):
 
 ```bash
 aztec start --node --archiver --sequencer \
-  --network alpha-testnet \
+  --network testnet \
   --l1-rpc-urls $ETHEREUM_HOSTS \
   --l1-consensus-host-urls $L1_CONSENSUS_HOST_URLS \
-  --sequencer.validatorPrivateKey $VALIDATOR_PRIVATE_KEY \
+  --sequencer.validatorPrivateKeys $VALIDATOR_PRIVATE_KEY \
   --sequencer.coinbase $COINBASE \
   --p2p.p2pIp $P2P_IP
 ```
@@ -146,7 +145,7 @@ To use the `aztec start` command, you need to obtain the following:
 
 #### Ethereum Keys
 
-You will need an Ethereum private key and the corresponding public address. The private key is set via the `--sequencer.validatorPrivateKey` flag while the public address should be specified via the `--sequencer.coinbase ` flag.
+You will need an Ethereum private key and the corresponding public address. The private key is set via the `--sequencer.validatorPrivateKeys` flag while the public address should be specified via the `--sequencer.coinbase ` flag.
 
 The private key is needed as your validator will post blocks to Ethereum, and the public address will be the recipient of any block rewards.
 
@@ -173,10 +172,10 @@ To boot up a sequencer using `aztec start`, run the following command:
 
 ```bash
 aztec start --node --archiver --sequencer \
-  --network alpha-testnet \
+  --network testnet \
   --l1-rpc-urls https://example.com \
   --l1-consensus-host-urls https://example.com \
-  --sequencer.validatorPrivateKey 0xYourPrivateKey \
+  --sequencer.validatorPrivateKeys 0xYourPrivateKey \
   --sequencer.coinbase 0xYourAddress \
   --p2p.p2pIp 999.99.999.99 \
   --p2p.maxTxPoolSize 1000000000
@@ -235,7 +234,7 @@ Then source this file before running your command:
 
 ```bash
 source .env
-aztec start --network alpha-testnet --archiver --node --sequencer # other flags...
+aztec start --network testnet --archiver --node --sequencer # other flags...
 ```
 
 ### Using a Docker Compose
@@ -256,7 +255,7 @@ services:
       P2P_IP: $P2P_IP
       LOG_LEVEL: debug
     entrypoint: >
-      sh -c 'node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --network alpha-testnet start --node --archiver --sequencer'
+      sh -c 'node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --network testnet start --node --archiver --sequencer'
     ports:
       - 40400:40400/tcp
       - 40400:40400/udp
