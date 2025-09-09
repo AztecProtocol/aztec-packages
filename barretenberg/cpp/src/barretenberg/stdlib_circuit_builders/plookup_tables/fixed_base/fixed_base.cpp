@@ -155,7 +155,7 @@ grumpkin::g1::affine_element table::get_generator_offset_for_table_id(const Mult
     if (table_id == FIXED_BASE_RIGHT_HI) {
         return fixed_base_table_offset_generators()[3];
     }
-    ASSERT(false && "No fixed-base table for input table_id");
+    ASSERT(false && "Invalid fixed-base table ID");
     return {};
 }
 
