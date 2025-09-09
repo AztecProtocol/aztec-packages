@@ -12,12 +12,12 @@ import { type Offense, OffenseType, type ProposerSlashAction } from '@aztec/stdl
 import { jest } from '@jest/globals';
 import { type MockProxy, mockDeep } from 'jest-mock-extended';
 import assert from 'node:assert';
-import EventEmitter from 'node:events';
 
 import { DefaultSlasherConfig } from './config.js';
 import { SlasherOffensesStore } from './stores/offenses_store.js';
 import { TallySlasherClient, type TallySlasherSettings } from './tally_slasher_client.js';
-import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEmitter } from './watcher.js';
+import { DummyWatcher } from './test/dummy_watcher.js';
+import type { WantToSlashArgs } from './watcher.js';
 
 describe('TallySlasherClient', () => {
   let tallySlasherClient: TestTallySlasherClient;
@@ -95,20 +95,6 @@ describe('TallySlasherClient', () => {
     assert(action.type === 'execute-slash');
     expect(action.round).toEqual(expectedRound);
   };
-
-  class DummyWatcher extends (EventEmitter as new () => WatcherEmitter) implements Watcher {
-    public start() {
-      return Promise.resolve();
-    }
-
-    public stop() {
-      return Promise.resolve();
-    }
-
-    public triggerSlash(args: WantToSlashArgs[]) {
-      this.emit(WANT_TO_SLASH_EVENT, args);
-    }
-  }
 
   beforeEach(() => {
     kvStore = openTmpStore(true);

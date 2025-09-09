@@ -2,6 +2,8 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import { OffenseType } from '@aztec/stdlib/slashing';
 
+import type { SlasherConfig } from './config.js';
+
 export const WANT_TO_SLASH_EVENT = 'want-to-slash' as const;
 
 export interface WantToSlashArgs {
@@ -21,4 +23,5 @@ export type WatcherEmitter = TypedEventEmitter<WatcherEventMap>;
 export type Watcher = WatcherEmitter & {
   start?: () => Promise<void>;
   stop?: () => Promise<void>;
+  updateConfig: (config: Partial<SlasherConfig>) => void;
 };

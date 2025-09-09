@@ -2,6 +2,8 @@ import type { Fr } from '@aztec/foundation/fields';
 import type { Timer } from '@aztec/foundation/timer';
 
 import type { L2Block } from '../block/l2_block.js';
+import type { ChainConfig, SequencerConfig } from '../config/chain-config.js';
+import type { L1RollupConstants } from '../epoch-helpers/index.js';
 import type { Gas } from '../gas/gas.js';
 import type { MerkleTreeWriteOperations } from '../trees/index.js';
 import type { BlockHeader } from '../tx/block_header.js';
@@ -59,13 +61,14 @@ export interface BuildBlockResult {
   usedTxs: Tx[];
 }
 
+export type FullNodeBlockBuilderConfig = Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration'> &
+  Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'> &
+  Pick<SequencerConfig, 'txPublicSetupAllowList' | 'fakeProcessingDelayPerTxMs'>;
+
 export interface IFullNodeBlockBuilder {
-  getConfig(): {
-    l1GenesisTime: bigint;
-    slotDuration: number;
-    l1ChainId: number;
-    rollupVersion: number;
-  };
+  getConfig(): FullNodeBlockBuilderConfig;
+
+  updateConfig(config: Partial<FullNodeBlockBuilderConfig>): void;
 
   buildBlock(
     txs: Iterable<Tx> | AsyncIterable<Tx>,

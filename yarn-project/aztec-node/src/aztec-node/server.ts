@@ -1125,7 +1125,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     this.sequencer?.updateConfig(config);
     this.slasherClient?.updateConfig(config);
     this.validatorsSentinel?.updateConfig(config);
-    // this.blockBuilder.updateConfig(config); // TODO: Spyros has a PR to add the builder to `this`, so we can do this
     await this.p2pClient.updateP2PConfig(config);
 
     if (newConfig.realProofs !== this.config.realProofs) {
