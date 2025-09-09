@@ -403,10 +403,15 @@ void TranslatorCircuitBuilder::assert_well_formed_accumulation_input(const Accum
 void TranslatorCircuitBuilder::populate_wires_from_ultra_op(const UltraOp& ultra_op)
 {
     auto& op_wire = std::get<WireIds::OP>(wires);
-    op_wire.push_back(add_variable(ultra_op.op_code.value()));
-    // Similarly to the ColumnPolynomials in the merge protocol, the op_wire is 0 at every second index
-    op_wire.push_back(zero_idx);
-
+    if (ultra_op.op_code.is_random_op) {
+        op_wire.push_back(add_variable(ultra_op.op_code.random_value_1));
+        op_wire.push_back(add_variable(ultra_op.op_code.random_value_2));
+    } else {
+        op_wire.push_back(add_variable(ultra_op.op_code.value()));
+        // Similarly to the ColumnPolynomials in the merge protocol, the op_wire is 0 at every second index for a
+        // genuine op
+        op_wire.push_back(zero_idx);
+    }
     insert_pair_into_wire(WireIds::X_LOW_Y_HI, ultra_op.x_lo, ultra_op.y_hi);
 
     insert_pair_into_wire(WireIds::X_HIGH_Z_1, ultra_op.x_hi, ultra_op.z_1);
@@ -512,7 +517,7 @@ void TranslatorCircuitBuilder::create_accumulation_gate(const AccumulationInput&
     bb::constexpr_for<0, TOTAL_COUNT, 1>([&]<size_t i>() { BB_ASSERT_EQ(std::get<i>(wires).size(), num_gates); });
 }
 
-void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue> ecc_op_queue)
+void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue>& ecc_op_queue)
 {
     using Fq = bb::fq;
     const auto& ultra_ops = ecc_op_queue->get_ultra_ops();
@@ -526,18 +531,45 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     // polynomials in translator start with 0 (required for shifted polynomials in the proving system). Technically,
     // we'd need only first index to be a zero but, given each "real" UltraOp populates two indices in a polynomial we
     // add two zeros for consistency.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1360): We'll also have to eventually process random
-    // data in the merge protocol (added for zero knowledge)/
     for (auto& wire : wires) {
         wire.push_back(zero_idx);
         wire.push_back(zero_idx);
     }
     num_gates += 2;
 
+    auto process_random_op = [&](const UltraOp& ultra_op) {
+        ASSERT(ultra_op.op_code.is_random_op, "function should only be called to process a random op");
+        populate_wires_from_ultra_op(ultra_op);
+        // Populate the other wires with zeros
+        for (size_t i = WireIds::Y_LOW_Z_2 + 1; i < wires.size(); i++) {
+            wires[i].push_back(zero_idx);
+            wires[i].push_back(zero_idx);
+        }
+        num_gates += 2;
+    };
+
+    // When encountering the random operation in the op queue, populate the op wire without creating accumulation gates
+    // These are present in the op queue at the beginning and end to ensure commitments and evaluations to op queue
+    // polynomials do not reveal information about data in the op queue
+    // The position and number of these random ops are explained in ClientIVC::hide_op_queue_content_tail_kernel and
+    // ClientIVC::hide_op_queue_content_hiding_kernel
+    for (size_t i = NUM_NO_OPS_START; i <= NUM_RANDOM_OPS_START; ++i) {
+        process_random_op(ultra_ops[i]);
+    }
+    const size_t ops_end = avm_mode ? ultra_ops.size() : ultra_ops.size() - NUM_RANDOM_OPS_END;
+    // Range of UltraOps for which we should construct accumulation gates
+    std::span ultra_ops_span(ultra_ops.begin() + static_cast<std::ptrdiff_t>(NUM_NO_OPS_START + NUM_RANDOM_OPS_START),
+                             ultra_ops.begin() + static_cast<std::ptrdiff_t>(ops_end));
+
     // We need to precompute the accumulators at each step, because in the actual circuit we compute the values starting
-    // from the later indices. We need to know the previous accumulator to create the gate
-    for (size_t i = 1; i < ultra_ops.size(); i++) {
-        const auto& ultra_op = ultra_ops[ultra_ops.size() - i];
+    // from the later indices and we need to know the previous accumulator to create the gate. Both when computing the
+    // accumulator and the actual accumulation gates, we skip the beginning and end of the op queue (where first no-op
+    // and random ops exist) as they should not affect the computation of the accumulation result. However, given the
+    // accumulation result (i.e. value at index RESULT_ROW) is sent as part of the proof, we also need to hide its
+    // context. However, we achieve this by ensuring a genuine operation, but with values generated randomly, is added
+    // to the op queue during the CIVC processing.
+    // Processes the range of actual ecc ops in reverse order
+    for (const auto& ultra_op : std::ranges::reverse_view(ultra_ops_span)) {
         if (ultra_op.op_code.value() == 0) {
             //  Skip no-ops as they should not affect the computation of the accumulator
             continue;
@@ -558,9 +590,8 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     accumulator_trace.pop_back();
 
     std::array<Fr, NUM_BINARY_LIMBS> previous_accumulator_binary_limbs = split_fq_into_limbs(final_accumulator_state);
-    // Generate witness values from all the UltraOps
-    for (size_t i = 1; i < ultra_ops.size(); i++) {
-        const auto& ultra_op = ultra_ops[i];
+    // Generate witness values and accumulation gates from all the actual UltraOps, starting from beginning
+    for (const auto& ultra_op : ultra_ops_span) {
         if (ultra_op.op_code.value() == 0) {
             // Within the no-op range the translator trace is empty except for the accumulator binary limbs which gets
             // copied from the last row k where an op happened (i.e. the op wire the even index has a non-zero value).
@@ -598,6 +629,11 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         previous_accumulator_binary_limbs = one_accumulation_step.previous_accumulator;
         // And put them into the wires
         create_accumulation_gate(one_accumulation_step);
+    }
+    // Also process the last two random ops present at the end of the op queue to hide the ecc ops of the last circuit
+    // whose ops are added to the op queue
+    for (size_t i = ops_end; i < ultra_ops.size(); ++i) {
+        process_random_op(ultra_ops[i]);
     }
 }
 } // namespace bb

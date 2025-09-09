@@ -45,10 +45,10 @@ class TranslatorRecursiveTests : public ::testing::Test {
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     // Helper function to add no-ops
-    static void add_no_ops(std::shared_ptr<bb::ECCOpQueue>& op_queue, size_t count = 1)
+    static void add_random_ops(std::shared_ptr<bb::ECCOpQueue>& op_queue, size_t count)
     {
         for (size_t i = 0; i < count; i++) {
-            op_queue->no_op_ultra_only();
+            op_queue->random_op_ultra_only();
         }
     }
 
@@ -73,11 +73,12 @@ class TranslatorRecursiveTests : public ::testing::Test {
 
         // Add the same operations to the ECC op queue; the native computation is performed under the hood.
         auto op_queue = std::make_shared<bb::ECCOpQueue>();
-        add_no_ops(op_queue);
+        op_queue->no_op_ultra_only();
+        add_random_ops(op_queue, InnerBuilder::NUM_RANDOM_OPS_START);
         add_mixed_ops(op_queue, circuit_size_parameter / 2);
         op_queue->merge();
         add_mixed_ops(op_queue, circuit_size_parameter / 2);
-        add_no_ops(op_queue, 2);
+        add_random_ops(op_queue, InnerBuilder::NUM_RANDOM_OPS_END);
         op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
 
         return InnerBuilder{ batching_challenge_v, evaluation_challenge_x, op_queue };

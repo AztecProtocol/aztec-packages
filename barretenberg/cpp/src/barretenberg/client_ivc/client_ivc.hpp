@@ -323,6 +323,8 @@ class ClientIVC {
     Proof prove();
 
     static void hide_op_queue_accumulation_result(ClientCircuit& circuit);
+    static void hide_op_queue_content_in_tail(ClientCircuit& circuit);
+    static void hide_op_queue_content_in_hiding(ClientCircuit& circuit);
     HonkProof construct_mega_proof_for_hiding_kernel(ClientCircuit& circuit);
 
     static bool verify(const Proof& proof, const VerificationKey& vk);

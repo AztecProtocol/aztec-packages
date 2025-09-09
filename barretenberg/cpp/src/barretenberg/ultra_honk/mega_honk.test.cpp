@@ -539,7 +539,7 @@ TYPED_TEST(MegaHonkTests, OpQueueWithRandomValues)
     // Test for randomness added at the beginning
     {
         Builder builder;
-        GoblinMockCircuits::randomise_op_queue(builder);
+        GoblinMockCircuits::randomise_op_queue(builder, 2);
         GoblinMockCircuits::construct_simple_circuit(builder);
 
         // Construct and verify Honk proof
@@ -551,7 +551,7 @@ TYPED_TEST(MegaHonkTests, OpQueueWithRandomValues)
     {
         Builder builder;
         GoblinMockCircuits::construct_simple_circuit(builder);
-        GoblinMockCircuits::randomise_op_queue(builder);
+        GoblinMockCircuits::randomise_op_queue(builder, 2);
 
         // Construct and verify Honk proof
         bool honk_verified = this->construct_and_verify_honk_proof(builder);

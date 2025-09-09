@@ -56,6 +56,11 @@ class Goblin {
 
     std::deque<MergeProof> merge_verification_queue; // queue of merge proofs to be verified
 
+    // In AVM we only use Goblin for a single circuit (it's recursive verifier) whose proof is not required to be
+    // zero-knowledge. While Translator will still expect to find random ops at the beginning to ensure the accumulation
+    // result remains at a fixed row we opt for not adding random ops at the end of the op queue.
+    bool avm_mode = false;
+
     struct VerificationKey {
         std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key = std::make_shared<ECCVMVerificationKey>();
         std::shared_ptr<TranslatorVerificationKey> translator_verification_key =
@@ -123,6 +128,17 @@ class Goblin {
                        const MergeCommitments& merge_commitments,
                        const std::shared_ptr<Transcript>& transcript,
                        const MergeSettings merge_settings = MergeSettings::PREPEND);
+
+    /**
+     * @brief Translator requires the op queue to start with a no-op to ensure op queue polynomials are shiftable and
+     * then expects three random ops. This is due to the ZK requirement in ClientIVC.  We need to also ensure these ops
+     * are present when Goblin is used for AVM, although we only ever have a single table of ecc ops and no ZK
+     * requiements.
+     *
+     * @todo (https://github.com/AztecProtocol/barretenberg/issues/1537) Asses whether two Translator variants (one with
+     * Zk and one without) would be a better option
+     */
+    void ensure_well_formed_op_queue_for_avm(MegaBuilder& builder) const;
 };
 
 } // namespace bb
