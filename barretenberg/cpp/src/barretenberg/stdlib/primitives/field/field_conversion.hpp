@@ -20,6 +20,17 @@ template <typename Builder> using fr = field_t<Builder>;
 template <typename Builder> using fq = bigfield<Builder, bb::Bn254FqParams>;
 template <typename Builder> using bn254_element = element<Builder, fq<Builder>, fr<Builder>, curve::BN254::Group>;
 template <typename Builder> using grumpkin_element = cycle_group<Builder>;
+
+template <typename Builder> static void constrain_bigfield_limbs(const fr<Builder>& lo, const fr<Builder>& hi)
+{
+    static constexpr uint64_t NUM_LIMB_BITS = fq<Builder>::NUM_LIMB_BITS;
+    static constexpr uint64_t NUM_LAST_LIMB_BITS = NUM_LIMB_BITS + fq<Builder>::NUM_LAST_LIMB_BITS; // 118
+    static constexpr uint64_t NUM_BITS_IN_TWO_LIMBS = 2 * NUM_LIMB_BITS;                            // 136
+
+    // range constrain low to 136 bits and hi to 118 bits
+    lo.create_range_constraint(NUM_BITS_IN_TWO_LIMBS, "field_conversion: create_range_constraint");
+    hi.create_range_constraint(NUM_LAST_LIMB_BITS, "field_conversion: create_range_constraint");
+}
 /**
  * @brief Check whether a point corresponds to (0, 0), the conventional representation of the point infinity.
  *
@@ -35,11 +46,11 @@ template <typename Builder, typename T> bool_t<Builder> check_point_at_infinity(
 {
     if constexpr (IsAnyOf<T, bn254_element<Builder>>) {
         // Sum the limbs and check whether the sum is 0
-        return (field_t<Builder>::accumulate(std::vector<field_t<Builder>>(fr_vec.begin(), fr_vec.end())).is_zero());
+        return (fr<Builder>::accumulate(std::vector<fr<Builder>>(fr_vec.begin(), fr_vec.end())).is_zero());
     } else {
         // Efficiently compute ((x^2 + y^2) == 0)
-        field_t<Builder> x_sqr = fr_vec[0].sqr();
-        field_t<Builder> y = fr_vec[1];
+        const fr<Builder> x_sqr = fr_vec[0].sqr();
+        const fr<Builder> y = fr_vec[1];
         return (y.madd(y, x_sqr).is_zero());
     }
 }
@@ -123,8 +134,13 @@ template <typename Builder, typename T> T convert_from_bn254_frs(std::span<const
         // Case 1: input type matches the output type
         return fr_vec[0];
     } else if constexpr (IsAnyOf<T, bigfield_ct, goblin_field<Builder>>) {
-        // Q: need to range constrain? Or are they range constrained before?
+        // Q: need to range constrain when Mega? Must be handled in Translator.
         // Cases 2 and 3: a bigfield/goblin_field element is reconstructed from low and high limbs.
+
+        if constexpr (std::is_same_v<Builder, UltraCircuitBuilder>) {
+            constrain_bigfield_limbs(fr_vec[0], fr_vec[1]);
+        }
+
         return T(fr_vec[0], fr_vec[1]);
     } else if constexpr (IsAnyOf<T, bn254_element<Builder>, grumpkin_element<Builder>>) {
         // Case 4 and 5: Convert a vector of frs to a group element

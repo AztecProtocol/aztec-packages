@@ -17,14 +17,13 @@ namespace bb::stdlib::field_conversion {
  * pieces, one that is the 136 lower bits and one that is the 118 higher bits. Then, we can split these two pieces into
  * their bigfield limbs through convert_from_bn254_frs, which is actually just a bigfield constructor that takes in two
  * two-limb frs.
- *
+ * Ensure that it's only used in ECCVMRecursive
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/850): audit this function more carefully
  * @tparam Builder
  */
 template <typename Builder> fq<Builder> convert_to_grumpkin_fr(Builder& builder, const fr<Builder>& fr_element)
 {
     static constexpr uint64_t NUM_LIMB_BITS = fq<Builder>::NUM_LIMB_BITS;
-    static constexpr uint64_t NUM_LAST_LIMB_BITS = fq<Builder>::NUM_LAST_LIMB_BITS; // 118
 
     constexpr uint64_t NUM_BITS_IN_TWO_LIMBS = 2 * NUM_LIMB_BITS; // 136
 
@@ -38,11 +37,7 @@ template <typename Builder> fq<Builder> convert_to_grumpkin_fr(Builder& builder,
     fr<Builder> low{ witness_t<Builder>(&builder, low_val) };
     fr<Builder> hi{ witness_t<Builder>(&builder, hi_val) };
 
-    // range constrain low to 136 bits and hi to 118 bits
-    builder.create_range_constraint(
-        low.get_normalized_witness_index(), NUM_BITS_IN_TWO_LIMBS, "field_conversion: create_range_constraint");
-    builder.create_range_constraint(
-        hi.get_normalized_witness_index(), NUM_LAST_LIMB_BITS, "field_conversion: create_range_constraint");
+    constrain_bigfield_limbs(low, hi);
 
     BB_ASSERT_EQ(static_cast<uint256_t>(low_val) + (static_cast<uint256_t>(hi_val) << NUM_BITS_IN_TWO_LIMBS),
                  value,
@@ -50,8 +45,8 @@ template <typename Builder> fq<Builder> convert_to_grumpkin_fr(Builder& builder,
     // checks this decomposition low + hi * 2^64 = value with an assert_equal
     const fr<Builder> zero = fr<Builder>::from_witness_index(&builder, 0);
     fr<Builder>::evaluate_linear_identity(hi * shift, low, -fr_element, zero);
-    std::vector<fr<Builder>> fr_vec{ low, hi };
-    return convert_from_bn254_frs<Builder, fq<Builder>>(fr_vec);
+
+    return fq<Builder>(low, hi);
 }
 
 template fq<UltraCircuitBuilder> convert_to_grumpkin_fr<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
