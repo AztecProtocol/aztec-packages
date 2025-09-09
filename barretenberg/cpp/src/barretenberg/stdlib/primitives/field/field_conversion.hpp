@@ -98,22 +98,22 @@ template <typename Builder, typename T> T convert_from_bn254_frs(std::span<const
     // Can be bigfield or goblin_field
     using basefield_ct = bn254_element<Builder>::BaseField;
 
+    constexpr size_t expected_size = calc_num_bn254_frs<Builder, T>();
+    BB_ASSERT_EQ(fr_vec.size(), expected_size);
+
     ASSERT(validate_context<Builder>(fr_vec));
 
     if constexpr (IsAnyOf<T, field_ct>) {
         // Case 1: input type matches the output type
-        BB_ASSERT_EQ(fr_vec.size(), 1U);
         return fr_vec[0];
     } else if constexpr (IsAnyOf<T, bigfield_ct, goblin_field<Builder>>) {
         // Cases 2 and 3: a field_ct element needs to be represented in bigfield/goblin_field
-        BB_ASSERT_EQ(fr_vec.size(), 2U);
         T result(fr_vec[0], fr_vec[1]);
         return result;
     } else if constexpr (IsAnyOf<T, bn254_element<Builder>>) {
         // Case 4: Convert a vector of field_ct to a BN254 point
 
         constexpr size_t BASE_FIELD_SCALAR_SIZE = calc_num_bn254_frs<Builder, bigfield_ct>();
-        BB_ASSERT_EQ(fr_vec.size(), 2 * BASE_FIELD_SCALAR_SIZE);
 
         basefield_ct x = convert_from_bn254_frs<Builder, basefield_ct>(fr_vec.subspan(0, BASE_FIELD_SCALAR_SIZE));
         basefield_ct y = convert_from_bn254_frs<Builder, basefield_ct>(
@@ -126,7 +126,6 @@ template <typename Builder, typename T> T convert_from_bn254_frs(std::span<const
         return bn254_element<Builder>(x, y, sum.is_zero());
     } else if constexpr (IsAnyOf<T, grumpkin_element<Builder>>) {
         constexpr size_t BASE_FIELD_SCALAR_SIZE = calc_num_bn254_frs<Builder, field_ct>();
-        BB_ASSERT_EQ(fr_vec.size(), 2 * BASE_FIELD_SCALAR_SIZE);
         field_ct x = convert_from_bn254_frs<Builder, field_ct>(fr_vec.subspan(0, BASE_FIELD_SCALAR_SIZE));
         field_ct y =
             convert_from_bn254_frs<Builder, field_ct>(fr_vec.subspan(BASE_FIELD_SCALAR_SIZE, BASE_FIELD_SCALAR_SIZE));
