@@ -133,6 +133,8 @@ class ClientIVC {
          */
         std::vector<FF> to_field_elements() const;
 
+        static Proof from_field_elements(const std::vector<ClientIVC::FF>& fields);
+
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1299): The following msgpack methods are generic
         // and should leverage some kind of shared msgpack utility.
         msgpack::sbuffer to_msgpack_buffer() const;

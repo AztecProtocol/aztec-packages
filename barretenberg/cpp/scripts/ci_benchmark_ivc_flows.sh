@@ -25,10 +25,10 @@ function verify_ivc_flow {
   # TODO(AD): Checking which one would be good, but there isn't too much that can go wrong here.
   set +e
   echo_stderr "Private verify."
-  "./$native_build_dir/bin/bb" verify --scheme client_ivc -p "$proof" -k ../../yarn-project/bb-prover/artifacts/private-civc-vk 1>&2
+  "./$native_build_dir/bin/bb" verify --scheme client_ivc -p "$proof" -k ../../noir-projects/noir-protocol-circuits/target/keys/hiding_kernel_to_rollup.ivc.vk 1>&2
   local private_result=$?
   echo_stderr "Private verify: $private_result."
-  "./$native_build_dir/bin/bb" verify --scheme client_ivc -p "$proof" -k ../../yarn-project/bb-prover/artifacts/public-civc-vk 1>&2
+  "./$native_build_dir/bin/bb" verify --scheme client_ivc -p "$proof" -k ../../noir-projects/noir-protocol-circuits/target/keys/hiding_kernel_to_public.ivc.vk 1>&2
   local public_result=$?
   echo_stderr "Public verify: $public_result."
   if [[ $private_result -eq $public_result ]]; then
@@ -36,7 +36,7 @@ function verify_ivc_flow {
     exit 1
   fi
   if [[ $private_result -ne 0 ]] && [[ $public_result -ne 0 ]]; then
-    echo_stderr "Verification failed for $flow. Did not verify with precalculated verification key - we may need to revisit how it is generated in yarn-project/bb-prover."
+    echo_stderr "Verification failed for $flow. Did not verify with precalculated verification key - we may need to revisit how it is generated in noir-projects/noir-protocol-circuits."
     exit 1
   fi
 }

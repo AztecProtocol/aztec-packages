@@ -4,7 +4,6 @@ import {
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   PAIRING_POINTS_SIZE,
   RECURSIVE_PROOF_LENGTH,
-  TUBE_PROOF_LENGTH,
   ULTRA_KECCAK_PROOF_LENGTH,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
@@ -29,6 +28,8 @@ import {
   convertPrivateBaseRollupOutputsFromWitnessMap,
   convertPublicBaseRollupInputsToWitnessMap,
   convertPublicBaseRollupOutputsFromWitnessMap,
+  convertPublicTubeOutputsFromWitnessMap,
+  convertPublicTubePrivateInputsToWitnessMap,
   convertRootParityInputsToWitnessMap,
   convertRootParityOutputsFromWitnessMap,
   convertRootRollupInputsToWitnessMap,
@@ -49,6 +50,7 @@ import {
   makeProofAndVerificationKey,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/stdlib/interfaces/server';
+import type { PrivateToPublicKernelCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import type { BaseParityInputs, ParityPublicInputs, RootParityInputs } from '@aztec/stdlib/parity';
 import { Proof, RecursiveProof, makeRecursiveProofFromBinary } from '@aztec/stdlib/proofs';
 import {
@@ -61,17 +63,16 @@ import {
   PaddingBlockRootRollupInputs,
   type PrivateBaseRollupInputs,
   PublicBaseRollupInputs,
+  PublicTubePrivateInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
   type SingleTxBlockRootRollupInputs,
-  type TubeInputs,
   enhanceProofWithPiValidationFlag,
 } from '@aztec/stdlib/rollup';
 import type { CircuitProvingStats, CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 import type { VerificationKeyData } from '@aztec/stdlib/vks';
 import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
-import crypto from 'crypto';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 
@@ -84,7 +85,6 @@ import {
   VK_FILENAME,
   generateAvmProof,
   generateProof,
-  generateTubeProof,
   verifyAvmProof,
   verifyProof,
 } from '../../bb/execute.js';
@@ -92,9 +92,8 @@ import type { ACVMConfig, BBConfig } from '../../config.js';
 import { type UltraHonkFlavor, getUltraHonkFlavorForCircuit } from '../../honk.js';
 import { ProverInstrumentation } from '../../instrumentation.js';
 import { mapProtocolArtifactNameToCircuitName } from '../../stats.js';
-import { extractAvmVkData, extractVkData } from '../../verification_key/verification_key_data.js';
-import { PRIVATE_TAIL_CIVC_VK, PUBLIC_TAIL_CIVC_VK } from '../../verifier/bb_verifier.js';
-import { readProofAsFields, writeClientIVCProofToOutputDirectory } from '../proof_utils.js';
+import { extractAvmVkData } from '../../verification_key/verification_key_data.js';
+import { readProofsFromOutputDirectory } from '../proof_utils.js';
 
 const logger = createLogger('bb-prover');
 
@@ -195,6 +194,31 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     // TODO(#14234)[Unconditional PIs validation]: remove next lines and directly return proofAndVk
     proofAndVk.proof.proof = enhanceProofWithPiValidationFlag(proofAndVk.proof.proof, skipPublicInputsValidation);
     return proofAndVk;
+  }
+
+  public async getPublicTubeProof(
+    inputs: PublicTubePrivateInputs,
+  ): Promise<
+    PublicInputsAndRecursiveProof<
+      PrivateToPublicKernelCircuitPublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >
+  > {
+    const artifactName = 'PublicTube';
+
+    const { circuitOutput, proof } = await this.createRecursiveProof(
+      inputs,
+      artifactName,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+      convertPublicTubePrivateInputsToWitnessMap,
+      convertPublicTubeOutputsFromWitnessMap,
+    );
+
+    const verificationKey = this.getVerificationKeyDataForCircuit(artifactName);
+
+    await this.verifyProof(artifactName, proof.binaryProof);
+
+    return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
   }
 
   /**
@@ -501,7 +525,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       const vkData = this.getVerificationKeyDataForCircuit(circuitType);
 
       const PROOF_LENGTH = circuitType == 'RootRollupArtifact' ? ULTRA_KECCAK_PROOF_LENGTH : RECURSIVE_PROOF_LENGTH;
-      const proof = await readProofAsFields(provingResult.proofPath!, vkData, PROOF_LENGTH, logger);
+      const proof = await readProofsFromOutputDirectory(provingResult.proofPath!, vkData, PROOF_LENGTH, logger);
 
       const circuitName = mapProtocolArtifactNameToCircuitName(circuitType);
 
@@ -534,28 +558,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     if (provingResult.status === BB_RESULT.FAILURE) {
       logger.error(`Failed to generate AVM proof for TX ${input.hints.tx.hash}: ${provingResult.reason}`);
-      throw new ProvingError(provingResult.reason, provingResult, provingResult.retry);
-    }
-
-    return provingResult;
-  }
-
-  private async generateTubeProofWithBB(bbWorkingDirectory: string, input: TubeInputs): Promise<BBSuccess> {
-    logger.debug(`Proving tube...`);
-
-    const hasher = crypto.createHash('sha256');
-    hasher.update(input.toBuffer());
-
-    await writeClientIVCProofToOutputDirectory(input.clientIVCData, bbWorkingDirectory);
-    const provingResult = await generateTubeProof(
-      this.config.bbBinaryPath,
-      bbWorkingDirectory,
-      input.usePublicTailVk ? PUBLIC_TAIL_CIVC_VK : PRIVATE_TAIL_CIVC_VK,
-      logger.verbose,
-    );
-
-    if (provingResult.status === BB_RESULT.FAILURE) {
-      logger.error(`Failed to generate proof for tube circuit: ${provingResult.reason}`);
       throw new ProvingError(provingResult.reason, provingResult, provingResult.retry);
     }
 
@@ -596,35 +598,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return await this.runInDirectory(operation);
   }
 
-  public async getTubeProof(input: TubeInputs): Promise<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>> {
-    const operation = async (bbWorkingDirectory: string) => {
-      logger.debug(`createTubeProof: ${bbWorkingDirectory}`);
-      const provingResult = await this.generateTubeProofWithBB(bbWorkingDirectory, input);
-
-      // Read the proof as fields
-      // TODO(AD): this is the only remaining use of extractVkData.
-      const tubeVK = await extractVkData(provingResult.vkDirectoryPath!);
-      const tubeProof = await readProofAsFields(provingResult.proofPath!, tubeVK, TUBE_PROOF_LENGTH, logger);
-
-      this.instrumentation.recordDuration('provingDuration', 'tubeCircuit', provingResult.durationMs);
-      this.instrumentation.recordSize('proofSize', 'tubeCircuit', tubeProof.binaryProof.buffer.length);
-      this.instrumentation.recordSize('circuitPublicInputCount', 'tubeCircuit', tubeVK.numPublicInputs);
-      this.instrumentation.recordSize('circuitSize', 'tubeCircuit', tubeVK.circuitSize);
-
-      // Sanity check the tube proof (can be removed later)
-      await this.verifyWithKey('ultra_rollup_honk', tubeVK, tubeProof.binaryProof);
-
-      logger.info(
-        `Generated proof for tubeCircuit in ${Math.ceil(provingResult.durationMs)} ms, size: ${
-          tubeProof.proof.length
-        } fields`,
-      );
-
-      return makeProofAndVerificationKey(tubeProof, tubeVK);
-    };
-    return await this.runInDirectory(operation);
-  }
-
   /**
    * Executes a circuit and returns its outputs and corresponding proof with embedded aggregation object
    * @param witnessMap - The input witness
@@ -657,7 +630,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
       const vkData = this.getVerificationKeyDataForCircuit(circuitType);
       // Read the proof as fields
-      const proof = await readProofAsFields(provingResult.proofPath!, vkData, proofLength, logger);
+      const proof = await readProofsFromOutputDirectory(provingResult.proofPath!, vkData, proofLength, logger);
 
       const circuitName = mapProtocolArtifactNameToCircuitName(circuitType);
       this.instrumentation.recordDuration('provingDuration', circuitName, provingResult.durationMs);

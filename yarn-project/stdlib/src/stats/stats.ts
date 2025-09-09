@@ -88,6 +88,7 @@ export type ClientCircuitName =
 export type ServerCircuitName =
   | 'base-parity'
   | 'root-parity'
+  | 'public-tube'
   | 'private-base-rollup'
   | 'public-base-rollup'
   | 'merge-rollup'
@@ -97,8 +98,7 @@ export type ServerCircuitName =
   | 'padding-block-root-rollup'
   | 'block-merge-rollup'
   | 'root-rollup'
-  | 'avm-circuit'
-  | 'tube-circuit';
+  | 'avm-circuit';
 
 export type CircuitName = ClientCircuitName | ServerCircuitName;
 

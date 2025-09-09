@@ -88,7 +88,7 @@ export const mockTx = async (
     hasPublicTeardownCallRequest = false,
     publicCalldataSize = 2,
     feePayer,
-    clientIvcProof = ClientIvcProof.empty(),
+    clientIvcProof = ClientIvcProof.random(),
     maxPriorityFeesPerGas,
     chainId = Fr.ZERO,
     version = Fr.ZERO,

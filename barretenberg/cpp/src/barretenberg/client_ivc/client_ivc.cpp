@@ -737,6 +737,43 @@ std::vector<ClientIVC::FF> ClientIVC::Proof::to_field_elements() const
     return proof;
 };
 
+ClientIVC::Proof ClientIVC::Proof::from_field_elements(const std::vector<ClientIVC::FF>& fields)
+{
+    HonkProof mega_proof;
+    GoblinProof goblin_proof;
+
+    size_t custom_public_inputs_size = fields.size() - ClientIVC::Proof::PROOF_LENGTH();
+
+    // Mega proof
+    auto start_idx = fields.begin();
+    auto end_idx = start_idx + static_cast<std::ptrdiff_t>(
+                                   MegaZKFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(MegaZKFlavor::VIRTUAL_LOG_N) +
+                                   bb::HidingKernelIO::PUBLIC_INPUTS_SIZE + custom_public_inputs_size);
+    mega_proof.insert(mega_proof.end(), start_idx, end_idx);
+
+    // Merge proof
+    start_idx = end_idx;
+    end_idx += static_cast<std::ptrdiff_t>(MERGE_PROOF_SIZE);
+    goblin_proof.merge_proof.insert(goblin_proof.merge_proof.end(), start_idx, end_idx);
+
+    // ECCVM pre-ipa proof
+    start_idx = end_idx;
+    end_idx += static_cast<std::ptrdiff_t>(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH);
+    goblin_proof.eccvm_proof.pre_ipa_proof.insert(goblin_proof.eccvm_proof.pre_ipa_proof.end(), start_idx, end_idx);
+
+    // ECCVM ipa proof
+    start_idx = end_idx;
+    end_idx += static_cast<std::ptrdiff_t>(IPA_PROOF_LENGTH);
+    goblin_proof.eccvm_proof.ipa_proof.insert(goblin_proof.eccvm_proof.ipa_proof.end(), start_idx, end_idx);
+
+    // Translator proof
+    start_idx = end_idx;
+    end_idx += static_cast<std::ptrdiff_t>(TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    goblin_proof.translator_proof.insert(goblin_proof.translator_proof.end(), start_idx, end_idx);
+
+    return { mega_proof, goblin_proof };
+};
+
 msgpack::sbuffer ClientIVC::Proof::to_msgpack_buffer() const
 {
     msgpack::sbuffer buffer;
