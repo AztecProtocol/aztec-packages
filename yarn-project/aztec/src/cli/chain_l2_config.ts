@@ -47,9 +47,12 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   seqMaxTxsPerBlock: 0,
   realProofs: true,
   snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/',
-  autoUpdate: 'disabled',
-  autoUpdateUrl: undefined,
+  autoUpdate: 'config-and-version',
+  autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-ignition.json',
   maxTxPoolSize: 100_000_000, // 100MB
+  publicIncludeMetrics,
+  publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
+  publicMetricsCollectFrom: ['sequencer'],
 
   ...DefaultL1ContractsConfig,
 
@@ -102,8 +105,11 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   seqMaxTxsPerBlock: 20,
   realProofs: true,
   snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/',
-  autoUpdate: 'disabled',
-  autoUpdateUrl: undefined,
+  autoUpdate: 'config-and-version',
+  autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-public.json',
+  publicIncludeMetrics,
+  publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
+  publicMetricsCollectFrom: ['sequencer'],
   maxTxPoolSize: 100_000_000, // 100MB
 
   // Deployment stuff
