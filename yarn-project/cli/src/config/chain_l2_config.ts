@@ -1,6 +1,6 @@
-import { EthAddress } from '@aztec/aztec.js';
 import { DefaultL1ContractsConfig, type L1ContractsConfig } from '@aztec/ethereum';
 import type { EnvVar, NetworkNames } from '@aztec/foundation/config';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import type { SharedNodeConfig } from '@aztec/node-lib/config';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 

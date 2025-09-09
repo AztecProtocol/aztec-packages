@@ -28,6 +28,9 @@
       "path": "../l1-artifacts"
     },
     {
+      "path": "../node-lib"
+    },
+    {
       "path": "../p2p"
     },
     {
@@ -43,6 +46,6 @@
       "path": "../protocol-contracts"
     }
   ],
-  "include": ["src"],
+  "include": ["src", "src/**/*.json"],
   "exclude": ["contracts"]
 }

@@ -1,3 +1,4 @@
+import { getL1Config } from '@aztec/cli/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
 import {
@@ -10,7 +11,6 @@ import { getProverNodeBrokerConfigFromEnv } from '@aztec/prover-node';
 import type { ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import { getConfigEnvVars as getTelemetryClientConfig, initTelemetryClient } from '@aztec/telemetry-client';
 
-import { getL1Config } from '../get_l1_config.js';
 import { extractRelevantOptions } from '../util.js';
 
 export async function startProverBroker(
