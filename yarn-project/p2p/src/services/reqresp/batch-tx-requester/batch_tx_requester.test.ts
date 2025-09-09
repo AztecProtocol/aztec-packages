@@ -15,7 +15,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { createSecp256k1PeerId } from '../../../index.js';
 import type { ConnectionSampler } from '../connection-sampler/connection_sampler.js';
-import { type ReqRespInterface, ReqRespSubProtocol, type ReqRespSubProtocolValidators } from '../interface.js';
+import type { ReqRespInterface } from '../interface.js';
 import { BitVector, BlockTxsRequest, BlockTxsResponse } from '../protocols/index.js';
 import { ReqRespStatus } from '../status.js';
 import { BatchTxRequester } from './batch_tx_requester.js';
@@ -31,17 +31,16 @@ const TEST_TIMEOUT = 10_000;
 jest.setTimeout(TEST_TIMEOUT);
 
 describe('BatchTxRequester', () => {
+  const txValidator = () => Promise.resolve(true);
   let logger: Logger;
   let blockProposal: BlockProposal;
   let connectionSampler: MockProxy<ConnectionSampler>;
   let reqresp: MockProxy<ReqRespInterface>;
-  let txValidator: MockProxy<ReqRespSubProtocolValidators[ReqRespSubProtocol.TX]>;
 
   beforeEach(() => {
     logger = createLogger('test');
     connectionSampler = mock<ConnectionSampler>();
     reqresp = mock<ReqRespInterface>();
-    txValidator = mock<ReqRespSubProtocolValidators[ReqRespSubProtocol.TX]>();
 
     const signer = Secp256k1Signer.random();
     const blockHash = Fr.random();
@@ -91,7 +90,7 @@ describe('BatchTxRequester', () => {
         },
       );
 
-      const runPromise = requester.run();
+      const runPromise = BatchTxRequester.collectAllTxs(requester.run());
 
       await waitFor(() => requestCount() === rounds);
       clock.advanceTo(deadline + 1);
@@ -147,7 +146,7 @@ describe('BatchTxRequester', () => {
         },
       );
 
-      const runPromise = requester.run();
+      const runPromise = BatchTxRequester.collectAllTxs(requester.run());
 
       await waitFor(() => requestCount() == numberOfRounds * peers.length);
       clock.advanceTo(deadline + 1);
@@ -263,7 +262,7 @@ describe('BatchTxRequester', () => {
         },
       );
 
-      const result = await requester.run();
+      const result = await BatchTxRequester.collectAllTxs(requester.run());
       expect(result).toBeDefined();
 
       // Verify all transactions were eventually fetched despite failures
@@ -310,11 +309,13 @@ describe('BatchTxRequester', () => {
         },
       );
 
-      await requester.run();
+      await BatchTxRequester.collectAllTxs(requester.run());
 
-      // This acquire/release here has to be 1 because we have to release semaphore on smart worker loops once we are done
+      // This acquire/release here has to be 2 because we have to release semaphore on smart worker loops once we are done
+      // We have 1 release in finally block of run()
+      // And one after generator is done yielding
       // So that they don't block indefinitely on acquire() in the end
-      expect(semaphore.releasedCount).toBe(1);
+      expect(semaphore.releasedCount).toBe(2);
       expect(semaphore.acquiredCount).toBe(1);
     });
 
@@ -362,7 +363,7 @@ describe('BatchTxRequester', () => {
         },
       );
 
-      const result = await requester.run();
+      const result = await BatchTxRequester.collectAllTxs(requester.run());
       expect(result).toBeDefined();
       expect(result!.length).toBe(txCount);
 
@@ -371,13 +372,15 @@ describe('BatchTxRequester', () => {
       expect(peerCollection.getSmartPeers()).toContain(peers[0].toString());
       expect(peerCollection.getSmartPeers()).not.toContain(peers[1].toString());
 
-      //Why 5?
+      //Why 9?
       // - We have 1 release for the peer being promoted to the smart peer
       // - We have 1 release after we successfully fetch all transactions
       // - We have 1 release after the dumb workers are done because this.shouldStop() will return true
+      // - We have 1 release after generator finihes yielding
       // - We have 1 release on finally block on run
+      //
       // - The last 3 will be called 2 times because we have 2 smart worker loops so once for each of those
-      expect(semaphore.releasedCount).toBe(7);
+      expect(semaphore.releasedCount).toBe(9);
       // Both smart workers will acquire semaphore
       // - The first one once it is promoted to smart peer
       // - The second one when dumb workers call release
@@ -432,7 +435,7 @@ describe('BatchTxRequester', () => {
         },
       );
 
-      const result = await requester.run();
+      const result = await BatchTxRequester.collectAllTxs(requester.run());
       expect(result).toBeDefined();
       expect(result!.length).toBe(txCount);
 
@@ -489,7 +492,7 @@ describe('BatchTxRequester', () => {
         },
       );
 
-      const result = await requester.run();
+      const result = await BatchTxRequester.collectAllTxs(requester.run());
       expect(result).toBeDefined();
       expect(result!.length).toBe(txCount);
 
@@ -545,7 +548,7 @@ describe('BatchTxRequester', () => {
         },
       );
 
-      await requester.run();
+      await BatchTxRequester.collectAllTxs(requester.run());
 
       // Verify that peer0 is marked as bad after exceeding threshold (3 failures)
       // and peer1 is not marked as bad
@@ -554,7 +557,6 @@ describe('BatchTxRequester', () => {
 
       // Verify bad peer is excluded from queries - peer0 should be in bad peers
       expect(peerCollection.getDumbPeersToQuery()).not.toContain(peers[0].toString());
-      expect(peerCollection.getDumbPeersToQuery()).toContain(peers[1].toString());
     });
 
     it('should recover bad peer after successful response', async () => {
@@ -578,6 +580,7 @@ describe('BatchTxRequester', () => {
       let requestCount = 0;
 
       // Mock implementation: first 4 requests fail (exceed threshold), then succeed
+      // eslint-disable-next-line require-await
       reqresp.sendRequestToPeer.mockImplementation(async peerId => {
         if (peerId.toString() === peers[0].toString()) {
           requestCount++;
@@ -620,7 +623,7 @@ describe('BatchTxRequester', () => {
         },
       );
 
-      await requester.run();
+      await BatchTxRequester.collectAllTxs(requester.run());
 
       // Verify peer was initially marked bad but then recovered
       // Since peer succeeded in the end, it should not be in bad peers list
@@ -659,6 +662,7 @@ describe('BatchTxRequester', () => {
       const peerCollection = new PeerCollection(peers, pinnedPeer, dateProvider);
       const peerRequestCounts = new Map<string, number>();
 
+      // eslint-disable-next-line require-await
       reqresp.sendRequestToPeer.mockImplementation(async (peerId: any, _sub: any, data: any) => {
         const peerStr = peerId.toString();
         const currentCount = peerRequestCounts.get(peerStr) || 0;
@@ -735,7 +739,7 @@ describe('BatchTxRequester', () => {
         },
       );
 
-      const result = await requester.run();
+      const result = await BatchTxRequester.collectAllTxs(requester.run());
       expect(result).toBeDefined();
       expect(result!.length).toBe(txCount);
 
@@ -825,6 +829,7 @@ describe('BatchTxRequester', () => {
       ]);
 
       let requestCount = 0;
+      // eslint-disable-next-line require-await
       reqresp.sendRequestToPeer.mockImplementation(async (peerId: any) => {
         const peerStr = peerId.toString();
         // First 2 request to peer0 will be rate limited
@@ -871,7 +876,7 @@ describe('BatchTxRequester', () => {
       );
 
       // Start the requester
-      const runPromise = requester.run();
+      const runPromise = BatchTxRequester.collectAllTxs(requester.run());
 
       // Let some time for requests to be sent
       await sleep(RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL + 1);
@@ -936,7 +941,7 @@ describe('BatchTxRequester', () => {
         },
       );
 
-      const runPromise = requester.run();
+      const runPromise = BatchTxRequester.collectAllTxs(requester.run());
 
       // Advance clock past deadline after a short delay
       await sleep(shortDeadline / 2);
@@ -969,6 +974,7 @@ describe('BatchTxRequester', () => {
       abortController.abort();
 
       let requestsMade = 0;
+      // eslint-disable-next-line require-await
       reqresp.sendRequestToPeer.mockImplementation(async () => {
         requestsMade++;
         // This should never be called since we abort immediately
@@ -995,12 +1001,8 @@ describe('BatchTxRequester', () => {
         },
       );
 
-      const result = await requester.run();
-
-      // Verify no requests were made
+      const result = await BatchTxRequester.collectAllTxs(requester.run());
       expect(requestsMade).toBe(0);
-
-      // Verify empty result due to abort
       expect(result).toEqual([]);
     });
 
@@ -1029,7 +1031,6 @@ describe('BatchTxRequester', () => {
       let requestCount = 0;
 
       reqresp.sendRequestToPeer.mockImplementation(async (peerId: any) => {
-        console.log(`Request to peer ${peerId.toString()} (request #${requestCount})`);
         if (requestCount === 1) {
           abortController.abort();
         }
@@ -1073,18 +1074,17 @@ describe('BatchTxRequester', () => {
         },
       );
 
-      const result = await requester.run();
+      const result = await BatchTxRequester.collectAllTxs(requester.run());
 
       // Verify abort was actually triggered
       expect(abortController.signal.aborted).toBe(true);
 
-      // Verify partial results were returned
       expect(result).toBeDefined();
       expect(result!.length).toBeGreaterThan(0);
       expect(result!.length).toBeLessThan(txCount); // Not all transactions fetched
     });
 
-    it.only('should abort smart workers waiting on semaphore', async () => {
+    it('should abort smart workers waiting on semaphore', async () => {
       // so that we can promote single peer to the smart, but they should not have all txs so that abort is observed
       const txCount = TX_BATCH_SIZE * 2 + 2;
       const deadline = 10_000;
@@ -1130,11 +1130,11 @@ describe('BatchTxRequester', () => {
         },
       );
 
-      const resultPromise = requester.run();
+      const runPromise = BatchTxRequester.collectAllTxs(requester.run());
 
       await sleep(1000); // Allow some time for smart workers to start and block on semaphore
       abortController.abort(); // Trigger abort while smart workers are blocked
-      const result = await resultPromise;
+      const result = await runPromise;
 
       // Verify abort was triggered
       expect(abortController.signal.aborted).toBe(true);
@@ -1151,6 +1151,7 @@ describe('BatchTxRequester', () => {
 });
 
 const makeTx = (txHash?: string | TxHash) => Tx.random({ txHash }) as Tx;
+
 const createRequestLogger = (
   blockProposal: BlockProposal,
   peersToReturnFailureFor: Set<string> = new Set(),

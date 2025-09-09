@@ -1,16 +1,16 @@
 import { chunk } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
-import { type ISemaphore, Semaphore } from '@aztec/foundation/queue';
+import { FifoMemoryQueue, type ISemaphore, Semaphore } from '@aztec/foundation/queue';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, executeTimeout } from '@aztec/foundation/timer';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
-import { type TxArray, TxHash } from '@aztec/stdlib/tx';
+import { Tx, TxArray, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
 
 import type { ConnectionSampler } from '.././connection-sampler/connection_sampler.js';
-import { type ReqRespInterface, ReqRespSubProtocol, type ReqRespSubProtocolValidators } from '.././interface.js';
+import { type ReqRespInterface, ReqRespSubProtocol } from '.././interface.js';
 import { BlockTxsRequest, BlockTxsResponse } from '.././protocols/index.js';
 import { ReqRespStatus } from '.././status.js';
 import type { BatchTxRequesterOptions, ITxMetadataCollection } from './interface.js';
@@ -25,6 +25,7 @@ export class BatchTxRequester {
   private readonly txsMetadata: ITxMetadataCollection;
   private readonly deadline: number;
   private readonly smartRequesterSemaphore: ISemaphore;
+  private readonly txQueue: FifoMemoryQueue<Tx>;
 
   constructor(
     missingTxs: TxHash[],
@@ -33,7 +34,7 @@ export class BatchTxRequester {
     private readonly timeoutMs: number,
     private readonly reqresp: ReqRespInterface,
     private readonly connectionSampler: ConnectionSampler,
-    private readonly txValidator: ReqRespSubProtocolValidators[ReqRespSubProtocol.TX],
+    private readonly txValidator: (tx: Tx, peerId: PeerId) => Promise<boolean>,
     private readonly logger = createLogger('p2p:reqresp_batch'),
     private readonly dateProvider: DateProvider = new DateProvider(),
     private readonly opts: BatchTxRequesterOptions = {
@@ -41,6 +42,7 @@ export class BatchTxRequester {
       dumbParallelWorkerCount: DUMB_PEERS_TO_QUERY_IN_PARALLEL,
     },
   ) {
+    this.txQueue = new FifoMemoryQueue(this.logger);
     this.deadline = this.dateProvider.now() + this.timeoutMs;
 
     if (this.opts.peerCollection) {
@@ -54,26 +56,59 @@ export class BatchTxRequester {
     this.smartRequesterSemaphore = this.opts.semaphore ?? new Semaphore(0);
   }
 
-  public async run() {
+  public async *run(): AsyncGenerator<Tx, Tx | undefined, unknown> {
+    // Our timeout is represented in milliseconds but queue expects seconds
+    // We also want to make sure we wait at least 1 second in case of very low timeouts
+    const timeoutQueueAfter = Math.max(Math.ceil(this.timeoutMs / 1_000), 1);
     try {
       if (this.txsMetadata.getMissingTxHashes().size === 0) {
-        return;
+        return undefined;
       }
 
-      await executeTimeout(
+      // Start workers in background
+      const workersPromise = executeTimeout(
         () => Promise.allSettled([this.smartRequester(), this.dumbRequester(), this.pinnedPeerRequester()]),
         this.timeoutMs,
-      );
+      ).finally(() => {
+        this.txQueue.end();
+      });
 
-      //TODO: handle this via async iter
-      return this.txsMetadata.getFetchedTxs();
+      while (true) {
+        const tx = await this.txQueue.get(timeoutQueueAfter);
+
+        // null indicates that the queue has ended
+        if (tx === null) {
+          break;
+        }
+
+        yield tx;
+
+        if (this.shouldStop()) {
+          // Drain queue before ending
+          let remaining;
+          while ((remaining = this.txQueue.getImmediate()) !== undefined) {
+            yield remaining;
+          }
+          break;
+        }
+      }
+
+      this.unlockSmartRequesterSemaphores();
+      await workersPromise;
     } catch (e: any) {
       this.logger.error(`Batch tx requester failed with error: ${e.message}`, { error: e });
-
-      return [];
     } finally {
+      this.txQueue.end();
       this.unlockSmartRequesterSemaphores();
     }
+  }
+
+  public static async collectAllTxs(generator: AsyncGenerator<Tx, Tx | undefined, unknown>): Promise<Tx[]> {
+    const txs: Tx[] = [];
+    for await (const tx of generator) {
+      txs.push(tx);
+    }
+    return txs;
   }
 
   //TODO: handle pinned peer properly
@@ -177,9 +212,6 @@ export class BatchTxRequester {
     );
 
     await Promise.allSettled(workers);
-    const inCaseWeAreDoneRemoveSmartLocks = this.shouldStop();
-    if (inCaseWeAreDoneRemoveSmartLocks) {
-    }
   }
 
   private async dumbWorkerLoop(
@@ -301,31 +333,29 @@ export class BatchTxRequester {
       const response = await this.reqresp.sendRequestToPeer(peerId, ReqRespSubProtocol.BLOCK_TXS, request.toBuffer());
       if (response.status !== ReqRespStatus.SUCCESS) {
         this.logger.debug(`Peer ${peerId.toString()} failed to respond with status: ${response.status}`);
-        await this.handleFailResponseFromPeer(peerId, response.status);
+        this.handleFailResponseFromPeer(peerId, response.status);
         return;
       }
 
       const blockResponse = BlockTxsResponse.fromBuffer(response.data);
-      this.handleSuccessResponseFromPeer(peerId, blockResponse);
+      await this.handleSuccessResponseFromPeer(peerId, blockResponse);
     } catch (err: any) {
       this.logger.error(`Failed to deserialize response from peer ${peerId.toString()}: ${err.message}`, {
         peerId,
         error: err,
       });
 
-      await this.handleFailResponseFromPeer(peerId, ReqRespStatus.UNKNOWN);
+      this.handleFailResponseFromPeer(peerId, ReqRespStatus.UNKNOWN);
     } finally {
       // Don't mark pinned peer as not in flight
-      if (!this.pinnedPeer?.equals(peerId)) {
-        this.peers.unMarkPeerInFlight(peerId);
-      }
+      this.peers.unMarkPeerInFlight(peerId);
     }
   }
 
-  private handleSuccessResponseFromPeer(peerId: PeerId, response: BlockTxsResponse) {
+  private async handleSuccessResponseFromPeer(peerId: PeerId, response: BlockTxsResponse) {
     this.peers.unMarkPeerAsBad(peerId);
     this.logger.debug(`Received txs: ${response.txs.length} from peer ${peerId.toString()} `);
-    this.handleReceivedTxs(peerId, response.txs);
+    await this.handleReceivedTxs(peerId, response.txs);
 
     if (!this.isBlockResponseValid(response)) {
       return;
@@ -363,10 +393,24 @@ export class BatchTxRequester {
     return this.txsMetadata.getMissingTxHashes().intersection(txsPeerHas).size > 0;
   }
 
-  private handleReceivedTxs(peerId: PeerId, txs: TxArray) {
-    //TODO: yield txs
-    txs.forEach(tx => {
-      this.txsMetadata.markFetched(peerId, tx);
+  private async handleReceivedTxs(peerId: PeerId, txs: TxArray) {
+    const newTxs = txs.filter(tx => !this.txsMetadata.alreadyFetched(tx.txHash));
+
+    //TODO: this validation can be slow, maybe spawn worker just for validation
+    // We could use the async queue for communication.
+    const validationResults = await Promise.allSettled(
+      newTxs.map(async tx => ({
+        tx,
+        isValid: await this.txValidator(tx, peerId),
+      })),
+    );
+
+    validationResults.forEach(result => {
+      if (result.status === 'fulfilled' && result.value.isValid) {
+        if (this.txsMetadata.markFetched(peerId, result.value.tx)) {
+          this.txQueue.put(result.value.tx);
+        }
+      }
     });
 
     const missingTxHashes = this.txsMetadata.getMissingTxHashes();
@@ -389,7 +433,7 @@ export class BatchTxRequester {
     this.txsMetadata.markPeerHas(peerId, txsPeerHas);
   }
 
-  private async handleFailResponseFromPeer(peerId: PeerId, responseStatus: ReqRespStatus) {
+  private handleFailResponseFromPeer(peerId: PeerId, responseStatus: ReqRespStatus) {
     if (responseStatus === ReqRespStatus.FAILURE || responseStatus === ReqRespStatus.UNKNOWN) {
       //TODO: Should we ban these peers?
       this.peers.markPeerAsBad(peerId);

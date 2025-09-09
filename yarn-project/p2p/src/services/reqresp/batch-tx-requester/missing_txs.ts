@@ -32,11 +32,18 @@ export class MissingTxMetadata {
     return this.inFlightCount > 0;
   }
 
-  public markAsFetched(peerId: PeerId, tx: Tx) {
+  //Returns true if this is the first time we mark it as fetched
+  public markAsFetched(peerId: PeerId, tx: Tx): boolean {
+    if (this.fetched) {
+      return false;
+    }
+
     this.fetched = true;
     this.tx = tx;
 
     this.peers.add(peerId.toString());
+
+    return true;
   }
 
   public toString() {
@@ -167,7 +174,11 @@ export class MissingTxMetadataCollection extends Map<string, MissingTxMetadata> 
     this.get(txHash.toString())?.markNotInFlight();
   }
 
-  public markFetched(peerId: PeerId, tx: Tx) {
+  public alreadyFetched(txHash: TxHash): boolean {
+    return this.get(txHash.toString())?.fetched ?? false;
+  }
+
+  public markFetched(peerId: PeerId, tx: Tx): boolean {
     const txHashStr = tx.txHash.toString();
     const txMeta = this.get(txHashStr);
     if (!txMeta) {
@@ -176,10 +187,10 @@ export class MissingTxMetadataCollection extends Map<string, MissingTxMetadata> 
       // 2. ban it immediately?
       // 3. track it and ban it?
       //
-      return;
+      return false;
     }
 
-    txMeta.markAsFetched(peerId, tx);
+    return txMeta.markAsFetched(peerId, tx);
   }
 
   public markPeerHas(peerId: PeerId, txHash: TxHash[]) {
