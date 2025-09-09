@@ -103,6 +103,20 @@ const LocalGovernanceConfiguration = {
   minimumVotes: 400n * 10n ** 18n,
 };
 
+const StagingPublicGovernanceConfiguration = {
+  proposeConfig: {
+    lockDelay: 60n * 60n * 24n * 30n,
+    lockAmount: DefaultL1ContractsConfig.activationThreshold * 100n,
+  },
+  votingDelay: 60n,
+  votingDuration: 60n * 60n,
+  executionDelay: 60n,
+  gracePeriod: 60n * 60n * 24n * 7n,
+  quorum: 3n * 10n ** 17n, // 30%
+  requiredYeaMargin: 4n * 10n ** 16n, // 4%
+  minimumVotes: DefaultL1ContractsConfig.ejectionThreshold * 200n, // >= 200 validators must vote
+};
+
 const TestnetGovernanceConfiguration = {
   proposeConfig: {
     lockDelay: 60n * 60n * 24n,
@@ -117,21 +131,34 @@ const TestnetGovernanceConfiguration = {
   minimumVotes: DefaultL1ContractsConfig.ejectionThreshold * 200n,
 };
 
-export const getGovernanceConfiguration = (networkName: NetworkNames) => {
-  switch (networkName) {
-    case 'alpha-testnet':
-    case 'testnet':
-      return TestnetGovernanceConfiguration;
-    case 'local':
-      return LocalGovernanceConfiguration;
-    default:
-      throw new Error('Unrecognized network name: ' + networkName);
-  }
+const StagingIgnitionGovernanceConfiguration = {
+  proposeConfig: {
+    lockDelay: 60n * 60n * 24n * 30n, // 30 days
+    lockAmount: DefaultL1ContractsConfig.activationThreshold * 100n,
+  },
+
+  votingDelay: 60n,
+  votingDuration: 60n * 60n,
+  executionDelay: 60n,
+  gracePeriod: 60n * 60n * 24n * 7n,
+  quorum: 3n * 10n ** 17n, // 30%
+  requiredYeaMargin: 4n * 10n ** 16n, // 4%
+  minimumVotes: DefaultL1ContractsConfig.ejectionThreshold * 200n, // >= 200 validators must vote
 };
 
-const TestnetGSEConfiguration = {
-  activationThreshold: BigInt(100e18),
-  ejectionThreshold: BigInt(50e18),
+export const getGovernanceConfiguration = (networkName: NetworkNames) => {
+  switch (networkName) {
+    case 'local':
+      return LocalGovernanceConfiguration;
+    case 'staging-public':
+      return StagingPublicGovernanceConfiguration;
+    case 'testnet':
+      return TestnetGovernanceConfiguration;
+    case 'staging-ignition':
+      return StagingIgnitionGovernanceConfiguration;
+    default:
+      throw new Error(`Unrecognized network name: ${networkName}`);
+  }
 };
 
 const LocalGSEConfiguration = {
@@ -139,29 +166,41 @@ const LocalGSEConfiguration = {
   ejectionThreshold: BigInt(50e18),
 };
 
+const StagingPublicGSEConfiguration = {
+  activationThreshold: DefaultL1ContractsConfig.activationThreshold,
+  ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
+};
+
+const TestnetGSEConfiguration = {
+  activationThreshold: BigInt(100e18),
+  ejectionThreshold: BigInt(50e18),
+};
+
+const StagingIgnitionGSEConfiguration = {
+  activationThreshold: DefaultL1ContractsConfig.activationThreshold,
+  ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
+};
+
 export const getGSEConfiguration = (networkName: NetworkNames) => {
   switch (networkName) {
-    case 'alpha-testnet':
-    case 'testnet':
-      return TestnetGSEConfiguration;
     case 'local':
       return LocalGSEConfiguration;
+    case 'staging-public':
+      return StagingPublicGSEConfiguration;
+    case 'testnet':
+      return TestnetGSEConfiguration;
+    case 'staging-ignition':
+      return StagingIgnitionGSEConfiguration;
     default:
-      throw new Error('Unrecognized network name: ' + networkName);
+      throw new Error(`Unrecognized network name: ${networkName}`);
   }
 };
 
 // Making a default config here as we are only using it thought the deployment
 // and do not expect to be using different setups, so having environment variables
 // for it seems overkill
-const LocalRewardConfig = {
-  sequencerBps: 5000,
-  rewardDistributor: EthAddress.ZERO.toString(),
-  booster: EthAddress.ZERO.toString(),
-  blockReward: BigInt(50e18),
-};
 
-const TestnetRewardConfig = {
+const DefaultRewardConfig = {
   sequencerBps: 5000,
   rewardDistributor: EthAddress.ZERO.toString(),
   booster: EthAddress.ZERO.toString(),
@@ -170,17 +209,25 @@ const TestnetRewardConfig = {
 
 export const getRewardConfig = (networkName: NetworkNames) => {
   switch (networkName) {
-    case 'alpha-testnet':
-    case 'testnet':
-      return TestnetRewardConfig;
     case 'local':
-      return LocalRewardConfig;
+    case 'staging-public':
+    case 'testnet':
+    case 'staging-ignition':
+      return DefaultRewardConfig;
     default:
-      throw new Error('Unrecognized network name: ' + networkName);
+      throw new Error(`Unrecognized network name: ${networkName}`);
   }
 };
 
 const LocalRewardBoostConfig = {
+  increment: 200000,
+  maxScore: 5000000,
+  a: 5000,
+  k: 1000000,
+  minimum: 100000,
+};
+
+const StagingPublicRewardBoostConfig = {
   increment: 200000,
   maxScore: 5000000,
   a: 5000,
@@ -196,15 +243,26 @@ const TestnetRewardBoostConfig = {
   minimum: 100000,
 };
 
+const StagingIgnitionRewardBoostConfig = {
+  increment: 200000,
+  maxScore: 5000000,
+  a: 5000,
+  k: 1000000,
+  minimum: 100000,
+};
+
 export const getRewardBoostConfig = (networkName: NetworkNames) => {
   switch (networkName) {
-    case 'alpha-testnet':
-    case 'testnet':
-      return TestnetRewardBoostConfig;
     case 'local':
       return LocalRewardBoostConfig;
+    case 'staging-public':
+      return StagingPublicRewardBoostConfig;
+    case 'testnet':
+      return TestnetRewardBoostConfig;
+    case 'staging-ignition':
+      return StagingIgnitionRewardBoostConfig;
     default:
-      throw new Error('Unrecognized network name: ' + networkName);
+      throw new Error(`Unrecognized network name: ${networkName}`);
   }
 };
 
@@ -214,12 +272,28 @@ const LocalEntryQueueConfig = {
   bootstrapFlushSize: 0n,
   normalFlushSizeMin: 48n, // will effectively be bounded by maxQueueFlushSize
   normalFlushSizeQuotient: 2n,
-  maxQueueFlushSize: 48n,
+  maxQueueFlushSize: 32n,
+};
+
+const StagingPublicEntryQueueConfig = {
+  bootstrapValidatorSetSize: 48n,
+  bootstrapFlushSize: 48n, // will effectively be bounded by maxQueueFlushSize
+  normalFlushSizeMin: 1n,
+  normalFlushSizeQuotient: 2475n,
+  maxQueueFlushSize: 32n, // Limited to 32 so flush cost are kept below 15M gas.
 };
 
 const TestnetEntryQueueConfig = {
   bootstrapValidatorSetSize: 750n,
-  bootstrapFlushSize: 75n, // will effectively be bounded by maxQueueFlushSize
+  bootstrapFlushSize: 48n, // will effectively be bounded by maxQueueFlushSize
+  normalFlushSizeMin: 1n,
+  normalFlushSizeQuotient: 2475n,
+  maxQueueFlushSize: 32n, // Limited to 32 so flush cost are kept below 15M gas.
+};
+
+const StagingIgnitionEntryQueueConfig = {
+  bootstrapValidatorSetSize: 750n,
+  bootstrapFlushSize: 48n, // will effectively be bounded by maxQueueFlushSize
   normalFlushSizeMin: 1n,
   normalFlushSizeQuotient: 2475n,
   maxQueueFlushSize: 32n, // Limited to 32 so flush cost are kept below 15M gas.
@@ -227,13 +301,16 @@ const TestnetEntryQueueConfig = {
 
 export const getEntryQueueConfig = (networkName: NetworkNames) => {
   switch (networkName) {
-    case 'alpha-testnet':
-    case 'testnet':
-      return TestnetEntryQueueConfig;
     case 'local':
       return LocalEntryQueueConfig;
+    case 'staging-public':
+      return StagingPublicEntryQueueConfig;
+    case 'testnet':
+      return TestnetEntryQueueConfig;
+    case 'staging-ignition':
+      return StagingIgnitionEntryQueueConfig;
     default:
-      throw new Error('Unrecognized network name: ' + networkName);
+      throw new Error(`Unrecognized network name: ${networkName}`);
   }
 };
 

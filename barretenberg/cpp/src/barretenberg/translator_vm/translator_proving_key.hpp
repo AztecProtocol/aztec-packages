@@ -31,9 +31,9 @@ class TranslatorProvingKey {
     // hiding of polynomial commitments and evaluation). Bound to change, but it has to be even as translator works two
     // rows at a time
     static constexpr size_t dyadic_mini_circuit_size_without_masking =
-        mini_circuit_dyadic_size - NUM_DISABLED_ROWS_IN_SUMCHECK;
+        mini_circuit_dyadic_size - Flavor::NUM_MASKED_ROWS_END;
     static constexpr size_t dyadic_circuit_size_without_masking =
-        dyadic_circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
+        dyadic_circuit_size - Flavor::NUM_MASKED_ROWS_END * Flavor::INTERLEAVING_GROUP_SIZE;
 
     std::shared_ptr<ProvingKey> proving_key;
 

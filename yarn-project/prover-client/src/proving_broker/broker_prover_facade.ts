@@ -3,7 +3,6 @@ import type {
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   RECURSIVE_PROOF_LENGTH,
-  TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
 import { sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
@@ -23,6 +22,7 @@ import {
   type ServerCircuitProver,
   makeProvingJobId,
 } from '@aztec/stdlib/interfaces/server';
+import type { PrivateToPublicKernelCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import type { BaseParityInputs, ParityPublicInputs, RootParityInputs } from '@aztec/stdlib/parity';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import type {
@@ -35,10 +35,10 @@ import type {
   PaddingBlockRootRollupInputs,
   PrivateBaseRollupInputs,
   PublicBaseRollupInputs,
+  PublicTubePrivateInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
   SingleTxBlockRootRollupInputs,
-  TubeInputs,
 } from '@aztec/stdlib/rollup';
 
 import { InlineProofStore, type ProofStore } from './proof_store/index.js';
@@ -520,6 +520,26 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
       signal,
     );
   }
+
+  getPublicTubeProof(
+    inputs: PublicTubePrivateInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<
+    PublicInputsAndRecursiveProof<
+      PrivateToPublicKernelCircuitPublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >
+  > {
+    return this.enqueueJob(
+      this.generateId(ProvingRequestType.PUBLIC_TUBE, inputs, epochNumber),
+      ProvingRequestType.PUBLIC_TUBE,
+      inputs,
+      epochNumber,
+      signal,
+    );
+  }
+
   getPrivateBaseRollupProof(
     baseRollupInput: PrivateBaseRollupInputs,
     signal?: AbortSignal,
@@ -575,20 +595,6 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
       this.generateId(ProvingRequestType.ROOT_ROLLUP, input, epochNumber),
       ProvingRequestType.ROOT_ROLLUP,
       input,
-      epochNumber,
-      signal,
-    );
-  }
-
-  getTubeProof(
-    tubeInput: TubeInputs,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>> {
-    return this.enqueueJob(
-      this.generateId(ProvingRequestType.TUBE_PROOF, tubeInput, epochNumber),
-      ProvingRequestType.TUBE_PROOF,
-      tubeInput,
       epochNumber,
       signal,
     );

@@ -453,7 +453,7 @@ function getBeaconNodeFetchOptions(url: string, config: BlobSinkConfig, l1Consen
     l1ConsensusHostApiKeyHeaders[l1ConsensusHostIndex];
 
   let formattedUrl = url;
-  if (l1ConsensusHostApiKey && !l1ConsensusHostApiKeyHeader) {
+  if (l1ConsensusHostApiKey && l1ConsensusHostApiKey.getValue() !== '' && !l1ConsensusHostApiKeyHeader) {
     formattedUrl += `${formattedUrl.includes('?') ? '&' : '?'}key=${l1ConsensusHostApiKey.getValue()}`;
   }
 

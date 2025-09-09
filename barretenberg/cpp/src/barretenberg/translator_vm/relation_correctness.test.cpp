@@ -486,24 +486,31 @@ TEST_F(TranslatorRelationCorrectnessTests, Decomposition)
 TEST_F(TranslatorRelationCorrectnessTests, NonNative)
 {
     using Flavor = TranslatorFlavor;
+    using Builder = Flavor::CircuitBuilder;
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using GroupElement = typename Flavor::GroupElement;
 
     constexpr size_t NUM_LIMB_BITS = Flavor::NUM_LIMB_BITS;
-    constexpr auto mini_circuit_size = TranslatorFlavor::MINI_CIRCUIT_SIZE;
+    constexpr size_t mini_circuit_size = TranslatorFlavor::MINI_CIRCUIT_SIZE;
+    constexpr size_t mini_circuit_size_without_masking =
+        TranslatorFlavor::MINI_CIRCUIT_SIZE - TranslatorFlavor::NUM_MASKED_ROWS_END;
 
     auto& engine = numeric::get_debug_randomness();
 
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
+    op_queue->no_op_ultra_only();
+    op_queue->random_op_ultra_only();
+    op_queue->random_op_ultra_only();
+    op_queue->random_op_ultra_only();
 
     // Generate random EccOpQueue actions
 
-    for (size_t i = 0; i < ((mini_circuit_size >> 1) - 2); i++) {
+    for (size_t i = 0; i < (mini_circuit_size >> 1) / 2; i++) {
         switch (engine.get_random_uint8() & 3) {
         case 0:
-            op_queue->empty_row_for_testing();
+            op_queue->no_op_ultra_only();
             break;
         case 1:
             op_queue->eq_and_reset();
@@ -517,6 +524,26 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
         }
     }
     op_queue->merge();
+    for (size_t i = 0; i < 100; i++) {
+        switch (engine.get_random_uint8() & 3) {
+        case 0:
+            op_queue->no_op_ultra_only();
+            break;
+        case 1:
+            op_queue->eq_and_reset();
+            break;
+        case 2:
+            op_queue->add_accumulate(GroupElement::random_element(&engine));
+            break;
+        case 3:
+            op_queue->mul_accumulate(GroupElement::random_element(&engine), FF::random_element(&engine));
+            break;
+        }
+    }
+    op_queue->random_op_ultra_only();
+    op_queue->random_op_ultra_only();
+    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+
     const auto batching_challenge_v = BF::random_element(&engine);
     const auto evaluation_input_x = BF::random_element(&engine);
 
@@ -546,7 +573,9 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     ProverPolynomials prover_polynomials = TranslatorFlavor::ProverPolynomials();
 
     // Copy values of wires used in the non-native field relation from the circuit builder
-    for (size_t i = 1; i < circuit_builder.get_estimated_num_finalized_gates(); i++) {
+    for (size_t i = Builder::NUM_NO_OPS_START + Builder::NUM_RANDOM_OPS_START;
+         i < circuit_builder.num_gates - Builder::NUM_RANDOM_OPS_END;
+         i++) {
         prover_polynomials.op.at(i) = circuit_builder.get_variable(circuit_builder.wires[circuit_builder.OP][i]);
         prover_polynomials.p_x_low_limbs.at(i) =
             circuit_builder.get_variable(circuit_builder.wires[circuit_builder.P_X_LOW_LIMBS][i]);
@@ -577,7 +606,7 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     }
 
     // Fill in lagrange odd polynomial
-    for (size_t i = 2; i < mini_circuit_size; i += 2) {
+    for (size_t i = Flavor::RESULT_ROW; i < mini_circuit_size_without_masking; i += 2) {
         prover_polynomials.lagrange_even_in_minicircuit.at(i) = 1;
         prover_polynomials.lagrange_odd_in_minicircuit.at(i + 1) = 1;
     }

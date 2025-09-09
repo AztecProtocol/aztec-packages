@@ -7,6 +7,8 @@ export function mapProtocolArtifactNameToCircuitName(artifact: ProtocolArtifact)
       return 'base-parity';
     case 'RootParityArtifact':
       return 'root-parity';
+    case 'PublicTube':
+      return 'public-tube';
     case 'PrivateBaseRollupArtifact':
       return 'private-base-rollup';
     case 'PublicBaseRollupArtifact':

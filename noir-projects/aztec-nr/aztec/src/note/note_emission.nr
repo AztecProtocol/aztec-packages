@@ -1,3 +1,8 @@
+use crate::{
+    context::PrivateContext, messages::logs::note::emit_note, note::note_interface::NoteType,
+};
+use protocol_types::{address::AztecAddress, traits::Packable};
+
 /**
  * A note emission struct containing the information required for emitting a note.
  * The exact `emit` logic is passed in by the application code
@@ -8,13 +13,16 @@ pub struct NoteEmission<Note> {
     pub note_hash_counter: u32, // a note_hash_counter of 0 means settled
 }
 
-impl<Note> NoteEmission<Note> {
+impl<Note> NoteEmission<Note>
+where
+    Note: NoteType + Packable,
+{
     pub fn new(note: Note, storage_slot: Field, note_hash_counter: u32) -> Self {
         Self { note, storage_slot, note_hash_counter }
     }
 
-    pub fn emit<Env>(self, _emit: fn[Env](Self) -> ()) {
-        _emit(self);
+    pub fn emit(self, context: &mut PrivateContext, recipient: AztecAddress, delivery_mode: u8) {
+        emit_note(self, context, recipient, delivery_mode);
     }
 
     pub fn discard(_self: Self) {}
@@ -32,14 +40,17 @@ pub struct OuterNoteEmission<Note> {
     pub emission: Option<NoteEmission<Note>>,
 }
 
-impl<Note> OuterNoteEmission<Note> {
+impl<Note> OuterNoteEmission<Note>
+where
+    Note: NoteType + Packable,
+{
     pub fn new(emission: Option<NoteEmission<Note>>) -> Self {
         Self { emission }
     }
 
-    pub fn emit<Env>(self, _emit: fn[Env](NoteEmission<Note>) -> ()) {
+    pub fn emit(self, context: &mut PrivateContext, recipient: AztecAddress, delivery_mode: u8) {
         if self.emission.is_some() {
-            _emit(self.emission.unwrap());
+            self.emission.unwrap_unchecked().emit(context, recipient, delivery_mode);
         }
     }
 

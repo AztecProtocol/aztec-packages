@@ -1,24 +1,28 @@
 use crate::{
     abis::{base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs, tx_effect::TxEffect},
-    base::components::PublicTubeDataValidator,
+    base::components::PublicTxBaseInputsValidator,
     components::{append_tx_effects_for_blob, compute_kernel_out_hash, validate_contract_class_log},
 };
 use dep::types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, avm_circuit_public_inputs::AvmProofData,
-        block_constant_data::BlockConstantData, contract_class_log::ContractClassLog, log::Log,
-        sponge_blob::SpongeBlob, tube::PublicTubeData,
+        block_constant_data::BlockConstantData, contract_class_log::ContractClassLog,
+        kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs, log::Log,
+        sponge_blob::SpongeBlob,
     },
     constants::{ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX},
     hash::silo_l2_to_l1_message,
     merkle_tree::MembershipWitness,
-    proof::traits::Verifiable,
+    proof::proof_data::RollupHonkProofData,
     traits::{Empty, Hash},
     utils::arrays::array_merge,
 };
 
 pub struct PublicBaseRollupInputs {
-    tube_data: PublicTubeData,
+    // The public inputs of `private_tail_to_public` was propagated to `hiding_kernel_to_public` and then to
+    // `public_tube`, whose public inputs are identical to those inputs, and are verified in this circuit.
+    public_tube_proof_data: RollupHonkProofData<PrivateToPublicKernelCircuitPublicInputs>,
+
     avm_proof_data: AvmProofData,
 
     start_sponge_blob: SpongeBlob,
@@ -30,7 +34,7 @@ pub struct PublicBaseRollupInputs {
 
 impl PublicBaseRollupInputs {
     fn generate_tx_effect(self) -> TxEffect {
-        let from_private = self.tube_data.public_inputs;
+        let from_private = self.public_tube_proof_data.public_inputs;
         let from_public = self.avm_proof_data.public_inputs;
         let reverted = from_public.reverted;
         let revert_code = if reverted { 1 } else { 0 };
@@ -70,7 +74,7 @@ impl PublicBaseRollupInputs {
         }
 
         TxEffect {
-            tx_hash: self.tube_data.public_inputs.hash(),
+            tx_hash: self.public_tube_proof_data.public_inputs.hash(),
             revert_code,
             transaction_fee: from_public.transaction_fee,
             note_hashes: from_public.accumulated_data.note_hashes,
@@ -84,36 +88,28 @@ impl PublicBaseRollupInputs {
     }
 
     fn generate_block_constant_data(self) -> BlockConstantData {
-        let tube_data = self.tube_data.public_inputs;
+        let private_tail = self.public_tube_proof_data.public_inputs;
         let avm_data = self.avm_proof_data.public_inputs;
 
         BlockConstantData {
             last_archive: self.last_archive,
             new_l1_to_l2: avm_data.start_tree_snapshots.l1_to_l2_message_tree,
             global_variables: avm_data.global_variables,
-            vk_tree_root: tube_data.constants.vk_tree_root,
-            protocol_contract_tree_root: tube_data.constants.protocol_contract_tree_root,
+            vk_tree_root: private_tail.constants.vk_tree_root,
+            protocol_contract_tree_root: private_tail.constants.protocol_contract_tree_root,
         }
     }
 
     pub fn execute(self) -> BaseOrMergeRollupPublicInputs {
         let constants = self.generate_block_constant_data();
 
-        let tube_data_validator = PublicTubeDataValidator::new(self.tube_data);
-        tube_data_validator.validate_proof_and_vk();
-        tube_data_validator.validate_gas_settings();
-        tube_data_validator.validate_with_block_constant_data(
+        PublicTxBaseInputsValidator::new(
+            self.public_tube_proof_data,
+            self.avm_proof_data,
             constants,
             self.archive_root_membership_witness,
-        );
-        tube_data_validator.validate_with_avm_data(self.avm_proof_data.public_inputs);
-
-        // TODO(#8470)
-        if !dep::std::runtime::is_unconstrained() {
-            self.avm_proof_data.verify();
-            // TODO: Add avm vk hash to the tree and uncomment this.
-            // self.avm_proof_data.validate_vk_in_vk_tree(constants.vk_tree_root);
-        }
+        )
+            .validate();
 
         let tx_effect = self.generate_tx_effect();
 
@@ -185,7 +181,7 @@ mod tests {
 
     #[derive(Eq)]
     struct PublicBaseRollupInputsBuilder {
-        tube_data: FixtureBuilder,
+        public_tube_proof_data: FixtureBuilder,
         avm_data: FixtureBuilder,
         transaction_fee: Field,
         pre_existing_notes: [Field; MAX_NOTE_HASHES_PER_TX],
@@ -200,17 +196,11 @@ mod tests {
     impl PublicBaseRollupInputsBuilder {
         fn new() -> Self {
             let mut inputs = PublicBaseRollupInputsBuilder::empty();
-            inputs.tube_data =
+            inputs.public_tube_proof_data =
                 FixtureBuilder::new().in_vk_tree(PUBLIC_TUBE_VK_INDEX).use_last_archive();
             inputs.avm_data = FixtureBuilder::new().in_vk_tree(AVM_VK_INDEX);
 
             inputs
-        }
-
-        unconstrained fn new_with_previous_kernel(previous_vk_index: u32) -> Self {
-            let mut builder = PublicBaseRollupInputsBuilder::new();
-            builder.tube_data = builder.tube_data.in_vk_tree(previous_vk_index);
-            builder
         }
 
         fn build_pre_existing_tx_effects(self) -> TxEffect {
@@ -252,11 +242,15 @@ mod tests {
             self.contract_class_log_fields.push(padded_log_fields);
 
             let log_hash = compute_contract_class_log_hash(padded_log_fields);
-            self.tube_data.add_contract_class_log_hash(log_hash, N);
+            self.public_tube_proof_data.add_contract_class_log_hash(log_hash, N);
         }
 
         unconstrained fn build_inputs(mut self) -> PublicBaseRollupInputs {
-            let mut tube_data = self.tube_data.to_public_tube_data();
+            let private_tail_public_inputs =
+                self.public_tube_proof_data.to_private_to_public_kernel_circuit_public_inputs();
+            let public_tube_proof_data =
+                FixtureBuilder::make_proof_data(private_tail_public_inputs, PUBLIC_TUBE_VK_INDEX);
+
             let mut avm_proof_data = self.avm_data.to_avm_proof_data();
 
             avm_proof_data.public_inputs.transaction_fee = self.transaction_fee;
@@ -286,11 +280,13 @@ mod tests {
             );
 
             PublicBaseRollupInputs {
-                tube_data,
+                public_tube_proof_data,
                 avm_proof_data,
                 start_sponge_blob,
-                last_archive: self.tube_data.archive_tree,
-                archive_root_membership_witness: self.tube_data.archive_root_membership_witness,
+                last_archive: self.public_tube_proof_data.archive_tree,
+                archive_root_membership_witness: self
+                    .public_tube_proof_data
+                    .archive_root_membership_witness,
                 contract_class_log_fields: self.contract_class_log_fields.storage(),
             }
         }
@@ -313,7 +309,7 @@ mod tests {
     impl Empty for PublicBaseRollupInputsBuilder {
         fn empty() -> Self {
             Self {
-                tube_data: FixtureBuilder::empty(),
+                public_tube_proof_data: FixtureBuilder::empty(),
                 avm_data: FixtureBuilder::empty(),
                 transaction_fee: 0,
                 pre_existing_notes: [0; MAX_NOTE_HASHES_PER_TX],
@@ -340,7 +336,7 @@ mod tests {
     unconstrained fn non_empty_tx_effects_sponge() {
         let mut builder = PublicBaseRollupInputsBuilder::new();
 
-        builder.tube_data.append_note_hashes(50);
+        builder.public_tube_proof_data.append_note_hashes(50);
         builder.avm_data.append_note_hashes(50);
 
         let inputs = builder.build_inputs();
@@ -361,7 +357,7 @@ mod tests {
             true,
         );
         // TX hash
-        tx_effects[1] = inputs.tube_data.public_inputs.hash();
+        tx_effects[1] = inputs.public_tube_proof_data.public_inputs.hash();
         tx_effects[2] = field_from_bytes([TX_FEE_PREFIX, 0].concat((0).to_be_bytes::<29>()), true);
         tx_effects[3] = encode_blob_prefix(NOTES_PREFIX, 50);
         for i in 0..50 {
@@ -391,7 +387,7 @@ mod tests {
         let mut builder = PublicBaseRollupInputsBuilder::new();
         builder.transaction_fee = tx_fee;
 
-        builder.tube_data.append_note_hashes(NUM_NOTES);
+        builder.public_tube_proof_data.append_note_hashes(NUM_NOTES);
         builder.avm_data.append_note_hashes(NUM_NOTES);
         // Copied from nullifier tests above:
         builder.pre_existing_nullifiers[0] =
@@ -403,7 +399,7 @@ mod tests {
                 NullifierInsertion { existing_index: 1, value: (8 + i) as Field },
             );
         }
-        builder.tube_data.append_l2_to_l1_msgs(NUM_MSGS);
+        builder.public_tube_proof_data.append_l2_to_l1_msgs(NUM_MSGS);
         builder.avm_data.append_l2_to_l1_msgs(NUM_MSGS);
         // Copied from public data test below:
         builder.pre_existing_public_data[0] =
@@ -411,7 +407,7 @@ mod tests {
         builder.public_data_writes.push((
             0, PublicDataTreeLeaf { slot: PUB_DATA_SLOT, value: PUB_DATA_VALUE },
         ));
-        builder.tube_data.append_private_logs_with_lengths(private_log_lengths);
+        builder.public_tube_proof_data.append_private_logs_with_lengths(private_log_lengths);
         builder.avm_data.append_public_logs_with_lengths(pub_log_lengths);
         builder.append_contract_class_log(cc_log_0);
         let inputs = builder.build_inputs();
@@ -419,7 +415,7 @@ mod tests {
 
         let mut reconstructed_tx_effects = [0; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS];
         // tx hash
-        reconstructed_tx_effects[1] = inputs.tube_data.public_inputs.hash();
+        reconstructed_tx_effects[1] = inputs.public_tube_proof_data.public_inputs.hash();
         // tx fee
         reconstructed_tx_effects[2] =
             field_from_bytes([TX_FEE_PREFIX, 0].concat(tx_fee.to_be_bytes::<29>()), true);
@@ -468,7 +464,7 @@ mod tests {
         offset += 1;
         for i in 0..NUM_PRIVATE_LOGS {
             let log_len = private_log_lengths[i];
-            let log_fields = builder.tube_data.private_logs.get(i).inner.log.fields;
+            let log_fields = builder.public_tube_proof_data.private_logs.get(i).inner.log.fields;
             reconstructed_tx_effects[offset] = log_len as Field;
             offset += 1;
             for j in 0..log_len {
@@ -485,7 +481,8 @@ mod tests {
             let log_fields = builder.avm_data.public_logs.get(i).log.fields;
             reconstructed_tx_effects[offset] = log_len as Field;
             offset += 1;
-            reconstructed_tx_effects[offset] = builder.tube_data.contract_address.to_field();
+            reconstructed_tx_effects[offset] =
+                builder.public_tube_proof_data.contract_address.to_field();
             offset += 1;
             for j in 0..log_len {
                 reconstructed_tx_effects[offset] = log_fields[j];
@@ -501,7 +498,8 @@ mod tests {
             let log_len = cc_log_lengths[i];
             reconstructed_tx_effects[offset] = log_len as Field;
             offset += 1;
-            reconstructed_tx_effects[offset] = builder.tube_data.contract_address.to_field();
+            reconstructed_tx_effects[offset] =
+                builder.public_tube_proof_data.contract_address.to_field();
             offset += 1;
             let log_fields = builder.contract_class_log_fields.get(i);
             for j in 0..log_len {
@@ -537,7 +535,9 @@ mod tests {
         let mut builder = PublicBaseRollupInputsBuilder::new();
 
         // Create a log whose length is larger than the max allowed.
-        builder.tube_data.append_private_logs_with_lengths([PRIVATE_LOG_SIZE_IN_FIELDS + 1]);
+        builder.public_tube_proof_data.append_private_logs_with_lengths([
+            PRIVATE_LOG_SIZE_IN_FIELDS + 1,
+        ]);
 
         let _ = builder.execute();
     }
@@ -557,10 +557,10 @@ mod tests {
         let mut builder = PublicBaseRollupInputsBuilder::new();
 
         builder.append_contract_class_log([11, 22, 33]);
-        let mut invalid_log_hash = builder.tube_data.contract_class_logs_hashes.pop();
+        let mut invalid_log_hash = builder.public_tube_proof_data.contract_class_logs_hashes.pop();
         // Tweak the length of the log hash to be larger than the max allowed.
         invalid_log_hash.inner.inner.length = CONTRACT_CLASS_LOG_SIZE_IN_FIELDS + 1;
-        builder.tube_data.contract_class_logs_hashes.push(invalid_log_hash);
+        builder.public_tube_proof_data.contract_class_logs_hashes.push(invalid_log_hash);
 
         let _ = builder.execute();
     }
@@ -575,7 +575,7 @@ mod tests {
     unconstrained fn nonempty_block_out_hash() {
         let mut builder = PublicBaseRollupInputsBuilder::new();
 
-        builder.tube_data.append_l2_to_l1_msgs(MAX_L2_TO_L1_MSGS_PER_TX);
+        builder.public_tube_proof_data.append_l2_to_l1_msgs(MAX_L2_TO_L1_MSGS_PER_TX);
         builder.avm_data.append_l2_to_l1_msgs(MAX_L2_TO_L1_MSGS_PER_TX);
 
         let out_hash = builder.execute().out_hash;
@@ -601,7 +601,7 @@ mod tests {
     #[test]
     unconstrained fn constants_dont_change() {
         let inputs = PublicBaseRollupInputsBuilder::new().build_inputs();
-        let tx_constants = inputs.tube_data.public_inputs.constants;
+        let tx_constants = inputs.public_tube_proof_data.public_inputs.constants;
 
         let output_constants = inputs.execute().constants;
 
@@ -619,7 +619,7 @@ mod tests {
     #[test(should_fail_with = "kernel chain_id does not match the rollup chain_id")]
     unconstrained fn constants_dont_match_kernels_chain_id() {
         let mut builder = PublicBaseRollupInputsBuilder::new();
-        builder.tube_data.tx_context.chain_id = 3;
+        builder.public_tube_proof_data.tx_context.chain_id = 3;
         builder.avm_data.global_variables.chain_id = 4;
         builder.fails();
     }
@@ -627,7 +627,7 @@ mod tests {
     #[test(should_fail_with = "kernel version does not match the rollup version")]
     unconstrained fn constants_dont_match_kernels_version() {
         let mut builder = PublicBaseRollupInputsBuilder::new();
-        builder.tube_data.tx_context.version = 3;
+        builder.public_tube_proof_data.tx_context.version = 3;
         builder.avm_data.global_variables.version = 4;
         builder.fails();
     }
@@ -636,7 +636,7 @@ mod tests {
     unconstrained fn constants_dont_satisfy_smaller_include_by_timestamp() {
         let mut builder = PublicBaseRollupInputsBuilder::new();
         builder.avm_data.global_variables.timestamp = 42;
-        builder.tube_data.include_by_timestamp = 5;
+        builder.public_tube_proof_data.include_by_timestamp = 5;
         builder.fails();
     }
 
@@ -644,7 +644,7 @@ mod tests {
     unconstrained fn constants_satisfy_equal_include_by_timestamp() {
         let mut builder = PublicBaseRollupInputsBuilder::new();
         builder.avm_data.global_variables.timestamp = 42;
-        builder.tube_data.include_by_timestamp = 42;
+        builder.public_tube_proof_data.include_by_timestamp = 42;
         builder.succeeds();
     }
 
@@ -652,7 +652,7 @@ mod tests {
     unconstrained fn constants_satisfy_larger_include_by_timestamp() {
         let mut builder = PublicBaseRollupInputsBuilder::new();
         builder.avm_data.global_variables.timestamp = 42;
-        builder.tube_data.include_by_timestamp = 4294967295;
+        builder.public_tube_proof_data.include_by_timestamp = 4294967295;
         builder.succeeds();
     }
 
@@ -698,7 +698,7 @@ mod tests {
             max_fees_per_gas: GasFees::new(150, 150),
             max_priority_fees_per_gas: GasFees::new(100, 100),
         };
-        builder.tube_data.tx_context.gas_settings = gas_settings;
+        builder.public_tube_proof_data.tx_context.gas_settings = gas_settings;
         builder.avm_data.tx_context.gas_settings = gas_settings;
 
         // Effective should be 150 taking 50 as priority fees.
@@ -718,7 +718,7 @@ mod tests {
             max_fees_per_gas: GasFees::new(150, 150),
             max_priority_fees_per_gas: GasFees::new(25, 25),
         };
-        builder.tube_data.tx_context.gas_settings = gas_settings;
+        builder.public_tube_proof_data.tx_context.gas_settings = gas_settings;
         builder.avm_data.tx_context.gas_settings = gas_settings;
 
         // Effective should be 125 taking all priority fees.
