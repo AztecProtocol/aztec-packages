@@ -453,7 +453,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         enum CurveType { BN254, SECP256K1, SECP256R1 };
         eight_bit_fixed_base_table(const CurveType input_curve_type, bool use_endo)
             : curve_type(input_curve_type)
-            , use_endomorphism(use_endo){};
+            , use_endomorphism(use_endo)
+        {}
 
         eight_bit_fixed_base_table(const eight_bit_fixed_base_table& other) = default;
         eight_bit_fixed_base_table& operator=(const eight_bit_fixed_base_table& other) = default;
