@@ -37,7 +37,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
 
-  const slashingUnit = BigInt(20e18);
+  const slashingUnit = BigInt(1e18);
   const slashingQuorum = 3;
   const slashingRoundSize = 4;
   // This test needs longer slot window to ensure that the client has enough time to submit their txs,
@@ -94,14 +94,16 @@ describe('e2e_p2p_data_withholding_slash', () => {
     await t.ctx.cheatCodes.rollup.advanceToEpoch(4n, { updateDateProvider: t.ctx.dateProvider });
     await debugRollup();
 
-    const [activationThreshold, ejectionThreshold] = await Promise.all([
+    const [activationThreshold, ejectionThreshold, localEjectionThreshold] = await Promise.all([
       rollup.getActivationThreshold(),
       rollup.getEjectionThreshold(),
+      rollup.getLocalEjectionThreshold(),
     ]);
 
     // Slashing amount should be enough to kick validators out
     const slashingAmount = slashingUnit * 3n;
-    expect(activationThreshold - slashingAmount).toBeLessThan(ejectionThreshold);
+    const biggestEjection = ejectionThreshold > localEjectionThreshold ? ejectionThreshold : localEjectionThreshold;
+    expect(activationThreshold - slashingAmount).toBeLessThan(biggestEjection);
 
     t.ctx.aztecNodeConfig.slashDataWithholdingPenalty = slashingAmount;
     t.ctx.aztecNodeConfig.slashPrunePenalty = slashingAmount;

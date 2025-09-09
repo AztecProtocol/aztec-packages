@@ -5,6 +5,7 @@ import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {IStakingCore, Status, AttesterView, Exit, Timestamp} from "@aztec/core/interfaces/IStaking.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
+import {Ownable} from "@oz/access/Ownable.sol";
 
 contract SlashTest is StakingBase {
   uint256 internal slashingAmount = 1;
@@ -147,7 +148,44 @@ contract SlashTest is StakingBase {
     }
   }
 
-  modifier whenAttesterIsValidatingAndStakeIsBelowejectionThreshold() {
+  function test_WhenAttesterIsValidatingAndStakeIsBelowLocalEjectionThreshold(uint256 _localEjectionThreshold)
+    external
+    whenCallerIsTheSlasher
+    whenAttesterIsRegistered
+  {
+    // The test picks a value for the local ejection that is LARGER than the global ejection threshold
+    // This way, a slash that moves us below the local but above the global will show that the local works as expected.
+    uint256 localEjectionThreshold = bound(_localEjectionThreshold, EJECTION_THRESHOLD + 1, ACTIVATION_THRESHOLD);
+
+    vm.prank(Ownable(address(staking)).owner());
+    staking.setLocalEjectionThreshold(localEjectionThreshold);
+
+    AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
+    uint256 targetBalance = localEjectionThreshold - 1;
+
+    // As we are below the global ejection, it won't kick us.
+    assertGe(targetBalance, EJECTION_THRESHOLD);
+
+    slashingAmount = attesterView.effectiveBalance - targetBalance;
+
+    assertTrue(attesterView.status == Status.VALIDATING);
+    uint256 activeAttesterCount = staking.getActiveAttesterCount();
+    uint256 balance = attesterView.effectiveBalance;
+
+    vm.expectEmit(true, true, true, true, address(staking));
+    emit IStakingCore.Slashed(ATTESTER, slashingAmount);
+    vm.prank(SLASHER);
+    staking.slash(ATTESTER, slashingAmount);
+
+    attesterView = staking.getAttesterView(ATTESTER);
+    assertEq(attesterView.effectiveBalance, 0);
+    assertEq(attesterView.exit.amount, balance - slashingAmount);
+    assertTrue(attesterView.status == Status.ZOMBIE);
+
+    assertEq(staking.getActiveAttesterCount(), activeAttesterCount - 1);
+  }
+
+  modifier whenAttesterIsValidatingAndStakeIsBelowEjectionThreshold() {
     AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
     uint256 targetBalance = EJECTION_THRESHOLD - 1;
 
@@ -159,7 +197,7 @@ contract SlashTest is StakingBase {
     external
     whenCallerIsTheSlasher
     whenAttesterIsRegistered
-    whenAttesterIsValidatingAndStakeIsBelowejectionThreshold
+    whenAttesterIsValidatingAndStakeIsBelowEjectionThreshold
   {
     // it reverts
 
@@ -171,7 +209,7 @@ contract SlashTest is StakingBase {
     external
     whenCallerIsTheSlasher
     whenAttesterIsRegistered
-    whenAttesterIsValidatingAndStakeIsBelowejectionThreshold
+    whenAttesterIsValidatingAndStakeIsBelowEjectionThreshold
   {
     // it reduce stake by amount
     // it remove from active attesters

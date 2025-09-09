@@ -33,7 +33,6 @@ import { createExtendedL1Client } from './client.js';
 import {
   type L1ContractsConfig,
   getEntryQueueConfig,
-  getGSEConfiguration,
   getGovernanceConfiguration,
   getRewardBoostConfig,
   getRewardConfig,
@@ -193,13 +192,11 @@ export const deploySharedContracts = async (
   const stakingAssetAddress = await deployer.deploy(StakingAssetArtifact, ['Staking', 'STK', l1Client.account.address]);
   logger.verbose(`Deployed Staking Asset at ${stakingAssetAddress}`);
 
-  const gseConfiguration = getGSEConfiguration(networkName);
-
   const gseAddress = await deployer.deploy(GSEArtifact, [
     l1Client.account.address,
     stakingAssetAddress.toString(),
-    gseConfiguration.activationThreshold,
-    gseConfiguration.ejectionThreshold,
+    args.activationThreshold,
+    args.ejectionThreshold,
   ]);
   logger.verbose(`Deployed GSE at ${gseAddress}`);
 
@@ -549,6 +546,7 @@ export const deployRollup = async (
     slasherFlavor: slasherFlavorToSolidityEnum(args.slasherFlavor),
     slashingOffsetInRounds: BigInt(args.slashingOffsetInRounds),
     slashAmounts: [args.slashAmountSmall, args.slashAmountMedium, args.slashAmountLarge],
+    localEjectionThreshold: args.localEjectionThreshold,
   };
 
   const genesisStateArgs = {

@@ -269,7 +269,9 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
       );
     }
 
-    StakingLib.initialize(_stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig);
+    StakingLib.initialize(
+      _stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig, _config.localEjectionThreshold
+    );
     ValidatorOperationsExtLib.initializeValidatorSelection(_config.targetCommitteeSize);
 
     // If no booster is specifically provided, deploy one.
@@ -349,6 +351,16 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    */
   function setSlasher(address _slasher) external override(IStakingCore) onlyOwner {
     ValidatorOperationsExtLib.setSlasher(_slasher);
+  }
+
+  /**
+   * @notice Updates the local ejection threshold
+   * @dev Only callable by owner. The local ejection threshold is the minimum amount of stake that a validator can have
+   *      after being slashed.
+   * @param _localEjectionThreshold The new local ejection threshold
+   */
+  function setLocalEjectionThreshold(uint256 _localEjectionThreshold) external override(IStakingCore) onlyOwner {
+    ValidatorOperationsExtLib.setLocalEjectionThreshold(_localEjectionThreshold);
   }
 
   /**

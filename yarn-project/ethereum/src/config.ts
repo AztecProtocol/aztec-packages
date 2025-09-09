@@ -34,6 +34,8 @@ export type L1ContractsConfig = {
   activationThreshold: bigint;
   /** The minimum stake for a validator. */
   ejectionThreshold: bigint;
+  /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
+  localEjectionThreshold: bigint;
   /** The slashing quorum, i.e. how many slots must signal for the same payload in a round for it to be submittable to the Slasher (defaults to slashRoundSize / 2 + 1) */
   slashingQuorum?: number;
   /** The slashing round size, i.e. how many epochs are in a slashing round */
@@ -74,6 +76,7 @@ export const DefaultL1ContractsConfig = {
   aztecProofSubmissionEpochs: 1, // you have a full epoch to submit a proof after the epoch to prove ends
   activationThreshold: BigInt(100e18),
   ejectionThreshold: BigInt(50e18),
+  localEjectionThreshold: BigInt(98e18),
   slashAmountSmall: BigInt(10e18),
   slashAmountMedium: BigInt(20e18),
   slashAmountLarge: BigInt(50e18),
@@ -156,41 +159,6 @@ export const getGovernanceConfiguration = (networkName: NetworkNames) => {
       return TestnetGovernanceConfiguration;
     case 'staging-ignition':
       return StagingIgnitionGovernanceConfiguration;
-    default:
-      throw new Error(`Unrecognized network name: ${networkName}`);
-  }
-};
-
-const LocalGSEConfiguration = {
-  activationThreshold: BigInt(100e18),
-  ejectionThreshold: BigInt(50e18),
-};
-
-const StagingPublicGSEConfiguration = {
-  activationThreshold: DefaultL1ContractsConfig.activationThreshold,
-  ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
-};
-
-const TestnetGSEConfiguration = {
-  activationThreshold: BigInt(100e18),
-  ejectionThreshold: BigInt(50e18),
-};
-
-const StagingIgnitionGSEConfiguration = {
-  activationThreshold: DefaultL1ContractsConfig.activationThreshold,
-  ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
-};
-
-export const getGSEConfiguration = (networkName: NetworkNames) => {
-  switch (networkName) {
-    case 'local':
-      return LocalGSEConfiguration;
-    case 'staging-public':
-      return StagingPublicGSEConfiguration;
-    case 'testnet':
-      return TestnetGSEConfiguration;
-    case 'staging-ignition':
-      return StagingIgnitionGSEConfiguration;
     default:
       throw new Error(`Unrecognized network name: ${networkName}`);
   }
@@ -349,6 +317,12 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     env: 'AZTEC_EJECTION_THRESHOLD',
     description: 'The minimum stake for a validator.',
     ...bigintConfigHelper(DefaultL1ContractsConfig.ejectionThreshold),
+  },
+  localEjectionThreshold: {
+    env: 'AZTEC_LOCAL_EJECTION_THRESHOLD',
+    description:
+      'The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup',
+    ...bigintConfigHelper(DefaultL1ContractsConfig.localEjectionThreshold),
   },
   slashingOffsetInRounds: {
     env: 'AZTEC_SLASHING_OFFSET_IN_ROUNDS',
