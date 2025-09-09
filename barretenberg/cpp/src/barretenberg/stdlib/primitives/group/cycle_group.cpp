@@ -961,7 +961,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 
     OriginTag tag{};
     for (size_t i = 0; i < num_points; ++i) {
-        // Merge all tags of scalars
+        // Merge all scalar tags
         tag = OriginTag(tag, scalars[i].get_origin_tag());
         std::optional<std::array<MultiTableId, 2>> table_id =
             plookup::fixed_base::table::get_lookup_table_ids_for_point(base_points[i]);
