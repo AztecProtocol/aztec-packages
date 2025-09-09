@@ -1,6 +1,6 @@
 mod types;
 
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 // Minimal token contract. Do not use
 // For demonstration purposes in playground only
@@ -10,9 +10,9 @@ use dep::aztec::macros::aztec;
 pub contract SimpleToken {
     use std::ops::{Add, Sub};
 
-    use dep::compressed_string::FieldCompressedString;
+    use compressed_string::FieldCompressedString;
 
-    use dep::aztec::{
+    use aztec::{
         authwit::auth::compute_authwit_nullifier,
         context::{PrivateCallInterface, PrivateContext, PublicContext},
         event::event_interface::{emit_event_in_private, MessageDelivery},
@@ -21,12 +21,11 @@ pub contract SimpleToken {
             functions::{authorize_once, initializer, internal, private, public, utility, view},
             storage::storage,
         },
-        messages::logs::note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
         protocol_types::address::AztecAddress,
         state_vars::{Map, PublicImmutable, PublicMutable},
     };
 
-    use dep::uint_note::uint_note::{PartialUintNote, UintNote};
+    use uint_note::uint_note::{PartialUintNote, UintNote};
 
     use crate::types::balance_set::BalanceSet;
 
@@ -127,7 +126,11 @@ pub contract SimpleToken {
         amount: u128,
         authwit_nonce: Field,
     ) {
-        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(&mut context, from));
+        storage.balances.at(from).sub(from, amount).emit(
+            &mut context,
+            from,
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
         SimpleToken::at(context.this_address())._increase_public_balance(to, amount).enqueue(
             &mut context,
         );
@@ -144,14 +147,16 @@ pub contract SimpleToken {
             amount,
             INITIAL_TRANSFER_CALL_MAX_NOTES,
         );
-        storage.balances.at(from).add(from, change).emit(encode_and_encrypt_note_unconstrained(
+        storage.balances.at(from).add(from, change).emit(
             &mut context,
             from,
-        ));
-        storage.balances.at(to).add(to, amount).emit(encode_and_encrypt_note_unconstrained(
+            MessageDelivery.UNCONSTRAINED_ONCHAIN,
+        );
+        storage.balances.at(to).add(to, amount).emit(
             &mut context,
             to,
-        ));
+            MessageDelivery.UNCONSTRAINED_ONCHAIN,
+        );
 
         emit_event_in_private(
             Transfer { from, to, amount },
@@ -164,7 +169,11 @@ pub contract SimpleToken {
     #[authorize_once("from", "authwit_nonce")]
     #[private]
     fn burn_private(from: AztecAddress, amount: u128, authwit_nonce: Field) {
-        storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(&mut context, from));
+        storage.balances.at(from).sub(from, amount).emit(
+            &mut context,
+            from,
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
         SimpleToken::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }
 

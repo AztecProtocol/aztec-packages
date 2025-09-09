@@ -5,8 +5,8 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract NoConstructor {
     use aztec::{
+        event::event_interface::MessageDelivery,
         macros::{functions::{private, public, utility}, storage::storage},
-        messages::logs::note::encode_and_encrypt_note,
         state_vars::PrivateMutable,
     };
 
@@ -29,10 +29,11 @@ pub contract NoConstructor {
     fn initialize_private_mutable(value: Field) {
         let note = ValueNote::new(value, context.msg_sender());
 
-        storage.private_mutable.initialize(note).emit(encode_and_encrypt_note(
+        storage.private_mutable.initialize(note).emit(
             &mut context,
             context.msg_sender(),
-        ));
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
     }
 
     /// Helper function used to test that call to `initialize_private_mutable` was successful or not yet performed.

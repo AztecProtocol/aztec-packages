@@ -44,8 +44,8 @@ pub contract AppSubscription {
 
     use aztec::{
         authwit::auth::assert_current_call_valid_authwit,
+        event::event_interface::MessageDelivery,
         macros::{functions::{initializer, private, public, utility}, storage::storage},
-        messages::logs::note::encode_and_encrypt_note,
         oracle::notes::set_sender_for_tags,
         protocol_types::{address::AztecAddress, constants::MAX_FIELD_VALUE, traits::ToField},
         state_vars::{Map, PrivateMutable, PublicImmutable},
@@ -84,10 +84,11 @@ pub contract AppSubscription {
 
         note.remaining_txs -= 1;
 
-        storage.subscriptions.at(user_address).replace(note).emit(encode_and_encrypt_note(
+        storage.subscriptions.at(user_address).replace(note).emit(
             &mut context,
             user_address,
-        ));
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
 
         context.set_as_fee_payer();
 
@@ -155,7 +156,9 @@ pub contract AppSubscription {
 
         let subscription_note = SubscriptionNote::new(subscriber, expiry_block_number, tx_count);
         storage.subscriptions.at(subscriber).initialize_or_replace(subscription_note).emit(
-            encode_and_encrypt_note(&mut context, subscriber),
+            &mut context,
+            subscriber,
+            MessageDelivery.CONSTRAINED_ONCHAIN,
         );
     }
 
