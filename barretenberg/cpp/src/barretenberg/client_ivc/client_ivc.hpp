@@ -351,7 +351,7 @@ class ClientIVC {
                                  bool is_kernel);
 
     HonkProof construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
-                                                     const std::shared_ptr<MegaVerificationKey>& honk_vk);
+                                                     const std::shared_ptr<MegaVerificationKey>& verification_key);
 
     QUEUE_TYPE get_queue_type() const;
 

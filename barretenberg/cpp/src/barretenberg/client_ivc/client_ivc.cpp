@@ -602,7 +602,7 @@ void ClientIVC::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
  * merge and decider proof.
  */
 HonkProof ClientIVC::construct_honk_proof_for_hiding_kernel(
-    ClientCircuit& circuit, [[maybe_unused]] const std::shared_ptr<MegaVerificationKey>& verification_key)
+    ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& verification_key)
 {
     // Note: a structured trace is not used for the hiding kernel
     auto hiding_decider_pk = std::make_shared<DeciderZKProvingKey>(circuit, TraceSettings(), bn254_commitment_key);
