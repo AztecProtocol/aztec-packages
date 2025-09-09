@@ -3,9 +3,9 @@
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
-#include "barretenberg/vm2/simulation/gt.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
+#include "barretenberg/vm2/simulation/range_check.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -24,7 +24,7 @@ class GasTracker final : public GasTrackerInterface {
                const Instruction& instruction,
                const InstructionInfoDBInterface& instruction_info_db,
                ContextInterface& context,
-               GreaterThanInterface& greater_than);
+               RangeCheckInterface& range_check);
 
     void consume_gas(const Gas& dynamic_gas_factor = { 0, 0 }) override;
     Gas compute_gas_limit_for_call(const Gas& allocated_gas) override;
@@ -32,7 +32,7 @@ class GasTracker final : public GasTrackerInterface {
   private:
     ContextInterface& context;
     const ExecInstructionSpec& spec;
-    GreaterThanInterface& greater_than;
+    RangeCheckInterface& range_check;
     GasEvent& gas_event;
 };
 
