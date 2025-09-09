@@ -227,9 +227,7 @@ template <typename Builder> class cycle_group {
                                                                        bool unconditional_add);
 
     static batch_mul_internal_output _fixed_base_batch_mul_internal(std::span<cycle_scalar> scalars,
-                                                                    std::span<AffineElement> base_points,
-                                                                    std::span<AffineElement const> offset_generators)
-        requires IsUltraArithmetic<Builder>;
+                                                                    std::span<AffineElement> base_points);
 
     // Internal implementation for unconditional_add and unconditional_subtract
     cycle_group _unconditional_add_or_subtract(const cycle_group& other,
