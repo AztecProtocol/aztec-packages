@@ -474,52 +474,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         const element& input);
 
     /**
-     * Creates a lookup table for a set of 2, 3 or 4 points
-     *
-     * The lookup table computes linear combinations of all of the points
-     *
-     * e.g. for 3 points A, B, C, the table represents the following values:
-     *
-     * 0 0 0 ->  C+B+A ==> (x, y) ==> (x_3 || x_2 || x_1 || x_0), (y_3 || y_2 || y_1 || y_0)
-     * 0 0 1 ->  C+B-A
-     * 0 1 0 ->  C-B+A
-     * 0 1 1 ->  C-B-A
-     * 1 0 0 -> -C+B+A
-     * 1 0 1 -> -C+B-A
-     * 1 1 0 -> -C-B+A
-     * 1 1 1 -> -C-B-A
-     *
-     * The table KEY is 3 1-bit NAF entries that correspond to scalar multipliers for
-     * base points A, B, C
-     **/
-    template <size_t length> struct lookup_table_base {
-        static constexpr size_t table_size = (1ULL << (length - 1));
-        lookup_table_base(const std::array<element, length>& inputs);
-        lookup_table_base(const lookup_table_base& other) = default;
-        lookup_table_base& operator=(const lookup_table_base& other) = default;
-        lookup_table_base(lookup_table_base&& other) noexcept = default;
-        lookup_table_base& operator=(lookup_table_base&& other) noexcept = default;
-        ~lookup_table_base() = default;
-
-        element get(const std::array<bool_ct, length>& bits) const;
-
-        element operator[](const size_t idx) const { return element_table[idx]; }
-
-        std::array<field_t<Builder>, table_size> x_b0_table;
-        std::array<field_t<Builder>, table_size> x_b1_table;
-        std::array<field_t<Builder>, table_size> x_b2_table;
-        std::array<field_t<Builder>, table_size> x_b3_table;
-
-        std::array<field_t<Builder>, table_size> y_b0_table;
-        std::array<field_t<Builder>, table_size> y_b1_table;
-        std::array<field_t<Builder>, table_size> y_b2_table;
-        std::array<field_t<Builder>, table_size> y_b3_table;
-        element twin0;
-        element twin1;
-        std::array<element, table_size> element_table;
-    };
-
-    /**
      * The Plookup version of the above lookup table
      *
      * Uses ROM tables to efficiently access lookup table
