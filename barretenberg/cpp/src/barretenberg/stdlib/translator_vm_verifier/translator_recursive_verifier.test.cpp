@@ -45,7 +45,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     // Helper function to add no-ops
-    static void add_random_ops(std::shared_ptr<bb::ECCOpQueue>& op_queue, size_t count = 1)
+    static void add_random_ops(std::shared_ptr<bb::ECCOpQueue>& op_queue, size_t count)
     {
         for (size_t i = 0; i < count; i++) {
             op_queue->random_op_ultra_only();

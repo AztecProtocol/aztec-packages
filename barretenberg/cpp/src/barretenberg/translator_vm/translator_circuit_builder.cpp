@@ -564,7 +564,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     // We need to precompute the accumulators at each step, because in the actual circuit we compute the values starting
     // from the later indices and we need to know the previous accumulator to create the gate. Both when computing the
     // accumulator and the actual accumulation gates, we skip the beginning and end of the op queue (where first no-op
-    // and random ops exist) as they should not affectt he computation of the accumulation result. However, given the
+    // and random ops exist) as they should not affect the computation of the accumulation result. However, given the
     // accumulation result (i.e. value at index RESULT_ROW) is sent as part of the proof, we also need to hide its
     // context. However, we achieve this by ensuring a genuine operation, but with values generated randomly, is added
     // to the op queue during the CIVC processing.

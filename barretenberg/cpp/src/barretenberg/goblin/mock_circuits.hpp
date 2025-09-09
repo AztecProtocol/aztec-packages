@@ -126,7 +126,7 @@ class GoblinMockCircuits {
     /**
      * @brief Add some randomness into the op queue.
      */
-    static void randomise_op_queue(MegaBuilder& builder, size_t num_ops = 0)
+    static void randomise_op_queue(MegaBuilder& builder, size_t num_ops)
     {
 
         for (size_t i = 0; i < num_ops; ++i) {

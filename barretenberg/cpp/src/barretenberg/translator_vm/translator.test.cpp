@@ -141,6 +141,11 @@ TEST_F(TranslatorTests, Basic)
     EXPECT_TRUE(verified);
 }
 
+/**
+ * @brief Test Translator operates correctly for AVM i.e. when we only run Goblin on a single table of ecc ops and we
+ * should not expect random ops to appear at the end of Translator trace.
+ *
+ */
 TEST_F(TranslatorTests, BasicAvmMode)
 {
     using Fq = fq;
@@ -154,7 +159,7 @@ TEST_F(TranslatorTests, BasicAvmMode)
     add_random_ops(op_queue, CircuitBuilder::NUM_RANDOM_OPS_START);
     add_mixed_ops(op_queue, 100);
     op_queue->merge();
-    auto circuit_builder = CircuitBuilder{ batching_challenge_v, evaluation_challenge_x, op_queue, true };
+    auto circuit_builder = CircuitBuilder{ batching_challenge_v, evaluation_challenge_x, op_queue, /*avm_mode=*/true };
 
     EXPECT_TRUE(TranslatorCircuitChecker::check(circuit_builder));
     bool verified = prove_and_verify(circuit_builder, evaluation_challenge_x, batching_challenge_v);

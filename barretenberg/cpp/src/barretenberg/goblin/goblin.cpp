@@ -124,4 +124,13 @@ bool Goblin::verify(const GoblinProof& proof,
            op_queue_consistency_verified;
 }
 
+void Goblin::ensure_well_formed_op_queue_for_avm(MegaBuilder& builder) const
+{
+    BB_ASSERT_EQ(avm_mode, true, "ensure_well_formed_op_queue should only be called for avm");
+    builder.queue_ecc_no_op();
+    builder.queue_ecc_random_op();
+    builder.queue_ecc_random_op();
+    builder.queue_ecc_random_op();
+}
+
 } // namespace bb
