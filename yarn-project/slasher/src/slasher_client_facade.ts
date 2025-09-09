@@ -58,6 +58,7 @@ export class SlasherClientFacade implements SlasherClientInterface {
   public updateConfig(config: Partial<SlasherConfig>): void {
     this.config = { ...this.config, ...config };
     this.client?.updateConfig(config);
+    this.watchers.forEach(watcher => watcher.updateConfig?.(config));
   }
 
   public getSlashPayloads(): Promise<SlashPayloadRound[]> {

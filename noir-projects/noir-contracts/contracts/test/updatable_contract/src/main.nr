@@ -1,14 +1,16 @@
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 /// A contract that can be updated to a new contract class. Used to test contract updates in e2e_contract_updates.test.ts.
 #[aztec]
 contract Updatable {
-    use aztec::macros::{functions::{initializer, private, public, utility}, storage::storage};
-    use aztec::messages::logs::note::encode_and_encrypt_note;
-    use aztec::state_vars::{PrivateMutable, PublicMutable};
-
-    use aztec::protocol_types::{
-        constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, contract_class_id::ContractClassId,
+    use aztec::{
+        event::event_interface::MessageDelivery,
+        macros::{functions::{initializer, private, public, utility}, storage::storage},
+        protocol_types::{
+            constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+            contract_class_id::ContractClassId,
+        },
+        state_vars::{PrivateMutable, PublicMutable},
     };
     use contract_instance_registry::ContractInstanceRegistry;
     use value_note::value_note::ValueNote;
@@ -24,10 +26,11 @@ contract Updatable {
     fn initialize(initial_value: Field) {
         let owner = context.msg_sender();
         let new_value = ValueNote::new(initial_value, owner);
-        storage.private_value.initialize(new_value).emit(encode_and_encrypt_note(
+        storage.private_value.initialize(new_value).emit(
             &mut context,
             owner,
-        ));
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
         Updatable::at(context.this_address()).set_public_value(initial_value).enqueue(&mut context);
     }
 

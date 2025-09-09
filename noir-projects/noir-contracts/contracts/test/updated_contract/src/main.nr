@@ -1,13 +1,14 @@
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 /// A contract to whose contract class the `Updatable` contract is updated to in `e2e_contract_updates.test.ts`.
 #[aztec]
 contract Updated {
-    use aztec::macros::{functions::{private, public, utility}, storage::storage};
-    use aztec::messages::logs::note::encode_and_encrypt_note;
-    use aztec::state_vars::{PrivateMutable, PublicMutable};
-
-    use aztec::protocol_types::constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS;
+    use aztec::{
+        event::event_interface::MessageDelivery,
+        macros::{functions::{private, public, utility}, storage::storage},
+        protocol_types::constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+        state_vars::{PrivateMutable, PublicMutable},
+    };
     use contract_instance_registry::ContractInstanceRegistry;
     use value_note::value_note::ValueNote;
 
@@ -26,7 +27,11 @@ contract Updated {
     fn set_private_value() {
         let owner = context.msg_sender();
         let new_note = ValueNote::new(27, owner);
-        storage.private_value.replace(new_note).emit(encode_and_encrypt_note(&mut context, owner));
+        storage.private_value.replace(new_note).emit(
+            &mut context,
+            owner,
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
     }
 
     #[public]
