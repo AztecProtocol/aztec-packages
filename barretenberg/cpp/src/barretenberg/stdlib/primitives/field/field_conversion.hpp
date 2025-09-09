@@ -21,10 +21,9 @@ template <typename Builder> using fq = bigfield<Builder, bb::Bn254FqParams>;
 template <typename Builder> using bn254_element = element<Builder, fq<Builder>, fr<Builder>, curve::BN254::Group>;
 template <typename Builder> using grumpkin_element = cycle_group<Builder>;
 /**
- * @brief Under the assumption that (x, y) is a point on the curve (bn254 or Grumpkin), check whether it
- * corresponds to (0, 0), which is the point at infinity in our conventions.
+ * @brief Check whether a point corresponds to (0, 0), the conventional representation of the point infinity.
  *
- * BN254: In the case of a bn254 point, the bigfield limbs (x_lo, x_hi, y_lo, y_hi) are range constrained, and their sum
+ * bn254: In the case of a bn254 point, the bigfield limbs (x_lo, x_hi, y_lo, y_hi) are range constrained, and their sum
  * is a non-negative integer not exceeding 2^138, i.e. it does not overflow the fq modulus, hence all limbs must be 0.
  *
  * Grumpkin: We are using the fact that (x^2 + y^2 = 0) has no non-trivial solutions on Grumpkin, as Grumpkin modulus is
@@ -35,8 +34,10 @@ template <typename Builder> using grumpkin_element = cycle_group<Builder>;
 template <typename Builder, typename T> bool_t<Builder> check_point_at_infinity(std::span<const fr<Builder>> fr_vec)
 {
     if constexpr (IsAnyOf<T, bn254_element<Builder>>) {
+        // Sum the limbs and check whether the sum is 0
         return (field_t<Builder>::accumulate(std::vector<field_t<Builder>>(fr_vec.begin(), fr_vec.end())).is_zero());
     } else {
+        // Efficiently compute ((x^2 + y^2) == 0)
         field_t<Builder> x_sqr = fr_vec[0].sqr();
         field_t<Builder> y = fr_vec[1];
         return (y.madd(y, x_sqr).is_zero());
@@ -57,10 +58,8 @@ template <typename Builder, typename T> inline T convert_challenge(Builder& buil
 template <typename Builder>
 inline std::vector<fr<Builder>> convert_goblin_fr_to_bn254_frs(const goblin_field<Builder>& input)
 {
-    std::vector<fr<Builder>> result(2);
-    result[0] = input.limbs[0];
-    result[1] = input.limbs[1];
-    return result;
+
+    return { input.limbs[0], input.limbs[1] };
 }
 
 template <typename Builder> inline std::vector<fr<Builder>> convert_grumpkin_fr_to_bn254_frs(const fq<Builder>& input)
@@ -86,13 +85,11 @@ template <typename Builder, typename T> constexpr size_t calc_num_bn254_frs()
 {
     if constexpr (IsAnyOf<T, fr<Builder>>) {
         return Bn254FrParams::NUM_BN254_SCALARS;
-    } else if constexpr (IsAnyOf<T, fq<Builder>> || IsAnyOf<T, goblin_field<Builder>>) {
+    } else if constexpr (IsAnyOf<T, fq<Builder>, goblin_field<Builder>>) {
         return Bn254FqParams::NUM_BN254_SCALARS;
-    } else if constexpr (IsAnyOf<T, bn254_element<Builder>>) {
+    } else if constexpr (IsAnyOf<T, bn254_element<Builder>, grumpkin_element<Builder>>) {
         using BaseField = bn254_element<Builder>::BaseField;
         return 2 * calc_num_bn254_frs<Builder, BaseField>();
-    } else if constexpr (IsAnyOf<T, grumpkin_element<Builder>>) {
-        return 2 * calc_num_bn254_frs<Builder, fr<Builder>>();
     } else {
         // Array or Univariate
         return calc_num_bn254_frs<Builder, typename T::value_type>() * (std::tuple_size<T>::value);
@@ -126,7 +123,8 @@ template <typename Builder, typename T> T convert_from_bn254_frs(std::span<const
         // Case 1: input type matches the output type
         return fr_vec[0];
     } else if constexpr (IsAnyOf<T, bigfield_ct, goblin_field<Builder>>) {
-        // Cases 2 and 3: a field_ct element needs to be represented in bigfield/goblin_field
+        // Q: need to range constrain? Or are they range constrained before?
+        // Cases 2 and 3: a bigfield/goblin_field element is reconstructed from low and high limbs.
         return T(fr_vec[0], fr_vec[1]);
     } else if constexpr (IsAnyOf<T, bn254_element<Builder>, grumpkin_element<Builder>>) {
         // Case 4 and 5: Convert a vector of frs to a group element
@@ -138,6 +136,8 @@ template <typename Builder, typename T> T convert_from_bn254_frs(std::span<const
         basefield_ct y = convert_from_bn254_frs<Builder, basefield_ct>(fr_vec.subspan(base_field_frs, base_field_frs));
 
         T out(x, y, check_point_at_infinity<Builder, T>(fr_vec));
+        // Note that in the case of bn254 with Mega arithmetization, the check is delegated to ECCVM, see
+        // `on_curve_check` in `ECCVMTranscriptRelationImpl`.
         out.validate_on_curve();
         return out;
     } else {
