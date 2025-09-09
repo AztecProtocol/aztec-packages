@@ -984,6 +984,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         AffineElement generator_offset = table::get_generator_offset_for_table_id(table_id);
         offset_generator_accumulator += generator_offset;
     }
+
     /**
      * Compute the witness values of the batch_mul algorithm natively, as Element types with a Z-coordinate.
      * We then batch-convert to AffineElement types, and feed these points as "hints" into the cycle_group methods.
