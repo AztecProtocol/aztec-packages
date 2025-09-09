@@ -81,7 +81,8 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
     field_t modded_y = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.y, base_point.y);
     cycle_group<Builder> modded_base_point(modded_x, modded_y, false);
     // We assume that the native hints (if present) do not account for the point at infinity edge case in the same way
-    // so we avoid using any provided hints in this case. (This minor inefficiency allows other code to be simpler).
+    // as above (i.e. replacing with "one") so we avoid using any provided hints in this case. (N.B. No efficiency is
+    // lost here since native addition with the point at infinity is nearly free).
     const bool hint_available = hints.has_value() && !base_point.is_point_at_infinity().get_value();
 
     // if the input point is constant, it is cheaper to fix the point as a witness and then derive the table, than it is

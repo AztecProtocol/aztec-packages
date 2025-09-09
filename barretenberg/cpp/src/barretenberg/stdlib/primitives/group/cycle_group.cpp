@@ -766,7 +766,8 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     const std::span<AffineElement const> offset_generators,
     const bool unconditional_add)
 {
-    BB_ASSERT_EQ(scalars.size(), base_points.size());
+    BB_ASSERT_EQ(!scalars.empty(), true, "Empty scalars provided to variable base batch mul!");
+    BB_ASSERT_EQ(scalars.size(), base_points.size(), "Points/scalars size mismatch in variable base batch mul!");
     const size_t num_points = scalars.size();
 
     Builder* context = nullptr;

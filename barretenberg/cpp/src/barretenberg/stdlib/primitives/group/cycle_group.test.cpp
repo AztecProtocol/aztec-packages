@@ -733,8 +733,13 @@ TYPED_TEST(CycleGroupTest, TestSubtract)
     EXPECT_EQ(proof_result, true);
 }
 
-// Helper lambda for tag assignment used across multiple tests
-template <typename T1, typename T2> auto assign_and_merge_tags_helper(T1& points, T2& scalars)
+/**
+ * @brief Assign different tags to all points and scalars and return the union of that tag
+ * @details We assign the tags with the same round index to a (point,scalar) pair, but the point is treated as
+ * submitted value, while scalar as a challenge. Merging these tags should not run into any edgecases
+ *
+ */
+template <typename T1, typename T2> auto assign_and_merge_tags(T1& points, T2& scalars)
 {
     OriginTag merged_tag;
     for (size_t i = 0; i < points.size(); i++) {
@@ -785,7 +790,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMulGeneralMSM)
     }
 
     // Here and in the following cases assign different tags to points and scalars and get the union of them back
-    const auto expected_tag = assign_and_merge_tags_helper(points, scalars);
+    const auto expected_tag = assign_and_merge_tags(points, scalars);
 
     auto result = cycle_group_ct::batch_mul(points, scalars);
     EXPECT_EQ(result.get_value(), AffineElement(expected));
@@ -813,7 +818,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMulProducesInfinity)
     points.emplace_back(cycle_group_ct::from_witness(&builder, element));
     scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, -scalar));
 
-    const auto expected_tag = assign_and_merge_tags_helper(points, scalars);
+    const auto expected_tag = assign_and_merge_tags(points, scalars);
 
     auto result = cycle_group_ct::batch_mul(points, scalars);
     EXPECT_TRUE(result.is_point_at_infinity().get_value());
@@ -838,7 +843,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMulMultiplyByZero)
     points.emplace_back(cycle_group_ct::from_witness(&builder, element));
     scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
 
-    const auto expected_tag = assign_and_merge_tags_helper(points, scalars);
+    const auto expected_tag = assign_and_merge_tags(points, scalars);
     auto result = cycle_group_ct::batch_mul(points, scalars);
     EXPECT_TRUE(result.is_point_at_infinity().get_value());
     EXPECT_EQ(result.get_origin_tag(), expected_tag);
@@ -874,7 +879,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMulInputsAreInfinity)
         scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
     }
 
-    const auto expected_tag = assign_and_merge_tags_helper(points, scalars);
+    const auto expected_tag = assign_and_merge_tags(points, scalars);
     auto result = cycle_group_ct::batch_mul(points, scalars);
     EXPECT_TRUE(result.is_point_at_infinity().get_value());
     EXPECT_EQ(result.get_origin_tag(), expected_tag);
@@ -912,7 +917,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMulFixedBaseInLookupTable)
         scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
         scalars_native.emplace_back(uint256_t(scalar));
     }
-    const auto expected_tag = assign_and_merge_tags_helper(points, scalars);
+    const auto expected_tag = assign_and_merge_tags(points, scalars);
     auto result = cycle_group_ct::batch_mul(points, scalars);
     EXPECT_EQ(result.get_value(), AffineElement(expected));
     EXPECT_EQ(result.get_value(), crypto::pedersen_commitment::commit_native(scalars_native));
@@ -951,7 +956,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMulFixedBaseSomeInLookupTable)
         scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
         scalars_native.emplace_back(scalar);
 
-        // // 3: add entry where point is constant, scalar is witness
+        // 3: add entry where point is constant, scalar is witness
         scalar = Group::Fr::random_element(&engine);
         element = Group::one * Group::Fr::random_element(&engine);
         expected += (element * scalar);
@@ -959,7 +964,7 @@ TYPED_TEST(CycleGroupTest, TestBatchMulFixedBaseSomeInLookupTable)
         scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
         scalars_native.emplace_back(scalar);
     }
-    const auto expected_tag = assign_and_merge_tags_helper(points, scalars);
+    const auto expected_tag = assign_and_merge_tags(points, scalars);
     auto result = cycle_group_ct::batch_mul(points, scalars);
     EXPECT_EQ(result.get_value(), AffineElement(expected));
     EXPECT_EQ(result.get_origin_tag(), expected_tag);
@@ -986,11 +991,11 @@ TYPED_TEST(CycleGroupTest, TestBatchMulFixedBaseZeroScalars)
         points.emplace_back((element));
         scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
 
-        // // 2: add entry where point is constant, scalar is constant
+        // 2: add entry where point is constant, scalar is constant
         points.emplace_back((element));
         scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
     }
-    const auto expected_tag = assign_and_merge_tags_helper(points, scalars);
+    const auto expected_tag = assign_and_merge_tags(points, scalars);
     auto result = cycle_group_ct::batch_mul(points, scalars);
     EXPECT_EQ(result.is_point_at_infinity().get_value(), true);
     EXPECT_EQ(result.get_origin_tag(), expected_tag);
