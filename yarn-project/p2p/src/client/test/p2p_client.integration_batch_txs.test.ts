@@ -217,7 +217,7 @@ describe('p2p client integration batch txs', () => {
       logger,
     );
 
-    const fetchedTxs = await requester.run();
+    const fetchedTxs = await BatchTxRequester.collectAllTxs(requester.run());
 
     // Verify all transactions were fetched
     expect(fetchedTxs).toBeDefined();

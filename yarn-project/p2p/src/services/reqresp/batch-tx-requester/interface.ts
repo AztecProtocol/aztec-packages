@@ -14,7 +14,9 @@ export interface ITxMetadataCollection {
   markRequested(txHash: TxHash): void;
   markInFlightBySmartPeer(txHash: TxHash): void;
   markNotInFlightBySmartPeer(txHash: TxHash): void;
-  markFetched(peerId: PeerId, tx: Tx): void;
+  alreadyFetched(txHash: TxHash): boolean;
+  // Returns true if tx was marked as fetched, false if it was already marked as fetched
+  markFetched(peerId: PeerId, tx: Tx): boolean;
   markPeerHas(peerId: PeerId, txHashes: TxHash[]): void;
   getFetchedTxs(): Tx[];
 }
