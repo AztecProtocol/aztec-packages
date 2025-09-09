@@ -1,5 +1,11 @@
 import type { DeployL1ContractsArgs, ExtendedViemWalletClient } from '@aztec/ethereum';
-import { DefaultL1ContractsConfig, RollupContract, createExtendedL1Client, deployL1Contracts } from '@aztec/ethereum';
+import {
+  DefaultL1ContractsConfig,
+  RollupContract,
+  createExtendedL1Client,
+  decodeSlashConsensusVotes,
+  deployL1Contracts,
+} from '@aztec/ethereum';
 import { EthCheatCodes, RollupCheatCodes, startAnvil } from '@aztec/ethereum/test';
 import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -256,6 +262,36 @@ describe('TallySlashingProposer', () => {
       expect(tallySlashingProposer.address).toBeDefined();
       expect(tallySlashingProposer.address.toString()).toBe(tallySlashingProposerAddress.toString());
       expect(tallySlashingProposer.type).toBe('tally');
+    });
+  });
+
+  describe('decodeSlashConsensusVotes', () => {
+    it('decodes buffer back to votes correctly', () => {
+      const buffer = Buffer.from([0xc9]); // 1 | (2 << 2) | (0 << 4) | (3 << 6)
+      const votes = decodeSlashConsensusVotes(buffer);
+
+      expect(votes).toEqual([1, 2, 0, 3]);
+    });
+
+    it('decodes empty buffer correctly', () => {
+      const buffer = Buffer.from([]);
+      const votes = decodeSlashConsensusVotes(buffer);
+
+      expect(votes).toEqual([]);
+    });
+
+    it('decodes maximum vote values correctly', () => {
+      const buffer = Buffer.from([0xff]); // 3 | (3 << 2) | (3 << 4) | (3 << 6)
+      const votes = decodeSlashConsensusVotes(buffer);
+
+      expect(votes).toEqual([3, 3, 3, 3]);
+    });
+
+    it('decodes multiple bytes correctly', () => {
+      const buffer = Buffer.from([0x90, 0x1b]); // [0,0,1,2] then [3,2,1,0]
+      const votes = decodeSlashConsensusVotes(buffer);
+
+      expect(votes).toEqual([0, 0, 1, 2, 3, 2, 1, 0]);
     });
   });
 });

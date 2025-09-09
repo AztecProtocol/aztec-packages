@@ -5,7 +5,7 @@ use aztec::macros::aztec;
 pub contract NoteGetter {
     use aztec::{
         // Core functionality
-        messages::logs::note::encode_and_encrypt_note,
+        event::event_interface::MessageDelivery,
         note::note_interface::NoteProperties,
         // Macros
         macros::{functions::{private, utility}, storage::storage},
@@ -24,7 +24,11 @@ pub contract NoteGetter {
     fn insert_note(value: Field) {
         let note = ValueNote::new(value, context.msg_sender());
 
-        storage.set.insert(note).emit(encode_and_encrypt_note(&mut context, context.msg_sender()));
+        storage.set.insert(note).emit(
+            &mut context,
+            context.msg_sender(),
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
     }
 
     #[utility]

@@ -44,5 +44,3 @@ This library contains types that are used in the Aztec protocol. Find it on [Git
 ```toml
 value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/value-note" }
 ```
-
-This is a library for a note that stores one arbitrary value. You can see an example of how it might be used in the [crowdfunding contract codealong tutorial](../../tutorials/contract_tutorials/crowdfunding_contract.md).

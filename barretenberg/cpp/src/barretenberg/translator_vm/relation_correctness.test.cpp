@@ -93,11 +93,11 @@ TEST_F(TranslatorRelationCorrectnessTests, TranslatorExtraRelationsCorrectness)
         prover_polynomials.lagrange_even_in_minicircuit.at(i) = 1;
         prover_polynomials.lagrange_odd_in_minicircuit.at(i + 1) = 1;
     }
-    constexpr size_t NUMBER_OF_POSSIBLE_OPCODES = 4;
-    constexpr std::array<uint64_t, NUMBER_OF_POSSIBLE_OPCODES> possible_opcode_values = { 0, 3, 4, 8 };
+    constexpr size_t NUMBER_OF_POSSIBLE_OPCODES = 3;
+    constexpr std::array<uint64_t, NUMBER_OF_POSSIBLE_OPCODES> possible_opcode_values = { 3, 4, 8 };
 
     // Assign random opcode values
-    for (size_t i = 1; i < mini_circuit_size - 1; i += 2) {
+    for (size_t i = 2; i < mini_circuit_size; i += 2) {
         prover_polynomials.op.at(i) =
             possible_opcode_values[static_cast<size_t>(engine.get_random_uint8() % NUMBER_OF_POSSIBLE_OPCODES)];
     }

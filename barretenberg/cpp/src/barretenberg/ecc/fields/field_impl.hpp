@@ -6,7 +6,7 @@
 
 #pragma once
 #include "barretenberg/common/assert.hpp"
-#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"

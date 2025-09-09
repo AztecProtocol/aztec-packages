@@ -59,7 +59,8 @@
         "accountCount": 2,
         "addressCount": 1
       },
-      "feeRecipient": "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+      "feeRecipient": "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+      "fundingAccount": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     }
   ],
   "prover": {
@@ -81,5 +82,6 @@
         "password": "prover-pass"
       }
     ]
-  }
+  },
+  "fundingAccount": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 }

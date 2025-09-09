@@ -39,6 +39,8 @@ opentelemetry-collector:
             - set(attributes["service.namespace"], resource.attributes["service.namespace"])
             - set(attributes["k8s.namespace.name"], resource.attributes["k8s.namespace.name"])
             - set(attributes["k8s.pod.name"], resource.attributes["k8s.pod.name"])
+            - set(attributes["region"], resource.attributes["region"])
+            - set(attributes["network"], resource.attributes["network"])
 
       metricstransform:
         transforms:

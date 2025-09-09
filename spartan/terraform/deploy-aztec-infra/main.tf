@@ -16,15 +16,9 @@ terraform {
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "~> 2.24.0"
+      version = "~> 2.38.0"
     }
   }
-}
-
-# Only used if deploying an RPC with an external ingress
-provider "google" {
-  project = var.GCP_PROJECT
-  region  = var.GCP_REGION
 }
 
 provider "kubernetes" {
@@ -47,7 +41,7 @@ locals {
     tag        = split(":", var.AZTEC_DOCKER_IMAGE)[1]
   }
 
-  boot_node_url = "http://${var.RELEASE_PREFIX}-p2p-bootstrap-node.${var.NAMESPACE}.svc.cluster.local:8080"
+  internal_boot_node_url = var.DEPLOY_INTERNAL_BOOTNODE ? "http://${var.RELEASE_PREFIX}-p2p-bootstrap-node.${var.NAMESPACE}.svc.cluster.local:8080" : ""
 
   # Common settings for all releases
   common_settings = {
@@ -58,7 +52,7 @@ locals {
     "global.customAztecNetwork.slashFactoryContractAddress"    = var.SLASH_FACTORY_CONTRACT_ADDRESS
     "global.customAztecNetwork.feeAssetHandlerContractAddress" = var.FEE_ASSET_HANDLER_CONTRACT_ADDRESS
     "global.customAztecNetwork.l1ChainId"                      = var.L1_CHAIN_ID
-    "global.otelCollectorEndpoint"                             = var.OTEL_COLLECTOR_URL
+    "global.otelCollectorEndpoint"                             = var.OTEL_COLLECTOR_ENDPOINT
   }
 
   common_list_settings = {
@@ -70,7 +64,7 @@ locals {
 
   # Define all releases in a map
   helm_releases = {
-    p2p_bootstrap = {
+    p2p_bootstrap = var.DEPLOY_INTERNAL_BOOTNODE ? {
       name  = "${var.RELEASE_PREFIX}-p2p-bootstrap"
       chart = "aztec-node"
       values = [
@@ -78,9 +72,11 @@ locals {
         "p2p-bootstrap.yaml",
         "p2p-bootstrap-resources-${var.P2P_BOOTSTRAP_RESOURCE_PROFILE}.yaml"
       ]
-      custom_settings = {}
-      boot_node_path  = ""
-    }
+      custom_settings = {
+        "nodeType" = "p2p-bootstrap"
+      }
+      boot_node_path = ""
+    } : null
 
     validators = {
       name  = "${var.RELEASE_PREFIX}-validator"
@@ -91,13 +87,29 @@ locals {
         "validator-resources-${var.VALIDATOR_RESOURCE_PROFILE}.yaml"
       ]
       custom_settings = {
-        "global.customAztecNetwork.enabled" = true
-        "validator.mnemonic"                = var.VALIDATOR_MNEMONIC
-        "validator.mnemonicStartIndex"      = var.VALIDATOR_MNEMONIC_START_INDEX
-        "validator.validatorsPerNode"       = var.VALIDATORS_PER_NODE
-        "validator.replicaCount"            = var.VALIDATOR_REPLICAS
+        "global.customAztecNetwork.enabled"                 = true
+        "validator.mnemonic"                                = var.VALIDATOR_MNEMONIC
+        "validator.mnemonicStartIndex"                      = var.VALIDATOR_MNEMONIC_START_INDEX
+        "validator.validatorsPerNode"                       = var.VALIDATORS_PER_NODE
+        "validator.replicaCount"                            = var.VALIDATOR_REPLICAS
+        "validator.sentinel.enabled"                        = var.SENTINEL_ENABLED
+        "validator.slash.minPenaltyPercentage"              = var.SLASH_MIN_PENALTY_PERCENTAGE
+        "validator.slash.maxPenaltyPercentage"              = var.SLASH_MAX_PENALTY_PERCENTAGE
+        "validator.slash.inactivityTargetPercentage"        = var.SLASH_INACTIVITY_TARGET_PERCENTAGE
+        "validator.slash.inactivityPenalty"                 = var.SLASH_INACTIVITY_PENALTY
+        "validator.slash.prunePenalty"                      = var.SLASH_PRUNE_PENALTY
+        "validator.slash.dataWithholdingPenalty"            = var.SLASH_DATA_WITHHOLDING_PENALTY
+        "validator.slash.proposeInvalidAttestationsPenalty" = var.SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY
+        "validator.slash.attestDescendantOfInvalidPenalty"  = var.SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY
+        "validator.slash.unknownPenalty"                    = var.SLASH_UNKNOWN_PENALTY
+        "validator.slash.invalidBlockPenalty"               = var.SLASH_INVALID_BLOCK_PENALTY
+        "validator.slash.offenseExpirationRounds"           = var.SLASH_OFFENSE_EXPIRATION_ROUNDS
+        "validator.slash.maxPayloadSize"                    = var.SLASH_MAX_PAYLOAD_SIZE
+        "validator.node.env.TRANSACTIONS_DISABLED"          = var.TRANSACTIONS_DISABLED
+        "validator.node.env.NETWORK"                        = var.NETWORK
       }
-      boot_node_path = "validator.node.env.BOOT_NODE_HOST"
+      boot_node_host_path  = "validator.node.env.BOOT_NODE_HOST"
+      bootstrap_nodes_path = "validator.node.env.BOOTSTRAP_NODES"
     }
 
     prover = {
@@ -109,10 +121,17 @@ locals {
         "prover-resources-${var.PROVER_RESOURCE_PROFILE}.yaml"
       ]
       custom_settings = {
-        "node.mnemonic"           = var.PROVER_MNEMONIC
-        "node.mnemonicStartIndex" = var.PROVER_MNEMONIC_START_INDEX
+        "node.mnemonic"                = var.PROVER_MNEMONIC
+        "node.mnemonicStartIndex"      = var.PROVER_MNEMONIC_START_INDEX
+        "node.node.proverRealProofs"   = var.PROVER_REAL_PROOFS
+        "node.node.env.NETWORK"        = var.NETWORK
+        "broker.node.proverRealProofs" = var.PROVER_REAL_PROOFS
+        "broker.node.env.NETWORK"      = var.NETWORK
+        "agent.node.proverRealProofs"  = var.PROVER_REAL_PROOFS
+        "agent.node.env.NETWORK"       = var.NETWORK
       }
-      boot_node_path = "node.node.env.BOOT_NODE_HOST"
+      boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"
+      bootstrap_nodes_path = "node.node.env.BOOTSTRAP_NODES"
     }
 
     rpc = {
@@ -123,15 +142,19 @@ locals {
         "rpc.yaml",
         "rpc-resources-${var.RPC_RESOURCE_PROFILE}.yaml"
       ]
-      custom_settings = {}
-      boot_node_path  = "node.env.BOOT_NODE_HOST"
+      custom_settings = {
+        "nodeType"         = "rpc"
+        "node.env.NETWORK" = var.NETWORK
+      }
+      boot_node_host_path  = "node.env.BOOT_NODE_HOST"
+      bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
     }
   }
 }
 
 # Create all helm releases using for_each
 resource "helm_release" "releases" {
-  for_each = local.helm_releases
+  for_each = { for k, v in local.helm_releases : k => v if v != null }
 
   provider         = helm.gke-cluster
   name             = each.value.name
@@ -143,30 +166,25 @@ resource "helm_release" "releases" {
   force_update     = true
   recreate_pods    = true
   reuse_values     = true
-  timeout          = 300
-  wait             = false
-  wait_for_jobs    = false
+  timeout          = 600
+  wait             = true
+  wait_for_jobs    = true
 
   values = [for v in each.value.values : file("./values/${v}")]
 
   # Common settings
   dynamic "set" {
-    for_each = merge(
+    for_each = { for k, v in merge(
       local.common_settings,
       each.value.custom_settings,
       # Add boot node if needed
-      each.value.boot_node_path != "" ? {
-        (each.value.boot_node_path) = local.boot_node_url
+      each.value.boot_node_host_path != "" && local.internal_boot_node_url != "" ? {
+        (each.value.boot_node_host_path) = local.internal_boot_node_url
       } : {},
-      # Add OTEL endpoint if configured and not p2p_bootstrap
-      (var.OTEL_COLLECTOR_ENDPOINT != "" && each.key != "p2p_bootstrap") ? {
-        "global.otelCollectorEndpoint" = var.OTEL_COLLECTOR_ENDPOINT
-      } : {},
-      # Add RPC ingress annotation if needed
-      (each.key == "rpc" && var.RPC_EXTERNAL_INGRESS && length(google_compute_address.rpc_ingress) > 0) ? {
-        "service.ingress.annotations.networking\\.gke\\.io\\/load-balancer-ip-addresses" = google_compute_address.rpc_ingress[0].name
+      each.value.bootstrap_nodes_path != "" && length(var.EXTERNAL_BOOTNODES) > 0 ? {
+        (each.value.bootstrap_nodes_path) = join(",", var.EXTERNAL_BOOTNODES)
       } : {}
-    )
+    ) : k => v if v != null }
     content {
       name  = set.key
       value = set.value
@@ -175,7 +193,7 @@ resource "helm_release" "releases" {
 
   # Common list settings
   dynamic "set_list" {
-    for_each = local.common_list_settings
+    for_each = { for k, v in local.common_list_settings : k => v if v != null }
     content {
       name  = set_list.key
       value = set_list.value
@@ -183,10 +201,3 @@ resource "helm_release" "releases" {
   }
 }
 
-# Keep the Google Compute Address as separate resource
-resource "google_compute_address" "rpc_ingress" {
-  count        = var.RPC_EXTERNAL_INGRESS ? 1 : 0
-  provider     = google
-  name         = "${var.NAMESPACE}-${var.RELEASE_PREFIX}-rpc-ingress"
-  address_type = "EXTERNAL"
-}

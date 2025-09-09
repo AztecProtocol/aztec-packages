@@ -74,7 +74,7 @@ export class PublicTxSimulator {
       this.log.debug(`Simulating ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, { txHash });
 
       // Create hinting DBs.
-      const hints = new AvmExecutionHints(this.globalVariables, AvmTxHint.fromTx(tx));
+      const hints = new AvmExecutionHints(this.globalVariables, AvmTxHint.fromTx(tx, this.globalVariables.gasFees));
       const hintingMerkleTree = await HintingMerkleWriteOperations.create(this.merkleTree, hints);
       const hintingTreesDB = new PublicTreesDB(hintingMerkleTree);
       const hintingContractsDB = new HintingPublicContractsDB(this.contractsDB, hints);

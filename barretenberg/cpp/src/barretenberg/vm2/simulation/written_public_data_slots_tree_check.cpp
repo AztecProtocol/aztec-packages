@@ -121,7 +121,7 @@ void WrittenPublicDataSlotsTreeCheck::insert(const AztecAddress& contract_addres
     });
 }
 
-AppendOnlyTreeSnapshot WrittenPublicDataSlotsTreeCheck::snapshot() const
+AppendOnlyTreeSnapshot WrittenPublicDataSlotsTreeCheck::get_snapshot() const
 {
     return written_public_data_slots_tree_stack.top().get_snapshot();
 }

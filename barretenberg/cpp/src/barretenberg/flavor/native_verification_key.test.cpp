@@ -105,5 +105,5 @@ TYPED_TEST(NativeVerificationKeyTests, VKSizeCheck)
     using VerificationKey = typename Flavor::VerificationKey;
 
     VerificationKey vk(TestFixture::create_vk());
-    EXPECT_EQ(vk.to_field_elements().size(), VerificationKey::VERIFICATION_KEY_LENGTH);
+    EXPECT_EQ(vk.to_field_elements().size(), VerificationKey::calc_num_data_types());
 }

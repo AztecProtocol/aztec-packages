@@ -32,6 +32,9 @@ describe('AVM simulator apps tests: AvmTestContract', () => {
   });
 
   it('bulk testing', async () => {
+    // Needed since we invoke the Fee Juice Contract in the bulk test.registerFeeJuiceContract
+    await simTester.registerFeeJuiceContract();
+
     // Get a deployed contract instance to pass to the contract
     // for it to use as "expected" values when testing contract instance retrieval.
     const expectContractInstance = instances[1];

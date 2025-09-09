@@ -31,7 +31,6 @@
 #include "barretenberg/vm2/generated/relations/lookups_l1_to_l2_message_exists.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_notehash_exists.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_nullifier_exists.hpp"
-#include "barretenberg/vm2/generated/relations/lookups_registers.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_send_l2_to_l1_msg.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sload.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sstore.hpp"
@@ -89,12 +88,6 @@ constexpr std::array<Column, AVM_MAX_OPERANDS> OPERAND_IS_RELATIVE_EFFECTIVE_COL
     C::execution_sel_op_is_relative_effective_2_, C::execution_sel_op_is_relative_effective_3_,
     C::execution_sel_op_is_relative_effective_4_, C::execution_sel_op_is_relative_effective_5_,
     C::execution_sel_op_is_relative_effective_6_,
-};
-constexpr std::array<Column, AVM_MAX_OPERANDS> OPERAND_RELATIVE_OOB_CHECK_DIFF_COLUMNS = {
-    C::execution_overflow_range_check_result_0_, C::execution_overflow_range_check_result_1_,
-    C::execution_overflow_range_check_result_2_, C::execution_overflow_range_check_result_3_,
-    C::execution_overflow_range_check_result_4_, C::execution_overflow_range_check_result_5_,
-    C::execution_overflow_range_check_result_6_,
 };
 
 constexpr size_t TOTAL_INDIRECT_BITS = 16;
@@ -415,6 +408,15 @@ void ExecutionTraceBuilder::process(
                 { C::execution_num_note_hashes_emitted, ex_event.after_context_event.tree_states.noteHashTree.counter },
                 // Context - tree states - L1 to L2 message tree
                 { C::execution_l1_l2_tree_root, ex_event.after_context_event.tree_states.l1ToL2MessageTree.tree.root },
+                // Context - tree states - Retrieved bytecodes tree
+                { C::execution_prev_retrieved_bytecodes_tree_root,
+                  ex_event.before_context_event.retrieved_bytecodes_tree_snapshot.root },
+                { C::execution_prev_retrieved_bytecodes_tree_size,
+                  ex_event.before_context_event.retrieved_bytecodes_tree_snapshot.nextAvailableLeafIndex },
+                { C::execution_retrieved_bytecodes_tree_root,
+                  ex_event.after_context_event.retrieved_bytecodes_tree_snapshot.root },
+                { C::execution_retrieved_bytecodes_tree_size,
+                  ex_event.after_context_event.retrieved_bytecodes_tree_snapshot.nextAvailableLeafIndex },
                 // Context - side effects
                 { C::execution_prev_num_unencrypted_logs,
                   ex_event.before_context_event.side_effect_states.numUnencryptedLogs },
@@ -424,8 +426,6 @@ void ExecutionTraceBuilder::process(
                   ex_event.before_context_event.side_effect_states.numL2ToL1Messages },
                 { C::execution_num_l2_to_l1_messages,
                   ex_event.after_context_event.side_effect_states.numL2ToL1Messages },
-                // Other.
-                { C::execution_bytecode_id, ex_event.before_context_event.bytecode_id },
                 // Helpers for identifying parent context
                 { C::execution_has_parent_ctx, has_parent ? 1 : 0 },
                 { C::execution_is_parent_id_inv, cached_parent_id_inv },
@@ -443,12 +443,12 @@ void ExecutionTraceBuilder::process(
          *  Temporality group 1: Bytecode retrieval.
          **************************************************************************************************/
 
-        bool bytecode_retrieval_failed = ex_event.error == ExecutionError::BYTECODE_NOT_FOUND;
+        bool bytecode_retrieval_failed = ex_event.error == ExecutionError::BYTECODE_RETRIEVAL;
         trace.set(row,
                   { {
                       { C::execution_sel_bytecode_retrieval_failure, bytecode_retrieval_failed ? 1 : 0 },
                       { C::execution_sel_bytecode_retrieval_success, !bytecode_retrieval_failed ? 1 : 0 },
-                      { C::execution_bytecode_id, ex_event.before_context_event.bytecode_id },
+                      { C::execution_bytecode_id, ex_event.after_context_event.bytecode_id },
                   } });
 
         /**************************************************************************************************
@@ -594,26 +594,19 @@ void ExecutionTraceBuilder::process(
 
                 uint32_t allocated_l2_gas = registers[0].as<uint32_t>();
                 bool is_l2_gas_allocated_lt_left = allocated_l2_gas < gas_left.l2Gas;
-                uint32_t allocated_left_l2_cmp_diff = is_l2_gas_allocated_lt_left
-                                                          ? gas_left.l2Gas - allocated_l2_gas - 1
-                                                          : allocated_l2_gas - gas_left.l2Gas;
 
                 uint32_t allocated_da_gas = registers[1].as<uint32_t>();
                 bool is_da_gas_allocated_lt_left = allocated_da_gas < gas_left.daGas;
-                uint32_t allocated_left_da_cmp_diff = is_da_gas_allocated_lt_left
-                                                          ? gas_left.daGas - allocated_da_gas - 1
-                                                          : allocated_da_gas - gas_left.daGas;
 
                 trace.set(row,
                           { {
                               { C::execution_sel_enter_call, sel_enter_call ? 1 : 0 },
                               { C::execution_sel_execute_call, should_execute_call ? 1 : 0 },
                               { C::execution_sel_execute_static_call, should_execute_static_call ? 1 : 0 },
-                              { C::execution_constant_32, 32 },
+                              { C::execution_l2_gas_left, gas_left.l2Gas },
+                              { C::execution_da_gas_left, gas_left.daGas },
                               { C::execution_call_is_l2_gas_allocated_lt_left, is_l2_gas_allocated_lt_left },
-                              { C::execution_call_allocated_left_l2_cmp_diff, allocated_left_l2_cmp_diff },
                               { C::execution_call_is_da_gas_allocated_lt_left, is_da_gas_allocated_lt_left },
-                              { C::execution_call_allocated_left_da_cmp_diff, allocated_left_da_cmp_diff },
                           } });
             }
             // Separate if-statement for opcodes.
@@ -883,12 +876,12 @@ void ExecutionTraceBuilder::process_gas(const simulation::GasEvent& gas_event,
                   { C::execution_sel_out_of_gas, oog ? 1 : 0 },
                   // Base gas.
                   { C::execution_addressing_gas, gas_event.addressing_gas },
-                  { C::execution_limit_used_l2_cmp_diff, gas_event.limit_used_l2_comparison_witness },
-                  { C::execution_limit_used_da_cmp_diff, gas_event.limit_used_da_comparison_witness },
-                  { C::execution_constant_64, 64 },
                   // Dynamic gas.
                   { C::execution_dynamic_l2_gas_factor, gas_event.dynamic_gas_factor.l2Gas },
                   { C::execution_dynamic_da_gas_factor, gas_event.dynamic_gas_factor.daGas },
+                  // Derived cumulative gas used.
+                  { C::execution_total_gas_l2, gas_event.total_gas_used_l2 },
+                  { C::execution_total_gas_da, gas_event.total_gas_used_da },
               } });
 
     const auto& exec_spec = EXEC_INSTRUCTION_SPEC.at(exec_opcode);
@@ -943,18 +936,12 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
 
     // Set the operand columns.
     for (size_t i = 0; i < AVM_MAX_OPERANDS; i++) {
-        FF relative_oob_check_diff = 0;
-        if (is_relative_effective[i]) {
-            relative_oob_check_diff =
-                !relative_oob[i] ? FF(1ULL << 32) - after_relative[i] - 1 : after_relative[i] - FF(1ULL << 32);
-        }
         trace.set(row,
                   { {
                       { OPERAND_RELATIVE_OVERFLOW_COLUMNS[i], relative_oob[i] ? 1 : 0 },
                       { OPERAND_AFTER_RELATIVE_COLUMNS[i], after_relative[i] },
                       { OPERAND_SHOULD_APPLY_INDIRECTION_COLUMNS[i], should_apply_indirection[i] ? 1 : 0 },
                       { OPERAND_IS_RELATIVE_EFFECTIVE_COLUMNS[i], is_relative_effective[i] ? 1 : 0 },
-                      { OPERAND_RELATIVE_OOB_CHECK_DIFF_COLUMNS[i], relative_oob_check_diff },
                       { RESOLVED_OPERAND_COLUMNS[i], resolved_operand[i] },
                       { RESOLVED_OPERAND_TAG_COLUMNS[i], resolved_operand_tag[i] },
                   } });
@@ -1033,8 +1020,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                   { C::execution_sel_base_address_failure, base_address_invalid ? 1 : 0 },
                   { C::execution_num_relative_operands_inv, do_base_check ? FF(num_relative_operands).invert() : 0 },
                   { C::execution_sel_do_base_check, do_base_check ? 1 : 0 },
-                  { C::execution_constant_32, 32 },
-                  { C::execution_two_to_32, 1ULL << 32 },
+                  { C::execution_highest_address, AVM_HIGHEST_MEM_ADDRESS },
               } });
 }
 
@@ -1159,28 +1145,20 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_execution_instruction_fetching_result_settings, InteractionType::LookupGeneric>()
         .add<lookup_execution_instruction_fetching_body_settings, InteractionType::LookupGeneric>()
         // Addressing
-        .add<lookup_addressing_relative_overflow_range_0_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_range_1_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_range_2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_range_3_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_range_4_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_range_5_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_range_6_settings, InteractionType::LookupGeneric>()
-        // Registers
-        .add<lookup_registers_mem_op_0_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_1_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_3_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_4_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_5_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_6_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_result_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_result_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_result_2_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_result_3_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_result_4_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_result_5_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_result_6_settings, InteractionType::LookupGeneric>()
         // Internal Call Stack
         .add<lookup_internal_call_push_call_stack_settings_, InteractionType::LookupSequential>()
         .add<lookup_internal_call_unwind_call_stack_settings_, InteractionType::LookupGeneric>()
         // Gas
         .add<lookup_gas_addressing_gas_read_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_gas_limit_used_l2_range_settings, InteractionType::LookupGeneric>()
-        .add<lookup_gas_limit_used_da_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_gas_is_out_of_gas_l2_settings, InteractionType::LookupGeneric>()
+        .add<lookup_gas_is_out_of_gas_da_settings, InteractionType::LookupGeneric>()
         .add<lookup_execution_dyn_l2_factor_bitwise_settings, InteractionType::LookupGeneric>()
         // Gas - ToRadix BE
         .add<lookup_execution_check_radix_gt_256_settings, InteractionType::LookupGeneric>()
@@ -1191,8 +1169,8 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_context_ctx_stack_rollback_settings, InteractionType::LookupGeneric>()
         .add<lookup_context_ctx_stack_return_settings, InteractionType::LookupGeneric>()
         // External Call
-        .add<lookup_external_call_call_allocated_left_l2_range_settings, InteractionType::LookupGeneric>()
-        .add<lookup_external_call_call_allocated_left_da_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_external_call_call_is_l2_gas_allocated_lt_left_settings, InteractionType::LookupGeneric>()
+        .add<lookup_external_call_call_is_da_gas_allocated_lt_left_settings, InteractionType::LookupGeneric>()
         // Dispatch to gadget sub-traces
         .add<perm_execution_dispatch_keccakf1600_settings, InteractionType::Permutation>()
         // GetEnvVar opcode

@@ -10,11 +10,8 @@ import { basename, dirname, join } from 'path';
 import type { UltraHonkFlavor } from '../honk.js';
 
 export const VK_FILENAME = 'vk';
-export const VK_FIELDS_FILENAME = 'vk_fields.json';
 export const PUBLIC_INPUTS_FILENAME = 'public_inputs';
-export const PUBLIC_INPUTS_FIELDS_FILENAME = 'public_inputs_fields.json';
 export const PROOF_FILENAME = 'proof';
-export const PROOF_FIELDS_FILENAME = 'proof_fields.json';
 export const AVM_INPUTS_FILENAME = 'avm_inputs.bin';
 export const AVM_BYTECODE_FILENAME = 'avm_bytecode.bin';
 export const AVM_PUBLIC_INPUTS_FILENAME = 'avm_public_inputs.bin';
@@ -217,6 +214,7 @@ export async function generateProof(
   workingDirectory: string,
   circuitName: string,
   bytecode: Buffer,
+  verificationKey: Buffer,
   inputWitnessFile: string,
   flavor: UltraHonkFlavor,
   log: Logger,
@@ -230,6 +228,7 @@ export async function generateProof(
 
   // The bytecode is written to e.g. /workingDirectory/BaseParityArtifact-bytecode
   const bytecodePath = `${workingDirectory}/${circuitName}-bytecode`;
+  const vkPath = `${workingDirectory}/${circuitName}-vk`;
 
   // The proof is written to e.g. /workingDirectory/ultra_honk/proof
   const outputPath = `${workingDirectory}`;
@@ -243,18 +242,16 @@ export async function generateProof(
   }
 
   try {
-    // Write the bytecode to the working directory
-    await fs.writeFile(bytecodePath, bytecode);
-    // TODO(#15043): Avoid write_vk flag here.
+    // Write the bytecode and vk to the working directory
+    await Promise.all([fs.writeFile(bytecodePath, bytecode), fs.writeFile(vkPath, verificationKey)]);
     const args = getArgs(flavor).concat([
       '--disable_zk',
-      '--output_format',
-      'bytes_and_fields',
-      '--write_vk',
       '-o',
       outputPath,
       '-b',
       bytecodePath,
+      '-k',
+      vkPath,
       '-w',
       inputWitnessFile,
       '-v',

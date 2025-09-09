@@ -27,8 +27,5 @@ namespace bb::avm2 {
 
 INSTANTIATE_LOOKUP(lookup_ecc_mem_check_dst_addr_in_range_relation);
 INSTANTIATE_LOOKUP(lookup_ecc_mem_input_output_ecc_add_relation);
-INSTANTIATE_LOOKUP(lookup_ecc_mem_write_mem_0_relation);
-INSTANTIATE_LOOKUP(lookup_ecc_mem_write_mem_1_relation);
-INSTANTIATE_LOOKUP(lookup_ecc_mem_write_mem_2_relation);
 
 } // namespace bb::avm2

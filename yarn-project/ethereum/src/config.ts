@@ -103,6 +103,20 @@ const LocalGovernanceConfiguration = {
   minimumVotes: 400n * 10n ** 18n,
 };
 
+const StagingPublicGovernanceConfiguration = {
+  proposeConfig: {
+    lockDelay: 60n * 60n * 24n * 30n,
+    lockAmount: DefaultL1ContractsConfig.activationThreshold * 100n,
+  },
+  votingDelay: 60n,
+  votingDuration: 60n * 60n,
+  executionDelay: 60n,
+  gracePeriod: 60n * 60n * 24n * 7n,
+  quorum: 3n * 10n ** 17n, // 30%
+  requiredYeaMargin: 4n * 10n ** 16n, // 4%
+  minimumVotes: DefaultL1ContractsConfig.ejectionThreshold * 200n, // >= 200 validators must vote
+};
+
 const TestnetGovernanceConfiguration = {
   proposeConfig: {
     lockDelay: 60n * 60n * 24n,
@@ -117,16 +131,34 @@ const TestnetGovernanceConfiguration = {
   minimumVotes: DefaultL1ContractsConfig.ejectionThreshold * 200n,
 };
 
-export const getGovernanceConfiguration = (networkName: NetworkNames) => {
-  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
-    return TestnetGovernanceConfiguration;
-  }
-  return LocalGovernanceConfiguration;
+const StagingIgnitionGovernanceConfiguration = {
+  proposeConfig: {
+    lockDelay: 60n * 60n * 24n * 30n, // 30 days
+    lockAmount: DefaultL1ContractsConfig.activationThreshold * 100n,
+  },
+
+  votingDelay: 60n,
+  votingDuration: 60n * 60n,
+  executionDelay: 60n,
+  gracePeriod: 60n * 60n * 24n * 7n,
+  quorum: 3n * 10n ** 17n, // 30%
+  requiredYeaMargin: 4n * 10n ** 16n, // 4%
+  minimumVotes: DefaultL1ContractsConfig.ejectionThreshold * 200n, // >= 200 validators must vote
 };
 
-const TestnetGSEConfiguration = {
-  activationThreshold: BigInt(100e18),
-  ejectionThreshold: BigInt(50e18),
+export const getGovernanceConfiguration = (networkName: NetworkNames) => {
+  switch (networkName) {
+    case 'local':
+      return LocalGovernanceConfiguration;
+    case 'staging-public':
+      return StagingPublicGovernanceConfiguration;
+    case 'testnet':
+      return TestnetGovernanceConfiguration;
+    case 'staging-ignition':
+      return StagingIgnitionGovernanceConfiguration;
+    default:
+      throw new Error(`Unrecognized network name: ${networkName}`);
+  }
 };
 
 const LocalGSEConfiguration = {
@@ -134,24 +166,41 @@ const LocalGSEConfiguration = {
   ejectionThreshold: BigInt(50e18),
 };
 
+const StagingPublicGSEConfiguration = {
+  activationThreshold: DefaultL1ContractsConfig.activationThreshold,
+  ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
+};
+
+const TestnetGSEConfiguration = {
+  activationThreshold: BigInt(100e18),
+  ejectionThreshold: BigInt(50e18),
+};
+
+const StagingIgnitionGSEConfiguration = {
+  activationThreshold: DefaultL1ContractsConfig.activationThreshold,
+  ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
+};
+
 export const getGSEConfiguration = (networkName: NetworkNames) => {
-  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
-    return TestnetGSEConfiguration;
+  switch (networkName) {
+    case 'local':
+      return LocalGSEConfiguration;
+    case 'staging-public':
+      return StagingPublicGSEConfiguration;
+    case 'testnet':
+      return TestnetGSEConfiguration;
+    case 'staging-ignition':
+      return StagingIgnitionGSEConfiguration;
+    default:
+      throw new Error(`Unrecognized network name: ${networkName}`);
   }
-  return LocalGSEConfiguration;
 };
 
 // Making a default config here as we are only using it thought the deployment
 // and do not expect to be using different setups, so having environment variables
 // for it seems overkill
-const LocalRewardConfig = {
-  sequencerBps: 5000,
-  rewardDistributor: EthAddress.ZERO.toString(),
-  booster: EthAddress.ZERO.toString(),
-  blockReward: BigInt(50e18),
-};
 
-const TestnetRewardConfig = {
+const DefaultRewardConfig = {
   sequencerBps: 5000,
   rewardDistributor: EthAddress.ZERO.toString(),
   booster: EthAddress.ZERO.toString(),
@@ -159,13 +208,26 @@ const TestnetRewardConfig = {
 };
 
 export const getRewardConfig = (networkName: NetworkNames) => {
-  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
-    return TestnetRewardConfig;
+  switch (networkName) {
+    case 'local':
+    case 'staging-public':
+    case 'testnet':
+    case 'staging-ignition':
+      return DefaultRewardConfig;
+    default:
+      throw new Error(`Unrecognized network name: ${networkName}`);
   }
-  return LocalRewardConfig;
 };
 
 const LocalRewardBoostConfig = {
+  increment: 200000,
+  maxScore: 5000000,
+  a: 5000,
+  k: 1000000,
+  minimum: 100000,
+};
+
+const StagingPublicRewardBoostConfig = {
   increment: 200000,
   maxScore: 5000000,
   a: 5000,
@@ -181,11 +243,27 @@ const TestnetRewardBoostConfig = {
   minimum: 100000,
 };
 
+const StagingIgnitionRewardBoostConfig = {
+  increment: 200000,
+  maxScore: 5000000,
+  a: 5000,
+  k: 1000000,
+  minimum: 100000,
+};
+
 export const getRewardBoostConfig = (networkName: NetworkNames) => {
-  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
-    return TestnetRewardBoostConfig;
+  switch (networkName) {
+    case 'local':
+      return LocalRewardBoostConfig;
+    case 'staging-public':
+      return StagingPublicRewardBoostConfig;
+    case 'testnet':
+      return TestnetRewardBoostConfig;
+    case 'staging-ignition':
+      return StagingIgnitionRewardBoostConfig;
+    default:
+      throw new Error(`Unrecognized network name: ${networkName}`);
   }
-  return LocalRewardBoostConfig;
 };
 
 // Similar to the above, no need for environment variables for this.
@@ -194,22 +272,46 @@ const LocalEntryQueueConfig = {
   bootstrapFlushSize: 0n,
   normalFlushSizeMin: 48n, // will effectively be bounded by maxQueueFlushSize
   normalFlushSizeQuotient: 2n,
-  maxQueueFlushSize: 48n,
+  maxQueueFlushSize: 32n,
+};
+
+const StagingPublicEntryQueueConfig = {
+  bootstrapValidatorSetSize: 48n,
+  bootstrapFlushSize: 48n, // will effectively be bounded by maxQueueFlushSize
+  normalFlushSizeMin: 1n,
+  normalFlushSizeQuotient: 2475n,
+  maxQueueFlushSize: 32n, // Limited to 32 so flush cost are kept below 15M gas.
 };
 
 const TestnetEntryQueueConfig = {
   bootstrapValidatorSetSize: 750n,
-  bootstrapFlushSize: 75n, // will effectively be bounded by maxQueueFlushSize
+  bootstrapFlushSize: 48n, // will effectively be bounded by maxQueueFlushSize
+  normalFlushSizeMin: 1n,
+  normalFlushSizeQuotient: 2475n,
+  maxQueueFlushSize: 32n, // Limited to 32 so flush cost are kept below 15M gas.
+};
+
+const StagingIgnitionEntryQueueConfig = {
+  bootstrapValidatorSetSize: 750n,
+  bootstrapFlushSize: 48n, // will effectively be bounded by maxQueueFlushSize
   normalFlushSizeMin: 1n,
   normalFlushSizeQuotient: 2475n,
   maxQueueFlushSize: 32n, // Limited to 32 so flush cost are kept below 15M gas.
 };
 
 export const getEntryQueueConfig = (networkName: NetworkNames) => {
-  if (networkName === 'alpha-testnet' || networkName === 'testnet') {
-    return TestnetEntryQueueConfig;
+  switch (networkName) {
+    case 'local':
+      return LocalEntryQueueConfig;
+    case 'staging-public':
+      return StagingPublicEntryQueueConfig;
+    case 'testnet':
+      return TestnetEntryQueueConfig;
+    case 'staging-ignition':
+      return StagingIgnitionEntryQueueConfig;
+    default:
+      throw new Error(`Unrecognized network name: ${networkName}`);
   }
-  return LocalEntryQueueConfig;
 };
 
 export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = {
@@ -423,78 +525,7 @@ export function validateConfig(config: Omit<L1ContractsConfig, keyof L1TxUtilsCo
 
   // TallySlashingProposer constructor validations
   if (config.slasherFlavor === 'tally') {
-    // From: require(SLASH_OFFSET_IN_ROUNDS > 0, Errors.TallySlashingProposer__SlashOffsetMustBeGreaterThanZero(...));
-    if (config.slashingOffsetInRounds <= 0) {
-      errors.push(`slashingOffsetInRounds (${config.slashingOffsetInRounds}) must be greater than 0`);
-    }
-
-    // From: require(ROUND_SIZE_IN_EPOCHS * _epochDuration == ROUND_SIZE, Errors.TallySlashingProposer__RoundSizeMustBeMultipleOfEpochDuration(...));
-    const roundSizeInSlots = config.slashingRoundSizeInEpochs * config.aztecEpochDuration;
-
-    // From: require(QUORUM > 0, Errors.TallySlashingProposer__QuorumMustBeGreaterThanZero());
-    if (slashingQuorum !== undefined && slashingQuorum <= 0) {
-      errors.push(`slashingQuorum (${slashingQuorum}) must be greater than 0`);
-    }
-
-    // From: require(ROUND_SIZE > 1, Errors.TallySlashingProposer__InvalidQuorumAndRoundSize(QUORUM, ROUND_SIZE));
-    if (roundSizeInSlots <= 1) {
-      errors.push(`slashing round size in slots (${roundSizeInSlots}) must be greater than 1`);
-    }
-
-    // From: require(_slashAmounts[0] <= _slashAmounts[1], Errors.TallySlashingProposer__InvalidSlashAmounts(_slashAmounts));
-    if (config.slashAmountSmall > config.slashAmountMedium) {
-      errors.push(
-        `slashAmountSmall (${config.slashAmountSmall}) must be less than or equal to slashAmountMedium (${config.slashAmountMedium})`,
-      );
-    }
-
-    // From: require(_slashAmounts[1] <= _slashAmounts[2], Errors.TallySlashingProposer__InvalidSlashAmounts(_slashAmounts));
-    if (config.slashAmountMedium > config.slashAmountLarge) {
-      errors.push(
-        `slashAmountMedium (${config.slashAmountMedium}) must be less than or equal to slashAmountLarge (${config.slashAmountLarge})`,
-      );
-    }
-
-    // From: require(LIFETIME_IN_ROUNDS < ROUNDABOUT_SIZE, Errors.TallySlashingProposer__LifetimeMustBeLessThanRoundabout(...));
-    const ROUNDABOUT_SIZE = 128; // Constant from TallySlashingProposer
-    if (config.slashingLifetimeInRounds >= ROUNDABOUT_SIZE) {
-      errors.push(`slashingLifetimeInRounds (${config.slashingLifetimeInRounds}) must be less than ${ROUNDABOUT_SIZE}`);
-    }
-
-    // From: require(ROUND_SIZE_IN_EPOCHS > 0, Errors.TallySlashingProposer__RoundSizeInEpochsMustBeGreaterThanZero(...));
-    if (config.slashingRoundSizeInEpochs <= 0) {
-      errors.push(`slashingRoundSizeInEpochs (${config.slashingRoundSizeInEpochs}) must be greater than 0`);
-    }
-
-    // From: require(ROUND_SIZE < MAX_ROUND_SIZE, Errors.TallySlashingProposer__RoundSizeTooLarge(ROUND_SIZE, MAX_ROUND_SIZE));
-    const MAX_ROUND_SIZE = 1024; // Constant from TallySlashingProposer
-    if (roundSizeInSlots >= MAX_ROUND_SIZE) {
-      errors.push(`slashing round size in slots (${roundSizeInSlots}) must be less than ${MAX_ROUND_SIZE}`);
-    }
-
-    // From: require(COMMITTEE_SIZE > 0, Errors.TallySlashingProposer__CommitteeSizeMustBeGreaterThanZero(COMMITTEE_SIZE));
-    if (config.aztecTargetCommitteeSize <= 0) {
-      errors.push(`aztecTargetCommitteeSize (${config.aztecTargetCommitteeSize}) must be greater than 0`);
-    }
-
-    // From: require(voteSize <= 128, Errors.TallySlashingProposer__VoteSizeTooBig(voteSize, 128));
-    // voteSize = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 4
-    const voteSize = (config.aztecTargetCommitteeSize * config.slashingRoundSizeInEpochs) / 4;
-    if (voteSize > 128) {
-      errors.push(`vote size (${voteSize}) must be <= 128 (committee size * round size in epochs / 4)`);
-    }
-
-    // From: require(COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS % 4 == 0, Errors.TallySlashingProposer__InvalidCommitteeAndRoundSize(...));
-    if ((config.aztecTargetCommitteeSize * config.slashingRoundSizeInEpochs) % 4 !== 0) {
-      errors.push(
-        `aztecTargetCommitteeSize * slashingRoundSizeInEpochs (${config.aztecTargetCommitteeSize * config.slashingRoundSizeInEpochs}) must be divisible by 4`,
-      );
-    }
-
-    // Slashing offset validation: should be positive to allow proper slashing timing
-    if (config.slashingOffsetInRounds < 0) {
-      errors.push('slashingOffsetInRounds cannot be negative');
-    }
+    validateTallySlasherConfig(config, errors);
   }
 
   // Epoch and slot duration validations
@@ -539,5 +570,85 @@ export function validateConfig(config: Omit<L1ContractsConfig, keyof L1TxUtilsCo
     throw new Error(
       `L1 contracts configuration validation failed with ${errors.length} error(s):\n${errors.map((error, index) => `${index + 1}. ${error}`).join('\n')}`,
     );
+  }
+}
+
+function validateTallySlasherConfig(config: L1ContractsConfig, errors: string[]) {
+  if (config.slasherFlavor !== 'tally') {
+    return;
+  }
+
+  // From: require(SLASH_OFFSET_IN_ROUNDS > 0, Errors.TallySlashingProposer__SlashOffsetMustBeGreaterThanZero(...));
+  if (config.slashingOffsetInRounds <= 0) {
+    errors.push(`slashingOffsetInRounds (${config.slashingOffsetInRounds}) must be greater than 0`);
+  }
+
+  // From: require(ROUND_SIZE_IN_EPOCHS * _epochDuration == ROUND_SIZE, Errors.TallySlashingProposer__RoundSizeMustBeMultipleOfEpochDuration(...));
+  const roundSizeInSlots = config.slashingRoundSizeInEpochs * config.aztecEpochDuration;
+
+  // From: require(QUORUM > 0, Errors.TallySlashingProposer__QuorumMustBeGreaterThanZero());
+  const { slashingQuorum } = config;
+  if (slashingQuorum !== undefined && slashingQuorum <= 0) {
+    errors.push(`slashingQuorum (${slashingQuorum}) must be greater than 0`);
+  }
+
+  // From: require(ROUND_SIZE > 1, Errors.TallySlashingProposer__InvalidQuorumAndRoundSize(QUORUM, ROUND_SIZE));
+  if (roundSizeInSlots <= 1) {
+    errors.push(`slashing round size in slots (${roundSizeInSlots}) must be greater than 1`);
+  }
+
+  // From: require(_slashAmounts[0] <= _slashAmounts[1], Errors.TallySlashingProposer__InvalidSlashAmounts(_slashAmounts));
+  if (config.slashAmountSmall > config.slashAmountMedium) {
+    errors.push(
+      `slashAmountSmall (${config.slashAmountSmall}) must be less than or equal to slashAmountMedium (${config.slashAmountMedium})`,
+    );
+  }
+
+  // From: require(_slashAmounts[1] <= _slashAmounts[2], Errors.TallySlashingProposer__InvalidSlashAmounts(_slashAmounts));
+  if (config.slashAmountMedium > config.slashAmountLarge) {
+    errors.push(
+      `slashAmountMedium (${config.slashAmountMedium}) must be less than or equal to slashAmountLarge (${config.slashAmountLarge})`,
+    );
+  }
+
+  // From: require(LIFETIME_IN_ROUNDS < ROUNDABOUT_SIZE, Errors.TallySlashingProposer__LifetimeMustBeLessThanRoundabout(...));
+  const ROUNDABOUT_SIZE = 128; // Constant from TallySlashingProposer
+  if (config.slashingLifetimeInRounds >= ROUNDABOUT_SIZE) {
+    errors.push(`slashingLifetimeInRounds (${config.slashingLifetimeInRounds}) must be less than ${ROUNDABOUT_SIZE}`);
+  }
+
+  // From: require(ROUND_SIZE_IN_EPOCHS > 0, Errors.TallySlashingProposer__RoundSizeInEpochsMustBeGreaterThanZero(...));
+  if (config.slashingRoundSizeInEpochs <= 0) {
+    errors.push(`slashingRoundSizeInEpochs (${config.slashingRoundSizeInEpochs}) must be greater than 0`);
+  }
+
+  // From: require(ROUND_SIZE < MAX_ROUND_SIZE, Errors.TallySlashingProposer__RoundSizeTooLarge(ROUND_SIZE, MAX_ROUND_SIZE));
+  const MAX_ROUND_SIZE = 1024; // Constant from TallySlashingProposer
+  if (roundSizeInSlots >= MAX_ROUND_SIZE) {
+    errors.push(`slashing round size in slots (${roundSizeInSlots}) must be less than ${MAX_ROUND_SIZE}`);
+  }
+
+  // From: require(COMMITTEE_SIZE > 0, Errors.TallySlashingProposer__CommitteeSizeMustBeGreaterThanZero(COMMITTEE_SIZE));
+  if (config.aztecTargetCommitteeSize <= 0) {
+    errors.push(`aztecTargetCommitteeSize (${config.aztecTargetCommitteeSize}) must be greater than 0`);
+  }
+
+  // From: require(voteSize <= 128, Errors.TallySlashingProposer__VoteSizeTooBig(voteSize, 128));
+  // voteSize = COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS / 4
+  const voteSize = (config.aztecTargetCommitteeSize * config.slashingRoundSizeInEpochs) / 4;
+  if (voteSize > 128) {
+    errors.push(`vote size (${voteSize}) must be <= 128 (committee size * round size in epochs / 4)`);
+  }
+
+  // From: require(COMMITTEE_SIZE * ROUND_SIZE_IN_EPOCHS % 4 == 0, Errors.TallySlashingProposer__InvalidCommitteeAndRoundSize(...));
+  if ((config.aztecTargetCommitteeSize * config.slashingRoundSizeInEpochs) % 4 !== 0) {
+    errors.push(
+      `aztecTargetCommitteeSize * slashingRoundSizeInEpochs (${config.aztecTargetCommitteeSize * config.slashingRoundSizeInEpochs}) must be divisible by 4`,
+    );
+  }
+
+  // Slashing offset validation: should be positive to allow proper slashing timing
+  if (config.slashingOffsetInRounds < 0) {
+    errors.push('slashingOffsetInRounds cannot be negative');
   }
 }

@@ -50,6 +50,7 @@
 #include "relations/public_data_squash.hpp"
 #include "relations/range_check.hpp"
 #include "relations/registers.hpp"
+#include "relations/retrieved_bytecodes_tree_check.hpp"
 #include "relations/scalar_mul.hpp"
 #include "relations/send_l2_to_l1_msg.hpp"
 #include "relations/sha256.hpp"
@@ -96,6 +97,7 @@
 #include "relations/lookups_keccakf1600.hpp"
 #include "relations/lookups_l1_to_l2_message_exists.hpp"
 #include "relations/lookups_l1_to_l2_message_tree_check.hpp"
+#include "relations/lookups_memory.hpp"
 #include "relations/lookups_merkle_check.hpp"
 #include "relations/lookups_note_hash_tree_check.hpp"
 #include "relations/lookups_notehash_exists.hpp"
@@ -105,7 +107,7 @@
 #include "relations/lookups_poseidon2_mem.hpp"
 #include "relations/lookups_public_data_check.hpp"
 #include "relations/lookups_range_check.hpp"
-#include "relations/lookups_registers.hpp"
+#include "relations/lookups_retrieved_bytecodes_tree_check.hpp"
 #include "relations/lookups_scalar_mul.hpp"
 #include "relations/lookups_send_l2_to_l1_msg.hpp"
 #include "relations/lookups_sha256.hpp"
@@ -121,11 +123,14 @@
 #include "relations/perms_addressing.hpp"
 #include "relations/perms_data_copy.hpp"
 #include "relations/perms_ecc_mem.hpp"
+#include "relations/perms_emit_unencrypted_log.hpp"
 #include "relations/perms_execution.hpp"
+#include "relations/perms_get_contract_instance.hpp"
 #include "relations/perms_keccak_memory.hpp"
 #include "relations/perms_keccakf1600.hpp"
 #include "relations/perms_poseidon2_mem.hpp"
 #include "relations/perms_public_data_check.hpp"
+#include "relations/perms_registers.hpp"
 #include "relations/perms_sha256_mem.hpp"
 #include "relations/perms_to_radix_mem.hpp"
 
@@ -133,10 +138,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 133;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2936;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 317;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 3012;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 327;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3386;
+    static constexpr size_t NUM_ALL_ENTITIES = 3472;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -191,6 +196,7 @@ struct AvmFlavorVariables {
         avm2::public_data_squash<FF_>,
         avm2::range_check<FF_>,
         avm2::registers<FF_>,
+        avm2::retrieved_bytecodes_tree_check<FF_>,
         avm2::scalar_mul<FF_>,
         avm2::send_l2_to_l1_msg<FF_>,
         avm2::sha256<FF_>,
@@ -220,13 +226,13 @@ struct AvmFlavorVariables {
         lookup_address_derivation_public_keys_hash_poseidon2_4_relation<FF_>,
         lookup_address_derivation_salted_initialization_hash_poseidon2_0_relation<FF_>,
         lookup_address_derivation_salted_initialization_hash_poseidon2_1_relation<FF_>,
-        lookup_addressing_relative_overflow_range_0_relation<FF_>,
-        lookup_addressing_relative_overflow_range_1_relation<FF_>,
-        lookup_addressing_relative_overflow_range_2_relation<FF_>,
-        lookup_addressing_relative_overflow_range_3_relation<FF_>,
-        lookup_addressing_relative_overflow_range_4_relation<FF_>,
-        lookup_addressing_relative_overflow_range_5_relation<FF_>,
-        lookup_addressing_relative_overflow_range_6_relation<FF_>,
+        lookup_addressing_relative_overflow_result_0_relation<FF_>,
+        lookup_addressing_relative_overflow_result_1_relation<FF_>,
+        lookup_addressing_relative_overflow_result_2_relation<FF_>,
+        lookup_addressing_relative_overflow_result_3_relation<FF_>,
+        lookup_addressing_relative_overflow_result_4_relation<FF_>,
+        lookup_addressing_relative_overflow_result_5_relation<FF_>,
+        lookup_addressing_relative_overflow_result_6_relation<FF_>,
         lookup_alu_exec_dispatching_cast_relation<FF_>,
         lookup_alu_exec_dispatching_set_relation<FF_>,
         lookup_alu_ff_gt_relation<FF_>,
@@ -247,6 +253,8 @@ struct AvmFlavorVariables {
         lookup_bc_hashing_iv_is_len_relation<FF_>,
         lookup_bc_retrieval_class_id_derivation_relation<FF_>,
         lookup_bc_retrieval_contract_instance_retrieval_relation<FF_>,
+        lookup_bc_retrieval_is_new_class_check_relation<FF_>,
+        lookup_bc_retrieval_retrieved_bytecodes_insertion_relation<FF_>,
         lookup_bitwise_byte_operations_relation<FF_>,
         lookup_bitwise_dispatch_exec_bitwise_relation<FF_>,
         lookup_bitwise_integral_tag_length_relation<FF_>,
@@ -259,25 +267,20 @@ struct AvmFlavorVariables {
         lookup_context_ctx_stack_rollback_relation<FF_>,
         lookup_contract_instance_retrieval_address_derivation_relation<FF_>,
         lookup_contract_instance_retrieval_deployment_nullifier_read_relation<FF_>,
+        lookup_contract_instance_retrieval_protocol_contract_derived_address_relation<FF_>,
         lookup_contract_instance_retrieval_update_check_relation<FF_>,
         lookup_data_copy_check_dst_addr_in_range_relation<FF_>,
         lookup_data_copy_check_src_addr_in_range_relation<FF_>,
         lookup_data_copy_col_read_relation<FF_>,
         lookup_data_copy_max_read_index_gt_relation<FF_>,
-        lookup_data_copy_mem_read_relation<FF_>,
-        lookup_data_copy_mem_write_relation<FF_>,
         lookup_data_copy_offset_gt_max_read_index_relation<FF_>,
         lookup_ecc_mem_check_dst_addr_in_range_relation<FF_>,
         lookup_ecc_mem_input_output_ecc_add_relation<FF_>,
-        lookup_ecc_mem_write_mem_0_relation<FF_>,
-        lookup_ecc_mem_write_mem_1_relation<FF_>,
-        lookup_ecc_mem_write_mem_2_relation<FF_>,
         lookup_emit_notehash_notehash_tree_write_relation<FF_>,
         lookup_emit_nullifier_write_nullifier_relation<FF_>,
         lookup_emit_unencrypted_log_check_log_size_too_large_relation<FF_>,
         lookup_emit_unencrypted_log_check_memory_out_of_bounds_relation<FF_>,
         lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_relation<FF_>,
-        lookup_emit_unencrypted_log_read_mem_relation<FF_>,
         lookup_emit_unencrypted_log_write_log_to_public_inputs_relation<FF_>,
         lookup_execution_bytecode_retrieval_result_relation<FF_>,
         lookup_execution_check_radix_gt_256_relation<FF_>,
@@ -288,16 +291,14 @@ struct AvmFlavorVariables {
         lookup_execution_get_p_limbs_relation<FF_>,
         lookup_execution_instruction_fetching_body_relation<FF_>,
         lookup_execution_instruction_fetching_result_relation<FF_>,
-        lookup_external_call_call_allocated_left_da_range_relation<FF_>,
-        lookup_external_call_call_allocated_left_l2_range_relation<FF_>,
+        lookup_external_call_call_is_da_gas_allocated_lt_left_relation<FF_>,
+        lookup_external_call_call_is_l2_gas_allocated_lt_left_relation<FF_>,
         lookup_ff_gt_a_hi_range_relation<FF_>,
         lookup_ff_gt_a_lo_range_relation<FF_>,
         lookup_gas_addressing_gas_read_relation<FF_>,
-        lookup_gas_limit_used_da_range_relation<FF_>,
-        lookup_gas_limit_used_l2_range_relation<FF_>,
+        lookup_gas_is_out_of_gas_da_relation<FF_>,
+        lookup_gas_is_out_of_gas_l2_relation<FF_>,
         lookup_get_contract_instance_contract_instance_retrieval_relation<FF_>,
-        lookup_get_contract_instance_mem_write_contract_instance_exists_relation<FF_>,
-        lookup_get_contract_instance_mem_write_contract_instance_member_relation<FF_>,
         lookup_get_contract_instance_precomputed_info_relation<FF_>,
         lookup_get_env_var_precomputed_info_relation<FF_>,
         lookup_get_env_var_read_from_public_inputs_col0_relation<FF_>,
@@ -311,9 +312,9 @@ struct AvmFlavorVariables {
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
         lookup_internal_call_push_call_stack_relation<FF_>,
         lookup_internal_call_unwind_call_stack_relation<FF_>,
-        lookup_keccakf1600_dst_abs_diff_positive_relation<FF_>,
+        lookup_keccakf1600_dst_out_of_range_toggle_relation<FF_>,
         lookup_keccakf1600_round_cst_relation<FF_>,
-        lookup_keccakf1600_src_abs_diff_positive_relation<FF_>,
+        lookup_keccakf1600_src_out_of_range_toggle_relation<FF_>,
         lookup_keccakf1600_state_chi_00_relation<FF_>,
         lookup_keccakf1600_state_chi_01_relation<FF_>,
         lookup_keccakf1600_state_chi_02_relation<FF_>,
@@ -442,6 +443,11 @@ struct AvmFlavorVariables {
         lookup_l1_to_l2_message_exists_l1_to_l2_msg_leaf_index_in_range_relation<FF_>,
         lookup_l1_to_l2_message_exists_l1_to_l2_msg_read_relation<FF_>,
         lookup_l1_to_l2_message_tree_check_merkle_check_relation<FF_>,
+        lookup_memory_range_check_limb_0_relation<FF_>,
+        lookup_memory_range_check_limb_1_relation<FF_>,
+        lookup_memory_range_check_limb_2_relation<FF_>,
+        lookup_memory_range_check_write_tagged_value_relation<FF_>,
+        lookup_memory_tag_max_bits_relation<FF_>,
         lookup_merkle_check_merkle_poseidon2_read_relation<FF_>,
         lookup_merkle_check_merkle_poseidon2_write_relation<FF_>,
         lookup_note_hash_tree_check_merkle_check_relation<FF_>,
@@ -466,14 +472,6 @@ struct AvmFlavorVariables {
         lookup_poseidon2_mem_check_dst_addr_in_range_relation<FF_>,
         lookup_poseidon2_mem_check_src_addr_in_range_relation<FF_>,
         lookup_poseidon2_mem_input_output_poseidon2_perm_relation<FF_>,
-        lookup_poseidon2_mem_pos_read_mem_0_relation<FF_>,
-        lookup_poseidon2_mem_pos_read_mem_1_relation<FF_>,
-        lookup_poseidon2_mem_pos_read_mem_2_relation<FF_>,
-        lookup_poseidon2_mem_pos_read_mem_3_relation<FF_>,
-        lookup_poseidon2_mem_pos_write_mem_0_relation<FF_>,
-        lookup_poseidon2_mem_pos_write_mem_1_relation<FF_>,
-        lookup_poseidon2_mem_pos_write_mem_2_relation<FF_>,
-        lookup_poseidon2_mem_pos_write_mem_3_relation<FF_>,
         lookup_public_data_check_low_leaf_merkle_check_relation<FF_>,
         lookup_public_data_check_low_leaf_next_slot_validation_relation<FF_>,
         lookup_public_data_check_low_leaf_poseidon2_0_relation<FF_>,
@@ -497,13 +495,13 @@ struct AvmFlavorVariables {
         lookup_range_check_r5_is_u16_relation<FF_>,
         lookup_range_check_r6_is_u16_relation<FF_>,
         lookup_range_check_r7_is_u16_relation<FF_>,
-        lookup_registers_mem_op_0_relation<FF_>,
-        lookup_registers_mem_op_1_relation<FF_>,
-        lookup_registers_mem_op_2_relation<FF_>,
-        lookup_registers_mem_op_3_relation<FF_>,
-        lookup_registers_mem_op_4_relation<FF_>,
-        lookup_registers_mem_op_5_relation<FF_>,
-        lookup_registers_mem_op_6_relation<FF_>,
+        lookup_retrieved_bytecodes_tree_check_low_leaf_class_id_validation_relation<FF_>,
+        lookup_retrieved_bytecodes_tree_check_low_leaf_merkle_check_relation<FF_>,
+        lookup_retrieved_bytecodes_tree_check_low_leaf_next_class_id_validation_relation<FF_>,
+        lookup_retrieved_bytecodes_tree_check_low_leaf_poseidon2_relation<FF_>,
+        lookup_retrieved_bytecodes_tree_check_new_leaf_merkle_check_relation<FF_>,
+        lookup_retrieved_bytecodes_tree_check_new_leaf_poseidon2_relation<FF_>,
+        lookup_retrieved_bytecodes_tree_check_updated_low_leaf_poseidon2_relation<FF_>,
         lookup_scalar_mul_add_relation<FF_>,
         lookup_scalar_mul_double_relation<FF_>,
         lookup_scalar_mul_to_radix_relation<FF_>,
@@ -574,7 +572,6 @@ struct AvmFlavorVariables {
         lookup_to_radix_mem_check_radix_gt_256_relation<FF_>,
         lookup_to_radix_mem_check_radix_lt_2_relation<FF_>,
         lookup_to_radix_mem_input_output_to_radix_relation<FF_>,
-        lookup_to_radix_mem_write_mem_relation<FF_>,
         lookup_tx_balance_read_relation<FF_>,
         lookup_tx_balance_slot_poseidon2_relation<FF_>,
         lookup_tx_balance_update_relation<FF_>,
@@ -606,7 +603,7 @@ struct AvmFlavorVariables {
         lookup_tx_write_l2_l1_msg_relation<FF_>,
         lookup_update_check_delayed_public_mutable_slot_poseidon2_relation<FF_>,
         lookup_update_check_timestamp_from_public_inputs_relation<FF_>,
-        lookup_update_check_timestamp_of_change_cmp_range_relation<FF_>,
+        lookup_update_check_timestamp_is_lt_timestamp_of_change_relation<FF_>,
         lookup_update_check_update_hash_poseidon2_relation<FF_>,
         lookup_update_check_update_hash_public_data_read_relation<FF_>,
         lookup_update_check_update_hi_metadata_range_relation<FF_>,
@@ -629,14 +626,37 @@ struct AvmFlavorVariables {
         perm_addressing_indirect_from_memory_6_relation<FF_>,
         perm_data_copy_dispatch_cd_copy_relation<FF_>,
         perm_data_copy_dispatch_rd_copy_relation<FF_>,
+        perm_data_copy_mem_read_relation<FF_>,
+        perm_data_copy_mem_write_relation<FF_>,
         perm_ecc_mem_dispatch_exec_ecc_add_relation<FF_>,
+        perm_ecc_mem_write_mem_0_relation<FF_>,
+        perm_ecc_mem_write_mem_1_relation<FF_>,
+        perm_ecc_mem_write_mem_2_relation<FF_>,
+        perm_emit_unencrypted_log_read_mem_relation<FF_>,
         perm_execution_dispatch_get_contract_instance_relation<FF_>,
         perm_execution_dispatch_keccakf1600_relation<FF_>,
+        perm_get_contract_instance_mem_write_contract_instance_exists_relation<FF_>,
+        perm_get_contract_instance_mem_write_contract_instance_member_relation<FF_>,
         perm_keccak_memory_slice_to_mem_relation<FF_>,
         perm_keccakf1600_read_to_slice_relation<FF_>,
         perm_keccakf1600_write_to_slice_relation<FF_>,
         perm_poseidon2_mem_dispatch_exec_pos2_relation<FF_>,
+        perm_poseidon2_mem_pos_read_mem_0_relation<FF_>,
+        perm_poseidon2_mem_pos_read_mem_1_relation<FF_>,
+        perm_poseidon2_mem_pos_read_mem_2_relation<FF_>,
+        perm_poseidon2_mem_pos_read_mem_3_relation<FF_>,
+        perm_poseidon2_mem_pos_write_mem_0_relation<FF_>,
+        perm_poseidon2_mem_pos_write_mem_1_relation<FF_>,
+        perm_poseidon2_mem_pos_write_mem_2_relation<FF_>,
+        perm_poseidon2_mem_pos_write_mem_3_relation<FF_>,
         perm_public_data_check_squashing_relation<FF_>,
+        perm_registers_mem_op_0_relation<FF_>,
+        perm_registers_mem_op_1_relation<FF_>,
+        perm_registers_mem_op_2_relation<FF_>,
+        perm_registers_mem_op_3_relation<FF_>,
+        perm_registers_mem_op_4_relation<FF_>,
+        perm_registers_mem_op_5_relation<FF_>,
+        perm_registers_mem_op_6_relation<FF_>,
         perm_sha256_mem_dispatch_sha256_relation<FF_>,
         perm_sha256_mem_mem_input_read_relation<FF_>,
         perm_sha256_mem_mem_op_0_relation<FF_>,
@@ -647,7 +667,8 @@ struct AvmFlavorVariables {
         perm_sha256_mem_mem_op_5_relation<FF_>,
         perm_sha256_mem_mem_op_6_relation<FF_>,
         perm_sha256_mem_mem_op_7_relation<FF_>,
-        perm_to_radix_mem_dispatch_exec_to_radix_relation<FF_>>;
+        perm_to_radix_mem_dispatch_exec_to_radix_relation<FF_>,
+        perm_to_radix_mem_write_mem_relation<FF_>>;
 };
 
 } // namespace bb::avm2
