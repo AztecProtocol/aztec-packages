@@ -3,8 +3,9 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract TestLog {
     use aztec::{
-        event::event_interface::{emit_event_in_private, emit_event_in_public, MessageDelivery},
+        event::event_emission::{emit_event_in_private, emit_event_in_public},
         macros::{events::event, functions::{private, public}, storage::storage},
+        messages::message_delivery::MessageDelivery,
         protocol_types::{address::AztecAddress, traits::FromField},
         state_vars::PrivateSet,
     };

@@ -9,12 +9,13 @@ pub contract Crowdfunding {
     // docs:start:all-deps
     use crate::config::Config;
     use aztec::{
-        event::event_interface::{emit_event_in_public, MessageDelivery},
+        event::event_emission::emit_event_in_public,
         macros::{
             events::event,
             functions::{initializer, internal, private, public},
             storage::storage,
         },
+        messages::message_delivery::MessageDelivery,
         protocol_types::address::AztecAddress,
         state_vars::{PrivateSet, PublicImmutable},
         utils::comparison::Comparator,
