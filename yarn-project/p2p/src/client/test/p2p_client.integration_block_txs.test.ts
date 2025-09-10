@@ -6,8 +6,9 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import { BlockProposal } from '@aztec/stdlib/p2p';
 import { makeBlockProposal, makeHeader, mockTx } from '@aztec/stdlib/testing';
-import { Tx, TxHash } from '@aztec/stdlib/tx';
+import { Tx, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 
 import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -40,8 +41,9 @@ describe('p2p client integration block txs protocol ', () => {
 
   const blockNumber = 5;
   const blockHash = Fr.random();
-  let txs: any[];
-  let txHashes: any[];
+  let txs: Tx[];
+  let txHashes: TxHash[];
+  let blockProposal: BlockProposal;
 
   beforeEach(async () => {
     txPool = mock<TxPool>();
@@ -94,7 +96,7 @@ describe('p2p client integration block txs protocol ', () => {
 
     txs = await Promise.all(times(5, () => mockTx()));
     txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
-    const blockProposal = createBlockProposal(blockNumber, blockHash, txHashes);
+    blockProposal = createBlockProposal(blockNumber, blockHash, txHashes);
     attestationPool.getBlockProposal.mockResolvedValue(blockProposal);
   });
 
@@ -125,10 +127,9 @@ describe('p2p client integration block txs protocol ', () => {
     });
   };
 
-  const sendBlockTxsRequest = (blockHash: Fr, requestedIndices: number[], txCount: number) => {
+  const sendBlockTxsRequest = (blockProposal: BlockProposal, missingHashes: TxHash[]) => {
     const [client1, client2] = clients as any;
-    const txIndices = BitVector.init(txCount, requestedIndices);
-    const request = new BlockTxsRequest(blockHash, txIndices);
+    const request = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, missingHashes)!;
     return client1.p2pService.reqresp.sendRequestToPeer(
       client2.p2pService.node.peerId,
       ReqRespSubProtocol.BLOCK_TXS,
@@ -138,8 +139,10 @@ describe('p2p client integration block txs protocol ', () => {
 
   it('responds with NOT_FOUND when peer does not have the requested block proposal', async () => {
     attestationPool.getBlockProposal.mockResolvedValue(undefined);
+    const missing = new TxHashArray(...Array.from({ length: 4 }, () => TxHash.random()));
 
-    const response = await sendBlockTxsRequest(Fr.random(), [0, 2, 5], 10);
+    const blockProposal = createBlockProposal(blockNumber, Fr.random(), missing);
+    const response = await sendBlockTxsRequest(blockProposal, missing);
 
     expect(response.status).toBe(ReqRespStatus.NOT_FOUND);
   });
@@ -156,7 +159,11 @@ describe('p2p client integration block txs protocol ', () => {
     });
 
     const requestedIndices = [0, 2, 4];
-    const response = await sendBlockTxsRequest(blockHash, requestedIndices, txs.length);
+    const response = await sendBlockTxsRequest(
+      blockProposal,
+      txHashes.filter((_, i) => requestedIndices.includes(i)),
+    );
+    //const response = await sendBlockTxsRequest(blockHash, requestedIndices, txs.length);
 
     expect(response.status).toBe(ReqRespStatus.SUCCESS);
     const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
@@ -189,7 +196,10 @@ describe('p2p client integration block txs protocol ', () => {
     });
 
     const requestedIndices = [0, 1, 2, 4];
-    const response = await sendBlockTxsRequest(blockHash, requestedIndices, txs.length);
+    const response = await sendBlockTxsRequest(
+      blockProposal,
+      txHashes.filter((_, i) => requestedIndices.includes(i)),
+    );
 
     expect(response.status).toBe(ReqRespStatus.SUCCESS);
     const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
@@ -210,7 +220,10 @@ describe('p2p client integration block txs protocol ', () => {
     });
 
     const requestedIndices = [0, 2, 4];
-    const response = await sendBlockTxsRequest(blockHash, requestedIndices, txs.length);
+    const response = await sendBlockTxsRequest(
+      blockProposal,
+      txHashes.filter((_, i) => requestedIndices.includes(i)),
+    );
 
     expect(response.status).toBe(ReqRespStatus.SUCCESS);
     const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);

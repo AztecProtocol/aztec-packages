@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
-import { TxArray, TxHash } from '@aztec/stdlib/tx';
+import { TxArray, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 
 import { BitVector } from './bitvector.js';
 
@@ -10,9 +10,14 @@ import { BitVector } from './bitvector.js';
  */
 export class BlockTxsRequest {
   constructor(
-    readonly blockHash: Fr, // 32 byte hash of the proposed block header
+    // 32 byte hash of the proposed block header
+    readonly blockHash: Fr,
+    // Hashes of txs we are requesting
+    readonly txHashes: TxHashArray,
     // BitVector indicating which txs from the proposal we are requesting
     // 1 means we want the tx, 0 means we don't
+    // If we know peer has the Block Proposal then we can use this BitVector
+    // Otherwise we can use this optimization
     readonly txIndices: BitVector,
   ) {}
 
@@ -38,13 +43,9 @@ export class BlockTxsRequest {
       .map((hash, idx) => (missingHashesSet.has(hash.toString()) ? idx : -1))
       .filter(i => i != -1);
 
-    if (missingIndices.length === 0) {
-      return undefined; // No indices found for missing tx hashes
-    }
-
     const requestBitVector = BitVector.init(blockProposal.txHashes.length, missingIndices);
 
-    return new BlockTxsRequest(blockProposal.archive, requestBitVector);
+    return new BlockTxsRequest(blockProposal.archive, new TxHashArray(...missingTxHashes), requestBitVector);
   }
 
   /**
@@ -55,9 +56,10 @@ export class BlockTxsRequest {
   static fromBuffer(buffer: Buffer | BufferReader): BlockTxsRequest {
     const reader = BufferReader.asReader(buffer);
     const blockHash = Fr.fromBuffer(reader);
+    const txHashes = TxHashArray.fromBuffer(reader);
     const txIndices = BitVector.fromBuffer(reader);
 
-    return new BlockTxsRequest(blockHash, txIndices);
+    return new BlockTxsRequest(blockHash, txHashes, txIndices);
   }
 
   /**
@@ -65,7 +67,7 @@ export class BlockTxsRequest {
    * @returns Buffer representation of the BlockTxRequest object
    */
   toBuffer(): Buffer {
-    return serializeToBuffer([this.blockHash, this.txIndices.toBuffer()]);
+    return serializeToBuffer([this.blockHash, this.txHashes.toBuffer(), this.txIndices.toBuffer()]);
   }
 }
 

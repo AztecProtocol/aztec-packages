@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { mockTx } from '@aztec/stdlib/testing';
-import { TxArray } from '@aztec/stdlib/tx';
+import { TxArray, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 
 import { describe, expect, it } from '@jest/globals';
 
@@ -10,13 +10,16 @@ import { BlockTxsRequest, BlockTxsResponse } from './block_txs_reqresp.js';
 describe('BlockTxRequest', () => {
   it('should serialize and deserialize correctly', () => {
     const blockHash = Fr.random();
+    const missing = new TxHashArray(...Array.from({ length: 4 }, () => TxHash.random()));
     const txIndices = BitVector.init(16, [0, 5, 10, 15]);
 
-    const original = new BlockTxsRequest(blockHash, txIndices);
+    const original = new BlockTxsRequest(blockHash, missing, txIndices);
     const buffer = original.toBuffer();
     const deserialized = BlockTxsRequest.fromBuffer(buffer);
 
     expect(deserialized.blockHash).toEqual(original.blockHash);
+    expect(deserialized.txHashes.length).toBe(original.txHashes.length);
+    expect(deserialized.txHashes).toEqual(original.txHashes);
     expect(deserialized.txIndices.getLength()).toBe(original.txIndices.getLength());
     expect(deserialized.txIndices.getTrueIndices()).toEqual(original.txIndices.getTrueIndices());
   });
@@ -25,7 +28,7 @@ describe('BlockTxRequest', () => {
     const blockHash = Fr.random();
     const txIndices = BitVector.init(8, []);
 
-    const original = new BlockTxsRequest(blockHash, txIndices);
+    const original = new BlockTxsRequest(blockHash, new TxHashArray(), txIndices);
     const buffer = original.toBuffer();
     const deserialized = BlockTxsRequest.fromBuffer(buffer);
 
