@@ -1151,10 +1151,9 @@ TYPED_TEST(CycleGroupTest, TestFixedBaseBatchMul)
     auto result = cycle_group_ct::batch_mul(points, scalars);
 
     // Compute expected result natively
-    Element expected = Element(lhs_generator) * scalar1_val + Element(rhs_generator) * scalar2_val;
+    AffineElement expected = lhs_generator * scalar1_val + rhs_generator * scalar2_val;
 
-    EXPECT_EQ(result.get_value().x, expected.x);
-    EXPECT_EQ(result.get_value().y, expected.y);
+    EXPECT_EQ(result.get_value(), expected);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }

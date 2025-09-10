@@ -993,11 +993,10 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
      */
     std::vector<Element> operation_transcript;
     {
-        // AUDITTODO: why do things break if we use infinity here then loop from i=0?
         Element accumulator = lookup_points[0].get_value();
         for (size_t i = 1; i < lookup_points.size(); ++i) {
-            accumulator = accumulator + (lookup_points[i].get_value());
-            operation_transcript.emplace_back(accumulator);
+            accumulator += (lookup_points[i].get_value());
+            operation_transcript.push_back(accumulator);
         }
     }
     Element::batch_normalize(&operation_transcript[0], operation_transcript.size());
@@ -1007,10 +1006,10 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         operation_hints.emplace_back(element.x, element.y);
     }
 
-    cycle_group accumulator = lookup_points[0];
     // Perform all point additions sequentially. The Ultra ecc_addition relation costs 1 gate iff additions are
     // chained and output point of previous addition = input point of current addition. If this condition is not
     // met, the addition relation costs 2 gates. So it's good to do these sequentially!
+    cycle_group accumulator = lookup_points[0];
     for (size_t i = 1; i < lookup_points.size(); ++i) {
         accumulator = accumulator.unconditional_add(lookup_points[i], operation_hints[i - 1]);
     }
