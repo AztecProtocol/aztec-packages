@@ -127,11 +127,9 @@ straus_scalar_slice<Builder>::straus_scalar_slice(Builder* context,
  * @param index
  * @return field_t<Builder>
  */
-template <typename Builder> std::optional<field_t<Builder>> straus_scalar_slice<Builder>::read(size_t index)
+template <typename Builder> field_t<Builder> straus_scalar_slice<Builder>::read(size_t index)
 {
-    if (index >= slices.size()) {
-        return std::nullopt;
-    }
+    BB_ASSERT_LT(index, slices.size(), "Straus scalar slice index out of bounds!");
     return slices[index];
 }
 

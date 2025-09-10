@@ -733,227 +733,272 @@ TYPED_TEST(CycleGroupTest, TestSubtract)
     EXPECT_EQ(proof_result, true);
 }
 
-TYPED_TEST(CycleGroupTest, TestBatchMul)
+/**
+ * @brief Assign different tags to all points and scalars and return the union of that tag
+ * @details We assign the tags with the same round index to a (point,scalar) pair, but the point is treated as
+ * submitted value, while scalar as a challenge. Merging these tags should not run into any edgecases
+ *
+ */
+template <typename T1, typename T2> auto assign_and_merge_tags(T1& points, T2& scalars)
+{
+    OriginTag merged_tag;
+    for (size_t i = 0; i < points.size(); i++) {
+        const auto point_tag = OriginTag(/*parent_index=*/0, /*round_index=*/i, /*is_submitted=*/true);
+        const auto scalar_tag = OriginTag(/*parent_index=*/0, /*round_index=*/i, /*is_submitted=*/false);
+
+        merged_tag = OriginTag(merged_tag, OriginTag(point_tag, scalar_tag));
+        points[i].set_origin_tag(point_tag);
+        scalars[i].set_origin_tag(scalar_tag);
+    }
+    return merged_tag;
+}
+
+TYPED_TEST(CycleGroupTest, TestBatchMulGeneralMSM)
 {
     STDLIB_TYPE_ALIASES;
     auto builder = Builder();
 
     const size_t num_muls = 1;
-    /**
-     * @brief Assign different tags to all points and scalars and return the union of that tag
-     *
-     *@details We assign the tags with the same round index to a (point,scalar) pair, but the point is treated as
-     *submitted value, while scalar as a challenge. Merging these tags should not run into any edgecases
-     */
-    auto assign_and_merge_tags = [](auto& points, auto& scalars) {
-        OriginTag merged_tag;
-        for (size_t i = 0; i < points.size(); i++) {
-            const auto point_tag = OriginTag(/*parent_index=*/0, /*round_index=*/i, /*is_submitted=*/true);
-            const auto scalar_tag = OriginTag(/*parent_index=*/0, /*round_index=*/i, /*is_submitted=*/false);
-
-            merged_tag = OriginTag(merged_tag, OriginTag(point_tag, scalar_tag));
-            points[i].set_origin_tag(point_tag);
-            scalars[i].set_origin_tag(scalar_tag);
-        }
-        return merged_tag;
-    };
     // case 1, general MSM with inputs that are combinations of constant and witnesses
-    {
-        std::vector<cycle_group_ct> points;
-        std::vector<typename cycle_group_ct::cycle_scalar> scalars;
-        Element expected = Group::point_at_infinity;
+    std::vector<cycle_group_ct> points;
+    std::vector<typename cycle_group_ct::cycle_scalar> scalars;
+    Element expected = Group::point_at_infinity;
 
-        for (size_t i = 0; i < num_muls; ++i) {
-            auto element = TestFixture::generators[i];
-            typename Group::Fr scalar = Group::Fr::random_element(&engine);
+    for (size_t i = 0; i < num_muls; ++i) {
+        auto element = TestFixture::generators[i];
+        typename Group::Fr scalar = Group::Fr::random_element(&engine);
 
-            // 1: add entry where point, scalar are witnesses
-            expected += (element * scalar);
-            points.emplace_back(cycle_group_ct::from_witness(&builder, element));
-            scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
+        // 1: add entry where point, scalar are witnesses
+        expected += (element * scalar);
+        points.emplace_back(cycle_group_ct::from_witness(&builder, element));
+        scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
 
-            // 2: add entry where point is constant, scalar is witness
-            expected += (element * scalar);
-            points.emplace_back(cycle_group_ct(element));
-            scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
+        // 2: add entry where point is constant, scalar is witness
+        expected += (element * scalar);
+        points.emplace_back(cycle_group_ct(element));
+        scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
 
-            // 3: add entry where point is witness, scalar is constant
-            expected += (element * scalar);
-            points.emplace_back(cycle_group_ct::from_witness(&builder, element));
-            scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
+        // 3: add entry where point is witness, scalar is constant
+        expected += (element * scalar);
+        points.emplace_back(cycle_group_ct::from_witness(&builder, element));
+        scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
 
-            // 4: add entry where point is constant, scalar is constant
-            expected += (element * scalar);
-            points.emplace_back(cycle_group_ct(element));
-            scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
-        }
-
-        // Here and in the following cases assign different tags to points and scalars and get the union of them back
-        const auto expected_tag = assign_and_merge_tags(points, scalars);
-
-        auto result = cycle_group_ct::batch_mul(points, scalars);
-        EXPECT_EQ(result.get_value(), AffineElement(expected));
-        // The tag should the union of all tags
-        EXPECT_EQ(result.get_origin_tag(), expected_tag);
+        // 4: add entry where point is constant, scalar is constant
+        expected += (element * scalar);
+        points.emplace_back(cycle_group_ct(element));
+        scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
     }
+
+    // Here and in the following cases assign different tags to points and scalars and get the union of them back
+    const auto expected_tag = assign_and_merge_tags(points, scalars);
+
+    auto result = cycle_group_ct::batch_mul(points, scalars);
+    EXPECT_EQ(result.get_value(), AffineElement(expected));
+    // The tag should the union of all tags
+    EXPECT_EQ(result.get_origin_tag(), expected_tag);
+
+    bool check_result = CircuitChecker::check(builder);
+    EXPECT_EQ(check_result, true);
+}
+
+TYPED_TEST(CycleGroupTest, TestBatchMulProducesInfinity)
+{
+    STDLIB_TYPE_ALIASES;
+    auto builder = Builder();
 
     // case 2, MSM that produces point at infinity
-    {
-        std::vector<cycle_group_ct> points;
-        std::vector<typename cycle_group_ct::cycle_scalar> scalars;
+    std::vector<cycle_group_ct> points;
+    std::vector<typename cycle_group_ct::cycle_scalar> scalars;
 
-        auto element = TestFixture::generators[0];
-        typename Group::Fr scalar = Group::Fr::random_element(&engine);
-        points.emplace_back(cycle_group_ct::from_witness(&builder, element));
-        scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
+    auto element = TestFixture::generators[0];
+    typename Group::Fr scalar = Group::Fr::random_element(&engine);
+    points.emplace_back(cycle_group_ct::from_witness(&builder, element));
+    scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
 
-        points.emplace_back(cycle_group_ct::from_witness(&builder, element));
-        scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, -scalar));
+    points.emplace_back(cycle_group_ct::from_witness(&builder, element));
+    scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, -scalar));
 
-        const auto expected_tag = assign_and_merge_tags(points, scalars);
+    const auto expected_tag = assign_and_merge_tags(points, scalars);
 
-        auto result = cycle_group_ct::batch_mul(points, scalars);
-        EXPECT_TRUE(result.is_point_at_infinity().get_value());
+    auto result = cycle_group_ct::batch_mul(points, scalars);
+    EXPECT_TRUE(result.is_point_at_infinity().get_value());
 
-        EXPECT_EQ(result.get_origin_tag(), expected_tag);
-    }
+    EXPECT_EQ(result.get_origin_tag(), expected_tag);
+
+    bool check_result = CircuitChecker::check(builder);
+    EXPECT_EQ(check_result, true);
+}
+
+TYPED_TEST(CycleGroupTest, TestBatchMulMultiplyByZero)
+{
+    STDLIB_TYPE_ALIASES;
+    auto builder = Builder();
 
     // case 3. Multiply by zero
-    {
-        std::vector<cycle_group_ct> points;
-        std::vector<typename cycle_group_ct::cycle_scalar> scalars;
+    std::vector<cycle_group_ct> points;
+    std::vector<typename cycle_group_ct::cycle_scalar> scalars;
 
-        auto element = TestFixture::generators[0];
-        typename Group::Fr scalar = 0;
-        points.emplace_back(cycle_group_ct::from_witness(&builder, element));
-        scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
+    auto element = TestFixture::generators[0];
+    typename Group::Fr scalar = 0;
+    points.emplace_back(cycle_group_ct::from_witness(&builder, element));
+    scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
 
-        const auto expected_tag = assign_and_merge_tags(points, scalars);
-        auto result = cycle_group_ct::batch_mul(points, scalars);
-        EXPECT_TRUE(result.is_point_at_infinity().get_value());
-        EXPECT_EQ(result.get_origin_tag(), expected_tag);
-    }
+    const auto expected_tag = assign_and_merge_tags(points, scalars);
+    auto result = cycle_group_ct::batch_mul(points, scalars);
+    EXPECT_TRUE(result.is_point_at_infinity().get_value());
+    EXPECT_EQ(result.get_origin_tag(), expected_tag);
+
+    bool check_result = CircuitChecker::check(builder);
+    EXPECT_EQ(check_result, true);
+}
+
+TYPED_TEST(CycleGroupTest, TestBatchMulInputsAreInfinity)
+{
+    STDLIB_TYPE_ALIASES;
+    auto builder = Builder();
 
     // case 4. Inputs are points at infinity
+    std::vector<cycle_group_ct> points;
+    std::vector<typename cycle_group_ct::cycle_scalar> scalars;
+
+    auto element = TestFixture::generators[0];
+    typename Group::Fr scalar = Group::Fr::random_element(&engine);
+
+    // is_infinity = witness
     {
-        std::vector<cycle_group_ct> points;
-        std::vector<typename cycle_group_ct::cycle_scalar> scalars;
-
-        auto element = TestFixture::generators[0];
-        typename Group::Fr scalar = Group::Fr::random_element(&engine);
-
-        // is_infinity = witness
-        {
-            cycle_group_ct point = cycle_group_ct::from_witness(&builder, element);
-            point.set_point_at_infinity(witness_ct(&builder, true));
-            points.emplace_back(point);
-            scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
-        }
-        // is_infinity = constant
-        {
-            cycle_group_ct point = cycle_group_ct::from_witness(&builder, element);
-            point.set_point_at_infinity(true);
-            points.emplace_back(point);
-            scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
-        }
-
-        const auto expected_tag = assign_and_merge_tags(points, scalars);
-        auto result = cycle_group_ct::batch_mul(points, scalars);
-        EXPECT_TRUE(result.is_point_at_infinity().get_value());
-        EXPECT_EQ(result.get_origin_tag(), expected_tag);
+        cycle_group_ct point = cycle_group_ct::from_witness(&builder, element);
+        point.set_point_at_infinity(witness_ct(&builder, true));
+        points.emplace_back(point);
+        scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
+    }
+    // is_infinity = constant
+    {
+        cycle_group_ct point = cycle_group_ct::from_witness(&builder, element);
+        point.set_point_at_infinity(true);
+        points.emplace_back(point);
+        scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
     }
 
+    const auto expected_tag = assign_and_merge_tags(points, scalars);
+    auto result = cycle_group_ct::batch_mul(points, scalars);
+    EXPECT_TRUE(result.is_point_at_infinity().get_value());
+    EXPECT_EQ(result.get_origin_tag(), expected_tag);
+
+    bool check_result = CircuitChecker::check(builder);
+    EXPECT_EQ(check_result, true);
+}
+
+TYPED_TEST(CycleGroupTest, TestBatchMulFixedBaseInLookupTable)
+{
+    STDLIB_TYPE_ALIASES;
+    auto builder = Builder();
+
+    const size_t num_muls = 1;
     // case 5, fixed-base MSM with inputs that are combinations of constant and witnesses (group elements are in
     // lookup table)
-    {
-        std::vector<cycle_group_ct> points;
-        std::vector<typename cycle_group_ct::cycle_scalar> scalars;
-        std::vector<typename Group::Fq> scalars_native;
-        Element expected = Group::point_at_infinity;
-        for (size_t i = 0; i < num_muls; ++i) {
-            auto element = plookup::fixed_base::table::lhs_generator_point();
-            typename Group::Fr scalar = Group::Fr::random_element(&engine);
+    std::vector<cycle_group_ct> points;
+    std::vector<typename cycle_group_ct::cycle_scalar> scalars;
+    std::vector<typename Group::Fq> scalars_native;
+    Element expected = Group::point_at_infinity;
+    for (size_t i = 0; i < num_muls; ++i) {
+        auto element = plookup::fixed_base::table::lhs_generator_point();
+        typename Group::Fr scalar = Group::Fr::random_element(&engine);
 
-            // 1: add entry where point is constant, scalar is witness
-            expected += (element * scalar);
-            points.emplace_back(element);
-            scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
-            scalars_native.emplace_back(uint256_t(scalar));
+        // 1: add entry where point is constant, scalar is witness
+        expected += (element * scalar);
+        points.emplace_back(element);
+        scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
+        scalars_native.emplace_back(uint256_t(scalar));
 
-            // 2: add entry where point is constant, scalar is constant
-            element = plookup::fixed_base::table::rhs_generator_point();
-            expected += (element * scalar);
-            points.emplace_back(element);
-            scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
-            scalars_native.emplace_back(uint256_t(scalar));
-        }
-        const auto expected_tag = assign_and_merge_tags(points, scalars);
-        auto result = cycle_group_ct::batch_mul(points, scalars);
-        EXPECT_EQ(result.get_value(), AffineElement(expected));
-        EXPECT_EQ(result.get_value(), crypto::pedersen_commitment::commit_native(scalars_native));
-        EXPECT_EQ(result.get_origin_tag(), expected_tag);
+        // 2: add entry where point is constant, scalar is constant
+        element = plookup::fixed_base::table::rhs_generator_point();
+        expected += (element * scalar);
+        points.emplace_back(element);
+        scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
+        scalars_native.emplace_back(uint256_t(scalar));
     }
+    const auto expected_tag = assign_and_merge_tags(points, scalars);
+    auto result = cycle_group_ct::batch_mul(points, scalars);
+    EXPECT_EQ(result.get_value(), AffineElement(expected));
+    EXPECT_EQ(result.get_value(), crypto::pedersen_commitment::commit_native(scalars_native));
+    EXPECT_EQ(result.get_origin_tag(), expected_tag);
 
+    bool check_result = CircuitChecker::check(builder);
+    EXPECT_EQ(check_result, true);
+}
+
+TYPED_TEST(CycleGroupTest, TestBatchMulFixedBaseSomeInLookupTable)
+{
+    STDLIB_TYPE_ALIASES;
+    auto builder = Builder();
+
+    const size_t num_muls = 1;
     // case 6, fixed-base MSM with inputs that are combinations of constant and witnesses (some group elements are
     // in lookup table)
-    {
-        std::vector<cycle_group_ct> points;
-        std::vector<typename cycle_group_ct::cycle_scalar> scalars;
-        std::vector<typename Group::Fr> scalars_native;
-        Element expected = Group::point_at_infinity;
-        for (size_t i = 0; i < num_muls; ++i) {
-            auto element = plookup::fixed_base::table::lhs_generator_point();
-            typename Group::Fr scalar = Group::Fr::random_element(&engine);
+    std::vector<cycle_group_ct> points;
+    std::vector<typename cycle_group_ct::cycle_scalar> scalars;
+    std::vector<typename Group::Fr> scalars_native;
+    Element expected = Group::point_at_infinity;
+    for (size_t i = 0; i < num_muls; ++i) {
+        auto element = plookup::fixed_base::table::lhs_generator_point();
+        typename Group::Fr scalar = Group::Fr::random_element(&engine);
 
-            // 1: add entry where point is constant, scalar is witness
-            expected += (element * scalar);
-            points.emplace_back(element);
-            scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
-            scalars_native.emplace_back(scalar);
+        // 1: add entry where point is constant, scalar is witness
+        expected += (element * scalar);
+        points.emplace_back(element);
+        scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
+        scalars_native.emplace_back(scalar);
 
-            // 2: add entry where point is constant, scalar is constant
-            element = plookup::fixed_base::table::rhs_generator_point();
-            expected += (element * scalar);
-            points.emplace_back(element);
-            scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
-            scalars_native.emplace_back(scalar);
+        // 2: add entry where point is constant, scalar is constant
+        element = plookup::fixed_base::table::rhs_generator_point();
+        expected += (element * scalar);
+        points.emplace_back(element);
+        scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
+        scalars_native.emplace_back(scalar);
 
-            // // 3: add entry where point is constant, scalar is witness
-            scalar = Group::Fr::random_element(&engine);
-            element = Group::one * Group::Fr::random_element(&engine);
-            expected += (element * scalar);
-            points.emplace_back(element);
-            scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
-            scalars_native.emplace_back(scalar);
-        }
-        const auto expected_tag = assign_and_merge_tags(points, scalars);
-        auto result = cycle_group_ct::batch_mul(points, scalars);
-        EXPECT_EQ(result.get_value(), AffineElement(expected));
-        EXPECT_EQ(result.get_origin_tag(), expected_tag);
+        // 3: add entry where point is constant, scalar is witness
+        scalar = Group::Fr::random_element(&engine);
+        element = Group::one * Group::Fr::random_element(&engine);
+        expected += (element * scalar);
+        points.emplace_back(element);
+        scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
+        scalars_native.emplace_back(scalar);
     }
+    const auto expected_tag = assign_and_merge_tags(points, scalars);
+    auto result = cycle_group_ct::batch_mul(points, scalars);
+    EXPECT_EQ(result.get_value(), AffineElement(expected));
+    EXPECT_EQ(result.get_origin_tag(), expected_tag);
 
+    bool check_result = CircuitChecker::check(builder);
+    EXPECT_EQ(check_result, true);
+}
+
+TYPED_TEST(CycleGroupTest, TestBatchMulFixedBaseZeroScalars)
+{
+    STDLIB_TYPE_ALIASES;
+    auto builder = Builder();
+
+    const size_t num_muls = 1;
     // case 7, Fixed-base MSM where input scalars are 0
-    {
-        std::vector<cycle_group_ct> points;
-        std::vector<typename cycle_group_ct::cycle_scalar> scalars;
+    std::vector<cycle_group_ct> points;
+    std::vector<typename cycle_group_ct::cycle_scalar> scalars;
 
-        for (size_t i = 0; i < num_muls; ++i) {
-            auto element = plookup::fixed_base::table::lhs_generator_point();
-            typename Group::Fr scalar = 0;
+    for (size_t i = 0; i < num_muls; ++i) {
+        auto element = plookup::fixed_base::table::lhs_generator_point();
+        typename Group::Fr scalar = 0;
 
-            // 1: add entry where point is constant, scalar is witness
-            points.emplace_back((element));
-            scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
+        // 1: add entry where point is constant, scalar is witness
+        points.emplace_back((element));
+        scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
 
-            // // 2: add entry where point is constant, scalar is constant
-            points.emplace_back((element));
-            scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
-        }
-        const auto expected_tag = assign_and_merge_tags(points, scalars);
-        auto result = cycle_group_ct::batch_mul(points, scalars);
-        EXPECT_EQ(result.is_point_at_infinity().get_value(), true);
-        EXPECT_EQ(result.get_origin_tag(), expected_tag);
+        // 2: add entry where point is constant, scalar is constant
+        points.emplace_back((element));
+        scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
     }
+    const auto expected_tag = assign_and_merge_tags(points, scalars);
+    auto result = cycle_group_ct::batch_mul(points, scalars);
+    EXPECT_EQ(result.is_point_at_infinity().get_value(), true);
+    EXPECT_EQ(result.get_origin_tag(), expected_tag);
 
     bool check_result = CircuitChecker::check(builder);
     EXPECT_EQ(check_result, true);

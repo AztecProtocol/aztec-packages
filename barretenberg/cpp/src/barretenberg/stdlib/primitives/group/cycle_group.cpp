@@ -11,6 +11,7 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
 #include "./cycle_group.hpp"
+#include "barretenberg/numeric/general/general.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
@@ -765,7 +766,9 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     const std::span<AffineElement const> offset_generators,
     const bool unconditional_add)
 {
-    BB_ASSERT_EQ(scalars.size(), base_points.size());
+    BB_ASSERT_EQ(!scalars.empty(), true, "Empty scalars provided to variable base batch mul!");
+    BB_ASSERT_EQ(scalars.size(), base_points.size(), "Points/scalars size mismatch in variable base batch mul!");
+    const size_t num_points = scalars.size();
 
     Builder* context = nullptr;
     for (auto& scalar : scalars) {
@@ -781,21 +784,16 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         }
     }
 
-    size_t num_bits = 0;
+    size_t num_bits = scalars[0].num_bits();
     for (auto& s : scalars) {
-        num_bits = std::max(num_bits, s.num_bits());
+        BB_ASSERT_EQ(s.num_bits(), num_bits, "Scalars of different bit-lengths not supported!");
     }
-    size_t num_rounds = (num_bits + TABLE_BITS - 1) / TABLE_BITS;
-
-    const size_t num_points = scalars.size();
+    size_t num_rounds = numeric::ceil_div(num_bits, TABLE_BITS);
 
     std::vector<straus_scalar_slice> scalar_slices;
     scalar_slices.reserve(num_points);
-    for (size_t i = 0; i < num_points; ++i) {
-        scalar_slices.emplace_back(straus_scalar_slice(context, scalars[i], TABLE_BITS));
-        // AUDITTODO: temporary safety check. See test MixedLengthScalarsIsNotSupported
-        BB_ASSERT_EQ(
-            scalar_slices[i].slices_native.size() == num_rounds, true, "Scalars of different sizes not supported!");
+    for (const auto& scalar : scalars) {
+        scalar_slices.emplace_back(context, scalar, TABLE_BITS);
     }
 
     /**
@@ -805,31 +803,24 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
      * generation times
      */
     std::vector<Element> operation_transcript;
-    std::vector<std::vector<Element>> native_straus_tables;
     Element offset_generator_accumulator = offset_generators[0];
     {
+        // Construct native straus lookup table for each point
+        std::vector<std::vector<Element>> native_straus_tables;
         for (size_t i = 0; i < num_points; ++i) {
-            std::vector<Element> native_straus_table;
-            native_straus_table.emplace_back(offset_generators[i + 1]);
-            size_t table_size = 1ULL << TABLE_BITS;
-            for (size_t j = 1; j < table_size; ++j) {
-                native_straus_table.emplace_back(native_straus_table[j - 1] + base_points[i].get_value());
-            }
-            native_straus_tables.emplace_back(native_straus_table);
-        }
-        for (size_t i = 0; i < num_points; ++i) {
-            auto table_transcript = straus_lookup_table::compute_straus_lookup_table_hints(
+            std::vector<Element> table_transcript = straus_lookup_table::compute_straus_lookup_table_hints(
                 base_points[i].get_value(), offset_generators[i + 1], TABLE_BITS);
             std::copy(table_transcript.begin() + 1, table_transcript.end(), std::back_inserter(operation_transcript));
+            native_straus_tables.emplace_back(std::move(table_transcript));
         }
-        Element accumulator = offset_generators[0];
 
+        // Perform the Straus algorithm natively to generate the witness values (hints) for all intermediate points
+        Element accumulator = offset_generators[0];
         for (size_t i = 0; i < num_rounds; ++i) {
             if (i != 0) {
                 for (size_t j = 0; j < TABLE_BITS; ++j) {
-                    // offset_generator_accuulator is a regular Element, so dbl() won't add constraints
                     accumulator = accumulator.dbl();
-                    operation_transcript.emplace_back(accumulator);
+                    operation_transcript.push_back(accumulator);
                     offset_generator_accumulator = offset_generator_accumulator.dbl();
                 }
             }
@@ -839,29 +830,30 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 
                 accumulator += point;
 
-                operation_transcript.emplace_back(accumulator);
+                operation_transcript.push_back(accumulator);
                 offset_generator_accumulator = offset_generator_accumulator + Element(offset_generators[j + 1]);
             }
         }
     }
 
-    // Normalize the computed witness points and convert into AffineElement type
+    // Normalize the computed witness points and convert them into AffineElements
     Element::batch_normalize(&operation_transcript[0], operation_transcript.size());
-
     std::vector<AffineElement> operation_hints;
     operation_hints.reserve(operation_transcript.size());
-    for (auto& element : operation_transcript) {
-        operation_hints.emplace_back(AffineElement(element.x, element.y));
+    for (const Element& element : operation_transcript) {
+        operation_hints.emplace_back(element.x, element.y);
     }
 
+    // Construct an in-circuit straus lookup table for each point
     std::vector<straus_lookup_table> point_tables;
     const size_t hints_per_table = (1ULL << TABLE_BITS) - 1;
     OriginTag tag{};
     for (size_t i = 0; i < num_points; ++i) {
-        std::span<AffineElement> table_hints(&operation_hints[i * hints_per_table], hints_per_table);
         // Merge tags
         tag = OriginTag(tag, scalars[i].get_origin_tag(), base_points[i].get_origin_tag());
-        point_tables.emplace_back(straus_lookup_table(context, base_points[i], offset_generators[i + 1], TABLE_BITS));
+
+        std::span<AffineElement> table_hints(&operation_hints[i * hints_per_table], hints_per_table);
+        point_tables.emplace_back(context, base_points[i], offset_generators[i + 1], TABLE_BITS, table_hints);
     }
 
     AffineElement* hint_ptr = &operation_hints[num_points * hints_per_table];
@@ -874,39 +866,34 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     std::vector<cycle_group> points_to_add;
     for (size_t i = 0; i < num_rounds; ++i) {
         for (size_t j = 0; j < num_points; ++j) {
-            const std::optional<field_t> scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
-            // if we are doing a batch mul over scalars of different bit-lengths, we may not have any scalar bits for a
-            // given round and a given scalar
-            if (scalar_slice.has_value()) {
-                const cycle_group point = point_tables[j].read(scalar_slice.value());
-                points_to_add.emplace_back(point);
-            }
+            const field_t scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
+            const cycle_group point = point_tables[j].read(scalar_slice);
+            points_to_add.push_back(point);
         }
     }
 
+    // Perform the Straus algorithm in-circuit, using the previously computed native hints
     std::vector<std::tuple<field_t, field_t>> x_coordinate_checks;
     size_t point_counter = 0;
     for (size_t i = 0; i < num_rounds; ++i) {
+        // perform once-per-round doublings (except for first round)
         if (i != 0) {
             for (size_t j = 0; j < TABLE_BITS; ++j) {
                 accumulator = accumulator.dbl(*hint_ptr);
                 hint_ptr++;
             }
         }
-
+        // perform each round's additions
         for (size_t j = 0; j < num_points; ++j) {
-            const std::optional<field_t> scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
-            // if we are doing a batch mul over scalars of different bit-lengths, we may not have a bit slice
-            // for a given round and a given scalar
-            BB_ASSERT_EQ(scalar_slice.value().get_value(), scalar_slices[j].slices_native[num_rounds - i - 1]);
-            if (scalar_slice.has_value()) {
-                const auto& point = points_to_add[point_counter++];
-                if (!unconditional_add) {
-                    x_coordinate_checks.push_back({ accumulator.x, point.x });
-                }
-                accumulator = accumulator.unconditional_add(point, *hint_ptr);
-                hint_ptr++;
+            field_t scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
+
+            BB_ASSERT_EQ(scalar_slice.get_value(), scalar_slices[j].slices_native[num_rounds - i - 1]);
+            const auto& point = points_to_add[point_counter++];
+            if (!unconditional_add) {
+                x_coordinate_checks.emplace_back(accumulator.x, point.x);
             }
+            accumulator = accumulator.unconditional_add(point, *hint_ptr);
+            hint_ptr++;
         }
     }
 
@@ -915,7 +902,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     // because `assert_is_not_zero` witness generation needs a modular inversion (expensive)
     field_t coordinate_check_product = 1;
     for (auto& [x1, x2] : x_coordinate_checks) {
-        auto x_diff = x2 - x1;
+        const field_t x_diff = x2 - x1;
         coordinate_check_product *= x_diff;
     }
     coordinate_check_product.assert_is_not_zero("_variable_base_batch_mul_internal x-coordinate collision");
