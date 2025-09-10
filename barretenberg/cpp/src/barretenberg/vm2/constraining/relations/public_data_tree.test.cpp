@@ -40,6 +40,7 @@ using ::testing::TestWithParam;
 
 using testing::TestMemoryTree;
 
+using simulation::DeduplicatingEventEmitter;
 using simulation::EventEmitter;
 using simulation::ExecutionIdManager;
 using simulation::FieldGreaterThan;
@@ -131,7 +132,7 @@ TEST_P(PublicDataReadPositiveTests, Positive)
     EventEmitter<RangeCheckEvent> range_check_emitter;
     RangeCheck range_check(range_check_emitter);
 
-    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
@@ -330,7 +331,7 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveWriteExists)
     EventEmitter<RangeCheckEvent> range_check_emitter;
     RangeCheck range_check(range_check_emitter);
 
-    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
@@ -438,7 +439,7 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveSquashing)
     EventEmitter<RangeCheckEvent> range_check_emitter;
     RangeCheck range_check(range_check_emitter);
 
-    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;

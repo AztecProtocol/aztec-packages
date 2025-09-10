@@ -36,6 +36,7 @@ using ::testing::NiceMock;
 
 using testing::TestMemoryTree;
 
+using simulation::DeduplicatingEventEmitter;
 using simulation::EventEmitter;
 using simulation::ExecutionIdManager;
 using simulation::FieldGreaterThan;
@@ -51,8 +52,6 @@ using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
 using simulation::Poseidon2PermutationMemoryEvent;
-using simulation::RangeCheck;
-using simulation::RangeCheckEvent;
 using simulation::unconstrained_root_from_path;
 
 using constraining::check_interaction;
@@ -108,7 +107,7 @@ TEST_P(NullifierReadInteractionsTests, PositiveWithInteractions)
 
     NiceMock<MockRangeCheck> range_check;
 
-    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
     EventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_event_emitter;
@@ -165,7 +164,7 @@ TEST_F(NullifierTreeCheckTracegenTest, WriteWithInteractions)
 
     NiceMock<MockRangeCheck> range_check;
 
-    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
     EventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_event_emitter;

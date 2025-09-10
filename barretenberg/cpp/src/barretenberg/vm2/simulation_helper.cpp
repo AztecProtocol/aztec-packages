@@ -102,7 +102,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<KeccakF1600Event> keccakf1600_emitter;
     typename S::template DefaultEventEmitter<ToRadixEvent> to_radix_emitter;
     typename S::template DefaultEventEmitter<ToRadixMemoryEvent> to_radix_memory_emitter;
-    typename S::template DefaultEventEmitter<FieldGreaterThanEvent> field_gt_emitter;
+    typename S::template DefaultDeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_emitter;
     typename S::template DefaultEventEmitter<MerkleCheckEvent> merkle_check_emitter;
     typename S::template DefaultDeduplicatingEventEmitter<RangeCheckEvent> range_check_emitter;
     typename S::template DefaultEventEmitter<ContextStackEvent> context_stack_emitter;

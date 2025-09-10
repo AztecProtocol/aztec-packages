@@ -75,54 +75,42 @@ void poseidon2_memImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::poseidon2_perm_mem_sel_src_out_of_range_err)) *
-                   (FF(1) - static_cast<View>(in.get(C::poseidon2_perm_mem_sel_src_out_of_range_err)));
+        auto tmp =
+            static_cast<View>(in.get(C::poseidon2_perm_mem_sel)) *
+            (static_cast<View>(in.get(C::poseidon2_perm_mem_max_mem_addr)) - CView(constants_AVM_HIGHEST_MEM_ADDRESS));
         std::get<6>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::poseidon2_perm_mem_sel_dst_out_of_range_err)) *
-                   (FF(1) - static_cast<View>(in.get(C::poseidon2_perm_mem_sel_dst_out_of_range_err)));
-        std::get<7>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::poseidon2_perm_mem_sel)) *
-            (static_cast<View>(in.get(C::poseidon2_perm_mem_max_mem_addr)) - CView(constants_AVM_HIGHEST_MEM_ADDRESS));
-        std::get<8>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::poseidon2_perm_mem_sel_should_read_mem)) -
                     static_cast<View>(in.get(C::poseidon2_perm_mem_sel)) *
                         (FF(1) - static_cast<View>(in.get(C::poseidon2_perm_mem_sel_src_out_of_range_err))) *
                         (FF(1) - static_cast<View>(in.get(C::poseidon2_perm_mem_sel_dst_out_of_range_err))));
-        std::get<9>(evals) += (tmp * scaling_factor);
+        std::get<7>(evals) += (tmp * scaling_factor);
     }
     { // BATCH_ZERO_CHECK
-        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
         auto tmp = (CView(poseidon2_perm_mem_BATCHED_TAG_CHECK) *
                         ((FF(1) - static_cast<View>(in.get(C::poseidon2_perm_mem_sel_invalid_tag_err))) *
                              (FF(1) - static_cast<View>(in.get(C::poseidon2_perm_mem_batch_tag_inv))) +
                          static_cast<View>(in.get(C::poseidon2_perm_mem_batch_tag_inv))) -
                     static_cast<View>(in.get(C::poseidon2_perm_mem_sel_invalid_tag_err)));
-        std::get<10>(evals) += (tmp * scaling_factor);
+        std::get<8>(evals) += (tmp * scaling_factor);
     }
     {
-        using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::poseidon2_perm_mem_err)) -
                     (FF(1) - (FF(1) - static_cast<View>(in.get(C::poseidon2_perm_mem_sel_src_out_of_range_err))) *
                                  (FF(1) - static_cast<View>(in.get(C::poseidon2_perm_mem_sel_dst_out_of_range_err))) *
                                  (FF(1) - static_cast<View>(in.get(C::poseidon2_perm_mem_sel_invalid_tag_err)))));
-        std::get<11>(evals) += (tmp * scaling_factor);
+        std::get<9>(evals) += (tmp * scaling_factor);
     }
     {
-        using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::poseidon2_perm_mem_sel_should_exec)) -
                     static_cast<View>(in.get(C::poseidon2_perm_mem_sel)) *
                         (FF(1) - static_cast<View>(in.get(C::poseidon2_perm_mem_err))));
-        std::get<12>(evals) += (tmp * scaling_factor);
+        std::get<10>(evals) += (tmp * scaling_factor);
     }
 }
 

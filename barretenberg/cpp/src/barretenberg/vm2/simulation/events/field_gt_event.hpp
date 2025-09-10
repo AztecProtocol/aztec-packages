@@ -31,6 +31,10 @@ struct FieldGreaterThanEvent {
     LimbsComparisonWitness res_witness = { 0, 0, false };
     bool gt_result = false; // Not relevant for operation == FieldGreaterOperation::CANONICAL_DECOMPOSITIONs
 
+    // To be used with deduplicating event emitters.
+    using Key = std::tuple<FieldGreaterOperation, FF, FF>;
+    Key get_key() const { return { operation, a, b }; }
+
     bool operator==(const FieldGreaterThanEvent& other) const = default;
 };
 

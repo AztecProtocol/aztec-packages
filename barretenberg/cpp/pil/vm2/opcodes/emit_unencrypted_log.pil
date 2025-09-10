@@ -133,8 +133,7 @@ namespace emit_unencrypted_log;
 
     // Memory bounds check
 
-    pol commit error_out_of_bounds;
-    error_out_of_bounds * (1 - error_out_of_bounds) = 0;
+    pol commit error_out_of_bounds; // Constrained to be boolean by the lookup into gt. (provided that start == 1).
 
     // TODO: Column needed until we support constants in lookups
     pol commit max_mem_addr;
@@ -154,8 +153,7 @@ namespace emit_unencrypted_log;
 
     // Log count check
 
-    pol commit error_too_many_logs;
-    error_too_many_logs * (1 - error_too_many_logs) = 0;
+    pol commit error_too_many_logs; // Constrained to be boolean by the lookup into gt. (provided that start == 1).
 
     // error_too_many_logs = prev_num_unencrypted_logs == MAX_PUBLIC_LOGS_PER_TX
     // If we are at max logs, we can't emit any more logs.

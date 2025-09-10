@@ -132,9 +132,9 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
 
 bool Addressing::is_address_out_of_range(const FF& address)
 {
-    // Precondition: address should fit in 33 bits.
-    uint128_t address_u128 = uint128_t(address);
-    assert(address_u128 <= 0x1FFFFFFFF);
+    // Precondition: address should fit in 128 bits for being compared in gt gadget.
+    uint128_t address_u128 = static_cast<uint128_t>(address);
+    assert(address == FF(address_u128));
 
     return gt.gt(address_u128, AVM_HIGHEST_MEM_ADDRESS);
 }
