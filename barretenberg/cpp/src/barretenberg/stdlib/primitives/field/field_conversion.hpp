@@ -108,17 +108,39 @@ template <typename Builder, typename T> constexpr size_t calc_num_bn254_frs()
 }
 
 /**
- * @brief Conversions from vector of fr<Builder> elements to transcript types.
- * @details We want to support the following types: fr<Builder>, fq<Builder>,
- * bn254_element<Builder>, grumpkin_element<Builder, bb::Univariate<FF, N>, std::array<FF, N>, for
- * FF = fr<Builder> or fq<Builder>, and N is arbitrary
- * @tparam Builder
- * @tparam T
- * @param builder
- * @param fr_vec
- * @return T
- * @todo https://github.com/AztecProtocol/barretenberg/issues/1065  optimize validate_on_curve and check points
- * reconstructed from the transcript
+ * @brief Core stdlib Transcript deserialization method.
+ * @details Deserializes a vector of in-circuit `fr`s, i.e. `field_t` elements, into
+ * - `field_t` — no conversion needed
+ *
+ * - \ref bb::stdlib::bigfield< Builder, T > "bigfield" — 2 input `field_t`s must be range-constrained as low and high
+ * limbs of a `bigfield` element, then the corresponding `bigfield` constructor is applied. Specific to
+ * \ref UltraCircuitBuilder_ "UltraCircuitBuilder".
+ *
+ * - \ref  bb::stdlib::goblin_field< Builder > "goblin field element" — in contrast to `bigfield`, range constraints are
+ * performed in `Translator` (see \ref TranslatorDeltaRangeConstraintRelationImpl "Translator Range Constraint"
+ * relation). Feed the limbs to the `bigfield` constructor and set the `point_at_infinity` flag derived by the
+ * `check_point_at_infinity` method. Specific to \ref MegaCircuitBuilder_ "MegaCircuitBuilder".
+ *
+ * - \ref bb::stdlib::element_goblin::goblin_element< Builder_, Fq, Fr, NativeGroup > "bn254 goblin point"  — input
+ * vector of size 4 is transformed into a pair of `goblin_field` elements, which are fed into the relevant constructor
+ * with the `point_at_infinity` flag derived by the `check_point_at_infinity` method. Note that `validate_on_curve` is a
+ * vacuous method in this case, as these checks are performed in ECCVM
+ * (see \ref bb::ECCVMTranscriptRelationImpl< FF_ > "ECCVM Transcript" relation).
+ * Specific to \ref MegaCircuitBuilder_ "MegaCircuitBuilder".
+ *
+ * - \ref bb::stdlib::element_default::element< Builder_, Fq, Fr, NativeGroup > "bn254 point" — reconstruct a pair of
+ * `bigfield` elements (x, y), applying required range constraints, and check that the resulting point lies on the
+ * curve. Specific to \ref UltraCircuitBuilder_ "UltraCircuitBuilder".
+ *
+ * - \ref cycle_group "Grumpkin point" — since the grumpkin base field is `fr`, the reconstruction is trivial. We check
+ *   in-circuit whether the resulting point lies on the curve and whether it is a point at infinity.
+ *   Specific to \ref UltraCircuitBuilder_ "UltraCircuitBuilder".
+ *
+ * - `Univariate` or a `std::array` of elements of the above types.
+ *
+ * @tparam Builder `UltraCircuitBuilder` or `MegaCircuitBuilder`
+ * @tparam T Target object type
+ * @param fr_vec Input `field_t` elements
  */
 template <typename Builder, typename T> T convert_from_bn254_frs(std::span<const fr<Builder>> fr_vec)
 {
@@ -134,9 +156,7 @@ template <typename Builder, typename T> T convert_from_bn254_frs(std::span<const
         // Case 1: input type matches the output type
         return fr_vec[0];
     } else if constexpr (IsAnyOf<T, bigfield_ct, goblin_field<Builder>>) {
-        // Q: need to range constrain when Mega? Must be handled in Translator.
         // Cases 2 and 3: a bigfield/goblin_field element is reconstructed from low and high limbs.
-
         if constexpr (std::is_same_v<Builder, UltraCircuitBuilder>) {
             constrain_bigfield_limbs(fr_vec[0], fr_vec[1]);
         }
@@ -157,7 +177,7 @@ template <typename Builder, typename T> T convert_from_bn254_frs(std::span<const
         out.validate_on_curve();
         return out;
     } else {
-        // Array or Univariate
+        // Case 6: Array or Univariate
         T val;
         using element_type = typename T::value_type;
         const size_t scalar_frs = calc_num_bn254_frs<Builder, element_type>();
