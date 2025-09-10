@@ -6,7 +6,7 @@ import { Secp256k1Signer, makeEthSignDigest } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
-import { type AztecAddressHex, type Hex, type KeyStore, KeystoreManager } from '@aztec/node-keystore';
+import { type Hex, type KeyStore, KeystoreManager } from '@aztec/node-keystore';
 import {
   AuthRequest,
   AuthResponse,
@@ -84,7 +84,7 @@ describe('ValidatorClient', () => {
       validators: [
         {
           attester: validatorPrivateKeys.map(key => key as Hex<32>),
-          feeRecipient: AztecAddress.ZERO.toString() as AztecAddressHex,
+          feeRecipient: AztecAddress.ZERO,
           coinbase: undefined,
           remoteSigner: undefined,
           publisher: [],
