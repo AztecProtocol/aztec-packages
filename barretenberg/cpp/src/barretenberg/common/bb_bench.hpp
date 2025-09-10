@@ -52,6 +52,7 @@ struct AggregateEntry {
     std::size_t count = 0;
     size_t num_threads = 0;
     double time_mean = 0;
+    std::size_t time_max = 0;
     double time_stddev = 0;
 
     // Welford's algorithm state
