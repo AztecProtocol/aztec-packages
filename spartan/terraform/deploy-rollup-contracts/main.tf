@@ -22,7 +22,7 @@ locals {
   deploy_args = concat(
     ["deploy-l1-contracts"],
     ["--l1-rpc-urls", var.L1_RPC_URLS],
-    ["--mnemonic", var.MNEMONIC],
+    ["--private-key", var.PRIVATE_KEY],
     ["--l1-chain-id", tostring(var.L1_CHAIN_ID)],
     ["--validators", var.VALIDATORS],
     ["--json"], # Always output JSON for easier parsing
