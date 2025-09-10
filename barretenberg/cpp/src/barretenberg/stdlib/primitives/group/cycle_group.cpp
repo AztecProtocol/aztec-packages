@@ -1061,7 +1061,7 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
                                                      const std::vector<cycle_scalar>& scalars,
                                                      const GeneratorContext& context)
 {
-    BB_ASSERT_EQ(scalars.size(), base_points.size());
+    BB_ASSERT_EQ(scalars.size(), base_points.size(), "Points/scalars size mismatch in batch mul!");
 
     std::vector<cycle_scalar> variable_base_scalars;
     std::vector<cycle_group> variable_base_points;
@@ -1083,8 +1083,8 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
         s.validate_scalar_is_in_field();
     }
 
-    // if num_bits != NUM_BITS, skip lookup-version of fixed-base scalar mul. too much complexity
-    bool num_bits_not_full_field_size = num_bits != NUM_BITS;
+    // if scalars are not full sized, we skip lookup-version of fixed-base scalar mul. too much complexity
+    bool scalars_are_full_sized = (num_bits == NUM_BITS_FULL_FIELD_SIZE);
 
     // When calling `_variable_base_batch_mul_internal`, we can unconditionally add iff all of the input points
     // are fixed-base points
@@ -1092,34 +1092,27 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
     bool can_unconditional_add = true;
     bool has_non_constant_component = false;
     Element constant_acc = Group::point_at_infinity;
-    for (size_t i = 0; i < scalars.size(); ++i) {
-        bool scalar_constant = scalars[i].is_constant();
-        bool point_constant = base_points[i].is_constant();
-        if (scalar_constant && point_constant) {
-            constant_acc += (base_points[i].get_value()) * (scalars[i].get_value());
-        } else if (!scalar_constant && point_constant) {
-            if (base_points[i].get_value().is_point_at_infinity()) {
+    for (const auto [point, scalar] : zip_view(base_points, scalars)) {
+        if (scalar.is_constant() && point.is_constant()) {
+            constant_acc += (point.get_value()) * (scalar.get_value());
+        } else if (!scalar.is_constant() && point.is_constant()) {
+            if (point.get_value().is_point_at_infinity()) {
                 // oi mate, why are you creating a circuit that multiplies a known point at infinity?
                 continue;
             }
-            if constexpr (IS_ULTRA) {
-                if (!num_bits_not_full_field_size &&
-                    plookup::fixed_base::table::lookup_table_exists_for_point(base_points[i].get_value())) {
-                    fixed_base_scalars.push_back(scalars[i]);
-                    fixed_base_points.push_back(base_points[i].get_value());
-                } else {
-                    // womp womp. We have lookup tables at home. ROM tables.
-                    variable_base_scalars.push_back(scalars[i]);
-                    variable_base_points.push_back(base_points[i]);
-                }
+            if (scalars_are_full_sized &&
+                plookup::fixed_base::table::lookup_table_exists_for_point(point.get_value())) {
+                fixed_base_scalars.push_back(scalar);
+                fixed_base_points.push_back(point.get_value());
             } else {
-                fixed_base_scalars.push_back(scalars[i]);
-                fixed_base_points.push_back(base_points[i].get_value());
+                // womp womp. We have lookup tables at home. ROM tables.
+                variable_base_scalars.push_back(scalar);
+                variable_base_points.push_back(point);
             }
             has_non_constant_component = true;
         } else {
-            variable_base_scalars.push_back(scalars[i]);
-            variable_base_points.push_back(base_points[i]);
+            variable_base_scalars.push_back(scalar);
+            variable_base_points.push_back(point);
             can_unconditional_add = false;
             has_non_constant_component = true;
             // variable base
@@ -1139,12 +1132,6 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
     const bool has_variable_points = !variable_base_points.empty();
     const bool has_fixed_points = !fixed_base_points.empty();
 
-    // Compute all required offset generators.
-    const size_t num_offset_generators =
-        variable_base_points.size() + fixed_base_points.size() + has_variable_points + has_fixed_points;
-    const std::span<AffineElement const> offset_generators =
-        context.generators->get(num_offset_generators, 0, OFFSET_GENERATOR_DOMAIN_SEPARATOR);
-
     cycle_group result;
     if (has_fixed_points) {
         const auto [fixed_accumulator, offset_generator_delta] =
@@ -1154,14 +1141,13 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
     }
 
     if (has_variable_points) {
-        std::span<AffineElement const> offset_generators_for_variable_base_batch_mul{
-            offset_generators.data() + fixed_base_points.size(), offset_generators.size() - fixed_base_points.size()
-        };
-        const auto [variable_accumulator, offset_generator_delta] =
-            _variable_base_batch_mul_internal(variable_base_scalars,
-                                              variable_base_points,
-                                              offset_generators_for_variable_base_batch_mul,
-                                              can_unconditional_add);
+        // Compute required offset generators; one per point plus one extra for the initial accumulator
+        const size_t num_offset_generators = variable_base_points.size() + 1;
+        const std::span<AffineElement const> offset_generators =
+            context.generators->get(num_offset_generators, 0, OFFSET_GENERATOR_DOMAIN_SEPARATOR);
+
+        const auto [variable_accumulator, offset_generator_delta] = _variable_base_batch_mul_internal(
+            variable_base_scalars, variable_base_points, offset_generators, can_unconditional_add);
         offset_accumulator += offset_generator_delta;
         if (has_fixed_points) {
             result = can_unconditional_add ? result.unconditional_add(variable_accumulator)
@@ -1177,9 +1163,9 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
     // 2. Everything else.
     // Case 1 is a special case, as we *know* we cannot hit incomplete addition edge cases,
     // under the assumption that all input points are linearly independent of one another.
-    // Because constant_acc is not the point at infnity we know that at least 1 input scalar was not zero,
+    // Because constant_acc is not the point at infinity we know that at least 1 input scalar was not zero,
     // i.e. the output will not be the point at infinity. We also know under case 1, we won't trigger the
-    // doubling formula either, as every point is lienarly independent of every other point (including offset
+    // doubling formula either, as every point is linearly independent of every other point (including offset
     // generators).
     if (!constant_acc.is_point_at_infinity() && can_unconditional_add) {
         result = result.unconditional_add(AffineElement(-offset_accumulator));

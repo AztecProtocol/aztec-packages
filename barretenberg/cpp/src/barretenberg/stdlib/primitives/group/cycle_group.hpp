@@ -50,12 +50,8 @@ template <typename Builder> class cycle_group {
     using straus_lookup_table = ::bb::stdlib::straus_lookup_table<Builder>;
     using straus_scalar_slice = ::bb::stdlib::straus_scalar_slice<Builder>;
 
-    static constexpr size_t STANDARD_NUM_TABLE_BITS = 1;
-    static constexpr size_t ULTRA_NUM_TABLE_BITS = 4;
-    static constexpr bool IS_ULTRA = Builder::CIRCUIT_TYPE == CircuitType::ULTRA;
-    static constexpr size_t TABLE_BITS = IS_ULTRA ? ULTRA_NUM_TABLE_BITS : STANDARD_NUM_TABLE_BITS;
-    static constexpr size_t NUM_BITS = bb::fq::modulus.get_msb() + 1;
-    static constexpr size_t NUM_ROUNDS = (NUM_BITS + TABLE_BITS - 1) / TABLE_BITS;
+    static constexpr size_t TABLE_BITS = 4;
+    static constexpr size_t NUM_BITS_FULL_FIELD_SIZE = bb::fq::modulus.get_msb() + 1;
     static constexpr std::string_view OFFSET_GENERATOR_DOMAIN_SEPARATOR = "cycle_group_offset_generator";
 
     // Since the cycle_group base field is the circuit's native field, it can be stored using two public inputs.
