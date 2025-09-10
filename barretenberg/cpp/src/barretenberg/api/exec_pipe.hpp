@@ -79,8 +79,8 @@ inline std::vector<uint8_t> exec_pipe_with_stdin(const std::string& file_path,
 {
     PathHoldingFile temp(file_path);
     // Use command substitution to read the filename from the temporary file
-    std::string command = "\"$(cat " + temp.path + ")\" | " + std::string(command);
-    return exec_pipe_unsafe(command);
+    std::string full_command = "\"$(cat " + temp.path + ")\" | " + std::string(command);
+    return exec_pipe_unsafe(full_command);
 }
 
 // Helper function to execute a command with a safe file path (requires literal string prefixes)
