@@ -171,6 +171,7 @@ describe('e2e_p2p_add_rollup', () => {
         slashAmountSmall: t.ctx.aztecNodeConfig.slashAmountSmall,
         slashAmountMedium: t.ctx.aztecNodeConfig.slashAmountMedium,
         slashAmountLarge: t.ctx.aztecNodeConfig.slashAmountLarge,
+        localEjectionThreshold: t.ctx.aztecNodeConfig.localEjectionThreshold,
       },
       t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress,
       t.logger,
