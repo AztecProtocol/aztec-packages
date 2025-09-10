@@ -543,12 +543,10 @@ function mapPublicLogsToNoir(logs: PublicLogs): PublicLogsNoir {
   if (fields.length > PUBLIC_LOGS_PAYLOAD_LENGTH) {
     throw new Error('Public logs payload length exceeds target length');
   }
+  const payload = [...fields, ...Array(PUBLIC_LOGS_PAYLOAD_LENGTH - fields.length).fill(Fr.ZERO)].map(mapFieldToNoir);
   return {
     length: mapNumberToNoir(fields.length),
-    payload: [...fields, ...Array(PUBLIC_LOGS_PAYLOAD_LENGTH - fields.length).fill(Fr.ZERO)] as FixedLengthArray<
-      NoirField,
-      typeof PUBLIC_LOGS_PAYLOAD_LENGTH
-    >,
+    payload: payload as FixedLengthArray<NoirField, typeof PUBLIC_LOGS_PAYLOAD_LENGTH>,
   };
 }
 

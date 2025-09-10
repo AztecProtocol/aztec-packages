@@ -620,10 +620,10 @@ fn flat_columns_of_avm_circuit_public_inputs() {
     // Public logs
     let public_log_row = AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX;
     assert_eq(flat[col0_offset + public_log_row], (public_log.length + 2) as Field);
-    assert_eq(flat[col1_offset + public_log_row + 1], public_log.length as Field);
-    assert_eq(flat[col1_offset + public_log_row + 2], 11223);
+    assert_eq(flat[col0_offset + public_log_row + 1], public_log.length as Field);
+    assert_eq(flat[col0_offset + public_log_row + 2], 11223);
     for j in 0..public_log.length {
-        assert_eq(flat[col2_offset + public_log_row + 2 + j], 10000 + j as Field);
+        assert_eq(flat[col0_offset + public_log_row + 3 + j], 10000 + j as Field);
     }
 
     // Public data writes

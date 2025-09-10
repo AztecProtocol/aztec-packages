@@ -481,7 +481,7 @@ mod tests {
         reconstructed_tx_effects[offset] = public_logs_prefix;
         offset += 1;
         for i in 0..builder.avm_data.public_logs.length {
-            assert_eq(reconstructed_tx_effects[offset], builder.avm_data.public_logs.payload[i]);
+            reconstructed_tx_effects[offset] = builder.avm_data.public_logs.payload[i];
             offset += 1;
         }
         // cc logs
