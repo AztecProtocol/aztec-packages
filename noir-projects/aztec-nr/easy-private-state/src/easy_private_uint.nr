@@ -1,6 +1,6 @@
 use aztec::{
     context::{PrivateContext, UtilityContext},
-    event::event_interface::MessageDelivery,
+    messages::message_delivery::MessageDelivery,
     note::note_getter_options::NoteGetterOptions,
     protocol_types::address::AztecAddress,
     state_vars::{PrivateSet, storage::HasStorageSlot},
