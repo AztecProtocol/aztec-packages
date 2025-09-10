@@ -5,7 +5,7 @@ import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
 
 describe('e2e_blacklist_token_contract transfer public', () => {
   const t = new BlacklistTokenContractTest('transfer_public');
-  let { asset, tokenSim, admin, adminAddress, other, otherAddress, blacklisted, blacklistedAddress } = t;
+  let { asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
@@ -13,7 +13,7 @@ describe('e2e_blacklist_token_contract transfer public', () => {
     await t.applyMintSnapshot();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
-    ({ asset, tokenSim, admin, adminAddress, other, otherAddress, blacklisted, blacklistedAddress } = t);
+    ({ asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t);
   }, 600_000);
 
   afterAll(async () => {
@@ -49,9 +49,13 @@ describe('e2e_blacklist_token_contract transfer public', () => {
     const authwitNonce = Fr.random();
 
     // docs:start:authwit_public_transfer_example
-    const action = asset.withWallet(other).methods.transfer_public(adminAddress, otherAddress, amount, authwitNonce);
+    const action = asset.methods.transfer_public(adminAddress, otherAddress, amount, authwitNonce);
 
-    const validateActionInteraction = await admin.setPublicAuthWit({ caller: otherAddress, action }, true);
+    const validateActionInteraction = await wallet.setPublicAuthWit(
+      adminAddress,
+      { caller: otherAddress, action },
+      true,
+    );
     await validateActionInteraction.send({ from: adminAddress }).wait();
     // docs:end:authwit_public_transfer_example
 
@@ -61,10 +65,7 @@ describe('e2e_blacklist_token_contract transfer public', () => {
     tokenSim.transferPublic(adminAddress, otherAddress, amount);
 
     await expect(
-      asset
-        .withWallet(other)
-        .methods.transfer_public(adminAddress, otherAddress, amount, authwitNonce)
-        .simulate({ from: otherAddress }),
+      asset.methods.transfer_public(adminAddress, otherAddress, amount, authwitNonce).simulate({ from: otherAddress }),
     ).rejects.toThrow(/unauthorized/);
   });
 
@@ -98,9 +99,8 @@ describe('e2e_blacklist_token_contract transfer public', () => {
       const amount = balance0 + 1n;
       const authwitNonce = Fr.random();
       await expect(
-        asset
-          .withWallet(other)
-          .methods.transfer_public(adminAddress, otherAddress, amount, authwitNonce)
+        asset.methods
+          .transfer_public(adminAddress, otherAddress, amount, authwitNonce)
           .simulate({ from: otherAddress }),
       ).rejects.toThrow(/unauthorized/);
     });
@@ -112,11 +112,15 @@ describe('e2e_blacklist_token_contract transfer public', () => {
       const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
-      const action = asset.withWallet(other).methods.transfer_public(adminAddress, otherAddress, amount, authwitNonce);
+      const action = asset.methods.transfer_public(adminAddress, otherAddress, amount, authwitNonce);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
       // docs:start:set_public_authwit
-      const validateActionInteraction = await admin.setPublicAuthWit({ caller: otherAddress, action }, true);
+      const validateActionInteraction = await wallet.setPublicAuthWit(
+        adminAddress,
+        { caller: otherAddress, action },
+        true,
+      );
       await validateActionInteraction.send({ from: adminAddress }).wait();
       // docs:end:set_public_authwit
       // Perform the transfer
@@ -134,9 +138,13 @@ describe('e2e_blacklist_token_contract transfer public', () => {
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const action = asset.withWallet(other).methods.transfer_public(adminAddress, otherAddress, amount, authwitNonce);
+      const action = asset.methods.transfer_public(adminAddress, otherAddress, amount, authwitNonce);
 
-      const validateActionInteraction = await admin.setPublicAuthWit({ caller: adminAddress, action }, true);
+      const validateActionInteraction = await wallet.setPublicAuthWit(
+        adminAddress,
+        { caller: adminAddress, action },
+        true,
+      );
       await validateActionInteraction.send({ from: adminAddress }).wait();
 
       // Perform the transfer
@@ -155,16 +163,13 @@ describe('e2e_blacklist_token_contract transfer public', () => {
 
     it('transfer from a blacklisted account', async () => {
       await expect(
-        asset
-          .withWallet(blacklisted)
-          .methods.transfer_public(blacklistedAddress, adminAddress, 1n, 0n)
-          .simulate({ from: blacklistedAddress }),
+        asset.methods.transfer_public(blacklistedAddress, adminAddress, 1n, 0n).simulate({ from: blacklistedAddress }),
       ).rejects.toThrow('Assertion failed: Blacklisted: Sender');
     });
 
     it('transfer to a blacklisted account', async () => {
       await expect(
-        asset.methods.transfer_public(adminAddress, blacklisted.getAddress(), 1n, 0n).simulate({ from: adminAddress }),
+        asset.methods.transfer_public(adminAddress, blacklistedAddress, 1n, 0n).simulate({ from: adminAddress }),
       ).rejects.toThrow('Assertion failed: Blacklisted: Recipient');
     });
   });

@@ -20,6 +20,7 @@
     "@aztec/aztec.js": "latest",
     "@aztec/pxe": "latest",
     "@aztec/stdlib": "latest",
+    "@aztec/test-wallet": "latest",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-toastify": "^10.0.6"

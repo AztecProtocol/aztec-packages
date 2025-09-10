@@ -104,6 +104,9 @@
       "path": "../telemetry-client"
     },
     {
+      "path": "../test-wallet"
+    },
+    {
       "path": "../validator-client"
     },
     {

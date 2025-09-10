@@ -6,7 +6,7 @@ import { Option } from 'commander';
 import { readdir, stat } from 'fs/promises';
 
 import type { AliasType, WalletDB } from '../../storage/wallet_db.js';
-import { AccountTypes } from '../accounts.js';
+import { AccountTypes } from '../wallet.js';
 
 const TARGET_DIR = 'target';
 

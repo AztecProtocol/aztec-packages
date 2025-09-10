@@ -99,8 +99,8 @@ export default function Home() {
   const [showContractInterface, setShowContractInterface] = useState(false);
   const [node, setAztecNode] = useState(null);
   const [isPXEInitialized, setPXEInitialized] = useState(false);
-  const [walletAlias, setWalletAlias] = useState('');
   const [walletDB, setWalletDB] = useState(null);
+  const [from, setFrom] = useState(null);
   const [currentContractArtifact, setCurrentContractArtifact] = useState(null);
   const [currentTx, setCurrentTx] = useState(null);
   const [currentContractAddress, setCurrentContractAddress] = useState(null);
@@ -118,8 +118,8 @@ export default function Home() {
     connecting,
     network,
     wallet,
+    from,
     isPXEInitialized,
-    walletAlias,
     walletDB,
     currentContractArtifact,
     currentTx,
@@ -143,10 +143,10 @@ export default function Home() {
     setWalletDB,
     setPXEInitialized,
     setWallet,
+    setFrom,
     setPXE,
     setShowContractInterface,
     setDefaultContractCreationParams,
-    setWalletAlias,
     setCurrentContractArtifact,
     setCurrentContractAddress,
     setPendingTxUpdateCounter,

@@ -146,7 +146,7 @@ describe('e2e_multi_validator_node', () => {
   let initialValidatorPrivateKeys: `0x${string}`[];
   let validatorAddresses: `0x${string}`[];
   let teardown: () => Promise<void>;
-  let owner: Wallet;
+  let wallet: Wallet;
   let ownerAddress: AztecAddress;
   let config: AztecNodeConfig;
   let deployL1ContractsValues: DeployL1ContractsReturnType;
@@ -279,7 +279,7 @@ describe('e2e_multi_validator_node', () => {
 
     ({
       teardown,
-      wallets: [owner],
+      wallet,
       accounts: [ownerAddress],
       config,
       deployL1ContractsValues,
@@ -332,7 +332,7 @@ describe('e2e_multi_validator_node', () => {
   });
 
   const sendTx = async (sender: AztecAddress, contractAddressSalt: Fr) => {
-    const deployer = new ContractDeployer(artifact, owner);
+    const deployer = new ContractDeployer(artifact, wallet);
     const provenTx = await deployer.deploy(ownerAddress, sender, 1).prove({
       from: ownerAddress,
       contractAddressSalt,

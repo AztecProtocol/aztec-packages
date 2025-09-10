@@ -1,5 +1,4 @@
-import { getSchnorrWallet } from '@aztec/accounts/schnorr';
-import { type AccountWallet, AztecAddress, type AztecNode, type Logger, createLogger } from '@aztec/aztec.js';
+import { AztecAddress, type AztecNode, type Logger, type Wallet, createLogger } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { InvalidAccountContract } from '@aztec/noir-test-contracts.js/InvalidAccount';
 
@@ -28,11 +27,9 @@ export class TokenContractTest {
   node!: AztecNode;
 
   badAccount!: InvalidAccountContract;
-  admin!: AccountWallet;
+  wallet!: Wallet;
   adminAddress!: AztecAddress;
-  account1!: AccountWallet;
   account1Address!: AztecAddress;
-  account2!: AccountWallet;
   account2Address!: AztecAddress;
 
   constructor(testName: string) {
@@ -54,11 +51,11 @@ export class TokenContractTest {
     await this.snapshotManager.snapshot(
       '3_accounts',
       deployAccounts(3, this.logger),
-      async ({ deployedAccounts }, { pxe, aztecNode }) => {
+      ({ deployedAccounts }, { wallet, aztecNode }) => {
         this.node = aztecNode;
-        const wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
-        [this.admin, this.account1, this.account2] = wallets;
-        [this.adminAddress, this.account1Address, this.account2Address] = wallets.map(w => w.getAddress());
+        this.wallet = wallet;
+        [this.adminAddress, this.account1Address, this.account2Address] = deployedAccounts.map(acc => acc.address);
+        return Promise.resolve();
       },
     );
 
@@ -68,11 +65,11 @@ export class TokenContractTest {
         // Create the token contract state.
         // Move this account thing to addAccounts above?
         this.logger.verbose(`Public deploy accounts...`);
-        await publicDeployAccounts(this.admin, [this.adminAddress, this.account1Address]);
+        await publicDeployAccounts(this.wallet, [this.adminAddress, this.account1Address]);
 
         this.logger.verbose(`Deploying TokenContract...`);
         const asset = await TokenContract.deploy(
-          this.admin,
+          this.wallet,
           this.adminAddress,
           TokenContractTest.TOKEN_NAME,
           TokenContractTest.TOKEN_SYMBOL,
@@ -83,22 +80,22 @@ export class TokenContractTest {
         this.logger.verbose(`Token deployed to ${asset.address}`);
 
         this.logger.verbose(`Deploying bad account...`);
-        this.badAccount = await InvalidAccountContract.deploy(this.admin).send({ from: this.adminAddress }).deployed();
+        this.badAccount = await InvalidAccountContract.deploy(this.wallet).send({ from: this.adminAddress }).deployed();
         this.logger.verbose(`Deployed to ${this.badAccount.address}.`);
 
         return { tokenContractAddress: asset.address, badAccountAddress: this.badAccount.address };
       },
       async ({ tokenContractAddress, badAccountAddress }) => {
         // Restore the token contract state.
-        this.asset = await TokenContract.at(tokenContractAddress, this.admin);
+        this.asset = await TokenContract.at(tokenContractAddress, this.wallet);
         this.logger.verbose(`Token contract address: ${this.asset.address}`);
 
-        this.tokenSim = new TokenSimulator(this.asset, this.admin, this.adminAddress, this.logger, [
+        this.tokenSim = new TokenSimulator(this.asset, this.wallet, this.adminAddress, this.logger, [
           this.adminAddress,
           this.account1Address,
         ]);
 
-        this.badAccount = await InvalidAccountContract.at(badAccountAddress, this.admin);
+        this.badAccount = await InvalidAccountContract.at(badAccountAddress, this.wallet);
         this.logger.verbose(`Bad account address: ${this.badAccount.address}`);
 
         expect(await this.asset.methods.get_admin().simulate({ from: this.adminAddress })).toBe(
@@ -131,14 +128,14 @@ export class TokenContractTest {
     await this.snapshotManager.snapshot(
       'mint',
       async () => {
-        const { asset, admin, adminAddress } = this;
+        const { asset, adminAddress } = this;
         const amount = 10000n;
 
         this.logger.verbose(`Minting ${amount} publicly...`);
         await asset.methods.mint_to_public(adminAddress, amount).send({ from: adminAddress }).wait();
 
         this.logger.verbose(`Minting ${amount} privately...`);
-        await mintTokensToPrivate(asset, adminAddress, admin, adminAddress, amount);
+        await mintTokensToPrivate(asset, adminAddress, adminAddress, amount);
         this.logger.verbose(`Minting complete.`);
 
         return { amount };

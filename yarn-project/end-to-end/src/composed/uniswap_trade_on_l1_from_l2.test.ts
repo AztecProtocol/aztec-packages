@@ -16,15 +16,13 @@ const testSetup = async (): Promise<UniswapSetupContext> => {
     teardown: teardown_,
     pxe,
     deployL1ContractsValues,
-    wallets,
+    wallet,
+    accounts: [ownerAddress, sponsorAddress],
     logger,
     cheatCodes,
   } = await e2eSetup(2, { stateLoad: dumpedState });
 
   const l1Client = deployL1ContractsValues.l1Client;
-
-  const ownerWallet = wallets[0];
-  const sponsorWallet = wallets[1];
 
   teardown = teardown_;
 
@@ -33,8 +31,9 @@ const testSetup = async (): Promise<UniswapSetupContext> => {
     pxe,
     logger,
     l1Client,
-    ownerWallet,
-    sponsorWallet,
+    wallet,
+    ownerAddress,
+    sponsorAddress,
     deployL1ContractsValues,
     cheatCodes,
   };

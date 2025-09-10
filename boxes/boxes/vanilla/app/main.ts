@@ -2,8 +2,8 @@ import './style.css';
 import {
   AztecAddress,
   Fr,
+  getContractInstanceFromInstantiationParams,
   type Wallet,
-  type AccountWallet,
 } from '@aztec/aztec.js';
 import { EmbeddedWallet } from './embedded-wallet';
 import { PrivateVotingContract } from '../artifacts/PrivateVoting';
@@ -11,8 +11,9 @@ import { PrivateVotingContract } from '../artifacts/PrivateVoting';
 // DOM Elements
 const createAccountButton =
   document.querySelector<HTMLButtonElement>('#create-account')!;
-const connectTestAccountButton =
-  document.querySelector<HTMLButtonElement>('#connect-test-account')!;
+const connectTestAccountButton = document.querySelector<HTMLButtonElement>(
+  '#connect-test-account'
+)!;
 const voteForm = document.querySelector<HTMLFormElement>('.vote-form')!;
 const voteButton = document.querySelector<HTMLButtonElement>('#vote-button')!;
 const voteInput = document.querySelector<HTMLInputElement>('#vote-input')!;
@@ -21,7 +22,9 @@ const accountDisplay =
 const statusMessage =
   document.querySelector<HTMLDivElement>('#status-message')!;
 const voteResults = document.querySelector<HTMLDivElement>('#vote-results')!;
-const testAccountNumber = document.querySelector<HTMLSelectElement>('#test-account-number')!;
+const testAccountNumber = document.querySelector<HTMLSelectElement>(
+  '#test-account-number'
+)!;
 
 // Local variables
 let wallet: EmbeddedWallet;
@@ -39,17 +42,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Initialize the PXE and the wallet
     displayStatusMessage('Connecting to node and initializing wallet...');
-    wallet = new EmbeddedWallet(nodeUrl);
-    await wallet.initialize();
+    wallet = await EmbeddedWallet.initialize(nodeUrl);
 
     // Register voting contract with wallet/PXE
     displayStatusMessage('Registering contracts...');
-    await wallet.registerContract(
+    const instance = await getContractInstanceFromInstantiationParams(
       PrivateVotingContract.artifact,
-      AztecAddress.fromString(deployerAddress),
-      Fr.fromString(deploymentSalt),
-      [AztecAddress.fromString(deployerAddress)]
+      {
+        deployer: AztecAddress.fromString(deployerAddress),
+        salt: Fr.fromString(deploymentSalt),
+        constructorArgs: [AztecAddress.fromString(deployerAddress)],
+      }
     );
+    await wallet.registerContract({
+      artifact: PrivateVotingContract.artifact,
+      instance,
+    });
 
     // Get existing account
     displayStatusMessage('Checking for existing account...');
@@ -59,7 +67,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Refresh tally if account exists
     if (account) {
       displayStatusMessage('Updating vote tally...');
-      await updateVoteTally(account);
+      await updateVoteTally(wallet, account);
       displayStatusMessage('');
     } else {
       displayStatusMessage('Create a new account to cast a vote.');
@@ -85,7 +93,7 @@ createAccountButton.addEventListener('click', async (e) => {
     displayAccount();
     displayStatusMessage('');
 
-    await updateVoteTally(account);
+    await updateVoteTally(wallet, account);
   } catch (error) {
     console.error(error);
     displayError(
@@ -110,7 +118,7 @@ connectTestAccountButton.addEventListener('click', async (e) => {
     const index = Number(testAccountNumber.value) - 1;
     const testAccount = await wallet.connectTestAccount(index);
     displayAccount();
-    await updateVoteTally(testAccount);
+    await updateVoteTally(wallet, testAccount);
   } catch (error) {
     console.error(error);
     displayError(
@@ -147,16 +155,18 @@ voteButton.addEventListener('click', async (e) => {
     // Prepare contract interaction
     const votingContract = await PrivateVotingContract.at(
       AztecAddress.fromString(contractAddress),
-      connectedAccount
+      wallet
     );
-    const interaction = votingContract.methods.cast_vote(candidate);
 
-    // Send transaction
-    await wallet.sendTransaction(interaction);
+    // Send tx
+    await votingContract.methods
+      .cast_vote(candidate)
+      .send({ from: connectedAccount })
+      .wait();
 
     // Update tally
     displayStatusMessage('Updating vote tally...');
-    await updateVoteTally(connectedAccount);
+    await updateVoteTally(wallet, connectedAccount);
     displayStatusMessage('');
   } catch (error) {
     console.error(error);
@@ -171,7 +181,7 @@ voteButton.addEventListener('click', async (e) => {
 });
 
 // Update the tally
-async function updateVoteTally(account: Wallet) {
+async function updateVoteTally(wallet: Wallet, from: AztecAddress) {
   let results: { [key: number]: number } = {};
 
   displayStatusMessage('Updating vote tally...');
@@ -179,13 +189,14 @@ async function updateVoteTally(account: Wallet) {
   // Prepare contract interaction
   const votingContract = await PrivateVotingContract.at(
     AztecAddress.fromString(contractAddress),
-    account
+    wallet
   );
 
   await Promise.all(
     Array.from({ length: 5 }, async (_, i) => {
-      const interaction = votingContract.methods.get_vote(i + 1);
-      const value = await wallet.simulateTransaction(interaction);
+      const value = await votingContract.methods
+        .get_vote(i + 1)
+        .simulate({ from });
       results[i + 1] = value;
     })
   );
@@ -219,7 +230,7 @@ function displayAccount() {
     return;
   }
 
-  const address = connectedAccount.getAddress().toString();
+  const address = connectedAccount.toString();
   const content = `Account: ${address.slice(0, 6)}...${address.slice(-4)}`;
   accountDisplay.textContent = content;
   createAccountButton.style.display = 'none';

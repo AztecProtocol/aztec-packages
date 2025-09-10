@@ -53,7 +53,7 @@ export class AmmBot extends BaseBot {
 
     const [tokenIn, tokenOut] = Math.random() < 0.5 ? [token0, token1] : [token1, token0];
 
-    const swapAuthwit = await wallet.createAuthWit({
+    const swapAuthwit = await wallet.createAuthWit(this.defaultAccountAddress, {
       caller: amm.address,
       action: tokenIn.methods.transfer_to_public(this.defaultAccountAddress, amm.address, amountIn, authwitNonce),
     });
@@ -97,20 +97,20 @@ export class AmmBot extends BaseBot {
     return {
       senderPublic: await this.getPublicBalanceFor(this.defaultAccountAddress),
       senderPrivate: await this.getPrivateBalanceFor(this.defaultAccountAddress),
-      amm: await this.getPublicBalanceFor(this.amm.address),
+      amm: await this.getPublicBalanceFor(this.amm.address, this.defaultAccountAddress),
     };
   }
 
-  private async getPublicBalanceFor(address: AztecAddress): Promise<Balances> {
+  private async getPublicBalanceFor(address: AztecAddress, from?: AztecAddress): Promise<Balances> {
     return {
-      token0: await this.token0.methods.balance_of_public(address).simulate({ from: address }),
-      token1: await this.token1.methods.balance_of_public(address).simulate({ from: address }),
+      token0: await this.token0.methods.balance_of_public(address).simulate({ from: from ?? address }),
+      token1: await this.token1.methods.balance_of_public(address).simulate({ from: from ?? address }),
     };
   }
-  private async getPrivateBalanceFor(address: AztecAddress): Promise<Balances> {
+  private async getPrivateBalanceFor(address: AztecAddress, from?: AztecAddress): Promise<Balances> {
     return {
-      token0: await this.token0.methods.balance_of_private(address).simulate({ from: address }),
-      token1: await this.token1.methods.balance_of_private(address).simulate({ from: address }),
+      token0: await this.token0.methods.balance_of_private(address).simulate({ from: from ?? address }),
+      token1: await this.token1.methods.balance_of_private(address).simulate({ from: from ?? address }),
     };
   }
 }
