@@ -102,14 +102,11 @@ void AvmProver::execute_log_derivative_inverse_round()
 
 void AvmProver::execute_log_derivative_inverse_commitments_round()
 {
-    // Commit to all logderivative inverse polynomials
-    for (auto [commitment, key_poly] : zip_view(witness_commitments.get_derived(), key->get_derived())) {
-        commitment = commitment_key.commit(key_poly);
-    }
-
-    // Send all commitments to the verifier
-    for (auto [label, commitment] :
-         zip_view(prover_polynomials.get_derived_labels(), witness_commitments.get_derived())) {
+    // Commit to all logderivative inverse polynomials and send to verifier
+    for (auto [derived_poly, commitment, label] : zip_view(prover_polynomials.get_derived(),
+                                                           witness_commitments.get_derived(),
+                                                           prover_polynomials.get_derived_labels())) {
+        commitment = commitment_key.commit(derived_poly);
         transcript->send_to_verifier(label, commitment);
     }
 }
