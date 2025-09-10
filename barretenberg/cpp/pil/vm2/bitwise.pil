@@ -60,6 +60,12 @@ start_keccak * (1 - start_keccak) = 0;
 // If start_keccak is 1, then start must be 1.
 start_keccak * (1 - start) = 0;
 
+// This is used to support the Sha256 subtrace.
+pol commit start_sha256;
+start_sha256 * (1 - start_sha256) = 0;
+// If start_sha256 is 1, then start must be 1.
+start_sha256 * (1 - start) = 0;
+
 // To support dynamically sized memory operands we use a counter against a lookup
 // This decrementing counter goes from [TAG_LEN, 0] where TAG_LEN is the number of bytes in the
 // corresponding integer. i.e. TAG_LEN is between 1 (U1/U8) and 16 (U128).

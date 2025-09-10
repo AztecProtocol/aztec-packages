@@ -27,16 +27,26 @@ void gtImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::gt_res)) * (FF(1) - static_cast<View>(in.get(C::gt_res)));
+        auto tmp = static_cast<View>(in.get(C::gt_sel_sha256)) * (FF(1) - static_cast<View>(in.get(C::gt_sel_sha256)));
         std::get<1>(evals) += (tmp * scaling_factor);
     }
-    { // GT_RESULT
+    {
         using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::gt_sel_sha256)) * (FF(1) - static_cast<View>(in.get(C::gt_sel)));
+        std::get<2>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::gt_res)) * (FF(1) - static_cast<View>(in.get(C::gt_res)));
+        std::get<3>(evals) += (tmp * scaling_factor);
+    }
+    { // GT_RESULT
+        using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::gt_sel)) *
             (((CView(gt_A_GT_B) - CView(gt_A_LTE_B)) * static_cast<View>(in.get(C::gt_res)) + CView(gt_A_LTE_B)) -
              static_cast<View>(in.get(C::gt_abs_diff)));
-        std::get<2>(evals) += (tmp * scaling_factor);
+        std::get<4>(evals) += (tmp * scaling_factor);
     }
 }
 
