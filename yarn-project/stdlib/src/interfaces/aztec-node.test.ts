@@ -7,6 +7,7 @@ import {
 } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
 import { Buffer32 } from '@aztec/foundation/buffer';
+import { timesAsync } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -23,7 +24,7 @@ import type { InBlock } from '../block/in_block.js';
 import { CommitteeAttestation, L2BlockHash, type L2BlockNumber } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
-import type { PublishedL2Block } from '../block/published_l2_block.js';
+import { PublishedL2Block } from '../block/published_l2_block.js';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
@@ -610,14 +611,12 @@ class MockAztecNode implements AztecNode {
     );
   }
   getPublishedBlocks(from: number, limit: number): Promise<PublishedL2Block[]> {
-    return Promise.all(
-      Array(limit)
-        .fill(0)
-        .map(async i => ({
-          block: await L2Block.random(from + i),
-          attestations: [CommitteeAttestation.random()],
-          l1: { blockHash: Buffer32.random().toString(), blockNumber: 1n, timestamp: 1n },
-        })),
+    return timesAsync(limit, async i =>
+      PublishedL2Block.fromFields({
+        block: await L2Block.random(from + i),
+        attestations: [CommitteeAttestation.random()],
+        l1: { blockHash: Buffer32.random().toString(), blockNumber: 1n, timestamp: 1n },
+      }),
     );
   }
   getNodeVersion(): Promise<string> {

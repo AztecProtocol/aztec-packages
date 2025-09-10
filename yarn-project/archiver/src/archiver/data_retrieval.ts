@@ -14,7 +14,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { Body, CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
+import { Body, CommitteeAttestation, L2Block, PublishedL2Block } from '@aztec/stdlib/block';
 import { Proof } from '@aztec/stdlib/proofs';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, ProposedBlockHeader, StateReference } from '@aztec/stdlib/tx';
@@ -32,7 +32,7 @@ import {
 import { NoBlobBodiesFoundError } from './errors.js';
 import type { DataRetrieval } from './structs/data_retrieval.js';
 import type { InboxMessage } from './structs/inbox_message.js';
-import type { L1PublishedData, PublishedL2Block } from './structs/published.js';
+import type { L1PublishedData } from './structs/published.js';
 
 export type RetrievedL2Block = {
   l2BlockNumber: number;
@@ -86,11 +86,7 @@ export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Bloc
 
   const block = new L2Block(archive, header, body);
 
-  return {
-    block,
-    l1,
-    attestations,
-  };
+  return PublishedL2Block.fromFields({ block, l1, attestations });
 }
 
 /**

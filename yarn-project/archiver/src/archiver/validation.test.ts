@@ -7,6 +7,7 @@ import { orderAttestations } from '@aztec/stdlib/p2p';
 import { makeBlockAttestationFromBlock } from '@aztec/stdlib/testing';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
+import assert from 'node:assert';
 
 import { validateBlockAttestations } from './validation.js';
 
@@ -73,26 +74,22 @@ describe('validateBlockAttestations', () => {
       const badSigner = Secp256k1Signer.random();
       const block = await makeBlock([...signers, badSigner], [...committee, badSigner.address]);
       const result = await validateBlockAttestations(block, epochCache, constants, logger);
-      expect(result.valid).toBe(false);
-      if (!result.valid) {
-        expect(result.reason).toBe('invalid-attestation');
-        expect(result.block).toBe(block);
-        expect(result.committee).toEqual(committee);
-        if (result.reason === 'invalid-attestation') {
-          expect(result.invalidIndex).toBe(5); // The bad signer is at index 5
-        }
-      }
+      assert(!result.valid);
+      assert(result.reason === 'invalid-attestation');
+      expect(result.block.blockNumber).toEqual(block.block.number);
+      expect(result.block.archive.toString()).toEqual(block.block.archive.root.toString());
+      expect(result.committee).toEqual(committee);
+      expect(result.invalidIndex).toBe(5); // The bad signer is at index 5
     });
 
     it('returns false if insufficient attestations', async () => {
       const block = await makeBlock(signers.slice(0, 2), committee);
       const result = await validateBlockAttestations(block, epochCache, constants, logger);
-      expect(result.valid).toBe(false);
-      if (!result.valid) {
-        expect(result.reason).toBe('insufficient-attestations');
-        expect(result.block).toBe(block);
-        expect(result.committee).toEqual(committee);
-      }
+      assert(!result.valid);
+      expect(result.reason).toBe('insufficient-attestations');
+      expect(result.block.blockNumber).toEqual(block.block.number);
+      expect(result.block.archive.toString()).toEqual(block.block.archive.root.toString());
+      expect(result.committee).toEqual(committee);
     });
 
     it('returns true if all attestations are valid and sufficient', async () => {
