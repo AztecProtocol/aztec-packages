@@ -415,7 +415,7 @@ export class P2PNetworkTest {
     );
 
     const slasherContract = getContract({
-      address: getAddress(await rollup.getSlasher()),
+      address: getAddress(await rollup.getSlasherAddress()),
       abi: SlasherAbi,
       client: this.ctx.deployL1ContractsValues.l1Client,
     });

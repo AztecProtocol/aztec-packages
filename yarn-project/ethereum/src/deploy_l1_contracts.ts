@@ -1143,7 +1143,7 @@ export const deployL1Contracts = async (
 
       // Include Slasher and SlashingProposer (if deployed) in verification data
       try {
-        const slasherAddrHex = await rollup.getSlasher();
+        const slasherAddrHex = await rollup.getSlasherAddress();
         const slasherAddr = EthAddress.fromString(slasherAddrHex);
         if (!slasherAddr.isZero()) {
           // Slasher constructor: (address _vetoer, address _governance)
