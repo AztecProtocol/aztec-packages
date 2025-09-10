@@ -138,7 +138,9 @@ export class MissingTxMetadataCollection extends Map<string, MissingTxMetadata> 
     const txsToRequest = txsPeerHas.difference(fetchedTxs);
 
     if (txsToRequest.size >= TX_BATCH_SIZE) {
-      return this.getSortedByRequestedCountThenByInFlightCountAsc(Array.from(txsToRequest)).map(t => t.txHash);
+      return this.getSortedByRequestedCountThenByInFlightCountAsc(Array.from(txsToRequest))
+        .map(t => t.txHash)
+        .slice(0, TX_BATCH_SIZE);
     }
 
     // Otherwise fill the txs to request till TX_BATCH_SIZE with random txs we are missing
