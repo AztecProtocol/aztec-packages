@@ -164,6 +164,7 @@ describe('TallySlasherClient', () => {
       config,
       settings,
       tallySlashingProposer,
+      slasherContract,
       rollup,
       [dummyWatcher],
       mockEpochCache,
