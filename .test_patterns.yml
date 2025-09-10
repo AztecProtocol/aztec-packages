@@ -183,6 +183,9 @@ tests:
     error_regex: "This is a bug"
     owners:
       - *palla
+  - regex: "src/e2e_epochs/epochs_l1_reorgs.test.ts"
+    owners:
+      - *palla
   - regex: "src/e2e_epochs/epochs_empty_blocks"
     error_regex: "✕ successfully proves multiple epochs"
     owners:
