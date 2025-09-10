@@ -767,7 +767,14 @@ template <typename TranscriptParams> class BaseTranscript {
         unique_transcript_index.fetch_sub(1);
         branched_transcript.transcript_index = transcript_index;
         branched_transcript.round_index = round_index;
-        branched_transcript.add_to_hash_buffer("init", previous_challenge);
+        if constexpr (in_circuit) {
+            // Preserve the origin tag of the previous challenge
+            const auto previous_challenge_origin_tag = previous_challenge.get_origin_tag();
+            branched_transcript.add_to_hash_buffer("init", previous_challenge);
+            previous_challenge.set_origin_tag(previous_challenge_origin_tag);
+        } else {
+            branched_transcript.add_to_hash_buffer("init", previous_challenge);
+        }
         round_index += BRANCHING_JUMP;
 
         return branched_transcript;

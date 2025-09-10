@@ -21,7 +21,7 @@
 
 // Currently disabled, because there are violations of the tag invariant in the codebase everywhere.
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1532): Re-enable this once we resolve these issues.
-#define DISABLE_CHILD_TAG_CHECKS
+// #define DISABLE_CHILD_TAG_CHECKS
 
 // Disable origin tags in release builds
 #ifdef NDEBUG
