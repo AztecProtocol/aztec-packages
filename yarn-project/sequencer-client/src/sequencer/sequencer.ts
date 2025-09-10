@@ -907,17 +907,17 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return;
     }
 
-    const invalidL1Timestamp = pendingChainValidationStatus.block.l1.timestamp;
-    const timeSinceChainInvalid = this.dateProvider.nowInSeconds() - Number(invalidL1Timestamp);
-    const invalidBlockNumber = pendingChainValidationStatus.block.block.number;
+    const invalidBlockNumber = pendingChainValidationStatus.block.blockNumber;
+    const invalidBlockTimestamp = pendingChainValidationStatus.block.timestamp;
+    const timeSinceChainInvalid = this.dateProvider.nowInSeconds() - Number(invalidBlockTimestamp);
 
     const { secondsBeforeInvalidatingBlockAsCommitteeMember, secondsBeforeInvalidatingBlockAsNonCommitteeMember } =
       this.config;
 
     const logData = {
-      invalidL1Timestamp,
+      invalidL1Timestamp: invalidBlockTimestamp,
       l1Timestamp,
-      invalidBlock: pendingChainValidationStatus.block.block.toBlockInfo(),
+      invalidBlock: pendingChainValidationStatus.block,
       secondsBeforeInvalidatingBlockAsCommitteeMember,
       secondsBeforeInvalidatingBlockAsNonCommitteeMember,
       ourValidatorAddresses,

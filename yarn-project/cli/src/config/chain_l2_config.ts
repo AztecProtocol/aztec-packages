@@ -121,6 +121,8 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   aztecEpochDuration: 32,
   /** The target validator committee size. */
   aztecTargetCommitteeSize: 48,
+  /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
+  localEjectionThreshold: DefaultL1ContractsConfig.localEjectionThreshold,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: 1,
   /** The deposit amount for a validator */
@@ -205,6 +207,8 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   activationThreshold: DefaultL1ContractsConfig.activationThreshold,
   /** The minimum stake for a validator. */
   ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
+  /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
+  localEjectionThreshold: DefaultL1ContractsConfig.localEjectionThreshold,
   /** The slashing round size */
   slashingRoundSizeInEpochs: DefaultL1ContractsConfig.slashingRoundSizeInEpochs,
   /** Governance proposing round size */
@@ -385,6 +389,7 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('AZTEC_PROOF_SUBMISSION_EPOCHS', config.aztecProofSubmissionEpochs.toString());
   enrichVar('AZTEC_ACTIVATION_THRESHOLD', config.activationThreshold.toString());
   enrichVar('AZTEC_EJECTION_THRESHOLD', config.ejectionThreshold.toString());
+  enrichVar('AZTEC_LOCAL_EJECTION_THRESHOLD', config.localEjectionThreshold.toString());
   enrichVar('AZTEC_SLASHING_QUORUM', config.slashingQuorum?.toString());
   enrichVar('AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS', config.slashingRoundSizeInEpochs.toString());
   enrichVar('AZTEC_GOVERNANCE_PROPOSER_QUORUM', config.governanceProposerQuorum?.toString());

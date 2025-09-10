@@ -1,5 +1,4 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
+import { getDeployedTestAccounts } from '@aztec/accounts/testing';
 import {
   type EthAddress,
   FeeJuicePaymentMethodWithClaim,
@@ -19,6 +18,7 @@ import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { PXESchema } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
+import { TestWallet } from '@aztec/test-wallet';
 
 import getPort from 'get-port';
 import { exec } from 'node:child_process';
@@ -56,6 +56,7 @@ export const getLocalhost = () =>
 describe('End-to-end tests for devnet', () => {
   let pxe: PXE;
   let pxeUrl: string; // needed for the CLI
+  let wallet: TestWallet;
   let logger: Logger;
   let l1ChainId: number;
   let feeJuiceL1: EthAddress;
@@ -127,6 +128,8 @@ describe('End-to-end tests for devnet', () => {
       throw new Error('AZTEC_NODE_URL or PXE_URL must be set');
     }
 
+    wallet = new TestWallet(pxe);
+
     ({
       l1ChainId,
       l1ContractAddresses: { feeJuiceAddress: feeJuiceL1 },
@@ -141,7 +144,7 @@ describe('End-to-end tests for devnet', () => {
   it('deploys an account while paying with FeeJuice', async () => {
     const privateKey = Fr.random();
     const l1Account = await cli<{ privateKey: string; address: string }>('create-l1-account');
-    const l2Account = await getSchnorrAccount(pxe, privateKey, deriveSigningKey(privateKey), Fr.ZERO);
+    const l2Account = await wallet.createSchnorrAccount(privateKey, Fr.ZERO, deriveSigningKey(privateKey));
     const l2AccountAddress = l2Account.getAddress();
 
     await expect(getL1Balance(l1Account.address)).resolves.toEqual(0n);
@@ -167,7 +170,7 @@ describe('End-to-end tests for devnet', () => {
     });
 
     if (['1', 'true', 'yes'].includes(USE_EMPTY_BLOCKS)) {
-      await advanceChainWithEmptyBlocks(pxe);
+      await advanceChainWithEmptyBlocks(wallet);
     } else {
       await waitForL1MessageToArrive();
     }
@@ -175,7 +178,7 @@ describe('End-to-end tests for devnet', () => {
     const txReceipt = await l2Account
       .deploy({
         fee: {
-          paymentMethod: new FeeJuicePaymentMethodWithClaim(await l2Account.getWallet(), {
+          paymentMethod: new FeeJuicePaymentMethodWithClaim(l2AccountAddress, {
             claimAmount: Fr.fromHexString(claimAmount).toBigInt(),
             claimSecret: Fr.fromHexString(claimSecret.value),
             messageLeafIndex: BigInt(messageLeafIndex),
@@ -205,10 +208,7 @@ describe('End-to-end tests for devnet', () => {
     // );
 
     expect(txReceipt.status).toBe(TxStatus.SUCCESS);
-    const feeJuice = await FeeJuiceContract.at(
-      (await pxe.getNodeInfo()).protocolContractAddresses.feeJuice,
-      await l2Account.getWallet(),
-    );
+    const feeJuice = await FeeJuiceContract.at((await pxe.getNodeInfo()).protocolContractAddresses.feeJuice, wallet);
     const balance = await feeJuice.methods
       .balance_of_public(l2Account.getAddress())
       .simulate({ from: l2AccountAddress });
@@ -289,21 +289,21 @@ describe('End-to-end tests for devnet', () => {
     await retryUntil(async () => (await pxe.getBlockNumber()) >= targetBlockNumber, 'wait_for_l1_message', 0, 10);
   }
 
-  async function advanceChainWithEmptyBlocks(pxe: PXE) {
-    const [deployWallet] = await getDeployedTestAccountsWallets(pxe);
-    if (!deployWallet) {
+  async function advanceChainWithEmptyBlocks(wallet: TestWallet) {
+    const [fundedAccount] = await getDeployedTestAccounts(pxe);
+    if (!fundedAccount) {
       throw new Error('A funded wallet is required to create dummy txs.');
     }
 
-    const deployWalletAddress = deployWallet.getAddress();
+    await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
 
-    const test = await TestContract.deploy(deployWallet)
-      .send({ from: deployWalletAddress, universalDeploy: true, skipClassPublication: true })
+    const test = await TestContract.deploy(wallet)
+      .send({ from: fundedAccount.address, universalDeploy: true, skipClassPublication: true })
       .deployed();
 
     // start at 1 because deploying the contract has already mined a block
     for (let i = 1; i < MIN_BLOCKS_FOR_BRIDGING; i++) {
-      await test.methods.get_this_address().send({ from: deployWalletAddress }).wait(waitOpts);
+      await test.methods.get_this_address().send({ from: fundedAccount.address }).wait(waitOpts);
     }
   }
 });

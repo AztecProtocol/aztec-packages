@@ -264,10 +264,6 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
       const retrievedProposal = await ap.getBlockProposal(proposalId);
 
-      // This are cached values, so we need to call them to ensure they are not undefined
-      retrievedProposal!.payload.getSize();
-      retrievedProposal!.signature.getSize();
-
       expect(retrievedProposal).toBeDefined();
       expect(retrievedProposal!).toEqual(proposal);
     });
@@ -376,10 +372,6 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
       const retrievedAttestations = await ap.getAttestationsForSlotAndProposal(BigInt(slotNumber), proposalId);
 
       expect(retrievedProposal).toBeDefined();
-      // This are cached values, so we need to call them to ensure they are not undefined
-      retrievedProposal!.payload.getSize();
-      retrievedProposal!.signature.getSize();
-
       expect(retrievedProposal).toEqual(proposal);
 
       compareAttestations(retrievedAttestations, attestations);

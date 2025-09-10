@@ -5,7 +5,14 @@ import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2Block, L2BlockHash, type L2BlockSource, type L2Tips, type ValidateBlockResult } from '@aztec/stdlib/block';
+import {
+  L2Block,
+  L2BlockHash,
+  type L2BlockSource,
+  type L2Tips,
+  PublishedL2Block,
+  type ValidateBlockResult,
+} from '@aztec/stdlib/block';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants, type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import { type BlockHeader, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
@@ -106,15 +113,17 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
 
   public async getPublishedBlocks(from: number, limit: number, proven?: boolean) {
     const blocks = await this.getBlocks(from, limit, proven);
-    return blocks.map(block => ({
-      block,
-      l1: {
-        blockNumber: BigInt(block.number),
-        blockHash: Buffer32.random().toString(),
-        timestamp: BigInt(block.number),
-      },
-      attestations: [],
-    }));
+    return blocks.map(block =>
+      PublishedL2Block.fromFields({
+        block,
+        l1: {
+          blockNumber: BigInt(block.number),
+          blockHash: Buffer32.random().toString(),
+          timestamp: BigInt(block.number),
+        },
+        attestations: [],
+      }),
+    );
   }
 
   getBlockHeader(number: number | 'latest'): Promise<BlockHeader | undefined> {

@@ -1,4 +1,4 @@
-import type { AccountWallet, AztecAddress } from '@aztec/aztec.js';
+import type { AztecAddress, PXE } from '@aztec/aztec.js';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee/testing';
 import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -8,7 +8,7 @@ import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
 
 describe('e2e_fees sponsored_public_payment', () => {
-  let aliceWallet: AccountWallet;
+  let pxe: PXE;
   let aliceAddress: AztecAddress;
   let bobAddress: AztecAddress;
   let sequencerAddress: AztecAddress;
@@ -22,8 +22,7 @@ describe('e2e_fees sponsored_public_payment', () => {
     await t.applyBaseSnapshots();
     await t.applySponsoredFPCSetupSnapshot();
     await t.applyFundAliceWithBananas();
-    ({ aliceWallet, aliceAddress, bobAddress, sequencerAddress, sponsoredFPC, bananaCoin, gasSettings } =
-      await t.setup());
+    ({ pxe, aliceAddress, bobAddress, sequencerAddress, sponsoredFPC, bananaCoin, gasSettings } = await t.setup());
   });
 
   afterAll(async () => {
@@ -43,7 +42,7 @@ describe('e2e_fees sponsored_public_payment', () => {
   beforeEach(async () => {
     gasSettings = GasSettings.from({
       ...gasSettings,
-      maxFeesPerGas: await aliceWallet.getCurrentBaseFees(),
+      maxFeesPerGas: await pxe.getCurrentBaseFees(),
     });
 
     [[initialAlicePublicBananas, initialBobPublicBananas], [initialAliceGas, initialFPCGas, initialSequencerGas]] =

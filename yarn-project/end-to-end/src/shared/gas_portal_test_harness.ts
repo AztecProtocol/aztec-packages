@@ -1,5 +1,5 @@
 import {
-  type AztecAddress,
+  AztecAddress,
   type AztecNode,
   EthAddress,
   Fr,

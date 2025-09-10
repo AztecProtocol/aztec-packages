@@ -1,17 +1,16 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
-import { BlockAttestation } from '../p2p/block_attestation.js';
 import type { BlockHeader } from '../tx/block_header.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import type { TxHash } from '../tx/tx_hash.js';
 import type { TxReceipt } from '../tx/tx_receipt.js';
 import type { L2Block } from './l2_block.js';
 import { PublishedL2Block } from './published_l2_block.js';
+import type { ValidateBlockNegativeResult, ValidateBlockResult } from './validate_block_result.js';
 
 /**
  * Interface of classes allowing for the retrieval of L2 blocks.
@@ -140,59 +139,10 @@ export interface L2BlockSource {
   syncImmediate(): Promise<void>;
 }
 
-/** Subtype for invalid block validation results */
-export type ValidateBlockNegativeResult =
-  | {
-      valid: false;
-      block: PublishedL2Block;
-      committee: EthAddress[];
-      epoch: bigint;
-      seed: bigint;
-      attestations: BlockAttestation[];
-      reason: 'insufficient-attestations';
-    }
-  | {
-      valid: false;
-      block: PublishedL2Block;
-      committee: EthAddress[];
-      epoch: bigint;
-      seed: bigint;
-      reason: 'invalid-attestation';
-      attestations: BlockAttestation[];
-      invalidIndex: number;
-    };
-
-/** Result type for validating a block attestations */
-export type ValidateBlockResult = { valid: true } | ValidateBlockNegativeResult;
-
-export const ValidateBlockResultSchema = z.union([
-  z.object({ valid: z.literal(true), block: PublishedL2Block.schema.optional() }),
-  z.object({
-    valid: z.literal(false),
-    block: PublishedL2Block.schema,
-    committee: z.array(schemas.EthAddress),
-    epoch: schemas.BigInt,
-    seed: schemas.BigInt,
-    attestations: z.array(BlockAttestation.schema),
-    reason: z.literal('insufficient-attestations'),
-  }),
-  z.object({
-    valid: z.literal(false),
-    block: PublishedL2Block.schema,
-    committee: z.array(schemas.EthAddress),
-    epoch: schemas.BigInt,
-    seed: schemas.BigInt,
-    attestations: z.array(BlockAttestation.schema),
-    reason: z.literal('invalid-attestation'),
-    invalidIndex: z.number(),
-  }),
-]) satisfies ZodFor<ValidateBlockResult>;
-
 /**
  * L2BlockSource that emits events upon pending / proven chain changes.
  * see L2BlockSourceEvents for the events emitted.
  */
-
 export type ArchiverEmitter = TypedEventEmitter<{
   [L2BlockSourceEvents.L2PruneDetected]: (args: L2BlockPruneEvent) => void;
   [L2BlockSourceEvents.L2BlockProven]: (args: L2BlockProvenEvent) => void;
