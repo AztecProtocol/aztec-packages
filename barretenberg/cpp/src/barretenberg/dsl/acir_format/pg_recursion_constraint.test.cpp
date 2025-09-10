@@ -313,7 +313,8 @@ TEST_F(IvcRecursionConstraintTest, AccumulateSingleApp)
     // add the trailing kernels
     construct_and_accumulate_trailing_kernels(ivc, trace_settings);
 
-    EXPECT_TRUE(ivc->prove_and_verify());
+    auto proof = ivc->prove();
+    EXPECT_TRUE(ClientIVC::verify(proof, ivc->get_vk()));
 }
 
 /**
@@ -343,7 +344,8 @@ TEST_F(IvcRecursionConstraintTest, AccumulateTwoApps)
     // Accumulate the trailing kernels
     construct_and_accumulate_trailing_kernels(ivc, trace_settings);
 
-    EXPECT_TRUE(ivc->prove_and_verify());
+    auto proof = ivc->prove();
+    EXPECT_TRUE(ClientIVC::verify(proof, ivc->get_vk()));
 }
 
 // Test generation of "init" kernel VK via dummy IVC data
@@ -584,7 +586,8 @@ TEST_F(IvcRecursionConstraintTest, RecursiveVerifierAppCircuitTest)
 
     construct_and_accumulate_trailing_kernels(ivc, trace_settings);
 
-    EXPECT_TRUE(ivc->prove_and_verify());
+    auto proof = ivc->prove();
+    EXPECT_TRUE(ClientIVC::verify(proof, ivc->get_vk()));
 }
 
 /**
@@ -607,5 +610,6 @@ TEST_F(IvcRecursionConstraintTest, BadRecursiveVerifierAppCircuitTest)
     construct_and_accumulate_trailing_kernels(ivc, trace_settings);
 
     // We expect the CIVC proof to fail due to the app with a failed UH recursive verification
-    EXPECT_FALSE(ivc->prove_and_verify());
+    auto proof = ivc->prove();
+    EXPECT_FALSE(ClientIVC::verify(proof, ivc->get_vk()));
 }

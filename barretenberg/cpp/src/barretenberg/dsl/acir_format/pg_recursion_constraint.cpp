@@ -162,8 +162,6 @@ void mock_ivc_accumulation(const std::shared_ptr<ClientIVC>& ivc, ClientIVC::QUE
     ivc->goblin.merge_verification_queue.emplace_back(acir_format::create_mock_merge_proof());
     // If the type is PG_FINAL, we also need to populate the ivc instance with a mock decider proof
     if (type == ClientIVC::QUEUE_TYPE::PG_FINAL) {
-        // we have to create a mock honk vk
-        ivc->honk_vk = entry.honk_vk;
         ivc->decider_proof = acir_format::create_mock_decider_proof<ClientIVC::Flavor>();
     }
     ivc->num_circuits_accumulated++;

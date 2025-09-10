@@ -257,8 +257,6 @@ class ClientIVC {
     ExecutionTraceUsageTracker trace_usage_tracker;
 
   private:
-    using ProverFoldOutput = FoldingResult<Flavor>;
-
     // Transcript for CIVC prover (shared between Hiding circuit, Merge, ECCVM, and Translator)
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
@@ -269,14 +267,13 @@ class ClientIVC {
   public:
     size_t num_circuits_accumulated = 0; // number of circuits accumulated so far
 
-    ProverFoldOutput fold_output; // prover accumulator and fold proof
-    HonkProof decider_proof;      // decider proof to be verified in the hiding circuit
+    std::shared_ptr<DeciderProvingKey> prover_accumulator; // current PG prover accumulator instance
+    HonkProof decider_proof;                               // decider proof to be verified in the hiding circuit
 
     std::shared_ptr<DeciderVerificationKey>
         recursive_verifier_native_accum; // native verifier accumulator used in recursive folding
     std::shared_ptr<DeciderVerificationKey>
-        native_verifier_accum;                    //  native verifier accumulator used in prover folding
-    std::shared_ptr<MegaVerificationKey> honk_vk; // honk vk to be completed and folded into the accumulator
+        native_verifier_accum; //  native verifier accumulator used in prover folding
 
     // Set of tuples {proof, verification_key, type (Oink/PG)} to be recursively verified
     VerificationQueue verification_queue;
@@ -327,13 +324,8 @@ class ClientIVC {
     static void hide_op_queue_accumulation_result(ClientCircuit& circuit);
     static void hide_op_queue_content_in_tail(ClientCircuit& circuit);
     static void hide_op_queue_content_in_hiding(ClientCircuit& circuit);
-    HonkProof construct_mega_proof_for_hiding_kernel(ClientCircuit& circuit);
 
     static bool verify(const Proof& proof, const VerificationKey& vk);
-
-    bool verify(const Proof& proof) const;
-
-    bool prove_and_verify();
 
     HonkProof construct_decider_proof(const std::shared_ptr<Transcript>& transcript);
 
@@ -357,6 +349,9 @@ class ClientIVC {
                                  const std::shared_ptr<MegaVerificationKey>& honk_vk,
                                  const std::shared_ptr<Transcript>& transcript,
                                  bool is_kernel);
+
+    HonkProof construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
+                                                     const std::shared_ptr<MegaVerificationKey>& verification_key);
 
     QUEUE_TYPE get_queue_type() const;
 
