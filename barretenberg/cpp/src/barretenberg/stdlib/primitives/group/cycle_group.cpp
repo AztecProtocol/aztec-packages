@@ -1132,6 +1132,12 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
     const bool has_variable_points = !variable_base_points.empty();
     const bool has_fixed_points = !fixed_base_points.empty();
 
+    // Compute all required offset generators.
+    const size_t num_offset_generators =
+        variable_base_points.size() + fixed_base_points.size() + has_variable_points + has_fixed_points;
+    const std::span<AffineElement const> offset_generators =
+        context.generators->get(num_offset_generators, 0, OFFSET_GENERATOR_DOMAIN_SEPARATOR);
+
     cycle_group result;
     if (has_fixed_points) {
         const auto [fixed_accumulator, offset_generator_delta] =
@@ -1141,13 +1147,21 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
     }
 
     if (has_variable_points) {
-        // Compute required offset generators; one per point plus one extra for the initial accumulator
-        const size_t num_offset_generators = variable_base_points.size() + 1;
-        const std::span<AffineElement const> offset_generators =
-            context.generators->get(num_offset_generators, 0, OFFSET_GENERATOR_DOMAIN_SEPARATOR);
 
-        const auto [variable_accumulator, offset_generator_delta] = _variable_base_batch_mul_internal(
-            variable_base_scalars, variable_base_points, offset_generators, can_unconditional_add);
+        std::span<AffineElement const> offset_generators_for_variable_base_batch_mul{
+            offset_generators.data() + fixed_base_points.size(), offset_generators.size() - fixed_base_points.size()
+        };
+
+        // // Compute required offset generators; one per point plus one extra for the initial accumulator
+        // const size_t num_offset_generators = variable_base_points.size() + 1;
+        // const std::span<AffineElement const> offset_generators =
+        //     context.generators->get(num_offset_generators, 0, OFFSET_GENERATOR_DOMAIN_SEPARATOR);
+
+        const auto [variable_accumulator, offset_generator_delta] =
+            _variable_base_batch_mul_internal(variable_base_scalars,
+                                              variable_base_points,
+                                              offset_generators_for_variable_base_batch_mul,
+                                              can_unconditional_add);
         offset_accumulator += offset_generator_delta;
         if (has_fixed_points) {
             result = can_unconditional_add ? result.unconditional_add(variable_accumulator)
