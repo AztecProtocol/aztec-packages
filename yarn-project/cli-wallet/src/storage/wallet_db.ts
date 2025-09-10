@@ -6,8 +6,8 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasSettings } from '@aztec/stdlib/gas';
 import type { TxHash } from '@aztec/stdlib/tx';
 
-import type { AccountType } from '../utils/accounts.js';
 import { extractECDSAPublicKeyFromBase64String } from '../utils/ecdsa.js';
+import type { AccountType } from '../utils/wallet.js';
 
 export const Aliases = ['accounts', 'contracts', 'artifacts', 'secrets', 'transactions', 'authwits'] as const;
 export type AliasType = (typeof Aliases)[number];

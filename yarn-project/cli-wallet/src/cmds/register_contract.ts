@@ -1,9 +1,9 @@
 import {
-  type AccountWalletWithSecretKey,
   type AztecAddress,
   type AztecNode,
   type Fr,
   PublicKeys,
+  type Wallet,
   getContractInstanceFromInstantiationParams,
 } from '@aztec/aztec.js';
 import { getContractArtifact } from '@aztec/cli/cli-utils';
@@ -11,7 +11,7 @@ import type { LogFn } from '@aztec/foundation/log';
 import { getAllFunctionAbis, getInitializer } from '@aztec/stdlib/abi';
 
 export async function registerContract(
-  wallet: AccountWalletWithSecretKey,
+  wallet: Wallet,
   node: AztecNode,
   address: AztecAddress,
   artifactPath: string,

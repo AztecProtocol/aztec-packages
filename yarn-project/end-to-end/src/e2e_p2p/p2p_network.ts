@@ -1,7 +1,6 @@
-import { getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { type AccountWalletWithSecretKey, AztecAddress, EthAddress, Fr } from '@aztec/aztec.js';
+import { AztecAddress, EthAddress, Fr } from '@aztec/aztec.js';
 import {
   type EmpireSlashingProposerContract,
   type ExtendedViemWalletClient,
@@ -26,6 +25,7 @@ import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
+import type { TestWallet } from '@aztec/test-wallet';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import getPort from 'get-port';
@@ -75,7 +75,7 @@ export class P2PNetworkTest {
   public prefilledPublicData: PublicDataTreeLeaf[] = [];
 
   // The re-execution test needs a wallet and a spam contract
-  public wallet?: AccountWalletWithSecretKey;
+  public wallet?: TestWallet;
   public defaultAccountAddress?: AztecAddress;
   public spamContract?: SpamContract;
 
@@ -306,12 +306,12 @@ export class P2PNetworkTest {
   async setupAccount() {
     await this.snapshotManager.snapshot(
       'setup-account',
-      deployAccounts(1, this.logger, false),
-      async ({ deployedAccounts }, { pxe }) => {
+      deployAccounts(1, this.logger),
+      ({ deployedAccounts }, { wallet }) => {
         this.deployedAccounts = deployedAccounts;
-        const [account] = deployedAccounts;
-        this.wallet = await getSchnorrWalletWithSecretKey(pxe, account.secret, account.signingKey, account.salt);
-        this.defaultAccountAddress = this.wallet.getAddress();
+        [{ address: this.defaultAccountAddress }] = deployedAccounts;
+        this.wallet = wallet;
+        return Promise.resolve();
       },
     );
   }

@@ -1,6 +1,4 @@
-import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import {
-  type AccountWallet,
   type AztecAddress,
   type AztecNode,
   type ContractArtifact,
@@ -24,7 +22,7 @@ export class DeployTest {
   private snapshotManager: ISnapshotManager;
   public logger: Logger;
   public pxe!: PXE;
-  public wallet!: AccountWallet;
+  public wallet!: Wallet;
   public defaultAccountAddress!: AztecAddress;
   public aztecNode!: AztecNode;
   public aztecNodeAdmin!: AztecNodeAdmin;
@@ -37,7 +35,7 @@ export class DeployTest {
   async setup() {
     await this.applyInitialAccountSnapshot();
     const context = await this.snapshotManager.setup();
-    ({ pxe: this.pxe, aztecNode: this.aztecNode } = context);
+    ({ pxe: this.pxe, aztecNode: this.aztecNode, wallet: this.wallet } = context);
     this.aztecNodeAdmin = context.aztecNode;
     return this;
   }
@@ -47,16 +45,10 @@ export class DeployTest {
   }
 
   private async applyInitialAccountSnapshot() {
-    await this.snapshotManager.snapshot(
-      'initial_account',
-      deployAccounts(1, this.logger),
-      async ({ deployedAccounts }, { pxe }) => {
-        const wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
-        wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
-        this.wallet = wallets[0];
-        this.defaultAccountAddress = this.wallet.getAddress();
-      },
-    );
+    await this.snapshotManager.snapshot('initial_account', deployAccounts(1, this.logger), ({ deployedAccounts }) => {
+      this.defaultAccountAddress = deployedAccounts[0].address;
+      return Promise.resolve();
+    });
   }
 
   async registerContract<T extends ContractBase>(

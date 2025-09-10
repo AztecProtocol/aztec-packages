@@ -1,28 +1,19 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
 import { generateSchnorrAccounts } from '@aztec/accounts/testing';
-import {
-  type AccountManager,
-  type AccountWallet,
-  type AztecAddress,
-  FeeJuicePaymentMethod,
-  FeeJuicePaymentMethodWithClaim,
-  type PXE,
-} from '@aztec/aztec.js';
+import { type AztecAddress, FeeJuicePaymentMethod, FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js';
 import type { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import type { GasSettings } from '@aztec/stdlib/gas';
+import type { TestWallet } from '@aztec/test-wallet';
 
 import { FeesTest } from './fees_test.js';
 
 describe('e2e_fees Fee Juice payments', () => {
   let aliceAddress: AztecAddress;
-  let aliceWallet: AccountWallet;
-  let bobAccount: AccountManager;
+  let wallet: TestWallet;
   let bobAddress: AztecAddress;
-  let bobWallet: AccountWallet;
   let bananaCoin: BananaCoin;
   let gasSettings: GasSettings;
-  let pxe: PXE;
   let feeJuiceContract: FeeJuiceContract;
 
   const t = new FeesTest('fee_juice', 1);
@@ -30,15 +21,18 @@ describe('e2e_fees Fee Juice payments', () => {
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyFundAliceWithBananas();
-    ({ feeJuiceContract, aliceAddress, aliceWallet, bananaCoin, gasSettings, pxe } = await t.setup());
+    ({ feeJuiceContract, aliceAddress, wallet, bananaCoin, gasSettings } = await t.setup());
 
     const [bob] = await generateSchnorrAccounts(1);
-    bobAccount = await getSchnorrAccount(pxe, bob.secret, bob.signingKey, bob.salt);
-    bobAddress = bob.address;
-    bobWallet = await bobAccount.getWallet();
+    const bobsAccountManager = await wallet.createAccount({
+      secret: bob.secret,
+      salt: bob.salt,
+      contract: new SchnorrAccountContract(bob.signingKey),
+    });
 
     // Alice pays for Bob's account contract deployment.
-    await bobAccount.deploy({ deployWallet: aliceWallet }).wait();
+    await bobsAccountManager.deploy({ deployAccount: aliceAddress }).wait();
+    bobAddress = bobsAccountManager.getAddress();
   });
 
   afterAll(async () => {
@@ -53,9 +47,8 @@ describe('e2e_fees Fee Juice payments', () => {
     it('fails to simulate a tx', async () => {
       const paymentMethod = new FeeJuicePaymentMethod(bobAddress);
       await expect(
-        feeJuiceContract
-          .withWallet(bobWallet)
-          .methods.check_balance(0n)
+        feeJuiceContract.methods
+          .check_balance(0n)
           .simulate({ from: bobAddress, fee: { gasSettings, paymentMethod }, skipFeeEnforcement: false }),
       ).rejects.toThrow(/Not enough balance for fee payer to pay for transaction/i);
     });
@@ -63,9 +56,8 @@ describe('e2e_fees Fee Juice payments', () => {
     it('fails to send a tx', async () => {
       const paymentMethod = new FeeJuicePaymentMethod(bobAddress);
       await expect(
-        feeJuiceContract
-          .withWallet(bobWallet)
-          .methods.check_balance(0n)
+        feeJuiceContract.methods
+          .check_balance(0n)
           .send({ from: bobAddress, fee: { gasSettings, paymentMethod } })
           .wait(),
       ).rejects.toThrow(/Invalid tx: Insufficient fee payer balance/i);
@@ -74,10 +66,9 @@ describe('e2e_fees Fee Juice payments', () => {
     it('claims bridged funds and pays with them on the same tx', async () => {
       const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(bobAddress);
       // docs:start:claim_and_pay
-      const paymentMethod = new FeeJuicePaymentMethodWithClaim(bobWallet, claim);
-      const receipt = await feeJuiceContract
-        .withWallet(bobWallet)
-        .methods.check_balance(0n)
+      const paymentMethod = new FeeJuicePaymentMethodWithClaim(bobAddress, claim);
+      const receipt = await feeJuiceContract.methods
+        .check_balance(0n)
         .send({ from: bobAddress, fee: { gasSettings, paymentMethod } })
         .wait();
       // docs:end:claim_and_pay
@@ -98,7 +89,7 @@ describe('e2e_fees Fee Juice payments', () => {
       const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
       const { transactionFee } = await bananaCoin.methods
         .transfer_in_public(aliceAddress, bobAddress, 1n, 0n)
-        .send({ from: aliceAddress, fee: { gasSettings, paymentMethod } })
+        .send({ fee: { gasSettings, paymentMethod }, from: aliceAddress })
         .wait();
       // docs:end:pay_fee_juice_send
       expect(transactionFee).toBeGreaterThan(0n);
@@ -115,7 +106,7 @@ describe('e2e_fees Fee Juice payments', () => {
       const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
       const { transactionFee } = await bananaCoin.methods
         .transfer(bobAddress, 1n)
-        .send({ from: aliceAddress, fee: { gasSettings, paymentMethod } })
+        .send({ fee: { gasSettings, paymentMethod }, from: aliceAddress })
         .wait();
       expect(transactionFee).toBeGreaterThan(0n);
       const endBalance = await feeJuiceContract.methods

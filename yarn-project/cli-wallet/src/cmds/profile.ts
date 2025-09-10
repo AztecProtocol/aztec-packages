@@ -1,4 +1,4 @@
-import { type AccountWalletWithSecretKey, AuthWitness, type AztecAddress, Contract } from '@aztec/aztec.js';
+import { AuthWitness, type AztecAddress, Contract, type Wallet } from '@aztec/aztec.js';
 import { prepTx } from '@aztec/cli/utils';
 import type { LogFn } from '@aztec/foundation/log';
 import { serializePrivateExecutionSteps } from '@aztec/stdlib/kernel';
@@ -6,17 +6,18 @@ import { serializePrivateExecutionSteps } from '@aztec/stdlib/kernel';
 import { promises as fs } from 'fs';
 import path from 'path';
 
-import type { IFeeOpts } from '../utils/options/fees.js';
+import type { CLIFeeArgs } from '../utils/options/fees.js';
 import { printProfileResult } from '../utils/profiling.js';
 
 export async function profile(
-  wallet: AccountWalletWithSecretKey,
+  wallet: Wallet,
+  from: AztecAddress,
   functionName: string,
   functionArgsIn: any[],
   contractArtifactPath: string,
   contractAddress: AztecAddress,
   debugOutputPath: string | undefined,
-  feeOpts: IFeeOpts,
+  feeOpts: CLIFeeArgs,
   authWitnesses: AuthWitness[],
   log: LogFn,
 ) {
@@ -26,7 +27,8 @@ export async function profile(
   const call = contract.methods[functionName](...functionArgs);
 
   const result = await call.profile({
-    ...(await feeOpts.toSendOpts(wallet)),
+    fee: await feeOpts.toUserFeeOptions(wallet, from),
+    from,
     profileMode: 'full',
     authWitnesses,
     skipProofGeneration: false,
