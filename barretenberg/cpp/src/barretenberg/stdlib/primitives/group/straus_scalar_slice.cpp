@@ -33,33 +33,32 @@ straus_scalar_slice<Builder>::straus_scalar_slice(Builder* context,
 {
     // convert an input cycle_scalar object into a vector of slices, each containing `table_bits` bits.
     // this also performs an implicit range check on the input slices
-    const auto slice_scalar = [&](const field_t& scalar,
-                                  const size_t num_bits) -> std::pair<std::vector<field_t>, std::vector<uint64_t>> {
+    const auto compute_scalar_slices =
+        [&](const field_t& scalar, const size_t num_bits) -> std::pair<std::vector<field_t>, std::vector<uint64_t>> {
         const size_t num_slices = numeric::ceil_div(num_bits, table_bits);
-        const uint64_t table_mask = (1ULL << table_bits) - 1ULL;
-        uint256_t raw_value = scalar.get_value();
 
         // we record the scalar slices both as field_t circuit elements and u64 values
         // (u64 values are used to index arrays and we don't want to repeatedly cast a stdlib value to a numeric
         // primitive as this gets expensive when repeated enough times)
-        std::pair<std::vector<field_t>, std::vector<uint64_t>> result;
-        auto& stdlib_slices = result.first;
-        auto& native_slices = result.second;
+        std::vector<field_t> stdlib_slices;
+        std::vector<uint64_t> native_slices;
         stdlib_slices.reserve(num_slices);
         native_slices.reserve(num_slices);
 
         if (num_bits == 0) {
-            return result;
+            return { stdlib_slices, native_slices };
         }
-        // If scalar is constant, simply compute the slices natively
+        // If the scalar is constant, compute the slices natively
         if (scalar.is_constant()) {
+            const uint64_t table_mask = (1ULL << table_bits) - 1ULL;
+            uint256_t raw_value = scalar.get_value();
             for (size_t i = 0; i < num_slices; ++i) {
                 uint64_t slice_value = static_cast<uint64_t>(raw_value.data[0]) & table_mask;
                 stdlib_slices.push_back(field_t(slice_value)); // constants equal to slice_value
                 native_slices.push_back(slice_value);
                 raw_value = raw_value >> table_bits;
             }
-            return result;
+            return { stdlib_slices, native_slices };
         }
 
         // If the scalar is non-constant, perform the decomposition in-circuit
@@ -73,16 +72,15 @@ straus_scalar_slice<Builder>::straus_scalar_slice(Builder* context,
             stdlib_slices.push_back(slice);
             native_slices.push_back(static_cast<uint64_t>(slice.get_value()));
         }
-
-        return result;
+        return { stdlib_slices, native_slices };
     };
 
     const size_t lo_bits =
         scalar.num_bits() > cycle_scalar<Builder>::LO_BITS ? cycle_scalar<Builder>::LO_BITS : scalar.num_bits();
     const size_t hi_bits =
         scalar.num_bits() > cycle_scalar<Builder>::LO_BITS ? scalar.num_bits() - cycle_scalar<Builder>::LO_BITS : 0;
-    auto hi_slices = slice_scalar(scalar.hi, hi_bits);
-    auto lo_slices = slice_scalar(scalar.lo, lo_bits);
+    auto hi_slices = compute_scalar_slices(scalar.hi, hi_bits);
+    auto lo_slices = compute_scalar_slices(scalar.lo, lo_bits);
 
     std::copy(lo_slices.first.begin(), lo_slices.first.end(), std::back_inserter(slices));
     std::copy(hi_slices.first.begin(), hi_slices.first.end(), std::back_inserter(slices));
