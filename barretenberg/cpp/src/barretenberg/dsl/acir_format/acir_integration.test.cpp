@@ -511,7 +511,7 @@ TEST_F(AcirIntegrationTest, DISABLED_ClientIVCMsgpackInputs)
     std::shared_ptr<ClientIVC> ivc = steps.accumulate();
     ClientIVC::Proof proof = ivc->prove();
 
-    EXPECT_TRUE(ivc->verify(proof));
+    EXPECT_TRUE(ivc->verify(proof, ivc->get_vk()));
 }
 
 /**
