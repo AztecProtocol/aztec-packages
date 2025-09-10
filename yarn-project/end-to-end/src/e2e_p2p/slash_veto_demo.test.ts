@@ -284,7 +284,7 @@ describe('veto slash', () => {
 
       await t.ctx.cheatCodes.eth.stopImpersonating(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceAddress);
 
-      const slasherAddress = await rollup.getSlasher();
+      const slasherAddress = await rollup.getSlasherAddress();
       expect(slasherAddress.toLowerCase()).toEqual(newSlasherAddress.toString().toLowerCase());
       debugLogger.info(`\n\nnew slasher address: ${slasherAddress}\n\n`);
       const slasher = getContract({
@@ -352,7 +352,7 @@ describe('veto slash', () => {
       //##############################//
 
       if (shouldVeto) {
-        const slasherAddress = await rollup.getSlasher();
+        const slasherAddress = await rollup.getSlasherAddress();
         const { receipt } = await vetoerL1TxUtils.sendAndMonitorTransaction({
           to: slasherAddress,
           data: encodeFunctionData({

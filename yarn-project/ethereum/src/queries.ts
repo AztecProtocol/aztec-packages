@@ -1,7 +1,4 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
-
-import { getContract } from 'viem';
 
 import type { L1ContractsConfig } from './config.js';
 import { ReadOnlyGovernanceContract } from './contracts/governance.js';
@@ -27,8 +24,7 @@ export async function getL1ContractsConfig(
   const rollupAddress = addresses.rollupAddress ?? (await governanceProposer.getRollupAddress());
   const rollup = new RollupContract(publicClient, rollupAddress.toString());
   const slasherProposer = await rollup.getSlashingProposer();
-  const slasherAddress = await rollup.getSlasher();
-  const slasher = getContract({ address: slasherAddress, abi: SlasherAbi, client: publicClient });
+  const slasher = await rollup.getSlasherContract();
 
   const [
     l1StartBlock,
@@ -72,7 +68,7 @@ export async function getL1ContractsConfig(
     slasherProposer?.getExecutionDelayInRounds() ?? 0n,
     slasherProposer?.type === 'tally' ? slasherProposer.getSlashOffsetInRounds() : 0n,
     slasherProposer?.type === 'tally' ? slasherProposer.getSlashingAmounts() : [0n, 0n, 0n],
-    slasher.read.VETOER(),
+    slasher?.getVetoer() ?? EthAddress.ZERO,
     rollup.getManaTarget(),
     rollup.getProvingCostPerMana(),
     rollup.getVersion(),
@@ -96,7 +92,7 @@ export async function getL1ContractsConfig(
     slashingRoundSizeInEpochs: Number(slashingRoundSize / aztecEpochDuration),
     slashingLifetimeInRounds: Number(slashingLifetimeInRounds),
     slashingExecutionDelayInRounds: Number(slashingExecutionDelayInRounds),
-    slashingVetoer: EthAddress.fromString(slashingVetoer),
+    slashingVetoer,
     manaTarget: manaTarget,
     provingCostPerMana: provingCostPerMana,
     rollupVersion: Number(rollupVersion),

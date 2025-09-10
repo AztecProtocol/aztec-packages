@@ -190,6 +190,10 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   }
 
   protected async handleProvenPerformance(epoch: bigint, performance: ValidatorsEpochPerformance) {
+    if (this.config.slashInactivityPenalty === 0n) {
+      return;
+    }
+
     const inactiveValidators = getEntries(performance)
       .filter(([_, { missed, total }]) => missed / total >= this.config.slashInactivityTargetPercentage)
       .map(([address]) => address);
