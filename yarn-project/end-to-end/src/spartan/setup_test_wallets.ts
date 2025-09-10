@@ -251,18 +251,26 @@ export async function performTransfers({
   rounds,
   transferAmount,
   logger,
+  feePaymentMethod,
 }: {
   testWallets: TestWallets;
   rounds: number;
   transferAmount: bigint;
   logger: Logger;
+  feePaymentMethod?: FeePaymentMethod;
 }) {
   const recipient = testWallets.recipientWallet.getAddress();
+  // Default to sponsored fee payment if no fee method is provided
+  const defaultFeePaymentMethod = feePaymentMethod || new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
+
   for (let i = 0; i < rounds; i++) {
     const txs = testWallets.wallets.map(async w =>
       (await TokenContract.at(testWallets.tokenAddress, w)).methods
         .transfer_in_public(w.getAddress(), recipient, transferAmount, 0)
-        .prove({ from: w.getAddress() }),
+        .prove({
+          from: w.getAddress(),
+          fee: { paymentMethod: defaultFeePaymentMethod },
+        }),
     );
 
     const provenTxs = await Promise.all(txs);

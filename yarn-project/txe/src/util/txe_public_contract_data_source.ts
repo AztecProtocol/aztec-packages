@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
+import type { ContractDataProvider } from '@aztec/pxe/server';
 import { type ContractArtifact, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
@@ -10,22 +11,23 @@ import {
   getContractClassPrivateFunctionFromArtifact,
 } from '@aztec/stdlib/contract';
 
-import type { TXE } from '../oracle/txe_oracle.js';
-
 export class TXEPublicContractDataSource implements ContractDataSource {
   #privateFunctionsRoot: Map<string, Buffer> = new Map();
-  constructor(private txeOracle: TXE) {}
+  constructor(
+    private blockNumber: number,
+    private contractDataProvider: ContractDataProvider,
+  ) {}
 
   getBlockNumber(): Promise<number> {
-    return this.txeOracle.utilityGetBlockNumber();
+    return Promise.resolve(this.blockNumber);
   }
 
   async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
-    const contractClass = await this.txeOracle.getContractDataProvider().getContractClass(id);
+    const contractClass = await this.contractDataProvider.getContractClass(id);
     if (!contractClass) {
       return;
     }
-    const artifact = await this.txeOracle.getContractDataProvider().getContractArtifact(id);
+    const artifact = await this.contractDataProvider.getContractArtifact(id);
     if (!artifact) {
       return;
     }
@@ -55,12 +57,12 @@ export class TXEPublicContractDataSource implements ContractDataSource {
   }
 
   async getBytecodeCommitment(id: Fr): Promise<Fr | undefined> {
-    const contractClass = await this.txeOracle.getContractDataProvider().getContractClass(id);
+    const contractClass = await this.contractDataProvider.getContractClass(id);
     return contractClass && computePublicBytecodeCommitment(contractClass.packedBytecode);
   }
 
   async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    const instance = await this.txeOracle.getContractDataProvider().getContractInstance(address);
+    const instance = await this.contractDataProvider.getContractInstance(address);
     return instance && { ...instance, address };
   }
 
@@ -69,12 +71,12 @@ export class TXEPublicContractDataSource implements ContractDataSource {
   }
 
   async getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
-    const instance = await this.txeOracle.getContractDataProvider().getContractInstance(address);
-    return instance && this.txeOracle.getContractDataProvider().getContractArtifact(instance.currentContractClassId);
+    const instance = await this.contractDataProvider.getContractInstance(address);
+    return instance && this.contractDataProvider.getContractArtifact(instance.currentContractClassId);
   }
 
   async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
-    return await this.txeOracle.getContractDataProvider().getDebugFunctionName(address, selector);
+    return await this.contractDataProvider.getDebugFunctionName(address, selector);
   }
 
   registerContractFunctionSignatures(_signatures: []): Promise<void> {

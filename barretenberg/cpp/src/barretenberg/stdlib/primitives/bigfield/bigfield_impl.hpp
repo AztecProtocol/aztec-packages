@@ -1857,6 +1857,10 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_t
     bool_t<Builder> borrow_0(witness_t<Builder>(context, borrow_0_value));
     bool_t<Builder> borrow_1(witness_t<Builder>(context, borrow_1_value));
     bool_t<Builder> borrow_2(witness_t<Builder>(context, borrow_2_value));
+    // Unset free witness tag because these are auxiliary witnesses
+    borrow_0.unset_free_witness_tag();
+    borrow_1.unset_free_witness_tag();
+    borrow_2.unset_free_witness_tag();
 
     // The way we use borrows here ensures that we are checking that upper_limit - binary_basis > 0.
     // We check that the result in each limb is > 0.

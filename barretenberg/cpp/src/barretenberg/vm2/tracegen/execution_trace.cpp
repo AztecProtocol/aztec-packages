@@ -89,12 +89,6 @@ constexpr std::array<Column, AVM_MAX_OPERANDS> OPERAND_IS_RELATIVE_EFFECTIVE_COL
     C::execution_sel_op_is_relative_effective_4_, C::execution_sel_op_is_relative_effective_5_,
     C::execution_sel_op_is_relative_effective_6_,
 };
-constexpr std::array<Column, AVM_MAX_OPERANDS> OPERAND_RELATIVE_OOB_CHECK_DIFF_COLUMNS = {
-    C::execution_overflow_range_check_result_0_, C::execution_overflow_range_check_result_1_,
-    C::execution_overflow_range_check_result_2_, C::execution_overflow_range_check_result_3_,
-    C::execution_overflow_range_check_result_4_, C::execution_overflow_range_check_result_5_,
-    C::execution_overflow_range_check_result_6_,
-};
 
 constexpr size_t TOTAL_INDIRECT_BITS = 16;
 static_assert(AVM_MAX_OPERANDS * 2 <= TOTAL_INDIRECT_BITS);
@@ -949,18 +943,12 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
 
     // Set the operand columns.
     for (size_t i = 0; i < AVM_MAX_OPERANDS; i++) {
-        FF relative_oob_check_diff = 0;
-        if (is_relative_effective[i]) {
-            relative_oob_check_diff =
-                !relative_oob[i] ? FF(1ULL << 32) - after_relative[i] - 1 : after_relative[i] - FF(1ULL << 32);
-        }
         trace.set(row,
                   { {
                       { OPERAND_RELATIVE_OVERFLOW_COLUMNS[i], relative_oob[i] ? 1 : 0 },
                       { OPERAND_AFTER_RELATIVE_COLUMNS[i], after_relative[i] },
                       { OPERAND_SHOULD_APPLY_INDIRECTION_COLUMNS[i], should_apply_indirection[i] ? 1 : 0 },
                       { OPERAND_IS_RELATIVE_EFFECTIVE_COLUMNS[i], is_relative_effective[i] ? 1 : 0 },
-                      { OPERAND_RELATIVE_OOB_CHECK_DIFF_COLUMNS[i], relative_oob_check_diff },
                       { RESOLVED_OPERAND_COLUMNS[i], resolved_operand[i] },
                       { RESOLVED_OPERAND_TAG_COLUMNS[i], resolved_operand_tag[i] },
                   } });
@@ -1039,8 +1027,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                   { C::execution_sel_base_address_failure, base_address_invalid ? 1 : 0 },
                   { C::execution_num_relative_operands_inv, do_base_check ? FF(num_relative_operands).invert() : 0 },
                   { C::execution_sel_do_base_check, do_base_check ? 1 : 0 },
-                  { C::execution_constant_32, 32 },
-                  { C::execution_two_to_32, 1ULL << 32 },
+                  { C::execution_highest_address, AVM_HIGHEST_MEM_ADDRESS },
               } });
 }
 
@@ -1165,13 +1152,13 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_execution_instruction_fetching_result_settings, InteractionType::LookupGeneric>()
         .add<lookup_execution_instruction_fetching_body_settings, InteractionType::LookupGeneric>()
         // Addressing
-        .add<lookup_addressing_relative_overflow_range_0_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_range_1_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_range_2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_range_3_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_range_4_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_range_5_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_range_6_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_result_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_result_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_result_2_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_result_3_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_result_4_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_result_5_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_result_6_settings, InteractionType::LookupGeneric>()
         // Internal Call Stack
         .add<lookup_internal_call_push_call_stack_settings_, InteractionType::LookupSequential>()
         .add<lookup_internal_call_unwind_call_stack_settings_, InteractionType::LookupGeneric>()

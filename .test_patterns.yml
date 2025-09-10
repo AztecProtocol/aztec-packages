@@ -66,6 +66,18 @@ tests:
     error_regex: "Aborted.*core dumped"
     owners:
       - *adam
+  # Failed NonNativeField relation at row idx = 5 (mem: 9.00 MiB)
+  # Failed at block idx = 6 (mem: 9.00 MiB)
+  # /home/aztec-dev/aztec-packages/barretenberg/cpp/src/barretenberg/circuit_checker/ultra_circuit_builder.test.cpp:631: Failure
+  # Expected equality of these values:
+  #   result
+  #     Which is: false
+  #   true
+  # http://ci.aztec-labs.com/f5aa7b4b0e45ade3
+  - regex: "barretenberg/cpp/scripts/run_test.sh circuit_checker_tests UltraCircuitBuilder.NonNativeFieldMultiplication"
+    error_regex: "ultra_circuit_builder.test.cpp:631: Failure"
+    owners:
+      - *luke
 
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
@@ -207,6 +219,12 @@ tests:
   # http://ci.aztec-labs.com/a1d8b4d360d6d658
   - regex: "src/e2e_epochs/epochs_first_slot.test.ts"
     error_regex: "expect\\(received\\).toContain\\(expected\\)"
+    owners:
+      - *palla
+  # http://ci.aztec-labs.com/3b197577b96c3639
+  # http://ci.aztec-labs.com/d429457d95d075e2
+  - regex: "src/e2e_p2p/slash_veto_demo.test.ts"
+    error_regex: "timeout: sending signal TERM to command|ValidatorSelection__InsufficientValidatorSetSize"
     owners:
       - *palla
 

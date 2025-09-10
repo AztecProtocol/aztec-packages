@@ -15,7 +15,11 @@ import type { KeystoreManager } from '@aztec/node-keystore';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import type { L2BlockSource } from '@aztec/stdlib/block';
-import type { IFullNodeBlockBuilder, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type {
+  IFullNodeBlockBuilder,
+  ValidatorClientFullConfig,
+  WorldStateSynchronizer,
+} from '@aztec/stdlib/interfaces/server';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { L1Metrics, type TelemetryClient } from '@aztec/telemetry-client';
@@ -33,6 +37,7 @@ export class SequencerClient {
   constructor(
     protected publisherManager: PublisherManager<L1TxUtilsWithBlobs>,
     protected sequencer: Sequencer,
+    protected blockBuilder: IFullNodeBlockBuilder,
     protected validatorClient?: ValidatorClient,
     private l1Metrics?: L1Metrics,
   ) {}
@@ -179,15 +184,17 @@ export class SequencerClient {
 
     await sequencer.init();
 
-    return new SequencerClient(publisherManager, sequencer, validatorClient, l1Metrics);
+    return new SequencerClient(publisherManager, sequencer, blockBuilder, validatorClient, l1Metrics);
   }
 
   /**
-   * Updates sequencer config.
+   * Updates sequencer and validator client config.
    * @param config - New parameters.
    */
-  public updateSequencerConfig(config: SequencerConfig) {
-    return this.sequencer.updateConfig(config);
+  public updateConfig(config: SequencerConfig & Partial<ValidatorClientFullConfig>) {
+    this.sequencer.updateConfig(config);
+    this.blockBuilder.updateConfig(config);
+    this.validatorClient?.updateConfig(config);
   }
 
   /** Starts the sequencer. */

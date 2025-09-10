@@ -78,7 +78,7 @@ bool AvmProvingHelper::check_circuit(tracegen::TraceContainer&& trace)
     // PLUS one extra row to catch any possible errors in the empty remainder
     // of the circuit.
     const size_t num_rows = trace.get_num_rows_without_clk() + 1;
-    const bool skippable_enabled = true;
+    const bool skippable_enabled = (getenv("AVM_DISABLE_SKIPPABLE") == nullptr);
     info("Running check ",
          skippable_enabled ? "(with skippable)" : "(without skippable)",
          " circuit over ",

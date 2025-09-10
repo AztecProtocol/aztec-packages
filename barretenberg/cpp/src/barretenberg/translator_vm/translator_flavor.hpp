@@ -62,7 +62,7 @@ class TranslatorFlavor {
 
     // The fixed  log size of Translator circuit determining the size most polynomials (except the ones
     // involved in the interleaving subprotocol). It should be determined by the size of the EccOpQueue.
-    static constexpr size_t LOG_MINI_CIRCUIT_SIZE = 14;
+    static constexpr size_t LOG_MINI_CIRCUIT_SIZE = CONST_TRANSLATOR_MINI_CIRCUIT_LOG_SIZE;
 
     // Log of size of interleaved_* and ordered_* polynomials
     static constexpr size_t CONST_TRANSLATOR_LOG_N = LOG_MINI_CIRCUIT_SIZE + numeric::get_msb(INTERLEAVING_GROUP_SIZE);
@@ -85,6 +85,10 @@ class TranslatorFlavor {
     // referred to as accumulated_result. This is reconstructed in it's base field form and sent to the verifier
     // responsible for checking it against the evaluations received from ECCVM.
     static constexpr size_t RESULT_ROW = CircuitBuilder::RESULT_ROW;
+
+    // Number of random ops found at he end of Translator trace multiplied by 2 as each accumulation gates occupies two
+    // rows.
+    static constexpr size_t NUM_MASKED_ROWS_END = CircuitBuilder::NUM_RANDOM_OPS_END * 2;
 
     // The bitness of the range constraint
     static constexpr size_t MICRO_LIMB_BITS = CircuitBuilder::MICRO_LIMB_BITS;
@@ -687,7 +691,7 @@ class TranslatorFlavor {
 
             // Initialize some one-off polys with special structure
             lagrange_first = Polynomial{ /*size*/ 1, /*virtual_size*/ circuit_size };
-            lagrange_result_row = Polynomial{ /*size*/ 3, /*virtual_size*/ circuit_size };
+            lagrange_result_row = Polynomial{ /*size*/ RESULT_ROW + 1, /*virtual_size*/ circuit_size };
             lagrange_even_in_minicircuit = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE, /*virtual_size*/ circuit_size };
             lagrange_odd_in_minicircuit = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE, /*virtual_size*/ circuit_size };
 

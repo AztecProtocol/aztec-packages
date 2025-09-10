@@ -1,27 +1,20 @@
-import {
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  NULLIFIER_SUBTREE_HEIGHT,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-} from '@aztec/constants';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Body, L2Block } from '@aztec/stdlib/block';
 import { computePublicDataTreeLeafSlot, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
-import { makeAppendOnlyTreeSnapshot, makeContentCommitment } from '@aztec/stdlib/testing';
+import { makeAppendOnlyTreeSnapshot } from '@aztec/stdlib/testing';
 import {
-  AppendOnlyTreeSnapshot,
   MerkleTreeId,
   type MerkleTreeWriteOperations,
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
 } from '@aztec/stdlib/trees';
-import { BlockHeader, GlobalVariables, TxEffect, TxHash } from '@aztec/stdlib/tx';
+import { GlobalVariables, TxEffect, TxHash } from '@aztec/stdlib/tx';
 import type { UInt32 } from '@aztec/stdlib/types';
 
+import { insertTxEffectIntoWorldTrees, makeTXEBlockHeader } from '../utils/block_creation.js';
 import { TXETypedOracle } from './txe_typed_oracle.js';
 
 export class TXEOraclePublicContext extends TXETypedOracle {
@@ -32,14 +25,14 @@ export class TXEOraclePublicContext extends TXETypedOracle {
 
   constructor(
     private contractAddress: AztecAddress,
-    private worldTrees: MerkleTreeWriteOperations,
+    private forkedWorldTrees: MerkleTreeWriteOperations,
     private txRequestHash: Fr,
     private globalVariables: GlobalVariables,
   ) {
-    super();
+    super('TXEOraclePublicContext');
     this.logger = createLogger('txe:public_context');
 
-    this.logger.debug('Entering PublicContext', {
+    this.logger.debug('Entering Public Context', {
       contractAddress,
       blockNumber: globalVariables.blockNumber,
       timestamp: globalVariables.timestamp,
@@ -84,7 +77,9 @@ export class TXEOraclePublicContext extends TXETypedOracle {
   override async avmOpcodeNullifierExists(innerNullifier: Fr, targetAddress: AztecAddress): Promise<boolean> {
     const nullifier = await siloNullifier(targetAddress, innerNullifier!);
 
-    const treeIndex = (await this.worldTrees.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]))[0];
+    const treeIndex = (
+      await this.forkedWorldTrees.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()])
+    )[0];
     const transientIndex = this.transientSiloedNullifiers.find(n => n.equals(nullifier));
 
     return treeIndex !== undefined || transientIndex !== undefined;
@@ -97,7 +92,7 @@ export class TXEOraclePublicContext extends TXETypedOracle {
 
     this.publicDataWrites.push(dataWrite);
 
-    await this.worldTrees.sequentialInsert(MerkleTreeId.PUBLIC_DATA_TREE, [
+    await this.forkedWorldTrees.sequentialInsert(MerkleTreeId.PUBLIC_DATA_TREE, [
       new PublicDataTreeLeaf(dataWrite.leafSlot, dataWrite.value).toBuffer(),
     ]);
   }
@@ -105,7 +100,7 @@ export class TXEOraclePublicContext extends TXETypedOracle {
   override async avmOpcodeStorageRead(slot: Fr): Promise<Fr> {
     const leafSlot = await computePublicDataTreeLeafSlot(this.contractAddress, slot);
 
-    const lowLeafResult = await this.worldTrees.getPreviousValueIndex(
+    const lowLeafResult = await this.forkedWorldTrees.getPreviousValueIndex(
       MerkleTreeId.PUBLIC_DATA_TREE,
       leafSlot.toBigInt(),
     );
@@ -114,7 +109,7 @@ export class TXEOraclePublicContext extends TXETypedOracle {
       !lowLeafResult || !lowLeafResult.alreadyPresent
         ? Fr.ZERO
         : (
-            (await this.worldTrees.getLeafPreimage(
+            (await this.forkedWorldTrees.getLeafPreimage(
               MerkleTreeId.PUBLIC_DATA_TREE,
               lowLeafResult.index,
             )) as PublicDataTreeLeafPreimage
@@ -126,20 +121,20 @@ export class TXEOraclePublicContext extends TXETypedOracle {
   }
 
   async close(): Promise<L2Block> {
-    this.logger.debug('Exiting PublicContext, building block with collected side effects', {
+    this.logger.debug('Exiting Public Context, building block with collected side effects', {
       blockNumber: this.globalVariables.blockNumber,
     });
 
     const txEffect = this.makeTxEffect();
-    await this.insertSideEffectIntoWorldTrees(txEffect);
+    await insertTxEffectIntoWorldTrees(txEffect, this.forkedWorldTrees);
 
     const block = new L2Block(
-      makeAppendOnlyTreeSnapshot(this.globalVariables.blockNumber),
-      await this.makeBlockHeader(),
+      makeAppendOnlyTreeSnapshot(),
+      await makeTXEBlockHeader(this.forkedWorldTrees, this.globalVariables),
       new Body([txEffect]),
     );
 
-    await this.worldTrees.close();
+    await this.forkedWorldTrees.close();
 
     this.logger.debug('Exited PublicContext with built block', {
       blockNumber: block.number,
@@ -161,38 +156,5 @@ export class TXEOraclePublicContext extends TXETypedOracle {
     txEffect.txHash = new TxHash(new Fr(this.globalVariables.blockNumber));
 
     return txEffect;
-  }
-
-  private async insertSideEffectIntoWorldTrees(txEffect: TxEffect) {
-    const l1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.zero);
-
-    await this.worldTrees.appendLeaves(
-      MerkleTreeId.NOTE_HASH_TREE,
-      padArrayEnd(txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
-    );
-
-    await this.worldTrees.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
-
-    // We do not need to add public data writes because we apply them as we go.
-
-    await this.worldTrees.batchInsert(
-      MerkleTreeId.NULLIFIER_TREE,
-      padArrayEnd(txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(nullifier => nullifier.toBuffer()),
-      NULLIFIER_SUBTREE_HEIGHT,
-    );
-  }
-
-  private async makeBlockHeader(): Promise<BlockHeader> {
-    const stateReference = await this.worldTrees.getStateReference();
-    const archiveInfo = await this.worldTrees.getTreeInfo(MerkleTreeId.ARCHIVE);
-
-    return new BlockHeader(
-      new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
-      makeContentCommitment(),
-      stateReference,
-      this.globalVariables,
-      Fr.ZERO,
-      Fr.ZERO,
-    );
   }
 }

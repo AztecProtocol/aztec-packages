@@ -260,3 +260,40 @@ variable "PROVER_REAL_PROOFS" {
   description = "Whether to enable prover real proofs"
   type        = string
 }
+
+variable "TRANSACTIONS_DISABLED" {
+  description = "Whether transactions are disabled by the nodes"
+  type        = string
+  nullable    = true
+}
+
+variable "DEPLOY_INTERNAL_BOOTNODE" {
+  description = "Whether to deploy an internal"
+  type        = bool
+  default     = false
+}
+
+variable "EXTERNAL_BOOTNODES" {
+  description = "Whether to use externally deployed bootnodes"
+  type        = list(string)
+  default     = []
+}
+
+variable "NETWORK" {
+  description = "One of the existing network names to use default config for"
+  type        = string
+  nullable    = true
+}
+
+variable "STORE_SNAPSHOT_URL" {
+  description = "Location to store snapshots in"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "SNAPSHOT_CRON" {
+  description = "Location to store snapshots in"
+  type        = string
+  default     = "0 */12 * * *"
+}

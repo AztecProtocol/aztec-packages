@@ -4,10 +4,10 @@ import {
   createBlobSinkServer,
   getBlobSinkConfigFromEnv,
 } from '@aztec/blob-sink/server';
+import { getL1Config } from '@aztec/cli/config';
 import type { LogFn } from '@aztec/foundation/log';
 import { getConfigEnvVars as getTelemetryClientConfig, initTelemetryClient } from '@aztec/telemetry-client';
 
-import { getL1Config } from '../get_l1_config.js';
 import { extractRelevantOptions } from '../util.js';
 
 export async function startBlobSink(options: any, signalHandlers: (() => Promise<void>)[], userLog: LogFn) {

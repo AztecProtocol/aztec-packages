@@ -159,7 +159,7 @@ class AvmGoblinRecursiveVerifier {
 
         // Validate the consistency of the AVM2 verifier inputs {\pi, pub_inputs, VK}_{AVM2} between the inner (Mega)
         // circuit and the outer (Ultra) by asserting equality on the independently computed hashes of this data.
-        const FF ultra_hash = stdlib::poseidon2<UltraBuilder>::hash(ultra_builder, hash_buffer);
+        const FF ultra_hash = stdlib::poseidon2<UltraBuilder>::hash(hash_buffer);
         mega_verifier_output.mega_hash.assert_equal(ultra_hash);
 
         // Return ipa proof, ipa claim and output aggregation object produced from verifying the Mega + Goblin proofs
@@ -189,9 +189,9 @@ class AvmGoblinRecursiveVerifier {
 
         // Instantiate Mega builder for the inner circuit (AVM2 proof recursive verifier)
         Goblin goblin;
+        goblin.avm_mode = true;
         MegaBuilder mega_builder(goblin.op_queue);
-        mega_builder.queue_ecc_no_op();
-
+        goblin.ensure_well_formed_op_queue_for_avm(mega_builder);
         // lambda to convert from Ultra to Mega stdlib field buffer and add all elements to respective hash buffers
         std::vector<FF> mega_hash_buffer;
         auto convert_stdlib_ultra_to_stdlib_mega = [&](const std::vector<UltraFF>& ultra_object) {
@@ -220,7 +220,7 @@ class AvmGoblinRecursiveVerifier {
         mega_vk_hash.fix_witness(); // fix witness because vk hash should be a circuit constant
 
         // Compute the hash and set it public
-        const FF mega_hash = stdlib::poseidon2<MegaBuilder>::hash(mega_builder, mega_hash_buffer);
+        const FF mega_hash = stdlib::poseidon2<MegaBuilder>::hash(mega_hash_buffer);
 
         // Construct a Mega-arithmetized AVM2 recursive verifier circuit
         auto stdlib_key = std::make_shared<AvmRecursiveVerificationKey>(mega_builder, std::span<FF>(key_fields));
@@ -246,6 +246,7 @@ class AvmGoblinRecursiveVerifier {
         MegaProver mega_prover(mega_proving_key, mega_vk, transcript);
         HonkProof mega_proof = mega_prover.construct_proof();
         goblin.transcript = transcript;
+        goblin.avm_mode = true;
 
         // Construct corresponding Goblin proof \pi_G (includes Merge, ECCVM, and Translator proofs)
         GoblinProof goblin_proof = goblin.prove();

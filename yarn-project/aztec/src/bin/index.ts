@@ -2,6 +2,7 @@
 //
 import { injectCommands as injectBuilderCommands } from '@aztec/builder';
 import { injectCommands as injectWalletCommands } from '@aztec/cli-wallet';
+import { enrichEnvironmentWithChainConfig } from '@aztec/cli/config';
 import { injectCommands as injectContractCommands } from '@aztec/cli/contracts';
 import { injectCommands as injectDevnetCommands } from '@aztec/cli/devnet';
 import { injectCommands as injectInfrastructureCommands } from '@aztec/cli/infrastructure';
@@ -14,7 +15,6 @@ import { createConsoleLogger, createLogger } from '@aztec/foundation/log';
 import { Command } from 'commander';
 
 import { NETWORK_FLAG } from '../cli/aztec_start_options.js';
-import { enrichEnvironmentWithChainConfig } from '../cli/chain_l2_config.js';
 import { injectAztecCommands } from '../cli/index.js';
 import { getCliVersion } from '../cli/release_version.js';
 

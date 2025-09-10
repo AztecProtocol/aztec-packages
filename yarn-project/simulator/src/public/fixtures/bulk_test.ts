@@ -20,6 +20,9 @@ export async function bulkTest(
     avmTestContractArtifact,
   );
 
+  // Needed since we invoke the Fee Juice Contract in the bulk test.registerFeeJuiceContract
+  await tester.registerFeeJuiceContract();
+
   // Get a deployed contract instance to pass to the contract
   // for it to use as "expected" values when testing contract instance retrieval.
   const expectContractInstance = avmTestContract;
@@ -78,6 +81,10 @@ export async function megaBulkTest(
     deployer,
     avmTestContractArtifact,
   );
+
+  // Needed since we invoke the Fee Juice Contract in the bulk test.registerFeeJuiceContract
+  await tester.registerFeeJuiceContract();
+
   // Get a deployed contract instance to pass to the contract
   // for it to use as "expected" values when testing contract instance retrieval.
   const expectContractInstance = avmTestContract;
@@ -96,7 +103,6 @@ export async function megaBulkTest(
   const argsField12 = [13, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
   const argsField13 = [14, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
   const argsField14 = [15, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-  const argsField15 = [16, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
   const argsU8 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
   const genArgs = (argsField: Fr[]) => [
     argsField,
@@ -129,7 +135,6 @@ export async function megaBulkTest(
       { address: avmTestContract.address, fnName: 'bulk_testing', args: genArgs(argsField12) },
       { address: avmTestContract.address, fnName: 'bulk_testing', args: genArgs(argsField13) },
       { address: avmTestContract.address, fnName: 'bulk_testing', args: genArgs(argsField14) },
-      { address: avmTestContract.address, fnName: 'bulk_testing', args: genArgs(argsField15) },
     ],
     /*teardownCall=*/ undefined,
     /*feePayer*/ undefined,

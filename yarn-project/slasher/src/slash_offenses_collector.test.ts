@@ -5,12 +5,11 @@ import { openTmpStore } from '@aztec/kv-store/lmdb';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import { type Offense, OffenseType } from '@aztec/stdlib/slashing';
 
-import EventEmitter from 'node:events';
-
 import { DefaultSlasherConfig } from './config.js';
 import { SlashOffensesCollector, type SlashOffensesCollectorSettings } from './slash_offenses_collector.js';
 import { SlasherOffensesStore } from './stores/offenses_store.js';
-import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type WatcherEmitter } from './watcher.js';
+import { DummyWatcher } from './test/dummy_watcher.js';
+import type { WantToSlashArgs } from './watcher.js';
 
 describe('SlashOffensesCollector', () => {
   let offensesCollector: SlashOffensesCollector;
@@ -29,20 +28,6 @@ describe('SlashOffensesCollector', () => {
     slashGracePeriodL2Slots: 10,
     slashMaxPayloadSize: 100,
   };
-
-  class DummyWatcher extends EventEmitter implements WatcherEmitter {
-    public emitWantToSlash(args: WantToSlashArgs[]) {
-      this.emit(WANT_TO_SLASH_EVENT, args);
-    }
-
-    public start() {
-      return Promise.resolve();
-    }
-
-    public stop() {
-      return Promise.resolve();
-    }
-  }
 
   beforeEach(() => {
     kvStore = openTmpStore(true);
@@ -75,7 +60,7 @@ describe('SlashOffensesCollector', () => {
     ];
 
     // Mock the watcher emitting a want-to-slash event
-    dummyWatcher.emitWantToSlash(wantToSlashArgs);
+    dummyWatcher.triggerSlash(wantToSlashArgs);
 
     // Give it a moment to process
     await sleep(100);
@@ -105,11 +90,11 @@ describe('SlashOffensesCollector', () => {
     ];
 
     // Emit the same offense twice
-    dummyWatcher.emitWantToSlash(wantToSlashArgs);
+    dummyWatcher.triggerSlash(wantToSlashArgs);
     await sleep(100);
 
     // Emit the exact same offense again
-    dummyWatcher.emitWantToSlash(wantToSlashArgs);
+    dummyWatcher.triggerSlash(wantToSlashArgs);
     await sleep(100);
 
     // Check that only one offense was stored
@@ -150,10 +135,10 @@ describe('SlashOffensesCollector', () => {
     ];
 
     // Emit both offenses
-    dummyWatcher.emitWantToSlash(gracePeriodOffense);
+    dummyWatcher.triggerSlash(gracePeriodOffense);
     await sleep(100);
 
-    dummyWatcher.emitWantToSlash(validOffense);
+    dummyWatcher.triggerSlash(validOffense);
     await sleep(100);
 
     // Check that only the valid offense (after grace period) was stored
@@ -197,7 +182,7 @@ describe('SlashOffensesCollector', () => {
     ];
 
     // Emit all offenses in a single event
-    dummyWatcher.emitWantToSlash(multipleOffensesArgs);
+    dummyWatcher.triggerSlash(multipleOffensesArgs);
     await sleep(100);
 
     // Check that all three offenses were stored
