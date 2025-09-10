@@ -20,6 +20,23 @@ import { type IPeerCollection, PeerCollection, RATE_LIMIT_EXCEEDED_PEER_CACHE_TT
 const SMART_PEERS_TO_QUERY_IN_PARALLEL = 10;
 const DUMB_PEERS_TO_QUERY_IN_PARALLEL = 10;
 
+/*
+ * Tries to fetch all missing transaction until deadline is hit.
+ * Transactions are yield by calling run*() method
+ *
+ * We have a couple of peer types:
+ * - Pinned peer is the one who sent us the block proposal
+ * - Dumb peer:
+ *    - We query this peer blindly because we don't know which txs it has
+ *    - We hope it might have some of the transactions we asked for
+ *    - When this peer sends response it might become Smart peer
+ * - Smart peer:
+ *    - Initially there are no smart peers, all are considered "dumb"
+ *    - Peer becomes smart when in response it tels us exactly which transactions it has
+ *      AND we are missing some of those transactions
+ * - Bad peer:
+ *    - Is the peer which was unable to send us successful response  BAD_PEER_THRESHOLD  times in a row
+ * */
 export class BatchTxRequester {
   private readonly peers: IPeerCollection;
   private readonly txsMetadata: ITxMetadataCollection;
@@ -56,6 +73,9 @@ export class BatchTxRequester {
     this.smartRequesterSemaphore = this.opts.semaphore ?? new Semaphore(0);
   }
 
+  /*
+   * Fetches all missing transactions and yields them  one by one
+   * */
   public async *run(): AsyncGenerator<Tx, Tx | undefined, unknown> {
     // Our timeout is represented in milliseconds but queue expects seconds
     // We also want to make sure we wait at least 1 second in case of very low timeouts
@@ -103,10 +123,15 @@ export class BatchTxRequester {
     }
   }
 
+  /*
+   * Fetches all missing transactions
+   * @returns Collection of fetched transactions */
   public static async collectAllTxs(generator: AsyncGenerator<Tx, Tx | undefined, unknown>): Promise<Tx[]> {
     const txs: Tx[] = [];
     for await (const tx of generator) {
-      if (tx === undefined) break;
+      if (tx === undefined) {
+        break;
+      }
       txs.push(tx);
     }
     return txs;
@@ -164,38 +189,14 @@ export class BatchTxRequester {
     }
   }
 
-  private async smartRequester() {
-    const nextPeerIndex = this.makeRoundRobinIndexer();
-
-    const nextPeer = () => {
-      const peers = this.peers.getSmartPeersToQuery();
-      const idx = nextPeerIndex(() => peers.length);
-      return idx === undefined ? undefined : peerIdFromString(peers[idx]);
-    };
-
-    const makeRequest = (pid: PeerId) => {
-      const txs = this.txsMetadata.getTxsToRequestFromThePeer(pid).slice(0, TX_BATCH_SIZE);
-
-      txs.forEach(tx => {
-        this.txsMetadata.markRequested(tx);
-        this.txsMetadata.markInFlightBySmartPeer(tx);
-      });
-
-      return { blockRequest: BlockTxsRequest.fromBlockProposalAndMissingTxs(this.blockProposal, txs), txs };
-    };
-
-    const workers = Array.from(
-      { length: Math.min(this.opts.smartParallelWorkerCount, this.peers.getAllPeers().size) },
-      (_, index) => this.smartWorkerLoop(nextPeer, makeRequest, index + 1),
-    );
-
-    await Promise.allSettled(workers);
-  }
-
+  /*
+   * Starts dumb worker loops
+   * */
   private async dumbRequester() {
     const nextPeerIndex = this.makeRoundRobinIndexer();
     const nextBatchIndex = this.makeRoundRobinIndexer();
 
+    // Chunk missing tx hashes into batches of TX_BATCH_SIZE
     const txChunks = () => {
       const missingHashes = Array.from(this.txsMetadata.getMissingTxHashes());
       if (missingHashes.length < TX_BATCH_SIZE) {
@@ -243,6 +244,12 @@ export class BatchTxRequester {
     await Promise.allSettled(workers);
   }
 
+  /*
+   * Dumb worker loop.
+   * It fetches next available dumb peer and builds request for that peer
+   * Loops until shouldStop condition is not met or there are no more dubm peers to query
+   *   This can happen if e.g. all "dumb" peers transition to "smart" or e.g. become "bad"
+   * */
   private async dumbWorkerLoop(
     pickNextPeer: () => PeerId | undefined,
     request: (pid: PeerId) => { blockRequest: BlockTxsRequest | undefined; txs: TxHash[] } | undefined,
@@ -292,71 +299,124 @@ export class BatchTxRequester {
     }
   }
 
+  /*
+   * Starts smart worker loops
+   * */
+  private async smartRequester() {
+    const nextPeerIndex = this.makeRoundRobinIndexer();
+
+    const nextPeer = () => {
+      const peers = this.peers.getSmartPeersToQuery();
+      const idx = nextPeerIndex(() => peers.length);
+      return idx === undefined ? undefined : peerIdFromString(peers[idx]);
+    };
+
+    const makeRequest = (pid: PeerId) => {
+      const txs = this.txsMetadata.getTxsToRequestFromThePeer(pid).slice(0, TX_BATCH_SIZE);
+
+      return { blockRequest: BlockTxsRequest.fromBlockProposalAndMissingTxs(this.blockProposal, txs), txs };
+    };
+
+    const workers = Array.from(
+      { length: Math.min(this.opts.smartParallelWorkerCount, this.peers.getAllPeers().size) },
+      (_, index) => this.smartWorkerLoop(nextPeer, makeRequest, index + 1),
+    );
+
+    await Promise.allSettled(workers);
+  }
+
+  /*
+   * Smart worker loop.
+   * It fetches next available smart peer and builds request for that peer
+   * Loops until shouldStop condition is not met
+   *
+   * Notes:
+   * - We don't start worker loop immediately, but block on semaphore
+   *   until some dumb peer transactions to smart peer
+   * - We might run out of smart peers, because:
+   *    - they "went bad"
+   *    - there are less smart peers than worker loops
+   *   In such scenario we either wait for next dumb peer to become smart or kill the worker loop
+   * */
   private async smartWorkerLoop(
     pickNextPeer: () => PeerId | undefined,
     request: (pid: PeerId) => { blockRequest: BlockTxsRequest | undefined; txs: TxHash[] } | undefined,
     workerIndex: number,
   ) {
-    this.logger.debug(`Smart worker ${workerIndex} started`);
-    await executeTimeout((_: AbortSignal) => this.smartRequesterSemaphore.acquire(), this.timeoutMs);
-    this.logger.debug(`Smart worker ${workerIndex} acquired semaphore`);
+    try {
+      this.logger.trace(`Smart worker ${workerIndex} started`);
+      await executeTimeout((_: AbortSignal) => this.smartRequesterSemaphore.acquire(), this.timeoutMs);
+      this.logger.trace(`Smart worker ${workerIndex} acquired semaphore`);
 
-    while (!this.shouldStop()) {
-      const peerId = pickNextPeer();
-      const weRanOutOfPeersToQuery = peerId === undefined;
-      if (weRanOutOfPeersToQuery) {
-        this.logger.debug(`Worker loop smart: No more peers to query`);
+      while (!this.shouldStop()) {
+        const peerId = pickNextPeer();
+        const weRanOutOfPeersToQuery = peerId === undefined;
+        if (weRanOutOfPeersToQuery) {
+          this.logger.debug(`Worker loop smart: No more peers to query`);
 
-        //If there are no more dumb peers to query then none of our peers can become smart,
-        //thus we can simply exit this worker
-        const noMoreDumbPeersToQuery = this.peers.getDumbPeersToQuery().length === 0;
-        if (noMoreDumbPeersToQuery) {
-          // These might be either smart peers that will get unblocked after _some time_
-          // Or dumb peers that might become smart, so let's not 'kill' this worker, but sleep
-          const thereAreSomeRateLimitedPeers = this.peers.getRateLimitExceededPeers().size > 0;
-          if (thereAreSomeRateLimitedPeers) {
-            await sleep(RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL);
-            continue;
+          //If there are no more dumb peers to query then none of our peers can become smart,
+          //thus we can simply exit this worker
+          const noMoreDumbPeersToQuery = this.peers.getDumbPeersToQuery().length === 0;
+          if (noMoreDumbPeersToQuery) {
+            // These might be either smart peers that will get unblocked after _some time_
+            const thereAreSomeRateLimitedPeers = this.peers.getRateLimitExceededPeers().size > 0;
+            if (thereAreSomeRateLimitedPeers) {
+              await sleep(RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL);
+              continue;
+            }
+
+            this.logger.debug(`Worker loop smart: No more smart peers to query killing ${workerIndex}`);
+            break;
           }
 
-          this.logger.debug(`Worker loop smart: No more smart peers to query, EXITING`);
+          // Otherwise there are still some dumb peers that could become smart
+          // We wait on this
+          await executeTimeout((_: AbortSignal) => this.smartRequesterSemaphore.acquire(), this.timeoutMs);
+          this.logger.debug(`Worker loop smart: acquired next smart peer`);
+          continue;
+        }
+
+        const nextBatchTxRequest = request(peerId);
+        if (!nextBatchTxRequest) {
+          // We retry with the next peer/batch
+          this.logger.warn(`Worker loop smart: Could not create next batch request`);
+          continue;
+        }
+
+        //TODO: check this, this should only happen in case something bad happened
+        const { blockRequest, txs } = nextBatchTxRequest;
+        if (blockRequest === undefined) {
+          this.logger.error(`Smart worker: BLOCK REQ undefined`);
           break;
         }
 
-        // Otherwise we wait until some peer becomes smart
-        await executeTimeout((_: AbortSignal) => this.smartRequesterSemaphore.acquire(), this.timeoutMs);
-        this.logger.debug(`Worker loop smart: acquired next smart peer`);
-        continue;
+        // We only mark transactions as in flight if queried by Smart peer
+        // Because asking them from dumb peer is shot in the dark (there is a good chance they won't have it)
+        // So we don't gain anything if we mark txs in-flight for dumb peers
+        txs.forEach(tx => {
+          this.txsMetadata.markRequested(tx);
+          this.txsMetadata.markInFlightBySmartPeer(tx);
+        });
+
+        await this.requestTxBatch(peerId, blockRequest);
+        txs.forEach(tx => {
+          this.txsMetadata.markNotInFlightBySmartPeer(tx);
+        });
       }
-
-      const nextBatchTxRequest = request(peerId);
-      if (!nextBatchTxRequest) {
-        // We retry with the next peer/batch
-        this.logger.warn(`Worker loop smart: Could not create next batch request`);
-        continue;
-      }
-
-      //TODO: check this, this should only happen in case something bad happened
-      const { blockRequest, txs } = nextBatchTxRequest;
-      if (blockRequest === undefined) {
-        this.logger.error(`Smart worker: BLOCK REQ undefined`);
-        break;
-      }
-
-      this.logger.debug(
-        `Worker type smart: Requesting txs from peer ${peerId.toString()}: ${txs.map(tx => tx.toString()).join(', ')}`,
-      );
-
-      await this.requestTxBatch(peerId, blockRequest);
-      txs.forEach(tx => {
-        this.txsMetadata.markNotInFlightBySmartPeer(tx);
-      });
+    } catch (err: any) {
+      this.logger.error(`Smart worker ${workerIndex} encountered an error: ${err}`);
+    } finally {
+      this.logger.debug(`Smart worker ${workerIndex} finished`);
     }
-
-    this.logger.debug(`Smart worker ${workerIndex} finished`);
   }
 
-  private async requestTxBatch(peerId: PeerId, request: BlockTxsRequest): Promise<BlockTxsResponse | undefined> {
+  /*
+   * Sends actual request to the peer and handles response
+   *
+   * @param peerId - the peer to send request to
+   * @param request - the actual request
+   */
+  private async requestTxBatch(peerId: PeerId, request: BlockTxsRequest): Promise<void> {
     try {
       this.peers.markPeerInFlight(peerId);
       const response = await this.reqresp.sendRequestToPeer(peerId, ReqRespSubProtocol.BLOCK_TXS, request.toBuffer());
@@ -380,52 +440,44 @@ export class BatchTxRequester {
     }
   }
 
+  /*
+   * Handles failed response form the peer
+   * There are 3 scenarios
+   * - RATE_LIMIT_EXCEEDED: We mark this and don't query this peer again for some_time
+   * - FAILURE and UNKNOWN: We mark this, if peer has been marked this way N (N = BAD_PEER_THRESHOLD ) times they are not queried again
+   *   this implies we will query these peers couple of more times and give them a chance to "redeem" themselves before completely ignoring them
+   */
+  private handleFailResponseFromPeer(peerId: PeerId, responseStatus: ReqRespStatus) {
+    //TODO: Should we ban these peers?
+    if (responseStatus === ReqRespStatus.FAILURE || responseStatus === ReqRespStatus.UNKNOWN) {
+      this.peers.markPeerAsBad(peerId);
+      return;
+    }
+
+    if (responseStatus === ReqRespStatus.RATE_LIMIT_EXCEEDED) {
+      this.peers.markPeerRateLimitExceeded(peerId);
+    }
+  }
+
+  /*
+   * Handles successful response form the peer, this includes
+   * - Handling received transactions
+   * - Deciding if the peer is "smart" or not
+   * */
   private async handleSuccessResponseFromPeer(peerId: PeerId, response: BlockTxsResponse) {
+    // If we have received successful response from the peer, they have "redeemed" themselves and not considered bad anymore
     this.peers.unMarkPeerAsBad(peerId);
     this.logger.debug(`Received txs: ${response.txs.length} from peer ${peerId.toString()} `);
     await this.handleReceivedTxs(peerId, response.txs);
 
-    const pinnedPeerShouldNeverBeMarkedAsSmart = this.pinnedPeer && peerId.toString() === this.pinnedPeer.toString();
-    if (pinnedPeerShouldNeverBeMarkedAsSmart) {
-      return;
-    }
-
-    const smartPeersAreDisabled = this.opts.smartParallelWorkerCount === 0;
-    if (smartPeersAreDisabled) {
-      return;
-    }
-
-    if (!this.isBlockResponseValid(response)) {
-      return;
-    }
-
-    // We mark peer as "smart" only if they have some txs we are missing
-    // Otherwise we keep them as "dumb" in hope they'll receive some new txs we are missing in the future
-    if (!this.peerHasSomeTxsWeAreMissing(peerId, response)) {
-      this.logger.debug(`${peerId.toString()} has no txs we are missing, skipping`);
-      return;
-    }
-
-    this.markTxsPeerHas(peerId, response);
-
-    this.peers.markPeerSmart(peerId);
-    if (this.peers.getSmartPeers().size <= this.opts.smartParallelWorkerCount) {
-      this.smartRequesterSemaphore.release();
-    }
+    this.decideIfPeerIsSmart(peerId, response);
   }
 
-  private isBlockResponseValid(response: BlockTxsResponse): boolean {
-    //TODO: should we  ban peer if this does not match?
-    const blockIdsMatch = this.blockProposal.archive.toString() === response.blockHash.toString();
-    const peerHasSomeTxsFromProposal = !response.txIndices.isEmpty();
-    return blockIdsMatch && peerHasSomeTxsFromProposal;
-  }
-
-  private peerHasSomeTxsWeAreMissing(_peerId: PeerId, response: BlockTxsResponse): boolean {
-    const txsPeerHas = new Set(this.extractHashesPeerHasFromResponse(response).map(h => h.toString()));
-    return this.txsMetadata.getMissingTxHashes().intersection(txsPeerHas).size > 0;
-  }
-
+  /*
+   * Handles received txs.
+   * Transactions are validated and then put on async queue
+   * to be yielded by main running loop
+   * */
   private async handleReceivedTxs(peerId: PeerId, txs: TxArray) {
     const newTxs = txs.filter(tx => !this.txsMetadata.alreadyFetched(tx.txHash));
 
@@ -459,22 +511,59 @@ export class BatchTxRequester {
     }
   }
 
+  /*
+   * Peer is smart if:
+   * - They are not pinned peer
+   * - They have sent successful response indicating which txs from Block proposal they have
+   * - They have transactions we are missing
+   */
+  private decideIfPeerIsSmart(peerId: PeerId, response: BlockTxsResponse) {
+    const pinnedPeerShouldNeverBeMarkedAsSmart = this.pinnedPeer && peerId.toString() === this.pinnedPeer.toString();
+    if (pinnedPeerShouldNeverBeMarkedAsSmart) {
+      return;
+    }
+
+    const smartPeersAreDisabled = this.opts.smartParallelWorkerCount === 0;
+    if (smartPeersAreDisabled) {
+      return;
+    }
+
+    if (!this.isBlockResponseValid(response)) {
+      return;
+    }
+
+    // We mark peer as "smart" only if they have some txs we are missing
+    // Otherwise we keep them as "dumb" in hope they'll receive some new txs we are missing in the future
+    if (!this.peerHasSomeTxsWeAreMissing(peerId, response)) {
+      this.logger.debug(`${peerId.toString()} has no txs we are missing, skipping`);
+      return;
+    }
+
+    this.peers.markPeerSmart(peerId);
+    this.markTxsPeerHas(peerId, response);
+
+    // Unblock smart workers
+    if (this.peers.getSmartPeers().size <= this.opts.smartParallelWorkerCount) {
+      this.smartRequesterSemaphore.release();
+    }
+  }
+
+  private isBlockResponseValid(response: BlockTxsResponse): boolean {
+    //TODO: should we  ban peer if this does not match?
+    const blockIdsMatch = this.blockProposal.archive.toString() === response.blockHash.toString();
+    const peerHasSomeTxsFromProposal = !response.txIndices.isEmpty();
+    return blockIdsMatch && peerHasSomeTxsFromProposal;
+  }
+
+  private peerHasSomeTxsWeAreMissing(_peerId: PeerId, response: BlockTxsResponse): boolean {
+    const txsPeerHas = new Set(this.extractHashesPeerHasFromResponse(response).map(h => h.toString()));
+    return this.txsMetadata.getMissingTxHashes().intersection(txsPeerHas).size > 0;
+  }
+
   private markTxsPeerHas(peerId: PeerId, response: BlockTxsResponse) {
     const txsPeerHas = this.extractHashesPeerHasFromResponse(response);
     this.logger.debug(`${peerId.toString()} has txs: ${txsPeerHas.map(tx => tx.toString()).join(', ')}`);
     this.txsMetadata.markPeerHas(peerId, txsPeerHas);
-  }
-
-  private handleFailResponseFromPeer(peerId: PeerId, responseStatus: ReqRespStatus) {
-    if (responseStatus === ReqRespStatus.FAILURE || responseStatus === ReqRespStatus.UNKNOWN) {
-      //TODO: Should we ban these peers?
-      this.peers.markPeerAsBad(peerId);
-      return;
-    }
-
-    if (responseStatus === ReqRespStatus.RATE_LIMIT_EXCEEDED) {
-      this.peers.markPeerRateLimitExceeded(peerId);
-    }
   }
 
   private extractHashesPeerHasFromResponse(response: BlockTxsResponse): Array<TxHash> {
@@ -489,8 +578,19 @@ export class BatchTxRequester {
     return hashes;
   }
 
+  /*
+   * Helper function to crate round robin indexer -
+   * i.e. the "thing" which returns next index/number in round robin fashion
+   **/
   private makeRoundRobinIndexer(start = 0) {
     let i = start;
+    /*
+     * Function to calculate next round-robin number
+     * Idea is that we pass in an array size and based on it and previous state we call next
+     * Array size can change between calls thus it is passed as function
+     *
+     * @returns next index or undefined if size is 0
+     */
     return (size: () => number) => {
       const length = size();
       if (length === 0) {
@@ -503,10 +603,21 @@ export class BatchTxRequester {
     };
   }
 
+  /*
+   * @returns true if all missing txs have been fetched */
   private fetchedAllTxs() {
     return Array.from(this.txsMetadata.values()).every(tx => tx.fetched);
   }
 
+  /*
+   * Checks if the BatchTxRequester should stop fetching missing txs
+   * Conditions for stopping are:
+   * - There have been no missing transactions to start with
+   * - All transactions have been fetched
+   * - The deadline has been hit (no more time to fetch)
+   * - This process has been cancelled via abortSignal
+   *
+   * @returns true if BatchTxRequester should stop, otherwise false*/
   private shouldStop() {
     const aborted = this.opts.abortSignal?.aborted ?? false;
     if (aborted) {
@@ -516,8 +627,10 @@ export class BatchTxRequester {
     return aborted || this.txsMetadata.size === 0 || this.fetchedAllTxs() || this.dateProvider.now() > this.deadline;
   }
 
-  // Helper function which unlocks all smart requester semaphores
-  // This is needed otherwise they will block forever
+  /*
+   * Helper function which unlocks all smart requester semaphores
+   * @note This is needed otherwise they will block forever
+   * */
   private unlockSmartRequesterSemaphores() {
     for (let i = 0; i < this.opts.smartParallelWorkerCount; i++) {
       this.smartRequesterSemaphore.release();

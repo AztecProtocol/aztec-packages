@@ -1174,6 +1174,7 @@ describe('BatchTxRequester', () => {
       const validationCalls: Array<{ tx: TxHash; peerId: string }> = [];
       const invalidTxIndices = new Set([2, 3, 7]); // Mark transactions at indices 2, 3, and 7 as invalid
 
+      // eslint-disable-next-line require-await
       const customTxValidator = jest.fn(async (tx: Tx, peerId: PeerId) => {
         validationCalls.push({ tx: tx.txHash, peerId: peerId.toString() });
         const txIndex = missing.findIndex(h => h.equals(tx.txHash));
@@ -1250,6 +1251,7 @@ describe('BatchTxRequester', () => {
 
       // Validator that rejects transactions based on peer
       // This simulates different peers having different validity for same transaction
+      // eslint-disable-next-line require-await
       const peerSpecificValidator = jest.fn(async (tx: Tx, peerId: PeerId) => {
         const txIndex = missing.findIndex(h => h.equals(tx.txHash));
 
@@ -1313,6 +1315,7 @@ describe('BatchTxRequester', () => {
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peer]);
 
       // Validator that throws errors for specific transactions
+      // eslint-disable-next-line require-await
       const throwingValidator = jest.fn(async (tx: Tx, _peerId: PeerId) => {
         const txIndex = missing.findIndex(h => h.equals(tx.txHash));
 
@@ -1496,6 +1499,7 @@ describe('BatchTxRequester', () => {
       ]);
 
       let pinnedPeerRequestCount = 0;
+      // eslint-disable-next-line require-await
       reqresp.sendRequestToPeer.mockImplementation(async (peerId: any, _sub: any, data: any) => {
         const peerStr = peerId.toString();
 
@@ -1629,6 +1633,7 @@ describe('BatchTxRequester', () => {
       const validationCalls: Array<{ tx: TxHash; peerId: string }> = [];
       const invalidTxIndices = new Set([1, 6]); // Mark some transactions as invalid
 
+      // eslint-disable-next-line require-await
       const customTxValidator = jest.fn(async (tx: Tx, peerId: PeerId) => {
         validationCalls.push({ tx: tx.txHash, peerId: peerId.toString() });
         const txIndex = missing.findIndex(h => h.equals(tx.txHash));

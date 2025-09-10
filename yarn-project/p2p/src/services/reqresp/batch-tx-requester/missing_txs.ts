@@ -161,7 +161,8 @@ export class MissingTxMetadataCollection extends Map<string, MissingTxMetadata> 
   /*
    * This should be called only when requesting tx from smart peer
    * Because the smart peer should return this tx, whereas
-   * "dumb" peer might return it, or might not - we don't know*/
+   * "dumb" peer might return it, or might not - we don't know
+   * */
   public markInFlightBySmartPeer(txHash: TxHash) {
     this.get(txHash.toString())?.markInFlight();
   }
