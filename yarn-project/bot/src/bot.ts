@@ -1,6 +1,6 @@
 import { type AztecAddress, BatchCall, SentTx, type Wallet } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
-import type { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
+import type { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNode, AztecNodeAdmin, PXE } from '@aztec/stdlib/interfaces/client';
 
@@ -16,7 +16,7 @@ export class Bot extends BaseBot {
     pxe: PXE,
     wallet: Wallet,
     defaultAccountAddress: AztecAddress,
-    public readonly token: TokenContract | EasyPrivateTokenContract,
+    public readonly token: TokenContract | PrivateTokenContract,
     public readonly recipient: AztecAddress,
     config: BotConfig,
   ) {
@@ -71,7 +71,7 @@ export class Bot extends BaseBot {
     if (isStandardTokenContract(this.token)) {
       return {
         sender: await getBalances(this.token, this.defaultAccountAddress),
-        recipient: await getBalances(this.token, this.recipient),
+        recipient: await getBalances(this.token, this.recipient, this.defaultAccountAddress),
       };
     } else {
       return {
@@ -80,7 +80,7 @@ export class Bot extends BaseBot {
           publicBalance: 0n,
         },
         recipient: {
-          privateBalance: await getPrivateBalance(this.token, this.recipient),
+          privateBalance: await getPrivateBalance(this.token, this.recipient, this.defaultAccountAddress),
           publicBalance: 0n,
         },
       };

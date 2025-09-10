@@ -11,7 +11,7 @@ namespace bb::avm2::tracegen {
 // See precomputed.pil.
 class PrecomputedTraceBuilder final {
   public:
-    void process_misc(TraceContainer& trace, const uint32_t num_rows = CIRCUIT_SUBGROUP_SIZE);
+    void process_misc(TraceContainer& trace, const uint32_t num_rows = MAX_AVM_TRACE_SIZE);
     void process_bitwise(TraceContainer& trace);
     void process_sel_range_8(TraceContainer& trace);
     void process_sel_range_16(TraceContainer& trace);
@@ -28,6 +28,7 @@ class PrecomputedTraceBuilder final {
     void process_keccak_round_constants(TraceContainer& trace);
     void process_get_env_var_table(TraceContainer& trace);
     void process_get_contract_instance_table(TraceContainer& trace);
+    void process_protocol_contract_addresses(TraceContainer& trace);
 };
 
 } // namespace bb::avm2::tracegen

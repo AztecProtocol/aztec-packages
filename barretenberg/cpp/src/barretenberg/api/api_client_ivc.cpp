@@ -27,71 +27,44 @@ namespace { // anonymous namespace
  *
  * @param bytecode_path
  * @param witness_path
+ * @param use_structured_trace Whether to utilize structured trace when computing VK for circuit
  */
-void write_standalone_vk(const std::string& output_format,
-                         const std::filesystem::path& bytecode_path,
-                         const std::filesystem::path& output_path)
+void write_standalone_vk(std::vector<uint8_t> bytecode,
+                         const std::filesystem::path& output_path,
+                         bool use_structured_trace = true)
 {
-    auto bytecode = get_bytecode(bytecode_path);
+    auto trace_settings = use_structured_trace ? TraceSettings{ AZTEC_TRACE_STRUCTURE } : TraceSettings{};
     auto response = bbapi::ClientIvcComputeStandaloneVk{
         .circuit = { .name = "standalone_circuit", .bytecode = std::move(bytecode) }
-    }.execute();
+    }.execute({ .trace_settings = trace_settings });
 
-    bool wrote_file = false;
     bool is_stdout = output_path == "-";
-    auto write_fn = [&](const std::filesystem::path& path, const auto& data) {
-        if (is_stdout) {
-            write_bytes_to_stdout(data);
-        } else {
-            write_file(path, data);
-        }
-    };
-    if (output_format == "bytes_and_fields" && is_stdout) {
-        throw_or_abort("Cannot write to stdout in bytes_and_fields format.");
-    }
-    if (output_format == "bytes" || output_format == "bytes_and_fields") {
-        write_fn(output_path / "vk", response.bytes);
-        wrote_file = true;
-    }
-    if (output_format == "fields" || output_format == "bytes_and_fields") {
-        std::string json = field_elements_to_json(response.fields);
-        write_fn(output_path / "vk_fields.json", std::vector<uint8_t>(json.begin(), json.end()));
-        wrote_file = true;
-    }
-    if (!wrote_file) {
-        throw_or_abort("Unsupported output format for standalone vk: " + output_format);
+    if (is_stdout) {
+        write_bytes_to_stdout(response.bytes);
+    } else {
+        write_file(output_path / "vk", response.bytes);
     }
 }
-
-std::vector<uint8_t> write_civc_vk(const std::string& output_format,
-                                   std::vector<uint8_t> bytecode,
-                                   const std::filesystem::path& output_dir)
+void write_civc_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_dir)
 {
-    if (output_format != "bytes") {
-        throw_or_abort("Unsupported output format for ClientIVC vk: " + output_format);
-    }
     // compute the hiding kernel's vk
     info("ClientIVC: computing IVC vk for hiding kernel circuit");
-    auto response = bbapi::ClientIvcComputeIvcVk{
-        .circuit{ .name = "standalone_circuit", .bytecode = std::move(bytecode) }
-    }.execute({ .trace_settings = {} });
-    auto civc_vk_bytes = response.bytes;
+    auto response =
+        bbapi::ClientIvcComputeIvcVk{ .circuit{ .bytecode = std::move(bytecode) } }.execute({ .trace_settings = {} });
     const bool output_to_stdout = output_dir == "-";
     if (output_to_stdout) {
-        write_bytes_to_stdout(civc_vk_bytes);
+        write_bytes_to_stdout(response.bytes);
     } else {
-        write_file(output_dir / "vk", civc_vk_bytes);
+        write_file(output_dir / "vk", response.bytes);
     }
-    return civc_vk_bytes;
 }
-
 } // anonymous namespace
 
 void ClientIVCAPI::prove(const Flags& flags,
                          const std::filesystem::path& input_path,
                          const std::filesystem::path& output_dir)
 {
-
+    BB_BENCH_NAME("ClientIVCAPI::prove");
     bbapi::BBApiRequest request;
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
@@ -114,13 +87,13 @@ void ClientIVCAPI::prove(const Flags& flags,
     const bool output_to_stdout = output_dir == "-";
 
     const auto write_proof = [&]() {
-        const auto buf = to_buffer(proof);
+        const auto buf = to_buffer(proof.to_field_elements());
         if (output_to_stdout) {
             vinfo("writing ClientIVC proof to stdout");
             write_bytes_to_stdout(buf);
         } else {
             vinfo("writing ClientIVC proof in directory ", output_dir);
-            proof.to_file_msgpack(output_dir / "proof");
+            write_file(output_dir / "proof", buf);
         }
     };
 
@@ -128,9 +101,8 @@ void ClientIVCAPI::prove(const Flags& flags,
 
     if (flags.write_vk) {
         vinfo("writing ClientIVC vk in directory ", output_dir);
-        // we get the bytecode of the hiding circuit (the last step of the execution)
-        auto vk_buf = write_civc_vk("bytes", raw_steps[raw_steps.size() - 1].bytecode, output_dir);
-        auto vk = from_buffer<ClientIVC::VerificationKey>(vk_buf);
+        // write CIVC vk using the bytecode of the hiding circuit (the last step of the execution)
+        write_civc_vk(raw_steps[raw_steps.size() - 1].bytecode, output_dir);
     }
 }
 
@@ -139,8 +111,12 @@ bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
                           const std::filesystem::path& proof_path,
                           const std::filesystem::path& vk_path)
 {
-    auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
+    BB_BENCH_NAME("ClientIVCAPI::verify");
+    auto proof_fields = many_from_buffer<fr>(read_file(proof_path));
+    auto proof = ClientIVC::Proof::from_field_elements(proof_fields);
+
     auto vk_buffer = read_file(vk_path);
+
     auto response = bbapi::ClientIvcVerify{ .proof = std::move(proof), .vk = std::move(vk_buffer) }.execute();
     return response.valid;
 }
@@ -160,6 +136,7 @@ bool ClientIVCAPI::prove_and_verify(const std::filesystem::path& input_path)
 
 void ClientIVCAPI::gates(const Flags& flags, const std::filesystem::path& bytecode_path)
 {
+    BB_BENCH_NAME("ClientIVCAPI::gates");
     gate_count_for_ivc(bytecode_path, flags.include_gates_per_opcode);
 }
 
@@ -167,11 +144,13 @@ void ClientIVCAPI::write_solidity_verifier([[maybe_unused]] const Flags& flags,
                                            [[maybe_unused]] const std::filesystem::path& output_path,
                                            [[maybe_unused]] const std::filesystem::path& vk_path)
 {
+    BB_BENCH_NAME("ClientIVCAPI::write_solidity_verifier");
     throw_or_abort("API function contract not implemented");
 }
 
 bool ClientIVCAPI::check_precomputed_vks(const Flags& flags, const std::filesystem::path& input_path)
 {
+    BB_BENCH_NAME("ClientIVCAPI::check_precomputed_vks");
     bbapi::BBApiRequest request;
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
@@ -204,12 +183,15 @@ void ClientIVCAPI::write_vk(const Flags& flags,
                             const std::filesystem::path& bytecode_path,
                             const std::filesystem::path& output_path)
 {
-
+    BB_BENCH_NAME("ClientIVCAPI::write_vk");
+    auto bytecode = get_bytecode(bytecode_path);
     if (flags.verifier_type == "ivc") {
-        auto bytecode = get_bytecode(bytecode_path);
-        write_civc_vk(flags.output_format, bytecode, output_path);
+        write_civc_vk(bytecode, output_path);
     } else if (flags.verifier_type == "standalone") {
-        write_standalone_vk(flags.output_format, bytecode_path, output_path);
+        write_standalone_vk(bytecode, output_path);
+    } else if (flags.verifier_type == "standalone_hiding") {
+        // write the VK for the hiding kernel which DOES NOT utilize a structured trace
+        write_standalone_vk(bytecode, output_path, false);
     } else {
         const std::string msg = std::string("Can't write vk for verifier type ") + flags.verifier_type;
         throw_or_abort(msg);
@@ -226,6 +208,7 @@ bool ClientIVCAPI::check([[maybe_unused]] const Flags& flags,
 
 void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per_opcode)
 {
+    BB_BENCH_NAME("gate_count_for_ivc");
     // All circuit reports will be built into the std::string below
     std::string functions_string = "{\"functions\": [\n  ";
 
@@ -260,7 +243,7 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
 
 void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem::path& output_dir)
 {
-
+    BB_BENCH_NAME("write_arbitrary_valid_client_ivc_proof_and_vk_to_file");
     PrivateFunctionExecutionMockCircuitProducer circuit_producer{ /*num_app_circuits=*/1 };
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
     ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };

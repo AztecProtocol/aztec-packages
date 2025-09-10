@@ -145,6 +145,7 @@ library Honk {
         G1Point kzgQuotient;
     }
 
+    /// forge-lint: disable-next-item(pascal-case-struct)
     struct ZKProof {
         // Pairing point object
         Fr[PAIRING_POINTS_SIZE] pairingPointObject;

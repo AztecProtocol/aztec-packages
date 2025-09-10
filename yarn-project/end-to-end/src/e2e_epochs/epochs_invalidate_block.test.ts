@@ -52,6 +52,9 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       archiverPollingIntervalMS: 200,
       anvilAccounts: 20,
       anvilPort: ++anvilPort,
+      slashingRoundSizeInEpochs: 4,
+      slashingOffsetInRounds: 256,
+      slasherFlavor: 'tally',
     });
 
     ({ context, logger, l1Client } = test);
@@ -90,7 +93,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // Configure all sequencers to skip collecting attestations before starting
     logger.warn('Configuring all sequencers to skip attestation collection');
     sequencers.forEach(sequencer => {
-      sequencer.updateSequencerConfig({ skipCollectingAttestations: true });
+      sequencer.updateConfig({ skipCollectingAttestations: true });
     });
 
     // Send a transaction so the sequencer builds a block
@@ -101,7 +104,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     test.monitor.once('l2-block', ({ l2BlockNumber }) => {
       logger.warn(`Disabling skipCollectingAttestations after L2 block ${l2BlockNumber} has been mined`);
       sequencers.forEach(sequencer => {
-        sequencer.updateSequencerConfig({ skipCollectingAttestations: false });
+        sequencer.updateConfig({ skipCollectingAttestations: false });
       });
     });
 
@@ -170,14 +173,14 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // Configure all sequencers to skip collecting attestations before starting
     logger.warn('Configuring all sequencers to skip attestation collection and always publish blocks');
     sequencers.forEach(sequencer => {
-      sequencer.updateSequencerConfig({ skipCollectingAttestations: true, minTxsPerBlock: 0 });
+      sequencer.updateConfig({ skipCollectingAttestations: true, minTxsPerBlock: 0 });
     });
 
     // Disable skipCollectingAttestations after the first block is mined and prevent sequencers from publishing any more blocks
     test.monitor.once('l2-block', ({ l2BlockNumber }) => {
       logger.warn(`Disabling skipCollectingAttestations after L2 block ${l2BlockNumber} has been mined`);
       sequencers.forEach(sequencer => {
-        sequencer.updateSequencerConfig({ skipCollectingAttestations: false, minTxsPerBlock: 100 });
+        sequencer.updateConfig({ skipCollectingAttestations: false, minTxsPerBlock: 100 });
       });
     });
 
@@ -223,7 +226,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     logger.warn('Configuring all sequencers to skip attestation collection and invalidation as proposer');
     const invalidationDelay = test.L1_BLOCK_TIME_IN_S * 4;
     sequencers.forEach(sequencer => {
-      sequencer.updateSequencerConfig({
+      sequencer.updateConfig({
         skipCollectingAttestations: true,
         minTxsPerBlock: 0,
         skipInvalidateBlockAsProposer: true,
@@ -237,7 +240,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       logger.warn(`Disabling skipCollectingAttestations after L2 block ${l2BlockNumber} has been mined`);
       invalidBlockTimestamp = timestamp;
       sequencers.forEach(sequencer => {
-        sequencer.updateSequencerConfig({ skipCollectingAttestations: false });
+        sequencer.updateConfig({ skipCollectingAttestations: false });
       });
     });
 

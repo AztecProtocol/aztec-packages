@@ -1,6 +1,6 @@
 import { sleep } from '@aztec/aztec.js';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { TallySlashingProposerContract } from '@aztec/ethereum/contracts';
+import { RollupContract, SlasherContract, TallySlashingProposerContract } from '@aztec/ethereum/contracts';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -12,16 +12,18 @@ import { type Offense, OffenseType, type ProposerSlashAction } from '@aztec/stdl
 import { jest } from '@jest/globals';
 import { type MockProxy, mockDeep } from 'jest-mock-extended';
 import assert from 'node:assert';
-import EventEmitter from 'node:events';
 
 import { DefaultSlasherConfig } from './config.js';
 import { SlasherOffensesStore } from './stores/offenses_store.js';
 import { TallySlasherClient, type TallySlasherSettings } from './tally_slasher_client.js';
-import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEmitter } from './watcher.js';
+import { DummyWatcher } from './test/dummy_watcher.js';
+import type { WantToSlashArgs } from './watcher.js';
 
 describe('TallySlasherClient', () => {
   let tallySlasherClient: TestTallySlasherClient;
   let tallySlashingProposer: MockProxy<TallySlashingProposerContract>;
+  let rollup: MockProxy<RollupContract>;
+  let slasherContract: MockProxy<SlasherContract>;
   let dummyWatcher: DummyWatcher;
   let kvStore: ReturnType<typeof openTmpStore>;
   let offensesStore: SlasherOffensesStore;
@@ -42,7 +44,7 @@ describe('TallySlasherClient', () => {
     epochDuration: epochDuration,
     slashingLifetimeInRounds: 10,
     slashingOffsetInRounds: 2,
-    slashingUnit,
+    slashingAmounts: [slashingUnit, slashingUnit * 2n, slashingUnit * 3n],
     targetCommitteeSize: 100,
     l1GenesisTime: BigInt(Math.floor(Date.now() / 1000) - 10000),
     slotDuration: 4,
@@ -94,23 +96,12 @@ describe('TallySlasherClient', () => {
     expect(action.round).toEqual(expectedRound);
   };
 
-  class DummyWatcher extends (EventEmitter as new () => WatcherEmitter) implements Watcher {
-    public start() {
-      return Promise.resolve();
-    }
-
-    public stop() {
-      return Promise.resolve();
-    }
-
-    public triggerSlash(args: WantToSlashArgs[]) {
-      this.emit(WANT_TO_SLASH_EVENT, args);
-    }
-  }
-
   beforeEach(() => {
     kvStore = openTmpStore(true);
-    offensesStore = new SlasherOffensesStore(kvStore, settings);
+    offensesStore = new SlasherOffensesStore(kvStore, {
+      ...settings,
+      slashOffenseExpirationRounds: config.slashOffenseExpirationRounds,
+    });
     dummyWatcher = new DummyWatcher();
     dateProvider = new DateProvider();
     logger = createLogger('test');
@@ -132,10 +123,23 @@ describe('TallySlasherClient', () => {
 
     // Create mocks for L1 contracts
     tallySlashingProposer = mockDeep<TallySlashingProposerContract>();
+    rollup = mockDeep<RollupContract>();
+    slasherContract = mockDeep<SlasherContract>();
 
     // Setup mock responses
     tallySlashingProposer.getRound.mockResolvedValue({ isExecuted: false, readyToExecute: false, voteCount: 0n });
-    tallySlashingProposer.getTally.mockResolvedValue([{ validator: committee[0], slashAmount: slashingUnit }]);
+    tallySlashingProposer.getTally.mockResolvedValue({
+      actions: [{ validator: committee[0], slashAmount: slashingUnit }],
+      committees: [committee],
+    });
+    tallySlashingProposer.getPayload.mockResolvedValue({
+      address: EthAddress.random(),
+      actions: [{ validator: committee[0], slashAmount: slashingUnit }],
+    });
+
+    // Setup rollup and slasher contract mocks
+    rollup.getSlasherContract.mockResolvedValue(slasherContract);
+    slasherContract.isPayloadVetoed.mockResolvedValue(false);
 
     // Mock event listeners to return unwatch functions
     tallySlashingProposer.listenToVoteCast.mockReturnValue(() => {});
@@ -146,6 +150,7 @@ describe('TallySlasherClient', () => {
       config,
       settings,
       tallySlashingProposer,
+      rollup,
       [dummyWatcher],
       mockEpochCache,
       dateProvider,
@@ -167,7 +172,7 @@ describe('TallySlasherClient', () => {
         const currentSlot = currentRound * BigInt(roundSize); // Round 5
         const targetRound = 3n;
 
-        // Add slot-based offenses for the target round (slots 600-799 are in round 3)
+        // Add slot-based offenses for the target round (slots 576-767 are in round 3)
         await offensesStore.addPendingOffense(
           createOffense({
             validator: committee[0],
@@ -226,7 +231,7 @@ describe('TallySlasherClient', () => {
         const targetRound = 3n;
 
         await addPendingOffense({
-          epochOrSlot: targetRound * BigInt(roundSize),
+          epochOrSlot: targetRound * BigInt(roundSize) + BigInt(epochDuration),
           offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
         });
 
@@ -251,6 +256,26 @@ describe('TallySlasherClient', () => {
         // Should have empty addresses as placeholders
         expect(action.committees[0]).toHaveLength(settings.targetCommitteeSize);
         expect(action.committees[0][0].toString()).toEqual(EthAddress.ZERO.toString());
+      });
+
+      it('should not return any action when computed votes are zero', async () => {
+        // Round 5 votes on round 3 (offset of 2)
+        const currentRound = 5n;
+        const currentSlot = currentRound * BigInt(roundSize);
+        const targetRound = 3n;
+
+        // Add slot-based offense for the target round
+        await offensesStore.addPendingOffense(
+          createOffense({
+            validator: committee[0],
+            epochOrSlot: targetRound * BigInt(roundSize),
+            offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
+            amount: 1n, // Too low to reach minimum slash unit
+          }),
+        );
+
+        const actions = await tallySlasherClient.getProposerActions(currentSlot);
+        expect(actions).toHaveLength(0);
       });
     });
 
@@ -328,7 +353,7 @@ describe('TallySlasherClient', () => {
           voteCount: 120n,
         });
 
-        tallySlashingProposer.getTally.mockResolvedValueOnce([]);
+        tallySlashingProposer.getTally.mockResolvedValueOnce({ actions: [], committees: [committee] });
 
         const actions = await tallySlasherClient.getProposerActions(currentSlot);
 
@@ -555,10 +580,10 @@ describe('TallySlasherClient', () => {
     it('should handle from offense detection to execution', async () => {
       // Round 3: Offense occurs
       const offenseRound = 3n;
-      const validator = EthAddress.random();
+      const validator = committee[0];
       const offense: WantToSlashArgs = {
         validator,
-        amount: 2n * settings.slashingUnit,
+        amount: settings.slashingAmounts[1],
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
         epochOrSlot: offenseRound * BigInt(roundSize),
       };
@@ -592,9 +617,6 @@ describe('TallySlasherClient', () => {
       expect(executeActions).toHaveLength(1);
       expectActionExecuteSlash(executeActions[0], executableRound);
 
-      // Simulate execution
-      tallySlasherClient.handleRoundExecuted(executableRound, 1n);
-
       // Verify that if round is marked as executed it won't be executed again
       tallySlashingProposer.getRound.mockResolvedValueOnce({
         isExecuted: true,
@@ -615,30 +637,202 @@ describe('TallySlasherClient', () => {
       await addPendingOffense({
         validator: committee[0],
         epochOrSlot: targetRound * BigInt(roundSize),
-        amount: 1n * settings.slashingUnit, // 1 unit
+        amount: settings.slashingAmounts[0], // 1 unit
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
       });
       await addPendingOffense({
         validator: committee[1],
         epochOrSlot: targetRound * BigInt(roundSize),
-        amount: 5n * settings.slashingUnit, // 5 units
+        amount: settings.slashingAmounts[0], // 1 units
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
       });
       await addPendingOffense({
         validator: committee[1], // same as above!
         epochOrSlot: targetRound * BigInt(roundSize) + 1n,
-        amount: 3n * settings.slashingUnit, // 3 units on top of the previous 5
+        amount: 2n * settings.slashingAmounts[0], // 2 units on top of the previous 1
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
       });
       await addPendingOffense({
         validator: committee[2],
         epochOrSlot: targetRound * BigInt(roundSize),
-        amount: 20n * settings.slashingUnit, // Exceeds max 3 units
+        amount: 20n * settings.slashingAmounts[0], // Exceeds max 3 units
         offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS, // slot-based
       });
 
       const action = await tallySlasherClient.getVoteOffensesAction(currentSlot);
       expectActionVoteOffenses(action!, currentRound, [1, 3, 3]);
+    });
+  });
+
+  describe('validator override lists', () => {
+    describe('slashValidatorsAlways', () => {
+      it('should slash validators on the always list with maximum slash units', async () => {
+        const alwaysSlashValidator = committee[0];
+        const normalValidator = committee[1];
+
+        // Update the existing client's config
+        tallySlasherClient.updateConfig({
+          slashValidatorsAlways: [alwaysSlashValidator],
+          slashValidatorsNever: [],
+        });
+
+        const currentRound = 5n;
+        const currentSlot = currentRound * BigInt(roundSize);
+
+        // Add offense for normal validator (should be processed normally)
+        await addPendingOffense({
+          validator: normalValidator,
+          epochOrSlot: (currentRound - 2n) * BigInt(roundSize),
+          amount: slashingUnit, // 1 unit
+          offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+        });
+
+        const action = await tallySlasherClient.getVoteOffensesAction(currentSlot);
+        expectActionVoteOffenses(action!, currentRound, [3, 1]); // Always validator gets 3 units, normal gets 1
+      });
+
+      it('should handle multiple validators in always list', async () => {
+        const alwaysSlashValidator1 = committee[0];
+        const alwaysSlashValidator2 = committee[1];
+
+        // Update the existing client's config
+        tallySlasherClient.updateConfig({
+          slashValidatorsAlways: [alwaysSlashValidator1, alwaysSlashValidator2],
+          slashValidatorsNever: [],
+        });
+
+        const currentRound = 5n;
+        const currentSlot = currentRound * BigInt(roundSize);
+
+        const action = await tallySlasherClient.getVoteOffensesAction(currentSlot);
+        expectActionVoteOffenses(action!, currentRound, [3, 3, 0]); // Both always validators get 3 units, normal gets 0
+      });
+    });
+
+    describe('slashValidatorsNever', () => {
+      it('should never slash validators on the never list', async () => {
+        const neverSlashValidator = committee[0];
+        const normalValidator = committee[1];
+
+        // Update the existing client's config
+        tallySlasherClient.updateConfig({
+          slashValidatorsAlways: [],
+          slashValidatorsNever: [neverSlashValidator],
+        });
+
+        const currentRound = 5n;
+        const currentSlot = currentRound * BigInt(roundSize);
+
+        // Add offenses for both validators
+        await addPendingOffense({
+          validator: neverSlashValidator,
+          epochOrSlot: (currentRound - 2n) * BigInt(roundSize),
+          amount: slashingUnit * 10n, // Large amount that would normally result in 3 units
+          offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+        });
+
+        await addPendingOffense({
+          validator: normalValidator,
+          epochOrSlot: (currentRound - 2n) * BigInt(roundSize),
+          amount: slashingUnit, // 1 unit
+          offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+        });
+
+        const action = await tallySlasherClient.getVoteOffensesAction(currentSlot);
+        expectActionVoteOffenses(action!, currentRound, [0, 1]); // Never validator gets 0 units, normal gets 1
+      });
+
+      it('should handle multiple validators in never list', async () => {
+        const neverSlashValidator1 = committee[0];
+        const neverSlashValidator2 = committee[1];
+        const normalValidator = committee[2];
+
+        // Update the existing client's config
+        tallySlasherClient.updateConfig({
+          slashValidatorsAlways: [],
+          slashValidatorsNever: [neverSlashValidator1, neverSlashValidator2],
+        });
+
+        const currentRound = 5n;
+        const currentSlot = currentRound * BigInt(roundSize);
+
+        // Add offenses for all validators
+        for (const validator of [neverSlashValidator1, neverSlashValidator2, normalValidator]) {
+          await addPendingOffense({
+            validator,
+            epochOrSlot: (currentRound - 2n) * BigInt(roundSize),
+            amount: slashingUnit * 2n, // 2 units
+            offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+          });
+        }
+
+        const action = await tallySlasherClient.getVoteOffensesAction(currentSlot);
+        expectActionVoteOffenses(action!, currentRound, [0, 0, 2]); // Never validators get 0, normal gets 2
+      });
+    });
+
+    describe('combined always and never lists', () => {
+      it('should prioritize never list over always list', async () => {
+        const conflictValidator = committee[0]; // This validator is in both lists
+        const alwaysValidator = committee[1];
+        const neverValidator = committee[2];
+
+        // Update the existing client's config
+        tallySlasherClient.updateConfig({
+          slashValidatorsAlways: [conflictValidator, alwaysValidator],
+          slashValidatorsNever: [conflictValidator, neverValidator],
+        });
+
+        const currentRound = 5n;
+        const currentSlot = currentRound * BigInt(roundSize);
+
+        const action = await tallySlasherClient.getVoteOffensesAction(currentSlot);
+        expectActionVoteOffenses(action!, currentRound, [0, 3, 0]); // Conflict gets 0 (never wins), always gets 3, never gets 0
+      });
+    });
+
+    describe('mixed validators in lists', () => {
+      it('should handle mixed validators correctly', async () => {
+        const alwaysValidator = committee[0];
+
+        // Update the existing client's config
+        tallySlasherClient.updateConfig({
+          slashValidatorsAlways: [alwaysValidator],
+          slashValidatorsNever: [],
+        });
+
+        const currentRound = 5n;
+        const currentSlot = currentRound * BigInt(roundSize);
+
+        const action = await tallySlasherClient.getVoteOffensesAction(currentSlot);
+        expectActionVoteOffenses(action!, currentRound, [3]); // Always validator should get max slash units
+      });
+    });
+
+    describe('empty lists', () => {
+      it('should handle empty always and never lists', async () => {
+        const normalValidator = committee[0];
+
+        // Update the existing client's config
+        tallySlasherClient.updateConfig({
+          slashValidatorsAlways: [],
+          slashValidatorsNever: [], // Empty array
+        });
+
+        const currentRound = 5n;
+        const currentSlot = currentRound * BigInt(roundSize);
+
+        // Add offense for normal processing
+        await addPendingOffense({
+          validator: normalValidator,
+          epochOrSlot: (currentRound - 2n) * BigInt(roundSize),
+          amount: slashingUnit, // 1 unit
+          offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+        });
+
+        const action = await tallySlasherClient.getVoteOffensesAction(currentSlot);
+        expectActionVoteOffenses(action!, currentRound, [1]); // Normal processing should work
+      });
     });
   });
 });
@@ -647,10 +841,6 @@ describe('TallySlasherClient', () => {
 class TestTallySlasherClient extends TallySlasherClient {
   public override handleNewRound(round: bigint): Promise<void> {
     return super.handleNewRound(round);
-  }
-
-  public override handleRoundExecuted(round: bigint, slashCount: bigint): void {
-    return super.handleRoundExecuted(round, slashCount);
   }
 
   public override getExecuteSlashAction(slotNumber: bigint): Promise<ProposerSlashAction | undefined> {

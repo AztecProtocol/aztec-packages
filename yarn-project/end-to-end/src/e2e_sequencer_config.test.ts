@@ -1,4 +1,4 @@
-import { getInitialTestAccounts } from '@aztec/accounts/testing';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import type { PXE, TxReceipt } from '@aztec/aztec.js';
 import { Bot, type BotConfig, getBotDefaultConfig } from '@aztec/bot';
 import type { Logger } from '@aztec/foundation/log';
@@ -27,7 +27,7 @@ describe('e2e_sequencer_config', () => {
     // Sane targets < 64 bits.
     const manaTarget = 21e10;
     beforeAll(async () => {
-      const initialFundedAccounts = await getInitialTestAccounts();
+      const initialFundedAccounts = await getInitialTestAccountsData();
       ({ teardown, sequencer, pxe, logger } = await setup(1, {
         maxL2BlockGas: manaTarget * 2,
         manaTarget: BigInt(manaTarget),
@@ -52,7 +52,7 @@ describe('e2e_sequencer_config', () => {
     });
 
     it('respects maxL2BlockGas', async () => {
-      sequencer!.updateSequencerConfig({
+      sequencer!.updateConfig({
         maxTxsPerBlock: 1,
         minTxsPerBlock: 0,
       });
@@ -73,7 +73,7 @@ describe('e2e_sequencer_config', () => {
       });
 
       // Set the maxL2BlockGas to the total mana used
-      sequencer!.updateSequencerConfig({
+      sequencer!.updateConfig({
         maxL2BlockGas: Number(totalManaUsed),
       });
 
@@ -83,7 +83,7 @@ describe('e2e_sequencer_config', () => {
       expect(receipt2.status).toBe('success');
 
       // Set the maxL2BlockGas to the total mana used - 1
-      sequencer!.updateSequencerConfig({
+      sequencer!.updateConfig({
         maxL2BlockGas: Number(totalManaUsed) - 1,
       });
 

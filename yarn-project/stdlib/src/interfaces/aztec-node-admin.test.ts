@@ -5,6 +5,7 @@ import { type Offense, OffenseType, type SlashPayloadRound } from '../slashing/i
 import { type AztecNodeAdmin, AztecNodeAdminApiSchema } from './aztec-node-admin.js';
 import type { SequencerConfig } from './configs.js';
 import type { ProverConfig } from './prover-client.js';
+import type { ValidatorClientConfig } from './server.js';
 import type { SlasherConfig } from './slasher.js';
 
 describe('AztecNodeAdminApiSchema', () => {
@@ -124,7 +125,9 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       },
     ]);
   }
-  getConfig(): Promise<SequencerConfig & ProverConfig & SlasherConfig & { maxTxPoolSize: number }> {
+  getConfig(): Promise<
+    ValidatorClientConfig & SequencerConfig & ProverConfig & SlasherConfig & { maxTxPoolSize: number }
+  > {
     return Promise.resolve({
       realProofs: false,
       proverTestDelayType: 'fixed',
@@ -133,31 +136,33 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       proverAgentCount: 1,
       coinbase: EthAddress.random(),
       maxTxPoolSize: 1000,
-      slashPayloadTtlSeconds: 1000,
-      slashPruneEnabled: false,
+      slashAmountSmall: 500n,
+      slashAmountMedium: 1000n,
+      slashAmountLarge: 2000n,
+      slashMinPenaltyPercentage: 0.1,
+      slashMaxPenaltyPercentage: 3.0,
+      slashValidatorsAlways: [],
+      slashValidatorsNever: [],
       slashPrunePenalty: 1000n,
-      slashPruneMaxPenalty: 1000n,
-      slashBroadcastedInvalidBlockEnabled: false,
-      slashBroadcastedInvalidBlockPenalty: 1000n,
-      slashBroadcastedInvalidBlockMaxPenalty: 1000n,
-      slashInactivityEnabled: false,
-      slashInactivityCreateTargetPercentage: 0.5,
-      slashInactivitySignalTargetPercentage: 0.5,
-      slashInactivityCreatePenalty: 1000n,
-      slashInactivityMaxPenalty: 1000n,
-      slashProposerRoundPollingIntervalSeconds: 1000,
+      slashDataWithholdingPenalty: 1000n,
+      slashInactivityTargetPercentage: 0.5,
+      slashInactivityConsecutiveEpochThreshold: 1,
+      slashInactivityPenalty: 1000n,
+      slashBroadcastedInvalidBlockPenalty: 1n,
       secondsBeforeInvalidatingBlockAsCommitteeMember: 0,
       secondsBeforeInvalidatingBlockAsNonCommitteeMember: 0,
       slashProposeInvalidAttestationsPenalty: 1000n,
-      slashProposeInvalidAttestationsMaxPenalty: 1000n,
       slashAttestDescendantOfInvalidPenalty: 1000n,
-      slashAttestDescendantOfInvalidMaxPenalty: 1000n,
       slashOffenseExpirationRounds: 4,
       slashMaxPayloadSize: 50,
       slashUnknownPenalty: 1000n,
-      slashUnknownMaxPenalty: 1000n,
       slashGracePeriodL2Slots: 0,
-      slasherClientType: 'empire' as const,
+      slasherClientType: 'tally' as const,
+      disableValidator: false,
+      disabledValidators: [],
+      attestationPollingIntervalMs: 1000,
+      validatorReexecute: true,
+      validatorReexecuteDeadlineMs: 1000,
     });
   }
   startSnapshotUpload(_location: string): Promise<void> {

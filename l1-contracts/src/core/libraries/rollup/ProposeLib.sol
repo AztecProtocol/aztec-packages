@@ -12,6 +12,7 @@ import {OracleInput, FeeLib, ManaBaseFeeComponents} from "@aztec/core/libraries/
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
+import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {BlobLib} from "./BlobLib.sol";
 import {ProposedHeader, ProposedHeaderLib, StateReference} from "./ProposedHeaderLib.sol";
 import {STFLib} from "./STFLib.sol";
@@ -35,6 +36,7 @@ struct ProposePayload {
 }
 
 struct InterimProposeValues {
+  ProposedHeader header;
   bytes32[] blobHashes;
   bytes32 blobsHashesCommitment;
   bytes[] blobCommitments;
@@ -169,6 +171,7 @@ library ProposeLib {
     ProposeArgs calldata _args,
     CommitteeAttestations memory _attestations,
     address[] memory _signers,
+    Signature calldata _attestationsAndSignersSignature,
     bytes calldata _blobsInput,
     bool _checkBlob
   ) internal {
@@ -193,10 +196,10 @@ library ProposeLib {
     // similar to blobCommitmentsHash, see comment in BlobLib.sol -> validateBlobs().
     (v.blobHashes, v.blobsHashesCommitment, v.blobCommitments) = BlobLib.validateBlobs(_blobsInput, _checkBlob);
 
-    ProposedHeader memory header = _args.header;
+    v.header = _args.header;
 
     // Compute header hash for computing the payload digest
-    v.headerHash = ProposedHeaderLib.hash(_args.header);
+    v.headerHash = ProposedHeaderLib.hash(v.header);
 
     // Setup epoch by sampling the committee for the current epoch and setting the seed for the one after the next.
     // This is a no-op if the epoch is already set up, so it only gets executed by the first block of the epoch.
@@ -223,7 +226,7 @@ library ProposeLib {
     // Validate block header
     validateHeader(
       ValidateHeaderArgs({
-        header: header,
+        header: v.header,
         digest: v.payloadDigest,
         manaBaseFee: FeeLib.summedBaseFee(components),
         blobsHashesCommitment: v.blobsHashesCommitment,
@@ -231,8 +234,12 @@ library ProposeLib {
       })
     );
 
-    // Verify that the proposer is the correct one for this slot by checking their signature in the attestations
-    ValidatorSelectionLib.verifyProposer(header.slotNumber, v.currentEpoch, _attestations, _signers, v.payloadDigest);
+    {
+      // Verify that the proposer is the correct one for this slot by checking their signature in the attestations
+      ValidatorSelectionLib.verifyProposer(
+        v.header.slotNumber, v.currentEpoch, _attestations, _signers, v.payloadDigest, _attestationsAndSignersSignature
+      );
+    }
 
     // Begin state updates - get storage reference and current chain tips
     RollupStore storage rollupStore = STFLib.getStorage();
@@ -257,7 +264,7 @@ library ProposeLib {
       feeHeader = FeeLib.computeFeeHeader(
         blockNumber,
         _args.oracleInput.feeAssetPriceModifier,
-        header.totalManaUsed,
+        v.header.totalManaUsed,
         components.congestionCost,
         components.proverCost
       );
@@ -276,7 +283,7 @@ library ProposeLib {
         blobCommitmentsHash: blobCommitmentsHash,
         attestationsHash: v.attestationsHash,
         payloadDigest: v.payloadDigest,
-        slotNumber: header.slotNumber,
+        slotNumber: v.header.slotNumber,
         feeHeader: feeHeader
       })
     );
@@ -291,12 +298,12 @@ library ProposeLib {
       // @note  The block number here will always be >=1 as the genesis block is at 0
       v.inHash = rollupStore.config.inbox.consume(blockNumber);
       require(
-        header.contentCommitment.inHash == v.inHash,
-        Errors.Rollup__InvalidInHash(v.inHash, header.contentCommitment.inHash)
+        v.header.contentCommitment.inHash == v.inHash,
+        Errors.Rollup__InvalidInHash(v.inHash, v.header.contentCommitment.inHash)
       );
 
       // Insert L2->L1 messages into outbox for later consumption
-      rollupStore.config.outbox.insert(blockNumber, header.contentCommitment.outHash);
+      rollupStore.config.outbox.insert(blockNumber, v.header.contentCommitment.outHash);
     }
 
     // Emit event for external listeners. Nodes rely on this event to update their state.

@@ -42,6 +42,7 @@
 #include "barretenberg/vm2/tracegen/public_data_tree_trace.hpp"
 #include "barretenberg/vm2/tracegen/public_inputs_trace.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
+#include "barretenberg/vm2/tracegen/retrieved_bytecodes_tree_check.hpp"
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
 #include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
@@ -93,6 +94,8 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
                            precomputed_builder.process_get_env_var_table(trace));
             AVM_TRACK_TIME("tracegen/precomputed/get_contract_instance_table",
                            precomputed_builder.process_get_contract_instance_table(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/protocol_contract_instance_addresses",
+                           precomputed_builder.process_protocol_contract_addresses(trace));
         },
     };
 }
@@ -175,15 +178,6 @@ void check_interactions([[maybe_unused]] const TraceContainer& trace)
         }
     });
 #endif
-}
-
-// A concatenate that works with movable objects.
-template <typename T> std::vector<T> concatenate_jobs(std::vector<T>&& first, auto&&... rest)
-{
-    std::vector<T> result = std::move(first);
-    result.reserve(first.size() + (rest.size() + ...));
-    (std::move(rest.begin(), rest.end(), std::back_inserter(result)), ...);
-    return result;
 }
 
 } // namespace
@@ -439,6 +433,13 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                     AVM_TRACK_TIME("tracegen/emit_unencrypted_log",
                                    emit_unencrypted_log_builder.process(events.emit_unencrypted_log_events, trace));
                     clear_events(events.emit_unencrypted_log_events);
+                },
+                [&]() {
+                    RetrievedBytecodesTreeCheckTraceBuilder retrieved_bytecodes_tree_check_builder;
+                    AVM_TRACK_TIME("tracegen/retrieved_bytecodes_tree_check",
+                                   retrieved_bytecodes_tree_check_builder.process(
+                                       events.retrieved_bytecodes_tree_check_events, trace));
+                    clear_events(events.retrieved_bytecodes_tree_check_events);
                 } });
 
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
@@ -450,7 +451,8 @@ void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
     // Now we can compute lookups and permutations.
     {
         auto jobs_interactions =
-            concatenate_jobs(TxTraceBuilder::interactions.get_all_jobs(),
+            concatenate_jobs(MemoryTraceBuilder::interactions.get_all_jobs(),
+                             TxTraceBuilder::interactions.get_all_jobs(),
                              ExecutionTraceBuilder::interactions.get_all_jobs(),
                              AluTraceBuilder::interactions.get_all_jobs(),
                              Poseidon2TraceBuilder::interactions.get_all_jobs(),
@@ -468,7 +470,6 @@ void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
                              PublicDataTreeTraceBuilder::interactions.get_all_jobs(),
                              UpdateCheckTraceBuilder::interactions.get_all_jobs(),
                              NullifierTreeCheckTraceBuilder::interactions.get_all_jobs(),
-                             MemoryTraceBuilder::interactions.get_all_jobs(),
                              DataCopyTraceBuilder::interactions.get_all_jobs(),
                              CalldataTraceBuilder::interactions.get_all_jobs(),
                              NoteHashTreeCheckTraceBuilder::interactions.get_all_jobs(),
@@ -477,7 +478,8 @@ void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
                              ContractInstanceRetrievalTraceBuilder::interactions.get_all_jobs(),
                              GetContractInstanceTraceBuilder::interactions.get_all_jobs(),
                              L1ToL2MessageTreeCheckTraceBuilder::interactions.get_all_jobs(),
-                             EmitUnencryptedLogTraceBuilder::interactions.get_all_jobs());
+                             EmitUnencryptedLogTraceBuilder::interactions.get_all_jobs(),
+                             RetrievedBytecodesTreeCheckTraceBuilder::interactions.get_all_jobs());
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));

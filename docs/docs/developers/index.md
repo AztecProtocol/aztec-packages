@@ -45,12 +45,12 @@ description: Start building on Aztec with tutorials, guides, and resources for s
 ## Get inspired
 
 <div className="card-container full-width">
-  <Card shadow='tl' link='/developers/inspiration'>
+  <Card shadow='tl' link='https://github.com/AztecProtocol/Horizon'>
     <CardHeader>
       <h3>What to build on Aztec</h3>
     </CardHeader>
     <CardBody>
-      Find requests for applications, potential designs, and existing ecosystem projects
+      Discover curated app ideas and architectural blueprints for privacy-first applications
     </CardBody>
   </Card>
 </div>

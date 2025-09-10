@@ -84,6 +84,7 @@ struct StakingStorage {
   CompressedStakingQueueConfig queueConfig;
   StakingQueue entryQueue;
   Epoch nextFlushableEpoch;
+  uint256 localEjectionThreshold;
 }
 
 library StakingLib {
@@ -103,7 +104,8 @@ library StakingLib {
     GSE _gse,
     Timestamp _exitDelay,
     address _slasher,
-    StakingQueueConfig memory _config
+    StakingQueueConfig memory _config,
+    uint256 _localEjectionThreshold
   ) internal {
     StakingStorage storage store = getStorage();
     store.stakingAsset = _stakingAsset;
@@ -112,6 +114,7 @@ library StakingLib {
     store.slasher = _slasher;
     store.queueConfig = _config.compress();
     store.entryQueue.init();
+    store.localEjectionThreshold = _localEjectionThreshold;
   }
 
   function setSlasher(address _slasher) internal {
@@ -121,6 +124,15 @@ library StakingLib {
     store.slasher = _slasher;
 
     emit IStakingCore.SlasherUpdated(oldSlasher, _slasher);
+  }
+
+  function setLocalEjectionThreshold(uint256 _localEjectionThreshold) internal {
+    StakingStorage storage store = getStorage();
+
+    uint256 oldLocalEjectionThreshold = store.localEjectionThreshold;
+    store.localEjectionThreshold = _localEjectionThreshold;
+
+    emit IStakingCore.LocalEjectionThresholdUpdated(oldLocalEjectionThreshold, _localEjectionThreshold);
   }
 
   /**
@@ -147,7 +159,7 @@ library StakingLib {
     Proposal memory proposal = gov.getProposal(_proposalId);
     require(proposal.proposer == address(govProposer), Errors.Staking__IncorrectGovProposer(_proposalId));
 
-    Timestamp ts = proposal.pendingThroughMemory();
+    Timestamp ts = proposal.creation + proposal.config.votingDelay;
 
     // Cast votes with all our power
     uint256 vp = store.gse.getVotingPowerAt(address(this), ts);
@@ -231,8 +243,11 @@ library StakingLib {
 
       // If the slash amount is greater than the effective balance, bound it to the effective balance
       uint256 slashAmount = Math.min(_amount, effectiveBalance);
+      // The `localEjectionThreshold` might be stricter (larger) than the global (gse ejection threshold)
+      uint256 toWithdraw =
+        effectiveBalance - slashAmount < store.localEjectionThreshold ? effectiveBalance : slashAmount;
 
-      (uint256 amountWithdrawn, bool isRemoved, uint256 withdrawalId) = store.gse.withdraw(_attester, slashAmount);
+      (uint256 amountWithdrawn, bool isRemoved, uint256 withdrawalId) = store.gse.withdraw(_attester, toWithdraw);
 
       // The slashed amount remains in the contract permanently, effectively burning those tokens.
       uint256 toUser = amountWithdrawn - slashAmount;
@@ -303,7 +318,7 @@ library StakingLib {
    *      The function will revert if:
    *      - The current epoch is before nextFlushableEpoch (max 1 flush per epoch). This limit:
    *        1. Controls validator set growth by only allowing a fixed number of additions per epoch (we can flush at
-   *           most MAX_QUEUE_FLUSH_SIZE validators at once - hence the limit)
+   *           most maxQueueFlushSize validators at once - hence the limit)
    *        2. Aligns with committee selection which happens once per epoch anyway
    *        3. Groups validator additions into epoch-sized chunks for efficient binary searches (fewer snapshots in
    *           GSE)
@@ -509,7 +524,7 @@ library StakingLib {
    *      3. Normal phase: After the initial bootstrap and growth phases, returns a number proportional to the current
    *         set size for conservative steady-state growth, unless constrained by configuration (`normalFlushSizeMin`).
    *
-   *      All phases are subject to a hard cap of `MAX_QUEUE_FLUSH_SIZE`.
+   *      All phases are subject to a hard cap of `maxQueueFlushSize`.
    *
    *      The motivation for floodgates is that the whole system starts producing blocks with what is considered
    *      a sufficiently decentralized set of validators.
@@ -536,14 +551,14 @@ library StakingLib {
 
       // If growth:
       if (activeAttesterCount < config.bootstrapValidatorSetSize) {
-        return Math.min(config.bootstrapFlushSize, StakingQueueLib.MAX_QUEUE_FLUSH_SIZE);
+        return Math.min(config.bootstrapFlushSize, config.maxQueueFlushSize);
       }
     }
 
     // If normal:
     return Math.min(
       Math.max(activeAttesterCount / config.normalFlushSizeQuotient, config.normalFlushSizeMin),
-      StakingQueueLib.MAX_QUEUE_FLUSH_SIZE
+      config.maxQueueFlushSize
     );
   }
 

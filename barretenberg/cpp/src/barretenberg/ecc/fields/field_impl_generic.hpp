@@ -10,7 +10,7 @@
 #include <cstdint>
 
 #include "./field_impl.hpp"
-#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 
 namespace bb {
 

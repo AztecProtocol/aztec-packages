@@ -31,7 +31,6 @@
 #include "barretenberg/vm2/generated/relations/lookups_l1_to_l2_message_exists.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_notehash_exists.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_nullifier_exists.hpp"
-#include "barretenberg/vm2/generated/relations/lookups_registers.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_send_l2_to_l1_msg.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sload.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sstore.hpp"
@@ -89,12 +88,6 @@ constexpr std::array<Column, AVM_MAX_OPERANDS> OPERAND_IS_RELATIVE_EFFECTIVE_COL
     C::execution_sel_op_is_relative_effective_2_, C::execution_sel_op_is_relative_effective_3_,
     C::execution_sel_op_is_relative_effective_4_, C::execution_sel_op_is_relative_effective_5_,
     C::execution_sel_op_is_relative_effective_6_,
-};
-constexpr std::array<Column, AVM_MAX_OPERANDS> OPERAND_RELATIVE_OOB_CHECK_DIFF_COLUMNS = {
-    C::execution_overflow_range_check_result_0_, C::execution_overflow_range_check_result_1_,
-    C::execution_overflow_range_check_result_2_, C::execution_overflow_range_check_result_3_,
-    C::execution_overflow_range_check_result_4_, C::execution_overflow_range_check_result_5_,
-    C::execution_overflow_range_check_result_6_,
 };
 
 constexpr size_t TOTAL_INDIRECT_BITS = 16;
@@ -355,10 +348,11 @@ void ExecutionTraceBuilder::process(
                 { C::execution_transaction_fee, ex_event.after_context_event.transaction_fee },
                 { C::execution_is_static, ex_event.after_context_event.is_static },
                 { C::execution_parent_calldata_addr, ex_event.after_context_event.parent_cd_addr },
-                { C::execution_parent_calldata_size, ex_event.after_context_event.parent_cd_size_addr },
+                { C::execution_parent_calldata_size, ex_event.after_context_event.parent_cd_size },
                 { C::execution_last_child_returndata_addr, ex_event.after_context_event.last_child_rd_addr },
                 { C::execution_last_child_returndata_size, ex_event.after_context_event.last_child_rd_size },
                 { C::execution_last_child_success, ex_event.after_context_event.last_child_success },
+                { C::execution_last_child_id, ex_event.after_context_event.last_child_id },
                 { C::execution_l2_gas_limit, ex_event.after_context_event.gas_limit.l2Gas },
                 { C::execution_da_gas_limit, ex_event.after_context_event.gas_limit.daGas },
                 { C::execution_l2_gas_used, ex_event.after_context_event.gas_used.l2Gas },
@@ -414,6 +408,15 @@ void ExecutionTraceBuilder::process(
                 { C::execution_num_note_hashes_emitted, ex_event.after_context_event.tree_states.noteHashTree.counter },
                 // Context - tree states - L1 to L2 message tree
                 { C::execution_l1_l2_tree_root, ex_event.after_context_event.tree_states.l1ToL2MessageTree.tree.root },
+                // Context - tree states - Retrieved bytecodes tree
+                { C::execution_prev_retrieved_bytecodes_tree_root,
+                  ex_event.before_context_event.retrieved_bytecodes_tree_snapshot.root },
+                { C::execution_prev_retrieved_bytecodes_tree_size,
+                  ex_event.before_context_event.retrieved_bytecodes_tree_snapshot.nextAvailableLeafIndex },
+                { C::execution_retrieved_bytecodes_tree_root,
+                  ex_event.after_context_event.retrieved_bytecodes_tree_snapshot.root },
+                { C::execution_retrieved_bytecodes_tree_size,
+                  ex_event.after_context_event.retrieved_bytecodes_tree_snapshot.nextAvailableLeafIndex },
                 // Context - side effects
                 { C::execution_prev_num_unencrypted_logs,
                   ex_event.before_context_event.side_effect_states.numUnencryptedLogs },
@@ -423,8 +426,6 @@ void ExecutionTraceBuilder::process(
                   ex_event.before_context_event.side_effect_states.numL2ToL1Messages },
                 { C::execution_num_l2_to_l1_messages,
                   ex_event.after_context_event.side_effect_states.numL2ToL1Messages },
-                // Other.
-                { C::execution_bytecode_id, ex_event.before_context_event.bytecode_id },
                 // Helpers for identifying parent context
                 { C::execution_has_parent_ctx, has_parent ? 1 : 0 },
                 { C::execution_is_parent_id_inv, cached_parent_id_inv },
@@ -442,12 +443,12 @@ void ExecutionTraceBuilder::process(
          *  Temporality group 1: Bytecode retrieval.
          **************************************************************************************************/
 
-        bool bytecode_retrieval_failed = ex_event.error == ExecutionError::BYTECODE_NOT_FOUND;
+        bool bytecode_retrieval_failed = ex_event.error == ExecutionError::BYTECODE_RETRIEVAL;
         trace.set(row,
                   { {
                       { C::execution_sel_bytecode_retrieval_failure, bytecode_retrieval_failed ? 1 : 0 },
                       { C::execution_sel_bytecode_retrieval_success, !bytecode_retrieval_failed ? 1 : 0 },
-                      { C::execution_bytecode_id, ex_event.before_context_event.bytecode_id },
+                      { C::execution_bytecode_id, ex_event.after_context_event.bytecode_id },
                   } });
 
         /**************************************************************************************************
@@ -475,7 +476,7 @@ void ExecutionTraceBuilder::process(
          **************************************************************************************************/
 
         // Along this function we need to set the info we get from the EXEC_SPEC_READ lookup.
-        bool should_read_exec_spec = !instruction_fetching_failed;
+        bool should_read_exec_spec = process_instruction_fetching && !instruction_fetching_failed;
         if (should_read_exec_spec) {
             process_execution_spec(ex_event, trace, row);
         }
@@ -535,20 +536,42 @@ void ExecutionTraceBuilder::process(
          **************************************************************************************************/
 
         // TODO(ilyas): This can possibly be gated with some boolean but I'm not sure what is going on.
+        // TODO: this needs a refactor and is most likely wrong.
 
         // Overly verbose but maximising readibility here
         // FIXME(ilyas): We currently cannot move this into the if statement because they are used outside of this
         // temporality group (e.g. in recomputing discard)
-        bool is_call = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::CALL;
-        bool is_static_call = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::STATICCALL;
-        bool is_return = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::RETURN;
-        bool is_revert = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::REVERT;
-        bool is_err = ex_event.error != ExecutionError::NONE;
-        bool is_failure = is_revert || is_err;
-        bool sel_enter_call = (is_call || is_static_call) && !is_err;
-        bool sel_exit_call = is_return || is_revert || is_err;
-
         bool should_execute_opcode = should_check_gas && !oog;
+        bool should_execute_call =
+            should_execute_opcode && exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::CALL;
+        bool should_execute_static_call =
+            should_execute_opcode && exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::STATICCALL;
+        bool should_execute_return =
+            should_execute_opcode && exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::RETURN;
+        bool should_execute_revert =
+            should_execute_opcode && exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::REVERT;
+
+        bool is_err = ex_event.error != ExecutionError::NONE;
+        bool is_failure = should_execute_revert || is_err;
+        bool sel_enter_call = should_execute_call || should_execute_static_call;
+        // TODO: would is_err here catch any error at the opcode execution step which we dont want to consider?
+        bool sel_exit_call = should_execute_return || should_execute_revert || is_err;
+
+        if (sel_exit_call) {
+            // We rollback if we revert or error and we have a parent context.
+            trace.set(row,
+                      { {
+                          // Exit reason - opcode or error
+                          { C::execution_sel_execute_return, should_execute_return ? 1 : 0 },
+                          { C::execution_sel_execute_revert, should_execute_revert ? 1 : 0 },
+                          { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
+                          { C::execution_nested_return, should_execute_return && has_parent ? 1 : 0 },
+                          // Enqueued or nested exit dependent on if we are a child context
+                          { C::execution_enqueued_call_end, !has_parent ? 1 : 0 },
+                          { C::execution_nested_exit_call, has_parent ? 1 : 0 },
+                      } });
+        }
+
         bool opcode_execution_failed = ex_event.error == ExecutionError::OPCODE_EXECUTION;
         if (should_execute_opcode) {
             // At this point we can assume instruction fetching succeeded, so this should never fail.
@@ -584,28 +607,20 @@ void ExecutionTraceBuilder::process(
                 trace.set(row,
                           { {
                               { C::execution_sel_enter_call, sel_enter_call ? 1 : 0 },
-                              { C::execution_sel_execute_call, is_call ? 1 : 0 },
-                              { C::execution_sel_execute_static_call, is_static_call ? 1 : 0 },
+                              { C::execution_sel_execute_call, should_execute_call ? 1 : 0 },
+                              { C::execution_sel_execute_static_call, should_execute_static_call ? 1 : 0 },
                               { C::execution_constant_32, 32 },
                               { C::execution_call_is_l2_gas_allocated_lt_left, is_l2_gas_allocated_lt_left },
                               { C::execution_call_allocated_left_l2_cmp_diff, allocated_left_l2_cmp_diff },
                               { C::execution_call_is_da_gas_allocated_lt_left, is_da_gas_allocated_lt_left },
                               { C::execution_call_allocated_left_da_cmp_diff, allocated_left_da_cmp_diff },
                           } });
-            } else if (sel_exit_call) {
-                // We rollback if we revert or error and we have a parent context.
-                trace.set(row,
-                          { {
-                              // Exit reason - opcode or error
-                              { C::execution_sel_execute_return, is_return ? 1 : 0 },
-                              { C::execution_sel_execute_revert, is_revert ? 1 : 0 },
-                              { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
-                              { C::execution_nested_return, is_return && has_parent ? 1 : 0 },
-                              // Enqueued or nested exit dependent on if we are a child context
-                              { C::execution_enqueued_call_end, !has_parent ? 1 : 0 },
-                              { C::execution_nested_exit_call, has_parent ? 1 : 0 },
-                          } });
-            } else if (exec_opcode == ExecutionOpCode::GETENVVAR) {
+            }
+            // Separate if-statement for opcodes.
+            // This cannot be an else-if chained to the above,
+            // because `sel_exit_call` can happen on any opcode
+            // and we still need to tracegen the opcode-specific logic.
+            if (exec_opcode == ExecutionOpCode::GETENVVAR) {
                 assert(ex_event.addressing_event.resolution_info.size() == 2 &&
                        "GETENVVAR should have exactly two resolved operands (envvar enum and output)");
                 // rop[1] is the envvar enum
@@ -725,7 +740,7 @@ void ExecutionTraceBuilder::process(
 
         // This is here instead of guarded by `should_execute_opcode` because is_err is a higher level error
         // than just an opcode error (i.e., it is on if there are any errors in any temporality group).
-        bool rollback_context = (is_revert || is_err) && has_parent;
+        bool rollback_context = (should_execute_revert || is_err) && has_parent;
 
         trace.set(
             row,
@@ -928,18 +943,12 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
 
     // Set the operand columns.
     for (size_t i = 0; i < AVM_MAX_OPERANDS; i++) {
-        FF relative_oob_check_diff = 0;
-        if (is_relative_effective[i]) {
-            relative_oob_check_diff =
-                !relative_oob[i] ? FF(1ULL << 32) - after_relative[i] - 1 : after_relative[i] - FF(1ULL << 32);
-        }
         trace.set(row,
                   { {
                       { OPERAND_RELATIVE_OVERFLOW_COLUMNS[i], relative_oob[i] ? 1 : 0 },
                       { OPERAND_AFTER_RELATIVE_COLUMNS[i], after_relative[i] },
                       { OPERAND_SHOULD_APPLY_INDIRECTION_COLUMNS[i], should_apply_indirection[i] ? 1 : 0 },
                       { OPERAND_IS_RELATIVE_EFFECTIVE_COLUMNS[i], is_relative_effective[i] ? 1 : 0 },
-                      { OPERAND_RELATIVE_OOB_CHECK_DIFF_COLUMNS[i], relative_oob_check_diff },
                       { RESOLVED_OPERAND_COLUMNS[i], resolved_operand[i] },
                       { RESOLVED_OPERAND_TAG_COLUMNS[i], resolved_operand_tag[i] },
                   } });
@@ -1018,8 +1027,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                   { C::execution_sel_base_address_failure, base_address_invalid ? 1 : 0 },
                   { C::execution_num_relative_operands_inv, do_base_check ? FF(num_relative_operands).invert() : 0 },
                   { C::execution_sel_do_base_check, do_base_check ? 1 : 0 },
-                  { C::execution_constant_32, 32 },
-                  { C::execution_two_to_32, 1ULL << 32 },
+                  { C::execution_highest_address, AVM_HIGHEST_MEM_ADDRESS },
               } });
 }
 
@@ -1144,29 +1152,13 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_execution_instruction_fetching_result_settings, InteractionType::LookupGeneric>()
         .add<lookup_execution_instruction_fetching_body_settings, InteractionType::LookupGeneric>()
         // Addressing
-        .add<lookup_addressing_base_address_from_memory_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_indirect_from_memory_0_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_indirect_from_memory_1_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_indirect_from_memory_2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_indirect_from_memory_3_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_indirect_from_memory_4_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_indirect_from_memory_5_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_indirect_from_memory_6_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_range_0_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_range_1_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_range_2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_range_3_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_range_4_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_range_5_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_range_6_settings, InteractionType::LookupGeneric>()
-        // Registers
-        .add<lookup_registers_mem_op_0_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_1_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_3_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_4_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_5_settings, InteractionType::LookupGeneric>()
-        .add<lookup_registers_mem_op_6_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_result_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_result_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_result_2_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_result_3_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_result_4_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_result_5_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_result_6_settings, InteractionType::LookupGeneric>()
         // Internal Call Stack
         .add<lookup_internal_call_push_call_stack_settings_, InteractionType::LookupSequential>()
         .add<lookup_internal_call_unwind_call_stack_settings_, InteractionType::LookupGeneric>()

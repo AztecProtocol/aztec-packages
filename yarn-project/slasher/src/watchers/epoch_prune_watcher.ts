@@ -1,5 +1,6 @@
 import type { Tx } from '@aztec/aztec.js';
 import { EpochCache } from '@aztec/epoch-cache';
+import { merge, pick } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   EthAddress,
@@ -8,7 +9,12 @@ import {
   type L2BlockSourceEventEmitter,
   L2BlockSourceEvents,
 } from '@aztec/stdlib/block';
-import type { IFullNodeBlockBuilder, ITxProvider, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type {
+  IFullNodeBlockBuilder,
+  ITxProvider,
+  MerkleTreeWriteOperations,
+  SlasherConfig,
+} from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { OffenseType } from '@aztec/stdlib/slashing';
 import {
@@ -21,6 +27,10 @@ import {
 import EventEmitter from 'node:events';
 
 import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEmitter } from '../watcher.js';
+
+const EpochPruneWatcherPenaltiesConfigKeys = ['slashPrunePenalty', 'slashDataWithholdingPenalty'] as const;
+
+type EpochPruneWatcherPenalties = Pick<SlasherConfig, (typeof EpochPruneWatcherPenaltiesConfigKeys)[number]>;
 
 /**
  * This watcher is responsible for detecting chain prunes and creating slashing arguments for the committee.
@@ -40,10 +50,12 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     private epochCache: EpochCache,
     private txProvider: Pick<ITxProvider, 'getAvailableTxs'>,
     private blockBuilder: IFullNodeBlockBuilder,
-    private penalty: bigint,
+    private penalties: EpochPruneWatcherPenalties,
   ) {
     super();
-    this.log.info('EpochPruneWatcher initialized');
+    this.log.verbose(
+      `EpochPruneWatcher initialized with penalties: valid epoch pruned=${penalties.slashPrunePenalty} data withholding=${penalties.slashDataWithholdingPenalty}`,
+    );
   }
 
   public start() {
@@ -54,6 +66,11 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
   public stop() {
     this.l2BlockSource.removeListener(L2BlockSourceEvents.L2PruneDetected, this.boundHandlePruneL2Blocks);
     return Promise.resolve();
+  }
+
+  public updateConfig(config: Partial<SlasherConfig>): void {
+    this.penalties = merge(this.penalties, pick(config, ...EpochPruneWatcherPenaltiesConfigKeys));
+    this.log.verbose('EpochPruneWatcher config updated', this.penalties);
   }
 
   private handlePruneL2Blocks(event: L2BlockPruneEvent): void {
@@ -161,9 +178,13 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     offenseType: OffenseType,
     epochOrSlot: bigint,
   ): WantToSlashArgs[] {
+    const penalty =
+      offenseType === OffenseType.DATA_WITHHOLDING
+        ? this.penalties.slashDataWithholdingPenalty
+        : this.penalties.slashPrunePenalty;
     return validators.map(v => ({
       validator: v,
-      amount: this.penalty,
+      amount: penalty,
       offenseType,
       epochOrSlot,
     }));

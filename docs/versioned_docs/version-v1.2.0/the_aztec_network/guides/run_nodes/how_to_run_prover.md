@@ -35,7 +35,7 @@ Operating a prover node requires a solid grasp of blockchain protocols, cryptogr
 
 Before following this guide, make sure you:
 
-- Have the `aztec` tool [installed](../../../developers/getting_started.md#install-the-sandbox)
+- Have the `aztec` tool [installed](../../../developers/getting_started/getting_started_on_sandbox.md#install-the-sandbox)
 - Have sufficient hardware resources for proving operations
 - Your confidence level is expected to be around "I'd be able to run a Prover _without_ this guide"
 
@@ -47,19 +47,32 @@ The Aztec prover involves three key components: the Prover Node, the Proving Bro
 
 The Prover Node is responsible for polling the L1 for unproven epochs and initiating the proof process. When an epoch is ready to be proven, the prover node creates proving jobs and distributes them to the broker. The Prover Node is also responsible for submitting the final rollup proof to the rollup contract.
 
-- **Resources**: Up to 8 cores, 16GB RAM, ~1TB disk for storing state.
+Minimum specifications:
+
+- 2 core / 4 vCPU
+- 16 GB RAM
+- 1 TB NVMe SDD
+- 25 Mbps network connection
 
 #### Proving Broker
 
 Manages a queue of proving jobs, distributing them to available agents and forwarding results back to the node.
 
-- **Resources**: Up to 4 cores, 16GB RAM, ~1GB disk.
+Minimum specifications:
+
+- 2 core / 4 vCPU
+- 16 GB RAM
+- 10 GB SDD
 
 #### Proving Agents
 
 Executes the actual proof jobs. Agents are stateless, fetch work from the broker, and return the results.
 
-- **Resources**: Each agent may use up to 16 cores and 128GB RAM.
+Minimum specifications:
+
+- 32 core / 64 vCPU
+- 128 GB RAM
+- 10 GB SDD
 
 ## Setting Up Your Prover
 
@@ -84,7 +97,7 @@ services:
         condition: service_started
         required: true
     environment:
-      # PROVER_COORDINATION_NODE_URL: "http://:8080" # this can point to your own validator - using this replaces the need for the prover node to be on the P2P network and uses your validator as a sentry node of some sort.
+      # PROVER_COORDINATION_NODE_URL: "http://:8080" # this can point to your own sequencer - using this replaces the need for the prover node to be on the P2P network and uses your sequencer as a sentry node of some sort.
       # P2P_ENABLED: "false" # Switch to false if you provide a PROVER_COORDINATION_NODE_URL
       DATA_DIRECTORY: /data
       DATA_STORE_MAP_SIZE_KB: "134217728"

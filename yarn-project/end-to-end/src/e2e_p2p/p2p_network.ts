@@ -1,22 +1,23 @@
-import { getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { type AccountWalletWithSecretKey, AztecAddress, EthAddress, Fr } from '@aztec/aztec.js';
+import { AztecAddress, EthAddress, Fr } from '@aztec/aztec.js';
 import {
+  type EmpireSlashingProposerContract,
   type ExtendedViemWalletClient,
   GSEContract,
-  L1TxUtils,
   MultiAdderArtifact,
   type Operator,
   RollupContract,
+  type TallySlashingProposerContract,
   type ViemClient,
+  createL1TxUtilsFromViemWallet,
   deployL1Contract,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { SecretValue } from '@aztec/foundation/config';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { EmpireSlashingProposerAbi, RollupAbi, SlasherAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { RollupAbi, SlasherAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import type { BootstrapNode } from '@aztec/p2p/bootstrap';
 import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
@@ -24,6 +25,7 @@ import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
+import type { TestWallet } from '@aztec/test-wallet';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import getPort from 'get-port';
@@ -71,8 +73,9 @@ export class P2PNetworkTest {
 
   public deployedAccounts: InitialAccountData[] = [];
   public prefilledPublicData: PublicDataTreeLeaf[] = [];
+
   // The re-execution test needs a wallet and a spam contract
-  public wallet?: AccountWalletWithSecretKey;
+  public wallet?: TestWallet;
   public defaultAccountAddress?: AztecAddress;
   public spamContract?: SpamContract;
 
@@ -113,6 +116,9 @@ export class P2PNetworkTest {
         aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
         aztecProofSubmissionEpochs:
           initialValidatorConfig.aztecProofSubmissionEpochs ?? l1ContractsConfig.aztecProofSubmissionEpochs,
+        slashingRoundSizeInEpochs:
+          initialValidatorConfig.slashingRoundSizeInEpochs ?? l1ContractsConfig.slashingRoundSizeInEpochs,
+        slasherFlavor: initialValidatorConfig.slasherFlavor ?? 'tally',
         aztecTargetCommitteeSize: numberOfValidators,
         salt: 420,
         metricsPort: metricsPort,
@@ -122,6 +128,10 @@ export class P2PNetworkTest {
       {
         ...initialValidatorConfig,
         aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
+        slashingRoundSizeInEpochs:
+          initialValidatorConfig.slashingRoundSizeInEpochs ?? l1ContractsConfig.slashingRoundSizeInEpochs,
+        slasherFlavor: initialValidatorConfig.slasherFlavor ?? 'tally',
+
         ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
         aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
         aztecProofSubmissionEpochs:
@@ -250,7 +260,7 @@ export class P2PNetworkTest {
           client: deployL1ContractsValues.l1Client,
         });
 
-        const stakeNeeded = l1ContractsConfig.activationThreshold * BigInt(this.numberOfValidators);
+        const stakeNeeded = (await rollup.read.getActivationThreshold()) * BigInt(this.numberOfValidators);
         await Promise.all(
           [await stakingAsset.write.mint([multiAdder.address, stakeNeeded], {} as any)].map(txHash =>
             deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: txHash }),
@@ -296,12 +306,12 @@ export class P2PNetworkTest {
   async setupAccount() {
     await this.snapshotManager.snapshot(
       'setup-account',
-      deployAccounts(1, this.logger, false),
-      async ({ deployedAccounts }, { pxe }) => {
+      deployAccounts(1, this.logger),
+      ({ deployedAccounts }, { wallet }) => {
         this.deployedAccounts = deployedAccounts;
-        const [account] = deployedAccounts;
-        this.wallet = await getSchnorrWalletWithSecretKey(pxe, account.secret, account.signingKey, account.salt);
-        this.defaultAccountAddress = this.wallet.getAddress();
+        [{ address: this.defaultAccountAddress }] = deployedAccounts;
+        this.wallet = wallet;
+        return Promise.resolve();
       },
     );
   }
@@ -349,7 +359,7 @@ export class P2PNetworkTest {
   }
 
   private async _sendDummyTx(l1Client: ExtendedViemWalletClient) {
-    const l1TxUtils = new L1TxUtils(l1Client);
+    const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client);
     return await l1TxUtils.sendAndMonitorTransaction({
       to: l1Client.account!.address,
       value: 1n,
@@ -392,7 +402,7 @@ export class P2PNetworkTest {
   async getContracts(): Promise<{
     rollup: RollupContract;
     slasherContract: GetContractReturnType<typeof SlasherAbi, ViemClient>;
-    slashingProposer: GetContractReturnType<typeof EmpireSlashingProposerAbi, ViemClient>;
+    slashingProposer: EmpireSlashingProposerContract | TallySlashingProposerContract | undefined;
     slashFactory: SlashFactoryContract;
   }> {
     if (!this.ctx.deployL1ContractsValues) {
@@ -410,11 +420,8 @@ export class P2PNetworkTest {
       client: this.ctx.deployL1ContractsValues.l1Client,
     });
 
-    const slashingProposer = getContract({
-      address: getAddress(await slasherContract.read.PROPOSER()),
-      abi: EmpireSlashingProposerAbi,
-      client: this.ctx.deployL1ContractsValues.l1Client,
-    });
+    // Get the actual slashing proposer from rollup (which handles both empire and tally)
+    const slashingProposer = await rollup.getSlashingProposer();
 
     const slashFactory = new SlashFactoryContract(
       this.ctx.deployL1ContractsValues.l1Client,

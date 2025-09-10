@@ -1,4 +1,4 @@
-import { type AccountWalletWithSecretKey, AztecAddress, type AztecNode, Fr, type PXE } from '@aztec/aztec.js';
+import { AztecAddress, type AztecNode, Fr, type PXE, type Wallet } from '@aztec/aztec.js';
 import { PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
 import { OffchainEffectContract, type TestEvent } from '@aztec/noir-test-contracts.js/OffchainEffect';
 import { MessageContext } from '@aztec/stdlib/logs';
@@ -18,7 +18,7 @@ describe('e2e_offchain_effect', () => {
 
   jest.setTimeout(TIMEOUT);
 
-  let wallet: AccountWalletWithSecretKey;
+  let wallet: Wallet;
   let defaultAccountAddress: AztecAddress;
   let teardown: () => Promise<void>;
 
@@ -81,7 +81,7 @@ describe('e2e_offchain_effect', () => {
     expect(offchainEffects).toHaveLength(1);
     const offchainEffect = offchainEffects[0];
 
-    // The data contains the cyphertext, an identifier and the recipient
+    // The data contains the ciphertext, an identifier and the recipient
     expect(offchainEffect.data.length).toEqual(PRIVATE_LOG_CIPHERTEXT_LEN + 2);
 
     const identifier = offchainEffect.data[0];
@@ -89,10 +89,10 @@ describe('e2e_offchain_effect', () => {
 
     const recipientAddressFr = offchainEffect.data[1];
     // Recipient was set to message sender inside the emit_event_as_offchain_message_for_msg_sender function
-    const recipient = wallet.getAddress();
+    const recipient = defaultAccountAddress;
     expect(recipient.toField()).toEqual(recipientAddressFr);
 
-    const cyphertext = offchainEffect.data.slice(2, PRIVATE_LOG_CIPHERTEXT_LEN);
+    const ciphertext = offchainEffect.data.slice(2, PRIVATE_LOG_CIPHERTEXT_LEN);
 
     const txEffect = (await aztecNode.getTxEffect(txHash))!.data;
 
@@ -100,7 +100,7 @@ describe('e2e_offchain_effect', () => {
 
     // Process the message
     await contract1.methods
-      .process_message(cyphertext, messageContext.toNoirStruct())
+      .process_message(ciphertext, messageContext.toNoirStruct())
       .simulate({ from: defaultAccountAddress });
 
     // Get the event from PXE
@@ -122,7 +122,7 @@ describe('e2e_offchain_effect', () => {
 
   it('should emit note as offchain message and process it', async () => {
     const value = 123n;
-    const owner = wallet.getAddress();
+    const owner = defaultAccountAddress;
     const provenTx = await contract1.methods
       .emit_note_as_offchain_message(value, owner)
       .prove({ from: defaultAccountAddress });
@@ -132,7 +132,7 @@ describe('e2e_offchain_effect', () => {
     expect(offchainEffects).toHaveLength(1);
     const offchainEffect = offchainEffects[0];
 
-    // The data contains the cyphertext, an identifier, and the recipient
+    // The data contains the ciphertext, an identifier, and the recipient
     expect(offchainEffect.data.length).toEqual(PRIVATE_LOG_CIPHERTEXT_LEN + 2);
 
     const identifier = offchainEffect.data[0];
@@ -140,10 +140,10 @@ describe('e2e_offchain_effect', () => {
 
     const recipientAddressFr = offchainEffect.data[1];
     // Recipient was set to message sender inside the emit_note_as_offchain_message function
-    const recipient = wallet.getAddress();
+    const recipient = defaultAccountAddress;
     expect(recipient.toField()).toEqual(recipientAddressFr);
 
-    const cyphertext = offchainEffect.data.slice(2, PRIVATE_LOG_CIPHERTEXT_LEN);
+    const ciphertext = offchainEffect.data.slice(2, PRIVATE_LOG_CIPHERTEXT_LEN);
 
     const txEffect = (await aztecNode.getTxEffect(txHash))!.data;
 
@@ -151,7 +151,7 @@ describe('e2e_offchain_effect', () => {
 
     // Process the message
     await contract1.methods
-      .process_message(cyphertext, messageContext.toNoirStruct())
+      .process_message(ciphertext, messageContext.toNoirStruct())
       .simulate({ from: defaultAccountAddress });
 
     // Get the note value

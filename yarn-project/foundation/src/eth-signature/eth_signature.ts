@@ -14,6 +14,12 @@ export type ViemSignature = {
   v: number;
 };
 
+export type ViemTransactionSignature = {
+  r: `0x${string}`;
+  s: `0x${string}`;
+  yParity: 0 | 1;
+};
+
 /**
  * Contains a signature split into it's primary components (r,s,v)
  */
@@ -67,6 +73,10 @@ export class Signature {
     return new Signature(Buffer32.fromBuffer(hexToBuffer(sig.r)), Buffer32.fromBuffer(hexToBuffer(sig.s)), sig.v);
   }
 
+  static fromViemTransactionSignature(sig: ViemTransactionSignature): Signature {
+    return new Signature(Buffer32.fromBuffer(hexToBuffer(sig.r)), Buffer32.fromBuffer(hexToBuffer(sig.s)), sig.yParity);
+  }
+
   static random(): Signature {
     return new Signature(Buffer32.random(), Buffer32.random(), Math.floor(Math.random() * 2));
   }
@@ -84,9 +94,7 @@ export class Signature {
   }
 
   toBuffer(): Buffer {
-    const buffer = serializeToBuffer([this.r, this.s, this.v]);
-    this.size = buffer.length;
-    return buffer;
+    return serializeToBuffer([this.r, this.s, this.v]);
   }
 
   getSize(): number {
@@ -111,6 +119,20 @@ export class Signature {
       r: this.r.toString(),
       s: this.s.toString(),
       v: this.v,
+    };
+  }
+
+  /**
+   * Return the signature with `0x${string}` encodings for r and s. Verifies v is valid
+   */
+  toViemTransactionSignature(): ViemTransactionSignature {
+    if (this.v !== 0 && this.v !== 1) {
+      throw new Error('Invalid transaction signature');
+    }
+    return {
+      r: this.r.toString(),
+      s: this.s.toString(),
+      yParity: this.v,
     };
   }
 

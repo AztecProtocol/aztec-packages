@@ -26,6 +26,8 @@
 namespace bb::avm2 {
 
 INSTANTIATE_LOOKUP(lookup_bc_retrieval_contract_instance_retrieval_relation);
+INSTANTIATE_LOOKUP(lookup_bc_retrieval_is_new_class_check_relation);
 INSTANTIATE_LOOKUP(lookup_bc_retrieval_class_id_derivation_relation);
+INSTANTIATE_LOOKUP(lookup_bc_retrieval_retrieved_bytecodes_insertion_relation);
 
 } // namespace bb::avm2

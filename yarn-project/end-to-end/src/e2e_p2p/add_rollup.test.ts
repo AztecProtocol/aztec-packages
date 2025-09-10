@@ -1,5 +1,4 @@
-import { getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
-import { type InitialAccountData, deployFundedSchnorrAccount, getInitialTestAccounts } from '@aztec/accounts/testing';
+import { type InitialAccountData, getInitialTestAccountsData } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress, Fr, generateClaimSecret, retryUntil, sleep } from '@aztec/aztec.js';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
@@ -10,6 +9,7 @@ import {
   L1TxUtils,
   RegistryContract,
   RollupContract,
+  createL1TxUtilsFromViemWallet,
   defaultL1TxUtilsConfig,
   deployL1Contract,
   deployRollupForUpgrade,
@@ -28,6 +28,7 @@ import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import { computeL2ToL1MembershipWitness, getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
+import { TestWallet } from '@aztec/test-wallet';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { jest } from '@jest/globals';
@@ -74,7 +75,6 @@ describe('e2e_p2p_add_rollup', () => {
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         listenAddress: '127.0.0.1',
-        governanceProposerQuorum: 6,
         governanceProposerRoundSize: 10,
       },
     });
@@ -83,7 +83,7 @@ describe('e2e_p2p_add_rollup', () => {
     await t.setup();
     await t.removeInitialNode();
 
-    l1TxUtils = new L1TxUtils(t.ctx.deployL1ContractsValues.l1Client);
+    l1TxUtils = createL1TxUtilsFromViemWallet(t.ctx.deployL1ContractsValues.l1Client);
   });
 
   afterAll(async () => {
@@ -140,7 +140,7 @@ describe('e2e_p2p_add_rollup', () => {
     await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp));
 
     // Now that we have passed on the registry, we can deploy the new rollup.
-    const initialTestAccounts = await getInitialTestAccounts();
+    const initialTestAccounts = await getInitialTestAccountsData();
     const { genesisArchiveRoot, fundingNeeded, prefilledPublicData } = await getGenesisValues(
       initialTestAccounts.map(a => a.address),
     );
@@ -157,7 +157,7 @@ describe('e2e_p2p_add_rollup', () => {
         aztecTargetCommitteeSize: t.ctx.aztecNodeConfig.aztecTargetCommitteeSize,
         aztecProofSubmissionEpochs: t.ctx.aztecNodeConfig.aztecProofSubmissionEpochs,
         slashingQuorum: t.ctx.aztecNodeConfig.slashingQuorum,
-        slashingRoundSize: t.ctx.aztecNodeConfig.slashingRoundSize,
+        slashingRoundSizeInEpochs: t.ctx.aztecNodeConfig.slashingRoundSizeInEpochs,
         slashingLifetimeInRounds: t.ctx.aztecNodeConfig.slashingLifetimeInRounds,
         slashingExecutionDelayInRounds: t.ctx.aztecNodeConfig.slashingExecutionDelayInRounds,
         slashingVetoer: t.ctx.aztecNodeConfig.slashingVetoer,
@@ -168,7 +168,10 @@ describe('e2e_p2p_add_rollup', () => {
         exitDelaySeconds: t.ctx.aztecNodeConfig.exitDelaySeconds,
         slasherFlavor: t.ctx.aztecNodeConfig.slasherFlavor,
         slashingOffsetInRounds: t.ctx.aztecNodeConfig.slashingOffsetInRounds,
-        slashingUnit: t.ctx.aztecNodeConfig.slashingUnit,
+        slashAmountSmall: t.ctx.aztecNodeConfig.slashAmountSmall,
+        slashAmountMedium: t.ctx.aztecNodeConfig.slashAmountMedium,
+        slashAmountLarge: t.ctx.aztecNodeConfig.slashAmountLarge,
+        localEjectionThreshold: t.ctx.aztecNodeConfig.localEjectionThreshold,
       },
       t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress,
       t.logger,
@@ -237,18 +240,13 @@ describe('e2e_p2p_add_rollup', () => {
         { ...getPXEServiceConfig(), proverEnabled: false },
         { useLogSuffix: true },
       );
-      await deployFundedSchnorrAccount(pxeService, aliceAccount, undefined, undefined);
+      const wallet = new TestWallet(pxeService);
+      const aliceAccountManager = await wallet.createSchnorrAccount(aliceAccount.secret, aliceAccount.salt);
+      await aliceAccountManager.deploy().wait();
 
-      const alice = await getSchnorrWalletWithSecretKey(
-        pxeService,
-        aliceAccount.secret,
-        aliceAccount.signingKey,
-        aliceAccount.salt,
-      );
+      const aliceAddress = aliceAccountManager.getAddress();
 
-      const aliceAddress = alice.getAddress();
-
-      const testContract = await TestContract.deploy(alice).send({ from: aliceAddress }).deployed();
+      const testContract = await TestContract.deploy(wallet).send({ from: aliceAddress }).deployed();
 
       const [secret, secretHash] = await generateClaimSecret();
 

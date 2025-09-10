@@ -62,7 +62,7 @@ class TranslatorFlavor {
 
     // The fixed  log size of Translator circuit determining the size most polynomials (except the ones
     // involved in the interleaving subprotocol). It should be determined by the size of the EccOpQueue.
-    static constexpr size_t LOG_MINI_CIRCUIT_SIZE = 14;
+    static constexpr size_t LOG_MINI_CIRCUIT_SIZE = CONST_TRANSLATOR_MINI_CIRCUIT_LOG_SIZE;
 
     // Log of size of interleaved_* and ordered_* polynomials
     static constexpr size_t CONST_TRANSLATOR_LOG_N = LOG_MINI_CIRCUIT_SIZE + numeric::get_msb(INTERLEAVING_GROUP_SIZE);
@@ -85,6 +85,10 @@ class TranslatorFlavor {
     // referred to as accumulated_result. This is reconstructed in it's base field form and sent to the verifier
     // responsible for checking it against the evaluations received from ECCVM.
     static constexpr size_t RESULT_ROW = CircuitBuilder::RESULT_ROW;
+
+    // Number of random ops found at he end of Translator trace multiplied by 2 as each accumulation gates occupies two
+    // rows.
+    static constexpr size_t NUM_MASKED_ROWS_END = CircuitBuilder::NUM_RANDOM_OPS_END * 2;
 
     // The bitness of the range constraint
     static constexpr size_t MICRO_LIMB_BITS = CircuitBuilder::MICRO_LIMB_BITS;
@@ -687,7 +691,7 @@ class TranslatorFlavor {
 
             // Initialize some one-off polys with special structure
             lagrange_first = Polynomial{ /*size*/ 1, /*virtual_size*/ circuit_size };
-            lagrange_result_row = Polynomial{ /*size*/ 3, /*virtual_size*/ circuit_size };
+            lagrange_result_row = Polynomial{ /*size*/ RESULT_ROW + 1, /*virtual_size*/ circuit_size };
             lagrange_even_in_minicircuit = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE, /*virtual_size*/ circuit_size };
             lagrange_odd_in_minicircuit = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE, /*virtual_size*/ circuit_size };
 
@@ -753,10 +757,6 @@ class TranslatorFlavor {
      */
     class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
-        // Serialized Verification Key length in fields
-        static constexpr size_t VERIFICATION_KEY_LENGTH =
-            /* 1. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
-
         // Default constuct the fixed VK based on circuit size 1 << CONST_TRANSLATOR_LOG_N
         VerificationKey()
             : NativeVerificationKey_(1UL << CONST_TRANSLATOR_LOG_N, /*num_public_inputs=*/0)
@@ -783,27 +783,6 @@ class TranslatorFlavor {
         }
 
         /**
-         * @brief Serialize verification key to field elements
-         *
-         * @return std::vector<FF>
-         */
-        std::vector<fr> to_field_elements() const override
-        {
-            using namespace bb::field_conversion;
-
-            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<fr>& buffer) {
-                std::vector<fr> input_fields = convert_to_bn254_frs<T>(input);
-                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
-            };
-
-            std::vector<fr> elements;
-            for (const Commitment& commitment : this->get_all()) {
-                serialize_to_field_buffer(commitment, elements);
-            }
-            return elements;
-        }
-
-        /**
          * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
          *
          * @param domain_separator
@@ -814,22 +793,6 @@ class TranslatorFlavor {
         {
             throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
         }
-
-        // Don't statically check for object completeness.
-        using MSGPACK_NO_STATIC_CHECK = std::true_type;
-
-        MSGPACK_FIELDS(num_public_inputs,
-                       pub_inputs_offset,
-                       ordered_extra_range_constraints_numerator,
-                       lagrange_first,
-                       lagrange_last,
-                       lagrange_odd_in_minicircuit,
-                       lagrange_even_in_minicircuit,
-                       lagrange_result_row,
-                       lagrange_last_in_minicircuit,
-                       lagrange_masking,
-                       lagrange_mini_masking,
-                       lagrange_real_last);
     };
 
     /**
@@ -1029,4 +992,5 @@ class TranslatorFlavor {
     }
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 };
+
 } // namespace bb

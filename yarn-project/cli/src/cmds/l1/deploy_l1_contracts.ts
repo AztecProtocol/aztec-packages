@@ -1,4 +1,4 @@
-import { getInitialTestAccounts } from '@aztec/accounts/testing';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { type EthAddress, Fr } from '@aztec/aztec.js';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { SecretValue } from '@aztec/foundation/config';
@@ -19,6 +19,7 @@ export async function deployL1Contracts(
   sponsoredFPC: boolean,
   acceleratedTestDeployments: boolean,
   json: boolean,
+  createVerificationJson: string | false,
   initialValidators: EthAddress[],
   realVerifier: boolean,
   log: LogFn,
@@ -26,7 +27,7 @@ export async function deployL1Contracts(
 ) {
   const config = getL1ContractsConfigEnvVars();
 
-  const initialAccounts = testAccounts ? await getInitialTestAccounts() : [];
+  const initialAccounts = testAccounts ? await getInitialTestAccountsData() : [];
   const sponsoredFPCAddress = sponsoredFPC ? await getSponsoredFPCAddress() : [];
   const initialFundedAccounts = initialAccounts.map(a => a.address).concat(sponsoredFPCAddress);
   const { genesisArchiveRoot, fundingNeeded } = await getGenesisValues(initialFundedAccounts);
@@ -50,6 +51,7 @@ export async function deployL1Contracts(
     acceleratedTestDeployments,
     config,
     realVerifier,
+    createVerificationJson,
     debugLogger,
   );
 
@@ -77,6 +79,7 @@ export async function deployL1Contracts(
     log(`SlashFactory Address: ${l1ContractAddresses.slashFactoryAddress?.toString()}`);
     log(`FeeAssetHandler Address: ${l1ContractAddresses.feeAssetHandlerAddress?.toString()}`);
     log(`StakingAssetHandler Address: ${l1ContractAddresses.stakingAssetHandlerAddress?.toString()}`);
+    log(`ZK Passport Verifier Address: ${l1ContractAddresses.zkPassportVerifierAddress?.toString()}`);
     log(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
     log(`Initial validators: ${initialValidators.map(a => a.toString()).join(', ')}`);
     log(`Genesis archive root: ${genesisArchiveRoot.toString()}`);

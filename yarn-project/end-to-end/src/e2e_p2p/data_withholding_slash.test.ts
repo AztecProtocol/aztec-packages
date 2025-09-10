@@ -8,7 +8,7 @@ import path from 'path';
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
-import { awaitCommitteeExists, awaitCommitteeKicked } from './shared.js';
+import { awaitCommitteeExists, awaitCommitteeKicked, awaitOffenseDetected } from './shared.js';
 
 jest.setTimeout(1000000);
 
@@ -37,6 +37,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
 
+  const slashingUnit = BigInt(1e18);
   const slashingQuorum = 3;
   const slashingRoundSize = 4;
   // This test needs longer slot window to ensure that the client has enough time to submit their txs,
@@ -57,7 +58,11 @@ describe('e2e_p2p_data_withholding_slash', () => {
         aztecSlotDuration,
         aztecProofSubmissionEpochs: 0, // effectively forces instant reorgs
         slashingQuorum,
-        slashingRoundSize,
+        slashingRoundSizeInEpochs: slashingRoundSize / 2,
+        slashAmountSmall: slashingUnit,
+        slashAmountMedium: slashingUnit * 2n,
+        slashAmountLarge: slashingUnit * 3n,
+        slashSelfAllowed: true,
         minTxsPerBlock: 0,
       },
     });
@@ -86,17 +91,22 @@ describe('e2e_p2p_data_withholding_slash', () => {
     const { rollup, slashingProposer, slashFactory } = await t.getContracts();
 
     // Jump forward to an epoch in the future such that the validator set is not empty
-    {
-      const newTime = await t.ctx.cheatCodes.rollup.advanceToEpoch(4n);
-      t.ctx.dateProvider.setTime(Number(newTime * 1000n));
-      // Send tx
-      await debugRollup();
-    }
+    await t.ctx.cheatCodes.rollup.advanceToEpoch(4n, { updateDateProvider: t.ctx.dateProvider });
+    await debugRollup();
 
-    const slashingAmount = (await rollup.getActivationThreshold()) - (await rollup.getEjectionThreshold()) + 1n;
-    t.ctx.aztecNodeConfig.slashPruneEnabled = true;
+    const [activationThreshold, ejectionThreshold, localEjectionThreshold] = await Promise.all([
+      rollup.getActivationThreshold(),
+      rollup.getEjectionThreshold(),
+      rollup.getLocalEjectionThreshold(),
+    ]);
+
+    // Slashing amount should be enough to kick validators out
+    const slashingAmount = slashingUnit * 3n;
+    const biggestEjection = ejectionThreshold > localEjectionThreshold ? ejectionThreshold : localEjectionThreshold;
+    expect(activationThreshold - slashingAmount).toBeLessThan(biggestEjection);
+
+    t.ctx.aztecNodeConfig.slashDataWithholdingPenalty = slashingAmount;
     t.ctx.aztecNodeConfig.slashPrunePenalty = slashingAmount;
-    t.ctx.aztecNodeConfig.slashPruneMaxPenalty = slashingAmount;
     t.ctx.aztecNodeConfig.validatorReexecute = false;
     t.ctx.aztecNodeConfig.minTxsPerBlock = 1;
 
@@ -123,13 +133,9 @@ describe('e2e_p2p_data_withholding_slash', () => {
     // Considering the slot duration is 32 seconds,
     // Considering the epoch duration is 2 slots,
     // we have ~64 seconds to do this.
-    {
-      const newTime = await t.ctx.cheatCodes.rollup.advanceToEpoch(8n);
-      t.ctx.dateProvider.setTime(Number(newTime * 1000n));
-      // Send L1 tx
-      await t.sendDummyTx();
-      await debugRollup();
-    }
+    await t.ctx.cheatCodes.rollup.advanceToEpoch(8n, { updateDateProvider: t.ctx.dateProvider });
+    await t.sendDummyTx();
+    await debugRollup();
 
     // Send Aztec txs
     t.logger.info('Setup account');
@@ -145,8 +151,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
     }
 
     // Re-create the nodes.
-    // ASSUMING they sync in the middle of the epoch, they will "see" the reorg,
-    // and try to slash.
+    // ASSUMING they sync in the middle of the epoch, they will "see" the reorg, and try to slash.
     t.logger.info('Re-creating nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
@@ -158,6 +163,13 @@ describe('e2e_p2p_data_withholding_slash', () => {
       DATA_DIR,
     );
 
+    await awaitOffenseDetected({
+      epochDuration: t.ctx.aztecNodeConfig.aztecEpochDuration,
+      logger: t.logger,
+      nodeAdmin: nodes[0],
+      slashingRoundSize,
+    });
+
     await awaitCommitteeKicked({
       rollup,
       cheatCodes: t.ctx.cheatCodes.rollup,
@@ -167,7 +179,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
       slashingRoundSize,
       aztecSlotDuration,
       logger: t.logger,
-      sendDummyTx: () => t.sendDummyTx().then(() => undefined),
+      dateProvider: t.ctx.dateProvider,
     });
   });
 });

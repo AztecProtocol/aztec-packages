@@ -1,6 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
-import { L1TxUtils, RollupContract, deployL1Contract } from '@aztec/ethereum';
+import { L1TxUtils, RollupContract, createL1TxUtilsFromViemWallet, deployL1Contract } from '@aztec/ethereum';
 import {
   GovernanceAbi,
   GovernanceProposerAbi,
@@ -39,7 +39,7 @@ describe('e2e_p2p_governance_proposer', () => {
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
-      testName: 'e2e_p2p_gerousia',
+      testName: 'e2e_p2p_upgrade_governance_proposer',
       numberOfNodes: 0,
       numberOfValidators: NUM_VALIDATORS,
       basePort: BOOT_NODE_UDP_PORT,
@@ -48,7 +48,6 @@ describe('e2e_p2p_governance_proposer', () => {
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         listenAddress: '127.0.0.1',
-        governanceProposerQuorum: 6,
         governanceProposerRoundSize: 10,
         activationThreshold: 10n ** 22n,
         ejectionThreshold: 5n ** 22n,
@@ -58,7 +57,7 @@ describe('e2e_p2p_governance_proposer', () => {
     await t.applyBaseSnapshots();
     await t.setup();
 
-    l1TxUtils = new L1TxUtils(t.ctx.deployL1ContractsValues.l1Client);
+    l1TxUtils = createL1TxUtilsFromViemWallet(t.ctx.deployL1ContractsValues.l1Client);
   });
 
   afterEach(async () => {

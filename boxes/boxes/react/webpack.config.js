@@ -49,6 +49,7 @@ export default (_, argv) => ({
       path: false,
       tty: false,
       url: false,
+      net: false,
       worker_threads: false,
       events: require.resolve('events/'),
       buffer: require.resolve('buffer/'),

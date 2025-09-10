@@ -32,6 +32,9 @@ describe('AVM simulator apps tests: AvmTestContract', () => {
   });
 
   it('bulk testing', async () => {
+    // Needed since we invoke the Fee Juice Contract in the bulk test.registerFeeJuiceContract
+    await simTester.registerFeeJuiceContract();
+
     // Get a deployed contract instance to pass to the contract
     // for it to use as "expected" values when testing contract instance retrieval.
     const expectContractInstance = instances[1];
@@ -92,13 +95,12 @@ describe('AVM simulator apps tests: AvmTestContract', () => {
     expect(results.reverted).toBe(true);
   });
 
-  // TODO(#16099): Re-enable this test
-  // it('an exceptional halt due to a nested call to non-existent contract is recovered from in caller', async () => {
-  //   await simTester.simulateCall(
-  //     sender,
-  //     /*address=*/ testContractAddress,
-  //     'nested_call_to_nothing_recovers',
-  //     /*args=*/ [],
-  //   );
-  // });
+  it('an exceptional halt due to a nested call to non-existent contract is recovered from in caller', async () => {
+    await simTester.simulateCall(
+      sender,
+      /*address=*/ testContractAddress,
+      'nested_call_to_nothing_recovers',
+      /*args=*/ [],
+    );
+  });
 });

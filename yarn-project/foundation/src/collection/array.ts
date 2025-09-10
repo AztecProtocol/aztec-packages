@@ -237,3 +237,17 @@ export function chunk<T>(items: T[], chunkSize: number): T[][] {
   }
   return chunks;
 }
+
+/** Partitions the given iterable into two arrays based on the predicate. */
+export function partition<T>(items: T[], predicate: (item: T) => boolean): [T[], T[]] {
+  const pass: T[] = [];
+  const fail: T[] = [];
+  for (const item of items) {
+    if (predicate(item)) {
+      pass.push(item);
+    } else {
+      fail.push(item);
+    }
+  }
+  return [pass, fail];
+}

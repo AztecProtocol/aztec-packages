@@ -3,21 +3,15 @@ import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { createLogger } from '@aztec/foundation/log';
-import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
 
 import { getSponsoredFPCAddress } from '../fixtures/utils.js';
-import {
-  type TestWallets,
-  deploySponsoredTestWallets,
-  setupTestWalletsWithTokens,
-  startCompatiblePXE,
-} from './setup_test_wallets.js';
-import { isK8sConfig, setupEnvironment, startPortForward } from './utils.js';
+import { type TestAccounts, deploySponsoredTestAccounts, startCompatiblePXE } from './setup_test_wallets.js';
+import { setupEnvironment, startPortForwardForEthereum, startPortForwardForRPC } from './utils.js';
 
-const config = setupEnvironment(process.env);
+const config = { ...setupEnvironment(process.env), REAL_VERIFIER: true }; // TODO: remove REAL_VERIFIER: true
 
 describe('token transfer test', () => {
   jest.setTimeout(10 * 60 * 4000); // 40 minutes
@@ -31,7 +25,7 @@ describe('token transfer test', () => {
   const MAX_MISSED_SLOTS = 10n;
   const ROUNDS = BigInt(l1Config.aztecEpochDuration * TEST_EPOCHS);
 
-  let testWallets: TestWallets;
+  let testAccounts: TestAccounts;
   let ETHEREUM_HOSTS: string[];
   const forwardProcesses: ChildProcess[] = [];
   let pxe: PXE;
@@ -43,87 +37,64 @@ describe('token transfer test', () => {
   });
 
   beforeAll(async () => {
-    if (isK8sConfig(config)) {
-      if (config.SEPOLIA_RUN !== 'true') {
-        const { process: ethProcess, port: ethPort } = await startPortForward({
-          resource: `svc/${config.INSTANCE_NAME}-aztec-network-eth-execution`,
-          namespace: config.NAMESPACE,
-          containerPort: config.CONTAINER_ETHEREUM_PORT,
-        });
-        forwardProcesses.push(ethProcess);
-        ETHEREUM_HOSTS = [`http://127.0.0.1:${ethPort}`];
-      } else {
-        if (!config.ETHEREUM_HOSTS) {
-          throw new Error('ETHEREUM_HOSTS must be set for sepolia runs');
-        }
-        ETHEREUM_HOSTS = config.ETHEREUM_HOSTS.split(',');
-      }
+    logger.info('Starting port forward for PXE and Ethereum');
+    const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
+    const { process: ethereumProcess, port: ethereumPort } = await startPortForwardForEthereum(config.NAMESPACE);
+    forwardProcesses.push(aztecRpcProcess);
+    forwardProcesses.push(ethereumProcess);
 
-      const { process: sequencerProcess, port: sequencerPort } = await startPortForward({
-        resource: `svc/${config.INSTANCE_NAME}-aztec-network-validator`,
-        namespace: config.NAMESPACE,
-        containerPort: config.CONTAINER_SEQUENCER_PORT,
-      });
-      forwardProcesses.push(sequencerProcess);
-      const NODE_URL = `http://127.0.0.1:${sequencerPort}`;
+    const rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
+    ETHEREUM_HOSTS = [`http://127.0.0.1:${ethereumPort}`];
 
-      ({ pxe, cleanup } = await startCompatiblePXE(NODE_URL, ['1', 'true'].includes(config.AZTEC_REAL_PROOFS), logger));
-      testWallets = await deploySponsoredTestWallets(pxe, MINT_AMOUNT, logger);
-    } else {
-      const PXE_URL = config.PXE_URL;
-      ETHEREUM_HOSTS = config.ETHEREUM_HOSTS.split(',');
-      testWallets = await setupTestWalletsWithTokens(PXE_URL, MINT_AMOUNT, logger);
-    }
+    ({ pxe, cleanup } = await startCompatiblePXE(rpcUrl, config.REAL_VERIFIER, logger));
+
+    // Setup wallets
+    testAccounts = await deploySponsoredTestAccounts(pxe, MINT_AMOUNT, logger);
 
     expect(ROUNDS).toBeLessThanOrEqual(MINT_AMOUNT);
     logger.info(`Tested wallets setup: ${ROUNDS} < ${MINT_AMOUNT}`);
   });
 
-  afterAll(() => {
-    forwardProcesses.forEach(p => p.kill());
-  });
-
   it('can get info', async () => {
     const name = readFieldCompressedString(
-      await testWallets.tokenAdminWallet.methods.private_get_name().simulate({ from: testWallets.tokenAdminAddress }),
+      await testAccounts.tokenContract.methods.private_get_name().simulate({ from: testAccounts.tokenAdminAddress }),
     );
-    expect(name).toBe(testWallets.tokenName);
+    expect(name).toBe(testAccounts.tokenName);
     logger.info(`Token name verified: ${name}`);
   });
 
   it('transfer tokens for 4 epochs', async () => {
     const ethCheatCodes = new EthCheatCodesWithState(ETHEREUM_HOSTS);
-    const l1ContractAddresses = await testWallets.pxe.getNodeInfo().then(n => n.l1ContractAddresses);
+    const l1ContractAddresses = await testAccounts.pxe.getNodeInfo().then(n => n.l1ContractAddresses);
     // Get 4 epochs
     const rollupCheatCodes = new RollupCheatCodes(ethCheatCodes, l1ContractAddresses);
     logger.info(`Deployed L1 contract addresses: ${JSON.stringify(l1ContractAddresses)}`);
-    const recipient = testWallets.recipientWallet.getAddress();
+    const recipient = testAccounts.recipientAddress;
     const transferAmount = 1n;
 
-    for (const w of testWallets.wallets) {
+    for (const acc of testAccounts.accounts) {
       expect(MINT_AMOUNT).toBe(
-        await testWallets.tokenAdminWallet.methods
-          .balance_of_public(w.getAddress())
-          .simulate({ from: testWallets.tokenAdminAddress }),
+        await testAccounts.tokenContract.methods
+          .balance_of_public(acc)
+          .simulate({ from: testAccounts.tokenAdminAddress }),
       );
     }
 
     logger.info('Minted tokens');
 
     expect(0n).toBe(
-      await testWallets.tokenAdminWallet.methods
+      await testAccounts.tokenContract.methods
         .balance_of_public(recipient)
-        .simulate({ from: testWallets.tokenAdminAddress }),
+        .simulate({ from: testAccounts.tokenAdminAddress }),
     );
 
     // For each round, make both private and public transfers
     const startSlot = await rollupCheatCodes.getSlot();
     for (let i = 1n; i <= ROUNDS; i++) {
-      const txs = testWallets.wallets.map(async w =>
-        (await TokenContract.at(testWallets.tokenAddress, w)).methods
-          .transfer_in_public(w.getAddress(), recipient, transferAmount, 0)
-          .prove({
-            from: w.getAddress(),
+      const txs = testAccounts.accounts.map(
+        async acc =>
+          await testAccounts.tokenContract.methods.transfer_in_public(acc, recipient, transferAmount, 0).prove({
+            from: acc,
             fee: { paymentMethod: new SponsoredFeePaymentMethod(await getSponsoredFPCAddress()) },
           }),
       );
@@ -143,18 +114,18 @@ describe('token transfer test', () => {
       );
     }
 
-    for (const w of testWallets.wallets) {
+    for (const acc of testAccounts.accounts) {
       expect(MINT_AMOUNT - ROUNDS * transferAmount).toBe(
-        await testWallets.tokenAdminWallet.methods
-          .balance_of_public(w.getAddress())
-          .simulate({ from: testWallets.tokenAdminAddress }),
+        await testAccounts.tokenContract.methods
+          .balance_of_public(acc)
+          .simulate({ from: testAccounts.tokenAdminAddress }),
       );
     }
 
-    expect(ROUNDS * transferAmount * BigInt(testWallets.wallets.length)).toBe(
-      await testWallets.tokenAdminWallet.methods
+    expect(ROUNDS * transferAmount * BigInt(testAccounts.accounts.length)).toBe(
+      await testAccounts.tokenContract.methods
         .balance_of_public(recipient)
-        .simulate({ from: testWallets.tokenAdminAddress }),
+        .simulate({ from: testAccounts.tokenAdminAddress }),
     );
   });
 });

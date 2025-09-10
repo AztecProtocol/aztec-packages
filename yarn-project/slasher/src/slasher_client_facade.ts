@@ -9,7 +9,7 @@ import { AztecLMDBStoreV2 } from '@aztec/kv-store/lmdb-v2';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import type { Offense, ProposerSlashAction, SlashPayloadRound } from '@aztec/stdlib/slashing';
 
-import { createSlasherImplementation } from './factory.js';
+import { createSlasherImplementation } from './factory/create_implementation.js';
 import type { SlasherClientInterface } from './slasher_client_interface.js';
 import type { Watcher } from './watcher.js';
 
@@ -36,7 +36,7 @@ export class SlasherClientFacade implements SlasherClientInterface {
 
   public async start(): Promise<void> {
     this.client = await this.createSlasherClient();
-    await this.client.start();
+    await this.client?.start();
 
     this.unwatch = this.rollup.listenToSlasherChanged(() => {
       void this.handleSlasherChange().catch(error => {
@@ -58,6 +58,7 @@ export class SlasherClientFacade implements SlasherClientInterface {
   public updateConfig(config: Partial<SlasherConfig>): void {
     this.config = { ...this.config, ...config };
     this.client?.updateConfig(config);
+    this.watchers.forEach(watcher => watcher.updateConfig?.(config));
   }
 
   public getSlashPayloads(): Promise<SlashPayloadRound[]> {
@@ -76,7 +77,7 @@ export class SlasherClientFacade implements SlasherClientInterface {
     return this.client?.getProposerActions(slotNumber) ?? Promise.reject(new Error('Slasher client not initialized'));
   }
 
-  private createSlasherClient(): Promise<SlasherClientInterface> {
+  private createSlasherClient() {
     return createSlasherImplementation(
       this.config,
       this.rollup,
@@ -94,6 +95,6 @@ export class SlasherClientFacade implements SlasherClientInterface {
     this.logger.warn('Slasher contract changed, recreating slasher client');
     await this.client?.stop();
     this.client = await this.createSlasherClient();
-    await this.client.start();
+    await this.client?.start();
   }
 }

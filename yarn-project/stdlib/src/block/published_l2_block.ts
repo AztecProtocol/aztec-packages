@@ -2,6 +2,8 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { randomBigInt } from '@aztec/foundation/crypto';
 import { schemas } from '@aztec/foundation/schemas';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
@@ -32,6 +34,10 @@ export class L1PublishedData {
       Buffer32.random().toString(),
     );
   }
+
+  static fromFields(fields: FieldsOf<L1PublishedData>) {
+    return new L1PublishedData(fields.blockNumber, fields.timestamp, fields.blockHash);
+  }
 }
 
 export class PublishedL2Block {
@@ -42,11 +48,38 @@ export class PublishedL2Block {
   ) {}
 
   static get schema() {
-    return z.object({
-      block: L2Block.schema,
-      l1: L1PublishedData.schema,
-      attestations: z.array(CommitteeAttestation.schema),
-    });
+    return z
+      .object({
+        block: L2Block.schema,
+        l1: L1PublishedData.schema,
+        attestations: z.array(CommitteeAttestation.schema),
+      })
+      .transform(obj => PublishedL2Block.fromFields(obj));
+  }
+
+  static fromBuffer(bufferOrReader: Buffer | BufferReader): PublishedL2Block {
+    const reader = BufferReader.asReader(bufferOrReader);
+    const block = reader.readObject(L2Block);
+    const l1BlockNumber = reader.readBigInt();
+    const l1BlockHash = reader.readString();
+    const l1Timestamp = reader.readBigInt();
+    const attestations = reader.readVector(CommitteeAttestation);
+    return new PublishedL2Block(block, new L1PublishedData(l1BlockNumber, l1Timestamp, l1BlockHash), attestations);
+  }
+
+  static fromFields(fields: FieldsOf<PublishedL2Block>) {
+    return new PublishedL2Block(fields.block, fields.l1, fields.attestations);
+  }
+
+  public toBuffer(): Buffer {
+    return serializeToBuffer(
+      this.block,
+      this.l1.blockNumber,
+      this.l1.blockHash,
+      this.l1.timestamp,
+      this.attestations.length,
+      this.attestations,
+    );
   }
 }
 

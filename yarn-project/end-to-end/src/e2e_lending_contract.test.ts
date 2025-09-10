@@ -1,4 +1,4 @@
-import { type AccountWallet, AztecAddress, Fr, type Logger } from '@aztec/aztec.js';
+import { AztecAddress, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { type DeployL1ContractsReturnType, RollupContract } from '@aztec/ethereum';
 import type { TestDateProvider } from '@aztec/foundation/timer';
@@ -14,7 +14,7 @@ import { LendingAccount, LendingSimulator, TokenSimulator } from './simulators/i
 
 describe('e2e_lending_contract', () => {
   jest.setTimeout(100_000);
-  let wallet: AccountWallet;
+  let wallet: Wallet;
   let defaultAccountAddress: AztecAddress;
   let deployL1ContractsValues: DeployL1ContractsReturnType;
 
@@ -75,7 +75,7 @@ describe('e2e_lending_contract', () => {
       accounts: [defaultAccountAddress],
     } = ctx);
     ({ lendingContract, priceFeedContract, collateralAsset, stableCoin } = await deployContracts());
-    await ensureAccountContractsPublished(wallet, [wallet]);
+    await ensureAccountContractsPublished(wallet, [defaultAccountAddress]);
 
     const rollup = new RollupContract(
       deployL1ContractsValues.l1Client,
@@ -122,7 +122,7 @@ describe('e2e_lending_contract', () => {
       for (const asset of assets) {
         await Promise.all([
           asset.methods.mint_to_public(lendingAccount.address, mintAmount).send({ from: defaultAccountAddress }).wait(),
-          mintTokensToPrivate(asset, defaultAccountAddress, wallet, lendingAccount.address, mintAmount),
+          mintTokensToPrivate(asset, defaultAccountAddress, lendingAccount.address, mintAmount),
         ]);
       }
     }
@@ -147,7 +147,7 @@ describe('e2e_lending_contract', () => {
     it('Depositing 🥸 : 💰 -> 🏦', async () => {
       const activationThreshold = 420n;
       const authwitNonce = Fr.random();
-      const transferToPublicAuthwit = await wallet.createAuthWit({
+      const transferToPublicAuthwit = await wallet.createAuthWit(defaultAccountAddress, {
         caller: lendingContract.address,
         action: collateralAsset.methods.transfer_to_public(
           lendingAccount.address,
@@ -181,7 +181,7 @@ describe('e2e_lending_contract', () => {
     it('Depositing 🥸 on behalf of recipient: 💰 -> 🏦', async () => {
       const activationThreshold = 421n;
       const authwitNonce = Fr.random();
-      const transferToPublicAuthwit = await wallet.createAuthWit({
+      const transferToPublicAuthwit = await wallet.createAuthWit(defaultAccountAddress, {
         caller: lendingContract.address,
         action: collateralAsset.methods.transfer_to_public(
           lendingAccount.address,
@@ -219,6 +219,7 @@ describe('e2e_lending_contract', () => {
 
       // Add it to the wallet as approved
       const validateAction = await wallet.setPublicAuthWit(
+        defaultAccountAddress,
         {
           caller: lendingContract.address,
           action: collateralAsset.methods.transfer_in_public(
@@ -291,7 +292,7 @@ describe('e2e_lending_contract', () => {
     it('Repay 🥸 : 🍌 -> 🏦', async () => {
       const repayAmount = 20n;
       const authwitNonce = Fr.random();
-      const burnPrivateAuthwit = await wallet.createAuthWit({
+      const burnPrivateAuthwit = await wallet.createAuthWit(defaultAccountAddress, {
         caller: lendingContract.address,
         action: stableCoin.methods.burn_private(lendingAccount.address, repayAmount, authwitNonce),
       });
@@ -315,7 +316,7 @@ describe('e2e_lending_contract', () => {
     it('Repay 🥸  on behalf of public: 🍌 -> 🏦', async () => {
       const repayAmount = 21n;
       const authwitNonce = Fr.random();
-      const burnPrivateAuthwit = await wallet.createAuthWit({
+      const burnPrivateAuthwit = await wallet.createAuthWit(defaultAccountAddress, {
         caller: lendingContract.address,
         action: stableCoin.methods.burn_private(lendingAccount.address, repayAmount, authwitNonce),
       });
@@ -349,6 +350,7 @@ describe('e2e_lending_contract', () => {
 
       // Add it to the wallet as approved
       const validateAction = await wallet.setPublicAuthWit(
+        defaultAccountAddress,
         {
           caller: lendingContract.address,
           action: stableCoin.methods.burn_public(lendingAccount.address, repayAmount, authwitNonce),

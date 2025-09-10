@@ -1,6 +1,6 @@
 export enum ProvingRequestType {
   PUBLIC_VM,
-
+  PUBLIC_TUBE,
   PRIVATE_BASE_ROLLUP,
   PUBLIC_BASE_ROLLUP,
   MERGE_ROLLUP,
@@ -13,6 +13,4 @@ export enum ProvingRequestType {
 
   BASE_PARITY,
   ROOT_PARITY,
-  /** Recursive Client IVC verification to connect private to public or rollup */
-  TUBE_PROOF,
 }

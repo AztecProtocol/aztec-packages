@@ -29,28 +29,60 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
     }
 
     /**
-     * @brief Expression for the poseidon2 external round relation, based on E_i in Section 6 of
+     * @brief Expression for the poseidon2 external round relation, based on \f$ E_i \f$ in Section 6 of
      * https://eprint.iacr.org/2023/323.pdf.
-     * @details This relation is defined as C(in(X)...) :=
-     * q_poseidon2_external * ( (v1 - w_1_shift) + \alpha * (v2 - w_2_shift) +
-     * \alpha^2 * (v3 - w_3_shift) + \alpha^3 * (v4 - w_4_shift) ) = 0 where:
-     *      u1 := (w_1 + q_1)^5
-     *      u2 := (w_2 + q_2)^5
-     *      u3 := (w_3 + q_3)^5
-     *      u4 := (w_4 + q_4)^5
-     *      t0 := u1 + u2                                           (1, 1, 0, 0)
-     *      t1 := u3 + u4                                           (0, 0, 1, 1)
-     *      t2 := 2 * u2 + t1 = 2 * u2 + u3 + u4                    (0, 2, 1, 1)
-     *      t3 := 2 * u4 + t0 = u1 + u2 + 2 * u4                    (1, 1, 0, 2)
-     *      v4 := 4 * t1 + t3 = u1 + u2 + 4 * u3 + 6 * u4           (1, 1, 4, 6)
-     *      v2 := 4 * t0 + t2 = 4 * u1 + 6 * u2 + u3 + u4           (4, 6, 1, 1)
-     *      v1 := t3 + v2 = 5 * u1 + 7 * u2 + 1 * u3 + 3 * u4       (5, 7, 1, 3)
-     *      v3 := t2 + v4                                           (1, 3, 5, 7)
+     * @details For state \f$ \mathbf{u} = (u_1, u_2, u_3, u_4)\f$ with \f$ u_i = \big(w_i + c_i^{(i)}\big)^5 \f$, the
+     * external round computes \f$ \mathbf{v} = M_E \cdot \mathbf{u}^{\top}\f$, where \f$M_E\f$ is the external round
+     * matrix defined as follows:
      *
-     * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
-     * @param in an std::array containing the fully extended Univariate edges.
-     * @param parameters contains beta, gamma, and public_input_delta, ....
-     * @param scaling_factor optional term to scale the evaluation before adding to evals.
+     * \f[
+     *   M_E =
+     *   \begin{bmatrix}
+     *     5 & 7 & 1 & 3 \\
+     *     4 & 6 & 1 & 1 \\
+     *     1 & 3 & 5 & 7 \\
+     *     1 & 1 & 4 & 6
+     *   \end{bmatrix}
+     * \f]
+     *
+     * i.e.
+     * \f{align}{
+     *   v_1 &= 5u_1 + 7u_2 + u_3 + 3u_4 \\
+     *   v_2 &= 4u_1 + 6u_2 + u_3 + u_4 \\
+     *   v_3 &= u_1 + 3u_2 + 5u_3 + 7u_4 \\
+     *   v_4 &= u_1 + u_2 + 4u_3 + 6u_4
+     * \f}
+     *
+     * The relation enforces \f$ v_k = w_{k,shift}\f$ for \f$ k \in \{1,2,3,4\}\f$.
+     * Concretely, the relation is encoded as four independent constraints multiplied by the
+     * \f$\text{q_poseidon2_external}\f$ selector and the scaling factor \f$\hat{g}\f$ arising from the
+     * `GateSeparatorPolynomial`. These contributions are added to the corresponding univariate accumulator \f$ A_i
+     * \f$:
+     * \f{align}{
+     *   A_1 &\;\mathrel{+}=  \text{q_poseidon2_internal}\cdot \big(v_1 - w_{1,\text{shift}}\big) \cdot \hat{g} \\
+     *   A_2 &\;\mathrel{+}=  \text{q_poseidon2_internal}\cdot \big(v_1 - w_{1,\text{shift}}\big) \cdot \hat{g} \\
+     *   A_3 &\;\mathrel{+}=  \text{q_poseidon2_internal}\cdot \big(v_3 - w_{3,\text{shift}}\big) \cdot \hat{g} \\
+     *   A_4 &\;\mathrel{+}=  \text{q_poseidon2_internal}\cdot \big(v_4 - w_{4,\text{shift}}\big) \cdot \hat{g}
+     * \f}
+     * At the end of each Sumcheck Round, the subrelation accumulators are aggregated with independent challenges
+     * \f$\alpha_{i} = \alpha_{i, \text{Poseidon2Ext}}\f$ taken from the array of `SubrelationSeparators`
+     * \f[
+     *     \alpha_{0} A_1 +
+     *     \alpha_{1} A_2 +
+     *     \alpha_{2} A_3 +
+     *     \alpha_{3} A_4
+     * \f]
+     * and multiplied by the linear factor of the `GateSeparatorPolynomial`.
+     *
+     * @param evals a tuple of tuples of univariate accumulators, the subtuple corresponding to this relation consists
+     * of \f$ [A_0, A_1, A_2, A_3]\f$ , such that
+     *      \f$ \deg(A_i) = \text{SUBRELATION_PARTIAL_LENGTHS}[i] - 1 \f$.
+     * @param in In round \f$ k \f$ of Sumcheck at the point \f$i_{>k} = (i_{k+1}, \ldots, i_{d-1})\f$ on the
+     * \f$d-k-1\f$-dimensional hypercube, given by an array containing the restrictions of the prover polynomials
+     *      \f$ P_i(u_{<k}, X_k, i_{>k}) \f$.
+     * @param parameters Not used in this relation
+     * @param scaling_factor scaling term coming from `GateSeparatorPolynomial`.
+     *
      */
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     void static accumulate(ContainerOverSubrelations& evals,
@@ -58,70 +90,73 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
                            const Parameters&,
                            const FF& scaling_factor)
     {
+        // Univariates of degree 6 represented in Lagrange basis
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
+        // Low-degree univariates represented in monomial basis
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
-        auto w_l = CoefficientAccumulator(in.w_l);
-        auto w_r = CoefficientAccumulator(in.w_r);
-        auto w_o = CoefficientAccumulator(in.w_o);
-        auto w_4 = CoefficientAccumulator(in.w_4);
-        auto w_l_shift = CoefficientAccumulator(in.w_l_shift);
-        auto w_r_shift = CoefficientAccumulator(in.w_r_shift);
-        auto w_o_shift = CoefficientAccumulator(in.w_o_shift);
-        auto w_4_shift = CoefficientAccumulator(in.w_4_shift);
-        auto q_l = CoefficientAccumulator(in.q_l);
-        auto q_r = CoefficientAccumulator(in.q_r);
-        auto q_o = CoefficientAccumulator(in.q_o);
-        auto q_4 = CoefficientAccumulator(in.q_4);
-        auto q_poseidon2_external = CoefficientAccumulator(in.q_poseidon2_external);
+
+        // Current state
+        const auto w_1 = CoefficientAccumulator(in.w_l);
+        const auto w_2 = CoefficientAccumulator(in.w_r);
+        const auto w_3 = CoefficientAccumulator(in.w_o);
+        const auto w_4 = CoefficientAccumulator(in.w_4);
+        // Expected state, contained in the next row
+        const auto w_1_shift = CoefficientAccumulator(in.w_l_shift);
+        const auto w_2_shift = CoefficientAccumulator(in.w_r_shift);
+        const auto w_3_shift = CoefficientAccumulator(in.w_o_shift);
+        const auto w_4_shift = CoefficientAccumulator(in.w_4_shift);
+        // i-th external round constants
+        const auto c_1 = CoefficientAccumulator(in.q_l);
+        const auto c_2 = CoefficientAccumulator(in.q_r);
+        const auto c_3 = CoefficientAccumulator(in.q_o);
+        const auto c_4 = CoefficientAccumulator(in.q_4);
+        // Poseidon2 external relation selector
+        const auto q_poseidon2_external = CoefficientAccumulator(in.q_poseidon2_external);
 
         // add round constants which are loaded in selectors
-        auto s1 = Accumulator(w_l + q_l);
-        auto s2 = Accumulator(w_r + q_r);
-        auto s3 = Accumulator(w_o + q_o);
-        auto s4 = Accumulator(w_4 + q_4);
 
+        auto sbox = [](const Accumulator& x) {
+            auto t2 = x.sqr();  // x^2
+            auto t4 = t2.sqr(); // x^4
+            return t4 * x;      // x^5
+        };
         // apply s-box round
-        auto u1 = s1.sqr();
-        u1 = u1.sqr();
-        u1 *= s1;
-        auto u2 = s2.sqr();
-        u2 = u2.sqr();
-        u2 *= s2;
-        auto u3 = s3.sqr();
-        u3 = u3.sqr();
-        u3 *= s3;
-        auto u4 = s4.sqr();
-        u4 = u4.sqr();
-        u4 *= s4;
-
-        // matrix mul v = M_E * u with 14 additions
+        auto u1 = sbox(Accumulator(w_1 + c_1));
+        auto u2 = sbox(Accumulator(w_2 + c_2));
+        auto u3 = sbox(Accumulator(w_3 + c_3));
+        auto u4 = sbox(Accumulator(w_4 + c_4));
+        // Matrix mul v = M_E * u with 14 additions.
+        // Precompute common summands.
         auto t0 = u1 + u2; // u_1 + u_2
         auto t1 = u3 + u4; // u_3 + u_4
         auto t2 = u2 + u2; // 2u_2
         t2 += t1;          // 2u_2 + u_3 + u_4
         auto t3 = u4 + u4; // 2u_4
         t3 += t0;          // u_1 + u_2 + 2u_4
+
+        // Row 4: u_1 + u_2 + 4u_3 + 6u_4
         auto v4 = t1 + t1;
         v4 += v4;
-        v4 += t3; // u_1 + u_2 + 4u_3 + 6u_4
+        v4 += t3;
+
+        // Row 2: 4u_1 + 6u_2 + u_3 + u_4
         auto v2 = t0 + t0;
         v2 += v2;
-        v2 += t2;          // 4u_1 + 6u_2 + u_3 + u_4
-        auto v1 = t3 + v2; // 5u_1 + 7u_2 + u_3 + 3u_4
-        auto v3 = t2 + v4; // u_1 + 3u_2 + 5u_3 + 7u_4
+        v2 += t2;
+        // Row 1: 5u_1 + 7u_2 + u_3 + 3u_4
+        auto v1 = t3 + v2;
+
+        // Row 3: u_1 + 3u_2 + 5u_3 + 7u_4
+        auto v3 = t2 + v4;
 
         auto q_pos_by_scaling = Accumulator(q_poseidon2_external * scaling_factor);
-        auto tmp = q_pos_by_scaling * (v1 - Accumulator(w_l_shift));
-        std::get<0>(evals) += tmp;
+        std::get<0>(evals) += q_pos_by_scaling * (v1 - Accumulator(w_1_shift));
 
-        tmp = q_pos_by_scaling * (v2 - Accumulator(w_r_shift));
-        std::get<1>(evals) += tmp;
+        std::get<1>(evals) += q_pos_by_scaling * (v2 - Accumulator(w_2_shift));
 
-        tmp = q_pos_by_scaling * (v3 - Accumulator(w_o_shift));
-        std::get<2>(evals) += tmp;
+        std::get<2>(evals) += q_pos_by_scaling * (v3 - Accumulator(w_3_shift));
 
-        tmp = q_pos_by_scaling * (v4 - Accumulator(w_4_shift));
-        std::get<3>(evals) += tmp;
+        std::get<3>(evals) += q_pos_by_scaling * (v4 - Accumulator(w_4_shift));
     };
 };
 

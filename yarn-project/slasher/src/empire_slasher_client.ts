@@ -1,4 +1,4 @@
-import { EmpireSlashingProposerContract } from '@aztec/ethereum';
+import { EmpireSlashingProposerContract, RollupContract } from '@aztec/ethereum';
 import { sumBigint } from '@aztec/foundation/bigint';
 import { compactArray, filterAsync, maxBy, pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -19,6 +19,7 @@ import {
   type ValidatorSlashOffense,
   getFirstEligibleRoundForOffense,
   getOffenseIdentifiersFromPayload,
+  getPenaltyForOffense,
   isOffenseUncontroversial,
   offenseDataComparator,
   offensesToValidatorSlash,
@@ -120,7 +121,7 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
     private settings: EmpireSlasherSettings,
     private slashFactoryContract: SlashFactoryContract,
     private slashingProposer: EmpireSlashingProposerContract,
-    private rollupAddress: EthAddress,
+    private rollup: RollupContract,
     watchers: Watcher[],
     private dateProvider: DateProvider,
     private offensesStore: SlasherOffensesStore,
@@ -298,7 +299,7 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
         return;
       }
       const votes = await this.slashingProposer.getPayloadSignals(
-        this.rollupAddress.toString(),
+        this.rollup.address,
         round,
         payloadAddress.toString(),
       );
@@ -395,9 +396,19 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
         continue;
       }
 
-      const roundInfo = await this.slashingProposer.getRoundInfo(this.rollupAddress.toString(), payload.round);
+      const roundInfo = await this.slashingProposer.getRoundInfo(this.rollup.address, payload.round);
       if (roundInfo.executed) {
         this.log.verbose(`Payload ${payload.payload} for round ${payload.round} has already been executed`);
+        toRemove.push(payload);
+        continue;
+      }
+
+      // Check if the slash payload is vetoed
+      const slasherContract = await this.rollup.getSlasherContract();
+      const isVetoed = await slasherContract.isPayloadVetoed(payload.payload);
+
+      if (isVetoed) {
+        this.log.info(`Payload ${payload.payload} from round ${payload.round} is vetoed, skipping execution`);
         toRemove.push(payload);
         continue;
       }
@@ -627,58 +638,13 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
     return [minAmount, maxAmount];
   }
 
-  /**
-   * Get minimum acceptable amount for an offense type
-   */
+  /** Get minimum acceptable amount for an offense type */
   private getMinAmountForOffense(offense: OffenseType): bigint {
-    // Use the configured penalty amounts as minimums
-    // TODO(palla/slash): Should we add a new set of variables for "min" amounts? Or just have a multiplier?
-    switch (offense) {
-      case OffenseType.VALID_EPOCH_PRUNED:
-      case OffenseType.DATA_WITHHOLDING:
-        return this.config.slashPrunePenalty;
-      case OffenseType.INACTIVITY:
-        return this.config.slashInactivityCreatePenalty;
-      case OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS:
-      case OffenseType.PROPOSED_INCORRECT_ATTESTATIONS:
-        return this.config.slashProposeInvalidAttestationsPenalty;
-      case OffenseType.ATTESTED_DESCENDANT_OF_INVALID:
-        return this.config.slashAttestDescendantOfInvalidPenalty;
-      case OffenseType.UNKNOWN:
-        return this.config.slashUnknownPenalty;
-      case OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL:
-        return this.config.slashBroadcastedInvalidBlockPenalty;
-      default: {
-        const _: never = offense;
-        throw new Error(`Unknown offense type: ${offense}`);
-      }
-    }
+    return (getPenaltyForOffense(offense, this.config) * BigInt(this.config.slashMinPenaltyPercentage * 1000)) / 1000n;
   }
 
-  /**
-   * Get maximum acceptable amount for an offense type
-   */
+  /** Get maximum acceptable amount for an offense type */
   private getMaxAmountForOffense(offense: OffenseType): bigint {
-    // Use the configured max penalty amounts
-    switch (offense) {
-      case OffenseType.VALID_EPOCH_PRUNED:
-      case OffenseType.DATA_WITHHOLDING:
-        return this.config.slashPruneMaxPenalty;
-      case OffenseType.INACTIVITY:
-        return this.config.slashInactivityMaxPenalty;
-      case OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS:
-      case OffenseType.PROPOSED_INCORRECT_ATTESTATIONS:
-        return this.config.slashProposeInvalidAttestationsMaxPenalty;
-      case OffenseType.ATTESTED_DESCENDANT_OF_INVALID:
-        return this.config.slashAttestDescendantOfInvalidMaxPenalty;
-      case OffenseType.UNKNOWN:
-        return this.config.slashUnknownMaxPenalty;
-      case OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL:
-        return this.config.slashBroadcastedInvalidBlockMaxPenalty;
-      default: {
-        const _: never = offense;
-        throw new Error(`Unknown offense type: ${offense}`);
-      }
-    }
+    return (getPenaltyForOffense(offense, this.config) * BigInt(this.config.slashMaxPenaltyPercentage * 1000)) / 1000n;
   }
 }

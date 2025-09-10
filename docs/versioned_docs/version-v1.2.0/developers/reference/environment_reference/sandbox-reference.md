@@ -7,7 +7,7 @@ sidebar_position: 1
 
 :::tip
 
-For a quick start, follow the [guide](../../getting_started.md) to install the sandbox.
+For a quick start, follow the [guide](../../getting_started/getting_started_on_sandbox.md) to install the sandbox.
 
 :::
 
@@ -68,9 +68,7 @@ ROLLUP_CONTRACT_ADDRESS=0x01234567890abcde01234567890abcde
 SEQ_PUBLISHER_PRIVATE_KEY=0x01234567890abcde01234567890abcde # Private key of an ethereum account that will be used by the sequencer to publish blocks.
 SEQ_MAX_TX_PER_BLOCK=32 # Maximum txs to go on a block. (default: 32)
 SEQ_MIN_TX_PER_BLOCK=1 # Minimum txs to go on a block. (default: 1)
-
-## Validator variables ##
-VALIDATOR_PRIVATE_KEY=0x01234567890abcde01234567890abcde  # Private key of the ethereum account that will be used to perform validator duties
+VALIDATOR_PRIVATE_KEY=0x01234567890abcde01234567890abcde  # Private key of the ethereum account that will be used to perform sequencer duties
 ```
 
 **PXE**

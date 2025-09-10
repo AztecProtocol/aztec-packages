@@ -10,22 +10,15 @@ import {
 } from '@aztec/aztec.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
 
 import { getSponsoredFPCAddress } from '../fixtures/utils.js';
-import {
-  type TestWallets,
-  deploySponsoredTestWallets,
-  setupTestWalletsWithTokens,
-  startCompatiblePXE,
-} from './setup_test_wallets.js';
-import { isK8sConfig, setupEnvironment, startPortForward } from './utils.js';
+import { type TestAccounts, deploySponsoredTestAccounts, startCompatiblePXE } from './setup_test_wallets.js';
+import { setupEnvironment, startPortForwardForRPC } from './utils.js';
 
-const config = setupEnvironment(process.env);
-
+const config = { ...setupEnvironment(process.env), REAL_VERIFIER: true }; // TODO: remove REAL_VERIFIER: true
 describe('token transfer test', () => {
   jest.setTimeout(10 * 60 * 2000); // 20 minutes
 
@@ -34,7 +27,7 @@ describe('token transfer test', () => {
 
   const ROUNDS = 1n;
 
-  let testWallets: TestWallets;
+  let testAccounts: TestAccounts;
   const forwardProcesses: ChildProcess[] = [];
   let pxe: PXE;
   let cleanup: undefined | (() => Promise<void>);
@@ -45,55 +38,50 @@ describe('token transfer test', () => {
   });
 
   beforeAll(async () => {
-    if (isK8sConfig(config)) {
-      const { process: sequencerProcess, port: sequencerPort } = await startPortForward({
-        resource: `svc/${config.INSTANCE_NAME}-aztec-network-validator`,
-        namespace: config.NAMESPACE,
-        containerPort: config.CONTAINER_SEQUENCER_PORT,
-      });
-      forwardProcesses.push(sequencerProcess);
-      const NODE_URL = `http://127.0.0.1:${sequencerPort}`;
+    logger.info('Starting port forward for PXE');
+    const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
+    forwardProcesses.push(aztecRpcProcess);
+    const rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
 
-      ({ pxe, cleanup } = await startCompatiblePXE(NODE_URL, ['1', 'true'].includes(config.AZTEC_REAL_PROOFS), logger));
-      testWallets = await deploySponsoredTestWallets(pxe, MINT_AMOUNT, logger);
-    } else {
-      const PXE_URL = config.PXE_URL;
-      testWallets = await setupTestWalletsWithTokens(PXE_URL, MINT_AMOUNT, logger);
-    }
+    ({ pxe, cleanup } = await startCompatiblePXE(rpcUrl, config.REAL_VERIFIER, logger));
+
+    // Setup wallets
+    testAccounts = await deploySponsoredTestAccounts(pxe, MINT_AMOUNT, logger);
+
     expect(ROUNDS).toBeLessThanOrEqual(MINT_AMOUNT);
   });
 
   it('can get info', async () => {
     const name = readFieldCompressedString(
-      await testWallets.tokenAdminWallet.methods.private_get_name().simulate({ from: testWallets.tokenAdminAddress }),
+      await testAccounts.tokenContract.methods.private_get_name().simulate({ from: testAccounts.tokenAdminAddress }),
     );
-    expect(name).toBe(testWallets.tokenName);
+    expect(name).toBe(testAccounts.tokenName);
   });
 
   it('can transfer 1 token privately and publicly', async () => {
-    const recipient = testWallets.recipientWallet.getAddress();
+    const recipient = testAccounts.recipientAddress;
     const transferAmount = 1n;
 
-    for (const w of testWallets.wallets) {
+    for (const acc of testAccounts.accounts) {
       expect(MINT_AMOUNT).toBe(
-        await testWallets.tokenAdminWallet.methods
-          .balance_of_public(w.getAddress())
-          .simulate({ from: testWallets.tokenAdminAddress }),
+        await testAccounts.tokenContract.methods
+          .balance_of_public(acc)
+          .simulate({ from: testAccounts.tokenAdminAddress }),
       );
     }
 
     expect(0n).toBe(
-      await testWallets.tokenAdminWallet.methods
+      await testAccounts.tokenContract.methods
         .balance_of_public(recipient)
-        .simulate({ from: testWallets.tokenAdminAddress }),
+        .simulate({ from: testAccounts.tokenAdminAddress }),
     );
 
     // For each round, make both private and public transfers
     // for (let i = 1n; i <= ROUNDS; i++) {
     //   const interactions = await Promise.all([
-    //     ...testWallets.wallets.map(async w =>
+    //     ...testAccounts.wallets.map(async w =>
     //       (
-    //         await TokenContract.at(testWallets.tokenAddress, w)
+    //         await TokenContract.at(testAccounts.tokenAddress, w)
     //       ).methods.transfer_in_public(w.getAddress(), recipient, transferAmount, 0),
     //     ),
     //   ]);
@@ -103,12 +91,12 @@ describe('token transfer test', () => {
     //   await Promise.all(txs.map(t => t.send().wait({ timeout: 600 })));
     // }
 
-    const wallet = testWallets.wallets[0];
+    const defaultAccountAddress = testAccounts.accounts[0];
 
-    const baseTx = await (await TokenContract.at(testWallets.tokenAddress, wallet)).methods
-      .transfer_in_public(wallet.getAddress(), recipient, transferAmount, 0)
+    const baseTx = await testAccounts.tokenContract.methods
+      .transfer_in_public(defaultAccountAddress, recipient, transferAmount, 0)
       .prove({
-        from: testWallets.tokenAdminAddress,
+        from: testAccounts.tokenAdminAddress,
         fee: { paymentMethod: new SponsoredFeePaymentMethod(await getSponsoredFPCAddress()) },
       });
 
@@ -129,7 +117,7 @@ describe('token transfer test', () => {
         }
       }
 
-      const clonedTx = new ProvenTx(wallet, clonedTxData, []);
+      const clonedTx = new ProvenTx(testAccounts.wallet, clonedTxData, []);
       txs.push(clonedTx);
     }
 
@@ -160,20 +148,20 @@ describe('token transfer test', () => {
       }),
     );
 
-    const recipientBalance = await testWallets.tokenAdminWallet.methods
+    const recipientBalance = await testAccounts.tokenContract.methods
       .balance_of_public(recipient)
-      .simulate({ from: testWallets.tokenAdminAddress });
+      .simulate({ from: testAccounts.tokenAdminAddress });
     logger.info(`recipientBalance: ${recipientBalance}`);
     // expect(recipientBalance).toBe(100n * transferAmount);
 
-    // for (const w of testWallets.wallets) {
+    // for (const w of testAccounts.wallets) {
     //   expect(MINT_AMOUNT - ROUNDS * transferAmount).toBe(
-    //     await testWallets.tokenAdminWallet.methods.balance_of_public(w.getAddress()).simulate(),
+    //     await testAccounts.tokenContract.methods.balance_of_public(w.getAddress()).simulate(),
     //   );
     // }
 
-    // expect(ROUNDS * transferAmount * BigInt(testWallets.wallets.length)).toBe(
-    //   await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate(),
+    // expect(ROUNDS * transferAmount * BigInt(testAccounts.wallets.length)).toBe(
+    //   await testAccounts.tokenContract.methods.balance_of_public(recipient).simulate(),
     // );
   });
 });

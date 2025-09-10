@@ -56,7 +56,6 @@ function compile_all {
   # Call all projects that have a generation stage.
   parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
     accounts \
-    bb-prover \
     stdlib \
     ivc-integration \
     l1-artifacts \
@@ -69,6 +68,10 @@ function compile_all {
   cat joblog.txt
 
   get_projects | compile_project
+
+  # Run oracle version check for pxe after compilation
+  cd pxe && yarn check_oracle_version
+  cd ..
 
   cmds=('format --check')
   if [ "${TYPECHECK:-0}" -eq 1 ] || [ "${CI:-0}" -eq 1 ]; then
@@ -142,7 +145,7 @@ function test_cmds {
     fi
 
     if [[ "$test" =~ rollup_ivc_integration || "$test" =~ avm_integration ]]; then
-      cmd_env+=" LOG_LEVEL=trace BB_VERBOSE=1 "
+      cmd_env+=" LOG_LEVEL=debug BB_VERBOSE=1 "
     fi
 
     echo "${prefix}${cmd_env} yarn-project/scripts/run_test.sh $test"
@@ -225,6 +228,35 @@ case "$cmd" in
     else
       get_projects | compile_project
     fi
+    ;;
+  instrumented_profile)
+    # Automatically hooks sites with benchmarking instrumentation.
+    if [ "$#" -gt 1 ]; then
+      echo "Usage: ./bootstrap.sh profile <command>"
+      exit 1
+    fi
+    cmd=$1
+    # Refuse to continue if there are uncommitted changes to tracked files.
+    if [ -n "$(git status --porcelain | grep -v '^??')" ]; then
+      echo "Please commit or stash your changes before running this command."
+      exit 1
+    fi
+    rm -f profile-*.json
+    echo "NOTE: If you interrupt this you may have a dirty git state or build state. Otherwise it will clean up."
+    ( cd ./scripts/instrumenting-profiler && npm install )
+    ./scripts/instrumenting-profiler/instrument.sh
+    denoise "./bootstrap.sh compile"
+    pwd=$(pwd)
+    cleanup_instrumentation() {
+      # we may have changed paths
+      git checkout "$pwd"
+      denoise "cd '$pwd' && ./bootstrap.sh compile"
+      for f in profile-*.json; do
+        echo "To print: ./scripts/instrumenting-profiler/print.mjs $(pwd)/$f"
+      done
+    }
+    trap cleanup_instrumentation EXIT
+    eval "$cmd"
     ;;
   lint|format)
     $cmd "$@"

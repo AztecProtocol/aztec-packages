@@ -9,6 +9,7 @@
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
 
 namespace bb::avm2 {
@@ -46,6 +47,25 @@ void AvmProver::execute_preamble_round()
 }
 
 /**
+ * @brief Add public inputs to transcript
+ *
+ */
+void AvmProver::execute_public_inputs_round()
+{
+    // We take the starting values of the public inputs polynomials to add to the transcript
+    const auto public_inputs_cols = std::vector({ &prover_polynomials.public_inputs_cols_0_,
+                                                  &prover_polynomials.public_inputs_cols_1_,
+                                                  &prover_polynomials.public_inputs_cols_2_,
+                                                  &prover_polynomials.public_inputs_cols_3_ });
+    for (size_t i = 0; i < public_inputs_cols.size(); ++i) {
+        for (size_t j = 0; j < AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH; ++j) {
+            // The public inputs are added to the hash buffer, but do not increase the size of the proof
+            transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
+                                           j < public_inputs_cols[i]->size() ? public_inputs_cols[i]->at(j) : FF(0));
+        }
+    }
+}
+/**
  * @brief Compute commitments to all of the witness wires (apart from the logderivative inverse wires)
  *
  */
@@ -82,14 +102,11 @@ void AvmProver::execute_log_derivative_inverse_round()
 
 void AvmProver::execute_log_derivative_inverse_commitments_round()
 {
-    // Commit to all logderivative inverse polynomials
-    for (auto [commitment, key_poly] : zip_view(witness_commitments.get_derived(), key->get_derived())) {
-        commitment = commitment_key.commit(key_poly);
-    }
-
-    // Send all commitments to the verifier
-    for (auto [label, commitment] :
-         zip_view(prover_polynomials.get_derived_labels(), witness_commitments.get_derived())) {
+    // Commit to all logderivative inverse polynomials and send to verifier
+    for (auto [derived_poly, commitment, label] : zip_view(prover_polynomials.get_derived(),
+                                                           witness_commitments.get_derived(),
+                                                           prover_polynomials.get_derived_labels())) {
+        commitment = commitment_key.commit(derived_poly);
         transcript->send_to_verifier(label, commitment);
     }
 }
@@ -105,11 +122,9 @@ void AvmProver::execute_relation_check_rounds()
     // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);
-
-    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
-        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-    }
+    // Generate gate challenges
+    std::vector<FF> gate_challenges =
+        transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", key->log_circuit_size);
 
     Sumcheck sumcheck(key->circuit_size,
                       prover_polynomials,
@@ -117,7 +132,7 @@ void AvmProver::execute_relation_check_rounds()
                       alpha,
                       gate_challenges,
                       relation_parameters,
-                      CONST_PROOF_SIZE_LOG_N);
+                      key->log_circuit_size);
 
     sumcheck_output = sumcheck.prove();
 }
@@ -146,6 +161,9 @@ HonkProof AvmProver::construct_proof()
 {
     // Add circuit size public input size and public inputs to transcript.
     execute_preamble_round();
+
+    // Add public inputs to transcript.
+    AVM_TRACK_TIME("prove/public_inputs_round", execute_public_inputs_round());
 
     // Compute wire commitments.
     AVM_TRACK_TIME("prove/wire_commitments_round", execute_wire_commitments_round());

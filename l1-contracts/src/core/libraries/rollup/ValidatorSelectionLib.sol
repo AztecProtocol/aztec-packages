@@ -203,7 +203,8 @@ library ValidatorSelectionLib {
     Epoch _epochNumber,
     CommitteeAttestations memory _attestations,
     address[] memory _signers,
-    bytes32 _digest
+    bytes32 _digest,
+    Signature memory _attestationsAndSignersSignature
   ) internal {
     // Try load the proposer from cache
     (address proposer, uint256 proposerIndex) = getCachedProposer(_slot);
@@ -252,6 +253,12 @@ library ValidatorSelectionLib {
     bytes32 digest = _digest.toEthSignedMessageHash();
     Signature memory signature = _attestations.getSignature(proposerIndex);
     SignatureLib.verify(signature, proposer, digest);
+
+    // Check that the proposer have signed the `_attestations|_signers` data such that invalid `_attestations|_signers`
+    // data can be attributed to the `proposer` specifically.
+    bytes32 attestationsAndSignersDigest =
+      _attestations.getAttestationsAndSignersDigest(_signers).toEthSignedMessageHash();
+    SignatureLib.verify(_attestationsAndSignersSignature, proposer, attestationsAndSignersDigest);
   }
 
   /**

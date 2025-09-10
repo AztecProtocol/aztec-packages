@@ -1,4 +1,4 @@
-import { EmpireSlashingProposerContract } from '@aztec/ethereum';
+import { EmpireSlashingProposerContract, RollupContract, SlasherContract } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -16,18 +16,20 @@ import {
 import { jest } from '@jest/globals';
 import { type MockProxy, mockDeep } from 'jest-mock-extended';
 import assert from 'node:assert';
-import EventEmitter from 'node:events';
 
 import { DefaultSlasherConfig } from './config.js';
 import { EmpireSlasherClient, type EmpireSlasherSettings } from './empire_slasher_client.js';
 import { SlasherOffensesStore } from './stores/offenses_store.js';
 import { SlasherPayloadsStore } from './stores/payloads_store.js';
-import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEmitter } from './watcher.js';
+import { DummyWatcher } from './test/dummy_watcher.js';
+import type { WantToSlashArgs, Watcher } from './watcher.js';
 
 describe('EmpireSlasherClient', () => {
   let slasherClient: TestEmpireSlasherClient;
   let slashFactoryContract: MockProxy<SlashFactoryContract>;
   let slashingProposer: MockProxy<EmpireSlashingProposerContract>;
+  let rollupContract: MockProxy<RollupContract>;
+  let slasherContract: MockProxy<SlasherContract>;
   let dummyWatcher: DummyWatcher;
   let kvStore: ReturnType<typeof openTmpStore>;
   let offensesStore: SlasherOffensesStore;
@@ -35,7 +37,6 @@ describe('EmpireSlasherClient', () => {
   let dateProvider: DateProvider;
   let logger: Logger;
 
-  const rollupAddress = EthAddress.random();
   const settings: EmpireSlasherSettings = {
     slashingExecutionDelayInRounds: 2,
     slashingPayloadLifetimeInRounds: 10,
@@ -47,6 +48,7 @@ describe('EmpireSlasherClient', () => {
     l1StartBlock: 0n,
     slotDuration: 4,
     ethereumSlotDuration: 12,
+    slashingAmounts: undefined,
   };
 
   const config: SlasherConfig = {
@@ -144,12 +146,23 @@ describe('EmpireSlasherClient', () => {
 
     // Create real stores with in-memory database
     kvStore = openTmpStore();
-    offensesStore = new SlasherOffensesStore(kvStore, settings);
-    payloadsStore = new SlasherPayloadsStore(kvStore);
+    offensesStore = new SlasherOffensesStore(kvStore, {
+      ...settings,
+      slashOffenseExpirationRounds: config.slashOffenseExpirationRounds,
+    });
+    payloadsStore = new SlasherPayloadsStore(kvStore, {
+      slashingPayloadLifetimeInRounds: settings.slashingPayloadLifetimeInRounds,
+    });
 
     // Create mocks for L1 contracts
     slashFactoryContract = mockDeep<SlashFactoryContract>();
     slashingProposer = mockDeep<EmpireSlashingProposerContract>();
+    rollupContract = mockDeep<RollupContract>();
+    slasherContract = mockDeep<SlasherContract>();
+
+    // Setup rollup and slasher contract mocks
+    rollupContract.getSlasherContract.mockResolvedValue(slasherContract);
+    slasherContract.isPayloadVetoed.mockResolvedValue(false);
 
     // Create watcher
     dummyWatcher = new DummyWatcher();
@@ -160,7 +173,7 @@ describe('EmpireSlasherClient', () => {
       settings,
       slashFactoryContract,
       slashingProposer,
-      rollupAddress,
+      rollupContract,
       [dummyWatcher],
       dateProvider,
       offensesStore,
@@ -252,10 +265,6 @@ describe('EmpireSlasherClient', () => {
       const pendingOffenses = await offensesStore.getPendingOffenses();
       expect(pendingOffenses).toHaveLength(1);
     });
-  });
-
-  describe('handleNewRound', () => {
-    it.todo('clears expired payloads and offenses');
   });
 
   describe('handleProposalExecutable', () => {
@@ -632,7 +641,7 @@ class TestEmpireSlasherClient extends EmpireSlasherClient {
     settings: EmpireSlasherSettings,
     slashFactoryContract: SlashFactoryContract,
     slashingProposer: EmpireSlashingProposerContract,
-    rollupAddress: EthAddress,
+    rollup: RollupContract,
     watchers: Watcher[],
     dateProvider: DateProvider,
     offensesStore: SlasherOffensesStore,
@@ -644,7 +653,7 @@ class TestEmpireSlasherClient extends EmpireSlasherClient {
       settings,
       slashFactoryContract,
       slashingProposer,
-      rollupAddress,
+      rollup,
       watchers,
       dateProvider,
       offensesStore,
@@ -707,11 +716,5 @@ class TestEmpireSlasherClient extends EmpireSlasherClient {
 
   public get offensesCollectorPublic() {
     return (this as any).offensesCollector;
-  }
-}
-
-class DummyWatcher extends (EventEmitter as new () => WatcherEmitter) implements Watcher {
-  public triggerSlash(args: WantToSlashArgs[]) {
-    this.emit(WANT_TO_SLASH_EVENT, args);
   }
 }

@@ -27,14 +27,6 @@ namespace bb::avm2 {
 
 INSTANTIATE_LOOKUP(lookup_poseidon2_mem_check_src_addr_in_range_relation);
 INSTANTIATE_LOOKUP(lookup_poseidon2_mem_check_dst_addr_in_range_relation);
-INSTANTIATE_LOOKUP(lookup_poseidon2_mem_pos_read_mem_0_relation);
-INSTANTIATE_LOOKUP(lookup_poseidon2_mem_pos_read_mem_1_relation);
-INSTANTIATE_LOOKUP(lookup_poseidon2_mem_pos_read_mem_2_relation);
-INSTANTIATE_LOOKUP(lookup_poseidon2_mem_pos_read_mem_3_relation);
 INSTANTIATE_LOOKUP(lookup_poseidon2_mem_input_output_poseidon2_perm_relation);
-INSTANTIATE_LOOKUP(lookup_poseidon2_mem_pos_write_mem_0_relation);
-INSTANTIATE_LOOKUP(lookup_poseidon2_mem_pos_write_mem_1_relation);
-INSTANTIATE_LOOKUP(lookup_poseidon2_mem_pos_write_mem_2_relation);
-INSTANTIATE_LOOKUP(lookup_poseidon2_mem_pos_write_mem_3_relation);
 
 } // namespace bb::avm2

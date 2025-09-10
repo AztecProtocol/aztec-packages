@@ -1,6 +1,6 @@
 // This test should only use packages that are published to npm
 // docs:start:imports
-import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
+import { getDeployedTestAccounts } from '@aztec/accounts/testing';
 import {
   EthAddress,
   Fr,
@@ -21,6 +21,7 @@ import {
 } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
+import { TestWallet } from '@aztec/test-wallet';
 
 import { getContract } from 'viem';
 
@@ -76,9 +77,10 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     // docs:start:setup
     const logger = createLogger('aztec:token-bridge-tutorial');
     const pxe = await setupSandbox();
-    const wallets = await getInitialTestAccountsWallets(pxe);
-    const ownerWallet = wallets[0];
-    const ownerAztecAddress = wallets[0].getAddress();
+    const wallet = new TestWallet(pxe);
+    const [ownerAccount] = await getDeployedTestAccounts(pxe);
+    await wallet.createSchnorrAccount(ownerAccount.secret, ownerAccount.salt, ownerAccount.signingKey);
+    const { address: ownerAztecAddress } = ownerAccount;
     const l1ContractAddresses = (await pxe.getNodeInfo()).l1ContractAddresses;
     logger.info('L1 Contract Addresses:');
     logger.info(`Registry Address: ${l1ContractAddresses.registryAddress}`);
@@ -89,7 +91,7 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
 
     // Deploy L2 token contract
     // docs:start:deploy-l2-token
-    const l2TokenContract = await TokenContract.deploy(ownerWallet, ownerAztecAddress, 'L2 Token', 'L2', 18)
+    const l2TokenContract = await TokenContract.deploy(wallet, ownerAztecAddress, 'L2 Token', 'L2', 18)
       .send({ from: ownerAztecAddress })
       .deployed();
     logger.info(`L2 token contract deployed at ${l2TokenContract.address}`);
@@ -119,11 +121,7 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     // docs:end:deploy-portal
     // Deploy L2 bridge contract
     // docs:start:deploy-l2-bridge
-    const l2BridgeContract = await TokenBridgeContract.deploy(
-      ownerWallet,
-      l2TokenContract.address,
-      l1PortalContractAddress,
-    )
+    const l2BridgeContract = await TokenBridgeContract.deploy(wallet, l2TokenContract.address, l1PortalContractAddress)
       .send({ from: ownerAztecAddress })
       .deployed();
     logger.info(`L2 token bridge contract deployed at ${l2BridgeContract.address}`);
@@ -180,7 +178,8 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     const authwitNonce = Fr.random();
 
     // Give approval to bridge to burn owner's funds:
-    const authwit = await ownerWallet.setPublicAuthWit(
+    const authwit = await wallet.setPublicAuthWit(
+      ownerAztecAddress,
       {
         caller: l2BridgeContract.address,
         action: l2TokenContract.methods.burn_public(ownerAztecAddress, withdrawAmount, authwitNonce),

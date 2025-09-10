@@ -37,6 +37,8 @@ import {RewardLib, RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.so
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {FeeConfigLib, CompressedFeeConfig} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
+import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
+import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 
 /**
  * @title RollupCore
@@ -177,6 +179,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   using TimeLib for Slot;
   using TimeLib for Epoch;
   using FeeConfigLib for CompressedFeeConfig;
+  using ChainTipsLib for CompressedChainTips;
 
   /**
    * @notice The L1 block number when this rollup was deployed
@@ -237,7 +240,10 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
 
     // We call one external library or another based on the slasher flavor
     // This allows us to keep the slash flavors in separate external libraries so we do not exceed max contract size
-    if (_config.slasherFlavor == SlasherFlavor.TALLY) {
+    // Note that we do not deploy a slasher if we run with no committees (i.e. targetCommitteeSize == 0)
+    if (_config.targetCommitteeSize == 0 || _config.slasherFlavor == SlasherFlavor.NONE) {
+      slasher = ISlasher(address(0));
+    } else if (_config.slasherFlavor == SlasherFlavor.TALLY) {
       slasher = TallySlasherDeploymentExtLib.deployTallySlasher(
         address(this),
         _config.slashingVetoer,
@@ -246,7 +252,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
         _config.slashingRoundSize,
         _config.slashingLifetimeInRounds,
         _config.slashingExecutionDelayInRounds,
-        _config.slashingUnit,
+        _config.slashAmounts,
         _config.targetCommitteeSize,
         _config.aztecEpochDuration,
         _config.slashingOffsetInRounds
@@ -263,7 +269,9 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
       );
     }
 
-    StakingLib.initialize(_stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig);
+    StakingLib.initialize(
+      _stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig, _config.localEjectionThreshold
+    );
     ValidatorOperationsExtLib.initializeValidatorSelection(_config.targetCommitteeSize);
 
     // If no booster is specifically provided, deploy one.
@@ -316,6 +324,13 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     uint256 currentManaTarget = FeeLib.getStorage().config.getManaTarget();
     require(_manaTarget >= currentManaTarget, Errors.Rollup__InvalidManaTarget(currentManaTarget, _manaTarget));
     FeeLib.updateManaTarget(_manaTarget);
+
+    // If we are going from 0 to non-zero mana limits, we need to catch up the inbox
+    if (currentManaTarget == 0 && _manaTarget > 0) {
+      RollupStore storage rollupStore = STFLib.getStorage();
+      rollupStore.config.inbox.catchUp(rollupStore.tips.getPendingBlockNumber());
+    }
+
     emit IRollupCore.ManaTargetUpdated(_manaTarget);
   }
 
@@ -336,6 +351,16 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    */
   function setSlasher(address _slasher) external override(IStakingCore) onlyOwner {
     ValidatorOperationsExtLib.setSlasher(_slasher);
+  }
+
+  /**
+   * @notice Updates the local ejection threshold
+   * @dev Only callable by owner. The local ejection threshold is the minimum amount of stake that a validator can have
+   *      after being slashed.
+   * @param _localEjectionThreshold The new local ejection threshold
+   */
+  function setLocalEjectionThreshold(uint256 _localEjectionThreshold) external override(IStakingCore) onlyOwner {
+    ValidatorOperationsExtLib.setLocalEjectionThreshold(_localEjectionThreshold);
   }
 
   /**
@@ -495,9 +520,12 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     ProposeArgs calldata _args,
     CommitteeAttestations memory _attestations,
     address[] calldata _signers,
+    Signature calldata _attestationsAndSignersSignature,
     bytes calldata _blobInput
   ) external override(IRollupCore) {
-    RollupOperationsExtLib.propose(_args, _attestations, _signers, _blobInput, checkBlob);
+    RollupOperationsExtLib.propose(
+      _args, _attestations, _signers, _attestationsAndSignersSignature, _blobInput, checkBlob
+    );
   }
 
   /**
