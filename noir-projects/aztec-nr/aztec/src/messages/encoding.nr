@@ -1,9 +1,28 @@
 // TODO(#12750): don't make these values assume we're using AES.
-use crate::{
-    messages::encryption::log_encryption::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS, utils::array,
-};
+use crate::utils::array;
+use protocol_types::constants::PRIVATE_LOG_CIPHERTEXT_LEN;
 
-pub global MAX_MESSAGE_LEN: u32 = PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
+// We reassign to the constant here to communicate the distinction between a log and a message. In Aztec.nr, unlike in
+// protocol circuits, we have a concept of a message that can be emitted either as a private log or as an offchain
+// message. Message is a piece of data that is to be eventually delivered to a contract via the `process_message(...)`
+// utility function function that is injected by the #[aztec] macro.
+pub global MESSAGE_CIPHERTEXT_LEN: u32 = PRIVATE_LOG_CIPHERTEXT_LEN;
+
+// TODO(#12750): The global variables below should not be here as they are AES128 specific.
+// ciphertext_length (2) + 14 bytes pkcs#7 AES padding.
+pub(crate) global HEADER_CIPHERTEXT_SIZE_IN_BYTES: u32 = 16;
+
+pub global EPH_PK_X_SIZE_IN_FIELDS: u32 = 1;
+pub global EPH_PK_SIGN_BYTE_SIZE_IN_BYTES: u32 = 1;
+
+// (17 - 1) * 31 - 16 - 1 = 479
+global MESSAGE_PLAINTEXT_SIZE_IN_BYTES: u32 = (MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS)
+    * 31
+    - HEADER_CIPHERTEXT_SIZE_IN_BYTES
+    - EPH_PK_SIGN_BYTE_SIZE_IN_BYTES;
+// Each field of the original note log was serialized to 32 bytes. Below we convert the bytes back to fields.
+// 479 / 32 = 15
+pub global MESSAGE_PLAINTEXT_LEN: u32 = MESSAGE_PLAINTEXT_SIZE_IN_BYTES / 32;
 
 global MESSAGE_EXPANDED_METADATA_LEN: u32 = 1;
 
@@ -29,7 +48,7 @@ global MESSAGE_EXPANDED_METADATA_LEN: u32 = 1;
 // name to make it distinct from the message content given that it is not a full field.
 
 /// The maximum length of a message's content, i.e. not including the expanded message metadata.
-pub global MAX_MESSAGE_CONTENT_LEN: u32 = MAX_MESSAGE_LEN - MESSAGE_EXPANDED_METADATA_LEN;
+pub global MAX_MESSAGE_CONTENT_LEN: u32 = MESSAGE_PLAINTEXT_LEN - MESSAGE_EXPANDED_METADATA_LEN;
 
 /// Encodes a message following aztec-nr's standard message encoding. This message can later be decoded with
 /// `decode_message` to retrieve the original values.
@@ -72,7 +91,7 @@ pub fn encode_message<let N: u32>(
 /// prior to decoding the message type is unknown, and consequentially not known at compile time. If working with
 /// fixed-size messages, consider using `BoundedVec::from_array` to convert them.
 pub unconstrained fn decode_message(
-    message: BoundedVec<Field, MAX_MESSAGE_LEN>,
+    message: BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>,
 ) -> (u64, u64, BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>) {
     assert(
         message.len() >= MESSAGE_EXPANDED_METADATA_LEN,
