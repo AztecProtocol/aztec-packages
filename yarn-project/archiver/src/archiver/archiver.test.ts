@@ -415,7 +415,9 @@ describe('Archiver', () => {
       return [badBlock, badBlockRollupTx, badBlockBlobHashes, badBlockBlobs] as const;
     };
 
+    // We create two bad blocks with blocknumber 2, and one bad block with blocknumber 3
     const [badBlock2, badBlock2RollupTx, badBlock2BlobHashes, badBlock2Blobs] = await makeBadBlock(2);
+    const [badBlock2b, badBlock2bRollupTx, badBlock2bBlobHashes, badBlock2bBlobs] = await makeBadBlock(2);
     const [badBlock3, badBlock3RollupTx, badBlock3BlobHashes, badBlock3Blobs] = await makeBadBlock(3);
 
     // Return the archive root for the bad block 2 when L1 is queried
@@ -428,7 +430,7 @@ describe('Archiver', () => {
     logger.warn(`Created invalid block 3 with root ${badBlock3.archive.root.toString()}`);
 
     // During the first archiver loop, we fetch block 1 and the block 2 with bad attestations
-    publicClient.getBlockNumber.mockResolvedValue(85n);
+    publicClient.getBlockNumber.mockResolvedValue(82n);
     makeL2BlockProposedEvent(70n, 1n, blocks[0].archive.root.toString(), blobHashes[0]);
     makeL2BlockProposedEvent(80n, 2n, badBlock2.archive.root.toString(), badBlock2BlobHashes);
     mockRollup.read.status.mockResolvedValue([0n, GENESIS_ROOT, 2n, badBlock2.archive.root.toString(), GENESIS_ROOT]);
@@ -456,10 +458,33 @@ describe('Archiver', () => {
       }),
     );
 
+    // Another loop, where a proposer invalidates the invalid block 2, but proposes another invalid block 2 (2b)
+    logger.warn(`Adding new block 2 with bad attestations`);
+    publicClient.getBlockNumber.mockResolvedValue(85n);
+    makeL2BlockProposedEvent(85n, 2n, badBlock2b.archive.root.toString(), badBlock2bBlobHashes);
+    mockRollup.read.status.mockResolvedValue([
+      0n,
+      GENESIS_ROOT,
+      2n,
+      badBlock2b.archive.root.toString(),
+      blocks[0].archive.root.toString(),
+    ]);
+    publicClient.getTransaction.mockResolvedValueOnce(badBlock2bRollupTx);
+    blobSinkClient.getBlobSidecar.mockResolvedValueOnce(badBlock2bBlobs);
+
+    // Our chain validation status should be updated to point to the new bad block 2b
+    await archiver.syncImmediate();
+    latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(1);
+    let validationStatus = await archiver.getPendingChainValidationStatus();
+    assert(!validationStatus.valid);
+    expect(validationStatus.block.blockNumber).toEqual(2);
+    expect(validationStatus.block.archive.toString()).toEqual(badBlock2b.archive.root.toString());
+
     // Now another loop, where we propose a block 3 with bad attestations
     logger.warn(`Adding new block 3 with bad attestations`);
     publicClient.getBlockNumber.mockResolvedValue(90n);
-    makeL2BlockProposedEvent(85n, 3n, badBlock3.archive.root.toString(), badBlock3BlobHashes);
+    makeL2BlockProposedEvent(88n, 3n, badBlock3.archive.root.toString(), badBlock3BlobHashes);
     mockRollup.read.status.mockResolvedValue([
       0n,
       GENESIS_ROOT,
@@ -475,10 +500,10 @@ describe('Archiver', () => {
     await archiver.syncImmediate();
     latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(1);
-    const validationStatus = await archiver.getPendingChainValidationStatus();
+    validationStatus = await archiver.getPendingChainValidationStatus();
     assert(!validationStatus.valid);
-    expect(validationStatus.block.block.number).toEqual(2);
-    expect(validationStatus.block.block.archive.root.toString()).toEqual(badBlock2.archive.root.toString());
+    expect(validationStatus.block.blockNumber).toEqual(2);
+    expect(validationStatus.block.archive.toString()).toEqual(badBlock2.archive.root.toString());
 
     // Check that InvalidBlockDetected event was also emitted for bad block 3
     expect(invalidBlockDetectedSpy).toHaveBeenCalledWith(

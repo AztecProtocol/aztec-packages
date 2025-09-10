@@ -1,4 +1,4 @@
-import type { ArchiveSource, L1PublishedData } from '@aztec/archiver';
+import type { ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, Fr, GlobalVariables, type L2Block, createLogger } from '@aztec/aztec.js';
 import { BatchedBlob, Blob } from '@aztec/blob-lib';
@@ -178,16 +178,18 @@ describe('L1Publisher integration', () => {
       },
       getPublishedBlocks(from, limit, _proven) {
         return Promise.resolve(
-          blocks.slice(from - 1, from - 1 + limit).map(block => ({
-            attestations: [],
-            block,
-            // Use L2 block number and hash for faking the L1 info
-            l1: {
-              blockNumber: BigInt(block.number),
-              blockHash: block.hash.toString(),
-              timestamp: BigInt(block.number),
-            },
-          })),
+          blocks.slice(from - 1, from - 1 + limit).map(block =>
+            PublishedL2Block.fromFields({
+              attestations: [],
+              block,
+              // Use L2 block number and hash for faking the L1 info
+              l1: {
+                blockNumber: BigInt(block.number),
+                blockHash: block.hash.toString(),
+                timestamp: BigInt(block.number),
+              },
+            }),
+          ),
         );
       },
       getL2Tips(): Promise<L2Tips> {
@@ -616,8 +618,9 @@ describe('L1Publisher integration', () => {
       const invalidateRequest = await publisher.simulateInvalidateBlock({
         valid: false,
         committee: committee!,
-        block: new PublishedL2Block(block, {} as L1PublishedData, badAttestations),
-        attestations: badBlockAttestations,
+        block: block.toBlockInfo(),
+        attestors: [],
+        attestations: badAttestations,
         epoch: 1n,
         seed: 1n,
         reason: 'insufficient-attestations',

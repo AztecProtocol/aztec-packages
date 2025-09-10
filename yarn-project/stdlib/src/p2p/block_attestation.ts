@@ -98,6 +98,10 @@ export class BlockAttestation extends Gossipable {
     return new BlockAttestation(0, ConsensusPayload.empty(), Signature.empty());
   }
 
+  static random(): BlockAttestation {
+    return new BlockAttestation(Math.floor(Math.random() * 1000) + 1, ConsensusPayload.random(), Signature.random());
+  }
+
   getSize(): number {
     return 4 /* blockNumber */ + this.payload.getSize() + this.signature.getSize();
   }
