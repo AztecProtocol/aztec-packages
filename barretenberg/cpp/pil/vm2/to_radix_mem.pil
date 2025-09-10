@@ -46,7 +46,7 @@ include "precomputed.pil";
  *     Finally, if is num_limbs = 0 && value_to_decompose = 0 (which are valid inputs), then no memory writes are performed
  *
  * This subtrace is connected to the TORADIX subtrace via a lookup. TORADIX is used by
- * other subtraces internally (e.g., scalar mul ).
+ * other subtraces internally (e.g., scalar mul).
  *
  * NOTE: The TORADIX subtrace performs the decomposition in LITTLE ENDIAN. This is more optimal
  *       for the internal gadget use. Therefore this subtrace needs to reverse the output of TORADIX
@@ -106,8 +106,7 @@ namespace to_radix_mem;
     ////////////////////////////////////////////////
     // Error Handling - Out of Range Memory Access
     ////////////////////////////////////////////////
-    pol commit sel_dst_out_of_range_err;
-    sel_dst_out_of_range_err * (1 - sel_dst_out_of_range_err) = 0;
+    pol commit sel_dst_out_of_range_err; // Constrained to be boolean by the lookup into gt. (provided that start == 1).
 
     // Use the comparison gadget to check that the max addresses are within range
     // The comparison gadget provides the ability to test GreaterThan so we check
@@ -128,11 +127,9 @@ namespace to_radix_mem;
     ////////////////////////////////////////////////
     // To check that 2 <= radix <= 256, we raise error flags if 2 > radix or radix > 256.
     // We formulate them like this since we have access to a GT gadget.
-    pol commit sel_radix_lt_2_err; // Radix is < 2
-    sel_radix_lt_2_err * (1 - sel_radix_lt_2_err) = 0;
+    pol commit sel_radix_lt_2_err; // Radix is < 2 (Constrained to be boolean by the lookup into gt. (provided that start == 1).)
 
-    pol commit sel_radix_gt_256_err; // Radix is > 256
-    sel_radix_gt_256_err * (1 - sel_radix_gt_256_err) = 0;
+    pol commit sel_radix_gt_256_err; // Radix is > 256 (Constrained to be boolean by the lookup into gt. (provided that start == 1).)
 
     pol commit sel_invalid_bitwise_radix; // Radix != 2 if output_bits = 1
     sel_invalid_bitwise_radix * (1 - sel_invalid_bitwise_radix) = 0;
@@ -175,6 +172,7 @@ namespace to_radix_mem;
     pol commit sel_invalid_num_limbs_err; // err = 1 if num_limbs == 0 while value != 0
     sel_invalid_num_limbs_err = sel_num_limbs_is_zero * (1 - sel_value_is_zero);
 
+    // err is constrained on the row where start == 1. (each specific error is gated by start)
     pol commit err; // Consolidated error flag
     err = 1 - (1 - sel_dst_out_of_range_err) * (1 - sel_radix_lt_2_err)
         * (1 - sel_radix_gt_256_err) * (1 - sel_invalid_bitwise_radix)
@@ -190,25 +188,28 @@ namespace to_radix_mem;
     #[INCR_DST_ADDRESS]
     NOT_LAST * (dst_addr' - (dst_addr + 1)) = 0;
 
-    // Constraining last - the computation is terminated when: num_limbs = 1 or err = 1
-    pol SEL_NO_ERR = sel * (1 - err);
+    // Constraining last - the computation is terminated when one of the following conditions is met:
+    // 1) err == 1
+    // 2) num_limbs == 0
+    // 3) num_limbs == 1
+    // Note: These conditions are not mutually exclusive.
+
+    #[LAST_ROW_ERR_COMPUTATION] // last == 1 if err == 1 (can only occur on the start row)
+    start * err * (last - 1) = 0;
+    // The implication of the above condition is that LATCH_CONDITION = 1 if there is an error
+
+    #[LAST_ROW_NUM_LIMBS_ZERO] // last == 1 if num_limbs == 0 (can only occur on the start row)
+    start * sel_num_limbs_is_zero * (last - 1) = 0;
+
+    // Introduce a selector covering all active rows except the start row with an error or the start row
+    // with num_limbs == 0.
+    pol NO_ERR_NOR_NUM_LIMBS_ZERO = start * (1 - err) * (1 - sel_num_limbs_is_zero) + (1 - start) * sel; // Error can only occur on the start row.
     pol NUM_LIMBS_MINUS_ONE = num_limbs - 1;
     pol commit num_limbs_minus_one_inv;
 
-
-    // todo(ilyas); there must be a nicer way to make these relations cleaner. Last needs to be set based on:
-    // 1) num_limbs - 1 = 0; part of a normal computation
-    // 2) num_limbs = 0; if the user-supplied num_limbs = 0 && value_to_decompose = 0
-    // 3) err = 1;
-    #[LAST_ROW_VALID_COMPUTATION] // last = 1 if num_limbs = 1 && err = 0 && num_limbs != 0
-    SEL_NO_ERR * (1 - sel_num_limbs_is_zero) * (NUM_LIMBS_MINUS_ONE * (last * (1 - num_limbs_minus_one_inv) + num_limbs_minus_one_inv) - 1 + last) = 0;
-
-    #[LAST_ROW_NUM_LIMBS_ZERO] // last = 1 if num_limbs = 0
-    sel * sel_num_limbs_is_zero * (last - 1) = 0;
-
-    #[LAST_ROW_ERR_COMPUTATION] // last = 1 if err = 1 && num_limbs != 0
-    sel * err * (1 - sel_num_limbs_is_zero) * (last - 1) = 0;
-    // The implication of the above condition is that LATCH_CONDITION = 1 if there is an error
+    // If [start == 1 && err = 0 && num_limbs != 0] || [start == 0], we constrain: last = 1 iff num_limbs = 1
+    #[LAST_ROW_VALID_COMPUTATION]
+    NO_ERR_NOR_NUM_LIMBS_ZERO * (NUM_LIMBS_MINUS_ONE * (last * (1 - num_limbs_minus_one_inv) + num_limbs_minus_one_inv) - 1 + last) = 0;
 
     /////////////////////////////////////////////////////
     // Dispatch inputs to to_radix and retrieve outputs

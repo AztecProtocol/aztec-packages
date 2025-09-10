@@ -22,35 +22,29 @@ void notehash_existsImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_note_hash_leaf_in_range)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_note_hash_leaf_in_range)));
-        std::get<0>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_execute_notehash_exists)) *
                    (static_cast<View>(in.get(C::execution_note_hash_tree_leaf_count)) -
                     CView(constants_NOTE_HASH_TREE_LEAF_COUNT));
-        std::get<1>(evals) += (tmp * scaling_factor);
+        std::get<0>(evals) += (tmp * scaling_factor);
     }
     { // NOTE_HASH_EXISTS_OUT_OF_RANGE_FALSE
-        using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_execute_notehash_exists)) *
                    (FF(1) - static_cast<View>(in.get(C::execution_note_hash_leaf_in_range))) *
                    static_cast<View>(in.get(C::execution_register_2_));
-        std::get<2>(evals) += (tmp * scaling_factor);
+        std::get<1>(evals) += (tmp * scaling_factor);
     }
     { // NOTEHASH_EXISTS_U1_OUTPUT_TAG
-        using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_execute_notehash_exists)) *
                    (CView(constants_MEM_TAG_U1) - static_cast<View>(in.get(C::execution_mem_tag_reg_2_)));
-        std::get<3>(evals) += (tmp * scaling_factor);
+        std::get<2>(evals) += (tmp * scaling_factor);
     }
     { // NOTE_HASH_EXISTS_SUCCESS
-        using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_execute_notehash_exists)) *
                    static_cast<View>(in.get(C::execution_sel_opcode_error));
-        std::get<4>(evals) += (tmp * scaling_factor);
+        std::get<3>(evals) += (tmp * scaling_factor);
     }
 }
 

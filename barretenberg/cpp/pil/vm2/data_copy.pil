@@ -142,11 +142,11 @@ namespace data_copy;
     //////////////////////////////
     // These relations occur independent of if we error (mainly because they help in finding out if there is an error)
     // Start and end constrained in "Control Flow Management" section
-    pol commit sel_start; // sel_start = 1 <==> SEL = 1
+    pol commit sel_start; // sel_start = 1 ==> SEL = 1
     sel_start * (1 - SEL) = 0;
 
     // End controls most of the row propagation, so if we error we also set end to turn off row propagation
-    pol commit sel_end; // sel_end = 1 <==> SEL = 1
+    pol commit sel_end; // sel_end = 1 ==> SEL = 1
     sel_end * (1 - SEL) = 0;
 
     // is_top_level if this is an enqueued call
@@ -182,10 +182,9 @@ namespace data_copy;
     //////////////////////////////
     // Error Handling
     //////////////////////////////
+    // Both errors are constrained to be boolean by the lookup into gt. (provided that sel_start == 1).
     pol commit src_out_of_range_err; // Read slices should be in MEM range
-    src_out_of_range_err * (1 - src_out_of_range_err) = 0;
     pol commit dst_out_of_range_err; // Write slices should be in MEM range
-    dst_out_of_range_err * (1 - dst_out_of_range_err) = 0;
 
     pol commit max_mem_addr; // todo: While we do not support constants
     sel_start * (max_mem_addr - constants.AVM_HIGHEST_MEM_ADDRESS) = 0;
@@ -231,7 +230,7 @@ namespace data_copy;
     #[END_IF_WRITE_IS_ZERO]
     sel_start_no_err * sel_write_count_is_zero * (sel_end - 1) = 0;
 
-    pol SEL_PERFORM_COPY = SEL * (1 - err) * (1 - sel_write_count_is_zero);
+    pol SEL_PERFORM_COPY = sel_start_no_err * (1 - sel_write_count_is_zero) + SEL * (1 - sel_start);
 
     pol WRITE_COUNT_MINUS_ONE = copy_size - 1;
     pol commit write_count_minus_one_inv;

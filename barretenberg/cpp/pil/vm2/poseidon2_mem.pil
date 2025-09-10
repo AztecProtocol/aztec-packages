@@ -50,10 +50,8 @@ namespace poseidon2_perm_mem;
     ////////////////////////////////////////////////
     // Error Handling - Out of Range Memory Access
     ////////////////////////////////////////////////
-    pol commit sel_src_out_of_range_err;
-    sel_src_out_of_range_err * (1 - sel_src_out_of_range_err) = 0;
-    pol commit sel_dst_out_of_range_err;
-    sel_dst_out_of_range_err * (1 - sel_dst_out_of_range_err) = 0;
+    pol commit sel_src_out_of_range_err; // Constrained to be boolean by the lookup into gt. (provided that sel == 1).
+    pol commit sel_dst_out_of_range_err; // Constrained to be boolean by the lookup into gt. (provided that sel == 1).
 
     // Use the comparison gadget to check that the max addresses are within range
     // The comparison gadget provides the ability to test GreaterThan so we check
