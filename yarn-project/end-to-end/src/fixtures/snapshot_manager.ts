@@ -333,14 +333,6 @@ async function setupFromFresh(
   }
   aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:${blobSinkPort}`;
 
-  // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
-  logger.verbose('Starting anvil...');
-  const res = await startAnvil({ l1BlockTime: opts.ethereumSlotDuration });
-  const anvil = res.anvil;
-  aztecNodeConfig.l1RpcUrls = [res.rpcUrl];
-
-  // Deploy our L1 contracts.
-  logger.verbose('Deploying L1 contracts...');
   const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
   const publisherPrivKeyRaw = hdAccount.getHdKey().privateKey;
   const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
@@ -354,8 +346,17 @@ async function setupFromFresh(
   aztecNodeConfig.validatorPrivateKeys = new SecretValue([`0x${validatorPrivKey!.toString('hex')}`]);
   aztecNodeConfig.coinbase = opts.coinbase ?? EthAddress.fromString(`${hdAccount.address}`);
 
+  logger.info(`Setting up environment with config`, aztecNodeConfig);
+
+  // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
+  logger.verbose('Starting anvil...');
+  const res = await startAnvil({ l1BlockTime: opts.ethereumSlotDuration });
+  const anvil = res.anvil;
+  aztecNodeConfig.l1RpcUrls = [res.rpcUrl];
   const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls);
 
+  // Deploy our L1 contracts.
+  logger.verbose('Deploying L1 contracts...');
   if (opts.l1StartTime) {
     await ethCheatCodes.warp(opts.l1StartTime, { resetBlockInterval: true });
   }
@@ -432,7 +433,11 @@ async function setupFromFresh(
     proverNode = await createAndSyncProverNode(
       `0x${proverNodePrivateKey!.toString('hex')}`,
       aztecNodeConfig,
-      { dataDirectory: path.join(directoryToCleanup, randomBytes(8).toString('hex')), p2pEnabled: false },
+      {
+        ...aztecNodeConfig.proverNodeConfig,
+        dataDirectory: path.join(directoryToCleanup, randomBytes(8).toString('hex')),
+        p2pEnabled: false,
+      },
       aztecNode,
       prefilledPublicData,
     );
@@ -559,7 +564,11 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     proverNode = await createAndSyncProverNode(
       proverNodePrivateKeyHex,
       aztecNodeConfig,
-      { dataDirectory: path.join(directoryToCleanup, randomBytes(8).toString('hex')) },
+      {
+        ...aztecNodeConfig.proverNodeConfig,
+        dataDirectory: path.join(directoryToCleanup, randomBytes(8).toString('hex')),
+        p2pEnabled: false,
+      },
       aztecNode,
       prefilledPublicData,
     );

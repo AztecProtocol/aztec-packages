@@ -38,6 +38,7 @@ export type SpecificProverNodeConfig = {
   proverNodePollingIntervalMs: number;
   proverNodeMaxParallelBlocksPerEpoch: number;
   proverNodeFailedEpochStore: string | undefined;
+  proverNodeEpochProvingDelayMs: number | undefined;
   txGatheringTimeoutMs: number;
   txGatheringIntervalMs: number;
   txGatheringBatchSize: number;
@@ -63,6 +64,10 @@ const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeCon
   proverNodeFailedEpochStore: {
     env: 'PROVER_NODE_FAILED_EPOCH_STORE',
     description: 'File store where to upload node state when an epoch fails to be proven',
+    defaultValue: undefined,
+  },
+  proverNodeEpochProvingDelayMs: {
+    description: 'Optional delay in milliseconds to wait before proving a new epoch',
     defaultValue: undefined,
   },
   txGatheringIntervalMs: {

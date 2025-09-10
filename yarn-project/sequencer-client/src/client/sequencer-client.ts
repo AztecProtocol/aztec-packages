@@ -207,6 +207,7 @@ export class SequencerClient {
    */
   public async stop() {
     await this.sequencer.stop();
+    await this.validatorClient?.stop();
     this.publisherManager.interrupt();
     this.l1Metrics?.stop();
   }

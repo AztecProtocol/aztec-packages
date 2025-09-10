@@ -277,6 +277,7 @@ export class FullProverTest {
       txGatheringMaxParallelRequestsPerNode: 100,
       txGatheringTimeoutMs: 24_000,
       proverNodeFailedEpochStore: undefined,
+      proverNodeEpochProvingDelayMs: undefined,
     };
     const sponsoredFPCAddress = await getSponsoredFPCAddress();
     const { prefilledPublicData } = await getGenesisValues(
