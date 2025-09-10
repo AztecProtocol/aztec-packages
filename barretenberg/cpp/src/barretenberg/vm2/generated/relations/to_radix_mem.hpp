@@ -36,45 +36,6 @@ template <typename FF> class to_radix_mem : public Relation<to_radix_memImpl<FF>
   public:
     static constexpr const std::string_view NAME = "to_radix_mem";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 2:
-            return "LAST_HAS_SEL_ON";
-        case 3:
-            return "START_AFTER_LAST";
-        case 4:
-            return "SEL_CONTINUITY";
-        case 5:
-            return "EXEC_CLK_CONTINUITY";
-        case 6:
-            return "SPACE_ID_CONTINUITY";
-        case 7:
-            return "VALUE_CONTNUITY";
-        case 8:
-            return "RADIX_CONTINUITY";
-        case 9:
-            return "IS_OUTPUT_BITS_CONTINUITY";
-        case 18:
-            return "IS_OUTPUT_BITS_IMPLY_RADIX_2";
-        case 20:
-            return "ZERO_CHECK_NUM_LIMBS";
-        case 22:
-            return "ZERO_CHECK_VALUE";
-        case 25:
-            return "DECR_NUM_LIMBS";
-        case 26:
-            return "INCR_DST_ADDRESS";
-        case 27:
-            return "LAST_ROW_VALID_COMPUTATION";
-        case 28:
-            return "LAST_ROW_NUM_LIMBS_ZERO";
-        case 29:
-            return "LAST_ROW_ERR_COMPUTATION";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_LAST_HAS_SEL_ON = 2;
     static constexpr size_t SR_START_AFTER_LAST = 3;
@@ -92,6 +53,45 @@ template <typename FF> class to_radix_mem : public Relation<to_radix_memImpl<FF>
     static constexpr size_t SR_LAST_ROW_VALID_COMPUTATION = 27;
     static constexpr size_t SR_LAST_ROW_NUM_LIMBS_ZERO = 28;
     static constexpr size_t SR_LAST_ROW_ERR_COMPUTATION = 29;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_LAST_HAS_SEL_ON:
+            return "LAST_HAS_SEL_ON";
+        case SR_START_AFTER_LAST:
+            return "START_AFTER_LAST";
+        case SR_SEL_CONTINUITY:
+            return "SEL_CONTINUITY";
+        case SR_EXEC_CLK_CONTINUITY:
+            return "EXEC_CLK_CONTINUITY";
+        case SR_SPACE_ID_CONTINUITY:
+            return "SPACE_ID_CONTINUITY";
+        case SR_VALUE_CONTNUITY:
+            return "VALUE_CONTNUITY";
+        case SR_RADIX_CONTINUITY:
+            return "RADIX_CONTINUITY";
+        case SR_IS_OUTPUT_BITS_CONTINUITY:
+            return "IS_OUTPUT_BITS_CONTINUITY";
+        case SR_IS_OUTPUT_BITS_IMPLY_RADIX_2:
+            return "IS_OUTPUT_BITS_IMPLY_RADIX_2";
+        case SR_ZERO_CHECK_NUM_LIMBS:
+            return "ZERO_CHECK_NUM_LIMBS";
+        case SR_ZERO_CHECK_VALUE:
+            return "ZERO_CHECK_VALUE";
+        case SR_DECR_NUM_LIMBS:
+            return "DECR_NUM_LIMBS";
+        case SR_INCR_DST_ADDRESS:
+            return "INCR_DST_ADDRESS";
+        case SR_LAST_ROW_VALID_COMPUTATION:
+            return "LAST_ROW_VALID_COMPUTATION";
+        case SR_LAST_ROW_NUM_LIMBS_ZERO:
+            return "LAST_ROW_NUM_LIMBS_ZERO";
+        case SR_LAST_ROW_ERR_COMPUTATION:
+            return "LAST_ROW_ERR_COMPUTATION";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

@@ -37,93 +37,6 @@ template <typename FF> class keccak_memory : public Relation<keccak_memoryImpl<F
   public:
     static constexpr const std::string_view NAME = "keccak_memory";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 3:
-            return "CTR_INIT";
-        case 4:
-            return "RW_READ_INIT";
-        case 5:
-            return "RW_WRITE_INIT";
-        case 6:
-            return "SEL_CTR_NON_ZERO";
-        case 8:
-            return "CTR_END";
-        case 9:
-            return "LAST";
-        case 10:
-            return "CTR_INCREMENT";
-        case 12:
-            return "NO_TAG_ERROR_ON_WRITE";
-        case 13:
-            return "TAG_ERROR_INIT";
-        case 14:
-            return "TAG_ERROR_PROPAGATION";
-        case 15:
-            return "MEM_ADDR_INCREMENT";
-        case 16:
-            return "SPACEID_PROPAGATION";
-        case 17:
-            return "CLK_PROPAGATION";
-        case 18:
-            return "RW_PROPAGATION";
-        case 19:
-            return "SINGLE_TAG_ERROR";
-        case 20:
-            return "SINGLE_TAG_ERROR_BOOLEAN";
-        case 21:
-            return "VAL01";
-        case 22:
-            return "VAL02";
-        case 23:
-            return "VAL03";
-        case 24:
-            return "VAL04";
-        case 25:
-            return "VAL10";
-        case 26:
-            return "VAL11";
-        case 27:
-            return "VAL12";
-        case 28:
-            return "VAL13";
-        case 29:
-            return "VAL14";
-        case 30:
-            return "VAL20";
-        case 31:
-            return "VAL21";
-        case 32:
-            return "VAL22";
-        case 33:
-            return "VAL23";
-        case 34:
-            return "VAL24";
-        case 35:
-            return "VAL30";
-        case 36:
-            return "VAL31";
-        case 37:
-            return "VAL32";
-        case 38:
-            return "VAL33";
-        case 39:
-            return "VAL34";
-        case 40:
-            return "VAL40";
-        case 41:
-            return "VAL41";
-        case 42:
-            return "VAL42";
-        case 43:
-            return "VAL43";
-        case 44:
-            return "VAL44";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_CTR_INIT = 3;
     static constexpr size_t SR_RW_READ_INIT = 4;
@@ -165,6 +78,93 @@ template <typename FF> class keccak_memory : public Relation<keccak_memoryImpl<F
     static constexpr size_t SR_VAL42 = 42;
     static constexpr size_t SR_VAL43 = 43;
     static constexpr size_t SR_VAL44 = 44;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_CTR_INIT:
+            return "CTR_INIT";
+        case SR_RW_READ_INIT:
+            return "RW_READ_INIT";
+        case SR_RW_WRITE_INIT:
+            return "RW_WRITE_INIT";
+        case SR_SEL_CTR_NON_ZERO:
+            return "SEL_CTR_NON_ZERO";
+        case SR_CTR_END:
+            return "CTR_END";
+        case SR_LAST:
+            return "LAST";
+        case SR_CTR_INCREMENT:
+            return "CTR_INCREMENT";
+        case SR_NO_TAG_ERROR_ON_WRITE:
+            return "NO_TAG_ERROR_ON_WRITE";
+        case SR_TAG_ERROR_INIT:
+            return "TAG_ERROR_INIT";
+        case SR_TAG_ERROR_PROPAGATION:
+            return "TAG_ERROR_PROPAGATION";
+        case SR_MEM_ADDR_INCREMENT:
+            return "MEM_ADDR_INCREMENT";
+        case SR_SPACEID_PROPAGATION:
+            return "SPACEID_PROPAGATION";
+        case SR_CLK_PROPAGATION:
+            return "CLK_PROPAGATION";
+        case SR_RW_PROPAGATION:
+            return "RW_PROPAGATION";
+        case SR_SINGLE_TAG_ERROR:
+            return "SINGLE_TAG_ERROR";
+        case SR_SINGLE_TAG_ERROR_BOOLEAN:
+            return "SINGLE_TAG_ERROR_BOOLEAN";
+        case SR_VAL01:
+            return "VAL01";
+        case SR_VAL02:
+            return "VAL02";
+        case SR_VAL03:
+            return "VAL03";
+        case SR_VAL04:
+            return "VAL04";
+        case SR_VAL10:
+            return "VAL10";
+        case SR_VAL11:
+            return "VAL11";
+        case SR_VAL12:
+            return "VAL12";
+        case SR_VAL13:
+            return "VAL13";
+        case SR_VAL14:
+            return "VAL14";
+        case SR_VAL20:
+            return "VAL20";
+        case SR_VAL21:
+            return "VAL21";
+        case SR_VAL22:
+            return "VAL22";
+        case SR_VAL23:
+            return "VAL23";
+        case SR_VAL24:
+            return "VAL24";
+        case SR_VAL30:
+            return "VAL30";
+        case SR_VAL31:
+            return "VAL31";
+        case SR_VAL32:
+            return "VAL32";
+        case SR_VAL33:
+            return "VAL33";
+        case SR_VAL34:
+            return "VAL34";
+        case SR_VAL40:
+            return "VAL40";
+        case SR_VAL41:
+            return "VAL41";
+        case SR_VAL42:
+            return "VAL42";
+        case SR_VAL43:
+            return "VAL43";
+        case SR_VAL44:
+            return "VAL44";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

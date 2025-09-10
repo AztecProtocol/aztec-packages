@@ -37,43 +37,6 @@ template <typename FF> class emit_unencrypted_log : public Relation<emit_unencry
   public:
     static constexpr const std::string_view NAME = "emit_unencrypted_log";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 4:
-            return "START_AFTER_LATCH";
-        case 5:
-            return "SELECTOR_ON_START";
-        case 6:
-            return "SELECTOR_CONSISTENCY";
-        case 7:
-            return "SELECTOR_ON_END";
-        case 9:
-            return "REMAINING_ROWS_DECREMENT";
-        case 16:
-            return "ERROR_OUT_OF_BOUNDS_CONSISTENCY";
-        case 20:
-            return "ERROR_TAG_MISMATCH_CONSISTENCY";
-        case 23:
-            return "WRONG_TAG_CHECK";
-        case 28:
-            return "SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY";
-        case 32:
-            return "REMAINING_LOG_SIZE_DECREMENT";
-        case 35:
-            return "LOG_ADDRESS_INCREMENT";
-        case 36:
-            return "EXEC_CLK_CONSISTENCY";
-        case 37:
-            return "SPACE_ID_CONSISTENCY";
-        case 44:
-            return "CONTRACT_ADDRESS_CONSISTENCY";
-        case 45:
-            return "LOG_SIZE_CONSISTENCY";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_START_AFTER_LATCH = 4;
     static constexpr size_t SR_SELECTOR_ON_START = 5;
@@ -90,6 +53,43 @@ template <typename FF> class emit_unencrypted_log : public Relation<emit_unencry
     static constexpr size_t SR_SPACE_ID_CONSISTENCY = 37;
     static constexpr size_t SR_CONTRACT_ADDRESS_CONSISTENCY = 44;
     static constexpr size_t SR_LOG_SIZE_CONSISTENCY = 45;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_START_AFTER_LATCH:
+            return "START_AFTER_LATCH";
+        case SR_SELECTOR_ON_START:
+            return "SELECTOR_ON_START";
+        case SR_SELECTOR_CONSISTENCY:
+            return "SELECTOR_CONSISTENCY";
+        case SR_SELECTOR_ON_END:
+            return "SELECTOR_ON_END";
+        case SR_REMAINING_ROWS_DECREMENT:
+            return "REMAINING_ROWS_DECREMENT";
+        case SR_ERROR_OUT_OF_BOUNDS_CONSISTENCY:
+            return "ERROR_OUT_OF_BOUNDS_CONSISTENCY";
+        case SR_ERROR_TAG_MISMATCH_CONSISTENCY:
+            return "ERROR_TAG_MISMATCH_CONSISTENCY";
+        case SR_WRONG_TAG_CHECK:
+            return "WRONG_TAG_CHECK";
+        case SR_SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY:
+            return "SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY";
+        case SR_REMAINING_LOG_SIZE_DECREMENT:
+            return "REMAINING_LOG_SIZE_DECREMENT";
+        case SR_LOG_ADDRESS_INCREMENT:
+            return "LOG_ADDRESS_INCREMENT";
+        case SR_EXEC_CLK_CONSISTENCY:
+            return "EXEC_CLK_CONSISTENCY";
+        case SR_SPACE_ID_CONSISTENCY:
+            return "SPACE_ID_CONSISTENCY";
+        case SR_CONTRACT_ADDRESS_CONSISTENCY:
+            return "CONTRACT_ADDRESS_CONSISTENCY";
+        case SR_LOG_SIZE_CONSISTENCY:
+            return "LOG_SIZE_CONSISTENCY";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

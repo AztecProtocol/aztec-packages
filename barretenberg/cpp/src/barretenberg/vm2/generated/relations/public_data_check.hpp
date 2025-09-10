@@ -35,33 +35,6 @@ template <typename FF> class public_data_check : public Relation<public_data_che
   public:
     static constexpr const std::string_view NAME = "public_data_check";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 1:
-            return "START_CONDITION";
-        case 11:
-            return "EXISTS_FLAG_CHECK";
-        case 13:
-            return "NEXT_SLOT_IS_ZERO_CHECK";
-        case 14:
-            return "LOW_LEAF_VALUE_UPDATE";
-        case 15:
-            return "LOW_LEAF_NEXT_INDEX_UPDATE";
-        case 16:
-            return "LOW_LEAF_NEXT_SLOT_UPDATE";
-        case 18:
-            return "VALUE_IS_CORRECT";
-        case 20:
-            return "UPDATE_ROOT_VALIDATION";
-        case 22:
-            return "WRITE_IDX_INITIAL_VALUE";
-        case 25:
-            return "WRITE_IDX_INCREMENT";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_START_CONDITION = 1;
     static constexpr size_t SR_EXISTS_FLAG_CHECK = 11;
@@ -73,6 +46,33 @@ template <typename FF> class public_data_check : public Relation<public_data_che
     static constexpr size_t SR_UPDATE_ROOT_VALIDATION = 20;
     static constexpr size_t SR_WRITE_IDX_INITIAL_VALUE = 22;
     static constexpr size_t SR_WRITE_IDX_INCREMENT = 25;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_START_CONDITION:
+            return "START_CONDITION";
+        case SR_EXISTS_FLAG_CHECK:
+            return "EXISTS_FLAG_CHECK";
+        case SR_NEXT_SLOT_IS_ZERO_CHECK:
+            return "NEXT_SLOT_IS_ZERO_CHECK";
+        case SR_LOW_LEAF_VALUE_UPDATE:
+            return "LOW_LEAF_VALUE_UPDATE";
+        case SR_LOW_LEAF_NEXT_INDEX_UPDATE:
+            return "LOW_LEAF_NEXT_INDEX_UPDATE";
+        case SR_LOW_LEAF_NEXT_SLOT_UPDATE:
+            return "LOW_LEAF_NEXT_SLOT_UPDATE";
+        case SR_VALUE_IS_CORRECT:
+            return "VALUE_IS_CORRECT";
+        case SR_UPDATE_ROOT_VALIDATION:
+            return "UPDATE_ROOT_VALIDATION";
+        case SR_WRITE_IDX_INITIAL_VALUE:
+            return "WRITE_IDX_INITIAL_VALUE";
+        case SR_WRITE_IDX_INCREMENT:
+            return "WRITE_IDX_INCREMENT";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

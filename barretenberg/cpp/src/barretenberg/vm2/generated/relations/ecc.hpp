@@ -35,25 +35,6 @@ template <typename FF> class ecc : public Relation<eccImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "ecc";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 11:
-            return "DOUBLE_PRED";
-        case 12:
-            return "INFINITY_RESULT";
-        case 14:
-            return "COMPUTED_LAMBDA";
-        case 16:
-            return "OUTPUT_X_COORD";
-        case 17:
-            return "OUTPUT_Y_COORD";
-        case 18:
-            return "OUTPUT_INF_FLAG";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_DOUBLE_PRED = 11;
     static constexpr size_t SR_INFINITY_RESULT = 12;
@@ -61,6 +42,25 @@ template <typename FF> class ecc : public Relation<eccImpl<FF>> {
     static constexpr size_t SR_OUTPUT_X_COORD = 16;
     static constexpr size_t SR_OUTPUT_Y_COORD = 17;
     static constexpr size_t SR_OUTPUT_INF_FLAG = 18;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_DOUBLE_PRED:
+            return "DOUBLE_PRED";
+        case SR_INFINITY_RESULT:
+            return "INFINITY_RESULT";
+        case SR_COMPUTED_LAMBDA:
+            return "COMPUTED_LAMBDA";
+        case SR_OUTPUT_X_COORD:
+            return "OUTPUT_X_COORD";
+        case SR_OUTPUT_Y_COORD:
+            return "OUTPUT_Y_COORD";
+        case SR_OUTPUT_INF_FLAG:
+            return "OUTPUT_INF_FLAG";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

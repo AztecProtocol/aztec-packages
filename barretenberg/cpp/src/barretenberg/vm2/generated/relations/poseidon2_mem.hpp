@@ -34,23 +34,23 @@ template <typename FF> class poseidon2_mem : public Relation<poseidon2_memImpl<F
   public:
     static constexpr const std::string_view NAME = "poseidon2_mem";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 0:
-            return "READ_ADDR_INCR";
-        case 3:
-            return "WRITE_ADDR_INCR";
-        case 10:
-            return "BATCH_ZERO_CHECK";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_READ_ADDR_INCR = 0;
     static constexpr size_t SR_WRITE_ADDR_INCR = 3;
     static constexpr size_t SR_BATCH_ZERO_CHECK = 10;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_READ_ADDR_INCR:
+            return "READ_ADDR_INCR";
+        case SR_WRITE_ADDR_INCR:
+            return "WRITE_ADDR_INCR";
+        case SR_BATCH_ZERO_CHECK:
+            return "BATCH_ZERO_CHECK";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

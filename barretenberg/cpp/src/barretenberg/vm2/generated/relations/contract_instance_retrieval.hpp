@@ -34,25 +34,6 @@ template <typename FF> class contract_instance_retrieval : public Relation<contr
   public:
     static constexpr const std::string_view NAME = "contract_instance_retrieval";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 5:
-            return "INSTANCE_MEMBER_SALT_IS_ZERO_IF_DNE";
-        case 6:
-            return "INSTANCE_MEMBER_DEPLOYER_IS_ZERO_IF_DNE";
-        case 7:
-            return "INSTANCE_MEMBER_CLASS_ID_IS_ZERO_IF_DNE";
-        case 8:
-            return "INSTANCE_MEMBER_ORIGINAL_CLASS_ID_IS_ZERO_IF_DNE";
-        case 9:
-            return "INSTANCE_MEMBER_INIT_HASH_IS_ZERO_IF_DNE";
-        case 10:
-            return "UNCHANGED_ADDRESS_NON_PROTOCOL";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_INSTANCE_MEMBER_SALT_IS_ZERO_IF_DNE = 5;
     static constexpr size_t SR_INSTANCE_MEMBER_DEPLOYER_IS_ZERO_IF_DNE = 6;
@@ -60,6 +41,25 @@ template <typename FF> class contract_instance_retrieval : public Relation<contr
     static constexpr size_t SR_INSTANCE_MEMBER_ORIGINAL_CLASS_ID_IS_ZERO_IF_DNE = 8;
     static constexpr size_t SR_INSTANCE_MEMBER_INIT_HASH_IS_ZERO_IF_DNE = 9;
     static constexpr size_t SR_UNCHANGED_ADDRESS_NON_PROTOCOL = 10;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_INSTANCE_MEMBER_SALT_IS_ZERO_IF_DNE:
+            return "INSTANCE_MEMBER_SALT_IS_ZERO_IF_DNE";
+        case SR_INSTANCE_MEMBER_DEPLOYER_IS_ZERO_IF_DNE:
+            return "INSTANCE_MEMBER_DEPLOYER_IS_ZERO_IF_DNE";
+        case SR_INSTANCE_MEMBER_CLASS_ID_IS_ZERO_IF_DNE:
+            return "INSTANCE_MEMBER_CLASS_ID_IS_ZERO_IF_DNE";
+        case SR_INSTANCE_MEMBER_ORIGINAL_CLASS_ID_IS_ZERO_IF_DNE:
+            return "INSTANCE_MEMBER_ORIGINAL_CLASS_ID_IS_ZERO_IF_DNE";
+        case SR_INSTANCE_MEMBER_INIT_HASH_IS_ZERO_IF_DNE:
+            return "INSTANCE_MEMBER_INIT_HASH_IS_ZERO_IF_DNE";
+        case SR_UNCHANGED_ADDRESS_NON_PROTOCOL:
+            return "UNCHANGED_ADDRESS_NON_PROTOCOL";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

@@ -34,25 +34,6 @@ template <typename FF> class bc_hashing : public Relation<bc_hashingImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "bc_hashing";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 1:
-            return "TRACE_CONTINUITY";
-        case 3:
-            return "SEL_TOGGLED_AT_LATCH";
-        case 5:
-            return "START_AFTER_LATCH";
-        case 6:
-            return "PC_INCREMENTS";
-        case 7:
-            return "ID_CONSISTENCY";
-        case 8:
-            return "CHAIN_OUTPUT_TO_INCR";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_TRACE_CONTINUITY = 1;
     static constexpr size_t SR_SEL_TOGGLED_AT_LATCH = 3;
@@ -60,6 +41,25 @@ template <typename FF> class bc_hashing : public Relation<bc_hashingImpl<FF>> {
     static constexpr size_t SR_PC_INCREMENTS = 6;
     static constexpr size_t SR_ID_CONSISTENCY = 7;
     static constexpr size_t SR_CHAIN_OUTPUT_TO_INCR = 8;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_TRACE_CONTINUITY:
+            return "TRACE_CONTINUITY";
+        case SR_SEL_TOGGLED_AT_LATCH:
+            return "SEL_TOGGLED_AT_LATCH";
+        case SR_START_AFTER_LATCH:
+            return "START_AFTER_LATCH";
+        case SR_PC_INCREMENTS:
+            return "PC_INCREMENTS";
+        case SR_ID_CONSISTENCY:
+            return "ID_CONSISTENCY";
+        case SR_CHAIN_OUTPUT_TO_INCR:
+            return "CHAIN_OUTPUT_TO_INCR";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

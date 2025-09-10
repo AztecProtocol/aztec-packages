@@ -35,41 +35,6 @@ template <typename FF> class bitwise : public Relation<bitwiseImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "bitwise";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 6:
-            return "LAST_ON_ERROR";
-        case 7:
-            return "RES_TAG_SHOULD_MATCH_INPUT";
-        case 8:
-            return "INPUT_TAG_CANNOT_BE_FF";
-        case 9:
-            return "INPUT_TAGS_SHOULD_MATCH";
-        case 10:
-            return "BITW_OP_ID_REL";
-        case 11:
-            return "BITW_CTR_DECREMENT";
-        case 12:
-            return "BITW_SEL_CTR_NON_ZERO";
-        case 13:
-            return "BITW_LAST_FOR_CTR_ONE";
-        case 14:
-            return "BITW_INIT_A";
-        case 15:
-            return "BITW_INIT_B";
-        case 16:
-            return "BITW_INIT_C";
-        case 17:
-            return "BITW_ACC_REL_A";
-        case 18:
-            return "BITW_ACC_REL_B";
-        case 19:
-            return "BITW_ACC_REL_C";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_LAST_ON_ERROR = 6;
     static constexpr size_t SR_RES_TAG_SHOULD_MATCH_INPUT = 7;
@@ -85,6 +50,41 @@ template <typename FF> class bitwise : public Relation<bitwiseImpl<FF>> {
     static constexpr size_t SR_BITW_ACC_REL_A = 17;
     static constexpr size_t SR_BITW_ACC_REL_B = 18;
     static constexpr size_t SR_BITW_ACC_REL_C = 19;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_LAST_ON_ERROR:
+            return "LAST_ON_ERROR";
+        case SR_RES_TAG_SHOULD_MATCH_INPUT:
+            return "RES_TAG_SHOULD_MATCH_INPUT";
+        case SR_INPUT_TAG_CANNOT_BE_FF:
+            return "INPUT_TAG_CANNOT_BE_FF";
+        case SR_INPUT_TAGS_SHOULD_MATCH:
+            return "INPUT_TAGS_SHOULD_MATCH";
+        case SR_BITW_OP_ID_REL:
+            return "BITW_OP_ID_REL";
+        case SR_BITW_CTR_DECREMENT:
+            return "BITW_CTR_DECREMENT";
+        case SR_BITW_SEL_CTR_NON_ZERO:
+            return "BITW_SEL_CTR_NON_ZERO";
+        case SR_BITW_LAST_FOR_CTR_ONE:
+            return "BITW_LAST_FOR_CTR_ONE";
+        case SR_BITW_INIT_A:
+            return "BITW_INIT_A";
+        case SR_BITW_INIT_B:
+            return "BITW_INIT_B";
+        case SR_BITW_INIT_C:
+            return "BITW_INIT_C";
+        case SR_BITW_ACC_REL_A:
+            return "BITW_ACC_REL_A";
+        case SR_BITW_ACC_REL_B:
+            return "BITW_ACC_REL_B";
+        case SR_BITW_ACC_REL_C:
+            return "BITW_ACC_REL_C";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

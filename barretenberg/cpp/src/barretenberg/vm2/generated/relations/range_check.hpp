@@ -35,20 +35,20 @@ template <typename FF> class range_check : public Relation<range_checkImpl<FF>> 
   public:
     static constexpr const std::string_view NAME = "range_check";
 
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_IS_LTE_MUTUALLY_EXCLUSIVE = 9;
+    static constexpr size_t SR_CHECK_RECOMPOSITION = 10;
+
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case 9:
+        case SR_IS_LTE_MUTUALLY_EXCLUSIVE:
             return "IS_LTE_MUTUALLY_EXCLUSIVE";
-        case 10:
+        case SR_CHECK_RECOMPOSITION:
             return "CHECK_RECOMPOSITION";
         }
         return std::to_string(index);
     }
-
-    // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_IS_LTE_MUTUALLY_EXCLUSIVE = 9;
-    static constexpr size_t SR_CHECK_RECOMPOSITION = 10;
 };
 
 } // namespace bb::avm2

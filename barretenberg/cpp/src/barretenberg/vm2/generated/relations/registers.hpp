@@ -35,29 +35,6 @@ template <typename FF> class registers : public Relation<registersImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "registers";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 0:
-            return "SEL_OP_REG_EFFECTIVE_0";
-        case 1:
-            return "SEL_OP_REG_EFFECTIVE_1";
-        case 2:
-            return "SEL_OP_REG_EFFECTIVE_2";
-        case 3:
-            return "SEL_OP_REG_EFFECTIVE_3";
-        case 4:
-            return "SEL_OP_REG_EFFECTIVE_4";
-        case 5:
-            return "SEL_OP_REG_EFFECTIVE_5";
-        case 6:
-            return "SEL_OP_REG_EFFECTIVE_6";
-        case 7:
-            return "REGISTER_READ_TAG_CHECK";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_SEL_OP_REG_EFFECTIVE_0 = 0;
     static constexpr size_t SR_SEL_OP_REG_EFFECTIVE_1 = 1;
@@ -67,6 +44,29 @@ template <typename FF> class registers : public Relation<registersImpl<FF>> {
     static constexpr size_t SR_SEL_OP_REG_EFFECTIVE_5 = 5;
     static constexpr size_t SR_SEL_OP_REG_EFFECTIVE_6 = 6;
     static constexpr size_t SR_REGISTER_READ_TAG_CHECK = 7;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_SEL_OP_REG_EFFECTIVE_0:
+            return "SEL_OP_REG_EFFECTIVE_0";
+        case SR_SEL_OP_REG_EFFECTIVE_1:
+            return "SEL_OP_REG_EFFECTIVE_1";
+        case SR_SEL_OP_REG_EFFECTIVE_2:
+            return "SEL_OP_REG_EFFECTIVE_2";
+        case SR_SEL_OP_REG_EFFECTIVE_3:
+            return "SEL_OP_REG_EFFECTIVE_3";
+        case SR_SEL_OP_REG_EFFECTIVE_4:
+            return "SEL_OP_REG_EFFECTIVE_4";
+        case SR_SEL_OP_REG_EFFECTIVE_5:
+            return "SEL_OP_REG_EFFECTIVE_5";
+        case SR_SEL_OP_REG_EFFECTIVE_6:
+            return "SEL_OP_REG_EFFECTIVE_6";
+        case SR_REGISTER_READ_TAG_CHECK:
+            return "REGISTER_READ_TAG_CHECK";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

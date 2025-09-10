@@ -38,77 +38,6 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "execution";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 2:
-            return "ENQUEUED_CALL_START";
-        case 3:
-            return "ENQUEUED_CALL_END";
-        case 5:
-            return "TRACE_CONTINUITY";
-        case 6:
-            return "LAST_IS_LAST";
-        case 13:
-            return "NUM_P_LIMBS_CEIL";
-        case 14:
-            return "DYN_L2_FACTOR_TO_RADIX_BE";
-        case 15:
-            return "SSTORE_DYN_L2_GAS_IS_ZERO";
-        case 34:
-            return "SUBTRACE_ID_DECOMPOSITION";
-        case 56:
-            return "EXEC_OP_ID_DECOMPOSITION";
-        case 63:
-            return "DYN_GAS_ID_DECOMPOSITION";
-        case 65:
-            return "PC_NEXT_ROW_INT_CALL_JUMP";
-        case 66:
-            return "PC_NEXT_ROW_JUMPI";
-        case 67:
-            return "MOV_SAME_VALUE";
-        case 68:
-            return "MOV_SAME_TAG";
-        case 69:
-            return "SUCCESS_COPY_WRITE_REG";
-        case 70:
-            return "SUCCESS_COPY_U1_TAG";
-        case 71:
-            return "RETURNDATA_SIZE_WRITE_REG";
-        case 72:
-            return "RETURNDATA_SIZE_U32_TAG";
-        case 73:
-            return "PUBLIC_DATA_TREE_ROOT_NOT_CHANGED";
-        case 74:
-            return "PUBLIC_DATA_TREE_SIZE_NOT_CHANGED";
-        case 75:
-            return "WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_NOT_CHANGED";
-        case 76:
-            return "WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_NOT_CHANGED";
-        case 77:
-            return "NOTE_HASH_TREE_ROOT_NOT_CHANGED";
-        case 78:
-            return "NOTE_HASH_TREE_SIZE_NOT_CHANGED";
-        case 79:
-            return "NUM_NOTE_HASHES_EMITTED_NOT_CHANGED";
-        case 80:
-            return "NULLIFIER_TREE_ROOT_NOT_CHANGED";
-        case 81:
-            return "NULLIFIER_TREE_SIZE_NOT_CHANGED";
-        case 82:
-            return "NUM_NULLIFIERS_EMITTED_NOT_CHANGED";
-        case 83:
-            return "NUM_UNENCRYPTED_LOGS_NOT_CHANGED";
-        case 84:
-            return "NUM_L2_TO_L1_MESSAGES_NOT_CHANGED";
-        case 85:
-            return "RETRIEVED_BYTECODES_TREE_ROOT_NOT_CHANGED";
-        case 86:
-            return "RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_ENQUEUED_CALL_START = 2;
     static constexpr size_t SR_ENQUEUED_CALL_END = 3;
@@ -142,6 +71,77 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
     static constexpr size_t SR_NUM_L2_TO_L1_MESSAGES_NOT_CHANGED = 84;
     static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_ROOT_NOT_CHANGED = 85;
     static constexpr size_t SR_RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED = 86;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_ENQUEUED_CALL_START:
+            return "ENQUEUED_CALL_START";
+        case SR_ENQUEUED_CALL_END:
+            return "ENQUEUED_CALL_END";
+        case SR_TRACE_CONTINUITY:
+            return "TRACE_CONTINUITY";
+        case SR_LAST_IS_LAST:
+            return "LAST_IS_LAST";
+        case SR_NUM_P_LIMBS_CEIL:
+            return "NUM_P_LIMBS_CEIL";
+        case SR_DYN_L2_FACTOR_TO_RADIX_BE:
+            return "DYN_L2_FACTOR_TO_RADIX_BE";
+        case SR_SSTORE_DYN_L2_GAS_IS_ZERO:
+            return "SSTORE_DYN_L2_GAS_IS_ZERO";
+        case SR_SUBTRACE_ID_DECOMPOSITION:
+            return "SUBTRACE_ID_DECOMPOSITION";
+        case SR_EXEC_OP_ID_DECOMPOSITION:
+            return "EXEC_OP_ID_DECOMPOSITION";
+        case SR_DYN_GAS_ID_DECOMPOSITION:
+            return "DYN_GAS_ID_DECOMPOSITION";
+        case SR_PC_NEXT_ROW_INT_CALL_JUMP:
+            return "PC_NEXT_ROW_INT_CALL_JUMP";
+        case SR_PC_NEXT_ROW_JUMPI:
+            return "PC_NEXT_ROW_JUMPI";
+        case SR_MOV_SAME_VALUE:
+            return "MOV_SAME_VALUE";
+        case SR_MOV_SAME_TAG:
+            return "MOV_SAME_TAG";
+        case SR_SUCCESS_COPY_WRITE_REG:
+            return "SUCCESS_COPY_WRITE_REG";
+        case SR_SUCCESS_COPY_U1_TAG:
+            return "SUCCESS_COPY_U1_TAG";
+        case SR_RETURNDATA_SIZE_WRITE_REG:
+            return "RETURNDATA_SIZE_WRITE_REG";
+        case SR_RETURNDATA_SIZE_U32_TAG:
+            return "RETURNDATA_SIZE_U32_TAG";
+        case SR_PUBLIC_DATA_TREE_ROOT_NOT_CHANGED:
+            return "PUBLIC_DATA_TREE_ROOT_NOT_CHANGED";
+        case SR_PUBLIC_DATA_TREE_SIZE_NOT_CHANGED:
+            return "PUBLIC_DATA_TREE_SIZE_NOT_CHANGED";
+        case SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_NOT_CHANGED:
+            return "WRITTEN_PUBLIC_DATA_SLOTS_TREE_ROOT_NOT_CHANGED";
+        case SR_WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_NOT_CHANGED:
+            return "WRITTEN_PUBLIC_DATA_SLOTS_TREE_SIZE_NOT_CHANGED";
+        case SR_NOTE_HASH_TREE_ROOT_NOT_CHANGED:
+            return "NOTE_HASH_TREE_ROOT_NOT_CHANGED";
+        case SR_NOTE_HASH_TREE_SIZE_NOT_CHANGED:
+            return "NOTE_HASH_TREE_SIZE_NOT_CHANGED";
+        case SR_NUM_NOTE_HASHES_EMITTED_NOT_CHANGED:
+            return "NUM_NOTE_HASHES_EMITTED_NOT_CHANGED";
+        case SR_NULLIFIER_TREE_ROOT_NOT_CHANGED:
+            return "NULLIFIER_TREE_ROOT_NOT_CHANGED";
+        case SR_NULLIFIER_TREE_SIZE_NOT_CHANGED:
+            return "NULLIFIER_TREE_SIZE_NOT_CHANGED";
+        case SR_NUM_NULLIFIERS_EMITTED_NOT_CHANGED:
+            return "NUM_NULLIFIERS_EMITTED_NOT_CHANGED";
+        case SR_NUM_UNENCRYPTED_LOGS_NOT_CHANGED:
+            return "NUM_UNENCRYPTED_LOGS_NOT_CHANGED";
+        case SR_NUM_L2_TO_L1_MESSAGES_NOT_CHANGED:
+            return "NUM_L2_TO_L1_MESSAGES_NOT_CHANGED";
+        case SR_RETRIEVED_BYTECODES_TREE_ROOT_NOT_CHANGED:
+            return "RETRIEVED_BYTECODES_TREE_ROOT_NOT_CHANGED";
+        case SR_RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED:
+            return "RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

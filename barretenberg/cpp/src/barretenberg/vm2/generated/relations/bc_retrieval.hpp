@@ -34,25 +34,6 @@ template <typename FF> class bc_retrieval : public Relation<bc_retrievalImpl<FF>
   public:
     static constexpr const std::string_view NAME = "bc_retrieval";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 1:
-            return "TRACE_CONTINUITY";
-        case 4:
-            return "NO_REMAINING_BYTECODES";
-        case 8:
-            return "CURRENT_CLASS_ID_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST";
-        case 9:
-            return "ARTIFACT_HASH_IS_ZERO_IF_ERROR";
-        case 10:
-            return "PRIVATE_FUNCTION_ROOT_IS_ZERO_IF_ERROR";
-        case 11:
-            return "BYTECODE_ID_IS_ZERO_IF_ERROR";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_TRACE_CONTINUITY = 1;
     static constexpr size_t SR_NO_REMAINING_BYTECODES = 4;
@@ -60,6 +41,25 @@ template <typename FF> class bc_retrieval : public Relation<bc_retrievalImpl<FF>
     static constexpr size_t SR_ARTIFACT_HASH_IS_ZERO_IF_ERROR = 9;
     static constexpr size_t SR_PRIVATE_FUNCTION_ROOT_IS_ZERO_IF_ERROR = 10;
     static constexpr size_t SR_BYTECODE_ID_IS_ZERO_IF_ERROR = 11;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_TRACE_CONTINUITY:
+            return "TRACE_CONTINUITY";
+        case SR_NO_REMAINING_BYTECODES:
+            return "NO_REMAINING_BYTECODES";
+        case SR_CURRENT_CLASS_ID_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST:
+            return "CURRENT_CLASS_ID_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST";
+        case SR_ARTIFACT_HASH_IS_ZERO_IF_ERROR:
+            return "ARTIFACT_HASH_IS_ZERO_IF_ERROR";
+        case SR_PRIVATE_FUNCTION_ROOT_IS_ZERO_IF_ERROR:
+            return "PRIVATE_FUNCTION_ROOT_IS_ZERO_IF_ERROR";
+        case SR_BYTECODE_ID_IS_ZERO_IF_ERROR:
+            return "BYTECODE_ID_IS_ZERO_IF_ERROR";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

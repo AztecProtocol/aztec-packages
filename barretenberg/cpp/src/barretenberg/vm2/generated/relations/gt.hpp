@@ -34,17 +34,17 @@ template <typename FF> class gt : public Relation<gtImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "gt";
 
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_GT_RESULT = 2;
+
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case 2:
+        case SR_GT_RESULT:
             return "GT_RESULT";
         }
         return std::to_string(index);
     }
-
-    // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_GT_RESULT = 2;
 };
 
 } // namespace bb::avm2

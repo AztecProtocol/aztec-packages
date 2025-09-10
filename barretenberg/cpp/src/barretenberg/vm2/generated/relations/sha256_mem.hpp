@@ -37,47 +37,6 @@ template <typename FF> class sha256_mem : public Relation<sha256_memImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "sha256_mem";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 3:
-            return "LATCH_HAS_SEL_ON";
-        case 4:
-            return "START_AFTER_LAST";
-        case 5:
-            return "CONTINUITY_SEL";
-        case 6:
-            return "CONTINUITY_EXEC_CLK";
-        case 7:
-            return "CONTINUITY_SPACE_ID";
-        case 8:
-            return "CONTINUITY_OUTPUT_ADDR";
-        case 15:
-            return "START_OR_LAST_MEM";
-        case 34:
-            return "BATCH_ZERO_CHECK_READ";
-        case 35:
-            return "BATCH_ENFORCE_ZERO_WRITE";
-        case 37:
-            return "SEL_IS_INPUT_ROUND_START_COND";
-        case 38:
-            return "SEL_IS_INPUT_END";
-        case 39:
-            return "SEL_IS_INPUT_PROPAGATE";
-        case 40:
-            return "INPUT_ROUND_CTR_START_COND";
-        case 41:
-            return "INPUT_ROUND_CTR_DECR_COND";
-        case 46:
-            return "INPUT_TAG_DIFF_CHECK";
-        case 48:
-            return "TAG_ERROR_INIT";
-        case 49:
-            return "TAG_ERROR_PROPAGATION";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_LATCH_HAS_SEL_ON = 3;
     static constexpr size_t SR_START_AFTER_LAST = 4;
@@ -96,6 +55,47 @@ template <typename FF> class sha256_mem : public Relation<sha256_memImpl<FF>> {
     static constexpr size_t SR_INPUT_TAG_DIFF_CHECK = 46;
     static constexpr size_t SR_TAG_ERROR_INIT = 48;
     static constexpr size_t SR_TAG_ERROR_PROPAGATION = 49;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_LATCH_HAS_SEL_ON:
+            return "LATCH_HAS_SEL_ON";
+        case SR_START_AFTER_LAST:
+            return "START_AFTER_LAST";
+        case SR_CONTINUITY_SEL:
+            return "CONTINUITY_SEL";
+        case SR_CONTINUITY_EXEC_CLK:
+            return "CONTINUITY_EXEC_CLK";
+        case SR_CONTINUITY_SPACE_ID:
+            return "CONTINUITY_SPACE_ID";
+        case SR_CONTINUITY_OUTPUT_ADDR:
+            return "CONTINUITY_OUTPUT_ADDR";
+        case SR_START_OR_LAST_MEM:
+            return "START_OR_LAST_MEM";
+        case SR_BATCH_ZERO_CHECK_READ:
+            return "BATCH_ZERO_CHECK_READ";
+        case SR_BATCH_ENFORCE_ZERO_WRITE:
+            return "BATCH_ENFORCE_ZERO_WRITE";
+        case SR_SEL_IS_INPUT_ROUND_START_COND:
+            return "SEL_IS_INPUT_ROUND_START_COND";
+        case SR_SEL_IS_INPUT_END:
+            return "SEL_IS_INPUT_END";
+        case SR_SEL_IS_INPUT_PROPAGATE:
+            return "SEL_IS_INPUT_PROPAGATE";
+        case SR_INPUT_ROUND_CTR_START_COND:
+            return "INPUT_ROUND_CTR_START_COND";
+        case SR_INPUT_ROUND_CTR_DECR_COND:
+            return "INPUT_ROUND_CTR_DECR_COND";
+        case SR_INPUT_TAG_DIFF_CHECK:
+            return "INPUT_TAG_DIFF_CHECK";
+        case SR_TAG_ERROR_INIT:
+            return "TAG_ERROR_INIT";
+        case SR_TAG_ERROR_PROPAGATION:
+            return "TAG_ERROR_PROPAGATION";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2
