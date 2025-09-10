@@ -23,6 +23,12 @@ namespace gt;
     // If sel_sha256 is 1, then sel must be 1.
     sel_sha256 * (1 - sel) = 0;
 
+    // This is used to support the addressing subtrace.
+    pol commit sel_addressing;
+    sel_addressing * (1 - sel_addressing) = 0;
+    // If sel_addressing is 1, then sel must be 1.
+    sel_addressing * (1 - sel) = 0;
+
     #[skippable_if]
     sel = 0;
 
