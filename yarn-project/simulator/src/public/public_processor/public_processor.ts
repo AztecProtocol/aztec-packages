@@ -356,7 +356,7 @@ export class PublicProcessor implements Traceable {
         nullifierCount: processedTx.txEffect.nullifiers.length,
         noteHashCount: processedTx.txEffect.noteHashes.length,
         contractClassLogCount: processedTx.txEffect.contractClassLogs.length,
-        publicLogCount: processedTx.txEffect.publicLogs.length,
+        publicLogCount: processedTx.txEffect.publicLogs.logs.length,
         privateLogCount: processedTx.txEffect.privateLogs.length,
         l2ToL1MessageCount: processedTx.txEffect.l2ToL1Msgs.length,
         durationMs: time,

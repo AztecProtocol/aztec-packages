@@ -1512,7 +1512,7 @@ export class ArchiverStoreHelper
           const contractClassLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.contractClassLogs);
           // ContractInstancePublished event logs are broadcast in privateLogs.
           const privateLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
-          const publicLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.publicLogs);
+          const publicLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.publicLogs.logs);
           return (
             await Promise.all([
               this.#updatePublishedContractClasses(contractClassLogs, block.block.number, Operation.Store),
@@ -1552,7 +1552,7 @@ export class ArchiverStoreHelper
         const contractClassLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.contractClassLogs);
         // ContractInstancePublished event logs are broadcast in privateLogs.
         const privateLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
-        const publicLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.publicLogs);
+        const publicLogs = block.block.body.txEffects.flatMap(txEffect => txEffect.publicLogs.logs);
 
         return (
           await Promise.all([

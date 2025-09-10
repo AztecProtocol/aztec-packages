@@ -105,11 +105,11 @@ namespace execution;
     pol commit retrieved_bytecodes_tree_size;
 
     // Prev side effects state
-    pol commit prev_num_unencrypted_logs;
+    pol commit prev_num_unencrypted_log_fields;
     pol commit prev_num_l2_to_l1_messages;
 
     // Next side effects state
-    pol commit num_unencrypted_logs;
+    pol commit num_unencrypted_log_fields;
     pol commit num_l2_to_l1_messages;
 
     // ==== Helper columns ====
@@ -347,7 +347,7 @@ namespace execution;
         written_public_data_slots_tree_root,
         written_public_data_slots_tree_size,
         // Retrieved bytecodes tree is not commited and restored, since it's a tx global state.
-        num_unencrypted_logs,
+        num_unencrypted_log_fields,
         num_l2_to_l1_messages
     } in
     context_stack.sel {
@@ -375,7 +375,7 @@ namespace execution;
         context_stack.public_data_tree_size,
         context_stack.written_public_data_slots_tree_root,
         context_stack.written_public_data_slots_tree_size,
-        context_stack.num_unencrypted_logs,
+        context_stack.num_unencrypted_log_fields,
         context_stack.num_l2_to_l1_messages
     };
 
@@ -412,7 +412,7 @@ namespace execution;
         prev_public_data_tree_size',
         prev_written_public_data_slots_tree_root',
         prev_written_public_data_slots_tree_size',
-        prev_num_unencrypted_logs',
+        prev_num_unencrypted_log_fields',
         prev_num_l2_to_l1_messages'
     } in
     context_stack.sel {
@@ -440,7 +440,7 @@ namespace execution;
         context_stack.public_data_tree_size,
         context_stack.written_public_data_slots_tree_root,
         context_stack.written_public_data_slots_tree_size,
-        context_stack.num_unencrypted_logs,
+        context_stack.num_unencrypted_log_fields,
         context_stack.num_l2_to_l1_messages
     };
 
@@ -532,6 +532,6 @@ namespace execution;
     NOT_LAST_EXEC * (l1_l2_tree_root - l1_l2_tree_root') = 0;
 
     #[NUM_UNENCRYPTED_LOGS_CONTINUITY]
-    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (num_unencrypted_logs - prev_num_unencrypted_logs') = 0;
+    NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (num_unencrypted_log_fields - prev_num_unencrypted_log_fields') = 0;
     #[NUM_L2_TO_L1_MESSAGES_CONTINUITY]
     NOT_LAST_EXEC * DEFAULT_OR_NESTED_RETURN * (num_l2_to_l1_messages - prev_num_l2_to_l1_messages') = 0;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <stdexcept>
 #include <vector>
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
@@ -119,15 +120,34 @@ struct ScopedL2ToL1Message {
 
     MSGPACK_FIELDS(message, contractAddress);
 };
-
 struct PublicLog {
+    std::vector<FF> fields;
     AztecAddress contractAddress;
-    std::array<FF, PUBLIC_LOG_SIZE_IN_FIELDS> fields;
-    uint32_t emittedLength;
 
     bool operator==(const PublicLog& other) const = default;
 
-    MSGPACK_FIELDS(contractAddress, fields, emittedLength);
+    MSGPACK_FIELDS(fields, contractAddress);
+};
+
+struct PublicLogs {
+    std::vector<PublicLog> logs;
+    bool operator==(const PublicLogs& other) const = default;
+
+    MSGPACK_FIELDS(logs);
+
+    std::vector<FF> flatten() const
+    {
+        std::vector<FF> flattened;
+        flattened.reserve(PUBLIC_LOGS_PAYLOAD_LENGTH);
+        for (const auto& log : logs) {
+            flattened.push_back(log.fields.size());
+            flattened.push_back(log.contractAddress);
+            for (const auto& field : log.fields) {
+                flattened.push_back(field);
+            }
+        }
+        return flattened;
+    }
 };
 
 struct PublicDataWrite {
@@ -204,12 +224,11 @@ struct AvmAccumulatedDataArrayLengths {
     uint32_t noteHashes;
     uint32_t nullifiers;
     uint32_t l2ToL1Msgs;
-    uint32_t publicLogs;
     uint32_t publicDataWrites;
 
     bool operator==(const AvmAccumulatedDataArrayLengths& other) const = default;
 
-    MSGPACK_FIELDS(noteHashes, nullifiers, l2ToL1Msgs, publicLogs, publicDataWrites);
+    MSGPACK_FIELDS(noteHashes, nullifiers, l2ToL1Msgs, publicDataWrites);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -240,7 +259,7 @@ struct AvmAccumulatedData {
     std::array<FF, MAX_NOTE_HASHES_PER_TX> noteHashes;
     std::array<FF, MAX_NULLIFIERS_PER_TX> nullifiers;
     std::array<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX> l2ToL1Msgs;
-    std::array<PublicLog, MAX_PUBLIC_LOGS_PER_TX> publicLogs;
+    PublicLogs publicLogs;
     std::array<PublicDataWrite, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> publicDataWrites;
 
     bool operator==(const AvmAccumulatedData& other) const = default;
@@ -314,7 +333,7 @@ struct TreeStates {
 };
 
 struct SideEffectStates {
-    uint32_t numUnencryptedLogs;
+    uint32_t numUnencryptedLogFields;
     uint32_t numL2ToL1Messages;
 
     bool operator==(const SideEffectStates& other) const = default;

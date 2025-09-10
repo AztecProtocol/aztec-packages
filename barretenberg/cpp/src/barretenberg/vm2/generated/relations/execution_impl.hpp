@@ -681,8 +681,8 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         using View = typename std::tuple_element_t<83, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel)) *
                    (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_emit_unencrypted_log))) *
-                   (static_cast<View>(in.get(C::execution_prev_num_unencrypted_logs)) -
-                    static_cast<View>(in.get(C::execution_num_unencrypted_logs)));
+                   (static_cast<View>(in.get(C::execution_prev_num_unencrypted_log_fields)) -
+                    static_cast<View>(in.get(C::execution_num_unencrypted_log_fields)));
         std::get<83>(evals) += (tmp * scaling_factor);
     }
     { // NUM_L2_TO_L1_MESSAGES_NOT_CHANGED

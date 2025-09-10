@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 
 namespace bb::avm2 {
 namespace {
@@ -74,20 +75,16 @@ void set_l2_to_l1_msg_array_in_cols(const std::array<ScopedL2ToL1Message, SIZE>&
     }
 }
 
-template <size_t SIZE>
-void set_public_logs_in_cols(const std::array<PublicLog, SIZE>& logs,
+void set_public_logs_in_cols(std::vector<FF> const& flat_public_logs,
                              std::vector<std::vector<FF>>& cols,
                              size_t array_start_row_idx)
 {
-    for (size_t i = 0; i < logs.size(); ++i) {
-        size_t first_row_for_log = array_start_row_idx + (i * PUBLIC_LOG_SIZE_IN_FIELDS);
-        for (size_t j = 0; j < PUBLIC_LOG_SIZE_IN_FIELDS; ++j) {
-            // always set contract address in col 0 so that some entry in the row is always non-zero
-            cols[0][first_row_for_log + j] = logs[i].contractAddress;
-            cols[1][first_row_for_log + j] = logs[i].emittedLength;
-            // and set the actual log data entry
-            cols[2][first_row_for_log + j] = logs[i].fields[j];
-        }
+    if (flat_public_logs.size() > PUBLIC_LOGS_PAYLOAD_LENGTH) {
+        throw std::runtime_error("Public logs payload length exceeds maximum length");
+    }
+    cols[0][array_start_row_idx] = flat_public_logs.size();
+    for (size_t i = 0; i < flat_public_logs.size(); ++i) {
+        cols[0][array_start_row_idx + i + PUBLIC_LOGS_HEADER_LENGTH] = flat_public_logs[i];
     }
 }
 
@@ -245,8 +242,6 @@ std::vector<std::vector<FF>> PublicInputs::to_columns() const
         accumulatedDataArrayLengths.nullifiers;
     cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX] =
         accumulatedDataArrayLengths.l2ToL1Msgs;
-    cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_LOGS_ROW_IDX] =
-        accumulatedDataArrayLengths.publicLogs;
     cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX] =
         accumulatedDataArrayLengths.publicDataWrites;
 
@@ -258,7 +253,7 @@ std::vector<std::vector<FF>> PublicInputs::to_columns() const
     set_l2_to_l1_msg_array_in_cols(
         accumulatedData.l2ToL1Msgs, cols, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX);
     set_public_logs_in_cols(
-        accumulatedData.publicLogs, cols, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX);
+        accumulatedData.publicLogs.flatten(), cols, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX);
     set_public_data_writes_in_cols(
         accumulatedData.publicDataWrites, cols, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX);
 

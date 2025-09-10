@@ -15,6 +15,7 @@ import {
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
   type NESTED_RECURSIVE_PROOF_LENGTH,
   type NULLIFIER_TREE_HEIGHT,
+  PUBLIC_LOGS_PAYLOAD_LENGTH,
   RECURSIVE_PROOF_LENGTH,
   ULTRA_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
@@ -33,6 +34,7 @@ import {
   type PrivateToAvmAccumulatedDataArrayLengths,
   PrivateToPublicKernelCircuitPublicInputs,
 } from '@aztec/stdlib/kernel';
+import type { PublicLogs } from '@aztec/stdlib/logs';
 import { BaseParityInputs, ParityPublicInputs, type RootParityInput, RootParityInputs } from '@aztec/stdlib/parity';
 import type { ProofData, RecursiveProof } from '@aztec/stdlib/proofs';
 import {
@@ -84,6 +86,7 @@ import type {
   FeeRecipient as FeeRecipientNoir,
   FinalBlobAccumulatorPublicInputs as FinalBlobAccumulatorPublicInputsNoir,
   FinalBlobBatchingChallenges as FinalBlobBatchingChallengesNoir,
+  FixedLengthArray,
   MergeRollupInputs as MergeRollupInputsNoir,
   Field as NoirField,
   PaddingBlockRootRollupInputs as PaddingBlockRootRollupInputsNoir,
@@ -100,6 +103,7 @@ import type {
   ProofData as ProofDataNoir,
   PublicBaseRollupInputs as PublicBaseRollupInputsNoir,
   PublicDataHint as PublicDataHintNoir,
+  PublicLogs as PublicLogsNoir,
   PublicTubePrivateInputs as PublicTubePrivateInputsNoir,
   RootParityInputs as RootParityInputsNoir,
   RootRollupInputs as RootRollupInputsNoir,
@@ -140,7 +144,6 @@ import {
   mapPublicCallRequestToNoir,
   mapPublicDataTreePreimageToNoir,
   mapPublicDataWriteToNoir,
-  mapPublicLogToNoir,
   mapScopedL2ToL1MessageToNoir,
   mapTupleFromNoir,
   mapTxConstantDataFromNoir,
@@ -556,12 +559,24 @@ function mapPrivateToAvmAccumulatedDataArrayLengthsToNoir(
   };
 }
 
+function mapPublicLogsToNoir(logs: PublicLogs): PublicLogsNoir {
+  const fields = logs.flattenLogs();
+  if (fields.length > PUBLIC_LOGS_PAYLOAD_LENGTH) {
+    throw new Error('Public logs payload length exceeds target length');
+  }
+  const payload = [...fields, ...Array(PUBLIC_LOGS_PAYLOAD_LENGTH - fields.length).fill(Fr.ZERO)].map(mapFieldToNoir);
+  return {
+    length: mapNumberToNoir(fields.length),
+    payload: payload as FixedLengthArray<NoirField, typeof PUBLIC_LOGS_PAYLOAD_LENGTH>,
+  };
+}
+
 function mapAvmAccumulatedDataToNoir(data: AvmAccumulatedData): AvmAccumulatedDataNoir {
   return {
     note_hashes: mapTuple(data.noteHashes, mapFieldToNoir),
     nullifiers: mapTuple(data.nullifiers, mapFieldToNoir),
     l2_to_l1_msgs: mapTuple(data.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
-    public_logs: mapTuple(data.publicLogs, mapPublicLogToNoir),
+    public_logs: mapPublicLogsToNoir(data.publicLogs),
     public_data_writes: mapTuple(data.publicDataWrites, mapPublicDataWriteToNoir),
   };
 }
@@ -573,7 +588,6 @@ function mapAvmAccumulatedDataArrayLengthsToNoir(
     note_hashes: mapNumberToNoir(data.noteHashes),
     nullifiers: mapNumberToNoir(data.nullifiers),
     l2_to_l1_msgs: mapNumberToNoir(data.l2ToL1Msgs),
-    public_logs: mapNumberToNoir(data.publicLogs),
     public_data_writes: mapNumberToNoir(data.publicDataWrites),
   };
 }
