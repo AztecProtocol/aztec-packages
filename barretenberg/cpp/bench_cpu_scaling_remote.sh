@@ -3,6 +3,7 @@
 # CPU scaling benchmark wrapper that uses benchmark_remote.sh properly
 # This script runs a command multiple times with different HARDWARE_CONCURRENCY values
 # and tracks the scaling performance of specific BB_BENCH entries
+# Uses --bench_out flag to get JSON output for accurate timing extraction
 
 set -e
 
@@ -72,52 +73,29 @@ echo "" >> "$RESULTS_FILE"
 # Initialize CSV file
 echo "CPUs,Time_ms,Time_s,Speedup,Efficiency" > "$CSV_FILE"
 
-# Function to extract time for specific benchmark entry
+# Function to extract time for specific benchmark entry from JSON
 extract_bench_time() {
-    local log_file=$1
+    local json_file=$1
     local bench_name=$2
 
-    # Look for BB_BENCH JSON output
-    local time_ns=$(grep -oP "\"${bench_name//\\/\\\\}\":\s*\K\d+" "$log_file" 2>/dev/null | head -1)
-
-    if [ -z "$time_ns" ]; then
+    # Extract time from JSON file using grep and sed
+    # JSON format is: {"benchmark_name": time_in_nanoseconds, ...}
+    local time_ns=""
+    
+    if [ -f "$json_file" ]; then
+        # Extract the value for the specific benchmark name from JSON
+        time_ns=$(grep -oP "\"${bench_name//\\/\\\\}\":\s*\K\d+" "$json_file" 2>/dev/null | head -1)
+    fi
+    
+    # If JSON extraction failed, try to extract from log file (fallback)
+    if [ -z "$time_ns" ] && [ -f "${json_file%/bench.json}/output.log" ]; then
+        local log_file="${json_file%/bench.json}/output.log"
         # Try to extract from hierarchical BB_BENCH output
         # Look for pattern like: "  ├─ ClientIvcProve ... 28.13s"
         local time_s=$(grep -E "├─.*${bench_name}" "$log_file" | grep -oP '\d+\.\d+s' | grep -oP '\d+\.\d+' | head -1)
         if [ -n "$time_s" ]; then
             # Convert seconds to nanoseconds
             time_ns=$(awk -v s="$time_s" 'BEGIN{printf "%.0f", s * 1000000000}')
-        fi
-    fi
-    
-    if [ -z "$time_ns" ]; then
-        # Try another pattern: Look for the line with the benchmark name and extract time
-        # Pattern: "  ClientIvcProve ... percentage   50.14s ..."
-        local time_line=$(grep -E "^  ${bench_name}[[:space:]]" "$log_file" | head -1)
-        if [ -n "$time_line" ]; then
-            time_s=$(echo "$time_line" | grep -oP '\d+\.\d+s' | grep -oP '\d+\.\d+' | head -1)
-            if [ -n "$time_s" ]; then
-                # Convert seconds to nanoseconds
-                time_ns=$(awk -v s="$time_s" 'BEGIN{printf "%.0f", s * 1000000000}')
-            fi
-        fi
-    fi
-
-    if [ -z "$time_ns" ]; then
-        # Try to extract from hierarchical output with more flexible pattern
-        time_ns=$(grep -A5 "$bench_name" "$log_file" | grep -oP '\d+\.\d+\s*ms' | grep -oP '\d+\.\d+' | head -1)
-        if [ -n "$time_ns" ]; then
-            # Convert ms to ns
-            time_ns=$(awk -v ms="$time_ns" 'BEGIN{printf "%.0f", ms * 1000000}')
-        fi
-    fi
-
-    if [ -z "$time_ns" ]; then
-        # Try to extract from the benchmark table output
-        time_ns=$(grep "$bench_name" "$log_file" | grep -oP '\d+\s*ms' | grep -oP '\d+' | head -1)
-        if [ -n "$time_ns" ]; then
-            # Convert ms to ns
-            time_ns=$(awk -v ms="$time_ns" 'BEGIN{printf "%.0f", ms * 1000000}')
         fi
     fi
 
@@ -149,30 +127,34 @@ for cpu_count in "${CPU_COUNTS[@]}"; do
     echo -e "${CYAN}Executing on remote via benchmark_remote.sh...${NC}"
     start_time=$(date +%s.%N)
 
-    # Use benchmark_remote.sh to execute on remote with BB_BENCH enabled
+    # Use benchmark_remote.sh to execute on remote with --bench_out for JSON output
     # The benchmark_remote.sh script handles locking and setup
     # Use tee to show output in real-time AND save to log file
-    ./scripts/benchmark_remote.sh bb "BB_BENCH=1 HARDWARE_CONCURRENCY=$cpu_count $COMMAND" 2>&1 | tee "$log_file"
+    bench_json_file="$run_dir/bench.json"
+    ./scripts/benchmark_remote.sh bb "HARDWARE_CONCURRENCY=$cpu_count $COMMAND --bench_out /tmp/bench_${cpu_count}.json" 2>&1 | tee "$log_file"
+    
+    # Retrieve the JSON file from remote
+    ssh $BB_SSH_KEY $BB_SSH_INSTANCE "cat /tmp/bench_${cpu_count}.json" > "$bench_json_file" 2>/dev/null
 
     end_time=$(date +%s.%N)
     wall_time=$(awk -v e="$end_time" -v s="$start_time" 'BEGIN{printf "%.2f", e-s}')
 
-    # Extract the specific benchmark time
-    bench_time_ns=$(extract_bench_time "$log_file" "$BENCH_NAME")
+    # Extract the specific benchmark time from JSON file
+    bench_time_ns=$(extract_bench_time "$bench_json_file" "$BENCH_NAME")
 
     if [ -z "$bench_time_ns" ] || [ "$bench_time_ns" = "0" ]; then
-        echo -e "${RED}Warning: Could not extract timing for '$BENCH_NAME'${NC}"
-        echo -e "${YELLOW}Trying to extract from BB_BENCH JSON output at end of file...${NC}"
-
-        # Try to get the BB_BENCH output from the end of the file
-        tail -100 "$log_file" > "$run_dir/tail.log"
-        bench_time_ns=$(extract_bench_time "$run_dir/tail.log" "$BENCH_NAME")
-
-        if [ -z "$bench_time_ns" ] || [ "$bench_time_ns" = "0" ]; then
-            echo -e "${RED}Still couldn't find timing. Check the log file: $log_file${NC}"
-            echo "CPUs: $cpu_count - No timing data found" >> "$RESULTS_FILE"
-            continue
+        echo -e "${RED}Warning: Could not extract timing for '$BENCH_NAME' from JSON${NC}"
+        echo -e "${YELLOW}Check the JSON file: $bench_json_file${NC}"
+        
+        # Show what's in the JSON file for debugging
+        if [ -f "$bench_json_file" ]; then
+            echo -e "${YELLOW}JSON content (first 500 chars):${NC}"
+            head -c 500 "$bench_json_file"
+            echo ""
         fi
+        
+        echo "CPUs: $cpu_count - No timing data found" >> "$RESULTS_FILE"
+        continue
     fi
 
     # Convert to milliseconds and seconds
