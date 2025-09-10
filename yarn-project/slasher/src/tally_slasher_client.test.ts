@@ -140,6 +140,7 @@ describe('TallySlasherClient', () => {
     // Setup rollup and slasher contract mocks
     rollup.getSlasherContract.mockResolvedValue(slasherContract);
     slasherContract.isPayloadVetoed.mockResolvedValue(false);
+    slasherContract.isSlashingEnabled.mockResolvedValue(true);
 
     // Mock event listeners to return unwatch functions
     tallySlashingProposer.listenToVoteCast.mockReturnValue(() => {});
@@ -359,6 +360,41 @@ describe('TallySlasherClient', () => {
         const actions = await tallySlasherClient.getProposerActions(currentSlot);
 
         expect(actions).toEqual([]);
+      });
+
+      it('should not execute vetoed rounds', async () => {
+        const currentRound = 5n;
+        const currentSlot = currentRound * BigInt(roundSize); // Round 5
+        const executableRound = 2n; // After execution delay of 2: currentRound - delay - 1 = 5 - 2 - 1 = 2
+
+        tallySlashingProposer.getRound.mockResolvedValueOnce({
+          isExecuted: false,
+          readyToExecute: true,
+          voteCount: 120n,
+        });
+
+        const payloadAddress = EthAddress.random();
+        tallySlashingProposer.getPayload.mockResolvedValue({
+          address: payloadAddress,
+          actions: [{ validator: committee[0], slashAmount: slashingUnit }],
+        });
+
+        slasherContract.isPayloadVetoed.mockResolvedValueOnce(true);
+        const actions = await tallySlasherClient.getProposerActions(currentSlot);
+
+        expect(actions).toHaveLength(0);
+        expect(tallySlashingProposer.getRound).toHaveBeenCalledWith(executableRound);
+        expect(slasherContract.isPayloadVetoed).toHaveBeenCalledWith(payloadAddress);
+      });
+
+      it('should not execute when slashing is disabled', async () => {
+        const currentRound = 5n;
+        const currentSlot = currentRound * BigInt(roundSize); // Round 5
+
+        slasherContract.isSlashingEnabled.mockResolvedValue(false);
+        const actions = await tallySlasherClient.getProposerActions(currentSlot);
+
+        expect(actions).toHaveLength(0);
       });
     });
 

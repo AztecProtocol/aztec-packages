@@ -162,6 +162,7 @@ describe('e2e_p2p_add_rollup', () => {
         slashingLifetimeInRounds: t.ctx.aztecNodeConfig.slashingLifetimeInRounds,
         slashingExecutionDelayInRounds: t.ctx.aztecNodeConfig.slashingExecutionDelayInRounds,
         slashingVetoer: t.ctx.aztecNodeConfig.slashingVetoer,
+        slashingDisableDuration: t.ctx.aztecNodeConfig.slashingDisableDuration,
         manaTarget: t.ctx.aztecNodeConfig.manaTarget,
         provingCostPerMana: t.ctx.aztecNodeConfig.provingCostPerMana,
         feeJuicePortalInitialBalance: fundingNeeded,

@@ -45,6 +45,8 @@ const DefaultSlashConfig = {
   slashingOffsetInRounds: 2,
   /** No slash vetoer */
   slashingVetoer: EthAddress.ZERO,
+  /** Use default disable duration */
+  slashingDisableDuration: DefaultL1ContractsConfig.slashingDisableDuration,
   /** Use default slash amounts */
   slashAmountSmall: DefaultL1ContractsConfig.slashAmountSmall,
   slashAmountMedium: DefaultL1ContractsConfig.slashAmountMedium,

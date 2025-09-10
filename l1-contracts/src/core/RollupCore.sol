@@ -255,7 +255,8 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
         _config.slashAmounts,
         _config.targetCommitteeSize,
         _config.aztecEpochDuration,
-        _config.slashingOffsetInRounds
+        _config.slashingOffsetInRounds,
+        _config.slashingDisableDuration
       );
     } else {
       slasher = EmpireSlasherDeploymentExtLib.deployEmpireSlasher(
@@ -265,7 +266,8 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
         _config.slashingQuorum,
         _config.slashingRoundSize,
         _config.slashingLifetimeInRounds,
-        _config.slashingExecutionDelayInRounds
+        _config.slashingExecutionDelayInRounds,
+        _config.slashingDisableDuration
       );
     }
 

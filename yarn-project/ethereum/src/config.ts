@@ -50,6 +50,8 @@ export type L1ContractsConfig = {
   slashingVetoer: EthAddress;
   /** How many slashing rounds back we slash (ie when slashing in round N, we slash for offenses committed during epochs of round N-offset) */
   slashingOffsetInRounds: number;
+  /** How long slashing can be disabled for in seconds when vetoer disables it */
+  slashingDisableDuration: number;
   /** Type of slasher proposer */
   slasherFlavor: 'empire' | 'tally' | 'none';
   /** Minimum amount that can be slashed in tally slashing */
@@ -93,6 +95,7 @@ export const DefaultL1ContractsConfig = {
   exitDelaySeconds: 2 * 24 * 60 * 60,
   slasherFlavor: 'tally' as const,
   slashingOffsetInRounds: 2,
+  slashingDisableDuration: 5 * 24 * 60 * 60, // 5 days in seconds
 } satisfies L1ContractsConfig;
 
 const LocalGovernanceConfiguration = {
@@ -383,6 +386,11 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The slashing vetoer',
     parseEnv: (val: string) => EthAddress.fromString(val),
     defaultValue: DefaultL1ContractsConfig.slashingVetoer,
+  },
+  slashingDisableDuration: {
+    env: 'AZTEC_SLASHING_DISABLE_DURATION',
+    description: 'How long slashing can be disabled for in seconds when vetoer disables it',
+    ...numberConfigHelper(DefaultL1ContractsConfig.slashingDisableDuration),
   },
   governanceProposerQuorum: {
     env: 'AZTEC_GOVERNANCE_PROPOSER_QUORUM',

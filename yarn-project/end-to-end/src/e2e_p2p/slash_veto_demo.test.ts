@@ -158,7 +158,7 @@ describe('veto slash', () => {
     const vetoer = deployerClient.account.address;
     const governance = EthAddress.random().toString(); // We don't need a real governance address for this test
     debugLogger.info(`\n\ndeploying slasher with vetoer: ${vetoer}\n\n`);
-    const slasher = await deployer.deploy(SlasherArtifact, [vetoer, governance]);
+    const slasher = await deployer.deploy(SlasherArtifact, [vetoer, governance, 3600n]);
     await deployer.waitForDeployments();
 
     let proposer: EthAddress;
