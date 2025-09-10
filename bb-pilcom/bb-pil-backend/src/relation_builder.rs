@@ -79,7 +79,6 @@ impl RelationBuilder for BBFiles {
             .identities_with_inlined_intermediate_polynomials()
             .iter()
             .sorted_by_key(|id| id.id)
-            // FIXME: maybe it's not .0
             .filter_map(|id| {
                 if id.kind != IdentityKind::Polynomial {
                     None
