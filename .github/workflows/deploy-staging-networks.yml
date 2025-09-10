@@ -115,6 +115,8 @@ jobs:
           ETHERSCAN_API_KEY=${{ secrets.ETHERSCAN_API_KEY }}
           DEPLOY_INTERNAL_BOOTNODE=false
           STORE_SNAPSHOT_URL="${{ secrets.GCS_TESTNET_SNAPSHOT_URL }}/staging-public/"
+          BOT_TRANSFERS_REPLICAS=1
+          BOT_SWAPS_REPLICAS=1
           EOF
           echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
 
@@ -168,6 +170,8 @@ jobs:
 
           STORE_SNAPSHOT_URL="${{ secrets.GCS_TESTNET_SNAPSHOT_URL }}/staging-ignition/"
           DEPLOY_INTERNAL_BOOTNODE=false
+          BOT_TRANSFERS_REPLICAS=0
+          BOT_SWAPS_REPLICAS=0
           EOF
           echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
 
@@ -220,6 +224,8 @@ jobs:
 
           STORE_SNAPSHOT_URL="${{ secrets.GCS_TESTNET_SNAPSHOT_URL }}/testnet/"
           DEPLOY_INTERNAL_BOOTNODE=false
+          BOT_TRANSFERS_REPLICAS=0
+          BOT_SWAPS_REPLICAS=0
           EOF
           echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
 
