@@ -27,8 +27,9 @@ template <typename FF_> class TranslatorOpcodeConstraintRelationImpl {
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
      */
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    template <typename AllEntities> static bool skip(const AllEntities& in)
     {
+        // All contributions are zero outside the minicircuit or at odd indices not masked
         return (in.lagrange_even_in_minicircuit + in.lagrange_mini_masking).is_zero();
     }
     /**
@@ -79,9 +80,13 @@ template <typename FF_> class TranslatorAccumulatorTransferRelationImpl {
      * slower.
      *
      */
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    template <typename AllEntities> static bool skip(const AllEntities& in)
     {
-        return (in.lagrange_odd_in_minicircuit + in.lagrange_last_in_minicircuit + in.lagrange_result_row).is_zero();
+        // All contributions are zero outside the minicircuit or at even indices within the minicircuite excluding
+        // masked areas (except from the last and result row in minicircuit)
+        return (in.lagrange_odd_in_minicircuit + in.lagrange_last_in_minicircuit + in.lagrange_result_row +
+                in.lagrange_mini_masking)
+            .is_zero();
     }
     /**
      * @brief Relation enforcing non-arithmetic transitions of accumulator (value that is tracking the batched
@@ -110,7 +115,7 @@ template <typename FF_> class TranslatorZeroConstraintsRelationImpl {
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 4; // degree((some lagrange)(A)) = 2
 
-    static constexpr std::array<size_t, 64> SUBRELATION_PARTIAL_LENGTHS{
+    static constexpr std::array<size_t, 68> SUBRELATION_PARTIAL_LENGTHS{
         4, // p_x_low_limbs_range_constraint_0 is zero outside of the minicircuit
         4, // p_x_low_limbs_range_constraint_1 is zero outside of the minicircuit
         4, // p_x_low_limbs_range_constraint_2 is zero outside of the minicircuit
@@ -175,18 +180,25 @@ template <typename FF_> class TranslatorZeroConstraintsRelationImpl {
         4, // accumulator_high_limbs_range_constraint_tail is zero outside of the minicircuit
         4, // quotient_low_limbs_range_constraint_tail is zero outside of the minicircuit
         4, // quotient_high_limbs_range_constraint_tail is zero outside of the minicircuit
+        4, // op is zero outside of the minicircuit
+        4, // x_lo_y_hi is zero outside of the minicircuit
+        4, // x_hi_z_1 is zero outside of the minicircuit
+        4, // y_lo_z_2 is zero outside of the minicircuit
 
     };
 
     /**
-     * @brief Might return true if the contribution from all subrelations for the provided inputs is identically zero
+     * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
      *
      */
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    template <typename AllEntities> static bool skip(const AllEntities& in)
     {
+        // All contributions are identically zero if outside the minicircuit and masked area or when we have a
+        // no-op (i.e. op is zero at an even index)
         static constexpr auto minus_one = -FF(1);
-        return (in.lagrange_even_in_minicircuit + in.lagrange_last_in_minicircuit + minus_one).is_zero();
+        return (in.lagrange_even_in_minicircuit + in.op + minus_one).is_zero() ||
+               (in.lagrange_odd_in_minicircuit + in.lagrange_even_in_minicircuit + in.lagrange_mini_masking).is_zero();
     }
     /**
      * @brief Relation enforcing all the range-constraint polynomials to be zero after the minicircuit

@@ -207,9 +207,8 @@ void TranslatorAccumulatorTransferRelationImpl<FF>::accumulate(ContainerOverSubr
 };
 
 /**
- * @brief Relation enforcing all the range-constraint polynomials to be zero after the minicircuit
- * @details This relation ensures that while we are out of the minicircuit the range constraint polynomials are zero
- *
+ * @brief Relation enforcing all the range-constraint  and op queue polynomials to be zero after the minicircuit
+
  * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
  * @param in an std::array containing the fully extended Univariate edges.
  * @param parameters contains beta, gamma, and public_input_delta, ....
@@ -295,6 +294,10 @@ void TranslatorZeroConstraintsRelationImpl<FF>::accumulate(ContainerOverSubrelat
     auto accumulator_high_limbs_range_constraint_tail = View(in.accumulator_high_limbs_range_constraint_tail);
     auto quotient_low_limbs_range_constraint_tail = View(in.quotient_low_limbs_range_constraint_tail);
     auto quotient_high_limbs_range_constraint_tail = View(in.quotient_high_limbs_range_constraint_tail);
+    auto op = View(in.op);
+    auto x_lo_y_hi = View(in.x_lo_y_hi);
+    auto x_hi_z_1 = View(in.x_hi_z_1);
+    auto y_lo_z_2 = View(in.y_lo_z_2);
     auto lagrange_mini_masking = View(in.lagrange_mini_masking);
 
     // 0 in the minicircuit, -1 outside
@@ -492,5 +495,17 @@ void TranslatorZeroConstraintsRelationImpl<FF>::accumulate(ContainerOverSubrelat
 
     // Contribution 63, ensure quotient_high_limbs_range_constraint_tail is 0 outside of minicircuit
     std::get<63>(accumulators) += quotient_high_limbs_range_constraint_tail * not_in_mininicircuit_or_masked;
+
+    // Contribution 64, ensure op is 0 outside of minicircuit
+    std::get<64>(accumulators) += op * not_in_mininicircuit_or_masked;
+
+    // Contribution 65, ensure x_lo_y_hi is 0 outside of minicircuit
+    std::get<65>(accumulators) += x_lo_y_hi * not_in_mininicircuit_or_masked;
+
+    // Contribution 66, ensure x_hi_z_1 is 0 outside of minicircuit
+    std::get<66>(accumulators) += x_hi_z_1 * not_in_mininicircuit_or_masked;
+
+    // Contribution 67, ensure y_lo_z_2 is 0 outside of minicircuit
+    std::get<67>(accumulators) += y_lo_z_2 * not_in_mininicircuit_or_masked;
 };
 } // namespace bb
