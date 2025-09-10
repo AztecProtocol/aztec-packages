@@ -27,9 +27,12 @@ template <typename FF_> class TranslatorOpcodeConstraintRelationImpl {
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
      */
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    template <typename AllEntities> static bool skip(const AllEntities& in)
     {
-        return (in.lagrange_even_in_minicircuit + in.lagrange_mini_masking).is_zero();
+        // All contributions are zero outside the minicircuit or at odd indices
+        static constexpr auto minus_one = -FF(1);
+        return (in.lagrange_even_in_minicircuit + in.lagrange_odd_in_minicircuit).is_zero() ||
+               (in.lagrange_odd_in_minicircuit + minus_one).is_zero();
     }
     /**
      * @brief Expression for enforcing the value of the Opcode to be {0,3,4,8}
@@ -81,9 +84,11 @@ template <typename FF_> class TranslatorAccumulatorTransferRelationImpl {
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return (in.lagrange_odd_in_minicircuit + in.lagrange_last_in_minicircuit + in.lagrange_result_row +
-                in.lagrange_mini_masking)
-            .is_zero();
+        // All contributions are zero outside the minicircuit or at even indices
+        static constexpr auto minus_one = -FF(1);
+        return (in.lagrange_odd_in_minicircuit + in.lagrange_even_in_minicircuit + in.lagrange_last_in_minicircuit)
+                   .is_zero() ||
+               (in.lagrange_even_in_minicircuit + minus_one).is_zero();
     }
     /**
      * @brief Relation enforcing non-arithmetic transitions of accumulator (value that is tracking the batched
@@ -185,16 +190,17 @@ template <typename FF_> class TranslatorZeroConstraintsRelationImpl {
     };
 
     /**
-     * @brief Might return true if the contribution from all subrelations for the provided inputs is identically zero
+     * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
      *
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
+        // For an honest prover, all contributions are identically zero if outside the minicircuit or when we have a
+        // no-op (i.e. op is zero at an even index)
         static constexpr auto minus_one = -FF(1);
-        return (in.lagrange_even_in_minicircuit + in.lagrange_last_in_minicircuit + in.lagrange_mini_masking +
-                minus_one)
-            .is_zero();
+        return (in.lagrange_even_in_minicircuit + in.op + minus_one).is_zero() ||
+               (in.lagrange_odd_in_minicircuit + in.lagrange_even_in_minicircuit).is_zero();
     }
     /**
      * @brief Relation enforcing all the range-constraint polynomials to be zero after the minicircuit
