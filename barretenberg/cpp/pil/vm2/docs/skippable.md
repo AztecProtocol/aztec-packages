@@ -2,7 +2,7 @@
 
 ## Introduction
 
-For each sub-trace defined in a .pil file, one can optionally add so-called "skippable" condition which allows to improve performance on prover side whenever the "skippable" condition is satisfied. It basically skips some accumulation computation in sumcheck protocol to all sub-relations pertaining to the sub-trace. More on how to define a valid "skippable" condition in the next section. We emphasize that the "skippable" mechanism does not change the behavior of the verifier and therefore does not present any security risk about soundness, i.e., it does not help a malicious prover to prove a wrong statement even if the "skippable" condition is too relaxed. What can however happen is that the verification fails when it should not (perfect completeness is not guarenteed anymore if we wrongly skip).
+For each sub-trace defined in a .pil file, one can optionally add so-called "skippable" condition which allows to improve performance on prover side whenever the "skippable" condition is satisfied. It basically skips some accumulation computation in sumcheck protocol to all sub-relations pertaining to the sub-trace. Here a "sub-trace" can be virtual or not, i.e., each virtual sub-trace has their own skippable condition (which might be the same though). More on how to define a valid "skippable" condition in the next section. We emphasize that the "skippable" mechanism does not change the behavior of the verifier and therefore does not present any security risk about soundness, i.e., it does not help a malicious prover to prove a wrong statement even if the "skippable" condition is too relaxed. What can however happen is that the verification fails when it should not (perfect completeness is not guaranteed anymore if we wrongly skip).
 
 ## Explanations
 
@@ -26,14 +26,14 @@ We name such a condition "strong" and show in next section that this can be rela
 ## Valid Relaxed Skippable Condition
 
 At each round of the sumcheck protocol, two contiguous rows are "merged".
-For each column, the merging consist in computing the following based on a challenge $\alpha$ (random value over FF):
+For each column, the merging step consists in computing the following based on a challenge $\alpha$ (random value over FF):
 $$ ColMerged{_i} = (1 - \alpha) \cdot Col_i + \alpha \cdot Col_{i+1} $$
 
 for every even i ($Col_i$ denotes the ith row element of $Col$).
 Then, each "merged value" is evaluated in your sub-relation.
 Note that $ColMerged_i$ is more or less random except when $Col_i$ and $Col_{i+1}$ are zeros.
 Assume that for a given sub-relation all $ColMerged_i$ are "random" except for the term satisfying the skippable condition. Then it will evaluate to zero and can be effectively skipped. (Assuming the strong definition of skippable where the skippable condition can nullify a sub-relation no matter what are the other values.)
-Now, one can leverage on the fact that we are using our witness generator to use the skippable in a more generous manner by leveraging columns that are guaranteed to be zero whenever the skippable condition is true and that this particular column being zero nullifies a sub-relation (in other words the column entry is multiplicative factor of the sub-relation).
+Now, one can leverage on the fact that we are using our witness generator to use the skippable in a more generous manner by taking advantage of columns that are guaranteed to be zero whenever the skippable condition is true and that this specific column being zero nullifies a sub-relation (in other words the column entry is a multiplicative factor of the sub-relation).
 Let us take an example of a subtrace with two subrelations over columns $a$, $b$, $c$:
 
 $$
