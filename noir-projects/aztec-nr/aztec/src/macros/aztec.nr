@@ -270,11 +270,10 @@ comptime fn generate_process_message() -> Quoted {
     // to determine whether a function is `private`, `public`, or `utility`.
     let utility = crate::macros::functions::utility;
 
-    // TODO(#15012): Here we use PRIVATE_LOG_CIPHERTEXT_LEN for message ciphertext length. Fix message vs log naming.
     quote {
         #[$utility]
         unconstrained fn process_message(
-            message_ciphertext: BoundedVec<Field, aztec::protocol_types::constants::PRIVATE_LOG_CIPHERTEXT_LEN>,
+            message_ciphertext: BoundedVec<Field, aztec::messages::encoding::MESSAGE_CIPHERTEXT_LEN>,
             message_context: aztec::messages::processing::message_context::MessageContext,
         ) {
             aztec::messages::discovery::process_message::do_process_message(

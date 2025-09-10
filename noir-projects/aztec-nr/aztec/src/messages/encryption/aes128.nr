@@ -1,9 +1,6 @@
 use dep::protocol_types::{
     address::AztecAddress,
-    constants::{
-        GENERATOR_INDEX__SYMMETRIC_KEY, GENERATOR_INDEX__SYMMETRIC_KEY_2,
-        PRIVATE_LOG_CIPHERTEXT_LEN,
-    },
+    constants::{GENERATOR_INDEX__SYMMETRIC_KEY, GENERATOR_INDEX__SYMMETRIC_KEY_2},
     hash::poseidon2_hash_with_separator,
     point::Point,
 };
@@ -14,10 +11,11 @@ use crate::{
         ephemeral::generate_ephemeral_key_pair,
     },
     messages::{
-        encryption::log_encryption::{
+        encoding::{
             EPH_PK_SIGN_BYTE_SIZE_IN_BYTES, EPH_PK_X_SIZE_IN_FIELDS,
-            HEADER_CIPHERTEXT_SIZE_IN_BYTES, LogEncryption, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS,
+            HEADER_CIPHERTEXT_SIZE_IN_BYTES, MESSAGE_CIPHERTEXT_LEN, MESSAGE_PLAINTEXT_LEN,
         },
+        encryption::log_encryption::LogEncryption,
         logs::arithmetic_generics_utils::{
             get_arr_of_size__log_bytes__from_PT, get_arr_of_size__log_bytes_padding__from_PT,
         },
@@ -161,7 +159,7 @@ impl LogEncryption for AES128 {
     fn encrypt_log<let PlaintextLen: u32>(
         plaintext: [Field; PlaintextLen],
         recipient: AztecAddress,
-    ) -> [Field; PRIVATE_LOG_CIPHERTEXT_LEN] {
+    ) -> [Field; MESSAGE_CIPHERTEXT_LEN] {
         // AES 128 operates on bytes, not fields, so we need to convert the fields to bytes.
         // (This process is then reversed when processing the log in `do_process_log`)
         let plaintext_bytes = fields_to_bytes(plaintext);
@@ -279,7 +277,7 @@ impl LogEncryption for AES128 {
         // Prepend / append fields, to create the final log
         // *****************************************************************************
 
-        let mut ciphertext: [Field; PRIVATE_LOG_CIPHERTEXT_LEN] = [0; PRIVATE_LOG_CIPHERTEXT_LEN];
+        let mut ciphertext: [Field; MESSAGE_CIPHERTEXT_LEN] = [0; MESSAGE_CIPHERTEXT_LEN];
 
         ciphertext[0] = eph_pk.x;
 
@@ -289,7 +287,7 @@ impl LogEncryption for AES128 {
         }
         offset += log_bytes_as_fields.len();
 
-        for i in offset..PRIVATE_LOG_CIPHERTEXT_LEN {
+        for i in offset..MESSAGE_CIPHERTEXT_LEN {
             // We need to get a random value that fits in 31 bytes to not leak information about the size of the log
             // (all the "real" log fields contain at most 31 bytes because of the way we convert the bytes to fields).
             // TODO(#12749): Long term, this is not a good solution.
@@ -304,12 +302,12 @@ impl LogEncryption for AES128 {
     }
 
     unconstrained fn decrypt_log(
-        ciphertext: BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>,
+        ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
         recipient: AztecAddress,
-    ) -> BoundedVec<Field, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS> {
+    ) -> BoundedVec<Field, MESSAGE_PLAINTEXT_LEN> {
         let eph_pk_x = ciphertext.get(0);
 
-        let ciphertext_without_eph_pk_x_fields = array::subbvec::<Field, PRIVATE_LOG_CIPHERTEXT_LEN, PRIVATE_LOG_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS>(
+        let ciphertext_without_eph_pk_x_fields = array::subbvec::<Field, MESSAGE_CIPHERTEXT_LEN, MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS>(
             ciphertext,
             EPH_PK_X_SIZE_IN_FIELDS,
         );
@@ -352,9 +350,9 @@ impl LogEncryption for AES128 {
 
         // Extract and decrypt main ciphertext
         let ciphertext_start = header_start + HEADER_CIPHERTEXT_SIZE_IN_BYTES;
-        let ciphertext_with_padding: [u8; (PRIVATE_LOG_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS) * 31 - HEADER_CIPHERTEXT_SIZE_IN_BYTES - EPH_PK_SIGN_BYTE_SIZE_IN_BYTES] =
+        let ciphertext_with_padding: [u8; (MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS) * 31 - HEADER_CIPHERTEXT_SIZE_IN_BYTES - EPH_PK_SIGN_BYTE_SIZE_IN_BYTES] =
             array::subarray(ciphertext_without_eph_pk_x.storage(), ciphertext_start);
-        let ciphertext: BoundedVec<u8, (PRIVATE_LOG_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS) * 31 - HEADER_CIPHERTEXT_SIZE_IN_BYTES - EPH_PK_SIGN_BYTE_SIZE_IN_BYTES> =
+        let ciphertext: BoundedVec<u8, (MESSAGE_CIPHERTEXT_LEN - EPH_PK_X_SIZE_IN_FIELDS) * 31 - HEADER_CIPHERTEXT_SIZE_IN_BYTES - EPH_PK_SIGN_BYTE_SIZE_IN_BYTES> =
             BoundedVec::from_parts(ciphertext_with_padding, ciphertext_length);
 
         // Decrypt main ciphertext and return it
@@ -368,7 +366,7 @@ impl LogEncryption for AES128 {
 mod test {
     use crate::{
         keys::ecdh_shared_secret::derive_ecdh_shared_secret_using_aztec_address,
-        messages::encryption::log_encryption::{LogEncryption, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS},
+        messages::{encoding::MESSAGE_PLAINTEXT_LEN, encryption::log_encryption::LogEncryption},
         test::helpers::test_environment::TestEnvironment,
     };
     use super::AES128;
@@ -418,8 +416,7 @@ mod test {
 
             // The decryption function spits out a BoundedVec because it's designed to work with logs with unknown length
             // at compile time. For this reason we need to convert the original input to a BoundedVec.
-            let plaintext_bvec =
-                BoundedVec::<Field, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS>::from_array(plaintext);
+            let plaintext_bvec = BoundedVec::<Field, MESSAGE_PLAINTEXT_LEN>::from_array(plaintext);
 
             // Verify decryption matches original plaintext
             assert_eq(
