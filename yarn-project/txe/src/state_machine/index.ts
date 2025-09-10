@@ -13,6 +13,9 @@ import { TXEGlobalVariablesBuilder } from './global_variable_builder.js';
 import { MockEpochCache } from './mock_epoch_cache.js';
 import { TXESynchronizer } from './synchronizer.js';
 
+const VERSION = 1;
+const CHAIN_ID = 1;
+
 export class TXEStateMachine {
   constructor(
     public node: AztecNode,
@@ -41,9 +44,8 @@ export class TXEStateMachine {
       undefined,
       undefined,
       undefined,
-      // version and chainId should match the ones in txe oracle
-      1,
-      1,
+      VERSION,
+      CHAIN_ID,
       new TXEGlobalVariablesBuilder(),
       new MockEpochCache(),
       getPackageVersion() ?? '',

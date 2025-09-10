@@ -22,7 +22,7 @@ class OracleMock extends TypedOracle {}
  * oracle interface like we do in PXE (i.e., there is no single Oracle class that contains only the oracles).
  */
 function assertOracleInterfaceMatches(): void {
-  const oracle = new Oracle(new OracleMock());
+  const oracle = new Oracle(new OracleMock('OracleMock'));
   // We use keccak256 here just because we already have it in the dependencies.
   const oracleInterfaceHash = keccak256String(deterministicStringify(oracle.toACIRCallback()));
   if (oracleInterfaceHash !== ORACLE_INTERFACE_HASH) {
