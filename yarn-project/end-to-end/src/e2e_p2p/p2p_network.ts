@@ -43,7 +43,7 @@ import {
   createSnapshotManager,
   deployAccounts,
 } from '../fixtures/snapshot_manager.js';
-import { getPrivateKeyFromIndex, getSponsoredFPCAddress } from '../fixtures/utils.js';
+import { type SetupOptions, getPrivateKeyFromIndex, getSponsoredFPCAddress } from '../fixtures/utils.js';
 import { getEndToEndTestTelemetryClient } from '../fixtures/with_telemetry_utils.js';
 
 // Use a fixed bootstrap node private key so that we can re-use the same snapshot and the nodes can find each other
@@ -82,11 +82,11 @@ export class P2PNetworkTest {
   public bootstrapNode?: BootstrapNode;
 
   constructor(
-    testName: string,
+    public readonly testName: string,
     public bootstrapNodeEnr: string,
     public bootNodePort: number,
     public numberOfValidators: number,
-    initialValidatorConfig: AztecNodeConfig,
+    initialValidatorConfig: SetupOptions,
     public numberOfNodes = 0,
     // If set enable metrics collection
     private metricsPort?: number,
@@ -162,7 +162,7 @@ export class P2PNetworkTest {
     numberOfValidators: number;
     basePort?: number;
     metricsPort?: number;
-    initialConfig?: Partial<AztecNodeConfig>;
+    initialConfig?: SetupOptions;
     startProverNode?: boolean;
     mockZkPassportVerifier?: boolean;
   }) {

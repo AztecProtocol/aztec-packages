@@ -39,7 +39,7 @@ export function generatePrivateKeys(startIndex: number, numberOfKeys: number): `
 }
 
 export async function createNodes(
-  config: AztecNodeConfig,
+  config: AztecNodeConfig & { dontStartSequencer?: boolean },
   dateProvider: DateProvider,
   bootstrapNodeEnr: string,
   numNodes: number,
@@ -88,7 +88,7 @@ export async function createNodes(
 
 // creates a P2P enabled instance of Aztec Node Service
 export async function createNode(
-  config: AztecNodeConfig,
+  config: AztecNodeConfig & { dontStartSequencer?: boolean },
   dateProvider: DateProvider,
   tcpPort: number,
   bootstrapNode: string | undefined,
@@ -101,7 +101,11 @@ export async function createNode(
   const createNode = async () => {
     const validatorConfig = await createValidatorConfig(config, bootstrapNode, tcpPort, addressIndex, dataDirectory);
     const telemetry = getEndToEndTestTelemetryClient(metricsPort);
-    return await AztecNodeService.createAndSync(validatorConfig, { telemetry, dateProvider }, { prefilledPublicData });
+    return await AztecNodeService.createAndSync(
+      validatorConfig,
+      { telemetry, dateProvider },
+      { prefilledPublicData, dontStartSequencer: config.dontStartSequencer },
+    );
   };
   return loggerIdStorage ? await loggerIdStorage.run(tcpPort.toString(), createNode) : createNode();
 }
