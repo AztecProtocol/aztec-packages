@@ -307,6 +307,42 @@ contract SlashingTest is TestBase {
     slashingProposer.executeRound(firstSlashingRound, committees);
   }
 
+  function test_CannotSlashIfDisabled(uint256 _lifetimeInRounds, uint256 _executionDelayInRounds, uint256 _jumpToSlot)
+    public
+  {
+    _executionDelayInRounds = bound(_executionDelayInRounds, 1, 50);
+    _lifetimeInRounds = bound(_lifetimeInRounds, _executionDelayInRounds + 1, 127); // Must be < ROUNDABOUT_SIZE
+
+    _setupCommitteeForSlashing(_lifetimeInRounds, _executionDelayInRounds);
+    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(INITIAL_EPOCH));
+    uint96 slashAmount = 20e18;
+    SlashRound firstSlashingRound = _createSlashingVotes(slashAmount, attesters.length);
+
+    vm.prank(address(slasher.VETOER()));
+    slasher.setSlashingEnabled(false);
+
+    uint256 firstExecutableSlot =
+      (SlashRound.unwrap(firstSlashingRound) + _executionDelayInRounds + 1) * slashingProposer.ROUND_SIZE();
+    uint256 lastExecutableSlot =
+      (SlashRound.unwrap(firstSlashingRound) + _lifetimeInRounds) * slashingProposer.ROUND_SIZE();
+    _jumpToSlot = bound(_jumpToSlot, firstExecutableSlot, lastExecutableSlot);
+
+    timeCheater.cheat__jumpToSlot(_jumpToSlot);
+
+    address[][] memory committees = new address[][](slashingProposer.ROUND_SIZE_IN_EPOCHS());
+    for (uint256 i = 0; i < committees.length; i++) {
+      Epoch epochSlashed = slashingProposer.getSlashTargetEpoch(firstSlashingRound, i);
+      committees[i] = rollup.getEpochCommittee(epochSlashed);
+    }
+
+    vm.expectRevert(abi.encodeWithSelector(Slasher.Slasher__SlashingDisabled.selector));
+    slashingProposer.executeRound(firstSlashingRound, committees);
+
+    vm.prank(address(slasher.VETOER()));
+    slasher.setSlashingEnabled(true);
+    slashingProposer.executeRound(firstSlashingRound, committees);
+  }
+
   function test_SlashingSmallAmount() public {
     _setupCommitteeForSlashing();
     uint256 howManyToSlash = HOW_MANY_SLASHED;

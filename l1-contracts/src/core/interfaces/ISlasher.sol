@@ -15,4 +15,5 @@ interface ISlasher {
 
   function slash(IPayload _payload) external returns (bool);
   function vetoPayload(IPayload _payload) external returns (bool);
+  function setSlashingEnabled(bool _enabled) external;
 }

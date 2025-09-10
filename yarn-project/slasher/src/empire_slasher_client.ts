@@ -403,12 +403,18 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
         continue;
       }
 
-      // Check if the slash payload is vetoed
+      // Check if slashing is enabled at all
       const slasherContract = await this.rollup.getSlasherContract();
+      if (!(await slasherContract.isSlashingEnabled())) {
+        this.log.warn(`Slashing is disabled in the Slasher contract (skipping execution)`);
+        return undefined;
+      }
+
+      // Check if the slash payload is vetoed
       const isVetoed = await slasherContract.isPayloadVetoed(payload.payload);
 
       if (isVetoed) {
-        this.log.info(`Payload ${payload.payload} from round ${payload.round} is vetoed, skipping execution`);
+        this.log.info(`Payload ${payload.payload} from round ${payload.round} is vetoed (skipping execution)`);
         toRemove.push(payload);
         continue;
       }

@@ -187,6 +187,13 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
 
     const logData = { currentRound, executableRound, slotNumber };
     try {
+      // Check if slashing is enabled at all
+      const slasherContract = await this.rollup.getSlasherContract();
+      if (!(await slasherContract.isSlashingEnabled())) {
+        this.log.warn(`Slashing is disabled in the Slasher contract (skipping execution)`, logData);
+        return undefined;
+      }
+
       const roundInfo = await this.tallySlashingProposer.getRound(executableRound);
       if (roundInfo.isExecuted) {
         this.log.verbose(`Round ${executableRound} has already been executed`, logData);
@@ -207,7 +214,6 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
 
       // Check if the slash payload is vetoed
       const payload = await this.tallySlashingProposer.getPayload(executableRound);
-      const slasherContract = await this.rollup.getSlasherContract();
       const isVetoed = await slasherContract.isPayloadVetoed(payload.address);
       if (isVetoed) {
         this.log.warn(`Round ${executableRound} payload is vetoed (skipping execution)`, {

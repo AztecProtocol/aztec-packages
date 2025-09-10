@@ -11,6 +11,8 @@ contract Slasher is ISlasher {
   // solhint-disable-next-line var-name-mixedcase
   address public PROPOSER;
 
+  bool public isSlashingEnabled = true;
+
   mapping(address payload => bool vetoed) public vetoedPayloads;
 
   error Slasher__SlashFailed(address target, bytes data, bytes returnData);
@@ -19,6 +21,7 @@ contract Slasher is ISlasher {
   error Slasher__PayloadVetoed(address payload);
   error Slasher__AlreadyInitialized();
   error Slasher__ProposerZeroAddress();
+  error Slasher__SlashingDisabled();
 
   constructor(address _vetoer, address _governance) {
     GOVERNANCE = _governance;
@@ -39,8 +42,14 @@ contract Slasher is ISlasher {
     return true;
   }
 
+  function setSlashingEnabled(bool _enabled) external override(ISlasher) {
+    require(msg.sender == VETOER, Slasher__CallerNotVetoer(msg.sender, VETOER));
+    isSlashingEnabled = _enabled;
+  }
+
   function slash(IPayload _payload) external override(ISlasher) returns (bool) {
     require(msg.sender == PROPOSER || msg.sender == GOVERNANCE, Slasher__CallerNotAuthorizedToSlash(msg.sender));
+    require(isSlashingEnabled, Slasher__SlashingDisabled());
     require(!vetoedPayloads[address(_payload)], Slasher__PayloadVetoed(address(_payload)));
 
     IPayload.Action[] memory actions = _payload.getActions();

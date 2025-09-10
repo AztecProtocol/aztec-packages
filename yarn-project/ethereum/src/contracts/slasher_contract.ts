@@ -39,6 +39,19 @@ export class SlasherContract {
   }
 
   /**
+   * Checks if slashing is currently enabled. Slashing can be disabled by the vetoer.
+   * @returns True if slashing is enabled, false otherwise
+   */
+  public async isSlashingEnabled(): Promise<boolean> {
+    try {
+      return await this.contract.read.isSlashingEnabled();
+    } catch (error) {
+      this.log.error(`Error checking if slashing is enabled`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Gets the current vetoer address.
    * @returns The vetoer address
    */
