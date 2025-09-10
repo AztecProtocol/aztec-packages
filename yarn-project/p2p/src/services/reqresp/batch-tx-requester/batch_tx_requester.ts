@@ -19,6 +19,7 @@ import { type IPeerCollection, PeerCollection, RATE_LIMIT_EXCEEDED_PEER_CACHE_TT
 
 const SMART_PEERS_TO_QUERY_IN_PARALLEL = 10;
 const DUMB_PEERS_TO_QUERY_IN_PARALLEL = 10;
+const FAILED_MAKE_REQUEST_THRESHOLD = 5;
 
 /*
  * Tries to fetch all missing transaction until deadline is hit.
@@ -223,11 +224,16 @@ export class BatchTxRequester {
 
       if (chunks[idx] === undefined) {
         this.logger.error(`Dumb requester Chunk at index ${idx} is undefined, chunk length: ${chunks.length}`);
+        return undefined;
       }
-      const txs = chunks[idx].map(t => TxHash.fromString(t));
 
-      this.logger.debug(`Dumb batch index: ${idx}, batches count: ${chunks.length}`);
-      return { blockRequest: BlockTxsRequest.fromBlockProposalAndMissingTxs(this.blockProposal, txs), txs };
+      const txs = chunks[idx].map(t => TxHash.fromString(t));
+      const blockRequest = BlockTxsRequest.fromBlockProposalAndMissingTxs(this.blockProposal, txs);
+      if (!blockRequest) {
+        return undefined;
+      }
+
+      return { blockRequest, txs };
     };
 
     const nextPeer = () => {
@@ -252,9 +258,10 @@ export class BatchTxRequester {
    * */
   private async dumbWorkerLoop(
     pickNextPeer: () => PeerId | undefined,
-    request: (pid: PeerId) => { blockRequest: BlockTxsRequest | undefined; txs: TxHash[] } | undefined,
+    request: (pid: PeerId) => { blockRequest: BlockTxsRequest; txs: TxHash[] } | undefined,
     workerIndex: number,
   ) {
+    let failedMakeRequestCount = 0;
     try {
       this.logger.debug(`Dumb worker ${workerIndex} started`);
       while (!this.shouldStop()) {
@@ -274,17 +281,20 @@ export class BatchTxRequester {
 
         const nextBatchTxRequest = request(peerId);
         if (!nextBatchTxRequest) {
+          failedMakeRequestCount++;
+          if (failedMakeRequestCount >= FAILED_MAKE_REQUEST_THRESHOLD) {
+            this.logger.debug(
+              `Worker loop dumb: Could not create next batch request ${FAILED_MAKE_REQUEST_THRESHOLD} times, exiting`,
+            );
+            break;
+          }
+
           this.logger.debug(`Worker loop dumb: Could not create next batch request`);
-          // We retry with the next peer/batch
           continue;
         }
 
         //TODO: check this, this should only happen in case something bad happened
         const { blockRequest, txs } = nextBatchTxRequest;
-        if (blockRequest === undefined) {
-          this.logger.error(`Dumb worker: BLOCK REQ undefined`);
-          break;
-        }
 
         this.logger.debug(
           `Worker type dumb: Requesting txs from peer ${peerId.toString()}: ${txs.map(tx => tx.toString()).join(', ')}`,
@@ -312,9 +322,13 @@ export class BatchTxRequester {
     };
 
     const makeRequest = (pid: PeerId) => {
-      const txs = this.txsMetadata.getTxsToRequestFromThePeer(pid).slice(0, TX_BATCH_SIZE);
+      const txs = this.txsMetadata.getTxsToRequestFromThePeer(pid);
+      const blockRequest = BlockTxsRequest.fromBlockProposalAndMissingTxs(this.blockProposal, txs);
+      if (!blockRequest) {
+        return undefined;
+      }
 
-      return { blockRequest: BlockTxsRequest.fromBlockProposalAndMissingTxs(this.blockProposal, txs), txs };
+      return { blockRequest, txs };
     };
 
     const workers = Array.from(
@@ -340,9 +354,10 @@ export class BatchTxRequester {
    * */
   private async smartWorkerLoop(
     pickNextPeer: () => PeerId | undefined,
-    request: (pid: PeerId) => { blockRequest: BlockTxsRequest | undefined; txs: TxHash[] } | undefined,
+    request: (pid: PeerId) => { blockRequest: BlockTxsRequest; txs: TxHash[] } | undefined,
     workerIndex: number,
   ) {
+    let failedMakeRequestCount = 0;
     try {
       this.logger.trace(`Smart worker ${workerIndex} started`);
       await executeTimeout((_: AbortSignal) => this.smartRequesterSemaphore.acquire(), this.timeoutMs);
@@ -378,17 +393,19 @@ export class BatchTxRequester {
 
         const nextBatchTxRequest = request(peerId);
         if (!nextBatchTxRequest) {
-          // We retry with the next peer/batch
-          this.logger.warn(`Worker loop smart: Could not create next batch request`);
+          failedMakeRequestCount++;
+          if (failedMakeRequestCount >= FAILED_MAKE_REQUEST_THRESHOLD) {
+            this.logger.debug(
+              `Worker loop dumb: Could not create next batch request ${FAILED_MAKE_REQUEST_THRESHOLD} times, exiting`,
+            );
+            break;
+          }
+
+          this.logger.debug(`Worker loop dumb: Could not create next batch request`);
           continue;
         }
 
-        //TODO: check this, this should only happen in case something bad happened
         const { blockRequest, txs } = nextBatchTxRequest;
-        if (blockRequest === undefined) {
-          this.logger.error(`Smart worker: BLOCK REQ undefined`);
-          break;
-        }
 
         // We only mark transactions as in flight if queried by Smart peer
         // Because asking them from dumb peer is shot in the dark (there is a good chance they won't have it)
