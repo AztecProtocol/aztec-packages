@@ -706,12 +706,14 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
    * Monitors a transaction until completion, handling speed-ups if needed
    * @param request - Original transaction request (needed for speed-ups)
    * @param initialTxHash - Hash of the initial transaction
+   * @param allVersions - Hashes of all transactions submitted under the same nonce (any of them could mine)
    * @param params - Parameters used in the initial transaction
    * @param gasConfig - Optional gas configuration
    */
   public async monitorTransaction(
     request: L1TxRequest,
     initialTxHash: Hex,
+    allVersions: Set<Hex>,
     params: { gasLimit: bigint },
     _gasConfig?: Partial<L1TxUtilsConfig> & { txTimeoutAt?: Date },
     _blobInputs?: L1BlobInputs,
@@ -743,7 +745,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     }
     const nonce = tx.nonce;
 
-    const txHashes = new Set<Hex>([initialTxHash]);
+    allVersions.add(initialTxHash);
     let currentTxHash = initialTxHash;
     let attempts = 0;
     let lastAttemptSent = this.dateProvider.now();
@@ -776,8 +778,9 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         }));
 
         const currentNonce = await this.client.getTransactionCount({ address: account });
+        // If the current nonce on our account is greater than our transaction's nonce then a tx with the same nonce has been mined.
         if (currentNonce > nonce) {
-          for (const hash of txHashes) {
+          for (const hash of allVersions) {
             try {
               const receipt = await this.client.getTransactionReceipt({ hash });
               if (receipt) {
@@ -796,6 +799,10 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
               }
             }
           }
+          // If we get here then we have checked all of our tx versions and not found anything.
+          // We should consider the nonce as MINED
+          this.state = TxUtilsState.MINED;
+          throw new Error(`Nonce ${nonce} is MINED but not by one of our expected transactions`);
         }
 
         this.logger?.trace(`Tx timeout check for ${currentTxHash}: ${isTimedOut()}`, {
@@ -882,7 +889,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
           currentTxHash = newHash;
 
-          txHashes.add(currentTxHash);
+          allVersions.add(currentTxHash);
           lastAttemptSent = this.dateProvider.now();
         }
         await sleep(gasConfig.checkIntervalMs!);
@@ -904,7 +911,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       this.state = TxUtilsState.NOT_MINED;
     } else if (gasConfig.cancelTxOnTimeout) {
       // Fire cancellation without awaiting to avoid blocking the main thread
-      this.attemptTxCancellation(currentTxHash, nonce, isBlobTx, lastGasPrice, attempts).catch(err => {
+      this.attemptTxCancellation(currentTxHash, nonce, allVersions, isBlobTx, lastGasPrice, attempts).catch(err => {
         const viemError = formatViemError(err);
         this.logger?.error(`Failed to send cancellation for timed out tx ${currentTxHash}:`, viemError.message, {
           metaMessages: viemError.metaMessages,
@@ -938,7 +945,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     blobInputs?: L1BlobInputs,
   ): Promise<{ receipt: TransactionReceipt; gasPrice: GasPrice }> {
     const { txHash, gasLimit, gasPrice } = await this.sendTransaction(request, gasConfig, blobInputs);
-    const receipt = await this.monitorTransaction(request, txHash, { gasLimit }, gasConfig, blobInputs);
+    const receipt = await this.monitorTransaction(request, txHash, new Set(), { gasLimit }, gasConfig, blobInputs);
     return { receipt, gasPrice };
   }
 
@@ -973,6 +980,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
   /**
    * Attempts to cancel a transaction by sending a 0-value tx to self with same nonce but higher gas prices
    * @param nonce - The nonce of the transaction to cancel
+   * @param allVersions - Hashes of all transactions submitted under the same nonce (any of them could mine)
    * @param previousGasPrice - The gas price of the previous transaction
    * @param attempts - The number of attempts to cancel the transaction
    * @returns The hash of the cancellation transaction
@@ -980,6 +988,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
   protected async attemptTxCancellation(
     currentTxHash: Hex,
     nonce: number,
+    allVersions: Set<Hex>,
     isBlobTx = false,
     previousGasPrice?: GasPrice,
     attempts = 0,
@@ -1000,7 +1009,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       previousGasPrice,
     );
 
-    this.logger?.debug(`Attempting to cancel L1 transaction ${currentTxHash} with nonce ${nonce}`, {
+    this.logger?.info(`Attempting to cancel L1 transaction ${currentTxHash} with nonce ${nonce}`, {
       maxFeePerGas: formatGwei(cancelGasPrice.maxFeePerGas),
       maxPriorityFeePerGas: formatGwei(cancelGasPrice.maxPriorityFeePerGas),
     });
@@ -1022,11 +1031,12 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
     this.state = TxUtilsState.CANCELLED;
 
-    this.logger?.debug(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`, { nonce });
+    this.logger?.info(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`, { nonce });
 
     const receipt = await this.monitorTransaction(
       request,
       cancelTxHash,
+      allVersions,
       { gasLimit: 21_000n },
       undefined,
       undefined,
