@@ -962,6 +962,7 @@ export function createAndSyncProverNode(
       txGatheringTimeoutMs: 24_000,
       proverNodeFailedEpochStore: undefined,
       proverId: EthAddress.fromNumber(1),
+      proverNodeEpochProvingDelayMs: undefined,
       ...proverNodeConfig,
     };
 

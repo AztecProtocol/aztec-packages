@@ -174,6 +174,7 @@ export async function createProverNode(
       'proverNodeMaxPendingJobs',
       'proverNodeMaxParallelBlocksPerEpoch',
       'proverNodePollingIntervalMs',
+      'proverNodeEpochProvingDelayMs',
       'txGatheringMaxParallelRequests',
       'txGatheringIntervalMs',
       'txGatheringTimeoutMs',
@@ -186,7 +187,7 @@ export async function createProverNode(
 
   const epochMonitor = await EpochMonitor.create(
     archiver,
-    { pollingIntervalMs: config.proverNodePollingIntervalMs },
+    { pollingIntervalMs: config.proverNodePollingIntervalMs, provingDelayMs: config.proverNodeEpochProvingDelayMs },
     telemetry,
   );
 
