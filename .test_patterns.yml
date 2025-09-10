@@ -62,6 +62,11 @@ tests:
     error_regex: "Input is not large enough"
     owners:
       - *adam
+  # https://gist.github.com/spalladino/4fd3d2abd7b7fb05be2e556649868626
+  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh"
+    error_regex: "sending signal TERM to command"
+    owners:
+      - *adam
   - regex: "barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk"
     error_regex: "Aborted.*core dumped"
     owners:
