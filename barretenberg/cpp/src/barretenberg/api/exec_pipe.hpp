@@ -74,8 +74,7 @@ template <size_t N> inline std::vector<uint8_t> exec_pipe_literal_string(const c
 
 // Helper function to execute a command with a safe file path (requires literal string prefixes)
 template <size_t N>
-inline std::vector<uint8_t> exec_pipe_with_stdin(const std::string& file_path,
-                                                const char (&command)[N] = "")
+inline std::vector<uint8_t> exec_pipe_with_stdin(const std::string& file_path, const char (&command)[N] = "")
 {
     PathHoldingFile temp(file_path);
     // Use command substitution to read the filename from the temporary file
