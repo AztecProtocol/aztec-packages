@@ -130,7 +130,8 @@ bool ClientIVCAPI::prove_and_verify(const std::filesystem::path& input_path)
     std::shared_ptr<ClientIVC> ivc = steps.accumulate();
     // Construct the hiding kernel as the final step of the IVC
 
-    const bool verified = ivc->prove_and_verify();
+    auto proof = ivc->prove();
+    const bool verified = ClientIVC::verify(proof, ivc->get_vk());
     return verified;
 }
 
