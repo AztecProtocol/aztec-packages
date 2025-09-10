@@ -34,33 +34,6 @@ template <typename FF> class internal_call : public Relation<internal_callImpl<F
   public:
     static constexpr const std::string_view NAME = "internal_call";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 0:
-            return "CALL_ID_STARTS_ONE";
-        case 1:
-            return "NEW_CALL_ID_ON_CALL";
-        case 2:
-            return "RESTORE_INTERNAL_ID_ON_RETURN";
-        case 3:
-            return "DEFAULT_PROPAGATE_CALL_ID";
-        case 4:
-            return "RET_ID_STARTS_ZERO";
-        case 5:
-            return "NEW_RETURN_ID_ON_CALL";
-        case 6:
-            return "DEFAULT_PROPAGATE_RET_ID";
-        case 7:
-            return "NEXT_CALL_ID_STARTS_TWO";
-        case 8:
-            return "INCR_NEXT_INT_CALL_ID";
-        case 9:
-            return "INTERNAL_RET_ERROR";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_CALL_ID_STARTS_ONE = 0;
     static constexpr size_t SR_NEW_CALL_ID_ON_CALL = 1;
@@ -72,6 +45,33 @@ template <typename FF> class internal_call : public Relation<internal_callImpl<F
     static constexpr size_t SR_NEXT_CALL_ID_STARTS_TWO = 7;
     static constexpr size_t SR_INCR_NEXT_INT_CALL_ID = 8;
     static constexpr size_t SR_INTERNAL_RET_ERROR = 9;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_CALL_ID_STARTS_ONE:
+            return "CALL_ID_STARTS_ONE";
+        case SR_NEW_CALL_ID_ON_CALL:
+            return "NEW_CALL_ID_ON_CALL";
+        case SR_RESTORE_INTERNAL_ID_ON_RETURN:
+            return "RESTORE_INTERNAL_ID_ON_RETURN";
+        case SR_DEFAULT_PROPAGATE_CALL_ID:
+            return "DEFAULT_PROPAGATE_CALL_ID";
+        case SR_RET_ID_STARTS_ZERO:
+            return "RET_ID_STARTS_ZERO";
+        case SR_NEW_RETURN_ID_ON_CALL:
+            return "NEW_RETURN_ID_ON_CALL";
+        case SR_DEFAULT_PROPAGATE_RET_ID:
+            return "DEFAULT_PROPAGATE_RET_ID";
+        case SR_NEXT_CALL_ID_STARTS_TWO:
+            return "NEXT_CALL_ID_STARTS_TWO";
+        case SR_INCR_NEXT_INT_CALL_ID:
+            return "INCR_NEXT_INT_CALL_ID";
+        case SR_INTERNAL_RET_ERROR:
+            return "INTERNAL_RET_ERROR";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

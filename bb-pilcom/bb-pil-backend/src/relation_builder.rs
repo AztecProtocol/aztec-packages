@@ -14,9 +14,10 @@ use powdr_number::{DegreeType, FieldElement};
 use handlebars::Handlebars;
 use serde_json::json;
 
+use crate::expression_evaluation::compute_expression;
 use crate::expression_evaluation::get_alias_expressions_in_order;
-use crate::expression_evaluation::get_alias_polys_in_order;
-use crate::expression_evaluation::recurse_expression;
+use crate::expression_evaluation::get_expression_degree;
+use crate::expression_evaluation::PolynomialExpression;
 use crate::file_writer::BBFiles;
 use crate::utils::snake_case;
 
@@ -24,8 +25,8 @@ use crate::utils::snake_case;
 /// provided for sumcheck
 #[derive(Debug)]
 pub struct BBIdentity {
-    pub degree: DegreeType,
-    pub identity: String,
+    pub original_id: u64,
+    pub expression: PolynomialExpression,
     pub label: Option<String>,
 }
 
@@ -58,9 +59,10 @@ pub trait RelationBuilder {
         root_name: &str,
         name: &str,
         identities: &[BBIdentity],
+        subrelation_lengths: &[u64],
         skippable_if: &Option<BBIdentity>,
-        alias_polys_in_order: &Vec<(String, u64, String)>,
-        alias_polys_in_skippable: &Vec<(String, u64, String)>,
+        alias_polys_in_order: &Vec<(String, PolynomialExpression)>,
+        alias_polys_in_skippable: &Vec<(String, PolynomialExpression)>,
     );
 }
 
@@ -70,16 +72,36 @@ impl RelationBuilder for BBFiles {
         file_name: &str,
         analyzed: &Analyzed<F>,
     ) -> Vec<String> {
+        // It is easier to compute the degree of the expressions once the pol aliases are inlined.
+        // Vector will be (identity id, degree).
+        println!("Computing degrees...");
+        let all_degrees = analyzed
+            .identities_with_inlined_intermediate_polynomials()
+            .iter()
+            .sorted_by_key(|id| id.id)
+            // FIXME: maybe it's not .0
+            .filter_map(|id| {
+                if id.kind != IdentityKind::Polynomial {
+                    None
+                } else {
+                    // It is strange that we use "selector" here, but that seems to be what gives you the expression.
+                    let expr = id.left.selector.as_ref().unwrap();
+                    Some((id.id, get_expression_degree(expr)))
+                }
+            })
+            .collect_vec();
+
+        // These expressions have sanitized names like: constants_NOTE_HASH_TREE_HEIGHT.
+        println!("Computing alias expressions in order...");
+        let alias_expressions_in_order = get_alias_expressions_in_order(analyzed);
+        let alias_names = alias_expressions_in_order
+            .iter()
+            .map(|(name, _)| name.clone())
+            .collect::<HashSet<_>>();
+
         // These identities' terminal objects are either fields, columns, or alias expressions.
         let mut analyzed_identities = analyzed.identities.clone();
         analyzed_identities.sort_by(|a, b| a.id.cmp(&b.id));
-
-        let alias_polys_in_order = get_alias_polys_in_order(analyzed);
-        let alias_expressions_in_order = get_alias_expressions_in_order(&alias_polys_in_order);
-        let indexed_aliases = alias_polys_in_order
-            .into_iter()
-            .map(|(sym, expr)| (&sym.absolute_name, expr))
-            .collect::<HashMap<_, _>>();
 
         // Group relations per file
         let grouped_relations: HashMap<String, Vec<Identity<AlgebraicExpression<F>>>> =
@@ -95,33 +117,52 @@ impl RelationBuilder for BBFiles {
             .iter()
             .filter(|(name, _)| !optimized_relations.contains(name))
         {
+            println!("Creating identities for relation: {}", relation_name);
             let IdentitiesOutput {
                 identities,
                 skippable_if,
-                // These are the aliases used in the identities in this file.
-                collected_aliases,
-            } = create_identities(analyzed_idents, &indexed_aliases);
+            } = create_identities(analyzed_idents, &alias_names);
+
+            // Aliases used in the identities in this file.
+            let filtered_aliases = get_transitive_aliases_for_identities(
+                &identities.iter().collect_vec(),
+                &alias_expressions_in_order,
+            );
+
+            let filtered_subrelation_lengths = all_degrees
+                .iter()
+                .filter(|(degree_id, _)| {
+                    identities
+                        .iter()
+                        .any(|id_other| id_other.original_id == *degree_id)
+                })
+                // Length is degree + 1.
+                .map(|(_, degree)| *degree + 1)
+                .collect_vec();
 
             let used_alias_defs_in_order = alias_expressions_in_order
                 .iter()
-                .filter(|(name, _, _)| collected_aliases.contains(name))
+                .filter(|(name, _)| filtered_aliases.contains(name))
                 .cloned()
                 .collect_vec();
-            let used_alias_defs_in_skippable = alias_expressions_in_order
-                .iter()
-                .filter(|(name, _, _)| {
-                    skippable_if
-                        .as_ref()
-                        .map(|id| id.identity == *name)
-                        .unwrap_or(false)
+            let used_alias_defs_in_skippable = skippable_if
+                .as_ref()
+                .map(|id| {
+                    let transitive_aliases =
+                        get_transitive_aliases_for_identities(&[id], &alias_expressions_in_order);
+                    alias_expressions_in_order
+                        .iter()
+                        .filter(|(name, _)| transitive_aliases.contains(name))
+                        .cloned()
+                        .collect_vec()
                 })
-                .cloned()
-                .collect_vec();
+                .unwrap_or_default();
 
             self.create_relation(
                 file_name,
                 relation_name,
                 &identities,
+                &filtered_subrelation_lengths,
                 &skippable_if,
                 &used_alias_defs_in_order,
                 &used_alias_defs_in_skippable,
@@ -167,14 +208,14 @@ impl RelationBuilder for BBFiles {
         root_name: &str,
         name: &str,
         identities: &[BBIdentity],
+        subrelation_lengths: &[u64],
         skippable_if: &Option<BBIdentity>,
-        alias_defs_in_order: &Vec<(String, u64, String)>,
-        alias_defs_in_skippable: &Vec<(String, u64, String)>,
+        alias_defs_in_order: &Vec<(String, PolynomialExpression)>,
+        alias_defs_in_skippable: &Vec<(String, PolynomialExpression)>,
     ) {
         let mut handlebars = Handlebars::new();
         handlebars.register_escape_fn(|s| s.to_string()); // No escaping
 
-        let degrees: Vec<_> = identities.iter().map(|id| id.degree + 1).collect();
         let sorted_labels = identities
             .iter()
             .enumerate()
@@ -189,26 +230,28 @@ impl RelationBuilder for BBFiles {
             "name": name,
             "identities": identities.iter().map(|id| {
                 json!({
-                    "degree": id.degree,
-                    "identity": id.identity,
+                    // We use `View` in the subrelations.
+                    "expr": id.expression.instantiate_with_view(),
                     "label": id.label.clone(),
                 })
             }).collect_vec(),
-            "alias_defs": alias_defs_in_order.iter().map(|(name, degree, expr)| {
+            "alias_defs": alias_defs_in_order.iter().map(|(name, expr)| {
                 json!({
                     "name": name,
-                    "degree": degree,
-                    "expr": expr,
+                    // Aliases do not use `View`.
+                    "expr": expr.instantiate(),
                 })
             }).collect_vec(),
-            "skippable_if": skippable_if.as_ref().map(|id| id.identity.clone()),
-            "degrees": degrees,
+            "skippable_if": skippable_if.as_ref().map(|id|
+                // Skippable does not use `View`.
+                id.expression.instantiate()),
+            "subrelation_lengths": subrelation_lengths,
             "labels": sorted_labels,
-            "skippable_alias_defs": alias_defs_in_skippable.iter().map(|(name, degree, expr)| {
+            "skippable_alias_defs": alias_defs_in_skippable.iter().map(|(name, expr)| {
                 json!({
                     "name": name,
-                    "degree": degree,
-                    "expr": expr,
+                    // Aliases do not use `View`.
+                    "expr": expr.instantiate(),
                 })
             }).collect_vec(),
         });
@@ -254,6 +297,36 @@ impl RelationBuilder for BBFiles {
     }
 }
 
+fn get_transitive_aliases_for_identities(
+    identities: &[&BBIdentity],
+    alias_expressions_in_order: &Vec<(String, PolynomialExpression)>,
+) -> HashSet<String> {
+    let mut aliases = identities
+        .iter()
+        .flat_map(|id| id.expression.get_aliases())
+        .collect::<HashSet<_>>();
+
+    // Index aliases by name.
+    let indexed_aliases = alias_expressions_in_order
+        .iter()
+        .map(|(name, expr)| (name, expr.get_aliases()))
+        .collect::<HashMap<_, _>>();
+
+    // Take transitive closure.
+    let mut extended_aliases = true;
+    while extended_aliases {
+        let new_aliases = aliases
+            .iter()
+            .flat_map(|alias| indexed_aliases.get(alias).unwrap())
+            .cloned()
+            .collect::<HashSet<_>>();
+        extended_aliases = !new_aliases.is_subset(&aliases);
+        aliases.extend(new_aliases);
+    }
+
+    aliases
+}
+
 /// Group relations per file
 ///
 /// The compiler returns all relations in one large vector, however we want to distinguish
@@ -290,20 +363,16 @@ fn group_relations_per_file<F: FieldElement>(
 }
 
 fn create_identity<F: FieldElement>(
-    expression: &SelectedExpressions<AlgebraicExpression<F>>,
-    collected_aliases: &mut HashSet<String>,
-    label: &Option<String>,
-    indexed_aliases: &HashMap<&String, &AlgebraicExpression<F>>,
+    pil_identity: &Identity<AlgebraicExpression<F>>,
+    alias_names: &HashSet<String>,
 ) -> Option<BBIdentity> {
     // We want to read the types of operators and then create the appropriate code
-    if let Some(expr) = &expression.selector {
-        let (degree, id, col_aliases) = recurse_expression(expr, indexed_aliases, false, None);
-        collected_aliases.extend(col_aliases);
-        log::trace!("expression {:?}, {:?}", degree, id);
+    if let Some(expr) = &pil_identity.left.selector {
+        let poly_expr = compute_expression(expr, alias_names);
         Some(BBIdentity {
-            degree: degree,
-            identity: id,
-            label: label.clone(),
+            original_id: pil_identity.id,
+            expression: poly_expr,
+            label: pil_identity.attribute.clone(),
         })
     } else {
         None
@@ -313,15 +382,14 @@ fn create_identity<F: FieldElement>(
 pub struct IdentitiesOutput {
     identities: Vec<BBIdentity>,
     skippable_if: Option<BBIdentity>,
-    collected_aliases: HashSet<String>,
 }
 
 pub(crate) fn create_identities<F: FieldElement>(
     identities: &[Identity<AlgebraicExpression<F>>],
-    indexed_aliases: &HashMap<&String, &AlgebraicExpression<F>>,
+    alias_names: &HashSet<String>,
 ) -> IdentitiesOutput {
     // We only want the expressions for now
-    // When we have a poly type, we only need the left side of it
+    // When we have a poly type, we only need the left side of it since they are normalized to `left = 0`.
     let ids = identities
         .iter()
         .filter(|identity| identity.kind == IdentityKind::Polynomial)
@@ -329,29 +397,25 @@ pub(crate) fn create_identities<F: FieldElement>(
 
     let mut identities = Vec::new();
     let mut skippable_if_identity = None;
-    let mut collected_aliases: HashSet<String> = HashSet::new();
 
-    for expression in ids.iter() {
-        let identity = create_identity(
-            &expression.left,
-            &mut collected_aliases,
-            &expression.attribute,
-            indexed_aliases,
-        )
-        .unwrap();
+    for pil_identity in ids.iter() {
+        let bb_identity = create_identity(&pil_identity, alias_names).unwrap();
 
-        if identity.label.clone().is_some_and(|l| l == "skippable_if") {
+        if bb_identity
+            .label
+            .clone()
+            .is_some_and(|l| l == "skippable_if")
+        {
             assert!(skippable_if_identity.is_none());
-            skippable_if_identity = Some(identity);
+            skippable_if_identity = Some(bb_identity);
         } else {
-            identities.push(identity);
+            identities.push(bb_identity);
         }
     }
 
     IdentitiesOutput {
         identities,
         skippable_if: skippable_if_identity,
-        collected_aliases,
     }
 }
 
