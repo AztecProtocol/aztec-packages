@@ -10,7 +10,7 @@ resource "google_storage_managed_folder_iam_policy" "aztec_testnet_auto_update_f
   policy_data    = data.google_iam_policy.all_users_storage_read.policy_data
 }
 
-# see yarn-project/foundation/src/update-checker/update-checker.ts for latest schema
+# see yarn-project/stdlib/src/update-checker/update-checker.ts for latest schema
 
 # Deprecated. Use the `testnet` object once v2 is released
 resource "google_storage_bucket_object" "alpha_testnet_json" {
@@ -46,7 +46,9 @@ resource "google_storage_bucket_object" "staging_public" {
   cache_control = "no-store"
   content = jsonencode({
     version = ""
-    config  = {}
+    config = {
+      governanceProposerPayload = "0x3fe8bFFd590d57E39281596433F1d95249f5d469"
+    }
   })
 }
 
