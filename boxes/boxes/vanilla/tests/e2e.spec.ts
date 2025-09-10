@@ -6,15 +6,23 @@ const proofTimeout = 250_000;
 test.beforeAll(async () => {
   // Make sure the node is running
   const nodeUrl = process.env.AZTEC_NODE_URL || 'http://localhost:8080';
-  const nodeResp = await fetch(nodeUrl + "/status");
+  const nodeResp = await fetch(nodeUrl + '/status');
   if (!nodeResp.ok) {
-    throw new Error(`Failed to connect to node. This test assumes you have a Sandbox running at ${nodeUrl}.`);
+    throw new Error(
+      `Failed to connect to node. This test assumes you have a Sandbox running at ${nodeUrl}.`
+    );
   }
 });
 
-
 test('create account and cast vote', async ({ page }, testInfo) => {
   await page.goto('/');
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') {
+      console.error(msg.text());
+    } else {
+      console.log(msg.text());
+    }
+  });
   await expect(page).toHaveTitle(/Private Voting/);
 
   const connectTestAccount = await page.locator('#connect-test-account');
@@ -30,9 +38,9 @@ test('create account and cast vote', async ({ page }, testInfo) => {
 
   // Select different account for each browser
   const testAccountNumber = {
-    'chromium': 1,
-    'firefox': 2,
-    'webkit': 3,
+    chromium: 1,
+    firefox: 2,
+    webkit: 3,
   }[testInfo.project.name];
   await selectTestAccount.selectOption(testAccountNumber.toString());
 
@@ -44,9 +52,9 @@ test('create account and cast vote', async ({ page }, testInfo) => {
   // Choose the candidate to vote for based on the browser used to run the test.
   // This is a hack to avoid race conditions when tests are run in parallel against the same network.
   const candidateId = {
-    'chromium': 2,
-    'firefox': 3,
-    'webkit': 4,
+    chromium: 2,
+    firefox: 3,
+    webkit: 4,
   }[testInfo.project.name];
 
   await expect(voteInput).toBeVisible();
@@ -63,5 +71,7 @@ test('create account and cast vote', async ({ page }, testInfo) => {
   });
 
   // Verify vote results
-  await expect(voteResults).toHaveText(new RegExp(`Candidate ${candidateId}: 1 votes`));
+  await expect(voteResults).toHaveText(
+    new RegExp(`Candidate ${candidateId}: 1 votes`)
+  );
 });

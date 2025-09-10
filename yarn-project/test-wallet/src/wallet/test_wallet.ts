@@ -1,12 +1,10 @@
-import { EcdsaKAccountContract, EcdsaRAccountContract } from '@aztec/accounts/ecdsa';
-import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
-import { StubAccountContractArtifact, createStubAccount } from '@aztec/accounts/stub';
 import {
   type Account,
   type AccountContract,
   AccountManager,
   BaseAccount,
   BaseWallet,
+  type ContractArtifact,
   type IntentAction,
   type IntentInnerHash,
   SignerlessAccount,
@@ -17,8 +15,7 @@ import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fq, Fr } from '@aztec/foundation/fields';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { TxSimulationResult } from '@aztec/stdlib/tx';
 
 /**
@@ -44,7 +41,7 @@ export interface AccountData {
  * from the outside (which is something actual wallets shouldn't allow!)
  * It is intended to be used in e2e tests.
  */
-export class TestWallet extends BaseWallet {
+export abstract class BaseTestWallet extends BaseWallet {
   protected accounts: Map<string, Account> = new Map();
 
   private simulatedSimulations = false;
@@ -89,55 +86,18 @@ export class TestWallet extends BaseWallet {
     return accountManager;
   }
 
-  createSchnorrAccount(secret: Fr, salt: Fr, signingKey?: Fq): Promise<AccountManager> {
-    signingKey = signingKey ?? deriveSigningKey(secret);
-    const accountData = {
-      secret,
-      salt,
-      contract: new SchnorrAccountContract(signingKey),
-    };
-    return this.createAccount(accountData);
-  }
-
-  createECDSARAccount(secret: Fr, salt: Fr, signingKey: Buffer): Promise<AccountManager> {
-    const accountData = {
-      secret,
-      salt,
-      contract: new EcdsaRAccountContract(signingKey),
-    };
-    return this.createAccount(accountData);
-  }
-
-  createECDSAKAccount(secret: Fr, salt: Fr, signingKey: Buffer): Promise<AccountManager> {
-    const accountData = {
-      secret,
-      salt,
-      contract: new EcdsaKAccountContract(signingKey),
-    };
-    return this.createAccount(accountData);
-  }
+  abstract createSchnorrAccount(secret: Fr, salt: Fr, signingKey?: Fq): Promise<AccountManager>;
+  abstract createECDSARAccount(secret: Fr, salt: Fr, signingKey: Buffer): Promise<AccountManager>;
+  abstract createECDSAKAccount(secret: Fr, salt: Fr, signingKey: Buffer): Promise<AccountManager>;
 
   async lookupValidity(address: AztecAddress, intent: IntentInnerHash | IntentAction, witness: AuthWitness) {
     const account = (await this.getAccountFromAddress(address)) as BaseAccount;
     return account.lookupValidity(this, address, intent, witness);
   }
 
-  private async getFakeAccountDataFor(address: AztecAddress) {
-    const nodeInfo = await this.pxe.getNodeInfo();
-    const originalAccount = await this.getAccountFromAddress(address);
-    const originalAddress = originalAccount.getCompleteAddress();
-    const { contractInstance } = await this.pxe.getContractMetadata(originalAddress.address);
-    if (!contractInstance) {
-      throw new Error(`No contract instance found for address: ${originalAddress.address}`);
-    }
-    const stubAccount = createStubAccount(originalAddress, nodeInfo);
-    const instance = await getContractInstanceFromInstantiationParams(StubAccountContractArtifact, {});
-    return {
-      account: stubAccount,
-      instance,
-      artifact: StubAccountContractArtifact,
-    };
-  }
+  abstract getFakeAccountDataFor(
+    address: AztecAddress, // eslint-disable-next-line jsdoc/require-jsdoc
+  ): Promise<{ account: Account; instance: ContractInstanceWithAddress; artifact: ContractArtifact }>;
 
   override async simulateTx(
     executionPayload: ExecutionPayload,
