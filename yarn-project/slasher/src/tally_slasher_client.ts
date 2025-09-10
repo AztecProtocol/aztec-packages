@@ -226,9 +226,12 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
     this.log.debug(`Testing if slashing round ${executableRound} is executable`, logData);
 
     try {
-      // Note we do not check isReadyToExecute here, since we already know that based on the
-      // executableRound number. Not just that, but it may be that we are building for the given slot number
-      // that is in the future, so the contract may think it's not yet ready to execute, whereas it is.
+      // Check if slashing is enabled at all
+      if (!(await this.slasher.isSlashingEnabled())) {
+        this.log.warn(`Slashing is disabled in the Slasher contract (skipping execution)`, logData);
+        return undefined;
+      }
+
       const roundInfo = await this.tallySlashingProposer.getRound(executableRound);
       logData = { ...logData, roundInfo };
       if (roundInfo.isExecuted) {
