@@ -247,7 +247,7 @@ export function describeArchiverDataStore(
           block.body.txEffects.map(txEffect => txEffect.privateLogs).flat().length,
         );
         expect((await store.getPublicLogs({ fromBlock: 1 })).logs.length).toEqual(
-          block.body.txEffects.map(txEffect => txEffect.publicLogs).flat().length,
+          block.body.txEffects.map(txEffect => txEffect.publicLogs.logs).flat().length,
         );
 
         // This one is a pain for memory as we would never want to just delete memory in the middle.
