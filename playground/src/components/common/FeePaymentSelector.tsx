@@ -19,7 +19,7 @@ interface FeePaymentSelectorProps {
 }
 
 export function FeePaymentSelector({ setFeePaymentMethod }: FeePaymentSelectorProps) {
-  const { pxe, network, wallet } = useContext(AztecContext);
+  const { pxe, network, wallet, from } = useContext(AztecContext);
 
   const [isMethodChanging, setIsMethodChanging] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState<FeePaymentMethodType | undefined>(
@@ -44,7 +44,7 @@ export function FeePaymentSelector({ setFeePaymentMethod }: FeePaymentSelectorPr
         break;
       }
       case 'fee_juice': {
-        const feePaymentMethod = new FeeJuicePaymentMethod(wallet.getAddress());
+        const feePaymentMethod = new FeeJuicePaymentMethod(from);
         setFeePaymentMethod(feePaymentMethod);
         break;
       }

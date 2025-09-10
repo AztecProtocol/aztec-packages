@@ -1,4 +1,3 @@
-import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import {
   AztecAddress,
   BatchCall,
@@ -14,6 +13,7 @@ import { CounterContract } from '@aztec/noir-test-contracts.js/Counter';
 import { NoConstructorContract } from '@aztec/noir-test-contracts.js/NoConstructor';
 import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { GasFees } from '@aztec/stdlib/gas';
+import { TestWallet } from '@aztec/test-wallet';
 
 import { DeployTest } from './deploy_test.js';
 
@@ -87,10 +87,10 @@ describe('e2e_deploy_contract deploy method', () => {
   it('deploys a contract with a default initializer not named constructor', async () => {
     logger.debug(`Deploying contract with a default initializer named initialize`);
     const opts = { skipClassPublication: true, skipInstancePublication: true, from: defaultAccountAddress };
-    const contract = await CounterContract.deploy(wallet, 10, wallet.getAddress()).send(opts).deployed();
+    const contract = await CounterContract.deploy(wallet, 10, defaultAccountAddress).send(opts).deployed();
     logger.debug(`Calling a function to ensure the contract was properly initialized`);
-    await contract.methods.increment_twice(wallet.getAddress()).send({ from: defaultAccountAddress }).wait();
-    expect(await contract.methods.get_counter(wallet.getAddress()).simulate({ from: defaultAccountAddress })).toEqual(
+    await contract.methods.increment_twice(defaultAccountAddress).send({ from: defaultAccountAddress }).wait();
+    expect(await contract.methods.get_counter(defaultAccountAddress).simulate({ from: defaultAccountAddress })).toEqual(
       12n,
     );
   });
@@ -164,9 +164,9 @@ describe('e2e_deploy_contract deploy method', () => {
         return;
       }
       const pxeClient = createPXEClient(PXE_URL, {}, makeFetch([1, 2, 3], false));
-      const [wallet] = await getDeployedTestAccountsWallets(pxeClient);
+      const retryingWallet = new TestWallet(pxeClient);
       await expect(
-        StatefulTestContract.deployWithOpts({ wallet, method: 'wrong_constructor' })
+        StatefulTestContract.deployWithOpts({ wallet: retryingWallet, method: 'wrong_constructor' })
           .send({ from: defaultAccountAddress })
           .deployed(),
       ).rejects.toThrow(/Unknown function/);

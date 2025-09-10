@@ -1,17 +1,9 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
-import {
-  type InitialAccountData,
-  deployFundedSchnorrAccounts,
-  generateSchnorrAccounts,
-  getDeployedTestAccounts,
-  getDeployedTestAccountsWallets,
-} from '@aztec/accounts/testing';
+import { type InitialAccountData, generateSchnorrAccounts, getDeployedTestAccounts } from '@aztec/accounts/testing';
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
-  AccountManager,
-  type AccountWalletWithSecretKey,
-  type AztecAddress,
+  AztecAddress,
   type AztecNode,
   BatchCall,
   type ContractMethod,
@@ -91,6 +83,7 @@ import {
   initTelemetryClient,
 } from '@aztec/telemetry-client';
 import { BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
+import { TestWallet, deployFundedSchnorrAccounts } from '@aztec/test-wallet';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import type { Anvil } from '@viem/anvil';
@@ -246,14 +239,21 @@ async function setupWithRemoteEnvironment(
   const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxeClient!);
   const teardown = () => Promise.resolve();
 
-  logger.verbose('Constructing available wallets from already registered accounts...');
+  logger.verbose('Populating wallet from already registered accounts...');
   const initialFundedAccounts = await getDeployedTestAccounts(pxeClient);
-  const wallets = await getDeployedTestAccountsWallets(pxeClient);
+  const wallet = new TestWallet(pxeClient);
 
-  if (wallets.length < numberOfAccounts) {
-    throw new Error(`Required ${numberOfAccounts} accounts. Found ${wallets.length}.`);
+  if (initialFundedAccounts.length < numberOfAccounts) {
+    throw new Error(`Required ${numberOfAccounts} accounts. Found ${initialFundedAccounts.length}.`);
     // Deploy new accounts if there's a test that requires more funded accounts in the remote environment.
   }
+
+  const testAccounts = await Promise.all(
+    initialFundedAccounts.slice(0, numberOfAccounts).map(async account => {
+      const accountManager = await wallet.createSchnorrAccount(account.secret, account.salt, account.signingKey);
+      return accountManager.getAddress();
+    }),
+  );
 
   return {
     aztecNode,
@@ -264,9 +264,8 @@ async function setupWithRemoteEnvironment(
     deployL1ContractsValues,
     config,
     initialFundedAccounts,
-    wallets,
-    wallet: wallets[0],
-    accounts: wallets.slice(0, numberOfAccounts).map(w => w.getAddress()),
+    wallet,
+    accounts: testAccounts,
     logger,
     cheatCodes,
     ethCheatCodes,
@@ -346,11 +345,9 @@ export type EndToEndContext = {
   config: AztecNodeConfig;
   /** The data for the initial funded accounts. */
   initialFundedAccounts: InitialAccountData[];
-  /* Wallets created for the initial funded accounts, with secret keys. */
-  wallets: AccountWalletWithSecretKey[];
-  /** The first wallet to be used. */
-  wallet: AccountWalletWithSecretKey;
-  /** The accounts to be used. */
+  /** The wallet to be used. */
+  wallet: TestWallet;
+  /** The wallets to be used. */
   accounts: AztecAddress[];
   /** Logger instance named as the current test. */
   logger: Logger;
@@ -672,9 +669,9 @@ export async function setup(
       await cheatCodes.rollup.setupEpoch();
       await cheatCodes.rollup.debugRollup();
     }
-
+    const wallet = new TestWallet(pxe);
+    let accounts: AztecAddress[] = [];
     // Below we continue with what we described in the long comment on line 571.
-    let accountManagers: AccountManager[] = [];
     if (numberOfAccounts === 0) {
       logger.info('No accounts are being deployed, waiting for an empty block 1 to be mined');
       while ((await pxe.getBlockNumber()) === 0) {
@@ -684,13 +681,14 @@ export async function setup(
       logger.info(
         `${numberOfAccounts} accounts are being deployed. Reliably progressing past genesis by setting minTxsPerBlock to 1 and waiting for the accounts to be deployed`,
       );
-      accountManagers = await deployFundedSchnorrAccounts(pxe, initialFundedAccounts.slice(0, numberOfAccounts));
+      const accountsData = initialFundedAccounts.slice(0, numberOfAccounts);
+      const accountManagers = await deployFundedSchnorrAccounts(wallet, accountsData);
+      accounts = accountManagers.map(accountManager => accountManager.getAddress());
     }
 
     // Now we restore the original minTxsPerBlock setting.
     sequencerClient!.getSequencer().updateConfig({ minTxsPerBlock: originalMinTxsPerBlock });
 
-    const wallets = await Promise.all(accountManagers.map(account => account.getWallet()));
     if (initialFundedAccounts.length < numberOfAccounts) {
       // TODO: Create (numberOfAccounts - initialFundedAccounts.length) wallets without funds.
       throw new Error(
@@ -741,9 +739,8 @@ export async function setup(
       sequencer: sequencerClient,
       teardown,
       telemetryClient: telemetry,
-      wallets,
-      wallet: wallets[0],
-      accounts: wallets.map(w => w.getAddress()),
+      wallet,
+      accounts,
       watcher,
     };
   } catch (err) {
@@ -761,15 +758,14 @@ export async function setup(
  */
 
 // docs:start:public_deploy_accounts
-export async function ensureAccountContractsPublished(sender: Wallet, accountsToDeploy: Wallet[]) {
+export async function ensureAccountContractsPublished(wallet: Wallet, accountsToDeploy: AztecAddress[]) {
   // We have to check whether the accounts are already deployed. This can happen if the test runs against
   // the sandbox and the test accounts exist
   const accountsAndAddresses = await Promise.all(
-    accountsToDeploy.map(async account => {
-      const address = account.getAddress();
+    accountsToDeploy.map(async address => {
       return {
         address,
-        deployed: (await sender.getContractMetadata(address)).isContractPublished,
+        deployed: (await wallet.getContractMetadata(address)).isContractPublished,
       };
     }),
   );
@@ -777,18 +773,18 @@ export async function ensureAccountContractsPublished(sender: Wallet, accountsTo
     await Promise.all(
       accountsAndAddresses
         .filter(({ deployed }) => !deployed)
-        .map(({ address }) => sender.getContractMetadata(address)),
+        .map(({ address }) => wallet.getContractMetadata(address)),
     )
   ).map(contractMetadata => contractMetadata.contractInstance);
   const contractClass = await getContractClassFromArtifact(SchnorrAccountContractArtifact);
-  if (!(await sender.getContractClassMetadata(contractClass.id, true)).isContractClassPubliclyRegistered) {
-    await (await publishContractClass(sender, SchnorrAccountContractArtifact))
-      .send({ from: accountsToDeploy[0].getAddress() })
+  if (!(await wallet.getContractClassMetadata(contractClass.id, true)).isContractClassPubliclyRegistered) {
+    await (await publishContractClass(wallet, SchnorrAccountContractArtifact))
+      .send({ from: accountsToDeploy[0] })
       .wait();
   }
-  const requests = await Promise.all(instances.map(async instance => await publishInstance(sender, instance!)));
-  const batch = new BatchCall(sender, requests);
-  await batch.send({ from: accountsToDeploy[0].getAddress() }).wait();
+  const requests = await Promise.all(instances.map(async instance => await publishInstance(wallet, instance!)));
+  const batch = new BatchCall(wallet, requests);
+  await batch.send({ from: accountsToDeploy[0] }).wait();
 }
 // docs:end:public_deploy_accounts
 
@@ -908,7 +904,7 @@ export async function setupSponsoredFPC(pxe: PXE) {
  * Registers the SponsoredFPC in this PXE instance
  * @param pxe - The pxe client
  */
-export async function registerSponsoredFPC(pxe: PXE): Promise<void> {
+export async function registerSponsoredFPC(pxe: PXE | Wallet): Promise<void> {
   await pxe.registerContract({ instance: await getSponsoredFPCInstance(), artifact: SponsoredFPCContract.artifact });
 }
 
