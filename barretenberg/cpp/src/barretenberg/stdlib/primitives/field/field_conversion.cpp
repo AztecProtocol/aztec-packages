@@ -5,20 +5,16 @@
 // =====================
 
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
-#include "barretenberg/common/assert.hpp"
-
 namespace bb::stdlib::field_conversion {
 
 /**
- * @brief Converts a challenge to a fq<Builder>
- * @details We sometimes need challenges that are a bb::fq element, so we need to convert the bb::fr challenge to a
- * bb::fq type. We do this by in a similar fashion to the convert_from_bn254_frs function that converts to a
- * fq<Builder>. In fact, we do call that function that the end, but we first have to split the fr<Builder> into two
- * pieces, one that is the 136 lower bits and one that is the 118 higher bits. Then, we can split these two pieces into
- * their bigfield limbs through convert_from_bn254_frs, which is actually just a bigfield constructor that takes in two
- * two-limb frs.
- * Ensure that it's only used in ECCVMRecursive
- * TODO(https://github.com/AztecProtocol/barretenberg/issues/850): audit this function more carefully
+ * @brief Converts an in-circuit `fr`element to an `fq`, i.e. `field_t` --> `bigfield`.
+ *
+ * @details Our circuit builders are `fr`-native, which results in challenges being `field_t` elements. However,
+ * ECCVMRecursiveVerifier and IPA Recursive Verification need challenges that are `bigfield` elements. We do this in
+ * a similar fashion to the `convert_from_bn254_frs` function that converts to a `bigfield`. We split the `field_t`
+ * into two pieces, one that is the 136 lower bits and one that is the 118 higher bits, assert the correctness of the
+ * decomposition, and invoke the `bigfield` constructor.
  * @tparam Builder
  */
 template <typename Builder> fq<Builder> convert_to_grumpkin_fr(Builder& builder, const fr<Builder>& fr_element)

@@ -31,6 +31,7 @@ template <typename Builder> static void constrain_bigfield_limbs(const fr<Builde
     lo.create_range_constraint(NUM_BITS_IN_TWO_LIMBS, "field_conversion: create_range_constraint");
     hi.create_range_constraint(NUM_LAST_LIMB_BITS, "field_conversion: create_range_constraint");
 }
+
 /**
  * @brief Check whether a point corresponds to (0, 0), the conventional representation of the point infinity.
  *
