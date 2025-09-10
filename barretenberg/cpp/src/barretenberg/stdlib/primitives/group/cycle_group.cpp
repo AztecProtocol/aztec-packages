@@ -1133,8 +1133,7 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
     const bool has_fixed_points = !fixed_base_points.empty();
 
     // Compute all required offset generators.
-    const size_t num_offset_generators =
-        variable_base_points.size() + fixed_base_points.size() + has_variable_points + has_fixed_points;
+    const size_t num_offset_generators = variable_base_points.size() + has_variable_points;
     const std::span<AffineElement const> offset_generators =
         context.generators->get(num_offset_generators, 0, OFFSET_GENERATOR_DOMAIN_SEPARATOR);
 
