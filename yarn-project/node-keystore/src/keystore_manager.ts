@@ -7,6 +7,7 @@ import type { EthSigner } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { Wallet } from '@ethersproject/wallet';
 import { readFileSync, readdirSync, statSync } from 'fs';
@@ -14,13 +15,13 @@ import { extname, join } from 'path';
 import type { TypedDataDefinition } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
+import { ethPrivateKeySchema } from './schemas.js';
 import { LocalSigner, RemoteSigner } from './signer.js';
 import type {
   EthAccount,
   EthAccounts,
   EthJsonKeyFileV3Config,
   EthMnemonicConfig,
-  EthPrivateKey,
   EthRemoteSignerAccount,
   EthRemoteSignerConfig,
   KeyStore,
@@ -94,20 +95,10 @@ export class KeystoreManager {
         if (account.startsWith('0x') && account.length === 66) {
           // Private key -> derive address locally without external deps
           try {
-            const signer = new LocalSigner(Buffer32.fromString(account as EthPrivateKey));
+            const signer = new LocalSigner(Buffer32.fromString(ethPrivateKeySchema.parse(account)));
             results.push(signer.address);
           } catch {
             // Ignore invalid private key at construction time
-          }
-          return;
-        }
-
-        if (account.startsWith('0x') && account.length === 42) {
-          // Address string
-          try {
-            results.push(EthAddress.fromString(account));
-          } catch {
-            // Ignore invalid address format at construction time
           }
           return;
         }
@@ -126,16 +117,13 @@ export class KeystoreManager {
         return;
       }
 
-      // Remote signer account (object form)
-      const remoteSigner = account as EthRemoteSignerAccount;
-      const address = typeof remoteSigner === 'string' ? remoteSigner : remoteSigner.address;
-      if (address) {
-        try {
-          results.push(EthAddress.fromString(address));
-        } catch {
-          // Ignore invalid address format at construction time
-        }
+      // Remote signer account. If it contains 'address' then extract, otherwise it IS the address
+      const remoteSigner: EthRemoteSignerAccount = account;
+      if ('address' in remoteSigner) {
+        results.push(remoteSigner.address);
+        return;
       }
+      results.push(remoteSigner);
     };
 
     if (Array.isArray(accounts)) {
@@ -205,7 +193,7 @@ export class KeystoreManager {
       return undefined;
     }
 
-    // Handle simple prover case (just a private key)
+    // Handle prover being a private key, JSON key store or remote signer with nested address
     if (
       typeof this.keystore.prover === 'string' ||
       'path' in this.keystore.prover ||
@@ -218,10 +206,20 @@ export class KeystoreManager {
       };
     }
 
-    const id = EthAddress.fromString(this.keystore.prover.id);
-    const signers = this.createSignersFromEthAccounts(this.keystore.prover.publisher, this.keystore.remoteSigner);
+    // Handle prover as Id and specified publishers
+    if ('id' in this.keystore.prover) {
+      const id = this.keystore.prover.id;
+      const signers = this.createSignersFromEthAccounts(this.keystore.prover.publisher, this.keystore.remoteSigner);
 
-    return { id, signers };
+      return { id, signers };
+    }
+
+    // Here, prover is just an EthAddress for a remote signer
+    const signers = this.createSignersFromEthAccounts(this.keystore.prover, this.keystore.remoteSigner);
+    return {
+      id: undefined,
+      signers,
+    };
   }
 
   /**
@@ -248,7 +246,7 @@ export class KeystoreManager {
     const validator = this.getValidator(validatorIndex);
 
     if (validator.coinbase) {
-      return EthAddress.fromString(validator.coinbase);
+      return validator.coinbase;
     }
 
     // Fall back to first attester address
@@ -263,7 +261,7 @@ export class KeystoreManager {
   /**
    * Get fee recipient for validator
    */
-  getFeeRecipient(validatorIndex: number): string {
+  getFeeRecipient(validatorIndex: number): AztecAddress {
     const validator = this.getValidator(validatorIndex);
     return validator.feeRecipient;
   }
@@ -351,13 +349,9 @@ export class KeystoreManager {
     if (typeof account === 'string') {
       if (account.startsWith('0x') && account.length === 66) {
         // Private key
-        return new LocalSigner(Buffer32.fromString(account as EthPrivateKey));
+        return new LocalSigner(Buffer32.fromString(ethPrivateKeySchema.parse(account)));
       } else {
-        // Remote signer address only - use default remote signer config
-        if (!defaultRemoteSigner) {
-          throw new KeystoreError(`No remote signer configuration found for address ${account}`);
-        }
-        return new RemoteSigner(EthAddress.fromString(account), defaultRemoteSigner);
+        throw new Error(`Invalid private key`);
       }
     }
 
@@ -368,29 +362,29 @@ export class KeystoreManager {
     }
 
     // Remote signer account
-    const remoteSigner = account as EthRemoteSignerAccount;
-    if (typeof remoteSigner === 'string') {
-      // Just an address - use default config
-      if (!defaultRemoteSigner) {
-        throw new KeystoreError(`No remote signer configuration found for address ${remoteSigner}`);
+    const remoteSigner: EthRemoteSignerAccount = account;
+
+    if ('address' in remoteSigner) {
+      // Remote signer with config
+      const config = remoteSigner.remoteSignerUrl
+        ? {
+            remoteSignerUrl: remoteSigner.remoteSignerUrl,
+            certPath: remoteSigner.certPath,
+            certPass: remoteSigner.certPass,
+          }
+        : defaultRemoteSigner;
+      if (!config) {
+        throw new KeystoreError(`No remote signer configuration found for address ${remoteSigner.address}`);
       }
-      return new RemoteSigner(EthAddress.fromString(remoteSigner), defaultRemoteSigner);
+
+      return new RemoteSigner(remoteSigner.address, config);
     }
 
-    // Remote signer with config
-    const config = remoteSigner.remoteSignerUrl
-      ? {
-          remoteSignerUrl: remoteSigner.remoteSignerUrl,
-          certPath: remoteSigner.certPath,
-          certPass: remoteSigner.certPass,
-        }
-      : defaultRemoteSigner;
-
-    if (!config) {
-      throw new KeystoreError(`No remote signer configuration found for address ${remoteSigner.address}`);
+    // Just an address - use default config
+    if (!defaultRemoteSigner) {
+      throw new KeystoreError(`No remote signer configuration found for address ${remoteSigner}`);
     }
-
-    return new RemoteSigner(EthAddress.fromString(remoteSigner.address), config);
+    return new RemoteSigner(remoteSigner, defaultRemoteSigner);
   }
 
   /**
@@ -531,25 +525,18 @@ export class KeystoreManager {
     const validator = this.getValidator(validatorIndex);
 
     // Helper to get address from an account configuration
-    const getAddressFromAccount = (account: EthAccount): EthAddress | EthAddress[] | null => {
+    const getAddressFromAccount = (account: EthAccount): EthAddress | EthAddress[] | undefined => {
       if (typeof account === 'string') {
         if (account.startsWith('0x') && account.length === 66) {
           // This is a private key - derive the address
           try {
-            const signer = new LocalSigner(Buffer32.fromString(account as EthPrivateKey));
+            const signer = new LocalSigner(Buffer32.fromString(ethPrivateKeySchema.parse(account)));
             return signer.address;
           } catch {
-            return null;
-          }
-        } else if (account.startsWith('0x') && account.length === 42) {
-          // This is an address
-          try {
-            return EthAddress.fromString(account);
-          } catch {
-            return null;
+            return undefined;
           }
         }
-        return null;
+        return undefined;
       }
 
       // JSON V3 keystore
@@ -558,18 +545,16 @@ export class KeystoreManager {
           const signers = this.createSignerFromJsonV3(account);
           return signers.map(s => s.address);
         } catch {
-          return null;
+          return undefined;
         }
       }
 
-      // Remote signer account
-      const remoteSigner = account as EthRemoteSignerAccount;
-      const address = typeof remoteSigner === 'string' ? remoteSigner : remoteSigner.address;
-      try {
-        return EthAddress.fromString(address);
-      } catch {
-        return null;
+      // Remote signer account, either it is an address or the address is nested
+      const remoteSigner: EthRemoteSignerAccount = account;
+      if ('address' in remoteSigner) {
+        return remoteSigner.address;
       }
+      return remoteSigner;
     };
 
     // Helper to check if account matches and get its remote signer config
@@ -588,13 +573,7 @@ export class KeystoreManager {
 
       // Found a match - determine the config to return
       if (typeof account === 'string') {
-        if (account.startsWith('0x') && account.length === 66) {
-          // Private key - local signer, no remote config
-          return undefined;
-        } else {
-          // Address only - use defaults
-          return validator.remoteSigner || this.keystore.remoteSigner;
-        }
+        return undefined;
       }
 
       // JSON V3 - local signer, no remote config
@@ -603,23 +582,23 @@ export class KeystoreManager {
       }
 
       // Remote signer account with potential override
-      const remoteSigner = account as EthRemoteSignerAccount;
-      if (typeof remoteSigner === 'string') {
-        // Just an address - use defaults
-        return validator.remoteSigner || this.keystore.remoteSigner;
-      }
+      const remoteSigner: EthRemoteSignerAccount = account;
 
-      // Has inline config
-      if (remoteSigner.remoteSignerUrl) {
-        return {
-          remoteSignerUrl: remoteSigner.remoteSignerUrl,
-          certPath: remoteSigner.certPath,
-          certPass: remoteSigner.certPass,
-        };
-      } else {
-        // No URL specified, use defaults
-        return validator.remoteSigner || this.keystore.remoteSigner;
+      if ('address' in remoteSigner) {
+        // Has inline config
+        if (remoteSigner.remoteSignerUrl) {
+          return {
+            remoteSignerUrl: remoteSigner.remoteSignerUrl,
+            certPath: remoteSigner.certPath,
+            certPass: remoteSigner.certPass,
+          };
+        } else {
+          // No URL specified, use defaults
+          return validator.remoteSigner || this.keystore.remoteSigner;
+        }
       }
+      // Just an address, use defaults
+      return validator.remoteSigner || this.keystore.remoteSigner;
     };
 
     // Check the attester configuration

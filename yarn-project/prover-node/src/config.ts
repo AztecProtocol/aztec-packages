@@ -3,14 +3,7 @@ import type { ACVMConfig, BBConfig } from '@aztec/bb-prover/config';
 import { type GenesisStateConfig, genesisStateConfigMappings } from '@aztec/ethereum';
 import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
-import {
-  type EthAccount,
-  type EthAddressHex,
-  type EthRemoteSignerAccount,
-  type KeyStore,
-  type KeyStoreConfig,
-  keyStoreConfigMappings,
-} from '@aztec/node-keystore';
+import { type KeyStore, type KeyStoreConfig, ethPrivateKeySchema, keyStoreConfigMappings } from '@aztec/node-keystore';
 import { type SharedNodeConfig, sharedNodeConfigMappings } from '@aztec/node-lib/config';
 import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import {
@@ -126,18 +119,13 @@ export function getProverNodeAgentConfigFromEnv(): ProverAgentConfig & BBConfig 
 }
 
 function createKeyStoreFromWeb3Signer(config: ProverNodeConfig) {
-  // See what we have been given for proverId.
-  const proverId = config.proverId ? (config.proverId.toString() as EthAddressHex) : undefined;
-
   // If we don't have a valid prover Id then we can't build a valid key store with remote signers
-  if (proverId === undefined) {
+  if (config.proverId === undefined) {
     return undefined;
   }
 
   // Also, we need at least one publisher address.
-  const publishers = config.publisherAddresses
-    ? config.publisherAddresses.map(k => k.toChecksumString() as EthRemoteSignerAccount)
-    : [];
+  const publishers = config.publisherAddresses ?? [];
 
   if (publishers.length === 0) {
     return undefined;
@@ -147,7 +135,7 @@ function createKeyStoreFromWeb3Signer(config: ProverNodeConfig) {
     schemaVersion: 1,
     slasher: undefined,
     prover: {
-      id: proverId,
+      id: config.proverId,
       publisher: publishers,
     },
     remoteSigner: config.web3SignerUrl,
@@ -159,16 +147,13 @@ function createKeyStoreFromWeb3Signer(config: ProverNodeConfig) {
 function createKeyStoreFromPublisherKeys(config: ProverNodeConfig) {
   // Extract the publisher keys from the provided config.
   const publisherKeys = config.publisherPrivateKeys
-    ? config.publisherPrivateKeys.map(k => k.getValue() as EthAddressHex)
+    ? config.publisherPrivateKeys.map(k => ethPrivateKeySchema.parse(k.getValue()))
     : [];
 
   // There must be at least 1.
   if (publisherKeys.length === 0) {
     return undefined;
   }
-
-  // Now see what we have been given for proverId.
-  const proverId = config.proverId ? (config.proverId.toString() as EthAddressHex) : undefined;
 
   // If we have a valid proverId then create a prover key store of the form { id, publisher: [publisherKeys] }
   // Otherwise create one of the form ("0x12345678....." as EthAccount).
@@ -177,11 +162,11 @@ function createKeyStoreFromPublisherKeys(config: ProverNodeConfig) {
     schemaVersion: 1,
     slasher: undefined,
     prover:
-      proverId === undefined
-        ? (publisherKeys[0] as EthAccount)
+      config.proverId === undefined
+        ? publisherKeys[0]
         : {
-            id: proverId,
-            publisher: publisherKeys.map(key => key as EthAccount),
+            id: config.proverId,
+            publisher: publisherKeys,
           },
     remoteSigner: undefined,
     validators: undefined,
