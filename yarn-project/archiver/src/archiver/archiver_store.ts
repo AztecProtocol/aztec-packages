@@ -3,7 +3,7 @@ import type { Fr } from '@aztec/foundation/fields';
 import type { CustomRange } from '@aztec/kv-store';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2Block } from '@aztec/stdlib/block';
+import type { L2Block, ValidateBlockResult } from '@aztec/stdlib/block';
 import type {
   ContractClassPublic,
   ContractInstanceUpdateWithAddress,
@@ -272,4 +272,10 @@ export interface ArchiverDataStore {
 
   /** Returns the last L1 to L2 message stored. */
   getLastL1ToL2Message(): Promise<InboxMessage | undefined>;
+
+  /** Returns the last synced validation status of the pending chain. */
+  getPendingChainValidationStatus(): Promise<ValidateBlockResult | undefined>;
+
+  /** Sets the last synced validation status of the pending chain. */
+  setPendingChainValidationStatus(status: ValidateBlockResult | undefined): Promise<void>;
 }

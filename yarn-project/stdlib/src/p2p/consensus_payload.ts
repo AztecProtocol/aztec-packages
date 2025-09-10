@@ -60,18 +60,17 @@ export class ConsensusPayload implements Signable {
   }
 
   toBuffer(): Buffer {
-    const buffer = serializeToBuffer([this.header, this.archive, this.stateReference]);
-    this.size = buffer.length;
-    return buffer;
+    return serializeToBuffer([this.header, this.archive, this.stateReference]);
   }
 
   static fromBuffer(buf: Buffer | BufferReader): ConsensusPayload {
     const reader = BufferReader.asReader(buf);
-    return new ConsensusPayload(
+    const payload = new ConsensusPayload(
       reader.readObject(ProposedBlockHeader),
       reader.readObject(Fr),
       reader.readObject(StateReference),
     );
+    return payload;
   }
 
   static fromFields(fields: FieldsOf<ConsensusPayload>): ConsensusPayload {
@@ -84,6 +83,10 @@ export class ConsensusPayload implements Signable {
 
   static empty(): ConsensusPayload {
     return new ConsensusPayload(ProposedBlockHeader.empty(), Fr.ZERO, StateReference.empty());
+  }
+
+  static random(): ConsensusPayload {
+    return new ConsensusPayload(ProposedBlockHeader.random(), Fr.random(), StateReference.random());
   }
 
   /**

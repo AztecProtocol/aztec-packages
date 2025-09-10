@@ -6,7 +6,15 @@ import { BufferReader } from '@aztec/foundation/serialize';
 import { bufferToHex } from '@aztec/foundation/string';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton, Range } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { Body, CommitteeAttestation, L2Block, L2BlockHash } from '@aztec/stdlib/block';
+import {
+  Body,
+  CommitteeAttestation,
+  L2Block,
+  L2BlockHash,
+  PublishedL2Block,
+  type ValidateBlockResult,
+} from '@aztec/stdlib/block';
+import { deserializeValidateBlockResult, serializeValidateBlockResult } from '@aztec/stdlib/block';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
@@ -19,7 +27,7 @@ import {
 } from '@aztec/stdlib/tx';
 
 import { BlockNumberNotSequentialError, InitialBlockNumberNotSequentialError } from '../errors.js';
-import type { L1PublishedData, PublishedL2Block } from '../structs/published.js';
+import type { L1PublishedData } from '../structs/published.js';
 
 export { TxReceipt, type TxEffect, type TxHash } from '@aztec/stdlib/tx';
 
@@ -52,6 +60,9 @@ export class BlockStore {
   /** Stores l2 block number of the last proven block */
   #lastProvenL2Block: AztecAsyncSingleton<number>;
 
+  /** Stores the pending chain validation status */
+  #pendingChainValidationStatus: AztecAsyncSingleton<Buffer>;
+
   /** Index mapping a contract's address (as a string) to its location in a block */
   #contractIndex: AztecAsyncMap<string, BlockIndexValue>;
 
@@ -64,6 +75,7 @@ export class BlockStore {
     this.#contractIndex = db.openMap('archiver_contract_index');
     this.#lastSynchedL1Block = db.openSingleton('archiver_last_synched_l1_block');
     this.#lastProvenL2Block = db.openSingleton('archiver_last_proven_l2_block');
+    this.#pendingChainValidationStatus = db.openSingleton('archiver_pending_chain_validation_status');
   }
 
   /**
@@ -224,7 +236,10 @@ export class BlockStore {
     }
   }
 
-  private async getBlockFromBlockStorage(blockNumber: number, blockStorage: BlockStorage) {
+  private async getBlockFromBlockStorage(
+    blockNumber: number,
+    blockStorage: BlockStorage,
+  ): Promise<PublishedL2Block | undefined> {
     const header = BlockHeader.fromBuffer(blockStorage.header);
     const archive = AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive);
     const blockHash = blockStorage.blockHash;
@@ -257,7 +272,7 @@ export class BlockStore {
       );
     }
     const attestations = blockStorage.attestations.map(CommitteeAttestation.fromBuffer);
-    return { block, l1: blockStorage.l1, attestations };
+    return PublishedL2Block.fromFields({ block, l1: blockStorage.l1, attestations });
   }
 
   /**
@@ -360,5 +375,30 @@ export class BlockStore {
     }
 
     return { start, limit };
+  }
+
+  /**
+   * Gets the pending chain validation status.
+   * @returns The validation status or undefined if not set.
+   */
+  async getPendingChainValidationStatus(): Promise<ValidateBlockResult | undefined> {
+    const buffer = await this.#pendingChainValidationStatus.getAsync();
+    if (!buffer) {
+      return undefined;
+    }
+    return deserializeValidateBlockResult(buffer);
+  }
+
+  /**
+   * Sets the pending chain validation status.
+   * @param status - The validation status to store.
+   */
+  async setPendingChainValidationStatus(status: ValidateBlockResult | undefined): Promise<void> {
+    if (status) {
+      const buffer = serializeValidateBlockResult(status);
+      await this.#pendingChainValidationStatus.set(buffer);
+    } else {
+      await this.#pendingChainValidationStatus.delete();
+    }
   }
 }

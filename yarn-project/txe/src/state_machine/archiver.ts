@@ -139,7 +139,7 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
     return Promise.resolve(false);
   }
 
-  public getPendingChainValidationStatus(): Promise<ValidateBlockResult> {
+  public override getPendingChainValidationStatus(): Promise<ValidateBlockResult> {
     return Promise.resolve({ valid: true });
   }
 }

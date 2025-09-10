@@ -3,8 +3,9 @@ import type { ApiSchemaFor } from '@aztec/foundation/schemas';
 import { z } from 'zod';
 
 import { L2Block } from '../block/l2_block.js';
-import { type L2BlockSource, L2TipsSchema, ValidateBlockResultSchema } from '../block/l2_block_source.js';
+import { type L2BlockSource, L2TipsSchema } from '../block/l2_block_source.js';
 import { PublishedL2Block } from '../block/published_l2_block.js';
+import { ValidateBlockResultSchema } from '../block/validate_block_result.js';
 import {
   ContractClassPublicSchema,
   type ContractDataSource,

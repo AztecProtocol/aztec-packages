@@ -116,6 +116,19 @@ export class ProposedBlockHeader {
     });
   }
 
+  static random(): ProposedBlockHeader {
+    return new ProposedBlockHeader(
+      Fr.random(),
+      ContentCommitment.random(),
+      new Fr(BigInt(Math.floor(Math.random() * 1000) + 1)),
+      BigInt(Math.floor(Date.now() / 1000)),
+      EthAddress.random(),
+      new AztecAddress(Fr.random()),
+      GasFees.random(),
+      new Fr(BigInt(Math.floor(Math.random() * 1000000))),
+    );
+  }
+
   isEmpty(): boolean {
     return (
       this.lastArchiveRoot.isZero() &&

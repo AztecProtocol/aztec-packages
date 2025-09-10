@@ -4,12 +4,11 @@ import { sleep } from '@aztec/foundation/sleep';
 import {
   type InvalidBlockDetectedEvent,
   L2Block,
+  type L2BlockInfo,
   type L2BlockSourceEventEmitter,
   L2BlockSourceEvents,
-  PublishedL2Block,
   type ValidateBlockNegativeResult,
 } from '@aztec/stdlib/block';
-import { BlockAttestation } from '@aztec/stdlib/p2p';
 import { OffenseType } from '@aztec/stdlib/slashing';
 
 import { jest } from '@jest/globals';
@@ -27,7 +26,7 @@ describe('AttestationsBlockWatcher', () => {
   let config: SlasherConfig;
   let handler: jest.MockedFunction<(args: WantToSlashArgs[]) => void>;
   let block: L2Block;
-  let publishedBlock: PublishedL2Block;
+  let l2BlockInfo: L2BlockInfo;
   let proposer: EthAddress;
   let committee: EthAddress[];
 
@@ -43,7 +42,7 @@ describe('AttestationsBlockWatcher', () => {
 
     // Set up common test data
     block = await L2Block.random(1, 4);
-    publishedBlock = new PublishedL2Block(block, { blockNumber: BigInt(1) } as any, []);
+    l2BlockInfo = block.toBlockInfo();
     proposer = EthAddress.fromString('0x0000000000000000000000000000000000000abc');
     committee = [proposer, EthAddress.fromString('0x0000000000000000000000000000000000000def')];
 
@@ -59,10 +58,11 @@ describe('AttestationsBlockWatcher', () => {
     const validationResult: ValidateBlockNegativeResult = {
       valid: false,
       reason: 'insufficient-attestations',
-      block: publishedBlock,
+      block: l2BlockInfo,
       committee,
       epoch: 1n,
       seed: 0n,
+      attestors: [],
       attestations: [],
     };
 
@@ -90,12 +90,13 @@ describe('AttestationsBlockWatcher', () => {
     const validationResult: ValidateBlockNegativeResult = {
       valid: false,
       reason: 'invalid-attestation',
-      block: publishedBlock,
+      block: l2BlockInfo,
       committee,
       epoch: 1n,
       seed: 0n,
-      attestations: [],
+      attestors: [],
       invalidIndex: 0,
+      attestations: [],
     };
 
     const event: InvalidBlockDetectedEvent = {
@@ -123,10 +124,11 @@ describe('AttestationsBlockWatcher', () => {
     const invalidBlockValidationResult: ValidateBlockNegativeResult = {
       valid: false,
       reason: 'insufficient-attestations',
-      block: publishedBlock,
+      block: l2BlockInfo,
       committee,
       epoch: 1n,
       seed: 0n,
+      attestors: [],
       attestations: [],
     };
 
@@ -142,7 +144,7 @@ describe('AttestationsBlockWatcher', () => {
     // Now emit a block that builds on the invalid block
     const childBlock = await L2Block.random(2, 4);
     childBlock.header.lastArchive.root = block.archive.root;
-    const publishedChildBlock = new PublishedL2Block(childBlock, { blockNumber: BigInt(2) } as any, []);
+    const childBlockInfo = childBlock.toBlockInfo();
     const proposer2 = EthAddress.fromString('0x0000000000000000000000000000000000000def');
 
     epochCache.getProposerFromEpochCommittee.mockReturnValue(proposer2);
@@ -150,19 +152,15 @@ describe('AttestationsBlockWatcher', () => {
     const attestor1 = EthAddress.fromString('0x0000000000000000000000000000000000000111');
     const attestor2 = EthAddress.fromString('0x0000000000000000000000000000000000000222');
 
-    const attestation1 = mock<BlockAttestation>();
-    attestation1.getSender.mockReturnValue(attestor1);
-    const attestation2 = mock<BlockAttestation>();
-    attestation2.getSender.mockReturnValue(attestor2);
-
     const childValidationResult: ValidateBlockNegativeResult = {
       valid: false,
       reason: 'insufficient-attestations',
-      block: publishedChildBlock,
+      block: childBlockInfo,
       committee: [proposer2, attestor1, attestor2],
       epoch: 1n,
       seed: 0n,
-      attestations: [attestation1, attestation2],
+      attestors: [attestor1, attestor2],
+      attestations: [],
     };
 
     const childEvent: InvalidBlockDetectedEvent = {
@@ -205,10 +203,11 @@ describe('AttestationsBlockWatcher', () => {
     const validationResult: ValidateBlockNegativeResult = {
       valid: false,
       reason: 'insufficient-attestations',
-      block: publishedBlock,
+      block: l2BlockInfo,
       committee,
       epoch: 1n,
       seed: 0n,
+      attestors: [],
       attestations: [],
     };
 
@@ -233,10 +232,11 @@ describe('AttestationsBlockWatcher', () => {
     const validationResult: ValidateBlockNegativeResult = {
       valid: false,
       reason: 'insufficient-attestations',
-      block: publishedBlock,
+      block: l2BlockInfo,
       committee,
       epoch: 1n,
       seed: 0n,
+      attestors: [],
       attestations: [],
     };
 

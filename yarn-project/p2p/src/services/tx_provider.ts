@@ -1,7 +1,7 @@
 import { compactArray } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
-import type { BlockInfo, L2Block } from '@aztec/stdlib/block';
+import type { L2Block, L2BlockInfo } from '@aztec/stdlib/block';
 import type { ITxProvider } from '@aztec/stdlib/interfaces/server';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
@@ -77,7 +77,7 @@ export class TxProvider implements ITxProvider {
 
   private async getOrderedTxsFromAllSources(
     request: FastCollectionRequestInput,
-    blockInfo: BlockInfo,
+    blockInfo: L2BlockInfo,
     txHashes: TxHash[],
     opts: { pinnedPeer: PeerId | undefined; deadline: Date },
   ) {
@@ -114,7 +114,7 @@ export class TxProvider implements ITxProvider {
 
   private async getTxsFromAllSources(
     request: FastCollectionRequestInput,
-    blockInfo: BlockInfo,
+    blockInfo: L2BlockInfo,
     txHashes: TxHash[],
     opts: { pinnedPeer: PeerId | undefined; deadline: Date },
   ) {
