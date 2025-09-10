@@ -1367,6 +1367,311 @@ describe('BatchTxRequester', () => {
       });
     });
   });
+
+  describe('Pinned peer functionality', () => {
+    it('Should query pinned peer if available', async () => {
+      const txCount = 10;
+      const deadline = 5_000;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        header: makeHeader(1, 1),
+        archive: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId(), createSecp256k1PeerId()]);
+
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
+      const [pinnedPeer, regularPeer1, regularPeer2] = peers;
+
+      // Pinned peer has all transactions, regular peers have partial
+      const peerTransactions = new Map([
+        [pinnedPeer.toString(), Array.from({ length: txCount }, (_, i) => i)], // All transactions
+        [regularPeer1.toString(), Array.from({ length: 5 }, (_, i) => i)], // First 5
+        [regularPeer2.toString(), Array.from({ length: 5 }, (_, i) => i + 5)], // Last 5
+      ]);
+
+      const { requestLog, mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions);
+      reqresp.sendRequestToPeer.mockImplementation(mockImplementation);
+
+      const requester = new BatchTxRequester(
+        missing,
+        blockProposal,
+        pinnedPeer,
+        deadline,
+        reqresp,
+        connectionSampler,
+        txValidator,
+        logger,
+        new DateProvider(),
+        {
+          smartParallelWorkerCount: 0,
+          dumbParallelWorkerCount: 2,
+        },
+      );
+
+      const results = await BatchTxRequester.collectAllTxs(requester.run());
+      expect(results).toHaveLength(txCount);
+
+      expect(requestLog.has(pinnedPeer.toString())).toBe(true);
+      const pinnedPeerRequests = requestLog.get(pinnedPeer.toString())!;
+      expect(pinnedPeerRequests[0].indices.length).toEqual(TX_BATCH_SIZE);
+    });
+
+    it('should never mark pinned peer as smart', async () => {
+      const txCount = 30;
+      const deadline = 5_000;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        header: makeHeader(1, 1),
+        archive: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
+
+      const [pinnedPeer, regularPeer] = peers;
+      const peerCollection = new TestPeerCollection(new PeerCollection(peers, pinnedPeer, new DateProvider()));
+
+      // Both peers have all transactions
+      const peerTransactions = new Map([
+        [pinnedPeer.toString(), Array.from({ length: txCount }, (_, i) => i)],
+        [regularPeer.toString(), Array.from({ length: txCount }, (_, i) => i)],
+      ]);
+
+      const { mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions, 50);
+      reqresp.sendRequestToPeer.mockImplementation(mockImplementation);
+
+      const requester = new BatchTxRequester(
+        missing,
+        blockProposal,
+        pinnedPeer,
+        deadline,
+        reqresp,
+        connectionSampler,
+        txValidator,
+        logger,
+        new DateProvider(),
+        {
+          smartParallelWorkerCount: 1,
+          dumbParallelWorkerCount: 1,
+          peerCollection,
+        },
+      );
+
+      await BatchTxRequester.collectAllTxs(requester.run());
+
+      // Verify pinned peer was never marked as smart
+      expect(peerCollection.getSmartPeers()).not.toContain(pinnedPeer.toString());
+      expect(peerCollection.getSmartPeersToQuery()).not.toContain(pinnedPeer.toString());
+    });
+
+    it('should handle pinned peer being rate limited and recover', async () => {
+      const txCount = 6;
+      const deadline = 8_000;
+      const clock = new TestClock();
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        header: makeHeader(1, 1),
+        archive: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
+      const [pinnedPeer, regularPeer] = peers;
+      const peerCollection = new TestPeerCollection(new PeerCollection(peers, pinnedPeer, clock));
+
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
+
+      const peerTransactions = new Map([
+        [pinnedPeer.toString(), Array.from({ length: txCount }, (_, i) => i)],
+        [regularPeer.toString(), Array.from({ length: txCount }, (_, i) => i)],
+      ]);
+
+      let pinnedPeerRequestCount = 0;
+      reqresp.sendRequestToPeer.mockImplementation(async (peerId: any, _sub: any, data: any) => {
+        const peerStr = peerId.toString();
+
+        // First request to pinned peer returns rate limit
+        if (peerStr === pinnedPeer.toString() && pinnedPeerRequestCount === 0) {
+          pinnedPeerRequestCount++;
+          return {
+            status: ReqRespStatus.RATE_LIMIT_EXCEEDED,
+            data: Buffer.alloc(0),
+          };
+        }
+
+        // All other requests succeed
+        const request = BlockTxsRequest.fromBuffer(data);
+        const requestedIndices = request.txIndices.getTrueIndices();
+        const peerHasIndices = peerTransactions.get(peerStr) || [];
+        const availableIndices = requestedIndices.filter(idx => peerHasIndices.includes(idx));
+        const availableTxHashes = availableIndices.map(idx => blockProposal.txHashes[idx]);
+        const availableTxs = availableTxHashes.map(h => makeTx(h));
+
+        const response = new BlockTxsResponse(
+          blockProposal.archive,
+          new TxArray(...availableTxs),
+          BitVector.init(blockProposal.txHashes.length, peerHasIndices),
+        );
+
+        return {
+          status: ReqRespStatus.SUCCESS,
+          data: response.toBuffer(),
+        };
+      });
+
+      const requester = new BatchTxRequester(
+        missing,
+        blockProposal,
+        pinnedPeer,
+        deadline,
+        reqresp,
+        connectionSampler,
+        txValidator,
+        logger,
+        clock,
+        {
+          smartParallelWorkerCount: 0,
+          dumbParallelWorkerCount: 2,
+          peerCollection,
+        },
+      );
+
+      const runPromise = BatchTxRequester.collectAllTxs(requester.run());
+
+      // Let some time pass for rate limit handling
+      await sleep(100);
+      clock.advanceTo(RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL + 1);
+
+      const results = await runPromise;
+      expect(results).toHaveLength(txCount);
+
+      // Verify pinned peer was marked as rate limited
+      expect(peerCollection.peersMarkedRateLimitExceeded).toContain(pinnedPeer.toString());
+    });
+
+    it('should handle pinned peer being marked as bad and continue with regular peers', async () => {
+      const txCount = 8;
+      const deadline = 5_000;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        header: makeHeader(1, 1),
+        archive: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
+      const [pinnedPeer, regularPeer] = peers;
+      const peerCollection = new TestPeerCollection(new PeerCollection(peers, pinnedPeer, new DateProvider()));
+
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
+
+      // Regular peer has all transactions, pinned peer will fail
+      const peerTransactions = new Map([[regularPeer.toString(), Array.from({ length: txCount }, (_, i) => i)]]);
+
+      const peersToReturnFailureFor = new Set([pinnedPeer.toString()]);
+      const { mockImplementation } = createRequestLogger(blockProposal, peersToReturnFailureFor, peerTransactions);
+      reqresp.sendRequestToPeer.mockImplementation(mockImplementation);
+
+      const requester = new BatchTxRequester(
+        missing,
+        blockProposal,
+        pinnedPeer,
+        deadline,
+        reqresp,
+        connectionSampler,
+        txValidator,
+        logger,
+        new DateProvider(),
+        {
+          smartParallelWorkerCount: 0,
+          dumbParallelWorkerCount: 1,
+          peerCollection,
+        },
+      );
+
+      const results = await BatchTxRequester.collectAllTxs(requester.run());
+
+      expect(results).toHaveLength(txCount);
+      expect(peerCollection.peersMarkedBad).toContain(pinnedPeer.toString());
+    });
+
+    it('should validate transactions from pinned peer same as regular peers', async () => {
+      const txCount = 8;
+      const deadline = 5_000;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        header: makeHeader(1, 1),
+        archive: Fr.random(),
+        txHashes: missing,
+      });
+
+      const [pinnedPeer, regularPeer] = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([regularPeer]);
+
+      const peerTransactions = new Map([
+        [pinnedPeer.toString(), Array.from({ length: 4 }, (_, i) => i)], // First 4 txs
+        [regularPeer.toString(), Array.from({ length: 4 }, (_, i) => i + 4)], // Last 4 txs
+      ]);
+
+      const validationCalls: Array<{ tx: TxHash; peerId: string }> = [];
+      const invalidTxIndices = new Set([1, 6]); // Mark some transactions as invalid
+
+      const customTxValidator = jest.fn(async (tx: Tx, peerId: PeerId) => {
+        validationCalls.push({ tx: tx.txHash, peerId: peerId.toString() });
+        const txIndex = missing.findIndex(h => h.equals(tx.txHash));
+        return !invalidTxIndices.has(txIndex);
+      });
+
+      const { mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions);
+      reqresp.sendRequestToPeer.mockImplementation(mockImplementation);
+
+      const requester = new BatchTxRequester(
+        missing,
+        blockProposal,
+        pinnedPeer,
+        deadline,
+        reqresp,
+        connectionSampler,
+        customTxValidator,
+        logger,
+        new DateProvider(),
+        {
+          smartParallelWorkerCount: 0,
+          dumbParallelWorkerCount: 2,
+        },
+      );
+
+      const results = await BatchTxRequester.collectAllTxs(requester.run());
+
+      // Should receive 6 valid transactions (8 total - 2 invalid)
+      expect(results).toHaveLength(6);
+
+      // Verify validation was called for both pinned and regular peers
+      const pinnedPeerValidations = validationCalls.filter(call => call.peerId === pinnedPeer.toString());
+      const regularPeerValidations = validationCalls.filter(call => call.peerId === regularPeer.toString());
+
+      expect(pinnedPeerValidations.length).toBeGreaterThan(0);
+      expect(regularPeerValidations.length).toBeGreaterThan(0);
+
+      // Verify invalid transactions were filtered out
+      const resultTxHashes = new Set(results.map(tx => tx.txHash.toString()));
+      expect(resultTxHashes.has(missing[1].toString())).toBe(false); // Invalid from pinned
+      expect(resultTxHashes.has(missing[6].toString())).toBe(false); // Invalid from regular
+    });
+  });
 });
 
 const makeTx = (txHash?: string | TxHash) => Tx.random({ txHash }) as Tx;

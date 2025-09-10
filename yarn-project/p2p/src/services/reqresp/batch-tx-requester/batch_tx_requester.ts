@@ -112,27 +112,55 @@ export class BatchTxRequester {
     return txs;
   }
 
-  //TODO: handle pinned peer properly
+  /*
+   * Handles so-called pinned peer
+   * The pinned peer is the one who sent us block proposal
+   * We expect pinned peer to have all transactions from the proposal at some point
+   * This holds because they them selves have to attest to proposal and thus fetch all missing transactions
+   *
+   * Given the reasoning above - we query pinned peer separately from dumb/smart peers
+   * */
   private async pinnedPeerRequester() {
+    if (!this.pinnedPeer) {
+      this.logger.debug('No pinned peer to request from');
+      return;
+    }
+
     while (!this.shouldStop()) {
-      if (!this.pinnedPeer) {
-        this.logger.debug('No pinned peer to request from');
+      // We've hit rate limits on the pinned peer - wait a bit before making another request
+      if (this.peers.getRateLimitExceededPeers().has(this.pinnedPeer.toString())) {
+        await sleep(RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL);
+        continue;
+      }
+
+      //Pinned peer went bad, don't request from it anymore
+      if (this.peers.getBadPeers().has(this.pinnedPeer.toString())) {
         return;
       }
 
-      const txsToRequest = this.txsMetadata.getTxsToRequestFromThePeer(this.pinnedPeer).slice(0, TX_BATCH_SIZE);
-      if (txsToRequest.length === 0) {
+      // From pinned peer we always request transactions so that we first request the least requested and not in flight
+      // This makes sense since pinned peer should have ALL transactions,
+      // Thus if it has all it is best to ask pinned first for the transactions we have trouble getting from other peers
+      const txs = this.txsMetadata.getTxsToRequestFromThePeer(this.pinnedPeer);
+      if (txs.length === 0) {
         this.logger.debug(`Pinned peer ${this.pinnedPeer.toString()} has no txs to request`);
         return;
       }
 
-      txsToRequest.forEach(tx => this.txsMetadata.markRequested(tx));
+      txs.forEach(tx => {
+        this.txsMetadata.markRequested(tx);
+        this.txsMetadata.markInFlightBySmartPeer(tx);
+      });
 
-      const request = BlockTxsRequest.fromBlockProposalAndMissingTxs(this.blockProposal, txsToRequest);
+      const request = BlockTxsRequest.fromBlockProposalAndMissingTxs(this.blockProposal, txs);
       if (!request) {
         return;
       }
       await this.requestTxBatch(this.pinnedPeer, request);
+
+      txs.forEach(tx => {
+        this.txsMetadata.markNotInFlightBySmartPeer(tx);
+      });
     }
   }
 
@@ -357,12 +385,17 @@ export class BatchTxRequester {
     this.logger.debug(`Received txs: ${response.txs.length} from peer ${peerId.toString()} `);
     await this.handleReceivedTxs(peerId, response.txs);
 
-    if (!this.isBlockResponseValid(response)) {
+    const pinnedPeerShouldNeverBeMarkedAsSmart = this.pinnedPeer && peerId.toString() === this.pinnedPeer.toString();
+    if (pinnedPeerShouldNeverBeMarkedAsSmart) {
       return;
     }
 
     const smartPeersAreDisabled = this.opts.smartParallelWorkerCount === 0;
     if (smartPeersAreDisabled) {
+      return;
+    }
+
+    if (!this.isBlockResponseValid(response)) {
       return;
     }
 
