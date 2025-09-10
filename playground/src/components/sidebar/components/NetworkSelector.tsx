@@ -18,6 +18,7 @@ import NetworkIcon from '@mui/icons-material/Public';
 import { DialogTitle, Dialog, DialogContent, IconButton } from '@mui/material';
 import { trackButtonClick } from '../../../utils/matomo';
 import CloseIcon from '@mui/icons-material/Close';
+import { EmbeddedWallet } from '../../../embedded_wallet';
 
 export function NetworkSelector() {
   const {
@@ -104,6 +105,7 @@ export function NetworkSelector() {
       );
       const walletDB = WalletDB.getInstance();
       walletDB.init(walletDBStore, walletLogger.info);
+      setWallet(new EmbeddedWallet(pxe, walletDB))
       setPXE(pxe);
       setWalletDB(walletDB);
       setPXEInitialized(true);

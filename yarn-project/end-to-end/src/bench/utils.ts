@@ -22,9 +22,8 @@ export async function benchmarkSetup(
   },
 ) {
   const context = await setup(1, { ...opts, telemetryConfig: { benchmark: true } });
-  const contract = await BenchmarkingContract.deploy(context.wallet)
-    .send({ from: context.wallet.getAddress() })
-    .deployed();
+  const defaultAccountAddress = context.accounts[0];
+  const contract = await BenchmarkingContract.deploy(context.wallet).send({ from: defaultAccountAddress }).deployed();
   context.logger.info(`Deployed benchmarking contract at ${contract.address}`);
   const sequencer = (context.aztecNode as AztecNodeService).getSequencer()!;
   const telemetry = context.telemetryClient! as BenchmarkTelemetryClient;
@@ -111,7 +110,7 @@ function makeCall(
   contract: BenchmarkingContract,
   heavyPublicCompute: boolean,
 ) {
-  const owner = context.wallet.getAddress();
+  const [owner] = context.accounts;
   if (heavyPublicCompute) {
     return new BatchCall(context.wallet, [contract.methods.sha256_hash_2048(randomBytesAsBigInts(2048))]);
   } else {
@@ -139,7 +138,8 @@ export async function sendTxs(
 ): Promise<SentTx[]> {
   const calls = times(txCount, index => makeCall(index, context, contract, heavyPublicCompute));
   context.logger.info(`Creating ${txCount} txs`);
-  const provenTxs = await Promise.all(calls.map(call => call.prove({ from: context.wallet.getAddress() })));
+  const [from] = context.accounts;
+  const provenTxs = await Promise.all(calls.map(call => call.prove({ from })));
   context.logger.info(`Sending ${txCount} txs`);
   return provenTxs.map(tx => tx.send());
 }

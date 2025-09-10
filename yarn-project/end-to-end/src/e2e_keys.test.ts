@@ -68,11 +68,10 @@ describe('Keys', () => {
       const nskApp = await computeAppNullifierSecretKey(masterNullifierSecretKey, testContract.address);
 
       const noteValue = 5;
-      const noteOwner = wallet.getAddress();
       const noteStorageSlot = 12;
 
       await testContract.methods
-        .call_create_note(noteValue, noteOwner, noteStorageSlot, false)
+        .call_create_note(noteValue, defaultAccountAddress, noteStorageSlot, false)
         .send({ from: defaultAccountAddress })
         .wait();
 

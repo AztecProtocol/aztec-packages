@@ -5,14 +5,14 @@ import { TokenContractTest } from './token_contract_test.js';
 
 describe('e2e_token_contract transfer_to_public', () => {
   const t = new TokenContractTest('transfer_to_public');
-  let { asset, admin, adminAddress, account1, account1Address, account2, account2Address, tokenSim } = t;
+  let { asset, node, wallet, adminAddress, account1Address, account2Address, tokenSim } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
-    ({ asset, admin, adminAddress, account1, account1Address, account2, account2Address, tokenSim } = t);
+    ({ asset, node, wallet, adminAddress, account1Address, account2Address, tokenSim } = t);
   });
 
   afterAll(async () => {
@@ -40,21 +40,18 @@ describe('e2e_token_contract transfer_to_public', () => {
     expect(amount).toBeGreaterThan(0n);
 
     // We need to compute the message we want to sign and add it to the wallet as approved
-    const action = asset
-      .withWallet(account1)
-      .methods.transfer_to_public(adminAddress, account1Address, amount, authwitNonce);
+    const action = asset.methods.transfer_to_public(adminAddress, account1Address, amount, authwitNonce);
 
     // Both wallets are connected to same node and PXE so we could just insert directly
     // But doing it in two actions to show the flow.
-    const witness = await admin.createAuthWit({ caller: account1Address, action });
+    const witness = await wallet.createAuthWit(adminAddress, { caller: account1Address, action });
 
     await action.send({ from: account1Address, authWitnesses: [witness] }).wait();
     tokenSim.transferToPublic(adminAddress, account1Address, amount);
 
     // Perform the transfer again, should fail
-    const txReplay = asset
-      .withWallet(account1)
-      .methods.transfer_to_public(adminAddress, account1Address, amount, authwitNonce)
+    const txReplay = asset.methods
+      .transfer_to_public(adminAddress, account1Address, amount, authwitNonce)
       .send({ from: account1Address, authWitnesses: [witness] });
     await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
   });
@@ -89,13 +86,11 @@ describe('e2e_token_contract transfer_to_public', () => {
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const action = asset
-        .withWallet(account1)
-        .methods.transfer_to_public(adminAddress, account1Address, amount, authwitNonce);
+      const action = asset.methods.transfer_to_public(adminAddress, account1Address, amount, authwitNonce);
 
       // Both wallets are connected to same node and PXE so we could just insert directly
       // But doing it in two actions to show the flow.
-      const witness = await admin.createAuthWit({ caller: account1Address, action });
+      const witness = await wallet.createAuthWit(adminAddress, { caller: account1Address, action });
 
       await expect(action.simulate({ from: account1Address, authWitnesses: [witness] })).rejects.toThrow(
         'Assertion failed: Balance too low',
@@ -109,17 +104,15 @@ describe('e2e_token_contract transfer_to_public', () => {
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const action = asset
-        .withWallet(account2)
-        .methods.transfer_to_public(adminAddress, account1Address, amount, authwitNonce);
+      const action = asset.methods.transfer_to_public(adminAddress, account1Address, amount, authwitNonce);
       const expectedMessageHash = await computeAuthWitMessageHash(
         { caller: account2Address, action },
-        { chainId: admin.getChainId(), version: admin.getVersion() },
+        { chainId: new Fr(await node.getChainId()), version: new Fr(await node.getVersion()) },
       );
 
       // Both wallets are connected to same node and PXE so we could just insert directly
       // But doing it in two actions to show the flow.
-      const witness = await admin.createAuthWit({ caller: account1Address, action });
+      const witness = await wallet.createAuthWit(adminAddress, { caller: account1Address, action });
 
       await expect(action.simulate({ from: account2Address, authWitnesses: [witness] })).rejects.toThrow(
         `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,

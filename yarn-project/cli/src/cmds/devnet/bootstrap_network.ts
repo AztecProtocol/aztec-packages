@@ -1,4 +1,4 @@
-import { getInitialTestAccountsManagers } from '@aztec/accounts/testing';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import {
   AztecAddress,
   BatchCall,
@@ -21,6 +21,7 @@ import {
   deployL1Contract,
 } from '@aztec/ethereum';
 import type { LogFn, Logger } from '@aztec/foundation/log';
+import { TestWallet } from '@aztec/test-wallet';
 
 import { getContract } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
@@ -53,14 +54,18 @@ export async function bootstrapNetwork(
   debugLog: Logger,
 ) {
   const pxe = await createCompatibleClient(pxeUrl, debugLog);
+  const wallet = new TestWallet(pxe);
 
   // We assume here that the initial test accounts were prefunded with deploy-l1-contracts, and deployed with setup-l2-contracts
   // so all we need to do is register them to our pxe.
-  const [accountManager] = await getInitialTestAccountsManagers(pxe);
-  await accountManager.register();
+  const [accountData] = await getInitialTestAccountsData();
+  const accountManager = await wallet.createSchnorrAccount(
+    accountData.secret,
+    accountData.salt,
+    accountData.signingKey,
+  );
 
-  const wallet = await accountManager.getWallet();
-  const defaultAccountAddress = wallet.getAddress();
+  const defaultAccountAddress = accountManager.getAddress();
 
   const l1Client = createExtendedL1Client(
     l1Urls,
@@ -78,7 +83,7 @@ export async function bootstrapNetwork(
 
   await initPortal(pxe, l1Client, erc20Address, portalAddress, bridge.address);
 
-  const fpcAdmin = wallet.getAddress();
+  const fpcAdmin = defaultAccountAddress;
   const fpc = await deployFPC(wallet, defaultAccountAddress, token.address, fpcAdmin);
 
   const counter = await deployCounter(wallet, defaultAccountAddress);
@@ -285,11 +290,11 @@ async function fundFPC(
   const { CounterContract } = await import('@aztec/noir-test-contracts.js/Counter');
   const {
     protocolContractAddresses: { feeJuice },
-  } = await wallet.getPXEInfo();
+  } = await pxe.getNodeInfo();
 
   const feeJuiceContract = await FeeJuiceContract.at(feeJuice, wallet);
 
-  const feeJuicePortal = await L1FeeJuicePortalManager.new(wallet, l1Client, debugLog);
+  const feeJuicePortal = await L1FeeJuicePortalManager.new(pxe, l1Client, debugLog);
 
   const { claimAmount, claimSecret, messageLeafIndex, messageHash } = await feeJuicePortal.bridgeTokensPublic(
     fpcAddress,
@@ -305,8 +310,8 @@ async function fundFPC(
 
   // TODO (alexg) remove this once sequencer builds blocks continuously
   // advance the chain
-  await counter.methods.increment(wallet.getAddress()).send({ from: defaultAccountAddress }).wait(waitOpts);
-  await counter.methods.increment(wallet.getAddress()).send({ from: defaultAccountAddress }).wait(waitOpts);
+  await counter.methods.increment(defaultAccountAddress).send({ from: defaultAccountAddress }).wait(waitOpts);
+  await counter.methods.increment(defaultAccountAddress).send({ from: defaultAccountAddress }).wait(waitOpts);
 
   debugLog.info('Claiming FPC');
 

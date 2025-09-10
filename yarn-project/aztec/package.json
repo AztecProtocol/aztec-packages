@@ -57,6 +57,7 @@
     "@aztec/pxe": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
+    "@aztec/test-wallet": "workspace:^",
     "@aztec/txe": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@types/chalk": "^2.2.0",

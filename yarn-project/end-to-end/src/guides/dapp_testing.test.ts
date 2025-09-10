@@ -1,11 +1,12 @@
 // docs:start:imports
-import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
-import { type AccountWallet, AztecAddress, Fr, type PXE, TxStatus, createPXEClient, waitForPXE } from '@aztec/aztec.js';
+import { getDeployedTestAccounts } from '@aztec/accounts/testing';
+import { AztecAddress, Fr, type PXE, TxStatus, createPXEClient, waitForPXE } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 // docs:end:imports
 // docs:start:import_contract
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
+import { TestWallet } from '@aztec/test-wallet';
 
 // docs:end:import_contract
 import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
@@ -24,8 +25,7 @@ describe('guides/dapp/testing', () => {
 
     describe('token contract with initial accounts', () => {
       let pxe: PXE;
-      let owner: AccountWallet;
-      let recipient: AccountWallet;
+      let wallet: TestWallet;
       let ownerAddress: AztecAddress;
       let recipientAddress: AztecAddress;
       let token: TokenContract;
@@ -33,10 +33,13 @@ describe('guides/dapp/testing', () => {
       beforeEach(async () => {
         // docs:start:use-existing-wallets
         pxe = createPXEClient(PXE_URL);
-        [owner, recipient] = await getDeployedTestAccountsWallets(pxe);
-        ownerAddress = owner.getAddress();
-        recipientAddress = recipient.getAddress();
-        token = await TokenContract.deploy(owner, owner.getCompleteAddress(), 'TokenName', 'TokenSymbol', 18)
+        const [owner, recipient] = await getDeployedTestAccounts(pxe);
+        wallet = new TestWallet(pxe);
+        await wallet.createSchnorrAccount(owner.secret, owner.salt);
+        await wallet.createSchnorrAccount(recipient.secret, recipient.salt);
+        ownerAddress = owner.address;
+        recipientAddress = recipient.address;
+        token = await TokenContract.deploy(wallet, ownerAddress, 'TokenName', 'TokenSymbol', 18)
           .send({ from: ownerAddress })
           .deployed();
         // docs:end:use-existing-wallets
@@ -48,21 +51,17 @@ describe('guides/dapp/testing', () => {
         );
         const mintAmount = 20n;
 
-        await mintTokensToPrivate(token, ownerAddress, owner, recipientAddress, mintAmount);
+        await mintTokensToPrivate(token, ownerAddress, recipientAddress, mintAmount);
 
-        expect(
-          await token
-            .withWallet(recipient)
-            .methods.balance_of_private(recipientAddress)
-            .simulate({ from: recipientAddress }),
-        ).toEqual(20n);
+        expect(await token.methods.balance_of_private(recipientAddress).simulate({ from: recipientAddress })).toEqual(
+          20n,
+        );
       });
     });
 
     describe('assertions', () => {
       let pxe: PXE;
-      let owner: AccountWallet;
-      let recipient: AccountWallet;
+      let wallet: TestWallet;
       let ownerAddress: AztecAddress;
       let recipientAddress: AztecAddress;
       let testContract: TestContract;
@@ -72,17 +71,20 @@ describe('guides/dapp/testing', () => {
 
       beforeAll(async () => {
         pxe = createPXEClient(PXE_URL);
-        [owner, recipient] = await getDeployedTestAccountsWallets(pxe);
-        ownerAddress = owner.getAddress();
-        recipientAddress = recipient.getAddress();
-        testContract = await TestContract.deploy(owner).send({ from: ownerAddress }).deployed();
-        token = await TokenContract.deploy(owner, owner.getCompleteAddress(), 'TokenName', 'TokenSymbol', 18)
+        const [owner, recipient] = await getDeployedTestAccounts(pxe);
+        wallet = new TestWallet(pxe);
+        await wallet.createSchnorrAccount(owner.secret, owner.salt);
+        await wallet.createSchnorrAccount(recipient.secret, recipient.salt);
+        ownerAddress = owner.address;
+        recipientAddress = recipient.address;
+        testContract = await TestContract.deploy(wallet).send({ from: ownerAddress }).deployed();
+        token = await TokenContract.deploy(wallet, ownerAddress, 'TokenName', 'TokenSymbol', 18)
           .send({ from: ownerAddress })
           .deployed();
 
         const mintAmount = 100n;
 
-        await mintTokensToPrivate(token, ownerAddress, owner, ownerAddress, mintAmount);
+        await mintTokensToPrivate(token, ownerAddress, ownerAddress, mintAmount);
 
         // docs:start:calc-slot
         cheats = await CheatCodes.create(ETHEREUM_HOSTS.split(','), pxe);

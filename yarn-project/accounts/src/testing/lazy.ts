@@ -5,10 +5,10 @@
  *
  * @packageDocumentation
  */
-import type { PXE } from '@aztec/aztec.js';
-import type { AccountWalletWithSecretKey } from '@aztec/aztec.js/wallet';
+import { Fr, type PXE } from '@aztec/aztec.js';
+import { deriveSigningKey } from '@aztec/stdlib/keys';
 
-import { getSchnorrAccount, getSchnorrAccountContractAddress, getSchnorrWalletWithSecretKey } from '../schnorr/lazy.js';
+import { getSchnorrAccountContractAddress } from '../schnorr/lazy.js';
 import {
   INITIAL_TEST_ACCOUNT_SALTS,
   INITIAL_TEST_ENCRYPTION_KEYS,
@@ -17,18 +17,12 @@ import {
   type InitialAccountData,
 } from './configuration.js';
 
-export {
-  type InitialAccountData,
-  INITIAL_TEST_ACCOUNT_SALTS,
-  INITIAL_TEST_ENCRYPTION_KEYS,
-  INITIAL_TEST_SECRET_KEYS,
-  INITIAL_TEST_SIGNING_KEYS,
-} from './configuration.js';
+export { INITIAL_TEST_ACCOUNT_SALTS, INITIAL_TEST_SECRET_KEYS } from './configuration.js';
 
 /**
  * Gets the basic information for initial test accounts.
  */
-export function getInitialTestAccounts(): Promise<InitialAccountData[]> {
+export function getInitialTestAccountsData(): Promise<InitialAccountData[]> {
   return Promise.all(
     INITIAL_TEST_SECRET_KEYS.map(async (secret, i) => ({
       secret,
@@ -44,43 +38,30 @@ export function getInitialTestAccounts(): Promise<InitialAccountData[]> {
 }
 
 /**
- * Gets a collection of wallets for the Aztec accounts that are initially stored in the test environment.
- * @param pxe - PXE instance.
- * @returns A set of AccountWallet implementations for each of the initial accounts.
- */
-export function getInitialTestAccountsWallets(pxe: PXE): Promise<AccountWalletWithSecretKey[]> {
-  return Promise.all(
-    INITIAL_TEST_SECRET_KEYS.map(async (encryptionKey, i) => {
-      const account = await getSchnorrAccount(
-        pxe,
-        encryptionKey!,
-        INITIAL_TEST_SIGNING_KEYS[i]!,
-        INITIAL_TEST_ACCOUNT_SALTS[i],
-      );
-      return account.getWallet();
-    }),
-  );
-}
-
-/**
  * Queries a PXE for it's registered accounts.
  * @param pxe - PXE instance.
  * @returns A set of key data for each of the initial accounts.
  */
 export async function getDeployedTestAccounts(pxe: PXE): Promise<InitialAccountData[]> {
   const registeredAccounts = await pxe.getRegisteredAccounts();
-  const testAccounts = await getInitialTestAccounts();
+  const testAccounts = await getInitialTestAccountsData();
   return testAccounts.filter(t => registeredAccounts.some(r => r.address.equals(t.address)));
 }
 
 /**
- * Queries a PXE for it's registered accounts and returns wallets for those accounts using keys in the initial test accounts.
- * @param pxe - PXE instance.
- * @returns A set of AccountWallet implementations for each of the initial accounts.
+ * Generate a fixed amount of random schnorr account contract instance.
  */
-export async function getDeployedTestAccountsWallets(pxe: PXE): Promise<AccountWalletWithSecretKey[]> {
-  const testAccounts = await getDeployedTestAccounts(pxe);
-  return Promise.all(
-    testAccounts.map(({ secret, signingKey, salt }) => getSchnorrWalletWithSecretKey(pxe, secret, signingKey, salt)),
+export async function generateSchnorrAccounts(numberOfAccounts: number) {
+  const secrets = Array.from({ length: numberOfAccounts }, () => Fr.random());
+  return await Promise.all(
+    secrets.map(async secret => {
+      const salt = Fr.random();
+      return {
+        secret,
+        signingKey: deriveSigningKey(secret),
+        salt,
+        address: await getSchnorrAccountContractAddress(secret, salt),
+      };
+    }),
   );
 }

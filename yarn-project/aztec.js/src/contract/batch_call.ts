@@ -1,10 +1,9 @@
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
-import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
-import type { RequestMethodOptions, SendMethodOptions, SimulateMethodOptions } from './interaction_options.js';
+import type { RequestMethodOptions, SimulateMethodOptions } from './interaction_options.js';
 
 /** A batch of function calls to be sent as a single transaction through a wallet. */
 export class BatchCall extends BaseContractInteraction {
@@ -13,21 +12,6 @@ export class BatchCall extends BaseContractInteraction {
     protected calls: BaseContractInteraction[],
   ) {
     super(wallet);
-  }
-
-  /**
-   * Create a transaction execution request that represents this batch, encoded and authenticated by the
-   * user's wallet, ready to be simulated.
-   * @param options - An optional object containing additional configuration for the transaction.
-   * @returns A Promise that resolves to a transaction instance.
-   */
-  public async create(options: SendMethodOptions = { from: this.wallet.getAddress() }): Promise<TxExecutionRequest> {
-    const requestWithoutFee = await this.request(options);
-
-    const { fee: userFee, txNonce, cancellable } = options;
-    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { txNonce, cancellable });
-
-    return await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { txNonce, cancellable });
   }
 
   /**
@@ -84,30 +68,21 @@ export class BatchCall extends BaseContractInteraction {
 
     const payloads = indexedExecutionPayloads.map(([request]) => request);
     const combinedPayload = mergeExecutionPayloads(payloads);
-    const requestWithoutFee = new ExecutionPayload(
+    const executionPayload = new ExecutionPayload(
       combinedPayload.calls,
       combinedPayload.authWitnesses.concat(options.authWitnesses ?? []),
       combinedPayload.capsules.concat(options.capsules ?? []),
       combinedPayload.extraHashedArgs,
     );
-    const { fee: userFee, txNonce, cancellable } = options;
-    const fee = await this.getFeeOptions(requestWithoutFee, userFee, {});
-    const txRequest = await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, {
-      txNonce,
-      cancellable,
-    });
 
     const utilityCalls = utility.map(
       async ([call, index]) =>
-        [
-          await this.wallet.simulateUtility(call.name, call.args, call.to, options?.authWitnesses, options?.from),
-          index,
-        ] as const,
+        [await this.wallet.simulateUtility(call.name, call.args, call.to, options?.authWitnesses), index] as const,
     );
 
     const [utilityResults, simulatedTx] = await Promise.all([
       Promise.all(utilityCalls),
-      this.wallet.simulateTx(txRequest, true, options?.skipTxValidation, false),
+      this.wallet.simulateTx(executionPayload, options),
     ]);
 
     const results: any[] = [];

@@ -1,4 +1,4 @@
-import { type AccountWallet, AztecAddress, BatchCall, Fr, TxStatus } from '@aztec/aztec.js';
+import { AztecAddress, BatchCall, Fr, TxStatus, type Wallet } from '@aztec/aztec.js';
 import { AvmInitializerTestContract } from '@aztec/noir-test-contracts.js/AvmInitializerTest';
 import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
 
@@ -11,7 +11,7 @@ const TIMEOUT = 100_000;
 describe('e2e_avm_simulator', () => {
   jest.setTimeout(TIMEOUT);
 
-  let wallet: AccountWallet;
+  let wallet: Wallet;
   let defaultAccountAddress: AztecAddress;
   let teardown: () => Promise<void>;
 
@@ -21,7 +21,7 @@ describe('e2e_avm_simulator', () => {
       wallet,
       accounts: [defaultAccountAddress],
     } = await setup(1));
-    await ensureAccountContractsPublished(wallet, [wallet]);
+    await ensureAccountContractsPublished(wallet, [defaultAccountAddress]);
   });
 
   afterAll(() => teardown());
@@ -85,16 +85,16 @@ describe('e2e_avm_simulator', () => {
 
     describe('From private', () => {
       it('Should enqueue a public function correctly', async () => {
-        const request = await avmContract.methods.enqueue_public_from_private().create();
-        const simulation = await wallet.simulateTx(request, true);
+        const request = await avmContract.methods.enqueue_public_from_private().request();
+        const simulation = await wallet.simulateTx(request, { from: defaultAccountAddress });
         expect(simulation.publicOutput!.revertReason).toBeUndefined();
       });
     });
 
     describe('Gas metering', () => {
       it('Tracks L2 gas usage on simulation', async () => {
-        const request = await avmContract.methods.add_args_return(20n, 30n).create();
-        const simulation = await wallet.simulateTx(request, true);
+        const request = await avmContract.methods.add_args_return(20n, 30n).request();
+        const simulation = await wallet.simulateTx(request, { from: defaultAccountAddress });
         // Subtract the teardown gas from the total gas to figure out the gas used by the contract logic.
         const l2TeardownGas = simulation.publicOutput!.gasUsed.teardownGas.l2Gas;
         const l2GasUsed = simulation.publicOutput!.gasUsed.totalGas.l2Gas - l2TeardownGas;

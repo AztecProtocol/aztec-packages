@@ -7,19 +7,13 @@ import {
   type HashedValues,
   type OffchainEffect,
   type SimulationStats,
-  type TxExecutionRequest,
   type TxProfileResult,
   collectOffchainEffects,
 } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
-import type {
-  ProfileMethodOptions,
-  RequestMethodOptions,
-  SendMethodOptions,
-  SimulateMethodOptions,
-} from './interaction_options.js';
+import type { ProfileMethodOptions, RequestMethodOptions, SimulateMethodOptions } from './interaction_options.js';
 
 /**
  * Represents the result type of a simulation.
@@ -62,26 +56,6 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     if (args.some(arg => arg === undefined || arg === null)) {
       throw new Error(`All function interaction arguments must be defined and not null. Received: ${args}`);
     }
-  }
-
-  // docs:start:create
-  /**
-   * Create a transaction execution request that represents this call, encoded and authenticated by the
-   * user's wallet, ready to be simulated.
-   * @param options - An optional object containing additional configuration for the transaction.
-   * @returns A Promise that resolves to a transaction instance.
-   */
-  public override async create(options: Omit<SendMethodOptions, 'from'> = {}): Promise<TxExecutionRequest> {
-    // docs:end:create
-    if (this.functionDao.functionType === FunctionType.UTILITY) {
-      throw new Error("Can't call `create` on a utility  function.");
-    }
-    const requestWithoutFee = await this.request(options);
-
-    const { fee: userFee, txNonce, cancellable } = options;
-    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { txNonce, cancellable });
-
-    return await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { txNonce, cancellable });
   }
 
   // docs:start:request
@@ -146,13 +120,8 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       }
     }
 
-    const txRequest = await this.create(options);
-    const simulatedTx = await this.wallet.simulateTx(
-      txRequest,
-      true /* simulatePublic */,
-      options.skipTxValidation,
-      options.skipFeeEnforcement ?? true,
-    );
+    const executionPayload = await this.request(options);
+    const simulatedTx = await this.wallet.simulateTx(executionPayload, options);
 
     let rawReturnValues;
     if (this.functionDao.functionType == FunctionType.PRIVATE) {
@@ -189,18 +158,12 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * @returns An object containing the function return value and profile result.
    */
   public async profile(options: ProfileMethodOptions): Promise<TxProfileResult> {
-    if (options.from !== AztecAddress.ZERO && !options.from.equals(this.wallet.getAddress())) {
-      throw new Error(
-        `The address provided as from does not match the wallet address. Expected ${this.wallet.getAddress().toString()}, got ${options.from.toString()}.`,
-      );
-    }
     if (this.functionDao.functionType == FunctionType.UTILITY) {
       throw new Error("Can't profile a utility function.");
     }
-    const { authWitnesses, capsules, fee } = options;
 
-    const txRequest = await this.create({ fee, authWitnesses, capsules });
-    return await this.wallet.profileTx(txRequest, options.profileMode, options.skipProofGeneration, options?.from);
+    const executionPayload = await this.request(options);
+    return await this.wallet.profileTx(executionPayload, options);
   }
 
   /**

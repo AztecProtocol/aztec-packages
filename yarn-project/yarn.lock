@@ -266,6 +266,7 @@ __metadata:
     "@aztec/pxe": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
+    "@aztec/test-wallet": "workspace:^"
     "@aztec/txe": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
@@ -402,6 +403,7 @@ __metadata:
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
+    "@aztec/test-wallet": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
@@ -483,6 +485,7 @@ __metadata:
     "@aztec/p2p": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/stdlib": "workspace:^"
+    "@aztec/test-wallet": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@iarna/toml": "npm:^2.2.5"
     "@jest/globals": "npm:^30.0.0"
@@ -581,6 +584,7 @@ __metadata:
     "@aztec/slasher": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
+    "@aztec/test-wallet": "workspace:^"
     "@aztec/validator-client": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@iarna/toml": "npm:^2.2.5"
@@ -1474,6 +1478,28 @@ __metadata:
     ts-node: "npm:^10.9.1"
     typescript: "npm:^5.3.3"
     viem: "npm:2.23.7"
+  languageName: unknown
+  linkType: soft
+
+"@aztec/test-wallet@workspace:^, @aztec/test-wallet@workspace:test-wallet":
+  version: 0.0.0-use.local
+  resolution: "@aztec/test-wallet@workspace:test-wallet"
+  dependencies:
+    "@aztec/accounts": "workspace:^"
+    "@aztec/aztec.js": "workspace:^"
+    "@aztec/entrypoints": "workspace:^"
+    "@aztec/foundation": "workspace:^"
+    "@aztec/noir-contracts.js": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
+    "@jest/globals": "npm:^30.0.0"
+    "@types/jest": "npm:^30.0.0"
+    "@types/node": "npm:^22.15.17"
+    jest: "npm:^30.0.0"
+    resolve-typescript-plugin: "npm:^2.0.1"
+    ts-loader: "npm:^9.4.4"
+    ts-node: "npm:^10.9.1"
+    typescript: "npm:^5.3.3"
+    util: "npm:^0.12.5"
   languageName: unknown
   linkType: soft
 

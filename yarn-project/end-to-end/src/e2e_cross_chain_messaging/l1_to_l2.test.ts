@@ -7,13 +7,13 @@ import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 describe('e2e_cross_chain_messaging l1_to_l2', () => {
   const t = new CrossChainMessagingTest('l1_to_l2');
 
-  let { crossChainTestHarness, aztecNode, user1Wallet, user1Address } = t;
+  let { crossChainTestHarness, aztecNode, wallet, user1Address } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
-    ({ crossChainTestHarness, user1Wallet, user1Address } = t);
+    ({ crossChainTestHarness, wallet, user1Address } = t);
 
     aztecNode = crossChainTestHarness.aztecNode;
   }, 300_000);
@@ -27,7 +27,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
   it.each([true, false])(
     'can send an L1 -> L2 message from a non-registered portal address consumed from private or public and then sends and claims exactly the same message again',
     async (isPrivate: boolean) => {
-      const testContract = await TestContract.deploy(user1Wallet).send({ from: user1Address }).deployed();
+      const testContract = await TestContract.deploy(wallet).send({ from: user1Address }).deployed();
 
       const consumeMethod = isPrivate
         ? testContract.methods.consume_message_from_arbitrary_sender_private

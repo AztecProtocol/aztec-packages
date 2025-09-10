@@ -7,25 +7,14 @@ import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 describe('e2e_cross_chain_messaging token_bridge_public', () => {
   const t = new CrossChainMessagingTest('token_bridge_public');
 
-  let {
-    crossChainTestHarness,
-    ethAccount,
-    aztecNode,
-    logger,
-    ownerAddress,
-    l2Bridge,
-    l2Token,
-    user1Wallet,
-    user1Address,
-    user2Wallet,
-    user2Address,
-  } = t;
+  let { crossChainTestHarness, ethAccount, aztecNode, logger, ownerAddress, l2Bridge, l2Token, wallet, user2Address } =
+    t;
 
   beforeEach(async () => {
     await t.applyBaseSnapshots();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
-    ({ crossChainTestHarness, user1Wallet, user1Address, user2Wallet, user1Address, user2Address } = t);
+    ({ crossChainTestHarness, wallet, user2Address } = t);
 
     ethAccount = crossChainTestHarness.ethAccount;
     aztecNode = crossChainTestHarness.aztecNode;
@@ -76,14 +65,15 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
     // 4. Give approval to bridge to burn owner's funds:
     const withdrawAmount = 9n;
     const authwitNonce = Fr.random();
-    const validateActionInteraction = await user1Wallet.setPublicAuthWit(
+    const validateActionInteraction = await wallet.setPublicAuthWit(
+      ownerAddress,
       {
         caller: l2Bridge.address,
         action: l2Token.methods.burn_public(ownerAddress, withdrawAmount, authwitNonce),
       },
       true,
     );
-    await validateActionInteraction.send({ from: user1Address }).wait();
+    await validateActionInteraction.send({ from: ownerAddress }).wait();
 
     // 5. Withdraw owner's funds from L2 to L1
     logger.verbose('5. Withdraw owner funds from L2 to L1');
@@ -131,22 +121,20 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
 
     // user2 tries to consume this message and minting to itself -> should fail since the message is intended to be consumed only by owner.
     await expect(
-      l2Bridge
-        .withWallet(user2Wallet)
-        .methods.claim_public(user2Wallet.getAddress(), bridgeAmount, claim.claimSecret, messageLeafIndex)
+      l2Bridge.methods
+        .claim_public(user2Address, bridgeAmount, claim.claimSecret, messageLeafIndex)
         .simulate({ from: user2Address }),
     ).rejects.toThrow(NO_L1_TO_L2_MSG_ERROR);
 
     // user2 consumes owner's L1-> L2 message on bridge contract and mints public tokens on L2
     logger.info("user2 consumes owner's message on L2 Publicly");
-    await l2Bridge
-      .withWallet(user2Wallet)
-      .methods.claim_public(ownerAddress, bridgeAmount, claim.claimSecret, messageLeafIndex)
+    await l2Bridge.methods
+      .claim_public(ownerAddress, bridgeAmount, claim.claimSecret, messageLeafIndex)
       .send({ from: user2Address })
       .wait();
 
     // ensure funds are gone to owner and not user2.
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount);
-    await crossChainTestHarness.expectPublicBalanceOnL2(user2Wallet.getAddress(), 0n);
+    await crossChainTestHarness.expectPublicBalanceOnL2(user2Address, 0n);
   }, 90_000);
 });

@@ -33,6 +33,12 @@ __metadata:
   languageName: node
   linkType: soft
 
+"@aztec/entrypoints@link:../yarn-project/entrypoints::locator=%40aztec%2Fexamples%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/entrypoints@link:../yarn-project/entrypoints::locator=%40aztec%2Fexamples%40workspace%3A."
+  languageName: node
+  linkType: soft
+
 "@aztec/examples@workspace:.":
   version: 0.0.0-use.local
   resolution: "@aztec/examples@workspace:."
@@ -79,6 +85,12 @@ __metadata:
 "@aztec/stdlib@link:../yarn-project/stdlib::locator=%40aztec%2Fexamples%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@aztec/stdlib@link:../yarn-project/stdlib::locator=%40aztec%2Fexamples%40workspace%3A."
+  languageName: node
+  linkType: soft
+
+"@aztec/test-wallet@link:../yarn-project/test-wallet::locator=%40aztec%2Fexamples%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/test-wallet@link:../yarn-project/test-wallet::locator=%40aztec%2Fexamples%40workspace%3A."
   languageName: node
   linkType: soft
 
@@ -3670,6 +3682,7 @@ __metadata:
   dependencies:
     "@aztec/accounts": "npm:latest"
     "@aztec/aztec.js": "npm:latest"
+    "@aztec/test-wallet": "npm:latest"
     "@playwright/test": "npm:1.49.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
@@ -3720,11 +3733,13 @@ __metadata:
     "@aztec/accounts": "npm:latest"
     "@aztec/aztec.js": "npm:latest"
     "@aztec/constants": "npm:latest"
+    "@aztec/entrypoints": "npm:latest"
     "@aztec/foundation": "npm:latest"
     "@aztec/kv-store": "npm:latest"
     "@aztec/noir-contracts.js": "npm:latest"
     "@aztec/pxe": "npm:latest"
     "@aztec/stdlib": "npm:latest"
+    "@aztec/test-wallet": "npm:latest"
     "@playwright/test": "npm:1.49.0"
     "@types/node": "npm:^22.15.17"
     buffer: "npm:^6.0.3"
@@ -3749,6 +3764,7 @@ __metadata:
     "@aztec/aztec.js": "npm:latest"
     "@aztec/pxe": "npm:latest"
     "@aztec/stdlib": "npm:latest"
+    "@aztec/test-wallet": "npm:latest"
     "@eslint/js": "npm:^9.13.0"
     "@types/react": "npm:^18.3.12"
     "@types/react-dom": "npm:^18.3.1"

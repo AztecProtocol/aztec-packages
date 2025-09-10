@@ -1,8 +1,6 @@
 import DialogTitle from '@mui/material/DialogTitle';
 import Dialog from '@mui/material/Dialog';
-import { Fr, DeployMethod, type DeployOptions, AccountWallet } from '@aztec/aztec.js';
-import { getSchnorrAccount } from '@aztec/accounts/schnorr/lazy';
-import { getEcdsaRAccount, getEcdsaKAccount } from '@aztec/accounts/ecdsa/lazy';
+import { Fr, DeployMethod, type DeployOptions, AztecAddress } from '@aztec/aztec.js';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import { useContext, useState } from 'react';
@@ -23,6 +21,7 @@ import { InfoText } from '../../common/InfoText';
 import { INFO_TEXT } from '../../../constants';
 import { Box, DialogContent } from '@mui/material';
 import { DialogActions } from '@mui/material';
+import type { EmbeddedWallet } from '../../../embedded_wallet';
 
 export function CreateAccountDialog({
   open,
@@ -30,7 +29,7 @@ export function CreateAccountDialog({
 }: {
   open: boolean;
   onClose: (
-    accountWallet?: AccountWallet,
+    address?: AztecAddress,
     publiclyDeploy?: boolean,
     interaction?: DeployMethod,
     opts?: DeployOptions,
@@ -45,7 +44,7 @@ export function CreateAccountDialog({
 
   const [feePaymentMethod, setFeePaymentMethod] = useState(null);
 
-  const { pxe, walletDB } = useContext(AztecContext);
+  const { walletDB, wallet } = useContext(AztecContext);
 
   const createAccount = async () => {
     setIsRegistering(true);
@@ -56,28 +55,28 @@ export function CreateAccountDialog({
       switch (type) {
         case 'schnorr': {
           signingKey = deriveSigningKey(secretKey);
-          accountManager = await getSchnorrAccount(pxe, secretKey, signingKey, salt);
+          accountManager = await (wallet as EmbeddedWallet).createSchnorrAccount(secretKey, salt, signingKey);
           break;
         }
         case 'ecdsasecp256r1': {
           signingKey = randomBytes(32);
-          accountManager = await getEcdsaRAccount(pxe, secretKey, signingKey, salt);
+          accountManager = await (wallet as EmbeddedWallet).createECDSARAccount(secretKey, salt, signingKey);
           break;
         }
         case 'ecdsasecp256k1': {
           signingKey = randomBytes(32);
-          accountManager = await getEcdsaKAccount(pxe, secretKey, signingKey, salt);
+          accountManager = await (wallet as EmbeddedWallet).createECDSAKAccount(secretKey, salt, signingKey);
           break;
         }
         default: {
           throw new Error('Unknown account type');
         }
       }
-      const accountWallet = await accountManager.getWallet();
-      await accountManager.register();
-      await walletDB.storeAccount(accountWallet.getAddress(), {
+      const account = await accountManager.getAccount();
+      const address = account.getAddress();
+      await walletDB.storeAccount(address, {
         type,
-        secretKey: accountWallet.getSecretKey(),
+        secretKey: account.getSecretKey(),
         alias,
         salt,
         signingKey,
@@ -88,7 +87,7 @@ export function CreateAccountDialog({
       if (publiclyDeploy) {
         deployMethod = await accountManager.getDeployMethod();
         opts = {
-          from: accountWallet.getAddress(),
+          from: AztecAddress.ZERO,
           contractAddressSalt: salt,
           fee: {
             paymentMethod: await accountManager.getSelfPaymentMethod(feePaymentMethod),
@@ -98,7 +97,7 @@ export function CreateAccountDialog({
           skipInstancePublication: true,
         };
       }
-      onClose(accountWallet, publiclyDeploy, deployMethod, opts);
+      onClose(address, publiclyDeploy, deployMethod, opts);
     } catch (e) {
       setError(e.message);
     } finally {

@@ -2,13 +2,14 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
 import type { TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
-import { DefaultWaitOpts, SentTx, type WaitOpts } from '../contract/sent_tx.js';
+import type { Account } from '../account/account.js';
 import type { Wallet } from '../wallet/wallet.js';
+import { DefaultWaitOpts, SentTx, type WaitOpts } from './sent_tx.js';
 
 /** Extends a transaction receipt with a wallet instance for the newly deployed contract. */
 export type DeployAccountTxReceipt = FieldsOf<TxReceipt> & {
-  /** Wallet that corresponds to the newly deployed account contract. */
-  wallet: Wallet;
+  /** Account that corresponds to the newly deployed account contract. */
+  account: Account;
 };
 
 /**
@@ -16,11 +17,11 @@ export type DeployAccountTxReceipt = FieldsOf<TxReceipt> & {
  */
 export class DeployAccountSentTx extends SentTx {
   constructor(
-    pxeOrNode: AztecNode | PXE,
+    pxeNodeOrWallet: Wallet | AztecNode | PXE,
     sendTx: () => Promise<TxHash>,
-    private getWalletPromise: Promise<Wallet>,
+    private getAccountPromise: Promise<Account>,
   ) {
-    super(pxeOrNode, sendTx);
+    super(pxeNodeOrWallet, sendTx);
   }
 
   /**
@@ -28,9 +29,9 @@ export class DeployAccountSentTx extends SentTx {
    * @param opts - Options for configuring the waiting for the tx to be mined.
    * @returns The deployed contract instance.
    */
-  public async getWallet(opts?: WaitOpts): Promise<Wallet> {
+  public async getAccount(opts?: WaitOpts): Promise<Account> {
     const receipt = await this.wait(opts);
-    return receipt.wallet;
+    return receipt.account;
   }
 
   /**
@@ -40,7 +41,7 @@ export class DeployAccountSentTx extends SentTx {
    */
   public override async wait(opts: WaitOpts = DefaultWaitOpts): Promise<DeployAccountTxReceipt> {
     const receipt = await super.wait(opts);
-    const wallet = await this.getWalletPromise;
-    return { ...receipt, wallet };
+    const account = await this.getAccountPromise;
+    return { ...receipt, account };
   }
 }

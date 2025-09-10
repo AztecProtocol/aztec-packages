@@ -58,7 +58,7 @@ export function CreateContractDialog({
   const [alias, setAlias] = useState(defaultContractCreationParams['alias'] as string);
   const [initializer, setInitializer] = useState<FunctionAbi>(null);
   const [parameters, setParameters] = useState([]);
-  const { wallet, walletDB, pxe, node } = useContext(AztecContext);
+  const { wallet, walletDB, pxe, node, from } = useContext(AztecContext);
   const [functionAbis, setFunctionAbis] = useState<FunctionAbi[]>([]);
 
   const [registerExisting, setRegisterExisting] = useState(false);
@@ -105,7 +105,7 @@ export function CreateContractDialog({
         publicKeys: PublicKeys.default(),
         constructorArtifact: initializer,
         constructorArgs: parameters,
-        deployer: wallet.getAddress(),
+        deployer: from,
         salt,
       });
       await pxe.registerContract({ instance: contract, artifact: contractArtifact });
@@ -124,7 +124,7 @@ export function CreateContractDialog({
           initializer?.name,
         );
         opts = {
-          from: wallet.getAddress(),
+          from,
           contractAddressSalt: salt,
           fee: { paymentMethod: feePaymentMethod },
         };

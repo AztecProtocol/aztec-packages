@@ -12,17 +12,9 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .option('--testAccounts', 'Deploy funded test accounts.')
     .option('--sponsoredFPC', 'Deploy a sponsored FPC.')
     .option('--json', 'Output the contract addresses in JSON format')
-    .option('--skipProofWait', "Don't wait for proofs to land.")
     .action(async options => {
       const { setupL2Contracts } = await import('./setup_l2_contract.js');
-      await setupL2Contracts(
-        options.rpcUrl,
-        options.testAccounts,
-        options.sponsoredFPC,
-        options.json,
-        options.skipProofWait,
-        log,
-      );
+      await setupL2Contracts(options.rpcUrl, options.testAccounts, options.sponsoredFPC, options.json, log);
     });
 
   program

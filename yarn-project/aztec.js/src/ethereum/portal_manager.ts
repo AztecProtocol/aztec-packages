@@ -17,8 +17,6 @@ import { getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
 
 import { type Hex, getContract, toFunctionSelector } from 'viem';
 
-import type { Wallet } from '../index.js';
-
 // docs:start:claim_type
 // docs:start:claim_type_amount
 /** L1 to L2 message info to claim it on L2. */
@@ -208,18 +206,18 @@ export class L1FeeJuicePortalManager {
 
   /**
    * Creates a new instance
-   * @param walletOrPxe - Wallet or PXE client used for retrieving the L1 contract addresses.
+   * @param pxe - PXE client used for retrieving the L1 contract addresses.
    * @param extendedClient - Wallet client, extended with public actions.
    * @param logger - Logger.
    */
   public static async new(
-    walletOrPxe: Wallet | PXE,
+    pxe: PXE,
     extendedClient: ExtendedViemWalletClient,
     logger: Logger,
   ): Promise<L1FeeJuicePortalManager> {
     const {
       l1ContractAddresses: { feeJuiceAddress, feeJuicePortalAddress, feeAssetHandlerAddress },
-    } = await walletOrPxe.getNodeInfo();
+    } = await pxe.getNodeInfo();
 
     if (feeJuiceAddress.isZero() || feeJuicePortalAddress.isZero()) {
       throw new Error('Portal or token not deployed on L1');

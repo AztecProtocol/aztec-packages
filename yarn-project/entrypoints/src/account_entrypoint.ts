@@ -36,7 +36,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
       fee.gasSettings,
     );
     // Encode the calls for the fee
-    const feePayer = await fee.paymentMethod.getFeePayer(fee.gasSettings);
+    const feePayer = await fee.paymentMethod.getFeePayer();
     const isFeePayer = feePayer.equals(this.address);
     const feeEncodedCalls = await EncodedCallsForEntrypoint.fromFeeCalls(feeCalls, isFeePayer);
 

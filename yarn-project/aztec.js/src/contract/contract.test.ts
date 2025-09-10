@@ -1,14 +1,10 @@
-import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { type ContractArtifact, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   CompleteAddress,
   type ContractInstanceWithAddress,
-  type NodeInfo,
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
-import { GasFees } from '@aztec/stdlib/gas';
 import type {
   Tx,
   TxExecutionRequest,
@@ -21,13 +17,15 @@ import type {
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import type { Account } from '../account/account.js';
 import type { Wallet } from '../wallet/wallet.js';
 import { Contract } from './contract.js';
 
 describe('Contract Class', () => {
   let wallet: MockProxy<Wallet>;
   let contractAddress: AztecAddress;
-  let account: CompleteAddress;
+  let account: MockProxy<Account>;
+  let accountAddress: CompleteAddress;
   let contractInstance: ContractInstanceWithAddress;
 
   const mockTx = { type: 'Tx' } as any as Tx;
@@ -37,19 +35,6 @@ describe('Contract Class', () => {
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
   const mockTxSimulationResult = { type: 'TxSimulationResult', result: 1n } as any as TxSimulationResult;
   const mockUtilityResultValue = { type: 'UtilitySimulationResult' } as any as UtilitySimulationResult;
-  const l1Addresses: L1ContractAddresses = {
-    rollupAddress: EthAddress.random(),
-    registryAddress: EthAddress.random(),
-    inboxAddress: EthAddress.random(),
-    outboxAddress: EthAddress.random(),
-    feeJuiceAddress: EthAddress.random(),
-    stakingAssetAddress: EthAddress.random(),
-    feeJuicePortalAddress: EthAddress.random(),
-    governanceAddress: EthAddress.random(),
-    coinIssuerAddress: EthAddress.random(),
-    rewardDistributorAddress: EthAddress.random(),
-    governanceProposerAddress: EthAddress.random(),
-  };
 
   const defaultArtifact: ContractArtifact = {
     name: 'FooContract',
@@ -140,7 +125,9 @@ describe('Contract Class', () => {
 
   beforeEach(async () => {
     contractAddress = await AztecAddress.random();
-    account = await CompleteAddress.random();
+    account = mock<Account>();
+    accountAddress = await CompleteAddress.random();
+    account.getCompleteAddress.mockReturnValue(accountAddress);
     const contractClass = await getContractClassFromArtifact(defaultArtifact);
     contractInstance = {
       address: contractAddress,
@@ -148,24 +135,9 @@ describe('Contract Class', () => {
       originalContractClassId: contractClass.id,
     } as ContractInstanceWithAddress;
 
-    const mockNodeInfo: NodeInfo = {
-      nodeVersion: 'vx.x.x',
-      l1ChainId: 1,
-      rollupVersion: 2,
-      l1ContractAddresses: l1Addresses,
-      enr: undefined,
-      protocolContractAddresses: {
-        classRegistry: await AztecAddress.random(),
-        feeJuice: await AztecAddress.random(),
-        instanceRegistry: await AztecAddress.random(),
-        multiCallEntrypoint: await AztecAddress.random(),
-      },
-    };
-
     wallet = mock<Wallet>();
-    wallet.getAddress.mockReturnValue(account.address);
     wallet.simulateTx.mockResolvedValue(mockTxSimulationResult);
-    wallet.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
+    account.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
     wallet.getContractMetadata.mockResolvedValue({
       contractInstance,
       isContractInitialized: true,
@@ -174,38 +146,28 @@ describe('Contract Class', () => {
     wallet.sendTx.mockResolvedValue(mockTxHash);
     wallet.simulateUtility.mockResolvedValue(mockUtilityResultValue);
     wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);
-    wallet.getNodeInfo.mockResolvedValue(mockNodeInfo);
     wallet.proveTx.mockResolvedValue(mockTxProvingResult);
-    wallet.getCurrentBaseFees.mockResolvedValue(new GasFees(100, 100));
   });
 
   it('should create and send a contract method tx', async () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
     const param0 = 12;
     const param1 = 345n;
-    const sentTx = fooContract.methods.bar(param0, param1).send({ from: account.address });
+    const sentTx = fooContract.methods.bar(param0, param1).send({ from: account.getAddress() });
     const txHash = await sentTx.getTxHash();
     const receipt = await sentTx.getReceipt();
 
     expect(txHash).toBe(mockTxHash);
     expect(receipt).toBe(mockTxReceipt);
-    expect(wallet.createTxExecutionRequest).toHaveBeenCalledTimes(1);
     expect(wallet.sendTx).toHaveBeenCalledTimes(1);
     expect(wallet.sendTx).toHaveBeenCalledWith(mockTx);
   });
 
   it('should call view on a utility function', async () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
-    const result = await fooContract.methods.qux(123n).simulate({
-      from: account.address,
-    });
+    const result = await fooContract.methods.qux(123n).simulate({ from: account.getAddress() });
     expect(wallet.simulateUtility).toHaveBeenCalledTimes(1);
     expect(wallet.simulateUtility).toHaveBeenCalledWith('qux', [123n], contractAddress, []);
     expect(result).toBe(mockUtilityResultValue.result);
-  });
-
-  it('should not call create on a utility  function', async () => {
-    const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
-    await expect(fooContract.methods.qux().create()).rejects.toThrow();
   });
 });

@@ -1,12 +1,13 @@
 import type { FeePaymentMethod } from '@aztec/entrypoints/interfaces';
 import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
-import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasSettings } from '@aztec/stdlib/gas';
 
-import type { AccountWallet } from '../wallet/account_wallet.js';
-import { simulateWithoutSignature } from './utils.js';
+import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
+import type { Wallet } from '../wallet/wallet.js';
+import { FeeJuicePaymentMethod } from './fee_juice_payment_method.js';
 
 /**
  * Holds information about how the fee for a transaction is to be paid.
@@ -22,45 +23,56 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
     /**
      * An auth witness provider to authorize fee payments
      */
-    protected wallet: AccountWallet,
+    protected sender: AztecAddress,
+
+    /**
+     * A wallet to perform the simulation to get the accepted asset
+     */
+    protected wallet: Wallet,
   ) {}
 
   /**
    * The asset used to pay the fee.
    * @returns The asset used to pay the fee.
    */
-  getAsset(): Promise<AztecAddress> {
+  async getAsset(): Promise<AztecAddress> {
     if (!this.assetPromise) {
-      // We use the utility method to avoid a signature because this function could be triggered
-      // before the associated account is deployed.
-      this.assetPromise = simulateWithoutSignature(
-        this.wallet,
-        this.paymentContract,
-        {
-          name: 'get_accepted_asset',
-          functionType: FunctionType.PRIVATE,
-          isInternal: false,
-          isStatic: false,
-          parameters: [],
-          returnTypes: [
-            {
-              kind: 'struct',
-              path: 'authwit::aztec::protocol_types::address::aztec_address::AztecAddress',
-              fields: [
-                {
-                  name: 'inner',
-                  type: {
-                    kind: 'field',
-                  },
+      const abi = {
+        name: 'get_accepted_asset',
+        functionType: FunctionType.PRIVATE,
+        isInternal: false,
+        isStatic: false,
+        parameters: [],
+        returnTypes: [
+          {
+            kind: 'struct',
+            path: 'authwit::aztec::protocol_types::address::aztec_address::AztecAddress',
+            fields: [
+              {
+                name: 'inner',
+                type: {
+                  kind: 'field',
                 },
-              ],
-            },
-          ],
-          errorTypes: {},
-          isInitializer: false,
-        },
-        [],
-      ) as Promise<AztecAddress>;
+              },
+            ],
+          },
+        ],
+        errorTypes: {},
+        isInitializer: false,
+      } as FunctionAbi;
+      const interaction = new ContractFunctionInteraction(this.wallet, this.paymentContract, abi, []);
+
+      const executionPayload = await interaction.request();
+      this.assetPromise = this.wallet
+        .simulateTx(executionPayload, {
+          from: AztecAddress.ZERO,
+          skipFeeEnforcement: true,
+          fee: { paymentMethod: new FeeJuicePaymentMethod(AztecAddress.ZERO) },
+        })
+        .then(simulationResult => {
+          const rawReturnValues = simulationResult.getPrivateReturnValues().nested[0].values;
+          return decodeFromAbi(abi.returnTypes, rawReturnValues!);
+        }) as Promise<AztecAddress>;
     }
     return this.assetPromise!;
   }
@@ -79,11 +91,12 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
     const maxFee = gasSettings.getFeeLimit();
 
     const setPublicAuthWitInteraction = await this.wallet.setPublicAuthWit(
+      this.sender,
       {
         caller: this.paymentContract,
         action: {
           name: 'transfer_in_public',
-          args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), maxFee, txNonce],
+          args: [this.sender.toField(), this.paymentContract.toField(), maxFee, txNonce],
           selector: await FunctionSelector.fromSignature('transfer_in_public((Field),(Field),u128,Field)'),
           type: FunctionType.PUBLIC,
           isStatic: false,

@@ -144,7 +144,7 @@ export class BotRunner implements BotRunnerApi, Traceable {
     if (!this.bot) {
       throw new Error(`Bot is not initialized`);
     }
-    const botAddress = await this.bot.then(b => b.wallet.getAddress());
+    const botAddress = await this.bot.then(b => b.defaultAccountAddress);
     return { botAddress };
   }
 

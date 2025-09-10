@@ -10,7 +10,7 @@ import { setup } from './fixtures/utils.js';
 describe('e2e_simple', () => {
   jest.setTimeout(20 * 60 * 1000); // 20 minutes
 
-  let owner: Wallet;
+  let wallet: Wallet;
   let ownerAddress: AztecAddress;
   let teardown: () => Promise<void>;
   let config: AztecNodeConfig;
@@ -26,7 +26,7 @@ describe('e2e_simple', () => {
     beforeAll(async () => {
       ({
         teardown,
-        wallets: [owner],
+        wallet,
         accounts: [ownerAddress],
         config,
         aztecNode,
@@ -46,7 +46,7 @@ describe('e2e_simple', () => {
     afterAll(() => teardown());
 
     it('deploys a contract', async () => {
-      const deployer = new ContractDeployer(artifact, owner);
+      const deployer = new ContractDeployer(artifact, wallet);
 
       const sender = ownerAddress;
       const provenTx = await deployer.deploy(ownerAddress, sender, 1).prove({

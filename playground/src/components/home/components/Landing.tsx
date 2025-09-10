@@ -8,7 +8,6 @@ import { useContext, useEffect, useState } from 'react';
 import { PREDEFINED_CONTRACTS } from '../../../constants';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { loadContractArtifact } from '@aztec/aztec.js';
-import { getEcdsaRAccount } from '@aztec/accounts/ecdsa/lazy';
 import { useTransaction } from '../../../hooks/useTransaction';
 import {
   convertFromUTF8BufferAsString,
@@ -18,6 +17,8 @@ import {
 import { filterDeployedAliasedContracts } from '../../../utils/contracts';
 import { parse } from 'buffer-json';
 import { trackButtonClick } from '../../../utils/matomo';
+import { EmbeddedWallet } from '../../../embedded_wallet';
+import { prepareForFeePayment } from '../../../utils/sponsoredFPC';
 
 const container = css({
   display: 'flex',
@@ -262,13 +263,14 @@ export function Landing() {
     setShowContractInterface,
     setDefaultContractCreationParams,
     setCurrentContractAddress,
+    setFrom,
+    from,
     walletDB,
     wallet,
     pxe,
     currentTx,
     isPXEInitialized,
     network,
-    setWallet,
   } = useContext(AztecContext);
 
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
@@ -305,7 +307,7 @@ export function Landing() {
         // Fetch the first account to use as the admin
         const accountAliases = await walletDB.listAliases('accounts');
         const parsedAccountAliases = parseAliasedBuffersAsString(accountAliases);
-        const currentAccountAlias = parsedAccountAliases.find(alias => alias.value === wallet?.getAddress().toString());
+        const currentAccountAlias = parsedAccountAliases.find(alias => alias.value === from.toString());
 
         if (currentAccountAlias) {
           defaultContractCreationParams.admin = {
@@ -362,15 +364,16 @@ export function Landing() {
       const salt = Fr.random();
       const secretKey = Fr.random();
       const signingKey = randomBytes(32);
-      const accountManager = await getEcdsaRAccount(pxe, secretKey, signingKey, salt);
-      const accountWallet = await accountManager.getWallet();
+      const accountManager = await (wallet as EmbeddedWallet).createECDSARAccount(secretKey, salt, signingKey);
       await accountManager.register();
+      const account = await accountManager.getAccount();
+      const address = account.getAddress();
 
       const accountCount = (await walletDB.listAliases('accounts')).length;
       const accountName = `My Account ${accountCount + 1}`;
-      await walletDB.storeAccount(accountWallet.getAddress(), {
+      await walletDB.storeAccount(address, {
         type: 'ecdsasecp256r1',
-        secretKey: accountWallet.getSecretKey(),
+        secretKey: account.getSecretKey(),
         alias: accountName,
         salt,
         signingKey,
@@ -379,7 +382,6 @@ export function Landing() {
         severity: 'success',
       });
 
-      const { prepareForFeePayment } = await import('../../../utils/sponsoredFPC');
       const feePaymentMethod = await prepareForFeePayment(
         pxe,
         network.sponsoredFPC?.address,
@@ -388,7 +390,7 @@ export function Landing() {
 
       const deployMethod = await accountManager.getDeployMethod();
       const opts = {
-        from: accountWallet.getAddress(),
+        from: address,
         contractAddressSalt: salt,
         fee: {
           paymentMethod: await accountManager.getSelfPaymentMethod(feePaymentMethod),
@@ -398,12 +400,12 @@ export function Landing() {
         skipInstancePublication: true,
       };
 
-      const txReceipt = await sendTx(`Deploy Account`, deployMethod, accountWallet.getAddress(), opts);
+      const txReceipt = await sendTx(`Deploy Account`, deployMethod, address, opts);
 
       if (txReceipt?.status === TxStatus.SUCCESS) {
-        setWallet(await accountManager.getWallet());
+        setFrom(address);
       } else if (txReceipt?.status === TxStatus.DROPPED) {
-        await walletDB.deleteAccount(accountWallet.getAddress());
+        await walletDB.deleteAccount(address);
       }
 
     } catch (e) {

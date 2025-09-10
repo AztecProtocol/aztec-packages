@@ -1,20 +1,22 @@
-import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
+import type { FeePaymentMethod } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/fields';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CompleteAddress, type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
 import { deriveKeys } from '@aztec/stdlib/keys';
 
 import type { AccountContract } from '../account/account_contract.js';
+import { AccountWithSecretKey } from '../account/account_with_secret_key.js';
 import type { Salt } from '../account/index.js';
 import type { AccountInterface } from '../account/interface.js';
 import { Contract } from '../contract/contract.js';
+import { DeployAccountSentTx } from '../contract/deploy_account_sent_tx.js';
 import { DeployMethod, type DeployOptions } from '../contract/deploy_method.js';
 import { DefaultWaitOpts, type WaitOpts } from '../contract/sent_tx.js';
 import { AccountEntrypointMetaPaymentMethod } from '../fee/account_entrypoint_meta_payment_method.js';
-import { AztecAddress, FeeJuicePaymentMethod, type FeePaymentMethod } from '../index.js';
-import { AccountWalletWithSecretKey, SignerlessWallet, type Wallet } from '../wallet/index.js';
-import { DeployAccountSentTx } from './deploy_account_sent_tx.js';
+import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
+import type { Wallet } from './wallet.js';
 
 /**
  * Options to deploy an account contract.
@@ -24,9 +26,9 @@ export type DeployAccountOptions = Pick<
   'fee' | 'skipClassPublication' | 'skipInstancePublication' | 'skipInitialization'
 > & {
   /**
-   * Wallet used for any txs to initialize and/or publish the account contract. Must be funded in order to pay for the fee.
+   * Account used for any txs to initialize and/or publish the account contract. Must be funded in order to pay for the fee.
    */
-  deployWallet?: Wallet;
+  deployAccount?: AztecAddress;
 };
 
 /**
@@ -35,6 +37,7 @@ export type DeployAccountOptions = Pick<
  */
 export class AccountManager {
   private constructor(
+    private wallet: Wallet,
     private pxe: PXE,
     private secretKey: Fr,
     private accountContract: AccountContract,
@@ -45,7 +48,7 @@ export class AccountManager {
     public readonly salt: Salt,
   ) {}
 
-  static async create(pxe: PXE, secretKey: Fr, accountContract: AccountContract, salt?: Salt) {
+  static async create(wallet: Wallet, pxe: PXE, secretKey: Fr, accountContract: AccountContract, salt?: Salt) {
     const { publicKeys } = await deriveKeys(secretKey);
     salt = salt !== undefined ? new Fr(salt) : Fr.random();
 
@@ -62,7 +65,7 @@ export class AccountManager {
       publicKeys,
     });
 
-    return new AccountManager(pxe, secretKey, accountContract, instance, salt);
+    return new AccountManager(wallet, pxe, secretKey, accountContract, instance, salt);
   }
 
   protected getPublicKeys() {
@@ -77,7 +80,7 @@ export class AccountManager {
    * Returns the entrypoint for this account as defined by its account contract.
    * @returns An entrypoint.
    */
-  public async getAccount(): Promise<AccountInterface> {
+  public async getAccountInterface(): Promise<AccountInterface> {
     const nodeInfo = await this.pxe.getNodeInfo();
     const completeAddress = await this.getCompleteAddress();
     return this.accountContract.getInterface(completeAddress, nodeInfo);
@@ -115,9 +118,17 @@ export class AccountManager {
    * instances to be interacted with from this account.
    * @returns A Wallet instance.
    */
-  public async getWallet(): Promise<AccountWalletWithSecretKey> {
-    const entrypoint = await this.getAccount();
-    return new AccountWalletWithSecretKey(this.pxe, entrypoint, this.secretKey, this.salt);
+  public async getAccount(): Promise<AccountWithSecretKey> {
+    const accountInterface = await this.getAccountInterface();
+    return new AccountWithSecretKey(accountInterface, this.secretKey, this.salt);
+  }
+
+  /**
+   * Returns the account contract that backs this account.
+   * @returns The account contract
+   */
+  getAccountContract(): AccountContract {
+    return this.accountContract;
   }
 
   /**
@@ -127,7 +138,7 @@ export class AccountManager {
    * @param opts - Options to wait for the account to be synched.
    * @returns A Wallet instance.
    */
-  public async register(): Promise<AccountWalletWithSecretKey> {
+  public async register(): Promise<AccountWithSecretKey> {
     await this.pxe.registerContract({
       artifact: await this.accountContract.getContractArtifact(),
       instance: this.getInstance(),
@@ -135,7 +146,7 @@ export class AccountManager {
 
     await this.pxe.registerAccount(this.secretKey, (await this.getCompleteAddress()).partialAddress);
 
-    return this.getWallet();
+    return this.getAccount();
   }
 
   /**
@@ -146,7 +157,7 @@ export class AccountManager {
    * set up the account contract for use.
    * @returns A ContractSetupMethods instance that can set up this account contract for use
    */
-  public async getDeployMethod(deployWallet?: Wallet): Promise<DeployMethod> {
+  public async getDeployMethod(): Promise<DeployMethod> {
     const artifact = await this.accountContract.getContractArtifact();
 
     if (!(await this.hasInitializer())) {
@@ -165,30 +176,11 @@ export class AccountManager {
       constructorArgs: undefined,
     };
 
-    if (deployWallet) {
-      // If deploying using an existing wallet/account, treat it like regular contract deployment.
-      const thisWallet = await this.getWallet();
-      return new DeployMethod(
-        this.getPublicKeys(),
-        deployWallet,
-        artifact,
-        address => Contract.at(address, artifact, thisWallet),
-        constructorArgs,
-        constructorName,
-      );
-    }
-
-    const { l1ChainId: chainId, rollupVersion } = await this.pxe.getNodeInfo();
-    // We use a signerless wallet with the multi call entrypoint in order to make multiple calls in one go.
-    // If we used getWallet, the deployment would get routed via the account contract entrypoint
-    // and it can't be used unless the contract is initialized.
-    const wallet = new SignerlessWallet(this.pxe, new DefaultMultiCallEntrypoint(chainId, rollupVersion));
-
     return new DeployMethod(
       this.getPublicKeys(),
-      wallet,
+      this.wallet,
       artifact,
-      address => Contract.at(address, artifact, wallet),
+      address => Contract.at(address, artifact, this.wallet),
       constructorArgs,
       constructorName,
     );
@@ -206,11 +198,11 @@ export class AccountManager {
    */
   public async getSelfPaymentMethod(originalPaymentMethod?: FeePaymentMethod) {
     const artifact = await this.accountContract.getContractArtifact();
-    const wallet = await this.getWallet();
-    const address = wallet.getAddress();
+    const account = await this.getAccount();
+    const address = account.getAddress();
     return new AccountEntrypointMetaPaymentMethod(
       artifact,
-      wallet,
+      account,
       'entrypoint',
       address,
       originalPaymentMethod ?? new FeeJuicePaymentMethod(address),
@@ -227,32 +219,26 @@ export class AccountManager {
    * @returns A SentTx object that can be waited to get the associated Wallet.
    */
   public deploy(opts?: DeployAccountOptions): DeployAccountSentTx {
-    let deployMethod: DeployMethod;
-    const sendTx = () =>
-      this.getDeployMethod(opts?.deployWallet)
-        .then(method => {
-          deployMethod = method;
-          if (!opts?.deployWallet && opts?.fee) {
-            return this.getSelfPaymentMethod(opts?.fee?.paymentMethod);
-          }
-        })
-        .then(maybeWrappedPaymentMethod => {
-          let fee = opts?.fee;
-          if (maybeWrappedPaymentMethod) {
-            fee = { ...opts?.fee, paymentMethod: maybeWrappedPaymentMethod };
-          }
-          return deployMethod.send({
-            from: opts?.deployWallet?.getAddress() ?? AztecAddress.ZERO,
-            contractAddressSalt: new Fr(this.salt),
-            skipClassPublication: opts?.skipClassPublication ?? true,
-            skipInstancePublication: opts?.skipInstancePublication ?? true,
-            skipInitialization: opts?.skipInitialization ?? false,
-            universalDeploy: true,
-            fee,
-          });
-        })
-        .then(tx => tx.getTxHash());
-    return new DeployAccountSentTx(this.pxe, sendTx, this.getWallet());
+    const sendTx = async () => {
+      const deployMethod = await this.getDeployMethod();
+      let fee = opts?.fee;
+      if (!opts?.deployAccount) {
+        const wrappedPaymentMethod = await this.getSelfPaymentMethod(opts?.fee?.paymentMethod);
+        fee = { ...fee, paymentMethod: wrappedPaymentMethod };
+      }
+
+      const tx = deployMethod.send({
+        from: opts?.deployAccount ?? AztecAddress.ZERO,
+        contractAddressSalt: new Fr(this.salt),
+        skipClassPublication: opts?.skipClassPublication ?? true,
+        skipInstancePublication: opts?.skipInstancePublication ?? true,
+        skipInitialization: opts?.skipInitialization ?? false,
+        universalDeploy: true,
+        fee,
+      });
+      return tx.getTxHash();
+    };
+    return new DeployAccountSentTx(this.wallet, sendTx, this.getAccount());
   }
 
   /**
@@ -260,11 +246,11 @@ export class AccountManager {
    * Uses the salt provided in the constructor or a randomly generated one. If no initialization
    * is required it skips the transaction, and only registers the account in the PXE Service.
    * @param opts - Options to wait for the tx to be mined.
-   * @returns A Wallet instance.
+   * @returns An Account instance.
    */
-  public async waitSetup(opts: DeployAccountOptions & WaitOpts = DefaultWaitOpts): Promise<AccountWalletWithSecretKey> {
+  public async waitSetup(opts: DeployAccountOptions & WaitOpts = DefaultWaitOpts): Promise<AccountWithSecretKey> {
     await ((await this.hasInitializer()) ? this.deploy(opts).wait(opts) : this.register());
-    return this.getWallet();
+    return this.getAccount();
   }
 
   /**

@@ -43,7 +43,7 @@ describe('full_prover', () => {
     await t.setup();
 
     ({ provenAssets, accounts, tokenSim, logger, cheatCodes } = t);
-    [sender, recipient] = accounts.map(a => a.address);
+    [sender, recipient] = accounts;
 
     rollup = new RollupContract(t.l1Contracts.l1Client, t.l1Contracts.l1ContractAddresses.rollupAddress);
 

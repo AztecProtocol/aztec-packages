@@ -64,6 +64,7 @@
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
+    "@aztec/test-wallet": "workspace:^",
     "source-map-support": "^0.5.21",
     "tslib": "^2.4.0",
     "zod": "^3.23.8"

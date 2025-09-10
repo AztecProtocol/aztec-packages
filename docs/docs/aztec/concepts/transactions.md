@@ -77,19 +77,9 @@ Transaction requests are simulated in the PXE in order to generate the necessary
 
 Most transaction requests are created as interactions with specific contracts. The exception is transactions that deploy contracts. Here are the main methods for interacting with contracts related to transactions.
 
-1. [`create`](#create)
-2. [`simulate`](#simulate)
-3. [`prove`](#prove)
-4. [`send`](#send)
-
-And fee utilities:
-
-- [`estimateGas`](#estimategas)
-- [`getFeeOptions`](#getfeeoptions)
-
-##### `create`
-
-#include_code create yarn-project/aztec.js/src/contract/contract_function_interaction.ts javascript
+1. [`simulate`](#simulate)
+2. [`prove`](#prove)
+3. [`send`](#send)
 
 ##### `simulate`
 
@@ -102,14 +92,6 @@ And fee utilities:
 ##### `send`
 
 #include_code send yarn-project/aztec.js/src/contract/base_contract_interaction.ts javascript
-
-##### `estimateGas`
-
-#include_code estimateGas yarn-project/aztec.js/src/contract/base_contract_interaction.ts javascript
-
-##### `getFeeOptions`
-
-#include_code getFeeOptions yarn-project/aztec.js/src/contract/base_contract_interaction.ts javascript
 
 ### Batch Transactions
 

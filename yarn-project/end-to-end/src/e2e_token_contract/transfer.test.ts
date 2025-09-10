@@ -5,13 +5,13 @@ import { TokenContractTest } from './token_contract_test.js';
 
 describe('e2e_token_contract transfer private', () => {
   const t = new TokenContractTest('transfer_private');
-  let { asset, adminAddress, account1, account1Address, tokenSim } = t;
+  let { asset, adminAddress, wallet, account1Address, tokenSim } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
-    ({ asset, adminAddress, account1, account1Address, tokenSim } = t);
+    ({ asset, adminAddress, wallet, account1Address, tokenSim } = t);
   });
 
   afterAll(async () => {
@@ -30,12 +30,12 @@ describe('e2e_token_contract transfer private', () => {
     const tx = await asset.methods.transfer(account1Address, amount).send({ from: adminAddress }).wait();
     tokenSim.transferPrivate(adminAddress, account1Address, amount);
 
-    const events = await account1.getPrivateEvents<Transfer>(
+    const events = await wallet.getPrivateEvents<Transfer>(
       asset.address,
       TokenContract.events.Transfer,
       tx.blockNumber!,
       1,
-      [account1.getAddress()],
+      [account1Address],
     );
 
     expect(events[0]).toEqual({

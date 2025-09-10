@@ -70,6 +70,7 @@
     ]
   },
   "dependencies": {
+    "@aztec/accounts": "workspace:^",
     "@aztec/archiver": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
     "@aztec/constants": "workspace:^",
@@ -79,7 +80,9 @@
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/node-lib": "workspace:^",
     "@aztec/p2p": "workspace:^",
+    "@aztec/protocol-contracts": "workspace:^",
     "@aztec/stdlib": "workspace:^",
+    "@aztec/test-wallet": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@iarna/toml": "^2.2.5",
     "@libp2p/peer-id-factory": "^3.0.4",
@@ -92,8 +95,6 @@
     "viem": "2.23.7"
   },
   "devDependencies": {
-    "@aztec/accounts": "workspace:^",
-    "@aztec/protocol-contracts": "workspace:^",
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
     "@types/lodash.chunk": "^4.2.9",

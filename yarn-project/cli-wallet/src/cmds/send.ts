@@ -1,28 +1,22 @@
-import {
-  type AccountWalletWithSecretKey,
-  AuthWitness,
-  type AztecAddress,
-  Contract,
-  Fr,
-  type SendMethodOptions,
-} from '@aztec/aztec.js';
+import { AuthWitness, type AztecAddress, Contract, Fr, type SendMethodOptions, type Wallet } from '@aztec/aztec.js';
 import { prepTx } from '@aztec/cli/utils';
 import type { LogFn } from '@aztec/foundation/log';
 import { GasSettings } from '@aztec/stdlib/gas';
 
-import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
+import { CLIFeeArgs } from '../utils/options/fees.js';
 import { printProfileResult } from '../utils/profiling.js';
 import { DEFAULT_TX_TIMEOUT_S } from '../utils/pxe_wrapper.js';
 
 export async function send(
-  wallet: AccountWalletWithSecretKey,
+  wallet: Wallet,
+  from: AztecAddress,
   functionName: string,
   functionArgsIn: any[],
   contractArtifactPath: string,
   contractAddress: AztecAddress,
   wait: boolean,
   cancellable: boolean,
-  feeOpts: IFeeOpts,
+  feeOpts: CLIFeeArgs,
   authWitnesses: AuthWitness[],
   verbose: boolean,
   log: LogFn,
@@ -34,15 +28,14 @@ export async function send(
 
   const txNonce = Fr.random();
 
+  const userFeeOptions = await feeOpts.toUserFeeOptions(wallet, from);
   const sendOptions: SendMethodOptions = {
-    ...(await feeOpts.toSendOpts(wallet)),
+    fee: userFeeOptions,
+    from,
     authWitnesses,
-    cancellable,
-    txNonce,
   };
 
   const gasLimits = await call.estimateGas(sendOptions);
-  printGasEstimates(feeOpts, gasLimits, log);
 
   if (feeOpts.estimateOnly) {
     return;
@@ -74,7 +67,7 @@ export async function send(
     log('Transaction pending. Check status with check-tx');
   }
   const gasSettings = GasSettings.from({
-    ...feeOpts.gasSettings,
+    ...provenTx.data.constants.txContext.gasSettings,
     ...gasLimits,
   });
   return {

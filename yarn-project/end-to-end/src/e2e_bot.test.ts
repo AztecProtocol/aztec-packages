@@ -1,4 +1,4 @@
-import { getInitialTestAccounts } from '@aztec/accounts/testing';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import type { PXE } from '@aztec/aztec.js';
 import { AmmBot, Bot, type BotConfig, SupportedTokenContracts, getBotDefaultConfig } from '@aztec/bot';
 import { AVM_MAX_PROCESSABLE_L2_GAS, MAX_PROCESSABLE_DA_GAS_PER_BLOCK } from '@aztec/constants';
@@ -12,7 +12,7 @@ describe('e2e_bot', () => {
   let config: BotConfig;
 
   beforeAll(async () => {
-    const initialFundedAccounts = await getInitialTestAccounts();
+    const initialFundedAccounts = await getInitialTestAccountsData();
     ({ teardown, pxe } = await setup(1, {
       initialFundedAccounts,
     }));
@@ -51,9 +51,9 @@ describe('e2e_bot', () => {
     });
 
     it('reuses the same account and token contract', async () => {
-      const { wallet, token, recipient } = bot;
+      const { defaultAccountAddress, token, recipient } = bot;
       const bot2 = await Bot.create(config, { pxe });
-      expect(bot2.wallet.getAddress().toString()).toEqual(wallet.getAddress().toString());
+      expect(bot2.defaultAccountAddress.toString()).toEqual(defaultAccountAddress.toString());
       expect(bot2.token.address.toString()).toEqual(token.address.toString());
       expect(bot2.recipient.toString()).toEqual(recipient.toString());
     });
