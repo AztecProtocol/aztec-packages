@@ -45,7 +45,7 @@ export interface PrivateKernelExecutionProofOutput<
   /** The public inputs used by the proof generation process. */
   publicInputs: PublicInputsType;
   /** The private IVC proof optimized for user devices. It will be consumed by an Aztec prover,
-   * which recursively verifies it through the "tube" circuit.*/
+   * which recursively verifies it through the "private tx base" or the "public tube" circuit.*/
   clientIvcProof: ClientIvcProof;
   /**
    * The trace the clientIvcProof corresponds to.

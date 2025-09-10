@@ -1,14 +1,13 @@
 mod types;
 
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
-// A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 #[aztec]
 pub contract Spam {
 
-    use dep::aztec::{
+    use aztec::{
+        event::event_interface::MessageDelivery,
         macros::{functions::{internal, private, public}, storage::storage},
-        messages::logs::note::encode_and_encrypt_note_unconstrained,
         protocol_types::{
             address::AztecAddress,
             constants::{
@@ -35,7 +34,9 @@ pub contract Spam {
 
         for _ in 0..MAX_NOTE_HASHES_PER_CALL {
             storage.balances.at(caller).add(caller, amount).emit(
-                encode_and_encrypt_note_unconstrained(&mut context, caller),
+                &mut context,
+                caller,
+                MessageDelivery.UNCONSTRAINED_ONCHAIN,
             );
         }
 

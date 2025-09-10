@@ -28,7 +28,10 @@ pub contract AvmTest {
         scalar::Scalar,
     };
     use dep::aztec::protocol_types::{
-        constants::{GRUMPKIN_ONE_X, GRUMPKIN_ONE_Y, MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS},
+        constants::{
+            FEE_JUICE_ADDRESS, GRUMPKIN_ONE_X, GRUMPKIN_ONE_Y,
+            MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
+        },
         contract_class_id::ContractClassId,
         storage::map::derive_storage_slot_in_map,
         traits::{Empty, FromField, ToField},
@@ -40,6 +43,7 @@ pub contract AvmTest {
     use aztec::protocol_types::traits::Serialize;
     use std::embedded_curve_ops::{EmbeddedCurvePoint, multi_scalar_mul};
 
+    use dep::fee_juice::FeeJuice;
     use std::ops::Add;
 
     #[storage]
@@ -386,6 +390,16 @@ pub contract AvmTest {
         assert(deployer.unwrap().eq(expected_deployer));
         assert(class_id.unwrap().eq(expected_class_id));
         assert(initialization_hash.unwrap().eq(expected_initialization_hash));
+
+        // Get a Protocol Contract and it should exist
+        dep::aztec::oracle::debug_log::debug_log(
+            "Get Contract Instance Protocol Contract Instance",
+        );
+        let fee_juice_class_id = get_contract_instance_class_id_avm(FEE_JUICE_ADDRESS);
+        assert(
+            fee_juice_class_id.is_some(),
+            "Protocol Contract instance not found when getting CLASS_ID!",
+        );
     }
 
     /************************************************************************
@@ -653,6 +667,16 @@ pub contract AvmTest {
     }
 
     /************************************************************************
+     * Protocol Contract Call
+     ************************************************************************/
+    #[public]
+    fn call_fee_juice() {
+        let _ = FeeJuice::at(FEE_JUICE_ADDRESS).balance_of_public(context.this_address()).view(
+            &mut context,
+        );
+    }
+
+    /************************************************************************
      * Bulk testing: exercise many functions in a single call.
      * It only makes sense to call functions with side effects (or oracle
      * calls - but not blackboxes!), since otherwise the whole call will
@@ -748,6 +772,8 @@ pub contract AvmTest {
         let _ = nested_call_to_add(1, 2);
         dep::aztec::oracle::debug_log::debug_log("nested_static_call_to_add");
         let _ = nested_static_call_to_add(1, 2);
+        dep::aztec::oracle::debug_log::debug_log("nested_call_to_protocol_contract");
+        let _ = call_fee_juice();
         //let _ = nested_call_to_nothing_recovers();
     }
 }

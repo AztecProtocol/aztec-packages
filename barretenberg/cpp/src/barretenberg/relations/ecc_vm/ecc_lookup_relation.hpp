@@ -103,31 +103,50 @@ template <typename FF_> class ECCVMLookupRelationImpl {
         }
         return Accumulator(1);
     }
-
+    /**
+     * @brief Returns the fingerprint of `(precompute_pc, compressed_slice, (2 * compressed_slice - 15)[P])`, where [P]
+     * is the point corresponding to `precompute_pc` and `compressed_slice`∈{0, ..., 15}.
+     */
     template <typename Accumulator, size_t write_index, typename AllEntities, typename Parameters>
     static Accumulator compute_write_term(const AllEntities& in, const Parameters& params)
     {
         using View = typename Accumulator::View;
 
         static_assert(write_index < WRITE_TERMS);
-
-        // what are we looking up?
-        // we want to map:
-        // 1: point pc
-        // 2: point slice
-        // 3: point x
-        // 4: point y
-        // for each point in our point table, we want to map `slice` to (x, -y) AND `slice + 8` to (x, y)
+        // write_index == 0 means our wNAF digit is positive (i.e., ∈{1, 3..., 15}).
+        // write_index == 1 means our wNAF digit is negative (i.e., ∈{-15, -13..., -1})
 
         // round starts at 0 and increments to 7
         // point starts at 15[P] and decrements to [P]
         // a slice value of 0 maps to -15[P]
-        // 1 -> -13[P]
-        // 7 -> -[P]
-        // 8 -> P
-        // 15 -> 15[P]
-        // negative points map pc, round, x, -y
-        // positive points map pc, 15 - (round * 2), x, y
+
+        // we have computed `(15 - 2 * round)[P] =: (precompute_tx, precompute_ty)`.
+        // `round`∈{0, 1..., 7}
+        // if write_index == 0, we want to write (pc, 15 - 2 * round, precompute_tx, precompute_ty)
+        // if write_index == 1, we want to write (pc, round, precompute_tx, -precompute_ty)
+        // to sum up, both:
+        //      (pc, round, precompute_tx, -precompute_ty) _and_
+        //      (pc, 15 - 2 * round, precompute_tx, precompute_ty)
+        // will be written to the lookup table.
+        //
+        // therefore, if `pc` corresponds to the elliptic curve point [P], we will write:
+        // | pc | 0  | -15[P].x | -15[P].y |
+        // | pc | 1  | -13[P].x | -13[P].y |
+        // | pc | 2  | -11[P].x | -11[P].y |
+        // | pc | 3  | -9[P].x  | -9[P].y  |
+        // | pc | 4  | -7[P].x  | -7[P].y  |
+        // | pc | 5  | -5[P].x  | -5[P].y  |
+        // | pc | 6  | -3[P].x  | -3[P].y  |
+        // | pc | 7  | -1[P].x  | -1[P].y  |
+        // | pc | 8  |   [P].x  |   [P].y  |
+        // | pc | 9  |  3[P].x  |  3[P].y  |
+        // | pc | 10 |  5[P].x  |  5[P].y  |
+        // | pc | 11 |  7[P].x  |  7[P].y  |
+        // | pc | 12 |  9[P].x  |  9[P].y  |
+        // | pc | 13 | 11[P].x  | 11[P].y  |
+        // | pc | 14 | 13[P].x  | 13[P].y  |
+        // | pc | 15 | 15[P].x  | 15[P].y  |
+
         const auto& precompute_pc = View(in.precompute_pc);
         const auto& tx = View(in.precompute_tx);
         const auto& ty = View(in.precompute_ty);
@@ -137,31 +156,6 @@ template <typename FF_> class ECCVMLookupRelationImpl {
         const auto& beta_sqr = params.beta_sqr;
         const auto& beta_cube = params.beta_cube;
 
-        // slice value : (wnaf value) : lookup term
-        // 0 : -15 : 0
-        // 1 : -13 : 1
-        // 7 : -1 : 7
-        // 8 : 1 : 0
-        // 9 : 3 : 1
-        // 15 : 15 : 7
-
-        // slice value : negative term : positive term
-        // 0 : 0 : 7
-        // 1 : 1 : 6
-        // 2 : 2 : 5
-        // 3 : 3 : 4
-        // 7 : 7 : 0
-
-        // | 0 | 15[P].x | 15[P].y  | 0, -15[P].x, -15[P].y | 15, 15[P].x, 15[P].y |
-        // | 1 | 13[P].x | 13[P].y | 1, -13[P].x, -13[P].y | 14, 13[P].x, 13[P].y
-        // | 2 | 11[P].x | 11[P].y
-        // | 3 |  9[P].x |  9[P].y
-        // | 4 |  7[P].x |  7[P].y
-        // | 5 |  5[P].x |  5[P].y
-        // | 6 |  3[P].x |  3[P].y
-        // | 7 |  1[P].x |  1[P].y | 7, -[P].x, -[P].y | 8 , [P].x, [P].y |
-
-        // todo optimize this?
         if constexpr (write_index == 0) {
             const auto positive_slice_value = -(precompute_round) + 15;
             const auto positive_term =
@@ -180,8 +174,8 @@ template <typename FF_> class ECCVMLookupRelationImpl {
     {
         using View = typename Accumulator::View;
 
-        // read term:
-        // pc, slice, x, y
+        // read term: (pc, compressed_slice, (2 * compressed_slice - 15)[P])
+        // (the latter term is of course represented via an x and y coordinate.)
         static_assert(read_index < READ_TERMS);
         const auto& gamma = params.gamma;
         const auto& beta = params.beta;
@@ -202,12 +196,12 @@ template <typename FF_> class ECCVMLookupRelationImpl {
         const auto& msm_y3 = View(in.msm_y3);
         const auto& msm_y4 = View(in.msm_y4);
 
-        // how do we get pc value
+        // Recall that `pc` stands for point-counter. We recall how to compute the current pc.
+        //
         // row pc = value of pc after msm
-        // row count = num processed points in round
-        // size_of_msm = msm_size
-        // value of pc at start of msm = msm_pc - msm_size_of_msm
-        // value of current pc = msm_pc - msm_size_of_msm + msm_count + (0,1,2,3)
+        // msm_count = number of (128-bit) multiplications processed so far in current MSM round (NOT INCLUDING current
+        // row) current_pc = msm_pc - msm_count next_pc = current_pc - {0, 1, 2, 3}, depending on how many adds are
+        // performed in the current row.
         const auto current_pc = msm_pc - msm_count;
 
         if constexpr (read_index == 0) {

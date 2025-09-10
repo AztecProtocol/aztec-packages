@@ -14,6 +14,7 @@ export type ChainMonitorEventMap = {
   'l2-block-proven': [{ l2ProvenBlockNumber: number; l1BlockNumber: number; timestamp: bigint }];
   'l2-messages': [{ totalL2Messages: number; l1BlockNumber: number }];
   'l2-epoch': [{ l2EpochNumber: number; timestamp: bigint; committee: EthAddress[] | undefined }];
+  'l2-slot': [{ l2SlotNumber: number; timestamp: bigint }];
 };
 
 /** Utility class that polls the chain on quick intervals and logs new L1 blocks, L2 blocks, and L2 proofs. */
@@ -38,6 +39,8 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
   public totalL2Messages: number = 0;
   /** Current L2 epoch number */
   public l2EpochNumber!: bigint;
+  /** Current L2 slot number */
+  public l2SlotNumber!: bigint;
 
   constructor(
     private readonly rollup: RollupContract,
@@ -143,7 +146,12 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
       this.l2EpochNumber = l2Epoch;
       committee = (await this.rollup.getCurrentEpochCommittee())?.map(addr => EthAddress.fromString(addr));
       this.emit('l2-epoch', { l2EpochNumber: Number(l2Epoch), timestamp, committee });
-      msg += ` starting new epoch ${this.l2EpochNumber} with committee ${committee?.join(', ') ?? 'undefined'}`;
+      msg += ` starting new epoch ${this.l2EpochNumber} `;
+    }
+
+    if (l2SlotNumber !== this.l2SlotNumber) {
+      this.l2SlotNumber = l2SlotNumber;
+      this.emit('l2-slot', { l2SlotNumber: Number(l2SlotNumber), timestamp });
     }
 
     this.logger.info(msg, {
@@ -159,5 +167,21 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
     });
 
     return this;
+  }
+
+  public waitUntilL2Slot(slot: number | bigint): Promise<void> {
+    const targetSlot = typeof slot === 'bigint' ? slot.valueOf() : slot;
+    if (this.l2SlotNumber >= targetSlot) {
+      return Promise.resolve();
+    }
+    return new Promise(resolve => {
+      const listener = (data: { l2SlotNumber: number; timestamp: bigint }) => {
+        if (data.l2SlotNumber >= targetSlot) {
+          this.off('l2-slot', listener);
+          resolve();
+        }
+      };
+      this.on('l2-slot', listener);
+    });
   }
 }

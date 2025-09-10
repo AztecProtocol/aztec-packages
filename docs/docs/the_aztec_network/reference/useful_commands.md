@@ -34,9 +34,9 @@ cast call <RegistryContractAddress> "getCanonicalRollup()" --rpc-url https://exa
 The rest of the guide will omit the `--rpc-url` flag for legibility.
 :::
 
-## Query the Validator Set
+## Query the Sequencer Set
 
-### Retrieve a list of all validators
+### Retrieve a list of all sequencers
 
 Run
 
@@ -44,22 +44,22 @@ Run
 cast call <RollupAddress> "getAttesters()" --rpc-url
 ```
 
-### What is the status of a particular validator?
+### What is the status of a particular sequencer?
 
 Run
 
 ```bash
-cast call <RollupAddress> "getInfo(address)" <ValidatorAddress>
+cast call <RollupAddress> "getInfo(address)" <SequencerAddress>
 ```
 
-This will return in order: 1) the validator's balance 2) their `withdrawer` address 3) their `proposer` address and 4) their current status.
+This will return in order: 1) the sequencer's balance 2) their `withdrawer` address 3) their `proposer` address and 4) their current status.
 
 | Status | Meaning                                                                                                              |
 | ------ | -------------------------------------------------------------------------------------------------------------------- |
-| 0      | The validator is not in the validator set                                                                            |
-| 1      | The validator is currently in the validator set.                                                                     |
-| 2      | The validator is not active in the set. This could mean that they initiated a withdrawal and are awaiting final exit |
-| 3      | The validator has completed their exit delay and can be exited from the validator set                                |
+| 0      | The sequencer is not in the sequencer set                                                                            |
+| 1      | The sequencer is currently in the sequencer set.                                                                     |
+| 2      | The sequencer is not active in the set. This could mean that they initiated a withdrawal and are awaiting final exit |
+| 3      | The sequencer has completed their exit delay and can be exited from the sequencer set                                |
 
 ## Governance Upgrades
 

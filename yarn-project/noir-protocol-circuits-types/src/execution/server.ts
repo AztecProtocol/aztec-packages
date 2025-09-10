@@ -1,6 +1,7 @@
 import { pushTestData } from '@aztec/foundation/testing';
 import type { WitnessMap } from '@aztec/noir-acvm_js';
 import { abiDecode, abiEncode } from '@aztec/noir-noirc_abi';
+import type { PrivateToPublicKernelCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import type { BaseParityInputs, ParityPublicInputs, RootParityInputs } from '@aztec/stdlib/parity';
 import type {
   BaseOrMergeRollupPublicInputs,
@@ -12,6 +13,7 @@ import type {
   PaddingBlockRootRollupInputs,
   PrivateBaseRollupInputs,
   PublicBaseRollupInputs,
+  PublicTubePrivateInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
   SingleTxBlockRootRollupInputs,
@@ -29,7 +31,9 @@ import {
   mapPaddingBlockRootRollupInputsToNoir,
   mapParityPublicInputsFromNoir,
   mapPrivateBaseRollupInputsToNoir,
+  mapPrivateToPublicKernelCircuitPublicInputsFromNoir,
   mapPublicBaseRollupInputsToNoir,
+  mapPublicTubePrivateInputsToNoir,
   mapRootParityInputsToNoir,
   mapRootRollupInputsToNoir,
   mapRootRollupPublicInputsFromNoir,
@@ -46,6 +50,7 @@ import type {
   RollupBlockRootSingleTxReturnType,
   RollupMergeReturnType,
   RollupRootReturnType,
+  TubePublicReturnType,
 } from '../types/index.js';
 import type { DecodedInputs } from '../utils/decoded_inputs.js';
 
@@ -70,6 +75,12 @@ export function convertBaseParityInputsToWitnessMap(inputs: BaseParityInputs): W
 export function convertRootParityInputsToWitnessMap(inputs: RootParityInputs): WitnessMap {
   const mapped = mapRootParityInputsToNoir(inputs);
   const initialWitnessMap = abiEncode(ServerCircuitArtifacts.RootParityArtifact.abi, { inputs: mapped as any });
+  return initialWitnessMap;
+}
+
+export function convertPublicTubePrivateInputsToWitnessMap(inputs: PublicTubePrivateInputs): WitnessMap {
+  const mapped = mapPublicTubePrivateInputsToNoir(inputs);
+  const initialWitnessMap = abiEncode(ServerCircuitArtifacts.PublicTube.abi, { inputs: mapped as any });
   return initialWitnessMap;
 }
 
@@ -254,6 +265,12 @@ export function convertSimulatedPublicBaseRollupOutputsFromWitnessMap(
   const returnType = decodedInputs.return_value as RollupBasePublicReturnType;
 
   return mapBaseOrMergeRollupPublicInputsFromNoir(returnType);
+}
+
+export function convertPublicTubeOutputsFromWitnessMap(outputs: WitnessMap): PrivateToPublicKernelCircuitPublicInputs {
+  const decodedInputs: DecodedInputs = abiDecode(ServerCircuitArtifacts.PublicTube.abi, outputs);
+  const returnType = decodedInputs.return_value as TubePublicReturnType;
+  return mapPrivateToPublicKernelCircuitPublicInputsFromNoir(returnType);
 }
 
 /**

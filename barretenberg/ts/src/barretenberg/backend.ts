@@ -8,7 +8,7 @@ import {
   uint8ArrayToHex,
   hexToUint8Array,
 } from '../proof/index.js';
-import { fromClientIVCProof, toClientIVCProof } from '../cbind/generated/api_types.js';
+import { ClientIVCProof, fromClientIVCProof, toClientIVCProof } from '../cbind/generated/api_types.js';
 import { ungzip } from 'pako';
 import { Buffer } from 'buffer';
 import { Decoder, Encoder } from 'msgpackr';
@@ -267,7 +267,7 @@ export class AztecClientBackend {
     }
   }
 
-  async prove(witnessBuf: Uint8Array[], vksBuf: Uint8Array[] = []): Promise<[Uint8Array, Uint8Array]> {
+  async prove(witnessBuf: Uint8Array[], vksBuf: Uint8Array[] = []): Promise<[Uint8Array[], Uint8Array, Uint8Array]> {
     if (vksBuf.length !== 0 && this.acirBuf.length !== witnessBuf.length) {
       throw new AztecClientBackendError('Witness and bytecodes must have the same stack depth!');
     }
@@ -315,12 +315,19 @@ export class AztecClientBackend {
       bytecode: this.acirBuf[this.acirBuf.length - 1],
     } });
 
+    const proofFields = [
+      proveResult.proof.megaProof,
+      proveResult.proof.goblinProof.mergeProof,
+      proveResult.proof.goblinProof.eccvmProof.preIpaProof,
+      proveResult.proof.goblinProof.eccvmProof.ipaProof,
+      proveResult.proof.goblinProof.translatorProof,
+    ].flat();
 
     // Note: Verification may not work correctly until we properly serialize the proof
     if (!(await this.verify(proof, vkResult.bytes))) {
       throw new AztecClientBackendError('Failed to verify the private (ClientIVC) transaction proof!');
     }
-    return [proof, vkResult.bytes];
+    return [proofFields, proof, vkResult.bytes];
   }
 
   async verify(proof: Uint8Array, vk: Uint8Array): Promise<boolean> {

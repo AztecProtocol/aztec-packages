@@ -32,6 +32,7 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 // solhint-disable comprehensive-interface
 
 struct Block {
@@ -39,12 +40,9 @@ struct Block {
   bytes blobInputs;
   CommitteeAttestation[] attestations;
   address[] signers;
+  Signature attestationsAndSignersSignature;
 }
 
-/**
- * Blocks are generated using the `integration_l1_publisher.test.ts` tests.
- * Main use of these test is shorter cycles when updating the decoder contract.
- */
 contract Tmnt223Test is RollupBase {
   using ProposeLib for ProposeArgs;
   using TimeLib for Timestamp;
@@ -112,6 +110,7 @@ contract Tmnt223Test is RollupBase {
         l2Block.proposeArgs,
         AttestationLibHelper.packAttestations(l2Block.attestations),
         l2Block.signers,
+        l2Block.attestationsAndSignersSignature,
         l2Block.blobInputs
       );
       timeCheater.cheat__progressSlot();
@@ -129,6 +128,7 @@ contract Tmnt223Test is RollupBase {
       nonEmptyBlock.proposeArgs,
       AttestationLibHelper.packAttestations(nonEmptyBlock.attestations),
       nonEmptyBlock.signers,
+      nonEmptyBlock.attestationsAndSignersSignature,
       nonEmptyBlock.blobInputs
     );
 
@@ -173,7 +173,8 @@ contract Tmnt223Test is RollupBase {
       proposeArgs: proposeArgs,
       blobInputs: full.block.blobCommitments,
       attestations: attestations,
-      signers: signers
+      signers: signers,
+      attestationsAndSignersSignature: Signature({v: 0, r: 0, s: 0})
     });
   }
 }

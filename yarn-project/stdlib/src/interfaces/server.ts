@@ -21,4 +21,5 @@ export * from './server_circuit_prover.js';
 export * from './service.js';
 export * from './slasher.js';
 export * from './tx_provider.js';
+export * from './validator.js';
 export * from './world_state.js';

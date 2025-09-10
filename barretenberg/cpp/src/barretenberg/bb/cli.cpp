@@ -241,9 +241,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
                          "recursive verifier) or is it for an ivc verifier? `standalone` produces a verification key "
                          "is sufficient for verifying proofs about a single circuit (including the non-encsapsulated "
                          "use case where an IVC scheme is manually constructed via recursive UltraHonk proof "
-                         "verification). `ivc` produces a verification key for verifying the stack of run though a "
-                         "dedicated ivc verifier class (currently the only option is the ClientIVC class) ")
-            ->check(CLI::IsMember({ "standalone", "ivc" }).name("is_member"));
+                         "verification). `standalone_hiding` is similar to `standalone` but is used for the last step "
+                         "where the structured trace is not utilized. `ivc` produces a verification key for verifying "
+                         "the stack of run though a dedicated ivc verifier class (currently the only option is the "
+                         "ClientIVC class)")
+            ->check(CLI::IsMember({ "standalone", "standalone_hiding", "ivc" }).name("is_member"));
     };
 
     const auto add_verbose_flag = [&](CLI::App* subcommand) {

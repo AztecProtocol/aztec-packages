@@ -305,7 +305,6 @@ abstract contract EmpireBase is EIP712, IEmpire {
 
     round.signalCount[_payload] += 1;
 
-    // @todo We can optimize here for gas by storing some of it packed with the payloadWithMostSignals.
     if (
       round.payloadWithMostSignals != _payload
         && round.signalCount[_payload] > round.signalCount[round.payloadWithMostSignals]

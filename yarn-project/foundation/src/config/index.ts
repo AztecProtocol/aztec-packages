@@ -259,7 +259,7 @@ export function secretFrConfigHelper(defaultValue?: Fr): Required<
   return {
     parseEnv: parse,
     parseVal: parse,
-    defaultValue: typeof defaultValue ? new SecretValue(defaultValue) : undefined,
+    defaultValue: defaultValue !== undefined ? new SecretValue(defaultValue) : undefined,
     isBoolean: true,
   };
 }

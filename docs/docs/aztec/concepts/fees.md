@@ -76,7 +76,7 @@ An account making a transaction can also refer to "fee-paying contracts" (FPCs) 
 ### Operator rewards
 
 The calculated fee-juice of a transaction is deducted from the fee payer (nominated account or fee-paying contract), then pooled together each transaction, block, and epoch.
-Once the epoch is proven, the total fee-juice (minus any burnt congestion amount), is distributed to provers and block validators/sequencers that contributed to the epoch.
+Once the epoch is proven, the total fee-juice (minus any burnt congestion amount), is distributed to provers and block sequencers that contributed to the epoch.
 
 The fees section of the protocol specification explains this distribution of fee-juice between proposers and provers.
 
