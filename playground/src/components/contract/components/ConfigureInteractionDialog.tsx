@@ -31,7 +31,7 @@ export function ConfigureInteractionDialog({ name, interaction, open, onClose }:
   const [authWits, setAuthwits] = useState([]);
   const [selectedAuthwits, setSelectedAuthwits] = useState([]);
 
-  const { walletDB, wallet } = useContext(AztecContext);
+  const { walletDB, from } = useContext(AztecContext);
 
   useEffect(() => {
     const refreshAuthwits = async () => {
@@ -48,7 +48,7 @@ export function ConfigureInteractionDialog({ name, interaction, open, onClose }:
   }, []);
 
   const send = async () => {
-    onClose(name, interaction, { from: wallet.getAddress(), authWitnesses: selectedAuthwits, fee: { paymentMethod: feePaymentMethod } });
+    onClose(name, interaction, { from, authWitnesses: selectedAuthwits, fee: { paymentMethod: feePaymentMethod } });
   };
 
   const handleClose = () => {

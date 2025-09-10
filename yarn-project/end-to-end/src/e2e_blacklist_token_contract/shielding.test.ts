@@ -5,14 +5,14 @@ import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
 
 describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
   const t = new BlacklistTokenContractTest('shield');
-  let { asset, tokenSim, admin, adminAddress, other, otherAddress, blacklisted, blacklistedAddress } = t;
+  let { asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot(); // Beware that we are adding the admin as minter here
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
-    ({ asset, tokenSim, admin, adminAddress, other, otherAddress, blacklisted, blacklistedAddress } = t);
+    ({ asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t);
   }, 600_000);
 
   afterAll(async () => {
@@ -53,18 +53,19 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
     expect(amount).toBeGreaterThan(0n);
 
     // We need to compute the message we want to sign and add it to the wallet as approved
-    const action = asset.withWallet(other).methods.shield(adminAddress, amount, secretHash, authwitNonce);
-    const validateActionInteraction = await admin.setPublicAuthWit({ caller: otherAddress, action }, true);
+    const action = asset.methods.shield(adminAddress, amount, secretHash, authwitNonce);
+    const validateActionInteraction = await wallet.setPublicAuthWit(
+      adminAddress,
+      { caller: otherAddress, action },
+      true,
+    );
     await validateActionInteraction.send({ from: adminAddress }).wait();
 
     const receipt = await action.send({ from: otherAddress }).wait();
 
     // Check that replaying the shield should fail!
     await expect(
-      asset
-        .withWallet(other)
-        .methods.shield(adminAddress, amount, secretHash, authwitNonce)
-        .simulate({ from: otherAddress }),
+      asset.methods.shield(adminAddress, amount, secretHash, authwitNonce).simulate({ from: otherAddress }),
     ).rejects.toThrow(/unauthorized/);
 
     // Redeem it
@@ -106,8 +107,12 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const action = asset.withWallet(other).methods.shield(adminAddress, amount, secretHash, authwitNonce);
-      const validateActionInteraction = await admin.setPublicAuthWit({ caller: otherAddress, action }, true);
+      const action = asset.methods.shield(adminAddress, amount, secretHash, authwitNonce);
+      const validateActionInteraction = await wallet.setPublicAuthWit(
+        adminAddress,
+        { caller: otherAddress, action },
+        true,
+      );
       await validateActionInteraction.send({ from: adminAddress }).wait();
 
       await expect(action.simulate({ from: otherAddress })).rejects.toThrow(U128_UNDERFLOW_ERROR);
@@ -120,8 +125,12 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const action = asset.withWallet(blacklisted).methods.shield(adminAddress, amount, secretHash, authwitNonce);
-      const validateActionInteraction = await admin.setPublicAuthWit({ caller: otherAddress, action }, true);
+      const action = asset.methods.shield(adminAddress, amount, secretHash, authwitNonce);
+      const validateActionInteraction = await wallet.setPublicAuthWit(
+        adminAddress,
+        { caller: otherAddress, action },
+        true,
+      );
       await validateActionInteraction.send({ from: adminAddress }).wait();
 
       await expect(action.simulate({ from: blacklistedAddress })).rejects.toThrow(/unauthorized/);
@@ -134,19 +143,13 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
       expect(amount).toBeGreaterThan(0n);
 
       await expect(
-        asset
-          .withWallet(other)
-          .methods.shield(adminAddress, amount, secretHash, authwitNonce)
-          .simulate({ from: otherAddress }),
+        asset.methods.shield(adminAddress, amount, secretHash, authwitNonce).simulate({ from: otherAddress }),
       ).rejects.toThrow(/unauthorized/);
     });
 
     it('shielding from blacklisted account', async () => {
       await expect(
-        asset
-          .withWallet(blacklisted)
-          .methods.shield(blacklistedAddress, 1n, secretHash, 0)
-          .simulate({ from: blacklistedAddress }),
+        asset.methods.shield(blacklistedAddress, 1n, secretHash, 0).simulate({ from: blacklistedAddress }),
       ).rejects.toThrow('Assertion failed: Blacklisted: Sender');
     });
   });

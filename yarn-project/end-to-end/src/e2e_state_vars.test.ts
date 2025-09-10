@@ -52,7 +52,7 @@ describe('e2e_state_vars', () => {
 
       const read = await contract.methods.get_public_immutable().simulate({ from: defaultAccountAddress });
 
-      expect(read).toEqual({ account: wallet.getAddress(), value: read.value });
+      expect(read).toEqual({ account: defaultAccountAddress, value: read.value });
     });
 
     it('private read of PublicImmutable', async () => {
@@ -156,7 +156,7 @@ describe('e2e_state_vars', () => {
       );
       const { value, owner } = await contract.methods.get_private_mutable().simulate({ from: defaultAccountAddress });
       expect(value).toEqual(VALUE);
-      expect(owner).toEqual(wallet.getAddress());
+      expect(owner).toEqual(defaultAccountAddress);
     });
 
     it('replace with same value', async () => {
@@ -198,7 +198,7 @@ describe('e2e_state_vars', () => {
 
       const { value, owner } = await contract.methods.get_private_mutable().simulate({ from: defaultAccountAddress });
       expect(value).toEqual(VALUE + 1n);
-      expect(owner).toEqual(wallet.getAddress());
+      expect(owner).toEqual(defaultAccountAddress);
     });
 
     it('replace PrivateMutable dependent on prior value', async () => {
@@ -216,7 +216,7 @@ describe('e2e_state_vars', () => {
 
       const { value, owner } = await contract.methods.get_private_mutable().simulate({ from: defaultAccountAddress });
       expect(value).toEqual(noteBefore.value + 1n);
-      expect(owner).toEqual(wallet.getAddress());
+      expect(owner).toEqual(defaultAccountAddress);
     });
   });
 
@@ -257,7 +257,7 @@ describe('e2e_state_vars', () => {
         .view_private_immutable()
         .simulate({ from: defaultAccountAddress });
       expect(value).toEqual(VALUE);
-      expect(owner).toEqual(wallet.getAddress());
+      expect(owner).toEqual(defaultAccountAddress);
     });
   });
 
@@ -274,7 +274,7 @@ describe('e2e_state_vars', () => {
 
     beforeAll(async () => {
       // We use the auth contract here because has a nice, clear, simple implementation of Delayed Public Mutable
-      authContract = await AuthContract.deploy(wallet, wallet.getAddress())
+      authContract = await AuthContract.deploy(wallet, defaultAccountAddress)
         .send({ from: defaultAccountAddress })
         .deployed();
 

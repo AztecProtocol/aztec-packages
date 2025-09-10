@@ -25,6 +25,7 @@
     "@aztec/accounts": "latest",
     "@aztec/aztec.js": "latest",
     "@aztec/constants": "latest",
+    "@aztec/entrypoints": "latest",
     "@aztec/foundation": "latest",
     "@aztec/kv-store": "latest",
     "@aztec/noir-contracts.js": "latest",
@@ -32,6 +33,7 @@
     "@aztec/stdlib": "latest"
   },
   "devDependencies": {
+    "@aztec/test-wallet": "latest",
     "@playwright/test": "1.49.0",
     "@types/node": "^22.15.17",
     "buffer": "^6.0.3",
