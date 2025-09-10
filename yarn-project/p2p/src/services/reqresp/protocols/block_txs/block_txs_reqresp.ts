@@ -26,12 +26,14 @@ export class BlockTxsRequest {
    *
    * @param: blockProposal - The block proposal for which we are making request
    * @param: missingTxHashes - Tx hashes from the proposal we are missing
+   * @param: includeFullTxHashes - Whether to include full list of missing tx hashes in the request or just Bitvector indices
    *
    * @returns undefined if there were no missingTxHashes matching BlockProposal hashes, otherwise
    * returns new BlockTxsRequest*/
   static fromBlockProposalAndMissingTxs(
     blockProposal: BlockProposal,
     missingTxHashes: TxHash[],
+    includeFullTxHashes = false,
   ): BlockTxsRequest | undefined {
     if (missingTxHashes.length === 0) {
       return undefined; // No missing txs to request
@@ -39,13 +41,19 @@ export class BlockTxsRequest {
 
     const missingHashesSet = new Set(missingTxHashes.map(t => t.toString()));
 
+    // We cannot request txs that are not part of the block proposal
+    if (!missingHashesSet.isSubsetOf(new Set(blockProposal.txHashes.map(t => t.toString())))) {
+      return undefined;
+    }
+
     const missingIndices = blockProposal.txHashes
       .map((hash, idx) => (missingHashesSet.has(hash.toString()) ? idx : -1))
       .filter(i => i != -1);
 
     const requestBitVector = BitVector.init(blockProposal.txHashes.length, missingIndices);
+    const hashes = includeFullTxHashes ? new TxHashArray(...missingTxHashes) : new TxHashArray();
 
-    return new BlockTxsRequest(blockProposal.archive, new TxHashArray(...missingTxHashes), requestBitVector);
+    return new BlockTxsRequest(blockProposal.archive, hashes, requestBitVector);
   }
 
   /**

@@ -228,7 +228,15 @@ export class BatchTxRequester {
       }
 
       const txs = chunks[idx].map(t => TxHash.fromString(t));
-      const blockRequest = BlockTxsRequest.fromBlockProposalAndMissingTxs(this.blockProposal, txs);
+
+      // If peer is dumb peer, we don't know yet if they received full blockProposal
+      // there is solid chance that peer didn't receive proposal yet, thus we must send full hashes
+      const includeFullHashesInRequestNotJustIndices = true;
+      const blockRequest = BlockTxsRequest.fromBlockProposalAndMissingTxs(
+        this.blockProposal,
+        txs,
+        includeFullHashesInRequestNotJustIndices,
+      );
       if (!blockRequest) {
         return undefined;
       }
@@ -545,6 +553,9 @@ export class BatchTxRequester {
       return;
     }
 
+    // If block response is invalid we still want to query this peer in the future
+    // Because they sent successful response, so they might become smart peer in the future
+    // Or send us needed txs
     if (!this.isBlockResponseValid(response)) {
       return;
     }

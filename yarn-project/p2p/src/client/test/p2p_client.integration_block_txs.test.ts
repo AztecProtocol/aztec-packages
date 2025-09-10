@@ -18,7 +18,6 @@ import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
 import type { AttestationPool } from '../../mem_pools/attestation_pool/attestation_pool.js';
 import type { TxPool } from '../../mem_pools/tx_pool/index.js';
 import { ReqRespSubProtocol } from '../../services/reqresp/interface.js';
-import { BitVector } from '../../services/reqresp/protocols/block_txs/bitvector.js';
 import { BlockTxsRequest, BlockTxsResponse } from '../../services/reqresp/protocols/block_txs/block_txs_reqresp.js';
 import { ReqRespStatus } from '../../services/reqresp/status.js';
 import { makeAndStartTestP2PClients } from '../../test-helpers/make-test-p2p-clients.js';
@@ -127,9 +126,13 @@ describe('p2p client integration block txs protocol ', () => {
     });
   };
 
-  const sendBlockTxsRequest = (blockProposal: BlockProposal, missingHashes: TxHash[]) => {
+  const sendBlockTxsRequest = (blockProposal: BlockProposal, missingHashes: TxHash[], includeFullTxHashes = false) => {
     const [client1, client2] = clients as any;
-    const request = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, missingHashes)!;
+    const request = BlockTxsRequest.fromBlockProposalAndMissingTxs(blockProposal, missingHashes, includeFullTxHashes);
+    if (!request) {
+      return undefined;
+    }
+
     return client1.p2pService.reqresp.sendRequestToPeer(
       client2.p2pService.node.peerId,
       ReqRespSubProtocol.BLOCK_TXS,
@@ -230,5 +233,177 @@ describe('p2p client integration block txs protocol ', () => {
     expect(blockTxsResponse.blockHash.equals(blockHash)).toBe(true);
     expect(blockTxsResponse.txs.length).toBe(0);
     expect(blockTxsResponse.txIndices.getTrueIndices()).toEqual([]);
+  });
+
+  it('responds with all requested txs when using includeFullTxHashes=true', async () => {
+    const hashToTx = new Map(txs.map((tx, i) => [txHashes[i].toString(), tx]));
+    txPool.getTxsByHash.mockImplementation((hashes: TxHash[]) =>
+      Promise.resolve(hashes.map(h => hashToTx.get(h.toString())!)),
+    );
+
+    txPool.hasTxs.mockImplementation((hashes: TxHash[]) => {
+      const txsInPool = new Set(hashToTx.keys());
+      return Promise.resolve(hashes.map(h => txsInPool.has(h.toString())));
+    });
+
+    const requestedIndices = [1, 3, 4];
+    const response = await sendBlockTxsRequest(
+      blockProposal,
+      txHashes.filter((_, i) => requestedIndices.includes(i)),
+      true, // includeFullTxHashes=true
+    );
+
+    expect(response.status).toBe(ReqRespStatus.SUCCESS);
+    const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
+    expect(blockTxsResponse.blockHash.equals(blockHash)).toBe(true);
+    expect(blockTxsResponse.txs.length).toBe(requestedIndices.length);
+    expect(blockTxsResponse.txIndices.getTrueIndices()).toEqual([0, 1, 2, 3, 4]);
+
+    const expectedHashes = requestedIndices.map(index => txHashes[index]);
+    const actualHashes = await Promise.all(blockTxsResponse.txs.map(tx => tx.getTxHash()));
+    expect(actualHashes).toEqual(expectedHashes);
+  });
+
+  it('responds with partial txs when peer has some and request uses full hashes', async () => {
+    const availableIndices = new Set([1, 3]); // Only have txs at indices 1 and 3
+    const hashToTx: Map<string, Tx> = new Map(
+      txs.map((tx, i) => [txHashes[i].toString(), tx] as [string, Tx]).filter((_, i) => availableIndices.has(i)),
+    );
+
+    txPool.getTxsByHash.mockImplementation((hashes: TxHash[]) => {
+      return Promise.resolve(
+        hashes.map(hash => {
+          return hashToTx.get(hash.toString());
+        }),
+      );
+    });
+
+    txPool.hasTxs.mockImplementation((hashes: TxHash[]) => {
+      const txsInPool = new Set(hashToTx.keys());
+      return Promise.resolve(hashes.map(h => txsInPool.has(h.toString())));
+    });
+
+    const requestedIndices = [0, 1, 3, 4]; // Request 4 txs but only 2 are available
+    const response = await sendBlockTxsRequest(
+      blockProposal,
+      txHashes.filter((_, i) => requestedIndices.includes(i)),
+      true, // includeFullTxHashes=true
+    );
+
+    expect(response.status).toBe(ReqRespStatus.SUCCESS);
+    const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
+    expect(blockTxsResponse.blockHash.equals(blockHash)).toBe(true);
+    expect(blockTxsResponse.txs.length).toBe(2); // Only 2 txs returned
+    expect(blockTxsResponse.txIndices.getTrueIndices()).toEqual([1, 3]); // Only indices 1 and 3 available
+
+    const expectedHashes = [1, 3].map(index => txHashes[index]);
+    const actualHashes = await Promise.all(blockTxsResponse.txs.map(tx => tx.getTxHash()));
+    expect(actualHashes).toEqual(expectedHashes);
+  });
+
+  it('handles empty request when using includeFullTxHashes=true', async () => {
+    txPool.getTxsByHash.mockResolvedValue([]);
+    txPool.hasTxs.mockImplementation((hashes: TxHash[]) => {
+      return Promise.resolve(hashes.map(_ => false));
+    });
+
+    const response = await sendBlockTxsRequest(blockProposal, [], true);
+
+    expect(response).not.toBeDefined();
+  });
+
+  it('responds with txs when peer does not have proposal but has txs (includeFullTxHashes=true)', async () => {
+    // Peer doesn't have the block proposal
+    attestationPool.getBlockProposal.mockResolvedValue(undefined);
+
+    // But peer has some of the requested txs in their pool
+    const availableTxs = [txs[1], txs[3]];
+    const availableHashes = [txHashes[1], txHashes[3]];
+    const hashToTx = new Map(availableTxs.map((tx, i) => [availableHashes[i].toString(), tx]));
+
+    txPool.getTxsByHash.mockImplementation((hashes: TxHash[]) => {
+      return Promise.resolve(hashes.map(hash => hashToTx.get(hash.toString())).filter(tx => tx !== undefined));
+    });
+
+    const requestedHashes = [txHashes[1], txHashes[3], txHashes[4]]; // Request 3, but only 2 available
+    const differentBlockProposal = createBlockProposal(blockNumber, Fr.random(), txHashes);
+    const response = await sendBlockTxsRequest(differentBlockProposal, requestedHashes, true);
+
+    expect(response.status).toBe(ReqRespStatus.SUCCESS);
+    const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
+
+    // When peer doesn't have proposal but has txs, it returns Fr.ZERO as blockHash
+    expect(blockTxsResponse.blockHash.equals(Fr.ZERO)).toBe(true);
+    expect(blockTxsResponse.txs.length).toBe(2); // Only 2 txs available
+    expect(blockTxsResponse.txIndices.getLength()).toBe(0); // Empty BitVector when no proposal
+
+    const actualHashes = await Promise.all(blockTxsResponse.txs.map(tx => tx.getTxHash()));
+    expect(actualHashes).toEqual([txHashes[1], txHashes[3]]);
+  });
+
+  it('responds with partial txs when peer does not have proposal (includeFullTxHashes=true)', async () => {
+    // Peer doesn't have the block proposal
+    attestationPool.getBlockProposal.mockResolvedValue(undefined);
+
+    // Peer has only one of the requested txs
+    const availableTx = txs[2];
+    const availableHash = txHashes[2];
+
+    txPool.getTxsByHash.mockImplementation((hashes: TxHash[]) => {
+      return Promise.resolve(
+        hashes.map(hash => (hash.equals(availableHash) ? availableTx : undefined)).filter(tx => tx !== undefined),
+      );
+    });
+
+    const requestedHashes = [txHashes[0], txHashes[2], txHashes[4]]; // Request 3, only 1 available
+    const differentBlockProposal = createBlockProposal(blockNumber, Fr.random(), txHashes);
+    const response = await sendBlockTxsRequest(differentBlockProposal, requestedHashes, true);
+
+    expect(response.status).toBe(ReqRespStatus.SUCCESS);
+    const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
+
+    expect(blockTxsResponse.blockHash.equals(Fr.ZERO)).toBe(true);
+    expect(blockTxsResponse.txs.length).toBe(1); // Only 1 tx available
+    expect(blockTxsResponse.txIndices.getLength()).toBe(0);
+
+    const actualHashes = await Promise.all(blockTxsResponse.txs.map(tx => tx.getTxHash()));
+    expect(actualHashes).toEqual([txHashes[2]]);
+  });
+
+  it('responds with empty txs when peer does not have proposal or txs (includeFullTxHashes=true)', async () => {
+    // Peer doesn't have the block proposal
+    attestationPool.getBlockProposal.mockResolvedValue(undefined);
+
+    // Peer also doesn't have any of the requested txs
+    txPool.getTxsByHash.mockResolvedValue([]);
+
+    const requestedHashes = [txHashes[0], txHashes[2], txHashes[4]];
+    const differentBlockProposal = createBlockProposal(blockNumber, Fr.random(), txHashes);
+    const response = await sendBlockTxsRequest(differentBlockProposal, requestedHashes, true);
+
+    expect(response.status).toBe(ReqRespStatus.SUCCESS);
+    const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
+
+    expect(blockTxsResponse.blockHash.equals(Fr.ZERO)).toBe(true);
+    expect(blockTxsResponse.txs.length).toBe(0); // No txs available
+    expect(blockTxsResponse.txIndices.getLength()).toBe(0);
+  });
+
+  it('still responds with NOT_FOUND when peer does not have proposal and includeFullTxHashes=false', async () => {
+    // Peer doesn't have the block proposal
+    attestationPool.getBlockProposal.mockResolvedValue(undefined);
+
+    // Even if peer has the txs in pool
+    const hashToTx = new Map(txs.map((tx, i) => [txHashes[i].toString(), tx]));
+    txPool.getTxsByHash.mockImplementation((hashes: TxHash[]) =>
+      Promise.resolve(hashes.map(h => hashToTx.get(h.toString())!)),
+    );
+
+    const requestedHashes = [txHashes[1], txHashes[3]];
+    const differentBlockProposal = createBlockProposal(blockNumber, Fr.random(), txHashes);
+    const response = await sendBlockTxsRequest(differentBlockProposal, requestedHashes, false); // includeFullTxHashes=false
+
+    // Should get NOT_FOUND because without full tx hashes, handler can't return txs without proposal
+    expect(response.status).toBe(ReqRespStatus.NOT_FOUND);
   });
 });
