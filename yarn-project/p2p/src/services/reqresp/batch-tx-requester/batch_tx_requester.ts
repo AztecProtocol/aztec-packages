@@ -301,7 +301,6 @@ export class BatchTxRequester {
           continue;
         }
 
-        //TODO: check this, this should only happen in case something bad happened
         const { blockRequest, txs } = nextBatchTxRequest;
 
         this.logger.debug(
@@ -577,7 +576,6 @@ export class BatchTxRequester {
   }
 
   private isBlockResponseValid(response: BlockTxsResponse): boolean {
-    //TODO: should we  ban peer if this does not match?
     const blockIdsMatch = this.blockProposal.archive.toString() === response.blockHash.toString();
     const peerHasSomeTxsFromProposal = !response.txIndices.isEmpty();
     return blockIdsMatch && peerHasSomeTxsFromProposal;
