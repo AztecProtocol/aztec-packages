@@ -173,7 +173,8 @@ template <typename FF_> class DatabusLookupRelationImpl {
      * @details This is needed for efficiency since we don't need to compute the inverse unless the log derivative
      * lookup relation is active at a given row.
      * we skip the inverse computation for all the rows that read_count_i == 0 AND read_selector is 0
-     * @note read_counts is constructed such that read_count_i <= 1 and is thus treated as boolean.
+     * @note read_tag is constructed such that read_tag_i = 1 or 0. We add a subrelation to check that read_tag is a
+     * boolean value
      *
      */
     template <typename Accumulator, size_t bus_idx, typename AllEntities>
