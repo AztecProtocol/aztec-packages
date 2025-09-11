@@ -288,10 +288,9 @@ pub(crate) comptime fn transform_utility(f: FunctionDefinition) {
     // Create utility context
     let context_creation =
         quote { let mut context = dep::aztec::context::utility_context::UtilityContext::new(); };
-    let module_has_storage = module_has_storage(f.module());
 
     // Initialize Storage if module has storage
-    let storage_init = if module_has_storage {
+    let storage_init = if module_has_storage(f.module()) {
         quote {
             // Some functions don't access storage, but it'd be quite difficult to only inject this variable if it is
             // referenced. We instead ignore 'unused variable' warnings for it.
