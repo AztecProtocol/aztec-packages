@@ -1002,7 +1002,7 @@ void Execution::emit_unencrypted_log(ContextInterface& context, MemoryAddress lo
     set_and_validate_inputs(opcode, { first_field, log_size });
     uint32_t log_size_int = log_size.as<uint32_t>();
 
-    get_gas_tracker().consume_gas({ .daGas = log_size_int });
+    get_gas_tracker().consume_gas({ .l2Gas = log_size_int, .daGas = log_size_int });
 
     // Call the dedicated opcode component to emit the log
     try {

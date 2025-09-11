@@ -1154,7 +1154,7 @@ TEST_F(ExecutionSimulationTest, EmitUnencryptedLog)
 
     EXPECT_CALL(emit_unencrypted_log, emit_unencrypted_log(_, _, address, log_offset, log_size.as<uint32_t>()));
 
-    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, log_size.as<uint32_t>() }));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ log_size.as<uint32_t>(), log_size.as<uint32_t>() }));
 
     execution.emit_unencrypted_log(context, log_offset, log_size_offset);
 }
