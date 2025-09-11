@@ -398,7 +398,7 @@ export class SequencerPublisher {
     }
 
     const request = this.buildInvalidateBlockRequest(validationResult);
-    this.log.debug(`Simulating invalidate block ${blockNumber}`, logData);
+    this.log.debug(`Simulating invalidate block ${blockNumber}`, { ...logData, request });
 
     try {
       const { gasUsed } = await this.l1TxUtils.simulate(request, undefined, undefined, ErrorsAbi);
