@@ -1697,13 +1697,7 @@
       }
     },
     "endGasUsed": { "daGas": 0, "l2Gas": 75 },
-    "accumulatedDataArrayLengths": {
-      "noteHashes": 0,
-      "nullifiers": 1,
-      "l2ToL1Msgs": 0,
-      "publicLogs": 0,
-      "publicDataWrites": 1
-    },
+    "accumulatedDataArrayLengths": { "noteHashes": 0, "nullifiers": 1, "l2ToL1Msgs": 0, "publicDataWrites": 1 },
     "accumulatedData": {
       "noteHashes": [
         "0x0000000000000000000000000000000000000000000000000000000000000000",
