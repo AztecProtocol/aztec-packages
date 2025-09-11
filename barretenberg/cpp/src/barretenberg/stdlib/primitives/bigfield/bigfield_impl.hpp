@@ -223,6 +223,8 @@ template <typename Builder, typename T> bigfield<Builder, T>::bigfield(const byt
         const uint256_t hi_nibble_shift = uint256_t(1) << 4;
         const field_t<Builder> sum = lo_nibble + (hi_nibble * hi_nibble_shift);
         sum.assert_equal(split_byte);
+        lo_nibble.set_origin_tag(split_byte.tag);
+        hi_nibble.set_origin_tag(split_byte.tag);
         return std::make_pair(lo_nibble, hi_nibble);
     };
 
@@ -1892,7 +1894,6 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_t
 template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(const bigfield& other) const
 {
     Builder* ctx = this->context ? this->context : other.context;
-    (void)OriginTag(get_origin_tag(), other.get_origin_tag());
     if (is_constant() && other.is_constant()) {
         std::cerr << "bigfield: calling assert equal on 2 CONSTANT bigfield elements...is this intended?" << std::endl;
         BB_ASSERT_EQ(get_value(), other.get_value(), "We expect constants to be less than the target modulus");
@@ -1922,6 +1923,12 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(
         return;
     } else {
 
+        // Remove tags, we don't want to cause violations on assert_equal
+        const auto original_tag = get_origin_tag();
+        const auto other_original_tag = other.get_origin_tag();
+        set_origin_tag(OriginTag());
+        other.set_origin_tag(OriginTag());
+
         bigfield diff = *this - other;
         const uint512_t diff_val = diff.get_value();
         const uint512_t modulus(target_basis.modulus);
@@ -1938,6 +1945,10 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(
                             false,
                             num_quotient_bits);
         unsafe_evaluate_multiply_add(diff, { one() }, {}, quotient, { zero() });
+
+        // Restore tags
+        set_origin_tag(original_tag);
+        other.set_origin_tag(other_original_tag);
     }
 }
 

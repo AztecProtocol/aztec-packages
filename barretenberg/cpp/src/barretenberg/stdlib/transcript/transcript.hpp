@@ -22,7 +22,6 @@ template <typename Builder> struct StdlibTranscriptParams {
     {
 
         ASSERT(!data.empty());
-
         return stdlib::poseidon2<Builder>::hash(data);
     }
     /**
