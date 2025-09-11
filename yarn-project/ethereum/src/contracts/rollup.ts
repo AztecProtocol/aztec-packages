@@ -227,6 +227,11 @@ export class RollupContract {
   }
 
   @memoize
+  getLagInEpochs() {
+    return this.rollup.read.getLagInEpochs();
+  }
+
+  @memoize
   getActivationThreshold() {
     return this.rollup.read.getActivationThreshold();
   }
