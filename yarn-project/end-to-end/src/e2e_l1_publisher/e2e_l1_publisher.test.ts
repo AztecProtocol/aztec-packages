@@ -444,7 +444,8 @@ describe('L1Publisher integration', () => {
         const thisBlockNumber = BigInt(block.header.globalVariables.blockNumber);
         const isFirstBlockOfEpoch =
           thisBlockNumber == 1n ||
-          (await rollup.getEpochNumber(thisBlockNumber)) > (await rollup.getEpochNumber(thisBlockNumber - 1n));
+          (await rollup.getEpochNumberForBlock(thisBlockNumber)) >
+            (await rollup.getEpochNumberForBlock(thisBlockNumber - 1n));
         // If we are at the first blob of the epoch, we must initialize the hash:
         prevBlobAccumulatorHash = isFirstBlockOfEpoch ? Buffer.alloc(0) : prevBlobAccumulatorHash;
         const currentBlobAccumulatorHash = hexToBuffer(await rollup.getCurrentBlobCommitmentsHash());
