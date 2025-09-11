@@ -210,8 +210,9 @@ export async function awaitCommitteeKicked({
 
   logger.info(`Advancing epochs so we start slashing`);
   await cheatCodes.debugRollup();
-  await cheatCodes.advanceToNextEpoch({ updateDateProvider: dateProvider });
-  await cheatCodes.advanceToNextEpoch({ updateDateProvider: dateProvider });
+  await cheatCodes.advanceToEpoch((await cheatCodes.getEpoch()) + (await rollup.getLagInEpochs()) + 1n, {
+    updateDateProvider: dateProvider,
+  });
 
   // Await for the slash payload to be created if empire (no payload is created on tally until execution time)
   if (slashingProposer.type === 'empire') {
@@ -256,10 +257,11 @@ export async function awaitCommitteeKicked({
     expect(attesterInfo.status).toEqual(2); // Living
   }
 
-  logger.info(`Advancing two epochs to check current committee`);
+  logger.info(`Advancing to check current committee`);
   await cheatCodes.debugRollup();
-  await cheatCodes.advanceToNextEpoch({ updateDateProvider: dateProvider });
-  await cheatCodes.advanceToNextEpoch({ updateDateProvider: dateProvider });
+  await cheatCodes.advanceToEpoch((await cheatCodes.getEpoch()) + (await rollup.getLagInEpochs()) + 1n, {
+    updateDateProvider: dateProvider,
+  });
   await cheatCodes.debugRollup();
 
   const committeeNextEpoch = await rollup.getCurrentEpochCommittee();

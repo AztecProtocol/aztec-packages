@@ -530,6 +530,7 @@ export const deployRollup = async (
     aztecSlotDuration: BigInt(args.aztecSlotDuration),
     aztecEpochDuration: BigInt(args.aztecEpochDuration),
     targetCommitteeSize: BigInt(args.aztecTargetCommitteeSize),
+    lagInEpochs: BigInt(args.lagInEpochs),
     aztecProofSubmissionEpochs: BigInt(args.aztecProofSubmissionEpochs),
     slashingQuorum: BigInt(args.slashingQuorum ?? (args.slashingRoundSizeInEpochs * args.aztecEpochDuration) / 2 + 1),
     slashingRoundSize: BigInt(args.slashingRoundSizeInEpochs * args.aztecEpochDuration),

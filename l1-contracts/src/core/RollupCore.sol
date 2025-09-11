@@ -272,7 +272,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     StakingLib.initialize(
       _stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig, _config.localEjectionThreshold
     );
-    ValidatorOperationsExtLib.initializeValidatorSelection(_config.targetCommitteeSize);
+    ValidatorOperationsExtLib.initializeValidatorSelection(_config.targetCommitteeSize, _config.lagInEpochs);
 
     // If no booster is specifically provided, deploy one.
     if (address(_config.rewardConfig.booster) == address(0)) {
