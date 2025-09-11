@@ -601,7 +601,7 @@ class TranslatorFlavor {
       public:
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
 
-        auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); };
+        auto get_precomputed() const { return PrecomputedEntities<DataType>::get_all(); };
 
         /**
          * @brief Getter for entities constructed by interleaving
