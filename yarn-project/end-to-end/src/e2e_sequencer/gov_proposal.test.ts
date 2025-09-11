@@ -87,8 +87,6 @@ describe('e2e_gov_proposal', () => {
       // gas cost of a proposal, which has triggered oog errors in the past.
       const testContract = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
 
-      await cheatCodes.rollup.advanceToEpoch(2n, { updateDateProvider: dateProvider });
-
       await aztecNodeAdmin!.setConfig({
         governanceProposerPayload: newGovernanceProposerAddress,
         maxTxsPerBlock: TXS_PER_BLOCK,

@@ -20,7 +20,7 @@ jest.setTimeout(1000 * 60 * 10);
 const NODE_COUNT = 8;
 const COMMITTEE_SIZE = 3;
 const TX_COUNT = 2;
-const EPOCH = 3n;
+const EPOCH = 4n;
 
 // Spawns NODE_COUNT validator nodes, connected via a mocked gossip sub network, but sets
 // committee size to 3. Warps to immediately before the beginning of an epoch, and checks

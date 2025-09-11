@@ -263,7 +263,9 @@ describe('L1Publisher integration', () => {
     baseFee = new GasFees(0, await rollup.getManaBaseFeeAt(ts, true));
 
     // We jump two epochs such that the committee can be setup.
-    await rollupCheatCodes.advanceToEpoch(2n, { updateDateProvider: dateProvider });
+    await rollupCheatCodes.advanceToEpoch(BigInt(config.lagInEpochs + 1), {
+      updateDateProvider: dateProvider,
+    });
     await rollupCheatCodes.setupEpoch();
 
     ({ committee } = await epochCache.getCommittee());

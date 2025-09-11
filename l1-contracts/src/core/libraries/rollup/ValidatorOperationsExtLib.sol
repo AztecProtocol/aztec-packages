@@ -66,8 +66,8 @@ library ValidatorOperationsExtLib {
     StakingLib.finalizeWithdraw(_attester);
   }
 
-  function initializeValidatorSelection(uint256 _targetCommitteeSize) external {
-    ValidatorSelectionLib.initialize(_targetCommitteeSize);
+  function initializeValidatorSelection(uint256 _targetCommitteeSize, uint256 _lagInEpochs) external {
+    ValidatorSelectionLib.initialize(_targetCommitteeSize, _lagInEpochs);
   }
 
   function setupEpoch() external {
@@ -123,6 +123,14 @@ library ValidatorOperationsExtLib {
 
   function getSampleSeedAt(Epoch _epoch) external view returns (uint256) {
     return ValidatorSelectionLib.getSampleSeed(_epoch);
+  }
+
+  function getSamplingSizeAt(Epoch _epoch) external view returns (uint256) {
+    return ValidatorSelectionLib.getSamplingSize(_epoch);
+  }
+
+  function getLagInEpochs() external view returns (uint256) {
+    return ValidatorSelectionLib.getLagInEpochs();
   }
 
   function getTargetCommitteeSize() external view returns (uint256) {
