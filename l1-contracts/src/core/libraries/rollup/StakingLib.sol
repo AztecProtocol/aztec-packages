@@ -84,6 +84,7 @@ struct StakingStorage {
   CompressedStakingQueueConfig queueConfig;
   StakingQueue entryQueue;
   Epoch nextFlushableEpoch;
+  uint256 localEjectionThreshold;
 }
 
 library StakingLib {
@@ -103,7 +104,8 @@ library StakingLib {
     GSE _gse,
     Timestamp _exitDelay,
     address _slasher,
-    StakingQueueConfig memory _config
+    StakingQueueConfig memory _config,
+    uint256 _localEjectionThreshold
   ) internal {
     StakingStorage storage store = getStorage();
     store.stakingAsset = _stakingAsset;
@@ -112,6 +114,7 @@ library StakingLib {
     store.slasher = _slasher;
     store.queueConfig = _config.compress();
     store.entryQueue.init();
+    store.localEjectionThreshold = _localEjectionThreshold;
   }
 
   function setSlasher(address _slasher) internal {
@@ -121,6 +124,15 @@ library StakingLib {
     store.slasher = _slasher;
 
     emit IStakingCore.SlasherUpdated(oldSlasher, _slasher);
+  }
+
+  function setLocalEjectionThreshold(uint256 _localEjectionThreshold) internal {
+    StakingStorage storage store = getStorage();
+
+    uint256 oldLocalEjectionThreshold = store.localEjectionThreshold;
+    store.localEjectionThreshold = _localEjectionThreshold;
+
+    emit IStakingCore.LocalEjectionThresholdUpdated(oldLocalEjectionThreshold, _localEjectionThreshold);
   }
 
   /**
@@ -231,8 +243,11 @@ library StakingLib {
 
       // If the slash amount is greater than the effective balance, bound it to the effective balance
       uint256 slashAmount = Math.min(_amount, effectiveBalance);
+      // The `localEjectionThreshold` might be stricter (larger) than the global (gse ejection threshold)
+      uint256 toWithdraw =
+        effectiveBalance - slashAmount < store.localEjectionThreshold ? effectiveBalance : slashAmount;
 
-      (uint256 amountWithdrawn, bool isRemoved, uint256 withdrawalId) = store.gse.withdraw(_attester, slashAmount);
+      (uint256 amountWithdrawn, bool isRemoved, uint256 withdrawalId) = store.gse.withdraw(_attester, toWithdraw);
 
       // The slashed amount remains in the contract permanently, effectively burning those tokens.
       uint256 toUser = amountWithdrawn - slashAmount;

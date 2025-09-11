@@ -31,6 +31,7 @@ fn main() -> Result<(), io::Error> {
 
     let file_name = args.file;
     let name = args.name.unwrap();
+    println!("Analyzing PIL file: {}", file_name);
     let analyzed: Analyzed<Bn254Field> = analyze_file(Path::new(&file_name));
 
     analyzed_to_cpp(&analyzed, args.output_directory.as_deref(), &name, args.yes);

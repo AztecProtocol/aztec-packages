@@ -28,11 +28,11 @@ export circuits_hash=$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-project
 
 # Circuits matching these patterns we have client-ivc keys computed, rather than ultra-honk.
 readarray -t ivc_patterns < <(jq -r '.[]' "../client_ivc_circuits.json")
-readarray -t ivc_tail_patterns < <(jq -r '.[]' "../client_ivc_tail_circuits.json")
+ivc_hiding_pattern=("hiding")
 readarray -t rollup_honk_patterns < <(jq -r '.[]' "../rollup_honk_circuits.json")
 # Convert to regex string here and export for use in exported functions.
 export ivc_regex=$(IFS="|"; echo "${ivc_patterns[*]}")
-export ivc_tail_regex=$(IFS="|"; echo "${ivc_tail_patterns[*]}")
+export hiding_kernel_regex=$(IFS="|"; echo "${ivc_hiding_pattern[*]}")
 export rollup_honk_regex=$(IFS="|"; echo "${rollup_honk_patterns[*]}")
 
 function on_exit {
@@ -90,7 +90,7 @@ function compile {
     local outdir=$(mktemp -d)
     trap "rm -rf $outdir" EXIT
     function write_vk {
-      if echo "$name" | grep -qE "${ivc_tail_regex}"; then
+      if echo "$name" | grep -qE "${hiding_kernel_regex}"; then
         # We still need the standalone IVC vk. We also create the final IVC vk from the tail (specifically, the number of public inputs is used from it).
         denoise "$BB write_vk --scheme client_ivc --verifier_type standalone_hiding -b - -o $outdir"
       elif echo "$name" | grep -qE "${ivc_regex}"; then
@@ -130,7 +130,7 @@ function compile {
       echo_stderr "Root rollup verifier at: $verifier_path (${SECONDS}s)"
       # Include the verifier path if we create it.
       cache_upload vk-$hash.tar.gz $key_path $verifier_path &> /dev/null
-    elif echo "$name" | grep -qE "${ivc_tail_regex}"; then
+    elif echo "$name" | grep -qE "${hiding_kernel_regex}"; then
       # If we are a tail kernel circuit, we also need to generate the ivc vk.
       SECONDS=0
       local ivc_vk_path="$key_dir/${name}.ivc.vk"

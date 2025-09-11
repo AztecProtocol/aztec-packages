@@ -606,19 +606,6 @@ template <typename TranscriptParams> class BaseTranscript {
         BB_ASSERT_LTE(num_frs_read + element_size, proof_data.size());
 
         auto element_frs = std::span{ proof_data }.subspan(num_frs_read, element_size);
-        num_frs_read += element_size;
-
-        BaseTranscript::add_element_frs_to_hash_buffer(label, element_frs);
-
-        auto element = TranscriptParams::template deserialize<T>(element_frs);
-        DEBUG_LOG(label, element);
-
-#ifdef LOG_INTERACTIONS
-        if constexpr (Loggable<T>) {
-            info("received: ", label, ": ", element);
-        }
-#endif
-
         // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
         if constexpr (in_circuit) {
             // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
@@ -627,16 +614,38 @@ template <typename TranscriptParams> class BaseTranscript {
                 reception_phase = true;
                 round_index++;
             }
-            // If the element is iterable, then we need to assign origin tags to all the elements
-            if constexpr (is_iterable_v<T>) {
-                for (auto& subelement : element) {
-                    subelement.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
-                }
-            } else {
-                // If the element is not iterable, then we need to assign an origin tag to the element
-                element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
+            // Assign an origin tag to the elements going into the hash buffer
+            const auto element_origin_tag = OriginTag(transcript_index, round_index, /*is_submitted=*/true);
+            for (auto& subelement : element_frs) {
+                subelement.set_origin_tag(element_origin_tag);
             }
         }
+        num_frs_read += element_size;
+
+        BaseTranscript::add_element_frs_to_hash_buffer(label, element_frs);
+
+        auto element = TranscriptParams::template deserialize<T>(element_frs);
+        DEBUG_LOG(label, element);
+
+        // Ensure that the element got assigned an origin tag
+        if constexpr (in_circuit) {
+            const auto element_origin_tag = OriginTag(transcript_index, round_index, /*is_submitted=*/true);
+            // If the element is iterable, then we need to check origin tags to all the elements
+            if constexpr (is_iterable_v<T>) {
+                for (auto& subelement : element) {
+                    ASSERT(subelement.get_origin_tag() == element_origin_tag);
+                }
+            } else {
+                // If the element is not iterable, then we need to check an origin tag of the element
+                ASSERT(element.get_origin_tag() == element_origin_tag);
+            }
+        }
+#ifdef LOG_INTERACTIONS
+        if constexpr (Loggable<T>) {
+            info("received: ", label, ": ", element);
+        }
+#endif
+
         return element;
     }
 

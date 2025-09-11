@@ -1,11 +1,11 @@
-import { type AccountWallet, type AztecAddress, Fr, type Logger } from '@aztec/aztec.js';
+import { type AztecAddress, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
 import { PrivateVotingContract } from '@aztec/noir-contracts.js/PrivateVoting';
 import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
 
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_voting_contract', () => {
-  let wallet: AccountWallet;
+  let wallet: Wallet;
 
   let logger: Logger;
   let teardown: () => Promise<void>;

@@ -34,7 +34,8 @@ pub contract Test {
             traits::{Hash, Packable, Serialize},
         },
         // Event related
-        event::event_interface::{emit_event_in_private, MessageDelivery},
+        event::event_emission::emit_event_in_private,
+        messages::message_delivery::MessageDelivery,
         // Hashing
         hash::{ArgsHasher, pedersen_hash},
         // History and inclusion proofs

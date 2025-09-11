@@ -37,39 +37,6 @@ template <typename FF> class memory : public Relation<memoryImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "memory";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 46:
-            return "MEM_CONTIGUOUS";
-        case 47:
-            return "SEL_RNG_CHK";
-        case 48:
-            return "GLOBAL_ADDR";
-        case 49:
-            return "TIMESTAMP";
-        case 50:
-            return "LAST_ACCESS";
-        case 51:
-            return "DIFF";
-        case 52:
-            return "DIFF_DECOMP";
-        case 53:
-            return "MEMORY_INIT_VALUE";
-        case 54:
-            return "MEMORY_INIT_TAG";
-        case 55:
-            return "READ_WRITE_CONSISTENCY_VALUE";
-        case 56:
-            return "READ_WRITE_CONSISTENCY_TAG";
-        case 57:
-            return "TAG_IS_FF";
-        case 58:
-            return "SEL_RNG_WRITE";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_MEM_CONTIGUOUS = 46;
     static constexpr size_t SR_SEL_RNG_CHK = 47;
@@ -84,6 +51,39 @@ template <typename FF> class memory : public Relation<memoryImpl<FF>> {
     static constexpr size_t SR_READ_WRITE_CONSISTENCY_TAG = 56;
     static constexpr size_t SR_TAG_IS_FF = 57;
     static constexpr size_t SR_SEL_RNG_WRITE = 58;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_MEM_CONTIGUOUS:
+            return "MEM_CONTIGUOUS";
+        case SR_SEL_RNG_CHK:
+            return "SEL_RNG_CHK";
+        case SR_GLOBAL_ADDR:
+            return "GLOBAL_ADDR";
+        case SR_TIMESTAMP:
+            return "TIMESTAMP";
+        case SR_LAST_ACCESS:
+            return "LAST_ACCESS";
+        case SR_DIFF:
+            return "DIFF";
+        case SR_DIFF_DECOMP:
+            return "DIFF_DECOMP";
+        case SR_MEMORY_INIT_VALUE:
+            return "MEMORY_INIT_VALUE";
+        case SR_MEMORY_INIT_TAG:
+            return "MEMORY_INIT_TAG";
+        case SR_READ_WRITE_CONSISTENCY_VALUE:
+            return "READ_WRITE_CONSISTENCY_VALUE";
+        case SR_READ_WRITE_CONSISTENCY_TAG:
+            return "READ_WRITE_CONSISTENCY_TAG";
+        case SR_TAG_IS_FF:
+            return "TAG_IS_FF";
+        case SR_SEL_RNG_WRITE:
+            return "SEL_RNG_WRITE";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

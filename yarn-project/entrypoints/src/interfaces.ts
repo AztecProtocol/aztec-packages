@@ -65,9 +65,8 @@ export interface FeePaymentMethod {
   getExecutionPayload(gasSettings: GasSettings): Promise<ExecutionPayload>;
   /**
    * The expected fee payer for this tx.
-   * @param gasSettings - The gas limits and max fees.
    */
-  getFeePayer(gasSettings: GasSettings): Promise<AztecAddress>;
+  getFeePayer(): Promise<AztecAddress>;
 }
 
 /**

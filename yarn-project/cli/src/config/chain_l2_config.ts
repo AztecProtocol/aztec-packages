@@ -34,109 +34,7 @@ export type L2ChainConfig = L1ContractsConfig &
     sentinelEnabled: boolean;
   };
 
-export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
-  l1ChainId: 11155111,
-  testAccounts: true,
-  sponsoredFPC: false,
-  p2pEnabled: true,
-  p2pBootstrapNodes: [],
-  registryAddress: '0xf299347e765cfb27f913bde8e4983fd0f195676f',
-  slashFactoryAddress: '',
-  feeAssetHandlerAddress: '',
-  seqMinTxsPerBlock: 0,
-  seqMaxTxsPerBlock: 0,
-  realProofs: true,
-  snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/staging-ignition/',
-  autoUpdate: 'config-and-version',
-  autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-ignition.json',
-  maxTxPoolSize: 100_000_000, // 100MB
-  publicIncludeMetrics,
-  publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
-  publicMetricsCollectFrom: ['sequencer'],
-
-  ...DefaultL1ContractsConfig,
-
-  /** How many seconds an L1 slot lasts. */
-  ethereumSlotDuration: 12,
-  /** How many seconds an L2 slots lasts (must be multiple of ethereum slot duration). */
-  aztecSlotDuration: 36,
-  /** How many L2 slots an epoch lasts. */
-  aztecEpochDuration: 32,
-  /** The target validator committee size. */
-  aztecTargetCommitteeSize: 48,
-  /** The number of epochs after an epoch ends that proofs are still accepted. */
-  aztecProofSubmissionEpochs: 1,
-  /** The mana target for the rollup */
-  manaTarget: 0n,
-  /** The proving cost per mana */
-  provingCostPerMana: 0n,
-
-  slasherFlavor: 'none',
-  slashAmountSmall: 0n,
-  slashAmountMedium: 0n,
-  slashAmountLarge: 0n,
-  slashMinPenaltyPercentage: 0.5,
-  slashMaxPenaltyPercentage: 200,
-  slashInactivityTargetPercentage: 0,
-  slashInactivityConsecutiveEpochThreshold: 1,
-  slashInactivityPenalty: 0n,
-  slashPrunePenalty: 0n,
-  slashDataWithholdingPenalty: 0n,
-  slashProposeInvalidAttestationsPenalty: 0n,
-  slashAttestDescendantOfInvalidPenalty: 0n,
-  slashBroadcastedInvalidBlockPenalty: 0n,
-  slashMaxPayloadSize: 50,
-  slashGracePeriodL2Slots: 0,
-  slashUnknownPenalty: 0n,
-  slashOffenseExpirationRounds: 10,
-  sentinelEnabled: false,
-};
-
-export const stagingPublicL2ChainConfig: L2ChainConfig = {
-  l1ChainId: 11155111,
-  testAccounts: false,
-  sponsoredFPC: true,
-  p2pEnabled: true,
-  p2pBootstrapNodes: [],
-  registryAddress: '0x2e48addca360da61e4d6c21ff2b1961af56eb83b',
-  slashFactoryAddress: '0xe19410632fd00695bc5a08dd82044b7b26317742',
-  feeAssetHandlerAddress: '0xb46dc3d91f849999330b6dd93473fa29fc45b076',
-  seqMinTxsPerBlock: 0,
-  seqMaxTxsPerBlock: 20,
-  realProofs: true,
-  snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/staging-public/',
-  autoUpdate: 'config-and-version',
-  autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-public.json',
-  publicIncludeMetrics,
-  publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
-  publicMetricsCollectFrom: ['sequencer'],
-  maxTxPoolSize: 100_000_000, // 100MB
-
-  // Deployment stuff
-  /** How many seconds an L1 slot lasts. */
-  ethereumSlotDuration: 12,
-  /** How many seconds an L2 slots lasts (must be multiple of ethereum slot duration). */
-  aztecSlotDuration: 36,
-  /** How many L2 slots an epoch lasts. */
-  aztecEpochDuration: 32,
-  /** The target validator committee size. */
-  aztecTargetCommitteeSize: 48,
-  /** The number of epochs after an epoch ends that proofs are still accepted. */
-  aztecProofSubmissionEpochs: 1,
-  /** The deposit amount for a validator */
-  activationThreshold: DefaultL1ContractsConfig.activationThreshold,
-  /** The minimum stake for a validator. */
-  ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
-  /** The slashing round size */
-  slashingRoundSizeInEpochs: DefaultL1ContractsConfig.slashingRoundSizeInEpochs,
-  /** Governance proposing round size */
-  governanceProposerRoundSize: DefaultL1ContractsConfig.governanceProposerRoundSize,
-  /** The mana target for the rollup */
-  manaTarget: DefaultL1ContractsConfig.manaTarget,
-  /** The proving cost per mana */
-  provingCostPerMana: DefaultL1ContractsConfig.provingCostPerMana,
-  /** Exit delay for stakers */
-  exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
+const DefaultSlashConfig = {
   /** Tally-style slashing */
   slasherFlavor: 'tally',
   /** Allow one round for vetoing */
@@ -168,6 +66,96 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   slashGracePeriodL2Slots: 32 * 2, // Two epochs from genesis
   slashOffenseExpirationRounds: 8,
   sentinelEnabled: true,
+} satisfies Partial<L2ChainConfig>;
+
+export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
+  l1ChainId: 11155111,
+  testAccounts: true,
+  sponsoredFPC: false,
+  p2pEnabled: true,
+  p2pBootstrapNodes: [],
+  registryAddress: '0xf299347e765cfb27f913bde8e4983fd0f195676f',
+  slashFactoryAddress: '',
+  feeAssetHandlerAddress: '',
+  seqMinTxsPerBlock: 0,
+  seqMaxTxsPerBlock: 0,
+  realProofs: true,
+  snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/staging-ignition/',
+  autoUpdate: 'config-and-version',
+  autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-ignition.json',
+  maxTxPoolSize: 100_000_000, // 100MB
+  publicIncludeMetrics,
+  publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
+  publicMetricsCollectFrom: ['sequencer'],
+
+  ...DefaultL1ContractsConfig,
+  ...DefaultSlashConfig,
+
+  /** How many seconds an L1 slot lasts. */
+  ethereumSlotDuration: 12,
+  /** How many seconds an L2 slots lasts (must be multiple of ethereum slot duration). */
+  aztecSlotDuration: 36,
+  /** How many L2 slots an epoch lasts. */
+  aztecEpochDuration: 32,
+  /** The target validator committee size. */
+  aztecTargetCommitteeSize: 48,
+  /** The number of epochs after an epoch ends that proofs are still accepted. */
+  aztecProofSubmissionEpochs: 1,
+  /** The mana target for the rollup */
+  manaTarget: 0n,
+  /** The proving cost per mana */
+  provingCostPerMana: 0n,
+};
+
+export const stagingPublicL2ChainConfig: L2ChainConfig = {
+  l1ChainId: 11155111,
+  testAccounts: false,
+  sponsoredFPC: true,
+  p2pEnabled: true,
+  p2pBootstrapNodes: [],
+  registryAddress: '0x2e48addca360da61e4d6c21ff2b1961af56eb83b',
+  slashFactoryAddress: '0xe19410632fd00695bc5a08dd82044b7b26317742',
+  feeAssetHandlerAddress: '0xb46dc3d91f849999330b6dd93473fa29fc45b076',
+  seqMinTxsPerBlock: 0,
+  seqMaxTxsPerBlock: 20,
+  realProofs: true,
+  snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/staging-public/',
+  autoUpdate: 'config-and-version',
+  autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-public.json',
+  publicIncludeMetrics,
+  publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
+  publicMetricsCollectFrom: ['sequencer'],
+  maxTxPoolSize: 100_000_000, // 100MB
+
+  // Deployment stuff
+  /** How many seconds an L1 slot lasts. */
+  ethereumSlotDuration: 12,
+  /** How many seconds an L2 slots lasts (must be multiple of ethereum slot duration). */
+  aztecSlotDuration: 36,
+  /** How many L2 slots an epoch lasts. */
+  aztecEpochDuration: 32,
+  /** The target validator committee size. */
+  aztecTargetCommitteeSize: 48,
+  /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
+  localEjectionThreshold: DefaultL1ContractsConfig.localEjectionThreshold,
+  /** The number of epochs after an epoch ends that proofs are still accepted. */
+  aztecProofSubmissionEpochs: 1,
+  /** The deposit amount for a validator */
+  activationThreshold: DefaultL1ContractsConfig.activationThreshold,
+  /** The minimum stake for a validator. */
+  ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
+  /** The slashing round size */
+  slashingRoundSizeInEpochs: DefaultL1ContractsConfig.slashingRoundSizeInEpochs,
+  /** Governance proposing round size */
+  governanceProposerRoundSize: DefaultL1ContractsConfig.governanceProposerRoundSize,
+  /** The mana target for the rollup */
+  manaTarget: DefaultL1ContractsConfig.manaTarget,
+  /** The proving cost per mana */
+  provingCostPerMana: DefaultL1ContractsConfig.provingCostPerMana,
+  /** Exit delay for stakers */
+  exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
+
+  ...DefaultSlashConfig,
 };
 
 export const testnetL2ChainConfig: L2ChainConfig = {
@@ -205,6 +193,8 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   activationThreshold: DefaultL1ContractsConfig.activationThreshold,
   /** The minimum stake for a validator. */
   ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
+  /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
+  localEjectionThreshold: DefaultL1ContractsConfig.localEjectionThreshold,
   /** The slashing round size */
   slashingRoundSizeInEpochs: DefaultL1ContractsConfig.slashingRoundSizeInEpochs,
   /** Governance proposing round size */
@@ -215,37 +205,8 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   provingCostPerMana: DefaultL1ContractsConfig.provingCostPerMana,
   /** Exit delay for stakers */
   exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
-  /** Tally-style slashing */
-  slasherFlavor: 'tally',
-  /** Allow one round for vetoing */
-  slashingExecutionDelayInRounds: 1,
-  /** How long for a slash payload to be executed */
-  slashingLifetimeInRounds: 5,
-  /** Allow 2 rounds to discover faults */
-  slashingOffsetInRounds: 2,
-  /** No slash vetoer */
-  slashingVetoer: EthAddress.ZERO,
-  /** Use default slash amounts */
-  slashAmountSmall: DefaultL1ContractsConfig.slashAmountSmall,
-  slashAmountMedium: DefaultL1ContractsConfig.slashAmountMedium,
-  slashAmountLarge: DefaultL1ContractsConfig.slashAmountLarge,
 
-  // Slashing stuff
-  slashMinPenaltyPercentage: 0.5,
-  slashMaxPenaltyPercentage: 2.0,
-  slashInactivityTargetPercentage: 0.7,
-  slashInactivityConsecutiveEpochThreshold: 1,
-  slashInactivityPenalty: DefaultL1ContractsConfig.slashAmountSmall,
-  slashPrunePenalty: DefaultL1ContractsConfig.slashAmountSmall,
-  slashDataWithholdingPenalty: DefaultL1ContractsConfig.slashAmountSmall,
-  slashProposeInvalidAttestationsPenalty: DefaultL1ContractsConfig.slashAmountLarge,
-  slashAttestDescendantOfInvalidPenalty: DefaultL1ContractsConfig.slashAmountLarge,
-  slashUnknownPenalty: DefaultL1ContractsConfig.slashAmountSmall,
-  slashBroadcastedInvalidBlockPenalty: DefaultL1ContractsConfig.slashAmountMedium,
-  slashMaxPayloadSize: 50,
-  slashGracePeriodL2Slots: 32 * 2, // Two epochs from genesis
-  slashOffenseExpirationRounds: 8,
-  sentinelEnabled: true,
+  ...DefaultSlashConfig,
 };
 
 const BOOTNODE_CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour;
@@ -385,6 +346,7 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('AZTEC_PROOF_SUBMISSION_EPOCHS', config.aztecProofSubmissionEpochs.toString());
   enrichVar('AZTEC_ACTIVATION_THRESHOLD', config.activationThreshold.toString());
   enrichVar('AZTEC_EJECTION_THRESHOLD', config.ejectionThreshold.toString());
+  enrichVar('AZTEC_LOCAL_EJECTION_THRESHOLD', config.localEjectionThreshold.toString());
   enrichVar('AZTEC_SLASHING_QUORUM', config.slashingQuorum?.toString());
   enrichVar('AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS', config.slashingRoundSizeInEpochs.toString());
   enrichVar('AZTEC_GOVERNANCE_PROPOSER_QUORUM', config.governanceProposerQuorum?.toString());

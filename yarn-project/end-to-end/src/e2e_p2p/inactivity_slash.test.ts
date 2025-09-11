@@ -20,7 +20,7 @@ const SLASHING_QUORUM = 3;
 const SLASHING_ROUND_SIZE = 4;
 const ETHEREUM_SLOT_DURATION = 4;
 const AZTEC_SLOT_DURATION = 8;
-const SLASHING_UNIT = BigInt(20e18);
+const SLASHING_UNIT = BigInt(1e18);
 const SLASHING_AMOUNT = SLASHING_UNIT * 3n;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'inactivity-slash-'));
@@ -64,11 +64,13 @@ describe('e2e_p2p_inactivity_slash', () => {
 
     // Set slashing penalties for inactivity
     ({ rollup } = await t.getContracts());
-    const [activationThreshold, ejectionThreshold] = await Promise.all([
+    const [activationThreshold, ejectionThreshold, localEjectionThreshold] = await Promise.all([
       rollup.getActivationThreshold(),
       rollup.getEjectionThreshold(),
+      rollup.getLocalEjectionThreshold(),
     ]);
-    expect(activationThreshold - SLASHING_AMOUNT).toBeLessThan(ejectionThreshold);
+    const biggestEjection = ejectionThreshold > localEjectionThreshold ? ejectionThreshold : localEjectionThreshold;
+    expect(activationThreshold - SLASHING_AMOUNT).toBeLessThan(biggestEjection);
     t.ctx.aztecNodeConfig.slashInactivityPenalty = SLASHING_AMOUNT;
 
     nodes = await createNodes(
