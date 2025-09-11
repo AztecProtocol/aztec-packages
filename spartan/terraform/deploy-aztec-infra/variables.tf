@@ -308,7 +308,18 @@ variable "SNAPSHOT_CRON" {
   default     = "0 */12 * * *"
 }
 
-# Bot configuration
+variable "BOT_MNEMONIC" {
+  description = "The bot mnemonic"
+  type        = string
+  default     = "test test test test test test test test test test test junk"
+}
+
+variable "BOT_TRANSFERS_MNEMONIC_START_INDEX" {
+  description = "The prover mnemonic start index"
+  type        = string
+  default     = 5000
+}
+
 variable "BOT_TRANSFERS_REPLICAS" {
   description = "Number of transfer bot replicas to deploy (0 to disable)"
   type        = number
@@ -324,7 +335,19 @@ variable "BOT_TRANSFERS_TX_INTERVAL_SECONDS" {
 variable "BOT_TRANSFERS_FOLLOW_CHAIN" {
   description = "Transfers bot follow-chain mode (e.g., NONE)"
   type        = string
-  default     = "NONE"
+  default     = "PENDING"
+}
+
+variable "BOT_TRANSFERS_L2_PRIVATE_KEY" {
+  description = "Private key for the transfers bot (hex string starting with 0x)"
+  nullable    = true
+  default     = null
+}
+
+variable "BOT_SWAPS_MNEMONIC_START_INDEX" {
+  description = "The prover mnemonic start index"
+  type        = string
+  default     = 6000
 }
 
 variable "BOT_SWAPS_REPLICAS" {
@@ -345,16 +368,9 @@ variable "BOT_SWAPS_FOLLOW_CHAIN" {
   default     = "PENDING"
 }
 
-variable "BOT_TRANSFERS_PRIVATE_KEY" {
-  description = "Private key for the transfers bot (hex string starting with 0x)"
-  type        = string
-  default     = null
-  nullable    = true
-}
-
-variable "BOT_SWAPS_PRIVATE_KEY" {
+variable "BOT_SWAPS_L2_PRIVATE_KEY" {
   description = "Private key for the AMM swaps bot (hex string starting with 0x)"
   type        = string
-  default     = null
   nullable    = true
+  default     = null
 }
