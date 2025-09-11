@@ -13,6 +13,7 @@ import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
+import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
 import { type NoteData, TypedOracle } from './typed_oracle.js';
 
@@ -58,6 +59,17 @@ export class UtilityExecutionOracle extends TypedOracle {
 
   public override utilityGetVersion(): Promise<Fr> {
     return Promise.resolve(this.executionDataProvider.getVersion().then(v => new Fr(v)));
+  }
+
+  public override async utilityGetUtilityContext(): Promise<UtilityContext> {
+    const blockHeader = await this.executionDataProvider.getBlockHeader();
+    return UtilityContext.from({
+      blockNumber: blockHeader.globalVariables.blockNumber,
+      timestamp: blockHeader.globalVariables.timestamp,
+      contractAddress: this.contractAddress,
+      version: blockHeader.globalVariables.version,
+      chainId: blockHeader.globalVariables.chainId,
+    });
   }
 
   /**

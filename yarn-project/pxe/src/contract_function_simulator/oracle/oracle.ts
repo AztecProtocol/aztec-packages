@@ -98,6 +98,11 @@ export class Oracle {
     return [toACVMField(await this.typedOracle.utilityGetChainId())];
   }
 
+  async utilityGetUtilityContext(): Promise<(ACVMField | ACVMField[])[]> {
+    const context = await this.typedOracle.utilityGetUtilityContext();
+    return context.toNoirRepresentation();
+  }
+
   async utilityGetKeyValidationRequest([pkMHash]: ACVMField[]): Promise<ACVMField[]> {
     const keyValidationRequest = await this.typedOracle.utilityGetKeyValidationRequest(Fr.fromString(pkMHash));
 

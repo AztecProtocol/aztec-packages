@@ -506,6 +506,12 @@ export class TXEService {
     return toForeignCallResult([toSingle(version)]);
   }
 
+  async utilityGetUtilityContext() {
+    const context = await this.oracleHandler.utilityGetUtilityContext();
+
+    return toForeignCallResult(context.toNoirRepresentation());
+  }
+
   async utilityGetBlockHeader(foreignBlockNumber: ForeignCallSingle) {
     const blockNumber = fromSingle(foreignBlockNumber).toNumber();
 
