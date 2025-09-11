@@ -140,31 +140,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 133;
-<<<<<<< HEAD
-    static constexpr size_t NUM_WITNESS_ENTITIES = 3039;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 3054;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 328;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3500;
-=======
-<<<<<<< HEAD
-    static constexpr size_t NUM_WITNESS_ENTITIES = 3040;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 328;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3501;
-=======
-<<<<<<< HEAD
-    static constexpr size_t NUM_WITNESS_ENTITIES = 3024;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 327;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3484;
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 3025;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 327;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3485;
->>>>>>> b81188fb0f (fix(avm)!: disable address derivation)
->>>>>>> 41aad347f2 (fix(avm)!: disable address derivation)
->>>>>>> cfefd8abc4 (fix(avm)!: disable address derivation)
+    static constexpr size_t NUM_ALL_ENTITIES = 3515;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -294,6 +273,7 @@ struct AvmFlavorVariables {
         lookup_context_ctx_stack_return_relation<FF_>,
         lookup_context_ctx_stack_rollback_relation<FF_>,
         lookup_contract_instance_retrieval_address_derivation_relation<FF_>,
+        lookup_contract_instance_retrieval_check_protocol_address_range_relation<FF_>,
         lookup_contract_instance_retrieval_deployment_nullifier_read_relation<FF_>,
         lookup_contract_instance_retrieval_protocol_contract_derived_address_relation<FF_>,
         lookup_contract_instance_retrieval_update_check_relation<FF_>,

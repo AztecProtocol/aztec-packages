@@ -68,6 +68,8 @@ void ContractInstanceRetrievalTraceBuilder::process(
                   CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
 
                 // Columns conditional on protocol contract instance
+                { C::contract_instance_retrieval_address_sub_one, event.address - 1 },
+                { C::contract_instance_retrieval_max_protocol_contract_address, MAX_PROTOCOL_CONTRACT_ADDRESS },
                 { C::contract_instance_retrieval_derived_address, derived_address },
                 { C::contract_instance_retrieval_is_protocol_contract, event.is_protocol_contract ? 1 : 0 },
                 { C::contract_instance_retrieval_should_check_nullifier, !event.is_protocol_contract ? 1 : 0 },
@@ -82,6 +84,7 @@ const InteractionDefinition ContractInstanceRetrievalTraceBuilder::interactions 
         .add<lookup_contract_instance_retrieval_deployment_nullifier_read_settings, InteractionType::LookupSequential>()
         .add<lookup_contract_instance_retrieval_address_derivation_settings, InteractionType::LookupGeneric>()
         .add<lookup_contract_instance_retrieval_update_check_settings, InteractionType::LookupSequential>()
+        .add<lookup_contract_instance_retrieval_check_protocol_address_range_settings, InteractionType::LookupGeneric>()
         .add<lookup_contract_instance_retrieval_protocol_contract_derived_address_settings,
              InteractionType::LookupGeneric>();
 

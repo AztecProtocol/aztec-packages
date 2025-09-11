@@ -157,12 +157,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     HintedRawContractDB raw_contract_db(hints);
     HintedRawMerkleDB raw_merkle_db(hints);
 
-    std::unordered_map<AztecAddress, AztecAddress> protocol_contract_derived_addresses;
-    for (const auto& [canonical_addr, derived_addr] : hints.protocolContractDerivedAddresses) {
-        protocol_contract_derived_addresses[static_cast<uint8_t>(canonical_addr)] = derived_addr;
-    }
     ProtocolContractIndexedTree protocol_contract_set(
-        protocol_contract_derived_addresses, poseidon2, merkle_check, protocol_contract_emitter);
+        hints.protocolContractDerivedAddresses, field_gt, poseidon2, merkle_check, protocol_contract_emitter);
     ContractDB contract_db(raw_contract_db, address_derivation, class_id_derivation, protocol_contract_set);
 
     MerkleDB merkle_db(raw_merkle_db,

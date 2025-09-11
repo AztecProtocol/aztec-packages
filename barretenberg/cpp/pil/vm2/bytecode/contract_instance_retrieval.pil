@@ -1,6 +1,7 @@
 include "bc_hashing.pil";
 include "address_derivation.pil";
 include "update_check.pil";
+include "../ff_gt.pil";
 include "../protocol_contract.pil";
 
 /**
@@ -84,11 +85,20 @@ namespace contract_instance_retrieval;
     pol commit deployer_protocol_contract_address;
     sel * (constants.CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS - deployer_protocol_contract_address) = 0;
 
-    // Indicates if the instance belongs to a protocol contract. Is hinted by the prover.
-    // If this is set to true for non-protocol contracts the lookup #[PROTOCOL_CONTRACT_DERIVED_ADDRESS] will fail.
-    // If this is set to false for protocol contracts #[ADDRESS_DERIVATION] will fail since it will use the canonical address.
+    // Indicates if the instance belongs to a protocol contract
     pol commit is_protocol_contract;
-    is_protocol_contract * (1 - is_protocol_contract) = 0;
+
+    // Canonical Addresses can be in the range of 1 <= address <= MAX_PROTOCOL_CONTRACT_ADDRESS
+    // currently MAX_PROTOCOL_CONTRACT_ADDRESS = ROUTER_ADDRESS (but it is bound to change)
+    pol commit max_protocol_contract_address;
+    max_protocol_contract_address = sel * constants.MAX_PROTOCOL_CONTRACT_ADDRESS;
+
+    pol commit address_sub_one;
+    address_sub_one = sel * (address - 1);
+    #[CHECK_PROTOCOL_ADDRESS_RANGE]
+    sel { max_protocol_contract_address, address_sub_one, is_protocol_contract }
+    in
+    ff_gt.sel { ff_gt.a, ff_gt.b, ff_gt.result};
 
     // If is_protocol_contract = 1, then exists = 1. But if have is_protocol_contract = 0, we don't constrain exists here.
     // It is later constrained by the nullifier check 

@@ -101,6 +101,8 @@ TEST(ContractInstanceRetrievalConstrainingTest, CompleteValidTrace)
           { C::contract_instance_retrieval_deployer_protocol_contract_address,
             CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
           // Protocol Contract conditionals
+          { C::contract_instance_retrieval_address_sub_one, contract_address - 1 },
+          { C::contract_instance_retrieval_max_protocol_contract_address, MAX_PROTOCOL_CONTRACT_ADDRESS },
           { C::contract_instance_retrieval_derived_address, contract_address },
           { C::contract_instance_retrieval_is_protocol_contract, 0 },
           { C::contract_instance_retrieval_should_check_nullifier, 1 },
@@ -155,6 +157,8 @@ TEST(ContractInstanceRetrievalConstrainingTest, MultipleInstancesTrace)
             { C::contract_instance_retrieval_deployer_protocol_contract_address,
               CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
             // Protocol Contract conditionals
+            { C::contract_instance_retrieval_address_sub_one, (base_address + i) - 1 },
+            { C::contract_instance_retrieval_max_protocol_contract_address, MAX_PROTOCOL_CONTRACT_ADDRESS },
             { C::contract_instance_retrieval_derived_address, base_address + i },
             { C::contract_instance_retrieval_is_protocol_contract, 0 },
             { C::contract_instance_retrieval_should_check_nullifier, 1 },
@@ -190,6 +194,8 @@ TEST(ContractInstanceRetrievalConstrainingTest, NonExistentInstanceTrace)
           { C::contract_instance_retrieval_deployer_protocol_contract_address,
             CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
           // Protocol Contract conditionals
+          { C::contract_instance_retrieval_address_sub_one, contract_address - 1 },
+          { C::contract_instance_retrieval_max_protocol_contract_address, MAX_PROTOCOL_CONTRACT_ADDRESS },
           { C::contract_instance_retrieval_derived_address, contract_address },
           { C::contract_instance_retrieval_is_protocol_contract, 0 },
           { C::contract_instance_retrieval_should_check_nullifier, 1 },
@@ -254,6 +260,8 @@ TEST(ContractInstanceRetrievalConstrainingTest, MaximumFieldValuesTrace)
           { C::contract_instance_retrieval_deployer_protocol_contract_address,
             CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
           // Protocol Contract conditionals
+          { C::contract_instance_retrieval_address_sub_one, max_field - 1 },
+          { C::contract_instance_retrieval_max_protocol_contract_address, MAX_PROTOCOL_CONTRACT_ADDRESS },
           { C::contract_instance_retrieval_derived_address, max_field },
           { C::contract_instance_retrieval_is_protocol_contract, 0 },
           { C::contract_instance_retrieval_should_check_nullifier, 1 },
@@ -280,6 +288,11 @@ TEST(ContractInstanceRetrievalConstrainingTest, ProtocolContractInstance)
             { C::protocol_contract_sel, 1 },
             { C::protocol_contract_canonical_address, contract_address },
             { C::protocol_contract_derived_address, derived_address },
+            // Field Greater-Than Trace for Protocol Contract Address Check
+            { C::ff_gt_sel, 1 },
+            { C::ff_gt_a, MAX_PROTOCOL_CONTRACT_ADDRESS },
+            { C::ff_gt_b, contract_address - FF(1) },
+            { C::ff_gt_result, 1 },
         },
         {
             // Contract Retrieval Instance Trace
@@ -291,6 +304,8 @@ TEST(ContractInstanceRetrievalConstrainingTest, ProtocolContractInstance)
             { C::contract_instance_retrieval_deployer_protocol_contract_address,
               CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
             // Protocol Contract conditionals
+            { C::contract_instance_retrieval_address_sub_one, contract_address - FF(1) },
+            { C::contract_instance_retrieval_max_protocol_contract_address, MAX_PROTOCOL_CONTRACT_ADDRESS },
             { C::contract_instance_retrieval_derived_address, derived_address },
             { C::contract_instance_retrieval_is_protocol_contract, 1 },
             { C::contract_instance_retrieval_should_check_nullifier, 0 },
@@ -300,7 +315,8 @@ TEST(ContractInstanceRetrievalConstrainingTest, ProtocolContractInstance)
 
     check_relation<contract_instance_retrieval>(trace);
     check_interaction<ContractInstanceRetrievalTraceBuilder,
-                      lookup_contract_instance_retrieval_protocol_contract_derived_address_settings>(trace);
+                      lookup_contract_instance_retrieval_protocol_contract_derived_address_settings,
+                      lookup_contract_instance_retrieval_check_protocol_address_range_settings>(trace);
 }
 
 // Integration-style tests using tracegen components
