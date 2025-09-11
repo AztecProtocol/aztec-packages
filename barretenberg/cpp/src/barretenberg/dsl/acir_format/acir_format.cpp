@@ -84,6 +84,7 @@ template <typename Builder> struct HonkRecursionConstraintsOutput {
 template <typename Builder>
 void build_constraints(Builder& builder, AcirProgram& program, const ProgramMetadata& metadata)
 {
+    BB_BENCH_NAME("build_constraints");
     using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
     bool has_valid_witness_assignments = !program.witness.empty();
     bool collect_gates_per_opcode = metadata.collect_gates_per_opcode;
@@ -97,6 +98,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 
     // Add arithmetic gates
     for (size_t i = 0; i < constraint_system.poly_triple_constraints.size(); ++i) {
+        BB_BENCH_NAME("build_constraints::poly_triple_constraints");
         const auto& constraint = constraint_system.poly_triple_constraints.at(i);
         builder.create_poly_gate(constraint);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
@@ -104,6 +106,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     }
 
     for (size_t i = 0; i < constraint_system.quad_constraints.size(); ++i) {
+        BB_BENCH_NAME("build_constraints::quad_constraints");
         const auto& constraint = constraint_system.quad_constraints.at(i);
         builder.create_big_mul_gate(constraint);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
@@ -111,6 +114,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     }
     // Oversize gates are a vector of mul_quad gates.
     for (size_t i = 0; i < constraint_system.big_quad_constraints.size(); ++i) {
+        BB_BENCH_NAME("build_constraints::big_quad_constraints");
         auto& big_constraint = constraint_system.big_quad_constraints.at(i);
         fr next_w4_wire_value = fr(0);
         // Define the 4th wire of these mul_quad gates, which is implicitly used by the previous gate.
@@ -139,6 +143,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 
     // Add logic constraint
     for (size_t i = 0; i < constraint_system.logic_constraints.size(); ++i) {
+        BB_BENCH_NAME("build_constraints::logic_constraints");
         const auto& constraint = constraint_system.logic_constraints.at(i);
         create_logic_gate(
             builder, constraint.a, constraint.b, constraint.result, constraint.num_bits, constraint.is_xor_gate);
@@ -154,6 +159,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         }
     }
     for (size_t i = 0; i < constraint_system.range_constraints.size(); ++i) {
+        BB_BENCH_NAME("build_constraints::range_constraints");
         const auto& constraint = constraint_system.range_constraints.at(i);
         uint32_t range = constraint.num_bits;
         if (constraint_system.minimal_range.contains(constraint.witness)) {
@@ -168,6 +174,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 
     // Add aes128 constraints
     for (size_t i = 0; i < constraint_system.aes128_constraints.size(); ++i) {
+        BB_BENCH_NAME("build_constraints::aes128_constraints");
         const auto& constraint = constraint_system.aes128_constraints.at(i);
         create_aes128_constraints(builder, constraint);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
@@ -176,6 +183,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 
     // Add sha256 constraints
     for (size_t i = 0; i < constraint_system.sha256_compression.size(); ++i) {
+        BB_BENCH_NAME("build_constraints::sha256_constraints");
         const auto& constraint = constraint_system.sha256_compression[i];
         create_sha256_compression_constraints(builder, constraint);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
@@ -184,6 +192,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 
     // Add ECDSA k1 constraints
     for (size_t i = 0; i < constraint_system.ecdsa_k1_constraints.size(); ++i) {
+        BB_BENCH_NAME("build_constraints::ecdsa_k1_constraints");
         const auto& constraint = constraint_system.ecdsa_k1_constraints.at(i);
         create_ecdsa_verify_constraints<stdlib::secp256k1<Builder>>(builder, constraint, has_valid_witness_assignments);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
@@ -192,6 +201,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 
     // Add ECDSA r1 constraints
     for (size_t i = 0; i < constraint_system.ecdsa_r1_constraints.size(); ++i) {
+        BB_BENCH_NAME("build_constraints::ecdsa_r1_constraints");
         const auto& constraint = constraint_system.ecdsa_r1_constraints.at(i);
         create_ecdsa_verify_constraints<stdlib::secp256r1<Builder>>(builder, constraint, has_valid_witness_assignments);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
@@ -200,6 +210,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 
     // Add blake2s constraints
     for (size_t i = 0; i < constraint_system.blake2s_constraints.size(); ++i) {
+        BB_BENCH_NAME("build_constraints::blake2s_constraints");
         const auto& constraint = constraint_system.blake2s_constraints.at(i);
         create_blake2s_constraints(builder, constraint);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
@@ -208,6 +219,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 
     // Add blake3 constraints
     for (size_t i = 0; i < constraint_system.blake3_constraints.size(); ++i) {
+        BB_BENCH_NAME("build_constraints::blake3_constraints");
         const auto& constraint = constraint_system.blake3_constraints.at(i);
         create_blake3_constraints(builder, constraint);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
@@ -216,6 +228,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 
     // Add keccak permutations
     for (size_t i = 0; i < constraint_system.keccak_permutations.size(); ++i) {
+        BB_BENCH_NAME("build_constraints::keccak_permutations");
         const auto& constraint = constraint_system.keccak_permutations[i];
         create_keccak_permutations(builder, constraint);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
@@ -223,6 +236,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     }
 
     for (size_t i = 0; i < constraint_system.poseidon2_constraints.size(); ++i) {
+        BB_BENCH_NAME("build_constraints::poseidon2_constraints");
         const auto& constraint = constraint_system.poseidon2_constraints.at(i);
         create_poseidon2_permutations(builder, constraint);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
@@ -231,6 +245,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 
     // Add multi scalar mul constraints
     for (size_t i = 0; i < constraint_system.multi_scalar_mul_constraints.size(); ++i) {
+        BB_BENCH_NAME("build_constraints::multi_scalar_mul_constraints");
         const auto& constraint = constraint_system.multi_scalar_mul_constraints.at(i);
         create_multi_scalar_mul_constraint(builder, constraint, has_valid_witness_assignments);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
@@ -239,6 +254,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 
     // Add ec add constraints
     for (size_t i = 0; i < constraint_system.ec_add_constraints.size(); ++i) {
+        BB_BENCH_NAME("build_constraints::ec_add_constraints");
         const auto& constraint = constraint_system.ec_add_constraints.at(i);
         create_ec_add_constraint(builder, constraint, has_valid_witness_assignments);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
@@ -247,6 +263,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 
     // Add block constraints
     for (size_t i = 0; i < constraint_system.block_constraints.size(); ++i) {
+        BB_BENCH_NAME("build_constraints::block_constraints");
         const auto& constraint = constraint_system.block_constraints.at(i);
         create_block_constraints(builder, constraint, has_valid_witness_assignments);
         if (collect_gates_per_opcode) {
@@ -260,6 +277,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 
     // assert equals
     for (size_t i = 0; i < constraint_system.assert_equalities.size(); ++i) {
+        BB_BENCH_NAME("build_constraints::assert_equalities");
         const auto& constraint = constraint_system.assert_equalities.at(i);
         builder.assert_equal(constraint.a, constraint.b);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
@@ -273,6 +291,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     bool has_civc_recursion_constraints = !constraint_system.civc_recursion_constraints.empty();
 
     if constexpr (IsMegaBuilder<Builder>) {
+        BB_BENCH_NAME("build_constraints::IsMegaBuilder");
         // We shouldn't have both honk recursion constraints and pg recursion constraints.
         BB_ASSERT_EQ(!has_honk_recursion_constraints || !has_pg_recursion_constraints,
                      true,
@@ -647,7 +666,7 @@ process_avm_recursion_constraints(Builder& builder,
  */
 template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata)
 {
-    BB_BENCH();
+    BB_BENCH_NAME("create_circuit<UltraCircuitBuilder>");
     AcirFormat& constraints = program.constraints;
     WitnessVector& witness = program.witness;
 
@@ -668,7 +687,7 @@ template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const Progr
  */
 template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata)
 {
-    BB_BENCH();
+    BB_BENCH_NAME("create_circuit<MegaCircuitBuilder>");
     AcirFormat& constraints = program.constraints;
     WitnessVector& witness = program.witness;
 

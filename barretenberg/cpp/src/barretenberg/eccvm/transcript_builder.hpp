@@ -7,6 +7,7 @@
 #pragma once
 
 #include "./eccvm_builder_types.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
 #include "barretenberg/op_queue/ecc_ops_table.hpp"
 
@@ -137,6 +138,7 @@ class ECCVMTranscriptBuilder {
     static std::vector<TranscriptRow> compute_rows(const std::vector<ECCVMOperation>& vm_operations,
                                                    const uint32_t total_number_of_muls)
     {
+        BB_BENCH_NAME("ECCVMTranscriptBuilder::compute_rows");
         const size_t num_vm_entries = vm_operations.size();
         // The transcript contains an extra zero row at the beginning and the accumulated state at the end
         const size_t transcript_size = num_vm_entries + 2;
@@ -350,6 +352,7 @@ class ECCVMTranscriptBuilder {
                                         const bool msm_transition,
                                         const bool next_not_msm)
     {
+        BB_BENCH_NAME("ECCVMTranscriptBuilder::populate_transcript_row");
         const bool base_point_infinity = entry.base_point.is_point_at_infinity();
 
         row.accumulator_not_empty = !state.is_accumulator_empty;

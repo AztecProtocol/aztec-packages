@@ -53,6 +53,7 @@ class ECCVMPointTablePrecomputationBuilder {
     static std::vector<PointTablePrecomputationRow> compute_rows(
         const std::vector<bb::eccvm::ScalarMul<CycleGroup>>& ecc_muls)
     {
+        BB_BENCH_NAME("ECCVMPointTablePrecomputationBuilder::compute_rows");
         static constexpr size_t num_rows_per_scalar = NUM_WNAF_DIGITS_PER_SCALAR / WNAF_DIGITS_PER_ROW;
         const size_t num_precompute_rows = num_rows_per_scalar * ecc_muls.size() + 1;
         std::vector<PointTablePrecomputationRow> precompute_state(num_precompute_rows);

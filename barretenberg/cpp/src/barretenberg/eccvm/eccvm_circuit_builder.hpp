@@ -52,6 +52,7 @@ class ECCVMCircuitBuilder {
 
     std::vector<MSM> get_msms() const
     {
+        BB_BENCH_NAME("ECCVMCircuitBuilder::get_msms");
         const uint32_t num_muls = get_number_of_muls();
 
         // `compute_precomputed_table` and `compute_wnaf_digits` are helper functions that will be used when we

@@ -90,6 +90,7 @@ class ECCVMMSMMBuilder {
     static std::tuple<std::vector<MSMRow>, std::array<std::vector<size_t>, 2>> compute_rows(
         const std::vector<MSM>& msms, const uint32_t total_number_of_muls, const size_t num_msm_rows)
     {
+        BB_BENCH_NAME("ECCVMMSMBuilder::compute_rows");
         // To perform a scalar multiplication of a point P by a scalar x, we precompute a table of points
         //                           -15P, -13P, ..., -3P, -P, P, 3P, ..., 15P
         // When we perform a scalar multiplication, we decompose x into base-16 wNAF digits then look these precomputed

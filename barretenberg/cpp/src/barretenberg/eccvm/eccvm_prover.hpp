@@ -17,8 +17,6 @@
 
 namespace bb {
 
-// We won't compile this class with Standard, but we will like want to compile it (at least for testing)
-// with a flavor that uses the curve Grumpkin, or a flavor that does/does not have zk, etc.
 class ECCVMProver {
   public:
     using Flavor = ECCVMFlavor;

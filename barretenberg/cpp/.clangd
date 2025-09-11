@@ -83,6 +83,8 @@ Diagnostics:
       - modernize-use-designated-initializers
       # Often makes virtually no difference as exactly one copy happens regardless, just adds decision paralysis.
       - modernize-pass-by-value
+      # Opinionated; we know how to read precedence.
+      - readability-math-missing-parentheses
 
 --- # this divider is necessary
 # Disable some checks for Google Test/Bench
