@@ -1,11 +1,16 @@
 import { type BotConfig, BotRunner, botConfigMappings, getBotRunnerApiHandler } from '@aztec/bot';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
-import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
+import { type AztecNode, type PXE, createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
 import type { TelemetryClient } from '@aztec/telemetry-client';
-import { getConfigEnvVars as getTelemetryClientConfig, initTelemetryClient } from '@aztec/telemetry-client';
+import {
+  getConfigEnvVars as getTelemetryClientConfig,
+  initTelemetryClient,
+  makeTracedFetch,
+} from '@aztec/telemetry-client';
 
 import { extractRelevantOptions } from '../util.js';
+import { getVersions } from '../versioning.js';
 
 export async function startBot(
   options: any,
@@ -20,15 +25,19 @@ export async function startBot(
     );
     process.exit(1);
   }
+
+  const fetch = makeTracedFetch([1, 2, 3], true);
+  const node = createAztecNodeClient(options.nodeUrl, getVersions(), fetch);
+
   // Start a PXE client that is used by the bot if required
   let pxe: PXE | undefined;
   if (options.pxe) {
     const { addPXE } = await import('./start_pxe.js');
-    ({ pxe } = await addPXE(options, signalHandlers, services, userLog));
+    ({ pxe } = await addPXE(options, signalHandlers, services, userLog, { node }));
   }
 
   const telemetry = initTelemetryClient(getTelemetryClientConfig());
-  await addBot(options, signalHandlers, services, { pxe, telemetry });
+  await addBot(options, signalHandlers, services, { pxe, telemetry, node });
 }
 
 export function addBot(
