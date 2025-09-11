@@ -3509,7 +3509,7 @@ struct lookup_keccakf1600_src_out_of_range_toggle_settings_ {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_start;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column DST_SELECTOR = Column::gt_sel_others;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_src_out_of_range_toggle_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_src_out_of_range_toggle_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -3535,7 +3535,7 @@ struct lookup_keccakf1600_dst_out_of_range_toggle_settings_ {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_start;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column DST_SELECTOR = Column::gt_sel_others;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_dst_out_of_range_toggle_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_dst_out_of_range_toggle_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {

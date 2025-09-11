@@ -619,9 +619,9 @@ const InteractionDefinition Sha256TraceBuilder::interactions =
     InteractionDefinition()
         .add<lookup_sha256_round_constant_settings, InteractionType::LookupIntoIndexedByClk>()
         // GT Interactions
-        .add<lookup_sha256_mem_check_state_addr_in_range_settings, InteractionType::LookupGeneric>()
-        .add<lookup_sha256_mem_check_input_addr_in_range_settings, InteractionType::LookupGeneric>()
-        .add<lookup_sha256_mem_check_output_addr_in_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_sha256_mem_check_state_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_sha256_mem_check_input_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_sha256_mem_check_output_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         // Dispatch Permutation
         .add<perm_sha256_mem_dispatch_sha256_settings, InteractionType::Permutation>()
         // Bitwise operations

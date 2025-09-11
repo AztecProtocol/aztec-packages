@@ -793,7 +793,7 @@ const InteractionDefinition KeccakF1600TraceBuilder::interactions =
         // GT checks for slice memory ranges.
         // GT checks are de-duplicated and therefore we can't use the interaction builder
         // LookupIntoDynamicTableSequential.
-        .add<lookup_keccakf1600_src_out_of_range_toggle_settings, InteractionType::LookupGeneric>()
-        .add<lookup_keccakf1600_dst_out_of_range_toggle_settings, InteractionType::LookupGeneric>();
+        .add<lookup_keccakf1600_src_out_of_range_toggle_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_keccakf1600_dst_out_of_range_toggle_settings, InteractionType::LookupGeneric>(Column::gt_sel);
 
 } // namespace bb::avm2::tracegen

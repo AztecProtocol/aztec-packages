@@ -264,7 +264,7 @@ sel_op_div * (1 - sel_op_div) = 0;
 pol commit sel_div_no_0_err;
 sel_div_no_0_err = sel_op_div * (1 - sel_div_0_err);
 #[GT_DIV_REMAINDER]
-sel_div_no_0_err { ib, helper1, sel_op_div } in gt.sel { gt.input_a, gt.input_b, gt.res };
+sel_div_no_0_err { ib, helper1, sel_op_div } in gt.sel_alu { gt.input_a, gt.input_b, gt.res };
 
 // DIV - u128
 
@@ -395,7 +395,7 @@ in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
 
 #[INT_GT]
 sel_int_lt_ops { lt_ops_input_a, lt_ops_input_b, lt_ops_result_c }
-in gt.sel { gt.input_a, gt.input_b, gt.res };
+in gt.sel_alu { gt.input_a, gt.input_b, gt.res };
 
 // NOT
 // Input is sent to ia, ia_tag and output is sent to ib, ib_tag.

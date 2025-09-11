@@ -369,9 +369,9 @@ const InteractionDefinition AluTraceBuilder::interactions =
         .add<lookup_alu_range_check_decomposition_b_lo_settings, InteractionType::LookupGeneric>()
         .add<lookup_alu_range_check_decomposition_b_hi_settings, InteractionType::LookupGeneric>()
         .add<lookup_alu_range_check_mul_u128_c_hi_settings, InteractionType::LookupGeneric>()
-        .add<lookup_alu_gt_div_remainder_settings, InteractionType::LookupGeneric>()
+        .add<lookup_alu_gt_div_remainder_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         .add<lookup_alu_ff_gt_settings, InteractionType::LookupGeneric>()
-        .add<lookup_alu_int_gt_settings, InteractionType::LookupGeneric>()
+        .add<lookup_alu_int_gt_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         .add<lookup_alu_shifts_two_pow_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_alu_range_check_trunc_mid_settings, InteractionType::LookupGeneric>()
         .add<lookup_alu_large_trunc_canonical_dec_settings, InteractionType::LookupGeneric>();

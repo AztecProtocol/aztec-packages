@@ -182,7 +182,7 @@ struct lookup_alu_gt_div_remainder_settings_ {
     static constexpr std::string_view RELATION_NAME = "alu";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::alu_sel_div_no_0_err;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column DST_SELECTOR = Column::gt_sel_alu;
     static constexpr Column COUNTS = Column::lookup_alu_gt_div_remainder_counts;
     static constexpr Column INVERSES = Column::lookup_alu_gt_div_remainder_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::alu_ib,
@@ -225,7 +225,7 @@ struct lookup_alu_int_gt_settings_ {
     static constexpr std::string_view RELATION_NAME = "alu";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::alu_sel_int_lt_ops;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column DST_SELECTOR = Column::gt_sel_alu;
     static constexpr Column COUNTS = Column::lookup_alu_int_gt_counts;
     static constexpr Column INVERSES = Column::lookup_alu_int_gt_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {

@@ -138,14 +138,15 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 133;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 3019;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 3021;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 327;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3479;
+    static constexpr size_t NUM_ALL_ENTITIES = 3481;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
     using MainRelations_ = flat_tuple::tuple<
+
         // Optimized Relations
         avm2::optimized_poseidon2_perm<FF_>,
         // Relations

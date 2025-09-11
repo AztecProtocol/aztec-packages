@@ -1168,9 +1168,9 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_gas_limit_used_da_range_settings, InteractionType::LookupGeneric>()
         .add<lookup_execution_dyn_l2_factor_bitwise_settings, InteractionType::LookupGeneric>()
         // Gas - ToRadix BE
-        .add<lookup_execution_check_radix_gt_256_settings, InteractionType::LookupGeneric>()
+        .add<lookup_execution_check_radix_gt_256_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         .add<lookup_execution_get_p_limbs_settings, InteractionType::LookupGeneric>()
-        .add<lookup_execution_get_max_limbs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_execution_get_max_limbs_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         // Context Stack
         .add<lookup_context_ctx_stack_call_settings, InteractionType::LookupGeneric>()
         .add<lookup_context_ctx_stack_rollback_settings, InteractionType::LookupGeneric>()
@@ -1191,7 +1191,8 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_sstore_storage_write_settings, InteractionType::LookupGeneric>()
         // NoteHashExists
         .add<lookup_notehash_exists_note_hash_read_settings, InteractionType::LookupSequential>()
-        .add<lookup_notehash_exists_note_hash_leaf_index_in_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_notehash_exists_note_hash_leaf_index_in_range_settings, InteractionType::LookupGeneric>(
+            Column::gt_sel)
         // NullifierExists opcode
         .add<lookup_nullifier_exists_nullifier_exists_check_settings, InteractionType::LookupSequential>()
         // EmitNullifier
@@ -1201,7 +1202,8 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         // EmitNoteHash
         .add<lookup_emit_notehash_notehash_tree_write_settings, InteractionType::LookupSequential>()
         // L1ToL2MsgExists
-        .add<lookup_l1_to_l2_message_exists_l1_to_l2_msg_leaf_index_in_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_l1_to_l2_message_exists_l1_to_l2_msg_leaf_index_in_range_settings, InteractionType::LookupGeneric>(
+            Column::gt_sel)
         .add<lookup_l1_to_l2_message_exists_l1_to_l2_msg_read_settings, InteractionType::LookupSequential>()
         // Alu dispatching
         .add<lookup_alu_register_tag_value_settings, InteractionType::LookupGeneric>()

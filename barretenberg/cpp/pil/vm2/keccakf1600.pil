@@ -1356,11 +1356,11 @@ start * (highest_slice_address - HIGHEST_SLICE_ADDRESS) = 0;
 
 // start == 1 ==> [src_out_of_range_error == 1 <==> src_addr > HIGHEST_SLICE_ADDRESS]
 #[SRC_OUT_OF_RANGE_TOGGLE]
-start { src_addr, highest_slice_address, src_out_of_range_error } in gt.sel { gt.input_a, gt.input_b, gt.res };
+start { src_addr, highest_slice_address, src_out_of_range_error } in gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
 // start == 1 ==> [dst_out_of_range_error == 1 <==> dst_addr > HIGHEST_SLICE_ADDRESS]
 #[DST_OUT_OF_RANGE_TOGGLE]
-start { dst_addr, highest_slice_address, dst_out_of_range_error } in gt.sel { gt.input_a, gt.input_b, gt.res };
+start { dst_addr, highest_slice_address, dst_out_of_range_error } in gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
 
 // error = src_out_of_range_error || dst_out_of_range_error || tag_error
