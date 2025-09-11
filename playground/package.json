@@ -12,7 +12,7 @@
     "preview": "vite preview",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "npx playwright test"
+    "test": "playwright test"
   },
   "prettier": "@aztec/foundation/prettier",
   "dependencies": {

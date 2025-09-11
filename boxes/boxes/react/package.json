@@ -15,7 +15,7 @@
     "serve": "webpack serve --no-open --mode development --watch-files ./src/*",
     "formatting": "prettier --check ./src && eslint ./src",
     "formatting:fix": "prettier -w ./src",
-    "test": "npx playwright test"
+    "test": "playwright test"
   },
   "jest": {
     "preset": "ts-jest/presets/default-esm",

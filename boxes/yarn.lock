@@ -3766,6 +3766,7 @@ __metadata:
     "@aztec/stdlib": "npm:latest"
     "@aztec/test-wallet": "npm:latest"
     "@eslint/js": "npm:^9.13.0"
+    "@playwright/test": "npm:1.49.0"
     "@types/react": "npm:^18.3.12"
     "@types/react-dom": "npm:^18.3.1"
     "@vitejs/plugin-react-swc": "npm:^3.7.2"
