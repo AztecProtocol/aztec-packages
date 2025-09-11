@@ -120,7 +120,7 @@ namespace to_radix_mem;
     #[CHECK_DST_ADDR_IN_RANGE]
     start { max_write_addr, max_mem_addr, sel_dst_out_of_range_err }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     ////////////////////////////////////////////////
     // Error Handling - Check Radix is valid
@@ -142,12 +142,12 @@ namespace to_radix_mem;
     #[CHECK_RADIX_LT_2]
     start { two, radix, sel_radix_lt_2_err }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     #[CHECK_RADIX_GT_256]
     start { radix, two_five_six, sel_radix_gt_256_err }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     // is_output_bits already guaranteed to be boolean by execution trace tag validation
     #[IS_OUTPUT_BITS_IMPLY_RADIX_2]

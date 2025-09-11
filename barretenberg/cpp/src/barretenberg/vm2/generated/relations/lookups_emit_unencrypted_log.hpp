@@ -18,7 +18,7 @@ struct lookup_emit_unencrypted_log_check_log_size_too_large_settings_ {
     static constexpr std::string_view RELATION_NAME = "emit_unencrypted_log";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::emit_unencrypted_log_start;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column DST_SELECTOR = Column::gt_sel_others;
     static constexpr Column COUNTS = Column::lookup_emit_unencrypted_log_check_log_size_too_large_counts;
     static constexpr Column INVERSES = Column::lookup_emit_unencrypted_log_check_log_size_too_large_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -44,7 +44,7 @@ struct lookup_emit_unencrypted_log_check_memory_out_of_bounds_settings_ {
     static constexpr std::string_view RELATION_NAME = "emit_unencrypted_log";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::emit_unencrypted_log_start;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column DST_SELECTOR = Column::gt_sel_others;
     static constexpr Column COUNTS = Column::lookup_emit_unencrypted_log_check_memory_out_of_bounds_counts;
     static constexpr Column INVERSES = Column::lookup_emit_unencrypted_log_check_memory_out_of_bounds_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {

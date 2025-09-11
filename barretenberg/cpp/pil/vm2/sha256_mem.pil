@@ -154,21 +154,21 @@ namespace sha256;
     #[CHECK_STATE_ADDR_IN_RANGE]
     start { max_state_addr, max_mem_addr, sel_state_out_of_range_err }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     pol commit max_input_addr;
     max_input_addr = start * (input_addr + 15); // We read 16 elements for inputs
     #[CHECK_INPUT_ADDR_IN_RANGE]
     start { max_input_addr, max_mem_addr, sel_input_out_of_range_err }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     pol commit max_output_addr;
     max_output_addr = start * (output_addr + 7); // We write 8 elements for the output
     #[CHECK_OUTPUT_ADDR_IN_RANGE]
     start { max_output_addr, max_mem_addr, sel_output_out_of_range_err }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     pol commit mem_out_of_range_err;
     mem_out_of_range_err = 1 - (1 - sel_state_out_of_range_err) * (1 - sel_input_out_of_range_err) * (1 - sel_output_out_of_range_err);

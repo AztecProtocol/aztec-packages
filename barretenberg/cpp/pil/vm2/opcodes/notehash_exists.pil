@@ -31,7 +31,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
         note_hash_tree_leaf_count,
         register[1], // leaf_index input
         note_hash_leaf_in_range
-    } in gt.sel {
+    } in gt.sel_others {
         gt.input_a,
         gt.input_b,
         gt.res

@@ -257,4 +257,4 @@ precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_max_bits };
 #[RANGE_CHECK_WRITE_TAGGED_VALUE]
 sel_rng_write {value, max_bits}
 in
-range_check.sel { range_check.value, range_check.rng_chk_bits };
+range_check.sel_memory { range_check.value, range_check.rng_chk_bits };

@@ -14,8 +14,8 @@ template <typename FF_> class range_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 20> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 2,
-                                                                            4, 2, 3, 2, 2, 2, 2, 2, 2, 2 };
+    static constexpr std::array<size_t, 25> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 2, 4, 2, 3, 2, 2, 2, 2, 2, 2, 2 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -36,8 +36,8 @@ template <typename FF> class range_check : public Relation<range_checkImpl<FF>> 
     static constexpr const std::string_view NAME = "range_check";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_IS_LTE_MUTUALLY_EXCLUSIVE = 9;
-    static constexpr size_t SR_CHECK_RECOMPOSITION = 10;
+    static constexpr size_t SR_IS_LTE_MUTUALLY_EXCLUSIVE = 14;
+    static constexpr size_t SR_CHECK_RECOMPOSITION = 15;
 
     static std::string get_subrelation_label(size_t index)
     {

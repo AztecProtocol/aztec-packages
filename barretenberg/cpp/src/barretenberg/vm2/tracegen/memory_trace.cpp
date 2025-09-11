@@ -175,6 +175,7 @@ const InteractionDefinition MemoryTraceBuilder::interactions =
         .add<lookup_memory_range_check_limb_1_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_memory_range_check_limb_2_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_memory_tag_max_bits_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_memory_range_check_write_tagged_value_settings, InteractionType::LookupGeneric>();
+        .add<lookup_memory_range_check_write_tagged_value_settings, InteractionType::LookupGeneric>(
+            Column::range_check_sel);
 
 } // namespace bb::avm2::tracegen

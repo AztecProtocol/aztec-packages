@@ -18,7 +18,7 @@ struct lookup_poseidon2_mem_check_src_addr_in_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "poseidon2_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::poseidon2_perm_mem_sel;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column DST_SELECTOR = Column::gt_sel_others;
     static constexpr Column COUNTS = Column::lookup_poseidon2_mem_check_src_addr_in_range_counts;
     static constexpr Column INVERSES = Column::lookup_poseidon2_mem_check_src_addr_in_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -44,7 +44,7 @@ struct lookup_poseidon2_mem_check_dst_addr_in_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "poseidon2_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::poseidon2_perm_mem_sel;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column DST_SELECTOR = Column::gt_sel_others;
     static constexpr Column COUNTS = Column::lookup_poseidon2_mem_check_dst_addr_in_range_counts;
     static constexpr Column INVERSES = Column::lookup_poseidon2_mem_check_dst_addr_in_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {

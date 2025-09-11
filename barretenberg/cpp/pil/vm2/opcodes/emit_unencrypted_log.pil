@@ -129,7 +129,7 @@ namespace emit_unencrypted_log;
     #[CHECK_LOG_SIZE_TOO_LARGE]
     start { log_size, max_log_size, error_too_large }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     // Memory bounds check
 
@@ -145,7 +145,7 @@ namespace emit_unencrypted_log;
     #[CHECK_MEMORY_OUT_OF_BOUNDS]
     start { end_log_address, max_mem_addr, error_out_of_bounds }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     // Error out of bounds is propagated down to disable memory reads
     #[ERROR_OUT_OF_BOUNDS_CONSISTENCY]

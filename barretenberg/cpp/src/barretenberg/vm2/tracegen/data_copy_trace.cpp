@@ -187,10 +187,10 @@ const InteractionDefinition DataCopyTraceBuilder::interactions =
         // Enqueued Call Col Read
         .add<lookup_data_copy_col_read_settings, InteractionType::LookupGeneric>()
         // GT checks
-        .add<lookup_data_copy_max_read_index_gt_settings, InteractionType::LookupGeneric>()
-        .add<lookup_data_copy_check_src_addr_in_range_settings, InteractionType::LookupGeneric>()
-        .add<lookup_data_copy_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>()
-        .add<lookup_data_copy_offset_gt_max_read_index_settings, InteractionType::LookupGeneric>()
+        .add<lookup_data_copy_max_read_index_gt_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_data_copy_check_src_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_data_copy_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_data_copy_offset_gt_max_read_index_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         // Permutations
         .add<perm_data_copy_dispatch_cd_copy_settings, InteractionType::Permutation>()
         .add<perm_data_copy_dispatch_rd_copy_settings, InteractionType::Permutation>();

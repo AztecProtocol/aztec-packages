@@ -180,7 +180,7 @@ struct lookup_update_check_timestamp_is_lt_timestamp_of_change_settings_ {
     static constexpr std::string_view RELATION_NAME = "update_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::update_check_hash_not_zero;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column DST_SELECTOR = Column::gt_sel_others;
     static constexpr Column COUNTS = Column::lookup_update_check_timestamp_is_lt_timestamp_of_change_counts;
     static constexpr Column INVERSES = Column::lookup_update_check_timestamp_is_lt_timestamp_of_change_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {

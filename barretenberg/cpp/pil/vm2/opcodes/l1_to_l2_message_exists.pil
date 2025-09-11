@@ -30,7 +30,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
         l1_to_l2_msg_tree_leaf_count,
         register[1], // leaf_index input
         l1_to_l2_msg_leaf_in_range
-    } in gt.sel {
+    } in gt.sel_others {
         gt.input_a,
         gt.input_b,
         gt.res

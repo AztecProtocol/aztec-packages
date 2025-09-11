@@ -10,6 +10,7 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
+#include "barretenberg/vm2/constraining/polynomials.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
 
 namespace bb::avm2 {
@@ -91,6 +92,12 @@ void AvmProver::execute_log_derivative_inverse_round()
     bb::constexpr_for<0, std::tuple_size_v<Flavor::LookupRelations>, 1>([&]<size_t relation_idx>() {
         using Relation = std::tuple_element_t<relation_idx, Flavor::LookupRelations>;
         tasks.push_back([&]() {
+            // We need to resize the inverse polynomials for the relation, now that the selectors have been computed.
+            constraining::resize_inverses(prover_polynomials,
+                                          Relation::Settings::INVERSES,
+                                          Relation::Settings::SRC_SELECTOR,
+                                          Relation::Settings::DST_SELECTOR);
+
             AVM_TRACK_TIME(std::string("prove/log_derivative_inverse_round/") + std::string(Relation::NAME),
                            (compute_logderivative_inverse<FF, Relation>(
                                prover_polynomials, relation_parameters, key->circuit_size)));

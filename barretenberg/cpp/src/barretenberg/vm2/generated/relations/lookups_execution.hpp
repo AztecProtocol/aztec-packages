@@ -250,7 +250,7 @@ struct lookup_execution_check_radix_gt_256_settings_ {
     static constexpr std::string_view RELATION_NAME = "execution";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_gas_to_radix;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column DST_SELECTOR = Column::gt_sel_others;
     static constexpr Column COUNTS = Column::lookup_execution_check_radix_gt_256_counts;
     static constexpr Column INVERSES = Column::lookup_execution_check_radix_gt_256_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -297,7 +297,7 @@ struct lookup_execution_get_max_limbs_settings_ {
     static constexpr std::string_view RELATION_NAME = "execution";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_gas_to_radix;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column DST_SELECTOR = Column::gt_sel_others;
     static constexpr Column COUNTS = Column::lookup_execution_get_max_limbs_counts;
     static constexpr Column INVERSES = Column::lookup_execution_get_max_limbs_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {

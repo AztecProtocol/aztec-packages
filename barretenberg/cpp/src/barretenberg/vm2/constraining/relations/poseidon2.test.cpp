@@ -217,8 +217,6 @@ TEST_F(Poseidon2ConstrainingTest, NegativeHashPermInteractions)
 
     builder.process_hash(hash_event_emitter.dump_events(), trace);
 
-    // This sets the length of the inverse polynomial via SetDummyInverses, so we still need to call this even
-    // though we know it will fail.
     EXPECT_THROW_WITH_MESSAGE(
         (check_interaction<Poseidon2TraceBuilder, lookup_poseidon2_hash_poseidon2_perm_settings>(trace)),
         "Failed.*POSEIDON2_PERM. Could not find tuple in destination.");

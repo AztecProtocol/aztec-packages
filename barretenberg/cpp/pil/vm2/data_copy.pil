@@ -173,7 +173,7 @@ namespace data_copy;
     #[MAX_READ_INDEX_GT]
     sel_start { offset_plus_size, src_data_size, offset_plus_size_is_gt }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     // Set max_read_index based on the conditions (1) or (2) from above
     pol commit max_read_index;
@@ -197,7 +197,7 @@ namespace data_copy;
     #[CHECK_SRC_ADDR_IN_RANGE]
     sel_start { max_read_addr, max_mem_addr, src_out_of_range_err }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     pol MAX_WRITE_ADDR = dst_addr + copy_size;
     pol commit max_write_addr;
@@ -205,7 +205,7 @@ namespace data_copy;
     #[CHECK_DST_ADDR_IN_RANGE]
     sel_start { max_write_addr, max_mem_addr, dst_out_of_range_err }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     // Consolidate the errors
     pol commit err;
@@ -249,7 +249,7 @@ namespace data_copy;
     #[OFFSET_GT_MAX_READ_INDEX]
     sel_start_no_err { offset, max_read_index, offset_gt_max_read_index }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     // If sel_offset_gt_max_read = 1 (i.e. when offset > MAX_READ_INDEX, reads_left = 0)
     // otherwise, reads_left = MAX_READ_INDEX - offset

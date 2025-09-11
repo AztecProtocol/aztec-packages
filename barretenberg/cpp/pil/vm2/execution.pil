@@ -331,7 +331,7 @@ pol commit sel_radix_gt_256; // sel_radix_gt_256 = 1 iff radix > 256
 #[CHECK_RADIX_GT_256]
 sel_gas_to_radix { /*radix=*/register[1], two_five_six, sel_radix_gt_256 }
 in
-gt.sel { gt.input_a, gt.input_b, gt.res };
+gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
 // Boolean for if we should look up the num_p_limbs value
 pol commit sel_lookup_num_p_limbs;
@@ -356,7 +356,7 @@ pol commit sel_use_num_limbs;
 #[GET_MAX_LIMBS]
 sel_gas_to_radix { /*num_limbs=*/register[2], num_p_limbs, sel_use_num_limbs }
 in
-gt.sel { gt.input_a, gt.input_b, gt.res };
+gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
 #[DYN_L2_FACTOR_TO_RADIX_BE] // num_limbs > num_p_limbs ? num_limbs : num_p_limbs
 sel_gas_to_radix * ((/*num_limbs=*/register[2] - num_p_limbs) * sel_use_num_limbs + num_p_limbs - dynamic_l2_gas_factor) = 0;
