@@ -181,6 +181,52 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_honk_proof(
     return proof;
 }
 
+template <typename Flavor>
+std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construct_honk_proof_for_simple_circuit(
+    size_t num_inner_public_inputs)
+{
+    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using InnerProver = bb::UltraProver_<Flavor>;
+    using VerificationKey = Flavor::VerificationKey;
+    using Builder = typename Flavor::CircuitBuilder;
+
+    // constuct a circuit with a single gate
+    Builder builder;
+
+    // Create 2^log_n many add gates based on input log num gates
+
+    fr a = fr::random_element();
+    uint32_t a_idx = builder.add_variable(a);
+
+    // have a big add gate added
+    fr b = fr::random_element();
+    fr c = fr::random_element();
+    fr d = a + b + c;
+    uint32_t b_idx = builder.add_variable(b);
+    uint32_t c_idx = builder.add_variable(c);
+    uint32_t d_idx = builder.add_variable(d);
+
+    builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
+
+    // Add the public inputs
+    for (size_t i = 0; i < num_inner_public_inputs; ++i) {
+        builder.add_public_variable(fr::random_element());
+    }
+
+    // Construct an Oink proof
+
+    stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
+    // prove the circuit constructed above
+    // Create the decider proving key
+    auto decider_pk = std::make_shared<DeciderProvingKey>(builder);
+    // Construct the Ultra VK
+    auto vk = std::make_shared<VerificationKey>(decider_pk->get_precomputed());
+    InnerProver prover(decider_pk, vk);
+    auto honk_proof = prover.construct_proof();
+    info("size of the proof", honk_proof.size());
+    return std::pair(honk_proof, vk);
+}
+
 /**
  * @brief Create a mock PG proof that has the correct structure but is not in general valid
  *
@@ -499,6 +545,13 @@ template HonkProof create_mock_honk_proof<UltraFlavor, stdlib::recursion::honk::
 template HonkProof create_mock_honk_proof<UltraZKFlavor, stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(
     const size_t);
 template HonkProof create_mock_honk_proof<UltraRollupFlavor, stdlib::recursion::honk::RollupIO>(const size_t);
+
+template std::pair<HonkProof, std::shared_ptr<UltraFlavor::VerificationKey>> construct_honk_proof_for_simple_circuit<
+    UltraFlavor>(size_t num_public_inputs);
+template std::pair<HonkProof, std::shared_ptr<UltraZKFlavor::VerificationKey>> construct_honk_proof_for_simple_circuit<
+    UltraZKFlavor>(size_t num_public_inputs);
+template std::pair<HonkProof, std::shared_ptr<UltraRollupFlavor::VerificationKey>>
+construct_honk_proof_for_simple_circuit<UltraRollupFlavor>(size_t num_public_inputs);
 
 template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::AppIO>();
 template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>();

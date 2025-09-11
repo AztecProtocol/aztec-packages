@@ -138,7 +138,9 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
      * @return Composer
      */
     template <typename BuilderType>
-    BuilderType create_outer_circuit(std::vector<InnerBuilder>& inner_circuits, bool dummy_witnesses = false)
+    BuilderType create_outer_circuit(std::vector<InnerBuilder>& inner_circuits,
+                                     bool dummy_witnesses = false,
+                                     bool predicate_val = false)
     {
         std::vector<RecursionConstraint> honk_recursion_constraints;
 
@@ -174,7 +176,11 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
                     witness, proof_witnesses, key_witnesses, key_hash_witness, num_public_inputs_to_extract);
 
             auto predicate = WitnessOrConstant<fr>::from_index(static_cast<uint32_t>(witness.size()));
-            witness.push_back(fr(1));
+            if (predicate_val) {
+                witness.push_back(fr(1));
+            } else {
+                witness.push_back(fr(0));
+            }
 
             RecursionConstraint honk_recursion_constraint{
                 .key = key_indices,
@@ -206,7 +212,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
         }
         AcirProgram program{ constraint_system, witness };
         BuilderType outer_circuit = create_circuit<BuilderType>(program, metadata);
-        info("the hash of the circuit: ", outer_circuit.hash_circuit());
+
         return outer_circuit;
     }
 
