@@ -6,8 +6,8 @@ use aztec::macros::aztec;
 pub contract Spam {
 
     use aztec::{
-        event::event_interface::MessageDelivery,
         macros::{functions::{internal, private, public}, storage::storage},
+        messages::message_delivery::MessageDelivery,
         protocol_types::{
             address::AztecAddress,
             constants::{

@@ -1,6 +1,6 @@
 import { EthAddress } from '@aztec/aztec.js';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { RollupContract, TallySlashingProposerContract } from '@aztec/ethereum/contracts';
+import { RollupContract, SlasherContract, TallySlashingProposerContract } from '@aztec/ethereum/contracts';
 import { compactArray, partition, times } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -88,6 +88,7 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
     private config: TallySlasherClientConfig,
     private settings: TallySlasherSettings,
     private tallySlashingProposer: TallySlashingProposerContract,
+    private slasher: SlasherContract,
     private rollup: RollupContract,
     watchers: Watcher[],
     private epochCache: EpochCache,
@@ -212,8 +213,7 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
 
       // Check if the slash payload is vetoed
       const payload = await this.tallySlashingProposer.getPayload(executableRound);
-      const slasherContract = await this.rollup.getSlasherContract();
-      const isVetoed = await slasherContract.isPayloadVetoed(payload.address);
+      const isVetoed = await this.slasher.isPayloadVetoed(payload.address);
       if (isVetoed) {
         this.log.warn(`Round ${executableRound} payload is vetoed (skipping execution)`, {
           payloadAddress: payload.address.toString(),

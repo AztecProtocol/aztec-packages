@@ -12,7 +12,7 @@ import {
 } from '@aztec/stdlib/contract';
 import type { GasSettings } from '@aztec/stdlib/gas';
 import type { PublicKeys } from '@aztec/stdlib/keys';
-import type { Capsule, TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
+import type { Capsule, TxProfileResult } from '@aztec/stdlib/tx';
 
 import { publishContractClass } from '../deployment/publish_class.js';
 import { publishInstance } from '../deployment/publish_instance.js';
@@ -79,32 +79,6 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   }
 
   /**
-   * Prepare a transaction execution request which can optionally (depending on the `options`):
-   * - Publish the contract's class_id
-   * - Publish the contract instance data, to enable execution of its public functions.
-   * - Initialize the contract
-   *
-   * A tx is not necessary if the function has no public functions nor any
-   * initializer function.
-   *
-   * This function internally calls `request()` and `sign()` methods to prepare
-   * the transaction for deployment. The resulting signed transaction can be
-   * later sent using the `send()` method.
-   *
-   * @param options - An object containing optional deployment settings, contractAddressSalt, and from.
-   * @returns A Promise resolving to an object containing the signed transaction data and other relevant information.
-   */
-  public async create(options: DeployOptions): Promise<TxExecutionRequest> {
-    const requestWithoutFee = await this.request(options);
-    const { fee: userFee, txNonce, cancellable } = options;
-    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { txNonce, cancellable });
-    return this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { txNonce, cancellable });
-  }
-
-  // REFACTOR: Having a `request` method with different semantics than the ones in the other
-  // derived ContractInteractions is confusing. We should unify the flow of all ContractInteractions.
-
-  /**
    * Returns an array of function calls that represent this operation. Useful as a building
    * block for constructing batch requests.
    * @param options - Deployment options.
@@ -140,15 +114,15 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @returns An object containing the function return value and profile result.
    */
   public async profile(options: DeployOptions & ProfileMethodOptions): Promise<TxProfileResult> {
-    const txRequest = await this.create(options);
-    return await this.wallet.profileTx(txRequest, options.profileMode, options.skipProofGeneration, options?.from);
+    const executionPayload = await this.request(options);
+    return await this.wallet.profileTx(executionPayload, options);
   }
 
   /**
    * Adds this contract to the PXE and returns the Contract object.
    * @param options - Deployment options.
    */
-  public async register(options: Omit<DeployOptions, 'from'> = {}): Promise<TContract> {
+  public async register(options?: DeployOptions): Promise<TContract> {
     const instance = await this.getInstance(options);
     await this.wallet.registerContract({ artifact: this.artifact, instance });
     return this.postDeployCtor(instance.address, this.wallet);
@@ -162,7 +136,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Contract creation options.
    * @returns An execution payload with potentially calls (and bytecode capsule) to the class registry and instance registry.
    */
-  protected async getPublicationExecutionPayload(options: Omit<DeployOptions, 'from'> = {}): Promise<ExecutionPayload> {
+  protected async getPublicationExecutionPayload(options?: DeployOptions): Promise<ExecutionPayload> {
     const calls: ExecutionPayload[] = [];
 
     // Set contract instance object so it's available for populating the DeploySendTx object
@@ -178,7 +152,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     }
 
     // Publish the contract class if it hasn't been published already.
-    if (!options.skipClassPublication) {
+    if (!options?.skipClassPublication) {
       if ((await this.wallet.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered) {
         this.log.debug(
           `Skipping publication of already-registered contract class ${contractClass.id.toString()} for ${instance.address.toString()}`,
@@ -193,7 +167,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     }
 
     // Publish the contract instance:
-    if (!options.skipInstancePublication) {
+    if (!options?.skipInstancePublication) {
       // TODO(https://github.com/AztecProtocol/aztec-packages/issues/15596):
       // Read the artifact, and if there are no public functions, warn the caller that publication of the
       // contract instance is not necessary (until such time as they wish to update the instance (i.e. change its class_id)).
@@ -209,11 +183,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Deployment options.
    * @returns - An array of function calls.
    */
-  protected async getInitializationExecutionPayload(
-    options: Omit<DeployOptions, 'from'> = {},
-  ): Promise<ExecutionPayload> {
+  protected async getInitializationExecutionPayload(options?: DeployOptions): Promise<ExecutionPayload> {
     const executionsPayloads: ExecutionPayload[] = [];
-    if (this.constructorArtifact && !options.skipInitialization) {
+    if (this.constructorArtifact && !options?.skipInitialization) {
       const { address } = await this.getInstance(options);
       const constructorCall = new ContractFunctionInteraction(
         this.wallet,
@@ -246,14 +218,14 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - An object containing various initialization and publication options.
    * @returns An instance object.
    */
-  public async getInstance(options: Omit<DeployOptions, 'from'> = {}): Promise<ContractInstanceWithAddress> {
+  public async getInstance(options?: DeployOptions): Promise<ContractInstanceWithAddress> {
     if (!this.instance) {
       this.instance = await getContractInstanceFromInstantiationParams(this.artifact, {
         constructorArgs: this.args,
-        salt: options.contractAddressSalt,
+        salt: options?.contractAddressSalt,
         publicKeys: this.publicKeys,
         constructorArtifact: this.constructorArtifact,
-        deployer: options.universalDeploy ? AztecAddress.ZERO : this.wallet.getAddress(),
+        deployer: !options || options.universalDeploy ? AztecAddress.ZERO : options.from,
       });
     }
     return this.instance;
@@ -276,13 +248,15 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   }
 
   /**
-   * Estimates gas cost for this deployment operation.
+   * Estimates gas for the interaction and returns gas limits for it.
    * @param options - Options.
+   * @returns Gas limits.
    */
-  public override estimateGas(
+  public override async estimateGas(
     options: Omit<DeployOptions, 'estimateGas'>,
   ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
-    return super.estimateGas(options);
+    const executionPayload = await this.request(options);
+    return this.wallet.estimateGas(executionPayload, options);
   }
 
   /** Return this deployment address. */

@@ -130,49 +130,6 @@ library AttestationLib {
   }
 
   /**
-   * @notice Assert that the size of `_attestations` is as expected, throw otherwise
-   *
-   * @custom:reverts SignatureIndicesSizeMismatch if the signature indices have a wrong size
-   * @custom:reverts SignaturesOrAddressesSizeMismatch if the signatures or addresses object has wrong size
-   *
-   * @param _attestations - The attestation struct
-   * @param _expectedCount - The expected size of the validator set
-   */
-  function assertSizes(CommitteeAttestations memory _attestations, uint256 _expectedCount) internal pure {
-    // Count signatures (1s) and addresses (0s) from bitmap
-    uint256 signatureCount = 0;
-    uint256 addressCount = 0;
-    uint256 bitmapBytes = (_expectedCount + 7) / 8; // Round up to nearest byte
-    require(
-      bitmapBytes == _attestations.signatureIndices.length,
-      Errors.AttestationLib__SignatureIndicesSizeMismatch(bitmapBytes, _attestations.signatureIndices.length)
-    );
-
-    for (uint256 i = 0; i < _expectedCount; i++) {
-      uint256 byteIndex = i / 8;
-      uint256 bitIndex = 7 - (i % 8);
-      uint8 bitMask = uint8(1 << bitIndex);
-
-      if (uint8(_attestations.signatureIndices[byteIndex]) & bitMask != 0) {
-        signatureCount++;
-      } else {
-        addressCount++;
-      }
-    }
-
-    // Calculate expected size
-    uint256 sizeOfSignaturesAndAddresses = (signatureCount * SIGNATURE_LENGTH) + (addressCount * ADDRESS_LENGTH);
-
-    // Validate actual size matches expected
-    require(
-      sizeOfSignaturesAndAddresses == _attestations.signaturesOrAddresses.length,
-      Errors.AttestationLib__SignaturesOrAddressesSizeMismatch(
-        sizeOfSignaturesAndAddresses, _attestations.signaturesOrAddresses.length
-      )
-    );
-  }
-
-  /**
    * Recovers the committee from the addresses in the attestations and signers.
    *
    * @custom:reverts SignatureIndicesSizeMismatch if the signature indices have a wrong size

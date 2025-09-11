@@ -50,7 +50,7 @@ export function CreateAuthwitDialog({ open, contract, fnName, args, isPrivate, o
 
   const [feePaymentMethod, setFeePaymentMethod] = useState(null);
 
-  const { wallet, walletDB } = useContext(AztecContext);
+  const { wallet, walletDB, from } = useContext(AztecContext);
 
   const handleClose = () => {
     onClose();
@@ -62,18 +62,18 @@ export function CreateAuthwitDialog({ open, contract, fnName, args, isPrivate, o
       const action = contract.methods[fnName](...args);
       let witness;
       if (isPrivate) {
-        witness = await wallet.createAuthWit({
+        witness = await wallet.createAuthWit(from, {
           caller: AztecAddress.fromString(caller),
           action,
         });
         await walletDB.storeAuthwitness(witness, undefined, alias);
         onClose();
       } else {
-        const validateActionInteraction = await wallet.setPublicAuthWit(
+        const validateActionInteraction = await wallet.setPublicAuthWit(from,
           { caller: AztecAddress.fromString(caller), action },
           true,
         );
-        const opts: SendMethodOptions = { from: wallet.getAddress(), fee: { paymentMethod: feePaymentMethod } };
+        const opts: SendMethodOptions = { from, fee: { paymentMethod: feePaymentMethod } };
         onClose(true, validateActionInteraction, opts);
       }
     } catch (e) {

@@ -9,8 +9,8 @@ pub contract PendingNoteHashes {
     // Libs
     use aztec::{
         context::PrivateContext,
-        event::event_interface::MessageDelivery,
         macros::{functions::private, storage::storage},
+        messages::message_delivery::MessageDelivery,
         note::{note_emission::NoteEmission, note_getter_options::NoteGetterOptions},
         protocol_types::{
             abis::function_selector::FunctionSelector,

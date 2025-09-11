@@ -8,26 +8,23 @@ import AddIcon from '@mui/icons-material/Add';
 import CircularProgress from '@mui/material/CircularProgress';
 import { CreateAccountDialog } from './CreateAccountDialog';
 import { CopyToClipboardButton } from '../../common/CopyToClipboardButton';
-import { AztecAddress, type DeployOptions, AccountWalletWithSecretKey, DeployMethod, TxStatus } from '@aztec/aztec.js';
-import { getSchnorrAccount } from '@aztec/accounts/schnorr/lazy';
+import { AztecAddress, type DeployOptions, DeployMethod, TxStatus } from '@aztec/aztec.js';
 import {
-  convertFromUTF8BufferAsString,
   formatFrAsString,
   parseAliasedBuffersAsString,
 } from '../../../utils/conversion';
-import { getEcdsaRAccount, getEcdsaKAccount } from '@aztec/accounts/ecdsa/lazy';
-import { Fq, type AccountManager } from '@aztec/aztec.js';
 import { AztecContext } from '../../../aztecEnv';
-import { getInitialTestAccounts } from '@aztec/accounts/testing/lazy';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { useTransaction } from '../../../hooks/useTransaction';
 import { navbarButtonStyle, navbarSelect, navbarSelectLabel } from '../../../styles/common';
 import SwitchAccountIcon from '@mui/icons-material/SwitchAccount';
 import { trackButtonClick } from '../../../utils/matomo';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing/lazy';
+import type { EmbeddedWallet } from '../../../embedded_wallet';
 
 
 export function AccountSelector() {
-  const { setWallet, wallet, walletDB, isPXEInitialized, pxe, network, pendingTxUpdateCounter } = useContext(AztecContext);
+  const { setFrom, wallet, walletDB, isPXEInitialized, pxe, network, pendingTxUpdateCounter, from } = useContext(AztecContext);
 
   const [openCreateAccountDialog, setOpenCreateAccountDialog] = useState(false);
   const [isAccountsLoading, setIsAccountsLoading] = useState(false);
@@ -39,26 +36,24 @@ export function AccountSelector() {
   const getAccounts = async () => {
     const aliasedBuffers = await walletDB.listAliases('accounts');
     const aliasedAccounts = parseAliasedBuffersAsString(aliasedBuffers);
-    const testAccountData = network.hasTestAccounts ? await getInitialTestAccounts() : [];
+    const testAccountData = network.hasTestAccounts ? await getInitialTestAccountsData() : [];
     let i = 0;
     for (const accountData of testAccountData) {
-      const account: AccountManager = await getSchnorrAccount(
-        pxe,
+      const accountManager = await (wallet as EmbeddedWallet).createSchnorrAccount(
         accountData.secret,
-        accountData.signingKey,
         accountData.salt,
+        accountData.signingKey,
       );
-      if (!aliasedAccounts.find(({ value }) => account.getAddress().equals(AztecAddress.fromString(value)))) {
-        await account.register();
-        const instance = account.getInstance();
-        const wallet = await account.getWallet();
+      if (!aliasedAccounts.find(({ value }) => accountManager.getAddress().equals(AztecAddress.fromString(value)))) {
+        const instance = accountManager.getInstance();
+        const account = await accountManager.getAccount();
         const alias = `test${i}`;
         await walletDB.storeAccount(instance.address, {
           type: 'schnorr',
-          secretKey: wallet.getSecretKey(),
+          secretKey: account.getSecretKey(),
           alias,
-          signingKey: deriveSigningKey(wallet.getSecretKey()),
-          salt: account.getInstance().salt,
+          signingKey: deriveSigningKey(account.getSecretKey()),
+          salt: instance.salt,
         });
         aliasedAccounts.push({
           key: `accounts:${alias}`,
@@ -87,11 +82,6 @@ export function AccountSelector() {
     };
 
     refreshAccounts();
-
-    // Refresh accounts every 10 seconds, a new account may be created from other places
-    const interval = setInterval(() => refreshAccounts(false), 10000);
-    return () => clearInterval(interval);
-
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [wallet, walletDB, pxe, pendingTxUpdateCounter]);
 
@@ -111,61 +101,34 @@ export function AccountSelector() {
 
     setIsAccountsLoading(true);
     const accountAddress = AztecAddress.fromString(address);
-    const accountData = await walletDB.retrieveAccount(accountAddress);
-    const type = convertFromUTF8BufferAsString(accountData.type);
-    let accountManager: AccountManager;
-    switch (type) {
-      case 'schnorr': {
-        accountManager = await getSchnorrAccount(
-          pxe,
-          accountData.secretKey,
-          Fq.fromBuffer(accountData.signingKey),
-          accountData.salt,
-        );
-        break;
-      }
-      case 'ecdsasecp256r1': {
-        accountManager = await getEcdsaRAccount(pxe, accountData.secretKey, accountData.signingKey, accountData.salt);
-        break;
-      }
-      case 'ecdsasecp256k1': {
-        accountManager = await getEcdsaKAccount(pxe, accountData.secretKey, accountData.signingKey, accountData.salt);
-        break;
-      }
-      default: {
-        throw new Error('Unknown account type');
-      }
-    }
-    await accountManager.register();
     const senders = await walletDB.listAliases('senders');
     const senderAddresses = parseAliasedBuffersAsString(senders).map(({ value }) => AztecAddress.fromString(value));
-    const wallet = await accountManager.getWallet();
     for(const senderAddress of senderAddresses) {
       await wallet.registerSender(senderAddress);
     }
-    setWallet(wallet);
+    setFrom(accountAddress);
     setIsAccountsLoading(false);
   };
 
   const handleAccountCreation = async (
-    accountWallet?: AccountWalletWithSecretKey,
+    address?: AztecAddress,
     publiclyDeploy?: boolean,
     interaction?: DeployMethod,
     opts?: DeployOptions,
   ) => {
     setOpenCreateAccountDialog(false);
     setIsAccountsLoading(true);
-    if (accountWallet && publiclyDeploy) {
-      const txReceipt = await sendTx(`Deploy Account`, interaction, accountWallet.getAddress(), opts);
+    if (address && publiclyDeploy) {
+      const txReceipt = await sendTx(`Deploy Account`, interaction, address, opts);
       if (txReceipt?.status === TxStatus.SUCCESS) {
         setAccounts([
           ...accounts,
-          { key: `accounts:${accountWallet.getAddress()}`, value: accountWallet.getAddress().toString() },
+          { key: `accounts:${address}`, value: address.toString() },
         ]);
-        setWallet(accountWallet);
+        setFrom(address);
       } else if (txReceipt?.status === TxStatus.DROPPED) {
         // Temporarily remove from accounts if deployment fails
-        await walletDB.deleteAccount(accountWallet.getAddress());
+        await walletDB.deleteAccount(address);
       }
     }
     setIsAccountsLoading(false);
@@ -185,13 +148,13 @@ export function AccountSelector() {
       <SwitchAccountIcon />
 
       <FormControl css={navbarSelect}>
-        {!wallet?.getAddress().toString() && (
+        {!from?.toString() && (
           <InputLabel id="account-label">Select Account</InputLabel>
         )}
 
         <Select
           fullWidth
-          value={wallet?.getAddress().toString() ?? ''}
+          value={from?.toString() ?? ''}
           label="Account"
           open={isOpen}
           onOpen={() => setIsOpen(true)}
@@ -240,7 +203,7 @@ export function AccountSelector() {
       </FormControl>
 
       {!isAccountsLoading && wallet && (
-        <CopyToClipboardButton disabled={!wallet} data={wallet?.getAddress().toString()} />
+        <CopyToClipboardButton disabled={!wallet} data={from?.toString()} />
       )}
 
       <CreateAccountDialog open={openCreateAccountDialog} onClose={handleAccountCreation} />

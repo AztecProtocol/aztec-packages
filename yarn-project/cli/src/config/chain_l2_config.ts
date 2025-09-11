@@ -34,6 +34,40 @@ export type L2ChainConfig = L1ContractsConfig &
     sentinelEnabled: boolean;
   };
 
+const DefaultSlashConfig = {
+  /** Tally-style slashing */
+  slasherFlavor: 'tally',
+  /** Allow one round for vetoing */
+  slashingExecutionDelayInRounds: 1,
+  /** How long for a slash payload to be executed */
+  slashingLifetimeInRounds: 5,
+  /** Allow 2 rounds to discover faults */
+  slashingOffsetInRounds: 2,
+  /** No slash vetoer */
+  slashingVetoer: EthAddress.ZERO,
+  /** Use default slash amounts */
+  slashAmountSmall: DefaultL1ContractsConfig.slashAmountSmall,
+  slashAmountMedium: DefaultL1ContractsConfig.slashAmountMedium,
+  slashAmountLarge: DefaultL1ContractsConfig.slashAmountLarge,
+
+  // Slashing stuff
+  slashMinPenaltyPercentage: 0.5,
+  slashMaxPenaltyPercentage: 2.0,
+  slashInactivityTargetPercentage: 0.7,
+  slashInactivityConsecutiveEpochThreshold: 1,
+  slashInactivityPenalty: DefaultL1ContractsConfig.slashAmountSmall,
+  slashPrunePenalty: DefaultL1ContractsConfig.slashAmountSmall,
+  slashDataWithholdingPenalty: DefaultL1ContractsConfig.slashAmountSmall,
+  slashProposeInvalidAttestationsPenalty: DefaultL1ContractsConfig.slashAmountLarge,
+  slashAttestDescendantOfInvalidPenalty: DefaultL1ContractsConfig.slashAmountLarge,
+  slashUnknownPenalty: DefaultL1ContractsConfig.slashAmountSmall,
+  slashBroadcastedInvalidBlockPenalty: DefaultL1ContractsConfig.slashAmountMedium,
+  slashMaxPayloadSize: 50,
+  slashGracePeriodL2Slots: 32 * 2, // Two epochs from genesis
+  slashOffenseExpirationRounds: 8,
+  sentinelEnabled: true,
+} satisfies Partial<L2ChainConfig>;
+
 export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   l1ChainId: 11155111,
   testAccounts: true,
@@ -55,6 +89,7 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   publicMetricsCollectFrom: ['sequencer'],
 
   ...DefaultL1ContractsConfig,
+  ...DefaultSlashConfig,
 
   /** How many seconds an L1 slot lasts. */
   ethereumSlotDuration: 12,
@@ -70,26 +105,6 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   manaTarget: 0n,
   /** The proving cost per mana */
   provingCostPerMana: 0n,
-
-  slasherFlavor: 'none',
-  slashAmountSmall: 0n,
-  slashAmountMedium: 0n,
-  slashAmountLarge: 0n,
-  slashMinPenaltyPercentage: 0.5,
-  slashMaxPenaltyPercentage: 200,
-  slashInactivityTargetPercentage: 0,
-  slashInactivityConsecutiveEpochThreshold: 1,
-  slashInactivityPenalty: 0n,
-  slashPrunePenalty: 0n,
-  slashDataWithholdingPenalty: 0n,
-  slashProposeInvalidAttestationsPenalty: 0n,
-  slashAttestDescendantOfInvalidPenalty: 0n,
-  slashBroadcastedInvalidBlockPenalty: 0n,
-  slashMaxPayloadSize: 50,
-  slashGracePeriodL2Slots: 0,
-  slashUnknownPenalty: 0n,
-  slashOffenseExpirationRounds: 10,
-  sentinelEnabled: false,
 };
 
 export const stagingPublicL2ChainConfig: L2ChainConfig = {
@@ -139,37 +154,8 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   provingCostPerMana: DefaultL1ContractsConfig.provingCostPerMana,
   /** Exit delay for stakers */
   exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
-  /** Tally-style slashing */
-  slasherFlavor: 'tally',
-  /** Allow one round for vetoing */
-  slashingExecutionDelayInRounds: 1,
-  /** How long for a slash payload to be executed */
-  slashingLifetimeInRounds: 5,
-  /** Allow 2 rounds to discover faults */
-  slashingOffsetInRounds: 2,
-  /** No slash vetoer */
-  slashingVetoer: EthAddress.ZERO,
-  /** Use default slash amounts */
-  slashAmountSmall: DefaultL1ContractsConfig.slashAmountSmall,
-  slashAmountMedium: DefaultL1ContractsConfig.slashAmountMedium,
-  slashAmountLarge: DefaultL1ContractsConfig.slashAmountLarge,
 
-  // Slashing stuff
-  slashMinPenaltyPercentage: 0.5,
-  slashMaxPenaltyPercentage: 2.0,
-  slashInactivityTargetPercentage: 0.7,
-  slashInactivityConsecutiveEpochThreshold: 1,
-  slashInactivityPenalty: DefaultL1ContractsConfig.slashAmountSmall,
-  slashPrunePenalty: DefaultL1ContractsConfig.slashAmountSmall,
-  slashDataWithholdingPenalty: DefaultL1ContractsConfig.slashAmountSmall,
-  slashProposeInvalidAttestationsPenalty: DefaultL1ContractsConfig.slashAmountLarge,
-  slashAttestDescendantOfInvalidPenalty: DefaultL1ContractsConfig.slashAmountLarge,
-  slashUnknownPenalty: DefaultL1ContractsConfig.slashAmountSmall,
-  slashBroadcastedInvalidBlockPenalty: DefaultL1ContractsConfig.slashAmountMedium,
-  slashMaxPayloadSize: 50,
-  slashGracePeriodL2Slots: 32 * 2, // Two epochs from genesis
-  slashOffenseExpirationRounds: 8,
-  sentinelEnabled: true,
+  ...DefaultSlashConfig,
 };
 
 export const testnetL2ChainConfig: L2ChainConfig = {
@@ -219,37 +205,8 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   provingCostPerMana: DefaultL1ContractsConfig.provingCostPerMana,
   /** Exit delay for stakers */
   exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
-  /** Tally-style slashing */
-  slasherFlavor: 'tally',
-  /** Allow one round for vetoing */
-  slashingExecutionDelayInRounds: 1,
-  /** How long for a slash payload to be executed */
-  slashingLifetimeInRounds: 5,
-  /** Allow 2 rounds to discover faults */
-  slashingOffsetInRounds: 2,
-  /** No slash vetoer */
-  slashingVetoer: EthAddress.ZERO,
-  /** Use default slash amounts */
-  slashAmountSmall: DefaultL1ContractsConfig.slashAmountSmall,
-  slashAmountMedium: DefaultL1ContractsConfig.slashAmountMedium,
-  slashAmountLarge: DefaultL1ContractsConfig.slashAmountLarge,
 
-  // Slashing stuff
-  slashMinPenaltyPercentage: 0.5,
-  slashMaxPenaltyPercentage: 2.0,
-  slashInactivityTargetPercentage: 0.7,
-  slashInactivityConsecutiveEpochThreshold: 1,
-  slashInactivityPenalty: DefaultL1ContractsConfig.slashAmountSmall,
-  slashPrunePenalty: DefaultL1ContractsConfig.slashAmountSmall,
-  slashDataWithholdingPenalty: DefaultL1ContractsConfig.slashAmountSmall,
-  slashProposeInvalidAttestationsPenalty: DefaultL1ContractsConfig.slashAmountLarge,
-  slashAttestDescendantOfInvalidPenalty: DefaultL1ContractsConfig.slashAmountLarge,
-  slashUnknownPenalty: DefaultL1ContractsConfig.slashAmountSmall,
-  slashBroadcastedInvalidBlockPenalty: DefaultL1ContractsConfig.slashAmountMedium,
-  slashMaxPayloadSize: 50,
-  slashGracePeriodL2Slots: 32 * 2, // Two epochs from genesis
-  slashOffenseExpirationRounds: 8,
-  sentinelEnabled: true,
+  ...DefaultSlashConfig,
 };
 
 const BOOTNODE_CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour;
