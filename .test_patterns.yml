@@ -342,6 +342,11 @@ tests:
     owners:
       - *saleel
 
+  - regex: "src/e2e_p2p/inactivity_slash.test.ts"
+    error_regex: "Cannot propose.*since the committee does not exist on L1"
+    owners:
+      - *palla
+
   # Slack testing.
   - regex: "nonsense to match"
     error_regex: "something else"
