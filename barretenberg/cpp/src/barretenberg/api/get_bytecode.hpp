@@ -9,7 +9,7 @@
  */
 inline std::vector<uint8_t> gunzip(const std::string& path)
 {
-    return bb::exec_pipe_with_stdin(path, "gunzip -c -");
+    return bb::exec_pipe_with_stdin(path, "gunzip -c");
 }
 
 inline std::vector<uint8_t> get_bytecode(const std::string& bytecodePath)
