@@ -43,7 +43,7 @@ locals {
 
   internal_boot_node_url = var.DEPLOY_INTERNAL_BOOTNODE ? "http://${var.RELEASE_PREFIX}-p2p-bootstrap-node.${var.NAMESPACE}.svc.cluster.local:8080" : ""
 
-  internal_rpc_url       = "http://${var.RELEASE_PREFIX}-rpc-aztec-node-admin.${var.NAMESPACE}.svc.cluster.local:8080"
+  internal_rpc_url       = "http://${var.RELEASE_PREFIX}-rpc-aztec-node.${var.NAMESPACE}.svc.cluster.local:8080"
   internal_rpc_admin_url = "http://${var.RELEASE_PREFIX}-rpc-aztec-node-admin.${var.NAMESPACE}.svc.cluster.local:8880"
 
   # Common settings for all releases
