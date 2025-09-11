@@ -59,6 +59,11 @@ bot:
 
     hostNetwork: true
 
+    # give the bot 5 minutes to start
+    startupProbe:
+      periodSeconds: 30
+      failureThreshold: 10
+
   service:
     p2p:
       enabled: false

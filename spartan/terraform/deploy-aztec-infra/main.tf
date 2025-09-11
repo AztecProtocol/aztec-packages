@@ -163,15 +163,16 @@ locals {
         "prover-resources-${var.PROVER_RESOURCE_PROFILE}.yaml"
       ]
       custom_settings = {
-        "node.mnemonic"                = var.PROVER_MNEMONIC
-        "node.mnemonicStartIndex"      = var.PROVER_MNEMONIC_START_INDEX
-        "node.node.proverRealProofs"   = var.PROVER_REAL_PROOFS
-        "node.web3signerUrl"           = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
-        "node.node.env.NETWORK"        = var.NETWORK
-        "broker.node.proverRealProofs" = var.PROVER_REAL_PROOFS
-        "broker.node.env.NETWORK"      = var.NETWORK
-        "agent.node.proverRealProofs"  = var.PROVER_REAL_PROOFS
-        "agent.node.env.NETWORK"       = var.NETWORK
+        "node.mnemonic"                           = var.PROVER_MNEMONIC
+        "node.mnemonicStartIndex"                 = var.PROVER_MNEMONIC_START_INDEX
+        "node.node.proverRealProofs"              = var.PROVER_REAL_PROOFS
+        "node.web3signerUrl"                      = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
+        "node.node.env.NETWORK"                   = var.NETWORK
+        "node.node.env.PROVER_FAILED_PROOF_STORE" = var.PROVER_FAILED_PROOF_STORE
+        "broker.node.proverRealProofs"            = var.PROVER_REAL_PROOFS
+        "broker.node.env.NETWORK"                 = var.NETWORK
+        "agent.node.proverRealProofs"             = var.PROVER_REAL_PROOFS
+        "agent.node.env.NETWORK"                  = var.NETWORK
       }
       boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.node.env.BOOTSTRAP_NODES"
@@ -185,21 +186,31 @@ locals {
         "rpc.yaml",
         "rpc-resources-${var.RPC_RESOURCE_PROFILE}.yaml"
       ]
-      custom_settings = merge(
-        {
-          "nodeType"            = "rpc"
-          "node.env.NETWORK"    = var.NETWORK
-          "ingress.rpc.enabled" = var.RPC_INGRESS_ENABLED
-          "ingress.rpc.host"    = var.RPC_INGRESS_HOST
-        },
-        var.RPC_INGRESS_ENABLED ? {
-          "service.rpc.annotations.cloud\\.google\\.com/neg"                        = "{\"ingress\": true}"
-          "ingress.rpc.annotations.kubernetes\\.io/ingress\\.class"                 = "gce"
-          "ingress.rpc.annotations.kubernetes\\.io/ingress\\.global-static-ip-name" = var.RPC_INGRESS_STATIC_IP_NAME
-          "ingress.rpc.annotations.ingress\\.gcp\\.kubernetes\\.io/pre-shared-cert" = var.RPC_INGRESS_SSL_CERT_NAME
-          "ingress.rpc.annotations.kubernetes\\.io/ingress\\.allow-http"            = "false"
-        } : {}
-      )
+      inline_values = var.RPC_INGRESS_ENABLED ? [yamlencode({
+        service = {
+          rpc = {
+            annotations = {
+              "cloud.google.com/neg" = "{\"ingress\": true}"
+            }
+          }
+        }
+        ingress = {
+          rpc = {
+            annotations = {
+              "kubernetes.io/ingress.class"                 = "gce"
+              "kubernetes.io/ingress.global-static-ip-name" = var.RPC_INGRESS_STATIC_IP_NAME
+              "ingress.gcp.kubernetes.io/pre-shared-cert"   = var.RPC_INGRESS_SSL_CERT_NAME
+              "kubernetes.io/ingress.allow-http"            = "false"
+            }
+          }
+        }
+      })] : []
+      custom_settings = {
+        "nodeType"            = "rpc"
+        "node.env.NETWORK"    = var.NETWORK
+        "ingress.rpc.enabled" = var.RPC_INGRESS_ENABLED
+        "ingress.rpc.host"    = var.RPC_INGRESS_HOST
+      }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
     }
@@ -214,11 +225,13 @@ locals {
         "bot-resources-${var.BOT_RESOURCE_PROFILE}.yaml",
       ]
       custom_settings = {
-        "bot.replicaCount"      = var.BOT_TRANSFERS_REPLICAS
-        "bot.txIntervalSeconds" = var.BOT_TRANSFERS_TX_INTERVAL_SECONDS
-        "bot.followChain"       = var.BOT_TRANSFERS_FOLLOW_CHAIN
-        "bot.botPrivateKey"     = var.BOT_TRANSFERS_PRIVATE_KEY
-        "bot.nodeUrl"           = local.internal_rpc_url
+        "bot.replicaCount"       = var.BOT_TRANSFERS_REPLICAS
+        "bot.txIntervalSeconds"  = var.BOT_TRANSFERS_TX_INTERVAL_SECONDS
+        "bot.followChain"        = var.BOT_TRANSFERS_FOLLOW_CHAIN
+        "bot.botPrivateKey"      = var.BOT_TRANSFERS_L2_PRIVATE_KEY
+        "bot.nodeUrl"            = local.internal_rpc_url
+        "bot.mnemonic"           = var.BOT_MNEMONIC
+        "bot.mnemonicStartIndex" = var.BOT_TRANSFERS_MNEMONIC_START_INDEX
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
@@ -234,11 +247,13 @@ locals {
         "bot-resources-${var.BOT_RESOURCE_PROFILE}.yaml",
       ]
       custom_settings = {
-        "bot.replicaCount"      = var.BOT_SWAPS_REPLICAS
-        "bot.txIntervalSeconds" = var.BOT_SWAPS_TX_INTERVAL_SECONDS
-        "bot.followChain"       = var.BOT_SWAPS_FOLLOW_CHAIN
-        "bot.botPrivateKey"     = var.BOT_SWAPS_PRIVATE_KEY
-        "bot.nodeUrl"           = local.internal_rpc_url
+        "bot.replicaCount"       = var.BOT_SWAPS_REPLICAS
+        "bot.txIntervalSeconds"  = var.BOT_SWAPS_TX_INTERVAL_SECONDS
+        "bot.followChain"        = var.BOT_SWAPS_FOLLOW_CHAIN
+        "bot.botPrivateKey"      = var.BOT_SWAPS_L2_PRIVATE_KEY
+        "bot.nodeUrl"            = local.internal_rpc_url
+        "bot.mnemonic"           = var.BOT_MNEMONIC
+        "bot.mnemonicStartIndex" = var.BOT_SWAPS_MNEMONIC_START_INDEX
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
@@ -264,7 +279,10 @@ resource "helm_release" "releases" {
   wait             = true
   wait_for_jobs    = true
 
-  values = [for v in each.value.values : file("./values/${v}")]
+  values = concat(
+    [for v in each.value.values : file("./values/${v}")],
+    lookup(each.value, "inline_values", [])
+  )
 
   # Common settings
   dynamic "set" {

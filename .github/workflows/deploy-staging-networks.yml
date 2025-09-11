@@ -115,6 +115,7 @@ jobs:
           ETHERSCAN_API_KEY=${{ secrets.ETHERSCAN_API_KEY }}
           DEPLOY_INTERNAL_BOOTNODE=false
           STORE_SNAPSHOT_URL="${{ secrets.GCS_TESTNET_SNAPSHOT_URL }}/staging-public/"
+          PROVER_FAILED_PROOF_STORE=gs://aztec-develop/staging-public/failed-proofs
 
           BOT_TRANSFERS_REPLICAS=1
           BOT_TRANSFERS_TX_INTERVAL_SECONDS=250
