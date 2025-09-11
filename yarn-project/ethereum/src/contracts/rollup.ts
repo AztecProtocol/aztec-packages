@@ -10,6 +10,7 @@ import {
   type GetContractReturnType,
   type Hex,
   type StateOverride,
+  type WatchContractEventReturnType,
   encodeFunctionData,
   getContract,
   hexToBigInt,
@@ -731,7 +732,9 @@ export class RollupContract {
     });
   }
 
-  public listenToSlasherChanged(callback: (args: { oldSlasher: `0x${string}`; newSlasher: `0x${string}` }) => unknown) {
+  public listenToSlasherChanged(
+    callback: (args: { oldSlasher: `0x${string}`; newSlasher: `0x${string}` }) => unknown,
+  ): WatchContractEventReturnType {
     return this.rollup.watchEvent.SlasherUpdated(
       {},
       {
@@ -747,6 +750,22 @@ export class RollupContract {
     );
   }
 
+  public listenToBlockInvalidated(callback: (args: { blockNumber: bigint }) => unknown): WatchContractEventReturnType {
+    return this.rollup.watchEvent.BlockInvalidated(
+      {},
+      {
+        onLogs: logs => {
+          for (const log of logs) {
+            const args = log.args;
+            if (args.blockNumber !== undefined) {
+              callback({ blockNumber: args.blockNumber });
+            }
+          }
+        },
+      },
+    );
+  }
+
   public async getSlashEvents(l1BlockHash: Hex): Promise<{ amount: bigint; attester: EthAddress }[]> {
     const events = await this.rollup.getEvents.Slashed({}, { blockHash: l1BlockHash, strict: true });
     return events.map(event => ({
@@ -755,7 +774,9 @@ export class RollupContract {
     }));
   }
 
-  public listenToSlash(callback: (args: { amount: bigint; attester: EthAddress }) => unknown) {
+  public listenToSlash(
+    callback: (args: { amount: bigint; attester: EthAddress }) => unknown,
+  ): WatchContractEventReturnType {
     return this.rollup.watchEvent.Slashed(
       {},
       {
