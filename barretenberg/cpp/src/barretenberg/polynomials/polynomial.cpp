@@ -294,6 +294,15 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator*=(const Fr scali
     return *this;
 }
 
+template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::multiply_chunk(const ThreadChunk& chunk, const Fr scaling_factor)
+{
+    for (size_t i : chunk.range(size())) {
+        data()[i] *= scaling_factor;
+    }
+
+    return *this;
+}
+
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::create_non_parallel_zero_init(size_t size, size_t virtual_size)
 {
     Polynomial p(size, virtual_size, Polynomial<Fr>::DontZeroMemory::FLAG);

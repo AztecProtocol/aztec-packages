@@ -6,6 +6,7 @@
 
 #pragma once
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/honk/relation_checker.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
@@ -149,10 +150,12 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::update_target_sum_and_fold(
         accumulator->set_overflow_size(incoming->get_overflow_size()); // swap overflow size
     }
 
-    // Fold the proving key polynomials
-    for (auto& poly : accumulator->polynomials.get_unshifted()) {
-        poly *= lagranges[0];
-    }
+    parallel_for([&accumulator, &lagranges](const ThreadChunk& chunk) {
+        // Fold the proving key polynomials
+        for (auto& poly : accumulator->polynomials.get_unshifted()) {
+            poly.multiply_chunk(chunk, lagranges[0]);
+        }
+    });
     for (auto [acc_poly, key_poly] :
          zip_view(accumulator->polynomials.get_unshifted(), incoming->polynomials.get_unshifted())) {
         acc_poly.add_scaled(key_poly, lagranges[1]);
