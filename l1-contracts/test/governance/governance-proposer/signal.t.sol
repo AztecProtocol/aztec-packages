@@ -36,7 +36,7 @@ contract SignalTest is GovernanceProposerBase {
     registry.addRollup(IRollup(f));
     vm.etch(f, "");
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__InstanceHaveNoCode.selector, address(f)));
+    vm.expectRevert(abi.encodeWithSelector(Errors.EmpireBase__InstanceHaveNoCode.selector, address(f)));
     governanceProposer.signal(proposal);
   }
 
@@ -60,7 +60,7 @@ contract SignalTest is GovernanceProposerBase {
     vm.prank(proposer);
     governanceProposer.signal(proposal);
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__SignalAlreadyCastForSlot.selector, currentSlot));
+    vm.expectRevert(abi.encodeWithSelector(Errors.EmpireBase__SignalAlreadyCastForSlot.selector, currentSlot));
     governanceProposer.signal(proposal);
   }
 
@@ -86,9 +86,7 @@ contract SignalTest is GovernanceProposerBase {
     // it revert
     vm.assume(_proposer != proposer);
     vm.prank(_proposer);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.GovernanceProposer__OnlyProposerCanSignal.selector, _proposer, proposer)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.EmpireBase__OnlyProposerCanSignal.selector, _proposer, proposer));
     governanceProposer.signal(proposal);
   }
 
