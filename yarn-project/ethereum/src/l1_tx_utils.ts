@@ -279,7 +279,13 @@ export class ReadOnlyL1TxUtils {
     let blobBaseFee = 0n;
     if (isBlobTx) {
       try {
-        blobBaseFee = await this.client.getBlobBaseFee();
+        blobBaseFee = await retry<bigint>(
+          () => this.client.getBlobBaseFee(),
+          'Getting L1 blob base fee',
+          makeBackoff(times(2, () => 1)),
+          this.logger,
+          true,
+        );
         this.logger?.debug('L1 Blob base fee:', { blobBaseFee: formatGwei(blobBaseFee) });
       } catch {
         this.logger?.warn('Failed to get L1 blob base fee', attempt);
@@ -864,7 +870,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
             },
           );
 
-          const txData = {
+          const txData: PrepareTransactionRequestRequest = {
             ...request,
             ...blobInputs,
             nonce,
@@ -872,6 +878,9 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
             maxFeePerGas: newGasPrice.maxFeePerGas,
             maxPriorityFeePerGas: newGasPrice.maxPriorityFeePerGas,
           };
+          if (isBlobTx && newGasPrice.maxFeePerBlobGas) {
+            (txData as any).maxFeePerBlobGas = newGasPrice.maxFeePerBlobGas;
+          }
           const signedRequest = await this.prepareSignedTransaction(txData);
           const newHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
           if (!isCancelTx) {
