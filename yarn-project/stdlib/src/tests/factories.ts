@@ -123,7 +123,7 @@ import {
 import { PublicKeys, computeAddress } from '../keys/index.js';
 import { ContractClassLogFields } from '../logs/index.js';
 import { PrivateLog } from '../logs/private_log.js';
-import { PublicLog, PublicLogs } from '../logs/public_log.js';
+import { FlatPublicLogs, PublicLog } from '../logs/public_log.js';
 import { CountedL2ToL1Message, L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { BaseParityInputs } from '../parity/base_parity_inputs.js';
 import { ParityPublicInputs } from '../parity/parity_public_inputs.js';
@@ -352,7 +352,7 @@ function makeAvmAccumulatedData(seed = 1) {
     makeTuple(MAX_NOTE_HASHES_PER_TX, fr, seed),
     makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x100),
     makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x200),
-    new PublicLogs(new Array(20).fill(null).map((_, i) => makePublicLog(seed + i * 256))),
+    FlatPublicLogs.fromLogs(new Array(20).fill(null).map((_, i) => makePublicLog(seed + i * 256))),
     makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataWrite, seed + 0x400),
   );
 }

@@ -690,7 +690,8 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
                       .dyn_l2 = AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS,
                       .dyn_da = AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS },
         .dyn_gas_id = AVM_DYN_GAS_ID_EMITUNENCRYPTEDLOG,
-        .register_info = RegisterInfo().add_inputs({ RegisterInfo::ANY_TAG, ValueTag::U32 }) } },
+        .register_info = RegisterInfo().add_inputs(
+            { RegisterInfo::ANY_TAG, ValueTag::U32 }) } }, // TODO(Alvaro) Flip so we can avoid reading register 0
     { ExecutionOpCode::SENDL2TOL1MSG,
       { .num_addresses = 2,
         .gas_cost = { .opcode_gas = AVM_SENDL2TOL1MSG_BASE_L2_GAS,

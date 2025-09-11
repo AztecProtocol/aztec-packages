@@ -27,7 +27,7 @@ import {
   PublicCallRequestArrayLengths,
   countAccumulatedItems,
 } from '@aztec/stdlib/kernel';
-import { PublicLogs } from '@aztec/stdlib/logs';
+import { FlatPublicLogs } from '@aztec/stdlib/logs';
 import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
@@ -345,7 +345,7 @@ export class PublicTxContext {
         MAX_NULLIFIERS_PER_TX,
       ),
       /*l2ToL1Msgs=*/ padArrayEnd(avmL2ToL1Msgs, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
-      /*publicLogs=*/ new PublicLogs(finalPublicLogs),
+      /*publicLogs=*/ FlatPublicLogs.fromLogs(finalPublicLogs),
       /*publicDataWrites=*/ padArrayEnd(
         finalPublicDataWrites,
         PublicDataWrite.empty(),

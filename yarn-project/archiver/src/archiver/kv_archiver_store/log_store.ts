@@ -62,7 +62,7 @@ export class LogStore {
         taggedLogs.set(tag.toString(), currentLogs);
       });
 
-      txEffect.publicLogs.logs.forEach((log, logIndex) => {
+      txEffect.publicLogs.forEach((log, logIndex) => {
         const tag = log.fields[0];
         this.#log.debug(`Found public log with tag ${tag.toString()} in block ${block.number}`);
 
@@ -121,8 +121,8 @@ export class LogStore {
           .map((txEffect, txIndex) =>
             [
               numToUInt32BE(txIndex),
-              numToUInt32BE(txEffect.publicLogs.logs.length),
-              txEffect.publicLogs.logs.map(log => log.toBuffer()),
+              numToUInt32BE(txEffect.publicLogs.length),
+              txEffect.publicLogs.map(log => log.toBuffer()),
             ].flat(),
           )
           .flat();

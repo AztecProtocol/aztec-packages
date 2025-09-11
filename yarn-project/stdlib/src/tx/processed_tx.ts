@@ -8,7 +8,6 @@ import { Gas } from '../gas/gas.js';
 import type { GasUsed } from '../gas/gas_used.js';
 import { computeL2ToL1MessageHash } from '../hash/hash.js';
 import type { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
-import { PublicLogs } from '../logs/public_log.js';
 import type { ClientIvcProof } from '../proofs/client_ivc_proof.js';
 import type { GlobalVariables } from './global_variables.js';
 import type { Tx } from './tx.js';
@@ -104,7 +103,7 @@ export function makeProcessedTxFromPrivateOnlyTx(
       ),
     [feePaymentPublicDataWrite],
     data.end.privateLogs.filter(l => !l.isEmpty()),
-    PublicLogs.empty(),
+    [],
     tx.getContractClassLogs(),
   );
 
@@ -176,7 +175,7 @@ export function makeProcessedTxFromTxWithPublicCalls(
       ),
     publicDataWrites,
     privateLogs,
-    avmPublicInputs.accumulatedData.publicLogs,
+    avmPublicInputs.accumulatedData.publicLogs.toLogs(),
     contractClassLogs,
   );
 

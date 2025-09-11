@@ -210,7 +210,7 @@ TEST(EmitUnencryptedLogConstrainingTest, Interactions)
     SideEffectStates side_effect_states = { .numUnencryptedLogFields = 0 };
     SideEffectStates next_side_effect_states = { .numUnencryptedLogFields = PUBLIC_LOG_HEADER_LENGTH + log_size };
     AvmAccumulatedData accumulated_data = {};
-    accumulated_data.publicLogs.logs.push_back({
+    accumulated_data.publicLogs.add_log({
         .fields = { FF(4), FF(5) },
         .contractAddress = address,
     });

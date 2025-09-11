@@ -22,7 +22,7 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { inspect } from 'util';
 import { z } from 'zod';
 
-import { PublicLogs } from '../logs/public_log.js';
+import { FlatPublicLogs } from '../logs/public_log.js';
 import { ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { PublicDataWrite } from './public_data_write.js';
 
@@ -43,7 +43,7 @@ export class AvmAccumulatedData {
     /**
      * The public logs emitted from the AVM execution.
      */
-    public publicLogs: PublicLogs,
+    public publicLogs: FlatPublicLogs,
     /**
      * The public data writes made in the AVM execution.
      */
@@ -56,7 +56,7 @@ export class AvmAccumulatedData {
         noteHashes: schemas.Fr.array().min(MAX_NOTE_HASHES_PER_TX).max(MAX_NOTE_HASHES_PER_TX),
         nullifiers: schemas.Fr.array().min(MAX_NULLIFIERS_PER_TX).max(MAX_NULLIFIERS_PER_TX),
         l2ToL1Msgs: ScopedL2ToL1Message.schema.array().min(MAX_L2_TO_L1_MSGS_PER_TX).max(MAX_L2_TO_L1_MSGS_PER_TX),
-        publicLogs: PublicLogs.schema,
+        publicLogs: FlatPublicLogs.schema,
         publicDataWrites: PublicDataWrite.schema
           .array()
           .min(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
@@ -90,7 +90,7 @@ export class AvmAccumulatedData {
       reader.readArray(MAX_NOTE_HASHES_PER_TX, Fr),
       reader.readArray(MAX_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
-      reader.readObject(PublicLogs),
+      reader.readObject(FlatPublicLogs),
       reader.readArray(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite),
     );
   }
@@ -115,7 +115,7 @@ export class AvmAccumulatedData {
       reader.readFieldArray(MAX_NOTE_HASHES_PER_TX),
       reader.readFieldArray(MAX_NULLIFIERS_PER_TX),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message),
-      reader.readObject(PublicLogs),
+      reader.readObject(FlatPublicLogs),
       reader.readArray(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite),
     );
   }
@@ -143,7 +143,7 @@ export class AvmAccumulatedData {
       makeTuple(MAX_NOTE_HASHES_PER_TX, Fr.zero),
       makeTuple(MAX_NULLIFIERS_PER_TX, Fr.zero),
       makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, ScopedL2ToL1Message.empty),
-      PublicLogs.empty(),
+      FlatPublicLogs.empty(),
       makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.empty),
     );
   }
@@ -173,7 +173,8 @@ export class AvmAccumulatedData {
     .filter(x => !x.isEmpty())
     .map(h => inspect(h))
     .join(', ')}],
-  publicLogs: [${this.publicLogs.logs
+  publicLogs: [${this.publicLogs
+    .toLogs()
     .filter(x => !x.isEmpty())
     .map(h => inspect(h))
     .join(', ')}],

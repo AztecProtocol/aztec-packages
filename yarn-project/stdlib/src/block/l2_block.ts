@@ -137,7 +137,7 @@ export class L2Block {
   getStats() {
     const logsStats = {
       privateLogCount: this.body.txEffects.reduce((logCount, txEffect) => logCount + txEffect.privateLogs.length, 0),
-      publicLogCount: this.body.txEffects.reduce((logCount, txEffect) => logCount + txEffect.publicLogs.logs.length, 0),
+      publicLogCount: this.body.txEffects.reduce((logCount, txEffect) => logCount + txEffect.publicLogs.length, 0),
       contractClassLogCount: this.body.txEffects.reduce(
         (logCount, txEffect) => logCount + txEffect.contractClassLogs.length,
         0,

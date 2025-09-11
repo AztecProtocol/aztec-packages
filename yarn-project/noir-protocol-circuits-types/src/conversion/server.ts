@@ -34,7 +34,7 @@ import {
   type PrivateToAvmAccumulatedDataArrayLengths,
   PrivateToPublicKernelCircuitPublicInputs,
 } from '@aztec/stdlib/kernel';
-import type { PublicLogs } from '@aztec/stdlib/logs';
+import type { FlatPublicLogs } from '@aztec/stdlib/logs';
 import { BaseParityInputs, ParityPublicInputs, type RootParityInput, RootParityInputs } from '@aztec/stdlib/parity';
 import type { ProofData, RecursiveProof } from '@aztec/stdlib/proofs';
 import {
@@ -559,15 +559,10 @@ function mapPrivateToAvmAccumulatedDataArrayLengthsToNoir(
   };
 }
 
-function mapPublicLogsToNoir(logs: PublicLogs): PublicLogsNoir {
-  const fields = logs.flattenLogs();
-  if (fields.length > PUBLIC_LOGS_PAYLOAD_LENGTH) {
-    throw new Error('Public logs payload length exceeds target length');
-  }
-  const payload = [...fields, ...Array(PUBLIC_LOGS_PAYLOAD_LENGTH - fields.length).fill(Fr.ZERO)].map(mapFieldToNoir);
+function mapFlatPublicLogsToNoir(logs: FlatPublicLogs): PublicLogsNoir {
   return {
-    length: mapNumberToNoir(fields.length),
-    payload: payload as FixedLengthArray<NoirField, typeof PUBLIC_LOGS_PAYLOAD_LENGTH>,
+    length: mapNumberToNoir(logs.length),
+    payload: logs.payload.map(mapFieldToNoir) as FixedLengthArray<NoirField, typeof PUBLIC_LOGS_PAYLOAD_LENGTH>,
   };
 }
 
@@ -576,7 +571,7 @@ function mapAvmAccumulatedDataToNoir(data: AvmAccumulatedData): AvmAccumulatedDa
     note_hashes: mapTuple(data.noteHashes, mapFieldToNoir),
     nullifiers: mapTuple(data.nullifiers, mapFieldToNoir),
     l2_to_l1_msgs: mapTuple(data.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
-    public_logs: mapPublicLogsToNoir(data.publicLogs),
+    public_logs: mapFlatPublicLogsToNoir(data.publicLogs),
     public_data_writes: mapTuple(data.publicDataWrites, mapPublicDataWriteToNoir),
   };
 }

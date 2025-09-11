@@ -141,7 +141,7 @@ TEST(AvmInputsTest, ValuesInColumns)
     for (size_t j = 0; j < 3; ++j) {
         public_log_fields.push_back(10000 + j);
     }
-    pi.accumulatedData.publicLogs.logs.push_back({
+    pi.accumulatedData.publicLogs.add_log({
         .fields = public_log_fields,
         .contractAddress = 11223,
     });
@@ -344,10 +344,10 @@ TEST(AvmInputsTest, ValuesInColumns)
 
     // Test public logs
     size_t public_logs_row = AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX;
-    std::vector<FF> flat_public_logs = pi.accumulatedData.publicLogs.flatten();
-    EXPECT_EQ(flat[col0_offset + public_logs_row], flat_public_logs.size());
+    EXPECT_EQ(flat[col0_offset + public_logs_row], pi.accumulatedData.publicLogs.length);
     for (size_t j = 0; j < 3; ++j) {
-        EXPECT_EQ(flat[col0_offset + public_logs_row + PUBLIC_LOGS_HEADER_LENGTH + j], flat_public_logs[j]);
+        EXPECT_EQ(flat[col0_offset + public_logs_row + PUBLIC_LOGS_HEADER_LENGTH + j],
+                  pi.accumulatedData.publicLogs.payload[j]);
     }
 
     // Public data writes (uses 2 columns)

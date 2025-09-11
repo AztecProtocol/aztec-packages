@@ -27,7 +27,7 @@ import {
   SerializableContractInstance,
   computePublicBytecodeCommitment,
 } from '@aztec/stdlib/contract';
-import { LogId, PrivateLog, PublicLog, PublicLogs } from '@aztec/stdlib/logs';
+import { LogId, PrivateLog, PublicLog } from '@aztec/stdlib/logs';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
 import {
   makeContractClassPublic,
@@ -247,7 +247,7 @@ export function describeArchiverDataStore(
           block.body.txEffects.map(txEffect => txEffect.privateLogs).flat().length,
         );
         expect((await store.getPublicLogs({ fromBlock: 1 })).logs.length).toEqual(
-          block.body.txEffects.map(txEffect => txEffect.publicLogs.logs).flat().length,
+          block.body.txEffects.map(txEffect => txEffect.publicLogs).flat().length,
         );
 
         // This one is a pain for memory as we would never want to just delete memory in the middle.
@@ -748,12 +748,10 @@ export function describeArchiverDataStore(
       };
 
       const mockPublicLogs = (blockNumber: number, txIndex: number) => {
-        return new PublicLogs(
-          times(numPublicLogsPerTx, (logIndex: number) => {
-            const tag = makeTag(blockNumber, txIndex, logIndex, /* isPublic */ true);
-            return makePublicLog(tag);
-          }),
-        );
+        return times(numPublicLogsPerTx, (logIndex: number) => {
+          const tag = makeTag(blockNumber, txIndex, logIndex, /* isPublic */ true);
+          return makePublicLog(tag);
+        });
       };
 
       const mockBlockWithLogs = async (blockNumber: number): Promise<PublishedL2Block> => {
@@ -965,7 +963,7 @@ export function describeArchiverDataStore(
         const targetTxIndex = randomInt(txsPerBlock);
         const targetLogIndex = randomInt(numPublicLogs * numPublicFunctionCalls);
         const targetContractAddress =
-          blocks[targetBlockIndex].block.body.txEffects[targetTxIndex].publicLogs.logs[targetLogIndex].contractAddress;
+          blocks[targetBlockIndex].block.body.txEffects[targetTxIndex].publicLogs[targetLogIndex].contractAddress;
 
         const response = await store.getPublicLogs({ contractAddress: targetContractAddress });
 

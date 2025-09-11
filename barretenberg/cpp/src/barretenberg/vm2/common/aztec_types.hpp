@@ -130,23 +130,20 @@ struct PublicLog {
 };
 
 struct PublicLogs {
-    std::vector<PublicLog> logs;
+    uint32_t length;
+    std::array<FF, PUBLIC_LOGS_PAYLOAD_LENGTH> payload;
     bool operator==(const PublicLogs& other) const = default;
 
-    MSGPACK_FIELDS(logs);
+    MSGPACK_FIELDS(length, payload);
 
-    std::vector<FF> flatten() const
+    void add_log(PublicLog log)
     {
-        std::vector<FF> flattened;
-        flattened.reserve(PUBLIC_LOGS_PAYLOAD_LENGTH);
-        for (const auto& log : logs) {
-            flattened.push_back(log.fields.size());
-            flattened.push_back(log.contractAddress);
-            for (const auto& field : log.fields) {
-                flattened.push_back(field);
-            }
+        payload[length] = log.fields.size();
+        payload[length + 1] = log.contractAddress;
+        for (size_t i = 0; i < log.fields.size(); ++i) {
+            payload[length + 2 + i] = log.fields[i];
         }
-        return flattened;
+        length += log.fields.size() + 2;
     }
 };
 

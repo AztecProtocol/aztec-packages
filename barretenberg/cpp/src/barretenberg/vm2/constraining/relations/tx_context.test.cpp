@@ -436,10 +436,13 @@ TEST(TxContextConstrainingTest, EndStateChecks)
                                      .nullifierTree = { .root = 22, .nextAvailableLeafIndex = 21 },
                                      .publicDataTree = { .root = 23, .nextAvailableLeafIndex = 22 } };
     AvmAccumulatedDataArrayLengths array_lengths = { .noteHashes = 10, .nullifiers = 11, .l2ToL1Msgs = 12 };
-    PublicLogs public_logs = { .logs = { {
-                                   .fields = { FF(4), FF(5) },
-                                   .contractAddress = 11223,
-                               } } };
+
+    PublicLog log = {
+        .fields = { FF(4), FF(5) },
+        .contractAddress = 11223,
+    };
+    PublicLogs public_logs = {};
+    public_logs.add_log(log);
     AvmAccumulatedData accumulated_data = { .publicLogs = public_logs };
 
     auto public_inputs = PublicInputsBuilder()
@@ -469,7 +472,7 @@ TEST(TxContextConstrainingTest, EndStateChecks)
             { C::tx_l1_l2_tree_root, tree_snapshots.l1ToL2MessageTree.root },
             { C::tx_prev_l2_gas_used, end_gas_used.l2Gas },
             { C::tx_prev_da_gas_used, end_gas_used.daGas },
-            { C::tx_prev_num_unencrypted_log_fields, public_logs.flatten().size() },
+            { C::tx_prev_num_unencrypted_log_fields, public_logs.length },
             { C::tx_prev_num_l2_to_l1_messages, array_lengths.l2ToL1Msgs },
             { C::tx_note_hash_pi_offset, FF(AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX) },
             { C::tx_should_read_note_hash_tree, 1 },
@@ -499,7 +502,7 @@ TEST(TxContextConstrainingTest, EndStateChecks)
             { C::tx_next_public_data_tree_size, tree_snapshots.publicDataTree.nextAvailableLeafIndex },
             { C::tx_next_l2_gas_used, end_gas_used.l2Gas },
             { C::tx_next_da_gas_used, end_gas_used.daGas },
-            { C::tx_next_num_unencrypted_log_fields, public_logs.flatten().size() },
+            { C::tx_next_num_unencrypted_log_fields, public_logs.length },
             { C::tx_next_num_l2_to_l1_messages, array_lengths.l2ToL1Msgs },
             { C::tx_setup_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
         },

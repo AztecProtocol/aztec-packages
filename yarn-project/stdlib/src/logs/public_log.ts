@@ -1,4 +1,4 @@
-import { PUBLIC_LOG_HEADER_LENGTH } from '@aztec/constants';
+import { PUBLIC_LOGS_PAYLOAD_LENGTH, PUBLIC_LOG_HEADER_LENGTH } from '@aztec/constants';
 import type { FieldsOf } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
@@ -9,67 +9,98 @@ import { z } from 'zod';
 
 import { AztecAddress } from '../aztec-address/index.js';
 
-export class PublicLogs {
-  constructor(public logs: PublicLog[]) {}
+function totalSizeInFields(logs: PublicLog[]) {
+  return logs.reduce((acc, log) => acc + log.sizeInFields(), 0);
+}
 
-  static get schema(): ZodFor<PublicLogs> {
-    return z.object({ logs: z.array(PublicLog.schema) }).transform(({ logs }) => new PublicLogs(logs));
+// This class represents logs in the same format as noir does, with a bounded maximum length.
+export class FlatPublicLogs {
+  // We don't use tuple here because PUBLIC_LOGS_PAYLOAD_LENGTH is too large
+  constructor(
+    public length: number,
+    public payload: Fr[],
+  ) {
+    if (payload.length !== PUBLIC_LOGS_PAYLOAD_LENGTH) {
+      throw new Error('Invalid payload given to FlatPublicLogs');
+    }
+    if (length > payload.length) {
+      throw new Error('Invalid length given to FlatPublicLogs');
+    }
+  }
+
+  private static fromUnpaddedPayload(payload: Fr[]) {
+    const length = payload.length;
+    return new FlatPublicLogs(length, [...payload, ...Array(PUBLIC_LOGS_PAYLOAD_LENGTH - length).fill(Fr.ZERO)]);
+  }
+
+  // In blobs, the actual nonempty length of the logs is encoded with the prefix, and then we have the non-padded payload.
+  static fromBlobFields(length: number, fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    const payload = reader.readFieldArray(length);
+    return this.fromUnpaddedPayload(payload);
+  }
+
+  toBlobFields() {
+    return this.payload.slice(0, this.length);
+  }
+
+  static fromLogs(logs: PublicLog[]) {
+    return this.fromUnpaddedPayload(logs.flatMap(log => log.toFields()));
+  }
+
+  toLogs() {
+    const reader = FieldReader.asReader(this.payload);
+    const logs = [];
+    while (totalSizeInFields(logs) < this.length) {
+      logs.push(PublicLog.fromFields(reader));
+    }
+    if (totalSizeInFields(logs) !== this.length) {
+      throw new Error('Wrong length in FlatPublicLogs');
+    }
+    return logs;
+  }
+
+  static get schema(): ZodFor<FlatPublicLogs> {
+    return z
+      .object({
+        length: z.number(),
+        payload: z.array(schemas.Fr).min(PUBLIC_LOGS_PAYLOAD_LENGTH).max(PUBLIC_LOGS_PAYLOAD_LENGTH),
+      })
+      .transform(({ length, payload }) => new FlatPublicLogs(length, payload));
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer(this.logs.length, this.logs);
+    return serializeToBuffer(this.length, this.payload.slice(0, this.length));
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    const logsLength = reader.readNumber();
-    return new PublicLogs(reader.readArray(logsLength, PublicLog));
+    const length = reader.readNumber();
+    return this.fromUnpaddedPayload(reader.readArray(length, Fr));
   }
 
+  // ToFields and fromFields expect the noir style representation, with constant length payload.
   toFields(): Fr[] {
-    return [new Fr(this.logs.length), ...this.logs.flatMap(log => log.toFields())];
+    return [new Fr(this.length), ...this.payload];
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
-    const logCount = reader.readU32();
-    return new PublicLogs(reader.readArray(logCount, PublicLog));
-  }
-
-  sizeInFields() {
-    return /* log count */ 1 + this.logs.reduce((acc, log) => acc + log.sizeInFields(), 0);
-  }
-
-  flattenLogs() {
-    return this.logs.flatMap(log => log.toFields());
-  }
-
-  static fromFlattenedLogs(length: number, fields: Fr[] | FieldReader) {
-    const reader = FieldReader.asReader(fields);
-    const logs = [];
-    while (logs.reduce((acc, log) => acc + log.sizeInFields(), 0) < length) {
-      logs.push(PublicLog.fromFields(reader));
+    // We need to do this because field reader returns tuples, which break the type system on these sizes.
+    const length = reader.readU32();
+    const payload: Fr[] = [];
+    for (let i = 0; i < PUBLIC_LOGS_PAYLOAD_LENGTH; ++i) {
+      payload.push(reader.readField());
     }
-    if (logs.reduce((acc, log) => acc + log.sizeInFields(), 0) !== length) {
-      throw new Error('Invalid fields count given to PublicLogs.fromBlobFields()');
-    }
-    return new PublicLogs(logs);
+    return new FlatPublicLogs(length, payload);
   }
 
   static empty() {
-    return new PublicLogs([]);
+    return new FlatPublicLogs(0, Array(PUBLIC_LOGS_PAYLOAD_LENGTH).fill(Fr.ZERO));
   }
 
   isEmpty() {
-    return this.logs.length === 0;
-  }
-
-  equals(other: PublicLogs) {
-    return this.logs.length === other.logs.length && this.logs.every((log, i) => log.equals(other.logs[i]));
-  }
-
-  [inspect.custom](): string {
-    return `PublicLogs [${this.logs.map(x => inspect(x)).join(', ')}]`;
+    return this.length === 0;
   }
 }
 
