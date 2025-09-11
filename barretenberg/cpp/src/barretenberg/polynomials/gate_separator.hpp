@@ -8,6 +8,7 @@
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/compiler_hints.hpp"
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
 
 #include <cstddef>
@@ -158,21 +159,29 @@ template <typename FF> struct GateSeparatorPolynomial {
         num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num threads is >= 1
         size_t iterations_per_thread = pow_size / num_threads;               // actual iterations per thread
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/864): This computation is asymtotically slow as it
-        // does pow_size * log(pow_size) work. However, in practice, its super efficient because its trivially
-        // parallelizable and only takes 45ms for the whole 6 iter IVC benchmark. Its also very readable, so we're
-        // leaving it unoptimized for now.
+        std::vector<FF> thread_init_beta_products;
+        thread_init_beta_products.resize(num_threads);
+
+        thread_init_beta_products.at(0) = 1;
+
+        for (size_t beta_idx = numeric::get_msb(iterations_per_thread), window_size = 1; beta_idx < log_num_monomials;
+             beta_idx++) {
+            for (size_t j = 0; j < window_size; j++) {
+                thread_init_beta_products.at(window_size + j) = betas.at(beta_idx) * thread_init_beta_products.at(j);
+            }
+            window_size <<= 1;
+        }
+
         parallel_for(num_threads, [&](size_t thread_idx) {
             size_t start = thread_idx * iterations_per_thread;
-            size_t end = (thread_idx + 1) * iterations_per_thread;
-            for (size_t i = start; i < end; i++) {
-                auto res = FF(1);
-                for (size_t j = i, beta_idx = 0; j > 0; j >>= 1, beta_idx++) {
-                    if ((j & 1) == 1) {
-                        res *= betas[beta_idx];
-                    }
+            size_t num_betas = numeric::get_msb(iterations_per_thread);
+            beta_products.at(start) = thread_init_beta_products.at(thread_idx);
+
+            for (size_t beta_idx = 0, window_size = 1; beta_idx < num_betas; beta_idx++) {
+                for (size_t j = 0; j < window_size; j++) {
+                    beta_products.at(start + window_size + j) = betas.at(beta_idx) * beta_products.at(start + j);
                 }
-                beta_products[i] = res;
+                window_size <<= 1;
             }
         });
 
