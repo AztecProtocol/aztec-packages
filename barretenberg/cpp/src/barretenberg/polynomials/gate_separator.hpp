@@ -158,30 +158,28 @@ template <typename FF> struct GateSeparatorPolynomial {
         size_t num_threads = std::min(desired_num_threads, max_num_threads); // fewer than max if justified
         num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num threads is >= 1
         size_t iterations_per_thread = pow_size / num_threads;               // actual iterations per thread
+        const size_t num_betas_per_thread = numeric::get_msb(iterations_per_thread);
 
-        std::vector<FF> thread_init_beta_products;
-        thread_init_beta_products.resize(num_threads);
-
+        std::vector<FF> thread_init_beta_products(num_threads);
         thread_init_beta_products.at(0) = 1;
 
-        for (size_t beta_idx = numeric::get_msb(iterations_per_thread), window_size = 1; beta_idx < log_num_monomials;
-             beta_idx++) {
+        for (size_t beta_idx = num_betas_per_thread, window_size = 1; beta_idx < log_num_monomials;
+             beta_idx++, window_size <<= 1) {
+            const auto& beta = betas.at(beta_idx);
             for (size_t j = 0; j < window_size; j++) {
-                thread_init_beta_products.at(window_size + j) = betas.at(beta_idx) * thread_init_beta_products.at(j);
+                thread_init_beta_products.at(window_size + j) = beta * thread_init_beta_products.at(j);
             }
-            window_size <<= 1;
         }
 
         parallel_for(num_threads, [&](size_t thread_idx) {
             size_t start = thread_idx * iterations_per_thread;
-            size_t num_betas = numeric::get_msb(iterations_per_thread);
             beta_products.at(start) = thread_init_beta_products.at(thread_idx);
 
-            for (size_t beta_idx = 0, window_size = 1; beta_idx < num_betas; beta_idx++) {
+            for (size_t beta_idx = 0, window_size = 1; beta_idx < num_betas_per_thread; beta_idx++, window_size <<= 1) {
+                const auto& beta = betas.at(beta_idx);
                 for (size_t j = 0; j < window_size; j++) {
-                    beta_products.at(start + window_size + j) = betas.at(beta_idx) * beta_products.at(start + j);
+                    beta_products.at(start + window_size + j) = beta * beta_products.at(start + j);
                 }
-                window_size <<= 1;
             }
         });
 
