@@ -51,19 +51,19 @@ library Errors {
   error Governance__ProposalLib__ZeroYeaVotesNeeded();
   error Governance__ProposalLib__MoreYeaVoteThanExistNeeded();
 
-  error GovernanceProposer__FailedToSubmitRoundWinner(IPayload payload);
-  error GovernanceProposer__InstanceHaveNoCode(address instance);
-  error GovernanceProposer__InsufficientSignals(uint256 signalsCast, uint256 signalsNeeded);
-  error GovernanceProposer__InvalidQuorumAndRoundSize(uint256 quorumSize, uint256 roundSize);
-  error GovernanceProposer__QuorumCannotBeLargerThanRoundSize(uint256 quorumSize, uint256 roundSize);
-  error GovernanceProposer__InvalidLifetimeAndExecutionDelay(uint256 lifetimeInRounds, uint256 executionDelayInRounds);
-  error GovernanceProposer__OnlyProposerCanSignal(address caller, address proposer);
-  error GovernanceProposer__PayloadAlreadySubmitted(uint256 roundNumber);
-  error GovernanceProposer__PayloadCannotBeAddressZero();
+  error EmpireBase__FailedToSubmitRoundWinner(IPayload payload);
+  error EmpireBase__InstanceHaveNoCode(address instance);
+  error EmpireBase__InsufficientSignals(uint256 signalsCast, uint256 signalsNeeded);
+  error EmpireBase__InvalidQuorumAndRoundSize(uint256 quorumSize, uint256 roundSize);
+  error EmpireBase__QuorumCannotBeLargerThanRoundSize(uint256 quorumSize, uint256 roundSize);
+  error EmpireBase__InvalidLifetimeAndExecutionDelay(uint256 lifetimeInRounds, uint256 executionDelayInRounds);
+  error EmpireBase__OnlyProposerCanSignal(address caller, address proposer);
+  error EmpireBase__PayloadAlreadySubmitted(uint256 roundNumber);
+  error EmpireBase__PayloadCannotBeAddressZero();
+  error EmpireBase__RoundTooOld(uint256 roundNumber, uint256 currentRoundNumber);
+  error EmpireBase__RoundTooNew(uint256 roundNumber, uint256 currentRoundNumber);
+  error EmpireBase__SignalAlreadyCastForSlot(Slot slot);
   error GovernanceProposer__PayloadHaveNoCode(IPayload payload);
-  error GovernanceProposer__RoundTooOld(uint256 roundNumber, uint256 currentRoundNumber);
-  error GovernanceProposer__RoundTooNew(uint256 roundNumber, uint256 currentRoundNumber);
-  error GovernanceProposer__SignalAlreadyCastForSlot(Slot slot);
   error GovernanceProposer__GSEPayloadInvalid();
 
   error CoinIssuer__InsufficientMintAvailable(uint256 available, uint256 needed); // 0xa1cc8799
