@@ -84,7 +84,7 @@ namespace ecc_add_mem;
     #[CHECK_DST_ADDR_IN_RANGE]
     sel { dst_addr[2], max_mem_addr, sel_dst_out_of_range_err }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     ////////////////////////////////////////////////
     // Error Handling - Check Points are on curve

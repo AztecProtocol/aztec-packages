@@ -248,7 +248,7 @@ const InteractionDefinition EccTraceBuilder::interactions =
         .add<lookup_scalar_mul_to_radix_settings, InteractionType::LookupGeneric>()
         // Memory Aware Interactions
         // Comparison
-        .add<lookup_ecc_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_ecc_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         // Lookup into ECC Add Subtrace
         .add<lookup_ecc_mem_input_output_ecc_add_settings, InteractionType::LookupGeneric>()
         // Dispatch Permutation
