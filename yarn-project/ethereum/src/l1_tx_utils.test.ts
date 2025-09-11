@@ -1,4 +1,5 @@
 import { Blob } from '@aztec/blob-lib';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
@@ -8,7 +9,16 @@ import { TestDateProvider } from '@aztec/foundation/timer';
 
 import { jest } from '@jest/globals';
 import type { Anvil } from '@viem/anvil';
-import { type Abi, TransactionNotFoundError, createPublicClient, http } from 'viem';
+import {
+  type Abi,
+  type BlockTag,
+  type GetTransactionParameters,
+  type Hex,
+  TransactionNotFoundError,
+  type TransactionSerializable,
+  createPublicClient,
+  http,
+} from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -142,7 +152,7 @@ describe('L1TxUtils', () => {
       });
 
       // Monitor should detect stall and replace with higher gas price
-      const monitorFn = gasUtils.monitorTransaction(request, txHash, { gasLimit: estimatedGas }, undefined, {
+      const monitorFn = gasUtils.monitorTransaction(request, txHash, new Set(), { gasLimit: estimatedGas }, undefined, {
         blobs: [blobData],
         kzg,
         maxFeePerBlobGas: WEI_CONST * 20n,
@@ -514,7 +524,7 @@ describe('L1TxUtils', () => {
       const txTimeoutAt = new Date(now + 1000);
       const txRequest: L1TxRequest = { to: '0x1234567890123456789012345678901234567890', data: '0x', value: 0n };
       const tx = await gasUtils.sendTransaction(txRequest);
-      const monitorPromise = gasUtils.monitorTransaction(txRequest, tx.txHash, tx, { txTimeoutAt });
+      const monitorPromise = gasUtils.monitorTransaction(txRequest, tx.txHash, new Set(), tx, { txTimeoutAt });
 
       await sleep(100);
       await cheatCodes.dropTransaction(tx.txHash);
@@ -545,6 +555,7 @@ describe('L1TxUtils', () => {
       const monitorPromise = gasUtils.monitorTransaction(
         request,
         txHash,
+        new Set(),
         { gasLimit: initialTx.gas! },
         { txTimeoutMs: 100, checkIntervalMs: 10 }, // Short timeout to trigger cancellation quickly
       );
@@ -579,6 +590,94 @@ describe('L1TxUtils', () => {
       await expect(l1Client.getTransaction({ hash: txHash })).rejects.toThrow();
     }, 10_000);
 
+    it('monitors all sent txs', async () => {
+      // Disable auto-mining to control block production
+      await cheatCodes.setIntervalMining(0);
+      await cheatCodes.setAutomine(false);
+
+      const request = {
+        to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
+        data: '0x' as `0x${string}`,
+        value: 1n,
+      };
+
+      const originalSendRawTransaction = l1Client.sendRawTransaction;
+      let cancellationSent = false;
+      let txBeingSigned: TransactionSerializable | undefined = undefined;
+
+      const sentTxs: Map<Hex, TransactionSerializable> = new Map();
+
+      // We need to intercept the call to send a transaction to L1.
+      // We let the first one through but no more.
+      // This blocks any cancellations
+      using _1 = jest
+        .spyOn(l1Client, 'sendRawTransaction')
+        .mockImplementationOnce(async arg => {
+          // This is the actual transaction
+          const sentTx = { ...txBeingSigned! };
+          const hash = await originalSendRawTransaction.call(this, arg);
+          sentTxs.set(hash, sentTx);
+          return hash;
+        })
+        .mockImplementation(_arg => {
+          // Do nothing, there are any/all cancellations
+          const sentTx = txBeingSigned!;
+          const hash = randomBytes(32).toString('hex') as Hex;
+          sentTxs.set(hash, sentTx);
+          cancellationSent = true;
+          return Promise.resolve(hash);
+        });
+
+      // Return the previously signed/sent transaction. We use a cache here as cancels are not sent to Anvil
+      using _2 = jest
+        .spyOn(l1Client, 'getTransaction')
+        .mockImplementation((arg: GetTransactionParameters<BlockTag>) => {
+          // Do nothing
+          const tx = sentTxs.get(arg.hash!);
+          return Promise.resolve(tx as any);
+        });
+
+      // We need to capture the transactions at the point of being signed otherwise there is no nonce!
+      const originalSign = l1Client.signTransaction;
+
+      using _3 = jest.spyOn(l1Client, 'signTransaction').mockImplementation((arg: any) => {
+        txBeingSigned = arg;
+        return originalSign(txBeingSigned as any);
+      });
+
+      // Send initial transaction
+      const { txHash } = await gasUtils.sendTransaction(request);
+      const initialTx = await l1Client.getTransaction({ hash: txHash });
+
+      expect(gasUtils.state).toBe(TxUtilsState.SENT);
+
+      // Monitor the tx. We will think it has timed out and submit a cancellation.
+      const monitorPromise = gasUtils.monitorTransaction(
+        request,
+        txHash,
+        new Set(),
+        { gasLimit: initialTx.gas! },
+        { txTimeoutMs: 100, checkIntervalMs: 10 },
+      );
+
+      // Wait for timeout and catch the error
+      await expect(monitorPromise).rejects.toThrow('timed out');
+
+      // Wait for cancellation to be sent
+      await sleep(100);
+
+      // Cancellation should have been sent, but will have been dropped
+      expect(cancellationSent).toBeTruthy();
+
+      // Now we mine a block, this should mine the tx that 'timed out'
+      await cheatCodes.evmMine();
+
+      await retryUntil(() => gasUtils.state === TxUtilsState.MINED, 'Waiting for mined status', 10, 0.1);
+
+      // Although the monitoring threw that the tx timed out. Internally it should have recognized that the tx was mined
+      expect(gasUtils.state).toBe(TxUtilsState.MINED);
+    }, 10_000);
+
     it('attempts to cancel timed out blob transactions with correct parameters', async () => {
       // Disable auto-mining to control block production
       await cheatCodes.setAutomine(false);
@@ -606,6 +705,7 @@ describe('L1TxUtils', () => {
       const monitorPromise = gasUtils.monitorTransaction(
         request,
         txHash,
+        new Set(),
         { gasLimit: initialTx.gas! },
         { txTimeoutMs: 100, checkIntervalMs: 10 }, // Short timeout to trigger cancellation quickly
         {
@@ -668,6 +768,7 @@ describe('L1TxUtils', () => {
       const monitorPromise = gasUtils.monitorTransaction(
         request,
         txHash,
+        new Set(),
         { gasLimit: initialTx.gas! },
         { txTimeoutMs: 100, checkIntervalMs: 10, cancelTxOnTimeout: false }, // Disable cancellation
       );

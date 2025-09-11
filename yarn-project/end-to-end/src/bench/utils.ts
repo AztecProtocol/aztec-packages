@@ -112,7 +112,7 @@ function makeCall(
 ) {
   const [owner] = context.accounts;
   if (heavyPublicCompute) {
-    return new BatchCall(context.wallet, [contract.methods.sha256_hash_2048(randomBytesAsBigInts(2048))]);
+    return new BatchCall(context.wallet, [contract.methods.sha256_hash_1024(randomBytesAsBigInts(1024))]);
   } else {
     return new BatchCall(context.wallet, [
       contract.methods.create_note(owner, index + 1),

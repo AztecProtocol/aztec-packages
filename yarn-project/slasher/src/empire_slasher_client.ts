@@ -1,4 +1,4 @@
-import { EmpireSlashingProposerContract, RollupContract } from '@aztec/ethereum';
+import { EmpireSlashingProposerContract, RollupContract, SlasherContract } from '@aztec/ethereum';
 import { sumBigint } from '@aztec/foundation/bigint';
 import { compactArray, filterAsync, maxBy, pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -121,6 +121,7 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
     private settings: EmpireSlasherSettings,
     private slashFactoryContract: SlashFactoryContract,
     private slashingProposer: EmpireSlashingProposerContract,
+    private slasher: SlasherContract,
     private rollup: RollupContract,
     watchers: Watcher[],
     private dateProvider: DateProvider,
@@ -404,8 +405,7 @@ export class EmpireSlasherClient implements ProposerSlashActionProvider, Slasher
       }
 
       // Check if the slash payload is vetoed
-      const slasherContract = await this.rollup.getSlasherContract();
-      const isVetoed = await slasherContract.isPayloadVetoed(payload.payload);
+      const isVetoed = await this.slasher.isPayloadVetoed(payload.payload);
 
       if (isVetoed) {
         this.log.info(`Payload ${payload.payload} from round ${payload.round} is vetoed, skipping execution`);

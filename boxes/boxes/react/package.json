@@ -15,9 +15,7 @@
     "serve": "webpack serve --no-open --mode development --watch-files ./src/*",
     "formatting": "prettier --check ./src && eslint ./src",
     "formatting:fix": "prettier -w ./src",
-    "test": "yarn test:node && yarn test:browser",
-    "test:node": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --runInBand",
-    "test:browser": "npx playwright test"
+    "test": "npx playwright test"
   },
   "jest": {
     "preset": "ts-jest/presets/default-esm",

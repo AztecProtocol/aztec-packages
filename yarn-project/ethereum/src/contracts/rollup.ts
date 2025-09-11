@@ -3,7 +3,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
-import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
 
 import chunk from 'lodash.chunk';
 import {
@@ -12,7 +11,6 @@ import {
   type Hex,
   type StateOverride,
   encodeFunctionData,
-  getAddress,
   getContract,
   hexToBigInt,
   keccak256,
@@ -160,13 +158,12 @@ export class RollupContract {
   public async getSlashingProposer(): Promise<
     EmpireSlashingProposerContract | TallySlashingProposerContract | undefined
   > {
-    const slasherAddress = await this.rollup.read.getSlasher();
-    if (EthAddress.fromString(slasherAddress).isZero()) {
+    const slasher = await this.getSlasherContract();
+    if (!slasher) {
       return undefined;
     }
 
-    const slasher = getContract({ address: slasherAddress, abi: SlasherAbi, client: this.client });
-    const proposerAddress = await slasher.read.PROPOSER();
+    const proposerAddress = await slasher.getProposer();
     const proposerAbi = [
       {
         type: 'function',
@@ -177,7 +174,7 @@ export class RollupContract {
       },
     ] as const;
 
-    const proposer = getContract({ address: proposerAddress, abi: proposerAbi, client: this.client });
+    const proposer = getContract({ address: proposerAddress.toString(), abi: proposerAbi, client: this.client });
     const proposerType = await proposer.read.SLASHING_PROPOSER_TYPE();
     if (proposerType === SlashingProposerType.Tally.valueOf()) {
       return new TallySlashingProposerContract(this.client, proposerAddress);
@@ -298,16 +295,19 @@ export class RollupContract {
     };
   }
 
-  getSlasher() {
+  getSlasherAddress() {
     return this.rollup.read.getSlasher();
   }
 
   /**
    * Returns a SlasherContract instance for interacting with the slasher contract.
    */
-  async getSlasherContract(): Promise<SlasherContract> {
-    const slasherAddress = await this.getSlasher();
-    return new SlasherContract(this.client, EthAddress.fromString(slasherAddress));
+  async getSlasherContract(): Promise<SlasherContract | undefined> {
+    const slasherAddress = EthAddress.fromString(await this.getSlasherAddress());
+    if (slasherAddress.isZero()) {
+      return undefined;
+    }
+    return new SlasherContract(this.client, slasherAddress);
   }
 
   getOwner() {
@@ -319,13 +319,11 @@ export class RollupContract {
   }
 
   public async getSlashingProposerAddress() {
-    const slasherAddress = await this.getSlasher();
-    const slasher = getContract({
-      address: getAddress(slasherAddress.toString()),
-      abi: SlasherAbi,
-      client: this.client,
-    });
-    return EthAddress.fromString(await slasher.read.PROPOSER());
+    const slasher = await this.getSlasherContract();
+    if (!slasher) {
+      return EthAddress.ZERO;
+    }
+    return await slasher.getProposer();
   }
 
   getBlockReward() {

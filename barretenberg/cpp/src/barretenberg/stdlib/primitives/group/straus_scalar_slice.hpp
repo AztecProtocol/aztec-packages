@@ -26,7 +26,7 @@ template <typename Builder> class straus_scalar_slice {
     using field_t = stdlib::field_t<Builder>;
 
     straus_scalar_slice(Builder* context, const cycle_scalar<Builder>& scalars, size_t table_bits);
-    std::optional<field_t> read(size_t index);
+    field_t read(size_t index);
     size_t _table_bits;
     std::vector<field_t> slices;
     std::vector<uint64_t> slices_native;

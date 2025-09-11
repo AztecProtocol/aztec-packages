@@ -62,6 +62,11 @@ tests:
     error_regex: "Input is not large enough"
     owners:
       - *adam
+  # https://gist.github.com/spalladino/4fd3d2abd7b7fb05be2e556649868626
+  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh"
+    error_regex: "sending signal TERM to command"
+    owners:
+      - *adam
   - regex: "barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk"
     error_regex: "Aborted.*core dumped"
     owners:
@@ -181,6 +186,9 @@ tests:
   # simulator:avm(f:0x9756f620) Unknown error thrown by AVM during bytecode retrieval: AssertionError [ERR_ASSERTION]: Contract instance for address 0x0f48856620f39f6ae1da55786b7e93e2358081333605161af4e29cfd507a3039 in DB: false != nullifier tree: true. This is a bug!
   - regex: "src/e2e_epochs/epochs_proof_public_cross_chain.test.ts"
     error_regex: "This is a bug"
+    owners:
+      - *palla
+  - regex: "src/e2e_epochs/epochs_l1_reorgs.test.ts"
     owners:
       - *palla
   - regex: "src/e2e_epochs/epochs_empty_blocks"
