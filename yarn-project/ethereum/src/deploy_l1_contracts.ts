@@ -939,7 +939,7 @@ export const addMultipleValidators = async (
 
         let queueLength = await rollup.getEntryQueueLength();
         while (flushEntryQueue && queueLength > 0n) {
-          logger.info(`Flushing entry queue`);
+          logger.info(`Flushing entry queue with ${queueLength} entries`);
 
           try {
             await deployer.l1TxUtils.sendAndMonitorTransaction(
@@ -965,12 +965,14 @@ export const addMultipleValidators = async (
             break;
           }
 
+          logger.info(`Waiting for next flushable epoch to flush remaining ${queueLength} entries`);
           await retryUntil(
             async () => {
               const [currentEpoch, flushableEpoch] = await Promise.all([
-                rollup.getEpochNumber(),
+                rollup.getCurrentEpochNumber(),
                 rollup.getNextFlushableEpoch(),
               ]);
+              logger.debug(`Next flushable epoch is ${flushableEpoch} (current epoch is ${currentEpoch})`);
               return currentEpoch >= flushableEpoch;
             },
             'wait for next flushable epoch',
