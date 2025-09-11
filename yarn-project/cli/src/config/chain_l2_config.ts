@@ -70,7 +70,7 @@ const DefaultSlashConfig = {
 
 export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   l1ChainId: 11155111,
-  testAccounts: true,
+  testAccounts: false,
   sponsoredFPC: false,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
