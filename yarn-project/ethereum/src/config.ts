@@ -457,7 +457,7 @@ export function validateConfig(config: Omit<L1ContractsConfig, keyof L1TxUtilsCo
   }
 
   // EmpireBase constructor validations for governance/slashing proposers
-  // From: require(QUORUM_SIZE > ROUND_SIZE / 2, Errors.GovernanceProposer__InvalidQuorumAndRoundSize(QUORUM_SIZE, ROUND_SIZE));
+  // From: require(QUORUM_SIZE > ROUND_SIZE / 2, Errors.EmpireBase__InvalidQuorumAndRoundSize(QUORUM_SIZE, ROUND_SIZE));
   const { governanceProposerQuorum, governanceProposerRoundSize } = config;
   if (
     governanceProposerQuorum !== undefined &&
@@ -468,7 +468,7 @@ export function validateConfig(config: Omit<L1ContractsConfig, keyof L1TxUtilsCo
     );
   }
 
-  // From: require(QUORUM_SIZE <= ROUND_SIZE, Errors.GovernanceProposer__QuorumCannotBeLargerThanRoundSize(QUORUM_SIZE, ROUND_SIZE));
+  // From: require(QUORUM_SIZE <= ROUND_SIZE, Errors.EmpireBase__QuorumCannotBeLargerThanRoundSize(QUORUM_SIZE, ROUND_SIZE));
   if (governanceProposerQuorum !== undefined && governanceProposerQuorum > governanceProposerRoundSize) {
     errors.push(
       `governanceProposerQuorum (${governanceProposerQuorum}) cannot be larger than governanceProposerRoundSize (${governanceProposerRoundSize})`,
