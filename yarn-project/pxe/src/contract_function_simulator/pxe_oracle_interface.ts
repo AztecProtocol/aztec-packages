@@ -263,16 +263,16 @@ export class PXEOracleInterface implements ExecutionDataProvider {
    * Fetches the current chain id.
    * @returns The chain id.
    */
-  public async getChainId(): Promise<number> {
-    return await this.aztecNode.getChainId();
+  public getChainId(): Promise<number> {
+    return this.aztecNode.getChainId();
   }
 
   /**
    * Fetches the current version.
    * @returns The version.
    */
-  public async getVersion(): Promise<number> {
-    return await this.aztecNode.getVersion();
+  public getVersion(): Promise<number> {
+    return this.aztecNode.getVersion();
   }
 
   public getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string> {
