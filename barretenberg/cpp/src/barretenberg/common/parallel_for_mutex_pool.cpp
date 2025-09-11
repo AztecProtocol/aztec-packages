@@ -28,7 +28,7 @@ class ThreadPool {
 
     void start_tasks(size_t num_iterations, const std::function<void(size_t)>& func)
     {
-        parent = bb::detail::GlobalBenchStatsContainer::parent;
+        parent.store(bb::detail::GlobalBenchStatsContainer::parent);
         {
             std::unique_lock<std::mutex> lock(tasks_mutex);
             task_ = func;
@@ -48,7 +48,7 @@ class ThreadPool {
     }
 
   private:
-    bb::detail::TimeStatsEntry* parent = nullptr;
+    std::atomic<bb::detail::TimeStatsEntry*> parent = nullptr;
     std::vector<std::thread> workers;
     std::mutex tasks_mutex;
     std::function<void(size_t)> task_;
@@ -119,7 +119,7 @@ void ThreadPool::worker_loop(size_t /*unused*/)
         }
         // Make sure nested stats accounting works under multithreading
         // Note: parent is a thread-local variable.
-        bb::detail::GlobalBenchStatsContainer::parent = parent;
+        bb::detail::GlobalBenchStatsContainer::parent = parent.load();
         do_iterations();
     }
     // info("worker exit ", worker_num);

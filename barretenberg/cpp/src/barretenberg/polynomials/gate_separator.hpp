@@ -143,7 +143,7 @@ template <typename FF> struct GateSeparatorPolynomial {
     BB_PROFILE static std::vector<FF> compute_beta_products(const std::vector<FF>& betas,
                                                             const size_t log_num_monomials)
     {
-
+        BB_BENCH_NAME("GateSeparatorPolynomial::compute_beta_products");
         size_t pow_size = 1 << log_num_monomials;
         std::vector<FF> beta_products(pow_size);
 

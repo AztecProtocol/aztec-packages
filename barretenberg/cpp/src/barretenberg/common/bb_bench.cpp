@@ -206,7 +206,7 @@ AggregateData GlobalBenchStatsContainer::aggregate() const
 
     // Each count has a unique [thread, key] combo.
     // We therefore treat each count as a thread's contribution to that key.
-    for (const TimeStatsEntry* entry : entries) {
+    for (const std::shared_ptr<TimeStatsEntry>& entry : entries) {
         // A map from parent key => AggregateEntry
         auto& entry_map = result[entry->key];
         // combine all entries with same parent key
@@ -238,7 +238,7 @@ GlobalBenchStatsContainer::~GlobalBenchStatsContainer()
     }
 }
 
-void GlobalBenchStatsContainer::add_entry(const char* key, TimeStatsEntry* entry)
+void GlobalBenchStatsContainer::add_entry(const char* key, const std::shared_ptr<TimeStatsEntry>& entry)
 {
     std::unique_lock<std::mutex> lock(mutex);
     entry->key = key;
@@ -248,7 +248,7 @@ void GlobalBenchStatsContainer::add_entry(const char* key, TimeStatsEntry* entry
 void GlobalBenchStatsContainer::print() const
 {
     std::cout << "GlobalBenchStatsContainer::print() START" << "\n";
-    for (const TimeStatsEntry* entry : entries) {
+    for (const std::shared_ptr<TimeStatsEntry>& entry : entries) {
         print_stats_recursive(entry->key, &entry->count, "");
     }
     std::cout << "GlobalBenchStatsContainer::print() END" << "\n";
@@ -560,7 +560,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
 void GlobalBenchStatsContainer::clear()
 {
     std::unique_lock<std::mutex> lock(mutex);
-    for (TimeStatsEntry* entry : entries) {
+    for (std::shared_ptr<TimeStatsEntry>& entry : entries) {
         entry->count = TimeStats();
     }
 }
