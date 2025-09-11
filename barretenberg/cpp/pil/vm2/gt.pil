@@ -57,4 +57,4 @@ namespace gt;
     #[GT_RESULT]
     sel * ( (A_GT_B - A_LTE_B) * res + A_LTE_B - abs_diff ) = 0;
     #[GT_RANGE]
-    sel { abs_diff, num_bits } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+    sel { abs_diff, num_bits } in range_check.sel_gt { range_check.value, range_check.rng_chk_bits };
