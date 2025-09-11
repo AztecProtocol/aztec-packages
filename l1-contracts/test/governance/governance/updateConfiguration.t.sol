@@ -85,8 +85,7 @@ contract UpdateConfigurationTest is GovernanceBase {
     vm.prank(address(governance));
     governance.updateConfiguration(config);
 
-    config.proposeConfig.lockDelay =
-      Timestamp.wrap(bound(_val, Timestamp.unwrap(ConfigurationLib.TIME_UPPER) + 1, type(uint256).max));
+    config.proposeConfig.lockDelay = Timestamp.wrap(uint256(type(uint32).max) + 1);
     vm.expectRevert(abi.encodeWithSelector(Errors.Governance__ConfigurationLib__TimeTooBig.selector, "LockDelay"));
     vm.prank(address(governance));
     governance.updateConfiguration(config);
