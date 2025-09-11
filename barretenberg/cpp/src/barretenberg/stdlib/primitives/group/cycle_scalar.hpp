@@ -52,6 +52,17 @@ template <typename Builder> class cycle_scalar {
     // we want to validate the cycle_scalar < bn254::fr::modulus *not* grumpkin::fr::modulus
     bool _use_bn254_scalar_field_for_primality_test = false;
 
+    /**
+     * @brief Decompose a uint256_t value into lo and hi parts for cycle_scalar representation
+     *
+     * @param value The value to decompose
+     * @return std::pair<uint256_t, uint256_t> (lo, hi) where lo is LO_BITS and hi is the remaining bits
+     */
+    static std::pair<uint256_t, uint256_t> decompose_into_lo_hi(const uint256_t& value)
+    {
+        return { value.slice(0, LO_BITS), value.slice(LO_BITS, NUM_BITS) };
+    }
+
   public:
     cycle_scalar(const field_t& _lo,
                  const field_t& _hi,
