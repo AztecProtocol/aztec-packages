@@ -42,6 +42,9 @@ export type SequencerClientConfig = PublisherConfig &
   Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration' | 'aztecEpochDuration'>;
 
 export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
+  nextSequencerAttack: {
+    description: 'adversarial',
+  },
   transactionPollingIntervalMS: {
     env: 'SEQ_TX_POLLING_INTERVAL_MS',
     description: 'The number of ms to wait between polling for pending txs.',

@@ -2,7 +2,7 @@ import type { L2Block } from '@aztec/aztec.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { FormattedViemError, NoCommitteeError, type RollupContract } from '@aztec/ethereum';
-import { omit, pick } from '@aztec/foundation/collection';
+import { omit, pick, times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -11,7 +11,7 @@ import { type DateProvider, Timer } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
-import type { CommitteeAttestation, L2BlockSource, ValidateBlockResult } from '@aztec/stdlib/block';
+import { CommitteeAttestation, type L2BlockSource, Signature, type ValidateBlockResult } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import {
@@ -72,6 +72,13 @@ export type SequencerEvents = {
   ['block-published']: (args: { blockNumber: number; slot: number }) => void;
 };
 
+type Attacks =
+  | 'none'
+  | 'fake_state_roots'
+  | 'fake_own_signature'
+  | 'fake_committee_signatures'
+  | 'skip_committee_signatures';
+
 /**
  * Sequencer client
  * - Wins a period of time to become the sequencer (depending on finalized protocol).
@@ -106,6 +113,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   // This will get re-assigned every time the sequencer goes to build a new block to a publisher that is valid
   // for the block proposer.
   protected publisher: SequencerPublisher | undefined;
+
+  private nextAttack: Attacks = 'none';
 
   constructor(
     protected publisherFactory: SequencerPublisherFactory,
@@ -188,6 +197,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
     if (config.enforceTimeTable !== undefined) {
       this.enforceTimeTable = config.enforceTimeTable;
+    }
+    if (config.nextSequencerAttack) {
+      this.nextAttack = config.nextSequencerAttack as Attacks;
     }
 
     this.setTimeTable();
@@ -399,6 +411,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       { ...syncLogData, validatorAddresses },
     );
 
+    const attack = this.nextAttack;
+    this.nextAttack = 'none';
+
     const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(
       newBlockNumber,
       coinbase,
@@ -408,7 +423,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     const { timestamp } = newGlobalVariables;
     const signerFn = (msg: TypedDataDefinition) =>
-      this.validatorClient!.signWithAddress(attestorAddress, msg).then(s => s.toString());
+      attack === 'fake_own_signature'
+        ? Promise.resolve(Signature.random().toString())
+        : this.validatorClient!.signWithAddress(attestorAddress, msg).then(s => s.toString());
 
     const enqueueGovernanceSignalPromise =
       this.governanceProposerPayload && !this.governanceProposerPayload.isZero()
@@ -470,6 +487,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
           proposerInNextSlot,
           invalidateBlock,
           publisher,
+          attack,
         );
       } catch (err: any) {
         this.emit('block-build-failed', { reason: err.message });
@@ -609,6 +627,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     proposerAddress: EthAddress | undefined,
     invalidateBlock: InvalidateBlockRequest | undefined,
     publisher: SequencerPublisher,
+    nextAttack: Attacks = 'none',
   ): Promise<L2Block> {
     await publisher.validateBlockHeader(proposalHeader, invalidateBlock);
 
@@ -628,6 +647,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         newGlobalVariables,
         blockBuilderOptions,
       );
+
       const { publicGas, block, publicProcessorDuration, numTxs, numMsgs, blockBuildingTimer, usedTxs, failedTxs } =
         buildBlockRes;
       const blockBuildDuration = workTimer.ms();
@@ -640,6 +660,18 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
           { slot, blockNumber, numTxs },
         );
         throw new Error(`Block has too few successful txs to be proposed`);
+      }
+
+      if (nextAttack === 'fake_state_roots') {
+        const fakeNullifierRoot = Fr.random();
+        this.log.warn(`Faking state roots for block ${blockNumber}`, {
+          slot,
+          blockNumber,
+          realNullifierStateRoot: buildBlockRes.block.header.state.partial.nullifierTree.root.toString(),
+          fakeNullifierRoot: fakeNullifierRoot.toString(),
+        });
+
+        buildBlockRes.block.header.state.partial.nullifierTree.root = fakeNullifierRoot;
       }
 
       // TODO(@PhilWindle) We should probably periodically check for things like another
@@ -669,8 +701,18 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         },
       );
 
-      this.log.debug('Collecting attestations');
-      const attestations = await this.collectAttestations(block, usedTxs, proposerAddress);
+      let attestations: CommitteeAttestation[] | undefined;
+      if (nextAttack === 'skip_committee_signatures') {
+        this.log.warn(`Not acquiring attestations for block ${blockNumber}`);
+        attestations = [];
+      } else if (nextAttack === 'fake_committee_signatures') {
+        this.log.warn(`Faking committee attestations for block ${blockNumber}`);
+        attestations = times(48, CommitteeAttestation.random);
+      } else {
+        this.log.debug('Collecting attestations');
+        attestations = await this.collectAttestations(block, usedTxs, proposerAddress);
+      }
+
       if (attestations !== undefined) {
         this.log.verbose(`Collected ${attestations.length} attestations`, { blockHash, blockNumber });
       }
