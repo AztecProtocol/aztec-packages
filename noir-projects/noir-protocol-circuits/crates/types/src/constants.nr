@@ -276,7 +276,7 @@ pub global PRIVATE_LOG_DATA_LENGTH: u32 = PRIVATE_LOG_LENGTH
 pub global PRIVATE_LOG_CIPHERTEXT_LEN: u32 = PRIVATE_LOG_SIZE_IN_FIELDS - 1; // -1 for the tag
 pub global SCOPED_PRIVATE_LOG_DATA_LENGTH: u32 = PRIVATE_LOG_DATA_LENGTH + 1 /* contract_address */;
 pub global PUBLIC_LOGS_HEADER_LENGTH: u32 = 1 /* length */;
-pub global PUBLIC_LOGS_PAYLOAD_LENGTH: u32 = 4094;
+pub global PUBLIC_LOGS_PAYLOAD_LENGTH: u32 = 4094; // TODO(Alvaro): Make this 4096 when bb fix is in.
 pub global PUBLIC_LOGS_LENGTH: u32 = PUBLIC_LOGS_HEADER_LENGTH + PUBLIC_LOGS_PAYLOAD_LENGTH;
 pub global PUBLIC_LOG_HEADER_LENGTH: u32 = 2; /* length and contract_address */
 
