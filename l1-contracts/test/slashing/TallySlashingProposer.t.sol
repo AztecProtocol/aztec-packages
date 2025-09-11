@@ -864,4 +864,29 @@ contract TallySlashingProposerTest is TestBase {
       }
     }
   }
+
+  function test_getSlashTargetCommitteesEarlyEpochs() public {
+    // Test that getSlashTargetCommittees handles epochs 0 and 1 without throwing
+    // when ValidatorSelection__InsufficientValidatorSetSize is thrown
+
+    // Use a very early slash round that would target epochs 0 and 1
+    // With SLASH_OFFSET_IN_ROUNDS = 2, round 2 targets epochs starting from (2-2)*ROUND_SIZE_IN_EPOCHS = 0
+    SlashRound earlyRound = SlashRound.wrap(SLASH_OFFSET_IN_ROUNDS);
+
+    // This should not revert and should return empty committees for early epochs
+    address[][] memory committees = slashingProposer.getSlashTargetCommittees(earlyRound);
+
+    // Verify we get the expected number of committees
+    assertEq(committees.length, ROUND_SIZE_IN_EPOCHS, "Should return correct number of committees");
+
+    // For very early rounds, we expect empty committees for epochs 0 and 1
+    // Since ROUND_SIZE_IN_EPOCHS = 2, both epochs should be empty
+    for (uint256 i = 0; i < ROUND_SIZE_IN_EPOCHS; i++) {
+      Epoch targetEpoch = slashingProposer.getSlashTargetEpoch(earlyRound, i);
+      if (Epoch.unwrap(targetEpoch) <= 1) {
+        assertEq(committees[i].length, 0, "Committee for early epochs should be empty");
+      }
+      // For epochs > 1, we might get actual committees, but that depends on the test setup
+    }
+  }
 }

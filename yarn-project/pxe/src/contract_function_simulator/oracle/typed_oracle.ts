@@ -10,6 +10,7 @@ import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness }
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
+import type { UtilityContext } from '../noir-structs/utility_context.js';
 import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
 /**
@@ -80,6 +81,10 @@ export abstract class TypedOracle {
 
   utilityGetVersion(): Promise<Fr> {
     return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityGetVersion'));
+  }
+
+  utilityGetUtilityContext(): Promise<UtilityContext> {
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityGetUtilityContext'));
   }
 
   utilityGetKeyValidationRequest(_pkMHash: Fr): Promise<KeyValidationRequest> {

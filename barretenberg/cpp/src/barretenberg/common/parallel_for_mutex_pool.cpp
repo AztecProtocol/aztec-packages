@@ -41,6 +41,7 @@ class ThreadPool {
         do_iterations();
 
         {
+            BB_BENCH_NAME("spinning main thread");
             std::unique_lock<std::mutex> lock(tasks_mutex);
             complete_condition_.wait(lock, [this] { return complete_ == num_iterations_; });
         }
@@ -71,6 +72,7 @@ class ThreadPool {
                 }
                 iteration = iteration_++;
             }
+            BB_BENCH_NAME("do_iterations()");
             task_(iteration);
             {
                 std::unique_lock<std::mutex> lock(tasks_mutex);
