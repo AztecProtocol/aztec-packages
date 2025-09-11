@@ -11,6 +11,7 @@ use crate::{
         gas_fees::GasFees,
         gas_settings::GasSettings,
         global_variables::GlobalVariables,
+        log::Log,
         public_call_request::{PublicCallRequest, PublicCallRequestArrayLengths},
         public_data_write::PublicDataWrite,
         public_logs::PublicLogs,
@@ -78,7 +79,6 @@ use crate::{
     traits::{Deserialize, Empty, FromField, Serialize, ToField},
 };
 
-use super::log::Log;
 use std::meta::derive;
 
 #[derive(Deserialize, Eq, Serialize)]
@@ -104,7 +104,7 @@ pub struct AvmCircuitPublicInputs {
     // Outputs.
     pub end_tree_snapshots: TreeSnapshots,
     pub end_gas_used: Gas,
-    // TODO: Use this to check zero-padded arrays in accumulated data
+    // TODO(avm): Use this to check zero-padded arrays in accumulated data
     pub accumulated_data_array_lengths: AvmAccumulatedDataArrayLengths,
     pub accumulated_data: AvmAccumulatedData,
     pub transaction_fee: Field,

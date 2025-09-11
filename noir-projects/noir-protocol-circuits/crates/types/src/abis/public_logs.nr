@@ -1,7 +1,7 @@
+use crate::abis::log::Log;
 use crate::address::aztec_address::AztecAddress;
 use crate::constants::PUBLIC_LOGS_PAYLOAD_LENGTH;
 use crate::traits::{Deserialize, Empty, Serialize, ToField};
-use super::log::Log;
 
 #[derive(Eq, Serialize, Deserialize)]
 pub struct PublicLogs {

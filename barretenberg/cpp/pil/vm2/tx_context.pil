@@ -404,7 +404,7 @@ namespace tx;
         public_inputs.cols[0]
     };
 
-    // Write unencrypted log count to PI
+    // Write unencrypted log fields count to PI
     pol commit fields_length_unencrypted_logs_pi_offset;
 
     // The structure of public logs is [fields_length, ...[log_0_size, log_0_addr, ...log_0_fields, ...]]
