@@ -48,7 +48,7 @@ straus_scalar_slice<Builder>::straus_scalar_slice(Builder* context,
         if (num_bits == 0) {
             return { stdlib_slices, native_slices };
         }
-        // If the scalar is constant, compute the slices natively
+        // Case 1: If the scalar is constant, compute the slices natively
         if (scalar.is_constant()) {
             const uint64_t table_mask = (1ULL << table_bits) - 1ULL;
             uint256_t raw_value = scalar.get_value();
@@ -61,7 +61,7 @@ straus_scalar_slice<Builder>::straus_scalar_slice(Builder* context,
             return { stdlib_slices, native_slices };
         }
 
-        // If the scalar is non-constant, perform the decomposition in-circuit
+        // Case 2: If the scalar is non-constant, perform the decomposition in-circuit
         const auto slice_indices =
             context->decompose_into_default_range(scalar.get_normalized_witness_index(),
                                                   num_bits,

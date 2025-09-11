@@ -64,7 +64,6 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
 {
     const size_t table_size = 1UL << table_bits;
     point_table.resize(table_size);
-    point_table[0] = offset_generator;
 
     // We want to support the case where input points are points at infinity.
     // If base point is at infinity, we want every point in the table to just be `generator_point`.
@@ -97,27 +96,20 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
             point_table[i] = point_table[i - 1].unconditional_add(modded_base_point, get_hint(i - 1));
         }
     } else {
-        // Case 2: Point is non-constant so the table is derived via unconditional additions and we check the
-        // x_coordinates of all summand pairs are distinct via a product check. N.B. the x-coordinate checks are
-        // performed separately to ensure the additions are consecutive and can thus be chained together.
-        std::vector<std::tuple<field_t, field_t>> x_coordinate_checks;
-        for (size_t i = 1; i < table_size; ++i) {
-            x_coordinate_checks.emplace_back(point_table[i - 1].x, modded_base_point.x);
-            point_table[i] = point_table[i - 1].unconditional_add(modded_base_point, get_hint(i - 1));
-        }
-
-        // batch the x-coordinate checks together
-        // because `assert_is_not_zero` witness generation needs a modular inversion (expensive)
+        // Case 2: Point is non-constant so the table is derived via unconditional additions. We check the x_coordinates
+        // of all summand pairs are distinct via a batched product check to avoid individual modular inversions.
         field_t coordinate_check_product = 1;
-        for (auto& [x1, x2] : x_coordinate_checks) {
-            auto x_diff = x2 - x1;
+        point_table[0] = offset_generator;
+        for (size_t i = 1; i < table_size; ++i) {
+            const field_t x_diff = point_table[i - 1].x - modded_base_point.x;
             coordinate_check_product *= x_diff;
+            point_table[i] = point_table[i - 1].unconditional_add(modded_base_point, get_hint(i - 1));
         }
         coordinate_check_product.assert_is_not_zero("straus_lookup_table x-coordinate collision");
 
         // If the input base point was the point at infinity, the correct point table simply contains the offset
         // generator at every entry. However, since we replaced the point at infinity with "one" when computing the
-        // table (see explanation above), we conditionally correct the table entries here.
+        // table (see explanation above), we must conditionally correct the table entries here.
         for (size_t i = 1; i < table_size; ++i) {
             point_table[i] = cycle_group<Builder>::conditional_assign(
                 base_point.is_point_at_infinity(), offset_generator, point_table[i]);
