@@ -60,7 +60,7 @@ describe('sentinel', () => {
     blockStream = mock<L2BlockStream>();
 
     kvStore = await openTmpStore('sentinel-test');
-    store = new SentinelStore(kvStore, { historyLength: 10 });
+    store = new SentinelStore(kvStore, { historyLength: 10, historicProvenPerformanceLength: 5 });
 
     slot = 10n;
     epoch = 0n;
