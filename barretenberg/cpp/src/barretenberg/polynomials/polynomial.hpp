@@ -252,6 +252,8 @@ template <typename Fr> class Polynomial {
      */
     void add_scaled(PolynomialSpan<const Fr> other, Fr scaling_factor) &;
 
+    void add_scaled_chunk(const ThreadChunk& chunk, PolynomialSpan<const Fr> other, Fr scaling_factor) &;
+
     /**
      * @brief adds the polynomial q(X) 'other'.
      *
@@ -273,7 +275,7 @@ template <typename Fr> class Polynomial {
      */
     Polynomial& operator*=(Fr scaling_factor);
 
-    Polynomial& multiply_chunk(const ThreadChunk& chunk, Fr scaling_factor);
+    void multiply_chunk(const ThreadChunk& chunk, Fr scaling_factor);
 
     /**
      * @brief Add random values to the coefficients of a polynomial. In practice, this is used for ensuring the
