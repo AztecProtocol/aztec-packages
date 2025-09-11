@@ -223,7 +223,6 @@ std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construc
     auto vk = std::make_shared<VerificationKey>(decider_pk->get_precomputed());
     InnerProver prover(decider_pk, vk);
     auto honk_proof = prover.construct_proof();
-    info("size of the proof", honk_proof.size());
     return std::pair(honk_proof, vk);
 }
 

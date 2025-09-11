@@ -144,12 +144,9 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     // Mock the proof if the predicate is false
     if (!input.predicate.is_constant) {
         bool_ct predicate_witness = bool_ct::from_witness_index_unsafe(&builder, input.predicate.index);
-        info("num public inputs:", input.public_inputs.size());
         auto [mock_proof, mock_vk] =
             construct_honk_proof_for_simple_circuit<typename Flavor::NativeFlavor>(input.public_inputs.size());
         std::vector<fr> mock_vk_fields = mock_vk->to_field_elements();
-        info("num elements of the real proof", proof_fields.size());
-        info("num elements in mock proof", mock_proof.size());
         stdlib::Proof<Builder> result;
         std::vector<field_ct<Builder>> result_vk;
         result.reserve(proof_fields.size());
@@ -157,13 +154,14 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
         // Replace the proof by the placeholder proof in case the predicate is 1
         for (uint32_t i = 0; i < proof_fields.size(); ++i) {
             auto valid_proof = field_ct<Builder>::conditional_assign(
-                predicate_witness, proof_fields[i], field_ct<Builder>::from_witness(mock_proof[i]));
+                predicate_witness, proof_fields[i], field_ct<Builder>(mock_proof[i]).normalize());
             result.push_back(valid_proof);
         }
 
         // Replace the VK with the placeholder vk in case the predicate is 1
         for (uint32_t i = 0; i < key_fields.size(); ++i) {
-            auto valid_vk = field_ct<Builder>::conditional_assign(predicate_witness, key_fields[i], mock_vk_fields[i]);
+            auto valid_vk = field_ct<Builder>::conditional_assign(
+                predicate_witness, key_fields[i], field_ct<Builder>(mock_vk_fields[i]).normalize());
             result_vk.push_back(valid_vk);
         }
         field_ct<Builder> mock_vk_hash = mock_vk->hash();

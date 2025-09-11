@@ -253,8 +253,8 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestHonkRecursionConstraintVKGeneration)
     std::vector<typename TestFixture::InnerBuilder> layer_1_circuits;
     layer_1_circuits.push_back(TestFixture::create_inner_circuit());
 
-    auto layer_2_circuit =
-        TestFixture::template create_outer_circuit<typename TestFixture::OuterBuilder>(layer_1_circuits);
+    auto layer_2_circuit = TestFixture::template create_outer_circuit<typename TestFixture::OuterBuilder>(
+        layer_1_circuits, /*dummy_witnesses=*/false, /*predicate_val=*/true);
 
     auto layer_2_circuit_with_dummy_witnesses =
         TestFixture::template create_outer_circuit<typename TestFixture::OuterBuilder>(layer_1_circuits,
