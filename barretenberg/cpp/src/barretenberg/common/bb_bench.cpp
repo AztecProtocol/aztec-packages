@@ -181,7 +181,7 @@ void AggregateEntry::add_thread_time_sample(const TimeAndCount& stats)
     // Account for aggregate time and count
     time += stats.time;
     count += stats.count;
-    time_max = std::max(stats.time, time_max);
+    time_max = std::max(static_cast<size_t>(stats.time), time_max);
     // Use Welford's method to be able to track the variance
     num_threads++;
     double delta = static_cast<double>(stats.time) - time_mean;
@@ -526,7 +526,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
     uint64_t total_time = 0;
     for (const auto& [_, parent_map] : aggregated) {
         if (auto it = parent_map.find(""); it != parent_map.end()) {
-            total_time = std::max(total_time, it->second.time_max);
+            total_time = std::max(static_cast<size_t>(total_time), it->second.time_max);
         }
     }
 
