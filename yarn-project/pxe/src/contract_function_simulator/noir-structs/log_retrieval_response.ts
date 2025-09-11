@@ -22,7 +22,9 @@ export class LogRetrievalResponse {
 
   toFields(): Fr[] {
     return [
-      ...serializeBoundedVec(this.logPayload, MAX_LOG_CONTENT_LEN), // TODO(Alvaro): This will fail if public log is too large.
+      // We need to trim the payload since public logs can be larger than MAX_LOG_CONTENT_LEN.
+      // This is currently not a problem since this class is only used with public logs for note completion.
+      ...serializeBoundedVec(this.logPayload.slice(0, MAX_LOG_CONTENT_LEN), MAX_LOG_CONTENT_LEN),
       this.txHash.hash,
       ...serializeBoundedVec(this.uniqueNoteHashesInTx, MAX_NOTE_HASHES_PER_TX),
       this.firstNullifierInTx,

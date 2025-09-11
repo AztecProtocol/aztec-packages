@@ -778,7 +778,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
           }
 
           return new LogRetrievalResponse(
-            publicLog.logPayload, //TODO(Alvaro): Trim the length of the payload
+            publicLog.logPayload,
             publicLog.txHash,
             publicLog.uniqueNoteHashesInTx,
             publicLog.firstNullifierInTx,
