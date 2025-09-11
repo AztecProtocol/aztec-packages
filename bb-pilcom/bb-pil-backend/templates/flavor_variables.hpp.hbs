@@ -32,12 +32,13 @@ struct AvmFlavorVariables {
     // Need to be templated for recursive verifier
     template <typename FF_>
     using MainRelations_ = flat_tuple::tuple<
-    {{#each optimized_relations_file_names as |item|}} {{!-- It's easier to handle the optimized relations first --}}
-      {{#if @first}} {{!-- If an optimized relation exists --}}
+    {{!-- It's easier to handle the optimized relations first --}}
+    {{#each optimized_relations_file_names as |item| ~}}
+      {{#if @first ~}} {{!-- If an optimized relation exists --}}
       // Optimized Relations
-      {{/if}}
+      {{/if ~}}
       {{snakeCase ../name}}::optimized_{{item}}<FF_>,
-    {{/each}}
+    {{/each ~}}
     {{!-- Standard Generated Relations --}}
       // Relations
     {{#each relation_file_names as |item|}}{{snakeCase ../name}}::{{item}}<FF_>{{#unless @last}}, {{/unless}}{{/each}}
