@@ -65,7 +65,6 @@
     { "path": "entrypoints/tsconfig.json" },
     { "path": "cli/tsconfig.json" },
     { "path": "cli-wallet/tsconfig.json" },
-    { "path": "simulator_fuzzer/tsconfig.json" }
 
   ],
   "files": ["./@types/jest/index.d.ts"],
