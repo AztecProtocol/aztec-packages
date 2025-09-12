@@ -48,7 +48,7 @@ where
         || to_encrypted_private_event_message(event, recipient),
     );
 
-    // We generate a cryptographic commitment to the event to ensure its authenticity during out-of-band delivery.
+    // We generate a cryptographic commitment to the event to ensure its authenticity during offchain delivery.
     // The nullifier tree is chosen over the note hash tree for this purpose since it provides a simpler mechanism
     // - nullifiers require no nonce, and events, being non-spendable, don't need the guarantee that a "spending"
     // nullifier can be computed.

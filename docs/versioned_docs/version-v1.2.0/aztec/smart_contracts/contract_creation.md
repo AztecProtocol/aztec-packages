@@ -23,7 +23,7 @@ A contract class includes:
 - `private_functions`: List of individual private functions, including constructors
 - `packed_public_bytecode`: Packed bytecode representation of the AVM bytecode for all public functions
 
-The specification of the artifact hash is not enforced by the protocol. It should include commitments to utility functions code and compilation metadata. It is intended to be used by clients to verify that an off-chain fetched artifact matches a registered class.
+The specification of the artifact hash is not enforced by the protocol. It should include commitments to utility functions code and compilation metadata. It is intended to be used by clients to verify that an offchain fetched artifact matches a registered class.
 
 ### Contract Class Registration
 

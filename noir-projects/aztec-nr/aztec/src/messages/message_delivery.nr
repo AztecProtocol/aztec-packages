@@ -2,13 +2,13 @@
 ///
 /// +----------------------------------------------------------------------------------------------------------+
 /// | 1. Delivery Mechanism                                                                                    |
-/// | - Messages can be delivered either on-chain or out-of-band                                               |
-/// | - On-chain delivery uses the Aztec protocol's private log stream, submitted to L1 blobs and consuming DA |
-/// | - Out-of-band delivery is implemented by the application (e.g. storing ciphertexts in cloud storage)     |
-/// | - Out-of-band delivery cannot have any cryptographic constraints since messages are never stored on-chain|
+/// | - Messages can be delivered either onchain or offchain                                               |
+/// | - Onchain delivery uses the Aztec protocol's private log stream, submitted to L1 blobs and consuming DA |
+/// | - Offchain delivery is implemented by the application (e.g. storing ciphertexts in cloud storage)     |
+/// | - Offchain delivery cannot have any cryptographic constraints since messages are never stored onchain|
 /// +----------------------------------------------------------------------------------------------------------+
 ///
-/// For on-chain delivery, we must also consider:
+/// For onchain delivery, we must also consider:
 ///
 /// +----------------------------------------------------------------------------------------------------------+
 /// | 2. Message Encryption and Tagging                                                                        |
@@ -20,14 +20,14 @@
 /// | - If tagging is not performed correctly by the sender, the recipient will not be able to find the message|
 /// +----------------------------------------------------------------------------------------------------------+
 ///
-/// For off-chain delivery, constrained encryption is not relevant since it doesn't provide any additional guarantees
+/// For offchain delivery, constrained encryption is not relevant since it doesn't provide any additional guarantees
 /// over unconstrained encryption and is slower to prove (requiring more constraints).
 ///
 /// There are three available delivery modes described below.
 // TODO(#16771): This is now used by notes as well. Move it.
 pub struct MessageDeliveryEnum {
-    /// 1. Constrained On-chain
-    /// - Uses constrained encryption and in the future constrained tagging (issue #14565) with on-chain delivery
+    /// 1. Constrained Onchain
+    /// - Uses constrained encryption and in the future constrained tagging (issue #14565) with onchain delivery
     /// - Provides cryptographic guarantees that recipients can discover and decrypt messages (once #14565 is tackled)
     /// - Slowest proving times since encryption is constrained
     /// - Expensive since it consumes L1 blob space
@@ -44,25 +44,25 @@ pub struct MessageDeliveryEnum {
     /// recipient decryption. TODO(#14565): Implement proper constrained tag prefixing.
     pub CONSTRAINED_ONCHAIN: u8,
 
-    /// 2. Unconstrained On-chain
-    /// - Uses unconstrained encryption and tagging with on-chain delivery
+    /// 2. Unconstrained Onchain
+    /// - Uses unconstrained encryption and tagging with onchain delivery
     /// - Faster proving times since no constraints are used for encryption
     /// - Expensive since it consumes L1 blob space
     /// - Suitable when recipients can verify message validity through other means
     /// - Use this if you don't need the cryptographic guarantees of constrained encryption and tagging but
-    ///   don't want to deal with setting up out-of-band delivery infrastructure as required by mode 3
+    ///   don't want to deal with setting up offchain delivery infrastructure as required by mode 3
     /// - Example: Depositing a privately-held NFT into an NFT-sale escrow contract. The buyers know the escrow
-    ///   contract's decryption keys, they receive the message on-chain and are willing to buy the NFT only if the NFT
+    ///   contract's decryption keys, they receive the message onchain and are willing to buy the NFT only if the NFT
     ///   contained in the message is legitimate.
     pub UNCONSTRAINED_ONCHAIN: u8,
 
-    /// 3. Out-of-band
-    /// - Uses unconstrained encryption with off-chain delivery
-    /// - Lowest cost since no on-chain storage is needed and short proving times since no constraints are used
+    /// 3. Offchain
+    /// - Uses unconstrained encryption with offchain delivery
+    /// - Lowest cost since no onchain storage is needed and short proving times since no constraints are used
     ///   for encryption
     /// - Suitable when recipients can verify message validity through other means
-    /// - Requires setting up custom infrastructure for handling off-chain delivery (e.g. cloud storage)
-    /// - Example: A payment app where a merchant receives the message off-chain and is willing to release the goods
+    /// - Requires setting up custom infrastructure for handling offchain delivery (e.g. cloud storage)
+    /// - Example: A payment app where a merchant receives the message offchain and is willing to release the goods
     ///   once he verifies that the payment is correct (i.e. can decrypt the message and verify that it contains
     ///   a legitimate token note - note with note commitment in the note hash tree).
     pub UNCONSTRAINED_OFFCHAIN: u8,

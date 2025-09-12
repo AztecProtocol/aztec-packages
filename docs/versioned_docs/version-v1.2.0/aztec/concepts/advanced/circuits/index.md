@@ -33,9 +33,9 @@ When a function in an Ethereum smart contract is executed, the EVM performs chec
 
 All of these checks have a computational cost, for which users are charged gas.
 
-Many existing L2s move this logic off-chain, as a way of saving their users gas costs, and as a way of increasing tx throughput.
+Many existing L2s move this logic offchain, as a way of saving their users gas costs, and as a way of increasing tx throughput.
 
-zk-Rollups, in particular, move these checks off-chain by encoding them in zk-S(N/T)ARK circuits. Rather than paying a committee of Ethereum validators to perform the above kinds of checks, L2 users instead pay a sequencer to execute these checks via the circuit(s) which encode them. The sequencer can then generate a zero-knowledge proof of having executed the circuit(s) correctly, which they can send to a rollup contract on Ethereum. The Ethereum validators then verify this zk-S(N/T)ARK. It often turns out to be much cheaper for users to pay the sequencer to do this, than to execute a smart contract on Ethereum directly.
+zk-Rollups, in particular, move these checks offchain by encoding them in zk-S(N/T)ARK circuits. Rather than paying a committee of Ethereum validators to perform the above kinds of checks, L2 users instead pay a sequencer to execute these checks via the circuit(s) which encode them. The sequencer can then generate a zero-knowledge proof of having executed the circuit(s) correctly, which they can send to a rollup contract on Ethereum. The Ethereum validators then verify this zk-S(N/T)ARK. It often turns out to be much cheaper for users to pay the sequencer to do this, than to execute a smart contract on Ethereum directly.
 
 But there's a problem.
 

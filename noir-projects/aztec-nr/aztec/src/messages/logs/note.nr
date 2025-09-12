@@ -13,7 +13,7 @@ use protocol_types::{
     traits::Packable,
 };
 
-// TODO(#16881): once partial notes support emission via an off-chain message we will most likely want to remove this.
+// TODO(#16881): once partial notes support emission via an offchain message we will most likely want to remove this.
 pub fn compute_partial_note_log<Note>(
     note: Note,
     storage_slot: Field,

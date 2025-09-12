@@ -64,7 +64,7 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
  *      - Only the designated proposer for each slot can submit votes
  *      - Votes are signed using EIP-712
  *      - Votes include slot numbers to prevent replay attacks
- *      - Committee commitments are verified against on-chain data
+ *      - Committee commitments are verified against onchain data
  *      - Rounds have a lifetime limit
  *      - Uses circular storage to limit memory usage while maintaining recent round data
  *
@@ -429,7 +429,7 @@ contract TallySlashingProposer is EIP712 {
    * @param _round The round number to execute (must be ready for execution based on timing constraints)
    * @param _committees Array of validator committees slashed for each epoch in the round being executed.
    *                   Must contain exactly ROUND_SIZE_IN_EPOCHS committees. Only committees with slashed
-   *                   validators will have their commitments verified against on-chain data.
+   *                   validators will have their commitments verified against onchain data.
    *
    * Emits:
    * - RoundExecuted: When the round execution completes, regardless of whether any slashing occurred
@@ -437,7 +437,7 @@ contract TallySlashingProposer is EIP712 {
    * Reverts with:
    * - TallySlashingProposer__RoundAlreadyExecuted: If the round has already been executed
    * - TallySlashingProposer__RoundNotComplete: If the round is not yet ready for execution or has expired
-   * - TallySlashingProposer__InvalidCommitteeCommitment: If any committee commitment doesn't match on-chain data
+   * - TallySlashingProposer__InvalidCommitteeCommitment: If any committee commitment doesn't match onchain data
    * - TallySlashingProposer__InvalidNumberOfCommittees: If the number of committees doesn't match
    * ROUND_SIZE_IN_EPOCHS
    */
@@ -461,7 +461,7 @@ contract TallySlashingProposer is EIP712 {
           continue;
         }
 
-        // Check committee commitments against the stored on-chain data
+        // Check committee commitments against the stored onchain data
         bytes32 commitment = _computeCommitteeCommitment(_committees[i]);
         Epoch epochNumber = getSlashTargetEpoch(_round, i);
         require(
@@ -511,7 +511,7 @@ contract TallySlashingProposer is EIP712 {
 
   /**
    * @notice Get the tally results for a specific round, showing which validators would be slashed
-   * @dev This function is intended for off-chain querying and analysis of voting results.
+   * @dev This function is intended for offchain querying and analysis of voting results.
    *      It uses transient storage when calling getEpochCommittee on the rollup contract.
    *      Returns the same slash actions that would be executed if executeRound() were called for this round.
    *

@@ -1,8 +1,8 @@
 # Archiver
 
-Archiver is a service which is used to fetch data on-chain data and present them in a nice-to-consume form.
+Archiver is a service which is used to fetch data onchain data and present them in a nice-to-consume form.
 
-The on-chain data specifically are the following events:
+The onchain data specifically are the following events:
 
 1. `L2BlockProposed` event emitted on Rollup contract,
 2. `MessageAdded` event emitted on Inbox contract,
@@ -19,12 +19,12 @@ After the implementation of [delayed attestation verification](https://github.co
 
 Whenever the archiver detects a block with invalid attestations, it skips it. These blocks are not meant to be part of the chain, so the archiver ignores them and continues processing the next blocks. It is expected that an honest proposer will eventually invalidate these blocks, removing them from the chain on L1, and then resume the sequence of valid blocks.
 
-> [!WARNING]  
+> [!WARNING]
 > If the committee for the epoch is also malicious and attests to a descendant of an invalid block, nodes should also ignore these descendants, unless they become proven. This is currently not implemented. Nodes assume that the majority of the committee is honest.
 
 When the current node is elected as proposer, the `sequencer` needs to know whether there is an invalid block in L1 that needs to be purged before posting their own block. To support this, the archiver exposes a `pendingChainValidationStatus`, which is the state of the tip of the pending chain. This status can be valid in the happy path, or invalid if the tip of the pending chain has invalid attestations. If invalid, this status also contains all the data needed for purging the block from L1 via an `invalidate` call to the Rollup contract. Note that, if the head of the chain has more than one invalid consecutive block, this status will reference the earliest one that needs to be purged, since a call to purge an invalid block will automatically purge all descendants. Refer to the [InvalidateLib.sol](`l1-contracts/src/core/libraries/rollup/InvalidateLib.sol`) for more info.
 
-> [!TIP]  
+> [!TIP]
 > The archiver can be configured to `skipValidateBlockAttestations`, which will make it skip this validation. This cannot be set via environment variables, only via a call to `nodeAdmin_setConfig`. This setting is only meant for testing purposes.
 
 As an example, let's say the chain has been progressing normally up until block 10, and then:

@@ -63,7 +63,7 @@ The database stores transactional data and notes within the user's PXE.
 
 The database stores various types of data, including:
 
-- **Notes**: Data representing users' private state. These are often stored on-chain, encrypted to a user. A contract will parse on-chain data to find notes relevant for users' accounts and they are stored in the PXE.
+- **Notes**: Data representing users' private state. These are often stored onchain, encrypted to a user. A contract will parse onchain data to find notes relevant for users' accounts and they are stored in the PXE.
 - **Authentication Witnesses**: Data used to approve others for executing transactions on your behalf. The PXE provides this data to transactions on-demand during transaction simulation via oracles.
 - **Capsules**: External data or data injected into the system via [oracles](#oracles).
 - **Address Book**: A list of expected addresses that a PXE may encrypt notes for, or received encrypted notes from. This list helps the PXE reduce the amount of work required to find notes relevant to it's registered accounts.

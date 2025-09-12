@@ -16,7 +16,7 @@ An app contract can provably read the registry during private execution via a me
 
 An app contract can also prove that an address is not registered in the registry via a non-inclusion proof, since the public state tree is implemented as an indexed merkle tree. To prevent an app from proving that an address is not registered when in fact it was registered less than N blocks ago, we implement this check as a public function. This means that the transaction may leak that an undisclosed application attempted to interact with a non-registered address but failed.
 
-Note that, if an account is not registered in the registry, a sender could choose to supply the public key along with the preimage of an address on-the-fly <!-- Supply the key and preimage to where? To the registry or to the app circuits? -->, if this preimage was shared with them off-chain. This allows a user to send notes to a recipient before the recipient has deployed their account contract.
+Note that, if an account is not registered in the registry, a sender could choose to supply the public key along with the preimage of an address on-the-fly <!-- Supply the key and preimage to where? To the registry or to the app circuits? -->, if this preimage was shared with them offchain. This allows a user to send notes to a recipient before the recipient has deployed their account contract.
 
 ## Pseudocode
 

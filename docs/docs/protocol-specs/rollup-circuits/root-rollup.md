@@ -12,7 +12,7 @@ A[RootRollupInputs] --> C[RootRollupCircuit] --> B[RootRollupPublicInputs] --> D
 For rollup purposes, the node we want to convince of the correctness is the [validating light node](../l1-smart-contracts/index.md) that we put on L1. We will cover it in more detail in the [cross-chain communication](../l1-smart-contracts/index.md) section.
 
 :::info Squishers
-This might practically happen through a series of "squisher" circuits that will wrap the proof in another proof that is cheaper to verify on-chain. For example, wrapping a ultra-plonk proof in a standard plonk proof.
+This might practically happen through a series of "squisher" circuits that will wrap the proof in another proof that is cheaper to verify onchain. For example, wrapping a ultra-plonk proof in a standard plonk proof.
 :::
 
 <!-- TODO: this is all very out of date -->

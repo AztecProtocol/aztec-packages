@@ -33,7 +33,7 @@ This can occasionally happen when there are breaking releases. Make sure that yo
 #### `error: Failed constraint: 'Public state writes only supported in public functions`
 
 Reading and writing to public state from private functions is currently not supported.
-This is because public values may change before the private function execution is posted on-chain.
+This is because public values may change before the private function execution is posted onchain.
 
 This may change in future versions.
 
@@ -59,7 +59,7 @@ Your contract typically needs a note recipient's public key when it wants to sen
 
 :::info
 Manually adding the recipient to the PXE should not be required in case the recipient contract has already been deployed and the PXE is fully synced.
-This is because this information is submitted on-chain when the recipient contract is deployed.
+This is because this information is submitted onchain when the recipient contract is deployed.
 :::
 
 #### `Could not process note because of "Error: Unknown account.". Skipping note...`

@@ -49,7 +49,7 @@ $\hmencheader$ | $\text{pos2}(\text{``az\_enc\_key''}, \sharedsecret_{m,header})
 $\ciphertextheader$ | $\text{encrypt}^{\Ivpkm}_{\hmencheader}$(app\_address) | | TODO: diversify this? |
 $\payload$ | [ $\tagg_{m, i}^{Bob \rightarrow Alice}$, $\Epkd,_{header}$, $\ciphertextheader$, $\Epkd,_{stealth}$ ] |
 
-Alice can learn about her new Stealth Address as follows. First, she would identify the transaction has intended for her, either by observing $\tagg_{m, i}^{Bob \rightarrow Alice}$ on-chain herself (and then downloading the rest of the payload which accompanies the tag), or by making a privacy-preserving request to a server, to retrieve the payload which accompanies the tag. Assuming the $\payload$ has been identified as Alice's, we proceed:
+Alice can learn about her new Stealth Address as follows. First, she would identify the transaction has intended for her, either by observing $\tagg_{m, i}^{Bob \rightarrow Alice}$ onchain herself (and then downloading the rest of the payload which accompanies the tag), or by making a privacy-preserving request to a server, to retrieve the payload which accompanies the tag. Assuming the $\payload$ has been identified as Alice's, we proceed:
 
 <!-- prettier-ignore -->
 | Thing | Derivation | Name |

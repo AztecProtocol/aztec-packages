@@ -27,7 +27,7 @@ Storing these fields in the address preimage allows any part of the protocol to 
 We may remove the `portal_contract_address` as a first-class citizen.
 :::
 
-The hashing scheme for the address should then ensure that checks that are more frequent can be done cheaply, and that data shared out of band is kept manageable. We define the hash to be computed as follows:
+The hashing scheme for the address should then ensure that checks that are more frequent can be done cheaply, and that data shared offchain is kept manageable. We define the hash to be computed as follows:
 
 <!-- TODO: missing `version` from hashing! -->
 

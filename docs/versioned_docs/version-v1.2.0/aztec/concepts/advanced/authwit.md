@@ -29,7 +29,7 @@ This can lead to a series of issues though, eg:
 - The user is not aware of how much they have allowed the protocol to transfer.
 - The protocol can transfer funds from the user's account at any time. This means that if the protocol is rugged or exploited, it can transfer funds from the user's account without the user having to sign any transaction. This is especially an issue if the protocol is upgradable, as it could be made to steal the user's approved funds at any time in the future.
 
-To avoid this, many protocols implement the `permit` flow, which uses a meta-transaction to let the user sign the approval off-chain, and pass it as an input to the `deposit` function, that way the user only has to send one transaction to make the deposit.
+To avoid this, many protocols implement the `permit` flow, which uses a meta-transaction to let the user sign the approval offchain, and pass it as an input to the `deposit` function, that way the user only has to send one transaction to make the deposit.
 
 <Image img={require("@site/static/img/authwit2.png")} />
 

@@ -93,7 +93,7 @@ export class RootRollupInputs {
 /**
  * Represents public inputs of the root rollup circuit.
  *
- * NOTE: in practice, we'll hash all of this up into a single public input, for cheap on-chain verification.
+ * NOTE: in practice, we'll hash all of this up into a single public input, for cheap onchain verification.
  */
 export class RootRollupPublicInputs {
   constructor(

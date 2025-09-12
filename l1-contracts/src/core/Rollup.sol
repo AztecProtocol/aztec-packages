@@ -554,7 +554,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   /**
    * @notice  Get the proposer for the slot at a specific timestamp
    *
-   * @dev     This function is very useful for off-chain usage, as it easily allow a client to
+   * @dev     This function is very useful for offchain usage, as it easily allow a client to
    *          determine who will be the proposer at the NEXT ethereum block.
    *          Should not be trusted when moving beyond the current epoch, since changes to the
    *          validator set might not be reflected when we actually reach that epoch (more changes
@@ -562,7 +562,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    *
    * @dev     The proposer is selected from the validator set of the current epoch.
    *
-   * @dev     Should only be access on-chain if epoch is setup, otherwise very expensive.
+   * @dev     Should only be access onchain if epoch is setup, otherwise very expensive.
    *
    * @dev     A return value of address(0) means that the proposer is "open" and can be anyone.
    *

@@ -4,7 +4,7 @@ use protocol_types::address::AztecAddress;
 /// Trait for encrypting and decrypting private logs in the Aztec protocol.
 ///
 /// This trait defines the interface for encrypting plaintext data into private logs that can be
-/// emitted on-chain or delivered out-of-band, and decrypting those logs back into their original plaintext.
+/// emitted onchain or delivered offchain, and decrypting those logs back into their original plaintext.
 ///
 /// # Type Parameters
 /// - `PLAINTEXT_LEN`: Length of the plaintext array in fields
@@ -13,9 +13,9 @@ use protocol_types::address::AztecAddress;
 ///
 /// # Note on privacy sets
 /// To preserve privacy, `encrypt_log` returns a fixed-length array ensuring all log types are indistinguishable
-/// on-chain. Implementations of this trait must handle padding the encrypted log to match this standardized length.
+/// onchain. Implementations of this trait must handle padding the encrypted log to match this standardized length.
 pub trait LogEncryption {
-    /// Encrypts a plaintext field array into a private log that can be emitted on-chain.
+    /// Encrypts a plaintext field array into a private log that can be emitted onchain.
     ///
     /// # Arguments
     /// * `plaintext` - Array of Field elements to encrypt

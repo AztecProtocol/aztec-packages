@@ -2,7 +2,7 @@
 title: Emitting Events
 tags: [contracts, events]
 sidebar_position: 6
-description: Learn how to emit events from your Aztec smart contracts for off-chain applications to consume.
+description: Learn how to emit events from your Aztec smart contracts for offchain applications to consume.
 ---
 
 Events in Aztec work similarly to Ethereum events in the sense that they are a way for contracts to communicate with the outside world.
@@ -21,7 +21,7 @@ To emit encrypted logs you can import the `encode_and_encrypt_event` or `encode_
 - `encode_and_encrypt_event_unconstrained` is the same as `encode_and_encrypt_event`, except encryption is unconstrained. This means that the sender is free to make the log contents be whatever they wish, so the recipient is trusting the sender of the event. This could also potentially result in scenarios in which the recipient is unable to decrypt and process the payload, **leading to the event being lost**. Only use this function in scenarios where the recipient not receiving the event is an acceptable outcome.
 
 :::note
-Developer can choose whether to emit encrypted events or not. Emitting the events means that they will be posted to Ethereum, in blobs, and will inherit the availability guarantees of Ethereum. Developers may choose not to emit events and to share information with recipients off-chain, or through alternative mechanisms that are to be developed (e.g. alternative, cheaper data availability solutions).
+Developer can choose whether to emit encrypted events or not. Emitting the events means that they will be posted to Ethereum, in blobs, and will inherit the availability guarantees of Ethereum. Developers may choose not to emit events and to share information with recipients offchain, or through alternative mechanisms that are to be developed (e.g. alternative, cheaper data availability solutions).
 :::
 
 You can find the implementation of event logging [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/messages/logs/event.nr)

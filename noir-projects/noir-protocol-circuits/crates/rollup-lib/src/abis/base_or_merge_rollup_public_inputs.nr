@@ -20,7 +20,7 @@ pub struct BaseOrMergeRollupPublicInputs {
     pub(crate) start_sponge_blob: SpongeBlob,
     pub(crate) end_sponge_blob: SpongeBlob,
 
-    // We hash public inputs to make them constant-sized (to then be opened on-chain)
+    // We hash public inputs to make them constant-sized (to then be opened onchain)
     // u128 isn't safe if it's an input to the circuit (it won't automatically constrain the witness)
     // So we want to constrain it when casting these fields to u128
 

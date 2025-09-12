@@ -59,7 +59,7 @@ By virtue of being append only, notes are not edited. If two transactions amend 
 
 :::info
 
-Only those with appropriate keys/information will be able to successfully read private values that they have permission to. Notes can be read outside of a transaction or "off-chain" with no changes to data structures on-chain.
+Only those with appropriate keys/information will be able to successfully read private values that they have permission to. Notes can be read outside of a transaction or "offchain" with no changes to data structures onchain.
 
 :::
 

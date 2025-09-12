@@ -19,7 +19,7 @@ There are several types of functions in Aztec contracts that correspond the the 
 
 Private functions execute client-side on user devices to maintain private of user inputs and execution. Specify a private function in your contract using the `#[private]` function annotation.
 
-```rust title="withdraw" showLineNumbers 
+```rust title="withdraw" showLineNumbers
 // Withdraws balance. Requires that msg.sender is the owner.
 #[private]
 fn withdraw(token: AztecAddress, amount: u128, recipient: AztecAddress) {
@@ -41,7 +41,7 @@ Read more about the concept of public functions [here](../../../aztec/smart_cont
 
 Declare a public function in your contract using the `#[public]` function annotation.
 
-```rust title="mint" showLineNumbers 
+```rust title="mint" showLineNumbers
 #[public]
 fn mint(to: AztecAddress, token_id: Field) {
     assert(token_id != 0, "zero token ID not supported");
@@ -58,9 +58,9 @@ fn mint(to: AztecAddress, token_id: Field) {
 
 ## Utility Functions
 
-Contract functions marked with `#[utility]` are used to perform state queries from an off-chain client (from both private and public state!) or to modify local contract-related PXE state (e.g. when processing logs in Aztec.nr), and are never included in any transaction. No guarantees are made on the correctness of the result since the entire execution is unconstrained and heavily reliant on [oracle calls](https://noir-lang.org/docs/explainers/explainer-oracle). Read more about the concept of utility functions [here](../../../aztec/smart_contracts/functions/attributes.md#utility-functions).
+Contract functions marked with `#[utility]` are used to perform state queries from an offchain client (from both private and public state!) or to modify local contract-related PXE state (e.g. when processing logs in Aztec.nr), and are never included in any transaction. No guarantees are made on the correctness of the result since the entire execution is unconstrained and heavily reliant on [oracle calls](https://noir-lang.org/docs/explainers/explainer-oracle). Read more about the concept of utility functions [here](../../../aztec/smart_contracts/functions/attributes.md#utility-functions).
 
-```rust title="get_private_nfts" showLineNumbers 
+```rust title="get_private_nfts" showLineNumbers
 #[utility]
 unconstrained fn get_private_nfts(
     owner: AztecAddress,
@@ -90,7 +90,7 @@ The #[view] attribute can be applied to a #[private] or a #[public] function and
 
 For examples, to get the admin address from the NFT contract, you can use the `get_admin` function:
 
-```rust title="admin" showLineNumbers 
+```rust title="admin" showLineNumbers
 #[public]
 #[view]
 fn get_admin() -> Field {
@@ -106,7 +106,7 @@ Internal functions are functions that are only callable within the same contract
 
 Mark an internal function with the `#[internal]` attribute.
 
-```rust title="add_to_tally_public" showLineNumbers 
+```rust title="add_to_tally_public" showLineNumbers
 #[public]
 #[internal]
 fn add_to_tally_public(candidate: Field) {
@@ -145,7 +145,7 @@ fn constructor(){
 
 Initializers are commonly used to set an admin, such as this example:
 
-```rust title="constructor" showLineNumbers 
+```rust title="constructor" showLineNumbers
 #[public]
 #[initializer]
 fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8) {
@@ -176,7 +176,7 @@ Contract library methods are functions that are used to implement the logic of a
 
 For example, the `subtract_balance` function in the simple token contract:
 
-```rust title="subtract_balance" showLineNumbers 
+```rust title="subtract_balance" showLineNumbers
 #[contract_library_method]
 fn subtract_balance(
     context: &mut PrivateContext,

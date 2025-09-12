@@ -64,7 +64,7 @@ For the case of the example, we will look at what is inserted into the note hash
 
 #include_code increase_private_balance noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
-This function is creating a new note and inserting it into the balance set of the recipient `to`. Recall that to ensure privacy, only the note hash is really inserted into the note hashes tree. To share the contents of the note with `to` the contract can emit an encrypted log (which this one does), or it can require an out-of-band data transfer sharing the information. Below, we will walk through the steps of how the note hash is computed and inserted into the tree. For this, we don't care about the encrypted log, so we are going to ignore that part of the function call for now.
+This function is creating a new note and inserting it into the balance set of the recipient `to`. Recall that to ensure privacy, only the note hash is really inserted into the note hashes tree. To share the contents of the note with `to` the contract can emit an encrypted log (which this one does), or it can require an offchain data transfer sharing the information. Below, we will walk through the steps of how the note hash is computed and inserted into the tree. For this, we don't care about the encrypted log, so we are going to ignore that part of the function call for now.
 
 Outlining it in more detail below as a sequence diagram, we can see how the calls make their way down the stack.
 In the end a siloed note hash is computed in the kernel.

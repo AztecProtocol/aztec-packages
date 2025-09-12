@@ -16,7 +16,7 @@ Similarly we have discovered some anti-patterns too (like privacy leakage) that 
 We call this the "authentication witness" pattern or authwit for short.
 
 - Approve someone in private domain:
-```typescript title="authwit_to_another_sc" showLineNumbers 
+```typescript title="authwit_to_another_sc" showLineNumbers
 // 4. Give approval to bridge to burn owner's funds:
 const withdrawAmount = 9n;
 const authwitNonce = Fr.random();
@@ -31,7 +31,7 @@ const burnAuthwit = await user1Wallet.createAuthWit({
 Here you approve a contract to burn funds on your behalf.
 
 - Approve in public domain:
-```typescript title="authwit_public_transfer_example" showLineNumbers 
+```typescript title="authwit_public_transfer_example" showLineNumbers
 const action = asset
   .withWallet(account1)
   .methods.transfer_in_public(adminAddress, account1Address, amount, authwitNonce);
@@ -50,7 +50,7 @@ E.g. you don't want a user to subscribe once they have subscribed already. Or yo
 
 Emit a nullifier in your function. By adding this nullifier into the tree, you prevent another nullifier from being added again. This is also why in authwit, we emit a nullifier, to prevent someone from reusing their approval.
 
-```rust title="verify_private_authwit" showLineNumbers 
+```rust title="verify_private_authwit" showLineNumbers
 pub fn verify_private_authwit(self, inner_hash: Field) -> Field {
     // The `inner_hash` is "siloed" with the `msg_sender` to ensure that only it can
     // consume the message.
@@ -123,7 +123,7 @@ When you send someone a note, the note hash gets added to the note hash tree. To
 1. When sending someone a note, emit the note log to the recipient (the function encrypts the log in such a way that only a recipient can decrypt it). PXE then tries to decrypt all the encrypted logs, and stores the successfully decrypted one. [More info here](../how_to_emit_event.md)
 2. Manually delivering it via a custom contract method, if you choose to not emit logs to save gas or when creating a note in the public domain and want to consume it in private domain (`encrypt_and_emit_note` shouldn't be called in the public domain because everything is public), like in the previous section where we created a note in public that doesn't have a designated owner.
 
-```typescript title="offchain_delivery" showLineNumbers 
+```typescript title="offchain_delivery" showLineNumbers
 const txEffects = await pxe.getTxEffect(txHash);
 await contract.methods
   .deliver_transparent_note(
@@ -142,7 +142,7 @@ await contract.methods
 
 Note that this requires your contract to have a utility function that processes these notes and adds them to PXE.
 
-```rust title="deliver_note_contract_method" showLineNumbers 
+```rust title="deliver_note_contract_method" showLineNumbers
 // We cannot replace this function with the standard `process_message` function because the transparent note
 // originates in public and hence we cannot emit it as an offchain message. We could construct the offchain message
 // "manually" and then pass it to the `process_message` function, but this doesn't seem to be worth the effort
@@ -169,7 +169,7 @@ This is not true for Aztec, as the encrypted log is part of the transaction obje
 
 Example:
 
-> Alice and Bob agree to a trade, where Alice sends Bob a passcode to collect funds from a web2 app, in exchange of on-chain tokens. Alice should only send Bob the passcode if the trade is successful. But just sending the passcode as an encrypted log doesn't work, since Bob could see the encrypted log from the transaction as soon as Alice broadcasts it, decrypt it to get the passcode, and withdraw his tokens from the trade to make the transaction fail.
+> Alice and Bob agree to a trade, where Alice sends Bob a passcode to collect funds from a web2 app, in exchange of onchain tokens. Alice should only send Bob the passcode if the trade is successful. But just sending the passcode as an encrypted log doesn't work, since Bob could see the encrypted log from the transaction as soon as Alice broadcasts it, decrypt it to get the passcode, and withdraw his tokens from the trade to make the transaction fail.
 
 ### Randomness in notes
 
@@ -177,7 +177,7 @@ Notes are hashed and stored in the merkle tree. While notes do have a header wit
 
 Hence, it's necessary to add a "randomness" field to your note to prevent such attacks.
 
-```rust title="address_note_def" showLineNumbers 
+```rust title="address_note_def" showLineNumbers
 #[derive(Eq, Packable)]
 #[note]
 pub struct AddressNote {
@@ -246,7 +246,7 @@ E.g. for a voting contract, if your nullifier simply emits just the `user_addres
 
 Here is an example from the voting contract:
 
-```rust title="cast_vote" showLineNumbers 
+```rust title="cast_vote" showLineNumbers
 #[private]
 // annotation to mark function as private and expose private context
 fn cast_vote(candidate: Field) {
