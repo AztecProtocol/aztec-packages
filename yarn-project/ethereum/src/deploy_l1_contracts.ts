@@ -261,7 +261,7 @@ export const deploySharedContracts = async (
 
   const coinIssuerAddress = await deployer.deploy(CoinIssuerArtifact, [
     feeAssetAddress.toString(),
-    1_000_000n * 10n ** 18n, // @todo  #8084
+    (25_000_000_000n * 10n ** 18n) / (60n * 60n * 24n * 365n),
     l1Client.account.address,
   ]);
   logger.verbose(`Deployed CoinIssuer at ${coinIssuerAddress}`);
