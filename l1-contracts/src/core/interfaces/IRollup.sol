@@ -67,6 +67,7 @@ struct RollupConfigInput {
   uint256 slashingOffsetInRounds;
   SlasherFlavor slasherFlavor;
   address slashingVetoer;
+  uint256 slashingDisableDuration;
   uint256 manaTarget;
   uint256 exitDelaySeconds;
   uint32 version;
