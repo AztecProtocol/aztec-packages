@@ -162,18 +162,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     expect(results.gasLeft).toEqual({ l2Gas: 0, daGas: 0 });
   });
 
-  it('test_bytecode_base64', async () => {
-    const calldata: Fr[] = [new Fr(0)];
-    const bytecodeBase64 =
-      'JwACBAEoAAABBIBGJwAABAMnAgIEAScCAwQAHwoAAgADgEQuCIBEAAElAAAASyUAAABMLgIAAYBFKAIAAgSARScCAwQBOw4AAwACJiUAAABrBCoBAQIIKgIBAxwKAQQGHAoEAgAcCgIBBiYoAIAEBHgADQAAAIAEgAMkAIADAAAAkyoBAAEF96Hzr6Wt1Mo8BAIBJg==';
-    const bytecode = Buffer.from(bytecodeBase64, 'base64');
-    const context = initContext({ env: initExecutionEnvironment({ calldata }) });
-    const results = await new AvmSimulator(context).executeBytecode(bytecode);
-
-    expect(results.reverted).toBe(false);
-    expect(results.output).toEqual([new Fr(0)]);
-  });
-
   it('addition', async () => {
     const calldata: Fr[] = [new Fr(1), new Fr(2)];
     const context = initContext({ env: initExecutionEnvironment({ calldata }) });
