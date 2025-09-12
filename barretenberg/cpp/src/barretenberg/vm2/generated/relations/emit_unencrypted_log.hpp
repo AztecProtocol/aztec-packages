@@ -16,8 +16,8 @@ template <typename FF_> class emit_unencrypted_logImpl {
 
     static constexpr std::array<size_t, 47> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 5, 3,
                                                                             3, 4, 3, 3, 3, 3, 4, 3, 3, 5, 3, 5,
-                                                                            4, 4, 4, 4, 3, 2, 3, 3, 4, 3, 4, 4,
-                                                                            4, 4, 4, 3, 5, 3, 4, 4, 3, 3, 3 };
+                                                                            4, 4, 3, 2, 3, 3, 4, 3, 4, 4, 4, 4,
+                                                                            4, 3, 5, 4, 4, 3, 4, 4, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -46,10 +46,10 @@ template <typename FF> class emit_unencrypted_log : public Relation<emit_unencry
     static constexpr size_t SR_ERROR_OUT_OF_BOUNDS_CONSISTENCY = 13;
     static constexpr size_t SR_ERROR_TAG_MISMATCH_CONSISTENCY = 18;
     static constexpr size_t SR_WRONG_TAG_CHECK = 21;
-    static constexpr size_t SR_SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY = 26;
-    static constexpr size_t SR_LOG_ADDRESS_INCREMENT = 34;
-    static constexpr size_t SR_EXEC_CLK_CONSISTENCY = 35;
-    static constexpr size_t SR_SPACE_ID_CONSISTENCY = 36;
+    static constexpr size_t SR_LOG_ADDRESS_INCREMENT = 32;
+    static constexpr size_t SR_EXEC_CLK_CONSISTENCY = 33;
+    static constexpr size_t SR_SPACE_ID_CONSISTENCY = 34;
+    static constexpr size_t SR_SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY = 40;
     static constexpr size_t SR_CONTRACT_ADDRESS_CONSISTENCY = 43;
 
     static std::string get_subrelation_label(size_t index)
@@ -71,14 +71,14 @@ template <typename FF> class emit_unencrypted_log : public Relation<emit_unencry
             return "ERROR_TAG_MISMATCH_CONSISTENCY";
         case SR_WRONG_TAG_CHECK:
             return "WRONG_TAG_CHECK";
-        case SR_SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY:
-            return "SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY";
         case SR_LOG_ADDRESS_INCREMENT:
             return "LOG_ADDRESS_INCREMENT";
         case SR_EXEC_CLK_CONSISTENCY:
             return "EXEC_CLK_CONSISTENCY";
         case SR_SPACE_ID_CONSISTENCY:
             return "SPACE_ID_CONSISTENCY";
+        case SR_SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY:
+            return "SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY";
         case SR_CONTRACT_ADDRESS_CONSISTENCY:
             return "CONTRACT_ADDRESS_CONSISTENCY";
         }

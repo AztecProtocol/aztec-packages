@@ -216,110 +216,95 @@ void emit_unencrypted_logImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<25, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::emit_unencrypted_log_start)) *
-                   ((FF(1) - static_cast<View>(in.get(C::emit_unencrypted_log_error))) *
-                        (FF(1) - static_cast<View>(in.get(C::emit_unencrypted_log_discard))) -
-                    static_cast<View>(in.get(C::emit_unencrypted_log_sel_should_write_to_public_inputs)));
-        std::get<25>(evals) += (tmp * scaling_factor);
-    }
-    { // SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY
-        using View = typename std::tuple_element_t<26, ContainerOverSubrelations>::View;
-        auto tmp = CView(emit_unencrypted_log_NOT_END) *
-                   (static_cast<View>(in.get(C::emit_unencrypted_log_sel_should_write_to_public_inputs_shift)) -
-                    static_cast<View>(in.get(C::emit_unencrypted_log_sel_should_write_to_public_inputs)));
-        std::get<26>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<27, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::emit_unencrypted_log_start)) *
                    ((static_cast<View>(in.get(C::emit_unencrypted_log_prev_num_unencrypted_log_fields)) +
                      (FF(1) - static_cast<View>(in.get(C::emit_unencrypted_log_error))) *
                          CView(emit_unencrypted_log_TOTAL_LOG_FIELDS_SIZE)) -
                     static_cast<View>(in.get(C::emit_unencrypted_log_next_num_unencrypted_log_fields)));
+        std::get<25>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<26, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::emit_unencrypted_log_is_write_contract_address)) *
+                   (FF(1) - static_cast<View>(in.get(C::emit_unencrypted_log_is_write_contract_address)));
+        std::get<26>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<27, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::emit_unencrypted_log_start)) -
+                    static_cast<View>(in.get(C::emit_unencrypted_log_is_write_contract_address_shift)));
         std::get<27>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<28, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::emit_unencrypted_log_is_write_contract_address)) *
-                   (FF(1) - static_cast<View>(in.get(C::emit_unencrypted_log_is_write_contract_address)));
+        auto tmp = static_cast<View>(in.get(C::emit_unencrypted_log_is_write_memory_value)) *
+                   (FF(1) - static_cast<View>(in.get(C::emit_unencrypted_log_is_write_memory_value)));
         std::get<28>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<29, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::emit_unencrypted_log_start)) -
-                    static_cast<View>(in.get(C::emit_unencrypted_log_is_write_contract_address_shift)));
+        auto tmp = static_cast<View>(in.get(C::emit_unencrypted_log_start)) *
+                   static_cast<View>(in.get(C::emit_unencrypted_log_is_write_memory_value));
         std::get<29>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<30, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::emit_unencrypted_log_is_write_memory_value)) *
-                   (FF(1) - static_cast<View>(in.get(C::emit_unencrypted_log_is_write_memory_value)));
-        std::get<30>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<31, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::emit_unencrypted_log_start)) *
-                   static_cast<View>(in.get(C::emit_unencrypted_log_is_write_memory_value));
-        std::get<31>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<32, ContainerOverSubrelations>::View;
         auto tmp = CView(emit_unencrypted_log_NOT_END) *
                    ((static_cast<View>(in.get(C::emit_unencrypted_log_is_write_memory_value)) +
                      static_cast<View>(in.get(C::emit_unencrypted_log_is_write_contract_address))) -
                     static_cast<View>(in.get(C::emit_unencrypted_log_is_write_memory_value_shift)));
-        std::get<32>(evals) += (tmp * scaling_factor);
+        std::get<30>(evals) += (tmp * scaling_factor);
     }
     {
-        using View = typename std::tuple_element_t<33, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<31, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::emit_unencrypted_log_sel_should_read_memory)) -
                     static_cast<View>(in.get(C::emit_unencrypted_log_is_write_memory_value)) *
                         (FF(1) - static_cast<View>(in.get(C::emit_unencrypted_log_error_out_of_bounds))));
-        std::get<33>(evals) += (tmp * scaling_factor);
+        std::get<31>(evals) += (tmp * scaling_factor);
     }
     { // LOG_ADDRESS_INCREMENT
-        using View = typename std::tuple_element_t<34, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<32, ContainerOverSubrelations>::View;
         auto tmp = CView(emit_unencrypted_log_NOT_END) *
                    ((static_cast<View>(in.get(C::emit_unencrypted_log_log_address)) +
                      static_cast<View>(in.get(C::emit_unencrypted_log_is_write_memory_value))) -
                     static_cast<View>(in.get(C::emit_unencrypted_log_log_address_shift)));
-        std::get<34>(evals) += (tmp * scaling_factor);
+        std::get<32>(evals) += (tmp * scaling_factor);
     }
     { // EXEC_CLK_CONSISTENCY
-        using View = typename std::tuple_element_t<35, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<33, ContainerOverSubrelations>::View;
         auto tmp = CView(emit_unencrypted_log_NOT_END) *
                    (static_cast<View>(in.get(C::emit_unencrypted_log_execution_clk)) -
                     static_cast<View>(in.get(C::emit_unencrypted_log_execution_clk_shift)));
-        std::get<35>(evals) += (tmp * scaling_factor);
+        std::get<33>(evals) += (tmp * scaling_factor);
     }
     { // SPACE_ID_CONSISTENCY
-        using View = typename std::tuple_element_t<36, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<34, ContainerOverSubrelations>::View;
         auto tmp =
             CView(emit_unencrypted_log_NOT_END) * (static_cast<View>(in.get(C::emit_unencrypted_log_space_id)) -
                                                    static_cast<View>(in.get(C::emit_unencrypted_log_space_id_shift)));
+        std::get<34>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<35, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::emit_unencrypted_log_sel)) *
+                   (FF(1) - static_cast<View>(in.get(C::emit_unencrypted_log_sel_should_read_memory))) *
+                   (FF(0) - static_cast<View>(in.get(C::emit_unencrypted_log_value)));
+        std::get<35>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<36, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::emit_unencrypted_log_sel)) *
+                   (FF(1) - static_cast<View>(in.get(C::emit_unencrypted_log_sel_should_read_memory))) *
+                   (CView(constants_MEM_TAG_FF) - static_cast<View>(in.get(C::emit_unencrypted_log_tag)));
         std::get<36>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<37, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::emit_unencrypted_log_sel)) *
-                   (FF(1) - static_cast<View>(in.get(C::emit_unencrypted_log_sel_should_read_memory))) *
-                   (FF(0) - static_cast<View>(in.get(C::emit_unencrypted_log_value)));
+        auto tmp = static_cast<View>(in.get(C::emit_unencrypted_log_correct_tag)) *
+                   (FF(1) - static_cast<View>(in.get(C::emit_unencrypted_log_correct_tag)));
         std::get<37>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<38, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::emit_unencrypted_log_sel)) *
-                   (FF(1) - static_cast<View>(in.get(C::emit_unencrypted_log_sel_should_read_memory))) *
-                   (CView(constants_MEM_TAG_FF) - static_cast<View>(in.get(C::emit_unencrypted_log_tag)));
-        std::get<38>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<39, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::emit_unencrypted_log_correct_tag)) *
-                   (FF(1) - static_cast<View>(in.get(C::emit_unencrypted_log_correct_tag)));
-        std::get<39>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<40, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::emit_unencrypted_log_sel)) *
                    ((static_cast<View>(in.get(C::emit_unencrypted_log_tag)) *
                          (static_cast<View>(in.get(C::emit_unencrypted_log_correct_tag)) *
@@ -327,6 +312,21 @@ void emit_unencrypted_logImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                           static_cast<View>(in.get(C::emit_unencrypted_log_tag_inv))) -
                      FF(1)) +
                     static_cast<View>(in.get(C::emit_unencrypted_log_correct_tag)));
+        std::get<38>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<39, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::emit_unencrypted_log_start)) *
+                   ((FF(1) - static_cast<View>(in.get(C::emit_unencrypted_log_error))) *
+                        (FF(1) - static_cast<View>(in.get(C::emit_unencrypted_log_discard))) -
+                    static_cast<View>(in.get(C::emit_unencrypted_log_sel_should_write_to_public_inputs)));
+        std::get<39>(evals) += (tmp * scaling_factor);
+    }
+    { // SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY
+        using View = typename std::tuple_element_t<40, ContainerOverSubrelations>::View;
+        auto tmp = CView(emit_unencrypted_log_NOT_END) *
+                   (static_cast<View>(in.get(C::emit_unencrypted_log_sel_should_write_to_public_inputs_shift)) -
+                    static_cast<View>(in.get(C::emit_unencrypted_log_sel_should_write_to_public_inputs)));
         std::get<40>(evals) += (tmp * scaling_factor);
     }
     {
