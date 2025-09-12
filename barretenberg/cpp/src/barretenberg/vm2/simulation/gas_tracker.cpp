@@ -42,10 +42,10 @@ GasTracker::GasTracker(GasEvent& gas_event,
                        const Instruction& instruction,
                        const InstructionInfoDBInterface& instruction_info_db,
                        ContextInterface& context,
-                       RangeCheckInterface& range_check)
+                       GreaterThanInterface& greater_than)
     : context(context)
     , spec(instruction_info_db.get(instruction.get_exec_opcode()))
-    , range_check(range_check)
+    , greater_than(greater_than)
     , gas_event(gas_event)
 {
     gas_event.addressing_gas = compute_addressing_gas(instruction.indirect);
@@ -76,20 +76,11 @@ void GasTracker::consume_gas(const Gas& dynamic_gas_factor)
         base_actual_gas_used +
         (to_intermediate_gas(Gas{ dynamic_l2_gas, dynamic_da_gas }) * to_intermediate_gas(dynamic_gas_factor));
 
-    gas_event.oog_l2 = total_gas_used.l2Gas > gas_limit.l2Gas;
-    gas_event.oog_da = total_gas_used.daGas > gas_limit.daGas;
+    gas_event.total_gas_used_l2 = total_gas_used.l2Gas;
+    gas_event.total_gas_used_da = total_gas_used.daGas;
 
-    // This is a bit of an abstraction leak from the circuit. We have optimized the circuit so gas is
-    // checked against the limit only once. This means that we need to call the range check gadget
-    // on finish, since if gas is fine on base we won't call the range check gadget, and then we might
-    // not call consume_dynamic_gas.
-    gas_event.limit_used_l2_comparison_witness =
-        gas_event.oog_l2 ? total_gas_used.l2Gas - gas_limit.l2Gas - 1 : gas_limit.l2Gas - total_gas_used.l2Gas;
-    gas_event.limit_used_da_comparison_witness =
-        gas_event.oog_da ? total_gas_used.daGas - gas_limit.daGas - 1 : gas_limit.daGas - total_gas_used.daGas;
-
-    range_check.assert_range(gas_event.limit_used_l2_comparison_witness, 64);
-    range_check.assert_range(gas_event.limit_used_da_comparison_witness, 64);
+    gas_event.oog_l2 = greater_than.gt(total_gas_used.l2Gas, gas_limit.l2Gas);
+    gas_event.oog_da = greater_than.gt(total_gas_used.daGas, gas_limit.daGas);
 
     if (oog_base_l2 || oog_base_da) {
         throw OutOfGasException(format("Out of gas (base): L2 used ",
@@ -100,7 +91,9 @@ void GasTracker::consume_gas(const Gas& dynamic_gas_factor)
                                        base_actual_gas_used.daGas,
                                        " of ",
                                        gas_limit.daGas));
-    } else if (gas_event.oog_l2 || gas_event.oog_da) {
+    }
+
+    if (gas_event.oog_l2 || gas_event.oog_da) {
         throw OutOfGasException(format("Out of gas (dynamic): L2 used ",
                                        total_gas_used.l2Gas,
                                        " of ",
@@ -122,16 +115,8 @@ Gas GasTracker::compute_gas_limit_for_call(const Gas& allocated_gas)
 {
     Gas gas_left = context.gas_left();
 
-    bool is_l2_gas_allocated_lt_left = allocated_gas.l2Gas < gas_left.l2Gas;
-    uint32_t l2_gas_comparison_witness =
-        is_l2_gas_allocated_lt_left ? gas_left.l2Gas - allocated_gas.l2Gas - 1 : allocated_gas.l2Gas - gas_left.l2Gas;
-
-    bool is_da_gas_allocated_lt_left = allocated_gas.daGas < gas_left.daGas;
-    uint32_t da_gas_comparison_witness =
-        is_da_gas_allocated_lt_left ? gas_left.daGas - allocated_gas.daGas - 1 : allocated_gas.daGas - gas_left.daGas;
-
-    range_check.assert_range(l2_gas_comparison_witness, 32);
-    range_check.assert_range(da_gas_comparison_witness, 32);
+    bool is_l2_gas_allocated_lt_left = greater_than.gt(gas_left.l2Gas, allocated_gas.l2Gas);
+    bool is_da_gas_allocated_lt_left = greater_than.gt(gas_left.daGas, allocated_gas.daGas);
 
     return {
         .l2Gas = is_l2_gas_allocated_lt_left ? allocated_gas.l2Gas : gas_left.l2Gas,

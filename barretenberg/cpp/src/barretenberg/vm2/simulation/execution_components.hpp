@@ -30,11 +30,9 @@ class ExecutionComponentsProviderInterface {
 
 class ExecutionComponentsProvider : public ExecutionComponentsProviderInterface {
   public:
-    ExecutionComponentsProvider(RangeCheckInterface& range_check,
-                                GreaterThanInterface& gt,
+    ExecutionComponentsProvider(GreaterThanInterface& greater_than,
                                 const InstructionInfoDBInterface& instruction_info_db)
-        : range_check(range_check)
-        , gt(gt)
+        : greater_than(greater_than)
         , instruction_info_db(instruction_info_db)
     {}
     std::unique_ptr<AddressingInterface> make_addressing(AddressingEvent& event) override;
@@ -44,8 +42,7 @@ class ExecutionComponentsProvider : public ExecutionComponentsProviderInterface 
                                                           ContextInterface& context) override;
 
   private:
-    RangeCheckInterface& range_check;
-    GreaterThanInterface& gt;
+    GreaterThanInterface& greater_than;
     const InstructionInfoDBInterface& instruction_info_db;
 
     // Sadly someone has to own these.

@@ -485,8 +485,8 @@ namespace execution;
 
     // If any error happened during execution (i.e., sel_error=1), all gas should be consumed.
     pol SEL_CONSUMED_ALL_GAS = sel_error;
-    (l2_gas_limit - PREV_GAS_PLUS_USAGE_L2) * SEL_CONSUMED_ALL_GAS + PREV_GAS_PLUS_USAGE_L2 - l2_gas_used = 0;
-    (da_gas_limit - PREV_GAS_PLUS_USAGE_DA) * SEL_CONSUMED_ALL_GAS + PREV_GAS_PLUS_USAGE_DA - da_gas_used = 0;
+    (l2_gas_limit - total_gas_l2) * SEL_CONSUMED_ALL_GAS + total_gas_l2 - l2_gas_used = 0;
+    (da_gas_limit - total_gas_da) * SEL_CONSUMED_ALL_GAS + total_gas_da - da_gas_used = 0;
 
     // nested_exit_call = 1 <==> prev_gas_used' = parent_gas_used + gas_used
     // sel_enter_call   = 1 <==> prev_gas_used' = 0

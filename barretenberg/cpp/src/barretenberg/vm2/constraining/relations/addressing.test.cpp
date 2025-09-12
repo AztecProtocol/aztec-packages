@@ -3,7 +3,6 @@
 
 #include <cstdint>
 
-#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
