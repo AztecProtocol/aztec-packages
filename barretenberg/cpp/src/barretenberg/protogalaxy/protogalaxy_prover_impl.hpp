@@ -150,11 +150,17 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::update_target_sum_and_fold(
         accumulator->set_overflow_size(incoming->get_overflow_size()); // swap overflow size
     }
 
+    // Fold the proving key polynomials
+    parallel_for([&accumulator, &lagranges](const ThreadChunk& chunk) {
+        for (auto& poly : accumulator->polynomials.get_unshifted()) {
+            poly.multiply_chunk(chunk, lagranges[0]);
+        }
+    });
+
+    // This cannot be combined with the previous parallel_for because add_scaled_chunk is by the key_poly size
     parallel_for([&accumulator, &lagranges, &incoming](const ThreadChunk& chunk) {
-        // Fold the proving key polynomials
         for (auto [acc_poly, key_poly] :
              zip_view(accumulator->polynomials.get_unshifted(), incoming->polynomials.get_unshifted())) {
-            acc_poly.multiply_chunk(chunk, lagranges[0]);
             acc_poly.add_scaled_chunk(chunk, key_poly, lagranges[1]);
         }
     });

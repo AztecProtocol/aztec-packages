@@ -340,9 +340,10 @@ template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> 
 template <typename Fr>
 void Polynomial<Fr>::add_scaled_chunk(const ThreadChunk& chunk, PolynomialSpan<const Fr> other, Fr scaling_factor) &
 {
-    for (size_t i : chunk.range(other.size())) {
-        size_t actual_index = other.start_index + i;
-        at(actual_index) += scaling_factor * other[actual_index];
+    // Iterate over the chunk of the other polynomial's range
+    for (size_t offset : chunk.range(other.size())) {
+        size_t index = other.start_index + offset;
+        at(index) += scaling_factor * other[index];
     }
 }
 
