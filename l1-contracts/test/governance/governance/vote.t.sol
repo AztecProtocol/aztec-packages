@@ -97,6 +97,7 @@ contract VoteTest is GovernanceBase {
 
   modifier givenStateIsActive(address _voter, uint256 _depositPower) {
     vm.assume(_voter != address(0));
+    vm.assume(_voter != address(governance));
     depositPower = bound(_depositPower, 1, type(uint128).max);
 
     token.mint(_voter, depositPower);
