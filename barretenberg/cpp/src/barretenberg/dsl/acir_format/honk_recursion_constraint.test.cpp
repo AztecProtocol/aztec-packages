@@ -301,7 +301,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
     layer_1_circuits.push_back(TestFixture::create_inner_circuit());
 
     auto layer_2_circuit =
-        TestFixture::template create_outer_circuit<typename TestFixture::OuterBuilder>(layer_1_circuits);
+        TestFixture::template create_outer_circuit<typename TestFixture::OuterBuilder>(layer_1_circuits, false, false);
 
     info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
