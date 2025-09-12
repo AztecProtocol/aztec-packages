@@ -139,7 +139,6 @@ template <typename Builder> cycle_group<Builder> straus_lookup_table<Builder>::r
 {
     field_t index(_index);
     if (index.is_constant()) {
-        // AUDITTODO: replace with index.convert_constant_to_fixed_witness()
         index = witness_t<Builder>(_context, _index.get_value());
         index.assert_equal(_index.get_value());
     }
