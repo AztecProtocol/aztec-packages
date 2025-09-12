@@ -45,6 +45,32 @@ As we prepare for a bigger `Wallet` interface refactor and the upcoming `WalletS
 
 ## [Aztec.nr]
 
+### Unified oracles into single get_utility_context oracle
+
+The following oracles:
+
+1. get_contract_address,
+2. get_block_number,
+3. get_timestamp,
+4. get_chain_id,
+5. get_version
+
+were replaced with a single `get_utility_context` oracle whose return value contains all the values returned from the removed oracles.
+
+If you have used one of these removed oracles before, update the import, e.g.:
+
+```diff
+- aztec::oracle::execution::get_chain_id;
++ aztec::oracle::execution::get_utility_context
+```
+
+and get the value out of the returned utility context:
+
+```diff
+- let chain_id = get_chain_id();
++ let chain_id = get_utility_context().chain_id();
+```
+
 ### Note emission API changes
 
 The note emission API has been significantly reworked to provide clearer semantics around message delivery guarantees. The key changes are:

@@ -78,26 +78,6 @@ export class Oracle {
     return [values.map(toACVMField)];
   }
 
-  async utilityGetBlockNumber(): Promise<ACVMField[]> {
-    return [toACVMField(await this.typedOracle.utilityGetBlockNumber())];
-  }
-
-  async utilityGetTimestamp(): Promise<ACVMField[]> {
-    return [toACVMField(await this.typedOracle.utilityGetTimestamp())];
-  }
-
-  async utilityGetContractAddress(): Promise<ACVMField[]> {
-    return [toACVMField(await this.typedOracle.utilityGetContractAddress())];
-  }
-
-  async utilityGetVersion(): Promise<ACVMField[]> {
-    return [toACVMField(await this.typedOracle.utilityGetVersion())];
-  }
-
-  async utilityGetChainId(): Promise<ACVMField[]> {
-    return [toACVMField(await this.typedOracle.utilityGetChainId())];
-  }
-
   async utilityGetUtilityContext(): Promise<(ACVMField | ACVMField[])[]> {
     const context = await this.typedOracle.utilityGetUtilityContext();
     return context.toNoirRepresentation();

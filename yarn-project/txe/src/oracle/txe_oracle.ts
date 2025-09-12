@@ -45,14 +45,6 @@ export class TXE extends TXETypedOracle {
 
   // Utils
 
-  override utilityGetChainId(): Promise<Fr> {
-    return Promise.resolve(this.anchorBlockGlobalVariables.chainId);
-  }
-
-  override utilityGetVersion(): Promise<Fr> {
-    return Promise.resolve(this.anchorBlockGlobalVariables.version);
-  }
-
   async checkNullifiersNotInTree(contractAddress: AztecAddress, nullifiers: Fr[]) {
     const siloedNullifiers = await Promise.all(nullifiers.map(nullifier => siloNullifier(contractAddress, nullifier)));
     const db = this.forkedWorldTrees;
@@ -66,18 +58,6 @@ export class TXE extends TXETypedOracle {
   }
 
   // TypedOracle
-
-  override utilityGetBlockNumber() {
-    return Promise.resolve(this.anchorBlockGlobalVariables.blockNumber);
-  }
-
-  override utilityGetTimestamp() {
-    return Promise.resolve(this.anchorBlockGlobalVariables.timestamp);
-  }
-
-  override utilityGetContractAddress() {
-    return Promise.resolve(this.contractAddress);
-  }
 
   override utilityGetRandomField() {
     return Fr.random();

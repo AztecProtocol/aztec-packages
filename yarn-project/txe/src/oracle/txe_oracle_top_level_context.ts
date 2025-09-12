@@ -22,6 +22,7 @@ import {
   HashedValuesCache,
   Oracle,
   PrivateExecutionOracle,
+  UtilityContext,
   UtilityExecutionOracle,
   executePrivateFunction,
   generateSimulatedProvingResult,
@@ -124,13 +125,21 @@ export class TXEOracleTopLevelContext extends TXETypedOracle {
   }
 
   // temporary - authwits require this, consider removing it once authwit support improves
-  override utilityGetChainId(): Promise<Fr> {
-    return Promise.resolve(this.chainId);
-  }
-
-  // temporary - authwits require this, consider removing it once authwit support improves
-  override utilityGetVersion(): Promise<Fr> {
-    return Promise.resolve(this.version);
+  override utilityGetUtilityContext(): Promise<UtilityContext> {
+    // The zero values for block number, timestamp and contract address are unfortunate sideeffect of use replacing
+    // the utilityGetContractAddress, utilityGetBlockNumber, utilityGetTimestamp, utilityGetChainId and
+    // utilityGetVersion oracles with utilityGetUtilityContext. Having those values populated does not make sense here
+    // as they have no meaning in top level context. OTOH version and chain id also don't really make sense here so
+    // think it's fine to learn to live with this tech debt for now.
+    return Promise.resolve(
+      UtilityContext.from({
+        blockNumber: 0,
+        timestamp: 0n,
+        contractAddress: AztecAddress.zero(),
+        version: this.version,
+        chainId: this.chainId,
+      }),
+    );
   }
 
   override async txeGetNextBlockNumber(): Promise<number> {

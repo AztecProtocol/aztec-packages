@@ -179,33 +179,23 @@ export async function readCurrentClassId(
  * provider (i.e. PXE).
  * @param contractAddress - The address of the contract to verify class id for.
  * @param executionDataProvider - The execution data provider.
- * @param header - The header of the block at which to verify the current class id. If not provided, the current block
- * number and timestamp from the execution data provider will be used.
+ * @param header - The header of the block at which to verify the current class id. If not provided, the latest block
+ * header synchronized by the execution data provider will be used.
  */
 export async function verifyCurrentClassId(
   contractAddress: AztecAddress,
   executionDataProvider: ExecutionDataProvider,
   header?: BlockHeader,
 ) {
-  let blockNumber: number;
-  let timestamp: UInt64;
-  if (header) {
-    blockNumber = header.globalVariables.blockNumber;
-    timestamp = header.globalVariables.timestamp;
-  } else {
-    [blockNumber, timestamp] = await Promise.all([
-      executionDataProvider.getBlockNumber(),
-      executionDataProvider.getTimestamp(),
-    ]);
-  }
+  header = header ?? (await executionDataProvider.getBlockHeader());
 
   const instance = await executionDataProvider.getContractInstance(contractAddress);
   const currentClassId = await readCurrentClassId(
     contractAddress,
     instance,
     executionDataProvider,
-    blockNumber,
-    timestamp,
+    header.globalVariables.blockNumber,
+    header.globalVariables.timestamp,
   );
   if (!instance.currentContractClassId.equals(currentClassId)) {
     throw new Error(

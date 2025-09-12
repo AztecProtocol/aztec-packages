@@ -2,7 +2,7 @@ use crate::{
     authwit::auth::{compute_authwit_message_hash, compute_inner_authwit_hash},
     context::call_interfaces::{CallInterface, PublicCallInterface},
     hash::hash_args,
-    oracle::execution::{get_chain_id, get_version},
+    oracle::execution::get_utility_context,
     test::helpers::{test_environment::TestEnvironment, txe_oracles},
 };
 
@@ -19,9 +19,13 @@ pub unconstrained fn add_private_authwit_from_call_interface<C, let M: u32>(
 where
     C: CallInterface<M>,
 {
+    // Note that in top-level context only chain_id and version are populated on the utility context so make sure to
+    // not use the other fields. This is a tech debt.
+    let utility_context = get_utility_context();
+    let chain_id = utility_context.chain_id();
+    let version = utility_context.version();
+
     let target = call_interface.get_contract_address();
-    let chain_id = get_chain_id();
-    let version = get_version();
     let args_hash = hash_args(call_interface.get_args());
     let selector = call_interface.get_selector();
     let inner_hash =
@@ -39,9 +43,13 @@ pub unconstrained fn add_public_authwit_from_call_interface<C, let M: u32>(
 where
     C: CallInterface<M>,
 {
+    // Note that in top-level context only chain_id and version are populated on the utility context so make sure to
+    // not use the other fields. This is a tech debt.
+    let utility_context = get_utility_context();
+    let chain_id = utility_context.chain_id();
+    let version = utility_context.version();
+
     let target = call_interface.get_contract_address();
-    let chain_id = get_chain_id();
-    let version = get_version();
     let args_hash = hash_args(call_interface.get_args());
     let selector = call_interface.get_selector();
     let inner_hash =

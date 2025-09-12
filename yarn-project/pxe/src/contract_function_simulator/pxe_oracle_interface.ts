@@ -30,7 +30,6 @@ import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import { TxHash } from '@aztec/stdlib/tx';
-import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { ExecutionDataProvider, ExecutionStats } from '../contract_function_simulator/execution_data_provider.js';
 import { MessageLoadOracleInputs } from '../contract_function_simulator/oracle/message_load_oracle_inputs.js';
@@ -193,7 +192,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   }
 
   public async getNullifierMembershipWitnessAtLatestBlock(nullifier: Fr) {
-    return this.getNullifierMembershipWitness(await this.getBlockNumber(), nullifier);
+    const blockNumber = (await this.getBlockHeader()).globalVariables.blockNumber;
+    return this.getNullifierMembershipWitness(blockNumber, nullifier);
   }
 
   public getNullifierMembershipWitness(
@@ -222,13 +222,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return await this.aztecNode.getPublicStorageAt(blockNumber, contract, slot);
   }
 
-  /**
-   * Retrieve the latest block header synchronized by the PXE.
-   * @dev This structure is fed into the circuits simulator and is used to prove against certain historical roots.
-   * @returns The BlockHeader object.
-   * TODO: I think this naming is bad as it's not the latest block header synched by the node, but the latest block
-   * header synchronized by the PXE. Would rename this to something like getSynchronizedBlockHeader().
-   */
   getBlockHeader(): Promise<BlockHeader> {
     return this.syncDataProvider.getBlockHeader();
   }
@@ -237,42 +230,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     if (version !== ORACLE_VERSION) {
       throw new Error(`Incompatible oracle version. Expected version ${ORACLE_VERSION}, got ${version}.`);
     }
-  }
-
-  /**
-   * Fetches the latest block number synchronized by the node.
-   * @returns The block number.
-   */
-  public async getBlockNumber(): Promise<number> {
-    return await this.aztecNode.getBlockNumber();
-  }
-
-  /**
-   * Fetches the timestamp of the latest block synchronized by the node.
-   * @returns The timestamp.
-   */
-  public async getTimestamp(): Promise<UInt64> {
-    const latestBlockHeader = await this.aztecNode.getBlockHeader();
-    if (!latestBlockHeader) {
-      throw new Error('Latest block header not found when getting timestamp');
-    }
-    return latestBlockHeader.globalVariables.timestamp;
-  }
-
-  /**
-   * Fetches the current chain id.
-   * @returns The chain id.
-   */
-  public getChainId(): Promise<number> {
-    return this.aztecNode.getChainId();
-  }
-
-  /**
-   * Fetches the current version.
-   * @returns The version.
-   */
-  public getVersion(): Promise<number> {
-    return this.aztecNode.getVersion();
   }
 
   public getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string> {
@@ -381,6 +338,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
    * @param contractAddress - The address of the contract that the logs are tagged for
    * @param sender - The address of the sender, we must know the sender's ivsk_m.
    * @param recipient - The address of the recipient.
+   * TODO: This is used only withing PXEOracleInterface and tests so we most likely just want to hide this.
    */
   public async syncTaggedLogsAsSender(
     contractAddress: AztecAddress,
