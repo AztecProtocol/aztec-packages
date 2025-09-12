@@ -1,356 +1,198 @@
-#!/usr/bin/env bash
-source $(git rev-parse --show-toplevel)/ci3/source
-source $ci3/source_redis
-source $ci3/source_refname
+# CI for Aztec. At a high-level, runs ./bootstrap.sh ci in root. See root README.md for more details.
+# Only for internal devs. For external devs, see ci3-external.yml.
+#
+# CAREFUL! We use "exec" a lot to ensure signal propagation to the child process, to allow proper ec2 cleanup.
+name: CI3
 
-cmd=${1:-}
-arch=${ARCH:-$(arch)}
-NO_TERMINATE=${NO_TERMINATE:-0}
-BRANCH=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
-ci3_workflow_id=128853861
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+  merge_group: {}
 
-function echo_cmd {
-  local name=$1
-  shift
-  printf "${blue}${bold}%12s${reset}: %s\n" $name "$(echo $@ | sed 's/\.\\n/.\n             /g')"
-}
+concurrency:
+  # Allow full concurrency for merge-train PRs, one-run-per-branch for everything else.
+  group: ci3-${{ (startsWith(github.event.pull_request.head.ref, 'merge-train/') && github.run_id) || github.event.merge_group.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
-function print_usage {
-  echo "usage: $(basename $0) <cmd>"
-  echo
-  echo_cmd "fast"           "Spin up an EC2 instance and run bootstrap ci-fast."
-  echo_cmd "full"           "Spin up an EC2 instance and run bootstrap ci-full."
-  echo_cmd "docs"           "Spin up an EC2 instance and run docs-only CI."
-  echo_cmd "barretenberg"   "Spin up an EC2 instance and run barretenberg-only CI."
-  echo_cmd "merge-queue"    "Spin up several EC2 instances to run the merge-queue jobs."
-  echo_cmd "network-deploy" "Spin up an EC2 instance to deploy a network."
-  echo_cmd "network-tests"  "Spin up an EC2 instance to run tests on a network."
-  echo_cmd "nightly"        "Spin up an EC2 instance and run bootstrap nightly."
-  echo_cmd "release"        "Spin up an EC2 instance and run bootstrap release."
-  echo_cmd "shell-new"      "Spin up an EC2 instance, clone the repo, and drop into a shell."
-  echo_cmd "shell"          "Drop into a shell in the current running build instance container."
-  echo_cmd "shell-host"     "Drop into a shell in the current running build host."
-  echo_cmd "run"            "Trigger a GA workflow for the current branch PR and tail logs."
-  echo_cmd "trigger"        "Trigger the GA workflow on the PR associated with the current branch."
-  echo_cmd "rlog"           "Tail the logs of the latest GA run or the given GA run ID."
-  echo_cmd "ilog"           "Tail the logs of the current running build instance."
-  echo_cmd "dlog"           "Display the log of the given denoise log ID."
-  echo_cmd "tlog"           "Display the last log of the given test command as output by test_cmds."
-  echo_cmd "tilog"          "Tail the live log of a given test command as output by test_cmds."
-  echo_cmd "llog"           "Tail the live log of a given log ID."
-  echo_cmd "draft"          "Mark the current PR as draft (no automatic CI runs when pushing)."
-  echo_cmd "ready"          "Mark the current PR as ready (enable automatic CI runs when pushing)."
-  echo_cmd "pr-url"         "Print the URL of the current PR associated with the branch."
-  echo_cmd "last-run-url"   "Print the URL of the last GA run for the current branch PR."
-  echo_cmd "help"           "Display this help message."
-}
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    # exclusive with ci3-external.yml: never run on forks
+    # (github.event.pull_request.head.repo.fork resolves to nil if not a pull request)
+    if: github.event.pull_request.head.repo.fork != true && github.event.pull_request.draft == false
+    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'master' || '' }}
+    env:
+      GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
+    steps:
+      #############
+      # Prepare Env
+      #############
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          # The commit to checkout. We want our actual commit, and not the result of merging the PR to the target.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          # Fetch PR commits depth (we'll deepen by 1 in squash script if needed)
+          fetch-depth: ${{ github.event.pull_request.commits || 0 }}
+          persist-credentials: false
 
-[ -n "$cmd" ] && shift
+      - name: CI Merge Queue Override (grind on PR)
+        if: contains(github.event.pull_request.labels.*.name, 'ci-merge-queue')
+        run: echo "CI_MERGE_QUEUE=1" >> $GITHUB_ENV
 
-instance_name=${INSTANCE_NAME:-$(echo -n "$BRANCH" | tr -c 'a-zA-Z0-9-' '_')_${arch}}
-[ -n "${INSTANCE_POSTFIX:-}" ] && instance_name+="_$INSTANCE_POSTFIX"
+      - name: CI Full, Built from Scratch
+        if: contains(github.event.pull_request.labels.*.name, 'ci-full-no-cache')
+        run: echo "CI_FULL_NO_CACHE=1" >> $GITHUB_ENV
 
-function get_ip_for_instance {
-  ip=$(aws ec2 describe-instances \
-    --region us-east-2 \
-    --filters "Name=tag:Name,Values=$instance_name" "Name=instance-state-name,Values=running" \
-    --query "Reservations[].Instances[0].PublicIpAddress" \
-    --output text)
-}
+      - name: CI Full Override
+        if: contains(github.event.pull_request.labels.*.name, 'ci-full')
+        run: echo "CI_FULL=1" >> $GITHUB_ENV
 
-function get_latest_run_id {
-  gh run list --workflow $ci3_workflow_id -b $BRANCH --limit 1 --json databaseId -q .[0].databaseId
-}
+      - name: Cache Override
+        if: contains(github.event.pull_request.labels.*.name, 'ci-no-cache')
+        run: echo "NO_CACHE=1" >> $GITHUB_ENV
 
-function tail_live_instance {
-  get_ip_for_instance
-  [ -z "$ip" ] && return 1;
-  ssh -F $ci3/aws/build_instance_ssh_config -q -t -o ConnectTimeout=5 ubuntu@$ip "
-    trap 'exit 0' SIGINT
-    docker ps -a --filter name=aztec_build --format '{{.Names}}' | grep -q '^aztec_build$' || exit 1
-    docker logs -f aztec_build
-  "
-}
+      - name: Fail Fast Override
+        if: contains(github.event.pull_request.labels.*.name, 'ci-no-fail-fast')
+        run: echo "NO_FAIL_FAST=1" >> $GITHUB_ENV
 
-# Used in merge-queue, nightly, and release flows.
-function prep_vars {
-  export RUN_ID=${RUN_ID:-$(date +%s%3N)}
-  export PARENT_LOG_URL=http://ci.aztec-labs.com/$RUN_ID
-  export DENOISE=1
-  export DENOISE_WIDTH=32
-}
+      - name: Compute Target Branch
+        id: target_branch
+        run: |
+          if [ "${{ github.event_name }}" == "merge_group" ]; then
+            target_branch=${{ github.event.merge_group.base_ref }}
+          elif [ "${{ github.event_name }}" == "pull_request" ]; then
+            target_branch=${{ github.event.pull_request.base.ref }}
+          else
+            target_branch=${{ github.ref_name }}
+          fi
+          target_branch=${target_branch#refs/heads/}
+          echo "target_branch=$target_branch" >> $GITHUB_OUTPUT
+          echo "TARGET_BRANCH=${target_branch}" >> $GITHUB_ENV
 
-# We want to run CI with caching - even though it internally uses caching - to quickly catch no-ops that have the same
-# git contents.
-function run_ci_with_cache {
-  local ci_mode=$1
-  local job_id=$2
-  local bootstrap_cmd=$3
+      - name: Docs CI Override
+        if: contains(github.event.pull_request.labels.*.name, 'ci-docs') || (steps.target_branch.outputs.target_branch == 'merge-train/docs')
+        run: echo "CI_DOCS=1" >> $GITHUB_ENV
 
-  # Check if CI already succeeded for this content
-  local content_hash=$(git rev-parse HEAD^{tree} | cut -c1-16)
-  local cache_key="ci-success-${ci_mode}-${content_hash}.txt"
+      - name: Barretenberg CI Override
+        if: contains(github.event.pull_request.labels.*.name, 'barretenberg-ci') || (github.event.pull_request.base.ref == 'merge-train/barretenberg')
+        run: echo "CI_BARRETENBERG=1" >> $GITHUB_ENV
 
-  if cache_download "$cache_key" 2>/dev/null; then
-    if [ -f "$cache_key" ] && grep -q "success" "$cache_key"; then
-      echo "Found cached success for ${ci_mode} mode with hash $content_hash"
-      exit 0
-    fi
-  fi
+      # Allow full concurrency for merge-train PRs, one-run-per-branch for everything else.
+      - name: Set Instance Postfix for merge-train
+        if: startsWith(github.event.pull_request.head.ref, 'merge-train/')
+        run: echo "INSTANCE_POSTFIX=${{ github.event.pull_request.commits }}" >> $GITHUB_ENV
 
-  # Spin up ec2 instance and run the CI flow
-  export JOB_ID="$job_id"
-  bootstrap_ec2 "$bootstrap_cmd"
+      - name: Setup
+        run: |
+          # Ensure we can SSH into the spot instances we request.
+          mkdir -p ~/.ssh
+          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
+          chmod 600 ~/.ssh/build_instance_key
+          sudo apt install -y --no-install-recommends redis-tools parallel
 
-  # Upload success marker
-  echo "success" > success.txt
-  cache_upload "$cache_key" success.txt
-}
+      - name: Store the GCP key in a file
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          set +x
+          umask 077
+          printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
+          jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
 
-case "$cmd" in
-  "fast")
-    run_ci_with_cache "fast" "x1-fast" "./bootstrap.sh ci-fast"
-    ;;
-  "full")
-    run_ci_with_cache "full" "x1-full" "./bootstrap.sh ci-full"
-    ;;
-  "docs")
-    run_ci_with_cache "docs" "x1-docs" "./bootstrap.sh ci-docs"
-    ;;
-  "barretenberg")
-    run_ci_with_cache "barretenberg" "x1-barretenberg" "./bootstrap.sh ci-barretenberg"
-    ;;
-  "grind")
-    # Spin up ec2 instance and run the merge-queue flow.
-    run() {
-      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
-    }
-    export -f run
-    seq 1 ${1:-5} | parallel --termseq 'TERM,10000' --line-buffered --halt now,fail=1  'run $USER-x{}-full amd64 ci-full'
-    ;;
-  "merge-queue")
-    prep_vars
-    # Spin up ec2 instance and run the merge-queue flow.
-    run() {
-      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
-    }
-    export -f run
-    # We perform two full runs of all tests on x86, and a single fast run on arm64 (allowing use of test cache).
-    parallel --jobs 10 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
-      'run x1-full amd64 ci-full' \
-      'run x2-full amd64 ci-full' \
-      'run x3-full amd64 ci-full' \
-      'run x4-full amd64 ci-full' \
-      'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue CI run" $RUN_ID
-    ;;
-  "full-no-cache")
-    prep_vars
-    # Spin up ec2 instance and run the nightly flow.
-    run() {
-      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
-    }
-    # https://github.com/AztecProtocol/aztec-packages/pull/17025 introduced a NO_CACHE=1 nightly check.
-    # Reasoning is there. This takes a while, but does not interrupt the nightly release flow itself.
-    export -f run
-    # We need to run the release flow on both x86 and arm64.
-    parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
-      'run x-full-no-cache amd64 ci-full-no-cache' \
-      'run a-full-no-cache arm64 ci-full-no-cache' | DUP=1 cache_log "Nightly CI run" $RUN_ID
-    ;;
-  "network-deploy")
-    export JOB_ID="x-${NAMESPACE}-network-deploy"
-    bootstrap_ec2 "./bootstrap.sh ci-network-deploy"
-    ;;
-  "network-tests")
-    export JOB_ID="x-${NAMESPACE}-network-tests"
-    bootstrap_ec2 "./bootstrap.sh ci-network-tests"
-    ;;
-  "nightly")
-    prep_vars
-    # Spin up ec2 instance and run the nightly flow.
-    run() {
-      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
-    }
-    # https://github.com/AztecProtocol/aztec-packages/pull/17025 introduced a NO_CACHE=1 nightly check.
-    # Reasoning is there. This takes a while, but does not interrupt the nightly release flow itself.
-    export -f run
-    # We need to run the release flow on both x86 and arm64.
-    parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
-      'run x-nightly-no-cache amd64 ci-full-no-cache' \
-      'run a-nightly-no-cache arm64 ci-full-no-cache' \
-      'run x-nightly amd64 ci-nightly' \
-      'run a-nightly arm64 ci-nightly' | DUP=1 cache_log "Nightly CI run" $RUN_ID
-    ;;
-  "release")
-    prep_vars
-    # Spin up ec2 instance and run the release flow.
-    run() {
-      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh ci-release'"
-    }
-    export -f run
-    # We need to run the release flow on both x86 and arm64.
-    parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
-      'run x-release amd64' \
-      'run a-release arm64' | DUP=1 cache_log "Release CI run" $RUN_ID
-    ;;
-  "shell-new")
-    # Spin up ec2 instance, clone, and drop into shell.
-    # False triggers the shell on fail.
-    cmd="${1:-false}"
-    exec bootstrap_ec2 "$cmd"
-    ;;
-  "shell-container")
-    # Drop into a shell in the current running build instance container.
-    get_ip_for_instance
-    [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
-    [ "$#" -eq 0 ] && set -- "zsh" || true
-    ssh -tq -F $ci3/aws/build_instance_ssh_config ubuntu@$ip \
-      "docker start aztec_build &>/dev/null || true && docker exec -it --user aztec-dev aztec_build $@"
-    ;;
-  "shell-host")
-    # Drop into a shell in the current running build host.
-    get_ip_for_instance
-    [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
-    ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip
-    ;;
-  "run")
-    # Trigger a GA workflow for current branch PR and tail logs.
-    $0 trigger
-    $0 rlog
-    ;;
-  "trigger")
-    # Trigger workflow.
-    # We use this label trick because triggering the workflow direct doesn't associate with the PR.
-    pr_number=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
-    if [ -z "$pr_number" ]; then
-      echo "No pull request found for branch $BRANCH."
-      exit 1
-    fi
-    gh pr edit "$pr_number" --remove-label "trigger-workflow" &> /dev/null
-    gh pr edit "$pr_number" --add-label "trigger-workflow" &> /dev/null
-    sleep 1
-    gh pr edit "$pr_number" --remove-label "trigger-workflow" &> /dev/null
-    run_id=$(get_latest_run_id)
-    echo "In progress..." | redis_setexz $run_id 3600
-    echo -e "Triggered CI for PR: $pr_number (ci rlog ${yellow}$run_id${reset})"
-    ;;
-  "rlog")
-    [ -z "${1:-}" ] && run_id=$(get_latest_run_id) || run_id=$1
-    output=$(redis_getz $run_id)
-    if [ -z "$output" ] || [ "$output" == "In progress..." ]; then
-      # If we're in progress, tail live logs from launched instance.
-      exec $0 ilog
-    else
-      echo "$output" | $PAGER
-    fi
-    ;;
-  "ilog")
-    while ! tail_live_instance; do
-      echo "Waiting on instance with name: $instance_name"
-      sleep 10
-    done
-    ;;
-  "dlog")
-    if [ "$CI_REDIS_AVAILABLE" -ne 1 ]; then
-      echo "No redis available for log query."
-      exit 1
-    fi
-    pager=${PAGER:-less}
-    [ ! -t 0 ] && pager=cat
-    redis_getz $1 | $pager
-    ;;
-  "tlog")
-    if [ "$CI_REDIS_AVAILABLE" -ne 1 ]; then
-      echo "No redis available for test query."
-      exit 1
-    fi
-    pager=${PAGER:-less}
-    key=$(hash_str "$1")
-    log_key=$(redis_cli --raw GET $key)
-    if [ -n "$log_key" ]; then
-      redis_getz $log_key | $pager
-    else
-      echo "No test log found for: $key"
-      exit 1
-    fi
-    ;;
-  "tilog")
-    # Given a test cmd, tail it's a live log.
-    ./ci.sh llog $(hash_str "$1")
-  ;;
-  "llog")
-    # If the log file exists locally, tail it, otherwise assume it's remote.
-    key=$1
-    if [ -f /tmp/$key ]; then
-      tail -F -n +1 /tmp/$key
-    else
-      ./ci.sh shell tail -F -n +1 /tmp/$key
-    fi
-  ;;
-  "kill")
-    existing_instance=$(aws ec2 describe-instances \
-      --region us-east-2 \
-      --filters "Name=tag:Name,Values=$instance_name" \
-      --query "Reservations[].Instances[?State.Name!='terminated'].InstanceId[]" \
-      --output text)
-    if [ -n "$existing_instance" ]; then
-      aws_terminate_instance $existing_instance
-    fi
-    ;;
-  "draft")
-    pr_number=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
-    if [ -n "$pr_number" ]; then
-      gh pr ready "$pr_number" --undo
-      echo "Pull request #$pr_number has been set to draft."
-    else
-      echo "No pull request found for branch $BRANCH."
-    fi
-    ;;
-  "ready")
-    pr_number=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
-    if [ -n "$pr_number" ]; then
-      gh pr ready "$pr_number"
-      echo "Pull request #$pr_number has been set to ready."
-    else
-      echo "No pull request found for branch $BRANCH."
-    fi
-    ;;
-  "pr-url")
-    # Print the current PR associated with the branch.
-    pr_url=$(gh pr list --head "$BRANCH" --limit 1 --json url -q '.[0].url')
-    if [ -z "$pr_url" ]; then
-      echo "No pull request found for branch '$BRANCH'."
-      exit 1
-    fi
-    echo "$pr_url"
-    ;;
-  "last-run-url")
-    # Print the URL of the last GA run for the current branch PR.
-    run_id=$(get_latest_run_id)
-    if [ -z "$run_id" ] || [ "$run_id" == "null" ]; then
-      echo "No recent GitHub Actions run found for branch '$BRANCH'."
-      exit 1
-    fi
-    repo=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-    echo "https://github.com/$repo/actions/runs/$run_id"
-    ;;
-  "help"|"")
-    print_usage
-    ;;
-  "gh-bench")
-    cache_download bench-$COMMIT_HASH.tar.gz
-    ;;
-  "uncached-tests")
-    if [ -z "$CI_REDIS_AVAILABLE" ]; then
-      echo "Not connected to CI redis."
-      exit 1
-    fi
-    ./bootstrap.sh test_cmds | \
-       grep -Ev -f <(yq e '.tests[] | select(.skip == true) | .regex' $root/.test_patterns.yml) | \
-       USE_TEST_CACHE=1 filter_cached_test_cmd
-    ;;
-  *)
-    echo "Unknown command: $cmd, see ./ci.sh help"
-    exit 1
-    ;;
-esac
+      - name: Get Tree Hash
+        run: echo "TREE_HASH=$(git rev-parse HEAD^{tree})" >> $GITHUB_ENV
+
+      - name: Check CI Cache
+        id: ci_cache
+        uses: actions/cache@v3
+        with:
+          path: ci-success.txt
+          key: ci-${{ github.event_name == 'merge_group' && 'merge-queue' || env.CI_FULL == '1' && 'full' || env.CI_DOCS == '1' && 'docs' || env.CI_BARRETENBERG == '1' && 'barretenberg' || 'fast' }}-${{ env.TREE_HASH }}
+
+      #############
+      # Run
+      #############
+      - name: Run
+        if: steps.ci_cache.outputs.cache-hit != 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          # Nightly test env vars.
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
+          EXTERNAL_ETHEREUM_HOSTS: "https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }},${{ secrets.INFURA_SEPOLIA_URL }}"
+          EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.GCP_SEPOLIA_URL }}"
+          EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY: ${{ secrets.GCP_SEPOLIA_API_KEY }}
+          EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER: "X-goog-api-key"
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          if [ "${{ github.event_name }}" == "merge_group" ] || [ "${CI_MERGE_QUEUE:-0}" -eq 1 ]; then
+            exec ./ci.sh merge-queue
+          elif [ "${CI_FULL_NO_CACHE:-0}" -eq 1 ]; then
+            exec ./ci.sh full-no-cache
+          elif [ "${CI_FULL:-0}" -eq 1 ]; then
+            exec ./ci.sh full
+          elif [ "${CI_DOCS:-0}" -eq 1 ]; then
+            exec ./ci.sh docs
+          elif [ "${CI_BARRETENBERG:-0}" -eq 1 ]; then
+            exec ./ci.sh barretenberg
+          elif [ "${{ contains(github.ref, '-nightly.') }}" == "true" ] || [ "${{ contains(github.ref, '-rc.') }}" == "true" ]; then
+            exec ./ci.sh nightly
+          elif [ "${{ startsWith(github.ref, 'refs/tags/v') }}" == "true" ]; then
+            exec ./ci.sh release
+          else
+            exec ./ci.sh fast
+          fi
+
+      - name: Save CI Success
+        if: steps.ci_cache.outputs.cache-hit != 'true'
+        run: echo "success" > ci-success.txt
+
+      # If we have passed CI and labelled with ci-squash-and-merge, squash the PR.
+      # This will rerun CI on the squash commit - but is intended to be a no-op due to caching.
+      - name: CI Squash and Merge
+        if: contains(github.event.pull_request.labels.*.name, 'ci-squash-and-merge')
+        env:
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          # Reauth the git repo with our GITHUB_TOKEN
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}
+          # Get the base commit (merge-base) for the PR
+          ./scripts/merge-train/squash-pr.sh \
+            "${{ github.event.pull_request.number }}" \
+            "${{ github.event.pull_request.head.ref }}" \
+            "${{ github.event.pull_request.base.ref }}" \
+            "${{ github.event.pull_request.base.sha }}"
+          gh pr edit "${{ github.event.pull_request.number }}" --remove-label "ci-squash-and-merge"
+          gh pr merge "${{ github.event.pull_request.number }}" --auto -m || true
+
+      - name: Download benchmarks
+        if: github.event_name == 'merge_group' || env.CI_FULL == '1'
+        run: ./ci.sh gh-bench
+
+      - name: Upload benchmarks
+        if: github.event_name == 'merge_group' || env.CI_FULL == '1'
+        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        with:
+          name: Aztec Benchmarks
+          benchmark-data-dir-path: "bench/${{ steps.target_branch.outputs.target_branch }}"
+          tool: "customSmallerIsBetter"
+          output-file-path: ./bench-out/bench.json
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          auto-push: true
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          alert-threshold: "105%"
+          comment-on-alert: false
+          fail-on-alert: false
+          max-items-in-chart: 100
