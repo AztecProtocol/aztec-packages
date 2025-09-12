@@ -2264,8 +2264,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
                                        static_cast<size_t>(carry_hi_msb),
                                        static_cast<size_t>(carry_lo_msb));
     } else {
-        hi.create_range_constraint(carry_hi_msb, "bigfield: carry_hi too large");
-        lo.create_range_constraint(carry_lo_msb, "bigfield: carry_lo too large");
+        hi.create_range_constraint(static_cast<size_t>(carry_hi_msb), "bigfield: carry_hi too large");
+        lo.create_range_constraint(static_cast<size_t>(carry_lo_msb), "bigfield: carry_lo too large");
     }
 }
 
@@ -2582,8 +2582,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
                                        static_cast<size_t>(carry_hi_msb),
                                        static_cast<size_t>(carry_lo_msb));
     } else {
-        hi.create_range_constraint(carry_hi_msb, "bigfield: carry_hi too large");
-        lo.create_range_constraint(carry_lo_msb, "bigfield: carry_lo too large");
+        hi.create_range_constraint(static_cast<size_t>(carry_hi_msb), "bigfield: carry_hi too large");
+        lo.create_range_constraint(static_cast<size_t>(carry_lo_msb), "bigfield: carry_lo too large");
     }
 }
 
