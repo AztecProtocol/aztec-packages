@@ -217,7 +217,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     }));
 
     if (criminals.length > 0) {
-      this.logger.info(
+      this.logger.verbose(
         `Identified ${criminals.length} validators to slash due to inactivity in at least ${epochThreshold} consecutive epochs`,
         { ...args, epochThreshold },
       );
