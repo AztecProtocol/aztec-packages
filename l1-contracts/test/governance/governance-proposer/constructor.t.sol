@@ -26,7 +26,7 @@ contract ConstructorTest is Test {
 
     uint256 n = bound(_n, 0, _m / 2);
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__InvalidQuorumAndRoundSize.selector, n, _m));
+    vm.expectRevert(abi.encodeWithSelector(Errors.EmpireBase__InvalidQuorumAndRoundSize.selector, n, _m));
     new GovernanceProposer(REGISTRY, GSE, n, _m);
   }
 
@@ -35,7 +35,7 @@ contract ConstructorTest is Test {
     uint256 m = bound(_m, 0, type(uint256).max - 1);
     uint256 n = bound(_n, m + 1, type(uint256).max);
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__QuorumCannotBeLargerThanRoundSize.selector, n, m));
+    vm.expectRevert(abi.encodeWithSelector(Errors.EmpireBase__QuorumCannotBeLargerThanRoundSize.selector, n, m));
     new GovernanceProposer(REGISTRY, GSE, n, m);
   }
 

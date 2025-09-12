@@ -130,14 +130,12 @@ abstract contract EmpireBase is EIP712, IEmpire {
     LIFETIME_IN_ROUNDS = _lifetimeInRounds;
     EXECUTION_DELAY_IN_ROUNDS = _executionDelayInRounds;
 
-    require(QUORUM_SIZE > ROUND_SIZE / 2, Errors.GovernanceProposer__InvalidQuorumAndRoundSize(QUORUM_SIZE, ROUND_SIZE));
-    require(
-      QUORUM_SIZE <= ROUND_SIZE, Errors.GovernanceProposer__QuorumCannotBeLargerThanRoundSize(QUORUM_SIZE, ROUND_SIZE)
-    );
+    require(QUORUM_SIZE > ROUND_SIZE / 2, Errors.EmpireBase__InvalidQuorumAndRoundSize(QUORUM_SIZE, ROUND_SIZE));
+    require(QUORUM_SIZE <= ROUND_SIZE, Errors.EmpireBase__QuorumCannotBeLargerThanRoundSize(QUORUM_SIZE, ROUND_SIZE));
 
     require(
       LIFETIME_IN_ROUNDS > EXECUTION_DELAY_IN_ROUNDS,
-      Errors.GovernanceProposer__InvalidLifetimeAndExecutionDelay(LIFETIME_IN_ROUNDS, EXECUTION_DELAY_IN_ROUNDS)
+      Errors.EmpireBase__InvalidLifetimeAndExecutionDelay(LIFETIME_IN_ROUNDS, EXECUTION_DELAY_IN_ROUNDS)
     );
   }
 
@@ -178,7 +176,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
   function submitRoundWinner(uint256 _roundNumber) external override(IEmpire) returns (bool) {
     // Need to ensure that the round is not active.
     address instance = getInstance();
-    require(instance.code.length > 0, Errors.GovernanceProposer__InstanceHaveNoCode(instance));
+    require(instance.code.length > 0, Errors.EmpireBase__InstanceHaveNoCode(instance));
 
     IEmperor selection = IEmperor(instance);
     Slot currentSlot = selection.getCurrentSlot();
@@ -187,25 +185,22 @@ abstract contract EmpireBase is EIP712, IEmpire {
 
     require(
       currentRound > _roundNumber + EXECUTION_DELAY_IN_ROUNDS,
-      Errors.GovernanceProposer__RoundTooNew(_roundNumber, currentRound)
+      Errors.EmpireBase__RoundTooNew(_roundNumber, currentRound)
     );
 
     require(
-      currentRound <= _roundNumber + LIFETIME_IN_ROUNDS,
-      Errors.GovernanceProposer__RoundTooOld(_roundNumber, currentRound)
+      currentRound <= _roundNumber + LIFETIME_IN_ROUNDS, Errors.EmpireBase__RoundTooOld(_roundNumber, currentRound)
     );
 
     CompressedRoundAccounting storage round = rounds[instance][_roundNumber];
-    require(!round.executed, Errors.GovernanceProposer__PayloadAlreadySubmitted(_roundNumber));
+    require(!round.executed, Errors.EmpireBase__PayloadAlreadySubmitted(_roundNumber));
 
     // If the payload with the most signals is address(0) there are nothing to execute and it is a no-op.
     // This will be the case if no signals have been cast during a round, or if people have simple signalled
     // for nothing to happen (the same as not signalling).
-    require(
-      round.payloadWithMostSignals != IPayload(address(0)), Errors.GovernanceProposer__PayloadCannotBeAddressZero()
-    );
+    require(round.payloadWithMostSignals != IPayload(address(0)), Errors.EmpireBase__PayloadCannotBeAddressZero());
     uint256 signalsCast = round.signalCount[round.payloadWithMostSignals];
-    require(signalsCast >= QUORUM_SIZE, Errors.GovernanceProposer__InsufficientSignals(signalsCast, QUORUM_SIZE));
+    require(signalsCast >= QUORUM_SIZE, Errors.EmpireBase__InsufficientSignals(signalsCast, QUORUM_SIZE));
 
     round.executed = true;
 
@@ -213,7 +208,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
 
     require(
       _handleRoundWinner(round.payloadWithMostSignals),
-      Errors.GovernanceProposer__FailedToSubmitRoundWinner(round.payloadWithMostSignals)
+      Errors.EmpireBase__FailedToSubmitRoundWinner(round.payloadWithMostSignals)
     );
     return true;
   }
@@ -277,7 +272,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
 
   function _internalSignal(IPayload _payload, Signature memory _sig) internal returns (bool) {
     address instance = getInstance();
-    require(instance.code.length > 0, Errors.GovernanceProposer__InstanceHaveNoCode(instance));
+    require(instance.code.length > 0, Errors.EmpireBase__InstanceHaveNoCode(instance));
 
     IEmperor selection = IEmperor(instance);
     Slot currentSlot = selection.getCurrentSlot();
@@ -287,20 +282,18 @@ abstract contract EmpireBase is EIP712, IEmpire {
     CompressedRoundAccounting storage round = rounds[instance][roundNumber];
 
     // Ensure that time have progressed since the last slot. If not, the current proposer might send multiple signals
-    require(
-      currentSlot > round.lastSignalSlot.decompress(), Errors.GovernanceProposer__SignalAlreadyCastForSlot(currentSlot)
-    );
+    require(currentSlot > round.lastSignalSlot.decompress(), Errors.EmpireBase__SignalAlreadyCastForSlot(currentSlot));
     round.lastSignalSlot = currentSlot.compress();
 
     address signaler = selection.getCurrentProposer();
 
     if (_sig.isEmpty()) {
-      require(msg.sender == signaler, Errors.GovernanceProposer__OnlyProposerCanSignal(msg.sender, signaler));
+      require(msg.sender == signaler, Errors.EmpireBase__OnlyProposerCanSignal(msg.sender, signaler));
     } else {
       bytes32 digest = getSignalSignatureDigest(_payload, currentSlot);
 
       // _sig.verify will throw if invalid, it is more my sanity that I am doing this for.
-      require(_sig.verify(signaler, digest), Errors.GovernanceProposer__OnlyProposerCanSignal(msg.sender, signaler));
+      require(_sig.verify(signaler, digest), Errors.EmpireBase__OnlyProposerCanSignal(msg.sender, signaler));
     }
 
     round.signalCount[_payload] += 1;
