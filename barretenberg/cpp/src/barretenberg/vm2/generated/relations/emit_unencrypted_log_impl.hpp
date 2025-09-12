@@ -18,7 +18,7 @@ void emit_unencrypted_logImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     BB_BENCH_NAME("accumulate/emit_unencrypted_log");
 
     const auto constants_PUBLIC_LOGS_HEADER_LENGTH = FF(1);
-    const auto constants_PUBLIC_LOGS_PAYLOAD_LENGTH = FF(4094);
+    const auto constants_PUBLIC_LOGS_PAYLOAD_LENGTH = FF(4096);
     const auto constants_PUBLIC_LOG_HEADER_LENGTH = FF(2);
     const auto constants_MEM_TAG_FF = FF(0);
     const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);
