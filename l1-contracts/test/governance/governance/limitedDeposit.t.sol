@@ -40,7 +40,7 @@ contract LimitedDepositTest is TestBase {
   function test_WhenNotAllowedToDeposit(address _caller, address _depositor) external {
     // it reverts
 
-    vm.assume(_caller != address(0) && _depositor != address(0));
+    vm.assume(_caller != address(0) && _depositor != address(0) && _caller != address(governance));
     vm.assume(!governance.isPermittedInGovernance(_depositor));
 
     vm.prank(_caller);
@@ -48,9 +48,20 @@ contract LimitedDepositTest is TestBase {
     governance.deposit(_depositor, 1000);
   }
 
+  function test_WhenNotAllowedToDepositSelf(address _depositor, bool _floodgatesOpen) external {
+    if (_floodgatesOpen) {
+      vm.prank(address(governance));
+      governance.openFloodgates();
+    }
+
+    vm.prank(address(governance));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Governance__CallerCannotBeSelf.selector));
+    governance.deposit(_depositor, 1000);
+  }
+
   function test_WhenIsAllowedToDeposit(address _caller, address _depositor) external {
     // it deposits
-    vm.assume(_caller != address(0) && _depositor != address(0));
+    vm.assume(_caller != address(0) && _depositor != address(0) && _caller != address(governance));
 
     vm.prank(address(governance));
     governance.addBeneficiary(_depositor);
@@ -69,7 +80,7 @@ contract LimitedDepositTest is TestBase {
   function test_WhenFloodgatesAreOpen(address _caller, address _depositor) external {
     // it deposits
 
-    vm.assume(_caller != address(0) && _depositor != address(0));
+    vm.assume(_caller != address(0) && _depositor != address(0) && _caller != address(governance));
 
     vm.prank(address(governance));
     governance.openFloodgates();
