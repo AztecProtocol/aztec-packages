@@ -35,7 +35,6 @@ void EmitUnencryptedLogTraceBuilder::process(
         bool seen_wrong_tag = false;
 
         for (uint32_t i = 0; i < event.log_size + PUBLIC_LOG_HEADER_LENGTH; ++i) {
-            std::cout << "starting row: " << row << std::endl;
             bool is_log_length_row = i == 0;
             bool is_contract_address_row = i == 1;
             bool is_value_row = i > 1;
@@ -44,8 +43,6 @@ void EmitUnencryptedLogTraceBuilder::process(
 
             FF value = 0;
             ValueTag tag = ValueTag::FF;
-
-            std::cout << "starting memory value" << std::endl;
 
             if (is_value_row) {
                 uint32_t value_index = i - PUBLIC_LOG_HEADER_LENGTH;
@@ -67,8 +64,6 @@ void EmitUnencryptedLogTraceBuilder::process(
 
             FF public_inputs_value = 0;
 
-            std::cout << "starting pi value" << std::endl;
-
             if (is_log_length_row) {
                 public_inputs_value = event.log_size;
             } else if (is_contract_address_row) {
@@ -76,10 +71,6 @@ void EmitUnencryptedLogTraceBuilder::process(
             } else if (is_value_row) {
                 public_inputs_value = value;
             }
-
-            std::cout << "starting trace set" << std::endl;
-            std::cout << "seen wrong tag: " << seen_wrong_tag << std::endl;
-            std::cout << "correct tag: " << correct_tag << std::endl;
 
             trace.set(
                 row,
@@ -123,7 +114,7 @@ void EmitUnencryptedLogTraceBuilder::process(
                           event.prev_num_unencrypted_log_fields + i },
                     { C::emit_unencrypted_log_public_inputs_value, public_inputs_value },
                 } });
-            std::cout << "row finished: " << row << std::endl;
+
             row++;
             if (is_value_row) {
                 log_address++;
