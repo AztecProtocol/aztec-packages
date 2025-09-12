@@ -302,6 +302,7 @@
     "starknet",
     "staticcall",
     "stdlib",
+    "stringifying",
     "struct",
     "structs",
     "subarray",
