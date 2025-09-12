@@ -2264,14 +2264,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
                                        static_cast<size_t>(carry_hi_msb),
                                        static_cast<size_t>(carry_lo_msb));
     } else {
-        ctx->decompose_into_default_range(hi.get_normalized_witness_index(),
-                                          carry_hi_msb,
-                                          Builder::DEFAULT_PLOOKUP_RANGE_BITNUM,
-                                          "bigfield: carry_hi too large");
-        ctx->decompose_into_default_range(lo.get_normalized_witness_index(),
-                                          carry_lo_msb,
-                                          Builder::DEFAULT_PLOOKUP_RANGE_BITNUM,
-                                          "bigfield: carry_lo too large");
+        hi.create_range_constraint(carry_hi_msb, "bigfield: carry_hi too large");
+        lo.create_range_constraint(carry_lo_msb, "bigfield: carry_lo too large");
     }
 }
 
@@ -2588,14 +2582,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
                                        static_cast<size_t>(carry_hi_msb),
                                        static_cast<size_t>(carry_lo_msb));
     } else {
-        ctx->decompose_into_default_range(hi.get_normalized_witness_index(),
-                                          carry_hi_msb,
-                                          Builder::DEFAULT_PLOOKUP_RANGE_BITNUM,
-                                          "bigfield: carry_hi too large");
-        ctx->decompose_into_default_range(lo.get_normalized_witness_index(),
-                                          carry_lo_msb,
-                                          Builder::DEFAULT_PLOOKUP_RANGE_BITNUM,
-                                          "bigfield: carry_hi too large");
+        hi.create_range_constraint(carry_hi_msb, "bigfield: carry_hi too large");
+        lo.create_range_constraint(carry_lo_msb, "bigfield: carry_lo too large");
     }
 }
 
