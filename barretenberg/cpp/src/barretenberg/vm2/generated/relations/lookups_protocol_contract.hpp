@@ -11,6 +11,30 @@
 
 namespace bb::avm2 {
 
+/////////////////// lookup_protocol_contract_public_input_protocol_contract_root ///////////////////
+
+struct lookup_protocol_contract_public_input_protocol_contract_root_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_PROTOCOL_CONTRACT_PUBLIC_INPUT_PROTOCOL_CONTRACT_ROOT";
+    static constexpr std::string_view RELATION_NAME = "protocol_contract";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::protocol_contract_sel;
+    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
+    static constexpr Column COUNTS = Column::lookup_protocol_contract_public_input_protocol_contract_root_counts;
+    static constexpr Column INVERSES = Column::lookup_protocol_contract_public_input_protocol_contract_root_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::protocol_contract_pi_index, ColumnAndShifts::protocol_contract_root
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
+    };
+};
+
+using lookup_protocol_contract_public_input_protocol_contract_root_settings =
+    lookup_settings<lookup_protocol_contract_public_input_protocol_contract_root_settings_>;
+template <typename FF_>
+using lookup_protocol_contract_public_input_protocol_contract_root_relation =
+    lookup_relation_base<FF_, lookup_protocol_contract_public_input_protocol_contract_root_settings>;
+
 /////////////////// lookup_protocol_contract_leaf_hash ///////////////////
 
 struct lookup_protocol_contract_leaf_hash_settings_ {

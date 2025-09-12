@@ -836,6 +836,7 @@ impl FixtureBuilder {
 
         AvmCircuitPublicInputs {
             global_variables: self.global_variables,
+            protocol_contract_tree_root: self.protocol_contract_tree_root,
             start_tree_snapshots: self.start_snapshots,
             start_gas_used: self.start_gas_used,
             gas_settings: self.tx_context.gas_settings,

@@ -581,6 +581,7 @@ function mapAvmAccumulatedDataArrayLengthsToNoir(
 export function mapAvmCircuitPublicInputsToNoir(inputs: AvmCircuitPublicInputs): AvmCircuitPublicInputsNoir {
   return {
     global_variables: mapGlobalVariablesToNoir(inputs.globalVariables),
+    protocol_contract_tree_root: mapFieldToNoir(inputs.protocolContractTreeRoot),
     start_tree_snapshots: mapTreeSnapshotsToNoir(inputs.startTreeSnapshots),
     start_gas_used: mapGasToNoir(inputs.startGasUsed),
     gas_settings: mapGasSettingsToNoir(inputs.gasSettings),
