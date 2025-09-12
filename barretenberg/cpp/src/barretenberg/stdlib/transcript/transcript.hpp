@@ -35,6 +35,7 @@ template <typename Builder> struct StdlibTranscriptParams {
     static inline std::array<DataType, 2> split_challenge(const DataType& challenge)
     {
         // use existing field-splitting code in cycle_scalar
+        // AUDITTODO: there should be a field_t method for handling this - we should not use cycle_scalar
         using cycle_scalar = typename stdlib::cycle_group<Builder>::cycle_scalar;
         const cycle_scalar scalar = cycle_scalar(challenge);
         scalar.lo.create_range_constraint(cycle_scalar::LO_BITS);

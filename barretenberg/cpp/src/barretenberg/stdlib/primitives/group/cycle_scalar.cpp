@@ -39,28 +39,6 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(const field_t& i
     hi.set_origin_tag(in.get_origin_tag());
 }
 
-template <typename Builder> cycle_scalar<Builder>::cycle_scalar(const ScalarField& in)
-{
-    const uint256_t value(in);
-    const uint256_t lo_v = value.slice(0, LO_BITS);
-    const uint256_t hi_v = value.slice(LO_BITS, HI_BITS);
-    lo = lo_v;
-    hi = hi_v;
-}
-
-template <typename Builder>
-cycle_scalar<Builder> cycle_scalar<Builder>::from_witness(Builder* context, const ScalarField& value)
-{
-    const uint256_t value_u256(value);
-    const uint256_t lo_v = value_u256.slice(0, LO_BITS);
-    const uint256_t hi_v = value_u256.slice(LO_BITS, HI_BITS);
-    field_t lo = witness_t<Builder>(context, lo_v);
-    field_t hi = witness_t<Builder>(context, hi_v);
-    lo.set_free_witness_tag();
-    hi.set_free_witness_tag();
-    return cycle_scalar(lo, hi);
-}
-
 /**
  * @brief Use when we want to multiply a group element by a string of bits of known size.
  *        N.B. using this constructor method will make our scalar multiplication methods not perform primality tests.

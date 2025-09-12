@@ -52,7 +52,6 @@ template <typename Builder> class cycle_scalar {
     // we want to validate the cycle_scalar < bn254::fr::modulus *not* grumpkin::fr::modulus
     bool _use_bn254_scalar_field_for_primality_test = false;
 
-  public:
     cycle_scalar(const field_t& _lo,
                  const field_t& _hi,
                  const size_t bits,
@@ -63,10 +62,11 @@ template <typename Builder> class cycle_scalar {
         , _num_bits(bits)
         , _skip_primality_test(skip_primality_test)
         , _use_bn254_scalar_field_for_primality_test(use_bn254_scalar_field_for_primality_test) {};
-    cycle_scalar(const ScalarField& _in = 0);
+
+  public:
     cycle_scalar(const field_t& _lo, const field_t& _hi);
+    // AUDITTODO: this is not used (aside from transcript) and should be deleted.
     cycle_scalar(const field_t& _in);
-    static cycle_scalar from_witness(Builder* context, const ScalarField& value);
     static cycle_scalar from_witness_bitstring(Builder* context, const uint256_t& bitstring, size_t num_bits);
     static cycle_scalar create_from_bn254_scalar(const field_t& _in, bool skip_primality_test = false);
     [[nodiscard]] bool is_constant() const;
