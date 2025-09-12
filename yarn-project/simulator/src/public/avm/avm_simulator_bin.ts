@@ -1,16 +1,17 @@
 import { DEFAULT_DA_GAS_LIMIT, DEFAULT_L2_GAS_LIMIT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
-import { AvmSimulator } from '@aztec/simulator/public/avm/avm_simulator';
-import { SimpleContractDataSource } from '@aztec/simulator/public/fixtures';
-import { PublicContractsDB, PublicTreesDB } from '@aztec/simulator/public/public_db_sources';
-import { SideEffectTrace } from '@aztec/simulator/public/side_effect_trace';
-import { PublicPersistableStateManager } from '@aztec/simulator/public/state_manager';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import * as readline from 'readline';
+
+import { AvmSimulator } from '../../public/avm/avm_simulator.js';
+import { SimpleContractDataSource } from '../../public/fixtures/simple_contract_data_source.js';
+import { PublicContractsDB, PublicTreesDB } from '../../public/public_db_sources.js';
+import { SideEffectTrace } from '../../public/side_effect_trace.js';
+import { PublicPersistableStateManager } from '../../public/state_manager/state_manager.js';
 
 function stringToField(str: string): Fr {
   let number = BigInt(str);
