@@ -130,14 +130,6 @@ function build {
   fi
 
   npm_install_deps ../ts
-  # TODO: Check if still needed.
-  # denoise "cd browser-test-app && yarn add --dev @aztec/bb.js@portal:../../ts"
-
-  # TODO: Revisit. Update yarn.lock so it can be committed.
-  # Be lenient about bb.js hash changing, even if we try to minimize the occurrences.
-  # denoise "cd browser-test-app && yarn add --dev @aztec/bb.js@portal:../../ts && yarn"
-  # denoise "cd headless-test && yarn"
-  # denoise "cd sol-test && yarn"
 
   denoise "cd browser-test-app && yarn build"
 
