@@ -29,6 +29,7 @@ namespace acir_format {
 using namespace bb;
 using namespace bb::stdlib::recursion::honk;
 template <typename Builder> using field_ct = stdlib::field_t<Builder>;
+template <typename Builder> using witness_ct = stdlib::witness_t<Builder>;
 template <typename Builder> using bn254 = stdlib::bn254<Builder>;
 template <typename Builder> using PairingPoints = bb::stdlib::recursion::PairingPoints<Builder>;
 
@@ -154,14 +155,14 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
         // Replace the proof by the placeholder proof in case the predicate is 1
         for (uint32_t i = 0; i < proof_fields.size(); ++i) {
             auto valid_proof = field_ct<Builder>::conditional_assign(
-                predicate_witness, proof_fields[i], field_ct<Builder>(mock_proof[i]).normalize());
+                predicate_witness, proof_fields[i], field_ct<Builder>(witness_ct(&builder, mock_proof[i])).normalize());
             result.push_back(valid_proof);
         }
 
         // Replace the VK with the placeholder vk in case the predicate is 1
         for (uint32_t i = 0; i < key_fields.size(); ++i) {
             auto valid_vk = field_ct<Builder>::conditional_assign(
-                predicate_witness, key_fields[i], field_ct<Builder>(mock_vk_fields[i]).normalize());
+                predicate_witness, key_fields[i], field_ct<Builder>(witness_ct(&builder, mock_vk_fields[i])));
             result_vk.push_back(valid_vk);
         }
         field_ct<Builder> mock_vk_hash = mock_vk->hash();
