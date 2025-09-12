@@ -65,15 +65,12 @@ cycle_scalar<Builder> cycle_scalar<Builder>::from_witness(Builder* context, cons
  * @tparam Builder
  * @param context
  * @param value
- * @param num_bits
  * @return cycle_scalar<Builder>
  */
 template <typename Builder>
-cycle_scalar<Builder> cycle_scalar<Builder>::from_witness_bitstring(Builder* context,
-                                                                    const uint256_t& bitstring,
-                                                                    const size_t num_bits)
+cycle_scalar<Builder> cycle_scalar<Builder>::from_256_bit_witness(Builder* context, const uint256_t& bitstring)
 {
-    BB_ASSERT_LT(bitstring.get_msb(), num_bits);
+    const size_t num_bits = 256;
     const uint256_t lo_v = bitstring.slice(0, LO_BITS);
     const uint256_t hi_v = bitstring.slice(LO_BITS, num_bits);
     field_t lo = witness_t<Builder>(context, lo_v);
