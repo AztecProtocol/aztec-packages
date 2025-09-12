@@ -222,9 +222,9 @@ for i in "${!ALL_CPUS[@]}"; do
         color="${GREEN}"
     else
         eff_val=$(echo "$efficiency" | sed 's/%//')
-        if (( $(echo "$eff_val > 75" | bc -l) )); then
+        if awk -v eff="$eff_val" 'BEGIN {exit !(eff > 75)}'; then
             color="${GREEN}"
-        elif (( $(echo "$eff_val > 50" | bc -l) )); then
+        elif awk -v eff="$eff_val" 'BEGIN {exit !(eff > 50)}'; then
             color="${YELLOW}"
         else
             color="${RED}"
@@ -277,11 +277,11 @@ if [ "${#ALL_SPEEDUPS[@]}" -gt 1 ]; then
     last_cpu="${ALL_CPUS[-1]}"
     actual_efficiency=$(awk -v sp="$last_speedup" -v cpus="$last_cpu" 'BEGIN{printf "%.1f", (sp / cpus) * 100}')
 
-    if (( $(echo "$actual_efficiency < 50" | bc -l) )); then
+    if awk -v eff="$actual_efficiency" 'BEGIN {exit !(eff < 50)}'; then
         echo -e "${YELLOW}⚠ Warning: Poor scaling detected!${NC}"
         echo -e "  At ${last_cpu} CPUs: ${actual_efficiency}% efficiency"
         echo -e "  Consider investigating thread contention or memory bottlenecks."
-    elif (( $(echo "$actual_efficiency < 75" | bc -l) )); then
+    elif awk -v eff="$actual_efficiency" 'BEGIN {exit !(eff < 75)}'; then
         echo -e "${YELLOW}Note: Moderate scaling efficiency at high CPU counts.${NC}"
         echo -e "  At ${last_cpu} CPUs: ${actual_efficiency}% efficiency"
     else
