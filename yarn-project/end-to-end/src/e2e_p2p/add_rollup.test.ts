@@ -155,6 +155,7 @@ describe('e2e_p2p_add_rollup', () => {
         aztecSlotDuration: t.ctx.aztecNodeConfig.aztecSlotDuration,
         aztecEpochDuration: t.ctx.aztecNodeConfig.aztecEpochDuration,
         aztecTargetCommitteeSize: t.ctx.aztecNodeConfig.aztecTargetCommitteeSize,
+        lagInEpochs: t.ctx.aztecNodeConfig.lagInEpochs,
         aztecProofSubmissionEpochs: t.ctx.aztecNodeConfig.aztecProofSubmissionEpochs,
         slashingQuorum: t.ctx.aztecNodeConfig.slashingQuorum,
         slashingRoundSizeInEpochs: t.ctx.aztecNodeConfig.slashingRoundSizeInEpochs,
@@ -473,7 +474,7 @@ describe('e2e_p2p_add_rollup', () => {
 
     // With all down, we make a time jump such that we ensure that we will be at a point where epochs are non-empty
     // This is to avoid conflicts when the checkpoints are looking further back.
-    const futureEpoch = 500n + (await newRollup.getEpochNumber());
+    const futureEpoch = 500n + (await newRollup.getCurrentEpochNumber());
     const time = await newRollup.getTimestampForSlot(futureEpoch * BigInt(t.ctx.aztecNodeConfig.aztecEpochDuration));
     if (time > BigInt(await t.ctx.cheatCodes.eth.timestamp())) {
       await t.ctx.cheatCodes.eth.warp(Number(time));

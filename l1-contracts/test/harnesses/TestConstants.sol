@@ -18,6 +18,7 @@ library TestConstants {
   uint256 internal constant AZTEC_SLOT_DURATION = 36;
   uint256 internal constant AZTEC_EPOCH_DURATION = 32;
   uint256 internal constant AZTEC_TARGET_COMMITTEE_SIZE = 48;
+  uint256 internal constant AZTEC_LAG_IN_EPOCHS = 2;
   uint256 internal constant AZTEC_PROOF_SUBMISSION_EPOCHS = 1;
   uint256 internal constant AZTEC_SLASHING_QUORUM = 6;
   uint256 internal constant AZTEC_SLASHING_ROUND_SIZE = 10;
@@ -95,6 +96,7 @@ library TestConstants {
       aztecEpochDuration: AZTEC_EPOCH_DURATION,
       aztecProofSubmissionEpochs: AZTEC_PROOF_SUBMISSION_EPOCHS,
       targetCommitteeSize: AZTEC_TARGET_COMMITTEE_SIZE,
+      lagInEpochs: AZTEC_LAG_IN_EPOCHS,
       slashingQuorum: AZTEC_SLASHING_QUORUM,
       slashingRoundSize: AZTEC_SLASHING_ROUND_SIZE,
       slashingLifetimeInRounds: AZTEC_SLASHING_LIFETIME_IN_ROUNDS,

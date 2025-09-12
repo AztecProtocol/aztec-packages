@@ -291,14 +291,15 @@ export class P2PNetworkTest {
           hash: await multiAdder.write.addValidators([validatorTuples]),
         });
 
-        const timestamp = await cheatCodes.rollup.advanceToEpoch(2n, { updateDateProvider: dateProvider });
+        await cheatCodes.rollup.advanceToEpoch(
+          (await cheatCodes.rollup.getEpoch()) + (await rollup.read.getLagInEpochs()) + 1n,
+          {
+            updateDateProvider: dateProvider,
+          },
+        );
 
         // Send and await a tx to make sure we mine a block for the warp to correctly progress.
         await this._sendDummyTx(deployL1ContractsValues.l1Client);
-
-        // Set the system time in the node, only after we have warped the time and waited for a block
-        // Time is only set in the NEXT block
-        dateProvider.setTime(Number(timestamp) * 1000);
       },
     );
   }

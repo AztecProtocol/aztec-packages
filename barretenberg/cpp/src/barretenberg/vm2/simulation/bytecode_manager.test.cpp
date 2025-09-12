@@ -103,10 +103,9 @@ TEST_F(BytecodeManagerTest, RetrievalAndDeduplication)
     EXPECT_FALSE(retrieval_events_dump[0].instance_not_found_error);
     EXPECT_FALSE(retrieval_events_dump[0].limit_error);
     // Verify hashing events - should have exactly one hashing event total
-    // TODO(dbanks12): re-enable once C++ and PIL use standard poseidon2 hashing for bytecode commitments.
-    // auto hashing_events_dump = hashing_events.dump_events();
-    // EXPECT_THAT(hashing_events_dump, SizeIs(1));
-    // EXPECT_EQ(hashing_events_dump[0].bytecode_id, klass.public_bytecode_commitment);
+    auto hashing_events_dump = hashing_events.dump_events();
+    EXPECT_THAT(hashing_events_dump, SizeIs(1));
+    EXPECT_EQ(hashing_events_dump[0].bytecode_id, klass.public_bytecode_commitment);
     // Verify decomposition events - should have exactly one decomposition event total
     auto decomposition_events_dump = decomposition_events.dump_events();
     EXPECT_THAT(decomposition_events_dump, SizeIs(1));
@@ -135,7 +134,7 @@ TEST_F(BytecodeManagerTest, RetrievalAndDeduplication)
     EXPECT_THAT(retrieval_events_dump, SizeIs(1));
     EXPECT_EQ(retrieval_events_dump[0].address, address1);
     EXPECT_EQ(retrieval_events_dump[0].bytecode_id, klass.public_bytecode_commitment);
-    auto hashing_events_dump = hashing_events.dump_events();
+    hashing_events_dump = hashing_events.dump_events();
     EXPECT_THAT(hashing_events_dump, SizeIs(0)); // No hashing for deduplicated bytecode
     decomposition_events_dump = decomposition_events.dump_events();
     EXPECT_THAT(decomposition_events_dump, SizeIs(0)); // No decomposition for deduplicated retrieval

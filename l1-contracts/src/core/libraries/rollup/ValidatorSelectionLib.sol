@@ -130,12 +130,12 @@ library ValidatorSelectionLib {
    *      The first two epochs use maximum seed values for startup.
    * @param _targetCommitteeSize The desired number of validators in each epoch's committee
    */
-  function initialize(uint256 _targetCommitteeSize) internal {
+  function initialize(uint256 _targetCommitteeSize, uint256 _lagInEpochs) internal {
     ValidatorSelectionStorage storage store = getStorage();
-    store.targetCommitteeSize = _targetCommitteeSize;
+    store.targetCommitteeSize = _targetCommitteeSize.toUint32();
+    store.lagInEpochs = _lagInEpochs.toUint32();
 
-    // Set the initial randao
-    store.randaos.push(0, uint224(block.prevrandao));
+    checkpointRandao(Epoch.wrap(0));
   }
 
   /**
@@ -453,33 +453,22 @@ library ValidatorSelectionLib {
 
   /**
    * @notice Checkpoints randao value for future usage
-   * @dev Checks if already stored before computing and storing the randao value.
-   *      Offset the epoch by 2 to maintain the two-epoch advance requirement.
-   *      This ensures randomness are set well in advance to prevent manipulation.
-   * @param _epoch The current epoch (randao will be set for _epoch + 2)
-   *       Passed to reduce recomputation
+   * @dev Checks if already stored before storing the randao value.
+   * @param _epoch The current epoch
    */
   function checkpointRandao(Epoch _epoch) internal {
     ValidatorSelectionStorage storage store = getStorage();
 
-    // Compute the offset
-    uint32 epoch = Epoch.unwrap(_epoch).toUint32() + 2;
-
     // Check if the latest checkpoint is for the next epoch
     // It should be impossible that zero epoch snapshots exist, as in the genesis state we push the first values
     // into the store
-    (, uint32 mostRecentEpoch,) = store.randaos.latestCheckpoint();
-
-    // If the randao for the next epoch is already set, we can skip the computation
-    if (mostRecentEpoch == epoch) {
-      return;
-    }
+    (, uint32 mostRecentTs,) = store.randaos.latestCheckpoint();
+    uint32 ts = Timestamp.unwrap(_epoch.toTimestamp()).toUint32();
 
     // If the most recently stored epoch is less than the epoch we are querying, then we need to store randao for
-    // later use
-    if (mostRecentEpoch < epoch) {
-      // Truncate the randao to be used for future sampling.
-      store.randaos.push(epoch, uint224(block.prevrandao));
+    // later use. We truncate to save storage costs.
+    if (mostRecentTs < ts) {
+      store.randaos.push(ts, uint224(block.prevrandao));
     }
   }
 
@@ -539,8 +528,7 @@ library ValidatorSelectionLib {
    * @notice Converts an epoch number to the timestamp used for validator set sampling
    * @dev Calculates the sampling timestamp by:
    *      1. Taking the epoch start timestamp
-   *      2. Subtracting one full epoch duration to ensure stability
-   *      3. Subtracting 1 second to get end-of-block state
+   *      2. Subtracting `lagInEpochs` full epoch duration to ensure stability
    *
    *      This ensures validator set sampling uses stable historical data that won't be
    *      affected by last-minute changes or L1 reorgs during synchronization.
@@ -548,13 +536,8 @@ library ValidatorSelectionLib {
    * @return The Unix timestamp (uint32) to use for validator set sampling
    */
   function epochToSampleTime(Epoch _epoch) internal view returns (uint32) {
-    // We do -1, as the snapshots practically happen at the end of the block, e.g.,
-    // a tx manipulating the set in at $t$ would be visible already at lookup $t$ if after that
-    // transactions. But reading at $t-1$ would be the state at the end of $t-1$ which is the state
-    // as we "start" time $t$. We then shift that back by an entire L2 epoch to guarantee
-    // we are not hit by last-minute changes or L1 reorgs when syncing validators from our clients.
-
-    return Timestamp.unwrap(_epoch.toTimestamp()).toUint32() - uint32(TimeLib.getEpochDurationInSeconds()) - 1;
+    uint32 sub = getStorage().lagInEpochs * TimeLib.getEpochDurationInSeconds().toUint32();
+    return Timestamp.unwrap(_epoch.toTimestamp()).toUint32() - sub;
   }
 
   /**
@@ -566,7 +549,17 @@ library ValidatorSelectionLib {
    */
   function getSampleSeed(Epoch _epoch) internal view returns (uint256) {
     ValidatorSelectionStorage storage store = getStorage();
-    return uint256(keccak256(abi.encode(_epoch, store.randaos.upperLookup(Epoch.unwrap(_epoch).toUint32()))));
+    uint32 ts = epochToSampleTime(_epoch);
+    return uint256(keccak256(abi.encode(_epoch, store.randaos.upperLookup(ts))));
+  }
+
+  function getSamplingSize(Epoch _epoch) internal view returns (uint256) {
+    uint32 ts = epochToSampleTime(_epoch);
+    return StakingLib.getAttesterCountAtTime(Timestamp.wrap(ts));
+  }
+
+  function getLagInEpochs() internal view returns (uint256) {
+    return getStorage().lagInEpochs;
   }
 
   /**

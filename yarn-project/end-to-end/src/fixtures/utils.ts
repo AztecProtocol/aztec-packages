@@ -663,9 +663,10 @@ export async function setup(
       (opts.aztecTargetCommitteeSize && opts.aztecTargetCommitteeSize > 0) ||
       (opts.initialValidators && opts.initialValidators.length > 0)
     ) {
-      // We need to advance to epoch 2 such that the committee is set up.
-      logger.info(`Advancing to epoch 2`);
-      await cheatCodes.rollup.advanceToEpoch(2n, { updateDateProvider: dateProvider });
+      // We need to advance such that the committee is set up.
+      await cheatCodes.rollup.advanceToEpoch((await cheatCodes.rollup.getEpoch()) + BigInt(config.lagInEpochs + 1), {
+        updateDateProvider: dateProvider,
+      });
       await cheatCodes.rollup.setupEpoch();
       await cheatCodes.rollup.debugRollup();
     }
