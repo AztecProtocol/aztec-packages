@@ -3,7 +3,63 @@ include "../execution.pil";
 include "../memory.pil";
 include "../constants_gen.pil";
 
-//TODO dynamic gas
+/**
+ * Dedicated opcode gadget for the EmitUnencryptedLog opcode.
+ * This gadget handles the emission of unencrypted logs to public inputs, performing
+ * validation checks and memory reads to check log entries.
+ *
+ * The opcode reads log data from memory starting at log_address for log_size fields,
+ * and writes the log data to public inputs if all checks pass.
+ * The gadget generates a dynamic number of rows based on the actual log size.
+ *
+ * Opcode operands (from execution trace):
+ * - register[0]: log_size (number of fields in the log)
+ * - rop[1]: log_address (memory offset where log data starts)
+ *
+ * The interaction with the execution trace is only done on the start row. The subsequent rows are used for reading the log fields from memory and writing to public inputs.
+ *
+ * Validation checks:
+ * - Memory addresses must be within bounds (≤ AVM_HIGHEST_MEM_ADDRESS)
+ * - Must not exceed maximum log fields per transaction (PUBLIC_LOGS_PAYLOAD_LENGTH)
+ * - All log fields must have FF tags
+ * - Cannot emit logs in static context
+ *
+ * Memory I/O:
+ * - Reads log_size consecutive fields from memory starting at log_address
+ * - Each field is validated to have the correct FF tag
+ * - Disables memory reads if addressing error occurs
+ *
+ * Public inputs interaction:
+ * - Writes contract_address, log_size, and log data to public inputs
+ * - Only writes if no errors occur and discard flag is not set
+ * - Updates the count of emitted unencrypted logs
+ *
+ * Partial trace of the gadget:
+ *
+ * +-----+-----+----------+----------+----------+------------------+------------+------------+-----------+-------+-------+-----+----------+--------------+----------------+-----------+----------+-------+-----+
+ * | sel | clk | space_id | log_addr | log_size | contract_address | prev_log_f | next_log_f | is_static | error | start | end | rem_rows | tag_mismatch | seen_wrong_tag | is_w_addr | is_w_mem | value | tag |
+ * +-----+-----+----------+----------+----------+------------------+------------+------------+-----------+-------+-------+-----+----------+--------------+----------------+-----------+----------+-------+-----+
+ * |   0 |   0 |        0 |        0 | 0        | 0                | 0          | 0          | 0         | 0     |     0 |   0 |        0 |            0 |              0 |         0 |        0 |     0 | 0   |
+ * |   1 |  27 |        4 |       27 | 10       | 0xdeadbeef       | 0          | 10         | 0         | 0     |     1 |   0 |       11 |            0 |              0 |         0 |        0 |     0 | ff  |
+ * |   1 |  27 |        4 |       27 | unc      | 0xdeadbeef       | unc        | unc        | unc       | unc   |     0 |   0 |       10 |            0 |              0 |         1 |        0 |     0 | ff  |
+ * |   1 |  27 |        4 |       27 | unc      | 0xdeadbeef       | unc        | unc        | unc       | unc   |     0 |   0 |        9 |            0 |              0 |         0 |        1 |    10 | ff  |
+ * |   1 |  27 |        4 |       28 | unc      | 0xdeadbeef       | unc        | unc        | unc       | unc   |     0 |   0 |        8 |            0 |              0 |         0 |        1 |    20 | ff  |
+ * |   1 |  27 |        4 |       29 | unc      | 0xdeadbeef       | unc        | unc        | unc       | unc   |     0 |   0 |        7 |            0 |              0 |         0 |        1 |    30 | ff  |
+ * |   1 |  27 |        4 |       30 | unc      | 0xdeadbeef       | unc        | unc        | unc       | unc   |     0 |   0 |        6 |            0 |              0 |         0 |        1 |    40 | ff  |
+ * |   1 |  27 |        4 |       31 | unc      | 0xdeadbeef       | unc        | unc        | unc       | unc   |     0 |   0 |        5 |            0 |              0 |         0 |        1 |    50 | ff  |
+ * |   1 |  27 |        4 |       32 | unc      | 0xdeadbeef       | unc        | unc        | unc       | unc   |     0 |   0 |        4 |            0 |              0 |         0 |        1 |    60 | ff  |
+ * |   1 |  27 |        4 |       33 | unc      | 0xdeadbeef       | unc        | unc        | unc       | unc   |     0 |   0 |        3 |            0 |              0 |         0 |        1 |    70 | ff  |
+ * |   1 |  27 |        4 |       34 | unc      | 0xdeadbeef       | unc        | unc        | unc       | unc   |     0 |   0 |        2 |            0 |              0 |         0 |        1 |    80 | ff  |
+ * |   1 |  27 |        4 |       35 | unc      | 0xdeadbeef       | unc        | unc        | unc       | unc   |     0 |   0 |        1 |            0 |              0 |         0 |        1 |    90 | ff  |
+ * |   1 |  27 |        4 |       36 | unc      | 0xdeadbeef       | unc        | unc        | unc       | unc   |     0 |   1 |        0 |            0 |              0 |         0 |        1 |   100 | ff  |
+ * |   0 |   0 |        0 |        0 | 0        | 0                | 0          | 0          | 0         | 0     |     0 |   0 |        0 |            0 |              0 |         0 |        0 |     0 | 0   |
+ * +-----+-----+----------+----------+----------+------------------+------------+------------+-----------+-------+-------+-----+----------+--------------+----------------+-----------+----------+-------+-----+
+ * We perform some checks on start and only propagate down relevant columns to constrain the "worker" rows. Worker rows are the ones after start that only perform optional memory
+ * read and optional writes to public inputs. Columns not propagated down are marked as "unc" in the table above.
+ * Rows:
+ * - Interact with public inputs conditionally if there is no error or no discard
+ * - Interact with memory conditionally if there is no addressing error. Otherwise they'll read (given they are is_write_mem rows).
+ */
 namespace emit_unencrypted_log;
 
     pol commit sel;
