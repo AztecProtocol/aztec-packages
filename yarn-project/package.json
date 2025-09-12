@@ -55,7 +55,6 @@
     "scripts",
     "sequencer-client",
     "simulator",
-    "simulator_fuzzer",
     "slasher",
     "stdlib",
     "telemetry-client",

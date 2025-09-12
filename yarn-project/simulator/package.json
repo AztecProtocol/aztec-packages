@@ -7,13 +7,7 @@
     "./client": "./dest/client.js",
     "./testing": "./dest/testing.js",
     "./public/fixtures": "./dest/public/fixtures/index.js",
-    "./public/avm/opcodes": "./dest/public/avm/opcodes/index.js",
-
-    "./public/avm/avm_simulator": "./dest/public/avm/avm_simulator.js",
-    "./public/side_effect_trace": "./dest/public/side_effect_trace.js",
-    "./public/public_db_sources": "./dest/public/public_db_sources.js",
-    "./public/state_manager": "./dest/public/state_manager/index.js",
-    "./public/avm/fixtures/simple_contract_data_source": "./dest/public/avm/fixtures/simple_contract_data_source.js"
+    "./public/avm/opcodes": "./dest/public/avm/opcodes/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
