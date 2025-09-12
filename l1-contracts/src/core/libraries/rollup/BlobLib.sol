@@ -105,6 +105,7 @@ library BlobLib {
     // We cannot input the incorrect number of blobs below, as the blobsHash
     // and epoch proof verification will fail.
     uint8 numBlobs = uint8(_blobsInput[0]);
+    require(numBlobs > 0, Errors.Rollup__NoBlobsInBlock());
     blobHashes = new bytes32[](numBlobs);
     blobCommitments = new bytes[](numBlobs);
     bytes32 blobHash;
