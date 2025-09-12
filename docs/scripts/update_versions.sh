@@ -72,13 +72,13 @@ if [ -d "$VERSIONED_DOCS_DIR" ]; then
             echo "Found $STABLE_COUNT stable version(s)"
         fi
     else
-        # No versions found, create empty array
-        echo "[]" > "$VERSIONS_FILE"
-        echo "No versions found in versioned_docs"
+        # No versions found, exit with error
+        echo "Error: No versions found in versioned_docs" >&2
+        exit 1
     fi
 else
-    echo "Warning: $VERSIONED_DOCS_DIR not found"
-    echo "[]" > "$VERSIONS_FILE"
+    echo "Error: $VERSIONED_DOCS_DIR not found" >&2
+    exit 1
 fi
 
 echo "Current versions.json:"
