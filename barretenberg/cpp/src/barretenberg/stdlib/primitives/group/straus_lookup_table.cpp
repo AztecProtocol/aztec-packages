@@ -120,10 +120,7 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
     for (size_t i = 0; i < table_size; ++i) {
         if (point_table[i].is_constant()) {
             const auto element = point_table[i].get_value();
-            // AUDITTODO: dont think we need to do the assert_equals here since from_constant_witness does this already
             point_table[i] = cycle_group<Builder>::from_constant_witness(_context, element);
-            point_table[i].x.assert_equal(element.x);
-            point_table[i].y.assert_equal(element.y);
         }
         std::array<uint32_t, 2> coordinate_indices = { point_table[i].x.get_witness_index(),
                                                        point_table[i].y.get_witness_index() };
