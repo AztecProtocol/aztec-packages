@@ -16,23 +16,10 @@ export js_projects="
 "
 export js_include=$(printf " --include %s" $js_projects)
 
-# Get the actual commit hash from the noir-repo-ref file
-export GIT_COMMIT="$(git -C noir-repo rev-list --max-count 1 "$(cat noir-repo-ref)")-aztec"
-export SOURCE_DATE_EPOCH=0
-export GIT_DIRTY=false
-export RUSTFLAGS="-Dwarnings"
-
 # Update the noir-repo and compute hashes.
 function noir_sync {
   # Don't send anything to `stdout`, so as not to interfere with `test_cmds` and `hash`.
   dump_fail "scripts/sync.sh init && scripts/sync.sh update" >&2
-}
-
-# Calculate the content hash for caching, taking into account that `noir-repo`
-# is not part of the `aztec-packages` repo itself, so the `git ls-tree` used
-# by `cache_content_hash` would not take those files into account.
-function noir_repo_content_hash {
-  echo $(REPO_PATH=./noir-repo AZTEC_CACHE_COMMIT=HEAD cache_content_hash $@)
 }
 
 # Get the cache content hash. It should only be based on files committed to `aztec-packages`
@@ -69,6 +56,18 @@ if [ ! -v NOIR_HASH ] && [ "$cmd" != "clean" ]; then
   export NOIR_HASH=$(noir_content_hash)
 fi
 
+# Get the actual commit hash from the noir-repo-ref file
+export GIT_COMMIT="$(git -C noir-repo rev-list --max-count 1 "$(cat noir-repo-ref)")-aztec"
+export SOURCE_DATE_EPOCH=0
+export GIT_DIRTY=false
+export RUSTFLAGS="-Dwarnings"
+
+# Calculate the content hash for caching, taking into account that `noir-repo`
+# is not part of the `aztec-packages` repo itself, so the `git ls-tree` used
+# by `cache_content_hash` would not take those files into account.
+function noir_repo_content_hash {
+  echo $(REPO_PATH=./noir-repo AZTEC_CACHE_COMMIT=HEAD cache_content_hash $@)
+}
 
 # Builds nargo, acvm and profiler binaries.
 function build_native {
