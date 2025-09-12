@@ -42,7 +42,7 @@ Client PXEs will interact with instances of the Aztec Node via it's JSON RPC int
 
 ### Sequencer-to-Prover Communication
 
-Proving is an out-of-protocol activity. The nature of the communication between sequencers and provers will depend entirely on the prover/s selected by the sequencer. Provers may choose to run their own Transaction Pool Node infrastructure so that they are prepared for generating proofs and don't need to receive this data out-of-band.
+Proving is an out-of-protocol activity. The nature of the communication between sequencers and provers will depend entirely on the prover/s selected by the sequencer. Provers may choose to run their own Transaction Pool Node infrastructure so that they are prepared for generating proofs and don't need to receive this data offchain.
 
 ## LibP2P
 
