@@ -1085,6 +1085,7 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
         } else if (!scalar.is_constant() && point.is_constant()) {
             if (point.get_value().is_point_at_infinity()) {
                 // oi mate, why are you creating a circuit that multiplies a known point at infinity?
+                info("Warning: Performing batch mul with constant point at infinity!");
                 continue;
             }
             if (scalars_are_full_sized &&
@@ -1102,7 +1103,6 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
             variable_base_points.push_back(point);
             can_unconditional_add = false;
             has_non_constant_component = true;
-            // variable base
         }
     }
 
