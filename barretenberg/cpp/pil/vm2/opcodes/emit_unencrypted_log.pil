@@ -236,9 +236,9 @@ namespace emit_unencrypted_log;
         precomputed.clk,
         execution.context_id,
         // Message offset
-        execution.rop[0],
+        execution.rop[1],
         // Message size
-        execution.register[1],
+        execution.register[0],
         execution.contract_address,
         // Context
         execution.prev_num_unencrypted_log_fields,

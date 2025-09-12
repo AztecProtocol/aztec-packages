@@ -101,8 +101,8 @@ struct lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_settings_ 
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::precomputed_clk,
         ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::execution_rop_0_,
-        ColumnAndShifts::execution_register_1_,
+        ColumnAndShifts::execution_rop_1_,
+        ColumnAndShifts::execution_register_0_,
         ColumnAndShifts::execution_contract_address,
         ColumnAndShifts::execution_prev_num_unencrypted_log_fields,
         ColumnAndShifts::execution_num_unencrypted_log_fields,

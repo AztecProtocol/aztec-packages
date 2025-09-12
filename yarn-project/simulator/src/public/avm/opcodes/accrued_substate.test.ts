@@ -285,7 +285,7 @@ describe('Accrued Substate', () => {
         ...Buffer.from('1234', 'hex'), // log offset
         ...Buffer.from('a234', 'hex'), // length offset
       ]);
-      const inst = new EmitUnencryptedLog(/*indirect=*/ 0x01, /*offset=*/ 0x1234, /*lengthOffset=*/ 0xa234);
+      const inst = new EmitUnencryptedLog(/*indirect=*/ 0x01, /*lengthOffset=*/ 0xa234, /*offset=*/ 0x1234);
 
       expect(EmitUnencryptedLog.fromBuffer(buf)).toEqual(inst);
       expect(inst.toBuffer()).toEqual(buf);
@@ -302,7 +302,7 @@ describe('Accrued Substate', () => {
       );
       context.machineState.memory.set(logSizeOffset, new Uint32(values.length));
 
-      await new EmitUnencryptedLog(/*indirect=*/ 0, /*offset=*/ startOffset, logSizeOffset).execute(context);
+      await new EmitUnencryptedLog(/*indirect=*/ 0, logSizeOffset, /*offset=*/ startOffset).execute(context);
 
       expect(trace.tracePublicLog).toHaveBeenCalledTimes(1);
       expect(trace.tracePublicLog).toHaveBeenCalledWith(address, values);
@@ -321,7 +321,7 @@ describe('Accrued Substate', () => {
 
       const l2GasBefore = context.machineState.l2GasLeft;
       const daGasBefore = context.machineState.daGasLeft;
-      await new EmitUnencryptedLog(/*indirect=*/ 0, /*offset=*/ startOffset, logSizeOffset).execute(context);
+      await new EmitUnencryptedLog(/*indirect=*/ 0, logSizeOffset, /*offset=*/ startOffset).execute(context);
 
       expect(context.machineState.l2GasLeft).toEqual(
         l2GasBefore - AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS - AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS * values.length,
@@ -366,7 +366,7 @@ describe('Accrued Substate', () => {
     const instructions = [
       new EmitNoteHash(/*indirect=*/ 0, /*offset=*/ 0),
       new EmitNullifier(/*indirect=*/ 0, /*offset=*/ 0),
-      new EmitUnencryptedLog(/*indirect=*/ 0, /*offset=*/ 0, /*logSizeOffset=*/ 0),
+      new EmitUnencryptedLog(/*indirect=*/ 0, /*logSizeOffset=*/ 0, /*offset=*/ 0),
       new SendL2ToL1Message(/*indirect=*/ 0, /*recipientOffset=*/ 0, /*contentOffset=*/ 1),
     ];
 

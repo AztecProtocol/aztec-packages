@@ -1061,7 +1061,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         ['Public storage writes', () => new SStore(/*indirect=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 0)],
         ['New note hashes', () => new EmitNoteHash(/*indirect=*/ 0, /*noteHashOffset=*/ 0)],
         ['New nullifiers', () => new EmitNullifier(/*indirect=*/ 0, /*noteHashOffset=*/ 0)],
-        ['New unencrypted logs', () => new EmitUnencryptedLog(/*indirect=*/ 0, /*logOffset=*/ 0, /*logSizeOffest=*/ 1)],
+        ['New unencrypted logs', () => new EmitUnencryptedLog(/*indirect=*/ 0, /*logSizeOffest=*/ 1, /*logOffset=*/ 0)],
         [
           'New L1 to L2 messages',
           () => new SendL2ToL1Message(/*indirect=*/ 0, /*recipientOffset=*/ 0, /*contentOffest=*/ 0),

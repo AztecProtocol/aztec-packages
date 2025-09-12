@@ -387,8 +387,8 @@ sel_gas_sstore {
 #[SSTORE_DYN_L2_GAS_IS_ZERO]
 sel_execute_sstore * dynamic_l2_gas_factor = 0;
 
-sel_gas_emit_unencrypted_log * (/*log_size=*/ register[1] - dynamic_l2_gas_factor) = 0;
-sel_gas_emit_unencrypted_log * (/*log_size=*/ register[1] - dynamic_da_gas_factor) = 0;
+sel_gas_emit_unencrypted_log * (/*log_size=*/ register[0] - dynamic_l2_gas_factor) = 0;
+sel_gas_emit_unencrypted_log * (/*log_size=*/ register[0] - dynamic_da_gas_factor) = 0;
 
 /**************************************************************************************************
  *  Temporality group 5: Opcode execution

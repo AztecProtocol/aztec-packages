@@ -1142,12 +1142,10 @@ TEST_F(ExecutionSimulationTest, EmitUnencryptedLog)
 {
     MemoryAddress log_offset = 10;
     MemoryAddress log_size_offset = 20;
-    MemoryValue first_field = MemoryValue::from<FF>(42);
     MemoryValue log_size = MemoryValue::from<uint32_t>(10);
     AztecAddress address = 0xdeadbeef;
 
     EXPECT_CALL(context, get_memory);
-    EXPECT_CALL(memory, get(log_offset)).WillOnce(ReturnRef(first_field));
     EXPECT_CALL(memory, get(log_size_offset)).WillOnce(ReturnRef(log_size));
 
     EXPECT_CALL(context, get_address).WillOnce(ReturnRef(address));
@@ -1156,7 +1154,7 @@ TEST_F(ExecutionSimulationTest, EmitUnencryptedLog)
 
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ log_size.as<uint32_t>(), log_size.as<uint32_t>() }));
 
-    execution.emit_unencrypted_log(context, log_offset, log_size_offset);
+    execution.emit_unencrypted_log(context, log_size_offset, log_offset);
 }
 
 TEST_F(ExecutionSimulationTest, SendL2ToL1Msg)

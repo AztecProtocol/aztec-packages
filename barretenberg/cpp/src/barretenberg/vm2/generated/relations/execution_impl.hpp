@@ -178,14 +178,14 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_gas_emit_unencrypted_log)) *
-                   (static_cast<View>(in.get(C::execution_register_1_)) -
+                   (static_cast<View>(in.get(C::execution_register_0_)) -
                     static_cast<View>(in.get(C::execution_dynamic_l2_gas_factor)));
         std::get<16>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_gas_emit_unencrypted_log)) *
-                   (static_cast<View>(in.get(C::execution_register_1_)) -
+                   (static_cast<View>(in.get(C::execution_register_0_)) -
                     static_cast<View>(in.get(C::execution_dynamic_da_gas_factor)));
         std::get<17>(evals) += (tmp * scaling_factor);
     }

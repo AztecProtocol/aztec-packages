@@ -992,14 +992,13 @@ void Execution::to_radix_be(ContextInterface& context,
     }
 }
 
-void Execution::emit_unencrypted_log(ContextInterface& context, MemoryAddress log_offset, MemoryAddress log_size_offset)
+void Execution::emit_unencrypted_log(ContextInterface& context, MemoryAddress log_size_offset, MemoryAddress log_offset)
 {
     constexpr auto opcode = ExecutionOpCode::EMITUNENCRYPTEDLOG;
     auto& memory = context.get_memory();
 
-    auto first_field = memory.get(log_offset);
     auto log_size = memory.get(log_size_offset);
-    set_and_validate_inputs(opcode, { first_field, log_size });
+    set_and_validate_inputs(opcode, { log_size });
     uint32_t log_size_int = log_size.as<uint32_t>();
 
     get_gas_tracker().consume_gas({ .l2Gas = log_size_int, .daGas = log_size_int });
