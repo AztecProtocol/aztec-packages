@@ -160,21 +160,55 @@ template <typename FF> struct GateSeparatorPolynomial {
         size_t iterations_per_thread = pow_size / num_threads;               // actual iterations per thread
         const size_t num_betas_per_thread = numeric::get_msb(iterations_per_thread);
 
-        std::vector<FF> thread_init_beta_products(num_threads);
-        thread_init_beta_products.at(0) = 1;
+        // Explanations of the algorithm:
+        // The product of the betas at index i (beta_products[i]) contains the multiplicative factor betas[j] if and
+        // only if the jth bit of i is 1 (j starting with 0 for the least significant bit). For instance, i = 13 = 1101
+        // in binary, so the product is betas[0] * betas[2] * betas[3]. Observe that if we toggle the kth bit of i (0 to
+        // 1), i.e., we add 2^k to i, then the product is multiplied by betas[k]: beta_products[i + 2^k] =
+        // beta_products[i] * betas[k]. If we know the products for the interval of indices [0, 2^k), we can compute all
+        // the products for the interval of indices [2^k, 2^(k+1)) by multiplying each element by betas[k]. Iteratively,
+        // starting with beta_products[0] = 1, we can double the number of computed products at each iteration by
+        // multiplying the previous products by betas[k]. We first multiply beta_products[0] = 1 by betas[0], then we
+        // multiply beta_products[0] and beta_products[1] by betas[1], etc...
+        //
+        // We distribute the computation of the beta_products evenly across threads, i.e., thread number
+        // thread_idx will handle the interval of indices [thread_idx * iterations_per_thread, (thread_idx + 1) *
+        // iterations_per_thread). Note that for a given thread, all the processed indices have the same
+        // prefix in binary. Therefore, each beta_product of the thread is a multiple of this "prefix product". The
+        // successive products are then by the above algorithm whereby we double the interval at each iteration
+        // and multiply by the new beta to process the suffix bits. The difference is that we initialize the first
+        // product with this "prefix product" instead of 1.
 
+        // Compute the prefix products for each thread
+        std::vector<FF> thread_prefix_beta_products(num_threads);
+        thread_prefix_beta_products.at(0) = 1;
+
+        // Same algorithm applies for the prefix products. The difference is that we start at a beta which is not the
+        // first one (index 0), but the one at index num_betas_per_thread. We process the high bits only.
+        // Example: If num_betas_per_thread = 3, we compute after the first iteration:
+        //          (1, beta_3)
+        // 2nd iteration: (1, beta_3, beta_4, beta_3 * beta_4)
+        // 3nd iteration: (1, beta_3, beta_4, beta_3 * beta_4, beta_5, beta_3 * beta_5, beta_4 * beta_5, beta_3 * beta_4
+        // * beta_5)
+        // etc ....
         for (size_t beta_idx = num_betas_per_thread, window_size = 1; beta_idx < log_num_monomials;
              beta_idx++, window_size <<= 1) {
             const auto& beta = betas.at(beta_idx);
             for (size_t j = 0; j < window_size; j++) {
-                thread_init_beta_products.at(window_size + j) = beta * thread_init_beta_products.at(j);
+                thread_prefix_beta_products.at(window_size + j) = beta * thread_prefix_beta_products.at(j);
             }
         }
 
         parallel_for(num_threads, [&](size_t thread_idx) {
             size_t start = thread_idx * iterations_per_thread;
-            beta_products.at(start) = thread_init_beta_products.at(thread_idx);
+            beta_products.at(start) = thread_prefix_beta_products.at(thread_idx);
 
+            // Compute the suffix products for each thread
+            // Example: Assume we start with the prefix product = beta_3 * beta_5
+            // After the first iteration, we get: (beta_3 * beta_5, beta_0 * beta_3 * beta_5)
+            // 2nd iteration: (beta_3 * beta_5, beta_0 * beta_3 * beta_5, beta_1 * beta_3 * beta_5, beta_0 * beta_1 *
+            // beta_3 * beta_5)
+            // etc ...
             for (size_t beta_idx = 0, window_size = 1; beta_idx < num_betas_per_thread; beta_idx++, window_size <<= 1) {
                 const auto& beta = betas.at(beta_idx);
                 for (size_t j = 0; j < window_size; j++) {
