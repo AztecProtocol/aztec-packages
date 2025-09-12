@@ -165,3 +165,16 @@ unconstrained fn compute_var_args_hash() {
     dep::std::println(hash);
     assert(hash == 0x19b0d74feb06ebde19edd85a28986c97063e84b3b351a8b666c7cac963ce655f);
 }
+
+#[test]
+unconstrained fn public_bytecode_commitment() {
+    let mut input = [0; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS];
+    let len = 99;
+    for i in 1..len + 1 {
+        input[i] = i as Field;
+    }
+    input[0] = (len as Field) * 31;
+    let hash = compute_public_bytecode_commitment(input);
+    dep::std::println(hash);
+    assert(hash == 0x16d621c3387156ef53754679e7b2c9be8f0bceeb44aa59a74991df3b0b42a0bf);
+}
