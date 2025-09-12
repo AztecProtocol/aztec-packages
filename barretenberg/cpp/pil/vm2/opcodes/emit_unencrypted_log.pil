@@ -173,7 +173,7 @@ namespace emit_unencrypted_log;
     start * seen_wrong_tag = 0;
 
     // Conditional assignment:
-    // if next_wrong_tag { next_seen_wrong_tag = 1 }
+    // if WRONG_NEXT_TAG { next_seen_wrong_tag = 1 }
     // else { next_seen-wrong_tag = seen_wrong_tag }
     #[WRONG_TAG_CHECK]
     NOT_END * ((1 - seen_wrong_tag) * WRONG_NEXT_TAG + seen_wrong_tag - seen_wrong_tag') = 0;
@@ -184,24 +184,18 @@ namespace emit_unencrypted_log;
     // Union error handling
 
     // error = error_out_of_bounds | error_too_many_logs | error_tag_mismatch | is_static
-    // we split the above computation in 2 to reduce the degree of the full relation (7)
+    // we split the above computation in 2 to reduce the degree of the full relation
     pol commit error_too_many_logs_wrong_tag_is_static;
     start * ((1 - error_too_many_log_fields) * (1 - error_tag_mismatch) * (1 - is_static) - (1 - error_too_many_logs_wrong_tag_is_static)) = 0;
     start * ((1 - error_out_of_bounds) * (1 - error_too_many_logs_wrong_tag_is_static) - (1 - error)) = 0;
 
-    // We write to public inputs if we don't have an error at all and if discard is off
-    pol commit sel_should_write_to_public_inputs;
-    start * ((1 - error) * (1 - discard) - sel_should_write_to_public_inputs) = 0;
-    #[SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY]
-    NOT_END * (sel_should_write_to_public_inputs' - sel_should_write_to_public_inputs) = 0;
-
     // Increase next num logs emitted if error is off
-    start * (prev_num_unencrypted_log_fields + (1 - error) * (TOTAL_LOG_FIELDS_SIZE) - next_num_unencrypted_log_fields) = 0;
+    start * (prev_num_unencrypted_log_fields + (1 - error) * TOTAL_LOG_FIELDS_SIZE - next_num_unencrypted_log_fields) = 0;
 
     // =============== SEQUENCE ===============
     // We write the log length in the start row
     pol IS_WRITE_LOG_LENGTH = start;
-    // is_write_contract_address will only be on in the row after start
+    // is_write_contract_address will only be on in the row after start. There will always be a row after start, the contract address one.
     pol commit is_write_contract_address;
     is_write_contract_address * (1 - is_write_contract_address) = 0;
     start = is_write_contract_address';
@@ -260,6 +254,13 @@ namespace emit_unencrypted_log;
     sel * (tag * (correct_tag * (1 - tag_inv) + tag_inv) - 1 + correct_tag) = 0;
 
     // =============== WRITE TO PI ===============
+
+    // We write to public inputs if we don't have an error at all and if discard is off
+    pol commit sel_should_write_to_public_inputs;
+    start * ((1 - error) * (1 - discard) - sel_should_write_to_public_inputs) = 0;
+    #[SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY]
+    NOT_END * (sel_should_write_to_public_inputs' - sel_should_write_to_public_inputs) = 0;
+
     pol commit public_inputs_index;
 
     start * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX + constants.PUBLIC_LOGS_HEADER_LENGTH + prev_num_unencrypted_log_fields - public_inputs_index) = 0;
