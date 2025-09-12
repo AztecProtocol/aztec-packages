@@ -108,6 +108,7 @@ describe('prover-node', () => {
       txGatheringMaxParallelRequestsPerNode: 5,
       proverNodeFailedEpochStore: undefined,
       txGatheringTimeoutMs: 1000,
+      proverNodeEpochProvingDelayMs: undefined,
     };
 
     // World state returns a new mock db every time it is asked to fork
