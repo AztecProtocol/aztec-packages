@@ -155,13 +155,14 @@ case "$cmd" in
     prep_vars
     # Spin up ec2 instance and run the nightly flow.
     run() {
-      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh ci-nightly'"
+      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
     }
     export -f run
     # We need to run the release flow on both x86 and arm64.
     parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
-      'run x-nightly amd64' \
-      'run a-nightly arm64' | DUP=1 cache_log "Nightly CI run" $RUN_ID
+      'run x-nightly amd64 ci-full-no-cache' \
+      'run x-nightly amd64 ci-nightly' \
+      'run a-nightly arm64 ci-nightly' | DUP=1 cache_log "Nightly CI run" $RUN_ID
     ;;
   "release")
     prep_vars
