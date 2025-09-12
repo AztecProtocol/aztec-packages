@@ -157,10 +157,13 @@ case "$cmd" in
     run() {
       JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
     }
+    # https://github.com/AztecProtocol/aztec-packages/pull/17025 introduced a NO_CACHE=1 nightly check.
+    # Reasoning is there. This takes a while, but does not interrupt the nightly release flow itself.
     export -f run
     # We need to run the release flow on both x86 and arm64.
     parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
       'run x-nightly amd64 ci-full-no-cache' \
+      'run x-nightly arm64 ci-full-no-cache' \
       'run x-nightly amd64 ci-nightly' \
       'run a-nightly arm64 ci-nightly' | DUP=1 cache_log "Nightly CI run" $RUN_ID
     ;;
