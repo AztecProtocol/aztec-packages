@@ -222,7 +222,7 @@ resource "helm_release" "releases" {
   upgrade_install  = true
   force_update     = true
   recreate_pods    = true
-  reuse_values     = true
+  reuse_values     = false
   timeout          = 600
   wait             = true
   wait_for_jobs    = true
