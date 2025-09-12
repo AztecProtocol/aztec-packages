@@ -526,8 +526,6 @@ void ExecutionTraceBuilder::process(
                               { C::execution_sel_use_num_limbs, num_limbs > num_p_limbs ? 1 : 0 },
                               // Don't set dyn gas factor here since already set in process_gas
                           } });
-            } else if (exec_opcode == ExecutionOpCode::EMITUNENCRYPTEDLOG) {
-                trace.set(C::execution_dynamic_da_gas_factor, row, registers[1].as<uint32_t>());
             }
         }
 

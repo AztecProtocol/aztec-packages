@@ -282,8 +282,8 @@ describe('Accrued Substate', () => {
       const buf = Buffer.from([
         EmitUnencryptedLog.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('1234', 'hex'), // log offset
         ...Buffer.from('a234', 'hex'), // length offset
+        ...Buffer.from('1234', 'hex'), // log offset
       ]);
       const inst = new EmitUnencryptedLog(/*indirect=*/ 0x01, /*lengthOffset=*/ 0xa234, /*offset=*/ 0x1234);
 
