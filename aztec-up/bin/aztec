@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-NETWORK=${NETWORK:-}
-VERSION=${VERSION:-${NETWORK:-"latest"}}
+export AZTEC_PATH="${AZTEC_PATH:-$HOME/.aztec}"
+export VERSION="${VERSION:-$(cat "$AZTEC_PATH/default_version")}"
+export DOCKER_REPO="${DOCKER_REPO:-"aztecprotocol/aztec"}"
 
-DOCKER_REPO=${DOCKER_REPO:-"aztecprotocol/aztec"}
 # Take copy of command-line arguments, so we can mutate to parse.
 if [ $# -eq 0 ]; then
   args=("--help")
 else
   args=("$@")
 fi
+
 while [ "$#" -gt 0 ]; do
   case $1 in
     -p | --port)
@@ -33,14 +34,6 @@ while [ "$#" -gt 0 ]; do
       ;;
     --admin-port)
       ADMIN_PORT="$2"
-      shift 2
-      ;;
-    --pxe.network)
-      # Set version to user-specified network (e.g. 'devnet')
-      VERSION="$2"
-      echo "Using aztecprotocol/aztec:$VERSION"
-      # Turn on proving if connecting to a network.
-      export PXE_PROVER_ENABLED=1
       shift 2
       ;;
     --help)
