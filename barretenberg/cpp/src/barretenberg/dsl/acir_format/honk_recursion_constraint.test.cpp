@@ -140,7 +140,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
     template <typename BuilderType>
     BuilderType create_outer_circuit(std::vector<InnerBuilder>& inner_circuits,
                                      bool dummy_witnesses = false,
-                                     bool predicate_val = false)
+                                     bool predicate_val = true)
     {
         std::vector<RecursionConstraint> honk_recursion_constraints;
 

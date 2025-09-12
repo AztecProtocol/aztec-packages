@@ -213,12 +213,21 @@ std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construc
         builder.add_public_variable(fr::random_element());
     }
 
-    // Construct an Oink proof
-
+    // Add the default pairing points
     stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
+
+    if constexpr (HasIPAAccumulator<Flavor>) {
+        // Create a fake ipa claim and proof
+        auto [stdlib_opening_claim, ipa_proof] =
+            IPA<stdlib::grumpkin<typename Flavor::CircuitBuilder>>::create_fake_ipa_claim_and_proof(builder);
+        stdlib_opening_claim.set_public();
+        builder.ipa_proof = ipa_proof;
+    }
+
     // prove the circuit constructed above
     // Create the decider proving key
     auto decider_pk = std::make_shared<DeciderProvingKey>(builder);
+
     // Construct the Ultra VK
     auto vk = std::make_shared<VerificationKey>(decider_pk->get_precomputed());
     InnerProver prover(decider_pk, vk);
