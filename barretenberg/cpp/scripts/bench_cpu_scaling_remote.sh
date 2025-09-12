@@ -127,6 +127,9 @@ for cpu_count in "${CPU_COUNTS[@]}"; do
     echo -e "${CYAN}Executing on remote via benchmark_remote.sh...${NC}"
     start_time=$(date +%s.%N)
 
+    # Clean up any stale benchmark file from previous runs on remote
+    ssh $BB_SSH_KEY $BB_SSH_INSTANCE "rm -f /tmp/bench_${cpu_count}.json" 2>/dev/null
+
     # Use benchmark_remote.sh to execute on remote with --bench_out for JSON output
     # The benchmark_remote.sh script handles locking and setup
     # Use tee to show output in real-time AND save to log file
@@ -135,6 +138,9 @@ for cpu_count in "${CPU_COUNTS[@]}"; do
     
     # Retrieve the JSON file from remote
     ssh $BB_SSH_KEY $BB_SSH_INSTANCE "cat /tmp/bench_${cpu_count}.json" > "$bench_json_file" 2>/dev/null
+    
+    # Clean up the remote benchmark file after retrieval
+    ssh $BB_SSH_KEY $BB_SSH_INSTANCE "rm -f /tmp/bench_${cpu_count}.json" 2>/dev/null
 
     end_time=$(date +%s.%N)
     wall_time=$(awk -v e="$end_time" -v s="$start_time" 'BEGIN{printf "%.2f", e-s}')
@@ -289,5 +295,9 @@ if [ "${#ALL_SPEEDUPS[@]}" -gt 1 ]; then
         echo -e "  At ${last_cpu} CPUs: ${actual_efficiency}% efficiency"
     fi
 fi
+
+# Clean up all temporary benchmark files on remote
+echo -e "${CYAN}Cleaning up remote temporary files...${NC}"
+ssh $BB_SSH_KEY $BB_SSH_INSTANCE "rm -f /tmp/bench_*.json" 2>/dev/null
 
 echo ""
