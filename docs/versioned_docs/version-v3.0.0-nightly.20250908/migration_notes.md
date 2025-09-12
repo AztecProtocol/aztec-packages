@@ -56,9 +56,9 @@ The private event emission API has been significantly reworked to provide cleare
 1. `emit_event_in_private_log` has been renamed to `emit_event_in_private` and now takes a `delivery_mode` parameter instead of `constraints`
 2. `emit_event_as_offchain_message` has been removed in favor of using `emit_event_in_private` with `MessageDelivery.UNCONSTRAINED_OFFCHAIN`
 3. `PrivateLogContent` enum has been replaced with `MessageDelivery` enum with the following values:
-   - `CONSTRAINED_ONCHAIN`: For on-chain delivery with cryptographic guarantees (replaces `CONSTRAINED_ENCRYPTION`)
-   - `UNCONSTRAINED_OFFCHAIN`: For off-chain delivery without constraints
-   - `UNCONSTRAINED_ONCHAIN`: For on-chain delivery without constraints (replaces `NO_CONSTRAINTS`)
+   - `CONSTRAINED_ONCHAIN`: For onchain delivery with cryptographic guarantees (replaces `CONSTRAINED_ENCRYPTION`)
+   - `UNCONSTRAINED_OFFCHAIN`: For offchain delivery without constraints
+   - `UNCONSTRAINED_ONCHAIN`: For onchain delivery without constraints (replaces `NO_CONSTRAINTS`)
 
 ### Contract functions can no longer be `pub` or `pub(crate)`
 
@@ -444,7 +444,7 @@ Aztec contracts have three kinds of functions: `#[private]`, `#[public]` and wha
     }
 ```
 
-Utility functions are standalone unconstrained functions that cannot be called from private or public functions: they are meant to be called by _applications_ to perform auxiliary tasks: query contract state (e.g. a token balance), process messages received off-chain, etc.
+Utility functions are standalone unconstrained functions that cannot be called from private or public functions: they are meant to be called by _applications_ to perform auxiliary tasks: query contract state (e.g. a token balance), process messages received offchain, etc.
 
 All functions in a `contract` block must now be marked as one of either `#[private]`, `#[public]`, `#[utility]`, `#[contract_library_method]`, or `#[test]`.
 

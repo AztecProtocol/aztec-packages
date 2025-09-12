@@ -1,7 +1,7 @@
 ---
 title: Note Discovery
 tags: [storage, concepts, advanced, notes]
-description: Understand how Aztec's note tagging system allows users to efficiently discover and decrypt notes that belong to them without relying on brute force or off-chain communication.
+description: Understand how Aztec's note tagging system allows users to efficiently discover and decrypt notes that belong to them without relying on brute force or offchain communication.
 sidebar_position: 3
 ---
 
@@ -13,9 +13,9 @@ Note discovery refers to the process of a user identifying and decrypting the [e
 
 In some existing protocols, the user downloads all possible notes and tries to decrypt each one. If the decryption succeeds, the user knows they own that note. However, this approach becomes exponentially more expensive as the network grows and more notes are created. It also introduces a third-party server to gather and trial-decrypt notes, which is an additional point of failure. Note that this note discovery technique is not currently implemented for Aztec.
 
-### Off-chain communication
+### offchain communication
 
-Another proposed solution is having the sender give the note content to the recipient via some off-chain communication. While it solves the brute force issue, it introduces reliance on side channels which we don't want in a self-sufficient network. This option incurs lower transaction costs because fewer logs needs to be posted on-chain. Aztec apps will be able to choose this method if they wish.
+Another proposed solution is having the sender give the note content to the recipient via some offchain communication. While it solves the brute force issue, it introduces reliance on side channels which we don't want in a self-sufficient network. This option incurs lower transaction costs because fewer logs needs to be posted onchain. Aztec apps will be able to choose this method if they wish.
 
 ## Aztec's solution: Note tagging
 

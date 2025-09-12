@@ -23,7 +23,7 @@ The structure of a contract class is defined as:
 | Field | Type | Description |
 |----------|----------|----------|
 | `version` | `u8` | Version identifier. Initially one, bumped for any changes to the contract class struct. |
-| `artifact_hash` | `Field` | Hash of the contract artifact. The specification of this hash is not enforced by the protocol. Should include commitments to utility function code and compilation metadata. Intended to be used by clients to verify that an off-chain fetched artifact matches a registered class. |
+| `artifact_hash` | `Field` | Hash of the contract artifact. The specification of this hash is not enforced by the protocol. Should include commitments to utility function code and compilation metadata. Intended to be used by clients to verify that an offchain fetched artifact matches a registered class. |
 | `private_functions` | [`PrivateFunction[]`](#private-function) | List of individual private functions, constructors included. |
 | `packed_public_bytecode` | `Field[]` | [Packed bytecode representation](../public-vm/bytecode-validation-circuit.md#packed-bytecode-representation) of the AVM bytecode for all public functions in this contract. |
 
@@ -257,7 +257,7 @@ The `ContractClassRegistry` will need to exist from the genesis of the Aztec Net
 
 ### Broadcast
 
-The `ContractClassRegistry` has an additional private `broadcast` functions that can be used for broadcasting on-chain the bytecode, both ACIR and Brillig, for private and utility functions in the contract. Any user can freely call this function. Given that ACIR and Brillig [do not have a circuit-friendly commitment](../bytecode/index.md), it is left up to nodes to perform this check.
+The `ContractClassRegistry` has an additional private `broadcast` functions that can be used for broadcasting onchain the bytecode, both ACIR and Brillig, for private and utility functions in the contract. Any user can freely call this function. Given that ACIR and Brillig [do not have a circuit-friendly commitment](../bytecode/index.md), it is left up to nodes to perform this check.
 
 Broadcasted function artifacts that do not match with their corresponding `artifact_hash`, or that reference a `contract_class_id` that has not been broadcasted, can be safely discarded.
 

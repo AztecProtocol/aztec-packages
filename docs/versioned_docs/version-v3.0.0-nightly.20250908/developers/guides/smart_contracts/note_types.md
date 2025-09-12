@@ -18,7 +18,7 @@ If you want to work with values, addresses or integers, you can check out [Value
 
 A note type can be defined with the macro `#[note]` used on a struct:
 
-```rust title="state_vars-CardNote" showLineNumbers 
+```rust title="state_vars-CardNote" showLineNumbers
 // We derive the Serialize trait because this struct is returned from a contract function. When returned,
 // the struct is serialized using the Serialize trait and added to a hasher via the `add_to_hasher` utility.
 // We use a hash rather than the serialized struct itself to keep circuit inputs constant.
@@ -48,7 +48,7 @@ Why is it delivering privacy from sender?
 Because a sender cannot derive a note nullifier.
 We could derive the nullifier based solely on the note itself (for example, by computing `hash([note.points, note.owner, note.randomness], NULLIFIER_SEPARATOR)`).
 This would work since the nullifier would be unique and only the note recipient could spend it (as contract logic typically only allows the note owner to obtain a note, e.g. from a `Map<...>`).
-However, if we did this, the sender could also derive the nullifier off-chain and monitor the nullifier tree for its inclusion, allowing them to determine when a note has been spent.
+However, if we did this, the sender could also derive the nullifier offchain and monitor the nullifier tree for its inclusion, allowing them to determine when a note has been spent.
 This would leak privacy.
 
 
@@ -60,7 +60,7 @@ Address notes hold one main property of the type `AztecAddress`. It also holds `
 
 This is the AddressNote:
 
-```rust title="address_note_def" showLineNumbers 
+```rust title="address_note_def" showLineNumbers
 #[derive(Eq, Packable)]
 #[note]
 pub struct AddressNote {
@@ -97,7 +97,7 @@ address_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v3
 
 ##### In your contract
 
-```rust title="addressnote_import" showLineNumbers 
+```rust title="addressnote_import" showLineNumbers
 use dep::address_note::address_note::AddressNote;
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-nightly.20250908/noir-projects/noir-contracts/contracts/app/escrow_contract/src/main.nr#L12-L14" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/escrow_contract/src/main.nr#L12-L14</a></sub></sup>
@@ -112,7 +112,7 @@ Creating a new `AddressNote` takes the following args:
 - `address` (`AztecAddress`): the address to store in the AddressNote
 - `owner` (`AztecAddress`): owner is the party whose nullifying key can be used to spend the note
 
-```rust title="addressnote_new" showLineNumbers 
+```rust title="addressnote_new" showLineNumbers
 let note = AddressNote::new(owner, owner);
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-nightly.20250908/noir-projects/noir-contracts/contracts/app/escrow_contract/src/main.nr#L26-L28" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/escrow_contract/src/main.nr#L26-L28</a></sub></sup>
@@ -124,7 +124,7 @@ In this example, `owner` is the `address` and the `npk_m_hash` of the donor was 
 
 This is the ValueNote struct:
 
-```rust title="value-note-def" showLineNumbers 
+```rust title="value-note-def" showLineNumbers
 #[derive(Eq, Packable)]
 #[note]
 pub struct ValueNote {
@@ -146,7 +146,7 @@ value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v3.0
 
 ##### In your contract
 
-```rust title="import_valuenote" showLineNumbers 
+```rust title="import_valuenote" showLineNumbers
 use dep::value_note::value_note::ValueNote;
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-nightly.20250908/noir-projects/noir-contracts/contracts/test/child_contract/src/main.nr#L15-L17" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/child_contract/src/main.nr#L15-L17</a></sub></sup>
@@ -161,7 +161,7 @@ Creating a new `ValueNote` takes the following args:
 - `value` (`Field`): the value of the ValueNote
 - `owner` (`AztecAddress`): owner is the party whose nullifying key can be used to spend the note
 
-```rust title="valuenote_new" showLineNumbers 
+```rust title="valuenote_new" showLineNumbers
 let note = ValueNote::new(new_value, owner);
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-nightly.20250908/noir-projects/noir-contracts/contracts/test/child_contract/src/main.nr#L61-L63" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/child_contract/src/main.nr#L61-L63</a></sub></sup>
@@ -173,7 +173,7 @@ A user may have multiple notes in a set that all refer to the same content (e.g.
 
 It takes one argument - the set of notes.
 
-```rust title="get_balance" showLineNumbers 
+```rust title="get_balance" showLineNumbers
 // Return the sum of all notes in the set.
 balance_utils::get_balance(owner_balance)
 ```
@@ -186,7 +186,7 @@ This can only be used in an unconstrained function.
 
 Both `increment` and `decrement` functions take the same args:
 
-```rust title="increment_args" showLineNumbers 
+```rust title="increment_args" showLineNumbers
 balance: PrivateSet<ValueNote, &mut PrivateContext>,
 amount: Field,
 ```
@@ -195,7 +195,7 @@ amount: Field,
 
 Note that this will create a new note in the set of notes passed as the first argument.
 For example:
-```rust title="increment_valuenote" showLineNumbers 
+```rust title="increment_valuenote" showLineNumbers
 increment(storage.notes.at(owner), value, owner);
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-nightly.20250908/noir-projects/noir-contracts/contracts/test/benchmarking_contract/src/main.nr#L28-L30" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/benchmarking_contract/src/main.nr#L28-L30</a></sub></sup>
@@ -209,7 +209,7 @@ Using the `#[custom_note]` macro allows you to define your own note hash and nul
 
 The TransparentNote in an example token contract demonstrates how you can generate a custom note hash and nullifiers.
 
-```rust title="transparent_note_impl" showLineNumbers 
+```rust title="transparent_note_impl" showLineNumbers
 impl NoteHash for TransparentNote {
     fn compute_note_hash(self, storage_slot: Field) -> Field {
         let inputs = self.pack().concat([storage_slot]);

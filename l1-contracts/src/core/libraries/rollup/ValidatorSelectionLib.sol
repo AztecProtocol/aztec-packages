@@ -39,7 +39,7 @@ import {TransientSlot} from "@oz/utils/TransientSlot.sol";
  *         - Committee size is configurable (targetCommitteeSize) but validators must meet this minimum
  *         - Selection uses cryptographic randomness (prevrandao + epoch)
  *         - Committee remains stable throughout the entire epoch for consistency
- *         - Committee commitment is stored on-chain and validated against reconstructed committees
+ *         - Committee commitment is stored onchain and validated against reconstructed committees
  *
  *      2. Proposer Selection:
  *         - For each slot within an epoch, one committee member is selected as the proposer (this may change)

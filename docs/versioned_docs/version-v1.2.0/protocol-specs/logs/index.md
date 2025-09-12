@@ -6,7 +6,7 @@ title: Logs
 <!-- We have a DoS problem, if a user sends a huge, malicious log preimage which DOES NOT hash to the logs_hash in the public inputs. The sequencer wastes time computing the hash, but cannot include the hash in their tx. -->
 <!-- TODO: completely overhaul this, it's been incorrect for a long time. -->
 
-Logs on Aztec are similar to logs on Ethereum, enabling smart contracts to convey arbitrary data to external entities. Offchain applications can use logs to interpret events that have occurred on-chain. There are three types of log:
+Logs on Aztec are similar to logs on Ethereum, enabling smart contracts to convey arbitrary data to external entities. Offchain applications can use logs to interpret events that have occurred onchain. There are three types of log:
 
 - [Unencrypted log](#unencrypted-log).
 - [Encrypted log](#encrypted-log).
@@ -56,7 +56,7 @@ A function can emit an arbitrary number of logs, provided they don't exceed the 
 
 <!-- TODO: rework the below when logs are fields, and raw logs are appended to blobs. -->
 
-To minimize the on-chain verification data size, protocol circuits aggregate log hashes. The end result is a single hash within the base rollup proof, encompassing all logs of the same type.
+To minimize the onchain verification data size, protocol circuits aggregate log hashes. The end result is a single hash within the base rollup proof, encompassing all logs of the same type.
 
 Each protocol circuit outputs two values for each log type:
 
@@ -65,7 +65,7 @@ Each protocol circuit outputs two values for each log type:
 
 Both the `accumulated_logs_hash` and `accumulated_logs_length` for each type are included in the base rollup's `txs_effect_hash`. When rolling up to merge and root circuits, the two input proof's `txs_effect_hash`es are hashed together to form the new value of `txs_effect_hash`.
 
-When publishing a block on L1, the raw logs of each type and their lengths are provided (**Availability**), hashed and accumulated into each respective `accumulated_logs_hash` and `accumulated_logs_length`, then included in the on-chain recalculation of `txs_effect_hash`. If this value doesn't match the one from the rollup circuits, the block will not be valid (**Immutability**).
+When publishing a block on L1, the raw logs of each type and their lengths are provided (**Availability**), hashed and accumulated into each respective `accumulated_logs_hash` and `accumulated_logs_length`, then included in the onchain recalculation of `txs_effect_hash`. If this value doesn't match the one from the rollup circuits, the block will not be valid (**Immutability**).
 
 <!--
 In cases where two proofs are combined to form a single proof, the _accumulated_logs_hash_ and _accumulated_logs_length_ from the two child proofs must be merged into one accumulated value:
