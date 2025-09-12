@@ -25,7 +25,7 @@ function stringArrayToFields(arr: string[]): Fr[] {
   return arr.map(stringToField);
 }
 
-export const DEFAULT_TIMESTAMP: UInt64 = 99833n;
+const DEFAULT_TIMESTAMP: UInt64 = 99833n;
 
 let STATE_MANAGER: PublicPersistableStateManager | undefined;
 
@@ -75,7 +75,7 @@ async function executeBytecodeBase64(
   return { reverted: results.reverted, output: results.output };
 }
 
-async function processJson(jsonLine: string): Promise<void> {
+async function executeFromJson(jsonLine: string): Promise<void> {
   try {
     const input = JSON.parse(jsonLine.trim());
     if (!input.bytecode || !input.inputs) {
@@ -96,7 +96,7 @@ async function processJson(jsonLine: string): Promise<void> {
 }
 
 // Read json line-by-line from stdin {"bytecode": "...", "inputs": ["1", "2", ...]}
-// Process it and print the result of the execution to stdout {"reverted":false,"output":["0x0000000000000000000000000000000000000000000000000000000000000000"]}
+// Process it and print the result of the execution to stdout {"reverted":false,"output":["0x0..."]}
 async function mainLoop() {
   await init();
   const rl = readline.createInterface({
@@ -106,7 +106,7 @@ async function mainLoop() {
   });
   rl.on('line', (line: string) => {
     if (line.trim()) {
-      void processJson(line);
+      void executeFromJson(line);
     }
   });
   rl.on('close', () => {
