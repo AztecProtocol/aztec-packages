@@ -341,7 +341,8 @@ template <typename Fr>
 void Polynomial<Fr>::add_scaled_chunk(const ThreadChunk& chunk, PolynomialSpan<const Fr> other, Fr scaling_factor) &
 {
     for (size_t i : chunk.range(other.size())) {
-        at(i) += scaling_factor * other[i];
+        size_t actual_index = other.start_index + i;
+        at(actual_index) += scaling_factor * other[actual_index];
     }
 }
 
