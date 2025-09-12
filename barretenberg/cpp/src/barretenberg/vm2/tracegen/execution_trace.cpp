@@ -1157,8 +1157,8 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_internal_call_unwind_call_stack_settings_, InteractionType::LookupGeneric>()
         // Gas
         .add<lookup_gas_addressing_gas_read_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_gas_is_out_of_gas_l2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_gas_is_out_of_gas_da_settings, InteractionType::LookupGeneric>()
+        .add<lookup_gas_is_out_of_gas_l2_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_gas_is_out_of_gas_da_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         .add<lookup_execution_dyn_l2_factor_bitwise_settings, InteractionType::LookupGeneric>()
         // Gas - ToRadix BE
         .add<lookup_execution_check_radix_gt_256_settings, InteractionType::LookupGeneric>(Column::gt_sel)
@@ -1169,8 +1169,10 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_context_ctx_stack_rollback_settings, InteractionType::LookupGeneric>()
         .add<lookup_context_ctx_stack_return_settings, InteractionType::LookupGeneric>()
         // External Call
-        .add<lookup_external_call_call_is_l2_gas_allocated_lt_left_settings, InteractionType::LookupGeneric>()
-        .add<lookup_external_call_call_is_da_gas_allocated_lt_left_settings, InteractionType::LookupGeneric>()
+        .add<lookup_external_call_call_is_l2_gas_allocated_lt_left_settings, InteractionType::LookupGeneric>(
+            Column::gt_sel)
+        .add<lookup_external_call_call_is_da_gas_allocated_lt_left_settings, InteractionType::LookupGeneric>(
+            Column::gt_sel)
         // Dispatch to gadget sub-traces
         .add<perm_execution_dispatch_keccakf1600_settings, InteractionType::Permutation>()
         // GetEnvVar opcode

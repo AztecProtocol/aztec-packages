@@ -27,7 +27,7 @@ da_gas_left = sel_enter_call * (da_gas_limit - da_gas_used);
 pol commit call_is_l2_gas_allocated_lt_left; // Guaranteed to be boolean through the gt lookup. (provided that sel_enter_call == 1)
 
 #[CALL_IS_L2_GAS_ALLOCATED_LT_LEFT]
-sel_enter_call { l2_gas_left, register[0], call_is_l2_gas_allocated_lt_left } in gt.sel { gt.input_a, gt.input_b, gt.res };
+sel_enter_call { l2_gas_left, register[0], call_is_l2_gas_allocated_lt_left } in gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
 // next row's l2_gas_limit = if call_is_l2_gas_allocated_lt_left { register[0] } else { l2_gas_left }
 sel_enter_call * ((register[0] - l2_gas_left) * call_is_l2_gas_allocated_lt_left + l2_gas_left - l2_gas_limit') = 0;
@@ -40,7 +40,7 @@ sel_enter_call * ((register[0] - l2_gas_left) * call_is_l2_gas_allocated_lt_left
 pol commit call_is_da_gas_allocated_lt_left; // Guaranteed to be boolean through the gt lookup. (provided that sel_enter_call == 1)
 
 #[CALL_IS_DA_GAS_ALLOCATED_LT_LEFT]
-sel_enter_call { da_gas_left, register[1], call_is_da_gas_allocated_lt_left } in gt.sel { gt.input_a, gt.input_b, gt.res };
+sel_enter_call { da_gas_left, register[1], call_is_da_gas_allocated_lt_left } in gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
 // next row's da_gas_limit = if call_is_da_gas_allocated_lt_left { register[1] } else { da_gas_left }
 sel_enter_call * ((register[1] - da_gas_left) * call_is_da_gas_allocated_lt_left + da_gas_left - da_gas_limit') = 0;
