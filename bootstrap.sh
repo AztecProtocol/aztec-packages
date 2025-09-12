@@ -426,6 +426,16 @@ case "$cmd" in
     build
     test
     ;;
+  "ci-full-no-cache")
+    export CI=1
+    export USE_TEST_CACHE=0
+    export NO_CACHE=1
+    export CI_FULL=1
+    export ACCEPT_DISABLED_AVM_VK_TREE_ROOT=1
+    build
+    test
+    bench
+    ;;
   "ci-full")
     export CI=1
     export USE_TEST_CACHE=0
