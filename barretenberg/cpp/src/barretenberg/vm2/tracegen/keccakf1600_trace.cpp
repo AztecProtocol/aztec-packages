@@ -463,6 +463,13 @@ void process_single_slice(const simulation::KeccakF1600Event& event, bool write,
 void KeccakF1600TraceBuilder::process_permutation(
     const simulation::EventEmitterInterface<simulation::KeccakF1600Event>::Container& events, TraceContainer& trace)
 {
+    // Important to not set last to 1 in the first row if there are no events. Otherwise, the skippable condition
+    // would be skipped wrongly as the sub-relation last * (1 - last) = 0 cannot be satisified (after the
+    // randomization process happening in the sumcheck protocol).
+    if (events.empty()) {
+        return;
+    }
+
     trace.set(C::keccakf1600_last, 0, 1);
 
     constexpr MemoryAddress HIGHEST_SLICE_ADDRESS = AVM_HIGHEST_MEM_ADDRESS - AVM_KECCAKF1600_STATE_SIZE + 1;
@@ -630,6 +637,13 @@ void KeccakF1600TraceBuilder::process_permutation(
 void KeccakF1600TraceBuilder::process_memory_slices(
     const simulation::EventEmitterInterface<simulation::KeccakF1600Event>::Container& events, TraceContainer& trace)
 {
+    // Important to not set last or ctr_end to 1 in the first row if there are no events. Otherwise, the skippable
+    // condition would be skipped wrongly as the sub-relation ctr_end * (1 - ctr_end) = 0 cannot be satisified (after
+    // the randomization process happening in the sumcheck protocol).
+    if (events.empty()) {
+        return;
+    }
+
     trace.set(0,
               { {
                   { C::keccak_memory_last, 1 },

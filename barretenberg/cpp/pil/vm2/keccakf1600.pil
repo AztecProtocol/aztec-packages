@@ -74,7 +74,7 @@ sel * (1 - sel) = 0;
 
 // No relations will be checked if this identity is satisfied.
 #[skippable_if]
-sel + last = 0;
+sel = 0;
 
 // error is defined below after round function
 pol commit sel_no_error;
