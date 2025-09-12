@@ -212,6 +212,16 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     expect(results.output).toEqual([new Fr(0)]);
   });
 
+  it('Should handle calldata oracle', async () => {
+    const calldata: Fr[] = [new Fr(1), new Fr(2), new Fr(3)];
+    const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+
+    const bytecode = getAvmTestContractBytecode('assert_calldata_copy');
+    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+    expect(results.reverted).toBe(false);
+  });
+
   it('Should handle return oracle', async () => {
     const context = initContext();
 
