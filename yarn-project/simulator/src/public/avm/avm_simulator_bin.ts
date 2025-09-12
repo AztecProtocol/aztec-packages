@@ -79,7 +79,7 @@ async function processJson(jsonLine: string): Promise<void> {
   try {
     const input = JSON.parse(jsonLine.trim());
     if (!input.bytecode || !input.inputs) {
-      process.stderr.write('Error: JSON must contain "bytecode" and "inputs" fields\n');
+      process.stdout.write('Error: JSON must contain "bytecode" and "inputs" fields\n');
       return;
     }
     const calldata = stringArrayToFields(input.inputs);
@@ -91,7 +91,7 @@ async function processJson(jsonLine: string): Promise<void> {
       }) + '\n',
     );
   } catch (error) {
-    process.stderr.write(`Error: ${error}\n`);
+    process.stdout.write(`Error: ${error}\n`);
   }
 }
 
