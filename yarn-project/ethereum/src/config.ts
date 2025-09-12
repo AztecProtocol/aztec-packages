@@ -50,6 +50,8 @@ export type L1ContractsConfig = {
   slashingVetoer: EthAddress;
   /** How many slashing rounds back we slash (ie when slashing in round N, we slash for offenses committed during epochs of round N-offset) */
   slashingOffsetInRounds: number;
+  /** How long slashing can be disabled for in seconds when vetoer disables it */
+  slashingDisableDuration: number;
   /** Type of slasher proposer */
   slasherFlavor: 'empire' | 'tally' | 'none';
   /** Minimum amount that can be slashed in tally slashing */
@@ -93,6 +95,7 @@ export const DefaultL1ContractsConfig = {
   exitDelaySeconds: 2 * 24 * 60 * 60,
   slasherFlavor: 'tally' as const,
   slashingOffsetInRounds: 2,
+  slashingDisableDuration: 5 * 24 * 60 * 60, // 5 days in seconds
 } satisfies L1ContractsConfig;
 
 const LocalGovernanceConfiguration = {
@@ -384,6 +387,11 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     parseEnv: (val: string) => EthAddress.fromString(val),
     defaultValue: DefaultL1ContractsConfig.slashingVetoer,
   },
+  slashingDisableDuration: {
+    env: 'AZTEC_SLASHING_DISABLE_DURATION',
+    description: 'How long slashing can be disabled for in seconds when vetoer disables it',
+    ...numberConfigHelper(DefaultL1ContractsConfig.slashingDisableDuration),
+  },
   governanceProposerQuorum: {
     env: 'AZTEC_GOVERNANCE_PROPOSER_QUORUM',
     description: 'The governance proposing quorum',
@@ -457,7 +465,7 @@ export function validateConfig(config: Omit<L1ContractsConfig, keyof L1TxUtilsCo
   }
 
   // EmpireBase constructor validations for governance/slashing proposers
-  // From: require(QUORUM_SIZE > ROUND_SIZE / 2, Errors.GovernanceProposer__InvalidQuorumAndRoundSize(QUORUM_SIZE, ROUND_SIZE));
+  // From: require(QUORUM_SIZE > ROUND_SIZE / 2, Errors.EmpireBase__InvalidQuorumAndRoundSize(QUORUM_SIZE, ROUND_SIZE));
   const { governanceProposerQuorum, governanceProposerRoundSize } = config;
   if (
     governanceProposerQuorum !== undefined &&
@@ -468,7 +476,7 @@ export function validateConfig(config: Omit<L1ContractsConfig, keyof L1TxUtilsCo
     );
   }
 
-  // From: require(QUORUM_SIZE <= ROUND_SIZE, Errors.GovernanceProposer__QuorumCannotBeLargerThanRoundSize(QUORUM_SIZE, ROUND_SIZE));
+  // From: require(QUORUM_SIZE <= ROUND_SIZE, Errors.EmpireBase__QuorumCannotBeLargerThanRoundSize(QUORUM_SIZE, ROUND_SIZE));
   if (governanceProposerQuorum !== undefined && governanceProposerQuorum > governanceProposerRoundSize) {
     errors.push(
       `governanceProposerQuorum (${governanceProposerQuorum}) cannot be larger than governanceProposerRoundSize (${governanceProposerRoundSize})`,

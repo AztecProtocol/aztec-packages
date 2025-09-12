@@ -60,54 +60,86 @@ void range_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::range_check_is_lte_u16)) *
-                   (FF(1) - static_cast<View>(in.get(C::range_check_is_lte_u16)));
+        auto tmp = static_cast<View>(in.get(C::range_check_sel_keccak)) *
+                   (FF(1) - static_cast<View>(in.get(C::range_check_sel_keccak)));
         std::get<1>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::range_check_is_lte_u32)) *
-                   (FF(1) - static_cast<View>(in.get(C::range_check_is_lte_u32)));
+        auto tmp = static_cast<View>(in.get(C::range_check_sel_gt)) *
+                   (FF(1) - static_cast<View>(in.get(C::range_check_sel_gt)));
         std::get<2>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::range_check_is_lte_u48)) *
-                   (FF(1) - static_cast<View>(in.get(C::range_check_is_lte_u48)));
+        auto tmp = static_cast<View>(in.get(C::range_check_sel_memory)) *
+                   (FF(1) - static_cast<View>(in.get(C::range_check_sel_memory)));
         std::get<3>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::range_check_is_lte_u64)) *
-                   (FF(1) - static_cast<View>(in.get(C::range_check_is_lte_u64)));
+        auto tmp = static_cast<View>(in.get(C::range_check_sel_alu)) *
+                   (FF(1) - static_cast<View>(in.get(C::range_check_sel_alu)));
         std::get<4>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::range_check_is_lte_u80)) *
-                   (FF(1) - static_cast<View>(in.get(C::range_check_is_lte_u80)));
+        auto tmp =
+            (static_cast<View>(in.get(C::range_check_sel_keccak)) + static_cast<View>(in.get(C::range_check_sel_gt)) +
+             static_cast<View>(in.get(C::range_check_sel_memory)) + static_cast<View>(in.get(C::range_check_sel_alu))) *
+            (FF(1) - static_cast<View>(in.get(C::range_check_sel)));
         std::get<5>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::range_check_is_lte_u96)) *
-                   (FF(1) - static_cast<View>(in.get(C::range_check_is_lte_u96)));
+        auto tmp = static_cast<View>(in.get(C::range_check_is_lte_u16)) *
+                   (FF(1) - static_cast<View>(in.get(C::range_check_is_lte_u16)));
         std::get<6>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::range_check_is_lte_u112)) *
-                   (FF(1) - static_cast<View>(in.get(C::range_check_is_lte_u112)));
+        auto tmp = static_cast<View>(in.get(C::range_check_is_lte_u32)) *
+                   (FF(1) - static_cast<View>(in.get(C::range_check_is_lte_u32)));
         std::get<7>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::range_check_is_lte_u128)) *
-                   (FF(1) - static_cast<View>(in.get(C::range_check_is_lte_u128)));
+        auto tmp = static_cast<View>(in.get(C::range_check_is_lte_u48)) *
+                   (FF(1) - static_cast<View>(in.get(C::range_check_is_lte_u48)));
         std::get<8>(evals) += (tmp * scaling_factor);
     }
-    { // IS_LTE_MUTUALLY_EXCLUSIVE
+    {
         using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::range_check_is_lte_u64)) *
+                   (FF(1) - static_cast<View>(in.get(C::range_check_is_lte_u64)));
+        std::get<9>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::range_check_is_lte_u80)) *
+                   (FF(1) - static_cast<View>(in.get(C::range_check_is_lte_u80)));
+        std::get<10>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::range_check_is_lte_u96)) *
+                   (FF(1) - static_cast<View>(in.get(C::range_check_is_lte_u96)));
+        std::get<11>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::range_check_is_lte_u112)) *
+                   (FF(1) - static_cast<View>(in.get(C::range_check_is_lte_u112)));
+        std::get<12>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::range_check_is_lte_u128)) *
+                   (FF(1) - static_cast<View>(in.get(C::range_check_is_lte_u128)));
+        std::get<13>(evals) += (tmp * scaling_factor);
+    }
+    { // IS_LTE_MUTUALLY_EXCLUSIVE
+        using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
         auto tmp = ((static_cast<View>(in.get(C::range_check_is_lte_u16)) +
                      static_cast<View>(in.get(C::range_check_is_lte_u32)) +
                      static_cast<View>(in.get(C::range_check_is_lte_u48)) +
@@ -117,16 +149,16 @@ void range_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                      static_cast<View>(in.get(C::range_check_is_lte_u112)) +
                      static_cast<View>(in.get(C::range_check_is_lte_u128))) -
                     static_cast<View>(in.get(C::range_check_sel)));
-        std::get<9>(evals) += (tmp * scaling_factor);
+        std::get<14>(evals) += (tmp * scaling_factor);
     }
     { // CHECK_RECOMPOSITION
-        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::range_check_sel)) *
                    (CView(range_check_RESULT) - static_cast<View>(in.get(C::range_check_value)));
-        std::get<10>(evals) += (tmp * scaling_factor);
+        std::get<15>(evals) += (tmp * scaling_factor);
     }
     {
-        using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::range_check_dyn_rng_chk_bits)) -
                     (((((((static_cast<View>(in.get(C::range_check_rng_chk_bits)) -
                            static_cast<View>(in.get(C::range_check_is_lte_u32)) * FF(16)) -
@@ -136,53 +168,53 @@ void range_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                        static_cast<View>(in.get(C::range_check_is_lte_u96)) * FF(80)) -
                       static_cast<View>(in.get(C::range_check_is_lte_u112)) * FF(96)) -
                      static_cast<View>(in.get(C::range_check_is_lte_u128)) * FF(112)));
-        std::get<11>(evals) += (tmp * scaling_factor);
+        std::get<16>(evals) += (tmp * scaling_factor);
     }
     {
-        using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::range_check_sel)) *
                    (static_cast<View>(in.get(C::range_check_dyn_diff)) -
                     ((static_cast<View>(in.get(C::range_check_dyn_rng_chk_pow_2)) -
                       static_cast<View>(in.get(C::range_check_u16_r7))) -
                      FF(1)));
-        std::get<12>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::range_check_sel_r0_16_bit_rng_lookup)) - CView(range_check_CUM_LTE_32));
-        std::get<13>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::range_check_sel_r1_16_bit_rng_lookup)) - CView(range_check_CUM_LTE_48));
-        std::get<14>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::range_check_sel_r2_16_bit_rng_lookup)) - CView(range_check_CUM_LTE_64));
-        std::get<15>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::range_check_sel_r3_16_bit_rng_lookup)) - CView(range_check_CUM_LTE_80));
-        std::get<16>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::range_check_sel_r4_16_bit_rng_lookup)) - CView(range_check_CUM_LTE_96));
         std::get<17>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<18, ContainerOverSubrelations>::View;
-        auto tmp =
-            (static_cast<View>(in.get(C::range_check_sel_r5_16_bit_rng_lookup)) - CView(range_check_CUM_LTE_112));
+        auto tmp = (static_cast<View>(in.get(C::range_check_sel_r0_16_bit_rng_lookup)) - CView(range_check_CUM_LTE_32));
         std::get<18>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<19, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::range_check_sel_r1_16_bit_rng_lookup)) - CView(range_check_CUM_LTE_48));
+        std::get<19>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<20, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::range_check_sel_r2_16_bit_rng_lookup)) - CView(range_check_CUM_LTE_64));
+        std::get<20>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<21, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::range_check_sel_r3_16_bit_rng_lookup)) - CView(range_check_CUM_LTE_80));
+        std::get<21>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<22, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::range_check_sel_r4_16_bit_rng_lookup)) - CView(range_check_CUM_LTE_96));
+        std::get<22>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<23, ContainerOverSubrelations>::View;
+        auto tmp =
+            (static_cast<View>(in.get(C::range_check_sel_r5_16_bit_rng_lookup)) - CView(range_check_CUM_LTE_112));
+        std::get<23>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<24, ContainerOverSubrelations>::View;
         auto tmp =
             (static_cast<View>(in.get(C::range_check_sel_r6_16_bit_rng_lookup)) - CView(range_check_CUM_LTE_128));
-        std::get<19>(evals) += (tmp * scaling_factor);
+        std::get<24>(evals) += (tmp * scaling_factor);
     }
 }
 

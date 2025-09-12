@@ -116,7 +116,7 @@ export class EpochCache implements EpochCacheInterface {
       rollup.getL1GenesisTime(),
       rollup.getCurrentEpochCommittee(),
       rollup.getCurrentSampleSeed(),
-      rollup.getEpochNumber(),
+      rollup.getCurrentEpochNumber(),
       rollup.getProofSubmissionEpochs(),
       rollup.getSlotDuration(),
       rollup.getEpochDuration(),

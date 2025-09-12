@@ -116,7 +116,7 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
 
     const newL2BlockNumber = Number(await this.rollup.getBlockNumber());
     if (this.l2BlockNumber !== newL2BlockNumber) {
-      const epochNumber = await this.rollup.getEpochNumber(BigInt(newL2BlockNumber));
+      const epochNumber = await this.rollup.getEpochNumberForBlock(BigInt(newL2BlockNumber));
       msg += ` with new L2 block ${newL2BlockNumber} for epoch ${epochNumber}`;
       this.l2BlockNumber = newL2BlockNumber;
       this.l2BlockTimestamp = timestamp;
@@ -130,7 +130,7 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
 
     const newL2ProvenBlockNumber = Number(await this.rollup.getProvenBlockNumber());
     if (this.l2ProvenBlockNumber !== newL2ProvenBlockNumber) {
-      const epochNumber = await this.rollup.getEpochNumber(BigInt(newL2ProvenBlockNumber));
+      const epochNumber = await this.rollup.getEpochNumberForBlock(BigInt(newL2ProvenBlockNumber));
       msg += ` with proof up to L2 block ${newL2ProvenBlockNumber} for epoch ${epochNumber}`;
       this.l2ProvenBlockNumber = newL2ProvenBlockNumber;
       this.l2ProvenBlockTimestamp = timestamp;
