@@ -21,13 +21,11 @@ class AcirIntegrationTest : public ::testing::Test {
         std::filesystem::path filePath = bytecodePath;
         if (filePath.extension() == ".json") {
             // Try reading json files as if they are a Nargo build artifact
-            std::string command = "jq -r '.bytecode' \"" + bytecodePath + "\" | base64 -d | gunzip -c";
-            return exec_pipe(command);
+            return exec_pipe_with_stdin(bytecodePath, "jq -r '.bytecode' - | base64 -d | gunzip -c");
         }
 
         // For other extensions, assume file is a raw ACIR program
-        std::string command = "gunzip -c \"" + bytecodePath + "\"";
-        return exec_pipe(command);
+        return exec_pipe_with_stdin(bytecodePath, "gunzip -c -");
     }
 
     // Function to check if a file exists
