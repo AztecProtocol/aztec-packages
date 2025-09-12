@@ -16,6 +16,7 @@ library Errors {
   error Governance__CallerNotGovernanceProposer(address caller, address governanceProposer);
   error Governance__GovernanceProposerCannotBeSelf();
   error Governance__CallerNotSelf(address caller, address self);
+  error Governance__CallerCannotBeSelf();
   error Governance__NoCheckpointsFound();
   error Governance__InsufficientPower(address voter, uint256 have, uint256 required);
   error Governance__InvalidConfiguration();
