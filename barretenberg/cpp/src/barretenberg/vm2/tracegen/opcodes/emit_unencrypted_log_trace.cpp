@@ -125,8 +125,10 @@ void EmitUnencryptedLogTraceBuilder::process(
 
 const InteractionDefinition EmitUnencryptedLogTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_emit_unencrypted_log_check_log_fields_count_settings, InteractionType::LookupGeneric>()
-        .add<lookup_emit_unencrypted_log_check_memory_out_of_bounds_settings, InteractionType::LookupGeneric>()
+        .add<lookup_emit_unencrypted_log_check_log_fields_count_settings, InteractionType::LookupGeneric>(
+            Column::gt_sel)
+        .add<lookup_emit_unencrypted_log_check_memory_out_of_bounds_settings, InteractionType::LookupGeneric>(
+            Column::gt_sel)
         .add<lookup_emit_unencrypted_log_write_data_to_public_inputs_settings,
              InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_settings, InteractionType::LookupGeneric>();
