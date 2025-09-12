@@ -60,5 +60,19 @@ TEST(InstructionSpecTest, CheckAllInstructionsTagInformation)
     }
 }
 
+// Compute the maximum size of instruction in bytes and enforces it to be equal to DECOMPOSE_WINDOW_SIZE.
+TEST(InstructionSpecTest, CheckDecomposeWindowSize)
+{
+    // We cannot use a static assert in the code as MAX_INSTRUCTION_SIZE is not a constexpr.
+    static const uint32_t MAX_INSTRUCTION_SIZE =
+        std::ranges::max_element(
+            WIRE_INSTRUCTION_SPEC.begin(),
+            WIRE_INSTRUCTION_SPEC.end(),
+            [](const auto& a, const auto& b) { return a.second.size_in_bytes < b.second.size_in_bytes; })
+            ->second.size_in_bytes;
+
+    EXPECT_EQ(DECOMPOSE_WINDOW_SIZE, MAX_INSTRUCTION_SIZE);
+}
+
 } // namespace
 } // namespace bb::avm2

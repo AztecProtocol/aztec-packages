@@ -3,6 +3,7 @@ include "bc_decomposition.pil";
 
 include "../precomputed.pil";
 include "../poseidon2_hash.pil";
+include "../constants_gen.pil";
 
 // ###########
 // Design idea
@@ -15,15 +16,16 @@ include "../poseidon2_hash.pil";
 // Finally, we copy through a lookup/permutation based on the selector these field elements
 // to here (bc_hashing.pil) and then proceed to hashing.
 
-//   pc_index | bytecode_id | packed_field | incremental_hash |   output_hash      | latch |
-// -----------+-------------+--------------+------------------+--------------------+--------
-//      0     |      0      |     0xabc    |        len       | H(0xabc,len) = 0x2 |   0
-//     31     |      0      |     0x123    |        0x2       | H(0x123,0x2) = 0x3 |   0
-//     62     |      0      |     0x62d    |        0x3       | H(0x62d,0x3) = end |   1
-//     0      |      1      |     0x4ab    |        len       | H(0x4ab,len) = 0x5 |   0
-//     31     |      1      |     0x21f    |        0x5       | H(0x21f,0x5) = 0x6 |   0
-//     62     |      2      |     0x12a    |        0x6       | H(0x12a,0x6) = 0x9 |   0
-//     93     |      2      |     0x982    |        0x9       | H(0x982,0x9) = end |   1
+// bc_hash_0 = H([sep, 0x111, 0x222, 0x333, 0x444, 0x555, 0x666, 0x777])
+// bc_hash_1 = H([sep, 0xaaa, 0xbbb, 0xccc])
+// p_f = packed_fields:
+//   pc_index |  pc_index_1 |  pc_index_2 | bytecode_id |  p_f_0  |  p_f_1  |  p_f_2  |  output_hash  | latch | START | rounds_rem | padding |
+// -----------+-------------+-------------+-------------+---------+---------+---------+---------------+-------+-------+------------+---------+
+//     0      |      0      |      31     |      0      |   sep   |  0x111  |  0x222  |   bc_hash_0   |   0   |   1   |     3      |    0    |
+//     62     |      93     |      124    |      0      |  0x333  |  0x444  |  0x555  |   bc_hash_0   |   0   |   0   |     2      |    0    |
+//     155    |      186    |      217    |      0      |  0x666  |  0x777  |    0    |   bc_hash_0   |   1   |   0   |     1      |    1    |
+//     0      |      0      |      31     |      1      |   sep   |  0xaaa  |  0xbbb  |   bc_hash_1   |   0   |   1   |     2      |    0    |
+//     62     |      93     |      124    |      1      |  0xccc  |    0    |    0    |   bc_hash_1   |   1   |   0   |     1      |    2    |
 
 
 // Notes
@@ -33,9 +35,15 @@ include "../poseidon2_hash.pil";
 // Therefore, a lot of the security assumptions we make here are dependent on the security assumption of the poseidon2 hash (i.e. it is intractable to
 // find a meaningful collision etc).
 
+// Note that the poseidon2_hash circuit propagates the final output_hash ('output') to each row (not just at 'end') and constrains that they are the same.
+// This ensures security by chaining each round to the next and asserting correctness of the hash at the final permutation round.
+
 // To use the example of the latch variable. A prover can place the latch in any row and that corresponding value will be used to test the correctness of the
 // bytecode hash. We assume it is impossible, given a set of inputs (i0, i1, ..., iN) for the prover to find a subsequence within this input such that
 // Hash(inputs) == Hash(subsequence).
+
+// This trace, like bc_decomposition, relies on the chaining and inc/decrementing of values per row, so the final output_hash can only be considered correct
+// once we have processed all values and checked the final state. This means lookups into this trace should always be gated by latch = 1.
 
 namespace bc_hashing;
 
@@ -66,68 +74,192 @@ namespace bc_hashing;
     // to be activated which is impossible on first row.), LATCH_CONDITION is a boolean.
     pol LATCH_CONDITION = latch + precomputed.first_row;
 
-    // The start of a new bytecode id and new set of hashing runs. Needs to be a committed column as it is used in the lookup
-    pol commit start;
-    start * (1 - start) = 0;
+    // The start of a new bytecode id and new set of hashing runs:
+    pol START = sel * (1 - sel_not_start);
+
+    // Needs to be a committed column as it is used in the lookup:
+    pol commit sel_not_start;
+    sel_not_start * (1 - sel_not_start) = 0;
 
     // If the current row is a latch or the first row, the next row should be a start (if it's active)
     #[START_AFTER_LATCH]
-    sel' * (start' - LATCH_CONDITION) = 0;
+    sel' * ((1 - sel_not_start') - LATCH_CONDITION) = 0;
 
     // Used as part of the lookup into bytecode decomposition
-    pol commit pc_index;
-    // The PC increments by 31 each row as long as the row is not latched, in which case the next pc is zero
+    pol commit pc_index, pc_index_1, pc_index_2;
+    // The PC increments by 31*3=93 each row as long as:
+    // a) the row is not latched, in which case the next pc is zero
+    // b) we are not at start, in which case we only read 2 fields, and => only increment pc by 31*2=62
     #[PC_INCREMENTS]
-    sel * (pc_index' - ((1 - LATCH_CONDITION) * (31 + pc_index))) = 0;
+    (sel + precomputed.first_row) * (pc_index' - ((1 - LATCH_CONDITION) * (62 + pc_index + sel_not_start * 31))) = 0;
+    // At start, we need packed_fields[0] = sep:
+    #[PC_INCREMENTS_1]
+    sel * ( pc_index_1 - START * pc_index - sel_not_start * ( pc_index + 31 )) = 0;
+    #[PC_INCREMENTS_2]
+    sel * ( pc_index_2 - (pc_index_1 + 31) ) = 0;
 
     pol commit bytecode_id;
     #[ID_CONSISTENCY]
     (1 - LATCH_CONDITION) * (bytecode_id' - bytecode_id) = 0;
 
-    pol commit packed_field;
-    #[GET_PACKED_FIELD]
-    sel { pc_index, bytecode_id, packed_field }
+    // We need 3 packed fields to use as inputs for each poseidon round
+    pol commit packed_fields_0, packed_fields_1, packed_fields_2;
+
+    // At the start of a new bytecode hash, the initial field has to be the separator, and we skip the lookup:
+    #[START_IS_SEPARATOR]
+    START * (packed_fields_0 - constants.GENERATOR_INDEX__PUBLIC_BYTECODE) = 0;
+
+    #[GET_PACKED_FIELD_0]
+    sel_not_start { pc_index, bytecode_id, packed_fields_0 }
     in
     bc_decomposition.sel_packed { bc_decomposition.pc, bc_decomposition.id, bc_decomposition.packed_field };
 
-    // This tracks the incremental bytecode hash after the i-th input
-    // The first incremental hash of each new bytecode_id is the length of the bytecode
-    pol commit incremental_hash;
-
-    // At the start of a new bytecode hash, the initial incremental hash has to be the length of the bytecode
-    // Note the looked up PC = 0 (enforced by the PC_INCREMENTS relation), i.e. the initial incremental hash value == bytecode length
-    #[IV_IS_LEN]
-    start { pc_index, bytecode_id, incremental_hash }
+    #[GET_PACKED_FIELD_1]
+    sel_not_padding_1 { pc_index_1, bytecode_id, packed_fields_1 }
     in
-    bc_decomposition.sel_packed { bc_decomposition.pc, bc_decomposition.id, bc_decomposition.bytes_remaining };
+    bc_decomposition.sel_packed { bc_decomposition.pc, bc_decomposition.id, bc_decomposition.packed_field };
 
-    // Start Hashing, Poseidon2(packed_field, running_hash)
+    #[GET_PACKED_FIELD_2]
+    sel_not_padding_2 { pc_index_2, bytecode_id, packed_fields_2 }
+    in
+    bc_decomposition.sel_packed { bc_decomposition.pc, bc_decomposition.id, bc_decomposition.packed_field };
+
+    // Padding
+
+    // We lookup the poseidon inputs in chunks of 3 (to match the pos. perm.), so if the total number of fields hashed is not
+    // a multiple of 3, we have some padding field values (=0). These will fail the lookups into bc_decomposition.
+    // Note: packed_fields[0] must never be a padding value and padding can only occur at the last row (i.e. latch = 1).
+
+    // Needs to be committed columns as they are used in the lookups
+    pol commit sel_not_padding_1, sel_not_padding_2;
+    sel_not_padding_1 * (1 - sel_not_padding_1) = 0;
+    sel_not_padding_2 * (1 - sel_not_padding_2) = 0;
+
+    // TODO: Instead of two bools, change to value = 0 (no padding) OR 1 (one field padding) OR 2 (two fields padding)?
+    // The annoyance is that we need many committed sels to use in/gate lookups.
+
+    // PADDING_1 == 1 <==> packed_fields[1] is a padding value ==> (see #[PADDING_CONSISTENCY]) PADDING_2 == 1
+    pol PADDING_1 = sel * (1 - sel_not_padding_1);
+    // PADDING_2 == 1 <==> packed_fields[2] is a padding value <==> we have any padded values
+    pol PADDING_2 = sel * (1 - sel_not_padding_2);
+
+    // If packed_fields[1] is a padding value, packed_fields[2] must also be a padding value:
+    // padding_1 == 1 ==> padding_2 == 1
+    #[PADDING_CONSISTENCY]
+    PADDING_1 * sel_not_padding_2 = 0;
+    // padding_2 == 1 ==> latch == 1
+    #[PADDING_END]
+    PADDING_2 * (1 - latch) = 0;
+    // padding_1 == 1 ==> packed_fields[1] == 0
+    #[PADDED_BY_ZERO_1]
+    PADDING_1 * packed_fields_1 = 0;
+    // padding_2 == 1 ==> packed_fields[2] == 0
+    #[PADDED_BY_ZERO_2]
+    PADDING_2 * packed_fields_2 = 0;
+
+    // Value of bc_decomposition.pc at the final field (can be 0 if not at the final row i.e. latch = 0). Needs to be a committed column as it is used in the lookup
+    pol commit pc_at_final_field;
+
+    // The decomp trace relies on decrementing counters. Instead of using range checks to show that we are at the last field (<==> bc_decomposition.bytes_remaining
+    // is within expected), we can check that at the claimed final field (i.e. final occurance of sel_packed = 1 in bc_decomp), we have less than 31 bytes remaining.
+
+    // In decomp: sel_windows_gt_remaining = 1 if bytes_remaining < WINDOW_SIZE
+    // Currently, WINDOW_SIZE = 37 and we encode 31 bytes into each packed field => if sel_windows_gt_remaining = 1 && bytes_pc_plus_31 -> bytes_pc_plus_36 are empty
+    // then we have no further fields to hash.
+
+    // Example: bytecode of 80 bytes => hash 3 fields + 1 for sep => 2 rows, final row has padding of 2:
+    //  pc_index = 62, packed_fields_0 = final field, packed_fields_1 = padding = 0, packed_fields_2 = padding = 0
+    // We want to show packed_fields_0 is the last field of the bytecode (=> our padding is correct). In bc_decomposition at pc_index = 62:
+    //  sel_packed = 1, packed_field = final field, bytes_remaining = 18
+    // To avoid using gt/range check to show bytes_remaining < 32, we can instead lookup that sel_windows_gt_remaining = 1 (<==> bytes_remaining < 37) and
+    // bytes_pc_plus_31 -> bytes_pc_plus_36 are empty.
+
+    // NOTE: This relies on the hardcoded WINDOW_SIZE = 37 and WILL BREAK if this ever changes!
+    // ASIDE NOTE: A simpler solution would be to lookup that at pc_index - 6 we have sel_windows_gt_remaining = 1 in bc_decomposition, but this would underflow
+    // if we have a bytecode of under 2 fields (pc_index = 0).
+
+    #[CHECK_FINAL_BYTES_REMAINING]
+    latch {
+        pc_at_final_field,
+        bytecode_id,
+        sel /* =1 */,
+        precomputed.zero /* =0 */,
+        precomputed.zero /* =0 */,
+        precomputed.zero /* =0 */,
+        precomputed.zero /* =0 */,
+        precomputed.zero /* =0 */,
+        precomputed.zero /* =0 */
+    } in bc_decomposition.sel_packed {
+        bc_decomposition.pc,
+        bc_decomposition.id,
+        bc_decomposition.sel_windows_gt_remaining,
+        bc_decomposition.bytes_pc_plus_31,
+        bc_decomposition.bytes_pc_plus_32,
+        bc_decomposition.bytes_pc_plus_33,
+        bc_decomposition.bytes_pc_plus_34,
+        bc_decomposition.bytes_pc_plus_35,
+        bc_decomposition.bytes_pc_plus_36
+    };
+
+    // padding_1 == 1 & padding_2 == 1 <==> pc_at_final_field = pc_index <==> final_bytes_remaining <= 31
+    // padding_1 == 0 & padding_2 == 1 <==> pc_at_final_field = pc_index_1 <==> 31 < final_bytes_remaining <= 62
+    // padding_1 == 0 & padding_2 == 0 <==> pc_at_final_field = pc_index_2 <==> 62 < bytes_remaining <= 93
+    // TODO: Technically when we have no padding (PADDING_2 = 0) we don't need to check the below because the decomp lookups cover us.
+    // However, this does constrain that when latch == 1, we are definitely at the last field of bc_decomp, I'm not sure whether this is
+    // required but kept in just in case.
+    #[PADDING_CORRECTNESS]
+    pc_at_final_field - latch * (
+        PADDING_1 * pc_index + // #[PADDING_CONSISTENCY] constrains that PADDING_1 = 1 ==> PADDING_2 = 1 ==> two padding fields and pc_at_final_field = pc_index
+        (PADDING_2 - PADDING_1) * pc_index_1 + // one padding field and pc_at_final_field = pc_index_1
+        sel_not_padding_2 * pc_index_2 // no padding ==> pc_at_final_field = pc_index_2
+    ) = 0;
+
+    // The length of the hashed bytecode in fields, including the prepended separator. We use it to look up into poseidon_2 to ensure that
+    // the hashed IV matches our bytecode length.
+    // Note: this is constrained at the final row (latch) by linking it to the pc_at_final_field (see above lookups/relations).
+    pol commit input_len;
+
+    // Minus one for the separator field not present in bc_decomposition, and one to include the final field (pc_at_final_field marks the beginning of the last field).
+    // Note: this shouldn't underflow as we don't handle empty bytecode.
+    #[BYTECODE_LENGTH_FIELDS]
+    latch * (31 * (input_len - 2) - pc_at_final_field) = 0;
+
+    // The number of rounds (rows) remaining to completely hash the bytecode.
+    // Like input_len, its correctness is constrained at the final row (latch), where (due to #[CHECK_FINAL_BYTES_REMAINING] and #[PADDING_CORRECTNESS])
+    // we know we have reached the end of bytecode processed by bc_decomposition and we must have decremented uniformly until this point.
+    // We use it to ensure the ordering of poseidon_2 rounds is correct (i.e. a malicious prover cannot swap the order of poseidon rounds).
+    // (Note that we don't need to constrain this vs input_len because a. input_len is checked vs the incrementing pc values at latch and b.
+    // the poseidon_2 trace we lookup into links these values anyway)
+    pol commit rounds_rem;
+
+    // The rounds remaining decrement each row as long as the row is not latched, otherwise rounds_rem == 1
+    #[ROUNDS_DECREMENT]
+    sel * ((1 - LATCH_CONDITION) * (rounds_rem' - rounds_rem + 1) + latch * (rounds_rem - 1)) = 0;
+
     pol commit output_hash;
-    // TODO(dbanks12): re-enable once C++ and PIL use standard poseidon2 hashing for bytecode commitments.
-    //#[POSEIDON2_HASH]
-    //sel { packed_field, incremental_hash, output_hash }
-    //in poseidon2_hash.sel { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.output };
 
-    // The output hash has to be incremental_hash of the next row (unless it's latched)
-    #[CHAIN_OUTPUT_TO_INCR]
-    (1 - LATCH_CONDITION) * (incremental_hash' - output_hash) = 0;
+    #[HASH_CONSISTENCY]
+    (1 - LATCH_CONDITION) * (output_hash' - output_hash) = 0;
+
+    #[POSEIDON2_HASH]
+    sel { latch, packed_fields_0, packed_fields_1, packed_fields_2, input_len, rounds_rem, output_hash }
+    in poseidon2_hash.sel { poseidon2_hash.end, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.input_len, poseidon2_hash.num_perm_rounds_rem, poseidon2_hash.output };
 
 
     // #########################################################################################
     //                           Proof Sketch
     // #########################################################################################
-    // We want to show that the output_hash at a row with latch == 1 correctly enforces that it
-    // is the result of hashing the bytes of a given bytecode identified by bytecode_id.
-    // Thanks to #[TRACE_CONTINUITY] and #[SEL_TOGGLED_AT_LATCH], we have the guarantee that
-    // the rows above the final output_hash are activated. If they are activated, then
-    // bytecode_id is maintained and pc_index decrements by 31 when we move to the top.
-    // From #[START_AFTER_LATCH], we have the guarantee that we cannot meet a row with
-    // latch == 1 before we meet start == 1 when we go up. This shows that bytecode_id,
-    // pc_index, and incremental_hash evolution did not deviate from the happy path. When
-    // we reach a row with start == 1 (we know we must reach one thanks to #[START_AFTER_LATCH]
-    // enforces it on the second row.), then #[IV_IS_LEN] implies that pc_index and incremental_hash
-    // are correctly initialized. Note also that thanks #[TRACE_CONTINUITY] and #[GET_PACKED_FIELD]
-    // we retrieved packed_field at the right pc_index from bc_decomposition sub-trace.
+    // We want to show that the output_hash at correctly enforces that it is the result of hashing
+    // the bytes of a given bytecode identified by bytecode_id. Thanks to #[TRACE_CONTINUITY] and
+    // #[SEL_TOGGLED_AT_LATCH], we have the guarantee that the rows above the final latch are activated.
+    // If they are activated, then bytecode_id is maintained and pc_index decrements by 31 * 3 = 93
+    // when we move to the top. From #[START_AFTER_LATCH], we have the guarantee that we cannot meet
+    // a row with latch == 1 before we meet start == 1 when we go up. This shows that bytecode_id,
+    // pc_index, and incremental_hash evolution did not deviate from the happy path.
+    // When we reach a row with start == 1 (we know we must reach one thanks to #[START_AFTER_LATCH]
+    // enforces it on the second row.), then #[START_IS_SEPARATOR] implies that pc_index and packed_fields
+    // are correctly initialized. Note also that thanks #[TRACE_CONTINUITY] and #[GET_PACKED_FIELD_i]
+    // we retrieved packed_field_i at the right pc_index_i from bc_decomposition sub-trace.
     // We remark that before reaching another latch, a prover might add additional rows without
     // latch on top of the start or even add a row with start == 1. This does not have any security
     // impact as what matters is the guarantee to have a correct initialization at start. What is

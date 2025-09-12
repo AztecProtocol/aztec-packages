@@ -139,25 +139,49 @@ void BytecodeTraceBuilder::process_hashing(
 
     for (const auto& event : events) {
         const auto id = event.bytecode_id;
-        const auto& fields = event.bytecode_fields;
-
+        // Note that bytecode fields from the BytecodeHashingEvent do not contain the prepended separator
+        std::vector<FF> fields = { GENERATOR_INDEX__PUBLIC_BYTECODE };
+        fields.insert(fields.end(), event.bytecode_fields.begin(), event.bytecode_fields.end());
+        auto bytecode_field_at = [&fields](size_t i) -> FF { return i < fields.size() ? fields[i] : 0; };
+        FF output_hash = Poseidon2::hash(fields);
+        auto padding_amount = (3 - (fields.size() % 3)) % 3;
+        auto num_rounds = (fields.size() + padding_amount) / 3;
         uint32_t pc_index = 0;
-        FF incremental_hash = event.bytecode_length;
-        for (uint32_t i = 0; i < fields.size(); i++) {
-            FF output_hash = Poseidon2::hash({ fields[i], incremental_hash });
-            bool end_of_bytecode = i == fields.size() - 1;
+        for (uint32_t i = 0; i < fields.size(); i += 3) {
+            bool start_of_bytecode = i == 0;
+            bool end_of_bytecode = i + 3 >= fields.size();
+            // When we start the bytecode, we want to look up field 1 at pc = 0 in the decomposition trace, since we
+            // force field 0 to be the separator:
+            uint32_t pc_index_1 = start_of_bytecode ? 0 : pc_index + 31;
             trace.set(row,
                       { { { C::bc_hashing_sel, 1 },
-                          { C::bc_hashing_start, i == 0 ? 1 : 0 },
+                          { C::bc_hashing_sel_not_start, !start_of_bytecode },
                           { C::bc_hashing_latch, end_of_bytecode },
                           { C::bc_hashing_bytecode_id, id },
+                          { C::bc_hashing_input_len, fields.size() },
+                          { C::bc_hashing_rounds_rem, num_rounds },
                           { C::bc_hashing_pc_index, pc_index },
-                          { C::bc_hashing_packed_field, fields[i] },
-                          { C::bc_hashing_incremental_hash, incremental_hash },
+                          { C::bc_hashing_pc_index_1, pc_index_1 },
+                          { C::bc_hashing_pc_index_2, pc_index_1 + 31 },
+                          { C::bc_hashing_packed_fields_0, bytecode_field_at(i) },
+                          { C::bc_hashing_packed_fields_1, bytecode_field_at(i + 1) },
+                          { C::bc_hashing_packed_fields_2, bytecode_field_at(i + 2) },
+                          { C::bc_hashing_sel_not_padding_1, end_of_bytecode && padding_amount == 2 ? 0 : 1 },
+                          { C::bc_hashing_sel_not_padding_2, end_of_bytecode && padding_amount > 0 ? 0 : 1 },
                           { C::bc_hashing_output_hash, output_hash } } });
-            incremental_hash = output_hash;
-            pc_index += 31;
+            if (end_of_bytecode) {
+                // TODO(MW): Cleanup: below sets the pc at which the final field starts.
+                // It can't just be pc_index + 31 * padding_amount because we 'skip' 31 bytes at start == 1 to force
+                // the first field to be the separator:
+                trace.set(row,
+                          { {
+                              { C::bc_hashing_pc_at_final_field,
+                                padding_amount == 2 ? pc_index : pc_index_1 + (31 * (1 - padding_amount)) },
+                          } });
+            }
+            pc_index = pc_index_1 + 62;
             row++;
+            num_rounds--;
         }
     }
 }
@@ -390,12 +414,13 @@ void BytecodeTraceBuilder::process_instruction_fetching(
 const InteractionDefinition BytecodeTraceBuilder::interactions =
     InteractionDefinition()
         // Bytecode Hashing
-        .add<lookup_bc_hashing_get_packed_field_settings, InteractionType::LookupSequential>()
-        .add<lookup_bc_hashing_iv_is_len_settings, InteractionType::LookupSequential>()
-        // TODO(dbanks12): re-enable once C++ and PIL use standard poseidon2 hashing for bytecode commitments.
-        // .add<lookup_bc_hashing_poseidon2_hash_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_hashing_get_packed_field_0_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_hashing_get_packed_field_1_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_hashing_get_packed_field_2_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_hashing_check_final_bytes_remaining_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_hashing_poseidon2_hash_settings, InteractionType::LookupSequential>()
         // Bytecode Retrieval
-        // .add<lookup_bc_retrieval_bytecode_hash_is_correct_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_retrieval_bytecode_hash_is_correct_settings, InteractionType::LookupGeneric>()
         .add<lookup_bc_retrieval_class_id_derivation_settings, InteractionType::LookupGeneric>()
         .add<lookup_bc_retrieval_contract_instance_retrieval_settings, InteractionType::LookupSequential>()
         .add<lookup_bc_retrieval_is_new_class_check_settings, InteractionType::LookupSequential>()

@@ -14,7 +14,8 @@ template <typename FF_> class bc_hashingImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 9> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 4, 3, 3 };
+    static constexpr std::array<size_t, 21> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 4, 5, 3, 3, 4,
+                                                                            3, 3, 4, 4, 4, 4, 5, 3, 4, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -39,8 +40,18 @@ template <typename FF> class bc_hashing : public Relation<bc_hashingImpl<FF>> {
     static constexpr size_t SR_SEL_TOGGLED_AT_LATCH = 3;
     static constexpr size_t SR_START_AFTER_LATCH = 5;
     static constexpr size_t SR_PC_INCREMENTS = 6;
-    static constexpr size_t SR_ID_CONSISTENCY = 7;
-    static constexpr size_t SR_CHAIN_OUTPUT_TO_INCR = 8;
+    static constexpr size_t SR_PC_INCREMENTS_1 = 7;
+    static constexpr size_t SR_PC_INCREMENTS_2 = 8;
+    static constexpr size_t SR_ID_CONSISTENCY = 9;
+    static constexpr size_t SR_START_IS_SEPARATOR = 10;
+    static constexpr size_t SR_PADDING_CONSISTENCY = 13;
+    static constexpr size_t SR_PADDING_END = 14;
+    static constexpr size_t SR_PADDED_BY_ZERO_1 = 15;
+    static constexpr size_t SR_PADDED_BY_ZERO_2 = 16;
+    static constexpr size_t SR_PADDING_CORRECTNESS = 17;
+    static constexpr size_t SR_BYTECODE_LENGTH_FIELDS = 18;
+    static constexpr size_t SR_ROUNDS_DECREMENT = 19;
+    static constexpr size_t SR_HASH_CONSISTENCY = 20;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -53,10 +64,30 @@ template <typename FF> class bc_hashing : public Relation<bc_hashingImpl<FF>> {
             return "START_AFTER_LATCH";
         case SR_PC_INCREMENTS:
             return "PC_INCREMENTS";
+        case SR_PC_INCREMENTS_1:
+            return "PC_INCREMENTS_1";
+        case SR_PC_INCREMENTS_2:
+            return "PC_INCREMENTS_2";
         case SR_ID_CONSISTENCY:
             return "ID_CONSISTENCY";
-        case SR_CHAIN_OUTPUT_TO_INCR:
-            return "CHAIN_OUTPUT_TO_INCR";
+        case SR_START_IS_SEPARATOR:
+            return "START_IS_SEPARATOR";
+        case SR_PADDING_CONSISTENCY:
+            return "PADDING_CONSISTENCY";
+        case SR_PADDING_END:
+            return "PADDING_END";
+        case SR_PADDED_BY_ZERO_1:
+            return "PADDED_BY_ZERO_1";
+        case SR_PADDED_BY_ZERO_2:
+            return "PADDED_BY_ZERO_2";
+        case SR_PADDING_CORRECTNESS:
+            return "PADDING_CORRECTNESS";
+        case SR_BYTECODE_LENGTH_FIELDS:
+            return "BYTECODE_LENGTH_FIELDS";
+        case SR_ROUNDS_DECREMENT:
+            return "ROUNDS_DECREMENT";
+        case SR_HASH_CONSISTENCY:
+            return "HASH_CONSISTENCY";
         }
         return std::to_string(index);
     }

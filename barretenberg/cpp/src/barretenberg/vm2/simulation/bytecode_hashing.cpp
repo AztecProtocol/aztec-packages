@@ -8,6 +8,7 @@ namespace bb::avm2::simulation {
 FF BytecodeHasher::compute_public_bytecode_commitment([[maybe_unused]] const BytecodeId bytecode_id,
                                                       const std::vector<uint8_t>& bytecode)
 {
+    // TODO(MW): Remove bytecode length from event?
     [[maybe_unused]] auto bytecode_length_in_bytes = static_cast<uint32_t>(bytecode.size());
 
     std::vector<FF> inputs = { GENERATOR_INDEX__PUBLIC_BYTECODE };
@@ -16,10 +17,9 @@ FF BytecodeHasher::compute_public_bytecode_commitment([[maybe_unused]] const Byt
 
     FF hash = hasher.hash(inputs);
 
-    // TODO(dbanks12): re-enable once C++ and PIL use standard poseidon2 hashing for bytecode commitments.
-    // events.emit({ .bytecode_id = bytecode_id,
-    //               .bytecode_length = bytecode_length_in_bytes,
-    //               .bytecode_fields = std::move(bytecode_as_fields) });
+    events.emit({ .bytecode_id = bytecode_id,
+                  .bytecode_length = bytecode_length_in_bytes,
+                  .bytecode_fields = std::move(bytecode_as_fields) });
     return hash;
 }
 

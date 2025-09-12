@@ -138,10 +138,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 133;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 3024;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 327;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 3040;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 328;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3484;
+    static constexpr size_t NUM_ALL_ENTITIES = 3501;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -248,8 +248,12 @@ struct AvmFlavorVariables {
         lookup_alu_shifts_two_pow_relation<FF_>,
         lookup_alu_tag_max_bits_value_relation<FF_>,
         lookup_bc_decomposition_bytes_are_bytes_relation<FF_>,
-        lookup_bc_hashing_get_packed_field_relation<FF_>,
-        lookup_bc_hashing_iv_is_len_relation<FF_>,
+        lookup_bc_hashing_check_final_bytes_remaining_relation<FF_>,
+        lookup_bc_hashing_get_packed_field_0_relation<FF_>,
+        lookup_bc_hashing_get_packed_field_1_relation<FF_>,
+        lookup_bc_hashing_get_packed_field_2_relation<FF_>,
+        lookup_bc_hashing_poseidon2_hash_relation<FF_>,
+        lookup_bc_retrieval_bytecode_hash_is_correct_relation<FF_>,
         lookup_bc_retrieval_class_id_derivation_relation<FF_>,
         lookup_bc_retrieval_contract_instance_retrieval_relation<FF_>,
         lookup_bc_retrieval_is_new_class_check_relation<FF_>,
