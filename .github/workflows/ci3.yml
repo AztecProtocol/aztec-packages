@@ -44,6 +44,10 @@ jobs:
         if: contains(github.event.pull_request.labels.*.name, 'ci-merge-queue')
         run: echo "CI_MERGE_QUEUE=1" >> $GITHUB_ENV
 
+      - name: CI Full, Built from Scratch
+        if: contains(github.event.pull_request.labels.*.name, 'ci-full-no-cache')
+        run: echo "CI_FULL_NO_CACHE=1" >> $GITHUB_ENV
+
       - name: CI Full Override
         if: contains(github.event.pull_request.labels.*.name, 'ci-full')
         run: echo "CI_FULL=1" >> $GITHUB_ENV
@@ -135,6 +139,8 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" == "merge_group" ] || [ "${CI_MERGE_QUEUE:-0}" -eq 1 ]; then
             exec ./ci.sh merge-queue
+          elif [ "${CI_FULL_NO_CACHE:-0}" -eq 1 ]; then
+            exec ./ci.sh full-no-cache
           elif [ "${CI_FULL:-0}" -eq 1 ]; then
             exec ./ci.sh full
           elif [ "${CI_DOCS:-0}" -eq 1 ]; then
