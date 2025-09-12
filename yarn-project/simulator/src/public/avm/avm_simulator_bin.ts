@@ -88,7 +88,7 @@ async function processJson(jsonLine: string): Promise<void> {
       JSON.stringify({
         reverted: result.reverted,
         output: result.output.map(fr => fr.toString()),
-      }),
+      }) + '\n',
     );
   } catch (error) {
     process.stderr.write(`Error: ${error}\n`);
