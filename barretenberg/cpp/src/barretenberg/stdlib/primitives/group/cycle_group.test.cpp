@@ -1166,4 +1166,40 @@ TYPED_TEST(CycleGroupTest, MixedLengthScalarsIsNotSupported)
     EXPECT_THROW_OR_ABORT(cycle_group_ct::batch_mul(points, scalars),
                           "Assertion failed: (scalar_slices[j].slices_native.size() == num_rounds == true)");
 }
+
+/**
+ * @brief Test fixed-base batch multiplication via the public batch_mul interface
+ *
+ * Tests that the fixed-base MSM works correctly for the two supported Pedersen generators
+ */
+TYPED_TEST(CycleGroupTest, TestFixedBaseBatchMul)
+{
+    STDLIB_TYPE_ALIASES
+    Builder builder;
+
+    // Get the fixed base points that have lookup tables
+    auto lhs_generator = plookup::fixed_base::table::lhs_generator_point();
+    auto rhs_generator = plookup::fixed_base::table::rhs_generator_point();
+
+    // Test with two scalars and both generators
+    std::vector<cycle_scalar_ct> scalars;
+    std::vector<cycle_group_ct> points;
+
+    auto scalar1_val = Group::Fr::random_element(&engine);
+    auto scalar2_val = Group::Fr::random_element(&engine);
+
+    scalars.push_back(cycle_scalar_ct::from_witness(&builder, scalar1_val));
+    scalars.push_back(cycle_scalar_ct::from_witness(&builder, scalar2_val));
+    points.push_back(cycle_group_ct(lhs_generator)); // constant point
+    points.push_back(cycle_group_ct(rhs_generator)); // constant point
+
+    auto result = cycle_group_ct::batch_mul(points, scalars);
+
+    // Compute expected result natively
+    AffineElement expected = lhs_generator * scalar1_val + rhs_generator * scalar2_val;
+
+    EXPECT_EQ(result.get_value(), expected);
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
 #pragma GCC diagnostic pop
