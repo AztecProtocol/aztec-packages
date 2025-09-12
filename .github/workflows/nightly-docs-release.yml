@@ -117,12 +117,6 @@ jobs:
         run: |
           ./update_versions.sh
 
-      - name: Commit new Aztec Docs version
-        run: |
-          git add .
-          git commit -m "chore(docs): cut new aztec docs version for tag ${{ env.NIGHTLY_TAG }}"
-          git push
-
       - name: Cleanup Barretenberg docs nightly versions
         working-directory: ./barretenberg/docs
         run: |
@@ -150,8 +144,18 @@ jobs:
         run: |
           ./update_versions.sh
 
-      - name: Commit new Aztec Docs version
+      - name: Commit new Aztec and Barretenberg Docs version
         run: |
+          # Stash the docs changes
           git add .
-          git commit -m "chore(docs): cut new aztec docs version for tag ${{ env.NIGHTLY_TAG }}"
-          git push
+          git stash push --staged -m "nightly docs for ${{ env.NIGHTLY_TAG }}"
+
+          # Checkout the next branch
+          git fetch origin next
+          git checkout next
+
+          # Apply the stashed changes and commit
+          git stash pop
+          git add .
+          git commit -m "chore(docs): cut new aztec and bb docs version for tag ${{ env.NIGHTLY_TAG }}"
+          git push origin next
