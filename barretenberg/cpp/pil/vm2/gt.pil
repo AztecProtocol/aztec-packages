@@ -21,13 +21,15 @@ namespace gt;
     pol commit sel_sha256;
     pol commit sel_addressing;
     pol commit sel_alu;
+    pol commit sel_gas;
     pol commit sel_others;  // Any other lookup into this trace.
     sel_sha256 * (1 - sel_sha256) = 0;
     sel_addressing * (1 - sel_addressing) = 0;
     sel_alu * (1 - sel_alu) = 0;
+    sel_gas * (1 - sel_gas) = 0;
     sel_others * (1 - sel_others) = 0;
     // If any of the above selectors is 1, then sel must be 1.
-    (sel_sha256 + sel_addressing + sel_alu + sel_others) * (1 - sel) = 0;
+    (sel_sha256 + sel_addressing + sel_alu + sel_gas + sel_others) * (1 - sel) = 0;
 
     #[skippable_if]
     sel = 0;
