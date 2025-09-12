@@ -1,6 +1,6 @@
 async function preprocessIncludeVersion(markdownContent) {
   const originalContent = markdownContent;
-  const commitTag = process.env.COMMIT_TAG || "master";
+  const commitTag = process.env.COMMIT_TAG || "next";
   const testnetTag = process.env.TESTNET_TAG || "1.2.0";
 
   markdownContent = markdownContent.replaceAll(

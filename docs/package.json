@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "HOST=0.0.0.0 ENV=dev yarn preprocess && docusaurus start --host ${HOST:-localhost}",
+    "dev": "HOST=0.0.0.0 ENV=dev yarn preprocess && ENV=dev docusaurus start --host ${HOST:-localhost}",
     "build": "yarn clean && yarn spellcheck && yarn preprocess && yarn preprocess:move && docusaurus build",
     "clean": "./scripts/clean.sh",
     "serve": "docusaurus serve",
