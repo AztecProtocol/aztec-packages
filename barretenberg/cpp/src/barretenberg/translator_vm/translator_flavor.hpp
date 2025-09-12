@@ -90,6 +90,9 @@ class TranslatorFlavor {
     // rows.
     static constexpr size_t NUM_MASKED_ROWS_END = CircuitBuilder::NUM_RANDOM_OPS_END * 2;
 
+    // Index at which random coefficients start (for zk) within Translator trace
+    static constexpr size_t RANDOMNESS_START = 2 * CircuitBuilder::NUM_NO_OPS_START;
+
     // The bitness of the range constraint
     static constexpr size_t MICRO_LIMB_BITS = CircuitBuilder::MICRO_LIMB_BITS;
 
@@ -367,8 +370,6 @@ class TranslatorFlavor {
                                WireToBeShiftedEntities<DataType>::get_all());
         };
 
-        auto get_wires_to_be_shifted() { return WireToBeShiftedEntities<DataType>::get_all(); };
-
         /**
          * @brief Witness Entities to which the prover commits and do not require challenges (i.e. not derived).
          */
@@ -616,7 +617,7 @@ class TranslatorFlavor {
          */
         auto get_ordered_range_constraints() { return OrderedRangeConstraints<DataType>::get_all(); };
 
-        auto get_unshifted()
+        auto get_unshifted() const
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_unshifted());
         }
@@ -666,6 +667,7 @@ class TranslatorFlavor {
         {
 
             const size_t circuit_size = 1 << CONST_TRANSLATOR_LOG_N;
+            const size_t circuit_size_without_masking = circuit_size - NUM_MASKED_ROWS_END * INTERLEAVING_GROUP_SIZE;
             for (auto& ordered_range_constraint : get_ordered_range_constraints()) {
                 ordered_range_constraint = Polynomial{ /*size*/ circuit_size - 1,
                                                        /*largest possible index*/ circuit_size,
@@ -679,6 +681,8 @@ class TranslatorFlavor {
                                  /*virtual_size*/ circuit_size,
                                  /*start_index*/ 1 };
 
+            op = Polynomial{ MINI_CIRCUIT_SIZE, circuit_size };
+
             // All to_be_shifted witnesses except the ordered range constraints and z_perm are only non-zero in the mini
             // circuit
             for (auto& poly : get_to_be_shifted()) {
@@ -689,18 +693,33 @@ class TranslatorFlavor {
                 }
             }
 
-            // Initialize some one-off polys with special structure
+            // Initialize lagrange polynomialso and the ordered extra range constraints numerator (the precomputed
+            // polynomials) within the appropriate range they operate on
             lagrange_first = Polynomial{ /*size*/ 1, /*virtual_size*/ circuit_size };
-            lagrange_result_row = Polynomial{ /*size*/ RESULT_ROW + 1, /*virtual_size*/ circuit_size };
-            lagrange_even_in_minicircuit = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE, /*virtual_size*/ circuit_size };
-            lagrange_odd_in_minicircuit = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE, /*virtual_size*/ circuit_size };
+            lagrange_result_row = Polynomial{ /*size*/ 1, /*virtual_size*/ circuit_size, /*start_index*/ RESULT_ROW };
+            lagrange_even_in_minicircuit = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE - RESULT_ROW,
+                                                       /*virtual_size*/ circuit_size,
+                                                       /*start_index=*/RESULT_ROW };
+            lagrange_odd_in_minicircuit = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE - RESULT_ROW - 1,
+                                                      /*virtual_size*/ circuit_size,
+                                                      /*start_index=*/RESULT_ROW + 1 };
+            lagrange_last_in_minicircuit = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE,
+                                                       /*virtual_size*/ circuit_size };
+            lagrange_mini_masking = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE - RANDOMNESS_START,
+                                                /*virtual_size*/ circuit_size,
+                                                /*start_index=*/RANDOMNESS_START };
+            lagrange_masking = Polynomial{ /*size*/ circuit_size - circuit_size_without_masking,
+                                           /*virtual_size*/ circuit_size,
+                                           /*start_index*/ circuit_size_without_masking };
+            lagrange_last = Polynomial{ /*size*/ 1,
+                                        /*virtual_size*/ circuit_size,
+                                        /*start_index*/ circuit_size - 1 };
+            lagrange_real_last = Polynomial{ /*size*/ 1,
+                                             /*virtual_size*/ circuit_size,
+                                             /*start_index*/ circuit_size_without_masking - 1 };
+            ordered_extra_range_constraints_numerator =
+                Polynomial{ SORTED_STEPS_COUNT * (NUM_INTERLEAVED_WIRES + 1), circuit_size };
 
-            for (auto& poly : get_unshifted()) {
-                if (poly.is_empty()) {
-                    // Not set above
-                    poly = Polynomial{ circuit_size };
-                }
-            }
             set_shifted();
         }
         ProverPolynomials& operator=(const ProverPolynomials&) = delete;
@@ -708,7 +727,7 @@ class TranslatorFlavor {
         ProverPolynomials(ProverPolynomials&& o) noexcept = default;
         ProverPolynomials& operator=(ProverPolynomials&& o) noexcept = default;
         ~ProverPolynomials() = default;
-        [[nodiscard]] size_t get_polynomial_size() const { return this->op.size(); }
+        [[nodiscard]] static size_t get_polynomial_size() { return 1UL << CONST_TRANSLATOR_LOG_N; }
         /**
          * @brief Returns the evaluations of all prover polynomials at one point on the boolean
          * hypercube, which represents one row in the execution trace.
@@ -924,11 +943,12 @@ class TranslatorFlavor {
             this->ordered_range_constraints_2 = "ORDERED_RANGE_CONSTRAINTS_2";
             this->ordered_range_constraints_3 = "ORDERED_RANGE_CONSTRAINTS_3";
             this->ordered_range_constraints_4 = "ORDERED_RANGE_CONSTRAINTS_4";
+            this->z_perm = "Z_PERM";
             this->interleaved_range_constraints_0 = "INTERLEAVED_RANGE_CONSTRAINTS_0";
             this->interleaved_range_constraints_1 = "INTERLEAVED_RANGE_CONSTRAINTS_1";
             this->interleaved_range_constraints_2 = "INTERLEAVED_RANGE_CONSTRAINTS_2";
             this->interleaved_range_constraints_3 = "INTERLEAVED_RANGE_CONSTRAINTS_3";
-            this->z_perm = "Z_PERM";
+
             // "__" are only used for debugging
             this->lagrange_first = "__LAGRANGE_FIRST";
             this->lagrange_last = "__LAGRANGE_LAST";

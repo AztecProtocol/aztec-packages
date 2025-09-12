@@ -246,7 +246,7 @@ void TranslatorProvingKey::compute_lagrange_polynomials()
         proving_key->polynomials.lagrange_masking.at(i) = 1;
     }
 
-    for (size_t i = Flavor::CircuitBuilder::NUM_NO_OPS_START * 2; i < Flavor::RESULT_ROW; i++) {
+    for (size_t i = Flavor::RANDOMNESS_START; i < Flavor::RESULT_ROW; i++) {
         proving_key->polynomials.lagrange_mini_masking.at(i) = 1;
     }
 
