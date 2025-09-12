@@ -528,7 +528,7 @@ export class AvmExecutionHints {
     public readonly globalVariables: GlobalVariables,
     public tx: AvmTxHint,
     // Protocol contract hints.
-    public readonly protocolContractDerivedAddresses: AvmProtocolContractAddressHint[] = [],
+    public protocolContractDerivedAddresses: AvmProtocolContractAddressHint[] = [],
     // Contract hints.
     public readonly contractInstances: AvmContractInstanceHint[] = [],
     public readonly contractClasses: AvmContractClassHint[] = [],
