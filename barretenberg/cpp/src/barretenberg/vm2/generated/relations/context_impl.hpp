@@ -27,15 +27,6 @@ void contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         in.get(C::execution_nested_exit_call) * (FF(1) - in.get(C::execution_sel_error));
     const auto execution_SEL_CONSUMED_ALL_GAS = in.get(C::execution_sel_error);
     const auto execution_DEFAULT_OR_NESTED_RETURN = execution_DEFAULT_CTX_ROW + in.get(C::execution_nested_return);
-    const auto execution_BASE_L2_GAS = in.get(C::execution_opcode_gas) + in.get(C::execution_addressing_gas);
-    const auto execution_DYNAMIC_L2_GAS_USED =
-        in.get(C::execution_dynamic_l2_gas) * in.get(C::execution_dynamic_l2_gas_factor);
-    const auto execution_DYNAMIC_DA_GAS_USED =
-        in.get(C::execution_dynamic_da_gas) * in.get(C::execution_dynamic_da_gas_factor);
-    const auto execution_TOTAL_L2_GAS_USED = execution_BASE_L2_GAS + execution_DYNAMIC_L2_GAS_USED;
-    const auto execution_TOTAL_DA_GAS_USED = in.get(C::execution_base_da_gas) + execution_DYNAMIC_DA_GAS_USED;
-    const auto execution_PREV_GAS_PLUS_USAGE_L2 = in.get(C::execution_prev_l2_gas_used) + execution_TOTAL_L2_GAS_USED;
-    const auto execution_PREV_GAS_PLUS_USAGE_DA = in.get(C::execution_prev_da_gas_used) + execution_TOTAL_DA_GAS_USED;
 
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
@@ -441,17 +432,19 @@ void contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<57, ContainerOverSubrelations>::View;
-        auto tmp = (((static_cast<View>(in.get(C::execution_l2_gas_limit)) - CView(execution_PREV_GAS_PLUS_USAGE_L2)) *
+        auto tmp = (((static_cast<View>(in.get(C::execution_l2_gas_limit)) -
+                      static_cast<View>(in.get(C::execution_total_gas_l2))) *
                          CView(execution_SEL_CONSUMED_ALL_GAS) +
-                     CView(execution_PREV_GAS_PLUS_USAGE_L2)) -
+                     static_cast<View>(in.get(C::execution_total_gas_l2))) -
                     static_cast<View>(in.get(C::execution_l2_gas_used)));
         std::get<57>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<58, ContainerOverSubrelations>::View;
-        auto tmp = (((static_cast<View>(in.get(C::execution_da_gas_limit)) - CView(execution_PREV_GAS_PLUS_USAGE_DA)) *
+        auto tmp = (((static_cast<View>(in.get(C::execution_da_gas_limit)) -
+                      static_cast<View>(in.get(C::execution_total_gas_da))) *
                          CView(execution_SEL_CONSUMED_ALL_GAS) +
-                     CView(execution_PREV_GAS_PLUS_USAGE_DA)) -
+                     static_cast<View>(in.get(C::execution_total_gas_da))) -
                     static_cast<View>(in.get(C::execution_da_gas_used)));
         std::get<58>(evals) += (tmp * scaling_factor);
     }

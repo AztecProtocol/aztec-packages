@@ -17,66 +17,41 @@ void external_callImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 
     BB_BENCH_NAME("accumulate/external_call");
 
-    const auto execution_L2_GAS_LEFT = (in.get(C::execution_l2_gas_limit) - in.get(C::execution_l2_gas_used));
-    const auto execution_DA_GAS_LEFT = (in.get(C::execution_da_gas_limit) - in.get(C::execution_da_gas_used));
-    const auto execution_ALLOCATED_GTE_LEFT_L2 = (in.get(C::execution_register_0_) - execution_L2_GAS_LEFT);
-    const auto execution_ALLOCATED_LT_LEFT_L2 = ((execution_L2_GAS_LEFT - in.get(C::execution_register_0_)) - FF(1));
-    const auto execution_ALLOCATED_GTE_LEFT_DA = (in.get(C::execution_register_1_) - execution_DA_GAS_LEFT);
-    const auto execution_ALLOCATED_LT_LEFT_DA = ((execution_DA_GAS_LEFT - in.get(C::execution_register_1_)) - FF(1));
-
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_enter_call)) *
-                   (FF(32) - static_cast<View>(in.get(C::execution_constant_32)));
+        auto tmp = (static_cast<View>(in.get(C::execution_l2_gas_left)) -
+                    static_cast<View>(in.get(C::execution_sel_enter_call)) *
+                        (static_cast<View>(in.get(C::execution_l2_gas_limit)) -
+                         static_cast<View>(in.get(C::execution_l2_gas_used))));
         std::get<0>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_call_is_l2_gas_allocated_lt_left)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_call_is_l2_gas_allocated_lt_left)));
+        auto tmp = (static_cast<View>(in.get(C::execution_da_gas_left)) -
+                    static_cast<View>(in.get(C::execution_sel_enter_call)) *
+                        (static_cast<View>(in.get(C::execution_da_gas_limit)) -
+                         static_cast<View>(in.get(C::execution_da_gas_used))));
         std::get<1>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_enter_call)) *
-                   (((CView(execution_ALLOCATED_LT_LEFT_L2) - CView(execution_ALLOCATED_GTE_LEFT_L2)) *
+                   (((static_cast<View>(in.get(C::execution_register_0_)) -
+                      static_cast<View>(in.get(C::execution_l2_gas_left))) *
                          static_cast<View>(in.get(C::execution_call_is_l2_gas_allocated_lt_left)) +
-                     CView(execution_ALLOCATED_GTE_LEFT_L2)) -
-                    static_cast<View>(in.get(C::execution_call_allocated_left_l2_cmp_diff)));
+                     static_cast<View>(in.get(C::execution_l2_gas_left))) -
+                    static_cast<View>(in.get(C::execution_l2_gas_limit_shift)));
         std::get<2>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_enter_call)) *
-                   (((static_cast<View>(in.get(C::execution_register_0_)) - CView(execution_L2_GAS_LEFT)) *
-                         static_cast<View>(in.get(C::execution_call_is_l2_gas_allocated_lt_left)) +
-                     CView(execution_L2_GAS_LEFT)) -
-                    static_cast<View>(in.get(C::execution_l2_gas_limit_shift)));
-        std::get<3>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_call_is_da_gas_allocated_lt_left)) *
-                   (FF(1) - static_cast<View>(in.get(C::execution_call_is_da_gas_allocated_lt_left)));
-        std::get<4>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_enter_call)) *
-                   (((CView(execution_ALLOCATED_LT_LEFT_DA) - CView(execution_ALLOCATED_GTE_LEFT_DA)) *
+                   (((static_cast<View>(in.get(C::execution_register_1_)) -
+                      static_cast<View>(in.get(C::execution_da_gas_left))) *
                          static_cast<View>(in.get(C::execution_call_is_da_gas_allocated_lt_left)) +
-                     CView(execution_ALLOCATED_GTE_LEFT_DA)) -
-                    static_cast<View>(in.get(C::execution_call_allocated_left_da_cmp_diff)));
-        std::get<5>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_enter_call)) *
-                   (((static_cast<View>(in.get(C::execution_register_1_)) - CView(execution_DA_GAS_LEFT)) *
-                         static_cast<View>(in.get(C::execution_call_is_da_gas_allocated_lt_left)) +
-                     CView(execution_DA_GAS_LEFT)) -
+                     static_cast<View>(in.get(C::execution_da_gas_left))) -
                     static_cast<View>(in.get(C::execution_da_gas_limit_shift)));
-        std::get<6>(evals) += (tmp * scaling_factor);
+        std::get<3>(evals) += (tmp * scaling_factor);
     }
 }
 

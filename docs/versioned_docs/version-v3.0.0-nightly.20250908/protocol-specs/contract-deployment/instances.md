@@ -167,9 +167,9 @@ Note that, since constructors are handled at the application level, the kernel c
 
 ### Verifying Brillig in Private Functions
 
-Private functions may have unconstrained code, inlined as Brillig bytecode. While unconstrained code, as it name implies, is not constrained within the protocol, a user PXE still needs a mechanism to verify that the code it has been delivered off-chain for a given function is correct.
+Private functions may have unconstrained code, inlined as Brillig bytecode. While unconstrained code, as it name implies, is not constrained within the protocol, a user PXE still needs a mechanism to verify that the code it has been delivered offchain for a given function is correct.
 
-This verification is done via the [contract class `artifact_hash`](./classes.md#structure), which contains a commitment to all bytecode in the contract. The PXE should receive the entire contract artifact, or at least the relevant sections to execute along with the commitments for the others to reconstruct the original `artifact_hash`, and verify that the resulting `artifact_hash` matches the one declared on-chain for the class of the contract being run.
+This verification is done via the [contract class `artifact_hash`](./classes.md#structure), which contains a commitment to all bytecode in the contract. The PXE should receive the entire contract artifact, or at least the relevant sections to execute along with the commitments for the others to reconstruct the original `artifact_hash`, and verify that the resulting `artifact_hash` matches the one declared onchain for the class of the contract being run.
 
 ## Discarded Approaches
 
