@@ -1138,6 +1138,42 @@ TYPED_TEST(CycleGroupTest, TestBatchMulIsConsistent)
 }
 
 /**
+ * @brief Temporary debugging test demonstrating that batch_mul with scalars of different bit lengths is not supported
+ *
+ */
+TYPED_TEST(CycleGroupTest, MixedLengthScalarsIsNotSupported)
+{
+    STDLIB_TYPE_ALIASES
+    using FF = typename Curve::ScalarField;
+    using FF_ct = stdlib::bigfield<Builder, typename FF::Params>;
+
+    Builder builder;
+
+    // Create two points
+    std::vector<cycle_group_ct> points;
+    points.push_back(cycle_group_ct::from_witness(&builder, TestFixture::generators[0]));
+    points.push_back(cycle_group_ct::from_witness(&builder, TestFixture::generators[1]));
+
+    // Create two scalars with DIFFERENT bit lengths
+    std::vector<typename cycle_group_ct::cycle_scalar> scalars;
+
+    // First scalar: 254 bits (default cycle_scalar::NUM_BITS)
+    auto scalar1_value = FF::random_element(&engine);
+    auto scalar1 = FF_ct::from_witness(&builder, scalar1_value);
+    scalars.emplace_back(scalar1);
+    EXPECT_EQ(scalars[0].num_bits(), cycle_scalar_ct::NUM_BITS);
+
+    // Second scalar: 256 bits
+    uint256_t scalar2_value = uint256_t(987654321);
+    scalars.push_back(cycle_scalar_ct::from_256_bit_witness(&builder, scalar2_value));
+    EXPECT_EQ(scalars[1].num_bits(), 256);
+
+    // The different sized scalars results in different sized scalar slices arrays which is not handled in batch_mul
+    EXPECT_NE(scalars[0].num_bits(), scalars[1].num_bits());
+    EXPECT_THROW_OR_ABORT(cycle_group_ct::batch_mul(points, scalars), "Assertion failed: (s.num_bits() == num_bits)");
+}
+
+/**
  * @brief Test fixed-base batch multiplication via the public batch_mul interface
  *
  * Tests that the fixed-base MSM works correctly for the two supported Pedersen generators
