@@ -147,6 +147,18 @@ function build_fuzzing_syntax_check_only {
   cache_upload barretenberg-fuzzing-$hash.zst build-fuzzing/syntax-check-success.flag
 }
 
+# Do basic tests that the smt preset still compiles and runs
+function build_smt_verification {
+  set -eu
+  if cache_download barretenberg-smt-$hash.zst; then
+    return
+  fi
+  sudo apt update && sudo apt install -y python3-pip python3-venv m4
+  cmake --preset smt-verification
+  cmake --build build-smt --target smt_verification_tests
+  cache_upload barretenberg-smt-$hash.zst build-smt/bin
+}
+
 function build_release {
   local arch=$(arch)
   rm -rf build-release
@@ -165,7 +177,7 @@ function build_release {
   fi
 }
 
-export -f build_preset build_native build_asan_fast build_darwin build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only
+export -f build_preset build_native build_asan_fast build_darwin build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
 
 function build {
   echo_header "bb cpp build"
@@ -176,7 +188,7 @@ function build {
     build_wasm_threads
   )
   if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
-    builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast)
+    builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification build_asan_fast)
   fi
   if [ "$CI_FULL" -eq 1 ]; then
     builds+=(build_darwin)
@@ -225,6 +237,13 @@ function test_cmds {
       echo -e "$prefix barretenberg/cpp/build-asan-fast/bin/$bin_name --gtest_filter=$filter"
     done
   fi
+
+  # Run the SMT compatibility tests
+  if [ "$(arch)" == "amd64" ] &&  [ "$CI" -eq 1 ]; then
+    local prefix="$hash:CPUS=4:MEM=8g"
+    echo -e "$prefix barretenberg/cpp/build-smt/bin/smt_verification_tests"
+  fi
+
   echo "$hash barretenberg/cpp/scripts/test_civc_standalone_vks_havent_changed.sh"
 }
 
@@ -256,7 +275,7 @@ function bench_cmds {
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/client_ivc_verify build/bin/client_ivc_bench VerificationOnly$"
 }
 
-# Runs benchmarks sharded over machine cores.
+# Runs benchmarks sharded over mache cores.
 function bench {
   echo_header "bb bench"
   rm -rf bench-out && mkdir -p bench-out
@@ -334,7 +353,7 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  test|test_cmds|bench|bench_cmds|build_bench|release|build_native|build_nodejs_module|build_asan_fast|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_darwin|build_release|inject_version)
+  test|test_cmds|bench|bench_cmds|build_bench|release|build_native|build_nodejs_module|build_asan_fast|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_darwin|build_release|build_smt_verification|inject_version)
     $cmd "$@"
     ;;
   *)
