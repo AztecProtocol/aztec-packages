@@ -8,14 +8,14 @@ use aztec::macros::aztec;
 pub contract DocsExample {
     // how to import dependencies defined in your workspace
     use aztec::{
+        context::PrivateContext,
         macros::{functions::{private, public, utility}, storage::{storage, storage_no_init}},
-        messages::logs::note::encode_and_encrypt_note,
-        note::note_interface::NoteProperties,
-        prelude::{
-            AztecAddress, Map, NoteViewerOptions, PrivateContext, PrivateImmutable, PrivateMutable,
-            PrivateSet, PublicImmutable, PublicMutable,
+        messages::message_delivery::MessageDelivery,
+        note::{note_interface::NoteProperties, note_viewer_options::NoteViewerOptions},
+        protocol_types::{address::AztecAddress, traits::Hash},
+        state_vars::{
+            Map, PrivateImmutable, PrivateMutable, PrivateSet, PublicImmutable, PublicMutable,
         },
-        protocol_types::traits::Hash,
     };
 
     // how to import methods from other files/folders within your workspace
@@ -98,14 +98,14 @@ pub contract DocsExample {
 
     // docs:start:initialize-private-mutable
     #[private]
-    fn initialize_private_immutable(randomness: Field, points: u8) {
-        let new_card = CardNote::new(points, randomness, context.msg_sender());
+    fn initialize_private_immutable(points: u8) {
+        let new_card = CardNote::new(points, context.msg_sender());
 
-        storage.private_immutable.initialize(new_card).emit(encode_and_encrypt_note(
+        storage.private_immutable.initialize(new_card).emit(
             &mut context,
             context.msg_sender(),
-            context.msg_sender(),
-        ));
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
     }
     // docs:end:initialize-private-mutable
 
@@ -124,15 +124,15 @@ pub contract DocsExample {
         // docs:start:state_vars-PrivateMutableGet
         let card = storage.legendary_card.get_note().note;
         // docs:end:state_vars-PrivateMutableGet
-        let points = card.points + 1;
-        let new_card = CardNote::new(points, card.randomness, context.msg_sender());
+        let points = card.get_points() + 1;
+        let new_card = CardNote::new(points, context.msg_sender());
 
         // docs:start:state_vars-PrivateMutableReplace
-        storage.legendary_card.replace(new_card).emit(encode_and_encrypt_note(
+        storage.legendary_card.replace(new_card).emit(
             &mut context,
             context.msg_sender(),
-            context.msg_sender(),
-        ));
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
         // docs:end:state_vars-PrivateMutableReplace
     }
 
@@ -165,7 +165,7 @@ pub contract DocsExample {
     // contract library method to avoid compilation error.
     #[contract_library_method]
     // docs:start:simple_macro_example_expanded
-    fn simple_macro_example_expanded(
+    pub fn simple_macro_example_expanded(
         // ************************************************************
         // The private context inputs are made available to the circuit by the kernel
         // docs:start:context-example-inputs
@@ -191,6 +191,7 @@ pub contract DocsExample {
         let mut context = PrivateContext::new(inputs, args_hasher.hash());
         // docs:end:context-example-context
         // docs:start:storage-example-context
+        #[allow(unused_variables)]
         let mut storage = Storage::init(&mut context);
         // docs:end:storage-example-context
         // ************************************************************

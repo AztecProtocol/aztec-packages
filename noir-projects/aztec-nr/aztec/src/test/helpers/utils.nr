@@ -1,143 +1,132 @@
-use dep::protocol_types::{
+use crate::{
+    context::call_interfaces::{CallInterface, PrivateCallInterface, PublicCallInterface},
+    test::helpers::{test_environment::TestEnvironment, txe_oracles},
+};
+use protocol_types::{
     address::AztecAddress,
-    contract_instance::ContractInstance,
     public_keys::PublicKeys,
     traits::{Deserialize, Serialize},
 };
 use std::meta::derive;
 
-// The following 2 lines have been added here because derivation of Serialize and Deserialize does not handle imports
-use dep::protocol_types::public_keys::{IvpkM, NpkM, OvpkM, TpkM};
-use std::embedded_curve_ops::EmbeddedCurvePoint;
-
-use crate::context::call_interfaces::CallInterface;
-use crate::context::{PrivateContext, PublicContext};
-use crate::test::helpers::cheatcodes;
-
-use crate::context::gas::GasOpts;
-use crate::hash::hash_args;
-use crate::oracle::execution::get_block_number;
-use crate::oracle::execution_cache;
-
-pub struct Deployer<let N: u32, let M: u32> {
+pub struct ContractDeployment<let N: u32> {
+    pub env: TestEnvironment,
     pub path: str<N>,
-    pub name: str<M>,
     pub secret: Field,
 }
 
-impl<let N: u32, let M: u32> Deployer<N, M> {
-    pub unconstrained fn with_private_initializer<C, let P: u32>(
+impl<let N: u32> ContractDeployment<N> {
+    /// Finalizes a contract deployment prepared via `TestEnvironment::deploy` by calling a private initializer function
+    /// from the `from` account.
+    ///
+    /// The `initializer_call` is created by calling the intended private initializer function inside the contract's
+    /// `interface()` with its arguments:
+    /// ```noir
+    /// contract MyContract {
+    ///   #[private]
+    ///   #[initializer]
+    ///   fn init_fn(owner: AztecAddress) { ... }
+    /// }
+    ///
+    /// #[test]
+    /// unconstrained fn test_deployment() {
+    ///   let contract_address = TestEnvironment::new().deploy("MyContract").with_private_initializer(
+    ///     MyContract::interface().init_fn(owner)
+    ///   );
+    /// }
+    pub unconstrained fn with_private_initializer<T, let P: u32>(
         self,
         from: AztecAddress,
-        call_interface: C,
-    ) -> ContractInstance
+        initializer_call: PrivateCallInterface<P, T>,
+    ) -> AztecAddress
     where
-        C: CallInterface<P>,
+        T: Deserialize,
     {
-        let instance = cheatcodes::deploy(
+        let instance = txe_oracles::deploy(
             self.path,
-            self.name,
-            call_interface.get_name(),
-            call_interface.get_args(),
+            initializer_call.get_name(),
+            initializer_call.get_args(),
             self.secret,
         );
 
-        let inputs = cheatcodes::get_private_context_inputs(get_block_number() - 1);
-        let mut private_context = PrivateContext::new(inputs, 0);
-        let args = call_interface.get_args();
-        let args_hash = if args.len() > 0 { hash_args(args) } else { 0 };
-        execution_cache::store(args, args_hash);
-
-        let previous_contract_address = cheatcodes::get_contract_address();
-        cheatcodes::set_contract_address(from);
-
-        let _ = private_context.call_private_function_with_args_hash(
-            instance.to_address(),
-            call_interface.get_selector(),
-            args_hash,
-            call_interface.get_is_static(),
+        // initializer_call does not actually have the target_contract value set - it is created with the helper
+        // `interface` function created by `generate_contract_interface` in the aztec macros - it represents a call to
+        // a contract at an unknown address. Now that we've deployed the contract We can crate a new call interface with
+        // the address and perform the call.
+        // We probably want to introduce an intermediate struct to represent this, if we're going to keep this API.
+        let _ = self.env.call_private::<T, _>(
+            from,
+            PrivateCallInterface::new(
+                instance.to_address(),
+                initializer_call.get_selector(),
+                initializer_call.get_name(),
+                initializer_call.get_args(),
+                initializer_call.get_is_static(),
+            ),
         );
 
-        cheatcodes::set_contract_address(previous_contract_address);
-
-        cheatcodes::advance_blocks_by(1);
-
-        instance
+        instance.to_address()
     }
 
-    pub unconstrained fn with_public_void_initializer<let P: u32, C>(
+    /// Finalizes a contract deployment prepared via `TestEnvironment::deploy` by calling a public initializer function
+    /// from the `from` account.
+    ///
+    /// The `initializer_call` is created by calling the intended public initializer function inside the contract's
+    /// `interface()` with its arguments:
+    /// ```noir
+    /// contract MyContract {
+    ///   #[public]
+    ///   #[initializer]
+    ///   fn init_fn(owner: AztecAddress) { ... }
+    /// }
+    ///
+    /// #[test]
+    /// unconstrained fn test_deployment() {
+    ///   let contract_address = TestEnvironment::new().deploy("MyContract").with_public_initializer(
+    ///     MyContract::interface().init_fn(owner)
+    ///   );
+    /// }
+    pub unconstrained fn with_public_initializer<let P: u32, T>(
         self,
         from: AztecAddress,
-        call_interface: C,
-    ) -> ContractInstance
+        initializer_call: PublicCallInterface<P, T>,
+    ) -> AztecAddress
     where
-        C: CallInterface<P>,
+        T: Deserialize,
     {
-        let instance = cheatcodes::deploy(
+        let instance = txe_oracles::deploy(
             self.path,
-            self.name,
-            call_interface.get_name(),
-            call_interface.get_args(),
+            initializer_call.get_name(),
+            initializer_call.get_args(),
             self.secret,
         );
 
-        let mut public_context = PublicContext::new(|| panic(f"Provide args hash manually"));
-
-        let previous_contract_address = cheatcodes::get_contract_address();
-        cheatcodes::set_contract_address(from);
-
-        let results = public_context.call_public_function(
-            instance.to_address(),
-            call_interface.get_selector(),
-            call_interface.get_args(),
-            GasOpts::default(),
+        // initializer_call does not actually have the target_contract value set - it is created with the helper
+        // `interface` function created by `generate_contract_interface` in the aztec macros - it represents a call to
+        // a contract at an unknown address. Now that we've deployed the contract We can crate a new call interface with
+        // the address and perform the call.
+        // We probably want to introduce an intermediate struct to represent this, if we're going to keep this API.
+        let _ = self.env.call_public::<T, _>(
+            from,
+            PublicCallInterface::new(
+                instance.to_address(),
+                initializer_call.get_selector(),
+                initializer_call.get_name(),
+                initializer_call.get_args(),
+                initializer_call.get_is_static(),
+            ),
         );
-        assert(results.len() == 0);
 
-        cheatcodes::set_contract_address(previous_contract_address);
-
-        cheatcodes::advance_blocks_by(1);
-
-        instance
+        instance.to_address()
     }
 
-    pub unconstrained fn with_public_initializer<let P: u32, T, C>(
-        self,
-        from: AztecAddress,
-        call_interface: C,
-    ) -> ContractInstance
-    where
-        C: CallInterface<P>,
-        T: Deserialize<_>,
-    {
-        let instance = cheatcodes::deploy(
-            self.path,
-            self.name,
-            call_interface.get_name(),
-            call_interface.get_args(),
-            self.secret,
-        );
-
-        let mut public_context = PublicContext::new(|| panic(f"Provide args hash manually"));
-
-        let previous_contract_address = cheatcodes::get_contract_address();
-        cheatcodes::set_contract_address(from);
-
-        let _ = public_context.call_public_function(
-            instance.to_address(),
-            call_interface.get_selector(),
-            call_interface.get_args(),
-            GasOpts::default(),
-        );
-        cheatcodes::set_contract_address(previous_contract_address);
-
-        cheatcodes::advance_blocks_by(1);
-
-        instance
-    }
-
-    pub unconstrained fn without_initializer(self) -> ContractInstance {
-        cheatcodes::deploy(self.path, self.name, "", &[], self.secret)
+    /// Finalizes a contract deployment prepared via `TestEnvironment::deploy` without calling any initializer function.
+    ///
+    /// Note that initializers cannot be manually called once this function returns, since the contract address itself
+    /// contains a commitment to the lack of initialization arguments as per the protocol rules. Initializers can only
+    /// be invoked by using the `with_private_initializer` or `with_public_initializer` functions.
+    pub unconstrained fn without_initializer(self) -> AztecAddress {
+        txe_oracles::deploy(self.path, "", &[], self.secret).to_address()
     }
 }
 

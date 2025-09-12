@@ -1,5 +1,6 @@
 import { type Logger, fileURLToPath } from '@aztec/aztec.js';
 import type { BBConfig } from '@aztec/bb-prover';
+import { tryRmDir } from '@aztec/foundation/fs';
 
 import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -11,6 +12,8 @@ const {
   BB_SKIP_CLEANUP = '',
   TEMP_DIR = tmpdir(),
   BB_WORKING_DIRECTORY = '',
+  BB_NUM_IVC_VERIFIERS = '1',
+  BB_IVC_CONCURRENCY = '1',
 } = process.env;
 
 export const getBBConfig = async (
@@ -35,18 +38,19 @@ export const getBBConfig = async (
     await fs.mkdir(bbWorkingDirectory, { recursive: true });
 
     const bbSkipCleanup = ['1', 'true'].includes(BB_SKIP_CLEANUP);
+    const cleanup = bbSkipCleanup ? () => Promise.resolve() : () => tryRmDir(directoryToCleanup);
 
-    const cleanup = async () => {
-      if (directoryToCleanup && !bbSkipCleanup) {
-        try {
-          await fs.rm(directoryToCleanup, { recursive: true, force: true, maxRetries: 3 });
-        } catch (err) {
-          logger.warn(`Failed to delete bb working directory at ${directoryToCleanup}: ${err}`);
-        }
-      }
+    const numIvcVerifiers = Number(BB_NUM_IVC_VERIFIERS);
+    const ivcConcurrency = Number(BB_IVC_CONCURRENCY);
+
+    return {
+      bbSkipCleanup,
+      bbBinaryPath,
+      bbWorkingDirectory,
+      cleanup,
+      numConcurrentIVCVerifiers: numIvcVerifiers,
+      bbIVCConcurrency: ivcConcurrency,
     };
-
-    return { bbSkipCleanup, bbBinaryPath, bbWorkingDirectory, cleanup };
   } catch (err) {
     logger.error(`Native BB not available, error: ${err}`);
     return undefined;

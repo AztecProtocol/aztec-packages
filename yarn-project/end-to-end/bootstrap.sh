@@ -11,10 +11,19 @@ function test_cmds {
   local prefix="$hash:ISOLATE=1"
 
   # Longest-running tests first
-  if [ "$CI_FULL" -eq 1 ]; then
-    echo "$prefix:TIMEOUT=15m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
+  # Can't run full prover tests on ARM because AVM is disabled.
+  if ../../barretenberg/cpp/bootstrap.sh hash | grep -qE no-avm; then
+    if [ "$CI_FULL" -eq 1 ]; then
+      echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=e2e_prover_client_real $run_test_script simple e2e_prover/client"
+    else
+      echo "$prefix:NAME=e2e_prover_client_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/client"
+    fi
   else
-    echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
+    if [ "$CI_FULL" -eq 1 ]; then
+      echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
+    else
+      echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
+    fi
   fi
   echo "$prefix:TIMEOUT=15m:NAME=e2e_block_building $run_test_script simple e2e_block_building"
 
@@ -33,13 +42,13 @@ function test_cmds {
   tests=(
     src/composed/!(integration_proof_verification|e2e_persistence).test.ts
     src/guides/*.test.ts
-    src/sample-dapp/index
-    src/sample-dapp/ci/index
   )
   for test in "${tests[@]}"; do
     # We must set ONLY_TERM_PARENT=1 to allow the script to fully control cleanup process.
     echo "$hash:ONLY_TERM_PARENT=1 $run_test_script compose $test"
   done
+
+  echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer src/composed/web3signer/integration_remote_signer.test.ts"
 
   # TODO(AD): figure out workaround for mainframe subnet exhaustion
   if [ "$CI" -eq 1 ]; then
@@ -54,11 +63,12 @@ function test_cmds {
 
 function test {
   echo_header "e2e tests"
-  test_cmds | filter_test_cmds | parallelise
+  test_cmds | filter_test_cmds | parallelize
 }
 
 function bench_cmds {
   echo "$hash:ISOLATE=1:NAME=bench_build_block BENCH_OUTPUT=bench-out/build-block.bench.json yarn-project/end-to-end/scripts/run_test.sh simple bench_build_block"
+  echo "$hash:ISOLATE=1:CPUS=8:NAME=tx_stats BB_IVC_CONCURRENCY=1 BB_NUM_IVC_VERIFIERS=8 BENCH_OUTPUT=bench-out/tx_stats.bench.json yarn-project/end-to-end/scripts/run_test.sh simple tx_stats_bench"
 
   for client_flow in client_flows/bridging client_flows/deployments client_flows/amm client_flows/account_deployments client_flows/transfers; do
     echo "$hash:ISOLATE=1:CPUS=8:NAME=$client_flow BENCHMARK_CONFIG=key_flows LOG_LEVEL=error BENCH_OUTPUT=bench-out/ yarn-project/end-to-end/scripts/run_test.sh simple $client_flow"
@@ -69,6 +79,7 @@ function bench_cmds {
       echo "$hash:CPUS=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh $runtime ../../yarn-project/end-to-end/$dir"
     done
   done
+  echo "$hash:ISOLATE=1:NET=1:CPUS=8 barretenberg/cpp/scripts/ci_benchmark_browser_memory.sh ../../yarn-project/end-to-end/example-app-ivc-inputs-out/ecdsar1+transfer_0_recursions+sponsored_fpc"
 }
 
 # Builds the benchmark fixtures.
@@ -82,10 +93,6 @@ function build_bench {
   if cache_download bb-client-ivc-captures-$hash.tar.gz; then
     return
   fi
-  if [ -n "${DOWNLOAD_ONLY:-}" ]; then
-    echo "Could not find ivc inputs cached!"
-    exit 1
-  fi
   parallel --tag --line-buffer --halt now,fail=1 'docker_isolate "scripts/run_test.sh simple {}"' ::: \
     client_flows/account_deployments \
     client_flows/deployments \
@@ -98,7 +105,7 @@ function build_bench {
 function bench {
   rm -rf bench-out
   mkdir -p bench-out
-  bench_cmds | STRICT_SCHEDULING=1 parallelise
+  bench_cmds | STRICT_SCHEDULING=1 parallelize
 }
 
 case "$cmd" in

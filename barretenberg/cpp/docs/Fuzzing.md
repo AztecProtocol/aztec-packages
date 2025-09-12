@@ -33,6 +33,7 @@ The `run.sh` script supports several configuration options:
 - `-t, --timeout <seconds>`: Set maximum fuzzing time (default: 2592000 = 1 month)
 - `-v, --verbose`: Enable verbose output from the fuzzer
 - `-m, --mode <mode>`: Set operation mode - either `fuzzing` or `coverage` (default: fuzzing)
+- `-a, --asm  <mode>`: Enable/disable asm - either `on` or `off` (default: on)
 - `-c, --cpus <count>`: Set number of CPUs for the container (default: 8)
 - `--mem <size>`: Set memory limit for the container (default: 16G)
 - `--show-fuzzers`: List all available fuzzers
@@ -45,6 +46,7 @@ The `run.sh` script supports several configuration options:
 To build with standard clang:
 
 ```bash
+sudo apt-get install libclang-rt-18-dev
 cmake --preset fuzzing
 cmake --build --preset fuzzing
 ```
@@ -64,7 +66,7 @@ cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_C_COMPILER=<path to clang> -DCMA
 
 ## Currently supported
 
-Currently we have fuzzers for bigfield, bit_array, bool, byte_array, field, safe_uint and uint. Each of them is available in 2 versions: StandardPlonk, ALL (differential fuzzing of 2 versions).
+Currently we have fuzzers for bigfield, bool, byte_array, field, safe_uint and uint. Each of them is available in 2 versions: StandardPlonk, ALL (differential fuzzing of 2 versions).
 To compile all fuzzers just type `make`.
 
 ## Running the fuzzer
@@ -124,8 +126,8 @@ Also, both bigfield and safeuint fuzzer containt the SHOW_INFORMATION preprocess
 Build with coverage instrumentation:
 
 ```bash
-cmake --preset clang16-coverage -DFUZZING=ON
-cmake --build --preset clang16-coverage
+cmake --preset clang20-coverage -DFUZZING=ON
+cmake --build --preset clang20-coverage
 ```
 
 Then run the fuzzer on the corpus and generate the HTML coverage reports:

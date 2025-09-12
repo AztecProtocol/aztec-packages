@@ -32,6 +32,9 @@ export abstract class MemoryValue {
 
   // Use sparingly.
   public abstract toBigInt(): bigint;
+  public getTag(): TypeTag {
+    return TaggedMemory.getTag(this);
+  }
 
   // To Buffer
   public abstract toBuffer(): Buffer;
@@ -78,6 +81,7 @@ function UnsignedIntegerClassFactory(bits: number) {
     public constructor(n: bigint | number) {
       super();
       this.n = BigInt(n);
+      assert(n >= 0n, `${this.constructor.name} cannot handle negative values: ${n}.`);
       assert(n < NewUintClass.mod, `Value ${n} is too large for ${this.constructor.name}.`);
     }
 
@@ -252,7 +256,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
   public getAs<T>(offset: number): T {
     assert(Number.isInteger(offset) && offset < TaggedMemory.MAX_MEMORY_SIZE);
     const word = this._mem.get(offset);
-    //TaggedMemory.log.trace(`get(${offset}) = ${word}`);
+    //TaggedMemory.log.trace(`Memory read: ${offset} -> ${word}`);
     if (word === undefined) {
       TaggedMemory.log.debug(`WARNING: Memory at offset ${offset} is undefined!`);
       return new Field(0) as T;
@@ -288,7 +292,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
   public set(offset: number, v: MemoryValue) {
     assert(Number.isInteger(offset) && offset < TaggedMemory.MAX_MEMORY_SIZE);
     this._mem.set(offset, v);
-    //TaggedMemory.log.trace(`set(${offset}, ${v})`);
+    //TaggedMemory.log.trace(`Memory write: ${offset} <- ${v}`);
   }
 
   public setSlice(offset: number, slice: MemoryValue[]) {
@@ -319,8 +323,8 @@ export class TaggedMemory implements TaggedMemoryInterface {
     }
   }
 
-  public checkIsValidMemoryOffsetTag(offset: number) {
-    this.checkTag(TypeTag.UINT32, offset);
+  public static isValidMemoryAddressTag(tag: TypeTag) {
+    return tag === TypeTag.UINT32;
   }
 
   public static checkIsIntegralTag(tag: TypeTag) {

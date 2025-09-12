@@ -3,9 +3,7 @@ pragma solidity >=0.8.27;
 
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {
-  IStakingCore, Status, AttesterView, Exit, Timestamp
-} from "@aztec/core/interfaces/IStaking.sol";
+import {IStakingCore, Status, AttesterView, Exit, Timestamp} from "@aztec/core/interfaces/IStaking.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 
 contract SetslasherTest is StakingBase {

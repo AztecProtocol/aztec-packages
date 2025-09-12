@@ -2,7 +2,6 @@ import { Fr } from '@aztec/foundation/fields';
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { hashVK } from '@aztec/stdlib/hash';
-import { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { promises as fs } from 'fs';
 import { join } from 'path';
@@ -14,27 +13,16 @@ function resolveRelativePath(relativePath: string) {
 }
 
 const main = async () => {
-  // TODO(#7410) tube VK should have been generated in noir-projects, but since we don't have a limited set of tubes
-  // we fake it here.
-  const tubeVK = VerificationKeyData.makeFakeRollupHonk();
-  const tubeVKPath = resolveRelativePath('../../artifacts/keys/tube.vk.data.json');
-  await fs.writeFile(
-    tubeVKPath,
-    JSON.stringify({
-      keyAsBytes: tubeVK.keyAsBytes.toString('hex'),
-      keyAsFields: tubeVK.keyAsFields.key.map((field: Fr) => field.toString()),
-    }),
-  );
-
-  const files = await fs.readdir(resolveRelativePath('../../artifacts/keys'));
+  const files = await fs.readdir(resolveRelativePath('../../artifacts'));
   for (const fileName of files) {
-    if (fileName.endsWith('.vk.data.json')) {
-      const keyPath = join(resolveRelativePath(`../../artifacts/keys`), fileName);
+    if (fileName.endsWith('.json')) {
+      const keyPath = join(resolveRelativePath(`../../artifacts`), fileName);
       const content = JSON.parse(await fs.readFile(keyPath, 'utf-8'));
-      if (!content.vkHash) {
-        const { keyAsFields } = content;
+      // Check if this has verificationKey field (from noir-protocol-circuits)
+      if (content.verificationKey && !content.verificationKey.hash) {
+        const { fields } = content.verificationKey;
 
-        content.vkHash = (await hashVK(keyAsFields.map((str: string) => Fr.fromHexString(str)))).toString();
+        content.verificationKey.hash = (await hashVK(fields.map((str: string) => Fr.fromHexString(str)))).toString();
         await fs.writeFile(keyPath, JSON.stringify(content, null, 2));
       }
     }

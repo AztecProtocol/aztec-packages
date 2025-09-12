@@ -48,6 +48,14 @@ export class ReadTransaction {
     yield* this.#iterate(Database.INDEX, startKey, endKey, reverse, limit, vals => vals);
   }
 
+  public countEntries(startKey: Uint8Array, endKey: Uint8Array, reverse: boolean): Promise<number> {
+    return this.#countEntries(Database.DATA, startKey, endKey, reverse);
+  }
+
+  public countEntriesIndex(startKey: Uint8Array, endKey: Uint8Array, reverse: boolean): Promise<number> {
+    return this.#countEntries(Database.INDEX, startKey, endKey, reverse);
+  }
+
   async *#iterate<T>(
     db: string,
     startKey: Uint8Array,
@@ -106,6 +114,38 @@ export class ReadTransaction {
         done = response.done;
         entries = response.entries;
       }
+    } finally {
+      // we might not have anything to close
+      if (typeof cursor === 'number') {
+        await this.channel.sendMessage(LMDBMessageType.CLOSE_CURSOR, { cursor });
+      }
+    }
+  }
+
+  async #countEntries(db: string, startKey: Uint8Array, endKey: Uint8Array, reverse: boolean): Promise<number> {
+    this.assertIsOpen();
+
+    const response = await this.channel.sendMessage(LMDBMessageType.START_CURSOR, {
+      key: startKey,
+      reverse,
+      count: 0,
+      onePage: false,
+      db,
+    });
+
+    const cursor = response.cursor;
+
+    try {
+      if (!cursor) {
+        return 0;
+      }
+
+      const advanceResponse = await this.channel.sendMessage(LMDBMessageType.ADVANCE_CURSOR_COUNT, {
+        cursor,
+        endKey: endKey,
+      });
+
+      return advanceResponse.count;
     } finally {
       // we might not have anything to close
       if (typeof cursor === 'number') {

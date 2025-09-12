@@ -1,5 +1,5 @@
 import type { AvmContext } from '../avm_context.js';
-import { Field, Uint64 } from '../avm_memory_types.js';
+import { Field, Uint1, Uint32, Uint64, Uint128 } from '../avm_memory_types.js';
 import { InstructionExecutionError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
@@ -13,8 +13,8 @@ export enum EnvironmentVariable {
   VERSION,
   BLOCKNUMBER,
   TIMESTAMP,
-  FEEPERL2GAS,
-  FEEPERDAGAS,
+  BASEFEEPERL2GAS,
+  BASEFEEPERDAGAS,
   ISSTATICCALL,
   L2GASLEFT,
   DAGASLEFT,
@@ -33,19 +33,19 @@ function getValue(e: EnvironmentVariable, ctx: AvmContext) {
     case EnvironmentVariable.VERSION:
       return new Field(ctx.environment.globals.version);
     case EnvironmentVariable.BLOCKNUMBER:
-      return new Field(ctx.environment.globals.blockNumber);
+      return new Uint32(ctx.environment.globals.blockNumber);
     case EnvironmentVariable.TIMESTAMP:
-      return new Uint64(ctx.environment.globals.timestamp.toBigInt());
-    case EnvironmentVariable.FEEPERL2GAS:
-      return new Field(ctx.environment.globals.gasFees.feePerL2Gas);
-    case EnvironmentVariable.FEEPERDAGAS:
-      return new Field(ctx.environment.globals.gasFees.feePerDaGas);
+      return new Uint64(ctx.environment.globals.timestamp);
+    case EnvironmentVariable.BASEFEEPERL2GAS:
+      return new Uint128(ctx.environment.globals.gasFees.feePerL2Gas);
+    case EnvironmentVariable.BASEFEEPERDAGAS:
+      return new Uint128(ctx.environment.globals.gasFees.feePerDaGas);
     case EnvironmentVariable.ISSTATICCALL:
-      return new Field(ctx.environment.isStaticCall ? 1 : 0);
+      return new Uint1(ctx.environment.isStaticCall ? 1 : 0);
     case EnvironmentVariable.L2GASLEFT:
-      return new Field(ctx.machineState.l2GasLeft);
+      return new Uint32(ctx.machineState.l2GasLeft);
     case EnvironmentVariable.DAGASLEFT:
-      return new Field(ctx.machineState.daGasLeft);
+      return new Uint32(ctx.machineState.daGasLeft);
     default:
       throw new Error(`Unknown environment variable ${e}`);
   }

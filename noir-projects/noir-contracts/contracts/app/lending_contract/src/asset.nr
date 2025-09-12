@@ -1,4 +1,4 @@
-use dep::aztec::{prelude::AztecAddress, protocol_types::traits::{Deserialize, Packable, Serialize}};
+use dep::aztec::protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}};
 use std::meta::derive;
 
 /// Struct to be used to represent "totals". Generally, there should be one per Asset.
@@ -11,8 +11,8 @@ use std::meta::derive;
 /// up rewriting all the values.
 #[derive(Deserialize, Packable, Serialize)]
 pub struct Asset {
-    interest_accumulator: u128,
-    last_updated_ts: u64,
-    loan_to_value: u128,
-    oracle: AztecAddress,
+    pub interest_accumulator: u128,
+    pub last_updated_ts: u64,
+    pub loan_to_value: u128,
+    pub oracle: AztecAddress,
 }

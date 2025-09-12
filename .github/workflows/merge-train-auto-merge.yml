@@ -1,0 +1,23 @@
+name: Merge Train Auto-Merge
+
+on:
+  schedule:
+    # Run every hour
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  auto-merge-inactive:
+    name: Auto-merge inactive PRs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run auto-merge script
+        run: |
+          GH_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} \
+          MERGE_TRAIN_GITHUB_TOKEN=${{ secrets.MERGE_TRAIN_GITHUB_TOKEN }} \
+          ./scripts/merge-train/auto-merge.sh

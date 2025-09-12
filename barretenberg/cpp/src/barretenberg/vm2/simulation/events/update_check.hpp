@@ -11,7 +11,7 @@ struct UpdateCheckEvent {
     FF current_class_id;
     FF original_class_id;
     FF public_data_tree_root;
-    uint32_t current_block_number;
+    uint64_t current_timestamp;
 
     // Hash
     FF update_hash;
@@ -21,8 +21,7 @@ struct UpdateCheckEvent {
     FF update_preimage_post_class_id;
 
     // Read
-    FF shared_mutable_slot;
-    FF shared_mutable_leaf_slot;
+    FF delayed_public_mutable_slot;
 
     bool operator==(const UpdateCheckEvent& other) const = default;
 };

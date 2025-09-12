@@ -11,20 +11,20 @@
 namespace bb {
 class ECCVMVerifier {
     using Flavor = ECCVMFlavor;
-    using FF = typename Flavor::FF;
-    using Curve = typename Flavor::Curve;
-    using Commitment = typename Flavor::Commitment;
-    using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using Transcript = typename Flavor::Transcript;
-    using ProvingKey = typename Flavor::ProvingKey;
-    using VerificationKey = typename Flavor::VerificationKey;
-    using VerifierCommitments = typename Flavor::VerifierCommitments;
-    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
-    using PCS = typename Flavor::PCS;
+    using FF = Flavor::FF;
+    using Curve = Flavor::Curve;
+    using Commitment = Flavor::Commitment;
+    using CommitmentLabels = Flavor::CommitmentLabels;
+    using Transcript = Flavor::Transcript;
+    using ProvingKey = Flavor::ProvingKey;
+    using VerificationKey = Flavor::VerificationKey;
+    using VerifierCommitments = Flavor::VerifierCommitments;
+    using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
+    using PCS = Flavor::PCS;
 
   public:
     explicit ECCVMVerifier(const std::shared_ptr<Transcript>& transcript)
-        : transcript(transcript){};
+        : transcript(transcript) {};
 
     bool verify_proof(const ECCVMProof& proof);
     void compute_translation_opening_claims(
@@ -39,7 +39,7 @@ class ECCVMVerifier {
     std::shared_ptr<VerificationKey> key = std::make_shared<VerificationKey>();
     std::map<std::string, Commitment> commitments;
     std::shared_ptr<Transcript> transcript;
-    std::shared_ptr<Transcript> ipa_transcript;
+    std::shared_ptr<Transcript> ipa_transcript = std::make_shared<Transcript>();
 
     TranslationEvaluations_<FF> translation_evaluations;
 

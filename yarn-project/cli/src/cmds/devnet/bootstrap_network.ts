@@ -1,4 +1,4 @@
-import { getInitialTestAccountsManagers } from '@aztec/accounts/testing';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import {
   AztecAddress,
   BatchCall,
@@ -21,6 +21,7 @@ import {
   deployL1Contract,
 } from '@aztec/ethereum';
 import type { LogFn, Logger } from '@aztec/foundation/log';
+import { TestWallet } from '@aztec/test-wallet';
 
 import { getContract } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
@@ -53,13 +54,18 @@ export async function bootstrapNetwork(
   debugLog: Logger,
 ) {
   const pxe = await createCompatibleClient(pxeUrl, debugLog);
+  const wallet = new TestWallet(pxe);
 
   // We assume here that the initial test accounts were prefunded with deploy-l1-contracts, and deployed with setup-l2-contracts
   // so all we need to do is register them to our pxe.
-  const [accountManager] = await getInitialTestAccountsManagers(pxe);
-  await accountManager.register();
+  const [accountData] = await getInitialTestAccountsData();
+  const accountManager = await wallet.createSchnorrAccount(
+    accountData.secret,
+    accountData.salt,
+    accountData.signingKey,
+  );
 
-  const wallet = await accountManager.getWallet();
+  const defaultAccountAddress = accountManager.getAddress();
 
   const l1Client = createExtendedL1Client(
     l1Urls,
@@ -73,16 +79,16 @@ export async function bootstrapNetwork(
 
   const { erc20Address, portalAddress } = await deployERC20(l1Client);
 
-  const { token, bridge } = await deployToken(wallet, portalAddress);
+  const { token, bridge } = await deployToken(wallet, defaultAccountAddress, portalAddress);
 
   await initPortal(pxe, l1Client, erc20Address, portalAddress, bridge.address);
 
-  const fpcAdmin = wallet.getAddress();
-  const fpc = await deployFPC(wallet, token.address, fpcAdmin);
+  const fpcAdmin = defaultAccountAddress;
+  const fpc = await deployFPC(wallet, defaultAccountAddress, token.address, fpcAdmin);
 
-  const counter = await deployCounter(wallet);
+  const counter = await deployCounter(wallet, defaultAccountAddress);
 
-  await fundFPC(pxe, counter.address, wallet, l1Client, fpc.address, debugLog);
+  await fundFPC(pxe, counter.address, wallet, defaultAccountAddress, l1Client, fpc.address, debugLog);
 
   if (json) {
     log(
@@ -140,10 +146,12 @@ async function deployERC20(l1Client: ExtendedViemWalletClient) {
   const { TestERC20Abi, TestERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } = await import('@aztec/l1-artifacts');
 
   const erc20: ContractArtifacts = {
+    name: 'TestERC20',
     contractAbi: TestERC20Abi,
     contractBytecode: TestERC20Bytecode,
   };
   const portal: ContractArtifacts = {
+    name: 'TokenPortal',
     contractAbi: TokenPortalAbi,
     contractBytecode: TokenPortalBytecode,
   };
@@ -166,6 +174,7 @@ async function deployERC20(l1Client: ExtendedViemWalletClient) {
  */
 async function deployToken(
   wallet: Wallet,
+  defaultAccountAddress: AztecAddress,
   l1Portal: EthAddress,
 ): Promise<{ token: ContractDeploymentInfo; bridge: ContractDeploymentInfo }> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -174,18 +183,18 @@ async function deployToken(
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
   const { TokenBridgeContract } = await import('@aztec/noir-contracts.js/TokenBridge');
-  const devCoin = await TokenContract.deploy(wallet, wallet.getAddress(), 'DevCoin', 'DEV', 18)
-    .send({ universalDeploy: true })
+  const devCoin = await TokenContract.deploy(wallet, defaultAccountAddress, 'DevCoin', 'DEV', 18)
+    .send({ from: defaultAccountAddress, universalDeploy: true })
     .deployed(waitOpts);
   const bridge = await TokenBridgeContract.deploy(wallet, devCoin.address, l1Portal)
-    .send({ universalDeploy: true })
+    .send({ from: defaultAccountAddress, universalDeploy: true })
     .deployed(waitOpts);
 
   await new BatchCall(wallet, [
     devCoin.methods.set_minter(bridge.address, true),
     devCoin.methods.set_admin(bridge.address),
   ])
-    .send()
+    .send({ from: defaultAccountAddress })
     .wait(waitOpts);
 
   return {
@@ -230,13 +239,16 @@ async function initPortal(
 
 async function deployFPC(
   wallet: Wallet,
+  defaultAccountAddress: AztecAddress,
   tokenAddress: AztecAddress,
   admin: AztecAddress,
 ): Promise<ContractDeploymentInfo> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
   const { FPCContract } = await import('@aztec/noir-contracts.js/FPC');
-  const fpc = await FPCContract.deploy(wallet, tokenAddress, admin).send({ universalDeploy: true }).deployed(waitOpts);
+  const fpc = await FPCContract.deploy(wallet, tokenAddress, admin)
+    .send({ from: defaultAccountAddress, universalDeploy: true })
+    .deployed(waitOpts);
   const info: ContractDeploymentInfo = {
     address: fpc.address,
     initHash: fpc.instance.initializationHash,
@@ -245,12 +257,12 @@ async function deployFPC(
   return info;
 }
 
-async function deployCounter(wallet: Wallet): Promise<ContractDeploymentInfo> {
+async function deployCounter(wallet: Wallet, defaultAccountAddress: AztecAddress): Promise<ContractDeploymentInfo> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
   const { CounterContract } = await import('@aztec/noir-test-contracts.js/Counter');
-  const counter = await CounterContract.deploy(wallet, 1, wallet.getAddress())
-    .send({ universalDeploy: true })
+  const counter = await CounterContract.deploy(wallet, 1, defaultAccountAddress)
+    .send({ from: defaultAccountAddress, universalDeploy: true })
     .deployed(waitOpts);
   const info: ContractDeploymentInfo = {
     address: counter.address,
@@ -265,6 +277,7 @@ async function fundFPC(
   pxe: PXE,
   counterAddress: AztecAddress,
   wallet: Wallet,
+  defaultAccountAddress: AztecAddress,
   l1Client: ExtendedViemWalletClient,
   fpcAddress: AztecAddress,
   debugLog: Logger,
@@ -277,11 +290,11 @@ async function fundFPC(
   const { CounterContract } = await import('@aztec/noir-test-contracts.js/Counter');
   const {
     protocolContractAddresses: { feeJuice },
-  } = await wallet.getPXEInfo();
+  } = await pxe.getNodeInfo();
 
   const feeJuiceContract = await FeeJuiceContract.at(feeJuice, wallet);
 
-  const feeJuicePortal = await L1FeeJuicePortalManager.new(wallet, l1Client, debugLog);
+  const feeJuicePortal = await L1FeeJuicePortalManager.new(pxe, l1Client, debugLog);
 
   const { claimAmount, claimSecret, messageLeafIndex, messageHash } = await feeJuicePortal.bridgeTokensPublic(
     fpcAddress,
@@ -297,14 +310,14 @@ async function fundFPC(
 
   // TODO (alexg) remove this once sequencer builds blocks continuously
   // advance the chain
-  await counter.methods.increment(wallet.getAddress(), wallet.getAddress()).send().wait(waitOpts);
-  await counter.methods.increment(wallet.getAddress(), wallet.getAddress()).send().wait(waitOpts);
+  await counter.methods.increment(defaultAccountAddress).send({ from: defaultAccountAddress }).wait(waitOpts);
+  await counter.methods.increment(defaultAccountAddress).send({ from: defaultAccountAddress }).wait(waitOpts);
 
   debugLog.info('Claiming FPC');
 
   const receipt = await feeJuiceContract.methods
     .claim(fpcAddress, claimAmount, claimSecret, messageLeafIndex)
-    .send()
+    .send({ from: defaultAccountAddress })
     .wait({ ...waitOpts });
 
   await waitForProven(pxe, receipt, provenWaitOpts);

@@ -17,7 +17,7 @@ using ::testing::SizeIs;
 TEST(AvmInputsTest, Deserialization)
 {
     // cwd is expected to be barretenberg/cpp/build.
-    auto data = read_file("../src/barretenberg/vm2/common/avm_inputs.testdata.bin");
+    auto data = read_file("../src/barretenberg/vm2/testing/avm_inputs.testdata.bin");
     // We only check that deserialization does not crash.
     // Correctness of the deserialization itself is assumed via MessagePack.
     // What we are testing here is that the structure of the inputs in TS matches the C++ structs
@@ -36,7 +36,7 @@ TEST(AvmInputsTest, FormatTransformations)
     auto flattened = PublicInputs::columns_to_flat(as_cols);
     auto unflattened = PublicInputs::flat_to_columns(flattened);
 
-    ASSERT_THAT(as_cols, SizeIs(AVM_NUM_PUBLIC_INPUT_COLUMNS));
+    EXPECT_THAT(as_cols, SizeIs(AVM_NUM_PUBLIC_INPUT_COLUMNS));
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; ++i) {
         EXPECT_THAT(as_cols[i], SizeIs(AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH));
     }
@@ -177,7 +177,7 @@ TEST(AvmInputsTest, ValuesInColumns)
 
     // Convert to flat array for easier testing
     auto flat = PublicInputs::columns_to_flat(columns);
-    ASSERT_THAT(flat, SizeIs(AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH));
+    EXPECT_THAT(flat, SizeIs(AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH));
 
     // Define column offsets based on the total number of rows per column
     const size_t col0_offset = 0;

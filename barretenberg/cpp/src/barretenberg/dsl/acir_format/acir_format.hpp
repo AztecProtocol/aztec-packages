@@ -14,13 +14,11 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include "bigint_constraint.hpp"
 #include "blake2s_constraint.hpp"
 #include "blake3_constraint.hpp"
 #include "block_constraint.hpp"
 #include "ec_operations.hpp"
-#include "ecdsa_secp256k1.hpp"
-#include "ecdsa_secp256r1.hpp"
+#include "ecdsa_constraints.hpp"
 #include "honk_recursion_constraint.hpp"
 #include "keccak_constraint.hpp"
 #include "logic_constraint.hpp"
@@ -54,13 +52,10 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> poseidon2_constraints;
     std::vector<size_t> multi_scalar_mul_constraints;
     std::vector<size_t> ec_add_constraints;
-    std::vector<size_t> recursion_constraints;
     std::vector<size_t> honk_recursion_constraints;
     std::vector<size_t> avm_recursion_constraints;
-    std::vector<size_t> ivc_recursion_constraints;
-    std::vector<size_t> bigint_from_le_bytes_constraints;
-    std::vector<size_t> bigint_to_le_bytes_constraints;
-    std::vector<size_t> bigint_operations;
+    std::vector<size_t> pg_recursion_constraints;
+    std::vector<size_t> civc_recursion_constraints;
     std::vector<size_t> assert_equalities;
     std::vector<size_t> poly_triple_constraints;
     std::vector<size_t> quad_constraints;
@@ -89,21 +84,18 @@ struct AcirFormat {
     std::vector<RangeConstraint> range_constraints;
     std::vector<AES128Constraint> aes128_constraints;
     std::vector<Sha256Compression> sha256_compression;
-    std::vector<EcdsaSecp256k1Constraint> ecdsa_k1_constraints;
-    std::vector<EcdsaSecp256r1Constraint> ecdsa_r1_constraints;
+    std::vector<EcdsaConstraint> ecdsa_k1_constraints;
+    std::vector<EcdsaConstraint> ecdsa_r1_constraints;
     std::vector<Blake2sConstraint> blake2s_constraints;
     std::vector<Blake3Constraint> blake3_constraints;
     std::vector<Keccakf1600> keccak_permutations;
     std::vector<Poseidon2Constraint> poseidon2_constraints;
     std::vector<MultiScalarMul> multi_scalar_mul_constraints;
     std::vector<EcAdd> ec_add_constraints;
-    std::vector<RecursionConstraint> recursion_constraints;
     std::vector<RecursionConstraint> honk_recursion_constraints;
     std::vector<RecursionConstraint> avm_recursion_constraints;
-    std::vector<RecursionConstraint> ivc_recursion_constraints;
-    std::vector<BigIntFromLeBytes> bigint_from_le_bytes_constraints;
-    std::vector<BigIntToLeBytes> bigint_to_le_bytes_constraints;
-    std::vector<BigIntOperation> bigint_operations;
+    std::vector<RecursionConstraint> pg_recursion_constraints;
+    std::vector<RecursionConstraint> civc_recursion_constraints;
     std::vector<bb::poly_triple_<bb::curve::BN254::ScalarField>> assert_equalities;
 
     // A standard plonk arithmetic constraint, as defined in the poly_triple struct, consists of selector values
@@ -121,11 +113,14 @@ struct AcirFormat {
 
     // Number of gates added to the circuit per original opcode.
     // Has length equal to num_acir_opcodes.
-    std::vector<size_t> gates_per_opcode = {};
+    std::vector<size_t> gates_per_opcode;
 
     // Set of constrained witnesses
-    std::set<uint32_t> constrained_witness = {};
-    std::map<uint32_t, uint32_t> minimal_range = {};
+    std::set<uint32_t> constrained_witness;
+    // map witness with their minimal bit-range
+    std::map<uint32_t, uint32_t> minimal_range;
+    // map witness with their minimal bit-range implied by array operations
+    std::map<uint32_t, uint32_t> index_range;
 
     // Indices of the original opcode that originated each constraint in AcirFormat.
     AcirFormatOriginalOpcodeIndices original_opcode_indices;
@@ -145,17 +140,14 @@ struct AcirFormat {
                    poseidon2_constraints,
                    multi_scalar_mul_constraints,
                    ec_add_constraints,
-                   recursion_constraints,
                    honk_recursion_constraints,
                    avm_recursion_constraints,
-                   ivc_recursion_constraints,
+                   pg_recursion_constraints,
+                   civc_recursion_constraints,
                    poly_triple_constraints,
                    quad_constraints,
                    big_quad_constraints,
                    block_constraints,
-                   bigint_from_le_bytes_constraints,
-                   bigint_to_le_bytes_constraints,
-                   bigint_operations,
                    assert_equalities);
 
     friend bool operator==(AcirFormat const& lhs, AcirFormat const& rhs) = default;
@@ -222,21 +214,6 @@ struct ProgramMetadata {
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1161) Refactor this function
 template <typename Builder = bb::UltraCircuitBuilder>
 Builder create_circuit(AcirProgram& program, const ProgramMetadata& metadata = ProgramMetadata{});
-
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1161) Refactor this function
-template <typename Builder = bb::UltraCircuitBuilder>
-Builder create_circuit(AcirFormat& constraint_system,
-                       // Specifies whether a prover that produces SNARK recursion friendly proofs should be used.
-                       // The proof produced when this flag is true should be friendly for recursive verification inside
-                       // of another SNARK. For example, a recursive friendly proof may use Blake3Pedersen for
-                       // hashing in its transcript, while we still want a prove that uses Keccak for its transcript in
-                       // order to be able to verify SNARKs on Ethereum.
-                       bool recursive,
-                       const size_t size_hint = 0,
-                       const WitnessVector& witness = {},
-                       uint32_t honk_recursion = 0,
-                       std::shared_ptr<bb::ECCOpQueue> op_queue = std::make_shared<bb::ECCOpQueue>(),
-                       bool collect_gates_per_opcode = false);
 
 template <typename Builder>
 void build_constraints(Builder& builder, AcirProgram& program, const ProgramMetadata& metadata);

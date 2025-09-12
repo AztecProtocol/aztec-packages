@@ -1,5 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { jsonParseWithSchemaSync, jsonStringify } from '@aztec/foundation/json-rpc';
+import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import fs from 'fs/promises';
@@ -24,7 +24,7 @@ export class DatabaseVersion {
 
   public static fromBuffer(buf: Buffer): DatabaseVersion {
     try {
-      return jsonParseWithSchemaSync(buf.toString('utf-8'), DatabaseVersion.schema);
+      return jsonParseWithSchema(buf.toString('utf-8'), DatabaseVersion.schema);
     } catch (err) {
       throw new Error(`Failed to deserialize version information: ${err}`, { cause: err });
     }

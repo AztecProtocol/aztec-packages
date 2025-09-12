@@ -10,6 +10,13 @@
 #define BENCHMARK_INFO_SEPARATOR "#"
 #define BENCHMARK_INFO_SUFFIX "##BENCHMARK_INFO_SUFFIX##"
 
+#define BENCH_GATE_COUNT_START(builder, op_name) uint64_t __bench_before = builder.get_estimated_num_finalized_gates();
+
+#define BENCH_GATE_COUNT_END(builder, op_name)                                                                         \
+    uint64_t __bench_after = builder.get_estimated_num_finalized_gates();                                              \
+    std::cerr << "num gates with " << op_name << " = " << __bench_after - __bench_before << std::endl;                 \
+    benchmark_info(Builder::NAME_STRING, "Bigfield", op_name, "Gate Count", __bench_after - __bench_before);
+
 template <typename... Args> std::string format(Args... args)
 {
     std::ostringstream os;

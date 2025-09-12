@@ -22,7 +22,7 @@ export class SyncDataProvider implements DataProvider {
       throw new Error(`Trying to get block number with a not-yet-synchronized PXE - this should never happen`);
     }
 
-    return Number(BlockHeader.fromBuffer(headerBuffer).globalVariables.blockNumber.toBigInt());
+    return BlockHeader.fromBuffer(headerBuffer).globalVariables.blockNumber;
   }
 
   async getBlockHeader(): Promise<BlockHeader> {

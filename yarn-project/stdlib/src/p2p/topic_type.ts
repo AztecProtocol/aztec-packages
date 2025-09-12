@@ -24,8 +24,18 @@ export function getTopicTypeForClientType(clientType: P2PClientType) {
     return Object.values(TopicType);
   } else if (clientType === P2PClientType.Prover) {
     return [TopicType.tx, TopicType.block_proposal];
+  } else {
+    const _: never = clientType;
+    return [TopicType.tx];
   }
-  return [TopicType.tx];
+}
+
+export function getTopicsForClientAndConfig(clientType: P2PClientType, disableTransactions: boolean) {
+  const topics = getTopicTypeForClientType(clientType);
+  if (disableTransactions) {
+    return topics.filter(topic => topic !== TopicType.tx);
+  }
+  return topics;
 }
 
 /**

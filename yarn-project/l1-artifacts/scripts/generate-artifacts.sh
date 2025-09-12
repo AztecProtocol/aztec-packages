@@ -12,10 +12,15 @@ cd $(git rev-parse --show-toplevel)/yarn-project/l1-artifacts
 
 contracts=(
   "CoinIssuer"
+  "TallySlashingProposer"
   "EmpireBase"
-  "ExtRollupLib"
+  "EmpireSlashingProposer"
+  "RollupOperationsExtLib"
+  "ValidatorOperationsExtLib"
+  "RewardDeploymentExtLib"
+  "TallySlasherDeploymentExtLib"
+  "EmpireSlasherDeploymentExtLib"
   "FeeJuicePortal"
-  "Forwarder"
   "Governance"
   "GovernanceProposer"
   "FeeAssetHandler"
@@ -32,7 +37,6 @@ contracts=(
   "Rollup"
   "Slasher"
   "SlashFactory"
-  "SlashingProposer"
   "StakingAssetHandler"
   "TestERC20"
   "TokenPortal"
@@ -40,13 +44,14 @@ contracts=(
   "ValidatorSelectionLib"
   "MultiAdder"
   "GSE"
+  "MockZKPassportVerifier"
 )
 
 # Combine error ABIs once, removing duplicates by {type, name}.
 combined_errors_abi=$(
   jq -s '
     .[0].abi + .[1].abi
-    | unique_by({type: .type, name: .name})
+    | unique_by({type: .type, name: .name, inputs_len: (.inputs | length)})
   ' \
     ../../l1-contracts/out/Errors.sol/Errors.json \
     ../../l1-contracts/out/libraries/Errors.sol/Errors.json
@@ -87,7 +92,7 @@ for contract_name in "${contracts[@]}"; do
     # Just merging it into all, it is not the cleanest, but it does the job.
     jq -j --argjson errs "$combined_errors_abi" '
       .abi + $errs
-      | unique_by({type: .type, name: .name})
+      | unique_by({type: .type, name: .name, inputs_len: (.inputs | length)})
     ' \
       "../../l1-contracts/out/${contract_name}.sol/${contract_name}.json"
     echo " as const;"

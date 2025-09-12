@@ -72,13 +72,13 @@ existing_instance=$(aws ec2 describe-instances \
 if [ -n "$existing_instance" ]; then
   for i in $existing_instance; do
     echo "Terminating existing instance: $i"
-    aws ec2 --region us-east-2 terminate-instances --instance-ids $i > /dev/null 2>&1
+    aws ec2 --region us-east-2 terminate-instances --instance-ids $i >/dev/null 2>&1
   done
 fi
 
 # Request new instance.
 ip_sir=$(KEY_NAME=$key_name aws_request_instance $instance_name $cores $arch)
-IFS=':' read -r -a parts <<< "$ip_sir"
+IFS=':' read -r -a parts <<<"$ip_sir"
 ip="${parts[0]}"
 sir="${parts[1]}"
 iid="${parts[2]}"
@@ -92,20 +92,16 @@ if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
   echo "AWS credentials are being set from ~/.aws/build_instance_credentials."
   export AWS_ACCESS_KEY_ID=$(grep aws_access_key_id ~/.aws/build_instance_credentials | awk '{print $3}')
   export AWS_SECRET_ACCESS_KEY=$(grep aws_secret_access_key ~/.aws/build_instance_credentials | awk '{print $3}')
-  if [[ $(echo "$AWS_ACCESS_KEY_ID" | wc -l) > 1 ]] || [[ $(echo "$AWS_SECRET_ACCESS_KEY" | wc -l) > 1 ]] ; then
+  if [[ $(echo "$AWS_ACCESS_KEY_ID" | wc -l) > 1 ]] || [[ $(echo "$AWS_SECRET_ACCESS_KEY" | wc -l) > 1 ]]; then
     echo "Error: multiple AWS credentials found in ~/.aws/build_instance_credentials. Make sure you have only one profile defined."
     exit 1
   fi
 fi
 
-# Interactive if stdin is connected to terminal.
-[ -t 0 ] && docker_args+=" -i"
-
 # If stdout is connected to a terminal, drop into a shell on failure.
 # Otherwise ensure all logs go to redis cache.
 if [ -t 1 ]; then
   ssh_args="-t"
-  docker_args+=" -t"
   if [ "$NO_TERMINATE" -eq 0 ]; then
     run_cmd="run || exec zsh"
   else
@@ -113,10 +109,11 @@ if [ -t 1 ]; then
   fi
 else
   # We're probably running in CI. Handle aws evictions and add timestamps to the logs.
-  run_cmd="ci3/aws_handle_evict run 2>&1 | ci3/add_timestamps | DUP=1 ci3/cache_log 'CI run' \$ci_log_id"
+  run_cmd="run 2>&1 | ci3/add_timestamps | DUP=1 ci3/cache_log 'CI run' \$ci_log_id"
 fi
 
-container_script=$(cat <<EOF
+container_script=$(
+  cat <<EOF
   set -euo pipefail
   # When restarting the container, just hang around.
   # Note we use the "ci-started" file to determine if we're running on a CI machine in some cases (e.g. npm cache).
@@ -148,14 +145,23 @@ container_script=$(cat <<EOF
       echo "Performing a release because \$REF_NAME is a semver."
     fi
 
+    # Capture cpu load.
+    mpstat 2 > >(cache_log cpufile) &
+    cpu_pid=\$!
+
+    # Capture mem load.
+    vmstat -w -S M 2 > >(cache_log memfile) &
+    mem_pid=\$!
+
     set +e
     set -x
     $cmd
     local code=\${PIPESTATUS[0]}
     set +x
+
     sudo dmesg 2>&1 | cache_log 'dmesg'
-    sudo cat /tmp/cpufile | cache_log 'cpufile'
-    sudo cat /tmp/memfile | cache_log 'memfile'
+    kill \$cpu_pid \$mem_pid &>/dev/null
+
     return \$code
   }
   export -f run
@@ -168,7 +174,7 @@ container_script=$(cat <<EOF
   case \$code in
     155) ;;
     0) log_ci_run PASSED \$ci_log_id ;;
-    *) log_ci_run FAILED \$ci_log_id ;;
+    *) log_ci_run FAILED \$ci_log_id && merge_train_failure_slack_notify \$ci_log_id ;;
   esac
   exit \$code
 EOF
@@ -188,8 +194,19 @@ EOF
 # We provide the host user and group ids to the entrypoint script to ensure alignment.
 # We raise the default pid limit to 32k.
 function run {
+  export GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-/tmp/gcp-key.json}
+  export NETWORK_ENV_FILE=${NETWORK_ENV_FILE:-/tmp/network.env}
+  # if the google application credentials exist, load them into a base64 encoded string
+  if [ -f ${GOOGLE_APPLICATION_CREDENTIALS} ]; then
+    export GCP_SA_KEY_B64=$(cat ${GOOGLE_APPLICATION_CREDENTIALS} | base64 -w 0)
+  fi
+  # if the network env file exists, load it into a base64 encoded string
+  if [ -f ${NETWORK_ENV_FILE} ]; then
+    export NETWORK_ENV_FILE_B64=$(cat ${NETWORK_ENV_FILE} | base64 -w 0)
+  fi
+
   ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
-    # TODO: This should *not* be needed in a CI run. Remove "watching" code, e.g. in boxes.
+    # TODO: This should *not* be needed in a CI run. Remove watching code, e.g. in boxes.
     sudo sysctl fs.inotify.max_user_watches=1048576 &>/dev/null
     sudo sysctl fs.inotify.max_user_instances=1048576 &>/dev/null
 
@@ -199,72 +216,103 @@ function run {
     sudo cp -r \$HOME/.bb-crs/* /mnt/bb-crs
     echo Done in \$SECONDS seconds.
 
-    # Capture net status.
-    # echo Installing and starting sysdig...
-    # sudo apt-get update &>/dev/null
-    # sudo apt-get install -y sysdig net-tools &>/dev/null
-    # sudo sysdig -p '%evt.time (cid: %container.id) (event: %evt.dir %evt.type) (args: %evt.args): %proc.cmdline' 'evt.type=bind or evt.type=listen' > /tmp/netfile &
-    # netfile_pid=\$!
+    aws_token=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
 
-    # Capture cpu load.
-    mpstat 2 &> /tmp/cpufile &
-    cpufile_pid=\$!
 
-    # Capture mem load.
-    vmstat -w -S M 2 &> /tmp/memfile &
-    memfile_pid=\$!
+    # Save GCP_SA_KEY to a file if set
+    if [ -n "${GCP_SA_KEY_B64:-}" ]; then
+      echo "${GCP_SA_KEY_B64:-}" | base64 -d > ${GOOGLE_APPLICATION_CREDENTIALS}
+      echo "GCP_SA_KEY decoded and saved to ${GOOGLE_APPLICATION_CREDENTIALS}"
+    fi
 
-    # Kill monitoring processes on exit.
-    trap 'sudo kill \$cpufile_pid \$memfile_pid' EXIT
+    # Save NETWORK_ENV_FILE to a file if set
+    if [ -n "${NETWORK_ENV_FILE_B64:-}" ]; then
+      echo "${NETWORK_ENV_FILE_B64:-}" | base64 -d > ${NETWORK_ENV_FILE}
+      echo "NETWORK_ENV_FILE decoded and saved to ${NETWORK_ENV_FILE}"
+    fi
 
-    echo Starting devbox...
-    docker run --privileged --rm ${docker_args:-} \
-      --name aztec_build \
-      --hostname $instance_name \
-      -v bootstrap_ci_local_docker:/var/lib/docker \
-      -v bootstrap_ci_repo:/home/aztec-dev/aztec-packages \
-      -v \$HOME/.aws:/home/aztec-dev/.aws:ro \
-      -v /mnt/bb-crs:/home/aztec-dev/.bb-crs \
-      -v /tmp:/tmp \
-      -v /dev/kmsg:/dev/kmsg \
-      -e CI=1 \
-      -e RUN_ID=${RUN_ID:-} \
-      -e JOB_ID=${JOB_ID:-} \
-      -e REF_NAME=${REF_NAME:-} \
-      -e TARGET_BRANCH=${TARGET_BRANCH:-} \
-      -e PARENT_LOG_URL=${PARENT_LOG_URL:-} \
-      -e NO_CACHE=${NO_CACHE:-} \
-      -e CI_REDIS='ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com' \
-      -e SSH_CONNECTION=' ' \
-      -e LOCAL_USER_ID=\$(id -u) \
-      -e LOCAL_GROUP_ID=\$(id -g) \
-      -e EXTERNAL_ETHEREUM_HOSTS=${EXTERNAL_ETHEREUM_HOSTS:-} \
-      -e EXTERNAL_ETHEREUM_CONSENSUS_HOST=${EXTERNAL_ETHEREUM_CONSENSUS_HOST:-} \
-      -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY:-} \
-      -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER:-} \
-      -e L1_DEPLOYMENT_PRIVATE_KEY=${L1_DEPLOYMENT_PRIVATE_KEY:-} \
-      -e DOCKERHUB_PASSWORD=${DOCKERHUB_PASSWORD:-} \
-      -e AWS_ACCESS_KEY_ID=\"${AWS_ACCESS_KEY_ID:-}\" \
-      -e AWS_SECRET_ACCESS_KEY=\"${AWS_SECRET_ACCESS_KEY:-}\" \
-      -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-} \
-      -e GITHUB_TOKEN=${GITHUB_TOKEN:-} \
-      -e NETLIFY_SITE_ID=${NETLIFY_SITE_ID:-} \
-      -e NETLIFY_AUTH_TOKEN=${NETLIFY_AUTH_TOKEN:-} \
-      -e NPM_TOKEN=${NPM_TOKEN:-} \
-      -e SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-} \
-      -e AWS_TOKEN=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600') \
-      --pids-limit=32768 \
-      aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
-  "
+    start_build() {
+      echo Starting devbox...
+      docker run --privileged --rm \${docker_args:-} \
+        --name aztec_build \
+        --hostname $instance_name \
+        -v bootstrap_ci_local_docker:/var/lib/docker \
+        -v bootstrap_ci_repo:/home/aztec-dev/aztec-packages \
+        -v \$HOME/.aws:/home/aztec-dev/.aws:ro \
+        -v /mnt/bb-crs:/home/aztec-dev/.bb-crs \
+        -v /dev/kmsg:/dev/kmsg \
+        -v /tmp:/tmp \
+        -v ${GOOGLE_APPLICATION_CREDENTIALS}:${GOOGLE_APPLICATION_CREDENTIALS}:ro \
+        -v ${NETWORK_ENV_FILE}:${NETWORK_ENV_FILE}:ro \
+        -e GOOGLE_APPLICATION_CREDENTIALS="${GOOGLE_APPLICATION_CREDENTIALS}" \
+        -e NETWORK_ENV_FILE="${NETWORK_ENV_FILE}" \
+        -e CI=1 \
+        -e RUN_ID=${RUN_ID:-} \
+        -e JOB_ID=${JOB_ID:-} \
+        -e REF_NAME=${REF_NAME:-} \
+        -e TARGET_BRANCH=${TARGET_BRANCH:-} \
+        -e PARENT_LOG_URL=${PARENT_LOG_URL:-} \
+        -e NO_CACHE=${NO_CACHE:-} \
+        -e NO_FAIL_FAST=${NO_FAIL_FAST:-} \
+        -e CI_REDIS='ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com' \
+        -e SSH_CONNECTION=' ' \
+        -e LOCAL_USER_ID=\$(id -u) \
+        -e LOCAL_GROUP_ID=\$(id -g) \
+        -e GCP_PROJECT_ID=${GCP_PROJECT_ID:-} \
+        -e EXTERNAL_ETHEREUM_HOSTS=${EXTERNAL_ETHEREUM_HOSTS:-} \
+        -e EXTERNAL_ETHEREUM_CONSENSUS_HOST=${EXTERNAL_ETHEREUM_CONSENSUS_HOST:-} \
+        -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY:-} \
+        -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER:-} \
+        -e L1_DEPLOYMENT_PRIVATE_KEY=${L1_DEPLOYMENT_PRIVATE_KEY:-} \
+        -e DOCKERHUB_PASSWORD=${DOCKERHUB_PASSWORD:-} \
+        -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} \
+        -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} \
+        -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-} \
+        -e GITHUB_TOKEN=${GITHUB_TOKEN:-} \
+        -e NETLIFY_SITE_ID=${NETLIFY_SITE_ID:-} \
+        -e NETLIFY_AUTH_TOKEN=${NETLIFY_AUTH_TOKEN:-} \
+        -e NPM_TOKEN=${NPM_TOKEN:-} \
+        -e SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-} \
+        -e AWS_TOKEN=\$aws_token \
+        -e NAMESPACE=${NAMESPACE:-} \
+        --pids-limit=32768 \
+        aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
+    }
+
+    # If stdout is a tty, run in foreground, otherwise run in background and handle spot termination notices.
+    if [ -t 1 ]; then
+      docker_args+=' -ti'
+      start_build
+    else
+      echo 'Stdout is not a tty, starting build container in background...'
+      start_build &
+      build_pid=\$!
+
+      # While the docker container is running, check for spot termination notices.
+      while kill -0 \$build_pid &>/dev/null; do
+        # The check for the file allows for testing spot termination logic.
+        if [ -f /tmp/spot_term ] || curl -fs -H 'X-aws-ec2-metadata-token: '\$aws_token http://169.254.169.254/latest/meta-data/spot/termination-time &>/dev/null; then
+          # Termination notice found, exit with 155.
+          echo 'Spot will be terminated! Exiting early.'
+          docker kill aztec_build &>/dev/null || true
+          exit 155
+        fi
+        sleep 5
+      done
+
+      # Returns exit code from docker run.
+      wait \$build_pid
+    fi
+"
 }
 
 set +e
 # If in terminal run in foreground.
 # If not, run in background so we can handle the signals in a timely fashion, and wait for it to finish.
-if [ -t 0 ]; then
+if [ -t 1 ]; then
   run
 else
-  echo "No tty, running in background..."
+  echo "Stdout is not a tty, running in background..."
   run &
   wait $!
 fi

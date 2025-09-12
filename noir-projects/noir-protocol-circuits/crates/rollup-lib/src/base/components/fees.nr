@@ -5,6 +5,7 @@ use dep::types::{
     data::hash::compute_public_data_tree_index,
     storage::map::derive_storage_slot_in_map,
 };
+use std::cmp::min;
 
 pub(crate) fn compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer: AztecAddress) -> Field {
     let balances_slot_in_fee_juice_contract = 1;
@@ -16,19 +17,31 @@ pub(crate) fn compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer: AztecAddr
     )
 }
 
+pub fn validate_max_fees_per_gas(max_fees_per_gas: GasFees, gas_fees: GasFees) {
+    assert(
+        max_fees_per_gas.fee_per_da_gas >= gas_fees.fee_per_da_gas,
+        "da gas is higher than the maximum specified by the tx",
+    );
+    assert(
+        max_fees_per_gas.fee_per_l2_gas >= gas_fees.fee_per_l2_gas,
+        "l2 gas is higher than the maximum specified by the tx",
+    );
+}
+
 // Computes the effective gas fees from the current gas fees and taking as much
 // priority gas fees as the max_fees_per_gas allows.
 pub fn compute_effective_gas_fees(gas_fees: GasFees, gas_settings: GasSettings) -> GasFees {
     let max_priority_fees = gas_settings.max_priority_fees_per_gas;
     let max_fees = gas_settings.max_fees_per_gas;
 
-    // max_fees are guaranteed to be greater than or equal to gas_fees, which is checked in tube_data_validator.
+    // max_fees are guaranteed to be greater than or equal to gas_fees, which is checked in validate_max_fees_per_gas
+    // called from validate_tx_constant_data.nr.
     let priority_fees = GasFees::new(
-        dep::types::utils::field::min(
+        min(
             max_priority_fees.fee_per_da_gas,
             max_fees.fee_per_da_gas - gas_fees.fee_per_da_gas,
         ),
-        dep::types::utils::field::min(
+        min(
             max_priority_fees.fee_per_l2_gas,
             max_fees.fee_per_l2_gas - gas_fees.fee_per_l2_gas,
         ),
@@ -38,7 +51,6 @@ pub fn compute_effective_gas_fees(gas_fees: GasFees, gas_settings: GasSettings) 
         gas_fees.fee_per_da_gas + priority_fees.fee_per_da_gas,
         gas_fees.fee_per_l2_gas + priority_fees.fee_per_l2_gas,
     );
-    // TODO(14711): Range check effective_gas_fees and priority_fees or change GasFees to u128
 
     effective_gas_fees
 }

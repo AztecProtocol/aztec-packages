@@ -1,4 +1,4 @@
-import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
+import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -12,7 +12,7 @@ import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server'
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import type { SimpleContractDataSource } from '../../fixtures/simple_contract_data_source.js';
-import { createContractClassAndInstance } from './index.js';
+import { createContractClassAndInstance } from './utils.js';
 
 /**
  * An abstract test class that enables tests of real apps in the AVM without requiring e2e tests.
@@ -57,6 +57,7 @@ export abstract class BaseAvmSimulationTester {
     contractArtifact: ContractArtifact,
     skipNullifierInsertion = false,
     seed = 0,
+    contractClassSeed = seed,
     originalContractClassId?: Fr, // if previously upgraded
   ): Promise<ContractInstanceWithAddress> {
     const { contractClass, contractInstance } = await createContractClassAndInstance(
@@ -64,6 +65,7 @@ export abstract class BaseAvmSimulationTester {
       deployer,
       contractArtifact,
       seed,
+      contractClassSeed,
       originalContractClassId,
     );
 
@@ -95,7 +97,7 @@ export abstract class BaseAvmSimulationTester {
 
   private async insertContractAddressNullifier(contractAddress: AztecAddress) {
     const contractAddressNullifier = await siloNullifier(
-      AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+      AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
       contractAddress.toField(),
     );
     await this.merkleTrees.sequentialInsert(MerkleTreeId.NULLIFIER_TREE, [contractAddressNullifier.toBuffer()]);

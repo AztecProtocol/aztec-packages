@@ -5,9 +5,9 @@ import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
 
-const TIMEOUT = 300_000;
+const TIMEOUT = 30_000;
 
-describe.skip('AVM WitGen & Circuit – check circuit', () => {
+describe('AVM check-circuit – unhappy paths 2', () => {
   const sender = AztecAddress.fromNumber(42);
   let avmTestContractInstance: ContractInstanceWithAddress;
   let tester: AvmProvingTester;
@@ -31,6 +31,7 @@ describe.skip('AVM WitGen & Circuit – check circuit', () => {
     },
     TIMEOUT,
   );
+
   it(
     'an exceptional halt due to a nested call to non-existent contract is recovered from in caller',
     async () => {
@@ -41,24 +42,61 @@ describe.skip('AVM WitGen & Circuit – check circuit', () => {
     },
     TIMEOUT,
   );
-  // FIXME(dbanks12): fails with "Lookup PERM_MAIN_ALU failed."
-  it.skip('top-level exceptional halts due to a non-existent contract in app-logic and teardown', async () => {
+
+  it('top-level exceptional halts due to a non-existent contract in app-logic and teardown', async () => {
     // don't insert contracts into trees, and make sure retrieval fails
     const tester = await AvmProvingTester.new(/*checkCircuitOnly=*/ true);
+    // Note: we need to specify the contract artifacts here because we intentionally skip registration,
+    // so the tester can't retrieve them on its own.
     await tester.simProveVerify(
       sender,
       /*setupCalls=*/ [],
       /*appCalls=*/ [
-        { address: avmTestContractInstance.address, fnName: 'add_args_return', args: [new Fr(1), new Fr(2)] },
+        {
+          address: avmTestContractInstance.address,
+          fnName: 'add_args_return',
+          args: [new Fr(1), new Fr(2)],
+          contractArtifact: AvmTestContractArtifact,
+        },
       ],
       /*teardownCall=*/ {
         address: avmTestContractInstance.address,
         fnName: 'add_args_return',
         args: [new Fr(1), new Fr(2)],
+        contractArtifact: AvmTestContractArtifact,
       },
       /*expectRevert=*/ true,
     );
   });
+
+  it('error during revertible insertions - skips to teardown', async () => {
+    await tester.simProveVerify(
+      sender,
+      /*setupCalls=*/ [],
+      /*appCalls=*/ [
+        {
+          address: avmTestContractInstance.address,
+          fnName: 'add_args_return',
+          args: [new Fr(1), new Fr(2)],
+          contractArtifact: AvmTestContractArtifact,
+        },
+      ],
+      /*teardownCall=*/ {
+        address: avmTestContractInstance.address,
+        fnName: 'add_args_return',
+        args: [new Fr(1), new Fr(2)],
+        contractArtifact: AvmTestContractArtifact,
+      },
+      /*expectRevert=*/ true,
+      /*feePayer=*/ sender,
+      // duplicate nullifiers during revertible insertions!
+      /*privateInsertions=*/ {
+        revertible: { nullifiers: [new Fr(100_000), /*duplicate*/ new Fr(100_000)] },
+        nonRevertible: { nullifiers: [/*firstNullifier=*/ new Fr(66000)] },
+      },
+    );
+  });
+
   it(
     'enqueued calls in every phase, with enqueued calls that depend on each other',
     async () => {

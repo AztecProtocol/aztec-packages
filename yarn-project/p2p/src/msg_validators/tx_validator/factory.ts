@@ -11,6 +11,7 @@ import type {
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { DatabasePublicStateSource, MerkleTreeId } from '@aztec/stdlib/trees';
 import type { Tx, TxValidationResult } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import { ArchiveCache } from './archive_cache.js';
 import { BlockHeaderTxValidator } from './block_header_validator.js';
@@ -19,6 +20,7 @@ import { DoubleSpendTxValidator } from './double_spend_validator.js';
 import { GasTxValidator } from './gas_validator.js';
 import { MetadataTxValidator } from './metadata_validator.js';
 import { PhasesTxValidator } from './phases_validator.js';
+import { TxPermittedValidator } from './tx_permitted_validator.js';
 import { TxProofValidator } from './tx_proof_validator.js';
 
 export interface MessageValidator {
@@ -29,6 +31,7 @@ export interface MessageValidator {
 }
 
 export function createTxMessageValidators(
+  timestamp: UInt64,
   blockNumber: number,
   worldStateSynchronizer: WorldStateSynchronizer,
   gasFees: GasFees,
@@ -37,12 +40,17 @@ export function createTxMessageValidators(
   protocolContractTreeRoot: Fr,
   contractDataSource: ContractDataSource,
   proofVerifier: ClientProtocolCircuitVerifier,
+  txsPermitted: boolean,
   allowedInSetup: AllowedElement[] = [],
 ): Record<string, MessageValidator>[] {
   const merkleTree = worldStateSynchronizer.getCommitted();
 
   return [
     {
+      txsPermittedValidator: {
+        validator: new TxPermittedValidator(txsPermitted),
+        severity: PeerErrorSeverity.MidToleranceError,
+      },
       dataValidator: {
         validator: new DataTxValidator(),
         severity: PeerErrorSeverity.HighToleranceError,
@@ -51,7 +59,8 @@ export function createTxMessageValidators(
         validator: new MetadataTxValidator({
           l1ChainId: new Fr(l1ChainId),
           rollupVersion: new Fr(rollupVersion),
-          blockNumber: new Fr(blockNumber),
+          timestamp,
+          blockNumber,
           protocolContractTreeRoot,
           vkTreeRoot: getVKTreeRoot(),
         }),
@@ -76,7 +85,7 @@ export function createTxMessageValidators(
         severity: PeerErrorSeverity.HighToleranceError,
       },
       phasesValidator: {
-        validator: new PhasesTxValidator(contractDataSource, allowedInSetup, blockNumber),
+        validator: new PhasesTxValidator(contractDataSource, allowedInSetup, timestamp),
         severity: PeerErrorSeverity.MidToleranceError,
       },
       blockHeaderValidator: {

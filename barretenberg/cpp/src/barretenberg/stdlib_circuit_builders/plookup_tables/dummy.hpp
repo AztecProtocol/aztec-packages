@@ -13,6 +13,7 @@
  *
  */
 
+#include "barretenberg/common/assert.hpp"
 #include "types.hpp"
 
 namespace bb::plookup::dummy_tables {
@@ -50,7 +51,7 @@ inline BasicTable generate_honk_dummy_table(const BasicTableId id, const size_t 
 
     // We do the assertion, since this function is templated, but the general API for these functions contains the id,
     // too. This helps us ensure that the correct instantion is used for a particular BasicTableId
-    ASSERT(table_id == static_cast<uint64_t>(id));
+    BB_ASSERT_EQ(table_id, static_cast<uint64_t>(id));
     const size_t base = 1 << 1; // Probably has to be a power of 2
     BasicTable table;
     table.id = id;

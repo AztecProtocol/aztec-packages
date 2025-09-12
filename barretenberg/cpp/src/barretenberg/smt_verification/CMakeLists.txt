@@ -5,21 +5,39 @@ set(CVC5_PREFIX "${CMAKE_BINARY_DIR}/_deps/cvc5")
 set(CVC5_BUILD "${CVC5_PREFIX}/src/cvc5-build")
 set(CVC5_LIB "${CVC5_BUILD}/lib/libcvc5.so")
 set(CVC5_INCLUDE "${CVC5_BUILD}/include")
+set(CVC5_STABLE_COMMIT "5fcdb48eb26dee9385e0d0e6377fcc7e4afee85a")
 
-ExternalProject_Add(
-    cvc5
-    PREFIX ${CVC5_PREFIX}
-    GIT_REPOSITORY "https://github.com/cvc5/cvc5.git"
-    GIT_TAG main
-    BUILD_IN_SOURCE YES
-    CONFIGURE_COMMAND ${SHELL} ./configure.sh production --gpl --auto-download --cocoa --cryptominisat --kissat -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ --prefix=${CVC5_BUILD}
-    BUILD_COMMAND make -C build -j8
-    INSTALL_COMMAND make -C build install
-    UPDATE_COMMAND ""     # No update step
-    # needed by ninja
-    # See https://stackoverflow.com/questions/48142082/cmake-externalproject-add-project-not-building-before-targets-that-depend-on-it
-    BUILD_BYPRODUCTS ${CVC5_LIB} ${CVC5_INCLUDE}
-)
+if(ENABLE_ASAN)
+    ExternalProject_Add(
+        cvc5
+        PREFIX ${CVC5_PREFIX}
+        GIT_REPOSITORY "https://github.com/cvc5/cvc5.git"
+        GIT_TAG ${CVC5_STABLE_COMMIT}
+        BUILD_IN_SOURCE YES
+        CONFIGURE_COMMAND ${SHELL} ./configure.sh debug --gpl --auto-download --cocoa --cryptominisat --kissat -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} --prefix=${CVC5_BUILD} --asan
+        BUILD_COMMAND make -C build -j8
+        INSTALL_COMMAND make -C build install
+        UPDATE_COMMAND ""     # No update step
+        # needed by ninja
+        # See https://stackoverflow.com/questions/48142082/cmake-externalproject-add-project-not-building-before-targets-that-depend-on-it
+        BUILD_BYPRODUCTS ${CVC5_LIB} ${CVC5_INCLUDE}
+    )
+else()
+    ExternalProject_Add(
+        cvc5
+        PREFIX ${CVC5_PREFIX}
+        GIT_REPOSITORY "https://github.com/cvc5/cvc5.git"
+        GIT_TAG ${CVC5_STABLE_COMMIT}
+        BUILD_IN_SOURCE YES
+        CONFIGURE_COMMAND ${SHELL} ./configure.sh production --gpl --auto-download --cocoa --cryptominisat --kissat -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} --prefix=${CVC5_BUILD}
+        BUILD_COMMAND make -C build -j8
+        INSTALL_COMMAND make -C build install
+        UPDATE_COMMAND ""     # No update step
+        # needed by ninja
+        # See https://stackoverflow.com/questions/48142082/cmake-externalproject-add-project-not-building-before-targets-that-depend-on-it
+        BUILD_BYPRODUCTS ${CVC5_LIB} ${CVC5_INCLUDE}
+    )
+endif()
 
 add_library(cvc5-lib SHARED IMPORTED)
 add_dependencies(cvc5-lib cvc5)

@@ -9,8 +9,12 @@ impl Empty for Scalar {
     }
 }
 
-impl Serialize<SCALAR_SIZE> for Scalar {
-    fn serialize(self) -> [Field; SCALAR_SIZE] {
+// Note: Not deriving this because it's not supported to call derive_serialize on a "remote" struct (and it will never
+// be supported).
+impl Serialize for Scalar {
+    let N: u32 = SCALAR_SIZE;
+
+    fn serialize(self) -> [Field; Self::N] {
         [self.lo, self.hi]
     }
 }

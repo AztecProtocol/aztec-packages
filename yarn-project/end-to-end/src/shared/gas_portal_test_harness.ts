@@ -1,5 +1,5 @@
 import {
-  type AztecAddress,
+  AztecAddress,
   type AztecNode,
   EthAddress,
   Fr,
@@ -12,17 +12,14 @@ import {
   retryUntil,
 } from '@aztec/aztec.js';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum';
-import { TestERC20Abi } from '@aztec/l1-artifacts/TestERC20Abi';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
-import { getContract } from 'viem';
-
 export interface IGasBridgingTestHarness {
   getL1FeeJuiceBalance(address: EthAddress): Promise<bigint>;
-  prepareTokensOnL1(bridgeAmount: bigint, owner: AztecAddress): Promise<L2AmountClaim>;
-  bridgeFromL1ToL2(bridgeAmount: bigint, owner: AztecAddress): Promise<void>;
+  prepareTokensOnL1(owner: AztecAddress): Promise<L2AmountClaim>;
+  bridgeFromL1ToL2(owner: AztecAddress, claimer: AztecAddress): Promise<void>;
   feeJuice: FeeJuiceContract;
   l1FeeJuiceAddress: EthAddress;
 }
@@ -119,16 +116,9 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
     this.l1TokenManager = this.feeJuicePortalManager.getTokenManager();
   }
 
-  async mintTokensOnL1(amount: bigint, to: EthAddress = this.ethAccount) {
+  async mintTokensOnL1(to: EthAddress = this.ethAccount) {
     // const balanceBefore = await this.l1TokenManager.getL1TokenBalance(to.toString());
     await this.l1TokenManager.mint(to.toString());
-    const feeAssetL1 = getContract({
-      address: this.l1FeeJuiceAddress.toString(),
-      abi: TestERC20Abi,
-      client: this.l1Client,
-    });
-
-    await feeAssetL1.write.mint([to.toString(), amount]);
 
     // expect(await this.l1TokenManager.getL1TokenBalance(to.toString())).toEqual(balanceBefore + amount);
   }
@@ -141,14 +131,14 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
     return this.feeJuicePortalManager.bridgeTokensPublic(l2Address, bridgeAmount, false);
   }
 
-  async consumeMessageOnAztecAndClaimPrivately(owner: AztecAddress, claim: L2AmountClaim) {
+  async consumeMessageOnAztecAndClaimPrivately(owner: AztecAddress, claimer: AztecAddress, claim: L2AmountClaim) {
     this.logger.info('Consuming messages on L2 Privately');
     const { claimAmount, claimSecret, messageLeafIndex } = claim;
-    await this.feeJuice.methods.claim(owner, claimAmount, claimSecret, messageLeafIndex).send().wait();
+    await this.feeJuice.methods.claim(owner, claimAmount, claimSecret, messageLeafIndex).send({ from: claimer }).wait();
   }
 
   async getL2PublicBalanceOf(owner: AztecAddress) {
-    return await this.feeJuice.methods.balance_of_public(owner).simulate();
+    return await this.feeJuice.methods.balance_of_public(owner).simulate({ from: owner });
   }
 
   async expectPublicBalanceOnL2(owner: AztecAddress, expectedBalance: bigint) {
@@ -156,8 +146,9 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
     expect(balance).toBe(expectedBalance);
   }
 
-  async prepareTokensOnL1(bridgeAmount: bigint, owner: AztecAddress) {
-    await this.mintTokensOnL1(bridgeAmount);
+  async prepareTokensOnL1(owner: AztecAddress) {
+    const bridgeAmount = await this.l1TokenManager.getMintAmount();
+    await this.mintTokensOnL1();
     const claim = await this.sendTokensToPortalPublic(bridgeAmount, owner);
 
     const isSynced = async () => await this.aztecNode.isL1ToL2MessageSynced(Fr.fromHexString(claim.messageHash));
@@ -170,18 +161,28 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
     return claim;
   }
 
-  async bridgeFromL1ToL2(bridgeAmount: bigint, owner: AztecAddress) {
+  async bridgeFromL1ToL2(owner: AztecAddress, claimer: AztecAddress) {
     // Prepare the tokens on the L1 side
-    const claim = await this.prepareTokensOnL1(bridgeAmount, owner);
+    const claim = await this.prepareTokensOnL1(owner);
 
     // Consume L1 -> L2 message and claim tokens privately on L2
-    await this.consumeMessageOnAztecAndClaimPrivately(owner, claim);
+    await this.consumeMessageOnAztecAndClaimPrivately(owner, claimer, claim);
   }
 
   private async advanceL2Block() {
     const initialBlockNumber = await this.aztecNode.getBlockNumber();
-    await this.aztecNodeAdmin?.flushTxs();
+
+    let minTxsPerBlock = undefined;
+    if (this.aztecNodeAdmin) {
+      ({ minTxsPerBlock } = await this.aztecNodeAdmin.getConfig());
+      await this.aztecNodeAdmin.setConfig({ minTxsPerBlock: 0 }); // Set to 0 to ensure we can advance the block
+    }
+
     await retryUntil(async () => (await this.aztecNode.getBlockNumber()) >= initialBlockNumber + 1);
+
+    if (this.aztecNodeAdmin && minTxsPerBlock !== undefined) {
+      await this.aztecNodeAdmin.setConfig({ minTxsPerBlock });
+    }
   }
 }
 // docs:end:cross_chain_test_harness

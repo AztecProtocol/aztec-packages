@@ -46,9 +46,9 @@ class SingleEpochDatabase {
 
   async *allProvingJobs(): AsyncIterableIterator<[ProvingJob, ProvingJobSettledResult | undefined]> {
     for await (const jobStr of this.jobs.valuesAsync()) {
-      const job = await jsonParseWithSchema(jobStr, ProvingJob);
+      const job = jsonParseWithSchema(jobStr, ProvingJob);
       const resultStr = await this.jobResults.getAsync(job.id);
-      const result = resultStr ? await jsonParseWithSchema(resultStr, ProvingJobSettledResult) : undefined;
+      const result = resultStr ? jsonParseWithSchema(resultStr, ProvingJobSettledResult) : undefined;
       yield [job, result];
     }
   }
@@ -171,7 +171,7 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
       if (!db) {
         continue;
       }
-      this.logger.info(`Deleting broker database for epoch ${old}`);
+      this.logger.verbose(`Deleting broker database for epoch ${old}`);
       await db.delete();
       this.epochs.delete(old);
     }

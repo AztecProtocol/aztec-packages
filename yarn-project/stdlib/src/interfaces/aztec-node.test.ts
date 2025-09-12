@@ -7,22 +7,24 @@ import {
 } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
 import { Buffer32 } from '@aztec/foundation/buffer';
+import { timesAsync } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
-import { SiblingPath } from '@aztec/foundation/trees';
+import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 
 import omit from 'lodash.omit';
+import times from 'lodash.times';
 
 import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import type { InBlock } from '../block/in_block.js';
-import { CommitteeAttestation } from '../block/index.js';
+import { CommitteeAttestation, L2BlockHash, type L2BlockNumber } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
-import type { PublishedL2Block } from '../block/published_l2_block.js';
+import { PublishedL2Block } from '../block/published_l2_block.js';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
@@ -50,7 +52,8 @@ import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import type { TxValidationResult } from '../tx/validator/tx_validator.js';
-import type { ValidatorsStats } from '../validators/types.js';
+import type { SingleValidatorStats, ValidatorsStats } from '../validators/types.js';
+import { MAX_RPC_LEN } from './api_limit.js';
 import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
 import type { SequencerConfig } from './configs.js';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_logs_response.js';
@@ -94,7 +97,11 @@ describe('AztecNodeApiSchema', () => {
 
   it('findLeavesIndexes', async () => {
     const response = await context.client.findLeavesIndexes(1, MerkleTreeId.ARCHIVE, [Fr.random(), Fr.random()]);
-    expect(response).toEqual([{ data: 1n, l2BlockNumber: 1, l2BlockHash: '0x01' }, undefined]);
+    expect(response).toEqual([{ data: 1n, l2BlockNumber: 1, l2BlockHash: L2BlockHash.fromNumber(1) }, undefined]);
+
+    await expect(
+      context.client.findLeavesIndexes(1, MerkleTreeId.ARCHIVE, times(MAX_RPC_LEN + 1, Fr.random)),
+    ).rejects.toThrow();
   });
 
   it('getNullifierSiblingPath', async () => {
@@ -130,6 +137,16 @@ describe('AztecNodeApiSchema', () => {
   it('getPublicDataSiblingPath', async () => {
     const response = await context.client.getPublicDataSiblingPath(1, 1n);
     expect(response).toBeInstanceOf(SiblingPath);
+  });
+
+  it('getArchiveMembershipWitness', async () => {
+    const response = await context.client.getArchiveMembershipWitness(1, Fr.random());
+    expect(response).toBeInstanceOf(MembershipWitness);
+  });
+
+  it('getNoteHashMembershipWitness', async () => {
+    const response = await context.client.getNoteHashMembershipWitness(1, Fr.random());
+    expect(response).toBeInstanceOf(MembershipWitness);
   });
 
   it('getNullifierMembershipWitness', async () => {
@@ -189,6 +206,11 @@ describe('AztecNodeApiSchema', () => {
     const response = await context.client.getBlocks(1, 1);
     expect(response).toHaveLength(1);
     expect(response[0]).toBeInstanceOf(L2Block);
+
+    await expect(context.client.getBlocks(-1, 1)).rejects.toThrow();
+    await expect(context.client.getBlocks(0, 1)).rejects.toThrow();
+    await expect(context.client.getBlocks(1, 0)).rejects.toThrow();
+    await expect(context.client.getBlocks(1, MAX_RPC_LEN + 1)).rejects.toThrow();
   });
 
   it('getPublishedBlocks', async () => {
@@ -225,7 +247,7 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('registerContractFunctionSignatures', async () => {
-    await context.client.registerContractFunctionSignatures(await AztecAddress.random(), ['test()']);
+    await context.client.registerContractFunctionSignatures(['test()']);
   });
 
   it('getPrivateLogs', async () => {
@@ -301,11 +323,13 @@ describe('AztecNodeApiSchema', () => {
           missedAttestations: {
             currentStreak: 1,
             count: 1,
+            total: 1,
           },
           missedProposals: {
             currentStreak: 1,
             rate: 1,
             count: 1,
+            total: 1,
           },
           history: [{ slot: 1n, status: 'block-mined' }],
         },
@@ -344,6 +368,51 @@ describe('AztecNodeApiSchema', () => {
     };
     const response = await context.client.getValidatorsStats();
     expect(response).toEqual(handler.validatorStats);
+  });
+
+  it('getValidatorStats', async () => {
+    const validatorAddress = EthAddress.random();
+    handler.singleValidatorStats = {
+      validator: {
+        address: validatorAddress,
+        totalSlots: 5,
+        missedAttestations: { currentStreak: 0, count: 0, total: 1 },
+        missedProposals: { currentStreak: 0, count: 0, total: 1 },
+        history: [{ slot: 1n, status: 'block-mined' }],
+      },
+      allTimeProvenPerformance: [],
+      lastProcessedSlot: 10n,
+      initialSlot: 1n,
+      slotWindow: 100,
+    };
+
+    const response = await context.client.getValidatorStats(validatorAddress);
+    expect(response).toEqual(handler.singleValidatorStats);
+  });
+
+  it('getValidatorStats(non-existent)', async () => {
+    const response = await context.client.getValidatorStats(EthAddress.random());
+    expect(response).toBeUndefined();
+  });
+
+  it('getValidatorStats(with-time-range)', async () => {
+    const validatorAddress = EthAddress.random();
+    handler.singleValidatorStats = {
+      validator: {
+        address: validatorAddress,
+        totalSlots: 3,
+        missedAttestations: { currentStreak: 0, count: 0, total: 0 },
+        missedProposals: { currentStreak: 0, count: 0, total: 0 },
+        history: [{ slot: 5n, status: 'attestation-sent' }],
+      },
+      allTimeProvenPerformance: [],
+      lastProcessedSlot: 10n,
+      initialSlot: 5n,
+      slotWindow: 5,
+    };
+
+    const response = await context.client.getValidatorStats(validatorAddress, 5n, 10n);
+    expect(response).toEqual(handler.singleValidatorStats);
   });
 
   it('simulatePublicCalls', async () => {
@@ -398,12 +467,13 @@ describe('AztecNodeApiSchema', () => {
 
 class MockAztecNode implements AztecNode {
   public validatorStats: ValidatorsStats | undefined;
+  public singleValidatorStats: SingleValidatorStats | undefined;
 
   constructor(private artifact: ContractArtifact) {}
 
   getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
     return Promise.resolve({
-      finalisedBlockNumber: 1,
+      finalizedBlockNumber: 1,
       latestBlockHash: '0x',
       latestBlockNumber: 1,
       oldestHistoricBlockNumber: 1,
@@ -427,7 +497,7 @@ class MockAztecNode implements AztecNode {
     expect(leafValues).toHaveLength(2);
     expect(leafValues[0]).toBeInstanceOf(Fr);
     expect(leafValues[1]).toBeInstanceOf(Fr);
-    return Promise.resolve([{ data: 1n, l2BlockNumber: 1, l2BlockHash: '0x01' }, undefined]);
+    return Promise.resolve([{ data: 1n, l2BlockNumber: 1, l2BlockHash: L2BlockHash.fromNumber(1) }, undefined]);
   }
   getNullifierSiblingPath(
     blockNumber: number | 'latest',
@@ -450,15 +520,27 @@ class MockAztecNode implements AztecNode {
     expect(l1ToL2Message).toBeInstanceOf(Fr);
     return Promise.resolve([1n, SiblingPath.random(L1_TO_L2_MSG_TREE_HEIGHT)]);
   }
+  getArchiveMembershipWitness(
+    blockNumber: L2BlockNumber,
+    archive: Fr,
+  ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
+    expect(archive).toBeInstanceOf(Fr);
+    return Promise.resolve(MembershipWitness.random(ARCHIVE_HEIGHT));
+  }
+  getNoteHashMembershipWitness(
+    blockNumber: L2BlockNumber,
+    noteHash: Fr,
+  ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
+    expect(noteHash).toBeInstanceOf(Fr);
+    return Promise.resolve(MembershipWitness.random(NOTE_HASH_TREE_HEIGHT));
+  }
   isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
     expect(l1ToL2Message).toBeInstanceOf(Fr);
     return Promise.resolve(true);
   }
-
   getL2ToL1Messages(_blockNumber: number | 'latest'): Promise<Fr[][] | undefined> {
     return Promise.resolve(Array.from({ length: 3 }, (_, i) => [new Fr(i)]));
   }
-
   getArchiveSiblingPath(
     blockNumber: number | 'latest',
     leafIndex: bigint,
@@ -529,14 +611,12 @@ class MockAztecNode implements AztecNode {
     );
   }
   getPublishedBlocks(from: number, limit: number): Promise<PublishedL2Block[]> {
-    return Promise.all(
-      Array(limit)
-        .fill(0)
-        .map(async i => ({
-          block: await L2Block.random(from + i),
-          attestations: [CommitteeAttestation.random()],
-          l1: { blockHash: Buffer32.random().toString(), blockNumber: 1n, timestamp: 1n },
-        })),
+    return timesAsync(limit, async i =>
+      PublishedL2Block.fromFields({
+        block: await L2Block.random(from + i),
+        attestations: [CommitteeAttestation.random()],
+        l1: { blockHash: Buffer32.random().toString(), blockNumber: 1n, timestamp: 1n },
+      }),
     );
   }
   getNodeVersion(): Promise<string> {
@@ -561,7 +641,7 @@ class MockAztecNode implements AztecNode {
     );
     return Object.fromEntries(protocolContracts) as ProtocolContractAddresses;
   }
-  registerContractFunctionSignatures(_address: AztecAddress, _signatures: string[]): Promise<void> {
+  registerContractFunctionSignatures(_signatures: string[]): Promise<void> {
     return Promise.resolve();
   }
   getPrivateLogs(_from: number, _limit: number): Promise<PrivateLog[]> {
@@ -590,7 +670,12 @@ class MockAztecNode implements AztecNode {
   }
   async getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     expect(txHash).toBeInstanceOf(TxHash);
-    return { l2BlockNumber: 1, l2BlockHash: '0x12', data: await TxEffect.random(), txIndexInBlock: randomInt(10) };
+    return {
+      l2BlockNumber: 1,
+      l2BlockHash: L2BlockHash.fromNumber(0x12),
+      data: await TxEffect.random(),
+      txIndexInBlock: randomInt(10),
+    };
   }
   getPendingTxs(): Promise<Tx[]> {
     return Promise.resolve([Tx.random()]);
@@ -616,6 +701,20 @@ class MockAztecNode implements AztecNode {
   }
   getValidatorsStats(): Promise<ValidatorsStats> {
     return Promise.resolve(this.validatorStats!);
+  }
+  getValidatorStats(
+    validatorAddress: EthAddress,
+    fromSlot?: bigint,
+    toSlot?: bigint,
+  ): Promise<SingleValidatorStats | undefined> {
+    expect(validatorAddress).toBeInstanceOf(EthAddress);
+    if (fromSlot !== undefined) {
+      expect(typeof fromSlot).toBe('bigint');
+    }
+    if (toSlot !== undefined) {
+      expect(typeof toSlot).toBe('bigint');
+    }
+    return Promise.resolve(this.singleValidatorStats);
   }
   simulatePublicCalls(tx: Tx, _enforceFeePayment = false): Promise<PublicSimulationOutput> {
     expect(tx).toBeInstanceOf(Tx);
@@ -647,9 +746,6 @@ class MockAztecNode implements AztecNode {
       address: await AztecAddress.random(),
     };
     return instance;
-  }
-  flushTxs(): Promise<void> {
-    return Promise.resolve();
   }
   getEncodedEnr(): Promise<string | undefined> {
     return Promise.resolve('enr:-');

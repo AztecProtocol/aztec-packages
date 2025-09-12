@@ -4,10 +4,8 @@ pragma solidity >=0.8.27;
 
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 
-interface IProposerPayload {
+interface IProposerPayload is IPayload {
   function getOriginalPayload() external view returns (IPayload);
-
-  function getActions() external view returns (IPayload.Action[] memory);
 
   function amIValid() external view returns (bool);
 }

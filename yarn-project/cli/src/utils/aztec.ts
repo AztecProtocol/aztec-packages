@@ -12,7 +12,8 @@ import {
   type Operator,
   RollupContract,
 } from '@aztec/ethereum';
-import type { Fr } from '@aztec/foundation/fields';
+import { SecretValue } from '@aztec/foundation/config';
+import { Fr } from '@aztec/foundation/fields';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { NoirPackageConfig } from '@aztec/foundation/noir';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
@@ -56,6 +57,9 @@ export async function deployAztecContracts(
   feeJuicePortalInitialBalance: bigint,
   acceleratedTestDeployments: boolean,
   config: L1ContractsConfig,
+  realVerifier: boolean,
+  createVerificationJson: string | false,
+  flushEntryQueue: boolean,
   debugLogger: Logger,
 ): Promise<DeployL1ContractsReturnType> {
   const { createEthereumChain, deployL1Contracts } = await import('@aztec/ethereum');
@@ -63,12 +67,12 @@ export async function deployAztecContracts(
 
   const account = !privateKey
     ? mnemonicToAccount(mnemonic!, { addressIndex: mnemonicIndex })
-    : privateKeyToAccount(`${privateKey.startsWith('0x') ? '' : '0x'}${privateKey}` as `0x${string}`);
+    : privateKeyToAccount(addLeadingHex(privateKey));
   const chain = createEthereumChain(rpcUrls, chainId);
 
   const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types/vk-tree');
 
-  return await deployL1Contracts(
+  const result = await deployL1Contracts(
     chain.rpcUrls,
     account,
     chain.chainInfo,
@@ -81,10 +85,15 @@ export async function deployAztecContracts(
       initialValidators,
       acceleratedTestDeployments,
       feeJuicePortalInitialBalance,
+      realVerifier,
       ...config,
     },
     config,
+    createVerificationJson,
+    flushEntryQueue,
   );
+
+  return result;
 }
 
 export async function deployNewRollupContracts(
@@ -99,6 +108,7 @@ export async function deployNewRollupContracts(
   genesisArchiveRoot: Fr,
   feeJuicePortalInitialBalance: bigint,
   config: L1ContractsConfig,
+  realVerifier: boolean,
   logger: Logger,
 ): Promise<{ rollup: RollupContract; slashFactoryAddress: EthAddress }> {
   const { createEthereumChain, deployRollupForUpgrade, createExtendedL1Client } = await import('@aztec/ethereum');
@@ -107,14 +117,23 @@ export async function deployNewRollupContracts(
 
   const account = !privateKey
     ? mnemonicToAccount(mnemonic!, { addressIndex: mnemonicIndex })
-    : privateKeyToAccount(`${privateKey.startsWith('0x') ? '' : '0x'}${privateKey}` as `0x${string}`);
+    : privateKeyToAccount(addLeadingHex(privateKey));
   const chain = createEthereumChain(rpcUrls, chainId);
   const client = createExtendedL1Client(rpcUrls, account, chain.chainInfo, undefined, mnemonicIndex);
 
   if (!initialValidators || initialValidators.length === 0) {
     // initialize the new rollup with Amin's validator address.
-    const amin = EthAddress.fromString('0x3b218d0F26d15B36C715cB06c949210a0d630637');
-    initialValidators = [{ attester: amin, withdrawer: amin }];
+    const aminAddressString = '0x3b218d0F26d15B36C715cB06c949210a0d630637';
+    const amin = EthAddress.fromString(aminAddressString);
+
+    initialValidators = [
+      {
+        attester: amin,
+        withdrawer: amin,
+        // No secrets here. The actual keys are not currently used.
+        bn254SecretKey: new SecretValue(Fr.fromHexString(aminAddressString).toBigInt()),
+      },
+    ];
     logger.info('Initializing new rollup with old attesters', { initialValidators });
   }
 
@@ -127,6 +146,7 @@ export async function deployNewRollupContracts(
       genesisArchiveRoot,
       initialValidators,
       feeJuicePortalInitialBalance,
+      realVerifier,
       ...config,
     },
     registryAddress,
@@ -205,7 +225,7 @@ export async function prepTx(contractFile: string, functionName: string, _functi
  * @param hex - A hex string
  * @returns A new string with leading 0x removed
  */
-export const stripLeadingHex = (hex: string) => {
+export const stripLeadingHex = (hex: string): string => {
   if (hex.length > 2 && hex.startsWith('0x')) {
     return hex.substring(2);
   }
@@ -213,6 +233,18 @@ export const stripLeadingHex = (hex: string) => {
 };
 
 /**
+ * Adds a leading 0x to a hex string. If a leading 0x is already present the string is returned unchanged.
+ * @param hex - A hex string
+ * @returns A new string with leading 0x added
+ */
+export const addLeadingHex = (hex: string): `0x${string}` => {
+  if (hex.length > 2 && hex.startsWith('0x')) {
+    return hex as `0x${string}`;
+  }
+  return `0x${hex}`;
+};
+
+/*
  * Pretty prints Nargo.toml contents to a string
  * @param config - Nargo.toml contents
  * @returns The Nargo.toml contents as a string

@@ -63,12 +63,6 @@ library FrontierLib {
     for (uint256 i = level; i < _height; i++) {
       bool isRight = bits & 1 == 1;
       if (isRight) {
-        if (_self.frontier[i] == temp) {
-          // We will never hit the case that frontier[i] == temp
-          // because this require that frontier[i] is the right child
-          // and in that case we started higher up the tree
-          revert("Mistakes were made");
-        }
         temp = Hash.sha256ToField(bytes.concat(_self.frontier[i], temp));
       } else {
         temp = Hash.sha256ToField(bytes.concat(temp, _forest.zeros[i]));

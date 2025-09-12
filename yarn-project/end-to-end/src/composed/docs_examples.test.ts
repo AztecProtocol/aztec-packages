@@ -1,7 +1,6 @@
 /* eslint-disable import/no-duplicates */
 // docs:start:create_account_imports
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { Fr, GrumpkinScalar, createPXEClient } from '@aztec/aztec.js';
 // docs:end:create_account_imports
 // docs:start:import_contract
@@ -9,6 +8,7 @@ import { Contract } from '@aztec/aztec.js';
 // docs:end:import_contract
 // docs:start:import_token_contract
 import { TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { TestWallet } from '@aztec/test-wallet';
 
 // docs:end:import_token_contract
 
@@ -24,23 +24,24 @@ describe('docs_examples', () => {
 
     // docs:start:create_wallet
     // Use a pre-funded wallet to pay for the fees for the deployments.
-    const wallet = (await getDeployedTestAccountsWallets(pxe))[0];
-    const newAccount = await getSchnorrAccount(pxe, secretKey, signingPrivateKey);
-    await newAccount.deploy({ deployWallet: wallet }).wait();
-    const newWallet = await newAccount.getWallet();
+    const wallet = new TestWallet(pxe);
+    const [accountData] = await getInitialTestAccountsData();
+    const prefundedAccount = await wallet.createSchnorrAccount(accountData.secret, accountData.salt);
+    const newAccount = await wallet.createSchnorrAccount(secretKey, Fr.random(), signingPrivateKey);
+    await newAccount.deploy({ deployAccount: prefundedAccount.getAddress() }).wait();
+    const newAccountAddress = newAccount.getAddress();
+    const defaultAccountAddress = prefundedAccount.getAddress();
     // docs:end:create_wallet
 
-    // docs:start:deploy_contract
     const deployedContract = await TokenContract.deploy(
       wallet, // wallet instance
-      wallet.getAddress(), // account
+      defaultAccountAddress, // account
       'TokenName', // constructor arg1
       'TokenSymbol', // constructor arg2
       18,
     )
-      .send()
+      .send({ from: defaultAccountAddress })
       .deployed();
-    // docs:end:deploy_contract
 
     // docs:start:get_contract
     const contract = await Contract.at(deployedContract.address, TokenContractArtifact, wallet);
@@ -48,11 +49,11 @@ describe('docs_examples', () => {
     // docs:end:full_deploy
 
     // docs:start:send_transaction
-    const _tx = await contract.methods.mint_to_public(newWallet.getAddress(), 1).send().wait();
+    await contract.methods.mint_to_public(newAccountAddress, 1).send({ from: defaultAccountAddress }).wait();
     // docs:end:send_transaction
 
     // docs:start:simulate_function
-    const balance = await contract.methods.balance_of_public(newWallet.getAddress()).simulate();
+    const balance = await contract.methods.balance_of_public(newAccountAddress).simulate({ from: newAccountAddress });
     expect(balance).toEqual(1n);
     // docs:end:simulate_function
   });

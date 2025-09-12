@@ -5,6 +5,7 @@ pub struct SortedTuple<T> {
     pub original_index: u32,
 }
 
+// TODO: Rename to `get_sorted_tuples`.
 pub unconstrained fn get_sorted_tuple<T, let N: u32, Env>(
     array: [T; N],
     ordering: fn[Env](T, T) -> bool,

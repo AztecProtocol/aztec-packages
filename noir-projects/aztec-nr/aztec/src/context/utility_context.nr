@@ -1,11 +1,10 @@
-use crate::oracle::{
-    execution::{get_block_number, get_chain_id, get_contract_address, get_version},
-    storage::storage_read,
-};
-use dep::protocol_types::{address::AztecAddress, traits::Packable};
+use crate::oracle::{execution::get_utility_context, storage::storage_read};
+use protocol_types::{address::AztecAddress, traits::Packable};
 
+// If you'll modify this struct don't forget to update utility_context.ts as well.
 pub struct UtilityContext {
     block_number: u32,
+    timestamp: u64,
     contract_address: AztecAddress,
     version: Field,
     chain_id: Field,
@@ -13,32 +12,43 @@ pub struct UtilityContext {
 
 impl UtilityContext {
     pub unconstrained fn new() -> Self {
-        // We could call these oracles on the getters instead of at creation, which makes sense given that they might
-        // not even be accessed. However any performance gains are minimal, and we'd rather fail early if a user
-        // incorrectly attempts to create a UtilityContext in an environment in which these oracles are not
-        // available.
-        let block_number = get_block_number();
-        let contract_address = get_contract_address();
-        let chain_id = get_chain_id();
-        let version = get_version();
-        Self { block_number, contract_address, version, chain_id }
+        get_utility_context()
     }
 
     pub unconstrained fn at(contract_address: AztecAddress) -> Self {
-        let block_number = get_block_number();
-        let chain_id = get_chain_id();
-        let version = get_version();
-        Self { block_number, contract_address, version, chain_id }
+        // We get a context with default contract address, and then we construct the final context with the provided
+        // contract address.
+        let default_context = get_utility_context();
+
+        Self {
+            block_number: default_context.block_number,
+            timestamp: default_context.timestamp,
+            contract_address,
+            version: default_context.version,
+            chain_id: default_context.chain_id,
+        }
     }
 
     pub unconstrained fn at_historical(contract_address: AztecAddress, block_number: u32) -> Self {
-        let chain_id = get_chain_id();
-        let version = get_version();
-        Self { block_number, contract_address, version, chain_id }
+        // We get a context with default contract address and block number, and then we construct the final context
+        // with the provided contract address and block number.
+        let default_context = get_utility_context();
+
+        Self {
+            block_number,
+            timestamp: default_context.timestamp,
+            contract_address,
+            version: default_context.version,
+            chain_id: default_context.chain_id,
+        }
     }
 
     pub fn block_number(self) -> u32 {
         self.block_number
+    }
+
+    pub fn timestamp(self) -> u64 {
+        self.timestamp
     }
 
     pub fn this_address(self) -> AztecAddress {
@@ -60,9 +70,9 @@ impl UtilityContext {
         storage_read(self.this_address(), storage_slot, self.block_number())
     }
 
-    pub unconstrained fn storage_read<T, let N: u32>(self, storage_slot: Field) -> T
+    pub unconstrained fn storage_read<T>(self, storage_slot: Field) -> T
     where
-        T: Packable<N>,
+        T: Packable,
     {
         T::unpack(self.raw_storage_read(storage_slot))
     }

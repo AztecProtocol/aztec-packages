@@ -14,11 +14,13 @@ AvmVerifier::AvmVerifier(std::shared_ptr<Flavor::VerificationKey> verifier_key)
 
 AvmVerifier::AvmVerifier(AvmVerifier&& other) noexcept
     : key(std::move(other.key))
+    , transcript(std::move(other.transcript))
 {}
 
 AvmVerifier& AvmVerifier::operator=(AvmVerifier&& other) noexcept
 {
     key = other.key;
+    transcript = other.transcript;
     commitments.clear();
     return *this;
 }
@@ -28,7 +30,7 @@ using FF = AvmFlavor::FF;
 // Evaluate the given public input column over the multivariate challenge points
 inline FF AvmVerifier::evaluate_public_input_column(const std::vector<FF>& points, std::vector<FF> challenges)
 {
-    Polynomial<FF> polynomial(points, key->circuit_size);
+    Polynomial<FF> polynomial(points, (1 << key->log_circuit_size));
     return polynomial.evaluate_mle(challenges);
 }
 
@@ -51,16 +53,30 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
 
     RelationParameters<FF> relation_parameters;
 
-    transcript = std::make_shared<Transcript>(proof);
+    transcript->load_proof(proof);
 
-    VerifierCommitments commitments{ key };
+    // TODO(#15892): Fiat-Shamir the vk hash by uncommenting the line below.
+    FF vk_hash = key->hash();
+    // transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
+    info("AVM vk hash in verifier: ", vk_hash);
 
-    const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
-    if (circuit_size != key->circuit_size) {
-        vinfo("Circuit size mismatch: expected", key->circuit_size, " got ", circuit_size);
+    // Check public inputs size.
+    if (public_inputs.size() != AVM_NUM_PUBLIC_INPUT_COLUMNS) {
+        vinfo("Public inputs size mismatch");
         return false;
     }
-
+    // Public inputs from proof
+    for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
+        if (public_inputs[i].size() != AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH) {
+            vinfo("Public input size mismatch");
+            return false;
+        }
+        for (size_t j = 0; j < public_inputs[i].size(); j++) {
+            transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
+                                           public_inputs[i][j]);
+        }
+    }
+    VerifierCommitments commitments{ key };
     // Get commitments to VM wires
     for (auto [comm, label] : zip_view(commitments.get_wires(), commitments.get_wires_labels())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
@@ -76,37 +92,22 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     }
 
     // Execute Sumcheck Verifier
-    const size_t log_circuit_size = numeric::get_msb(circuit_size);
+    std::vector<FF> padding_indicator_array(key->log_circuit_size, 1);
 
-    std::array<FF, CONST_PROOF_SIZE_LOG_N> padding_indicator_array;
+    // Multiply each linearly independent subrelation contribution by `alpha^i` for i = 0, ..., NUM_SUBRELATIONS - 1.
+    const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
-        padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
-    }
-    auto sumcheck = SumcheckVerifier<Flavor>(transcript);
+    SumcheckVerifier<Flavor> sumcheck(transcript, alpha, key->log_circuit_size);
 
-    FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
+    // Get the gate challenges for sumcheck computation
+    std::vector<FF> gate_challenges =
+        transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", key->log_circuit_size);
 
-    auto gate_challenges = std::vector<FF>(log_circuit_size);
-    for (size_t idx = 0; idx < log_circuit_size; idx++) {
-        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-    }
-
-    SumcheckOutput<Flavor> output =
-        sumcheck.verify(relation_parameters, alpha, gate_challenges, padding_indicator_array);
+    SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
 
     // If Sumcheck did not verify, return false
     if (!output.verified) {
         vinfo("Sumcheck verification failed");
-        return false;
-    }
-
-    // Public columns evaluation checks
-    std::vector<FF> mle_challenge(output.challenge.begin(),
-                                  output.challenge.begin() + static_cast<int>(log_circuit_size));
-
-    if (public_inputs.size() != AVM_NUM_PUBLIC_INPUT_COLUMNS) {
-        vinfo("Public inputs size mismatch");
         return false;
     }
 
@@ -117,7 +118,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         output.claimed_evaluations.public_inputs_cols_3_,
     };
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
-        FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], mle_challenge);
+        FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], output.challenge);
         if (public_input_evaluation != claimed_evaluations[i]) {
             vinfo("public_input_evaluation failed, public inputs col ", i);
             return false;

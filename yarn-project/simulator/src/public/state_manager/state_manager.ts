@@ -1,9 +1,9 @@
 import {
   CANONICAL_AUTH_REGISTRY_ADDRESS,
-  DEPLOYER_CONTRACT_ADDRESS,
+  CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
+  CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
   FEE_JUICE_ADDRESS,
   MULTI_CALL_ENTRYPOINT_ADDRESS,
-  REGISTERER_CONTRACT_ADDRESS,
   ROUTER_ADDRESS,
 } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
@@ -14,11 +14,12 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractClassPublicWithCommitment, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { SerializableContractInstance } from '@aztec/stdlib/contract';
+import { DelayedPublicMutableValues, DelayedPublicMutableValuesWithHash } from '@aztec/stdlib/delayed-public-mutable';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
-import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { TreeSnapshots } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import { strict as assert } from 'assert';
 
@@ -50,7 +51,7 @@ export class PublicPersistableStateManager {
     private readonly contractsDB: PublicContractsDBInterface,
     private readonly trace: PublicSideEffectTraceInterface,
     private readonly firstNullifier: Fr, // Needed for note hashes.
-    private readonly blockNumber: number, // Needed for contract updates.
+    private readonly timestamp: UInt64, // Needed for contract updates.
     private readonly doMerkleOperations: boolean = false,
     private readonly publicStorage: PublicStorage = new PublicStorage(treesDB),
     private readonly nullifiers: NullifierManager = new NullifierManager(treesDB),
@@ -65,14 +66,14 @@ export class PublicPersistableStateManager {
     trace: PublicSideEffectTraceInterface,
     doMerkleOperations: boolean = false,
     firstNullifier: Fr,
-    blockNumber: number,
+    timestamp: UInt64,
   ): PublicPersistableStateManager {
     return new PublicPersistableStateManager(
       treesDB,
       contractsDB,
       trace,
       firstNullifier,
-      blockNumber,
+      timestamp,
       doMerkleOperations,
     );
   }
@@ -87,7 +88,7 @@ export class PublicPersistableStateManager {
       this.contractsDB,
       this.trace.fork(),
       this.firstNullifier,
-      this.blockNumber,
+      this.timestamp,
       this.doMerkleOperations,
       this.publicStorage.fork(),
       this.nullifiers.fork(),
@@ -137,6 +138,8 @@ export class PublicPersistableStateManager {
   public async writeStorage(contractAddress: AztecAddress, slot: Fr, value: Fr, protocolWrite = false): Promise<void> {
     this.log.trace(`Storage write (address=${contractAddress}, slot=${slot}): value=${value}`);
 
+    await this.trace.tracePublicStorageWrite(contractAddress, slot, value, protocolWrite);
+
     if (this.doMerkleOperations) {
       // write to native merkle trees
       await this.treesDB.storageWrite(contractAddress, slot, value);
@@ -144,8 +147,6 @@ export class PublicPersistableStateManager {
       // Cache storage writes for later reference/reads
       this.publicStorage.write(contractAddress, slot, value);
     }
-
-    await this.trace.tracePublicStorageWrite(contractAddress, slot, value, protocolWrite);
   }
 
   public isStorageCold(contractAddress: AztecAddress, slot: Fr): boolean {
@@ -181,8 +182,8 @@ export class PublicPersistableStateManager {
    * @param leafIndex - the leaf index being checked
    * @returns true if the note hash exists at the given leaf index, false otherwise
    */
-  public async checkNoteHashExists(contractAddress: AztecAddress, noteHash: Fr, leafIndex: Fr): Promise<boolean> {
-    const gotLeafValue = await this.treesDB.getNoteHash(leafIndex.toBigInt());
+  public async checkNoteHashExists(contractAddress: AztecAddress, noteHash: Fr, leafIndex: bigint): Promise<boolean> {
+    const gotLeafValue = await this.treesDB.getNoteHash(leafIndex);
     const exists = gotLeafValue !== undefined && gotLeafValue.equals(noteHash);
     this.log.trace(
       `noteHashes(${contractAddress})@${noteHash} ?? leafIndex: ${leafIndex} | gotLeafValue: ${gotLeafValue}, exists: ${exists}.`,
@@ -216,10 +217,10 @@ export class PublicPersistableStateManager {
    */
   public async writeUniqueNoteHash(uniqueNoteHash: Fr): Promise<void> {
     this.log.trace(`noteHashes += @${uniqueNoteHash}.`);
+    this.trace.traceNewNoteHash(uniqueNoteHash);
     if (this.doMerkleOperations) {
       await this.treesDB.writeNoteHash(uniqueNoteHash);
     }
-    this.trace.traceNewNoteHash(uniqueNoteHash);
   }
 
   /**
@@ -261,6 +262,8 @@ export class PublicPersistableStateManager {
   public async writeSiloedNullifier(siloedNullifier: Fr) {
     this.log.trace(`Inserting siloed nullifier=${siloedNullifier}`);
 
+    this.trace.traceNewNullifier(siloedNullifier);
+
     if (this.doMerkleOperations) {
       const exists = await this.treesDB.checkNullifierExists(siloedNullifier);
 
@@ -276,8 +279,6 @@ export class PublicPersistableStateManager {
       // Cache pending nullifiers for later access
       await this.nullifiers.append(siloedNullifier);
     }
-
-    this.trace.traceNewNullifier(siloedNullifier);
   }
 
   /**
@@ -335,30 +336,37 @@ export class PublicPersistableStateManager {
    */
   public async getContractInstance(contractAddress: AztecAddress): Promise<SerializableContractInstance | undefined> {
     this.log.trace(`Getting contract instance for address ${contractAddress}`);
-    const instanceWithAddress = await this.contractsDB.getContractInstance(contractAddress, this.blockNumber);
+    const instanceWithAddress = await this.contractsDB.getContractInstance(contractAddress, this.timestamp);
     const exists = instanceWithAddress !== undefined;
 
     const instance = exists ? new SerializableContractInstance(instanceWithAddress) : undefined;
-    if (!exists) {
-      this.log.debug(`Contract instance NOT FOUND (address=${contractAddress})`);
-      return undefined;
-    }
 
-    this.log.trace(`Got contract instance (address=${contractAddress}): instance=${jsonStringify(instance!)}`);
-    // Canonical addresses do not trigger nullifier and update checks.
     if (contractAddressIsCanonical(contractAddress)) {
+      this.log.trace(
+        `Got canonical contract instance (address=${contractAddress}): instance=${jsonStringify(instance!)}`,
+      );
       return instance;
     }
 
-    // This will decide internally whether to check the nullifier tree or not depending on doMerkleOperations.
+    // Nullifier check! We do this regardless of whether or not the instance exists,
+    // as even for non-existence, we need to generate nullifier check hints.
+
+    // This will internally decide whether to check the nullifier tree or not depending on doMerkleOperations.
     const nullifierExistsInTree = await this.checkNullifierExists(
-      AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+      AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
       contractAddress.toField(),
     );
     assert(
       exists == nullifierExistsInTree,
       `Contract instance for address ${contractAddress} in DB: ${exists} != nullifier tree: ${nullifierExistsInTree}. This is a bug!`,
     );
+
+    if (!exists) {
+      this.log.debug(`Contract instance NOT FOUND (address=${contractAddress})`);
+      return undefined;
+    }
+
+    this.log.trace(`Got contract instance (address=${contractAddress}): instance=${jsonStringify(instance!)}`);
 
     // All that is left is tocheck that the contract updatability information is correct.
     // That is, that the current and original contract class ids are correct.
@@ -374,23 +382,25 @@ export class PublicPersistableStateManager {
     // All failures are fatal and the simulation is not expected to be provable.
     if (this.doMerkleOperations) {
       // Conceptually, we want to do the following:
-      // * Read a SharedMutable at the contract update slot.
-      // * Obtain the expected current class id from the SharedMutable, at the current block.
+      // * Read a DelayedPublicMutable at the contract update slot.
+      // * Obtain the expected current class id from the DelayedPublicMutable, at the current block.
       // * if expectedId == 0 then currentClassId should be original contract class id
       // * if expectedId != 0 then currentClassId should be expectedId
       //
-      // However, we will also be checking the hash of the shared mutable values.
+      // However, we will also be checking the hash of the delayed public mutable values.
       // This is a bit of a leak of information, since the circuit will use it to prove
-      // one public read insted of N of the shared mutable values.
-      const { sharedMutableSlot, sharedMutableHashSlot } = await SharedMutableValuesWithHash.getContractUpdateSlots(
-        instance.address,
-      );
+      // one public read insted of N of the delayed public mutable values.
+      const { delayedPublicMutableSlot, delayedPublicMutableHashSlot } =
+        await DelayedPublicMutableValuesWithHash.getContractUpdateSlots(instance.address);
       const readDeployerStorage = async (storageSlot: Fr) =>
-        await this.readStorage(ProtocolContractAddress.ContractInstanceDeployer, storageSlot);
+        await this.readStorage(ProtocolContractAddress.ContractInstanceRegistry, storageSlot);
 
-      const hash = await readDeployerStorage(sharedMutableHashSlot);
-      const sharedMutableValues = await SharedMutableValues.readFromTree(sharedMutableSlot, readDeployerStorage);
-      const preImage = sharedMutableValues.toFields();
+      const hash = await readDeployerStorage(delayedPublicMutableHashSlot);
+      const delayedPublicMutableValues = await DelayedPublicMutableValues.readFromTree(
+        delayedPublicMutableSlot,
+        readDeployerStorage,
+      );
+      const preImage = delayedPublicMutableValues.toFields();
 
       // 1) update never scheduled: hash == 0 and preimage should be empty (but poseidon2hash(preimage) will not be 0s)
       if (hash.isZero()) {
@@ -409,11 +419,11 @@ export class PublicPersistableStateManager {
       const computedHash = await poseidon2Hash(preImage);
       assert(
         hash.equals(computedHash),
-        `Shared mutable values hash mismatch for contract instance ${instance.address}. Expected: ${hash}, computed: ${computedHash}`,
+        `Delayed public mutable values hash mismatch for contract instance ${instance.address}. Expected: ${hash}, computed: ${computedHash}`,
       );
 
       // We now check that, depending on the current block, the current class id is correct.
-      const expectedClassIdRaw = sharedMutableValues.svc.getCurrentAt(this.blockNumber).at(0)!;
+      const expectedClassIdRaw = delayedPublicMutableValues.svc.getCurrentAt(this.timestamp).at(0)!;
       const expectedClassId = expectedClassIdRaw.isZero() ? instance.originalContractClassId : expectedClassIdRaw;
       assert(
         instance.currentContractClassId.equals(expectedClassId),
@@ -452,6 +462,7 @@ export class PublicPersistableStateManager {
       this.log.debug(`Contract instance NOT FOUND (id=${classId})`);
     }
 
+    // TODO(dbanks12): does this need to be moved to before the DB accesses as was done with writeNullifier?
     this.trace.traceGetContractClass(classId, exists);
     return extendedClass;
   }
@@ -492,8 +503,8 @@ export class PublicPersistableStateManager {
 function contractAddressIsCanonical(contractAddress: AztecAddress): boolean {
   return (
     contractAddress.equals(AztecAddress.fromNumber(CANONICAL_AUTH_REGISTRY_ADDRESS)) ||
-    contractAddress.equals(AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS)) ||
-    contractAddress.equals(AztecAddress.fromNumber(REGISTERER_CONTRACT_ADDRESS)) ||
+    contractAddress.equals(AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)) ||
+    contractAddress.equals(AztecAddress.fromNumber(CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS)) ||
     contractAddress.equals(AztecAddress.fromNumber(MULTI_CALL_ENTRYPOINT_ADDRESS)) ||
     contractAddress.equals(AztecAddress.fromNumber(FEE_JUICE_ADDRESS)) ||
     contractAddress.equals(AztecAddress.fromNumber(ROUTER_ADDRESS))

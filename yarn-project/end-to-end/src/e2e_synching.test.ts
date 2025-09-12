@@ -31,55 +31,42 @@
  * blockCount: 10, txCount: 36, complexity: PublicTransfer:  {"numberOfBlocks":18, "syncTime":21.340179460525512}
  * blockCount: 10, txCount: 9,  complexity: Spam:            {"numberOfBlocks":17, "syncTime":49.40888188171387}
  */
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { type InitialAccountData, deployFundedSchnorrAccounts } from '@aztec/accounts/testing';
+import type { InitialAccountData } from '@aztec/accounts/testing';
 import { createArchiver } from '@aztec/archiver';
 import { AztecNodeService } from '@aztec/aztec-node';
-import {
-  type AccountWalletWithSecretKey,
-  BatchCall,
-  type Contract,
-  Fr,
-  GrumpkinScalar,
-  type Logger,
-  createLogger,
-  sleep,
-} from '@aztec/aztec.js';
-import { AnvilTestWatcher } from '@aztec/aztec.js/testing';
+import { BatchCall, type Contract, Fr, GrumpkinScalar, type Logger, createLogger, sleep } from '@aztec/aztec.js';
+import { AnvilTestWatcher } from '@aztec/aztec/testing';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
+  EmpireSlashingProposerContract,
   GovernanceProposerContract,
   RollupContract,
-  SlashingProposerContract,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
-import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { TestDateProvider, Timer } from '@aztec/foundation/timer';
+import { createL1TxUtilsWithBlobsFromViemWallet } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { SecretValue } from '@aztec/foundation/config';
+import { Signature } from '@aztec/foundation/eth-signature';
+import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import type { PXEService } from '@aztec/pxe/server';
-import { SequencerPublisher } from '@aztec/sequencer-client';
+import { SequencerPublisher, SequencerPublisherMetrics } from '@aztec/sequencer-client';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2Block } from '@aztec/stdlib/block';
+import { CommitteeAttestationsAndSigners, L2Block } from '@aztec/stdlib/block';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
+import { TestWallet } from '@aztec/test-wallet';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import * as fs from 'fs';
+import { type MockProxy, mock } from 'jest-mock-extended';
 import { getContract } from 'viem';
 
 import { DEFAULT_BLOB_SINK_PORT } from './fixtures/fixtures.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
-import {
-  type EndToEndContext,
-  createForwarderContract,
-  getPrivateKeyFromIndex,
-  setup,
-  setupPXEService,
-} from './fixtures/utils.js';
+import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEService } from './fixtures/utils.js';
 
 const SALT = 420;
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
@@ -118,7 +105,8 @@ class TestVariant {
   private token!: TokenContract;
   private spam!: SpamContract;
 
-  public wallets!: AccountWalletWithSecretKey[];
+  public wallet!: TestWallet;
+  public accounts: AztecAddress[] = [];
 
   private seed = 0n;
 
@@ -138,16 +126,16 @@ class TestVariant {
     this.pxe = pxe;
   }
 
+  setWallet(wallet: TestWallet) {
+    this.wallet = wallet;
+  }
+
   setToken(token: TokenContract) {
     this.token = token;
   }
 
   setSpam(spam: SpamContract) {
     this.spam = spam;
-  }
-
-  setWallets(wallets: AccountWalletWithSecretKey[]) {
-    this.wallets = wallets;
   }
 
   toString() {
@@ -162,10 +150,13 @@ class TestVariant {
     return `${this.blockCount}_${this.txCount}_${this.txComplexity}`;
   }
 
-  async deployWallets(accounts: InitialAccountData[]) {
+  async deployAccounts(accounts: InitialAccountData[]) {
     // Create accounts such that we can send from many to not have colliding nullifiers
-    const managers = await deployFundedSchnorrAccounts(this.pxe, accounts);
-    return await Promise.all(managers.map(m => m.getWallet()));
+    const managers = await Promise.all(
+      accounts.map(account => this.wallet.createSchnorrAccount(account.secret, account.salt)),
+    );
+    await Promise.all(managers.map(m => m.deploy().wait()));
+    return accounts.map(acc => acc.address);
   }
 
   async setup(accounts: InitialAccountData[] = []) {
@@ -173,24 +164,27 @@ class TestVariant {
       throw new Error('Undefined PXE');
     }
 
+    this.accounts = accounts.map(acc => acc.address);
+
     if (this.txComplexity == TxComplexity.Deployment) {
       return;
     }
 
-    this.wallets = await this.deployWallets(accounts);
-
     // Mint tokens publicly if needed
     if (this.txComplexity == TxComplexity.PublicTransfer) {
       await Promise.all(
-        this.wallets.map(w =>
-          this.token.methods.mint_to_public(w.getAddress(), MINT_AMOUNT).send().wait({ timeout: 600 }),
+        accounts.map(acc =>
+          this.token.methods
+            .mint_to_public(acc.address, MINT_AMOUNT)
+            .send({ from: acc.address })
+            .wait({ timeout: 600 }),
         ),
       );
     }
 
     // Mint tokens privately if needed
     if (this.txComplexity == TxComplexity.PrivateTransfer) {
-      await Promise.all(this.wallets.map((w, _) => mintTokensToPrivate(this.token, w, w.getAddress(), MINT_AMOUNT)));
+      await Promise.all(accounts.map(acc => mintTokensToPrivate(this.token, acc.address, acc.address, MINT_AMOUNT)));
     }
   }
 
@@ -202,13 +196,17 @@ class TestVariant {
     if (this.txComplexity == TxComplexity.Deployment) {
       const txs = [];
       for (let i = 0; i < this.txCount; i++) {
-        const deployWallet = this.wallets[i % this.wallets.length];
-        const accountManager = await getSchnorrAccount(this.pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
+        const deployAccount = this.accounts[i % this.accounts.length];
+        const accountManager = await this.wallet.createSchnorrAccount(
+          Fr.random(),
+          Fr.random(),
+          GrumpkinScalar.random(),
+        );
         this.contractAddresses.push(accountManager.getAddress());
         const tx = accountManager.deploy({
-          deployWallet,
-          skipClassRegistration: true,
-          skipPublicDeployment: true,
+          deployAccount,
+          skipClassPublication: true,
+          skipInstancePublication: true,
         });
         txs.push(tx);
       }
@@ -217,19 +215,19 @@ class TestVariant {
       // To do a private transfer we need to a lot of accounts that all have funds.
       const txs = [];
       for (let i = 0; i < this.txCount; i++) {
-        const recipient = this.wallets[(i + 1) % this.txCount].getAddress();
-        const tk = await TokenContract.at(this.token.address, this.wallets[i]);
-        txs.push(tk.methods.transfer(recipient, 1n).send());
+        const recipient = this.accounts[(i + 1) % this.txCount];
+        const tk = await TokenContract.at(this.token.address, this.wallet);
+        txs.push(tk.methods.transfer(recipient, 1n).send({ from: this.accounts[i] }));
       }
       return txs;
     } else if (this.txComplexity == TxComplexity.PublicTransfer) {
       // Public transfer is simpler, we can just transfer to our-selves there.
       const txs = [];
       for (let i = 0; i < this.txCount; i++) {
-        const sender = this.wallets[i].getAddress();
-        const recipient = this.wallets[(i + 1) % this.txCount].getAddress();
-        const tk = await TokenContract.at(this.token.address, this.wallets[i]);
-        txs.push(tk.methods.transfer_in_public(sender, recipient, 1n, 0).send());
+        const sender = this.accounts[i];
+        const recipient = this.accounts[(i + 1) % this.txCount];
+        const tk = await TokenContract.at(this.token.address, this.wallet);
+        txs.push(tk.methods.transfer_in_public(sender, recipient, 1n, 0).send({ from: sender }));
       }
       return txs;
     } else if (this.txComplexity == TxComplexity.Spam) {
@@ -238,7 +236,7 @@ class TestVariant {
 
       const txs = [];
       for (let i = 0; i < this.txCount; i++) {
-        const batch = new BatchCall(this.wallets[i], [
+        const batch = new BatchCall(this.wallet, [
           this.spam.methods.spam(this.seed, 16, false),
           this.spam.methods.spam(this.seed + 16n, 16, false),
           this.spam.methods.spam(this.seed + 32n, 16, false),
@@ -246,7 +244,7 @@ class TestVariant {
         ]);
 
         this.seed += 100n;
-        txs.push(batch.send());
+        txs.push(batch.send({ from: this.accounts[0] }));
       }
       return txs;
     } else {
@@ -323,24 +321,36 @@ describe('e2e_synching', () => {
       // The setup is in here and not at the `before` since we are doing different setups depending on what mode we are running in.
       // We require that at least 200 eth blocks have passed from the START_TIME before we see the first L2 block
       // This is to keep the setup more stable, so as long as the setup is less than 100 L1 txs, changing the setup should not break the setup
-      const { teardown, pxe, sequencer, aztecNode, wallet, initialFundedAccounts, cheatCodes } = await setup(1, {
+      const {
+        teardown,
+        pxe,
+        sequencer,
+        aztecNode,
+        wallet,
+        accounts: [defaultAccountAddress],
+        initialFundedAccounts,
+        cheatCodes,
+      } = await setup(1, {
         salt: SALT,
         l1StartTime: START_TIME,
         l2StartTime: START_TIME + 200 * ETHEREUM_SLOT_DURATION,
         numberOfInitialFundedAccounts: variant.txCount + 1,
       });
       variant.setPXE(pxe as PXEService);
+      variant.setWallet(wallet);
 
       // Deploy a token, such that we could use it
-      const token = await TokenContract.deploy(wallet, wallet.getAddress(), 'TestToken', 'TST', 18n).send().deployed();
-      const spam = await SpamContract.deploy(wallet).send().deployed();
+      const token = await TokenContract.deploy(wallet, defaultAccountAddress, 'TestToken', 'TST', 18n)
+        .send({ from: defaultAccountAddress })
+        .deployed();
+      const spam = await SpamContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
 
       variant.setToken(token);
       variant.setSpam(spam);
 
       // Now we create all of our interesting blocks.
       // Alter the block requirements for the sequencer such that we ensure blocks sizes as desired.
-      await sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
+      sequencer?.updateConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
 
       // The setup will mint tokens (private and public)
       const accountsToBeDeployed = initialFundedAccounts.slice(1); // The first one has been deployed in setup.
@@ -381,8 +391,10 @@ describe('e2e_synching', () => {
       sequencer,
       watcher,
       pxe,
+      wallet,
       blobSink,
       initialFundedAccounts,
+      dateProvider,
     } = await setup(0, {
       salt: SALT,
       l1StartTime: START_TIME,
@@ -400,7 +412,12 @@ describe('e2e_synching', () => {
 
     const sequencerPK: `0x${string}` = `0x${getPrivateKeyFromIndex(0)!.toString('hex')}`;
 
-    const l1TxUtils = new L1TxUtilsWithBlobs(deployL1ContractsValues.l1Client, logger, config);
+    const l1TxUtils = createL1TxUtilsWithBlobsFromViemWallet(
+      deployL1ContractsValues.l1Client,
+      logger,
+      dateProvider!,
+      config,
+    );
     const rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString();
     const rollupContract = new RollupContract(deployL1ContractsValues.l1Client, rollupAddress);
     const governanceProposerContract = new GovernanceProposerContract(
@@ -408,34 +425,38 @@ describe('e2e_synching', () => {
       config.l1Contracts.governanceProposerAddress.toString(),
     );
     const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
-    const slashingProposerContract = new SlashingProposerContract(
+    const slashingProposerContract = new EmpireSlashingProposerContract(
       deployL1ContractsValues.l1Client,
       slashingProposerAddress.toString(),
     );
-    const forwarderContract = await createForwarderContract(config, sequencerPK, rollupAddress);
-    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, {
-      dateProvider: new TestDateProvider(),
-    });
+    const { SlashFactoryContract } = await import('@aztec/stdlib/l1-contracts');
+    const slashFactoryContract = new SlashFactoryContract(
+      deployL1ContractsValues.l1Client,
+      deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString(),
+    );
+    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
+    const sequencerPublisherMetrics: MockProxy<SequencerPublisherMetrics> = mock<SequencerPublisherMetrics>();
     const publisher = new SequencerPublisher(
       {
         l1RpcUrls: config.l1RpcUrls,
         l1Contracts: deployL1ContractsValues.l1ContractAddresses,
-        publisherPrivateKey: sequencerPK,
+        publisherPrivateKeys: [new SecretValue(sequencerPK)],
         l1PublishRetryIntervalMS: 100,
         l1ChainId: 31337,
         viemPollingIntervalMS: 100,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
         blobSinkUrl: `http://localhost:${blobSink?.port ?? 5052}`,
-        customForwarderContractAddress: EthAddress.ZERO,
       },
       {
         blobSinkClient,
         l1TxUtils,
         rollupContract,
-        forwarderContract,
         governanceProposerContract,
         slashingProposerContract,
+        slashFactoryContract,
         epochCache,
+        dateProvider: dateProvider!,
+        metrics: sequencerPublisherMetrics,
       },
     );
 
@@ -445,17 +466,20 @@ describe('e2e_synching', () => {
     // We create blocks for every ethereum slot simply to make sure that the test is "closer" to
     // a real world.
     for (const block of blocks) {
-      const targetTime = block.header.globalVariables.timestamp.toNumber() - ETHEREUM_SLOT_DURATION;
+      const targetTime = Number(block.header.globalVariables.timestamp) - ETHEREUM_SLOT_DURATION;
       while ((await cheatCodes.eth.timestamp()) < targetTime) {
         await cheatCodes.eth.mine();
       }
       // If it breaks here, first place you should look is the pruning.
-      await publisher.enqueueProposeL2Block(block);
+      await publisher.enqueueProposeL2Block(block, CommitteeAttestationsAndSigners.empty(), Signature.empty());
 
       await cheatCodes.rollup.markAsProven(provenThrough);
     }
 
-    await alternativeSync({ deployL1ContractsValues, cheatCodes, config, logger, pxe, initialFundedAccounts }, variant);
+    await alternativeSync(
+      { deployL1ContractsValues, cheatCodes, config, logger, pxe, initialFundedAccounts, wallet },
+      variant,
+    );
 
     await teardown();
   };
@@ -526,14 +550,22 @@ describe('e2e_synching', () => {
             const { pxe } = await setupPXEService(aztecNode!);
 
             variant.setPXE(pxe);
-            const wallet = (await variant.deployWallets(opts.initialFundedAccounts!.slice(0, 1)))[0];
+            const wallet = new TestWallet(pxe);
+            variant.setWallet(wallet);
+            const defaultAccountAddress = (await variant.deployAccounts(opts.initialFundedAccounts!.slice(0, 1)))[0];
 
             contracts.push(
-              await TokenContract.deploy(wallet, wallet.getAddress(), 'TestToken', 'TST', 18n).send().deployed(),
+              await TokenContract.deploy(wallet, defaultAccountAddress, 'TestToken', 'TST', 18n)
+                .send({ from: defaultAccountAddress })
+                .deployed(),
             );
-            contracts.push(await SchnorrHardcodedAccountContract.deploy(wallet).send().deployed());
             contracts.push(
-              await TokenContract.deploy(wallet, wallet.getAddress(), 'TestToken', 'TST', 18n).send().deployed(),
+              await SchnorrHardcodedAccountContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed(),
+            );
+            contracts.push(
+              await TokenContract.deploy(wallet, defaultAccountAddress, 'TestToken', 'TST', 18n)
+                .send({ from: defaultAccountAddress })
+                .deployed(),
             );
 
             await watcher.stop();
@@ -544,9 +576,7 @@ describe('e2e_synching', () => {
           const blobSinkClient = createBlobSinkClient({
             blobSinkUrl: `http://localhost:${opts.blobSink?.port ?? DEFAULT_BLOB_SINK_PORT}`,
           });
-          const archiver = await createArchiver(opts.config!, blobSinkClient, {
-            blockUntilSync: true,
-          });
+          const archiver = await createArchiver(opts.config!, { blobSinkClient }, { blockUntilSync: true });
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
 
           const worldState = await createWorldStateSynchronizer(opts.config!, archiver);
@@ -561,7 +591,7 @@ describe('e2e_synching', () => {
           const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
           const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
-          await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
+          await opts.cheatCodes!.eth.warp(Number(timeJumpTo), { resetBlockInterval: true });
 
           expect(await archiver.getBlockNumber()).toBeGreaterThan(Number(provenThrough));
           const blockTip = (await archiver.getBlock(await archiver.getBlockNumber()))!;
@@ -645,7 +675,7 @@ describe('e2e_synching', () => {
           const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
           const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
-          await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
+          await opts.cheatCodes!.eth.warp(Number(timeJumpTo), { resetBlockInterval: true });
 
           const watcher = new AnvilTestWatcher(
             opts.cheatCodes!.eth,
@@ -667,7 +697,7 @@ describe('e2e_synching', () => {
 
           const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
 
-          await sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
+          sequencer?.updateConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
           const txs = await variant.createAndSendTxs();
           await Promise.all(txs.map(tx => tx.wait({ timeout: 1200 })));
 
@@ -705,7 +735,7 @@ describe('e2e_synching', () => {
           const blockLog = await rollup.read.getBlock([(await rollup.read.getProvenBlockNumber()) + 1n]);
           const timeJumpTo = await rollup.read.getTimestampForSlot([blockLog.slotNumber + timeliness]);
 
-          await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
+          await opts.cheatCodes!.eth.warp(Number(timeJumpTo), { resetBlockInterval: true });
 
           await rollup.write.prune();
 
@@ -726,7 +756,7 @@ describe('e2e_synching', () => {
 
           const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
 
-          await sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
+          sequencer?.updateConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
           const txs = await variant.createAndSendTxs();
           await Promise.all(txs.map(tx => tx.wait({ timeout: 1200 })));
 

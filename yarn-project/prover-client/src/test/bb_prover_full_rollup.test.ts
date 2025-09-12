@@ -1,4 +1,5 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
+import { BatchedBlob, Blob } from '@aztec/blob-lib';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, PAIRING_POINTS_SIZE } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
@@ -30,7 +31,10 @@ describe('prover/bb_prover/full-rollup', () => {
       return prover;
     };
     log = createLogger('prover-client:test:bb-prover-full-rollup');
-    context = await TestContext.new(log, 1, FAKE_PROOFS ? undefined : buildProver);
+    context = await TestContext.new(log, {
+      proverCount: 1,
+      createProver: FAKE_PROOFS ? undefined : buildProver,
+    });
     previousBlockHeader = context.getPreviousBlockHeader();
   });
 
@@ -40,7 +44,7 @@ describe('prover/bb_prover/full-rollup', () => {
 
   it.each([
     [1, 1, 0, 2], // Epoch with a single block, requires one padding block proof
-    // [2, 2, 0, 2], // Full epoch with two blocks // TODO(#10678) disabled for time x resource usage on main runner
+    // [2, 2, 0, 2], // Full epoch with two blocks // TODO(#10678) disabled for time x resource usage on main runner // NOTE: we need this test to create the fixture for integration_proof_verification.test.ts, which doesn't seem to be run, though does pass
     // [2, 3, 0, 2], // Epoch with two blocks but the block merge tree was assembled as with 3 leaves, requires one padding block proof; commented out to reduce running time
   ])(
     'proves a private-only epoch with %i/%i blocks with %i/%i non-empty txs each',
@@ -48,11 +52,9 @@ describe('prover/bb_prover/full-rollup', () => {
       log.info(`Proving epoch with ${blockCount}/${totalBlocks} blocks with ${nonEmptyTxs}/${totalTxs} non-empty txs`);
 
       const initialHeader = context.getBlockHeader(0);
-      context.orchestrator.startNewEpoch(1, 1, totalBlocks);
-
+      const processedTxs = [];
+      const blobs = [];
       for (let blockNum = 1; blockNum <= blockCount; blockNum++) {
-        const globals = makeGlobals(blockNum);
-        const l1ToL2Messages = makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
         const txs = await timesParallel(nonEmptyTxs, async (i: number) => {
           const txOpts = { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 };
           const tx = await mockTx(blockNum * 100_000 + 1000 * (i + 1), txOpts);
@@ -61,13 +63,25 @@ describe('prover/bb_prover/full-rollup', () => {
           return tx;
         });
 
+        log.info(`Processing public functions`);
+        const [processed, failed] = await context.processPublicFunctions(txs);
+        expect(processed.length).toBe(nonEmptyTxs);
+        expect(failed.length).toBe(0);
+        processedTxs[blockNum] = processed;
+        blobs.push(await Blob.getBlobsPerBlock(processed.flatMap(tx => tx.txEffect.toBlobFields())));
+      }
+
+      const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs.flat());
+      context.orchestrator.startNewEpoch(1, 1, totalBlocks, finalBlobChallenges);
+
+      for (let blockNum = 1; blockNum <= blockCount; blockNum++) {
+        const globals = makeGlobals(blockNum);
+        const l1ToL2Messages = makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
+        const processed = processedTxs[blockNum];
+
         log.info(`Starting new block #${blockNum}`);
 
         await context.orchestrator.startNewBlock(globals, l1ToL2Messages, previousBlockHeader);
-        log.info(`Processing public functions`);
-        const [processed, failed] = await context.processPublicFunctions(txs, nonEmptyTxs);
-        expect(processed.length).toBe(nonEmptyTxs);
-        expect(failed.length).toBe(0);
         await context.orchestrator.addTxs(processed);
 
         log.info(`Setting block as completed`);
@@ -80,7 +94,7 @@ describe('prover/bb_prover/full-rollup', () => {
       }
 
       log.info(`Awaiting proofs`);
-      const epochResult = await context.orchestrator.finaliseEpoch();
+      const epochResult = await context.orchestrator.finalizeEpoch();
 
       if (prover) {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13188): Handle the pairing point object without these hacks.
@@ -118,20 +132,23 @@ describe('prover/bb_prover/full-rollup', () => {
       Fr.random,
     );
 
-    context.orchestrator.startNewEpoch(1, 1, 1);
-
-    await context.orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages, context.getPreviousBlockHeader());
-
-    const [processed, failed] = await context.processPublicFunctions(txs, numTransactions);
+    const [processed, failed] = await context.processPublicFunctions(txs);
 
     expect(processed.length).toBe(numTransactions);
     expect(failed.length).toBe(0);
+
+    const blobs = await Blob.getBlobsPerBlock(processed.map(tx => tx.txEffect.toBlobFields()).flat());
+    const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
+
+    context.orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
+
+    await context.orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages, context.getPreviousBlockHeader());
 
     await context.orchestrator.addTxs(processed);
 
     await context.orchestrator.setBlockCompleted(context.blockNumber);
 
-    const result = await context.orchestrator.finaliseEpoch();
+    const result = await context.orchestrator.finalizeEpoch();
     if (prover) {
       await expect(prover.verifyProof('RootRollupArtifact', result.proof)).resolves.not.toThrow();
     }

@@ -1,6 +1,7 @@
 #pragma once
 #include <fstream>
 
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/smt_verification/circuit/circuit_base.hpp"
 
 #define RED "\033[31m"

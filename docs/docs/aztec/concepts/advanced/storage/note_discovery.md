@@ -1,6 +1,7 @@
 ---
 title: Note Discovery
 tags: [storage, concepts, advanced, notes]
+description: Understand how Aztec's note tagging system allows users to efficiently discover and decrypt notes that belong to them without relying on brute force or offchain communication.
 sidebar_position: 3
 ---
 
@@ -12,19 +13,19 @@ Note discovery refers to the process of a user identifying and decrypting the [e
 
 In some existing protocols, the user downloads all possible notes and tries to decrypt each one. If the decryption succeeds, the user knows they own that note. However, this approach becomes exponentially more expensive as the network grows and more notes are created. It also introduces a third-party server to gather and trial-decrypt notes, which is an additional point of failure. Note that this note discovery technique is not currently implemented for Aztec.
 
-### Off-chain communication
+### Offchain communication
 
-Another proposed solution is having the sender give the note content to the recipient via some off-chain communication. While it solves the brute force issue, it introduces reliance on side channels which we don't want in a self-sufficient network. This option incurs lower transaction costs because fewer logs needs to be posted on-chain. Aztec apps will be able to choose this method if they wish.
+Another proposed solution is having the sender give the note content to the recipient via some offchain communication. While it solves the brute force issue, it introduces reliance on side channels which we don't want in a self-sufficient network. This option incurs lower transaction costs because fewer logs needs to be posted onchain. Aztec apps will be able to choose this method if they wish.
 
 ## Aztec's solution: Note tagging
 
-Aztec introduces an approach that allows users to identify which notes are relevant to them by having the sender *tag* the log in which the note is created. This is known as note tagging. The tag is generated in such a way that only the sender and recipient can identify it.
+Aztec introduces an approach that allows users to identify which notes are relevant to them by having the sender _tag_ the log in which the note is created. This is known as note tagging. The tag is generated in such a way that only the sender and recipient can identify it.
 
 ### How it works
 
 #### Every log has a tag
 
-In Aztec, each emitted log is an array of fields, eg `[x, y, z]`. The first field (`x`) is a *tag* field used to index and identify logs. The Aztec node exposes an API `getLogsByTags()` that can retrieve logs matching specific tags.
+In Aztec, each emitted log is an array of fields, eg `[x, y, z]`. The first field (`x`) is a _tag_ field used to index and identify logs. The Aztec node exposes an API `getLogsByTags()` that can retrieve logs matching specific tags.
 
 #### Tag generation
 

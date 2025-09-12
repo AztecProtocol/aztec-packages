@@ -8,6 +8,7 @@ export const shouldCollectMetrics = () => {
 };
 
 export const TEST_PEER_CHECK_INTERVAL_MS = 1000;
+export const TEST_MAX_TX_POOL_SIZE = 2 * 1024 * 1024 * 1024; // 2GB
 
 export const MNEMONIC = 'test test test test test test test test test test test junk';
 export const privateKey = Buffer.from('ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80', 'hex');

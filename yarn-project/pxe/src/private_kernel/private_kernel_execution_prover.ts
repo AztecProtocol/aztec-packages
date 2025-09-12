@@ -7,9 +7,10 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { getProtocolContractLeafAndMembershipWitness, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeContractAddressFromInstance } from '@aztec/stdlib/contract';
-import { hashVK } from '@aztec/stdlib/hash';
 import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import {
+  HidingKernelToPublicPrivateInputs,
+  HidingKernelToRollupPrivateInputs,
   PaddedSideEffectAmounts,
   PrivateCallData,
   type PrivateExecutionStep,
@@ -51,7 +52,7 @@ export interface PrivateKernelExecutionProverConfig {
 }
 
 /**
- * The PrivateKernelSequencer class is responsible for taking a transaction request and sequencing the
+ * The PrivateKernelExecutionProver class is responsible for taking a transaction request and sequencing the
  * the execution of the private functions within, sequenced with private kernel "glue" to check protocol rules.
  * The result can be a client IVC proof of the private transaction portion, or just a simulation that can e.g.
  * inform state tree updates.
@@ -92,6 +93,8 @@ export class PrivateKernelExecutionProver {
 
     const isPrivateOnlyTx = executionResult.publicFunctionCalldata.length === 0;
 
+    // Initialize an executionStack, beginning with the PrivateCallExecutionResult
+    // of the entrypoint function of the tx.
     const executionStack = [executionResult.entrypoint];
     let firstIteration = true;
 
@@ -139,7 +142,7 @@ export class PrivateKernelExecutionProver {
 
       const currentExecution = executionStack.pop()!;
 
-      executionStack.push(...[...currentExecution.nestedExecutions].reverse());
+      executionStack.push(...[...currentExecution.nestedExecutionResults].reverse());
 
       const functionName = await this.oracle.getDebugFunctionName(
         currentExecution.publicInputs.callContext.contractAddress,
@@ -191,14 +194,7 @@ export class PrivateKernelExecutionProver {
         });
       } else {
         const witgenTimer = new Timer();
-        const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(
-          output.verificationKey.keyAsFields,
-        );
-        const vkData = new VkData(
-          output.verificationKey,
-          Number(previousVkMembershipWitness.leafIndex),
-          previousVkMembershipWitness.siblingPath,
-        );
+        const vkData = await this.getVkData(output.verificationKey);
         const previousKernelData = new PrivateKernelData(output.publicInputs, vkData);
         const proofInput = new PrivateKernelInnerCircuitPrivateInputs(previousKernelData, privateCallData);
 
@@ -259,21 +255,31 @@ export class PrivateKernelExecutionProver {
       output.publicInputs.feePayer = new AztecAddress(Fr.MAX_FIELD_VALUE);
     }
     // Private tail.
-    const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey.keyAsFields);
-    const vkData = new VkData(
-      output.verificationKey,
-      Number(previousVkMembershipWitness.leafIndex),
-      previousVkMembershipWitness.siblingPath,
-    );
+    const vkData = await this.getVkData(output.verificationKey);
     const previousKernelData = new PrivateKernelData(output.publicInputs, vkData);
 
     this.log.debug(
       `Calling private kernel tail with hwm ${previousKernelData.publicInputs.minRevertibleSideEffectCounter}`,
     );
 
-    // TODO: Enable padding when we have a better what are the final amounts we should pad to.
+    // TODO: Enable padding once we better understand the final amounts to pad to.
     const paddedSideEffectAmounts = PaddedSideEffectAmounts.empty();
-    const privateInputs = new PrivateKernelTailCircuitPrivateInputs(previousKernelData, paddedSideEffectAmounts);
+
+    // Use the aggregated includeByTimestamp set throughout the tx execution.
+    // TODO: Call `computeTxIncludeByTimestamp` to round the value down and reduce precision, improving privacy.
+    const includeByTimestampUpperBound = previousKernelData.publicInputs.includeByTimestamp;
+    const blockTimestamp = previousKernelData.publicInputs.constants.historicalHeader.globalVariables.timestamp;
+    if (includeByTimestampUpperBound <= blockTimestamp) {
+      throw new Error(
+        `Include-by timestamp must be greater than the historical block timestamp. Block timestamp: ${blockTimestamp}. Include-by timestamp: ${includeByTimestampUpperBound}.`,
+      );
+    }
+
+    const privateInputs = new PrivateKernelTailCircuitPrivateInputs(
+      previousKernelData,
+      paddedSideEffectAmounts,
+      includeByTimestampUpperBound,
+    );
 
     pushTestData('private-kernel-inputs-ordering', privateInputs);
 
@@ -291,6 +297,38 @@ export class PrivateKernelExecutionProver {
         witgen: witgenTimer.ms(),
       },
     });
+
+    // Hiding circuit is only executed if we are generating witnesses.
+    // For simulation, we can end with the tail, since the hiding circuit will simply return the same tail output.
+    if (generateWitnesses) {
+      const previousKernelVkData = await this.getVkData(tailOutput.verificationKey);
+
+      const witgenTimer = new Timer();
+      let hidingOutput: PrivateKernelSimulateOutput<PrivateKernelTailCircuitPublicInputs>;
+      if (tailOutput.publicInputs.forPublic) {
+        const privateInputs = new HidingKernelToPublicPrivateInputs(
+          tailOutput.publicInputs.toPrivateToPublicKernelCircuitPublicInputs(),
+          previousKernelVkData,
+        );
+        hidingOutput = await this.proofCreator.generateHidingToPublicOutput(privateInputs);
+      } else {
+        const privateInputs = new HidingKernelToRollupPrivateInputs(
+          tailOutput.publicInputs.toPrivateToRollupKernelCircuitPublicInputs(),
+          previousKernelVkData,
+        );
+        hidingOutput = await this.proofCreator.generateHidingToRollupOutput(privateInputs);
+      }
+
+      executionSteps.push({
+        functionName: 'hiding_kernel',
+        bytecode: hidingOutput.bytecode,
+        witness: hidingOutput.outputWitness,
+        vk: hidingOutput.verificationKey.keyAsBytes,
+        timings: {
+          witgen: witgenTimer.ms(),
+        },
+      });
+    }
 
     if (profileMode == 'gates' || profileMode == 'full') {
       for (const entry of executionSteps) {
@@ -327,16 +365,24 @@ export class PrivateKernelExecutionProver {
       publicInputs: tailOutput.publicInputs,
       executionSteps,
       clientIvcProof,
-      vk: tailOutput.verificationKey.keyAsBytes,
       timings: provingTime ? { proving: provingTime } : undefined,
     };
+  }
+
+  private async getVkData(verificationKey: VerificationKeyData) {
+    const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(verificationKey.keyAsFields);
+    return new VkData(
+      verificationKey,
+      Number(previousVkMembershipWitness.leafIndex),
+      previousVkMembershipWitness.siblingPath,
+    );
   }
 
   private async createPrivateCallData({ publicInputs, vk: vkAsBuffer }: PrivateCallExecutionResult) {
     const { contractAddress, functionSelector } = publicInputs.callContext;
 
     const vkAsFields = await vkAsFieldsMegaHonk(vkAsBuffer);
-    const vk = new VerificationKeyAsFields(vkAsFields, await hashVK(vkAsFields));
+    const vk = await VerificationKeyAsFields.fromKey(vkAsFields);
 
     const { currentContractClassId, publicKeys, saltedInitializationHash } =
       await this.oracle.getContractAddressPreimage(contractAddress);

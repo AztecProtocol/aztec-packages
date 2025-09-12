@@ -1,6 +1,8 @@
 import { Blob } from '@aztec/blob-lib';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
+import { sleep } from '@aztec/foundation/sleep';
+import { TestDateProvider } from '@aztec/foundation/timer';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
 import type { Anvil } from '@viem/anvil';
@@ -8,10 +10,10 @@ import { type PrivateKeyAccount, createWalletClient, fallback, getContract, http
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { EthCheatCodes } from '../eth_cheat_codes.js';
 import type { ExtendedViemWalletClient } from '../types.js';
+import { EthCheatCodes } from './eth_cheat_codes.js';
 import { startAnvil } from './start_anvil.js';
-import { type Delayer, withDelayer } from './tx_delayer.js';
+import { type Delayer, waitUntilBlock, withDelayer } from './tx_delayer.js';
 
 describe('tx_delayer', () => {
   let anvil: Anvil;
@@ -21,8 +23,9 @@ describe('tx_delayer', () => {
   let client: ExtendedViemWalletClient;
   let delayer: Delayer;
   let cheatCodes: EthCheatCodes;
+  let dateProvider: TestDateProvider;
 
-  const ETHEREUM_SLOT_DURATION = 2;
+  const ETHEREUM_SLOT_DURATION = process.env.L1_SLOT_DURATION ? parseInt(process.env.L1_SLOT_DURATION) : 4;
 
   beforeAll(async () => {
     ({ anvil, rpcUrl } = await startAnvil({ l1BlockTime: ETHEREUM_SLOT_DURATION }));
@@ -32,12 +35,13 @@ describe('tx_delayer', () => {
 
   beforeEach(() => {
     account = privateKeyToAccount('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80');
+    dateProvider = new TestDateProvider();
     const _client = createWalletClient({
       transport: fallback([http(rpcUrl)]),
       chain: foundry,
       account,
     }).extend(publicActions);
-    ({ client, delayer } = withDelayer(_client, { ethereumSlotDuration: ETHEREUM_SLOT_DURATION }));
+    ({ client, delayer } = withDelayer(_client, dateProvider, { ethereumSlotDuration: ETHEREUM_SLOT_DURATION }));
   });
 
   const receiptNotFound = expect.objectContaining({ name: 'TransactionReceiptNotFoundError' });
@@ -66,8 +70,9 @@ describe('tx_delayer', () => {
   it('delays a transaction until a given L1 timestamp', async () => {
     const block = await client.getBlock({ includeTransactions: false });
     const timestamp = block.timestamp;
-    delayer.pauseNextTxUntilTimestamp(timestamp + 6n);
-    logger.info(`Pausing next tx until timestamp ${timestamp + 6n}`);
+    const targetTimestamp = timestamp + BigInt(ETHEREUM_SLOT_DURATION) * 3n;
+    delayer.pauseNextTxUntilTimestamp(targetTimestamp);
+    logger.info(`Pausing next tx until timestamp ${targetTimestamp}`);
 
     const delayedTxHash = await client.sendTransaction({ to: account.address });
     await expect(client.getTransactionReceipt({ hash: delayedTxHash })).rejects.toThrow(receiptNotFound);
@@ -99,6 +104,36 @@ describe('tx_delayer', () => {
     logger.info(`Delayed tx sent. Awaiting receipt.`);
     const delayedTxReceipt = await client.waitForTransactionReceipt({ hash: delayedTxHash });
     expect(delayedTxReceipt.blockNumber).toEqual(blockNumber + 3n);
+  }, 20000);
+
+  it('delays a transaction sent too close to the end of a slot', async () => {
+    delayer.setMaxInclusionTimeIntoSlot(ETHEREUM_SLOT_DURATION - 1);
+
+    const blockNumber = await client.getBlockNumber({ cacheTime: 0 });
+    await waitUntilBlock(client, blockNumber + 2n);
+    logger.info(`Block ${blockNumber + 2n} just mined. Waiting for nearing the end of the slot.`);
+    await sleep(ETHEREUM_SLOT_DURATION * 1000 - 500);
+
+    logger.info(`Sending tx to be delayed.`);
+    const delayedTxHash = await client.sendTransaction({ to: account.address });
+    await expect(client.getTransactionReceipt({ hash: delayedTxHash })).rejects.toThrow(receiptNotFound);
+
+    logger.info(`Delayed tx sent. Awaiting receipt.`);
+    const delayedTxReceipt = await client.waitForTransactionReceipt({ hash: delayedTxHash });
+    expect(delayedTxReceipt.blockNumber).toEqual(blockNumber + 4n);
+  }, 20000);
+
+  it('does not delay a transaction sent early in the slot', async () => {
+    delayer.setMaxInclusionTimeIntoSlot(ETHEREUM_SLOT_DURATION - 1);
+
+    const blockNumber = await client.getBlockNumber({ cacheTime: 0 });
+    await waitUntilBlock(client, blockNumber + 2n);
+    await sleep(100);
+
+    logger.info(`Sending tx to be mined immediately`);
+    const txHash = await client.sendTransaction({ to: account.address });
+    const txReceipt = await client.waitForTransactionReceipt({ hash: txHash });
+    expect(txReceipt.blockNumber).toEqual(blockNumber + 3n);
   }, 20000);
 
   it('cancels a tx and sends it later manually', async () => {

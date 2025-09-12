@@ -112,10 +112,7 @@ contract FeeModelTestPoints is TestBase {
     assertEq(a.blob_fee, b.blob_fee, "blob_fee mismatch");
   }
 
-  function assertEq(L1FeesModel memory a, L1FeesModel memory b, string memory _message)
-    internal
-    pure
-  {
+  function assertEq(L1FeesModel memory a, L1FeesModel memory b, string memory _message) internal pure {
     assertEq(a.base_fee, b.base_fee, string.concat(_message, "base_fee mismatch"));
     assertEq(a.blob_fee, b.blob_fee, string.concat(_message, "blob_fee mismatch"));
   }
@@ -127,35 +124,24 @@ contract FeeModelTestPoints is TestBase {
   }
 
   function assertEq(OracleInputModel memory a, OracleInput memory b) internal pure {
-    assertEq(
-      a.fee_asset_price_modifier, b.feeAssetPriceModifier, "fee_asset_price_modifier mismatch"
-    );
+    assertEq(a.fee_asset_price_modifier, b.feeAssetPriceModifier, "fee_asset_price_modifier mismatch");
   }
 
   function assertEq(FeeHeaderModel memory a, FeeHeaderModel memory b) internal pure {
     assertEq(a.excess_mana, b.excess_mana, "excess_mana mismatch");
-    assertEq(
-      a.fee_asset_price_numerator, b.fee_asset_price_numerator, "fee_asset_price_numerator mismatch"
-    );
+    assertEq(a.fee_asset_price_numerator, b.fee_asset_price_numerator, "fee_asset_price_numerator mismatch");
     assertEq(a.mana_used, b.mana_used, "mana_used mismatch");
   }
 
-  function assertEq(
-    ManaBaseFeeComponentsModel memory a,
-    ManaBaseFeeComponentsModel memory b,
-    string memory _message
-  ) internal pure {
+  function assertEq(ManaBaseFeeComponentsModel memory a, ManaBaseFeeComponentsModel memory b, string memory _message)
+    internal
+    pure
+  {
+    assertEq(a.congestion_cost, b.congestion_cost, string.concat(_message, " congestion_cost mismatch"));
     assertEq(
-      a.congestion_cost, b.congestion_cost, string.concat(_message, " congestion_cost mismatch")
-    );
-    assertEq(
-      a.congestion_multiplier,
-      b.congestion_multiplier,
-      string.concat(_message, " congestion_multiplier mismatch")
+      a.congestion_multiplier, b.congestion_multiplier, string.concat(_message, " congestion_multiplier mismatch")
     );
     assertEq(a.prover_cost, b.prover_cost, string.concat(_message, " prover_cost mismatch"));
-    assertEq(
-      a.sequencer_cost, b.sequencer_cost, string.concat(_message, " sequencer_cost mismatch")
-    );
+    assertEq(a.sequencer_cost, b.sequencer_cost, string.concat(_message, " sequencer_cost mismatch"));
   }
 }

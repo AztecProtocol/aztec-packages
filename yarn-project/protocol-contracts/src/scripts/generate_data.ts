@@ -1,14 +1,14 @@
 import {
   CANONICAL_AUTH_REGISTRY_ADDRESS,
-  DEPLOYER_CONTRACT_ADDRESS,
-  DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
-  DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE,
+  CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE,
+  CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
+  CONTRACT_CLASS_REGISTRY_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE,
+  CONTRACT_CLASS_REGISTRY_UTILITY_FUNCTION_BROADCASTED_MAGIC_VALUE,
+  CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE,
+  CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+  CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE,
   FEE_JUICE_ADDRESS,
   MULTI_CALL_ENTRYPOINT_ADDRESS,
-  REGISTERER_CONTRACT_ADDRESS,
-  REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE,
-  REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE,
-  REGISTERER_UTILITY_FUNCTION_BROADCASTED_MAGIC_VALUE,
   ROUTER_ADDRESS,
 } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
@@ -16,7 +16,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { loadContractArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
+import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { type NoirCompiledContract } from '@aztec/stdlib/noir';
 
 import { promises as fs } from 'fs';
@@ -30,16 +30,26 @@ const noirContractsRoot = '../../noir-projects/noir-contracts';
 const srcPath = path.join(noirContractsRoot, './target');
 const destArtifactsDir = './artifacts';
 const outputFilePath = './src/protocol_contract_data.ts';
+const cppOutputFilePath = '../../barretenberg/cpp/src/barretenberg/vm2/common/protocol_contract_data.hpp';
 
 const salt = new Fr(1);
 
 const contractAddressMapping: { [name: string]: number } = {
   AuthRegistry: CANONICAL_AUTH_REGISTRY_ADDRESS,
-  ContractInstanceDeployer: DEPLOYER_CONTRACT_ADDRESS,
-  ContractClassRegisterer: REGISTERER_CONTRACT_ADDRESS,
+  ContractInstanceRegistry: CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+  ContractClassRegistry: CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
   MultiCallEntrypoint: MULTI_CALL_ENTRYPOINT_ADDRESS,
   FeeJuice: FEE_JUICE_ADDRESS,
   Router: ROUTER_ADDRESS,
+};
+
+const contractAddressNameMapping: { [name: string]: string } = {
+  AuthRegistry: 'CANONICAL_AUTH_REGISTRY_ADDRESS',
+  ContractInstanceRegistry: 'CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS',
+  ContractClassRegistry: 'CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS',
+  MultiCallEntrypoint: 'MULTI_CALL_ENTRYPOINT_ADDRESS',
+  FeeJuice: 'FEE_JUICE_ADDRESS',
+  Router: 'ROUTER_ADDRESS',
 };
 
 async function clearDestDir() {
@@ -66,7 +76,7 @@ async function copyArtifact(srcName: string, destName: string) {
 }
 
 async function computeContractLeaf(artifact: NoirCompiledContract) {
-  const instance = await getContractInstanceFromDeployParams(loadContractArtifact(artifact), { salt });
+  const instance = await getContractInstanceFromInstantiationParams(loadContractArtifact(artifact), { salt });
   return instance.address;
 }
 
@@ -133,9 +143,9 @@ async function generateRoot(names: string[], leaves: Fr[]) {
 // Generate the siloed log tags for events emitted via private logs.
 async function generateLogTags() {
   return `
-  export const DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_TAG = Fr.fromHexString('${await poseidon2Hash([
-    DEPLOYER_CONTRACT_ADDRESS,
-    DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
+  export const CONTRACT_INSTANCE_PUBLISHED_EVENT_TAG = Fr.fromHexString('${await poseidon2Hash([
+    CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+    CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE,
   ])}');
   `;
 }
@@ -161,6 +171,47 @@ async function generateOutputFile(names: string[], leaves: Fr[]) {
   await fs.writeFile(outputFilePath, content);
 }
 
+async function generateHppOutputFile() {
+  const content = `// GENERATED FILE - DO NOT EDIT, RUN yarn generate in yarn-project/protocol-contracts
+#pragma once
+
+#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
+
+#include <unordered_map>
+
+namespace bb::avm2 {
+
+using CanonicalAddress = AztecAddress;
+using DerivedAddress = AztecAddress;
+
+extern const std::unordered_map<CanonicalAddress, DerivedAddress> derived_addresses;
+
+} // namespace bb::avm2
+`;
+  await fs.writeFile(cppOutputFilePath, content);
+}
+
+async function generateCppOutputFile(names: string[], leaves: Fr[]) {
+  await generateHppOutputFile();
+  const data = names.map((name, i) => ({
+    name: contractAddressNameMapping[name],
+    addr: leaves[i].toString(),
+  }));
+  const content = `// GENERATED FILE - DO NOT EDIT, RUN yarn generate in yarn-project/protocol-contracts
+#include "protocol_contract_data.hpp"
+
+namespace bb::avm2 {
+
+const std::unordered_map<CanonicalAddress, DerivedAddress> derived_addresses = {
+    ${data.map(({ name, addr }) => `{ ${name}, AztecAddress("${addr}") }`).join(',\n\t')}
+};
+
+} // namespace bb::avm2
+`;
+  await fs.writeFile(cppOutputFilePath.replace('.hpp', '.cpp'), content);
+}
+
 async function main() {
   await clearDestDir();
 
@@ -179,6 +230,7 @@ async function main() {
     leaves.push(contractLeaf.toField());
   }
 
+  await generateCppOutputFile(destNames, leaves);
   await generateOutputFile(destNames, leaves);
 }
 

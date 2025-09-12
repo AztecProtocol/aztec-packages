@@ -1,6 +1,5 @@
-import { type InitialAccountData, deployFundedSchnorrAccounts } from '@aztec/accounts/testing';
-import type { Logger, PXE } from '@aztec/aztec.js';
-import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
+import type { AztecAddress, Logger, Wallet } from '@aztec/aztec.js';
+import { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 
 import { foundry, sepolia } from 'viem/chains';
 
@@ -12,16 +11,20 @@ import { setup } from '../fixtures/utils.js';
 // process.env.L1_CHAIN_ID = '11155111';
 
 describe(`deploys and transfers a private only token`, () => {
-  let initialFundedAccounts: InitialAccountData[];
-  let pxe: PXE;
+  let wallet: Wallet;
+
+  let deployerAddress: AztecAddress;
+  let recipientAddress: AztecAddress;
+
   let logger: Logger;
   let teardown: () => Promise<void>;
 
   beforeEach(async () => {
     const chainId = !process.env.L1_CHAIN_ID ? foundry.id : +process.env.L1_CHAIN_ID;
     const chain = chainId == sepolia.id ? sepolia : foundry; // Not the best way of doing this.
-    ({ initialFundedAccounts, logger, pxe, teardown } = await setup(
-      0, // Deploy 0 accounts.
+    let accounts: AztecAddress[];
+    ({ logger, teardown, wallet, accounts } = await setup(
+      2, // Deploy 2 accounts.
       {
         numberOfInitialFundedAccounts: 2, // Fund 2 accounts.
         skipProtocolContracts: true,
@@ -30,6 +33,8 @@ describe(`deploys and transfers a private only token`, () => {
       {},
       chain,
     ));
+
+    [deployerAddress, recipientAddress] = accounts;
   }, 600_000);
 
   afterEach(async () => {
@@ -40,22 +45,12 @@ describe(`deploys and transfers a private only token`, () => {
     const initialBalance = 100_000_000_000n;
     const transferValue = 5n;
 
-    logger.info(`Deploying accounts.`);
-
-    const accounts = await deployFundedSchnorrAccounts(pxe, initialFundedAccounts.slice(0, 2), {
-      interval: 0.1,
-      timeout: 300,
-    });
-
-    logger.info(`Accounts deployed, deploying token.`);
-
-    const [deployerWallet, recipientWallet] = await Promise.all(accounts.map(a => a.getWallet()));
-
-    const token = await EasyPrivateTokenContract.deploy(deployerWallet, initialBalance, deployerWallet.getAddress())
+    const token = await PrivateTokenContract.deploy(wallet, initialBalance, deployerAddress)
       .send({
+        from: deployerAddress,
         universalDeploy: true,
-        skipPublicDeployment: true,
-        skipClassRegistration: true,
+        skipInstancePublication: true,
+        skipClassPublication: true,
         skipInitialization: false,
       })
       .deployed({ timeout: 300 });
@@ -63,14 +58,14 @@ describe(`deploys and transfers a private only token`, () => {
     logger.info(`Performing transfer.`);
 
     await token.methods
-      .transfer(transferValue, deployerWallet.getAddress(), recipientWallet.getAddress())
-      .send()
+      .transfer(transferValue, deployerAddress, recipientAddress)
+      .send({ from: deployerAddress })
       .wait({ timeout: 300 });
 
     logger.info(`Transfer completed`);
 
-    const balanceDeployer = await token.methods.get_balance(deployerWallet.getAddress()).simulate();
-    const balanceRecipient = await token.methods.get_balance(recipientWallet.getAddress()).simulate();
+    const balanceDeployer = await token.methods.get_balance(deployerAddress).simulate({ from: deployerAddress });
+    const balanceRecipient = await token.methods.get_balance(recipientAddress).simulate({ from: recipientAddress });
 
     logger.info(`Deployer balance: ${balanceDeployer}, Recipient balance: ${balanceRecipient}`);
 

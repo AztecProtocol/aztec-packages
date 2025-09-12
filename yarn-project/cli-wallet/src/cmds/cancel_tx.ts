@@ -1,14 +1,15 @@
-import { type AccountWalletWithSecretKey, type FeePaymentMethod, SentTx, type TxHash, TxStatus } from '@aztec/aztec.js';
+import { AztecAddress, type FeePaymentMethod, SentTx, type TxHash, TxStatus } from '@aztec/aztec.js';
 import type { FeeOptions } from '@aztec/entrypoints/interfaces';
-import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn } from '@aztec/foundation/log';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 
 import { DEFAULT_TX_TIMEOUT_S } from '../utils/pxe_wrapper.js';
+import type { CLIWallet } from '../utils/wallet.js';
 
 export async function cancelTx(
-  wallet: AccountWalletWithSecretKey,
+  wallet: CLIWallet,
+  from: AztecAddress,
   {
     txHash,
     gasSettings: prevTxGasSettings,
@@ -27,8 +28,8 @@ export async function cancelTx(
   }
 
   const maxPriorityFeesPerGas = new GasFees(
-    prevTxGasSettings.maxPriorityFeesPerGas.feePerDaGas.add(increasedFees.feePerDaGas),
-    prevTxGasSettings.maxPriorityFeesPerGas.feePerL2Gas.add(increasedFees.feePerL2Gas),
+    prevTxGasSettings.maxPriorityFeesPerGas.feePerDaGas + increasedFees.feePerDaGas,
+    prevTxGasSettings.maxPriorityFeesPerGas.feePerL2Gas + increasedFees.feePerL2Gas,
   );
 
   const fee: FeeOptions = {
@@ -40,13 +41,11 @@ export async function cancelTx(
     }),
   };
 
-  const txRequest = await wallet.createTxExecutionRequest(ExecutionPayload.empty(), fee, {
-    txNonce,
-    cancellable: true,
+  const txProvingResult = await wallet.proveCancellationTx(from, txNonce, fee);
+  const sentTx = new SentTx(wallet, async () => {
+    const tx = await txProvingResult.toTx();
+    return wallet.sendTx(tx);
   });
-  const txSimulationResult = await wallet.simulateTx(txRequest, true);
-  const txProvingResult = await wallet.proveTx(txRequest, txSimulationResult.privateExecutionResult);
-  const sentTx = new SentTx(wallet, wallet.sendTx(txProvingResult.toTx()));
   try {
     await sentTx.wait({ timeout: DEFAULT_TX_TIMEOUT_S });
 

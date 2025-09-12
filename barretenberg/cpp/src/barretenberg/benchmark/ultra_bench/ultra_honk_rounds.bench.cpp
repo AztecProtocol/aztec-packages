@@ -1,7 +1,7 @@
 #include <benchmark/benchmark.h>
 
 #include "barretenberg/benchmark/ultra_bench/mock_circuits.hpp"
-#include "barretenberg/common/op_count_google_bench.hpp"
+#include "barretenberg/common/google_bb_bench.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
@@ -29,10 +29,10 @@ enum {
  * @param prover - The Goblin ultrahonk prover.
  * @param index - The pass to measure.
  **/
-BB_PROFILE static void test_round_inner(State& state, MegaProver& prover, size_t index) noexcept
+BB_PROFILE void test_round_inner(State& state, MegaProver& prover, size_t index) noexcept
 {
     auto time_if_index = [&](size_t target_index, auto&& func) -> void {
-        BB_REPORT_OP_COUNT_IN_BENCH(state);
+        GOOGLE_BB_BENCH_REPORTER(state);
         if (index == target_index) {
             state.ResumeTiming();
         }
@@ -42,10 +42,12 @@ BB_PROFILE static void test_round_inner(State& state, MegaProver& prover, size_t
             state.PauseTiming();
         } else {
             // We don't actually want to write to user-defined counters
-            BB_REPORT_OP_COUNT_BENCH_CANCEL();
+            GOOGLE_BB_BENCH_REPORTER_CANCEL();
         }
     };
-    OinkProver<MegaFlavor> oink_prover(prover.proving_key, prover.transcript);
+    // why is this mega if the name of file is ultra
+    auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(prover.proving_key->get_precomputed());
+    OinkProver<MegaFlavor> oink_prover(prover.proving_key, verification_key, prover.transcript);
     time_if_index(PREAMBLE, [&] { oink_prover.execute_preamble_round(); });
     time_if_index(WIRE_COMMITMENTS, [&] { oink_prover.execute_wire_commitments_round(); });
     time_if_index(SORTED_LIST_ACCUMULATOR, [&] { oink_prover.execute_sorted_list_accumulator_round(); });

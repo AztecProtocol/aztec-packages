@@ -1,7 +1,7 @@
 /**
  * The `account` module provides utilities for managing accounts. The {@link AccountManager} class
- * allows to deploy and register a fresh account, or to obtain a `Wallet` instance out of an account
- * already deployed. Use the `@aztec/accounts` package to load default account implementations that rely
+ * allows to instantiate, initialize and publish a fresh account, or to obtain a `Wallet` instance out of an
+ * already-deployed account. Use the `@aztec/accounts` package to load default account implementations that rely
  * on ECDSA or Schnorr signatures.
  *
  * @packageDocumentation

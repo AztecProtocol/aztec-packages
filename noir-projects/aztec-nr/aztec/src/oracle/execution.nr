@@ -1,29 +1,10 @@
-use dep::protocol_types::address::AztecAddress;
+use crate::context::utility_context::UtilityContext;
 
-#[oracle(getContractAddress)]
-unconstrained fn get_contract_address_oracle() -> AztecAddress {}
+#[oracle(utilityGetUtilityContext)]
+unconstrained fn get_utility_context_oracle() -> UtilityContext {}
 
-#[oracle(getBlockNumber)]
-unconstrained fn get_block_number_oracle() -> u32 {}
-
-#[oracle(getChainId)]
-unconstrained fn get_chain_id_oracle() -> Field {}
-
-#[oracle(getVersion)]
-unconstrained fn get_version_oracle() -> Field {}
-
-pub unconstrained fn get_contract_address() -> AztecAddress {
-    get_contract_address_oracle()
-}
-
-pub unconstrained fn get_block_number() -> u32 {
-    get_block_number_oracle()
-}
-
-pub unconstrained fn get_chain_id() -> Field {
-    get_chain_id_oracle()
-}
-
-pub unconstrained fn get_version() -> Field {
-    get_version_oracle()
+/// Returns a utility context built from the global variables of anchor block and the contract address of the function
+/// being executed.
+pub unconstrained fn get_utility_context() -> UtilityContext {
+    get_utility_context_oracle()
 }

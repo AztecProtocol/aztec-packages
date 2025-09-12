@@ -8,6 +8,7 @@
 
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include <iostream>
 
 namespace bb {
 
@@ -21,7 +22,6 @@ namespace bb {
 struct ExecutionTraceUsageTracker {
     using Range = std::pair<size_t, size_t>;
     using Builder = MegaCircuitBuilder;
-    using MegaTraceActiveRanges = MegaTraceBlockData<Range>;
     using MegaTraceFixedBlockSizes = MegaExecutionTraceBlocks;
 
     TraceStructure max_sizes;             // max utilization of each block
@@ -32,7 +32,8 @@ struct ExecutionTraceUsageTracker {
     std::vector<Range> active_ranges;
     std::vector<Range> previous_active_ranges;
 
-    std::vector<Range> thread_ranges; // ranges within the ambient space over which utilized space is evenly distibuted
+    std::vector<std::vector<Range>>
+        thread_ranges; // ranges within the ambient space over which utilized space is evenly distibuted
 
     // Max sizes of the "tables" for databus and conventional lookups (distinct from the sizes of their gate blocks)
     size_t max_databus_size = 0;
@@ -41,14 +42,15 @@ struct ExecutionTraceUsageTracker {
 
     // For printing only. Must match the order of the members in the arithmetization
 
-    static constexpr std::array<std::string_view, 13> block_labels{ "ecc_op",
+    static constexpr std::array<std::string_view, 14> block_labels{ "ecc_op",
                                                                     "busread",
                                                                     "lookup",
                                                                     "pub_inputs",
                                                                     "arithmetic",
                                                                     "delta_range",
                                                                     "elliptic",
-                                                                    "aux",
+                                                                    "memory",
+                                                                    "nnf",
                                                                     "poseidon2_external",
                                                                     "poseidon2_internal",
                                                                     "overflow",
@@ -92,37 +94,23 @@ struct ExecutionTraceUsageTracker {
         previous_active_ranges = active_ranges; // store active ranges based on all but the present circuit
         active_ranges.clear();
         for (auto [max_size, fixed_block] : zip_view(max_sizes.get(), fixed_sizes.get())) {
-            size_t start_idx = fixed_block.trace_offset;
+            size_t start_idx = fixed_block.trace_offset();
             size_t end_idx = start_idx + max_size;
             active_ranges.push_back(Range{ start_idx, end_idx });
         }
 
-        // The active ranges must also include the rows where the actual databus and lookup table data are stored.
-        // (Note: lookup tables are constructed from the beginning of the lookup block ; databus data is constructed at
-        // the start of the trace).
+        // The active range for lookup-style blocks consists of two components: (1) rows containing the lookup/read
+        // gates and (2) rows containing the table data itself. The Mega arithmetization contains two such blocks:
+        // conventional lookups (lookup block) and the databus (busread block). Here we add the ranges corresponding
+        // to the "table" data for these two blocks. The corresponding gate ranges were added above.
+        size_t databus_data_start = 0; // Databus column data starts at idx 0
+        size_t databus_data_end = databus_data_start + max_databus_size;
+        active_ranges.push_back(Range{ databus_data_start, databus_data_end }); // region where databus contains data
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1152): should be able to use simply Range{ 0,
-        // max_databus_size } but this breaks for certain choices of num_threads. It should also be possible to have the
-        // lookup table data be Range{lookup_start, max_tables_size} but that also breaks.
-        size_t databus_end =
-            std::max(max_databus_size, static_cast<size_t>(fixed_sizes.busread.trace_offset + max_sizes.busread));
-        active_ranges.push_back(Range{ 0, databus_end });
-        size_t lookups_start = fixed_sizes.lookup.trace_offset;
-        size_t lookups_end = lookups_start + std::max(max_tables_size, static_cast<size_t>(max_sizes.lookup));
-        active_ranges.emplace_back(Range{ lookups_start, lookups_end });
-    }
-
-    // Check whether an index is contained within the active ranges (or previous active ranges; needed for perturbator)
-    bool check_is_active(const size_t idx, bool use_prev_accumulator = false)
-    {
-        // If structured trace is not in use, assume the whole trace is active
-        if (!trace_settings.structure) {
-            return true;
-        }
-        std::vector<Range> ranges_to_check = use_prev_accumulator ? previous_active_ranges : active_ranges;
-        return std::any_of(ranges_to_check.begin(), ranges_to_check.end(), [idx](const auto& range) {
-            return idx >= range.first && idx < range.second;
-        });
+        // Note: start of table data is aligned with start of the lookup gates block
+        size_t tables_start = fixed_sizes.lookup.trace_offset();
+        size_t tables_end = tables_start + max_tables_size;
+        active_ranges.emplace_back(Range{ tables_start, tables_end }); // region where table data is stored
     }
 
     void print()
@@ -133,7 +121,7 @@ struct ExecutionTraceUsageTracker {
         info("Minimum required block sizes for structured trace: ");
         size_t idx = 0;
         for (auto max_size : max_sizes.get()) {
-            std::cout << std::left << std::setw(20) << block_labels[idx] << ": " << max_size << std::endl;
+            std::cerr << std::left << std::setw(20) << block_labels[idx] << ": " << max_size << std::endl;
             idx++;
         }
         info("");
@@ -143,7 +131,7 @@ struct ExecutionTraceUsageTracker {
     {
         info("Active regions of accumulator: ");
         for (auto [label, range] : zip_view(block_labels, active_ranges)) {
-            std::cout << std::left << std::setw(20) << label << ": (" << range.first << ", " << range.second << ")"
+            std::cerr << std::left << std::setw(20) << label << ": (" << range.first << ", " << range.second << ")"
                       << std::endl;
         }
         info("");
@@ -153,7 +141,7 @@ struct ExecutionTraceUsageTracker {
     {
         info("Active regions of previous accumulator: ");
         for (auto [label, range] : zip_view(block_labels, previous_active_ranges)) {
-            std::cout << std::left << std::setw(20) << label << ": (" << range.first << ", " << range.second << ")"
+            std::cerr << std::left << std::setw(20) << label << ": (" << range.first << ", " << range.second << ")"
                       << std::endl;
         }
         info("");
@@ -162,8 +150,12 @@ struct ExecutionTraceUsageTracker {
     void print_thread_ranges()
     {
         info("Thread ranges: ");
-        for (auto range : thread_ranges) {
-            std::cout << "(" << range.first << ", " << range.second << ")" << std::endl;
+        for (const auto& ranges : thread_ranges) {
+            std::cerr << "[" << std::endl;
+            for (auto range : ranges) {
+                std::cerr << "(" << range.first << ", " << range.second << ")" << std::endl;
+            }
+            std::cerr << "]" << std::endl;
         }
         info("");
     }
@@ -229,45 +221,34 @@ struct ExecutionTraceUsageTracker {
      * @brief Given a set of ranges indicating "active" regions of an ambient space, define a given number of new ranges
      * on the ambient space which evenly divide the content
      * @details In practive this is used to determine even distribution of execution trace rows across threads according
-     * to ranges describing the active rows of an IVC accumulator
+     * to ranges describing the active rows of an IVC accumulator. Even if two ranges contain the same number of rows,
+     * their workloads can differ depending on row complexity. To balance this, we distribute rows from each range as
+     * evenly as possible across the available threads. If the total number of rows is not perfectly divisible by the
+     * thread count, some threads will be assigned one additional row to ensure complete coverage.
      *
      * @param union_ranges A set of sorted, disjoint ranges
      * @param num_threads
-     * @return std::vector<Range>
+     * @return std::vector<std::vector<Range>>
      */
-    static std::vector<Range> construct_ranges_for_equal_content_distribution(const std::vector<Range>& union_ranges,
-                                                                              const size_t num_threads)
+    static std::vector<std::vector<Range>> construct_ranges_for_equal_content_distribution(
+        const std::vector<Range>& union_ranges, const size_t num_threads)
     {
-        // Compute the minimum content per thread (final thread will get the leftovers = total_content % num_threads)
-        size_t total_content = 0;
-        for (const Range& range : union_ranges) {
-            total_content += range.second - range.first;
-        }
-        size_t content_per_thread = total_content / num_threads;
-
-        std::vector<Range> thread_ranges;
-        size_t start_idx = union_ranges.front().first;
-        size_t thread_space_remaining = content_per_thread; // content space remaining in current thread
-        size_t leftovers = 0;                               // content from last range not yet placed in a thread range
+        std::vector<std::vector<Range>> thread_ranges(num_threads);
 
         for (const Range& range : union_ranges) {
-
-            size_t range_size = range.second - range.first;
-            size_t content_to_distribute = range_size + leftovers;
-            size_t num_full_threads = content_to_distribute / content_per_thread;
-            leftovers = content_to_distribute % content_per_thread;
-
-            size_t end_idx = range.first;
-            for (size_t i = 0; i < num_full_threads; ++i) {
-                end_idx += thread_space_remaining;
-                thread_ranges.push_back(Range{ start_idx, end_idx });
-                start_idx = end_idx;
-                thread_space_remaining = content_per_thread;
+            size_t start_idx = range.first;
+            size_t total_content = range.second - start_idx;
+            size_t content_per_thread = total_content / num_threads;
+            size_t leftovers = total_content % num_threads;
+            for (size_t i = 0; i < num_threads; i++) {
+                size_t end_idx =
+                    start_idx + content_per_thread + (i < leftovers ? 1 : 0); // Distribute leftovers evenly
+                if (start_idx < end_idx) {
+                    thread_ranges[i].push_back(Range{ start_idx, end_idx });
+                    start_idx = end_idx;
+                }
             }
-            thread_space_remaining = content_per_thread - leftovers;
         }
-        // Extend the final thread range to the end of the final union range
-        thread_ranges.back().second = union_ranges.back().second;
 
         return thread_ranges;
     }

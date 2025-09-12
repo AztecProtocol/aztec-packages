@@ -25,22 +25,23 @@ namespace bb {
  * Translator flavor. It is similar in structure to its native counterpart with two main differences: 1) the
  * curve types are stdlib types (e.g. field_t instead of field) and 2) it does not specify any Prover related types
  * (e.g. Polynomial, ExtendedEdges, etc.) since we do not emulate prover computation in circuits, i.e. it only makes
- * sense to instantiate a Verifier with this flavor. We reuse the native flavor to initialise identical  constructions.
+ * sense to instantiate a Verifier with this flavor. We reuse the native flavor to initialize identical  constructions.
  * @tparam BuilderType Determines the arithmetization of the verifier circuit defined based on this flavor.
  */
-template <typename BuilderType> class TranslatorRecursiveFlavor_ {
+class TranslatorRecursiveFlavor {
 
   public:
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/990): Establish whether mini_circuit_size pattern is
     // needed
-    using CircuitBuilder = BuilderType;
+    using CircuitBuilder = UltraCircuitBuilder;
     using Curve = stdlib::bn254<CircuitBuilder>;
     using PCS = KZG<Curve>;
     using GroupElement = Curve::Element;
     using Commitment = Curve::AffineElement;
     using FF = Curve::ScalarField;
     using BF = Curve::BaseField;
-    using RelationSeparator = FF;
+    static constexpr size_t NUM_SUBRELATIONS = TranslatorFlavor::NUM_SUBRELATIONS;
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     using NativeFlavor = TranslatorFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
@@ -84,9 +85,6 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    // define the containers for storing the contributions from each relation in Sumcheck
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
-
     /**
      * @brief A field element for each entity of the flavor.  These entities represent the prover polynomials
      * evaluated at one point.
@@ -104,15 +102,14 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey
-        : public VerificationKey_<FF, TranslatorFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public StdlibVerificationKey_<CircuitBuilder,
+                                                          TranslatorFlavor::PrecomputedEntities<Commitment>,
+                                                          VKSerializationMode::NO_METADATA> {
       public:
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and
-            // `log_circuit_size` from MSGPACK and the verification key.
-            this->circuit_size = FF{ 1UL << TranslatorFlavor::CONST_TRANSLATOR_LOG_N };
-            this->circuit_size.convert_constant_to_fixed_witness(builder);
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `log_circuit_size` from MSGPACK
+            // and the verification key.
             this->log_circuit_size = FF{ uint64_t(TranslatorFlavor::CONST_TRANSLATOR_LOG_N) };
             this->log_circuit_size.convert_constant_to_fixed_witness(builder);
             this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
@@ -120,6 +117,25 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
 
             for (auto [native_comm, comm] : zip_view(native_key->get_all(), this->get_all())) {
                 comm = Commitment::from_witness(builder, native_comm);
+            }
+        }
+
+        /**
+         * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
+         *
+         * @param domain_separator
+         * @param transcript
+         */
+        FF hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
+                                   [[maybe_unused]] Transcript& transcript) const override
+        {
+            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
+        }
+
+        void fix_witness()
+        {
+            for (Commitment& commitment : this->get_all()) {
+                commitment.fix_witness();
             }
         }
     };
@@ -134,5 +150,7 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
     using VerifierCommitments = TranslatorFlavor::VerifierCommitments_<Commitment, VerificationKey>;
     // Reuse the transcript from Translator
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
+
+    using VKAndHash = VKAndHash_<VerificationKey, FF>;
 };
 } // namespace bb

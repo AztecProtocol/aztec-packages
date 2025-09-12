@@ -7,13 +7,7 @@ import {
 
 export type EpochCacheConfig = Pick<
   L1ReaderConfig & L1ContractsConfig,
-  | 'l1RpcUrls'
-  | 'l1ChainId'
-  | 'viemPollingIntervalMS'
-  | 'aztecSlotDuration'
-  | 'ethereumSlotDuration'
-  | 'aztecEpochDuration'
-  | 'aztecProofSubmissionWindow'
+  'l1RpcUrls' | 'l1ChainId' | 'viemPollingIntervalMS' | 'ethereumSlotDuration'
 >;
 
 export function getEpochCacheConfigEnvVars(): EpochCacheConfig {

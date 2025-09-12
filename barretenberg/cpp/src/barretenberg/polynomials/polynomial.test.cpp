@@ -1,6 +1,7 @@
 #include <cstddef>
 #include <gtest/gtest.h>
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 
 // Simple test/demonstration of shifted functionality
@@ -36,6 +37,7 @@ TEST(Polynomial, RightShifted)
     const size_t SIZE = 10;
     const size_t VIRTUAL_SIZE = 20;
     const size_t START_IDX = 2;
+    const size_t END_IDX = SIZE + START_IDX;
     const size_t SHIFT_MAGNITUDE = 5;
     auto poly = Polynomial::random(SIZE, VIRTUAL_SIZE, START_IDX);
 
@@ -46,15 +48,43 @@ TEST(Polynomial, RightShifted)
     EXPECT_EQ(poly_shifted.virtual_size(), poly.virtual_size());
 
     // The shift is indeed the shift
-    for (size_t i = 0; i < SIZE; ++i) {
+    for (size_t i = 0; i < END_IDX; ++i) {
         EXPECT_EQ(poly_shifted.get(i + SHIFT_MAGNITUDE), poly.get(i));
     }
 
     // If I change the original polynomial, the shift is updated accordingly
     poly.at(3) = 25;
-    for (size_t i = 0; i < SIZE; ++i) {
+    for (size_t i = 0; i < END_IDX; ++i) {
         EXPECT_EQ(poly_shifted.get(i + SHIFT_MAGNITUDE), poly.get(i));
     }
+}
+
+// Simple test/demonstration of reverse functionality
+TEST(Polynomial, Reversed)
+{
+    using FF = bb::fr;
+    using Polynomial = bb::Polynomial<FF>;
+    const size_t SIZE = 10;
+    const size_t VIRTUAL_SIZE = 20;
+    const size_t START_IDX = 2;
+    const size_t END_IDX = SIZE + START_IDX;
+    auto poly = Polynomial::random(SIZE, VIRTUAL_SIZE, START_IDX);
+
+    // Instantiate the shift via the right_shifted method
+    auto poly_reversed = poly.reverse();
+
+    EXPECT_EQ(poly_reversed.size(), poly.size());
+    EXPECT_EQ(poly_reversed.virtual_size(), poly.end_index());
+
+    // The reversed is indeed the reversed
+    for (size_t i = 0; i < END_IDX; ++i) {
+        EXPECT_EQ(poly_reversed.get(END_IDX - 1 - i), poly.get(i));
+    }
+
+    // If I change the original polynomial, the reversed polynomial is not updated
+    FF initial_value = poly.at(3);
+    poly.at(3) = 25;
+    EXPECT_EQ(poly_reversed.at(END_IDX - 4), initial_value);
 }
 
 // Simple test/demonstration of share functionality
@@ -114,13 +144,13 @@ TEST(Polynomial, AddScaledEdgeConditions)
         auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 1);
         poly.add_scaled(bb::Polynomial<FF>::random(4, /*start index*/ 0), 1);
     };
-    ASSERT_DEATH(test_subset_bad1(), ".*start_index.*other.start_index.*");
+    ASSERT_THROW_OR_ABORT(test_subset_bad1(), ".*start_index.*other.start_index.*");
     auto test_subset_bad2 = []() {
         // Not contained within poly
         auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 0);
         poly.add_scaled(bb::Polynomial<FF>::random(5, /*start index*/ 0), 1);
     };
-    ASSERT_DEATH(test_subset_bad2(), ".*end_index.*other.end_index.*");
+    ASSERT_THROW_OR_ABORT(test_subset_bad2(), ".*end_index.*other.end_index.*");
 }
 
 TEST(Polynomial, OperatorAddEdgeConditions)
@@ -139,13 +169,13 @@ TEST(Polynomial, OperatorAddEdgeConditions)
         auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 1);
         poly += bb::Polynomial<FF>::random(4, /*start index*/ 0);
     };
-    ASSERT_DEATH(test_subset_bad1(), ".*start_index.*other.start_index.*");
+    ASSERT_THROW_OR_ABORT(test_subset_bad1(), ".*start_index.*other.start_index.*");
     auto test_subset_bad2 = []() {
         // Not contained within poly
         auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 0);
         poly += bb::Polynomial<FF>::random(5, /*start index*/ 0);
     };
-    ASSERT_DEATH(test_subset_bad2(), ".*end_index.*other.end_index.*");
+    ASSERT_THROW_OR_ABORT(test_subset_bad2(), ".*end_index.*other.end_index.*");
 }
 
 TEST(Polynomial, OperatorSubtractEdgeConditions)
@@ -164,13 +194,13 @@ TEST(Polynomial, OperatorSubtractEdgeConditions)
         auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 1);
         poly -= bb::Polynomial<FF>::random(4, /*start index*/ 0);
     };
-    ASSERT_DEATH(test_subset_bad1(), ".*start_index.*other.start_index.*");
+    ASSERT_THROW_OR_ABORT(test_subset_bad1(), ".*start_index.*other.start_index.*");
     auto test_subset_bad2 = []() {
         // Not contained within poly
         auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 0);
         poly -= bb::Polynomial<FF>::random(5, /*start index*/ 0);
     };
-    ASSERT_DEATH(test_subset_bad2(), ".*end_index.*other.end_index.*");
+    ASSERT_THROW_OR_ABORT(test_subset_bad2(), ".*end_index.*other.end_index.*");
 }
 
 // Makes a vector fully of the virtual_size aka degree + 1
@@ -190,7 +220,7 @@ TEST(Polynomial, Full)
         auto poly = bb::Polynomial<FF>::random(1, degree_plus_1, /*start index*/ degree_plus_1 - 1);
         poly -= bb::Polynomial<FF>::random(degree_plus_1, /*start index*/ 0);
     };
-    ASSERT_DEATH(no_full_bad(), ".*start_index.*other.start_index.*");
+    ASSERT_THROW_OR_ABORT(no_full_bad(), ".*start_index.*other.start_index.*");
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1113): Optimizing based on actual sizes would involve using
@@ -214,21 +244,21 @@ TEST(Polynomial, Expand)
         // Expand beyond virtual size
         poly.expand(1, 11);
     };
-    ASSERT_DEATH(test_subset_bad1(), ".*new_end_index.*virtual_size.*");
+    ASSERT_THROW_OR_ABORT(test_subset_bad1(), ".*new_end_index.*virtual_size.*");
 
     auto test_subset_bad2 = []() {
         auto poly = bb::Polynomial<FF>::random(5, 10, /*start index*/ 1);
         // Expand illegally on start_index
         poly.expand(2, 7);
     };
-    ASSERT_DEATH(test_subset_bad2(), ".*new_start_index.*start_index.*");
+    ASSERT_THROW_OR_ABORT(test_subset_bad2(), ".*new_start_index.*start_index.*");
 
     auto test_subset_bad3 = []() {
         auto poly = bb::Polynomial<FF>::random(5, 10, /*start_index*/ 1);
         // Expand illegally on end_index
         poly.expand(1, 3);
     };
-    ASSERT_DEATH(test_subset_bad3(), ".*new_end_index.*end_index.*");
+    ASSERT_THROW_OR_ABORT(test_subset_bad3(), ".*new_end_index.*end_index.*");
 }
 
 #endif

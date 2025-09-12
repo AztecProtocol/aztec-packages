@@ -1,0 +1,45 @@
+DepositTest
+├── when caller is not registered rollup
+│   └── it reverts
+└── when caller is registered rollup
+    ├── given onBonus eq true
+    │   ├── given caller is not latest
+    │   │   └── it reverts
+    │   └── given caller is latest
+    │       ├── given attester already registered on specific instance
+    │       │   └── it reverts
+    │       ├── given attester already registered on bonus
+    │       │   └── it reverts
+    │       └── given attester not registered anywhere
+    │           ├── it adds attester to bonus instance
+    │           ├── it sets attester config with withdrawer
+    │           ├── it delegates attester to bonus if not delegated
+    │           ├── it increases delegation balance
+    │           ├── it transfers staking asset from rollup to GSE
+    │           ├── it approves staking asset to governance
+    │           ├── it deposits staking asset to governance
+    │           └── it emits Deposit event
+    └── given onBonus eq false
+        ├── given attester already registered on specific instance 2
+        │   └── it reverts
+        ├── given caller is latest and attester registered on bonus
+        │   └── it reverts
+        └── given attester not registered on specific instance
+            ├── given caller is latest and attester not registered on bonus
+            │   ├── it adds attester to specific instance
+            │   ├── it sets attester config with withdrawer
+            │   ├── it delegates attester to instance if not delegated
+            │   ├── it increases delegation balance
+            │   ├── it transfers staking asset from rollup to GSE
+            │   ├── it approves staking asset to governance
+            │   ├── it deposits staking asset to governance
+            │   └── it emits Deposit event
+            └── given caller is not latest 2
+                ├── it adds attester to specific instance
+                ├── it sets attester config with withdrawer
+                ├── it delegates attester to instance if not delegated
+                ├── it increases delegation balance
+                ├── it transfers staking asset from rollup to GSE
+                ├── it approves staking asset to governance
+                ├── it deposits staking asset to governance
+                └── it emits Deposit event

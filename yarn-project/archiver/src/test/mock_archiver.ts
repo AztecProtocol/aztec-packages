@@ -15,7 +15,7 @@ export class MockArchiver extends MockL2BlockSource implements L2BlockSource, L1
     this.messageSource.setL1ToL2Messages(blockNumber, msgs);
   }
 
-  getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
+  getL1ToL2Messages(blockNumber: number): Promise<Fr[]> {
     return this.messageSource.getL1ToL2Messages(blockNumber);
   }
 

@@ -1,6 +1,8 @@
-use crate::traits::{Deserialize, Serialize, ToField};
+use crate::traits::{Deserialize, Empty, Serialize, ToField};
+use std::meta::derive;
 
 // Public keys hash. Used in the computation of an address.
+#[derive(Deserialize, Eq, Serialize)]
 pub struct PublicKeysHash {
     inner: Field,
 }
@@ -11,21 +13,9 @@ impl ToField for PublicKeysHash {
     }
 }
 
-impl Serialize<1> for PublicKeysHash {
-    fn serialize(self: Self) -> [Field; 1] {
-        [self.to_field()]
-    }
-}
-
-impl Deserialize<1> for PublicKeysHash {
-    fn deserialize(fields: [Field; 1]) -> Self {
-        PublicKeysHash::from_field(fields[0])
-    }
-}
-
-impl Eq for PublicKeysHash {
-    fn eq(self, other: Self) -> bool {
-        self.inner == other.inner
+impl Empty for PublicKeysHash {
+    fn empty() -> Self {
+        Self { inner: 0 }
     }
 }
 
@@ -40,5 +30,17 @@ impl PublicKeysHash {
 
     pub fn assert_is_zero(self) {
         assert(self.to_field() == 0);
+    }
+}
+
+mod test {
+    use crate::{address::public_keys_hash::PublicKeysHash, traits::{Deserialize, Empty, Serialize}};
+
+    #[test]
+    fn serialization_of_empty_public_keys_hash() {
+        let item = PublicKeysHash::empty();
+        let serialized: [Field; 1] = item.serialize();
+        let deserialized = PublicKeysHash::deserialize(serialized);
+        assert_eq(item, deserialized);
     }
 }

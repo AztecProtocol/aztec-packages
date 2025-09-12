@@ -20,7 +20,8 @@ contract TimeCheater {
     address _target,
     uint256 _genesisTime,
     uint256 _slotDuration,
-    uint256 _epochDuration
+    uint256 _epochDuration,
+    uint256 _proofSubmissionEpochs
   ) {
     target = _target;
 
@@ -31,13 +32,18 @@ contract TimeCheater {
       TimeStorage({
         genesisTime: uint128(_genesisTime),
         slotDuration: uint32(_slotDuration),
-        epochDuration: uint32(_epochDuration)
+        epochDuration: uint32(_epochDuration),
+        proofSubmissionEpochs: uint32(_proofSubmissionEpochs)
       })
     );
   }
 
   function getCurrentEpoch() public view returns (Epoch) {
     return Epoch.wrap(currentSlot / epochDuration);
+  }
+
+  function getCurrentSlot() public view returns (uint256) {
+    return currentSlot;
   }
 
   function cheat__setTimeStorage(TimeStorage memory _timeStorage) public {
@@ -56,7 +62,10 @@ contract TimeCheater {
     );
 
     TimeLib.initialize(
-      _timeStorage.genesisTime, _timeStorage.slotDuration, _timeStorage.epochDuration
+      _timeStorage.genesisTime,
+      _timeStorage.slotDuration,
+      _timeStorage.epochDuration,
+      _timeStorage.proofSubmissionEpochs
     );
   }
 

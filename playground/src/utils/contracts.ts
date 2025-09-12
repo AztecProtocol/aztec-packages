@@ -7,10 +7,10 @@ export async function filterDeployedAliasedContracts(
   const deployed = (
     await Promise.all(
       aliasedContracts.map(async alias => {
-        const { isContractPubliclyDeployed } = await walletOrPxe.getContractMetadata(
+        const { isContractPublished } = await walletOrPxe.getContractMetadata(
           AztecAddress.fromString(alias.value),
         );
-        return { ...alias, deployed: isContractPubliclyDeployed };
+        return { ...alias, deployed: isContractPublished };
       }),
     )
   ).filter(contract => contract.deployed);

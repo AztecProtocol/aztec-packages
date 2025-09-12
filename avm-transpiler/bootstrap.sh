@@ -6,7 +6,7 @@ cmd=${1:-}
 
 hash=$(hash_str $(../noir/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
 
-export GIT_COMMIT="0000000000000000000000000000000000000000"
+export GIT_COMMIT="$(cat ../noir/noir-repo-ref | head -n1)-aztec"
 export SOURCE_DATE_EPOCH=0
 export GIT_DIRTY=false
 export RUSTFLAGS="-Dwarnings"

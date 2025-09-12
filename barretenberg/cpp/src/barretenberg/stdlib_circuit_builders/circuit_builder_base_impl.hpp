@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "circuit_builder_base.hpp"
 
@@ -62,8 +63,8 @@ void CircuitBuilderBase<FF_>::update_real_variable_indices(uint32_t index, uint3
 template <typename FF_> uint32_t CircuitBuilderBase<FF_>::get_public_input_index(const uint32_t witness_index) const
 {
     uint32_t result = static_cast<uint32_t>(-1);
-    for (size_t i = 0; i < public_inputs.size(); ++i) {
-        if (real_variable_index[public_inputs[i]] == real_variable_index[witness_index]) {
+    for (size_t i = 0; i < num_public_inputs(); ++i) {
+        if (real_variable_index[public_inputs_[i]] == real_variable_index[witness_index]) {
             result = static_cast<uint32_t>(i);
             break;
         }
@@ -75,17 +76,8 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::get_public_input_index
 template <typename FF_>
 typename CircuitBuilderBase<FF_>::FF CircuitBuilderBase<FF_>::get_public_input(const uint32_t index) const
 {
-    return get_variable(public_inputs[index]);
-}
-
-template <typename FF_>
-std::vector<typename CircuitBuilderBase<FF_>::FF> CircuitBuilderBase<FF_>::get_public_inputs() const
-{
-    std::vector<FF> result;
-    for (uint32_t i = 0; i < get_num_public_inputs(); ++i) {
-        result.push_back(get_public_input(i));
-    }
-    return result;
+    BB_ASSERT_LT(index, public_inputs_.size(), "Index out of bounds for public inputs.");
+    return get_variable(public_inputs_[index]);
 }
 
 template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_variable(const FF& in)
@@ -101,7 +93,7 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_variable(const FF&
 
 template <typename FF_> void CircuitBuilderBase<FF_>::set_variable_name(uint32_t index, const std::string& name)
 {
-    ASSERT(variables.size() > index);
+    BB_ASSERT_GT(variables.size(), index);
     uint32_t first_idx = get_first_variable_in_class(index);
 
     if (variable_names.contains(first_idx)) {
@@ -136,30 +128,6 @@ template <typename FF_> void CircuitBuilderBase<FF_>::update_variable_names(uint
     failure("No previously assigned names found");
 }
 
-template <typename FF_> void CircuitBuilderBase<FF_>::finalize_variable_names()
-{
-    std::vector<uint32_t> keys;
-    std::vector<uint32_t> firsts;
-
-    for (auto& tup : variable_names) {
-        keys.push_back(tup.first);
-        firsts.push_back(get_first_variable_in_class(tup.first));
-    }
-
-    for (size_t i = 0; i < keys.size() - 1; i++) {
-        for (size_t j = i + 1; j < keys.size(); i++) {
-            uint32_t first_idx_a = firsts[i];
-            uint32_t first_idx_b = firsts[j];
-            if (first_idx_a == first_idx_b) {
-                std::string substr1 = variable_names[keys[i]];
-                std::string substr2 = variable_names[keys[j]];
-                failure("Variables from the same equivalence class have separate names: " + substr2 + ", " + substr2);
-                update_variable_names(first_idx_b);
-            }
-        }
-    }
-}
-
 template <typename FF_> size_t CircuitBuilderBase<FF_>::get_circuit_subgroup_size(const size_t num_gates) const
 {
     auto log2_n = static_cast<size_t>(numeric::get_msb(num_gates));
@@ -178,13 +146,14 @@ template <typename FF_> msgpack::sbuffer CircuitBuilderBase<FF_>::export_circuit
 template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_public_variable(const FF& in)
 {
     const uint32_t index = add_variable(in);
-    public_inputs.emplace_back(index);
+    BB_ASSERT_EQ(public_inputs_finalized_, false, "Cannot add to public inputs after they have been finalized.");
+    public_inputs_.emplace_back(index);
     return index;
 }
 
 template <typename FF_> uint32_t CircuitBuilderBase<FF_>::set_public_input(const uint32_t witness_index)
 {
-    for (const uint32_t public_input : public_inputs) {
+    for (const uint32_t public_input : public_inputs()) {
         if (public_input == witness_index) {
             if (!failed()) {
                 failure("Attempted to set a public input that is already public!");
@@ -192,8 +161,9 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::set_public_input(const
             return 0;
         }
     }
-    uint32_t public_input_index = static_cast<uint32_t>(public_inputs.size());
-    public_inputs.emplace_back(witness_index);
+    uint32_t public_input_index = static_cast<uint32_t>(num_public_inputs());
+    BB_ASSERT_EQ(public_inputs_finalized_, false, "Cannot add to public inputs after they have been finalized.");
+    public_inputs_.emplace_back(witness_index);
 
     return public_input_index;
 }
@@ -218,8 +188,9 @@ void CircuitBuilderBase<FF>::assert_equal(const uint32_t a_variable_idx,
     uint32_t a_real_idx = real_variable_index[a_variable_idx];
     uint32_t b_real_idx = real_variable_index[b_variable_idx];
     // If a==b is already enforced, exit method
-    if (a_real_idx == b_real_idx)
+    if (a_real_idx == b_real_idx) {
         return;
+    }
     // Otherwise update the real_idx of b-chain members to that of a
 
     auto b_start_idx = get_first_variable_in_class(b_variable_idx);
@@ -242,7 +213,7 @@ template <typename FF_>
 void CircuitBuilderBase<FF_>::assert_valid_variables(const std::vector<uint32_t>& variable_indices)
 {
     for (const auto& variable_index : variable_indices) {
-        ASSERT(is_valid_variable(variable_index));
+        BB_ASSERT_LT(variable_index, variables.size());
     }
 }
 
@@ -263,10 +234,12 @@ template <typename FF_> void CircuitBuilderBase<FF_>::set_err(std::string msg)
 
 template <typename FF_> void CircuitBuilderBase<FF_>::failure(std::string msg)
 {
+#ifndef FUZZING_DISABLE_WARNINGS
     if (!has_dummy_witnesses) {
-        // We have a builder failure when we have real witnesses which is a mistake.
-        info("(Experimental) WARNING: Builder failure when we have real witnesses!"); // not a catch-all error
+        // Not a catch-all error log. We have a builder failure when we have real witnesses which is a mistake.
+        info("(Experimental) WARNING: Builder failure when we have real witnesses! Ignore if writing vk.");
     }
+#endif
     _failed = true;
     set_err(std::move(msg));
 }

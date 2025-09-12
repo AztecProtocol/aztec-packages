@@ -5,7 +5,7 @@ import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
-import {IGSE} from "@aztec/core/staking/GSE.sol";
+import {IGSE} from "@aztec/governance/GSE.sol";
 
 /**
  * @title NewGovernanceProposerPayload
@@ -28,11 +28,13 @@ contract NewGovernanceProposerPayload is IPayload {
 
     res[0] = Action({
       target: address(governance),
-      data: abi.encodeWithSelector(
-        governance.updateGovernanceProposer.selector, NEW_GOVERNANCE_PROPOSER
-      )
+      data: abi.encodeWithSelector(governance.updateGovernanceProposer.selector, NEW_GOVERNANCE_PROPOSER)
     });
 
     return res;
+  }
+
+  function getURI() external pure override(IPayload) returns (string memory) {
+    return "NewGovernanceProposerPayload";
   }
 }

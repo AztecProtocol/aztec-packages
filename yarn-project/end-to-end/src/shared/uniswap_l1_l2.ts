@@ -1,15 +1,15 @@
 import {
-  type AccountWallet,
   AztecAddress,
   type AztecNode,
   EthAddress,
   Fr,
   type Logger,
   type PXE,
+  type Wallet,
   computeAuthWitMessageHash,
   generateClaimSecret,
 } from '@aztec/aztec.js';
-import { CheatCodes } from '@aztec/aztec.js/testing';
+import { CheatCodes } from '@aztec/aztec/testing';
 import {
   type DeployL1ContractsReturnType,
   type ExtendedViemWalletClient,
@@ -20,12 +20,13 @@ import {
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { InboxAbi, UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { UniswapContract } from '@aztec/noir-contracts.js/Uniswap';
+import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 
 import { jest } from '@jest/globals';
 import { type GetContractReturnType, getContract, parseEther, toFunctionSelector } from 'viem';
 
-import { ensureAccountsPubliclyDeployed } from '../fixtures/utils.js';
+import { ensureAccountContractsPublished } from '../fixtures/utils.js';
 import { CrossChainTestHarness } from './cross_chain_test_harness.js';
 
 // PSA: This tests works on forked mainnet. There is a dump of the data in `dumpedState` such that we
@@ -48,10 +49,12 @@ export type UniswapSetupContext = {
   logger: Logger;
   /** The L1 wallet client, extended with public actions. */
   l1Client: ExtendedViemWalletClient;
-  /** The owner wallet. */
-  ownerWallet: AccountWallet;
+  /** The wallet. */
+  wallet: Wallet;
+  /** The owner address. */
+  ownerAddress: AztecAddress;
   /** The sponsor wallet. */
-  sponsorWallet: AccountWallet;
+  sponsorAddress: AztecAddress;
   /**  */
   deployL1ContractsValues: DeployL1ContractsReturnType;
   /** Cheat codes instance. */
@@ -77,12 +80,11 @@ export const uniswapL1L2TestSuite = (
 
     let l1Client: ExtendedViemWalletClient;
 
-    let ownerWallet: AccountWallet;
+    let wallet: Wallet;
     let ownerAddress: AztecAddress;
     let ownerEthAddress: EthAddress;
     // does transactions on behalf of owner on Aztec:
-    let sponsorWallet: AccountWallet;
-    // let sponsorAddress: AztecAddress;
+    let sponsorAddress: AztecAddress;
 
     let daiCrossChainHarness: CrossChainTestHarness;
     let wethCrossChainHarness: CrossChainTestHarness;
@@ -100,7 +102,7 @@ export const uniswapL1L2TestSuite = (
     let cheatCodes: CheatCodes;
     let version: number;
     beforeAll(async () => {
-      ({ aztecNode, pxe, logger, l1Client, ownerWallet, sponsorWallet, deployL1ContractsValues, cheatCodes } =
+      ({ aztecNode, pxe, logger, l1Client, wallet, ownerAddress, sponsorAddress, deployL1ContractsValues, cheatCodes } =
         await setup());
 
       if (Number(await l1Client.getBlockNumber()) < expectedForkBlockNumber) {
@@ -112,18 +114,17 @@ export const uniswapL1L2TestSuite = (
         deployL1ContractsValues.l1ContractAddresses.rollupAddress,
       );
       version = Number(await rollup.getVersion());
-      ownerAddress = ownerWallet.getAddress();
-      // sponsorAddress = sponsorWallet.getAddress();
       ownerEthAddress = EthAddress.fromString((await l1Client.getAddresses())[0]);
 
-      await ensureAccountsPubliclyDeployed(ownerWallet, [ownerWallet, sponsorWallet]);
+      await ensureAccountContractsPublished(wallet, [ownerAddress, sponsorAddress]);
 
       logger.info('Deploying DAI Portal, initializing and deploying l2 contract...');
       daiCrossChainHarness = await CrossChainTestHarness.new(
         aztecNode,
         pxe,
         deployL1ContractsValues.l1Client,
-        ownerWallet,
+        wallet,
+        ownerAddress,
         logger,
         DAI_ADDRESS,
       );
@@ -133,7 +134,8 @@ export const uniswapL1L2TestSuite = (
         aztecNode,
         pxe,
         l1Client,
-        ownerWallet,
+        wallet,
+        ownerAddress,
         logger,
         WETH9_ADDRESS,
       );
@@ -149,7 +151,9 @@ export const uniswapL1L2TestSuite = (
         client: l1Client,
       });
       // deploy l2 uniswap contract and attach to portal
-      uniswapL2Contract = await UniswapContract.deploy(ownerWallet, uniswapPortalAddress).send().deployed();
+      uniswapL2Contract = await UniswapContract.deploy(wallet, uniswapPortalAddress)
+        .send({ from: ownerAddress })
+        .deployed();
 
       const registryAddress = (await pxe.getNodeInfo()).l1ContractAddresses.registryAddress;
 
@@ -201,7 +205,7 @@ export const uniswapL1L2TestSuite = (
       // 3. Owner gives uniswap approval to transfer the funds to public to self on its behalf
       logger.info('Approving uniswap to transfer funds to public to self on my behalf');
       const nonceForWETHTransferToPublicApproval = new Fr(1n);
-      const transferToPublicAuhtwit = await ownerWallet.createAuthWit({
+      const transferToPublicAuhtwit = await wallet.createAuthWit(ownerAddress, {
         caller: uniswapL2Contract.address,
         action: wethCrossChainHarness.l2Token.methods.transfer_to_public(
           ownerAddress,
@@ -227,7 +231,7 @@ export const uniswapL1L2TestSuite = (
           secretHashForDepositingSwappedDai,
           ownerEthAddress,
         )
-        .send({ authWitnesses: [transferToPublicAuhtwit] })
+        .send({ from: ownerAddress, authWitnesses: [transferToPublicAuhtwit] })
         .wait();
 
       const swapPrivateFunction = 'swap_private(address,uint256,uint24,address,uint256,bytes32,address)';
@@ -242,13 +246,13 @@ export const uniswapL1L2TestSuite = (
         ownerEthAddress.toBuffer32(),
       ]);
 
-      const swapPrivateLeaf = sha256ToField([
-        uniswapL2Contract.address,
-        new Fr(version), // aztec version
-        EthAddress.fromString(uniswapPortal.address).toBuffer32(),
-        new Fr(l1Client.chain.id), // chain id
-        swapPrivateContent,
-      ]);
+      const swapPrivateLeaf = computeL2ToL1MessageHash({
+        l2Sender: uniswapL2Contract.address,
+        l1Recipient: EthAddress.fromString(uniswapPortal.address),
+        content: swapPrivateContent,
+        rollupVersion: new Fr(version),
+        chainId: new Fr(l1Client.chain.id),
+      });
 
       const withdrawContent = sha256ToField([
         Buffer.from(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
@@ -257,13 +261,13 @@ export const uniswapL1L2TestSuite = (
         uniswapPortalAddress.toBuffer32(),
       ]);
 
-      const withdrawLeaf = sha256ToField([
-        wethCrossChainHarness.l2Bridge.address,
-        new Fr(version), // aztec version
-        wethCrossChainHarness.tokenPortalAddress.toBuffer32(),
-        new Fr(l1Client.chain.id), // chain id
-        withdrawContent,
-      ]);
+      const withdrawLeaf = computeL2ToL1MessageHash({
+        l2Sender: wethCrossChainHarness.l2Bridge.address,
+        l1Recipient: wethCrossChainHarness.tokenPortalAddress,
+        content: withdrawContent,
+        rollupVersion: new Fr(version),
+        chainId: new Fr(l1Client.chain.id),
+      });
 
       // ensure that user's funds were burnt
       await wethCrossChainHarness.expectPrivateBalanceOnL2(ownerAddress, wethL2BalanceBeforeSwap - wethAmountToBridge);
@@ -289,10 +293,10 @@ export const uniswapL1L2TestSuite = (
         withdrawLeaf,
       );
 
-      const swapPrivateL2MessageIndex = swapResult!.l2MessageIndex;
+      const swapPrivateL2MessageIndex = swapResult!.leafIndex;
       const swapPrivateSiblingPath = swapResult!.siblingPath;
 
-      const withdrawL2MessageIndex = withdrawResult!.l2MessageIndex;
+      const withdrawL2MessageIndex = withdrawResult!.leafIndex;
       const withdrawSiblingPath = withdrawResult!.siblingPath;
 
       const withdrawMessageMetadata = {
@@ -617,7 +621,7 @@ export const uniswapL1L2TestSuite = (
             nonceForWETHTransferToPublicApproval,
           ),
         },
-        { chainId: ownerWallet.getChainId(), version: ownerWallet.getVersion() },
+        { chainId: new Fr(await aztecNode.getChainId()), version: new Fr(await aztecNode.getVersion()) },
       );
 
       await expect(
@@ -633,7 +637,7 @@ export const uniswapL1L2TestSuite = (
             Fr.random(),
             ownerEthAddress,
           )
-          .simulate(),
+          .simulate({ from: ownerAddress }),
       ).rejects.toThrow(`Unknown auth witness for message hash ${expectedMessageHash.toString()}`);
     });
 
@@ -645,7 +649,7 @@ export const uniswapL1L2TestSuite = (
       // 2. owner gives uniswap approval to transfer the funds to public:
       logger.info('Approving uniswap to transfer funds to public to self on my behalf');
       const nonceForWETHTransferToPublicApproval = new Fr(3n);
-      const transferToPublicAuthwith = await ownerWallet.createAuthWit({
+      const transferToPublicAuthwith = await wallet.createAuthWit(ownerAddress, {
         caller: uniswapL2Contract.address,
         action: wethCrossChainHarness.l2Token.methods.transfer_to_public(
           ownerAddress,
@@ -670,7 +674,7 @@ export const uniswapL1L2TestSuite = (
             Fr.random(),
             ownerEthAddress,
           )
-          .prove({ authWitnesses: [transferToPublicAuthwith] }),
+          .prove({ from: ownerAddress, authWitnesses: [transferToPublicAuthwith] }),
       ).rejects.toThrow('Assertion failed: input_asset address is not the same as seen in the bridge contract');
     });
 
@@ -682,7 +686,8 @@ export const uniswapL1L2TestSuite = (
 
       // 2. Give approval to uniswap to transfer funds to itself
       const nonceForWETHTransferApproval = new Fr(2n);
-      const validateActionInteraction = await ownerWallet.setPublicAuthWit(
+      const validateActionInteraction = await wallet.setPublicAuthWit(
+        ownerAddress,
         {
           caller: uniswapL2Contract.address,
           action: wethCrossChainHarness.l2Token.methods.transfer_in_public(
@@ -694,7 +699,7 @@ export const uniswapL1L2TestSuite = (
         },
         true,
       );
-      await validateActionInteraction.send().wait();
+      await validateActionInteraction.send({ from: ownerAddress }).wait();
 
       // No approval to call `swap` but should work even without it:
       const [_, secretHashForDepositingSwappedDai] = await generateClaimSecret();
@@ -713,7 +718,7 @@ export const uniswapL1L2TestSuite = (
           ownerEthAddress,
           Fr.ZERO, // nonce for swap -> doesn't matter
         )
-        .send()
+        .send({ from: ownerAddress })
         .wait();
       // check weth balance of owner on L2 (we first bridged `wethAmountToBridge` into L2 and now withdrew it!)
       await wethCrossChainHarness.expectPublicBalanceOnL2(ownerAddress, 0n);
@@ -726,32 +731,35 @@ export const uniswapL1L2TestSuite = (
       const nonceForWETHTransferApproval = new Fr(3n);
       const nonceForSwap = new Fr(3n);
       const secretHashForDepositingSwappedDai = new Fr(4n);
-      const action = uniswapL2Contract
-        .withWallet(sponsorWallet)
-        .methods.swap_public(
-          ownerAddress,
-          wethCrossChainHarness.l2Bridge.address,
-          wethAmountToBridge,
-          daiCrossChainHarness.l2Bridge.address,
-          nonceForWETHTransferApproval,
-          uniswapFeeTier,
-          minimumOutputAmount,
-          ownerAddress,
-          secretHashForDepositingSwappedDai,
-          ownerEthAddress,
-          nonceForSwap,
-        );
-      const validateActionInteraction = await ownerWallet.setPublicAuthWit({ caller: approvedUser, action }, true);
-      await validateActionInteraction.send().wait();
+      const action = uniswapL2Contract.methods.swap_public(
+        ownerAddress,
+        wethCrossChainHarness.l2Bridge.address,
+        wethAmountToBridge,
+        daiCrossChainHarness.l2Bridge.address,
+        nonceForWETHTransferApproval,
+        uniswapFeeTier,
+        minimumOutputAmount,
+        ownerAddress,
+        secretHashForDepositingSwappedDai,
+        ownerEthAddress,
+        nonceForSwap,
+      );
+      const validateActionInteraction = await wallet.setPublicAuthWit(
+        ownerAddress,
+        { caller: approvedUser, action },
+        true,
+      );
+      await validateActionInteraction.send({ from: ownerAddress }).wait();
 
-      await expect(action.simulate()).rejects.toThrow(/unauthorized/);
+      await expect(action.simulate({ from: sponsorAddress })).rejects.toThrow(/unauthorized/);
     });
 
     it("uniswap can't pull funds without transfer approval", async () => {
       // swap should fail since no transfer approval to uniswap:
       const nonceForWETHTransferApproval = new Fr(4n);
 
-      const validateActionInteraction = await ownerWallet.setPublicAuthWit(
+      const validateActionInteraction = await wallet.setPublicAuthWit(
+        ownerAddress,
         {
           caller: uniswapL2Contract.address,
           action: wethCrossChainHarness.l2Token.methods.transfer_in_public(
@@ -763,7 +771,7 @@ export const uniswapL1L2TestSuite = (
         },
         true,
       );
-      await validateActionInteraction.send().wait();
+      await validateActionInteraction.send({ from: ownerAddress }).wait();
 
       await expect(
         uniswapL2Contract.methods
@@ -780,7 +788,7 @@ export const uniswapL1L2TestSuite = (
             ownerEthAddress,
             Fr.ZERO,
           )
-          .simulate(),
+          .simulate({ from: ownerAddress }),
       ).rejects.toThrow(/unauthorized/);
     });
 
@@ -793,7 +801,7 @@ export const uniswapL1L2TestSuite = (
       // Owner gives uniswap approval to transfer the funds to public to self on its behalf
       logger.info('Approving uniswap to transfer the funds to public to self on my behalf');
       const nonceForWETHTransferToPublicApproval = new Fr(4n);
-      const transferToPublicAuhtwit = await ownerWallet.createAuthWit({
+      const transferToPublicAuhtwit = await wallet.createAuthWit(ownerAddress, {
         caller: uniswapL2Contract.address,
         action: wethCrossChainHarness.l2Token.methods.transfer_to_public(
           ownerAddress,
@@ -820,7 +828,7 @@ export const uniswapL1L2TestSuite = (
           secretHashForDepositingSwappedDai,
           ownerEthAddress,
         )
-        .send({ authWitnesses: [transferToPublicAuhtwit] })
+        .send({ from: ownerAddress, authWitnesses: [transferToPublicAuhtwit] })
         .wait();
 
       const swapPrivateContent = sha256ToField([
@@ -837,13 +845,13 @@ export const uniswapL1L2TestSuite = (
         ownerEthAddress.toBuffer32(),
       ]);
 
-      const swapPrivateLeaf = sha256ToField([
-        uniswapL2Contract.address,
-        new Fr(version), // aztec version
-        EthAddress.fromString(uniswapPortal.address).toBuffer32(),
-        new Fr(l1Client.chain.id), // chain id
-        swapPrivateContent,
-      ]);
+      const swapPrivateLeaf = computeL2ToL1MessageHash({
+        l2Sender: uniswapL2Contract.address,
+        l1Recipient: EthAddress.fromString(uniswapPortal.address),
+        content: swapPrivateContent,
+        rollupVersion: new Fr(version),
+        chainId: new Fr(l1Client.chain.id),
+      });
 
       const withdrawContent = sha256ToField([
         Buffer.from(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
@@ -852,13 +860,13 @@ export const uniswapL1L2TestSuite = (
         uniswapPortalAddress.toBuffer32(),
       ]);
 
-      const withdrawLeaf = sha256ToField([
-        wethCrossChainHarness.l2Bridge.address,
-        new Fr(version), // aztec version
-        wethCrossChainHarness.tokenPortalAddress.toBuffer32(),
-        new Fr(l1Client.chain.id), // chain id
-        withdrawContent,
-      ]);
+      const withdrawLeaf = computeL2ToL1MessageHash({
+        l2Sender: wethCrossChainHarness.l2Bridge.address,
+        l1Recipient: wethCrossChainHarness.tokenPortalAddress,
+        content: withdrawContent,
+        rollupVersion: new Fr(version),
+        chainId: new Fr(l1Client.chain.id),
+      });
 
       const swapResult = await computeL2ToL1MembershipWitness(aztecNode, withdrawReceipt.blockNumber!, swapPrivateLeaf);
       const withdrawResult = await computeL2ToL1MembershipWitness(
@@ -867,10 +875,10 @@ export const uniswapL1L2TestSuite = (
         withdrawLeaf,
       );
 
-      const swapPrivateL2MessageIndex = swapResult!.l2MessageIndex;
+      const swapPrivateL2MessageIndex = swapResult!.leafIndex;
       const swapPrivateSiblingPath = swapResult!.siblingPath;
 
-      const withdrawL2MessageIndex = withdrawResult!.l2MessageIndex;
+      const withdrawL2MessageIndex = withdrawResult!.leafIndex;
       const withdrawSiblingPath = withdrawResult!.siblingPath;
 
       const withdrawMessageMetadata = {
@@ -921,7 +929,8 @@ export const uniswapL1L2TestSuite = (
 
       // Owner gives uniswap approval to transfer funds on its behalf
       const nonceForWETHTransferApproval = new Fr(5n);
-      const validateActionInteraction = await ownerWallet.setPublicAuthWit(
+      const validateActionInteraction = await wallet.setPublicAuthWit(
+        ownerAddress,
         {
           caller: uniswapL2Contract.address,
           action: wethCrossChainHarness.l2Token.methods.transfer_in_public(
@@ -933,7 +942,7 @@ export const uniswapL1L2TestSuite = (
         },
         true,
       );
-      await validateActionInteraction.send().wait();
+      await validateActionInteraction.send({ from: ownerAddress }).wait();
 
       // Call swap_public on L2
       const secretHashForDepositingSwappedDai = Fr.random();
@@ -951,7 +960,7 @@ export const uniswapL1L2TestSuite = (
           ownerEthAddress,
           Fr.ZERO,
         )
-        .send()
+        .send({ from: ownerAddress })
         .wait();
 
       const swapPublicContent = sha256ToField([
@@ -971,13 +980,13 @@ export const uniswapL1L2TestSuite = (
         ownerEthAddress.toBuffer32(),
       ]);
 
-      const swapPublicLeaf = sha256ToField([
-        uniswapL2Contract.address,
-        new Fr(version), // aztec version
-        EthAddress.fromString(uniswapPortal.address).toBuffer32(),
-        new Fr(l1Client.chain.id), // chain id
-        swapPublicContent,
-      ]);
+      const swapPublicLeaf = computeL2ToL1MessageHash({
+        l2Sender: uniswapL2Contract.address,
+        l1Recipient: EthAddress.fromString(uniswapPortal.address),
+        content: swapPublicContent,
+        rollupVersion: new Fr(version),
+        chainId: new Fr(l1Client.chain.id),
+      });
 
       const withdrawContent = sha256ToField([
         Buffer.from(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
@@ -986,13 +995,13 @@ export const uniswapL1L2TestSuite = (
         uniswapPortalAddress.toBuffer32(),
       ]);
 
-      const withdrawLeaf = sha256ToField([
-        wethCrossChainHarness.l2Bridge.address,
-        new Fr(version), // aztec version
-        wethCrossChainHarness.tokenPortalAddress.toBuffer32(),
-        new Fr(l1Client.chain.id), // chain id
-        withdrawContent,
-      ]);
+      const withdrawLeaf = computeL2ToL1MessageHash({
+        l2Sender: wethCrossChainHarness.l2Bridge.address,
+        l1Recipient: wethCrossChainHarness.tokenPortalAddress,
+        content: withdrawContent,
+        rollupVersion: new Fr(version),
+        chainId: new Fr(l1Client.chain.id),
+      });
 
       const swapResult = await computeL2ToL1MembershipWitness(aztecNode, withdrawReceipt.blockNumber!, swapPublicLeaf);
       const withdrawResult = await computeL2ToL1MembershipWitness(
@@ -1001,10 +1010,10 @@ export const uniswapL1L2TestSuite = (
         withdrawLeaf,
       );
 
-      const swapPublicL2MessageIndex = swapResult!.l2MessageIndex;
+      const swapPublicL2MessageIndex = swapResult!.leafIndex;
       const swapPublicSiblingPath = swapResult!.siblingPath;
 
-      const withdrawL2MessageIndex = withdrawResult!.l2MessageIndex;
+      const withdrawL2MessageIndex = withdrawResult!.leafIndex;
       const withdrawSiblingPath = withdrawResult!.siblingPath;
 
       const withdrawMessageMetadata = {

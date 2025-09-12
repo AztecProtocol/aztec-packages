@@ -17,9 +17,6 @@ HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 # Can also set PRESET=tracy-gates env variable
 PRESET=${PRESET:-tracy-memory}
 
-# Check if cmake exists
-cmake --version
-
 # Checkout tracy 0.11.1, build the headless capture tool and then capture a trace
 ssh $BOX "
 	set -eux ;
@@ -27,7 +24,7 @@ ssh $BOX "
 	cd ~/tracy/capture ;
 	git fetch origin 5d542dc09f3d9378d005092a4ad446bd405f819a ;
   git checkout 5d542dc09f3d9378d005092a4ad446bd405f819a ;
-	mkdir -p build && cd build && cmake -DNO_FILESELECTOR=ON -DCMAKE_MESSAGE_LOG_LEVEL=Warning .. && make -j ;
+	mkdir -p build && cd build && cmake --fresh -DNO_FILESELECTOR=ON -DCMAKE_MESSAGE_LOG_LEVEL=Warning .. && make -j ;
 	cd ~/aztec-packages/barretenberg/cpp/ ;
 	cmake -DCMAKE_MESSAGE_LOG_LEVEL=Warning --preset $PRESET && cmake --build --preset $PRESET --target $TARGET ;
 	cd ~/tracy/capture/build ;

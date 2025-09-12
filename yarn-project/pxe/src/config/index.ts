@@ -7,7 +7,6 @@ import {
 } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
-import type { Network } from '@aztec/stdlib/network';
 
 export { getPackageInfo } from './package_info.js';
 
@@ -38,10 +37,6 @@ export interface PXEConfig {
 export type PXEServiceConfig = PXEConfig & KernelProverConfig & BBProverConfig & DataStoreConfig & ChainConfig;
 
 export type CliPXEOptions = {
-  /** External Aztec network to connect to. e.g. devnet */
-  network?: Network;
-  /** API Key required by the external network's node */
-  apiKey?: string;
   /** Custom Aztec Node URL to connect to  */
   nodeUrl?: string;
 };
@@ -51,7 +46,7 @@ export const pxeConfigMappings: ConfigMappingsType<PXEServiceConfig> = {
   ...chainConfigMappings,
   l2BlockBatchSize: {
     env: 'PXE_L2_BLOCK_BATCH_SIZE',
-    ...numberConfigHelper(200),
+    ...numberConfigHelper(50),
     description: 'Maximum amount of blocks to pull from the stream in one request when synchronizing',
   },
   bbBinaryPath: {
@@ -82,15 +77,6 @@ export function getPXEServiceConfig(): PXEServiceConfig {
 }
 
 export const pxeCliConfigMappings: ConfigMappingsType<CliPXEOptions> = {
-  network: {
-    env: 'NETWORK',
-    parseEnv: (val: string) => val as Network,
-    description: 'External Aztec network to connect to. e.g. devnet',
-  },
-  apiKey: {
-    env: 'API_KEY',
-    description: "API Key required by the external network's node",
-  },
   nodeUrl: {
     env: 'AZTEC_NODE_URL',
     description: 'Custom Aztec Node URL to connect to',
@@ -119,6 +105,6 @@ export function getCliPXEOptions(): CliPXEOptions & PXEServiceConfig {
   return {
     ...pxeConfig,
     ...cliOptions,
-    proverEnabled: pxeConfig.proverEnabled || !!cliOptions.network,
+    proverEnabled: pxeConfig.proverEnabled,
   };
 }

@@ -1,3 +1,5 @@
+import { Fr } from '@aztec/foundation/fields';
+
 import { strict as assert } from 'assert';
 
 import { TaggedMemory } from '../avm_memory_types.js';
@@ -116,46 +118,58 @@ const OPERAND_SPEC = new Map<OperandType, [number, (offset: number) => OperandNa
   [OperandType.UINT8, [1, Buffer.prototype.readUint8, Buffer.prototype.writeUint8]],
   [OperandType.UINT16, [2, Buffer.prototype.readUint16BE, Buffer.prototype.writeUint16BE]],
   [OperandType.UINT32, [4, Buffer.prototype.readUint32BE, Buffer.prototype.writeUint32BE]],
-  [OperandType.UINT64, [8, Buffer.prototype.readBigInt64BE, Buffer.prototype.writeBigInt64BE]],
-  [OperandType.UINT128, [16, readBigInt128BE, writeBigInt128BE]],
-  [OperandType.FF, [32, readBigInt254BE, writeBigInt254BE]],
+  [OperandType.UINT64, [8, readUint64BE, writeUint64BE]],
+  [OperandType.UINT128, [16, readUint128BE, writeUint128BE]],
+  [OperandType.FF, [32, readUint254BE, writeUint254BE]],
   [OperandType.TAG, [1, Buffer.prototype.readUint8, Buffer.prototype.writeUint8]],
 ]);
 
-function readBigInt254BE(this: Buffer, offset: number): bigint {
-  const totalBytes = 32;
-  let ret: bigint = 0n;
+function readUintBE(buf: Buffer, offset: number, totalBytes: number): bigint {
+  let value: bigint = 0n;
   for (let i = 0; i < totalBytes; ++i) {
-    ret <<= 8n;
-    ret |= BigInt(this.readUint8(i + offset));
+    value <<= 8n;
+    value |= BigInt(buf.readUint8(i + offset));
   }
-  return ret;
+  return value;
 }
 
-function writeBigInt254BE(this: Buffer, value: bigint): void {
-  const totalBytes = 32;
+function writeUintBE(buf: Buffer, value: bigint, totalBytes: number): void {
   for (let offset = totalBytes - 1; offset >= 0; --offset) {
-    this.writeUint8(Number(value & 0xffn), offset);
+    buf.writeUint8(Number(value & 0xffn), offset);
     value >>= 8n;
   }
 }
 
-function readBigInt128BE(this: Buffer, offset: number): bigint {
-  const totalBytes = 16;
-  let ret: bigint = 0n;
-  for (let i = 0; i < totalBytes; ++i) {
-    ret <<= 8n;
-    ret |= BigInt(this.readUint8(i + offset));
-  }
-  return ret;
+function readUint64BE(this: Buffer, offset: number): bigint {
+  return readUintBE(this, offset, 8);
 }
 
-function writeBigInt128BE(this: Buffer, value: bigint): void {
-  const totalBytes = 16;
-  for (let offset = totalBytes - 1; offset >= 0; --offset) {
-    this.writeUint8(Number(value & 0xffn), offset);
-    value >>= 8n;
+function writeUint64BE(this: Buffer, value: bigint): void {
+  writeUintBE(this, value, 8);
+}
+
+function readUint254BE(this: Buffer, offset: number): bigint {
+  let value = readUintBE(this, offset, 32);
+
+  // In circuit, we only support values up to Fr.MODULUS and any deserialized value
+  // would naturally undergo a modulus reduction.
+  if (value >= Fr.MODULUS) {
+    value = value % Fr.MODULUS;
   }
+
+  return value;
+}
+
+function writeUint254BE(this: Buffer, value: bigint): void {
+  writeUintBE(this, value, 32);
+}
+
+function readUint128BE(this: Buffer, offset: number): bigint {
+  return readUintBE(this, offset, 16);
+}
+
+function writeUint128BE(this: Buffer, value: bigint): void {
+  writeUintBE(this, value, 16);
 }
 
 /**

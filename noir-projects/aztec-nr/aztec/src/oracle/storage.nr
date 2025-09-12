@@ -1,11 +1,11 @@
 use dep::protocol_types::{address::AztecAddress, traits::{Packable, ToField}};
 
-#[oracle(storageRead)]
+#[oracle(utilityStorageRead)]
 unconstrained fn storage_read_oracle<let N: u32>(
     address: Field,
     storage_slot: Field,
-    block_number: Field,
-    length: Field,
+    block_number: u32,
+    length: u32,
 ) -> [Field; N] {}
 
 pub unconstrained fn raw_storage_read<let N: u32>(
@@ -13,21 +13,16 @@ pub unconstrained fn raw_storage_read<let N: u32>(
     storage_slot: Field,
     block_number: u32,
 ) -> [Field; N] {
-    storage_read_oracle(
-        address.to_field(),
-        storage_slot,
-        block_number as Field,
-        N as Field,
-    )
+    storage_read_oracle(address.to_field(), storage_slot, block_number, N)
 }
 
-pub unconstrained fn storage_read<T, let N: u32>(
+pub unconstrained fn storage_read<T>(
     address: AztecAddress,
     storage_slot: Field,
     block_number: u32,
 ) -> T
 where
-    T: Packable<N>,
+    T: Packable,
 {
     T::unpack(raw_storage_read(address, storage_slot, block_number))
 }
@@ -47,7 +42,7 @@ mod tests {
     unconstrained fn test_raw_storage_read() {
         let written = MockStruct { a: 13, b: 42 };
 
-        let _ = OracleMock::mock("storageRead").returns(written.pack());
+        let _ = OracleMock::mock("utilityStorageRead").returns(written.pack());
 
         let read: [Field; 2] = raw_storage_read(address, slot, block_number);
         assert_eq(read[0], 13);
@@ -58,7 +53,7 @@ mod tests {
     unconstrained fn test_storage_read() {
         let written = MockStruct { a: 13, b: 42 };
 
-        let _ = OracleMock::mock("storageRead").returns(written.pack());
+        let _ = OracleMock::mock("utilityStorageRead").returns(written.pack());
 
         let read: MockStruct = storage_read(address, slot, block_number);
         assert_eq(read.a, 13);

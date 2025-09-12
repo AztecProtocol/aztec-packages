@@ -1,6 +1,7 @@
 import { pushTestData } from '@aztec/foundation/testing';
 import type { WitnessMap } from '@aztec/noir-acvm_js';
 import { abiDecode, abiEncode } from '@aztec/noir-noirc_abi';
+import type { PrivateToPublicKernelCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import type { BaseParityInputs, ParityPublicInputs, RootParityInputs } from '@aztec/stdlib/parity';
 import type {
   BaseOrMergeRollupPublicInputs,
@@ -9,8 +10,10 @@ import type {
   BlockRootRollupInputs,
   EmptyBlockRootRollupInputs,
   MergeRollupInputs,
+  PaddingBlockRootRollupInputs,
   PrivateBaseRollupInputs,
   PublicBaseRollupInputs,
+  PublicTubePrivateInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
   SingleTxBlockRootRollupInputs,
@@ -25,9 +28,12 @@ import {
   mapBlockRootRollupInputsToNoir,
   mapEmptyBlockRootRollupInputsToNoir,
   mapMergeRollupInputsToNoir,
+  mapPaddingBlockRootRollupInputsToNoir,
   mapParityPublicInputsFromNoir,
   mapPrivateBaseRollupInputsToNoir,
+  mapPrivateToPublicKernelCircuitPublicInputsFromNoir,
   mapPublicBaseRollupInputsToNoir,
+  mapPublicTubePrivateInputsToNoir,
   mapRootParityInputsToNoir,
   mapRootRollupInputsToNoir,
   mapRootRollupPublicInputsFromNoir,
@@ -44,6 +50,7 @@ import type {
   RollupBlockRootSingleTxReturnType,
   RollupMergeReturnType,
   RollupRootReturnType,
+  TubePublicReturnType,
 } from '../types/index.js';
 import type { DecodedInputs } from '../utils/decoded_inputs.js';
 
@@ -68,6 +75,12 @@ export function convertBaseParityInputsToWitnessMap(inputs: BaseParityInputs): W
 export function convertRootParityInputsToWitnessMap(inputs: RootParityInputs): WitnessMap {
   const mapped = mapRootParityInputsToNoir(inputs);
   const initialWitnessMap = abiEncode(ServerCircuitArtifacts.RootParityArtifact.abi, { inputs: mapped as any });
+  return initialWitnessMap;
+}
+
+export function convertPublicTubePrivateInputsToWitnessMap(inputs: PublicTubePrivateInputs): WitnessMap {
+  const mapped = mapPublicTubePrivateInputsToNoir(inputs);
+  const initialWitnessMap = abiEncode(ServerCircuitArtifacts.PublicTube.abi, { inputs: mapped as any });
   return initialWitnessMap;
 }
 
@@ -170,6 +183,14 @@ export function convertEmptyBlockRootRollupInputsToWitnessMap(inputs: EmptyBlock
   return initialWitnessMap;
 }
 
+export function convertPaddingBlockRootRollupInputsToWitnessMap(inputs: PaddingBlockRootRollupInputs): WitnessMap {
+  const mapped = mapPaddingBlockRootRollupInputsToNoir(inputs);
+  const initialWitnessMap = abiEncode(ServerCircuitArtifacts.PaddingBlockRootRollupArtifact.abi, {
+    inputs: mapped as any,
+  });
+  return initialWitnessMap;
+}
+
 /**
  * Converts the inputs of the block merge rollup circuit into a witness map.
  * @param inputs - The block merge rollup inputs.
@@ -246,6 +267,12 @@ export function convertSimulatedPublicBaseRollupOutputsFromWitnessMap(
   return mapBaseOrMergeRollupPublicInputsFromNoir(returnType);
 }
 
+export function convertPublicTubeOutputsFromWitnessMap(outputs: WitnessMap): PrivateToPublicKernelCircuitPublicInputs {
+  const decodedInputs: DecodedInputs = abiDecode(ServerCircuitArtifacts.PublicTube.abi, outputs);
+  const returnType = decodedInputs.return_value as TubePublicReturnType;
+  return mapPrivateToPublicKernelCircuitPublicInputsFromNoir(returnType);
+}
+
 /**
  * Converts the outputs of the base rollup circuit from a witness map.
  * @param outputs - The base rollup outputs as a witness map.
@@ -286,6 +313,18 @@ export function convertEmptyBlockRootRollupOutputsFromWitnessMap(
 ): BlockRootOrBlockMergePublicInputs {
   // Decode the witness map into two fields, the return values and the inputs
   const decodedInputs: DecodedInputs = abiDecode(ServerCircuitArtifacts.EmptyBlockRootRollupArtifact.abi, outputs);
+
+  // Cast the inputs as the return type
+  const returnType = decodedInputs.return_value as RollupBlockRootEmptyReturnType;
+
+  return mapBlockRootOrBlockMergePublicInputsFromNoir(returnType);
+}
+
+export function convertPaddingBlockRootRollupOutputsFromWitnessMap(
+  outputs: WitnessMap,
+): BlockRootOrBlockMergePublicInputs {
+  // Decode the witness map into two fields, the return values and the inputs
+  const decodedInputs: DecodedInputs = abiDecode(ServerCircuitArtifacts.PaddingBlockRootRollupArtifact.abi, outputs);
 
   // Cast the inputs as the return type
   const returnType = decodedInputs.return_value as RollupBlockRootEmptyReturnType;

@@ -1,5 +1,7 @@
 import type { Fr } from '@aztec/foundation/fields';
 
+import { strict as assert } from 'assert';
+
 import type { Gas } from '../gas/gas.js';
 import { GasFees } from '../gas/gas_fees.js';
 import type { GasSettings } from '../gas/gas_settings.js';
@@ -10,15 +12,24 @@ import type { GasSettings } from '../gas/gas_settings.js';
  */
 export function computeEffectiveGasFees(gasFees: GasFees, gasSettings: GasSettings): GasFees {
   const { maxFeesPerGas, maxPriorityFeesPerGas } = gasSettings;
-  const minField = (f1: Fr, f2: Fr) => (f1.lt(f2) ? f1 : f2);
+  const minBigInt = (f1: bigint, f2: bigint) => (f1 < f2 ? f1 : f2);
+
+  assert(
+    maxFeesPerGas.feePerDaGas >= gasFees.feePerDaGas,
+    `maxFeesPerGas.feePerDaGas must be greater than or equal to gasFees.feePerDaGas, but got maxFeesPerGas.feePerDaGas=${maxFeesPerGas.feePerDaGas} and gasFees.feePerDaGas=${gasFees.feePerDaGas}`,
+  );
+  assert(
+    maxFeesPerGas.feePerL2Gas >= gasFees.feePerL2Gas,
+    `maxFeesPerGas.feePerL2Gas must be greater than or equal to gasFees.feePerL2Gas, but got maxFeesPerGas.feePerL2Gas=${maxFeesPerGas.feePerL2Gas} and gasFees.feePerL2Gas=${gasFees.feePerL2Gas}`,
+  );
   const priorityFees = new GasFees(
-    minField(maxPriorityFeesPerGas.feePerDaGas, maxFeesPerGas.feePerDaGas.sub(gasFees.feePerDaGas)),
-    minField(maxPriorityFeesPerGas.feePerL2Gas, maxFeesPerGas.feePerL2Gas.sub(gasFees.feePerL2Gas)),
+    minBigInt(maxPriorityFeesPerGas.feePerDaGas, maxFeesPerGas.feePerDaGas - gasFees.feePerDaGas),
+    minBigInt(maxPriorityFeesPerGas.feePerL2Gas, maxFeesPerGas.feePerL2Gas - gasFees.feePerL2Gas),
   );
 
   const effectiveFees = new GasFees(
-    gasFees.feePerDaGas.add(priorityFees.feePerDaGas),
-    gasFees.feePerL2Gas.add(priorityFees.feePerL2Gas),
+    gasFees.feePerDaGas + priorityFees.feePerDaGas,
+    gasFees.feePerL2Gas + priorityFees.feePerL2Gas,
   );
 
   return effectiveFees;

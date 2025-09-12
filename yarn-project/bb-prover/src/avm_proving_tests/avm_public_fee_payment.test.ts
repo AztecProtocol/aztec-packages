@@ -5,9 +5,9 @@ import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
 
-const TIMEOUT = 300_000;
+const TIMEOUT = 60_000;
 
-describe('AVM WitGen & Circuit – public fee payment', () => {
+describe('AVM check-circuit – public fee payment', () => {
   const sender = AztecAddress.fromNumber(42);
   const feePayer = sender;
 
@@ -18,7 +18,6 @@ describe('AVM WitGen & Circuit – public fee payment', () => {
   beforeEach(async () => {
     tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true);
 
-    await tester.registerFeeJuiceContract();
     await tester.setFeePayerBalance(feePayer, initialFeeJuiceBalance);
 
     avmTestContractInstance = await tester.registerAndDeployContract(
@@ -27,7 +26,8 @@ describe('AVM WitGen & Circuit – public fee payment', () => {
       AvmTestContractArtifact,
     );
   });
-  it.skip(
+
+  it(
     'fee payment',
     async () => {
       await tester.simProveVerify(

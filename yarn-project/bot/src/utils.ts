@@ -1,6 +1,6 @@
 import type { ContractBase } from '@aztec/aztec.js';
 import type { AMMContract } from '@aztec/noir-contracts.js/AMM';
-import type { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
+import type { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
@@ -13,14 +13,19 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 export async function getBalances(
   token: TokenContract,
   who: AztecAddress,
+  from?: AztecAddress,
 ): Promise<{ privateBalance: bigint; publicBalance: bigint }> {
-  const privateBalance = await token.methods.balance_of_private(who).simulate();
-  const publicBalance = await token.methods.balance_of_public(who).simulate();
+  const privateBalance = await token.methods.balance_of_private(who).simulate({ from: from ?? who });
+  const publicBalance = await token.methods.balance_of_public(who).simulate({ from: from ?? who });
   return { privateBalance, publicBalance };
 }
 
-export async function getPrivateBalance(token: EasyPrivateTokenContract, who: AztecAddress): Promise<bigint> {
-  const privateBalance = await token.methods.get_balance(who).simulate();
+export async function getPrivateBalance(
+  token: PrivateTokenContract,
+  who: AztecAddress,
+  from?: AztecAddress,
+): Promise<bigint> {
+  const privateBalance = await token.methods.get_balance(who).simulate({ from: from ?? who });
   return privateBalance;
 }
 

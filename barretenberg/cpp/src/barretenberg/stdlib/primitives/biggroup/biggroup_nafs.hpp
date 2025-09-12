@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 
@@ -454,7 +455,7 @@ std::vector<field_t<C>> element<C, Fq, Fr, G>::compute_wnaf(const Fr& scalar)
         for (size_t i = 0; i < (num_rounds - midpoint); ++i) {
             negative_lo += uint256_t(15) * (uint256_t(1) << (i * 4));
         }
-        ASSERT((num_rounds - midpoint) * 4 == 136);
+        BB_ASSERT_EQ((num_rounds - midpoint) * 4, 136U);
         // If skew == 1 lo_offset = 0, else = 0xf...f
         field_t<C> lo_offset = (-field_t<C>(bb::fr(negative_lo)))
                                    .madd(wnaf_entries[wnaf_entries.size() - 1], field_t<C>(bb::fr(negative_lo)))
@@ -478,7 +479,9 @@ template <typename C, class Fq, class Fr, class G>
 std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, const size_t max_num_bits)
 {
     // We are not handling the case of odd bit lengths here.
-    ASSERT(max_num_bits % 2 == 0);
+    BB_ASSERT_EQ(max_num_bits % 2, 0U);
+    // Apply range constraint gates instead of arithmetic gates to constrain boolean witnesses
+    static constexpr bool use_bool_range_constraint = true;
 
     C* ctx = scalar.context;
     uint512_t scalar_multiplier_512 = uint512_t(uint256_t(scalar.get_value()) % Fr::modulus);
@@ -494,39 +497,21 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
     // if boolean is false => do NOT flip y
     // if boolean is true => DO flip y
     // first entry is skew. i.e. do we subtract one from the final result or not
-    if (scalar_multiplier.get_bit(0) == false) {
-        // add skew
-        naf_entries[num_rounds] = bool_ct(witness_t(ctx, true));
-        scalar_multiplier += uint256_t(1);
-    } else {
-        naf_entries[num_rounds] = bool_ct(witness_t(ctx, false));
-    }
+    naf_entries[num_rounds] = bool_ct(witness_t(ctx, !scalar_multiplier.get_bit(0)), use_bool_range_constraint);
+    scalar_multiplier += uint256_t(!scalar_multiplier.get_bit(0));
+
     // We need to manually propagate the origin tag
     naf_entries[num_rounds].set_origin_tag(scalar.get_origin_tag());
 
     for (size_t i = 0; i < num_rounds - 1; ++i) {
         bool next_entry = scalar_multiplier.get_bit(i + 1);
         // if the next entry is false, we need to flip the sign of the current entry. i.e. make negative
-        // This is a VERY hacky workaround to ensure that UltraBuilder will apply a basic
-        // range constraint per bool, and not a full 1-bit range gate
-        if (next_entry == false) {
-            bool_ct bit(ctx, true);
-            bit.context = ctx;
-            bit.witness_index = witness_t<C>(ctx, true).witness_index; // flip sign
-            bit.witness_bool = true;
-            ctx->create_new_range_constraint(
-                bit.witness_index, 1, "biggroup_nafs: compute_naf extracted too many bits in non-next_entry case");
+        // Apply a basic range constraint per bool, and not a full 1-bit range gate. Results in ~`num_rounds`/4 gates
+        // per scalar.
+        bool_ct bit(witness_t<C>(ctx, !next_entry), use_bool_range_constraint);
 
-            naf_entries[num_rounds - i - 1] = bit;
-        } else {
-            bool_ct bit(ctx, false);
-            bit.witness_index = witness_t<C>(ctx, false).witness_index; // don't flip sign
-            bit.witness_bool = false;
-            ctx->create_new_range_constraint(
-                bit.witness_index, 1, "biggroup_nafs: compute_naf extracted too many bits in next_entry case");
+        naf_entries[num_rounds - i - 1] = bit;
 
-            naf_entries[num_rounds - i - 1] = bit;
-        }
         // We need to manually propagate the origin tag
         naf_entries[num_rounds - i - 1].set_origin_tag(scalar.get_origin_tag());
     }

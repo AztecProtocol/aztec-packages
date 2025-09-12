@@ -5,10 +5,10 @@ import { TestERC20Abi as StakingAssetAbi } from '@aztec/l1-artifacts/TestERC20Ab
 import { type GetContractReturnType, type PrivateKeyAccount, getContract } from 'viem';
 
 import { extractProposalIdFromLogs } from '../contracts/governance.js';
-import { EthCheatCodes } from '../eth_cheat_codes.js';
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
-import { L1TxUtils } from '../l1_tx_utils.js';
+import { createL1TxUtilsFromViemWallet } from '../l1_tx_utils.js';
 import type { ExtendedViemWalletClient, ViemPublicClient } from '../types.js';
+import { EthCheatCodes } from './eth_cheat_codes.js';
 
 export async function executeGovernanceProposal(
   proposalId: bigint,
@@ -21,7 +21,7 @@ export async function executeGovernanceProposal(
 ) {
   const proposal = await governance.read.getProposal([proposalId]);
 
-  const l1TxUtils = new L1TxUtils(l1Client);
+  const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client);
 
   const waitL1Block = async () => {
     await l1TxUtils.sendAndMonitorTransaction({

@@ -5,9 +5,8 @@ import { ethers } from "ethers";
 import solc from "solc";
 
 // Size excluding number of public inputs
-const NUMBER_OF_FIELDS_IN_PLONK_PROOF = 93;
-const NUMBER_OF_FIELDS_IN_HONK_PROOF = 456;
-const NUMBER_OF_FIELDS_IN_HONK_ZK_PROOF = 507;
+const NUMBER_OF_ELEMENTS_IN_HONK_PROOF = 457;
+const NUMBER_OF_ELEMENTS_IN_HONK_ZK_PROOF = 508;
 
 const WRONG_PROOF_LENGTH = "0xed74ac0a";
 const WRONG_PUBLIC_INPUTS_LENGTH = "0xfa066593";
@@ -56,8 +55,6 @@ const [test, verifier] = await Promise.all([
   fsPromises.readFile(verifierPath, encoding),
 ]);
 
-// If testing honk is set, then we compile the honk test suite
-const testingHonk = getEnvVarCanBeUndefined("TESTING_HONK");
 const hasZK = getEnvVarCanBeUndefined("HAS_ZK");
 
 export const compilationInput = {
@@ -88,26 +85,9 @@ export const compilationInput = {
   },
 };
 
-const NUMBER_OF_FIELDS_IN_PROOF = testingHonk
-  ? hasZK
-    ? NUMBER_OF_FIELDS_IN_HONK_ZK_PROOF
-    : NUMBER_OF_FIELDS_IN_HONK_PROOF
-  : NUMBER_OF_FIELDS_IN_PLONK_PROOF;
-if (!testingHonk) {
-  const keyPath = getEnvVar("KEY_PATH");
-  const basePath = getEnvVar("BASE_PATH");
-  const [key, base] = await Promise.all([
-    fsPromises.readFile(keyPath, encoding),
-    fsPromises.readFile(basePath, encoding),
-  ]);
-
-  compilationInput.sources["BaseUltraVerifier.sol"] = {
-    content: base,
-  };
-  compilationInput.sources["Key.sol"] = {
-    content: key,
-  };
-}
+const NUMBER_OF_FIELDS_IN_PROOF = hasZK
+  ? NUMBER_OF_ELEMENTS_IN_HONK_ZK_PROOF
+  : NUMBER_OF_ELEMENTS_IN_HONK_PROOF;
 
 var output = JSON.parse(solc.compile(JSON.stringify(compilationInput)));
 
@@ -163,6 +143,40 @@ const deploy = async (signer, abi, bytecode) => {
   const deployment = await factory.deploy();
   const deployed = await deployment.waitForDeployment();
   return await deployed.getAddress();
+};
+
+/**
+ * Links a library address to bytecode
+ * @param {string} bytecode - The bytecode with library placeholders
+ * @param {string} libraryName - The library name
+ * @param {string} libraryAddress - The deployed library address
+ * @returns {string} - The linked bytecode
+ */
+const linkLibrary = (bytecode, libraryName, libraryAddress) => {
+  // Remove 0x prefix from address if present
+  const address = libraryAddress.replace(/^0x/, '');
+
+  // Library placeholder is __$<keccak256(libraryName)[0:34]>$__
+  // We need to find and replace this placeholder with the actual address
+  const placeholder = `__\\$[a-fA-F0-9]{34}\\$__`;
+  const regex = new RegExp(placeholder, 'g');
+
+  // Replace all occurrences of the placeholder with the library address
+  return bytecode.replace(regex, address);
+};
+
+/**
+ * Converts binary data to array of field elements (32-byte chunks as hex strings)
+ * @param {Buffer} buffer - Binary data
+ * @return {Array<String>} Array of hex strings with 0x prefix
+ */
+const binaryToFields = (buffer) => {
+  const fields = [];
+  for (let i = 0; i < buffer.length; i += 32) {
+    const chunk = buffer.slice(i, i + 32);
+    fields.push('0x' + chunk.toString('hex'));
+  }
+  return fields;
 };
 
 /**
@@ -225,26 +239,22 @@ try {
   const proof = readFileSync(proofPath);
   proofStr = proof.toString("hex");
 
-  let publicInputsAsFieldsPath = getEnvVarCanBeUndefined(
-    "PUBLIC_INPUTS_AS_FIELDS"
-  ); // PUBLIC_INPUTS_AS_FIELDS is not defined for bb plonk, but is for bb honk and bbjs honk.
-  var publicInputs;
-  let proofAsFieldsPath = getEnvVarCanBeUndefined("PROOF_AS_FIELDS"); // PROOF_AS_FIELDS is not defined for bbjs, but is for bb plonk and bb honk.
+  let publicInputsPath = getEnvVarCanBeUndefined("PUBLIC_INPUTS");
+  var publicInputs = [];
   let numExtraPublicInputs = 0;
   let extraPublicInputs = [];
-  if (proofAsFieldsPath) {
-    const proofAsFields = readFileSync(proofAsFieldsPath);
-    // We need to extract the public inputs from the proof. This might be empty, or just the pairing point object, or be the entire public inputs...
-    [numExtraPublicInputs, extraPublicInputs] = readPublicInputs(
-      JSON.parse(proofAsFields.toString())
-    );
-  }
-  // We need to do this because plonk doesn't define this path
-  if (publicInputsAsFieldsPath) {
-    const innerPublicInputs = JSON.parse(
-      readFileSync(publicInputsAsFieldsPath).toString()
-    ); // assumes JSON array of PI hex strings
 
+  // For flows that use binary proof format, extract public inputs from the proof
+  const proofAsFields = binaryToFields(proof);
+  if (proofAsFields.length > NUMBER_OF_FIELDS_IN_PROOF) {
+    // We need to extract the public inputs from the proof. This might be empty, or just the pairing point object, or be the entire public inputs...
+    [numExtraPublicInputs, extraPublicInputs] = readPublicInputs(proofAsFields);
+  }
+
+  // Read public inputs from binary file if available
+  if (publicInputsPath) {
+    const publicInputsBinary = readFileSync(publicInputsPath);
+    const innerPublicInputs = binaryToFields(publicInputsBinary);
     publicInputs = innerPublicInputs.concat(extraPublicInputs);
   } else {
     // for plonk, the extraPublicInputs are all of the public inputs
@@ -258,33 +268,56 @@ try {
   const provider = await getProvider(randomPort);
   const signer = new ethers.Wallet(key, provider);
 
-  const address = await deploy(signer, abi, bytecode);
+  let finalBytecode = bytecode;
+
+  // Deploy ZKTranscript library if needed and link it
+  if (hasZK) {
+    // Check if there's a library placeholder in the bytecode
+    const libraryPlaceholder = /__\$[a-fA-F0-9]{34}\$__/;
+    if (libraryPlaceholder.test(bytecode)) {
+      // Get the ZKTranscriptLib contract from compilation output
+      const zkTranscriptContract = output.contracts["Verifier.sol"]["ZKTranscriptLib"];
+      if (zkTranscriptContract) {
+        const libraryBytecode = zkTranscriptContract.evm.bytecode.object;
+        const libraryAbi = zkTranscriptContract.abi;
+
+        // Deploy the library
+        console.log("Deploying ZKTranscriptLib library...");
+        const libraryAddress = await deploy(signer, libraryAbi, libraryBytecode);
+
+        // Wait for the library deployment - for some reason we have an issue with nonces here
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        console.log("ZKTranscriptLib deployed at:", libraryAddress);
+
+        // Link the library to the verifier bytecode
+        finalBytecode = linkLibrary(bytecode, "ZKTranscriptLib", libraryAddress);
+      }
+    }
+  }
+
+  const address = await deploy(signer, abi, finalBytecode);
   const contract = new ethers.Contract(address, abi, signer);
 
   const result = await contract.test(proofStr, publicInputs);
   if (!result) throw new Error("Test failed");
 } catch (e) {
   console.error(testName, "failed");
-  if (testingHonk) {
-    var errorType = e.data;
-    switch (errorType) {
-      case WRONG_PROOF_LENGTH:
-        throw new Error(
-          "Proof length wrong. Possibile culprits: the NUMBER_OF_FIELDS_IN_* constants; number of public inputs; proof surgery; zk/non-zk discrepancy."
-        );
-      case WRONG_PUBLIC_INPUTS_LENGTH:
-        throw new Error("Number of inputs in the proof is wrong");
-      case SUMCHECK_FAILED:
-        throw new Error("Sumcheck round failed");
-      case SHPLEMINI_FAILED:
-        throw new Error("PCS round failed");
-      case CONSISTENCY_FAILED:
-        throw new Error("ZK contract: Subgroup IPA consistency check error");
-      case GEMINI_CHALLENGE_IN_SUBGROUP:
-        throw new Error("ZK contract: Gemini challenge error");
-      default:
-        throw e;
-    }
+  var errorType = e.data;
+  switch (errorType) {
+    case WRONG_PROOF_LENGTH:
+      throw new Error(
+        "Proof length wrong. Possibile culprits: the NUMBER_OF_FIELDS_IN_* constants; number of public inputs; proof surgery; zk/non-zk discrepancy."
+      );
+    case WRONG_PUBLIC_INPUTS_LENGTH:
+      throw new Error("Number of inputs in the proof is wrong");
+    case SUMCHECK_FAILED:
+      throw new Error("Sumcheck round failed");
+    case SHPLEMINI_FAILED:
+      throw new Error("PCS round failed");
+    case CONSISTENCY_FAILED:
+      throw new Error("ZK contract: Subgroup IPA consistency check error");
+    case GEMINI_CHALLENGE_IN_SUBGROUP:
+      throw new Error("ZK contract: Gemini challenge error");
   }
   throw e;
 } finally {

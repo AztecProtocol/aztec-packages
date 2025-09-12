@@ -1,8 +1,9 @@
+import { BatchedBlob } from '@aztec/blob-lib';
 import { fromEntries, times, timesParallel } from '@aztec/foundation/collection';
 import { toArray } from '@aztec/foundation/iterable';
 import { sleep } from '@aztec/foundation/sleep';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
-import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import { CommitteeAttestation, L2Block, type L2BlockSource, PublishedL2Block } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { EpochProver, MerkleTreeWriteOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { Proof } from '@aztec/stdlib/proofs';
@@ -34,10 +35,12 @@ describe('epoch-proving-job', () => {
   // Objects
   let publicInputs: RootRollupPublicInputs;
   let proof: Proof;
+  let batchedBlobInputs: BatchedBlob;
   let blocks: L2Block[];
   let txs: Tx[];
   let initialHeader: BlockHeader;
   let epochNumber: number;
+  let attestations: CommitteeAttestation[];
 
   // Constants
   const NUM_BLOCKS = 3;
@@ -46,12 +49,15 @@ describe('epoch-proving-job', () => {
 
   // Subject factory
   const createJob = (opts: { deadline?: Date; parallelBlockLimit?: number } = {}) => {
+    const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
+
     const data: EpochProvingJobData = {
       blocks,
-      txs,
+      txs: txsMap,
       epochNumber: BigInt(epochNumber),
       l1ToL2Messages: fromEntries(blocks.map(b => [b.number, []])),
       previousBlockHeader: initialHeader,
+      attestations,
     };
     return new EpochProvingJob(
       data,
@@ -81,29 +87,34 @@ describe('epoch-proving-job', () => {
 
     publicInputs = RootRollupPublicInputs.random();
     proof = Proof.empty();
+    batchedBlobInputs = new BatchedBlob(
+      publicInputs.blobPublicInputs.blobCommitmentsHash,
+      publicInputs.blobPublicInputs.z,
+      publicInputs.blobPublicInputs.y,
+      publicInputs.blobPublicInputs.c,
+      publicInputs.blobPublicInputs.c.negate(),
+    );
     epochNumber = 1;
     initialHeader = BlockHeader.empty();
     blocks = await timesParallel(NUM_BLOCKS, i => L2Block.random(i + 1, TXS_PER_BLOCK));
-    txs = times(NUM_TXS, i =>
-      mock<Tx>({
-        getTxHash: () => Promise.resolve(blocks[i % NUM_BLOCKS].body.txEffects[i % TXS_PER_BLOCK].txHash),
-      }),
-    );
+    attestations = times(3, CommitteeAttestation.random);
+
+    const txHashes = times(NUM_TXS, i => blocks[i % NUM_BLOCKS].body.txEffects[i % TXS_PER_BLOCK].txHash);
+    txs = txHashes.map(txHash => ({ txHash, getTxHash: () => txHash }) as Tx);
 
     l2BlockSource.getBlockHeader.mockResolvedValue(initialHeader);
     l2BlockSource.getL1Constants.mockResolvedValue({ ethereumSlotDuration: 0.1 } as L1RollupConstants);
     l2BlockSource.getBlockHeadersForEpoch.mockResolvedValue(blocks.map(b => b.header));
+    l2BlockSource.getPublishedBlocks.mockResolvedValue([{ block: blocks.at(-1)!, attestations } as PublishedL2Block]);
     publicProcessorFactory.create.mockReturnValue(publicProcessor);
     db.getInitialHeader.mockReturnValue(initialHeader);
     worldState.fork.mockResolvedValue(db);
     prover.startNewBlock.mockImplementation(() => sleep(200));
-    prover.finaliseEpoch.mockResolvedValue({ publicInputs, proof });
+    prover.finalizeEpoch.mockResolvedValue({ publicInputs, proof, batchedBlobInputs });
     publisher.submitEpochProof.mockResolvedValue(true);
     publicProcessor.process.mockImplementation(async txs => {
       const txsArray = await toArray(txs);
-      const processedTxs = await Promise.all(
-        txsArray.map(async tx => mock<ProcessedTx>({ hash: await tx.getTxHash() })),
-      );
+      const processedTxs = await Promise.all(txsArray.map(tx => mock<ProcessedTx>({ hash: tx.getTxHash() })));
       return [processedTxs, [], txsArray, []];
     });
   });
@@ -116,7 +127,22 @@ describe('epoch-proving-job', () => {
     expect(db.close).toHaveBeenCalledTimes(NUM_BLOCKS);
     expect(publicProcessor.process).toHaveBeenCalledTimes(NUM_BLOCKS);
     expect(publisher.submitEpochProof).toHaveBeenCalledWith(
-      expect.objectContaining({ epochNumber, proof, publicInputs }),
+      expect.objectContaining({ epochNumber, proof, publicInputs, attestations: attestations.map(a => a.toViem()) }),
+    );
+  });
+
+  it('sorts txs based on block body', async () => {
+    txs.reverse();
+
+    const job = createJob();
+    await job.run();
+
+    expect(job.getState()).toEqual('completed');
+    expect(publicProcessor.process).toHaveBeenCalledTimes(NUM_BLOCKS);
+
+    const firstBlockProcessedTxs = publicProcessor.process.mock.calls[0][0] as Tx[];
+    expect(firstBlockProcessedTxs.map(tx => tx.txHash.toString())).toEqual(
+      blocks[0].body.txEffects.map(tx => tx.txHash.toString()),
     );
   });
 

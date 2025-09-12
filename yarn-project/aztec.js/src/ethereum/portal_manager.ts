@@ -11,12 +11,11 @@ import { OutboxAbi } from '@aztec/l1-artifacts/OutboxAbi';
 import { TestERC20Abi } from '@aztec/l1-artifacts/TestERC20Abi';
 import { TokenPortalAbi } from '@aztec/l1-artifacts/TokenPortalAbi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { computeSecretHash } from '@aztec/stdlib/hash';
+import { computeL2ToL1MessageHash, computeSecretHash } from '@aztec/stdlib/hash';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
+import { getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
 
 import { type Hex, getContract, toFunctionSelector } from 'viem';
-
-import type { Wallet } from '../index.js';
 
 // docs:start:claim_type
 // docs:start:claim_type_amount
@@ -207,18 +206,18 @@ export class L1FeeJuicePortalManager {
 
   /**
    * Creates a new instance
-   * @param walletOrPxe - Wallet or PXE client used for retrieving the L1 contract addresses.
+   * @param pxe - PXE client used for retrieving the L1 contract addresses.
    * @param extendedClient - Wallet client, extended with public actions.
    * @param logger - Logger.
    */
   public static async new(
-    walletOrPxe: Wallet | PXE,
+    pxe: PXE,
     extendedClient: ExtendedViemWalletClient,
     logger: Logger,
   ): Promise<L1FeeJuicePortalManager> {
     const {
       l1ContractAddresses: { feeJuiceAddress, feeJuicePortalAddress, feeAssetHandlerAddress },
-    } = await walletOrPxe.getNodeInfo();
+    } = await pxe.getNodeInfo();
 
     if (feeJuiceAddress.isZero() || feeJuicePortalAddress.isZero()) {
       throw new Error('Portal or token not deployed on L1');
@@ -400,9 +399,12 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
       `Sending L1 tx to consume message at block ${blockNumber} index ${messageIndex} to withdraw ${amount}`,
     );
 
-    const isConsumedBefore = await this.outbox.read.hasMessageBeenConsumedAtBlockAndIndex([blockNumber, messageIndex]);
+    const messageLeafId = getL2ToL1MessageLeafId({ leafIndex: messageIndex, siblingPath });
+    const isConsumedBefore = await this.outbox.read.hasMessageBeenConsumedAtBlock([blockNumber, messageLeafId]);
     if (isConsumedBefore) {
-      throw new Error(`L1 to L2 message at block ${blockNumber} index ${messageIndex} has already been consumed`);
+      throw new Error(
+        `L1 to L2 message at block ${blockNumber} index ${messageIndex} height ${siblingPath.pathSize} has already been consumed`,
+      );
     }
 
     // Call function on L1 contract to consume the message
@@ -419,9 +421,11 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
       hash: await this.extendedClient.writeContract(withdrawRequest),
     });
 
-    const isConsumedAfter = await this.outbox.read.hasMessageBeenConsumedAtBlockAndIndex([blockNumber, messageIndex]);
+    const isConsumedAfter = await this.outbox.read.hasMessageBeenConsumedAtBlock([blockNumber, messageLeafId]);
     if (!isConsumedAfter) {
-      throw new Error(`L1 to L2 message at block ${blockNumber} index ${messageIndex} not consumed after withdrawal`);
+      throw new Error(
+        `L1 to L2 message at block ${blockNumber} index ${messageIndex} height ${siblingPath.pathSize} not consumed after withdrawal`,
+      );
     }
   }
 
@@ -446,14 +450,13 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
       new Fr(amount).toBuffer(),
       callerOnL1.toBuffer32(),
     ]);
-    const leaf = sha256ToField([
-      l2Bridge.toBuffer(),
-      new Fr(version).toBuffer(), // aztec version
-      EthAddress.fromString(this.portal.address).toBuffer32() ?? Buffer.alloc(32, 0),
-      new Fr(this.extendedClient.chain.id).toBuffer(), // chain id
-      content.toBuffer(),
-    ]);
 
-    return leaf;
+    return computeL2ToL1MessageHash({
+      l2Sender: l2Bridge,
+      l1Recipient: EthAddress.fromString(this.portal.address),
+      content,
+      rollupVersion: new Fr(version),
+      chainId: new Fr(this.extendedClient.chain.id),
+    });
   }
 }

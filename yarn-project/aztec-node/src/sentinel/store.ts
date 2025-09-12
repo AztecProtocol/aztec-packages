@@ -19,7 +19,7 @@ export class SentinelStore {
 
   constructor(
     private store: AztecAsyncKVStore,
-    private config: { historyLength: number },
+    private config: { historyLength: number; historicProvenPerformanceLength: number },
   ) {
     this.historyMap = store.openMap('sentinel-validator-status');
     this.provenMap = store.openMap('sentinel-validator-proven');
@@ -27,6 +27,10 @@ export class SentinelStore {
 
   public getHistoryLength() {
     return this.config.historyLength;
+  }
+
+  public getHistoricProvenPerformanceLength() {
+    return this.config.historicProvenPerformanceLength;
   }
 
   public async updateProvenPerformance(epoch: bigint, performance: ValidatorsEpochPerformance) {
@@ -65,8 +69,8 @@ export class SentinelStore {
     // Since we keep the size small, this is not a big deal.
     currentPerformance.sort((a, b) => Number(a.epoch - b.epoch));
 
-    // keep the most recent `historyLength` entries.
-    const performanceToKeep = currentPerformance.slice(-this.config.historyLength);
+    // keep the most recent `historicProvenPerformanceLength` entries.
+    const performanceToKeep = currentPerformance.slice(-this.config.historicProvenPerformanceLength);
 
     await this.provenMap.set(who.toString(), this.serializePerformance(performanceToKeep));
   }
@@ -86,9 +90,11 @@ export class SentinelStore {
     slot: bigint,
     status: 'block-mined' | 'block-proposed' | 'block-missed' | 'attestation-sent' | 'attestation-missed',
   ) {
-    const currentHistory = (await this.getHistory(who)) ?? [];
-    const newHistory = [...currentHistory, { slot, status }].slice(-this.config.historyLength);
-    await this.historyMap.set(who.toString(), this.serializeHistory(newHistory));
+    await this.store.transactionAsync(async () => {
+      const currentHistory = (await this.getHistory(who)) ?? [];
+      const newHistory = [...currentHistory, { slot, status }].slice(-this.config.historyLength);
+      await this.historyMap.set(who.toString(), this.serializeHistory(newHistory));
+    });
   }
 
   public async getHistories(): Promise<Record<`0x${string}`, ValidatorStatusHistory>> {
@@ -99,7 +105,7 @@ export class SentinelStore {
     return histories;
   }
 
-  private async getHistory(address: EthAddress): Promise<ValidatorStatusHistory | undefined> {
+  public async getHistory(address: EthAddress): Promise<ValidatorStatusHistory | undefined> {
     const data = await this.historyMap.getAsync(address.toString());
     return data && this.deserializeHistory(data);
   }

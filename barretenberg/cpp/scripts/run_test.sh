@@ -4,7 +4,7 @@
 # It means we can return a concise, easy to read, easy to run command for reproducing a test run.
 set -eu
 
-export native_preset=${NATIVE_PRESET:-clang16-assert}
+export native_preset=${NATIVE_PRESET:-clang20}
 
 cd $(dirname $0)/..
 # E.g. build, build-debug or build-coverage
@@ -12,5 +12,6 @@ cd $(scripts/native-preset-build-dir)
 
 export GTEST_COLOR=1
 export HARDWARE_CONCURRENCY=${CPUS:-8}
+export BB_VERBOSE=1
 
 exec ./bin/$1 --gtest_filter=$2

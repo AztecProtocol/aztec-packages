@@ -440,9 +440,6 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                     &mut unresolved_jumps,
                 );
             }
-            BrilligOpcode::JumpIfNot { .. } => panic!(
-                "Transpiler doesn't know how to process `BrilligOpcode::JumpIfNot` brillig instruction",
-            ),
         }
 
         // Increment the AVM program counter.
@@ -565,7 +562,7 @@ fn handle_foreign_call(
         "avmOpcodeRevert" => handle_revert(avm_instrs, destinations, inputs),
         "avmOpcodeStorageRead" => handle_storage_read(avm_instrs, destinations, inputs),
         "avmOpcodeStorageWrite" => handle_storage_write(avm_instrs, destinations, inputs),
-        "debugLog" => handle_debug_log(avm_instrs, destinations, inputs),
+        "utilityDebugLog" => handle_debug_log(avm_instrs, destinations, inputs),
         // Getters.
         _ if inputs.is_empty() && destinations.len() == 1 => {
             handle_getter_instruction(avm_instrs, function, destinations, inputs);
@@ -721,7 +718,7 @@ fn handle_emit_unencrypted_log(
         // The message array from Brillig is indirect.
         indirect: Some(
             AddressingModeBuilder::default()
-                .indirect_operand(&message_size_offset)
+                .indirect_operand(&message_offset)
                 .direct_operand(&message_size_offset)
                 .build(),
         ),
@@ -935,8 +932,8 @@ fn handle_getter_instruction(
         VERSION,
         BLOCKNUMBER,
         TIMESTAMP,
-        FEEPERL2GAS,
-        FEEPERDAGAS,
+        BASEFEEPERL2GAS,
+        BASEFEEPERDAGAS,
         ISSTATICCALL,
         L2GASLEFT,
         DAGASLEFT,
@@ -955,8 +952,8 @@ fn handle_getter_instruction(
     let var_idx = match function {
         "avmOpcodeAddress" => EnvironmentVariable::ADDRESS,
         "avmOpcodeSender" => EnvironmentVariable::SENDER,
-        "avmOpcodeFeePerL2Gas" => EnvironmentVariable::FEEPERL2GAS,
-        "avmOpcodeFeePerDaGas" => EnvironmentVariable::FEEPERDAGAS,
+        "avmOpcodeBaseFeePerL2Gas" => EnvironmentVariable::BASEFEEPERL2GAS,
+        "avmOpcodeBaseFeePerDaGas" => EnvironmentVariable::BASEFEEPERDAGAS,
         "avmOpcodeTransactionFee" => EnvironmentVariable::TRANSACTIONFEE,
         "avmOpcodeChainId" => EnvironmentVariable::CHAINID,
         "avmOpcodeVersion" => EnvironmentVariable::VERSION,
@@ -1197,11 +1194,7 @@ fn handle_black_box_function(
                 ..Default::default()
             });
         }
-        BlackBoxOp::Poseidon2Permutation {
-            message,
-            output,
-            len: _, // we don't use this.
-        } => {
+        BlackBoxOp::Poseidon2Permutation { message, output } => {
             // We'd love to validate the input size, but it's not known at compile time.
             assert_eq!(output.size, 4, "Poseidon2Permutation output size must be 4!");
             let input_state_offset = message.pointer.to_usize();

@@ -28,6 +28,12 @@ template <typename T, std::size_t N> class RefArray {
             storage[i] = ptr_array[i];
         }
     }
+    RefArray(std::array<T, N>& arr)
+    {
+        for (std::size_t i = 0; i < N; ++i) {
+            storage[i] = &arr[i];
+        }
+    }
     template <typename... Ts>
     RefArray(T& first, Ts&... refs)
         : storage{ &first, &refs... }
@@ -47,6 +53,21 @@ template <typename T, std::size_t N> class RefArray {
 #if !defined(__clang__) && defined(__GNUC__)
 #pragma GCC diagnostic pop
 #endif
+    }
+
+    /**
+     * @brief Get a copy of the underlying data. Use carefully, as it allocates new data for the data pointed to by the
+     * elements in the RefArray
+     *
+     */
+    std::array<T, N> get_copy()
+    {
+        std::array<T, N> data;
+        for (size_t idx = 0; idx < N; idx++) {
+            data[idx] = *storage[idx];
+        }
+
+        return data;
     }
 
     /**

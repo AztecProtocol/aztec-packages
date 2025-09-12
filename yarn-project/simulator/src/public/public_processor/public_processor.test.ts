@@ -10,7 +10,7 @@ import { Gas, GasFees } from '@aztec/stdlib/gas';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import { mockTx } from '@aztec/stdlib/testing';
 import { type MerkleTreeWriteOperations, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
-import { GlobalVariables, Tx, type TxValidator } from '@aztec/stdlib/tx';
+import { GlobalVariables, StateReference, Tx, type TxValidator } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -29,7 +29,7 @@ describe('public_processor', () => {
 
   let processor: PublicProcessor;
 
-  const gasFees = GasFees.from({ feePerDaGas: new Fr(2), feePerL2Gas: new Fr(3) });
+  const gasFees = GasFees.from({ feePerDaGas: 2n, feePerL2Gas: 3n });
   const globalVariables = GlobalVariables.from({ ...GlobalVariables.empty(), gasFees });
 
   const mockPrivateOnlyTx = ({ seed = 1, feePayer }: { seed?: number; feePayer?: AztecAddress } = {}) =>
@@ -42,6 +42,8 @@ describe('public_processor', () => {
     merkleTree = mock<MerkleTreeWriteOperations>();
     contractsDB = mock<PublicContractsDB>();
     publicTxSimulator = mock();
+
+    const stateReference = StateReference.empty();
 
     const avmCircuitInputs = AvmCircuitInputs.empty();
     mockedEnqueuedCallsResult = {
@@ -66,6 +68,7 @@ describe('public_processor', () => {
     merkleTree.getLeafPreimage.mockResolvedValue(
       new PublicDataTreeLeafPreimage(new PublicDataTreeLeaf(Fr.ZERO, Fr.ZERO), /*nextKey=*/ Fr.ZERO, /*nextIndex=*/ 0n),
     );
+    merkleTree.getStateReference.mockResolvedValue(stateReference);
 
     publicTxSimulator.simulate.mockImplementation(() => {
       return Promise.resolve(mockedEnqueuedCallsResult);
@@ -88,7 +91,7 @@ describe('public_processor', () => {
       const [processed, failed] = await processor.process([tx]);
 
       expect(processed.length).toBe(1);
-      expect(processed[0].hash).toEqual(await tx.getTxHash());
+      expect(processed[0].hash).toEqual(tx.getTxHash());
       expect(processed[0].data).toEqual(tx.data);
       expect(failed).toEqual([]);
     });
@@ -99,7 +102,7 @@ describe('public_processor', () => {
       const [processed, failed] = await processor.process([tx]);
 
       expect(processed.length).toBe(1);
-      expect(processed[0].hash).toEqual(await tx.getTxHash());
+      expect(processed[0].hash).toEqual(tx.getTxHash());
       expect(processed[0].data).toEqual(tx.data);
       expect(failed).toEqual([]);
 
@@ -115,7 +118,7 @@ describe('public_processor', () => {
       const [processed, failed] = await processor.process([tx]);
 
       expect(processed.length).toBe(1);
-      expect(processed[0].hash).toEqual(await tx.getTxHash());
+      expect(processed[0].hash).toEqual(tx.getTxHash());
       expect(failed).toEqual([]);
 
       expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(1);
@@ -143,8 +146,8 @@ describe('public_processor', () => {
       const [processed, failed] = await processor.process(txs, { maxTransactions: 2 });
 
       expect(processed.length).toBe(2);
-      expect(processed[0].hash).toEqual(await txs[0].getTxHash());
-      expect(processed[1].hash).toEqual(await txs[1].getTxHash());
+      expect(processed[0].hash).toEqual(txs[0].getTxHash());
+      expect(processed[1].hash).toEqual(txs[1].getTxHash());
       expect(failed).toEqual([]);
     });
 
@@ -175,8 +178,8 @@ describe('public_processor', () => {
       const [processed, failed] = await processor.process(txs, { deadline });
 
       expect(processed.length).toBe(2);
-      expect(processed[0].hash).toEqual(await txs[0].getTxHash());
-      expect(processed[1].hash).toEqual(await txs[1].getTxHash());
+      expect(processed[0].hash).toEqual(txs[0].getTxHash());
+      expect(processed[1].hash).toEqual(txs[1].getTxHash());
       expect(failed).toEqual([]);
       expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(2);
     });

@@ -1,6 +1,4 @@
-import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import {
-  type AccountWallet,
   type AztecAddress,
   type AztecNode,
   type ContractArtifact,
@@ -11,7 +9,7 @@ import {
   type PublicKeys,
   type Wallet,
   createLogger,
-  getContractInstanceFromDeployParams,
+  getContractInstanceFromInstantiationParams,
 } from '@aztec/aztec.js';
 import type { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
@@ -22,11 +20,10 @@ const { E2E_DATA_PATH: dataPath } = process.env;
 
 export class DeployTest {
   private snapshotManager: ISnapshotManager;
-  private wallets: AccountWallet[] = [];
-
   public logger: Logger;
   public pxe!: PXE;
-  public wallet!: AccountWallet;
+  public wallet!: Wallet;
+  public defaultAccountAddress!: AztecAddress;
   public aztecNode!: AztecNode;
   public aztecNodeAdmin!: AztecNodeAdmin;
 
@@ -38,7 +35,7 @@ export class DeployTest {
   async setup() {
     await this.applyInitialAccountSnapshot();
     const context = await this.snapshotManager.setup();
-    ({ pxe: this.pxe, aztecNode: this.aztecNode } = context);
+    ({ pxe: this.pxe, aztecNode: this.aztecNode, wallet: this.wallet } = context);
     this.aztecNodeAdmin = context.aztecNode;
     return this;
   }
@@ -48,15 +45,10 @@ export class DeployTest {
   }
 
   private async applyInitialAccountSnapshot() {
-    await this.snapshotManager.snapshot(
-      'initial_account',
-      deployAccounts(1, this.logger),
-      async ({ deployedAccounts }, { pxe }) => {
-        this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
-        this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
-        this.wallet = this.wallets[0];
-      },
-    );
+    await this.snapshotManager.snapshot('initial_account', deployAccounts(1, this.logger), ({ deployedAccounts }) => {
+      this.defaultAccountAddress = deployedAccounts[0].address;
+      return Promise.resolve();
+    });
   }
 
   async registerContract<T extends ContractBase>(
@@ -71,7 +63,7 @@ export class DeployTest {
     } = {},
   ): Promise<T> {
     const { salt, publicKeys, initArgs, constructorName, deployer } = opts;
-    const instance = await getContractInstanceFromDeployParams(contractArtifact.artifact, {
+    const instance = await getContractInstanceFromInstantiationParams(contractArtifact.artifact, {
       constructorArgs: initArgs ?? [],
       constructorArtifact: constructorName,
       salt,

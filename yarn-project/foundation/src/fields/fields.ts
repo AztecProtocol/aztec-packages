@@ -60,6 +60,8 @@ abstract class BaseField {
       this.asBigInt = BigInt(value);
       if (this.asBigInt >= this.modulus()) {
         throw new Error(`Value 0x${this.asBigInt.toString(16)} is greater or equal to field modulus.`);
+      } else if (this.asBigInt < 0n) {
+        throw new Error(`Value 0x${this.asBigInt.toString(16)} is negative.`);
       }
     } else if (value instanceof BaseField) {
       this.asBuffer = value.asBuffer;
@@ -493,7 +495,7 @@ export function reduceFn<TInput, TField extends BaseField>(fn: (input: TInput) =
 }
 
 /** If we are in test mode, we register a special equality for fields. */
-if (process.env.NODE_ENV === 'test' && typeof expect !== 'undefined') {
+if (process.env.NODE_ENV === 'test') {
   const areFieldsEqual = (a: unknown, b: unknown): boolean | undefined => {
     const isAField = a instanceof BaseField;
     const isBField = b instanceof BaseField;
@@ -507,6 +509,11 @@ if (process.env.NODE_ENV === 'test' && typeof expect !== 'undefined') {
     }
   };
 
-  // `addEqualityTesters` doesn't seem to be in the types yet.
-  (expect as any).addEqualityTesters([areFieldsEqual]);
+  if (typeof expect !== 'undefined') {
+    // `addEqualityTesters` doesn't seem to be in the types yet.
+    (expect as any).addEqualityTesters([areFieldsEqual]);
+  } else {
+    (globalThis as any).__extraEqualityTesters ??= [];
+    (globalThis as any).__extraEqualityTesters.push(areFieldsEqual);
+  }
 }

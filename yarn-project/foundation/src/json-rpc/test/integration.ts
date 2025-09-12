@@ -20,7 +20,7 @@ export type JsonRpcTestContext<T extends object> = {
 export async function createJsonRpcTestSetup<T extends object>(
   handler: T,
   schema: ApiSchemaFor<T>,
-  serverOptions: Partial<SafeJsonRpcServerOptions> = {},
+  serverOptions: SafeJsonRpcServerOptions = {},
   clientOptions: SafeJsonRpcClientOptions = {},
 ): Promise<JsonRpcTestContext<T>> {
   const server = createSafeJsonRpcServer<T>(handler, schema, serverOptions);

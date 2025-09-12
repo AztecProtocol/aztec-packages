@@ -3,8 +3,8 @@ import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
 // Generated from end-to-end/src/e2e_deploy_contract/contract_class_registration.test.ts with AZTEC_GENERATE_TEST_DATA=1
-export function getSampleContractClassRegisteredEventPayload(): Buffer {
-  const path = getPathToFixture('ContractClassRegisteredEventData.hex');
+export function getSampleContractClassPublishedEventPayload(): Buffer {
+  const path = getPathToFixture('ContractClassPublishedEventData.hex');
   return Buffer.from(readFileSync(path).toString(), 'hex');
 }
 
@@ -21,8 +21,8 @@ export function getSampleUtilityFunctionBroadcastedEventPayload(): Buffer {
 }
 
 // Generated from end-to-end/src/e2e_deploy_contract/contract_class_registration.test.ts with AZTEC_GENERATE_TEST_DATA=1
-export function getSampleContractInstanceDeployedEventPayload(): Buffer {
-  const path = getPathToFixture('ContractInstanceDeployedEventData.hex');
+export function getSampleContractInstancePublishedEventPayload(): Buffer {
+  const path = getPathToFixture('ContractInstancePublishedEventData.hex');
   return Buffer.from(readFileSync(path).toString(), 'hex');
 }
 

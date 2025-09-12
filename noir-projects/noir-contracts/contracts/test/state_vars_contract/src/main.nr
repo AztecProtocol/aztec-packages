@@ -5,9 +5,9 @@ use aztec::macros::aztec;
 pub contract StateVars {
     use aztec::{
         macros::{functions::{private, public, utility, view}, storage::{storage, storage_no_init}},
-        messages::logs::note::encode_and_encrypt_note,
-        prelude::{AztecAddress, PrivateImmutable, PrivateMutable, PublicImmutable, PublicMutable},
-        protocol_types::traits::{Deserialize, Packable, Serialize},
+        messages::message_delivery::MessageDelivery,
+        protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}},
+        state_vars::{PrivateImmutable, PrivateMutable, PublicImmutable, PublicMutable},
     };
 
     use value_note::value_note::ValueNote;
@@ -101,33 +101,33 @@ pub contract StateVars {
     fn initialize_private_immutable(randomness: Field, value: Field) {
         let new_note = ValueNote::new(value, context.msg_sender());
 
-        storage.private_immutable.initialize(new_note).emit(encode_and_encrypt_note(
+        storage.private_immutable.initialize(new_note).emit(
             &mut context,
             context.msg_sender(),
-            context.msg_sender(),
-        ));
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
     }
 
     #[private]
     fn initialize_private(randomness: Field, value: Field) {
         let private_mutable = ValueNote::new(value, context.msg_sender());
 
-        storage.private_mutable.initialize(private_mutable).emit(encode_and_encrypt_note(
+        storage.private_mutable.initialize(private_mutable).emit(
             &mut context,
             context.msg_sender(),
-            context.msg_sender(),
-        ));
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
     }
 
     #[private]
     fn update_private_mutable(randomness: Field, value: Field) {
         let new_note = ValueNote::new(value, context.msg_sender());
 
-        storage.private_mutable.replace(new_note).emit(encode_and_encrypt_note(
+        storage.private_mutable.replace(new_note).emit(
             &mut context,
             context.msg_sender(),
-            context.msg_sender(),
-        ));
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
     }
 
     #[private]
@@ -136,17 +136,17 @@ pub contract StateVars {
         let current = storage.private_mutable.get_note().note;
 
         // Increment value by 1
-        let new_value = current.value + 1;
+        let new_value = current.value() + 1;
 
         // Create new note with incremented value
         let new_note = ValueNote::new(new_value, context.msg_sender());
 
         // Replace existing note with new note
-        storage.private_mutable.replace(new_note).emit(encode_and_encrypt_note(
+        storage.private_mutable.replace(new_note).emit(
             &mut context,
             context.msg_sender(),
-            context.msg_sender(),
-        ));
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
     }
 
     #[utility]

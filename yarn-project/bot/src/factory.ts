@@ -1,7 +1,6 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { getDeployedTestAccountsWallets, getInitialTestAccounts } from '@aztec/accounts/testing';
+import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import {
-  type AccountWallet,
   AztecAddress,
   BatchCall,
   ContractBase,
@@ -19,11 +18,12 @@ import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { Timer } from '@aztec/foundation/timer';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
-import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
+import { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { makeTracedFetch } from '@aztec/telemetry-client';
+import { TestWallet } from '@aztec/test-wallet';
 
 import { type BotConfig, SupportedTokenContracts, getVersions } from './config.js';
 import { getBalances, getPrivateBalance, isStandardTokenContract } from './utils.js';
@@ -33,6 +33,7 @@ const MIN_BALANCE = 1e3;
 
 export class BotFactory {
   private pxe: PXE;
+  private wallet: TestWallet;
   private node?: AztecNode;
   private nodeAdmin?: AztecNodeAdmin;
   private log = createLogger('bot');
@@ -46,7 +47,7 @@ export class BotFactory {
         `Either a node admin client or node admin url must be provided if transaction flushing is requested`,
       );
     }
-    if (config.senderPrivateKey && !dependencies.node) {
+    if (config.senderPrivateKey && config.senderPrivateKey.getValue() && !dependencies.node) {
       throw new Error(
         `Either a node client or node url must be provided for bridging L1 fee juice to deploy an account with private key`,
       );
@@ -61,10 +62,11 @@ export class BotFactory {
     if (dependencies.pxe) {
       this.log.info(`Using local PXE`);
       this.pxe = dependencies.pxe;
-      return;
+    } else {
+      this.log.info(`Using remote PXE at ${config.pxeUrl!}`);
+      this.pxe = createPXEClient(config.pxeUrl!, getVersions(), makeTracedFetch([1, 2, 3], false));
     }
-    this.log.info(`Using remote PXE at ${config.pxeUrl!}`);
-    this.pxe = createPXEClient(config.pxeUrl!, getVersions(), makeTracedFetch([1, 2, 3], false));
+    this.wallet = new TestWallet(this.pxe);
   }
 
   /**
@@ -73,23 +75,34 @@ export class BotFactory {
    */
   public async setup() {
     const recipient = await this.registerRecipient();
-    const wallet = await this.setupAccount();
-    const token = await this.setupToken(wallet);
-    await this.mintTokens(token);
-    return { wallet, token, pxe: this.pxe, recipient };
+    const defaultAccountAddress = await this.setupAccount();
+    const token = await this.setupToken(defaultAccountAddress);
+    await this.mintTokens(token, defaultAccountAddress);
+    return { wallet: this.wallet, defaultAccountAddress, token, pxe: this.pxe, recipient };
   }
 
   public async setupAmm() {
-    const wallet = await this.setupAccount();
-    const token0 = await this.setupTokenContract(wallet, this.config.tokenSalt, 'BotToken0', 'BOT0');
-    const token1 = await this.setupTokenContract(wallet, this.config.tokenSalt, 'BotToken1', 'BOT1');
-    const liquidityToken = await this.setupTokenContract(wallet, this.config.tokenSalt, 'BotLPToken', 'BOTLP');
-    const amm = await this.setupAmmContract(wallet, this.config.tokenSalt, token0, token1, liquidityToken);
+    const defaultAccountAddress = await this.setupAccount();
+    const token0 = await this.setupTokenContract(defaultAccountAddress, this.config.tokenSalt, 'BotToken0', 'BOT0');
+    const token1 = await this.setupTokenContract(defaultAccountAddress, this.config.tokenSalt, 'BotToken1', 'BOT1');
+    const liquidityToken = await this.setupTokenContract(
+      defaultAccountAddress,
+      this.config.tokenSalt,
+      'BotLPToken',
+      'BOTLP',
+    );
+    const amm = await this.setupAmmContract(
+      defaultAccountAddress,
+      this.config.tokenSalt,
+      token0,
+      token1,
+      liquidityToken,
+    );
 
-    await this.fundAmm(wallet, amm, token0, token1, liquidityToken);
+    await this.fundAmm(defaultAccountAddress, defaultAccountAddress, amm, token0, token1, liquidityToken);
     this.log.info(`AMM initialized and funded`);
 
-    return { wallet, amm, token0, token1, pxe: this.pxe };
+    return { wallet: this.wallet, defaultAccountAddress, amm, token0, token1, pxe: this.pxe };
   }
 
   /**
@@ -97,64 +110,64 @@ export class BotFactory {
    * @returns The sender wallet.
    */
   private async setupAccount() {
-    if (this.config.senderPrivateKey) {
-      return await this.setupAccountWithPrivateKey(this.config.senderPrivateKey);
+    const privateKey = this.config.senderPrivateKey?.getValue();
+    if (privateKey) {
+      return await this.setupAccountWithPrivateKey(privateKey);
     } else {
       return await this.setupTestAccount();
     }
   }
 
-  private async setupAccountWithPrivateKey(privateKey: Fr) {
+  private async setupAccountWithPrivateKey(secret: Fr) {
     const salt = this.config.senderSalt ?? Fr.ONE;
-    const signingKey = deriveSigningKey(privateKey);
-    const account = await getSchnorrAccount(this.pxe, privateKey, signingKey, salt);
-    const isInit = (await this.pxe.getContractMetadata(account.getAddress())).isContractInitialized;
+    const signingKey = deriveSigningKey(secret);
+    const accountData = {
+      secret,
+      salt,
+      contract: new SchnorrAccountContract(signingKey!),
+    };
+    const accountManager = await this.wallet.createAccount(accountData);
+    const isInit = (await this.pxe.getContractMetadata(accountManager.getAddress())).isContractInitialized;
     if (isInit) {
-      this.log.info(`Account at ${account.getAddress().toString()} already initialized`);
+      this.log.info(`Account at ${accountManager.getAddress().toString()} already initialized`);
       const timer = new Timer();
-      const wallet = await account.register();
-      this.log.info(`Account at ${account.getAddress()} registered. duration=${timer.ms()}`);
-      return wallet;
+      await accountManager.register();
+      this.log.info(`Account at ${accountManager.getAddress()} registered. duration=${timer.ms()}`);
+      return accountManager.getAddress();
     } else {
-      const address = account.getAddress();
+      const address = accountManager.getAddress();
       this.log.info(`Deploying account at ${address}`);
 
       const claim = await this.bridgeL1FeeJuice(address);
 
       // docs:start:claim_and_deploy
-      const wallet = await account.getWallet();
-      const paymentMethod = new FeeJuicePaymentMethodWithClaim(wallet, claim);
-      const sentTx = account.deploy({ fee: { paymentMethod } });
+      const paymentMethod = new FeeJuicePaymentMethodWithClaim(accountManager.getAddress(), claim);
+      const sentTx = accountManager.deploy({ fee: { paymentMethod } });
       const txHash = await sentTx.getTxHash();
       // docs:end:claim_and_deploy
-      this.log.info(`Sent tx with hash ${txHash.toString()}`);
-      await this.tryFlushTxs();
-      this.log.verbose('Waiting for account deployment to settle');
-      await sentTx.wait({ timeout: this.config.txMinedWaitSeconds });
+      this.log.info(`Sent tx for account deployment with hash ${txHash.toString()}`);
+      await this.withNoMinTxsPerBlock(() => sentTx.wait({ timeout: this.config.txMinedWaitSeconds }));
       this.log.info(`Account deployed at ${address}`);
-      return wallet;
+      return accountManager.getAddress();
     }
   }
 
   private async setupTestAccount() {
-    let [wallet] = await getDeployedTestAccountsWallets(this.pxe);
-    if (wallet) {
-      this.log.info(`Using funded test account: ${wallet.getAddress()}`);
-    } else {
-      this.log.info('Registering funded test account');
-      const [account] = await getInitialTestAccounts();
-      const manager = await getSchnorrAccount(this.pxe, account.secret, account.signingKey, account.salt);
-      wallet = await manager.register();
-      this.log.info(`Funded test account registered: ${wallet.getAddress()}`);
-    }
-    return wallet;
+    const [initialAccountData] = await getInitialTestAccountsData();
+    const accountData = {
+      secret: initialAccountData.secret,
+      salt: initialAccountData.salt,
+      contract: new SchnorrAccountContract(initialAccountData.signingKey),
+    };
+    const accountManager = await this.wallet.createAccount(accountData);
+    return accountManager.getAddress();
   }
 
   /**
    * Registers the recipient for txs in the pxe.
    */
   private async registerRecipient() {
-    const recipient = await this.pxe.registerAccount(this.config.recipientEncryptionSecret, Fr.ONE);
+    const recipient = await this.pxe.registerAccount(this.config.recipientEncryptionSecret.getValue(), Fr.ONE);
     return recipient.address;
   }
 
@@ -163,32 +176,34 @@ export class BotFactory {
    * @param wallet - Wallet to deploy the token contract from.
    * @returns The TokenContract instance.
    */
-  private async setupToken(wallet: AccountWallet): Promise<TokenContract | EasyPrivateTokenContract> {
-    let deploy: DeployMethod<TokenContract | EasyPrivateTokenContract>;
-    const deployOpts: DeployOptions = { contractAddressSalt: this.config.tokenSalt, universalDeploy: true };
+  private async setupToken(sender: AztecAddress): Promise<TokenContract | PrivateTokenContract> {
+    let deploy: DeployMethod<TokenContract | PrivateTokenContract>;
+    const deployOpts: DeployOptions = {
+      from: sender,
+      contractAddressSalt: this.config.tokenSalt,
+      universalDeploy: true,
+    };
     if (this.config.contract === SupportedTokenContracts.TokenContract) {
-      deploy = TokenContract.deploy(wallet, wallet.getAddress(), 'BotToken', 'BOT', 18);
-    } else if (this.config.contract === SupportedTokenContracts.EasyPrivateTokenContract) {
-      deploy = EasyPrivateTokenContract.deploy(wallet, MINT_BALANCE, wallet.getAddress());
-      deployOpts.skipPublicDeployment = true;
-      deployOpts.skipClassRegistration = true;
+      deploy = TokenContract.deploy(this.wallet, sender, 'BotToken', 'BOT', 18);
+    } else if (this.config.contract === SupportedTokenContracts.PrivateTokenContract) {
+      deploy = PrivateTokenContract.deploy(this.wallet, MINT_BALANCE, sender);
+      deployOpts.skipInstancePublication = true;
+      deployOpts.skipClassPublication = true;
       deployOpts.skipInitialization = false;
     } else {
       throw new Error(`Unsupported token contract type: ${this.config.contract}`);
     }
 
     const address = (await deploy.getInstance(deployOpts)).address;
-    if ((await this.pxe.getContractMetadata(address)).isContractPubliclyDeployed) {
+    if ((await this.pxe.getContractMetadata(address)).isContractPublished) {
       this.log.info(`Token at ${address.toString()} already deployed`);
       return deploy.register();
     } else {
       this.log.info(`Deploying token contract at ${address.toString()}`);
       const sentTx = deploy.send(deployOpts);
       const txHash = await sentTx.getTxHash();
-      this.log.info(`Sent tx with hash ${txHash.toString()}`);
-      await this.tryFlushTxs();
-      this.log.verbose('Waiting for token setup to settle');
-      return sentTx.deployed({ timeout: this.config.txMinedWaitSeconds });
+      this.log.info(`Sent tx for token setup with hash ${txHash.toString()}`);
+      return this.withNoMinTxsPerBlock(() => sentTx.deployed({ timeout: this.config.txMinedWaitSeconds }));
     }
   }
 
@@ -198,31 +213,31 @@ export class BotFactory {
    * @returns The TokenContract instance.
    */
   private setupTokenContract(
-    wallet: AccountWallet,
+    deployer: AztecAddress,
     contractAddressSalt: Fr,
     name: string,
     ticker: string,
     decimals = 18,
   ): Promise<TokenContract> {
-    const deployOpts: DeployOptions = { contractAddressSalt, universalDeploy: true };
-    const deploy = TokenContract.deploy(wallet, wallet.getAddress(), name, ticker, decimals);
+    const deployOpts: DeployOptions = { from: deployer, contractAddressSalt, universalDeploy: true };
+    const deploy = TokenContract.deploy(this.wallet, deployer, name, ticker, decimals);
     return this.registerOrDeployContract('Token - ' + name, deploy, deployOpts);
   }
 
   private async setupAmmContract(
-    wallet: AccountWallet,
+    deployer: AztecAddress,
     contractAddressSalt: Fr,
     token0: TokenContract,
     token1: TokenContract,
     lpToken: TokenContract,
   ): Promise<AMMContract> {
-    const deployOpts: DeployOptions = { contractAddressSalt, universalDeploy: true };
-    const deploy = AMMContract.deploy(wallet, token0.address, token1.address, lpToken.address);
+    const deployOpts: DeployOptions = { from: deployer, contractAddressSalt, universalDeploy: true };
+    const deploy = AMMContract.deploy(this.wallet, token0.address, token1.address, lpToken.address);
     const amm = await this.registerOrDeployContract('AMM', deploy, deployOpts);
 
     this.log.info(`AMM deployed at ${amm.address}`);
-    const minterTx = lpToken.methods.set_minter(amm.address, true).send();
-    this.log.info(`Set LP token minter to AMM txHash=${await minterTx.getTxHash()}`);
+    const minterTx = lpToken.methods.set_minter(amm.address, true).send({ from: deployer });
+    this.log.info(`Set LP token minter to AMM txHash=${(await minterTx.getTxHash()).toString()}`);
     await minterTx.wait({ timeout: this.config.txMinedWaitSeconds });
     this.log.info(`Liquidity token initialized`);
 
@@ -230,7 +245,8 @@ export class BotFactory {
   }
 
   private async fundAmm(
-    wallet: AccountWallet,
+    defaultAccountAddress: AztecAddress,
+    liquidityProvider: AztecAddress,
     amm: AMMContract,
     token0: TokenContract,
     token1: TokenContract,
@@ -238,9 +254,9 @@ export class BotFactory {
   ): Promise<void> {
     const getPrivateBalances = () =>
       Promise.all([
-        token0.methods.balance_of_private(wallet.getAddress()).simulate(),
-        token1.methods.balance_of_private(wallet.getAddress()).simulate(),
-        lpToken.methods.balance_of_private(wallet.getAddress()).simulate(),
+        token0.methods.balance_of_private(liquidityProvider).simulate({ from: liquidityProvider }),
+        token1.methods.balance_of_private(liquidityProvider).simulate({ from: liquidityProvider }),
+        lpToken.methods.balance_of_private(liquidityProvider).simulate({ from: liquidityProvider }),
       ]);
 
     const authwitNonce = Fr.random();
@@ -254,50 +270,51 @@ export class BotFactory {
     const [t0Bal, t1Bal, lpBal] = await getPrivateBalances();
 
     this.log.info(
-      `Minting ${MINT_BALANCE} tokens of each BotToken0 and BotToken1. Current private balances of ${wallet.getAddress()}: token0=${t0Bal}, token1=${t1Bal}, lp=${lpBal}`,
+      `Minting ${MINT_BALANCE} tokens of each BotToken0 and BotToken1. Current private balances of ${liquidityProvider}: token0=${t0Bal}, token1=${t1Bal}, lp=${lpBal}`,
     );
 
     // Add authwitnesses for the transfers in AMM::add_liquidity function
-    const token0Authwit = await wallet.createAuthWit({
+    const token0Authwit = await this.wallet.createAuthWit(defaultAccountAddress, {
       caller: amm.address,
       action: token0.methods.transfer_to_public_and_prepare_private_balance_increase(
-        wallet.getAddress(),
+        liquidityProvider,
         amm.address,
         amount0Max,
         authwitNonce,
       ),
     });
-    const token1Authwit = await wallet.createAuthWit({
+    const token1Authwit = await this.wallet.createAuthWit(defaultAccountAddress, {
       caller: amm.address,
       action: token1.methods.transfer_to_public_and_prepare_private_balance_increase(
-        wallet.getAddress(),
+        liquidityProvider,
         amm.address,
         amount1Max,
         authwitNonce,
       ),
     });
 
-    const mintTx = new BatchCall(wallet, [
-      token0.methods.mint_to_private(wallet.getAddress(), wallet.getAddress(), MINT_BALANCE),
-      token1.methods.mint_to_private(wallet.getAddress(), wallet.getAddress(), MINT_BALANCE),
-    ]).send();
+    const mintTx = new BatchCall(this.wallet, [
+      token0.methods.mint_to_private(liquidityProvider, MINT_BALANCE),
+      token1.methods.mint_to_private(liquidityProvider, MINT_BALANCE),
+    ]).send({ from: liquidityProvider });
 
-    this.log.info(`Sent mint tx: ${await mintTx.getTxHash()}`);
+    this.log.info(`Sent mint tx: ${(await mintTx.getTxHash()).toString()}`);
     await mintTx.wait({ timeout: this.config.txMinedWaitSeconds });
 
     const addLiquidityTx = amm.methods
       .add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, authwitNonce)
       .send({
+        from: liquidityProvider,
         authWitnesses: [token0Authwit, token1Authwit],
       });
 
-    this.log.info(`Sent tx to add liquidity to the AMM: ${await addLiquidityTx.getTxHash()}`);
+    this.log.info(`Sent tx to add liquidity to the AMM: ${(await addLiquidityTx.getTxHash()).toString()}`);
     await addLiquidityTx.wait({ timeout: this.config.txMinedWaitSeconds });
     this.log.info(`Liquidity added`);
 
     const [newT0Bal, newT1Bal, newLPBal] = await getPrivateBalances();
     this.log.info(
-      `Updated private balances of ${wallet.getAddress()} after minting and funding AMM: token0=${newT0Bal}, token1=${newT1Bal}, lp=${newLPBal}`,
+      `Updated private balances of ${defaultAccountAddress} after minting and funding AMM: token0=${newT0Bal}, token1=${newT1Bal}, lp=${newLPBal}`,
     );
   }
 
@@ -307,17 +324,15 @@ export class BotFactory {
     deployOpts: DeployOptions,
   ): Promise<T> {
     const address = (await deploy.getInstance(deployOpts)).address;
-    if ((await this.pxe.getContractMetadata(address)).isContractPubliclyDeployed) {
+    if ((await this.pxe.getContractMetadata(address)).isContractPublished) {
       this.log.info(`Contract ${name} at ${address.toString()} already deployed`);
       return deploy.register();
     } else {
       this.log.info(`Deploying contract ${name} at ${address.toString()}`);
       const sentTx = deploy.send(deployOpts);
       const txHash = await sentTx.getTxHash();
-      this.log.info(`Sent tx with hash ${txHash.toString()}`);
-      await this.tryFlushTxs();
-      this.log.verbose(`Waiting for contract ${name} setup to settle`);
-      return sentTx.deployed({ timeout: this.config.txMinedWaitSeconds });
+      this.log.info(`Sent contract ${name} setup tx with hash ${txHash.toString()}`);
+      return this.withNoMinTxsPerBlock(() => sentTx.deployed({ timeout: this.config.txMinedWaitSeconds }));
     }
   }
 
@@ -325,43 +340,39 @@ export class BotFactory {
    * Mints private and public tokens for the sender if their balance is below the minimum.
    * @param token - Token contract.
    */
-  private async mintTokens(token: TokenContract | EasyPrivateTokenContract) {
-    const sender = token.wallet.getAddress();
+  private async mintTokens(token: TokenContract | PrivateTokenContract, minter: AztecAddress) {
     const isStandardToken = isStandardTokenContract(token);
     let privateBalance = 0n;
     let publicBalance = 0n;
 
     if (isStandardToken) {
-      ({ privateBalance, publicBalance } = await getBalances(token, sender));
+      ({ privateBalance, publicBalance } = await getBalances(token, minter));
     } else {
-      privateBalance = await getPrivateBalance(token, sender);
+      privateBalance = await getPrivateBalance(token, minter);
     }
 
     const calls: ContractFunctionInteraction[] = [];
     if (privateBalance < MIN_BALANCE) {
-      this.log.info(`Minting private tokens for ${sender.toString()}`);
+      this.log.info(`Minting private tokens for ${minter.toString()}`);
 
-      const from = sender; // we are setting from to sender here because we need a sender to calculate the tag
       calls.push(
         isStandardToken
-          ? token.methods.mint_to_private(from, sender, MINT_BALANCE)
-          : token.methods.mint(MINT_BALANCE, sender),
+          ? token.methods.mint_to_private(minter, MINT_BALANCE)
+          : token.methods.mint(MINT_BALANCE, minter),
       );
     }
     if (isStandardToken && publicBalance < MIN_BALANCE) {
-      this.log.info(`Minting public tokens for ${sender.toString()}`);
-      calls.push(token.methods.mint_to_public(sender, MINT_BALANCE));
+      this.log.info(`Minting public tokens for ${minter.toString()}`);
+      calls.push(token.methods.mint_to_public(minter, MINT_BALANCE));
     }
     if (calls.length === 0) {
-      this.log.info(`Skipping minting as ${sender.toString()} has enough tokens`);
+      this.log.info(`Skipping minting as ${minter.toString()} has enough tokens`);
       return;
     }
-    const sentTx = new BatchCall(token.wallet, calls).send();
+    const sentTx = new BatchCall(token.wallet, calls).send({ from: minter });
     const txHash = await sentTx.getTxHash();
-    this.log.info(`Sent tx with hash ${txHash.toString()}`);
-    await this.tryFlushTxs();
-    this.log.verbose('Waiting for token mint to settle');
-    await sentTx.wait({ timeout: this.config.txMinedWaitSeconds });
+    this.log.info(`Sent token mint tx with hash ${txHash.toString()}`);
+    await this.withNoMinTxsPerBlock(() => sentTx.wait({ timeout: this.config.txMinedWaitSeconds }));
   }
 
   private async bridgeL1FeeJuice(recipient: AztecAddress) {
@@ -369,7 +380,7 @@ export class BotFactory {
     if (!l1RpcUrls?.length) {
       throw new Error('L1 Rpc url is required to bridge the fee juice to fund the deployment of the account.');
     }
-    const mnemonicOrPrivateKey = this.config.l1PrivateKey || this.config.l1Mnemonic;
+    const mnemonicOrPrivateKey = this.config.l1PrivateKey?.getValue() ?? this.config.l1Mnemonic?.getValue();
     if (!mnemonicOrPrivateKey) {
       throw new Error(
         'Either a mnemonic or private key of an L1 account is required to bridge the fee juice to fund the deployment of the account.',
@@ -385,7 +396,7 @@ export class BotFactory {
     const claim = await portal.bridgeTokensPublic(recipient, mintAmount, true /* mint */);
 
     const isSynced = async () => await this.pxe.isL1ToL2MessageSynced(Fr.fromHexString(claim.messageHash));
-    await retryUntil(isSynced, `message ${claim.messageHash} sync`, 24, 1);
+    await retryUntil(isSynced, `message ${claim.messageHash} sync`, this.config.l1ToL2MessageTimeoutSeconds, 1);
 
     this.log.info(`Created a claim for ${mintAmount} L1 fee juice to ${recipient}.`, claim);
 
@@ -396,20 +407,23 @@ export class BotFactory {
     return claim;
   }
 
-  private async advanceL2Block() {
-    const initialBlockNumber = await this.node!.getBlockNumber();
-    await this.tryFlushTxs();
-    await retryUntil(async () => (await this.node!.getBlockNumber()) >= initialBlockNumber + 1);
+  private async withNoMinTxsPerBlock<T>(fn: () => Promise<T>): Promise<T> {
+    if (!this.nodeAdmin || !this.config.flushSetupTransactions) {
+      return fn();
+    }
+    const { minTxsPerBlock } = await this.nodeAdmin.getConfig();
+    await this.nodeAdmin.setConfig({ minTxsPerBlock: 0 });
+    try {
+      return await fn();
+    } finally {
+      await this.nodeAdmin.setConfig({ minTxsPerBlock });
+    }
   }
 
-  private async tryFlushTxs() {
-    if (this.config.flushSetupTransactions) {
-      this.log.verbose('Flushing transactions');
-      try {
-        await this.nodeAdmin!.flushTxs();
-      } catch (err) {
-        this.log.error(`Failed to flush transactions: ${err}`);
-      }
-    }
+  private async advanceL2Block() {
+    await this.withNoMinTxsPerBlock(async () => {
+      const initialBlockNumber = await this.node!.getBlockNumber();
+      await retryUntil(async () => (await this.node!.getBlockNumber()) >= initialBlockNumber + 1);
+    });
   }
 }

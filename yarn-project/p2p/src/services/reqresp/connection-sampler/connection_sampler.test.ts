@@ -8,7 +8,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { ConnectionSampler, type RandomSampler } from './connection_sampler.js';
 
 describe('ConnectionSampler', () => {
-  let sampler: ConnectionSampler;
+  let sampler: TestConnectionSampler;
   let mockLibp2p: any;
   let peers: PeerId[];
   let excluding: Map<string, boolean>;
@@ -27,13 +27,21 @@ describe('ConnectionSampler', () => {
     mockRandomSampler = mock<RandomSampler>();
     mockRandomSampler.random.mockReturnValue(0);
 
-    sampler = new ConnectionSampler(mockLibp2p, 500, mockRandomSampler);
+    sampler = new TestConnectionSampler(mockLibp2p, mockRandomSampler, undefined, { cleanupIntervalMs: 500 });
     excluding = new Map();
   });
 
   afterEach(async () => {
     await sampler.stop();
   });
+
+  const makeStream = (id: string) =>
+    ({
+      id,
+      status: 'open',
+      metadata: {},
+      close: jest.fn<Stream['close']>().mockImplementation(() => Promise.resolve()) as () => Promise<void>,
+    }) as Stream;
 
   describe('getPeer', () => {
     it('returns a random peer from the list', () => {
@@ -49,8 +57,8 @@ describe('ConnectionSampler', () => {
 
     it('attempts to find peer with no active connections', async () => {
       // Setup: Create active connection to first two peers
-      const mockStream1: Partial<Stream> = { id: '1', close: jest.fn() } as Partial<Stream>;
-      const mockStream2: Partial<Stream> = { id: '2', close: jest.fn() } as Partial<Stream>;
+      const mockStream1 = makeStream('1');
+      const mockStream2 = makeStream('2');
 
       mockLibp2p.dialProtocol.mockResolvedValueOnce(mockStream1).mockResolvedValueOnce(mockStream2);
 
@@ -81,11 +89,7 @@ describe('ConnectionSampler', () => {
 
   describe('connection management', () => {
     it('correctly tracks active connections', async () => {
-      const mockStream: Partial<Stream> = {
-        id: '1',
-        status: 'open',
-        close: jest.fn().mockImplementation(() => Promise.resolve()),
-      } as Partial<Stream>;
+      const mockStream = makeStream('1');
 
       mockLibp2p.dialProtocol.mockResolvedValue(mockStream);
 
@@ -94,113 +98,98 @@ describe('ConnectionSampler', () => {
       expect(stream).toBe(mockStream);
 
       // Verify internal state
-      expect((sampler as any).activeConnectionsCount.get(peers[0])).toBe(1);
-      expect((sampler as any).streams.has('1')).toBe(true);
+      expect(sampler.activeConnectionsCount.get(peers[0].toString())).toBe(1);
+      expect(sampler.streams.has(mockStream)).toBe(true);
 
       // Close connection
-      await sampler.close('1');
+      await sampler.close(stream);
 
       // Verify cleanup
-      expect((sampler as any).activeConnectionsCount.get(peers[0])).toBe(0);
-      expect((sampler as any).streams.has('1')).toBe(false);
+      expect(sampler.activeConnectionsCount.get(peers[0].toString())).toBe(0);
+      expect(sampler.streams.has(mockStream)).toBe(false);
       expect(mockStream.close).toHaveBeenCalled();
     });
 
     it('handles multiple connections to same peer', async () => {
-      const mockStream1: Partial<Stream> = {
-        id: '1',
-        close: jest.fn(),
-      } as Partial<Stream>;
-      const mockStream2: Partial<Stream> = {
-        id: '2',
-        close: jest.fn(),
-      } as Partial<Stream>;
+      const mockStream1 = makeStream('1');
+      const mockStream2 = makeStream('2');
 
       mockLibp2p.dialProtocol.mockResolvedValueOnce(mockStream1).mockResolvedValueOnce(mockStream2);
 
       await sampler.dialProtocol(peers[0], 'test');
       await sampler.dialProtocol(peers[0], 'test');
 
-      expect((sampler as any).activeConnectionsCount.get(peers[0])).toBe(2);
+      expect(sampler.activeConnectionsCount.get(peers[0].toString())).toBe(2);
 
-      await sampler.close('1');
-      expect((sampler as any).activeConnectionsCount.get(peers[0])).toBe(1);
+      await sampler.close(mockStream1 as Stream);
+      expect(sampler.activeConnectionsCount.get(peers[0].toString())).toBe(1);
 
-      await sampler.close('2');
-      expect((sampler as any).activeConnectionsCount.get(peers[0])).toBe(0);
+      await sampler.close(mockStream2 as Stream);
+      expect(sampler.activeConnectionsCount.get(peers[0].toString())).toBe(0);
     });
 
     it('handles errors during connection close', async () => {
-      const mockStream: Partial<Stream> = {
-        id: '1',
-        close: jest.fn().mockImplementation(() => Promise.reject(new Error('Failed to close'))),
-      } as Partial<Stream>;
+      const mockStream = makeStream('1');
 
       mockLibp2p.dialProtocol.mockResolvedValue(mockStream);
 
       await sampler.dialProtocol(peers[0], 'test');
-      await sampler.close('1');
+      await sampler.close(mockStream as Stream);
 
       // Should still clean up internal state even if close fails
-      expect((sampler as any).activeConnectionsCount.get(peers[0])).toBe(0);
-      expect((sampler as any).streams.has('1')).toBe(false);
+      expect(sampler.activeConnectionsCount.get(peers[0].toString())).toBe(0);
+      expect(sampler.streams.has(mockStream)).toBe(false);
+    });
+
+    it('does not accidentally close a stream for another peer', async () => {
+      // We make two streams for different peers but with the same id
+      const mockStream1 = makeStream('1');
+      const mockStream2 = makeStream('1');
+
+      mockLibp2p.dialProtocol.mockResolvedValueOnce(mockStream1).mockResolvedValueOnce(mockStream2);
+
+      const stream1 = await sampler.dialProtocol(peers[0], 'test');
+      const stream2 = await sampler.dialProtocol(peers[1], 'test');
+      expect(stream1).toBe(mockStream1);
+      expect(stream2).toBe(mockStream2);
+
+      await sampler.close(stream1 as Stream);
+      expect(mockStream1.close).toHaveBeenCalled();
+      expect(mockStream2.close).not.toHaveBeenCalled();
     });
   });
 
   describe('cleanup', () => {
     it('cleans up stale connections', async () => {
-      const mockStream: Partial<Stream> = {
-        id: '1',
-        close: jest.fn(),
-        status: 'open',
-      } as Partial<Stream>;
+      const mockStream = makeStream('1');
 
       mockLibp2p.dialProtocol.mockResolvedValue(mockStream);
       await sampler.dialProtocol(peers[0], 'test');
 
       // Manually set activeConnectionsCount to 0 to simulate lost accounting
-      (sampler as any).activeConnectionsCount.set(peers[0], 0);
+      sampler.activeConnectionsCount.set(peers[0].toString(), 0);
 
       // Trigger cleanup
       await sleep(600);
 
       expect(mockStream.close).toHaveBeenCalled();
-      expect((sampler as any).streams.has('1')).toBe(false);
+      expect(sampler.streams.has(mockStream)).toBe(false);
     });
 
     it('properly cleans up on stop', async () => {
-      const mockStream1: Partial<Stream> = {
-        id: '1',
-        close: jest.fn(),
-        status: 'open',
-      } as Partial<Stream>;
-      const mockStream2: Partial<Stream> = {
-        id: '2',
-        close: jest.fn(),
-        status: 'open',
-      } as Partial<Stream>;
-      const mockStream3: Partial<Stream> = {
-        id: '3',
-        close: jest.fn(),
-        status: 'closed',
-      } as Partial<Stream>;
+      const mockStream1 = makeStream('1');
+      const mockStream2 = makeStream('2');
 
-      mockLibp2p.dialProtocol
-        .mockResolvedValueOnce(mockStream1)
-        .mockResolvedValueOnce(mockStream2)
-        .mockResolvedValueOnce(mockStream3);
+      mockLibp2p.dialProtocol.mockResolvedValueOnce(mockStream1).mockResolvedValueOnce(mockStream2);
 
       await sampler.dialProtocol(peers[0], 'test');
       await sampler.dialProtocol(peers[1], 'test');
-      await sampler.dialProtocol(peers[2], 'test');
 
       await sampler.stop();
 
       expect(mockStream1.close).toHaveBeenCalled();
       expect(mockStream2.close).toHaveBeenCalled();
-      // If the stream was already closed, close should not be called again
-      expect(mockStream3.close).not.toHaveBeenCalled();
-      expect((sampler as any).streams.size).toBe(0);
+      expect(sampler.streams.size).toBe(0);
     });
   });
 
@@ -217,7 +206,7 @@ describe('ConnectionSampler', () => {
 
       mockRandomSampler = mock<RandomSampler>();
       mockRandomSampler.random.mockReturnValue(0);
-      sampler = new ConnectionSampler(mockLibp2p, 1000, mockRandomSampler);
+      sampler = new TestConnectionSampler(mockLibp2p, mockRandomSampler, undefined, { cleanupIntervalMs: 1000 });
     });
 
     it('should only return samples as many peers as available', () => {
@@ -234,8 +223,8 @@ describe('ConnectionSampler', () => {
         .mockReturnValue(0);
 
       // Set up some peers with active connections
-      sampler['activeConnectionsCount'].set(peers[3], 1);
-      sampler['activeConnectionsCount'].set(peers[4], 2);
+      sampler['activeConnectionsCount'].set(peers[3].toString(), 1);
+      sampler['activeConnectionsCount'].set(peers[4].toString(), 2);
 
       // Sample 3 peers
       const sampledPeers = sampler.samplePeersBatch(3);
@@ -252,10 +241,10 @@ describe('ConnectionSampler', () => {
 
     it('falls back to peers with connections when needed', () => {
       // Set up most peers with active connections
-      sampler['activeConnectionsCount'].set(peers[1], 1);
-      sampler['activeConnectionsCount'].set(peers[2], 1);
-      sampler['activeConnectionsCount'].set(peers[3], 1);
-      sampler['activeConnectionsCount'].set(peers[4], 1);
+      sampler['activeConnectionsCount'].set(peers[1].toString(), 1);
+      sampler['activeConnectionsCount'].set(peers[2].toString(), 1);
+      sampler['activeConnectionsCount'].set(peers[3].toString(), 1);
+      sampler['activeConnectionsCount'].set(peers[4].toString(), 1);
 
       mockRandomSampler.random.mockReturnValue(0); // Always pick first available peer
 
@@ -269,7 +258,7 @@ describe('ConnectionSampler', () => {
 
     it('handles case when all peers have active connections', () => {
       // Set up all peers with active connections
-      peers.forEach(peer => sampler['activeConnectionsCount'].set(peer, 1));
+      peers.forEach(peer => sampler['activeConnectionsCount'].set(peer.toString(), 1));
 
       mockRandomSampler.random.mockReturnValue(0); // Always pick first available peer
 
@@ -309,3 +298,9 @@ describe('ConnectionSampler', () => {
     });
   });
 });
+
+class TestConnectionSampler extends ConnectionSampler {
+  declare activeConnectionsCount: Map<string, number>;
+  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
+  declare streams: Set<Stream>;
+}

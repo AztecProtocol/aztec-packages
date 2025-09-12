@@ -7,9 +7,8 @@ cmd=${1:-}
 function hash {
   hash_str \
     $(../noir/bootstrap.sh hash) \
-    $(cache_content_hash \
-      ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
-      ../barretenberg/*/.rebuild_patterns)
+    $(../barretenberg/bootstrap.sh hash) \
+    $(cache_content_hash ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns)
 }
 
 function compile_project {
@@ -23,11 +22,10 @@ function get_projects {
   if [ "${1:-}" == 'topological' ]; then
     yarn workspaces foreach --topological-dev -A \
       --exclude @aztec/aztec3-packages \
-      --exclude @aztec/noir-bb-bench \
       --exclude @aztec/scripts \
       exec 'basename $(pwd)' | cat | grep -v "Done"
   else
-    dirname */src l1-artifacts/generated | grep -vE 'noir-bb-bench'
+    dirname */src l1-artifacts/generated
   fi
 }
 
@@ -52,15 +50,12 @@ function compile_all {
   if cache_download yarn-project-$hash.tar.gz; then
     return
   fi
-  # hack, after running prettier foundation may fail to resolve hash.js dependency.
-  # it is only currently foundation, presumably because hash.js looks like a js file.
-  rm -rf foundation/node_modules
+
   compile_project ::: constants foundation stdlib builder ethereum l1-artifacts
 
   # Call all projects that have a generation stage.
   parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
     accounts \
-    bb-prover \
     stdlib \
     ivc-integration \
     l1-artifacts \
@@ -73,6 +68,10 @@ function compile_all {
   cat joblog.txt
 
   get_projects | compile_project
+
+  # Run oracle version check for pxe after compilation
+  cd pxe && yarn check_oracle_version
+  cd ..
 
   cmds=('format --check')
   if [ "${TYPECHECK:-0}" -eq 1 ] || [ "${CI:-0}" -eq 1 ]; then
@@ -101,12 +100,18 @@ function build {
 
 function test_cmds {
   local hash=$(hash)
+  local avm_flag=$(../barretenberg/cpp/bootstrap.sh hash | grep -qE no-avm && echo "no-avm" || echo "avm")
 
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
   # kv-store: Uses mocha so will need different treatment.
-  # noir-bb-bench: A slow pain. Figure out later.
-  for test in !(end-to-end|kv-store|noir-bb-bench|aztec)/src/**/*.test.ts; do
+  for test in !(end-to-end|kv-store|aztec)/src/**/*.test.ts; do
+    # If AVM is disabled, filter out avm_proving_tests/*.test.ts and avm_integration.test.ts
+    # Also must filter out rollup_ivc_integration.test.ts as it includes AVM proving.
+    if [[ $avm_flag == "no-avm" && "$test" =~ (avm_proving_tests|avm_integration|rollup_ivc_integration) ]]; then
+      continue
+    fi
+
     local prefix=$hash
     local cmd_env=""
 
@@ -118,24 +123,29 @@ function test_cmds {
     # Boost some tests resources.
     if [[ "$test" =~ testbench ]]; then
       prefix+=":CPUS=10:MEM=16g"
-    fi
-    if [[ "$test" =~ ^ivc-integration/ ]]; then
+    elif [[ "$test" =~ ^ivc-integration/ ]]; then
       prefix+=":CPUS=8"
     fi
 
     # Add debug logging for tests that require a bit more info
-    if [[ "$test" == p2p/src/client/p2p_client.test.ts || "$test" == p2p/src/services/discv5/discv5_service.test.ts ]]; then
+    if [[ "$test" == p2p/src/client/p2p_client.test.ts || "$test" == p2p/src/services/discv5/discv5_service.test.ts || "$test" == p2p/src/client/p2p_client.integration.test.ts ]]; then
       cmd_env+=" LOG_LEVEL=debug"
+    elif [[ "$test" =~ e2e_p2p ]]; then
+      cmd_env+=" LOG_LEVEL='verbose; debug:p2p'"
     fi
 
     # Enable real proofs in prover-client integration tests only on CI full.
     if [[ "$test" =~ ^prover-client/src/test/ ]]; then
       if [ "$CI_FULL" -eq 1 ]; then
         prefix+=":CPUS=16:MEM=96g"
-        cmd_env+=" LOG_LEVEL=verbose"
+        cmd_env+=" LOG_LEVEL=verbose HARDWARE_CONCURRENCY=16"
       else
         cmd_env+=" FAKE_PROOFS=1"
       fi
+    fi
+
+    if [[ "$test" =~ rollup_ivc_integration || "$test" =~ avm_integration ]]; then
+      cmd_env+=" LOG_LEVEL=debug BB_VERBOSE=1 "
     fi
 
     echo "${prefix}${cmd_env} yarn-project/scripts/run_test.sh $test"
@@ -145,20 +155,25 @@ function test_cmds {
   echo "$hash cd yarn-project/kv-store && yarn test"
   echo "$hash cd yarn-project/ivc-integration && yarn test:browser"
 
-  if [ "$CI" -eq 0 ] || [[ "${TARGET_BRANCH:-}" == "master" ]]; then
-    echo "$hash yarn-project/scripts/run_test.sh aztec/src/test/testnet_compatibility.test.ts"
+  if [[ "${TARGET_BRANCH:-}" == "master" || "${TARGET_BRANCH:-}" == "staging" ]]; then
+    echo "$hash yarn-project/scripts/run_test.sh aztec/src/testnet_compatibility.test.ts"
   fi
 }
 
 function test {
   echo_header "yarn-project test"
-  test_cmds | filter_test_cmds | parallelise
+  test_cmds | filter_test_cmds | parallelize
 }
 
 function bench_cmds {
   local hash=$(hash)
   echo "$hash BENCH_OUTPUT=bench-out/sim.bench.json yarn-project/scripts/run_test.sh simulator/src/public/public_tx_simulator/apps_tests/bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/native_world_state.bench.json yarn-project/scripts/run_test.sh world-state/src/native/native_bench.test.ts"
+  echo "$hash BENCH_OUTPUT=bench-out/kv_store.bench.json yarn-project/scripts/run_test.sh kv-store/src/bench/map_bench.test.ts"
+  echo "$hash BENCH_OUTPUT=bench-out/tx_pool.bench.json yarn-project/scripts/run_test.sh p2p/src/mem_pools/tx_pool/tx_pool_bench.test.ts"
+  echo "$hash BENCH_OUTPUT=bench-out/tx.bench.json yarn-project/scripts/run_test.sh stdlib/src/tx/tx_bench.test.ts"
+  echo "$hash:ISOLATE=1:CPUS=10:MEM=16g:LOG_LEVEL=silent BENCH_OUTPUT=bench-out/proving_broker.bench.json yarn-project/scripts/run_test.sh prover-client/src/test/proving_broker_testbench.test.ts"
+  echo "$hash:ISOLATE=1:CPUS=16:MEM=16g BENCH_OUTPUT=bench-out/avm_bulk_test.bench.json yarn-project/scripts/run_test.sh bb-prover/src/avm_proving_tests/avm_bulk.test.ts"
 }
 
 function release_packages {
@@ -175,9 +190,8 @@ function release_packages {
   cd "$dir"
   do_or_dryrun npm init -y
   # NOTE: originally this was on one line, but sometimes snagged downloading end-to-end (most recently published package).
-  # Strictly speaking this could need a retry, but the natural time this takes should make it available by install time.
   for package in "${package_list[@]}"; do
-    do_or_dryrun npm install $package
+    retry "do_or_dryrun npm install $package"
   done
   rm -rf "$dir"
 }
@@ -214,6 +228,35 @@ case "$cmd" in
     else
       get_projects | compile_project
     fi
+    ;;
+  instrumented_profile)
+    # Automatically hooks sites with benchmarking instrumentation.
+    if [ "$#" -gt 1 ]; then
+      echo "Usage: ./bootstrap.sh profile <command>"
+      exit 1
+    fi
+    cmd=$1
+    # Refuse to continue if there are uncommitted changes to tracked files.
+    if [ -n "$(git status --porcelain | grep -v '^??')" ]; then
+      echo "Please commit or stash your changes before running this command."
+      exit 1
+    fi
+    rm -f profile-*.json
+    echo "NOTE: If you interrupt this you may have a dirty git state or build state. Otherwise it will clean up."
+    ( cd ./scripts/instrumenting-profiler && npm install )
+    ./scripts/instrumenting-profiler/instrument.sh
+    denoise "./bootstrap.sh compile"
+    pwd=$(pwd)
+    cleanup_instrumentation() {
+      # we may have changed paths
+      git checkout "$pwd"
+      denoise "cd '$pwd' && ./bootstrap.sh compile"
+      for f in profile-*.json; do
+        echo "To print: ./scripts/instrumenting-profiler/print.mjs $(pwd)/$f"
+      done
+    }
+    trap cleanup_instrumentation EXIT
+    eval "$cmd"
     ;;
   lint|format)
     $cmd "$@"

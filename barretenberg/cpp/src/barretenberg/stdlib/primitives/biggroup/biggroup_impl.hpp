@@ -6,8 +6,9 @@
 
 #pragma once
 
-#include "../bit_array/bit_array.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
+#include "../plookup/plookup.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
@@ -88,6 +89,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     const bool_ct double_predicate = (x_coordinates_match && y_coordinates_match);
     const bool_ct lhs_infinity = is_point_at_infinity();
     const bool_ct rhs_infinity = other.is_point_at_infinity();
+    const bool_ct has_infinity_input = lhs_infinity || rhs_infinity;
 
     // Compute the gradient `lambda`. If we add, `lambda = (y2 - y1)/(x2 - x1)`, else `lambda = 3x1*x1/2y1
     const Fq add_lambda_numerator = other.y - y;
@@ -102,8 +104,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     // divide by zero error.
     // Note: if either inputs are points at infinity we will not use the result of this computation.
     Fq safe_edgecase_denominator = Fq(1);
-    lambda_denominator = Fq::conditional_assign(
-        lhs_infinity || rhs_infinity || infinity_predicate, safe_edgecase_denominator, lambda_denominator);
+    lambda_denominator =
+        Fq::conditional_assign(has_infinity_input || infinity_predicate, safe_edgecase_denominator, lambda_denominator);
     const Fq lambda = Fq::div_without_denominator_check({ lambda_numerator }, lambda_denominator);
 
     const Fq x3 = lambda.sqradd({ -other.x, -x });
@@ -121,15 +123,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     // yes = infinity_predicate && !lhs_infinity && !rhs_infinity
     // yes = lhs_infinity && rhs_infinity
     // n.b. can likely optimize this
-    bool_ct result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
-    if constexpr (IsUltraBuilder<C>) {
-        result_is_infinity.get_context()->update_used_witnesses(result_is_infinity.witness_index);
-    }
-    result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
-    if constexpr (IsUltraBuilder<C>) {
-        result_is_infinity.get_context()->update_used_witnesses(result_is_infinity.witness_index);
-    }
-    result.set_point_at_infinity(result_is_infinity);
+    bool_ct result_is_infinity = (infinity_predicate && !has_infinity_input) || (lhs_infinity && rhs_infinity);
+    result.set_point_at_infinity(result_is_infinity, /* add_to_used_witnesses */ true);
 
     result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     return result;
@@ -139,7 +134,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
  * @brief Enforce x and y coordinates of a point to be (0,0) in the case of point at infinity
  *
  * @details We need to have a standard witness in Noir and the point at infinity can have non-zero random coefficients
- * when we get it as output from our optimised algorithms. This function returns a (0,0) point, if it is a point at
+ * when we get it as output from our optimized algorithms. This function returns a (0,0) point, if it is a point at
  * infinity
  */
 template <typename C, class Fq, class Fr, class G>
@@ -166,6 +161,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) con
     const bool_ct double_predicate = (x_coordinates_match && !y_coordinates_match);
     const bool_ct lhs_infinity = is_point_at_infinity();
     const bool_ct rhs_infinity = other.is_point_at_infinity();
+    const bool_ct has_infinity_input = lhs_infinity || rhs_infinity;
 
     // Compute the gradient `lambda`. If we add, `lambda = (y2 - y1)/(x2 - x1)`, else `lambda = 3x1*x1/2y1
     const Fq add_lambda_numerator = -other.y - y;
@@ -180,8 +176,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) con
     // divide by zero error.
     // (if either inputs are points at infinity we will not use the result of this computation)
     Fq safe_edgecase_denominator = Fq(1);
-    lambda_denominator = Fq::conditional_assign(
-        lhs_infinity || rhs_infinity || infinity_predicate, safe_edgecase_denominator, lambda_denominator);
+    lambda_denominator =
+        Fq::conditional_assign(has_infinity_input || infinity_predicate, safe_edgecase_denominator, lambda_denominator);
     const Fq lambda = Fq::div_without_denominator_check({ lambda_numerator }, lambda_denominator);
 
     const Fq x3 = lambda.sqradd({ -other.x, -x });
@@ -199,15 +195,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) con
     // yes = infinity_predicate && !lhs_infinity && !rhs_infinity
     // yes = lhs_infinity && rhs_infinity
     // n.b. can likely optimize this
-    bool_ct result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
-    if constexpr (IsUltraBuilder<C>) {
-        result_is_infinity.get_context()->update_used_witnesses(result_is_infinity.witness_index);
-    }
-    result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
-    if constexpr (IsUltraBuilder<C>) {
-        result_is_infinity.get_context()->update_used_witnesses(result_is_infinity.witness_index);
-    }
-    result.set_point_at_infinity(result_is_infinity);
+    bool_ct result_is_infinity = (infinity_predicate && !has_infinity_input) || (lhs_infinity && rhs_infinity);
+
+    result.set_point_at_infinity(result_is_infinity, /* add_to_used_witnesses */ true);
     result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     return result;
 }
@@ -515,7 +505,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::quadruple_and_add(const std::vector
         x_1 = minus_lambda_dbl.sqradd({ -(two_x) });
     }
 
-    ASSERT(to_add.size() > 0);
+    BB_ASSERT_GT(to_add.size(), 0);
     to_add[0].x.assert_is_not_equal(x_1);
 
     const Fq x_minus_x_1 = x - x_1;
@@ -796,7 +786,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
         std::tie(points, scalars) = mask_points(points, scalars);
     }
     const size_t num_points = points.size();
-    ASSERT(scalars.size() == num_points);
+    BB_ASSERT_EQ(scalars.size(), num_points);
 
     batch_lookup_table point_table(points);
     const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
@@ -859,7 +849,7 @@ template <typename C, class Fq, class Fr, class G>
  */
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::scalar_mul(const Fr& scalar, const size_t max_num_bits) const
 {
-    ASSERT(max_num_bits % 2 == 0);
+    BB_ASSERT_EQ(max_num_bits % 2, 0U);
     /**
      *
      * Let's say we have some curve E defined over a field Fq. The order of E is p, which is prime.

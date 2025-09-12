@@ -1,6 +1,7 @@
 import { EcdsaRAccountContractArtifact } from '@aztec/accounts/ecdsa';
-import { AccountWallet, type DeployOptions, Fr, type PXE, registerContractClass } from '@aztec/aztec.js';
+import { AztecAddress, type DeployOptions, Fr, type Wallet, publishContractClass } from '@aztec/aztec.js';
 import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
+import type { TestWallet } from '@aztec/test-wallet';
 
 import { jest } from '@jest/globals';
 
@@ -11,24 +12,26 @@ jest.setTimeout(300_000);
 
 describe('Deployment benchmark', () => {
   const t = new ClientFlowsBenchmark('deployments');
+
+  let adminWallet: Wallet;
   // The admin that aids in the setup of the test
-  let adminWallet: AccountWallet;
+  let adminAddress: AztecAddress;
   // Sponsored FPC contract
   let sponsoredFPC: SponsoredFPCContract;
   // Benchmarking configuration
   const config = t.config.accountDeployments;
-  // Benchmarking user's PXE
-  let userPXE: PXE;
+  // Benchmarking user's Wallet
+  let userWallet: Wallet;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyDeploySponsoredFPCSnapshot();
-    ({ adminWallet, sponsoredFPC, userPXE } = await t.setup());
-    // Ensure the ECDSAR1 contract is already registered, to avoid benchmarking an extra call to the ContractClassRegisterer
+    ({ adminWallet, adminAddress, sponsoredFPC, userWallet } = await t.setup());
+    // Ensure the ECDSAR1 contract is already registered, to avoid benchmarking an extra call to the ContractClassRegistry
     // The typical interaction would be for a user to deploy an account contract that is already registered in the
     // network.
-    const registerContractClassInteraction = await registerContractClass(adminWallet, EcdsaRAccountContractArtifact);
-    await registerContractClassInteraction.send().wait();
+    const publishContractClassInteraction = await publishContractClass(adminWallet, EcdsaRAccountContractArtifact);
+    await publishContractClassInteraction.send({ from: adminAddress }).wait();
   });
 
   afterAll(async () => {
@@ -43,27 +46,29 @@ describe('Deployment benchmark', () => {
     return describe(`Deployment benchmark for ${accountType}`, () => {
       function deploymentTest(benchmarkingPaymentMethod: BenchmarkingFeePaymentMethod) {
         return it(`Deploys a ${accountType} account contract, pays using ${benchmarkingPaymentMethod}`, async () => {
-          const benchysAccountManager = await t.createBenchmarkingAccountManager(userPXE, accountType);
-          const benchysWallet = await benchysAccountManager.getWallet();
+          const benchysAccountManager = await t.createBenchmarkingAccountManager(userWallet as TestWallet, accountType);
 
           if (benchmarkingPaymentMethod === 'sponsored_fpc') {
-            await benchysWallet.registerContract(sponsoredFPC);
+            await userWallet.registerContract(sponsoredFPC);
           }
+
+          const benchysAddress = benchysAccountManager.getAddress();
 
           const deploymentInteraction = await benchysAccountManager.getDeployMethod();
 
           const paymentMethod = t.paymentMethods[benchmarkingPaymentMethod];
           const wrappedPaymentMethod = await benchysAccountManager.getSelfPaymentMethod(
-            await paymentMethod.forWallet(benchysWallet),
+            await paymentMethod.forWallet(userWallet, benchysAddress),
           );
           const fee = { paymentMethod: wrappedPaymentMethod };
           // Publicly deploy the contract, but skip the class registration as that is the
           // "typical" use case
           const options: DeployOptions = {
+            from: AztecAddress.ZERO, // Self deployment
             fee,
             universalDeploy: true,
-            skipClassRegistration: true,
-            skipPublicDeployment: false,
+            skipClassPublication: true,
+            skipInstancePublication: false,
             skipInitialization: false,
             contractAddressSalt: new Fr(benchysAccountManager.salt),
           };
@@ -74,13 +79,14 @@ describe('Deployment benchmark', () => {
             options,
             1 + // Multicall entrypoint
               1 + // Kernel init
-              2 + // ContractInstanceDeployer deploy + kernel inner
-              2 + // ContractClassRegisterer assert_class_id_is_registered + kernel inner
+              2 + // ContractInstanceRegistry publish + kernel inner
+              2 + // ContractClassRegistry assert_class_id_is_published + kernel inner
               2 + // Account constructor + kernel inner
               2 + // Account entrypoint (wrapped fee payload) + kernel inner
               paymentMethod.circuits + // Payment method circuits
               1 + // Kernel reset
-              1, // Kernel tail
+              1 + // Kernel tail
+              1, // Kernel hiding
           );
 
           if (process.env.SANITY_CHECKS) {

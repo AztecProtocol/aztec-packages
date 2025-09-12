@@ -13,6 +13,7 @@ function base64ToUint8Array(base64: string): Uint8Array {
 export async function proveClientIVC(
   bytecodes: string[],
   witnessStack: Uint8Array[],
+  vks: string[],
   threads?: number,
 ): Promise<ClientIvcProof> {
   const { AztecClientBackend } = await import('@aztec/bb.js');
@@ -21,8 +22,11 @@ export async function proveClientIVC(
     { threads: threads || Math.min(os.cpus().length, 16), logger: logger.info },
   );
   try {
-    const [proof] = await backend.prove(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
-    return new ClientIvcProof(Buffer.from(proof));
+    const [proof] = await backend.prove(
+      witnessStack.map((arr: Uint8Array) => ungzip(arr)),
+      vks.map(hex => new Uint8Array(Buffer.from(hex, 'hex'))),
+    );
+    return ClientIvcProof.fromBufferArray(proof);
   } finally {
     await backend.destroy();
   }
@@ -31,6 +35,7 @@ export async function proveClientIVC(
 export async function proveThenVerifyAztecClient(
   bytecodes: string[],
   witnessStack: Uint8Array[],
+  vks: string[],
   threads?: number,
 ): Promise<boolean> {
   const { AztecClientBackend } = await import('@aztec/bb.js');
@@ -40,8 +45,11 @@ export async function proveThenVerifyAztecClient(
   );
   try {
     // These are optional - easier not to pass them.
-    const [proof, vk] = await backend.prove(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
-    const verified = await backend.verify(proof, vk);
+    const [_, msgpackProof, vk] = await backend.prove(
+      witnessStack.map((arr: Uint8Array) => ungzip(arr)),
+      vks.map(hex => new Uint8Array(Buffer.from(hex, 'hex'))),
+    );
+    const verified = await backend.verify(msgpackProof, vk);
     return verified;
   } finally {
     await backend.destroy();

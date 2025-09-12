@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/aztec.js';
-import { CheatCodes } from '@aztec/aztec.js/testing';
+import { CheatCodes } from '@aztec/aztec/testing';
 import { RollupContract } from '@aztec/ethereum';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 
@@ -8,17 +8,8 @@ import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 describe('e2e_cross_chain_messaging token_bridge_private', () => {
   const t = new CrossChainMessagingTest('token_bridge_private');
 
-  let {
-    crossChainTestHarness,
-    ethAccount,
-    aztecNode,
-    logger,
-    ownerAddress,
-    l2Bridge,
-    l2Token,
-    user1Wallet,
-    user2Wallet,
-  } = t;
+  let { crossChainTestHarness, ethAccount, aztecNode, logger, ownerAddress, l2Bridge, l2Token, wallet, user2Address } =
+    t;
   let rollup: RollupContract;
   let cheatCodes: CheatCodes;
 
@@ -26,7 +17,7 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     await t.applyBaseSnapshots();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
-    ({ crossChainTestHarness, user1Wallet, user2Wallet } = t);
+    ({ crossChainTestHarness, wallet, user2Address } = t);
 
     ethAccount = crossChainTestHarness.ethAccount;
     aztecNode = crossChainTestHarness.aztecNode;
@@ -72,7 +63,7 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     // 4. Give approval to bridge to burn owner's funds:
     const withdrawAmount = 9n;
     const authwitNonce = Fr.random();
-    const burnAuthwit = await user1Wallet.createAuthWit({
+    const burnAuthwit = await wallet.createAuthWit(ownerAddress, {
       caller: l2Bridge.address,
       action: l2Token.methods.burn_private(ownerAddress, withdrawAmount, authwitNonce),
     });
@@ -101,7 +92,7 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     await crossChainTestHarness.withdrawFundsFromBridgeOnL1(
       withdrawAmount,
       l2TxReceipt.blockNumber!,
-      l2ToL1MessageResult!.l2MessageIndex,
+      l2ToL1MessageResult!.leafIndex,
       l2ToL1MessageResult!.siblingPath,
     );
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount + withdrawAmount);
@@ -121,10 +112,9 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     await crossChainTestHarness.makeMessageConsumable(claim.messageHash);
 
     // send the right one -
-    await l2Bridge
-      .withWallet(user2Wallet)
-      .methods.claim_private(ownerAddress, bridgeAmount, claim.claimSecret, claim.messageLeafIndex)
-      .send()
+    await l2Bridge.methods
+      .claim_private(ownerAddress, bridgeAmount, claim.claimSecret, claim.messageLeafIndex)
+      .send({ from: user2Address })
       .wait();
 
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, bridgeAmount);

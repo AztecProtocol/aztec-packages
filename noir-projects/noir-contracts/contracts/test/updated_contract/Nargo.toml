@@ -7,4 +7,4 @@ type = "contract"
 [dependencies]
 aztec = { path = "../../../../aztec-nr/aztec" }
 value_note = { path = "../../../../aztec-nr/value-note" }
-contract_instance_deployer = { path = "../../protocol/contract_instance_deployer_contract" }
+contract_instance_registry = { path = "../../protocol/contract_instance_registry" }

@@ -1,4 +1,3 @@
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { timesParallel } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -11,14 +10,12 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
 import {
-  type BuildBlockOptions,
   type PublicProcessorValidator,
   WorldStateRunningState,
   type WorldStateSynchronizer,
   type WorldStateSynchronizerStatus,
 } from '@aztec/stdlib/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { mockTxForRollup } from '@aztec/stdlib/testing';
+import { makeStateReference, mockTxForRollup } from '@aztec/stdlib/testing';
 import { MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
@@ -45,7 +42,6 @@ describe('BlockBuilder', () => {
   let lastBlockNumber: number;
   let newBlockNumber: number;
   let globalVariables: GlobalVariables;
-  let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let fork: MockProxy<MerkleTreeWriteOperations>;
   let contractDataSource: MockProxy<ContractDataSource>;
@@ -71,7 +67,7 @@ describe('BlockBuilder', () => {
   };
 
   class TestBlockBuilder extends FullNodeBlockBuilder {
-    public override makeBlockBuilderDeps(_globalVariables: GlobalVariables, _opts: BuildBlockOptions) {
+    public override makeBlockBuilderDeps(_globalVariables: GlobalVariables) {
       return Promise.resolve({
         publicProcessorDBFork: fork,
         processor: publicProcessor,
@@ -90,9 +86,9 @@ describe('BlockBuilder', () => {
     globalVariables = new GlobalVariables(
       new Fr(chainId),
       new Fr(version),
-      new Fr(newBlockNumber),
+      newBlockNumber,
       new Fr(newSlotNumber),
-      Fr.ZERO,
+      /*timestamp=*/ 0n,
       coinbase,
       feeRecipient,
       gasFees,
@@ -106,18 +102,15 @@ describe('BlockBuilder', () => {
       l1ChainId: chainId,
       rollupVersion: version,
     };
-    l1ToL2MessageSource = mock<L1ToL2MessageSource>({
-      getL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
-      getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
-      getL2Tips: mockFn().mockResolvedValue({ latest: { number: lastBlockNumber, hash } }),
-    });
 
     fork = mock<MerkleTreeWriteOperations>({
       getInitialHeader: () => initialBlockHeader,
       getTreeInfo: (treeId: MerkleTreeId) =>
-        Promise.resolve({ treeId, root: Fr.random().toBuffer(), size: 99n, depth: 5 }),
+        Promise.resolve({ treeId, root: Fr.random().toBuffer(), size: 64n, depth: 5 }),
       findLeafIndices: (_treeId: MerkleTreeId, _values: any[]) => Promise.resolve([undefined]),
+      getStateReference: () => Promise.resolve(makeStateReference()),
     });
+
     worldState = mock<WorldStateSynchronizer>({
       fork: () => Promise.resolve(fork),
       syncImmediate: () => Promise.resolve(lastBlockNumber),
@@ -127,12 +120,13 @@ describe('BlockBuilder', () => {
         syncSummary: {
           latestBlockNumber: lastBlockNumber,
           latestBlockHash: hash,
-          finalisedBlockNumber: 0,
+          finalizedBlockNumber: 0,
           oldestHistoricBlockNumber: 0,
           treesAreSynched: true,
         },
       } satisfies WorldStateSynchronizerStatus),
     });
+
     contractDataSource = mock<ContractDataSource>();
     const dateProvider = new TestDateProvider();
     publicProcessor = mock<PublicProcessor>();
@@ -144,7 +138,7 @@ describe('BlockBuilder', () => {
 
       for await (const tx of pendingTxsIterator) {
         allTxs.push(tx);
-        const processedTx = await makeProcessedTxFromPrivateOnlyTx(
+        const processedTx = makeProcessedTxFromPrivateOnlyTx(
           tx,
           Fr.ZERO,
           new PublicDataWrite(Fr.random(), Fr.random()),
@@ -156,18 +150,18 @@ describe('BlockBuilder', () => {
       // Assuming all txs are processed successfully and none failed for this mock
       return [processedTxs, [], allTxs, []] as any;
     });
-    blockBuilder = new TestBlockBuilder(l1Constants, l1ToL2MessageSource, worldState, contractDataSource, dateProvider);
+    blockBuilder = new TestBlockBuilder(l1Constants, worldState, contractDataSource, dateProvider);
   });
 
   it('builds a block out of a single tx', async () => {
     const tx = await makeTx();
     const iterator = mockTxIterator([tx]);
 
-    const blockResult = await blockBuilder.buildBlock(iterator, globalVariables, {});
+    const blockResult = await blockBuilder.buildBlock(iterator, [], globalVariables, {});
     expect(publicProcessor.process).toHaveBeenCalledTimes(1);
     expect(publicProcessor.process).toHaveBeenCalledWith(iterator, {}, validator);
     logger.info('Built Block', blockResult.block);
-    expect(blockResult.block.header.globalVariables.blockNumber.toNumber()).toBe(newBlockNumber);
+    expect(blockResult.block.header.globalVariables.blockNumber).toBe(newBlockNumber);
     expect(blockResult.block.header.globalVariables.slotNumber.toNumber()).toBe(newSlotNumber);
     expect(blockResult.block.header.globalVariables.coinbase.toString()).toBe(coinbase.toString());
     expect(blockResult.block.header.globalVariables.feeRecipient.toString()).toBe(feeRecipient.toString());
@@ -175,13 +169,13 @@ describe('BlockBuilder', () => {
     expect(blockResult.block.header.globalVariables.chainId.toNumber()).toBe(chainId);
     expect(blockResult.block.header.globalVariables.version.toNumber()).toBe(version);
     expect(blockResult.block.body.txEffects.length).toBe(1);
-    expect(blockResult.block.body.txEffects[0].txHash).toBe(await tx.getTxHash());
+    expect(blockResult.block.body.txEffects[0].txHash).toBe(tx.getTxHash());
   });
 
   it('builds a block with the correct options', async () => {
     const txs = await timesParallel(5, i => makeTx(i * 0x10000));
     const deadline = new Date(Date.now() + 1000);
-    await blockBuilder.buildBlock(txs, globalVariables, {
+    await blockBuilder.buildBlock(txs, [], globalVariables, {
       maxTransactions: 4,
       deadline,
     });
@@ -198,7 +192,7 @@ describe('BlockBuilder', () => {
 
   it('builds a block for validation ignoring limits', async () => {
     const txs = await timesParallel(5, i => makeTx(i * 0x10000));
-    await blockBuilder.buildBlock(txs, globalVariables, {});
+    await blockBuilder.buildBlock(txs, [], globalVariables, {});
 
     expect(publicProcessor.process).toHaveBeenCalledWith(txs, {}, validator);
   });
@@ -215,9 +209,9 @@ describe('BlockBuilder', () => {
       const failedTxs: FailedTx[] = [];
 
       for await (const tx of pendingTxsIterator) {
-        if (validTxHashes.includes(await tx.getTxHash())) {
+        if (validTxHashes.includes(tx.getTxHash())) {
           usedTxs.push(tx);
-          const processedTx = await makeProcessedTxFromPrivateOnlyTx(
+          const processedTx = makeProcessedTxFromPrivateOnlyTx(
             tx,
             Fr.ZERO,
             new PublicDataWrite(Fr.random(), Fr.random()),
@@ -234,7 +228,7 @@ describe('BlockBuilder', () => {
       return [processedTxs, failedTxs, usedTxs, []] as any;
     });
 
-    const blockResult = await blockBuilder.buildBlock(txs, globalVariables, {});
+    const blockResult = await blockBuilder.buildBlock(txs, [], globalVariables, {});
     expect(blockResult.failedTxs).toEqual([{ tx: invalidTx, error: new Error() }]);
     expect(blockResult.usedTxs).toEqual(validTxs);
   });

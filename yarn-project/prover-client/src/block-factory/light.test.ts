@@ -1,7 +1,8 @@
 import { TestCircuitProver } from '@aztec/bb-prover';
-import { Blob, SpongeBlob } from '@aztec/blob-lib';
+import { BatchedBlob, BatchedBlobAccumulator, Blob, BlobAccumulatorPublicInputs, SpongeBlob } from '@aztec/blob-lib';
 import {
   BLOBS_PER_BLOCK,
+  CIVC_PROOF_LENGTH,
   FIELDS_PER_BLOB,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -9,34 +10,30 @@ import {
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
-  TUBE_VK_INDEX,
 } from '@aztec/constants';
 import { padArrayEnd, times, timesParallel } from '@aztec/foundation/collection';
-import { sha256ToField } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { BLS12Point, Fr } from '@aztec/foundation/fields';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
-import { ProtocolCircuitVkIndexes, ProtocolCircuitVks, TubeVk } from '@aztec/noir-protocol-circuits-types/server/vks';
-import type { ProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
-import { getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { getVkData } from '@aztec/noir-protocol-circuits-types/server/vks';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { MerkleTreeWriteOperations, ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
 import { BaseParityInputs, ParityPublicInputs, RootParityInput, RootParityInputs } from '@aztec/stdlib/parity';
-import { type RecursiveProof, makeEmptyRecursiveProof } from '@aztec/stdlib/proofs';
+import { ProofData, type RecursiveProof, makeEmptyRecursiveProof } from '@aztec/stdlib/proofs';
 import {
   type BaseOrMergeRollupPublicInputs,
+  BlockConstantData,
   BlockRootRollupBlobData,
   BlockRootRollupData,
   BlockRootRollupInputs,
-  ConstantRollupData,
   EmptyBlockRootRollupInputs,
   MergeRollupInputs,
   PreviousRollupData,
   type PrivateBaseRollupHints,
   PrivateBaseRollupInputs,
-  PrivateTubeData,
   SingleTxBlockRootRollupInputs,
 } from '@aztec/stdlib/rollup';
 import { makeBloatedProcessedTx, makeGlobalVariables } from '@aztec/stdlib/testing';
@@ -48,13 +45,13 @@ import {
   StateReference,
   toNumBlobFields,
 } from '@aztec/stdlib/tx';
-import { VkData } from '@aztec/stdlib/vks';
 import { type MerkleTreeAdminDatabase, NativeWorldStateService } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
 
 import {
   buildHeaderFromCircuitOutputs,
+  getBlobsHashFromBlobs,
   getLastSiblingPath,
   getRootTreeSiblingPath,
   getSubtreeSiblingPath,
@@ -77,22 +74,19 @@ describe('LightBlockBuilder', () => {
 
   let emptyProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
   let emptyRollupProof: RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>;
+  let emptyCivcProof: RecursiveProof<typeof CIVC_PROOF_LENGTH>;
 
   let feePayer: AztecAddress;
   let feePayerSlot: Fr;
   let feePayerBalance: Fr;
   const expectedTxFee = new Fr(0x2200);
 
-  const getVkData = (artifact: ProtocolArtifact) => {
-    const vkIndex = ProtocolCircuitVkIndexes[artifact];
-    return new VkData(ProtocolCircuitVks[artifact], vkIndex, getVKSiblingPath(vkIndex));
-  };
-
   beforeAll(() => {
     simulator = new TestCircuitProver();
     vkTreeRoot = getVKTreeRoot();
     emptyProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
     emptyRollupProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH);
+    emptyCivcProof = makeEmptyRecursiveProof(CIVC_PROOF_LENGTH);
   });
 
   beforeEach(async () => {
@@ -237,21 +231,35 @@ describe('LightBlockBuilder', () => {
       getTopMerges = rollupOutputs => Promise.resolve(rollupOutputs);
     }
 
-    const rollupOutputs = await getPrivateBaseRollupOutputs(txs);
-    const previousRollups = await getTopMerges!(rollupOutputs);
     const l1ToL2Snapshot = await getL1ToL2Snapshot(l1ToL2Messages);
     const parityOutput = await getParityOutput(l1ToL2Messages);
-    const rootOutput = await getBlockRootOutput(previousRollups, parityOutput, l1ToL2Snapshot, txs);
+    const newL1ToL2TreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, expectsFork);
+    const rollupOutputs = await getPrivateBaseRollupOutputs(txs, newL1ToL2TreeSnapshot);
+    const previousRollups = await getTopMerges!(rollupOutputs);
+    const { startBlobAccumulator, blobData } = await getBlobData(txs);
+    const rootOutput = await getBlockRootOutput(
+      previousRollups,
+      parityOutput,
+      l1ToL2Snapshot,
+      newL1ToL2TreeSnapshot,
+      startBlobAccumulator,
+      blobData,
+    );
 
-    const messageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, expectsFork);
     const partialState = new PartialStateReference(
       await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE, expectsFork),
       await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE, expectsFork),
       await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE, expectsFork),
     );
-    const endState = new StateReference(messageTreeSnapshot, partialState);
+    const endState = new StateReference(newL1ToL2TreeSnapshot, partialState);
 
-    const expectedHeader = buildHeaderFromCircuitOutputs(previousRollups, parityOutput, rootOutput, endState);
+    const expectedHeader = buildHeaderFromCircuitOutputs(
+      previousRollups,
+      parityOutput,
+      rootOutput,
+      blobData.blobsHash,
+      endState,
+    );
 
     // Ensure that the expected mana used is the sum of the txs' gas used
     const expectedManaUsed = txs.reduce((acc, tx) => acc + tx.gasUsed.totalGas.l2Gas, 0);
@@ -277,20 +285,24 @@ describe('LightBlockBuilder', () => {
     return { messageTreeSnapshot, l1ToL2MessageSubtreeSiblingPath, l1ToL2Messages };
   };
 
-  const getPrivateBaseRollupOutputs = async (txs: ProcessedTx[]) => {
+  const getPrivateBaseRollupOutputs = async (txs: ProcessedTx[], newL1ToL2Snapshot: AppendOnlyTreeSnapshot) => {
     const rollupOutputs = [];
     const spongeBlobState = SpongeBlob.init(toNumBlobFields(txs));
     for (const tx of txs) {
-      const vkIndex = TUBE_VK_INDEX;
-      const vkPath = getVKSiblingPath(vkIndex);
-      const vkData = new VkData(TubeVk, vkIndex, vkPath);
-      const tubeData = new PrivateTubeData(
+      const vkData = getVkData('HidingKernelToRollup');
+      const hidingKernelProofData = new ProofData(
         tx.data.toPrivateToRollupKernelCircuitPublicInputs(),
-        emptyRollupProof,
+        emptyCivcProof,
         vkData,
       );
-      const hints = await insertSideEffectsAndBuildBaseRollupHints(tx, globalVariables, expectsFork, spongeBlobState);
-      const inputs = new PrivateBaseRollupInputs(tubeData, hints as PrivateBaseRollupHints);
+      const hints = await insertSideEffectsAndBuildBaseRollupHints(
+        tx,
+        globalVariables,
+        newL1ToL2Snapshot,
+        expectsFork,
+        spongeBlobState,
+      );
+      const inputs = new PrivateBaseRollupInputs(hidingKernelProofData, hints as PrivateBaseRollupHints);
       const result = await simulator.getPrivateBaseRollupProof(inputs);
       // Update `expectedTxFee` if the fee changes.
       expect(result.inputs.accumulatedFees).toEqual(expectedTxFee);
@@ -326,15 +338,36 @@ describe('LightBlockBuilder', () => {
     return result.inputs;
   };
 
+  const getBlobData = async (txs: ProcessedTx[]) => {
+    const blobFields = txs.map(tx => tx.txEffect.toBlobFields()).flat();
+    const blobs = await Blob.getBlobsPerBlock(blobFields);
+    const startBlobAccumulator = await BatchedBlob.newAccumulator(blobs);
+    const blobsHash = getBlobsHashFromBlobs(blobs);
+    return {
+      startBlobAccumulator,
+      blobData: BlockRootRollupBlobData.from({
+        blobFields: padArrayEnd(blobFields, Fr.ZERO, FIELDS_PER_BLOB * BLOBS_PER_BLOCK),
+        blobCommitments: padArrayEnd(
+          blobs.map(b => BLS12Point.decompress(b.commitment)),
+          BLS12Point.ZERO,
+          BLOBS_PER_BLOCK,
+        ),
+        blobsHash,
+      }),
+    };
+  };
+
   const getBlockRootOutput = async (
     previousRollups: BaseOrMergeRollupPublicInputs[],
     parityOutput: ParityPublicInputs,
-    l1ToL2Snapshot: {
+    lastL1ToL2Snapshot: {
       l1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>;
       l1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>;
       messageTreeSnapshot: AppendOnlyTreeSnapshot;
     },
-    txs: ProcessedTx[],
+    newL1ToL2Snapshot: AppendOnlyTreeSnapshot,
+    startBlobAccumulator: BatchedBlobAccumulator,
+    blobData: BlockRootRollupBlobData,
   ) => {
     const mergeRollupVk = getVkData('MergeRollupArtifact');
     const previousRollupData = previousRollups.map(r => new PreviousRollupData(r, emptyRollupProof, mergeRollupVk));
@@ -342,9 +375,6 @@ describe('LightBlockBuilder', () => {
     const startArchiveSnapshot = await getTreeSnapshot(MerkleTreeId.ARCHIVE, expectsFork);
     const previousArchiveSiblingPath = await getLastSiblingPath(MerkleTreeId.ARCHIVE, expectsFork);
     const newArchiveSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE, expectsFork);
-    const blobFields = txs.map(tx => tx.txEffect.toBlobFields()).flat();
-    const blobs = await Blob.getBlobs(blobFields);
-    const blobsHash = sha256ToField(blobs.map(b => b.getEthVersionedBlobHash()));
     const rootParityVk = getVkData('RootParityArtifact');
 
     const rootParityInput = new RootParityInput(
@@ -358,16 +388,19 @@ describe('LightBlockBuilder', () => {
 
     const data = BlockRootRollupData.from({
       l1ToL2Roots: rootParityInput,
-      l1ToL2MessageSubtreeSiblingPath: l1ToL2Snapshot.l1ToL2MessageSubtreeSiblingPath,
+      l1ToL2MessageSubtreeSiblingPath: lastL1ToL2Snapshot.l1ToL2MessageSubtreeSiblingPath,
       previousArchiveSiblingPath,
       newArchiveSiblingPath,
       previousBlockHeader,
+      startBlobAccumulator: BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(startBlobAccumulator),
+      finalBlobChallenges: startBlobAccumulator.finalBlobChallenges,
       proverId: Fr.ZERO,
     });
 
     if (previousRollupData.length === 0) {
-      const constants = ConstantRollupData.from({
+      const constants = BlockConstantData.from({
         lastArchive: startArchiveSnapshot,
+        newL1ToL2: newL1ToL2Snapshot,
         globalVariables,
         vkTreeRoot: getVKTreeRoot(),
         protocolContractTreeRoot,
@@ -375,35 +408,22 @@ describe('LightBlockBuilder', () => {
       const inputs = EmptyBlockRootRollupInputs.from({
         data,
         constants,
-        isPadding: false,
       });
       return (await simulator.getEmptyBlockRootRollupProof(inputs)).inputs;
-    } else {
-      const blobData = BlockRootRollupBlobData.from({
-        blobFields: padArrayEnd(blobFields, Fr.ZERO, FIELDS_PER_BLOB * BLOBS_PER_BLOCK),
-        blobCommitments: padArrayEnd(
-          blobs.map(b => b.commitmentToFields()),
-          [Fr.ZERO, Fr.ZERO],
-          BLOBS_PER_BLOCK,
-        ),
-        blobsHash,
+    } else if (previousRollupData.length === 1) {
+      const inputs = SingleTxBlockRootRollupInputs.from({
+        previousRollupData: [previousRollupData[0]],
+        data,
+        blobData,
       });
-
-      if (previousRollupData.length === 1) {
-        const inputs = SingleTxBlockRootRollupInputs.from({
-          previousRollupData: [previousRollupData[0]],
-          data,
-          blobData,
-        });
-        return (await simulator.getSingleTxBlockRootRollupProof(inputs)).inputs;
-      } else {
-        const inputs = BlockRootRollupInputs.from({
-          previousRollupData: [previousRollupData[0], previousRollupData[1]],
-          data,
-          blobData,
-        });
-        return (await simulator.getBlockRootRollupProof(inputs)).inputs;
-      }
+      return (await simulator.getSingleTxBlockRootRollupProof(inputs)).inputs;
+    } else {
+      const inputs = BlockRootRollupInputs.from({
+        previousRollupData: [previousRollupData[0], previousRollupData[1]],
+        data,
+        blobData,
+      });
+      return (await simulator.getBlockRootRollupProof(inputs)).inputs;
     }
   };
 });

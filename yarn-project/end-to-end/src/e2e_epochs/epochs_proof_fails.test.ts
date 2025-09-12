@@ -1,8 +1,10 @@
 import { type Logger, getTimestampRangeForEpoch, sleep } from '@aztec/aztec.js';
+import { BatchedBlob } from '@aztec/blob-lib';
 import type { ViemClient } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { ChainMonitor, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
+import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
+import type { ProverNodePublisher } from '@aztec/prover-node';
 import type { TestProverNode } from '@aztec/prover-node/test';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { Proof } from '@aztec/stdlib/proofs';
@@ -31,8 +33,11 @@ describe('e2e_epochs/epochs_proof_fails', () => {
   let test: EpochsTestContext;
 
   beforeEach(async () => {
-    test = await EpochsTestContext.setup();
-    ({ proverDelayer, sequencerDelayer, context, l1Client, rollup, constants, logger, monitor } = test);
+    // Bumping the epoch duration to 5 because otherwise it takes a full epoch before the actual test starts,
+    // which means the prover node is attempting to prove before we setup the mocks.
+    // Set startProverNode to false to prevent automatic startup
+    test = await EpochsTestContext.setup({ ethereumSlotDuration: 8, startProverNode: false });
+    ({ sequencerDelayer, context, l1Client, rollup, constants, logger, monitor } = test);
     ({ L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);
   });
 
@@ -44,6 +49,14 @@ describe('e2e_epochs/epochs_proof_fails', () => {
   it('does not allow submitting proof after epoch end', async () => {
     // Here we cause a re-org by not publishing the proof for epoch 0 until after the end of epoch 1
     // The proof will be rejected and a re-org will take place
+
+    // Create prover node after test setup to avoid early proving
+    const proverNode = await test.createProverNode();
+    context.proverNode = proverNode;
+
+    // Get the prover delayer from the newly created prover node
+    proverDelayer = (((proverNode as TestProverNode).publisher as ProverNodePublisher).l1TxUtils as DelayedTxUtils)
+      .delayer!;
 
     // Hold off prover tx until end epoch 1
     const [epoch2Start] = getTimestampRangeForEpoch(2n, constants);
@@ -67,7 +80,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     // Next sequencer to publish a block should trigger a rollback to block 1
     await waitUntilL1Timestamp(l1Client, epoch2Start + BigInt(L1_BLOCK_TIME_IN_S));
     expect(await rollup.getBlockNumber()).toEqual(1n);
-    expect(await rollup.getSlotNumber()).toEqual(8n);
+    expect(await rollup.getSlotNumber()).toEqual(BigInt(2 * test.epochDuration));
 
     // The prover tx should have been rejected, and mined strictly before the one that triggered the rollback
     const lastProverTxHash = proverDelayer.getSentTxHashes().at(-1);
@@ -82,22 +95,38 @@ describe('e2e_epochs/epochs_proof_fails', () => {
   });
 
   it('aborts proving if end of next epoch is reached', async () => {
+    // Create prover node after test setup to avoid early proving
+    const proverNode = await test.createProverNode();
+
+    // Get the prover delayer from the newly created prover node
+    proverDelayer = (((proverNode as TestProverNode).publisher as ProverNodePublisher).l1TxUtils as DelayedTxUtils)
+      .delayer!;
+
     // Inject a delay in prover node proving equal to the length of an epoch, to make sure deadline will be hit
-    const epochProverManager = (context.proverNode as TestProverNode).prover;
+    const epochProverManager = (proverNode as TestProverNode).prover;
     const originalCreate = epochProverManager.createEpochProver.bind(epochProverManager);
-    const finaliseEpochPromise = promiseWithResolvers<void>();
+    const finalizeEpochPromise = promiseWithResolvers<void>();
     jest.spyOn(epochProverManager, 'createEpochProver').mockImplementation(() => {
       const prover = originalCreate();
-      jest.spyOn(prover, 'finaliseEpoch').mockImplementation(async () => {
-        const seconds = L2_SLOT_DURATION_IN_S * test.epochDuration;
-        logger.warn(`Finalise epoch: sleeping ${seconds}s.`);
-        await sleep(L2_SLOT_DURATION_IN_S * test.epochDuration * 1000);
-        logger.warn(`Finalise epoch: returning.`);
-        finaliseEpochPromise.resolve();
-        return { publicInputs: RootRollupPublicInputs.random(), proof: Proof.empty() };
+      jest.spyOn(prover, 'finalizeEpoch').mockImplementation(async () => {
+        const seconds = L2_SLOT_DURATION_IN_S * (test.epochDuration * 2); // Forgive me for I have sinned.
+        logger.warn(`Finalize epoch: sleeping ${seconds}s.`);
+        await sleep(seconds * 1000);
+        logger.warn(`Finalize epoch: returning.`);
+        finalizeEpochPromise.resolve();
+        const ourPublicInputs = RootRollupPublicInputs.random();
+        const ourBatchedBlob = new BatchedBlob(
+          ourPublicInputs.blobPublicInputs.blobCommitmentsHash,
+          ourPublicInputs.blobPublicInputs.z,
+          ourPublicInputs.blobPublicInputs.y,
+          ourPublicInputs.blobPublicInputs.c,
+          ourPublicInputs.blobPublicInputs.c.negate(), // Fill with dummy value for Q
+        );
+        return { publicInputs: ourPublicInputs, proof: Proof.empty(), batchedBlobInputs: ourBatchedBlob };
       });
       return prover;
     });
+    context.proverNode = proverNode;
 
     await test.waitUntilEpochStarts(1);
     logger.info(`Starting epoch 1`);
@@ -109,9 +138,9 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     // No proof for epoch zero should have landed during epoch one
     expect(monitor.l2ProvenBlockNumber).toEqual(0);
 
-    // Wait until the prover job finalises (and a bit more) and check that it aborted and never attempted to submit a tx
-    logger.info(`Awaiting finalise epoch`);
-    await finaliseEpochPromise.promise;
+    // Wait until the prover job finalizes (and a bit more) and check that it aborted and never attempted to submit a tx
+    logger.info(`Awaiting finalize epoch`);
+    await finalizeEpochPromise.promise;
     await sleep(1000);
     expect(proverDelayer.getSentTxHashes().length - proverTxCount).toEqual(0);
   });

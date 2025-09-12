@@ -1,19 +1,23 @@
 import {
-  EthCheatCodes,
-  L1TxUtils,
+  GSEContract,
   RollupContract,
   createEthereumChain,
   createExtendedL1Client,
+  createL1TxUtilsFromViemWallet,
   getL1ContractsConfigEnvVars,
   getPublicClient,
   isAnvilTestChain,
 } from '@aztec/ethereum';
+import { EthCheatCodes } from '@aztec/ethereum/test';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { RollupAbi, StakingAssetHandlerAbi } from '@aztec/l1-artifacts';
+import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 
 import { encodeFunctionData, formatEther, getContract } from 'viem';
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
+
+import { addLeadingHex } from '../../utils/aztec.js';
 
 export interface RollupCommandArgs {
   rpcUrls: string[];
@@ -54,9 +58,18 @@ export async function addL1Validator({
   mnemonic,
   attesterAddress,
   stakingAssetHandlerAddress,
+  merkleProof,
+  proofParams,
+  blsSecretKey,
   log,
   debugLogger,
-}: StakingAssetHandlerCommandArgs & LoggerArgs & { attesterAddress: EthAddress }) {
+}: StakingAssetHandlerCommandArgs &
+  LoggerArgs & {
+    blsSecretKey: bigint; // scalar field element of BN254
+    attesterAddress: EthAddress;
+    proofParams: Buffer;
+    merkleProof: string[];
+  }) {
   const dualLog = makeDualLog(log, debugLogger);
   const account = getAccount(privateKey, mnemonic);
   const chain = createEthereumChain(rpcUrls, chainId);
@@ -68,17 +81,112 @@ export async function addL1Validator({
     client: l1Client,
   });
 
-  const rollup = await stakingAssetHandler.read.getRollup();
-  dualLog(`Adding validator (${attesterAddress} to rollup ${rollup.toString()}`);
+  const rollupAddress = await stakingAssetHandler.read.getRollup();
+  dualLog(`Adding validator ${attesterAddress} to rollup ${rollupAddress.toString()}`);
 
-  const l1TxUtils = new L1TxUtils(l1Client, debugLogger);
+  const rollup = getContract({
+    address: rollupAddress,
+    abi: RollupAbi,
+    client: l1Client,
+  });
+
+  const gseAddress = await rollup.read.getGSE();
+
+  const gse = new GSEContract(l1Client, gseAddress);
+
+  const registrationTuple = await gse.makeRegistrationTuple(blsSecretKey);
+
+  const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, debugLogger);
+  const proofParamsObj = ZkPassportProofParams.fromBuffer(proofParams);
+  const merkleProofArray = merkleProof.map(proof => addLeadingHex(proof));
 
   const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
     to: stakingAssetHandlerAddress.toString(),
     data: encodeFunctionData({
       abi: StakingAssetHandlerAbi,
       functionName: 'addValidator',
-      args: [attesterAddress.toString()],
+      args: [
+        attesterAddress.toString(),
+        merkleProofArray,
+        proofParamsObj.toViem(),
+        registrationTuple.publicKeyInG1,
+        registrationTuple.publicKeyInG2,
+        registrationTuple.proofOfPossession,
+      ],
+    }),
+    abi: StakingAssetHandlerAbi,
+  });
+  dualLog(`Transaction hash: ${receipt.transactionHash}`);
+  await l1Client.waitForTransactionReceipt({ hash: receipt.transactionHash });
+  if (isAnvilTestChain(chainId)) {
+    dualLog(`Funding validator on L1`);
+    const cheatCodes = new EthCheatCodes(rpcUrls, debugLogger);
+    await cheatCodes.setBalance(attesterAddress, 10n ** 20n);
+  } else {
+    const balance = await l1Client.getBalance({ address: attesterAddress.toString() });
+    dualLog(`Validator balance: ${formatEther(balance)} ETH`);
+    if (balance === 0n) {
+      dualLog(`WARNING: Proposer has no balance. Remember to fund it!`);
+    }
+  }
+}
+
+export async function addL1ValidatorViaRollup({
+  rpcUrls,
+  chainId,
+  privateKey,
+  mnemonic,
+  attesterAddress,
+  withdrawerAddress,
+  blsSecretKey,
+  moveWithLatestRollup,
+  rollupAddress,
+  log,
+  debugLogger,
+}: RollupCommandArgs &
+  LoggerArgs & {
+    blsSecretKey: bigint; // scalar field element of BN254
+    attesterAddress: EthAddress;
+    moveWithLatestRollup: boolean;
+  }) {
+  const dualLog = makeDualLog(log, debugLogger);
+  const account = getAccount(privateKey, mnemonic);
+  const chain = createEthereumChain(rpcUrls, chainId);
+  const l1Client = createExtendedL1Client(rpcUrls, account, chain.chainInfo);
+
+  dualLog(`Adding validator ${attesterAddress} to rollup ${rollupAddress.toString()} via direct deposit`);
+
+  if (!withdrawerAddress) {
+    throw new Error(`Withdrawer address required`);
+  }
+
+  const rollup = getContract({
+    address: rollupAddress.toString(),
+    abi: RollupAbi,
+    client: l1Client,
+  });
+
+  const gseAddress = await rollup.read.getGSE();
+
+  const gse = new GSEContract(l1Client, gseAddress);
+
+  const registrationTuple = await gse.makeRegistrationTuple(blsSecretKey);
+
+  const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, debugLogger);
+
+  const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
+    to: rollupAddress.toString(),
+    data: encodeFunctionData({
+      abi: RollupAbi,
+      functionName: 'deposit',
+      args: [
+        attesterAddress.toString(),
+        withdrawerAddress.toString(),
+        registrationTuple.publicKeyInG1,
+        registrationTuple.publicKeyInG2,
+        registrationTuple.proofOfPossession,
+        moveWithLatestRollup,
+      ],
     }),
     abi: StakingAssetHandlerAbi,
   });
@@ -111,7 +219,7 @@ export async function removeL1Validator({
   const account = getAccount(privateKey, mnemonic);
   const chain = createEthereumChain(rpcUrls, chainId);
   const l1Client = createExtendedL1Client(rpcUrls, account, chain.chainInfo);
-  const l1TxUtils = new L1TxUtils(l1Client, debugLogger);
+  const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, debugLogger);
 
   dualLog(`Removing validator ${validatorAddress.toString()} from rollup ${rollupAddress.toString()}`);
   const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
@@ -138,7 +246,7 @@ export async function pruneRollup({
   const account = getAccount(privateKey, mnemonic);
   const chain = createEthereumChain(rpcUrls, chainId);
   const l1Client = createExtendedL1Client(rpcUrls, account, chain.chainInfo);
-  const l1TxUtils = new L1TxUtils(l1Client, debugLogger);
+  const l1TxUtils = createL1TxUtilsFromViemWallet(l1Client, debugLogger);
 
   dualLog(`Trying prune`);
   const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
@@ -173,7 +281,7 @@ export async function fastForwardEpochs({
   const timestamp = await rollup.read.getTimestampForSlot([currentSlot + l2SlotsInEpoch * numEpochs]);
   dualLog(`Fast forwarding ${numEpochs} epochs to ${timestamp}`);
   try {
-    await cheatCodes.warp(Number(timestamp));
+    await cheatCodes.warp(Number(timestamp), { resetBlockInterval: true });
     dualLog(`Fast forwarded ${numEpochs} epochs to ${timestamp}`);
   } catch (error) {
     if (error instanceof Error && error.message.includes("is lower than or equal to previous block's timestamp")) {
@@ -197,10 +305,10 @@ export async function debugRollup({ rpcUrls, chainId, rollupAddress, log }: Roll
   const validators = await rollup.getAttesters();
   log(`Validators: ${validators.map(v => v.toString()).join(', ')}`);
   const committee = await rollup.getCurrentEpochCommittee();
-  log(`Committee: ${committee.map(v => v.toString()).join(', ')}`);
+  log(`Committee: ${committee?.map(v => v.toString()).join(', ')}`);
   const archive = await rollup.archive();
   log(`Archive: ${archive}`);
-  const epochNum = await rollup.getEpochNumber();
+  const epochNum = await rollup.getCurrentEpochNumber();
   log(`Current epoch: ${epochNum}`);
   const slot = await rollup.getSlotNumber();
   log(`Current slot: ${slot}`);

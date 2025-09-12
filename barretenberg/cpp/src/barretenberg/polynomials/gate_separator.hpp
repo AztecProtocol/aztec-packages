@@ -5,8 +5,8 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/compiler_hints.hpp"
-#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
 
@@ -67,6 +67,19 @@ template <typename FF> struct GateSeparatorPolynomial {
     GateSeparatorPolynomial(const std::vector<FF>& betas)
         : betas(betas)
     {}
+
+    /**
+     * @brief Constructs a virtual GateSeparator used by the prover in rounds k > d - 1, and computes its partial
+     * evaluation at (u_0, ..., u_{d-1}).
+     *
+     */
+    GateSeparatorPolynomial(const std::vector<FF>& betas, const std::vector<FF>& challenge)
+        : betas(betas)
+    {
+        for (const auto& u_k : challenge) {
+            partially_evaluate(u_k);
+        }
+    }
 
     /**
      * @brief Retruns the element in #beta_products at place #idx.
@@ -130,7 +143,7 @@ template <typename FF> struct GateSeparatorPolynomial {
     BB_PROFILE static std::vector<FF> compute_beta_products(const std::vector<FF>& betas,
                                                             const size_t log_num_monomials)
     {
-
+        BB_BENCH_NAME("GateSeparatorPolynomial::compute_beta_products");
         size_t pow_size = 1 << log_num_monomials;
         std::vector<FF> beta_products(pow_size);
 

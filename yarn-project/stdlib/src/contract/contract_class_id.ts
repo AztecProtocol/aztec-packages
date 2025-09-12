@@ -1,5 +1,5 @@
 import { GeneratorIndex, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS } from '@aztec/constants';
-import { poseidon2HashAccumulate, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
 import { strict as assert } from 'assert';
@@ -61,10 +61,16 @@ export type ContractClassIdPreimage = {
 
 export async function computePublicBytecodeCommitment(packedBytecode: Buffer) {
   // Encode the buffer into field elements (chunked into 32 bytes each)
-  const encodedBytecode: Fr[] = bufferAsFields(packedBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
   // The first element is the length of the bytecode (in bytes)
-  const bytecodeLength = Math.ceil(encodedBytecode[0].toNumber() / (Fr.SIZE_IN_BYTES - 1));
+  const [bytecodeLengthAsField, ...bytecodeAsFields] = bufferAsFields(
+    packedBytecode,
+    MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
+  );
+
+  const bytecodeLength = Math.ceil(bytecodeLengthAsField.toNumber() / (Fr.SIZE_IN_BYTES - 1));
   assert(bytecodeLength < MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, 'Bytecode exceeds maximum deployable size');
 
-  return bytecodeLength == 0 ? new Fr(0) : await poseidon2HashAccumulate(encodedBytecode.slice(0, bytecodeLength + 1));
+  // NOTE: hash the bytecode here only up to the actual length of the bytecode.
+  // We do not hash the entire max bytecode length!
+  return await poseidon2HashWithSeparator(bytecodeAsFields.slice(0, bytecodeLength), GeneratorIndex.PUBLIC_BYTECODE);
 }

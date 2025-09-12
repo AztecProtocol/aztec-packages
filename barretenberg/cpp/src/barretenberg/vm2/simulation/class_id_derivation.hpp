@@ -1,5 +1,7 @@
 #pragma once
 
+#include <unordered_set>
+
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/events/class_id_derivation_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -15,7 +17,7 @@ class ClassIdDerivationInterface {
 
 class ClassIdDerivation : public ClassIdDerivationInterface {
   public:
-    ClassIdDerivation(Poseidon2& poseidon2, EventEmitterInterface<ClassIdDerivationEvent>& events)
+    ClassIdDerivation(Poseidon2Interface& poseidon2, EventEmitterInterface<ClassIdDerivationEvent>& events)
         : events(events)
         , poseidon2(poseidon2)
     {}
@@ -25,6 +27,9 @@ class ClassIdDerivation : public ClassIdDerivationInterface {
   private:
     EventEmitterInterface<ClassIdDerivationEvent>& events;
     Poseidon2Interface& poseidon2;
+
+    // Cache for class ID derivations to avoid repeating derivations
+    std::unordered_set<ContractClassId> cached_derivations;
 };
 
 } // namespace bb::avm2::simulation

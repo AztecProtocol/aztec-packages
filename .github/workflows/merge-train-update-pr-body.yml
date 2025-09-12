@@ -1,0 +1,22 @@
+name: Merge-Train PR Body
+
+on:
+  push:
+    branches:
+      - 'merge-train/**'
+
+jobs:
+  update-pr-body:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      - name: Update merge train PR body
+        run: |
+          GH_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} ./scripts/merge-train/update-pr-body.sh "$GITHUB_REF_NAME"

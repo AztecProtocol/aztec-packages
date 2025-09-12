@@ -1,3 +1,4 @@
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type { BlockAttestation, BlockProposal, Gossipable } from '@aztec/stdlib/p2p';
 import type { Tx } from '@aztec/stdlib/tx';
@@ -6,7 +7,15 @@ import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 import type EventEmitter from 'events';
 
-import type { ReqRespSubProtocol, SubProtocolMap } from './reqresp/interface.js';
+import type { P2PReqRespConfig } from './reqresp/config.js';
+import type { StatusMessage } from './reqresp/index.js';
+import type {
+  ReqRespSubProtocol,
+  ReqRespSubProtocolHandler,
+  ReqRespSubProtocolValidators,
+  SubProtocolMap,
+} from './reqresp/interface.js';
+import type { AuthRequest, AuthResponse } from './reqresp/protocols/auth.js';
 
 export enum PeerDiscoveryState {
   RUNNING = 'running',
@@ -17,6 +26,8 @@ export type P2PBlockReceivedCallback = (
   block: BlockProposal,
   sender: PeerId,
 ) => Promise<BlockAttestation[] | undefined>;
+
+export type AuthReceivedCallback = (peerId: PeerId, authRequest: AuthRequest) => Promise<AuthResponse | undefined>;
 
 /**
  * The interface for a P2P service implementation.
@@ -41,18 +52,6 @@ export interface P2PService {
   propagate<T extends Gossipable>(message: T): Promise<void>;
 
   /**
-   * Request information from peers via the request response protocol.
-   *
-   * @param protocol - The request response protocol to use
-   * @param request - The request type, corresponding to the protocol
-   * @returns The response type, corresponding to the protocol
-   */
-  sendRequest<Protocol extends ReqRespSubProtocol>(
-    protocol: Protocol,
-    request: InstanceType<SubProtocolMap[Protocol]['request']>,
-  ): Promise<InstanceType<SubProtocolMap[Protocol]['response']> | undefined>;
-
-  /**
    * Send a batch of requests to peers, and return the responses
    *
    * @param protocol - The request response protocol to use
@@ -66,7 +65,7 @@ export interface P2PService {
     timeoutMs?: number,
     maxPeers?: number,
     maxRetryAttempts?: number,
-  ): Promise<(InstanceType<SubProtocolMap[Protocol]['response']> | undefined)[]>;
+  ): Promise<InstanceType<SubProtocolMap[Protocol]['response']>[]>;
 
   // Leaky abstraction: fix https://github.com/AztecProtocol/aztec-packages/issues/7963
   registerBlockReceivedCallback(callback: P2PBlockReceivedCallback): void;
@@ -76,6 +75,19 @@ export interface P2PService {
   getPeers(includePending?: boolean): PeerInfo[];
 
   validate(txs: Tx[]): Promise<void>;
+
+  addReqRespSubProtocol(
+    subProtocol: ReqRespSubProtocol,
+    handler: ReqRespSubProtocolHandler,
+    validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
+  ): Promise<void>;
+
+  handleAuthRequestFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage>;
+
+  updateConfig(config: Partial<P2PReqRespConfig>): void;
+
+  /** If node running this P2P stack is validator, passes in validator address to P2P layer */
+  registerThisValidatorAddresses(address: EthAddress[]): void;
 }
 
 /**

@@ -53,9 +53,7 @@ spec:
             - "/bin/bash"
             - "-c"
             - |
-              # Get the private key from the mnemonic - based on the pod replica index
-              source /scripts/get-private-key.sh && \
-              source /shared/config/keys.env && \
+              source /scripts/setup-attester-keystore.sh && \
               source /shared/contracts/contracts.env && \
               source /shared/config/p2p-addresses && \
               source /shared/config/service-addresses && \
@@ -90,11 +88,16 @@ spec:
           env:
             - name: KEY_INDEX_START
               value: {{ .Values.aztec.validatorKeyIndexStart | quote }}
+            - name: PUBLISHER_KEY_INDEX_START
+              value: {{ .Values.aztec.validatorPublisherIndexStart | quote }}
+            - name: SLASHER_KEY_INDEX_START
+              value: {{ .Values.aztec.slasherKeyIndexStart | quote }}
             - name: VALIDATORS_PER_NODE
               value: {{ .Values.validator.keysPerNode | quote }}
+            - name: PUBLISHERS_PER_VALIDATOR_KEY
+              value: {{ .Values.validator.publishersPerValidatorKey | quote }}
             - name: MNEMONIC
               value: {{ .Values.aztec.l1DeploymentMnemonic }}
-
             - name: K8S_POD_UID
               valueFrom:
                 fieldRef:
@@ -127,6 +130,10 @@ spec:
               value: "{{ .Values.network.mempoolLimitBytes }}"
             - name: P2P_GOSSIPSUB_FLOOD_PUBLISH
               value: "{{ .Values.validator.p2p.floodPublish }}"
+            - name: P2P_DROP_TX
+              value: "{{ .Values.validator.p2p.dropTransactions }}"
+            - name: P2P_DROP_TX_CHANCE
+              value: "{{ .Values.validator.p2p.dropTransactionsProbability }}"
             - name: VALIDATOR_DISABLED
               value: "{{ .Values.validator.validator.disabled }}"
             - name: VALIDATOR_REEXECUTE
@@ -188,6 +195,72 @@ spec:
             - name: BLOB_SINK_URL
               value: "{{ .Values.blobs.remoteBlobSinkUrl }}"
           {{- end }}
+            {{- if .Values.aztec.slash.minPenaltyPercentage }}
+            - name: SLASH_MIN_PENALTY_PERCENTAGE
+              value: {{ .Values.aztec.slash.minPenaltyPercentage | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.maxPenaltyPercentage }}
+            - name: SLASH_MAX_PENALTY_PERCENTAGE
+              value: {{ .Values.aztec.slash.maxPenaltyPercentage | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.validatorsAlways }}
+            - name: SLASH_VALIDATORS_ALWAYS
+              value: {{ join "," .Values.aztec.slash.validatorsAlways | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.validatorsNever }}
+            - name: SLASH_VALIDATORS_NEVER
+              value: {{ join "," .Values.aztec.slash.validatorsNever | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.prunePenalty }}
+            - name: SLASH_PRUNE_PENALTY
+              value: {{ .Values.aztec.slash.prunePenalty | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.dataWithholdingPenalty }}
+            - name: SLASH_DATA_WITHHOLDING_PENALTY
+              value: {{ .Values.aztec.slash.dataWithholdingPenalty | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.inactivityPenalty }}
+            - name: SLASH_INACTIVITY_PENALTY
+              value: {{ .Values.aztec.slash.inactivityPenalty | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.inactivityTargetPercentage }}
+            - name: SLASH_INACTIVITY_TARGET_PERCENTAGE
+              value: {{ .Values.aztec.slash.inactivityTargetPercentage | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.invalidBlockPenalty }}
+            - name: SLASH_INVALID_BLOCK_PENALTY
+              value: {{ .Values.aztec.slash.invalidBlockPenalty | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.proposeInvalidAttestationsPenalty }}
+            - name: SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY
+              value: {{ .Values.aztec.slash.proposeInvalidAttestationsPenalty | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.attestDescendantOfInvalidPenalty }}
+            - name: SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY
+              value: {{ .Values.aztec.slash.attestDescendantOfInvalidPenalty | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.unknownPenalty }}
+            - name: SLASH_UNKNOWN_PENALTY
+              value: {{ .Values.aztec.slash.unknownPenalty | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.gracePeriodL2Slots }}
+            - name: SLASH_GRACE_PERIOD_L2_SLOTS
+              value: {{ .Values.aztec.slash.gracePeriodL2Slots | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.offenseExpirationRounds }}
+            - name: SLASH_OFFENSE_EXPIRATION_ROUNDS
+              value: {{ .Values.aztec.slash.offenseExpirationRounds | quote }}
+            {{- end }}
+            {{- if .Values.aztec.slash.maxPayloadSize }}
+            - name: SLASH_MAX_PAYLOAD_SIZE
+              value: {{ .Values.aztec.slash.maxPayloadSize | quote }}
+            {{- end }}
+            - name: SENTINEL_ENABLED
+              value: "{{ .Values.validator.sentinelEnabled }}"
+            {{- if .Values.web3signer.enabled }}
+            - name: WEB3_SIGNER_URL
+              value: "http://{{ include "aztec-network.fullname" . }}-web3signer.{{ .Release.Namespace }}.svc.cluster.local:9000/"
+            {{- end }}
           ports:
             - containerPort: {{ .Values.validator.service.nodePort }}
             - containerPort: {{ .Values.validator.service.p2pPort }}

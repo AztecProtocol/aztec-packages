@@ -73,4 +73,16 @@ template <typename Relation> void check_relation(const tracegen::TestTraceContai
     [&]<size_t... Is>(std::index_sequence<Is...>) { check_relation<Relation>(trace, Is...); }(subrelations);
 }
 
+template <typename TraceBuilder, typename... Setting> inline void check_interaction(tracegen::TestTraceContainer& trace)
+{
+    (TraceBuilder::interactions.template get_test_job<Setting>()->process(trace), ...);
+}
+
+template <typename TraceBuilder> inline void check_all_interactions(tracegen::TestTraceContainer& trace)
+{
+    for (auto& job : TraceBuilder::interactions.get_all_test_jobs()) {
+        job->process(trace);
+    }
+}
+
 } // namespace bb::avm2::constraining

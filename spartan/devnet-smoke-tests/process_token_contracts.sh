@@ -48,7 +48,7 @@ jq -c '.accounts[]' state.json | while read -r account; do
 
       aztec-wallet $prover_to_use_for_minting send mint_to_private \
         -ca $token_address \
-        --args $admin_and_minter $current_user_address $AMOUNT \
+        --args $current_user_address $AMOUNT \
         -f $admin_and_minter \
         $fee_method_override
 

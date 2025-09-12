@@ -1,12 +1,13 @@
 ---
 title: Oracle Functions
-sidebar_position: 3
+sidebar_position: 4
 tags: [functions, oracles]
+description: Learn about oracles in Aztec, which provide external data to smart contracts during execution.
 ---
 
 This page goes over what oracles are in Aztec and how they work.
 
-Looking for a hands-on guide? You can learn how to use oracles in a smart contract [here](../../../developers/guides/smart_contracts/writing_contracts/how_to_use_capsules.md).
+Looking for a hands-on guide? You can learn how to use oracles in a smart contract [here](../../../developers/guides/smart_contracts/advanced/how_to_use_capsules.md).
 
 An oracle is something that allows us to get data from the outside world into our contracts. The most widely-known types of oracles in blockchain systems are probably Chainlink price feeds, which allow us to get the price of an asset in USD taking non-blockchain data into account.
 
@@ -24,7 +25,7 @@ Oracles introduce **non-determinism** into a circuit, and thus are `unconstraine
 
 ## Inbuilt oracles
 
-- [`debug_log`](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/aztec-nr/aztec/src/oracle/debug_log.nr) - Provides a couple of debug functions that can be used to log information to the console. Read more about debugging [here](../../../developers/reference/debugging/index.md).
+- [`debug_log`](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/aztec-nr/aztec/src/oracle/debug_log.nr) - Provides a couple of debug functions that can be used to log information to the console. Read more about debugging [here](../../../developers/guides/local_env/how_to_debug.md).
 - [`auth_witness`](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/aztec-nr/authwit/src/auth_witness.nr) - Provides a way to fetch the authentication witness for a given address. This is useful when building account contracts to support approve-like functionality.
 - [`get_l1_to_l2_message`](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/aztec-nr/aztec/src/oracle/get_l1_to_l2_message.nr) - Useful for application that receive messages from L1 to be consumed on L2, such as token bridges or other cross-chain applications.
 - [`notes`](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/aztec-nr/aztec/src/oracle/notes.nr) - Provides a lot of functions related to notes, such as fetches notes from storage etc, used behind the scenes for value notes and other pre-build note implementations.
@@ -32,4 +33,4 @@ Oracles introduce **non-determinism** into a circuit, and thus are `unconstraine
 
 Find a full list [on GitHub](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/aztec-nr/aztec/src/oracle).
 
-Please note that it is **not** possible to write a custom oracle for your dapp. Oracles are implemented in the PXE, so all users of your dapp would have to use a PXE service with your custom oracle included. If you want to inject some arbitrary data that does not have a dedicated oracle, you can use [capsules](../../../developers/guides/smart_contracts/writing_contracts/how_to_use_capsules.md).
+Please note that it is **not** possible to write a custom oracle for your dapp. Oracles are implemented in the PXE, so all users of your dapp would have to use a PXE service with your custom oracle included. If you want to inject some arbitrary data that does not have a dedicated oracle, you can use [capsules](../../../developers/guides/smart_contracts/advanced/how_to_use_capsules.md).

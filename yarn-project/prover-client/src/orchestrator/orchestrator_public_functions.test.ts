@@ -1,3 +1,4 @@
+import { BatchedBlob, Blob } from '@aztec/blob-lib';
 import { createLogger } from '@aztec/foundation/log';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
@@ -34,19 +35,22 @@ describe('prover/orchestrator/public-functions', () => {
       tx.data.constants.historicalHeader = context.getBlockHeader(0);
       tx.data.constants.vkTreeRoot = getVKTreeRoot();
       tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
+      await tx.recomputeHash();
 
       // Since this TX is mocked/garbage, it will revert because it calls a non-existent contract,
       // but it reverts in app logic so it can still be included.
-      const [processed, _] = await context.processPublicFunctions([tx], 1);
+      const [processed, _] = await context.processPublicFunctions([tx]);
+      const blobs = await Blob.getBlobsPerBlock(processed.map(tx => tx.txEffect.toBlobFields()).flat());
+      const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
 
       // This will need to be a 2 tx block
-      context.orchestrator.startNewEpoch(1, 1, 1);
+      context.orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
       await context.orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
 
       await context.orchestrator.addTxs(processed);
 
       const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
-      await context.orchestrator.finaliseEpoch();
+      await context.orchestrator.finalizeEpoch();
       expect(block.number).toEqual(context.blockNumber);
     });
 
@@ -62,8 +66,10 @@ describe('prover/orchestrator/public-functions', () => {
       tx.data.constants.vkTreeRoot = getVKTreeRoot();
       tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
 
-      const [processed, _] = await context.processPublicFunctions([tx], 1);
-      context.orchestrator.startNewEpoch(1, 1, 1);
+      const [processed, _] = await context.processPublicFunctions([tx]);
+      const blobs = await Blob.getBlobsPerBlock(processed.map(tx => tx.txEffect.toBlobFields()).flat());
+      const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
+      context.orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
       await context.orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
       await context.orchestrator.addTxs(processed);
       await context.orchestrator.setBlockCompleted(context.blockNumber);

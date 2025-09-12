@@ -21,7 +21,7 @@
  *
  */
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
-#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
@@ -462,9 +462,9 @@ void pippenger(State& state)
             pol.at(i).self_reduce_once();
         }
 
-        auto ck = std::make_shared<CommitmentKey<curve::BN254>>(num_cycles);
+        CommitmentKey<curve::BN254> ck(num_cycles);
         state.ResumeTiming();
-        benchmark::DoNotOptimize(ck->commit(pol));
+        benchmark::DoNotOptimize(ck.commit(pol));
     }
 }
 

@@ -1,6 +1,6 @@
 #include <benchmark/benchmark.h>
 
-#include "barretenberg/common/op_count_google_bench.hpp"
+#include "barretenberg/common/google_bb_bench.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
@@ -17,7 +17,7 @@ using FF = typename Flavor::FF;
 
 void vector_of_evaluations(State& state) noexcept
 {
-    using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
+    using RelationEvaluations = decltype(create_tuple_of_arrays_of_values<typename Flavor::Relations>());
 
     for (auto _ : state) {
         std::vector<RelationEvaluations> evals(1 << state.range(0));
@@ -29,7 +29,7 @@ void compute_row_evaluations(State& state) noexcept
 {
     using PGInternal = ProtogalaxyProverInternal<DeciderProvingKeys_<Flavor, 2>>;
     using Polys = Flavor::ProverPolynomials;
-    using Alphas = Flavor::RelationSeparator;
+    using Alphas = Flavor::SubrelationSeparators;
     using Params = RelationParameters<FF>;
 
     const size_t dyadic_size = 1 << state.range(0);
@@ -50,7 +50,8 @@ void fold_k(State& state) noexcept
     static constexpr size_t k{ 1 };
 
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
-    using ProtogalaxyProver = ProtogalaxyProver_<DeciderProvingKeys_<Flavor, k + 1>>;
+    using DeciderVerificationKey = DeciderVerificationKey_<Flavor>;
+    using ProtogalaxyProver = ProtogalaxyProver_<Flavor, k + 1>;
     using Builder = typename Flavor::CircuitBuilder;
 
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
@@ -63,15 +64,22 @@ void fold_k(State& state) noexcept
         return std::make_shared<DeciderProvingKey>(builder);
     };
     std::vector<std::shared_ptr<DeciderProvingKey>> decider_pks;
+    std::vector<std::shared_ptr<DeciderVerificationKey>> decider_vks;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop
     for (size_t i = 0; i < k + 1; ++i) {
-        decider_pks.emplace_back(construct_key());
+        std::shared_ptr<DeciderProvingKey> decider_pk = construct_key();
+        auto honk_vk = std::make_shared<Flavor::VerificationKey>(decider_pk->get_precomputed());
+        std::shared_ptr<DeciderVerificationKey> decider_vk = std::make_shared<DeciderVerificationKey>(honk_vk);
+        decider_pks.emplace_back(decider_pk);
+        decider_vks.emplace_back(decider_vk);
     }
+    std::shared_ptr<typename ProtogalaxyProver::Transcript> transcript =
+        std::make_shared<typename ProtogalaxyProver::Transcript>();
 
-    ProtogalaxyProver folding_prover(decider_pks);
+    ProtogalaxyProver folding_prover(decider_pks, decider_vks, transcript);
 
     for (auto _ : state) {
-        BB_REPORT_OP_COUNT_IN_BENCH(state);
+        GOOGLE_BB_BENCH_REPORTER(state);
         auto proof = folding_prover.prove();
     }
 }

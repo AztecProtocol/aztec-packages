@@ -1,3 +1,4 @@
+import type { ViemHeader } from '@aztec/ethereum';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -84,7 +85,7 @@ export class ProposedBlockHeader {
   }
 
   toBuffer() {
-    // Note: The order here must match the order in the HeaderLib solidity library.
+    // Note: The order here must match the order in the ProposedHeaderLib solidity library.
     return serializeToBuffer([
       this.lastArchiveRoot,
       this.contentCommitment,
@@ -115,6 +116,19 @@ export class ProposedBlockHeader {
     });
   }
 
+  static random(): ProposedBlockHeader {
+    return new ProposedBlockHeader(
+      Fr.random(),
+      ContentCommitment.random(),
+      new Fr(BigInt(Math.floor(Math.random() * 1000) + 1)),
+      BigInt(Math.floor(Date.now() / 1000)),
+      EthAddress.random(),
+      new AztecAddress(Fr.random()),
+      GasFees.random(),
+      new Fr(BigInt(Math.floor(Math.random() * 1000000))),
+    );
+  }
+
   isEmpty(): boolean {
     return (
       this.lastArchiveRoot.isZero() &&
@@ -140,6 +154,35 @@ export class ProposedBlockHeader {
     return ProposedBlockHeader.fromBuffer(hexToBuffer(str));
   }
 
+  static fromViem(header: ViemHeader) {
+    return new ProposedBlockHeader(
+      Fr.fromString(header.lastArchiveRoot),
+      ContentCommitment.fromViem(header.contentCommitment),
+      new Fr(header.slotNumber),
+      header.timestamp,
+      new EthAddress(hexToBuffer(header.coinbase)),
+      new AztecAddress(hexToBuffer(header.feeRecipient)),
+      new GasFees(header.gasFees.feePerDaGas, header.gasFees.feePerL2Gas),
+      new Fr(header.totalManaUsed),
+    );
+  }
+
+  toViem(): ViemHeader {
+    return {
+      lastArchiveRoot: this.lastArchiveRoot.toString(),
+      contentCommitment: this.contentCommitment.toViem(),
+      slotNumber: this.slotNumber.toBigInt(),
+      timestamp: this.timestamp,
+      coinbase: this.coinbase.toString(),
+      feeRecipient: `0x${this.feeRecipient.toBuffer().toString('hex').padStart(64, '0')}`,
+      gasFees: {
+        feePerDaGas: this.gasFees.feePerDaGas,
+        feePerL2Gas: this.gasFees.feePerL2Gas,
+      },
+      totalManaUsed: this.totalManaUsed.toBigInt(),
+    };
+  }
+
   toInspect() {
     return {
       lastArchive: this.lastArchiveRoot.toString(),
@@ -154,7 +197,7 @@ export class ProposedBlockHeader {
   }
 
   [inspect.custom]() {
-    const gasfees = `da:${this.gasFees.feePerDaGas.toBigInt()}, l2:${this.gasFees.feePerL2Gas.toBigInt()}`;
+    const gasfees = `da:${this.gasFees.feePerDaGas}, l2:${this.gasFees.feePerL2Gas}`;
     return `Header {
   lastArchiveRoot: ${this.lastArchiveRoot.toString()},
   contentCommitment: ${inspect(this.contentCommitment)},

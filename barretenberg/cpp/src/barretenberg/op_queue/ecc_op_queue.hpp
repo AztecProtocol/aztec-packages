@@ -48,14 +48,28 @@ class ECCOpQueue {
     EccvmRowTracker eccvm_row_tracker;
 
   public:
-    // Constructor that instantiates an initial ECC op subtable
+    static const size_t OP_QUEUE_SIZE = 1 << CONST_OP_QUEUE_LOG_SIZE;
+    /**
+     * @brief Instantiate an initial ECC op subtable.
+     */
     ECCOpQueue() { initialize_new_subtable(); }
 
-    // Initialize a new subtable of ECCVM ops and Ultra ops corresponding to an individual circuit
+    /**
+     * @brief Initialize a new subtable for eccvm and ultra ops with the given merge settings.
+     *
+     */
     void initialize_new_subtable()
     {
         eccvm_ops_table.create_new_subtable();
         ultra_ops_table.create_new_subtable();
+    }
+
+    size_t get_current_subtable_size() const { return ultra_ops_table.get_current_subtable_size(); }
+
+    void merge(MergeSettings settings = MergeSettings::PREPEND, std::optional<size_t> ultra_fixed_offset = std::nullopt)
+    {
+        eccvm_ops_table.merge(settings);
+        ultra_ops_table.merge(settings, ultra_fixed_offset);
     }
 
     // Construct polynomials corresponding to the columns of the full aggregate ultra ecc ops table
@@ -64,7 +78,8 @@ class ECCOpQueue {
         return ultra_ops_table.construct_table_columns();
     }
 
-    // Construct polys corresponding to the columns of the aggregate ultra ops table, excluding the most recent subtable
+    // Construct polys corresponding to the columns of the aggregate ultra ops table, excluding the most recent
+    // subtable
     std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_previous_ultra_ops_table_columns() const
     {
         return ultra_ops_table.construct_previous_table_columns();
@@ -84,9 +99,10 @@ class ECCOpQueue {
 
     size_t get_ultra_ops_table_num_rows() const { return ultra_ops_table.ultra_table_size(); }
     size_t get_current_ultra_ops_subtable_num_rows() const { return ultra_ops_table.current_ultra_subtable_size(); }
+    size_t get_previous_ultra_ops_table_num_rows() const { return ultra_ops_table.previous_ultra_table_size(); }
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1339): Consider making the ultra and eccvm ops getters
-    // more memory efficient
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1339): Consider making the ultra and eccvm ops
+    // getters more memory efficient
 
     // Get the full table of ECCVM ops in contiguous memory; construct it if it has not been constructed already
     std::vector<ECCVMOperation>& get_eccvm_ops()
@@ -145,7 +161,11 @@ class ECCOpQueue {
      * @warning This is for testing purposes only. Currently no valid use case.
      *
      */
-    void empty_row_for_testing() { append_eccvm_op(ECCVMOperation{ .base_point = point_at_infinity }); }
+    void empty_row_for_testing()
+    {
+        append_eccvm_op(ECCVMOperation{ .base_point = point_at_infinity });
+        accumulator.self_set_infinity();
+    }
 
     Point get_accumulator() { return accumulator; }
 
@@ -201,10 +221,32 @@ class ECCOpQueue {
      */
     UltraOp no_op_ultra_only()
     {
-        EccOpCode op_code{};
+        UltraOp no_op{};
+        ultra_ops_table.push(no_op);
+        return no_op;
+    }
 
-        // Construct and store the operation in the ultra op format
-        return construct_and_populate_ultra_ops(op_code, accumulator);
+    /**
+     * @brief Writes randomness to the ultra ops table but adds no eccvm operations.
+     *
+     * @details This method is used to add randomness to the ultra ops table with the aim of randomising the
+     * commitment and evaluations of its corresponding columns
+     * @return UltraOp
+     */
+    UltraOp random_op_ultra_only()
+    {
+        UltraOp random_op{ .op_code = EccOpCode{ .is_random_op = true,
+                                                 .random_value_1 = Fr::random_element(),
+                                                 .random_value_2 = Fr::random_element() },
+                           .x_lo = Fr::random_element(),
+                           .x_hi = Fr::random_element(),
+                           .y_lo = Fr::random_element(),
+                           .y_hi = Fr::random_element(),
+                           .z_1 = Fr::random_element(),
+                           .z_2 = Fr::random_element(),
+                           .return_is_infinity = false };
+        ultra_ops_table.push(random_op);
+        return random_op;
     }
 
     /**

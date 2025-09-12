@@ -5,14 +5,17 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/decider_verification_key.hpp"
+#include <algorithm>
+#include <ranges>
 
 namespace bb {
 
-template <typename Flavor_, size_t NUM_ = 2> struct DeciderProvingKeys_ {
+template <IsUltraOrMegaHonk Flavor_, size_t NUM_ = 2> struct DeciderProvingKeys_ {
   public:
-    static_assert(NUM_ > 1, "Must have at least two deicder proving keys.");
+    static_assert(NUM_ > 1, "Must have at least two decider proving keys.");
     using Flavor = Flavor_;
     using FF = typename Flavor::FF;
     static constexpr size_t NUM = NUM_;
@@ -34,7 +37,7 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderProvingKeys_ {
     DeciderProvingKeys_() = default;
     DeciderProvingKeys_(std::vector<std::shared_ptr<DeciderPK>> data)
     {
-        ASSERT(data.size() == NUM);
+        BB_ASSERT_EQ(data.size(), NUM);
         for (size_t idx = 0; idx < data.size(); idx++) {
             _data[idx] = std::move(data[idx]);
         }
@@ -91,20 +94,30 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderProvingKeys_ {
         return results;
     }
 
+    /**
+     * @brief Get the maximum dyadic circuit size among all decider proving keys
+     * @return The maximum dyadic size
+     */
+    size_t get_max_dyadic_size() const
+    {
+        return std::ranges::max(
+            _data | std::views::transform([](const auto& dpk) { return dpk != nullptr ? dpk->dyadic_size() : 0; }));
+    }
+
   private:
     // Returns a vector containing pointer views to the prover polynomials corresponding to each proving key.
     auto get_polynomials_views() const
     {
         // As a practical measure, get the first proving key's view to deduce the array type
-        std::array<decltype(_data[0]->proving_key.polynomials.get_all()), NUM> views;
+        std::array<decltype(_data[0]->polynomials.get_all()), NUM> views;
         for (size_t i = 0; i < NUM; i++) {
-            views[i] = _data[i]->proving_key.polynomials.get_all();
+            views[i] = _data[i]->polynomials.get_all();
         }
         return views;
     }
 };
 
-template <typename Flavor_, size_t NUM_ = 2> struct DeciderVerificationKeys_ {
+template <IsUltraOrMegaHonk Flavor_, size_t NUM_ = 2> struct DeciderVerificationKeys_ {
     static_assert(NUM_ > 1, "Must have at least two decider verification keys.");
     using Flavor = Flavor_;
     using FF = typename Flavor_::FF;
@@ -124,26 +137,11 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderVerificationKeys_ {
     DeciderVerificationKeys_() = default;
     DeciderVerificationKeys_(const std::vector<std::shared_ptr<DeciderVK>>& data)
     {
-        ASSERT(data.size() == NUM);
+        BB_ASSERT_EQ(data.size(), NUM);
         for (size_t idx = 0; idx < data.size(); idx++) {
             _data[idx] = std::move(data[idx]);
         }
     };
-
-    /**
-     * @brief Get the max log circuit size from the set of decider verification keys
-     *
-     * @return size_t
-     */
-    size_t get_max_log_circuit_size() const
-    {
-        size_t max_log_circuit_size{ 0 };
-        for (auto key : _data) {
-            max_log_circuit_size =
-                std::max(max_log_circuit_size, static_cast<size_t>(key->verification_key->log_circuit_size));
-        }
-        return max_log_circuit_size;
-    }
 
     /**
      * @brief Get the precomputed commitments grouped by commitment index
@@ -159,11 +157,11 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderVerificationKeys_ {
      */
     std::vector<std::vector<Commitment>> get_precomputed_commitments() const
     {
-        const size_t num_commitments_to_fold = _data[0]->verification_key->get_all().size();
+        const size_t num_commitments_to_fold = _data[0]->vk->get_all().size();
         std::vector<std::vector<Commitment>> result(num_commitments_to_fold, std::vector<Commitment>(NUM));
         for (size_t idx = 0; auto& commitment_at_idx : result) {
             for (auto [elt, key] : zip_view(commitment_at_idx, _data)) {
-                elt = key->verification_key->get_all()[idx];
+                elt = key->vk->get_all()[idx];
             }
             idx++;
         }

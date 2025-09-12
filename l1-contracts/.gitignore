@@ -22,6 +22,7 @@ lcov.info
 
 # Yarn lockfile
 yarn.lock
+.yarn/
 
 # 'deploy_contracts' script output
 serve/
@@ -33,3 +34,5 @@ gas_benchmark.new.*
 gas_benchmark.diff
 
 /bench-out
+
+/coverage

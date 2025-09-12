@@ -45,7 +45,7 @@ describe('BlockHeader', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/types/src/block_header.nr',
+      'noir-projects/noir-protocol-circuits/crates/types/src/abis/block_header.nr',
       'test_data_empty_hash',
       hash.toString(),
     );

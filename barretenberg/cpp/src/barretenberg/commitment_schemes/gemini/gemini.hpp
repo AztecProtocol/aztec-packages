@@ -317,7 +317,8 @@ template <typename Curve> class GeminiProver_ {
 
     static std::vector<Polynomial> compute_fold_polynomials(const size_t log_n,
                                                             std::span<const Fr> multilinear_challenge,
-                                                            const Polynomial& A_0);
+                                                            const Polynomial& A_0,
+                                                            const bool& has_zk = false);
 
     static std::pair<Polynomial, Polynomial> compute_partially_evaluated_batch_polynomials(
         const size_t log_n,
@@ -335,7 +336,7 @@ template <typename Curve> class GeminiProver_ {
     static std::vector<Claim> prove(const Fr circuit_size,
                                     PolynomialBatcher& polynomial_batcher,
                                     std::span<Fr> multilinear_challenge,
-                                    const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
+                                    const CommitmentKey<Curve>& commitment_key,
                                     const std::shared_ptr<Transcript>& transcript,
                                     bool has_zk = false);
 
@@ -472,7 +473,7 @@ template <typename Curve> class GeminiVerifier_ {
                 OpeningClaim<Curve>{ { -r_squares[l + 1], evaluations[l + 1] }, commitments[l] });
         }
         if (has_interleaved) {
-            size_t interleaved_group_size = claim_batcher.get_groups_to_be_interleaved_size();
+            uint32_t interleaved_group_size = claim_batcher.get_groups_to_be_interleaved_size();
             Fr r_pow = r.pow(interleaved_group_size);
             fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { r_pow, p_pos }, C_P_pos });
             fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { r_pow, p_neg }, C_P_neg });
@@ -549,7 +550,8 @@ template <typename Curve> class GeminiVerifier_ {
      *
      * @param padding_indicator_array An array with first log_n entries equal to 1, and the remaining entries are 0.
      * @param batched_evaluation The evaluation of the batched polynomial at \f$ (u_0, \ldots, u_{d-1})\f$.
-     * @param evaluation_point Evaluation point \f$ (u_0, \ldots, u_{d-1}) \f$ padded to CONST_PROOF_SIZE_LOG_N.
+     * @param evaluation_point Evaluation point \f$ (u_0, \ldots, u_{d-1}) \f$. Depending on the context, might be
+     * padded to `virtual_log_n` size.
      * @param challenge_powers Powers of \f$ r \f$, \f$ r^2 \), ..., \( r^{2^{d-1}} \f$.
      * @param fold_neg_evals  Evaluations \f$ A_{i-1}(-r^{2^{i-1}}) \f$.
      * @return \f A_{i}}(r^{2^{i}})\f$ \f$ i = 0, \ldots, \text{virtual_log_n} - 1 \f$.

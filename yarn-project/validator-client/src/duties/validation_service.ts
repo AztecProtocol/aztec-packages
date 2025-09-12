@@ -1,7 +1,9 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { Signature } from '@aztec/foundation/eth-signature';
 import type { Fr } from '@aztec/foundation/fields';
+import type { CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
 import {
   BlockAttestation,
   BlockProposal,
@@ -27,21 +29,29 @@ export class ValidationService {
    * @returns A block proposal signing the above information (not the current implementation!!!)
    */
   async createBlockProposal(
-    blockNumber: Fr,
+    blockNumber: number,
     header: ProposedBlockHeader,
     archive: Fr,
     stateReference: StateReference,
     txs: Tx[],
-    proposerAttesterAddress: EthAddress,
+    proposerAttesterAddress: EthAddress | undefined,
     options: BlockProposalOptions,
   ): Promise<BlockProposal> {
-    const payloadSigner = (payload: Buffer32) => this.keyStore.signMessageWithAddress(proposerAttesterAddress, payload);
+    let payloadSigner: (payload: Buffer32) => Promise<Signature>;
+    if (proposerAttesterAddress !== undefined) {
+      payloadSigner = (payload: Buffer32) => this.keyStore.signMessageWithAddress(proposerAttesterAddress, payload);
+    } else {
+      // if there is no proposer attester address, just use the first signer
+      const signer = this.keyStore.getAddress(0);
+      payloadSigner = (payload: Buffer32) => this.keyStore.signMessageWithAddress(signer, payload);
+    }
     // TODO: check if this is calculated earlier / can not be recomputed
     const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
 
     return BlockProposal.createProposalFromSigner(
       blockNumber,
-      new ConsensusPayload(header, archive, stateReference, txHashes),
+      new ConsensusPayload(header, archive, stateReference),
+      txHashes,
       options.publishFullTxs ? txs : undefined,
       payloadSigner,
     );
@@ -66,5 +76,15 @@ export class ValidationService {
     );
     //await this.keyStore.signMessage(buf);
     return signatures.map(sig => new BlockAttestation(proposal.blockNumber, proposal.payload, sig));
+  }
+
+  async signAttestationsAndSigners(
+    attestationsAndSigners: CommitteeAttestationsAndSigners,
+    proposer: EthAddress,
+  ): Promise<Signature> {
+    const buf = Buffer32.fromBuffer(
+      keccak256(attestationsAndSigners.getPayloadToSign(SignatureDomainSeparator.attestationsAndSigners)),
+    );
+    return await this.keyStore.signMessageWithAddress(proposer, buf);
   }
 }

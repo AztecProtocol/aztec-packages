@@ -9,39 +9,423 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
-## [Aztec.nr] Event API refactorings
+## [Aztec Tools]
 
-Public events are now emitted by calling the `emit_event_in_public_log` function:
+### Contract compilation now requires two steps
+
+The `aztec-nargo` command is now a direct pass-through to vanilla nargo, without any special compilation flags or postprocessing. Contract compilation for Aztec now requires two explicit steps:
+
+1. Compile your contracts with `aztec-nargo compile`
+2. Run postprocessing with the new `aztec-postprocess-contract` command
+
+The postprocessing step includes:
+
+- Transpiling functions for the Aztec VM
+- Generating verification keys for private functions
+- Caching verification keys for faster subsequent compilations
+
+Update your build scripts accordingly:
 
 ```diff
-+ use aztec::event::event_interface::emit_event_in_public_log;
-
-- event.emit(encode_event(&mut context));
-+ emit_event_in_public_log(event, &mut context);
+- aztec-nargo compile
++ aztec-nargo compile
++ aztec-postprocess-contract
 ```
 
-Private events are similarly by calling the `emit_event_in_private_log` function, which takes an enum value indicating the constraints that are desired:
+If you're using the `aztec-up` installer, the `aztec-postprocess-contract` command will be automatically installed alongside `aztec-nargo`.
+
+## [Aztec.js] Mandatory `from`
+
+As we prepare for a bigger `Wallet` interface refactor and the upcoming `WalletSDK`, a new parameter has been added to contract interactions, which now should indicate _explicitly_ the address of the entrypoint (usually the account contract) that will be used to authenticate the request. This will be checked in runtime against the current `this.wallet.getAddress()` value, to ensure consistent behavior while the rest of the API is reworked.
 
 ```diff
-+ use aztec::event::event_interface::{emit_event_in_private_log, PrivateLogContent};
+- await contract.methods.my_func(arg).send().wait();
++ await contract.methods.my_func(arg).send({ from: account1Address }).wait();
+```
 
-- event.emit(encode_and_encrypt_unconstrained(&mut context));
-+ emit_event_in_private_log(
-+     event,
-+     &mut context,
-+     from,
-+     to,
-+     PrivateLogContent.NO_CONSTRAINTS,
-+ );
-````
+## [Aztec.nr]
 
-## [Aztec.nr] Modified `get_log_by_tag` function
+### Unified oracles into single get_utility_context oracle
 
-`get_log_by_tag` function has been renamed to `get_public_log_by_tag` and now it accepts contract address along with a tag as input and it only returns public logs:
+The following oracles:
+
+1. get_contract_address,
+2. get_block_number,
+3. get_timestamp,
+4. get_chain_id,
+5. get_version
+
+were replaced with a single `get_utility_context` oracle whose return value contains all the values returned from the removed oracles.
+
+If you have used one of these removed oracles before, update the import, e.g.:
 
 ```diff
-- let maybe_log = get_log_by_tag(pending_partial_note.note_completion_log_tag);
-+ let maybe_log = get_public_log_by_tag(pending_partial_note.note_completion_log_tag, contract_address);
+- aztec::oracle::execution::get_chain_id;
++ aztec::oracle::execution::get_utility_context
+```
+
+and get the value out of the returned utility context:
+
+```diff
+- let chain_id = get_chain_id();
++ let chain_id = get_utility_context().chain_id();
+```
+
+### Note emission API changes
+
+The note emission API has been significantly reworked to provide clearer semantics around message delivery guarantees. The key changes are:
+
+1. `encode_and_encrypt_note` has been removed in favor of calling `emit` directly with `MessageDelivery.CONSTRAINED_ONCHAIN`
+2. `encode_and_encrypt_note_unconstrained` has been removed in favor of calling `emit` directly with `MessageDelivery.UNCONSTRAINED_ONCHAIN`
+3. `encode_and_encrypt_note_and_emit_as_offchain_message` has been removed in favor of using `emit` with `MessageDelivery.UNCONSTRAINED_OFFCHAIN`
+4. Note emission now takes a `delivery_mode` parameter with the following values:
+   - `CONSTRAINED_ONCHAIN`: For onchain delivery with cryptographic guarantees that recipients can discover and decrypt messages. Uses constrained encryption but is slower to prove. Best for critical messages that contracts need to verify.
+   - `UNCONSTRAINED_ONCHAIN`: For onchain delivery without encryption constraints. Faster proving but trusts the sender. Good when the sender is incentivized to perform encryption correctly (e.g. they are buying something and will only get it if the recipient sees the note). No guarantees that recipients will be able to find or decrypt messages.
+   - `UNCONSTRAINED_OFFCHAIN`: For offchain delivery (e.g. cloud storage) without constraints. Lowest cost since no onchain storage needed. Requires custom infrastructure for delivery. No guarantees that messages will be delivered or that recipients will ever find them.
+
+Example migration:
+
+First you need to update imports in your contract:
+
+```diff
+- aztec::messages::logs::note::encode_and_encrypt_note;
+- aztec::messages::logs::note::encode_and_encrypt_note_unconstrained;
+- aztec::messages::logs::note::encode_and_encrypt_note_and_emit_as_offchain_message;
++ aztec::messages::message_delivery::MessageDelivery;
+```
+
+Then update the emissions:
+
+```diff
+- storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(&mut context, from));
++ storage.balances.at(from).sub(from, amount).emit(&mut context, from, MessageDelivery.CONSTRAINED_ONCHAIN);
+```
+
+```diff
+- storage.balances.at(from).add(from, change).emit(encode_and_encrypt_note_unconstrained(&mut context, from));
++ storage.balances.at(from).add(from, change).emit(&mut context, from, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+```
+
+```diff
+- storage.balances.at(owner).insert(note).emit(encode_and_encrypt_note_and_emit_as_offchain_message(&mut context, context.msg_sender());
++ storage.balances.at(owner).insert(note).emit(&mut context, context.msg_sender(), MessageDelivery.UNCONSTRAINED_OFFCHAIN);
+```
+
+### `emit_event_in_public_log` function renamed as `emit_event_in_public`
+
+This change was done to make the naming consistent with the private counterpart (`emit_event_in_private`).
+
+### Private event emission API changes
+
+The private event emission API has been significantly reworked to provide clearer semantics around message delivery guarantees. The key changes are:
+
+1. `emit_event_in_private_log` has been renamed to `emit_event_in_private` and now takes a `delivery_mode` parameter instead of `constraints`
+2. `emit_event_as_offchain_message` has been removed in favor of using `emit_event_in_private` with `MessageDelivery.UNCONSTRAINED_OFFCHAIN`
+3. `PrivateLogContent` enum has been replaced with `MessageDelivery` enum with the following values:
+   - `CONSTRAINED_ONCHAIN`: For onchain delivery with cryptographic guarantees that recipients can discover and decrypt messages. Uses constrained encryption but is slower to prove. Best for critical messages that contracts need to verify.
+   - `UNCONSTRAINED_ONCHAIN`: For onchain delivery without encryption constraints. Faster proving but trusts the sender. Good when the sender is incentivized to perform encryption correctly (e.g. they are buying something and will only get it if the recipient sees the note). No guarantees that recipients will be able to find or decrypt messages.
+   - `UNCONSTRAINED_OFFCHAIN`: For offchain delivery (e.g. cloud storage) without constraints. Lowest cost since no onchain storage needed. Requires custom infrastructure for delivery. No guarantees that messages will be delivered or that recipients will ever find them.
+
+### Contract functions can no longer be `pub` or `pub(crate)`
+
+With the latest changes to `TestEnvironment`, making contract functions have public visibility is no longer required given the new `call_public` and `simulate_utility` functions. To avoid accidental direct invocation, and to reduce confusion with the autogenerated interfaces, we're forbidding them being public.
+
+```diff
+- pub(crate) fn balance_of_private(account: AztecAddress) -> 128 {
++ fn balance_of_private(account: AztecAddress) -> 128 {
+```
+
+### Notes require you to manually implement or derive Packable
+
+We have decided to drop auto-derivation of `Packable` from the `#[note]` macro because we want to make the macros less magical.
+With this change you will be forced to either apply `#[derive(Packable)` on your notes:
+
+```diff
++use aztec::protocol_types::traits::Packable;
+
++#[derive(Packable)]
+#[note]
+pub struct UintNote {
+    owner: AztecAddress,
+    randomness: Field,
+    value: u128,
+}
+```
+
+or to implement it manually yourself:
+
+```rust
+impl Packable for UintNote {
+    let N: u32 = 3;
+
+    fn pack(self) -> [Field; Self::N] {
+        [self.owner.to_field(), randomness, value as Field]
+    }
+
+    fn unpack(fields: [Field; Self::N]) -> Self {
+        let owner = AztecAddress::from_field(fields[0]);
+        let randomness = fields[1];
+        let value = fields[2] as u128;
+        UintNote { owner, randomness, value }
+    }
+}
+```
+
+### Tagging sender now managed via oracle functions
+
+Now, instead of manually needing to pass a tagging sender as an argument to log emission functions (e.g. `encode_and_encrypt_note`, `encode_and_encrypt_note_unconstrained`, `emit_event_in_private_log`, ...) we automatically load the sender via the `get_sender_for_tags()` oracle.
+This value is expected to be populated by account contracts that should call `set_sender_for_tags()` in their entry point functions.
+
+The changes you need to do in your contracts are quite straightforward.
+You simply need to drop the `sender` arg from the callsites of the log emission functions.
+E.g. note emission:
+
+```diff
+storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
+    &mut context,
+    from,
+-    tagging_sender,
+));
+```
+
+E.g. private event emission:
+
+```diff
+emit_event_in_private_log(
+    Transfer { from, to, amount },
+    &mut context,
+-    tagging_sender,
+    to,
+    PrivateLogContent.NO_CONSTRAINTS,
+);
+```
+
+This change affected arguments `prepare_private_balance_increase` and `mint_to_private` functions on the `Token` contract.
+Drop the `from` argument when calling these.
+
+Example n TypeScript test:
+
+```diff
+- await token.methods.mint_to_private(fundedWallet.getAddress(), alice, mintAmount).send().wait();
++ await token.methods.mint_to_private(alice, mintAmount).send().wait();
+```
+
+Example when
+
+```diff
+let token_out_partial_note = Token::at(token_out).prepare_private_balance_increase(
+    sender,
+-    tagging_sender
+).call(&mut context);
+```
+
+### SharedMutable -> DelayedPublicMutable
+
+The `SharedMutable` state variable has been renamed to `DelayedPublicMutable`. It is a public mutable with a delay before state changes take effect. It can be read in private during the delay period. The name "shared" confuses developers who actually wish to work with so-called "shared private state". Also, we're working on a `DelayedPrivateMutable` which will have similar properties, except writes will be scheduled from private instead. With this new state variable in mind, the new name works nicely.
+
+## [TXE] - Testing Aztec Contracts using Noir
+
+### Full `TestEnvironment` API overhaul
+
+As part of a broader effort to make Noir tests that leverage TXE easier to use and reason about, large parts of it were changed or adapted, resulting in the API now being quite different. No functionality was lost, so it should be possible to migrate any older Noir test to use the new API.
+
+#### Network State Manipulation
+
+- `committed_timestamp` removed: this function did not work correctly
+- `private_at_timestamp`: this function was not really meaningful: private contexts are built from block numbers, not timestamps
+- `pending_block_number` was renamed to `next_block_number`. `pending_timestamp` was removed since it was confusing and not useful
+- `committed_block_number` was renamed to `last_block_number`
+- `advance_timestamp_to` and `advance_timestamp_by` were renamed to `set_next_block_timestamp` and `advance_next_block_timestamp_by` respectively
+- `advance_block_to` was renamed to `mine_block_at`, which takes a timestamp instead of a target block number
+- `advance_block_by` was renamed to `mine_block`, which now mines a single block
+
+#### Account Management
+
+- `create_account` was renamed to `create_light_account`
+- `create_account_contract` was renamed to `create_contract_account`
+
+#### Contract Deployment
+
+- `deploy_self` removed: merged into `deploy`
+- `deploy` now accepts both local and external contracts
+
+#### Contract Interactions
+
+The old way of calling contract functions is gone. Contract functions are now invoked via the `call_private`, `view_private`, `call_public`, `view_public` and `simulate_utility` `TestEnvironment` methods. These take a `CallInterface`, like their old counterparts, but now also take an explicit `from` parameter (for the `call` variants - this is left out of the `view` and `simulate` methods for simplicity).
+
+#### Raw Context Access
+
+The `private` and `public` methods are gone. Private, public and utility contexts can now be crated with the `private_context`, `public_context` and `utility_context` functions, all of which takes a callback function that is called with the corresponding context. This functions are expected to be defined in-line as lambdas, and contain the user-defined test logic. This helps delineate where contexts begin and end. Contexts automatically mine blocks on closing, when appropriate.
+
+#### Error-expecting Functions
+
+`assert_public_call_revert` and variants have been removed. Use `#[test(should_fail_with = "message")]` instead.
+
+#### Example Migration
+
+The following are two tests using the older version of `TestEnvironment`:
+
+```noir
+#[test]
+unconstrained fn initial_empty_value() {
+    let mut env = TestEnvironment::new();
+
+    // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
+    let admin = env.create_account(1);
+
+    let initializer_call_interface = Auth::interface().constructor(admin);
+
+    let auth_contract =
+        env.deploy_self("Auth").with_public_void_initializer(admin, initializer_call_interface);
+    let auth_contract_address = auth_contract.to_address();
+
+    env.impersonate(admin);
+    let authorized = Auth::at(auth_contract_address).get_authorized().view(&mut env.public());
+    assert_eq(authorized, AztecAddress::from_field(0));
+}
+
+#[test]
+unconstrained fn non_admin_cannot_set_authorized() {
+    let mut env = TestEnvironment::new();
+
+    // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
+    let admin = env.create_account(1);
+    let other = env.create_account(2);
+
+    let initializer_call_interface = Auth::interface().constructor(admin);
+
+    let auth_contract =
+        env.deploy_self("Auth").with_public_void_initializer(admin, initializer_call_interface);
+    let auth_contract_address = auth_contract.to_address();
+
+    env.impersonate(other);
+    env.assert_public_call_fails(Auth::at(auth_contract_address).set_authorized(to_authorize));
+}
+```
+
+These now look like this:
+
+```noir
+#[test]
+unconstrained fn authorized_initially_unset() {
+    let mut env = TestEnvironment::new();
+
+    let admin = env.create_light_account(); // Manual secret management gone
+
+    let auth_contract_address =
+        env.deploy("Auth").with_public_initializer(admin, Auth::interface().constructor(admin)); // deploy_self replaced
+    let auth = Auth::at(auth_contract_address);
+
+    assert_eq(env.view_public(auth.get_authorized()), AztecAddress::zero()); // .view_public() instead of .public()
+}
+
+#[test(should_fail_with = "caller is not admin")]
+unconstrained fn non_admin_cannot_set_unauthorized() {
+    let mut env = TestEnvironment::new();
+
+    let admin = env.create_light_account();
+    let other = env.create_light_account();
+
+    let auth_contract_address =
+        env.deploy("Auth").with_public_initializer(admin, Auth::interface().constructor(admin)); // deploy_self replaced
+    let auth = Auth::at(auth_contract_address);
+
+    env.call_public(other, auth.set_authorized(other)); // .call_public(), should_fail_with
+}
+```
+
+## [Aztec.js]
+
+### Cheatcodes
+
+Cheatcodes where moved out of the `@aztec/aztec.js` package to `@aztec/ethereum` and `@aztec/aztec` packages.
+While all of the cheatcodes can be imported from the `@aztec/aztec` package `EthCheatCodes` and `RollupCheatCodes` reside in `@aztec/ethereum` package and if you need only those importing only that package should result in a lighter build.
+
+### Note exports dropped from artifact
+
+Notes are no longer exported in the contract artifact.
+Exporting notes was technical debt from when we needed to interpret notes in TypeScript.
+
+The following code will no longer work since `notes` is no longer available on the artifact:
+
+```rust
+const valueNoteTypeId = StatefulTestContractArtifact.notes['ValueNote'].id;
+```
+
+## [core protocol, Aztec.nr, Aztec.js] Max block number property changed to be seconds based
+
+### `max_block_number` -> `include_by_timestamp`
+
+The transaction expiration mechanism has been updated to use seconds rather than number of blocks.
+As part of this change, the transaction property `max_block_number` has been renamed to `include_by_timestamp`.
+
+This change significantly impacts the `SharedMutable` state variable in `Aztec.nr`, which now operates on a seconds instead of number of blocks.
+If your contract uses `SharedMutable`, you'll need to:
+
+1. Update the `INITIAL_DELAY` numeric generic to use seconds instead of blocks
+2. Modify any related logic to account for timestamp-based timing
+3. Note that timestamps use `u64` values while block numbers use `u32`
+
+### Removed `prelude`, so your `dep::aztec::prelude::...` imports will need to be amended.
+
+Instead of importing common types from `dep::aztec::prelude...`, you'll now need to import them from their lower-level locations.
+The Noir Language Server vscode extension is now capable of autocompleting imports: just type some of the import and press 'tab' when it pops up with the correct item, and the import will be inserted at the top of the file.
+
+As a quick reference, here are the paths to the types that were previously in the `prelude`.
+So, for example, if you were previously using `dep::aztec::prelude::AztecAddress`, you'll need to replace it with `dep::aztec::protocol_types::address::AztecAddress`.
+Apologies for any pain this brings. The reasoning is that these types were somewhat arbitrary, and it was unclear which types were worthy enough to be included here.
+
+```rust
+use dep::aztec::{
+    context::{PrivateCallInterface, PrivateContext, PublicContext, UtilityContext, ReturnsHash},
+    note::{
+        note_getter_options::NoteGetterOptions,
+        note_interface::{NoteHash, NoteType},
+        note_viewer_options::NoteViewerOptions,
+        retrieved_note::RetrievedNote,
+    },
+    state_vars::{
+        map::Map, private_immutable::PrivateImmutable, private_mutable::PrivateMutable,
+        private_set::PrivateSet, public_immutable::PublicImmutable, public_mutable::PublicMutable,
+        shared_mutable::SharedMutable,
+    },
+};
+
+use dep::aztec::protocol_types::{
+    abis::function_selector::FunctionSelector,
+    address::{AztecAddress, EthAddress},
+    point::Point,
+    traits::{Deserialize, Serialize},
+};
+```
+
+### `include_by_timestamp` is now mandatory
+
+Each transaction must now include a valid `include_by_timestamp` that satisfies the following conditions:
+
+- It must be greater than the historical block’s timestamp.
+- The duration between the `include_by_timestamp` and the historical block’s timestamp must not exceed the maximum allowed (currently 24 hours).
+- It must be greater than or equal to the timestamp of the block in which the transaction is included.
+
+The protocol circuits compute the `include_by_timestamp` for contract updates during each private function iteration. If a contract does not explicitly specify a value, the default will be the maximum allowed duration. This ensures that `include_by_timestamp` is never left unset.
+
+No client-side changes are required. However, please note that transactions now have a maximum lifespan of 24 hours and will be removed from the transaction pool once expired.
+
+## 0.88.0
+
+## [Aztec.nr] Deprecation of the `authwit` library
+
+It is now included in `aztec-nr`, so imports must be updated:
+
+```diff
+-dep::authwit::...
++dep::aztec::authwit...
+```
+
+and stale dependencies removed from `Nargo.toml`
+
+```diff
+-authwit = { path = "../../../../aztec-nr/authwit" }
 ```
 
 ## 0.87.0
@@ -126,7 +510,7 @@ Aztec contracts have three kinds of functions: `#[private]`, `#[public]` and wha
     }
 ```
 
-Utility functions are standalone unconstrained functions that cannot be called from private or public functions: they are meant to be called by _applications_ to perform auxiliary tasks: query contract state (e.g. a token balance), process messages received off-chain, etc.
+Utility functions are standalone unconstrained functions that cannot be called from private or public functions: they are meant to be called by _applications_ to perform auxiliary tasks: query contract state (e.g. a token balance), process messages received offchain, etc.
 
 All functions in a `contract` block must now be marked as one of either `#[private]`, `#[public]`, `#[utility]`, `#[contract_library_method]`, or `#[test]`.
 
@@ -2453,7 +2837,7 @@ This will be further simplified in future versions (See [4496](https://github.co
 
 The prelude consists of
 
-#include_code prelude /noir-projects/aztec-nr/aztec/src/prelude.nr rust
+\[Edit: removed because the prelude no-longer exists\]
 
 ### `internal` is now a macro
 

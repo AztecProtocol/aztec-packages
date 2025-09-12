@@ -1,11 +1,11 @@
-import { type InitialAccountData, getInitialTestAccounts } from '@aztec/accounts/testing';
+import { type InitialAccountData, getInitialTestAccountsData } from '@aztec/accounts/testing';
 import type { Wallet } from '@aztec/aztec.js';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn } from '@aztec/foundation/log';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ContractInstanceWithAddress, getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
+import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
 
 const BANANA_COIN_SALT = new Fr(0);
@@ -23,7 +23,7 @@ function getBananaAdmin(initialAccounts: InitialAccountData[]): AztecAddress {
 
 async function getBananaCoinInstance(initialAccounts: InitialAccountData[]): Promise<ContractInstanceWithAddress> {
   const admin = getBananaAdmin(initialAccounts);
-  return await getContractInstanceFromDeployParams(TokenContract.artifact, {
+  return await getContractInstanceFromInstantiationParams(TokenContract.artifact, {
     constructorArgs: [admin, bananaCoinArgs.name, bananaCoinArgs.symbol, bananaCoinArgs.decimal],
     salt: BANANA_COIN_SALT,
   });
@@ -36,7 +36,7 @@ export async function getBananaCoinAddress(initialAccounts: InitialAccountData[]
 async function getBananaFPCInstance(initialAccounts: InitialAccountData[]): Promise<ContractInstanceWithAddress> {
   const bananaCoin = await getBananaCoinAddress(initialAccounts);
   const admin = getBananaAdmin(initialAccounts);
-  return await getContractInstanceFromDeployParams(FPCContract.artifact, {
+  return await getContractInstanceFromInstantiationParams(FPCContract.artifact, {
     constructorArgs: [bananaCoin, admin],
     salt: BANANA_FPC_SALT,
   });
@@ -46,15 +46,15 @@ export async function getBananaFPCAddress(initialAccounts: InitialAccountData[])
   return (await getBananaFPCInstance(initialAccounts)).address;
 }
 
-export async function setupBananaFPC(initialAccounts: InitialAccountData[], deployer: Wallet, log: LogFn) {
+export async function setupBananaFPC(initialAccounts: InitialAccountData[], wallet: Wallet, log: LogFn) {
   const bananaCoinAddress = await getBananaCoinAddress(initialAccounts);
   const admin = getBananaAdmin(initialAccounts);
   const [bananaCoin, fpc] = await Promise.all([
-    TokenContract.deploy(deployer, admin, bananaCoinArgs.name, bananaCoinArgs.symbol, bananaCoinArgs.decimal)
-      .send({ contractAddressSalt: BANANA_COIN_SALT, universalDeploy: true })
+    TokenContract.deploy(wallet, admin, bananaCoinArgs.name, bananaCoinArgs.symbol, bananaCoinArgs.decimal)
+      .send({ from: admin, contractAddressSalt: BANANA_COIN_SALT, universalDeploy: true })
       .deployed(),
-    FPCContract.deploy(deployer, bananaCoinAddress, admin)
-      .send({ contractAddressSalt: BANANA_FPC_SALT, universalDeploy: true })
+    FPCContract.deploy(wallet, bananaCoinAddress, admin)
+      .send({ from: admin, contractAddressSalt: BANANA_FPC_SALT, universalDeploy: true })
       .deployed(),
   ]);
 
@@ -63,7 +63,7 @@ export async function setupBananaFPC(initialAccounts: InitialAccountData[], depl
 }
 
 export async function getDeployedBananaCoinAddress(pxe: PXE) {
-  const initialAccounts = await getInitialTestAccounts();
+  const initialAccounts = await getInitialTestAccountsData();
   const bananaCoin = await getBananaCoinAddress(initialAccounts);
   const contracts = await pxe.getContracts();
   if (!contracts.find(c => c.equals(bananaCoin))) {
@@ -73,7 +73,7 @@ export async function getDeployedBananaCoinAddress(pxe: PXE) {
 }
 
 export async function getDeployedBananaFPCAddress(pxe: PXE) {
-  const initialAccounts = await getInitialTestAccounts();
+  const initialAccounts = await getInitialTestAccountsData();
   const fpc = await getBananaFPCInstance(initialAccounts);
   const contracts = await pxe.getContracts();
   if (!contracts.find(c => c.equals(fpc.address))) {

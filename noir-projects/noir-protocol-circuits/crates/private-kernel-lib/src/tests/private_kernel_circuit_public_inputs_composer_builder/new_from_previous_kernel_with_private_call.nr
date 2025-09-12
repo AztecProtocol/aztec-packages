@@ -1,25 +1,17 @@
 use crate::tests::private_kernel_circuit_public_inputs_composer_builder::PrivateKernelCircuitPublicInputsComposerBuilder;
-use dep::types::{
-    abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsArrayLengths,
-    constants::DEFAULT_UPDATE_DELAY, tests::utils::assert_array_eq, traits::is_empty,
-};
+use dep::types::{tests::utils::assert_array_eq, traits::Empty};
 
 #[test]
 fn new_from_previous_kernel_with_private_call_empty_data_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
+    let prev_include_by_timestamp = builder.previous_kernel.include_by_timestamp;
 
-    let output = builder.compose_from_previous_kernel();
+    // Safety: this is a test
+    let output = unsafe { builder.compose_from_previous_kernel() };
 
-    let array_lengths = PrivateKernelCircuitPublicInputsArrayLengths::new(output);
-    let expected_array_lengths = PrivateKernelCircuitPublicInputsArrayLengths::empty();
-    assert_eq(array_lengths, expected_array_lengths);
-
-    assert_eq(
-        output.validation_requests.for_rollup.max_block_number.unwrap_unchecked(),
-        DEFAULT_UPDATE_DELAY,
-    );
-    assert(is_empty(output.public_teardown_call_request));
-    assert(is_empty(output.fee_payer));
+    assert_eq(output.include_by_timestamp, prev_include_by_timestamp);
+    assert(output.public_teardown_call_request.is_empty());
+    assert(output.fee_payer.is_empty());
 }
 
 #[test]
@@ -28,7 +20,8 @@ fn new_from_previous_kernel_with_private_call_min_revertible_side_effect_counter
 
     builder.private_call.min_revertible_side_effect_counter = 3;
 
-    let output = builder.compose_from_previous_kernel();
+    // Safety: this is a test
+    let output = unsafe { builder.compose_from_previous_kernel() };
 
     assert_eq(output.min_revertible_side_effect_counter, 3);
 }
@@ -39,7 +32,8 @@ fn new_from_previous_kernel_with_private_call_min_revertible_side_effect_counter
 
     builder.previous_kernel.min_revertible_side_effect_counter = 3;
 
-    let output = builder.compose_from_previous_kernel();
+    // Safety: this is a test
+    let output = unsafe { builder.compose_from_previous_kernel() };
 
     assert_eq(output.min_revertible_side_effect_counter, 3);
 }
@@ -51,53 +45,47 @@ fn new_from_previous_kernel_with_private_call_min_revertible_side_effect_counter
     builder.previous_kernel.min_revertible_side_effect_counter = 3;
     builder.private_call.min_revertible_side_effect_counter = 3;
 
-    let _ = builder.compose_from_previous_kernel();
+    // Safety: this is a test
+    let _ = unsafe { builder.compose_from_previous_kernel() };
 }
 
 #[test]
-fn new_from_previous_kernel_with_private_call_max_block_number_prev_empty_succeeds() {
+fn new_from_previous_kernel_with_private_call_include_by_timestamp_equal_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.private_call.set_max_block_number(3);
+    builder.previous_kernel.include_by_timestamp = 3;
+    builder.private_call.include_by_timestamp = 3;
 
-    let output = builder.compose_from_previous_kernel();
+    // Safety: this is a test
+    let output = unsafe { builder.compose_from_previous_kernel() };
 
-    assert_eq(output.validation_requests.for_rollup.max_block_number.unwrap(), 3);
+    assert_eq(output.include_by_timestamp, 3);
 }
 
 #[test]
-fn new_from_previous_kernel_with_private_call_max_block_number_curr_empty_succeeds() {
+fn new_from_previous_kernel_with_private_call_include_by_timestamp_pick_prev_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.previous_kernel.set_max_block_number(3);
+    builder.previous_kernel.include_by_timestamp = 3;
+    builder.private_call.include_by_timestamp = 4;
 
-    let output = builder.compose_from_previous_kernel();
+    // Safety: this is a test
+    let output = unsafe { builder.compose_from_previous_kernel() };
 
-    assert_eq(output.validation_requests.for_rollup.max_block_number.unwrap(), 3);
+    assert_eq(output.include_by_timestamp, 3);
 }
 
 #[test]
-fn new_from_previous_kernel_with_private_call_max_block_number_pick_prev_succeeds() {
+fn new_from_previous_kernel_with_private_call_include_by_timestamp_pick_curr_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.previous_kernel.set_max_block_number(3);
-    builder.private_call.set_max_block_number(4);
+    builder.previous_kernel.include_by_timestamp = 4;
+    builder.private_call.include_by_timestamp = 3;
 
-    let output = builder.compose_from_previous_kernel();
+    // Safety: this is a test
+    let output = unsafe { builder.compose_from_previous_kernel() };
 
-    assert_eq(output.validation_requests.for_rollup.max_block_number.unwrap(), 3);
-}
-
-#[test]
-fn new_from_previous_kernel_with_private_call_max_block_number_pick_curr_succeeds() {
-    let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
-
-    builder.previous_kernel.set_max_block_number(4);
-    builder.private_call.set_max_block_number(3);
-
-    let output = builder.compose_from_previous_kernel();
-
-    assert_eq(output.validation_requests.for_rollup.max_block_number.unwrap(), 3);
+    assert_eq(output.include_by_timestamp, 3);
 }
 
 #[test]
@@ -109,10 +97,11 @@ fn new_from_previous_kernel_with_private_call_note_hash_read_requests_succeeds()
     builder.private_call.append_note_hash_read_requests(2);
     let curr = builder.private_call.note_hash_read_requests.storage();
 
-    let output = builder.compose_from_previous_kernel();
+    // Safety: this is a test
+    let output = unsafe { builder.compose_from_previous_kernel() };
 
     assert_array_eq(
-        output.validation_requests.note_hash_read_requests,
+        output.validation_requests.note_hash_read_requests.array,
         [prev[0], prev[1], curr[0], curr[1]],
     );
 }
@@ -126,10 +115,11 @@ fn new_from_previous_kernel_with_private_call_nullifier_read_requests_succeeds()
     builder.private_call.append_nullifier_read_requests(2);
     let curr = builder.private_call.nullifier_read_requests.storage();
 
-    let output = builder.compose_from_previous_kernel();
+    // Safety: this is a test
+    let output = unsafe { builder.compose_from_previous_kernel() };
 
     assert_array_eq(
-        output.validation_requests.nullifier_read_requests,
+        output.validation_requests.nullifier_read_requests.array,
         [prev[0], prev[1], curr[0], curr[1]],
     );
 }
@@ -143,10 +133,11 @@ fn new_from_previous_kernel_with_private_call_key_validation_requests_succeeds()
     builder.private_call.append_key_validation_requests(2);
     let curr = builder.private_call.scoped_key_validation_requests_and_generators.storage();
 
-    let output = builder.compose_from_previous_kernel();
+    // Safety: this is a test
+    let output = unsafe { builder.compose_from_previous_kernel() };
 
     assert_array_eq(
-        output.validation_requests.scoped_key_validation_requests_and_generators,
+        output.validation_requests.scoped_key_validation_requests_and_generators.array,
         [prev[0], prev[1], curr[0], curr[1]],
     );
 }
@@ -160,9 +151,13 @@ fn new_from_previous_kernel_with_private_call_note_hashes_succeeds() {
     builder.private_call.append_note_hashes(2);
     let curr = builder.private_call.note_hashes.storage();
 
-    let output = builder.compose_from_previous_kernel();
+    // Safety: this is a test
+    let output = unsafe { builder.compose_from_previous_kernel() };
 
-    assert_array_eq(output.end.note_hashes, [prev[0], prev[1], curr[0], curr[1]]);
+    assert_array_eq(
+        output.end.note_hashes.array,
+        [prev[0], prev[1], curr[0], curr[1]],
+    );
 }
 
 #[test]
@@ -174,9 +169,13 @@ fn new_from_previous_kernel_with_private_call_nullifiers_succeeds() {
     builder.private_call.append_nullifiers(2);
     let curr = builder.private_call.nullifiers.storage();
 
-    let output = builder.compose_from_previous_kernel();
+    // Safety: this is a test
+    let output = unsafe { builder.compose_from_previous_kernel() };
 
-    assert_array_eq(output.end.nullifiers, [prev[0], prev[1], curr[0], curr[1]]);
+    assert_array_eq(
+        output.end.nullifiers.array,
+        [prev[0], prev[1], curr[0], curr[1]],
+    );
 }
 
 #[test]
@@ -188,9 +187,10 @@ fn new_from_previous_kernel_with_private_call_l2_to_l1_msgs_succeeds() {
     builder.private_call.append_l2_to_l1_msgs(1);
     let curr = builder.private_call.l2_to_l1_msgs.storage();
 
-    let output = builder.compose_from_previous_kernel();
+    // Safety: this is a test
+    let output = unsafe { builder.compose_from_previous_kernel() };
 
-    assert_array_eq(output.end.l2_to_l1_msgs, [prev[0], curr[0]]);
+    assert_array_eq(output.end.l2_to_l1_msgs.array, [prev[0], curr[0]]);
 }
 
 #[test]
@@ -202,10 +202,11 @@ fn new_from_previous_kernel_with_private_call_private_logs_succeeds() {
     builder.private_call.append_private_logs(2);
     let curr = builder.private_call.private_logs.storage();
 
-    let output = builder.compose_from_previous_kernel();
+    // Safety: this is a test
+    let output = unsafe { builder.compose_from_previous_kernel() };
 
     assert_array_eq(
-        output.end.private_logs,
+        output.end.private_logs.array,
         [prev[0], prev[1], curr[0], curr[1]],
     );
 }
@@ -217,9 +218,10 @@ fn new_from_previous_kernel_with_private_call_contract_class_log_hashes_succeeds
     builder.private_call.add_contract_class_log_hash(2, 200);
     let curr = builder.private_call.contract_class_logs_hashes.storage();
 
-    let output = builder.compose_from_previous_kernel();
+    // Safety: this is a test
+    let output = unsafe { builder.compose_from_previous_kernel() };
 
-    assert_array_eq(output.end.contract_class_logs_hashes, [curr[0]]);
+    assert_array_eq(output.end.contract_class_logs_hashes.array, [curr[0]]);
 }
 
 #[test]
@@ -231,11 +233,12 @@ fn new_from_previous_kernel_with_private_call_private_call_requests_succeeds() {
     builder.private_call.append_private_call_requests(2);
     let curr = builder.private_call.private_call_requests.storage();
 
-    let output = builder.compose_from_previous_kernel();
+    // Safety: this is a test
+    let output = unsafe { builder.compose_from_previous_kernel() };
 
     // Call requests from private call will be propagated in reversed order.
     assert_array_eq(
-        output.end.private_call_stack,
+        output.end.private_call_stack.array,
         [prev[1], prev[0], curr[1], curr[0]],
     );
 }
@@ -249,10 +252,11 @@ fn new_from_previous_kernel_with_private_call_public_call_requests_succeeds() {
     builder.private_call.append_public_call_requests(2);
     let curr = builder.private_call.public_call_requests.storage();
 
-    let output = builder.compose_from_previous_kernel();
+    // Safety: this is a test
+    let output = unsafe { builder.compose_from_previous_kernel() };
 
     assert_array_eq(
-        output.end.public_call_requests,
+        output.end.public_call_requests.array,
         [prev[0], prev[1], curr[0], curr[1]],
     );
 }
@@ -264,7 +268,8 @@ fn new_from_previous_kernel_with_private_call_public_teardown_call_request_succe
     builder.private_call.set_public_teardown_call_request();
     let request = builder.private_call.public_teardown_call_request;
 
-    let output = builder.compose_from_previous_kernel();
+    // Safety: this is a test
+    let output = unsafe { builder.compose_from_previous_kernel() };
 
     assert_eq(output.public_teardown_call_request, request);
 }
@@ -276,7 +281,8 @@ fn new_from_previous_kernel_with_private_call_public_teardown_call_request_overw
     builder.previous_kernel.set_public_teardown_call_request();
     builder.private_call.set_public_teardown_call_request();
 
-    let _ = builder.compose_from_previous_kernel();
+    // Safety: this is a test
+    let _ = unsafe { builder.compose_from_previous_kernel() };
 }
 
 #[test]
@@ -285,7 +291,8 @@ fn new_from_previous_kernel_with_private_call_fee_payer_succeeds() {
 
     let fee_payer = builder.private_call.make_fee_payer();
 
-    let output = builder.compose_from_previous_kernel();
+    // Safety: this is a test
+    let output = unsafe { builder.compose_from_previous_kernel() };
 
     assert_eq(output.fee_payer, fee_payer);
 }
@@ -297,5 +304,6 @@ fn new_from_previous_kernel_with_private_call_fee_payer_overwrite_fails() {
     let _ = builder.previous_kernel.make_fee_payer();
     let _ = builder.private_call.make_fee_payer();
 
-    let _ = builder.compose_from_previous_kernel();
+    // Safety: this is a test
+    let _ = unsafe { builder.compose_from_previous_kernel() };
 }

@@ -7,7 +7,6 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 
@@ -64,8 +63,10 @@ template <typename Curve> class OpeningClaim {
     // commitment to univariate polynomial p(X)
     Commitment commitment;
 
-    // Size of public inputs representation of an opening claim over Grumpkin
-    static constexpr size_t PUBLIC_INPUTS_SIZE = IPA_CLAIM_SIZE;
+    static constexpr bool IS_GRUMPKIN =
+        std::is_same_v<Curve, curve::Grumpkin> || std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>;
+    // Size of public inputs representation of an opening claim over Grumpkin: 2 * 4 + 2 = 10
+    static constexpr size_t PUBLIC_INPUTS_SIZE = IS_GRUMPKIN ? GRUMPKIN_OPENING_CLAIM_SIZE : INVALID_PUBLIC_INPUTS_SIZE;
 
     /**
      * @brief Set the witness indices for the opening claim to public
@@ -79,9 +80,6 @@ template <typename Curve> class OpeningClaim {
         opening_pair.evaluation.set_public();
         commitment.set_public();
 
-        Builder* ctx = commitment.get_context();
-        ctx->ipa_claim_public_input_key.start_idx = start_idx;
-
         return start_idx;
     }
 
@@ -94,8 +92,6 @@ template <typename Curve> class OpeningClaim {
         const std::span<const stdlib::field_t<Builder>, PUBLIC_INPUTS_SIZE>& limbs)
         requires(std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>)
     {
-        BB_ASSERT_EQ(2 * Fr::PUBLIC_INPUTS_SIZE + Commitment::PUBLIC_INPUTS_SIZE, PUBLIC_INPUTS_SIZE);
-
         const size_t FIELD_SIZE = Fr::PUBLIC_INPUTS_SIZE;
         const size_t COMMITMENT_SIZE = Commitment::PUBLIC_INPUTS_SIZE;
         std::span<const stdlib::field_t<Builder>, FIELD_SIZE> challenge_limbs{ limbs.data(), FIELD_SIZE };
@@ -105,6 +101,27 @@ template <typename Curve> class OpeningClaim {
         auto challenge = Fr::reconstruct_from_public(challenge_limbs);
         auto evaluation = Fr::reconstruct_from_public(evaluation_limbs);
         auto commitment = Commitment::reconstruct_from_public(commitment_limbs);
+
+        return OpeningClaim<Curve>{ { challenge, evaluation }, commitment };
+    }
+
+    /**
+     * @brief Reconstruct a native opening claim from native field elements
+     * @note Implemented for native curve::Grumpkin for use with IPA.
+     *
+     */
+    static OpeningClaim<Curve> reconstruct_from_public(const std::span<const bb::fr, PUBLIC_INPUTS_SIZE>& limbs)
+        requires(std::is_same_v<Curve, curve::Grumpkin>)
+    {
+        const size_t FIELD_SIZE = Fr::PUBLIC_INPUTS_SIZE;
+        const size_t COMMITMENT_SIZE = Commitment::PUBLIC_INPUTS_SIZE;
+        std::span<const bb::fr, FIELD_SIZE> challenge_limbs{ limbs.data(), FIELD_SIZE };
+        std::span<const bb::fr, FIELD_SIZE> evaluation_limbs{ limbs.data() + FIELD_SIZE, FIELD_SIZE };
+        std::span<const bb::fr, COMMITMENT_SIZE> commitment_limbs{ limbs.data() + 2 * FIELD_SIZE, COMMITMENT_SIZE };
+
+        Fr challenge = Fr::reconstruct_from_public(challenge_limbs);
+        Fr evaluation = Fr::reconstruct_from_public(evaluation_limbs);
+        Commitment commitment = Commitment::reconstruct_from_public(commitment_limbs);
 
         return OpeningClaim<Curve>{ { challenge, evaluation }, commitment };
     }
@@ -144,6 +161,8 @@ template <typename Curve> class OpeningClaim {
  * @brief An accumulator consisting of the Shplonk evaluation challenge and vectors of commitments and scalars.
  *
  * @details This structure is used in the `reduce_verify_batch_opening_claim` method of KZG or IPA.
+ *
+ * @note This structure always represents a zero evaluation claim.
  *
  * @tparam Curve: BN254 or Grumpkin.
  */

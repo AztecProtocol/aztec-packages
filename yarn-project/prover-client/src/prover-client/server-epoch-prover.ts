@@ -1,5 +1,6 @@
+import type { BatchedBlob, FinalBlobBatchingChallenges } from '@aztec/blob-lib';
 import type { Fr } from '@aztec/foundation/fields';
-import type { L2Block } from '@aztec/stdlib/block';
+import type { EthAddress, L2Block } from '@aztec/stdlib/block';
 import type { EpochProver } from '@aztec/stdlib/interfaces/server';
 import type { Proof } from '@aztec/stdlib/proofs';
 import type { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
@@ -15,8 +16,13 @@ export class ServerEpochProver implements EpochProver {
     private orchestrator: ProvingOrchestrator,
   ) {}
 
-  startNewEpoch(epochNumber: number, firstBlockNumber: number, totalNumBlocks: number): void {
-    this.orchestrator.startNewEpoch(epochNumber, firstBlockNumber, totalNumBlocks);
+  startNewEpoch(
+    epochNumber: number,
+    firstBlockNumber: number,
+    totalNumBlocks: number,
+    finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
+  ): void {
+    this.orchestrator.startNewEpoch(epochNumber, firstBlockNumber, totalNumBlocks, finalBlobBatchingChallenges);
     this.facade.start();
   }
   startTubeCircuits(txs: Tx[]): Promise<void> {
@@ -25,13 +31,13 @@ export class ServerEpochProver implements EpochProver {
   setBlockCompleted(blockNumber: number, expectedBlockHeader?: BlockHeader): Promise<L2Block> {
     return this.orchestrator.setBlockCompleted(blockNumber, expectedBlockHeader);
   }
-  finaliseEpoch(): Promise<{ publicInputs: RootRollupPublicInputs; proof: Proof }> {
-    return this.orchestrator.finaliseEpoch();
+  finalizeEpoch(): Promise<{ publicInputs: RootRollupPublicInputs; proof: Proof; batchedBlobInputs: BatchedBlob }> {
+    return this.orchestrator.finalizeEpoch();
   }
   cancel(): void {
     this.orchestrator.cancel();
   }
-  getProverId(): Fr {
+  getProverId(): EthAddress {
     return this.orchestrator.getProverId();
   }
   getBlock(index: number): L2Block {

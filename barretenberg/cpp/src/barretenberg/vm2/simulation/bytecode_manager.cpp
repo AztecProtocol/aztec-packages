@@ -8,60 +8,91 @@
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
-#include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
 namespace bb::avm2::simulation {
 
 BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
 {
-    auto it = resolved_addresses.find(address);
-    if (it != resolved_addresses.end()) {
-        return it->second;
+
+    // Use shared ContractInstanceManager for contract instance retrieval and validation
+    // This handles nullifier checks, address derivation, and update validation
+    auto tree_states = merkle_db.get_tree_state();
+    AppendOnlyTreeSnapshot before_snapshot = retrieved_bytecodes_tree_check.get_snapshot();
+
+    BytecodeRetrievalEvent retrieval_event = {
+        .bytecode_id = FF(0), // Use default ID for error cases
+        .address = address,
+        .nullifier_root = tree_states.nullifierTree.tree.root,
+        .public_data_tree_root = tree_states.publicDataTree.tree.root,
+        .retrieved_bytecodes_snapshot_before = before_snapshot,
+        .retrieved_bytecodes_snapshot_after = before_snapshot,
+    };
+
+    auto maybe_instance = contract_instance_manager.get_contract_instance(address);
+
+    if (!maybe_instance.has_value()) {
+        retrieval_event.instance_not_found_error = true;
+        // Contract instance not found - emit error event and throw
+        retrieval_events.emit(std::move(retrieval_event));
+        vinfo("Contract ", field_to_string(address), " is not deployed!");
+        throw BytecodeRetrievalError("Contract " + field_to_string(address) + " is not deployed");
     }
 
-    // TODO: catch errors etc.
-    std::optional<ContractInstance> maybe_instance = contract_db.get_contract_instance(address);
-    auto siloed_address = poseidon2.hash({ GENERATOR_INDEX__OUTER_NULLIFIER, DEPLOYER_CONTRACT_ADDRESS, address });
+    ContractInstance instance = maybe_instance.value();
+    ContractClassId current_class_id = instance.current_class_id;
+    retrieval_event.current_class_id = current_class_id;
 
-    if (!merkle_db.nullifier_exists(siloed_address)) {
-        throw std::runtime_error("Contract " + field_to_string(address) + " is not deployed");
+    bool is_new_class = !retrieved_bytecodes_tree_check.contains(current_class_id);
+    retrieval_event.is_new_class = is_new_class;
+
+    uint32_t retrieved_bytecodes_count = retrieved_bytecodes_tree_check.size();
+
+    if (is_new_class && retrieved_bytecodes_count >= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS) {
+        retrieval_event.limit_error = true;
+        retrieval_events.emit(std::move(retrieval_event));
+        throw BytecodeRetrievalError("Can't retrieve more than " +
+                                     std::to_string(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS) +
+                                     " bytecodes per tx");
     }
 
-    auto& instance = maybe_instance.value();
-    update_check.check_current_class_id(address, instance);
+    retrieved_bytecodes_tree_check.insert(current_class_id);
+    AppendOnlyTreeSnapshot snapshot_after = retrieved_bytecodes_tree_check.get_snapshot();
+    retrieval_event.retrieved_bytecodes_snapshot_after = snapshot_after;
 
-    std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(instance.current_class_id);
+    // Contract class retrieval and class ID validation
+    std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(current_class_id);
     // Note: we don't need to silo and check the class id because the deployer contract guarrantees
     // that if a contract instance exists, the class has been registered.
     assert(maybe_klass.has_value());
     auto& klass = maybe_klass.value();
-    auto bytecode_id = next_bytecode_id++;
+    retrieval_event.contract_class = klass; // WARNING: this class has the whole bytecode.
     info("Bytecode for ", address, " successfully retrieved!");
 
-    FF bytecode_commitment = bytecode_hasher.compute_public_bytecode_commitment(bytecode_id, klass.packed_bytecode);
-    (void)bytecode_commitment; // Avoid GCC unused parameter warning when asserts are disabled.
-    assert(bytecode_commitment == klass.public_bytecode_commitment);
+    // Bytecode hashing and decomposition, deduplicated by bytecode_id (commitment)
+    BytecodeId bytecode_id = klass.public_bytecode_commitment;
+    retrieval_event.bytecode_id = bytecode_id;
+
+    // Check if we've already processed this bytecode. If so, don't do hashing and decomposition again!
+    if (bytecodes.contains(bytecode_id)) {
+        // Already processed this bytecode - just emit retrieval event and return
+        retrieval_events.emit(std::move(retrieval_event));
+        return bytecode_id;
+    }
+
+    // First time seeing this bytecode - do hashing and decomposition
+    FF computed_commitment = bytecode_hasher.compute_public_bytecode_commitment(bytecode_id, klass.packed_bytecode);
+    (void)computed_commitment; // Avoid GCC unused parameter warning when asserts are disabled.
+    assert(computed_commitment == klass.public_bytecode_commitment);
+
     // We convert the bytecode to a shared_ptr because it will be shared by some events.
     auto shared_bytecode = std::make_shared<std::vector<uint8_t>>(std::move(klass.packed_bytecode));
     decomposition_events.emit({ .bytecode_id = bytecode_id, .bytecode = shared_bytecode });
 
     // We now save the bytecode so that we don't repeat this process.
-    resolved_addresses[address] = bytecode_id;
     bytecodes.emplace(bytecode_id, std::move(shared_bytecode));
 
-    auto tree_snapshots = merkle_db.get_tree_roots();
-
-    retrieval_events.emit({
-        .bytecode_id = bytecode_id,
-        .address = address,
-        .siloed_address = siloed_address,
-        .contract_instance = instance,
-        .contract_class = klass, // WARNING: this class has the whole bytecode.
-        .nullifier_root = tree_snapshots.nullifierTree.root,
-        .public_data_tree_root = tree_snapshots.publicDataTree.root,
-        .current_block_number = current_block_number,
-    });
+    retrieval_events.emit(std::move(retrieval_event));
 
     return bytecode_id;
 }
@@ -72,9 +103,8 @@ Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t
     InstructionFetchingEvent instr_fetching_event;
 
     auto it = bytecodes.find(bytecode_id);
-    if (it == bytecodes.end()) {
-        throw std::runtime_error("Bytecode not found");
-    }
+    // This should never happen. It is supposed to be checked in execution.
+    assert(it != bytecodes.end());
 
     instr_fetching_event.bytecode_id = bytecode_id;
     instr_fetching_event.pc = pc;
@@ -98,7 +128,7 @@ Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t
     // FIXME: remove this once all execution opcodes are supported.
     if (!instr_fetching_event.error.has_value() &&
         !EXEC_INSTRUCTION_SPEC.contains(instr_fetching_event.instruction.get_exec_opcode())) {
-        vinfo("Invalid execution opcode: ", instr_fetching_event.instruction.get_exec_opcode());
+        vinfo("Invalid execution opcode: ", instr_fetching_event.instruction.get_exec_opcode(), " at pc: ", pc);
         instr_fetching_event.error = InstrDeserializationError::INVALID_EXECUTION_OPCODE;
     }
 
@@ -113,8 +143,8 @@ Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t
 
     // Communicate error to the caller.
     if (instr_fetching_event.error.has_value()) {
-        throw std::runtime_error("Instruction fetching error: " +
-                                 std::to_string(static_cast<int>(instr_fetching_event.error.value())));
+        throw InstructionFetchingError("Instruction fetching error: " +
+                                       std::to_string(static_cast<int>(instr_fetching_event.error.value())));
     }
 
     return instr_fetching_event.instruction;

@@ -1,4 +1,4 @@
-import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
+import { type ConfigMappingsType, SecretValue, getConfigFromMappings } from '@aztec/foundation/config';
 
 import { type BlobSinkArchiveApiConfig, blobSinkArchiveApiConfigMappings } from '../archive/config.js';
 
@@ -24,7 +24,7 @@ export interface BlobSinkConfig extends BlobSinkArchiveApiConfig {
   /**
    * List of API keys for the corresponding L1 consensus client URLs. Added at the end of the URL as "?key=<api-key>" unless a header is defined
    */
-  l1ConsensusHostApiKeys?: string[];
+  l1ConsensusHostApiKeys?: SecretValue<string>[];
 
   /**
    * List of header names for the corresponding L1 consensus client API keys, if needed. Added as "<api-key-header>: <api-key>"
@@ -56,7 +56,7 @@ export const blobSinkConfigMapping: ConfigMappingsType<BlobSinkConfig> = {
     env: 'L1_CONSENSUS_HOST_API_KEYS',
     description:
       'List of API keys for the corresponding L1 consensus clients, if needed. Added to the end of the corresponding URL as "?key=<api-key>" unless a header is defined',
-    parseEnv: (val: string) => val.split(',').map(url => url.trim()),
+    parseEnv: (val: string) => val.split(',').map(key => new SecretValue(key.trim())),
   },
   l1ConsensusHostApiKeyHeaders: {
     env: 'L1_CONSENSUS_HOST_API_KEY_HEADERS',

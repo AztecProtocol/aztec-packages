@@ -6,20 +6,22 @@
 
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
-#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_flavor.hpp"
-#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_keccak_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
+#include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
+#include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
+#include "barretenberg/flavor/mega_zk_flavor.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
+#include "barretenberg/flavor/ultra_keccak_flavor.hpp"
+#include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
+#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
+#include "barretenberg/flavor/ultra_zk_flavor.hpp"
 
 namespace bb {
 
 /**
  * @brief Oink Verifier function that runs all the rounds of the verifier
- * @details Returns the witness commitments and relation_parameters
+ * @details Returns the witness commitments and relation_parameters. If used as a standalone function, the proof
+ * returned by the OinkProver must be loaded into the transcript of the OinkVerifier before calling
+ * OinkVerifier::verify()
  * @tparam Flavor
  * @return OinkOutput<Flavor>
  */
@@ -34,8 +36,8 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::verify()
 
     verification_key->witness_commitments = witness_comms;
     verification_key->relation_parameters = relation_parameters;
-    verification_key->public_inputs = public_inputs;
     verification_key->alphas = generate_alphas_round();
+    verification_key->is_complete = true; // instance has been completely populated
 }
 
 /**
@@ -44,20 +46,17 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::verify()
  */
 template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
 {
-    // TODO(Adrian): Change the initialization of the transcript to take the VK hash?
-    const uint64_t circuit_size = verification_key->verification_key->circuit_size;
-    const uint64_t public_input_size = verification_key->verification_key->num_public_inputs;
-    const uint64_t pub_inputs_offset = verification_key->verification_key->pub_inputs_offset;
+    FF vk_hash = verification_key->vk->hash_through_transcript(domain_separator, *transcript);
+    transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
+    vinfo("vk hash in Oink verifier: ", vk_hash);
 
-    transcript->add_to_hash_buffer(domain_separator + "circuit_size", circuit_size);
-    transcript->add_to_hash_buffer(domain_separator + "public_input_size", public_input_size);
-    transcript->add_to_hash_buffer(domain_separator + "pub_inputs_offset", pub_inputs_offset);
-
-    for (size_t i = 0; i < public_input_size; ++i) {
+    std::vector<FF> public_inputs;
+    for (size_t i = 0; i < verification_key->vk->num_public_inputs; ++i) {
         auto public_input_i =
             transcript->template receive_from_prover<FF>(domain_separator + "public_input_" + std::to_string(i));
         public_inputs.emplace_back(public_input_i);
     }
+    verification_key->public_inputs = std::move(public_inputs);
 }
 
 /**
@@ -137,12 +136,10 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_log_deriv
  */
 template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_grand_product_computation_round()
 {
-    const FF public_input_delta =
-        compute_public_input_delta<Flavor>(public_inputs,
-                                           relation_parameters.beta,
-                                           relation_parameters.gamma,
-                                           verification_key->verification_key->circuit_size,
-                                           static_cast<size_t>(verification_key->verification_key->pub_inputs_offset));
+    const FF public_input_delta = compute_public_input_delta<Flavor>(verification_key->public_inputs,
+                                                                     relation_parameters.beta,
+                                                                     relation_parameters.gamma,
+                                                                     verification_key->vk->pub_inputs_offset);
 
     relation_parameters.public_input_delta = public_input_delta;
 
@@ -150,15 +147,18 @@ template <IsUltraOrMegaHonk Flavor> void OinkVerifier<Flavor>::execute_grand_pro
     witness_comms.z_perm = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.z_perm);
 }
 
-template <IsUltraOrMegaHonk Flavor> typename Flavor::RelationSeparator OinkVerifier<Flavor>::generate_alphas_round()
+template <IsUltraOrMegaHonk Flavor> typename Flavor::SubrelationSeparators OinkVerifier<Flavor>::generate_alphas_round()
 {
     // Get the relation separation challenges for sumcheck/combiner computation
-    RelationSeparator alphas;
-    std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> args;
-    for (size_t idx = 0; idx < alphas.size(); ++idx) {
-        args[idx] = domain_separator + "alpha_" + std::to_string(idx);
+    std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> challenge_labels;
+
+    for (size_t idx = 0; idx < Flavor::NUM_SUBRELATIONS - 1; ++idx) {
+        challenge_labels[idx] = domain_separator + "alpha_" + std::to_string(idx);
     }
-    return transcript->template get_challenges<FF>(args);
+    // It is more efficient to generate an array of challenges than to generate them individually.
+    SubrelationSeparators alphas = transcript->template get_challenges<FF>(challenge_labels);
+
+    return alphas;
 }
 
 template class OinkVerifier<UltraFlavor>;

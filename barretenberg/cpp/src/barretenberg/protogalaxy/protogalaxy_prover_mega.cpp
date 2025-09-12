@@ -11,5 +11,5 @@
 #include "protogalaxy_prover_impl.hpp"
 namespace bb {
 
-template class ProtogalaxyProver_<DeciderProvingKeys_<MegaFlavor, 2>>;
+template class ProtogalaxyProver_<MegaFlavor, 2>;
 } // namespace bb

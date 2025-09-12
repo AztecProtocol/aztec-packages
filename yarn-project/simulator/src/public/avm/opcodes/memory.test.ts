@@ -9,7 +9,7 @@ import { Fr } from '@aztec/foundation/fields';
 import type { AvmContext } from '../avm_context.js';
 import { Field, TaggedMemory, TypeTag, Uint8, Uint16, Uint32, Uint64, Uint128 } from '../avm_memory_types.js';
 import { MemorySliceOutOfRangeError } from '../errors.js';
-import { initContext, initExecutionEnvironment } from '../fixtures/index.js';
+import { initContext, initExecutionEnvironment } from '../fixtures/initializers.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { Addressing, AddressingMode } from './addressing_mode.js';
 import { CalldataCopy, Cast, Mov, ReturndataCopy, ReturndataSize, Set } from './memory.js';

@@ -147,6 +147,10 @@ export class SuccessCopy extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
+
     const operands = [this.dstOffset];
     const [dstOffset] = addressing.resolve(operands, memory);
 

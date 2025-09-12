@@ -4,31 +4,27 @@ import type { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import type {
-  ContractClassLog,
-  IndexedTaggingSecret,
-  PrivateLogWithTxData,
-  PublicLogWithTxData,
-} from '@aztec/stdlib/logs';
+import type { ContractClassLog, IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import type { Note, NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
+import type { UtilityContext } from '../noir-structs/utility_context.js';
 import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
 /**
  * Information about a note needed during execution.
  */
 export interface NoteData {
-  /** The note. */
+  /** The actual note content (the fields of the Noir #[note] struct). */
   note: Note;
-  /** The contract address of the note. */
+  /** The address of the contract that owns the note. */
   contractAddress: AztecAddress;
   /** The storage slot of the note. */
   storageSlot: Fr;
-  /** The nonce of the note. */
+  /** The nonce injected into the note hash preimage by kernels. */
   noteNonce: Fr;
-  /** A hash of the note. */
+  /** A hash of the note as it gets stored in the note hash tree. */
   noteHash: Fr;
   /** The corresponding nullifier of the note. Undefined for pending notes. */
   siloedNullifier?: Fr;
@@ -37,8 +33,8 @@ export interface NoteData {
 }
 
 class OracleMethodNotAvailableError extends Error {
-  constructor(methodName: string) {
-    super(`Oracle method ${methodName} is not available.`);
+  constructor(className: string, methodName: string) {
+    super(`Oracle method ${methodName} is not implemented in handler ${className}.`);
   }
 }
 
@@ -48,74 +44,71 @@ class OracleMethodNotAvailableError extends Error {
  * and are unavailable by default.
  */
 export abstract class TypedOracle {
-  getRandomField(): Fr {
-    return Fr.random();
+  constructor(protected className: string) {}
+
+  utilityAssertCompatibleOracleVersion(_version: number): void {
+    throw new OracleMethodNotAvailableError(this.className, 'utilityAssertCompatibleOracleVersion');
   }
 
-  storeInExecutionCache(_values: Fr[], _hash: Fr): void {
-    throw new OracleMethodNotAvailableError('storeInExecutionCache');
+  utilityGetRandomField(): Fr {
+    throw new OracleMethodNotAvailableError(this.className, 'utilityGetRandomField');
   }
 
-  loadFromExecutionCache(_hash: Fr): Promise<Fr[]> {
-    return Promise.reject(new OracleMethodNotAvailableError('loadFromExecutionCache'));
+  privateStoreInExecutionCache(_values: Fr[], _hash: Fr): void {
+    throw new OracleMethodNotAvailableError(this.className, 'privateStoreInExecutionCache');
   }
 
-  getBlockNumber(): Promise<number> {
-    return Promise.reject(new OracleMethodNotAvailableError('getBlockNumber'));
+  privateLoadFromExecutionCache(_hash: Fr): Promise<Fr[]> {
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'privateLoadFromExecutionCache'));
   }
 
-  getContractAddress(): Promise<AztecAddress> {
-    return Promise.reject(new OracleMethodNotAvailableError('getContractAddress'));
+  utilityGetUtilityContext(): Promise<UtilityContext> {
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityGetUtilityContext'));
   }
 
-  getChainId(): Promise<Fr> {
-    return Promise.reject(new OracleMethodNotAvailableError('getChainId'));
+  utilityGetKeyValidationRequest(_pkMHash: Fr): Promise<KeyValidationRequest> {
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityGetKeyValidationRequest'));
   }
 
-  getVersion(): Promise<Fr> {
-    return Promise.reject(new OracleMethodNotAvailableError('getVersion'));
+  utilityGetContractInstance(_address: AztecAddress): Promise<ContractInstance> {
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityGetContractInstance'));
   }
 
-  getKeyValidationRequest(_pkMHash: Fr): Promise<KeyValidationRequest> {
-    return Promise.reject(new OracleMethodNotAvailableError('getKeyValidationRequest'));
+  utilityGetMembershipWitness(_blockNumber: number, _treeId: MerkleTreeId, _leafValue: Fr): Promise<Fr[] | undefined> {
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityGetMembershipWitness'));
   }
 
-  getContractInstance(_address: AztecAddress): Promise<ContractInstance> {
-    return Promise.reject(new OracleMethodNotAvailableError('getContractInstance'));
-  }
-
-  getMembershipWitness(_blockNumber: number, _treeId: MerkleTreeId, _leafValue: Fr): Promise<Fr[] | undefined> {
-    return Promise.reject(new OracleMethodNotAvailableError('getMembershipWitness'));
-  }
-
-  getNullifierMembershipWitness(_blockNumber: number, _nullifier: Fr): Promise<NullifierMembershipWitness | undefined> {
-    return Promise.reject(new OracleMethodNotAvailableError('getNullifierMembershipWitness'));
-  }
-
-  getPublicDataWitness(_blockNumber: number, _leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    return Promise.reject(new OracleMethodNotAvailableError('getPublicDataWitness'));
-  }
-
-  getLowNullifierMembershipWitness(
+  utilityGetNullifierMembershipWitness(
     _blockNumber: number,
     _nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    return Promise.reject(new OracleMethodNotAvailableError('getLowNullifierMembershipWitness'));
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityGetNullifierMembershipWitness'));
   }
 
-  getBlockHeader(_blockNumber: number): Promise<BlockHeader | undefined> {
-    return Promise.reject(new OracleMethodNotAvailableError('getBlockHeader'));
+  utilityGetPublicDataWitness(_blockNumber: number, _leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityGetPublicDataWitness'));
   }
 
-  getCompleteAddress(_account: AztecAddress): Promise<CompleteAddress> {
-    return Promise.reject(new OracleMethodNotAvailableError('getCompleteAddress'));
+  utilityGetLowNullifierMembershipWitness(
+    _blockNumber: number,
+    _nullifier: Fr,
+  ): Promise<NullifierMembershipWitness | undefined> {
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityGetLowNullifierMembershipWitness'));
   }
 
-  getAuthWitness(_messageHash: Fr): Promise<Fr[] | undefined> {
-    return Promise.reject(new OracleMethodNotAvailableError('getAuthWitness'));
+  utilityGetBlockHeader(_blockNumber: number): Promise<BlockHeader | undefined> {
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityGetBlockHeader'));
   }
 
-  getNotes(
+  utilityGetPublicKeysAndPartialAddress(_account: AztecAddress): Promise<CompleteAddress> {
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityGetCompleteAddress'));
+  }
+
+  utilityGetAuthWitness(_messageHash: Fr): Promise<Fr[] | undefined> {
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityGetAuthWitness'));
+  }
+
+  utilityGetNotes(
     _storageSlot: Fr,
     _numSelects: number,
     _selectByIndexes: number[],
@@ -131,135 +124,156 @@ export abstract class TypedOracle {
     _offset: number,
     _status: NoteStatus,
   ): Promise<NoteData[]> {
-    return Promise.reject(new OracleMethodNotAvailableError('getNotes'));
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityGetNotes'));
   }
 
-  notifyCreatedNote(_storageSlot: Fr, _noteTypeId: NoteSelector, _note: Fr[], _noteHash: Fr, _counter: number): void {
-    throw new OracleMethodNotAvailableError('notifyCreatedNote');
+  privateNotifyCreatedNote(
+    _storageSlot: Fr,
+    _noteTypeId: NoteSelector,
+    _note: Fr[],
+    _noteHash: Fr,
+    _counter: number,
+  ): void {
+    throw new OracleMethodNotAvailableError(this.className, 'privateNotifyCreatedNote');
   }
 
-  notifyNullifiedNote(_innerNullifier: Fr, _noteHash: Fr, _counter: number): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('notifyNullifiedNote'));
+  privateNotifyNullifiedNote(_innerNullifier: Fr, _noteHash: Fr, _counter: number): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'privateNotifyNullifiedNote'));
   }
 
-  notifyCreatedNullifier(_innerNullifier: Fr): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('notifyCreatedNullifier'));
+  privateNotifyCreatedNullifier(_innerNullifier: Fr): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'privateNotifyCreatedNullifier'));
   }
 
-  checkNullifierExists(_innerNullifier: Fr): Promise<boolean> {
-    return Promise.reject(new OracleMethodNotAvailableError('checkNullifierExists'));
+  utilityCheckNullifierExists(_innerNullifier: Fr): Promise<boolean> {
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityCheckNullifierExists'));
   }
 
-  getL1ToL2MembershipWitness(
+  utilityGetL1ToL2MembershipWitness(
     _contractAddress: AztecAddress,
     _messageHash: Fr,
     _secret: Fr,
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
-    return Promise.reject(new OracleMethodNotAvailableError('getL1ToL2MembershipWitness'));
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityGetL1ToL2MembershipWitness'));
   }
 
-  storageRead(
+  utilityStorageRead(
     _contractAddress: AztecAddress,
     _startStorageSlot: Fr,
     _blockNumber: number,
     _numberOfElements: number,
   ): Promise<Fr[]> {
-    return Promise.reject(new OracleMethodNotAvailableError('storageRead'));
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityStorageRead'));
   }
 
-  storageWrite(_startStorageSlot: Fr, _values: Fr[]): Promise<Fr[]> {
-    return Promise.reject(new OracleMethodNotAvailableError('storageWrite'));
+  privateNotifyCreatedContractClassLog(_log: ContractClassLog, _counter: number): void {
+    throw new OracleMethodNotAvailableError(this.className, 'privateNotifyCreatedContractClassLog');
   }
 
-  notifyCreatedContractClassLog(_log: ContractClassLog, _counter: number): void {
-    throw new OracleMethodNotAvailableError('notifyCreatedContractClassLog');
-  }
-
-  callPrivateFunction(
+  privateCallPrivateFunction(
     _targetContractAddress: AztecAddress,
     _functionSelector: FunctionSelector,
     _argsHash: Fr,
     _sideEffectCounter: number,
     _isStaticCall: boolean,
   ): Promise<{ endSideEffectCounter: Fr; returnsHash: Fr }> {
-    return Promise.reject(new OracleMethodNotAvailableError('callPrivateFunction'));
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'privateCallPrivateFunction'));
   }
 
-  notifyEnqueuedPublicFunctionCall(
+  privateNotifyEnqueuedPublicFunctionCall(
     _targetContractAddress: AztecAddress,
     _calldataHash: Fr,
     _sideEffectCounter: number,
     _isStaticCall: boolean,
   ): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('notifyEnqueuedPublicFunctionCall'));
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'privateNotifyEnqueuedPublicFunctionCall'));
   }
 
-  notifySetPublicTeardownFunctionCall(
+  privateNotifySetPublicTeardownFunctionCall(
     _targetContractAddress: AztecAddress,
     _calldataHash: Fr,
     _sideEffectCounter: number,
     _isStaticCall: boolean,
   ): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('notifySetPublicTeardownFunctionCall'));
+    return Promise.reject(
+      new OracleMethodNotAvailableError(this.className, 'privateNotifySetPublicTeardownFunctionCall'),
+    );
   }
 
-  notifySetMinRevertibleSideEffectCounter(_minRevertibleSideEffectCounter: number): Promise<void> {
-    throw new OracleMethodNotAvailableError('notifySetMinRevertibleSideEffectCounter');
+  privateNotifySetMinRevertibleSideEffectCounter(_minRevertibleSideEffectCounter: number): Promise<void> {
+    throw new OracleMethodNotAvailableError(this.className, 'privateNotifySetMinRevertibleSideEffectCounter');
   }
 
-  debugLog(_message: string, _fields: Fr[]): void {
-    throw new OracleMethodNotAvailableError('debugLog');
+  utilityDebugLog(_message: string, _fields: Fr[]): void {
+    throw new OracleMethodNotAvailableError(this.className, 'utilityDebugLog');
   }
 
-  getIndexedTaggingSecretAsSender(_sender: AztecAddress, _recipient: AztecAddress): Promise<IndexedTaggingSecret> {
-    return Promise.reject(new OracleMethodNotAvailableError('getIndexedTaggingSecretAsSender'));
+  utilityGetIndexedTaggingSecretAsSender(
+    _sender: AztecAddress,
+    _recipient: AztecAddress,
+  ): Promise<IndexedTaggingSecret> {
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityGetIndexedTaggingSecretAsSender'));
   }
 
-  incrementAppTaggingSecretIndexAsSender(_sender: AztecAddress, _recipient: AztecAddress): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('incrementAppTaggingSecretIndexAsSender'));
+  privateIncrementAppTaggingSecretIndexAsSender(_sender: AztecAddress, _recipient: AztecAddress): Promise<void> {
+    return Promise.reject(
+      new OracleMethodNotAvailableError(this.className, 'privateIncrementAppTaggingSecretIndexAsSender'),
+    );
   }
 
-  fetchTaggedLogs(_pendingTaggedLogArrayBaseSlot: Fr): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('fetchTaggedLogs'));
+  utilityFetchTaggedLogs(_pendingTaggedLogArrayBaseSlot: Fr): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityFetchTaggedLogs'));
   }
 
-  validateEnqueuedNotesAndEvents(
+  utilityValidateEnqueuedNotesAndEvents(
     _contractAddress: AztecAddress,
     _noteValidationRequestsArrayBaseSlot: Fr,
     _eventValidationRequestsArrayBaseSlot: Fr,
   ): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('validateEnqueuedNotesAndEvents'));
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityValidateEnqueuedNotesAndEvents'));
   }
 
-  getPublicLogByTag(_tag: Fr, _contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
-    throw new OracleMethodNotAvailableError('getPublicLogByTag');
+  utilityBulkRetrieveLogs(
+    _contractAddress: AztecAddress,
+    _logRetrievalRequestsArrayBaseSlot: Fr,
+    _logRetrievalResponsesArrayBaseSlot: Fr,
+  ): Promise<void> {
+    throw new OracleMethodNotAvailableError(this.className, 'utilityBulkRetrieveLogs');
   }
 
-  getPrivateLogByTag(_siloedTag: Fr): Promise<PrivateLogWithTxData | null> {
-    throw new OracleMethodNotAvailableError('getPrivateLogByTag');
+  utilityStoreCapsule(_contractAddress: AztecAddress, _key: Fr, _capsule: Fr[]): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityStoreCapsule'));
   }
 
-  storeCapsule(_contractAddress: AztecAddress, _key: Fr, _capsule: Fr[]): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('storeCapsule'));
+  utilityLoadCapsule(_contractAddress: AztecAddress, _key: Fr): Promise<Fr[] | null> {
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityLoadCapsule'));
   }
 
-  loadCapsule(_contractAddress: AztecAddress, _key: Fr): Promise<Fr[] | null> {
-    return Promise.reject(new OracleMethodNotAvailableError('loadCapsule'));
+  utilityDeleteCapsule(_contractAddress: AztecAddress, _key: Fr): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityDeleteCapsule'));
   }
 
-  deleteCapsule(_contractAddress: AztecAddress, _key: Fr): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('deleteCapsule'));
+  utilityCopyCapsule(_contractAddress: AztecAddress, _srcKey: Fr, _dstKey: Fr, _numEntries: number): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityCopyCapsule'));
   }
 
-  copyCapsule(_contractAddress: AztecAddress, _srcKey: Fr, _dstKey: Fr, _numEntries: number): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('copyCapsule'));
+  utilityAes128Decrypt(_ciphertext: Buffer, _iv: Buffer, _symKey: Buffer): Promise<Buffer> {
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityAes128Decrypt'));
   }
 
-  aes128Decrypt(_ciphertext: Buffer, _iv: Buffer, _symKey: Buffer): Promise<Buffer> {
-    return Promise.reject(new OracleMethodNotAvailableError('aes128Decrypt'));
+  utilityGetSharedSecret(_address: AztecAddress, _ephPk: Point): Promise<Point> {
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityGetSharedSecret'));
   }
 
-  getSharedSecret(_address: AztecAddress, _ephPk: Point): Promise<Point> {
-    return Promise.reject(new OracleMethodNotAvailableError('getSharedSecret'));
+  utilityEmitOffchainEffect(_data: Fr[]): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'utilityEmitOffchainEffect'));
+  }
+
+  privateGetSenderForTags(): Promise<AztecAddress | undefined> {
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'privateGetSenderForTags'));
+  }
+
+  privateSetSenderForTags(_senderForTags: AztecAddress): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError(this.className, 'privateSetSenderForTags'));
   }
 }

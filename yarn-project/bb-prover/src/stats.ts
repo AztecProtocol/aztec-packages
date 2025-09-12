@@ -7,6 +7,8 @@ export function mapProtocolArtifactNameToCircuitName(artifact: ProtocolArtifact)
       return 'base-parity';
     case 'RootParityArtifact':
       return 'root-parity';
+    case 'PublicTube':
+      return 'public-tube';
     case 'PrivateBaseRollupArtifact':
       return 'private-base-rollup';
     case 'PublicBaseRollupArtifact':
@@ -19,6 +21,8 @@ export function mapProtocolArtifactNameToCircuitName(artifact: ProtocolArtifact)
       return 'single-tx-block-root-rollup';
     case 'EmptyBlockRootRollupArtifact':
       return 'empty-block-root-rollup';
+    case 'PaddingBlockRootRollupArtifact':
+      return 'padding-block-root-rollup';
     case 'BlockMergeRollupArtifact':
       return 'block-merge-rollup';
     case 'RootRollupArtifact':
@@ -31,32 +35,13 @@ export function mapProtocolArtifactNameToCircuitName(artifact: ProtocolArtifact)
       return 'private-kernel-tail';
     case 'PrivateKernelTailToPublicArtifact':
       return 'private-kernel-tail-to-public';
+    case 'HidingKernelToRollup':
+      return 'hiding-kernel-to-rollup';
+    case 'HidingKernelToPublic':
+      return 'hiding-kernel-to-public';
     default: {
       if (artifact.startsWith('PrivateKernelReset')) {
         return 'private-kernel-reset';
-      }
-      throw new Error(`Unknown circuit type: ${artifact}`);
-    }
-  }
-}
-
-export function isProtocolArtifactRecursive(artifact: ProtocolArtifact): boolean {
-  switch (artifact) {
-    case 'BaseParityArtifact':
-    case 'RootParityArtifact':
-    case 'PrivateBaseRollupArtifact':
-    case 'PublicBaseRollupArtifact':
-    case 'MergeRollupArtifact':
-    case 'BlockRootRollupArtifact':
-    case 'SingleTxBlockRootRollupArtifact':
-    case 'EmptyBlockRootRollupArtifact':
-    case 'BlockMergeRollupArtifact':
-    case 'RootRollupArtifact':
-      return true;
-    default: {
-      if (artifact.startsWith('PrivateKernel')) {
-        // The kernel prover, where these are used, eventually calls `createClientIvcProof`, which is recursive.
-        return true;
       }
       throw new Error(`Unknown circuit type: ${artifact}`);
     }

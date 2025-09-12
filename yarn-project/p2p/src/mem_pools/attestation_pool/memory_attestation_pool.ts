@@ -1,22 +1,30 @@
 import { createLogger } from '@aztec/foundation/log';
-import type { BlockAttestation } from '@aztec/stdlib/p2p';
+import type { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { PoolInstrumentation, PoolName } from '../instrumentation.js';
+import { PoolInstrumentation, PoolName, type PoolStatsCallback } from '../instrumentation.js';
 import type { AttestationPool } from './attestation_pool.js';
 
 export class InMemoryAttestationPool implements AttestationPool {
   private metrics: PoolInstrumentation<BlockAttestation>;
 
   private attestations: Map</*slot=*/ bigint, Map</*proposalId*/ string, Map</*address=*/ string, BlockAttestation>>>;
+  private proposals: Map<string, BlockProposal>;
 
   constructor(
     telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('p2p:attestation_pool'),
   ) {
     this.attestations = new Map();
-    this.metrics = new PoolInstrumentation(telemetry, PoolName.ATTESTATION_POOL);
+    this.proposals = new Map();
+    this.metrics = new PoolInstrumentation(telemetry, PoolName.ATTESTATION_POOL, this.poolStats);
   }
+
+  private poolStats: PoolStatsCallback = () => {
+    return Promise.resolve({
+      itemCount: this.attestations.size,
+    });
+  };
 
   public isEmpty(): Promise<boolean> {
     return Promise.resolve(this.attestations.size === 0);
@@ -61,8 +69,6 @@ export class InMemoryAttestationPool implements AttestationPool {
       });
     }
 
-    // TODO: set these to pending or something ????
-    this.metrics.recordAddedObjects(attestations.length);
     return Promise.resolve();
   }
 
@@ -102,11 +108,18 @@ export class InMemoryAttestationPool implements AttestationPool {
   public deleteAttestationsForSlot(slot: bigint): Promise<void> {
     // We count the number of attestations we are removing
     const numberOfAttestations = this.#getNumberOfAttestationsInSlot(slot);
+    const proposalIdsToDelete = this.attestations.get(slot)?.keys();
+    let proposalIdsToDeleteCount = 0;
+    proposalIdsToDelete?.forEach(proposalId => {
+      this.proposals.delete(proposalId);
+      proposalIdsToDeleteCount++;
+    });
 
     this.attestations.delete(slot);
-    this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot}`);
+    this.log.verbose(
+      `Removed ${numberOfAttestations} attestations and ${proposalIdsToDeleteCount} proposals for slot ${slot}`,
+    );
 
-    this.metrics.recordRemovedObjects(numberOfAttestations);
     return Promise.resolve();
   }
 
@@ -119,9 +132,10 @@ export class InMemoryAttestationPool implements AttestationPool {
         slotAttestationMap.delete(proposalId);
 
         this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot} and proposal ${proposalId}`);
-        this.metrics.recordRemovedObjects(numberOfAttestations);
       }
     }
+
+    this.proposals.delete(proposalId);
     return Promise.resolve();
   }
 
@@ -139,8 +153,21 @@ export class InMemoryAttestationPool implements AttestationPool {
         }
       }
     }
-    this.metrics.recordRemovedObjects(attestations.length);
     return Promise.resolve();
+  }
+
+  public addBlockProposal(blockProposal: BlockProposal): Promise<void> {
+    // We initialize slot-proposal mapping if it does not exist
+    // This is important to ensure we can delete this proposal if there were not attestations for it
+    const slotProposalMapping = getSlotOrDefault(this.attestations, blockProposal.slotNumber.toBigInt());
+    slotProposalMapping.set(blockProposal.payload.archive.toString(), new Map<string, BlockAttestation>());
+
+    this.proposals.set(blockProposal.payload.archive.toString(), blockProposal);
+    return Promise.resolve();
+  }
+
+  public getBlockProposal(id: string): Promise<BlockProposal | undefined> {
+    return Promise.resolve(this.proposals.get(id));
   }
 }
 

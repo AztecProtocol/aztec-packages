@@ -9,14 +9,15 @@
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 #include "barretenberg/vm2/testing/instruction_builder.hpp"
 
 namespace bb::avm2::simulation {
 namespace {
 
 using ::bb::avm2::testing::InstructionBuilder;
-using ::bb::avm2::testing::OperandBuilder;
 using enum ::bb::avm2::WireOpCode;
 using ::testing::ElementsAre;
 using ::testing::ReturnRef;
@@ -28,8 +29,11 @@ TEST(AvmSimulationAddressingTest, AllDirectAndNonRelative)
 {
     InstructionInfoDB instruction_info_db;
     NoopEventEmitter<AddressingEvent> event_emitter;
-    Addressing addressing(instruction_info_db, event_emitter);
-    MemoryValue zero_u32 = MemoryValue::from<uint32_t>(0);
+
+    // No calls to gt.
+    StrictMock<MockGreaterThan> gt;
+
+    Addressing addressing(instruction_info_db, gt, event_emitter);
 
     {
         const auto instr = InstructionBuilder(SET_8)
@@ -41,8 +45,8 @@ TEST(AvmSimulationAddressingTest, AllDirectAndNonRelative)
                                .operand<uint8_t>(1)
                                .build();
 
+        // No calls to get the base address.
         StrictMock<MockMemory> memory;
-        EXPECT_CALL(memory, get(0)).WillOnce(ReturnRef(zero_u32)); // call to get the base address.
 
         const auto operands = addressing.resolve(instr, memory);
         EXPECT_THAT(operands,
@@ -64,8 +68,8 @@ TEST(AvmSimulationAddressingTest, AllDirectAndNonRelative)
                                .operand<uint16_t>(3)
                                .build();
 
+        // No calls to get the base address.
         StrictMock<MockMemory> memory;
-        EXPECT_CALL(memory, get(0)).WillOnce(ReturnRef(zero_u32)); // call to get the base address.
 
         const auto operands = addressing.resolve(instr, memory);
         EXPECT_THAT(operands, ElementsAre(from<MemoryAddress>(1), from<MemoryAddress>(2), from<MemoryAddress>(3)));
@@ -76,7 +80,8 @@ TEST(AvmSimulationAddressingTest, RelativeAddressing)
 {
     InstructionInfoDB instruction_info_db;
     NoopEventEmitter<AddressingEvent> event_emitter;
-    Addressing addressing(instruction_info_db, event_emitter);
+    StrictMock<MockGreaterThan> gt;
+    Addressing addressing(instruction_info_db, gt, event_emitter);
 
     // For relative addressing, we need a base address other than 0
     // Base pointer at address 100
@@ -96,6 +101,8 @@ TEST(AvmSimulationAddressingTest, RelativeAddressing)
 
     StrictMock<MockMemory> memory;
     EXPECT_CALL(memory, get(0)).WillOnce(ReturnRef(base_addr));
+    EXPECT_CALL(gt, gt(110, AVM_HIGHEST_MEM_ADDRESS));
+    EXPECT_CALL(gt, gt(130, AVM_HIGHEST_MEM_ADDRESS));
 
     const auto operands = addressing.resolve(instr, memory);
 
@@ -113,10 +120,9 @@ TEST(AvmSimulationAddressingTest, IndirectAddressing)
 {
     InstructionInfoDB instruction_info_db;
     NoopEventEmitter<AddressingEvent> event_emitter;
-    Addressing addressing(instruction_info_db, event_emitter);
-
-    // For indirect addressing, memory locations contain the actual addresses
-    MemoryValue zero_u32 = MemoryValue::from<uint32_t>(0);
+    // No calls to gt gadget.
+    StrictMock<MockGreaterThan> gt;
+    Addressing addressing(instruction_info_db, gt, event_emitter);
 
     // Set up the ADD_8 instruction with indirect addressing
     const auto instr = InstructionBuilder(ADD_8)
@@ -131,7 +137,6 @@ TEST(AvmSimulationAddressingTest, IndirectAddressing)
                            .build();
 
     StrictMock<MockMemory> memory;
-    EXPECT_CALL(memory, get(0)).WillOnce(ReturnRef(zero_u32)); // Base address
     MemoryValue addr_5_value = MemoryValue::from<uint32_t>(50);
     EXPECT_CALL(memory, get(5)).WillOnce(ReturnRef(addr_5_value));
     MemoryValue addr_15_value = MemoryValue::from<uint32_t>(60);
@@ -154,7 +159,8 @@ TEST(AvmSimulationAddressingTest, IndirectAndRelativeAddressing)
 {
     InstructionInfoDB instruction_info_db;
     NoopEventEmitter<AddressingEvent> event_emitter;
-    Addressing addressing(instruction_info_db, event_emitter);
+    StrictMock<MockGreaterThan> gt;
+    Addressing addressing(instruction_info_db, gt, event_emitter);
 
     // Base address is 100
     MemoryValue base_addr = MemoryValue::from<uint32_t>(100);
@@ -181,6 +187,8 @@ TEST(AvmSimulationAddressingTest, IndirectAndRelativeAddressing)
     // Address 10 contains value 60
     MemoryValue addr_10_value = MemoryValue::from<uint32_t>(60);
     EXPECT_CALL(memory, get(10)).WillOnce(ReturnRef(addr_10_value));
+    EXPECT_CALL(gt, gt(105, AVM_HIGHEST_MEM_ADDRESS));
+    EXPECT_CALL(gt, gt(115, AVM_HIGHEST_MEM_ADDRESS));
 
     const auto operands = addressing.resolve(instr, memory);
 

@@ -51,6 +51,11 @@ export function omit<T extends object>(object: T, ...props: string[]): Partial<T
   return obj;
 }
 
+/** Equivalent to Object.keys but preserves types. */
+export function getKeys<T extends object>(obj: T): (keyof T)[] {
+  return Object.keys(obj) as (keyof T)[];
+}
+
 /** Equivalent to Object.entries but preserves types. */
 export function getEntries<T extends Record<PropertyKey, unknown>>(obj: T): { [K in keyof T]: [K, T[K]] }[keyof T][] {
   // See https://stackoverflow.com/a/76176570
@@ -73,4 +78,12 @@ export function assertRequired<T extends object>(obj: T): Required<T> {
     }
   }
   return obj as Required<T>;
+}
+
+/** Returns the result of merging two objects ignoring properties with undefined values. */
+export function merge<T extends object, U extends object>(
+  obj1: T,
+  obj2: U,
+): T & { [P in keyof U]+?: Exclude<U[P], undefined> } {
+  return { ...obj1, ...compact(obj2) };
 }

@@ -1,5 +1,6 @@
 ---
 title: Importing Aztec.nr
+description: Learn how to manage dependencies in your Aztec smart contract projects.
 tags: [contracts]
 sidebar_position: 5
 ---
@@ -13,14 +14,6 @@ aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_
 ```
 
 This is the core Aztec library that is required for every Aztec.nr smart contract.
-
-## Authwit
-
-```toml
-authwit = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/authwit"}
-```
-
-This allows you to use authentication witnesses in your contract. Read a guide of how to use it [here](../../guides/smart_contracts/writing_contracts/authwit.md).
 
 ## Address note
 
@@ -51,5 +44,3 @@ This library contains types that are used in the Aztec protocol. Find it on [Git
 ```toml
 value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/value-note" }
 ```
-
-This is a library for a note that stores one arbitrary value. You can see an example of how it might be used in the [crowdfunding contract codealong tutorial](../../tutorials/codealong/contract_tutorials/crowdfunding_contract.md).

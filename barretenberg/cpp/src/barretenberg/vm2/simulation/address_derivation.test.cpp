@@ -12,10 +12,11 @@
 #include "barretenberg/vm2/simulation/events/address_derivation_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
+#include "barretenberg/vm2/simulation/testing/fakes/fake_poseidon2.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_ecc.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 
+using ::testing::IsEmpty;
 using ::testing::Return;
 using ::testing::SizeIs;
 using ::testing::StrictMock;
@@ -26,10 +27,12 @@ namespace bb::avm2::simulation {
 
 namespace {
 
+using simulation::FakePoseidon2;
+
 TEST(AvmSimulationAddressDerivationTest, Positive)
 {
     EventEmitter<AddressDerivationEvent> address_derivation_event_emitter;
-    StrictMock<MockPoseidon2> poseidon2;
+    FakePoseidon2 poseidon2 = FakePoseidon2();
     StrictMock<MockEcc> ecc;
 
     AddressDerivation address_derivation(poseidon2, ecc, address_derivation_event_emitter);
@@ -40,13 +43,11 @@ TEST(AvmSimulationAddressDerivationTest, Positive)
         GENERATOR_INDEX__PARTIAL_ADDRESS, instance.salt, instance.initialisation_hash, instance.deployer_addr
     };
     FF salted_init_hash = poseidon2::hash(salted_init_hash_inputs);
-    EXPECT_CALL(poseidon2, hash(salted_init_hash_inputs)).WillOnce(Return(salted_init_hash));
 
     std::vector<FF> partial_address_inputs = { GENERATOR_INDEX__PARTIAL_ADDRESS,
                                                instance.original_class_id,
                                                salted_init_hash };
     FF partial_address = poseidon2::hash(partial_address_inputs);
-    EXPECT_CALL(poseidon2, hash(partial_address_inputs)).WillOnce(Return(partial_address));
 
     std::vector<FF> public_keys_hash_fields = instance.public_keys.to_fields();
     std::vector<FF> public_key_hash_vec{ GENERATOR_INDEX__PUBLIC_KEYS_HASH };
@@ -57,11 +58,9 @@ TEST(AvmSimulationAddressDerivationTest, Positive)
         public_key_hash_vec.push_back(FF::zero());
     }
     FF public_keys_hash = poseidon2::hash(public_key_hash_vec);
-    EXPECT_CALL(poseidon2, hash(public_key_hash_vec)).WillOnce(Return(public_keys_hash));
 
     std::vector<FF> preaddress_inputs = { GENERATOR_INDEX__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address };
     FF preaddress = poseidon2::hash(preaddress_inputs);
-    EXPECT_CALL(poseidon2, hash(preaddress_inputs)).WillOnce(Return(preaddress));
 
     EmbeddedCurvePoint g1 = EmbeddedCurvePoint::one();
     EmbeddedCurvePoint preaddress_public_key = g1 * Fq(preaddress);
@@ -74,10 +73,15 @@ TEST(AvmSimulationAddressDerivationTest, Positive)
     address_derivation.assert_derivation(derived_address, instance);
 
     auto events = address_derivation_event_emitter.dump_events();
-    ASSERT_THAT(events, SizeIs(1));
+    EXPECT_THAT(events, SizeIs(1));
     EXPECT_THAT(events[0].instance, instance);
     EXPECT_THAT(events[0].address, derived_address);
     EXPECT_THAT(events[0].address_point.x(), derived_address);
+
+    // Second derivation for the same address should be a cache hit and should not emit an event
+    address_derivation.assert_derivation(derived_address, instance);
+    events = address_derivation_event_emitter.dump_events();
+    EXPECT_THAT(events, IsEmpty());
 }
 
 } // namespace

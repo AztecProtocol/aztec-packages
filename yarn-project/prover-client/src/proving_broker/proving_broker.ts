@@ -2,16 +2,17 @@ import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { PriorityMemoryQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
-import type {
-  GetProvingJobResponse,
-  ProofUri,
-  ProvingJob,
-  ProvingJobConsumer,
-  ProvingJobFilter,
-  ProvingJobId,
-  ProvingJobProducer,
-  ProvingJobSettledResult,
-  ProvingJobStatus,
+import {
+  type GetProvingJobResponse,
+  type ProofUri,
+  type ProvingJob,
+  type ProvingJobConsumer,
+  type ProvingJobFilter,
+  type ProvingJobId,
+  type ProvingJobProducer,
+  type ProvingJobSettledResult,
+  type ProvingJobStatus,
+  tryStop,
 } from '@aztec/stdlib/interfaces/server';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import {
@@ -43,7 +44,7 @@ type EnqueuedProvingJob = Pick<ProvingJob, 'id' | 'epochNumber'>;
 export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Traceable {
   private queues: ProvingQueues = {
     [ProvingRequestType.PUBLIC_VM]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.TUBE_PROOF]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.PUBLIC_TUBE]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
 
     [ProvingRequestType.PRIVATE_BASE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.PUBLIC_BASE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
@@ -54,6 +55,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     [ProvingRequestType.BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
 
     [ProvingRequestType.BASE_PARITY]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.ROOT_PARITY]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
@@ -93,7 +95,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
   /**
    * The broker keeps track of the highest epoch its seen.
    * This information is used for garbage collection: once it reaches the next epoch, it can start pruning the database of old state.
-   * It is important that this value is initialised to zero. This ensures that we don't delete any old jobs until the current
+   * It is important that this value is initialized to zero. This ensures that we don't delete any old jobs until the current
    * process instance receives a job request informing it of the actual current highest epoch
    * Example:
    * proving epoch 11 - the broker will wipe all jobs for epochs 9 and lower
@@ -184,7 +186,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
       this.logger.warn('ProvingBroker not started');
       return Promise.resolve();
     }
-    await this.cleanupPromise.stop();
+    await tryStop(this.cleanupPromise);
   }
 
   public enqueueProvingJob(job: ProvingJob): Promise<ProvingJobStatus> {
@@ -570,7 +572,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
 
     if (jobsToClean.length > 0) {
       this.cleanUpProvingJobState(jobsToClean);
-      this.logger.info(`Cleaned up jobs=${jobsToClean.length}`);
+      this.logger.verbose(`Cleaned up proving jobs=${jobsToClean.length}`);
     }
   }
 
@@ -670,7 +672,7 @@ function proofTypeComparator(a: ProvingRequestType, b: ProvingRequestType): -1 |
  * The aim is that this will speed up block proving as the closer we get to a block's root proof the more likely it
  * is to get picked up by agents
  */
-const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
+export const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
   ProvingRequestType.BLOCK_ROOT_ROLLUP,
   ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP,
   ProvingRequestType.BLOCK_MERGE_ROLLUP,
@@ -679,7 +681,7 @@ const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
   ProvingRequestType.PUBLIC_BASE_ROLLUP,
   ProvingRequestType.PRIVATE_BASE_ROLLUP,
   ProvingRequestType.PUBLIC_VM,
-  ProvingRequestType.TUBE_PROOF,
+  ProvingRequestType.PUBLIC_TUBE,
   ProvingRequestType.ROOT_PARITY,
   ProvingRequestType.BASE_PARITY,
   ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP,

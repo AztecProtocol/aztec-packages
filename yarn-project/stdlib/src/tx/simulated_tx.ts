@@ -3,6 +3,11 @@ import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
+import { type ContractArtifact, ContractArtifactSchema } from '../abi/abi.js';
+import {
+  type ContractInstanceWithAddress,
+  ContractInstanceWithAddressSchema,
+} from '../contract/interfaces/contract_instance.js';
 import { Gas } from '../gas/gas.js';
 import type { GasUsed } from '../gas/gas_used.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
@@ -16,6 +21,39 @@ import { type SimulationStats, SimulationStatsSchema } from './profiling.js';
 import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simulation_output.js';
 import { Tx } from './tx.js';
 
+/*
+ * If passed during the execution of a user circuit, the contract function simulator will replace the instance and class
+ * of the contract with the one provided in the overrides for that address. An example use case
+ * would be overriding your own account contract so that valid signatures don't have to be provided while simulating.
+ */
+export type ContractOverrides = Record<
+  string /* AztecAddress as string */,
+  { instance: ContractInstanceWithAddress; artifact: ContractArtifact }
+>;
+
+/*
+ * Optional values that can be overridden during simulation. In order to simulate a transaction with these
+ * set, it *must* be run without the kernel circuits, or validations will fail
+ */
+export class SimulationOverrides {
+  constructor(public contracts?: ContractOverrides) {}
+
+  static get schema() {
+    return z
+      .object({
+        contracts: optional(
+          z.record(
+            z.string(),
+            z.object({ instance: ContractInstanceWithAddressSchema, artifact: ContractArtifactSchema }),
+          ),
+        ),
+      })
+      .transform(({ contracts }) => {
+        return new SimulationOverrides(contracts);
+      });
+  }
+}
+
 export class PrivateSimulationResult {
   constructor(
     public privateExecutionResult: PrivateExecutionResult,
@@ -26,16 +64,15 @@ export class PrivateSimulationResult {
     return accumulatePrivateReturnValues(this.privateExecutionResult);
   }
 
-  toSimulatedTx(): Tx {
+  async toSimulatedTx(): Promise<Tx> {
     const contractClassLogs = collectSortedContractClassLogs(this.privateExecutionResult);
 
-    const tx = new Tx(
-      this.publicInputs,
-      ClientIvcProof.empty(),
-      contractClassLogs,
-      this.privateExecutionResult.publicFunctionCalldata,
-    );
-    return tx;
+    return await Tx.create({
+      data: this.publicInputs,
+      clientIvcProof: ClientIvcProof.empty(),
+      contractClassLogFields: contractClassLogs,
+      publicFunctionCalldata: this.privateExecutionResult.publicFunctionCalldata,
+    });
   }
 }
 
@@ -103,7 +140,7 @@ export class TxSimulationResult {
     return new PrivateSimulationResult(this.privateExecutionResult, this.publicInputs).getPrivateReturnValues();
   }
 
-  toSimulatedTx(): Tx {
+  toSimulatedTx(): Promise<Tx> {
     return new PrivateSimulationResult(this.privateExecutionResult, this.publicInputs).toSimulatedTx();
   }
 
@@ -123,8 +160,8 @@ export function accumulatePrivateReturnValues(executionResult: PrivateExecutionR
     executionResult: PrivateCallExecutionResult,
   ): NestedProcessReturnValues => {
     const acc = new NestedProcessReturnValues(executionResult.returnValues);
-    acc.nested = executionResult.nestedExecutions.map(nestedExecution =>
-      collectPrivateReturnValuesRecursive(nestedExecution),
+    acc.nested = executionResult.nestedExecutionResults.map(nestedExecutionResult =>
+      collectPrivateReturnValuesRecursive(nestedExecutionResult),
     );
     return acc;
   };

@@ -1,0 +1,35 @@
+include "bc_retrieval.pil";
+
+include "../constants_gen.pil";
+include "../poseidon2_hash.pil";
+include "../precomputed.pil";
+
+namespace class_id_derivation;
+
+    pol commit sel;
+    sel * (1 - sel) = 0;
+
+    #[skippable_if]
+    sel = 0;
+
+    // Members of Contract Class Id, looked up with bc_retrieval
+    pol commit artifact_hash;
+    pol commit private_function_root;
+    pol commit public_bytecode_commitment; // This is constrained via bc_retrieval's lookup to bc_hashing
+    // The result of
+    // H(GENERATOR_INDEX__CONTRACT_LEAF, artifact_hash, private_function_root, public_bytecode_commitment)
+    pol commit class_id;
+
+    // TODO: We need this temporarily while we dont allow for aliases in the lookup tuple, there must be a better way
+    pol commit temp_constant_for_lookup;
+    sel * (temp_constant_for_lookup - constants.GENERATOR_INDEX__CONTRACT_LEAF) = 0;
+    // Since the inputs to poseidon2 have to be chunks of 3, we need two lookups if we want to do this in a single row
+    #[CLASS_ID_POSEIDON2_0]
+    sel { temp_constant_for_lookup, artifact_hash, private_function_root, class_id }
+    in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    #[CLASS_ID_POSEIDON2_1]
+    sel { public_bytecode_commitment, precomputed.zero, precomputed.zero, class_id }
+    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+

@@ -1,4 +1,10 @@
-import { STATE_REFERENCE_LENGTH } from '@aztec/constants';
+import {
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  STATE_REFERENCE_LENGTH,
+} from '@aztec/constants';
+import type { ViemStateReference } from '@aztec/ethereum';
 import type { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -33,7 +39,7 @@ export class StateReference {
   }
 
   toBuffer() {
-    // Note: The order here must match the order in the HeaderLib solidity library.
+    // Note: The order here must match the order in the ProposedHeaderLib solidity library.
     return serializeToBuffer(this.l1ToL2MessageTree, this.partial);
   }
 
@@ -61,12 +67,34 @@ export class StateReference {
     return new StateReference(l1ToL2MessageTree, partial);
   }
 
+  static fromViem(stateReference: ViemStateReference) {
+    return new StateReference(
+      AppendOnlyTreeSnapshot.fromViem(stateReference.l1ToL2MessageTree),
+      PartialStateReference.fromViem(stateReference.partialStateReference),
+    );
+  }
+
   static empty(): StateReference {
-    return new StateReference(AppendOnlyTreeSnapshot.zero(), PartialStateReference.empty());
+    return new StateReference(AppendOnlyTreeSnapshot.empty(), PartialStateReference.empty());
+  }
+
+  static random(): StateReference {
+    return new StateReference(AppendOnlyTreeSnapshot.random(), PartialStateReference.random());
+  }
+
+  toViem(): ViemStateReference {
+    return {
+      l1ToL2MessageTree: this.l1ToL2MessageTree.toViem(),
+      partialStateReference: this.partial.toViem(),
+    };
+  }
+
+  toAbi(): [ReturnType<AppendOnlyTreeSnapshot['toAbi']>, ReturnType<PartialStateReference['toAbi']>] {
+    return [this.l1ToL2MessageTree.toAbi(), [...this.partial.toAbi()]];
   }
 
   isEmpty(): boolean {
-    return this.l1ToL2MessageTree.isZero() && this.partial.isEmpty();
+    return this.l1ToL2MessageTree.isEmpty() && this.partial.isEmpty();
   }
 
   toInspect() {
@@ -76,6 +104,27 @@ export class StateReference {
       nullifierTree: this.partial.nullifierTree.root.toString(),
       publicDataTree: this.partial.publicDataTree.root.toString(),
     };
+  }
+
+  /**
+   * Validates the trees in world state have the expected number of leaves (multiple of number of insertions per tx)
+   */
+  public validate() {
+    if (this.l1ToL2MessageTree.nextAvailableLeafIndex % NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP !== 0) {
+      throw new Error(
+        `Invalid L1 to L2 message tree next available leaf index ${this.l1ToL2MessageTree.nextAvailableLeafIndex} (must be a multiple of ${NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP})`,
+      );
+    }
+    if (this.partial.noteHashTree.nextAvailableLeafIndex % MAX_NOTE_HASHES_PER_TX !== 0) {
+      throw new Error(
+        `Invalid note hash tree next available leaf index ${this.partial.noteHashTree.nextAvailableLeafIndex} (must be a multiple of ${MAX_NOTE_HASHES_PER_TX})`,
+      );
+    }
+    if (this.partial.nullifierTree.nextAvailableLeafIndex % MAX_NULLIFIERS_PER_TX !== 0) {
+      throw new Error(
+        `Invalid nullifier tree next available leaf index ${this.partial.nullifierTree.nextAvailableLeafIndex} (must be a multiple of ${MAX_NULLIFIERS_PER_TX})`,
+      );
+    }
   }
 
   [inspect.custom]() {

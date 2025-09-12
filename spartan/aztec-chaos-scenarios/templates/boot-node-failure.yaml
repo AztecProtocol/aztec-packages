@@ -16,6 +16,6 @@ spec:
     namespaces:
       - {{ .Values.global.targetNamespace }}
     labelSelectors:
-      app: boot-node
+      app.kubernetes.io/component: boot-node
   duration: {{ .Values.bootNodeFailure.duration }}
 {{- end }}

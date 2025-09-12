@@ -1,12 +1,13 @@
 ---
 title: Sandbox Reference
+description: Comprehensive reference for the Aztec sandbox development environment.
 tags: [sandbox]
 sidebar_position: 1
 ---
 
 :::tip
 
-For a quick start, follow the [guide](../../getting_started.md) to install the sandbox.
+For a quick start, follow the [guide](../../getting_started/getting_started_on_sandbox.md) to install the sandbox.
 
 :::
 
@@ -67,9 +68,7 @@ ROLLUP_CONTRACT_ADDRESS=0x01234567890abcde01234567890abcde
 SEQ_PUBLISHER_PRIVATE_KEY=0x01234567890abcde01234567890abcde # Private key of an ethereum account that will be used by the sequencer to publish blocks.
 SEQ_MAX_TX_PER_BLOCK=32 # Maximum txs to go on a block. (default: 32)
 SEQ_MIN_TX_PER_BLOCK=1 # Minimum txs to go on a block. (default: 1)
-
-## Validator variables ##
-VALIDATOR_PRIVATE_KEY=0x01234567890abcde01234567890abcde  # Private key of the ethereum account that will be used to perform validator duties
+VALIDATOR_PRIVATE_KEY=0x01234567890abcde01234567890abcde  # Private key of the ethereum account that will be used to perform sequencer duties
 ```
 
 **PXE**
@@ -112,13 +111,13 @@ BenchmarkingContractArtifact
 CardGameContractArtifact
 ChildContractArtifact
 ClaimContractArtifact
-ContractClassRegistererContractArtifact
-ContractInstanceDeployerContractArtifact
+ContractClassRegistryContractArtifact
+ContractInstanceRegistryContractArtifact
 CounterContractArtifact
 CrowdfundingContractArtifact
 DocsExampleContractArtifact
-EasyPrivateTokenContractArtifact
-EasyPrivateVotingContractArtifact
+PrivateTokenContractArtifact
+PrivateVotingContractArtifact
 EcdsaAccountContractArtifact
 EscrowContractArtifact
 FPCContractArtifact
@@ -154,7 +153,7 @@ If you wish to run components of the Aztec network stack separately, you can use
 aztec start --node [nodeOptions] --pxe [pxeOptions] --archiver [archiverOptions] --sequencer [sequencerOptions] --prover [proverOptions] --p2p-bootstrap [p2pOptions]
 ```
 
-Starting the aztec node alongside a PXE, sequencer or archiver, will attach the components to the node. Eg if you want to run a PXE separately to a node, you can [read this guide](../../guides/local_env/run_more_than_one_pxe_sandbox.md).
+Starting the aztec node alongside a PXE, sequencer or archiver, will attach the components to the node. Eg if you want to run a PXE separately to a node, you can [read this guide](../../guides/local_env/sandbox.md#running-multiple-pxes-in-the-sandbox).
 
 ## Update the sandbox
 

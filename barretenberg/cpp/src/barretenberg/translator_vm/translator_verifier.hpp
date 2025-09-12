@@ -14,14 +14,14 @@ namespace bb {
 class TranslatorVerifier {
   public:
     using Flavor = TranslatorFlavor;
-    using FF = typename Flavor::FF;
-    using BF = typename Flavor::BF;
-    using Commitment = typename Flavor::Commitment;
-    using ProvingKey = typename Flavor::ProvingKey;
-    using VerificationKey = typename Flavor::VerificationKey;
-    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
+    using FF = Flavor::FF;
+    using BF = Flavor::BF;
+    using Commitment = Flavor::Commitment;
+    using ProvingKey = Flavor::ProvingKey;
+    using VerificationKey = Flavor::VerificationKey;
+    using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
     using TranslationEvaluations = bb::TranslationEvaluations_<BF>;
-    using Transcript = typename Flavor::Transcript;
+    using Transcript = Flavor::Transcript;
 
     BF evaluation_input_x = 0;
     BF batching_challenge_v = 0;
@@ -46,6 +46,6 @@ class TranslatorVerifier {
     bool verify_translation(const TranslationEvaluations& translation_evaluations,
                             const BF& translation_masking_term_eval);
     bool verify_consistency_with_final_merge(
-        const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> merge_commitments);
+        const std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES>& merge_commitments);
 };
 } // namespace bb

@@ -1,29 +1,30 @@
-use crate::{abis::side_effect::Ordered, traits::{Empty, is_empty}, utils::arrays::sort_by::sort_by};
+use crate::{abis::side_effect::Ordered, traits::Empty, utils::arrays::sort_by::sort_by};
 
+// Confusing function name.
 pub fn compare_by_counter_empty_padded_asc<T>(a: T, b: T) -> bool
 where
-    T: Ordered + Empty + Eq,
+    T: Ordered + Empty,
 {
-    !is_empty(a) & (is_empty(b) | (a.counter() < b.counter()))
+    !a.is_empty() & (b.is_empty() | (a.counter() < b.counter()))
 }
 
 pub fn compare_by_counter_empty_padded_desc<T>(a: T, b: T) -> bool
 where
-    T: Ordered + Empty + Eq,
+    T: Ordered + Empty,
 {
-    !is_empty(a) & (is_empty(b) | (a.counter() >= b.counter()))
+    !a.is_empty() & (b.is_empty() | (a.counter() >= b.counter()))
 }
 
 pub unconstrained fn sort_by_counter_asc<T, let N: u32>(array: [T; N]) -> [T; N]
 where
-    T: Ordered + Empty + Eq,
+    T: Ordered + Empty,
 {
     sort_by(array, compare_by_counter_empty_padded_asc)
 }
 
 pub unconstrained fn sort_by_counter_desc<T, let N: u32>(array: [T; N]) -> [T; N]
 where
-    T: Ordered + Empty + Eq,
+    T: Ordered + Empty,
 {
     sort_by(array, compare_by_counter_empty_padded_desc)
 }

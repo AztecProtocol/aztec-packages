@@ -241,7 +241,7 @@ fn validate_propagated_from_previous_kernel_contract_class_log_hashes_succeeds()
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with = "output should be appended with empty items")]
+#[test(should_fail_with = "Length mismatch")]
 fn validate_propagated_from_previous_kernel_contract_class_log_hashes_less_than_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 

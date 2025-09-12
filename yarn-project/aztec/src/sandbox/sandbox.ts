@@ -1,8 +1,7 @@
 #!/usr/bin/env -S node --no-warnings
-import { getSchnorrWallet } from '@aztec/accounts/schnorr';
-import { deployFundedSchnorrAccounts, getInitialTestAccounts } from '@aztec/accounts/testing';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { AnvilTestWatcher, EthCheatCodes } from '@aztec/aztec.js/testing';
+import { EthAddress } from '@aztec/aztec.js';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { setupSponsoredFPC } from '@aztec/cli/cli-utils';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
@@ -10,9 +9,12 @@ import {
   NULL_KEY,
   createEthereumChain,
   deployL1Contracts,
+  deployMulticall3,
   getL1ContractsConfigEnvVars,
   waitForPublicClient,
 } from '@aztec/ethereum';
+import { EthCheatCodes } from '@aztec/ethereum/test';
+import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/fields';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
@@ -26,14 +28,16 @@ import {
   getConfigEnvVars as getTelemetryClientConfig,
   initTelemetryClient,
 } from '@aztec/telemetry-client';
+import { TestWallet, deployFundedSchnorrAccounts } from '@aztec/test-wallet';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { type HDAccount, type PrivateKeyAccount, createPublicClient, fallback, http as httpViemTransport } from 'viem';
-import { mnemonicToAccount } from 'viem/accounts';
+import { mnemonicToAccount, privateKeyToAddress } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { createAccountLogs } from '../cli/util.js';
 import { DefaultMnemonic } from '../mnemonic.js';
+import { AnvilTestWatcher } from '../testing/anvil_test_watcher.js';
 import { getBananaFPCAddress, setupBananaFPC } from './banana_fpc.js';
 import { getSponsoredFPCAddress } from './sponsored_fpc.js';
 
@@ -77,10 +81,16 @@ export async function deployContractsToL1(
       genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
       salt: opts.salt,
       feeJuicePortalInitialBalance: opts.feeJuicePortalInitialBalance,
+      aztecTargetCommitteeSize: 0, // no committee in sandbox
+      slasherFlavor: 'none', // no slashing in sandbox
+      realVerifier: false,
     },
   );
 
+  await deployMulticall3(l1Contracts.l1Client, logger);
+
   aztecNodeConfig.l1Contracts = l1Contracts.l1ContractAddresses;
+  aztecNodeConfig.rollupVersion = l1Contracts.rollupVersion;
 
   return aztecNodeConfig.l1Contracts;
 }
@@ -90,7 +100,7 @@ export type SandboxConfig = AztecNodeConfig & {
   /** Mnemonic used to derive the L1 deployer private key.*/
   l1Mnemonic: string;
   /** Salt used to deploy L1 contracts.*/
-  l1Salt: string;
+  deployAztecContractsSalt: string;
   /** Whether to expose PXE service on sandbox start.*/
   noPXE: boolean;
   /** Whether to deploy test accounts on sandbox start.*/
@@ -113,14 +123,21 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
   }
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
   const hdAccount = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic);
-  if (!aztecNodeConfig.publisherPrivateKey || aztecNodeConfig.publisherPrivateKey === NULL_KEY) {
+  if (
+    aztecNodeConfig.publisherPrivateKeys == undefined ||
+    !aztecNodeConfig.publisherPrivateKeys.length ||
+    aztecNodeConfig.publisherPrivateKeys[0].getValue() === NULL_KEY
+  ) {
     const privKey = hdAccount.getHdKey().privateKey;
-    aztecNodeConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
+    aztecNodeConfig.publisherPrivateKeys = [new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const)];
   }
-  if (!aztecNodeConfig.validatorPrivateKeys?.length) {
+  if (!aztecNodeConfig.validatorPrivateKeys?.getValue().length) {
     const privKey = hdAccount.getHdKey().privateKey;
-    aztecNodeConfig.validatorPrivateKeys = [`0x${Buffer.from(privKey!).toString('hex')}`];
+    aztecNodeConfig.validatorPrivateKeys = new SecretValue([`0x${Buffer.from(privKey!).toString('hex')}`]);
   }
+  aztecNodeConfig.coinbase = EthAddress.fromString(
+    privateKeyToAddress(aztecNodeConfig.validatorPrivateKeys.getValue()[0]),
+  );
 
   const initialAccounts = await (async () => {
     if (config.testAccounts === true || config.testAccounts === undefined) {
@@ -128,7 +145,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
         userLog(`Not setting up test accounts as we are connecting to a network`);
       } else {
         userLog(`Setting up test accounts`);
-        return await getInitialTestAccounts();
+        return await getInitialTestAccountsData();
       }
     }
     return [];
@@ -147,7 +164,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
     const l1ContractAddresses = await deployContractsToL1(aztecNodeConfig, hdAccount, undefined, {
       assumeProvenThroughBlockNumber: Number.MAX_SAFE_INTEGER,
       genesisArchiveRoot,
-      salt: config.l1Salt ? parseInt(config.l1Salt) : undefined,
+      salt: config.deployAztecContractsSalt ? parseInt(config.deployAztecContractsSalt) : undefined,
       feeJuicePortalInitialBalance: fundingNeeded,
     });
 
@@ -181,19 +198,19 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
   );
   const pxeServiceConfig = { proverEnabled: aztecNodeConfig.realProofs };
   const pxe = await createAztecPXE(node, pxeServiceConfig);
+  const wallet = new TestWallet(pxe);
 
   if (initialAccounts.length) {
     userLog('Setting up funded test accounts...');
-    const accounts = await deployFundedSchnorrAccounts(pxe, initialAccounts);
-    const accountsWithSecrets = accounts.map((account, i) => ({
-      account,
+    const accountManagers = await deployFundedSchnorrAccounts(wallet, initialAccounts);
+    const accountsWithSecrets = accountManagers.map((manager, i) => ({
+      account: manager,
       secretKey: initialAccounts[i].secret,
     }));
     const accLogs = await createAccountLogs(accountsWithSecrets, pxe);
     userLog(accLogs.join(''));
 
-    const deployer = await getSchnorrWallet(pxe, initialAccounts[0].address, initialAccounts[0].signingKey);
-    await setupBananaFPC(initialAccounts, deployer, userLog);
+    await setupBananaFPC(initialAccounts, wallet, userLog);
     await setupSponsoredFPC(pxe, userLog);
   }
 

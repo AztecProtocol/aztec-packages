@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/goblin_field.hpp"
@@ -87,26 +88,26 @@ template <typename Builder, typename T> constexpr size_t calc_num_bn254_frs()
  * @param builder
  * @param fr_vec
  * @return T
- * @todo https://github.com/AztecProtocol/barretenberg/issues/1065  optimise validate_on_curve and check points
+ * @todo https://github.com/AztecProtocol/barretenberg/issues/1065  optimize validate_on_curve and check points
  * reconstructed from the transcript
  */
 template <typename Builder, typename T> T convert_from_bn254_frs(Builder& builder, std::span<const fr<Builder>> fr_vec)
 {
     if constexpr (IsAnyOf<T, fr<Builder>>) {
-        ASSERT(fr_vec.size() == 1);
+        BB_ASSERT_EQ(fr_vec.size(), 1U);
         return fr_vec[0];
     } else if constexpr (IsAnyOf<T, fq<Builder>>) {
-        ASSERT(fr_vec.size() == 2);
+        BB_ASSERT_EQ(fr_vec.size(), 2U);
         fq<Builder> result(fr_vec[0], fr_vec[1]);
         return result;
     } else if constexpr (IsAnyOf<T, goblin_field<Builder>>) {
-        ASSERT(fr_vec.size() == 2);
+        BB_ASSERT_EQ(fr_vec.size(), 2U);
         goblin_field<Builder> result(fr_vec[0], fr_vec[1]);
         return result;
     } else if constexpr (IsAnyOf<T, bn254_element<Builder>>) {
         using BaseField = bn254_element<Builder>::BaseField;
         constexpr size_t BASE_FIELD_SCALAR_SIZE = calc_num_bn254_frs<Builder, BaseField>();
-        ASSERT(fr_vec.size() == 2 * BASE_FIELD_SCALAR_SIZE);
+        BB_ASSERT_EQ(fr_vec.size(), 2 * BASE_FIELD_SCALAR_SIZE);
         bn254_element<Builder> result;
 
         result.x = convert_from_bn254_frs<Builder, BaseField>(builder, fr_vec.subspan(0, BASE_FIELD_SCALAR_SIZE));
@@ -125,7 +126,7 @@ template <typename Builder, typename T> T convert_from_bn254_frs(Builder& builde
     } else if constexpr (IsAnyOf<T, grumpkin_element<Builder>>) {
         using BaseField = fr<Builder>;
         constexpr size_t BASE_FIELD_SCALAR_SIZE = calc_num_bn254_frs<Builder, BaseField>();
-        ASSERT(fr_vec.size() == 2 * BASE_FIELD_SCALAR_SIZE);
+        BB_ASSERT_EQ(fr_vec.size(), 2 * BASE_FIELD_SCALAR_SIZE);
         fr<Builder> x =
             convert_from_bn254_frs<Builder, fr<Builder>>(builder, fr_vec.subspan(0, BASE_FIELD_SCALAR_SIZE));
         fr<Builder> y = convert_from_bn254_frs<Builder, fr<Builder>>(
@@ -136,7 +137,7 @@ template <typename Builder, typename T> T convert_from_bn254_frs(Builder& builde
         // Array or Univariate
         T val;
         constexpr size_t FieldScalarSize = calc_num_bn254_frs<Builder, typename T::value_type>();
-        ASSERT(fr_vec.size() == FieldScalarSize * std::tuple_size<T>::value);
+        BB_ASSERT_EQ(fr_vec.size(), FieldScalarSize * std::tuple_size<T>::value);
         size_t i = 0;
         for (auto& x : val) {
             x = convert_from_bn254_frs<Builder, typename T::value_type>(
@@ -167,6 +168,7 @@ template <typename Builder, typename T> std::vector<fr<Builder>> convert_to_bn25
     } else if constexpr (IsAnyOf<T, goblin_field<Builder>>) {
         return convert_goblin_fr_to_bn254_frs(val);
     } else if constexpr (IsAnyOf<T, bn254_element<Builder>>) {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1527): Consider handling point at infinity.
         using BaseField = bn254_element<Builder>::BaseField;
         auto fr_vec_x = convert_to_bn254_frs<Builder, BaseField>(val.x);
         auto fr_vec_y = convert_to_bn254_frs<Builder, BaseField>(val.y);

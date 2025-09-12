@@ -14,3 +14,15 @@ We use specialized fuzzing targets to fuzz the standard circuit primitives.
 
 You can find more information in the [Fuzzing of standard circuit primitives](../cpp/docs/Fuzzing.md) file.
 
+## Multi-Field Fuzzer
+
+The multi-field fuzzer is a specialized security testing tool designed to validate the correctness of native field implementation
+
+You can find detailed information in the [Multi-Field Fuzzer README](../cpp/src/barretenberg/ecc/curves/Fuzzing.md) file.
+
+## ECCVM Fuzzer
+
+The ECCVM fuzzer is a dedicated tool for testing the security and correctness of the ECCVM implementation.
+
+You can find more information in the [ECCVM Fuzzer README](../cpp/src/barretenberg/eccvm/fuzz/README_FUZZERS.md) file.
+

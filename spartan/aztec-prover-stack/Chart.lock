@@ -1,0 +1,12 @@
+dependencies:
+- name: aztec-node
+  repository: ""
+  version: 0.1.0
+- name: aztec-node
+  repository: ""
+  version: 0.1.0
+- name: aztec-node
+  repository: ""
+  version: 0.1.0
+digest: sha256:1677e2dcc24c7eaa71689f0499b63167c17a15f594013b30b05666cd2acf519a
+generated: "2025-06-10T09:41:50.74947256Z"

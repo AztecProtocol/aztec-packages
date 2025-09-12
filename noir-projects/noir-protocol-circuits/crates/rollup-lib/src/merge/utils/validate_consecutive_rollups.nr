@@ -17,21 +17,21 @@ fn assert_txs_filled_from_left(
     right: BaseOrMergeRollupPublicInputs,
 ) {
     // assert that the left rollup is either a base (1 tx) or a balanced tree (num txs = power of 2)
-    if (left.rollup_type == 1) {
-        let left_txs = left.num_txs;
-        let right_txs = right.num_txs;
+    if (left.num_txs != 1) {
         // See https://graphics.stanford.edu/~seander/bithacks.html#DetermineIfPowerOf2
-        assert(
-            (left_txs) & (left_txs - 1) == 0,
+        assert_eq(
+            (left.num_txs) & (left.num_txs - 1),
+            0,
             "The rollup should be filled greedily from L to R, but received an unbalanced left subtree",
         );
         assert(
-            right_txs <= left_txs,
+            right.num_txs <= left.num_txs,
             "The rollup should be filled greedily from L to R, but received a L txs < R txs",
         );
     } else {
-        assert(
-            right.rollup_type == 0,
+        assert_eq(
+            right.num_txs,
+            1,
             "The rollup should be filled greedily from L to R, but received a L base and R merge",
         );
     }

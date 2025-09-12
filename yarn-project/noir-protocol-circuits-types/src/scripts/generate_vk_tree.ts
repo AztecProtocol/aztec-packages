@@ -1,4 +1,4 @@
-import { TUBE_VK_INDEX, VK_TREE_HEIGHT } from '@aztec/constants';
+import { VK_TREE_HEIGHT } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { MerkleTreeCalculator } from '@aztec/foundation/trees';
@@ -7,7 +7,10 @@ import { fileURLToPath } from '@aztec/foundation/url';
 import { promises as fs } from 'fs';
 
 import type { ProtocolArtifact } from '../artifacts/types.js';
-import { ProtocolCircuitVkIndexes, ProtocolCircuitVks, TubeVk } from '../entrypoint/server/vks.js';
+import { ClientCircuitVks } from '../artifacts/vks/client.js';
+import { ProtocolCircuitVkIndexes, ServerCircuitVks } from '../artifacts/vks/server.js';
+
+const allVks = { ...ServerCircuitVks, ...ClientCircuitVks };
 
 const log = createConsoleLogger('autogenerate');
 
@@ -21,12 +24,10 @@ async function buildVKTree() {
   );
 
   const vkHashes = new Array(2 ** VK_TREE_HEIGHT).fill(Buffer.alloc(32));
-  for (const [key, value] of Object.entries(ProtocolCircuitVks)) {
+  for (const [key, value] of Object.entries(allVks)) {
     const index = ProtocolCircuitVkIndexes[key as ProtocolArtifact];
     vkHashes[index] = value.keyAsFields.hash.toBuffer();
   }
-
-  vkHashes[TUBE_VK_INDEX] = TubeVk.keyAsFields.hash.toBuffer();
 
   return calculator.computeTree(vkHashes);
 }

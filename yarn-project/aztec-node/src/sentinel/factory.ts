@@ -3,8 +3,8 @@ import { createLogger } from '@aztec/foundation/log';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import type { P2PClient } from '@aztec/p2p';
-import type { SlasherConfig } from '@aztec/slasher/config';
 import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 
 import type { SentinelConfig } from './config.js';
 import { Sentinel } from './sentinel.js';
@@ -27,6 +27,10 @@ export async function createSentinel(
     createLogger('node:sentinel:lmdb'),
   );
   const storeHistoryLength = config.sentinelHistoryLengthInEpochs * epochCache.getL1Constants().epochDuration;
-  const sentinelStore = new SentinelStore(kvStore, { historyLength: storeHistoryLength });
+  const storeHistoricProvenPerformanceLength = config.sentinelHistoricProvenPerformanceLengthInEpochs;
+  const sentinelStore = new SentinelStore(kvStore, {
+    historyLength: storeHistoryLength,
+    historicProvenPerformanceLength: storeHistoricProvenPerformanceLength,
+  });
   return new Sentinel(epochCache, archiver, p2p, sentinelStore, config, logger);
 }

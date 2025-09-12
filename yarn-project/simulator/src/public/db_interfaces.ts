@@ -2,6 +2,7 @@ import type { Fr } from '@aztec/foundation/fields';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 /**
  * Database interface for providing access to public state.
@@ -29,12 +30,12 @@ export interface PublicStateDBInterface {
  */
 export interface PublicContractsDBInterface {
   /**
-   * Returns a publicly deployed contract instance.
+   * Returns a contract instance given its address and the given timestamp, or undefined if not exists.
    * @param address - Address of the contract.
-   * @param blockNumber - The block number at which to retrieve the contract instance.
+   * @param timestamp - Timestamp to get the contract instance at. Contract updates might change the instance.
    * @returns The contract instance or undefined if not found.
    */
-  getContractInstance(address: AztecAddress, blockNumber: number): Promise<ContractInstanceWithAddress | undefined>;
+  getContractInstance(address: AztecAddress, timestamp: UInt64): Promise<ContractInstanceWithAddress | undefined>;
 
   /**
    * Returns a publicly deployed contract class.

@@ -1,27 +1,28 @@
 // docs:start:empty-contract
 mod config;
 
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract Crowdfunding {
     // docs:end:empty-contract
     // docs:start:all-deps
     use crate::config::Config;
-    use dep::aztec::{
-        event::event_interface::emit_event_in_public_log,
+    use aztec::{
+        event::event_emission::emit_event_in_public,
         macros::{
             events::event,
             functions::{initializer, internal, private, public},
             storage::storage,
         },
-        messages::logs::note::encode_and_encrypt_note,
-        prelude::{AztecAddress, PrivateSet, PublicImmutable},
+        messages::message_delivery::MessageDelivery,
+        protocol_types::address::AztecAddress,
+        state_vars::{PrivateSet, PublicImmutable},
         utils::comparison::Comparator,
     };
-    use dep::uint_note::uint_note::UintNote;
     use router::utils::privately_check_timestamp;
     use token::Token;
+    use uint_note::uint_note::UintNote;
     // docs:end:all-deps
 
     // docs:start:withdrawal-processed-event
@@ -77,11 +78,11 @@ pub contract Crowdfunding {
         // contract by proving that the hash of this note exists in the note hash tree.
         let note = UintNote::new(amount, donor);
 
-        storage.donation_receipts.insert(note).emit(encode_and_encrypt_note(
+        storage.donation_receipts.insert(note).emit(
             &mut context,
             donor,
-            donor,
-        ));
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
     }
     // docs:end:donate
 
@@ -106,7 +107,7 @@ pub contract Crowdfunding {
     #[public]
     #[internal]
     fn _publish_donation_receipts(amount: u128, to: AztecAddress) {
-        emit_event_in_public_log(WithdrawalProcessed { amount, who: to }, &mut context);
+        emit_event_in_public(WithdrawalProcessed { amount, who: to }, &mut context);
     }
     // docs:end:operator-withdrawals
 }

@@ -2,6 +2,7 @@
 title: Fees
 sidebar_position: 4
 tags: [fees]
+description: Understand Aztec's fee system including mana-based transaction pricing, fee-juice payments, and how L1 and L2 costs are transparently calculated for users.
 ---
 
 import { Why_Fees } from '@site/src/components/Snippets/general_snippets';
@@ -60,7 +61,7 @@ These are:
 
 A fee payer will have bridged fee-juice from L1. On Aztec this fee asset is non-transferrable, and only deducted by the protocol to pay for fees. A user can claim bridged fee juice and use it to pay for transaction fees in the same transaction.
 
-The mechanisms for bridging is the same as any other token. For more on this concept see the start of the [Token Bridge Tutorial](../../developers/tutorials/codealong/js_tutorials/token_bridge.md) where it describes the components and how bridging works (under the hood this makes use of [portals](https://docs.aztec.network/aztec/concepts/communication/portals)).
+The mechanisms for bridging is the same as any other token. For more on this concept see the start of the [Token Bridge Tutorial](../../developers/tutorials/js_tutorials/token_bridge.md) where it describes the components and how bridging works (under the hood this makes use of [portals](https://docs.aztec.network/aztec/concepts/communication/portals)).
 
 ### Payment methods
 
@@ -75,7 +76,7 @@ An account making a transaction can also refer to "fee-paying contracts" (FPCs) 
 ### Operator rewards
 
 The calculated fee-juice of a transaction is deducted from the fee payer (nominated account or fee-paying contract), then pooled together each transaction, block, and epoch.
-Once the epoch is proven, the total fee-juice (minus any burnt congestion amount), is distributed to provers and block validators/sequencers that contributed to the epoch.
+Once the epoch is proven, the total fee-juice (minus any burnt congestion amount), is distributed to provers and block sequencers that contributed to the epoch.
 
 The fees section of the protocol specification explains this distribution of fee-juice between proposers and provers.
 
@@ -83,4 +84,4 @@ The fees section of the protocol specification explains this distribution of fee
 
 More comprehensive technical details for implementers will be available from the updated protocol specifications soon.
 
-For a guide showing ways to pay fees programmatically, see [here](../../developers/guides/js_apps/pay_fees).
+For a guide showing ways to pay fees programmatically, see [here](../../developers/guides/js_apps/how_to_pay_fees).

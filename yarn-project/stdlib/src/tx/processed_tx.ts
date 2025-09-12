@@ -6,8 +6,7 @@ import { RevertCode } from '../avm/revert_code.js';
 import type { SimulationError } from '../errors/simulation_error.js';
 import { Gas } from '../gas/gas.js';
 import type { GasUsed } from '../gas/gas_used.js';
-import { siloL2ToL1Message } from '../hash/hash.js';
-import { CombinedConstantData } from '../kernel/combined_constant_data.js';
+import { computeL2ToL1MessageHash } from '../hash/hash.js';
 import type { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import type { ClientIvcProof } from '../proofs/client_ivc_proof.js';
 import type { GlobalVariables } from './global_variables.js';
@@ -43,9 +42,9 @@ export type ProcessedTx = {
    */
   avmProvingRequest: AvmProvingRequest | undefined;
   /**
-   * Combining `TxConstantData` specified by the user, and `GlobalVariables` injected by the sequencer.
+   * `GlobalVariables` injected by the sequencer. It's the same for all the txs in a block.
    */
-  constants: CombinedConstantData;
+  globalVariables: GlobalVariables;
   /**
    * Output data of the tx.
    */
@@ -78,24 +77,30 @@ export type FailedTx = {
   error: Error;
 };
 
-export async function makeProcessedTxFromPrivateOnlyTx(
+export function makeProcessedTxFromPrivateOnlyTx(
   tx: Tx,
   transactionFee: Fr,
   feePaymentPublicDataWrite: PublicDataWrite,
   globalVariables: GlobalVariables,
-): Promise<ProcessedTx> {
-  const constants = CombinedConstantData.combine(tx.data.constants, globalVariables);
-
+): ProcessedTx {
   const data = tx.data.forRollup!;
   const txEffect = new TxEffect(
     RevertCode.OK,
-    await tx.getTxHash(),
+    tx.getTxHash(),
     transactionFee,
     data.end.noteHashes.filter(h => !h.isZero()),
     data.end.nullifiers.filter(h => !h.isZero()),
     data.end.l2ToL1Msgs
-      .map(message => siloL2ToL1Message(message, constants.txContext.version, constants.txContext.chainId))
-      .filter(h => !h.isZero()),
+      .filter(msg => !msg.contractAddress.isZero())
+      .map(msg =>
+        computeL2ToL1MessageHash({
+          l2Sender: msg.contractAddress,
+          l1Recipient: msg.message.recipient,
+          content: msg.message.content,
+          rollupVersion: globalVariables.version,
+          chainId: globalVariables.chainId,
+        }),
+      ),
     [feePaymentPublicDataWrite],
     data.end.privateLogs.filter(l => !l.isEmpty()),
     [],
@@ -115,7 +120,7 @@ export async function makeProcessedTxFromPrivateOnlyTx(
     data: tx.data,
     clientIvcProof: tx.clientIvcProof,
     avmProvingRequest: undefined,
-    constants,
+    globalVariables,
     txEffect,
     gasUsed,
     revertCode: RevertCode.OK,
@@ -129,16 +134,16 @@ export function toNumBlobFields(txs: ProcessedTx[]): number {
   }, 0);
 }
 
-export async function makeProcessedTxFromTxWithPublicCalls(
+export function makeProcessedTxFromTxWithPublicCalls(
   tx: Tx,
   avmProvingRequest: AvmProvingRequest,
   gasUsed: GasUsed,
   revertCode: RevertCode,
   revertReason: SimulationError | undefined,
-): Promise<ProcessedTx> {
+): ProcessedTx {
   const avmPublicInputs = avmProvingRequest.inputs.publicInputs;
 
-  const constants = CombinedConstantData.combine(tx.data.constants, avmPublicInputs.globalVariables);
+  const globalVariables = avmPublicInputs.globalVariables;
 
   const publicDataWrites = avmPublicInputs.accumulatedData.publicDataWrites.filter(w => !w.isEmpty());
 
@@ -153,13 +158,21 @@ export async function makeProcessedTxFromTxWithPublicCalls(
 
   const txEffect = new TxEffect(
     revertCode,
-    await tx.getTxHash(),
+    tx.getTxHash(),
     avmPublicInputs.transactionFee,
     avmPublicInputs.accumulatedData.noteHashes.filter(h => !h.isZero()),
     avmPublicInputs.accumulatedData.nullifiers.filter(h => !h.isZero()),
     avmPublicInputs.accumulatedData.l2ToL1Msgs
-      .map(message => siloL2ToL1Message(message, constants.txContext.version, constants.txContext.chainId))
-      .filter(h => !h.isZero()),
+      .filter(msg => !msg.contractAddress.isZero())
+      .map(msg =>
+        computeL2ToL1MessageHash({
+          l2Sender: msg.contractAddress,
+          l1Recipient: msg.message.recipient,
+          content: msg.message.content,
+          rollupVersion: globalVariables.version,
+          chainId: globalVariables.chainId,
+        }),
+      ),
     publicDataWrites,
     privateLogs,
     avmPublicInputs.accumulatedData.publicLogs.filter(l => !l.isEmpty()),
@@ -171,7 +184,7 @@ export async function makeProcessedTxFromTxWithPublicCalls(
     data: tx.data,
     clientIvcProof: tx.clientIvcProof,
     avmProvingRequest,
-    constants,
+    globalVariables,
     txEffect,
     gasUsed,
     revertCode,

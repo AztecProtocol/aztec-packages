@@ -1,8 +1,8 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { Fr, type Logger, type PXE, sleep } from '@aztec/aztec.js';
-import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
+import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
+import { Fr, type Logger, sleep } from '@aztec/aztec.js';
 import { Fq } from '@aztec/foundation/fields';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { TestWallet } from '@aztec/test-wallet';
 
 import { jest } from '@jest/globals';
 import type { Hex } from 'viem';
@@ -28,7 +28,7 @@ describe('e2e_fees bridging_race', () => {
     await t.applyPublicDeployAccountsSnapshot();
     await t.applySetupFeeJuiceSnapshot();
 
-    ({ pxe, logger } = await t.setup());
+    ({ wallet, logger } = await t.setup());
   });
 
   afterAll(async () => {
@@ -36,17 +36,19 @@ describe('e2e_fees bridging_race', () => {
   });
 
   let logger: Logger;
-  let pxe: PXE;
   let bobsAddress: AztecAddress;
+  let wallet: TestWallet;
 
   beforeEach(async () => {
     const bobsSecretKey = Fr.random();
     const bobsPrivateSigningKey = Fq.random();
-    const bobsAccountManager = await getSchnorrAccount(pxe, bobsSecretKey, bobsPrivateSigningKey, Fr.random());
-    const bobsCompleteAddress = await bobsAccountManager.getCompleteAddress();
-    bobsAddress = bobsCompleteAddress.address;
-    await bobsAccountManager.getWallet();
-    await bobsAccountManager.register();
+    const bobsSalt = Fr.random();
+    const bobsAccountManager = await wallet.createAccount({
+      secret: bobsSecretKey,
+      salt: bobsSalt,
+      contract: new SchnorrAccountContract(bobsPrivateSigningKey),
+    });
+    bobsAddress = bobsAccountManager.getAddress();
   });
 
   it('Alice bridges funds to Bob', async () => {
@@ -64,11 +66,13 @@ describe('e2e_fees bridging_race', () => {
     // Waiting for the archiver to sync the message _before_ waiting for the mandatory 2 L2 blocks to pass fixed it
     // This was added everywhere we wait for two blocks, which is spread across three different places in the codebase
     // Yes, we need to REFACTOR it at some point
-    const amount = FEE_FUNDING_FOR_TESTER_ACCOUNT;
-    const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(amount, bobsAddress);
+    const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(bobsAddress);
     const { claimSecret: secret, messageLeafIndex: index } = claim;
-    await t.feeJuiceContract.methods.claim(bobsAddress, amount, secret, index).send().wait();
+    await t.feeJuiceContract.methods
+      .claim(bobsAddress, claim.claimAmount, secret, index)
+      .send({ from: bobsAddress })
+      .wait();
     const [balance] = await t.getGasBalanceFn(bobsAddress);
-    expect(balance).toEqual(amount);
+    expect(balance).toEqual(claim.claimAmount);
   });
 });

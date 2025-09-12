@@ -19,7 +19,9 @@ telemetry:
 
 validator:
   storageSize: "100Gi"
-  replicas: 48
+  sentinelEnabled: true
+  replicas: 4
+  keysPerNode: 12
   validator:
     disabled: false
   sequencer:
@@ -32,7 +34,7 @@ bootNode:
   storageSize: "100Gi"
 
 proverAgent:
-  replicas: 8
+  replicas: 4
   bb:
     hardwareConcurrency: 31
   gke:
@@ -47,12 +49,13 @@ bot:
   ammTxs: true
   followChain: "PENDING"
   enabled: true
-  txIntervalSeconds: 1
+  txIntervalSeconds: 10
   resources:
     requests:
       memory: 15Gi
       cpu: 7
+  nodeSelector:
+    cores: "8"
 
-jobs:
-  deployL1Verifier:
-    enable: true
+web3signer:
+  enabled: true

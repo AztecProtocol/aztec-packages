@@ -8,6 +8,7 @@ import {
   getAllFunctionAbis,
   getDefaultInitializer,
   isAztecAddressStruct,
+  isBoundedVecStruct,
   isEthAddressStruct,
   isFunctionSelectorStruct,
   isWrappedFieldStruct,
@@ -42,6 +43,11 @@ function abiTypeToTypescript(type: ABIParameter['type']): string {
       }
       if (isWrappedFieldStruct(type)) {
         return 'WrappedFieldLike';
+      }
+      if (isBoundedVecStruct(type)) {
+        // To make BoundedVec easier to work with, we expect a simple array on the input and then we encode it
+        // as a BoundedVec in the ArgumentsEncoder.
+        return `${abiTypeToTypescript(type.fields[0].type)}`;
       }
       return `{ ${type.fields.map(f => `${f.name}: ${abiTypeToTypescript(f.type)}`).join(', ')} }`;
     default:
@@ -220,35 +226,6 @@ function generateStorageLayoutGetter(input: ContractArtifact) {
     `;
 }
 
-/**
- * Generates a getter for the contract notes
- * @param input - The contract artifact.
- */
-function generateNotesGetter(input: ContractArtifact) {
-  const entries = Object.entries(input.notes);
-
-  if (entries.length === 0) {
-    return '';
-  }
-
-  const notesUnionType = entries.map(([name]) => `'${name}'`).join(' | ');
-  const noteMetadata = entries
-    .map(
-      ([name, { id }]) =>
-        `${name}: {
-          id: new NoteSelector(${id.value}),
-        }`,
-    )
-    .join(',\n');
-
-  return `public static get notes(): ContractNotes<${notesUnionType}> {
-    return {
-      ${noteMetadata}
-    } as ContractNotes<${notesUnionType}>;
-  }
-  `;
-}
-
 // events is of type AbiType
 async function generateEvents(events: any[] | undefined) {
   if (events === undefined) {
@@ -316,7 +293,6 @@ export async function generateTypescriptContractInterface(input: ContractArtifac
   const artifactStatement = artifactImportPath && generateAbiStatement(input.name, artifactImportPath);
   const artifactGetter = artifactImportPath && generateArtifactGetters(input.name);
   const storageLayoutGetter = artifactImportPath && generateStorageLayoutGetter(input);
-  const notesGetter = artifactImportPath && generateNotesGetter(input);
   const { eventDefs, events } = await generateEvents(input.outputs.structs?.events);
 
   return `
@@ -335,7 +311,6 @@ import {
   type ContractInstanceWithAddress,
   type ContractMethod,
   type ContractStorageLayout,
-  type ContractNotes,
   decodeFromAbi,
   DeployMethod,
   EthAddress,
@@ -347,7 +322,6 @@ import {
   loadContractArtifact,
   loadContractArtifactForPublic,
   type NoirCompiledContract,
-  NoteSelector,
   Point,
   type PublicKey,
   PublicKeys,
@@ -372,8 +346,6 @@ export class ${input.name}Contract extends ContractBase {
   ${artifactGetter}
 
   ${storageLayoutGetter}
-
-  ${notesGetter}
 
   /** Type-safe wrappers for the public methods exposed by the contract. */
   public declare methods: {

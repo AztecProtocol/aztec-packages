@@ -7,7 +7,6 @@ import {
   getHashedSignaturePayloadEthSignedMessage,
 } from '@aztec/stdlib/p2p';
 import { makeHeader } from '@aztec/stdlib/testing';
-import { TxHash } from '@aztec/stdlib/tx';
 
 import { type LocalAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
@@ -31,11 +30,10 @@ export const mockAttestation = (
   signer: Secp256k1Signer,
   slot: number = 0,
   archive: Fr = Fr.random(),
-  txs: TxHash[] = [0, 1, 2, 3, 4, 5].map(() => TxHash.random()),
 ): BlockAttestation => {
   // Use arbitrary numbers for all other than slot
   const header = makeHeader(1, 2, slot);
-  const payload = new ConsensusPayload(header.toPropose(), archive, header.state, txs);
+  const payload = new ConsensusPayload(header.toPropose(), archive, header.state);
 
   const hash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockAttestation);
   const signature = signer.sign(hash);

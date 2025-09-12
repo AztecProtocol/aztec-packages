@@ -2,59 +2,101 @@
 pragma solidity >=0.8.27;
 
 import {StakingBase} from "./base.t.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {IStakingCore, Status, AttesterView} from "@aztec/core/interfaces/IStaking.sol";
-import {GSE} from "@aztec/core/staking/GSE.sol";
+import {GSE} from "@aztec/governance/GSE.sol";
 import {Timestamp, Epoch, Slot} from "@aztec/core/libraries/TimeLib.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
 import {Math} from "@oz/utils/math/Math.sol";
+import {RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
+import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {console} from "forge-std/console.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
+import {TestConstants} from "../harnesses/TestConstants.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 contract MoveTest is StakingBase {
   GSE internal gse;
+
+  uint256 internal n;
+
+  // override the setUp to set the entry queue flush size to n
+  function setUp() public override {
+    // We add n validators. n/2 to the specific and the rest to the canonical one
+    // Should be MORE than 2*48 to ensure that we will end up with enough to sample
+    // on either rollup.
+    n = 101;
+
+    StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
+    stakingQueueConfig.normalFlushSizeMin = n;
+
+    RollupBuilder builder = new RollupBuilder(address(this)).setSlashingQuorum(1).setSlashingRoundSize(1)
+      .setStakingQueueConfig(stakingQueueConfig);
+    builder.deploy();
+
+    registry = builder.getConfig().registry;
+
+    RollupConfigInput memory rollupConfig = builder.getConfig().rollupConfigInput;
+
+    EPOCH_DURATION_SECONDS = rollupConfig.aztecEpochDuration * rollupConfig.aztecSlotDuration;
+
+    staking = IStaking(address(builder.getConfig().rollup));
+    stakingAsset = builder.getConfig().testERC20;
+
+    ACTIVATION_THRESHOLD = staking.getActivationThreshold();
+    EJECTION_THRESHOLD = staking.getEjectionThreshold();
+    SLASHER = staking.getSlasher();
+  }
 
   function test_MoveStakingSet() external {
     // This test "moves" the staking set for "canonical" as a new rollup is made canonical
     gse = staking.getGSE();
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setGSE(gse).setTestERC20(stakingAsset)
-      .setRegistry(registry).setMakeCanonical(false).setMakeGovernance(false).setUpdateOwnerships(
-      false
+    StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
+    stakingQueueConfig.normalFlushSizeMin = n;
+
+    RollupBuilder builder = new RollupBuilder(address(this)).setGSE(gse).setTestERC20(stakingAsset).setRegistry(
+      registry
+    ).setMakeCanonical(false).setMakeGovernance(false).setUpdateOwnerships(false).setStakingQueueConfig(
+      stakingQueueConfig
     ).deploy();
 
     IInstance oldRollup = IInstance(address(staking));
     IInstance newRollup = IInstance(address(builder.getConfig().rollup));
 
-    // We add n validators. n/2 to the specific and the rest to the canonical one
-    // Should be MORE thank 2*48 to ensure that we will end up with enough to sample
-    // on either rollup.
-    uint256 n = 101;
-
-    stakingAsset.mint(address(this), MINIMUM_STAKE * n);
-    stakingAsset.approve(address(oldRollup), MINIMUM_STAKE * n);
+    mint(address(this), ACTIVATION_THRESHOLD * n);
+    stakingAsset.approve(address(oldRollup), ACTIVATION_THRESHOLD * n);
 
     for (uint256 i = 0; i < n; i++) {
-      bool onCanonical = i % 2 == 0;
+      bool moveWithLatestRollup = i % 2 == 0;
 
       oldRollup.deposit({
         _attester: address(uint160(i + 1000)),
         _withdrawer: WITHDRAWER,
-        _onCanonical: onCanonical
+        _publicKeyInG1: BN254Lib.g1Zero(),
+        _publicKeyInG2: BN254Lib.g2Zero(),
+        _proofOfPossession: BN254Lib.g1Zero(),
+        _moveWithLatestRollup: moveWithLatestRollup
       });
     }
+    oldRollup.flushEntryQueue();
 
     Epoch epoch = Epoch.wrap(5);
-    Timestamp ts =
-      newRollup.getTimestampForSlot(Slot.wrap(Epoch.unwrap(epoch) * newRollup.getEpochDuration()));
+    Timestamp ts = newRollup.getTimestampForSlot(Slot.wrap(Epoch.unwrap(epoch) * newRollup.getEpochDuration()));
 
     assertEq(gse.getAttesterCountAtTime(address(oldRollup), Timestamp.wrap(block.timestamp)), n);
     assertEq(gse.getAttesterCountAtTime(address(newRollup), Timestamp.wrap(block.timestamp)), 0);
 
-    assertEq(
-      oldRollup.getEpochCommittee(epoch).length, Math.min(n, oldRollup.getTargetCommitteeSize())
+    assertEq(oldRollup.getEpochCommittee(epoch).length, oldRollup.getTargetCommitteeSize());
+    console.log("oldRollup.getTargetCommitteeSize()", oldRollup.getTargetCommitteeSize());
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.ValidatorSelection__InsufficientValidatorSetSize.selector, 0, newRollup.getTargetCommitteeSize()
+      )
     );
-    assertEq(newRollup.getEpochCommittee(epoch).length, 0);
+    newRollup.getEpochCommittee(epoch);
 
     // Jump to epoch and add the rollup.
     vm.warp(Timestamp.unwrap(ts));
@@ -63,17 +105,18 @@ contract MoveTest is StakingBase {
 
     // Look at the data "right now", see that half have been moved
     assertEq(gse.getAttesterCountAtTime(address(oldRollup), Timestamp.wrap(block.timestamp)), n / 2);
-    assertEq(
-      gse.getAttesterCountAtTime(address(newRollup), Timestamp.wrap(block.timestamp)), n - n / 2
-    );
+    assertEq(gse.getAttesterCountAtTime(address(newRollup), Timestamp.wrap(block.timestamp)), n - n / 2);
 
     // When we look at the committee for that epoch, the setup "depends" on how far in the past we "lock-in"
     // the committee. So for good measure, we will first check at the epoch and then add another 100.
     // That should plenty for the lookup
-    assertEq(
-      oldRollup.getEpochCommittee(epoch).length, Math.min(n, oldRollup.getTargetCommitteeSize())
+    assertEq(oldRollup.getEpochCommittee(epoch).length, oldRollup.getTargetCommitteeSize());
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.ValidatorSelection__InsufficientValidatorSetSize.selector, 0, newRollup.getTargetCommitteeSize()
+      )
     );
-    assertEq(newRollup.getEpochCommittee(epoch).length, 0);
+    newRollup.getEpochCommittee(epoch);
 
     Epoch epoch2 = epoch + Epoch.wrap(100);
 
@@ -114,17 +157,15 @@ contract MoveTest is StakingBase {
     attesterView = newRollup.getAttesterView(attesterToExit);
     assertEq(attesterView.exit.exists, true);
     assertEq(attesterView.exit.isRecipient, true);
-    assertEq(
-      attesterView.exit.exitableAt, Timestamp.wrap(block.timestamp) + newRollup.getExitDelay()
-    );
+    assertEq(attesterView.exit.exitableAt, Timestamp.wrap(block.timestamp) + newRollup.getExitDelay());
     assertEq(attesterView.exit.recipientOrWithdrawer, RECIPIENT);
     assertTrue(attesterView.status == Status.EXITING);
 
     vm.warp(Timestamp.unwrap(attesterView.exit.exitableAt));
 
     vm.expectEmit(true, true, true, true, address(newRollup));
-    emit IStakingCore.WithdrawFinalised(attesterToExit, RECIPIENT, MINIMUM_STAKE);
-    newRollup.finaliseWithdraw(attesterToExit);
+    emit IStakingCore.WithdrawFinalized(attesterToExit, RECIPIENT, ACTIVATION_THRESHOLD);
+    newRollup.finalizeWithdraw(attesterToExit);
 
     attesterView = newRollup.getAttesterView(attesterToExit);
     assertEq(attesterView.exit.recipientOrWithdrawer, address(0));
@@ -132,6 +173,6 @@ contract MoveTest is StakingBase {
     assertTrue(attesterView.status == Status.NONE);
 
     assertEq(stakingAsset.balanceOf(address(newRollup)), 0);
-    assertEq(stakingAsset.balanceOf(RECIPIENT), MINIMUM_STAKE);
+    assertEq(stakingAsset.balanceOf(RECIPIENT), ACTIVATION_THRESHOLD);
   }
 }

@@ -9,7 +9,8 @@ import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import type { TxHash } from '../tx/tx_hash.js';
 import type { TxReceipt } from '../tx/tx_receipt.js';
 import type { L2Block } from './l2_block.js';
-import type { PublishedL2Block } from './published_l2_block.js';
+import { PublishedL2Block } from './published_l2_block.js';
+import type { ValidateBlockNegativeResult, ValidateBlockResult } from './validate_block_result.js';
 
 /**
  * Interface of classes allowing for the retrieval of L2 blocks.
@@ -119,6 +120,21 @@ export interface L2BlockSource {
    */
   getL1Constants(): Promise<L1RollupConstants>;
 
+  /** Latest synced L1 timestamp. */
+  getL1Timestamp(): Promise<bigint>;
+
+  /**
+   * Returns whether the latest block in the pending chain on L1 is invalid (ie its attestations are incorrect).
+   * Note that invalid blocks do not get synced, so the latest block returned by the block source is always a valid one.
+   */
+  isPendingChainInvalid(): Promise<boolean>;
+
+  /**
+   * Returns the status of the pending chain validation. If the chain is invalid, reports the earliest consecutive block
+   * that is invalid, along with the reason for being invalid, which can be used to trigger an invalidation.
+   */
+  getPendingChainValidationStatus(): Promise<ValidateBlockResult>;
+
   /** Force a sync. */
   syncImmediate(): Promise<void>;
 }
@@ -127,10 +143,10 @@ export interface L2BlockSource {
  * L2BlockSource that emits events upon pending / proven chain changes.
  * see L2BlockSourceEvents for the events emitted.
  */
-
 export type ArchiverEmitter = TypedEventEmitter<{
-  [L2BlockSourceEvents.L2PruneDetected]: (args: L2BlockSourceEvent) => void;
-  [L2BlockSourceEvents.L2BlockProven]: (args: L2BlockSourceEvent) => void;
+  [L2BlockSourceEvents.L2PruneDetected]: (args: L2BlockPruneEvent) => void;
+  [L2BlockSourceEvents.L2BlockProven]: (args: L2BlockProvenEvent) => void;
+  [L2BlockSourceEvents.InvalidAttestationsBlockDetected]: (args: InvalidBlockDetectedEvent) => void;
 }>;
 export interface L2BlockSourceEventEmitter extends L2BlockSource, ArchiverEmitter {}
 
@@ -177,11 +193,23 @@ export const L2TipsSchema = z.object({
 export enum L2BlockSourceEvents {
   L2PruneDetected = 'l2PruneDetected',
   L2BlockProven = 'l2BlockProven',
+  InvalidAttestationsBlockDetected = 'invalidBlockDetected',
 }
 
-export type L2BlockSourceEvent = {
-  type: 'l2PruneDetected' | 'l2BlockProven';
+export type L2BlockProvenEvent = {
+  type: 'l2BlockProven';
   blockNumber: bigint;
   slotNumber: bigint;
   epochNumber: bigint;
+};
+
+export type L2BlockPruneEvent = {
+  type: 'l2PruneDetected';
+  epochNumber: bigint;
+  blocks: L2Block[];
+};
+
+export type InvalidBlockDetectedEvent = {
+  type: 'invalidBlockDetected';
+  validationResult: ValidateBlockNegativeResult;
 };

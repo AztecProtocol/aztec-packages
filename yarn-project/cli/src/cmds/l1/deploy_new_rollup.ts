@@ -1,4 +1,4 @@
-import { getInitialTestAccounts } from '@aztec/accounts/testing';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { type Operator, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn, Logger } from '@aztec/foundation/log';
@@ -19,12 +19,13 @@ export async function deployNewRollup(
   sponsoredFPC: boolean,
   json: boolean,
   initialValidators: Operator[],
+  realVerifier: boolean,
   log: LogFn,
   debugLogger: Logger,
 ) {
   const config = getL1ContractsConfigEnvVars();
 
-  const initialAccounts = testAccounts ? await getInitialTestAccounts() : [];
+  const initialAccounts = testAccounts ? await getInitialTestAccountsData() : [];
   const sponsoredFPCAddress = sponsoredFPC ? await getSponsoredFPCAddress() : [];
   const initialFundedAccounts = initialAccounts.map(a => a.address).concat(sponsoredFPCAddress);
   const { genesisArchiveRoot, fundingNeeded } = await getGenesisValues(initialFundedAccounts);
@@ -41,6 +42,7 @@ export async function deployNewRollup(
     genesisArchiveRoot,
     fundingNeeded,
     config,
+    realVerifier,
     debugLogger,
   );
 

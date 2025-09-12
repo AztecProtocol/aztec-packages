@@ -4,7 +4,8 @@ pragma solidity >=0.8.27;
 
 import {DecoderBase} from "../base/DecoderBase.sol";
 
-import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
+import {CommitteeAttestation} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
@@ -15,15 +16,21 @@ import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 
-import {Epoch, EpochLib, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
+import {Epoch, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
-import {ProposePayload} from "@aztec/core/libraries/rollup/ProposeLib.sol";
+import {ProposePayload, ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
+import {Slot} from "@aztec/core/libraries/TimeLib.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
+
 import {TimeCheater} from "../staking/TimeCheater.sol";
+import {stdStorage, StdStorage} from "forge-std/Test.sol";
+import {Math} from "@oz/utils/math/Math.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -32,15 +39,21 @@ import {TimeCheater} from "../staking/TimeCheater.sol";
  */
 contract ValidatorSelectionTestBase is DecoderBase {
   using MessageHashUtils for bytes32;
-  using EpochLib for Epoch;
+  using stdStorage for StdStorage;
 
-  struct StructToAvoidDeepStacks {
+  struct ProposeTestData {
     uint256 needed;
     address proposer;
-    bool shouldRevert;
-    bool provideEmptyAttestations;
+    address sender;
     uint256 attestationsCount;
+    address[] committee;
+    CommitteeAttestation[] attestations;
+    address[] signers;
+    Signature attestationsAndSignersSignature;
     ProposePayload proposePayload;
+    ProposeArgs proposeArgs;
+    uint256 invalidAddressAttestationIndex;
+    uint256 invalidSignatureIndex;
   }
 
   SlashFactory internal slashFactory;
@@ -60,19 +73,20 @@ contract ValidatorSelectionTestBase is DecoderBase {
   /**
    * @notice Setup contracts needed for the tests with the a given number of validators
    */
-  modifier setup(uint256 _validatorCount) {
+  modifier setup(uint256 _validatorCount, uint256 _targetCommitteeSize) {
     string memory _name = "mixed_block_1";
     {
       DecoderBase.Full memory full = load(_name);
-      uint256 slotNumber = full.block.decodedHeader.slotNumber;
+      Slot slotNumber = full.block.header.slotNumber;
       uint256 initialTime =
-        full.block.decodedHeader.timestamp - slotNumber * TestConstants.AZTEC_SLOT_DURATION;
+        Timestamp.unwrap(full.block.header.timestamp) - Slot.unwrap(slotNumber) * TestConstants.AZTEC_SLOT_DURATION;
 
       timeCheater = new TimeCheater(
         address(rollup),
         initialTime,
         TestConstants.AZTEC_SLOT_DURATION,
-        TestConstants.AZTEC_EPOCH_DURATION
+        TestConstants.AZTEC_EPOCH_DURATION,
+        TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
       );
       vm.warp(initialTime);
     }
@@ -83,7 +97,12 @@ contract ValidatorSelectionTestBase is DecoderBase {
       initialValidators[i - 1] = createDepositArgs(i);
     }
 
-    RollupBuilder builder = new RollupBuilder(address(this));
+    StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
+    stakingQueueConfig.normalFlushSizeMin = Math.max(_validatorCount, 1);
+
+    RollupBuilder builder = new RollupBuilder(address(this)).setStakingQueueConfig(stakingQueueConfig).setValidators(
+      initialValidators
+    ).setTargetCommitteeSize(_targetCommitteeSize);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;
@@ -91,12 +110,6 @@ contract ValidatorSelectionTestBase is DecoderBase {
     testERC20 = builder.getConfig().testERC20;
     slasher = Slasher(rollup.getSlasher());
     slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
-
-    if (initialValidators.length > 0) {
-      MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-      testERC20.mint(address(multiAdder), rollup.getMinimumStake() * initialValidators.length);
-      multiAdder.addValidators(initialValidators);
-    }
 
     inbox = Inbox(address(rollup.getInbox()));
     outbox = Outbox(address(rollup.getOutbox()));
@@ -118,6 +131,12 @@ contract ValidatorSelectionTestBase is DecoderBase {
     address attester = vm.addr(attesterPrivateKey);
     attesterPrivateKeys[attester] = attesterPrivateKey;
 
-    return CheatDepositArgs({attester: attester, withdrawer: address(this)});
+    return CheatDepositArgs({
+      attester: attester,
+      withdrawer: address(this),
+      publicKeyInG1: BN254Lib.g1Zero(),
+      publicKeyInG2: BN254Lib.g2Zero(),
+      proofOfPossession: BN254Lib.g1Zero()
+    });
   }
 }

@@ -3,23 +3,41 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
-import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
 
-import { type Account, type GetContractReturnType, type Hex, encodeFunctionData, getAddress, getContract } from 'viem';
+import chunk from 'lodash.chunk';
+import {
+  type Account,
+  type GetContractReturnType,
+  type Hex,
+  type StateOverride,
+  type WatchContractEventReturnType,
+  encodeFunctionData,
+  getContract,
+  hexToBigInt,
+  keccak256,
+} from 'viem';
 
 import { getPublicClient } from '../client.js';
 import type { DeployL1ContractsReturnType } from '../deploy_l1_contracts.js';
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import type { L1ReaderConfig } from '../l1_reader.js';
-import type { L1TxUtils } from '../l1_tx_utils.js';
+import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
 import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
-import { SlashingProposerContract } from './slashing_proposer.js';
+import { EmpireSlashingProposerContract } from './empire_slashing_proposer.js';
+import { GSEContract } from './gse.js';
+import { SlasherContract } from './slasher_contract.js';
+import { TallySlashingProposerContract } from './tally_slashing_proposer.js';
 import { checkBlockTag } from './utils.js';
 
 export type ViemCommitteeAttestation = {
   addr: `0x${string}`;
   signature: ViemSignature;
+};
+
+export type ViemCommitteeAttestations = {
+  signatureIndices: `0x${string}`;
+  signaturesOrAddresses: `0x${string}`;
 };
 
 export type L1RollupContractAddresses = Pick<
@@ -41,8 +59,54 @@ export type EpochProofPublicInputArgs = {
   proverId: `0x${string}`;
 };
 
+export type ViemHeader = {
+  lastArchiveRoot: `0x${string}`;
+  contentCommitment: ViemContentCommitment;
+  slotNumber: bigint;
+  timestamp: bigint;
+  coinbase: `0x${string}`;
+  feeRecipient: `0x${string}`;
+  gasFees: ViemGasFees;
+  totalManaUsed: bigint;
+};
+
+export type ViemContentCommitment = {
+  blobsHash: `0x${string}`;
+  inHash: `0x${string}`;
+  outHash: `0x${string}`;
+};
+
+export type ViemGasFees = {
+  feePerDaGas: bigint;
+  feePerL2Gas: bigint;
+};
+
+export type ViemStateReference = {
+  l1ToL2MessageTree: ViemAppendOnlyTreeSnapshot;
+  partialStateReference: ViemPartialStateReference;
+};
+
+export type ViemPartialStateReference = {
+  noteHashTree: ViemAppendOnlyTreeSnapshot;
+  nullifierTree: ViemAppendOnlyTreeSnapshot;
+  publicDataTree: ViemAppendOnlyTreeSnapshot;
+};
+
+export type ViemAppendOnlyTreeSnapshot = {
+  root: `0x${string}`;
+  nextAvailableLeafIndex: number;
+};
+
+export enum SlashingProposerType {
+  None = 0,
+  Tally = 1,
+  Empire = 2,
+}
+
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
+
+  private static cachedStfStorageSlot: Hex | undefined;
 
   static get checkBlobStorageSlot(): bigint {
     const asString = RollupStorage.find(storage => storage.label === 'checkBlob')?.slot;
@@ -50,6 +114,10 @@ export class RollupContract {
       throw new Error('checkBlobStorageSlot not found');
     }
     return BigInt(asString);
+  }
+
+  static get stfStorageSlot(): Hex {
+    return (RollupContract.cachedStfStorageSlot ??= keccak256(Buffer.from('aztec.stf.storage', 'utf-8')));
   }
 
   static getFromL1ContractsValues(deployL1ContractsValues: DeployL1ContractsReturnType) {
@@ -88,12 +156,34 @@ export class RollupContract {
     return this.rollup;
   }
 
-  @memoize
-  public async getSlashingProposer() {
-    const slasherAddress = await this.rollup.read.getSlasher();
-    const slasher = getContract({ address: slasherAddress, abi: SlasherAbi, client: this.client });
-    const proposerAddress = await slasher.read.PROPOSER();
-    return new SlashingProposerContract(this.client, proposerAddress);
+  public async getSlashingProposer(): Promise<
+    EmpireSlashingProposerContract | TallySlashingProposerContract | undefined
+  > {
+    const slasher = await this.getSlasherContract();
+    if (!slasher) {
+      return undefined;
+    }
+
+    const proposerAddress = await slasher.getProposer();
+    const proposerAbi = [
+      {
+        type: 'function',
+        name: 'SLASHING_PROPOSER_TYPE',
+        inputs: [],
+        outputs: [{ name: '', type: 'uint8', internalType: 'enum SlasherFlavor' }],
+        stateMutability: 'view',
+      },
+    ] as const;
+
+    const proposer = getContract({ address: proposerAddress.toString(), abi: proposerAbi, client: this.client });
+    const proposerType = await proposer.read.SLASHING_PROPOSER_TYPE();
+    if (proposerType === SlashingProposerType.Tally.valueOf()) {
+      return new TallySlashingProposerContract(this.client, proposerAddress);
+    } else if (proposerType === SlashingProposerType.Empire.valueOf()) {
+      return new EmpireSlashingProposerContract(this.client, proposerAddress);
+    } else {
+      throw new Error(`Unknown slashing proposer type: ${proposerType}`);
+    }
   }
 
   @memoize
@@ -107,8 +197,8 @@ export class RollupContract {
   }
 
   @memoize
-  getProofSubmissionWindow() {
-    return this.rollup.read.getProofSubmissionWindow();
+  getProofSubmissionEpochs() {
+    return this.rollup.read.getProofSubmissionEpochs();
   }
 
   @memoize
@@ -127,8 +217,28 @@ export class RollupContract {
   }
 
   @memoize
-  getMinimumStake() {
-    return this.rollup.read.getMinimumStake();
+  getEjectionThreshold() {
+    return this.rollup.read.getEjectionThreshold();
+  }
+
+  @memoize
+  getLocalEjectionThreshold() {
+    return this.rollup.read.getLocalEjectionThreshold();
+  }
+
+  @memoize
+  getLagInEpochs() {
+    return this.rollup.read.getLagInEpochs();
+  }
+
+  @memoize
+  getActivationThreshold() {
+    return this.rollup.read.getActivationThreshold();
+  }
+
+  @memoize
+  getExitDelay() {
+    return this.rollup.read.getExitDelay();
   }
 
   @memoize
@@ -162,18 +272,68 @@ export class RollupContract {
     return block.archive;
   }
 
-  getSlasher() {
+  /**
+   * Returns rollup constants used for epoch queries.
+   * Return type is `L1RollupConstants` which is defined in stdlib,
+   * so we cant reference it until we move this contract to that package.
+   */
+  @memoize
+  public async getRollupConstants(): Promise<{
+    l1StartBlock: bigint;
+    l1GenesisTime: bigint;
+    slotDuration: number;
+    epochDuration: number;
+    proofSubmissionEpochs: number;
+  }> {
+    const [l1StartBlock, l1GenesisTime, slotDuration, epochDuration, proofSubmissionEpochs] = await Promise.all([
+      this.getL1StartBlock(),
+      this.getL1GenesisTime(),
+      this.getSlotDuration(),
+      this.getEpochDuration(),
+      this.getProofSubmissionEpochs(),
+    ]);
+    return {
+      l1StartBlock,
+      l1GenesisTime,
+      slotDuration: Number(slotDuration),
+      epochDuration: Number(epochDuration),
+      proofSubmissionEpochs: Number(proofSubmissionEpochs),
+    };
+  }
+
+  getSlasherAddress() {
     return this.rollup.read.getSlasher();
   }
 
+  /**
+   * Returns a SlasherContract instance for interacting with the slasher contract.
+   */
+  async getSlasherContract(): Promise<SlasherContract | undefined> {
+    const slasherAddress = EthAddress.fromString(await this.getSlasherAddress());
+    if (slasherAddress.isZero()) {
+      return undefined;
+    }
+    return new SlasherContract(this.client, slasherAddress);
+  }
+
+  getOwner() {
+    return this.rollup.read.owner();
+  }
+
+  getActiveAttesterCount() {
+    return this.rollup.read.getActiveAttesterCount();
+  }
+
   public async getSlashingProposerAddress() {
-    const slasherAddress = await this.getSlasher();
-    const slasher = getContract({
-      address: getAddress(slasherAddress.toString()),
-      abi: SlasherAbi,
-      client: this.client,
-    });
-    return EthAddress.fromString(await slasher.read.PROPOSER());
+    const slasher = await this.getSlasherContract();
+    if (!slasher) {
+      return EthAddress.ZERO;
+    }
+    return await slasher.getProposer();
+  }
+
+  getBlockReward() {
+    return this.rollup.read.getBlockReward();
   }
 
   getBlockNumber() {
@@ -196,13 +356,20 @@ export class RollupContract {
     return this.rollup.read.getFeeAssetPerEth();
   }
 
-  async getCommitteeAt(timestamp: bigint) {
-    const { result } = await this.client.simulateContract({
-      address: this.address,
-      abi: RollupAbi,
-      functionName: 'getCommitteeAt',
-      args: [timestamp],
-    });
+  async getCommitteeAt(timestamp: bigint): Promise<readonly `0x${string}`[] | undefined> {
+    const { result } = await this.client
+      .simulateContract({
+        address: this.address,
+        abi: RollupAbi,
+        functionName: 'getCommitteeAt',
+        args: [timestamp],
+      })
+      .catch(e => {
+        if (e instanceof Error && e.message.includes('ValidatorSelection__InsufficientValidatorSetSize')) {
+          return { result: undefined };
+        }
+        throw e;
+      });
 
     return result;
   }
@@ -219,13 +386,20 @@ export class RollupContract {
     return this.rollup.read.getCurrentEpoch();
   }
 
-  async getCurrentEpochCommittee() {
-    const { result } = await this.client.simulateContract({
-      address: this.address,
-      abi: RollupAbi,
-      functionName: 'getCurrentEpochCommittee',
-      args: [],
-    });
+  async getCurrentEpochCommittee(): Promise<readonly `0x${string}`[] | undefined> {
+    const { result } = await this.client
+      .simulateContract({
+        address: this.address,
+        abi: RollupAbi,
+        functionName: 'getCurrentEpochCommittee',
+        args: [],
+      })
+      .catch(e => {
+        if (e instanceof Error && e.message.includes('ValidatorSelection__InsufficientValidatorSetSize')) {
+          return { result: undefined };
+        }
+        throw e;
+      });
 
     return result;
   }
@@ -252,17 +426,6 @@ export class RollupContract {
     return result;
   }
 
-  async getEpochCommittee(epoch: bigint) {
-    const { result } = await this.client.simulateContract({
-      address: this.address,
-      abi: RollupAbi,
-      functionName: 'getEpochCommittee',
-      args: [epoch],
-    });
-
-    return result;
-  }
-
   getBlock(blockNumber: bigint) {
     return this.rollup.read.getBlock([blockNumber]);
   }
@@ -275,8 +438,19 @@ export class RollupContract {
     return this.rollup.read.getTimestampForSlot([slot]);
   }
 
-  async getEpochNumber(blockNumber?: bigint) {
-    blockNumber ??= await this.getBlockNumber();
+  getEntryQueueLength() {
+    return this.rollup.read.getEntryQueueLength();
+  }
+
+  getNextFlushableEpoch() {
+    return this.rollup.read.getNextFlushableEpoch();
+  }
+
+  getCurrentEpochNumber(): Promise<bigint> {
+    return this.rollup.read.getCurrentEpoch();
+  }
+
+  getEpochNumberForBlock(blockNumber: bigint) {
     return this.rollup.read.getEpochForBlock([BigInt(blockNumber)]);
   }
 
@@ -329,10 +503,11 @@ export class RollupContract {
 
   public async validateHeader(
     args: readonly [
+      ViemHeader,
+      ViemCommitteeAttestations,
+      `0x${string}`[],
+      ViemSignature,
       `0x${string}`,
-      ViemCommitteeAttestation[],
-      `0x${string}`,
-      bigint,
       `0x${string}`,
       {
         ignoreDA: boolean;
@@ -345,7 +520,7 @@ export class RollupContract {
       await this.client.simulateContract({
         address: this.address,
         abi: RollupAbi,
-        functionName: 'validateHeader',
+        functionName: 'validateHeaderWithAttestations',
         args,
         account,
       });
@@ -367,11 +542,14 @@ export class RollupContract {
     archive: Buffer,
     account: `0x${string}` | Account,
     slotDuration: bigint | number,
-  ): Promise<[bigint, bigint]> {
+    opts: { forcePendingBlockNumber?: number } = {},
+  ): Promise<{ slot: bigint; blockNumber: bigint; timeOfNextL1Slot: bigint }> {
     if (typeof slotDuration === 'number') {
       slotDuration = BigInt(slotDuration);
     }
-    const timeOfNextL1Slot = (await this.client.getBlock()).timestamp + slotDuration;
+    const latestBlock = await this.client.getBlock();
+    const timeOfNextL1Slot = latestBlock.timestamp + slotDuration;
+    const who = typeof account === 'string' ? account : account.address;
 
     try {
       const {
@@ -380,14 +558,74 @@ export class RollupContract {
         address: this.address,
         abi: RollupAbi,
         functionName: 'canProposeAtTime',
-        args: [timeOfNextL1Slot, `0x${archive.toString('hex')}`],
+        args: [timeOfNextL1Slot, `0x${archive.toString('hex')}`, who],
         account,
+        stateOverride: await this.makePendingBlockNumberOverride(opts.forcePendingBlockNumber),
       });
 
-      return [slot, blockNumber];
+      return { slot, blockNumber, timeOfNextL1Slot };
     } catch (err: unknown) {
       throw formatViemError(err);
     }
+  }
+
+  /**
+   * Returns a state override that sets the pending block number to the specified value. Useful for simulations.
+   * Requires querying the current state of the contract to get the current proven block number, as they are both
+   * stored in the same slot. If the argument is undefined, it returns an empty override.
+   */
+  public async makePendingBlockNumberOverride(forcePendingBlockNumber: number | undefined): Promise<StateOverride> {
+    if (forcePendingBlockNumber === undefined) {
+      return [];
+    }
+    const slot = RollupContract.stfStorageSlot;
+    const currentValue = await this.client.getStorageAt({ address: this.address, slot });
+    const currentProvenBlockNumber = currentValue ? hexToBigInt(currentValue) & ((1n << 128n) - 1n) : 0n;
+    const newValue = (BigInt(forcePendingBlockNumber) << 128n) | currentProvenBlockNumber;
+    return [
+      {
+        address: this.address,
+        stateDiff: [{ slot, value: `0x${newValue.toString(16).padStart(64, '0')}` }],
+      },
+    ];
+  }
+
+  /** Creates a request to Rollup#invalidateBadAttestation to be simulated or sent */
+  public buildInvalidateBadAttestationRequest(
+    blockNumber: number,
+    attestationsAndSigners: ViemCommitteeAttestations,
+    committee: EthAddress[],
+    invalidIndex: number,
+  ): L1TxRequest {
+    return {
+      to: this.address,
+      data: encodeFunctionData({
+        abi: RollupAbi,
+        functionName: 'invalidateBadAttestation',
+        args: [
+          BigInt(blockNumber),
+          attestationsAndSigners,
+          committee.map(addr => addr.toString()),
+          BigInt(invalidIndex),
+        ],
+      }),
+    };
+  }
+
+  /** Creates a request to Rollup#invalidateInsufficientAttestations to be simulated or sent */
+  public buildInvalidateInsufficientAttestationsRequest(
+    blockNumber: number,
+    attestationsAndSigners: ViemCommitteeAttestations,
+    committee: EthAddress[],
+  ): L1TxRequest {
+    return {
+      to: this.address,
+      data: encodeFunctionData({
+        abi: RollupAbi,
+        functionName: 'invalidateInsufficientAttestations',
+        args: [BigInt(blockNumber), attestationsAndSigners, committee.map(addr => addr.toString())],
+      }),
+    };
   }
 
   /** Calls getHasSubmitted directly. Returns whether the given prover has submitted a proof with the given length for the given epoch. */
@@ -438,8 +676,15 @@ export class RollupContract {
     return this.rollup.read.getSpecificProverRewardsForEpoch([epoch, prover]);
   }
 
-  getAttesters() {
-    return this.rollup.read.getAttesters();
+  async getAttesters() {
+    const attesterSize = await this.getActiveAttesterCount();
+    const gse = new GSEContract(this.client, await this.getGSE());
+    const ts = (await this.client.getBlock()).timestamp;
+
+    const indices = Array.from({ length: Number(attesterSize) }, (_, i) => BigInt(i));
+    const chunks = chunk(indices, 1000);
+
+    return (await Promise.all(chunks.map(chunk => gse.getAttestersFromIndicesAtTime(this.address, ts, chunk)))).flat();
   }
 
   getAttesterView(address: Hex | EthAddress) {
@@ -456,8 +701,12 @@ export class RollupContract {
     return this.rollup.read.getStatus([address]);
   }
 
-  getBlobPublicInputsHash(blockNumber: bigint) {
-    return this.rollup.read.getBlobPublicInputsHash([blockNumber]);
+  getBlobCommitmentsHash(blockNumber: bigint) {
+    return this.rollup.read.getBlobCommitmentsHash([blockNumber]);
+  }
+
+  getCurrentBlobCommitmentsHash() {
+    return this.rollup.read.getCurrentBlobCommitmentsHash();
   }
 
   getStakingAsset() {
@@ -484,5 +733,64 @@ export class RollupContract {
         args: [proposalId],
       }),
     });
+  }
+
+  public listenToSlasherChanged(
+    callback: (args: { oldSlasher: `0x${string}`; newSlasher: `0x${string}` }) => unknown,
+  ): WatchContractEventReturnType {
+    return this.rollup.watchEvent.SlasherUpdated(
+      {},
+      {
+        onLogs: logs => {
+          for (const log of logs) {
+            const args = log.args;
+            if (args.oldSlasher && args.newSlasher) {
+              callback(args as { oldSlasher: `0x${string}`; newSlasher: `0x${string}` });
+            }
+          }
+        },
+      },
+    );
+  }
+
+  public listenToBlockInvalidated(callback: (args: { blockNumber: bigint }) => unknown): WatchContractEventReturnType {
+    return this.rollup.watchEvent.BlockInvalidated(
+      {},
+      {
+        onLogs: logs => {
+          for (const log of logs) {
+            const args = log.args;
+            if (args.blockNumber !== undefined) {
+              callback({ blockNumber: args.blockNumber });
+            }
+          }
+        },
+      },
+    );
+  }
+
+  public async getSlashEvents(l1BlockHash: Hex): Promise<{ amount: bigint; attester: EthAddress }[]> {
+    const events = await this.rollup.getEvents.Slashed({}, { blockHash: l1BlockHash, strict: true });
+    return events.map(event => ({
+      amount: event.args.amount!,
+      attester: EthAddress.fromString(event.args.attester!),
+    }));
+  }
+
+  public listenToSlash(
+    callback: (args: { amount: bigint; attester: EthAddress }) => unknown,
+  ): WatchContractEventReturnType {
+    return this.rollup.watchEvent.Slashed(
+      {},
+      {
+        strict: true,
+        onLogs: logs => {
+          for (const log of logs) {
+            const args = log.args;
+            callback({ amount: args.amount!, attester: EthAddress.fromString(args.attester!) });
+          }
+        },
+      },
+    );
   }
 }

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/constants.hpp"
 #include <span>
 namespace bb {
 
@@ -25,8 +26,7 @@ template <typename Flavor>
 typename Flavor::FF compute_public_input_delta(std::span<const typename Flavor::FF> public_inputs,
                                                const typename Flavor::FF& beta,
                                                const typename Flavor::FF& gamma,
-                                               const auto domain_size,
-                                               size_t offset = 0)
+                                               const typename Flavor::FF& offset = 0)
 {
     using Field = typename Flavor::FF;
     Field numerator = Field(1);
@@ -55,17 +55,18 @@ typename Flavor::FF compute_public_input_delta(std::span<const typename Flavor::
     // initial zero row or Goblin-stlye ECC op gates. Accordingly, the indices i in the above formulas are given by i =
     // [0, m-1] + offset, i.e. i = offset, 1 + offset, …, m - 1 + offset.
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1158): Ensure correct construction of public input
-    // delta in the face of increases to virtual size caused by execution trace overflow
-    Field numerator_acc = gamma + (beta * Field(domain_size + offset));
-    Field denominator_acc = gamma - beta * Field(1 + offset);
+    // Using n = SEPARATOR ensures that the evaluations of `id_i` (`sigma_i`) and `id_j`(`sigma_j`) polynomials on the
+    // boolean hypercube do not intersect for i != j.
+    const Field SEPARATOR(PERMUTATION_ARGUMENT_VALUE_SEPARATOR);
+    Field numerator_acc = gamma + (beta * (SEPARATOR + offset));
+    Field denominator_acc = gamma - beta * (offset + 1);
 
     for (size_t i = 0; i < public_inputs.size(); i++) {
         numerator *= (numerator_acc + public_inputs[i]);     // γ + xᵢ + β(n+i)
         denominator *= (denominator_acc + public_inputs[i]); // γ + xᵢ - β(1+i)
 
-        // To avoid introducing extra variables in the circuit, we skip numeratoc_acc
-        // and denominator_acc in the final loop iteration, since their values won't be used
+        // To avoid introducing extra variables in the circuit, we skip numerator_acc and denominator_acc in the final
+        // loop iteration, since their values won't be used
         if (i < public_inputs.size() - 1) {
             numerator_acc += beta;
             denominator_acc -= beta;

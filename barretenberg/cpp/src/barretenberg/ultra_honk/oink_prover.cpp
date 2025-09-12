@@ -5,7 +5,7 @@
 // =====================
 
 #include "barretenberg/ultra_honk/oink_prover.hpp"
-#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/honk/proving_key_inspector.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
 #include "barretenberg/ultra_honk/witness_computation.hpp"
@@ -16,61 +16,42 @@ namespace bb {
  * @brief Oink Prover function that runs all the rounds of the verifier
  * @details Returns the witness commitments and relation_parameters
  * @tparam Flavor
- * @return OinkProverOutput<Flavor>
  */
-template <IsUltraOrMegaHonk Flavor> HonkProof OinkProver<Flavor>::prove()
+template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::prove()
 {
-    if (proving_key->proving_key.commitment_key == nullptr) {
-        proving_key->proving_key.commitment_key =
-            std::make_shared<CommitmentKey>(proving_key->proving_key.circuit_size);
+    BB_BENCH_NAME("OinkProver::prove");
+    if (!proving_key->commitment_key.initialized()) {
+        proving_key->commitment_key = CommitmentKey(proving_key->dyadic_size());
     }
-    {
-
-        PROFILE_THIS_NAME("execute_preamble_round");
-
-        // Add circuit size public input size and public inputs to transcript->
-        execute_preamble_round();
-    }
-    {
-
-        PROFILE_THIS_NAME("execute_wire_commitments_round");
-
-        // Compute first three wire commitments
-        execute_wire_commitments_round();
-    }
-    {
-
-        PROFILE_THIS_NAME("execute_sorted_list_accumulator_round");
-
-        // Compute sorted list accumulator and commitment
-        execute_sorted_list_accumulator_round();
-    }
-
-    {
-
-        PROFILE_THIS_NAME("execute_log_derivative_inverse_round");
-
-        // Fiat-Shamir: beta & gamma
-        execute_log_derivative_inverse_round();
-    }
-
-    {
-
-        PROFILE_THIS_NAME("execute_grand_product_computation_round");
-
-        // Compute grand product(s) and commitments.
-        execute_grand_product_computation_round();
-    }
+    // Add circuit size public input size and public inputs to transcript->
+    execute_preamble_round();
+    // Compute first three wire commitments
+    execute_wire_commitments_round();
+    // Compute sorted list accumulator and commitment
+    execute_sorted_list_accumulator_round();
+    // Fiat-Shamir: beta & gamma
+    execute_log_derivative_inverse_round();
+    // Compute grand product(s) and commitments.
+    execute_grand_product_computation_round();
 
     // Generate relation separators alphas for sumcheck/combiner computation
     proving_key->alphas = generate_alphas_round();
 
     // #ifndef __wasm__
     // Free the commitment key
-    proving_key->proving_key.commitment_key = nullptr;
+    proving_key->commitment_key = CommitmentKey();
     // #endif
 
-    return transcript->proof_data;
+    proving_key->is_complete = true;
+}
+
+/**
+ * @brief Export the Oink proof
+ */
+
+template <IsUltraOrMegaHonk Flavor> typename OinkProver<Flavor>::Proof OinkProver<Flavor>::export_proof()
+{
+    return transcript->export_proof();
 }
 
 /**
@@ -79,19 +60,13 @@ template <IsUltraOrMegaHonk Flavor> HonkProof OinkProver<Flavor>::prove()
  */
 template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_preamble_round()
 {
-    PROFILE_THIS_NAME("OinkProver::execute_preamble_round");
-    const auto circuit_size = static_cast<uint32_t>(proving_key->proving_key.circuit_size);
-    const auto num_public_inputs = static_cast<uint32_t>(proving_key->proving_key.num_public_inputs);
-    const auto pub_inputs_offset = static_cast<uint32_t>(proving_key->proving_key.pub_inputs_offset);
+    BB_BENCH_NAME("OinkProver::execute_preamble_round");
+    fr vk_hash = honk_vk->hash_through_transcript(domain_separator, *transcript);
+    transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
+    vinfo("vk hash in Oink prover: ", vk_hash);
 
-    transcript->add_to_hash_buffer(domain_separator + "circuit_size", circuit_size);
-    transcript->add_to_hash_buffer(domain_separator + "public_input_size", num_public_inputs);
-    transcript->add_to_hash_buffer(domain_separator + "pub_inputs_offset", pub_inputs_offset);
-
-    BB_ASSERT_EQ(proving_key->proving_key.num_public_inputs, proving_key->proving_key.public_inputs.size());
-
-    for (size_t i = 0; i < proving_key->proving_key.num_public_inputs; ++i) {
-        auto public_input_i = proving_key->proving_key.public_inputs[i];
+    for (size_t i = 0; i < proving_key->num_public_inputs(); ++i) {
+        auto public_input_i = proving_key->public_inputs[i];
         transcript->send_to_verifier(domain_separator + "public_input_" + std::to_string(i), public_input_i);
     }
 }
@@ -103,17 +78,16 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_preamble_ro
  */
 template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commitments_round()
 {
-    PROFILE_THIS_NAME("OinkProver::execute_wire_commitments_round");
+    BB_BENCH_NAME("OinkProver::execute_wire_commitments_round");
     // Commit to the first three wire polynomials
     // We only commit to the fourth wire polynomial after adding memory recordss
     {
-        PROFILE_THIS_NAME("COMMIT::wires");
         auto commit_type = (proving_key->get_is_structured()) ? CommitmentKey::CommitType::Structured
                                                               : CommitmentKey::CommitType::Default;
 
-        commit_to_witness_polynomial(proving_key->proving_key.polynomials.w_l, commitment_labels.w_l, commit_type);
-        commit_to_witness_polynomial(proving_key->proving_key.polynomials.w_r, commitment_labels.w_r, commit_type);
-        commit_to_witness_polynomial(proving_key->proving_key.polynomials.w_o, commitment_labels.w_o, commit_type);
+        commit_to_witness_polynomial(proving_key->polynomials.w_l, commitment_labels.w_l, commit_type);
+        commit_to_witness_polynomial(proving_key->polynomials.w_r, commitment_labels.w_r, commit_type);
+        commit_to_witness_polynomial(proving_key->polynomials.w_o, commitment_labels.w_o, commit_type);
     }
 
     if constexpr (IsMegaFlavor<Flavor>) {
@@ -122,19 +96,18 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
         // To avoid possible issues with the current work on the merge protocol, they are not
         // masked in MegaZKFlavor
         for (auto [polynomial, label] :
-             zip_view(proving_key->proving_key.polynomials.get_ecc_op_wires(), commitment_labels.get_ecc_op_wires())) {
+             zip_view(proving_key->polynomials.get_ecc_op_wires(), commitment_labels.get_ecc_op_wires())) {
             {
-                PROFILE_THIS_NAME("COMMIT::ecc_op_wires");
-                transcript->send_to_verifier(domain_separator + label,
-                                             proving_key->proving_key.commitment_key->commit(polynomial));
+                BB_BENCH_NAME("COMMIT::ecc_op_wires");
+                transcript->send_to_verifier(domain_separator + label, proving_key->commitment_key.commit(polynomial));
             };
         }
 
         // Commit to DataBus related polynomials
-        for (auto [polynomial, label] : zip_view(proving_key->proving_key.polynomials.get_databus_entities(),
-                                                 commitment_labels.get_databus_entities())) {
+        for (auto [polynomial, label] :
+             zip_view(proving_key->polynomials.get_databus_entities(), commitment_labels.get_databus_entities())) {
             {
-                PROFILE_THIS_NAME("COMMIT::databus");
+                BB_BENCH_NAME("COMMIT::databus");
                 commit_to_witness_polynomial(polynomial, label);
             }
         }
@@ -147,7 +120,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
  */
 template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_sorted_list_accumulator_round()
 {
-    PROFILE_THIS_NAME("OinkProver::execute_sorted_list_accumulator_round");
+    BB_BENCH_NAME("OinkProver::execute_sorted_list_accumulator_round");
     // Get eta challenges
     auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(
         domain_separator + "eta", domain_separator + "eta_two", domain_separator + "eta_three");
@@ -155,25 +128,30 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_sorted_list
     proving_key->relation_parameters.eta_two = eta_two;
     proving_key->relation_parameters.eta_three = eta_three;
 
-    WitnessComputation<Flavor>::add_ram_rom_memory_records_to_wire_4(proving_key->proving_key, eta, eta_two, eta_three);
+    WitnessComputation<Flavor>::add_ram_rom_memory_records_to_wire_4(proving_key->polynomials,
+                                                                     proving_key->memory_read_records,
+                                                                     proving_key->memory_write_records,
+                                                                     eta,
+                                                                     eta_two,
+                                                                     eta_three);
 
     // Commit to lookup argument polynomials and the finalized (i.e. with memory records) fourth wire polynomial
     {
-        PROFILE_THIS_NAME("COMMIT::lookup_counts_tags");
-        commit_to_witness_polynomial(proving_key->proving_key.polynomials.lookup_read_counts,
+        BB_BENCH_NAME("COMMIT::lookup_counts_tags");
+        commit_to_witness_polynomial(proving_key->polynomials.lookup_read_counts,
                                      commitment_labels.lookup_read_counts,
                                      CommitmentKey::CommitType::Sparse);
 
-        commit_to_witness_polynomial(proving_key->proving_key.polynomials.lookup_read_tags,
+        commit_to_witness_polynomial(proving_key->polynomials.lookup_read_tags,
                                      commitment_labels.lookup_read_tags,
                                      CommitmentKey::CommitType::Sparse);
     }
     {
-        PROFILE_THIS_NAME("COMMIT::wires");
+        BB_BENCH_NAME("COMMIT::wires");
         auto commit_type = (proving_key->get_is_structured()) ? CommitmentKey::CommitType::Structured
                                                               : CommitmentKey::CommitType::Default;
         commit_to_witness_polynomial(
-            proving_key->proving_key.polynomials.w_4, domain_separator + commitment_labels.w_4, commit_type);
+            proving_key->polynomials.w_4, domain_separator + commitment_labels.w_4, commit_type);
     }
 }
 
@@ -183,28 +161,28 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_sorted_list
  */
 template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivative_inverse_round()
 {
-    PROFILE_THIS_NAME("OinkProver::execute_log_derivative_inverse_round");
+    BB_BENCH_NAME("OinkProver::execute_log_derivative_inverse_round");
     auto [beta, gamma] = transcript->template get_challenges<FF>(domain_separator + "beta", domain_separator + "gamma");
     proving_key->relation_parameters.beta = beta;
     proving_key->relation_parameters.gamma = gamma;
 
     // Compute the inverses used in log-derivative lookup relations
-    WitnessComputation<Flavor>::compute_logderivative_inverses(proving_key->proving_key,
-                                                               proving_key->relation_parameters);
+    WitnessComputation<Flavor>::compute_logderivative_inverses(
+        proving_key->polynomials, proving_key->dyadic_size(), proving_key->relation_parameters);
 
     {
-        PROFILE_THIS_NAME("COMMIT::lookup_inverses");
-        commit_to_witness_polynomial(proving_key->proving_key.polynomials.lookup_inverses,
+        BB_BENCH_NAME("COMMIT::lookup_inverses");
+        commit_to_witness_polynomial(proving_key->polynomials.lookup_inverses,
                                      commitment_labels.lookup_inverses,
                                      CommitmentKey::CommitType::Sparse);
     }
 
     // If Mega, commit to the databus inverse polynomials and send
     if constexpr (IsMegaFlavor<Flavor>) {
-        for (auto [polynomial, label] : zip_view(proving_key->proving_key.polynomials.get_databus_inverses(),
-                                                 commitment_labels.get_databus_inverses())) {
+        for (auto [polynomial, label] :
+             zip_view(proving_key->polynomials.get_databus_inverses(), commitment_labels.get_databus_inverses())) {
             {
-                PROFILE_THIS_NAME("COMMIT::databus_inverses");
+                BB_BENCH_NAME("COMMIT::databus_inverses");
                 commit_to_witness_polynomial(polynomial, label, CommitmentKey::CommitType::Sparse);
             }
         };
@@ -217,30 +195,37 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivat
  */
 template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_grand_product_computation_round()
 {
-    PROFILE_THIS_NAME("OinkProver::execute_grand_product_computation_round");
+    BB_BENCH_NAME("OinkProver::execute_grand_product_computation_round");
     // Compute the permutation grand product polynomial
 
-    WitnessComputation<Flavor>::compute_grand_product_polynomial(
-        proving_key->proving_key, proving_key->relation_parameters, proving_key->final_active_wire_idx + 1);
+    WitnessComputation<Flavor>::compute_grand_product_polynomial(proving_key->polynomials,
+                                                                 proving_key->public_inputs,
+                                                                 proving_key->pub_inputs_offset(),
+                                                                 proving_key->active_region_data,
+                                                                 proving_key->relation_parameters,
+                                                                 proving_key->get_final_active_wire_idx() + 1);
 
     {
-        PROFILE_THIS_NAME("COMMIT::z_perm");
+        BB_BENCH_NAME("COMMIT::z_perm");
         auto commit_type = (proving_key->get_is_structured()) ? CommitmentKey::CommitType::StructuredNonZeroComplement
                                                               : CommitmentKey::CommitType::Default;
-        commit_to_witness_polynomial(
-            proving_key->proving_key.polynomials.z_perm, commitment_labels.z_perm, commit_type);
+        commit_to_witness_polynomial(proving_key->polynomials.z_perm, commitment_labels.z_perm, commit_type);
     }
 }
 
-template <IsUltraOrMegaHonk Flavor> typename Flavor::RelationSeparator OinkProver<Flavor>::generate_alphas_round()
+template <IsUltraOrMegaHonk Flavor> typename Flavor::SubrelationSeparators OinkProver<Flavor>::generate_alphas_round()
 {
-    PROFILE_THIS_NAME("OinkProver::generate_alphas_round");
-    RelationSeparator alphas;
-    std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> args;
-    for (size_t idx = 0; idx < alphas.size(); ++idx) {
-        args[idx] = domain_separator + "alpha_" + std::to_string(idx);
+    BB_BENCH_NAME("OinkProver::generate_alphas_round");
+
+    // Get the relation separation challenges for sumcheck/combiner computation
+    std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> challenge_labels;
+
+    for (size_t idx = 0; idx < Flavor::NUM_SUBRELATIONS - 1; ++idx) {
+        challenge_labels[idx] = domain_separator + "alpha_" + std::to_string(idx);
     }
-    alphas = transcript->template get_challenges<FF>(args);
+    // It is more efficient to generate an array of challenges than to generate them individually.
+    SubrelationSeparators alphas = transcript->template get_challenges<FF>(challenge_labels);
+
     return alphas;
 }
 
@@ -256,6 +241,7 @@ void OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial
                                                       const std::string& label,
                                                       const CommitmentKey::CommitType type)
 {
+    BB_BENCH_NAME("OinkProver::commit_to_witness_polynomial");
     // Mask the polynomial when proving in zero-knowledge
     if constexpr (Flavor::HasZK) {
         polynomial.mask();
@@ -263,8 +249,8 @@ void OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial
 
     typename Flavor::Commitment commitment;
 
-    commitment = proving_key->proving_key.commitment_key->commit_with_type(
-        polynomial, type, proving_key->proving_key.active_region_data.get_ranges());
+    commitment =
+        proving_key->commitment_key.commit_with_type(polynomial, type, proving_key->active_region_data.get_ranges());
     // Send the commitment to the verifier
     transcript->send_to_verifier(domain_separator + label, commitment);
 }

@@ -3,7 +3,7 @@
 #include <gmock/gmock.h>
 
 #include "barretenberg/vm2/common/memory_types.hpp"
-#include "barretenberg/vm2/simulation/context.hpp"
+#include "barretenberg/vm2/simulation/memory.hpp"
 #include "barretenberg/vm2/simulation/sha256.hpp"
 
 namespace bb::avm2::simulation {
@@ -15,7 +15,7 @@ class MockSha256 : public Sha256Interface {
 
     MOCK_METHOD(void,
                 compression,
-                (ContextInterface&, MemoryAddress state_addr, MemoryAddress input_addr, MemoryAddress output_addr),
+                (MemoryInterface&, MemoryAddress state_addr, MemoryAddress input_addr, MemoryAddress output_addr),
                 (override));
 };
 

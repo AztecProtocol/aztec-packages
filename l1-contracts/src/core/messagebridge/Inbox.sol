@@ -11,6 +11,7 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {FeeJuicePortal} from "@aztec/core/messagebridge/FeeJuicePortal.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 /**
  * @title Inbox
@@ -44,17 +45,13 @@ contract Inbox is IInbox {
     HEIGHT = _height;
     SIZE = 2 ** _height;
 
-    state = InboxState({
-      rollingHash: 0,
-      totalMessagesInserted: 0,
-      inProgress: uint64(Constants.INITIAL_L2_BLOCK_NUM) + 1
-    });
+    state =
+      InboxState({rollingHash: 0, totalMessagesInserted: 0, inProgress: uint64(Constants.INITIAL_L2_BLOCK_NUM) + 1});
 
     forest.initialize(_height);
     EMPTY_ROOT = trees[uint64(Constants.INITIAL_L2_BLOCK_NUM) + 1].root(forest, HEIGHT, SIZE);
 
-    FEE_ASSET_PORTAL =
-      address(new FeeJuicePortal(IRollup(_rollup), _feeAsset, IInbox(this), VERSION));
+    FEE_ASSET_PORTAL = address(new FeeJuicePortal(IRollup(_rollup), _feeAsset, IInbox(this), VERSION));
   }
 
   /**
@@ -64,27 +61,21 @@ contract Inbox is IInbox {
    *
    * @param _recipient - The recipient of the message
    * @param _content - The content of the message (application specific)
-   * @param _secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed on L2)
+   * @param _secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed
+   * on L2)
    *
    * @return Hash of the sent message and its leaf index in the tree.
    */
-  function sendL2Message(
-    DataStructures.L2Actor memory _recipient,
-    bytes32 _content,
-    bytes32 _secretHash
-  ) external override(IInbox) returns (bytes32, uint256) {
-    require(
-      uint256(_recipient.actor) <= Constants.MAX_FIELD_VALUE,
-      Errors.Inbox__ActorTooLarge(_recipient.actor)
-    );
-    require(
-      _recipient.version == VERSION, Errors.Inbox__VersionMismatch(_recipient.version, VERSION)
-    );
+  function sendL2Message(DataStructures.L2Actor memory _recipient, bytes32 _content, bytes32 _secretHash)
+    external
+    override(IInbox)
+    returns (bytes32, uint256)
+  {
+    require(uint256(_recipient.actor) <= Constants.MAX_FIELD_VALUE, Errors.Inbox__ActorTooLarge(_recipient.actor));
+    require(_recipient.version == VERSION, Errors.Inbox__VersionMismatch(_recipient.version, VERSION));
     require(uint256(_content) <= Constants.MAX_FIELD_VALUE, Errors.Inbox__ContentTooLarge(_content));
-    require(
-      uint256(_secretHash) <= Constants.MAX_FIELD_VALUE,
-      Errors.Inbox__SecretHashTooLarge(_secretHash)
-    );
+    require(uint256(_secretHash) <= Constants.MAX_FIELD_VALUE, Errors.Inbox__SecretHashTooLarge(_secretHash));
+    require(IRollup(ROLLUP).getManaTarget() > 0, Errors.Inbox__Ignition());
 
     // Is this the best way to read a packed struct into local variables in a single SLOAD
     // without having to use assembly and manual unpacking?
@@ -108,8 +99,7 @@ contract Inbox is IInbox {
     // If the sender is the fee asset portal, we use a magic address to simpler have it initialized at genesis.
     // We assume that no-one will know the private key for this address and that the precompile won't change to
     // make calls into arbitrary contracts.
-    address senderAddress =
-      msg.sender == FEE_ASSET_PORTAL ? address(uint160(Constants.FEE_JUICE_ADDRESS)) : msg.sender;
+    address senderAddress = msg.sender == FEE_ASSET_PORTAL ? address(uint160(Constants.FEE_JUICE_ADDRESS)) : msg.sender;
 
     DataStructures.L1ToL2Msg memory message = DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor(senderAddress, block.chainid),
@@ -162,6 +152,21 @@ contract Inbox is IInbox {
     }
 
     return root;
+  }
+
+  /**
+   * @notice Catch up the inbox to the pending block number
+   *
+   * @dev Only callable by the rollup contract
+   *      Will only be called WHEN a change is made from 0 to non-zero mana limits
+   *
+   * @param _pendingBlockNumber - The pending block number to catch up to
+   */
+  function catchUp(uint256 _pendingBlockNumber) external override(IInbox) {
+    require(msg.sender == ROLLUP, Errors.Inbox__Unauthorized());
+    // The next expected will be 1 ahead of the next block, e.g., + 2 from current.
+    state.inProgress = SafeCast.toUint64(_pendingBlockNumber + 2);
+    emit InboxSynchronized(state.inProgress);
   }
 
   function getFeeAssetPortal() external view override(IInbox) returns (address) {

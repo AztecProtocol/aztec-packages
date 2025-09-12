@@ -8,6 +8,8 @@ export type ClientProtocolArtifact =
   | 'PrivateKernelInnerArtifact'
   | 'PrivateKernelTailArtifact'
   | 'PrivateKernelTailToPublicArtifact'
+  | 'HidingKernelToRollup'
+  | 'HidingKernelToPublic'
   | PrivateResetArtifact;
 
 // These are all circuits that should generate proofs with the `recursive` flag.
@@ -15,15 +17,21 @@ export type ServerProtocolArtifact =
   | 'BaseParityArtifact'
   | 'RootParityArtifact'
   | 'PrivateBaseRollupArtifact'
+  | 'PublicTube'
   | 'PublicBaseRollupArtifact'
   | 'MergeRollupArtifact'
   | 'BlockRootRollupArtifact'
   | 'SingleTxBlockRootRollupArtifact'
   | 'EmptyBlockRootRollupArtifact'
+  | 'PaddingBlockRootRollupArtifact'
   | 'BlockMergeRollupArtifact'
   | 'RootRollupArtifact';
 
 export type ProtocolArtifact = ServerProtocolArtifact | ClientProtocolArtifact;
+
+// TODO: Change the names in the Artifact types above to not include the word 'Artifact'.
+export type ServerProtocolCircuitName = ServerProtocolArtifact;
+export type ProtocolCircuitName = ProtocolArtifact;
 
 export interface ArtifactProvider {
   getClientCircuitArtifactByName(artifact: ClientProtocolArtifact): Promise<NoirCompiledCircuitWithName>;

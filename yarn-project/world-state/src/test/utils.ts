@@ -80,7 +80,7 @@ export async function mockEmptyBlock(blockNum: number, fork: MerkleTreeWriteOper
   const l2Block = L2Block.empty();
   const l1ToL2Messages = Array(16).fill(0).map(Fr.zero);
 
-  l2Block.header.globalVariables.blockNumber = new Fr(blockNum);
+  l2Block.header.globalVariables.blockNumber = blockNum;
 
   // Sync the append only trees
   {

@@ -40,7 +40,7 @@ class TranslatorFlavor {
     using FF = Curve::ScalarField;
     using BF = Curve::BaseField;
     using Polynomial = bb::Polynomial<FF>;
-    using RelationSeparator = FF;
+    using Transcript = NativeTranscript;
 
     // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
     static constexpr bool USE_SHORT_MONOMIALS = false;
@@ -62,10 +62,13 @@ class TranslatorFlavor {
 
     // The fixed  log size of Translator circuit determining the size most polynomials (except the ones
     // involved in the interleaving subprotocol). It should be determined by the size of the EccOpQueue.
-    static constexpr size_t LOG_MINI_CIRCUIT_SIZE = 14;
+    static constexpr size_t LOG_MINI_CIRCUIT_SIZE = CONST_TRANSLATOR_MINI_CIRCUIT_LOG_SIZE;
 
     // Log of size of interleaved_* and ordered_* polynomials
     static constexpr size_t CONST_TRANSLATOR_LOG_N = LOG_MINI_CIRCUIT_SIZE + numeric::get_msb(INTERLEAVING_GROUP_SIZE);
+
+    // For the translator, the genuine and virtual log circuit size coincide
+    static constexpr size_t VIRTUAL_LOG_N = CONST_TRANSLATOR_LOG_N;
 
     static constexpr size_t MINI_CIRCUIT_SIZE = 1UL << LOG_MINI_CIRCUIT_SIZE;
 
@@ -82,6 +85,10 @@ class TranslatorFlavor {
     // referred to as accumulated_result. This is reconstructed in it's base field form and sent to the verifier
     // responsible for checking it against the evaluations received from ECCVM.
     static constexpr size_t RESULT_ROW = CircuitBuilder::RESULT_ROW;
+
+    // Number of random ops found at he end of Translator trace multiplied by 2 as each accumulation gates occupies two
+    // rows.
+    static constexpr size_t NUM_MASKED_ROWS_END = CircuitBuilder::NUM_RANDOM_OPS_END * 2;
 
     // The bitness of the range constraint
     static constexpr size_t MICRO_LIMB_BITS = CircuitBuilder::MICRO_LIMB_BITS;
@@ -110,10 +117,10 @@ class TranslatorFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We
     // often need containers of this size to hold related data, so we choose a name more agnostic than
     // `NUM_POLYNOMIALS`. Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 186;
+    static constexpr size_t NUM_ALL_ENTITIES = 187;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 9;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 10;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 91;
     static constexpr size_t NUM_WIRES_NON_SHIFTED = 1;
@@ -152,6 +159,9 @@ class TranslatorFlavor {
                                   TranslatorZeroConstraintsRelation<FF>>;
     using Relations = Relations_<FF>;
 
+    static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
+
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
 
@@ -164,9 +174,33 @@ class TranslatorFlavor {
                   "LIBRA_UNIVARIATES_LENGTH must be equal to Translator::BATCHED_RELATION_PARTIAL_LENGTH");
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    // define the containers for storing the contributions from each relation in Sumcheck
-    using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
+    static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
+    static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
+    static constexpr size_t num_frs_fq = bb::field_conversion::calc_num_bn254_frs<BF>();
+
+    // Proof length formula
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
+        /* 1. accumulated_result */ (num_frs_fq) +
+        /* 1. NUM_WITNESS_ENTITIES commitments */ ((NUM_WITNESS_ENTITIES - 4) * num_frs_comm) +
+        /* 2. Libra concatenation commitment*/ (num_frs_comm) +
+        /* 3. Libra sum */ (num_frs_fr) +
+        /* 4. CONST_TRANSLATOR_LOG_N sumcheck univariates */
+        (CONST_TRANSLATOR_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
+        /* 5. NUM_ALL_ENTITIES sumcheck evaluations*/ (NUM_ALL_ENTITIES * num_frs_fr) +
+        /* 6. Libra claimed evaluation */ (num_frs_fr) +
+        /* 7. Libra grand sum commitment */ (num_frs_comm) +
+        /* 8. Libra quotient commitment */ (num_frs_comm) +
+        /* 9. Gemini masking commitment */ (num_frs_comm) +
+        /* 10. Gemini masking evaluation */ (num_frs_fr) +
+        /* 11. CONST_TRANSLATOR_LOG_N - 1 Gemini Fold commitments */
+        ((CONST_TRANSLATOR_LOG_N - 1) * num_frs_comm) +
+        /* 12. CONST_TRANSLATOR_LOG_N Gemini a evaluations */
+        (CONST_TRANSLATOR_LOG_N * num_frs_fr) +
+        /* 13. Gemini P pos evaluation */ (num_frs_fr) +
+        /* 14. Gemini P neg evaluation */ (num_frs_fr) +
+        /* 15. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fr) +
+        /* 16. Shplonk Q commitment */ (num_frs_comm) +
+        /* 17. KZG W commitment */ (num_frs_comm);
 
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
@@ -187,7 +221,8 @@ class TranslatorFlavor {
                               lagrange_result_row,          // column 5
                               lagrange_last_in_minicircuit, // column 6
                               lagrange_masking,             // column 7
-                              lagrange_real_last);          // column 8
+                              lagrange_mini_masking,        // column 8
+                              lagrange_real_last);          // column 9
     };
 
     template <typename DataType> class InterleavedRangeConstraints {
@@ -625,7 +660,7 @@ class TranslatorFlavor {
       public:
         /**
          * @brief ProverPolynomials constructor
-         * @details Initialises wire polynomials efficiently to be only minicircuit size..
+         * @details Initializes wire polynomials efficiently to be only minicircuit size..
          */
         ProverPolynomials()
         {
@@ -656,7 +691,7 @@ class TranslatorFlavor {
 
             // Initialize some one-off polys with special structure
             lagrange_first = Polynomial{ /*size*/ 1, /*virtual_size*/ circuit_size };
-            lagrange_result_row = Polynomial{ /*size*/ 3, /*virtual_size*/ circuit_size };
+            lagrange_result_row = Polynomial{ /*size*/ RESULT_ROW + 1, /*virtual_size*/ circuit_size };
             lagrange_even_in_minicircuit = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE, /*virtual_size*/ circuit_size };
             lagrange_odd_in_minicircuit = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE, /*virtual_size*/ circuit_size };
 
@@ -680,7 +715,6 @@ class TranslatorFlavor {
          */
         [[nodiscard]] AllValues get_row(size_t row_idx) const
         {
-            PROFILE_THIS();
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
                 result_field = polynomial[row_idx];
@@ -700,15 +734,16 @@ class TranslatorFlavor {
      * @brief The proving key is responsible for storing the polynomials used by the prover.
      *
      */
-    class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
+    class ProvingKey {
       public:
-        ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
-        // Expose constructors on the base class
-        using Base = ProvingKey_<FF, CommitmentKey>;
-        using Base::Base;
+        size_t circuit_size = 1UL << CONST_TRANSLATOR_LOG_N;
+        size_t log_circuit_size = CONST_TRANSLATOR_LOG_N;
 
-        ProvingKey(std::shared_ptr<CommitmentKey> commitment_key = nullptr)
-            : Base(1UL << CONST_TRANSLATOR_LOG_N, 0, std::move(commitment_key))
+        ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
+        CommitmentKey commitment_key = CommitmentKey();
+
+        ProvingKey(const CommitmentKey& commitment_key = CommitmentKey())
+            : commitment_key(commitment_key)
         {}
     };
 
@@ -720,11 +755,11 @@ class TranslatorFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>, Transcript> {
       public:
         // Default constuct the fixed VK based on circuit size 1 << CONST_TRANSLATOR_LOG_N
         VerificationKey()
-            : VerificationKey_(1UL << CONST_TRANSLATOR_LOG_N, /*num_public_inputs=*/0)
+            : NativeVerificationKey_(1UL << CONST_TRANSLATOR_LOG_N, /*num_public_inputs=*/0)
         {
             this->pub_inputs_offset = 0;
 
@@ -737,31 +772,27 @@ class TranslatorFlavor {
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
         {
-            this->circuit_size = 1UL << CONST_TRANSLATOR_LOG_N;
             this->log_circuit_size = CONST_TRANSLATOR_LOG_N;
-            this->num_public_inputs = proving_key->num_public_inputs;
-            this->pub_inputs_offset = proving_key->pub_inputs_offset;
+            this->num_public_inputs = 0;
+            this->pub_inputs_offset = 0;
 
             for (auto [polynomial, commitment] :
                  zip_view(proving_key->polynomials.get_precomputed(), this->get_all())) {
-                commitment = proving_key->commitment_key->commit(polynomial);
+                commitment = proving_key->commitment_key.commit(polynomial);
             }
         }
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
-        // from MSGPACK and the verification key.
-        MSGPACK_FIELDS(circuit_size,
-                       log_circuit_size,
-                       num_public_inputs,
-                       pub_inputs_offset,
-                       ordered_extra_range_constraints_numerator,
-                       lagrange_first,
-                       lagrange_last,
-                       lagrange_odd_in_minicircuit,
-                       lagrange_even_in_minicircuit,
-                       lagrange_result_row,
-                       lagrange_last_in_minicircuit,
-                       lagrange_masking,
-                       lagrange_real_last);
+
+        /**
+         * @brief Unused function because vk is hardcoded in recursive verifier, so no transcript hashing is needed.
+         *
+         * @param domain_separator
+         * @param transcript
+         */
+        fr hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
+                                   [[maybe_unused]] Transcript& transcript) const override
+        {
+            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
+        }
     };
 
     /**
@@ -888,6 +919,11 @@ class TranslatorFlavor {
             this->relation_wide_limbs_range_constraint_1 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_1";
             this->relation_wide_limbs_range_constraint_2 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2";
             this->relation_wide_limbs_range_constraint_3 = "RELATION_WIDE_LIMBS_RANGE_CONSTRAINT_2";
+            this->ordered_range_constraints_0 = "ORDERED_RANGE_CONSTRAINTS_0";
+            this->ordered_range_constraints_1 = "ORDERED_RANGE_CONSTRAINTS_1";
+            this->ordered_range_constraints_2 = "ORDERED_RANGE_CONSTRAINTS_2";
+            this->ordered_range_constraints_3 = "ORDERED_RANGE_CONSTRAINTS_3";
+            this->ordered_range_constraints_4 = "ORDERED_RANGE_CONSTRAINTS_4";
             this->interleaved_range_constraints_0 = "INTERLEAVED_RANGE_CONSTRAINTS_0";
             this->interleaved_range_constraints_1 = "INTERLEAVED_RANGE_CONSTRAINTS_1";
             this->interleaved_range_constraints_2 = "INTERLEAVED_RANGE_CONSTRAINTS_2";
@@ -902,6 +938,7 @@ class TranslatorFlavor {
             this->lagrange_last_in_minicircuit = "__LAGRANGE_LAST_IN_MINICIRCUIT";
             this->ordered_extra_range_constraints_numerator = "__ORDERED_EXTRA_RANGE_CONSTRAINTS_NUMERATOR";
             this->lagrange_masking = "__LAGRANGE_MASKING";
+            this->lagrange_mini_masking = "__LAGRANGE_MINI_MASKING";
             this->lagrange_real_last = "__LAGRANGE_REAL_LAST";
         };
     };
@@ -920,11 +957,40 @@ class TranslatorFlavor {
             this->ordered_extra_range_constraints_numerator =
                 verification_key->ordered_extra_range_constraints_numerator;
             this->lagrange_masking = verification_key->lagrange_masking;
+            this->lagrange_mini_masking = verification_key->lagrange_mini_masking;
             this->lagrange_real_last = verification_key->lagrange_real_last;
         }
-    }; // namespace bb
-    using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
+    };
 
-    using Transcript = NativeTranscript;
+    /**
+     * @brief When evaluating the sumcheck protocol - can we skip evaluation of all relations for a given row?
+     *
+     * @details When used in ClientIVC, the Translator has a large fixed size, which is often not fully utilized.
+     *          If a row is completely empty, the values of z_perm and z_perm_shift will match,
+     *          we can use this as a proxy to determine if we can skip Sumcheck::compute_univariate
+     **/
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates, typename EdgeType>
+    static bool skip_entire_row([[maybe_unused]] const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
+                                [[maybe_unused]] const EdgeType edge_idx)
+    {
+        // TODO(@Rumata888) do you know of a more efficient way of determining if we can skip a row?
+        auto s0 = polynomials.ordered_range_constraints_0_shift[edge_idx];
+        auto s1 = polynomials.ordered_range_constraints_1_shift[edge_idx];
+        auto s2 = polynomials.ordered_range_constraints_2_shift[edge_idx];
+        auto s3 = polynomials.ordered_range_constraints_3_shift[edge_idx];
+        auto s4 = polynomials.ordered_range_constraints_4_shift[edge_idx];
+        auto s5 = polynomials.ordered_range_constraints_0_shift[edge_idx + 1];
+        auto s6 = polynomials.ordered_range_constraints_1_shift[edge_idx + 1];
+        auto s7 = polynomials.ordered_range_constraints_2_shift[edge_idx + 1];
+        auto s8 = polynomials.ordered_range_constraints_3_shift[edge_idx + 1];
+        auto s9 = polynomials.ordered_range_constraints_4_shift[edge_idx + 1];
+        auto shift_0 = (s0 == 0) && (s1 == 0) && (s2 == 0) && (s3 == 0) && (s4 == 0) && (s5 == 0) && (s6 == 0) &&
+                       (s7 == 0) && (s8 == 0) && (s9 == 0);
+        return shift_0 && (polynomials.z_perm[edge_idx] == polynomials.z_perm_shift[edge_idx]) &&
+               (polynomials.z_perm[edge_idx + 1] == polynomials.z_perm_shift[edge_idx + 1]) &&
+               polynomials.lagrange_last[edge_idx] == 0 && polynomials.lagrange_last[edge_idx + 1] == 0;
+    }
+    using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 };
+
 } // namespace bb

@@ -6,21 +6,23 @@
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/vm2/constraining/flavor.hpp"
+#include "barretenberg/vm2/constraining/recursion/recursive_flavor_settings.hpp"
 
 namespace bb::avm2 {
 
-template <typename BuilderType> class AvmRecursiveFlavor_ {
+class AvmRecursiveFlavor {
   public:
-    using CircuitBuilder = BuilderType;
-    using Curve = stdlib::bn254<CircuitBuilder>;
-    using PCS = KZG<Curve>;
-    using GroupElement = typename Curve::Element;
-    using Commitment = typename Curve::AffineElement;
-    using FF = typename Curve::ScalarField;
-    using BF = typename Curve::BaseField;
+    using CircuitBuilder = AvmRecursiveFlavorSettings::CircuitBuilder;
+    using Curve = AvmRecursiveFlavorSettings::Curve;
+    using PCS = AvmRecursiveFlavorSettings::PCS;
+    using GroupElement = AvmRecursiveFlavorSettings::GroupElement;
+    using Commitment = AvmRecursiveFlavorSettings::Commitment;
+    using FF = AvmRecursiveFlavorSettings::FF;
+    using BF = AvmRecursiveFlavorSettings::BF;
 
     using NativeFlavor = avm2::AvmFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
+    using Transcript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 
     // Native one is used!
     using VerifierCommitmentKey = NativeFlavor::VerifierCommitmentKey;
@@ -38,7 +40,8 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    using RelationSeparator = FF;
+    static constexpr size_t NUM_SUBRELATIONS = NativeFlavor::NUM_SUBRELATIONS;
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
@@ -46,9 +49,6 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
     // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
     // and Shplemini
     static constexpr bool USE_PADDING = true;
-
-    // define the containers for storing the contributions from each relation in Sumcheck
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     /**
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials
@@ -61,14 +61,11 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
     };
 
     class VerificationKey
-        : public VerificationKey_<FF, NativeFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+        : public StdlibVerificationKey_<CircuitBuilder, NativeFlavor::PrecomputedEntities<Commitment>> {
       public:
+        size_t log_fixed_circuit_size = MAX_AVM_TRACE_LOG_SIZE;
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
-            this->circuit_size = FF::from_witness(builder, native_key->circuit_size);
-            this->log_circuit_size = FF::from_witness(builder, numeric::get_msb(native_key->circuit_size));
-            this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
-
             for (auto [native_comm, comm] : zip_view(native_key->get_all(), this->get_all())) {
                 comm = Commitment::from_witness(builder, native_comm);
             }
@@ -83,17 +80,7 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
         VerificationKey(CircuitBuilder& builder, std::span<const FF> elements)
         {
             size_t num_frs_read = 0;
-            size_t num_frs_FF = stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, FF>();
             size_t num_frs_Comm = stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, Commitment>();
-
-            this->circuit_size = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
-                                              builder, elements.subspan(num_frs_read, num_frs_FF))
-                                              .get_value());
-            num_frs_read += num_frs_FF;
-            this->num_public_inputs = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
-                                                   builder, elements.subspan(num_frs_read, num_frs_FF))
-                                                   .get_value());
-            num_frs_read += num_frs_FF;
 
             for (Commitment& comm : this->get_all()) {
                 comm = stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, Commitment>(
@@ -101,11 +88,28 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
                 num_frs_read += num_frs_Comm;
             }
         }
+
+        std::vector<FF> to_field_elements() const override { throw_or_abort("Not intended to be used."); }
+        FF hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
+                                   [[maybe_unused]] Transcript& transcript) const override
+        {
+            throw_or_abort("Not intended to be used because vk is hardcoded in circuit.");
+        }
+
+        /**
+         * @brief Fixes witnesses of VK to be constants.
+         *
+         */
+        void fix_witness()
+        {
+            for (Commitment& commitment : this->get_all()) {
+                commitment.fix_witness();
+            }
+        }
     };
 
     using WitnessCommitments = NativeFlavor::WitnessEntities<Commitment>;
     using VerifierCommitments = NativeFlavor::VerifierCommitments_<Commitment, VerificationKey>;
-    using Transcript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 };
 
 } // namespace bb::avm2

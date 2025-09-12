@@ -1,6 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
-import { L1TxUtils, RollupContract, deployL1Contract } from '@aztec/ethereum';
+import { L1TxUtils, RollupContract, createL1TxUtilsFromViemWallet, deployL1Contract } from '@aztec/ethereum';
 import {
   GovernanceAbi,
   GovernanceProposerAbi,
@@ -12,14 +12,14 @@ import { jest } from '@jest/globals';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { getAddress, getContract } from 'viem';
+import { encodeFunctionData, getAddress, getContract } from 'viem';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES } from './p2p_network.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
-const NUM_NODES = 4;
+const NUM_VALIDATORS = 4;
 // Note: these ports must be distinct from the other e2e tests, else the tests will
 // interfere with each other.
 const BOOT_NODE_UDP_PORT = 4500;
@@ -39,30 +39,31 @@ describe('e2e_p2p_governance_proposer', () => {
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
-      testName: 'e2e_p2p_gerousia',
-      numberOfNodes: NUM_NODES,
+      testName: 'e2e_p2p_upgrade_governance_proposer',
+      numberOfNodes: 0,
+      numberOfValidators: NUM_VALIDATORS,
       basePort: BOOT_NODE_UDP_PORT,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         listenAddress: '127.0.0.1',
-        governanceProposerQuorum: 6,
         governanceProposerRoundSize: 10,
-        minimumStake: 10n ** 22n,
+        activationThreshold: 10n ** 22n,
+        ejectionThreshold: 5n ** 22n,
       },
     });
 
     await t.applyBaseSnapshots();
     await t.setup();
 
-    l1TxUtils = new L1TxUtils(t.ctx.deployL1ContractsValues.l1Client);
+    l1TxUtils = createL1TxUtilsFromViemWallet(t.ctx.deployL1ContractsValues.l1Client);
   });
 
   afterEach(async () => {
     await t.stopNodes(nodes);
     await t.teardown();
-    for (let i = 0; i < NUM_NODES; i++) {
+    for (let i = 0; i < NUM_VALIDATORS; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
   });
@@ -79,7 +80,7 @@ describe('e2e_p2p_governance_proposer', () => {
       client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
-    const roundSize = await governanceProposer.read.M();
+    const roundSize = await governanceProposer.read.ROUND_SIZE();
 
     const governance = getContract({
       address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceAddress.toString()),
@@ -122,17 +123,17 @@ describe('e2e_p2p_governance_proposer', () => {
       const slot = await rollup.getSlotNumber();
       const round = await governanceProposer.read.computeRound([slot]);
 
-      const info = await governanceProposer.read.rounds([
+      const info = await governanceProposer.read.getRoundData([
         t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
         round,
       ]);
-      const leaderVotes = await governanceProposer.read.yeaCount([
+      const leaderVotes = await governanceProposer.read.signalCount([
         t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
         round,
-        info[1],
+        info.payloadWithMostSignals,
       ]);
       t.logger.info(
-        `Governance stats for round ${round} (Slot: ${slot}, BN: ${bn}). Leader: ${info[1]} have ${leaderVotes} votes`,
+        `Governance stats for round ${round} (Slot: ${slot}, BN: ${bn}). Leader: ${info.payloadWithMostSignals} have ${leaderVotes} signals`,
       );
       return { bn, slot, round, info, leaderVotes };
     };
@@ -146,7 +147,7 @@ describe('e2e_p2p_governance_proposer', () => {
       { ...t.ctx.aztecNodeConfig, governanceProposerPayload: newPayloadAddress },
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
-      NUM_NODES,
+      NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
       t.prefilledPublicData,
       DATA_DIR,
@@ -155,9 +156,9 @@ describe('e2e_p2p_governance_proposer', () => {
 
     await sleep(4000);
 
-    t.logger.info('Start progressing time to cast votes');
-    const quorumSize = await governanceProposer.read.N();
-    t.logger.info(`Quorum size: ${quorumSize}, round size: ${await governanceProposer.read.M()}`);
+    t.logger.info('Start progressing time to cast signals');
+    const quorumSize = await governanceProposer.read.QUORUM_SIZE();
+    t.logger.info(`Quorum size: ${quorumSize}, round size: ${await governanceProposer.read.ROUND_SIZE()}`);
 
     let govData;
     while (true) {
@@ -173,18 +174,23 @@ describe('e2e_p2p_governance_proposer', () => {
     const nextRoundTimestamp2 = await rollup.getTimestampForSlot(
       ((await rollup.getSlotNumber()) / roundSize) * roundSize + roundSize,
     );
-    t.logger.info(`Warpping to ${nextRoundTimestamp2}`);
+    t.logger.info(`Warping to ${nextRoundTimestamp2}`);
     await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp2));
 
     await waitL1Block();
 
-    t.logger.info(`Executing proposal ${govData.round}`);
-    const txHash = await governanceProposer.write.executeProposal([govData.round], {
-      account: emperor,
-      gas: 1_000_000n,
+    t.logger.info(`Submitting winner of round ${govData.round}`);
+
+    await l1TxUtils.sendAndMonitorTransaction({
+      to: governanceProposer.address,
+      data: encodeFunctionData({
+        abi: GovernanceProposerAbi,
+        functionName: 'submitRoundWinner',
+        args: [govData.round],
+      }),
     });
-    await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: txHash });
-    t.logger.info(`Executed proposal ${govData.round}`);
+
+    t.logger.info(`Submitted winner of round ${govData.round}`);
 
     const proposal = await governance.read.getProposal([0n]);
 
@@ -201,7 +207,7 @@ describe('e2e_p2p_governance_proposer', () => {
 
     const proposalState = await governance.read.getProposal([0n]);
     t.logger.info(`Proposal state`, proposalState);
-    400000000000000000000;
+
     const timeToExecutable = timeToActive + proposal.config.votingDuration + proposal.config.executionDelay + 1n;
     t.logger.info(`Warping to ${timeToExecutable}`);
     await t.ctx.cheatCodes.eth.warp(Number(timeToExecutable));

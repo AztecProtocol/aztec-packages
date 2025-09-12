@@ -4,7 +4,6 @@ import {
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   RECURSIVE_PROOF_LENGTH,
-  TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -19,6 +18,8 @@ import {
   convertEmptyBlockRootRollupOutputsFromWitnessMap,
   convertMergeRollupInputsToWitnessMap,
   convertMergeRollupOutputsFromWitnessMap,
+  convertPaddingBlockRootRollupInputsToWitnessMap,
+  convertPaddingBlockRootRollupOutputsFromWitnessMap,
   convertRootParityInputsToWitnessMap,
   convertRootParityOutputsFromWitnessMap,
   convertRootRollupInputsToWitnessMap,
@@ -45,6 +46,7 @@ import {
   makeProofAndVerificationKey,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/stdlib/interfaces/server';
+import type { PrivateToPublicKernelCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import type { BaseParityInputs, ParityPublicInputs, RootParityInputs } from '@aztec/stdlib/parity';
 import { type Proof, ProvingRequestType, makeEmptyRecursiveProof, makeRecursiveProof } from '@aztec/stdlib/proofs';
 import type {
@@ -54,12 +56,13 @@ import type {
   BlockRootRollupInputs,
   EmptyBlockRootRollupInputs,
   MergeRollupInputs,
+  PaddingBlockRootRollupInputs,
   PrivateBaseRollupInputs,
   PublicBaseRollupInputs,
+  PublicTubePrivateInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
   SingleTxBlockRootRollupInputs,
-  TubeInputs,
 } from '@aztec/stdlib/rollup';
 import { VerificationKeyData } from '@aztec/stdlib/vks';
 import { type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -139,9 +142,20 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
-  public getTubeProof(_tubeInput: TubeInputs): Promise<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>> {
-    return this.applyDelay(ProvingRequestType.TUBE_PROOF, () =>
-      makeProofAndVerificationKey(makeEmptyRecursiveProof(TUBE_PROOF_LENGTH), VerificationKeyData.makeFakeRollupHonk()),
+  public getPublicTubeProof(
+    inputs: PublicTubePrivateInputs,
+  ): Promise<
+    PublicInputsAndRecursiveProof<
+      PrivateToPublicKernelCircuitPublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >
+  > {
+    return this.applyDelay(ProvingRequestType.PUBLIC_TUBE, () =>
+      makePublicInputsAndRecursiveProof(
+        inputs.hidingKernelProofData.publicInputs,
+        makeEmptyRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
+        ProtocolCircuitVks.PublicTube,
+      ),
     );
   }
 
@@ -258,6 +272,23 @@ export class TestCircuitProver implements ServerCircuitProver {
         NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
         convertEmptyBlockRootRollupInputsToWitnessMap,
         convertEmptyBlockRootRollupOutputsFromWitnessMap,
+      ),
+    );
+  }
+
+  @trackSpan('TestCircuitProver.getPaddingBlockRootRollupProof')
+  public getPaddingBlockRootRollupProof(
+    input: PaddingBlockRootRollupInputs,
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
+    return this.applyDelay(ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP, () =>
+      this.simulate(
+        input,
+        'PaddingBlockRootRollupArtifact',
+        NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+        convertPaddingBlockRootRollupInputsToWitnessMap,
+        convertPaddingBlockRootRollupOutputsFromWitnessMap,
       ),
     );
   }

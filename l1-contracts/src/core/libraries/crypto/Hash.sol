@@ -18,9 +18,7 @@ library Hash {
    */
   function sha256ToField(DataStructures.L1ToL2Msg memory _message) internal pure returns (bytes32) {
     return sha256ToField(
-      abi.encode(
-        _message.sender, _message.recipient, _message.content, _message.secretHash, _message.index
-      )
+      abi.encode(_message.sender, _message.recipient, _message.content, _message.secretHash, _message.index)
     );
   }
 
@@ -30,26 +28,25 @@ library Hash {
    * @return The hash of the provided message as a field element
    */
   function sha256ToField(DataStructures.L2ToL1Msg memory _message) internal pure returns (bytes32) {
-    return sha256ToField(abi.encode(_message.sender, _message.recipient, _message.content));
+    return sha256ToField(
+      abi.encodePacked(
+        _message.sender.actor,
+        _message.sender.version,
+        _message.recipient.actor,
+        _message.recipient.chainId,
+        _message.content
+      )
+    );
   }
 
   /**
    * @notice Computes the sha256 hash of the provided data and converts it to a field element
-   * @dev Truncating one byte to convert the hash to a field element. We prepend a byte rather than cast bytes31(bytes32) to match Noir's to_be_bytes.
+   * @dev Truncating one byte to convert the hash to a field element. We prepend a byte rather than cast
+   * bytes31(bytes32) to match Noir's to_be_bytes.
    * @param _data - The bytes to hash
    * @return The hash of the provided data as a field element
    */
   function sha256ToField(bytes memory _data) internal pure returns (bytes32) {
     return bytes32(bytes.concat(new bytes(1), bytes31(sha256(_data))));
-  }
-
-  /**
-   * @notice Computes the sha256 hash of the provided data and converts it to a field element
-   * @dev Truncating one byte to convert the hash to a field element.
-   * @param _data - A bytes32 value to hash
-   * @return The hash of the provided data as a field element
-   */
-  function sha256ToField(bytes32 _data) internal pure returns (bytes32) {
-    return sha256ToField(abi.encodePacked(_data));
   }
 }

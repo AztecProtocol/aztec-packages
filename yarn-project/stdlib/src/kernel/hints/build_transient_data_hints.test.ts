@@ -1,18 +1,19 @@
 import { Fr } from '@aztec/foundation/fields';
 
 import { AztecAddress } from '../../aztec-address/index.js';
+import { ClaimedLengthArray } from '../claimed_length_array.js';
 import { NoteHash, type ScopedNoteHash } from '../note_hash.js';
 import { Nullifier, type ScopedNullifier } from '../nullifier.js';
 import { buildTransientDataHints } from './build_transient_data_hints.js';
 import { ReadRequest, ScopedReadRequest } from './read_request.js';
-import { TransientDataIndexHint } from './transient_data_index_hint.js';
+import { TransientDataSquashingHint } from './transient_data_squashing_hint.js';
 
 describe('buildTransientDataHints', () => {
   const contractAddress = AztecAddress.fromBigInt(987654n);
 
   let noteHashes: ScopedNoteHash[];
   let nullifiers: ScopedNullifier[];
-  let nadaIndexHint: TransientDataIndexHint;
+  let nadaIndexHint: TransientDataSquashingHint;
   let futureNoteHashReads: ScopedReadRequest[];
   let futureNullifierReads: ScopedReadRequest[];
   let noteHashNullifierCounterMap: Map<number, number>;
@@ -20,8 +21,8 @@ describe('buildTransientDataHints', () => {
 
   const buildHints = () =>
     buildTransientDataHints(
-      noteHashes,
-      nullifiers,
+      new ClaimedLengthArray(noteHashes, noteHashes.length),
+      new ClaimedLengthArray(nullifiers, nullifiers.length),
       futureNoteHashReads,
       futureNullifierReads,
       noteHashNullifierCounterMap,
@@ -43,7 +44,7 @@ describe('buildTransientDataHints', () => {
       new Nullifier(new Fr(77), 600, new Fr(44)).scope(contractAddress),
       new Nullifier(new Fr(88), 700, new Fr(11)).scope(contractAddress),
     ];
-    nadaIndexHint = new TransientDataIndexHint(nullifiers.length, noteHashes.length);
+    nadaIndexHint = new TransientDataSquashingHint(nullifiers.length, noteHashes.length);
     futureNoteHashReads = [new ScopedReadRequest(new ReadRequest(new Fr(44), 351), contractAddress)];
     futureNullifierReads = [new ScopedReadRequest(new ReadRequest(new Fr(66), 502), contractAddress)];
     noteHashNullifierCounterMap = new Map();
@@ -67,7 +68,7 @@ describe('buildTransientDataHints', () => {
     // third one's nullifier will be read
     // and fourth note hash will be read.
     expect(numTransientData).toBe(1);
-    expect(hints).toEqual([new TransientDataIndexHint(3, 0), nadaIndexHint, nadaIndexHint, nadaIndexHint]);
+    expect(hints).toEqual([new TransientDataSquashingHint(3, 0), nadaIndexHint, nadaIndexHint, nadaIndexHint]);
   });
 
   it('keeps the pair if note hash does not match', () => {

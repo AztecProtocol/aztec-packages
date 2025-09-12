@@ -1,17 +1,17 @@
 import {
-  type AccountWalletWithSecretKey,
   type AztecAddress,
   type AztecNode,
   type Fr,
   PublicKeys,
-  getContractInstanceFromDeployParams,
+  type Wallet,
+  getContractInstanceFromInstantiationParams,
 } from '@aztec/aztec.js';
 import { getContractArtifact } from '@aztec/cli/cli-utils';
 import type { LogFn } from '@aztec/foundation/log';
 import { getAllFunctionAbis, getInitializer } from '@aztec/stdlib/abi';
 
 export async function registerContract(
-  wallet: AccountWalletWithSecretKey,
+  wallet: Wallet,
   node: AztecNode,
   address: AztecAddress,
   artifactPath: string,
@@ -28,7 +28,7 @@ export async function registerContract(
   let contractInstance = await node.getContract(address);
   if (!contractInstance) {
     log(`Contract not found in the node at ${address}. Computing instance locally...`);
-    contractInstance = await getContractInstanceFromDeployParams(contractArtifact, {
+    contractInstance = await getContractInstanceFromInstantiationParams(contractArtifact, {
       constructorArtifact,
       publicKeys: publicKeys ?? PublicKeys.default(),
       constructorArgs: rawArgs,

@@ -12,10 +12,10 @@ import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
  */
 export class TreeSnapshots {
   constructor(
-    public readonly l1ToL2MessageTree: AppendOnlyTreeSnapshot,
-    public readonly noteHashTree: AppendOnlyTreeSnapshot,
-    public readonly nullifierTree: AppendOnlyTreeSnapshot,
-    public readonly publicDataTree: AppendOnlyTreeSnapshot,
+    public l1ToL2MessageTree: AppendOnlyTreeSnapshot,
+    public noteHashTree: AppendOnlyTreeSnapshot,
+    public nullifierTree: AppendOnlyTreeSnapshot,
+    public publicDataTree: AppendOnlyTreeSnapshot,
   ) {}
 
   static get schema() {
@@ -52,7 +52,7 @@ export class TreeSnapshots {
   }
 
   toBuffer() {
-    // Note: The order here must match the order in the HeaderLib solidity library.
+    // Note: The order here must match the order in the ProposedHeaderLib solidity library.
     return serializeToBuffer(this.l1ToL2MessageTree, this.noteHashTree, this.nullifierTree, this.publicDataTree);
   }
 
@@ -84,19 +84,19 @@ export class TreeSnapshots {
 
   static empty(): TreeSnapshots {
     return new TreeSnapshots(
-      AppendOnlyTreeSnapshot.zero(),
-      AppendOnlyTreeSnapshot.zero(),
-      AppendOnlyTreeSnapshot.zero(),
-      AppendOnlyTreeSnapshot.zero(),
+      AppendOnlyTreeSnapshot.empty(),
+      AppendOnlyTreeSnapshot.empty(),
+      AppendOnlyTreeSnapshot.empty(),
+      AppendOnlyTreeSnapshot.empty(),
     );
   }
 
   isEmpty(): boolean {
     return (
-      this.l1ToL2MessageTree.isZero() &&
-      this.noteHashTree.isZero() &&
-      this.nullifierTree.isZero() &&
-      this.publicDataTree.isZero()
+      this.l1ToL2MessageTree.isEmpty() &&
+      this.noteHashTree.isEmpty() &&
+      this.nullifierTree.isEmpty() &&
+      this.publicDataTree.isEmpty()
     );
   }
 

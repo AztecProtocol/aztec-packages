@@ -1,5 +1,6 @@
 ---
 title: Cheat Codes
+description: Learn about cheat codes available in the Aztec development environment for testing and debugging.
 tags: [sandbox]
 sidebar_position: 4
 ---

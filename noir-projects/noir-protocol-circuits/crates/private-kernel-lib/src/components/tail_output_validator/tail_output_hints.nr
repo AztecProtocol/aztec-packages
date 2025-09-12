@@ -20,13 +20,13 @@ pub unconstrained fn generate_tail_output_hints(
     previous_kernel: PrivateKernelCircuitPublicInputs,
 ) -> TailOutputHints {
     // l2_to_l1_msgs
-    let sorted_l2_to_l1_msg_hints = get_order_hints_asc(previous_kernel.end.l2_to_l1_msgs);
+    let sorted_l2_to_l1_msg_hints = get_order_hints_asc(previous_kernel.end.l2_to_l1_msgs.array);
 
     // contract_class_logs
     let sorted_contract_class_log_hashes =
-        sort_by_counter_asc(previous_kernel.end.contract_class_logs_hashes);
+        sort_by_counter_asc(previous_kernel.end.contract_class_logs_hashes.array);
     let sorted_contract_class_log_hash_hints =
-        get_order_hints_asc(previous_kernel.end.contract_class_logs_hashes);
+        get_order_hints_asc(previous_kernel.end.contract_class_logs_hashes.array);
 
     TailOutputHints {
         sorted_l2_to_l1_msg_hints,

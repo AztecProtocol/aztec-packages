@@ -1,5 +1,5 @@
-mod validate_sorted_siloed_note_hashes;
-mod validate_sorted_siloed_nullifiers;
+mod validate_sorted_siloed_unique_padded_note_hashes;
+mod validate_sorted_siloed_padded_nullifiers;
 
 use crate::{
     abis::PaddedSideEffects,
@@ -12,7 +12,7 @@ use dep::reset_kernel_lib::{
     KeyValidationHint,
     PrivateValidationRequestProcessor,
     tests::{NoteHashReadRequestHintsBuilder, NullifierReadRequestHintsBuilder},
-    TransientDataIndexHint,
+    TransientDataSquashingHint,
 };
 use dep::types::{
     constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX},
@@ -33,7 +33,7 @@ pub struct ResetOutputValidatorBuilder {
     note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder<NOTE_HASH_PENDING_READ_HINTS_LEN, NOTE_HASH_SETTLED_READ_HINTS_LEN>,
     nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder<NULLIFIER_PENDING_READ_HINTS_LEN, NULLIFIER_SETTLED_READ_HINTS_LEN>,
     key_validation_hints: [KeyValidationHint; KEY_VALIDATION_HINTS_LEN],
-    transient_data_index_hints: [TransientDataIndexHint; TRANSIENT_DATA_SQUASHING_HINTS_LEN],
+    transient_data_squashing_hints: [TransientDataSquashingHint; TRANSIENT_DATA_SQUASHING_HINTS_LEN],
     pending_note_hash_read_amount: u32,
     settled_note_hash_read_amount: u32,
     pending_nullifier_read_amount: u32,
@@ -58,30 +58,30 @@ impl ResetOutputValidatorBuilder {
         let note_hash_read_request_hints_builder = NoteHashReadRequestHintsBuilder::new();
         let nullifier_read_request_hints_builder = NullifierReadRequestHintsBuilder::new();
         let key_validation_hints = [KeyValidationHint::empty(); KEY_VALIDATION_HINTS_LEN];
-        let transient_data_index_hints = [
-            TransientDataIndexHint::nada(MAX_NULLIFIERS_PER_TX, MAX_NOTE_HASHES_PER_TX);
+        let transient_data_squashing_hints = [
+            TransientDataSquashingHint::skip(MAX_NULLIFIERS_PER_TX, MAX_NOTE_HASHES_PER_TX);
                  TRANSIENT_DATA_SQUASHING_HINTS_LEN
             ];
 
-            ResetOutputValidatorBuilder {
-                output,
-                previous_kernel,
-                note_hash_read_request_hints_builder,
-                nullifier_read_request_hints_builder,
-                key_validation_hints,
-                transient_data_index_hints,
-                pending_note_hash_read_amount: 0,
-                settled_note_hash_read_amount: 0,
-                pending_nullifier_read_amount: 0,
-                settled_nullifier_read_amount: 0,
-                key_validation_amount: 0,
-                transient_data_squashing_amount: 0,
-                note_hash_siloing_amount: 0,
-                nullifier_siloing_amount: 0,
-                private_log_siloing_amount: 0,
-                padded_side_effects: PaddedSideEffects::empty(),
-            }
+        ResetOutputValidatorBuilder {
+            output,
+            previous_kernel,
+            note_hash_read_request_hints_builder,
+            nullifier_read_request_hints_builder,
+            key_validation_hints,
+            transient_data_squashing_hints,
+            pending_note_hash_read_amount: 0,
+            settled_note_hash_read_amount: 0,
+            pending_nullifier_read_amount: 0,
+            settled_nullifier_read_amount: 0,
+            key_validation_amount: 0,
+            transient_data_squashing_amount: 0,
+            note_hash_siloing_amount: 0,
+            nullifier_siloing_amount: 0,
+            private_log_siloing_amount: 0,
+            padded_side_effects: PaddedSideEffects::empty(),
         }
+    }
 
     pub fn get_validation_request_processor(
         self,
@@ -112,7 +112,7 @@ impl ResetOutputValidatorBuilder {
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
         // Safety: This is only used in tests.
         unsafe {
-            generate_reset_output_hints(previous_kernel, self.transient_data_index_hints)
+            generate_reset_output_hints(previous_kernel, self.transient_data_squashing_hints)
         }
     }
 
@@ -124,7 +124,7 @@ impl ResetOutputValidatorBuilder {
             output,
             previous_kernel,
             validation_request_processor,
-            self.transient_data_index_hints,
+            self.transient_data_squashing_hints,
             self.transient_data_squashing_amount,
             self.note_hash_siloing_amount,
             self.nullifier_siloing_amount,

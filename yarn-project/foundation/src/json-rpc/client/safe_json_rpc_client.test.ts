@@ -195,4 +195,75 @@ describe('SafeJsonRpcClient', () => {
       expect(handler).toHaveBeenNthCalledWith(1, [{ jsonrpc: '2.0', id: 0, method: 'getValue', params: [] }]);
     });
   });
+
+  describe('specifying max batch size', () => {
+    let client: TestService;
+    let maxBatchSize: number;
+    let batchWindowMS: number;
+
+    beforeEach(() => {
+      maxBatchSize = 3;
+      batchWindowMS = 100;
+      client = createSafeJsonRpcClient('http://localhost', schema, {
+        batchWindowMS,
+        maxBatchSize,
+        fetch: stFetch,
+      });
+    });
+
+    it('splits into batches', async () => {
+      const promises: Promise<any>[] = [];
+
+      // leave the last batch incomplete
+      for (let i = 0; i < Math.floor(9.5 * maxBatchSize); i++) {
+        promises.push(client.getValue());
+      }
+
+      // send a couple of batchs through
+      await sleep(2.5 * batchWindowMS);
+      expect(handler).toHaveBeenCalledTimes(2);
+
+      // complete the last batch
+      for (let i = Math.floor(0.5) * maxBatchSize; i < maxBatchSize - 1; i++) {
+        promises.push(client.getValue());
+      }
+
+      await Promise.all(promises);
+      expect(handler).toHaveBeenCalledTimes(10);
+
+      // check we can still send
+      await client.getValue();
+      expect(handler).toHaveBeenCalledTimes(11);
+    });
+  });
+
+  describe('specifying max body size', () => {
+    let client: TestService;
+    let batchWindowMS: number;
+    let maxRequestBodySize: number;
+
+    beforeEach(() => {
+      maxRequestBodySize = 512;
+      batchWindowMS = 100;
+      client = createSafeJsonRpcClient('http://localhost', schema, {
+        batchWindowMS,
+        maxRequestBodySize,
+        fetch: stFetch,
+      });
+    });
+
+    it('splits into batches', async () => {
+      const promises: Promise<any>[] = [];
+      promises.push(client.setValue('0'.repeat(maxRequestBodySize / 3)));
+      promises.push(client.setValue('0'.repeat(maxRequestBodySize / 3)));
+      promises.push(client.setValue('0'.repeat(maxRequestBodySize / 2)));
+
+      await Promise.all(promises);
+      expect(handler).toHaveBeenCalledTimes(2);
+    });
+
+    it('rejects requests that are too large', async () => {
+      await expect(client.setValue('0'.repeat(maxRequestBodySize))).rejects.toThrow();
+    });
+  });
 });

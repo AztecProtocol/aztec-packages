@@ -1,4 +1,4 @@
-import type { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
+import type { ContractClassPublishedEvent } from '@aztec/protocol-contracts/class-registry';
 import type { Gas } from '@aztec/stdlib/gas';
 import type { TxExecutionPhase } from '@aztec/stdlib/tx';
 import {
@@ -137,7 +137,7 @@ export class PublicProcessorMetrics {
     this.phaseCount.add(1, { [Attributes.TX_PHASE_NAME]: phaseName, [Attributes.OK]: false });
   }
 
-  recordClassRegistration(...events: ContractClassRegisteredEvent[]) {
+  recordClassPublication(...events: ContractClassPublishedEvent[]) {
     let totalBytecode = 0;
     for (const event of events) {
       totalBytecode += event.packedPublicBytecode.length;

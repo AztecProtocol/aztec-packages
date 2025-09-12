@@ -1,0 +1,205 @@
+include "ecc.pil";
+include "gt.pil";
+include "execution.pil";
+
+/**
+ * This handles the memory writes when the ECCADD opcode is executed by user code.
+ * The reads are handled by the registers in the execution trace.
+ * This trace writes the resulting embedded curve point to the addresses {dst,
+ * dst + 1, and dst + 2 }. Embedded curve points consist of the tuple of types
+ * {x: FF, y: FF, is_inf: U1 }.
+ *
+ * Opcode operands (relevant in EXECUTION when interacting with this gadget):
+ * - rop[0]: p_x_addr
+ * - rop[1]: p_y_addr
+ * - rop[2]: p_is_inf_addr
+ * - rop[3]: q_x_addr
+ * - rop[4]: q_y_addr
+ * - rop[5]: q_is_inf_addr
+ * - rop[6]: dst_addr
+ *
+ * Memory I/O:
+ * - register[0]: M[p_x_addr] aka p_x (x coordinate of point P - read from memory by EXECUTION)
+ *     - p_x is tagged-checked by execution/registers to be FF based on instruction spec.
+ * - register[1]: M[p_y_addr] aka p_y (y coordinate of point P - read from memory by EXECUTION)
+ *     - p_y is tagged-checked by execution/registers to be FF based on instruction spec.
+ * - register[2]: M[p_is_inf_addr] aka p_is_inf (boolean flag if P is the point at infinity - read from memory by EXECUTION)
+ *     - p_is_inf is tagged-checked by execution/registers to be U1 based on instruction spec.
+ * - register[3]: M[q_x_addr] aka q_x (x coordinate of point Q - read from memory by EXECUTION)
+ *     - q_x is tagged-checked by execution/registers to be FF based on instruction spec.
+ * - register[4]: M[q_y_addr] aka q_y (y coordinate of point Q - read from memory by EXECUTION)
+ *     - q_y is tagged-checked by execution/registers to be FF based on instruction spec.
+ * - register[5]: M[q_is_inf_addr] aka q_is_inf (boolean flag if Q is the point at infinity - read from memory by EXECUTION)
+ *     - q_is_inf is tagged-checked by execution/registers to be U1 based on instruction spec.
+ * - M[rop[6]]: M[dst_addr] aka res_x (x coordinate of the resulting point RES - written by this gadget)
+ *     - guaranteed by this gadget to be FF.
+ * - M[rop[6]+1]: M[dst_offset+1] aka res_y (y coordinate of the resulting point RES - written by this gadget)
+ *     - guaranteed by this gadget to be FF.
+ * - M[rop[6]+2]: M[dst_offset+2] aka res_is_inf (boolean flag if RES is the point at infinity - written by this gadget)
+ *     - guaranteed by this gadget to be U1.
+*
+ * ERROR HANDLING:
+ * Two errors needs to be handled as part of this trace,
+ * (1) DST_OUT_OF_BOUNDS_ACCESS: If the writes would access a memory address outside
+ *     of the max AVM memory address (AVM_HIGHEST_MEM_ADDRESS).
+ * (2) POINT_NOT_ON_CURVE: If either of the inputs (embedded curve points) do not
+ *     satisfy the grumpkin curve equation (SW form: Y^2 = X^3 − 17)
+ *
+ * N.B This subtrace writes the values within a single row (i.e. 3 output columns)
+ *
+ * This subtrace is connected to the ECC subtrace via a lookup. ECC is used by
+ * other subtraces internally (e.g., address derivation)
+ */
+
+namespace ecc_add_mem;
+
+    pol commit sel;
+
+    #[skippable_if]
+    sel = 0;
+
+    pol commit execution_clk;
+    pol commit space_id;
+    pol commit dst_addr[3];
+
+    // dst_addr[0] constrained by the permutation to execution
+    #[WRITE_INCR_DST_ADDR]
+    dst_addr[1] = sel * (dst_addr[0] + 1);
+    dst_addr[2] = sel * (dst_addr[0] + 2);
+
+    pol commit p_x, p_y, p_is_inf;
+    pol commit q_x, q_y, q_is_inf;
+
+    ////////////////////////////////////////////////
+    // Error Handling - Out of Range Memory Access
+    ////////////////////////////////////////////////
+    pol commit sel_dst_out_of_range_err; // Constrained to be boolean by the lookup into gt. (provided that sel == 1).
+
+    // Use the comparison gadget to check that the max addresses are within range
+    // The comparison gadget provides the ability to test GreaterThan so we check
+    // dst_addr[2] > max_mem_addr
+    pol commit max_mem_addr; // Column needed until we support constants in lookups
+    sel * (max_mem_addr - constants.AVM_HIGHEST_MEM_ADDRESS) = 0;
+
+    #[CHECK_DST_ADDR_IN_RANGE]
+    sel { dst_addr[2], max_mem_addr, sel_dst_out_of_range_err }
+    in
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
+
+    ////////////////////////////////////////////////
+    // Error Handling - Check Points are on curve
+    ////////////////////////////////////////////////
+    pol commit sel_p_not_on_curve_err;
+    sel_p_not_on_curve_err * (1 - sel_p_not_on_curve_err) = 0;
+
+    pol commit sel_q_not_on_curve_err;
+    sel_q_not_on_curve_err * (1 - sel_q_not_on_curve_err) = 0;
+
+    // Y^2 = X^3 − 17, re-formulate to Y^2 - (X^3 - 17) = 0
+    pol commit p_is_on_curve_eqn; // Needs to be committed to reduce relation degrees
+    pol P_X3 = p_x * p_x * p_x;
+    pol P_Y2 = p_y * p_y;
+    #[P_CURVE_EQN]
+    p_is_on_curve_eqn = sel * (P_Y2 - (P_X3 - 17)) * (1 - p_is_inf); // Infinity considered as on curve
+    // If p_is_on_curve_eqn != 0,  sel_p_not_on_curve_err = 1
+    pol commit p_is_on_curve_eqn_inv;
+    #[P_ON_CURVE_CHECK]
+    sel * (p_is_on_curve_eqn * ((1 - sel_p_not_on_curve_err) * (1 - p_is_on_curve_eqn_inv) + p_is_on_curve_eqn_inv) - sel_p_not_on_curve_err) = 0;
+
+    // Y^2 = X^3 − 17, re-formulate to Y^2 - (X^3 - 17) = 0
+    pol commit q_is_on_curve_eqn; // Needs to be committed to reduce relation degrees
+    pol Q_X3 = q_x * q_x * q_x;
+    pol Q_Y2 = q_y * q_y;
+    #[Q_CURVE_EQN]
+    q_is_on_curve_eqn = sel * (Q_Y2 - (Q_X3 - 17)) * (1 - q_is_inf); // Infinity considered as on curve
+    // If q_is_on_curve_eqn != 0,  sel_q_not_on_curve_err = 1
+    pol commit q_is_on_curve_eqn_inv;
+    #[Q_ON_CURVE_CHECK]
+    sel * (q_is_on_curve_eqn * ((1 - sel_q_not_on_curve_err) * (1 - q_is_on_curve_eqn_inv) + q_is_on_curve_eqn_inv) - sel_q_not_on_curve_err) = 0;
+
+    pol commit err; // Consolidate errors
+    err = 1 - (1 - sel_dst_out_of_range_err) * (1 - sel_p_not_on_curve_err) * (1 - sel_q_not_on_curve_err);
+
+    ///////////////////////////////////////////////////////////////////////
+    // Dispatch inputs to ecc add and retrieve outputs
+    ///////////////////////////////////////////////////////////////////////
+    pol commit res_x, res_y, res_is_inf;
+    pol commit sel_should_exec;
+    sel_should_exec = sel * (1 - err);
+
+    #[INPUT_OUTPUT_ECC_ADD]
+    sel_should_exec {
+        p_x, p_y, p_is_inf,
+        q_x, q_y, q_is_inf,
+        res_x, res_y, res_is_inf
+    } in
+    ecc.sel {
+        ecc.p_x, ecc.p_y, ecc.p_is_inf,
+        ecc.q_x, ecc.q_y, ecc.q_is_inf,
+        ecc.r_x, ecc.r_y, ecc.r_is_inf
+    };
+
+    ////////////////////////////////////////////////
+    // Write output to memory
+    ////////////////////////////////////////////////
+    #[WRITE_MEM_0]
+    sel_should_exec {
+        execution_clk, space_id, dst_addr[0], res_x, /*FF_mem_tag*/ precomputed.zero, /*rw=1*/ sel_should_exec
+    } is
+    memory.sel_ecc_write[0] {
+        memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw
+    };
+
+    #[WRITE_MEM_1]
+    sel_should_exec {
+        execution_clk, space_id, dst_addr[1], res_y, /*FF_mem_tag*/ precomputed.zero, /*rw=1*/ sel_should_exec
+    } is
+    memory.sel_ecc_write[1] {
+        memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw
+    };
+
+    #[WRITE_MEM_2]
+    sel_should_exec {
+        execution_clk, space_id, dst_addr[2], res_is_inf, /*U1_mem_tag=1*/ sel_should_exec, /*rw=1*/ sel_should_exec
+    } is
+    memory.sel_ecc_write[2] {
+        memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw
+    };
+
+    ////////////////////////////////////////////////
+    // Dispatch from execution trace to ECC Add
+    ////////////////////////////////////////////////
+    #[DISPATCH_EXEC_ECC_ADD]
+    execution.sel_execute_ecc_add {
+        precomputed.clk,
+        execution.context_id,
+        // Point P
+        execution.register[0],
+        execution.register[1],
+        execution.register[2],
+        // Point Q
+        execution.register[3],
+        execution.register[4],
+        execution.register[5],
+        // Dst address
+        execution.rop[6],
+        // Error
+        execution.sel_opcode_error
+    } is
+    sel {
+        execution_clk,
+        space_id,
+        // Point P
+        p_x,
+        p_y,
+        p_is_inf,
+        // Point Q
+        q_x,
+        q_y,
+        q_is_inf,
+        // Dst address
+        dst_addr[0],
+        // Error
+        err
+    };
+

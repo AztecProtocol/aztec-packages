@@ -5,9 +5,9 @@ import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
 
-const TIMEOUT = 300_000;
+const TIMEOUT = 100_000;
 
-describe.skip('AVM WitGen & Circuit – check circuit', () => {
+describe('AVM check-circuit – unhappy paths 3', () => {
   const sender = AztecAddress.fromNumber(42);
   let avmTestContractInstance: ContractInstanceWithAddress;
   let tester: AvmProvingTester;
@@ -76,6 +76,7 @@ describe.skip('AVM WitGen & Circuit – check circuit', () => {
     },
     TIMEOUT,
   );
+
   it(
     'a nested exceptional halt is recovered from in caller',
     async () => {

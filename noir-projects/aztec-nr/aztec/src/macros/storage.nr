@@ -53,10 +53,11 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
         // We have `Storable` in a separate `.nr` file instead of defining it in the last quote of this function
         // because that way a dev gets a more reasonable error if he defines a struct with the same name in
         // a contract.
-        storage_layout_fields =
-            storage_layout_fields.push_back(quote { pub $name: dep::aztec::prelude::Storable });
+        storage_layout_fields = storage_layout_fields.push_back(
+            quote { pub $name: dep::aztec::state_vars::storage::Storable },
+        );
         storage_layout_constructors = storage_layout_constructors.push_back(
-            quote { $name: dep::aztec::prelude::Storable { slot: $slot } },
+            quote { $name: dep::aztec::state_vars::storage::Storable { slot: $slot } },
         );
         //let with_context_generic = add_context_generic(typ, context_generic);
         //println(with_context_generic);

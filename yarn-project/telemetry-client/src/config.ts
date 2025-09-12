@@ -1,12 +1,16 @@
-import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
+import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
 
 export interface TelemetryClientConfig {
   metricsCollectorUrl?: URL;
+  publicMetricsCollectorUrl?: URL;
+  publicIncludeMetrics: string[];
+  publicMetricsOptOut: boolean;
+  publicMetricsCollectFrom: string[];
   tracesCollectorUrl?: URL;
   logsCollectorUrl?: URL;
   otelCollectIntervalMs: number;
   otelExportTimeoutMs: number;
-  otelExcludeMetrics?: string[];
+  otelExcludeMetrics: string[];
 }
 
 export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientConfig> = {
@@ -48,6 +52,41 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
             .filter(s => s.length > 0)
         : [],
     defaultValue: [],
+  },
+
+  publicMetricsCollectorUrl: {
+    env: 'PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT',
+    description: 'A URL to publish a subset of metrics for public consumption',
+    parseEnv: (val: string) => val && new URL(val),
+  },
+  publicMetricsCollectFrom: {
+    env: 'PUBLIC_OTEL_COLLECT_FROM',
+    description: 'The role types to collect metrics from',
+    parseEnv: (val: string) =>
+      val
+        ? val
+            .split(',')
+            .map(s => s.trim())
+            .filter(s => s.length > 0)
+        : [],
+    defaultValue: [],
+  },
+  publicIncludeMetrics: {
+    env: 'PUBLIC_OTEL_INCLUDE_METRICS',
+    description: 'A list of metric prefixes to publicly export',
+    parseEnv: (val: string) =>
+      val
+        ? val
+            .split(',')
+            .map(s => s.trim())
+            .filter(s => s.length > 0)
+        : [],
+    defaultValue: [],
+  },
+  publicMetricsOptOut: {
+    env: 'PUBLIC_OTEL_OPT_OUT',
+    description: 'Whether to opt out of sharing optional telemetry',
+    ...booleanConfigHelper(false),
   },
 };
 

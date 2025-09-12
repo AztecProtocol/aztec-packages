@@ -3,6 +3,7 @@
 
 #include <string_view>
 
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -13,11 +14,12 @@ template <typename FF_> class bc_retrievalImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 2 };
+    static constexpr std::array<size_t, 14> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 5, 4, 5, 3, 4, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
+
         return (in.get(C::bc_retrieval_sel)).is_zero();
     }
 
@@ -25,43 +27,37 @@ template <typename FF_> class bc_retrievalImpl {
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
-                           [[maybe_unused]] const FF& scaling_factor)
-    {
-        using C = ColumnAndShifts;
-
-        const auto constants_DEPLOYER_CONTRACT_ADDRESS = FF(2);
-        const auto constants_GENERATOR_INDEX__OUTER_NULLIFIER = FF(7);
-
-        {
-            using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bc_retrieval_sel) * (constants_GENERATOR_INDEX__OUTER_NULLIFIER -
-                                                      in.get(C::bc_retrieval_outer_nullifier_domain_separator));
-            tmp *= scaling_factor;
-            std::get<0>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bc_retrieval_sel) * (constants_DEPLOYER_CONTRACT_ADDRESS -
-                                                      in.get(C::bc_retrieval_deployer_protocol_contract_address));
-            tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::bc_retrieval_sel) - in.get(C::bc_retrieval_sel));
-            tmp *= scaling_factor;
-            std::get<2>(evals) += typename Accumulator::View(tmp);
-        }
-    }
+                           [[maybe_unused]] const FF& scaling_factor);
 };
 
 template <typename FF> class bc_retrieval : public Relation<bc_retrievalImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "bc_retrieval";
 
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_TRACE_CONTINUITY = 1;
+    static constexpr size_t SR_NO_REMAINING_BYTECODES = 4;
+    static constexpr size_t SR_CURRENT_CLASS_ID_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST = 8;
+    static constexpr size_t SR_ARTIFACT_HASH_IS_ZERO_IF_ERROR = 9;
+    static constexpr size_t SR_PRIVATE_FUNCTION_ROOT_IS_ZERO_IF_ERROR = 10;
+    static constexpr size_t SR_BYTECODE_ID_IS_ZERO_IF_ERROR = 11;
+
     static std::string get_subrelation_label(size_t index)
     {
-        switch (index) {}
+        switch (index) {
+        case SR_TRACE_CONTINUITY:
+            return "TRACE_CONTINUITY";
+        case SR_NO_REMAINING_BYTECODES:
+            return "NO_REMAINING_BYTECODES";
+        case SR_CURRENT_CLASS_ID_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST:
+            return "CURRENT_CLASS_ID_IS_ZERO_IF_INSTANCE_DOES_NOT_EXIST";
+        case SR_ARTIFACT_HASH_IS_ZERO_IF_ERROR:
+            return "ARTIFACT_HASH_IS_ZERO_IF_ERROR";
+        case SR_PRIVATE_FUNCTION_ROOT_IS_ZERO_IF_ERROR:
+            return "PRIVATE_FUNCTION_ROOT_IS_ZERO_IF_ERROR";
+        case SR_BYTECODE_ID_IS_ZERO_IF_ERROR:
+            return "BYTECODE_ID_IS_ZERO_IF_ERROR";
+        }
         return std::to_string(index);
     }
 };

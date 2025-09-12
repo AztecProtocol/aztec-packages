@@ -2,6 +2,7 @@
 title: Call Types
 sidebar_position: 6
 tags: [calls, contracts, execution]
+description: Understand the different types of contract calls in Aztec, including private and public execution modes, and how they compare to Ethereum's call types.
 ---
 
 ## What is a Call
@@ -148,7 +149,7 @@ aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#incl
 
 Even with the router contract achieving good privacy is hard.
 For example, if the value being checked against is unique and stored in the contract's public storage, it's then simple to find private transactions that are using that value in the enqueued public reads, and therefore link them to this contract.
-For this reason it is encouraged to try to avoid public function calls and instead privately read [Shared State](../../developers/reference/smart_contract_reference/storage/shared_state.md) when possible.
+For this reason it is encouraged to try to avoid public function calls and instead privately read [Shared State](../../developers/guides/smart_contracts/storage_types.md#delayed-public-mutable) when possible.
 
 ### Public Execution
 
@@ -166,7 +167,7 @@ This is the same function that was called by privately enqueuing a call to it! P
 
 ### Utility
 
-Contract functions marked with `#[utility]` cannot be called as part of a transaction, and are only invoked by applications that interact with contracts to perform state queries from an off-chain client (from both private and public state!) or to modify local contract-related PXE state (e.g. when processing logs in Aztec.nr). No guarantees are made on the correctness of the result since the entire execution is unconstrained and heavily reliant on oracle calls. It is possible however to verify that the bytecode being executed is the correct one, since a contract's address includes a commitment to all of its utility functions.
+Contract functions marked with `#[utility]` cannot be called as part of a transaction, and are only invoked by applications that interact with contracts to perform state queries from an offchain client (from both private and public state!) or to modify local contract-related PXE state (e.g. when processing logs in Aztec.nr). No guarantees are made on the correctness of the result since the entire execution is unconstrained and heavily reliant on oracle calls. It is possible however to verify that the bytecode being executed is the correct one, since a contract's address includes a commitment to all of its utility functions.
 
 ### aztec.js
 

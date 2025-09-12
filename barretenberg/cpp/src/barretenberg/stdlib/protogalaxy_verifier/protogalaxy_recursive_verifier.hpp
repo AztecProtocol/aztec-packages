@@ -6,11 +6,12 @@
 
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/recursive_decider_verification_keys.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_recursive_flavor.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
 
 namespace bb::stdlib::recursion::honk {
@@ -20,43 +21,39 @@ template <class DeciderVerificationKeys> class ProtogalaxyRecursiveVerifier_ {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using DeciderVK = typename DeciderVerificationKeys::DeciderVK;
-    using VerificationKey = typename Flavor::VerificationKey;
+    using VKAndHash = typename Flavor::VKAndHash;
 
     using Builder = typename Flavor::CircuitBuilder;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
 
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
-    struct VerifierInput {
-      public:
-        using NativeFlavor = typename Flavor::NativeFlavor;
-        using DeciderVK = bb::DeciderVerificationKey_<NativeFlavor>;
-        using NativeVerificationKey = typename Flavor::NativeVerificationKey;
-        std::shared_ptr<DeciderVK> accumulator;
-        std::vector<std::shared_ptr<NativeVerificationKey>> decider_vks;
-    };
-
     Builder* builder;
 
     DeciderVerificationKeys keys_to_fold;
 
-    std::shared_ptr<Transcript> transcript;
+    std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
     ProtogalaxyRecursiveVerifier_(Builder* builder,
                                   const std::shared_ptr<DeciderVK>& accumulator,
-                                  const std::vector<std::shared_ptr<VerificationKey>>& decider_vks)
+                                  const std::vector<std::shared_ptr<VKAndHash>>& vk_and_hashs,
+                                  const std::shared_ptr<Transcript>& transcript)
         : builder(builder)
-        , keys_to_fold(DeciderVerificationKeys(builder, accumulator, decider_vks)){};
+        , keys_to_fold(DeciderVerificationKeys(builder, accumulator, vk_and_hashs))
+        , transcript(transcript) {};
+
+    ProtogalaxyRecursiveVerifier_(Builder* builder,
+                                  const std::shared_ptr<DeciderVK>& accumulator,
+                                  const std::shared_ptr<DeciderVK>& incoming_instance,
+                                  const std::shared_ptr<Transcript>& transcript)
+        : builder(builder)
+        , keys_to_fold(DeciderVerificationKeys(builder, accumulator, incoming_instance))
+        , transcript(transcript) {};
 
     /**
      * @brief Process the public data ϕ for the decider verification keys to be folded.
      */
     void run_oink_verifier_on_each_incomplete_key(const std::vector<FF>&);
-
-    /**
-     * @brief Instatiate the vks and the transcript.
-     */
-    void run_oink_verifier_on_one_incomplete_key(const std::shared_ptr<DeciderVK>&, std::string&);
 
     /**
      * @brief Run the folding protocol on the verifier side to establish whether the public data ϕ of the new
@@ -67,7 +64,7 @@ template <class DeciderVerificationKeys> class ProtogalaxyRecursiveVerifier_ {
      * by the prover, are expressed as constraints.
      *
      */
-    std::shared_ptr<DeciderVK> verify_folding_proof(const StdlibProof<Builder>&);
+    std::shared_ptr<DeciderVK> verify_folding_proof(const stdlib::Proof<Builder>&);
 };
 
 } // namespace bb::stdlib::recursion::honk

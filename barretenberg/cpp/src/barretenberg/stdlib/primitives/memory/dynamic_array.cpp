@@ -8,6 +8,7 @@
 
 #include "../bool/bool.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
+#include "barretenberg/common/assert.hpp"
 
 namespace bb::stdlib {
 
@@ -110,7 +111,7 @@ template <typename Builder> void DynamicArray<Builder>::resize(const field_pt& n
     // 1: assert new_length < max_size
     field_pt max_bounds_check = (field_pt(_max_size) - new_length - 1);
     if (max_bounds_check.is_constant()) {
-        ASSERT(uint256_t(new_length.get_value()) <= _max_size);
+        BB_ASSERT_LTE(uint256_t(new_length.get_value()), _max_size);
     } else {
         _context->create_new_range_constraint(max_bounds_check.normalize().get_witness_index(), _max_size);
     }

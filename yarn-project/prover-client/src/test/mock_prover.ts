@@ -4,12 +4,10 @@ import {
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   RECURSIVE_PROOF_LENGTH,
-  TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
 import { times } from '@aztec/foundation/collection';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import {
-  type ProofAndVerificationKey,
   type ProvingJob,
   type ProvingJobId,
   type ProvingJobProducer,
@@ -19,6 +17,7 @@ import {
   makeProofAndVerificationKey,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/stdlib/interfaces/server';
+import type { PrivateToPublicKernelCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import type { BaseParityInputs, RootParityInputs } from '@aztec/stdlib/parity';
 import { makeEmptyRecursiveProof, makeRecursiveProof } from '@aztec/stdlib/proofs';
 import type {
@@ -28,8 +27,10 @@ import type {
   BlockRootRollupInputs,
   EmptyBlockRootRollupInputs,
   MergeRollupInputs,
+  PaddingBlockRootRollupInputs,
   PrivateBaseRollupInputs,
   PublicBaseRollupInputs,
+  PublicTubePrivateInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
   SingleTxBlockRootRollupInputs,
@@ -38,6 +39,7 @@ import {
   makeBaseOrMergeRollupPublicInputs,
   makeBlockRootOrBlockMergeRollupPublicInputs,
   makeParityPublicInputs,
+  makePrivateToPublicKernelCircuitPublicInputs,
   makeRootRollupPublicInputs,
 } from '@aztec/stdlib/testing';
 import { VerificationKeyData } from '@aztec/stdlib/vks';
@@ -130,6 +132,25 @@ export class MockProver implements ServerCircuitProver {
     );
   }
 
+  getPublicTubeProof(
+    _inputs: PublicTubePrivateInputs,
+    _signal?: AbortSignal,
+    _epochNumber?: number,
+  ): Promise<
+    PublicInputsAndRecursiveProof<
+      PrivateToPublicKernelCircuitPublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >
+  > {
+    return Promise.resolve(
+      makePublicInputsAndRecursiveProof(
+        makePrivateToPublicKernelCircuitPublicInputs(),
+        makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
+        VerificationKeyData.makeFakeRollupHonk(),
+      ),
+    );
+  }
+
   getPrivateBaseRollupProof(
     _baseRollupInput: PrivateBaseRollupInputs,
     _signal?: AbortSignal,
@@ -204,6 +225,22 @@ export class MockProver implements ServerCircuitProver {
     );
   }
 
+  getPaddingBlockRootRollupProof(
+    _input: PaddingBlockRootRollupInputs,
+    _signal?: AbortSignal,
+    _epochNumber?: number,
+  ): Promise<
+    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
+    return Promise.resolve(
+      makePublicInputsAndRecursiveProof(
+        makeBlockRootOrBlockMergeRollupPublicInputs(),
+        makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
+        VerificationKeyData.makeFakeRollupHonk(),
+      ),
+    );
+  }
+
   getBlockRootRollupProof(
     _input: BlockRootRollupInputs,
     _signal?: AbortSignal,
@@ -247,12 +284,6 @@ export class MockProver implements ServerCircuitProver {
         makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
         VerificationKeyData.makeFakeHonk(),
       ),
-    );
-  }
-
-  getTubeProof(): Promise<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>> {
-    return Promise.resolve(
-      makeProofAndVerificationKey(makeRecursiveProof(TUBE_PROOF_LENGTH), VerificationKeyData.makeFakeRollupHonk()),
     );
   }
 }

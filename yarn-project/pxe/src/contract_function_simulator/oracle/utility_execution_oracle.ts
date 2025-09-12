@@ -6,12 +6,13 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import { IndexedTaggingSecret, PrivateLogWithTxData, PublicLogWithTxData } from '@aztec/stdlib/logs';
+import { IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
 
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
+import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
 import { type NoteData, TypedOracle } from './typed_oracle.js';
 
@@ -28,23 +29,26 @@ export class UtilityExecutionOracle extends TypedOracle {
     protected log = createLogger('simulator:client_view_context'),
     protected readonly scopes?: AztecAddress[],
   ) {
-    super();
+    super('UtilityExecutionOracle');
   }
 
-  public override getBlockNumber(): Promise<number> {
-    return this.executionDataProvider.getBlockNumber();
+  public override utilityAssertCompatibleOracleVersion(version: number): void {
+    this.executionDataProvider.assertCompatibleOracleVersion(version);
   }
 
-  public override getContractAddress(): Promise<AztecAddress> {
-    return Promise.resolve(this.contractAddress);
+  public override utilityGetRandomField(): Fr {
+    return Fr.random();
   }
 
-  public override getChainId(): Promise<Fr> {
-    return Promise.resolve(this.executionDataProvider.getChainId().then(id => new Fr(id)));
-  }
-
-  public override getVersion(): Promise<Fr> {
-    return Promise.resolve(this.executionDataProvider.getVersion().then(v => new Fr(v)));
+  public override async utilityGetUtilityContext(): Promise<UtilityContext> {
+    const blockHeader = await this.executionDataProvider.getBlockHeader();
+    return UtilityContext.from({
+      blockNumber: blockHeader.globalVariables.blockNumber,
+      timestamp: blockHeader.globalVariables.timestamp,
+      contractAddress: this.contractAddress,
+      version: blockHeader.globalVariables.version,
+      chainId: blockHeader.globalVariables.chainId,
+    });
   }
 
   /**
@@ -53,7 +57,7 @@ export class UtilityExecutionOracle extends TypedOracle {
    * @returns A Promise that resolves to nullifier keys.
    * @throws If the keys are not registered in the key store.
    */
-  public override getKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
+  public override utilityGetKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
     return this.executionDataProvider.getKeyValidationRequest(pkMHash, this.contractAddress);
   }
 
@@ -64,7 +68,7 @@ export class UtilityExecutionOracle extends TypedOracle {
    * @param leafValue - The leaf value
    * @returns The index and sibling path concatenated [index, sibling_path]
    */
-  public override getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
+  public override utilityGetMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
     return this.executionDataProvider.getMembershipWitness(blockNumber, treeId, leafValue);
   }
 
@@ -74,7 +78,7 @@ export class UtilityExecutionOracle extends TypedOracle {
    * @param nullifier - Nullifier we try to find witness for.
    * @returns The nullifier membership witness (if found).
    */
-  public override async getNullifierMembershipWitness(
+  public override async utilityGetNullifierMembershipWitness(
     blockNumber: number,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
@@ -90,7 +94,7 @@ export class UtilityExecutionOracle extends TypedOracle {
    * list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
    * we are trying to prove non-inclusion for.
    */
-  public override async getLowNullifierMembershipWitness(
+  public override async utilityGetLowNullifierMembershipWitness(
     blockNumber: number,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
@@ -103,7 +107,7 @@ export class UtilityExecutionOracle extends TypedOracle {
    * @param leafSlot - The slot of the public data tree to get the witness for.
    * @returns - The witness
    */
-  public override async getPublicDataWitness(
+  public override async utilityGetPublicDataWitness(
     blockNumber: number,
     leafSlot: Fr,
   ): Promise<PublicDataWitness | undefined> {
@@ -115,7 +119,7 @@ export class UtilityExecutionOracle extends TypedOracle {
    * @param blockNumber - The number of a block of which to get the block header.
    * @returns Block extracted from a block with block number `blockNumber`.
    */
-  public override async getBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
+  public override async utilityGetBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
     const block = await this.executionDataProvider.getBlock(blockNumber);
     if (!block) {
       return undefined;
@@ -129,7 +133,7 @@ export class UtilityExecutionOracle extends TypedOracle {
    * @returns A complete address associated with the input address.
    * @throws An error if the account is not registered in the database.
    */
-  public override getCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {
+  public override utilityGetPublicKeysAndPartialAddress(account: AztecAddress): Promise<CompleteAddress> {
     return this.executionDataProvider.getCompleteAddress(account);
   }
 
@@ -138,7 +142,7 @@ export class UtilityExecutionOracle extends TypedOracle {
    * @param address - Address.
    * @returns A contract instance.
    */
-  public override getContractInstance(address: AztecAddress): Promise<ContractInstance> {
+  public override utilityGetContractInstance(address: AztecAddress): Promise<ContractInstance> {
     return this.executionDataProvider.getContractInstance(address);
   }
 
@@ -148,7 +152,7 @@ export class UtilityExecutionOracle extends TypedOracle {
    * @param messageHash - Hash of the message to authenticate.
    * @returns Authentication witness for the requested message hash.
    */
-  public override getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
+  public override utilityGetAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
     return Promise.resolve(this.authWitnesses.find(w => w.requestHash.equals(messageHash))?.witness);
   }
 
@@ -173,7 +177,7 @@ export class UtilityExecutionOracle extends TypedOracle {
    * @param status - The status of notes to fetch.
    * @returns Array of note data.
    */
-  public override async getNotes(
+  public override async utilityGetNotes(
     storageSlot: Fr,
     numSelects: number,
     selectByIndexes: number[],
@@ -210,7 +214,7 @@ export class UtilityExecutionOracle extends TypedOracle {
    * @param innerNullifier - The inner nullifier.
    * @returns A boolean indicating whether the nullifier exists in the tree or not.
    */
-  public override async checkNullifierExists(innerNullifier: Fr) {
+  public override async utilityCheckNullifierExists(innerNullifier: Fr) {
     const nullifier = await siloNullifier(this.contractAddress, innerNullifier!);
     const index = await this.executionDataProvider.getNullifierIndex(nullifier);
     return index !== undefined;
@@ -224,7 +228,7 @@ export class UtilityExecutionOracle extends TypedOracle {
    * @dev Contract address and secret are only used to compute the nullifier to get non-nullified messages
    * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
    */
-  public override async getL1ToL2MembershipWitness(contractAddress: AztecAddress, messageHash: Fr, secret: Fr) {
+  public override async utilityGetL1ToL2MembershipWitness(contractAddress: AztecAddress, messageHash: Fr, secret: Fr) {
     return await this.executionDataProvider.getL1ToL2MembershipWitness(contractAddress, messageHash, secret);
   }
 
@@ -235,7 +239,7 @@ export class UtilityExecutionOracle extends TypedOracle {
    * @param blockNumber - The block number to read storage at.
    * @param numberOfElements - Number of elements to read from the starting storage slot.
    */
-  public override async storageRead(
+  public override async utilityStorageRead(
     contractAddress: AztecAddress,
     startStorageSlot: Fr,
     blockNumber: number,
@@ -254,7 +258,7 @@ export class UtilityExecutionOracle extends TypedOracle {
     return values;
   }
 
-  public override debugLog(message: string, fields: Fr[]): void {
+  public override utilityDebugLog(message: string, fields: Fr[]): void {
     this.log.verbose(`${applyStringFormatting(message, fields)}`, { module: `${this.log.module}:debug_log` });
   }
 
@@ -266,20 +270,20 @@ export class UtilityExecutionOracle extends TypedOracle {
    * @param recipient - The address receiving the note
    * @returns A tagging secret that can be used to tag notes.
    */
-  public override async getIndexedTaggingSecretAsSender(
+  public override async utilityGetIndexedTaggingSecretAsSender(
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<IndexedTaggingSecret> {
     return await this.executionDataProvider.getIndexedTaggingSecretAsSender(this.contractAddress, sender, recipient);
   }
 
-  public override async fetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
+  public override async utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
     await this.executionDataProvider.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes);
 
     await this.executionDataProvider.removeNullifiedNotes(this.contractAddress);
   }
 
-  public override async validateEnqueuedNotesAndEvents(
+  public override async utilityValidateEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
@@ -296,15 +300,24 @@ export class UtilityExecutionOracle extends TypedOracle {
     );
   }
 
-  public override getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
-    return this.executionDataProvider.getPublicLogByTag(tag, contractAddress);
+  public override async utilityBulkRetrieveLogs(
+    contractAddress: AztecAddress,
+    logRetrievalRequestsArrayBaseSlot: Fr,
+    logRetrievalResponsesArrayBaseSlot: Fr,
+  ) {
+    // TODO(#10727): allow other contracts to process partial notes
+    if (!this.contractAddress.equals(contractAddress)) {
+      throw new Error(`Got a note validation request from ${contractAddress}, expected ${this.contractAddress}`);
+    }
+
+    await this.executionDataProvider.bulkRetrieveLogs(
+      contractAddress,
+      logRetrievalRequestsArrayBaseSlot,
+      logRetrievalResponsesArrayBaseSlot,
+    );
   }
 
-  public override getPrivateLogByTag(siloedTag: Fr): Promise<PrivateLogWithTxData | null> {
-    return this.executionDataProvider.getPrivateLogByTag(siloedTag);
-  }
-
-  public override storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
+  public override utilityStoreCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -312,7 +325,7 @@ export class UtilityExecutionOracle extends TypedOracle {
     return this.executionDataProvider.storeCapsule(this.contractAddress, slot, capsule);
   }
 
-  public override async loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
+  public override async utilityLoadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -324,7 +337,7 @@ export class UtilityExecutionOracle extends TypedOracle {
     );
   }
 
-  public override deleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
+  public override utilityDeleteCapsule(contractAddress: AztecAddress, slot: Fr): Promise<void> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
@@ -332,7 +345,7 @@ export class UtilityExecutionOracle extends TypedOracle {
     return this.executionDataProvider.deleteCapsule(this.contractAddress, slot);
   }
 
-  public override copyCapsule(
+  public override utilityCopyCapsule(
     contractAddress: AztecAddress,
     srcSlot: Fr,
     dstSlot: Fr,
@@ -346,12 +359,16 @@ export class UtilityExecutionOracle extends TypedOracle {
   }
 
   // TODO(#11849): consider replacing this oracle with a pure Noir implementation of aes decryption.
-  public override aes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
+  public override utilityAes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
     const aes128 = new Aes128();
     return aes128.decryptBufferCBC(ciphertext, iv, symKey);
   }
 
-  public override getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
+  public override utilityGetSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
     return this.executionDataProvider.getSharedSecret(address, ephPk);
+  }
+
+  public override utilityEmitOffchainEffect(_data: Fr[]): Promise<void> {
+    return Promise.reject(new Error('Cannot emit offchain effects from a utility function'));
   }
 }

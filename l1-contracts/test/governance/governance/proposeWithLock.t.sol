@@ -3,18 +3,17 @@ pragma solidity >=0.8.27;
 
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {GovernanceBase} from "./base.t.sol";
-import {IGovernance} from "@aztec/governance/interfaces/IGovernance.sol";
+import {IGovernance, Configuration, Proposal, ProposalState} from "@aztec/governance/interfaces/IGovernance.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 
 contract ProposeWithLockTest is GovernanceBase {
   function test_WhenCallerHasInsufficientPower() external {
     // it revert
-    DataStructures.Configuration memory config = governance.getConfiguration();
+    Configuration memory config = governance.getConfiguration();
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Governance__InsufficientPower.selector,
+        Errors.Governance__CheckpointedUintLib__InsufficientValue.selector,
         address(this),
         0,
         config.proposeConfig.lockAmount
@@ -28,7 +27,7 @@ contract ProposeWithLockTest is GovernanceBase {
     // it creates a new proposal with current config
     // it emits a {ProposalCreated} event
     // it returns true
-    DataStructures.Configuration memory config = governance.getConfiguration();
+    Configuration memory config = governance.getConfiguration();
     token.mint(address(this), config.proposeConfig.lockAmount);
 
     token.approve(address(governance), config.proposeConfig.lockAmount);
@@ -39,20 +38,20 @@ contract ProposeWithLockTest is GovernanceBase {
     vm.expectEmit(true, true, true, true, address(governance));
     emit IGovernance.Proposed(proposalId, _proposal);
 
-    assertTrue(governance.proposeWithLock(IPayload(_proposal), address(this)));
+    governance.proposeWithLock(IPayload(_proposal), address(this));
 
-    DataStructures.Proposal memory proposal = governance.getProposal(proposalId);
+    Proposal memory proposal = governance.getProposal(proposalId);
     assertEq(proposal.config.executionDelay, config.executionDelay);
     assertEq(proposal.config.gracePeriod, config.gracePeriod);
     assertEq(proposal.config.minimumVotes, config.minimumVotes);
     assertEq(proposal.config.quorum, config.quorum);
-    assertEq(proposal.config.voteDifferential, config.voteDifferential);
+    assertEq(proposal.config.requiredYeaMargin, config.requiredYeaMargin);
     assertEq(proposal.config.votingDelay, config.votingDelay);
     assertEq(proposal.config.votingDuration, config.votingDuration);
     assertEq(proposal.creation, Timestamp.wrap(block.timestamp));
     assertEq(proposal.proposer, address(governance));
-    assertEq(proposal.summedBallot.nea, 0);
+    assertEq(proposal.summedBallot.nay, 0);
     assertEq(proposal.summedBallot.yea, 0);
-    assertTrue(proposal.state == DataStructures.ProposalState.Pending);
+    assertTrue(proposal.cachedState == ProposalState.Pending);
   }
 }

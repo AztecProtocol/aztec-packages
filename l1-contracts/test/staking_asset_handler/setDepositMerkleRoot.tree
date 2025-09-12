@@ -1,0 +1,6 @@
+SetDepositMerkleRoot
+├── when caller of setDepositMerkleRoot is not owner
+│   └── it reverts
+└── when caller of setDepositMerkleRoot is owner
+    ├── it sets the deposit merkle root
+    └── it emits a {DepositMerkleRootUpdated} event

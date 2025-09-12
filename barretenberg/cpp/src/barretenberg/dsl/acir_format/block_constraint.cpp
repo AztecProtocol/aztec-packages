@@ -5,6 +5,8 @@
 // =====================
 
 #include "block_constraint.hpp"
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
 #include "barretenberg/stdlib/primitives/memory/ram_table.hpp"
 #include "barretenberg/stdlib/primitives/memory/rom_table.hpp"
@@ -17,9 +19,9 @@ template <typename Builder> stdlib::field_t<Builder> poly_to_field_ct(const poly
 {
     using field_ct = stdlib::field_t<Builder>;
 
-    ASSERT(poly.q_m == 0);
-    ASSERT(poly.q_r == 0);
-    ASSERT(poly.q_o == 0);
+    BB_ASSERT_EQ(poly.q_m, 0);
+    BB_ASSERT_EQ(poly.q_r, 0);
+    BB_ASSERT_EQ(poly.q_o, 0);
     if (poly.q_l == 0) {
         return field_ct(poly.q_c);
     }
@@ -58,7 +60,7 @@ void create_block_constraints(UltraCircuitBuilder& builder,
         process_RAM_operations(builder, constraint, has_valid_witness_assignments, init);
     } break;
     default:
-        ASSERT(false);
+        throw_or_abort("Unexpected block constraint type.");
         break;
     }
 }
@@ -94,7 +96,7 @@ void create_block_constraints(MegaCircuitBuilder& builder,
         process_return_data_operations(constraint, init);
     } break;
     default:
-        ASSERT(false);
+        throw_or_abort("Unexpected block constraint type.");
         break;
     }
 }
@@ -110,22 +112,19 @@ void process_ROM_operations(Builder& builder,
 
     rom_table_ct table(init);
     for (auto& op : constraint.trace) {
-        ASSERT(op.access_type == 0);
+        BB_ASSERT_EQ(op.access_type, 0);
         field_ct value = poly_to_field_ct(op.value, builder);
         field_ct index = poly_to_field_ct(op.index, builder);
         // For a ROM table, constant read should be optimized out:
         // The rom_table won't work with a constant read because the table may not be initialized
         ASSERT(op.index.q_l != 0);
-        // We create a new witness w to avoid issues with non-valid witness assignements:
-        // if witness are not assigned, then w will be zero and table[w] will work
-        fr w_value = 0;
-        if (has_valid_witness_assignments) {
-            // If witness are assigned, we use the correct value for w
-            w_value = index.get_value();
+
+        // In case of invalid witness assignment, we set the value of index value to zero to not hit out of bound in
+        // ROM table
+        if (!has_valid_witness_assignments) {
+            builder.set_variable(index.witness_index, 0);
         }
-        field_ct w = field_ct::from_witness(&builder, w_value);
-        value.assert_equal(table[w]);
-        w.assert_equal(index);
+        value.assert_equal(table[index]);
     }
 }
 
@@ -142,17 +141,16 @@ void process_RAM_operations(Builder& builder,
     for (auto& op : constraint.trace) {
         field_ct value = poly_to_field_ct(op.value, builder);
         field_ct index = poly_to_field_ct(op.index, builder);
-
-        // We create a new witness w to avoid issues with non-valid witness assignements.
-        // If witness are not assigned, then index will be zero and table[index] won't hit bounds check.
-        fr index_value = has_valid_witness_assignments ? index.get_value() : 0;
-        // Create new witness and ensure equal to index.
-        field_ct::from_witness(&builder, index_value).assert_equal(index);
+        // In case of invalid witness assignment, we set the value of index value to zero to not hit out of bound in
+        // RAM table
+        if (!has_valid_witness_assignments) {
+            builder.set_variable(index.witness_index, 0);
+        }
 
         if (op.access_type == 0) {
             value.assert_equal(table.read(index));
         } else {
-            ASSERT(op.access_type == 1);
+            BB_ASSERT_EQ(op.access_type, 1);
             table.write(index, value);
         }
     }
@@ -174,17 +172,15 @@ void process_call_data_operations(Builder& builder,
         calldata_array.set_values(init); // Initialize the data in the bus array
 
         for (const auto& op : constraint.trace) {
-            ASSERT(op.access_type == 0);
+            BB_ASSERT_EQ(op.access_type, 0);
             field_ct value = poly_to_field_ct(op.value, builder);
             field_ct index = poly_to_field_ct(op.index, builder);
-            fr w_value = 0;
-            if (has_valid_witness_assignments) {
-                // If witness are assigned, we use the correct value for w
-                w_value = index.get_value();
+            // In case of invalid witness assignment, we set the value of index value to zero to not hit out of bound in
+            // calldata-array
+            if (!has_valid_witness_assignments) {
+                builder.set_variable(index.witness_index, 0);
             }
-            field_ct w = field_ct::from_witness(&builder, w_value);
-            value.assert_equal(calldata_array[w]);
-            w.assert_equal(index);
+            value.assert_equal(calldata_array[index]);
         }
     };
 
@@ -194,8 +190,7 @@ void process_call_data_operations(Builder& builder,
     } else if (constraint.calldata_id == 1) {
         process_calldata(databus.secondary_calldata);
     } else {
-        info("Databus only supports two calldata arrays.");
-        ASSERT(false);
+        throw_or_abort("Databus only supports two calldata arrays.");
     }
 }
 
@@ -215,7 +210,7 @@ void process_return_data_operations(const BlockConstraint& constraint, std::vect
         value.assert_equal(databus.return_data[c]);
         c++;
     }
-    ASSERT(constraint.trace.size() == 0);
+    BB_ASSERT_EQ(constraint.trace.size(), 0U);
 }
 
 } // namespace acir_format

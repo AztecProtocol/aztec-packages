@@ -8,6 +8,6 @@ import type { Tx } from '@aztec/stdlib/tx';
  */
 export function getPendingTxPriority(tx: Tx): string {
   const priorityFees = tx.getGasSettings().maxPriorityFeesPerGas;
-  const totalFees = priorityFees.feePerDaGas.toBigInt() + priorityFees.feePerL2Gas.toBigInt();
+  const totalFees = priorityFees.feePerDaGas + priorityFees.feePerL2Gas;
   return Buffer32.fromBigInt(totalFees).toString();
 }

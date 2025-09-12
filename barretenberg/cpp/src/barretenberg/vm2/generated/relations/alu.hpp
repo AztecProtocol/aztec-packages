@@ -3,6 +3,7 @@
 
 #include <string_view>
 
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -13,49 +14,136 @@ template <typename FF_> class aluImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS = { 3, 2 };
+    static constexpr std::array<size_t, 63> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 3, 3, 3, 3, 2, 5, 5, 4, 3, 3, 4, 6, 3, 6, 5, 3, 3, 4, 3, 3, 6, 3, 6, 3, 5, 3, 3, 3, 6, 6, 3,
+        3, 5, 6, 3, 6, 3, 3, 3, 3, 3, 3, 3, 4, 3, 4, 6, 6, 5, 2, 3, 4, 3, 3, 3, 3, 2, 2, 3, 3, 4, 3
+    };
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        using C = ColumnAndShifts;
+
+        return (in.get(C::alu_sel)).is_zero();
+    }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
-                           [[maybe_unused]] const FF& scaling_factor)
-    {
-        using C = ColumnAndShifts;
-
-        { // SEL_ADD_BINARY
-            using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = in.get(C::alu_sel_op_add) * (FF(1) - in.get(C::alu_sel_op_add));
-            tmp *= scaling_factor;
-            std::get<0>(evals) += typename Accumulator::View(tmp);
-        }
-        { // ALU_ADD
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = ((in.get(C::alu_ia) + in.get(C::alu_ib)) - in.get(C::alu_ic));
-            tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
-        }
-    }
+                           [[maybe_unused]] const FF& scaling_factor);
 };
 
 template <typename FF> class alu : public Relation<aluImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "alu";
 
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_ERR_CHECK = 4;
+    static constexpr size_t SR_OP_ID_CHECK = 5;
+    static constexpr size_t SR_TAG_IS_FF = 6;
+    static constexpr size_t SR_TAG_IS_U128 = 7;
+    static constexpr size_t SR_C_TAG_CHECK = 8;
+    static constexpr size_t SR_TAG_ERR_CHECK = 11;
+    static constexpr size_t SR_AB_TAGS_CHECK = 12;
+    static constexpr size_t SR_A_DECOMPOSITION = 14;
+    static constexpr size_t SR_B_DECOMPOSITION = 15;
+    static constexpr size_t SR_A_LO_BITS = 17;
+    static constexpr size_t SR_A_HI_BITS = 18;
+    static constexpr size_t SR_ALU_ADD_SUB = 21;
+    static constexpr size_t SR_ALU_MUL_NON_U128 = 23;
+    static constexpr size_t SR_ALU_MUL_U128 = 25;
+    static constexpr size_t SR_ALU_DIV_U128_CHECK = 29;
+    static constexpr size_t SR_ALU_DIV_U128 = 30;
+    static constexpr size_t SR_DIV_0_ERR = 33;
+    static constexpr size_t SR_ALU_FDIV_DIV_NON_U128 = 34;
+    static constexpr size_t SR_EQ_OP_MAIN = 36;
+    static constexpr size_t SR_LT_SWAP_INPUTS_A = 42;
+    static constexpr size_t SR_LT_SWAP_INPUTS_B = 43;
+    static constexpr size_t SR_LTE_NEGATE_RESULT_C = 44;
+    static constexpr size_t SR_NOT_OP_MAIN = 46;
+    static constexpr size_t SR_SHL_TWO_POW_SHIFT = 47;
+    static constexpr size_t SR_ALU_SHL = 48;
+    static constexpr size_t SR_ALU_SHR = 49;
+    static constexpr size_t SR_SHIFTS_LO_BITS = 52;
+    static constexpr size_t SR_SEL_TRUNC_NON_TRIVIAL = 57;
+    static constexpr size_t SR_SEL_TRUNCATE = 58;
+    static constexpr size_t SR_TRUNC_TRIVIAL_CASE = 59;
+    static constexpr size_t SR_SMALL_TRUNC_VAL_IS_LO = 60;
+    static constexpr size_t SR_TRUNC_LO_128_DECOMPOSITION = 61;
+    static constexpr size_t SR_TRUNC_MID_BITS = 62;
+
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case 0:
-            return "SEL_ADD_BINARY";
-        case 1:
-            return "ALU_ADD";
+        case SR_ERR_CHECK:
+            return "ERR_CHECK";
+        case SR_OP_ID_CHECK:
+            return "OP_ID_CHECK";
+        case SR_TAG_IS_FF:
+            return "TAG_IS_FF";
+        case SR_TAG_IS_U128:
+            return "TAG_IS_U128";
+        case SR_C_TAG_CHECK:
+            return "C_TAG_CHECK";
+        case SR_TAG_ERR_CHECK:
+            return "TAG_ERR_CHECK";
+        case SR_AB_TAGS_CHECK:
+            return "AB_TAGS_CHECK";
+        case SR_A_DECOMPOSITION:
+            return "A_DECOMPOSITION";
+        case SR_B_DECOMPOSITION:
+            return "B_DECOMPOSITION";
+        case SR_A_LO_BITS:
+            return "A_LO_BITS";
+        case SR_A_HI_BITS:
+            return "A_HI_BITS";
+        case SR_ALU_ADD_SUB:
+            return "ALU_ADD_SUB";
+        case SR_ALU_MUL_NON_U128:
+            return "ALU_MUL_NON_U128";
+        case SR_ALU_MUL_U128:
+            return "ALU_MUL_U128";
+        case SR_ALU_DIV_U128_CHECK:
+            return "ALU_DIV_U128_CHECK";
+        case SR_ALU_DIV_U128:
+            return "ALU_DIV_U128";
+        case SR_DIV_0_ERR:
+            return "DIV_0_ERR";
+        case SR_ALU_FDIV_DIV_NON_U128:
+            return "ALU_FDIV_DIV_NON_U128";
+        case SR_EQ_OP_MAIN:
+            return "EQ_OP_MAIN";
+        case SR_LT_SWAP_INPUTS_A:
+            return "LT_SWAP_INPUTS_A";
+        case SR_LT_SWAP_INPUTS_B:
+            return "LT_SWAP_INPUTS_B";
+        case SR_LTE_NEGATE_RESULT_C:
+            return "LTE_NEGATE_RESULT_C";
+        case SR_NOT_OP_MAIN:
+            return "NOT_OP_MAIN";
+        case SR_SHL_TWO_POW_SHIFT:
+            return "SHL_TWO_POW_SHIFT";
+        case SR_ALU_SHL:
+            return "ALU_SHL";
+        case SR_ALU_SHR:
+            return "ALU_SHR";
+        case SR_SHIFTS_LO_BITS:
+            return "SHIFTS_LO_BITS";
+        case SR_SEL_TRUNC_NON_TRIVIAL:
+            return "SEL_TRUNC_NON_TRIVIAL";
+        case SR_SEL_TRUNCATE:
+            return "SEL_TRUNCATE";
+        case SR_TRUNC_TRIVIAL_CASE:
+            return "TRUNC_TRIVIAL_CASE";
+        case SR_SMALL_TRUNC_VAL_IS_LO:
+            return "SMALL_TRUNC_VAL_IS_LO";
+        case SR_TRUNC_LO_128_DECOMPOSITION:
+            return "TRUNC_LO_128_DECOMPOSITION";
+        case SR_TRUNC_MID_BITS:
+            return "TRUNC_MID_BITS";
         }
         return std::to_string(index);
     }
-
-    // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_SEL_ADD_BINARY = 0;
-    static constexpr size_t SR_ALU_ADD = 1;
 };
 
 } // namespace bb::avm2

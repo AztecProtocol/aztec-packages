@@ -38,7 +38,6 @@ export async function createPXEService(
   const configWithContracts = {
     ...config,
     l1Contracts,
-    l2BlockBatchSize: 200,
   } as PXEServiceConfig;
 
   const storeLogger = loggers.store ? loggers.store : createLogger('pxe:data:idb' + (logSuffix ? `:${logSuffix}` : ''));

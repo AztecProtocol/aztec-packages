@@ -8,7 +8,6 @@
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
 
 #include "barretenberg/serialize/test_helper.hpp"
-#include "ecdsa_secp256k1.hpp"
 
 using namespace bb;
 using namespace bb::crypto;
@@ -36,35 +35,13 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
         .varnum = 4,
         .num_acir_opcodes = 1,
         .public_inputs = {},
-        .logic_constraints = {},
-        .range_constraints = {},
-        .aes128_constraints = {},
-        .sha256_compression = {},
-        .ecdsa_k1_constraints = {},
-        .ecdsa_r1_constraints = {},
-        .blake2s_constraints = {},
-        .blake3_constraints = {},
-        .keccak_permutations = {},
-        .poseidon2_constraints = {},
-        .multi_scalar_mul_constraints = {},
-        .ec_add_constraints = {},
-        .recursion_constraints = {},
-        .honk_recursion_constraints = {},
-        .avm_recursion_constraints = {},
-        .ivc_recursion_constraints = {},
-        .bigint_from_le_bytes_constraints = {},
-        .bigint_to_le_bytes_constraints = {},
-        .bigint_operations = {},
-        .assert_equalities = {},
         .poly_triple_constraints = { constraint },
-        .quad_constraints = {},
-        .big_quad_constraints = {},
-        .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     mock_opcode_indices(constraint_system);
     WitnessVector witness{ 5, 7, 12 };
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
@@ -151,28 +128,7 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
         .public_inputs = { 1 },
         .logic_constraints = { logic_constraint },
         .range_constraints = { range_a, range_b },
-        .aes128_constraints = {},
-        .sha256_compression = {},
-        .ecdsa_k1_constraints = {},
-        .ecdsa_r1_constraints = {},
-        .blake2s_constraints = {},
-        .blake3_constraints = {},
-        .keccak_permutations = {},
-        .poseidon2_constraints = {},
-        .multi_scalar_mul_constraints = {},
-        .ec_add_constraints = {},
-        .recursion_constraints = {},
-        .honk_recursion_constraints = {},
-        .avm_recursion_constraints = {},
-        .ivc_recursion_constraints = {},
-        .bigint_from_le_bytes_constraints = {},
-        .bigint_to_le_bytes_constraints = {},
-        .bigint_operations = {},
-        .assert_equalities = {},
         .poly_triple_constraints = { expr_a, expr_b, expr_c, expr_d },
-        .quad_constraints = {},
-        .big_quad_constraints = {},
-        .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     mock_opcode_indices(constraint_system);
@@ -181,7 +137,8 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
     WitnessVector witness{
         5, 10, 15, 5, inverse_of_five, 1,
     };
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
@@ -225,30 +182,7 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
         .varnum = 51,
         .num_acir_opcodes = 1,
         .public_inputs = {},
-        .logic_constraints = {},
-        .range_constraints = {},
-        .aes128_constraints = {},
-        .sha256_compression = {},
-        .ecdsa_k1_constraints = {},
-        .ecdsa_r1_constraints = {},
-        .blake2s_constraints = {},
-        .blake3_constraints = {},
         .keccak_permutations = { keccak_permutation },
-        .poseidon2_constraints = {},
-        .multi_scalar_mul_constraints = {},
-        .ec_add_constraints = {},
-        .recursion_constraints = {},
-        .honk_recursion_constraints = {},
-        .avm_recursion_constraints = {},
-        .ivc_recursion_constraints = {},
-        .bigint_from_le_bytes_constraints = {},
-        .bigint_to_le_bytes_constraints = {},
-        .bigint_operations = {},
-        .assert_equalities = {},
-        .poly_triple_constraints = {},
-        .quad_constraints = {},
-        .big_quad_constraints = {},
-        .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     mock_opcode_indices(constraint_system);
@@ -257,7 +191,8 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
                            18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34,
                            35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50 };
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint=*/0, witness);
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
@@ -293,30 +228,7 @@ TEST_F(AcirFormatTests, TestCollectsGateCounts)
         .varnum = 4,
         .num_acir_opcodes = 2,
         .public_inputs = {},
-        .logic_constraints = {},
-        .range_constraints = {},
-        .aes128_constraints = {},
-        .sha256_compression = {},
-        .ecdsa_k1_constraints = {},
-        .ecdsa_r1_constraints = {},
-        .blake2s_constraints = {},
-        .blake3_constraints = {},
-        .keccak_permutations = {},
-        .poseidon2_constraints = {},
-        .multi_scalar_mul_constraints = {},
-        .ec_add_constraints = {},
-        .recursion_constraints = {},
-        .honk_recursion_constraints = {},
-        .avm_recursion_constraints = {},
-        .ivc_recursion_constraints = {},
-        .bigint_from_le_bytes_constraints = {},
-        .bigint_to_le_bytes_constraints = {},
-        .bigint_operations = {},
-        .assert_equalities = {},
         .poly_triple_constraints = { first_gate, second_gate },
-        .quad_constraints = {},
-        .big_quad_constraints = {},
-        .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     mock_opcode_indices(constraint_system);
@@ -418,35 +330,14 @@ TEST_F(AcirFormatTests, TestBigAdd)
         .varnum = static_cast<uint32_t>(num_variables + 1),
         .num_acir_opcodes = 1,
         .public_inputs = {},
-        .logic_constraints = {},
-        .range_constraints = {},
-        .aes128_constraints = {},
-        .sha256_compression = {},
-        .ecdsa_k1_constraints = {},
-        .ecdsa_r1_constraints = {},
-        .blake2s_constraints = {},
-        .blake3_constraints = {},
-        .keccak_permutations = {},
-        .poseidon2_constraints = {},
-        .multi_scalar_mul_constraints = {},
-        .ec_add_constraints = {},
-        .recursion_constraints = {},
-        .honk_recursion_constraints = {},
-        .avm_recursion_constraints = {},
-        .ivc_recursion_constraints = {},
-        .bigint_from_le_bytes_constraints = {},
-        .bigint_to_le_bytes_constraints = {},
-        .bigint_operations = {},
-        .assert_equalities = {},
         .poly_triple_constraints = { assert_equal },
-        .quad_constraints = {},
         .big_quad_constraints = { quad_constraint },
-        .block_constraints = {},
         .original_opcode_indices = create_empty_original_opcode_indices(),
     };
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
+    AcirProgram program{ constraint_system, witness_values };
+    auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }

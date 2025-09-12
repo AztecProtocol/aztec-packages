@@ -60,8 +60,7 @@ TYPED_TEST(SmallSubgroupIPATest, ProverComputationsCorrectness)
 
     // SmallSubgroupIPAProver requires at least CURVE::SUBGROUP_SIZE + 3 elements in the ck.
     static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(SUBGROUP_SIZE));
-    std::shared_ptr<CK> ck =
-        create_commitment_key<CK>(std::max<size_t>(this->circuit_size, 1ULL << (log_subgroup_size + 1)));
+    CK ck = create_commitment_key<CK>(std::max<size_t>(this->circuit_size, 1ULL << (log_subgroup_size + 1)));
 
     auto prover_transcript = TypeParam::Transcript::prover_init_empty();
 
@@ -184,8 +183,7 @@ TYPED_TEST(SmallSubgroupIPATest, LibraEvaluationsConsistency)
 
     // SmallSubgroupIPAProver requires at least CURVE::SUBGROUP_SIZE + 3 elements in the ck.
     static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
-    std::shared_ptr<CK> ck =
-        create_commitment_key<CK>(std::max<size_t>(this->circuit_size, 1ULL << (log_subgroup_size + 1)));
+    CK ck = create_commitment_key<CK>(std::max<size_t>(this->circuit_size, 1ULL << (log_subgroup_size + 1)));
 
     ZKData zk_sumcheck_data(this->log_circuit_size, prover_transcript, ck);
 
@@ -222,8 +220,7 @@ TYPED_TEST(SmallSubgroupIPATest, LibraEvaluationsConsistencyFailure)
 
     // SmallSubgroupIPAProver requires at least CURVE::SUBGROUP_SIZE + 3 elements in the ck.
     static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
-    std::shared_ptr<CK> ck =
-        create_commitment_key<CK>(std::max<size_t>(this->circuit_size, 1ULL << (log_subgroup_size + 1)));
+    CK ck = create_commitment_key<CK>(std::max<size_t>(this->circuit_size, 1ULL << (log_subgroup_size + 1)));
 
     ZKData zk_sumcheck_data(this->log_circuit_size, prover_transcript, ck);
 
@@ -273,8 +270,7 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationMaskingTermConsistency)
 
         // SmallSubgroupIPAProver requires at least CURVE::SUBGROUP_SIZE + 3 elements in the ck.
         static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
-        std::shared_ptr<CK> ck =
-            create_commitment_key<CK>(std::max<size_t>(this->circuit_size, 1ULL << (log_subgroup_size + 1)));
+        CK ck = create_commitment_key<CK>(std::max<size_t>(this->circuit_size, 1ULL << (log_subgroup_size + 1)));
 
         // Generate transcript polynomials
         std::vector<Polynomial<FF>> transcript_polynomials;
@@ -326,8 +322,7 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationMaskingTermConsistencyFailure)
 
         // SmallSubgroupIPAProver requires at least CURVE::SUBGROUP_SIZE + 3 elements in the ck.
         static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
-        std::shared_ptr<CK> ck =
-            create_commitment_key<CK>(std::max<size_t>(this->circuit_size, 1ULL << (log_subgroup_size + 1)));
+        CK ck = create_commitment_key<CK>(std::max<size_t>(this->circuit_size, 1ULL << (log_subgroup_size + 1)));
 
         // Generate transcript polynomials
         std::vector<Polynomial<FF>> transcript_polynomials;

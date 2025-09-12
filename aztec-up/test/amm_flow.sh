@@ -52,7 +52,6 @@ aztec-wallet \
 
 aztec-wallet \
   register-contract $canonical_sponsored_fpc_address SponsoredFPC \
-  -f accounts:main \
   --salt 0
 
 aztec-wallet \
@@ -112,7 +111,7 @@ aztec-wallet \
   --prover none \
   send mint_to_private \
   -ca contracts:token_0 \
-  --args accounts:main accounts:main $AMOUNT \
+  --args accounts:main $AMOUNT \
   $SPONSORED_FPC_PAYMENT_METHOD \
   -f accounts:main
 
@@ -120,7 +119,7 @@ aztec-wallet \
   --prover none \
   send mint_to_private \
   -ca contracts:token_1 \
-  --args accounts:main accounts:main $AMOUNT \
+  --args accounts:main $AMOUNT \
   $SPONSORED_FPC_PAYMENT_METHOD \
   -f accounts:main
 

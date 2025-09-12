@@ -81,10 +81,10 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
      * We won't need these standard gates that are defined as virtual in circuit builder base
      *
      */
-    void create_add_gate(const add_triple_<Fr>&) override{};
-    void create_mul_gate(const mul_triple_<Fr>&) override{};
-    void create_bool_gate(const uint32_t) override{};
-    void create_poly_gate(const poly_triple_<Fr>&) override{};
+    void create_add_gate(const add_triple_<Fr>&) override {};
+    void create_mul_gate(const mul_triple_<Fr>&) override {};
+    void create_bool_gate(const uint32_t) override {};
+    void create_poly_gate(const poly_triple_<Fr>&) override {};
     [[nodiscard]] size_t get_num_constant_gates() const override { return 0; };
 
     /**
@@ -238,8 +238,19 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     // Maximum size of 2 higher limbs concatenated
     static constexpr auto MAX_HIGH_WIDE_LIMB_SIZE = (uint256_t(1) << (NUM_LIMB_BITS + NUM_LAST_LIMB_BITS)) - 1;
 
-    // Index at which the evaluation result is stored in the circuit
-    static constexpr size_t RESULT_ROW = 2;
+    // Index at which the evaluation result is stored in the circuit, preceeded by one no-op that ensures translator
+    // polynomials are shiftable and three random ops that contribute to ensuring the Translator proof does not leak
+    // information about the op queue content linked to the circuits being proven
+    static constexpr size_t RESULT_ROW = 8;
+    static constexpr size_t NUM_NO_OPS_START = 1;
+
+    // Number of random ops at the beginning of Translator trace
+    static constexpr size_t NUM_RANDOM_OPS_START = 3;
+    static_assert(NUM_RANDOM_OPS_START == 3);
+
+    // Number of random ops at the end of Translator trace
+    static constexpr size_t NUM_RANDOM_OPS_END = 2;
+    static_assert(NUM_RANDOM_OPS_END == 2);
 
     // How much you'd need to multiply a value by to perform a shift to a higher binary limb
     static constexpr auto SHIFT_1 = uint256_t(1) << NUM_LIMB_BITS;
@@ -310,21 +321,26 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     // The input we evaluate polynomials on
     Fq evaluation_input_x;
 
+    bool avm_mode = false;
+
     std::array<SlabVector<uint32_t>, NUM_WIRES> wires;
 
     /**
      * @brief Construct a new Translator Circuit Builder object
-     *
      * @details Translator Circuit builder has to be initializaed with evaluation input and batching challenge
      * (they are used to compute witness and to store the value for the prover)
      *
      * @param batching_challenge_v_
      * @param evaluation_input_x_
      */
-    TranslatorCircuitBuilder(Fq batching_challenge_v_, Fq evaluation_input_x_)
+    TranslatorCircuitBuilder(Fq batching_challenge_v_, Fq evaluation_input_x_, bool avm_mode_ = false)
         : CircuitBuilderBase(DEFAULT_TRANSLATOR_VM_LENGTH)
         , batching_challenge_v(batching_challenge_v_)
-        , evaluation_input_x(evaluation_input_x_){};
+        , evaluation_input_x(evaluation_input_x_)
+        , avm_mode(avm_mode_)
+    {
+        this->zero_idx = add_variable(Fr::zero());
+    };
 
     /**
      * @brief Construct a new Translator Circuit Builder object and feed op_queue inside
@@ -336,17 +352,21 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
      * @param evaluation_input_x_
      * @param op_queue
      */
-    TranslatorCircuitBuilder(Fq batching_challenge_v_, Fq evaluation_input_x_, std::shared_ptr<ECCOpQueue> op_queue)
-        : TranslatorCircuitBuilder(batching_challenge_v_, evaluation_input_x_)
+    TranslatorCircuitBuilder(Fq batching_challenge_v_,
+                             Fq evaluation_input_x_,
+                             std::shared_ptr<ECCOpQueue> op_queue,
+                             bool avm_mode = false)
+        : TranslatorCircuitBuilder(batching_challenge_v_, evaluation_input_x_, avm_mode)
+
     {
-        PROFILE_THIS_NAME("TranslatorCircuitBuilder::constructor");
+        BB_BENCH_NAME("TranslatorCircuitBuilder::constructor");
         feed_ecc_op_queue_into_circuit(std::move(op_queue));
     }
 
     TranslatorCircuitBuilder() = default;
     TranslatorCircuitBuilder(const TranslatorCircuitBuilder& other) = delete;
     TranslatorCircuitBuilder(TranslatorCircuitBuilder&& other) noexcept
-        : CircuitBuilderBase(std::move(other)){};
+        : CircuitBuilderBase(std::move(other)) {};
     TranslatorCircuitBuilder& operator=(const TranslatorCircuitBuilder& other) = delete;
     TranslatorCircuitBuilder& operator=(TranslatorCircuitBuilder&& other) noexcept
     {
@@ -404,12 +424,12 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     }
 
     /**
-     * @brief Generate all the gates required to prove the correctness of batched evalution of polynomials representing
-     * commitments to ECCOpQueue
+     * @brief Generate all the gates required to prove the correctness of batched evalution of polynomials
+     * representing commitments to ECCOpQueue
      *
      * @param ecc_op_queue The queue
      */
-    void feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue> ecc_op_queue);
+    void feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue>& ecc_op_queue);
 
     static AccumulationInput generate_witness_values(const UltraOp& ultra_op,
                                                      const Fq& previous_accumulator,

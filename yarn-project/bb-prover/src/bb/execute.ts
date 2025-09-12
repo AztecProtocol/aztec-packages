@@ -10,15 +10,11 @@ import { basename, dirname, join } from 'path';
 import type { UltraHonkFlavor } from '../honk.js';
 
 export const VK_FILENAME = 'vk';
-export const VK_FIELDS_FILENAME = 'vk_fields.json';
 export const PUBLIC_INPUTS_FILENAME = 'public_inputs';
-export const PUBLIC_INPUTS_FIELDS_FILENAME = 'public_inputs_fields.json';
 export const PROOF_FILENAME = 'proof';
-export const PROOF_FIELDS_FILENAME = 'proof_fields.json';
 export const AVM_INPUTS_FILENAME = 'avm_inputs.bin';
 export const AVM_BYTECODE_FILENAME = 'avm_bytecode.bin';
 export const AVM_PUBLIC_INPUTS_FILENAME = 'avm_public_inputs.bin';
-export const CLIENT_IVC_PROOF_FILE_NAME = 'proof';
 
 export enum BB_RESULT {
   SUCCESS,
@@ -70,13 +66,23 @@ export function executeBB(
   command: string,
   args: string[],
   logger: LogFn,
+  concurrency?: number,
   timeout?: number,
   resultParser = (code: number) => code === 0,
 ): Promise<BBExecResult> {
   return new Promise<BBExecResult>(resolve => {
     // spawn the bb process
     const { HARDWARE_CONCURRENCY: _, ...envWithoutConcurrency } = process.env;
-    const env = process.env.HARDWARE_CONCURRENCY ? process.env : envWithoutConcurrency;
+
+    const env = envWithoutConcurrency;
+    // We prioritise the concurrency argument if provided and > 0
+    if (concurrency && concurrency > 0) {
+      env.HARDWARE_CONCURRENCY = concurrency.toString();
+    } else if (process.env.HARDWARE_CONCURRENCY) {
+      env.HARDWARE_CONCURRENCY = process.env.HARDWARE_CONCURRENCY;
+    }
+
+    logger(`BB concurrency: ${env.HARDWARE_CONCURRENCY}`);
     logger(`Executing BB with: ${pathToBB} ${command} ${args.join(' ')}`);
     const bb = proc.spawn(pathToBB, [command, ...args], {
       env,
@@ -207,10 +213,10 @@ export async function generateProof(
   workingDirectory: string,
   circuitName: string,
   bytecode: Buffer,
-  recursive: boolean,
+  verificationKey: Buffer,
   inputWitnessFile: string,
   flavor: UltraHonkFlavor,
-  log: LogFn,
+  log: Logger,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {
@@ -221,6 +227,7 @@ export async function generateProof(
 
   // The bytecode is written to e.g. /workingDirectory/BaseParityArtifact-bytecode
   const bytecodePath = `${workingDirectory}/${circuitName}-bytecode`;
+  const vkPath = `${workingDirectory}/${circuitName}-vk`;
 
   // The proof is written to e.g. /workingDirectory/ultra_honk/proof
   const outputPath = `${workingDirectory}`;
@@ -234,26 +241,28 @@ export async function generateProof(
   }
 
   try {
-    // Write the bytecode to the working directory
-    await fs.writeFile(bytecodePath, bytecode);
+    // Write the bytecode and vk to the working directory
+    await Promise.all([fs.writeFile(bytecodePath, bytecode), fs.writeFile(vkPath, verificationKey)]);
     const args = getArgs(flavor).concat([
-      '--output_format',
-      'bytes_and_fields',
-      '--write_vk',
+      '--disable_zk',
       '-o',
       outputPath,
       '-b',
       bytecodePath,
+      '-k',
+      vkPath,
       '-w',
       inputWitnessFile,
       '-v',
     ]);
-    if (recursive) {
-      args.push('--init_kzg_accumulator');
+    const loggingArg = log.level === 'debug' || log.level === 'trace' ? '-d' : log.level === 'verbose' ? '-v' : '';
+    if (loggingArg !== '') {
+      args.push(loggingArg);
     }
+
     const timer = new Timer();
     const logFunction = (message: string) => {
-      log(`${circuitName} BB out - ${message}`);
+      log.info(`${circuitName} BB out - ${message}`);
     };
     const result = await executeBB(pathToBB, `prove`, args, logFunction);
     const duration = timer.ms();
@@ -265,74 +274,6 @@ export async function generateProof(
         proofPath: `${outputPath}`,
         pkPath: undefined,
         vkDirectoryPath: `${outputPath}`,
-      };
-    }
-    // Not a great error message here but it is difficult to decipher what comes from bb
-    return {
-      status: BB_RESULT.FAILURE,
-      reason: `Failed to generate proof. Exit code ${result.exitCode}. Signal ${result.signal}.`,
-      retry: !!result.signal,
-    };
-  } catch (error) {
-    return { status: BB_RESULT.FAILURE, reason: `${error}` };
-  }
-}
-
-/**
- * Used for generating proofs of the tube circuit
- * It is assumed that the working directory is a temporary and/or random directory used solely for generating this proof.
- *
- * @returns An object containing a result indication, the location of the proof and the duration taken
- */
-export async function generateTubeProof(
-  pathToBB: string,
-  workingDirectory: string,
-  vkPath: string,
-  log: LogFn,
-): Promise<BBFailure | BBSuccess> {
-  // Check that the working directory exists
-  try {
-    await fs.access(workingDirectory);
-  } catch {
-    return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
-  }
-
-  // Paths for the inputs
-  const proofPath = join(workingDirectory, CLIENT_IVC_PROOF_FILE_NAME);
-
-  // The proof is written to e.g. /workingDirectory/proof
-  const outputPath = workingDirectory;
-  const filePresent = async (file: string) =>
-    await fs
-      .access(file, fs.constants.R_OK)
-      .then(_ => true)
-      .catch(_ => false);
-
-  const binaryPresent = await filePresent(pathToBB);
-  if (!binaryPresent) {
-    return { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
-  }
-
-  try {
-    if (!(await filePresent(proofPath))) {
-      return { status: BB_RESULT.FAILURE, reason: `Client IVC input files not present in  ${workingDirectory}` };
-    }
-    const args = ['-o', outputPath, '-k', vkPath, '-v'];
-
-    const timer = new Timer();
-    const logFunction = (message: string) => {
-      log(`TubeCircuit (prove) BB out - ${message}`);
-    };
-    const result = await executeBB(pathToBB, 'prove_tube', args, logFunction);
-    const durationMs = timer.ms();
-
-    if (result.status == BB_RESULT.SUCCESS) {
-      return {
-        status: BB_RESULT.SUCCESS,
-        durationMs,
-        proofPath: outputPath,
-        pkPath: undefined,
-        vkDirectoryPath: outputPath,
       };
     }
     // Not a great error message here but it is difficult to decipher what comes from bb
@@ -394,7 +335,7 @@ export async function generateAvmProof(
       return { status: BB_RESULT.FAILURE, reason: `Could not write avm inputs to ${avmInputsPath}` };
     }
 
-    const args = ['--avm-inputs', avmInputsPath, '-o', outputPath];
+    const args = checkCircuitOnly ? ['--avm-inputs', avmInputsPath] : ['--avm-inputs', avmInputsPath, '-o', outputPath];
     const loggingArg =
       logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '';
     if (loggingArg !== '') {
@@ -421,8 +362,8 @@ export async function generateAvmProof(
     // Not a great error message here but it is difficult to decipher what comes from bb
     return {
       status: BB_RESULT.FAILURE,
-      reason: `Failed to generate proof. Exit code ${result.exitCode}. Signal ${result.signal}.`,
-      retry: !!result.signal,
+      reason: `Failed to generate proof. AVM proof for TX hash ${input.hints.tx.hash}. Exit code ${result.exitCode}. Signal ${result.signal}.`,
+      retry: result.signal === 'SIGKILL', // retry on SIGKILL because the oomkiller might have stopped the process
     };
   } catch (error) {
     return { status: BB_RESULT.FAILURE, reason: `${error}` };
@@ -488,6 +429,7 @@ export async function verifyAvmProof(
  * @param pathToBB - The full path to the bb binary
  * @param targetPath - The path to the folder with the proof, accumulator, and verification keys
  * @param log - A logging function
+ * @param concurrency - The number of threads to use for the verification
  * @returns An object containing a result indication and duration taken
  */
 export async function verifyClientIvcProof(
@@ -495,6 +437,7 @@ export async function verifyClientIvcProof(
   proofPath: string,
   keyPath: string,
   log: LogFn,
+  concurrency = 1,
 ): Promise<BBFailure | BBSuccess> {
   const binaryPresent = await fs
     .access(pathToBB, fs.constants.R_OK)
@@ -508,7 +451,8 @@ export async function verifyClientIvcProof(
     const args = ['--scheme', 'client_ivc', '-p', proofPath, '-k', keyPath, '-v'];
     const timer = new Timer();
     const command = 'verify';
-    const result = await executeBB(pathToBB, command, args, log);
+
+    const result = await executeBB(pathToBB, command, args, log, concurrency);
     const duration = timer.ms();
     if (result.status == BB_RESULT.SUCCESS) {
       return { status: BB_RESULT.SUCCESS, durationMs: duration };
@@ -563,7 +507,7 @@ async function verifyProofInternal(
       const publicInputsFullPath = join(proofDir, '/public_inputs');
       logger.debug(`public inputs path: ${publicInputsFullPath}`);
 
-      args = ['-p', proofFullPath, '-k', verificationKeyPath, '-i', publicInputsFullPath, ...extraArgs];
+      args = ['-p', proofFullPath, '-k', verificationKeyPath, '-i', publicInputsFullPath, '--disable_zk', ...extraArgs];
     } else {
       args = ['-p', proofFullPath, '-k', verificationKeyPath, ...extraArgs];
     }

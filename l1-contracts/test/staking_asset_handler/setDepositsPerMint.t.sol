@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 import {StakingAssetHandlerBase} from "./base.t.sol";
 import {StakingAssetHandler, IStakingAssetHandler} from "@aztec/mock/StakingAssetHandler.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
+import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 
 // solhint-disable comprehensive-interface
 // solhint-disable func-name-mixedcase
@@ -37,10 +38,7 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
     stakingAssetHandler.setDepositsPerMint(0);
   }
 
-  function test_WhenDepositsPerMintIsNot0(uint256 _newDepositsPerMint)
-    external
-    whenCallerOfSetDepositsPerMintIsOwner
-  {
+  function test_WhenDepositsPerMintIsNot0(uint256 _newDepositsPerMint) external whenCallerOfSetDepositsPerMintIsOwner {
     _newDepositsPerMint = bound(_newDepositsPerMint, 1, 1000);
     // it sets the deposits per mint
     // it emits a {DepositsPerMintUpdated} event
@@ -51,6 +49,9 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
   }
 
   function test_WhenOwnerAddsValidators(uint256 _depositsPerMint) external {
+    // Always accept the fake proofs
+    setMockZKPassportVerifier();
+
     address caller = address(0xbeefdeef);
 
     // it can add up to the deposits per mint without minting
@@ -62,27 +63,29 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
 
     stakingAssetHandler.setDepositsPerMint(_depositsPerMint);
 
-    address rollup = stakingAssetHandler.getRollup();
-
     for (uint256 i = 0; i < _depositsPerMint; i++) {
       vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-      emit IStakingAssetHandler.ValidatorAdded(rollup, validators[i], WITHDRAWER);
+      emit IStakingAssetHandler.ValidatorAdded(address(staking), validators[i], WITHDRAWER);
       vm.prank(caller);
-      stakingAssetHandler.addValidator(validators[i]);
-    }
+      stakingAssetHandler.addValidator(
+        validators[i], validMerkleProof, realProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
+      );
 
-    uint256 lastMintTimestamp = stakingAssetHandler.lastMintTimestamp();
+      // Increase the unique identifier in our zkpassport proof such that the nullifier for each validator is different.
+      mockZKPassportVerifier.incrementUniqueIdentifier();
+    }
 
     emit log_named_uint("balance", stakingAsset.balanceOf(address(stakingAssetHandler)));
 
     // it reverts when adding one more validator
+    uint256 lastMintTimestamp = stakingAssetHandler.lastMintTimestamp();
     vm.expectRevert(
-      abi.encodeWithSelector(
-        IStakingAssetHandler.ValidatorQuotaFilledUntil.selector, lastMintTimestamp + mintInterval
-      )
+      abi.encodeWithSelector(IStakingAssetHandler.ValidatorQuotaFilledUntil.selector, lastMintTimestamp + mintInterval)
     );
     vm.prank(caller);
-    stakingAssetHandler.addValidator(address(0xbeefdeef));
+    stakingAssetHandler.addValidator(
+      address(0xbeefdeef), validMerkleProof, realProof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
+    );
 
     emit log_named_uint("balance", stakingAsset.balanceOf(address(stakingAssetHandler)));
   }

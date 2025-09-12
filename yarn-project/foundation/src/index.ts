@@ -24,6 +24,7 @@ export * as trees from './trees/index.js';
 export * as types from './types/index.js';
 export * as url from './url/index.js';
 export * as testing from './testing/index.js';
+export * as profiler from './profiler/index.js';
 export * as config from './config/index.js';
 export * as buffer from './buffer/index.js';
 export * as ethSignature from './eth-signature/index.js';

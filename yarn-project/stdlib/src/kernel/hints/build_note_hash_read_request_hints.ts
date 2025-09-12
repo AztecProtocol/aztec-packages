@@ -3,14 +3,13 @@ import {
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   type NOTE_HASH_TREE_HEIGHT,
 } from '@aztec/constants';
-import type { Tuple } from '@aztec/foundation/serialize';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 
+import type { ClaimedLengthArray } from '../claimed_length_array.js';
 import type { ScopedNoteHash } from '../note_hash.js';
-import { countAccumulatedItems, getNonEmptyItems } from '../utils/order_and_comparison.js';
 import { NoteHashReadRequestHintsBuilder } from './note_hash_read_request_hints.js';
 import type { ScopedReadRequest } from './read_request.js';
-import { PendingReadHint, ReadRequestResetStates, ReadRequestState } from './read_request_hints.js';
+import { PendingReadHint, ReadRequestActionEnum, ReadRequestResetActions } from './read_request_hints.js';
 import { ScopedValueCache } from './scoped_value_cache.js';
 
 export function isValidNoteHashReadRequest(readRequest: ScopedReadRequest, noteHash: ScopedNoteHash) {
@@ -21,15 +20,15 @@ export function isValidNoteHashReadRequest(readRequest: ScopedReadRequest, noteH
   );
 }
 
-export function getNoteHashReadRequestResetStates(
-  noteHashReadRequests: Tuple<ScopedReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
-  noteHashes: Tuple<ScopedNoteHash, typeof MAX_NOTE_HASHES_PER_TX>,
+export function getNoteHashReadRequestResetActions(
+  noteHashReadRequests: ClaimedLengthArray<ScopedReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
+  noteHashes: ClaimedLengthArray<ScopedNoteHash, typeof MAX_NOTE_HASHES_PER_TX>,
   futureNoteHashes: ScopedNoteHash[],
-): ReadRequestResetStates<typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX> {
-  const resetStates = ReadRequestResetStates.empty(MAX_NOTE_HASH_READ_REQUESTS_PER_TX);
+): ReadRequestResetActions<typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX> {
+  const resetActions = ReadRequestResetActions.empty(MAX_NOTE_HASH_READ_REQUESTS_PER_TX);
 
   const noteHashMap: Map<bigint, { noteHash: ScopedNoteHash; index: number }[]> = new Map();
-  getNonEmptyItems(noteHashes).forEach((noteHash, index) => {
+  noteHashes.getActiveItems().forEach((noteHash, index) => {
     const value = noteHash.value.toBigInt();
     const arr = noteHashMap.get(value) ?? [];
     arr.push({ noteHash, index });
@@ -38,49 +37,48 @@ export function getNoteHashReadRequestResetStates(
 
   const futureNoteHashMap = new ScopedValueCache(futureNoteHashes);
 
-  const numReadRequests = countAccumulatedItems(noteHashReadRequests);
-  for (let i = 0; i < numReadRequests; ++i) {
-    const readRequest = noteHashReadRequests[i];
+  for (let i = 0; i < noteHashReadRequests.claimedLength; ++i) {
+    const readRequest = noteHashReadRequests.array[i];
 
     const pendingNoteHash = noteHashMap
       .get(readRequest.value.toBigInt())
       ?.find(n => isValidNoteHashReadRequest(readRequest, n.noteHash));
 
     if (pendingNoteHash !== undefined) {
-      resetStates.states[i] = ReadRequestState.PENDING;
-      resetStates.pendingReadHints.push(new PendingReadHint(i, pendingNoteHash.index));
+      resetActions.actions[i] = ReadRequestActionEnum.READ_AS_PENDING;
+      resetActions.pendingReadHints.push(new PendingReadHint(i, pendingNoteHash.index));
     } else if (
       !futureNoteHashMap
         .get(readRequest)
         .find(futureNoteHash => isValidNoteHashReadRequest(readRequest, futureNoteHash))
     ) {
-      resetStates.states[i] = ReadRequestState.SETTLED;
+      resetActions.actions[i] = ReadRequestActionEnum.READ_AS_SETTLED;
     }
   }
 
-  return resetStates;
+  return resetActions;
 }
 
-export async function buildNoteHashReadRequestHintsFromResetStates<PENDING extends number, SETTLED extends number>(
+export async function buildNoteHashReadRequestHintsFromResetActions<PENDING extends number, SETTLED extends number>(
   oracle: {
     getNoteHashMembershipWitness(leafIndex: bigint): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>>;
   },
-  noteHashReadRequests: Tuple<ScopedReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
-  noteHashes: Tuple<ScopedNoteHash, typeof MAX_NOTE_HASHES_PER_TX>,
-  resetStates: ReadRequestResetStates<typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
+  noteHashReadRequests: ClaimedLengthArray<ScopedReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
+  noteHashes: ClaimedLengthArray<ScopedNoteHash, typeof MAX_NOTE_HASHES_PER_TX>,
+  resetActions: ReadRequestResetActions<typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
   noteHashLeafIndexMap: Map<bigint, bigint>,
   maxPending: PENDING = MAX_NOTE_HASH_READ_REQUESTS_PER_TX as PENDING,
   maxSettled: SETTLED = MAX_NOTE_HASH_READ_REQUESTS_PER_TX as SETTLED,
 ) {
   const builder = new NoteHashReadRequestHintsBuilder(maxPending, maxSettled);
 
-  resetStates.pendingReadHints.forEach(hint => {
+  resetActions.pendingReadHints.forEach(hint => {
     builder.addPendingReadRequest(hint.readRequestIndex, hint.pendingValueIndex);
   });
 
-  for (let i = 0; i < resetStates.states.length; i++) {
-    if (resetStates.states[i] === ReadRequestState.SETTLED) {
-      const readRequest = noteHashReadRequests[i];
+  for (let i = 0; i < resetActions.actions.length; i++) {
+    if (resetActions.actions[i] === ReadRequestActionEnum.READ_AS_SETTLED) {
+      const readRequest = noteHashReadRequests.array[i];
       const leafIndex = noteHashLeafIndexMap.get(readRequest.value.toBigInt());
       if (leafIndex === undefined) {
         throw new Error('Read request is reading an unknown note hash.');
@@ -91,7 +89,7 @@ export async function buildNoteHashReadRequestHintsFromResetStates<PENDING exten
   }
 
   const noteHashMap: Map<bigint, { noteHash: ScopedNoteHash; index: number }[]> = new Map();
-  getNonEmptyItems(noteHashes).forEach((noteHash, index) => {
+  noteHashes.getActiveItems().forEach((noteHash, index) => {
     const value = noteHash.value.toBigInt();
     const arr = noteHashMap.get(value) ?? [];
     arr.push({ noteHash, index });
@@ -105,19 +103,19 @@ export async function buildNoteHashReadRequestHints<PENDING extends number, SETT
   oracle: {
     getNoteHashMembershipWitness(leafIndex: bigint): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT>>;
   },
-  noteHashReadRequests: Tuple<ScopedReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
-  noteHashes: Tuple<ScopedNoteHash, typeof MAX_NOTE_HASHES_PER_TX>,
+  noteHashReadRequests: ClaimedLengthArray<ScopedReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
+  noteHashes: ClaimedLengthArray<ScopedNoteHash, typeof MAX_NOTE_HASHES_PER_TX>,
   noteHashLeafIndexMap: Map<bigint, bigint>,
   futureNoteHashes: ScopedNoteHash[],
   maxPending: PENDING = MAX_NOTE_HASH_READ_REQUESTS_PER_TX as PENDING,
   maxSettled: SETTLED = MAX_NOTE_HASH_READ_REQUESTS_PER_TX as SETTLED,
 ) {
-  const resetStates = getNoteHashReadRequestResetStates(noteHashReadRequests, noteHashes, futureNoteHashes);
-  return await buildNoteHashReadRequestHintsFromResetStates(
+  const resetActions = getNoteHashReadRequestResetActions(noteHashReadRequests, noteHashes, futureNoteHashes);
+  return await buildNoteHashReadRequestHintsFromResetActions(
     oracle,
     noteHashReadRequests,
     noteHashes,
-    resetStates,
+    resetActions,
     noteHashLeafIndexMap,
     maxPending,
     maxSettled,

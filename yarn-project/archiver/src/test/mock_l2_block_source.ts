@@ -5,10 +5,18 @@ import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2Block, L2BlockHash, type L2BlockSource, type L2Tips } from '@aztec/stdlib/block';
+import {
+  L2Block,
+  L2BlockHash,
+  type L2BlockSource,
+  type L2Tips,
+  PublishedL2Block,
+  type ValidateBlockResult,
+} from '@aztec/stdlib/block';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import { EmptyL1RollupConstants, type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import { type BlockHeader, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 /**
  * A mocked implementation of L2BlockSource to be used in tests.
@@ -105,15 +113,17 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
 
   public async getPublishedBlocks(from: number, limit: number, proven?: boolean) {
     const blocks = await this.getBlocks(from, limit, proven);
-    return blocks.map(block => ({
-      block,
-      l1: {
-        blockNumber: BigInt(block.number),
-        blockHash: Buffer32.random().toString(),
-        timestamp: BigInt(block.number),
-      },
-      attestations: [],
-    }));
+    return blocks.map(block =>
+      PublishedL2Block.fromFields({
+        block,
+        l1: {
+          blockNumber: BigInt(block.number),
+          blockHash: Buffer32.random().toString(),
+          timestamp: BigInt(block.number),
+        },
+        attestations: [],
+      }),
+    );
   }
 
   getBlockHeader(number: number | 'latest'): Promise<BlockHeader | undefined> {
@@ -150,7 +160,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return {
       data: txEffect,
       l2BlockNumber: block.number,
-      l2BlockHash: (await block.hash()).toString(),
+      l2BlockHash: L2BlockHash.fromField(await block.hash()),
       txIndexInBlock: block.body.txEffects.indexOf(txEffect),
     };
   }
@@ -218,6 +228,10 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   }
 
   getL1Constants(): Promise<L1RollupConstants> {
+    return Promise.resolve(EmptyL1RollupConstants);
+  }
+
+  getL1Timestamp(): Promise<bigint> {
     throw new Error('Method not implemented.');
   }
 
@@ -247,7 +261,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(undefined);
   }
 
-  getContract(_address: AztecAddress, _blockNumber?: number): Promise<ContractInstanceWithAddress | undefined> {
+  getContract(_address: AztecAddress, _timestamp?: UInt64): Promise<ContractInstanceWithAddress | undefined> {
     return Promise.resolve(undefined);
   }
 
@@ -259,11 +273,19 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(undefined);
   }
 
-  registerContractFunctionSignatures(_address: AztecAddress, _signatures: string[]): Promise<void> {
+  registerContractFunctionSignatures(_signatures: string[]): Promise<void> {
     return Promise.resolve();
   }
 
   syncImmediate(): Promise<void> {
     return Promise.resolve();
+  }
+
+  isPendingChainInvalid(): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+
+  getPendingChainValidationStatus(): Promise<ValidateBlockResult> {
+    return Promise.resolve({ valid: true });
   }
 }

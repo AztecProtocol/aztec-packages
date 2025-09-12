@@ -874,7 +874,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             }
 
             Builder builder;
-            ASSERT(points.size() == scalars.size());
+            ASSERT_EQ(points.size(), scalars.size());
 
             std::vector<element_ct> circuit_points;
             std::vector<scalar_ct> circuit_scalars;
@@ -933,7 +933,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             scalars.push_back(1);
 
             Builder builder;
-            ASSERT(points.size() == scalars.size());
+            ASSERT_EQ(points.size(), scalars.size());
             const size_t num_points = points.size();
 
             std::vector<element_ct> circuit_points;
@@ -982,7 +982,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             scalars.push_back(1);
 
             Builder builder;
-            ASSERT(points.size() == scalars.size());
+            ASSERT_EQ(points.size(), scalars.size());
             const size_t num_points = points.size();
 
             std::vector<element_ct> circuit_points;
@@ -1111,9 +1111,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             // scalar = -naf[254] + \sum_{i=0}^{253}(1-2*naf[i]) 2^{253-i}
             fr reconstructed_val(0);
             for (size_t i = 0; i < length; i++) {
-                reconstructed_val += (fr(1) - fr(2) * fr(naf[i].witness_bool)) * fr(uint256_t(1) << (length - 1 - i));
+                reconstructed_val += (fr(1) - fr(2) * fr(naf[i].get_value())) * fr(uint256_t(1) << (length - 1 - i));
             };
-            reconstructed_val -= fr(naf[length].witness_bool);
+            reconstructed_val -= fr(naf[length].get_value());
             EXPECT_EQ(scalar_val, reconstructed_val);
         }
 
@@ -1185,7 +1185,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             scalars.push_back(1);
 
             Builder builder;
-            ASSERT(points.size() == scalars.size());
+            ASSERT_EQ(points.size(), scalars.size());
             const size_t num_points = points.size();
 
             std::vector<element_ct> circuit_points;
@@ -1230,7 +1230,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             scalars.push_back(1);
 
             Builder builder;
-            ASSERT(points.size() == scalars.size());
+            ASSERT_EQ(points.size(), scalars.size());
             const size_t num_points = points.size();
 
             std::vector<element_ct> circuit_points;
@@ -1274,7 +1274,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             scalars.push_back(1);
 
             Builder builder;
-            ASSERT(points.size() == scalars.size());
+            ASSERT_EQ(points.size(), scalars.size());
             const size_t num_points = points.size();
 
             std::vector<element_ct> circuit_points;

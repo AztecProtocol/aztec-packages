@@ -13,15 +13,14 @@
  * to detect dangerous behaviours in-circuit. The mechanism is only enabled in DEBUG builds
  *
  */
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include <cstddef>
 #include <ostream>
 
 // Currently disabled, because there are violations of the tag invariant in the codebase everywhere.
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1409): Re-enable this once the tag invariant is restored.
-#define DISABLE_FREE_WITNESS_CHECK
-#define DISABLE_DIFFERENT_TRANSCRIPT_CHECKS
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1532): Re-enable this once we resolve these issues.
 #define DISABLE_CHILD_TAG_CHECKS
 
 // Disable origin tags in release builds
@@ -108,7 +107,7 @@ struct OriginTag {
         : parent_tag(parent_index)
         , child_tag((static_cast<uint256_t>(1) << (child_index + (is_submitted ? 0 : 128))))
     {
-        ASSERT(child_index < 128);
+        BB_ASSERT_LT(child_index, 128U);
     }
 
     /**

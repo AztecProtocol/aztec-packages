@@ -1,4 +1,4 @@
-import type { L2BlockId } from '@aztec/stdlib/block';
+import type { EthAddress, L2BlockId } from '@aztec/stdlib/block';
 import type { P2PApiFull } from '@aztec/stdlib/interfaces/server';
 import type { BlockProposal, P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
@@ -7,6 +7,12 @@ import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 
 import type { P2PConfig } from '../config.js';
+import type { AuthRequest, StatusMessage } from '../services/index.js';
+import type {
+  ReqRespSubProtocol,
+  ReqRespSubProtocolHandler,
+  ReqRespSubProtocolValidators,
+} from '../services/reqresp/interface.js';
 import type { P2PBlockReceivedCallback } from '../services/service.js';
 
 /**
@@ -60,13 +66,7 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
    * @param pinnedPeerId - An optional peer id that will be used to request the tx from (in addition to other random peers).
    * @returns A list of transactions or undefined if the transactions are not found.
    */
-  requestTxsByHash(txHashes: TxHash[], pinnedPeerId: PeerId): Promise<(Tx | undefined)[]>;
-
-  /**
-   * Request a transaction from another peer by its tx hash.
-   * @param txHash - Hash of the tx to query.
-   */
-  requestTxByHash(txHash: TxHash): Promise<Tx | undefined>;
+  requestTxsByHash(txHashes: TxHash[], pinnedPeerId: PeerId): Promise<Tx[]>;
 
   /**
    * Verifies the 'tx' and, if valid, adds it to local tx pool and forwards it to other peers.
@@ -108,13 +108,6 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
    * @returns True or False for each hash
    */
   hasTxsInPool(txHashes: TxHash[]): Promise<boolean[]>;
-
-  /**
-   * Returns a transaction in the transaction pool by its hash, requesting it from the network if it is not found.
-   * @param txHash  - Hash of tx to return.
-   * @returns A single tx or undefined.
-   */
-  getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
   /**
    * Returns transactions in the transaction pool by hash, requesting from the network if not found.
@@ -188,4 +181,15 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
 
   /** Clears the db. */
   clear(): Promise<void>;
+
+  addReqRespSubProtocol(
+    subProtocol: ReqRespSubProtocol,
+    handler: ReqRespSubProtocolHandler,
+    validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
+  ): Promise<void>;
+
+  handleAuthRequestFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage>;
+
+  /** If node running this P2P stack is validator, passes in validator address to P2P layer */
+  registerThisValidatorAddresses(address: EthAddress[]): void;
 };

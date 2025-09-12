@@ -1,137 +1,48 @@
 #include "api_ultra_honk.hpp"
 
-#include "barretenberg/api/acir_format_getters.hpp"
 #include "barretenberg/api/file_io.hpp"
-#include "barretenberg/api/gate_count.hpp"
-#include "barretenberg/api/write_prover_output.hpp"
+#include "barretenberg/api/get_bytecode.hpp"
+#include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
+#include "barretenberg/dsl/acir_proofs/honk_optimized_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_zk_contract.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/honk/types/aggregation_object_type.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include <iomanip>
+#include <optional>
+#include <sstream>
 
 namespace bb {
 
-template <typename Flavor, typename Circuit = typename Flavor::CircuitBuilder>
-Circuit _compute_circuit(const std::string& bytecode_path, const std::string& witness_path)
+namespace {
+
+void write_vk_outputs(const bbapi::CircuitComputeVk::Response& vk_response, const std::filesystem::path& output_dir)
 {
-    uint32_t honk_recursion = 0;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
-        honk_recursion = 1;
-    } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
-        honk_recursion = 2;
-    }
-#ifdef STARKNET_GARAGA_FLAVORS
-    if constexpr (IsAnyOf<Flavor, UltraStarknetFlavor, UltraStarknetZKFlavor>) {
-        honk_recursion = 1;
-    }
-#endif
-
-    const acir_format::ProgramMetadata metadata{ .honk_recursion = honk_recursion };
-    acir_format::AcirProgram program{ get_constraint_system(bytecode_path) };
-
-    if (!witness_path.empty()) {
-        program.witness = get_witness(witness_path);
-    }
-    return acir_format::create_circuit<Circuit>(program, metadata);
+    write_file(output_dir / "vk", vk_response.bytes);
+    info("VK saved to ", output_dir / "vk");
+    write_file(output_dir / "vk_hash", vk_response.hash);
+    info("VK Hash saved to ", output_dir / "vk_hash");
 }
 
-template <typename Flavor>
-UltraProver_<Flavor> _compute_prover(const std::string& bytecode_path, const std::string& witness_path)
+void write_proof_outputs(const bbapi::CircuitProve::Response& prove_response, const std::filesystem::path& output_dir)
 {
-    return UltraProver_<Flavor>{ _compute_circuit<Flavor>(bytecode_path, witness_path) };
+    auto public_inputs_buf = to_buffer(prove_response.public_inputs);
+    auto proof_buf = to_buffer(prove_response.proof);
+
+    write_file(output_dir / "public_inputs", public_inputs_buf);
+    write_file(output_dir / "proof", proof_buf);
+    info("Public inputs saved to ", output_dir / "public_inputs");
+    info("Proof saved to ", output_dir / "proof");
 }
 
-template <typename Flavor, typename VK = typename Flavor::VerificationKey>
-PubInputsProofAndKey<VK> _compute_vk(const std::filesystem::path& bytecode_path,
-                                     const std::filesystem::path& witness_path)
-{
-    auto prover = _compute_prover<Flavor>(bytecode_path.string(), witness_path.string());
-    return { PublicInputsVector{}, HonkProof{}, std::make_shared<VK>(prover.proving_key->proving_key) };
-}
-
-template <typename Flavor, typename VK = typename Flavor::VerificationKey>
-PubInputsProofAndKey<VK> _prove(const bool compute_vk,
-                                const std::filesystem::path& bytecode_path,
-                                const std::filesystem::path& witness_path)
-{
-    auto prover = _compute_prover<Flavor>(bytecode_path.string(), witness_path.string());
-    HonkProof concat_pi_and_proof = prover.construct_proof();
-    size_t num_inner_public_inputs = prover.proving_key->proving_key.num_public_inputs;
-    // Loose check that the public inputs contain a pairing point accumulator, doesn't catch everything.
-    BB_ASSERT_GTE(prover.proving_key->proving_key.num_public_inputs,
-                  PAIRING_POINTS_SIZE,
-                  "Public inputs should contain a pairing point accumulator.");
-    num_inner_public_inputs -= PAIRING_POINTS_SIZE;
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        BB_ASSERT_GTE(num_inner_public_inputs, IPA_CLAIM_SIZE, "Public inputs should contain an IPA claim.");
-        num_inner_public_inputs -= IPA_CLAIM_SIZE;
-    }
-    // We split the inner public inputs, which are stored at the front of the proof, from the rest of the proof. Now,
-    // the "proof" refers to everything except the inner public inputs.
-    PublicInputsAndProof public_inputs_and_proof{
-        PublicInputsVector(concat_pi_and_proof.begin(),
-                           concat_pi_and_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs)),
-        HonkProof(concat_pi_and_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs),
-                  concat_pi_and_proof.end())
-    };
-    return { public_inputs_and_proof.public_inputs,
-             public_inputs_and_proof.proof,
-             compute_vk ? std::make_shared<VK>(prover.proving_key->proving_key) : nullptr };
-}
-
-template <typename Flavor>
-bool _verify(const bool ipa_accumulation,
-             const std::filesystem::path& public_inputs_path,
-             const std::filesystem::path& proof_path,
-             const std::filesystem::path& vk_path)
-{
-    using VerificationKey = typename Flavor::VerificationKey;
-    using Verifier = UltraVerifier_<Flavor>;
-
-    auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
-    auto public_inputs = many_from_buffer<bb::fr>(read_file(public_inputs_path));
-    auto proof = many_from_buffer<bb::fr>(read_file(proof_path));
-    // concatenate public inputs and proof
-    std::vector<fr> complete_proof = public_inputs;
-    complete_proof.insert(complete_proof.end(), proof.begin(), proof.end());
-
-    std::shared_ptr<VerifierCommitmentKey<curve::Grumpkin>> ipa_verification_key;
-    if (ipa_accumulation) {
-        ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
-    }
-
-    Verifier verifier{ vk, ipa_verification_key };
-
-    bool verified;
-    if (ipa_accumulation) {
-        const size_t HONK_PROOF_LENGTH = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
-        const size_t num_public_inputs = static_cast<size_t>(vk->num_public_inputs);
-        // The extra calculation is for the IPA proof length.
-        BB_ASSERT_EQ(complete_proof.size(),
-                     HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs,
-                     "Honk proof has incorrect length while verifying.");
-        const std::ptrdiff_t honk_proof_with_pub_inputs_length =
-            static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
-        auto ipa_proof = HonkProof(complete_proof.begin() + honk_proof_with_pub_inputs_length, complete_proof.end());
-        auto tube_honk_proof =
-            HonkProof(complete_proof.begin(), complete_proof.begin() + honk_proof_with_pub_inputs_length);
-        verified = verifier.verify_proof(complete_proof, ipa_proof);
-    } else {
-        verified = verifier.verify_proof(complete_proof);
-    }
-
-    if (verified) {
-        info("Proof verified successfully");
-    } else {
-        info("Proof verification failed");
-    }
-
-    return verified;
-}
+} // anonymous namespace
 
 bool UltraHonkAPI::check([[maybe_unused]] const Flags& flags,
                          [[maybe_unused]] const std::filesystem::path& bytecode_path,
@@ -144,28 +55,41 @@ bool UltraHonkAPI::check([[maybe_unused]] const Flags& flags,
 void UltraHonkAPI::prove(const Flags& flags,
                          const std::filesystem::path& bytecode_path,
                          const std::filesystem::path& witness_path,
+                         const std::filesystem::path& vk_path,
                          const std::filesystem::path& output_dir)
 {
-    const auto _write = [&](auto&& _prove_output) {
-        write(_prove_output, flags.output_format, flags.write_vk ? "proof_and_vk" : "proof", output_dir);
-    };
+    BB_BENCH_NAME("UltraHonkAPI::prove");
+    // Validate output directory
+    if (output_dir == "-") {
+        throw_or_abort("Stdout output is not supported. Please specify an output directory.");
+    }
 
-    if (flags.ipa_accumulation) {
-        _write(_prove<UltraRollupFlavor>(flags.write_vk, bytecode_path, witness_path));
-    } else if (flags.oracle_hash_type == "poseidon2") {
-        _write(_prove<UltraFlavor>(flags.write_vk, bytecode_path, witness_path));
-    } else if (flags.oracle_hash_type == "keccak" && !flags.zk) {
-        _write(_prove<UltraKeccakFlavor>(flags.write_vk, bytecode_path, witness_path));
-    } else if (flags.oracle_hash_type == "keccak" && flags.zk) {
-        _write(_prove<UltraKeccakZKFlavor>(flags.write_vk, bytecode_path, witness_path));
-#ifdef STARKNET_GARAGA_FLAVORS
-    } else if (flags.oracle_hash_type == "starknet" && !flags.zk) {
-        _write(_prove<UltraStarknetFlavor>(flags.write_vk, bytecode_path, witness_path));
-    } else if (flags.oracle_hash_type == "starknet" && flags.zk) {
-        _write(_prove<UltraStarknetZKFlavor>(flags.write_vk, bytecode_path, witness_path));
-#endif
-    } else {
-        throw_or_abort("Invalid proving options specified in _prove");
+    // Convert flags to ProofSystemSettings
+    bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
+                                         .oracle_hash_type = flags.oracle_hash_type,
+                                         .disable_zk = flags.disable_zk };
+
+    // Read input files
+    auto bytecode = get_bytecode(bytecode_path);
+    auto witness = get_bytecode(witness_path);
+
+    // Handle VK
+    std::vector<uint8_t> vk_bytes;
+
+    if (!vk_path.empty() && !flags.write_vk) {
+        vk_bytes = read_file(vk_path);
+    }
+
+    // Prove
+    auto response = bbapi::CircuitProve{ .circuit = { .name = "circuit",
+                                                      .bytecode = std::move(bytecode),
+                                                      .verification_key = std::move(vk_bytes) },
+                                         .witness = std::move(witness),
+                                         .settings = std::move(settings) }
+                        .execute();
+    write_proof_outputs(response, output_dir);
+    if (flags.write_vk) {
+        write_vk_outputs(response.vk, output_dir);
     }
 }
 
@@ -174,33 +98,25 @@ bool UltraHonkAPI::verify(const Flags& flags,
                           const std::filesystem::path& proof_path,
                           const std::filesystem::path& vk_path)
 {
-    const bool ipa_accumulation = flags.ipa_accumulation;
-    if (ipa_accumulation) {
-        return _verify<UltraRollupFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
-    }
-    if (flags.zk) {
-        if (flags.oracle_hash_type == "keccak") {
-            return _verify<UltraKeccakZKFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
-        }
-#ifdef STARKNET_GARAGA_FLAVORS
-        if (flags.oracle_hash_type == "starknet") {
-            return _verify<UltraStarknetZKFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
-        }
-#endif
-        return false;
-    }
-    if (flags.oracle_hash_type == "poseidon2") {
-        return _verify<UltraFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
-    }
-    if (flags.oracle_hash_type == "keccak") {
-        return _verify<UltraKeccakFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
-    }
-#ifdef STARKNET_GARAGA_FLAVORS
-    if (flags.oracle_hash_type == "starknet") {
-        return _verify<UltraStarknetFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
-    }
-#endif
-    return false;
+    BB_BENCH_NAME("UltraHonkAPI::verify");
+    // Read input files
+    auto public_inputs = many_from_buffer<uint256_t>(read_file(public_inputs_path));
+    auto proof = many_from_buffer<uint256_t>(read_file(proof_path));
+    auto vk_bytes = read_file(vk_path);
+
+    // Convert flags to ProofSystemSettings
+    bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
+                                         .oracle_hash_type = flags.oracle_hash_type,
+                                         .disable_zk = flags.disable_zk };
+
+    // Execute verify command
+    auto response = bbapi::CircuitVerify{ .verification_key = std::move(vk_bytes),
+                                          .public_inputs = std::move(public_inputs),
+                                          .proof = std::move(proof),
+                                          .settings = settings }
+                        .execute();
+
+    return response.verified;
 }
 
 bool UltraHonkAPI::prove_and_verify([[maybe_unused]] const Flags& flags,
@@ -213,92 +129,108 @@ bool UltraHonkAPI::prove_and_verify([[maybe_unused]] const Flags& flags,
 
 void UltraHonkAPI::write_vk(const Flags& flags,
                             const std::filesystem::path& bytecode_path,
-                            const std::filesystem::path& output_path)
+                            const std::filesystem::path& output_dir)
 {
-    const auto _write = [&](auto&& _prove_output) { write(_prove_output, flags.output_format, "vk", output_path); };
-
-    if (flags.ipa_accumulation) {
-        _write(_compute_vk<UltraRollupFlavor>(bytecode_path, ""));
-    } else if (flags.oracle_hash_type == "poseidon2") {
-        _write(_compute_vk<UltraFlavor>(bytecode_path, ""));
-    } else if (flags.oracle_hash_type == "keccak" && !flags.zk) {
-        _write(_compute_vk<UltraKeccakFlavor>(bytecode_path, ""));
-#ifdef STARKNET_GARAGA_FLAVORS
-    } else if (flags.oracle_hash_type == "starknet" && !flags.zk) {
-        _write(_compute_vk<UltraStarknetFlavor>(bytecode_path, ""));
-    } else if (flags.oracle_hash_type == "starknet" && flags.zk) {
-        _write(_compute_vk<UltraStarknetZKFlavor>(bytecode_path, ""));
-#endif
-    } else if (flags.oracle_hash_type == "keccak" && flags.zk) {
-        _write(_compute_vk<UltraKeccakZKFlavor>(bytecode_path, ""));
-    } else {
-        throw_or_abort("Invalid proving options specified in _prove");
+    BB_BENCH_NAME("UltraHonkAPI::write_vk");
+    // Validate output directory
+    if (output_dir == "-") {
+        throw_or_abort("Stdout output is not supported. Please specify an output directory.");
     }
+
+    // Read bytecode
+    auto bytecode = get_bytecode(bytecode_path);
+
+    // Convert flags to ProofSystemSettings
+    bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
+                                         .oracle_hash_type = flags.oracle_hash_type,
+                                         .disable_zk = flags.disable_zk };
+
+    auto response = bbapi::CircuitComputeVk{ .circuit = { .name = "circuit", .bytecode = std::move(bytecode) },
+                                             .settings = settings }
+                        .execute();
+
+    write_vk_outputs(response, output_dir);
 }
 
 void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
                          [[maybe_unused]] const std::filesystem::path& bytecode_path)
 {
-    gate_count(bytecode_path, /*useless=*/false, flags.honk_recursion, flags.include_gates_per_opcode);
+    BB_BENCH_NAME("UltraHonkAPI::gates");
+    // Get the bytecode directly
+    auto bytecode = get_bytecode(bytecode_path);
+
+    // All circuit reports will be built into the string below
+    std::string functions_string = "{\"functions\": [\n  ";
+
+    // For now, treat the entire bytecode as a single circuit
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1074): Handle multi-circuit programs properly
+    // Convert flags to ProofSystemSettings
+    bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
+                                         .oracle_hash_type = flags.oracle_hash_type,
+                                         .disable_zk = flags.disable_zk };
+
+    // Execute CircuitStats command
+    auto response = bbapi::CircuitStats{ .circuit = { .name = "circuit", .bytecode = bytecode, .verification_key = {} },
+                                         .include_gates_per_opcode = flags.include_gates_per_opcode,
+                                         .settings = settings }
+                        .execute();
+
+    vinfo("Calculated circuit size in gate_count: ", response.num_gates);
+
+    // Build individual circuit report to match original gate_count output
+    std::string gates_per_opcode_str;
+    if (flags.include_gates_per_opcode) {
+        size_t i = 0;
+        for (size_t count : response.gates_per_opcode) {
+            if (i != 0) {
+                gates_per_opcode_str += ",";
+            }
+            gates_per_opcode_str += std::to_string(count);
+            i++;
+        }
+    }
+
+    // For now, we'll use the CircuitStats response which includes circuit statistics
+    // The num_acir_opcodes is not directly available from bytecode alone
+    auto result_string = format(
+        "{\n        \"acir_opcodes\": ",
+        response.num_acir_opcodes,
+        ",\n        \"circuit_size\": ",
+        response.num_gates,
+        (flags.include_gates_per_opcode ? format(",\n        \"gates_per_opcode\": [", gates_per_opcode_str, "]") : ""),
+        "\n  }");
+
+    functions_string = format(functions_string, result_string);
+    std::cout << format(functions_string, "\n]}");
 }
 
 void UltraHonkAPI::write_solidity_verifier(const Flags& flags,
                                            const std::filesystem::path& output_path,
                                            const std::filesystem::path& vk_path)
 {
-    using VK = UltraKeccakFlavor::VerificationKey;
-    auto vk = std::make_shared<VK>(from_buffer<VK>(read_file(vk_path)));
-    std::string contract = flags.zk ? get_honk_zk_solidity_verifier(vk) : get_honk_solidity_verifier(vk);
+    BB_BENCH_NAME("UltraHonkAPI::write_solidity_verifier");
+    // Read VK file
+    auto vk_bytes = read_file(vk_path);
 
+    // Convert flags to ProofSystemSettings
+    bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
+                                         .oracle_hash_type = flags.oracle_hash_type,
+                                         .disable_zk = flags.disable_zk,
+                                         .optimized_solidity_verifier = flags.optimized_solidity_verifier };
+
+    // Execute solidity verifier command
+    auto response = bbapi::CircuitWriteSolidityVerifier{ .verification_key = vk_bytes, .settings = settings }.execute();
+
+    // Write output
     if (output_path == "-") {
-        std::cout << contract;
+        std::cout << response.solidity_code;
     } else {
-        write_file(output_path, { contract.begin(), contract.end() });
-        info("Solidity verifier saved to ", output_path);
+        write_file(output_path, { response.solidity_code.begin(), response.solidity_code.end() });
+        if (flags.disable_zk) {
+            info("Honk solidity verifier saved to ", output_path);
+        } else {
+            info("ZK Honk solidity verifier saved to ", output_path);
+        }
     }
 }
-
-template <typename Flavor>
-void write_recursion_inputs_ultra_honk(const std::string& bytecode_path,
-                                       const std::string& witness_path,
-                                       const std::string& output_path)
-{
-    using Builder = typename Flavor::CircuitBuilder;
-    using Prover = UltraProver_<Flavor>;
-    using VerificationKey = typename Flavor::VerificationKey;
-    using FF = typename Flavor::FF;
-
-    uint32_t honk_recursion = 0;
-    bool ipa_accumulation = false;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
-        honk_recursion = 1;
-    } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
-        honk_recursion = 2;
-        ipa_accumulation = true;
-    }
-    const acir_format::ProgramMetadata metadata{ .honk_recursion = honk_recursion };
-
-    acir_format::AcirProgram program;
-    program.constraints = get_constraint_system(bytecode_path);
-    program.witness = get_witness(witness_path);
-    auto builder = acir_format::create_circuit<Builder>(program, metadata);
-
-    Prover prover{ builder };
-    std::vector<FF> proof = prover.construct_proof();
-    VerificationKey verification_key(prover.proving_key->proving_key);
-
-    const std::string toml_content =
-        acir_format::ProofSurgeon::construct_recursion_inputs_toml_data(proof, verification_key, ipa_accumulation);
-
-    const std::string toml_path = output_path + "/Prover.toml";
-    write_file(toml_path, { toml_content.begin(), toml_content.end() });
-}
-
-template void write_recursion_inputs_ultra_honk<UltraFlavor>(const std::string& bytecode_path,
-                                                             const std::string& witness_path,
-                                                             const std::string& output_path);
-
-template void write_recursion_inputs_ultra_honk<UltraRollupFlavor>(const std::string& bytecode_path,
-                                                                   const std::string& witness_path,
-                                                                   const std::string& output_path);
 } // namespace bb

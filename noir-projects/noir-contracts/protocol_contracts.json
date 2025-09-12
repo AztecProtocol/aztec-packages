@@ -1,7 +1,7 @@
 [
   "auth_registry_contract-AuthRegistry",
-  "contract_instance_deployer_contract-ContractInstanceDeployer",
-  "contract_class_registerer_contract-ContractClassRegisterer",
+  "contract_instance_registry-ContractInstanceRegistry",
+  "contract_class_registry-ContractClassRegistry",
   "multi_call_entrypoint_contract-MultiCallEntrypoint",
   "fee_juice_contract-FeeJuice",
   "router_contract-Router"

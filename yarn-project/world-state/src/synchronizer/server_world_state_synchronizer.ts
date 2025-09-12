@@ -53,7 +53,7 @@ export class ServerWorldStateSynchronizer
   private syncPromise = promiseWithResolvers<void>();
   protected blockStream: L2BlockStream | undefined;
 
-  // WorldState doesn't track the proven block number, it only tracks the latest tips of the pending chain and the finalised chain
+  // WorldState doesn't track the proven block number, it only tracks the latest tips of the pending chain and the finalized chain
   // store the proven block number here, in the synchronizer, so that we don't end up spamming the logs with 'chain-proved' events
   private provenBlockNumber: bigint | undefined;
 
@@ -147,9 +147,9 @@ export class ServerWorldStateSynchronizer
   public async status(): Promise<WorldStateSynchronizerStatus> {
     const summary = await this.merkleTreeDb.getStatusSummary();
     const status: WorldStateSyncStatus = {
-      latestBlockNumber: Number(summary.unfinalisedBlockNumber),
-      latestBlockHash: (await this.getL2BlockHash(Number(summary.unfinalisedBlockNumber))) ?? '',
-      finalisedBlockNumber: Number(summary.finalisedBlockNumber),
+      latestBlockNumber: Number(summary.unfinalizedBlockNumber),
+      latestBlockHash: (await this.getL2BlockHash(Number(summary.unfinalizedBlockNumber))) ?? '',
+      finalizedBlockNumber: Number(summary.finalizedBlockNumber),
       oldestHistoricBlockNumber: Number(summary.oldestHistoricalBlock),
       treesAreSynched: summary.treesAreSynched,
     };
@@ -185,8 +185,12 @@ export class ServerWorldStateSynchronizer
    * @returns A promise that resolves with the block number the world state was synced to
    */
   public async syncImmediate(targetBlockNumber?: number, skipThrowIfTargetNotReached?: boolean): Promise<number> {
-    if (this.currentState !== WorldStateRunningState.RUNNING || this.blockStream === undefined) {
+    if (this.currentState !== WorldStateRunningState.RUNNING) {
       throw new Error(`World State is not running. Unable to perform sync.`);
+    }
+
+    if (this.blockStream === undefined) {
+      throw new Error('Block stream is not initialized. Unable to perform sync.');
     }
 
     // If we have been given a block number to sync to and we have reached that number then return
@@ -246,13 +250,13 @@ export class ServerWorldStateSynchronizer
   /** Returns the latest L2 block number for each tip of the chain (latest, proven, finalized). */
   public async getL2Tips(): Promise<L2Tips> {
     const status = await this.merkleTreeDb.getStatusSummary();
-    const unfinalisedBlockHash = await this.getL2BlockHash(Number(status.unfinalisedBlockNumber));
-    const latestBlockId: L2BlockId = { number: Number(status.unfinalisedBlockNumber), hash: unfinalisedBlockHash! };
+    const unfinalizedBlockHash = await this.getL2BlockHash(Number(status.unfinalizedBlockNumber));
+    const latestBlockId: L2BlockId = { number: Number(status.unfinalizedBlockNumber), hash: unfinalizedBlockHash! };
 
     return {
       latest: latestBlockId,
-      finalized: { number: Number(status.finalisedBlockNumber), hash: '' },
-      proven: { number: Number(this.provenBlockNumber ?? status.finalisedBlockNumber), hash: '' }, // TODO(palla/reorg): Using finalised as proven for now
+      finalized: { number: Number(status.finalizedBlockNumber), hash: '' },
+      proven: { number: Number(this.provenBlockNumber ?? status.finalizedBlockNumber), hash: '' }, // TODO(palla/reorg): Using finalized as proven for now
     };
   }
 
@@ -282,7 +286,7 @@ export class ServerWorldStateSynchronizer
   private async handleL2Blocks(l2Blocks: L2Block[]) {
     this.log.trace(`Handling L2 blocks ${l2Blocks[0].number} to ${l2Blocks.at(-1)!.number}`);
 
-    const messagePromises = l2Blocks.map(block => this.l2BlockSource.getL1ToL2Messages(BigInt(block.number)));
+    const messagePromises = l2Blocks.map(block => this.l2BlockSource.getL1ToL2Messages(block.number));
     const l1ToL2Messages: Fr[][] = await Promise.all(messagePromises);
     let updateStatus: WorldStateStatusFull | undefined = undefined;
 
@@ -291,8 +295,8 @@ export class ServerWorldStateSynchronizer
       this.log.info(`World state updated with L2 block ${l2Blocks[i].number}`, {
         eventName: 'l2-block-handled',
         duration,
-        unfinalisedBlockNumber: result.summary.unfinalisedBlockNumber,
-        finalisedBlockNumber: result.summary.finalisedBlockNumber,
+        unfinalizedBlockNumber: result.summary.unfinalizedBlockNumber,
+        finalizedBlockNumber: result.summary.finalizedBlockNumber,
         oldestHistoricBlock: result.summary.oldestHistoricalBlock,
         ...l2Blocks[i].getStats(),
       } satisfies L2BlockHandledStats);
@@ -335,11 +339,11 @@ export class ServerWorldStateSynchronizer
 
   private async handleChainFinalized(blockNumber: number) {
     this.log.verbose(`Finalized chain is now at block ${blockNumber}`);
-    const summary = await this.merkleTreeDb.setFinalised(BigInt(blockNumber));
+    const summary = await this.merkleTreeDb.setFinalized(BigInt(blockNumber));
     if (this.historyToKeep === undefined) {
       return;
     }
-    const newHistoricBlock = summary.finalisedBlockNumber - BigInt(this.historyToKeep) + 1n;
+    const newHistoricBlock = summary.finalizedBlockNumber - BigInt(this.historyToKeep) + 1n;
     if (newHistoricBlock <= 1) {
       return;
     }
@@ -377,7 +381,7 @@ export class ServerWorldStateSynchronizer
    * @param inHash - The inHash of the block.
    * @throws If the L1 to L2 messages do not hash to the block inHash.
    */
-  protected async verifyMessagesHashToInHash(l1ToL2Messages: Fr[], inHash: Buffer) {
+  protected async verifyMessagesHashToInHash(l1ToL2Messages: Fr[], inHash: Fr) {
     const treeCalculator = await MerkleTreeCalculator.create(
       L1_TO_L2_MSG_SUBTREE_HEIGHT,
       Buffer.alloc(32),
@@ -386,7 +390,7 @@ export class ServerWorldStateSynchronizer
 
     const root = await treeCalculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer()));
 
-    if (!root.equals(inHash)) {
+    if (!root.equals(inHash.toBuffer())) {
       throw new Error('Obtained L1 to L2 messages failed to be hashed to the block inHash');
     }
   }

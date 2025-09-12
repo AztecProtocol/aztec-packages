@@ -38,5 +38,5 @@ COPY --from=build /usr/src/yarn-project/node_modules /usr/src/yarn-project/node_
 # walk up the tree as part of module resolution. The supposedly idiomatic way of supporting module resolution
 # correctly for portalled packages, is to use --preserve-symlinks when running node.
 # However I noticed --preserve-symlinks causes duplication of portalled instances such as bb.js, breaking the singleton
-# logic by initialising the module more than once. So at present I don't see a viable alternative.
+# logic by initializing the module more than once. So at present I don't see a viable alternative.
 RUN ln -s /usr/src/yarn-project/node_modules /usr/src/node_modules

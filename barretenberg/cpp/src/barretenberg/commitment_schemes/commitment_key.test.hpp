@@ -20,57 +20,107 @@ namespace bb {
 constexpr size_t COMMITMENT_TEST_NUM_BN254_POINTS = 4096;
 constexpr size_t COMMITMENT_TEST_NUM_GRUMPKIN_POINTS = 1 << CONST_ECCVM_LOG_N;
 
-template <class CK> inline std::shared_ptr<CK> create_commitment_key(const size_t num_points = 0);
+template <class Curve> class UnivariateClaimData {
+    using Fr = typename Curve::ScalarField;
+    using Commitment = typename Curve::AffineElement;
+    using Polynomial = bb::Polynomial<Fr>;
+    using OpeningPair = OpeningPair<Curve>;
+
+  public:
+    Polynomial poly;
+    Commitment commitment;
+    OpeningPair opening_pair;
+
+    UnivariateClaimData(Polynomial& poly, Commitment& commitment, OpeningPair& opening_pair)
+        : poly(poly)
+        , commitment(commitment)
+        , opening_pair(opening_pair)
+    {}
+
+    ProverOpeningClaim<Curve> prover_opening_claim() const { return { poly, opening_pair }; }
+
+    OpeningClaim<Curve> verifier_opening_claim() const { return { opening_pair, commitment }; }
+
+    Commitment polynomial_commiment() const { return commitment; };
+
+    static std::vector<ProverOpeningClaim<Curve>> prover_opening_claims(
+        const std::vector<UnivariateClaimData>& claim_data)
+    {
+        std::vector<ProverOpeningClaim<Curve>> prover_claims;
+        for (const auto& claim : claim_data) {
+            prover_claims.emplace_back(claim.prover_opening_claim());
+        }
+
+        return prover_claims;
+    }
+
+    static std::vector<OpeningClaim<Curve>> verifier_opening_claims(const std::vector<UnivariateClaimData>& claim_data)
+    {
+        std::vector<OpeningClaim<Curve>> verifier_claims;
+        for (const auto& claim : claim_data) {
+            verifier_claims.emplace_back(claim.verifier_opening_claim());
+        }
+
+        return verifier_claims;
+    }
+
+    static std::vector<Commitment> polynomial_commitments(const std::vector<UnivariateClaimData>& claim_data)
+    {
+        std::vector<Commitment> commitments;
+        for (const auto& claim : claim_data) {
+            commitments.emplace_back(claim.polynomial_commiment());
+        }
+
+        return commitments;
+    }
+};
+
+template <class CK> CK create_commitment_key(const size_t num_points = 0);
 
 template <>
-inline std::shared_ptr<CommitmentKey<curve::BN254>> create_commitment_key<CommitmentKey<curve::BN254>>(
-    const size_t num_points)
+inline CommitmentKey<curve::BN254> create_commitment_key<CommitmentKey<curve::BN254>>(const size_t num_points)
 {
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     if (num_points != 0) {
-        return std::make_shared<CommitmentKey<curve::BN254>>(num_points);
+        return CommitmentKey<curve::BN254>(num_points);
     };
-    return std::make_shared<CommitmentKey<curve::BN254>>(COMMITMENT_TEST_NUM_BN254_POINTS);
+    return CommitmentKey<curve::BN254>(COMMITMENT_TEST_NUM_BN254_POINTS);
 }
 // For IPA
 template <>
-inline std::shared_ptr<CommitmentKey<curve::Grumpkin>> create_commitment_key<CommitmentKey<curve::Grumpkin>>(
-    const size_t num_points)
+inline CommitmentKey<curve::Grumpkin> create_commitment_key<CommitmentKey<curve::Grumpkin>>(const size_t num_points)
 {
     srs::init_file_crs_factory(bb::srs::bb_crs_path());
     if (num_points != 0) {
-        return std::make_shared<CommitmentKey<curve::Grumpkin>>(num_points);
+        return CommitmentKey<curve::Grumpkin>(num_points);
     }
-    return std::make_shared<CommitmentKey<curve::Grumpkin>>(COMMITMENT_TEST_NUM_GRUMPKIN_POINTS);
+    return CommitmentKey<curve::Grumpkin>(COMMITMENT_TEST_NUM_GRUMPKIN_POINTS);
 }
 
-template <typename CK> inline std::shared_ptr<CK> create_commitment_key(size_t num_points)
+template <typename CK> inline CK create_commitment_key(size_t num_points)
 // requires std::default_initializable<CK>
 {
-    return std::make_shared<CK>(num_points);
+    return CK(num_points);
 }
 
-template <class VK> inline std::shared_ptr<VK> create_verifier_commitment_key();
+template <class VK> inline VK create_verifier_commitment_key();
 
 template <>
-inline std::shared_ptr<VerifierCommitmentKey<curve::BN254>> create_verifier_commitment_key<
-    VerifierCommitmentKey<curve::BN254>>()
+inline VerifierCommitmentKey<curve::BN254> create_verifier_commitment_key<VerifierCommitmentKey<curve::BN254>>()
 {
-    return std::make_shared<VerifierCommitmentKey<curve::BN254>>();
+    return VerifierCommitmentKey<curve::BN254>();
 }
 // For IPA
 template <>
-inline std::shared_ptr<VerifierCommitmentKey<curve::Grumpkin>> create_verifier_commitment_key<
-    VerifierCommitmentKey<curve::Grumpkin>>()
+inline VerifierCommitmentKey<curve::Grumpkin> create_verifier_commitment_key<VerifierCommitmentKey<curve::Grumpkin>>()
 {
     srs::init_file_crs_factory(bb::srs::bb_crs_path());
-    return std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(COMMITMENT_TEST_NUM_GRUMPKIN_POINTS,
-                                                                    srs::get_grumpkin_crs_factory());
+    return VerifierCommitmentKey<curve::Grumpkin>(COMMITMENT_TEST_NUM_GRUMPKIN_POINTS, srs::get_grumpkin_crs_factory());
 }
-template <typename VK> inline std::shared_ptr<VK> create_verifier_commitment_key()
+template <typename VK> VK create_verifier_commitment_key()
 // requires std::default_initializable<VK>
 {
-    return std::make_shared<VK>();
+    return VK();
 }
 template <typename Curve> class CommitmentTest : public ::testing::Test {
     using CK = CommitmentKey<Curve>;
@@ -85,12 +135,14 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
         : engine{ &numeric::get_randomness() }
     {}
 
-    std::shared_ptr<CK> ck() { return commitment_key; }
-    std::shared_ptr<VK> vk() { return verification_key; }
+    const CK& ck() { return commitment_key; }
+    VK& vk() { return verification_key; }
 
-    Commitment commit(const Polynomial& polynomial) { return commitment_key->commit(polynomial); }
+    Commitment commit(const Polynomial& polynomial) { return commitment_key.commit(polynomial); }
 
     Fr random_element() { return Fr::random_element(engine); }
+
+    Polynomial random_polynomial(const size_t poly_size) { return Polynomial::random(poly_size); }
 
     OpeningPair<Curve> random_eval(const Polynomial& polynomial)
     {
@@ -110,7 +162,7 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
 
     void verify_opening_claim(const OpeningClaim<Curve>& claim,
                               const Polynomial& witness,
-                              const std::shared_ptr<CommitmentKey<Curve>>& ck = nullptr)
+                              CommitmentKey<Curve> ck = CommitmentKey<Curve>())
     {
         auto& commitment = claim.commitment;
         auto& [x, y] = claim.opening_pair;
@@ -118,10 +170,10 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
         EXPECT_EQ(y, y_expected) << "OpeningClaim: evaluations mismatch";
         Commitment commitment_expected;
 
-        if (!ck) {
+        if (!ck.srs) {
             commitment_expected = commit(witness);
         } else {
-            commitment_expected = ck->commit(witness);
+            commitment_expected = ck.commit(witness);
         }
 
         EXPECT_EQ(commitment, commitment_expected) << "OpeningClaim: commitment mismatch";
@@ -165,6 +217,61 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
         }
     }
 
+    // Generate random claim data
+    std::vector<UnivariateClaimData<Curve>> generate_claim_data(const std::vector<size_t>& poly_sizes)
+    {
+        const size_t num_claims = poly_sizes.size();
+        std::vector<UnivariateClaimData<Curve>> claims;
+        claims.reserve(num_claims);
+        for (const auto& poly_size : poly_sizes) {
+            auto r = this->random_element();
+            auto poly = this->random_polynomial(poly_size);
+            auto eval = poly.evaluate(r);
+            auto commitment = this->commit(poly);
+
+            OpeningPair<Curve> opening_pair(r, eval);
+            UnivariateClaimData<Curve> claim(poly, commitment, opening_pair);
+            claims.emplace_back(claim);
+        }
+
+        return claims;
+    }
+
+    // Linearly combine multiple claims and append new claim
+    std::pair<std::vector<Fr>, std::vector<Fr>> combine_claims(std::vector<UnivariateClaimData<Curve>>& claims)
+    {
+        const size_t num_claims = claims.size();
+        size_t max_poly_size = 0;
+
+        // Generate random coefficients and find max poly size
+        std::vector<Fr> coefficients;
+        coefficients.reserve(num_claims);
+        for (size_t idx = 0; idx < num_claims; idx++) {
+            coefficients.emplace_back(this->random_element());
+            max_poly_size = std::max(max_poly_size, claims[idx].poly.size());
+        }
+        // Generate random linear combination
+        auto challenge = this->random_element();
+        Polynomial linear_combination(max_poly_size);
+        Fr eval = 0;
+        std::vector<Fr> evals;
+        evals.reserve(num_claims);
+        for (const auto& [coeff, claim] : zip_view(coefficients, claims)) {
+            linear_combination.add_scaled(claim.poly, coeff);
+            // Compute evaluation
+            auto tmp = claim.poly.evaluate(challenge);
+            evals.emplace_back(tmp);
+            eval += coeff * tmp;
+        }
+
+        Commitment commitment = this->commit(linear_combination);
+        OpeningPair<Curve> opening_pair(challenge, eval);
+        UnivariateClaimData<Curve> new_claim(linear_combination, commitment, opening_pair);
+        claims.emplace_back(new_claim);
+
+        return std::make_pair(coefficients, evals);
+    }
+
     numeric::RNG* engine;
 
     // Per-test-suite set-up.
@@ -173,10 +280,10 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
     static void SetUpTestSuite()
     {
         // Avoid reallocating static objects if called in subclasses of FooTest.
-        if (commitment_key == nullptr) {
+        if (!commitment_key.initialized()) {
             commitment_key = create_commitment_key<CK>();
         }
-        if (verification_key == nullptr) {
+        if (!verification_key.initialized()) {
             verification_key = create_verifier_commitment_key<VK>();
         }
     }
@@ -186,14 +293,12 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
     // Can be omitted if not needed.
     static void TearDownTestSuite() {}
 
-    static typename std::shared_ptr<CK> commitment_key;
-    static typename std::shared_ptr<VK> verification_key;
+    static CK commitment_key;
+    static VK verification_key;
 };
 
-template <typename Curve>
-typename std::shared_ptr<CommitmentKey<Curve>> CommitmentTest<Curve>::commitment_key = nullptr;
-template <typename Curve>
-typename std::shared_ptr<VerifierCommitmentKey<Curve>> CommitmentTest<Curve>::verification_key = nullptr;
+template <typename Curve> CommitmentKey<Curve> CommitmentTest<Curve>::commitment_key;
+template <typename Curve> VerifierCommitmentKey<Curve> CommitmentTest<Curve>::verification_key;
 
 using CommitmentSchemeParams = ::testing::Types<curve::BN254>;
 using IpaCommitmentSchemeParams = ::testing::Types<curve::Grumpkin>;

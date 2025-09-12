@@ -4,9 +4,21 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
-export native_preset=${NATIVE_PRESET:-clang16-assert}
-export pic_preset=${PIC_PRESET:-clang16-pic-assert}
+export native_preset=${NATIVE_PRESET:-clang20}
+export pic_preset=${PIC_PRESET:-clang20-pic}
 export hash=$(cache_content_hash .rebuild_patterns)
+
+if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
+  # Enable AVM for release builds (when REF_NAME is a valid semver), disable for CI/PR builds
+  if ! semver check "${REF_NAME:-}"; then
+    export DISABLE_AZTEC_VM=1
+  fi
+fi
+
+if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
+  # Make sure the different envs don't read from each other's caches.
+  export hash="$hash-no-avm"
+fi
 
 # Injects version number into a given bb binary.
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
@@ -35,7 +47,8 @@ function inject_version {
 function build_preset() {
   local preset=$1
   shift
-  cmake --fresh --preset "$preset"
+  # DISABLE_AZTEC_VM is set to 1 in CI for arm64, or in dev usage if you export DISABLE_AZTEC_VM=1
+  cmake --fresh --preset "$preset" ${DISABLE_AZTEC_VM:+-DDISABLE_AZTEC_VM=$DISABLE_AZTEC_VM}
   cmake --build --preset "$preset" "$@"
 }
 
@@ -134,6 +147,19 @@ function build_fuzzing_syntax_check_only {
   cache_upload barretenberg-fuzzing-$hash.zst build-fuzzing/syntax-check-success.flag
 }
 
+# Do basic tests that the smt preset still compiles and runs
+function build_smt_verification {
+  set -eu
+  if cache_download barretenberg-smt-$hash.zst; then
+    return
+  fi
+
+  sudo apt update && sudo apt install -y python3-pip python3-venv m4
+  cmake --preset smt-verification
+  cmake --build build-smt --target smt_verification_tests
+  cache_upload barretenberg-smt-$hash.zst build-smt
+}
+
 function build_release {
   local arch=$(arch)
   rm -rf build-release
@@ -152,7 +178,7 @@ function build_release {
   fi
 }
 
-export -f build_preset build_native build_asan_fast build_darwin build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only
+export -f build_preset build_native build_asan_fast build_darwin build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
 
 function build {
   echo_header "bb cpp build"
@@ -163,7 +189,7 @@ function build {
     build_wasm_threads
   )
   if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
-    builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast)
+    builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast build_smt_verification)
   fi
   if [ "$CI_FULL" -eq 1 ]; then
     builds+=(build_darwin)
@@ -212,48 +238,49 @@ function test_cmds {
       echo -e "$prefix barretenberg/cpp/build-asan-fast/bin/$bin_name --gtest_filter=$filter"
     done
   fi
+
+  # Run the SMT compatibility tests
+  if [ "$(arch)" == "amd64" ] &&  [ "$CI" -eq 1 ]; then
+    local prefix="$hash:CPUS=4:MEM=8g"
+    echo -e "$prefix barretenberg/cpp/build-smt/bin/smt_verification_tests"
+  fi
+
   echo "$hash barretenberg/cpp/scripts/test_civc_standalone_vks_havent_changed.sh"
 }
 
 # This is not called in ci. It is just for a developer to run the tests.
 function test {
   echo_header "bb test"
-  test_cmds | filter_test_cmds | parallelise
+  test_cmds | filter_test_cmds | parallelize
 }
 
 function build_bench {
   set -eu
   if ! cache_download barretenberg-benchmarks-$hash.zst; then
     # Run builds in parallel with different targets per preset
-    # bb_cli_bench is later used in yarn-project.
     parallel --line-buffered denoise ::: \
-      "build_preset $native_preset --target ultra_honk_bench --target client_ivc_bench --target bb_cli_bench" \
-      "build_preset wasm-threads --target ultra_honk_bench --target client_ivc_bench --target bb_cli_bench"
+      "build_preset $native_preset --target ultra_honk_bench --target client_ivc_bench --target bb --target honk_solidity_proof_gen" \
+      "build_preset wasm-threads --target ultra_honk_bench --target client_ivc_bench --target bb"
     cache_upload barretenberg-benchmarks-$hash.zst \
-      {build,build-wasm-threads}/bin/{ultra_honk_bench,client_ivc_bench,bb_cli_bench}
+      {build,build-wasm-threads}/bin/{ultra_honk_bench,client_ivc_bench,bb}
   fi
 }
 
 function bench_cmds {
-  prefix="$hash:CPUS=16"
-  # arch name bin filter
-  benches=(
-    "native bb-micro-bench/native/ultra_honk build/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
-    "native bb-micro-bench/native/client_ivc build/bin/client_ivc_bench ClientIVCBench/Full/6$"
-    "native bb-micro-bench/native/client_ivc_17_in_20 build/bin/client_ivc_bench ClientIVCBench/Ambient_17_in_20/6$"
-    "wasm bb-micro-bench/wasm/ultra_honk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
-    "wasm bb-micro-bench/wasm/client_ivc build-wasm-threads/bin/client_ivc_bench ClientIVCBench/Full/6$"
-  )
-  for args in "${benches[@]}"; do
-    echo "$prefix barretenberg/cpp/scripts/run_bench.sh $args"
-  done
+  prefix="$hash:CPUS=8"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk build/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/client_ivc build/bin/client_ivc_bench ClientIVCBench/Full/5$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/client_ivc build-wasm-threads/bin/client_ivc_bench ClientIVCBench/Full/5$"
+  prefix="$hash:CPUS=1"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/client_ivc_verify build/bin/client_ivc_bench VerificationOnly$"
 }
 
 # Runs benchmarks sharded over machine cores.
 function bench {
   echo_header "bb bench"
   rm -rf bench-out && mkdir -p bench-out
-  bench_cmds | STRICT_SCHEDULING=1 parallelise
+  bench_cmds | STRICT_SCHEDULING=1 parallelize
 }
 
 # Upload assets to release.
@@ -281,40 +308,53 @@ case "$cmd" in
     ;;
   bench_ivc)
     # Intended only for dev usage. For CI usage, we run yarn-project/end-to-end/bootstrap.sh bench.
-    # Download the inputs for the private flows.
-    # Takes an optional master commit to download them from. Otherwise, downloads from latest master commit.
-    git fetch origin master
+    # Sample usage (CI=1 required for bench results to be visible; exclude NO_WASM=1 to run wasm benchmarks):
+    # CI=1 NO_WASM=1 ./barretenberg/cpp/bootstrap.sh bench_ivc transfer_0_recursions+sponsored_fpc
+    git fetch origin next
 
-    # build the benchmarked benches
-    parallel --line-buffered --tag -v denoise ::: \
-      "build_preset $native_preset --target bb_cli_bench" \
-      "build_preset wasm-threads --target bb_cli_bench"
+    flow_filter="${1:-}"               # optional string-match filter for flow names
+    commit_hash="${2:-origin/next~3}"  # commit from which to download flow inputs
 
-    # Setting this env var will cause the script to download the inputs from the given commit (through the behavior of cache_content_hash).
-    if [ -n "${1:-}" ]; then
-      echo "Downloading inputs from commit $1."
-      export AZTEC_CACHE_COMMIT=$1
-      export DOWNLOAD_ONLY=1
-      # Since this path doesn't otherwise need a non-bb bootstrap, we make sure the one dependency is built.
-      # This generates the client IVC verification keys.
-      yarn --cwd ../../yarn-project/bb-prover generate
+    # Build both native and wasm benchmark binaries
+    builds=(
+      "build_preset $native_preset --target bb"
+    )
+    if [[ "${NO_WASM:-}" != "1" ]]; then
+      builds+=("build_preset wasm-threads --target bb")
     fi
+    parallel --line-buffered --tag -v denoise ::: "${builds[@]}"
+
+    # Download cached flow inputs from the specified commit
+    export AZTEC_CACHE_COMMIT=$commit_hash
+    # TODO currently does nothing! to reinstate in cache_download
+    export FORCE_CACHE_DOWNLOAD=${FORCE_CACHE_DOWNLOAD:-1}
+    # make sure that disabling the aztec VM does not interfere with cache results from CI.
+    DISABLE_AZTEC_VM="" BOOTSTRAP_AFTER=barretenberg BOOSTRAP_TO=yarn-project ../../bootstrap.sh
+
+    rm -rf bench-out
 
     # Recreation of logic from bench.
-    ../../yarn-project/end-to-end/bootstrap.sh build_bench
+    DISABLE_AZTEC_VM="" ../../yarn-project/end-to-end/bootstrap.sh build_bench
+
+    # Extract and filter benchmark commands by flow name and wasm/no-wasm
     function ivc_bench_cmds {
-      if [ "${NO_WASM:-}" == "1" ]; then
-        ../../yarn-project/end-to-end/bootstrap.sh bench_cmds | grep -v wasm | grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh
-      else
-        ../../yarn-project/end-to-end/bootstrap.sh bench_cmds | grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh
-      fi
+      local flow_filter="$1"  # select only flows containing this string
+
+      ../../yarn-project/end-to-end/bootstrap.sh bench_cmds |
+        grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh |
+        { [[ "${NO_WASM:-}" == "1" ]] && grep -v wasm || cat; } |
+        { [[ -n "$flow_filter" ]] && grep -F "$flow_filter" || cat; }
     }
-    ivc_bench_cmds | STRICT_SCHEDULING=1 parallelise
+
+    echo "Running commands:"
+    ivc_bench_cmds "$flow_filter"
+
+    ivc_bench_cmds "$flow_filter" | STRICT_SCHEDULING=1 parallelize
     ;;
   "hash")
     echo $hash
     ;;
-  test|test_cmds|bench|bench_cmds|build_bench|release|build_native|build_nodejs_module|build_asan_fast|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_darwin|build_release|inject_version)
+  test|test_cmds|bench|bench_cmds|build_bench|release|build_native|build_nodejs_module|build_asan_fast|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_darwin|build_release|build_smt_verification|inject_version)
     $cmd "$@"
     ;;
   *)

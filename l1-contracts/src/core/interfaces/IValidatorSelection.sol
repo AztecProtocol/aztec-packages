@@ -2,25 +2,25 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
+import {IEmperor} from "@aztec/governance/interfaces/IEmpire.sol";
+import {Timestamp, Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
 struct ValidatorSelectionStorage {
   // A mapping to snapshots of the validator set
   mapping(Epoch => bytes32 committeeCommitment) committeeCommitments;
-  // Checkpointed map of epoch -> sample seed
-  Checkpoints.Trace224 seeds;
-  uint256 targetCommitteeSize;
+  // Checkpointed map of epoch -> randao value
+  Checkpoints.Trace224 randaos;
+  uint32 targetCommitteeSize;
+  uint32 lagInEpochs;
 }
 
 interface IValidatorSelectionCore {
   function setupEpoch() external;
-  function setupSeedSnapshotForNextEpoch() external;
+  function checkpointRandao() external;
 }
 
-interface IValidatorSelection is IValidatorSelectionCore {
-  // Likely changing to optimize in Pleistarchus
-  function getCurrentProposer() external returns (address);
+interface IValidatorSelection is IValidatorSelectionCore, IEmperor {
   function getProposerAt(Timestamp _ts) external returns (address);
 
   // Non view as uses transient storage
@@ -28,19 +28,17 @@ interface IValidatorSelection is IValidatorSelectionCore {
   function getCommitteeAt(Timestamp _ts) external returns (address[] memory);
   function getCommitteeCommitmentAt(Timestamp _ts) external returns (bytes32, uint256);
   function getEpochCommittee(Epoch _epoch) external returns (address[] memory);
+  function getEpochCommitteeCommitment(Epoch _epoch) external returns (bytes32, uint256);
 
   // Stable
   function getCurrentEpoch() external view returns (Epoch);
-  function getCurrentSlot() external view returns (Slot);
 
   // Consider removing below this point
   function getTimestampForSlot(Slot _slotNumber) external view returns (Timestamp);
 
-  // Likely removal of these to replace with a size and indiviual getter
-  // Get the current epoch committee
-  function getAttesters() external view returns (address[] memory);
-
   function getSampleSeedAt(Timestamp _ts) external view returns (uint256);
+  function getSamplingSizeAt(Timestamp _ts) external view returns (uint256);
+  function getLagInEpochs() external view returns (uint256);
   function getCurrentSampleSeed() external view returns (uint256);
 
   function getEpochAt(Timestamp _ts) external view returns (Epoch);

@@ -3,6 +3,7 @@
 
 #include <string_view>
 
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -13,11 +14,13 @@ template <typename FF_> class bc_hashingImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 9> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 4, 3, 3 };
+    static constexpr std::array<size_t, 21> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 4, 5, 3, 3, 4,
+                                                                            3, 3, 4, 4, 4, 4, 5, 3, 4, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
+
         return (in.get(C::bc_hashing_sel)).is_zero();
     }
 
@@ -25,105 +28,69 @@ template <typename FF_> class bc_hashingImpl {
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
-                           [[maybe_unused]] const FF& scaling_factor)
-    {
-        using C = ColumnAndShifts;
-
-        const auto bc_hashing_LATCH_CONDITION = in.get(C::bc_hashing_latch) + in.get(C::precomputed_first_row);
-
-        {
-            using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bc_hashing_sel) * (FF(1) - in.get(C::bc_hashing_sel));
-            tmp *= scaling_factor;
-            std::get<0>(evals) += typename Accumulator::View(tmp);
-        }
-        { // TRACE_CONTINUITY
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - in.get(C::precomputed_first_row)) * (FF(1) - in.get(C::bc_hashing_sel)) *
-                       in.get(C::bc_hashing_sel_shift);
-            tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bc_hashing_latch) * (FF(1) - in.get(C::bc_hashing_latch));
-            tmp *= scaling_factor;
-            std::get<2>(evals) += typename Accumulator::View(tmp);
-        }
-        { // SEL_TOGGLED_AT_LATCH
-            using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bc_hashing_latch) * (FF(1) - in.get(C::bc_hashing_sel));
-            tmp *= scaling_factor;
-            std::get<3>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bc_hashing_start) * (FF(1) - in.get(C::bc_hashing_start));
-            tmp *= scaling_factor;
-            std::get<4>(evals) += typename Accumulator::View(tmp);
-        }
-        { // START_AFTER_LATCH
-            using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::bc_hashing_sel_shift) * (in.get(C::bc_hashing_start_shift) - bc_hashing_LATCH_CONDITION);
-            tmp *= scaling_factor;
-            std::get<5>(evals) += typename Accumulator::View(tmp);
-        }
-        { // PC_INCREMENTS
-            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bc_hashing_sel) *
-                       (in.get(C::bc_hashing_pc_index_shift) -
-                        (FF(1) - bc_hashing_LATCH_CONDITION) * (FF(31) + in.get(C::bc_hashing_pc_index)));
-            tmp *= scaling_factor;
-            std::get<6>(evals) += typename Accumulator::View(tmp);
-        }
-        { // ID_CONSISTENCY
-            using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - bc_hashing_LATCH_CONDITION) *
-                       (in.get(C::bc_hashing_bytecode_id_shift) - in.get(C::bc_hashing_bytecode_id));
-            tmp *= scaling_factor;
-            std::get<7>(evals) += typename Accumulator::View(tmp);
-        }
-        { // CHAIN_OUTPUT_TO_INCR
-            using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - bc_hashing_LATCH_CONDITION) *
-                       (in.get(C::bc_hashing_incremental_hash_shift) - in.get(C::bc_hashing_output_hash));
-            tmp *= scaling_factor;
-            std::get<8>(evals) += typename Accumulator::View(tmp);
-        }
-    }
+                           [[maybe_unused]] const FF& scaling_factor);
 };
 
 template <typename FF> class bc_hashing : public Relation<bc_hashingImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "bc_hashing";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 1:
-            return "TRACE_CONTINUITY";
-        case 3:
-            return "SEL_TOGGLED_AT_LATCH";
-        case 5:
-            return "START_AFTER_LATCH";
-        case 6:
-            return "PC_INCREMENTS";
-        case 7:
-            return "ID_CONSISTENCY";
-        case 8:
-            return "CHAIN_OUTPUT_TO_INCR";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_TRACE_CONTINUITY = 1;
     static constexpr size_t SR_SEL_TOGGLED_AT_LATCH = 3;
     static constexpr size_t SR_START_AFTER_LATCH = 5;
     static constexpr size_t SR_PC_INCREMENTS = 6;
-    static constexpr size_t SR_ID_CONSISTENCY = 7;
-    static constexpr size_t SR_CHAIN_OUTPUT_TO_INCR = 8;
+    static constexpr size_t SR_PC_INCREMENTS_1 = 7;
+    static constexpr size_t SR_PC_INCREMENTS_2 = 8;
+    static constexpr size_t SR_ID_CONSISTENCY = 9;
+    static constexpr size_t SR_START_IS_SEPARATOR = 10;
+    static constexpr size_t SR_PADDING_CONSISTENCY = 13;
+    static constexpr size_t SR_PADDING_END = 14;
+    static constexpr size_t SR_PADDED_BY_ZERO_1 = 15;
+    static constexpr size_t SR_PADDED_BY_ZERO_2 = 16;
+    static constexpr size_t SR_PADDING_CORRECTNESS = 17;
+    static constexpr size_t SR_BYTECODE_LENGTH_FIELDS = 18;
+    static constexpr size_t SR_ROUNDS_DECREMENT = 19;
+    static constexpr size_t SR_HASH_CONSISTENCY = 20;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_TRACE_CONTINUITY:
+            return "TRACE_CONTINUITY";
+        case SR_SEL_TOGGLED_AT_LATCH:
+            return "SEL_TOGGLED_AT_LATCH";
+        case SR_START_AFTER_LATCH:
+            return "START_AFTER_LATCH";
+        case SR_PC_INCREMENTS:
+            return "PC_INCREMENTS";
+        case SR_PC_INCREMENTS_1:
+            return "PC_INCREMENTS_1";
+        case SR_PC_INCREMENTS_2:
+            return "PC_INCREMENTS_2";
+        case SR_ID_CONSISTENCY:
+            return "ID_CONSISTENCY";
+        case SR_START_IS_SEPARATOR:
+            return "START_IS_SEPARATOR";
+        case SR_PADDING_CONSISTENCY:
+            return "PADDING_CONSISTENCY";
+        case SR_PADDING_END:
+            return "PADDING_END";
+        case SR_PADDED_BY_ZERO_1:
+            return "PADDED_BY_ZERO_1";
+        case SR_PADDED_BY_ZERO_2:
+            return "PADDED_BY_ZERO_2";
+        case SR_PADDING_CORRECTNESS:
+            return "PADDING_CORRECTNESS";
+        case SR_BYTECODE_LENGTH_FIELDS:
+            return "BYTECODE_LENGTH_FIELDS";
+        case SR_ROUNDS_DECREMENT:
+            return "ROUNDS_DECREMENT";
+        case SR_HASH_CONSISTENCY:
+            return "HASH_CONSISTENCY";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

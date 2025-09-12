@@ -18,7 +18,7 @@ std::vector<FF> random_fields(size_t n);
 std::vector<uint8_t> random_bytes(size_t n);
 
 std::vector<ScopedL2ToL1Message> random_l2_to_l1_messages(size_t n);
-std::vector<EnqueuedCallHint> random_enqueued_calls(size_t n);
+std::vector<PublicCallRequestWithCalldata> random_enqueued_calls(size_t n);
 
 simulation::Operand random_operand(simulation::OperandType operand_type);
 
@@ -41,6 +41,7 @@ simulation::Operand random_operand(simulation::OperandType operand_type);
 simulation::Instruction random_instruction(WireOpCode w_opcode);
 tracegen::TestTraceContainer empty_trace();
 ContractInstance random_contract_instance();
+ContractClass random_contract_class(size_t bytecode_size = 20);
 
 // A routine which provides a minimal trace and public inputs which should provide
 // a good coverage over the different sub-traces but yet as short as necessary.

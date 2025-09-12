@@ -3,7 +3,7 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
-hash=$(cache_content_hash ../cpp/.rebuild_patterns .rebuild_patterns)
+hash=$(hash_str $(../cpp/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
 
 function build {
   echo_header "bb.js build"
@@ -12,6 +12,7 @@ function build {
   if ! cache_download bb.js-$hash.tar.gz; then
     find . -exec touch -d "@0" {} + 2>/dev/null || true
     yarn clean
+    yarn generate
     yarn build:wasm
     parallel -v --line-buffered --tag 'denoise "yarn {}"' ::: build:esm build:cjs build:browser
     cache_upload bb.js-$hash.tar.gz dest
@@ -43,7 +44,7 @@ function test_cmds {
 
 function test {
   echo_header "bb.js test"
-  test_cmds | filter_test_cmds | parallelise
+  test_cmds | filter_test_cmds | parallelize
 }
 
 function release {

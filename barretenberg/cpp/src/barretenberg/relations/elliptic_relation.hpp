@@ -54,8 +54,6 @@ template <typename FF_> class EllipticRelationImpl {
                                   const Parameters&,
                                   const FF& scaling_factor)
     {
-        PROFILE_THIS_NAME("Elliptic::accumulate");
-
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
         auto x_3_m = CoefficientAccumulator(in.w_r_shift);
@@ -118,7 +116,7 @@ template <typename FF_> class EllipticRelationImpl {
         std::get<0>(accumulators) += x_double_identity * q_elliptic_q_double_scaling;
 
         // Contribution (4) point doubling, y-coordinate check
-        // (y1 + y1) (2y1) - (3 * x1 * x1)(x1 - x3) = 0
+        // (y1 + y3) (2y1) - (3 * x1 * x1)(x1 - x3) = 0
         auto x1_sqr_mul_3 = Accumulator(x1_mul_3_m * x_1_m);
         auto neg_y_double_identity = x1_sqr_mul_3 * (x3_sub_x1) + Accumulator((y_1_m + y_1_m) * (y1_plus_y3_m));
         std::get<1>(accumulators) -= neg_y_double_identity * q_elliptic_q_double_scaling;

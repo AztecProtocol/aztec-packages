@@ -1,4 +1,8 @@
+import { BatchedBlob, Blob } from '@aztec/blob-lib';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { asyncPool } from '@aztec/foundation/async-pool';
+import { padArrayEnd } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
@@ -10,6 +14,7 @@ import {
   EpochProvingJobTerminalState,
   type ForkMerkleTreeOperations,
 } from '@aztec/stdlib/interfaces/server';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { ProcessedTx, Tx } from '@aztec/stdlib/tx';
 import { Attributes, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
@@ -20,7 +25,7 @@ import type { ProverNodePublisher } from '../prover-node-publisher.js';
 import { type EpochProvingJobData, validateEpochProvingJobData } from './epoch-proving-job-data.js';
 
 /**
- * Job that grabs a range of blocks from the unfinalised chain from L1, gets their txs given their hashes,
+ * Job that grabs a range of blocks from the unfinalized chain from L1, gets their txs given their hashes,
  * re-executes their public calls, generates a rollup proof, and submits it to L1. This job will update the
  * world state as part of public call execution via the public processor.
  */
@@ -83,6 +88,10 @@ export class EpochProvingJob implements Traceable {
     return this.data.txs;
   }
 
+  private get attestations() {
+    return this.data.attestations;
+  }
+
   /**
    * Proves the given epoch and submits the proof to L1.
    */
@@ -95,6 +104,7 @@ export class EpochProvingJob implements Traceable {
       await this.scheduleEpochCheck();
     }
 
+    const attestations = this.attestations.map(attestation => attestation.toViem());
     const epochNumber = Number(this.epochNumber);
     const epochSizeBlocks = this.blocks.length;
     const epochSizeTxs = this.blocks.reduce((total, current) => total + current.body.txEffects.length, 0);
@@ -113,14 +123,19 @@ export class EpochProvingJob implements Traceable {
     this.runPromise = promise;
 
     try {
-      this.prover.startNewEpoch(epochNumber, fromBlock, epochSizeBlocks);
-      await this.prover.startTubeCircuits(this.txs);
+      const allBlobs = (
+        await Promise.all(this.blocks.map(async block => await Blob.getBlobsPerBlock(block.body.toBlobFields())))
+      ).flat();
+
+      const finalBlobBatchingChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(allBlobs);
+      this.prover.startNewEpoch(epochNumber, fromBlock, epochSizeBlocks, finalBlobBatchingChallenges);
+      await this.prover.startTubeCircuits(Array.from(this.txs.values()));
 
       await asyncPool(this.config.parallelBlockLimit ?? 32, this.blocks, async block => {
         this.checkState();
 
         const globalVariables = block.header.globalVariables;
-        const txs = await this.getTxs(block);
+        const txs = this.getTxs(block);
         const l1ToL2Messages = this.getL1ToL2Messages(block);
         const previousHeader = this.getBlockHeader(block.number - 1)!;
 
@@ -140,7 +155,7 @@ export class EpochProvingJob implements Traceable {
         await this.prover.startNewBlock(globalVariables, l1ToL2Messages, previousHeader);
 
         // Process public fns
-        const db = await this.dbProvider.fork(block.number - 1);
+        const db = await this.createFork(block.number - 1, l1ToL2Messages);
         const publicProcessor = this.publicProcessorFactory.create(db, globalVariables, true);
         const processed = await this.processTxs(publicProcessor, txs);
         await this.prover.addTxs(processed);
@@ -158,11 +173,20 @@ export class EpochProvingJob implements Traceable {
       const executionTime = timer.ms();
 
       this.progressState('awaiting-prover');
-      const { publicInputs, proof } = await this.prover.finaliseEpoch();
-      this.log.info(`Finalised proof for epoch ${epochNumber}`, { epochNumber, uuid: this.uuid, duration: timer.ms() });
+      const { publicInputs, proof, batchedBlobInputs } = await this.prover.finalizeEpoch();
+      this.log.info(`Finalized proof for epoch ${epochNumber}`, { epochNumber, uuid: this.uuid, duration: timer.ms() });
 
       this.progressState('publishing-proof');
-      const success = await this.publisher.submitEpochProof({ fromBlock, toBlock, epochNumber, publicInputs, proof });
+
+      const success = await this.publisher.submitEpochProof({
+        fromBlock,
+        toBlock,
+        epochNumber,
+        publicInputs,
+        proof,
+        batchedBlobInputs,
+        attestations,
+      });
       if (!success) {
         throw new Error('Failed to submit epoch proof to L1');
       }
@@ -183,13 +207,35 @@ export class EpochProvingJob implements Traceable {
         return;
       }
       this.log.error(`Error running epoch ${epochNumber} prover job`, err, { uuid: this.uuid, epochNumber });
-      this.state = 'failed';
+      if (this.state === 'processing' || this.state === 'awaiting-prover' || this.state === 'publishing-proof') {
+        this.state = 'failed';
+      }
     } finally {
       clearTimeout(this.deadlineTimeoutHandler);
       await this.epochCheckPromise?.stop();
       await this.prover.stop();
       resolve();
     }
+  }
+
+  /**
+   * Create a new db fork for tx processing, inserting all L1 to L2.
+   * REFACTOR: The prover already spawns a db fork of its own for each block, so we may be able to do away with just one fork.
+   */
+  private async createFork(blockNumber: number, l1ToL2Messages: Fr[]) {
+    const db = await this.dbProvider.fork(blockNumber);
+    const l1ToL2MessagesPadded = padArrayEnd(
+      l1ToL2Messages,
+      Fr.ZERO,
+      NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+      'Too many L1 to L2 messages',
+    );
+    this.log.verbose(`Creating fork at ${blockNumber} with ${l1ToL2Messages.length} L1 to L2 messages`, {
+      blockNumber,
+      l1ToL2Messages: l1ToL2MessagesPadded.map(m => m.toString()),
+    });
+    await db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
+    return db;
   }
 
   private progressState(state: EpochProvingJobState) {
@@ -286,12 +332,8 @@ export class EpochProvingJob implements Traceable {
     );
   }
 
-  private async getTxs(block: L2Block): Promise<Tx[]> {
-    const txHashes = block.body.txEffects.map(tx => tx.txHash.toBigInt());
-    const txsAndHashes = await Promise.all(this.txs.map(async tx => ({ tx, hash: await tx.getTxHash() })));
-    return txsAndHashes
-      .filter(txAndHash => txHashes.includes(txAndHash.hash.toBigInt()))
-      .map(txAndHash => txAndHash.tx);
+  private getTxs(block: L2Block): Tx[] {
+    return block.body.txEffects.map(txEffect => this.txs.get(txEffect.txHash.toString())!);
   }
 
   private getL1ToL2Messages(block: L2Block) {

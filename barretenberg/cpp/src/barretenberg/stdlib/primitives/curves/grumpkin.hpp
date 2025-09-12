@@ -37,7 +37,6 @@ template <typename CircuitBuilder> struct grumpkin {
     using public_witness_ct = public_witness_t<CircuitBuilder>;
     using byte_array_ct = byte_array<CircuitBuilder>;
     using bool_ct = bool_t<CircuitBuilder>;
-    using uint32_ct = stdlib::uint32<CircuitBuilder>;
 
     // Required by SmallSubgroupIPA argument
     static constexpr size_t SUBGROUP_SIZE = 87;

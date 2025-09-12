@@ -1,3 +1,4 @@
+import { BatchedBlob, Blob } from '@aztec/blob-lib';
 import { NESTED_RECURSIVE_PROOF_LENGTH, RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -12,7 +13,7 @@ import {
 import type { ParityPublicInputs } from '@aztec/stdlib/parity';
 import { ClientIvcProof, makeRecursiveProof } from '@aztec/stdlib/proofs';
 import { makeParityPublicInputs } from '@aztec/stdlib/testing';
-import type { BlockHeader, GlobalVariables, Tx } from '@aztec/stdlib/tx';
+import { type BlockHeader, type GlobalVariables, Tx } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -34,7 +35,10 @@ describe('prover/orchestrator', () => {
 
       beforeEach(async () => {
         mockProver = mock<ServerCircuitProver>();
-        context = await TestContext.new(logger, 4, () => Promise.resolve(mockProver));
+        context = await TestContext.new(logger, {
+          proverCount: 4,
+          createProver: () => Promise.resolve(mockProver),
+        });
         ({ orchestrator, globalVariables } = context);
         previousBlockHeader = context.getPreviousBlockHeader();
       });
@@ -74,7 +78,9 @@ describe('prover/orchestrator', () => {
           }
         });
 
-        orchestrator.startNewEpoch(1, 1, 1);
+        const emptyChallenges = await BatchedBlob.precomputeEmptyBatchedBlobChallenges();
+
+        orchestrator.startNewEpoch(1, 1, 1, emptyChallenges);
         await orchestrator.startNewBlock(globalVariables, [message], previousBlockHeader);
 
         // the prover broker deduplicates jobs, so the base parity proof
@@ -105,10 +111,11 @@ describe('prover/orchestrator', () => {
       });
 
       it('waits for block to be completed before enqueueing block root proof', async () => {
-        orchestrator.startNewEpoch(1, 1, 1);
+        const { txs } = await context.makePendingBlock(2);
+        const blobs = await Blob.getBlobsPerBlock(txs.map(tx => tx.txEffect.toBlobFields()).flat());
+        const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
+        orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
         await orchestrator.startNewBlock(globalVariables, [], previousBlockHeader);
-        const txs = await Promise.all([context.makeProcessedTx(1), context.makeProcessedTx(2)]);
-        await context.setTreeRoots(txs);
         await orchestrator.addTxs(txs);
 
         // wait for the block root proof to try to be enqueued
@@ -117,18 +124,26 @@ describe('prover/orchestrator', () => {
         // now finish the block
         await orchestrator.setBlockCompleted(context.blockNumber);
 
-        const result = await orchestrator.finaliseEpoch();
+        const result = await orchestrator.finalizeEpoch();
         expect(result.proof).toBeDefined();
       });
 
       it('can start tube proofs before adding processed txs', async () => {
-        const getTubeSpy = jest.spyOn(prover, 'getTubeProof');
-        orchestrator.startNewEpoch(1, 1, 1);
-        const processedTxs = await Promise.all([context.makeProcessedTx(1), context.makeProcessedTx(2)]);
-        processedTxs.forEach((tx, i) => (tx.clientIvcProof = ClientIvcProof.fake(i + 1)));
-        // TODO(AD): we shouldn't be mocking complex objects like tx this way - easy to hit issues (I had to update to add data field)
-        const txs = processedTxs.map(
-          tx => ({ getTxHash: () => Promise.resolve(tx.hash), clientIvcProof: tx.clientIvcProof, data: {} }) as Tx,
+        const getTubeSpy = jest.spyOn(prover, 'getPublicTubeProof');
+        const { txs: processedTxs } = await context.makePendingBlock(2);
+        const blobs = await Blob.getBlobsPerBlock(processedTxs.map(tx => tx.txEffect.toBlobFields()).flat());
+        const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
+        orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
+
+        processedTxs.forEach(tx => (tx.clientIvcProof = ClientIvcProof.random()));
+        const txs = processedTxs.map(tx =>
+          Tx.from({
+            txHash: tx.hash,
+            data: tx.data,
+            clientIvcProof: tx.clientIvcProof,
+            contractClassLogFields: [],
+            publicFunctionCalldata: [],
+          }),
         );
         await orchestrator.startTubeCircuits(txs);
 
@@ -137,10 +152,9 @@ describe('prover/orchestrator', () => {
         getTubeSpy.mockReset();
 
         await orchestrator.startNewBlock(globalVariables, [], previousBlockHeader);
-        await context.setTreeRoots(processedTxs);
         await orchestrator.addTxs(processedTxs);
         await orchestrator.setBlockCompleted(context.blockNumber);
-        const result = await orchestrator.finaliseEpoch();
+        const result = await orchestrator.finalizeEpoch();
         expect(result.proof).toBeDefined();
         expect(getTubeSpy).toHaveBeenCalledTimes(0);
       });

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: eth-devnet
+description: A Helm chart for deploying an Ethereum devnet
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

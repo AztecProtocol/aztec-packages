@@ -1,9 +1,10 @@
+import { BlobAccumulatorPublicInputs, FinalBlobBatchingChallenges } from '@aztec/blob-lib';
 import {
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
-  type TUBE_PROOF_LENGTH,
 } from '@aztec/constants';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { AbortError } from '@aztec/foundation/error';
@@ -16,21 +17,22 @@ import { elapsed } from '@aztec/foundation/timer';
 import type { TreeNodeLocation } from '@aztec/foundation/trees';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { readAvmMinimalPublicTxInputsFromFile } from '@aztec/simulator/public/fixtures';
-import { L2Block } from '@aztec/stdlib/block';
+import { EthAddress, L2Block } from '@aztec/stdlib/block';
 import type {
   EpochProver,
   ForkMerkleTreeOperations,
   MerkleTreeWriteOperations,
-  ProofAndVerificationKey,
+  PublicInputsAndRecursiveProof,
   ServerCircuitProver,
 } from '@aztec/stdlib/interfaces/server';
+import type { PrivateToPublicKernelCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import { BaseParityInputs } from '@aztec/stdlib/parity';
 import {
   type BaseRollupHints,
   EmptyBlockRootRollupInputs,
   PrivateBaseRollupInputs,
+  PublicTubePrivateInputs,
   SingleTxBlockRootRollupInputs,
-  TubeInputs,
 } from '@aztec/stdlib/rollup';
 import type { CircuitName } from '@aztec/stdlib/stats';
 import { type AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
@@ -49,6 +51,7 @@ import { inspect } from 'util';
 import {
   buildHeaderAndBodyFromTxs,
   getLastSiblingPath,
+  getPublicTubePrivateInputsFromTx,
   getRootTreeSiblingPath,
   getSubtreeSiblingPath,
   getTreeSnapshot,
@@ -88,7 +91,7 @@ export class ProvingOrchestrator implements EpochProver {
   constructor(
     private dbProvider: ForkMerkleTreeOperations,
     private prover: ServerCircuitProver,
-    private readonly proverId: Fr,
+    private readonly proverId: EthAddress,
     telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
     this.metrics = new ProvingOrchestratorMetrics(telemetryClient, 'ProvingOrchestrator');
@@ -98,7 +101,7 @@ export class ProvingOrchestrator implements EpochProver {
     return this.metrics.tracer;
   }
 
-  public getProverId(): Fr {
+  public getProverId(): EthAddress {
     return this.proverId;
   }
 
@@ -107,14 +110,26 @@ export class ProvingOrchestrator implements EpochProver {
     return Promise.resolve();
   }
 
-  public startNewEpoch(epochNumber: number, firstBlockNumber: number, totalNumBlocks: number) {
+  public startNewEpoch(
+    epochNumber: number,
+    firstBlockNumber: number,
+    totalNumBlocks: number,
+    finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
+  ) {
     const { promise: _promise, resolve, reject } = promiseWithResolvers<ProvingResult>();
     const promise = _promise.catch((reason): ProvingResult => ({ status: 'failure', reason }));
     if (totalNumBlocks <= 0 || !Number.isInteger(totalNumBlocks)) {
       throw new Error(`Invalid number of blocks for epoch (got ${totalNumBlocks})`);
     }
     logger.info(`Starting epoch ${epochNumber} with ${totalNumBlocks} blocks`);
-    this.provingState = new EpochProvingState(epochNumber, firstBlockNumber, totalNumBlocks, resolve, reject);
+    this.provingState = new EpochProvingState(
+      epochNumber,
+      firstBlockNumber,
+      totalNumBlocks,
+      finalBlobBatchingChallenges,
+      resolve,
+      reject,
+    );
     this.provingPromise = promise;
   }
 
@@ -125,7 +140,7 @@ export class ProvingOrchestrator implements EpochProver {
    * @returns A proving ticket, containing a promise notifying of proving completion
    */
   @trackSpan('ProvingOrchestrator.startNewBlock', globalVariables => ({
-    [Attributes.BLOCK_NUMBER]: globalVariables.blockNumber.toNumber(),
+    [Attributes.BLOCK_NUMBER]: globalVariables.blockNumber,
   }))
   public async startNewBlock(globalVariables: GlobalVariables, l1ToL2Messages: Fr[], previousBlockHeader: BlockHeader) {
     if (!this.provingState) {
@@ -136,17 +151,19 @@ export class ProvingOrchestrator implements EpochProver {
       throw new Error(`Epoch not accepting further blocks`);
     }
 
-    logger.info(
-      `Starting block ${globalVariables.blockNumber.toNumber()} for slot ${globalVariables.slotNumber.toNumber()}`,
-    );
+    logger.info(`Starting block ${globalVariables.blockNumber} for slot ${globalVariables.slotNumber.toNumber()}`);
 
     // Fork world state at the end of the immediately previous block
-    const db = await this.dbProvider.fork(globalVariables.blockNumber.toNumber() - 1);
-    this.dbs.set(globalVariables.blockNumber.toNumber(), db);
+    const db = await this.dbProvider.fork(globalVariables.blockNumber - 1);
+    this.dbs.set(globalVariables.blockNumber, db);
 
     // we start the block by enqueueing all of the base parity circuits
-    const { l1ToL2MessageSubtreeSiblingPath, l1ToL2MessageTreeSnapshotAfterInsertion, baseParityInputs } =
-      await this.prepareBaseParityInputs(l1ToL2Messages, db);
+    const {
+      l1ToL2MessageTreeSnapshot,
+      l1ToL2MessageSubtreeSiblingPath,
+      l1ToL2MessageTreeSnapshotAfterInsertion,
+      baseParityInputs,
+    } = await this.prepareBaseParityInputs(l1ToL2Messages, db);
 
     // Get archive snapshot before this block lands
     const lastArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
@@ -156,12 +173,14 @@ export class ProvingOrchestrator implements EpochProver {
     const blockProvingState = this.provingState!.startNewBlock(
       globalVariables,
       l1ToL2Messages,
+      l1ToL2MessageTreeSnapshot,
       l1ToL2MessageSubtreeSiblingPath,
       l1ToL2MessageTreeSnapshotAfterInsertion,
       lastArchive,
       lastArchiveSiblingPath,
       newArchiveSiblingPath,
       previousBlockHeader,
+      this.proverId,
     );
 
     // Enqueue base parity circuits for the block
@@ -184,7 +203,7 @@ export class ProvingOrchestrator implements EpochProver {
       logger.warn(`Provided no txs to orchestrator addTxs.`);
       return;
     }
-    const blockNumber = txs[0].constants.globalVariables.blockNumber.toNumber();
+    const blockNumber = txs[0].globalVariables.blockNumber;
     const provingState = this.provingState?.getBlockProvingStateByBlockNumber(blockNumber!);
     if (!provingState) {
       throw new Error(`Block proving state for ${blockNumber} not found`);
@@ -213,10 +232,13 @@ export class ProvingOrchestrator implements EpochProver {
         const [hints, treeSnapshots] = await this.prepareTransaction(tx, provingState);
         const txProvingState = new TxProvingState(tx, hints, treeSnapshots);
         const txIndex = provingState.addNewTx(txProvingState);
-        this.getOrEnqueueTube(provingState, txIndex);
         if (txProvingState.requireAvmProof) {
+          this.getOrEnqueueTube(provingState, txIndex);
           logger.debug(`Enqueueing public VM for tx ${txIndex}`);
           this.enqueueVM(provingState, txIndex);
+        } else {
+          logger.debug(`Enqueueing base rollup for private-only tx ${txIndex}`);
+          this.enqueueBaseRollup(provingState, txIndex);
         }
       } catch (err: any) {
         throw new Error(`Error adding transaction ${tx.hash.toString()} to block ${blockNumber}: ${err.message}`, {
@@ -231,18 +253,28 @@ export class ProvingOrchestrator implements EpochProver {
    * Note that if the tube circuits are not started this way, they will be started nontheless after processing.
    */
   @trackSpan('ProvingOrchestrator.startTubeCircuits')
-  public async startTubeCircuits(txs: Tx[]) {
+  public startTubeCircuits(txs: Tx[]) {
     if (!this.provingState?.verifyState()) {
       throw new Error(`Invalid proving state, call startNewEpoch before starting tube circuits`);
     }
-    for (const tx of txs) {
-      const txHash = (await tx.getTxHash()).toString();
-      const tubeInputs = new TubeInputs(!!tx.data.forPublic, tx.clientIvcProof);
-      const tubeProof = promiseWithResolvers<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>>();
+    const publicTxs = txs.filter(tx => tx.data.forPublic);
+    for (const tx of publicTxs) {
+      const txHash = tx.getTxHash().toString();
+      const privateInputs = getPublicTubePrivateInputsFromTx(tx);
+      const tubeProof =
+        promiseWithResolvers<
+          PublicInputsAndRecursiveProof<
+            PrivateToPublicKernelCircuitPublicInputs,
+            typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+          >
+        >();
       logger.debug(`Starting tube circuit for tx ${txHash}`);
-      this.doEnqueueTube(txHash, tubeInputs, proof => tubeProof.resolve(proof));
+      this.doEnqueueTube(txHash, privateInputs, proof => {
+        tubeProof.resolve(proof);
+      });
       this.provingState?.cachedTubeProofs.set(txHash, tubeProof.promise);
     }
+    return Promise.resolve();
   }
 
   /**
@@ -259,7 +291,7 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     if (!provingState.spongeBlobState) {
-      // If we are completing an empty block, initialise the provingState.
+      // If we are completing an empty block, initialize the provingState.
       // We will have 0 txs and no blob fields.
       provingState.startNewBlock(0, 0);
     }
@@ -271,6 +303,9 @@ export class ProvingOrchestrator implements EpochProver {
     // And build the block header
     logger.verbose(`Block ${blockNumber} completed. Assembling header.`);
     await this.buildBlock(provingState, expectedHeader);
+
+    logger.debug(`Accumulating blobs for ${blockNumber}`);
+    await this.provingState?.setBlobAccumulators(blockNumber);
 
     // If the proofs were faster than the block building, then we need to try the block root rollup again here
     await this.checkAndEnqueueBlockRootRollup(provingState);
@@ -318,8 +353,8 @@ export class ProvingOrchestrator implements EpochProver {
 
     await this.verifyBuiltBlockAgainstSyncedState(l2Block, newArchive);
 
-    logger.verbose(`Orchestrator finalised block ${l2Block.number}`);
-    provingState.block = l2Block;
+    logger.verbose(`Orchestrator finalized block ${l2Block.number}`);
+    provingState.setBlock(l2Block);
   }
 
   // Flagged as protected to disable in certain unit tests
@@ -348,15 +383,24 @@ export class ProvingOrchestrator implements EpochProver {
   /**
    * Returns the proof for the current epoch.
    */
-  public async finaliseEpoch() {
+  public async finalizeEpoch() {
     if (!this.provingState || !this.provingPromise) {
-      throw new Error(`Invalid proving state, an epoch must be proven before it can be finalised`);
+      throw new Error(`Invalid proving state, an epoch must be proven before it can be finalized`);
     }
 
     const result = await this.provingPromise!;
     if (result.status === 'failure') {
       throw new Error(`Epoch proving failed: ${result.reason}`);
     }
+
+    // TODO(MW): Move this? Requires async and don't want to force root methods to be async
+    // TODO(MW): EpochProvingState uses this.blocks.filter(b => !!b).length as total blocks, use this below:
+    const finalBlock = this.provingState.blocks[this.provingState.totalNumBlocks - 1];
+    if (!finalBlock || !finalBlock.endBlobAccumulator) {
+      throw new Error(`Epoch's final block not ready for finalize`);
+    }
+    const finalBatchedBlob = await finalBlock.endBlobAccumulator.finalize();
+    this.provingState.setFinalBatchedBlob(finalBatchedBlob);
 
     const epochProofResult = this.provingState.getEpochProofResult();
 
@@ -455,6 +499,8 @@ export class ProvingOrchestrator implements EpochProver {
       BaseParityInputs.fromSlice(l1ToL2MessagesPadded, i, getVKTreeRoot()),
     );
 
+    const l1ToL2MessageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db);
+
     const l1ToL2MessageSubtreeSiblingPath = assertLength(
       await getSubtreeSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, L1_TO_L2_MSG_SUBTREE_HEIGHT, db),
       L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -465,6 +511,7 @@ export class ProvingOrchestrator implements EpochProver {
     const l1ToL2MessageTreeSnapshotAfterInsertion = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db);
 
     return {
+      l1ToL2MessageTreeSnapshot,
       l1ToL2MessageSubtreeSiblingPath,
       l1ToL2MessageTreeSnapshotAfterInsertion,
       baseParityInputs,
@@ -486,10 +533,14 @@ export class ProvingOrchestrator implements EpochProver {
 
     const db = this.dbs.get(provingState.blockNumber)!;
 
-    // We build the base rollup inputs using a mock proof and verification key.
-    // These will be overwritten later once we have proven the tube circuit and any public kernels
     const [ms, hints] = await elapsed(
-      insertSideEffectsAndBuildBaseRollupHints(tx, provingState.globalVariables, db, provingState.spongeBlobState),
+      insertSideEffectsAndBuildBaseRollupHints(
+        tx,
+        provingState.globalVariables,
+        provingState.l1ToL2MessageTreeSnapshotAfterInsertion,
+        db,
+        provingState.spongeBlobState,
+      ),
     );
 
     this.metrics.recordBaseRollupInputs(ms);
@@ -554,8 +605,8 @@ export class ProvingOrchestrator implements EpochProver {
     );
   }
 
-  // Enqueues the tube circuit for a given transaction index, or reuses the one already enqueued
-  // Once completed, will enqueue the next circuit, either a public kernel or the base rollup
+  // Enqueues the public tube circuit for a given transaction index, or reuses the one already enqueued.
+  // Once completed, will enqueue the the public tx base rollup.
   private getOrEnqueueTube(provingState: BlockProvingState, txIndex: number) {
     if (!provingState.verifyState()) {
       logger.debug('Not running tube circuit, state invalid');
@@ -564,12 +615,17 @@ export class ProvingOrchestrator implements EpochProver {
 
     const txProvingState = provingState.getTxProvingState(txIndex);
     const txHash = txProvingState.processedTx.hash.toString();
-
-    const handleResult = (result: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>) => {
+    NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
+    const handleResult = (
+      result: PublicInputsAndRecursiveProof<
+        PrivateToPublicKernelCircuitPublicInputs,
+        typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+      >,
+    ) => {
       logger.debug(`Got tube proof for tx index: ${txIndex}`, { txHash });
-      txProvingState.setTubeProof(result);
+      txProvingState.setPublicTubeProof(result);
       this.provingState?.cachedTubeProofs.delete(txHash);
-      this.checkAndEnqueueNextTxCircuit(provingState, txIndex);
+      this.checkAndEnqueueBaseRollup(provingState, txIndex);
     };
 
     if (this.provingState?.cachedTubeProofs.has(txHash)) {
@@ -579,13 +635,18 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     logger.debug(`Enqueuing tube circuit for tx index: ${txIndex}`);
-    this.doEnqueueTube(txHash, txProvingState.getTubeInputs(), handleResult);
+    this.doEnqueueTube(txHash, txProvingState.getPublicTubePrivateInputs(), handleResult);
   }
 
   private doEnqueueTube(
     txHash: string,
-    inputs: TubeInputs,
-    handler: (result: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>) => void,
+    inputs: PublicTubePrivateInputs,
+    handler: (
+      result: PublicInputsAndRecursiveProof<
+        PrivateToPublicKernelCircuitPublicInputs,
+        typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+      >,
+    ) => void,
     provingState: EpochProvingState | BlockProvingState = this.provingState!,
   ) {
     if (!provingState?.verifyState()) {
@@ -597,12 +658,12 @@ export class ProvingOrchestrator implements EpochProver {
       provingState,
       wrapCallbackInSpan(
         this.tracer,
-        'ProvingOrchestrator.prover.getTubeProof',
+        'ProvingOrchestrator.prover.getPublicTubeProof',
         {
           [Attributes.TX_HASH]: txHash,
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'tube-circuit' satisfies CircuitName,
+          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'public-tube' satisfies CircuitName,
         },
-        signal => this.prover.getTubeProof(inputs, signal, this.provingState!.epochNumber),
+        signal => this.prover.getPublicTubeProof(inputs, signal, this.provingState!.epochNumber),
       ),
       handler,
     );
@@ -644,7 +705,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     provingState.blockRootRollupStarted = true;
 
-    const { rollupType, inputs } = await provingState.getBlockRootRollupTypeAndInputs(this.proverId);
+    const { rollupType, inputs } = await provingState.getBlockRootRollupTypeAndInputs();
 
     logger.debug(
       `Enqueuing ${rollupType} for block ${provingState.blockNumber} with ${provingState.newL1ToL2Messages.length} l1 to l2 msgs.`,
@@ -687,13 +748,26 @@ export class ProvingOrchestrator implements EpochProver {
           provingState.reject(`New archive root mismatch.`);
         }
 
+        const endBlobAccumulatorPublicInputs = BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(
+          provingState.endBlobAccumulator!,
+        );
+        const circuitEndBlobAccumulatorState = result.inputs.blobPublicInputs.endBlobAccumulator;
+        if (!circuitEndBlobAccumulatorState.equals(endBlobAccumulatorPublicInputs)) {
+          logger.error(
+            `Blob accumulator state mismatch.\nCircuit: ${inspect(circuitEndBlobAccumulatorState)}\nComputed: ${inspect(
+              endBlobAccumulatorPublicInputs,
+            )}`,
+          );
+          provingState.reject(`Blob accumulator state mismatch.`);
+        }
+
         logger.debug(`Completed ${rollupType} proof for block ${provingState.block!.number}`);
         // validatePartialState(result.inputs.end, tx.treeSnapshots); // TODO(palla/prover)
 
         const epochProvingState = this.provingState!;
         const leafLocation = epochProvingState.setBlockRootRollupProof(provingState.index, result);
         if (epochProvingState.totalNumBlocks === 1) {
-          await this.enqueueEpochPadding(epochProvingState);
+          this.enqueueEpochPadding(epochProvingState);
         } else {
           this.checkAndEnqueueNextBlockMergeRollup(epochProvingState, leafLocation);
         }
@@ -770,7 +844,6 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     const inputs = provingState.getBlockMergeRollupInputs(location);
-
     this.deferredProving(
       provingState,
       wrapCallbackInSpan(
@@ -788,25 +861,25 @@ export class ProvingOrchestrator implements EpochProver {
     );
   }
 
-  private async enqueueEpochPadding(provingState: EpochProvingState) {
+  private enqueueEpochPadding(provingState: EpochProvingState) {
     if (!provingState.verifyState()) {
       logger.debug('Not running epoch padding. State no longer valid.');
       return;
     }
 
-    logger.debug('Padding epoch proof with an empty block root proof.');
+    logger.debug('Padding epoch proof with a padding block root proof.');
 
-    const inputs = await provingState.getPaddingBlockRootInputs(this.proverId);
+    const inputs = provingState.getPaddingBlockRootInputs();
 
     this.deferredProving(
       provingState,
       wrapCallbackInSpan(
         this.tracer,
-        'ProvingOrchestrator.prover.getEmptyBlockRootRollupProof',
+        'ProvingOrchestrator.prover.getPaddingBlockRootRollupProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'empty-block-root-rollup' satisfies CircuitName,
+          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'padding-block-root-rollup' satisfies CircuitName,
         },
-        signal => this.prover.getEmptyBlockRootRollupProof(inputs, signal, provingState.epochNumber),
+        signal => this.prover.getPaddingBlockRootRollupProof(inputs, signal, provingState.epochNumber),
       ),
       result => {
         logger.debug('Completed proof for padding block root.');
@@ -825,7 +898,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     logger.debug(`Preparing root rollup`);
 
-    const inputs = provingState.getRootRollupInputs(this.proverId);
+    const inputs = provingState.getRootRollupInputs();
 
     this.deferredProving(
       provingState,
@@ -859,15 +932,17 @@ export class ProvingOrchestrator implements EpochProver {
   }
 
   private async checkAndEnqueueBlockRootRollup(provingState: BlockProvingState) {
+    const blockNumber = provingState.blockNumber;
+    // Accumulate as far as we can, in case blocks came in out of order and we are behind:
+    await this.provingState?.setBlobAccumulators(blockNumber);
     if (!provingState.isReadyForBlockRootRollup()) {
-      logger.debug('Not ready for root rollup');
+      logger.debug('Not ready for block root rollup');
       return;
     }
     if (provingState.blockRootRollupStarted) {
       logger.debug('Block root rollup already started');
       return;
     }
-    const blockNumber = provingState.blockNumber;
 
     // TODO(palla/prover): This closes the fork only on the happy path. If this epoch orchestrator
     // is aborted and never reaches this point, it will leak the fork. We need to add a global cleanup,
@@ -944,6 +1019,7 @@ export class ProvingOrchestrator implements EpochProver {
             );
 
             try {
+              this.metrics.incAvmFallback();
               const snapshotAvmPrivateInputs = readAvmMinimalPublicTxInputsFromFile();
               return await this.prover.getAvmProof(snapshotAvmPrivateInputs, true, signal, provingState.epochNumber);
             } catch (err) {
@@ -958,11 +1034,11 @@ export class ProvingOrchestrator implements EpochProver {
     this.deferredProving(provingState, doAvmProving, proofAndVk => {
       logger.debug(`Proven VM for tx index: ${txIndex}`);
       txProvingState.setAvmProof(proofAndVk);
-      this.checkAndEnqueueNextTxCircuit(provingState, txIndex);
+      this.checkAndEnqueueBaseRollup(provingState, txIndex);
     });
   }
 
-  private checkAndEnqueueNextTxCircuit(provingState: BlockProvingState, txIndex: number) {
+  private checkAndEnqueueBaseRollup(provingState: BlockProvingState, txIndex: number) {
     const txProvingState = provingState.getTxProvingState(txIndex);
     if (!txProvingState.ready()) {
       return;

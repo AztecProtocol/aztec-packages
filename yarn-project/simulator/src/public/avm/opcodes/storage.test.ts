@@ -8,7 +8,7 @@ import type { PublicPersistableStateManager } from '../../state_manager/state_ma
 import type { AvmContext } from '../avm_context.js';
 import { Field } from '../avm_memory_types.js';
 import { StaticCallAlterationError } from '../errors.js';
-import { initContext, initExecutionEnvironment } from '../fixtures/index.js';
+import { initContext, initExecutionEnvironment } from '../fixtures/initializers.js';
 import { SLoad, SStore } from './storage.js';
 
 describe('Storage Instructions', () => {

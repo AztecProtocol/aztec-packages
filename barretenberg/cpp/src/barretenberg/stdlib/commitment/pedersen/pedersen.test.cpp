@@ -15,7 +15,6 @@ auto& engine = numeric::get_debug_randomness();
 template <typename Builder> class StdlibPedersen : public testing::Test {
     using _curve = stdlib::bn254<Builder>;
 
-    using byte_array_ct = typename _curve::byte_array_ct;
     using fr_ct = typename _curve::ScalarField;
     using witness_ct = typename _curve::witness_ct;
     using public_witness_ct = typename _curve::public_witness_ct;

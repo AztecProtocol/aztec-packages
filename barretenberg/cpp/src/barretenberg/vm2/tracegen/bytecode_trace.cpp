@@ -17,9 +17,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_instr_fetching.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
-#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 
 using Poseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
@@ -44,9 +42,11 @@ void BytecodeTraceBuilder::process_decomposition(
         for (uint32_t i = 0; i < bytecode_len; i++) {
             const uint32_t remaining = bytecode_len - i;
             const uint32_t bytes_to_read = std::min(remaining, DECOMPOSE_WINDOW_SIZE);
-            const uint32_t abs_diff = DECOMPOSE_WINDOW_SIZE > remaining ? DECOMPOSE_WINDOW_SIZE - remaining
-                                                                        : remaining - DECOMPOSE_WINDOW_SIZE;
             const bool is_last = remaining == 1;
+            const bool is_windows_eq_remaining = remaining == DECOMPOSE_WINDOW_SIZE;
+
+            // Check that we still expect the max public bytecode in bytes to fit within 24 bits (i.e. <= 0xffffff).
+            static_assert(MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS * 32 <= 0xffffff);
 
             // We set the decomposition in bytes, and other values.
             trace.set(
@@ -59,9 +59,11 @@ void BytecodeTraceBuilder::process_decomposition(
                     { C::bc_decomposition_bytes_remaining, remaining },
                     { C::bc_decomposition_bytes_rem_inv, FF(remaining).invert() }, // remaining != 0 for activated rows
                     { C::bc_decomposition_bytes_rem_min_one_inv, is_last ? 0 : FF(remaining - 1).invert() },
-                    { C::bc_decomposition_abs_diff, abs_diff },
                     { C::bc_decomposition_bytes_to_read, bytes_to_read },
-                    { C::bc_decomposition_sel_overflow_correction_needed, remaining < DECOMPOSE_WINDOW_SIZE ? 1 : 0 },
+                    { C::bc_decomposition_sel_windows_gt_remaining, DECOMPOSE_WINDOW_SIZE > remaining ? 1 : 0 },
+                    { C::bc_decomposition_windows_min_remaining_inv,
+                      is_windows_eq_remaining ? 0 : (FF(DECOMPOSE_WINDOW_SIZE) - FF(remaining)).invert() },
+                    { C::bc_decomposition_is_windows_eq_remaining, is_windows_eq_remaining ? 1 : 0 },
                     // Sliding window.
                     { C::bc_decomposition_bytes, bytecode_at(i) },
                     { C::bc_decomposition_bytes_pc_plus_1, bytecode_at(i + 1) },
@@ -137,25 +139,49 @@ void BytecodeTraceBuilder::process_hashing(
 
     for (const auto& event : events) {
         const auto id = event.bytecode_id;
-        const auto& fields = event.bytecode_fields;
-
+        // Note that bytecode fields from the BytecodeHashingEvent do not contain the prepended separator
+        std::vector<FF> fields = { GENERATOR_INDEX__PUBLIC_BYTECODE };
+        fields.insert(fields.end(), event.bytecode_fields.begin(), event.bytecode_fields.end());
+        auto bytecode_field_at = [&fields](size_t i) -> FF { return i < fields.size() ? fields[i] : 0; };
+        FF output_hash = Poseidon2::hash(fields);
+        auto padding_amount = (3 - (fields.size() % 3)) % 3;
+        auto num_rounds = (fields.size() + padding_amount) / 3;
         uint32_t pc_index = 0;
-        FF incremental_hash = event.bytecode_length;
-        for (uint32_t i = 0; i < fields.size(); i++) {
-            FF output_hash = Poseidon2::hash({ fields[i], incremental_hash });
-            bool end_of_bytecode = i == fields.size() - 1;
+        for (uint32_t i = 0; i < fields.size(); i += 3) {
+            bool start_of_bytecode = i == 0;
+            bool end_of_bytecode = i + 3 >= fields.size();
+            // When we start the bytecode, we want to look up field 1 at pc = 0 in the decomposition trace, since we
+            // force field 0 to be the separator:
+            uint32_t pc_index_1 = start_of_bytecode ? 0 : pc_index + 31;
             trace.set(row,
                       { { { C::bc_hashing_sel, 1 },
-                          { C::bc_hashing_start, i == 0 ? 1 : 0 },
+                          { C::bc_hashing_sel_not_start, !start_of_bytecode },
                           { C::bc_hashing_latch, end_of_bytecode },
                           { C::bc_hashing_bytecode_id, id },
+                          { C::bc_hashing_input_len, fields.size() },
+                          { C::bc_hashing_rounds_rem, num_rounds },
                           { C::bc_hashing_pc_index, pc_index },
-                          { C::bc_hashing_packed_field, fields[i] },
-                          { C::bc_hashing_incremental_hash, incremental_hash },
+                          { C::bc_hashing_pc_index_1, pc_index_1 },
+                          { C::bc_hashing_pc_index_2, pc_index_1 + 31 },
+                          { C::bc_hashing_packed_fields_0, bytecode_field_at(i) },
+                          { C::bc_hashing_packed_fields_1, bytecode_field_at(i + 1) },
+                          { C::bc_hashing_packed_fields_2, bytecode_field_at(i + 2) },
+                          { C::bc_hashing_sel_not_padding_1, end_of_bytecode && padding_amount == 2 ? 0 : 1 },
+                          { C::bc_hashing_sel_not_padding_2, end_of_bytecode && padding_amount > 0 ? 0 : 1 },
                           { C::bc_hashing_output_hash, output_hash } } });
-            incremental_hash = output_hash;
-            pc_index += 31;
+            if (end_of_bytecode) {
+                // TODO(MW): Cleanup: below sets the pc at which the final field starts.
+                // It can't just be pc_index + 31 * padding_amount because we 'skip' 31 bytes at start == 1 to force
+                // the first field to be the separator:
+                trace.set(row,
+                          { {
+                              { C::bc_hashing_pc_at_final_field,
+                                padding_amount == 2 ? pc_index : pc_index_1 + (31 * (1 - padding_amount)) },
+                          } });
+            }
+            pc_index = pc_index_1 + 62;
             row++;
+            num_rounds--;
         }
     }
 }
@@ -166,42 +192,50 @@ void BytecodeTraceBuilder::process_retrieval(
 {
     using C = Column;
 
-    uint32_t row = 0;
+    uint32_t row = 1;
     for (const auto& event : events) {
+        uint64_t remaining_bytecodes = MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS +
+                                       AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE -
+                                       event.retrieved_bytecodes_snapshot_before.nextAvailableLeafIndex;
+        bool error = event.instance_not_found_error || event.limit_error;
         trace.set(
             row,
-            { { { C::bc_retrieval_sel, 1 },
+            { {
+                { C::bc_retrieval_sel, 1 },
                 { C::bc_retrieval_bytecode_id, event.bytecode_id },
                 { C::bc_retrieval_address, event.address },
-                // TODO: handle errors.
-                // { C::bc_retrieval_error, event.error },
-                // Contract instance.
-                { C::bc_retrieval_salt, event.contract_instance.salt },
-                { C::bc_retrieval_deployer_addr, event.contract_instance.deployer_addr },
-                { C::bc_retrieval_current_class_id, event.contract_instance.current_class_id },
-                { C::bc_retrieval_original_class_id, event.contract_instance.original_class_id },
-                { C::bc_retrieval_init_hash, event.contract_instance.initialisation_hash },
-                { C::bc_retrieval_nullifier_key_x, event.contract_instance.public_keys.nullifier_key.x },
-                { C::bc_retrieval_nullifier_key_y, event.contract_instance.public_keys.nullifier_key.y },
-                { C::bc_retrieval_incoming_viewing_key_x, event.contract_instance.public_keys.incoming_viewing_key.x },
-                { C::bc_retrieval_incoming_viewing_key_y, event.contract_instance.public_keys.incoming_viewing_key.y },
-                { C::bc_retrieval_outgoing_viewing_key_x, event.contract_instance.public_keys.outgoing_viewing_key.x },
-                { C::bc_retrieval_outgoing_viewing_key_y, event.contract_instance.public_keys.outgoing_viewing_key.y },
-                { C::bc_retrieval_tagging_key_x, event.contract_instance.public_keys.tagging_key.x },
-                { C::bc_retrieval_tagging_key_y, event.contract_instance.public_keys.tagging_key.y },
-                // Contract class.
-                { C::bc_retrieval_artifact_hash, event.contract_class.artifact_hash },
-                { C::bc_retrieval_private_function_root, event.contract_class.private_function_root },
-                { C::bc_retrieval_public_bytecode_commitment, event.contract_class.public_bytecode_commitment },
-                // State.
-                { C::bc_retrieval_block_number, event.current_block_number },
+                { C::bc_retrieval_error, error },
+
+                // Contract instance members (for lookup into contract_instance_retrieval)
+                { C::bc_retrieval_current_class_id, event.current_class_id },
+
+                // Tree context (for lookup into contract_instance_retrieval)
                 { C::bc_retrieval_public_data_tree_root, event.public_data_tree_root },
                 { C::bc_retrieval_nullifier_tree_root, event.nullifier_root },
-                // Siloing.
-                { C::bc_retrieval_outer_nullifier_domain_separator, GENERATOR_INDEX__OUTER_NULLIFIER },
-                { C::bc_retrieval_deployer_protocol_contract_address, DEPLOYER_CONTRACT_ADDRESS },
-                { C::bc_retrieval_siloed_address, event.siloed_address },
-                { C::bc_retrieval_nullifier_exists, true } } });
+
+                // Retrieved bytecodes tree state
+                { C::bc_retrieval_prev_retrieved_bytecodes_tree_root, event.retrieved_bytecodes_snapshot_before.root },
+                { C::bc_retrieval_prev_retrieved_bytecodes_tree_size,
+                  event.retrieved_bytecodes_snapshot_before.nextAvailableLeafIndex },
+                { C::bc_retrieval_next_retrieved_bytecodes_tree_root, event.retrieved_bytecodes_snapshot_after.root },
+                { C::bc_retrieval_next_retrieved_bytecodes_tree_size,
+                  event.retrieved_bytecodes_snapshot_after.nextAvailableLeafIndex },
+
+                // Instance existence determined by shared contract instance retrieval
+                { C::bc_retrieval_instance_exists, !event.instance_not_found_error },
+
+                // Limit handling
+                { C::bc_retrieval_no_remaining_bytecodes, remaining_bytecodes == 0 },
+                { C::bc_retrieval_remaining_bytecodes_inv,
+                  remaining_bytecodes == 0 ? 0 : FF(remaining_bytecodes).invert() },
+                { C::bc_retrieval_is_new_class, event.is_new_class },
+                { C::bc_retrieval_should_retrieve, !error },
+
+                // Contract class for bytecode operations
+                { C::bc_retrieval_artifact_hash, event.contract_class.artifact_hash },
+                { C::bc_retrieval_private_function_root, event.contract_class.private_function_root },
+
+            } });
         row++;
     }
 }
@@ -377,31 +411,28 @@ void BytecodeTraceBuilder::process_instruction_fetching(
     }
 }
 
-std::vector<std::unique_ptr<InteractionBuilderInterface>> BytecodeTraceBuilder::lookup_jobs()
-{
-    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
+const InteractionDefinition BytecodeTraceBuilder::interactions =
+    InteractionDefinition()
         // Bytecode Hashing
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_hashing_get_packed_field_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_hashing_iv_is_len_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_hashing_poseidon2_hash_settings>>(),
+        .add<lookup_bc_hashing_get_packed_field_0_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_hashing_get_packed_field_1_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_hashing_get_packed_field_2_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_hashing_check_final_bytes_remaining_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_hashing_poseidon2_hash_settings, InteractionType::LookupSequential>()
         // Bytecode Retrieval
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_bytecode_hash_is_correct_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_class_id_derivation_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_address_derivation_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_update_check_settings>>(),
-        std::make_unique<
-            LookupIntoDynamicTableSequential<lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_deployment_nullifier_read_settings>>(),
+        .add<lookup_bc_retrieval_bytecode_hash_is_correct_settings, InteractionType::LookupGeneric>()
+        .add<lookup_bc_retrieval_class_id_derivation_settings, InteractionType::LookupGeneric>()
+        .add<lookup_bc_retrieval_contract_instance_retrieval_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_retrieval_is_new_class_check_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_retrieval_retrieved_bytecodes_insertion_settings, InteractionType::LookupSequential>()
         // Bytecode Decomposition
-        std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_bytes_are_bytes_settings>>(),
-        std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_abs_diff_is_u16_settings>>(),
+        .add<lookup_bc_decomposition_bytes_are_bytes_settings, InteractionType::LookupIntoIndexedByClk>()
         // Instruction Fetching
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_instr_fetching_bytes_from_bc_dec_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_instr_fetching_bytecode_size_from_bc_dec_settings>>(),
-        std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_wire_instruction_info_settings>>(),
-        std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_instr_abs_diff_positive_settings>>(),
-        std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_tag_value_validation_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_instr_fetching_pc_abs_diff_positive_settings>>());
-}
+        .add<lookup_instr_fetching_bytes_from_bc_dec_settings, InteractionType::LookupGeneric>()
+        .add<lookup_instr_fetching_bytecode_size_from_bc_dec_settings, InteractionType::LookupGeneric>()
+        .add<lookup_instr_fetching_wire_instruction_info_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_instr_fetching_instr_abs_diff_positive_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_instr_fetching_tag_value_validation_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_instr_fetching_pc_abs_diff_positive_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

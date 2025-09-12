@@ -1,0 +1,46 @@
+// A virtual trace for call/staticcall custom constraints in the execution trace.
+// The columns created here are prefixed with "call" since they're only used for call/staticcall.
+namespace execution;
+// Register 1 contains allocated l2 gas
+// Register 2 contains allocated da gas
+// Register 3 contains the address of the contract to call
+
+#[skippable_if]
+sel_enter_call = 0;
+
+// ==== GAS CLAMPING ====
+// Guaranteed not to wrap since we never put a gas used > gas limit
+
+// TODO: Once we support expression in lookup, we can replace this column by an alias.
+pol commit l2_gas_left;
+l2_gas_left = sel_enter_call * (l2_gas_limit - l2_gas_used);
+
+// TODO: Once we support expression in lookup, we can replace this column by an alias.
+pol commit da_gas_left;
+da_gas_left = sel_enter_call * (da_gas_limit - da_gas_used);
+
+
+// L2 gas clamping
+
+// Compare the gas allocated to the call by the user, with the gas left.
+// Helper column containing whether the allocated gas is less than the left gas
+pol commit call_is_l2_gas_allocated_lt_left; // Guaranteed to be boolean through the gt lookup. (provided that sel_enter_call == 1)
+
+#[CALL_IS_L2_GAS_ALLOCATED_LT_LEFT]
+sel_enter_call { l2_gas_left, register[0], call_is_l2_gas_allocated_lt_left } in gt.sel_others { gt.input_a, gt.input_b, gt.res };
+
+// next row's l2_gas_limit = if call_is_l2_gas_allocated_lt_left { register[0] } else { l2_gas_left }
+sel_enter_call * ((register[0] - l2_gas_left) * call_is_l2_gas_allocated_lt_left + l2_gas_left - l2_gas_limit') = 0;
+
+
+// DA gas clamping
+
+// Compare the gas allocated to the call by the user, with the gas left.
+// Helper column containing whether the allocated gas is less than the left gas
+pol commit call_is_da_gas_allocated_lt_left; // Guaranteed to be boolean through the gt lookup. (provided that sel_enter_call == 1)
+
+#[CALL_IS_DA_GAS_ALLOCATED_LT_LEFT]
+sel_enter_call { da_gas_left, register[1], call_is_da_gas_allocated_lt_left } in gt.sel_others { gt.input_a, gt.input_b, gt.res };
+
+// next row's da_gas_limit = if call_is_da_gas_allocated_lt_left { register[1] } else { da_gas_left }
+sel_enter_call * ((register[1] - da_gas_left) * call_is_da_gas_allocated_lt_left + da_gas_left - da_gas_limit') = 0;

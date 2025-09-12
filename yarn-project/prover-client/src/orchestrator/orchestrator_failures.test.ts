@@ -1,3 +1,4 @@
+import { BatchedBlob, Blob } from '@aztec/blob-lib';
 import { timesAsync } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import type { ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
@@ -33,14 +34,19 @@ describe('prover/orchestrator/failures', () => {
       // We generate them and add them as part of the pending chain
       const blocks = await timesAsync(3, i => context.makePendingBlock(3, 1, i + 1, j => ({ privateOnly: j === 1 })));
 
-      orchestrator.startNewEpoch(1, 1, 3);
+      const blobs = (
+        await Promise.all(blocks.map(block => Blob.getBlobsPerBlock(block.block.body.toBlobFields())))
+      ).flat();
+      const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
 
-      for (const { block, txs, msgs } of blocks) {
+      orchestrator.startNewEpoch(1, 1, 3, finalBlobChallenges);
+
+      for (const { block, txs, l1ToL2Messages } of blocks) {
         // these operations could fail if the target circuit fails before adding all blocks or txs
         try {
           await orchestrator.startNewBlock(
             block.header.globalVariables,
-            msgs,
+            l1ToL2Messages,
             context.getPreviousBlockHeader(block.number),
           );
           let allTxsAdded = true;
@@ -68,7 +74,7 @@ describe('prover/orchestrator/failures', () => {
       'succeeds without failed proof',
       async () => {
         await run('successful case');
-        await expect(orchestrator.finaliseEpoch()).resolves.not.toThrow();
+        await expect(orchestrator.finalizeEpoch()).resolves.not.toThrow();
       },
       LONG_TIMEOUT,
     );
@@ -110,7 +116,7 @@ describe('prover/orchestrator/failures', () => {
 
         await run(message);
 
-        await expect(() => orchestrator.finaliseEpoch()).rejects.toThrow();
+        await expect(() => orchestrator.finalizeEpoch()).rejects.toThrow();
       },
       LONG_TIMEOUT,
     );

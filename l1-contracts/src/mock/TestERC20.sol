@@ -2,22 +2,19 @@
 // docs:start:contract
 pragma solidity >=0.8.27;
 
-import {Ownable} from "@oz/access/Ownable.sol";
+import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
+import {Ownable, Ownable2Step} from "@oz/access/Ownable2Step.sol";
 import {ERC20} from "@oz/token/ERC20/ERC20.sol";
-import {IMintableERC20} from "./../governance/interfaces/IMintableERC20.sol";
 
-contract TestERC20 is ERC20, IMintableERC20, Ownable {
-  mapping(address => bool) public minters;
+contract TestERC20 is ERC20, IMintableERC20, Ownable2Step {
+  mapping(address minter => bool isMinter) public minters;
 
   modifier onlyMinter() {
     require(minters[msg.sender], NotMinter(msg.sender));
     _;
   }
 
-  constructor(string memory _name, string memory _symbol, address _owner)
-    ERC20(_name, _symbol)
-    Ownable(_owner)
-  {
+  constructor(string memory _name, string memory _symbol, address _owner) ERC20(_name, _symbol) Ownable(_owner) {
     minters[_owner] = true;
     emit MinterAdded(_owner);
   }
@@ -36,13 +33,10 @@ contract TestERC20 is ERC20, IMintableERC20, Ownable {
     emit MinterRemoved(_minter);
   }
 
-  function transferOwnership(address _newOwner) public override(Ownable) onlyOwner {
-    if (_newOwner == address(0)) {
-      revert OwnableInvalidOwner(address(0));
-    }
-    removeMinter(owner());
-    addMinter(_newOwner);
-    _transferOwnership(_newOwner);
+  function acceptOwnership() public virtual override(Ownable2Step) {
+    address newOwner = pendingOwner();
+    super.acceptOwnership();
+    addMinter(newOwner);
   }
 }
 // docs:end:contract

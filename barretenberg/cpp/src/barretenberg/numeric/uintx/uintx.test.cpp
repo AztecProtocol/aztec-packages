@@ -293,3 +293,19 @@ TEST(uintx, DISABLEDRInv)
     EXPECT_EQ(result, Bn254FrParams::r_inv);
     */
 }
+
+TEST(uintx, BarrettReductionRegression)
+{
+    // Test specific modulus and self values that may cause issues
+    constexpr uint256_t modulus{ "0xffffffff00000001000000000000000000000000ffffffffffffffffffffffff" };
+
+    // Test case 1: self = 0xffffffff0000000000000000000000000000000000000000003a000000000000
+    // This is a 256-bit value, so we need to construct it as a single uint256_t
+    constexpr uint256_t self_value{ "0xffffffff0000000000000000000000000000000000000000003a000000000000" };
+    uint512_t self(self_value);
+    self = self << 256;
+    const auto [quotient_result, remainder_result] = self.barrett_reduction<modulus>();
+    const auto [quotient_expected, remainder_expected] = self.divmod_base(uint512_t(modulus));
+    EXPECT_EQ(quotient_result, quotient_expected);
+    EXPECT_EQ(remainder_result, remainder_expected);
+}

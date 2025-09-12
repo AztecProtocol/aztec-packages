@@ -69,9 +69,9 @@ struct FixedBaseParams {
      * @param multitable_index Ranges from 0 to NUM_FIXED_BASE_MULTI_TABLES - 1
      * @return constexpr size_t
      */
-    static constexpr size_t get_num_bits_of_multi_table(const size_t multitable_index)
+    template <size_t multitable_index> static constexpr size_t get_num_bits_of_multi_table()
     {
-        ASSERT(multitable_index < NUM_FIXED_BASE_MULTI_TABLES);
+        static_assert(multitable_index < NUM_FIXED_BASE_MULTI_TABLES);
         constexpr std::array<size_t, 4> MULTI_TABLE_BIT_LENGTHS{
             BITS_PER_LO_SCALAR, BITS_PER_HI_SCALAR, BITS_PER_LO_SCALAR, BITS_PER_HI_SCALAR
         };

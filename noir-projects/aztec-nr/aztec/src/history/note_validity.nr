@@ -4,7 +4,7 @@ use crate::{
     note::{note_interface::NoteHash, retrieved_note::RetrievedNote},
 };
 
-use dep::protocol_types::block_header::BlockHeader;
+use dep::protocol_types::abis::block_header::BlockHeader;
 
 mod test;
 

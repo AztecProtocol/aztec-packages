@@ -25,12 +25,12 @@ contract UnbalancedMerkleTest is Test {
 
   function testDecomp() public view {
     // Worst case - max num txs
-    uint32 numTxs = 65535;
+    uint32 numTxs = 65_535;
     (uint256 min, uint256 max) = merkleLibHelper.computeMinMaxPathLength(numTxs);
     assertEq(min, 15);
     assertEq(max, 16);
     // Single tree of 2**15
-    numTxs = 32768;
+    numTxs = 32_768;
     (min, max) = merkleLibHelper.computeMinMaxPathLength(numTxs);
     assertEq(min, 15);
     assertEq(max, 15);
@@ -101,8 +101,7 @@ contract UnbalancedMerkleTest is Test {
     assertEq(min, 1);
     assertEq(max, 2);
     bytes32 mergeTxsEffectsHash = Hash.sha256ToField(bytes.concat(baseLeaves[0], baseLeaves[1]));
-    bytes32 rootTxsEffectsHash =
-      Hash.sha256ToField(bytes.concat(mergeTxsEffectsHash, baseLeaves[2]));
+    bytes32 rootTxsEffectsHash = Hash.sha256ToField(bytes.concat(mergeTxsEffectsHash, baseLeaves[2]));
     bytes32 calculatedTxsEffectsHash = merkleLibHelper.computeUnbalancedRoot(baseLeaves);
     assertEq(calculatedTxsEffectsHash, rootTxsEffectsHash);
   }
@@ -125,14 +124,11 @@ contract UnbalancedMerkleTest is Test {
     (uint256 min, uint256 max) = merkleLibHelper.computeMinMaxPathLength(5);
     assertEq(min, 1);
     assertEq(max, 3);
-    bytes32 firstMergeTxsEffectsHash =
-      Hash.sha256ToField(bytes.concat(baseLeaves[0], baseLeaves[1]));
-    bytes32 secondMergeTxsEffectsHash =
-      Hash.sha256ToField(bytes.concat(baseLeaves[2], baseLeaves[3]));
+    bytes32 firstMergeTxsEffectsHash = Hash.sha256ToField(bytes.concat(baseLeaves[0], baseLeaves[1]));
+    bytes32 secondMergeTxsEffectsHash = Hash.sha256ToField(bytes.concat(baseLeaves[2], baseLeaves[3]));
     bytes32 thirdMergeTxsEffectsHash =
       Hash.sha256ToField(bytes.concat(firstMergeTxsEffectsHash, secondMergeTxsEffectsHash));
-    bytes32 rootTxsEffectsHash =
-      Hash.sha256ToField(bytes.concat(thirdMergeTxsEffectsHash, baseLeaves[4]));
+    bytes32 rootTxsEffectsHash = Hash.sha256ToField(bytes.concat(thirdMergeTxsEffectsHash, baseLeaves[4]));
     bytes32 calculatedTxsEffectsHash = merkleLibHelper.computeUnbalancedRoot(baseLeaves);
     assertEq(calculatedTxsEffectsHash, rootTxsEffectsHash);
   }
@@ -155,16 +151,12 @@ contract UnbalancedMerkleTest is Test {
     (uint256 min, uint256 max) = merkleLibHelper.computeMinMaxPathLength(6);
     assertEq(min, 2);
     assertEq(max, 3);
-    bytes32 firstMergeTxsEffectsHash =
-      Hash.sha256ToField(bytes.concat(baseLeaves[0], baseLeaves[1]));
-    bytes32 secondMergeTxsEffectsHash =
-      Hash.sha256ToField(bytes.concat(baseLeaves[2], baseLeaves[3]));
-    bytes32 thirdMergeTxsEffectsHash =
-      Hash.sha256ToField(bytes.concat(baseLeaves[4], baseLeaves[5]));
+    bytes32 firstMergeTxsEffectsHash = Hash.sha256ToField(bytes.concat(baseLeaves[0], baseLeaves[1]));
+    bytes32 secondMergeTxsEffectsHash = Hash.sha256ToField(bytes.concat(baseLeaves[2], baseLeaves[3]));
+    bytes32 thirdMergeTxsEffectsHash = Hash.sha256ToField(bytes.concat(baseLeaves[4], baseLeaves[5]));
     bytes32 fourthMergeTxsEffectsHash =
       Hash.sha256ToField(bytes.concat(firstMergeTxsEffectsHash, secondMergeTxsEffectsHash));
-    bytes32 rootTxsEffectsHash =
-      Hash.sha256ToField(bytes.concat(fourthMergeTxsEffectsHash, thirdMergeTxsEffectsHash));
+    bytes32 rootTxsEffectsHash = Hash.sha256ToField(bytes.concat(fourthMergeTxsEffectsHash, thirdMergeTxsEffectsHash));
     bytes32 calculatedTxsEffectsHash = merkleLibHelper.computeUnbalancedRoot(baseLeaves);
     assertEq(calculatedTxsEffectsHash, rootTxsEffectsHash);
   }
@@ -187,19 +179,14 @@ contract UnbalancedMerkleTest is Test {
     (uint256 min, uint256 max) = merkleLibHelper.computeMinMaxPathLength(7);
     assertEq(min, 2);
     assertEq(max, 3);
-    bytes32 firstMergeTxsEffectsHash =
-      Hash.sha256ToField(bytes.concat(baseLeaves[0], baseLeaves[1]));
-    bytes32 secondMergeTxsEffectsHash =
-      Hash.sha256ToField(bytes.concat(baseLeaves[2], baseLeaves[3]));
+    bytes32 firstMergeTxsEffectsHash = Hash.sha256ToField(bytes.concat(baseLeaves[0], baseLeaves[1]));
+    bytes32 secondMergeTxsEffectsHash = Hash.sha256ToField(bytes.concat(baseLeaves[2], baseLeaves[3]));
     bytes32 thirdMergeTxsEffectsHash =
       Hash.sha256ToField(bytes.concat(firstMergeTxsEffectsHash, secondMergeTxsEffectsHash));
-    bytes32 fourthMergeTxsEffectsHash =
-      Hash.sha256ToField(bytes.concat(baseLeaves[4], baseLeaves[5]));
-    bytes32 fifthMergeTxsEffectsHash =
-      Hash.sha256ToField(bytes.concat(fourthMergeTxsEffectsHash, baseLeaves[6]));
+    bytes32 fourthMergeTxsEffectsHash = Hash.sha256ToField(bytes.concat(baseLeaves[4], baseLeaves[5]));
+    bytes32 fifthMergeTxsEffectsHash = Hash.sha256ToField(bytes.concat(fourthMergeTxsEffectsHash, baseLeaves[6]));
 
-    bytes32 rootTxsEffectsHash =
-      Hash.sha256ToField(bytes.concat(thirdMergeTxsEffectsHash, fifthMergeTxsEffectsHash));
+    bytes32 rootTxsEffectsHash = Hash.sha256ToField(bytes.concat(thirdMergeTxsEffectsHash, fifthMergeTxsEffectsHash));
     bytes32 calculatedTxsEffectsHash = merkleLibHelper.computeUnbalancedRoot(baseLeaves);
     assertEq(calculatedTxsEffectsHash, rootTxsEffectsHash);
   }

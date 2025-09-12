@@ -25,10 +25,10 @@ function verify_ivc_flow {
   # TODO(AD): Checking which one would be good, but there isn't too much that can go wrong here.
   set +e
   echo_stderr "Private verify."
-  "./$native_build_dir/bin/bb" verify --scheme client_ivc -p "$proof" -k ../../yarn-project/bb-prover/artifacts/private-civc-vk 1>&2
+  "./$native_build_dir/bin/bb" verify --scheme client_ivc -p "$proof" -k ../../noir-projects/noir-protocol-circuits/target/keys/hiding_kernel_to_rollup.ivc.vk 1>&2
   local private_result=$?
   echo_stderr "Private verify: $private_result."
-  "./$native_build_dir/bin/bb" verify --scheme client_ivc -p "$proof" -k ../../yarn-project/bb-prover/artifacts/public-civc-vk 1>&2
+  "./$native_build_dir/bin/bb" verify --scheme client_ivc -p "$proof" -k ../../noir-projects/noir-protocol-circuits/target/keys/hiding_kernel_to_public.ivc.vk 1>&2
   local public_result=$?
   echo_stderr "Public verify: $public_result."
   if [[ $private_result -eq $public_result ]]; then
@@ -36,7 +36,7 @@ function verify_ivc_flow {
     exit 1
   fi
   if [[ $private_result -ne 0 ]] && [[ $public_result -ne 0 ]]; then
-    echo_stderr "Verification failed for $flow. Did not verify with precalculated verification key - we may need to revisit how it is generated in yarn-project/bb-prover."
+    echo_stderr "Verification failed for $flow. Did not verify with precalculated verification key - we may need to revisit how it is generated in noir-projects/noir-protocol-circuits."
     exit 1
   fi
 }
@@ -44,23 +44,18 @@ function verify_ivc_flow {
 function run_bb_cli_bench {
   local runtime="$1"
   local output="$2"
-  local args="$3"
-  export MAIN_ARGS="$args"
+  shift 2
 
   if [[ "$runtime" == "native" ]]; then
-    memusage "./$native_build_dir/bin/bb_cli_bench" \
-      --benchmark_out=$output/op-counts.json \
-      --benchmark_out_format=json || {
-      echo "bb_cli_bench native failed with args: $args"
+    memusage "./$native_build_dir/bin/bb" "$@" || {
+      echo "bb native failed with args: $@"
       exit 1
     }
   else # wasm
     export WASMTIME_ALLOWED_DIRS="--dir=$flow_folder --dir=$output"
     # TODO support wasm op count time preset
-    memusage scripts/wasmtime.sh $WASMTIME_ALLOWED_DIRS ./build-wasm-threads/bin/bb_cli_bench \
-      --benchmark_out=$output/op-counts.json \
-      --benchmark_out_format=json || {
-      echo "bb_cli_bench wasm failed with args: $args"
+    memusage scripts/wasmtime.sh $WASMTIME_ALLOWED_DIRS ./build-wasm-threads/bin/bb "$@" || {
+      echo "bb wasm failed with args: $@"
       exit 1
     }
   fi
@@ -79,7 +74,7 @@ function client_ivc_flow {
   mkdir -p "$output"
   export MEMUSAGE_OUT="$output/peak-memory-mb.txt"
 
-  run_bb_cli_bench "$runtime" "$output" "prove -o $output --ivc_inputs_path $flow_folder/ivc-inputs.msgpack --scheme client_ivc -v"
+  run_bb_cli_bench "$runtime" "$output" prove -o $output --ivc_inputs_path $flow_folder/ivc-inputs.msgpack --scheme client_ivc -v --print_bench
 
   local end=$(date +%s%N)
   local elapsed_ns=$(( end - start ))

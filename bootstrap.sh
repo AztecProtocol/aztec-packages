@@ -52,10 +52,10 @@ function check_toolchains {
     exit 1
   fi
   # Check clang version.
-  if ! clang++-16 --version | grep "clang version 16." > /dev/null; then
+  if ! clang++-20 --version | grep "clang version 20." > /dev/null; then
     encourage_dev_container
     echo "clang 16 not installed."
-    echo "Installation: sudo apt install clang-16"
+    echo "Installation: sudo apt install clang-20"
     exit 1
   fi
   # Check rustup installed.
@@ -73,23 +73,29 @@ function check_toolchains {
     echo -e "${bold}${yellow}WARN: Rust ${rust_version} is not installed. Performance will be degraded.${reset}"
   fi
   # Check wasi-sdk version.
-  if ! cat /opt/wasi-sdk/VERSION 2> /dev/null | grep 22.0 > /dev/null; then
+  if ! cat /opt/wasi-sdk/VERSION 2> /dev/null | grep 27.0 > /dev/null; then
     encourage_dev_container
-    echo "wasi-sdk-22 not found at /opt/wasi-sdk."
+    echo "wasi-sdk-27 not found at /opt/wasi-sdk."
     echo "Use dev container, build from source, or you can install linux x86 version with:"
-    echo "  curl -s -L https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-22/wasi-sdk-22.0-linux.tar.gz | tar zxf - && sudo mv wasi-sdk-22.0 /opt/wasi-sdk"
+    echo "  curl -s -L https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-27/wasi-sdk-27.0-x86_64-linux.tar.gz | tar zxf - && sudo mv wasi-sdk-27.0-x86_64-linux /opt/wasi-sdk"
     exit 1
   fi
   # Check foundry version.
-  local foundry_version="nightly-256cc50331d8a00b86c8e1f18ca092a66e220da5"
+  local foundry_version="v1.3.3"
   for tool in forge anvil; do
     if ! $tool --version 2> /dev/null | grep "${foundry_version#nightly-}" > /dev/null; then
-      encourage_dev_container
       echo "$tool not in PATH or incorrect version (requires $foundry_version)."
-      echo "Installation: https://book.getfoundry.sh/getting-started/installation"
-      echo "  curl -L https://foundry.paradigm.xyz | bash"
-      echo "  foundryup -i $foundry_version"
-      exit 1
+      if [ "${CI:-0}" -eq 1 ]; then
+        echo "Attempting install of required foundry version $foundry_version"
+        curl -L https://foundry.paradigm.xyz | bash
+        ~/.foundry/bin/foundryup -i $foundry_version
+      else
+        encourage_dev_container
+        echo "Installation: https://book.getfoundry.sh/getting-started/installation"
+        echo "  curl -L https://foundry.paradigm.xyz | bash"
+        echo "  foundryup -i $foundry_version"
+        exit 1
+      fi
     fi
   done
   # Check Node.js version.
@@ -155,9 +161,14 @@ function test_cmds {
   parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds | sort_by_cpus
 }
 
-function start_txes {
+function start_test_env {
   # Starting txe servers with incrementing port numbers.
-  trap 'kill -SIGTERM $txe_pids &>/dev/null || true' EXIT
+  trap '(kill -SIGTERM $txe_pids &>/dev/null || true) && ./spartan/bootstrap.sh stop_env' EXIT
+
+  # Start env for spartan tests in the background
+  dump_fail "spartan/bootstrap.sh start_env" &
+  spartan_pid=$!
+
   for i in $(seq 0 $((NUM_TXES-1))); do
     port=$((45730 + i))
     existing_pid=$(lsof -ti :$port || true)
@@ -179,16 +190,19 @@ function start_txes {
         j=$((j+1))
       done
   done
+
+  echo "Waiting for spartan environment to complete setup..."
+  if wait $spartan_pid; then
+    echo "Spartan environment setup completed successfully."
+  else
+    echo_stderr "Spartan environment setup failed. Exiting."
+  fi
 }
-export -f start_txes
 
 function test {
   echo_header "test all"
 
-  start_txes
-
-  # Make sure KIND starts so it is running by the time we do spartan tests.
-  # spartan/bootstrap.sh kind &>/dev/null &
+  start_test_env
 
   # We will start half as many jobs as we have cpu's.
   # This is based on the slightly magic assumption that many tests can benefit from 2 cpus,
@@ -201,7 +215,7 @@ function test {
   [ -z "$tests" ] && num=0 || num=$(echo "$tests" | wc -l)
   echo "Gathered $num tests."
 
-  echo "$tests" | parallelise
+  echo "$tests" | parallelize
 }
 
 function build {
@@ -221,19 +235,39 @@ function build {
     noir-projects
     l1-contracts
     yarn-project
+    release-image
   )
   # These projects can be built in parallel.
   parallel_cmds=(
     boxes/bootstrap.sh
     playground/bootstrap.sh
     docs/bootstrap.sh
-    release-image/bootstrap.sh
     spartan/bootstrap.sh
     aztec-up/bootstrap.sh
   )
 
+  local start_building=false
   for project in "${serial_projects[@]}"; do
-    $project/bootstrap.sh ${1:-}
+    # BOOTSTRAP_AFTER and BOOTSTRAP_TO are used to control the order of building.
+    # If BOOTSTRAP_AFTER is set, it should be one of our serial projects and we will only build projects after it.
+    # If BOOTSTRAP_TO is set, it should be one of our serial projects and we will only build projects up to it. We will skip parallel_cmds.
+
+    # Start building after we've seen BOOTSTRAP_AFTER, skipping BOOTSTRAP_AFTER itself.
+    if [ "$project" == "${BOOTSTRAP_AFTER:-}" ]; then
+      start_building=true
+      continue
+    fi
+
+    # Build the project if we should be building
+    if [[ -z "${BOOTSTRAP_AFTER:-}" || "$start_building" = true ]]; then
+      $project/bootstrap.sh ${1:-}
+    fi
+
+    # Stop the build if we've reached BOOTSTRAP_TO
+    # We therefore don't run parallel commands if BOOTSTRAP_TO is set.
+    if [ "$project" = "${BOOTSTRAP_TO:-}" ]; then
+      return
+    fi
   done
 
   parallel --line-buffer --tag --halt now,fail=1 "denoise '{}'" ::: ${parallel_cmds[@]}
@@ -242,7 +276,7 @@ function build {
 function bench_cmds {
   if [ "$#" -eq 0 ]; then
     # Ordered with longest running first, to ensure they get scheduled earliest.
-    set -- yarn-project/end-to-end yarn-project barretenberg/cpp barretenberg/acir_tests noir-projects/noir-protocol-circuits l1-contracts
+    set -- yarn-project/end-to-end yarn-project barretenberg/cpp barretenberg/sol barretenberg/acir_tests noir-projects/noir-protocol-circuits l1-contracts
   fi
   parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@ | sort_by_cpus
 }
@@ -276,7 +310,7 @@ function bench {
   echo_header "bench all"
   build_bench
   find . -type d -iname bench-out | xargs rm -rf
-  bench_cmds | STRICT_SCHEDULING=1 parallelise
+  bench_cmds | STRICT_SCHEDULING=1 parallelize
   rm -rf bench-out
   mkdir -p bench-out
   bench_merge
@@ -315,7 +349,7 @@ function release {
   #   aztec-up => upload scripts to prod if dist tag is latest
   #   playground => publish if dist tag is latest.
   #   release-image => push docker image to dist tag.
-  #   boxes/l1-contracts => mirror repo to branch equal to dist tag (master if latest). Also mirror to tag equal to REF_NAME.
+  #   boxes/l1-contracts/aztec-nr => mirror repo to branch equal to dist tag (master if latest). Also mirror to tag equal to REF_NAME.
 
   echo_header "release all"
   set -x
@@ -331,6 +365,7 @@ function release {
     barretenberg/ts
     noir
     l1-contracts
+    noir-projects/aztec-nr
     yarn-project
     boxes
     aztec-up
@@ -387,6 +422,7 @@ case "$cmd" in
     export CI=1
     export USE_TEST_CACHE=1
     export CI_FULL=0
+    export ACCEPT_DISABLED_AVM_VK_TREE_ROOT=1
     build
     test
     ;;
@@ -394,6 +430,7 @@ case "$cmd" in
     export CI=1
     export USE_TEST_CACHE=0
     export CI_FULL=1
+    export ACCEPT_DISABLED_AVM_VK_TREE_ROOT=1
     build
     test
     bench
@@ -403,9 +440,19 @@ case "$cmd" in
     export USE_TEST_CACHE=1
     export CI_NIGHTLY=1
     build
+    release-image/bootstrap.sh push
     test
     release
-    docs/bootstrap.sh release-docs
+    ;;
+  "ci-network-deploy")
+    export CI=1
+    build
+    spartan/bootstrap.sh network_deploy $NETWORK_ENV_FILE
+    ;;
+  "ci-network-tests")
+    export CI=1
+    build
+    spartan/bootstrap.sh network_tests $NETWORK_ENV_FILE
     ;;
   "ci-release")
     export CI=1
@@ -415,6 +462,18 @@ case "$cmd" in
     fi
     build
     release
+    ;;
+  "ci-docs")
+    export CI=1
+    export USE_TEST_CACHE=1
+    ./bootstrap.sh
+    docs/bootstrap.sh ci
+    ;;
+  "ci-barretenberg")
+    export CI=1
+    export USE_TEST_CACHE=1
+    export DISABLE_AZTEC_VM=1
+    barretenberg/cpp/bootstrap.sh ci
     ;;
   test|test_cmds|build_bench|bench|bench_cmds|bench_merge|release|release_dryrun)
     $cmd "$@"

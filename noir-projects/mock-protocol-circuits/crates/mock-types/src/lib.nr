@@ -4,10 +4,13 @@ pub global MAX_COMMITMENT_READ_REQUESTS_PER_CALL: u32 = 2;
 pub global MAX_COMMITMENT_READ_REQUESTS_PER_TX: u32 = 4;
 
 pub use protocol_types::{
+    abis::avm_circuit_public_inputs::AvmCircuitPublicInputs,
     constants::{
-        CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-        PROOF_TYPE_OINK, PROOF_TYPE_PG, PROOF_TYPE_ROLLUP_HONK, PROOF_TYPE_ROOT_ROLLUP_HONK,
-        ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, TUBE_PROOF_LENGTH,
+        AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
+        CIVC_PROOF_LENGTH, CIVC_VK_LENGTH_IN_FIELDS, MEGA_VK_LENGTH_IN_FIELDS,
+        NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH, PROOF_TYPE_AVM, PROOF_TYPE_CIVC, PROOF_TYPE_OINK,
+        PROOF_TYPE_PG, PROOF_TYPE_PG_FINAL, PROOF_TYPE_PG_TAIL, PROOF_TYPE_ROLLUP_HONK,
+        PROOF_TYPE_ROOT_ROLLUP_HONK,
     },
     proof::verification_key::{RollupHonkVerificationKey, VerificationKey},
     traits::Serialize,
@@ -106,6 +109,7 @@ impl PrivateKernelPublicInputsBuilder {
     }
 }
 
+#[derive(Serialize)]
 pub struct KernelPublicInputs {
     pub commitments: [Field; MAX_COMMITMENTS_PER_TX],
 }
@@ -116,12 +120,7 @@ impl Default for KernelPublicInputs {
     }
 }
 
-impl Serialize<MAX_COMMITMENTS_PER_TX> for KernelPublicInputs {
-    fn serialize(self) -> [Field; MAX_COMMITMENTS_PER_TX] {
-        self.commitments
-    }
-}
-
+#[derive(Serialize)]
 pub struct RollupPublicInputs {
     accumulated: u32,
 }
@@ -133,12 +132,6 @@ impl RollupPublicInputs {
 
     pub fn merge(self, other: Self) -> Self {
         Self { accumulated: self.accumulated + other.accumulated }
-    }
-}
-
-impl Serialize<1> for RollupPublicInputs {
-    fn serialize(self) -> [Field; 1] {
-        [self.accumulated as Field]
     }
 }
 
@@ -170,13 +163,13 @@ impl PreviousRollupData {
     }
 }
 
-pub struct TubeData {
+pub struct CivcProofData {
     pub public_inputs: KernelPublicInputs,
-    pub proof: [Field; TUBE_PROOF_LENGTH],
-    pub vk_data: VerificationKey<ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS>,
+    pub proof: [Field; CIVC_PROOF_LENGTH],
+    pub vk_data: VerificationKey<CIVC_VK_LENGTH_IN_FIELDS>,
 }
 
-impl TubeData {
+impl CivcProofData {
     pub fn verify(self) {
         let inputs = KernelPublicInputs::serialize(self.public_inputs);
         std::verify_proof_with_type(
@@ -184,7 +177,7 @@ impl TubeData {
             self.proof,
             inputs,
             self.vk_data.hash,
-            PROOF_TYPE_ROLLUP_HONK,
+            PROOF_TYPE_CIVC,
         );
     }
 }

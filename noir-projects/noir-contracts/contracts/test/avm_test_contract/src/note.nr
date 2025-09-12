@@ -3,6 +3,6 @@ use std::meta::derive;
 
 #[derive(Deserialize, Packable, Serialize)]
 pub struct Note {
-    a: Field,
-    b: Field,
+    pub a: Field,
+    pub b: Field,
 }

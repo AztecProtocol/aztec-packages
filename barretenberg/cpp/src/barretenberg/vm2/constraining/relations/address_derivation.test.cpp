@@ -13,21 +13,23 @@
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
-#include "barretenberg/vm2/simulation/to_radix.hpp"
+#include "barretenberg/vm2/simulation/testing/fakes/fake_to_radix.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/tracegen/address_derivation_trace.hpp"
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
-#include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
 
 namespace bb::avm2::constraining {
 namespace {
 
+using ::testing::Return;
+using ::testing::StrictMock;
+
 using tracegen::AddressDerivationTraceBuilder;
 using tracegen::EccTraceBuilder;
-using tracegen::LookupIntoDynamicTableSequential;
 using tracegen::Poseidon2TraceBuilder;
 using tracegen::TestTraceContainer;
 
@@ -36,15 +38,18 @@ using simulation::AddressDerivationEvent;
 using simulation::compute_contract_address;
 using simulation::Ecc;
 using simulation::EccAddEvent;
+using simulation::EccAddMemoryEvent;
 using simulation::EventEmitter;
+using simulation::FakeToRadix;
 using simulation::hash_public_keys;
+using simulation::MockExecutionIdManager;
+using simulation::MockGreaterThan;
 using simulation::NoopEventEmitter;
 using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
+using simulation::Poseidon2PermutationMemoryEvent;
 using simulation::ScalarMulEvent;
-using simulation::ToRadix;
-using simulation::ToRadixEvent;
 
 using FF = AvmFlavorSettings::FF;
 using C = Column;
@@ -53,25 +58,6 @@ using poseidon2_relation = bb::avm2::poseidon2_hash<FF>;
 using ecadd_relation = bb::avm2::ecc<FF>;
 using scalar_mul_relation = bb::avm2::scalar_mul<FF>;
 using poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
-
-using lookup_salted_initialization_hash_poseidon2_0 =
-    bb::avm2::lookup_address_derivation_salted_initialization_hash_poseidon2_0_relation<FF>;
-using lookup_salted_initialization_hash_poseidon2_1 =
-    bb::avm2::lookup_address_derivation_salted_initialization_hash_poseidon2_1_relation<FF>;
-using lookup_partial_address_poseidon2 = bb::avm2::lookup_address_derivation_partial_address_poseidon2_relation<FF>;
-using lookup_public_keys_hash_poseidon2_0 =
-    bb::avm2::lookup_address_derivation_public_keys_hash_poseidon2_0_relation<FF>;
-using lookup_public_keys_hash_poseidon2_1 =
-    bb::avm2::lookup_address_derivation_public_keys_hash_poseidon2_1_relation<FF>;
-using lookup_public_keys_hash_poseidon2_2 =
-    bb::avm2::lookup_address_derivation_public_keys_hash_poseidon2_2_relation<FF>;
-using lookup_public_keys_hash_poseidon2_3 =
-    bb::avm2::lookup_address_derivation_public_keys_hash_poseidon2_3_relation<FF>;
-using lookup_public_keys_hash_poseidon2_4 =
-    bb::avm2::lookup_address_derivation_public_keys_hash_poseidon2_4_relation<FF>;
-using lookup_public_preaddress_poseidon2 = bb::avm2::lookup_address_derivation_preaddress_poseidon2_relation<FF>;
-using lookup_public_preaddress_scalar_mul = bb::avm2::lookup_address_derivation_preaddress_scalar_mul_relation<FF>;
-using lookup_address_ecadd = bb::avm2::lookup_address_derivation_address_ecadd_relation<FF>;
 
 TEST(AddressDerivationConstrainingTest, EmptyRow)
 {
@@ -114,16 +100,28 @@ TEST(AddressDerivationConstrainingTest, Basic)
 
 TEST(AddressDerivationConstrainingTest, WithInteractions)
 {
-    NoopEventEmitter<ToRadixEvent> to_radix_event_emitter;
     EventEmitter<EccAddEvent> ecadd_event_emitter;
     EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
+    NoopEventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
     EventEmitter<AddressDerivationEvent> address_derivation_event_emitter;
 
-    ToRadix to_radix_simulator(to_radix_event_emitter);
-    Ecc ecc_simulator(to_radix_simulator, ecadd_event_emitter, scalar_mul_event_emitter);
-    Poseidon2 poseidon2_simulator(hash_event_emitter, perm_event_emitter);
+    StrictMock<MockExecutionIdManager> mock_exec_id_manager;
+    EXPECT_CALL(mock_exec_id_manager, get_execution_id)
+        .WillRepeatedly(Return(0)); // Use a fixed execution ID for the test
+    StrictMock<MockGreaterThan> mock_gt;
+    Poseidon2 poseidon2_simulator(
+        mock_exec_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
+
+    FakeToRadix to_radix_simulator;
+    Ecc ecc_simulator(mock_exec_id_manager,
+                      mock_gt,
+                      to_radix_simulator,
+                      ecadd_event_emitter,
+                      scalar_mul_event_emitter,
+                      ecc_add_memory_event_emitter);
 
     AddressDerivation address_derivation(poseidon2_simulator, ecc_simulator, address_derivation_event_emitter);
 
@@ -144,18 +142,18 @@ TEST(AddressDerivationConstrainingTest, WithInteractions)
     ecc_builder.process_add(ecadd_event_emitter.dump_events(), trace);
     ecc_builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
 
-    LookupIntoDynamicTableSequential<lookup_salted_initialization_hash_poseidon2_0::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_salted_initialization_hash_poseidon2_1::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_partial_address_poseidon2::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_public_keys_hash_poseidon2_0::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_public_keys_hash_poseidon2_1::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_public_keys_hash_poseidon2_2::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_public_keys_hash_poseidon2_3::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_public_keys_hash_poseidon2_4::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_public_preaddress_poseidon2::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_public_preaddress_scalar_mul::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_address_ecadd::Settings>().process(trace);
-
+    check_interaction<AddressDerivationTraceBuilder,
+                      lookup_address_derivation_salted_initialization_hash_poseidon2_0_settings,
+                      lookup_address_derivation_salted_initialization_hash_poseidon2_1_settings,
+                      lookup_address_derivation_partial_address_poseidon2_settings,
+                      lookup_address_derivation_public_keys_hash_poseidon2_0_settings,
+                      lookup_address_derivation_public_keys_hash_poseidon2_1_settings,
+                      lookup_address_derivation_public_keys_hash_poseidon2_2_settings,
+                      lookup_address_derivation_public_keys_hash_poseidon2_3_settings,
+                      lookup_address_derivation_public_keys_hash_poseidon2_4_settings,
+                      lookup_address_derivation_preaddress_poseidon2_settings,
+                      lookup_address_derivation_preaddress_scalar_mul_settings,
+                      lookup_address_derivation_address_ecadd_settings>(trace);
     check_relation<address_derivation_relation>(trace);
 }
 

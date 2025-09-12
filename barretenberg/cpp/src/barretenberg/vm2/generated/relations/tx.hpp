@@ -3,6 +3,7 @@
 
 #include <string_view>
 
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -13,12 +14,15 @@ template <typename FF_> class txImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 16> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 4, 7, 6, 3,
-                                                                            5, 6, 4, 6, 6, 2, 4, 4 };
+    static constexpr std::array<size_t, 56> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 4, 3, 3, 3, 3, 3, 4, 7, 6, 3, 5,
+                                                                            6, 4, 3, 6, 6, 3, 3, 4, 4, 4, 4, 2, 4, 5,
+                                                                            3, 3, 3, 4, 5, 4, 4, 4, 4, 6, 4, 3, 4, 2,
+                                                                            4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
+
         return (in.get(C::tx_sel)).is_zero();
     }
 
@@ -26,173 +30,99 @@ template <typename FF_> class txImpl {
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
-                           [[maybe_unused]] const FF& scaling_factor)
-    {
-        using C = ColumnAndShifts;
-
-        const auto tx_NOT_LAST = in.get(C::tx_sel_shift) * in.get(C::tx_sel);
-        const auto tx_NOT_PHASE_END = tx_NOT_LAST * (FF(1) - in.get(C::tx_end_phase));
-        const auto tx_REM_COUNT_MINUS_1 = (in.get(C::tx_remaining_phase_counter) - FF(1));
-
-        {
-            using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_sel));
-            tmp *= scaling_factor;
-            std::get<0>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_is_padded) * (FF(1) - in.get(C::tx_is_padded));
-            tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_start_phase) * (FF(1) - in.get(C::tx_start_phase));
-            tmp *= scaling_factor;
-            std::get<2>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_end_phase) * (FF(1) - in.get(C::tx_end_phase));
-            tmp *= scaling_factor;
-            std::get<3>(evals) += typename Accumulator::View(tmp);
-        }
-        { // START_FOLLOWS_END
-            using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = tx_NOT_LAST *
-                       (in.get(C::tx_start_phase_shift) - (in.get(C::tx_end_phase) + in.get(C::precomputed_first_row)));
-            tmp *= scaling_factor;
-            std::get<4>(evals) += typename Accumulator::View(tmp);
-        }
-        { // PHASE_VALUE_CONTINUITY
-            using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = tx_NOT_PHASE_END * (FF(1) - in.get(C::tx_reverted)) *
-                       (FF(1) - in.get(C::precomputed_first_row)) *
-                       (in.get(C::tx_phase_value_shift) - in.get(C::tx_phase_value));
-            tmp *= scaling_factor;
-            std::get<5>(evals) += typename Accumulator::View(tmp);
-        }
-        { // INCR_PHASE_VALUE_ON_END
-            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = tx_NOT_LAST * (FF(1) - in.get(C::tx_reverted)) * in.get(C::tx_end_phase) *
-                       (in.get(C::tx_phase_value_shift) - (in.get(C::tx_phase_value) + FF(1)));
-            tmp *= scaling_factor;
-            std::get<6>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_reverted) * (FF(1) - in.get(C::tx_is_revertible));
-            tmp *= scaling_factor;
-            std::get<7>(evals) += typename Accumulator::View(tmp);
-        }
-        { // REM_COUNT_IS_ZERO
-            using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp =
-                in.get(C::tx_sel) * ((in.get(C::tx_remaining_phase_counter) *
-                                          (in.get(C::tx_is_padded) * (FF(1) - in.get(C::tx_remaining_phase_inv)) +
-                                           in.get(C::tx_remaining_phase_inv)) -
-                                      FF(1)) +
-                                     in.get(C::tx_is_padded));
-            tmp *= scaling_factor;
-            std::get<8>(evals) += typename Accumulator::View(tmp);
-        }
-        { // REM_COUNT_IS_ONE
-            using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * (FF(1) - in.get(C::tx_is_padded)) *
-                       ((tx_REM_COUNT_MINUS_1 *
-                             (in.get(C::tx_end_phase) * (FF(1) - in.get(C::tx_remaining_phase_minus_one_inv)) +
-                              in.get(C::tx_remaining_phase_minus_one_inv)) -
-                         FF(1)) +
-                        in.get(C::tx_end_phase));
-            tmp *= scaling_factor;
-            std::get<9>(evals) += typename Accumulator::View(tmp);
-        }
-        { // READ_PI_LENGTH_SEL
-            using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * (in.get(C::tx_sel_read_phase_length) -
-                                            in.get(C::tx_start_phase) * (FF(1) - in.get(C::tx_is_collect_fee)));
-            tmp *= scaling_factor;
-            std::get<10>(evals) += typename Accumulator::View(tmp);
-        }
-        { // DECR_REM_PHASE_EVENTS
-            using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - in.get(C::precomputed_first_row)) * tx_NOT_PHASE_END *
-                       (in.get(C::tx_remaining_phase_counter_shift) - (in.get(C::tx_remaining_phase_counter) - FF(1)));
-            tmp *= scaling_factor;
-            std::get<11>(evals) += typename Accumulator::View(tmp);
-        }
-        { // INCR_READ_PI_OFFSET
-            using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - in.get(C::precomputed_first_row)) * tx_NOT_PHASE_END *
-                       (in.get(C::tx_read_pi_offset_shift) - (in.get(C::tx_read_pi_offset) + FF(1)));
-            tmp *= scaling_factor;
-            std::get<12>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
-            auto tmp =
-                (in.get(C::tx_is_tree_insert_phase) -
-                 (in.get(C::tx_sel_revertible_append_note_hash) + in.get(C::tx_sel_non_revertible_append_note_hash) +
-                  in.get(C::tx_sel_revertible_append_nullifier) + in.get(C::tx_sel_non_revertible_append_nullifier)));
-            tmp *= scaling_factor;
-            std::get<13>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * (((FF(1) - in.get(C::tx_reverted)) - in.get(C::tx_is_padded)) *
-                                                in.get(C::tx_is_tree_insert_phase) -
-                                            in.get(C::tx_successful_tree_insert));
-            tmp *= scaling_factor;
-            std::get<14>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
-            auto tmp = in.get(C::tx_sel) * (((FF(1) - in.get(C::tx_reverted)) - in.get(C::tx_is_padded)) *
-                                                in.get(C::tx_is_l2_l1_msg_phase) -
-                                            in.get(C::tx_successful_msg_emit));
-            tmp *= scaling_factor;
-            std::get<15>(evals) += typename Accumulator::View(tmp);
-        }
-    }
+                           [[maybe_unused]] const FF& scaling_factor);
 };
 
 template <typename FF> class tx : public Relation<txImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "tx";
 
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_NO_EXTRANEOUS_ROWS = 1;
+    static constexpr size_t SR_SEL_ON_FIRST_ROW = 2;
+    static constexpr size_t SR_NO_EARLY_END = 3;
+    static constexpr size_t SR_START_WITH_SEL = 4;
+    static constexpr size_t SR_START_FOLLOWS_END = 9;
+    static constexpr size_t SR_PHASE_VALUE_CONTINUITY = 10;
+    static constexpr size_t SR_INCR_PHASE_VALUE_ON_END = 11;
+    static constexpr size_t SR_REM_COUNT_IS_ZERO = 13;
+    static constexpr size_t SR_REM_COUNT_IS_ONE = 14;
+    static constexpr size_t SR_READ_PI_LENGTH_SEL = 15;
+    static constexpr size_t SR_ONE_SHOT_REMAINING_PHASE_COUNTER_ONE = 16;
+    static constexpr size_t SR_DECR_REM_PHASE_EVENTS = 17;
+    static constexpr size_t SR_INCR_READ_PI_OFFSET = 18;
+    static constexpr size_t SR_MAX_NOTE_HASH_WRITES_REACHED = 27;
+    static constexpr size_t SR_MAX_NULLIFIER_WRITES_REACHED = 32;
+    static constexpr size_t SR_MAX_L2_L1_MSG_WRITES_REACHED = 37;
+    static constexpr size_t SR_UPDATE_NUM_L2_TO_L1_MSGS = 40;
+    static constexpr size_t SR_COMPUTE_FEE = 42;
+    static constexpr size_t SR_TEARDOWN_GETS_FEE = 43;
+    static constexpr size_t SR_FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN = 44;
+    static constexpr size_t SR_NOTE_HASH_TREE_ROOT_IMMUTABLE_IN_PADDING = 50;
+    static constexpr size_t SR_PAD_NOTE_HASH_TREE = 51;
+    static constexpr size_t SR_NOTE_HASHES_EMITTED_IMMUTABLE_IN_PADDING = 52;
+    static constexpr size_t SR_NULLIFIER_TREE_ROOT_IMMUTABLE_IN_PADDING = 53;
+    static constexpr size_t SR_PAD_NULLIFIER_TREE = 54;
+    static constexpr size_t SR_NULLIFIERS_EMITTED_IMMUTABLE_IN_PADDING = 55;
+
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case 4:
+        case SR_NO_EXTRANEOUS_ROWS:
+            return "NO_EXTRANEOUS_ROWS";
+        case SR_SEL_ON_FIRST_ROW:
+            return "SEL_ON_FIRST_ROW";
+        case SR_NO_EARLY_END:
+            return "NO_EARLY_END";
+        case SR_START_WITH_SEL:
+            return "START_WITH_SEL";
+        case SR_START_FOLLOWS_END:
             return "START_FOLLOWS_END";
-        case 5:
+        case SR_PHASE_VALUE_CONTINUITY:
             return "PHASE_VALUE_CONTINUITY";
-        case 6:
+        case SR_INCR_PHASE_VALUE_ON_END:
             return "INCR_PHASE_VALUE_ON_END";
-        case 8:
+        case SR_REM_COUNT_IS_ZERO:
             return "REM_COUNT_IS_ZERO";
-        case 9:
+        case SR_REM_COUNT_IS_ONE:
             return "REM_COUNT_IS_ONE";
-        case 10:
+        case SR_READ_PI_LENGTH_SEL:
             return "READ_PI_LENGTH_SEL";
-        case 11:
+        case SR_ONE_SHOT_REMAINING_PHASE_COUNTER_ONE:
+            return "ONE_SHOT_REMAINING_PHASE_COUNTER_ONE";
+        case SR_DECR_REM_PHASE_EVENTS:
             return "DECR_REM_PHASE_EVENTS";
-        case 12:
+        case SR_INCR_READ_PI_OFFSET:
             return "INCR_READ_PI_OFFSET";
+        case SR_MAX_NOTE_HASH_WRITES_REACHED:
+            return "MAX_NOTE_HASH_WRITES_REACHED";
+        case SR_MAX_NULLIFIER_WRITES_REACHED:
+            return "MAX_NULLIFIER_WRITES_REACHED";
+        case SR_MAX_L2_L1_MSG_WRITES_REACHED:
+            return "MAX_L2_L1_MSG_WRITES_REACHED";
+        case SR_UPDATE_NUM_L2_TO_L1_MSGS:
+            return "UPDATE_NUM_L2_TO_L1_MSGS";
+        case SR_COMPUTE_FEE:
+            return "COMPUTE_FEE";
+        case SR_TEARDOWN_GETS_FEE:
+            return "TEARDOWN_GETS_FEE";
+        case SR_FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN:
+            return "FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN";
+        case SR_NOTE_HASH_TREE_ROOT_IMMUTABLE_IN_PADDING:
+            return "NOTE_HASH_TREE_ROOT_IMMUTABLE_IN_PADDING";
+        case SR_PAD_NOTE_HASH_TREE:
+            return "PAD_NOTE_HASH_TREE";
+        case SR_NOTE_HASHES_EMITTED_IMMUTABLE_IN_PADDING:
+            return "NOTE_HASHES_EMITTED_IMMUTABLE_IN_PADDING";
+        case SR_NULLIFIER_TREE_ROOT_IMMUTABLE_IN_PADDING:
+            return "NULLIFIER_TREE_ROOT_IMMUTABLE_IN_PADDING";
+        case SR_PAD_NULLIFIER_TREE:
+            return "PAD_NULLIFIER_TREE";
+        case SR_NULLIFIERS_EMITTED_IMMUTABLE_IN_PADDING:
+            return "NULLIFIERS_EMITTED_IMMUTABLE_IN_PADDING";
         }
         return std::to_string(index);
     }
-
-    // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_START_FOLLOWS_END = 4;
-    static constexpr size_t SR_PHASE_VALUE_CONTINUITY = 5;
-    static constexpr size_t SR_INCR_PHASE_VALUE_ON_END = 6;
-    static constexpr size_t SR_REM_COUNT_IS_ZERO = 8;
-    static constexpr size_t SR_REM_COUNT_IS_ONE = 9;
-    static constexpr size_t SR_READ_PI_LENGTH_SEL = 10;
-    static constexpr size_t SR_DECR_REM_PHASE_EVENTS = 11;
-    static constexpr size_t SR_INCR_READ_PI_OFFSET = 12;
 };
 
 } // namespace bb::avm2

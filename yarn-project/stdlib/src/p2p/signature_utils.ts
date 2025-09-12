@@ -4,6 +4,7 @@ import { keccak256, makeEthSignDigest } from '@aztec/foundation/crypto';
 export enum SignatureDomainSeparator {
   blockProposal = 0,
   blockAttestation = 1,
+  attestationsAndSigners = 2,
 }
 
 export interface Signable {

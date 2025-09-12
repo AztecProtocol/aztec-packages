@@ -1,10 +1,15 @@
-import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
+import { BatchedBlob, Blob } from '@aztec/blob-lib';
+import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import type { TestEnqueuedCall } from '@aztec/simulator/public/fixtures';
+import {
+  PublicTxSimulationTester,
+  SimpleContractDataSource,
+  type TestEnqueuedCall,
+} from '@aztec/simulator/public/fixtures';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
@@ -16,6 +21,8 @@ const logger = createLogger('prover-client:test:orchestrator-multi-public-functi
 
 describe('prover/orchestrator/public-functions', () => {
   let context: TestContext;
+  let tester: PublicTxSimulationTester;
+  let contractDataSource: SimpleContractDataSource;
 
   beforeEach(async () => {
     context = await TestContext.new(logger);
@@ -33,8 +40,12 @@ describe('prover/orchestrator/public-functions', () => {
     beforeEach(async () => {
       admin = context.feePayer; // make sure tx sender has sufficient balance
 
+      const merkleTrees = await context.worldState.fork();
+      contractDataSource = new SimpleContractDataSource();
+      tester = new PublicTxSimulationTester(merkleTrees, contractDataSource);
+
       const constructorArgs = [admin, /*name=*/ 'Token', /*symbol=*/ 'TOK', /*decimals=*/ new Fr(18)];
-      token = await context.tester.registerAndDeployContract(
+      token = await tester.registerAndDeployContract(
         constructorArgs,
         /*deployer=*/ admin,
         TokenContractArtifact,
@@ -43,11 +54,11 @@ describe('prover/orchestrator/public-functions', () => {
       // Note: skip nullifier insertion above so it can be performed during the constructor
       // TX (via firstNullifier). We want all tree operations to end up in txEffects!
       const contractAddressNullifier = await siloNullifier(
-        AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
+        AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
         token.address.toField(),
       );
 
-      constructorTx = await context.tester.createTx(
+      constructorTx = await tester.createTx(
         /*sender=*/ admin,
         /*setupCalls=*/ [],
         /*appCalls=*/ [
@@ -59,7 +70,11 @@ describe('prover/orchestrator/public-functions', () => {
         ],
         /*teardownCall=*/ undefined,
         /*feePayer=*/ admin,
-        /*firstNullifier=*/ contractAddressNullifier, // as if it was deployed during private portion
+        /*firstNullifier=*/ {
+          nonRevertible: {
+            nullifiers: [contractAddressNullifier],
+          },
+        }, // as if it was deployed during private portion
       );
     });
 
@@ -84,19 +99,25 @@ describe('prover/orchestrator/public-functions', () => {
           tx.data.constants.historicalHeader = context.getBlockHeader(0);
           tx.data.constants.vkTreeRoot = getVKTreeRoot();
           tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
+          await tx.recomputeHash();
         }
 
-        context.orchestrator.startNewEpoch(1, 1, 1);
-        await context.orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
-
-        const [processed, failed] = await context.processPublicFunctions(txs, numTransactions);
+        const [processed, failed] = await context.processPublicFunctions(txs, {
+          maxTransactions: numTransactions,
+          contractDataSource,
+        });
         expect(processed.length).toBe(numTransactions);
         expect(failed.length).toBe(0);
+
+        const blobs = await Blob.getBlobsPerBlock(processed.map(tx => tx.txEffect.toBlobFields()).flat());
+        const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
+        context.orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
+        await context.orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
 
         await context.orchestrator.addTxs(processed);
 
         const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
-        await context.orchestrator.finaliseEpoch();
+        await context.orchestrator.finalizeEpoch();
 
         expect(block.number).toEqual(context.blockNumber);
       },
@@ -128,7 +149,7 @@ describe('prover/orchestrator/public-functions', () => {
       const appCalls = Array.from({ length: numberOfRevertiblePublicCallRequests }, (_, i) =>
         createMintCall(/*seed=*/ appCallSeed(i)),
       );
-      return await context.tester.createTx(
+      return await tester.createTx(
         /*sender=*/ admin,
         /*setupCalls=*/ setupCalls,
         /*appCalls=*/ appCalls,

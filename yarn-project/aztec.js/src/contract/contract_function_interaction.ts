@@ -2,21 +2,23 @@ import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi, encodeArguments } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { Capsule, HashedValues, SimulationStats, TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
+import {
+  type Capsule,
+  type HashedValues,
+  type OffchainEffect,
+  type SimulationStats,
+  type TxProfileResult,
+  collectOffchainEffects,
+} from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
-import type {
-  ProfileMethodOptions,
-  RequestMethodOptions,
-  SendMethodOptions,
-  SimulateMethodOptions,
-} from './interaction_options.js';
+import type { ProfileMethodOptions, RequestMethodOptions, SimulateMethodOptions } from './interaction_options.js';
 
 /**
  * Represents the result type of a simulation.
  * By default, it will just be the return value of the simulated function
- * so contract interfaces behave as plain functions. If `includeStats` is set to true,
+ * so contract interfaces behave as plain functions. If `includeMetadata` is set to true in `SimulateMethodOptions` on the input of `simulate(...)`,
  * it will provide extra information.
  */
 type SimulationReturn<T extends boolean | undefined> = T extends true
@@ -25,6 +27,10 @@ type SimulationReturn<T extends boolean | undefined> = T extends true
        * Additional stats about the simulation
        */
       stats: SimulationStats;
+      /**
+       * Offchain effects generated during the simulation
+       */
+      offchainEffects: OffchainEffect[];
       /**
        * Return value of the function
        */
@@ -50,26 +56,6 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     if (args.some(arg => arg === undefined || arg === null)) {
       throw new Error(`All function interaction arguments must be defined and not null. Received: ${args}`);
     }
-  }
-
-  // docs:start:create
-  /**
-   * Create a transaction execution request that represents this call, encoded and authenticated by the
-   * user's wallet, ready to be simulated.
-   * @param options - An optional object containing additional configuration for the transaction.
-   * @returns A Promise that resolves to a transaction instance.
-   */
-  public override async create(options: SendMethodOptions = {}): Promise<TxExecutionRequest> {
-    // docs:end:create
-    if (this.functionDao.functionType === FunctionType.UTILITY) {
-      throw new Error("Can't call `create` on a utility  function.");
-    }
-    const requestWithoutFee = await this.request(options);
-
-    const { fee: userFee, txNonce, cancellable } = options;
-    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { txNonce, cancellable });
-
-    return await this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { txNonce, cancellable });
   }
 
   // docs:start:request
@@ -112,9 +98,9 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns The result of the transaction as returned by the contract function.
    */
-  public async simulate<T extends SimulateMethodOptions>(options?: T): Promise<SimulationReturn<T['includeStats']>>;
+  public async simulate<T extends SimulateMethodOptions>(options: T): Promise<SimulationReturn<T['includeMetadata']>>;
   // eslint-disable-next-line jsdoc/require-jsdoc
-  public async simulate(options: SimulateMethodOptions = {}): Promise<SimulationReturn<typeof options.includeStats>> {
+  public async simulate(options: SimulateMethodOptions): Promise<SimulationReturn<typeof options.includeMetadata>> {
     // docs:end:simulate
     if (this.functionDao.functionType == FunctionType.UTILITY) {
       const utilityResult = await this.wallet.simulateUtility(
@@ -122,10 +108,9 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
         this.args,
         this.contractAddress,
         options.authWitnesses ?? [],
-        options?.from,
       );
 
-      if (options.includeStats) {
+      if (options.includeMetadata) {
         return {
           stats: utilityResult.stats,
           result: utilityResult.result,
@@ -135,14 +120,8 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       }
     }
 
-    const txRequest = await this.create(options);
-    const simulatedTx = await this.wallet.simulateTx(
-      txRequest,
-      true /* simulatePublic */,
-      options.from,
-      options.skipTxValidation,
-      options.skipFeeEnforcement ?? true,
-    );
+    const executionPayload = await this.request(options);
+    const simulatedTx = await this.wallet.simulateTx(executionPayload, options);
 
     let rawReturnValues;
     if (this.functionDao.functionType == FunctionType.PRIVATE) {
@@ -156,13 +135,17 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       }
     } else {
       // For public functions we retrieve the first values directly from the public output.
-      rawReturnValues = simulatedTx.getPublicReturnValues()?.[0].values;
+      rawReturnValues = simulatedTx.getPublicReturnValues()?.[0]?.values;
     }
 
     const returnValue = rawReturnValues ? decodeFromAbi(this.functionDao.returnTypes, rawReturnValues) : [];
 
-    if (options.includeStats) {
-      return { stats: simulatedTx.stats, result: returnValue };
+    if (options.includeMetadata) {
+      return {
+        stats: simulatedTx.stats,
+        offchainEffects: collectOffchainEffects(simulatedTx.privateExecutionResult),
+        result: returnValue,
+      };
     } else {
       return returnValue;
     }
@@ -174,16 +157,13 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    *
    * @returns An object containing the function return value and profile result.
    */
-  public async profile(
-    options: ProfileMethodOptions = { profileMode: 'gates', skipProofGeneration: true },
-  ): Promise<TxProfileResult> {
+  public async profile(options: ProfileMethodOptions): Promise<TxProfileResult> {
     if (this.functionDao.functionType == FunctionType.UTILITY) {
       throw new Error("Can't profile a utility function.");
     }
-    const { authWitnesses, capsules, fee } = options;
 
-    const txRequest = await this.create({ fee, authWitnesses, capsules });
-    return await this.wallet.profileTx(txRequest, options.profileMode, options.skipProofGeneration, options?.from);
+    const executionPayload = await this.request(options);
+    return await this.wallet.profileTx(executionPayload, options);
   }
 
   /**

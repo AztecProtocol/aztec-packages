@@ -1,5 +1,5 @@
-import { AccountWallet, type AztecNode, type SimulateMethodOptions } from '@aztec/aztec.js';
-import { EasyPrivateVotingContract } from '@aztec/noir-contracts.js/EasyPrivateVoting';
+import { AztecAddress, type AztecNode, type SimulateMethodOptions, type Wallet } from '@aztec/aztec.js';
+import { PrivateVotingContract } from '@aztec/noir-contracts.js/PrivateVoting';
 import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 
@@ -13,6 +13,9 @@ jest.setTimeout(1_600_000);
 describe('Deployment benchmark', () => {
   const t = new ClientFlowsBenchmark('deployments');
   let node: AztecNode;
+
+  // The wallet used by the user to interact
+  let userWallet: Wallet;
   // Sponsored FPC contract
   let sponsoredFPC: SponsoredFPCContract;
   // Benchmarking configuration
@@ -22,7 +25,7 @@ describe('Deployment benchmark', () => {
     await t.applyBaseSnapshots();
     await t.applyDeploySponsoredFPCSnapshot();
 
-    ({ aztecNode: node, sponsoredFPC } = await t.setup());
+    ({ aztecNode: node, sponsoredFPC, userWallet } = await t.setup());
   });
 
   afterAll(async () => {
@@ -36,11 +39,11 @@ describe('Deployment benchmark', () => {
   function deploymentBenchmark(accountType: AccountType) {
     return describe(`Deployment benchmark for ${accountType}`, () => {
       // Our benchmarking user
-      let benchysWallet: AccountWallet;
+      let benchysAddress: AztecAddress;
 
       beforeAll(async () => {
-        benchysWallet = await t.createAndFundBenchmarkingWallet(accountType);
-        await benchysWallet.registerContract(sponsoredFPC);
+        benchysAddress = await t.createAndFundBenchmarkingAccountOnUserWallet(accountType);
+        await userWallet.registerContract(sponsoredFPC);
       });
 
       function deploymentTest(benchmarkingPaymentMethod: BenchmarkingFeePaymentMethod) {
@@ -49,17 +52,18 @@ describe('Deployment benchmark', () => {
 
           beforeEach(async () => {
             isClassRegistered = !!(await node.getContractClass(
-              (await getContractClassFromArtifact(EasyPrivateVotingContract.artifact)).id,
+              (await getContractClassFromArtifact(PrivateVotingContract.artifact)).id,
             ));
           });
 
           it(`${accountType} contract deploys a TokenContract, pays using ${benchmarkingPaymentMethod}`, async () => {
             const paymentMethod = t.paymentMethods[benchmarkingPaymentMethod];
             const options: SimulateMethodOptions = {
-              fee: { paymentMethod: await paymentMethod.forWallet(benchysWallet) },
+              from: benchysAddress,
+              fee: { paymentMethod: await paymentMethod.forWallet(userWallet, benchysAddress) },
             };
 
-            const deploymentInteraction = EasyPrivateVotingContract.deploy(benchysWallet, benchysWallet.getAddress());
+            const deploymentInteraction = PrivateVotingContract.deploy(userWallet, benchysAddress);
 
             await captureProfile(
               `${accountType}+deploy_tokenContract_${
@@ -70,11 +74,12 @@ describe('Deployment benchmark', () => {
               1 + // Account entrypoint
                 1 + // Kernel init
                 paymentMethod.circuits + // Payment method circuits
-                (isClassRegistered ? 0 : 2) + // ContractClassRegisterer register_contract_class + kernel inner
-                2 + // ContractClassRegisterer assert_class_id_is_registered + kernel inner
-                2 + // ContractInstanceDeployer deploy + kernel inner
+                (isClassRegistered ? 0 : 2) + // ContractClassRegistry register_contract_class + kernel inner
+                2 + // ContractClassRegistry assert_class_id_is_published + kernel inner
+                2 + // ContractInstanceRegistry publish + kernel inner
                 1 + // Kernel reset
-                1, // Kernel tail
+                1 + // Kernel tail
+                1, // Kernel hiding
             );
 
             if (process.env.SANITY_CHECKS) {

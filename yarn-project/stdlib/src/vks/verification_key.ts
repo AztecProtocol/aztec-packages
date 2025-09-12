@@ -1,7 +1,4 @@
-import {
-  HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-} from '@aztec/constants';
+import { ULTRA_VK_LENGTH_IN_FIELDS } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
 import { Fq, Fr } from '@aztec/foundation/fields';
@@ -9,6 +6,7 @@ import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
+import { hashVK } from '../hash/index.js';
 import { CircuitType } from '../types/shared.js';
 
 /**
@@ -82,7 +80,6 @@ export class CommitmentMap {
 // TODO: find better home for these constants
 export const CIRCUIT_SIZE_INDEX = 0;
 export const CIRCUIT_PUBLIC_INPUTS_INDEX = 1;
-export const CIRCUIT_RECURSIVE_INDEX = 3;
 
 /**
  * Provides a 'fields' representation of a circuit's verification key
@@ -93,16 +90,17 @@ export class VerificationKeyAsFields {
     public hash: Fr,
   ) {}
 
+  static async fromKey(key: Fr[]) {
+    const hash = await hashVK(key);
+    return new VerificationKeyAsFields(key, hash);
+  }
+
   public get numPublicInputs() {
     return Number(this.key[CIRCUIT_PUBLIC_INPUTS_INDEX]);
   }
 
   public get circuitSize() {
     return Number(this.key[CIRCUIT_SIZE_INDEX]);
-  }
-
-  public get isRecursive() {
-    return this.key[CIRCUIT_RECURSIVE_INDEX].equals(Fr.ONE);
   }
 
   static get schema() {
@@ -145,12 +143,12 @@ export class VerificationKeyAsFields {
   }
 
   static makeFakeHonk(seed = 1): VerificationKeyAsFields {
-    return new VerificationKeyAsFields(makeTuple(HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, Fr.random, seed), Fr.random());
+    return new VerificationKeyAsFields(makeTuple(ULTRA_VK_LENGTH_IN_FIELDS, Fr.random, seed), Fr.random());
   }
 
   static makeFakeRollupHonk(seed = 1): VerificationKeyAsFields {
     return new VerificationKeyAsFields(
-      makeTuple(ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, i => new Fr(i), seed),
+      makeTuple(ULTRA_VK_LENGTH_IN_FIELDS, i => new Fr(i), seed),
       new Fr(seed + 1),
     );
   }
@@ -268,10 +266,6 @@ export class VerificationKeyData {
     return this.keyAsFields.circuitSize;
   }
 
-  public get isRecursive() {
-    return this.keyAsFields.isRecursive;
-  }
-
   static empty() {
     return new VerificationKeyData(VerificationKeyAsFields.makeEmpty(0), Buffer.alloc(0));
   }
@@ -287,7 +281,7 @@ export class VerificationKeyData {
     );
   }
 
-  static makeFake(len = ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS): VerificationKeyData {
+  static makeFake(len = ULTRA_VK_LENGTH_IN_FIELDS): VerificationKeyData {
     return new VerificationKeyData(VerificationKeyAsFields.makeFake(len), VerificationKey.makeFake().toBuffer());
   }
 

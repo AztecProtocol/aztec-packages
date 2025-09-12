@@ -5,7 +5,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract PriceFeed {
     use crate::asset::Asset;
-    use dep::aztec::prelude::{Map, PublicMutable};
+    use dep::aztec::state_vars::{Map, PublicMutable};
 
     use dep::aztec::macros::{functions::{public, view}, storage::storage};
 

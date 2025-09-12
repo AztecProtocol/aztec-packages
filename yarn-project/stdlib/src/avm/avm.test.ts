@@ -10,7 +10,7 @@ describe('Avm circuit inputs', () => {
   it(`serializes to JSON and deserializes it back`, async () => {
     const avmCircuitInputs = await makeAvmCircuitInputs(randomInt(2000));
     const json = jsonStringify(avmCircuitInputs);
-    const res = await jsonParseWithSchema(json, AvmCircuitInputs.schema);
+    const res = jsonParseWithSchema(json, AvmCircuitInputs.schema);
     // Note: ideally we don't want to use toStrictEqual here (see other test),
     // but I couldn't find an equivalent equality check.
     expect(res).toStrictEqual(avmCircuitInputs);
@@ -23,7 +23,7 @@ describe('Avm circuit inputs', () => {
     const buffer = inputs.serializeWithMessagePack();
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update test data
-    const path = 'barretenberg/cpp/src/barretenberg/vm2/common/avm_inputs.testdata.bin';
+    const path = 'barretenberg/cpp/src/barretenberg/vm2/testing/avm_inputs.testdata.bin';
     writeTestData(path, buffer, /*raw=*/ true);
 
     const expected = readTestData(path);

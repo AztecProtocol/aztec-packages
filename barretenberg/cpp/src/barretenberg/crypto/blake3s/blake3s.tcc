@@ -32,6 +32,7 @@
 #include <iostream>
 #include <type_traits>
 
+#include "barretenberg/common/assert.hpp"
 #include "blake3s.hpp"
 
 namespace blake3 {
@@ -240,6 +241,9 @@ constexpr void blake3_hasher_finalize(const blake3_hasher* self, uint8_t* out)
 
 std::vector<uint8_t> blake3s(std::vector<uint8_t> const& input)
 {
+    BB_ASSERT_LTE(
+        input.size(), 1024U, "Barretenberg does not support blake3s with input lengths greater than 1024 bytes.");
+
     blake3_hasher hasher;
     blake3_hasher_init(&hasher);
     blake3_hasher_update(&hasher, static_cast<const uint8_t*>(input.data()), input.size());

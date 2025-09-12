@@ -13,7 +13,7 @@
 
 namespace bb::avm2::simulation {
 
-using BytecodeId = uint8_t;
+using BytecodeId = FF;
 
 // Storage and decomposition of bytecode into sliding window.
 struct BytecodeDecompositionEvent {
@@ -32,13 +32,15 @@ struct BytecodeHashingEvent {
 struct BytecodeRetrievalEvent {
     BytecodeId bytecode_id;
     AztecAddress address;
-    AztecAddress siloed_address;
-    ContractInstance contract_instance;
+    ContractClassId current_class_id;
     ContractClass contract_class;
     FF nullifier_root;
     FF public_data_tree_root;
-    uint32_t current_block_number;
-    bool error = false;
+    AppendOnlyTreeSnapshot retrieved_bytecodes_snapshot_before;
+    AppendOnlyTreeSnapshot retrieved_bytecodes_snapshot_after;
+    bool is_new_class = false;
+    bool instance_not_found_error = false;
+    bool limit_error = false;
 };
 
 struct InstructionFetchingEvent {

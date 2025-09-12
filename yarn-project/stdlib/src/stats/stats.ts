@@ -81,21 +81,24 @@ export type ClientCircuitName =
   | 'private-kernel-reset'
   | 'private-kernel-tail'
   | 'private-kernel-tail-to-public'
+  | 'hiding-kernel-to-rollup'
+  | 'hiding-kernel-to-public'
   | 'app-circuit';
 
 export type ServerCircuitName =
   | 'base-parity'
   | 'root-parity'
+  | 'public-tube'
   | 'private-base-rollup'
   | 'public-base-rollup'
   | 'merge-rollup'
   | 'block-root-rollup'
   | 'single-tx-block-root-rollup'
   | 'empty-block-root-rollup'
+  | 'padding-block-root-rollup'
   | 'block-merge-rollup'
   | 'root-rollup'
-  | 'avm-circuit'
-  | 'tube-circuit';
+  | 'avm-circuit';
 
 export type CircuitName = ClientCircuitName | ServerCircuitName;
 
@@ -199,9 +202,9 @@ export type L2BlockHandledStats = {
   /** Total duration in ms. */
   duration: number;
   /** Pending block number. */
-  unfinalisedBlockNumber: bigint;
+  unfinalizedBlockNumber: bigint;
   /** Proven block number. */
-  finalisedBlockNumber: bigint;
+  finalizedBlockNumber: bigint;
   /** Oldest historic block number. */
   oldestHistoricBlock: bigint;
 } & L2BlockStats;
@@ -220,8 +223,8 @@ export type TxStats = {
   nullifierCount: number;
   /** Number of private logs */
   privateLogCount: number;
-  /** How many classes were registered through the canonical class registerer. */
-  classRegisteredCount: number;
+  /** How many classes were published to the canonical class registry. */
+  classPublishedCount: number;
   /** Serialized size of contract class logs in fields. */
   contractClassLogSize: number;
   /** How this tx pays for its fee */

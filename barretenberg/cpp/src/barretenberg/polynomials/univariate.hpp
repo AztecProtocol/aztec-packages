@@ -69,6 +69,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         return result;
     }
 
+    // Compute Lagrange coefficients of a given linear polynomial represented in monomial basis.
     template <bool has_a0_plus_a1> Univariate(UnivariateCoefficientBasis<Fr, 2, has_a0_plus_a1> monomial)
     {
         static_assert(domain_start == 0);
@@ -86,6 +87,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         }
     }
 
+    // Compute Lagrange coefficients of a given quadratic polynomial represented in monomial basis.
     template <bool has_a0_plus_a1> Univariate(UnivariateCoefficientBasis<Fr, 3, has_a0_plus_a1> monomial)
     {
         static_assert(domain_start == 0);
@@ -778,6 +780,27 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         return os;
     }
 };
+
+template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_count = 0>
+Univariate<Fr, domain_end, domain_start, skip_count> operator+(
+    const Fr& ff, const UnivariateView<Fr, domain_end, domain_start, skip_count>& uv)
+{
+    return uv + ff;
+}
+
+template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_count = 0>
+Univariate<Fr, domain_end, domain_start, skip_count> operator-(
+    const Fr& ff, const UnivariateView<Fr, domain_end, domain_start, skip_count>& uv)
+{
+    return -uv + ff;
+}
+
+template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_count = 0>
+Univariate<Fr, domain_end, domain_start, skip_count> operator*(
+    const Fr& ff, const UnivariateView<Fr, domain_end, domain_start, skip_count>& uv)
+{
+    return uv * ff;
+}
 
 /**
  * @brief Create a sub-array of `elements` at the indices given in the template pack `Is`, converting them

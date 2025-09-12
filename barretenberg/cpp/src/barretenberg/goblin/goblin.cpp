@@ -5,44 +5,33 @@
 // =====================
 
 #include "goblin.hpp"
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
-#include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
 #include "barretenberg/translator_vm/translator_proving_key.hpp"
 #include "barretenberg/translator_vm/translator_verifier.hpp"
 #include "barretenberg/ultra_honk/merge_verifier.hpp"
+#include <utility>
 
 namespace bb {
 
-Goblin::Goblin(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key,
-               const std::shared_ptr<Transcript>& transcript)
-    : commitment_key(bn254_commitment_key)
+Goblin::Goblin(CommitmentKey<curve::BN254> bn254_commitment_key, const std::shared_ptr<Transcript>& transcript)
+    : commitment_key(std::move(bn254_commitment_key))
     , transcript(transcript)
 {}
 
-Goblin::MergeProof Goblin::prove_merge()
+void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript, const MergeSettings merge_settings)
 {
-    PROFILE_THIS_NAME("Goblin::merge");
-    MergeProver merge_prover{ op_queue, commitment_key };
-    merge_proof = merge_prover.construct_proof();
-    return merge_proof;
-}
-
-/**
- * @brief The final merge prover shares a transcript with the other Goblin components
- *
- * @return Goblin::MergeProof
- */
-Goblin::MergeProof Goblin::prove_final_merge()
-{
-    PROFILE_THIS_NAME("Goblin::merge");
-    MergeProver merge_prover{ op_queue, commitment_key, transcript };
-    merge_proof = merge_prover.construct_proof();
-    return merge_proof;
+    BB_BENCH_NAME("Goblin::prove_merge");
+    MergeProver merge_prover{ op_queue, merge_settings, commitment_key, transcript };
+    merge_verification_queue.push_back(merge_prover.construct_proof());
 }
 
 void Goblin::prove_eccvm()
 {
+    BB_BENCH_NAME("Goblin::prove_eccvm");
     ECCVMBuilder eccvm_builder(op_queue);
     ECCVMProver eccvm_prover(eccvm_builder, transcript);
     goblin_proof.eccvm_proof = eccvm_prover.construct_proof();
@@ -53,39 +42,61 @@ void Goblin::prove_eccvm()
 
 void Goblin::prove_translator()
 {
-    PROFILE_THIS_NAME("Create TranslatorBuilder and TranslatorProver");
-    TranslatorBuilder translator_builder(translation_batching_challenge_v, evaluation_challenge_x, op_queue);
+    BB_BENCH_NAME("Goblin::prove_translator");
+    TranslatorBuilder translator_builder(translation_batching_challenge_v, evaluation_challenge_x, op_queue, avm_mode);
     auto translator_key = std::make_shared<TranslatorProvingKey>(translator_builder, commitment_key);
     TranslatorProver translator_prover(translator_key, transcript);
     goblin_proof.translator_proof = translator_prover.construct_proof();
 }
 
-GoblinProof Goblin::prove(MergeProof merge_proof_in)
+GoblinProof Goblin::prove(const MergeSettings merge_settings)
 {
-    PROFILE_THIS_NAME("Goblin::prove");
+    BB_BENCH_NAME("Goblin::prove");
 
+    prove_merge(transcript, merge_settings); // Use shared transcript for merge proving
     info("Constructing a Goblin proof with num ultra ops = ", op_queue->get_ultra_ops_table_num_rows());
 
-    goblin_proof.merge_proof = merge_proof_in.empty() ? std::move(merge_proof) : std::move(merge_proof_in);
-    {
-        PROFILE_THIS_NAME("prove_eccvm");
-        vinfo("prove eccvm...");
-        prove_eccvm();
-        vinfo("finished eccvm proving.");
-    }
-    {
-        PROFILE_THIS_NAME("prove_translator");
-        vinfo("prove translator...");
-        prove_translator();
-        vinfo("finished translator proving.");
-    }
+    BB_ASSERT_EQ(merge_verification_queue.size(),
+                 1U,
+                 "Goblin::prove: merge_verification_queue should contain only a single proof at this stage.");
+    goblin_proof.merge_proof = merge_verification_queue.back();
+
+    vinfo("prove eccvm...");
+    prove_eccvm();
+    vinfo("finished eccvm proving.");
+    vinfo("prove translator...");
+    prove_translator();
+    vinfo("finished translator proving.");
     return goblin_proof;
 }
 
-bool Goblin::verify(const GoblinProof& proof, const std::shared_ptr<Transcript>& transcript)
+std::pair<Goblin::PairingPoints, Goblin::RecursiveTableCommitments> Goblin::recursively_verify_merge(
+    MegaBuilder& builder,
+    const RecursiveMergeCommitments& merge_commitments,
+    const std::shared_ptr<RecursiveTranscript>& transcript,
+    const MergeSettings merge_settings)
 {
-    MergeVerifier merge_verifier(transcript);
-    bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
+    ASSERT(!merge_verification_queue.empty());
+    // Recursively verify the next merge proof in the verification queue in a FIFO manner
+    const MergeProof& merge_proof = merge_verification_queue.front();
+    const stdlib::Proof<MegaBuilder> stdlib_merge_proof(builder, merge_proof);
+
+    MergeRecursiveVerifier merge_verifier{ &builder, merge_settings, transcript };
+    auto [pairing_points, merged_table_commitments] =
+        merge_verifier.verify_proof(stdlib_merge_proof, merge_commitments);
+
+    merge_verification_queue.pop_front(); // remove the processed proof from the queue
+
+    return { pairing_points, merged_table_commitments };
+}
+
+bool Goblin::verify(const GoblinProof& proof,
+                    const MergeCommitments& merge_commitments,
+                    const std::shared_ptr<Transcript>& transcript,
+                    const MergeSettings merge_settings)
+{
+    MergeVerifier merge_verifier(merge_settings, transcript);
+    auto [merge_verified, merged_table_commitments] = merge_verifier.verify_proof(proof.merge_proof, merge_commitments);
 
     ECCVMVerifier eccvm_verifier(transcript);
     bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
@@ -101,7 +112,7 @@ bool Goblin::verify(const GoblinProof& proof, const std::shared_ptr<Transcript>&
     // Verify the consistency between the commitments to polynomials representing the op queue received by translator
     // and final merge verifier
     bool op_queue_consistency_verified =
-        translator_verifier.verify_consistency_with_final_merge(merge_verifier.T_commitments);
+        translator_verifier.verify_consistency_with_final_merge(merged_table_commitments);
 
     vinfo("merge verified?: ", merge_verified);
     vinfo("eccvm verified?: ", eccvm_verified);
@@ -111,6 +122,15 @@ bool Goblin::verify(const GoblinProof& proof, const std::shared_ptr<Transcript>&
 
     return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified &&
            op_queue_consistency_verified;
+}
+
+void Goblin::ensure_well_formed_op_queue_for_avm(MegaBuilder& builder) const
+{
+    BB_ASSERT_EQ(avm_mode, true, "ensure_well_formed_op_queue should only be called for avm");
+    builder.queue_ecc_no_op();
+    builder.queue_ecc_random_op();
+    builder.queue_ecc_random_op();
+    builder.queue_ecc_random_op();
 }
 
 } // namespace bb

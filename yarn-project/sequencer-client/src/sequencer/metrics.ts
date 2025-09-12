@@ -30,7 +30,11 @@ export class SequencerMetrics {
   private currentBlockSize: Gauge;
   private blockBuilderInsertions: Histogram;
 
+  // these are gauges because for individual sequencers building a block is not something that happens often enough to warrant a histogram
   private timeToCollectAttestations: Gauge;
+  private allowanceToCollectAttestations: Gauge;
+  private requiredAttestions: Gauge;
+  private collectedAttestions: Gauge;
 
   private rewards: ObservableGauge;
 
@@ -92,11 +96,6 @@ export class SequencerMetrics {
       valueType: ValueType.INT,
     });
 
-    this.timeToCollectAttestations = this.meter.createGauge(Metrics.SEQUENCER_TIME_TO_COLLECT_ATTESTATIONS, {
-      description: 'The time spent collecting attestations from committee members',
-      valueType: ValueType.INT,
-    });
-
     this.blockBuilderInsertions = this.meter.createHistogram(Metrics.SEQUENCER_BLOCK_BUILD_INSERTION_TIME, {
       description: 'Timer for tree insertions performed by the block builder',
       unit: 'us',
@@ -134,6 +133,31 @@ export class SequencerMetrics {
       valueType: ValueType.INT,
       description: 'The number of slots this sequencer has missed to fill',
     });
+
+    this.timeToCollectAttestations = this.meter.createGauge(Metrics.SEQUENCER_COLLECT_ATTESTATIONS_DURATION, {
+      description: 'The time spent collecting attestations from committee members',
+      unit: 'ms',
+      valueType: ValueType.INT,
+    });
+
+    this.allowanceToCollectAttestations = this.meter.createGauge(
+      Metrics.SEQUENCER_COLLECT_ATTESTATIONS_TIME_ALLOWANCE,
+      {
+        description: 'Maximum amount of time to collect attestations',
+        unit: 'ms',
+        valueType: ValueType.INT,
+      },
+    );
+
+    this.requiredAttestions = this.meter.createGauge(Metrics.SEQUENCER_REQUIRED_ATTESTATIONS_COUNT, {
+      valueType: ValueType.INT,
+      description: 'The minimum number of attestations required to publish a block',
+    });
+
+    this.collectedAttestions = this.meter.createGauge(Metrics.SEQUENCER_COLLECTED_ATTESTATIONS_COUNT, {
+      valueType: ValueType.INT,
+      description: 'The minimum number of attestations required to publish a block',
+    });
   }
 
   public setCoinbase(coinbase: EthAddress) {
@@ -158,17 +182,18 @@ export class SequencerMetrics {
     });
   };
 
-  startCollectingAttestationsTimer(): () => void {
-    const startTime = Date.now();
-    const stop = () => {
-      const duration = Date.now() - startTime;
-      this.recordTimeToCollectAttestations(duration);
-    };
-    return stop.bind(this);
+  public recordRequiredAttestations(requiredAttestationsCount: number, allowanceMs: number) {
+    this.requiredAttestions.record(requiredAttestationsCount);
+    this.allowanceToCollectAttestations.record(Math.ceil(allowanceMs));
+
+    // reset
+    this.collectedAttestions.record(0);
+    this.timeToCollectAttestations.record(0);
   }
 
-  recordTimeToCollectAttestations(time: number) {
-    this.timeToCollectAttestations.record(time);
+  public recordCollectedAttestations(count: number, durationMs: number) {
+    this.collectedAttestions.record(count);
+    this.timeToCollectAttestations.record(Math.ceil(durationMs));
   }
 
   recordBlockBuilderTreeInsertions(timeUs: number) {

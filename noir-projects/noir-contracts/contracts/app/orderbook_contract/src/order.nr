@@ -1,5 +1,5 @@
 use crate::config::Config;
-use aztec::{prelude::AztecAddress, protocol_types::traits::{Deserialize, Packable, Serialize}};
+use aztec::protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}};
 
 // TODO: We do not necessarily need full 128 bits for the amounts so we could try to pack the whole order into 1 Field
 // and save on public storage costs.
@@ -33,7 +33,7 @@ impl Order {
 
 mod test {
     use crate::{config::Config, order::Order};
-    use aztec::{prelude::AztecAddress, protocol_types::traits::FromField};
+    use aztec::protocol_types::{address::AztecAddress, traits::FromField};
 
     #[test]
     unconstrained fn new_order_valid_inputs() {
@@ -48,7 +48,7 @@ mod test {
         let order = Order::new(config, bid_amount, ask_amount, token0, token1);
         assert(order.bid_amount == bid_amount);
         assert(order.ask_amount == ask_amount);
-        assert(order.bid_token_is_zero == true);
+        assert(order.bid_token_is_zero);
 
         // Test token1 to token0 direction
         let order = Order::new(config, bid_amount, ask_amount, token1, token0);

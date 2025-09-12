@@ -1,7 +1,7 @@
 import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
 import { type ArchiverApi, ArchiverApiSchema } from '@aztec/stdlib/interfaces/server';
 import { type ComponentsVersions, getVersioningResponseHandler } from '@aztec/stdlib/versioning';
-import { createTracedJsonRpcServer, makeTracedFetch } from '@aztec/telemetry-client';
+import { makeTracedFetch } from '@aztec/telemetry-client';
 
 export function createArchiverClient(
   url: string,
@@ -13,8 +13,4 @@ export function createArchiverClient(
     fetch,
     onResponse: getVersioningResponseHandler(versions),
   });
-}
-
-export function createArchiverRpcServer(handler: ArchiverApi) {
-  return createTracedJsonRpcServer(handler, ArchiverApiSchema);
 }

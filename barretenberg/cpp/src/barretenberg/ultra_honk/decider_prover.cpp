@@ -6,7 +6,7 @@
 
 #include "decider_prover.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
-#include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
@@ -33,28 +33,28 @@ DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<DeciderPK>& proving
  */
 template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_relation_check_rounds()
 {
+    const size_t virtual_log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : proving_key->log_dyadic_size();
+
     using Sumcheck = SumcheckProver<Flavor>;
-    size_t polynomial_size = proving_key->proving_key.circuit_size;
-    auto sumcheck = Sumcheck(polynomial_size, transcript);
+    size_t polynomial_size = proving_key->dyadic_size();
+    Sumcheck sumcheck(polynomial_size,
+                      proving_key->polynomials,
+                      transcript,
+                      proving_key->alphas,
+                      proving_key->gate_challenges,
+                      proving_key->relation_parameters,
+                      virtual_log_n);
     {
 
-        PROFILE_THIS_NAME("sumcheck.prove");
+        BB_BENCH_NAME("sumcheck.prove");
 
         if constexpr (Flavor::HasZK) {
             const size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
-            auto commitment_key = std::make_shared<CommitmentKey>(1 << (log_subgroup_size + 1));
+            CommitmentKey commitment_key(1 << (log_subgroup_size + 1));
             zk_sumcheck_data = ZKData(numeric::get_msb(polynomial_size), transcript, commitment_key);
-            sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
-                                             proving_key->relation_parameters,
-                                             proving_key->alphas,
-                                             proving_key->gate_challenges,
-                                             zk_sumcheck_data);
+            sumcheck_output = sumcheck.prove(zk_sumcheck_data);
         } else {
-
-            sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
-                                             proving_key->relation_parameters,
-                                             proving_key->alphas,
-                                             proving_key->gate_challenges);
+            sumcheck_output = sumcheck.prove();
         }
     }
 }
@@ -70,24 +70,26 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_pcs_rou
     using OpeningClaim = ProverOpeningClaim<Curve>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
-    auto& ck = proving_key->proving_key.commitment_key;
-    ck = ck ? ck : std::make_shared<CommitmentKey>(proving_key->proving_key.circuit_size);
+    auto& ck = proving_key->commitment_key;
+    if (!ck.initialized()) {
+        ck = CommitmentKey(proving_key->dyadic_size());
+    }
 
-    PolynomialBatcher polynomial_batcher(proving_key->proving_key.circuit_size);
-    polynomial_batcher.set_unshifted(proving_key->proving_key.polynomials.get_unshifted());
-    polynomial_batcher.set_to_be_shifted_by_one(proving_key->proving_key.polynomials.get_to_be_shifted());
+    PolynomialBatcher polynomial_batcher(proving_key->dyadic_size());
+    polynomial_batcher.set_unshifted(proving_key->polynomials.get_unshifted());
+    polynomial_batcher.set_to_be_shifted_by_one(proving_key->polynomials.get_to_be_shifted());
 
     OpeningClaim prover_opening_claim;
     if constexpr (!Flavor::HasZK) {
         prover_opening_claim = ShpleminiProver_<Curve>::prove(
-            proving_key->proving_key.circuit_size, polynomial_batcher, sumcheck_output.challenge, ck, transcript);
+            proving_key->dyadic_size(), polynomial_batcher, sumcheck_output.challenge, ck, transcript);
     } else {
 
         SmallSubgroupIPA small_subgroup_ipa_prover(
             zk_sumcheck_data, sumcheck_output.challenge, sumcheck_output.claimed_libra_evaluation, transcript, ck);
         small_subgroup_ipa_prover.prove();
 
-        prover_opening_claim = ShpleminiProver_<Curve>::prove(proving_key->proving_key.circuit_size,
+        prover_opening_claim = ShpleminiProver_<Curve>::prove(proving_key->dyadic_size(),
                                                               polynomial_batcher,
                                                               sumcheck_output.challenge,
                                                               ck,
@@ -99,15 +101,14 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_pcs_rou
     vinfo("computed opening proof");
 }
 
-template <IsUltraOrMegaHonk Flavor> HonkProof DeciderProver_<Flavor>::export_proof()
+template <IsUltraOrMegaHonk Flavor> DeciderProver_<Flavor>::Proof DeciderProver_<Flavor>::export_proof()
 {
-    proof = transcript->proof_data;
-    return proof;
+    return transcript->export_proof();
 }
 
-template <IsUltraOrMegaHonk Flavor> HonkProof DeciderProver_<Flavor>::construct_proof()
+template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::construct_proof()
 {
-    PROFILE_THIS_NAME("Decider::construct_proof");
+    BB_BENCH_NAME("Decider::construct_proof");
 
     // Run sumcheck subprotocol.
     execute_relation_check_rounds();
@@ -116,7 +117,6 @@ template <IsUltraOrMegaHonk Flavor> HonkProof DeciderProver_<Flavor>::construct_
     // Execute Shplemini PCS
     execute_pcs_rounds();
     vinfo("finished decider proving.");
-    return export_proof();
 }
 
 template class DeciderProver_<UltraFlavor>;

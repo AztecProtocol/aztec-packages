@@ -112,10 +112,6 @@ export class ExecutorMetrics implements ExecutorMetricsInterface {
     });
   }
 
-  recordTxHashComputation(durationMs: number) {
-    this.txHashing.record(Math.ceil(durationMs));
-  }
-
   recordPrivateEffectsInsertion(durationUs: number, type: 'revertible' | 'non-revertible') {
     this.privateEffectsInsertions.record(Math.ceil(durationUs), {
       [Attributes.REVERTIBILITY]: type,

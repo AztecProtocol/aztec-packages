@@ -1,7 +1,7 @@
 *
 !/.release-please-manifest.json
 !/avm-transpiler/target/release/avm-transpiler
-!/aztec-nargo/compile_then_postprocess.sh
+!/aztec-postprocess-contract/transpile_contract_and_gen_vks.sh
 !/barretenberg/cpp/build/bin/bb
 !/barretenberg/ts/dest/
 !/barretenberg/ts/package.json
@@ -17,6 +17,7 @@
 !/yarn-project/*/dest/
 !/yarn-project/cli-wallet/wallet-entrypoint.sh
 !/yarn-project/accounts/artifacts/
+!/yarn-project/cli/public_include_metric_prefixes.json
 !/yarn-project/bb-prover/artifacts/
 !/yarn-project/noir-protocol-circuits-types/artifacts/
 !/yarn-project/protocol-contracts/artifacts/
