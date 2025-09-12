@@ -104,6 +104,15 @@ void TraceContainer::visit_column(Column col, const std::function<void(uint32_t,
     }
 }
 
+void TraceContainer::visit_column(Column col, const std::function<void(uint32_t, FF&)>& visitor)
+{
+    auto& column_data = (*trace)[static_cast<size_t>(col)];
+    std::unique_lock lock(column_data.mutex);
+    for (auto& [row, value] : column_data.rows) {
+        visitor(row, value);
+    }
+}
+
 void TraceContainer::clear_column(Column col)
 {
     auto& column_data = (*trace)[static_cast<size_t>(col)];

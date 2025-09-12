@@ -48,6 +48,7 @@ class TraceContainer {
 
     // Visits non-zero values in a column.
     void visit_column(Column col, const std::function<void(uint32_t, const FF&)>& visitor) const;
+    void visit_column(Column col, const std::function<void(uint32_t, FF&)>& visitor);
     // Returns the number of rows in a column. That is, the maximum non-zero row index + 1.
     uint32_t get_column_rows(Column col) const;
     // Maximum number of rows in any column.

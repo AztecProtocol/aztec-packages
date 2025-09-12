@@ -389,7 +389,7 @@ template <class T> void field<T>::batch_invert(field* coeffs, const size_t n) no
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1166)
-template <class T> void field<T>::batch_invert(std::span<field> coeffs) noexcept
+template <class T> template <typename C> void field<T>::batch_invert(C coeffs) noexcept
 {
     const size_t n = coeffs.size();
 
