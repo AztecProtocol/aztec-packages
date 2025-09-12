@@ -62,9 +62,9 @@ void BytecodeTraceBuilder::process_decomposition(
                           { C::bc_decomposition_is_windows_eq_remaining, is_windows_eq_remaining ? 1 : 0 },
                           // Inverses will be calculated in batch later.
                           { C::bc_decomposition_bytes_rem_inv, remaining },
-                          { C::bc_decomposition_bytes_rem_min_one_inv, is_last ? 0 : (remaining - 1) },
+                          { C::bc_decomposition_bytes_rem_min_one_inv, is_last ? 0 : FF(remaining) - 1 },
                           { C::bc_decomposition_windows_min_remaining_inv,
-                            is_windows_eq_remaining ? 0 : (DECOMPOSE_WINDOW_SIZE - remaining) },
+                            is_windows_eq_remaining ? 0 : FF(DECOMPOSE_WINDOW_SIZE) - FF(remaining) },
                           // Sliding window.
                           { C::bc_decomposition_bytes, bytecode_at(i) },
                           { C::bc_decomposition_bytes_pc_plus_1, bytecode_at(i + 1) },
@@ -131,12 +131,10 @@ void BytecodeTraceBuilder::process_decomposition(
         row += bytecode_len;
     }
 
-    RefVector<FF> ff_vector;
-    trace.visit_column(C::bc_decomposition_bytes_rem_inv, [&](uint32_t, FF& val) { ff_vector.push_back(val); });
-    trace.visit_column(C::bc_decomposition_bytes_rem_min_one_inv, [&](uint32_t, FF& val) { ff_vector.push_back(val); });
-    trace.visit_column(C::bc_decomposition_windows_min_remaining_inv,
-                       [&](uint32_t, FF& val) { ff_vector.push_back(val); });
-    FF::batch_invert<RefVector<FF>&>(ff_vector);
+    // Batch invert the columns.
+    trace.invert_columns({ { C::bc_decomposition_bytes_rem_inv,
+                             C::bc_decomposition_bytes_rem_min_one_inv,
+                             C::bc_decomposition_windows_min_remaining_inv } });
 }
 
 void BytecodeTraceBuilder::process_hashing(
@@ -235,8 +233,7 @@ void BytecodeTraceBuilder::process_retrieval(
 
                 // Limit handling
                 { C::bc_retrieval_no_remaining_bytecodes, remaining_bytecodes == 0 },
-                { C::bc_retrieval_remaining_bytecodes_inv,
-                  remaining_bytecodes == 0 ? 0 : FF(remaining_bytecodes).invert() },
+                { C::bc_retrieval_remaining_bytecodes_inv, remaining_bytecodes }, // Will be inverted in batch later.
                 { C::bc_retrieval_is_new_class, event.is_new_class },
                 { C::bc_retrieval_should_retrieve, !error },
 
@@ -247,6 +244,9 @@ void BytecodeTraceBuilder::process_retrieval(
             } });
         row++;
     }
+
+    // Batch invert the columns.
+    trace.invert_columns({ { C::bc_retrieval_remaining_bytecodes_inv } });
 }
 
 void BytecodeTraceBuilder::process_instruction_fetching(
