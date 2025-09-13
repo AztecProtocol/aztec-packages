@@ -68,7 +68,7 @@ template <typename Builder> class cycle_scalar {
     // AUDITTODO: this is not used (aside from transcript) and should be deleted.
     cycle_scalar(const field_t& _in);
     static cycle_scalar from_witness_bitstring(Builder* context, const uint256_t& bitstring, size_t num_bits);
-    static cycle_scalar create_from_bn254_scalar(const field_t& _in, bool skip_primality_test = false);
+    static cycle_scalar create_from_bn254_scalar(const field_t& _in);
     [[nodiscard]] bool is_constant() const;
     ScalarField get_value() const;
     Builder* get_context() const { return lo.get_context() != nullptr ? lo.get_context() : hi.get_context(); }

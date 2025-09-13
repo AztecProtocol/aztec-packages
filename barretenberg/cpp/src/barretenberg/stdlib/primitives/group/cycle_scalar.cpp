@@ -61,13 +61,14 @@ cycle_scalar<Builder> cycle_scalar<Builder>::from_witness_bitstring(Builder* con
     field_t hi = witness_t<Builder>(context, hi_v);
     lo.set_free_witness_tag();
     hi.set_free_witness_tag();
-    cycle_scalar result{ lo, hi, num_bits, true, false };
-    return result;
+    return cycle_scalar{
+        lo, hi, num_bits, /*skip_primality_test=*/true, /*use_bn254_scalar_field_for_primality_test=*/false
+    };
 }
 
 /**
- * @brief Use when we want to multiply a group element by a string of bits of known size.
- *        N.B. using this constructor method will make our scalar multiplication methods not perform primality tests.
+ * @brief Construct a cycle scalar (grumpkin scalar field element) from a bn254 scalar field element
+ * @details This method ensures that the input is constrained to be less than the bn254 scalar field modulus.
  *
  * @tparam Builder
  * @param context
@@ -75,15 +76,17 @@ cycle_scalar<Builder> cycle_scalar<Builder>::from_witness_bitstring(Builder* con
  * @param num_bits
  * @return cycle_scalar<Builder>
  */
-template <typename Builder>
-cycle_scalar<Builder> cycle_scalar<Builder>::create_from_bn254_scalar(const field_t& in, const bool skip_primality_test)
+template <typename Builder> cycle_scalar<Builder> cycle_scalar<Builder>::create_from_bn254_scalar(const field_t& in)
 {
     const uint256_t value_u256(in.get_value());
     const uint256_t lo_v = value_u256.slice(0, LO_BITS);
     const uint256_t hi_v = value_u256.slice(LO_BITS, HI_BITS);
+    const bool skip_primality_test = false;
+    const bool use_bn254_scalar_field_for_primality_test = true;
     if (in.is_constant()) {
-        cycle_scalar result{ field_t(lo_v), field_t(hi_v), NUM_BITS, false, true };
-        return result;
+        return cycle_scalar{
+            field_t(lo_v), field_t(hi_v), NUM_BITS, skip_primality_test, use_bn254_scalar_field_for_primality_test
+        };
     }
     field_t lo = witness_t<Builder>(in.get_context(), lo_v);
     field_t hi = witness_t<Builder>(in.get_context(), hi_v);
@@ -93,8 +96,7 @@ cycle_scalar<Builder> cycle_scalar<Builder>::create_from_bn254_scalar(const fiel
     lo.set_origin_tag(in.get_origin_tag());
     hi.set_origin_tag(in.get_origin_tag());
 
-    cycle_scalar result{ lo, hi, NUM_BITS, skip_primality_test, true };
-    return result;
+    return cycle_scalar{ lo, hi, NUM_BITS, skip_primality_test, use_bn254_scalar_field_for_primality_test };
 }
 /**
  * @brief Construct a new cycle scalar from a bigfield _value, over the same ScalarField Field. If  _value is a witness,
