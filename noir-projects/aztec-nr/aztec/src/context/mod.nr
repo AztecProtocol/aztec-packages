@@ -17,3 +17,5 @@ pub use private_context::PrivateContext;
 pub use public_context::PublicContext;
 pub use returns_hash::ReturnsHash;
 pub use utility_context::UtilityContext;
+
+pub mod self_contract;

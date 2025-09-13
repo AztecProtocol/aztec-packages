@@ -50,8 +50,12 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) {
         },
     );
 
-    let context_creation = quote {
+    let context_and_self_creation = quote {
         let mut context = dep::aztec::context::private_context::PrivateContext::new(inputs, dep::aztec::protocol_types::traits::Hash::hash($args_hasher_name));
+        // Some functions don't use `self`, but it'd be quite difficult to only inject this variable if it is
+        // referenced. We instead ignore 'unused variable' warnings for it.
+        #[allow(unused_variables)]
+        let self = dep::aztec::context::self_contract::SelfContract::new(&mut context);
     };
 
     // Modifications introduced by the different marker attributes.
@@ -155,7 +159,7 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) {
     let to_prepend = quote {
         dep::aztec::oracle::version::assert_compatible_oracle_version();
         $args_hasher
-        $context_creation
+        $context_and_self_creation
         $assert_initializer
         $init_check
         $internal_check
@@ -204,12 +208,16 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) {
     };
 
     // Unlike in the private case, in public the `context` does not need to receive the hash of the original params.
-    let context_creation = quote {
+    let context_and_self_creation = quote {
         let mut context = dep::aztec::context::public_context::PublicContext::new(|| {
         // We start from 1 because we skip the selector for the dispatch function.
         let serialized_args : [Field; $args_len_quote] = dep::aztec::context::public_context::calldata_copy(1, $args_len_quote);
         dep::aztec::hash::hash_args_array(serialized_args)
         });
+        // Some functions don't use `self`, but it'd be quite difficult to only inject this variable if it is
+        // referenced. We instead ignore 'unused variable' warnings for it.
+        #[allow(unused_variables)]
+        let self = dep::aztec::context::self_contract::SelfContract::new(context);
     };
 
     // Modifications introduced by the different marker attributes.
@@ -257,7 +265,7 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) {
     };
 
     let to_prepend = quote {
-        $context_creation
+        $context_and_self_creation
         $assert_initializer
         $init_check
         $internal_check
@@ -286,8 +294,13 @@ pub(crate) comptime fn transform_utility(f: FunctionDefinition) {
     stub_registry::register(f.module(), fn_stub);
 
     // Create utility context
-    let context_creation =
-        quote { let mut context = dep::aztec::context::utility_context::UtilityContext::new(); };
+    let context_and_self_creation = quote { 
+            let mut context = dep::aztec::context::utility_context::UtilityContext::new(); 
+            // Some functions don't use `self`, but it'd be quite difficult to only inject this variable if it is
+            // referenced. We instead ignore 'unused variable' warnings for it.
+            #[allow(unused_variables)]
+            let self = dep::aztec::context::self_contract::SelfContract::new(context);
+        };
 
     // Initialize Storage if module has storage
     let storage_init = if module_has_storage(f.module()) {
@@ -309,7 +322,7 @@ pub(crate) comptime fn transform_utility(f: FunctionDefinition) {
     // A quote to be injected at the beginning of the function body.
     let to_prepend = quote {
         dep::aztec::oracle::version::assert_compatible_oracle_version();
-        $context_creation
+        $context_and_self_creation
         $storage_init
         $message_discovery_call
     };

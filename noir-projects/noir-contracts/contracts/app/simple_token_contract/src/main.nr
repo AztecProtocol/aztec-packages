@@ -15,7 +15,6 @@ pub contract SimpleToken {
     use aztec::{
         authwit::auth::compute_authwit_nullifier,
         context::{PrivateCallInterface, PrivateContext, PublicContext},
-        event::event_emission::emit_event_in_private,
         macros::{
             events::event,
             functions::{authorize_once, initializer, internal, private, public, utility, view},
@@ -159,12 +158,7 @@ pub contract SimpleToken {
             MessageDelivery.UNCONSTRAINED_ONCHAIN,
         );
 
-        emit_event_in_private(
-            Transfer { from, to, amount },
-            &mut context,
-            to,
-            MessageDelivery.UNCONSTRAINED_ONCHAIN,
-        );
+        self.emit_event(Transfer { from, to, amount }, to, MessageDelivery.UNCONSTRAINED_ONCHAIN);
     }
 
     #[authorize_once("from", "authwit_nonce")]

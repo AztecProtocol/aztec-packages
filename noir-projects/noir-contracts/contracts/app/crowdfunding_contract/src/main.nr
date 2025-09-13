@@ -9,7 +9,6 @@ pub contract Crowdfunding {
     // docs:start:all-deps
     use crate::config::Config;
     use aztec::{
-        event::event_emission::emit_event_in_public,
         macros::{
             events::event,
             functions::{initializer, internal, private, public},
@@ -68,10 +67,13 @@ pub contract Crowdfunding {
 
         // docs:start:do-transfer
         // 2) Transfer the donation tokens from donor to this contract
-        let donor = context.msg_sender();
-        Token::at(config.donation_token)
-            .transfer_in_private(donor, context.this_address(), amount, 0)
-            .call(&mut context);
+        let donor = self.msg_sender();
+        self.call(Token::at(config.donation_token).transfer_in_private(
+            donor,
+            self.address(),
+            amount,
+            0,
+        ));
         // docs:end:do-transfer
 
         // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim
@@ -94,12 +96,12 @@ pub contract Crowdfunding {
         let operator_address = config.operator;
 
         // 1) Check that msg_sender() is the operator
-        assert(context.msg_sender() == operator_address, "Not an operator");
+        assert(self.msg_sender() == operator_address, "Not an operator");
 
         // 2) Transfer the donation tokens from this contract to the operator
-        Token::at(config.donation_token).transfer(operator_address, amount).call(&mut context);
+        self.call(Token::at(config.donation_token).transfer(operator_address, amount));
         // 3) Emit a public event so that anyone can audit how much the operator has withdrawn
-        Crowdfunding::at(context.this_address())
+        Crowdfunding::at(self.address())
             ._publish_donation_receipts(amount, operator_address)
             .enqueue(&mut context);
     }
@@ -107,7 +109,7 @@ pub contract Crowdfunding {
     #[public]
     #[internal]
     fn _publish_donation_receipts(amount: u128, to: AztecAddress) {
-        emit_event_in_public(WithdrawalProcessed { amount, who: to }, &mut context);
+        self.emit_event(WithdrawalProcessed { amount, who: to });
     }
     // docs:end:operator-withdrawals
 }

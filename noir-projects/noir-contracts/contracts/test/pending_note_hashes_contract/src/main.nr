@@ -44,7 +44,7 @@ pub contract PendingNoteHashes {
         let note = ValueNote::new(amount, owner);
 
         // Insert note
-        owner_balance.insert(note).emit(&mut context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+        owner_balance.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
         // get note inserted above
@@ -87,7 +87,7 @@ pub contract PendingNoteHashes {
         let note = ValueNote::new(amount, owner);
 
         // Insert note
-        owner_balance.insert(note).emit(&mut context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+        owner_balance.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     // Nested/inner function to create and insert a note
@@ -103,7 +103,7 @@ pub contract PendingNoteHashes {
         let note = ValueNote::unpack([amount.to_field(), owner.to_field(), randomness.to_field()]);
 
         // Insert note
-        owner_balance.insert(note).emit(&mut context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+        owner_balance.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     // Nested/inner function to create and insert a note
@@ -117,10 +117,10 @@ pub contract PendingNoteHashes {
         // Insert note
         let emission = owner_balance.insert(note);
 
-        emission.emit(&mut context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+        emission.emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
 
         // Emit note again
-        emission.emit(&mut context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+        emission.emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     // Nested/inner function to get a note and confirm it matches the expected value

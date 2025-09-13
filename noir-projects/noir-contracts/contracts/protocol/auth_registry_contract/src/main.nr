@@ -34,7 +34,7 @@ pub contract AuthRegistry {
      */
     #[public]
     fn set_authorized(message_hash: Field, authorize: bool) {
-        storage.approved_actions.at(context.msg_sender()).at(message_hash).write(authorize);
+        storage.approved_actions.at(self.msg_sender()).at(message_hash).write(authorize);
     }
 
     /**
@@ -46,7 +46,7 @@ pub contract AuthRegistry {
      */
     #[public]
     fn set_reject_all(reject: bool) {
-        storage.reject_all.at(context.msg_sender()).write(reject);
+        storage.reject_all.at(self.msg_sender()).write(reject);
     }
 
     /**
@@ -64,7 +64,7 @@ pub contract AuthRegistry {
         assert_eq(false, storage.reject_all.at(on_behalf_of).read(), "rejecting all");
 
         let message_hash = compute_authwit_message_hash(
-            context.msg_sender(),
+            self.msg_sender(),
             context.chain_id(),
             context.version(),
             inner_hash,
@@ -92,9 +92,11 @@ pub contract AuthRegistry {
     #[private]
     fn set_authorized_private(approver: AztecAddress, message_hash: Field, authorize: bool) {
         assert_current_call_valid_authwit::<3>(&mut context, approver);
-        AuthRegistry::at(context.this_address())
-            ._set_authorized(approver, message_hash, authorize)
-            .enqueue(&mut context);
+        self.enqueue(AuthRegistry::at(self.address())._set_authorized(
+            approver,
+            message_hash,
+            authorize,
+        ));
     }
 
     /**
