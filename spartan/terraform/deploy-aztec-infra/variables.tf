@@ -374,3 +374,10 @@ variable "BOT_SWAPS_L2_PRIVATE_KEY" {
   nullable    = true
   default     = null
 }
+
+variable "PROVER_FAILED_PROOF_STORE" {
+  description = "Optional GCS/URI to store failed proofs from the prover"
+  type        = string
+  nullable    = false
+  default     = ""
+}
