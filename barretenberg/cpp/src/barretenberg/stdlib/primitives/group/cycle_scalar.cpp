@@ -27,8 +27,8 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(const field_t& i
         lo = lo_v;
         hi = hi_v;
     } else {
-        lo = witness_t<Builder>(in.get_context(), lo_v);
-        hi = witness_t<Builder>(in.get_context(), hi_v);
+        lo = field_t::from_witness(in.get_context(), lo_v);
+        hi = field_t::from_witness(in.get_context(), hi_v);
         (lo + hi * shift).assert_equal(in);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1022): ensure lo and hi are in bb::fr modulus not
         // bb::fq modulus otherwise we could have two representations for in
@@ -57,10 +57,8 @@ cycle_scalar<Builder> cycle_scalar<Builder>::from_witness_bitstring(Builder* con
     BB_ASSERT_LT(bitstring.get_msb(), num_bits);
     const uint256_t lo_v = bitstring.slice(0, LO_BITS);
     const uint256_t hi_v = bitstring.slice(LO_BITS, HI_BITS);
-    field_t lo = witness_t<Builder>(context, lo_v);
-    field_t hi = witness_t<Builder>(context, hi_v);
-    lo.set_free_witness_tag();
-    hi.set_free_witness_tag();
+    auto lo = field_t::from_witness(context, lo_v);
+    auto hi = field_t::from_witness(context, hi_v);
     return cycle_scalar{
         lo, hi, num_bits, /*skip_primality_test=*/true, /*use_bn254_scalar_field_for_primality_test=*/false
     };
@@ -88,8 +86,8 @@ template <typename Builder> cycle_scalar<Builder> cycle_scalar<Builder>::create_
             field_t(lo_v), field_t(hi_v), NUM_BITS, skip_primality_test, use_bn254_scalar_field_for_primality_test
         };
     }
-    field_t lo = witness_t<Builder>(in.get_context(), lo_v);
-    field_t hi = witness_t<Builder>(in.get_context(), hi_v);
+    auto lo = field_t::from_witness(in.get_context(), lo_v);
+    auto hi = field_t::from_witness(in.get_context(), hi_v);
     lo.add_two(hi * (uint256_t(1) << LO_BITS), -in).assert_equal(0);
 
     // We need to manually propagate the origin tag
