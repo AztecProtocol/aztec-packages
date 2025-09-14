@@ -64,6 +64,8 @@ template <typename Builder> class cycle_scalar {
         , _use_bn254_scalar_field_for_primality_test(use_bn254_scalar_field_for_primality_test) {};
 
   public:
+    // AUDITTODO: this is used only in the fuzzer.
+    cycle_scalar(const ScalarField& _in = 0);
     cycle_scalar(const field_t& _lo, const field_t& _hi);
     // AUDITTODO: this is used only in the fuzzer. Its not inherently problematic, but perhaps the fuzzer should use a
     // production entrypoint.

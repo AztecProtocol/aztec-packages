@@ -17,6 +17,15 @@ cycle_scalar<Builder>::cycle_scalar(const field_t& _lo, const field_t& _hi)
     , hi(_hi)
 {}
 
+template <typename Builder> cycle_scalar<Builder>::cycle_scalar(const ScalarField& in)
+{
+    const uint256_t value(in);
+    const uint256_t lo_v = value.slice(0, LO_BITS);
+    const uint256_t hi_v = value.slice(LO_BITS, HI_BITS);
+    lo = lo_v;
+    hi = hi_v;
+}
+
 template <typename Builder>
 cycle_scalar<Builder> cycle_scalar<Builder>::from_witness(Builder* context, const ScalarField& value)
 {
@@ -72,6 +81,7 @@ template <typename Builder> cycle_scalar<Builder> cycle_scalar<Builder>::create_
     const uint256_t hi_v = value_u256.slice(LO_BITS, HI_BITS);
     const bool skip_primality_test = false;
     const bool use_bn254_scalar_field_for_primality_test = true;
+    // WORKTODO: should be able to use field_t::split_at_unrestricted here
     if (in.is_constant()) {
         return cycle_scalar{
             field_t(lo_v), field_t(hi_v), NUM_BITS, skip_primality_test, use_bn254_scalar_field_for_primality_test
