@@ -388,6 +388,8 @@ template <typename Builder_> class field_t {
 
     Builder* get_context() const { return context; }
 
+    std::pair<field_t<Builder>, field_t<Builder>> split_at_unrestricted(const size_t lsb_index) const;
+
     std::pair<field_t<Builder>, field_t<Builder>> split_at(
         const size_t lsb_index, const size_t num_bits = grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH) const;
 

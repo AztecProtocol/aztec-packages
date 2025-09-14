@@ -1260,6 +1260,29 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
     return total.normalize();
 }
 
+template <typename Builder>
+std::pair<field_t<Builder>, field_t<Builder>> field_t<Builder>::split_at_unrestricted(const size_t lsb_index) const
+{
+    const size_t max_bits = 256; // should this be 254?
+    ASSERT(lsb_index < max_bits);
+    const uint256_t value(this->get_value());
+    const uint256_t lo_val = value.slice(0, lsb_index);
+    const uint256_t hi_val = value.slice(lsb_index, max_bits);
+    const uint256_t shift = uint256_t(1) << lsb_index;
+    if (this->is_constant()) {
+        return { field_t(lo_val), field_t(hi_val) };
+    }
+
+    field_t lo = from_witness(get_context(), lo_val);
+    field_t hi = from_witness(get_context(), hi_val);
+    (lo + (hi * shift)).assert_equal(*this);
+
+    // We need to manually propagate the origin tag
+    lo.set_origin_tag(get_origin_tag());
+    hi.set_origin_tag(get_origin_tag());
+    return { lo, hi };
+}
+
 /**
  * @brief Splits the field element into (lo, hi), where:
  * - lo contains bits [0, lsb_index)
