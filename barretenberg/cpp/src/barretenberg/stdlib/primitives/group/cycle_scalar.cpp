@@ -17,26 +17,17 @@ cycle_scalar<Builder>::cycle_scalar(const field_t& _lo, const field_t& _hi)
     , hi(_hi)
 {}
 
-template <typename Builder> cycle_scalar<Builder>::cycle_scalar(const field_t& in)
+template <typename Builder>
+cycle_scalar<Builder> cycle_scalar<Builder>::from_witness(Builder* context, const ScalarField& value)
 {
-    const uint256_t value(in.get_value());
-    const uint256_t lo_v = value.slice(0, LO_BITS);
-    const uint256_t hi_v = value.slice(LO_BITS, HI_BITS);
-    constexpr uint256_t shift = uint256_t(1) << LO_BITS;
-    if (in.is_constant()) {
-        lo = lo_v;
-        hi = hi_v;
-    } else {
-        lo = field_t::from_witness(in.get_context(), lo_v);
-        hi = field_t::from_witness(in.get_context(), hi_v);
-        (lo + hi * shift).assert_equal(in);
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1022): ensure lo and hi are in bb::fr modulus not
-        // bb::fq modulus otherwise we could have two representations for in
-        validate_scalar_is_in_field();
-    }
-    // We need to manually propagate the origin tag
-    lo.set_origin_tag(in.get_origin_tag());
-    hi.set_origin_tag(in.get_origin_tag());
+    const uint256_t value_u256(value);
+    const uint256_t lo_v = value_u256.slice(0, LO_BITS);
+    const uint256_t hi_v = value_u256.slice(LO_BITS, HI_BITS);
+    field_t lo = witness_t<Builder>(context, lo_v);
+    field_t hi = witness_t<Builder>(context, hi_v);
+    lo.set_free_witness_tag();
+    hi.set_free_witness_tag();
+    return cycle_scalar(lo, hi);
 }
 
 /**

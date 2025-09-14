@@ -34,13 +34,14 @@ template <typename Builder> struct StdlibTranscriptParams {
      */
     static inline std::array<DataType, 2> split_challenge(const DataType& challenge)
     {
-        // use existing field-splitting code in cycle_scalar
-        // AUDITTODO: there should be a field_t method for handling this - we should not use cycle_scalar
-        using cycle_scalar = typename stdlib::cycle_group<Builder>::cycle_scalar;
-        const cycle_scalar scalar = cycle_scalar(challenge);
-        scalar.lo.create_range_constraint(cycle_scalar::LO_BITS);
-        scalar.hi.create_range_constraint(cycle_scalar::HI_BITS);
-        return std::array<DataType, 2>{ scalar.lo, scalar.hi };
+        // WORKTODO: now that we're not using cycle_scalar, should we split differently?
+        const size_t low_bits = 128;
+        const size_t high_bits = 126;
+        const auto [lo, high] = challenge.split_at_unrestricted(low_bits);
+        // WORKTODO: are these range constraints necessary?
+        lo.create_range_constraint(low_bits);
+        high.create_range_constraint(high_bits);
+        return std::array<DataType, 2>{ lo, high };
     }
     template <typename T> static inline T convert_challenge(const DataType& challenge)
     {

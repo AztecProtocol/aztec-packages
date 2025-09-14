@@ -65,8 +65,9 @@ template <typename Builder> class cycle_scalar {
 
   public:
     cycle_scalar(const field_t& _lo, const field_t& _hi);
-    // AUDITTODO: this is not used (aside from transcript) and should be deleted.
-    cycle_scalar(const field_t& _in);
+    // AUDITTODO: this is used only in the fuzzer. Its not inherently problematic, but perhaps the fuzzer should use a
+    // production entrypoint.
+    static cycle_scalar from_witness(Builder* context, const ScalarField& value);
     static cycle_scalar from_witness_bitstring(Builder* context, const uint256_t& bitstring, size_t num_bits);
     static cycle_scalar create_from_bn254_scalar(const field_t& _in);
     [[nodiscard]] bool is_constant() const;
