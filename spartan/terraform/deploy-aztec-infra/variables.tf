@@ -49,6 +49,16 @@ variable "RPC_RESOURCE_PROFILE" {
   }
 }
 
+variable "BOT_RESOURCE_PROFILE" {
+  description = "Resource profile to use for the bots (dev or prod)"
+  type        = string
+  default     = "prod"
+  validation {
+    condition     = contains(["dev", "prod"], var.BOT_RESOURCE_PROFILE)
+    error_message = "BOT_RESOURCE_PROFILE must be either 'dev' or 'prod'."
+  }
+}
+
 variable "K8S_CLUSTER_CONTEXT" {
   description = "GKE cluster context"
   type        = string
@@ -296,4 +306,55 @@ variable "SNAPSHOT_CRON" {
   description = "Location to store snapshots in"
   type        = string
   default     = "0 */12 * * *"
+}
+
+# Bot configuration
+variable "BOT_TRANSFERS_REPLICAS" {
+  description = "Number of transfer bot replicas to deploy (0 to disable)"
+  type        = number
+  default     = 0
+}
+
+variable "BOT_TRANSFERS_TX_INTERVAL_SECONDS" {
+  description = "Interval in seconds between transfer bot transactions"
+  type        = number
+  default     = 10
+}
+
+variable "BOT_TRANSFERS_FOLLOW_CHAIN" {
+  description = "Transfers bot follow-chain mode (e.g., NONE)"
+  type        = string
+  default     = "NONE"
+}
+
+variable "BOT_SWAPS_REPLICAS" {
+  description = "Number of AMM swap bot replicas to deploy (0 to disable)"
+  type        = number
+  default     = 0
+}
+
+variable "BOT_SWAPS_TX_INTERVAL_SECONDS" {
+  description = "Interval in seconds between AMM swap bot transactions"
+  type        = number
+  default     = 10
+}
+
+variable "BOT_SWAPS_FOLLOW_CHAIN" {
+  description = "AMM swaps bot follow-chain mode (e.g., NONE)"
+  type        = string
+  default     = "PENDING"
+}
+
+variable "BOT_TRANSFERS_PRIVATE_KEY" {
+  description = "Private key for the transfers bot (hex string starting with 0x)"
+  type        = string
+  default     = null
+  nullable    = true
+}
+
+variable "BOT_SWAPS_PRIVATE_KEY" {
+  description = "Private key for the AMM swaps bot (hex string starting with 0x)"
+  type        = string
+  default     = null
+  nullable    = true
 }

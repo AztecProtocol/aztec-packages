@@ -1,0 +1,25 @@
+bot:
+  replicaCount: 1
+  txIntervalSeconds: 10
+  ammTxs: true
+  followChain: "PENDING"
+  feePaymentMethod: "fee_juice"
+  maxErrors: 3
+  stopIfUnhealthy: true
+  botPrivateKey: "0xcafe02"
+
+  persistence:
+    enabled: true
+  statefulSet:
+    volumeClaimTemplates:
+      - metadata:
+          name: data
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 2Gi
+
+  service:
+    headless:
+      enabled: true

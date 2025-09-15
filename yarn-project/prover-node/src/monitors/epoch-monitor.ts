@@ -1,5 +1,6 @@
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import { sleep } from '@aztec/foundation/sleep';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import {
@@ -36,16 +37,19 @@ export class EpochMonitor implements Traceable {
   constructor(
     private readonly l2BlockSource: L2BlockSource,
     private readonly l1Constants: Pick<L1RollupConstants, 'epochDuration'>,
-    private options: { pollingIntervalMs: number },
+    private options: { pollingIntervalMs: number; provingDelayMs?: number },
     telemetry: TelemetryClient = getTelemetryClient(),
   ) {
     this.tracer = telemetry.getTracer('EpochMonitor');
     this.runningPromise = new RunningPromise(this.work.bind(this), this.log, this.options.pollingIntervalMs);
+    if (this.options.provingDelayMs) {
+      this.log.warn(`Prover node epoch monitor running with delay of ${this.options.provingDelayMs}ms`);
+    }
   }
 
   public static async create(
     l2BlockSource: L2BlockSource,
-    options: { pollingIntervalMs: number },
+    options: { pollingIntervalMs: number; provingDelayMs?: number },
     telemetry: TelemetryClient = getTelemetryClient(),
   ): Promise<EpochMonitor> {
     const l1Constants = await l2BlockSource.getL1Constants();
@@ -85,6 +89,11 @@ export class EpochMonitor implements Traceable {
     if (!isCompleted) {
       this.log.trace(`Epoch ${epochToProve} is not complete`, { epochToProve, blockNumber, slotNumber });
       return;
+    }
+
+    if (this.options.provingDelayMs) {
+      this.log.debug(`Waiting ${this.options.provingDelayMs}ms before proving epoch ${epochToProve}`);
+      await sleep(this.options.provingDelayMs);
     }
 
     this.log.debug(`Epoch ${epochToProve} is ready to be proven`);

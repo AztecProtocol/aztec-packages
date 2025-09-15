@@ -17,7 +17,7 @@ else
   NON_INTERACTIVE=${NON_INTERACTIVE:-0}
 fi
 
-AZTEC_PATH=$HOME/.aztec
+AZTEC_PATH="${AZTEC_PATH:-$HOME/.aztec}"
 BIN_PATH=${BIN_PATH:-$AZTEC_PATH/bin}
 
 # Define version if specified, otherwise set to "latest".
@@ -146,15 +146,14 @@ if ! docker info &>/dev/null; then
   exit 1
 fi
 
+mkdir -p "$AZTEC_PATH"
+TMP_VERSION_FILE="$(mktemp)"
+echo "$VERSION" > "$TMP_VERSION_FILE"
+
 # Pull the aztec container.
 if [ -z "${SKIP_PULL:-}" ]; then
   info "Pulling aztec version $VERSION..."
   docker pull aztecprotocol/aztec:$VERSION
-
-  # If not latest, retag to be latest so it runs from scripts.
-  if [ $VERSION != "latest" ]; then
-    docker tag aztecprotocol/aztec:$VERSION aztecprotocol/aztec:latest
-  fi
 fi
 
 info "Installing scripts in $BIN_PATH..."
@@ -165,6 +164,7 @@ install_bin aztec-up
 install_bin aztec-nargo
 install_bin aztec-postprocess-contract
 install_bin aztec-wallet
+mv "$TMP_VERSION_FILE" "$AZTEC_PATH/default_version"
 
 update_path_env_var $BIN_PATH
 

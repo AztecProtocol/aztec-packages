@@ -5,6 +5,8 @@
  * These types define the JSON structure for configuring validators, provers, and
  * their associated keys and addresses.
  */
+import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 /** Parameterized hex string type for specific byte lengths */
 export type Hex<TByteLength extends number> = `0x${string}` & { readonly _length: TByteLength };
@@ -14,12 +16,6 @@ export type EthJsonKeyFileV3Config = { path: string; password?: string };
 
 /** A private key is a 32-byte 0x-prefixed hex */
 export type EthPrivateKey = Hex<32>;
-
-/** An address is a 20-byte 0x-prefixed hex */
-export type EthAddressHex = Hex<20>;
-
-/** An Aztec address is a 32-byte 0x-prefixed hex */
-export type AztecAddressHex = Hex<32>;
 
 /** URL type for remote signers */
 export type Url = string;
@@ -40,9 +36,9 @@ export type EthRemoteSignerConfig =
  * If only the address is set, then the default remote signer config from the parent config is used.
  */
 export type EthRemoteSignerAccount =
-  | EthAddressHex
+  | EthAddress
   | {
-      address: EthAddressHex;
+      address: EthAddress;
       remoteSignerUrl?: Url;
       certPath?: string;
       certPass?: string;
@@ -63,14 +59,14 @@ export type EthMnemonicConfig = {
 /** One or more L1 accounts */
 export type EthAccounts = EthAccount | EthAccount[] | EthMnemonicConfig;
 
-export type ProverKeyStore =
-  | {
-      /** Address that identifies the prover. This address will receive the rewards. */
-      id: EthAddressHex;
-      /** One or more EOAs used for sending proof L1 txs. */
-      publisher: EthAccounts;
-    }
-  | EthAccount;
+export type ProverKeyStoreWithId = {
+  /** Address that identifies the prover. This address will receive the rewards. */
+  id: EthAddress;
+  /** One or more EOAs used for sending proof L1 txs. */
+  publisher: EthAccounts;
+};
+
+export type ProverKeyStore = ProverKeyStoreWithId | EthAccount;
 
 export type ValidatorKeyStore = {
   /**
@@ -82,7 +78,7 @@ export type ValidatorKeyStore = {
    * Coinbase address to use when proposing an L2 block as any of the validators in this configuration block.
    * Falls back to the attester address if not set.
    */
-  coinbase?: EthAddressHex;
+  coinbase?: EthAddress;
   /**
    * One or more EOAs used for sending block proposal L1 txs for all validators in this configuration block.
    * Falls back to the attester account if not set.
@@ -91,7 +87,7 @@ export type ValidatorKeyStore = {
   /**
    * Fee recipient address to use when proposing an L2 block as any of the validators in this configuration block.
    */
-  feeRecipient: AztecAddressHex;
+  feeRecipient: AztecAddress;
   /**
    * Default remote signer for all accounts in this block.
    */

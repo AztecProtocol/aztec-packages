@@ -385,6 +385,15 @@ template <typename TranscriptParams> class BaseTranscript {
             manifest.add_challenge(round_number, labels...);
         }
 
+        // In case the transcript is used for recursive verification, we need to sanitize current round data so we don't
+        // get an origin tag violation inside the hasher. We are doing this to ensure that the free witness tagged
+        // elements that are sent to the transcript and are assigned tags externally, don't trigger the origin tag
+        // security mechanism while we are hashing them
+        if constexpr (in_circuit) {
+            for (auto& element : current_round_data) {
+                element.unset_free_witness_tag();
+            }
+        }
         // Compute the new challenge buffer from which we derive the challenges.
 
         // Create challenges from Frs.
@@ -500,6 +509,13 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     DataType hash_independent_buffer()
     {
+        // In case the transcript is used for recursive verification, we need to sanitize current round data so we don't
+        // get an origin tag violation inside the hasher
+        if constexpr (in_circuit) {
+            for (auto& element : independent_hash_buffer) {
+                element.unset_free_witness_tag();
+            }
+        }
         DataType buffer_hash = TranscriptParams::hash(independent_hash_buffer);
         independent_hash_buffer.clear();
         return buffer_hash;

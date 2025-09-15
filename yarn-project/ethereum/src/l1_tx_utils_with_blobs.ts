@@ -19,6 +19,7 @@ export class L1TxUtilsWithBlobs extends L1TxUtils {
   /**
    * Attempts to cancel a transaction by sending a 0-value tx to self with same nonce but higher gas prices
    * @param nonce - The nonce of the transaction to cancel
+   * @param allVersions - Hashes of all transactions submitted under the same nonce (any of them could mine)
    * @param previousGasPrice - The gas price of the previous transaction
    * @param attempts - The number of attempts to cancel the transaction
    * @returns The hash of the cancellation transaction
@@ -26,6 +27,7 @@ export class L1TxUtilsWithBlobs extends L1TxUtils {
   override async attemptTxCancellation(
     currentTxHash: Hex,
     nonce: number,
+    allVersions: Set<Hex>,
     isBlobTx = false,
     previousGasPrice?: GasPrice,
     attempts = 0,
@@ -42,7 +44,7 @@ export class L1TxUtilsWithBlobs extends L1TxUtils {
       previousGasPrice,
     );
 
-    this.logger?.debug(`Attempting to cancel blob L1 transaction ${currentTxHash} with nonce ${nonce}`, {
+    this.logger?.info(`Attempting to cancel blob L1 transaction ${currentTxHash} with nonce ${nonce}`, {
       maxFeePerGas: formatGwei(cancelGasPrice.maxFeePerGas),
       maxPriorityFeePerGas: formatGwei(cancelGasPrice.maxPriorityFeePerGas),
       maxFeePerBlobGas:
@@ -65,9 +67,12 @@ export class L1TxUtilsWithBlobs extends L1TxUtils {
       const signedRequest = await this.prepareSignedTransaction(txData);
       const cancelTxHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
 
+      this.logger?.info(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`);
+
       const receipt = await this.monitorTransaction(
         request,
         cancelTxHash,
+        allVersions,
         { gasLimit: 21_000n },
         undefined,
         undefined,
@@ -94,11 +99,12 @@ export class L1TxUtilsWithBlobs extends L1TxUtils {
       const signedRequest = await this.prepareSignedTransaction(txData);
       const cancelTxHash = await this.client.sendRawTransaction({ serializedTransaction: signedRequest });
 
-      this.logger?.debug(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`);
+      this.logger?.info(`Sent cancellation tx ${cancelTxHash} for timed out tx ${currentTxHash}`);
 
       const receipt = await this.monitorTransaction(
         request,
         cancelTxHash,
+        allVersions,
         { gasLimit: 21_000n },
         undefined,
         blobInputs,

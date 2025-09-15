@@ -416,6 +416,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     if (!options.dontStartSequencer && sequencer) {
       await sequencer.start();
       log.verbose(`Sequencer started`);
+    } else if (sequencer) {
+      log.warn(`Sequencer created but not started`);
     }
 
     return new AztecNodeService(
@@ -1126,7 +1128,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     this.slasherClient?.updateConfig(config);
     this.validatorsSentinel?.updateConfig(config);
     await this.p2pClient.updateP2PConfig(config);
-
+    const archiver = this.blockSource as Archiver;
+    if ('updateConfig' in archiver) {
+      archiver.updateConfig(config);
+    }
     if (newConfig.realProofs !== this.config.realProofs) {
       this.proofVerifier = config.realProofs ? await BBCircuitVerifier.new(newConfig) : new TestCircuitVerifier();
     }

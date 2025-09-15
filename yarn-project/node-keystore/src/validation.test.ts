@@ -1,7 +1,9 @@
 /**
  * Tests for keystore duplication check logic and validation integration
  */
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { describe, expect, it } from '@jest/globals';
 import { dirname, join } from 'path';
@@ -9,7 +11,7 @@ import { fileURLToPath } from 'url';
 
 import { KeystoreError, KeystoreManager } from '../src/keystore_manager.js';
 import { KeyStoreLoadError, loadKeystoreFile, mergeKeystores } from '../src/loader.js';
-import type { KeyStore } from '../src/types.js';
+import type { KeyStore, ProverKeyStoreWithId } from '../src/types.js';
 
 // Enable logger output in tests by setting LOG_LEVEL
 const logger = createLogger('node-keystore:validation-test');
@@ -166,6 +168,9 @@ describe('Keystore Duplication Validation', () => {
       'simple-validator.json',
       'multiple-validators-remote.json',
       'simple-prover.json',
+      'prover-with-single-publisher.json',
+      'prover-with-mnemonic-publisher.json',
+      'validator-null.json',
       'prover-with-publishers-and-funding-account.json',
       'everything.json',
     ];
@@ -210,21 +215,29 @@ describe('Keystore Duplication Validation', () => {
     expect(v0.attester).toBeDefined(); // mnemonic config
     expect(v0.coinbase).toBeDefined();
     expect(v0.publisher).toBeDefined(); // array including private key, address, remote signer account, json v3 dir
-    expect(v0.feeRecipient).toMatch(/^0x[0-9a-fA-F]{64}$/);
+    expect(
+      (v0.feeRecipient as AztecAddress).equals(
+        AztecAddress.fromString('0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'),
+      ),
+    ).toBeTruthy();
     expect(typeof v0.remoteSigner === 'string').toBe(true);
 
     // Validator[1] checks
     const v1 = ks.validators![1] as any;
     expect(Array.isArray(v1.attester)).toBe(true);
     expect(v1.publisher).toBeDefined(); // mnemonic config
-    expect(v1.feeRecipient).toMatch(/^0x[0-9a-fA-F]{64}$/);
+    expect(
+      (v1.feeRecipient as AztecAddress).equals(
+        AztecAddress.fromString('0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd'),
+      ),
+    ).toBeTruthy();
     expect(v1.fundingAccount).toBeDefined();
     expect(v1.fundingAccount).toBe('0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
 
     // Prover complex type
     expect(ks.prover).toBeDefined();
-    const prover: any = ks.prover;
-    expect(prover.id).toMatch(/^0x[0-9a-fA-F]{40}$/);
+    const prover = ks.prover as ProverKeyStoreWithId;
+    expect(prover.id.equals(EthAddress.fromString('0x1234567890123456789012345678901234567890'))).toBeTruthy();
     expect(Array.isArray(prover.publisher)).toBe(true);
   });
 });

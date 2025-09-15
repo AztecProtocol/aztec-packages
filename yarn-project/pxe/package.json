@@ -76,7 +76,6 @@
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/simulator": "workspace:^",
     "@aztec/stdlib": "workspace:^",
-    "json-stringify-deterministic": "1.0.12",
     "koa": "^2.16.1",
     "koa-router": "^12.0.0",
     "lodash.omit": "^4.5.0",

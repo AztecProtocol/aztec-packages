@@ -189,25 +189,6 @@ export class TXEService {
     return toForeignCallResult([toSingle(randomField)]);
   }
 
-  async utilityGetContractAddress() {
-    const contractAddress = await this.oracleHandler.utilityGetContractAddress();
-
-    return toForeignCallResult([toSingle(contractAddress.toField())]);
-  }
-
-  async utilityGetBlockNumber() {
-    const blockNumber = await this.oracleHandler.utilityGetBlockNumber();
-
-    return toForeignCallResult([toSingle(new Fr(blockNumber))]);
-  }
-
-  // seems to be used to mean the timestamp of the last mined block in txe (but that's not what is done here)
-  async utilityGetTimestamp() {
-    const timestamp = await this.oracleHandler.utilityGetTimestamp();
-
-    return toForeignCallResult([toSingle(new Fr(timestamp))]);
-  }
-
   async txeGetLastBlockTimestamp() {
     const timestamp = await this.oracleHandler.txeGetLastBlockTimestamp();
 
@@ -494,16 +475,10 @@ export class TXEService {
     throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
   }
 
-  async utilityGetChainId() {
-    const chainId = await this.oracleHandler.utilityGetChainId();
+  async utilityGetUtilityContext() {
+    const context = await this.oracleHandler.utilityGetUtilityContext();
 
-    return toForeignCallResult([toSingle(chainId)]);
-  }
-
-  async utilityGetVersion() {
-    const version = await this.oracleHandler.utilityGetVersion();
-
-    return toForeignCallResult([toSingle(version)]);
+    return toForeignCallResult(context.toNoirRepresentation());
   }
 
   async utilityGetBlockHeader(foreignBlockNumber: ForeignCallSingle) {

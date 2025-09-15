@@ -62,7 +62,7 @@ The standard note flow is as follows:
 2. compute the note hash,
 3. emit the note hash,
 4. emit the note (note hash preimage) as an encrypted note log,
-5. sequencer picks up the transaction, includes it in a block (note hash gets included in a note hash tree) and submits the block on-chain,
+5. sequencer picks up the transaction, includes it in a block (note hash gets included in a note hash tree) and submits the block onchain,
 6. nodes and PXEs following the network pick up the new block, update its internal state and if they have accounts attached they search for relevant encrypted note logs,
 7. if a users PXE finds a log it stores the note in its database,
 8. later on when we want to spend a note, a contract obtains it via oracle and stores a note hash read request within the function context (note hash read request contains a newly computed note hash),

@@ -37,7 +37,7 @@ export class BlockRootOrBlockMergePublicInputs {
      */
     public endGlobalVariables: GlobalVariables,
     /**
-     * SHA256 hash of L2 to L1 messages. Used to make public inputs constant-sized (to then be opened on-chain).
+     * SHA256 hash of L2 to L1 messages. Used to make public inputs constant-sized (to then be opened onchain).
      * Note: Truncated to 31 bytes to fit in Fr.
      */
     public outHash: Fr,

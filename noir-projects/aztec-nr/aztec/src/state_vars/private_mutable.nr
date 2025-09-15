@@ -441,7 +441,7 @@ where
     /// Returns the current note in this PrivateMutable without consuming it.
     ///
     /// This function is only available in a UtilityContext (unconstrained environment)
-    /// and is typically used for off-chain queries, view functions, or testing.
+    /// and is typically used for offchain queries, view functions, or testing.
     ///
     /// Unlike `get_note()`, this function does NOT nullify and recreate the note.
     /// It simply reads the current note from the PXE's database without modifying

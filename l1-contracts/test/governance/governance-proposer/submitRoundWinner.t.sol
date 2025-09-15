@@ -27,7 +27,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     registry.addRollup(IRollup(f));
     vm.etch(f, "");
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__InstanceHaveNoCode.selector, address(f)));
+    vm.expectRevert(abi.encodeWithSelector(Errors.EmpireBase__InstanceHaveNoCode.selector, address(f)));
     governanceProposer.submitRoundWinner(_roundNumber);
   }
 
@@ -43,7 +43,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
 
   function test_WhenRoundNotInPast() external givenCanonicalInstanceHoldCode {
     // it revert
-    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__RoundTooNew.selector, 0, 0));
+    vm.expectRevert(abi.encodeWithSelector(Errors.EmpireBase__RoundTooNew.selector, 0, 0));
     governanceProposer.submitRoundWinner(0);
   }
 
@@ -65,9 +65,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.GovernanceProposer__RoundTooOld.selector,
-        0,
-        governanceProposer.computeRound(validatorSelection.getCurrentSlot())
+        Errors.EmpireBase__RoundTooOld.selector, 0, governanceProposer.computeRound(validatorSelection.getCurrentSlot())
       )
     );
     governanceProposer.submitRoundWinner(0);
@@ -104,7 +102,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
       governanceProposer.submitRoundWinner(1);
     }
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__PayloadAlreadySubmitted.selector, 1));
+    vm.expectRevert(abi.encodeWithSelector(Errors.EmpireBase__PayloadAlreadySubmitted.selector, 1));
     governanceProposer.submitRoundWinner(1);
   }
 
@@ -134,7 +132,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
 
     vm.warp(time);
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__PayloadCannotBeAddressZero.selector));
+    vm.expectRevert(abi.encodeWithSelector(Errors.EmpireBase__PayloadCannotBeAddressZero.selector));
     governanceProposer.submitRoundWinner(0);
   }
 
@@ -164,7 +162,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
         )
       )
     );
-    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__InsufficientSignals.selector, 1, votesNeeded));
+    vm.expectRevert(abi.encodeWithSelector(Errors.EmpireBase__InsufficientSignals.selector, 1, votesNeeded));
     governanceProposer.submitRoundWinner(1);
   }
 
@@ -211,7 +209,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     assertEq(address(r.payloadWithMostSignals), address(proposal));
 
     // As time is perceived differently, round 1 is currently in the future
-    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__RoundTooNew.selector, 1, 0));
+    vm.expectRevert(abi.encodeWithSelector(Errors.EmpireBase__RoundTooNew.selector, 1, 0));
     governanceProposer.submitRoundWinner(1);
 
     // Jump 2 rounds, since we are currently in round 0
@@ -222,7 +220,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
         )
       )
     );
-    vm.expectRevert(abi.encodeWithSelector(Errors.GovernanceProposer__PayloadCannotBeAddressZero.selector));
+    vm.expectRevert(abi.encodeWithSelector(Errors.EmpireBase__PayloadCannotBeAddressZero.selector));
     governanceProposer.submitRoundWinner(1);
   }
 

@@ -11,6 +11,19 @@ namespace range_check;
     // Range check selector
     pol commit sel;
     sel * (1 - sel) = 0;
+
+    // This is used to decouple generation of inverses of lookups into this trace.
+    pol commit sel_keccak;
+    pol commit sel_gt;
+    pol commit sel_memory;
+    pol commit sel_alu;
+    sel_keccak * (1 - sel_keccak) = 0;
+    sel_gt * (1 - sel_gt) = 0;
+    sel_memory * (1 - sel_memory) = 0;
+    sel_alu * (1 - sel_alu) = 0;
+    // If any of the above selectors is 1, then sel must be 1.
+    (sel_keccak + sel_gt + sel_memory + sel_alu) * (1 - sel) = 0;
+
     // No relations will be checked if this identity is satisfied.
     #[skippable_if]
     sel = 0;

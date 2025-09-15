@@ -62,7 +62,7 @@ The standard note flow is as follows:
 2. compute the note hash,
 3. emit the note hash,
 4. emit the note (note hash preimage) as an encrypted note log,
-5. sequencer picks up the transaction, includes it in a block (note hash gets included in a note hash tree) and submits the block on-chain,
+5. sequencer picks up the transaction, includes it in a block (note hash gets included in a note hash tree) and submits the block onchain,
 6. nodes and PXEs following the network pick up the new block, update its internal state and if they have accounts attached they search for relevant encrypted note logs,
 7. if a users PXE finds a log it stores the note in its database,
 8. later on when we want to spend a note, a contract obtains it via oracle and stores a note hash read request within the function context (note hash read request contains a newly computed note hash),
@@ -144,7 +144,7 @@ We can see the complete implementation of creating and completing partial notes 
 
 #### `fee_entrypoint_private`
 
-```rust title="fee_entrypoint_private" showLineNumbers 
+```rust title="fee_entrypoint_private" showLineNumbers
 #[private]
 fn fee_entrypoint_private(max_fee: u128, authwit_nonce: Field) {
     let accepted_asset = storage.config.read().accepted_asset;
@@ -180,7 +180,7 @@ This ensures that the refund partial note will be completed for the user.
 
 #### `complete_refund`
 
-```rust title="complete_refund" showLineNumbers 
+```rust title="complete_refund" showLineNumbers
 #[public]
 #[internal]
 fn _complete_refund(
