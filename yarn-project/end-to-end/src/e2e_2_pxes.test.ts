@@ -52,8 +52,8 @@ describe('e2e_2_pxes', () => {
      What is a more robust solution? */
     await sleep(5000);
 
-    await walletA.registerSender(accountBAddress);
-    await walletB.registerSender(accountAAddress);
+    await walletA.registerSender(accountBAddress, 'accountB');
+    await walletB.registerSender(accountAAddress, 'accountA');
   });
 
   afterEach(async () => {
