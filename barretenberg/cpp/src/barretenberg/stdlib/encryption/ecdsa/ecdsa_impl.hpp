@@ -62,6 +62,12 @@ void validate_inputs(const stdlib::byte_array<Builder>& hashed_message,
         vinfo("The public key is not a point on the elliptic curve. This will produce an unsatisfied circuit.");
     }
 
+    // P != ±G
+    if (public_key.get_value().x == Curve::g1::affine_one.x) {
+        vinfo(
+            "The public key is equal to plus or minus the generator point. This will produce an unsatisfied circuit.");
+    }
+
     // 0 < r < n
     uint512_t r_value = static_cast<uint512_t>(Fr(sig.r).get_value());
     check_smaller_than(r_value, Fr::modulus, "r component of the signature", "order of the elliptic curve");
@@ -181,9 +187,7 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     if constexpr (Curve::type == bb::CurveType::SECP256K1) {
         result = G1::secp256k1_ecdsa_mul(public_key, u1, u2);
     } else {
-        // We need to turn on `with_edgecases` because if the public key is equal to ±G then the function will raise an
-        // error
-        result = G1::batch_mul({ G1::one(ctx), public_key }, { u1, u2 }, 0, /*with_edgecases=*/true);
+        result = G1::batch_mul({ G1::one(ctx), public_key }, { u1, u2 });
     }
 
     // Step 5.
