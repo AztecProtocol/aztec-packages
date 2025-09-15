@@ -104,6 +104,11 @@ describe('PXESchema', () => {
     await context.client.isL1ToL2MessageSynced(Fr.random());
   });
 
+  it('getL1ToL2MessageBlock', async () => {
+    const result = await context.client.getL1ToL2MessageBlock(Fr.random());
+    expect(result).toEqual(5);
+  });
+
   it('registerAccount', async () => {
     const result = await context.client.registerAccount(Fr.random(), Fr.random());
     expect(result).toBeInstanceOf(CompleteAddress);
@@ -323,6 +328,9 @@ class MockPXE implements PXE {
 
   isL1ToL2MessageSynced(_l1ToL2Message: Fr): Promise<boolean> {
     return Promise.resolve(false);
+  }
+  getL1ToL2MessageBlock(_l1ToL2Message: Fr): Promise<number | undefined> {
+    return Promise.resolve(5);
   }
   registerAccount(secretKey: Fr, partialAddress: Fr): Promise<CompleteAddress> {
     expect(secretKey).toBeInstanceOf(Fr);

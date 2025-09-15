@@ -93,7 +93,9 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
       })
       .catch(async error => {
         if (error instanceof TransactionsNotAvailableError) {
-          this.log.info(`Data for pruned epoch ${epochNumber} was not available. Will want to slash.`, error);
+          this.log.info(`Data for pruned epoch ${epochNumber} was not available. Will want to slash.`, {
+            message: error.message,
+          });
           const validators = await this.getValidatorsForEpoch(epochNumber);
           return {
             validators,
