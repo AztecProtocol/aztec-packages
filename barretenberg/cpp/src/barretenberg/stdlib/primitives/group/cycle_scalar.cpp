@@ -69,34 +69,17 @@ cycle_scalar<Builder> cycle_scalar<Builder>::from_witness_bitstring(Builder* con
  * @details This method ensures that the input is constrained to be less than the bn254 scalar field modulus.
  *
  * @tparam Builder
- * @param context
- * @param value
- * @param num_bits
- * @return cycle_scalar<Builder>
+ * @param in a field_t representing a bn254 scalar field element
+ * @return cycle_scalar<Builder> a cycle_scalar representing the same value in the grumpkin scalar field
  */
 template <typename Builder> cycle_scalar<Builder> cycle_scalar<Builder>::create_from_bn254_scalar(const field_t& in)
 {
-    const uint256_t value_u256(in.get_value());
-    const uint256_t lo_v = value_u256.slice(0, LO_BITS);
-    const uint256_t hi_v = value_u256.slice(LO_BITS, HI_BITS);
-    const bool skip_primality_test = false;
-    const bool use_bn254_scalar_field_for_primality_test = true;
-    // WORKTODO: should be able to use field_t::split_at_unrestricted here
-    if (in.is_constant()) {
-        return cycle_scalar{
-            field_t(lo_v), field_t(hi_v), NUM_BITS, skip_primality_test, use_bn254_scalar_field_for_primality_test
-        };
-    }
-    auto lo = field_t::from_witness(in.get_context(), lo_v);
-    auto hi = field_t::from_witness(in.get_context(), hi_v);
-    lo.add_two(hi * (uint256_t(1) << LO_BITS), -in).assert_equal(0);
-
-    // We need to manually propagate the origin tag
-    lo.set_origin_tag(in.get_origin_tag());
-    hi.set_origin_tag(in.get_origin_tag());
-
-    return cycle_scalar{ lo, hi, NUM_BITS, skip_primality_test, use_bn254_scalar_field_for_primality_test };
+    auto [lo, hi] = in.split_at(LO_BITS);
+    return cycle_scalar{
+        lo, hi, NUM_BITS, /*skip_primality_test=*/false, /*use_bn254_scalar_field_for_primality_test=*/true
+    };
 }
+
 /**
  * @brief Construct a new cycle scalar from a bigfield _value, over the same ScalarField Field. If  _value is a witness,
  * we add constraints to ensure the conversion is correct by reconstructing a bigfield from the limbs of the

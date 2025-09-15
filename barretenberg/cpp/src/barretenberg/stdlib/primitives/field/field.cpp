@@ -1264,8 +1264,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
 template <typename Builder>
 std::pair<field_t<Builder>, field_t<Builder>> field_t<Builder>::split_at(const size_t lsb_index) const
 {
-    // WORKTODO: is this right? depends on how bb::fr is implemented. ideally this would be some predefined constant..
-    const size_t max_bits = 254;
+    static constexpr size_t max_bits = native::modulus.get_msb() + 1;
     ASSERT(lsb_index < max_bits);
 
     const uint256_t value(this->get_value());
