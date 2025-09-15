@@ -937,6 +937,57 @@ describe('PXEOracleInterface', () => {
     });
   });
 
+  describe('Respects synced block number', () => {
+    const syncedBlockNumber = 100;
+    let contractAddress: AztecAddress;
+    let nullifier: Fr;
+    let leafSlot: Fr;
+
+    beforeEach(async () => {
+      contractAddress = await AztecAddress.random();
+      nullifier = Fr.random();
+      leafSlot = Fr.random();
+      await setSyncedBlockNumber(syncedBlockNumber);
+    });
+
+    it('throws when getting low nullifier membership witness for future block', async () => {
+      await expect(
+        pxeOracleInterface.getLowNullifierMembershipWitness(syncedBlockNumber + 1, nullifier),
+      ).rejects.toThrow(`Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`);
+    });
+
+    it('throws when getting block for future block number', async () => {
+      await expect(pxeOracleInterface.getBlock(syncedBlockNumber + 1)).rejects.toThrow(
+        `Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`,
+      );
+    });
+
+    it('throws when getting public data witness for future block', async () => {
+      await expect(pxeOracleInterface.getPublicDataWitness(syncedBlockNumber + 1, leafSlot)).rejects.toThrow(
+        `Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`,
+      );
+    });
+
+    it('throws when getting public storage for future block', async () => {
+      await expect(
+        pxeOracleInterface.getPublicStorageAt(syncedBlockNumber + 1, contractAddress, leafSlot),
+      ).rejects.toThrow(`Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`);
+    });
+  });
+
+  describe('getBlockHeader', () => {
+    it('returns the synced block header and not header from aztec node', async () => {
+      const blockNumber = 42;
+      const header = BlockHeader.empty({
+        globalVariables: GlobalVariables.empty({ blockNumber }),
+      });
+      await syncDataProvider.setHeader(header);
+
+      const result = await pxeOracleInterface.getBlockHeader();
+      expect(result).toEqual(header);
+    });
+  });
+
   const setSyncedBlockNumber = (blockNumber: number) => {
     return syncDataProvider.setHeader(
       BlockHeader.empty({

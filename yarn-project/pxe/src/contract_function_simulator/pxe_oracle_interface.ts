@@ -203,22 +203,38 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return this.aztecNode.getNullifierMembershipWitness(blockNumber, nullifier);
   }
 
-  public getLowNullifierMembershipWitness(
+  public async getLowNullifierMembershipWitness(
     blockNumber: number,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
+    const header = await this.getBlockHeader();
+    if (blockNumber > header.globalVariables.blockNumber) {
+      throw new Error(`Block number ${blockNumber} is higher than current block ${header.globalVariables.blockNumber}`);
+    }
     return this.aztecNode.getLowNullifierMembershipWitness(blockNumber, nullifier);
   }
 
   public async getBlock(blockNumber: number): Promise<L2Block | undefined> {
+    const header = await this.getBlockHeader();
+    if (blockNumber > header.globalVariables.blockNumber) {
+      throw new Error(`Block number ${blockNumber} is higher than current block ${header.globalVariables.blockNumber}`);
+    }
     return await this.aztecNode.getBlock(blockNumber);
   }
 
   public async getPublicDataWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+    const header = await this.getBlockHeader();
+    if (blockNumber > header.globalVariables.blockNumber) {
+      throw new Error(`Block number ${blockNumber} is higher than current block ${header.globalVariables.blockNumber}`);
+    }
     return await this.aztecNode.getPublicDataWitness(blockNumber, leafSlot);
   }
 
   public async getPublicStorageAt(blockNumber: number, contract: AztecAddress, slot: Fr): Promise<Fr> {
+    const header = await this.getBlockHeader();
+    if (blockNumber > header.globalVariables.blockNumber) {
+      throw new Error(`Block number ${blockNumber} is higher than current block ${header.globalVariables.blockNumber}`);
+    }
     return await this.aztecNode.getPublicStorageAt(blockNumber, contract, slot);
   }
 
