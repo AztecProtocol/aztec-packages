@@ -100,8 +100,7 @@ template <typename Builder, typename T> constexpr size_t calc_num_bn254_frs()
     } else if constexpr (IsAnyOf<T, fq<Builder>, goblin_field<Builder>>) {
         return Bn254FqParams::NUM_BN254_SCALARS;
     } else if constexpr (IsAnyOf<T, bn254_element<Builder>, grumpkin_element<Builder>>) {
-        using BaseField = bn254_element<Builder>::BaseField;
-        return 2 * calc_num_bn254_frs<Builder, BaseField>();
+        return 2 * calc_num_bn254_frs<Builder, typename T::BaseField>();
     } else {
         // Array or Univariate
         return calc_num_bn254_frs<Builder, typename T::value_type>() * (std::tuple_size<T>::value);

@@ -1,4 +1,5 @@
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include <gtest/gtest.h>
 
@@ -11,13 +12,17 @@ template <typename Builder> using grumpkin_element = cycle_group<Builder>;
 
 template <typename Builder> class StdlibFieldConversionTests : public ::testing::Test {
   public:
-    template <typename T> void check_conversion(T x)
+    template <typename T> void check_conversion(T x, bool valid_circuit = true)
     {
         size_t len = bb::stdlib::field_conversion::calc_num_bn254_frs<Builder, T>();
         auto frs = bb::stdlib::field_conversion::convert_to_bn254_frs<Builder, T>(x);
         EXPECT_EQ(len, frs.size());
         auto y = bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, T>(frs);
         EXPECT_EQ(x.get_value(), y.get_value());
+
+        auto ctx = x.get_context();
+
+        EXPECT_EQ(CircuitChecker::check(*ctx), valid_circuit);
     }
 
     template <typename T> void check_conversion_iterable(T x)
@@ -65,10 +70,9 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionGrumpkinFr)
     using Builder = TypeParam;
     Builder builder;
 
-    // Constructing bigfield objects with grumpkin::fr values
-    grumpkin::fr x1_val(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")); // 256 bits
-    fq<Builder> x1(&builder, x1_val);
-    this->check_conversion(x1);
+    // Constructing bigfield objects with bb::fq values
+    bb::fq x1_val(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789")); // 256 bits
+    this->check_conversion(fq<Builder>::from_witness(&builder, x1_val));
 }
 
 /**
@@ -79,15 +83,33 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionBN254AffineElement)
 {
     using Builder = TypeParam;
     Builder builder;
+    { // Serialize and deserialize the bn254 generator
+        bn254_element<Builder> x1 = bn254_element<Builder>::from_witness(&builder, curve::BN254::AffineElement::one());
+        this->check_conversion(x1);
+    }
+    { // Serialize and deserialize a valid bn254 point
+        curve::BN254::AffineElement x2_val(1, bb::fq::modulus_minus_two);
+        bn254_element<Builder> x2 = bn254_element<Builder>::from_witness(&builder, x2_val);
+        this->check_conversion(x2);
+    }
 
-    // Constructing element objects with curve::BN254::AffineElement values
-    curve::BN254::AffineElement x1_val(1, 2);
-    bn254_element<Builder> x1 = bn254_element<Builder>::from_witness(&builder, x1_val);
-    this->check_conversion(x1);
+    // TODO(Sergei): Enable when point at infinity is consistent
+    // { // Serialize and deserialize the point at infinity
+    //     bn254_element<Builder> x2 =
+    //         bn254_element<Builder>::from_witness(&builder, curve::BN254::AffineElement::infinity());
+    //     this->check_conversion(x2);
+    // }
 
-    curve::BN254::AffineElement x2_val(1, grumpkin::fr::modulus_minus_two);
-    bn254_element<Builder> x2 = bn254_element<Builder>::from_witness(&builder, x2_val);
-    this->check_conversion(x2);
+    { // Serialize and deserialize "coordinates" that do not correspond to any point on the curve
+        curve::BN254::AffineElement x1_val(1, 4);
+        bn254_element<Builder> x1;
+        if constexpr (IsAnyOf<Builder, UltraCircuitBuilder>) {
+            EXPECT_THROW_OR_ABORT(x1 = bn254_element<Builder>::from_witness(&builder, x1_val), "");
+        } else {
+            x1 = bn254_element<Builder>::from_witness(&builder, x1_val);
+            this->check_conversion(x1);
+        }
+    }
 }
 
 /**
@@ -99,14 +121,50 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionGrumpkinAffineElement)
     using Builder = TypeParam;
     Builder builder;
 
-    // Constructing element objects with curve::Grumpkin::AffineElement values
-    curve::Grumpkin::AffineElement x1_val(12, 100);
-    grumpkin_element<Builder> x1 = grumpkin_element<Builder>::from_witness(&builder, x1_val);
-    this->check_conversion(x1);
+    { // Serialize and deserialize the Grumpkin generator
+        grumpkin_element<Builder> x1 =
+            grumpkin_element<Builder>::from_witness(&builder, curve::Grumpkin::AffineElement::one());
+        this->check_conversion(x1);
+    }
 
-    curve::Grumpkin::AffineElement x2_val(1, grumpkin::fr::modulus_minus_two);
-    grumpkin_element<Builder> x2 = grumpkin_element<Builder>::from_witness(&builder, x2_val);
-    this->check_conversion(x2);
+    { // Serialize and deserialize "coordinates" that do not correspond to any point on the curve
+        curve::Grumpkin::AffineElement x1_val(12, 100);
+        grumpkin_element<Builder> x1 = grumpkin_element<Builder>::from_witness(&builder, x1_val);
+        this->check_conversion(x1, false);
+    }
+
+    // TODO(Sergei): Enable when point at infinity is consistent
+    // { // Serialize and deserialize the point at infinity
+    //     grumpkin_element<Builder> x2 =
+    //         grumpkin_element<Builder>::from_witness(&builder, curve::Grumpkin::AffineElement::infinity());
+    //     this->check_conversion(x2);
+    // }
+}
+
+TYPED_TEST(StdlibFieldConversionTests, DeserializePointAtInfinity)
+{
+    using Builder = TypeParam;
+    Builder builder;
+    const fr<Builder> zero(fr<Builder>::from_witness_index(&builder, 0));
+
+    {
+        std::vector<fr<Builder>> zeros(4, zero);
+
+        bn254_element<Builder> point_at_infinity =
+            field_conversion::convert_from_bn254_frs<Builder, bn254_element<Builder>>(zeros);
+
+        EXPECT_TRUE(point_at_infinity.is_point_at_infinity().get_value());
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
+    {
+        std::vector<fr<Builder>> zeros(2, zero);
+
+        grumpkin_element<Builder> point_at_infinity =
+            field_conversion::convert_from_bn254_frs<Builder, grumpkin_element<Builder>>(zeros);
+
+        EXPECT_TRUE(point_at_infinity.is_point_at_infinity().get_value());
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
 }
 
 /**
@@ -143,18 +201,18 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionArrayGrumpkinFr)
 
     // Constructing std::array objects with fq<Builder> values
     std::array<fq<Builder>, 4> x1{
-        fq<Builder>(
+        fq<Builder>::from_witness(
             &builder,
-            static_cast<grumpkin::fr>(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"))),
-        fq<Builder>(
+            static_cast<bb::fq>(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"))),
+        fq<Builder>::from_witness(
             &builder,
-            static_cast<grumpkin::fr>(std::string("2bf1eaf87f7d27e8dc4056e9af975985bccc89077a21891d6c7b6ccce0631f95"))),
-        fq<Builder>(
+            static_cast<bb::fq>(std::string("2bf1eaf87f7d27e8dc4056e9af975985bccc89077a21891d6c7b6ccce0631f95"))),
+        fq<Builder>::from_witness(
             &builder,
-            static_cast<grumpkin::fr>(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"))),
-        fq<Builder>(
+            static_cast<bb::fq>(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"))),
+        fq<Builder>::from_witness(
             &builder,
-            static_cast<grumpkin::fr>(std::string("018555a8eb50cf07f64b019ebaf3af3c925c93e631f3ecd455db07bbb52bbdd3"))),
+            static_cast<bb::fq>(std::string("018555a8eb50cf07f64b019ebaf3af3c925c93e631f3ecd455db07bbb52bbdd3"))),
     };
     this->check_conversion_iterable(x1);
 }
@@ -184,18 +242,18 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionUnivariateGrumpkinFr)
 
     // Constructing std::array objects with fq<Builder> values
     Univariate<fq<Builder>, 4> x{
-        { fq<Builder>(&builder,
-                      static_cast<grumpkin::fr>(
-                          std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"))),
-          fq<Builder>(&builder,
-                      static_cast<grumpkin::fr>(
-                          std::string("2bf1eaf87f7d27e8dc4056e9af975985bccc89077a21891d6c7b6ccce0631f95"))),
-          fq<Builder>(&builder,
-                      static_cast<grumpkin::fr>(
-                          std::string("018555a8eb50cf07f64b019ebaf3af3c925c93e631f3ecd455db07bbb52bbdd3"))),
-          fq<Builder>(&builder,
-                      static_cast<grumpkin::fr>(
-                          std::string("2bf1eaf87f7d27e8dc4056e9af975985bccc89077a21891d6c7b6ccce0631f95"))) }
+        { fq<Builder>::from_witness(
+              &builder,
+              static_cast<bb::fq>(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"))),
+          fq<Builder>::from_witness(
+              &builder,
+              static_cast<bb::fq>(std::string("2bf1eaf87f7d27e8dc4056e9af975985bccc89077a21891d6c7b6ccce0631f95"))),
+          fq<Builder>::from_witness(
+              &builder,
+              static_cast<bb::fq>(std::string("018555a8eb50cf07f64b019ebaf3af3c925c93e631f3ecd455db07bbb52bbdd3"))),
+          fq<Builder>::from_witness(
+              &builder,
+              static_cast<bb::fq>(std::string("2bf1eaf87f7d27e8dc4056e9af975985bccc89077a21891d6c7b6ccce0631f95"))) }
     };
     this->check_conversion_iterable(x);
 }

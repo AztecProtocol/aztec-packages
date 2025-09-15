@@ -19,6 +19,7 @@ namespace bb::stdlib::field_conversion {
  */
 template <typename Builder> fq<Builder> convert_to_grumpkin_fr(Builder& builder, const fr<Builder>& fr_element)
 {
+    ASSERT(!fr_element.is_constant());
     static constexpr uint64_t NUM_LIMB_BITS = fq<Builder>::NUM_LIMB_BITS;
 
     constexpr uint64_t NUM_BITS_IN_TWO_LIMBS = 2 * NUM_LIMB_BITS; // 136
