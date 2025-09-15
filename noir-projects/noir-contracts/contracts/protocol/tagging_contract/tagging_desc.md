@@ -7,19 +7,16 @@ Note that I decided to abandon the "hide sender from recipient" feature Mike des
 
 So how does it work?
 ### STEP 1: Emitting handshaking log and nullifier
-1. A wallet figures out whether a sender needs to handshake with a recipient or if it already has been done --> if it hasn't been done it will insert a call to the `HandshakingContract::handshake(recipient)` as the first call in app payload (Very relevant for Grego, can this be done similar to how we collect authwit requests?)
-
-```rust
-TODO: insert pseudocode
-```
+1. A wallet figures out whether a sender needs to handshake with a recipient or if it already has been done --> if it hasn't been done it will insert a call to the `TaggingContract::handshake(recipient, true/false)` as the first call in the app payload (Very relevant for Grego, can this be done similar to how we collect authwit requests?)
 
 ### STEP 2.a: Tagging for the first time
-1. We get the handshaking nullifier preimage by calling an oracle `get_handshake(sender, recipient)`
-2. we prove the handshaking nullifier preimage: `prove_nullifier_inclusion(compute_siloed_nullifier(HANDSHAKING_CONTRACT_ADDRESS, poseidon2_hash(["AZTEC_NR::HANDSHAKE_SEPARATOR", handshaking_secret, sender, recipient])));`
-3. we compute the tagging secret
-4. we compute the tag based on `app_siloed_tagging_shared_secret` and index (0 in the first run), <span style="color:green;">TODO: ADD CONCRETE DERIVATION HERE</span>
-5. we compute and emit `nullifier = h("hs", sender_nsk_app, recipient, app_siloed_tagging_shared_secret, app_siloed_encryption_shared_secret, handshake_expiry_timestamp, i = 0);`  *(--> the `sender_nsk_app` hides the contents of the nullifier, whilst keeping it deterministic)*
-6. <span style="color:red;">we store these values in PXE</span>:`app_siloed_tagging_shared_secret` and `i` and `app_siloed_encryption_shared_secret` under (sender, recipient, contract address) key for later retrieval in subsequent rounds. --> <span style="color:cyan;">Note that i is currently incremented with the increment_app_tagging_secret_index_as_sender oracle and we will need to modify it to accept is_constrained flag on the input as the constrained and unconstrained indices need to be independent</span>
+1. We get the master tagging public key by calling a <span style="color:red;">newly introduced oracle</span> `get_master_tagging_public_key(sender, recipient)`
+2. we sort the addresses (just like in the TaggingContract) and prove the handshake commitment exists: `prove_nullifier_inclusion(compute_siloed_nullifier(HANDSHAKING_CONTRACT_ADDRESS, poseidon2_hash(["AZTEC_NR::HANDSHAKE_SEPARATOR", master_tagging_public_key.x, master_tagging_public_key.y, address_0, address_1])));`
+3. we get the app-siloed secret with `let app_tagging_secret = context.request_tsk(master_tagging_public_key.hash())` <span style="color:red;">This requires implementing the request_tsk method on context and modifying PXE such that it feeds the correct master_tagging_secret_key to the kernel circuits for the key validation request</span>,
+4. we compute the directional app tagging secret as `let directional_app_tagging_secret = poseidon2_hash([app_tagging_secret, recipient]);`,
+4. we compute the tag as `poseidon2_hash([directional_app_tagging_secret, 0])`
+5. we compute and emit `nullifier = poseidon2_hash("AZTEC_NR::TAG_SEPARATOR", sender_nsk_app, recipient, app_tagging_secret, i = 0);`  *(--> the `sender_nsk_app` hides the contents of the nullifier, whilst keeping it deterministic)*
+6. ~~we increment the index in PXE by calling <span style="color:red;">newly introduced oracle</span> `increment_app_tagging_secret_index(app_tagging_secret)`~~ (realized this is not necessary, nor desirable, because we can brute force the index in PXE in step 2.b --> this will also makes it resistant to "vicious Mike throws your laptop into the ocean attack)
 
 ### STEP 2.b: Tagging for subsequent rounds
 1. We get the values stored in step 5 above and prove the nullifier existence,
