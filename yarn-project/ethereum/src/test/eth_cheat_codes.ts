@@ -277,14 +277,21 @@ export class EthCheatCodes {
    * @param slot - The storage slot
    * @param value - The value to set the storage slot to
    */
-  public async store(contract: EthAddress, slot: bigint, value: bigint): Promise<void> {
+  public async store(
+    contract: EthAddress,
+    slot: bigint,
+    value: bigint,
+    opts: { silent?: boolean } = {},
+  ): Promise<void> {
     // for the rpc call, we need to change value to be a 32 byte hex string.
     try {
       await this.rpcCall('hardhat_setStorageAt', [contract.toString(), toHex(slot), toHex(value, true)]);
     } catch (err) {
       throw new Error(`Error setting storage for contract ${contract} at ${slot}: ${err}`);
     }
-    this.logger.warn(`Set L1 storage for contract ${contract} at ${slot} to ${value}`);
+    if (!opts.silent) {
+      this.logger.warn(`Set L1 storage for contract ${contract} at ${slot} to ${value}`);
+    }
   }
 
   /**
@@ -434,7 +441,7 @@ export class EthCheatCodes {
     return this.rpcCall('trace_transaction', [txHash]);
   }
 
-  public async execWithPausedAnvil(fn: () => Promise<void>): Promise<void> {
+  public async execWithPausedAnvil<T>(fn: () => Promise<T>): Promise<T> {
     const [blockInterval, wasAutoMining] = await Promise.all([this.getIntervalMining(), this.isAutoMining()]);
     try {
       if (blockInterval !== null) {
@@ -445,7 +452,7 @@ export class EthCheatCodes {
         await this.setAutomine(false, { silent: true });
       }
 
-      await fn();
+      return await fn();
     } finally {
       try {
         // restore automine if necessary

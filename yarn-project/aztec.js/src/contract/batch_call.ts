@@ -15,6 +15,14 @@ export class BatchCall extends BaseContractInteraction {
   }
 
   /**
+   * Creates a new instance with no actual calls. Useful for triggering a no-op.
+   * @param wallet - The wallet to use for sending the batch call.
+   */
+  public static empty(wallet: Wallet) {
+    return new BatchCall(wallet, []);
+  }
+
+  /**
    * Returns an execution request that represents this operation.
    * @param options - An optional object containing additional configuration for the request generation.
    * @returns An execution payload wrapped in promise.

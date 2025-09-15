@@ -19,3 +19,4 @@ export { waitForPXE } from '../utils/pxe.js';
 export { waitForNode, createAztecNodeClient, type AztecNode } from '../utils/node.js';
 export { getFeeJuiceBalance } from '../utils/fee_juice.js';
 export { readFieldCompressedString } from '../utils/field_compressed_string.js';
+export { isL1ToL2MessageReady, waitForL1ToL2MessageReady } from '../utils/cross_chain.js';

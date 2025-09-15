@@ -56,11 +56,19 @@ import {
  */
 export interface PXE {
   /**
-   * Returns whether an L1 to L2 message is synced by archiver and if it's ready to be included in a block.
+   * Returns whether an L1 to L2 message is synced by archiver.
    * @param l1ToL2Message - The L1 to L2 message to check.
    * @returns Whether the message is synced and ready to be included in a block.
+   * @deprecated Use `waitForL1ToL2MessageReady` and `isL1ToL2MessageReady` instead.
    */
   isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
+
+  /**
+   * Returns the L2 block number in which this L1 to L2 message becomes available, or undefined if not found.
+   * @param l1ToL2Message - The L1 to L2 message to check.
+   * @returns The L2 block number or undefined if not synced yet.
+   */
+  getL1ToL2MessageBlock(l1ToL2Message: Fr): Promise<number | undefined>;
 
   /**
    * Registers a user account in PXE given its master encryption private key.
@@ -447,6 +455,7 @@ const PXEInfoSchema = z.object({
 
 export const PXESchema: ApiSchemaFor<PXE> = {
   isL1ToL2MessageSynced: z.function().args(schemas.Fr).returns(z.boolean()),
+  getL1ToL2MessageBlock: z.function().args(schemas.Fr).returns(z.number().optional()),
   registerAccount: z.function().args(schemas.Fr, schemas.Fr).returns(CompleteAddress.schema),
   getRegisteredAccounts: z.function().returns(z.array(CompleteAddress.schema)),
   registerSender: z.function().args(schemas.AztecAddress).returns(schemas.AztecAddress),

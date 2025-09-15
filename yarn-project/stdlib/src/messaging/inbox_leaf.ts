@@ -35,4 +35,9 @@ export class InboxLeaf {
     const end = start + BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
     return [start, end];
   }
+
+  /** Returns the L2 block number for a given leaf index */
+  static l2BlockFromIndex(index: bigint): number {
+    return Number(index / BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP)) + INITIAL_L2_BLOCK_NUM;
+  }
 }
