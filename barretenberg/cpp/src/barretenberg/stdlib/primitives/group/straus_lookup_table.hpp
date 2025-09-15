@@ -60,9 +60,9 @@ template <typename Builder> class straus_lookup_table {
                         size_t table_bits,
                         std::optional<std::span<AffineElement>> hints = std::nullopt);
     cycle_group<Builder> read(const field_t& index);
-    size_t _table_bits;
+
+  private:
     Builder* _context;
-    std::vector<cycle_group<Builder>> point_table;
     size_t rom_id = 0;
     OriginTag tag{};
 };
