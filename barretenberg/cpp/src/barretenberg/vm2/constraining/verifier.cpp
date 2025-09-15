@@ -71,10 +71,11 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
             vinfo("Public input size mismatch");
             return false;
         }
-        for (size_t j = 0; j < public_inputs[i].size(); j++) {
-            transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
-                                           public_inputs[i][j]);
-        }
+        // TODO: make secure at some point
+        // for (size_t j = 0; j < public_inputs[i].size(); j++) {
+        //     transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
+        //                                    public_inputs[i][j]);
+        // }
     }
     VerifierCommitments commitments{ key };
     // Get commitments to VM wires

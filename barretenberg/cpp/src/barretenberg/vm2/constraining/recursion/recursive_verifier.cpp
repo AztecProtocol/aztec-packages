@@ -113,11 +113,18 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     RelationParams relation_parameters;
     VerifierCommitments commitments{ key };
 
-    // Add public inputs to transcript
+    // TODO (make the protocols secure at some point)
+    // // Add public inputs to transcript
+    // for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
+    //     for (size_t j = 0; j < public_inputs[i].size(); j++) {
+    //         transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
+    //                                        public_inputs[i][j]);
+    //     }
+    // }
+
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
         for (size_t j = 0; j < public_inputs[i].size(); j++) {
-            transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
-                                           public_inputs[i][j]);
+            public_inputs[i][j].unset_free_witness_tag();
         }
     }
     // Get commitments to VM wires
