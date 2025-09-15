@@ -301,7 +301,6 @@ void ExecutionTraceBuilder::process(
     FailingContexts failures = preprocess_for_discard(ex_events);
 
     uint32_t last_seen_parent_id = 0;
-    FF cached_parent_id_inv = 0;
 
     // Some variables updated per loop iteration to track
     // whether or not the upcoming row should "discard" [side effects].
@@ -325,8 +324,6 @@ void ExecutionTraceBuilder::process(
         bool has_parent = ex_event.after_context_event.parent_id != 0;
         if (last_seen_parent_id != ex_event.after_context_event.parent_id) {
             last_seen_parent_id = ex_event.after_context_event.parent_id;
-            cached_parent_id_inv =
-                has_parent ? ex_event.after_context_event.parent_id : 0; // Will be inverted in batch later.
         }
 
         /**************************************************************************************************
@@ -429,7 +426,7 @@ void ExecutionTraceBuilder::process(
                   ex_event.after_context_event.side_effect_states.numL2ToL1Messages },
                 // Helpers for identifying parent context
                 { C::execution_has_parent_ctx, has_parent ? 1 : 0 },
-                { C::execution_is_parent_id_inv, cached_parent_id_inv },
+                { C::execution_is_parent_id_inv, last_seen_parent_id },
             } });
 
         // Internal stack
@@ -1029,14 +1026,26 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
 
 void ExecutionTraceBuilder::invert_columns(TraceContainer& trace)
 {
-    trace.invert_columns({ { C::execution_dying_context_id_inv,
-                             C::execution_dying_context_diff_inv,
-                             // Addressing.
-                             C::execution_addressing_error_collection_inv,
-                             C::execution_base_address_tag_diff_inv,
-                             C::execution_num_relative_operands_inv,
-                             // Registers.
-                             C::execution_batched_tags_diff_inv_reg } });
+    trace.invert_columns({ {
+        // Registers.
+        C::execution_batched_tags_diff_inv_reg,
+        // Context.
+        C::execution_is_parent_id_inv,
+        C::execution_internal_call_return_id_inv,
+        // Trees.
+        C::execution_remaining_data_writes_inv,
+        C::execution_remaining_note_hashes_inv,
+        C::execution_remaining_nullifiers_inv,
+        // L1ToL2MsgExists.
+        C::execution_remaining_l2_to_l1_msgs_inv,
+        // Discard.
+        C::execution_dying_context_id_inv,
+        C::execution_dying_context_diff_inv,
+        // Addressing.
+        C::execution_addressing_error_collection_inv,
+        C::execution_base_address_tag_diff_inv,
+        C::execution_num_relative_operands_inv,
+    } });
 }
 
 void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
