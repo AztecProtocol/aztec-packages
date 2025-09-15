@@ -1,8 +1,8 @@
 #[aztec]
 contract TaggingContract {
     #[private]
-    fn handshake(recipient: AztecAddress, reveal_sender: bool) {
-        let sender = if reveal_sender { context.msg_sender() } else { AztecAddress::zero() };
+    fn handshake(recipient: AztecAddress, hidden_sender: bool) {
+        let sender = if hidden_sender { AztecAddress::zero() } else { context.msg_sender() };
 
         let master_tagging_secret_key = unsafe { random() };
         let master_tagging_public_key = master_tagging_secret_key * G;
