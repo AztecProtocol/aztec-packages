@@ -4,8 +4,8 @@ use aztec::macros::aztec;
 #[aztec]
 contract Updatable {
     use aztec::{
-        event::event_interface::MessageDelivery,
         macros::{functions::{initializer, private, public, utility}, storage::storage},
+        messages::message_delivery::MessageDelivery,
         protocol_types::{
             constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
             contract_class_id::ContractClassId,

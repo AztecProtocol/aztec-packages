@@ -159,8 +159,8 @@ library ProposeLib {
    *        - Same length as the number of signatures in _attestations
    *        - Used to verify that the proposer is one of the committee members by allowing cheap reconstruction of the
    *          commitment
-   *        - Allows computing committee commitment without expensive signature recovery on-chain thus saving gas
-   *        - Nodes must validate actual signatures off-chain when downloading blocks
+   *        - Allows computing committee commitment without expensive signature recovery onchain thus saving gas
+   *        - Nodes must validate actual signatures offchain when downloading blocks
    * @param _blobsInput - The bytes to verify our input blob commitments match real blobs:
    *        - input[:1] - num blobs in block
    *        - input[1:] - blob commitments (48 bytes * num blobs in block)
@@ -237,7 +237,13 @@ library ProposeLib {
     {
       // Verify that the proposer is the correct one for this slot by checking their signature in the attestations
       ValidatorSelectionLib.verifyProposer(
-        v.header.slotNumber, v.currentEpoch, _attestations, _signers, v.payloadDigest, _attestationsAndSignersSignature
+        v.header.slotNumber,
+        v.currentEpoch,
+        _attestations,
+        _signers,
+        v.payloadDigest,
+        _attestationsAndSignersSignature,
+        true
       );
     }
 

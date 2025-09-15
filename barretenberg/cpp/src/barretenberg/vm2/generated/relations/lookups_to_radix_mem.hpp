@@ -18,7 +18,7 @@ struct lookup_to_radix_mem_check_dst_addr_in_range_settings_ {
     static constexpr std::string_view RELATION_NAME = "to_radix_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::to_radix_mem_start;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column DST_SELECTOR = Column::gt_sel_others;
     static constexpr Column COUNTS = Column::lookup_to_radix_mem_check_dst_addr_in_range_counts;
     static constexpr Column INVERSES = Column::lookup_to_radix_mem_check_dst_addr_in_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -44,7 +44,7 @@ struct lookup_to_radix_mem_check_radix_lt_2_settings_ {
     static constexpr std::string_view RELATION_NAME = "to_radix_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::to_radix_mem_start;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column DST_SELECTOR = Column::gt_sel_others;
     static constexpr Column COUNTS = Column::lookup_to_radix_mem_check_radix_lt_2_counts;
     static constexpr Column INVERSES = Column::lookup_to_radix_mem_check_radix_lt_2_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -69,7 +69,7 @@ struct lookup_to_radix_mem_check_radix_gt_256_settings_ {
     static constexpr std::string_view RELATION_NAME = "to_radix_mem";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::to_radix_mem_start;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column DST_SELECTOR = Column::gt_sel_others;
     static constexpr Column COUNTS = Column::lookup_to_radix_mem_check_radix_gt_256_counts;
     static constexpr Column INVERSES = Column::lookup_to_radix_mem_check_radix_gt_256_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {

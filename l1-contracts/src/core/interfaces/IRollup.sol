@@ -57,6 +57,7 @@ struct RollupConfigInput {
   uint256 aztecSlotDuration;
   uint256 aztecEpochDuration;
   uint256 targetCommitteeSize;
+  uint256 lagInEpochs;
   uint256 aztecProofSubmissionEpochs;
   uint256 slashingQuorum;
   uint256 slashingRoundSize;
@@ -66,6 +67,7 @@ struct RollupConfigInput {
   uint256 slashingOffsetInRounds;
   SlasherFlavor slasherFlavor;
   address slashingVetoer;
+  uint256 slashingDisableDuration;
   uint256 manaTarget;
   uint256 exitDelaySeconds;
   uint32 version;

@@ -163,6 +163,7 @@ describe('EmpireSlasherClient', () => {
     // Setup rollup and slasher contract mocks
     rollupContract.getSlasherContract.mockResolvedValue(slasherContract);
     slasherContract.isPayloadVetoed.mockResolvedValue(false);
+    slasherContract.isSlashingEnabled.mockResolvedValue(true);
 
     // Create watcher
     dummyWatcher = new DummyWatcher();
@@ -173,6 +174,7 @@ describe('EmpireSlasherClient', () => {
       settings,
       slashFactoryContract,
       slashingProposer,
+      slasherContract,
       rollupContract,
       [dummyWatcher],
       dateProvider,
@@ -641,6 +643,7 @@ class TestEmpireSlasherClient extends EmpireSlasherClient {
     settings: EmpireSlasherSettings,
     slashFactoryContract: SlashFactoryContract,
     slashingProposer: EmpireSlashingProposerContract,
+    slasher: SlasherContract,
     rollup: RollupContract,
     watchers: Watcher[],
     dateProvider: DateProvider,
@@ -653,6 +656,7 @@ class TestEmpireSlasherClient extends EmpireSlasherClient {
       settings,
       slashFactoryContract,
       slashingProposer,
+      slasher,
       rollup,
       watchers,
       dateProvider,

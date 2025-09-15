@@ -1,0 +1,161 @@
+name: Nightly Docs Release
+
+on:
+  schedule:
+    # Run every night at 4:00 AM UTC, after nightly tags are created
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Specific nightly tag to use (e.g., v3.0.0-nightly.20241201)"
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  check-nightly-tag:
+    name: Check for new nightly tag
+    runs-on: ubuntu-latest
+    outputs:
+      nightly-tag: ${{ steps.get_tag.outputs.tag }}
+      should-run: ${{ steps.get_tag.outputs.should_run }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      - name: Get latest nightly tag
+        id: get_tag
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            # Manual trigger with specific tag
+            NIGHTLY_TAG="${{ github.event.inputs.tag }}"
+            echo "Using manual tag: $NIGHTLY_TAG"
+          else
+            # Get today's nightly tag
+            current_version=$(jq -r '."."' .release-please-manifest.json)
+            NIGHTLY_TAG="v${current_version}-nightly.$(date -u +%Y%m%d)"
+            echo "Expected nightly tag: $NIGHTLY_TAG"
+
+            # Check if the tag exists
+            if ! git tag -l | grep -q "^$NIGHTLY_TAG$"; then
+              echo "Nightly tag $NIGHTLY_TAG does not exist yet. Skipping docs release."
+              echo "should_run=false" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          fi
+
+          # Check if we already have docs for this nightly version
+          DOCS_VERSION_DIR="docs/versioned_docs/version-$NIGHTLY_TAG"
+          BB_DOCS_VERSION_DIR="barretenberg/docs/versioned_docs/version-$NIGHTLY_TAG"
+
+          if [ -d "$DOCS_VERSION_DIR" ] || [ -d "$BB_DOCS_VERSION_DIR" ]; then
+            echo "Docs already exist for $NIGHTLY_TAG. Skipping."
+            echo "should_run=false" >> $GITHUB_OUTPUT
+          else
+            echo "tag=$NIGHTLY_TAG" >> $GITHUB_OUTPUT
+            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "Will create docs for: $NIGHTLY_TAG"
+          fi
+
+  create-nightly-docs:
+    name: Create nightly documentation
+    needs: check-nightly-tag
+    if: needs.check-nightly-tag.outputs.should-run == 'true'
+    runs-on: ubuntu-latest
+    env:
+      NIGHTLY_TAG: ${{ needs.check-nightly-tag.outputs.nightly-tag }}
+
+    steps:
+      - name: Checkout at nightly tag
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ env.NIGHTLY_TAG }}
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      - name: Setup dependencies
+        run: |
+          sudo apt install -y --no-install-recommends doxygen
+          corepack enable
+
+      - name: Configure Git
+        run: |
+          git config --global user.name AztecBot
+          git config --global user.email tech@aztecprotocol.com
+
+      - name: Cleanup Aztec docs nightly versions
+        working-directory: ./docs
+        run: |
+          ./scripts/cleanup_nightly_versions.sh
+
+      - name: Create Aztec nightly docs version
+        working-directory: ./docs
+        run: |
+          # Set the commit tag for version macros
+          export COMMIT_TAG=${{ env.NIGHTLY_TAG }}
+
+          # Install dependencies
+          yarn install
+
+          # Build docs to ensure everything works
+          COMMIT_TAG=${{ env.NIGHTLY_TAG }} yarn build
+
+          # Create the versioned docs
+          yarn docusaurus docs:version ${{ env.NIGHTLY_TAG }}
+
+          echo "Created Aztec docs version: ${{ env.NIGHTLY_TAG }}"
+
+      - name: Update Aztec Docs versions.json with new version
+        working-directory: ./docs/scripts
+        run: |
+          ./update_versions.sh
+
+      - name: Cleanup Barretenberg docs nightly versions
+        working-directory: ./barretenberg/docs
+        run: |
+          ./scripts/cleanup_nightly_versions.sh
+
+      - name: Create Barretenberg nightly docs version
+        working-directory: ./barretenberg/docs
+        run: |
+          # Set the commit tag for version macros
+          export COMMIT_TAG=${{ env.NIGHTLY_TAG }}
+
+          # Install dependencies
+          yarn install
+
+          # Build docs to ensure everything works
+          yarn build
+
+          # Create the versioned docs
+          yarn docusaurus docs:version ${{ env.NIGHTLY_TAG }}
+
+          echo "Created Barretenberg docs version: ${{ env.NIGHTLY_TAG }}"
+
+      - name: Update Barretenberg docs versions.json with new version
+        working-directory: ./barretenberg/docs/scripts
+        run: |
+          ./update_versions.sh
+
+      - name: Commit new Aztec and Barretenberg Docs version
+        run: |
+          # Stash the docs changes
+          git add .
+          git stash push --staged -m "nightly docs for ${{ env.NIGHTLY_TAG }}"
+
+          # Checkout the next branch
+          git fetch origin next
+          git checkout next
+
+          # Apply the stashed changes and commit
+          git stash pop
+          git add .
+          git commit -m "chore(docs): cut new aztec and bb docs version for tag ${{ env.NIGHTLY_TAG }}"
+          git push origin next

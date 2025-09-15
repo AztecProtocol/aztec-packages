@@ -11,7 +11,12 @@ import { createLogger } from '@aztec/foundation/log';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import {
+  type ContractInstanceWithAddress,
+  type ContractInstantiationData,
+  getContractClassFromArtifact,
+  getContractInstanceFromInstantiationParams,
+} from '@aztec/stdlib/contract';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import type {
   ContractClassMetadata,
@@ -40,7 +45,7 @@ import type {
 } from '../contract/interaction_options.js';
 import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
 import type { IntentAction, IntentInnerHash } from '../utils/authwit.js';
-import type { Wallet } from './wallet.js';
+import type { Aliased, ContractInstanceAndArtifact, Wallet } from './wallet.js';
 
 /**
  * A base class for Wallet implementations
@@ -51,6 +56,13 @@ export abstract class BaseWallet implements Wallet {
   constructor(protected readonly pxe: PXE) {}
 
   protected abstract getAccountFromAddress(address: AztecAddress): Promise<Account>;
+
+  abstract getAccounts(): Promise<Aliased<AztecAddress>[]>;
+
+  async getSenders(): Promise<Aliased<AztecAddress>[]> {
+    const senders = await this.pxe.getSenders();
+    return senders.map(sender => ({ item: sender, alias: '' }));
+  }
 
   protected async createTxExecutionRequestFromPayloadAndFee(
     executionPayload: ExecutionPayload,
@@ -165,23 +177,65 @@ export abstract class BaseWallet implements Wallet {
     return { gasSettings, paymentMethod };
   }
 
-  registerSender(address: AztecAddress): Promise<AztecAddress> {
+  registerSender(address: AztecAddress, _alias: string): Promise<AztecAddress> {
     return this.pxe.registerSender(address);
   }
 
-  registerContract(contract: {
-    /** Instance */ instance: ContractInstanceWithAddress;
-    /** Associated artifact */ artifact?: ContractArtifact;
-  }): Promise<void> {
-    return this.pxe.registerContract(contract);
-  }
-
-  registerContractClass(artifact: ContractArtifact): Promise<void> {
-    return this.pxe.registerContractClass(artifact);
-  }
-
-  updateContract(contractAddress: AztecAddress, artifact: ContractArtifact): Promise<void> {
-    return this.pxe.updateContract(contractAddress, artifact);
+  async registerContract(
+    instanceData: AztecAddress | ContractInstanceWithAddress | ContractInstantiationData | ContractInstanceAndArtifact,
+    artifact?: ContractArtifact,
+  ): Promise<ContractInstanceWithAddress> {
+    /**
+     * Determes if the provided instance data is already a contract instance with an address.
+     */
+    function isInstanceWithAddress(instanceData: any): instanceData is ContractInstanceWithAddress {
+      return (instanceData as ContractInstanceWithAddress).address !== undefined;
+    }
+    /**
+     * Determes if the provided instance data is contract instantiation data.
+     */
+    function isContractInstantiationData(instanceData: any): instanceData is ContractInstantiationData {
+      return (instanceData as ContractInstantiationData).salt !== undefined;
+    }
+    /**
+     * Determes if the provided instance data is already a contract.
+     */
+    function isContractInstanceAndArtifact(instanceData: any): instanceData is ContractInstanceAndArtifact {
+      return (
+        (instanceData as ContractInstanceAndArtifact).instance !== undefined &&
+        (instanceData as ContractInstanceAndArtifact).artifact !== undefined
+      );
+    }
+    let instance: ContractInstanceWithAddress;
+    if (isContractInstanceAndArtifact(instanceData)) {
+      instance = instanceData.instance;
+      await this.pxe.registerContract(instanceData);
+    } else if (isInstanceWithAddress(instanceData)) {
+      instance = instanceData;
+      await this.pxe.registerContract({ artifact, instance });
+    } else if (isContractInstantiationData(instanceData)) {
+      if (!artifact) {
+        throw new Error(`Contract artifact must be provided when registering a contract using instantiation data`);
+      }
+      instance = await getContractInstanceFromInstantiationParams(artifact, instanceData);
+      await this.pxe.registerContract({ artifact, instance });
+    } else {
+      if (!artifact) {
+        throw new Error(`Contract artifact must be provided when registering a contract using address`);
+      }
+      const { contractInstance: maybeContractInstance } = await this.pxe.getContractMetadata(instanceData);
+      if (!maybeContractInstance) {
+        throw new Error(`Contract instance at ${instanceData.toString()} has not been registered in the wallet's PXE`);
+      }
+      instance = maybeContractInstance;
+      const thisContractClass = await getContractClassFromArtifact(artifact);
+      if (!thisContractClass.id.equals(instance.currentContractClassId)) {
+        // wallet holds an outdated version of this contract
+        await this.pxe.updateContract(instance.address, artifact);
+        instance.currentContractClassId = thisContractClass.id;
+      }
+    }
+    return instance;
   }
 
   async simulateTx(executionPayload: ExecutionPayload, opts: SimulateMethodOptions): Promise<TxSimulationResult> {

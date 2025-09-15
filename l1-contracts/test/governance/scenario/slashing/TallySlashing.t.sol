@@ -205,7 +205,7 @@ contract SlashingTest is TestBase {
 
     _setupCommitteeForSlashing(_lifetimeInRounds, _executionDelayInRounds);
     address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(INITIAL_EPOCH));
-    uint96 slashAmount = 20e18;
+    uint96 slashAmount = uint96(slashingProposer.SLASH_AMOUNT_SMALL());
     SlashRound firstSlashingRound = _createSlashingVotes(slashAmount, attesters.length);
 
     uint256 firstExecutableSlot =
@@ -232,7 +232,7 @@ contract SlashingTest is TestBase {
     _lifetimeInRounds = bound(_lifetimeInRounds, _executionDelayInRounds + 1, 127); // Must be < ROUNDABOUT_SIZE
 
     _setupCommitteeForSlashing(_lifetimeInRounds, _executionDelayInRounds);
-    uint96 slashAmount = 20e18;
+    uint96 slashAmount = uint96(slashingProposer.SLASH_AMOUNT_SMALL());
     SlashRound firstSlashingRound = _createSlashingVotes(slashAmount, COMMITTEE_SIZE);
 
     uint256 firstExecutableSlot =
@@ -275,7 +275,7 @@ contract SlashingTest is TestBase {
 
     _setupCommitteeForSlashing(_lifetimeInRounds, _executionDelayInRounds);
     address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(INITIAL_EPOCH));
-    uint96 slashAmount = 20e18;
+    uint96 slashAmount = uint96(slashingProposer.SLASH_AMOUNT_SMALL());
     SlashRound firstSlashingRound = _createSlashingVotes(slashAmount, attesters.length);
 
     // For tally slashing, we need to predict the payload address and veto it
@@ -304,6 +304,81 @@ contract SlashingTest is TestBase {
     }
 
     vm.expectRevert(abi.encodeWithSelector(Slasher.Slasher__PayloadVetoed.selector, payloadAddress));
+    slashingProposer.executeRound(firstSlashingRound, committees);
+  }
+
+  function test_SlashingDisableTimestamp() public {
+    _setupCommitteeForSlashing();
+    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(INITIAL_EPOCH));
+    uint96 slashAmount = uint96(slashingProposer.SLASH_AMOUNT_SMALL());
+    SlashRound firstSlashingRound = _createSlashingVotes(slashAmount, attesters.length);
+
+    // Initially slashing should be enabled
+    assertEq(slasher.isSlashingEnabled(), true, "Slashing should be enabled initially");
+
+    // Disable slashing temporarily
+    vm.prank(address(slasher.VETOER()));
+    slasher.setSlashingEnabled(false);
+
+    // Should be disabled now
+    assertEq(slasher.isSlashingEnabled(), false, "Slashing should be disabled after setting to false");
+    uint256 disableDuration = slasher.SLASHING_DISABLE_DURATION();
+
+    // Fast forward time but not past the disable duration (still disabled)
+    vm.warp(block.timestamp + disableDuration - 10 minutes);
+    assertEq(slasher.isSlashingEnabled(), false, "Slashing should still be disabled after 30 minutes");
+
+    // Fast forward time beyond the disable duration (should be enabled again)
+    vm.warp(block.timestamp + disableDuration + 1 minutes);
+    assertEq(slasher.isSlashingEnabled(), true, "Slashing should be enabled again after disable duration expires");
+
+    // Re-enable manually by calling setSlashingEnabled(true)
+    vm.prank(address(slasher.VETOER()));
+    slasher.setSlashingEnabled(false);
+    assertEq(slasher.isSlashingEnabled(), false, "Slashing should be disabled again");
+
+    vm.prank(address(slasher.VETOER()));
+    slasher.setSlashingEnabled(true);
+    assertEq(slasher.isSlashingEnabled(), true, "Slashing should be enabled after manual re-enable");
+  }
+
+  function test_CannotSlashIfDisabled() public {
+    // Use fixed values for a deterministic test
+    uint256 _lifetimeInRounds = 5;
+    uint256 _executionDelayInRounds = 1;
+
+    _setupCommitteeForSlashing(_lifetimeInRounds, _executionDelayInRounds);
+    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(INITIAL_EPOCH));
+    uint96 slashAmount = uint96(slashingProposer.SLASH_AMOUNT_SMALL());
+    SlashRound firstSlashingRound = _createSlashingVotes(slashAmount, attesters.length);
+
+    // Calculate executable slot
+    uint256 firstExecutableSlot =
+      (SlashRound.unwrap(firstSlashingRound) + _executionDelayInRounds + 1) * slashingProposer.ROUND_SIZE();
+
+    // Setup committees
+    address[][] memory committees = new address[][](slashingProposer.ROUND_SIZE_IN_EPOCHS());
+    for (uint256 i = 0; i < committees.length; i++) {
+      Epoch epochSlashed = slashingProposer.getSlashTargetEpoch(firstSlashingRound, i);
+      committees[i] = rollup.getEpochCommittee(epochSlashed);
+    }
+
+    // Jump to executable slot
+    timeCheater.cheat__jumpToSlot(firstExecutableSlot);
+
+    // Disable slashing - this should prevent execution for 1 hour
+    vm.prank(address(slasher.VETOER()));
+    slasher.setSlashingEnabled(false);
+
+    // Should fail while slashing is disabled
+    vm.expectRevert(abi.encodeWithSelector(Slasher.Slasher__SlashingDisabled.selector));
+    slashingProposer.executeRound(firstSlashingRound, committees);
+
+    // Re-enable manually by calling setSlashingEnabled(true)
+    vm.prank(address(slasher.VETOER()));
+    slasher.setSlashingEnabled(true);
+
+    // Should now work since slashing was re-enabled
     slashingProposer.executeRound(firstSlashingRound, committees);
   }
 

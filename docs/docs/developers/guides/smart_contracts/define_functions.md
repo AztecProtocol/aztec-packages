@@ -33,7 +33,7 @@ Declare a public function in your contract using the `#[public]` function annota
 
 ## Utility Functions
 
-Contract functions marked with `#[utility]` are used to perform state queries from an off-chain client (from both private and public state!) or to modify local contract-related PXE state (e.g. when processing logs in Aztec.nr), and are never included in any transaction. No guarantees are made on the correctness of the result since the entire execution is unconstrained and heavily reliant on [oracle calls](https://noir-lang.org/docs/explainers/explainer-oracle). Read more about the concept of utility functions [here](../../../aztec/smart_contracts/functions/attributes.md#utility-functions).
+Contract functions marked with `#[utility]` are used to perform state queries from an offchain client (from both private and public state!) or to modify local contract-related PXE state (e.g. when processing logs in Aztec.nr), and are never included in any transaction. No guarantees are made on the correctness of the result since the entire execution is unconstrained and heavily reliant on [oracle calls](https://noir-lang.org/docs/explainers/explainer-oracle). Read more about the concept of utility functions [here](../../../aztec/smart_contracts/functions/attributes.md#utility-functions).
 
 #include_code get_private_nfts noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 

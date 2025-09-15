@@ -399,6 +399,7 @@ describe('Private Execution test suite', () => {
       const initArgs = [owner, owner, 140];
       const instance = await getContractInstanceFromInstantiationParams(StatefulTestContractArtifact, {
         constructorArgs: initArgs,
+        salt: Fr.random(),
       });
       executionDataProvider.getContractInstance.mockResolvedValue(instance);
       const executionResult = await runSimulator({

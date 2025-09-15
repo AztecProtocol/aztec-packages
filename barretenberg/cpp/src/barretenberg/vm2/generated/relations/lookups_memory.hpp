@@ -93,7 +93,7 @@ struct lookup_memory_range_check_write_tagged_value_settings_ {
     static constexpr std::string_view RELATION_NAME = "memory";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::memory_sel_rng_write;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel_memory;
     static constexpr Column COUNTS = Column::lookup_memory_range_check_write_tagged_value_counts;
     static constexpr Column INVERSES = Column::lookup_memory_range_check_write_tagged_value_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::memory_value,

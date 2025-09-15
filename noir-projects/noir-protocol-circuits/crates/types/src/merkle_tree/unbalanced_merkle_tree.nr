@@ -7,7 +7,7 @@ pub struct UnbalancedMerkleTree {
 /// Calculates the root of the minimal size merkle tree required to store `num_non_empty_leaves`.
 ///
 /// Since we cannot isolate branches, it cost more gates than using MerkleTree on the full array of elements `N`,
-/// but it may be cheaper on-chain when proving the membership of a leaf.
+/// but it may be cheaper onchain when proving the membership of a leaf.
 impl UnbalancedMerkleTree {
     pub fn new_sha<let N: u32, let MAX_SUBTREES: u32>(
         leaves: [Field; N],

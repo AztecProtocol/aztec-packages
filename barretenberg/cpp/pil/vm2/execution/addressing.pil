@@ -200,19 +200,19 @@ pol commit highest_address;
 SEL_SHOULD_RESOLVE_ADDRESS * (highest_address - constants.AVM_HIGHEST_MEM_ADDRESS) = 0;
 // sel_relative_overflow[i] == 1 iff op_after_relative[i] > highest_address.
 #[RELATIVE_OVERFLOW_RESULT_0]
-sel_op_is_relative_effective[0] { op_after_relative[0], highest_address, sel_relative_overflow[0] } in gt.sel { gt.input_a, gt.input_b, gt.res };
+sel_op_is_relative_effective[0] { op_after_relative[0], highest_address, sel_relative_overflow[0] } in gt.sel_addressing { gt.input_a, gt.input_b, gt.res };
 #[RELATIVE_OVERFLOW_RESULT_1]
-sel_op_is_relative_effective[1] { op_after_relative[1], highest_address, sel_relative_overflow[1] } in gt.sel { gt.input_a, gt.input_b, gt.res };
+sel_op_is_relative_effective[1] { op_after_relative[1], highest_address, sel_relative_overflow[1] } in gt.sel_addressing { gt.input_a, gt.input_b, gt.res };
 #[RELATIVE_OVERFLOW_RESULT_2]
-sel_op_is_relative_effective[2] { op_after_relative[2], highest_address, sel_relative_overflow[2] } in gt.sel { gt.input_a, gt.input_b, gt.res };
+sel_op_is_relative_effective[2] { op_after_relative[2], highest_address, sel_relative_overflow[2] } in gt.sel_addressing { gt.input_a, gt.input_b, gt.res };
 #[RELATIVE_OVERFLOW_RESULT_3]
-sel_op_is_relative_effective[3] { op_after_relative[3], highest_address, sel_relative_overflow[3] } in gt.sel { gt.input_a, gt.input_b, gt.res };
+sel_op_is_relative_effective[3] { op_after_relative[3], highest_address, sel_relative_overflow[3] } in gt.sel_addressing { gt.input_a, gt.input_b, gt.res };
 #[RELATIVE_OVERFLOW_RESULT_4]
-sel_op_is_relative_effective[4] { op_after_relative[4], highest_address, sel_relative_overflow[4] } in gt.sel { gt.input_a, gt.input_b, gt.res };
+sel_op_is_relative_effective[4] { op_after_relative[4], highest_address, sel_relative_overflow[4] } in gt.sel_addressing { gt.input_a, gt.input_b, gt.res };
 #[RELATIVE_OVERFLOW_RESULT_5]
-sel_op_is_relative_effective[5] { op_after_relative[5], highest_address, sel_relative_overflow[5] } in gt.sel { gt.input_a, gt.input_b, gt.res };
+sel_op_is_relative_effective[5] { op_after_relative[5], highest_address, sel_relative_overflow[5] } in gt.sel_addressing { gt.input_a, gt.input_b, gt.res };
 #[RELATIVE_OVERFLOW_RESULT_6]
-sel_op_is_relative_effective[6] { op_after_relative[6], highest_address, sel_relative_overflow[6] } in gt.sel { gt.input_a, gt.input_b, gt.res };
+sel_op_is_relative_effective[6] { op_after_relative[6], highest_address, sel_relative_overflow[6] } in gt.sel_addressing { gt.input_a, gt.input_b, gt.res };
 
 /**************************************************************************************************
  *  Indirection Resolution

@@ -1,22 +1,34 @@
-import { AztecAddress, createPXEClient, PXE, Wallet } from "@aztec/aztec.js";
-import { getDeployedTestAccounts } from "@aztec/accounts/testing/lazy";
-import { TestWallet } from "@aztec/test-wallet";
+import { AztecAddress, createAztecNodeClient, Wallet } from "@aztec/aztec.js";
+import { TestWallet } from "@aztec/test-wallet/lazy";
+import {
+  PXEServiceConfig,
+  getPXEServiceConfig,
+  createPXEService,
+} from "@aztec/pxe/client/lazy";
+import { getInitialTestAccountsData } from "@aztec/accounts/testing";
 
 export class PrivateEnv {
   private wallet!: Wallet;
   private defaultAccountAddress!: AztecAddress;
 
-  private constructor(private pxe: PXE) {}
-
-  static create(pxeURL: string) {
-    const pxe = createPXEClient(pxeURL);
-    return new PrivateEnv(pxe);
-  }
+  constructor() {}
 
   async init() {
-    const wallet = new TestWallet(this.pxe);
+    const nodeURL = process.env.AZTEC_NODE_URL ?? "http://localhost:8080";
 
-    const accountData = (await getDeployedTestAccounts(this.pxe))[0];
+    const aztecNode = await createAztecNodeClient(nodeURL);
+    const config = getPXEServiceConfig();
+    config.dataDirectory = "pxe";
+    config.proverEnabled = false;
+    const l1Contracts = await aztecNode.getL1ContractAddresses();
+    const configWithContracts = {
+      ...config,
+      l1Contracts,
+    } as PXEServiceConfig;
+    const pxe = await createPXEService(aztecNode, configWithContracts);
+    const wallet = new TestWallet(pxe);
+
+    const [accountData] = await getInitialTestAccountsData();
     if (!accountData) {
       console.error(
         "Account not found. Please connect the app to a testing environment with deployed and funded test accounts.",
@@ -44,6 +56,4 @@ export class PrivateEnv {
   }
 }
 
-export const deployerEnv = PrivateEnv.create(
-  process.env.PXE_URL || "http://localhost:8080",
-);
+export const deployerEnv = new PrivateEnv();
