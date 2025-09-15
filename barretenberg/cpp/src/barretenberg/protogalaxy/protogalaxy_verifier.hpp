@@ -37,7 +37,7 @@ template <class DeciderVerificationKeys> class ProtogalaxyVerifier_ {
     ~ProtogalaxyVerifier_() = default;
 
     /**
-     * @brief Instatiate the vks and the transcript.
+     * @brief Instatiate the verifier instances and the transcript.
      *
      * @param fold_data The data transmitted via the transcript by the prover.
      */
@@ -45,7 +45,7 @@ template <class DeciderVerificationKeys> class ProtogalaxyVerifier_ {
 
     /**
      * @brief Run the folding protocol on the verifier side to establish whether the public data ϕ of the new
-     * accumulator, received from the prover is the same as that produced by the verifier.
+     * accumulator, received from the prover, is the same as that produced by the verifier.
      */
     std::shared_ptr<DeciderVK> verify_folding_proof(const std::vector<FF>&);
 };
