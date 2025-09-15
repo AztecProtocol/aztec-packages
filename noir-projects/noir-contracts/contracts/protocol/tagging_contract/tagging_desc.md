@@ -1,9 +1,9 @@
-After having discussion with Mike, Sean and others I decided to go ahead with implementing the non-interactive handshaking contract approach because:
-1. It's the solution that is the easiest to use for devs as it doesn't require offchain interaction (you just call a handshaking contract, pass in a specific flag to note/event emission functions and you are good),
+# Implementing onchain non-interactive handshaking approach
+
+After having discussion with Mike, Sean and others I decided to go ahead with implementing the onchain non-interactive handshaking approach because:
+1. It's the solution that is the easiest to use for devs as it doesn't require offchain interaction (you just call a tagging contract, pass in a specific flag to note/event emission functions and you are good),
 2. it's also most likely the easiest solution to implement as it doesn't force us to somehow associate signing keys with an account.
 3. This solution being the least scalable of all (it requires everyone to brute force handshaking logs) is fine as it will take time for the activity to pick up on the network and it's quite likely that once this becomes a problem we will have learnt a lot of new information that will make the tradeoff space much clearer.
-
-Note that I decided to abandon the "hide sender from recipient" feature Mike described in his doc because it makes the solution easier to implement. This is because it allows us to re-use `pxe.addSender(...)` endpoint instead of needing to introduce `pxe.addSharedSecret(...)`  and it allows us to keep `ExecutionDataProvider::syncTaggedLogs` function unmodified. It will not be so hard to implement the "hidden sender" feature in the future if desired. This makes this a good stepping stone.
 
 So how does it work?
 ### STEP 1: Emitting handshaking log and nullifier
