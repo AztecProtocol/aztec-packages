@@ -132,9 +132,6 @@ bool UltraCircuitChecker::check_block(Builder& builder,
 
         result = result && check_relation<Arithmetic>(values, params);
         if (!result) {
-            for (auto val : values.get_all()) {
-                info(val);
-            }
             return report_fail("Failed Arithmetic relation at row idx = ", idx);
         }
         result = result && check_relation<Elliptic>(values, params);
