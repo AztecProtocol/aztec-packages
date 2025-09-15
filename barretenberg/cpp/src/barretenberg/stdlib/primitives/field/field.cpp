@@ -1262,7 +1262,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
 
 // WORKTODO: better name!
 template <typename Builder>
-std::pair<field_t<Builder>, field_t<Builder>> field_t<Builder>::split_at_unrestricted(const size_t lsb_index) const
+std::pair<field_t<Builder>, field_t<Builder>> field_t<Builder>::split_at(const size_t lsb_index) const
 {
     // WORKTODO: is this right? depends on how bb::fr is implemented. ideally this would be some predefined constant..
     const size_t max_bits = 254;
@@ -1295,8 +1295,8 @@ std::pair<field_t<Builder>, field_t<Builder>> field_t<Builder>::split_at_unrestr
  * - hi contains bits [lsb_index, num_bits)
  */
 template <typename Builder>
-std::pair<field_t<Builder>, field_t<Builder>> field_t<Builder>::split_at(const size_t lsb_index,
-                                                                         const size_t num_bits) const
+std::pair<field_t<Builder>, field_t<Builder>> field_t<Builder>::no_wrap_split_at(const size_t lsb_index,
+                                                                                 const size_t num_bits) const
 {
     ASSERT(lsb_index < num_bits);
     ASSERT(num_bits <= grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH);

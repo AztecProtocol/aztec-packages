@@ -34,14 +34,14 @@ template <typename Builder> struct StdlibTranscriptParams {
      */
     static inline std::array<DataType, 2> split_challenge(const DataType& challenge)
     {
-        // WORKTODO: now that we're not using cycle_scalar, should we split differently?
-        const size_t low_bits = 128;
-        const size_t high_bits = 126;
-        const auto [lo, high] = challenge.split_at_unrestricted(low_bits);
+        // Note: Current choice of bit splitting is somewhat arbitrary and based on historic use of cycle_scalar.
+        const size_t lo_bits = 128;
+        const size_t hi_bits = 126;
+        const auto [lo, hi] = challenge.split_at(lo_bits);
         // WORKTODO: are these range constraints necessary?
-        lo.create_range_constraint(low_bits);
-        high.create_range_constraint(high_bits);
-        return std::array<DataType, 2>{ lo, high };
+        lo.create_range_constraint(lo_bits);
+        hi.create_range_constraint(hi_bits);
+        return std::array<DataType, 2>{ lo, hi };
     }
     template <typename T> static inline T convert_challenge(const DataType& challenge)
     {
