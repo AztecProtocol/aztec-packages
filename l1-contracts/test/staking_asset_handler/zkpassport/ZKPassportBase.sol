@@ -9,7 +9,6 @@ import {MockRootRegistry} from "./MockRootRegistry.sol";
 import {MockZKPassportVerifier} from "@aztec/mock/staking_asset_handler/MockZKPassportVerifier.sol";
 import {CommittedInputLen} from "@zkpassport/Constants.sol";
 
-
 import {Test} from "forge-std/Test.sol";
 
 contract ZKPassportBase is Test {
@@ -31,8 +30,7 @@ contract ZKPassportBase is Test {
   string constant CORRECT_SCOPE = "bigproof";
 
   // Time when the proof was generated - Tue Sep 09 2025 13:20:59 UTC
-  uint256 public PROOF_GENERATION_TIMESTAMP = 1757424059;
-
+  uint256 public PROOF_GENERATION_TIMESTAMP = 1_757_424_059;
 
   // Using this base contract will make a zkpassport verifier and proof available for testing purposes
   constructor() {
