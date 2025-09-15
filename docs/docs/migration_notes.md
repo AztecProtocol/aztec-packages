@@ -9,6 +9,10 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+## [Public functions]
+
+The L2 gas cost of the different AVM opcodes have been updated to reflect more realistic proving costs. Developers should review the L2 gas costs of executing public functions and reevaluate any hardcoded L2 gas limits.
+
 ## [Aztec Tools]
 
 ### Contract compilation now requires two steps
