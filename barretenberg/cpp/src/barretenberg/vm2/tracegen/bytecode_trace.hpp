@@ -10,8 +10,6 @@
 
 namespace bb::avm2::tracegen {
 
-constexpr uint32_t DECOMPOSE_WINDOW_SIZE = 37;
-
 class BytecodeTraceBuilder final {
   public:
     void process_hashing(const simulation::EventEmitterInterface<simulation::BytecodeHashingEvent>::Container& events,

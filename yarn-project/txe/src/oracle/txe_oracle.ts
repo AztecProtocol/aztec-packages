@@ -2,7 +2,7 @@ import { Aes128 } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { type Logger, applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import { PXEOracleInterface } from '@aztec/pxe/server';
-import { ExecutionNoteCache, HashedValuesCache, type NoteData, pickNotes } from '@aztec/pxe/simulator';
+import { ExecutionNoteCache, HashedValuesCache, type NoteData, UtilityContext, pickNotes } from '@aztec/pxe/simulator';
 import type { NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Body, L2Block } from '@aztec/stdlib/block';
@@ -45,14 +45,6 @@ export class TXE extends TXETypedOracle {
 
   // Utils
 
-  override utilityGetChainId(): Promise<Fr> {
-    return Promise.resolve(this.anchorBlockGlobalVariables.chainId);
-  }
-
-  override utilityGetVersion(): Promise<Fr> {
-    return Promise.resolve(this.anchorBlockGlobalVariables.version);
-  }
-
   async checkNullifiersNotInTree(contractAddress: AztecAddress, nullifiers: Fr[]) {
     const siloedNullifiers = await Promise.all(nullifiers.map(nullifier => siloNullifier(contractAddress, nullifier)));
     const db = this.forkedWorldTrees;
@@ -67,20 +59,20 @@ export class TXE extends TXETypedOracle {
 
   // TypedOracle
 
-  override utilityGetBlockNumber() {
-    return Promise.resolve(this.anchorBlockGlobalVariables.blockNumber);
-  }
-
-  override utilityGetTimestamp() {
-    return Promise.resolve(this.anchorBlockGlobalVariables.timestamp);
-  }
-
-  override utilityGetContractAddress() {
-    return Promise.resolve(this.contractAddress);
-  }
-
   override utilityGetRandomField() {
     return Fr.random();
+  }
+
+  override utilityGetUtilityContext() {
+    return Promise.resolve(
+      UtilityContext.from({
+        blockNumber: this.anchorBlockGlobalVariables.blockNumber,
+        timestamp: this.anchorBlockGlobalVariables.timestamp,
+        contractAddress: this.contractAddress,
+        version: this.anchorBlockGlobalVariables.version,
+        chainId: this.anchorBlockGlobalVariables.chainId,
+      }),
+    );
   }
 
   override privateStoreInExecutionCache(values: Fr[], hash: Fr) {

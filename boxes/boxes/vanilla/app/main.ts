@@ -54,10 +54,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         constructorArgs: [AztecAddress.fromString(deployerAddress)],
       }
     );
-    await wallet.registerContract({
-      artifact: PrivateVotingContract.artifact,
-      instance,
-    });
+    await wallet.registerContract(instance, PrivateVotingContract.artifact);
 
     // Get existing account
     displayStatusMessage('Checking for existing account...');

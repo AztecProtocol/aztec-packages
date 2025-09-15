@@ -18,20 +18,20 @@ const K = {
 } as const;
 
 const A = {
-  ATTESTER_1: '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266',
-  ATTESTER_2: '0xf9095291785af6c8a1225d0f30815b35f37b7732',
-  ATTESTER_3: '0x15d34aaf54267db7d7c367839aaf71a00a2c6a65',
-  ATTESTER_4: '0x23618e81e3f5cdf7f54c3d65f7fbc0abf5b21e8f',
-  ATTESTER_5: '0xa0ee7a142d267c1f36714e4a8f75612f20a79720',
-  PUBLISHER_1: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8',
-  PUBLISHER_2: '0x90f79bf6eb2c4f870365e785982e1f101e93b906',
-  PUBLISHER_3: '0x9965507d1a55bcc2695c58ba16fb37d819b0a4dc',
-  COINBASE_1: '0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc',
-  COINBASE_2: '0x90f79bf6eb2c4f870365e785982e1f101e93b906',
-  COINBASE_3: '0x71be63f3384f5fb98995898a86b02fb2426c5788',
-  FEE_1: '0xbcd4042de499d14e55001ccbb24a551f3b954096000000000000000000000000',
-  FEE_2: '0x71be63f3384f5fb98995898a86b02fb2426c5788000000000000000000000000',
-  FEE_3: '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266000000000000000000000000',
+  ATTESTER_1: EthAddress.fromString('0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'),
+  ATTESTER_2: EthAddress.fromString('0xf9095291785af6c8a1225d0f30815b35f37b7732'),
+  ATTESTER_3: EthAddress.fromString('0x15d34aaf54267db7d7c367839aaf71a00a2c6a65'),
+  ATTESTER_4: EthAddress.fromString('0x23618e81e3f5cdf7f54c3d65f7fbc0abf5b21e8f'),
+  ATTESTER_5: EthAddress.fromString('0xa0ee7a142d267c1f36714e4a8f75612f20a79720'),
+  PUBLISHER_1: EthAddress.fromString('0x70997970c51812dc3a010c7d01b50e0d17dc79c8'),
+  PUBLISHER_2: EthAddress.fromString('0x90f79bf6eb2c4f870365e785982e1f101e93b906'),
+  PUBLISHER_3: EthAddress.fromString('0x9965507d1a55bcc2695c58ba16fb37d819b0a4dc'),
+  COINBASE_1: EthAddress.fromString('0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc'),
+  COINBASE_2: EthAddress.fromString('0x90f79bf6eb2c4f870365e785982e1f101e93b906'),
+  COINBASE_3: EthAddress.fromString('0x71be63f3384f5fb98995898a86b02fb2426c5788'),
+  FEE_1: AztecAddress.fromString('0xbcd4042de499d14e55001ccbb24a551f3b954096000000000000000000000000'),
+  FEE_2: AztecAddress.fromString('0x71be63f3384f5fb98995898a86b02fb2426c5788000000000000000000000000'),
+  FEE_3: AztecAddress.fromString('0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266000000000000000000000000'),
   UNKNOWN: '0x9999999999999999999999999999999999999999',
 } as const;
 
@@ -46,8 +46,20 @@ const RS = {
 
 // ---- Small helpers ----------------------------------------------------------
 
-const addr = (hex: string) => EthAddress.fromString(hex);
-const lower = (hex: string) => hex.toLowerCase();
+const addr = (hex: string | EthAddress) => {
+  if (typeof hex === 'string') {
+    return EthAddress.fromString(hex);
+  } else {
+    return hex;
+  }
+};
+const lower = (hex: string | EthAddress) => {
+  if (typeof hex === 'string') {
+    return hex.toLowerCase();
+  } else {
+    return hex.toString().toLowerCase();
+  }
+};
 
 function expectEqualAddressSets(actual: EthAddress[], expected: EthAddress[]) {
   const a = new Set(actual.map(a => lower(a.toString())));
@@ -173,7 +185,7 @@ describe('NodeKeystoreAdapter', () => {
     ])('fee recipient for %s', (att, fee) => {
       const got = adapter.getFeeRecipient(addr(att));
       expect(got).toBeInstanceOf(AztecAddress);
-      expect(got.toString()).toBe(fee);
+      expect(got.equals(fee)).toBeTruthy();
     });
   });
 

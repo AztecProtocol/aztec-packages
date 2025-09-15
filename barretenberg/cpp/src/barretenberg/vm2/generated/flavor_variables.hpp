@@ -138,15 +138,14 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 133;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 3014;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 327;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 3039;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 328;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3474;
+    static constexpr size_t NUM_ALL_ENTITIES = 3500;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
     using MainRelations_ = flat_tuple::tuple<
-
         // Optimized Relations
         avm2::optimized_poseidon2_perm<FF_>,
         // Relations
@@ -249,8 +248,12 @@ struct AvmFlavorVariables {
         lookup_alu_shifts_two_pow_relation<FF_>,
         lookup_alu_tag_max_bits_value_relation<FF_>,
         lookup_bc_decomposition_bytes_are_bytes_relation<FF_>,
-        lookup_bc_hashing_get_packed_field_relation<FF_>,
-        lookup_bc_hashing_iv_is_len_relation<FF_>,
+        lookup_bc_hashing_check_final_bytes_remaining_relation<FF_>,
+        lookup_bc_hashing_get_packed_field_0_relation<FF_>,
+        lookup_bc_hashing_get_packed_field_1_relation<FF_>,
+        lookup_bc_hashing_get_packed_field_2_relation<FF_>,
+        lookup_bc_hashing_poseidon2_hash_relation<FF_>,
+        lookup_bc_retrieval_bytecode_hash_is_correct_relation<FF_>,
         lookup_bc_retrieval_class_id_derivation_relation<FF_>,
         lookup_bc_retrieval_contract_instance_retrieval_relation<FF_>,
         lookup_bc_retrieval_is_new_class_check_relation<FF_>,
@@ -291,13 +294,13 @@ struct AvmFlavorVariables {
         lookup_execution_get_p_limbs_relation<FF_>,
         lookup_execution_instruction_fetching_body_relation<FF_>,
         lookup_execution_instruction_fetching_result_relation<FF_>,
-        lookup_external_call_call_allocated_left_da_range_relation<FF_>,
-        lookup_external_call_call_allocated_left_l2_range_relation<FF_>,
+        lookup_external_call_call_is_da_gas_allocated_lt_left_relation<FF_>,
+        lookup_external_call_call_is_l2_gas_allocated_lt_left_relation<FF_>,
         lookup_ff_gt_a_hi_range_relation<FF_>,
         lookup_ff_gt_a_lo_range_relation<FF_>,
         lookup_gas_addressing_gas_read_relation<FF_>,
-        lookup_gas_limit_used_da_range_relation<FF_>,
-        lookup_gas_limit_used_l2_range_relation<FF_>,
+        lookup_gas_is_out_of_gas_da_relation<FF_>,
+        lookup_gas_is_out_of_gas_l2_relation<FF_>,
         lookup_get_contract_instance_contract_instance_retrieval_relation<FF_>,
         lookup_get_contract_instance_precomputed_info_relation<FF_>,
         lookup_get_env_var_precomputed_info_relation<FF_>,

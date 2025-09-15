@@ -190,6 +190,10 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   }
 
   protected async handleProvenPerformance(epoch: bigint, performance: ValidatorsEpochPerformance) {
+    if (this.config.slashInactivityPenalty === 0n) {
+      return;
+    }
+
     const inactiveValidators = getEntries(performance)
       .filter(([_, { missed, total }]) => missed / total >= this.config.slashInactivityTargetPercentage)
       .map(([address]) => address);
@@ -213,7 +217,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     }));
 
     if (criminals.length > 0) {
-      this.logger.info(
+      this.logger.verbose(
         `Identified ${criminals.length} validators to slash due to inactivity in at least ${epochThreshold} consecutive epochs`,
         { ...args, epochThreshold },
       );

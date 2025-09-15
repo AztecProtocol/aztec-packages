@@ -62,6 +62,11 @@ tests:
     error_regex: "Input is not large enough"
     owners:
       - *adam
+  # https://gist.github.com/spalladino/4fd3d2abd7b7fb05be2e556649868626
+  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh"
+    error_regex: "sending signal TERM to command"
+    owners:
+      - *adam
   - regex: "barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk"
     error_regex: "Aborted.*core dumped"
     owners:
@@ -183,6 +188,13 @@ tests:
     error_regex: "This is a bug"
     owners:
       - *palla
+  - regex: "src/e2e_epochs/epochs_proof_public_cross_chain.test.ts"
+    error_regex: "Error: Failed to find an available publisher"
+    owners:
+      - *palla
+  - regex: "src/e2e_epochs/epochs_l1_reorgs.test.ts"
+    owners:
+      - *palla
   - regex: "src/e2e_epochs/epochs_empty_blocks"
     error_regex: "✕ successfully proves multiple epochs"
     owners:
@@ -265,9 +277,6 @@ tests:
     error_regex: "Failed to fetch dynamically imported module"
     owners:
       - *alex
-  - regex: "ethereum/src/deploy_l1_contracts.test.ts"
-    owners:
-      - *palla
   - regex: "ethereum/src/test/tx_delayer.test.ts"
     error_regex: "delays a transaction until a given L1 timestamp"
     owners:
@@ -333,6 +342,11 @@ tests:
     error_regex: "create account and cast vote"
     owners:
       - *saleel
+
+  - regex: "src/e2e_p2p/inactivity_slash.test.ts"
+    error_regex: "Cannot propose.*since the committee does not exist on L1"
+    owners:
+      - *palla
 
   # Slack testing.
   - regex: "nonsense to match"

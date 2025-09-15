@@ -62,12 +62,12 @@ namespace poseidon2_perm_mem;
     #[CHECK_SRC_ADDR_IN_RANGE]
     sel { read_address[3], max_mem_addr, sel_src_out_of_range_err }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     #[CHECK_DST_ADDR_IN_RANGE]
     sel { write_address[3], max_mem_addr, sel_dst_out_of_range_err }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     ////////////////////////////////////////////////
     // Read from memory into input columns
