@@ -125,6 +125,9 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
         ProgramMetadata metadata{ .recursive = true, .honk_recursion = honk_recursion };
         AcirProgram program{ constraint_system, witness };
         auto builder = create_circuit(program, metadata);
+        {
+            info("circuit checker inner ", CircuitChecker::check(builder));
+        };
         return builder;
     }
 
@@ -201,6 +204,10 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
         }
         AcirProgram program{ constraint_system, witness };
         BuilderType outer_circuit = create_circuit<BuilderType>(program, metadata);
+        {
+            info("outer ", CircuitChecker::check(outer_circuit));
+            info(outer_circuit.err());
+        }
 
         return outer_circuit;
     }

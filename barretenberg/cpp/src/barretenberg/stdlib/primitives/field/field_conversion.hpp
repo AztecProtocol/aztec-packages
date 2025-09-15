@@ -38,8 +38,7 @@ template <typename Builder> static void constrain_bigfield_limbs(const fr<Builde
  * bn254: In the case of a bn254 point, the bigfield limbs (x_lo, x_hi, y_lo, y_hi) are range constrained, and their sum
  * is a non-negative integer not exceeding 2^138, i.e. it does not overflow the fq modulus, hence all limbs must be 0.
  *
- * Grumpkin: We are using the fact that (x^2 + y^2 = 0) has no non-trivial solutions on Grumpkin, as Grumpkin modulus is
- * == 3 mod 4.
+ * Grumpkin: We are using the fact that (x^2 + 5 * y^2 = 0) has no non-trivial solutions in Grumpkin base field
  *
  * @return
  */
@@ -49,10 +48,10 @@ template <typename Builder, typename T> bool_t<Builder> check_point_at_infinity(
         // Sum the limbs and check whether the sum is 0
         return (fr<Builder>::accumulate(std::vector<fr<Builder>>(fr_vec.begin(), fr_vec.end())).is_zero());
     } else {
-        // Efficiently compute ((x^2 + y^2) == 0)
+        // Efficiently compute ((x^2 + 5 y^2) == 0)
         const fr<Builder> x_sqr = fr_vec[0].sqr();
         const fr<Builder> y = fr_vec[1];
-        return (y.madd(y, x_sqr).is_zero());
+        return (y.madd(y, x_sqr * bb::fr(5)).is_zero());
     }
 }
 
