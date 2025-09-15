@@ -160,8 +160,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         std::vector<FF> linearly_dependent_contribution_accumulators(num_threads);
 
         // Distribute the execution trace rows across threads so that each handles an equal number of active rows
-        trace_usage_tracker.construct_thread_ranges(
-            num_threads, polynomial_size, /*use_prev_accumulator_tracker=*/true);
+        trace_usage_tracker.construct_thread_ranges(num_threads, polynomial_size, /*use_prev_accumulator=*/true);
 
         parallel_for(num_threads, [&](size_t thread_idx) {
             for (const ExecutionTraceUsageTracker::Range& range : trace_usage_tracker.thread_ranges[thread_idx]) {
