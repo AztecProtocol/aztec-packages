@@ -495,7 +495,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
         for (size_t point = DeciderPKs::NUM; point < combiner.size(); point++) {
             auto idx = point - DeciderPKs::NUM;
-            FF lagrange_0 = lagrange_0 = FF(1) - FF(point);
+            FF lagrange_0 = FF(1) - FF(point);
             FF vanishing_polynomial = vanishing_polynomial = FF(point) * (FF(point) - 1);
             combiner_quotient_evals[idx] =
                 (combiner.value_at(point) - perturbator_evaluation * lagrange_0) * vanishing_polynomial.invert();
