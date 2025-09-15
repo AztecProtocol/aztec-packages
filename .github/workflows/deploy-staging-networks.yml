@@ -256,3 +256,12 @@ jobs:
           # the network env file and gcp credentials file are mounted into the ec2 instance
           # see ci3/bootstrap_ec2
           exec ./ci.sh network-deploy
+
+      - name: Update Monitoring App
+        if: env.SEMVER != '' && env.MAJOR_VERSION == '2' && !contains(env.SEMVER, '-')
+        env:
+          MONITORING_NAMESPACE: testnet-block-height-monitor
+          NAMESPACE: ${{ env.NAMESPACE }}
+        run: |
+          echo "Checking if monitoring app needs to be updated for testnet deployment..."
+          ./spartan/metrics/testnet-monitor/scripts/update-monitoring.sh ${{ env.NAMESPACE }} ${{ env.MONITORING_NAMESPACE }}
