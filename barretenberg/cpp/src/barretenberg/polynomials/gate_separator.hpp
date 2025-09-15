@@ -175,9 +175,9 @@ template <typename FF> struct GateSeparatorPolynomial {
         // thread_idx will handle the interval of indices [thread_idx * iterations_per_thread, (thread_idx + 1) *
         // iterations_per_thread). Note that for a given thread, all the processed indices have the same
         // prefix in binary. Therefore, each beta_product of the thread is a multiple of this "prefix product". The
-        // successive products are then by the above algorithm whereby we double the interval at each iteration
-        // and multiply by the new beta to process the suffix bits. The difference is that we initialize the first
-        // product with this "prefix product" instead of 1.
+        // successive products are then populated by the above algorithm whereby we double the interval at each
+        // iteration and multiply by the new beta to process the suffix bits. The difference is that we initialize the
+        // first product with this "prefix product" instead of 1.
 
         // Compute the prefix products for each thread
         std::vector<FF> thread_prefix_beta_products(num_threads);
