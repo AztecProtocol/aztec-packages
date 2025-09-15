@@ -72,7 +72,8 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS = 2> class ProtogalaxyProver
     /**
      * @brief For each Prover instance derived from a circuit, prior to folding, we need to complete the computation of
      * its polynomials (some of which requires generations relation parameters first); commit to witnesses and generate
-     * the relation parameters; and send the public data ϕ of the instance to the verifier.
+     * the relation parameters; and send the public data ϕ of the instance to the verifier (which will represent the
+     * verifier instance).
      *
      * @param domain_separator a label used for tracking data in the transcript
      */
