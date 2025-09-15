@@ -168,7 +168,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
   ],
   'L1 CONTRACTS': [
     configToFlag('--registry-address', l1ContractAddressesMapping.registryAddress),
-    configToFlag('--rollup-version', chainConfigMappings.rollupVersion, 'canonical'),
+    configToFlag('--rollup-version', chainConfigMappings.rollupVersion),
   ],
   STORAGE: [
     configToFlag('--data-directory', dataConfigMappings.dataDirectory),

@@ -10,9 +10,6 @@ bot:
 pxe:
   enabled: false
 
-faucet:
-  enabled: false
-
 validator:
   replicas: 3
   sequencer:

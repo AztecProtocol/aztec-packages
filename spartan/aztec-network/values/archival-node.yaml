@@ -68,8 +68,5 @@ proverBroker:
 pxe:
   enabled: false
 
-faucet:
-  enabled: false
-
 bot:
   enabled: false

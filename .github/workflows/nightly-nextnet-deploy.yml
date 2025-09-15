@@ -40,7 +40,7 @@ jobs:
     needs: get-latest-tag
     uses: ./.github/workflows/network-deploy.yml
     with:
-      ref: next
+      ref: ${{ github.ref }}
       cluster: aztec-gke-private
       namespace: next-rc-1
       values_file: rc-1.yaml

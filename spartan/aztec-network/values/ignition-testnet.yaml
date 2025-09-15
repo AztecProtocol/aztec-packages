@@ -23,9 +23,6 @@ bot:
 pxe:
   enabled: false
 
-faucet:
-  enabled: false
-
 bootNode:
   enabled: false
   # unused.
