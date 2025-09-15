@@ -7,7 +7,7 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "barretenberg/ultra_honk/decider_proving_key.hpp"
+#include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -34,7 +34,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
     using VerificationKey = Flavor::VerificationKey;
     using FF = Flavor::FF;
     using Commitment = Flavor::Commitment;
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
     using Builder = Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
@@ -226,14 +226,14 @@ TYPED_TEST(UltraTranscriptTests, ProverManifestConsistency)
     TestFixture::generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest by constructing a proof
-    auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
+    auto proving_key = std::make_shared<typename TestFixture::ProverInstance>(builder);
     auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->get_precomputed());
     typename TestFixture::Prover prover(proving_key, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
-    auto manifest_expected = TestFixture::construct_ultra_honk_manifest(prover.proving_key->log_dyadic_size());
+    auto manifest_expected = TestFixture::construct_ultra_honk_manifest(prover.prover_instance->log_dyadic_size());
     auto prover_manifest = prover.transcript->get_manifest();
     // Note: a manifest can be printed using manifest.print()
     manifest_expected.print();
@@ -263,7 +263,7 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
     TestFixture::generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
-    auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
+    auto proving_key = std::make_shared<typename TestFixture::ProverInstance>(builder);
     auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->get_precomputed());
     typename TestFixture::Prover prover(proving_key, verification_key);
     prover.transcript->enable_manifest();
@@ -343,7 +343,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     TestFixture::generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest by constructing a proof
-    auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
+    auto proving_key = std::make_shared<typename TestFixture::ProverInstance>(builder);
     auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->get_precomputed());
     typename TestFixture::Prover prover(proving_key, verification_key);
     auto proof = prover.construct_proof();

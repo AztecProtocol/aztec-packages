@@ -16,12 +16,12 @@ class CivcRecursionConstraintTest : public ::testing::Test {
 
     // Types for ClientIVC recursive verifier
     using Flavor = UltraRollupFlavor;
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
     using ClientIVCRecursiveVerifier = stdlib::recursion::honk::ClientIVCRecursiveVerifier;
 
     // Types for ClientIVC
-    using DeciderZKProvingKey = DeciderProvingKey_<MegaZKFlavor>;
+    using DeciderZKProvingKey = ProverInstance_<MegaZKFlavor>;
     using MegaZKVerificationKey = MegaZKFlavor::VerificationKey;
 
     // Public inputs added by bb to a ClientIVC proof
@@ -83,7 +83,7 @@ class CivcRecursionConstraintTest : public ::testing::Test {
         return program;
     }
 
-    static std::shared_ptr<DeciderProvingKey> get_civc_recursive_verifier_pk(AcirProgram& program)
+    static std::shared_ptr<ProverInstance> get_civc_recursive_verifier_pk(AcirProgram& program)
     {
         // Build constraints
         Builder builder = create_circuit(program, { .honk_recursion = 2 });
@@ -91,7 +91,7 @@ class CivcRecursionConstraintTest : public ::testing::Test {
         info("Estimate finalized number of gates: ", builder.get_estimated_num_finalized_gates());
 
         // Construct vk
-        auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+        auto proving_key = std::make_shared<ProverInstance>(builder);
 
         return proving_key;
     }

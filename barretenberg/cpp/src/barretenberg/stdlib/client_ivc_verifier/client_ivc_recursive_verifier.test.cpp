@@ -119,7 +119,7 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     // EXPECT_TRUE(CircuitChecker::check(tube_builder));
 
     // Construct and verify a proof for the ClientIVC Recursive Verifier circuit
-    auto proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(tube_builder);
+    auto proving_key = std::make_shared<ProverInstance_<NativeFlavor>>(tube_builder);
     auto native_vk_with_ipa = std::make_shared<NativeFlavor::VerificationKey>(proving_key->get_precomputed());
     UltraProver_<NativeFlavor> tube_prover{ proving_key, native_vk_with_ipa };
     // Prove the CIVCRecursiveVerifier circuit
@@ -129,7 +129,7 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
     UltraVerifier_<NativeFlavor> native_verifier(native_vk_with_ipa, ipa_verification_key);
     bool native_result =
-        native_verifier.template verify_proof<bb::RollupIO>(native_tube_proof, tube_prover.proving_key->ipa_proof)
+        native_verifier.template verify_proof<bb::RollupIO>(native_tube_proof, tube_prover.prover_instance->ipa_proof)
             .result;
     EXPECT_TRUE(native_result);
 
@@ -150,12 +150,12 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
         inputs.set_public();
     }
 
-    base_builder.ipa_proof = tube_prover.proving_key->ipa_proof;
+    base_builder.ipa_proof = tube_prover.prover_instance->ipa_proof;
     EXPECT_EQ(base_builder.failed(), false) << base_builder.err();
     EXPECT_TRUE(CircuitChecker::check(base_builder));
 
     // Natively verify the IPA proof for the base rollup circuit
-    auto base_proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(base_builder);
+    auto base_proving_key = std::make_shared<ProverInstance_<NativeFlavor>>(base_builder);
     auto ipa_transcript = std::make_shared<NativeTranscript>();
     ipa_transcript->load_proof(base_proving_key->ipa_proof);
     IPA<curve::Grumpkin>::reduce_verify(
@@ -190,7 +190,7 @@ TEST_F(ClientIVCRecursionTests, TubeVKIndependentOfInputCircuits)
         EXPECT_EQ(tube_builder.failed(), false) << tube_builder.err();
 
         // Construct and verify a proof for the ClientIVC Recursive Verifier circuit
-        auto proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(tube_builder);
+        auto proving_key = std::make_shared<ProverInstance_<NativeFlavor>>(tube_builder);
 
         auto tube_vk = std::make_shared<NativeFlavor::VerificationKey>(proving_key->get_precomputed());
 

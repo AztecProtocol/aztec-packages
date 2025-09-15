@@ -20,7 +20,7 @@ using namespace bb;
 template <typename Flavor> class FlavorSerializationTests : public ::testing::Test {
   public:
     using Builder = typename Flavor::CircuitBuilder;
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
 
   protected:
@@ -38,7 +38,7 @@ TYPED_TEST_SUITE(FlavorSerializationTests, FlavorTypes);
 TYPED_TEST(FlavorSerializationTests, VerificationKeySerialization)
 {
     using Builder = typename TestFixture::Builder;
-    using DeciderProvingKey = typename TestFixture::DeciderProvingKey;
+    using ProverInstance = typename TestFixture::ProverInstance;
     using VerificationKey = typename TestFixture::VerificationKey;
 
     Builder builder;
@@ -47,7 +47,7 @@ TYPED_TEST(FlavorSerializationTests, VerificationKeySerialization)
     MockCircuits::add_arithmetic_gates_with_public_inputs(builder, /*num_gates=*/100);
 
     stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
-    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+    auto proving_key = std::make_shared<ProverInstance>(builder);
     VerificationKey original_vkey{ proving_key->get_precomputed() };
 
     // Serialize and deserialize the verification key

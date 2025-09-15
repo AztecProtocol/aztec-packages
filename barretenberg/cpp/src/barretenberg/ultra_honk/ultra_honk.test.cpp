@@ -25,7 +25,7 @@ using AggregationState = stdlib::recursion::PairingPoints<UltraCircuitBuilder>;
 
 template <typename Flavor> class UltraHonkTests : public ::testing::Test {
   public:
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
@@ -52,11 +52,11 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
 
     void prove_and_verify(typename Flavor::CircuitBuilder& circuit_builder, bool expected_result)
     {
-        auto proving_key = std::make_shared<DeciderProvingKey>(circuit_builder);
+        auto proving_key = std::make_shared<ProverInstance>(circuit_builder);
         prove_and_verify(proving_key, expected_result);
     };
 
-    void prove_and_verify(const std::shared_ptr<DeciderProvingKey>& proving_key, bool expected_result)
+    void prove_and_verify(const std::shared_ptr<ProverInstance>& proving_key, bool expected_result)
     {
         auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
         Prover prover(proving_key, verification_key);
@@ -113,7 +113,7 @@ TYPED_TEST(UltraHonkTests, ProofLengthCheck)
     auto builder = Builder{};
     IO::add_default(builder);
     // Construct a UH proof and ensure its size matches expectation; if not, the constant may need to be updated
-    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    auto proving_key = std::make_shared<ProverInstance_<Flavor>>(builder);
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
     UltraProver_<Flavor> prover(proving_key, verification_key);
     Proof ultra_proof = prover.construct_proof();
@@ -134,7 +134,7 @@ TYPED_TEST(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
     auto circuit_builder = UltraCircuitBuilder();
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
-    auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(circuit_builder);
+    auto proving_key = std::make_shared<typename TestFixture::ProverInstance>(circuit_builder);
     auto verification_key = std::make_shared<typename TypeParam::VerificationKey>(proving_key->get_precomputed());
     typename TestFixture::Prover prover(proving_key, verification_key);
     auto proof = prover.construct_proof();
@@ -272,7 +272,7 @@ TYPED_TEST(UltraHonkTests, CreateGatesFromPlookupAccumulators)
  */
 TYPED_TEST(UltraHonkTests, LookupFailure)
 {
-    using DeciderProvingKey = typename TestFixture::DeciderProvingKey;
+    using ProverInstance = typename TestFixture::ProverInstance;
     // Construct a circuit with lookup and arithmetic gates
     auto construct_circuit_with_lookups = [this]() {
         UltraCircuitBuilder builder;
@@ -295,7 +295,7 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
     {
         auto builder = construct_circuit_with_lookups();
 
-        auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+        auto proving_key = std::make_shared<ProverInstance>(builder);
         auto& polynomials = proving_key->polynomials;
 
         // Erroneously update the read counts/tags at an arbitrary index
@@ -317,7 +317,7 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
     {
         auto builder = construct_circuit_with_lookups();
 
-        auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+        auto proving_key = std::make_shared<ProverInstance>(builder);
         auto& polynomials = proving_key->polynomials;
 
         bool altered = false;
@@ -337,7 +337,7 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
     {
         auto builder = construct_circuit_with_lookups();
 
-        auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+        auto proving_key = std::make_shared<ProverInstance>(builder);
         auto& polynomials = proving_key->polynomials;
 
         // Turn the lookup selector on for an arbitrary row where it is not already active

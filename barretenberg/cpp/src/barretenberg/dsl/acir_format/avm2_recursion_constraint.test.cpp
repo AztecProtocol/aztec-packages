@@ -7,7 +7,7 @@
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
-#include "barretenberg/ultra_honk/decider_keys.hpp"
+#include "barretenberg/ultra_honk/instances.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
@@ -40,7 +40,7 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
     using OuterFlavor = UltraRollupFlavor;
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
-    using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
+    using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
     using OuterVerificationKey = OuterFlavor::VerificationKey;
     using OuterBuilder = UltraCircuitBuilder;
@@ -121,7 +121,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
 
     info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
-    auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
+    auto proving_key = std::make_shared<OuterProverInstance>(layer_2_circuit);
     auto verification_key = std::make_shared<OuterVerificationKey>(proving_key->get_precomputed());
     OuterProver prover(proving_key, verification_key);
     info("prover gates = ", proving_key->dyadic_size());
@@ -153,7 +153,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
 
         info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
-        auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
+        auto proving_key = std::make_shared<OuterProverInstance>(layer_2_circuit);
         expected_vk = std::make_shared<OuterVerificationKey>(proving_key->get_precomputed());
         OuterProver prover(proving_key, expected_vk);
         info("prover gates = ", proving_key->dyadic_size());
@@ -179,7 +179,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
 
         info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
-        auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
+        auto proving_key = std::make_shared<OuterProverInstance>(layer_2_circuit);
         actual_vk = std::make_shared<OuterVerificationKey>(proving_key->get_precomputed());
         OuterProver prover(proving_key, actual_vk);
         info("prover gates = ", proving_key->dyadic_size());

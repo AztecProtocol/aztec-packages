@@ -1,7 +1,7 @@
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
-#include "barretenberg/ultra_honk/decider_proving_key.hpp"
+#include "barretenberg/ultra_honk/prover_instance.hpp"
 
 #include <gtest/gtest.h>
 
@@ -12,7 +12,7 @@ class OinkTests : public ::testing::Test {
     using Flavor = MegaFlavor;
     using OinkProver = OinkProver<Flavor>;
     using Builder = Flavor::CircuitBuilder;
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); };
@@ -26,7 +26,7 @@ TEST_F(OinkTests, OinkProverIsDeterministic)
 {
     Builder circuit;
     circuit.add_ultra_and_mega_gates_to_ensure_all_polys_are_non_zero(); // Ensure all polys are non-zero
-    auto proving_key = std::make_shared<DeciderProvingKey>(circuit);
+    auto proving_key = std::make_shared<ProverInstance>(circuit);
     auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
 
     {

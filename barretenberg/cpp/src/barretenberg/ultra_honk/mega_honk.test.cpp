@@ -30,8 +30,8 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
-    using DeciderVerificationKey = DeciderVerificationKey_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
+    using VerifierInstance = VerifierInstance_<Flavor>;
 
     /**
      * @brief Construct and a verify a Honk proof
@@ -39,7 +39,7 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
      */
     bool construct_and_verify_honk_proof(auto& builder)
     {
-        auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+        auto proving_key = std::make_shared<ProverInstance>(builder);
         auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
         Prover prover(proving_key, verification_key);
         Verifier verifier(verification_key);
@@ -59,8 +59,8 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
         using Prover = UltraProver_<MegaFlavor>;
         using Verifier = UltraVerifier_<MegaFlavor>;
         using VerificationKey = typename MegaFlavor::VerificationKey;
-        using DeciderProvingKey = DeciderProvingKey_<MegaFlavor>;
-        auto proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
+        using ProverInstance = ProverInstance_<MegaFlavor>;
+        auto proving_key = std::make_shared<ProverInstance>(builder, trace_settings);
 
         auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
         Prover prover(proving_key, verification_key);
@@ -117,7 +117,7 @@ TYPED_TEST(MegaHonkTests, ProofLengthCheck)
     DefaultIO::add_default(builder);
 
     // Construct a mega proof and ensure its size matches expectation; if not, the constant may need to be updated
-    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    auto proving_key = std::make_shared<ProverInstance_<Flavor>>(builder);
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
     UltraProver_<Flavor> prover(proving_key, verification_key);
     HonkProof mega_proof = prover.construct_proof();
@@ -183,7 +183,7 @@ TYPED_TEST(MegaHonkTests, BasicStructured)
 
     // Construct and verify Honk proof using a structured trace
     TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
-    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder, trace_settings);
+    auto proving_key = std::make_shared<ProverInstance_<Flavor>>(builder, trace_settings);
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
     Prover prover(proving_key, verification_key);
     Verifier verifier(verification_key);
@@ -224,8 +224,8 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
 
     // Construct and verify Honk proof using a structured trace
     TraceSettings trace_settings{ SMALL_TEST_STRUCTURE_FOR_OVERFLOWS };
-    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder, trace_settings);
-    auto proving_key_copy = std::make_shared<DeciderProvingKey_<Flavor>>(builder_copy, trace_settings);
+    auto proving_key = std::make_shared<ProverInstance_<Flavor>>(builder, trace_settings);
+    auto proving_key_copy = std::make_shared<ProverInstance_<Flavor>>(builder_copy, trace_settings);
     auto circuit_size = proving_key->dyadic_size();
 
     auto doubled_circuit_size = 2 * circuit_size;
@@ -489,8 +489,8 @@ TYPED_TEST(MegaHonkTests, PolySwap)
     auto builder_copy = builder;
 
     // Construct two identical proving keys
-    auto proving_key_1 = std::make_shared<typename TestFixture::DeciderProvingKey>(builder, trace_settings);
-    auto proving_key_2 = std::make_shared<typename TestFixture::DeciderProvingKey>(builder_copy, trace_settings);
+    auto proving_key_1 = std::make_shared<typename TestFixture::ProverInstance>(builder, trace_settings);
+    auto proving_key_2 = std::make_shared<typename TestFixture::ProverInstance>(builder_copy, trace_settings);
 
     // Tamper with the polys of pkey 1 in such a way that verification should fail
     for (size_t i = 0; i < proving_key_1->dyadic_size(); ++i) {

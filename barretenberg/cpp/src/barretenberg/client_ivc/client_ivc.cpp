@@ -73,9 +73,9 @@ void ClientIVC::instantiate_stdlib_verification_queue(
     }
 }
 
-std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey> ClientIVC::perform_oink_recursive_verification(
+std::shared_ptr<ClientIVC::RecursiveVerifierInstance> ClientIVC::perform_oink_recursive_verification(
     ClientCircuit& circuit,
-    const std::shared_ptr<RecursiveDeciderVerificationKey>& verifier_instance,
+    const std::shared_ptr<RecursiveVerifierInstance>& verifier_instance,
     const std::shared_ptr<RecursiveTranscript>& transcript,
     const StdlibProof& proof)
 {
@@ -90,10 +90,10 @@ std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey> ClientIVC::perform_o
     return verifier_instance;
 }
 
-std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey> ClientIVC::perform_pg_recursive_verification(
+std::shared_ptr<ClientIVC::RecursiveVerifierInstance> ClientIVC::perform_pg_recursive_verification(
     ClientCircuit& circuit,
-    const std::shared_ptr<RecursiveDeciderVerificationKey>& verifier_accumulator,
-    const std::shared_ptr<RecursiveDeciderVerificationKey>& verifier_instance,
+    const std::shared_ptr<RecursiveVerifierInstance>& verifier_accumulator,
+    const std::shared_ptr<RecursiveVerifierInstance>& verifier_instance,
     const std::shared_ptr<RecursiveTranscript>& transcript,
     const StdlibProof& proof,
     std::optional<StdlibFF>& prev_accum_hash,
@@ -133,13 +133,11 @@ std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey> ClientIVC::perform_p
  * @return Triple of output verifier accumulator, PairingPoints for final verification and commitments to the merged
  * tables as read from the proof by the Merge verifier
  */
-std::tuple<std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey>,
-           ClientIVC::PairingPoints,
-           ClientIVC::TableCommitments>
+std::tuple<std::shared_ptr<ClientIVC::RecursiveVerifierInstance>, ClientIVC::PairingPoints, ClientIVC::TableCommitments>
 ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     ClientCircuit& circuit,
     const StdlibVerifierInputs& verifier_inputs,
-    const std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey>& input_verifier_accumulator,
+    const std::shared_ptr<ClientIVC::RecursiveVerifierInstance>& input_verifier_accumulator,
     const TableCommitments& T_prev_commitments,
     const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
 {
@@ -151,10 +149,9 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     // Input commitments to be passed to the merge recursive verification
     MergeCommitments merge_commitments{ .T_prev_commitments = T_prev_commitments };
 
-    auto verifier_instance =
-        std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_inputs.honk_vk_and_hash);
+    auto verifier_instance = std::make_shared<RecursiveVerifierInstance>(&circuit, verifier_inputs.honk_vk_and_hash);
 
-    std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey> output_verifier_accumulator;
+    std::shared_ptr<ClientIVC::RecursiveVerifierInstance> output_verifier_accumulator;
     std::optional<StdlibFF> prev_accum_hash = std::nullopt;
     // The decider proof exists if the tail kernel has been accumulated
     bool is_hiding_kernel = !decider_proof.empty();
@@ -315,10 +312,10 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
     // Perform Oink/PG and Merge recursive verification + databus consistency checks for each entry in the queue
     PairingPoints points_accumulator;
-    std::shared_ptr<RecursiveDeciderVerificationKey> current_stdlib_verifier_accumulator = nullptr;
+    std::shared_ptr<RecursiveVerifierInstance> current_stdlib_verifier_accumulator = nullptr;
     if (!is_init_kernel) {
         current_stdlib_verifier_accumulator =
-            std::make_shared<RecursiveDeciderVerificationKey>(&circuit, recursive_verifier_native_accum);
+            std::make_shared<RecursiveVerifierInstance>(&circuit, recursive_verifier_native_accum);
     }
     while (!stdlib_verification_queue.empty()) {
         const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
@@ -346,7 +343,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         BB_ASSERT_NEQ(current_stdlib_verifier_accumulator, nullptr);
         // Extract native verifier accumulator from the stdlib accum for use on the next round
         recursive_verifier_native_accum =
-            std::make_shared<DeciderVerificationKey>(current_stdlib_verifier_accumulator->get_value());
+            std::make_shared<VerifierInstance>(current_stdlib_verifier_accumulator->get_value());
 
         KernelIO kernel_output;
         kernel_output.pairing_inputs = points_accumulator;
@@ -361,7 +358,7 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     }
 }
 
-HonkProof ClientIVC::construct_oink_proof(const std::shared_ptr<DeciderProvingKey>& proving_key,
+HonkProof ClientIVC::construct_oink_proof(const std::shared_ptr<ProverInstance>& proving_key,
                                           const std::shared_ptr<MegaVerificationKey>& honk_vk,
                                           const std::shared_ptr<Transcript>& transcript)
 {
@@ -381,7 +378,7 @@ HonkProof ClientIVC::construct_oink_proof(const std::shared_ptr<DeciderProvingKe
     return oink_proof;
 }
 
-HonkProof ClientIVC::construct_pg_proof(const std::shared_ptr<DeciderProvingKey>& proving_key,
+HonkProof ClientIVC::construct_pg_proof(const std::shared_ptr<ProverInstance>& proving_key,
                                         const std::shared_ptr<MegaVerificationKey>& honk_vk,
                                         const std::shared_ptr<Transcript>& transcript,
                                         bool is_kernel)
@@ -395,7 +392,7 @@ HonkProof ClientIVC::construct_pg_proof(const std::shared_ptr<DeciderProvingKey>
         prover_accumulation_transcript->add_to_hash_buffer("accum_hash", accum_hash);
         info("Accumulator hash in PG prover: ", accum_hash);
     }
-    auto verifier_instance = std::make_shared<DeciderVerificationKey_<Flavor>>(honk_vk);
+    auto verifier_instance = std::make_shared<VerifierInstance_<Flavor>>(honk_vk);
     FoldingProver folding_prover({ prover_accumulator, proving_key },
                                  { native_verifier_accum, verifier_instance },
                                  transcript,
@@ -452,7 +449,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     ASSERT(precomputed_vk != nullptr, "ClientIVC::accumulate - VK expected for the provided circuit");
 
     // Construct the proving key for circuit
-    std::shared_ptr<DeciderProvingKey> proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
+    std::shared_ptr<ProverInstance> proving_key = std::make_shared<ProverInstance>(circuit, trace_settings);
 
     // If the current circuit overflows past the current size of the commitment key, reinitialize accordingly.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319)
@@ -605,10 +602,10 @@ HonkProof ClientIVC::construct_honk_proof_for_hiding_kernel(
     ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& verification_key)
 {
     // Note: a structured trace is not used for the hiding kernel
-    auto hiding_decider_pk = std::make_shared<DeciderZKProvingKey>(circuit, TraceSettings(), bn254_commitment_key);
+    auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit, TraceSettings(), bn254_commitment_key);
 
     // Hiding circuit is proven by a MegaZKProver
-    MegaZKProver prover(hiding_decider_pk, verification_key, transcript);
+    MegaZKProver prover(hiding_prover_inst, verification_key, transcript);
     HonkProof proof = prover.construct_proof();
 
     return proof;
@@ -647,7 +644,7 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
     auto [mega_verified, T_prev_commitments] = verifier.template verify_proof<bb::HidingKernelIO>(proof.mega_proof);
     vinfo("Mega verified: ", mega_verified);
     // Extract the commitments to the subtable corresponding to the incoming circuit
-    TableCommitments t_commitments = verifier.verification_key->witness_commitments.get_ecc_op_wires().get_copy();
+    TableCommitments t_commitments = verifier.verifier_instance->witness_commitments.get_ecc_op_wires().get_copy();
 
     // Goblin verification (final merge, eccvm, translator)
     bool goblin_verified = Goblin::verify(
@@ -807,12 +804,12 @@ ClientIVC::VerificationKey ClientIVC::get_vk() const
 void ClientIVC::update_native_verifier_accumulator(const VerifierInputs& queue_entry,
                                                    const std::shared_ptr<Transcript>& verifier_transcript)
 {
-    auto decider_vk = std::make_shared<DeciderVerificationKey>(queue_entry.honk_vk);
+    auto verifier_inst = std::make_shared<VerifierInstance>(queue_entry.honk_vk);
     if (queue_entry.type == QUEUE_TYPE::OINK) {
         verifier_transcript->load_proof(queue_entry.proof);
-        OinkVerifier<Flavor> oink_verifier{ decider_vk, verifier_transcript };
+        OinkVerifier<Flavor> oink_verifier{ verifier_inst, verifier_transcript };
         oink_verifier.verify();
-        native_verifier_accum = decider_vk;
+        native_verifier_accum = verifier_inst;
         native_verifier_accum->target_sum = 0;
         // Get the gate challenges for sumcheck/combiner computation
         native_verifier_accum->gate_challenges =
@@ -824,7 +821,7 @@ void ClientIVC::update_native_verifier_accumulator(const VerifierInputs& queue_e
             verifier_transcript->add_to_hash_buffer("accum_hash", accum_hash);
             info("Accumulator hash in PG verifier: ", accum_hash);
         }
-        FoldingVerifier folding_verifier({ native_verifier_accum, decider_vk }, verifier_transcript);
+        FoldingVerifier folding_verifier({ native_verifier_accum, verifier_inst }, verifier_transcript);
         native_verifier_accum = folding_verifier.verify_folding_proof(queue_entry.proof);
     }
 }

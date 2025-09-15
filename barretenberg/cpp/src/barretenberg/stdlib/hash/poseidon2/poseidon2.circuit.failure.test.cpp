@@ -9,7 +9,7 @@ using namespace bb;
 class Poseidon2FailureTests : public ::testing::Test {
   public:
     using Flavor = UltraFlavor;
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
     using SumcheckProver = SumcheckProver<Flavor>;
     using SumcheckVerifier = SumcheckVerifier<Flavor>;
     using FF = Flavor::FF;
@@ -77,7 +77,7 @@ class Poseidon2FailureTests : public ::testing::Test {
         [[maybe_unused]] auto hash = stdlib::poseidon2<Builder>::hash({ random_input });
     }
 
-    void prove_and_verify(const std::shared_ptr<DeciderProvingKey>& proving_key, bool expected_result)
+    void prove_and_verify(const std::shared_ptr<ProverInstance>& proving_key, bool expected_result)
     {
         const size_t virtual_log_n = Flavor::VIRTUAL_LOG_N;
 
@@ -128,7 +128,7 @@ TEST_F(Poseidon2FailureTests, WrongSelectorValues)
     hash_single_input(builder);
 
     // Convert circuit to polynomials.
-    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    auto proving_key = std::make_shared<ProverInstance_<Flavor>>(builder);
     {
         // Disable Poseidon2 External selector in the first active row
         modify_selector(proving_key->polynomials.q_poseidon2_external);
@@ -151,7 +151,7 @@ TEST_F(Poseidon2FailureTests, WrongWitnessValues)
 
     hash_single_input(builder);
 
-    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    auto proving_key = std::make_shared<ProverInstance_<Flavor>>(builder);
     {
         modify_witness(proving_key->polynomials.q_poseidon2_external, proving_key->polynomials.w_l);
         prove_and_verify(proving_key, false);
@@ -168,7 +168,7 @@ TEST_F(Poseidon2FailureTests, TamperingWithShifts)
 
     hash_single_input(builder);
 
-    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    auto proving_key = std::make_shared<ProverInstance_<Flavor>>(builder);
     {
         bool external_round = true;
         tamper_with_shifts(proving_key->polynomials.q_poseidon2_external, proving_key->polynomials.w_l, external_round);

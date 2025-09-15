@@ -9,12 +9,12 @@
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
-#include "barretenberg/ultra_honk/decider_keys.hpp"
+#include "barretenberg/ultra_honk/instances.hpp"
 
 namespace bb::stdlib::recursion::honk {
 
-template <class DeciderVerificationKeys>
-void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_each_incomplete_key(
+template <class VerifierInstances>
+void ProtogalaxyRecursiveVerifier_<VerifierInstances>::run_oink_verifier_on_each_incomplete_key(
     const std::vector<FF>& proof)
 {
     BB_ASSERT_EQ(keys_to_fold.NUM, 2UL, "Protogalaxy only supports folding 2 instances.");
@@ -36,19 +36,19 @@ void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::run_oink_verifier_o
     oink_verifier.verify();
 }
 
-template <class DeciderVerificationKeys>
-std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiveVerifier_<
-    DeciderVerificationKeys>::verify_folding_proof(const stdlib::Proof<Builder>& proof)
+template <class VerifierInstances>
+std::shared_ptr<typename VerifierInstances::VerifierInstance> ProtogalaxyRecursiveVerifier_<
+    VerifierInstances>::verify_folding_proof(const stdlib::Proof<Builder>& proof)
 {
-    static constexpr size_t BATCHED_EXTENDED_LENGTH = DeciderVerificationKeys::BATCHED_EXTENDED_LENGTH;
-    static constexpr size_t NUM_KEYS = DeciderVerificationKeys::NUM;
+    static constexpr size_t BATCHED_EXTENDED_LENGTH = VerifierInstances::BATCHED_EXTENDED_LENGTH;
+    static constexpr size_t NUM_INSTANCES = VerifierInstances::NUM;
     // The degree of the combiner quotient (K in the paper) is dk - k - 1 = k(d - 1) - 1.
     // Hence we need  k(d - 1) evaluations to represent it.
-    static constexpr size_t COMBINER_LENGTH = BATCHED_EXTENDED_LENGTH - NUM_KEYS;
+    static constexpr size_t COMBINER_LENGTH = BATCHED_EXTENDED_LENGTH - NUM_INSTANCES;
 
     run_oink_verifier_on_each_incomplete_key(proof);
 
-    const std::shared_ptr<DeciderVK>& accumulator = keys_to_fold[0];
+    const std::shared_ptr<VerifierInstance>& accumulator = keys_to_fold[0];
 
     // Perturbator round
     const std::vector<FF> deltas = transcript->template get_powers_of_challenge<FF>("delta", CONST_PG_LOG_N);
@@ -65,12 +65,12 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     std::array<FF, COMBINER_LENGTH> combiner_quotient_evals;
     for (size_t idx = 0; idx < COMBINER_LENGTH; idx++) {
         combiner_quotient_evals[idx] =
-            transcript->template receive_from_prover<FF>("combiner_quotient_" + std::to_string(idx + NUM_KEYS));
+            transcript->template receive_from_prover<FF>("combiner_quotient_" + std::to_string(idx + NUM_INSTANCES));
     }
 
     // Folding
     const FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
-    const Univariate<FF, BATCHED_EXTENDED_LENGTH, NUM_KEYS> combiner_quotient(combiner_quotient_evals);
+    const Univariate<FF, BATCHED_EXTENDED_LENGTH, NUM_INSTANCES> combiner_quotient(combiner_quotient_evals);
     const FF combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge);
 
     const FF vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
@@ -205,9 +205,7 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
 }
 
 // Instantiate the template with specific flavors and builders
-template class ProtogalaxyRecursiveVerifier_<
-    RecursiveDeciderVerificationKeys_<MegaRecursiveFlavor_<MegaCircuitBuilder>, 2>>;
-template class ProtogalaxyRecursiveVerifier_<
-    RecursiveDeciderVerificationKeys_<MegaRecursiveFlavor_<UltraCircuitBuilder>, 2>>;
+template class ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstances_<MegaRecursiveFlavor_<MegaCircuitBuilder>, 2>>;
+template class ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstances_<MegaRecursiveFlavor_<UltraCircuitBuilder>, 2>>;
 
 } // namespace bb::stdlib::recursion::honk

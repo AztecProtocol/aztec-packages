@@ -19,7 +19,7 @@
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
-#include "barretenberg/ultra_honk/decider_proving_key.hpp"
+#include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include <type_traits>
@@ -63,17 +63,17 @@ Circuit _compute_circuit(std::vector<uint8_t>&& bytecode, std::vector<uint8_t>&&
 }
 
 template <typename Flavor>
-std::shared_ptr<DeciderProvingKey_<Flavor>> _compute_proving_key(std::vector<uint8_t>&& bytecode,
-                                                                 std::vector<uint8_t>&& witness)
+std::shared_ptr<ProverInstance_<Flavor>> _compute_proving_key(std::vector<uint8_t>&& bytecode,
+                                                              std::vector<uint8_t>&& witness)
 {
     // Measure function time and debug print
     auto initial_time = std::chrono::high_resolution_clock::now();
     typename Flavor::CircuitBuilder builder = _compute_circuit<Flavor>(std::move(bytecode), std::move(witness));
-    auto decider_proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
     auto final_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(final_time - initial_time);
     info("CircuitProve: Proving key computed in ", duration.count(), " ms");
-    return decider_proving_key;
+    return prover_instance;
 }
 template <typename Flavor>
 CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
@@ -97,7 +97,7 @@ CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
     Proof concat_pi_and_proof = prover.construct_proof();
     // Compute number of inner public inputs. Perform loose checks that the public inputs contain enough data.
     auto num_inner_public_inputs = [&]() {
-        size_t num_public_inputs = prover.proving_key->num_public_inputs();
+        size_t num_public_inputs = prover.prover_instance->num_public_inputs();
         if constexpr (HasIPAAccumulator<Flavor>) {
             BB_ASSERT_GTE(num_public_inputs,
                           RollupIO::PUBLIC_INPUTS_SIZE,

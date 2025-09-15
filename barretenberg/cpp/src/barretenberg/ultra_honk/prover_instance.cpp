@@ -4,7 +4,7 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
-#include "decider_proving_key.hpp"
+#include "prover_instance.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/honk/composer/permutation_lib.hpp"
@@ -19,7 +19,7 @@ namespace bb {
  * @tparam Flavor
  * @param circuit
  */
-template <IsUltraOrMegaHonk Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadic_size(Circuit& circuit)
+template <IsUltraOrMegaHonk Flavor> size_t ProverInstance_<Flavor>::compute_dyadic_size(Circuit& circuit)
 {
     // for the lookup argument the circuit size must be at least as large as the sum of all tables used
     const size_t min_size_due_to_lookups = circuit.get_tables_size();
@@ -36,7 +36,7 @@ template <IsUltraOrMegaHonk Flavor> size_t DeciderProvingKey_<Flavor>::compute_d
     return circuit.get_circuit_subgroup_size(total_num_gates);
 }
 
-template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_wires()
+template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_wires()
 {
     BB_BENCH_NAME("allocate_wires");
 
@@ -45,7 +45,7 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_wi
     }
 }
 
-template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_permutation_argument_polynomials()
+template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_permutation_argument_polynomials()
 {
     BB_BENCH_NAME("allocate_permutation_argument_polynomials");
 
@@ -58,7 +58,7 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_pe
     polynomials.z_perm = Polynomial::shiftable(dyadic_size());
 }
 
-template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_lagrange_polynomials()
+template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_lagrange_polynomials()
 {
     BB_BENCH_NAME("allocate_lagrange_polynomials");
 
@@ -67,13 +67,13 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_la
         /* size=*/1, /*virtual size=*/dyadic_size(), /*start_index=*/0);
 
     // Even though lagrange_last has a single non-zero element, we cannot set its size to 0 as different
-    // keys being folded might have lagrange_last set at different indexes and folding does not work
+    // instances being folded might have lagrange_last set at different indexes and folding does not work
     // correctly unless the polynomial is allocated in the correct range to accomodate this
     polynomials.lagrange_last = Polynomial(
         /* size=*/dyadic_size(), /*virtual size=*/dyadic_size(), /*start_index=*/0);
 }
 
-template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_selectors(const Circuit& circuit)
+template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_selectors(const Circuit& circuit)
 {
     BB_BENCH_NAME("allocate_selectors");
 
@@ -98,7 +98,7 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_se
 }
 
 template <IsUltraOrMegaHonk Flavor>
-void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit& circuit)
+void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& circuit)
 {
     BB_BENCH_NAME("allocate_table_lookup_and_lookup_read_polynomials");
 
@@ -132,7 +132,7 @@ void DeciderProvingKey_<Flavor>::allocate_table_lookup_polynomials(const Circuit
 }
 
 template <IsUltraOrMegaHonk Flavor>
-void DeciderProvingKey_<Flavor>::allocate_ecc_op_polynomials(const Circuit& circuit)
+void ProverInstance_<Flavor>::allocate_ecc_op_polynomials(const Circuit& circuit)
     requires IsMegaFlavor<Flavor>
 {
     BB_BENCH_NAME("allocate_ecc_op_polynomials");
@@ -146,7 +146,7 @@ void DeciderProvingKey_<Flavor>::allocate_ecc_op_polynomials(const Circuit& circ
 }
 
 template <IsUltraOrMegaHonk Flavor>
-void DeciderProvingKey_<Flavor>::allocate_databus_polynomials(const Circuit& circuit)
+void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circuit)
     requires HasDataBus<Flavor>
 {
     BB_BENCH_NAME("allocate_databus_and_lookup_inverse_polynomials");
@@ -184,7 +184,7 @@ void DeciderProvingKey_<Flavor>::allocate_databus_polynomials(const Circuit& cir
  * @param circuit
  */
 template <IsUltraOrMegaHonk Flavor>
-void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
+void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     requires HasDataBus<Flavor>
 {
     auto& calldata_poly = polynomials.calldata;
@@ -244,7 +244,7 @@ void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
  * @param circuit
  */
 template <IsUltraOrMegaHonk Flavor>
-void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_block(Circuit& circuit)
+void ProverInstance_<Flavor>::move_structured_trace_overflow_to_overflow_block(Circuit& circuit)
     requires IsMegaFlavor<Flavor>
 {
     auto& blocks = circuit.blocks;
@@ -340,11 +340,11 @@ void DeciderProvingKey_<Flavor>::move_structured_trace_overflow_to_overflow_bloc
 }
 
 /**
- * @brief Copy RAM/ROM record of reads and writes from the circuit to the proving key.
+ * @brief Copy RAM/ROM record of reads and writes from the circuit to the instance.
  * @details The memory records in the circuit store indices within the memory block where a read/write is performed.
  * They are stored in the DPK as indices into the full trace by accounting for the offset of the memory block.
  */
-template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::populate_memory_records(const Circuit& circuit)
+template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::populate_memory_records(const Circuit& circuit)
 {
     // Store the read/write records as indices into the full trace by accounting for the offset of the memory block.
     uint32_t ram_rom_offset = circuit.blocks.memory.trace_offset();
@@ -358,16 +358,16 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::populate_me
     }
 }
 
-template class DeciderProvingKey_<UltraFlavor>;
-template class DeciderProvingKey_<UltraZKFlavor>;
-template class DeciderProvingKey_<UltraKeccakFlavor>;
+template class ProverInstance_<UltraFlavor>;
+template class ProverInstance_<UltraZKFlavor>;
+template class ProverInstance_<UltraKeccakFlavor>;
 #ifdef STARKNET_GARAGA_FLAVORS
-template class DeciderProvingKey_<UltraStarknetFlavor>;
-template class DeciderProvingKey_<UltraStarknetZKFlavor>;
+template class ProverInstance_<UltraStarknetFlavor>;
+template class ProverInstance_<UltraStarknetZKFlavor>;
 #endif
-template class DeciderProvingKey_<UltraKeccakZKFlavor>;
-template class DeciderProvingKey_<UltraRollupFlavor>;
-template class DeciderProvingKey_<MegaFlavor>;
-template class DeciderProvingKey_<MegaZKFlavor>;
+template class ProverInstance_<UltraKeccakZKFlavor>;
+template class ProverInstance_<UltraRollupFlavor>;
+template class ProverInstance_<MegaFlavor>;
+template class ProverInstance_<MegaZKFlavor>;
 
 } // namespace bb

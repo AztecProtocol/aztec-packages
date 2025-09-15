@@ -4,7 +4,7 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/ultra_honk/decider_proving_key.hpp"
+#include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "honk_recursion_constraint.hpp"
@@ -55,8 +55,8 @@ class IvcRecursionConstraintTest : public ::testing::Test {
 
         // Deepcopy the opqueue to avoid modifying the original one
         builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
-        std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key =
-            std::make_shared<ClientIVC::DeciderProvingKey>(builder, trace_settings);
+        std::shared_ptr<ClientIVC::ProverInstance> proving_key =
+            std::make_shared<ClientIVC::ProverInstance>(builder, trace_settings);
         std::shared_ptr<VerificationKey> vk = std::make_shared<VerificationKey>(proving_key->get_precomputed());
         return vk;
     }
@@ -130,7 +130,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
             auto inner_circuit = create_inner_circuit();
 
             // Compute native verification key
-            auto proving_key = std::make_shared<DeciderProvingKey_<UltraFlavor>>(inner_circuit);
+            auto proving_key = std::make_shared<ProverInstance_<UltraFlavor>>(inner_circuit);
             auto honk_vk = std::make_shared<UltraFlavor::VerificationKey>(proving_key->get_precomputed());
             UltraProver prover(proving_key, honk_vk); // A prerequisite for computing VK
             auto inner_proof = prover.construct_proof();
@@ -269,7 +269,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         Builder kernel = acir_format::create_circuit<Builder>(program);
 
         // Manually construct the VK for the kernel circuit
-        auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(kernel, trace_settings);
+        auto proving_key = std::make_shared<ClientIVC::ProverInstance>(kernel, trace_settings);
         auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->get_precomputed());
         return verification_key;
     }
@@ -277,7 +277,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
     static std::shared_ptr<ClientIVC::MegaVerificationKey> get_kernel_vk_from_circuit(Builder& kernel,
                                                                                       TraceSettings trace_settings)
     {
-        auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(kernel, trace_settings);
+        auto proving_key = std::make_shared<ClientIVC::ProverInstance>(kernel, trace_settings);
         auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->get_precomputed());
         return verification_key;
     }

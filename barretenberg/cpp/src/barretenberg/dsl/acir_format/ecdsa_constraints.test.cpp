@@ -131,7 +131,7 @@ TYPED_TEST(EcdsaConstraintsTest, GenerateVKFromConstraints)
 {
     using Flavor = TestFixture::Flavor;
     using Builder = TestFixture::Builder;
-    using ProvingKey = DeciderProvingKey_<Flavor>;
+    using ProvingKey = ProverInstance_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
 
     auto [constraint_system, witness_values] = TestFixture::generate_constraint_system();

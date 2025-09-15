@@ -30,7 +30,7 @@ template <typename Flavor> class DataBusTests : public ::testing::Test {
     // Construct and verify a MegaHonk proof for a given circuit
     static bool construct_and_verify_proof(MegaCircuitBuilder& builder)
     {
-        auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+        auto proving_key = std::make_shared<ProverInstance_<Flavor>>(builder);
         auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
 
         Prover prover{ proving_key, verification_key };

@@ -15,7 +15,7 @@
 
 using namespace bb;
 
-using DeciderProvingKey = DeciderProvingKey_<UltraKeccakFlavor>;
+using ProverInstance = ProverInstance_<UltraKeccakFlavor>;
 using VerificationKey = UltraKeccakFlavor::VerificationKey;
 
 template <typename Circuit> void generate_keys_honk(const std::string& output_path, std::string circuit_name)
@@ -27,7 +27,7 @@ template <typename Circuit> void generate_keys_honk(const std::string& output_pa
         stdlib::recursion::PairingPoints<UltraCircuitBuilder>::add_default_to_public_inputs(builder);
     }
 
-    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+    auto proving_key = std::make_shared<ProverInstance>(builder);
     auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
     UltraKeccakProver prover(proving_key, verification_key);
 

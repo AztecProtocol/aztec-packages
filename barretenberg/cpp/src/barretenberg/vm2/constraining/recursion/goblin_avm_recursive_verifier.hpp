@@ -236,7 +236,7 @@ class AvmGoblinRecursiveVerifier {
         // All prover components share a single transcript
         std::shared_ptr<Goblin::Transcript> transcript = std::make_shared<Goblin::Transcript>();
         // Construct Mega proof \pi_M of the AVM recursive verifier circuit
-        auto mega_proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(mega_builder);
+        auto mega_proving_key = std::make_shared<ProverInstance_<MegaFlavor>>(mega_builder);
         // Detect when MEGA_AVM_LOG_N needs to be bumped.
         BB_ASSERT_LTE(
             mega_proving_key->log_dyadic_size(),
