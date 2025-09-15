@@ -41,15 +41,15 @@ void validate_inputs(const stdlib::byte_array<Builder>& hashed_message,
                                  const std::string& max_value_label) {
         std::string msg =
             "The " + value_label + " is bigger than " + max_value_label + ". This will produce an unsatisfied circuit.";
-        if (value >= max_value) {
-            info(msg);
+        if (value > max_value) {
+            vinfo(msg);
         }
     };
 
     auto check_is_not_zero = [](const uint512_t& value, const std::string& label) {
         std::string msg = "The " + label + " is equal to zero. This will produce an unsatisfied circuit.";
         if (value == 0) {
-            info(msg);
+            vinfo(msg);
         }
     };
 
@@ -59,7 +59,7 @@ void validate_inputs(const stdlib::byte_array<Builder>& hashed_message,
 
     // P \in E
     if (!public_key.get_value().on_curve()) {
-        info("The public key is not a point on the elliptic curve. This will produce an unsatisfied circuit.");
+        vinfo("The public key is not a point on the elliptic curve. This will produce an unsatisfied circuit.");
     }
 
     // 0 < r < n
@@ -159,14 +159,12 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     // we protect against this case with this cheap check.
     Fr z(hashed_message);
     z.assert_is_in_field();
-    info("Z in circuit: ", z.get_value());
 
     // Step 1.
     public_key.validate_on_curve();
 
     // Step 2.
     Fr r(sig.r);
-    info("R in circuit ", r.get_value());
     r.assert_is_in_field();            // r < n
     r.assert_is_not_equal(Fr::zero()); // 0 < r
 
@@ -179,23 +177,19 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     Fr u1 = z.div_without_denominator_check(s);
     Fr u2 = r.div_without_denominator_check(s);
 
-    info("u1: ", u1.get_value());
-    info("u2: ", u2.get_value());
-
     G1 result;
     if constexpr (Curve::type == bb::CurveType::SECP256K1) {
         result = G1::secp256k1_ecdsa_mul(public_key, u1, u2);
     } else {
-        result = G1::batch_mul({ G1::one(ctx), public_key }, { u1, u2 });
+        // We need to turn on `with_edgecases` because if the public key is equal to ±G then the function will raise an
+        // error
+        result = G1::batch_mul({ G1::one(ctx), public_key }, { u1, u2 }, 0, /*with_edgecases=*/true);
     }
 
     // Step 5.
-    info(result.get_value());
-    info(result.get_value().is_point_at_infinity());
-    info(result.is_point_at_infinity().get_value());
     if (result.get_value().is_point_at_infinity()) {
-        info("The result of the batch multiplication is the point at infinity. This will produce an unsatisfied "
-             "circuit.");
+        vinfo("The result of the batch multiplication is the point at infinity. This will produce an unsatisfied "
+              "circuit.");
     }
     result.is_point_at_infinity().assert_equal(bool_t<Builder>(false));
 

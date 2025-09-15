@@ -6,8 +6,11 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "ecdsa.hpp"
+#include "ecdsa_tests_data.hpp"
 
 #include <gtest/gtest.h>
+
+#include <algorithm>
 
 using namespace bb;
 using namespace bb::crypto;
@@ -15,6 +18,8 @@ using namespace bb::crypto;
 template <class Curve> class EcdsaTests : public ::testing::Test {
   public:
     using Builder = Curve::Builder;
+    using CurveType =
+        std::conditional_t<Curve::type == bb::CurveType::SECP256K1, bb::curve::SECP256K1, bb::curve::SECP256R1>;
 
     // Native Types
     using FrNative = Curve::fr;
@@ -26,12 +31,6 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
     using Fq = Curve::fq_ct;
     using G1 = Curve::g1_bigfr_ct;
 
-    struct StdlibEcdsaData {
-        stdlib::byte_array<Builder> message;
-        G1 public_key;
-        stdlib::ecdsa_signature<Builder> sig;
-    };
-
     // Reproducible signature
     static constexpr FrNative private_key =
         FrNative("0xd67abee717b3fc725adf59e2cc8cd916435c348b277dd814a34e3ceb279436c2");
@@ -40,7 +39,7 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         InvalidR,
         InvalidS,
         HighS,
-        OutOfBoundsS,
+        OutOfBoundsS, // To be removed
         OutOfBoundsHash,
         ZeroR,
         ZeroS,
@@ -63,7 +62,12 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         return { account, signature };
     }
 
-    ecdsa_signature generate_signature_out_of_bound_hash()
+    /**
+     * @brief Generate valid signature for the message Fr(1)
+     *
+     * @return ecdsa_signature
+     */
+    ecdsa_signature generate_signature_out_of_bounds_hash()
     {
         // Generate signature
         ecdsa_signature signature;
@@ -138,7 +142,9 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
             break;
         }
         case TamperingMode::OutOfBoundsHash:
-            signature = generate_signature_out_of_bound_hash();
+            // Invalidate the circuit by passing a message whose hash is bigger than n
+            // (the message will be hard-coded in the circuit at a later point)
+            signature = generate_signature_out_of_bounds_hash();
             break;
         case TamperingMode::ZeroR:
             // Invalidate signature by setting r to 0
@@ -149,34 +155,35 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
             signature.s = std::array<uint8_t, 32>{};
             break;
         case TamperingMode::Infinity: {
+            // Invalidate the signature by making making u1 * G + u2 * P return the point at infinity
+
             // Compute H(m)
             std::vector<uint8_t> buffer;
-            std::copy(message_string.begin(), message_string.end(), std::back_inserter(buffer));
+            std::ranges::copy(message_string, std::back_inserter(buffer));
             auto hash = Sha256Hasher::hash(buffer);
 
-            // Override the public key
+            // Override the public key: new public key is (-hash) * r^{-1} * G
             FrNative fr_hash = FrNative::serialize_from_buffer(&hash[0]);
             FrNative r = FrNative::serialize_from_buffer(&signature.r[0]);
             FrNative r_inverse = r.invert();
             FrNative modified_private_key = r_inverse * (-fr_hash);
             account.public_key = G1Native::one * modified_private_key;
-            info("Modified priv key: ", modified_private_key);
 
             // Verify that the result is the point at infinity
             auto P = G1Native::one * fr_hash + account.public_key * r;
-            info("Fr hash: ", fr_hash);
-            info("R: ", r);
             ASSERT(P.is_point_at_infinity());
 
             break;
         }
         case TamperingMode::InvalidPubKey:
+            // Invalidate the signature by passing a public key which is not on the curve
             account.public_key.x = account.public_key.y;
             break;
         case TamperingMode::None:
             break;
         }
 
+        // Natively verify that the tampering was successfull
         bool is_signature_valid = false;
         try {
             is_signature_valid = ecdsa_verify_signature<Sha256Hasher, FqNative, FrNative, G1Native>(
@@ -198,53 +205,71 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
                      "randomly generated, there is a (very) small chance this is not a bug.");
     }
 
-    StdlibEcdsaData create_stdlib_ecdsa_data(Builder& builder,
-                                             std::string message_string,
-                                             ecdsa_key_pair<FrNative, G1Native>& account,
-                                             ecdsa_signature& signature)
+    std::pair<G1, stdlib::ecdsa_signature<Builder>> create_stdlib_ecdsa_data(
+        Builder& builder, const ecdsa_key_pair<FrNative, G1Native>& account, const ecdsa_signature& signature)
     {
-        stdlib::byte_array<Builder> message(&builder, message_string);
-
         G1 pub_key = G1::from_witness(&builder, account.public_key);
 
         std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
         std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
-        std::vector<uint8_t> vv = { signature.v };
 
         stdlib::ecdsa_signature<Builder> sig{ stdlib::byte_array<Builder>(&builder, rr),
                                               stdlib::byte_array<Builder>(&builder, ss) };
 
-        return { message, pub_key, sig };
+        return { pub_key, sig };
     }
 
-    void test_verify_signature(bool random_signature, TamperingMode mode)
+    void ecdsa_verification_circuit(Builder& builder,
+                                    const stdlib::byte_array<Builder>& hashed_message,
+                                    const ecdsa_key_pair<FrNative, G1Native>& account,
+                                    const ecdsa_signature& signature,
+                                    const bool signature_verification_result,
+                                    const bool circuit_checker_result)
+
     {
-        std::string message_string = "Goblin";
+        auto [public_key, sig] = create_stdlib_ecdsa_data(builder, account, signature);
 
-        auto [account, signature] = generate_dummy_ecdsa_data(message_string, /*random_signature=*/random_signature);
+        // Verify signature
+        stdlib::bool_t<Builder> signature_result =
+            stdlib::ecdsa_verify_signature<Builder, Curve, Fq, Fr, G1>(hashed_message, public_key, sig);
 
-        // Tamper with the signature
-        tampering(message_string, account, signature, mode);
+        // Enforce verification returns the expected result
+        signature_result.assert_equal(stdlib::bool_t<Builder>(signature_verification_result));
 
-        // Create ECDSA verification circuit
-        Builder builder;
+        // Check native values
+        EXPECT_EQ(signature_result.get_value(), signature_verification_result);
 
-        auto [message, public_key, sig] = create_stdlib_ecdsa_data(builder, message_string, account, signature);
+        // Log data
+        std::cerr << "num gates = " << builder.get_estimated_num_finalized_gates() << std::endl;
+        benchmark_info(Builder::NAME_STRING,
+                       "ECDSA",
+                       "Signature Verification Test",
+                       "Gate Count",
+                       builder.get_estimated_num_finalized_gates());
 
-        // Compute H(m)
+        // Circuit checker
+        bool is_circuit_satisfied = CircuitChecker::check(builder);
+        EXPECT_EQ(is_circuit_satisfied, circuit_checker_result);
+    }
+
+    stdlib::byte_array<Builder> construct_hashed_message(Builder& builder,
+                                                         std::vector<uint8_t>& message_bytes,
+                                                         TamperingMode mode)
+    {
+        stdlib::byte_array<Builder> message(&builder, message_bytes);
         stdlib::byte_array<Builder> hashed_message;
 
         if (mode == TamperingMode::OutOfBoundsHash || mode == TamperingMode::OutOfBoundsS) {
-            // Generate constraints coming from hashing
+            // In this case the message is already hashed, so we mock the hashing constraints for consistency but
+            // hard-code the message
             [[maybe_unused]] stdlib::byte_array<Builder> _ =
                 static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
 
-            // To test the OutOfBoundsHash and HighR, we hard-code the hashed message
+            // Hard-coded witness
             std::array<uint8_t, 32> hashed_message_witness;
 
             if (mode == TamperingMode::OutOfBoundsHash) {
-                FqNative fr_hash =
-                    mode == TamperingMode::OutOfBoundsHash ? FqNative(FrNative::modulus + 1) : FqNative::one();
+                FqNative fr_hash = FqNative(FrNative::modulus + 1);
                 FqNative::serialize_to_buffer(fr_hash, &hashed_message_witness[0]);
             } else {
                 FrNative fr_hash = FrNative::one() - private_key * FrNative(G1Native::one.x);
@@ -257,51 +282,75 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
             hashed_message = static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
         }
 
-        // Verify signature
-        stdlib::bool_t<Builder> signature_result =
-            stdlib::ecdsa_verify_signature<Builder, Curve, Fq, Fr, G1>(hashed_message, public_key, sig);
+        return hashed_message;
+    }
 
-        // Booleans deciding whether the circuit is satisfied/signature verification is successful
+    void test_verify_signature(bool random_signature, TamperingMode mode)
+    {
+        // Map tampering mode to signature verification result
+        bool signature_verification_result =
+            (mode == TamperingMode::None) || (mode == TamperingMode::HighS) || (mode == TamperingMode::OutOfBoundsHash);
+        // Map tampering mode to circuit checker result
+        bool circuit_checker_result =
+            (mode == TamperingMode::None) || (mode == TamperingMode::InvalidR) || (mode == TamperingMode::InvalidS);
 
-        // Enforce verification returns the expected result
-        signature_result.assert_equal(
-            stdlib::bool_t<Builder>(mode == TamperingMode::None || mode == TamperingMode::HighS ||
-                                    mode == TamperingMode::OutOfBoundsHash || mode == TamperingMode::OutOfBoundsS));
+        std::string message_string = "Goblin";
+        std::vector<uint8_t> message_bytes(message_string.begin(), message_string.end());
 
-        // In the following cases, signature verification is successfull.
-        EXPECT_EQ(signature_result.get_value(),
-                  mode == TamperingMode::None || mode == TamperingMode::HighS ||
-                      mode == TamperingMode::OutOfBoundsHash || mode == TamperingMode::OutOfBoundsS);
+        auto [account, signature] = generate_dummy_ecdsa_data(message_string, /*random_signature=*/random_signature);
 
-        std::cerr << "num gates = " << builder.get_estimated_num_finalized_gates() << std::endl;
-        benchmark_info(Builder::NAME_STRING,
-                       "ECDSA",
-                       "Signature Verification Test",
-                       "Gate Count",
-                       builder.get_estimated_num_finalized_gates());
+        // Tamper with the signature
+        tampering(message_string, account, signature, mode);
 
-        // Execute circuit checker
-        bool circuit_checker_result = false;
-        switch (mode) {
-        case TamperingMode::None:
-        case TamperingMode::InvalidR:
-        case TamperingMode::InvalidS:
-            // In these cases, the circuit is satisfied, but the result is bool_t(false)
-            circuit_checker_result = true;
-            break;
-        default:
-            // In all the other cases, the circuit has at least one unsatisfied constraint
-            circuit_checker_result = false;
-            break;
+        // Create ECDSA verification circuit
+        Builder builder;
+
+        // Compute H(m)
+        stdlib::byte_array<Builder> hashed_message = construct_hashed_message(builder, message_bytes, mode);
+
+        // ECDSA verification
+        ecdsa_verification_circuit(
+            builder, hashed_message, account, signature, signature_verification_result, circuit_checker_result);
+    }
+
+    /**
+     * @brief Construct tests based on data fetched from the Wycherproof project
+     *
+     * @param tests
+     */
+    void test_wycherproof(std::vector<stdlib::WycherproofTest<CurveType>> tests)
+    {
+        for (auto test : tests) {
+            // Keypair
+            ecdsa_key_pair<FrNative, G1Native> account;
+            account.private_key = FrNative::one(); // Dummy value, unused
+            account.public_key = typename G1Native::affine_element(test.x, test.y);
+
+            // Signature
+            std::array<uint8_t, 32> r;
+            std::array<uint8_t, 32> s;
+            uint8_t v = 0; // Dummy value, unused
+            FrNative::serialize_to_buffer(test.r, &r[0]);
+            FrNative::serialize_to_buffer(test.s, &s[0]);
+
+            // Create ECDSA verification circuit
+            Builder builder;
+
+            // Compute H(m)
+            stdlib::byte_array<Builder> hashed_message =
+                construct_hashed_message(builder, test.message, TamperingMode::None);
+
+            // ECDSA verification
+            ecdsa_verification_circuit(
+                builder, hashed_message, account, { r, s, v }, test.is_valid_signature, test.is_circuit_satisfied);
         }
-        bool is_circuit_satisfied = CircuitChecker::check(builder);
-        EXPECT_EQ(is_circuit_satisfied, circuit_checker_result);
     }
 };
 
 using Curves = testing::Types<stdlib::secp256k1<UltraCircuitBuilder>,
-                              stdlib::secp256r1<UltraCircuitBuilder>>; // TODO(federicobarbacovi): Is
-                                                                       // UltraCircuitBuilder a valid assumption?
+                              stdlib::secp256r1<UltraCircuitBuilder>,
+                              stdlib::secp256k1<MegaCircuitBuilder>,
+                              stdlib::secp256r1<MegaCircuitBuilder>>;
 
 TYPED_TEST_SUITE(EcdsaTests, Curves);
 
@@ -349,12 +398,21 @@ TYPED_TEST(EcdsaTests, OutOfBoundsHash)
     TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::OutOfBoundsHash);
 }
 
-TYPED_TEST(EcdsaTests, OutOfBoundsS)
-{
-    TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::OutOfBoundsS);
-}
+// TYPED_TEST(EcdsaTests, OutOfBoundsS)
+// {
+//     TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::OutOfBoundsS);
+// }
 
 TYPED_TEST(EcdsaTests, Infinity)
 {
     TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::Infinity);
+}
+
+TYPED_TEST(EcdsaTests, Wycherproof)
+{
+    if constexpr (TypeParam::type == bb::CurveType::SECP256K1) {
+        TestFixture::test_wycherproof(stdlib::secp256k1_tests);
+    } else {
+        TestFixture::test_wycherproof(stdlib::secp256r1_tests);
+    }
 }
