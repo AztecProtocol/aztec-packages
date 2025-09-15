@@ -87,7 +87,7 @@ AvmFlavor::PartiallyEvaluatedMultivariates::PartiallyEvaluatedMultivariates(cons
 {
     for (auto [poly, full_poly] : zip_view(get_all(), full_polynomials.get_all())) {
         // After the initial sumcheck round, the new size is CEIL(size/2).
-        size_t desired_size = full_poly.end_index() / 2 + full_poly.end_index() % 2;
+        size_t desired_size = (full_poly.end_index() / 2) + (full_poly.end_index() % 2);
         poly = Polynomial(desired_size, circuit_size / 2);
     }
 }

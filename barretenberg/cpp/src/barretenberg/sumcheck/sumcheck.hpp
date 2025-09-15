@@ -519,7 +519,7 @@ template <typename Flavor> class SumcheckProver {
             // virtually zeroize any leftover values beyond the limit (in-place computation).
             // This is important to zeroize leftover values to not mess up with compute_univariate().
             // Note that the virtual size of pep_view[j] remains unchanged.
-            pep_view[j].shrink_end_index(limit / 2 + limit % 2);
+            pep_view[j].shrink_end_index((limit / 2) + (limit % 2));
         });
     };
     /**
@@ -544,7 +544,7 @@ template <typename Flavor> class SumcheckProver {
             // virtually zeroize any leftover values beyond the limit (in-place computation).
             // This is important to zeroize leftover values to not mess up with compute_univariate().
             // Note that the virtual size of pep_view[j] remains unchanged.
-            pep_view[j].shrink_end_index(limit / 2 + limit % 2);
+            pep_view[j].shrink_end_index((limit / 2) + (limit % 2));
         });
     };
 
