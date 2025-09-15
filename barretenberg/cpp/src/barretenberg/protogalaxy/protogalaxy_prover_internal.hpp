@@ -493,8 +493,6 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         static_assert(DeciderPKs::NUM == 2);
         std::array<FF, DeciderPKs::BATCHED_EXTENDED_LENGTH - DeciderPKs::NUM> combiner_quotient_evals = {};
 
-        constexpr FF inverse_two = FF(2).invert();
-        constexpr FF inverse_six = FF(6).invert();
         for (size_t point = DeciderPKs::NUM; point < combiner.size(); point++) {
             auto idx = point - DeciderPKs::NUM;
             FF lagrange_0 = lagrange_0 = FF(1) - FF(point);
