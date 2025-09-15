@@ -416,6 +416,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     if (!options.dontStartSequencer && sequencer) {
       await sequencer.start();
       log.verbose(`Sequencer started`);
+    } else if (sequencer) {
+      log.warn(`Sequencer created but not started`);
     }
 
     return new AztecNodeService(

@@ -1166,6 +1166,9 @@ TYPED_TEST(CycleGroupTest, TestBatchMulIsConsistent)
 TYPED_TEST(CycleGroupTest, MixedLengthScalarsIsNotSupported)
 {
     STDLIB_TYPE_ALIASES
+    using FF = typename Curve::ScalarField;
+    using FF_ct = stdlib::bigfield<Builder, typename FF::Params>;
+
     Builder builder;
 
     // Create two points
@@ -1176,18 +1179,20 @@ TYPED_TEST(CycleGroupTest, MixedLengthScalarsIsNotSupported)
     // Create two scalars with DIFFERENT bit lengths
     std::vector<typename cycle_group_ct::cycle_scalar> scalars;
 
-    // First scalar: 256 bits
+    // First scalar: 254 bits (default cycle_scalar::NUM_BITS)
     uint256_t scalar1_value = uint256_t(123456789);
     BigScalarField big_scalar1(&builder, typename Curve::ScalarField(scalar1_value));
     scalars.push_back(cycle_scalar_ct(big_scalar1));
+    EXPECT_EQ(scalars[0].num_bits(), cycle_scalar_ct::NUM_BITS);
 
-    // Second scalar: 128 bits
+    // Second scalar: 256 bits
     uint256_t scalar2_value = uint256_t(987654321);
-    scalars.push_back(cycle_group_ct::cycle_scalar::from_witness_bitstring(&builder, scalar2_value, 128));
+    scalars.push_back(cycle_scalar_ct::from_u256_witness(&builder, scalar2_value));
+    EXPECT_EQ(scalars[1].num_bits(), 256);
 
     // The different sized scalars results in different sized scalar slices arrays which is not handled in batch_mul
-    EXPECT_THROW_OR_ABORT(cycle_group_ct::batch_mul(points, scalars),
-                          "Assertion failed: (scalar_slices[j].slices_native.size() == num_rounds == true)");
+    EXPECT_NE(scalars[0].num_bits(), scalars[1].num_bits());
+    EXPECT_THROW_OR_ABORT(cycle_group_ct::batch_mul(points, scalars), "Assertion failed: (s.num_bits() == num_bits)");
 }
 
 /**

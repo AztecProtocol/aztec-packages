@@ -6,14 +6,10 @@
 namespace {
 std::vector<uint8_t> download_bn254_g1_data(size_t num_points)
 {
-    size_t g1_end = num_points * sizeof(bb::g1::affine_element) - 1;
+    size_t g1_end = (num_points * sizeof(bb::g1::affine_element)) - 1;
 
-    std::string url = "https://crs.aztec.network/g1.dat";
-
-    // IMPORTANT: this currently uses a shell, DO NOT let user-controlled strings here.
-    std::string command = "curl -H \"Range: bytes=0-" + std::to_string(g1_end) + "\" '" + url + "'";
-
-    auto data = bb::exec_pipe(command);
+    // Safe command construction with numeric interpolation and hardcoded URL
+    auto data = bb::exec_pipe_with_number("curl -H \"Range: bytes=0-", g1_end, "\" 'https://crs.aztec.network/g1.dat'");
     // Header + num_points * sizeof point.
     if (data.size() < g1_end) {
         throw_or_abort("Failed to download g1 data.");
@@ -24,10 +20,8 @@ std::vector<uint8_t> download_bn254_g1_data(size_t num_points)
 
 std::vector<uint8_t> download_bn254_g2_data()
 {
-    std::string url = "https://crs.aztec.network/g2.dat";
-    // IMPORTANT: this currently uses a shell, DO NOT let user-controlled strings here.
-    std::string command = "curl '" + url + "'";
-    return bb::exec_pipe(command);
+    // Safe command with hardcoded URL - using exec_pipe_safe with single literal
+    return bb::exec_pipe_literal_string("curl 'https://crs.aztec.network/g2.dat'");
 }
 } // namespace
 

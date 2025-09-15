@@ -67,7 +67,7 @@ export default defineConfig(({ mode }) => {
           { name: 'assets/index-*', limit: '1750kB' },
           // This limit is to detect wheter our json artifacts or bb.js wasm get out of control. At the time
           // of writing, all the .js files bundled in the app are below 4MB
-          { name: "**/*", limit: "4000kB" }
+          { name: '**/*', limit: '4000kB' },
         ],
       }),
     ],
