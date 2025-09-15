@@ -251,11 +251,12 @@ where
     }
     // docs:end:initialize
 
-    /// Replaces the current note of a PrivateMutable state variable with a new note.
+    /// Reads the current note of a PrivateMutable state variable, nullifies it,
+    /// and inserts a new note produced by a user-provided function.
     ///
-    /// This function implements the typical "nullify-and-create" pattern for updating
-    /// private state in Aztec. It first retrieves the current note, nullifies it
-    /// (marking it as "spent"), and then inserts a `new_note` with the updated data.
+    /// This function implements a "read-and-replace" pattern for updating private state in Aztec.
+    /// It first retrieves the current note, then nullifies it (marking it as spent),
+    /// and finally inserts a `new_note` produced by the user-provided function `f`.
     ///
     /// This is conceptually similar to updating a variable in Ethereum smart contracts,
     /// except that in Aztec we achieve this by consuming the old note and creating a
@@ -267,8 +268,8 @@ where
     ///
     /// ## Arguments
     ///
-    /// * `new_note` - The new note that will replace the current note. This becomes
-    ///                the new "current value" of the PrivateMutable.
+    /// * `f` - A function that takes the current `Note` and returns a new `Note`.
+    ///         This allows you to transform the current note before it is reinserted.
     ///
     /// ## Returns
     ///
@@ -284,7 +285,8 @@ where
     /// - Retrieves the current note from the PXE via an oracle call
     /// - Validates that the current note exists and belongs to this storage slot
     /// - Computes the nullifier for the current note and pushes it to the context
-    /// - Inserts the provided `new_note` into the Note Hash Tree
+    /// - Calls the user-provided function `f` to produce a new note
+    /// - Inserts the resulting `new_note` into the Note Hash Tree using 'create_note'
     /// - Returns a NoteEmission type for the `new_note`, that allows the caller to
     ///   decide how to encrypt and deliver this note to its intended recipient.
     ///
@@ -292,7 +294,7 @@ where
     /// maintaining the invariant that a PrivateMutable has exactly one current note.
     ///
     // docs:start:replace
-    pub fn replace(self, new_note: Note) -> NoteEmission<Note>
+    pub fn replace<Env>(self, f: fn[Env](Note) -> Note) -> NoteEmission<Note>
     where
         Note: Packable,
     {
@@ -306,23 +308,23 @@ where
             note_hash_for_read_request,
         );
 
+        let new_note = f(prev_retrieved_note.note);
+
         // Add replacement note.
         create_note(self.context, self.storage_slot, new_note)
     }
     // docs:end:replace
 
-    /// Initializes the PrivateMutable if it's uninitialized, or replaces the current
-    /// note if it's already initialized.
+    /// Initializes the PrivateMutable if it's uninitialized, or replaces the current note
+    /// using a transform function.
     ///
-    /// This is a convenience function that automatically chooses between `initialize`
-    /// and `replace` based on whether the PrivateMutable has been previously initialized.
-    /// This is useful when you don't know the initialization state beforehand, such
-    /// as in functions that may be called multiple times.
+    /// If uninitialized, `init_note` is used to initialize. If already initialized, the `transform_fn`
+    /// is passed to `replace`, which retrieves the current note, nullifies it, and inserts the transformed note.
     ///
     /// ## Arguments
     ///
-    /// * `note` - The note to store. If initializing, this becomes the first note.
-    ///            If replacing, this becomes the new current note.
+    /// * `init_note`    - The note to use if the PrivateMutable is uninitialized.
+    /// * `transform_fn` - A function that takes the current `Note` and returns a new `Note` to replace it.
     ///
     /// ## Returns
     ///
@@ -332,7 +334,11 @@ where
     ///                          the note, or `.discard()` to skip emission.
     ///                          See NoteEmission documentation for more details.
     ///
-    pub fn initialize_or_replace(self, note: Note) -> NoteEmission<Note>
+    pub fn initialize_or_replace<Env>(
+        self,
+        init_note: Note,
+        transform_fn: fn[Env](Note) -> Note,
+    ) -> NoteEmission<Note>
     where
         Note: Packable,
     {
@@ -350,10 +356,10 @@ where
         let is_initialized =
             unsafe { check_nullifier_exists(self.compute_initialization_nullifier()) };
 
-        if (!is_initialized) {
-            self.initialize(note)
+        if !is_initialized {
+            self.initialize(init_note)
         } else {
-            self.replace(note)
+            self.replace(transform_fn)
         }
     }
 

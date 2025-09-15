@@ -45,6 +45,36 @@ As we prepare for a bigger `Wallet` interface refactor and the upcoming `WalletS
 
 ## [Aztec.nr]
 
+
+### PrivateMutable: replace / initialize_or_replace behaviour change
+
+**Motivation:**
+Updating a note used to require reading it first (via `get_note`, which nullifies and recreates it) and then calling `replace` — effectively proving a note twice. Now, `replace` accepts a callback that transforms the current note directly, and `initialize_or_replace` simply uses this updated `replace` internally. This reduces circuit cost while maintaining exactly one current note.
+
+**Key points:**
+
+1. `replace(self, new_note)` (old) → `replace(self, f)` (new), where `f` takes the current note and returns a transformed note.
+2. `initialize_or_replace(self, note)` (old) → `initialize_or_replace(self, init_note, f)` (new). Uninitialized variables use `init_note`, initialized ones pass the transform function to `replace`.
+3. Previous note is automatically nullified before the new note is inserted.
+4. `NoteEmission<Note>` still requires `.emit()` or `.discard()`.
+
+**Example Migration:**
+
+```diff
+- storage.my_var.replace(new_note);
++ let x: Field = 5;
++ storage.my_var.replace(|note| UintNote::new(note.value + x));
+```
+
+```diff
+- storage.my_var.initialize_or_replace(init_note);
++ storage.my_var.initialize_or_replace(init_note, |note| UintNote::new(note.value + 5));
+```
+
+
+- The callback can be a closure (inline) or a named function.
+- Any previous assumptions that replace simply inserts a new_note directly must be updated.
+
 ### Unified oracles into single get_utility_context oracle
 
 The following oracles:
