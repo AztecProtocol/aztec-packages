@@ -7,7 +7,7 @@ import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {MerkleProof} from "@oz/utils/cryptography/MerkleProof.sol";
-import {ZKPassportVerifier, ProofVerificationParams} from "@zkpassport/ZKPassportVerifier.sol";
+import {ZKPassportVerifier, ProofVerificationParams, ProofType} from "@zkpassport/ZKPassportVerifier.sol";
 
 /**
  * @title StakingAssetHandler
@@ -50,8 +50,11 @@ interface IStakingAssetHandler {
   error InvalidProof();
   error InvalidScope();
   error InvalidDomain();
-  error ProofNotBoundToAddress(address _expected, address _received);
-  error ProofNotBoundToChainId(uint256 _expected, uint256 _received);
+  error InvalidBoundAddress(address _expected, address _received);
+  error InvalidChainId(uint256 _expected, uint256 _received);
+  error InvalidAge();
+  error InvalidCountry();
+  error InvalidCurrentDate();
   error SybilDetected(bytes32 _nullifier);
   error AttesterDoesNotExist(address _attester);
   error NoNullifier();
@@ -128,6 +131,16 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
   string public validDomain;
   string public validScope;
+
+  // ZKPassport - Excluded counties
+  bytes32 constant PRK = keccak256(bytes("PRK"));
+  bytes32 constant UKR = keccak256(bytes("UKR"));
+  bytes32 constant IRN = keccak256(bytes("IRN"));
+  bytes32 constant CUB = keccak256(bytes("CUB"));
+
+  // ZKPassport - Age constraints
+  uint256 public MIN_AGE = 18;
+  uint256 public MAX_AGE = 0;
 
   constructor(StakingAssetHandlerArgs memory _args) Ownable(_args.owner) {
     require(_args.depositsPerMint > 0, CannotMintZeroAmount());
@@ -307,9 +320,25 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
       // which includes the user's address, chainId and any custom data
       (address boundAddress, uint256 chainId,) = zkPassportVerifier.getBoundData(data);
       // Make sure the bound user address is the same as the _attester
-      require(boundAddress == _attester, ProofNotBoundToAddress(boundAddress, _attester));
+      require(boundAddress == _attester, InvalidBoundAddress(boundAddress, _attester));
       // Make sure the chainId is the same as the current chainId
-      require(chainId == block.chainid, ProofNotBoundToChainId(chainId, block.chainid));
+      require(chainId == block.chainid, InvalidChainId(chainId, block.chainid));
+
+      // Age check
+      (uint256 currentDate, uint8 minAge, uint8 maxAge) = zkPassportVerifier.getAgeProofInputs(_params.committedInputs, _params.committedInputCounts);
+      require(block.timestamp >= currentDate, InvalidCurrentDate());
+      require(minAge == MIN_AGE && maxAge == MAX_AGE, InvalidAge());
+
+      // Country exclusion check
+      string[] memory exclusionCountryList = zkPassportVerifier.getCountryProofInputs(
+          _params.committedInputs, _params.committedInputCounts, ProofType.NATIONALITY_EXCLUSION
+      );
+      require(keccak256(bytes(exclusionCountryList[0])) == CUB, InvalidCountry());
+      require(keccak256(bytes(exclusionCountryList[1])) == IRN, InvalidCountry());
+      require(keccak256(bytes(exclusionCountryList[2])) == PRK, InvalidCountry());
+      require(keccak256(bytes(exclusionCountryList[3])) == UKR, InvalidCountry());
+
+      zkPassportVerifier.enforceSanctionsRoot(_params.committedInputs, _params.committedInputCounts);
     }
 
     // Set nullifier to consumed
