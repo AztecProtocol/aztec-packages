@@ -1,6 +1,6 @@
 import { useContext } from 'react';
 import { css } from '@emotion/react';
-import { AztecContext } from '../../aztecEnv';
+import { AztecContext } from '../../aztecContext';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import MinimizeIcon from '@mui/icons-material/Minimize';
@@ -29,7 +29,7 @@ const minimizeButton = css({
   svg: {
     paddingBottom: '7px',
     fontWeight: 600,
-  }
+  },
 });
 
 const container = css({
@@ -77,7 +77,7 @@ const content = css({
 
   ul: {
     paddingInlineStart: '2rem',
-  }
+  },
 });
 
 const subtitleText = css({
@@ -99,8 +99,7 @@ const buttonContainer = css({
   },
 });
 
-
-export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, onClose: () => void }) {
+export function TransactionModal(props: { transaction: UserTx; isOpen: boolean; onClose: () => void }) {
   const { isOpen, onClose } = props;
   const { currentTx, setCurrentTx, logs } = useContext(AztecContext);
 
@@ -124,9 +123,10 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
 
     try {
       const text = encodeURIComponent(
-        "I sent a private transaction on @aztecnetwork Public Testnet by generating a client-side proof."
-        + "\n\n"
-        + "Try it yourself with Aztec Playground: " + PLAYGROUND_URL
+        'I sent a private transaction on @aztecnetwork Public Testnet by generating a client-side proof.' +
+          '\n\n' +
+          'Try it yourself with Aztec Playground: ' +
+          PLAYGROUND_URL,
       );
       const url = `https://twitter.com/intent/tweet?text=${text}`;
 
@@ -151,22 +151,22 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
   function renderNewsletterSignup() {
     return (
       <div css={subtitleText} style={{ textAlign: 'center', marginTop: '2rem' }}>
-        Psst! Sign up for the <a href="https://tally.so/r/np5p0E" target="_blank" rel="noopener noreferrer">developer newsletter</a>
+        Psst! Sign up for the{' '}
+        <a href="https://tally.so/r/np5p0E" target="_blank" rel="noopener noreferrer">
+          developer newsletter
+        </a>
       </div>
-    )
+    );
   }
 
   function renderProvingState() {
     return (
       <>
-        <Typography css={titleText}>
-          Generating proof for transaction...
-        </Typography>
+        <Typography css={titleText}>Generating proof for transaction...</Typography>
 
         <div css={content}>
           <Typography css={subtitleText} style={{ marginBottom: '1rem' }}>
-            A client-side zero-knowledge proof is being generated in your browser.
-            This may take 20-60 seconds.
+            A client-side zero-knowledge proof is being generated in your browser. This may take 20-60 seconds.
           </Typography>
 
           <span css={loader}></span>
@@ -174,10 +174,7 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
           {logs && logs.length > 0 && (
             <Typography css={subtitleText} style={{ marginTop: '1rem', textAlign: 'left' }}>
               This is what we're currently working on:
-
-              <code>
-                {logs?.[0]?.message}
-              </code>
+              <code>{logs?.[0]?.message}</code>
             </Typography>
           )}
         </div>
@@ -190,9 +187,8 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
 
         {renderNewsletterSignup()}
       </>
-    )
+    );
   }
-
 
   function renderTxHash() {
     return (
@@ -219,15 +215,13 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
           View on Aztec Explorer
         </a>
       </code>
-    )
+    );
   }
 
   function renderSendingState() {
     return (
       <>
-        <Typography css={titleText}>
-          Sending transaction to Aztec network...
-        </Typography>
+        <Typography css={titleText}>Sending transaction to Aztec network...</Typography>
 
         <div css={content}>
           <span css={loader}></span>
@@ -245,20 +239,17 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
           {renderNewsletterSignup()}
         </div>
       </>
-    )
+    );
   }
 
   function renderSuccessState() {
     return (
       <>
-        <Typography css={titleText}>
-          Congratulations! You created a transaction on Aztec testnet
-        </Typography>
+        <Typography css={titleText}>Congratulations! You created a transaction on Aztec testnet</Typography>
 
         <div css={content}>
           <div css={subtitleText} style={{ textAlign: 'left' }}>
             Here is what you did:
-
             <ul>
               <li>Simulated the transaction {transaction?.name && `"${transaction?.name}"`}.</li>
               <li>Generated a client-side proof for the transaction.</li>
@@ -270,7 +261,15 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
           {renderTxHash()}
         </div>
 
-        <span style={{ backgroundColor: 'var(--mui-palette-grey-300)', textAlign: 'center', padding: '0.75rem', borderRadius: '6px', marginTop: '2rem' }}>
+        <span
+          style={{
+            backgroundColor: 'var(--mui-palette-grey-300)',
+            textAlign: 'center',
+            padding: '0.75rem',
+            borderRadius: '6px',
+            marginTop: '2rem',
+          }}
+        >
           Take a screenshot of above and share on X!
         </span>
 
@@ -300,15 +299,13 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
 
         {renderNewsletterSignup()}
       </>
-    )
+    );
   }
 
   function renderErrorState() {
     return (
       <>
-        <Typography css={[titleText, { color: '#FF7764' }]}>
-          An unexpected error occurred
-        </Typography>
+        <Typography css={[titleText, { color: '#FF7764' }]}>An unexpected error occurred</Typography>
         <div css={content}>
           <Typography css={subtitleText} style={{ textAlign: 'left' }}>
             An unexpected error occurred when sending your transaction.
@@ -316,27 +313,29 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
           <code css={subtitleText}>{errorMessage}</code>
         </div>
       </>
-    )
+    );
   }
 
   function renderTimeoutError() {
     return (
       <>
-        <Typography css={[titleText, { color: '#FF7764' }]}>
-          Transaction delayed
-        </Typography>
+        <Typography css={[titleText, { color: '#FF7764' }]}>Transaction delayed</Typography>
 
         <div css={content}>
           <Typography css={subtitleText}>
-            Your transaction was successfully sent to the mempool but the network took longer than normal to be included it in a block due to network congestion.
+            Your transaction was successfully sent to the mempool but the network took longer than normal to be included
+            it in a block due to network congestion.
             <br />
             <br />
-            Want to learn more about transaction throughput and network congestion on Aztec testnet?
-            {' '}
-            Read <a href="https://aztec.network/blog/what-is-aztec-testnet" target="_blank" rel="noopener noreferrer">this article</a>.
+            Want to learn more about transaction throughput and network congestion on Aztec testnet? Read{' '}
+            <a href="https://aztec.network/blog/what-is-aztec-testnet" target="_blank" rel="noopener noreferrer">
+              this article
+            </a>
+            .
             <br />
             <br />
-            We check the status of your transaction frequently. You can also check the transaction status on a block explorer.
+            We check the status of your transaction frequently. You can also check the transaction status on a block
+            explorer.
           </Typography>
 
           {renderTxHash()}
@@ -344,7 +343,7 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
 
         {renderNewsletterSignup()}
       </>
-    )
+    );
   }
 
   return (
@@ -362,11 +361,7 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
         <DialogTitle>{transaction?.name}</DialogTitle>
 
         <DialogContent css={dialogBody}>
-
-          <IconButton
-            css={minimizeButton}
-            onClick={onClose}
-          >
+          <IconButton css={minimizeButton} onClick={onClose}>
             <MinimizeIcon />
           </IconButton>
 
@@ -377,7 +372,6 @@ export function TransactionModal(props: { transaction: UserTx, isOpen: boolean, 
             {isProving && renderProvingState()}
             {isSuccess && renderSuccessState()}
           </div>
-
         </DialogContent>
       </Dialog>
     </>

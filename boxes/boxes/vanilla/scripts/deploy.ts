@@ -128,10 +128,7 @@ async function deployContract(wallet: Wallet, deployer: AztecAddress) {
     },
   });
   await provenInteraction.send().wait({ timeout: 120 });
-  await wallet.registerContract({
-    instance: contract,
-    artifact: PrivateVotingContract.artifact,
-  });
+  await wallet.registerContract(contract, PrivateVotingContract.artifact);
 
   return {
     contractAddress: contract.address.toString(),
@@ -166,10 +163,10 @@ async function createAccountAndDeployContract() {
   const wallet = new TestWallet(pxe);
 
   // Register the SponsoredFPC contract (for sponsored fee payments)
-  await wallet.registerContract({
-    instance: await getSponsoredPFCContract(),
-    artifact: SponsoredFPCContractArtifact,
-  });
+  await wallet.registerContract(
+    await getSponsoredPFCContract(),
+    SponsoredFPCContractArtifact
+  );
 
   // Create a new account
   const accountAddress = await createAccount(wallet);

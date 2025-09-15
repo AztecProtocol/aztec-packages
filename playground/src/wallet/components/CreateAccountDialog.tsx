@@ -3,37 +3,33 @@ import Dialog from '@mui/material/Dialog';
 import { Fr, DeployMethod, type DeployOptions, AztecAddress } from '@aztec/aztec.js';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
-import { useContext, useState } from 'react';
+import { useState } from 'react';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
-import { AztecContext } from '../../../aztecEnv';
 import FormControl from '@mui/material/FormControl';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
-import type { AccountType } from '../../../utils/storage';
+import type { AccountType } from '../wallet_db';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { FeePaymentSelector } from '../../common/FeePaymentSelector';
+import { FeePaymentSelector } from '../../components/common/FeePaymentSelector';
 import CircularProgress from '@mui/material/CircularProgress';
 import InputLabel from '@mui/material/InputLabel';
 import Typography from '@mui/material/Typography';
 import FormGroup from '@mui/material/FormGroup';
-import { progressIndicator, dialogBody, form } from '../../../styles/common';
-import { InfoText } from '../../common/InfoText';
-import { INFO_TEXT } from '../../../constants';
+import { progressIndicator, dialogBody, form } from '../../styles/common';
+import { InfoText } from '../../components/common/InfoText';
+import { INFO_TEXT } from '../../constants';
 import { Box, DialogContent } from '@mui/material';
 import { DialogActions } from '@mui/material';
-import type { EmbeddedWallet } from '../../../embedded_wallet';
+import type { EmbeddedWallet } from '../embedded_wallet';
 
 export function CreateAccountDialog({
+  wallet,
   open,
   onClose,
 }: {
+  wallet: EmbeddedWallet;
   open: boolean;
-  onClose: (
-    address?: AztecAddress,
-    publiclyDeploy?: boolean,
-    interaction?: DeployMethod,
-    opts?: DeployOptions,
-  ) => void;
+  onClose: (address?: AztecAddress, publiclyDeploy?: boolean, interaction?: DeployMethod, opts?: DeployOptions) => void;
 }) {
   const [alias, setAlias] = useState('');
   const [type, setType] = useState<AccountType>('ecdsasecp256r1');
@@ -44,8 +40,6 @@ export function CreateAccountDialog({
 
   const [feePaymentMethod, setFeePaymentMethod] = useState(null);
 
-  const { walletDB, wallet } = useContext(AztecContext);
-
   const createAccount = async () => {
     setIsRegistering(true);
     try {
@@ -55,17 +49,17 @@ export function CreateAccountDialog({
       switch (type) {
         case 'schnorr': {
           signingKey = deriveSigningKey(secretKey);
-          accountManager = await (wallet as EmbeddedWallet).createSchnorrAccount(secretKey, salt, signingKey);
+          accountManager = await wallet.createAndStoreAccount(alias, 'schnorr', secretKey, salt, signingKey);
           break;
         }
         case 'ecdsasecp256r1': {
           signingKey = randomBytes(32);
-          accountManager = await (wallet as EmbeddedWallet).createECDSARAccount(secretKey, salt, signingKey);
+          accountManager = await wallet.createAndStoreAccount(alias, 'ecdsasecp256r1', secretKey, salt, signingKey);
           break;
         }
         case 'ecdsasecp256k1': {
           signingKey = randomBytes(32);
-          accountManager = await (wallet as EmbeddedWallet).createECDSAKAccount(secretKey, salt, signingKey);
+          accountManager = await wallet.createAndStoreAccount(alias, 'ecdsasecp256k1', secretKey, salt, signingKey);
           break;
         }
         default: {
@@ -74,13 +68,6 @@ export function CreateAccountDialog({
       }
       const account = await accountManager.getAccount();
       const address = account.getAddress();
-      await walletDB.storeAccount(address, {
-        type,
-        secretKey: account.getSecretKey(),
-        alias,
-        salt,
-        signingKey,
-      });
 
       let deployMethod: DeployMethod;
       let opts: DeployOptions;
@@ -162,7 +149,7 @@ export function CreateAccountDialog({
           {!error ? (
             isRegistering ? (
               <div css={progressIndicator}>
-                <Typography variant="body2" sx={{ mr: 1 }}>
+                <Typography variant="body2" sx={{ mr: 1, mt: 1 }}>
                   Registering account...
                 </Typography>
                 <CircularProgress size={20} />
@@ -184,8 +171,7 @@ export function CreateAccountDialog({
             Cancel
           </Button>
         </DialogActions>
-
       </DialogContent>
-    </Dialog >
+    </Dialog>
   );
 }

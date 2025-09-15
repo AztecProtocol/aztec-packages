@@ -48,7 +48,9 @@ export class TestWallet extends BaseTestWallet {
     }
     const stubAccount = createStubAccount(originalAddress, nodeInfo);
     const StubAccountContractArtifact = await getStubAccountContractArtifact();
-    const instance = await getContractInstanceFromInstantiationParams(StubAccountContractArtifact, {});
+    const instance = await getContractInstanceFromInstantiationParams(StubAccountContractArtifact, {
+      salt: Fr.random(),
+    });
     return {
       account: stubAccount,
       instance,

@@ -1,5 +1,5 @@
 import { css } from '@mui/styled-engine';
-import { AztecContext } from '../../aztecEnv';
+import { AztecContext } from '../../aztecContext';
 import { useContext, useEffect, useState } from 'react';
 import ErrorIcon from '@mui/icons-material/Error';
 import SuccessIcon from '@mui/icons-material/CheckCircle';
@@ -140,14 +140,8 @@ const popoverCss = css({
 });
 
 export function TxPanel() {
-  const {
-    currentTx,
-    walletDB,
-    logs,
-    pxe,
-    setPendingTxUpdateCounter,
-    pendingTxUpdateCounter,
-  } = useContext(AztecContext);
+  const { currentTx, playgroundDB, logs, wallet, setPendingTxUpdateCounter, pendingTxUpdateCounter } =
+    useContext(AztecContext);
 
   const [currentFunFactIndex, setCurrentFunFactIndex] = useState(0);
   const [transactions, setTransactions] = useState([]);
@@ -158,11 +152,11 @@ export function TxPanel() {
 
   useEffect(() => {
     const refreshTransactions = async () => {
-      const txsPerContract = await walletDB.retrieveAllTx();
+      const txsPerContract = await playgroundDB.retrieveAllTx();
       const txHashes = txsPerContract.map(txHash => TxHash.fromString(convertFromUTF8BufferAsString(txHash)));
       const txs: UserTx[] = await Promise.all(
         txHashes.map(async txHash => {
-          const txData = await walletDB.retrieveTxData(txHash);
+          const txData = await playgroundDB.retrieveTxData(txHash);
           return {
             txHash: txData.txHash,
             status: convertFromUTF8BufferAsString(txData.status),
@@ -175,12 +169,12 @@ export function TxPanel() {
       setTransactions(txs);
     };
 
-    if (walletDB) {
+    if (playgroundDB) {
       refreshTransactions();
     } else {
       setTransactions([]);
     }
-  }, [currentTx, walletDB, pendingTxUpdateCounter]);
+  }, [currentTx, playgroundDB, pendingTxUpdateCounter]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -193,26 +187,23 @@ export function TxPanel() {
   // Update pending transactions status
   useEffect(() => {
     const refreshPendingTx = async () => {
-      if (!pxe || !walletDB) {
+      if (!wallet || !playgroundDB) {
         return;
       }
 
       const buffer = (TX_TIMEOUT + 60) * 1000;
-      const pendingTxs = transactions.filter(tx => (
-        tx.status === 'pending' &&
-        (tx.date + buffer) < Date.now()
-      ));
+      const pendingTxs = transactions.filter(tx => tx.status === 'pending' && tx.date + buffer < Date.now());
 
       for (const tx of pendingTxs) {
-        const txReceipt = await queryTxReceipt(tx, pxe);
+        const txReceipt = await queryTxReceipt(tx, wallet);
         if (txReceipt && txReceipt.status !== 'pending') {
-          await walletDB.updateTxStatus(tx.txHash, txReceipt.status);
+          await playgroundDB.updateTxStatus(tx.txHash, txReceipt.status);
           setPendingTxUpdateCounter(pendingTxUpdateCounter + 1);
         }
       }
     };
 
-    if (walletDB && pxe) {
+    if (playgroundDB && wallet) {
       refreshPendingTx();
     }
 
@@ -220,7 +211,7 @@ export function TxPanel() {
     return () => clearInterval(interval);
 
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, [transactions, walletDB, pxe]);
+  }, [transactions, playgroundDB, wallet]);
 
   useEffect(() => {
     if (currentTx?.status === 'success') {
@@ -228,7 +219,6 @@ export function TxPanel() {
       setIsTransactionModalOpen(true);
     }
   }, [currentTx]);
-
 
   const pendingTx = currentTx && currentTx.status !== 'success' ? currentTx : null;
   let lastLog = logs?.[0]?.message;
@@ -362,9 +352,14 @@ export function TxPanel() {
                   setIsTransactionModalOpen(true);
                 }}
               >
-                <Typography variant="overline" sx={{ lineHeight: '1.5', marginBottom: '0.5rem' }}>{tx.name}</Typography>
+                <Typography variant="overline" sx={{ lineHeight: '1.5', marginBottom: '0.5rem' }}>
+                  {tx.name}
+                </Typography>
                 <div css={{ display: 'flex', width: '100%' }}>
-                  <Typography variant="caption" sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                  <Typography
+                    variant="caption"
+                    sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}
+                  >
                     <div style={{ display: 'flex', alignItems: 'center' }}>
                       <div style={{ textAlign: 'justify', width: '110px' }}>
                         {tx.txHash ? formatFrAsString(tx.txHash.toString(), 6) : '()'}
@@ -382,7 +377,7 @@ export function TxPanel() {
                   </Typography>
                 </div>
               </div>
-            )
+            );
           })}
       </div>
 

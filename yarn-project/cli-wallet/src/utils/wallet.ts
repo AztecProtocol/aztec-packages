@@ -6,6 +6,7 @@ import {
   type Account,
   type AccountContract,
   AccountManager,
+  type Aliased,
   BaseWallet,
   type SendMethodOptions,
   SignerlessAccount,
@@ -37,6 +38,11 @@ export class CLIWallet extends BaseWallet {
     private db?: WalletDB,
   ) {
     super(pxe);
+  }
+
+  override async getAccounts(): Promise<Aliased<AztecAddress>[]> {
+    const accounts = (await this.db?.listAliases('accounts')) ?? [];
+    return Promise.resolve(accounts.map(({ key, value }) => ({ alias: value, item: AztecAddress.fromString(key) })));
   }
 
   override async createTxExecutionRequestFromPayloadAndFee(
@@ -152,7 +158,9 @@ export class CLIWallet extends BaseWallet {
       throw new Error(`No contract instance found for address: ${originalAddress.address}`);
     }
     const stubAccount = createStubAccount(originalAddress, nodeInfo);
-    const instance = await getContractInstanceFromInstantiationParams(StubAccountContractArtifact, {});
+    const instance = await getContractInstanceFromInstantiationParams(StubAccountContractArtifact, {
+      salt: Fr.random(),
+    });
     return {
       account: stubAccount,
       instance,

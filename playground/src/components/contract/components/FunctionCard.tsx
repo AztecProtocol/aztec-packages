@@ -24,7 +24,7 @@ import IconButton from '@mui/material/IconButton';
 import FormGroup from '@mui/material/FormGroup';
 import { FunctionParameter } from '../../common/FnParameter';
 import { useContext, useState } from 'react';
-import { AztecContext } from '../../../aztecEnv';
+import { AztecContext } from '../../../aztecContext';
 import { ConfigureInteractionDialog } from './ConfigureInteractionDialog';
 import { CreateAuthwitDialog } from './CreateAuthwitDialog';
 import TableHead from '@mui/material/TableHead';
@@ -152,7 +152,10 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
             return { ...step, subtotal: acc };
           });
 
-          const totalRPCCalls = Object.values(profileResult.stats.nodeRPCCalls ?? {}).reduce((acc, calls) => acc + calls.times.length, 0);
+          const totalRPCCalls = Object.values(profileResult.stats.nodeRPCCalls ?? {}).reduce(
+            (acc, calls) => acc + calls.times.length,
+            0,
+          );
 
           setProfileResults({
             ...profileResults,
@@ -255,9 +258,7 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
                 </Typography>
                 <div css={{ backgroundColor: 'var(--mui-palette-grey-A100)', padding: '0.5rem', borderRadius: '6px' }}>
                   {simulationResults?.success ? (
-                    <Typography variant="body1">
-                      {simulationResults?.data ?? 'No return value'}
-                    </Typography>
+                    <Typography variant="body1">{simulationResults?.data ?? 'No return value'}</Typography>
                   ) : (
                     <Typography variant="body1" color="error">
                       {simulationResults?.error}
@@ -379,7 +380,9 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
 
           <Tooltip title="Simulate and send the transaction to the Aztec network by creating a client side proof.">
             <Button
-              disabled={!wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY || !parametersValid}
+              disabled={
+                !wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY || !parametersValid
+              }
               size="small"
               color="primary"
               variant="contained"
@@ -396,7 +399,9 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
 
           <Tooltip title="Authorization witnesses (AuthWits) work similarly to permit/approval on Ethereum. They allow execution of functions on behalf of other contracts or addresses.">
             <Button
-              disabled={!wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY || !parametersValid}
+              disabled={
+                !wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY || !parametersValid
+              }
               size="small"
               color="primary"
               variant="contained"

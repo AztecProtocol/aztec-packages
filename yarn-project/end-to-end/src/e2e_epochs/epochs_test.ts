@@ -352,7 +352,7 @@ export class EpochsTestContext {
       publicKeys: undefined,
       deployer: undefined,
     });
-    await wallet.registerContract({ artifact: SpamContract.artifact, instance });
+    await wallet.registerContract(instance, SpamContract.artifact);
     return SpamContract.at(instance.address, wallet);
   }
 

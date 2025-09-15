@@ -59,6 +59,15 @@ export class EmbeddedWallet extends BaseWallet {
     return account;
   }
 
+  getAccounts() {
+    return Promise.resolve(
+      Array.from(this.accounts.values()).map((acc) => ({
+        alias: '',
+        item: acc.getAddress(),
+      }))
+    );
+  }
+
   static async initialize(nodeUrl: string) {
     // Create Aztec Node Client
     const aztecNode = await createAztecNodeClient(nodeUrl);
@@ -235,7 +244,7 @@ export class EmbeddedWallet extends BaseWallet {
     const StubAccountContractArtifact = await getStubAccountContractArtifact();
     const instance = await getContractInstanceFromInstantiationParams(
       StubAccountContractArtifact,
-      {}
+      { salt: Fr.random() }
     );
     return {
       account: stubAccount,

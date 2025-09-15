@@ -4,12 +4,11 @@ import FormControl from '@mui/material/FormControl';
 import Select from '@mui/material/Select';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
-import { createStore } from '@aztec/kv-store/indexeddb';
 import { AddNetworksDialog } from './AddNetworkDialog';
 import CircularProgress from '@mui/material/CircularProgress';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import { AztecContext, AztecEnv, WebLogger } from '../../../aztecEnv';
-import { NetworkDB, WalletDB } from '../../../utils/storage';
+import { createStore } from '@aztec/kv-store/indexeddb';
+import { AztecContext } from '../../../aztecContext';
 import { parseAliasedBuffersAsString } from '../../../utils/conversion';
 import { navbarButtonStyle, navbarSelect } from '../../../styles/common';
 import { NETWORKS } from '../../../utils/networks';
@@ -18,58 +17,68 @@ import NetworkIcon from '@mui/icons-material/Public';
 import { DialogTitle, Dialog, DialogContent, IconButton } from '@mui/material';
 import { trackButtonClick } from '../../../utils/matomo';
 import CloseIcon from '@mui/icons-material/Close';
-import { EmbeddedWallet } from '../../../embedded_wallet';
+import { PlaygroundDB } from '../../../utils/storage';
+import { WebLogger } from '../../../utils/web_logger';
+import { createAztecNodeClient } from '@aztec/aztec.js';
 
 export function NetworkSelector() {
   const {
-    setConnecting,
-    setPXE,
+    setNode,
     setNetwork,
-    setPXEInitialized,
-    setWalletDB,
-    setAztecNode,
     setLogs,
     setWallet,
     setCurrentContractAddress,
     setCurrentContractArtifact,
     setShowContractInterface,
     setTotalLogCount,
+    setPlaygroundDB,
     network,
-    connecting,
+    playgroundDB,
   } = useContext(AztecContext);
 
+  const [connecting, setConnecting] = useState(false);
   const [networks, setNetworks] = useState(NETWORKS);
-  const [isNetworkStoreInitialized, setIsNetworkStoreInitialized] = useState(false);
+  const [isContextInitialized, setIsContextInitialized] = useState(false);
   const [openAddNetworksDialog, setOpenAddNetworksDialog] = useState(false);
   const [isOpen, setOpen] = useState(false);
   const [showNetworkDownNotification, setShowNetworkDownNotification] = useState(false);
   const notifications = useNotifications();
 
   useEffect(() => {
-    const initNetworkStore = async () => {
-      await AztecEnv.initNetworkStore();
-      setIsNetworkStoreInitialized(true);
+    const initAztecEnv = async () => {
+      if (isContextInitialized) {
+        return;
+      }
+      setIsContextInitialized(true);
+      WebLogger.create(setLogs, setTotalLogCount);
+      const store = await createStore('playground_data', {
+        dataDirectory: 'playground',
+        dataStoreMapSizeKB: 1e6,
+      });
+      const playgroundDB = PlaygroundDB.getInstance();
+      playgroundDB.init(store, WebLogger.getInstance().createLogger('playground_db').info);
+      setPlaygroundDB(PlaygroundDB.getInstance());
     };
-    initNetworkStore();
+    initAztecEnv();
   }, []);
 
   // Connect to the first network automatically
   useEffect(() => {
-    if (isNetworkStoreInitialized && !network) {
+    if (isContextInitialized && !network) {
       handleNetworkChange(NETWORKS[0].nodeURL);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isNetworkStoreInitialized]);
+  }, [isContextInitialized]);
 
   useEffect(() => {
     const refreshNetworks = async () => {
-      const aliasedBuffers = await NetworkDB.getInstance().listNetworks();
+      const aliasedBuffers = await playgroundDB.listNetworks();
       const aliasedNetworks = parseAliasedBuffersAsString(aliasedBuffers);
       const networks = [
         ...NETWORKS,
         ...aliasedNetworks.map(network => ({
-          nodeURL: network.value,
-          name: network.key,
+          nodeURL: network.item,
+          name: network.alias,
           description: 'Custom network',
           hasTestAccounts: false,
           hasSponsoredFPC: true,
@@ -77,42 +86,24 @@ export function NetworkSelector() {
       ];
       setNetworks(networks);
     };
-    if (isNetworkStoreInitialized) {
+    if (isContextInitialized) {
       refreshNetworks();
     }
-  }, [isNetworkStoreInitialized]);
+  }, [isContextInitialized]);
 
   const handleNetworkChange = async (nodeURL: string) => {
     let network = null;
     try {
-      setConnecting(true);
-      setPXEInitialized(false);
       network = networks.find(network => network.nodeURL === nodeURL);
-      const node = await AztecEnv.connectToNode(network.nodeURL);
-      setAztecNode(node);
       setNetwork(network);
       setWallet(null);
       setCurrentContractAddress(null);
       setCurrentContractArtifact(null);
       setShowContractInterface(false);
-      const pxe = await AztecEnv.initPXE(node, setLogs, setTotalLogCount);
-      const rollupAddress = (await pxe.getNodeInfo()).l1ContractAddresses.rollupAddress;
-      const walletLogger = WebLogger.getInstance().createLogger('wallet:data:idb');
-      const walletDBStore = await createStore(
-        `wallet-${rollupAddress}`,
-        { dataDirectory: 'wallet', dataStoreMapSizeKB: 2e10 },
-        walletLogger,
-      );
-      const walletDB = WalletDB.getInstance();
-      walletDB.init(walletDBStore, walletLogger.info);
-      setWallet(new EmbeddedWallet(pxe, walletDB))
-      setPXE(pxe);
-      setWalletDB(walletDB);
-      setPXEInitialized(true);
-      setConnecting(false);
+      setConnecting(true);
+      setNode(await createAztecNodeClient(network.nodeURL));
     } catch (error) {
       console.error(error);
-      setConnecting(false);
       setNetwork(null);
 
       // (temp) show a dialog when the testnet connection fails
@@ -124,19 +115,21 @@ export function NetworkSelector() {
           severity: 'error',
         });
       }
+    } finally {
+      setConnecting(false);
     }
   };
 
   const handleNetworkAdded = async (network?: string, alias?: string) => {
     if (network && alias) {
-      await NetworkDB.getInstance().storeNetwork(alias, network);
-      const aliasedBuffers = await NetworkDB.getInstance().listNetworks();
+      await playgroundDB.storeNetwork(alias, network);
+      const aliasedBuffers = await playgroundDB.listNetworks();
       const aliasedNetworks = parseAliasedBuffersAsString(aliasedBuffers);
       const networks = [
         ...NETWORKS,
         ...aliasedNetworks.map(network => ({
-          nodeURL: network.value,
-          name: network.key,
+          nodeURL: network.item,
+          name: network.alias,
           description: 'Custom network',
           hasTestAccounts: false,
           hasSponsoredFPC: true,
