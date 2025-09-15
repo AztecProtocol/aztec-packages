@@ -426,7 +426,7 @@ void ExecutionTraceBuilder::process(
                   ex_event.after_context_event.side_effect_states.numL2ToL1Messages },
                 // Helpers for identifying parent context
                 { C::execution_has_parent_ctx, has_parent ? 1 : 0 },
-                { C::execution_is_parent_id_inv, last_seen_parent_id },
+                { C::execution_is_parent_id_inv, has_parent ? last_seen_parent_id : 0 },
             } });
 
         // Internal stack

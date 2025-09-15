@@ -74,7 +74,8 @@ uint32_t TraceContainer::get_column_rows(Column col) const
     if (column_data.row_number_dirty) {
         // Trigger recalculation of max row number.
         auto keys = std::views::keys(column_data.rows);
-        const auto it = std::ranges::max_element(keys);
+        // const auto it = std::ranges::max_element(keys);
+        const auto it = std::max_element(keys.begin(), keys.end());
         // We use -1 to indicate that the column is empty.
         column_data.max_row_number = it == keys.end() ? -1 : static_cast<int64_t>(*it);
         column_data.row_number_dirty = false;
@@ -120,9 +121,10 @@ void TraceContainer::invert_column(Column col)
     auto& column_data = (*trace)[static_cast<size_t>(col)];
     std::unique_lock lock(column_data.mutex);
     for (auto& [row, value] : column_data.rows) {
-        ff_vector.push_back(value);
+        // ff_vector.push_back(value);
+        value = value.invert();
     }
-    FF::batch_invert<RefVector<FF>&>(ff_vector);
+    // FF::batch_invert<RefVector<FF>&>(ff_vector);
 }
 
 void TraceContainer::clear_column(Column col)
