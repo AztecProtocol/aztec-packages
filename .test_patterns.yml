@@ -188,6 +188,10 @@ tests:
     error_regex: "This is a bug"
     owners:
       - *palla
+  - regex: "src/e2e_epochs/epochs_proof_public_cross_chain.test.ts"
+    error_regex: "Error: Failed to find an available publisher"
+    owners:
+      - *palla
   - regex: "src/e2e_epochs/epochs_l1_reorgs.test.ts"
     owners:
       - *palla
