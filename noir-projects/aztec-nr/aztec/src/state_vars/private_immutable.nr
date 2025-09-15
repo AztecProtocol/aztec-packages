@@ -241,7 +241,7 @@ where
     /// Returns the permanent note in this PrivateImmutable without consuming it.
     ///
     /// This function is only available in a UtilityContext (unconstrained environment)
-    /// and is typically used for off-chain queries, view functions, or testing.
+    /// and is typically used for offchain queries, view functions, or testing.
     ///
     /// Unlike the constrained `get_note()`, this function does not push read requests
     /// or perform validation. It simply reads the note from the PXE's database.

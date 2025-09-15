@@ -45,6 +45,8 @@ const DefaultSlashConfig = {
   slashingOffsetInRounds: 2,
   /** No slash vetoer */
   slashingVetoer: EthAddress.ZERO,
+  /** Use default disable duration */
+  slashingDisableDuration: DefaultL1ContractsConfig.slashingDisableDuration,
   /** Use default slash amounts */
   slashAmountSmall: DefaultL1ContractsConfig.slashAmountSmall,
   slashAmountMedium: DefaultL1ContractsConfig.slashAmountMedium,
@@ -136,6 +138,8 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   aztecEpochDuration: 32,
   /** The target validator committee size. */
   aztecTargetCommitteeSize: 48,
+  /** The number of epochs to lag behind the current epoch for validator selection. */
+  lagInEpochs: DefaultL1ContractsConfig.lagInEpochs,
   /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
   localEjectionThreshold: DefaultL1ContractsConfig.localEjectionThreshold,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
@@ -187,6 +191,8 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   aztecEpochDuration: 32,
   /** The target validator committee size. */
   aztecTargetCommitteeSize: 48,
+  /** The number of epochs to lag behind the current epoch for validator selection. */
+  lagInEpochs: 2,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: 1,
   /** The deposit amount for a validator */

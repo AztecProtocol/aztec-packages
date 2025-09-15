@@ -82,11 +82,19 @@ const config: Config = {
               },
             ],
           ],
-          versions: {
-            current: {
-              label: "dev",
+          // Don't show latest since nightlies are published
+          includeCurrentVersion: process.env.ENV === "dev",
+          // There should be 2 versions, nightly and stable
+          // The stable version is second in the list
+          lastVersion: versions[1],
+          ...(process.env.ENV === "dev" && {
+            versions: {
+              current: {
+                label: "dev",
+                path: "dev",
+              },
             },
-          },
+          }),
           editUrl: (params) => {
             return (
               `https://github.com/AztecProtocol/aztec-packages/edit/master/docs/docs/` +

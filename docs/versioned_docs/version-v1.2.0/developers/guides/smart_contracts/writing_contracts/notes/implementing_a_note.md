@@ -17,7 +17,7 @@ You will likely want to define your note in a new file and import it into your c
 
 A note type can be defined with the macro `#[note]` used on a struct:
 
-```rust title="state_vars-CardNote" showLineNumbers 
+```rust title="state_vars-CardNote" showLineNumbers
 // We derive the Serialize trait because this struct is returned from a contract function. When returned,
 // the struct is serialized using the Serialize trait and added to a hasher via the `add_to_hasher` utility.
 // We use a hash rather than the serialized struct itself to keep circuit inputs constant.
@@ -45,7 +45,7 @@ Why is it delivering privacy from sender?
 Because a sender cannot derive a note nullifier.
 We could derive the nullifier based solely on the note itself (for example, by computing `hash([note.points, note.owner, note.randomness], NULLIFIER_SEPARATOR)`).
 This would work since the nullifier would be unique and only the note recipient could spend it (as contract logic typically only allows the note owner to obtain a note, e.g. from a `Map<...>`).
-However, if we did this, the sender could also derive the nullifier off-chain and monitor the nullifier tree for its inclusion, allowing them to determine when a note has been spent.
+However, if we did this, the sender could also derive the nullifier offchain and monitor the nullifier tree for its inclusion, allowing them to determine when a note has been spent.
 This would leak privacy.
 
 ## Further reading

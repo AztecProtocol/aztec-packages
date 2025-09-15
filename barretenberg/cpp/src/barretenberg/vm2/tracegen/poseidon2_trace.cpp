@@ -516,8 +516,8 @@ const InteractionDefinition Poseidon2TraceBuilder::interactions =
         // Poseidon2 Memory to Permutation Subtrace
         .add<lookup_poseidon2_mem_input_output_poseidon2_perm_settings, InteractionType::LookupSequential>()
         // Lookups to Greater Than Subtrace
-        .add<lookup_poseidon2_mem_check_src_addr_in_range_settings, InteractionType::LookupGeneric>()
-        .add<lookup_poseidon2_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_poseidon2_mem_check_src_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_poseidon2_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         // Dispatch from Execution Trace
         .add<perm_poseidon2_mem_dispatch_exec_pos2_settings, InteractionType::Permutation>();
 

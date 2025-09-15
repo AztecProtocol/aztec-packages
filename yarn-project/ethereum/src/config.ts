@@ -28,6 +28,8 @@ export type L1ContractsConfig = {
   aztecEpochDuration: number;
   /** The target validator committee size. */
   aztecTargetCommitteeSize: number;
+  /** The number of epochs to lag behind the current epoch for validator selection. */
+  lagInEpochs: number;
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: number;
   /** The deposit amount for a validator */
@@ -48,6 +50,8 @@ export type L1ContractsConfig = {
   slashingVetoer: EthAddress;
   /** How many slashing rounds back we slash (ie when slashing in round N, we slash for offenses committed during epochs of round N-offset) */
   slashingOffsetInRounds: number;
+  /** How long slashing can be disabled for in seconds when vetoer disables it */
+  slashingDisableDuration: number;
   /** Type of slasher proposer */
   slasherFlavor: 'empire' | 'tally' | 'none';
   /** Minimum amount that can be slashed in tally slashing */
@@ -73,6 +77,7 @@ export const DefaultL1ContractsConfig = {
   aztecSlotDuration: 36,
   aztecEpochDuration: 32,
   aztecTargetCommitteeSize: 48,
+  lagInEpochs: 2,
   aztecProofSubmissionEpochs: 1, // you have a full epoch to submit a proof after the epoch to prove ends
   activationThreshold: BigInt(100e18),
   ejectionThreshold: BigInt(50e18),
@@ -90,6 +95,7 @@ export const DefaultL1ContractsConfig = {
   exitDelaySeconds: 2 * 24 * 60 * 60,
   slasherFlavor: 'tally' as const,
   slashingOffsetInRounds: 2,
+  slashingDisableDuration: 5 * 24 * 60 * 60, // 5 days in seconds
 } satisfies L1ContractsConfig;
 
 const LocalGovernanceConfiguration = {
@@ -303,6 +309,11 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The target validator committee size.',
     ...numberConfigHelper(DefaultL1ContractsConfig.aztecTargetCommitteeSize),
   },
+  lagInEpochs: {
+    env: 'AZTEC_LAG_IN_EPOCHS',
+    description: 'The number of epochs to lag behind the current epoch for validator selection.',
+    ...numberConfigHelper(DefaultL1ContractsConfig.lagInEpochs),
+  },
   aztecProofSubmissionEpochs: {
     env: 'AZTEC_PROOF_SUBMISSION_EPOCHS',
     description: 'The number of epochs after an epoch ends that proofs are still accepted.',
@@ -375,6 +386,11 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The slashing vetoer',
     parseEnv: (val: string) => EthAddress.fromString(val),
     defaultValue: DefaultL1ContractsConfig.slashingVetoer,
+  },
+  slashingDisableDuration: {
+    env: 'AZTEC_SLASHING_DISABLE_DURATION',
+    description: 'How long slashing can be disabled for in seconds when vetoer disables it',
+    ...numberConfigHelper(DefaultL1ContractsConfig.slashingDisableDuration),
   },
   governanceProposerQuorum: {
     env: 'AZTEC_GOVERNANCE_PROPOSER_QUORUM',
@@ -449,7 +465,7 @@ export function validateConfig(config: Omit<L1ContractsConfig, keyof L1TxUtilsCo
   }
 
   // EmpireBase constructor validations for governance/slashing proposers
-  // From: require(QUORUM_SIZE > ROUND_SIZE / 2, Errors.GovernanceProposer__InvalidQuorumAndRoundSize(QUORUM_SIZE, ROUND_SIZE));
+  // From: require(QUORUM_SIZE > ROUND_SIZE / 2, Errors.EmpireBase__InvalidQuorumAndRoundSize(QUORUM_SIZE, ROUND_SIZE));
   const { governanceProposerQuorum, governanceProposerRoundSize } = config;
   if (
     governanceProposerQuorum !== undefined &&
@@ -460,7 +476,7 @@ export function validateConfig(config: Omit<L1ContractsConfig, keyof L1TxUtilsCo
     );
   }
 
-  // From: require(QUORUM_SIZE <= ROUND_SIZE, Errors.GovernanceProposer__QuorumCannotBeLargerThanRoundSize(QUORUM_SIZE, ROUND_SIZE));
+  // From: require(QUORUM_SIZE <= ROUND_SIZE, Errors.EmpireBase__QuorumCannotBeLargerThanRoundSize(QUORUM_SIZE, ROUND_SIZE));
   if (governanceProposerQuorum !== undefined && governanceProposerQuorum > governanceProposerRoundSize) {
     errors.push(
       `governanceProposerQuorum (${governanceProposerQuorum}) cannot be larger than governanceProposerRoundSize (${governanceProposerRoundSize})`,

@@ -210,3 +210,9 @@ variable "NETWORK" {
   type        = string
   nullable    = true
 }
+
+variable "FLUSH_ENTRY_QUEUE" {
+  description = "Flush the entry queue after adding initial validators"
+  type        = bool
+  default     = true
+}

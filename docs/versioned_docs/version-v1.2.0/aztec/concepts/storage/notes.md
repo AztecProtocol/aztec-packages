@@ -25,13 +25,13 @@ Notes are comparable to cash, with some slight differences. When you want to spe
 
 When creating notes for a recipient, you need a way to send the note to them. There are a few ways to do this:
 
-### On-chain (encrypted logs):
+### onchain (encrypted logs):
 
 This is the common method and works well for most use cases. You can emit an encrypted log as part of a transaction. The encrypted note data will be posted onchain, allowing the recipient to find the note through [note discovery](../advanced/storage/note_discovery.md).
 
-### Off-chain (out of band):
+### offchain (out of band):
 
-In some cases, if you know the recipient off-chain, you might choose to share the note data directly with them. The recipient can store that note in their PXE and later spend it.
+In some cases, if you know the recipient offchain, you might choose to share the note data directly with them. The recipient can store that note in their PXE and later spend it.
 
 ### Self-created notes (not emitted):
 

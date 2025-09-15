@@ -181,7 +181,7 @@ void AggregateEntry::add_thread_time_sample(const TimeAndCount& stats)
     // Account for aggregate time and count
     time += stats.time;
     count += stats.count;
-    time_max = std::max(stats.time, time_max);
+    time_max = std::max(static_cast<size_t>(stats.time), time_max);
     // Use Welford's method to be able to track the variance
     num_threads++;
     double delta = static_cast<double>(stats.time) - time_mean;
@@ -206,7 +206,7 @@ AggregateData GlobalBenchStatsContainer::aggregate() const
 
     // Each count has a unique [thread, key] combo.
     // We therefore treat each count as a thread's contribution to that key.
-    for (const TimeStatsEntry* entry : entries) {
+    for (const std::shared_ptr<TimeStatsEntry>& entry : entries) {
         // A map from parent key => AggregateEntry
         auto& entry_map = result[entry->key];
         // combine all entries with same parent key
@@ -238,7 +238,7 @@ GlobalBenchStatsContainer::~GlobalBenchStatsContainer()
     }
 }
 
-void GlobalBenchStatsContainer::add_entry(const char* key, TimeStatsEntry* entry)
+void GlobalBenchStatsContainer::add_entry(const char* key, const std::shared_ptr<TimeStatsEntry>& entry)
 {
     std::unique_lock<std::mutex> lock(mutex);
     entry->key = key;
@@ -248,7 +248,7 @@ void GlobalBenchStatsContainer::add_entry(const char* key, TimeStatsEntry* entry
 void GlobalBenchStatsContainer::print() const
 {
     std::cout << "GlobalBenchStatsContainer::print() START" << "\n";
-    for (const TimeStatsEntry* entry : entries) {
+    for (const std::shared_ptr<TimeStatsEntry>& entry : entries) {
         print_stats_recursive(entry->key, &entry->count, "");
     }
     std::cout << "GlobalBenchStatsContainer::print() END" << "\n";
@@ -526,7 +526,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
     uint64_t total_time = 0;
     for (const auto& [_, parent_map] : aggregated) {
         if (auto it = parent_map.find(""); it != parent_map.end()) {
-            total_time = std::max(total_time, it->second.time_max);
+            total_time = std::max(static_cast<size_t>(total_time), it->second.time_max);
         }
     }
 
@@ -560,7 +560,7 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
 void GlobalBenchStatsContainer::clear()
 {
     std::unique_lock<std::mutex> lock(mutex);
-    for (TimeStatsEntry* entry : entries) {
+    for (std::shared_ptr<TimeStatsEntry>& entry : entries) {
         entry->count = TimeStats();
     }
 }

@@ -94,6 +94,78 @@ describe('L1TxUtils', () => {
       });
     });
 
+    it('regression: speed-up of blob tx via L1TxUtils sets non-zero maxFeePerBlobGas', async () => {
+      await cheatCodes.setAutomine(false);
+      await cheatCodes.setIntervalMining(0);
+
+      const baseUtils = createL1TxUtilsFromViemWallet(l1Client, logger, dateProvider, {
+        gasLimitBufferPercentage: 20,
+        maxGwei: 500n,
+        maxAttempts: 1,
+        checkIntervalMs: 50,
+        stallTimeMs: 300,
+      });
+
+      const blobData = new Uint8Array(131072).fill(1);
+      const kzg = Blob.getViemKzgInstance();
+
+      const request = {
+        to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
+        data: '0x' as `0x${string}`,
+        value: 0n,
+      } as const;
+
+      const estimatedGas = await l1Client.estimateGas(request);
+
+      // Send initial blob tx with a valid maxFeePerBlobGas
+      const { txHash } = await baseUtils.sendTransaction(request, undefined, {
+        blobs: [blobData],
+        kzg,
+        maxFeePerBlobGas: 10n * WEI_CONST,
+      });
+
+      // Capture the replacement tx when it is being signed
+      const originalSign = l1Client.signTransaction;
+      const signedTxs: TransactionSerializable[] = [];
+      using _spy = jest.spyOn(l1Client, 'signTransaction').mockImplementation((arg: any) => {
+        signedTxs.push(arg);
+        return originalSign(arg);
+      });
+
+      // Trigger monitor with blob inputs but WITHOUT maxFeePerBlobGas so the bug manifests
+      const monitorPromise = baseUtils.monitorTransaction(
+        request,
+        txHash,
+        new Set(),
+        { gasLimit: estimatedGas },
+        undefined,
+        {
+          blobs: [blobData],
+          kzg,
+        },
+      );
+
+      // Wait until a speed-up is attempted
+      await retryUntil(
+        () => baseUtils['state'] === TxUtilsState.SPEED_UP || signedTxs.length > 0,
+        'waiting for speed-up',
+        40,
+        0.05,
+      );
+
+      // Interrupt to stop the monitor loop and avoid hanging the test
+      baseUtils.interrupt();
+      await expect(monitorPromise).rejects.toThrow();
+
+      // Ensure we captured a replacement tx being signed
+      expect(signedTxs.length).toBeGreaterThan(0);
+      const replacement = signedTxs[signedTxs.length - 1] as any;
+
+      // Assert fix: maxFeePerBlobGas is populated and non-zero on replacement
+      expect(replacement.maxFeePerBlobGas).toBeDefined();
+      expect(replacement.maxFeePerBlobGas!).toBeGreaterThan(0n);
+    }, 20_000);
+
     it('sends and monitors a simple transaction', async () => {
       const { receipt } = await gasUtils.sendAndMonitorTransaction({
         to: '0x1234567890123456789012345678901234567890',

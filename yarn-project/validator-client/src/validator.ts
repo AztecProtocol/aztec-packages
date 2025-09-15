@@ -171,8 +171,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       telemetry,
     );
 
-    // TODO(PhilWindle): This seems like it could/should be done inside start()
-    validator.registerBlockProposalHandler();
     return validator;
   }
 
@@ -203,9 +201,15 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   public async start() {
+    if (this.epochCacheUpdateLoop.isRunning()) {
+      this.log.warn(`Validator client already started`);
+      return;
+    }
+
+    this.registerBlockProposalHandler();
+
     // Sync the committee from the smart contract
     // https://github.com/AztecProtocol/aztec-packages/issues/7962
-
     const myAddresses = this.getValidatorAddresses();
 
     const inCommittee = await this.epochCache.filterInCommittee('now', myAddresses);
