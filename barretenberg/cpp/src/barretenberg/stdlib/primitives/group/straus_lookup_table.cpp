@@ -39,12 +39,9 @@ std::vector<typename straus_lookup_table<Builder>::Element> straus_lookup_table<
 }
 
 /**
- * @brief Construct a new straus lookup table::straus lookup table object
- *
- * @details Constructs a `table_bits` lookup table.
- *
- * If Builder is not ULTRA, `table_bits = 1`
- * If Builder is ULTRA, ROM table is used as lookup table
+ * @brief Construct a new straus lookup table object
+ * @details Table is a length `N = 1 << table_bits` ROM-array containing the points:
+ * { [G] + 0.[P], [G] + 1.[P], ..., [G] + (N - 1).[P] }
  *
  * @tparam Builder
  * @param context
@@ -58,11 +55,11 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
                                                   const cycle_group<Builder>& offset_generator,
                                                   size_t table_bits,
                                                   std::optional<std::span<AffineElement>> hints)
-    : _table_bits(table_bits)
-    , _context(context)
+    : _context(context)
     , tag(OriginTag(base_point.get_origin_tag(), offset_generator.get_origin_tag()))
 {
     const size_t table_size = 1UL << table_bits;
+    std::vector<cycle_group<Builder>> point_table;
     point_table.resize(table_size);
 
     // We want to support the case where input points are points at infinity.
