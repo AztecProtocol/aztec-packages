@@ -13,7 +13,8 @@
 namespace bb {
 
 template <class VerifierInstances>
-void ProtogalaxyVerifier_<VerifierInstances>::run_oink_verifier_on_each_incomplete_key(const std::vector<FF>& proof)
+void ProtogalaxyVerifier_<VerifierInstances>::run_oink_verifier_on_each_incomplete_instance(
+    const std::vector<FF>& proof)
 {
     transcript->load_proof(proof);
     auto inst = insts_to_fold[0];
@@ -75,7 +76,7 @@ std::shared_ptr<typename VerifierInstances::VerifierInstance> ProtogalaxyVerifie
 
     const std::shared_ptr<VerifierInstance>& accumulator = insts_to_fold[0];
 
-    run_oink_verifier_on_each_incomplete_key(proof);
+    run_oink_verifier_on_each_incomplete_instance(proof);
 
     // Perturbator round
     const std::vector<FF> deltas = transcript->template get_powers_of_challenge<FF>("delta", CONST_PG_LOG_N);

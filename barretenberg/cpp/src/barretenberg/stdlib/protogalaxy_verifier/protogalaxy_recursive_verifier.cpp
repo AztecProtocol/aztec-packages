@@ -14,12 +14,12 @@
 namespace bb::stdlib::recursion::honk {
 
 template <class VerifierInstances>
-void ProtogalaxyRecursiveVerifier_<VerifierInstances>::run_oink_verifier_on_each_incomplete_key(
+void ProtogalaxyRecursiveVerifier_<VerifierInstances>::run_oink_verifier_on_each_incomplete_instance(
     const std::vector<FF>& proof)
 {
-    BB_ASSERT_EQ(keys_to_fold.NUM, 2UL, "Protogalaxy only supports folding 2 instances.");
+    BB_ASSERT_EQ(insts_to_fold.NUM, 2UL, "Protogalaxy only supports folding 2 instances.");
     transcript->load_proof(proof);
-    auto key = keys_to_fold[0];
+    auto key = insts_to_fold[0];
     auto domain_separator = std::to_string(0);
     if (!key->is_complete) {
         OinkRecursiveVerifier_<Flavor> oink_verifier{ builder, key, transcript, domain_separator + '_' };
@@ -30,7 +30,7 @@ void ProtogalaxyRecursiveVerifier_<VerifierInstances>::run_oink_verifier_on_each
             transcript->template get_powers_of_challenge<FF>(domain_separator + "_gate_challenge", CONST_PG_LOG_N);
     }
 
-    key = keys_to_fold[1];
+    key = insts_to_fold[1];
     domain_separator = std::to_string(1);
     OinkRecursiveVerifier_<Flavor> oink_verifier{ builder, key, transcript, domain_separator + '_' };
     oink_verifier.verify();
@@ -46,9 +46,9 @@ std::shared_ptr<typename VerifierInstances::VerifierInstance> ProtogalaxyRecursi
     // Hence we need  k(d - 1) evaluations to represent it.
     static constexpr size_t COMBINER_LENGTH = BATCHED_EXTENDED_LENGTH - NUM_INSTANCES;
 
-    run_oink_verifier_on_each_incomplete_key(proof);
+    run_oink_verifier_on_each_incomplete_instance(proof);
 
-    const std::shared_ptr<VerifierInstance>& accumulator = keys_to_fold[0];
+    const std::shared_ptr<VerifierInstance>& accumulator = insts_to_fold[0];
 
     // Perturbator round
     const std::vector<FF> deltas = transcript->template get_powers_of_challenge<FF>("delta", CONST_PG_LOG_N);
@@ -112,12 +112,12 @@ std::shared_ptr<typename VerifierInstances::VerifierInstance> ProtogalaxyRecursi
 
     std::vector<Commitment> accumulator_commitments;
     std::vector<Commitment> instance_commitments;
-    for (const auto& precomputed : keys_to_fold.get_precomputed_commitments()) {
+    for (const auto& precomputed : insts_to_fold.get_precomputed_commitments()) {
         BB_ASSERT_EQ(precomputed.size(), 2U);
         accumulator_commitments.emplace_back(precomputed[0]);
         instance_commitments.emplace_back(precomputed[1]);
     }
-    for (const auto& witness : keys_to_fold.get_witness_commitments()) {
+    for (const auto& witness : insts_to_fold.get_witness_commitments()) {
         BB_ASSERT_EQ(witness.size(), 2U);
         accumulator_commitments.emplace_back(witness[0]);
         instance_commitments.emplace_back(witness[1]);
@@ -182,12 +182,12 @@ std::shared_ptr<typename VerifierInstances::VerifierInstance> ProtogalaxyRecursi
     accumulator->vk_and_hash->vk->log_circuit_size = virtual_log_n;
 
     // Fold the relation parameters
-    for (auto [combination, to_combine] : zip_view(accumulator->alphas, keys_to_fold.get_alphas())) {
+    for (auto [combination, to_combine] : zip_view(accumulator->alphas, insts_to_fold.get_alphas())) {
         combination = linear_combination(to_combine, lagranges);
     }
 
     for (auto [combination, to_combine] :
-         zip_view(accumulator->relation_parameters.get_to_fold(), keys_to_fold.get_relation_parameters())) {
+         zip_view(accumulator->relation_parameters.get_to_fold(), insts_to_fold.get_relation_parameters())) {
         combination = linear_combination(to_combine, lagranges);
     }
 

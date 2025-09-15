@@ -88,9 +88,10 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
     output.points_accumulator.set_public();
     // Construct and verify a proof for the Goblin Recursive Verifier circuit
     {
-        auto proving_key = std::make_shared<OuterProverInstance>(builder);
-        auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->get_precomputed());
-        OuterProver prover(proving_key, verification_key);
+        auto prover_instance = std::make_shared<OuterProverInstance>(builder);
+        auto verification_key =
+            std::make_shared<typename OuterFlavor::VerificationKey>(prover_instance->get_precomputed());
+        OuterProver prover(prover_instance, verification_key);
         OuterVerifier verifier(verification_key);
         auto proof = prover.construct_proof();
         bool verified = verifier.template verify_proof<bb::DefaultIO>(proof).result;

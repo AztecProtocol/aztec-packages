@@ -58,7 +58,7 @@ void fold_k(State& state) noexcept
 
     auto log2_num_gates = static_cast<size_t>(state.range(0));
 
-    const auto construct_key = [&]() {
+    const auto construct_inst = [&]() {
         Builder builder;
         MockCircuits::construct_arithmetic_circuit(builder, log2_num_gates);
         return std::make_shared<ProverInstance>(builder);
@@ -67,7 +67,7 @@ void fold_k(State& state) noexcept
     std::vector<std::shared_ptr<VerifierInstance>> verifier_insts;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop
     for (size_t i = 0; i < k + 1; ++i) {
-        std::shared_ptr<ProverInstance> prover_inst = construct_key();
+        std::shared_ptr<ProverInstance> prover_inst = construct_inst();
         auto honk_vk = std::make_shared<Flavor::VerificationKey>(prover_inst->get_precomputed());
         std::shared_ptr<VerifierInstance> verifier_inst = std::make_shared<VerifierInstance>(honk_vk);
         prover_insts.emplace_back(prover_inst);

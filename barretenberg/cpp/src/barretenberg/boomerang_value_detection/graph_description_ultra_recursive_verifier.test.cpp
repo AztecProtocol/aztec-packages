@@ -102,9 +102,10 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         auto inner_circuit = create_inner_circuit();
 
         // Generate a proof over the inner circuit
-        auto proving_key = std::make_shared<InnerProverInstance>(inner_circuit);
-        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(proving_key->get_precomputed());
-        InnerProver inner_prover(proving_key, verification_key);
+        auto prover_instance = std::make_shared<InnerProverInstance>(inner_circuit);
+        auto verification_key =
+            std::make_shared<typename InnerFlavor::VerificationKey>(prover_instance->get_precomputed());
+        InnerProver inner_prover(prover_instance, verification_key);
         auto inner_proof = inner_prover.construct_proof();
 
         // Create a recursive verification circuit for the proof of the inner circuit
@@ -112,10 +113,10 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         auto stdlib_vk_and_hash =
             std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, verification_key);
         RecursiveVerifier verifier{ &outer_circuit, stdlib_vk_and_hash };
-        verifier.key->vk_and_hash->vk->num_public_inputs.fix_witness();
-        verifier.key->vk_and_hash->vk->pub_inputs_offset.fix_witness();
+        verifier.verifer_instance->vk_and_hash->vk->num_public_inputs.fix_witness();
+        verifier.verifer_instance->vk_and_hash->vk->pub_inputs_offset.fix_witness();
         // It's currently un-used
-        verifier.key->vk_and_hash->vk->log_circuit_size.fix_witness();
+        verifier.verifer_instance->vk_and_hash->vk->log_circuit_size.fix_witness();
 
         StdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
         VerifierOutput output = verifier.template verify_proof<DefaultIO<OuterBuilder>>(stdlib_inner_proof);

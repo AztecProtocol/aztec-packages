@@ -30,7 +30,7 @@ template <class VerifierInstances> class ProtogalaxyRecursiveVerifier_ {
 
     Builder* builder;
 
-    VerifierInstances keys_to_fold;
+    VerifierInstances insts_to_fold;
 
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
@@ -39,7 +39,7 @@ template <class VerifierInstances> class ProtogalaxyRecursiveVerifier_ {
                                   const std::vector<std::shared_ptr<VKAndHash>>& vk_and_hashs,
                                   const std::shared_ptr<Transcript>& transcript)
         : builder(builder)
-        , keys_to_fold(VerifierInstances(builder, accumulator, vk_and_hashs))
+        , insts_to_fold(VerifierInstances(builder, accumulator, vk_and_hashs))
         , transcript(transcript) {};
 
     ProtogalaxyRecursiveVerifier_(Builder* builder,
@@ -47,13 +47,13 @@ template <class VerifierInstances> class ProtogalaxyRecursiveVerifier_ {
                                   const std::shared_ptr<VerifierInstance>& incoming_instance,
                                   const std::shared_ptr<Transcript>& transcript)
         : builder(builder)
-        , keys_to_fold(VerifierInstances(builder, accumulator, incoming_instance))
+        , insts_to_fold(VerifierInstances(builder, accumulator, incoming_instance))
         , transcript(transcript) {};
 
     /**
      * @brief Process the public data ϕ for the decider verification keys to be folded.
      */
-    void run_oink_verifier_on_each_incomplete_key(const std::vector<FF>&);
+    void run_oink_verifier_on_each_incomplete_instance(const std::vector<FF>&);
 
     /**
      * @brief Run the folding protocol on the verifier side to establish whether the public data ϕ of the new

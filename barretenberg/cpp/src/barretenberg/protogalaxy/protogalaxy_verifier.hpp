@@ -41,7 +41,7 @@ template <class VerifierInstances> class ProtogalaxyVerifier_ {
      *
      * @param fold_data The data transmitted via the transcript by the prover.
      */
-    void run_oink_verifier_on_each_incomplete_key(const std::vector<FF>&);
+    void run_oink_verifier_on_each_incomplete_instance(const std::vector<FF>&);
 
     /**
      * @brief Run the folding protocol on the verifier side to establish whether the public data ϕ of the new

@@ -21,7 +21,7 @@ void _bench_round(::benchmark::State& state, void (*F)(ProtogalaxyProver_<Flavor
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     auto log2_num_gates = static_cast<size_t>(state.range(0));
 
-    const auto construct_key = [&]() {
+    const auto construct_inst = [&]() {
         Builder builder;
         MockCircuits::construct_arithmetic_circuit(builder, log2_num_gates);
         return std::make_shared<ProverInstance>(builder);
@@ -29,10 +29,10 @@ void _bench_round(::benchmark::State& state, void (*F)(ProtogalaxyProver_<Flavor
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop, also extend to more than
     // k=1
-    std::shared_ptr<ProverInstance> prover_inst_1 = construct_key();
+    std::shared_ptr<ProverInstance> prover_inst_1 = construct_inst();
     auto honk_vk_1 = std::make_shared<Flavor::VerificationKey>(prover_inst_1->get_precomputed());
     auto verifier_inst_1 = std::make_shared<VerifierInstance>(honk_vk_1);
-    std::shared_ptr<ProverInstance> prover_inst_2 = construct_key();
+    std::shared_ptr<ProverInstance> prover_inst_2 = construct_inst();
     auto honk_vk_2 = std::make_shared<Flavor::VerificationKey>(prover_inst_2->get_precomputed());
     auto verifier_inst_2 = std::make_shared<VerifierInstance>(honk_vk_2);
     std::shared_ptr<typename ProtogalaxyProver::Transcript> transcript =
