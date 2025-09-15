@@ -1165,7 +1165,7 @@ TYPED_TEST(CycleGroupTest, MixedLengthScalarsIsNotSupported)
 
     // Second scalar: 256 bits
     uint256_t scalar2_value = uint256_t(987654321);
-    scalars.push_back(cycle_scalar_ct::from_256_bit_witness(&builder, scalar2_value));
+    scalars.push_back(cycle_scalar_ct::from_u256_witness(&builder, scalar2_value));
     EXPECT_EQ(scalars[1].num_bits(), 256);
 
     // The different sized scalars results in different sized scalar slices arrays which is not handled in batch_mul
