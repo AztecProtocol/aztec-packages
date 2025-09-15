@@ -47,8 +47,8 @@ template <typename Flavor> class NativeVerificationKeyTests : public ::testing::
             using ProverInstance = ProverInstance_<Flavor>;
             Builder builder;
             set_default_pairing_points_and_ipa_claim_and_proof(builder);
-            auto proving_key = std::make_shared<ProverInstance>(builder);
-            return VerificationKey{ proving_key->get_precomputed() };
+            auto prover_instance = std::make_shared<ProverInstance>(builder);
+            return VerificationKey{ prover_instance->get_precomputed() };
         } else {
             return VerificationKey();
         }

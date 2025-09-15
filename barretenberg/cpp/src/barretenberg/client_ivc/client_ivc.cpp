@@ -7,7 +7,7 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/streams.hpp"
-#include "barretenberg/honk/proving_key_inspector.hpp"
+#include "barretenberg/honk/prover_instance_inspector.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
@@ -358,27 +358,27 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     }
 }
 
-HonkProof ClientIVC::construct_oink_proof(const std::shared_ptr<ProverInstance>& proving_key,
+HonkProof ClientIVC::construct_oink_proof(const std::shared_ptr<ProverInstance>& prover_instance,
                                           const std::shared_ptr<MegaVerificationKey>& honk_vk,
                                           const std::shared_ptr<Transcript>& transcript)
 {
     vinfo("computing oink proof...");
-    MegaOinkProver oink_prover{ proving_key, honk_vk, transcript };
+    MegaOinkProver oink_prover{ prover_instance, honk_vk, transcript };
     oink_prover.prove();
 
-    proving_key->target_sum = 0;
+    prover_instance->target_sum = 0;
     // Get the gate challenges for sumcheck/combiner computation
-    proving_key->gate_challenges =
+    prover_instance->gate_challenges =
         prover_accumulation_transcript->template get_powers_of_challenge<FF>("gate_challenge", CONST_PG_LOG_N);
 
-    prover_accumulator = proving_key; // initialize the prover accum with the completed key
+    prover_accumulator = prover_instance; // initialize the prover accum with the completed key
 
     HonkProof oink_proof = oink_prover.export_proof();
     vinfo("oink proof constructed");
     return oink_proof;
 }
 
-HonkProof ClientIVC::construct_pg_proof(const std::shared_ptr<ProverInstance>& proving_key,
+HonkProof ClientIVC::construct_pg_proof(const std::shared_ptr<ProverInstance>& prover_instance,
                                         const std::shared_ptr<MegaVerificationKey>& honk_vk,
                                         const std::shared_ptr<Transcript>& transcript,
                                         bool is_kernel)
@@ -393,7 +393,7 @@ HonkProof ClientIVC::construct_pg_proof(const std::shared_ptr<ProverInstance>& p
         info("Accumulator hash in PG prover: ", accum_hash);
     }
     auto verifier_instance = std::make_shared<VerifierInstance_<Flavor>>(honk_vk);
-    FoldingProver folding_prover({ prover_accumulator, proving_key },
+    FoldingProver folding_prover({ prover_accumulator, prover_instance },
                                  { native_verifier_accum, verifier_instance },
                                  transcript,
                                  trace_usage_tracker);
@@ -433,9 +433,9 @@ ClientIVC::QUEUE_TYPE ClientIVC::get_queue_type() const
 
 /**
  * @brief Execute prover work for accumulation
- * @details Construct an proving key for the provided circuit. If this is the first step in the IVC, simply initialize
- * the folding accumulator. Otherwise, execute the PG prover to fold the proving key into the accumulator and produce a
- * folding proof. Also execute the merge protocol to produce a merge proof.
+ * @details Construct an prover instance for the provided circuit. If this is the first step in the IVC, simply
+ * initialize the folding accumulator. Otherwise, execute the PG prover to fold the prover instance into the accumulator
+ * and produce a folding proof. Also execute the merge protocol to produce a merge proof.
  *
  * @param circuit
  * this case, just produce a Honk proof for that circuit and do no folding.
@@ -448,16 +448,16 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
 
     ASSERT(precomputed_vk != nullptr, "ClientIVC::accumulate - VK expected for the provided circuit");
 
-    // Construct the proving key for circuit
-    std::shared_ptr<ProverInstance> proving_key = std::make_shared<ProverInstance>(circuit, trace_settings);
+    // Construct the prover instance for circuit
+    std::shared_ptr<ProverInstance> prover_instance = std::make_shared<ProverInstance>(circuit, trace_settings);
 
     // If the current circuit overflows past the current size of the commitment key, reinitialize accordingly.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319)
-    if (proving_key->dyadic_size() > bn254_commitment_key.dyadic_size) {
-        bn254_commitment_key = CommitmentKey<curve::BN254>(proving_key->dyadic_size());
+    if (prover_instance->dyadic_size() > bn254_commitment_key.dyadic_size) {
+        bn254_commitment_key = CommitmentKey<curve::BN254>(prover_instance->dyadic_size());
         goblin.commitment_key = bn254_commitment_key;
     }
-    proving_key->commitment_key = bn254_commitment_key;
+    prover_instance->commitment_key = bn254_commitment_key;
     trace_usage_tracker.update(circuit);
 
     // We're accumulating a kernel if the verification queue is empty (because the kernel circuit contains recursive
@@ -481,14 +481,14 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     case QUEUE_TYPE::OINK:
         vinfo("Accumulating first app circuit with OINK");
         BB_ASSERT_EQ(is_kernel, false, "First circuit accumulated must always be an app");
-        proof = construct_oink_proof(proving_key, precomputed_vk, prover_accumulation_transcript);
+        proof = construct_oink_proof(prover_instance, precomputed_vk, prover_accumulation_transcript);
         break;
     case QUEUE_TYPE::PG:
     case QUEUE_TYPE::PG_TAIL:
-        proof = construct_pg_proof(proving_key, precomputed_vk, prover_accumulation_transcript, is_kernel);
+        proof = construct_pg_proof(prover_instance, precomputed_vk, prover_accumulation_transcript, is_kernel);
         break;
     case QUEUE_TYPE::PG_FINAL:
-        proof = construct_pg_proof(proving_key, precomputed_vk, prover_accumulation_transcript, is_kernel);
+        proof = construct_pg_proof(prover_instance, precomputed_vk, prover_accumulation_transcript, is_kernel);
         decider_proof = construct_decider_proof(prover_accumulation_transcript);
         break;
     case QUEUE_TYPE::MEGA:

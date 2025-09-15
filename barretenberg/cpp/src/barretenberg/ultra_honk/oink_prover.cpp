@@ -6,7 +6,7 @@
 
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 #include "barretenberg/common/bb_bench.hpp"
-#include "barretenberg/honk/proving_key_inspector.hpp"
+#include "barretenberg/honk/prover_instance_inspector.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
 #include "barretenberg/ultra_honk/witness_computation.hpp"
 

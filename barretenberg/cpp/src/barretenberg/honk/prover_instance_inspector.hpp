@@ -12,7 +12,7 @@
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 
-namespace bb::proving_key_inspector {
+namespace bb::prover_instance_inspector {
 
 // Helper for extracting a native Flavor from either a native or recursive flavor.
 template <typename Flavor, bool = IsRecursiveFlavor<Flavor>> struct NativeFlavorHelper {
@@ -41,8 +41,8 @@ uint256_t compute_vk_hash(const Builder& circuit_in,
 
     Builder circuit = circuit_in; // Copy the circuit to avoid modifying the original
 
-    ProverInstance proving_key{ circuit, trace_settings };
-    VerificationKey verification_key{ proving_key.get_precomputed() };
+    ProverInstance prover_instance{ circuit, trace_settings };
+    VerificationKey verification_key{ prover_instance.get_precomputed() };
 
     return verification_key.hash();
 }
@@ -72,7 +72,7 @@ bool is_non_zero(auto& polynomial)
  *
  * @param prover_instance
  */
-void inspect_proving_key(auto& prover_instance)
+void inspect_prover_instance(auto& prover_instance)
 {
     auto& prover_polys = prover_instance->prover_polynomials;
     std::vector<std::string> zero_polys;
@@ -92,4 +92,4 @@ void inspect_proving_key(auto& prover_instance)
     info();
 }
 
-} // namespace bb::proving_key_inspector
+} // namespace bb::prover_instance_inspector

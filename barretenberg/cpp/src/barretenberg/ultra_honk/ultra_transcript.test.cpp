@@ -226,9 +226,9 @@ TYPED_TEST(UltraTranscriptTests, ProverManifestConsistency)
     TestFixture::generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest by constructing a proof
-    auto proving_key = std::make_shared<typename TestFixture::ProverInstance>(builder);
-    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->get_precomputed());
-    typename TestFixture::Prover prover(proving_key, verification_key);
+    auto prover_instance = std::make_shared<typename TestFixture::ProverInstance>(builder);
+    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(prover_instance->get_precomputed());
+    typename TestFixture::Prover prover(prover_instance, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
@@ -263,9 +263,9 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
     TestFixture::generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
-    auto proving_key = std::make_shared<typename TestFixture::ProverInstance>(builder);
-    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->get_precomputed());
-    typename TestFixture::Prover prover(proving_key, verification_key);
+    auto prover_instance = std::make_shared<typename TestFixture::ProverInstance>(builder);
+    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(prover_instance->get_precomputed());
+    typename TestFixture::Prover prover(prover_instance, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
@@ -343,9 +343,9 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     TestFixture::generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest by constructing a proof
-    auto proving_key = std::make_shared<typename TestFixture::ProverInstance>(builder);
-    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->get_precomputed());
-    typename TestFixture::Prover prover(proving_key, verification_key);
+    auto prover_instance = std::make_shared<typename TestFixture::ProverInstance>(builder);
+    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(prover_instance->get_precomputed());
+    typename TestFixture::Prover prover(prover_instance, verification_key);
     auto proof = prover.construct_proof();
     typename TestFixture::Verifier verifier(verification_key);
     {
@@ -353,7 +353,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
         EXPECT_TRUE(result);
     }
 
-    const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : proving_key->log_dyadic_size();
+    const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : prover_instance->log_dyadic_size();
 
     // try deserializing and serializing with no changes and check proof is still valid
     prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs, virtual_log_n);
@@ -361,7 +361,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     // reset verifier's transcript
     verifier.transcript = std::make_shared<typename Flavor::Transcript>();
 
-    proof = TestFixture::export_serialized_proof(prover, proving_key->num_public_inputs());
+    proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs());
     {
         bool result = verifier.template verify_proof<typename TestFixture::IO>(proof).result;
         EXPECT_TRUE(result); // we have changed nothing so proof is still valid
@@ -371,7 +371,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     FF rand_val = FF::random_element();
     prover.transcript->z_perm_comm = one_group_val * rand_val;             // choose random object to modify
     verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // reset verifier's transcript
-    proof = TestFixture::export_serialized_proof(prover, proving_key->num_public_inputs());
+    proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs());
     {
         bool result = verifier.template verify_proof<typename TestFixture::IO>(proof).result;
         EXPECT_TRUE(result); // we have not serialized it back to the proof so it should still be fine
@@ -379,7 +379,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
 
     prover.transcript->serialize_full_transcript();
     verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // reset verifier's transcript
-    proof = TestFixture::export_serialized_proof(prover, proving_key->num_public_inputs());
+    proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs());
     {
         bool result = verifier.template verify_proof<typename TestFixture::IO>(proof).result;
         EXPECT_FALSE(result); // the proof is now wrong after serializing it

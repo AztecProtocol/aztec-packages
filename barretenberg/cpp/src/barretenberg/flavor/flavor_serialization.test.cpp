@@ -47,8 +47,8 @@ TYPED_TEST(FlavorSerializationTests, VerificationKeySerialization)
     MockCircuits::add_arithmetic_gates_with_public_inputs(builder, /*num_gates=*/100);
 
     stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
-    auto proving_key = std::make_shared<ProverInstance>(builder);
-    VerificationKey original_vkey{ proving_key->get_precomputed() };
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    VerificationKey original_vkey{ prover_instance->get_precomputed() };
 
     // Serialize and deserialize the verification key
     std::vector<uint8_t> vkey_buffer = to_buffer(original_vkey);

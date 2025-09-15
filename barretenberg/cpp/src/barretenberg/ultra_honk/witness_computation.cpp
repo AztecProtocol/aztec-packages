@@ -15,7 +15,7 @@
 #include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
-#include "barretenberg/honk/proving_key_inspector.hpp"
+#include "barretenberg/honk/prover_instance_inspector.hpp"
 #include "barretenberg/relations/databus_lookup_relation.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
@@ -121,7 +121,7 @@ void WitnessComputation<Flavor>::compute_grand_product_polynomial(Flavor::Prover
  * @param prover_inst
  */
 template <IsUltraOrMegaHonk Flavor>
-void WitnessComputation<Flavor>::complete_proving_key_for_test(
+void WitnessComputation<Flavor>::complete_prover_instance_for_test(
     const std::shared_ptr<ProverInstance_<Flavor>>& prover_inst)
 {
     // Generate random eta, beta and gamma

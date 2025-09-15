@@ -75,7 +75,7 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1364): Improve VKs. Clarify the usage of
     // RecursiveVerifierInstances here. Seems unnecessary.
-    std::shared_ptr<RecursiveVerifierInstances> key;
+    std::shared_ptr<RecursiveVerifierInstances> verifier_instance;
     VerifierCommitmentKey pcs_verification_key;
     Builder* builder;
     std::shared_ptr<Transcript> transcript;

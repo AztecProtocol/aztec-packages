@@ -44,14 +44,13 @@ void compute_row_evaluations(State& state) noexcept
     }
 }
 
-// Fold one proving key into an accumulator.
-void fold_k(State& state) noexcept
+// Fold one instance into an accumulator.
+void fold(State& state) noexcept
 {
-    static constexpr size_t k{ 1 };
 
     using ProverInstance = ProverInstance_<Flavor>;
     using VerifierInstance = VerifierInstance_<Flavor>;
-    using ProtogalaxyProver = ProtogalaxyProver_<Flavor, k + 1>;
+    using ProtogalaxyProver = ProtogalaxyProver_<Flavor, 2>;
     using Builder = typename Flavor::CircuitBuilder;
 
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
@@ -66,7 +65,7 @@ void fold_k(State& state) noexcept
     std::vector<std::shared_ptr<ProverInstance>> prover_insts;
     std::vector<std::shared_ptr<VerifierInstance>> verifier_insts;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop
-    for (size_t i = 0; i < k + 1; ++i) {
+    for (size_t i = 0; i < 2; ++i) {
         std::shared_ptr<ProverInstance> prover_inst = construct_inst();
         auto honk_vk = std::make_shared<Flavor::VerificationKey>(prover_inst->get_precomputed());
         std::shared_ptr<VerifierInstance> verifier_inst = std::make_shared<VerifierInstance>(honk_vk);
@@ -87,7 +86,7 @@ void fold_k(State& state) noexcept
 BENCHMARK(vector_of_evaluations)->DenseRange(15, 21)->Unit(kMillisecond)->Iterations(1);
 BENCHMARK(compute_row_evaluations)->DenseRange(15, 21)->Unit(kMillisecond);
 // We stick to just k=1 for compile-time reasons.
-BENCHMARK(fold_k)->/* vary the circuit size */ DenseRange(14, 20)->Unit(kMillisecond);
+BENCHMARK(fold)->/* vary the circuit size */ DenseRange(14, 20)->Unit(kMillisecond);
 
 } // namespace bb
 

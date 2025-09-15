@@ -276,10 +276,10 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
 } // namespace
 
 /**
- * @brief Compute Honk style generalized permutation sigmas and ids and add to proving_key
+ * @brief Compute Honk style generalized permutation sigmas and ids and add to prover_instance
  *
  * @param circuit
- * @param proving_key
+ * @param prover_instance
  * @param copy_cycles pre-computed sets of wire addresses whose values should be copy constrained
  *
  */

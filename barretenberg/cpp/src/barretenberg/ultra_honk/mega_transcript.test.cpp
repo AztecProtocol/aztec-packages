@@ -194,9 +194,9 @@ TYPED_TEST(MegaTranscriptTests, ProverManifestConsistency)
     TestFixture::generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest by constructing a proof
-    auto proving_key = std::make_shared<ProverInstance>(builder);
-    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
-    Prover prover(proving_key, verification_key);
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(prover_instance->get_precomputed());
+    Prover prover(prover_instance, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
@@ -235,9 +235,9 @@ TYPED_TEST(MegaTranscriptTests, VerifierManifestConsistency)
     TestFixture::generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
-    auto proving_key = std::make_shared<ProverInstance>(builder);
-    auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
-    Prover prover(proving_key, verification_key);
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+    Prover prover(prover_instance, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
@@ -309,10 +309,10 @@ TYPED_TEST(MegaTranscriptTests, StructureTest)
         this->generate_test_circuit(builder);
 
         // Automatically generate a transcript manifest by constructing a proof
-        auto proving_key = std::make_shared<ProverInstance>(builder);
-        Prover prover(proving_key);
+        auto prover_instance = std::make_shared<ProverInstance>(builder);
+        Prover prover(prover_instance);
         auto proof = prover.construct_proof();
-        auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
+        auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
         Verifier verifier(verification_key);
         EXPECT_TRUE(verifier.verify_proof(proof));
 

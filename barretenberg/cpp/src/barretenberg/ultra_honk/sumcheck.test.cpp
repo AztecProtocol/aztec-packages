@@ -150,7 +150,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     // Create a prover (it will compute proving key and witness)
     auto prover_inst = std::make_shared<ProverInstance_<Flavor>>(builder);
 
-    WitnessComputation<Flavor>::complete_proving_key_for_test(prover_inst);
+    WitnessComputation<Flavor>::complete_prover_instance_for_test(prover_inst);
 
     auto prover_transcript = Transcript::prover_init_empty();
     auto circuit_size = prover_inst->dyadic_size();

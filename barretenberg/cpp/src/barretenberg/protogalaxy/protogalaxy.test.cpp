@@ -82,11 +82,11 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     }
 
     static std::tuple<std::shared_ptr<ProverInstance>, std::shared_ptr<VerifierInstance>> fold_and_verify(
-        const std::vector<std::shared_ptr<ProverInstance>>& proving_keys,
+        const std::vector<std::shared_ptr<ProverInstance>>& prover_instances,
         const std::vector<std::shared_ptr<VerifierInstance>>& verification_keys,
         ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker{})
     {
-        FoldingProver folding_prover(proving_keys,
+        FoldingProver folding_prover(prover_instances,
                                      verification_keys,
                                      std::make_shared<typename FoldingProver::Transcript>(),
                                      trace_usage_tracker);
@@ -123,7 +123,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
         auto prover_inst = std::make_shared<ProverInstance>(builder);
 
-        WitnessComputation<Flavor>::complete_proving_key_for_test(prover_inst);
+        WitnessComputation<Flavor>::complete_prover_instance_for_test(prover_inst);
 
         for (auto& alpha : prover_inst->alphas) {
             alpha = FF::random_element();
@@ -281,8 +281,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     }
 
     /**
-     * @brief Given two dummy decider proving_keys with the batching challenges alphas set (one for each subrelation)
-     * ensure combining them in a univariate of desired length works as expected.
+     * @brief Given two dummy decider prover_instances with the batching challenges alphas set (one for each
+     * subrelation) ensure combining them in a univariate of desired length works as expected.
      */
     static void test_compute_and_extend_alphas()
     {

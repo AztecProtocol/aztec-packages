@@ -38,7 +38,7 @@ template <IsUltraOrMegaHonk Flavor> class WitnessComputation {
                                                  RelationParameters<FF>& relation_parameters,
                                                  size_t size_override = 0);
 
-    static void complete_proving_key_for_test(const std::shared_ptr<ProverInstance_<Flavor>>& prover_inst);
+    static void complete_prover_instance_for_test(const std::shared_ptr<ProverInstance_<Flavor>>& prover_inst);
 };
 
 } // namespace bb

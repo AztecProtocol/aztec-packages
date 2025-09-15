@@ -205,7 +205,7 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
     // Create a prover (it will compute proving key and witness)
     auto prover_inst = std::make_shared<ProverInstance_<Flavor>>(builder);
 
-    WitnessComputation<Flavor>::complete_proving_key_for_test(prover_inst);
+    WitnessComputation<Flavor>::complete_prover_instance_for_test(prover_inst);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
     for (auto selector : prover_inst->polynomials.get_gate_selectors()) {
@@ -238,7 +238,7 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     // Create a prover (it will compute proving key and witness)
     auto prover_inst = std::make_shared<ProverInstance_<Flavor>>(builder);
 
-    WitnessComputation<Flavor>::complete_proving_key_for_test(prover_inst);
+    WitnessComputation<Flavor>::complete_prover_instance_for_test(prover_inst);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
     for (auto selector : prover_inst->polynomials.get_gate_selectors()) {

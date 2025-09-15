@@ -339,11 +339,11 @@ class ClientIVC {
     void update_native_verifier_accumulator(const VerifierInputs& queue_entry,
                                             const std::shared_ptr<Transcript>& verifier_transcript);
 
-    HonkProof construct_oink_proof(const std::shared_ptr<ProverInstance>& proving_key,
+    HonkProof construct_oink_proof(const std::shared_ptr<ProverInstance>& prover_instance,
                                    const std::shared_ptr<MegaVerificationKey>& honk_vk,
                                    const std::shared_ptr<Transcript>& transcript);
 
-    HonkProof construct_pg_proof(const std::shared_ptr<ProverInstance>& proving_key,
+    HonkProof construct_pg_proof(const std::shared_ptr<ProverInstance>& prover_instance,
                                  const std::shared_ptr<MegaVerificationKey>& honk_vk,
                                  const std::shared_ptr<Transcript>& transcript,
                                  bool is_kernel);
