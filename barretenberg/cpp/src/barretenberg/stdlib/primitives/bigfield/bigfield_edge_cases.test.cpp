@@ -79,18 +79,17 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
         uint512_t(fq_ct::modulus) - uint512_t(1), // p - 1
     };
 
-    inline static const std::array<uint512_t, 11> values_larger_than_bigfield = {
-        uint512_t(fq_ct::modulus), // p
-        uint512_t(fq_ct::modulus) + uint512_t(1),
-        uint512_t(fq_ct::modulus) + uint512_t(fr::modulus),
-        (uint512_t(1) << 256) - 1,
-        (uint512_t(1) << 256),
-        (uint512_t(1) << 256) + 1,
-        uint512_t(fq_ct::get_maximum_unreduced_value()) - 1,
-        uint512_t(fq_ct::get_maximum_unreduced_value()),
-        uint512_t(fq_ct::get_maximum_unreduced_value()) + 1,
-        uint512_t(fq_ct::get_maximum_unreduced_value()) + 2,
-        (uint512_t(1) << (stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 4)) - 1,
+    inline static const std::array<uint512_t, 10> values_larger_than_bigfield = {
+        uint512_t(fq_ct::modulus),                                             // p
+        uint512_t(fq_ct::modulus) + uint512_t(1),                              // p + 1
+        uint512_t(fq_ct::modulus) + uint512_t(fr::modulus),                    // p + n
+        (uint512_t(1) << 256) - 1,                                             // 2^256 - 1
+        (uint512_t(1) << 256),                                                 // 2^256
+        (uint512_t(1) << 256) + 1,                                             // 2^256 + 1
+        uint512_t(fq_ct::get_maximum_unreduced_value()) - 1,                   // max unreduced - 1
+        uint512_t(fq_ct::get_maximum_unreduced_value()),                       // max unreduced
+        uint512_t(fq_ct::get_maximum_unreduced_value()) + 1,                   // max unreduced + 1
+        (uint512_t(1) << (stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 4)) - 1, // 2^272 - 1
     };
 
     constexpr static uint512_t reduction_upper_bound = uint512_t(1) << (fq_ct::modulus.get_msb() + 1); // p < 2^s
@@ -391,45 +390,25 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
     {
         Builder builder = Builder();
         for (const auto& value : edge_case_values) {
-            fq_ct edge_case = fq_ct::create_from_u512_as_witness(&builder, value, true);
+            fq_ct edge_case = fq_ct::create_from_u512_as_witness(&builder, value, /*can_overflow*/ false);
+
+            // This should pass for values strictly less than modulus
             edge_case.assert_is_in_field();
         }
 
-        for (const auto& large_value : values_larger_than_bigfield) {
-            fq_ct large_case = fq_ct::create_from_u512_as_witness(&builder, large_value, true);
-
-            // Since assert_is_in_field first reduces the value mod p, and then checks if the remainder is < 2^s,
-            // all of our "large" test values will reduce to something < p, so this should always pass.
-            large_case.assert_is_in_field();
-        }
-
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
-    static void test_strict_assert_is_in_field()
-    {
-        Builder builder = Builder();
-        for (const auto& value : edge_case_values) {
-            fq_ct edge_case = fq_ct::create_from_u512_as_witness(&builder, value, true);
-
-            // This should pass for values strictly less than modulus
-            edge_case.strict_assert_is_in_field();
-        }
-
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
-    }
-
-    static void test_strict_assert_is_in_field_fails()
+    static void test_assert_is_in_field_fails()
     {
 
         Builder builder = Builder();
         for (const auto& large_value : values_larger_than_bigfield) {
-            fq_ct large_case = fq_ct::create_from_u512_as_witness(&builder, large_value, true);
+            fq_ct large_case = fq_ct::create_from_u512_as_witness(&builder, large_value, false);
 
             // For values larger than the field modulus, it should trigger a circuit error.
-            large_case.strict_assert_is_in_field();
+            large_case.assert_is_in_field();
         }
 
         bool result = CircuitChecker::check(builder);
@@ -437,7 +416,7 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
         EXPECT_EQ(builder.err(), "decompose_into_default_range");
     }
 
-    static void test_assert_less_than()
+    static void test_reduce_and_assert_less_than()
     {
         Builder builder = Builder();
 
@@ -447,12 +426,52 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
                 fq_ct edge_case_small = fq_ct::create_from_u512_as_witness(&builder, edge_case_values[i], true);
 
                 // This should always pass since edge_case_values is sorted in ascending order
-                edge_case_small.assert_less_than(edge_case_values[j].lo);
+                edge_case_small.reduce_and_assert_less_than(edge_case_values[j].lo);
             }
+        }
+
+        for (const auto& large_value : values_larger_than_bigfield) {
+            // Check for large values
+            fq_ct large_case = fq_ct::create_from_u512_as_witness(&builder, large_value, true);
+
+            // Since reduce_and_assert_is_in_field first reduces the value mod p, and then checks if the remainder is <
+            // 2^s, all of our "large" test values will reduce to something < p, so this should always pass.
+            large_case.reduce_and_assert_less_than(fq_ct::modulus - uint256_t(1)); // p - 1
         }
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
+    }
+
+    static void test_reduce_and_assert_less_than_fails()
+    {
+        Builder builder = Builder();
+
+        {
+            // case 1: value_i > value_{i + 1} (skip 0)
+            for (size_t i = 1; i < edge_case_values.size() - 1; ++i) {
+                // Check against all smaller edge case values
+                for (size_t j = 1; j < i; ++j) {
+                    fq_ct edge_case_large = fq_ct::create_from_u512_as_witness(&builder, edge_case_values[i], true);
+
+                    // This should always fail since edge_case_values is sorted in ascending order
+                    edge_case_large.reduce_and_assert_less_than(edge_case_values[j].lo);
+                }
+            }
+
+            bool result = CircuitChecker::check(builder);
+            EXPECT_EQ(result, false);
+            EXPECT_EQ(builder.err(), "decompose_into_default_range");
+        }
+        {
+#ifndef NDEBUG
+            // case 2: upper_limit = p
+            fq_ct edge_case_large = fq_ct::create_from_u512_as_witness(&builder, edge_case_values.back(), true);
+            // In debug mode, this should trigger an assertion failure since value == p
+            EXPECT_THROW_OR_ABORT(edge_case_large.reduce_and_assert_less_than(fq_ct::modulus),
+                                  "upper_limit must be < modulus");
+#endif
+        }
     }
 
     static void test_assert_equal_edge_case()
@@ -616,17 +635,17 @@ TYPED_TEST(stdlib_bigfield_edge_cases, assert_is_in_field)
 {
     TestFixture::test_assert_is_in_field();
 }
-TYPED_TEST(stdlib_bigfield_edge_cases, strict_assert_is_in_field)
+TYPED_TEST(stdlib_bigfield_edge_cases, assert_is_in_field_fails)
 {
-    TestFixture::test_strict_assert_is_in_field();
+    TestFixture::test_assert_is_in_field_fails();
 }
-TYPED_TEST(stdlib_bigfield_edge_cases, strict_assert_is_in_field_fails)
+TYPED_TEST(stdlib_bigfield_edge_cases, reduce_and_assert_less_than)
 {
-    TestFixture::test_strict_assert_is_in_field_fails();
+    TestFixture::test_reduce_and_assert_less_than();
 }
-TYPED_TEST(stdlib_bigfield_edge_cases, assert_less_than)
+TYPED_TEST(stdlib_bigfield_edge_cases, reduce_and_assert_less_than_fails)
 {
-    TestFixture::test_assert_less_than();
+    TestFixture::test_reduce_and_assert_less_than_fails();
 }
 TYPED_TEST(stdlib_bigfield_edge_cases, assert_equal_edge_case)
 {

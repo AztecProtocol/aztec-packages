@@ -1262,6 +1262,10 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             }
 
             c_ct.set_origin_tag(challenge_origin_tag);
+
+            // We need to reduce before calling assert_is_in_field
+            c_ct.self_reduce();
+
             c_ct.assert_is_in_field();
 
             // assert_is_in_field preserves tags
@@ -1275,7 +1279,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
-    static void test_strict_assert_is_in_field()
+    static void test_assert_is_in_field()
     {
         auto builder = Builder();
         size_t num_repetitions = 10;
@@ -1284,9 +1288,9 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
             auto [a_native, a_ct] = get_random_witness(&builder, true); // fq_native, fq_ct
             a_ct.set_origin_tag(challenge_origin_tag);
 
-            a_ct.strict_assert_is_in_field();
+            a_ct.assert_is_in_field();
 
-            // strict_assert_is_in_field preserves tags
+            // assert_is_in_field preserves tags
             EXPECT_EQ(a_ct.get_origin_tag(), challenge_origin_tag);
 
             EXPECT_EQ(a_ct.get_value().get_msb() < (fq_ct::modulus.get_msb() + 1), true);
@@ -1295,7 +1299,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
-    static void test_strict_assert_is_in_field_fails()
+    static void test_assert_is_in_field_fails()
     {
         auto builder = Builder();
         size_t num_repetitions = 100;
@@ -1316,19 +1320,18 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         EXPECT_EQ(c_ct.get_value() >= fq_ct::modulus, true);
 
         // this will fail because mult and add would have exceeded c > p
-        c_ct.strict_assert_is_in_field();
+        c_ct.assert_is_in_field();
 
-        // results must match (reduction called after strict_assert_is_in_field)
+        // results must match (reduction called after assert_is_in_field)
         c_ct.self_reduce();
         uint256_t result_val = c_ct.get_value().lo;
         EXPECT_EQ(result_val, uint256_t(expected));
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, false);
-        EXPECT_EQ(builder.err(), "decompose_into_default_range");
     }
 
-    static void test_assert_less_than_success()
+    static void test_reduce_and_assert_less_than_success()
     {
         auto builder = Builder();
         size_t num_repetitions = 10;
@@ -1351,7 +1354,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
                 expected = fq_native(b_u256) * fq_native(b_u256) + expected;
             }
 
-            c_ct.assert_less_than(bit_mask + 1);
+            c_ct.reduce_and_assert_less_than(bit_mask + 1);
             uint256_t result = (c_ct.get_value().lo);
             EXPECT_EQ(result, uint256_t(expected));
             EXPECT_EQ(c_ct.get_value().get_msb() < num_bits, true);
@@ -1362,10 +1365,10 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         // Checking edge conditions
         auto [random_input, a_ct] = get_random_witness(&builder);
 
-        a_ct.assert_less_than(random_input + 1);
+        a_ct.reduce_and_assert_less_than(random_input + 1);
         EXPECT_EQ(CircuitChecker::check(builder), true);
 
-        a_ct.assert_less_than(random_input);
+        a_ct.reduce_and_assert_less_than(random_input);
         EXPECT_EQ(CircuitChecker::check(builder), false);
     }
 
@@ -2252,17 +2255,17 @@ TYPED_TEST(stdlib_bigfield, assert_is_in_field_success)
 {
     TestFixture::test_assert_is_in_field_success();
 }
-TYPED_TEST(stdlib_bigfield, strict_assert_is_in_field)
+TYPED_TEST(stdlib_bigfield, assert_is_in_field)
 {
-    TestFixture::test_strict_assert_is_in_field();
+    TestFixture::test_assert_is_in_field();
 }
-TYPED_TEST(stdlib_bigfield, strict_assert_is_in_field_fails)
+TYPED_TEST(stdlib_bigfield, assert_is_in_field_fails)
 {
-    TestFixture::test_strict_assert_is_in_field_fails();
+    TestFixture::test_assert_is_in_field_fails();
 }
-TYPED_TEST(stdlib_bigfield, assert_less_than_success)
+TYPED_TEST(stdlib_bigfield, reduce_and_assert_less_than_success)
 {
-    TestFixture::test_assert_less_than_success();
+    TestFixture::test_reduce_and_assert_less_than_success();
 }
 TYPED_TEST(stdlib_bigfield, byte_array_constructors)
 {

@@ -170,8 +170,8 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
 
     // Step 3.
     Fr s(sig.s);
-    s.assert_less_than((Fr::modulus + 1) / 2); // s < (n+1) / 2
-    s.assert_is_not_equal(Fr::zero());         // 0 < s
+    s.reduce_and_assert_less_than((Fr::modulus + 1) / 2); // s < (n+1) / 2
+    s.assert_is_not_equal(Fr::zero());                    // 0 < s
 
     // Step 4.
     Fr u1 = z.div_without_denominator_check(s);

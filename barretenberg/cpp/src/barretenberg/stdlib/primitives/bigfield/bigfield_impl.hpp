@@ -1803,32 +1803,57 @@ template <typename Builder, typename T> void bigfield<Builder, T>::sanity_check(
              limb_overflow_test_2 || limb_overflow_test_3));
 }
 
-// Underneath performs assert_less_than(modulus)
+// Underneath performs unsafe_assert_less_than(modulus)
 // create a version with mod 2^t element part in [0,p-1]
-// After reducing to size 2^s, we check (p-1)-a is non-negative as integer.
+// After range-constraining to size 2^s, we check (p-1)-a is non-negative as integer.
 // We perform subtraction using carries on blocks of size 2^b. The operations inside the blocks are done mod r
 // Including the effect of carries the operation inside each limb is in the range [-2^b-1,2^{b+1}]
 // Assuming this values are all distinct mod r, which happens e.g. if r/2>2^{b+1}, then if all limb values are
 // non-negative at the end of subtraction, we know the subtraction result is positive as integers and a<p
 template <typename Builder, typename T> void bigfield<Builder, T>::assert_is_in_field() const
 {
-    assert_less_than(modulus);
+    // Range constrain the binary basis limbs of the element to respective limb sizes.
+    // This is required because the comparison is done using subtractions, which can result in overflows.
+    //
+    // Range constrain the first two limbs each to NUM_LIMB_BITS
+    auto ctx = get_context();
+    ctx->range_constrain_two_limbs(binary_basis_limbs[0].element.get_normalized_witness_index(),
+                                   binary_basis_limbs[1].element.get_normalized_witness_index(),
+                                   static_cast<size_t>(NUM_LIMB_BITS),
+                                   static_cast<size_t>(NUM_LIMB_BITS));
+
+    // Range constrain the last two limbs to NUM_LIMB_BITS and NUM_LAST_LIMB_BITS
+    ctx->range_constrain_two_limbs(binary_basis_limbs[2].element.get_normalized_witness_index(),
+                                   binary_basis_limbs[3].element.get_normalized_witness_index(),
+                                   static_cast<size_t>(NUM_LIMB_BITS),
+                                   static_cast<size_t>(NUM_LAST_LIMB_BITS));
+
+    // Now we can check that the element is < modulus.
+    unsafe_assert_less_than(modulus);
 }
 
-// A stricter version that requires the element to be fully reduced mod p.
-// While enforcing `this` < p we do not reduce `this`. The reduction does the following:
-// 1) Reduces the element mod p
-// 2) Enforces that the remainder is < 2^s where s = ceil(log2(p))
-//
-// This is useful in places where we want to ensure that the element is fully reduced, e.g. before
-// serializing to bytes.
-template <typename Builder, typename T> void bigfield<Builder, T>::strict_assert_is_in_field() const
-{
-    assert_less_than(modulus, false);
-}
-
+// Reduces the element mod p (lazy reduction) and asserts that it is < upper_limit.
+// Note that upper_limit must be < p, otherwise this function will always pass.
 template <typename Builder, typename T>
-void bigfield<Builder, T>::assert_less_than(const uint256_t& upper_limit, const bool reduce_input) const
+void bigfield<Builder, T>::reduce_and_assert_less_than(const uint256_t& upper_limit) const
+{
+    // First we lazy-reduce the element mod p, and constrain the output/remainder to be < 2^s where s = ceil(log2(p)).
+    // This brings the element into the range [0, 2^s) such that the limbs of the reduced element are all range
+    // constrained to < 2^b (last limb < 2^(s - 3b)).
+    //
+    // This also means that the upper limit must be < p, otherwise we would end up reducing a value greater than p.
+    // If upper_limit >= p, this function will always pass even if the input > upper_limit.
+    BB_ASSERT_LT(upper_limit, modulus, "upper_limit must be < modulus");
+    self_reduce();
+
+    // Then we constrain the element to be < upper_limit using strict comparison.
+    unsafe_assert_less_than(upper_limit);
+}
+
+// Asserts that the element is < upper_limit. We mark this as unsafe because it assumes that the element is already
+// range constrained to < 2^s where s = ceil(log2(p)).
+template <typename Builder, typename T>
+void bigfield<Builder, T>::unsafe_assert_less_than(const uint256_t& upper_limit) const
 {
     // Warning: this assumes we have run circuit construction at least once in debug mode where large non reduced
     // constants are NOT allowed via ASSERT
@@ -1841,9 +1866,6 @@ void bigfield<Builder, T>::assert_less_than(const uint256_t& upper_limit, const 
     // The circuit checks that limit - this >= 0, so if we are doing a less_than comparison, we need to subtract 1
     // from the limit
     uint256_t strict_upper_limit = upper_limit - uint256_t(1);
-    if (reduce_input) {
-        self_reduce(); // this method in particular enforces limb vals are <2^b - needed for logic described above
-    }
     uint256_t value = get_value().lo;
 
     const uint256_t upper_limit_value_0 = strict_upper_limit.slice(0, NUM_LIMB_BITS);
@@ -1877,11 +1899,11 @@ void bigfield<Builder, T>::assert_less_than(const uint256_t& upper_limit, const 
     // The prover can rearrange the borrows the way they like. The important thing is that the borrows are
     // constrained.
     field_t<Builder> r0 =
-        upper_limit_0 - binary_basis_limbs[0].element + static_cast<field_t<Builder>>(borrow_0) * shift_1;
+        upper_limit_0 - binary_basis_limbs[0].element + (static_cast<field_t<Builder>>(borrow_0) * shift_1);
     field_t<Builder> r1 = upper_limit_1 - binary_basis_limbs[1].element +
-                          static_cast<field_t<Builder>>(borrow_1) * shift_1 - static_cast<field_t<Builder>>(borrow_0);
+                          (static_cast<field_t<Builder>>(borrow_1) * shift_1) - static_cast<field_t<Builder>>(borrow_0);
     field_t<Builder> r2 = upper_limit_2 - binary_basis_limbs[2].element +
-                          static_cast<field_t<Builder>>(borrow_2) * shift_1 - static_cast<field_t<Builder>>(borrow_1);
+                          (static_cast<field_t<Builder>>(borrow_2) * shift_1) - static_cast<field_t<Builder>>(borrow_1);
     field_t<Builder> r3 = upper_limit_3 - binary_basis_limbs[3].element - static_cast<field_t<Builder>>(borrow_2);
     r0 = r0.normalize();
     r1 = r1.normalize();
