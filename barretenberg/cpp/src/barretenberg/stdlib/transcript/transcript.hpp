@@ -38,7 +38,6 @@ template <typename Builder> struct StdlibTranscriptParams {
         const size_t lo_bits = 128;
         const size_t hi_bits = 126;
         const auto [lo, hi] = challenge.split_at(lo_bits);
-        // WORKTODO: are these range constraints necessary?
         lo.create_range_constraint(lo_bits);
         hi.create_range_constraint(hi_bits);
         return std::array<DataType, 2>{ lo, hi };
