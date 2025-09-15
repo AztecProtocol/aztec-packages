@@ -8,6 +8,7 @@
 
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/claim_batcher.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -194,6 +195,7 @@ template <typename Curve> class GeminiProver_ {
          */
         Polynomial compute_batched(const Fr& challenge, Fr& running_scalar)
         {
+            BB_BENCH_NAME("compute_batched");
             // lambda for batching polynomials; updates the running scalar in place
             auto batch = [&](Polynomial& batched, const RefVector<Polynomial>& polynomials_to_batch) {
                 for (auto& poly : polynomials_to_batch) {
