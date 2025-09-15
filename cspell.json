@@ -144,6 +144,7 @@
     "gtest",
     "gzipped",
     "hackmd",
+    "handshaked",
     "hardfork",
     "hardlinks",
     "hashable",
@@ -398,5 +399,12 @@
     "lib",
     "*.cmake"
   ],
-  "flagWords": ["anonymous", "offence", "offences", "on-chain", "off-chain", "out-of-band"]
+  "flagWords": [
+    "anonymous",
+    "offence",
+    "offences",
+    "on-chain",
+    "off-chain",
+    "out-of-band"
+  ]
 }
