@@ -25,6 +25,8 @@ template <typename Builder> struct StdlibTranscriptParams {
 
         return stdlib::poseidon2<Builder>::hash(data);
     }
+
+    // move it to field_conversion?
     /**
      * @brief Split a challenge field element into two half-width challenges
      * @details `lo` is 128 bits and `hi` is 126 bits.
@@ -35,7 +37,9 @@ template <typename Builder> struct StdlibTranscriptParams {
      */
     static inline std::array<DataType, 2> split_challenge(const DataType& challenge)
     {
-        // use existing field-splitting code in cycle_scalar
+
+        // split field_t challenge into (low, hi), in case of bigfield, create 2 bigfield elements bigfield(low, 0),
+        // bigfield(hi, 0). use existing field-splitting code in cycle_scalar
         using cycle_scalar = typename stdlib::cycle_group<Builder>::cycle_scalar;
         const cycle_scalar scalar = cycle_scalar(challenge);
         scalar.lo.create_range_constraint(cycle_scalar::LO_BITS);

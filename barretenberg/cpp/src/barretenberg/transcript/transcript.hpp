@@ -94,6 +94,8 @@ struct NativeTranscriptParams {
     static DataType hash(const std::vector<DataType>& data);
     template <typename T> static inline T convert_challenge(const DataType& challenge)
     {
+        // Shouldn't convert field_t --> (lo, hi) --> bigfield just to split bigfield element into 2. can simply
+        // propagate
         return bb::field_conversion::convert_challenge<T>(challenge);
     }
     /**
