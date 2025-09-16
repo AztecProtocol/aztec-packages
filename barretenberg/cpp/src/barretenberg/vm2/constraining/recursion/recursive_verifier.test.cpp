@@ -39,21 +39,25 @@ class AvmRecursiveTests : public ::testing::Test {
     // by reference.
     static void create_and_verify_native_proof(NativeProofResult& proof_result)
     {
-        auto [trace, public_inputs] = testing::get_minimal_trace_with_pi();
+        static NativeProofResult cached_proof_result = []() {
+            auto [trace, public_inputs] = testing::get_minimal_trace_with_pi();
 
-        const auto public_inputs_cols = public_inputs.to_columns();
+            const auto public_inputs_cols = public_inputs.to_columns();
 
-        InnerProver prover;
-        const auto [proof, vk_data] = prover.prove(std::move(trace));
-        const auto verification_key = InnerProver::create_verification_key(vk_data);
-        InnerVerifier verifier(verification_key);
+            InnerProver prover;
+            const auto [proof, vk_data] = prover.prove(std::move(trace));
+            const auto verification_key = InnerProver::create_verification_key(vk_data);
+            InnerVerifier verifier(verification_key);
 
-        const bool verified = verifier.verify_proof(proof, public_inputs_cols);
+            const bool verified = verifier.verify_proof(proof, public_inputs_cols);
 
-        // Should be in principle ASSERT_TRUE, but compiler does not like it.
-        EXPECT_TRUE(verified) << "native proof verification failed";
+            // Should be in principle ASSERT_TRUE, but compiler does not like it.
+            EXPECT_TRUE(verified) << "native proof verification failed";
 
-        proof_result = { proof, verification_key, public_inputs_cols };
+            return NativeProofResult{ proof, verification_key, public_inputs_cols };
+        }();
+
+        proof_result = cached_proof_result;
     }
 };
 
