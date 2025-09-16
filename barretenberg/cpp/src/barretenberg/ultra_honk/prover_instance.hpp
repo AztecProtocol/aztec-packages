@@ -25,15 +25,15 @@
 
 namespace bb {
 /**
- * @brief  A DeciderProvingKey is normally constructed from a finalized circuit and it contains all the information
- * required by an Mega Honk prover to create a proof. A DeciderProvingKey is also the result of running the
+ * @brief  A ProverInstance is normally constructed from a finalized circuit and it contains all the information
+ * required by an Mega Honk prover to create a proof. A ProverInstance is also the result of running the
  * Protogalaxy prover, in which case it becomes a relaxed counterpart with the folding parameters (target sum and gate
  * challenges set to non-zero values).
  *
  * @details This is the equivalent of ω in the paper.
  */
 
-template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
+template <IsUltraOrMegaHonk Flavor> class ProverInstance_ {
     using Circuit = typename Flavor::CircuitBuilder;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using FF = typename Flavor::FF;
@@ -89,14 +89,14 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
         return typename Flavor::PrecomputedData{ polynomials.get_precomputed(), metadata };
     }
 
-    DeciderProvingKey_(Circuit& circuit,
-                       TraceSettings trace_settings = {},
-                       const CommitmentKey& commitment_key = CommitmentKey())
+    ProverInstance_(Circuit& circuit,
+                    TraceSettings trace_settings = {},
+                    const CommitmentKey& commitment_key = CommitmentKey())
         : is_structured(trace_settings.structure.has_value())
         , commitment_key(commitment_key)
     {
-        BB_BENCH_NAME("DeciderProvingKey(Circuit&)");
-        vinfo("Constructing DeciderProvingKey");
+        BB_BENCH_NAME("ProverInstance(Circuit&)");
+        vinfo("Constructing ProverInstance");
         auto start = std::chrono::steady_clock::now();
         // Decider proving keys can be constructed multiple times, hence, we check whether the circuit has been
         // finalized
@@ -130,9 +130,9 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
             }
         }
 
-        vinfo("allocating polynomials object in proving key...");
+        vinfo("allocating polynomials object in prover instance...");
         {
-            BB_BENCH_NAME("allocating proving key");
+            BB_BENCH_NAME("allocating polynomials");
 
             populate_memory_records(circuit);
 
@@ -213,8 +213,12 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
         vinfo("time to construct proving key: ", diff.count(), " ms.");
     }
 
-    DeciderProvingKey_() = default;
-    ~DeciderProvingKey_() = default;
+    ProverInstance_() = default;
+    ProverInstance_(const ProverInstance_&) = delete;
+    ProverInstance_(ProverInstance_&&) = delete;
+    ProverInstance_& operator=(const ProverInstance_&) = delete;
+    ProverInstance_& operator=(ProverInstance_&&) = delete;
+    ~ProverInstance_() = default;
 
     bool get_is_structured() { return is_structured; }
 
