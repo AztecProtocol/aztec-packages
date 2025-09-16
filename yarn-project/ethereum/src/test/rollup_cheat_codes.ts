@@ -112,14 +112,14 @@ export class RollupCheatCodes {
    * @param opts - Options
    */
   public async advanceToEpoch(
-    epoch: bigint,
+    epoch: bigint | number,
     opts: {
       /** Optional test date provider to update with the epoch timestamp */
       updateDateProvider?: TestDateProvider;
     } = {},
   ) {
     const { epochDuration: slotsInEpoch } = await this.getConfig();
-    const timestamp = await this.rollup.read.getTimestampForSlot([epoch * slotsInEpoch]);
+    const timestamp = await this.rollup.read.getTimestampForSlot([BigInt(epoch) * slotsInEpoch]);
     try {
       await this.ethCheatCodes.warp(Number(timestamp), { ...opts, silent: true, resetBlockInterval: true });
       this.logger.warn(`Warped to epoch ${epoch}`);
