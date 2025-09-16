@@ -65,8 +65,9 @@ publishers=()
 if [ -n "$WEB3_SIGNER_URL" ]; then
   remoteSigner=$(jq -n '{remoteSignerUrl: $url}' --arg url "$WEB3_SIGNER_URL")
   attesters=(${addresses[*]})
-  # With web3signer, use addresses for publishers too
-  publishers=(${publisher_addresses[*]})
+  # TODO: use addresses here when web3signer supports EIP-4844 txs. See PR https://github.com/Consensys/web3signer/pull/1096
+  # publishers=(${publisher_addresses[*]})
+  publishers=(${publisher_private_keys[*]})
 else
   remoteSigner="null"
   attesters=(${private_keys[*]})

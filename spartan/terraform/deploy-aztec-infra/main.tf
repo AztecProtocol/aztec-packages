@@ -159,10 +159,21 @@ locals {
         "rpc.yaml",
         "rpc-resources-${var.RPC_RESOURCE_PROFILE}.yaml"
       ]
-      custom_settings = {
-        "nodeType"         = "rpc"
-        "node.env.NETWORK" = var.NETWORK
-      }
+      custom_settings = merge(
+        {
+          "nodeType"            = "rpc"
+          "node.env.NETWORK"    = var.NETWORK
+          "ingress.rpc.enabled" = var.RPC_INGRESS_ENABLED
+          "ingress.rpc.host"    = var.RPC_INGRESS_HOST
+        },
+        var.RPC_INGRESS_ENABLED ? {
+          "service.rpc.annotations.cloud\\.google\\.com/neg"                        = "{\"ingress\": true}"
+          "ingress.rpc.annotations.kubernetes\\.io/ingress\\.class"                 = "gce"
+          "ingress.rpc.annotations.kubernetes\\.io/ingress\\.global-static-ip-name" = var.RPC_INGRESS_STATIC_IP_NAME
+          "ingress.rpc.annotations.ingress\\.gcp\\.kubernetes\\.io/pre-shared-cert" = var.RPC_INGRESS_SSL_CERT_NAME
+          "ingress.rpc.annotations.kubernetes\\.io/ingress\\.allow-http"            = "false"
+        } : {}
+      )
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
     }

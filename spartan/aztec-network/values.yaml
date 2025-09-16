@@ -423,12 +423,3 @@ blobSink:
     storageSize: "8Gi"
     dataStoreMapSize: "134217728" # 128 GB
 
-faucet:
-  enabled: true
-  replicas: 1
-  service:
-    nodePort: 8085
-  apiServerPort: 8086
-  addressIndex: 0
-  l1Assets: ""
-  logLevel: ""
