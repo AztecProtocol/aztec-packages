@@ -1,6 +1,7 @@
 nodeSelector:
   local-ssd: "false"
   node-type: "network"
+  cores: "2"
 
 affinity:
   podAntiAffinity:
@@ -20,8 +21,8 @@ hostNetwork: true
 node:
   resources:
     requests:
-      cpu: "3"
-      memory: "12Gi"
+      cpu: "1.6"
+      memory: "5Gi"
 persistence:
   enabled: true
 
