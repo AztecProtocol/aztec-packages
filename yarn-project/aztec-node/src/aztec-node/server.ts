@@ -82,7 +82,7 @@ import {
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
 import type { LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { InboxLeaf, type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import type { Offense, SlashPayloadRound } from '@aztec/stdlib/slashing';
 import type { NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
@@ -860,13 +860,19 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return [witness.index, witness.path];
   }
 
+  public async getL1ToL2MessageBlock(l1ToL2Message: Fr): Promise<number | undefined> {
+    const messageIndex = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
+    return messageIndex ? InboxLeaf.l2BlockFromIndex(messageIndex) : undefined;
+  }
+
   /**
    * Returns whether an L1 to L2 message is synced by archiver and if it's ready to be included in a block.
    * @param l1ToL2Message - The L1 to L2 message to check.
    * @returns Whether the message is synced and ready to be included in a block.
    */
   public async isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
-    return (await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message)) !== undefined;
+    const messageIndex = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
+    return messageIndex !== undefined;
   }
 
   /**
