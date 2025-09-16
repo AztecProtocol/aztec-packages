@@ -22,6 +22,9 @@ const AZTEC_SLOT_DURATION = 8;
 const SLASHING_UNIT = BigInt(1e18);
 const SLASHING_AMOUNT = SLASHING_UNIT * 3n;
 
+// How many epochs it may take to set everything up, so we dont slash during this period
+const SETUP_EPOCH_DURATION = 5;
+
 export class P2PInactivityTest {
   public nodes!: AztecNodeService[];
   public activeNodes!: AztecNodeService[];
@@ -32,18 +35,20 @@ export class P2PInactivityTest {
 
   private dataDir: string;
   private inactiveNodeCount: number;
+  private keepInitialNode: boolean;
 
   constructor(
     public readonly test: P2PNetworkTest,
-    opts: { inactiveNodeCount: number },
+    opts: { inactiveNodeCount: number; keepInitialNode?: boolean },
   ) {
     this.dataDir = fs.mkdtempSync(path.join(os.tmpdir(), test.testName));
     this.inactiveNodeCount = opts.inactiveNodeCount;
+    this.keepInitialNode = opts.keepInitialNode ?? false;
   }
 
   static async create(
     testName: string,
-    opts: { slashInactivityConsecutiveEpochThreshold: number; inactiveNodeCount: number },
+    opts: { slashInactivityConsecutiveEpochThreshold: number; inactiveNodeCount: number; keepInitialNode?: boolean },
   ) {
     const test = await P2PNetworkTest.create({
       testName,
@@ -64,8 +69,8 @@ export class P2PInactivityTest {
         sentinelEnabled: true,
         slashingQuorum: SLASHING_QUORUM,
         slashingRoundSizeInEpochs: SLASHING_ROUND_SIZE_IN_EPOCHS,
-        slashInactivityTargetPercentage: 0.5,
-        slashGracePeriodL2Slots: EPOCH_DURATION, // do not slash during the first epoch
+        slashInactivityTargetPercentage: 0.8,
+        slashGracePeriodL2Slots: SETUP_EPOCH_DURATION * EPOCH_DURATION, // do not slash during setup
         slashAmountSmall: SLASHING_UNIT,
         slashAmountMedium: SLASHING_UNIT * 2n,
         slashAmountLarge: SLASHING_UNIT * 3n,
@@ -91,18 +96,21 @@ export class P2PInactivityTest {
     this.test.ctx.aztecNodeConfig.slashInactivityPenalty = SLASHING_AMOUNT;
     this.rollup = rollup;
 
-    // The initial validator that ran on this node is picked up by the first new node started below
-    await this.test.removeInitialNode();
+    if (!this.keepInitialNode) {
+      await this.test.ctx.aztecNode.stop();
+    }
 
     // Create all active nodes
     this.activeNodes = await createNodes(
       this.test.ctx.aztecNodeConfig,
       this.test.ctx.dateProvider,
       this.test.bootstrapNodeEnr,
-      NUM_NODES - this.inactiveNodeCount,
+      NUM_NODES - this.inactiveNodeCount - Number(this.keepInitialNode),
       BOOT_NODE_UDP_PORT,
       this.test.prefilledPublicData,
       this.dataDir,
+      undefined,
+      Number(this.keepInitialNode),
     );
 
     // And the ones with an initially disabled sequencer
@@ -119,7 +127,15 @@ export class P2PInactivityTest {
       NUM_NODES - this.inactiveNodeCount,
     );
 
-    this.nodes = [...this.activeNodes, ...this.inactiveNodes];
+    this.nodes = [
+      ...(this.keepInitialNode ? [this.test.ctx.aztecNode] : []),
+      ...this.activeNodes,
+      ...this.inactiveNodes,
+    ];
+
+    if (this.nodes.length !== NUM_NODES) {
+      throw new Error(`Expected ${NUM_NODES} nodes but got ${this.nodes.length}`);
+    }
 
     this.offlineValidators = this.test.validators
       .slice(this.test.validators.length - this.inactiveNodeCount)
@@ -129,6 +145,9 @@ export class P2PInactivityTest {
       validators: this.test.validators,
       offlineValidators: this.offlineValidators,
     });
+
+    this.test.logger.warn(`Advancing to epoch ${SETUP_EPOCH_DURATION + 1} to start slashing`);
+    await this.test.ctx.cheatCodes.rollup.advanceToEpoch(SETUP_EPOCH_DURATION + 1);
 
     return this;
   }

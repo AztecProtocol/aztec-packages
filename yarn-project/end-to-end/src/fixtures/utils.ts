@@ -576,7 +576,7 @@ export async function setup(
     await blobSink.start();
     config.blobSinkUrl = `http://localhost:${blobSinkPort}`;
 
-    logger.verbose('Creating and synching an aztec node...');
+    logger.verbose('Creating and synching an aztec node', config);
 
     const acvmConfig = await getACVMConfig(logger);
     if (acvmConfig) {

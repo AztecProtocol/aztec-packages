@@ -17,6 +17,7 @@ describe('e2e_p2p_inactivity_slash', () => {
     test = await P2PInactivityTest.create('e2e_p2p_inactivity_slash', {
       slashInactivityConsecutiveEpochThreshold: SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD,
       inactiveNodeCount: 1,
+      keepInitialNode: false,
     }).then(t => t.setup());
   });
 
