@@ -277,8 +277,8 @@ const LocalEntryQueueConfig = {
 
 const StagingPublicEntryQueueConfig = {
   bootstrapValidatorSetSize: 48n,
-  bootstrapFlushSize: 48n, // will effectively be bounded by maxQueueFlushSize
-  normalFlushSizeMin: 1n,
+  bootstrapFlushSize: 32n, // will effectively be bounded by maxQueueFlushSize
+  normalFlushSizeMin: 32n,
   normalFlushSizeQuotient: 2475n,
   maxQueueFlushSize: 32n, // Limited to 32 so flush cost are kept below 15M gas.
 };
