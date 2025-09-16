@@ -510,8 +510,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @param number - The block number being requested.
    * @returns The requested block.
    */
-  public async getBlock(number: number): Promise<L2Block | undefined> {
-    return await this.blockSource.getBlock(number);
+  public async getBlock(number: L2BlockNumber): Promise<L2Block | undefined> {
+    const blockNumber = number === 'latest' ? await this.getBlockNumber() : number;
+    return await this.blockSource.getBlock(blockNumber);
   }
 
   /**
