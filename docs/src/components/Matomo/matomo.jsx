@@ -22,9 +22,11 @@ export default function useMatomo() {
   const location = useLocation();
 
   const env = siteConfig.customFields.MATOMO_ENV;
-  const urlBase = "https://noirlang.matomo.cloud/";
-  const trackerUrl = `${urlBase}matomo.php`;
-  const srcUrl = `${urlBase}matomo.js`;
+  
+  // Use proxy endpoints to avoid adblockers
+  const urlBase = "/.netlify/functions/";
+  const trackerUrl = `${urlBase}track`;
+  const srcUrl = `${urlBase}analytics.js`;
 
   window._paq = window._paq || [];
 
@@ -53,6 +55,44 @@ export default function useMatomo() {
 
     if (scripts && scripts.parentNode) {
       scripts.parentNode.insertBefore(scriptElement, scripts);
+    }
+
+    // Debug logging for development
+    const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('127.0.0.1');
+    if (isDev) {
+      const checkMatomoStatus = () => {
+        console.group('📊 Matomo Analytics Debug');
+        
+        const paqExists = typeof window !== 'undefined' && !!window._paq;
+        const matomoScript = document.querySelector('script[src*="analytics.js"]') || document.querySelector('script[src*="matomo.js"]');
+        const scriptLoaded = matomoScript && matomoScript.readyState === 'complete';
+        const isUsingProxy = !!document.querySelector('script[src*="analytics.js"]');
+        
+        console.log('📊 _paq exists:', paqExists);
+        console.log('📊 Script found:', !!matomoScript);
+        console.log('📊 Script loaded:', scriptLoaded);
+        console.log('🔧 Using proxy:', isUsingProxy);
+        console.log('🔒 Consent:', localStorage.getItem("matomoConsent"));
+        console.log('🏷️ Site ID:', getSiteId(env));
+        console.log('📍 Tracker URL:', trackerUrl);
+        
+        if (matomoScript) {
+          console.log('📄 Script source:', matomoScript.src);
+        }
+        
+        if (paqExists) {
+          if (typeof window._paq.push === 'function') {
+            console.log('✅ Matomo is functional');
+          }
+        } else {
+          console.warn('🚫 Matomo not found - might be blocked');
+        }
+        
+        console.groupEnd();
+      };
+      
+      // Check after script has time to load
+      setTimeout(checkMatomoStatus, 2000);
     }
   }, []);
 

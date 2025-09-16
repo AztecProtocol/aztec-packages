@@ -36,6 +36,27 @@ export default function NPSWidget({
   const [isVisible, setIsVisible] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
   const [isAnimatingIn, setIsAnimatingIn] = useState(false);
+  const [debugMode, setDebugMode] = useState(false);
+
+  // Debug mode toggle (only in development)
+  useEffect(() => {
+    const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('127.0.0.1');
+    setDebugMode(isDev);
+  }, []);
+
+  // Force show NPS for debugging
+  const forceShowNPS = () => {
+    console.log('🔧 Force showing NPS widget');
+    setIsVisible(true);
+    setTimeout(() => setIsAnimatingIn(true), 50);
+    
+    // Track as debug event
+    analytics.trackNPSWidgetEvent('shown', {
+      debug: true,
+      forced: true,
+      timestamp: Date.now()
+    });
+  };
 
   // Check if user has already interacted with NPS
   useEffect(() => {
@@ -203,10 +224,33 @@ export default function NPSWidget({
     analytics.trackNPSResponse(data);
   };
 
-  if (!isVisible || isDismissed) return null;
+  if (!isVisible || isDismissed) {
+    // Show debug button in development
+    if (debugMode) {
+      return (
+        <div style={{
+          position: 'fixed',
+          bottom: '20px',
+          left: '20px',
+          zIndex: 9999,
+          backgroundColor: '#007acc',
+          color: 'white',
+          padding: '8px 12px',
+          borderRadius: '4px',
+          fontSize: '12px',
+          cursor: 'pointer',
+          fontFamily: 'monospace'
+        }} onClick={forceShowNPS}>
+          🔧 Force NPS
+        </div>
+      );
+    }
+    return null;
+  }
 
   return (
-    <div className={`${styles.npsWidget} ${isAnimatingIn ? styles.visible : styles.hidden}`}>
+    <>
+      <div className={`${styles.npsWidget} ${isAnimatingIn ? styles.visible : styles.hidden}`}>
       <div className={styles.npsWidgetContent}>
         <button className={styles.npsCloseBtn} onClick={handleClose}>×</button>
         
@@ -257,6 +301,31 @@ export default function NPSWidget({
           </div>
         )}
       </div>
-    </div>
+      </div>
+      
+      {/* Debug info panel in development */}
+      {debugMode && isVisible && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          color: 'white',
+          padding: '12px',
+          borderRadius: '4px',
+          fontSize: '11px',
+          fontFamily: 'monospace',
+          maxWidth: '300px',
+          zIndex: 10000
+        }}>
+          <div>🛠️ NPS Debug Info</div>
+          <div>_paq exists: {typeof window !== 'undefined' && !!window._paq ? '✅' : '❌'}</div>
+          <div>Script loaded: {typeof window !== 'undefined' && !!document.querySelector('script[src*="matomo.js"]') ? '✅' : '❌'}</div>
+          <div>Consent: {typeof window !== 'undefined' ? localStorage.getItem("matomoConsent") || 'none' : 'n/a'}</div>
+          <div>Score: {score ?? 'not set'}</div>
+          <div>Feedback: {feedback.length} chars</div>
+        </div>
+      )}
+    </>
   );
 }
