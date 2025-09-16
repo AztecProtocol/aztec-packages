@@ -5,7 +5,7 @@ fn get_next_tag(
     context: &mut PrivateContext,
 ) -> Field {
     if !handshake_exists(sender, recipient, hidden_sender) {
-        // The handshake doesn't exist, so we need to call the handshake function of the tagging contract.
+        // The handshake doesn't exist, so we need to call the handshake function of the Handshaker contract.
         context.call_private_function(
             HANDSHAKER_CONTRACT_ADDRESS,
             FunctionSelector::from_signature("handshake((Field,bool))"),
