@@ -124,6 +124,11 @@ jobs:
           BOT_SWAPS_FOLLOW_CHAIN=PENDING
           BOT_SWAPS_TX_INTERVAL_SECONDS=350
 
+          RPC_INGRESS_ENABLED=true
+          RPC_INGRESS_HOST=staging.alpha-testnet.aztec-labs.com
+          RPC_INGRESS_STATIC_IP_NAME=staging-rc-1-ingress
+          RPC_INGRESS_SSL_CERT_NAME=staging-public-rpc-cert
+
           FLUSH_ENTRY_QUEUE=false
           EOF
           echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
@@ -236,6 +241,12 @@ jobs:
           BOT_TRANSFERS_REPLICAS=0
           BOT_SWAPS_REPLICAS=0
           FLUSH_ENTRY_QUEUE=false
+
+          # RPC_INGRESS_ENABLED=true
+          # RPC_INGRESS_HOST=rpc.testnet.aztec-labs.com
+          # RPC_INGRESS_STATIC_IP_NAME=testnet-rpc-ingress
+          # RPC_INGRESS_SSL_CERT_NAME=testnet-rpc-cert
+
           EOF
           echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
 
