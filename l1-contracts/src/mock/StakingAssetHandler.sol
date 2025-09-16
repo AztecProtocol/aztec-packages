@@ -143,16 +143,6 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   uint8 public minAge = 18;
   string[] internal excludedCountries;
 
-  // ZKPassport - Age constraints
-  uint256 public minAge = 18;
-  uint256 public maxAge = 0;
-
-  // ZKPassport - Excluded counties
-  bytes32 internal pkr = keccak256(bytes("PRK"));
-  bytes32 internal ukr = keccak256(bytes("UKR"));
-  bytes32 internal irn = keccak256(bytes("IRN"));
-  bytes32 internal cub = keccak256(bytes("CUB"));
-
   constructor(StakingAssetHandlerArgs memory _args) Ownable(_args.owner) {
     require(_args.depositsPerMint > 0, CannotMintZeroAmount());
 
