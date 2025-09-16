@@ -604,7 +604,7 @@ class TranslatorFlavor {
       public:
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
 
-        auto get_precomputed() const { return PrecomputedEntities<DataType>::get_all(); };
+        auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); };
 
         /**
          * @brief Getter for entities constructed by interleaving
@@ -749,22 +749,7 @@ class TranslatorFlavor {
         }
     };
 
-    /**
-     * @brief The proving key is responsible for storing the polynomials used by the prover.
-     *
-     */
-    class ProvingKey {
-      public:
-        size_t circuit_size = 1UL << CONST_TRANSLATOR_LOG_N;
-        size_t log_circuit_size = CONST_TRANSLATOR_LOG_N;
-
-        ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
-        CommitmentKey commitment_key = CommitmentKey();
-
-        ProvingKey(const CommitmentKey& commitment_key = CommitmentKey())
-            : commitment_key(commitment_key)
-        {}
-    };
+    using PrecomputedData = PrecomputedData_<Polynomial, NUM_PRECOMPUTED_ENTITIES>;
 
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
@@ -789,15 +774,15 @@ class TranslatorFlavor {
             }
         }
 
-        VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
+        VerificationKey(const PrecomputedData& precomputed)
         {
             this->log_circuit_size = CONST_TRANSLATOR_LOG_N;
             this->num_public_inputs = 0;
             this->pub_inputs_offset = 0;
 
-            for (auto [polynomial, commitment] :
-                 zip_view(proving_key->polynomials.get_precomputed(), this->get_all())) {
-                commitment = proving_key->commitment_key.commit(polynomial);
+            CommitmentKey commitment_key{ 1UL << CONST_TRANSLATOR_LOG_N };
+            for (auto [polynomial, commitment] : zip_view(precomputed.polynomials, this->get_all())) {
+                commitment = commitment_key.commit(polynomial);
             }
         }
 

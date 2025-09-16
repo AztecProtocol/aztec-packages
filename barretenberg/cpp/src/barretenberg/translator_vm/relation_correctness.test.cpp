@@ -579,8 +579,7 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
     const size_t full_masking_offset = NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
 
     TranslatorProvingKey key{};
-    key.proving_key = std::make_shared<typename Flavor::ProvingKey>();
-    ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
+    ProverPolynomials& prover_polynomials = key.polynomials;
     const size_t dyadic_circuit_size_without_masking = full_circuit_size - full_masking_offset;
 
     // Fill required relation parameters
@@ -632,9 +631,8 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgeDeltaRange)
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     auto& engine = numeric::get_debug_randomness();
 
-    TranslatorProvingKey key;
-    key.proving_key = std::make_shared<typename Flavor::ProvingKey>();
-    ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
+    TranslatorProvingKey key{};
+    ProverPolynomials& prover_polynomials = key.polynomials;
 
     const size_t full_masking_offset = NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
     const size_t dyadic_circuit_size_without_masking = TranslatorProvingKey::dyadic_circuit_size_without_masking;

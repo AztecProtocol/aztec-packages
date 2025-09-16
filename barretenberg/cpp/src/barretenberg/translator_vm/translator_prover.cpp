@@ -20,8 +20,8 @@ TranslatorProver::TranslatorProver(const std::shared_ptr<TranslatorProvingKey>& 
     , key(key)
 {
     BB_BENCH();
-    if (!key->proving_key->commitment_key.initialized()) {
-        key->proving_key->commitment_key = CommitmentKey(key->proving_key->circuit_size);
+    if (!key->commitment_key.initialized()) {
+        key->commitment_key = CommitmentKey(key->dyadic_circuit_size);
     }
 }
 
@@ -41,16 +41,15 @@ void TranslatorProver::execute_preamble_round()
     const auto SHIFTx2 = uint256_t(1) << (Flavor::NUM_LIMB_BITS * 2);
     const auto SHIFTx3 = uint256_t(1) << (Flavor::NUM_LIMB_BITS * 3);
     const size_t RESULT_ROW = Flavor::RESULT_ROW;
-    const auto accumulated_result =
-        BF(uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_0[RESULT_ROW]) +
-           uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_1[RESULT_ROW]) * SHIFT +
-           uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_2[RESULT_ROW]) * SHIFTx2 +
-           uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_3[RESULT_ROW]) * SHIFTx3);
+    const auto accumulated_result = BF(uint256_t(key->polynomials.accumulators_binary_limbs_0[RESULT_ROW]) +
+                                       uint256_t(key->polynomials.accumulators_binary_limbs_1[RESULT_ROW]) * SHIFT +
+                                       uint256_t(key->polynomials.accumulators_binary_limbs_2[RESULT_ROW]) * SHIFTx2 +
+                                       uint256_t(key->polynomials.accumulators_binary_limbs_3[RESULT_ROW]) * SHIFTx3);
 
-    relation_parameters.accumulated_result = { key->proving_key->polynomials.accumulators_binary_limbs_0[RESULT_ROW],
-                                               key->proving_key->polynomials.accumulators_binary_limbs_1[RESULT_ROW],
-                                               key->proving_key->polynomials.accumulators_binary_limbs_2[RESULT_ROW],
-                                               key->proving_key->polynomials.accumulators_binary_limbs_3[RESULT_ROW] };
+    relation_parameters.accumulated_result = { key->polynomials.accumulators_binary_limbs_0[RESULT_ROW],
+                                               key->polynomials.accumulators_binary_limbs_1[RESULT_ROW],
+                                               key->polynomials.accumulators_binary_limbs_2[RESULT_ROW],
+                                               key->polynomials.accumulators_binary_limbs_3[RESULT_ROW] };
 
     // Sent the accumulation result to the verifier, this value cannot be linked to the actual content of the op queue
     // in practice (CIVC scenario) as we add a random, but genuine scalar mul operation to the op queue
@@ -65,7 +64,7 @@ void TranslatorProver::execute_preamble_round()
  */
 void TranslatorProver::commit_to_witness_polynomial(Polynomial& polynomial, const std::string& label)
 {
-    transcript->send_to_verifier(label, key->proving_key->commitment_key.commit(polynomial));
+    transcript->send_to_verifier(label, key->commitment_key.commit(polynomial));
 }
 
 /**
@@ -75,16 +74,14 @@ void TranslatorProver::commit_to_witness_polynomial(Polynomial& polynomial, cons
 void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
 {
 
-    for (const auto& [wire, label] :
-         zip_view(key->proving_key->polynomials.get_wires(), commitment_labels.get_wires())) {
+    for (const auto& [wire, label] : zip_view(key->polynomials.get_wires(), commitment_labels.get_wires())) {
 
         commit_to_witness_polynomial(wire, label);
     }
 
     // The ordered range constraints are of full circuit size.
-    for (const auto& [ordered_range_constraint, label] :
-         zip_view(key->proving_key->polynomials.get_ordered_range_constraints(),
-                  commitment_labels.get_ordered_range_constraints())) {
+    for (const auto& [ordered_range_constraint, label] : zip_view(key->polynomials.get_ordered_range_constraints(),
+                                                                  commitment_labels.get_ordered_range_constraints())) {
         commit_to_witness_polynomial(ordered_range_constraint, label);
     }
 }
@@ -128,9 +125,9 @@ void TranslatorProver::execute_grand_product_computation_round()
         };
     }
     // Compute constraint permutation grand product
-    compute_grand_products<Flavor>(key->proving_key->polynomials, relation_parameters);
+    compute_grand_products<Flavor>(key->polynomials, relation_parameters);
 
-    commit_to_witness_polynomial(key->proving_key->polynomials.z_perm, commitment_labels.z_perm);
+    commit_to_witness_polynomial(key->polynomials.z_perm, commitment_labels.z_perm);
 }
 
 /**
@@ -150,10 +147,10 @@ void TranslatorProver::execute_relation_check_rounds()
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    const size_t circuit_size = key->proving_key->circuit_size;
+    const size_t circuit_size = key->dyadic_circuit_size;
 
     Sumcheck sumcheck(circuit_size,
-                      key->proving_key->polynomials,
+                      key->polynomials,
                       transcript,
                       alpha,
                       gate_challenges,
@@ -166,7 +163,7 @@ void TranslatorProver::execute_relation_check_rounds()
     // until we enter the PCS round
     CommitmentKey ck(1 << (log_subgroup_size + 1));
 
-    zk_sumcheck_data = ZKData(key->proving_key->log_circuit_size, transcript, ck);
+    zk_sumcheck_data = ZKData(Flavor::CONST_TRANSLATOR_LOG_N, transcript, ck);
 
     sumcheck_output = sumcheck.prove(zk_sumcheck_data);
 }
@@ -185,23 +182,23 @@ void TranslatorProver::execute_pcs_rounds()
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
     // Check whether the commitment key has been deallocated and reinitialize it if necessary
-    auto& ck = key->proving_key->commitment_key;
+    auto& ck = key->commitment_key;
     if (!ck.initialized()) {
-        ck = CommitmentKey(key->proving_key->circuit_size);
+        ck = CommitmentKey(key->dyadic_circuit_size);
     }
 
     SmallSubgroupIPA small_subgroup_ipa_prover(
         zk_sumcheck_data, sumcheck_output.challenge, sumcheck_output.claimed_libra_evaluation, transcript, ck);
     small_subgroup_ipa_prover.prove();
 
-    PolynomialBatcher polynomial_batcher(key->proving_key->circuit_size);
-    polynomial_batcher.set_unshifted(key->proving_key->polynomials.get_unshifted_without_interleaved());
-    polynomial_batcher.set_to_be_shifted_by_one(key->proving_key->polynomials.get_to_be_shifted());
-    polynomial_batcher.set_interleaved(key->proving_key->polynomials.get_interleaved(),
-                                       key->proving_key->polynomials.get_groups_to_be_interleaved());
+    PolynomialBatcher polynomial_batcher(key->dyadic_circuit_size);
+    polynomial_batcher.set_unshifted(key->polynomials.get_unshifted_without_interleaved());
+    polynomial_batcher.set_to_be_shifted_by_one(key->polynomials.get_to_be_shifted());
+    polynomial_batcher.set_interleaved(key->polynomials.get_interleaved(),
+                                       key->polynomials.get_groups_to_be_interleaved());
 
     const OpeningClaim prover_opening_claim =
-        ShpleminiProver_<Curve>::prove(key->proving_key->circuit_size,
+        ShpleminiProver_<Curve>::prove(key->dyadic_circuit_size,
                                        polynomial_batcher,
                                        sumcheck_output.challenge,
                                        ck,
@@ -232,7 +229,7 @@ HonkProof TranslatorProver::construct_proof()
 
     // #ifndef __wasm__
     // Free the commitment key
-    key->proving_key->commitment_key = CommitmentKey();
+    key->commitment_key = CommitmentKey();
     // #endif
 
     // Fiat-Shamir: alpha

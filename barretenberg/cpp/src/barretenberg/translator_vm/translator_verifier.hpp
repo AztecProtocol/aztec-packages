@@ -17,7 +17,6 @@ class TranslatorVerifier {
     using FF = Flavor::FF;
     using BF = Flavor::BF;
     using Commitment = Flavor::Commitment;
-    using ProvingKey = Flavor::ProvingKey;
     using VerificationKey = Flavor::VerificationKey;
     using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
     using TranslationEvaluations = bb::TranslationEvaluations_<BF>;
@@ -36,8 +35,6 @@ class TranslatorVerifier {
 
     TranslatorVerifier(const std::shared_ptr<VerificationKey>& verifier_key,
                        const std::shared_ptr<Transcript>& transcript);
-
-    TranslatorVerifier(const std::shared_ptr<ProvingKey>& proving_key, const std::shared_ptr<Transcript>& transcript);
 
     void put_translation_data_in_relation_parameters(const uint256_t& evaluation_input_x,
                                                      const BF& batching_challenge_v,
