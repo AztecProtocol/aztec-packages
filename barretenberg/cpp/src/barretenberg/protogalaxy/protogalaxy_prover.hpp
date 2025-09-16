@@ -108,7 +108,7 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_INSTANCES = 2> class ProtogalaxyP
     std::tuple<std::vector<FF>, UnivariateSubrelationSeparators, UnivariateRelationParameters, FF, CombinerQuotient>
     combiner_quotient_round(const std::vector<FF>& gate_challenges,
                             const std::vector<FF>& deltas,
-                            const ProverInstances& keys);
+                            const ProverInstances& instances);
 
     /**
      * @brief Steps 12 - 13 of the paper plus the prover folding work.
@@ -117,7 +117,7 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_INSTANCES = 2> class ProtogalaxyP
      * model, we are doing a scalar multiplication of matrices whose columns are polynomials, as well as taking similar
      * linear combinations of the relation parameters.
      */
-    void update_target_sum_and_fold(const ProverInstances& keys,
+    void update_target_sum_and_fold(const ProverInstances& instances,
                                     const CombinerQuotient& combiner_quotient,
                                     const UnivariateSubrelationSeparators& alphas,
                                     const UnivariateRelationParameters& univariate_relation_parameters,

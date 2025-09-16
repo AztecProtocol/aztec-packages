@@ -276,12 +276,8 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
 } // namespace
 
 /**
- * @brief Compute Honk style generalized permutation sigmas and ids and add to prover_instance
- *
- * @param circuit
- * @param prover_instance
- * @param copy_cycles pre-computed sets of wire addresses whose values should be copy constrained
- *
+ * @brief Compute Honk style generalized permutation sigmas and ids and add to prover_instance, where the
+ * copy_cycles are pre-computed sets of wire addresses whose values should be copy constrained.
  */
 template <typename Flavor>
 void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuilder& circuit,
