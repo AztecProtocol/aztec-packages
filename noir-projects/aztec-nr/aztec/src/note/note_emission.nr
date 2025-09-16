@@ -1,9 +1,9 @@
 use crate::{
     context::PrivateContext,
     messages::{
-        logs::{note::compute_note_message_ciphertext, utils::prefix_with_tag},
+        encryption::{aes128::AES128, log_encryption::LogEncryption},
+        logs::{note::private_note_to_message_plaintext, utils::prefix_with_tag},
         message_delivery::MessageDelivery,
-        msg_type::PRIVATE_NOTE_MSG_TYPE_ID,
         offchain_messages::emit_offchain_message,
     },
     note::note_interface::NoteType,
@@ -52,11 +52,9 @@ where
 
         let ciphertext = remove_constraints_if(
             !constrained_encryption,
-            || compute_note_message_ciphertext(
-                self.note,
-                self.storage_slot,
+            || AES128::encrypt_log(
+                private_note_to_message_plaintext(self.note, self.storage_slot),
                 recipient,
-                PRIVATE_NOTE_MSG_TYPE_ID,
             ),
         );
 

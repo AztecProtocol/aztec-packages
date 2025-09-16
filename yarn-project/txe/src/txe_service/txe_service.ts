@@ -1,4 +1,5 @@
 import { type ContractInstanceWithAddress, Fr, Point } from '@aztec/aztec.js';
+import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX } from '@aztec/constants';
 import { packAsRetrievedNote } from '@aztec/pxe/simulator';
 import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -193,6 +194,16 @@ export class TXEService {
     const timestamp = await this.oracleHandler.txeGetLastBlockTimestamp();
 
     return toForeignCallResult([toSingle(new Fr(timestamp))]);
+  }
+
+  async txeGetLastTxEffects() {
+    const { txHash, noteHashes, nullifiers } = await this.oracleHandler.txeGetLastTxEffects();
+
+    return toForeignCallResult([
+      toSingle(txHash.hash),
+      ...arrayToBoundedVec(toArray(noteHashes), MAX_NOTE_HASHES_PER_TX),
+      ...arrayToBoundedVec(toArray(nullifiers), MAX_NULLIFIERS_PER_TX),
+    ]);
   }
 
   // Since the argument is a slice, noir automatically adds a length field to oracle call.

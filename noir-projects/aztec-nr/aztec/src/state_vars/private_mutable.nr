@@ -7,13 +7,14 @@ use crate::context::{PrivateContext, UtilityContext};
 use crate::note::{
     lifecycle::{create_note, destroy_note_unsafe},
     note_emission::NoteEmission,
-    note_getter::{get_note, view_notes},
+    note_getter::{get_note, view_note},
     note_interface::{NoteHash, NoteType},
-    note_viewer_options::NoteViewerOptions,
 };
 use crate::note::retrieved_note::RetrievedNote;
 use crate::oracle::notes::check_nullifier_exists;
 use crate::state_vars::storage::HasStorageSlot;
+
+mod test;
 
 /// # PrivateMutable
 ///
@@ -107,8 +108,6 @@ pub struct PrivateMutable<Note, Context> {
     storage_slot: Field,
 }
 // docs:end:struct
-
-mod test;
 
 // Private storage slots are not really 'slots' but rather a value in the note hash preimage, so there is no notion of a
 // value spilling over multiple slots. For this reason PrivateMutable (and all other private state variables) needs just
@@ -465,8 +464,7 @@ where
     where
         Note: Packable,
     {
-        let mut options = NoteViewerOptions::<Note, <Note as Packable>::N>::new();
-        view_notes(self.storage_slot, options.set_limit(1)).get(0)
+        view_note(self.storage_slot).note
     }
     // docs:end:view_note
 }

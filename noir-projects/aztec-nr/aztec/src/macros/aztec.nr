@@ -276,7 +276,7 @@ comptime fn generate_process_message() -> Quoted {
             message_ciphertext: BoundedVec<Field, aztec::messages::encoding::MESSAGE_CIPHERTEXT_LEN>,
             message_context: aztec::messages::processing::message_context::MessageContext,
         ) {
-            aztec::messages::discovery::process_message::do_process_message(
+            aztec::messages::discovery::process_message::process_message_ciphertext(
                 context.this_address(),
                 _compute_note_hash_and_nullifier,
                 message_ciphertext,
