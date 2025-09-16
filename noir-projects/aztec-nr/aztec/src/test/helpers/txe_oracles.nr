@@ -3,7 +3,7 @@ use crate::{context::inputs::PrivateContextInputs, test::helpers::utils::TestAcc
 use protocol_types::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
-    constants::CONTRACT_INSTANCE_LENGTH,
+    constants::{CONTRACT_INSTANCE_LENGTH, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX},
     contract_instance::ContractInstance,
     traits::{Deserialize, ToField},
 };
@@ -44,7 +44,6 @@ pub unconstrained fn public_call_new_flow<let N: u32>(
     is_static_call: bool,
 ) -> [Field; N] {
     let calldata = args.push_front(function_selector.to_field());
-
     public_call_new_flow_oracle(from, contract_address, calldata, is_static_call)
 }
 
@@ -64,6 +63,9 @@ pub unconstrained fn get_next_block_timestamp() -> u64 {}
 
 #[oracle(txeGetLastBlockTimestamp)]
 pub unconstrained fn get_last_block_timestamp() -> u64 {}
+
+#[oracle(txeGetLastTxEffects)]
+pub unconstrained fn get_last_tx_effects() -> (Field, BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>, BoundedVec<Field, MAX_NULLIFIERS_PER_TX>) {}
 
 #[oracle(txeAdvanceBlocksBy)]
 pub unconstrained fn advance_blocks_by(blocks: u32) {}

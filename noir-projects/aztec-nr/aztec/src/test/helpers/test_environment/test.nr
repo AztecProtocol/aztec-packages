@@ -5,6 +5,7 @@ mod accounts;
 mod deployment;
 mod private_context;
 mod public_context;
+mod notes;
 
 #[test(should_fail_with = "cannot be before next timestamp")]
 unconstrained fn set_next_block_timestamp_to_past_fails() {
