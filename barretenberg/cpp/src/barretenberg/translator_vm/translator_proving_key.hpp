@@ -86,7 +86,7 @@ class TranslatorProvingKey {
         // NB this will always have a fixed size unless we change the allowed range
         compute_extra_range_constraint_numerator();
 
-        // Construct the polynomials resulted from interleaving the small range constraints  polynomials in each group
+        // Construct the polynomials resulted from interleaving the small range constraints polynomials in each group
         // to be interleaved
         compute_interleaved_polynomials();
 

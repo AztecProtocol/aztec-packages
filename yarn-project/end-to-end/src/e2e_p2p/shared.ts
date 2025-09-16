@@ -84,8 +84,10 @@ export async function createPXEServiceAndPrepareTransactions(
   const wallet = new TestWallet(pxe);
   const fundedAccountManager = await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
 
-  const testContractInstance = await getContractInstanceFromInstantiationParams(TestContractArtifact, {});
-  await wallet.registerContract({ instance: testContractInstance, artifact: TestContractArtifact });
+  const testContractInstance = await getContractInstanceFromInstantiationParams(TestContractArtifact, {
+    salt: Fr.random(),
+  });
+  await wallet.registerContract(testContractInstance, TestContractArtifact);
   const contract = await TestContract.at(testContractInstance.address, wallet);
 
   const txs = await timesAsync(numTxs, async () => {

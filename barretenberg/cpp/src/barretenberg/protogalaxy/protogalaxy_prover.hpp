@@ -73,7 +73,7 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_INSTANCES = 2> class ProtogalaxyP
 
     /**
      * @brief For each Prover instance derived from a circuit, prior to folding, we need to complete the computation of
-     * its polynomials (some of which requires generations relation parameters first); commit to witnesses and generate
+     * its polynomials (some of which require generating relation parameters first); commit to witnesses and generate
      * the relation parameters; and send the public data ϕ of the instance to the verifier (which will represent the
      * verifier instance).
      *
@@ -112,7 +112,7 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_INSTANCES = 2> class ProtogalaxyP
 
     /**
      * @brief Steps 12 - 13 of the paper plus the prover folding work.
-     * @details Compute \f$ e^* \f$ plus (the new target sum), then update the prover accumulator by taking a
+     * @details Compute \f$ e^* \f$ (the new target sum), then update the prover accumulator by taking a
      * Lagrange-linear combination of the current accumulator and the prover instances to be folded. In our mental
      * model, we are doing a scalar multiplication of matrices whose columns are polynomials, as well as taking similar
      * linear combinations of the relation parameters.

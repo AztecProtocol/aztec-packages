@@ -1,10 +1,10 @@
 import { css } from '@mui/styled-engine';
 import { NetworkSelector } from './components/NetworkSelector';
 import { AccountSelector } from './components/AccountSelector';
-import { AddressBook } from './components/AddressBook';
+import { AddressBook } from '../../wallet/components/AddressBook';
 import { ContractSelector } from './components/ContractSelector';
 import { NetworkCongestionNotice } from './components/NetworkCongestionNotice';
-
+import { WalletHub } from './components/WalletHub';
 
 const container = css({
   display: 'flex',
@@ -29,16 +29,15 @@ const navbarContent = css({
   },
 });
 
-
 export function NavBar() {
   return (
     <div css={[container]}>
       <div css={navbarContent}>
         <NetworkSelector />
+        <WalletHub />
+        <div css={{ flexGrow: 1 }} />
         <AccountSelector />
         <ContractSelector />
-        <div css={{ flexGrow: 1 }} />
-        <AddressBook />
       </div>
 
       <NetworkCongestionNotice />

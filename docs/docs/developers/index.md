@@ -10,7 +10,7 @@ description: Start building on Aztec with tutorials, guides, and resources for s
 ## Get Started
 
 <div className="card-container full-width">
-  <Card shadow='tl' link='developers/getting_started'>
+  <Card  link='developers/getting_started'>
     <CardHeader>
       <h3>Getting Started</h3>
     </CardHeader>
@@ -23,7 +23,7 @@ description: Start building on Aztec with tutorials, guides, and resources for s
 ## Build applications
 
 <div className="card-container">
-  <Card shadow='tl' link='developers/tutorials/contract_tutorials/counter_contract'>
+  <Card  link='developers/tutorials/contract_tutorials/counter_contract'>
     <CardHeader>
       <h3>Contract Tutorials</h3>
     </CardHeader>
@@ -32,7 +32,7 @@ description: Start building on Aztec with tutorials, guides, and resources for s
     </CardBody>
   </Card>
 
-  <Card shadow='tl' link='developers/tutorials/js_tutorials/aztecjs-getting-started'>
+  <Card  link='developers/tutorials/js_tutorials/aztecjs-getting-started'>
     <CardHeader>
       <h3>Full stack app on Aztec</h3>
     </CardHeader>
@@ -45,7 +45,7 @@ description: Start building on Aztec with tutorials, guides, and resources for s
 ## Get inspired
 
 <div className="card-container full-width">
-  <Card shadow='tl' link='https://github.com/AztecProtocol/Horizon'>
+  <Card  link='https://github.com/AztecProtocol/Horizon'>
     <CardHeader>
       <h3>What to build on Aztec</h3>
     </CardHeader>

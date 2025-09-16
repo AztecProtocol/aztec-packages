@@ -4,7 +4,7 @@ import { AuthWitness, ContractFunctionInteraction, type SendMethodOptions } from
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import { useContext, useEffect, useState } from 'react';
-import { AztecContext } from '../../../aztecEnv';
+import { AztecContext } from '../../../aztecContext';
 import FormControl from '@mui/material/FormControl';
 import { FeePaymentSelector } from '../../common/FeePaymentSelector';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -31,15 +31,15 @@ export function ConfigureInteractionDialog({ name, interaction, open, onClose }:
   const [authWits, setAuthwits] = useState([]);
   const [selectedAuthwits, setSelectedAuthwits] = useState([]);
 
-  const { walletDB, from } = useContext(AztecContext);
+  const { playgroundDB, from } = useContext(AztecContext);
 
   useEffect(() => {
     const refreshAuthwits = async () => {
       setLoading(true);
-      const authwitBuffers = await walletDB.listAliases('authwits');
-      const authwits = parseAliasedBuffersAsString(authwitBuffers).map(({ key, value }) => ({
-        key,
-        value: AuthWitness.fromString(value),
+      const authwitBuffers = await playgroundDB.listAliases('authwits');
+      const authwits = parseAliasedBuffersAsString(authwitBuffers).map(({ alias, item }) => ({
+        alias,
+        item: AuthWitness.fromString(item),
       }));
       setAuthwits(authwits);
       setLoading(false);

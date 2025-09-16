@@ -70,6 +70,10 @@ export abstract class BaseTestWallet extends BaseWallet {
     return account;
   }
 
+  getAccounts() {
+    return Promise.resolve(Array.from(this.accounts.values()).map(acc => ({ alias: '', item: acc.getAddress() })));
+  }
+
   async createAccount(accountData: AccountData): Promise<AccountManager> {
     const accountManager = await AccountManager.create(
       this,
