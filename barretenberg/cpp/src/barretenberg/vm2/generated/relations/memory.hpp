@@ -14,10 +14,10 @@ template <typename FF_> class memoryImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 59> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 4, 3, 2, 2, 5, 5, 2, 4, 4, 4, 4, 5, 3 };
+    static constexpr std::array<size_t, 60> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, 3, 4, 3, 2, 2, 5, 5, 2, 4, 4, 4, 4, 5, 3
+    };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -38,23 +38,26 @@ template <typename FF> class memory : public Relation<memoryImpl<FF>> {
     static constexpr const std::string_view NAME = "memory";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_MEM_CONTIGUOUS = 46;
-    static constexpr size_t SR_SEL_RNG_CHK = 47;
-    static constexpr size_t SR_GLOBAL_ADDR = 48;
-    static constexpr size_t SR_TIMESTAMP = 49;
-    static constexpr size_t SR_LAST_ACCESS = 50;
-    static constexpr size_t SR_DIFF = 51;
-    static constexpr size_t SR_DIFF_DECOMP = 52;
-    static constexpr size_t SR_MEMORY_INIT_VALUE = 53;
-    static constexpr size_t SR_MEMORY_INIT_TAG = 54;
-    static constexpr size_t SR_READ_WRITE_CONSISTENCY_VALUE = 55;
-    static constexpr size_t SR_READ_WRITE_CONSISTENCY_TAG = 56;
-    static constexpr size_t SR_TAG_IS_FF = 57;
-    static constexpr size_t SR_SEL_RNG_WRITE = 58;
+    static constexpr size_t SR_ACTIVE_ROW_NEEDS_PERM_SELECTOR = 42;
+    static constexpr size_t SR_MEM_CONTIGUOUS = 47;
+    static constexpr size_t SR_SEL_RNG_CHK = 48;
+    static constexpr size_t SR_GLOBAL_ADDR = 49;
+    static constexpr size_t SR_TIMESTAMP = 50;
+    static constexpr size_t SR_LAST_ACCESS = 51;
+    static constexpr size_t SR_DIFF = 52;
+    static constexpr size_t SR_DIFF_DECOMP = 53;
+    static constexpr size_t SR_MEMORY_INIT_VALUE = 54;
+    static constexpr size_t SR_MEMORY_INIT_TAG = 55;
+    static constexpr size_t SR_READ_WRITE_CONSISTENCY_VALUE = 56;
+    static constexpr size_t SR_READ_WRITE_CONSISTENCY_TAG = 57;
+    static constexpr size_t SR_TAG_IS_FF = 58;
+    static constexpr size_t SR_SEL_RNG_WRITE = 59;
 
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
+        case SR_ACTIVE_ROW_NEEDS_PERM_SELECTOR:
+            return "ACTIVE_ROW_NEEDS_PERM_SELECTOR";
         case SR_MEM_CONTIGUOUS:
             return "MEM_CONTIGUOUS";
         case SR_SEL_RNG_CHK:

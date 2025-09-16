@@ -140,6 +140,10 @@ TEST(MemoryConstrainingTest, MultipleEventsWithTraceGen)
     range_check_trace_builder.process(range_check_events, trace);
     memory_trace_builder.process(mem_events, trace);
 
+    // For the selector consistency, we need to make the read/write come from some trace.
+    trace.visit_column(Column::memory_sel,
+                       [&](uint32_t row, const FF&) { trace.set(Column::memory_sel_register_op_0_, row, 1); });
+
     check_relation<memory>(trace);
     check_all_interactions<MemoryTraceBuilder>(trace);
 }
