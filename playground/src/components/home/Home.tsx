@@ -1,12 +1,12 @@
 import { css } from '@emotion/react';
 import { ContractComponent } from '../contract/Contract';
-import { NavBar } from '../sidebar/NavBar';
+import { NavBar } from '../navbar/NavBar';
 import { useState } from 'react';
-import { AztecContext } from '../../aztecEnv';
+import { AztecContext } from '../../aztecContext';
 import { LogPanel } from '../logPanel/LogPanel';
 import { Landing } from './components/Landing';
 import logoURL from '../../assets/aztec_logo.png';
-import { TxPanel } from '../sidebar/TxPanel';
+import { TxPanel } from '../navbar/TxPanel';
 import { trackButtonClick } from '../../utils/matomo';
 
 const container = css({
@@ -94,36 +94,31 @@ const contentLayout = css({
 });
 
 export default function Home() {
-  const [pxe, setPXE] = useState(null);
   const [wallet, setWallet] = useState(null);
+  const [node, setNode] = useState(null);
+  const [playgroundDB, setPlaygroundDB] = useState(null);
   const [showContractInterface, setShowContractInterface] = useState(false);
-  const [node, setAztecNode] = useState(null);
-  const [isPXEInitialized, setPXEInitialized] = useState(false);
-  const [walletDB, setWalletDB] = useState(null);
   const [from, setFrom] = useState(null);
   const [currentContractArtifact, setCurrentContractArtifact] = useState(null);
   const [currentTx, setCurrentTx] = useState(null);
   const [currentContractAddress, setCurrentContractAddress] = useState(null);
   const [logs, setLogs] = useState([]);
   const [logsOpen, setLogsOpen] = useState(false);
-  const [connecting, setConnecting] = useState(false);
   const [network, setNetwork] = useState(null);
   const [totalLogCount, setTotalLogCount] = useState(0);
   const [defaultContractCreationParams, setDefaultContractCreationParams] = useState({});
   const [pendingTxUpdateCounter, setPendingTxUpdateCounter] = useState(0);
   const [isNetworkCongested, setIsNetworkCongested] = useState(false);
+  const [embeddedWalletSelected, setIsEmbeddedWalletSelected] = useState(false);
 
   const AztecContextInitialValue = {
-    pxe,
-    connecting,
     network,
     wallet,
+    node,
+    playgroundDB,
     from,
-    isPXEInitialized,
-    walletDB,
     currentContractArtifact,
     currentTx,
-    node,
     currentContractAddress,
     logs,
     logsOpen,
@@ -132,19 +127,18 @@ export default function Home() {
     pendingTxUpdateCounter,
     defaultContractCreationParams,
     isNetworkCongested,
+    embeddedWalletSelected,
+    setIsEmbeddedWalletSelected,
+    setNode,
     setTotalLogCount,
     setIsNetworkCongested,
     setNetwork,
-    setConnecting,
     setLogsOpen,
     setLogs,
-    setAztecNode,
     setCurrentTx,
-    setWalletDB,
-    setPXEInitialized,
     setWallet,
+    setPlaygroundDB,
     setFrom,
-    setPXE,
     setShowContractInterface,
     setDefaultContractCreationParams,
     setCurrentContractArtifact,

@@ -47,7 +47,9 @@ export class TestWallet extends BaseTestWallet {
       throw new Error(`No contract instance found for address: ${originalAddress.address}`);
     }
     const stubAccount = createStubAccount(originalAddress, nodeInfo);
-    const instance = await getContractInstanceFromInstantiationParams(StubAccountContractArtifact, {});
+    const instance = await getContractInstanceFromInstantiationParams(StubAccountContractArtifact, {
+      salt: Fr.random(),
+    });
     return {
       account: stubAccount,
       instance,

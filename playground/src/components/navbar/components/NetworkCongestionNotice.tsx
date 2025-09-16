@@ -1,5 +1,5 @@
-import { useContext, useEffect, useState } from 'react';
-import { AztecContext } from '../../../aztecEnv';
+import { useContext, useEffect } from 'react';
+import { AztecContext } from '../../../aztecContext';
 import { css } from '@emotion/react';
 import WarningIcon from '@mui/icons-material/WarningOutlined';
 

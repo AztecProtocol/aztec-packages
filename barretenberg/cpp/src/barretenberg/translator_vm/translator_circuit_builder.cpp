@@ -563,7 +563,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
 
     // Pre-compute accumulator values for each step since the circuit processes values in reverse order
     // and requires knowledge of the previous accumulator to construct each gate. Both accumulator computation
-    // and gate creation skip the initial no-ops and als the random operations at the beginning and end of the oqueue ,
+    // and gate creation skip the initial no-ops and also the random operations at the beginning and end of the oqueue ,
     // as these should not influence the final accumulation result (located at index RESULT_ROW). The accumulation
     // result is sent as part of the CIVC proof, and so we add a genuine operation with randomly generated values during
     // CIVC execution to ensure no information about the rest of the ops is leaked.

@@ -87,14 +87,17 @@ const config: Config = {
           // There should be 2 versions, nightly and stable
           // The stable version is second in the list
           lastVersion: versions[1],
-          ...(process.env.ENV === "dev" && {
-            versions: {
+          versions: {
+            [versions[0]]: {
+              path: "nightly",
+            },
+            ...(process.env.ENV === "dev" && {
               current: {
                 label: "dev",
                 path: "dev",
               },
-            },
-          }),
+            }),
+          },
           editUrl: (params) => {
             return (
               `https://github.com/AztecProtocol/aztec-packages/edit/master/docs/docs/` +

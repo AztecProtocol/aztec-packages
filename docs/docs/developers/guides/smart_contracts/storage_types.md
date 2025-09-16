@@ -105,9 +105,14 @@ An unconstrained method to check whether the PrivateMutable has been initialized
 
 #### `replace`
 
-To update the value of a `PrivateMutable`, we can use the `replace` method. The method takes a new note as input and replaces the current note with the new one. It emits a nullifier for the old value, and inserts the new note into the data tree.
+To update the value of a `PrivateMutable`, we can use the `replace` method. The method takes a function (or closure) that transforms the current note into a new one.
 
-An example of this is seen in a example card game, where we create a new note (a `CardNote`) containing some new data, and replace the current note with it:
+When called, the method will:
+- Nullify the old note
+- Apply the transform function to produce a new note
+- Insert the new note into the data tree
+
+An example of this is seen in an example card game, where an update function is passed in to transform the current note into a new one (in this example, updating a `CardNote` data):
 
 #include_code state_vars-PrivateMutableReplace /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
 

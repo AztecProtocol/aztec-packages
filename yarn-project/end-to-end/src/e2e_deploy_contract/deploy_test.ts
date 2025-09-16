@@ -66,11 +66,11 @@ export class DeployTest {
     const instance = await getContractInstanceFromInstantiationParams(contractArtifact.artifact, {
       constructorArgs: initArgs ?? [],
       constructorArtifact: constructorName,
-      salt,
+      salt: salt ?? Fr.random(),
       publicKeys,
       deployer,
     });
-    await wallet.registerContract({ artifact: contractArtifact.artifact, instance });
+    await wallet.registerContract(instance, contractArtifact.artifact);
     return contractArtifact.at(instance.address, wallet);
   }
 

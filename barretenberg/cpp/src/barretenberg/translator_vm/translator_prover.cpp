@@ -51,7 +51,7 @@ void TranslatorProver::execute_preamble_round()
                                                key->polynomials.accumulators_binary_limbs_2[RESULT_ROW],
                                                key->polynomials.accumulators_binary_limbs_3[RESULT_ROW] };
 
-    // Sent the accumulation result to the verifier, this value cannot be linked to the actual content of the op queue
+    // Send the accumulation result to the verifier, this value cannot be linked to the actual content of the op queue
     // in practice (CIVC scenario) as we add a random, but genuine scalar mul operation to the op queue
     transcript->send_to_verifier("accumulated_result", accumulated_result);
 }

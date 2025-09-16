@@ -14,7 +14,7 @@ import {
   parseAliasedBuffersAsString,
 } from '../../../utils/conversion';
 import { PREDEFINED_CONTRACTS } from '../../../utils/types';
-import { AztecContext } from '../../../aztecEnv';
+import { AztecContext } from '../../../aztecContext';
 import { AztecAddress, loadContractArtifact } from '@aztec/aztec.js';
 import { parse } from 'buffer-json';
 import { navbarButtonStyle, navbarSelect, navbarSelectLabel } from '../../../styles/common';
@@ -34,8 +34,7 @@ export function ContractSelector() {
   const {
     currentContractAddress,
     wallet,
-    walletDB,
-    isPXEInitialized,
+    playgroundDB,
     pendingTxUpdateCounter,
     setCurrentContractArtifact,
     setCurrentContractAddress,
@@ -46,7 +45,7 @@ export function ContractSelector() {
   useEffect(() => {
     const refreshContracts = async () => {
       setIsContractsLoading(true);
-      const aliasedContracts = await walletDB.listAliases('contracts');
+      const aliasedContracts = await playgroundDB.listAliases('contracts');
       const contracts = parseAliasedBuffersAsString(aliasedContracts);
       // Temporarily filter out undeployed contracts
       const deployedContracts = await filterDeployedAliasedContracts(contracts, wallet);
@@ -54,10 +53,10 @@ export function ContractSelector() {
       setIsContractsLoading(false);
     };
 
-    if (walletDB && wallet) {
+    if (playgroundDB && wallet) {
       refreshContracts();
     }
-  }, [currentContractAddress, walletDB, wallet, pendingTxUpdateCounter]);
+  }, [currentContractAddress, playgroundDB, wallet, pendingTxUpdateCounter]);
 
   const handleContractChange = async (event: SelectChangeEvent) => {
     const contractValue = event.target.value;
@@ -100,7 +99,7 @@ export function ContractSelector() {
         setCurrentContractAddress(undefined);
         setShowContractInterface(true);
       } else {
-        const artifactAsString = await walletDB.retrieveAlias(`artifacts:${contractValue}`);
+        const artifactAsString = await playgroundDB.retrieveAlias(`artifacts:${contractValue}`);
         const contractArtifact = loadContractArtifact(parse(convertFromUTF8BufferAsString(artifactAsString)));
         setCurrentContractAddress(AztecAddress.fromString(contractValue));
         setCurrentContractArtifact(contractArtifact);
@@ -128,9 +127,7 @@ export function ContractSelector() {
       <ArticleIcon />
 
       <FormControl css={navbarSelect}>
-        {!selectedValue && (
-          <InputLabel id="contract-label">Select Contract</InputLabel>
-        )}
+        {!selectedValue && <InputLabel id="contract-label">Select Contract</InputLabel>}
 
         <Select
           value={selectedValue || ''}
@@ -141,9 +138,9 @@ export function ContractSelector() {
           onChange={handleContractChange}
           fullWidth
           renderValue={selected => {
-            const contract = contracts.find(contract => contract.value === selected);
+            const contract = contracts.find(contract => contract.item === selected);
             if (contract) {
-              return `${contract?.key.split(':')[1]} (${formatFrAsString(contract?.value)})`;
+              return `${contract?.alias.split(':')[1]} (${formatFrAsString(contract?.item)})`;
             }
             if (selected === PREDEFINED_CONTRACTS.CUSTOM_UPLOAD) {
               return 'Upload Your Own';
@@ -152,7 +149,7 @@ export function ContractSelector() {
           }}
           disabled={isContractsLoading}
         >
-          {(!isPXEInitialized || !wallet) && (
+          {(!playgroundDB || !wallet) && (
             <div css={navbarSelectLabel}>
               <Typography variant="body2" color="warning.main">
                 Note: Connect to a network and account to deploy and interact with contracts
@@ -175,9 +172,9 @@ export function ContractSelector() {
           {/* User's deployed/registered contracts */}
           {contracts.length > 0 && <ListSubheader>Deployed Contracts</ListSubheader>}
           {contracts.map(contract => (
-            <MenuItem key={`${contract.key}-${contract.value}`} value={contract.value}>
-              {contract.key.split(':')[1]}&nbsp;(
-              {formatFrAsString(contract.value)})
+            <MenuItem key={`${contract.alias}-${contract.item}`} value={contract.item}>
+              {contract.alias.split(':')[1]}&nbsp;(
+              {formatFrAsString(contract.item)})
             </MenuItem>
           ))}
         </Select>

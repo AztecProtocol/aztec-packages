@@ -1,7 +1,7 @@
 import {
   type AztecAddress,
   type AztecNode,
-  type Fr,
+  Fr,
   PublicKeys,
   type Wallet,
   getContractInstanceFromInstantiationParams,
@@ -32,14 +32,14 @@ export async function registerContract(
       constructorArtifact,
       publicKeys: publicKeys ?? PublicKeys.default(),
       constructorArgs: rawArgs,
-      salt,
+      salt: salt ?? Fr.ZERO,
       deployer,
     });
   }
   if (!contractInstance.address.equals(address)) {
     throw new Error(`Contract address mismatch: expected ${address}, got ${contractInstance.address}`);
   }
-  await wallet.registerContract({ instance: contractInstance, artifact: contractArtifact });
+  await wallet.registerContract(contractInstance, contractArtifact);
   log(`Contract registered: at ${contractInstance.address}`);
   return contractInstance;
 }
