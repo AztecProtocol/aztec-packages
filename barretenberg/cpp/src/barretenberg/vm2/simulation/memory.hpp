@@ -43,6 +43,9 @@ class Memory : public MemoryInterface {
 
     uint32_t get_space_id() const override { return space_id; }
 
+    // Only used in debug logging.
+    const MemoryValue& unconstrained_get(MemoryAddress index) const;
+
   private:
     uint32_t space_id;
     unordered_flat_map<size_t, MemoryValue> memory;
