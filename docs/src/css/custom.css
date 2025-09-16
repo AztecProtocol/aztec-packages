@@ -125,6 +125,8 @@
   --ifm-footer-color: var(--ifm-footer-link-color);
   --ifm-footer-link-color: var(--ifm-color-secondary);
   --ifm-footer-title-color: var(--ifm-color-white);
+  /* border-top: 1px solid #303846;
+  box-shadow: 0px -1px 5px 0px #0000001a; */
 }
 
 [data-theme="light"] .navbar {
