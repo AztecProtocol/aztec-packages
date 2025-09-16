@@ -19,7 +19,9 @@ template <typename Builder> class StdlibFieldConversionTests : public ::testing:
         auto frs = bb::stdlib::field_conversion::convert_to_bn254_frs<Builder, T>(x);
         EXPECT_EQ(len, frs.size());
         auto y = bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, T>(frs);
-        EXPECT_EQ(x.get_value() == y.get_value(), !point_at_infinity);
+        bool expected = std::is_same_v<Builder, UltraCircuitBuilder> ? !point_at_infinity : true;
+
+        EXPECT_EQ(x.get_value() == y.get_value(), expected);
 
         auto ctx = x.get_context();
 
@@ -83,20 +85,25 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionGrumpkinFr)
 TYPED_TEST(StdlibFieldConversionTests, FieldConversionBN254AffineElement)
 {
     using Builder = TypeParam;
-    Builder builder;
     { // Serialize and deserialize the bn254 generator
+        Builder builder;
+
         bn254_element<Builder> x1 = bn254_element<Builder>::from_witness(&builder, curve::BN254::AffineElement::one());
         this->check_conversion(x1);
     }
     { // Serialize and deserialize a valid bn254 point
+        Builder builder;
+
         curve::BN254::AffineElement x2_val(1, bb::fq::modulus_minus_two);
         bn254_element<Builder> x2 = bn254_element<Builder>::from_witness(&builder, x2_val);
         this->check_conversion(x2);
     }
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1527): Flip `valid_circuit` flag when point at infinity
-    // is consistently represented
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1527): Remove `point_at_infinity` flag when point at
+    // infinity is consistently represented.
     { // Serialize and deserialize the point at infinity
+        Builder builder;
+
         bn254_element<Builder> x2 =
             bn254_element<Builder>::from_witness(&builder, curve::BN254::AffineElement::infinity());
         // The circuit is valid, because the point at infinity is set to `one`.
@@ -104,6 +111,8 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionBN254AffineElement)
     }
 
     { // Serialize and deserialize "coordinates" that do not correspond to any point on the curve
+        Builder builder;
+
         curve::BN254::AffineElement x1_val(1, 4);
         bn254_element<Builder> x1;
         if constexpr (IsAnyOf<Builder, UltraCircuitBuilder>) {
@@ -122,26 +131,28 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionBN254AffineElement)
 TYPED_TEST(StdlibFieldConversionTests, FieldConversionGrumpkinAffineElement)
 {
     using Builder = TypeParam;
-    Builder builder;
 
     { // Serialize and deserialize the Grumpkin generator
+        Builder builder;
         grumpkin_element<Builder> x1 =
             grumpkin_element<Builder>::from_witness(&builder, curve::Grumpkin::AffineElement::one());
         this->check_conversion(x1);
     }
 
     { // Serialize and deserialize "coordinates" that do not correspond to any point on the curve
+        Builder builder;
+
         curve::Grumpkin::AffineElement x1_val(12, 100);
         grumpkin_element<Builder> x1 = grumpkin_element<Builder>::from_witness(&builder, x1_val);
         this->check_conversion(x1, /* valid circuit */ false);
     }
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1527): Flip `valid_circuit` flag when point at infinity
-    // is consistently represented
     { // Serialize and deserialize the point at infinity
+        Builder builder;
+
         grumpkin_element<Builder> x2 =
             grumpkin_element<Builder>::from_witness(&builder, curve::Grumpkin::AffineElement::infinity());
-        this->check_conversion(x2, /* valid circuit */ false, /* point at infinity */ true);
+        this->check_conversion(x2);
     }
 }
 
