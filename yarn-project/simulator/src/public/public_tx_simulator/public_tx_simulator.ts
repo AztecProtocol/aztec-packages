@@ -1,16 +1,18 @@
 import { AVM_MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { ProtocolContractAddress, ProtocolContractLeaves, protocolContractNames } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import {
   AvmCircuitInputs,
   AvmCircuitPublicInputs,
   AvmExecutionHints,
+  AvmProtocolContractAddressHint,
   type AvmProvingRequest,
   AvmTxHint,
   type RevertCode,
 } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { SimulationError } from '@aztec/stdlib/errors';
 import type { Gas, GasUsed } from '@aztec/stdlib/gas';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
@@ -73,8 +75,20 @@ export class PublicTxSimulator {
       const txHash = this.computeTxHash(tx);
       this.log.debug(`Simulating ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, { txHash });
 
+      const protocolContractHints = protocolContractNames.map(
+        name =>
+          new AvmProtocolContractAddressHint(
+            /*Canonical Address=*/ ProtocolContractAddress[name],
+            /*Derived Address=*/ AztecAddress.fromField(ProtocolContractLeaves[name]),
+          ),
+      );
+
       // Create hinting DBs.
-      const hints = new AvmExecutionHints(this.globalVariables, AvmTxHint.fromTx(tx, this.globalVariables.gasFees));
+      const hints = new AvmExecutionHints(
+        this.globalVariables,
+        AvmTxHint.fromTx(tx, this.globalVariables.gasFees),
+        protocolContractHints,
+      );
       const hintingMerkleTree = await HintingMerkleWriteOperations.create(this.merkleTree, hints);
       const hintingTreesDB = new PublicTreesDB(hintingMerkleTree);
       const hintingContractsDB = new HintingPublicContractsDB(this.contractsDB, hints);
