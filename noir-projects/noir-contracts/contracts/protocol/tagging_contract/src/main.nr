@@ -4,12 +4,13 @@ mod util;
 contract Handshaker {
     #[private]
     fn handshake(recipient: AztecAddress, hidden_sender: bool) {
-        let sender = if hidden_sender { AztecAddress::zero() } else { context.msg_sender() };
+        let sender = context.msg_sender();
+        let sender_to_include_in_message = if hidden_sender { AztecAddress::zero() } else { sender };
 
         let master_tagging_secret_key = unsafe { random() };
         let master_tagging_public_key = master_tagging_secret_key * G;
 
-        let recipient_message_plaintext = [sender, master_tagging_secret_key];
+        let recipient_message_plaintext = [sender_to_include_in_message, master_tagging_secret_key];
         let recipient_message_ciphertext = encrypt(recipient_message_plaintext, recipient);
 
         // We send a message for the sender as well because we want this to be resistant against the "vicious Mike
@@ -20,7 +21,7 @@ contract Handshaker {
 
         // We need to call this oracle function to add the handshake to sender's PXE because we need the handshaking
         // secret to be available in the same tx and not after the tx flies through the network.
-        add_master_tagging_secret_key(context.msg_sender(), recipient, master_tagging_secret_key);
+        add_master_tagging_secret_key(sender, recipient, master_tagging_secret_key);
 
         // The final ciphertext is the concatenation of the recipient and sender ciphertexts.
         let message_ciphertext = array_concat(recipient_message_ciphertext, sender_message_ciphertext);
