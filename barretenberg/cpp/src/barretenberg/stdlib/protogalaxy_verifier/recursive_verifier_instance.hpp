@@ -66,9 +66,8 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
 
     RecursiveVerifierInstance_(Builder* builder, std::shared_ptr<NativeVerifierInstance> verification_key)
         : RecursiveVerifierInstance_(builder, verification_key->vk)
-        , is_complete(verification_key->is_complete)
     {
-
+        is_complete = verification_key->is_complete;
         if (is_complete) {
             for (size_t alpha_idx = 0; alpha_idx < Flavor::NUM_SUBRELATIONS - 1; alpha_idx++) {
                 alphas[alpha_idx] = FF::from_witness(builder, verification_key->alphas[alpha_idx]);
