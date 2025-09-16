@@ -317,7 +317,7 @@ variable "BOT_MNEMONIC" {
 variable "BOT_TRANSFERS_MNEMONIC_START_INDEX" {
   description = "The prover mnemonic start index"
   type        = string
-  default     = 5001
+  default     = ""
 }
 
 variable "BOT_TRANSFERS_REPLICAS" {
@@ -347,7 +347,7 @@ variable "BOT_TRANSFERS_L2_PRIVATE_KEY" {
 variable "BOT_SWAPS_MNEMONIC_START_INDEX" {
   description = "The prover mnemonic start index"
   type        = string
-  default     = 6001
+  default     = ""
 }
 
 variable "BOT_SWAPS_REPLICAS" {
