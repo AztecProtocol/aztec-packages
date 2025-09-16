@@ -84,8 +84,7 @@ class TranslatorTests : public ::testing::Test {
         auto proof = prover.construct_proof();
 
         // Create verifier
-        auto verification_key = std::make_shared<TranslatorFlavor::VerificationKey>(
-            TranslatorFlavor::PrecomputedData{ proving_key->polynomials.get_precomputed() });
+        auto verification_key = std::make_shared<TranslatorFlavor::VerificationKey>(proving_key->get_precomputed());
         TranslatorVerifier verifier(verification_key, verifier_transcript);
 
         // Verify proof and return result
@@ -194,8 +193,7 @@ TEST_F(TranslatorTests, FixedVK)
             generate_test_circuit(batching_challenge_v, evaluation_challenge_x, circuit_size_parameter);
         auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
         TranslatorProver prover{ proving_key, prover_transcript };
-        TranslatorFlavor::VerificationKey computed_vk(
-            TranslatorFlavor::PrecomputedData{ proving_key->polynomials.get_precomputed() });
+        TranslatorFlavor::VerificationKey computed_vk(proving_key->get_precomputed());
         auto labels = TranslatorFlavor::VerificationKey::get_labels();
         size_t index = 0;
         for (auto [vk_commitment, fixed_commitment] : zip_view(computed_vk.get_all(), fixed_vk.get_all())) {

@@ -46,8 +46,7 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
     auto verifier_transcript = std::make_shared<bb::TranslatorFlavor::Transcript>();
     verifier_transcript->load_proof(prover_transcript->export_proof());
     verifier_transcript->template receive_from_prover<Fq>("init");
-    auto verification_key = std::make_shared<TranslatorFlavor::VerificationKey>(
-        TranslatorFlavor::PrecomputedData{ proving_key->polynomials.get_precomputed() });
+    auto verification_key = std::make_shared<TranslatorFlavor::VerificationKey>(proving_key->get_precomputed());
     TranslatorVerifier verifier(verification_key, verifier_transcript);
     bool verified = verifier.verify_proof(proof, x, translation_batching_challenge);
     (void)checked;

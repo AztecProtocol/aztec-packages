@@ -146,7 +146,7 @@ class TranslatorProvingKey {
 
     void split_interleaved_random_coefficients_to_ordered();
 
-    // PrecomputedData get_precomputed() { return PrecomputedData{ polynomials.get_precomputed() }; }
+    PrecomputedData get_precomputed() { return PrecomputedData{ polynomials.get_precomputed() }; };
 };
 
 } // namespace bb

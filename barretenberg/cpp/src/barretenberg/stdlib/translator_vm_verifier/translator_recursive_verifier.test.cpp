@@ -111,8 +111,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
         transcript->load_proof(stdlib_proof);
         [[maybe_unused]] auto _ = transcript->template receive_from_prover<RecursiveFlavor::BF>("init");
 
-        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(
-            InnerFlavor::PrecomputedData{ prover.key->polynomials.get_precomputed() });
+        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key->get_precomputed());
         RecursiveVerifier verifier{ &outer_circuit, verification_key, transcript };
         typename RecursiveVerifier::PairingPoints pairing_points =
             verifier.verify_proof(proof, evaluation_challenge_x, batching_challenge_v);
@@ -177,8 +176,8 @@ class TranslatorRecursiveTests : public ::testing::Test {
             // Generate a proof over the inner circuit
             auto inner_proving_key = std::make_shared<TranslatorProvingKey>(inner_circuit);
             InnerProver inner_prover(inner_proving_key, prover_transcript);
-            auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(
-                InnerFlavor::PrecomputedData{ inner_prover.key->polynomials.get_precomputed() });
+            auto verification_key =
+                std::make_shared<typename InnerFlavor::VerificationKey>(inner_prover.key->get_precomputed());
             auto inner_proof = inner_prover.construct_proof();
 
             // Create a recursive verification circuit for the proof of the inner circuit
