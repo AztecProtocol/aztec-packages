@@ -148,7 +148,6 @@ struct AvmFlavorVariables {
     // Need to be templated for recursive verifier
     template <typename FF_>
     using MainRelations_ = flat_tuple::tuple<
-
         // Optimized Relations
         avm2::optimized_poseidon2_perm<FF_>,
         // Relations
