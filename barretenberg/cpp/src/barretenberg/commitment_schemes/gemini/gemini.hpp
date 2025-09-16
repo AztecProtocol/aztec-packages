@@ -242,24 +242,15 @@ template <typename Curve> class GeminiProver_ {
                     batched_group.push_back(Polynomial(full_batched_size));
                 }
 
-                // Pre-compute all scalars
-                std::vector<Fr> scalars;
-                scalars.reserve(groups_to_be_interleaved.size());
-                Fr current_scalar = running_scalar;
                 for (size_t i = 0; i < groups_to_be_interleaved.size(); ++i) {
-                    scalars.push_back(current_scalar);
-                    current_scalar *= challenge;
-                }
-                running_scalar = current_scalar;
-
-                for (size_t i = 0; i < groups_to_be_interleaved.size(); ++i) {
-                    batched_interleaved.add_scaled(interleaved[i], scalars[i]);
+                    batched_interleaved.add_scaled(interleaved[i], running_scalar);
                     // Use parallel chunking for the batching operations
-                    parallel_for([this, &scalars, i](const ThreadChunk& chunk) {
+                    parallel_for([this, running_scalar, i](const ThreadChunk& chunk) {
                         for (size_t j = 0; j < groups_to_be_interleaved[0].size(); ++j) {
-                            batched_group[j].add_scaled_chunk(chunk, groups_to_be_interleaved[i][j], scalars[i]);
+                            batched_group[j].add_scaled_chunk(chunk, groups_to_be_interleaved[i][j], running_scalar);
                         }
                     });
+                    running_scalar *= challenge;
                 }
 
                 full_batched += batched_interleaved;
