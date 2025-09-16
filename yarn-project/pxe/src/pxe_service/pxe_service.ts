@@ -200,6 +200,10 @@ export class PXEService implements PXE {
     return pxeService;
   }
 
+  public getL1ToL2MessageBlock(l1ToL2Message: Fr): Promise<number | undefined> {
+    return this.node.getL1ToL2MessageBlock(l1ToL2Message);
+  }
+
   // Aztec node proxy methods
 
   public isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
