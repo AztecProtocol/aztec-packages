@@ -54,8 +54,8 @@ library ValidatorOperationsExtLib {
     );
   }
 
-  function flushEntryQueue() external {
-    StakingLib.flushEntryQueue();
+  function flushEntryQueue(uint256 _toAdd) external {
+    StakingLib.flushEntryQueue(_toAdd);
   }
 
   function initiateWithdraw(address _attester, address _recipient) external returns (bool) {
@@ -138,6 +138,11 @@ library ValidatorOperationsExtLib {
   }
 
   function getEntryQueueFlushSize() external view returns (uint256) {
-    return StakingLib.getEntryQueueFlushSize();
+    uint256 activeAttesterCount = StakingLib.getAttesterCountAtTime(Timestamp.wrap(block.timestamp));
+    return StakingLib.getEntryQueueFlushSize(activeAttesterCount);
+  }
+
+  function getAvailableValidatorFlushes() external view returns (uint256) {
+    return StakingLib.getAvailableValidatorFlushes();
   }
 }

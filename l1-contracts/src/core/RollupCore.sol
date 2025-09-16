@@ -228,6 +228,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     // from the onset). It might be updated later to 0 by governance in order to close the validator set for this
     // instance. For details see `StakingLib.getEntryQueueFlushSize` function.
     require(_config.stakingQueueConfig.normalFlushSizeMin > 0, Errors.Staking__InvalidStakingQueueConfig());
+    require(_config.stakingQueueConfig.normalFlushSizeQuotient > 0, Errors.Staking__InvalidNormalFlushSizeQuotient());
 
     TimeLib.initialize(
       block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration, _config.aztecProofSubmissionEpochs
@@ -448,9 +449,14 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @notice Processes the validator entry queue to add new validators to the active set
    * @dev Can be called by anyone. The number of validators added is limited by queue configuration.
    *      This helps maintain a controlled growth rate of the validator set.
+   * @param _toAdd - The max number the caller will try to add
    */
+  function flushEntryQueue(uint256 _toAdd) external override(IStakingCore) {
+    ValidatorOperationsExtLib.flushEntryQueue(_toAdd);
+  }
+
   function flushEntryQueue() external override(IStakingCore) {
-    ValidatorOperationsExtLib.flushEntryQueue();
+    ValidatorOperationsExtLib.flushEntryQueue(type(uint256).max);
   }
 
   /**
