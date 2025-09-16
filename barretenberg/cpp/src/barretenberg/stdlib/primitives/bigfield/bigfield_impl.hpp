@@ -1812,9 +1812,15 @@ template <typename Builder, typename T> void bigfield<Builder, T>::sanity_check(
 // non-negative at the end of subtraction, we know the subtraction result is positive as integers and a<p
 template <typename Builder, typename T> void bigfield<Builder, T>::assert_is_in_field() const
 {
+    assert_less_than(modulus);
+}
+
+// Asserts that the element is < upper_limit. We first range constrain the limbs and then calls
+// unsafe_assert_less_than(upper_limit).
+template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_than(const uint256_t& upper_limit) const
+{
     // Range constrain the binary basis limbs of the element to respective limb sizes.
     // This is required because the comparison is done using subtractions, which can result in overflows.
-    //
     // Range constrain the first two limbs each to NUM_LIMB_BITS
     auto ctx = get_context();
     ctx->range_constrain_two_limbs(binary_basis_limbs[0].element.get_normalized_witness_index(),
@@ -1828,26 +1834,20 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_is_in_
                                    static_cast<size_t>(NUM_LIMB_BITS),
                                    static_cast<size_t>(NUM_LAST_LIMB_BITS));
 
-    // Now we can check that the element is < modulus.
-    unsafe_assert_less_than(modulus);
+    // Now we can check that the element is < upper_limit.
+    unsafe_assert_less_than(upper_limit);
 }
 
-// Reduces the element mod p (lazy reduction) and asserts that it is < upper_limit.
-// Note that upper_limit must be < p, otherwise this function will always pass.
-template <typename Builder, typename T>
-void bigfield<Builder, T>::reduce_and_assert_less_than(const uint256_t& upper_limit) const
+// Reduces the element mod p. This is a strict reduction mod p, so the output is guaranteed to be < p.
+template <typename Builder, typename T> void bigfield<Builder, T>::reduce_mod_target_modulus() const
 {
     // First we lazy-reduce the element mod p, and constrain the output/remainder to be < 2^s where s = ceil(log2(p)).
     // This brings the element into the range [0, 2^s) such that the limbs of the reduced element are all range
     // constrained to < 2^b (last limb < 2^(s - 3b)).
-    //
-    // This also means that the upper limit must be < p, otherwise we would end up reducing a value greater than p.
-    // If upper_limit >= p, this function will always pass even if the input > upper_limit.
-    BB_ASSERT_LT(upper_limit, modulus, "upper_limit must be < modulus");
     self_reduce();
 
-    // Then we constrain the element to be < upper_limit using strict comparison.
-    unsafe_assert_less_than(upper_limit);
+    // Then we constrain the element to be < target modulus using strict comparison.
+    unsafe_assert_less_than(modulus);
 }
 
 // Asserts that the element is < upper_limit. We mark this as unsafe because it assumes that the element is already

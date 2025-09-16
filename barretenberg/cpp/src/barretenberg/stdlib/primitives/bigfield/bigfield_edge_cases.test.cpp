@@ -416,7 +416,7 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
         EXPECT_EQ(builder.err(), "decompose_into_default_range");
     }
 
-    static void test_reduce_and_assert_less_than()
+    static void test_assert_less_than()
     {
         Builder builder = Builder();
 
@@ -426,52 +426,63 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
                 fq_ct edge_case_small = fq_ct::create_from_u512_as_witness(&builder, edge_case_values[i], true);
 
                 // This should always pass since edge_case_values is sorted in ascending order
-                edge_case_small.reduce_and_assert_less_than(edge_case_values[j].lo);
+                edge_case_small.assert_less_than(edge_case_values[j].lo);
             }
-        }
-
-        for (const auto& large_value : values_larger_than_bigfield) {
-            // Check for large values
-            fq_ct large_case = fq_ct::create_from_u512_as_witness(&builder, large_value, true);
-
-            // Since reduce_and_assert_is_in_field first reduces the value mod p, and then checks if the remainder is <
-            // 2^s, all of our "large" test values will reduce to something < p, so this should always pass.
-            large_case.reduce_and_assert_less_than(fq_ct::modulus - uint256_t(1)); // p - 1
         }
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
-    static void test_reduce_and_assert_less_than_fails()
+    static void test_assert_less_than_fails()
     {
         Builder builder = Builder();
 
-        {
-            // case 1: value_i > value_{i + 1} (skip 0)
-            for (size_t i = 1; i < edge_case_values.size() - 1; ++i) {
-                // Check against all smaller edge case values
-                for (size_t j = 1; j < i; ++j) {
-                    fq_ct edge_case_large = fq_ct::create_from_u512_as_witness(&builder, edge_case_values[i], true);
+        for (const auto& i : values_larger_than_bigfield) {
+            // get the large value
+            fq_ct large_case = fq_ct::create_from_u512_as_witness(&builder, i, false);
 
-                    // This should always fail since edge_case_values is sorted in ascending order
-                    edge_case_large.reduce_and_assert_less_than(edge_case_values[j].lo);
-                }
+            for (size_t j = 1; j < edge_case_values.size(); ++j) {
+                // current value < next value
+                // but this still would fail because range constraints on current value fail
+                large_case.assert_less_than(edge_case_values[j].lo);
             }
+        }
 
-            bool result = CircuitChecker::check(builder);
-            EXPECT_EQ(result, false);
-            EXPECT_EQ(builder.err(), "decompose_into_default_range");
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, false);
+        EXPECT_EQ(builder.err(), "decompose_into_default_range");
+    }
+
+    static void test_reduce_mod_target_modulus()
+    {
+        Builder builder = Builder();
+
+        // Check that both edge case values as well as values larger than bigfield are reduced correctly
+        for (const auto& value : edge_case_values) {
+            fq_ct edge_case = fq_ct::create_from_u512_as_witness(&builder, value, false);
+            fq_native edge_case_native = fq_native(value);
+
+            edge_case.reduce_mod_target_modulus();
+            edge_case_native = edge_case_native.reduce_once().reduce_once();
+
+            EXPECT_EQ(edge_case.get_value() < fq_ct::modulus, true);
+            EXPECT_EQ(edge_case.get_value(), uint512_t(edge_case_native));
         }
-        {
-#ifndef NDEBUG
-            // case 2: upper_limit = p
-            fq_ct edge_case_large = fq_ct::create_from_u512_as_witness(&builder, edge_case_values.back(), true);
-            // In debug mode, this should trigger an assertion failure since value == p
-            EXPECT_THROW_OR_ABORT(edge_case_large.reduce_and_assert_less_than(fq_ct::modulus),
-                                  "upper_limit must be < modulus");
-#endif
+
+        for (const auto& large_value : values_larger_than_bigfield) {
+            fq_ct large_case = fq_ct::create_from_u512_as_witness(&builder, large_value, true);
+            fq_native large_case_native = fq_native(large_value);
+
+            large_case.reduce_mod_target_modulus();
+            large_case_native = large_case_native.reduce_once().reduce_once();
+
+            EXPECT_EQ(large_case.get_value() < fq_ct::modulus, true);
+            EXPECT_EQ(large_case.get_value(), uint512_t(large_case_native));
         }
+
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
     }
 
     static void test_assert_equal_edge_case()
@@ -639,13 +650,17 @@ TYPED_TEST(stdlib_bigfield_edge_cases, assert_is_in_field_fails)
 {
     TestFixture::test_assert_is_in_field_fails();
 }
-TYPED_TEST(stdlib_bigfield_edge_cases, reduce_and_assert_less_than)
+TYPED_TEST(stdlib_bigfield_edge_cases, assert_less_than)
 {
-    TestFixture::test_reduce_and_assert_less_than();
+    TestFixture::test_assert_less_than();
 }
-TYPED_TEST(stdlib_bigfield_edge_cases, reduce_and_assert_less_than_fails)
+TYPED_TEST(stdlib_bigfield_edge_cases, assert_less_than_fails)
 {
-    TestFixture::test_reduce_and_assert_less_than_fails();
+    TestFixture::test_assert_less_than_fails();
+}
+TYPED_TEST(stdlib_bigfield_edge_cases, reduce_mod_target_modulus)
+{
+    TestFixture::test_reduce_mod_target_modulus();
 }
 TYPED_TEST(stdlib_bigfield_edge_cases, assert_equal_edge_case)
 {
