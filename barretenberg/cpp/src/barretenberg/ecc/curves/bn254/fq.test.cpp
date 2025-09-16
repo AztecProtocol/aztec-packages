@@ -385,6 +385,9 @@ TEST(fq, SplitIntoEndomorphismScalars)
     k1.self_to_montgomery_form();
     k2.self_to_montgomery_form();
 
+    EXPECT_LT(uint256_t(k1).get_msb(), 128);
+    EXPECT_LT(uint256_t(k2).get_msb(), 128);
+
     result = k2 * fq::cube_root_of_unity();
     result = k1 - result;
 
@@ -406,6 +409,37 @@ TEST(fq, SplitIntoEndomorphismScalarsSimple)
     fq result{ 0, 0, 0, 0 };
     k1.self_to_montgomery_form();
     k2.self_to_montgomery_form();
+
+    EXPECT_LT(uint256_t(k1).get_msb(), 128);
+    EXPECT_LT(uint256_t(k2).get_msb(), 128);
+
+    fq beta = fq::cube_root_of_unity();
+    result = k2 * beta;
+    result = k1 - result;
+
+    result.self_from_montgomery_form();
+    for (size_t i = 0; i < 4; ++i) {
+        EXPECT_EQ(result.data[i], k.data[i]);
+    }
+}
+
+TEST(fq, SplitIntoEndomorphismEdgeCase)
+{
+
+    fq input = { 0, 0, 1, 0 }; // 2^128
+    fq k = { 0, 0, 0, 0 };
+    fq k1 = { 0, 0, 0, 0 };
+    fq k2 = { 0, 0, 0, 0 };
+    fq::__copy(input, k);
+
+    fq::split_into_endomorphism_scalars(k, k1, k2);
+
+    fq result{ 0, 0, 0, 0 };
+    k1.self_to_montgomery_form();
+    k2.self_to_montgomery_form();
+
+    EXPECT_LT(uint256_t(k1).get_msb(), 128);
+    EXPECT_LT(uint256_t(k2).get_msb(), 128);
 
     fq beta = fq::cube_root_of_unity();
     result = k2 * beta;

@@ -127,6 +127,30 @@ TEST_F(ECCVMTests, Zeroes)
 
     ASSERT_TRUE(verified);
 }
+TEST_F(ECCVMTests, ScalarEdgeCase)
+{
+    using Curve = curve::BN254;
+    using G1 = Curve::Element;
+    using Fr = Curve::ScalarField;
+
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+    G1 a = G1::one();
+
+    op_queue->mul_accumulate(a, Fr(uint256_t(1) << 128));
+    op_queue->eq_and_reset();
+    op_queue->merge();
+    ECCVMCircuitBuilder builder{ op_queue };
+
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover(builder, prover_transcript);
+    ECCVMProof proof = prover.construct_proof();
+
+    std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
+    ECCVMVerifier verifier(verifier_transcript);
+    bool verified = verifier.verify_proof(proof);
+
+    ASSERT_TRUE(verified);
+}
 /**
  * @brief Check that size of a ECCVM proof matches the corresponding constant
  *@details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
