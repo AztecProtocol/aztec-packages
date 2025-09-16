@@ -413,7 +413,7 @@ export class BotFactory {
     await this.withNoMinTxsPerBlock(() =>
       waitForL1ToL2MessageReady(this.pxe, Fr.fromHexString(claim.messageHash), {
         timeoutSeconds: this.config.l1ToL2MessageTimeoutSeconds,
-        forPublicConsumption: true,
+        forPublicConsumption: false,
       }),
     );
 
