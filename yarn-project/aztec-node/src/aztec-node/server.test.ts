@@ -11,7 +11,7 @@ import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import type { GlobalVariableBuilder } from '@aztec/sequencer-client';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockSource } from '@aztec/stdlib/block';
+import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -319,6 +319,36 @@ describe('aztec node', () => {
       it('returns undefined for non-existent block', async () => {
         l2BlockSource.getBlockHeader.mockResolvedValue(undefined);
         expect(await node.getBlockHeader(3)).toEqual(undefined);
+      });
+    });
+
+    describe('getBlock', () => {
+      let block1: L2Block;
+      let block2: L2Block;
+
+      beforeEach(() => {
+        block1 = L2Block.empty();
+        block2 = L2Block.empty();
+
+        l2BlockSource.getBlockNumber.mockResolvedValue(2);
+      });
+
+      it('returns requested block number', async () => {
+        l2BlockSource.getBlock.mockResolvedValue(block1);
+        expect(await node.getBlock(1)).toEqual(block1);
+        expect(l2BlockSource.getBlock).toHaveBeenCalledWith(1);
+      });
+
+      it('returns latest block', async () => {
+        l2BlockSource.getBlock.mockResolvedValue(block2);
+        expect(await node.getBlock('latest')).toEqual(block2);
+        expect(l2BlockSource.getBlock).toHaveBeenCalledWith(2);
+      });
+
+      it('returns undefined for non-existent block', async () => {
+        l2BlockSource.getBlock.mockResolvedValue(undefined);
+        expect(await node.getBlock(3)).toEqual(undefined);
+        expect(l2BlockSource.getBlock).toHaveBeenCalledWith(3);
       });
     });
   });
