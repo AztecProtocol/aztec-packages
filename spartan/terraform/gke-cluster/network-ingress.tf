@@ -1,5 +1,5 @@
 resource "google_compute_global_address" "staging_public_rpc_ip" {
-  name        = "staging-rc-1-ingress"
+  name        = "staging-public-rpc-ip"
   description = "Static IP for staging-public network RPC ingress"
 
   lifecycle {
