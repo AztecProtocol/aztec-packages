@@ -108,7 +108,7 @@ jobs:
           ETHEREUM_CONSENSUS_HOST_API_KEYS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEYS }}
           ETHEREUM_CONSENSUS_HOST_API_KEY_HEADERS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEY_HEADERS }}
           FUNDING_PRIVATE_KEY=${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
-          LABS_INFRA_MNEMONIC=${{ secrets.SEPOLIA_LABS_INFRA_MNEMONIC }}
+          LABS_INFRA_MNEMONIC=${{ secrets.SEPOLIA_LABS_STAGING_PUBLIC_MNEMONIC }}
           ROLLUP_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_LABS_ROLLUP_PRIVATE_KEY }}
           OTEL_COLLECTOR_ENDPOINT=${{ secrets.OTEL_COLLECTOR_URL }}
           VERIFY_CONTRACTS=true
@@ -154,58 +154,58 @@ jobs:
       #############
       # Deploy staging-ignition network
       #############
-      - name: Write staging-ignition network env file
-        if: env.SEMVER != '' && env.MAJOR_VERSION == '2'
-        run: |
-          NAMESPACE=staging-ignition
-          cat > ${{ env.NETWORK_ENV_FILE }} <<EOF
-          CREATE_ETH_DEVNET=false
-          GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
-          GCP_REGION=us-west1-a
-          CLUSTER=aztec-gke-private
-          SALT=11757379062
-          NAMESPACE=${NAMESPACE}
-          AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${SEMVER}"
-          TRANSACTIONS_DISABLED=true
-          NETWORK=staging-ignition
+      # - name: Write staging-ignition network env file
+      #   if: env.SEMVER != '' && env.MAJOR_VERSION == '2'
+      #   run: |
+      #     NAMESPACE=staging-ignition
+      #     cat > ${{ env.NETWORK_ENV_FILE }} <<EOF
+      #     CREATE_ETH_DEVNET=false
+      #     GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
+      #     GCP_REGION=us-west1-a
+      #     CLUSTER=aztec-gke-private
+      #     SALT=11757379062
+      #     NAMESPACE=${NAMESPACE}
+      #     AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${SEMVER}"
+      #     TRANSACTIONS_DISABLED=true
+      #     NETWORK=staging-ignition
 
-          ETHEREUM_CHAIN_ID=11155111
-          ETHEREUM_RPC_URLS=${{ secrets.SEPOLIA_RPC_URLS }}
-          ETHEREUM_CONSENSUS_HOST_URLS=${{ secrets.SEPOLIA_CONSENSUS_HOST_URLS }}
-          ETHEREUM_CONSENSUS_HOST_API_KEYS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEYS }}
-          ETHEREUM_CONSENSUS_HOST_API_KEY_HEADERS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEY_HEADERS }}
-          FUNDING_PRIVATE_KEY=${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
-          LABS_INFRA_MNEMONIC=${{ secrets.SEPOLIA_LABS_STAGING_IGNITION_MNEMONIC }}
-          ROLLUP_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_LABS_ROLLUP_PRIVATE_KEY }}
-          OTEL_COLLECTOR_ENDPOINT=${{ secrets.OTEL_COLLECTOR_URL }}
-          VERIFY_CONTRACTS=true
-          ETHERSCAN_API_KEY=${{ secrets.ETHERSCAN_API_KEY }}
-          STORE_SNAPSHOT_URL="${{ secrets.GCS_TESTNET_SNAPSHOT_URL }}/staging-ignition/"
-          DEPLOY_INTERNAL_BOOTNODE=false
-          BOT_TRANSFERS_REPLICAS=0
-          BOT_SWAPS_REPLICAS=0
-          DEPLOY_INTERNAL_BOOTNODE=false
-          FLUSH_ENTRY_QUEUE=false
-          EOF
-          echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
+      #     ETHEREUM_CHAIN_ID=11155111
+      #     ETHEREUM_RPC_URLS=${{ secrets.SEPOLIA_RPC_URLS }}
+      #     ETHEREUM_CONSENSUS_HOST_URLS=${{ secrets.SEPOLIA_CONSENSUS_HOST_URLS }}
+      #     ETHEREUM_CONSENSUS_HOST_API_KEYS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEYS }}
+      #     ETHEREUM_CONSENSUS_HOST_API_KEY_HEADERS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEY_HEADERS }}
+      #     FUNDING_PRIVATE_KEY=${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
+      #     LABS_INFRA_MNEMONIC=${{ secrets.SEPOLIA_LABS_STAGING_IGNITION_MNEMONIC }}
+      #     ROLLUP_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_LABS_ROLLUP_PRIVATE_KEY }}
+      #     OTEL_COLLECTOR_ENDPOINT=${{ secrets.OTEL_COLLECTOR_URL }}
+      #     VERIFY_CONTRACTS=true
+      #     ETHERSCAN_API_KEY=${{ secrets.ETHERSCAN_API_KEY }}
+      #     STORE_SNAPSHOT_URL="${{ secrets.GCS_TESTNET_SNAPSHOT_URL }}/staging-ignition/"
+      #     DEPLOY_INTERNAL_BOOTNODE=false
+      #     BOT_TRANSFERS_REPLICAS=0
+      #     BOT_SWAPS_REPLICAS=0
+      #     DEPLOY_INTERNAL_BOOTNODE=false
+      #     FLUSH_ENTRY_QUEUE=false
+      #     EOF
+      #     echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
 
-      - name: Run
-        if: env.SEMVER != '' && env.MAJOR_VERSION == '2'
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          RUN_ID: ${{ github.run_id }}
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          # Pass the base64 encoded strings, and where they should be decoded to
-          NETWORK_ENV_FILE: ${{ env.NETWORK_ENV_FILE }}
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
-          NAMESPACE: ${{ env.NAMESPACE }}
-          REF_NAME: "v${{ env.SEMVER }}"
-        run: |
-          # the network env file and gcp credentials file are mounted into the ec2 instance
-          # see ci3/bootstrap_ec2
-          exec ./ci.sh network-deploy
+      # - name: Run
+      #   if: env.SEMVER != '' && env.MAJOR_VERSION == '2'
+      #   env:
+      #     AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #     GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+      #     RUN_ID: ${{ github.run_id }}
+      #     SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      #     # Pass the base64 encoded strings, and where they should be decoded to
+      #     NETWORK_ENV_FILE: ${{ env.NETWORK_ENV_FILE }}
+      #     GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
+      #     NAMESPACE: ${{ env.NAMESPACE }}
+      #     REF_NAME: "v${{ env.SEMVER }}"
+      #   run: |
+      #     # the network env file and gcp credentials file are mounted into the ec2 instance
+      #     # see ci3/bootstrap_ec2
+      #     exec ./ci.sh network-deploy
 
       #############
       # Deploy testnet if we are not a pre-release (i.e. semver does not contain a hyphen)
@@ -230,7 +230,7 @@ jobs:
           ETHEREUM_CONSENSUS_HOST_API_KEYS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEYS }}
           ETHEREUM_CONSENSUS_HOST_API_KEY_HEADERS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEY_HEADERS }}
           FUNDING_PRIVATE_KEY=${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
-          LABS_INFRA_MNEMONIC=${{ secrets.SEPOLIA_LABS_INFRA_MNEMONIC }}
+          LABS_INFRA_MNEMONIC=${{ secrets.SEPOLIA_LABS_TESTNET_MNEMONIC }}
           ROLLUP_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_LABS_ROLLUP_PRIVATE_KEY }}
           OTEL_COLLECTOR_ENDPOINT=${{ secrets.OTEL_COLLECTOR_URL }}
           VERIFY_CONTRACTS=true
