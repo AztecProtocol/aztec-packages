@@ -8,14 +8,14 @@
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/ultra_honk/decider_verification_key.hpp"
+#include "barretenberg/ultra_honk/verifier_instance.hpp"
 
 namespace bb::stdlib::recursion::honk {
 
 /**
- * @brief The stdlib counterpart of DeciderVerificationKey, used in recursive folding verification.
+ * @brief The stdlib counterpart of VerifierInstance, used in recursive folding verification.
  */
-template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
+template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
   public:
     using FF = typename Flavor::FF;
     using NativeFF = typename Flavor::Curve::ScalarFieldNative;
@@ -28,7 +28,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     using Builder = typename Flavor::CircuitBuilder;
     using NativeFlavor = typename Flavor::NativeFlavor;
     using NativeVerificationKey = typename Flavor::NativeFlavor::VerificationKey;
-    using NativeDeciderVerificationKey = bb::DeciderVerificationKey_<NativeFlavor>;
+    using NativeVerifierInstance = bb::VerifierInstance_<NativeFlavor>;
     using VerifierCommitmentKey = typename NativeFlavor::VerifierCommitmentKey;
     using Transcript = typename Flavor::Transcript;
 
@@ -49,23 +49,23 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     WitnessCommitments witness_commitments;
     CommitmentLabels commitment_labels;
 
-    RecursiveDeciderVerificationKey_(Builder* builder)
+    RecursiveVerifierInstance_(Builder* builder)
         : builder(builder) {};
 
     // Constructor from native vk
-    RecursiveDeciderVerificationKey_(Builder* builder, std::shared_ptr<NativeVerificationKey> vk)
+    RecursiveVerifierInstance_(Builder* builder, std::shared_ptr<NativeVerificationKey> vk)
         : builder(builder)
         , vk_and_hash(std::make_shared<VKAndHash>(std::make_shared<VerificationKey>(builder, vk),
                                                   FF::from_witness(builder, vk->hash())))
     {}
 
     // Constructor from stdlib vk and hash
-    RecursiveDeciderVerificationKey_(Builder* builder, std::shared_ptr<VKAndHash> vk_and_hash)
+    RecursiveVerifierInstance_(Builder* builder, std::shared_ptr<VKAndHash> vk_and_hash)
         : builder(builder)
         , vk_and_hash(vk_and_hash) {};
 
-    RecursiveDeciderVerificationKey_(Builder* builder, std::shared_ptr<NativeDeciderVerificationKey> verification_key)
-        : RecursiveDeciderVerificationKey_(builder, verification_key->vk)
+    RecursiveVerifierInstance_(Builder* builder, std::shared_ptr<NativeVerifierInstance> verification_key)
+        : RecursiveVerifierInstance_(builder, verification_key->vk)
     {
         is_complete = verification_key->is_complete;
         if (is_complete) {
@@ -97,13 +97,13 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     }
 
     /**
-     * @brief Return the underlying native DeciderVerificationKey.
+     * @brief Return the underlying native VerifierInstance.
      *
      * @details In the context of client IVC, we will have several iterations of recursive folding verification. The
-     * RecursiveDeciderVerificationKey is tied to the builder in whose context it was created so in order to preserve
-     * the accumulator values between several iterations we need to retrieve the native DeciderVerificationKey values.
+     * RecursiveVerifierInstance is tied to the builder in whose context it was created so in order to preserve
+     * the accumulator values between several iterations we need to retrieve the native VerifierInstance values.
      */
-    NativeDeciderVerificationKey get_value()
+    NativeVerifierInstance get_value()
     {
         using NativeVerificationKey = typename Flavor::NativeFlavor::VerificationKey;
         auto native_honk_vk = std::make_shared<NativeVerificationKey>();
@@ -111,65 +111,67 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
         native_honk_vk->num_public_inputs = static_cast<uint64_t>(vk_and_hash->vk->num_public_inputs.get_value());
         native_honk_vk->pub_inputs_offset = static_cast<uint64_t>(vk_and_hash->vk->pub_inputs_offset.get_value());
 
-        for (auto [vk, final_decider_vk] : zip_view(vk_and_hash->vk->get_all(), native_honk_vk->get_all())) {
-            final_decider_vk = vk.get_value();
+        for (auto [vk, final_verifier_inst] : zip_view(vk_and_hash->vk->get_all(), native_honk_vk->get_all())) {
+            final_verifier_inst = vk.get_value();
         }
 
-        NativeDeciderVerificationKey decider_vk(native_honk_vk);
-        decider_vk.is_complete = is_complete;
+        NativeVerifierInstance verifier_inst(native_honk_vk);
+        verifier_inst.is_complete = is_complete;
 
-        for (auto [alpha, inst_alpha] : zip_view(alphas, decider_vk.alphas)) {
+        for (auto [alpha, inst_alpha] : zip_view(alphas, verifier_inst.alphas)) {
             inst_alpha = alpha.get_value();
         }
 
         for (auto [comm, inst_comm] :
-             zip_view(witness_commitments.get_all(), decider_vk.witness_commitments.get_all())) {
+             zip_view(witness_commitments.get_all(), verifier_inst.witness_commitments.get_all())) {
             inst_comm = comm.get_value();
         }
-        decider_vk.target_sum = target_sum.get_value();
+        verifier_inst.target_sum = target_sum.get_value();
 
-        decider_vk.gate_challenges = std::vector<NativeFF>(gate_challenges.size());
-        for (auto [challenge, inst_challenge] : zip_view(gate_challenges, decider_vk.gate_challenges)) {
+        verifier_inst.gate_challenges = std::vector<NativeFF>(gate_challenges.size());
+        for (auto [challenge, inst_challenge] : zip_view(gate_challenges, verifier_inst.gate_challenges)) {
             inst_challenge = challenge.get_value();
         }
 
-        decider_vk.relation_parameters.eta = relation_parameters.eta.get_value();
-        decider_vk.relation_parameters.eta_two = relation_parameters.eta_two.get_value();
-        decider_vk.relation_parameters.eta_three = relation_parameters.eta_three.get_value();
-        decider_vk.relation_parameters.beta = relation_parameters.beta.get_value();
-        decider_vk.relation_parameters.gamma = relation_parameters.gamma.get_value();
-        decider_vk.relation_parameters.public_input_delta = relation_parameters.public_input_delta.get_value();
-        return decider_vk;
+        verifier_inst.relation_parameters.eta = relation_parameters.eta.get_value();
+        verifier_inst.relation_parameters.eta_two = relation_parameters.eta_two.get_value();
+        verifier_inst.relation_parameters.eta_three = relation_parameters.eta_three.get_value();
+        verifier_inst.relation_parameters.beta = relation_parameters.beta.get_value();
+        verifier_inst.relation_parameters.gamma = relation_parameters.gamma.get_value();
+        verifier_inst.relation_parameters.public_input_delta = relation_parameters.public_input_delta.get_value();
+        return verifier_inst;
     }
 
     FF hash_through_transcript(const std::string& domain_separator, Transcript& transcript) const
     {
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_log_circuit_size",
+        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_log_circuit_size",
                                                   this->vk_and_hash->vk->log_circuit_size);
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_num_public_inputs",
+        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_num_public_inputs",
                                                   this->vk_and_hash->vk->num_public_inputs);
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_pub_inputs_offset",
+        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_pub_inputs_offset",
                                                   this->vk_and_hash->vk->pub_inputs_offset);
 
         for (const Commitment& commitment : this->vk_and_hash->vk->get_all()) {
-            transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_precomputed_comm", commitment);
+            transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_precomputed_comm", commitment);
         }
         for (const Commitment& comm : witness_commitments.get_all()) {
-            transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_wit_comm", comm);
+            transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_wit_comm", comm);
         }
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_alphas", this->alphas);
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_eta", this->relation_parameters.eta);
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_eta_two",
+        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_alphas", this->alphas);
+        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_eta",
+                                                  this->relation_parameters.eta);
+        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_eta_two",
                                                   this->relation_parameters.eta_two);
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_eta_three",
+        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_eta_three",
                                                   this->relation_parameters.eta_three);
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_beta", this->relation_parameters.beta);
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_gamma",
+        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_beta",
+                                                  this->relation_parameters.beta);
+        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_gamma",
                                                   this->relation_parameters.gamma);
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_public_input_delta",
+        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_public_input_delta",
                                                   this->relation_parameters.public_input_delta);
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_target_sum", this->target_sum);
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_gate_challenges",
+        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_target_sum", this->target_sum);
+        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_gate_challenges",
                                                   this->gate_challenges);
 
         return transcript.hash_independent_buffer();

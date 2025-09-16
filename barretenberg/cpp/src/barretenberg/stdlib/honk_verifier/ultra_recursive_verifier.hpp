@@ -55,7 +55,7 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using GroupElement = typename Flavor::GroupElement;
-    using RecursiveDeciderVK = RecursiveDeciderVerificationKey_<Flavor>;
+    using RecursiveVerifierInstances = RecursiveVerifierInstance_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using VKAndHash = typename Flavor::VKAndHash;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
@@ -74,8 +74,8 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify_proof(const StdlibProof& proof);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1364): Improve VKs. Clarify the usage of
-    // RecursiveDeciderVK here. Seems unnecessary.
-    std::shared_ptr<RecursiveDeciderVK> key;
+    // RecursiveVerifierInstances here. Seems unnecessary.
+    std::shared_ptr<RecursiveVerifierInstances> verifier_instance;
     VerifierCommitmentKey pcs_verification_key;
     Builder* builder;
     std::shared_ptr<Transcript> transcript;

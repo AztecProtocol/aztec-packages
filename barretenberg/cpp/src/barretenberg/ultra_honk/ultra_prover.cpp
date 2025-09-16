@@ -11,10 +11,10 @@
 namespace bb {
 
 template <IsUltraOrMegaHonk Flavor>
-UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<DeciderPK>& proving_key,
+UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<ProverInstance>& prover_instance,
                                    const std::shared_ptr<HonkVK>& honk_vk,
                                    const CommitmentKey& commitment_key)
-    : proving_key(std::move(proving_key))
+    : prover_instance(std::move(prover_instance))
     , honk_vk(honk_vk)
     , transcript(std::make_shared<Transcript>())
     , commitment_key(commitment_key)
@@ -23,18 +23,18 @@ UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<DeciderPK>& proving_key
 /**
  * @brief Create UltraProver_ from a decider proving key.
  *
- * @param proving_key key whose proof we want to generate.
+ * @param prover_instance key whose proof we want to generate.
  *
  * @tparam a type of UltraFlavor
  * */
 template <IsUltraOrMegaHonk Flavor>
-UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<DeciderPK>& proving_key,
+UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<ProverInstance>& prover_instance,
                                    const std::shared_ptr<HonkVK>& honk_vk,
                                    const std::shared_ptr<Transcript>& transcript)
-    : proving_key(std::move(proving_key))
+    : prover_instance(std::move(prover_instance))
     , honk_vk(honk_vk)
     , transcript(transcript)
-    , commitment_key(proving_key->commitment_key)
+    , commitment_key(prover_instance->commitment_key)
 {}
 
 /**
@@ -48,18 +48,18 @@ template <IsUltraOrMegaHonk Flavor>
 UltraProver_<Flavor>::UltraProver_(Builder& circuit,
                                    const std::shared_ptr<HonkVK>& honk_vk,
                                    const std::shared_ptr<Transcript>& transcript)
-    : proving_key(std::make_shared<DeciderPK>(circuit))
+    : prover_instance(std::make_shared<ProverInstance>(circuit))
     , honk_vk(honk_vk)
     , transcript(transcript)
-    , commitment_key(proving_key->commitment_key)
+    , commitment_key(prover_instance->commitment_key)
 {}
 
 template <IsUltraOrMegaHonk Flavor>
 UltraProver_<Flavor>::UltraProver_(Builder&& circuit, const std::shared_ptr<HonkVK>& honk_vk)
-    : proving_key(std::make_shared<DeciderPK>(circuit))
+    : prover_instance(std::make_shared<ProverInstance>(circuit))
     , honk_vk(honk_vk)
     , transcript(std::make_shared<Transcript>())
-    , commitment_key(proving_key->commitment_key)
+    , commitment_key(prover_instance->commitment_key)
 {}
 
 template <IsUltraOrMegaHonk Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Flavor>::export_proof()
@@ -69,8 +69,8 @@ template <IsUltraOrMegaHonk Flavor> typename UltraProver_<Flavor>::Proof UltraPr
     // Add the IPA proof
     if constexpr (HasIPAAccumulator<Flavor>) {
         // The extra calculation is for the IPA proof length.
-        BB_ASSERT_EQ(proving_key->ipa_proof.size(), static_cast<size_t>(IPA_PROOF_LENGTH));
-        proof.insert(proof.end(), proving_key->ipa_proof.begin(), proving_key->ipa_proof.end());
+        BB_ASSERT_EQ(prover_instance->ipa_proof.size(), static_cast<size_t>(IPA_PROOF_LENGTH));
+        proof.insert(proof.end(), prover_instance->ipa_proof.begin(), prover_instance->ipa_proof.end());
     }
 
     return proof;
@@ -80,21 +80,21 @@ template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::generate_gate_cha
 {
     // Determine the number of rounds in the sumcheck based on whether or not padding is employed
     const size_t virtual_log_n =
-        Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : static_cast<size_t>(proving_key->log_dyadic_size());
+        Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : static_cast<size_t>(prover_instance->log_dyadic_size());
 
-    proving_key->gate_challenges =
+    prover_instance->gate_challenges =
         transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
 }
 
 template <IsUltraOrMegaHonk Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Flavor>::construct_proof()
 {
-    OinkProver<Flavor> oink_prover(proving_key, honk_vk, transcript);
+    OinkProver<Flavor> oink_prover(prover_instance, honk_vk, transcript);
     oink_prover.prove();
     vinfo("created oink proof");
 
     generate_gate_challenges();
 
-    DeciderProver_<Flavor> decider_prover(proving_key, transcript);
+    DeciderProver_<Flavor> decider_prover(prover_instance, transcript);
     decider_prover.construct_proof();
     return export_proof();
 }

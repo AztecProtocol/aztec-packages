@@ -38,7 +38,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     using InnerProver = UltraProver_<InnerFlavor>;
     using InnerVerifier = UltraVerifier_<InnerFlavor>;
     using InnerBuilder = typename InnerFlavor::CircuitBuilder;
-    using InnerDeciderProvingKey = DeciderProvingKey_<InnerFlavor>;
+    using InnerProverInstance = ProverInstance_<InnerFlavor>;
     using InnerCommitment = InnerFlavor::Commitment;
     using InnerFF = InnerFlavor::FF;
     using InnerIO = std::conditional_t<HasIPAAccumulator<RecursiveFlavor>,
@@ -54,7 +54,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
                            std::conditional_t<HasIPAAccumulator<RecursiveFlavor>, UltraRollupFlavor, UltraFlavor>>;
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
-    using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
+    using OuterProverInstance = ProverInstance_<OuterFlavor>;
     using OuterStdlibProof = bb::stdlib::Proof<OuterBuilder>;
     using OuterIO = std::conditional_t<HasIPAAccumulator<RecursiveFlavor>,
                                        bb::stdlib::recursion::honk::RollupIO, // If RecursiveFlavor has IPA, then
@@ -127,18 +127,19 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         OuterBuilder outer_circuit;
 
         // Compute native verification key
-        auto proving_key = std::make_shared<InnerDeciderProvingKey>(inner_circuit);
-        auto honk_vk = std::make_shared<typename InnerFlavor::VerificationKey>(proving_key->get_precomputed());
+        auto prover_instance = std::make_shared<InnerProverInstance>(inner_circuit);
+        auto honk_vk = std::make_shared<typename InnerFlavor::VerificationKey>(prover_instance->get_precomputed());
         auto stdlib_vk_and_hash = std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, honk_vk);
         // Instantiate the recursive verifier using the native verification key
         RecursiveVerifier verifier{ &outer_circuit, stdlib_vk_and_hash };
 
         // Spot check some values in the recursive VK to ensure it was constructed correctly
-        EXPECT_EQ(static_cast<uint64_t>(verifier.key->vk_and_hash->vk->log_circuit_size.get_value()),
+        EXPECT_EQ(static_cast<uint64_t>(verifier.verifier_instance->vk_and_hash->vk->log_circuit_size.get_value()),
                   honk_vk->log_circuit_size);
-        EXPECT_EQ(static_cast<uint64_t>(verifier.key->vk_and_hash->vk->num_public_inputs.get_value()),
+        EXPECT_EQ(static_cast<uint64_t>(verifier.verifier_instance->vk_and_hash->vk->num_public_inputs.get_value()),
                   honk_vk->num_public_inputs);
-        for (auto [vk_poly, native_vk_poly] : zip_view(verifier.key->vk_and_hash->vk->get_all(), honk_vk->get_all())) {
+        for (auto [vk_poly, native_vk_poly] :
+             zip_view(verifier.verifier_instance->vk_and_hash->vk->get_all(), honk_vk->get_all())) {
             EXPECT_EQ(vk_poly.get_value(), native_vk_poly);
         }
     }
@@ -158,11 +159,11 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             auto inner_circuit = create_inner_circuit(inner_size);
 
             // Generate a proof over the inner circuit
-            auto inner_proving_key = std::make_shared<InnerDeciderProvingKey>(inner_circuit);
+            auto inner_prover_instance = std::make_shared<InnerProverInstance>(inner_circuit);
             auto verification_key =
-                std::make_shared<typename InnerFlavor::VerificationKey>(inner_proving_key->get_precomputed());
-            InnerProver inner_prover(inner_proving_key, verification_key);
-            info("test circuit size: ", inner_proving_key->dyadic_size());
+                std::make_shared<typename InnerFlavor::VerificationKey>(inner_prover_instance->get_precomputed());
+            InnerProver inner_prover(inner_prover_instance, verification_key);
+            info("test circuit size: ", inner_prover_instance->dyadic_size());
             auto inner_proof = inner_prover.construct_proof();
 
             // Create a recursive verification circuit for the proof of the inner circuit
@@ -187,9 +188,9 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             };
             inputs.set_public();
 
-            auto outer_proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
+            auto outer_prover_instance = std::make_shared<OuterProverInstance>(outer_circuit);
             auto outer_verification_key =
-                std::make_shared<typename OuterFlavor::VerificationKey>(outer_proving_key->get_precomputed());
+                std::make_shared<typename OuterFlavor::VerificationKey>(outer_prover_instance->get_precomputed());
 
             return { outer_circuit.blocks, outer_verification_key };
         };
@@ -211,9 +212,10 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         auto inner_circuit = create_inner_circuit();
 
         // Generate a proof over the inner circuit
-        auto proving_key = std::make_shared<InnerDeciderProvingKey>(inner_circuit);
-        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(proving_key->get_precomputed());
-        InnerProver inner_prover(proving_key, verification_key);
+        auto prover_instance = std::make_shared<InnerProverInstance>(inner_circuit);
+        auto verification_key =
+            std::make_shared<typename InnerFlavor::VerificationKey>(prover_instance->get_precomputed());
+        InnerProver inner_prover(prover_instance, verification_key);
         auto inner_proof = inner_prover.construct_proof();
 
         // Create a recursive verification circuit for the proof of the inner circuit
@@ -272,16 +274,16 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
 
         // Check 3: Construct and verify a proof of the recursive verifier circuit
         {
-            auto proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
+            auto prover_instance = std::make_shared<OuterProverInstance>(outer_circuit);
             auto verification_key =
-                std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->get_precomputed());
+                std::make_shared<typename OuterFlavor::VerificationKey>(prover_instance->get_precomputed());
             info("Recursive Verifier: num gates = ", outer_circuit.get_num_finalized_gates());
-            OuterProver prover(proving_key, verification_key);
+            OuterProver prover(prover_instance, verification_key);
             auto proof = prover.construct_proof();
             if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
                 VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key = (1 << CONST_ECCVM_LOG_N);
                 OuterVerifier verifier(verification_key, ipa_verification_key);
-                bool result = verifier.template verify_proof<bb::RollupIO>(proof, proving_key->ipa_proof).result;
+                bool result = verifier.template verify_proof<bb::RollupIO>(proof, prover_instance->ipa_proof).result;
                 ASSERT_TRUE(result);
             } else {
                 OuterVerifier verifier(verification_key);
@@ -310,11 +312,11 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             auto inner_circuit = create_inner_circuit();
 
             // Generate a proof over the inner circuit
-            auto proving_key = std::make_shared<InnerDeciderProvingKey>(inner_circuit);
+            auto prover_instance = std::make_shared<InnerProverInstance>(inner_circuit);
             // Generate the corresponding inner verification key
             auto inner_verification_key =
-                std::make_shared<typename InnerFlavor::VerificationKey>(proving_key->get_precomputed());
-            InnerProver inner_prover(proving_key, inner_verification_key);
+                std::make_shared<typename InnerFlavor::VerificationKey>(prover_instance->get_precomputed());
+            InnerProver inner_prover(prover_instance, inner_verification_key);
             auto inner_proof = inner_prover.construct_proof();
 
             // Tamper with the proof to be verified
@@ -359,11 +361,11 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             auto inner_circuit = create_inner_circuit();
 
             // Generate a proof over the inner circuit
-            auto proving_key = std::make_shared<InnerDeciderProvingKey>(inner_circuit);
+            auto prover_instance = std::make_shared<InnerProverInstance>(inner_circuit);
             // Generate the corresponding inner verification key
             auto inner_verification_key =
-                std::make_shared<typename InnerFlavor::VerificationKey>(proving_key->get_precomputed());
-            InnerProver inner_prover(proving_key, inner_verification_key);
+                std::make_shared<typename InnerFlavor::VerificationKey>(prover_instance->get_precomputed());
+            InnerProver inner_prover(prover_instance, inner_verification_key);
             auto inner_proof = inner_prover.construct_proof();
 
             // Tamper with the proof to be verified

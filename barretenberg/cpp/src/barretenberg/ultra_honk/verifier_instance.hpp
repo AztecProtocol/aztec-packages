@@ -11,13 +11,13 @@
 
 namespace bb {
 /**
- * @brief The DeciderVerificationKey encapsulates all the necessary information for a Mega Honk Verifier to verify a
+ * @brief The VerifierInstance encapsulates all the necessary information for a Mega Honk Verifier to verify a
  * proof (sumcheck + Shplemini). In the context of folding, this is returned by the Protogalaxy verifier with non-zero
  * target sum and gate challenges.
  *
  * @details This is ϕ in the paper.
  */
-template <IsUltraOrMegaHonk Flavor> class DeciderVerificationKey_ {
+template <IsUltraOrMegaHonk Flavor> class VerifierInstance_ {
   public:
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
@@ -42,39 +42,41 @@ template <IsUltraOrMegaHonk Flavor> class DeciderVerificationKey_ {
     WitnessCommitments witness_commitments;
     CommitmentLabels commitment_labels;
 
-    DeciderVerificationKey_() = default;
-    DeciderVerificationKey_(std::shared_ptr<VerificationKey> vk)
+    VerifierInstance_() = default;
+    VerifierInstance_(std::shared_ptr<VerificationKey> vk)
         : vk(vk)
     {}
 
     FF hash_through_transcript(const std::string& domain_separator, Transcript& transcript) const
     {
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_log_circuit_size",
+        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_log_circuit_size",
                                                   this->vk->log_circuit_size);
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_num_public_inputs",
+        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_num_public_inputs",
                                                   this->vk->num_public_inputs);
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_pub_inputs_offset",
+        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_pub_inputs_offset",
                                                   this->vk->pub_inputs_offset);
 
         for (const Commitment& commitment : this->vk->get_all()) {
-            transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_precomputed_comm", commitment);
+            transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_precomputed_comm", commitment);
         }
         for (const Commitment& comm : witness_commitments.get_all()) {
-            transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_wit_comm", comm);
+            transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_wit_comm", comm);
         }
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_alphas", this->alphas);
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_eta", this->relation_parameters.eta);
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_eta_two",
+        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_alphas", this->alphas);
+        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_eta",
+                                                  this->relation_parameters.eta);
+        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_eta_two",
                                                   this->relation_parameters.eta_two);
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_eta_three",
+        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_eta_three",
                                                   this->relation_parameters.eta_three);
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_beta", this->relation_parameters.beta);
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_gamma",
+        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_beta",
+                                                  this->relation_parameters.beta);
+        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_gamma",
                                                   this->relation_parameters.gamma);
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_public_input_delta",
+        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_public_input_delta",
                                                   this->relation_parameters.public_input_delta);
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_target_sum", this->target_sum);
-        transcript.add_to_independent_hash_buffer(domain_separator + "decider_vk_gate_challenges",
+        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_target_sum", this->target_sum);
+        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_gate_challenges",
                                                   this->gate_challenges);
 
         return transcript.hash_independent_buffer();

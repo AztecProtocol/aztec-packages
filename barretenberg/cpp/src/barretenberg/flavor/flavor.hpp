@@ -461,7 +461,7 @@ template <typename Tuple> constexpr size_t compute_number_of_subrelations()
  * folded.
  * @tparam optimized Enable optimized version with skipping some of the computation
  */
-template <typename Tuple, size_t NUM_KEYS, bool optimized = false>
+template <typename Tuple, size_t NUM_INSTANCES, bool optimized = false>
 constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
 {
     constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
@@ -469,11 +469,11 @@ constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
         if constexpr (optimized) {
             return flat_tuple::make_tuple(
                 typename std::tuple_element_t<I, Tuple>::template ProtogalaxyTupleOfUnivariatesOverSubrelations<
-                    NUM_KEYS>{}...);
+                    NUM_INSTANCES>{}...);
         } else {
             return flat_tuple::make_tuple(
                 typename std::tuple_element_t<I, Tuple>::
-                    template ProtogalaxyTupleOfUnivariatesOverSubrelationsNoOptimisticSkipping<NUM_KEYS>{}...);
+                    template ProtogalaxyTupleOfUnivariatesOverSubrelationsNoOptimisticSkipping<NUM_INSTANCES>{}...);
         }
     }(seq);
 }

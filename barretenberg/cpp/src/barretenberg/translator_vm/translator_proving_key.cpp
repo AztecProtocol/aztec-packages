@@ -263,6 +263,38 @@ void TranslatorProvingKey::split_interleaved_random_coefficients_to_ordered()
  * The even/odd Lagranges are needed as Translator VM processes two rows of its execution
  * trace simultaneously, with different relations applying to even and odd indexed rows.
  *
+ *
+ */
+/**
+ * @brief Constructs all Lagrange precomputed polynomials required for Translator relations. These enforce properties at
+ * specific positions within the Translator trace. Translator operates on two circuit sizes (full and mini) both
+ * requiring separate Lagrange polynomials.
+ *
+ * @details
+ *
+ *
+ * **Main Circuit Lagranges:**
+ * - `lagrange_first`: Active only at index 0, marks the first row of the main circuit
+ * - `lagrange_real_last`: Active at the last row before masking begins in the main circuit
+ * - `lagrange_last`: ctive at the very last row of the main circuit (including masking)
+ * - `lagrange_masking`: Active in the masking region of the main circuit (for randomness)
+ *
+ * **Mini Circuit Lagranges:**
+ * - `lagrange_mini_masking`: Active in two regions:
+ *   1. Between RANDOMNESS_START and RESULT_ROW (for initial randomness)
+ *   2. In the masking region of the mini circuit (for trailing randomness)
+ * - `lagrange_even_in_minicircuit`: Active at even indices within the actual ECC operation processing range
+ * - `lagrange_odd_in_minicircuit`: Active at odd indices within the actual ECC operation processing range
+ * - `lagrange_result_row`: Active only at the designated result row (Flavor::RESULT_ROW)
+ * - `lagrange_last_in_minicircuit`: Active at the last row before masking in the mini circuit
+ *
+ * The even/odd Lagranges are crucial because the Translator VM processes two rows of its execution
+ * trace simultaneously, with different relations applying to even and odd indexed rows during
+ * elliptic curve operations.
+ *
+ * @note All Lagrange polynomials are initialized to 0 by default, and this function sets specific
+ *       indices to 1 to create the desired selector behavior.
+ * @note The masking regions contain randomness values used for zero-knowledge properties.
  */
 void TranslatorProvingKey::compute_lagrange_polynomials()
 {

@@ -6,7 +6,7 @@
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
-#include "barretenberg/ultra_honk/decider_proving_key.hpp"
+#include "barretenberg/ultra_honk/prover_instance.hpp"
 
 #include <gtest/gtest.h>
 
@@ -44,11 +44,11 @@ template <typename Flavor> class NativeVerificationKeyTests : public ::testing::
     VerificationKey create_vk()
     {
         if constexpr (IsUltraOrMegaHonk<Flavor>) {
-            using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+            using ProverInstance = ProverInstance_<Flavor>;
             Builder builder;
             set_default_pairing_points_and_ipa_claim_and_proof(builder);
-            auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-            return VerificationKey{ proving_key->get_precomputed() };
+            auto prover_instance = std::make_shared<ProverInstance>(builder);
+            return VerificationKey{ prover_instance->get_precomputed() };
         } else {
             return VerificationKey();
         }

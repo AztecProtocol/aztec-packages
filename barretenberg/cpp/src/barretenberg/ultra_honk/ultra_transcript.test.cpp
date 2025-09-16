@@ -7,7 +7,7 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "barretenberg/ultra_honk/decider_proving_key.hpp"
+#include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -34,7 +34,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
     using VerificationKey = Flavor::VerificationKey;
     using FF = Flavor::FF;
     using Commitment = Flavor::Commitment;
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
     using Builder = Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
@@ -226,14 +226,14 @@ TYPED_TEST(UltraTranscriptTests, ProverManifestConsistency)
     TestFixture::generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest by constructing a proof
-    auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
-    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->get_precomputed());
-    typename TestFixture::Prover prover(proving_key, verification_key);
+    auto prover_instance = std::make_shared<typename TestFixture::ProverInstance>(builder);
+    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(prover_instance->get_precomputed());
+    typename TestFixture::Prover prover(prover_instance, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
-    auto manifest_expected = TestFixture::construct_ultra_honk_manifest(prover.proving_key->log_dyadic_size());
+    auto manifest_expected = TestFixture::construct_ultra_honk_manifest(prover.prover_instance->log_dyadic_size());
     auto prover_manifest = prover.transcript->get_manifest();
     // Note: a manifest can be printed using manifest.print()
     manifest_expected.print();
@@ -263,9 +263,9 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
     TestFixture::generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
-    auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
-    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->get_precomputed());
-    typename TestFixture::Prover prover(proving_key, verification_key);
+    auto prover_instance = std::make_shared<typename TestFixture::ProverInstance>(builder);
+    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(prover_instance->get_precomputed());
+    typename TestFixture::Prover prover(prover_instance, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
@@ -343,9 +343,9 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     TestFixture::generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest by constructing a proof
-    auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
-    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->get_precomputed());
-    typename TestFixture::Prover prover(proving_key, verification_key);
+    auto prover_instance = std::make_shared<typename TestFixture::ProverInstance>(builder);
+    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(prover_instance->get_precomputed());
+    typename TestFixture::Prover prover(prover_instance, verification_key);
     auto proof = prover.construct_proof();
     typename TestFixture::Verifier verifier(verification_key);
     {
@@ -353,7 +353,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
         EXPECT_TRUE(result);
     }
 
-    const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : proving_key->log_dyadic_size();
+    const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : prover_instance->log_dyadic_size();
 
     // try deserializing and serializing with no changes and check proof is still valid
     prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs, virtual_log_n);
@@ -361,7 +361,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     // reset verifier's transcript
     verifier.transcript = std::make_shared<typename Flavor::Transcript>();
 
-    proof = TestFixture::export_serialized_proof(prover, proving_key->num_public_inputs());
+    proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs());
     {
         bool result = verifier.template verify_proof<typename TestFixture::IO>(proof).result;
         EXPECT_TRUE(result); // we have changed nothing so proof is still valid
@@ -371,7 +371,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     FF rand_val = FF::random_element();
     prover.transcript->z_perm_comm = one_group_val * rand_val;             // choose random object to modify
     verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // reset verifier's transcript
-    proof = TestFixture::export_serialized_proof(prover, proving_key->num_public_inputs());
+    proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs());
     {
         bool result = verifier.template verify_proof<typename TestFixture::IO>(proof).result;
         EXPECT_TRUE(result); // we have not serialized it back to the proof so it should still be fine
@@ -379,7 +379,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
 
     prover.transcript->serialize_full_transcript();
     verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // reset verifier's transcript
-    proof = TestFixture::export_serialized_proof(prover, proving_key->num_public_inputs());
+    proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs());
     {
         bool result = verifier.template verify_proof<typename TestFixture::IO>(proof).result;
         EXPECT_FALSE(result); // the proof is now wrong after serializing it

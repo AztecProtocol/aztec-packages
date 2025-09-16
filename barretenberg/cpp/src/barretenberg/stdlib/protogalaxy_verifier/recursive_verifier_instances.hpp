@@ -8,30 +8,30 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/stdlib/protogalaxy_verifier/recursive_decider_verification_key.hpp"
+#include "barretenberg/stdlib/protogalaxy_verifier/recursive_verifier_instance.hpp"
 
 namespace bb::stdlib::recursion::honk {
-template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerificationKeys_ {
+template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveVerifierInstances_ {
     using Flavor = Flavor_;
     using Builder = typename Flavor::CircuitBuilder;
     using VerificationKey = typename Flavor::VerificationKey;
     using VKAndHash = typename Flavor::VKAndHash;
-    using DeciderVK = RecursiveDeciderVerificationKey_<Flavor>;
-    using ArrayType = std::array<std::shared_ptr<DeciderVK>, NUM_>;
+    using VerifierInstance = RecursiveVerifierInstance_<Flavor>;
+    using ArrayType = std::array<std::shared_ptr<VerifierInstance>, NUM_>;
     using FF = typename Flavor::FF;
 
   public:
     static constexpr size_t NUM = NUM_;
     static constexpr size_t BATCHED_EXTENDED_LENGTH = (Flavor::MAX_TOTAL_RELATION_LENGTH - 1 + NUM - 1) * (NUM - 1) + 1;
     ArrayType _data;
-    std::shared_ptr<DeciderVK> const& operator[](size_t idx) const { return _data[idx]; }
+    std::shared_ptr<VerifierInstance> const& operator[](size_t idx) const { return _data[idx]; }
     typename ArrayType::iterator begin() { return _data.begin(); };
     typename ArrayType::iterator end() { return _data.end(); };
     Builder* builder;
 
-    RecursiveDeciderVerificationKeys_(Builder* builder,
-                                      const std::shared_ptr<DeciderVK>& accumulator,
-                                      const std::vector<std::shared_ptr<VKAndHash>>& vk_and_hashs)
+    RecursiveVerifierInstances_(Builder* builder,
+                                const std::shared_ptr<VerifierInstance>& accumulator,
+                                const std::vector<std::shared_ptr<VKAndHash>>& vk_and_hashs)
         : builder(builder)
     {
         BB_ASSERT_EQ(vk_and_hashs.size(), NUM - 1);
@@ -40,14 +40,14 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerific
 
         size_t idx = 1;
         for (auto& vk_and_hash : vk_and_hashs) {
-            _data[idx] = std::make_shared<DeciderVK>(builder, vk_and_hash);
+            _data[idx] = std::make_shared<VerifierInstance>(builder, vk_and_hash);
             idx++;
         }
     }
 
-    RecursiveDeciderVerificationKeys_(Builder* builder,
-                                      const std::shared_ptr<DeciderVK>& accumulator,
-                                      const std::shared_ptr<DeciderVK>& incoming_instance)
+    RecursiveVerifierInstances_(Builder* builder,
+                                const std::shared_ptr<VerifierInstance>& accumulator,
+                                const std::shared_ptr<VerifierInstance>& incoming_instance)
         : builder(builder)
     {
         _data[0] = accumulator;
@@ -72,8 +72,8 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerific
         std::vector<std::vector<typename Flavor::Commitment>> result(num_commitments_to_fold,
                                                                      std::vector<typename Flavor::Commitment>(NUM));
         for (size_t idx = 0; auto& commitment_at_idx : result) {
-            for (auto [elt, key] : zip_view(commitment_at_idx, _data)) {
-                elt = key->vk_and_hash->vk->get_all()[idx];
+            for (auto [elt, instance] : zip_view(commitment_at_idx, _data)) {
+                elt = instance->vk_and_hash->vk->get_all()[idx];
             }
             idx++;
         }
@@ -90,8 +90,8 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerific
         std::vector<std::vector<typename Flavor::Commitment>> result(num_commitments_to_fold,
                                                                      std::vector<typename Flavor::Commitment>(NUM));
         for (size_t idx = 0; auto& commitment_at_idx : result) {
-            for (auto [elt, key] : zip_view(commitment_at_idx, _data)) {
-                elt = key->witness_commitments.get_all()[idx];
+            for (auto [elt, instance] : zip_view(commitment_at_idx, _data)) {
+                elt = instance->witness_commitments.get_all()[idx];
             }
             idx++;
         }
@@ -107,8 +107,8 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerific
         const size_t num_alphas_to_fold = _data[0]->alphas.size();
         std::vector<std::vector<typename Flavor::FF>> result(num_alphas_to_fold, std::vector<typename Flavor::FF>(NUM));
         for (size_t idx = 0; auto& alpha_at_idx : result) {
-            for (auto [elt, key] : zip_view(alpha_at_idx, _data)) {
-                elt = key->alphas[idx];
+            for (auto [elt, instance] : zip_view(alpha_at_idx, _data)) {
+                elt = instance->alphas[idx];
             }
             idx++;
         }
@@ -124,8 +124,8 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerific
         const size_t num_params_to_fold = _data[0]->relation_parameters.get_to_fold().size();
         std::vector<std::vector<typename Flavor::FF>> result(num_params_to_fold, std::vector<typename Flavor::FF>(NUM));
         for (size_t idx = 0; auto& params_at_idx : result) {
-            for (auto [elt, key] : zip_view(params_at_idx, _data)) {
-                elt = key->relation_parameters.get_to_fold()[idx];
+            for (auto [elt, instance] : zip_view(params_at_idx, _data)) {
+                elt = instance->relation_parameters.get_to_fold()[idx];
             }
             idx++;
         }

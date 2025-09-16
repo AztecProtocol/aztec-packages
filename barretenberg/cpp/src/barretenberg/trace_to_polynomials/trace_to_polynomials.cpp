@@ -26,9 +26,9 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder,
     auto copy_cycles = populate_wires_and_selectors_and_compute_copy_cycles(builder, polynomials, active_region_data);
 
     if constexpr (IsMegaFlavor<Flavor>) {
-        BB_BENCH_NAME("add_ecc_op_wires_to_proving_key");
+        BB_BENCH_NAME("add_ecc_op_wires_to_prover_instance");
 
-        add_ecc_op_wires_to_proving_key(builder, polynomials);
+        add_ecc_op_wires_to_prover_instance(builder, polynomials);
     }
 
     // Compute the permutation argument polynomials (sigma/id) and add them to proving key
@@ -96,7 +96,7 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
 }
 
 template <class Flavor>
-void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builder, ProverPolynomials& polynomials)
+void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_prover_instance(Builder& builder, ProverPolynomials& polynomials)
     requires IsMegaFlavor<Flavor>
 {
     auto& ecc_op_selector = polynomials.lagrange_ecc_op;
