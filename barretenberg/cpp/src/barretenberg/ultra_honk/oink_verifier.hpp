@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "barretenberg/ultra_honk/verifier_instance.hpp"
+#include "barretenberg/ultra_honk/decider_verification_key.hpp"
 
 namespace bb {
 
@@ -20,7 +20,7 @@ namespace bb {
  * @tparam Flavor
  */
 template <IsUltraOrMegaHonk Flavor> class OinkVerifier {
-    using VerifierInstance = VerifierInstance_<Flavor>;
+    using DeciderVK = DeciderVerificationKey_<Flavor>;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
@@ -29,17 +29,17 @@ template <IsUltraOrMegaHonk Flavor> class OinkVerifier {
 
   public:
     std::shared_ptr<Transcript> transcript;
-    std::shared_ptr<VerifierInstance> verifier_instance;
+    std::shared_ptr<DeciderVK> verification_key;
     std::string domain_separator;
     typename Flavor::CommitmentLabels comm_labels;
     bb::RelationParameters<FF> relation_parameters;
     WitnessCommitments witness_comms;
 
-    OinkVerifier(const std::shared_ptr<VerifierInstance>& verifier_instance,
+    OinkVerifier(const std::shared_ptr<DeciderVK>& verification_key,
                  const std::shared_ptr<Transcript>& transcript,
                  std::string domain_separator = "")
         : transcript(transcript)
-        , verifier_instance(verifier_instance)
+        , verification_key(verification_key)
         , domain_separator(std::move(domain_separator))
     {}
 

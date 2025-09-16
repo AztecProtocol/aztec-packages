@@ -19,7 +19,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
     using OuterFlavor = UltraFlavor;
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
-    using OuterProverInstance = ProverInstance_<OuterFlavor>;
+    using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
 
     using Commitment = MergeVerifier::Commitment;
     using RecursiveCommitment = GoblinRecursiveVerifier::MergeVerifier::Commitment;
@@ -116,10 +116,9 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
 
     // Construct and verify a proof for the Goblin Recursive Verifier circuit
     {
-        auto prover_instance = std::make_shared<OuterProverInstance>(builder);
-        auto verification_key =
-            std::make_shared<typename OuterFlavor::VerificationKey>(prover_instance->get_precomputed());
-        OuterProver prover(prover_instance, verification_key);
+        auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
+        auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->get_precomputed());
+        OuterProver prover(proving_key, verification_key);
         OuterVerifier verifier(verification_key);
         auto proof = prover.construct_proof();
         bool verified = verifier.template verify_proof<bb::DefaultIO>(proof).result;
@@ -147,10 +146,10 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
         info("Recursive Verifier: num gates = ", builder.num_gates);
 
         // Construct and verify a proof for the Goblin Recursive Verifier circuit
-        auto prover_instance = std::make_shared<OuterProverInstance>(builder);
+        auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
         auto outer_verification_key =
-            std::make_shared<typename OuterFlavor::VerificationKey>(prover_instance->get_precomputed());
-        OuterProver prover(prover_instance, outer_verification_key);
+            std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->get_precomputed());
+        OuterProver prover(proving_key, outer_verification_key);
         OuterVerifier outer_verifier(outer_verification_key);
         return { builder.blocks, outer_verification_key };
     };

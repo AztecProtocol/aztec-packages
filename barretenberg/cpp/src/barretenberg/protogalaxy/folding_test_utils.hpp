@@ -21,10 +21,10 @@ namespace bb {
  * set, compute_row_evaluations will operate on all rows.
  */
 template <typename Flavor>
-static bool check_accumulator_target_sum_manual(const std::shared_ptr<ProverInstance_<Flavor>>& accumulator)
+static bool check_accumulator_target_sum_manual(const std::shared_ptr<DeciderProvingKey_<Flavor>>& accumulator)
 {
-    using ProverInstances = ProverInstances_<Flavor, 2>;
-    using PGInternal = ProtogalaxyProverInternal<ProverInstances>;
+    using DeciderProvingKeys = DeciderProvingKeys_<Flavor, 2>;
+    using PGInternal = ProtogalaxyProverInternal<DeciderProvingKeys>;
 
     const size_t accumulator_size = accumulator->dyadic_size();
     PGInternal pg_internal;
