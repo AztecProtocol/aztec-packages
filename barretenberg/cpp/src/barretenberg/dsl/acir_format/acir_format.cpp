@@ -308,20 +308,23 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         // - HONK + AVM recursion constraints (Public Base Rollup)
         // - HONK recursion constraints
         // - AVM recursion constraints
+        // However, as mock protocol circuits use CIVC + AVM (mock Public Base Rollup), instead of throwing an assert we
+        // return a vinfo for the case of CIVC + AVM
         BB_ASSERT_EQ(has_pg_recursion_constraints,
                      false,
                      "Invalid circuit: pg recursion constraints are present with UltraBuilder.");
         BB_ASSERT_EQ(!(has_civc_recursion_constraints && has_honk_recursion_constraints),
                      true,
                      "Invalid circuit: both honk and civc recursion constraints are present.");
-        BB_ASSERT_EQ(!(has_civc_recursion_constraints && has_avm_recursion_constraints),
-                     true,
-                     "Invalid circuit: both civc and avm recursion constraints are present.");
         BB_ASSERT_EQ(
             !(has_honk_recursion_constraints || has_civc_recursion_constraints || has_avm_recursion_constraints) ||
                 is_recursive_circuit,
             true,
             "Invalid circuit: honk, civc, or avm recursion constraints present but the circuit is not recursive.");
+        if (has_civc_recursion_constraints && has_avm_recursion_constraints) {
+            vinfo("WARNING: both civc and avm recursion constraints are present. This should only happen in a mock "
+                  "circuit.");
+        }
 
         // Container for data to be propagated
         HonkRecursionConstraintsOutput<Builder> honk_output;
