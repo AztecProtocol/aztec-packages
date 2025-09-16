@@ -1,6 +1,6 @@
 import DialogTitle from '@mui/material/DialogTitle';
 import Dialog from '@mui/material/Dialog';
-import { Fr, DeployMethod, type DeployOptions, AccountWallet } from '@aztec/aztec.js';
+import { Fr, DeployMethod, type DeployOptions, AccountWallet, AztecAddress } from '@aztec/aztec.js';
 import { getSchnorrAccount } from '@aztec/accounts/schnorr/lazy';
 import { getEcdsaRAccount, getEcdsaKAccount } from '@aztec/accounts/ecdsa/lazy';
 import Button from '@mui/material/Button';
@@ -88,7 +88,7 @@ export function CreateAccountDialog({
       if (publiclyDeploy) {
         deployMethod = await accountManager.getDeployMethod();
         opts = {
-          from: accountWallet.getAddress(),
+          from: AztecAddress.zero(),
           contractAddressSalt: salt,
           fee: {
             paymentMethod: await accountManager.getSelfPaymentMethod(feePaymentMethod),
