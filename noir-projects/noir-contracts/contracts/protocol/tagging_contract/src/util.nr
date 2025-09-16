@@ -13,7 +13,7 @@ fn get_next_tag(
         );
     }
 
-    let master_tagging_public_key = get_master_tagging_public_key(sender, recipient, hidden_sender);
+    let shared_tagging_public_key = get_shared_tagging_public_key(sender, recipient, hidden_sender);
 
     let sender_npk_m = get_public_keys(sender).npk_m;
     let sender_nsk_app = context.request_nsk_app(sender_npk_m.hash());
@@ -30,13 +30,13 @@ fn get_next_tag(
 
         let handshake_commitment_preimage = [
             "AZTEC_NR::HANDSHAKE_SEPARATOR",
-            master_tagging_public_key.x,
-            master_tagging_public_key.y,
+            shared_tagging_public_key.x,
+            shared_tagging_public_key.y,
             address_0,
             address_1,
         ];
 
-        let app_tagging_secret = context.request_tsk(master_tagging_public_key.hash());
+        let app_tagging_secret = context.request_shared_tsk(shared_tagging_public_key.hash());
         let directional_app_tagging_secret = poseidon2_hash([app_tagging_secret, recipient]);
 
         (

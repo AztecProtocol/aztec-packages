@@ -25,9 +25,9 @@ See the `get_next_tag` in `noir-projects/noir-contracts/contracts/protocol/taggi
 
 #### STEP 3.a: Tagging for the first time
 
-1. We get the master tagging public key by calling a <span style="color:red;">newly introduced oracle</span> `get_master_tagging_public_key(sender, recipient, hidden_sender)`
-2. we sort the addresses (just like in the Handshaker) and prove the handshake commitment exists: `prove_nullifier_inclusion(compute_siloed_nullifier(HANDSHAKER_CONTRACT_ADDRESS, poseidon2_hash(["AZTEC_NR::HANDSHAKE_SEPARATOR", master_tagging_public_key.x, master_tagging_public_key.y, address_0, address_1])));`
-3. we get the app-siloed secret with `let app_tagging_secret = context.request_tsk(master_tagging_public_key.hash())` <span style="color:red;">This requires implementing the request_tsk method on context and modifying PXE such that it feeds the correct master_tagging_secret_key to the kernel circuits for the key validation request</span>,
+1. We get the master tagging public key by calling a <span style="color:red;">newly introduced oracle</span> `get_shared_tagging_public_key(sender, recipient, hidden_sender)`
+2. we sort the addresses (just like in the Handshaker) and prove the handshake commitment exists: `prove_nullifier_inclusion(compute_siloed_nullifier(HANDSHAKER_CONTRACT_ADDRESS, poseidon2_hash(["AZTEC_NR::HANDSHAKE_SEPARATOR", shared_tagging_public_key.x, shared_tagging_public_key.y, address_0, address_1])));`
+3. we get the app-siloed secret with `let app_tagging_secret = context.request_tsk(shared_tagging_public_key.hash())` <span style="color:red;">This requires implementing the request_tsk method on context and modifying PXE such that it feeds the correct shared_tagging_secret_key to the kernel circuits for the key validation request</span>,
 4. we compute the directional app tagging secret as `let directional_app_tagging_secret = poseidon2_hash([app_tagging_secret, recipient]);`,
 5. we compute the tag as `poseidon2_hash([directional_app_tagging_secret, 0])`
 6. we compute and emit the `tag_nullifier = poseidon2_hash("AZTEC_NR::TAG_SEPARATOR", sender_nsk_app, recipient, directional_app_tagging_secret, i = 0);` _(--> the `sender_nsk_app` hides the contents of the nullifier, whilst keeping it deterministic)_
