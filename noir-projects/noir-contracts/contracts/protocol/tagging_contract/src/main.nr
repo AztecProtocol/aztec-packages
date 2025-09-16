@@ -1,5 +1,5 @@
 #[aztec]
-contract TaggingContract {
+contract Handshaker {
     #[private]
     fn handshake(recipient: AztecAddress, hidden_sender: bool) {
         let sender = if hidden_sender { AztecAddress::zero() } else { context.msg_sender() };
@@ -31,7 +31,7 @@ contract TaggingContract {
 
         // We need to emit the log in public because we need the log contract address to be public for everyone to know
         // what logs to brute-force.
-        TaggingContract::at(context.this_address())._emit_handshaking_log(message_ciphertext).enqueue(&mut context);
+        Handshaker::at(context.this_address())._emit_handshaking_log(message_ciphertext).enqueue(&mut context);
     }
 
     #[public]
