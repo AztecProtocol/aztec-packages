@@ -242,6 +242,7 @@ RUN apt update && \
         python3-venv \
         python3-pip \
         m4 \
+        bison \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Install osxcross. Requires developer to mount SDK from their mac host.
