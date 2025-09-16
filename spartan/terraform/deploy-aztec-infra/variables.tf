@@ -358,3 +358,28 @@ variable "BOT_SWAPS_PRIVATE_KEY" {
   default     = null
   nullable    = true
 }
+
+# RPC ingress configuration (GKE-specific)
+variable "RPC_INGRESS_ENABLED" {
+  description = "Enable GKE ingress for RPC nodes"
+  type        = bool
+  default     = false
+}
+
+variable "RPC_INGRESS_HOST" {
+  description = "Hostname for RPC ingress"
+  type        = string
+  default     = ""
+}
+
+variable "RPC_INGRESS_STATIC_IP_NAME" {
+  description = "Name of the GCP static IP resource for the ingress"
+  type        = string
+  default     = ""
+}
+
+variable "RPC_INGRESS_SSL_CERT_NAME" {
+  description = "Name of the GCP managed SSL certificate for the ingress"
+  type        = string
+  default     = ""
+}

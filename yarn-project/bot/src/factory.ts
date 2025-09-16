@@ -12,7 +12,7 @@ import {
   type PXE,
   createLogger,
   createPXEClient,
-  retryUntil,
+  waitForL1ToL2MessageReady,
 } from '@aztec/aztec.js';
 import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
@@ -112,8 +112,10 @@ export class BotFactory {
   private async setupAccount() {
     const privateKey = this.config.senderPrivateKey?.getValue();
     if (privateKey) {
+      this.log.info(`Setting up account with provided private key`);
       return await this.setupAccountWithPrivateKey(privateKey);
     } else {
+      this.log.info(`Setting up test account`);
       return await this.setupTestAccount();
     }
   }
@@ -395,35 +397,31 @@ export class BotFactory {
     const mintAmount = await portal.getTokenManager().getMintAmount();
     const claim = await portal.bridgeTokensPublic(recipient, mintAmount, true /* mint */);
 
-    const isSynced = async () => await this.pxe.isL1ToL2MessageSynced(Fr.fromHexString(claim.messageHash));
-    await retryUntil(isSynced, `message ${claim.messageHash} sync`, this.config.l1ToL2MessageTimeoutSeconds, 1);
+    await this.withNoMinTxsPerBlock(() =>
+      waitForL1ToL2MessageReady(this.pxe, Fr.fromHexString(claim.messageHash), {
+        timeoutSeconds: this.config.l1ToL2MessageTimeoutSeconds,
+        forPublicConsumption: false,
+      }),
+    );
 
     this.log.info(`Created a claim for ${mintAmount} L1 fee juice to ${recipient}.`, claim);
-
-    // Progress by 2 L2 blocks so that the l1ToL2Message added above will be available to use on L2.
-    await this.advanceL2Block();
-    await this.advanceL2Block();
 
     return claim;
   }
 
   private async withNoMinTxsPerBlock<T>(fn: () => Promise<T>): Promise<T> {
     if (!this.nodeAdmin || !this.config.flushSetupTransactions) {
+      this.log.verbose(`No node admin client or flushing not requested (not setting minTxsPerBlock to 0)`);
       return fn();
     }
     const { minTxsPerBlock } = await this.nodeAdmin.getConfig();
+    this.log.warn(`Setting sequencer minTxsPerBlock to 0 from ${minTxsPerBlock} to flush setup transactions`);
     await this.nodeAdmin.setConfig({ minTxsPerBlock: 0 });
     try {
       return await fn();
     } finally {
+      this.log.warn(`Restoring sequencer minTxsPerBlock to ${minTxsPerBlock}`);
       await this.nodeAdmin.setConfig({ minTxsPerBlock });
     }
-  }
-
-  private async advanceL2Block() {
-    await this.withNoMinTxsPerBlock(async () => {
-      const initialBlockNumber = await this.node!.getBlockNumber();
-      await retryUntil(async () => (await this.node!.getBlockNumber()) >= initialBlockNumber + 1);
-    });
   }
 }

@@ -1,4 +1,4 @@
-use crate::{context::PrivateContext, state_vars::private_mutable::PrivateMutable};
+use crate::{context::{PrivateContext, UtilityContext}, state_vars::private_mutable::PrivateMutable};
 use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote};
 
 global STORAGE_SLOT: Field = 17;
@@ -7,6 +7,10 @@ global VALUE: Field = 23;
 unconstrained fn in_private(
     context: &mut PrivateContext,
 ) -> PrivateMutable<MockNote, &mut PrivateContext> {
+    PrivateMutable::new(context, STORAGE_SLOT)
+}
+
+unconstrained fn in_utility(context: UtilityContext) -> PrivateMutable<MockNote, UtilityContext> {
     PrivateMutable::new(context, STORAGE_SLOT)
 }
 
@@ -21,6 +25,16 @@ unconstrained fn get_uninitialized() {
 }
 
 #[test(should_fail_with = "Failed to get a note")]
+unconstrained fn view_uninitialized() {
+    let env = TestEnvironment::new();
+
+    env.utility_context(|context| {
+        let state_var = in_utility(context);
+        let _ = state_var.view_note();
+    });
+}
+
+#[test(should_fail_with = "Failed to get a note")]
 unconstrained fn replace_uninitialized() {
     let env = TestEnvironment::new();
 
@@ -31,59 +45,6 @@ unconstrained fn replace_uninitialized() {
             let note = MockNote::new(VALUE).build_note();
             note
         });
-    });
-}
-
-// Named function to use as a callback for replace
-fn plus_one(note: MockNote) -> MockNote {
-    MockNote::new(note.value + 1).build_note()
-}
-
-#[test]
-unconstrained fn test_replace_plus_one() {
-    let env = TestEnvironment::new();
-
-    env.private_context(|context| {
-        let mut state_var = in_private(context);
-
-        // Initialize with a known value
-        let INIT_VALUE: Field = 7;
-        let EXPECTED_VALUE: Field = 8;
-        let initial_note = MockNote::new(INIT_VALUE).build_note();
-        let _ = state_var.initialize(initial_note);
-
-        // run read_and_replace with helper function
-        let emission = state_var.replace(plus_one);
-
-        // emission should contain new note with value 8
-        let expected_note = MockNote::new(EXPECTED_VALUE).build_note();
-        assert_eq(emission.note, expected_note);
-    });
-}
-
-#[test]
-unconstrained fn test_replace_capture_variable() {
-    let env = TestEnvironment::new();
-
-    env.private_context(|context| {
-        let mut state_var = in_private(context);
-
-        // Initialize with a known value
-        let INIT_VALUE: Field = 10;
-        let initial_note = MockNote::new(INIT_VALUE).build_note();
-        let _ = state_var.initialize(initial_note);
-
-        // Local variable to capture
-        let x: Field = 5;
-
-        // Use a closure to increment the note by x
-        let emission = state_var.replace(|note| MockNote::new(note.value + x).build_note());
-
-        // Expected value is initial + x
-        let expected_value: Field = INIT_VALUE + x;
-        let expected_note = MockNote::new(expected_value).build_note();
-
-        assert_eq(emission.note, expected_note);
     });
 }
 
@@ -123,10 +84,10 @@ unconstrained fn initialize_and_get_pending() {
         let nullifiers_pre_get = context.nullifiers.len();
         let note_hash_read_requests_pre_get = context.note_hash_read_requests.len();
 
-        let emission = state_var.get_note();
+        let get_emission = state_var.get_note();
 
-        assert_eq(emission.note, note);
-        assert_eq(emission.storage_slot, STORAGE_SLOT);
+        assert_eq(get_emission.note, note);
+        assert_eq(get_emission.storage_slot, STORAGE_SLOT);
 
         // Reading a PrivateMutable results in:
         // - a read request for the read value
@@ -135,6 +96,59 @@ unconstrained fn initialize_and_get_pending() {
         assert_eq(context.note_hash_read_requests.len(), note_hash_read_requests_pre_get + 1);
         assert_eq(context.nullifiers.len(), nullifiers_pre_get + 1);
         assert_eq(context.note_hashes.len(), note_hashes_pre_get + 1);
+    });
+}
+
+#[test]
+unconstrained fn initialize_and_get_settled() {
+    let env = TestEnvironment::new();
+
+    let note = MockNote::new(VALUE).build_note();
+
+    let init_emission = env.private_context(|context| {
+        let state_var = in_private(context);
+
+        state_var.initialize(note)
+    });
+
+    env.discover_note(init_emission);
+
+    env.private_context(|context| {
+        let state_var = in_private(context);
+
+        let get_emission = state_var.get_note();
+
+        assert_eq(get_emission.note, note);
+        assert_eq(get_emission.storage_slot, STORAGE_SLOT);
+
+        // Reading a PrivateMutable results in:
+        // - a read request for the read value
+        // - a nullifier for the read note
+        // - a new note for the recreation of the read value
+        assert_eq(context.note_hash_read_requests.len(), 1);
+        assert_eq(context.nullifiers.len(), 1);
+        assert_eq(context.note_hashes.len(), 1);
+    });
+}
+
+#[test]
+unconstrained fn initialize_and_view_settled() {
+    let env = TestEnvironment::new();
+
+    let note = MockNote::new(VALUE).build_note();
+
+    let init_emission = env.private_context(|context| {
+        let state_var = in_private(context);
+
+        state_var.initialize(note)
+    });
+
+    env.discover_note(init_emission);
+
+    env.utility_context(|context| {
+        let state_var = in_utility(context);
+
+        assert_eq(state_var.view_note(), note);
     });
 }
 
@@ -154,13 +168,15 @@ unconstrained fn initialize_and_replace_pending() {
         let note_hashes_pre_replace = context.note_hashes.len();
 
         let replacement_value = VALUE + 1;
+        let replacement_note = MockNote::new(replacement_value).build_note();
+        let replace_emission = state_var.replace(|current_note| {
+            assert_eq(current_note, note);
 
-        let emission =
-            state_var.replace(|_old_note| MockNote::new(replacement_value).build_note());
+            replacement_note
+        });
 
-        let expected_note = MockNote::new(replacement_value).build_note();
-        assert_eq(emission.note, expected_note);
-        assert_eq(emission.storage_slot, STORAGE_SLOT);
+        assert_eq(replace_emission.note, replacement_note);
+        assert_eq(replace_emission.storage_slot, STORAGE_SLOT);
 
         // Replacing a PrivateMutable results in:
         // - a read request for the read value
@@ -173,6 +189,43 @@ unconstrained fn initialize_and_replace_pending() {
 }
 
 #[test]
+unconstrained fn initialize_and_replace_settled() {
+    let env = TestEnvironment::new();
+
+    let note = MockNote::new(VALUE).build_note();
+
+    let init_emission = env.private_context(|context| {
+        let state_var = in_private(context);
+
+        state_var.initialize(note)
+    });
+
+    env.discover_note(init_emission);
+
+    env.private_context(|context| {
+        let state_var = in_private(context);
+
+        let replacement_value = VALUE + 1;
+        let replacement_note = MockNote::new(replacement_value).build_note();
+        let replace_emission = state_var.replace(|current_note| {
+            assert_eq(current_note, note);
+            replacement_note
+        });
+
+        assert_eq(replace_emission.note, replacement_note);
+        assert_eq(replace_emission.storage_slot, STORAGE_SLOT);
+
+        // Replacing a PrivateMutable results in:
+        // - a read request for the read value
+        // - a nullifier for the read note
+        // - a new note for the replacement note
+        assert_eq(context.note_hash_read_requests.len(), 1);
+        assert_eq(context.nullifiers.len(), 1);
+        assert_eq(context.note_hashes.len(), 1);
+    });
+}
+
+#[test]
 unconstrained fn initialize_or_replace_uninitialized() {
     let env = TestEnvironment::new();
 
@@ -181,8 +234,8 @@ unconstrained fn initialize_or_replace_uninitialized() {
 
         let init_note = MockNote::new(VALUE).build_note();
 
-        let emission = state_var.initialize_or_replace(init_note, |_old_note: MockNote| {
-            panic(f"Unexpected call to replacement closure") // This should not be called
+        let emission = state_var.initialize_or_replace(init_note, |_: MockNote| {
+            panic(f"") // This should not be called
         });
 
         assert_eq(emission.note, init_note);
@@ -200,7 +253,7 @@ unconstrained fn initialize_or_replace_uninitialized() {
 // #[test]
 // unconstrained fn initialize_or_replace_initialized_pending() {
 //     let env = TestEnvironment::new();
-
+//
 //     env.private_context(|context| {
 //         let state_var = in_private(context);
 
@@ -226,3 +279,46 @@ unconstrained fn initialize_or_replace_uninitialized() {
 //         assert_eq(context.note_hashes.len(), note_hashes_pre_replace + 1);
 //     });
 // }
+
+#[test]
+unconstrained fn initialize_or_replace_initialized_settled() {
+    let env = TestEnvironment::new();
+
+    let note = MockNote::new(VALUE).build_note();
+
+    let init_emission = env.private_context(|context| {
+        let state_var = in_private(context);
+
+        state_var.initialize(note)
+    });
+
+    env.discover_note(init_emission);
+
+    env.private_context(|context| {
+        let state_var = in_private(context);
+
+        let note_hash_read_requests_pre_replace = context.note_hash_read_requests.len();
+        let nullifiers_pre_replace = context.nullifiers.len();
+        let note_hashes_pre_replace = context.note_hashes.len();
+
+        let replacement_value = VALUE + 1;
+        let replacement_note = MockNote::new(replacement_value).build_note();
+        let emission = state_var.initialize_or_replace(std::mem::zeroed(), |current_note| {
+            assert_eq(current_note, note);
+            replacement_note
+        });
+
+        assert_eq(emission.note, replacement_note);
+        assert_eq(emission.storage_slot, STORAGE_SLOT);
+
+        // Replacing a PrivateMutable results in:
+        // - a read request for the read value
+        // - a nullifier for the read note
+        // - a new note for the replacement note
+        // This would only succeed if the variable had already been initialized, as otherwise the read request would
+        // fail.
+        assert_eq(context.note_hash_read_requests.len(), note_hash_read_requests_pre_replace + 1);
+        assert_eq(context.nullifiers.len(), nullifiers_pre_replace + 1);
+        assert_eq(context.note_hashes.len(), note_hashes_pre_replace + 1);
+    });
+}
