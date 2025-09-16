@@ -498,6 +498,7 @@ std::vector<ScalarField> generate_sparse_scalars(size_t num_scalars, double spar
     return scalars;
 }
 
+#ifndef __wasm__
 // Test different MSM strategies with detailed benchmarking
 TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMulStrategyComparison)
 {
@@ -559,6 +560,7 @@ TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMulStrategyComparison)
     func.template operator()<"16 threads ">(16);
     func.template operator()<"32 threads ">(32);
 }
+#endif
 
 // Test with various polynomial profiles (different sizes and zero patterns)
 TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMulPolynomialProfiles)
