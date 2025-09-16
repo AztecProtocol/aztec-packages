@@ -154,6 +154,19 @@ export class TXEOracleTopLevelContext extends TXETypedOracle {
     return (await this.stateMachine.node.getBlockHeader('latest'))!.globalVariables.timestamp;
   }
 
+  override async txeGetLastTxEffects() {
+    const block = await this.stateMachine.archiver.getBlock('latest');
+
+    if (block!.body.txEffects.length != 1) {
+      // Note that calls like env.mine() will result in blocks with no transactions, hitting this
+      throw new Error(`Expected a single transaction in the last block, found ${block!.body.txEffects.length}`);
+    }
+
+    const txEffects = block!.body.txEffects[0];
+
+    return { txHash: txEffects.txHash, noteHashes: txEffects.noteHashes, nullifiers: txEffects.nullifiers };
+  }
+
   override async txeAdvanceBlocksBy(blocks: number) {
     this.logger.debug(`time traveling ${blocks} blocks`);
 
