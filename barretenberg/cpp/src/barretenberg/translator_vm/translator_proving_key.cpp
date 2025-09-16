@@ -27,14 +27,14 @@ namespace bb {
 void TranslatorProvingKey::compute_interleaved_polynomials()
 {
     // The vector of groups of polynomials to be interleaved
-    auto interleaved = proving_key->polynomials.get_groups_to_be_interleaved();
+    auto interleaved = polynomials.get_groups_to_be_interleaved();
     // Resulting interleaved polynomials
-    auto targets = proving_key->polynomials.get_interleaved();
+    auto targets = polynomials.get_interleaved();
 
     const size_t num_polys_in_group = interleaved[0].size();
     BB_ASSERT_EQ(num_polys_in_group, Flavor::INTERLEAVING_GROUP_SIZE);
 
-    // Targets have to be full-sized proving_key->polynomials. We can compute the mini circuit size from them by
+    // Targets have to be full-sized polynomials. We can compute the mini circuit size from them by
     // dividing by the number of polynomials in the group
     const size_t MINI_CIRCUIT_SIZE = targets[0].size() / num_polys_in_group;
     BB_ASSERT_EQ(MINI_CIRCUIT_SIZE * num_polys_in_group, targets[0].size());
@@ -83,14 +83,14 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
     // Get constants
     constexpr size_t num_interleaved_wires = Flavor::NUM_INTERLEAVED_WIRES;
 
-    RefArray ordered_constraint_polynomials{ proving_key->polynomials.ordered_range_constraints_0,
-                                             proving_key->polynomials.ordered_range_constraints_1,
-                                             proving_key->polynomials.ordered_range_constraints_2,
-                                             proving_key->polynomials.ordered_range_constraints_3 };
+    RefArray ordered_constraint_polynomials{ polynomials.ordered_range_constraints_0,
+                                             polynomials.ordered_range_constraints_1,
+                                             polynomials.ordered_range_constraints_2,
+                                             polynomials.ordered_range_constraints_3 };
     std::vector<size_t> extra_denominator_uint(dyadic_circuit_size_without_masking);
 
     const auto sorted_elements = get_sorted_steps();
-    auto to_be_interleaved_groups = proving_key->polynomials.get_groups_to_be_interleaved();
+    auto to_be_interleaved_groups = polynomials.get_groups_to_be_interleaved();
 
     // Given the polynomials in group_i, transfer their elements, sorted in non-descending order, into the corresponding
     // ordered_range_constraint_i up to the given capacity and the remaining elements to the last range constraint.
@@ -160,7 +160,7 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
 #endif
 
     // Copy the values into the actual polynomial
-    proving_key->polynomials.ordered_range_constraints_4.copy_vector(extra_denominator_uint);
+    polynomials.ordered_range_constraints_4.copy_vector(extra_denominator_uint);
 
     // Transfer randomness from interleaved to ordered polynomials such that the commitments and evaluations of all
     // ordered polynomials and their shifts are hidden
@@ -183,8 +183,8 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
  */
 void TranslatorProvingKey::split_interleaved_random_coefficients_to_ordered()
 {
-    auto interleaved = proving_key->polynomials.get_interleaved();
-    auto ordered = proving_key->polynomials.get_ordered_range_constraints();
+    auto interleaved = polynomials.get_interleaved();
+    auto ordered = polynomials.get_ordered_range_constraints();
     const size_t num_ordered_polynomials = ordered.size();
 
     const size_t total_num_random_values =
@@ -267,22 +267,22 @@ void TranslatorProvingKey::split_interleaved_random_coefficients_to_ordered()
 void TranslatorProvingKey::compute_lagrange_polynomials()
 {
 
-    proving_key->polynomials.lagrange_first.at(0) = 1;
-    proving_key->polynomials.lagrange_real_last.at(dyadic_circuit_size_without_masking - 1) = 1;
-    proving_key->polynomials.lagrange_last.at(dyadic_circuit_size - 1) = 1;
+    polynomials.lagrange_first.at(0) = 1;
+    polynomials.lagrange_real_last.at(dyadic_circuit_size_without_masking - 1) = 1;
+    polynomials.lagrange_last.at(dyadic_circuit_size - 1) = 1;
 
     // Location of randomness for the polynomials defined within the large size
     for (size_t i = dyadic_circuit_size_without_masking; i < dyadic_circuit_size; i++) {
-        proving_key->polynomials.lagrange_masking.at(i) = 1;
+        polynomials.lagrange_masking.at(i) = 1;
     }
 
     for (size_t i = Flavor::RANDOMNESS_START; i < Flavor::RESULT_ROW; i++) {
-        proving_key->polynomials.lagrange_mini_masking.at(i) = 1;
+        polynomials.lagrange_mini_masking.at(i) = 1;
     }
 
     // Location of randomness for wires defined within the mini circuit
     for (size_t i = dyadic_mini_circuit_size_without_masking; i < mini_circuit_dyadic_size; i++) {
-        proving_key->polynomials.lagrange_mini_masking.at(i) = 1;
+        polynomials.lagrange_mini_masking.at(i) = 1;
     }
 
     // Translator VM processes two rows of its execution trace at a time, establishing different relations between
@@ -290,13 +290,13 @@ void TranslatorProvingKey::compute_lagrange_polynomials()
     // should trigger at odd indices and which at even. These polynomials need to only be active within the range of
     // Translator trace that processes actual ecc ops.
     for (size_t i = Flavor::RESULT_ROW; i < dyadic_mini_circuit_size_without_masking; i += 2) {
-        proving_key->polynomials.lagrange_even_in_minicircuit.at(i) = 1;
-        proving_key->polynomials.lagrange_odd_in_minicircuit.at(i + 1) = 1;
+        polynomials.lagrange_even_in_minicircuit.at(i) = 1;
+        polynomials.lagrange_odd_in_minicircuit.at(i + 1) = 1;
     }
 
     // Position of evaluation result
-    proving_key->polynomials.lagrange_result_row.at(Flavor::RESULT_ROW) = 1;
-    proving_key->polynomials.lagrange_last_in_minicircuit.at(dyadic_mini_circuit_size_without_masking - 1) = 1;
+    polynomials.lagrange_result_row.at(Flavor::RESULT_ROW) = 1;
+    polynomials.lagrange_last_in_minicircuit.at(dyadic_mini_circuit_size_without_masking - 1) = 1;
 }
 
 /**
@@ -321,8 +321,8 @@ void TranslatorProvingKey::compute_extra_range_constraint_numerator()
     // TODO(#756): can be parallelized further. This will use at most 5 threads
     auto fill_with_shift = [&](size_t shift) {
         for (size_t i = 0; i < sorted_elements.size(); i++) {
-            proving_key->polynomials.ordered_extra_range_constraints_numerator.at(
-                shift + i * (Flavor::NUM_INTERLEAVED_WIRES + 1)) = sorted_elements[i];
+            polynomials.ordered_extra_range_constraints_numerator.at(shift + i * (Flavor::NUM_INTERLEAVED_WIRES + 1)) =
+                sorted_elements[i];
         }
     };
     // Fill polynomials with a sequence, where each element is repeated NUM_INTERLEAVED_WIRES+1 times

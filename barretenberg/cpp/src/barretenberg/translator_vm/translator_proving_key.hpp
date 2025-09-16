@@ -17,10 +17,9 @@ class TranslatorProvingKey {
     using Circuit = typename Flavor::CircuitBuilder;
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
-    using ProvingKey = typename Flavor::ProvingKey;
-    using Polynomial = typename Flavor::Polynomial;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentKey = typename Flavor::CommitmentKey;
+    using PrecomputedData = typename Flavor::PrecomputedData;
 
     static constexpr size_t mini_circuit_dyadic_size = Flavor::MINI_CIRCUIT_SIZE;
     // The actual circuit size is several times bigger than the trace in the circuit, because we use interleaving
@@ -35,7 +34,8 @@ class TranslatorProvingKey {
     static constexpr size_t dyadic_circuit_size_without_masking =
         dyadic_circuit_size - Flavor::NUM_MASKED_ROWS_END * Flavor::INTERLEAVING_GROUP_SIZE;
 
-    std::shared_ptr<ProvingKey> proving_key;
+    ProverPolynomials polynomials;
+    CommitmentKey commitment_key = CommitmentKey();
 
     BF batching_challenge_v = { 0 };
     BF evaluation_input_x = { 0 };
@@ -43,7 +43,8 @@ class TranslatorProvingKey {
     TranslatorProvingKey() = default;
 
     TranslatorProvingKey(const Circuit& circuit, const CommitmentKey& commitment_key = CommitmentKey())
-        : batching_challenge_v(circuit.batching_challenge_v)
+        : commitment_key(std::move(commitment_key))
+        , batching_challenge_v(circuit.batching_challenge_v)
         , evaluation_input_x(circuit.evaluation_input_x)
     {
         BB_BENCH_NAME("TranslatorProvingKey(TranslatorCircuit&)");
@@ -53,8 +54,7 @@ class TranslatorProvingKey {
             throw_or_abort("The Translator circuit size has exceeded the fixed upper bound");
         }
 
-        proving_key = std::make_shared<ProvingKey>(std::move(commitment_key));
-        auto wires = proving_key->polynomials.get_wires();
+        auto wires = polynomials.get_wires();
         for (auto [wire_poly_, wire_] : zip_view(wires, circuit.wires)) {
             auto& wire_poly = wire_poly_;
             const auto& wire = wire_;
@@ -145,5 +145,8 @@ class TranslatorProvingKey {
     void compute_interleaved_polynomials();
 
     void split_interleaved_random_coefficients_to_ordered();
+
+    // PrecomputedData get_precomputed() { return PrecomputedData{ polynomials.get_precomputed() }; }
 };
+
 } // namespace bb
