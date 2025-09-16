@@ -134,7 +134,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   // ZKPassport constraints
   string public validDomain;
   string public validScope;
-  uint256 public validValidityPeriodInSeconds;
+  uint256 public validValidityPeriodInSeconds = 7 days;
   uint256 public validMinAge = 18;
   uint256 public validMaxAge = 0;
 
