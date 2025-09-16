@@ -5,7 +5,11 @@ contract Handshaker {
     #[private]
     fn handshake(recipient: AztecAddress, hidden_sender: bool) {
         let sender = context.msg_sender();
-        let sender_to_include_in_message = if hidden_sender { AztecAddress::zero() } else { sender };
+        let sender_to_include_in_message = if hidden_sender {
+            AztecAddress::zero()
+        } else {
+            sender
+        };
 
         let master_tagging_secret_key = unsafe { random() };
         let master_tagging_public_key = master_tagging_secret_key * G;
@@ -24,17 +28,27 @@ contract Handshaker {
         add_master_tagging_secret_key(sender, recipient, master_tagging_secret_key);
 
         // The final ciphertext is the concatenation of the recipient and sender ciphertexts.
-        let message_ciphertext = array_concat(recipient_message_ciphertext, sender_message_ciphertext);
+        let message_ciphertext =
+            array_concat(recipient_message_ciphertext, sender_message_ciphertext);
 
-        // We compute and emit the handshake nullifier to be able to later on prove that we've handshaked with this recipient.
-        // Handshaking is costly so we want the handshake to be valid in both directions and hence we sort the addresses.
+        // We compute and emit the handshake commitment to be able to later on prove that we've handshaked with this
+        // recipient. Handshaking is costly so we want the handshake to be valid in both directions and hence we sort
+        // the addresses.
         let (address_0, address_1) = crate::util::sort_addresses(sender, recipient);
-        let handshake_commitment = poseidon2_hash(["AZTEC_NR::HANDSHAKE_SEPARATOR", master_tagging_public_key.x, master_tagging_public_key.y, address_0, address_1]);
+        let handshake_commitment = poseidon2_hash([
+            "AZTEC_NR::HANDSHAKE_SEPARATOR",
+            master_tagging_public_key.x,
+            master_tagging_public_key.y,
+            address_0,
+            address_1,
+        ]);
         context.push_nullifier(handshake_commitment);
 
         // We need to emit the log in public because we need the log contract address to be public for everyone to know
         // what logs to brute-force.
-        Handshaker::at(context.this_address())._emit_handshaking_log(message_ciphertext).enqueue(&mut context);
+        Handshaker::at(context.this_address())._emit_handshaking_log(message_ciphertext).enqueue(
+            &mut context,
+        );
     }
 
     #[public]

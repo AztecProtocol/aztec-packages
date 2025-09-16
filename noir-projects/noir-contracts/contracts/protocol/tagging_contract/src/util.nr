@@ -39,7 +39,10 @@ fn get_next_tag(
         let app_tagging_secret = context.request_tsk(master_tagging_public_key.hash());
         let directional_app_tagging_secret = poseidon2_hash([app_tagging_secret, recipient]);
 
-        (handshake_commitment_preimage, HANDSHAKER_CONTRACT_ADDRESS, directional_app_tagging_secret, 0)
+        (
+            handshake_commitment_preimage, HANDSHAKER_CONTRACT_ADDRESS,
+            directional_app_tagging_secret, 0,
+        )
     } else {
         // Get the app tagging secret and last index from oracle
         let (directional_app_tagging_secret, last_index) =
@@ -76,7 +79,10 @@ fn get_next_tag(
     tag
 }
 
-pub fn sort_addresses(address_a: AztecAddress, address_b: AztecAddress) -> (AztecAddress, AztecAddress) {
+pub fn sort_addresses(
+    address_a: AztecAddress,
+    address_b: AztecAddress,
+) -> (AztecAddress, AztecAddress) {
     let (address_small, address_big) = sort_addresses_internal(address_a, address_b);
     assert(address_small.to_field() < address_big.to_field());
     assert(address_small.eq(address_a) | address_small.eq(address_b));
