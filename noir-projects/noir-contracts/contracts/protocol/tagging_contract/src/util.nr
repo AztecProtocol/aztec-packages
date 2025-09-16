@@ -13,7 +13,8 @@ fn get_next_tag(sender: AztecAddress, recipient: AztecAddress, hidden_sender: bo
     let first_time_tagging: bool = is_first_time_tagging(sender, recipient, hidden_sender);
 
     let (unsiloed_nullifier_preimage, app_to_silo_with, directional_app_tagging_secret, index) = if first_time_tagging {
-        // Sort addresses for consistent handshake commitment
+        // Sort addresses to reliably get bi-directional handshake commitment. We do that in an unconstrained function
+        // and then we constrain the result to optimize constraints.
         let [address_0, address_1] = unsafe { sort_addresses(sender, recipient) };
         assert(address_0.to_field() < address_1.to_field());
         
