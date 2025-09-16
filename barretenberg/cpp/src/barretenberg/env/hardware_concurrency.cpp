@@ -9,6 +9,22 @@
 #include <thread>
 #endif
 
+static uint32_t& _get_num_cores()
+{
+    static const char* val = std::getenv("HARDWARE_CONCURRENCY");
+    static uint32_t cores =
+        val != nullptr ? static_cast<uint32_t>(std::stoul(val)) : std::thread::hardware_concurrency();
+    return cores;
+}
+
+namespace bb {
+// only for testing purposes currently
+void set_hardware_concurrency(size_t num_cores)
+{
+    _get_num_cores() = static_cast<uint32_t>(num_cores);
+}
+} // namespace bb
+
 extern "C" {
 
 #ifdef NO_MULTITHREADING
@@ -22,9 +38,7 @@ uint32_t env_hardware_concurrency()
 #ifndef __wasm__
     try {
 #endif
-        static auto val = std::getenv("HARDWARE_CONCURRENCY");
-        static const uint32_t cores = val ? (uint32_t)std::stoul(val) : std::thread::hardware_concurrency();
-        return cores;
+        return _get_num_cores();
 #ifndef __wasm__
     } catch (std::exception const&) {
         throw std::runtime_error("HARDWARE_CONCURRENCY invalid.");

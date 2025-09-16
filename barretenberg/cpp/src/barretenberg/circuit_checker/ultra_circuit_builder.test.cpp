@@ -583,6 +583,8 @@ TEST(UltraCircuitBuilder, NonNativeFieldMultiplication)
 
     fq a = fq::random_element();
     fq b = fq::random_element();
+    std::cout << "a: " << a << std::endl;
+    std::cout << "b: " << b << std::endl;
     uint256_t modulus = fq::modulus;
 
     uint1024_t a_big = uint512_t(uint256_t(a));
@@ -641,6 +643,8 @@ TEST(UltraCircuitBuilder, NonNativeFieldMultiplicationSortCheck)
 
     fq a = fq::random_element();
     fq b = fq::random_element();
+    std::cout << "a: " << a << std::endl;
+    std::cout << "b: " << b << std::endl;
     uint256_t modulus = fq::modulus;
 
     uint1024_t a_big = uint512_t(uint256_t(a));

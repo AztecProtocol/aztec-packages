@@ -101,23 +101,21 @@ class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4> {
 
     RefVector<Selector<fr>> get_selectors() override
     {
-        return RefVector{
-            q_m(),
-            q_c(),
-            q_1(),
-            q_2(),
-            q_3(),
-            q_4(),
-            q_busread(),
-            q_lookup_type(),
-            q_arith(),
-            q_delta_range(),
-            q_elliptic(),
-            q_memory(),
-            q_nnf(),
-            q_poseidon2_external(),
-            q_poseidon2_internal(),
-        };
+        return RefVector{ q_m(),
+                          q_c(),
+                          q_1(),
+                          q_2(),
+                          q_3(),
+                          q_4(),
+                          q_busread(),
+                          q_lookup_type(),
+                          q_arith(),
+                          q_delta_range(),
+                          q_elliptic(),
+                          q_memory(),
+                          q_nnf(),
+                          q_poseidon2_external(),
+                          q_poseidon2_internal() };
     }
 
     /**

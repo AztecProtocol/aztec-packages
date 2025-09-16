@@ -1,5 +1,6 @@
 #include "scalar_multiplication.hpp"
 #include "barretenberg/api/file_io.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/curves/types.hpp"
@@ -12,7 +13,7 @@
 using namespace bb;
 
 namespace {
-auto& engine = numeric::get_randomness();
+auto& engine = numeric::get_debug_randomness();
 } // namespace
 
 template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
@@ -22,7 +23,7 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
     using AffineElement = typename Curve::AffineElement;
     using ScalarField = typename Curve::ScalarField;
 
-    static constexpr size_t num_points = 201123;
+    static constexpr size_t num_points = 20101230;
     static inline std::vector<AffineElement> generators{};
     static inline std::vector<ScalarField> scalars{};
 
@@ -356,6 +357,7 @@ TYPED_TEST(ScalarMultiplicationTest, PippengerLowMemory)
 
 TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMul)
 {
+    BB_BENCH_NAME("BatchMultiScalarMul");
     SCALAR_MULTIPLICATION_TYPE_ALIASES
     using AffineElement = typename Curve::AffineElement;
 
@@ -477,6 +479,183 @@ TYPED_TEST(ScalarMultiplicationTest, MSMEmptyPolynomial)
     AffineElement result = scalar_multiplication::MSM<Curve>::msm(input_points, scalar_span);
 
     EXPECT_EQ(result, Curve::Group::affine_point_at_infinity);
+}
+
+// Helper function to generate scalars with specified sparsity
+template <typename ScalarField>
+std::vector<ScalarField> generate_sparse_scalars(size_t num_scalars, double sparsity_rate, auto& rng)
+{
+    std::vector<ScalarField> scalars(num_scalars);
+    for (size_t i = 0; i < num_scalars; ++i) {
+        // Generate random value to determine if this scalar should be zero
+        double rand_val = static_cast<double>(rng.get_random_uint32()) / static_cast<double>(UINT32_MAX);
+        if (rand_val < sparsity_rate) {
+            scalars[i] = 0;
+        } else {
+            scalars[i] = ScalarField::random_element(&rng);
+        }
+    }
+    return scalars;
+}
+
+// Test different MSM strategies with detailed benchmarking
+TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMulStrategyComparison)
+{
+    if (!bb::detail::use_bb_bench) {
+        std::cout
+            << "Skipping BatchMultiScalarMulStrategyComparison as BB_BENCH=1 is not passed (OR we are in wasm).\n";
+        return;
+    }
+    SCALAR_MULTIPLICATION_TYPE_ALIASES
+
+    using AffineElement = typename Curve::AffineElement;
+
+    const size_t num_msms = 3;
+    const size_t msm_max_size = 1 << 18;
+    const double max_sparsity = 0.1;
+
+    // Generate test data with varying sparsity
+    std::vector<std::span<const AffineElement>> all_points;
+    std::vector<std::span<ScalarField>> all_scalars;
+    std::vector<std::vector<ScalarField>> scalar_storage;
+    // reset seed
+    numeric::get_debug_randomness(true, 1);
+    size_t offset = 0;
+    for (size_t i = 0; i < num_msms; ++i) {
+        // Generate random sizes and density of 0s
+        const size_t size = engine.get_random_uint64() % msm_max_size;
+        const double sparsity = engine.get_random_uint8() / 255.0 * max_sparsity;
+        auto scalars = generate_sparse_scalars<ScalarField>(size, sparsity, engine);
+        scalar_storage.push_back(std::move(scalars));
+
+        std::span<const AffineElement> points(&TestFixture::generators[offset], size);
+        all_points.push_back(points);
+        all_scalars.push_back(scalar_storage.back());
+
+        offset += size;
+    }
+    auto func = [&]<bb::detail::OperationLabel thread_prefix>(size_t num_threads) {
+        set_hardware_concurrency(num_threads);
+        // Strategy 1: Individual MSMs
+        {
+            BB_BENCH_NAME((bb::detail::concat<thread_prefix, "IndividualMSMs">()));
+            for (size_t i = 0; i < num_msms; ++i) {
+                std::vector<std::span<const AffineElement>> single_points = { all_points[i] };
+                std::vector<std::span<ScalarField>> single_scalars = { all_scalars[i] };
+                scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(single_points, single_scalars);
+            }
+        }
+        // Strategy 4: Full Batch
+        {
+            BB_BENCH_NAME((bb::detail::concat<thread_prefix, "BatchMSMs">()));
+            scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(all_points, all_scalars);
+        }
+    };
+    // call lambda with template param
+    func.template operator()<"1 thread ">(1);
+    func.template operator()<"2 threads ">(2);
+    func.template operator()<"4 threads ">(4);
+    func.template operator()<"8 threads ">(8);
+    func.template operator()<"16 threads ">(16);
+    func.template operator()<"32 threads ">(32);
+}
+
+// Test with various polynomial profiles (different sizes and zero patterns)
+TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMulPolynomialProfiles)
+{
+    SCALAR_MULTIPLICATION_TYPE_ALIASES
+    using AffineElement = typename Curve::AffineElement;
+
+    std::cout << "\n=== MSM Polynomial Profile Testing ===\n";
+    std::cout << "Testing different polynomial profiles with batching\n\n";
+
+    struct PolynomialProfile {
+        std::string name;
+        size_t size;
+        std::function<ScalarField(size_t, decltype(engine)&)> generator;
+    };
+
+    std::vector<PolynomialProfile> profiles = {
+        { "Dense_1K", 1024, [](size_t, auto& rng) { return ScalarField::random_element(&rng); } },
+        { "Dense_8K", 8192, [](size_t, auto& rng) { return ScalarField::random_element(&rng); } },
+        { "Dense_64K", 65536, [](size_t, auto& rng) { return ScalarField::random_element(&rng); } },
+        { "Dense_100K", 100000, [](size_t, auto& rng) { return ScalarField::random_element(&rng); } },
+        { "Sparse_Front_64K",
+          65536,
+          [](size_t i, auto& rng) { return (i < 16384) ? ScalarField(0) : ScalarField::random_element(&rng); } },
+        { "Sparse_Back_64K",
+          65536,
+          [](size_t i, auto& rng) { return (i >= 49152) ? ScalarField(0) : ScalarField::random_element(&rng); } },
+        { "Alternating_64K",
+          65536,
+          [](size_t i, auto& rng) { return (i % 2 == 0) ? ScalarField(0) : ScalarField::random_element(&rng); } },
+        { "Blocks_64K",
+          65536,
+          [](size_t i, auto& rng) {
+              return ((i / 8192) % 2 == 0) ? ScalarField(0) : ScalarField::random_element(&rng);
+          } },
+        { "VerySpare_100K",
+          100000,
+          [](size_t i, auto& rng) { return (i % 10 == 0) ? ScalarField::random_element(&rng) : ScalarField(0); } },
+    };
+
+    for (const auto& profile : profiles) {
+        std::cout << "Profile: " << profile.name << " (" << profile.size << " points)\n";
+        std::cout << "----------------------------------------\n";
+
+        // Test with 1, 2, 4, and 8 MSMs
+        std::vector<size_t> msm_counts = { 1, 2, 4, 8 };
+        for (size_t num_msms : msm_counts) {
+            if (num_msms * profile.size > TestFixture::num_points) {
+                continue;
+            }
+
+            // Generate scalars according to profile
+            std::vector<std::vector<ScalarField>> scalar_storage;
+            std::vector<std::span<const AffineElement>> batch_points;
+            std::vector<std::span<ScalarField>> batch_scalars;
+
+            size_t offset = 0;
+            for (size_t msm_idx = 0; msm_idx < num_msms; ++msm_idx) {
+                std::vector<ScalarField> scalars(profile.size);
+                for (size_t i = 0; i < profile.size; ++i) {
+                    scalars[i] = profile.generator(i, engine);
+                }
+                scalar_storage.push_back(std::move(scalars));
+
+                std::span<const AffineElement> points(&TestFixture::generators[offset], profile.size);
+                batch_points.push_back(points);
+                batch_scalars.push_back(scalar_storage.back());
+
+                offset += profile.size;
+            }
+
+            // Benchmark individual vs batched
+            auto individual_start = std::chrono::high_resolution_clock::now();
+            for (size_t i = 0; i < num_msms; ++i) {
+                std::vector<std::span<const AffineElement>> single_points = { batch_points[i] };
+                std::vector<std::span<ScalarField>> single_scalars = { batch_scalars[i] };
+                scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(single_points, single_scalars);
+            }
+            auto individual_time = std::chrono::duration_cast<std::chrono::microseconds>(
+                                       std::chrono::high_resolution_clock::now() - individual_start)
+                                       .count();
+
+            auto batched_start = std::chrono::high_resolution_clock::now();
+            scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(batch_points, batch_scalars);
+            auto batched_time = std::chrono::duration_cast<std::chrono::microseconds>(
+                                    std::chrono::high_resolution_clock::now() - batched_start)
+                                    .count();
+
+            double speedup = static_cast<double>(individual_time) / static_cast<double>(batched_time);
+
+            std::cout << "  " << num_msms << " MSMs: "
+                      << "Individual=" << individual_time << "μs, "
+                      << "Batched=" << batched_time << "μs, "
+                      << "Speedup=" << std::fixed << std::setprecision(2) << speedup << "x\n";
+        }
+        std::cout << "\n";
+    }
 }
 
 TEST(ScalarMultiplication, SmallInputsExplicit)

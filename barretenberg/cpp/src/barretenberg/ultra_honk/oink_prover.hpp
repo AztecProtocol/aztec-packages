@@ -25,6 +25,7 @@
 // clang-format on
 #include <utility>
 
+#include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 
@@ -75,9 +76,9 @@ template <IsUltraOrMegaHonk Flavor> class OinkProver {
     void execute_log_derivative_inverse_round();
     void execute_grand_product_computation_round();
     SubrelationSeparators generate_alphas_round();
-    void commit_to_witness_polynomial(Polynomial<FF>& polynomial,
-                                      const std::string& label,
-                                      const CommitmentKey::CommitType type = CommitmentKey::CommitType::Default);
+    void commit_to_witness_polynomials(const RefVector<Polynomial<FF>>& polynomials,
+                                       const std::vector<std::string_view>& labels,
+                                       const CommitmentKey::CommitType type = CommitmentKey::CommitType::Default);
 };
 
 using MegaOinkProver = OinkProver<MegaFlavor>;

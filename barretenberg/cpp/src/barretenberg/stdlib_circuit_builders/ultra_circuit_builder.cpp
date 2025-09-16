@@ -82,6 +82,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit(const bool ensure_no
 template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non_zero()
 {
+    BB_BENCH_NAME("create_gates");
     // q_m, q_1, q_2, q_3, q_4
     blocks.arithmetic.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
     blocks.arithmetic.q_m().emplace_back(1);
@@ -293,6 +294,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
  */
 template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::create_add_gate(const add_triple_<FF>& in)
 {
+    BB_BENCH_NAME("create_gates");
     this->assert_valid_variables({ in.a, in.b, in.c });
 
     blocks.arithmetic.populate_wires(in.a, in.b, in.c, this->zero_idx);
@@ -329,6 +331,7 @@ template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::create_big_mul_add_gate(const mul_quad_<FF>& in,
                                                                    const bool include_next_gate_w_4)
 {
+    BB_BENCH_NAME("create_gates");
     this->assert_valid_variables({ in.a, in.b, in.c, in.d });
     blocks.arithmetic.populate_wires(in.a, in.b, in.c, in.d);
     blocks.arithmetic.q_m().emplace_back(include_next_gate_w_4 ? in.mul_scaling * FF(2) : in.mul_scaling);
@@ -364,6 +367,7 @@ template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::create_big_add_gate(const add_quad_<FF>& in,
                                                                const bool include_next_gate_w_4)
 {
+    BB_BENCH_NAME("create_gates");
     this->assert_valid_variables({ in.a, in.b, in.c, in.d });
     blocks.arithmetic.populate_wires(in.a, in.b, in.c, in.d);
     blocks.arithmetic.q_m().emplace_back(0);
@@ -460,6 +464,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_add_gate_with_bit_extracti
 template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::create_big_mul_gate(const mul_quad_<FF>& in)
 {
+    BB_BENCH_NAME("create_gates");
     this->assert_valid_variables({ in.a, in.b, in.c, in.d });
 
     blocks.arithmetic.populate_wires(in.a, in.b, in.c, in.d);
@@ -489,6 +494,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_mul_gate(const mul_quad_<F
 template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::create_balanced_add_gate(const add_quad_<FF>& in)
 {
+    BB_BENCH_NAME("create_gates");
     this->assert_valid_variables({ in.a, in.b, in.c, in.d });
 
     blocks.arithmetic.populate_wires(in.a, in.b, in.c, in.d);
@@ -526,6 +532,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_balanced_add_gate(const add_qu
  */
 template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::create_mul_gate(const mul_triple_<FF>& in)
 {
+    BB_BENCH_NAME("create_gates");
     this->assert_valid_variables({ in.a, in.b, in.c });
 
     blocks.arithmetic.populate_wires(in.a, in.b, in.c, this->zero_idx);
@@ -557,6 +564,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::cr
 template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::create_bool_gate(const uint32_t variable_index)
 {
+    BB_BENCH_NAME("create_gates");
     this->assert_valid_variables({ variable_index });
 
     blocks.arithmetic.populate_wires(variable_index, variable_index, this->zero_idx, this->zero_idx);
@@ -591,6 +599,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_bool_gate(const uint32_t varia
 template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::create_poly_gate(const poly_triple_<FF>& in)
 {
+    BB_BENCH_NAME("create_gates");
     this->assert_valid_variables({ in.a, in.b, in.c });
 
     blocks.arithmetic.populate_wires(in.a, in.b, in.c, this->zero_idx);
@@ -627,6 +636,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_poly_gate(const poly_triple_<F
 template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gate_<FF>& in)
 {
+    BB_BENCH_NAME("create_gates");
     /**
      * gate structure:
      * | 1  | 2  | 3  | 4  |
@@ -689,6 +699,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gat
 template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in)
 {
+    BB_BENCH_NAME("create_gates");
     auto& block = blocks.elliptic;
 
     /**
@@ -750,6 +761,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gat
 template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::fix_witness(const uint32_t witness_index, const FF& witness_value)
 {
+    BB_BENCH_NAME("create_gates");
     this->assert_valid_variables({ witness_index });
 
     blocks.arithmetic.populate_wires(witness_index, this->zero_idx, this->zero_idx, this->zero_idx);
@@ -777,6 +789,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::fix_witness(const uint32_t witness_in
 template <typename ExecutionTrace>
 uint32_t UltraCircuitBuilder_<ExecutionTrace>::put_constant_variable(const FF& variable)
 {
+    BB_BENCH_NAME("create_gates");
     if (constant_variable_indices.contains(variable)) {
         return constant_variable_indices.at(variable);
     } else {
@@ -823,6 +836,7 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_f
     const size_t num_lookups = read_values[plookup::ColumnIdx::C1].size();
     plookup::ReadData<uint32_t> read_data;
     for (size_t i = 0; i < num_lookups; ++i) {
+        BB_BENCH_NAME("create_gates");
         // get basic lookup table; construct and add to builder.lookup_tables if not already present
         auto& table = get_table(multi_table.basic_table_ids[i]);
 
@@ -1020,6 +1034,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_new_range_constraint(const uin
                                                                        const uint64_t target_range,
                                                                        std::string const msg)
 {
+    BB_BENCH_NAME("create_gates");
     if (uint256_t(this->get_variable(variable_index)).data[0] > target_range) {
         if (!this->failed()) {
             this->failure(msg);
@@ -1218,6 +1233,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
     // enforce range check for all but the final row
     for (size_t i = 0; i < variable_index.size() - gate_width; i += gate_width) {
 
+        BB_BENCH_NAME("create_gates");
         block.populate_wires(variable_index[i], variable_index[i + 1], variable_index[i + 2], variable_index[i + 3]);
         ++this->num_gates;
         block.q_m().emplace_back(0);
@@ -1241,6 +1257,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
     }
     // enforce range checks of last row and ending at end
     if (variable_index.size() > gate_width) {
+
+        BB_BENCH_NAME("create_gates");
         block.populate_wires(variable_index[variable_index.size() - 4],
                              variable_index[variable_index.size() - 3],
                              variable_index[variable_index.size() - 2],
@@ -1369,6 +1387,7 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_defau
 template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_SELECTORS type)
 {
+    BB_BENCH_NAME("create_gates");
     auto& block = blocks.memory;
     block.q_memory().emplace_back(type == MEMORY_SELECTORS::MEM_NONE ? 0 : 1);
     // Set to zero the selectors that are not enabled for this gate
@@ -1520,6 +1539,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
 template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::apply_nnf_selectors(const NNF_SELECTORS type)
 {
+    BB_BENCH_NAME("create_gates");
     auto& block = blocks.nnf;
     block.q_nnf().emplace_back(type == NNF_SELECTORS::NNF_NONE ? 0 : 1);
     // Set to zero the selectors that are not enabled for this gate
@@ -2080,6 +2100,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     // | x.p | x.1 | y.1 | z.0 | (a.1  + b.1 - c.1 = 0)
     // | x.2 | y.2 | z.2 | z.1 | (a.2  + b.2 - c.2 = 0)
     // | x.3 | y.3 | z.3 | --- | (a.3  + b.3 - c.3 = 0)
+    BB_BENCH_NAME("create_gates");
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/896): descrepency between above comment and the actual
     // implementation below.
     auto& block = blocks.arithmetic;
@@ -2145,6 +2166,7 @@ template <typename ExecutionTrace>
 std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_native_field_subtraction(
     add_simple limb0, add_simple limb1, add_simple limb2, add_simple limb3, std::tuple<uint32_t, uint32_t, FF> limbp)
 {
+    BB_BENCH_NAME("create_gates");
     const auto& x_0 = std::get<0>(limb0).first;
     const auto& x_1 = std::get<0>(limb1).first;
     const auto& x_2 = std::get<0>(limb2).first;
