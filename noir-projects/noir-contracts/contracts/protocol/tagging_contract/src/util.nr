@@ -17,6 +17,8 @@ fn get_next_tag(sender: AztecAddress, recipient: AztecAddress, hidden_sender: bo
         // and then we constrain the result to optimize constraints.
         let [address_0, address_1] = unsafe { sort_addresses(sender, recipient) };
         assert(address_0.to_field() < address_1.to_field());
+        assert(address_0.eq(sender) | address_0.eq(recipient));
+        assert(address_1.eq(sender) | address_1.eq(recipient));
         
         let handshake_commitment_preimage = ["AZTEC_NR::HANDSHAKE_SEPARATOR", master_tagging_public_key.x, master_tagging_public_key.y, address_0, address_1];
 
