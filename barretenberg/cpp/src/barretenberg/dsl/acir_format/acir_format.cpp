@@ -322,7 +322,8 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             true,
             "Invalid circuit: honk, civc, or avm recursion constraints present but the circuit is not recursive.");
         if (has_civc_recursion_constraints && has_avm_recursion_constraints) {
-            vinfo("WARNING: both civc and avm recursion constraints are present. This should only happen in a mock "
+            vinfo("WARNING: both civc and avm recursion constraints are present. While we support this combination, we "
+                  "expect to see it only in a mock "
                   "circuit.");
         }
 
