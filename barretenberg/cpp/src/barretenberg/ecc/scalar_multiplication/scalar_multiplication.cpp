@@ -115,7 +115,7 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
  */
 template <typename Curve>
 std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
-    std::vector<std::span<ScalarField>>& scalars, std::vector<std::vector<uint32_t>>& msm_scalar_indices) noexcept
+    std::span<std::span<ScalarField>> scalars, std::vector<std::vector<uint32_t>>& msm_scalar_indices) noexcept
 {
 
     const size_t num_msms = scalars.size();
@@ -761,8 +761,8 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
  */
 template <typename Curve>
 std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
-    std::vector<std::span<const typename Curve::AffineElement>>& points,
-    std::vector<std::span<ScalarField>>& scalars,
+    std::span<std::span<const typename Curve::AffineElement>> points,
+    std::span<std::span<ScalarField>> scalars,
     bool handle_edge_cases) noexcept
 {
     BB_ASSERT_EQ(points.size(), scalars.size());
