@@ -3,12 +3,11 @@ import welcomeIconURL from '../../../assets/welcome_icon.svg';
 import { AztecAddress, Fr, TxStatus } from '@aztec/aztec.js';
 import { useNotifications } from '@toolpad/core/useNotifications';
 import { Box, Button, CircularProgress, Tooltip } from '@mui/material';
-import { AztecContext } from '../../../aztecEnv';
+import { AztecContext } from '../../../aztecContext';
 import { useContext, useEffect, useState } from 'react';
 import { PREDEFINED_CONTRACTS } from '../../../constants';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { loadContractArtifact } from '@aztec/aztec.js';
-import { getEcdsaRAccount } from '@aztec/accounts/ecdsa/lazy';
 import { useTransaction } from '../../../hooks/useTransaction';
 import {
   convertFromUTF8BufferAsString,
@@ -18,6 +17,8 @@ import {
 import { filterDeployedAliasedContracts } from '../../../utils/contracts';
 import { parse } from 'buffer-json';
 import { trackButtonClick } from '../../../utils/matomo';
+import { EmbeddedWallet } from '../../../wallet/embedded_wallet';
+import { prepareForFeePayment } from '../../../utils/sponsoredFPC';
 
 const container = css({
   display: 'flex',
@@ -262,13 +263,13 @@ export function Landing() {
     setShowContractInterface,
     setDefaultContractCreationParams,
     setCurrentContractAddress,
-    walletDB,
+    setFrom,
+    embeddedWalletSelected,
+    playgroundDB,
+    from,
     wallet,
-    pxe,
     currentTx,
-    isPXEInitialized,
     network,
-    setWallet,
   } = useContext(AztecContext);
 
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
@@ -303,14 +304,13 @@ export function Landing() {
         };
 
         // Fetch the first account to use as the admin
-        const accountAliases = await walletDB.listAliases('accounts');
-        const parsedAccountAliases = parseAliasedBuffersAsString(accountAliases);
-        const currentAccountAlias = parsedAccountAliases.find(alias => alias.value === wallet?.getAddress().toString());
+        const accounts = await wallet.getAccounts();
+        const currentAccount = accounts.find(account => account.item.equals(from));
 
-        if (currentAccountAlias) {
+        if (currentAccount) {
           defaultContractCreationParams.admin = {
-            id: currentAccountAlias.value,
-            label: `${currentAccountAlias.key} (${formatFrAsString(currentAccountAlias.value)})`,
+            id: currentAccount.item.toString(),
+            label: `${currentAccount.alias} (${formatFrAsString(currentAccount.item.toString())})`,
           };
         }
         break;
@@ -329,15 +329,15 @@ export function Landing() {
     }
 
     let deployedContractAddress = null;
-    const aliasedContracts = await walletDB.listAliases('contracts');
+    const aliasedContracts = await playgroundDB.listAliases('contracts');
     if (wallet && aliasedContracts.length > 0) {
       const contracts = parseAliasedBuffersAsString(aliasedContracts);
       const deployedContracts = await filterDeployedAliasedContracts(contracts, wallet);
       for (const contract of deployedContracts) {
-        const artifactAsString = await walletDB.retrieveAlias(`artifacts:${contract.value}`);
+        const artifactAsString = await playgroundDB.retrieveAlias(`artifacts:${contract.item}`);
         const contractArtifact = loadContractArtifact(parse(convertFromUTF8BufferAsString(artifactAsString)));
         if (contractArtifact.name === contractArtifactJSON.name) {
-          deployedContractAddress = AztecAddress.fromString(contract.value);
+          deployedContractAddress = AztecAddress.fromString(contract.item);
           break;
         }
       }
@@ -362,33 +362,30 @@ export function Landing() {
       const salt = Fr.random();
       const secretKey = Fr.random();
       const signingKey = randomBytes(32);
-      const accountManager = await getEcdsaRAccount(pxe, secretKey, signingKey, salt);
-      const accountWallet = await accountManager.getWallet();
-      await accountManager.register();
-
-      const accountCount = (await walletDB.listAliases('accounts')).length;
+      const accountCount = (await wallet.getAccounts()).length;
       const accountName = `My Account ${accountCount + 1}`;
-      await walletDB.storeAccount(accountWallet.getAddress(), {
-        type: 'ecdsasecp256r1',
-        secretKey: accountWallet.getSecretKey(),
-        alias: accountName,
+      const accountManager = await (wallet as EmbeddedWallet).createAndStoreAccount(
+        accountName,
+        'ecdsasecp256r1',
+        secretKey,
         salt,
         signingKey,
-      });
+      );
+      const address = accountManager.getAddress();
+
       notifications.show('Account created. Deploying...', {
         severity: 'success',
       });
 
-      const { prepareForFeePayment } = await import('../../../utils/sponsoredFPC');
       const feePaymentMethod = await prepareForFeePayment(
-        pxe,
+        wallet,
         network.sponsoredFPC?.address,
         network.sponsoredFPC?.version,
       );
 
       const deployMethod = await accountManager.getDeployMethod();
       const opts = {
-        from: accountWallet.getAddress(),
+        from: AztecAddress.ZERO,
         contractAddressSalt: salt,
         fee: {
           paymentMethod: await accountManager.getSelfPaymentMethod(feePaymentMethod),
@@ -398,14 +395,11 @@ export function Landing() {
         skipInstancePublication: true,
       };
 
-      const txReceipt = await sendTx(`Deploy Account`, deployMethod, accountWallet.getAddress(), opts);
+      const txReceipt = await sendTx(`Deploy account contract`, deployMethod, address, opts);
 
       if (txReceipt?.status === TxStatus.SUCCESS) {
-        setWallet(await accountManager.getWallet());
-      } else if (txReceipt?.status === TxStatus.DROPPED) {
-        await walletDB.deleteAccount(accountWallet.getAddress());
+        setFrom(address);
       }
-
     } catch (e) {
       console.error(e);
       setIsCreatingAccount(false);
@@ -456,7 +450,9 @@ export function Landing() {
           </Box>
 
           <Tooltip
-            title={!isPXEInitialized ? "Connect to a network to create an account" : ""}
+            title={
+              !wallet || !embeddedWalletSelected ? 'Connect to a network and use a wallet to create an account' : ''
+            }
             placement="top"
           >
             <span>
@@ -464,7 +460,7 @@ export function Landing() {
                 variant="contained"
                 css={cardButton}
                 onClick={handleCreateAccountButtonClick}
-                disabled={isCreatingAccount || !isPXEInitialized}
+                disabled={isCreatingAccount || !wallet}
               >
                 {isCreatingAccount ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Create Account'}
               </Button>
@@ -485,10 +481,7 @@ export function Landing() {
             </div>
           </Box>
 
-          <Tooltip
-            title={!wallet ? "Connect and account to deploy and interact with a contract" : ""}
-            placement="top"
-          >
+          <Tooltip title={!wallet ? 'Connect and account to deploy and interact with a contract' : ''} placement="top">
             <span>
               <Button
                 variant="contained"
@@ -520,10 +513,7 @@ export function Landing() {
             </div>
           </Box>
 
-          <Tooltip
-            title={!wallet ? "Connect and account to deploy and interact with a contract" : ""}
-            placement="top"
-          >
+          <Tooltip title={!wallet ? 'Connect and account to deploy and interact with a contract' : ''} placement="top">
             <span>
               <Button
                 variant="contained"
@@ -540,7 +530,6 @@ export function Landing() {
             </span>
           </Tooltip>
         </div>
-
       </div>
     </div>
   );

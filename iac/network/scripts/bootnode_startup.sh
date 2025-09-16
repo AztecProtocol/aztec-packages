@@ -136,7 +136,7 @@ docker run \
  --env BOOTSTRAP_NODES \
  --env LOG_LEVEL \
  --env OTEL_EXPORTER_OTLP_METRICS_ENDPOINT \
- $REPO/$IMAGE:$TAG node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --p2p-bootstrap
+ $REPO/$IMAGE:$TAG start --p2p-bootstrap
 EOF
 chmod +x /home/$SSH_USER/start.sh
 

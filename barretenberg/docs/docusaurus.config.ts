@@ -15,30 +15,32 @@ const versions = require("./versions.json");
 // To redirect /api to the static/api directory in dev mode (netlify handles it in prod)
 function apiPlugin(context: any, options: any) {
   return {
-    name: 'api-static-plugin',
+    name: "api-static-plugin",
     configureWebpack(config: any, isServer: boolean, utils: any) {
       if (!isServer) {
         return {
-          mergeStrategy: { 'devServer.setupMiddlewares': 'replace' },
+          mergeStrategy: { "devServer.setupMiddlewares": "replace" },
           devServer: {
             setupMiddlewares: (middlewares: any, devServer: any) => {
-              const express = require('express');
-              devServer.app.use('/api', express.static(path.join(__dirname, 'static/api')));
+              const express = require("express");
+              devServer.app.use(
+                "/api",
+                express.static(path.join(__dirname, "static/api"))
+              );
               return middlewares;
             },
           },
         } as any;
       }
       return {};
-    }
-  }
+    },
+  };
 }
-
 
 const config: Config = {
   title: "Barretenberg",
   tagline: "Barretenberg is a fast, private and scalable zk-SNARK library.",
-  favicon: "img/icon.svg",
+  favicon: "img/Aztec_Symbol_Dark.png",
 
   // Set the production url of your site here
   url: "https://bb.aztec.network",
@@ -80,11 +82,19 @@ const config: Config = {
               },
             ],
           ],
-          versions: {
-            current: {
-              label: "dev"
+          // Don't show latest since nightlies are published
+          includeCurrentVersion: process.env.ENV === "dev",
+          // There should be 2 versions, nightly and stable
+          // The stable version is second in the list
+          lastVersion: versions[1],
+          ...(process.env.ENV === "dev" && {
+            versions: {
+              current: {
+                label: "dev",
+                path: "dev",
+              },
             },
-          },
+          }),
           editUrl: (params) => {
             return (
               `https://github.com/AztecProtocol/aztec-packages/edit/master/docs/docs/` +
@@ -133,7 +143,6 @@ const config: Config = {
     ],
 
     apiPlugin,
-
   ],
   themeConfig: {
     metadata: [
@@ -164,9 +173,9 @@ const config: Config = {
     navbar: {
       logo: {
         alt: "Aztec Logo",
-        srcDark: "img/logo-light.svg",
+        srcDark: "img/Aztec Wordmark_Light.svg",
         href: "/docs",
-        src: "img/logo-dark.svg",
+        src: "img/Aztec Wordmark_Dark.svg",
       },
       items: [
         {

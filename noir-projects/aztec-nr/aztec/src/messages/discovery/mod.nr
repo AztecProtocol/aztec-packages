@@ -61,9 +61,12 @@ pub struct NoteHashAndNullifier {
 /// ```
 type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note */BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress, /* note nonce */ Field) -> Option<NoteHashAndNullifier>;
 
-/// Performs the message discovery process, in which private are downloaded and inspected to find new private notes,
-/// partial notes and events, etc., and pending partial notes are processed to search for their completion logs.
+/// Performs the message discovery process, in which private logs are downloaded and inspected to find new private
+/// notes, partial notes and events, etc., and pending partial notes are processed to search for their completion logs.
 /// This is the mechanism via which a contract updates its knowledge of its private state.
+///
+/// Note that the state is synchronized up to the latest block synchronized by PXE. That should be close to the chain
+/// tip as block synchronization is performed before contract function simulation is done.
 ///
 /// Receives the address of the contract on which discovery is performed along with its
 /// `compute_note_hash_and_nullifier` function.

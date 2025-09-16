@@ -57,11 +57,13 @@ class ClientIVCRecursiveVerifier {
          * @param proof_indices
          * @param virtual_log_n
          */
-        StdlibProof(const std::vector<field_t<Builder>>& proof_indices, size_t virtual_log_n = Flavor::VIRTUAL_LOG_N)
+        StdlibProof(const std::vector<field_t<Builder>>& proof_indices,
+                    size_t public_inputs_size,
+                    size_t virtual_log_n = Flavor::VIRTUAL_LOG_N)
         {
 
             BB_ASSERT_EQ(proof_indices.size(),
-                         PROOF_LENGTH(virtual_log_n),
+                         PROOF_LENGTH(virtual_log_n) + public_inputs_size,
                          "Number of indices differs from the expected proof size.");
 
             auto it = proof_indices.begin();
@@ -70,7 +72,7 @@ class ClientIVCRecursiveVerifier {
             std::ptrdiff_t start_idx = 0;
             std::ptrdiff_t end_idx = static_cast<std::ptrdiff_t>(
                 RecursiveFlavor::NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) +
-                HidingKernelIO<Builder>::PUBLIC_INPUTS_SIZE);
+                HidingKernelIO<Builder>::PUBLIC_INPUTS_SIZE + public_inputs_size);
             mega_proof.insert(mega_proof.end(), it + start_idx, it + end_idx);
 
             // Merge proof
@@ -96,7 +98,7 @@ class ClientIVCRecursiveVerifier {
             goblin_proof.translator_proof.insert(goblin_proof.translator_proof.end(), it + start_idx, it + end_idx);
 
             BB_ASSERT_EQ(static_cast<uint32_t>(end_idx),
-                         PROOF_LENGTH(virtual_log_n),
+                         PROOF_LENGTH(virtual_log_n) + public_inputs_size,
                          "Reconstructed a ClientIVC proof of wrong the length from proof indices.");
         }
     };

@@ -10,9 +10,9 @@ import { IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
-import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
+import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
 import { type NoteData, TypedOracle } from './typed_oracle.js';
 
@@ -29,7 +29,7 @@ export class UtilityExecutionOracle extends TypedOracle {
     protected log = createLogger('simulator:client_view_context'),
     protected readonly scopes?: AztecAddress[],
   ) {
-    super();
+    super('UtilityExecutionOracle');
   }
 
   public override utilityAssertCompatibleOracleVersion(version: number): void {
@@ -40,24 +40,15 @@ export class UtilityExecutionOracle extends TypedOracle {
     return Fr.random();
   }
 
-  public override utilityGetBlockNumber(): Promise<number> {
-    return this.executionDataProvider.getBlockNumber();
-  }
-
-  public override utilityGetTimestamp(): Promise<UInt64> {
-    return this.executionDataProvider.getTimestamp();
-  }
-
-  public override utilityGetContractAddress(): Promise<AztecAddress> {
-    return Promise.resolve(this.contractAddress);
-  }
-
-  public override utilityGetChainId(): Promise<Fr> {
-    return Promise.resolve(this.executionDataProvider.getChainId().then(id => new Fr(id)));
-  }
-
-  public override utilityGetVersion(): Promise<Fr> {
-    return Promise.resolve(this.executionDataProvider.getVersion().then(v => new Fr(v)));
+  public override async utilityGetUtilityContext(): Promise<UtilityContext> {
+    const blockHeader = await this.executionDataProvider.getBlockHeader();
+    return UtilityContext.from({
+      blockNumber: blockHeader.globalVariables.blockNumber,
+      timestamp: blockHeader.globalVariables.timestamp,
+      contractAddress: this.contractAddress,
+      version: blockHeader.globalVariables.version,
+      chainId: blockHeader.globalVariables.chainId,
+    });
   }
 
   /**
@@ -142,7 +133,7 @@ export class UtilityExecutionOracle extends TypedOracle {
    * @returns A complete address associated with the input address.
    * @throws An error if the account is not registered in the database.
    */
-  public override utilityGetCompleteAddress(account: AztecAddress): Promise<CompleteAddress> {
+  public override utilityGetPublicKeysAndPartialAddress(account: AztecAddress): Promise<CompleteAddress> {
     return this.executionDataProvider.getCompleteAddress(account);
   }
 

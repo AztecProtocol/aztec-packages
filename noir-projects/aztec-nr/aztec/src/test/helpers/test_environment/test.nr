@@ -230,19 +230,26 @@ unconstrained fn private_context_repeats_contract_address() {
     assert_eq(first_address, second_address);
 }
 
-// utility_context currently uses the _next_ block number, not the last one. This is because we actually have a single
-// oracle for the block number, which has a meaning that depends on the current context. Once all three contexts are
-// implemented as actual separate handlers we'll be able to make this test pass.
-// #[test]
-// unconstrained fn utility_context_uses_last_block_number() {
-//     let env = TestEnvironment::new();
+#[test]
+unconstrained fn utility_context_uses_last_block_number() {
+    let env = TestEnvironment::new();
 
-//     let last_block_number = env.last_block_number();
+    let last_block_number = env.last_block_number();
 
-//     env.utility_context(|context| {
-//         assert_eq(last_block_number, context.block_number());
-//     });
-// }
+    env.utility_context(|context| { assert_eq(last_block_number, context.block_number()); });
+}
+
+#[test]
+unconstrained fn utility_context_uses_last_block_timestamp() {
+    let env = TestEnvironment::new();
+
+    let last_block_timestamp = env.last_block_timestamp();
+
+    // This will not affect utility context, as it uses the last timestamp, not the next one
+    env.set_next_block_timestamp(last_block_timestamp + 100);
+
+    env.utility_context(|context| { assert_eq(last_block_timestamp, context.timestamp()); });
+}
 
 #[test]
 unconstrained fn utility_context_does_not_advance_block_number() {

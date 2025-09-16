@@ -7,8 +7,6 @@ description: Overview of wallet responsibilities in Aztec including account mana
 
 On this page we will cover the main responsibilities of a wallet in the Aztec network.
 
-Refer to [writing an account contract](../../../developers/tutorials/contract_tutorials/write_accounts_contract.md) for a tutorial on how to write a contract to back a user's account.
-
 Go to [wallet architecture](./architecture.md) for an overview of its architecture and a reference on the interface a wallet must implement.
 
 Wallets are the applications through which users manage their accounts. Users rely on wallets to browse through their accounts, monitor their balances, and create new accounts. Wallets also store seed phrases and private keys, or interact with external keystores such as hardware wallets.
@@ -19,7 +17,7 @@ In addition to these usual responsibilities, wallets in Aztec also need to track
 
 ## Account setup
 
-The first step for any wallet is to let the user set up their [accounts](../accounts/index.md). An account in Aztec is represented on-chain by its corresponding account contract that the user must deploy to begin interacting with the network. This account contract dictates how transactions are authenticated and executed.
+The first step for any wallet is to let the user set up their [accounts](../accounts/index.md). An account in Aztec is represented onchain by its corresponding account contract that the user must deploy to begin interacting with the network. This account contract dictates how transactions are authenticated and executed.
 
 A wallet must support at least one specific account contract implementation, which means being able to deploy such a contract, as well as interacting with it when sending transactions. Code-wise, this requires [implementing the `AccountContract` interface](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/aztec.js/src/account/interface.ts).
 

@@ -36,27 +36,6 @@ template <typename FF> class scalar_mul : public Relation<scalar_mulImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "scalar_mul";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 5:
-            return "START_AFTER_LATCH";
-        case 6:
-            return "SELECTOR_ON_START";
-        case 7:
-            return "SELECTOR_CONSISTENCY";
-        case 11:
-            return "INPUT_CONSISTENCY_X";
-        case 12:
-            return "INPUT_CONSISTENCY_Y";
-        case 13:
-            return "INPUT_CONSISTENCY_INF";
-        case 14:
-            return "INPUT_CONSISTENCY_SCALAR";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_START_AFTER_LATCH = 5;
     static constexpr size_t SR_SELECTOR_ON_START = 6;
@@ -65,6 +44,27 @@ template <typename FF> class scalar_mul : public Relation<scalar_mulImpl<FF>> {
     static constexpr size_t SR_INPUT_CONSISTENCY_Y = 12;
     static constexpr size_t SR_INPUT_CONSISTENCY_INF = 13;
     static constexpr size_t SR_INPUT_CONSISTENCY_SCALAR = 14;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_START_AFTER_LATCH:
+            return "START_AFTER_LATCH";
+        case SR_SELECTOR_ON_START:
+            return "SELECTOR_ON_START";
+        case SR_SELECTOR_CONSISTENCY:
+            return "SELECTOR_CONSISTENCY";
+        case SR_INPUT_CONSISTENCY_X:
+            return "INPUT_CONSISTENCY_X";
+        case SR_INPUT_CONSISTENCY_Y:
+            return "INPUT_CONSISTENCY_Y";
+        case SR_INPUT_CONSISTENCY_INF:
+            return "INPUT_CONSISTENCY_INF";
+        case SR_INPUT_CONSISTENCY_SCALAR:
+            return "INPUT_CONSISTENCY_SCALAR";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

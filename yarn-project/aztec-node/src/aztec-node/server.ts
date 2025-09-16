@@ -222,7 +222,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
           'KEY STORE CREATED FROM ENVIRONMENT, IT IS RECOMMENDED TO USE A FILE-BASED KEY STORE IN PRODUCTION ENVIRONMENTS',
         );
       }
-      ValidatorClient.validateKeyStoreConfiguration(keyStoreManager);
+      ValidatorClient.validateKeyStoreConfiguration(keyStoreManager, log);
     }
 
     // validate that the actual chain id matches that specified in configuration
@@ -416,6 +416,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     if (!options.dontStartSequencer && sequencer) {
       await sequencer.start();
       log.verbose(`Sequencer started`);
+    } else if (sequencer) {
+      log.warn(`Sequencer created but not started`);
     }
 
     return new AztecNodeService(
@@ -1122,12 +1124,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public async setConfig(config: Partial<AztecNodeAdminConfig>): Promise<void> {
     const newConfig = { ...this.config, ...config };
-    this.sequencer?.updateSequencerConfig(config);
+    this.sequencer?.updateConfig(config);
     this.slasherClient?.updateConfig(config);
     this.validatorsSentinel?.updateConfig(config);
-    // this.blockBuilder.updateConfig(config); // TODO: Spyros has a PR to add the builder to `this`, so we can do this
     await this.p2pClient.updateP2PConfig(config);
-
+    const archiver = this.blockSource as Archiver;
+    if ('updateConfig' in archiver) {
+      archiver.updateConfig(config);
+    }
     if (newConfig.realProofs !== this.config.realProofs) {
       this.proofVerifier = config.realProofs ? await BBCircuitVerifier.new(newConfig) : new TestCircuitVerifier();
     }

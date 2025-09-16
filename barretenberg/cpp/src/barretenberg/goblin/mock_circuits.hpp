@@ -12,6 +12,7 @@
 #include "barretenberg/crypto/merkle_tree/memory_store.hpp"
 #include "barretenberg/crypto/merkle_tree/merkle_tree.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "barretenberg/stdlib/hash/keccak/keccak.hpp"
@@ -125,10 +126,12 @@ class GoblinMockCircuits {
     /**
      * @brief Add some randomness into the op queue.
      */
-    static void randomise_op_queue(MegaBuilder& builder)
+    static void randomise_op_queue(MegaBuilder& builder, size_t num_ops)
     {
-        builder.queue_ecc_random_op();
-        builder.queue_ecc_random_op();
+
+        for (size_t i = 0; i < num_ops; ++i) {
+            builder.queue_ecc_random_op();
+        }
     }
 
     /**
@@ -136,17 +139,32 @@ class GoblinMockCircuits {
      *
      * @param builder
      */
-    static void construct_simple_circuit(MegaBuilder& builder, bool last_circuit = false)
+    static void construct_simple_circuit(MegaBuilder& builder)
     {
         BB_BENCH();
-        // The last circuit to be accumulated must contain a no-op
-        if (last_circuit) {
-            builder.queue_ecc_no_op();
-        }
 
         add_some_ecc_op_gates(builder);
         MockCircuits::construct_arithmetic_circuit(builder);
         bb::stdlib::recursion::honk::DefaultIO<MegaBuilder>::add_default(builder);
+    }
+
+    static void construct_and_merge_mock_circuits(Goblin& goblin, const size_t num_circuits = 3)
+    {
+        for (size_t idx = 0; idx < num_circuits - 1; ++idx) {
+            MegaCircuitBuilder builder{ goblin.op_queue };
+            if (idx == num_circuits - 2) {
+                // Last circuit appended needs to begin with a no-op for translator to be shiftable
+                builder.queue_ecc_no_op();
+                randomise_op_queue(builder, TranslatorCircuitBuilder::NUM_RANDOM_OPS_START);
+            }
+            construct_simple_circuit(builder);
+            goblin.prove_merge();
+            // Pop the merge proof from the queue, Goblin will be verified at the end
+            goblin.merge_verification_queue.pop_front();
+        }
+        MegaCircuitBuilder builder{ goblin.op_queue };
+        GoblinMockCircuits::construct_simple_circuit(builder);
+        randomise_op_queue(builder, TranslatorCircuitBuilder::NUM_RANDOM_OPS_END);
     }
 
     /**

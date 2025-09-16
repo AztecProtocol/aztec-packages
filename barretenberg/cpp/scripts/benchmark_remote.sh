@@ -10,7 +10,7 @@ set -eu
 BENCHMARK=${1:-client_ivc_bench}
 COMMAND=${2:-./$BENCHMARK}
 PRESET=${3:-clang20-no-avm}
-BUILD_DIR=${4:-build}
+BUILD_DIR=${4:-build-no-avm}
 HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 
 # Move above script dir.

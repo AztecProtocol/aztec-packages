@@ -38,7 +38,6 @@ export class Tx extends Gossipable {
     public readonly data: PrivateKernelTailCircuitPublicInputs,
     /**
      * Proof from the private kernel circuit.
-     * TODO(#7368): This client IVC object currently contains various VKs that will eventually be more like static data.
      */
     public readonly clientIvcProof: ClientIvcProof,
     /**
@@ -238,7 +237,7 @@ export class Tx extends Gossipable {
       classPublishedCount: this.data.getNonEmptyContractClassLogsHashes().length,
       contractClassLogSize: this.data.getEmittedContractClassLogsLength(),
 
-      proofSize: this.clientIvcProof.clientIvcProofBuffer.length,
+      proofSize: this.clientIvcProof.proof.length,
       size: this.toBuffer().length,
 
       feePaymentMethod:
@@ -250,7 +249,7 @@ export class Tx extends Gossipable {
   getSize() {
     return (
       this.data.getSize() +
-      this.clientIvcProof.clientIvcProofBuffer.length +
+      this.clientIvcProof.proof.length * Fr.SIZE_IN_BYTES +
       arraySerializedSizeOfNonEmpty(this.contractClassLogFields) +
       this.publicFunctionCalldata.reduce((accum, cd) => accum + cd.getSize(), 0)
     );

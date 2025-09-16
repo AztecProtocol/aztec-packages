@@ -13,7 +13,13 @@ function build {
 }
 
 function source_network_env {
-  local env_file="environments/$1"
+  local env_file
+  # Check if the argument is an absolute path
+  if [[ "$1" = /* ]]; then
+    env_file="$1"
+  else
+    env_file="environments/$1"
+  fi
   # Optionally source an env file passed as first argument
   if [[ -n "${env_file:-}" ]]; then
     if [[ -f "$env_file" ]]; then
@@ -76,9 +82,15 @@ function test_cmds {
 }
 
 function network_test_cmds {
+  # a github runner has a maximum of 6 hours.
+  # currently, we allocate just shy of one hour for each test, so we can have at most 6 tests.
+  # If we have more tests, we can reduce the epoch/slot duration in the tests,
+  # or parallelize somehow. It's just something to be aware of if you are adding new tests here.
+  local prefix="disabled-cache:CPUS=10:MEM=16g:TIMEOUT=55m"
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
-  echo $run_test_script simple src/spartan/smoke.test.ts
-  echo $run_test_script simple src/spartan/transfer.test.ts
+  echo $prefix $run_test_script simple src/spartan/smoke.test.ts
+  echo $prefix $run_test_script simple src/spartan/transfer.test.ts
+  echo $prefix $run_test_script simple src/spartan/slash_inactivity.test.ts
 }
 
 function single_test {
@@ -88,22 +100,13 @@ function single_test {
 
 function start_env {
   if [ "$CI_NIGHTLY" -eq 1 ] && [ "$(arch)" != "arm64" ]; then
-    NIGHTLY_NS=nightly-$(git rev-parse --short HEAD)
-    export MONITOR_DEPLOYMENT=false
-    export WAIT_FOR_DEPLOYMENT=false
-    export CLUSTER_NAME=aztec-gke-private
-    export ZONE=us-west1-a
-    export GCP_PROJECT_ID=${GCP_PROJECT_ID:-"testnet-440309"}
-    echo "Installing test network in namespace $NIGHTLY_NS"
-    ./scripts/deploy_k8s.sh gke "$NIGHTLY_NS" ci-fast-epoch.yaml false "mnemonic.tmp" "$NIGHTLY_NS" "$GCP_PROJECT_ID"
+    echo "Skipping start_env for nightly while we migrate to use the same deployment flow as the scenario/staging networks."
   fi
 }
 
 function stop_env {
   if [ "$CI_NIGHTLY" -eq 1 ] && [ "$(arch)" != "arm64" ]; then
-    NIGHTLY_NS=nightly-$(date -u +%Y%m%d)
-    echo "Uninstalling test network in namespace $NIGHTLY_NS"
-    ./scripts/cleanup_k8s.sh "$NIGHTLY_NS" "$NIGHTLY_NS"
+    echo "Skipping stop_env for nightly while we migrate to use the same deployment flow as the scenario/staging networks."
   fi
 }
 
@@ -166,6 +169,12 @@ case "$cmd" in
 
     gcp_auth
     ./scripts/deploy_network.sh
+    echo "Deployed network"
+
+    if [[ "${RUN_TESTS:-}" == "true" ]]; then
+      echo "Running tests"
+      network_tests
+    fi
     ;;
   "single_test")
     shift

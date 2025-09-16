@@ -86,6 +86,8 @@ export async function createProverNode(
     );
   }
 
+  log.info(`Creating prover with publishers ${proverSigners.signers.map(signer => signer.address.toString()).join()}`);
+
   // Only consider user provided config if it is valid
   const proverIdInUserConfig = config.proverId === undefined || config.proverId.isZero() ? undefined : config.proverId;
 
@@ -175,6 +177,7 @@ export async function createProverNode(
       'proverNodeMaxPendingJobs',
       'proverNodeMaxParallelBlocksPerEpoch',
       'proverNodePollingIntervalMs',
+      'proverNodeEpochProvingDelayMs',
       'txGatheringMaxParallelRequests',
       'txGatheringIntervalMs',
       'txGatheringTimeoutMs',
@@ -187,7 +190,7 @@ export async function createProverNode(
 
   const epochMonitor = await EpochMonitor.create(
     archiver,
-    { pollingIntervalMs: config.proverNodePollingIntervalMs },
+    { pollingIntervalMs: config.proverNodePollingIntervalMs, provingDelayMs: config.proverNodeEpochProvingDelayMs },
     telemetry,
   );
 

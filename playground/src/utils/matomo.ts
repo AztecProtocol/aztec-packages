@@ -10,4 +10,3 @@ export const trackButtonClick = (buttonName: string, category: string = 'Button 
     window._paq.push(['trackEvent', category, buttonName]);
   }
 };
-

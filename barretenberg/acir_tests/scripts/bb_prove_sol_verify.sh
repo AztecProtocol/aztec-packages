@@ -19,7 +19,7 @@ done
 USE_OPTIMIZED_CONTRACT=${USE_OPTIMIZED_CONTRACT:-false}
 
 write_contract_flags=$flags
-if [[ -z "$USE_OPTIMIZED_CONTRACT" ]]; then
+if [[ "$USE_OPTIMIZED_CONTRACT" == "true" ]]; then
     write_contract_flags+=" --optimized"
 fi
 

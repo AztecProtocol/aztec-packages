@@ -100,6 +100,8 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         fr elt_native_lo = fr(uint256_t(elt_native).slice(0, fq_ct::NUM_LIMB_BITS * 2));
         fr elt_native_hi = fr(uint256_t(elt_native).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4));
         fq_ct elt_ct(witness_ct(builder, elt_native_lo), witness_ct(builder, elt_native_hi));
+        // UNset free witness tag so we don't have to unset it in every test
+        elt_ct.unset_free_witness_tag();
         return std::make_pair(elt_native, elt_ct);
     }
 
@@ -1367,7 +1369,7 @@ TYPED_TEST(stdlib_bigfield, reduce)
 {
     TestFixture::test_reduce();
 }
-TYPED_TEST(stdlib_bigfield, assert_is_in_field_succes)
+TYPED_TEST(stdlib_bigfield, assert_is_in_field_success)
 {
     TestFixture::test_assert_is_in_field_success();
 }

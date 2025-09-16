@@ -121,7 +121,7 @@ contract GovernanceBase is TestBase {
   function _stateQueued(bytes32 _proposalName, address _voter, uint256 _totalPower, uint256 _votesCast, uint256 _yeas)
     internal
   {
-    vm.assume(_voter != address(0));
+    vm.assume(_voter != address(0) && _voter != address(governance));
     proposal = proposals[_proposalName];
     proposalId = proposalIds[_proposalName];
 

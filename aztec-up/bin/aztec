@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-NETWORK=${NETWORK:-}
-VERSION=${VERSION:-${NETWORK:-"latest"}}
+export AZTEC_PATH="${AZTEC_PATH:-$HOME/.aztec}"
+export VERSION="${VERSION:-$(cat "$AZTEC_PATH/default_version")}"
+export DOCKER_REPO="${DOCKER_REPO:-"aztecprotocol/aztec"}"
 
 # Take copy of command-line arguments, so we can mutate to parse.
 if [ $# -eq 0 ]; then
@@ -10,6 +11,7 @@ if [ $# -eq 0 ]; then
 else
   args=("$@")
 fi
+
 while [ "$#" -gt 0 ]; do
   case $1 in
     -p | --port)
@@ -34,14 +36,6 @@ while [ "$#" -gt 0 ]; do
       ADMIN_PORT="$2"
       shift 2
       ;;
-    --pxe.network)
-      # Set version to user-specified network (e.g. 'devnet')
-      VERSION="$2"
-      echo "Using aztecprotocol/aztec:$VERSION"
-      # Turn on proving if connecting to a network.
-      export PXE_PROVER_ENABLED=1
-      shift 2
-      ;;
     --help)
       NO_PORT_FORWARDING=1
       shift 1
@@ -55,7 +49,7 @@ done
 set -- "${args[@]}"
 
 function get_env_vars {
-  docker run --rm --entrypoint /bin/bash aztecprotocol/aztec:$VERSION -c "cat /usr/src/yarn-project/foundation/src/config/env_var.ts" |
+  docker run --rm --entrypoint /bin/bash $DOCKER_REPO:$VERSION -c "cat /usr/src/yarn-project/foundation/src/config/env_var.ts" |
     awk -F"'" '{for(i=2;i<=NF;i+=2) printf $i " "}'
 }
 
@@ -95,7 +89,7 @@ case ${1:-} in
     export CONTAINER_NAME=aztec-start-$(printf "%08x" $((RANDOM * RANDOM)))
 
     if [ "${1:-}" == "--sandbox" ]; then
-      if [ "$SUPERVISED" == "1" ]; then 
+      if [ "$SUPERVISED" == "1" ]; then
         echo "supervised-start is not compatible with --sandbox. Please use regular start command"
         exit 1
       fi
@@ -105,7 +99,6 @@ case ${1:-} in
       # We should not have to provide a binary path and working dir.
       # Why is this not just determined and chosen at runtime?
       # In fact almost none of these should not have to be set if we have sensible defaults.
-      export L1_CHAIN_ID=31337
       export ARCHIVER_POLLING_INTERVAL_MS=500
       export P2P_BLOCK_CHECK_INTERVAL_MS=500
       export SEQ_TX_POLLING_INTERVAL_MS=500
@@ -115,9 +108,11 @@ case ${1:-} in
       export LOG_LEVEL=${LOG_LEVEL:-info;silent:sequencer;verbose:debug_log}
       export DEPLOY_AZTEC_CONTRACTS_SALT=${DEPLOY_AZTEC_CONTRACTS_SALT:-$RANDOM}
 
-
       ANVIL_PORT=${ANVIL_PORT:-8545}
       anvil_port_assignment="$ANVIL_PORT:8545"
+
+      export L1_CHAIN_ID=${L1_CHAIN_ID:-31337}
+      export ETHEREUM_HOSTS=${ETHEREUM_HOSTS:-"http://127.0.0.1:${ANVIL_PORT}"}
 
       PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $anvil_port_assignment"
 
@@ -208,7 +203,7 @@ case ${1:-} in
       --env SERVE=${SERVE:-0} \
       $([ "${SERVE:-0}" == "1" ] && echo "-p 8000:8000" || echo "") \
       -v $(realpath $(dirname $2))/:/tmp \
-      aztecprotocol/aztec:$VERSION /tmp/$(basename $2) $3
+      $DOCKER_REPO:$VERSION /tmp/$(basename $2) $3
     ;;
   *)
     export ENV_VARS_TO_INJECT="SECRET_KEY"

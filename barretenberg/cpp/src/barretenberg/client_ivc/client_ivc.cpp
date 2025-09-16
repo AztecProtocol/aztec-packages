@@ -172,8 +172,6 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     }
     case QUEUE_TYPE::PG:
     case QUEUE_TYPE::PG_TAIL: {
-        BB_ASSERT_NEQ(input_verifier_accumulator, nullptr);
-
         output_verifier_accumulator = perform_pg_recursive_verification(circuit,
                                                                         input_verifier_accumulator,
                                                                         verifier_instance,
@@ -184,17 +182,9 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         break;
     }
     case QUEUE_TYPE::PG_FINAL: {
-        BB_ASSERT_NEQ(input_verifier_accumulator, nullptr);
         BB_ASSERT_EQ(stdlib_verification_queue.size(), size_t(1));
 
         hide_op_queue_accumulation_result(circuit);
-
-        // Propagate the public inputs of the tail kernel by converting them to public inputs of the hiding circuit.
-        auto num_public_inputs = static_cast<size_t>(honk_vk->num_public_inputs);
-        num_public_inputs -= KernelIO::PUBLIC_INPUTS_SIZE; // exclude fixed kernel_io public inputs
-        for (size_t i = 0; i < num_public_inputs; i++) {
-            verifier_inputs.proof[i].set_public();
-        }
 
         auto final_verifier_accumulator = perform_pg_recursive_verification(circuit,
                                                                             input_verifier_accumulator,
@@ -245,7 +235,7 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         kernel_input.output_pg_accum_hash.assert_equal(*prev_accum_hash);
 
         if (!is_hiding_kernel) {
-            // The hiding kernel has no return data but uses the traditional public-inputs mechanism
+            // The hiding kernel has no return data; it uses the traditional public-inputs mechanism
             bus_depot.set_kernel_return_data_commitment(witness_commitments.return_data);
         }
     } else {
@@ -268,6 +258,9 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     pairing_points.aggregate(nested_pairing_points);
     if (is_hiding_kernel) {
         pairing_points.aggregate(decider_pairing_points);
+        // Add randomness at the end of the hiding kernel (whose ecc ops fall right at the end of the op queue table) to
+        // ensure the CIVC proof doesn't leak information about the actual content of the op queue
+        hide_op_queue_content_in_hiding(circuit);
     }
 
     return { output_verifier_accumulator, pairing_points, merged_table_commitments };
@@ -310,7 +303,13 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     // to ensure the op queue wires in translator are shiftable, i.e. their 0th coefficient is 0. (The tail kernel
     // subtable is at the top of the final aggregate table since it is the last to be prepended).
     if (is_tail_kernel) {
+        BB_ASSERT_EQ(circuit.op_queue->get_current_subtable_size(),
+                     0U,
+                     "tail kernel ecc ops table should be empty at this point");
         circuit.queue_ecc_no_op();
+        // Add randomness at the begining of the tail kernel (whose ecc ops fall at the beginning of the op queue table)
+        // to ensure the CIVC proof doesn't leak information about the actual content of the op queue
+        hide_op_queue_content_in_tail(circuit);
     }
     circuit.queue_ecc_eq();
 
@@ -375,7 +374,7 @@ HonkProof ClientIVC::construct_oink_proof(const std::shared_ptr<DeciderProvingKe
     proving_key->gate_challenges =
         prover_accumulation_transcript->template get_powers_of_challenge<FF>("gate_challenge", CONST_PG_LOG_N);
 
-    fold_output.accumulator = proving_key; // initialize the prover accum with the completed key
+    prover_accumulator = proving_key; // initialize the prover accum with the completed key
 
     HonkProof oink_proof = oink_prover.export_proof();
     vinfo("oink proof constructed");
@@ -397,13 +396,14 @@ HonkProof ClientIVC::construct_pg_proof(const std::shared_ptr<DeciderProvingKey>
         info("Accumulator hash in PG prover: ", accum_hash);
     }
     auto verifier_instance = std::make_shared<DeciderVerificationKey_<Flavor>>(honk_vk);
-    FoldingProver folding_prover({ fold_output.accumulator, proving_key },
+    FoldingProver folding_prover({ prover_accumulator, proving_key },
                                  { native_verifier_accum, verifier_instance },
                                  transcript,
                                  trace_usage_tracker);
-    fold_output = folding_prover.prove();
+    auto output = folding_prover.prove();
+    prover_accumulator = output.accumulator; // update the prover accumulator
     vinfo("pg proof constructed");
-    return fold_output.proof;
+    return output.proof;
 }
 
 /**
@@ -463,8 +463,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     proving_key->commitment_key = bn254_commitment_key;
     trace_usage_tracker.update(circuit);
 
-    honk_vk = precomputed_vk;
-
     // We're accumulating a kernel if the verification queue is empty (because the kernel circuit contains recursive
     // verifiers for all the entries previously present in the verification queue) and if it's not the first accumulate
     // call (which will always be for an app circuit).
@@ -486,22 +484,22 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     case QUEUE_TYPE::OINK:
         vinfo("Accumulating first app circuit with OINK");
         BB_ASSERT_EQ(is_kernel, false, "First circuit accumulated must always be an app");
-        proof = construct_oink_proof(proving_key, honk_vk, prover_accumulation_transcript);
+        proof = construct_oink_proof(proving_key, precomputed_vk, prover_accumulation_transcript);
         break;
     case QUEUE_TYPE::PG:
     case QUEUE_TYPE::PG_TAIL:
-        proof = construct_pg_proof(proving_key, honk_vk, prover_accumulation_transcript, is_kernel);
+        proof = construct_pg_proof(proving_key, precomputed_vk, prover_accumulation_transcript, is_kernel);
         break;
     case QUEUE_TYPE::PG_FINAL:
-        proof = construct_pg_proof(proving_key, honk_vk, prover_accumulation_transcript, is_kernel);
+        proof = construct_pg_proof(proving_key, precomputed_vk, prover_accumulation_transcript, is_kernel);
         decider_proof = construct_decider_proof(prover_accumulation_transcript);
         break;
     case QUEUE_TYPE::MEGA:
-        proof = construct_mega_proof_for_hiding_kernel(circuit);
+        proof = construct_honk_proof_for_hiding_kernel(circuit, precomputed_vk);
         break;
     }
 
-    VerifierInputs queue_entry{ std::move(proof), honk_vk, queue_type, is_kernel };
+    VerifierInputs queue_entry{ std::move(proof), precomputed_vk, queue_type, is_kernel };
     verification_queue.push_back(queue_entry);
 
     // Update native verifier accumulator and construct merge proof (excluded for hiding kernel since PG terminates with
@@ -515,7 +513,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
 }
 
 /**
- * @brief Add a random operation to the op queue to hide its content in Translator computation.
+ * @brief Add a *real* operation but with random data to the op queue to avoid information leak in Translator
+ * computation.
  *
  * @details Translator circuit builder computes the evaluation at some random challenge x of a batched polynomial
  * derived from processing the ultra_op version of op_queue. This result (referred to as accumulated_result in
@@ -534,19 +533,82 @@ void ClientIVC::hide_op_queue_accumulation_result(ClientCircuit& circuit)
 }
 
 /**
+ * @brief Adds three random ops to the tail kernel.
+ *
+ * @note The explanation below does not serve as a proof of zero-knowledge but rather as intuition for why the number
+ * of random ops and their position in the op queue.
+ *
+ * @details The ClientIVC proof is sent to the rollup and so it has to be zero-knowledge. In turn, this implies that
+ * commitments and evaluations to the op queue, when regarded as 4 polynomials in UltraOp format (op, x_lo_y_hi,
+ * x_hi_z_1, y_lo_z_2), should not leak information about the actual content of the op queue with provenance from
+ * circuit operations that have been accumulated in CIVC. Since the op queue is used across several provers,
+ * randomising these polynomials has to be handled in a special way. Normally, to hide a witness we'd add random
+ * coefficients at proving time when populating ProverPolynomials. However, due to the consistency checks present
+ * throughout CIVC, to ensure all components use the same op queue data (Merge and Translator on the entire op queue
+ * table and Merge and Oink on each subtable), randomness has to be added in a common place, this place naturally
+ * being ClientIVC. ECCVM is not affected by the concerns above, randomness being added to wires at proving time as per
+ * usual, because the consistency of ECCVMOps processing and UltraOps processing between Translator and ECCVM is
+ * achieved via the translation evaluation check and avoiding an information leak there is ensured by
+ * `ClientIVC::hide_op_queue_accumulation_result()` and SmallSubgroupIPA in ECCVM.
+ *
+ * We need each op queue polynomial to have 9 random coefficients (so the op queue needs to contain 5 random ops, every
+ * UltraOp adding two coefficients to each of the 4 polynomials).
+ *
+ * For the last subtable of ecc ops belonging to the hiding kernel, merged via appended to the full op queue, its data
+ * appears as the ecc_op_wires in the MegaZK proof, wires that are not going to be shifted, so the proof contains,
+ * for each wire, its commitment and evaluation to the Sumcheck challenge. As at least 3 random coefficients are
+ * needed in each op queue polynomial, we add 2 random ops to the hiding kernel.
+ *
+ * The op queue state previous to the append of the last subtable, is the `left_table` in the merge protocol, so for
+ * the degree check, we construct its inverse polynomial `left_table_inverse`. The MergeProof will contain the
+ * commitment to the `left_table_inverse` plus its evaluation at Merge protocol challenge κ. Also for the degree check,
+ * prover needs to send the evaluation of the `left_table` at κ⁻¹. We need to ensure random coefficients are added to
+ * one of the kernels as not to affect Apps verification keys so the best choice is to add them to the beginning of the
+ * tail kernel as to not complicate Translator relations. The above advises that another 4 random coefficients are
+ * needed in the `left_table` (so, 2 random ops).
+ *
+ * Finally, the 4 polynomials representing the full ecc op queue table are committed to (in fact, in both Merge
+ * protocol and Translator but they are commitments to the same data). `x_lo_y_hi`, `x_hi_z_1` and `x_lo_z_2` are
+ * shifted polynomials in Translator so the Translator proof will contain their evaluation and evaluation of their
+ * shifts at the Sumcheck challenge. On top of that, the Shplonk proof sent in the last iteration of Merge also
+ * ascertains the opening of partially_evaluated_difference = left_table + κ^{shift -1 } * right_table - merged_table
+ * at κ is 0, so a batched quotient commitment is sent in the Merge proof. In total, for each op queue polynomial (or
+ * parts of its data), there are 4 commitments and 5 evaluations across the CIVC proof so the sweet spot is 5 random
+ * ops.
+ */
+void ClientIVC::hide_op_queue_content_in_tail(ClientCircuit& circuit)
+{
+    circuit.queue_ecc_random_op();
+    circuit.queue_ecc_random_op();
+    circuit.queue_ecc_random_op();
+}
+
+/**
+ * @brief Adds two random ops to the hiding kernel.
+ *
+ * @details For the last subtable of ecc ops belonging to the hiding kernel, merged via appended to the full op
+ * queue, its data appears as the ecc_op_wires in the MegaZK proof, wires that are not going to be shifted, so the proof
+ * containts, for each wire, its commitment and evaluation to the Sumcheck challenge. As at least 3 random coefficients
+ * are needed in each op queue polynomial, we add 2 random ops. More details in `hide_op_queue_content_in_tail`.
+ */
+void ClientIVC::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
+{
+    circuit.queue_ecc_random_op();
+    circuit.queue_ecc_random_op();
+}
+
+/**
  * @brief Construct a zero-knowledge proof for the hiding circuit, which recursively verifies the last folding,
  * merge and decider proof.
- *
- * @return HonkProof - a ZK Mega proof
  */
-HonkProof ClientIVC::construct_mega_proof_for_hiding_kernel(ClientCircuit& circuit)
+HonkProof ClientIVC::construct_honk_proof_for_hiding_kernel(
+    ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& verification_key)
 {
     // Note: a structured trace is not used for the hiding kernel
     auto hiding_decider_pk = std::make_shared<DeciderZKProvingKey>(circuit, TraceSettings(), bn254_commitment_key);
-    honk_vk = std::make_shared<MegaZKVerificationKey>(hiding_decider_pk->get_precomputed());
-    auto& hiding_circuit_vk = honk_vk;
+
     // Hiding circuit is proven by a MegaZKProver
-    MegaZKProver prover(hiding_decider_pk, hiding_circuit_vk, transcript);
+    MegaZKProver prover(hiding_decider_pk, verification_key, transcript);
     HonkProof proof = prover.construct_proof();
 
     return proof;
@@ -560,7 +622,7 @@ HonkProof ClientIVC::construct_mega_proof_for_hiding_kernel(ClientCircuit& circu
 ClientIVC::Proof ClientIVC::prove()
 {
     // deallocate the protogalaxy accumulator
-    fold_output.accumulator = nullptr;
+    prover_accumulator = nullptr;
     auto mega_proof = verification_queue.front().proof;
 
     // A transcript is shared between the Hiding circuit prover and the Goblin prover
@@ -597,17 +659,6 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
 }
 
 /**
- * @brief Verify a full proof of the IVC
- *
- * @param proof
- * @return bool
- */
-bool ClientIVC::verify(const Proof& proof) const
-{
-    return verify(proof, get_vk());
-}
-
-/**
  * @brief Internal method for constructing a decider proof
  *
  * @return HonkProof
@@ -615,34 +666,10 @@ bool ClientIVC::verify(const Proof& proof) const
 HonkProof ClientIVC::construct_decider_proof(const std::shared_ptr<Transcript>& transcript)
 {
     vinfo("prove decider...");
-    fold_output.accumulator->commitment_key = bn254_commitment_key;
-    MegaDeciderProver decider_prover(fold_output.accumulator, transcript);
+    prover_accumulator->commitment_key = bn254_commitment_key;
+    MegaDeciderProver decider_prover(prover_accumulator, transcript);
     decider_prover.construct_proof();
     return decider_prover.export_proof();
-}
-
-/**
- * @brief Construct and verify a proof for the IVC
- * @note Use of this method only makes sense when the prover and verifier are the same entity, e.g. in
- * development/testing.
- *
- */
-bool ClientIVC::prove_and_verify()
-{
-    auto start = std::chrono::steady_clock::now();
-    const auto proof = prove();
-    auto end = std::chrono::steady_clock::now();
-    auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    vinfo("time to call ClientIVC::prove: ", diff.count(), " ms.");
-
-    start = end;
-    const bool verified = verify(proof);
-    end = std::chrono::steady_clock::now();
-
-    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    vinfo("time to verify ClientIVC proof: ", diff.count(), " ms.");
-
-    return verified;
 }
 
 // Proof methods
@@ -662,6 +689,43 @@ std::vector<ClientIVC::FF> ClientIVC::Proof::to_field_elements() const
     proof.insert(proof.end(), goblin_proof.eccvm_proof.ipa_proof.begin(), goblin_proof.eccvm_proof.ipa_proof.end());
     proof.insert(proof.end(), goblin_proof.translator_proof.begin(), goblin_proof.translator_proof.end());
     return proof;
+};
+
+ClientIVC::Proof ClientIVC::Proof::from_field_elements(const std::vector<ClientIVC::FF>& fields)
+{
+    HonkProof mega_proof;
+    GoblinProof goblin_proof;
+
+    size_t custom_public_inputs_size = fields.size() - ClientIVC::Proof::PROOF_LENGTH();
+
+    // Mega proof
+    auto start_idx = fields.begin();
+    auto end_idx = start_idx + static_cast<std::ptrdiff_t>(
+                                   MegaZKFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(MegaZKFlavor::VIRTUAL_LOG_N) +
+                                   bb::HidingKernelIO::PUBLIC_INPUTS_SIZE + custom_public_inputs_size);
+    mega_proof.insert(mega_proof.end(), start_idx, end_idx);
+
+    // Merge proof
+    start_idx = end_idx;
+    end_idx += static_cast<std::ptrdiff_t>(MERGE_PROOF_SIZE);
+    goblin_proof.merge_proof.insert(goblin_proof.merge_proof.end(), start_idx, end_idx);
+
+    // ECCVM pre-ipa proof
+    start_idx = end_idx;
+    end_idx += static_cast<std::ptrdiff_t>(ECCVMFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH);
+    goblin_proof.eccvm_proof.pre_ipa_proof.insert(goblin_proof.eccvm_proof.pre_ipa_proof.end(), start_idx, end_idx);
+
+    // ECCVM ipa proof
+    start_idx = end_idx;
+    end_idx += static_cast<std::ptrdiff_t>(IPA_PROOF_LENGTH);
+    goblin_proof.eccvm_proof.ipa_proof.insert(goblin_proof.eccvm_proof.ipa_proof.end(), start_idx, end_idx);
+
+    // Translator proof
+    start_idx = end_idx;
+    end_idx += static_cast<std::ptrdiff_t>(TranslatorFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    goblin_proof.translator_proof.insert(goblin_proof.translator_proof.end(), start_idx, end_idx);
+
+    return { mega_proof, goblin_proof };
 };
 
 msgpack::sbuffer ClientIVC::Proof::to_msgpack_buffer() const
@@ -732,7 +796,12 @@ ClientIVC::Proof ClientIVC::Proof::from_file_msgpack(const std::string& filename
 // VerificationKey construction
 ClientIVC::VerificationKey ClientIVC::get_vk() const
 {
-    return { honk_vk, std::make_shared<ECCVMVerificationKey>(), std::make_shared<TranslatorVerificationKey>() };
+    BB_ASSERT_EQ(verification_queue.size(), 1UL);
+    BB_ASSERT_EQ(verification_queue.front().type == QUEUE_TYPE::MEGA, true);
+    auto verification_key = verification_queue.front().honk_vk;
+    return { verification_key,
+             std::make_shared<ECCVMVerificationKey>(),
+             std::make_shared<TranslatorVerificationKey>() };
 }
 
 void ClientIVC::update_native_verifier_accumulator(const VerifierInputs& queue_entry,

@@ -1,7 +1,1 @@
-export {
-  AccountWallet,
-  AccountWalletWithSecretKey,
-  SignerlessWallet,
-  getWallet,
-  type Wallet,
-} from '../wallet/index.js';
+export { type Aliased, BaseWallet, type Wallet, AccountManager, type DeployAccountOptions } from '../wallet/index.js';

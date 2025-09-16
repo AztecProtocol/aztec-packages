@@ -50,6 +50,7 @@ jobs:
       REGION: us-west1-a
       TF_STATE_BUCKET: aztec-terraform
       GKE_CLUSTER_CONTEXT: "gke_testnet-440309_us-west1-a_aztec-gke-public"
+      MONITORING_NAMESPACE: testnet-block-height-monitor
 
     steps:
       - name: Checkout code
@@ -86,7 +87,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@633666f66e0061ca3b725c73b2ec20cd13a8fdd1
         with:
-          terraform_version: "1.5.0" 
+          terraform_version: "1.5.0"
 
       - name: Terraform Init
         working-directory: ./spartan/terraform/deploy-testnet
@@ -113,3 +114,8 @@ jobs:
       - name: Terraform Apply
         working-directory: ./spartan/terraform/deploy-testnet
         run: terraform apply -lock=${{ inputs.respect_tf_lock }} -auto-approve tfplan
+
+      - name: Update Monitoring App
+        run: |
+          echo "Checking if monitoring app needs to be updated for testnet deployment..."
+          ./spartan/metrics/testnet-monitor/scripts/update-monitoring.sh testnet ${{ env.MONITORING_NAMESPACE }}

@@ -29,7 +29,9 @@ field_t<Builder>::field_t(const witness_t<Builder>& value)
     , additive_constant(bb::fr::zero())
     , multiplicative_constant(bb::fr::one())
     , witness_index(value.witness_index)
-{}
+{
+    set_free_witness_tag();
+}
 
 template <typename Builder>
 field_t<Builder>::field_t(Builder* parent_context, const bb::fr& value)
@@ -930,7 +932,6 @@ template <typename Builder> void field_t<Builder>::assert_equal(const field_t& r
 {
     const field_t lhs = *this;
     Builder* ctx = validate_context(lhs.get_context(), rhs.get_context());
-    (void)OriginTag(get_origin_tag(), rhs.get_origin_tag());
     if (lhs.is_constant() && rhs.is_constant()) {
         BB_ASSERT_EQ(lhs.get_value(), rhs.get_value(), "field_t::assert_equal: constants are not equal");
         return;

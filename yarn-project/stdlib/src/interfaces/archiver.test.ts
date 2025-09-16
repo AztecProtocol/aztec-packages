@@ -10,8 +10,9 @@ import { FunctionSelector } from '../abi/function_selector.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { CommitteeAttestation, L2BlockHash } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
-import type { L2Tips, ValidateBlockResult } from '../block/l2_block_source.js';
-import type { PublishedL2Block } from '../block/published_l2_block.js';
+import type { L2Tips } from '../block/l2_block_source.js';
+import { PublishedL2Block } from '../block/published_l2_block.js';
+import type { ValidateBlockResult } from '../block/validate_block_result.js';
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import {
   type ContractClassPublic,
@@ -292,11 +293,11 @@ class MockArchiver implements ArchiverApi {
   }
   async getPublishedBlocks(from: number, _limit: number, _proven?: boolean): Promise<PublishedL2Block[]> {
     return [
-      {
+      PublishedL2Block.fromFields({
         block: await L2Block.random(from),
         attestations: [CommitteeAttestation.random()],
         l1: { blockHash: `0x`, blockNumber: 1n, timestamp: 0n },
-      },
+      }),
     ];
   }
   async getTxEffect(_txHash: TxHash): Promise<IndexedTxEffect | undefined> {

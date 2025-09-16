@@ -19,6 +19,7 @@ import {RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {RewardBoostConfig} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {IHaveVersion} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
+import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
@@ -56,6 +57,7 @@ struct RollupConfigInput {
   uint256 aztecSlotDuration;
   uint256 aztecEpochDuration;
   uint256 targetCommitteeSize;
+  uint256 lagInEpochs;
   uint256 aztecProofSubmissionEpochs;
   uint256 slashingQuorum;
   uint256 slashingRoundSize;
@@ -65,6 +67,7 @@ struct RollupConfigInput {
   uint256 slashingOffsetInRounds;
   SlasherFlavor slasherFlavor;
   address slashingVetoer;
+  uint256 slashingDisableDuration;
   uint256 manaTarget;
   uint256 exitDelaySeconds;
   uint32 version;
@@ -72,6 +75,7 @@ struct RollupConfigInput {
   RewardConfig rewardConfig;
   RewardBoostConfig rewardBoostConfig;
   StakingQueueConfig stakingQueueConfig;
+  uint256 localEjectionThreshold;
 }
 
 struct RollupConfig {
@@ -116,6 +120,7 @@ interface IRollupCore {
     ProposeArgs calldata _args,
     CommitteeAttestations memory _attestations,
     address[] memory _signers,
+    Signature memory _attestationsAndSignersSignature,
     bytes calldata _blobInput
   ) external;
 
@@ -146,6 +151,7 @@ interface IRollup is IRollupCore, IHaveVersion {
     ProposedHeader calldata _header,
     CommitteeAttestations memory _attestations,
     address[] memory _signers,
+    Signature memory _attestationsAndSignersSignature,
     bytes32 _digest,
     bytes32 _blobsHash,
     BlockHeaderValidationFlags memory _flags

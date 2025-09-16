@@ -37,65 +37,6 @@ template <typename FF> class tx : public Relation<txImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "tx";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 1:
-            return "NO_EXTRANEOUS_ROWS";
-        case 2:
-            return "SEL_ON_FIRST_ROW";
-        case 3:
-            return "NO_EARLY_END";
-        case 4:
-            return "START_WITH_SEL";
-        case 9:
-            return "START_FOLLOWS_END";
-        case 10:
-            return "PHASE_VALUE_CONTINUITY";
-        case 11:
-            return "INCR_PHASE_VALUE_ON_END";
-        case 13:
-            return "REM_COUNT_IS_ZERO";
-        case 14:
-            return "REM_COUNT_IS_ONE";
-        case 15:
-            return "READ_PI_LENGTH_SEL";
-        case 16:
-            return "ONE_SHOT_REMAINING_PHASE_COUNTER_ONE";
-        case 17:
-            return "DECR_REM_PHASE_EVENTS";
-        case 18:
-            return "INCR_READ_PI_OFFSET";
-        case 27:
-            return "MAX_NOTE_HASH_WRITES_REACHED";
-        case 32:
-            return "MAX_NULLIFIER_WRITES_REACHED";
-        case 37:
-            return "MAX_L2_L1_MSG_WRITES_REACHED";
-        case 40:
-            return "UPDATE_NUM_L2_TO_L1_MSGS";
-        case 42:
-            return "COMPUTE_FEE";
-        case 43:
-            return "TEARDOWN_GETS_FEE";
-        case 44:
-            return "FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN";
-        case 50:
-            return "NOTE_HASH_TREE_ROOT_IMMUTABLE_IN_PADDING";
-        case 51:
-            return "PAD_NOTE_HASH_TREE";
-        case 52:
-            return "NOTE_HASHES_EMITTED_IMMUTABLE_IN_PADDING";
-        case 53:
-            return "NULLIFIER_TREE_ROOT_IMMUTABLE_IN_PADDING";
-        case 54:
-            return "PAD_NULLIFIER_TREE";
-        case 55:
-            return "NULLIFIERS_EMITTED_IMMUTABLE_IN_PADDING";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_NO_EXTRANEOUS_ROWS = 1;
     static constexpr size_t SR_SEL_ON_FIRST_ROW = 2;
@@ -123,6 +64,65 @@ template <typename FF> class tx : public Relation<txImpl<FF>> {
     static constexpr size_t SR_NULLIFIER_TREE_ROOT_IMMUTABLE_IN_PADDING = 53;
     static constexpr size_t SR_PAD_NULLIFIER_TREE = 54;
     static constexpr size_t SR_NULLIFIERS_EMITTED_IMMUTABLE_IN_PADDING = 55;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_NO_EXTRANEOUS_ROWS:
+            return "NO_EXTRANEOUS_ROWS";
+        case SR_SEL_ON_FIRST_ROW:
+            return "SEL_ON_FIRST_ROW";
+        case SR_NO_EARLY_END:
+            return "NO_EARLY_END";
+        case SR_START_WITH_SEL:
+            return "START_WITH_SEL";
+        case SR_START_FOLLOWS_END:
+            return "START_FOLLOWS_END";
+        case SR_PHASE_VALUE_CONTINUITY:
+            return "PHASE_VALUE_CONTINUITY";
+        case SR_INCR_PHASE_VALUE_ON_END:
+            return "INCR_PHASE_VALUE_ON_END";
+        case SR_REM_COUNT_IS_ZERO:
+            return "REM_COUNT_IS_ZERO";
+        case SR_REM_COUNT_IS_ONE:
+            return "REM_COUNT_IS_ONE";
+        case SR_READ_PI_LENGTH_SEL:
+            return "READ_PI_LENGTH_SEL";
+        case SR_ONE_SHOT_REMAINING_PHASE_COUNTER_ONE:
+            return "ONE_SHOT_REMAINING_PHASE_COUNTER_ONE";
+        case SR_DECR_REM_PHASE_EVENTS:
+            return "DECR_REM_PHASE_EVENTS";
+        case SR_INCR_READ_PI_OFFSET:
+            return "INCR_READ_PI_OFFSET";
+        case SR_MAX_NOTE_HASH_WRITES_REACHED:
+            return "MAX_NOTE_HASH_WRITES_REACHED";
+        case SR_MAX_NULLIFIER_WRITES_REACHED:
+            return "MAX_NULLIFIER_WRITES_REACHED";
+        case SR_MAX_L2_L1_MSG_WRITES_REACHED:
+            return "MAX_L2_L1_MSG_WRITES_REACHED";
+        case SR_UPDATE_NUM_L2_TO_L1_MSGS:
+            return "UPDATE_NUM_L2_TO_L1_MSGS";
+        case SR_COMPUTE_FEE:
+            return "COMPUTE_FEE";
+        case SR_TEARDOWN_GETS_FEE:
+            return "TEARDOWN_GETS_FEE";
+        case SR_FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN:
+            return "FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN";
+        case SR_NOTE_HASH_TREE_ROOT_IMMUTABLE_IN_PADDING:
+            return "NOTE_HASH_TREE_ROOT_IMMUTABLE_IN_PADDING";
+        case SR_PAD_NOTE_HASH_TREE:
+            return "PAD_NOTE_HASH_TREE";
+        case SR_NOTE_HASHES_EMITTED_IMMUTABLE_IN_PADDING:
+            return "NOTE_HASHES_EMITTED_IMMUTABLE_IN_PADDING";
+        case SR_NULLIFIER_TREE_ROOT_IMMUTABLE_IN_PADDING:
+            return "NULLIFIER_TREE_ROOT_IMMUTABLE_IN_PADDING";
+        case SR_PAD_NULLIFIER_TREE:
+            return "PAD_NULLIFIER_TREE";
+        case SR_NULLIFIERS_EMITTED_IMMUTABLE_IN_PADDING:
+            return "NULLIFIERS_EMITTED_IMMUTABLE_IN_PADDING";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

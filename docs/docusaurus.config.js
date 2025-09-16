@@ -28,7 +28,7 @@ const config = {
   trailingSlash: false,
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: process.env.ENV === "dev" ? "warn" : "throw",
-  favicon: "img/Aztec_icon_minified.svg",
+  favicon: "img/Aztec_Symbol_Dark.png",
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
@@ -63,7 +63,19 @@ const config = {
           routeBasePath: "/",
           include: ["**/*.{md,mdx}"],
           exclude: ["protocol-specs/**"],
-
+          // Don't show latest since nightlies are published
+          includeCurrentVersion: process.env.ENV === "dev",
+          // There should be 2 versions, nightly and stable
+          // The stable version is second in the list
+          lastVersion: versions[1],
+          ...(process.env.ENV === "dev" && {
+            versions: {
+              current: {
+                label: "dev",
+                path: "dev",
+              },
+            },
+          }),
           remarkPlugins: [math],
           rehypePlugins: [
             [
@@ -75,12 +87,6 @@ const config = {
               },
             ],
           ],
-          versions: {
-            current: {
-              label: "dev",
-              path: "dev",
-            },
-          },
         },
         blog: false,
         theme: {
@@ -160,9 +166,9 @@ const config = {
       navbar: {
         logo: {
           alt: "Aztec Logo",
-          srcDark: "img/new_logo-01.svg",
+          srcDark: "img/Aztec Wordmark_Light.svg",
           href: "/",
-          src: "img/Aztec_logo_dark-01.svg",
+          src: "img/Aztec Wordmark_Dark.svg",
         },
         items: [
           {
@@ -250,12 +256,6 @@ const config = {
               {
                 to: "/aztec_connect_sunset",
                 label: "Aztec Connect Sunset",
-                className: "no-external-icon",
-              },
-              {
-                type: "docSidebar",
-                sidebarId: "roadmapSidebar",
-                label: "Roadmap",
                 className: "no-external-icon",
               },
               {

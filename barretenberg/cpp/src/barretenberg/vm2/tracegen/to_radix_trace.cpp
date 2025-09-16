@@ -205,13 +205,11 @@ const InteractionDefinition ToRadixTraceBuilder::interactions =
         .add<lookup_to_radix_limb_p_diff_range_settings, InteractionType::LookupIntoIndexedByClk>()
         // Mem Aware To Radix
         // GT checks
-        .add<lookup_to_radix_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>()
-        .add<lookup_to_radix_mem_check_radix_lt_2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_to_radix_mem_check_radix_gt_256_settings, InteractionType::LookupGeneric>()
+        .add<lookup_to_radix_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_to_radix_mem_check_radix_lt_2_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_to_radix_mem_check_radix_gt_256_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         // Dispatch to To Radix
         .add<lookup_to_radix_mem_input_output_to_radix_settings, InteractionType::LookupGeneric>()
-        // Write to Memory (this should be a permutation)
-        .add<lookup_to_radix_mem_write_mem_settings, InteractionType::LookupGeneric>()
         // Permutation to execution (should be moved later)
         .add<perm_to_radix_mem_dispatch_exec_to_radix_settings, InteractionType::Permutation>();
 

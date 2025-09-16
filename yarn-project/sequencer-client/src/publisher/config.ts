@@ -21,11 +21,6 @@ export type TxSenderConfig = L1ReaderConfig & {
    * Publisher addresses to be used with a remote signer
    */
   publisherAddresses?: EthAddress[];
-
-  /**
-   * The address of the custom forwarder contract.
-   */
-  customForwarderContractAddress: EthAddress;
 };
 
 /**
@@ -43,12 +38,6 @@ export const getTxSenderConfigMappings: (
   scope: 'PROVER' | 'SEQ',
 ) => ConfigMappingsType<Omit<TxSenderConfig, 'l1Contracts'>> = (scope: 'PROVER' | 'SEQ') => ({
   ...l1ReaderConfigMappings,
-  customForwarderContractAddress: {
-    env: `CUSTOM_FORWARDER_CONTRACT_ADDRESS`,
-    parseEnv: (val: string) => EthAddress.fromString(val),
-    description: 'The address of the custom forwarder contract.',
-    defaultValue: EthAddress.ZERO,
-  },
   publisherPrivateKeys: {
     env: scope === 'PROVER' ? `PROVER_PUBLISHER_PRIVATE_KEYS` : `SEQ_PUBLISHER_PRIVATE_KEYS`,
     description: 'The private keys to be used by the publisher.',

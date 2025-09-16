@@ -158,7 +158,7 @@ describe('veto slash', () => {
     const vetoer = deployerClient.account.address;
     const governance = EthAddress.random().toString(); // We don't need a real governance address for this test
     debugLogger.info(`\n\ndeploying slasher with vetoer: ${vetoer}\n\n`);
-    const slasher = await deployer.deploy(SlasherArtifact, [vetoer, governance]);
+    const slasher = await deployer.deploy(SlasherArtifact, [vetoer, governance, 3600n]);
     await deployer.waitForDeployments();
 
     let proposer: EthAddress;
@@ -264,20 +264,27 @@ describe('veto slash', () => {
 
       const newSlasherAddress = await deployNewSlasher(vetoerL1Client, slasherType);
       debugLogger.info(`\n\nnewSlasherAddress: ${newSlasherAddress}\n\n`);
-      const { receipt } = await createL1TxUtilsFromViemWallet(
-        t.ctx.deployL1ContractsValues.l1Client,
-        t.logger,
-        t.ctx.dateProvider,
-      ).sendAndMonitorTransaction({
-        to: rollup.address,
-        data: encodeFunctionData({
-          abi: RollupAbi,
-          functionName: 'setSlasher',
-          args: [newSlasherAddress.toString()],
-        }),
+
+      // Need to impersonate governance to set the new slasher
+      await t.ctx.cheatCodes.eth.startImpersonating(
+        t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceAddress,
+      );
+
+      const setSlasherTx = await t.ctx.deployL1ContractsValues.l1Client.writeContract({
+        address: rollup.address,
+        abi: RollupAbi,
+        functionName: 'setSlasher',
+        args: [newSlasherAddress.toString()],
+        account: t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceAddress.toString(),
+      });
+      const receipt = await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({
+        hash: setSlasherTx,
       });
       expect(receipt.status).toEqual('success');
-      const slasherAddress = await rollup.getSlasher();
+
+      await t.ctx.cheatCodes.eth.stopImpersonating(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceAddress);
+
+      const slasherAddress = await rollup.getSlasherAddress();
       expect(slasherAddress.toLowerCase()).toEqual(newSlasherAddress.toString().toLowerCase());
       debugLogger.info(`\n\nnew slasher address: ${slasherAddress}\n\n`);
       const slasher = getContract({
@@ -345,7 +352,7 @@ describe('veto slash', () => {
       //##############################//
 
       if (shouldVeto) {
-        const slasherAddress = await rollup.getSlasher();
+        const slasherAddress = await rollup.getSlasherAddress();
         const { receipt } = await vetoerL1TxUtils.sendAndMonitorTransaction({
           to: slasherAddress,
           data: encodeFunctionData({

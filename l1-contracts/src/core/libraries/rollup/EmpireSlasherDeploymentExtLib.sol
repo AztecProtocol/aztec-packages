@@ -24,10 +24,11 @@ library EmpireSlasherDeploymentExtLib {
     uint256 _quorumSize,
     uint256 _roundSize,
     uint256 _lifetimeInRounds,
-    uint256 _executionDelayInRounds
+    uint256 _executionDelayInRounds,
+    uint256 _slashingDisableDuration
   ) external returns (ISlasher) {
     // Deploy slasher first
-    Slasher slasher = new Slasher(_vetoer, _governance);
+    Slasher slasher = new Slasher(_vetoer, _governance, _slashingDisableDuration);
 
     // Deploy proposer with slasher address
     EmpireSlashingProposer proposer = new EmpireSlashingProposer(

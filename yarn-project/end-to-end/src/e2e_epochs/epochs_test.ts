@@ -9,6 +9,7 @@ import {
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
+import { EpochCache } from '@aztec/epoch-cache';
 import { DefaultL1ContractsConfig, type ExtendedViemWalletClient, createExtendedL1Client } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp, withDelayer } from '@aztec/ethereum/test';
@@ -69,6 +70,7 @@ export class EpochsTestContext {
   public constants!: L1RollupConstants;
   public logger!: Logger;
   public monitor!: ChainMonitor;
+  public epochCache!: EpochCache;
   public proverDelayer!: Delayer;
   public sequencerDelayer!: Delayer;
 
@@ -92,7 +94,7 @@ export class EpochsTestContext {
       : DEFAULT_L1_BLOCK_TIME;
     const ethereumSlotDuration = opts.ethereumSlotDuration ?? envEthereumSlotDuration;
     const aztecSlotDuration = opts.aztecSlotDuration ?? ethereumSlotDuration * 2;
-    const aztecEpochDuration = opts.aztecEpochDuration ?? 4;
+    const aztecEpochDuration = opts.aztecEpochDuration ?? 6;
     const aztecProofSubmissionEpochs = opts.aztecProofSubmissionEpochs ?? 1;
     return { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionEpochs };
   }
@@ -141,6 +143,7 @@ export class EpochsTestContext {
     this.logger = context.logger;
     this.l1Client = context.deployL1ContractsValues.l1Client;
     this.rollup = RollupContract.getFromConfig(context.config);
+    this.epochCache = await EpochCache.create(this.rollup, context.config, { dateProvider: context.dateProvider });
 
     // Loop that tracks L1 and L2 block numbers and logs whenever there's a new one.
     this.monitor = new ChainMonitor(this.rollup, context.dateProvider, this.logger).start();
@@ -278,7 +281,12 @@ export class EpochsTestContext {
   public async waitUntilEpochStarts(epoch: number) {
     const [start] = getTimestampRangeForEpoch(BigInt(epoch), this.constants);
     this.logger.info(`Waiting until L1 timestamp ${start} is reached as the start of epoch ${epoch}`);
-    await waitUntilL1Timestamp(this.l1Client, start - BigInt(this.L1_BLOCK_TIME_IN_S));
+    await waitUntilL1Timestamp(
+      this.l1Client,
+      start - BigInt(this.L1_BLOCK_TIME_IN_S),
+      undefined,
+      30 * this.epochDuration,
+    );
     return start;
   }
 
@@ -344,7 +352,7 @@ export class EpochsTestContext {
       publicKeys: undefined,
       deployer: undefined,
     });
-    await wallet.registerContract({ artifact: SpamContract.artifact, instance });
+    await wallet.registerContract(instance, SpamContract.artifact);
     return SpamContract.at(instance.address, wallet);
   }
 

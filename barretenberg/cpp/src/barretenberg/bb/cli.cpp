@@ -241,9 +241,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
                          "recursive verifier) or is it for an ivc verifier? `standalone` produces a verification key "
                          "is sufficient for verifying proofs about a single circuit (including the non-encsapsulated "
                          "use case where an IVC scheme is manually constructed via recursive UltraHonk proof "
-                         "verification). `ivc` produces a verification key for verifying the stack of run though a "
-                         "dedicated ivc verifier class (currently the only option is the ClientIVC class) ")
-            ->check(CLI::IsMember({ "standalone", "ivc" }).name("is_member"));
+                         "verification). `standalone_hiding` is similar to `standalone` but is used for the last step "
+                         "where the structured trace is not utilized. `ivc` produces a verification key for verifying "
+                         "the stack of run though a dedicated ivc verifier class (currently the only option is the "
+                         "ClientIVC class)")
+            ->check(CLI::IsMember({ "standalone", "standalone_hiding", "ivc" }).name("is_member"));
     };
 
     const auto add_verbose_flag = [&](CLI::App* subcommand) {
@@ -263,6 +265,13 @@ int parse_and_run_cli_command(int argc, char* argv[])
     const auto add_slow_low_memory_flag = [&](CLI::App* subcommand) {
         return subcommand->add_flag(
             "--slow_low_memory", flags.slow_low_memory, "Enable low memory mode (can be 2x slower or more).");
+    };
+
+    const auto add_storage_budget_option = [&](CLI::App* subcommand) {
+        return subcommand->add_option("--storage_budget",
+                                      flags.storage_budget,
+                                      "Storage budget for FileBackedMemory (e.g. '500m', '2g'). When exceeded, falls "
+                                      "back to RAM (requires --slow_low_memory).");
     };
 
     const auto add_update_inputs_flag = [&](CLI::App* subcommand) {
@@ -345,6 +354,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_slow_low_memory_flag(prove);
     add_print_bench_flag(prove);
     add_bench_out_option(prove);
+    add_storage_budget_option(prove);
 
     prove->add_flag("--verify", "Verify the proof natively, resulting in a boolean output. Useful for testing.");
 
@@ -551,6 +561,9 @@ int parse_and_run_cli_command(int argc, char* argv[])
     verbose_logging = debug_logging || flags.verbose;
     slow_low_memory = flags.slow_low_memory;
 #ifndef __wasm__
+    if (!flags.storage_budget.empty()) {
+        storage_budget = parse_size_string(flags.storage_budget);
+    }
     if (print_bench || !bench_out.empty()) {
         bb::detail::use_bb_bench = true;
     }

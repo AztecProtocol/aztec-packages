@@ -14,7 +14,7 @@ template <typename FF_> class contract_instance_retrievalImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 7> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 4, 4, 4, 4 };
+    static constexpr std::array<size_t, 12> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 4, 3, 4, 4, 4, 4, 4, 4, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -34,29 +34,32 @@ template <typename FF> class contract_instance_retrieval : public Relation<contr
   public:
     static constexpr const std::string_view NAME = "contract_instance_retrieval";
 
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_INSTANCE_MEMBER_SALT_IS_ZERO_IF_DNE = 5;
+    static constexpr size_t SR_INSTANCE_MEMBER_DEPLOYER_IS_ZERO_IF_DNE = 6;
+    static constexpr size_t SR_INSTANCE_MEMBER_CLASS_ID_IS_ZERO_IF_DNE = 7;
+    static constexpr size_t SR_INSTANCE_MEMBER_ORIGINAL_CLASS_ID_IS_ZERO_IF_DNE = 8;
+    static constexpr size_t SR_INSTANCE_MEMBER_INIT_HASH_IS_ZERO_IF_DNE = 9;
+    static constexpr size_t SR_UNCHANGED_ADDRESS_NON_PROTOCOL = 10;
+
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case 2:
+        case SR_INSTANCE_MEMBER_SALT_IS_ZERO_IF_DNE:
             return "INSTANCE_MEMBER_SALT_IS_ZERO_IF_DNE";
-        case 3:
+        case SR_INSTANCE_MEMBER_DEPLOYER_IS_ZERO_IF_DNE:
             return "INSTANCE_MEMBER_DEPLOYER_IS_ZERO_IF_DNE";
-        case 4:
+        case SR_INSTANCE_MEMBER_CLASS_ID_IS_ZERO_IF_DNE:
             return "INSTANCE_MEMBER_CLASS_ID_IS_ZERO_IF_DNE";
-        case 5:
+        case SR_INSTANCE_MEMBER_ORIGINAL_CLASS_ID_IS_ZERO_IF_DNE:
             return "INSTANCE_MEMBER_ORIGINAL_CLASS_ID_IS_ZERO_IF_DNE";
-        case 6:
+        case SR_INSTANCE_MEMBER_INIT_HASH_IS_ZERO_IF_DNE:
             return "INSTANCE_MEMBER_INIT_HASH_IS_ZERO_IF_DNE";
+        case SR_UNCHANGED_ADDRESS_NON_PROTOCOL:
+            return "UNCHANGED_ADDRESS_NON_PROTOCOL";
         }
         return std::to_string(index);
     }
-
-    // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_INSTANCE_MEMBER_SALT_IS_ZERO_IF_DNE = 2;
-    static constexpr size_t SR_INSTANCE_MEMBER_DEPLOYER_IS_ZERO_IF_DNE = 3;
-    static constexpr size_t SR_INSTANCE_MEMBER_CLASS_ID_IS_ZERO_IF_DNE = 4;
-    static constexpr size_t SR_INSTANCE_MEMBER_ORIGINAL_CLASS_ID_IS_ZERO_IF_DNE = 5;
-    static constexpr size_t SR_INSTANCE_MEMBER_INIT_HASH_IS_ZERO_IF_DNE = 6;
 };
 
 } // namespace bb::avm2

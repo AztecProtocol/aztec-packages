@@ -5,7 +5,7 @@ import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
 
 describe('e2e_blacklist_token_contract mint', () => {
   const t = new BlacklistTokenContractTest('mint');
-  let { asset, tokenSim, adminAddress, other, otherAddress, blacklistedAddress, pxe } = t;
+  let { asset, tokenSim, adminAddress, otherAddress, blacklistedAddress, pxe } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
@@ -13,7 +13,7 @@ describe('e2e_blacklist_token_contract mint', () => {
     await t.applyMintSnapshot();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
-    ({ asset, tokenSim, adminAddress, other, otherAddress, blacklistedAddress, pxe } = t);
+    ({ asset, tokenSim, adminAddress, otherAddress, blacklistedAddress, pxe } = t);
   }, 600_000);
 
   afterAll(async () => {
@@ -38,9 +38,9 @@ describe('e2e_blacklist_token_contract mint', () => {
     describe('failure cases', () => {
       it('as non-minter', async () => {
         const amount = 10000n;
-        await expect(
-          asset.withWallet(other).methods.mint_public(adminAddress, amount).simulate({ from: otherAddress }),
-        ).rejects.toThrow('Assertion failed: caller is not minter');
+        await expect(asset.methods.mint_public(adminAddress, amount).simulate({ from: otherAddress })).rejects.toThrow(
+          'Assertion failed: caller is not minter',
+        );
       });
 
       // TODO(#12221): re-enable this test once we have proper unsigned integer overflow checks
@@ -67,7 +67,7 @@ describe('e2e_blacklist_token_contract mint', () => {
 
       it('mint to blacklisted entity', async () => {
         await expect(
-          asset.withWallet(other).methods.mint_public(blacklistedAddress, 1n).simulate({ from: adminAddress }),
+          asset.methods.mint_public(blacklistedAddress, 1n).simulate({ from: adminAddress }),
         ).rejects.toThrow(/Assertion failed: Blacklisted: Recipient/);
       });
     });
@@ -112,14 +112,14 @@ describe('e2e_blacklist_token_contract mint', () => {
         await t.addPendingShieldNoteToPXE(asset, otherAddress, amount, secretHash, txHash);
 
         await expect(
-          asset.withWallet(other).methods.redeem_shield(otherAddress, amount, secret).simulate({ from: otherAddress }),
+          asset.methods.redeem_shield(otherAddress, amount, secret).simulate({ from: otherAddress }),
         ).rejects.toThrow(`Assertion failed: note not popped`);
       });
 
       it('mint_private as non-minter', async () => {
-        await expect(
-          asset.withWallet(other).methods.mint_private(amount, secretHash).simulate({ from: otherAddress }),
-        ).rejects.toThrow('Assertion failed: caller is not minter');
+        await expect(asset.methods.mint_private(amount, secretHash).simulate({ from: otherAddress })).rejects.toThrow(
+          'Assertion failed: caller is not minter',
+        );
       });
 
       // TODO(#12221): re-enable this test once we have proper unsigned integer overflow checks

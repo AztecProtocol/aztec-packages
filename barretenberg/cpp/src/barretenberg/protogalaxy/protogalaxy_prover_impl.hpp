@@ -6,6 +6,7 @@
 
 #pragma once
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/honk/relation_checker.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
@@ -89,7 +90,8 @@ ProtogalaxyProver_<Flavor, NUM_KEYS>::combiner_quotient_round(const std::vector<
     const std::vector<FF> updated_gate_challenges =
         update_gate_challenges(perturbator_challenge, gate_challenges, deltas);
     const UnivariateSubrelationSeparators alphas = PGInternal::compute_and_extend_alphas(keys);
-    const GateSeparatorPolynomial<FF> gate_separators{ updated_gate_challenges, CONST_PG_LOG_N };
+    const GateSeparatorPolynomial<FF> gate_separators{ updated_gate_challenges,
+                                                       numeric::get_msb(keys.get_max_dyadic_size()) };
     const UnivariateRelationParameters relation_parameters =
         PGInternal::template compute_extended_relation_parameters<UnivariateRelationParameters>(keys);
 
@@ -149,13 +151,19 @@ void ProtogalaxyProver_<Flavor, NUM_KEYS>::update_target_sum_and_fold(
     }
 
     // Fold the proving key polynomials
-    for (auto& poly : accumulator->polynomials.get_unshifted()) {
-        poly *= lagranges[0];
-    }
-    for (auto [acc_poly, key_poly] :
-         zip_view(accumulator->polynomials.get_unshifted(), incoming->polynomials.get_unshifted())) {
-        acc_poly.add_scaled(key_poly, lagranges[1]);
-    }
+    parallel_for([&accumulator, &lagranges](const ThreadChunk& chunk) {
+        for (auto& poly : accumulator->polynomials.get_unshifted()) {
+            poly.multiply_chunk(chunk, lagranges[0]);
+        }
+    });
+
+    // This cannot be combined with the previous parallel_for because add_scaled_chunk is by the key_poly size
+    parallel_for([&accumulator, &lagranges, &incoming](const ThreadChunk& chunk) {
+        for (auto [acc_poly, key_poly] :
+             zip_view(accumulator->polynomials.get_unshifted(), incoming->polynomials.get_unshifted())) {
+            acc_poly.add_scaled_chunk(chunk, key_poly, lagranges[1]);
+        }
+    });
 
     // Evaluate the combined batching  α_i univariate at challenge to obtain next α_i and send it to the
     // verifier, where i ∈ {0,...,NUM_SUBRELATIONS - 1}
