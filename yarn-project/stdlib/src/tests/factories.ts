@@ -27,6 +27,7 @@ import {
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PRIVATE_LOGS_PER_CALL,
   MAX_PRIVATE_LOGS_PER_TX,
+  MAX_PROTOCOL_CONTRACTS,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_PUBLIC_LOGS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -73,6 +74,7 @@ import {
   AvmGetLeafValueHint,
   AvmGetPreviousValueIndexHint,
   AvmGetSiblingPathHint,
+  AvmProtocolContractAddressHint,
   AvmRevertCheckpointHint,
   AvmSequentialInsertHintNullifierTree,
   AvmSequentialInsertHintPublicDataTree,
@@ -1498,6 +1500,13 @@ export async function makeAvmTxHint(seed = 0): Promise<AvmTxHint> {
   );
 }
 
+export function makeAvmProtocolContractDerivedAddressesHint(seed = 0): AvmProtocolContractAddressHint {
+  return new AvmProtocolContractAddressHint(
+    /*canonicalAddress=*/ new AztecAddress(new Fr(seed + 1)),
+    /*derivedAddress=*/ new AztecAddress(new Fr(seed + 0x1001)),
+  );
+}
+
 /**
  * Creates arbitrary AvmExecutionHints.
  * @param seed - The seed to use for generating the hints.
@@ -1514,6 +1523,11 @@ export async function makeAvmExecutionHints(
   const fields = {
     globalVariables: makeGlobalVariables(seed + 0x4000),
     tx: await makeAvmTxHint(seed + 0x4100),
+    protocolContractDerivedAddresses: makeArray(
+      MAX_PROTOCOL_CONTRACTS,
+      makeAvmProtocolContractDerivedAddressesHint,
+      seed + 0x4600,
+    ),
     contractInstances: makeArray(baseLength + 2, makeAvmContractInstanceHint, seed + 0x4700),
     contractClasses: makeArray(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
     bytecodeCommitments: await makeArrayAsync(baseLength + 5, makeAvmBytecodeCommitmentHint, seed + 0x4900),
@@ -1547,6 +1561,7 @@ export async function makeAvmExecutionHints(
   return new AvmExecutionHints(
     fields.globalVariables,
     fields.tx,
+    fields.protocolContractDerivedAddresses,
     fields.contractInstances,
     fields.contractClasses,
     fields.bytecodeCommitments,

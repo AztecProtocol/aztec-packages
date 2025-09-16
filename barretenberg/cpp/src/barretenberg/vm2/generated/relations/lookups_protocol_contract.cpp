@@ -25,10 +25,7 @@
 
 namespace bb::avm2 {
 
-INSTANTIATE_LOOKUP(lookup_contract_instance_retrieval_check_protocol_address_range_relation);
-INSTANTIATE_LOOKUP(lookup_contract_instance_retrieval_deployment_nullifier_read_relation);
-INSTANTIATE_LOOKUP(lookup_contract_instance_retrieval_protocol_contract_derived_address_relation);
-INSTANTIATE_LOOKUP(lookup_contract_instance_retrieval_address_derivation_relation);
-INSTANTIATE_LOOKUP(lookup_contract_instance_retrieval_update_check_relation);
+INSTANTIATE_LOOKUP(lookup_protocol_contract_leaf_hash_relation);
+INSTANTIATE_LOOKUP(lookup_protocol_contract_merkle_check_relation);
 
 } // namespace bb::avm2

@@ -31,6 +31,7 @@
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/nullifier_tree_check_event.hpp"
+#include "barretenberg/vm2/simulation/events/protocol_contract_event.hpp"
 #include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
@@ -121,6 +122,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<L1ToL2MessageTreeCheckEvent> l1_to_l2_msg_tree_check_emitter;
     typename S::template DefaultEventEmitter<EmitUnencryptedLogEvent> emit_unencrypted_log_emitter;
     typename S::template DefaultEventEmitter<RetrievedBytecodesTreeCheckEvent> retrieved_bytecodes_tree_check_emitter;
+    typename S::template DefaultEventEmitter<GetProtocolContractDerivedAddressEvent> protocol_contract_emitter;
 
     ExecutionIdManager execution_id_manager(1);
     RangeCheck range_check(range_check_emitter);
@@ -154,7 +156,10 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     ClassIdDerivation class_id_derivation(poseidon2, class_id_derivation_emitter);
     HintedRawContractDB raw_contract_db(hints);
     HintedRawMerkleDB raw_merkle_db(hints);
-    ContractDB contract_db(raw_contract_db, address_derivation, class_id_derivation);
+
+    ProtocolContractIndexedTree protocol_contract_set(
+        hints.protocolContractDerivedAddresses, field_gt, poseidon2, merkle_check, protocol_contract_emitter);
+    ContractDB contract_db(raw_contract_db, address_derivation, class_id_derivation, protocol_contract_set);
 
     MerkleDB merkle_db(raw_merkle_db,
                        public_data_tree_check,
@@ -175,7 +180,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     InstructionInfoDB instruction_info_db;
 
     ContractInstanceManager contract_instance_manager(
-        contract_db, merkle_db, update_check, contract_instance_retrieval_emitter);
+        contract_db, merkle_db, update_check, protocol_contract_set, contract_instance_retrieval_emitter);
 
     TxBytecodeManager bytecode_manager(contract_db,
                                        merkle_db,
@@ -275,6 +280,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
         l1_to_l2_msg_tree_check_emitter.dump_events(),
         emit_unencrypted_log_emitter.dump_events(),
         retrieved_bytecodes_tree_check_emitter.dump_events(),
+        protocol_contract_emitter.dump_events(),
     };
 }
 
