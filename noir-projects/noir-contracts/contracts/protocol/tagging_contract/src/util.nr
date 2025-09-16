@@ -1,11 +1,8 @@
 fn get_next_tag(sender: AztecAddress, recipient: AztecAddress, hidden_sender: bool, context: &mut PrivateContext) -> Field {
-    // Get master tagging public key and check if handshake exists
     let master_tagging_public_key = get_master_tagging_public_key(sender, recipient, hidden_sender);
 
-    // Get sender nsk_app
     let sender_npk_m = get_public_keys(sender).npk_m;
-    let sender_npk_m_hash = sender_npk_m.hash();
-    let sender_nsk_app = context.request_nsk_app(sender_npk_m_hash);
+    let sender_nsk_app = context.request_nsk_app(sender_npk_m.hash());
 
     // We call the is_first_time_tagging oracle function to determine if this is the first time tagging
     // for [sender, recipient, hidden_sender] inputs. The function computes the tag nullifier with index
