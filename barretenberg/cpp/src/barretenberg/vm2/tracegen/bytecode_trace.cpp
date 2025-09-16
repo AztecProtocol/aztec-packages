@@ -62,7 +62,7 @@ void BytecodeTraceBuilder::process_decomposition(
                           { C::bc_decomposition_is_windows_eq_remaining, is_windows_eq_remaining ? 1 : 0 },
                           // Inverses will be calculated in batch later.
                           { C::bc_decomposition_bytes_rem_inv, remaining },
-                          { C::bc_decomposition_bytes_rem_min_one_inv, is_last ? 0 : FF(remaining) - 1 },
+                          { C::bc_decomposition_bytes_rem_min_one_inv, is_last ? 0 : FF(remaining - 1) },
                           { C::bc_decomposition_windows_min_remaining_inv,
                             is_windows_eq_remaining ? 0 : FF(DECOMPOSE_WINDOW_SIZE) - FF(remaining) },
                           // Sliding window.
