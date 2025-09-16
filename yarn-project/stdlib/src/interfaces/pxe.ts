@@ -396,7 +396,7 @@ export type EventMetadataDefinition = {
   fieldNames: string[];
 };
 
-const EventMetadataDefinitionSchema = z.object({
+export const EventMetadataDefinitionSchema = z.object({
   eventSelector: schemas.EventSelector,
   abiType: AbiTypeSchema,
   fieldNames: z.array(z.string()),
@@ -428,13 +428,13 @@ export interface ContractClassMetadata {
   artifact?: ContractArtifact | undefined;
 }
 
-const ContractMetadataSchema = z.object({
+export const ContractMetadataSchema = z.object({
   contractInstance: z.union([ContractInstanceWithAddressSchema, z.undefined()]),
   isContractInitialized: z.boolean(),
   isContractPublished: z.boolean(),
 }) satisfies ZodFor<ContractMetadata>;
 
-const ContractClassMetadataSchema = z.object({
+export const ContractClassMetadataSchema = z.object({
   contractClass: z.union([ContractClassWithIdSchema, z.undefined()]),
   isContractClassPubliclyRegistered: z.boolean(),
   artifact: z.union([ContractArtifactSchema, z.undefined()]),

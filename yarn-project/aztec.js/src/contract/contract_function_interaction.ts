@@ -45,12 +45,12 @@ type SimulationReturn<T extends boolean | undefined> = T extends true
 export class ContractFunctionInteraction extends BaseContractInteraction {
   constructor(
     wallet: Wallet,
-    protected contractAddress: AztecAddress,
-    protected functionDao: FunctionAbi,
-    protected args: any[],
+    public contractAddress: AztecAddress,
+    public functionDao: FunctionAbi,
+    public args: any[],
     authWitnesses: AuthWitness[] = [],
     capsules: Capsule[] = [],
-    private extraHashedArgs: HashedValues[] = [],
+    public extraHashedArgs: HashedValues[] = [],
   ) {
     super(wallet, authWitnesses, capsules);
     if (args.some(arg => arg === undefined || arg === null)) {

@@ -18,8 +18,8 @@ export abstract class BaseContractInteraction {
 
   constructor(
     protected wallet: Wallet,
-    protected authWitnesses: AuthWitness[] = [],
-    protected capsules: Capsule[] = [],
+    public authWitnesses: AuthWitness[] = [],
+    public capsules: Capsule[] = [],
   ) {}
 
   /**

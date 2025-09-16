@@ -16,6 +16,7 @@ import {
 import { AztecContext } from '../../../aztecContext';
 import { CreateAccountDialog } from '../../../wallet/components/CreateAccountDialog';
 import { useTransaction } from '../../../hooks/useTransaction';
+import { ExtensionWallet } from '../../../wallet/extension_wallet';
 
 const logo = css({
   height: '50px',
@@ -55,6 +56,14 @@ export function WalletHub() {
       callback: () => {
         setIsEmbeddedWalletSelected(true);
         setOpenWalletModal(true);
+        return Promise.resolve();
+      },
+    },
+    {
+      name: 'Aztec keychain',
+      getWallet: (_: string) => Promise.resolve(ExtensionWallet.create()),
+      iconURL: new URL('../../../assets/aztec_small_logo.png', import.meta.url).href,
+      callback: () => {
         return Promise.resolve();
       },
     },

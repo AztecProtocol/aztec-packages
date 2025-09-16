@@ -105,6 +105,7 @@ __metadata:
     vite-plugin-bundlesize: "npm:^0.3.0"
     vite-plugin-node-polyfills: "npm:^0.24.0"
     vite-plugin-static-copy: "npm:^3.1.2"
+    zod: "npm:^3.23.8"
   languageName: unknown
   linkType: soft
 

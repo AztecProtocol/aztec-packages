@@ -4,8 +4,8 @@ import {
   AccountManager,
   BaseAccount,
   BaseWallet,
+  type CallIntent,
   type ContractArtifact,
-  type IntentAction,
   type IntentInnerHash,
   SignerlessAccount,
   type SimulateMethodOptions,
@@ -94,7 +94,7 @@ export abstract class BaseTestWallet extends BaseWallet {
   abstract createECDSARAccount(secret: Fr, salt: Fr, signingKey: Buffer): Promise<AccountManager>;
   abstract createECDSAKAccount(secret: Fr, salt: Fr, signingKey: Buffer): Promise<AccountManager>;
 
-  async lookupValidity(address: AztecAddress, intent: IntentInnerHash | IntentAction, witness: AuthWitness) {
+  async lookupValidity(address: AztecAddress, intent: IntentInnerHash | CallIntent, witness: AuthWitness) {
     const account = (await this.getAccountFromAddress(address)) as BaseAccount;
     return account.lookupValidity(this, address, intent, witness);
   }
