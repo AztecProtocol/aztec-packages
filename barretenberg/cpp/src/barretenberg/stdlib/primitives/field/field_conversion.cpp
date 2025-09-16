@@ -34,8 +34,6 @@ template <typename Builder> fq<Builder> convert_to_grumpkin_fr(Builder& builder,
     fr<Builder> low{ witness_t<Builder>(&builder, low_val) };
     fr<Builder> hi{ witness_t<Builder>(&builder, hi_val) };
 
-    constrain_bigfield_limbs(low, hi);
-
     BB_ASSERT_EQ(static_cast<uint256_t>(low_val) + (static_cast<uint256_t>(hi_val) << NUM_BITS_IN_TWO_LIMBS),
                  value,
                  "field_conversion: limb decomposition");

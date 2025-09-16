@@ -21,24 +21,14 @@ template <typename Builder> using fq = bigfield<Builder, bb::Bn254FqParams>;
 template <typename Builder> using bn254_element = element<Builder, fq<Builder>, fr<Builder>, curve::BN254::Group>;
 template <typename Builder> using grumpkin_element = cycle_group<Builder>;
 
-template <typename Builder> static void constrain_bigfield_limbs(const fr<Builder>& lo, const fr<Builder>& hi)
-{
-    static constexpr uint64_t NUM_LIMB_BITS = fq<Builder>::NUM_LIMB_BITS;
-    static constexpr uint64_t NUM_LAST_LIMB_BITS = NUM_LIMB_BITS + fq<Builder>::NUM_LAST_LIMB_BITS; // 118
-    static constexpr uint64_t NUM_BITS_IN_TWO_LIMBS = 2 * NUM_LIMB_BITS;                            // 136
-
-    // range constrain low to 136 bits and hi to 118 bits
-    lo.create_range_constraint(NUM_BITS_IN_TWO_LIMBS, "field_conversion: create_range_constraint");
-    hi.create_range_constraint(NUM_LAST_LIMB_BITS, "field_conversion: create_range_constraint");
-}
-
 /**
  * @brief Check whether a point corresponds to (0, 0), the conventional representation of the point infinity.
  *
  * bn254: In the case of a bn254 point, the bigfield limbs (x_lo, x_hi, y_lo, y_hi) are range constrained, and their sum
  * is a non-negative integer not exceeding 2^138, i.e. it does not overflow the fq modulus, hence all limbs must be 0.
  *
- * Grumpkin: We are using the fact that (x^2 + 5 * y^2 = 0) has no non-trivial solutions in Grumpkin base field
+ * Grumpkin: We are using the observation that (x^2 + 5 * y^2 = 0) has no non-trivial solutions in fr, since fr modulus
+ * p == 2 mod 5, i.e. 5 is not a square mod p.
  *
  * @return
  */
@@ -57,6 +47,12 @@ template <typename Builder, typename T> bool_t<Builder> check_point_at_infinity(
 
 template <typename Builder> fq<Builder> convert_to_grumpkin_fr(Builder& builder, const fr<Builder>& f);
 
+/**
+ * @brief A stdlib Transcript method needed to convert an `fr` challenge to a `bigfield` one. Splits an `fr` into limbs
+ * that are fed into the bigfield constructor.
+ * TODO(): Remove redundant constraints caused by splitting and conversion.
+ *
+ */
 template <typename Builder, typename T> inline T convert_challenge(Builder& builder, const fr<Builder>& challenge)
 {
     if constexpr (std::is_same_v<T, fr<Builder>>) {
@@ -69,7 +65,6 @@ template <typename Builder, typename T> inline T convert_challenge(Builder& buil
 template <typename Builder>
 inline std::vector<fr<Builder>> convert_goblin_fr_to_bn254_frs(const goblin_field<Builder>& input)
 {
-
     return { input.limbs[0], input.limbs[1] };
 }
 
@@ -111,9 +106,8 @@ template <typename Builder, typename T> constexpr size_t calc_num_bn254_frs()
  * @details Deserializes a vector of in-circuit `fr`s, i.e. `field_t` elements, into
  * - `field_t` — no conversion needed
  *
- * - \ref bb::stdlib::bigfield< Builder, T > "bigfield" — 2 input `field_t`s must be range-constrained as low and high
- * limbs of a `bigfield` element, then the corresponding `bigfield` constructor is applied. Specific to
- * \ref UltraCircuitBuilder_ "UltraCircuitBuilder".
+ * - \ref bb::stdlib::bigfield< Builder, T > "bigfield" — 2 input `field_t`s are fed into `bigfield` constructor that
+ * ensures that they are properly constrained. Specific to \ref UltraCircuitBuilder_ "UltraCircuitBuilder".
  *
  * - \ref  bb::stdlib::goblin_field< Builder > "goblin field element" — in contrast to `bigfield`, range constraints are
  * performed in `Translator` (see \ref TranslatorDeltaRangeConstraintRelationImpl "Translator Range Constraint"
@@ -128,8 +122,8 @@ template <typename Builder, typename T> constexpr size_t calc_num_bn254_frs()
  * Specific to \ref MegaCircuitBuilder_ "MegaCircuitBuilder".
  *
  * - \ref bb::stdlib::element_default::element< Builder_, Fq, Fr, NativeGroup > "bn254 point" — reconstruct a pair of
- * `bigfield` elements (x, y), applying required range constraints, and check that the resulting point lies on the
- * curve. Specific to \ref UltraCircuitBuilder_ "UltraCircuitBuilder".
+ * `bigfield` elements (x, y), check whether the resulting point is a point at infinity and ensure it lies on the curve.
+ * Specific to \ref UltraCircuitBuilder_ "UltraCircuitBuilder".
  *
  * - \ref cycle_group "Grumpkin point" — since the grumpkin base field is `fr`, the reconstruction is trivial. We check
  *   in-circuit whether the resulting point lies on the curve and whether it is a point at infinity.
@@ -156,10 +150,6 @@ template <typename Builder, typename T> T convert_from_bn254_frs(std::span<const
         return fr_vec[0];
     } else if constexpr (IsAnyOf<T, bigfield_ct, goblin_field<Builder>>) {
         // Cases 2 and 3: a bigfield/goblin_field element is reconstructed from low and high limbs.
-        if constexpr (std::is_same_v<Builder, UltraCircuitBuilder>) {
-            constrain_bigfield_limbs(fr_vec[0], fr_vec[1]);
-        }
-
         return T(fr_vec[0], fr_vec[1]);
     } else if constexpr (IsAnyOf<T, bn254_element<Builder>, grumpkin_element<Builder>>) {
         // Case 4 and 5: Convert a vector of frs to a group element

@@ -95,8 +95,6 @@ class ECCVMRecursiveTests : public ::testing::Test {
         auto [opening_claim, ipa_transcript] = verifier.verify_proof(proof);
         stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(outer_circuit);
 
-        const size_t fixed_size = 218783;
-        info("Fixed size ", fixed_size);
         info("Recursive Verifier: num gates = ", outer_circuit.get_estimated_num_finalized_gates());
 
         // Check for a failure flag in the recursive verifier circuit
@@ -141,7 +139,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
         }
 
         // Check that the size of the recursive verifier is consistent with historical expectation
-        uint32_t NUM_GATES_EXPECTED = 216432;
+        uint32_t NUM_GATES_EXPECTED = 213775;
         ASSERT_EQ(static_cast<uint32_t>(outer_circuit.get_num_finalized_gates()), NUM_GATES_EXPECTED)
             << "Ultra-arithmetized ECCVM Recursive verifier gate count changed! Update this value if you are sure this "
                "is expected.";
