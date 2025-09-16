@@ -7,7 +7,11 @@ fn get_next_tag(sender: AztecAddress, recipient: AztecAddress, hidden_sender: bo
     let sender_npk_m_hash = sender_npk_m.hash();
     let sender_nsk_app = context.request_nsk_app(sender_npk_m_hash);
 
-    // TODO: How to determine first_time_tagging?
+    // We call the is_first_time_tagging oracle function to determine if this is the first time tagging
+    // for [sender, recipient, hidden_sender] inputs. The function computes the tag nullifier with index
+    // 0 and checks if it exists in the nullifier tree.
+    let first_time_tagging: bool = is_first_time_tagging(sender, recipient, hidden_sender);
+
     let [unsiloed_nullifier_to_prove, app_to_silo_with, directional_app_tagging_secret, index] = if first_time_tagging {
         // Sort addresses for consistent handshake commitment
         let [address_0, address_1] = unsafe { sort_addresses(sender, recipient) };
@@ -32,11 +36,10 @@ fn get_next_tag(sender: AztecAddress, recipient: AztecAddress, hidden_sender: bo
     let nullifier_to_prove = compute_siloed_nullifier(app_to_silo_with, unsiloed_nullifier_to_prove);
     prove_nullifier_inclusion(nullifier_to_prove);
 
-    let tag = poseidon2_hash([directional_app_tagging_secret, index]);
-
     let tag_nullifier = poseidon2_hash(["AZTEC_NR::TAG_SEPARATOR", sender_nsk_app, recipient, directional_app_tagging_secret, index]);
     context.push_nullifier(tag_nullifier);
         
+    let tag = poseidon2_hash([directional_app_tagging_secret, index]);
     tag
 }
 
