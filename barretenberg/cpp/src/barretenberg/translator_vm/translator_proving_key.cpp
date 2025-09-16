@@ -171,8 +171,8 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
  * @brief Distribute the randomness from the 4 interleaved polynomials to the 5 ordered range constraints such that
  * commitments and evaluations of ordered polynomials and their shifts are hidden.
  *
- * @details While we don't commit to the interleaved polynomials, ths PCS round connecting the opening of these to the
- * commitments of group polynomials, we have to commit to the ordered polynomials. Since the permutation relation
+ * @details While we don't commit to the interleaved polynomials because ths PCS round connects their openings
+ * to the commitments of group polynomials, we have to commit to the ordered polynomials. Since the permutation relation
  * enforces that the values of ordered_* and interleaved_* are the same, we  must use the same blinding as for hiding
  * commitments and evaluations of the groups *_range_constraint_* wire polynomials. This methods hence splits the
  * randomness from interleaved to ordered polynomials.
@@ -231,7 +231,37 @@ void TranslatorProvingKey::split_interleaved_random_coefficients_to_ordered()
 }
 
 /**
- * @brief Set all the precomputed lagrange polynomials used in Translator relations.
+ * @brief Construct all the precomputed lagrange polynomials used in Translator relations.
+ *
+ *
+ */
+/**
+ * @brief Constructs all Lagrange precomputed polynomials required for Translator relations. These enforce properties at
+ * specific positions within the Translator trace. Translator operates on two circuit sizes (full and mini) both
+ * requiring separate Lagrange polynomials.
+ *
+ * @details
+ *
+ *
+ * **Main Circuit Lagranges:**
+ * - `lagrange_first`: Active only at index 0, marks the first row of the main circuit
+ * - `lagrange_real_last`: Active at the last row before masking begins in the main circuit
+ * - `lagrange_last`: active at the very last row of the main circuit (including masking)
+ * - `lagrange_masking`: Active in the masking region of the main circuit (for randomness)
+ *
+ * **Mini Circuit Lagranges:**
+ * - `lagrange_mini_masking`: Active in two regions:
+ *   1. Between RANDOMNESS_START and RESULT_ROW  (6 rows of random values at the beginning of the mini circuits)
+ *   2. In the last 4 rows of the mini circuit (for trailing randomness)
+ * - `lagrange_even_in_minicircuit`: Active at even indices within the actual ECC operation processing range, excluding
+ * randomness
+ * - `lagrange_odd_in_minicircuit`: Active at odd indices within the actual ECC operation processing range, excluding
+ * randomness
+ * - `lagrange_result_row`: Active only at the designated result row (Flavor::RESULT_ROW)
+ * - `lagrange_last_in_minicircuit`: Active at the last row before masking in the mini circuit
+ *
+ * The even/odd Lagranges are needed as Translator VM processes two rows of its execution
+ * trace simultaneously, with different relations applying to even and odd indexed rows.
  *
  */
 void TranslatorProvingKey::compute_lagrange_polynomials()

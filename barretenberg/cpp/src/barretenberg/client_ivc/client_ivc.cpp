@@ -513,16 +513,16 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
 }
 
 /**
- * @brief Add a *real* operation but with random data to the op queue to avoid information leak in Translator
- * computation.
+ * @brief Add a valid operation with random data to the op queue to prevent information leakage in Translator
+ * proof.
  *
- * @details Translator circuit builder computes the evaluation at some random challenge x of a batched polynomial
- * derived from processing the ultra_op version of op_queue. This result (referred to as accumulated_result in
- * translator) is included in the translator proof and, on the verifier side, checked against the same computation
- * performed by ECCVM (this is done in verify_translation). To prevent leaking information about the actual
- * accumulated_result (and implicitly about the ops) when the proof is sent to the rollup, a random but valid
- * operation is added to the op queue, to ensure the polynomial over Grumpkin, whose evaluation is
- * accumulated_result, has at least one random coefficient.
+ * @details The Translator circuit builder evaluates a batched polynomial (representing the four op queue polynomials
+ * in UltraOp format) at a random challenge x. This evaluation result (called accumulated_result in translator) is
+ * included in the translator proof and verified against the equivalent computation performed by ECCVM (in
+ * verify_translation, establishing equivalence between ECCVM and UltraOp format). To ensure the accumulated_result
+ * doesn't reveal information about actual ecc operations in the transaction, when the proof is sent to the rollup, we
+ * add a random yet valid operation to the op queue. This guarantees the batched polynomial over Grumpkin contains at
+ * least one random coefficient.
  */
 void ClientIVC::hide_op_queue_accumulation_result(ClientCircuit& circuit)
 {

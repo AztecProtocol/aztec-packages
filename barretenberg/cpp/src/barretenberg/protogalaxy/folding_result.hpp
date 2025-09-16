@@ -10,8 +10,8 @@
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 namespace bb {
 /**
- * @brief The result of running the Protogalaxy prover containing a new accumulator as well as the proof data to
- * instantiate the verifier transcript.
+ * @brief The result of one iteraton of Protogalaxy proving, containing a new accumulator as well as the proof data to
+ * instantiate the verifier transcript asserting that the accumulator has been correctly constructed.
  */
 template <class Flavor> struct FoldingResult {
   public:
