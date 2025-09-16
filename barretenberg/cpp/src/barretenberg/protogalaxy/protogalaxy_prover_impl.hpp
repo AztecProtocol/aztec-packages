@@ -64,8 +64,6 @@ std::tuple<std::vector<typename Flavor::FF>, Polynomial<typename Flavor::FF>> Pr
                                            : Polynomial<FF>(CONST_PG_LOG_N + 1);
     // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
     // the accumulator which the folding verifier has from the previous iteration.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1087): Verifier circuit for first IVC step is
-    // different
     for (size_t idx = 1; idx <= CONST_PG_LOG_N; idx++) {
         transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
     }

@@ -70,9 +70,10 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS = 2> class ProtogalaxyProver
     }
 
     /**
-     * @brief For each key produced by a circuit, prior to folding, we need to complete the computation of its
-     * prover polynomials; commit to witnesses and generate the relation parameters; and send the public data ϕ of
-     * the key to the verifier.
+     * @brief For each Prover instance derived from a circuit, prior to folding, we need to complete the computation of
+     * its polynomials (some of which require generating relation parameters first); commit to witnesses and generate
+     * the relation parameters; and send the public data ϕ of the instance to the verifier (which will represent the
+     * verifier instance).
      *
      * @param domain_separator a label used for tracking data in the transcript
      */
@@ -82,7 +83,7 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS = 2> class ProtogalaxyProver
 
     /**
      * @brief Create inputs to folding protocol (an Oink interaction).
-     * @details Complete the decider pks that will be folded: complete computation of all the witness polynomials
+     * @details Complete all Prover instances that will be folded: complete computation of all the witness polynomials
      * and compute commitments. Send commitments to the verifier and retrieve challenges.
      */
     void run_oink_prover_on_each_incomplete_key();
@@ -98,7 +99,7 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS = 2> class ProtogalaxyProver
 
     /**
      * @brief Steps 6 - 11 of the paper.
-     * @details Compute combiner (G polynomial in the paper) and then its quotient (K polynomial), whose coefficient
+     * @details Compute combiner (G polynomial in the paper) and then its quotient (K polynomial), whose coefficients
      * will be sent to the verifier.
      */
     std::tuple<std::vector<FF>, UnivariateSubrelationSeparators, UnivariateRelationParameters, FF, CombinerQuotient>
@@ -108,10 +109,10 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS = 2> class ProtogalaxyProver
 
     /**
      * @brief Steps 12 - 13 of the paper plus the prover folding work.
-     * @details Compute \f$ e^* \f$ plus, then update the prover accumulator by taking a Lagrange-linear combination of
-     * the current accumulator and the decider keys to be folded. In our mental model, we are doing a scalar
-     * multiplication of matrices whose columns are polynomials, as well as taking similar linear combinations of the
-     * relation parameters.
+     * @details Compute \f$ e^* \f$ (the new target sum), then update the prover accumulator by taking a
+     * Lagrange-linear combination of the current accumulator and the prover instances to be folded. In our mental
+     * model, we are doing a scalar multiplication of matrices whose columns are polynomials, as well as taking similar
+     * linear combinations of the relation parameters.
      */
     void update_target_sum_and_fold(const DeciderProvingKeys& keys,
                                     const CombinerQuotient& combiner_quotient,
@@ -122,7 +123,7 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS = 2> class ProtogalaxyProver
     /**
      * @brief Execute the folding prover.
      *
-     * @return FoldingResult is a pair consisting of an accumulator and a folding proof, which is a proof that the
+     * @return FoldingResult is a pair consisting of the new accumulator and a folding proof, which is a proof that the
      * accumulator was computed correctly.
      */
     BB_PROFILE FoldingResult<Flavor> prove();
