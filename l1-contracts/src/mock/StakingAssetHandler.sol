@@ -55,6 +55,8 @@ interface IStakingAssetHandler {
   error InvalidAge();
   error InvalidCountry();
   error InvalidCurrentDate();
+  error InvalidValidityPeriod();
+  error ExtraDiscloseDataNonZero();
   error SybilDetected(bytes32 _nullifier);
   error AttesterDoesNotExist(address _attester);
   error NoNullifier();
@@ -129,12 +131,12 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
   address public withdrawer;
 
+  // ZKPassport constraints
   string public validDomain;
   string public validScope;
-
-  // ZKPassport - Age constraints
-  uint256 public minAge = 18;
-  uint256 public maxAge = 0;
+  uint256 public validValidityPeriodInSeconds = 7 days;
+  uint256 public validMinAge = 18;
+  uint256 public validMaxAge = 0;
 
   // ZKPassport - Excluded counties
   bytes32 internal pkr = keccak256(bytes("PRK"));
@@ -316,19 +318,23 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
     if (!skipBindCheck) {
       bytes memory data = zkPassportVerifier.getBindProofInputs(_params.committedInputs, _params.committedInputCounts);
-      // Use the getBoundData function to get the formatted data
-      // which includes the user's address, chainId and any custom data
-      (address boundAddress, uint256 chainId,) = zkPassportVerifier.getBoundData(data);
+
+      (address boundAddress, uint256 chainId, string memory customData) = zkPassportVerifier.getBoundData(data);
       // Make sure the bound user address is the same as the _attester
       require(boundAddress == _attester, InvalidBoundAddress(boundAddress, _attester));
       // Make sure the chainId is the same as the current chainId
       require(chainId == block.chainid, InvalidChainId(chainId, block.chainid));
+      // Make sure the custom data is empty
+      require(bytes(customData).length == 0, ExtraDiscloseDataNonZero());
+
+      // Validity period check
+      require(validValidityPeriodInSeconds == _params.validityPeriodInSeconds, InvalidValidityPeriod());
 
       // Age check
       (uint256 currentDate, uint8 minAge, uint8 maxAge) =
         zkPassportVerifier.getAgeProofInputs(_params.committedInputs, _params.committedInputCounts);
       require(block.timestamp >= currentDate, InvalidCurrentDate());
-      require(minAge == minAge && maxAge == maxAge, InvalidAge());
+      require(validMinAge == minAge && validMaxAge == maxAge, InvalidAge());
 
       // Country exclusion check
       string[] memory exclusionCountryList = zkPassportVerifier.getCountryProofInputs(
