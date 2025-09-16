@@ -1,21 +1,23 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import type { PXE } from '@aztec/aztec.js';
+import { Fr, type PXE } from '@aztec/aztec.js';
 import { AmmBot, Bot, type BotConfig, SupportedTokenContracts, getBotDefaultConfig } from '@aztec/bot';
 import { AVM_MAX_PROCESSABLE_L2_GAS, MAX_PROCESSABLE_DA_GAS_PER_BLOCK } from '@aztec/constants';
+import { SecretValue } from '@aztec/foundation/config';
+import { bufferToHex } from '@aztec/foundation/string';
 
-import { setup } from './fixtures/utils.js';
+import { type EndToEndContext, getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
 
 describe('e2e_bot', () => {
   let pxe: PXE;
   let teardown: () => Promise<void>;
 
   let config: BotConfig;
+  let ctx: EndToEndContext;
 
   beforeAll(async () => {
     const initialFundedAccounts = await getInitialTestAccountsData();
-    ({ teardown, pxe } = await setup(1, {
-      initialFundedAccounts,
-    }));
+    ctx = await setup(1, { initialFundedAccounts });
+    ({ teardown, pxe } = ctx);
   });
 
   afterAll(() => teardown());
@@ -59,13 +61,7 @@ describe('e2e_bot', () => {
     });
 
     it('sends token from the bot using PrivateToken', async () => {
-      const easyBot = await Bot.create(
-        {
-          ...config,
-          contract: SupportedTokenContracts.PrivateTokenContract,
-        },
-        { pxe },
-      );
+      const easyBot = await Bot.create({ ...config, contract: SupportedTokenContracts.PrivateTokenContract }, { pxe });
       const { recipient: recipientBefore } = await easyBot.getBalances();
 
       await easyBot.run();
@@ -104,5 +100,26 @@ describe('e2e_bot', () => {
           balancesAfter.senderPrivate.token1 > balancesBefore.senderPrivate.token1,
       ).toBeTrue();
     });
+  });
+
+  describe('setup via bridging funds cross-chain', () => {
+    beforeAll(() => {
+      config = {
+        ...getBotDefaultConfig(),
+        followChain: 'PENDING',
+        ammTxs: false,
+        senderPrivateKey: new SecretValue(Fr.random()),
+        l1PrivateKey: new SecretValue(bufferToHex(getPrivateKeyFromIndex(8)!)),
+        l1RpcUrls: ctx.config.l1RpcUrls,
+        flushSetupTransactions: true,
+      };
+    });
+
+    // See 'can consume L1 to L2 message in %s after inbox drifts away from the rollup'
+    // in end-to-end/src/e2e_cross_chain_messaging/l1_to_l2.test.ts for context on this test.
+    it('creates bot after inbox drift', async () => {
+      await ctx.cheatCodes.rollup.advanceInboxInProgress(10);
+      await Bot.create(config, { pxe, node: ctx.aztecNode, nodeAdmin: ctx.aztecNodeAdmin });
+    }, 300_000);
   });
 });
