@@ -17,15 +17,15 @@ export type Network = {
 
 export const NETWORKS: Network[] = [
   {
-    nodeURL: 'https://full-node.alpha-testnet.aztec.network',
+    nodeURL: 'http://34.82.77.247:8080/',
     name: 'Aztec Testnet',
     description: 'Public testnet',
     hasTestAccounts: false,
     hasSponsoredFPC: true,
-    version: '0.87.2',
+    version: '2.0.0',
     sponsoredFPC: {
-      version: '0.87.2',
-      address: AztecAddress.fromString('0x1260a43ecf03e985727affbbe3e483e60b836ea821b6305bea1c53398b986047'),
+      version: '2.0.0',
+      address: AztecAddress.fromString('0x299f255076aa461e4e94a843f0275303470a6b8ebe7cb44a471c66711151e529'),
     },
     transactionCongestionThreshold: 40,
   },
