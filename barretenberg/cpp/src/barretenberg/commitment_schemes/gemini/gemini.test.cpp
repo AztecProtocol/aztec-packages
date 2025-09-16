@@ -360,6 +360,9 @@ TYPED_TEST(GeminiTest, SoundnessRegression)
     }
 }
 
+// The prover commits to a higher degree polynomial than what is expected. The test considers the case where
+//  this polynomial folds down to a constant (equal to the claimed evaluation) after the expected number of rounds
+//  (due to the choice of the evaluation point). In this case, the verifier accepts.
 TYPED_TEST(GeminiTest, HighDegreeAttackAccept)
 {
     using Fr = typename TypeParam::ScalarField;
@@ -388,6 +391,9 @@ TYPED_TEST(GeminiTest, HighDegreeAttackAccept)
     this->execute_gemini_and_verify_claims(u, mock_claims);
 }
 
+// The prover commits to a higher degree polynomial than what is expected. The test considers the case where
+//  this polynomial does not fold down to a constant after the expected number of rounds. In this case, the verifier
+//  rejects.
 TYPED_TEST(GeminiTest, HighDegreeAttackReject)
 {
     using Fr = typename TypeParam::ScalarField;
