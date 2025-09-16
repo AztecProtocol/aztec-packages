@@ -13,13 +13,13 @@ template <typename Builder> using grumpkin_element = cycle_group<Builder>;
 template <typename Builder> class StdlibFieldConversionTests : public ::testing::Test {
   public:
     // Serialize and deserialize
-    template <typename T> void check_conversion(T x, bool valid_circuit = true)
+    template <typename T> void check_conversion(T x, bool valid_circuit = true, bool point_at_infinity = false)
     {
         size_t len = bb::stdlib::field_conversion::calc_num_bn254_frs<Builder, T>();
         auto frs = bb::stdlib::field_conversion::convert_to_bn254_frs<Builder, T>(x);
         EXPECT_EQ(len, frs.size());
         auto y = bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, T>(frs);
-        EXPECT_EQ(x.get_value(), y.get_value());
+        EXPECT_EQ(x.get_value() == y.get_value(), !point_at_infinity);
 
         auto ctx = x.get_context();
 
@@ -99,7 +99,8 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionBN254AffineElement)
     { // Serialize and deserialize the point at infinity
         bn254_element<Builder> x2 =
             bn254_element<Builder>::from_witness(&builder, curve::BN254::AffineElement::infinity());
-        this->check_conversion(x2, false);
+        // The circuit is valid, because the point at infinity is set to `one`.
+        this->check_conversion(x2, /* valid circuit */ true, /* point at infinity */ true);
     }
 
     { // Serialize and deserialize "coordinates" that do not correspond to any point on the curve
@@ -132,7 +133,7 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionGrumpkinAffineElement)
     { // Serialize and deserialize "coordinates" that do not correspond to any point on the curve
         curve::Grumpkin::AffineElement x1_val(12, 100);
         grumpkin_element<Builder> x1 = grumpkin_element<Builder>::from_witness(&builder, x1_val);
-        this->check_conversion(x1, false);
+        this->check_conversion(x1, /* valid circuit */ false);
     }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1527): Flip `valid_circuit` flag when point at infinity
@@ -140,7 +141,7 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionGrumpkinAffineElement)
     { // Serialize and deserialize the point at infinity
         grumpkin_element<Builder> x2 =
             grumpkin_element<Builder>::from_witness(&builder, curve::Grumpkin::AffineElement::infinity());
-        this->check_conversion(x2, false);
+        this->check_conversion(x2, /* valid circuit */ false, /* point at infinity */ true);
     }
 }
 
