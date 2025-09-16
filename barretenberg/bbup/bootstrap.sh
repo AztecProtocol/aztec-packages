@@ -16,7 +16,6 @@ function test_cmds {
   echo -e "$hash barretenberg/bbup/run_test.sh 0.77.1"
   echo -e "$hash barretenberg/bbup/run_test.sh 2.0.0-rc.32"
   echo -e "$hash barretenberg/bbup/run_test.sh 3.0.0-nightly.20250916"
-  echo -e "$hash barretenberg/bbup/run_test.sh v3.0.0-nightly.20250916"
 }
 
 # This is not called in ci. It is just for a developer to run the tests.
