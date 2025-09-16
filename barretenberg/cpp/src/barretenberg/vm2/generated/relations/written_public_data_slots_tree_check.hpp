@@ -35,20 +35,20 @@ class written_public_data_slots_tree_check : public Relation<written_public_data
   public:
     static constexpr const std::string_view NAME = "written_public_data_slots_tree_check";
 
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_EXISTS_CHECK = 10;
+    static constexpr size_t SR_NEXT_SLOT_IS_ZERO_CHECK = 12;
+
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case 10:
+        case SR_EXISTS_CHECK:
             return "EXISTS_CHECK";
-        case 12:
+        case SR_NEXT_SLOT_IS_ZERO_CHECK:
             return "NEXT_SLOT_IS_ZERO_CHECK";
         }
         return std::to_string(index);
     }
-
-    // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_EXISTS_CHECK = 10;
-    static constexpr size_t SR_NEXT_SLOT_IS_ZERO_CHECK = 12;
 };
 
 } // namespace bb::avm2

@@ -1145,32 +1145,34 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_execution_instruction_fetching_result_settings, InteractionType::LookupGeneric>()
         .add<lookup_execution_instruction_fetching_body_settings, InteractionType::LookupGeneric>()
         // Addressing
-        .add<lookup_addressing_relative_overflow_result_0_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_result_1_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_result_2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_result_3_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_result_4_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_result_5_settings, InteractionType::LookupGeneric>()
-        .add<lookup_addressing_relative_overflow_result_6_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_result_0_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_addressing_relative_overflow_result_1_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_addressing_relative_overflow_result_2_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_addressing_relative_overflow_result_3_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_addressing_relative_overflow_result_4_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_addressing_relative_overflow_result_5_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_addressing_relative_overflow_result_6_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         // Internal Call Stack
         .add<lookup_internal_call_push_call_stack_settings_, InteractionType::LookupSequential>()
         .add<lookup_internal_call_unwind_call_stack_settings_, InteractionType::LookupGeneric>()
         // Gas
         .add<lookup_gas_addressing_gas_read_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_gas_is_out_of_gas_l2_settings, InteractionType::LookupGeneric>()
-        .add<lookup_gas_is_out_of_gas_da_settings, InteractionType::LookupGeneric>()
+        .add<lookup_gas_is_out_of_gas_l2_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_gas_is_out_of_gas_da_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         .add<lookup_execution_dyn_l2_factor_bitwise_settings, InteractionType::LookupGeneric>()
         // Gas - ToRadix BE
-        .add<lookup_execution_check_radix_gt_256_settings, InteractionType::LookupGeneric>()
+        .add<lookup_execution_check_radix_gt_256_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         .add<lookup_execution_get_p_limbs_settings, InteractionType::LookupGeneric>()
-        .add<lookup_execution_get_max_limbs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_execution_get_max_limbs_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         // Context Stack
         .add<lookup_context_ctx_stack_call_settings, InteractionType::LookupGeneric>()
         .add<lookup_context_ctx_stack_rollback_settings, InteractionType::LookupGeneric>()
         .add<lookup_context_ctx_stack_return_settings, InteractionType::LookupGeneric>()
         // External Call
-        .add<lookup_external_call_call_is_l2_gas_allocated_lt_left_settings, InteractionType::LookupGeneric>()
-        .add<lookup_external_call_call_is_da_gas_allocated_lt_left_settings, InteractionType::LookupGeneric>()
+        .add<lookup_external_call_call_is_l2_gas_allocated_lt_left_settings, InteractionType::LookupGeneric>(
+            Column::gt_sel)
+        .add<lookup_external_call_call_is_da_gas_allocated_lt_left_settings, InteractionType::LookupGeneric>(
+            Column::gt_sel)
         // Dispatch to gadget sub-traces
         .add<perm_execution_dispatch_keccakf1600_settings, InteractionType::Permutation>()
         // GetEnvVar opcode
@@ -1184,7 +1186,8 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_sstore_storage_write_settings, InteractionType::LookupGeneric>()
         // NoteHashExists
         .add<lookup_notehash_exists_note_hash_read_settings, InteractionType::LookupSequential>()
-        .add<lookup_notehash_exists_note_hash_leaf_index_in_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_notehash_exists_note_hash_leaf_index_in_range_settings, InteractionType::LookupGeneric>(
+            Column::gt_sel)
         // NullifierExists opcode
         .add<lookup_nullifier_exists_nullifier_exists_check_settings, InteractionType::LookupSequential>()
         // EmitNullifier
@@ -1194,7 +1197,8 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         // EmitNoteHash
         .add<lookup_emit_notehash_notehash_tree_write_settings, InteractionType::LookupSequential>()
         // L1ToL2MsgExists
-        .add<lookup_l1_to_l2_message_exists_l1_to_l2_msg_leaf_index_in_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_l1_to_l2_message_exists_l1_to_l2_msg_leaf_index_in_range_settings, InteractionType::LookupGeneric>(
+            Column::gt_sel)
         .add<lookup_l1_to_l2_message_exists_l1_to_l2_msg_read_settings, InteractionType::LookupSequential>()
         // Alu dispatching
         .add<lookup_alu_register_tag_value_settings, InteractionType::LookupGeneric>()

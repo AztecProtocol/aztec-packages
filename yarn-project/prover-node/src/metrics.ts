@@ -91,7 +91,7 @@ export class ProverNodeRewardsMetrics {
   }
 
   private observe = async (observer: BatchObservableResult): Promise<void> => {
-    const epoch = await this.rollup.getEpochNumber();
+    const epoch = await this.rollup.getCurrentEpochNumber();
 
     if (epoch > this.proofSubmissionEpochs) {
       // look at the prev epoch so that we get an accurate value, after proof submission window has closed

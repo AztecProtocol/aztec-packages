@@ -45,6 +45,32 @@ As we prepare for a bigger `Wallet` interface refactor and the upcoming `WalletS
 
 ## [Aztec.nr]
 
+### Unified oracles into single get_utility_context oracle
+
+The following oracles:
+
+1. get_contract_address,
+2. get_block_number,
+3. get_timestamp,
+4. get_chain_id,
+5. get_version
+
+were replaced with a single `get_utility_context` oracle whose return value contains all the values returned from the removed oracles.
+
+If you have used one of these removed oracles before, update the import, e.g.:
+
+```diff
+- aztec::oracle::execution::get_chain_id;
++ aztec::oracle::execution::get_utility_context
+```
+
+and get the value out of the returned utility context:
+
+```diff
+- let chain_id = get_chain_id();
++ let chain_id = get_utility_context().chain_id();
+```
+
 ### Note emission API changes
 
 The note emission API has been significantly reworked to provide clearer semantics around message delivery guarantees. The key changes are:
@@ -53,9 +79,9 @@ The note emission API has been significantly reworked to provide clearer semanti
 2. `encode_and_encrypt_note_unconstrained` has been removed in favor of calling `emit` directly with `MessageDelivery.UNCONSTRAINED_ONCHAIN`
 3. `encode_and_encrypt_note_and_emit_as_offchain_message` has been removed in favor of using `emit` with `MessageDelivery.UNCONSTRAINED_OFFCHAIN`
 4. Note emission now takes a `delivery_mode` parameter with the following values:
-   - `CONSTRAINED_ONCHAIN`: For on-chain delivery with cryptographic guarantees that recipients can discover and decrypt messages. Uses constrained encryption but is slower to prove. Best for critical messages that contracts need to verify.
-   - `UNCONSTRAINED_ONCHAIN`: For on-chain delivery without encryption constraints. Faster proving but trusts the sender. Good when the sender is incentivized to perform encryption correctly (e.g. they are buying something and will only get it if the recipient sees the note). No guarantees that recipients will be able to find or decrypt messages.
-   - `UNCONSTRAINED_OFFCHAIN`: For off-chain delivery (e.g. cloud storage) without constraints. Lowest cost since no on-chain storage needed. Requires custom infrastructure for delivery. No guarantees that messages will be delivered or that recipients will ever find them.
+   - `CONSTRAINED_ONCHAIN`: For onchain delivery with cryptographic guarantees that recipients can discover and decrypt messages. Uses constrained encryption but is slower to prove. Best for critical messages that contracts need to verify.
+   - `UNCONSTRAINED_ONCHAIN`: For onchain delivery without encryption constraints. Faster proving but trusts the sender. Good when the sender is incentivized to perform encryption correctly (e.g. they are buying something and will only get it if the recipient sees the note). No guarantees that recipients will be able to find or decrypt messages.
+   - `UNCONSTRAINED_OFFCHAIN`: For offchain delivery (e.g. cloud storage) without constraints. Lowest cost since no onchain storage needed. Requires custom infrastructure for delivery. No guarantees that messages will be delivered or that recipients will ever find them.
 
 Example migration:
 
@@ -65,7 +91,7 @@ First you need to update imports in your contract:
 - aztec::messages::logs::note::encode_and_encrypt_note;
 - aztec::messages::logs::note::encode_and_encrypt_note_unconstrained;
 - aztec::messages::logs::note::encode_and_encrypt_note_and_emit_as_offchain_message;
-+ aztec::event::event_interface::MessageDelivery;
++ aztec::messages::message_delivery::MessageDelivery;
 ```
 
 Then update the emissions:
@@ -96,9 +122,9 @@ The private event emission API has been significantly reworked to provide cleare
 1. `emit_event_in_private_log` has been renamed to `emit_event_in_private` and now takes a `delivery_mode` parameter instead of `constraints`
 2. `emit_event_as_offchain_message` has been removed in favor of using `emit_event_in_private` with `MessageDelivery.UNCONSTRAINED_OFFCHAIN`
 3. `PrivateLogContent` enum has been replaced with `MessageDelivery` enum with the following values:
-   - `CONSTRAINED_ONCHAIN`: For on-chain delivery with cryptographic guarantees (replaces `CONSTRAINED_ENCRYPTION`)
-   - `UNCONSTRAINED_OFFCHAIN`: For off-chain delivery without constraints
-   - `UNCONSTRAINED_ONCHAIN`: For on-chain delivery without constraints (replaces `NO_CONSTRAINTS`)
+   - `CONSTRAINED_ONCHAIN`: For onchain delivery with cryptographic guarantees that recipients can discover and decrypt messages. Uses constrained encryption but is slower to prove. Best for critical messages that contracts need to verify.
+   - `UNCONSTRAINED_ONCHAIN`: For onchain delivery without encryption constraints. Faster proving but trusts the sender. Good when the sender is incentivized to perform encryption correctly (e.g. they are buying something and will only get it if the recipient sees the note). No guarantees that recipients will be able to find or decrypt messages.
+   - `UNCONSTRAINED_OFFCHAIN`: For offchain delivery (e.g. cloud storage) without constraints. Lowest cost since no onchain storage needed. Requires custom infrastructure for delivery. No guarantees that messages will be delivered or that recipients will ever find them.
 
 ### Contract functions can no longer be `pub` or `pub(crate)`
 
@@ -484,7 +510,7 @@ Aztec contracts have three kinds of functions: `#[private]`, `#[public]` and wha
     }
 ```
 
-Utility functions are standalone unconstrained functions that cannot be called from private or public functions: they are meant to be called by _applications_ to perform auxiliary tasks: query contract state (e.g. a token balance), process messages received off-chain, etc.
+Utility functions are standalone unconstrained functions that cannot be called from private or public functions: they are meant to be called by _applications_ to perform auxiliary tasks: query contract state (e.g. a token balance), process messages received offchain, etc.
 
 All functions in a `contract` block must now be marked as one of either `#[private]`, `#[public]`, `#[utility]`, `#[contract_library_method]`, or `#[test]`.
 

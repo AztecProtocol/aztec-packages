@@ -25,7 +25,10 @@
 
 namespace bb::avm2 {
 
-INSTANTIATE_LOOKUP(lookup_bc_hashing_get_packed_field_relation);
-INSTANTIATE_LOOKUP(lookup_bc_hashing_iv_is_len_relation);
+INSTANTIATE_LOOKUP(lookup_bc_hashing_get_packed_field_0_relation);
+INSTANTIATE_LOOKUP(lookup_bc_hashing_get_packed_field_1_relation);
+INSTANTIATE_LOOKUP(lookup_bc_hashing_get_packed_field_2_relation);
+INSTANTIATE_LOOKUP(lookup_bc_hashing_check_final_bytes_remaining_relation);
+INSTANTIATE_LOOKUP(lookup_bc_hashing_poseidon2_hash_relation);
 
 } // namespace bb::avm2

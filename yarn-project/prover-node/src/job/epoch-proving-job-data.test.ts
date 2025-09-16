@@ -30,7 +30,6 @@ describe('EpochProvingJobData', () => {
 
     const serialized = serializeEpochProvingJobData(jobData);
     const deserialized = deserializeEpochProvingJobData(serialized);
-    deserialized.attestations.forEach(a => a.signature.getSize());
     expect(deserialized).toEqual(jobData);
   });
 });

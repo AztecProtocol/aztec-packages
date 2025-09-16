@@ -233,6 +233,7 @@ contract Governance is IGovernance {
    * @dev Modifier to ensure that the beneficiary is allowed to hold power in Governance.
    */
   modifier isDepositAllowed(address _beneficiary) {
+    require(msg.sender != address(this), Errors.Governance__CallerCannotBeSelf());
     require(
       depositControl.allBeneficiariesAllowed || depositControl.isAllowed[_beneficiary],
       Errors.Governance__DepositNotAllowed()

@@ -120,7 +120,7 @@ Aztec contracts have three kinds of functions: `#[private]`, `#[public]` and wha
     }
 ```
 
-Utility functions are standalone unconstrained functions that cannot be called from private or public functions: they are meant to be called by _applications_ to perform auxiliary tasks: query contract state (e.g. a token balance), process messages received off-chain, etc.
+Utility functions are standalone unconstrained functions that cannot be called from private or public functions: they are meant to be called by _applications_ to perform auxiliary tasks: query contract state (e.g. a token balance), process messages received offchain, etc.
 
 All functions in a `contract` block must now be marked as one of either `#[private]`, `#[public]`, `#[utility]`, `#[contract_library_method]`, or `#[test]`.
 
@@ -2447,7 +2447,7 @@ This will be further simplified in future versions (See [4496](https://github.co
 
 The prelude consists of
 
-```rust title="prelude" showLineNumbers 
+```rust title="prelude" showLineNumbers
 pub use crate::{
     context::{PrivateContext, PublicContext, ReturnsHash},
     note::{

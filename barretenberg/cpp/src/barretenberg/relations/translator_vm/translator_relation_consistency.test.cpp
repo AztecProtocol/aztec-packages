@@ -912,7 +912,10 @@ TEST_F(TranslatorRelationConsistency, ZeroConstraintsRelation)
         const auto& relation_wide_limbs_range_constraint_1 = input_elements.relation_wide_limbs_range_constraint_1;
         const auto& relation_wide_limbs_range_constraint_2 = input_elements.relation_wide_limbs_range_constraint_2;
         const auto& relation_wide_limbs_range_constraint_3 = input_elements.relation_wide_limbs_range_constraint_3;
-
+        const auto& op = input_elements.op;
+        const auto& x_lo_y_hi = input_elements.x_lo_y_hi;
+        const auto& x_hi_z_1 = input_elements.x_hi_z_1;
+        const auto& y_lo_z_2 = input_elements.y_lo_z_2;
         const auto& lagrange_odd_in_minicircuit = input_elements.lagrange_odd_in_minicircuit;
         const auto& lagrange_even_in_minicircuit = input_elements.lagrange_even_in_minicircuit;
         const auto& lagrange_mini_masking = input_elements.lagrange_mini_masking;
@@ -1049,6 +1052,14 @@ TEST_F(TranslatorRelationConsistency, ZeroConstraintsRelation)
                               (lagrange_mini_masking - FF(1)) * quotient_low_limbs_range_constraint_tail;
         expected_values[63] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
                               (lagrange_mini_masking - FF(1)) * quotient_high_limbs_range_constraint_tail;
+        expected_values[64] =
+            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * (lagrange_mini_masking - FF(1)) * op;
+        expected_values[65] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * x_lo_y_hi;
+        expected_values[66] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * x_hi_z_1;
+        expected_values[67] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * y_lo_z_2;
 
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };

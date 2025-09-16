@@ -1,5 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { EthAddressHex, EthPrivateKey } from '@aztec/node-keystore';
+import type { EthPrivateKey } from '@aztec/node-keystore';
 
 import { generatePrivateKey, privateKeyToAddress } from 'viem/accounts';
 
@@ -8,21 +8,21 @@ import { type ProverNodeConfig, createKeyStoreForProver } from './config.js';
 describe('createKeyStoreForProver', () => {
   const mockKey1 = generatePrivateKey() as EthPrivateKey;
   const mockKey2 = generatePrivateKey() as EthPrivateKey;
-  const mockAddresses = [mockKey1, mockKey2].map(privateKey => privateKeyToAddress(privateKey) as EthAddressHex);
-  const mockProverId = EthAddress.random().toString() as EthAddressHex;
+  const mockAddresses = [mockKey1, mockKey2].map(privateKey => EthAddress.fromString(privateKeyToAddress(privateKey)));
+  const mockProverId = EthAddress.random();
   const mockSignerUrl = 'http://web3signer:1000';
 
   const createMockConfig = (
     publisherPrivateKeys: string[] = [],
-    proverId?: EthAddressHex,
-    publisherAddresses: string[] = [],
+    proverId?: EthAddress,
+    publisherAddresses: EthAddress[] = [],
     web3SignerUrl?: string,
   ): ProverNodeConfig => {
     const mockValue = (val: string) => ({ getValue: () => val });
     return {
       publisherPrivateKeys: publisherPrivateKeys.map(mockValue),
       proverId,
-      publisherAddresses: publisherAddresses.map(addr => EthAddress.fromString(addr)),
+      publisherAddresses,
       web3SignerUrl,
     } as ProverNodeConfig;
   };

@@ -27,7 +27,9 @@ export async function bulkTest(
   // for it to use as "expected" values when testing contract instance retrieval.
   const expectContractInstance = avmTestContract;
   const argsField = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-  const argsU8 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
+  const argsU8 = [1, 2, 3, 4, 5, 6, 7, 8].map(x => new Fr(x));
+  argsU8.push(new Fr(2n ** 128n + 9n)); // Trigger truncation from large (> 128 bits) value (canonical decomposition event)
+  argsU8.push(new Fr(2n ** 125n + 10n)); // Trigger truncation from small (< 128 bits) value (no canonical decomposition event)
   const args = [
     argsField,
     argsU8,
@@ -97,12 +99,6 @@ export async function megaBulkTest(
   const argsField6 = [7, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
   const argsField7 = [8, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
   const argsField8 = [9, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-  const argsField9 = [10, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-  const argsField10 = [11, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-  const argsField11 = [12, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-  const argsField12 = [13, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-  const argsField13 = [14, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-  const argsField14 = [15, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
   const argsU8 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
   const genArgs = (argsField: Fr[]) => [
     argsField,
@@ -129,12 +125,6 @@ export async function megaBulkTest(
       { address: avmTestContract.address, fnName: 'bulk_testing', args: genArgs(argsField6) },
       { address: avmTestContract.address, fnName: 'bulk_testing', args: genArgs(argsField7) },
       { address: avmTestContract.address, fnName: 'bulk_testing', args: genArgs(argsField8) },
-      { address: avmTestContract.address, fnName: 'bulk_testing', args: genArgs(argsField9) },
-      { address: avmTestContract.address, fnName: 'bulk_testing', args: genArgs(argsField10) },
-      { address: avmTestContract.address, fnName: 'bulk_testing', args: genArgs(argsField11) },
-      { address: avmTestContract.address, fnName: 'bulk_testing', args: genArgs(argsField12) },
-      { address: avmTestContract.address, fnName: 'bulk_testing', args: genArgs(argsField13) },
-      { address: avmTestContract.address, fnName: 'bulk_testing', args: genArgs(argsField14) },
     ],
     /*teardownCall=*/ undefined,
     /*feePayer*/ undefined,

@@ -35,27 +35,6 @@ template <typename FF> class update_check : public Relation<update_checkImpl<FF>
   public:
     static constexpr const std::string_view NAME = "update_check";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 7:
-            return "HASH_IS_ZERO_CHECK";
-        case 8:
-            return "NEVER_UPDATED_CHECK";
-        case 11:
-            return "UPDATE_METADATA_DECOMPOSITION";
-        case 13:
-            return "UPDATE_PRE_CLASS_IS_ZERO";
-        case 15:
-            return "UPDATE_POST_CLASS_IS_ZERO";
-        case 16:
-            return "FUTURE_UPDATE_CLASS_ID_ASSIGNMENT";
-        case 17:
-            return "PAST_UPDATE_CLASS_ID_ASSIGNMENT";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_HASH_IS_ZERO_CHECK = 7;
     static constexpr size_t SR_NEVER_UPDATED_CHECK = 8;
@@ -64,6 +43,27 @@ template <typename FF> class update_check : public Relation<update_checkImpl<FF>
     static constexpr size_t SR_UPDATE_POST_CLASS_IS_ZERO = 15;
     static constexpr size_t SR_FUTURE_UPDATE_CLASS_ID_ASSIGNMENT = 16;
     static constexpr size_t SR_PAST_UPDATE_CLASS_ID_ASSIGNMENT = 17;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_HASH_IS_ZERO_CHECK:
+            return "HASH_IS_ZERO_CHECK";
+        case SR_NEVER_UPDATED_CHECK:
+            return "NEVER_UPDATED_CHECK";
+        case SR_UPDATE_METADATA_DECOMPOSITION:
+            return "UPDATE_METADATA_DECOMPOSITION";
+        case SR_UPDATE_PRE_CLASS_IS_ZERO:
+            return "UPDATE_PRE_CLASS_IS_ZERO";
+        case SR_UPDATE_POST_CLASS_IS_ZERO:
+            return "UPDATE_POST_CLASS_IS_ZERO";
+        case SR_FUTURE_UPDATE_CLASS_ID_ASSIGNMENT:
+            return "FUTURE_UPDATE_CLASS_ID_ASSIGNMENT";
+        case SR_PAST_UPDATE_CLASS_ID_ASSIGNMENT:
+            return "PAST_UPDATE_CLASS_ID_ASSIGNMENT";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

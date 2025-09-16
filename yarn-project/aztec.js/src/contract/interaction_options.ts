@@ -1,5 +1,4 @@
 import type { UserFeeOptions } from '@aztec/entrypoints/interfaces';
-import type { Fr } from '@aztec/foundation/fields';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { Capsule } from '@aztec/stdlib/tx';
@@ -23,17 +22,6 @@ export type SendMethodOptions = RequestMethodOptions & {
   from: AztecAddress;
   /** The fee options for the transaction. */
   fee?: UserFeeOptions;
-  /**
-   * A nonce to inject into the app payload of the transaction. When used with cancellable=true, this nonce will be
-   * used to compute a nullifier that allows cancelling this transaction by submitting a new one with the same nonce
-   * but higher fee. The nullifier ensures only one transaction can succeed.
-   */
-  txNonce?: Fr;
-  /**
-   * Whether the transaction can be cancelled by submitting a new transaction with the same txNonce but
-   * higher fee.
-   */
-  cancellable?: boolean;
 };
 
 /**
@@ -41,10 +29,7 @@ export type SendMethodOptions = RequestMethodOptions & {
  * Allows specifying the address from which the method should be called.
  * Disregarded for simulation of public functions
  */
-export type SimulateMethodOptions = Pick<
-  SendMethodOptions,
-  'from' | 'authWitnesses' | 'capsules' | 'fee' | 'txNonce' | 'cancellable'
-> & {
+export type SimulateMethodOptions = Pick<SendMethodOptions, 'from' | 'authWitnesses' | 'capsules' | 'fee'> & {
   /** Simulate without checking for the validity of the resulting transaction, e.g. whether it emits any existing nullifiers. */
   skipTxValidation?: boolean;
   /** Whether to ensure the fee payer is not empty and has enough balance to pay for the fee. */

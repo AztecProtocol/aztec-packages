@@ -14,8 +14,8 @@ template <typename FF_> class bitwiseImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 21> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 5, 5, 3,
-                                                                            4, 4, 5, 3, 3, 3, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 23> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 5,
+                                                                            3, 4, 4, 5, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -35,56 +35,56 @@ template <typename FF> class bitwise : public Relation<bitwiseImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "bitwise";
 
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_LAST_ON_ERROR = 8;
+    static constexpr size_t SR_RES_TAG_SHOULD_MATCH_INPUT = 9;
+    static constexpr size_t SR_INPUT_TAG_CANNOT_BE_FF = 10;
+    static constexpr size_t SR_INPUT_TAGS_SHOULD_MATCH = 11;
+    static constexpr size_t SR_BITW_OP_ID_REL = 12;
+    static constexpr size_t SR_BITW_CTR_DECREMENT = 13;
+    static constexpr size_t SR_BITW_SEL_CTR_NON_ZERO = 14;
+    static constexpr size_t SR_BITW_LAST_FOR_CTR_ONE = 15;
+    static constexpr size_t SR_BITW_INIT_A = 16;
+    static constexpr size_t SR_BITW_INIT_B = 17;
+    static constexpr size_t SR_BITW_INIT_C = 18;
+    static constexpr size_t SR_BITW_ACC_REL_A = 19;
+    static constexpr size_t SR_BITW_ACC_REL_B = 20;
+    static constexpr size_t SR_BITW_ACC_REL_C = 21;
+
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case 6:
+        case SR_LAST_ON_ERROR:
             return "LAST_ON_ERROR";
-        case 7:
+        case SR_RES_TAG_SHOULD_MATCH_INPUT:
             return "RES_TAG_SHOULD_MATCH_INPUT";
-        case 8:
+        case SR_INPUT_TAG_CANNOT_BE_FF:
             return "INPUT_TAG_CANNOT_BE_FF";
-        case 9:
+        case SR_INPUT_TAGS_SHOULD_MATCH:
             return "INPUT_TAGS_SHOULD_MATCH";
-        case 10:
+        case SR_BITW_OP_ID_REL:
             return "BITW_OP_ID_REL";
-        case 11:
+        case SR_BITW_CTR_DECREMENT:
             return "BITW_CTR_DECREMENT";
-        case 12:
+        case SR_BITW_SEL_CTR_NON_ZERO:
             return "BITW_SEL_CTR_NON_ZERO";
-        case 13:
+        case SR_BITW_LAST_FOR_CTR_ONE:
             return "BITW_LAST_FOR_CTR_ONE";
-        case 14:
+        case SR_BITW_INIT_A:
             return "BITW_INIT_A";
-        case 15:
+        case SR_BITW_INIT_B:
             return "BITW_INIT_B";
-        case 16:
+        case SR_BITW_INIT_C:
             return "BITW_INIT_C";
-        case 17:
+        case SR_BITW_ACC_REL_A:
             return "BITW_ACC_REL_A";
-        case 18:
+        case SR_BITW_ACC_REL_B:
             return "BITW_ACC_REL_B";
-        case 19:
+        case SR_BITW_ACC_REL_C:
             return "BITW_ACC_REL_C";
         }
         return std::to_string(index);
     }
-
-    // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_LAST_ON_ERROR = 6;
-    static constexpr size_t SR_RES_TAG_SHOULD_MATCH_INPUT = 7;
-    static constexpr size_t SR_INPUT_TAG_CANNOT_BE_FF = 8;
-    static constexpr size_t SR_INPUT_TAGS_SHOULD_MATCH = 9;
-    static constexpr size_t SR_BITW_OP_ID_REL = 10;
-    static constexpr size_t SR_BITW_CTR_DECREMENT = 11;
-    static constexpr size_t SR_BITW_SEL_CTR_NON_ZERO = 12;
-    static constexpr size_t SR_BITW_LAST_FOR_CTR_ONE = 13;
-    static constexpr size_t SR_BITW_INIT_A = 14;
-    static constexpr size_t SR_BITW_INIT_B = 15;
-    static constexpr size_t SR_BITW_INIT_C = 16;
-    static constexpr size_t SR_BITW_ACC_REL_A = 17;
-    static constexpr size_t SR_BITW_ACC_REL_B = 18;
-    static constexpr size_t SR_BITW_ACC_REL_C = 19;
 };
 
 } // namespace bb::avm2

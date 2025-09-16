@@ -3,7 +3,7 @@ use crate::messages::{
         ComputeNoteHashAndNullifier, partial_notes::process_partial_note_private_msg,
         private_events::process_private_event_msg, private_notes::process_private_note_msg,
     },
-    encoding::decode_message,
+    encoding::{decode_message, MESSAGE_CIPHERTEXT_LEN},
     encryption::{aes128::AES128, log_encryption::LogEncryption},
     msg_type::{
         PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID, PRIVATE_EVENT_MSG_TYPE_ID, PRIVATE_NOTE_MSG_TYPE_ID,
@@ -11,11 +11,7 @@ use crate::messages::{
     processing::message_context::MessageContext,
 };
 
-use protocol_types::{
-    address::AztecAddress,
-    constants::PRIVATE_LOG_CIPHERTEXT_LEN,
-    debug_log::{debug_log, debug_log_format},
-};
+use protocol_types::{address::AztecAddress, debug_log::{debug_log, debug_log_format}};
 
 /// Processes a message that can contain notes, partial notes, or events.
 ///
@@ -32,7 +28,7 @@ use protocol_types::{
 pub unconstrained fn do_process_message<Env>(
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
-    message_ciphertext: BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>,
+    message_ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
     message_context: MessageContext,
 ) {
     let message = AES128::decrypt_log(message_ciphertext, message_context.recipient);

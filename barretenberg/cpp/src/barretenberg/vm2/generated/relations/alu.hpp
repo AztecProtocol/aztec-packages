@@ -37,79 +37,6 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "alu";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 4:
-            return "ERR_CHECK";
-        case 5:
-            return "OP_ID_CHECK";
-        case 6:
-            return "TAG_IS_FF";
-        case 7:
-            return "TAG_IS_U128";
-        case 8:
-            return "C_TAG_CHECK";
-        case 11:
-            return "TAG_ERR_CHECK";
-        case 12:
-            return "AB_TAGS_CHECK";
-        case 14:
-            return "A_DECOMPOSITION";
-        case 15:
-            return "B_DECOMPOSITION";
-        case 17:
-            return "A_LO_BITS";
-        case 18:
-            return "A_HI_BITS";
-        case 21:
-            return "ALU_ADD_SUB";
-        case 23:
-            return "ALU_MUL_NON_U128";
-        case 25:
-            return "ALU_MUL_U128";
-        case 29:
-            return "ALU_DIV_U128_CHECK";
-        case 30:
-            return "ALU_DIV_U128";
-        case 33:
-            return "DIV_0_ERR";
-        case 34:
-            return "ALU_FDIV_DIV_NON_U128";
-        case 36:
-            return "EQ_OP_MAIN";
-        case 42:
-            return "LT_SWAP_INPUTS_A";
-        case 43:
-            return "LT_SWAP_INPUTS_B";
-        case 44:
-            return "LTE_NEGATE_RESULT_C";
-        case 46:
-            return "NOT_OP_MAIN";
-        case 47:
-            return "SHL_TWO_POW_SHIFT";
-        case 48:
-            return "ALU_SHL";
-        case 49:
-            return "ALU_SHR";
-        case 52:
-            return "SHIFTS_LO_BITS";
-        case 57:
-            return "SEL_TRUNC_NON_TRIVIAL";
-        case 58:
-            return "SEL_TRUNCATE";
-        case 59:
-            return "TRUNC_TRIVIAL_CASE";
-        case 60:
-            return "SMALL_TRUNC_VAL_IS_LO";
-        case 61:
-            return "TRUNC_LO_128_DECOMPOSITION";
-        case 62:
-            return "TRUNC_MID_BITS";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_ERR_CHECK = 4;
     static constexpr size_t SR_OP_ID_CHECK = 5;
@@ -144,6 +71,79 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
     static constexpr size_t SR_SMALL_TRUNC_VAL_IS_LO = 60;
     static constexpr size_t SR_TRUNC_LO_128_DECOMPOSITION = 61;
     static constexpr size_t SR_TRUNC_MID_BITS = 62;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_ERR_CHECK:
+            return "ERR_CHECK";
+        case SR_OP_ID_CHECK:
+            return "OP_ID_CHECK";
+        case SR_TAG_IS_FF:
+            return "TAG_IS_FF";
+        case SR_TAG_IS_U128:
+            return "TAG_IS_U128";
+        case SR_C_TAG_CHECK:
+            return "C_TAG_CHECK";
+        case SR_TAG_ERR_CHECK:
+            return "TAG_ERR_CHECK";
+        case SR_AB_TAGS_CHECK:
+            return "AB_TAGS_CHECK";
+        case SR_A_DECOMPOSITION:
+            return "A_DECOMPOSITION";
+        case SR_B_DECOMPOSITION:
+            return "B_DECOMPOSITION";
+        case SR_A_LO_BITS:
+            return "A_LO_BITS";
+        case SR_A_HI_BITS:
+            return "A_HI_BITS";
+        case SR_ALU_ADD_SUB:
+            return "ALU_ADD_SUB";
+        case SR_ALU_MUL_NON_U128:
+            return "ALU_MUL_NON_U128";
+        case SR_ALU_MUL_U128:
+            return "ALU_MUL_U128";
+        case SR_ALU_DIV_U128_CHECK:
+            return "ALU_DIV_U128_CHECK";
+        case SR_ALU_DIV_U128:
+            return "ALU_DIV_U128";
+        case SR_DIV_0_ERR:
+            return "DIV_0_ERR";
+        case SR_ALU_FDIV_DIV_NON_U128:
+            return "ALU_FDIV_DIV_NON_U128";
+        case SR_EQ_OP_MAIN:
+            return "EQ_OP_MAIN";
+        case SR_LT_SWAP_INPUTS_A:
+            return "LT_SWAP_INPUTS_A";
+        case SR_LT_SWAP_INPUTS_B:
+            return "LT_SWAP_INPUTS_B";
+        case SR_LTE_NEGATE_RESULT_C:
+            return "LTE_NEGATE_RESULT_C";
+        case SR_NOT_OP_MAIN:
+            return "NOT_OP_MAIN";
+        case SR_SHL_TWO_POW_SHIFT:
+            return "SHL_TWO_POW_SHIFT";
+        case SR_ALU_SHL:
+            return "ALU_SHL";
+        case SR_ALU_SHR:
+            return "ALU_SHR";
+        case SR_SHIFTS_LO_BITS:
+            return "SHIFTS_LO_BITS";
+        case SR_SEL_TRUNC_NON_TRIVIAL:
+            return "SEL_TRUNC_NON_TRIVIAL";
+        case SR_SEL_TRUNCATE:
+            return "SEL_TRUNCATE";
+        case SR_TRUNC_TRIVIAL_CASE:
+            return "TRUNC_TRIVIAL_CASE";
+        case SR_SMALL_TRUNC_VAL_IS_LO:
+            return "SMALL_TRUNC_VAL_IS_LO";
+        case SR_TRUNC_LO_128_DECOMPOSITION:
+            return "TRUNC_LO_128_DECOMPOSITION";
+        case SR_TRUNC_MID_BITS:
+            return "TRUNC_MID_BITS";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

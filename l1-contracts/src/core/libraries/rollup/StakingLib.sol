@@ -84,6 +84,7 @@ struct StakingStorage {
   CompressedStakingQueueConfig queueConfig;
   StakingQueue entryQueue;
   Epoch nextFlushableEpoch;
+  uint256 localEjectionThreshold;
 }
 
 library StakingLib {
@@ -103,7 +104,8 @@ library StakingLib {
     GSE _gse,
     Timestamp _exitDelay,
     address _slasher,
-    StakingQueueConfig memory _config
+    StakingQueueConfig memory _config,
+    uint256 _localEjectionThreshold
   ) internal {
     StakingStorage storage store = getStorage();
     store.stakingAsset = _stakingAsset;
@@ -112,6 +114,7 @@ library StakingLib {
     store.slasher = _slasher;
     store.queueConfig = _config.compress();
     store.entryQueue.init();
+    store.localEjectionThreshold = _localEjectionThreshold;
   }
 
   function setSlasher(address _slasher) internal {
@@ -121,6 +124,15 @@ library StakingLib {
     store.slasher = _slasher;
 
     emit IStakingCore.SlasherUpdated(oldSlasher, _slasher);
+  }
+
+  function setLocalEjectionThreshold(uint256 _localEjectionThreshold) internal {
+    StakingStorage storage store = getStorage();
+
+    uint256 oldLocalEjectionThreshold = store.localEjectionThreshold;
+    store.localEjectionThreshold = _localEjectionThreshold;
+
+    emit IStakingCore.LocalEjectionThresholdUpdated(oldLocalEjectionThreshold, _localEjectionThreshold);
   }
 
   /**
@@ -181,7 +193,7 @@ library StakingLib {
     delete store.exits[_attester];
 
     store.gse.finalizeWithdraw(exit.withdrawalId);
-    store.stakingAsset.transfer(exit.recipientOrWithdrawer, exit.amount);
+    store.stakingAsset.safeTransfer(exit.recipientOrWithdrawer, exit.amount);
 
     emit IStakingCore.WithdrawFinalized(_attester, exit.recipientOrWithdrawer, exit.amount);
   }
@@ -231,8 +243,11 @@ library StakingLib {
 
       // If the slash amount is greater than the effective balance, bound it to the effective balance
       uint256 slashAmount = Math.min(_amount, effectiveBalance);
+      // The `localEjectionThreshold` might be stricter (larger) than the global (gse ejection threshold)
+      uint256 toWithdraw =
+        effectiveBalance - slashAmount < store.localEjectionThreshold ? effectiveBalance : slashAmount;
 
-      (uint256 amountWithdrawn, bool isRemoved, uint256 withdrawalId) = store.gse.withdraw(_attester, slashAmount);
+      (uint256 amountWithdrawn, bool isRemoved, uint256 withdrawalId) = store.gse.withdraw(_attester, toWithdraw);
 
       // The slashed amount remains in the contract permanently, effectively burning those tokens.
       uint256 toUser = amountWithdrawn - slashAmount;
@@ -282,7 +297,7 @@ library StakingLib {
     require(!store.exits[_attester].exists, Errors.Staking__AlreadyExiting(_attester));
     uint256 amount = store.gse.ACTIVATION_THRESHOLD();
 
-    store.stakingAsset.transferFrom(msg.sender, address(this), amount);
+    store.stakingAsset.safeTransferFrom(msg.sender, address(this), amount);
     store.entryQueue.enqueue(
       _attester, _withdrawer, _publicKeyInG1, _publicKeyInG2, _proofOfPossession, _moveWithLatestRollup
     );
@@ -354,7 +369,7 @@ library StakingLib {
         //    where someone could drain the queue without making any deposits.
         //    We can safely assume data.length == 0 means out of gas since we only call trusted GSE contract.
         require(data.length > 0, Errors.Staking__DepositOutOfGas());
-        store.stakingAsset.transfer(args.withdrawer, amount);
+        store.stakingAsset.safeTransfer(args.withdrawer, amount);
         emit IStakingCore.FailedDeposit(
           args.attester, args.withdrawer, args.publicKeyInG1, args.publicKeyInG2, args.proofOfPossession
         );

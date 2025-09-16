@@ -34,27 +34,6 @@ template <typename FF> class get_env_var : public Relation<get_env_varImpl<FF>> 
   public:
     static constexpr const std::string_view NAME = "get_env_var";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 0:
-            return "FROM_PUBLIC_INPUTS";
-        case 1:
-            return "ADDRESS_FROM_CONTEXT";
-        case 2:
-            return "SENDER_FROM_CONTEXT";
-        case 3:
-            return "TRANSACTION_FEE_FROM_CONTEXT";
-        case 4:
-            return "ISSTATICCALL_FROM_CONTEXT";
-        case 5:
-            return "L2GASLEFT_FROM_GAS";
-        case 6:
-            return "DAGASLEFT_FROM_GAS";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_FROM_PUBLIC_INPUTS = 0;
     static constexpr size_t SR_ADDRESS_FROM_CONTEXT = 1;
@@ -63,6 +42,27 @@ template <typename FF> class get_env_var : public Relation<get_env_varImpl<FF>> 
     static constexpr size_t SR_ISSTATICCALL_FROM_CONTEXT = 4;
     static constexpr size_t SR_L2GASLEFT_FROM_GAS = 5;
     static constexpr size_t SR_DAGASLEFT_FROM_GAS = 6;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_FROM_PUBLIC_INPUTS:
+            return "FROM_PUBLIC_INPUTS";
+        case SR_ADDRESS_FROM_CONTEXT:
+            return "ADDRESS_FROM_CONTEXT";
+        case SR_SENDER_FROM_CONTEXT:
+            return "SENDER_FROM_CONTEXT";
+        case SR_TRANSACTION_FEE_FROM_CONTEXT:
+            return "TRANSACTION_FEE_FROM_CONTEXT";
+        case SR_ISSTATICCALL_FROM_CONTEXT:
+            return "ISSTATICCALL_FROM_CONTEXT";
+        case SR_L2GASLEFT_FROM_GAS:
+            return "L2GASLEFT_FROM_GAS";
+        case SR_DAGASLEFT_FROM_GAS:
+            return "DAGASLEFT_FROM_GAS";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

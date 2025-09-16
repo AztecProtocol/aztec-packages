@@ -71,6 +71,7 @@ async function createEmpireSlasher(
     l1GenesisTime,
     slotDuration,
     l1StartBlock,
+    slasher,
   ] = await Promise.all([
     slashingProposer.getExecutionDelayInRounds(),
     slashingProposer.getLifetimeInRounds(),
@@ -81,6 +82,7 @@ async function createEmpireSlasher(
     rollup.getL1GenesisTime(),
     rollup.getSlotDuration(),
     rollup.getL1StartBlock(),
+    rollup.getSlasherContract(),
   ]);
 
   const settings: EmpireSlasherSettings = {
@@ -110,6 +112,7 @@ async function createEmpireSlasher(
     settings,
     slashFactoryContract,
     slashingProposer,
+    slasher!,
     rollup,
     watchers,
     dateProvider,
@@ -134,6 +137,7 @@ async function createTallySlasher(
   }
 
   const settings = await getTallySlasherSettings(rollup, slashingProposer);
+  const slasher = await rollup.getSlasherContract();
 
   const offensesStore = new SlasherOffensesStore(kvStore, {
     ...settings,
@@ -144,6 +148,7 @@ async function createTallySlasher(
     config,
     settings,
     slashingProposer,
+    slasher!,
     rollup,
     watchers,
     epochCache,

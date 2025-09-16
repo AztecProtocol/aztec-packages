@@ -39,7 +39,7 @@ export function loadKeystoreFile(filePath: string): KeyStore {
     const content = readFileSync(filePath, 'utf-8');
 
     // Parse JSON and validate with Zod schema (following Aztec patterns)
-    return keystoreSchema.parse(JSON.parse(content)) as KeyStore;
+    return keystoreSchema.parse(JSON.parse(content));
   } catch (error) {
     if (error instanceof SyntaxError) {
       throw new KeyStoreLoadError('Invalid JSON format', filePath, error);

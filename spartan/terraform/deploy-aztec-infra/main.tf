@@ -43,6 +43,9 @@ locals {
 
   internal_boot_node_url = var.DEPLOY_INTERNAL_BOOTNODE ? "http://${var.RELEASE_PREFIX}-p2p-bootstrap-node.${var.NAMESPACE}.svc.cluster.local:8080" : ""
 
+  internal_rpc_url       = "http://${var.RELEASE_PREFIX}-rpc-aztec-node.${var.NAMESPACE}.svc.cluster.local:8080"
+  internal_rpc_admin_url = "http://${var.RELEASE_PREFIX}-rpc-aztec-node-admin.${var.NAMESPACE}.svc.cluster.local:8880"
+
   # Common settings for all releases
   common_settings = {
     "global.aztecImage.repository"                             = local.aztec_image.repository
@@ -64,6 +67,19 @@ locals {
 
   # Define all releases in a map
   helm_releases = {
+    snapshot = var.STORE_SNAPSHOT_URL != null ? {
+      name   = "${var.RELEASE_PREFIX}-snapshot"
+      chart  = "aztec-snapshots"
+      values = []
+      custom_settings = {
+        "snapshots.aztecNodeAdminUrl" = local.internal_rpc_admin_url
+        "snapshots.uploadLocation"    = var.STORE_SNAPSHOT_URL
+        "snapshots.frequency"         = var.SNAPSHOT_CRON
+      }
+      boot_node_host_path  = ""
+      bootstrap_nodes_path = ""
+    } : null
+
     p2p_bootstrap = var.DEPLOY_INTERNAL_BOOTNODE ? {
       name  = "${var.RELEASE_PREFIX}-p2p-bootstrap"
       chart = "aztec-node"
@@ -75,7 +91,8 @@ locals {
       custom_settings = {
         "nodeType" = "p2p-bootstrap"
       }
-      boot_node_path = ""
+      boot_node_host_path  = ""
+      bootstrap_nodes_path = ""
     } : null
 
     validators = {
@@ -149,6 +166,46 @@ locals {
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
     }
+
+    # Optional: transfer bots
+    bot_transfers = var.BOT_TRANSFERS_REPLICAS > 0 ? {
+      name  = "${var.RELEASE_PREFIX}-bot-transfers"
+      chart = "aztec-bot"
+      values = [
+        "common.yaml",
+        "bot-token-transfer.yaml",
+        "bot-resources-${var.BOT_RESOURCE_PROFILE}.yaml",
+      ]
+      custom_settings = {
+        "bot.replicaCount"      = var.BOT_TRANSFERS_REPLICAS
+        "bot.txIntervalSeconds" = var.BOT_TRANSFERS_TX_INTERVAL_SECONDS
+        "bot.followChain"       = var.BOT_TRANSFERS_FOLLOW_CHAIN
+        "bot.botPrivateKey"     = var.BOT_TRANSFERS_PRIVATE_KEY
+        "bot.nodeUrl"           = local.internal_rpc_url
+      }
+      boot_node_host_path  = ""
+      bootstrap_nodes_path = ""
+    } : null
+
+    # Optional: AMM swap bots
+    bot_swaps = var.BOT_SWAPS_REPLICAS > 0 ? {
+      name  = "${var.RELEASE_PREFIX}-bot-swaps"
+      chart = "aztec-bot"
+      values = [
+        "common.yaml",
+        "bot-amm-swaps.yaml",
+        "bot-resources-${var.BOT_RESOURCE_PROFILE}.yaml",
+      ]
+      custom_settings = {
+        "bot.replicaCount"      = var.BOT_SWAPS_REPLICAS
+        "bot.txIntervalSeconds" = var.BOT_SWAPS_TX_INTERVAL_SECONDS
+        "bot.followChain"       = var.BOT_SWAPS_FOLLOW_CHAIN
+        "bot.botPrivateKey"     = var.BOT_SWAPS_PRIVATE_KEY
+        "bot.nodeUrl"           = local.internal_rpc_url
+      }
+      boot_node_host_path  = ""
+      bootstrap_nodes_path = ""
+    } : null
   }
 }
 
@@ -165,7 +222,7 @@ resource "helm_release" "releases" {
   upgrade_install  = true
   force_update     = true
   recreate_pods    = true
-  reuse_values     = true
+  reuse_values     = false
   timeout          = 600
   wait             = true
   wait_for_jobs    = true
@@ -200,4 +257,3 @@ resource "helm_release" "releases" {
     }
   }
 }
-
