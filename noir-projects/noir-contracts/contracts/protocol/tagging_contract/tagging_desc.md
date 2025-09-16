@@ -17,17 +17,17 @@ So how does it work?
 
 ### STEP 3.a: Tagging for the first time
 1. We get the master tagging public key by calling a <span style="color:red;">newly introduced oracle</span> `get_master_tagging_public_key(sender, recipient, hidden_sender)`
-2. we sort the addresses (just like in the TaggingContract) and prove the handshake commitment exists: `prove_nullifier_inclusion(compute_siloed_nullifier(HANDSHAKING_CONTRACT_ADDRESS, poseidon2_hash(["AZTEC_NR::HANDSHAKE_SEPARATOR", master_tagging_public_key.x, master_tagging_public_key.y, address_0, address_1])));`
+2. we sort the addresses (just like in the TaggingContract) and prove the handshake commitment exists: `prove_nullifier_inclusion(compute_siloed_nullifier(TAGGING_CONTRACT_ADDRESS, poseidon2_hash(["AZTEC_NR::HANDSHAKE_SEPARATOR", master_tagging_public_key.x, master_tagging_public_key.y, address_0, address_1])));`
 3. we get the app-siloed secret with `let app_tagging_secret = context.request_tsk(master_tagging_public_key.hash())` <span style="color:red;">This requires implementing the request_tsk method on context and modifying PXE such that it feeds the correct master_tagging_secret_key to the kernel circuits for the key validation request</span>,
 4. we compute the directional app tagging secret as `let directional_app_tagging_secret = poseidon2_hash([app_tagging_secret, recipient]);`,
 4. we compute the tag as `poseidon2_hash([directional_app_tagging_secret, 0])`
-5. we compute and emit the `tag_nullifier = poseidon2_hash("AZTEC_NR::TAG_SEPARATOR", sender_nsk_app, recipient, app_tagging_secret, i = 0);`  *(--> the `sender_nsk_app` hides the contents of the nullifier, whilst keeping it deterministic)*
+5. we compute and emit the `tag_nullifier = poseidon2_hash("AZTEC_NR::TAG_SEPARATOR", sender_nsk_app, recipient, directional_app_tagging_secret, i = 0);`  *(--> the `sender_nsk_app` hides the contents of the nullifier, whilst keeping it deterministic)*
 6. ~~we increment the index in PXE by calling <span style="color:red;">newly introduced oracle</span> `increment_app_tagging_secret_index(app_tagging_secret)`~~ (realized this is not necessary, nor desirable, because we can brute force the index in PXE in step 3.b --> this will also makes it resistant to "vicious Mike throws your laptop into the ocean" attack)
 
 ### STEP 3.b: Tagging for subsequent rounds
-1. We call a <span style="color:red;">newly introduced `let [directional_app_tagging_secret, index] = get_tag_nullifier_preimage(sender, recipient, hidden_sender)` oracle</span> that brute forces the index (no key validation request is needed now because the `app_siloed_tagging_shared_secret` has been loaded from the preimage),
+1. We call a <span style="color:red;">newly introduced `let [directional_app_tagging_secret, index] = get_tag_nullifier_preimage(sender, recipient, hidden_sender)` oracle</span> that brute forces the index (no key validation request is needed now because the `app_siloed_tagging_shared_secret` has been loaded from the preimage) and we prove its inclusion,
 3. we compute the tag as `poseidon2_hash([directional_app_tagging_secret, index])`
-4. the tag nullifier is computed and emitted `tag_nullifier = poseidon2_hash("AZTEC_NR::TAG_SEPARATOR", sender_nsk_app, recipient, app_tagging_secret, index);`,
+4. the tag nullifier is computed and emitted `tag_nullifier = poseidon2_hash("AZTEC_NR::TAG_SEPARATOR", sender_nsk_app, recipient, directional_app_tagging_secret, index);`,
 
 <span style="color:yellow;">Now we have a bit of a problem here that round 0 is way less efficient than round 1 and that if-elses are not real. It's very important to hyper-optimize this. How could that be done? Could we have some kind of hints, merge the 2 branches and make it efficient?</span>
 
