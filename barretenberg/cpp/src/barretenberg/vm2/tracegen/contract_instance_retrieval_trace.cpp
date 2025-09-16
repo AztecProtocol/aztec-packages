@@ -5,10 +5,10 @@
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/vm2/common/protocol_contracts.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_contract_instance_retrieval.hpp"
 #include "barretenberg/vm2/simulation/events/contract_instance_retrieval_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 
@@ -25,11 +25,11 @@ void ContractInstanceRetrievalTraceBuilder::process(
 
     uint32_t row = 1;
     for (const auto& event : events) {
-        bool protocol_contract_instance = is_protocol_contract(event.address);
-        AztecAddress derived_address = protocol_contract_instance ? get_derived_address(event.address) : event.address;
+        AztecAddress derived_address =
+            event.is_protocol_contract ? simulation::compute_contract_address(event.contract_instance) : event.address;
 
         // No update check for protocol contract instances
-        bool check_update = event.exists && !protocol_contract_instance;
+        bool check_update = event.exists && !event.is_protocol_contract;
 
         trace.set(
             row,
@@ -68,9 +68,11 @@ void ContractInstanceRetrievalTraceBuilder::process(
                   CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS },
 
                 // Columns conditional on protocol contract instance
+                { C::contract_instance_retrieval_address_sub_one, event.address - 1 },
+                { C::contract_instance_retrieval_max_protocol_contract_address, MAX_PROTOCOL_CONTRACT_ADDRESS },
                 { C::contract_instance_retrieval_derived_address, derived_address },
-                { C::contract_instance_retrieval_is_protocol_contract, protocol_contract_instance ? 1 : 0 },
-                { C::contract_instance_retrieval_should_check_nullifier, !protocol_contract_instance ? 1 : 0 },
+                { C::contract_instance_retrieval_is_protocol_contract, event.is_protocol_contract ? 1 : 0 },
+                { C::contract_instance_retrieval_should_check_nullifier, !event.is_protocol_contract ? 1 : 0 },
                 { C::contract_instance_retrieval_should_check_for_update, check_update ? 1 : 0 },
             } });
         row++;
@@ -82,7 +84,8 @@ const InteractionDefinition ContractInstanceRetrievalTraceBuilder::interactions 
         .add<lookup_contract_instance_retrieval_deployment_nullifier_read_settings, InteractionType::LookupSequential>()
         .add<lookup_contract_instance_retrieval_address_derivation_settings, InteractionType::LookupGeneric>()
         .add<lookup_contract_instance_retrieval_update_check_settings, InteractionType::LookupSequential>()
+        .add<lookup_contract_instance_retrieval_check_protocol_address_range_settings, InteractionType::LookupGeneric>()
         .add<lookup_contract_instance_retrieval_protocol_contract_derived_address_settings,
-             InteractionType::LookupIntoIndexedByClk>();
+             InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

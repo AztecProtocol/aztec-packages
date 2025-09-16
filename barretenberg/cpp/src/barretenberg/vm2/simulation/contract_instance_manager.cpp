@@ -1,16 +1,17 @@
 #include "barretenberg/vm2/simulation/contract_instance_manager.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
-#include "barretenberg/vm2/common/protocol_contracts.hpp"
 
 namespace bb::avm2::simulation {
 
 ContractInstanceManager::ContractInstanceManager(ContractDBInterface& contract_db,
                                                  HighLevelMerkleDBInterface& merkle_db,
                                                  UpdateCheckInterface& update_check,
+                                                 ProtocolContractSetInterface& protocol_contracts_set,
                                                  EventEmitterInterface<ContractInstanceRetrievalEvent>& event_emitter)
     : contract_db(contract_db)
     , merkle_db(merkle_db)
     , update_check(update_check)
+    , protocol_contracts_set(protocol_contracts_set)
     , event_emitter(event_emitter)
 {}
 
@@ -34,7 +35,7 @@ std::optional<ContractInstance> ContractInstanceManager::get_contract_instance(c
 
     const auto& tree_state = merkle_db.get_tree_state();
     // If this is a protocol contract, we are done with our checks - address derivation done by get_contract_instance
-    if (is_protocol_contract(contract_address)) {
+    if (protocol_contracts_set.contains(contract_address)) {
         assert(maybe_instance.has_value() && "Contract instance should be found if for protocol contracts");
         const ContractInstance& instance = maybe_instance.value();
         event_emitter.emit({ .address = contract_address,
@@ -43,7 +44,8 @@ std::optional<ContractInstance> ContractInstanceManager::get_contract_instance(c
                              .nullifier_tree_root = tree_state.nullifierTree.tree.root,
                              .public_data_tree_root = tree_state.publicDataTree.tree.root,
                              .exists = true, // Protocol Contract Instance Always Exists!
-                             .error = false });
+                             .error = false,
+                             .is_protocol_contract = true });
 
         return instance;
     }
