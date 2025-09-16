@@ -12,28 +12,27 @@ fn get_next_tag(sender: AztecAddress, recipient: AztecAddress, hidden_sender: bo
     // 0 and checks if it exists in the nullifier tree.
     let first_time_tagging: bool = is_first_time_tagging(sender, recipient, hidden_sender);
 
-    let [unsiloed_nullifier_to_prove, app_to_silo_with, directional_app_tagging_secret, index] = if first_time_tagging {
+    let (unsiloed_nullifier_preimage, app_to_silo_with, directional_app_tagging_secret, index) = if first_time_tagging {
         // Sort addresses for consistent handshake commitment
         let [address_0, address_1] = unsafe { sort_addresses(sender, recipient) };
         assert(address_0.to_field() < address_1.to_field());
         
-        // Compute and verify handshake commitment exists
-        let handshake_commitment = poseidon2_hash(["AZTEC_NR::HANDSHAKE_SEPARATOR", master_tagging_public_key.x, master_tagging_public_key.y, address_0, address_1]);
+        let handshake_commitment_preimage = ["AZTEC_NR::HANDSHAKE_SEPARATOR", master_tagging_public_key.x, master_tagging_public_key.y, address_0, address_1];
 
-        // The following is not 
         let app_tagging_secret = context.request_tsk(master_tagging_public_key.hash());
         let directional_app_tagging_secret = poseidon2_hash([app_tagging_secret, recipient]);
 
-        [handshake_commitment, TAGGING_CONTRACT_ADDRESS, directional_app_tagging_secret, 0]
+        (handshake_commitment_preimage, TAGGING_CONTRACT_ADDRESS, directional_app_tagging_secret, 0)
 
     } else {
-        // Get the app tagging secret and index from oracle
+        // Get the app tagging secret and last index from oracle
         let [directional_app_tagging_secret, last_index] = get_last_tag_nullifier_preimage(sender, recipient, hidden_sender);
-        let previous_tag_nullifier = poseidon2_hash(["AZTEC_NR::TAG_SEPARATOR", sender_nsk_app, recipient, directional_app_tagging_secret, last_index]);
+        let previous_tag_nullifier_preimage = ["AZTEC_NR::TAG_SEPARATOR", sender_nsk_app, recipient, directional_app_tagging_secret, last_index];
 
-        [previous_tag_nullifier, context.this_address(), directional_app_tagging_secret, last_index + 1]
+        (previous_tag_nullifier_preimage, context.this_address(), directional_app_tagging_secret, last_index + 1)
     }
 
+    let unsiloed_nullifier_to_prove = poseidon2_hash(unsiloed_nullifier_preimage);
     let nullifier_to_prove = compute_siloed_nullifier(app_to_silo_with, unsiloed_nullifier_to_prove);
     prove_nullifier_inclusion(nullifier_to_prove);
 
