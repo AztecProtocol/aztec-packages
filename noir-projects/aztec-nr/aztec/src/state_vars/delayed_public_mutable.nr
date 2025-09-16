@@ -21,11 +21,11 @@ pub struct DelayedPublicMutable<T, let InitialDelay: u64, Context> {
     storage_slot: Field,
 }
 
-// This will make the Aztec macros require that T implements the Packable and Eq traits, and allocate `M` storage
+// This will make the Aztec macros require that T implements the Packable and Eq traits, and allocate `M + 1` storage
 // slots to this state variable.
-impl<T, let InitialDelay: u64, Context, let M: u32> HasStorageSlot<M> for DelayedPublicMutable<T, InitialDelay, Context>
+impl<T, let InitialDelay: u64, Context, let M: u32> HasStorageSlot<M + 1> for DelayedPublicMutable<T, InitialDelay, Context>
 where
-    WithHash<DelayedPublicMutableValues<T, InitialDelay>, _>: Packable<N = M>,
+    DelayedPublicMutableValues<T, InitialDelay>: Packable<N = M>,
 {
     fn get_storage_slot(self) -> Field {
         self.storage_slot
