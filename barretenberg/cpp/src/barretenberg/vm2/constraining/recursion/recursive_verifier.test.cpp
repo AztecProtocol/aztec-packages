@@ -39,7 +39,7 @@ class AvmRecursiveTests : public ::testing::Test {
     // by reference.
     static void create_and_verify_native_proof(NativeProofResult& proof_result)
     {
-        static NativeProofResult cached_proof_result = []() {
+        static auto [cached_verified, cached_proof_result] = []() {
             auto [trace, public_inputs] = testing::get_minimal_trace_with_pi();
 
             const auto public_inputs_cols = public_inputs.to_columns();
@@ -51,12 +51,12 @@ class AvmRecursiveTests : public ::testing::Test {
 
             const bool verified = verifier.verify_proof(proof, public_inputs_cols);
 
-            // Should be in principle ASSERT_TRUE, but compiler does not like it.
-            EXPECT_TRUE(verified) << "native proof verification failed";
-
-            return NativeProofResult{ proof, verification_key, public_inputs_cols };
+            return std::pair<bool, NativeProofResult>{
+                verified, NativeProofResult{ proof, verification_key, public_inputs_cols }
+            };
         }();
 
+        ASSERT_TRUE(cached_verified) << "native proof verification failed";
         proof_result = cached_proof_result;
     }
 };
