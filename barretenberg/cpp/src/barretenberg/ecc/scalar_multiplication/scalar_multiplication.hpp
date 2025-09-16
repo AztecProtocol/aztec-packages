@@ -123,7 +123,7 @@ template <typename Curve> class MSM {
                                        size_t num_queued_affine_points) noexcept;
 
     static std::vector<AffineElement> batch_multi_scalar_mul(std::span<std::span<const AffineElement>> points,
-                                                             std::span<std::span<ScalarField>>& scalars,
+                                                             std::span<std::span<ScalarField>> scalars,
                                                              bool handle_edge_cases = true) noexcept;
     static AffineElement msm(std::span<const AffineElement> points,
                              PolynomialSpan<const ScalarField> _scalars,

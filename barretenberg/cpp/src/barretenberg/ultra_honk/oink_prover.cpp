@@ -253,28 +253,28 @@ void OinkProver<Flavor>::commit_to_witness_polynomials(const RefVector<Polynomia
         }
     }
 
-    if (type == CommitmentKey::CommitType::Default) {
-        // Use batch commitment for default type
-        std::vector<PolynomialSpan<const FF>> poly_spans;
-        poly_spans.reserve(polynomials.size());
-        for (const auto& polynomial : polynomials) {
-            poly_spans.emplace_back(polynomial); // Uses implicit conversion to PolynomialSpan
-        }
+    // if (type == CommitmentKey::CommitType::Default) {
+    //     // Use batch commitment for default type
+    //     std::vector<PolynomialSpan<const FF>> poly_spans;
+    //     poly_spans.reserve(polynomials.size());
+    //     for (const auto& polynomial : polynomials) {
+    //         poly_spans.emplace_back(polynomial); // Uses implicit conversion to PolynomialSpan
+    //     }
 
-        auto commitments = proving_key->commitment_key.batch_commit(poly_spans);
+    //     auto commitments = proving_key->commitment_key.batch_commit(poly_spans);
 
-        // Send the commitments to the verifier
-        for (size_t i = 0; i < commitments.size(); ++i) {
-            transcript->send_to_verifier(domain_separator + std::string(labels[i]), commitments[i]);
-        }
-    } else {
-        // For structured or other types, commit individually
-        for (size_t i = 0; i < polynomials.size(); ++i) {
-            auto commitment = proving_key->commitment_key.commit_with_type(
-                polynomials[i], type, proving_key->active_region_data.get_ranges());
-            transcript->send_to_verifier(domain_separator + std::string(labels[i]), commitment);
-        }
+    //     // Send the commitments to the verifier
+    //     for (size_t i = 0; i < commitments.size(); ++i) {
+    //         transcript->send_to_verifier(domain_separator + std::string(labels[i]), commitments[i]);
+    //     }
+    // } else {
+    // For structured or other types, commit individually
+    for (size_t i = 0; i < polynomials.size(); ++i) {
+        auto commitment = proving_key->commitment_key.commit_with_type(
+            polynomials[i], type, proving_key->active_region_data.get_ranges());
+        transcript->send_to_verifier(domain_separator + std::string(labels[i]), commitment);
     }
+    // }
 }
 
 template class OinkProver<UltraFlavor>;

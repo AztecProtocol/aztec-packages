@@ -137,6 +137,8 @@ template <class Curve> class CommitmentKey {
 
             // Prepare spans for batch MSM
             std::vector<std::span<const G1>> points_spans;
+            // Note, we need to const_cast unfortunately as pippenger takes non-const spans
+            // as it converts back and forth from montgomery form
             std::vector<std::span<Fr>> scalar_spans;
 
             for (auto& polynomial : std::span{ polynomials }.subspan(i, batch_end - i)) {
@@ -148,7 +150,8 @@ template <class Curve> class CommitmentKey {
                                           " points with an SRS of siz e ",
                                           srs->get_monomial_size()));
                 }
-                scalar_spans.emplace_back(polynomial);
+                std::span<Fr> scalar_span = std::span<Fr>(const_cast<Fr*>(polynomial.span.data()), polynomial.size());
+                scalar_spans.emplace_back(scalar_span);
                 points_spans.emplace_back(point_table);
             }
 
