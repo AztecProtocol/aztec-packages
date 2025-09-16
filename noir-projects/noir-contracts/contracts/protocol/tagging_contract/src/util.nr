@@ -20,6 +20,7 @@ fn get_next_tag(sender: AztecAddress, recipient: AztecAddress, hidden_sender: bo
         // Compute and verify handshake commitment exists
         let handshake_commitment = poseidon2_hash(["AZTEC_NR::HANDSHAKE_SEPARATOR", master_tagging_public_key.x, master_tagging_public_key.y, address_0, address_1]);
 
+        // The following is not 
         let app_tagging_secret = context.request_tsk(master_tagging_public_key.hash());
         let directional_app_tagging_secret = poseidon2_hash([app_tagging_secret, recipient]);
 
@@ -27,10 +28,10 @@ fn get_next_tag(sender: AztecAddress, recipient: AztecAddress, hidden_sender: bo
 
     } else {
         // Get the app tagging secret and index from oracle
-        let [directional_app_tagging_secret, index] = get_tag_nullifier_preimage(sender, recipient, hidden_sender);
-        let previous_tag_nullifier = poseidon2_hash(["AZTEC_NR::TAG_SEPARATOR", sender_nsk_app, recipient, directional_app_tagging_secret, index]);
+        let [directional_app_tagging_secret, last_index] = get_last_tag_nullifier_preimage(sender, recipient, hidden_sender);
+        let previous_tag_nullifier = poseidon2_hash(["AZTEC_NR::TAG_SEPARATOR", sender_nsk_app, recipient, directional_app_tagging_secret, last_index]);
 
-        [unsiloed_nullifier_to_prove, context.this_address(), directional_app_tagging_secret, index + 1]
+        [previous_tag_nullifier, context.this_address(), directional_app_tagging_secret, last_index + 1]
     }
 
     let nullifier_to_prove = compute_siloed_nullifier(app_to_silo_with, unsiloed_nullifier_to_prove);
