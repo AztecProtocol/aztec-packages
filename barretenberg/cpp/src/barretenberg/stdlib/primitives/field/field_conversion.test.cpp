@@ -12,6 +12,7 @@ template <typename Builder> using grumpkin_element = cycle_group<Builder>;
 
 template <typename Builder> class StdlibFieldConversionTests : public ::testing::Test {
   public:
+    // Serialize and deserialize
     template <typename T> void check_conversion(T x, bool valid_circuit = true)
     {
         size_t len = bb::stdlib::field_conversion::calc_num_bn254_frs<Builder, T>();
@@ -93,12 +94,13 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionBN254AffineElement)
         this->check_conversion(x2);
     }
 
-    // TODO(Sergei): Enable when point at infinity is consistent
-    // { // Serialize and deserialize the point at infinity
-    //     bn254_element<Builder> x2 =
-    //         bn254_element<Builder>::from_witness(&builder, curve::BN254::AffineElement::infinity());
-    //     this->check_conversion(x2);
-    // }
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1527): Flip `valid_circuit` flag when point at infinity
+    // is consistently represented
+    { // Serialize and deserialize the point at infinity
+        bn254_element<Builder> x2 =
+            bn254_element<Builder>::from_witness(&builder, curve::BN254::AffineElement::infinity());
+        this->check_conversion(x2, false);
+    }
 
     { // Serialize and deserialize "coordinates" that do not correspond to any point on the curve
         curve::BN254::AffineElement x1_val(1, 4);
@@ -133,12 +135,13 @@ TYPED_TEST(StdlibFieldConversionTests, FieldConversionGrumpkinAffineElement)
         this->check_conversion(x1, false);
     }
 
-    // TODO(Sergei): Enable when point at infinity is consistent
-    // { // Serialize and deserialize the point at infinity
-    //     grumpkin_element<Builder> x2 =
-    //         grumpkin_element<Builder>::from_witness(&builder, curve::Grumpkin::AffineElement::infinity());
-    //     this->check_conversion(x2);
-    // }
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1527): Flip `valid_circuit` flag when point at infinity
+    // is consistently represented
+    { // Serialize and deserialize the point at infinity
+        grumpkin_element<Builder> x2 =
+            grumpkin_element<Builder>::from_witness(&builder, curve::Grumpkin::AffineElement::infinity());
+        this->check_conversion(x2, false);
+    }
 }
 
 TYPED_TEST(StdlibFieldConversionTests, DeserializePointAtInfinity)

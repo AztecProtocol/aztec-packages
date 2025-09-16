@@ -50,7 +50,8 @@ template <typename Builder> fq<Builder> convert_to_grumpkin_fr(Builder& builder,
 /**
  * @brief A stdlib Transcript method needed to convert an `fr` challenge to a `bigfield` one. Splits an `fr` into limbs
  * that are fed into the bigfield constructor.
- * TODO(): Remove redundant constraints caused by splitting and conversion.
+ * TODO(https://github.com/AztecProtocol/barretenberg/issues/1541): Remove redundant constraints caused by splitting and
+ * conversion to bigfield.
  *
  */
 template <typename Builder, typename T> inline T convert_challenge(Builder& builder, const fr<Builder>& challenge)
@@ -153,12 +154,12 @@ template <typename Builder, typename T> T convert_from_bn254_frs(std::span<const
         return T(fr_vec[0], fr_vec[1]);
     } else if constexpr (IsAnyOf<T, bn254_element<Builder>, grumpkin_element<Builder>>) {
         // Case 4 and 5: Convert a vector of frs to a group element
-        using basefield_ct = typename T::BaseField;
+        using Basefield = T::BaseField;
 
         constexpr size_t base_field_frs = expected_size / 2;
 
-        basefield_ct x = convert_from_bn254_frs<Builder, basefield_ct>(fr_vec.subspan(0, base_field_frs));
-        basefield_ct y = convert_from_bn254_frs<Builder, basefield_ct>(fr_vec.subspan(base_field_frs, base_field_frs));
+        Basefield x = convert_from_bn254_frs<Builder, Basefield>(fr_vec.subspan(0, base_field_frs));
+        Basefield y = convert_from_bn254_frs<Builder, Basefield>(fr_vec.subspan(base_field_frs, base_field_frs));
 
         T out(x, y, check_point_at_infinity<Builder, T>(fr_vec));
         // Note that in the case of bn254 with Mega arithmetization, the check is delegated to ECCVM, see
@@ -181,37 +182,77 @@ template <typename Builder, typename T> T convert_from_bn254_frs(std::span<const
 }
 
 /**
- * @brief Conversion from transcript values to fr<Builder>s
- * @details We want to support the following types: bool, size_t, uint32_t, uint64_t, fr<Builder>, fq<Builder>,
- * bn254_element<Builder>, grumpkin_element<Builder,, bb::Univariate<FF, N>, std::array<FF,
- * N>, for FF = fr<Builder>/fq<Builder>, and N is arbitrary.
- * @tparam Builder
- * @tparam T
- * @param val
- * @return std::vector<fr<Builder>>
+ * @brief Core stdlib Transcript serialization method.
+ * @details Serializes an object into a flat vector of in-circuit `fr`, i.e. \ref bb::stdlib::field_t "field_t"
+ * elements. This is the inverse of \ref convert_from_bn254_frs (up to the
+ * conventional point-at-infinity representation; see TODO below).
+ *
+ * Serializes the following types:
+ *
+ * - \ref bb::stdlib::field_t "field_t" — no conversion needed; output a single `fr`.
+ *
+ * - \ref bb::stdlib::bigfield "bigfield" (\ref bb::stdlib::bigfield< Builder, T >) — output 2 `fr` limbs obtained from
+ *   the bigfield’s binary-basis limbs recombined according to `NUM_LIMB_BITS`. Specific to
+ *   \ref UltraCircuitBuilder_ "UltraCircuitBuilder".
+ *
+ * - \ref bb::stdlib::goblin_field "goblin field element" (\ref bb::stdlib::goblin_field< Builder >) — emit 2 `fr` limbs
+ *   by exposing the goblin field’s internal limbs (low, high) as-is. Range constraints are enforced in Translator
+ *   (see \ref TranslatorDeltaRangeConstraintRelationImpl "Translator Range Constraint" relation). Specific to
+ *   \ref MegaCircuitBuilder_ "MegaCircuitBuilder".
+ *
+ * - \ref bb::stdlib::element_goblin::goblin_element "bn254 goblin point"
+ *   (\ref bb::stdlib::element_goblin::goblin_element< Builder_, Fq, Fr, NativeGroup >) — serialize the pair of
+ *   coordinates `(x, y)` by concatenating the encodings of each coordinate in the base field (goblin/bigfield form).
+ *   The point-at-infinity flag is not emitted here; it is re-derived during deserialization via
+ *   \ref check_point_at_infinity. Specific to \ref MegaCircuitBuilder_ "MegaCircuitBuilder".
+ *
+ * - \ref bb::stdlib::element_default::element "bn254 point"
+ *   (\ref bb::stdlib::element_default::element< Builder_, Fq, Fr, NativeGroup >) — serialize `(x, y)` by concatenating
+ *   the encodings of the two \ref bb::stdlib::bigfield "bigfield" coordinates. Specific to
+ *   \ref UltraCircuitBuilder_ "UltraCircuitBuilder".
+ *
+ * - \ref cycle_group "Grumpkin point" — serialize `(x, y)` in the base field `fr` by concatenating their encodings.
+ *   The point-at-infinity flag is not emitted; it is re-derived during deserialization via
+ *   \ref check_point_at_infinity. Specific to \ref UltraCircuitBuilder_ "UltraCircuitBuilder".
+ *
+ * - `bb::Univariate<FF, N>` or `std::array<FF, N>` of any of the above — serialize element-wise and concatenate.
+ *
+ * Round-trip note:
+ * - For supported types, `convert_to_bn254_frs(val)` followed by `convert_from_bn254_frs<T>(...)` reconstructs an
+ *   equivalent in-circuit object, assuming the same arithmetization and that range/ECC checks are enforced where
+ *   applicable during reconstruction (see \ref bb::ECCVMTranscriptRelationImpl< FF_ > "ECCVM Transcript" relation).
+ *
+ * TODO(https://github.com/AztecProtocol/barretenberg/issues/1527): make the point-at-infinity representation fully
+ * uniform across (de)serialization paths.
+ *
+ * @tparam Builder `UltraCircuitBuilder` or `MegaCircuitBuilder`
+ * @tparam T       Target object type
+ * @param val      Value to serialize
+ * @return         Flat vector of `fr<Builder>` elements
  */
 template <typename Builder, typename T> std::vector<fr<Builder>> convert_to_bn254_frs(const T& val)
 {
-    if constexpr (IsAnyOf<T, fr<Builder>>) {
-        std::vector<fr<Builder>> fr_vec{ val };
-        return fr_vec;
-    } else if constexpr (IsAnyOf<T, fq<Builder>>) {
-        // Bigfield
+    using field_ct = fr<Builder>;
+    using bigfield_ct = fq<Builder>;
+
+    if constexpr (IsAnyOf<T, field_ct>) {
+        ;
+        return std::vector<T>{ val };
+    } else if constexpr (IsAnyOf<T, bigfield_ct>) {
         return convert_grumpkin_fr_to_bn254_frs(val);
     } else if constexpr (IsAnyOf<T, goblin_field<Builder>>) {
         return convert_goblin_fr_to_bn254_frs(val);
     } else if constexpr (IsAnyOf<T, bn254_element<Builder>, grumpkin_element<Builder>>) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1527): Consider handling point at infinity.
         using BaseField = T::BaseField;
 
-        std::vector<fr<Builder>> fr_vec_x = convert_to_bn254_frs<Builder, BaseField>(val.x);
-        std::vector<fr<Builder>> fr_vec_y = convert_to_bn254_frs<Builder, BaseField>(val.y);
-        std::vector<fr<Builder>> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
+        std::vector<field_ct> fr_vec_x = convert_to_bn254_frs<Builder, BaseField>(val.x);
+        std::vector<field_ct> fr_vec_y = convert_to_bn254_frs<Builder, BaseField>(val.y);
+        std::vector<field_ct> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
         fr_vec.insert(fr_vec.end(), fr_vec_y.begin(), fr_vec_y.end());
         return fr_vec;
     } else {
         // Array or Univariate
-        std::vector<fr<Builder>> fr_vec;
+        std::vector<field_ct> fr_vec;
         for (auto& x : val) {
             auto tmp_vec = convert_to_bn254_frs<Builder, typename T::value_type>(x);
             fr_vec.insert(fr_vec.end(), tmp_vec.begin(), tmp_vec.end());
@@ -221,11 +262,12 @@ template <typename Builder, typename T> std::vector<fr<Builder>> convert_to_bn25
 }
 
 /**
- * @brief Deserialize an object of specified type from a buffer of field elements; update provided read count in place
+ * @brief A stdlib VerificationKey-specific method.
+ *
+ * @details Deserialize an object of specified type from a buffer of field elements; update provided read count in place
  *
  * @tparam TargetType Type to reconstruct from buffer of field elements
- * @param builder
- * @param elements Buffer of field elements
+ * @param elements Buffer of `field_t` elements
  * @param num_frs_read Index at which to read into buffer
  */
 template <typename TargetType, typename Builder>
