@@ -26,10 +26,7 @@ fn get_next_tag(
     let (unsiloed_nullifier_preimage, app_to_silo_with, directional_app_tagging_secret, index) = if first_time_tagging {
         // Sort addresses to reliably get bi-directional handshake commitment. We do that in an unconstrained function
         // and then we constrain the result to optimize constraints.
-        let (address_0, address_1) = unsafe { sort_addresses(sender, recipient) };
-        assert(address_0.to_field() < address_1.to_field());
-        assert(address_0.eq(sender) | address_0.eq(recipient));
-        assert(address_1.eq(sender) | address_1.eq(recipient));
+        let (address_0, address_1) = sort_addresses(sender, recipient);
 
         let handshake_commitment_preimage = [
             "AZTEC_NR::HANDSHAKE_SEPARATOR",
@@ -79,13 +76,21 @@ fn get_next_tag(
     tag
 }
 
-unconstrained fn sort_addresses(
-    sender: AztecAddress,
-    recipient: AztecAddress,
+pub fn sort_addresses(address_a: AztecAddress, address_b: AztecAddress) -> (AztecAddress, AztecAddress) {
+    let (address_small, address_big) = sort_addresses_internal(address_a, address_b);
+    assert(address_small.to_field() < address_big.to_field());
+    assert(address_small.eq(address_a) | address_small.eq(address_b));
+    assert(address_big.eq(address_a) | address_big.eq(address_b));
+    (address_small, address_big)
+}
+
+unconstrained fn sort_addresses_internal(
+    address_a: AztecAddress,
+    address_b: AztecAddress,
 ) -> (AztecAddress, AztecAddress) {
-    if sender.to_field() > recipient.to_field() {
-        (sender, recipient)
+    if address_a.to_field() < address_b.to_field() {
+        (address_a, address_b)
     } else {
-        (recipient, sender)
+        (address_b, address_a)
     }
 }

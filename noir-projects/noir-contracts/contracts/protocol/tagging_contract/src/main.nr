@@ -1,3 +1,5 @@
+mod util;
+
 #[aztec]
 contract Handshaker {
     #[private]
@@ -25,7 +27,7 @@ contract Handshaker {
 
         // We compute and emit the handshake nullifier to be able to later on prove that we've handshaked with this recipient.
         // Handshaking is costly so we want the handshake to be valid in both directions and hence we sort the addresses.
-        let [address_0, address_1] = sender.to_field() > recipient.to_field() ? [sender, recipient] : [recipient, sender];
+        let (address_0, address_1) = crate::util::sort_addresses(sender, recipient);
         let handshake_commitment = poseidon2_hash(["AZTEC_NR::HANDSHAKE_SEPARATOR", master_tagging_public_key.x, master_tagging_public_key.y, address_0, address_1]);
         context.push_nullifier(handshake_commitment);
 
