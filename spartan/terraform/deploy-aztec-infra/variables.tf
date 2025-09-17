@@ -163,6 +163,18 @@ variable "VALIDATORS_PER_NODE" {
   default     = 12
 }
 
+variable "VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY" {
+  description = "Number of publisher EOAs per validator key"
+  type        = string
+  default     = 1
+}
+
+variable "VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX" {
+  description = "Mnemonic start index for validator publishers"
+  type        = string
+  default     = 5000
+}
+
 variable "VALIDATOR_REPLICAS" {
   description = "The number of validator replicas"
   type        = string
