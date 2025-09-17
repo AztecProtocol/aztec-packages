@@ -234,8 +234,9 @@ unconstrained fn initialize_or_replace_uninitialized() {
 
         let init_note = MockNote::new(VALUE).build_note();
 
-        let emission = state_var.initialize_or_replace(init_note, |_: MockNote| {
-            panic(f"") // This should not be called
+        let emission = state_var.initialize_or_replace(|opt_current_note| {
+            assert(opt_current_note.is_none());
+            init_note
         });
 
         assert_eq(emission.note, init_note);
@@ -303,8 +304,8 @@ unconstrained fn initialize_or_replace_initialized_settled() {
 
         let replacement_value = VALUE + 1;
         let replacement_note = MockNote::new(replacement_value).build_note();
-        let emission = state_var.initialize_or_replace(std::mem::zeroed(), |current_note| {
-            assert_eq(current_note, note);
+        let emission = state_var.initialize_or_replace(|opt_current_note| {
+            assert_eq(opt_current_note.unwrap(), note);
             replacement_note
         });
 

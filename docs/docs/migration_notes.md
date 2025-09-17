@@ -58,21 +58,28 @@ Updating a note used to require reading it first (via `get_note`, which nullifie
 **Key points:**
 
 1. `replace(self, new_note)` (old) → `replace(self, f)` (new), where `f` takes the current note and returns a transformed note.
-2. `initialize_or_replace(self, note)` (old) → `initialize_or_replace(self, init_note, f)` (new). Uninitialized variables use `init_note`, initialized ones pass the transform function to `replace`.
+2. `initialize_or_replace(self, note)` (old) → `initialize_or_replace(self, f)` (new), where `f` takes an `Option` with the current none, or `none` if uninitialized.
 3. Previous note is automatically nullified before the new note is inserted.
 4. `NoteEmission<Note>` still requires `.emit()` or `.discard()`.
 
 **Example Migration:**
 
 ```diff
+- let current_note = storage.my_var.get_note();
+- let new_note = f(current_note);
 - storage.my_var.replace(new_note);
-+ let x: Field = 5;
-+ storage.my_var.replace(|note| UintNote::new(note.value + x));
++ storage.my_var.replace(|current_note| f(current_note));
 ```
 
 ```diff
-- storage.my_var.initialize_or_replace(init_note);
-+ storage.my_var.initialize_or_replace(init_note, |note| UintNote::new(note.value + 5));
+- storage.my_var.initialize_or_replace(new_note);
++ storage.my_var.initialize_or_replace(|_| new_note);
+```
+
+This makes it easy and efficient to handle both initialization and current value mutation via `initialize_or_replace`, e.g. if implementing a note that simply counts how many times it has been read:
+
+```diff
++ storage.my_var.initialize_or_replace(|opt_current: Option<Note>| opt_current.unwrap_or(0 /* initial value */) + 1);
 ```
 
 
