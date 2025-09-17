@@ -1,5 +1,4 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
-import { BatchedBlob, Blob } from '@aztec/blob-lib';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, PAIRING_POINTS_SIZE } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
@@ -10,12 +9,13 @@ import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testin
 import { writeTestData } from '@aztec/foundation/testing/files';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { mockTx } from '@aztec/stdlib/testing';
-import type { BlockHeader } from '@aztec/stdlib/tx';
+import type { BlockHeader, ProcessedTx } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { buildBlockWithCleanDB } from '../block-factory/light.js';
 import { makeGlobals } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
+import { buildBlobDataFromTxs } from '../orchestrator/block-building-helpers.js';
 
 describe('prover/bb_prover/full-rollup', () => {
   const FAKE_PROOFS = parseBooleanEnv(process.env.FAKE_PROOFS);
@@ -43,54 +43,79 @@ describe('prover/bb_prover/full-rollup', () => {
   });
 
   it.each([
-    [1, 1, 0, 2], // Epoch with a single block, requires one padding block proof
-    // [2, 2, 0, 2], // Full epoch with two blocks // TODO(#10678) disabled for time x resource usage on main runner // NOTE: we need this test to create the fixture for integration_proof_verification.test.ts, which doesn't seem to be run, though does pass
-    // [2, 3, 0, 2], // Epoch with two blocks but the block merge tree was assembled as with 3 leaves, requires one padding block proof; commented out to reduce running time
+    [1, 1, 0], // Epoch with a single checkpoint and a block with no txs. Requires one padding checkpoint proof.
+    // [2, 2, 0], // Epoch with two checkpoints // TODO(#10678) disabled for time x resource usage on main runner
+    // [1, 2, 0], // Epoch with a checkpoint that has two blocks, requires one padding block proof; commented out to reduce running time
   ])(
     'proves a private-only epoch with %i/%i blocks with %i/%i non-empty txs each',
-    async (blockCount, totalBlocks, nonEmptyTxs, totalTxs) => {
-      log.info(`Proving epoch with ${blockCount}/${totalBlocks} blocks with ${nonEmptyTxs}/${totalTxs} non-empty txs`);
+    async (numCheckpoints, numBlockPerCheckpoint, numTxsPerBlock) => {
+      log.info(
+        `Proving epoch with ${numCheckpoints} checkpoints and ${numBlockPerCheckpoint} blocks per checkpoint, with ${numTxsPerBlock} txs per block`,
+      );
 
       const initialHeader = context.getBlockHeader(0);
-      const processedTxs = [];
-      const blobs = [];
-      for (let blockNum = 1; blockNum <= blockCount; blockNum++) {
-        const txs = await timesParallel(nonEmptyTxs, async (i: number) => {
-          const txOpts = { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 };
-          const tx = await mockTx(blockNum * 100_000 + 1000 * (i + 1), txOpts);
-          tx.data.constants.anchorBlockHeader = initialHeader;
-          tx.data.constants.vkTreeRoot = getVKTreeRoot();
-          return tx;
-        });
+      const txsPerCheckpoint: ProcessedTx[][][] = [];
+      for (let checkpointIndex = 0; checkpointIndex < numCheckpoints; checkpointIndex++) {
+        txsPerCheckpoint[checkpointIndex] = [];
+        for (let i = 0; i < numBlockPerCheckpoint; i++) {
+          const blockNum = checkpointIndex * numBlockPerCheckpoint + i + 1;
+          const txs = await timesParallel(numTxsPerBlock, async (i: number) => {
+            const txOpts = { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 };
+            const tx = await mockTx(blockNum * 100_000 + 1000 * (i + 1), txOpts);
+            tx.data.constants.anchorBlockHeader = initialHeader;
+            tx.data.constants.vkTreeRoot = getVKTreeRoot();
+            return tx;
+          });
 
-        log.info(`Processing public functions`);
-        const [processed, failed] = await context.processPublicFunctions(txs);
-        expect(processed.length).toBe(nonEmptyTxs);
-        expect(failed.length).toBe(0);
-        processedTxs[blockNum] = processed;
-        blobs.push(await Blob.getBlobsPerBlock(processed.flatMap(tx => tx.txEffect.toBlobFields())));
+          log.info(`Processing public functions`);
+          const [processed, failed] = await context.processPublicFunctions(txs);
+          expect(processed.length).toBe(numTxsPerBlock);
+          expect(failed.length).toBe(0);
+          txsPerCheckpoint[checkpointIndex].push(processed);
+        }
       }
 
-      const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs.flat());
-      context.orchestrator.startNewEpoch(1, 1, totalBlocks, finalBlobChallenges);
+      const firstCheckpointNumber = context.firstCheckpointNumber;
+      const { blobFieldsLengths, finalBlobChallenges } = await buildBlobDataFromTxs(
+        txsPerCheckpoint.map(txs => txs.flat()),
+      );
+      context.orchestrator.startNewEpoch(1, firstCheckpointNumber, numCheckpoints, finalBlobChallenges);
 
-      for (let blockNum = 1; blockNum <= blockCount; blockNum++) {
-        const globals = makeGlobals(blockNum);
+      for (let checkpointIndex = 0; checkpointIndex < numCheckpoints; checkpointIndex++) {
+        const checkpointConstants = context.getCheckpointConstants(checkpointIndex);
         const l1ToL2Messages = makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
-        const processed = processedTxs[blockNum];
 
-        log.info(`Starting new block #${blockNum}`);
+        log.info(`Starting new checkpoint #${checkpointIndex}`);
+        await context.orchestrator.startNewCheckpoint(
+          checkpointConstants,
+          l1ToL2Messages,
+          1,
+          blobFieldsLengths[checkpointIndex],
+          previousBlockHeader,
+        );
 
-        await context.orchestrator.startNewBlock(globals, l1ToL2Messages, previousBlockHeader);
-        await context.orchestrator.addTxs(processed);
+        for (let i = 0; i < numBlockPerCheckpoint; i++) {
+          const blockNum = checkpointIndex * numBlockPerCheckpoint + i + 1;
+          const globals = makeGlobals(blockNum, checkpointConstants.slotNumber.toNumber());
+          const processed = txsPerCheckpoint[checkpointIndex][i];
 
-        log.info(`Setting block as completed`);
-        await context.orchestrator.setBlockCompleted(blockNum);
+          log.info(`Starting new block #${blockNum}`);
+          await context.orchestrator.startNewBlock(blockNum, globals.timestamp, processed.length);
+          await context.orchestrator.addTxs(processed);
 
-        log.info(`Updating world state with new block`);
-        const block = await buildBlockWithCleanDB(processed, globals, l1ToL2Messages, await context.worldState.fork());
-        previousBlockHeader = block.header;
-        await context.worldState.handleL2BlockAndMessages(block, l1ToL2Messages);
+          log.info(`Setting block as completed`);
+          await context.orchestrator.setBlockCompleted(blockNum);
+
+          log.info(`Updating world state with new block`);
+          const block = await buildBlockWithCleanDB(
+            processed,
+            globals,
+            l1ToL2Messages,
+            await context.worldState.fork(),
+          );
+          previousBlockHeader = block.getBlockHeader();
+          await context.worldState.handleL2BlockAndMessages(block, l1ToL2Messages);
+        }
       }
 
       log.info(`Awaiting proofs`);
@@ -102,8 +127,8 @@ describe('prover/bb_prover/full-rollup', () => {
         await expect(prover.verifyProof('RootRollupArtifact', epochResult.proof)).resolves.not.toThrow();
       }
 
-      // Generate test data for the 2/2 blocks epoch scenario
-      if (blockCount === 2 && totalBlocks === 2 && isGenerateTestDataEnabled()) {
+      // Generate test data for the 1/1 blocks epoch scenario
+      if (numCheckpoints === 1 && numBlockPerCheckpoint === 1 && isGenerateTestDataEnabled()) {
         const epochProof = getTestData('epochProofResult').at(-1);
         writeTestData(
           'yarn-project/end-to-end/src/fixtures/dumps/epoch_proof_result.json',
@@ -137,12 +162,20 @@ describe('prover/bb_prover/full-rollup', () => {
     expect(processed.length).toBe(numTransactions);
     expect(failed.length).toBe(0);
 
-    const blobs = await Blob.getBlobsPerBlock(processed.map(tx => tx.txEffect.toBlobFields()).flat());
-    const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
+    const {
+      blobFieldsLengths: [blobFieldsLength],
+      finalBlobChallenges,
+    } = await buildBlobDataFromTxs([processed]);
 
-    context.orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
-
-    await context.orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages, context.getPreviousBlockHeader());
+    context.orchestrator.startNewEpoch(1, context.firstCheckpointNumber, 1, finalBlobChallenges);
+    await context.orchestrator.startNewCheckpoint(
+      context.getCheckpointConstants(),
+      l1ToL2Messages,
+      1, // numBlocks
+      blobFieldsLength,
+      context.getPreviousBlockHeader(),
+    );
+    await context.orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, processed.length);
 
     await context.orchestrator.addTxs(processed);
 

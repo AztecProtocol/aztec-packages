@@ -129,31 +129,95 @@ interface GithubActionBenchmarkResult {
   extra?: string;
 }
 
+function getProofCounts(
+  numCheckpoints: number,
+  numBlocksPerCheckpoint: number,
+  numPrivateBasesPerBlock: number,
+  numPublicBasesPerBlock: number,
+) {
+  if (!numCheckpoints) {
+    throw new Error('Number of checkpoints must be greater than 0');
+  }
+  if (!numBlocksPerCheckpoint) {
+    throw new Error('Number of blocks per checkpoint must be greater than 0');
+  }
+
+  const counts = Array.from({ length: PROOF_TYPES_IN_PRIORITY_ORDER.length }, () => 0);
+  const priorityIndex = (type: ProvingRequestType) => PROOF_TYPES_IN_PRIORITY_ORDER.indexOf(type);
+
+  counts[priorityIndex(ProvingRequestType.ROOT_ROLLUP)] = 1;
+
+  if (numCheckpoints === 1) {
+    counts[priorityIndex(ProvingRequestType.CHECKPOINT_PADDING_ROLLUP)] = 1;
+  } else {
+    counts[priorityIndex(ProvingRequestType.CHECKPOINT_MERGE_ROLLUP)] = numCheckpoints - 2;
+  }
+
+  if (numBlocksPerCheckpoint === 1) {
+    counts[priorityIndex(ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP)] = numCheckpoints;
+  } else {
+    counts[priorityIndex(ProvingRequestType.CHECKPOINT_ROOT_ROLLUP)] = numCheckpoints;
+  }
+
+  counts[priorityIndex(ProvingRequestType.BASE_PARITY)] = numCheckpoints * 4;
+  counts[priorityIndex(ProvingRequestType.ROOT_PARITY)] = numCheckpoints;
+
+  if (numBlocksPerCheckpoint > 2) {
+    counts[priorityIndex(ProvingRequestType.BLOCK_MERGE_ROLLUP)] = (numBlocksPerCheckpoint - 2) * numCheckpoints;
+  }
+
+  const numTxsPerBlock = numPrivateBasesPerBlock + numPublicBasesPerBlock;
+  const totalNumBlocks = numBlocksPerCheckpoint * numCheckpoints;
+  if (numTxsPerBlock === 0) {
+    counts[priorityIndex(ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP)] = numCheckpoints;
+    if (numBlocksPerCheckpoint !== 1) {
+      throw new Error('There must be only one block per checkpoint when there are no transactions.');
+    }
+  } else if (numTxsPerBlock === 1) {
+    counts[priorityIndex(ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP)] = numCheckpoints;
+    counts[priorityIndex(ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP)] = totalNumBlocks - numCheckpoints;
+  } else {
+    counts[priorityIndex(ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP)] = numCheckpoints;
+    counts[priorityIndex(ProvingRequestType.BLOCK_ROOT_ROLLUP)] = totalNumBlocks - numCheckpoints;
+  }
+
+  if (numTxsPerBlock > 2) {
+    counts[priorityIndex(ProvingRequestType.MERGE_ROLLUP)] = (numTxsPerBlock - 2) * totalNumBlocks;
+  }
+
+  counts[priorityIndex(ProvingRequestType.PRIVATE_BASE_ROLLUP)] = numPrivateBasesPerBlock * totalNumBlocks;
+  counts[priorityIndex(ProvingRequestType.PUBLIC_BASE_ROLLUP)] = numPublicBasesPerBlock * totalNumBlocks;
+  counts[priorityIndex(ProvingRequestType.PUBLIC_VM)] = numPublicBasesPerBlock * totalNumBlocks;
+  counts[priorityIndex(ProvingRequestType.PUBLIC_TUBE)] = numPublicBasesPerBlock * totalNumBlocks;
+
+  return counts;
+}
+
 const proofDistributionTestCases = [
   {
     name: 'minimum epoch',
     description: '1 block, 8 transactions', // 8 transactions per block = 8 total transactions
-    proofCounts: [1, 0, 0, 1, 6, 4, 4, 4, 4, 1, 4, 0],
+    proofCounts: getProofCounts(1, 1, 4, 4),
   },
   {
     name: 'small epoch',
     description: '6 blocks, 48 transactions', // 8 transactions per block = 48 total transactions
-    proofCounts: [6, 0, 4, 1, 36, 24, 24, 24, 24, 6, 24, 0],
+    proofCounts: getProofCounts(2, 3, 4, 4),
   },
   {
     name: 'medium epoch',
     description: '20 blocks, 400 transactions', // 20 transactions per block = 400 total transactions
-    proofCounts: [20, 0, 18, 1, 360, 200, 200, 200, 200, 20, 80, 0],
+    proofCounts: getProofCounts(4, 5, 10, 10),
   },
   {
     name: 'large epoch',
     description: '32 blocks, 6400 transactions', // 200 transactions per block = 6400 total transactions
-    proofCounts: [32, 0, 30, 1, 6336, 3200, 3200, 3200, 3200, 32, 128, 0],
+    proofCounts: getProofCounts(4, 8, 100, 100),
   },
   {
     name: 'maximum epoch',
     description: '32 blocks, 12,800 transactions', // 400 transactions per block = 12,800 total txs (all public)
-    proofCounts: [32, 0, 30, 1, 12736, 12800, 0, 12800, 12800, 32, 128, 0],
+    proofCounts: getProofCounts(1, 32, 200, 200),
   },
 ];
 
@@ -360,58 +424,6 @@ describe('Proving Broker: Benchmarks', () => {
       // logger.info(`Benchmark Results:${benchmarkCollector.toPrettyString()}`); Temporarily disable logging
     }
   });
-
-  function assertEpochRules(proofCounts: number[], expectedBlocks: number, expectedTransactionsPerBlock: number): void {
-    // Create a map of proof types to their counts for easier reference
-    const proofTypeCounts = new Map<ProvingRequestType, number>(
-      proofCounts
-        .map((count, index): [ProvingRequestType, number] => [PROOF_TYPES_IN_PRIORITY_ORDER[index], count])
-        .filter(([_, count]) => count > 0),
-    );
-
-    const totalTransactions = expectedBlocks * expectedTransactionsPerBlock;
-    const totalBaseRollup =
-      (proofTypeCounts.get(ProvingRequestType.PRIVATE_BASE_ROLLUP) ?? 0) +
-      (proofTypeCounts.get(ProvingRequestType.PUBLIC_BASE_ROLLUP) ?? 0);
-    expect(proofTypeCounts.get(ProvingRequestType.PUBLIC_TUBE)).toBe(
-      proofTypeCounts.get(ProvingRequestType.PUBLIC_BASE_ROLLUP),
-    );
-
-    // Per-block rules (scaled by number of blocks)
-    expect(proofTypeCounts.get(ProvingRequestType.BASE_PARITY) ?? 0).toBe(4 * expectedBlocks); // 4 base parity jobs per block
-    expect(proofTypeCounts.get(ProvingRequestType.ROOT_PARITY) ?? 0).toBe(1 * expectedBlocks); // 1 root parity job per block
-    expect(proofTypeCounts.get(ProvingRequestType.BLOCK_ROOT_ROLLUP) ?? 0).toBe(1 * expectedBlocks); // 1 block root per block
-    expect(totalBaseRollup).toBe(totalTransactions); // n base rollup jobs per block
-    expect(proofTypeCounts.get(ProvingRequestType.PUBLIC_VM) ?? 0).toBe(
-      proofTypeCounts.get(ProvingRequestType.PUBLIC_BASE_ROLLUP) ?? 0,
-    ); // 1 AVM job per public base rollup
-
-    // Merge jobs: (n-2) per block when n > 2
-    if (expectedTransactionsPerBlock > 2) {
-      expect(proofTypeCounts.get(ProvingRequestType.MERGE_ROLLUP) ?? 0).toBe(
-        (expectedTransactionsPerBlock - 2) * expectedBlocks,
-      );
-    } else {
-      expect(proofTypeCounts.get(ProvingRequestType.MERGE_ROLLUP) ?? 0).toBe(0);
-    }
-
-    // Epoch-level rules
-    expect(proofTypeCounts.get(ProvingRequestType.ROOT_ROLLUP) ?? 0).toBe(1); // Exactly 1 root rollup per epoch
-
-    // Block merge jobs: (m-2) when m > 2
-    if (expectedBlocks > 2) {
-      expect(proofTypeCounts.get(ProvingRequestType.BLOCK_MERGE_ROLLUP) ?? 0).toBe(expectedBlocks - 2);
-    } else {
-      expect(proofTypeCounts.get(ProvingRequestType.BLOCK_MERGE_ROLLUP) ?? 0).toBe(0);
-    }
-
-    expect(proofTypeCounts.get(ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP) ?? 0).toBe(0);
-    expect(proofTypeCounts.get(ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP) ?? 0).toBe(0);
-
-    expect(proofTypeCounts.get(ProvingRequestType.PRIVATE_BASE_ROLLUP) ?? 0).toBeGreaterThanOrEqual(0);
-    expect(proofTypeCounts.get(ProvingRequestType.PUBLIC_BASE_ROLLUP) ?? 0).toBeGreaterThanOrEqual(0);
-    expect(totalBaseRollup).toBeGreaterThan(0);
-  }
 
   function getTotalJobsInBroker(broker: ProvingBroker): number {
     let totalJobs = 0;
@@ -637,15 +649,6 @@ describe('Proving Broker: Benchmarks', () => {
       fullCleanupTime,
     };
   }
-
-  // Validate epoch configurations against the rules
-  it('validate epoch configurations follow the rules', () => {
-    assertEpochRules(proofDistributionTestCases.find(tc => tc.name === 'minimum epoch')!.proofCounts, 1, 8);
-    assertEpochRules(proofDistributionTestCases.find(tc => tc.name === 'small epoch')!.proofCounts, 6, 8);
-    assertEpochRules(proofDistributionTestCases.find(tc => tc.name === 'medium epoch')!.proofCounts, 20, 20);
-    assertEpochRules(proofDistributionTestCases.find(tc => tc.name === 'large epoch')!.proofCounts, 32, 200);
-    assertEpochRules(proofDistributionTestCases.find(tc => tc.name === 'maximum epoch')!.proofCounts, 32, 400);
-  });
 
   const combinedTestCases = proofDistributionTestCases.flatMap(proofCase =>
     epochPatterns.map(pattern => ({

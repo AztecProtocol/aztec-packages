@@ -1,13 +1,11 @@
 import { BlobAccumulatorPublicInputs, FinalBlobAccumulatorPublicInputs } from '@aztec/blob-lib';
-import { makeBatchedBlobAccumulator, makeBlockBlobPublicInputs, makeSpongeBlob } from '@aztec/blob-lib/testing';
+import { makeBatchedBlobAccumulator, makeSpongeBlob } from '@aztec/blob-lib/testing';
 import {
   ARCHIVE_HEIGHT,
   AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   AZTEC_MAX_EPOCH_DURATION,
-  BLOBS_PER_BLOCK,
   CIVC_PROOF_LENGTH,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
-  FIELDS_PER_BLOB,
   FIXED_DA_GAS,
   FIXED_L2_GAS,
   GeneratorIndex,
@@ -31,7 +29,6 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_PUBLIC_LOGS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
@@ -50,7 +47,7 @@ import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/a
 import { compact, padArrayEnd } from '@aztec/foundation/collection';
 import { SchnorrSignature, poseidon2HashWithSeparator, sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { BLS12Point, Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
+import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import type { Bufferable, Serializable, Tuple } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 
@@ -85,6 +82,7 @@ import { PublicDataHint } from '../avm/public_data_hint.js';
 import { PublicDataRead } from '../avm/public_data_read.js';
 import { PublicDataWrite } from '../avm/public_data_write.js';
 import { AztecAddress } from '../aztec-address/index.js';
+import { L2BlockHeader } from '../block/index.js';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
@@ -140,23 +138,22 @@ import { makeRecursiveProof } from '../proofs/recursive_proof.js';
 import { AvmProofData } from '../rollup/avm_proof_data.js';
 import { BaseOrMergeRollupPublicInputs } from '../rollup/base_or_merge_rollup_public_inputs.js';
 import { PrivateBaseRollupHints, PublicBaseRollupHints } from '../rollup/base_rollup_hints.js';
-import { BlockMergeRollupInputs } from '../rollup/block_merge_rollup.js';
-import { BlockRootOrBlockMergePublicInputs, FeeRecipient } from '../rollup/block_root_or_block_merge_public_inputs.js';
+import { BlockConstantData } from '../rollup/block_constant_data.js';
+import { BlockMergeRollupPrivateInputs } from '../rollup/block_merge_rollup.js';
+import { BlockRollupPublicInputs } from '../rollup/block_rollup_public_inputs.js';
 import {
-  BlockRootRollupBlobData,
-  BlockRootRollupData,
-  BlockRootRollupInputs,
-  SingleTxBlockRootRollupInputs,
+  BlockRootFirstRollupPrivateInputs,
+  BlockRootSingleTxRollupPrivateInputs,
 } from '../rollup/block_root_rollup.js';
-import { EmptyBlockRootRollupInputs } from '../rollup/empty_block_root_rollup_inputs.js';
+import { CheckpointConstantData } from '../rollup/checkpoint_constant_data.js';
+import { CheckpointHeader } from '../rollup/checkpoint_header.js';
+import { CheckpointRollupPublicInputs, FeeRecipient } from '../rollup/checkpoint_rollup_public_inputs.js';
 import { EpochConstantData } from '../rollup/epoch_constant_data.js';
-import { BlockConstantData } from '../rollup/index.js';
 import { MergeRollupInputs } from '../rollup/merge_rollup.js';
-import { PreviousRollupBlockData } from '../rollup/previous_rollup_block_data.js';
 import { PreviousRollupData } from '../rollup/previous_rollup_data.js';
 import { PrivateBaseRollupInputs } from '../rollup/private_base_rollup_inputs.js';
 import { PublicBaseRollupInputs } from '../rollup/public_base_rollup_inputs.js';
-import { RootRollupInputs, RootRollupPublicInputs } from '../rollup/root_rollup.js';
+import { RootRollupPublicInputs } from '../rollup/root_rollup.js';
 import { PrivateBaseStateDiffHints } from '../rollup/state_diff_hints.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
@@ -620,11 +617,11 @@ export function makeGlobalVariables(seed = 1, overrides: Partial<FieldsOf<Global
   });
 }
 
-export function makeGasFees(seed = 1) {
+function makeGasFees(seed = 1) {
   return new GasFees(seed, seed + 1);
 }
 
-export function makeFeeRecipient(seed = 1) {
+function makeFeeRecipient(seed = 1) {
   return new FeeRecipient(EthAddress.fromField(fr(seed)), fr(seed + 1));
 }
 
@@ -681,7 +678,26 @@ function makeBlockConstantData(seed = 1, globalVariables?: GlobalVariables) {
     fr(seed + 0x300),
     fr(seed + 0x400),
     globalVariables ?? makeGlobalVariables(seed + 0x500),
+    fr(seed + 0x600),
   );
+}
+
+function makeCheckpointConstantData(seed = 1) {
+  return new CheckpointConstantData(
+    fr(seed),
+    fr(seed + 1),
+    fr(seed + 2),
+    fr(seed + 3),
+    fr(seed + 4),
+    fr(seed + 5),
+    makeEthAddress(seed + 6),
+    makeAztecAddress(seed + 7),
+    makeGasFees(seed + 8),
+  );
+}
+
+function makeEpochConstantData(seed = 1) {
+  return new EpochConstantData(fr(seed), fr(seed + 1), fr(seed + 2), fr(seed + 3), fr(seed + 4));
 }
 
 /**
@@ -707,30 +723,41 @@ export function makeBaseOrMergeRollupPublicInputs(
   );
 }
 
-function makeEpochConstantData(seed = 1) {
-  return new EpochConstantData(fr(seed), fr(seed + 1), fr(seed + 2));
-}
-
 /**
  * Makes arbitrary block merge or block root rollup circuit public inputs.
  * @param seed - The seed to use for generating the block merge or block root rollup circuit public inputs.
  * @param blockNumber - The block number to use for generating the block merge or block root rollup circuit public inputs.
  * @returns A block merge or block root rollup circuit public inputs.
  */
-export function makeBlockRootOrBlockMergeRollupPublicInputs(
-  seed = 0,
-  globalVariables: GlobalVariables | undefined = undefined,
-): BlockRootOrBlockMergePublicInputs {
-  return new BlockRootOrBlockMergePublicInputs(
-    makeEpochConstantData(seed + 0x100),
+export function makeBlockRollupPublicInputs(seed = 0): BlockRollupPublicInputs {
+  return new BlockRollupPublicInputs(
+    makeCheckpointConstantData(seed + 0x100),
     makeAppendOnlyTreeSnapshot(seed + 0x200),
     makeAppendOnlyTreeSnapshot(seed + 0x300),
-    globalVariables ?? makeGlobalVariables(seed + 0x400),
-    globalVariables ?? makeGlobalVariables(seed + 0x500),
-    fr(seed + 0x600),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x650),
+    makeStateReference(seed + 0x400),
+    makeStateReference(seed + 0x500),
+    makeSpongeBlob(seed + 0x600),
+    makeSpongeBlob(seed + 0x700),
+    BigInt(seed + 0x810),
+    BigInt(seed + 0x820),
+    fr(seed + 0x830),
+    fr(seed + 0x840),
+    fr(seed + 0x850),
+    fr(seed + 0x860),
+  );
+}
+
+export function makeCheckpointRollupPublicInputs(seed = 0) {
+  const startBlobAccumulator = makeBatchedBlobAccumulator(seed);
+  return new CheckpointRollupPublicInputs(
+    makeEpochConstantData(seed),
+    makeAppendOnlyTreeSnapshot(seed + 0x100),
+    makeAppendOnlyTreeSnapshot(seed + 0x200),
+    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x300),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x700),
-    makeBlockBlobPublicInputs(seed),
+    BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(startBlobAccumulator),
+    BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(seed + 1)),
+    startBlobAccumulator.finalBlobChallenges,
   );
 }
 
@@ -751,98 +778,6 @@ export function makePreviousRollupData(
       seed + 0x50,
     ),
     makeVkData(seed + 0x100),
-  );
-}
-
-/**
- * Makes arbitrary previous rollup block data.
- * @param seed - The seed to use for generating the previous rollup block data.
- * @param globalVariables - The global variables to use when generating the previous rollup block data.
- * @returns A previous rollup block data.
- */
-export function makePreviousRollupBlockData(
-  seed = 0,
-  globalVariables: GlobalVariables | undefined = undefined,
-): PreviousRollupBlockData {
-  return new PreviousRollupBlockData(
-    makeBlockRootOrBlockMergeRollupPublicInputs(seed, globalVariables),
-    makeRecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>(
-      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-      seed + 0x50,
-    ),
-    makeVkData(seed + 0x100),
-  );
-}
-
-/**
- * Makes root rollup inputs.
- * @param seed - The seed to use for generating the root rollup inputs.
- * @param globalVariables - The global variables to use.
- * @returns A root rollup inputs.
- */
-export function makeRootRollupInputs(seed = 0, globalVariables?: GlobalVariables): RootRollupInputs {
-  return new RootRollupInputs([
-    makePreviousRollupBlockData(seed, globalVariables),
-    makePreviousRollupBlockData(seed + 0x1000, globalVariables),
-  ]);
-}
-
-function makeBlockRootRollupData(seed = 0) {
-  return new BlockRootRollupData(
-    makeRootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x2000),
-    makeTuple(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x2100),
-    makeTuple(ARCHIVE_HEIGHT, fr, 0x2200),
-    makeTuple(ARCHIVE_HEIGHT, fr, 0x2300),
-    makeHeader(seed + 0x2400),
-    BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(seed + 0x2500)),
-    makeBatchedBlobAccumulator(seed + 0x2600).finalBlobChallenges,
-    fr(seed + 0x2700),
-  );
-}
-
-function makeBlockRootRollupBlobData(seed = 0) {
-  return new BlockRootRollupBlobData(
-    makeTuple(FIELDS_PER_BLOB * BLOBS_PER_BLOCK, fr, 0x2500),
-    makeTuple(BLOBS_PER_BLOCK, () => BLS12Point.random()),
-    fr(seed + 0x2700),
-  );
-}
-
-/**
- * Makes block root rollup inputs.
- * @param seed - The seed to use for generating the root rollup inputs.
- * @param globalVariables - The global variables to use.
- * @returns A block root rollup inputs.
- */
-export function makeBlockRootRollupInputs(seed = 0, globalVariables?: GlobalVariables): BlockRootRollupInputs {
-  return new BlockRootRollupInputs(
-    [makePreviousRollupData(seed, globalVariables), makePreviousRollupData(seed + 0x1000, globalVariables)],
-    makeBlockRootRollupData(seed + 0x2000),
-    makeBlockRootRollupBlobData(seed + 0x4000),
-  );
-}
-
-export function makeSingleTxBlockRootRollupInputs(seed = 0, globalVariables?: GlobalVariables) {
-  return new SingleTxBlockRootRollupInputs(
-    [makePreviousRollupData(seed, globalVariables)],
-    makeBlockRootRollupData(seed + 0x2000),
-    makeBlockRootRollupBlobData(seed + 0x4000),
-  );
-}
-
-/**
- * Makes empty block root rollup inputs.
- * @param seed - The seed to use for generating the root rollup inputs.
- * @param globalVariables - The global variables to use.
- * @returns A block root rollup inputs.
- */
-export function makeEmptyBlockRootRollupInputs(
-  seed = 0,
-  globalVariables?: GlobalVariables,
-): EmptyBlockRootRollupInputs {
-  return new EmptyBlockRootRollupInputs(
-    makeBlockRootRollupData(seed + 0x1000),
-    makeBlockConstantData(0x2500, globalVariables),
   );
 }
 
@@ -892,11 +827,7 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
     fr(seed + 0x200),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x300),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x500),
-    fr(seed + 0x700),
-    fr(seed + 0x701),
-    fr(seed + 0x702),
-    fr(seed + 0x703),
-    fr(seed + 0x704),
+    makeEpochConstantData(seed + 0x600),
     FinalBlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(seed)),
   );
 }
@@ -919,8 +850,8 @@ export function makeHeader(
 ): BlockHeader {
   return BlockHeader.from({
     lastArchive: makeAppendOnlyTreeSnapshot(seed + 0x100),
-    contentCommitment: makeContentCommitment(seed + 0x200),
-    state: makeStateReference(seed + 0x600),
+    state: makeStateReference(seed + 0x200),
+    spongeBlobHash: fr(seed + 0x300),
     globalVariables: makeGlobalVariables((seed += 0x700), {
       ...(blockNumber ? { blockNumber } : {}),
       ...(slotNumber ? { slotNumber: new Fr(slotNumber) } : {}),
@@ -928,6 +859,39 @@ export function makeHeader(
     totalFees: fr(seed + 0x800),
     totalManaUsed: fr(seed + 0x900),
     ...overrides,
+  });
+}
+
+export function makeL2BlockHeader(
+  seed = 0,
+  blockNumber?: number,
+  slotNumber?: number,
+  overrides: Partial<FieldsOf<L2BlockHeader>> = {},
+) {
+  return new L2BlockHeader(
+    makeAppendOnlyTreeSnapshot(seed + 0x100),
+    overrides?.contentCommitment ?? makeContentCommitment(seed + 0x200),
+    overrides?.state ?? makeStateReference(seed + 0x600),
+    makeGlobalVariables((seed += 0x700), {
+      ...(blockNumber ? { blockNumber } : {}),
+      ...(slotNumber ? { slotNumber: new Fr(slotNumber) } : {}),
+    }),
+    new Fr(seed + 0x800),
+    new Fr(seed + 0x900),
+    new Fr(seed + 0xa00),
+  );
+}
+
+export function makeCheckpointHeader(seed = 0) {
+  return CheckpointHeader.from({
+    lastArchiveRoot: fr(seed + 0x100),
+    contentCommitment: makeContentCommitment(seed + 0x200),
+    slotNumber: new Fr(seed + 0x300),
+    timestamp: BigInt(seed + 0x400),
+    coinbase: makeEthAddress(seed + 0x500),
+    feeRecipient: makeAztecAddress(seed + 0x600),
+    gasFees: makeGasFees(seed + 0x700),
+    totalManaUsed: fr(seed + 0x800),
   });
 }
 
@@ -994,13 +958,36 @@ export function makeMergeRollupInputs(seed = 0): MergeRollupInputs {
   return new MergeRollupInputs([makePreviousRollupData(seed), makePreviousRollupData(seed + 0x1000)]);
 }
 
+export function makeBlockRootFirstRollupPrivateInputs(seed = 0) {
+  return new BlockRootFirstRollupPrivateInputs(
+    makeProofData(seed, makeParityPublicInputs),
+    [
+      makeProofData(seed + 0x1000, makeBaseOrMergeRollupPublicInputs),
+      makeProofData(seed + 0x2000, makeBaseOrMergeRollupPublicInputs),
+    ],
+    makeAppendOnlyTreeSnapshot(seed + 0x3000),
+    makeSiblingPath(seed + 0x4000, L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH),
+    makeSiblingPath(seed + 0x5000, ARCHIVE_HEIGHT),
+  );
+}
+
+export function makeBlockRootSingleTxRollupPrivateInputs(seed = 0) {
+  return new BlockRootSingleTxRollupPrivateInputs(
+    makeProofData(seed + 0x1000, makeBaseOrMergeRollupPublicInputs),
+    makeSiblingPath(seed + 0x4000, ARCHIVE_HEIGHT),
+  );
+}
+
 /**
  * Makes arbitrary block merge rollup inputs.
  * @param seed - The seed to use for generating the merge rollup inputs.
  * @returns A block merge rollup inputs.
  */
-export function makeBlockMergeRollupInputs(seed = 0): BlockMergeRollupInputs {
-  return new BlockMergeRollupInputs([makePreviousRollupBlockData(seed), makePreviousRollupBlockData(seed + 0x1000)]);
+export function makeBlockMergeRollupPrivateInputs(seed = 0) {
+  return new BlockMergeRollupPrivateInputs([
+    makeProofData(seed, makeBlockRollupPublicInputs),
+    makeProofData(seed + 0x1000, makeBlockRollupPublicInputs),
+  ]);
 }
 
 /**
@@ -1134,6 +1121,7 @@ function makePublicBaseRollupHints(seed = 1) {
     lastArchive: makeAppendOnlyTreeSnapshot(seed + 0x1000),
     archiveRootMembershipWitness: makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x2000),
     contractClassLogsFields: makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeContractClassLogFields, seed + 0x3000),
+    proverId: fr(seed + 0x4000),
   });
 }
 

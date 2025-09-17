@@ -197,9 +197,17 @@ function test_cmds {
     private-kernel-tail
     rollup-base-private
     rollup-base-public
+    rollup-merge
+    rollup-block-root-first
+    rollup-block-root-first-single-tx
+    rollup-block-root-first-empty-tx
     rollup-block-root
+    rollup-block-root-single-tx
     rollup-block-merge
-    rollup-merge rollup-root
+    rollup-checkpoint-root
+    rollup-checkpoint-root-single-block
+    rollup-checkpoint-merge
+    rollup-root
   "
   nargo_root_rel=$(realpath --relative-to=$root $NARGO)
   for circuit in $circuits_to_execute; do

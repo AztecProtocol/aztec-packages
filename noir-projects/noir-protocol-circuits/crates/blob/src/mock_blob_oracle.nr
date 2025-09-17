@@ -3,16 +3,16 @@ use crate::blob_batching_public_inputs::{
 };
 use types::{
     abis::sponge_blob::SpongeBlob,
-    constants::{BLOB_ACCUMULATOR_PUBLIC_INPUTS, BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
+    constants::{BLOB_ACCUMULATOR_PUBLIC_INPUTS, FIELDS_PER_BLOB},
     traits::{Deserialize, Serialize},
 };
 
 // TODO(#10323): this was added to save simulation time (~1min in ACVM, ~3mins in wasm -> 500ms).
 // The use of bignum adds a lot of unconstrained code which overloads limits when simulating.
 // If/when simulation times of unconstrained are improved, remove this.
-pub unconstrained fn evaluate_blobs_and_batch(
-    blobs_as_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
-    kzg_commitments: [BLSPoint; BLOBS_PER_BLOCK],
+pub unconstrained fn evaluate_blobs_and_batch<let NumBlobs: u32>(
+    blobs_as_fields: [Field; FIELDS_PER_BLOB * NumBlobs],
+    kzg_commitments: [BLSPoint; NumBlobs],
     mut sponge_blob: SpongeBlob,
     final_blob_challenges: FinalBlobBatchingChallenges,
     start_accumulator: BlobAccumulatorPublicInputs,
@@ -28,9 +28,9 @@ pub unconstrained fn evaluate_blobs_and_batch(
 }
 
 #[oracle(evaluateBlobs)]
-unconstrained fn evaluate_blobs_oracle(
-    blobs_as_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
-    kzg_commitments: [BLSPoint; BLOBS_PER_BLOCK],
+unconstrained fn evaluate_blobs_oracle<let NumBlobs: u32>(
+    blobs_as_fields: [Field; FIELDS_PER_BLOB * NumBlobs],
+    kzg_commitments: [BLSPoint; NumBlobs],
     mut sponge_blob: SpongeBlob,
     final_blob_challenges: FinalBlobBatchingChallenges,
     start_accumulator: [Field; BLOB_ACCUMULATOR_PUBLIC_INPUTS],

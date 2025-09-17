@@ -52,10 +52,22 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     [ProvingRequestType.ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
 
     [ProvingRequestType.BLOCK_MERGE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(
+      provingJobComparator,
+    ),
+    [ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(
+      provingJobComparator,
+    ),
     [ProvingRequestType.BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+
+    [ProvingRequestType.CHECKPOINT_ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(
+      provingJobComparator,
+    ),
+    [ProvingRequestType.CHECKPOINT_MERGE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.CHECKPOINT_PADDING_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
 
     [ProvingRequestType.BASE_PARITY]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.ROOT_PARITY]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
@@ -673,10 +685,17 @@ function proofTypeComparator(a: ProvingRequestType, b: ProvingRequestType): -1 |
  * is to get picked up by agents
  */
 export const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
-  ProvingRequestType.BLOCK_ROOT_ROLLUP,
-  ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP,
-  ProvingRequestType.BLOCK_MERGE_ROLLUP,
   ProvingRequestType.ROOT_ROLLUP,
+  ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP,
+  ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP,
+  ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP,
+  ProvingRequestType.BLOCK_ROOT_ROLLUP,
+  ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP,
+  ProvingRequestType.BLOCK_MERGE_ROLLUP,
+  ProvingRequestType.CHECKPOINT_ROOT_ROLLUP,
+  ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP,
+  ProvingRequestType.CHECKPOINT_MERGE_ROLLUP,
+  ProvingRequestType.CHECKPOINT_PADDING_ROLLUP,
   ProvingRequestType.MERGE_ROLLUP,
   ProvingRequestType.PUBLIC_BASE_ROLLUP,
   ProvingRequestType.PRIVATE_BASE_ROLLUP,
@@ -684,5 +703,4 @@ export const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
   ProvingRequestType.PUBLIC_TUBE,
   ProvingRequestType.ROOT_PARITY,
   ProvingRequestType.BASE_PARITY,
-  ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP,
 ];

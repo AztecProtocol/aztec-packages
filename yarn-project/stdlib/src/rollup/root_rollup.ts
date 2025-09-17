@@ -7,20 +7,25 @@ import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import type { FieldsOf } from '@aztec/foundation/types';
 
-import { FeeRecipient } from './block_root_or_block_merge_public_inputs.js';
-import { PreviousRollupBlockData } from './previous_rollup_block_data.js';
+import { ProofData } from '../proofs/proof_data.js';
+import { CheckpointRollupPublicInputs, FeeRecipient } from './checkpoint_rollup_public_inputs.js';
+import { EpochConstantData } from './epoch_constant_data.js';
+import type { RollupProofData } from './rollup_proof_data.js';
 
 /**
  * Represents inputs of the root rollup circuit.
  */
-export class RootRollupInputs {
+export class RootRollupPrivateInputs {
   constructor(
     /**
      * The previous rollup data.
      * Note: Root rollup circuit is the latest circuit the chain of circuits and the previous rollup data is the data
-     * from 2 block merge circuits.
+     * from 2 checkpoint root/merge/padding circuits.
      */
-    public previousRollupData: [PreviousRollupBlockData, PreviousRollupBlockData],
+    public previousRollups: [
+      RollupProofData<CheckpointRollupPublicInputs>,
+      RollupProofData<CheckpointRollupPublicInputs>,
+    ],
   ) {}
 
   /**
@@ -28,7 +33,7 @@ export class RootRollupInputs {
    * @returns - The inputs serialized to a buffer.
    */
   toBuffer() {
-    return serializeToBuffer(...RootRollupInputs.getFields(this));
+    return serializeToBuffer(...RootRollupPrivateInputs.getFields(this));
   }
 
   /**
@@ -42,10 +47,10 @@ export class RootRollupInputs {
   /**
    * Creates a new instance from fields.
    * @param fields - Fields to create the instance from.
-   * @returns A new RootRollupInputs instance.
+   * @returns A new RootRollupPrivateInputs instance.
    */
-  static from(fields: FieldsOf<RootRollupInputs>): RootRollupInputs {
-    return new RootRollupInputs(...RootRollupInputs.getFields(fields));
+  static from(fields: FieldsOf<RootRollupPrivateInputs>) {
+    return new RootRollupPrivateInputs(...RootRollupPrivateInputs.getFields(fields));
   }
 
   /**
@@ -53,30 +58,30 @@ export class RootRollupInputs {
    * @param fields - Fields to create the instance from.
    * @returns An array of fields.
    */
-  static getFields(fields: FieldsOf<RootRollupInputs>) {
-    return [fields.previousRollupData] as const;
+  static getFields(fields: FieldsOf<RootRollupPrivateInputs>) {
+    return [fields.previousRollups] as const;
   }
 
   /**
    * Deserializes the inputs from a buffer.
    * @param buffer - A buffer to deserialize from.
-   * @returns A new RootRollupInputs instance.
+   * @returns A new RootRollupPrivateInputs instance.
    */
-  static fromBuffer(buffer: Buffer | BufferReader): RootRollupInputs {
+  static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new RootRollupInputs([
-      reader.readObject(PreviousRollupBlockData),
-      reader.readObject(PreviousRollupBlockData),
+    return new RootRollupPrivateInputs([
+      ProofData.fromBuffer(reader, CheckpointRollupPublicInputs),
+      ProofData.fromBuffer(reader, CheckpointRollupPublicInputs),
     ]);
   }
 
   /**
    * Deserializes the inputs from a hex string.
    * @param str - A hex string to deserialize from.
-   * @returns A new RootRollupInputs instance.
+   * @returns A new RootRollupPrivateInputs instance.
    */
   static fromString(str: string) {
-    return RootRollupInputs.fromBuffer(hexToBuffer(str));
+    return RootRollupPrivateInputs.fromBuffer(hexToBuffer(str));
   }
 
   /** Returns a representation for JSON serialization. */
@@ -86,7 +91,7 @@ export class RootRollupInputs {
 
   /** Creates an instance from a string. */
   static get schema() {
-    return bufferSchemaFor(RootRollupInputs);
+    return bufferSchemaFor(RootRollupPrivateInputs);
   }
 }
 
@@ -101,13 +106,9 @@ export class RootRollupPublicInputs {
     public previousArchiveRoot: Fr,
     /** Root of the archive tree after this rollup is processed */
     public endArchiveRoot: Fr,
-    public proposedBlockHeaderHashes: Tuple<Fr, typeof AZTEC_MAX_EPOCH_DURATION>,
+    public checkpointHeaderHashes: Tuple<Fr, typeof AZTEC_MAX_EPOCH_DURATION>,
     public fees: Tuple<FeeRecipient, typeof AZTEC_MAX_EPOCH_DURATION>,
-    public chainId: Fr,
-    public version: Fr,
-    public vkTreeRoot: Fr,
-    public protocolContractTreeRoot: Fr,
-    public proverId: Fr,
+    public constants: EpochConstantData,
     public blobPublicInputs: FinalBlobAccumulatorPublicInputs,
   ) {}
 
@@ -115,13 +116,9 @@ export class RootRollupPublicInputs {
     return [
       fields.previousArchiveRoot,
       fields.endArchiveRoot,
-      fields.proposedBlockHeaderHashes,
+      fields.checkpointHeaderHashes,
       fields.fees,
-      fields.chainId,
-      fields.version,
-      fields.vkTreeRoot,
-      fields.protocolContractTreeRoot,
-      fields.proverId,
+      fields.constants,
       fields.blobPublicInputs,
     ] as const;
   }
@@ -150,11 +147,7 @@ export class RootRollupPublicInputs {
       Fr.fromBuffer(reader),
       reader.readArray(AZTEC_MAX_EPOCH_DURATION, Fr),
       reader.readArray(AZTEC_MAX_EPOCH_DURATION, FeeRecipient),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
+      EpochConstantData.fromBuffer(reader),
       reader.readObject(FinalBlobAccumulatorPublicInputs),
     );
   }
@@ -184,11 +177,7 @@ export class RootRollupPublicInputs {
       Fr.random(),
       makeTuple(AZTEC_MAX_EPOCH_DURATION, Fr.random),
       makeTuple(AZTEC_MAX_EPOCH_DURATION, FeeRecipient.random),
-      Fr.random(),
-      Fr.random(),
-      Fr.random(),
-      Fr.random(),
-      Fr.random(),
+      new EpochConstantData(Fr.random(), Fr.random(), Fr.random(), Fr.random(), Fr.random()),
       FinalBlobAccumulatorPublicInputs.random(),
     );
   }

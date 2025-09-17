@@ -8,11 +8,20 @@ import PublicBaseRollupJson from '../../artifacts/rollup_base_public.json' with 
 import PublicBaseRollupSimulatedJson from '../../artifacts/rollup_base_public_simulated.json' with { type: 'json' };
 import BlockMergeRollupJson from '../../artifacts/rollup_block_merge.json' with { type: 'json' };
 import BlockRootRollupJson from '../../artifacts/rollup_block_root.json' with { type: 'json' };
-import EmptyBlockRootRollupJson from '../../artifacts/rollup_block_root_empty.json' with { type: 'json' };
-import PaddingBlockRootRollupJson from '../../artifacts/rollup_block_root_padding.json' with { type: 'json' };
+import BlockRootFirstRollupJson from '../../artifacts/rollup_block_root_first.json' with { type: 'json' };
+import BlockRootEmptyTxFirstRollupJson from '../../artifacts/rollup_block_root_first_empty_tx.json' with { type: 'json' };
+import BlockRootFirstRollupSimulatedJson from '../../artifacts/rollup_block_root_first_simulated.json' with { type: 'json' };
+import BlockRootSingleTxFirstRollupJson from '../../artifacts/rollup_block_root_first_single_tx.json' with { type: 'json' };
+import BlockRootSingleTxFirstRollupSimulatedJson from '../../artifacts/rollup_block_root_first_single_tx_simulated.json' with { type: 'json' };
 import BlockRootRollupSimulatedJson from '../../artifacts/rollup_block_root_simulated.json' with { type: 'json' };
-import SingleTxBlockRootRollupJson from '../../artifacts/rollup_block_root_single_tx.json' with { type: 'json' };
-import SingleTxBlockRootRollupSimulatedJson from '../../artifacts/rollup_block_root_single_tx_simulated.json' with { type: 'json' };
+import BlockRootSingleTxRollupJson from '../../artifacts/rollup_block_root_single_tx.json' with { type: 'json' };
+import BlockRootSingleTxRollupSimulatedJson from '../../artifacts/rollup_block_root_single_tx_simulated.json' with { type: 'json' };
+import CheckpointMergeRollupJson from '../../artifacts/rollup_checkpoint_merge.json' with { type: 'json' };
+import CheckpointPaddingRollupJson from '../../artifacts/rollup_checkpoint_padding.json' with { type: 'json' };
+import CheckpointRootRollupJson from '../../artifacts/rollup_checkpoint_root.json' with { type: 'json' };
+import CheckpointRootRollupSimulatedJson from '../../artifacts/rollup_checkpoint_root_simulated.json' with { type: 'json' };
+import CheckpointRootSingleBlockRollupJson from '../../artifacts/rollup_checkpoint_root_single_block.json' with { type: 'json' };
+import CheckpointRootSingleBlockRollupSimulatedJson from '../../artifacts/rollup_checkpoint_root_single_block_simulated.json' with { type: 'json' };
 import MergeRollupJson from '../../artifacts/rollup_merge.json' with { type: 'json' };
 import RootRollupJson from '../../artifacts/rollup_root.json' with { type: 'json' };
 import PublicTubeJson from '../../artifacts/tube_public.json' with { type: 'json' };
@@ -25,11 +34,16 @@ export const ServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiled
   PrivateBaseRollupArtifact: PrivateBaseRollupJson as NoirCompiledCircuit,
   PublicBaseRollupArtifact: PublicBaseRollupJson as NoirCompiledCircuit,
   MergeRollupArtifact: MergeRollupJson as NoirCompiledCircuit,
+  BlockRootFirstRollupArtifact: BlockRootFirstRollupJson as NoirCompiledCircuit,
+  BlockRootSingleTxFirstRollupArtifact: BlockRootSingleTxFirstRollupJson as NoirCompiledCircuit,
+  BlockRootEmptyTxFirstRollupArtifact: BlockRootEmptyTxFirstRollupJson as NoirCompiledCircuit,
   BlockRootRollupArtifact: BlockRootRollupJson as NoirCompiledCircuit,
-  SingleTxBlockRootRollupArtifact: SingleTxBlockRootRollupJson as NoirCompiledCircuit,
-  EmptyBlockRootRollupArtifact: EmptyBlockRootRollupJson as NoirCompiledCircuit,
-  PaddingBlockRootRollupArtifact: PaddingBlockRootRollupJson as NoirCompiledCircuit,
+  BlockRootSingleTxRollupArtifact: BlockRootSingleTxRollupJson as NoirCompiledCircuit,
   BlockMergeRollupArtifact: BlockMergeRollupJson as NoirCompiledCircuit,
+  CheckpointRootRollupArtifact: CheckpointRootRollupJson as NoirCompiledCircuit,
+  CheckpointRootSingleBlockRollupArtifact: CheckpointRootSingleBlockRollupJson as NoirCompiledCircuit,
+  CheckpointPaddingRollupArtifact: CheckpointPaddingRollupJson as NoirCompiledCircuit,
+  CheckpointMergeRollupArtifact: CheckpointMergeRollupJson as NoirCompiledCircuit,
   RootRollupArtifact: RootRollupJson as NoirCompiledCircuit,
 };
 
@@ -40,11 +54,16 @@ export const SimulatedServerCircuitArtifacts: Record<ServerProtocolArtifact, Noi
   PrivateBaseRollupArtifact: PrivateBaseRollupSimulatedJson as NoirCompiledCircuit,
   PublicBaseRollupArtifact: PublicBaseRollupSimulatedJson as NoirCompiledCircuit,
   MergeRollupArtifact: MergeRollupJson as NoirCompiledCircuit,
+  BlockRootFirstRollupArtifact: BlockRootFirstRollupSimulatedJson as NoirCompiledCircuit,
+  BlockRootSingleTxFirstRollupArtifact: BlockRootSingleTxFirstRollupSimulatedJson as NoirCompiledCircuit,
+  BlockRootEmptyTxFirstRollupArtifact: BlockRootEmptyTxFirstRollupJson as NoirCompiledCircuit,
   BlockRootRollupArtifact: BlockRootRollupSimulatedJson as NoirCompiledCircuit,
-  SingleTxBlockRootRollupArtifact: SingleTxBlockRootRollupSimulatedJson as NoirCompiledCircuit,
-  EmptyBlockRootRollupArtifact: EmptyBlockRootRollupJson as NoirCompiledCircuit,
-  PaddingBlockRootRollupArtifact: PaddingBlockRootRollupJson as NoirCompiledCircuit,
+  BlockRootSingleTxRollupArtifact: BlockRootSingleTxRollupSimulatedJson as NoirCompiledCircuit,
   BlockMergeRollupArtifact: BlockMergeRollupJson as NoirCompiledCircuit,
+  CheckpointRootRollupArtifact: CheckpointRootRollupSimulatedJson as NoirCompiledCircuit,
+  CheckpointRootSingleBlockRollupArtifact: CheckpointRootSingleBlockRollupSimulatedJson as NoirCompiledCircuit,
+  CheckpointPaddingRollupArtifact: CheckpointPaddingRollupJson as NoirCompiledCircuit,
+  CheckpointMergeRollupArtifact: CheckpointMergeRollupJson as NoirCompiledCircuit,
   RootRollupArtifact: RootRollupJson as NoirCompiledCircuit,
 };
 

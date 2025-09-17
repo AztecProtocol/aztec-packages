@@ -31,9 +31,11 @@ pub mod private_call_request;
 pub mod accumulated_data;
 pub mod avm_circuit_public_inputs;
 
+pub mod fee_recipient;
 pub mod partial_state_reference;
 pub mod state_reference;
 pub mod block_header;
+pub mod checkpoint_header;
 
 pub mod contract_class_function_leaf_preimage;
 
@@ -43,6 +45,7 @@ pub mod protocol_contract_leaf_preimage;
 
 pub mod tx_constant_data;
 pub mod block_constant_data;
+pub mod checkpoint_constant_data;
 pub mod epoch_constant_data;
 
 pub mod contract_class_log;

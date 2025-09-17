@@ -146,7 +146,7 @@ export class TXE extends TXETypedOracle {
   }
 
   override async utilityGetBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
-    return (await this.pxeOracleInterface.getBlock(blockNumber))?.header;
+    return (await this.pxeOracleInterface.getBlock(blockNumber))?.header.toBlockHeader();
   }
 
   override utilityGetPublicKeysAndPartialAddress(account: AztecAddress) {

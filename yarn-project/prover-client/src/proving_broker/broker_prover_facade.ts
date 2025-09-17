@@ -27,18 +27,24 @@ import type { BaseParityInputs, ParityPublicInputs, RootParityInputs } from '@az
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import type {
   BaseOrMergeRollupPublicInputs,
-  BlockMergeRollupInputs,
-  BlockRootOrBlockMergePublicInputs,
-  BlockRootRollupInputs,
-  EmptyBlockRootRollupInputs,
+  BlockMergeRollupPrivateInputs,
+  BlockRollupPublicInputs,
+  BlockRootEmptyTxFirstRollupPrivateInputs,
+  BlockRootFirstRollupPrivateInputs,
+  BlockRootRollupPrivateInputs,
+  BlockRootSingleTxFirstRollupPrivateInputs,
+  BlockRootSingleTxRollupPrivateInputs,
+  CheckpointMergeRollupPrivateInputs,
+  CheckpointPaddingRollupPrivateInputs,
+  CheckpointRollupPublicInputs,
+  CheckpointRootRollupPrivateInputs,
+  CheckpointRootSingleBlockRollupPrivateInputs,
   MergeRollupInputs,
-  PaddingBlockRootRollupInputs,
   PrivateBaseRollupInputs,
   PublicBaseRollupInputs,
   PublicTubePrivateInputs,
-  RootRollupInputs,
+  RootRollupPrivateInputs,
   RootRollupPublicInputs,
-  SingleTxBlockRootRollupInputs,
 } from '@aztec/stdlib/rollup';
 
 import { InlineProofStore, type ProofStore } from './proof_store/index.js';
@@ -425,86 +431,6 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     );
   }
 
-  getBlockMergeRollupProof(
-    input: BlockMergeRollupInputs,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<
-    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
-  > {
-    return this.enqueueJob(
-      this.generateId(ProvingRequestType.BLOCK_MERGE_ROLLUP, input, epochNumber),
-      ProvingRequestType.BLOCK_MERGE_ROLLUP,
-      input,
-      epochNumber,
-      signal,
-    );
-  }
-
-  getBlockRootRollupProof(
-    input: BlockRootRollupInputs,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<
-    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
-  > {
-    return this.enqueueJob(
-      this.generateId(ProvingRequestType.BLOCK_ROOT_ROLLUP, input, epochNumber),
-      ProvingRequestType.BLOCK_ROOT_ROLLUP,
-      input,
-      epochNumber,
-      signal,
-    );
-  }
-
-  getSingleTxBlockRootRollupProof(
-    input: SingleTxBlockRootRollupInputs,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<
-    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
-  > {
-    return this.enqueueJob(
-      this.generateId(ProvingRequestType.BLOCK_ROOT_ROLLUP, input, epochNumber),
-      ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP,
-      input,
-      epochNumber,
-      signal,
-    );
-  }
-
-  getEmptyBlockRootRollupProof(
-    input: EmptyBlockRootRollupInputs,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<
-    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
-  > {
-    return this.enqueueJob(
-      this.generateId(ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP, input, epochNumber),
-      ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP,
-      input,
-      epochNumber,
-      signal,
-    );
-  }
-
-  getPaddingBlockRootRollupProof(
-    input: PaddingBlockRootRollupInputs,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<
-    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
-  > {
-    return this.enqueueJob(
-      this.generateId(ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP, input, epochNumber),
-      ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP,
-      input,
-      epochNumber,
-      signal,
-    );
-  }
-
   getMergeRollupProof(
     input: MergeRollupInputs,
     signal?: AbortSignal,
@@ -586,8 +512,156 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     );
   }
 
+  getBlockRootFirstRollupProof(
+    input: BlockRootFirstRollupPrivateInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+    return this.enqueueJob(
+      this.generateId(ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP, input, epochNumber),
+      ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP,
+      input,
+      epochNumber,
+      signal,
+    );
+  }
+
+  getBlockRootSingleTxFirstRollupProof(
+    input: BlockRootSingleTxFirstRollupPrivateInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+    return this.enqueueJob(
+      this.generateId(ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP, input, epochNumber),
+      ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP,
+      input,
+      epochNumber,
+      signal,
+    );
+  }
+
+  getBlockRootEmptyTxFirstRollupProof(
+    input: BlockRootEmptyTxFirstRollupPrivateInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+    return this.enqueueJob(
+      this.generateId(ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP, input, epochNumber),
+      ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP,
+      input,
+      epochNumber,
+      signal,
+    );
+  }
+
+  getBlockRootRollupProof(
+    input: BlockRootRollupPrivateInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+    return this.enqueueJob(
+      this.generateId(ProvingRequestType.BLOCK_ROOT_ROLLUP, input, epochNumber),
+      ProvingRequestType.BLOCK_ROOT_ROLLUP,
+      input,
+      epochNumber,
+      signal,
+    );
+  }
+
+  getBlockRootSingleTxRollupProof(
+    input: BlockRootSingleTxRollupPrivateInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+    return this.enqueueJob(
+      this.generateId(ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP, input, epochNumber),
+      ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP,
+      input,
+      epochNumber,
+      signal,
+    );
+  }
+
+  getBlockMergeRollupProof(
+    input: BlockMergeRollupPrivateInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+    return this.enqueueJob(
+      this.generateId(ProvingRequestType.BLOCK_MERGE_ROLLUP, input, epochNumber),
+      ProvingRequestType.BLOCK_MERGE_ROLLUP,
+      input,
+      epochNumber,
+      signal,
+    );
+  }
+
+  getCheckpointRootRollupProof(
+    input: CheckpointRootRollupPrivateInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<
+    PublicInputsAndRecursiveProof<CheckpointRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
+    return this.enqueueJob(
+      this.generateId(ProvingRequestType.CHECKPOINT_ROOT_ROLLUP, input, epochNumber),
+      ProvingRequestType.CHECKPOINT_ROOT_ROLLUP,
+      input,
+      epochNumber,
+      signal,
+    );
+  }
+
+  getCheckpointRootSingleBlockRollupProof(
+    input: CheckpointRootSingleBlockRollupPrivateInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<
+    PublicInputsAndRecursiveProof<CheckpointRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
+    return this.enqueueJob(
+      this.generateId(ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP, input, epochNumber),
+      ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP,
+      input,
+      epochNumber,
+      signal,
+    );
+  }
+
+  getCheckpointPaddingRollupProof(
+    input: CheckpointPaddingRollupPrivateInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<
+    PublicInputsAndRecursiveProof<CheckpointRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
+    return this.enqueueJob(
+      this.generateId(ProvingRequestType.CHECKPOINT_PADDING_ROLLUP, input, epochNumber),
+      ProvingRequestType.CHECKPOINT_PADDING_ROLLUP,
+      input,
+      epochNumber,
+      signal,
+    );
+  }
+
+  getCheckpointMergeRollupProof(
+    input: CheckpointMergeRollupPrivateInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<
+    PublicInputsAndRecursiveProof<CheckpointRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
+    return this.enqueueJob(
+      this.generateId(ProvingRequestType.CHECKPOINT_MERGE_ROLLUP, input, epochNumber),
+      ProvingRequestType.CHECKPOINT_MERGE_ROLLUP,
+      input,
+      epochNumber,
+      signal,
+    );
+  }
+
   getRootRollupProof(
-    input: RootRollupInputs,
+    input: RootRollupPrivateInputs,
     signal?: AbortSignal,
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<RootRollupPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {

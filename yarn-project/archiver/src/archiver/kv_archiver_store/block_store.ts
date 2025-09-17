@@ -14,7 +14,7 @@ import {
   PublishedL2Block,
   type ValidateBlockResult,
 } from '@aztec/stdlib/block';
-import { deserializeValidateBlockResult, serializeValidateBlockResult } from '@aztec/stdlib/block';
+import { L2BlockHeader, deserializeValidateBlockResult, serializeValidateBlockResult } from '@aztec/stdlib/block';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
@@ -213,7 +213,7 @@ export class BlockStore {
    */
   async *getBlockHeaders(start: number, limit: number): AsyncIterableIterator<BlockHeader> {
     for await (const [blockNumber, blockStorage] of this.getBlockStorages(start, limit)) {
-      const header = BlockHeader.fromBuffer(blockStorage.header);
+      const header = L2BlockHeader.fromBuffer(blockStorage.header).toBlockHeader();
       if (header.getBlockNumber() !== blockNumber) {
         throw new Error(
           `Block number mismatch when retrieving block header from archive (expected ${blockNumber} but got ${header.getBlockNumber()})`,
@@ -240,7 +240,7 @@ export class BlockStore {
     blockNumber: number,
     blockStorage: BlockStorage,
   ): Promise<PublishedL2Block | undefined> {
-    const header = BlockHeader.fromBuffer(blockStorage.header);
+    const header = L2BlockHeader.fromBuffer(blockStorage.header);
     const archive = AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive);
     const blockHash = blockStorage.blockHash;
     const blockHashString = bufferToHex(blockHash);

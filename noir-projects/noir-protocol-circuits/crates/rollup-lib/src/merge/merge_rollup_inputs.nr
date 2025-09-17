@@ -4,13 +4,13 @@ use crate::merge::utils::{
     merge_rollups::merge_rollups, validate_consecutive_rollups::validate_consecutive_rollups,
 };
 use dep::types::{
-    constants::{MERGE_ROLLUP_INDEX, PRIVATE_BASE_ROLLUP_VK_INDEX, PUBLIC_BASE_ROLLUP_VK_INDEX},
+    constants::{MERGE_ROLLUP_VK_INDEX, PRIVATE_BASE_ROLLUP_VK_INDEX, PUBLIC_BASE_ROLLUP_VK_INDEX},
     proof::traits::Verifiable,
     traits::Empty,
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
-    [MERGE_ROLLUP_INDEX, PRIVATE_BASE_ROLLUP_VK_INDEX, PUBLIC_BASE_ROLLUP_VK_INDEX];
+    [MERGE_ROLLUP_VK_INDEX, PRIVATE_BASE_ROLLUP_VK_INDEX, PUBLIC_BASE_ROLLUP_VK_INDEX];
 
 #[derive(Eq)]
 pub struct MergeRollupInputs {
@@ -46,12 +46,12 @@ impl MergeRollupInputs {
 mod tests {
     use crate::tests::merge_rollup_inputs::default_merge_rollup_inputs;
     use dep::types::constants::{
-        MERGE_ROLLUP_INDEX, PRIVATE_BASE_ROLLUP_VK_INDEX, ROOT_PARITY_INDEX,
+        MERGE_ROLLUP_VK_INDEX, PRIVATE_BASE_ROLLUP_VK_INDEX, ROOT_PARITY_INDEX,
     };
     use types::merkle_tree::merkle_tree::MerkleTree;
     use types::tests::fixtures;
 
-    #[test(should_fail_with = "The rollup should be filled greedily from L to R, but received a L base and R merge")]
+    #[test(should_fail_with = "The rollup should be filled greedily from left to right, but received a left Root and right Merge")]
     fn different_rollup_type_fails() {
         let mut inputs = default_merge_rollup_inputs();
         inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.num_txs = 1; // base
@@ -190,7 +190,7 @@ mod tests {
     fn valid_previous_circuit_merge() {
         let mut inputs = default_merge_rollup_inputs();
 
-        let vk_index = MERGE_ROLLUP_INDEX;
+        let vk_index = MERGE_ROLLUP_VK_INDEX;
         let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
             fixtures::vk_tree::VK_MERKLE_TREE;
         inputs.previous_rollup_data[0].vk_data.vk =

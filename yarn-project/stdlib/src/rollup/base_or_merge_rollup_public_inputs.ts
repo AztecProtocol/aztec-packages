@@ -1,4 +1,4 @@
-import { SpongeBlob } from '@aztec/blob-lib';
+import { SpongeBlob } from '@aztec/blob-lib/types';
 import { Fr } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';

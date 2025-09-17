@@ -6,7 +6,7 @@ import { Fr } from '@aztec/foundation/fields';
 
 import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import { CommitteeAttestation, L1PublishedData } from '../block/index.js';
+import { CommitteeAttestation, L1PublishedData, L2BlockHeader } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
 import type { CommitteeAttestationsAndSigners } from '../block/proposal/attestations_and_signers.js';
 import { PublishedL2Block } from '../block/published_l2_block.js';
@@ -30,19 +30,12 @@ import { BlockProposal } from '../p2p/block_proposal.js';
 import { ConsensusPayload } from '../p2p/consensus_payload.js';
 import { SignatureDomainSeparator, getHashedSignaturePayloadEthSignedMessage } from '../p2p/signature_utils.js';
 import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
-import {
-  BlockHeader,
-  HashedValues,
-  PrivateCallExecutionResult,
-  PrivateExecutionResult,
-  StateReference,
-  Tx,
-} from '../tx/index.js';
+import { HashedValues, PrivateCallExecutionResult, PrivateExecutionResult, StateReference, Tx } from '../tx/index.js';
 import { PublicSimulationOutput } from '../tx/public_simulation_output.js';
 import { TxSimulationResult, accumulatePrivateReturnValues } from '../tx/simulated_tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
-import { makeGas, makeGlobalVariables, makeHeader, makePublicCallRequest } from './factories.js';
+import { makeGas, makeGlobalVariables, makeL2BlockHeader, makePublicCallRequest } from './factories.js';
 
 export const randomTxHash = (): TxHash => TxHash.random();
 
@@ -248,7 +241,7 @@ export const randomDeployedContract = async () => {
 
 export interface MakeConsensusPayloadOptions {
   signer?: Secp256k1Signer;
-  header?: BlockHeader;
+  header?: L2BlockHeader;
   archive?: Fr;
   stateReference?: StateReference;
   txHashes?: TxHash[];
@@ -259,11 +252,11 @@ const makeAndSignConsensusPayload = (
   domainSeparator: SignatureDomainSeparator,
   options?: MakeConsensusPayloadOptions,
 ) => {
-  const header = options?.header ?? makeHeader(1);
+  const header = options?.header ?? makeL2BlockHeader(1);
   const { signer = Secp256k1Signer.random(), archive = Fr.random(), stateReference = header.state } = options ?? {};
 
   const payload = ConsensusPayload.fromFields({
-    header: header.toPropose(),
+    header: header.toCheckpointHeader(),
     archive,
     stateReference,
   });

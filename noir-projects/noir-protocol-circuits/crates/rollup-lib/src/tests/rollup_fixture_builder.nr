@@ -249,7 +249,7 @@ impl RollupFixtureBuilder {
     pub fn to_block_constant_data(self) -> BlockConstantData {
         BlockConstantData {
             last_archive: self.last_archive,
-            new_l1_to_l2: self.new_l1_to_l2,
+            l1_to_l2_tree_snapshot: self.new_l1_to_l2,
             vk_tree_root: self.vk_tree_root,
             protocol_contract_tree_root: self.protocol_contract_tree_root,
             global_variables: self.global_variables,
