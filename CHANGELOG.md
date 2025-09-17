@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.0.2](https://github.com/AztecProtocol/aztec-packages/compare/v2.0.1...v2.0.2) (2025-09-17)
+
+
+### Miscellaneous
+
+* trigger a new release-please ([0930b8b](https://github.com/AztecProtocol/aztec-packages/commit/0930b8b117d5bbd32e23f44337440f00334c93c5))
+* truncate changelog ([af7c4b4](https://github.com/AztecProtocol/aztec-packages/commit/af7c4b46683a49fdede81c291bce18b64fc66d5a))
+* undo previous now that the changelog has been trimmed ([5cb5d79](https://github.com/AztecProtocol/aztec-packages/commit/5cb5d796a2df5fc858c514ee8409a19964578f3a))
+
 ## [2.0.1](https://github.com/AztecProtocol/aztec-packages/compare/v2.0.0...v2.0.1) (2025-09-17)
 
 
