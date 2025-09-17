@@ -41,7 +41,8 @@ template <typename Builder, typename T> bool_t<Builder> check_point_at_infinity(
         // Efficiently compute ((x^2 + 5 y^2) == 0)
         const fr<Builder> x_sqr = fr_vec[0].sqr();
         const fr<Builder> y = fr_vec[1];
-        return (y.madd(y, x_sqr * bb::fr(5)).is_zero());
+        const fr<Builder> five_y = y * bb::fr(5);
+        return (y.madd(five_y, x_sqr).is_zero());
     }
 }
 
@@ -236,7 +237,6 @@ template <typename Builder, typename T> std::vector<fr<Builder>> convert_to_bn25
     using bigfield_ct = fq<Builder>;
 
     if constexpr (IsAnyOf<T, field_ct>) {
-        ;
         return std::vector<T>{ val };
     } else if constexpr (IsAnyOf<T, bigfield_ct>) {
         return convert_grumpkin_fr_to_bn254_frs(val);
