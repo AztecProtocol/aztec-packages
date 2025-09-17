@@ -137,11 +137,11 @@ class Execution : public ExecutionInterface {
     void keccak_permutation(ContextInterface& context, MemoryAddress dst_addr, MemoryAddress src_addr);
     void success_copy(ContextInterface& context, MemoryAddress dst_addr);
     void debug_log(ContextInterface& context,
+                   MemoryAddress level_offset,
                    MemoryAddress message_offset,
                    MemoryAddress fields_offset,
                    MemoryAddress fields_size_offset,
-                   uint16_t message_size,
-                   bool is_debug_logging_enabled);
+                   uint16_t message_size);
     void and_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
     void xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
@@ -188,6 +188,11 @@ class Execution : public ExecutionInterface {
                             MemoryAddress input_addr);
     void shr(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress c_addr);
     void shl(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress c_addr);
+
+    void set_client_initiated_simulation(bool client_initiated_simulation)
+    {
+        this->client_initiated_simulation = client_initiated_simulation;
+    }
 
   protected:
     // Only here for testing. TODO(fcarreiro): try to improve.
@@ -243,6 +248,8 @@ class Execution : public ExecutionInterface {
     std::vector<TaggedValue> inputs;
     TaggedValue output;
     std::unique_ptr<GasTrackerInterface> gas_tracker;
+
+    bool client_initiated_simulation = false;
 };
 
 } // namespace bb::avm2::simulation

@@ -1,6 +1,6 @@
 import { Aes128 } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
-import { type Logger, applyStringFormatting, createLogger } from '@aztec/foundation/log';
+import { LogLevels, type Logger, applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import { PXEOracleInterface } from '@aztec/pxe/server';
 import { ExecutionNoteCache, HashedValuesCache, type NoteData, UtilityContext, pickNotes } from '@aztec/pxe/simulator';
 import type { NoteSelector } from '@aztec/stdlib/abi';
@@ -234,8 +234,12 @@ export class TXE extends TXETypedOracle {
     return values;
   }
 
-  override utilityDebugLog(message: string, fields: Fr[]): void {
-    this.logger.verbose(`${applyStringFormatting(message, fields)}`, { module: `${this.logger.module}:debug_log` });
+  override utilityDebugLog(levelNumber: number, message: string, fields: Fr[]): void {
+    if (!LogLevels[levelNumber]) {
+      throw new Error(`Invalid debug log level: ${levelNumber}`);
+    }
+    const level = LogLevels[levelNumber];
+    this.logger[level](`${applyStringFormatting(message, fields)}`, { module: `${this.logger.module}:debug_log` });
   }
 
   override async privateIncrementAppTaggingSecretIndexAsSender(

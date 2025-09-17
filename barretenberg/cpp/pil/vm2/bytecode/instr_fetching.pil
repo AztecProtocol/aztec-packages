@@ -288,7 +288,7 @@ op3 = (1 - PARSING_ERROR_EXCEPT_TAG_ERROR) * (sel_op_dc_0 * (bd7 * 2**8 + bd8 * 
 #[OP4_BYTES_DECOMPOSITION]
 op4 = (1 - PARSING_ERROR_EXCEPT_TAG_ERROR) * (sel_op_dc_0 * (bd9 * 2**8 + bd10 * 2**0) + sel_op_dc_5 * (bd8 * 2**8 + bd9 * 2**0));
 #[OP5_BYTES_DECOMPOSITION]
-op5 = (1 - PARSING_ERROR_EXCEPT_TAG_ERROR) * (sel_op_dc_0 * (bd11 * 2**8 + bd12 * 2**0));
+op5 = (1 - PARSING_ERROR_EXCEPT_TAG_ERROR) * (sel_op_dc_0 * (bd11 * 2**8 + bd12 * 2**0) + sel_op_dc_5 * (bd10 * 2**8 + bd11 * 2**0));
 #[OP6_BYTES_DECOMPOSITION]
 op6 = (1 - PARSING_ERROR_EXCEPT_TAG_ERROR) * (sel_op_dc_1 * (bd13 * 2**8 + bd14 * 2**0));
 #[OP7_BYTES_DECOMPOSITION]

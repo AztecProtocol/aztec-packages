@@ -1,6 +1,6 @@
 import { Aes128 } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
-import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
+import { LogLevels, applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
@@ -258,8 +258,13 @@ export class UtilityExecutionOracle extends TypedOracle {
     return values;
   }
 
-  public override utilityDebugLog(message: string, fields: Fr[]): void {
-    this.log.verbose(`${applyStringFormatting(message, fields)}`, { module: `${this.log.module}:debug_log` });
+  public override utilityDebugLog(levelNumber: number, message: string, fields: Fr[]): void {
+    if (!LogLevels[levelNumber]) {
+      throw new Error(`Invalid debug log level: ${levelNumber}`);
+    }
+    const level = LogLevels[levelNumber];
+
+    this.log[level](`${applyStringFormatting(message, fields)}`, { module: `${this.log.module}:debug_log` });
   }
 
   /**

@@ -11,12 +11,12 @@ import {
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { createLogger } from '@aztec/foundation/log';
+import { type LogLevel, createLogger } from '@aztec/foundation/log';
 import { PublicDataUpdateRequest } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import { NoteHash, Nullifier } from '@aztec/stdlib/kernel';
-import { PublicLog } from '@aztec/stdlib/logs';
+import { DebugLog, PublicLog } from '@aztec/stdlib/logs';
 import { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 
 import { strict as assert } from 'assert';
@@ -83,6 +83,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     /** We need to track the set of class IDs used, to enforce limits. */
     private uniqueClassIds: UniqueClassIds = new UniqueClassIds(),
     private writtenPublicDataSlots: Set<string> = new Set(),
+    private debugLogs: DebugLog[] = [],
   ) {
     this.sideEffectCounter = startSideEffectCounter;
   }
@@ -100,6 +101,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
       ),
       this.uniqueClassIds.fork(),
       new Set(this.writtenPublicDataSlots),
+      this.debugLogs.slice(),
     );
   }
 
@@ -113,6 +115,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
 
     this.sideEffectCounter = forkedTrace.sideEffectCounter;
     this.uniqueClassIds.acceptAndMerge(forkedTrace.uniqueClassIds);
+    this.debugLogs = forkedTrace.debugLogs;
 
     if (!reverted) {
       this.publicDataWrites.push(...forkedTrace.publicDataWrites);
@@ -235,6 +238,14 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     this.publicLogs.push(publicLog);
     this.log.trace(`Tracing new public log (counter=${this.sideEffectCounter})`);
     this.incrementSideEffectCounter();
+  }
+
+  public traceDebugLog(contractAddress: AztecAddress, level: LogLevel, message: string, fields: Fr[]) {
+    this.debugLogs.push(new DebugLog(contractAddress, level, message, fields));
+  }
+
+  public getDebugLogs() {
+    return this.debugLogs;
   }
 
   public traceGetContractClass(contractClassId: Fr, exists: boolean) {
