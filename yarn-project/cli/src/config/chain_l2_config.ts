@@ -2,6 +2,7 @@ import { DefaultL1ContractsConfig, type L1ContractsConfig } from '@aztec/ethereu
 import type { EnvVar, NetworkNames } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { SharedNodeConfig } from '@aztec/node-lib/config';
+import type { P2PConfig } from '@aztec/p2p/config';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 
 import { mkdir, readFile, stat, writeFile } from 'fs/promises';
@@ -10,6 +11,7 @@ import path, { dirname, join } from 'path';
 import publicIncludeMetrics from '../../public_include_metric_prefixes.json' with { type: 'json' };
 
 export type L2ChainConfig = L1ContractsConfig &
+  Pick<P2PConfig, 'txPoolDeleteTxsAfterReorg'> &
   Omit<SlasherConfig, 'slashValidatorsNever' | 'slashValidatorsAlways'> & {
     l1ChainId: number;
     testAccounts: boolean;
@@ -87,6 +89,7 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
+  txPoolDeleteTxsAfterReorg: false,
 
   ...DefaultL1ContractsConfig,
   ...DefaultSlashConfig,
@@ -126,6 +129,7 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
   maxTxPoolSize: 100_000_000, // 100MB
+  txPoolDeleteTxsAfterReorg: true,
 
   // Deployment stuff
   /** How many seconds an L1 slot lasts. */
@@ -175,6 +179,7 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
+  txPoolDeleteTxsAfterReorg: true,
 
   // Deployment stuff
   /** How many seconds an L1 slot lasts. */
