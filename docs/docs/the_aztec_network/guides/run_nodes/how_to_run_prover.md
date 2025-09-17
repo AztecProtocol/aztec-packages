@@ -76,8 +76,6 @@ This guide assumes you are using a standard Linux distribution (Debian or Ubuntu
 - Docker Compose ([installation guide](https://docs.docker.com/compose/install/))
 - Access to L1 node endpoints (execution and consensus clients). See [Eth Docker's guide](https://ethdocker.com/Usage/QuickStart) if you need to set these up.
 
-**Note**: This guide assumes advanced technical knowledge of blockchain infrastructure and DevOps practices.
-
 ## Configure the Prover
 
 Setting up a prover involves configuring three components through environment variables and Docker Compose.
@@ -114,7 +112,7 @@ Required environment variables:
 - `PROVER_PUBLISHER_PRIVATE_KEY`: the private key of the Ethereum EOA used for publishing the proofs to L1
 - `AZTEC_PORT`: the port that the prover node API is exposed on
 
-Add the following to your `.env` file (using default ports 8080 and 40400):
+Add the following to your `.env` file (assuming default ports of 8080 for the prover node, and 40400 for p2p connectivity):
 
 ```sh
 DATA_DIRECTORY=./prover-node-data
@@ -297,42 +295,3 @@ docker compose logs -f prover-broker
 # Agent logs
 docker compose logs -f prover-agent
 ```
-
-3. Confirm the prover node is connected to the network:
-
-```sh
-curl http://localhost:8080/status
-```
-
-## Troubleshooting
-
-### Common Issues
-
-**Port forwarding not working:**
-
-- Verify your external IP address matches the `P2P_IP` setting
-- Check firewall rules on your router and local machine
-- Test connectivity using: `nc -zv <your-ip> <p2p-port>`
-
-**Prover agent out of memory:**
-
-- Reduce `PROVER_AGENT_COUNT` in your `.env` file
-- Ensure your system meets the minimum RAM requirements
-
-**Connection to L1 failing:**
-
-- Verify your L1 endpoints are accessible
-- Check that both execution and consensus clients are fully synced
-- Test endpoints using: `curl -X POST <endpoint> -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'`
-
-**Docker Compose issues:**
-
-- Ensure Docker and Docker Compose are up to date
-- Check disk space availability
-- Review container logs for specific error messages
-
-## Next Steps
-
-- Monitor your prover's performance and uptime
-- Join the [Aztec Discord](https://discord.gg/aztec) for operator support
-- Consider implementing monitoring and alerting for production deployments
