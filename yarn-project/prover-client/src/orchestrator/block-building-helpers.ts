@@ -151,7 +151,7 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
     );
 
     if (tx.avmProvingRequest) {
-      const blockHash = await tx.data.constants.historicalHeader.hash();
+      const blockHash = await tx.data.constants.anchorBlockHeader.hash();
       const archiveRootMembershipWitness = await getMembershipWitnessFor(
         blockHash,
         MerkleTreeId.ARCHIVE,
@@ -203,7 +203,7 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
         feeWriteSiblingPath,
       });
 
-      const blockHash = await tx.data.constants.historicalHeader.hash();
+      const blockHash = await tx.data.constants.anchorBlockHeader.hash();
       const archiveRootMembershipWitness = await getMembershipWitnessFor(
         blockHash,
         MerkleTreeId.ARCHIVE,
@@ -564,7 +564,7 @@ function validateSimulatedTree(
 }
 
 export function validateTx(tx: ProcessedTx) {
-  const txHeader = tx.data.constants.historicalHeader;
+  const txHeader = tx.data.constants.anchorBlockHeader;
   if (txHeader.state.l1ToL2MessageTree.isEmpty()) {
     throw new Error(`Empty L1 to L2 messages tree in tx: ${toFriendlyJSON(tx)}`);
   }

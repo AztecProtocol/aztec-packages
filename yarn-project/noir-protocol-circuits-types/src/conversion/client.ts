@@ -498,7 +498,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     ),
     start_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.startSideEffectCounter),
     end_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.endSideEffectCounter),
-    historical_header: mapHeaderToNoir(privateCircuitPublicInputs.historicalHeader),
+    anchor_block_header: mapHeaderToNoir(privateCircuitPublicInputs.anchorBlockHeader),
     tx_context: mapTxContextToNoir(privateCircuitPublicInputs.txContext),
     min_revertible_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.minRevertibleSideEffectCounter),
     is_fee_payer: privateCircuitPublicInputs.isFeePayer,
@@ -581,7 +581,7 @@ export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): Priv
 
 function mapTxConstantDataToNoir(data: TxConstantData): TxConstantDataNoir {
   return {
-    historical_header: mapHeaderToNoir(data.historicalHeader),
+    anchor_block_header: mapHeaderToNoir(data.anchorBlockHeader),
     tx_context: mapTxContextToNoir(data.txContext),
     vk_tree_root: mapFieldToNoir(data.vkTreeRoot),
     protocol_contract_tree_root: mapFieldToNoir(data.protocolContractTreeRoot),

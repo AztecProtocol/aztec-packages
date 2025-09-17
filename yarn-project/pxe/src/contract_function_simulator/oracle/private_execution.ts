@@ -179,15 +179,15 @@ export async function readCurrentClassId(
  * provider (i.e. PXE).
  * @param contractAddress - The address of the contract to verify class id for.
  * @param executionDataProvider - The execution data provider.
- * @param header - The header of the block at which to verify the current class id. If not provided, the latest block
- * header synchronized by the execution data provider will be used.
+ * @param header - The header of the block at which to verify the current class id. If not provided, the anchor block
+ * header of the execution data provider is used.
  */
 export async function verifyCurrentClassId(
   contractAddress: AztecAddress,
   executionDataProvider: ExecutionDataProvider,
   header?: BlockHeader,
 ) {
-  header = header ?? (await executionDataProvider.getBlockHeader());
+  header = header ?? (await executionDataProvider.getAnchorBlockHeader());
 
   const instance = await executionDataProvider.getContractInstance(contractAddress);
   const currentClassId = await readCurrentClassId(

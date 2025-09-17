@@ -261,7 +261,7 @@ impl PartialUintNote {
         // the nullifiers in the tree are siloed by the protocol.
         let siloed_validity_commitment =
             compute_siloed_nullifier(context.this_address(), validity_commitment);
-        context.get_block_header().prove_nullifier_inclusion(siloed_validity_commitment);
+        context.get_anchor_block_header().prove_nullifier_inclusion(siloed_validity_commitment);
 
         // We need to do two things:
         //  - emit an unencrypted log containing the public fields (the value) via the private log channel. The

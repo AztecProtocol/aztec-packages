@@ -70,7 +70,7 @@ export type TXEOracleFunctionName = MethodNames<TXEService>;
 export interface TXESessionStateHandler {
   setTopLevelContext(): Promise<void>;
   setPublicContext(contractAddress?: AztecAddress): Promise<void>;
-  setPrivateContext(contractAddress?: AztecAddress, historicalBlockNumber?: UInt32): Promise<PrivateContextInputs>;
+  setPrivateContext(contractAddress?: AztecAddress, anchorBlockNumber?: UInt32): Promise<PrivateContextInputs>;
   setUtilityContext(contractAddress?: AztecAddress): Promise<void>;
 }
 

@@ -85,27 +85,27 @@ pub struct TestEnvironment {
 /// Configuration values for `TestEnvironment::private_context_opts`. Meant to be used by calling `new` and then
 /// chaining methods setting each value, e.g.:
 /// ```noir
-/// env.private_context_opts(PrivateContextOptions::new().at_historical_block_number(5), ...);
+/// env.private_context_opts(PrivateContextOptions::new().at_anchor_block_number(5), ...);
 /// ```
 pub struct PrivateContextOptions {
     contract_address: Option<AztecAddress>,
-    historical_block_number: Option<u32>,
+    anchor_block_number: Option<u32>,
 }
 
 impl PrivateContextOptions {
     /// Creates a new `PrivateContextOptions` with default values, i.e. the same as if using the `private_context`
-    /// method instead of `private_context_opts`. Use the `at_historical_block_number` and other methods to set the
+    /// method instead of `private_context_opts`. Use the `at_anchor_block_number` and other methods to set the
     /// desired configuration values.
     pub fn new() -> Self {
-        Self { contract_address: Option::none(), historical_block_number: Option::none() }
+        Self { contract_address: Option::none(), anchor_block_number: Option::none() }
     }
 
-    /// Sets the desired historical block number to base the private context in. Only past block numbers can be
+    /// Sets the desired anchor block number to base the private context in. Only past block numbers can be
     /// specified.
     ///
     /// If not set, defaults to the last block number.
-    pub fn at_historical_block_number(&mut self, historical_block_number: u32) -> Self {
-        self.historical_block_number = Option::some(historical_block_number);
+    pub fn at_anchor_block_number(&mut self, anchor_block_number: u32) -> Self {
+        self.anchor_block_number = Option::some(anchor_block_number);
         *self
     }
 
@@ -243,7 +243,7 @@ impl TestEnvironment {
         self.private_context_opts(
             PrivateContextOptions {
                 contract_address: Option::none(),
-                historical_block_number: Option::none(),
+                anchor_block_number: Option::none(),
             },
             f,
         )
@@ -259,7 +259,7 @@ impl TestEnvironment {
         self.private_context_opts(
             PrivateContextOptions {
                 contract_address: Option::some(addr),
-                historical_block_number: Option::none(),
+                anchor_block_number: Option::none(),
             },
             f,
         )
@@ -272,10 +272,7 @@ impl TestEnvironment {
         f: fn[Env](&mut PrivateContext) -> T,
     ) -> T {
         let mut context = PrivateContext::new(
-            txe_oracles::set_private_txe_context(
-                opts.contract_address,
-                opts.historical_block_number,
-            ),
+            txe_oracles::set_private_txe_context(opts.contract_address, opts.anchor_block_number),
             0,
         );
 
@@ -344,7 +341,7 @@ impl TestEnvironment {
         txe_oracles::get_next_block_number()
     }
 
-    /// Returns the number of the last mined block. This is the default historical block for `private_context` and
+    /// Returns the number of the last mined block. This is the default anchor block for `private_context` and
     /// `private_call`.
     pub unconstrained fn last_block_number(_self: Self) -> u32 {
         txe_oracles::get_next_block_number() - 1

@@ -146,7 +146,7 @@ function compile {
   # VK was downloaded from cache, update the JSON artifact with VK information
   jq -s '.[0] * .[1]' "$json_path" "$key_path" > "${json_path}.tmp"
   mv "${json_path}.tmp" "$json_path"
-  # remove temporary json file
+  # Remove temporary json file
   rm $key_path
 }
 export -f hex_to_fields_json compile

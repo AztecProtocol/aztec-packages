@@ -268,10 +268,10 @@ export class PrivateKernelExecutionProver {
     // Use the aggregated includeByTimestamp set throughout the tx execution.
     // TODO: Call `computeTxIncludeByTimestamp` to round the value down and reduce precision, improving privacy.
     const includeByTimestampUpperBound = previousKernelData.publicInputs.includeByTimestamp;
-    const blockTimestamp = previousKernelData.publicInputs.constants.historicalHeader.globalVariables.timestamp;
-    if (includeByTimestampUpperBound <= blockTimestamp) {
+    const anchorBlockTimestamp = previousKernelData.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp;
+    if (includeByTimestampUpperBound <= anchorBlockTimestamp) {
       throw new Error(
-        `Include-by timestamp must be greater than the historical block timestamp. Block timestamp: ${blockTimestamp}. Include-by timestamp: ${includeByTimestampUpperBound}.`,
+        `Include-by timestamp must be greater than the anchor block timestamp. Anchor block timestamp: ${anchorBlockTimestamp}. Include-by timestamp: ${includeByTimestampUpperBound}.`,
       );
     }
 

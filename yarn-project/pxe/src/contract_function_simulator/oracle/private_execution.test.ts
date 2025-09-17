@@ -108,7 +108,7 @@ describe('Private Execution test suite', () => {
   let executionDataProvider: MockProxy<ExecutionDataProvider>;
   let acirSimulator: ContractFunctionSimulator;
 
-  let header = BlockHeader.empty();
+  let anchorBlockHeader = BlockHeader.empty();
   let logger: Logger;
 
   let defaultContractAddress: AztecAddress;
@@ -208,29 +208,29 @@ describe('Private Execution test suite', () => {
     const newSnap = new AppendOnlyTreeSnapshot(Fr.fromBuffer(tree.getRoot(true)), Number(tree.getNumLeaves(true)));
 
     if (name === 'noteHash' || name === 'l1ToL2Messages' || name === 'publicData') {
-      header = new BlockHeader(
-        header.lastArchive,
-        header.contentCommitment,
+      anchorBlockHeader = new BlockHeader(
+        anchorBlockHeader.lastArchive,
+        anchorBlockHeader.contentCommitment,
         new StateReference(
-          name === 'l1ToL2Messages' ? newSnap : header.state.l1ToL2MessageTree,
+          name === 'l1ToL2Messages' ? newSnap : anchorBlockHeader.state.l1ToL2MessageTree,
           new PartialStateReference(
-            name === 'noteHash' ? newSnap : header.state.partial.noteHashTree,
-            header.state.partial.nullifierTree,
-            name === 'publicData' ? newSnap : header.state.partial.publicDataTree,
+            name === 'noteHash' ? newSnap : anchorBlockHeader.state.partial.noteHashTree,
+            anchorBlockHeader.state.partial.nullifierTree,
+            name === 'publicData' ? newSnap : anchorBlockHeader.state.partial.publicDataTree,
           ),
         ),
-        header.globalVariables,
-        header.totalFees,
-        header.totalManaUsed,
+        anchorBlockHeader.globalVariables,
+        anchorBlockHeader.totalFees,
+        anchorBlockHeader.totalManaUsed,
       );
     } else {
-      header = new BlockHeader(
-        header.lastArchive,
-        header.contentCommitment,
-        new StateReference(newSnap, header.state.partial),
-        header.globalVariables,
-        header.totalFees,
-        header.totalManaUsed,
+      anchorBlockHeader = new BlockHeader(
+        anchorBlockHeader.lastArchive,
+        anchorBlockHeader.contentCommitment,
+        new StateReference(newSnap, anchorBlockHeader.state.partial),
+        anchorBlockHeader.globalVariables,
+        anchorBlockHeader.totalFees,
+        anchorBlockHeader.totalManaUsed,
       );
     }
 
@@ -290,7 +290,7 @@ describe('Private Execution test suite', () => {
     // We call insertLeaves here with no leaves to populate empty public data tree root --> this is necessary to be
     // able to get ivpk_m during execution
     await insertLeaves([], 'publicData');
-    executionDataProvider.getBlockHeader.mockResolvedValue(header);
+    executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
 
     executionDataProvider.getCompleteAddress.mockImplementation((address: AztecAddress) => {
       if (address.equals(owner)) {
@@ -682,7 +682,7 @@ describe('Private Execution test suite', () => {
           return Promise.resolve(new MessageLoadOracleInputs(0n, await tree.getSiblingPath(0n, true)));
         });
         if (updateHeader) {
-          executionDataProvider.getBlockHeader.mockResolvedValue(header);
+          executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
         }
       };
 
@@ -732,7 +732,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        executionDataProvider.getBlockHeader.mockResolvedValue(header);
+        executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
 
         await expect(
           runSimulator({
@@ -753,7 +753,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        executionDataProvider.getBlockHeader.mockResolvedValue(header);
+        executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
 
         await expect(
           runSimulator({
@@ -773,7 +773,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        executionDataProvider.getBlockHeader.mockResolvedValue(header);
+        executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
 
         await expect(
           runSimulator({
@@ -793,7 +793,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        executionDataProvider.getBlockHeader.mockResolvedValue(header);
+        executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
 
         await expect(
           runSimulator({
@@ -814,7 +814,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        executionDataProvider.getBlockHeader.mockResolvedValue(header);
+        executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
 
         await expect(
           runSimulator({
@@ -835,7 +835,7 @@ describe('Private Execution test suite', () => {
 
         await mockOracles();
         // Update state
-        executionDataProvider.getBlockHeader.mockResolvedValue(header);
+        executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
 
         await expect(
           runSimulator({
@@ -1199,14 +1199,14 @@ describe('Private Execution test suite', () => {
 
   describe('Historical header in private context', () => {
     beforeEach(() => {
-      header = makeHeader();
+      anchorBlockHeader = makeHeader();
 
-      executionDataProvider.getBlockHeader.mockClear();
-      executionDataProvider.getBlockHeader.mockResolvedValue(header);
+      executionDataProvider.getAnchorBlockHeader.mockClear();
+      executionDataProvider.getAnchorBlockHeader.mockResolvedValue(anchorBlockHeader);
     });
 
     it('Header is correctly set', async () => {
-      const args = [await header.hash()];
+      const args = [await anchorBlockHeader.hash()];
 
       await runSimulator({
         artifact: TestContractArtifact,
