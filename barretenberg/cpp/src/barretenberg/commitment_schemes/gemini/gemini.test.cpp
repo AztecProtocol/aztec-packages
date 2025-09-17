@@ -372,7 +372,7 @@ TYPED_TEST(GeminiTest, HighDegreeAttackAccept)
     // Sample public opening point (u_0, u_1, u_2)
     auto u = this->random_evaluation_point(this->small_log_n);
 
-    // Chose a claimed eval at `u`
+    // Choose a claimed eval at `u`
     Fr claimed_multilinear_eval = Fr::random_element();
 
     //  poly is of high degrees, as the SRS allows for it
@@ -393,7 +393,7 @@ TYPED_TEST(GeminiTest, HighDegreeAttackAccept)
 
 // The prover commits to a higher degree polynomial than what is expected. The test considers the case where
 //  this polynomial does not fold down to a constant after the expected number of rounds. In this case, the verifier
-//  rejects.
+//  rejects with high probabililty.
 TYPED_TEST(GeminiTest, HighDegreeAttackReject)
 {
     using Fr = typename TypeParam::ScalarField;
@@ -408,7 +408,7 @@ TYPED_TEST(GeminiTest, HighDegreeAttackReject)
     // Sample public opening point (u_0, u_1, u_2)
     auto u = this->random_evaluation_point(this->small_log_n);
 
-    // Chose a claimed eval at `u`
+    // Choose a claimed eval at `u`
     Fr claimed_multilinear_eval = Fr::random_element();
 
     MockClaimGenerator<TypeParam> mock_claims(
