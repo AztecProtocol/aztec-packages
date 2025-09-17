@@ -1,7 +1,12 @@
 import { AVM_MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { ProtocolContractAddress, ProtocolContractLeaves, protocolContractNames } from '@aztec/protocol-contracts';
+import {
+  ProtocolContractAddress,
+  ProtocolContractLeaves,
+  protocolContractNames,
+  protocolContractTreeRoot,
+} from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import {
   AvmCircuitInputs,
@@ -75,6 +80,8 @@ export class PublicTxSimulator {
       const txHash = this.computeTxHash(tx);
       this.log.debug(`Simulating ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, { txHash });
 
+      // These values are technically derivable from the contractsDB. However, since the trees are not persisted
+      // computing them for every tx would be time consuming for this TS simulator. So instead we just import them
       const protocolContractHints = protocolContractNames.map(
         name =>
           new AvmProtocolContractAddressHint(
@@ -98,6 +105,7 @@ export class PublicTxSimulator {
         hintingContractsDB,
         tx,
         this.globalVariables,
+        protocolContractTreeRoot, // imported from file
         this.doMerkleOperations,
       );
 

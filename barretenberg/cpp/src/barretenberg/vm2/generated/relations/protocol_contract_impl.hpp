@@ -18,6 +18,7 @@ void protocol_contractImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     BB_BENCH_NAME("accumulate/protocol_contract");
 
     const auto constants_PROTOCOL_CONTRACT_TREE_HEIGHT = FF(3);
+    const auto constants_AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACT_TREE_ROOT = FF(8);
 
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
@@ -28,9 +29,16 @@ void protocol_contractImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::protocol_contract_sel)) *
+                   (static_cast<View>(in.get(C::protocol_contract_pi_index)) -
+                    CView(constants_AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACT_TREE_ROOT));
+        std::get<1>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::protocol_contract_sel)) *
                    (CView(constants_PROTOCOL_CONTRACT_TREE_HEIGHT) -
                     static_cast<View>(in.get(C::protocol_contract_tree_depth)));
-        std::get<1>(evals) += (tmp * scaling_factor);
+        std::get<2>(evals) += (tmp * scaling_factor);
     }
 }
 

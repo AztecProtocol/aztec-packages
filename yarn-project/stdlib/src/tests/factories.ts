@@ -447,6 +447,7 @@ export function makePrivateToRollupKernelCircuitPublicInputs(
 function makeAvmCircuitPublicInputs(seed = 1) {
   return new AvmCircuitPublicInputs(
     makeGlobalVariables(seed),
+    fr(seed + 0x100),
     makeTreeSnapshots(seed + 0x10),
     makeGas(seed + 0x20),
     makeGasSettings(),
