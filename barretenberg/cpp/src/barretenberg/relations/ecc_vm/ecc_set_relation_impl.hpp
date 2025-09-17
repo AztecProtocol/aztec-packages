@@ -144,9 +144,6 @@ Accumulator ECCVMSetRelationImpl<FF>::compute_grand_product_numerator(const AllE
         // if `precompute_select == 1`, don't change the numerator. if it is 0, then to get the grand product argument
         // to work (as we have zero-padded the rows of the MSM table), we must multiply by
         // `eccvm_set_permutation_delta` == (γ)·(γ + β²)·(γ + 2β²)·(γ + 3β²)
-        // if `precompute_select == 1`, don't change the numerator. if it is 0, then to get the grand product argument
-        // to work (as we have zero-padded the rows of the MSM table), we must multiply by
-        // `eccvm_set_permutation_delta` == (γ)·(γ + β²)·(γ + 2β²)·(γ + 3β²)
         numerator *= precompute_select * (-eccvm_set_permutation_delta + 1) + eccvm_set_permutation_delta; // degree-7
     }
 

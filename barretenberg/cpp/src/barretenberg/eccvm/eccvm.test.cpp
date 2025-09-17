@@ -66,18 +66,26 @@ ECCVMCircuitBuilder generate_circuit(numeric::RNG* engine = nullptr)
     return builder;
 }
 
-ECCVMCircuitBuilder generate_zero_circuit([[maybe_unused]] numeric::RNG* engine = nullptr)
+// returns a CircuitBuilder consisting of mul_add ops of the following form: either 0*g, for a group element, or
+// x * e, where x is a scalar and e is the identity element of the group.
+ECCVMCircuitBuilder generate_zero_circuit([[maybe_unused]] numeric::RNG* engine = nullptr, bool zero_scalars = 1)
 {
     using Curve = curve::BN254;
     using G1 = Curve::Element;
     using Fr = Curve::ScalarField;
 
     std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
-    [[maybe_unused]] G1 a = G1::random_element(engine);
 
-    [[maybe_unused]] Fr x = Fr::random_element(engine);
-    for (auto i = 0; i < 8; i++) {
-        op_queue->mul_accumulate(Curve::Group::affine_point_at_infinity, 0);
+    if (!zero_scalars) {
+        for (auto i = 0; i < 8; i++) {
+            Fr x = Fr::random_element(engine);
+            op_queue->mul_accumulate(Curve::Group::affine_point_at_infinity, x);
+        }
+    } else {
+        for (auto i = 0; i < 8; i++) {
+            G1 g = G1::random_element(engine);
+            op_queue->mul_accumulate(g, 0);
+        }
     }
     op_queue->merge();
 
@@ -113,9 +121,23 @@ void complete_proving_key_for_test(bb::RelationParameters<FF>& relation_paramete
         gate_challenges[idx] = FF::random_element();
     }
 }
-TEST_F(ECCVMTests, Zeroes)
+TEST_F(ECCVMTests, ZeroesCoefficients)
 {
-    ECCVMCircuitBuilder builder = generate_zero_circuit(&engine);
+    ECCVMCircuitBuilder builder = generate_zero_circuit(&engine, 1);
+
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover(builder, prover_transcript);
+    ECCVMProof proof = prover.construct_proof();
+
+    std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
+    ECCVMVerifier verifier(verifier_transcript);
+    bool verified = verifier.verify_proof(proof);
+
+    ASSERT_TRUE(verified);
+}
+TEST_F(ECCVMTests, PointAtInfinity)
+{
+    ECCVMCircuitBuilder builder = generate_zero_circuit(&engine, 0);
 
     std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
     ECCVMProver prover(builder, prover_transcript);
