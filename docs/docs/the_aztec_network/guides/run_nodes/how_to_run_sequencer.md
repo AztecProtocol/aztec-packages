@@ -29,10 +29,10 @@ The Aztec sequencer node is critical infrastructure responsible for ordering tra
 The sequencer node takes part in three key actions:
 
 1. Assemble unprocessed transactions and propose the next block
-2. Attest to correct execution of txs in the proposed block (if part of validator committee)
+2. Attest to correct execution of txs in the proposed block (if part of the sequencer committee)
 3. Submit the successfully attested block to L1
 
-When transactions are sent to the Aztec network, sequencer nodes bundle them into blocks, checking various constraints such as gas limits, block size, and transaction validity. Before a block can be published, it must be validated by a committee of other sequencer nodes (validators in this context) who re-execute public transactions and verify private function proofs so they can attest to correct execution. These validators attest to the block's validity by signing the block header, and once enough attestations are collected (two-thirds of the committee plus one), the sequencer can submit the block to L1.
+When transactions are sent to the Aztec network, sequencer nodes bundle them into blocks, checking various constraints such as gas limits, block size, and transaction validity. Before a block can be published, it must be validated by a committee of other sequencer nodes who re-execute public transactions and verify private function proofs so they can attest to correct execution. These sequencers attest to the block's validity by signing the block header, and once enough attestations are collected (two-thirds of the committee plus one), the sequencer can submit the block to L1.
 
 The archiver component complements this process by maintaining historical chain data. It continuously monitors L1 for new blocks, processes them, and maintains a synchronized view of the chain state. This includes managing contract data, transaction logs, and L1-to-L2 messages, making it essential for network synchronization and data availability.
 
