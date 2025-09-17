@@ -23,7 +23,7 @@ template <typename FF_> class memoryImpl {
     {
         using C = ColumnAndShifts;
 
-        return ((in.get(C::memory_sel) + in.get(C::precomputed_first_row))).is_zero();
+        return (in.get(C::memory_sel)).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>

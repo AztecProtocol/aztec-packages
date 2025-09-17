@@ -23,7 +23,7 @@ template <typename FF_> class keccak_memoryImpl {
     {
         using C = ColumnAndShifts;
 
-        return ((in.get(C::keccak_memory_sel) + in.get(C::keccak_memory_last))).is_zero();
+        return (in.get(C::keccak_memory_sel)).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>

@@ -1017,6 +1017,7 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                   { C::execution_base_address_val, addr_event.base_address.as_ff() },
                   { C::execution_base_address_tag, static_cast<uint8_t>(addr_event.base_address.get_tag()) },
                   { C::execution_base_address_tag_diff_inv, base_address_tag_diff_inv },
+                  { C::execution_sel_some_final_check_failed, some_final_check_failed ? 1 : 0 },
                   { C::execution_sel_base_address_failure, base_address_invalid ? 1 : 0 },
                   { C::execution_num_relative_operands_inv, do_base_check ? FF(num_relative_operands).invert() : 0 },
                   { C::execution_sel_do_base_check, do_base_check ? 1 : 0 },

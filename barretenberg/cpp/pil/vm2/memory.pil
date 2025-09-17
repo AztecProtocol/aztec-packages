@@ -53,7 +53,7 @@ pol commit max_bits; // Number of bits corresponding to the tag. (Retrieved from
 // +-----+-----------+-------+-----+-------------+----------------------+----------+--------------+-------------+
 
 #[skippable_if]
-sel + precomputed.first_row = 0;
+sel = 0;
 
 // Permutation selectors (execution/addressing.pil).
 pol commit sel_addressing_base;
