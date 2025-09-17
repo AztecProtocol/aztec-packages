@@ -484,6 +484,20 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
             EXPECT_EQ(builder.err(), "bigfield: prime limb identity failed");
         }
         {
+            // numerator is empty, denominator is witness
+            fq_ct zero = fq_ct::create_from_u512_as_witness(&builder, uint512_t(0), true);
+
+            // Division by zero should trigger an assertion failure
+            fq_ct output = fq_ct::div_check_denominator_nonzero({}, zero);
+
+            // outputs are irrelevant
+            EXPECT_EQ(output.get_value(), 0);
+
+            bool result = CircuitChecker::check(builder);
+            EXPECT_EQ(result, false);
+            EXPECT_EQ(builder.err(), "bigfield: prime limb diff is zero, but expected non-zero");
+        }
+        {
             // numerator is witness, denominator is constant
             [[maybe_unused]] auto [a_native, a_ct] = get_random_witness(&builder, false);
             fq_ct constant_zero = fq_ct(&builder, uint256_t(0));
@@ -501,6 +515,14 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
 #ifndef NDEBUG
             fq_ct constant_zero = fq_ct(&builder, uint256_t(0));
             EXPECT_THROW_OR_ABORT(a_ct / constant_zero, "bigfield: division by zero in constant division");
+#endif
+        }
+        {
+            // numerator is empty, denominator is constant
+#ifndef NDEBUG
+            fq_ct constant_zero = fq_ct(&builder, uint256_t(0));
+            EXPECT_THROW_OR_ABORT(fq_ct::div_check_denominator_nonzero({}, constant_zero),
+                                  "bigfield: prime limb diff is zero, but expected non-zero");
 #endif
         }
     }

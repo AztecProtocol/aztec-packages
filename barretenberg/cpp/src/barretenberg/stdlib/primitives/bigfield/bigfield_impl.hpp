@@ -785,8 +785,8 @@ bigfield<Builder, T> bigfield<Builder, T>::internal_div(const std::vector<bigfie
     BB_ASSERT_LT(numerators.size(), MAXIMUM_SUMMAND_COUNT);
     if (numerators.empty()) {
         if (check_for_zero) {
-            // We want to avoid division by zero in the constant case
-            ASSERT(denominator.get_value() != uint512_t(0), "bigfield: division by zero in constant division");
+            // We do not want to trigger division by zero in the empty sum case
+            denominator.assert_is_not_equal(zero());
         }
         return bigfield<Builder, T>(denominator.get_context(), uint256_t(0));
     }
