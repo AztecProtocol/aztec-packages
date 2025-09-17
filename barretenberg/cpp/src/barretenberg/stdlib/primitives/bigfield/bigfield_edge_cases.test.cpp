@@ -402,18 +402,18 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
 
     static void test_assert_is_in_field_fails()
     {
-
-        Builder builder = Builder();
         for (const auto& large_value : values_larger_than_bigfield) {
-            fq_ct large_case = fq_ct::create_from_u512_as_witness(&builder, large_value, false);
+            // Checks each large value individually in its own circuit
+            Builder builder = Builder();
 
             // For values larger than the field modulus, it should trigger a circuit error.
+            fq_ct large_case = fq_ct::create_from_u512_as_witness(&builder, large_value, true);
             large_case.assert_is_in_field();
-        }
 
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, false);
-        EXPECT_EQ(builder.err(), "decompose_into_default_range");
+            bool result = CircuitChecker::check(builder);
+            EXPECT_EQ(result, false);
+            EXPECT_EQ(builder.err(), "ultra_circuit_builder: sublimb of hi too large");
+        }
     }
 
     static void test_assert_less_than()
@@ -436,22 +436,19 @@ template <typename BigField> class stdlib_bigfield_edge_cases : public testing::
 
     static void test_assert_less_than_fails()
     {
-        Builder builder = Builder();
+        for (size_t i = 2; i < edge_case_values.size(); ++i) {
+            // Checks each large value individually in its own circuit
+            Builder builder = Builder();
 
-        for (const auto& i : values_larger_than_bigfield) {
-            // get the large value
-            fq_ct large_case = fq_ct::create_from_u512_as_witness(&builder, i, false);
+            // This should fail since values in edge_case_values are sorted in ascending order
+            fq_ct larger_value = fq_ct::create_from_u512_as_witness(&builder, edge_case_values[i], true);
+            uint256_t smaller_value = edge_case_values[i - 1].lo;
+            larger_value.assert_less_than(smaller_value);
 
-            for (size_t j = 1; j < edge_case_values.size(); ++j) {
-                // current value < next value
-                // but this still would fail because range constraints on current value fail
-                large_case.assert_less_than(edge_case_values[j].lo);
-            }
+            bool result = CircuitChecker::check(builder);
+            EXPECT_EQ(result, false);
+            EXPECT_EQ(builder.err(), "ultra_circuit_builder: sublimb of hi too large");
         }
-
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, false);
-        EXPECT_EQ(builder.err(), "decompose_into_default_range");
     }
 
     static void test_reduce_mod_target_modulus()
