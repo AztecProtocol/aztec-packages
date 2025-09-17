@@ -233,7 +233,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursionWithoutPIValidation)
 
     // Construct and verify an Ultra Rollup proof of the AVM recursive verifier circuit. This proof carries an IPA claim
     // from ECCVM recursive verification in its public inputs that will be verified as part of the UltraRollupVerifier.
-    auto outer_proving_key = std::make_shared<DeciderProvingKey_<UltraRollupFlavor>>(outer_circuit);
+    auto outer_proving_key = std::make_shared<ProverInstance_<UltraRollupFlavor>>(outer_circuit);
 
     // Scoped to free memory of UltraRollupProver.
     auto outer_proof = [&]() {
