@@ -1,380 +1,325 @@
-import { BlobAccumulatorPublicInputs, FinalBlobBatchingChallenges } from '@aztec/blob-lib';
-import {
-  ARCHIVE_HEIGHT,
-  BLOBS_PER_BLOCK,
-  FIELDS_PER_BLOB,
-  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  NESTED_RECURSIVE_PROOF_LENGTH,
-} from '@aztec/constants';
-import { BLS12Point, Fr } from '@aztec/foundation/fields';
+import { SpongeBlob } from '@aztec/blob-lib/types';
+import { ARCHIVE_HEIGHT, L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
-import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
-import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
+import { BufferReader, type Tuple, bigintToUInt64BE, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
-import { RootParityInput } from '../parity/root_parity_input.js';
-import { BlockHeader } from '../tx/block_header.js';
-import { PreviousRollupData } from './previous_rollup_data.js';
+import { ParityPublicInputs } from '../parity/parity_public_inputs.js';
+import { ProofData } from '../proofs/proof_data.js';
+import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
+import { StateReference } from '../tx/state_reference.js';
+import type { UInt64 } from '../types/shared.js';
+import { BaseOrMergeRollupPublicInputs } from './base_or_merge_rollup_public_inputs.js';
+import { CheckpointConstantData } from './checkpoint_constant_data.js';
+import type { RollupProofData, RootParityProofData } from './rollup_proof_data.js';
 
-export class BlockRootRollupData {
+export class BlockRootFirstRollupPrivateInputs {
   constructor(
     /**
      * The original and converted roots of the L1 to L2 messages subtrees.
      */
-    public l1ToL2Roots: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+    public l1ToL2Roots: RootParityProofData,
     /**
-     * Hint for inserting the new l1 to l2 message subtree.
+     * The previous rollup proof data from base or merge rollup circuits.
      */
-    public l1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
+    public previousRollups: [
+      RollupProofData<BaseOrMergeRollupPublicInputs>,
+      RollupProofData<BaseOrMergeRollupPublicInputs>,
+    ],
     /**
-     * Hint for checking the hash of previous_block_header is the last leaf of the previous archive.
+     * The l1 to l2 message tree snapshot immediately before this block.
      */
-    public previousArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
+    public previousL1ToL2: AppendOnlyTreeSnapshot,
+    /**
+     * Hint for inserting the new l1 to l2 message subtree into `previousL1ToL2`.
+     */
+    public newL1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
     /**
      * Hint for inserting the new block hash to the last archive.
      */
     public newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
-    /**
-     * The header of the previous block.
-     */
-    public previousBlockHeader: BlockHeader,
-    /**
-     * The current blob accumulation state across the epoch.
-     */
-    public startBlobAccumulator: BlobAccumulatorPublicInputs,
-    /**
-     * Finalized challenges z and gamma for performing blob batching. Shared value across the epoch.
-     */
-    public finalBlobChallenges: FinalBlobBatchingChallenges,
-    /**
-     * Identifier of the prover.
-     */
-    public proverId: Fr,
   ) {}
 
-  /**
-   * Serializes the inputs to a buffer.
-   * @returns - The inputs serialized to a buffer.
-   */
-  toBuffer() {
-    return serializeToBuffer(...BlockRootRollupData.getFields(this));
+  static from(fields: FieldsOf<BlockRootFirstRollupPrivateInputs>) {
+    return new BlockRootFirstRollupPrivateInputs(...BlockRootFirstRollupPrivateInputs.getFields(fields));
   }
 
-  /**
-   * Serializes the inputs to a hex string.
-   * @returns The instance serialized to a hex string.
-   */
-  toString() {
-    return bufferToHex(this.toBuffer());
-  }
-
-  /**
-   * Creates a new instance from fields.
-   * @param fields - Fields to create the instance from.
-   * @returns A new RootRollupInputs instance.
-   */
-  static from(fields: FieldsOf<BlockRootRollupData>): BlockRootRollupData {
-    return new BlockRootRollupData(...BlockRootRollupData.getFields(fields));
-  }
-
-  /**
-   * Extracts fields from an instance.
-   * @param fields - Fields to create the instance from.
-   * @returns An array of fields.
-   */
-  static getFields(fields: FieldsOf<BlockRootRollupData>) {
+  static getFields(fields: FieldsOf<BlockRootFirstRollupPrivateInputs>) {
     return [
       fields.l1ToL2Roots,
-      fields.l1ToL2MessageSubtreeSiblingPath,
-      fields.previousArchiveSiblingPath,
+      fields.previousRollups,
+      fields.previousL1ToL2,
+      fields.newL1ToL2MessageSubtreeSiblingPath,
       fields.newArchiveSiblingPath,
-      fields.previousBlockHeader,
-      fields.startBlobAccumulator,
-      fields.finalBlobChallenges,
-      fields.proverId,
     ] as const;
   }
 
-  /**
-   * Deserializes the inputs from a buffer.
-   * @param buffer - A buffer to deserialize from.
-   * @returns A new RootRollupInputs instance.
-   */
-  static fromBuffer(buffer: Buffer | BufferReader): BlockRootRollupData {
+  toBuffer() {
+    return serializeToBuffer(...BlockRootFirstRollupPrivateInputs.getFields(this));
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new BlockRootRollupData(
-      RootParityInput.fromBuffer(reader, NESTED_RECURSIVE_PROOF_LENGTH),
+    return new BlockRootFirstRollupPrivateInputs(
+      ProofData.fromBuffer(reader, ParityPublicInputs),
+      [
+        ProofData.fromBuffer(reader, BaseOrMergeRollupPublicInputs),
+        ProofData.fromBuffer(reader, BaseOrMergeRollupPublicInputs),
+      ],
+      AppendOnlyTreeSnapshot.fromBuffer(reader),
       reader.readArray(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, Fr),
       reader.readArray(ARCHIVE_HEIGHT, Fr),
+    );
+  }
+
+  toJSON() {
+    return this.toBuffer();
+  }
+
+  static get schema() {
+    return bufferSchemaFor(BlockRootFirstRollupPrivateInputs);
+  }
+}
+
+export class BlockRootSingleTxFirstRollupPrivateInputs {
+  constructor(
+    /**
+     * The original and converted roots of the L1 to L2 messages subtrees.
+     */
+    public l1ToL2Roots: RootParityProofData,
+    /**
+     * The previous rollup proof data from base or merge rollup circuits.
+     */
+    public previousRollup: RollupProofData<BaseOrMergeRollupPublicInputs>,
+    /**
+     * The l1 to l2 message tree snapshot immediately before this block.
+     */
+    public previousL1ToL2: AppendOnlyTreeSnapshot,
+    /**
+     * Hint for inserting the new l1 to l2 message subtree.
+     */
+    public newL1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
+    /**
+     * Hint for inserting the new block hash to the last archive.
+     */
+    public newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
+  ) {}
+
+  static from(fields: FieldsOf<BlockRootSingleTxFirstRollupPrivateInputs>) {
+    return new BlockRootSingleTxFirstRollupPrivateInputs(
+      ...BlockRootSingleTxFirstRollupPrivateInputs.getFields(fields),
+    );
+  }
+
+  static getFields(fields: FieldsOf<BlockRootSingleTxFirstRollupPrivateInputs>) {
+    return [
+      fields.l1ToL2Roots,
+      fields.previousRollup,
+      fields.previousL1ToL2,
+      fields.newL1ToL2MessageSubtreeSiblingPath,
+      fields.newArchiveSiblingPath,
+    ] as const;
+  }
+
+  toBuffer() {
+    return serializeToBuffer(...BlockRootSingleTxFirstRollupPrivateInputs.getFields(this));
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    return new BlockRootSingleTxFirstRollupPrivateInputs(
+      ProofData.fromBuffer(reader, ParityPublicInputs),
+      ProofData.fromBuffer(reader, BaseOrMergeRollupPublicInputs),
+      AppendOnlyTreeSnapshot.fromBuffer(reader),
+      reader.readArray(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, Fr),
       reader.readArray(ARCHIVE_HEIGHT, Fr),
-      BlockHeader.fromBuffer(reader),
-      reader.readObject(BlobAccumulatorPublicInputs),
-      reader.readObject(FinalBlobBatchingChallenges),
-      Fr.fromBuffer(reader),
     );
   }
 
-  /**
-   * Deserializes the inputs from a hex string.
-   * @param str - A hex string to deserialize from.
-   * @returns A new RootRollupInputs instance.
-   */
-  static fromString(str: string) {
-    return BlockRootRollupData.fromBuffer(hexToBuffer(str));
-  }
-
-  /** Returns a buffer representation for JSON serialization. */
   toJSON() {
     return this.toBuffer();
   }
 
-  /** Creates an instance from a hex string. */
   static get schema() {
-    return bufferSchemaFor(BlockRootRollupData);
+    return bufferSchemaFor(BlockRootSingleTxFirstRollupPrivateInputs);
   }
 }
 
-export class BlockRootRollupBlobData {
+export class BlockRootEmptyTxFirstRollupPrivateInputs {
   constructor(
     /**
-     * Flat list of all tx effects which will be added to the blob.
-     * Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
-     * Tuple<Fr, FIELDS_PER_BLOB * BLOBS_PER_BLOCK>
+     * The original and converted roots of the L1 to L2 messages subtrees.
      */
-    public blobFields: Fr[],
+    public l1ToL2Roots: RootParityProofData,
     /**
-     * KZG commitments representing the blob (precomputed in ts, injected to use inside circuit).
+     * The archive after applying the previous block.
      */
-    public blobCommitments: Tuple<BLS12Point, typeof BLOBS_PER_BLOCK>,
+    public previousArchive: AppendOnlyTreeSnapshot,
     /**
-     * The hash of eth blob hashes for this block
-     * See yarn-project/foundation/src/blob/index.ts or body.ts for calculation
+     * The state reference of the previous block.
      */
-    public blobsHash: Fr,
+    public previousState: StateReference,
+    /**
+     * The constants of the checkpoint.
+     */
+    public constants: CheckpointConstantData,
+    /**
+     * The start sponge blob of this block. No data has been absorbed into it yet, since it's the first block. But the
+     * number of expected fields must be set to the total number of fields in the entire checkpoint.
+     */
+    public startSpongeBlob: SpongeBlob,
+    /**
+     * The timestamp of this block.
+     */
+    public timestamp: UInt64,
+    /**
+     * Hint for inserting the new l1 to l2 message subtree.
+     */
+    public newL1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
+    /**
+     * Hint for inserting the new block hash to the last archive.
+     */
+    public newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
   ) {}
 
-  /**
-   * Serializes the inputs to a buffer.
-   * @returns - The inputs serialized to a buffer.
-   */
+  static from(fields: FieldsOf<BlockRootEmptyTxFirstRollupPrivateInputs>) {
+    return new BlockRootEmptyTxFirstRollupPrivateInputs(...BlockRootEmptyTxFirstRollupPrivateInputs.getFields(fields));
+  }
+
+  static getFields(fields: FieldsOf<BlockRootEmptyTxFirstRollupPrivateInputs>) {
+    return [
+      fields.l1ToL2Roots,
+      fields.previousArchive,
+      fields.previousState,
+      fields.constants,
+      fields.startSpongeBlob,
+      fields.timestamp,
+      fields.newL1ToL2MessageSubtreeSiblingPath,
+      fields.newArchiveSiblingPath,
+    ] as const;
+  }
+
   toBuffer() {
-    return serializeToBuffer(...BlockRootRollupBlobData.getFields(this));
+    return serializeToBuffer([
+      this.l1ToL2Roots,
+      this.previousArchive,
+      this.previousState,
+      this.constants,
+      this.startSpongeBlob,
+      bigintToUInt64BE(this.timestamp),
+      this.newL1ToL2MessageSubtreeSiblingPath,
+      this.newArchiveSiblingPath,
+    ]);
   }
 
-  /**
-   * Serializes the inputs to a hex string.
-   * @returns The instance serialized to a hex string.
-   */
-  toString() {
-    return bufferToHex(this.toBuffer());
-  }
-
-  /**
-   * Creates a new instance from fields.
-   * @param fields - Fields to create the instance from.
-   * @returns A new RootRollupInputs instance.
-   */
-  static from(fields: FieldsOf<BlockRootRollupBlobData>): BlockRootRollupBlobData {
-    return new BlockRootRollupBlobData(...BlockRootRollupBlobData.getFields(fields));
-  }
-
-  /**
-   * Extracts fields from an instance.
-   * @param fields - Fields to create the instance from.
-   * @returns An array of fields.
-   */
-  static getFields(fields: FieldsOf<BlockRootRollupBlobData>) {
-    return [fields.blobFields, fields.blobCommitments, fields.blobsHash] as const;
-  }
-
-  /**
-   * Deserializes the inputs from a buffer.
-   * @param buffer - A buffer to deserialize from.
-   * @returns A new RootRollupInputs instance.
-   */
-  static fromBuffer(buffer: Buffer | BufferReader): BlockRootRollupBlobData {
+  static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new BlockRootRollupBlobData(
-      // Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
-      // reader.readArray(FIELDS_PER_BLOB, Fr),
-      Array.from({ length: FIELDS_PER_BLOB * BLOBS_PER_BLOCK }, () => Fr.fromBuffer(reader)),
-      reader.readArray(BLOBS_PER_BLOCK, BLS12Point),
-      Fr.fromBuffer(reader),
+    return new BlockRootEmptyTxFirstRollupPrivateInputs(
+      ProofData.fromBuffer(reader, ParityPublicInputs),
+      AppendOnlyTreeSnapshot.fromBuffer(reader),
+      StateReference.fromBuffer(reader),
+      CheckpointConstantData.fromBuffer(reader),
+      SpongeBlob.fromBuffer(reader),
+      reader.readUInt64(),
+      reader.readArray(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, Fr),
+      reader.readArray(ARCHIVE_HEIGHT, Fr),
     );
   }
 
-  /**
-   * Deserializes the inputs from a hex string.
-   * @param str - A hex string to deserialize from.
-   * @returns A new RootRollupInputs instance.
-   */
-  static fromString(str: string) {
-    return BlockRootRollupBlobData.fromBuffer(hexToBuffer(str));
-  }
-
-  /** Returns a buffer representation for JSON serialization. */
   toJSON() {
     return this.toBuffer();
   }
 
-  /** Creates an instance from a hex string. */
   static get schema() {
-    return bufferSchemaFor(BlockRootRollupBlobData);
+    return bufferSchemaFor(BlockRootEmptyTxFirstRollupPrivateInputs);
   }
 }
 
-/**
- * Represents inputs of the block root rollup circuit.
- */
-export class BlockRootRollupInputs {
+export class BlockRootRollupPrivateInputs {
   constructor(
     /**
-     * The previous rollup data from 2 merge or base rollup circuits.
+     * The previous rollup proof data from base or merge rollup circuits.
      */
-    public previousRollupData: [PreviousRollupData, PreviousRollupData],
-    public data: BlockRootRollupData,
-    public blobData: BlockRootRollupBlobData,
+    public previousRollups: [
+      RollupProofData<BaseOrMergeRollupPublicInputs>,
+      RollupProofData<BaseOrMergeRollupPublicInputs>,
+    ],
+    /**
+     * Hint for inserting the new block hash to the last archive.
+     */
+    public newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
   ) {}
 
-  /**
-   * Serializes the inputs to a buffer.
-   * @returns - The inputs serialized to a buffer.
-   */
+  static from(fields: FieldsOf<BlockRootRollupPrivateInputs>) {
+    return new BlockRootRollupPrivateInputs(...BlockRootRollupPrivateInputs.getFields(fields));
+  }
+
+  static getFields(fields: FieldsOf<BlockRootRollupPrivateInputs>) {
+    return [fields.previousRollups, fields.newArchiveSiblingPath] as const;
+  }
+
   toBuffer() {
-    return serializeToBuffer(...BlockRootRollupInputs.getFields(this));
+    return serializeToBuffer(...BlockRootRollupPrivateInputs.getFields(this));
   }
 
-  /**
-   * Serializes the inputs to a hex string.
-   * @returns The instance serialized to a hex string.
-   */
-  toString() {
-    return bufferToHex(this.toBuffer());
-  }
-
-  /**
-   * Creates a new instance from fields.
-   * @param fields - Fields to create the instance from.
-   * @returns A new RootRollupInputs instance.
-   */
-  static from(fields: FieldsOf<BlockRootRollupInputs>): BlockRootRollupInputs {
-    return new BlockRootRollupInputs(...BlockRootRollupInputs.getFields(fields));
-  }
-
-  /**
-   * Extracts fields from an instance.
-   * @param fields - Fields to create the instance from.
-   * @returns An array of fields.
-   */
-  static getFields(fields: FieldsOf<BlockRootRollupInputs>) {
-    return [fields.previousRollupData, fields.data, fields.blobData] as const;
-  }
-
-  /**
-   * Deserializes the inputs from a buffer.
-   * @param buffer - A buffer to deserialize from.
-   * @returns A new RootRollupInputs instance.
-   */
-  static fromBuffer(buffer: Buffer | BufferReader): BlockRootRollupInputs {
+  static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new BlockRootRollupInputs(
-      [reader.readObject(PreviousRollupData), reader.readObject(PreviousRollupData)],
-      reader.readObject(BlockRootRollupData),
-      reader.readObject(BlockRootRollupBlobData),
+    return new BlockRootRollupPrivateInputs(
+      [
+        ProofData.fromBuffer(reader, BaseOrMergeRollupPublicInputs),
+        ProofData.fromBuffer(reader, BaseOrMergeRollupPublicInputs),
+      ],
+      reader.readArray(ARCHIVE_HEIGHT, Fr),
     );
   }
 
-  /**
-   * Deserializes the inputs from a hex string.
-   * @param str - A hex string to deserialize from.
-   * @returns A new RootRollupInputs instance.
-   */
-  static fromString(str: string) {
-    return BlockRootRollupInputs.fromBuffer(hexToBuffer(str));
-  }
-
-  /** Returns a buffer representation for JSON serialization. */
   toJSON() {
     return this.toBuffer();
   }
 
-  /** Creates an instance from a hex string. */
   static get schema() {
-    return bufferSchemaFor(BlockRootRollupInputs);
+    return bufferSchemaFor(BlockRootRollupPrivateInputs);
   }
 }
 
-export class SingleTxBlockRootRollupInputs {
+export class BlockRootSingleTxRollupPrivateInputs {
   constructor(
-    public previousRollupData: [PreviousRollupData],
-    public data: BlockRootRollupData,
-    public blobData: BlockRootRollupBlobData,
+    /**
+     * The previous rollup proof data from base or merge rollup circuits.
+     */
+    public previousRollup: RollupProofData<BaseOrMergeRollupPublicInputs>,
+    /**
+     * Hint for inserting the new block hash to the last archive.
+     */
+    public newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
   ) {}
 
-  /**
-   * Serializes the inputs to a buffer.
-   * @returns - The inputs serialized to a buffer.
-   */
+  static from(fields: FieldsOf<BlockRootSingleTxRollupPrivateInputs>) {
+    return new BlockRootSingleTxRollupPrivateInputs(...BlockRootSingleTxRollupPrivateInputs.getFields(fields));
+  }
+
+  static getFields(fields: FieldsOf<BlockRootSingleTxRollupPrivateInputs>) {
+    return [fields.previousRollup, fields.newArchiveSiblingPath] as const;
+  }
+
   toBuffer() {
-    return serializeToBuffer(...SingleTxBlockRootRollupInputs.getFields(this));
+    return serializeToBuffer(...BlockRootSingleTxRollupPrivateInputs.getFields(this));
   }
 
-  /**
-   * Serializes the inputs to a hex string.
-   * @returns The instance serialized to a hex string.
-   */
-  toString() {
-    return bufferToHex(this.toBuffer());
-  }
-
-  /**
-   * Creates a new instance from fields.
-   * @param fields - Fields to create the instance from.
-   * @returns A new RootRollupInputs instance.
-   */
-  static from(fields: FieldsOf<SingleTxBlockRootRollupInputs>): SingleTxBlockRootRollupInputs {
-    return new SingleTxBlockRootRollupInputs(...SingleTxBlockRootRollupInputs.getFields(fields));
-  }
-
-  /**
-   * Extracts fields from an instance.
-   * @param fields - Fields to create the instance from.
-   * @returns An array of fields.
-   */
-  static getFields(fields: FieldsOf<SingleTxBlockRootRollupInputs>) {
-    return [fields.previousRollupData, fields.data, fields.blobData] as const;
-  }
-
-  /**
-   * Deserializes the inputs from a buffer.
-   * @param buffer - A buffer to deserialize from.
-   * @returns A new RootRollupInputs instance.
-   */
-  static fromBuffer(buffer: Buffer | BufferReader): SingleTxBlockRootRollupInputs {
+  static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new SingleTxBlockRootRollupInputs(
-      [reader.readObject(PreviousRollupData)],
-      reader.readObject(BlockRootRollupData),
-      reader.readObject(BlockRootRollupBlobData),
+    return new BlockRootSingleTxRollupPrivateInputs(
+      ProofData.fromBuffer(reader, BaseOrMergeRollupPublicInputs),
+      reader.readArray(ARCHIVE_HEIGHT, Fr),
     );
   }
 
-  /**
-   * Deserializes the inputs from a hex string.
-   * @param str - A hex string to deserialize from.
-   * @returns A new RootRollupInputs instance.
-   */
-  static fromString(str: string) {
-    return SingleTxBlockRootRollupInputs.fromBuffer(hexToBuffer(str));
-  }
-
-  /** Returns a buffer representation for JSON serialization. */
   toJSON() {
     return this.toBuffer();
   }
 
-  /** Creates an instance from a hex string. */
   static get schema() {
-    return bufferSchemaFor(SingleTxBlockRootRollupInputs);
+    return bufferSchemaFor(BlockRootSingleTxRollupPrivateInputs);
   }
 }

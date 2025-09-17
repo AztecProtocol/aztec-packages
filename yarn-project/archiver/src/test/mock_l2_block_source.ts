@@ -127,7 +127,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   }
 
   getBlockHeader(number: number | 'latest'): Promise<BlockHeader | undefined> {
-    return Promise.resolve(this.l2Blocks.at(typeof number === 'number' ? number - 1 : -1)?.header);
+    return Promise.resolve(this.l2Blocks.at(typeof number === 'number' ? number - 1 : -1)?.getBlockHeader());
   }
 
   getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]> {
@@ -140,8 +140,9 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(blocks);
   }
 
-  getBlockHeadersForEpoch(epochNumber: bigint): Promise<BlockHeader[]> {
-    return this.getBlocksForEpoch(epochNumber).then(blocks => blocks.map(b => b.header));
+  async getBlockHeadersForEpoch(epochNumber: bigint): Promise<BlockHeader[]> {
+    const blocks = await this.getBlocksForEpoch(epochNumber);
+    return blocks.map(b => b.getBlockHeader());
   }
 
   /**

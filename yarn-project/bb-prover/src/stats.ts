@@ -15,16 +15,26 @@ export function mapProtocolArtifactNameToCircuitName(artifact: ProtocolArtifact)
       return 'public-base-rollup';
     case 'MergeRollupArtifact':
       return 'merge-rollup';
+    case 'BlockRootFirstRollupArtifact':
+      return 'block-root-first-rollup';
+    case 'BlockRootSingleTxFirstRollupArtifact':
+      return 'block-root-single-tx-first-rollup';
+    case 'BlockRootEmptyTxFirstRollupArtifact':
+      return 'block-root-empty-tx-first-rollup';
     case 'BlockRootRollupArtifact':
       return 'block-root-rollup';
-    case 'SingleTxBlockRootRollupArtifact':
-      return 'single-tx-block-root-rollup';
-    case 'EmptyBlockRootRollupArtifact':
-      return 'empty-block-root-rollup';
-    case 'PaddingBlockRootRollupArtifact':
-      return 'padding-block-root-rollup';
+    case 'BlockRootSingleTxRollupArtifact':
+      return 'block-root-single-tx-rollup';
     case 'BlockMergeRollupArtifact':
       return 'block-merge-rollup';
+    case 'CheckpointRootRollupArtifact':
+      return 'checkpoint-root-rollup';
+    case 'CheckpointRootSingleBlockRollupArtifact':
+      return 'checkpoint-root-single-block-rollup';
+    case 'CheckpointPaddingRollupArtifact':
+      return 'checkpoint-padding-rollup';
+    case 'CheckpointMergeRollupArtifact':
+      return 'checkpoint-merge-rollup';
     case 'RootRollupArtifact':
       return 'root-rollup';
     case 'PrivateKernelInitArtifact':

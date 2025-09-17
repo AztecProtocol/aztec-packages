@@ -1,10 +1,11 @@
 import type { BatchedBlob, FinalBlobBatchingChallenges } from '@aztec/blob-lib';
 import type { Fr } from '@aztec/foundation/fields';
-import type { EthAddress, L2Block } from '@aztec/stdlib/block';
+import type { EthAddress } from '@aztec/stdlib/block';
 import type { EpochProver } from '@aztec/stdlib/interfaces/server';
 import type { Proof } from '@aztec/stdlib/proofs';
-import type { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
-import type { BlockHeader, GlobalVariables, ProcessedTx, Tx } from '@aztec/stdlib/tx';
+import type { CheckpointConstantData, RootRollupPublicInputs } from '@aztec/stdlib/rollup';
+import type { BlockHeader, ProcessedTx, Tx } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
 import type { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
@@ -18,17 +19,37 @@ export class ServerEpochProver implements EpochProver {
 
   startNewEpoch(
     epochNumber: number,
-    firstBlockNumber: number,
-    totalNumBlocks: number,
+    firstCheckpointNumber: Fr,
+    totalNumCheckpoints: number,
     finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
   ): void {
-    this.orchestrator.startNewEpoch(epochNumber, firstBlockNumber, totalNumBlocks, finalBlobBatchingChallenges);
+    this.orchestrator.startNewEpoch(
+      epochNumber,
+      firstCheckpointNumber,
+      totalNumCheckpoints,
+      finalBlobBatchingChallenges,
+    );
     this.facade.start();
+  }
+  startNewCheckpoint(
+    constants: CheckpointConstantData,
+    l1ToL2Messages: Fr[],
+    totalNumBlocks: number,
+    totalNumBlobFields: number,
+    headerOfLastBlockInPreviousCheckpoint: BlockHeader,
+  ): Promise<void> {
+    return this.orchestrator.startNewCheckpoint(
+      constants,
+      l1ToL2Messages,
+      totalNumBlocks,
+      totalNumBlobFields,
+      headerOfLastBlockInPreviousCheckpoint,
+    );
   }
   startTubeCircuits(txs: Tx[]): Promise<void> {
     return this.orchestrator.startTubeCircuits(txs);
   }
-  setBlockCompleted(blockNumber: number, expectedBlockHeader?: BlockHeader): Promise<L2Block> {
+  setBlockCompleted(blockNumber: number, expectedBlockHeader?: BlockHeader): Promise<BlockHeader> {
     return this.orchestrator.setBlockCompleted(blockNumber, expectedBlockHeader);
   }
   finalizeEpoch(): Promise<{ publicInputs: RootRollupPublicInputs; proof: Proof; batchedBlobInputs: BatchedBlob }> {
@@ -40,19 +61,12 @@ export class ServerEpochProver implements EpochProver {
   getProverId(): EthAddress {
     return this.orchestrator.getProverId();
   }
-  getBlock(index: number): L2Block {
-    return this.orchestrator.getBlock(index);
-  }
   async stop(): Promise<void> {
     await this.facade.stop();
     await this.orchestrator.stop();
   }
-  startNewBlock(
-    globalVariables: GlobalVariables,
-    l1ToL2Messages: Fr[],
-    previousBlockHeader: BlockHeader,
-  ): Promise<void> {
-    return this.orchestrator.startNewBlock(globalVariables, l1ToL2Messages, previousBlockHeader);
+  startNewBlock(blockNumber: number, timestamp: UInt64, totalNumTxs: number): Promise<void> {
+    return this.orchestrator.startNewBlock(blockNumber, timestamp, totalNumTxs);
   }
   addTxs(txs: ProcessedTx[]): Promise<void> {
     return this.orchestrator.addTxs(txs);

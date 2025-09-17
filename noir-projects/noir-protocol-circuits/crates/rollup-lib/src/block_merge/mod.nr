@@ -1,7 +1,9 @@
-mod block_merge_rollup_inputs;
 pub(crate) mod utils;
+mod block_merge_rollup_private_inputs;
 
-pub use crate::abis::block_root_or_block_merge_public_inputs::BlockRootOrBlockMergePublicInputs;
-pub use block_merge_rollup_inputs::BlockMergeRollupInputs;
-pub(crate) use utils::merge_block_rollups::merge_block_rollups;
-pub(crate) use utils::validate_consecutive_block_rollups::validate_consecutive_block_rollups;
+pub(crate) use utils::{
+    merge_block_rollups::merge_block_rollups,
+    validate_consecutive_block_rollups::validate_consecutive_block_rollups,
+};
+pub use crate::abis::BlockRollupPublicInputs;
+pub use block_merge_rollup_private_inputs::BlockMergeRollupPrivateInputs;

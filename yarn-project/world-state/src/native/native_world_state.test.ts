@@ -18,7 +18,7 @@ import { PublicDataWrite } from '@aztec/stdlib/avm';
 import type { L2Block } from '@aztec/stdlib/block';
 import { DatabaseVersion, DatabaseVersionManager } from '@aztec/stdlib/database-version';
 import type { MerkleTreeLeafType, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
-import { makeContentCommitment, makeGlobalVariables } from '@aztec/stdlib/testing';
+import { makeGlobalVariables } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
@@ -278,8 +278,8 @@ describe('NativeWorldState', () => {
       const archiveInfo = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
       const header = new BlockHeader(
         new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
-        makeContentCommitment(),
         stateReference,
+        Fr.random(), // spongeBlobHash
         makeGlobalVariables(),
         Fr.ZERO,
         Fr.ZERO,
@@ -308,8 +308,8 @@ describe('NativeWorldState', () => {
       const archiveInfo = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
       const header = new BlockHeader(
         new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
-        makeContentCommitment(),
         stateReference,
+        Fr.random(), // spongeBlobHash
         makeGlobalVariables(),
         Fr.ZERO,
         Fr.ZERO,

@@ -51,7 +51,7 @@ function compile_all {
     return
   fi
 
-  compile_project ::: constants foundation stdlib builder ethereum l1-artifacts
+  compile_project ::: constants foundation stdlib blob-lib builder ethereum l1-artifacts
 
   # Call all projects that have a generation stage.
   parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \

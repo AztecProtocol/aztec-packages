@@ -92,6 +92,7 @@ import {
   mapAztecAddressFromNoir,
   mapAztecAddressToNoir,
   mapBigIntFromNoir,
+  mapBlockHeaderToNoir,
   mapClaimedLengthArrayFromNoir,
   mapClaimedLengthArrayToNoir,
   mapCountedL2ToL1MessageToNoir,
@@ -102,7 +103,6 @@ import {
   mapFunctionSelectorToNoir,
   mapGasFromNoir,
   mapGrumpkinScalarToNoir,
-  mapHeaderToNoir,
   mapMembershipWitnessToNoir,
   mapNullifierLeafPreimageToNoir,
   mapNumberFromNoir,
@@ -498,7 +498,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     ),
     start_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.startSideEffectCounter),
     end_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.endSideEffectCounter),
-    anchor_block_header: mapHeaderToNoir(privateCircuitPublicInputs.anchorBlockHeader),
+    anchor_block_header: mapBlockHeaderToNoir(privateCircuitPublicInputs.anchorBlockHeader),
     tx_context: mapTxContextToNoir(privateCircuitPublicInputs.txContext),
     min_revertible_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.minRevertibleSideEffectCounter),
     is_fee_payer: privateCircuitPublicInputs.isFeePayer,
@@ -581,7 +581,7 @@ export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): Priv
 
 function mapTxConstantDataToNoir(data: TxConstantData): TxConstantDataNoir {
   return {
-    anchor_block_header: mapHeaderToNoir(data.anchorBlockHeader),
+    anchor_block_header: mapBlockHeaderToNoir(data.anchorBlockHeader),
     tx_context: mapTxContextToNoir(data.txContext),
     vk_tree_root: mapFieldToNoir(data.vkTreeRoot),
     protocol_contract_tree_root: mapFieldToNoir(data.protocolContractTreeRoot),

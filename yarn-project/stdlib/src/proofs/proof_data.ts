@@ -23,14 +23,9 @@ export class ProofData<T extends Bufferable, PROOF_LENGTH extends number> {
     publicInputs: {
       fromBuffer: (reader: BufferReader) => T;
     },
-    proofLength?: PROOF_LENGTH,
   ): ProofData<T, PROOF_LENGTH> {
     const reader = BufferReader.asReader(buffer);
-    return new ProofData(
-      reader.readObject(publicInputs),
-      RecursiveProof.fromBuffer(reader, proofLength),
-      reader.readObject(VkData),
-    );
+    return new ProofData(reader.readObject(publicInputs), RecursiveProof.fromBuffer(reader), reader.readObject(VkData));
   }
 }
 

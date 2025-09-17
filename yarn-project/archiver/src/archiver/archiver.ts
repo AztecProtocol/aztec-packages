@@ -802,7 +802,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
         `Retrieved ${retrievedBlocks.length} new L2 blocks between L1 blocks ${searchStartBlock} and ${searchEndBlock} with last processed L1 block ${lastProcessedL1BlockNumber}.`,
       );
 
-      const publishedBlocks = retrievedBlocks.map(b => retrievedBlockToPublishedL2Block(b));
+      const publishedBlocks = await Promise.all(retrievedBlocks.map(b => retrievedBlockToPublishedL2Block(b)));
       const validBlocks: PublishedL2Block[] = [];
 
       for (const block of publishedBlocks) {

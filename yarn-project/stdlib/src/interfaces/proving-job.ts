@@ -17,15 +17,27 @@ import { RootParityInputs } from '../parity/root_parity_inputs.js';
 import { ProvingRequestType } from '../proofs/proving_request_type.js';
 import { RecursiveProof } from '../proofs/recursive_proof.js';
 import { BaseOrMergeRollupPublicInputs } from '../rollup/base_or_merge_rollup_public_inputs.js';
-import { BlockMergeRollupInputs } from '../rollup/block_merge_rollup.js';
-import { BlockRootOrBlockMergePublicInputs } from '../rollup/block_root_or_block_merge_public_inputs.js';
-import { BlockRootRollupInputs, SingleTxBlockRootRollupInputs } from '../rollup/block_root_rollup.js';
-import { EmptyBlockRootRollupInputs } from '../rollup/empty_block_root_rollup_inputs.js';
-import { PaddingBlockRootRollupInputs, PublicTubePrivateInputs } from '../rollup/index.js';
+import { BlockMergeRollupPrivateInputs } from '../rollup/block_merge_rollup.js';
+import { BlockRollupPublicInputs } from '../rollup/block_rollup_public_inputs.js';
+import {
+  BlockRootEmptyTxFirstRollupPrivateInputs,
+  BlockRootFirstRollupPrivateInputs,
+  BlockRootRollupPrivateInputs,
+  BlockRootSingleTxFirstRollupPrivateInputs,
+  BlockRootSingleTxRollupPrivateInputs,
+} from '../rollup/block_root_rollup.js';
+import { CheckpointMergeRollupPrivateInputs } from '../rollup/checkpoint_merge_rollup.js';
+import { CheckpointRollupPublicInputs } from '../rollup/checkpoint_rollup_public_inputs.js';
+import {
+  CheckpointPaddingRollupPrivateInputs,
+  CheckpointRootRollupPrivateInputs,
+  CheckpointRootSingleBlockRollupPrivateInputs,
+} from '../rollup/checkpoint_root_rollup.js';
+import { PublicTubePrivateInputs } from '../rollup/index.js';
 import { MergeRollupInputs } from '../rollup/merge_rollup.js';
 import { PrivateBaseRollupInputs } from '../rollup/private_base_rollup_inputs.js';
 import { PublicBaseRollupInputs } from '../rollup/public_base_rollup_inputs.js';
-import { RootRollupInputs, RootRollupPublicInputs } from '../rollup/root_rollup.js';
+import { RootRollupPrivateInputs, RootRollupPublicInputs } from '../rollup/root_rollup.js';
 import type { ServerCircuitName } from '../stats/index.js';
 import { VerificationKeyData } from '../vks/verification_key.js';
 
@@ -87,16 +99,26 @@ export function mapProvingRequestTypeToCircuitName(type: ProvingRequestType): Se
       return 'public-base-rollup';
     case ProvingRequestType.MERGE_ROLLUP:
       return 'merge-rollup';
-    case ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP:
-      return 'empty-block-root-rollup';
-    case ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP:
-      return 'padding-block-root-rollup';
+    case ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP:
+      return 'block-root-first-rollup';
+    case ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP:
+      return 'block-root-single-tx-first-rollup';
+    case ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP:
+      return 'block-root-empty-tx-first-rollup';
     case ProvingRequestType.BLOCK_ROOT_ROLLUP:
       return 'block-root-rollup';
-    case ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP:
-      return 'single-tx-block-root-rollup';
+    case ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP:
+      return 'block-root-single-tx-rollup';
     case ProvingRequestType.BLOCK_MERGE_ROLLUP:
       return 'block-merge-rollup';
+    case ProvingRequestType.CHECKPOINT_ROOT_ROLLUP:
+      return 'checkpoint-root-rollup';
+    case ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP:
+      return 'checkpoint-root-single-block-rollup';
+    case ProvingRequestType.CHECKPOINT_PADDING_ROLLUP:
+      return 'checkpoint-padding-rollup';
+    case ProvingRequestType.CHECKPOINT_MERGE_ROLLUP:
+      return 'checkpoint-merge-rollup';
     case ProvingRequestType.ROOT_ROLLUP:
       return 'root-rollup';
     case ProvingRequestType.BASE_PARITY:
@@ -118,18 +140,41 @@ export const ProvingJobInputs = z.discriminatedUnion('type', [
   z.object({ type: z.literal(ProvingRequestType.PRIVATE_BASE_ROLLUP), inputs: PrivateBaseRollupInputs.schema }),
   z.object({ type: z.literal(ProvingRequestType.PUBLIC_BASE_ROLLUP), inputs: PublicBaseRollupInputs.schema }),
   z.object({ type: z.literal(ProvingRequestType.MERGE_ROLLUP), inputs: MergeRollupInputs.schema }),
-  z.object({ type: z.literal(ProvingRequestType.BLOCK_ROOT_ROLLUP), inputs: BlockRootRollupInputs.schema }),
   z.object({
-    type: z.literal(ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP),
-    inputs: SingleTxBlockRootRollupInputs.schema,
+    type: z.literal(ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP),
+    inputs: BlockRootFirstRollupPrivateInputs.schema,
   }),
-  z.object({ type: z.literal(ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP), inputs: EmptyBlockRootRollupInputs.schema }),
   z.object({
-    type: z.literal(ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP),
-    inputs: PaddingBlockRootRollupInputs.schema,
+    type: z.literal(ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP),
+    inputs: BlockRootSingleTxFirstRollupPrivateInputs.schema,
   }),
-  z.object({ type: z.literal(ProvingRequestType.BLOCK_MERGE_ROLLUP), inputs: BlockMergeRollupInputs.schema }),
-  z.object({ type: z.literal(ProvingRequestType.ROOT_ROLLUP), inputs: RootRollupInputs.schema }),
+  z.object({
+    type: z.literal(ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP),
+    inputs: BlockRootEmptyTxFirstRollupPrivateInputs.schema,
+  }),
+  z.object({ type: z.literal(ProvingRequestType.BLOCK_ROOT_ROLLUP), inputs: BlockRootRollupPrivateInputs.schema }),
+  z.object({
+    type: z.literal(ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP),
+    inputs: BlockRootSingleTxRollupPrivateInputs.schema,
+  }),
+  z.object({ type: z.literal(ProvingRequestType.BLOCK_MERGE_ROLLUP), inputs: BlockMergeRollupPrivateInputs.schema }),
+  z.object({
+    type: z.literal(ProvingRequestType.CHECKPOINT_ROOT_ROLLUP),
+    inputs: CheckpointRootRollupPrivateInputs.schema,
+  }),
+  z.object({
+    type: z.literal(ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP),
+    inputs: CheckpointRootSingleBlockRollupPrivateInputs.schema,
+  }),
+  z.object({
+    type: z.literal(ProvingRequestType.CHECKPOINT_PADDING_ROLLUP),
+    inputs: CheckpointPaddingRollupPrivateInputs.schema,
+  }),
+  z.object({
+    type: z.literal(ProvingRequestType.CHECKPOINT_MERGE_ROLLUP),
+    inputs: CheckpointMergeRollupPrivateInputs.schema,
+  }),
+  z.object({ type: z.literal(ProvingRequestType.ROOT_ROLLUP), inputs: RootRollupPrivateInputs.schema }),
 ]);
 
 export function getProvingJobInputClassFor(type: ProvingRequestType) {
@@ -144,18 +189,28 @@ export function getProvingJobInputClassFor(type: ProvingRequestType) {
       return PublicBaseRollupInputs;
     case ProvingRequestType.MERGE_ROLLUP:
       return MergeRollupInputs;
-    case ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP:
-      return EmptyBlockRootRollupInputs;
-    case ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP:
-      return PaddingBlockRootRollupInputs;
+    case ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP:
+      return BlockRootFirstRollupPrivateInputs;
+    case ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP:
+      return BlockRootSingleTxFirstRollupPrivateInputs;
+    case ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP:
+      return BlockRootEmptyTxFirstRollupPrivateInputs;
     case ProvingRequestType.BLOCK_ROOT_ROLLUP:
-      return BlockRootRollupInputs;
-    case ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP:
-      return SingleTxBlockRootRollupInputs;
+      return BlockRootRollupPrivateInputs;
+    case ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP:
+      return BlockRootSingleTxRollupPrivateInputs;
     case ProvingRequestType.BLOCK_MERGE_ROLLUP:
-      return BlockMergeRollupInputs;
+      return BlockMergeRollupPrivateInputs;
+    case ProvingRequestType.CHECKPOINT_ROOT_ROLLUP:
+      return CheckpointRootRollupPrivateInputs;
+    case ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP:
+      return CheckpointRootSingleBlockRollupPrivateInputs;
+    case ProvingRequestType.CHECKPOINT_PADDING_ROLLUP:
+      return CheckpointPaddingRollupPrivateInputs;
+    case ProvingRequestType.CHECKPOINT_MERGE_ROLLUP:
+      return CheckpointMergeRollupPrivateInputs;
     case ProvingRequestType.ROOT_ROLLUP:
-      return RootRollupInputs;
+      return RootRollupPrivateInputs;
     case ProvingRequestType.BASE_PARITY:
       return BaseParityInputs;
     case ProvingRequestType.ROOT_PARITY:
@@ -175,12 +230,17 @@ export type ProvingJobInputsMap = {
   [ProvingRequestType.PRIVATE_BASE_ROLLUP]: PrivateBaseRollupInputs;
   [ProvingRequestType.PUBLIC_BASE_ROLLUP]: PublicBaseRollupInputs;
   [ProvingRequestType.MERGE_ROLLUP]: MergeRollupInputs;
-  [ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP]: EmptyBlockRootRollupInputs;
-  [ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP]: PaddingBlockRootRollupInputs;
-  [ProvingRequestType.BLOCK_ROOT_ROLLUP]: BlockRootRollupInputs;
-  [ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP]: SingleTxBlockRootRollupInputs;
-  [ProvingRequestType.BLOCK_MERGE_ROLLUP]: BlockMergeRollupInputs;
-  [ProvingRequestType.ROOT_ROLLUP]: RootRollupInputs;
+  [ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP]: BlockRootFirstRollupPrivateInputs;
+  [ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP]: BlockRootSingleTxFirstRollupPrivateInputs;
+  [ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP]: BlockRootEmptyTxFirstRollupPrivateInputs;
+  [ProvingRequestType.BLOCK_ROOT_ROLLUP]: BlockRootRollupPrivateInputs;
+  [ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP]: BlockRootSingleTxRollupPrivateInputs;
+  [ProvingRequestType.BLOCK_MERGE_ROLLUP]: BlockMergeRollupPrivateInputs;
+  [ProvingRequestType.CHECKPOINT_ROOT_ROLLUP]: CheckpointRootRollupPrivateInputs;
+  [ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP]: CheckpointRootSingleBlockRollupPrivateInputs;
+  [ProvingRequestType.CHECKPOINT_PADDING_ROLLUP]: CheckpointPaddingRollupPrivateInputs;
+  [ProvingRequestType.CHECKPOINT_MERGE_ROLLUP]: CheckpointMergeRollupPrivateInputs;
+  [ProvingRequestType.ROOT_ROLLUP]: RootRollupPrivateInputs;
   [ProvingRequestType.BASE_PARITY]: BaseParityInputs;
   [ProvingRequestType.ROOT_PARITY]: RootParityInputs;
 };
@@ -219,37 +279,72 @@ export const ProvingJobResult = z.discriminatedUnion('type', [
     ),
   }),
   z.object({
-    type: z.literal(ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP),
+    type: z.literal(ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP),
     result: schemaForPublicInputsAndRecursiveProof(
-      BlockRootOrBlockMergePublicInputs.schema,
+      BlockRollupPublicInputs.schema,
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
     ),
   }),
   z.object({
-    type: z.literal(ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP),
+    type: z.literal(ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP),
     result: schemaForPublicInputsAndRecursiveProof(
-      BlockRootOrBlockMergePublicInputs.schema,
+      BlockRollupPublicInputs.schema,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+    ),
+  }),
+  z.object({
+    type: z.literal(ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP),
+    result: schemaForPublicInputsAndRecursiveProof(
+      BlockRollupPublicInputs.schema,
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
     ),
   }),
   z.object({
     type: z.literal(ProvingRequestType.BLOCK_ROOT_ROLLUP),
     result: schemaForPublicInputsAndRecursiveProof(
-      BlockRootOrBlockMergePublicInputs.schema,
+      BlockRollupPublicInputs.schema,
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
     ),
   }),
   z.object({
-    type: z.literal(ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP),
+    type: z.literal(ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP),
     result: schemaForPublicInputsAndRecursiveProof(
-      BlockRootOrBlockMergePublicInputs.schema,
+      BlockRollupPublicInputs.schema,
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
     ),
   }),
   z.object({
     type: z.literal(ProvingRequestType.BLOCK_MERGE_ROLLUP),
     result: schemaForPublicInputsAndRecursiveProof(
-      BlockRootOrBlockMergePublicInputs.schema,
+      BlockRollupPublicInputs.schema,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+    ),
+  }),
+  z.object({
+    type: z.literal(ProvingRequestType.CHECKPOINT_ROOT_ROLLUP),
+    result: schemaForPublicInputsAndRecursiveProof(
+      CheckpointRollupPublicInputs.schema,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+    ),
+  }),
+  z.object({
+    type: z.literal(ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP),
+    result: schemaForPublicInputsAndRecursiveProof(
+      CheckpointRollupPublicInputs.schema,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+    ),
+  }),
+  z.object({
+    type: z.literal(ProvingRequestType.CHECKPOINT_PADDING_ROLLUP),
+    result: schemaForPublicInputsAndRecursiveProof(
+      CheckpointRollupPublicInputs.schema,
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+    ),
+  }),
+  z.object({
+    type: z.literal(ProvingRequestType.CHECKPOINT_MERGE_ROLLUP),
+    result: schemaForPublicInputsAndRecursiveProof(
+      CheckpointRollupPublicInputs.schema,
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
     ),
   }),
@@ -285,24 +380,44 @@ export type ProvingJobResultsMap = {
     BaseOrMergeRollupPublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >;
-  [ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP]: PublicInputsAndRecursiveProof<
-    BlockRootOrBlockMergePublicInputs,
+  [ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP]: PublicInputsAndRecursiveProof<
+    BlockRollupPublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >;
-  [ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP]: PublicInputsAndRecursiveProof<
-    BlockRootOrBlockMergePublicInputs,
+  [ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP]: PublicInputsAndRecursiveProof<
+    BlockRollupPublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >;
-  [ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP]: PublicInputsAndRecursiveProof<
-    BlockRootOrBlockMergePublicInputs,
+  [ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP]: PublicInputsAndRecursiveProof<
+    BlockRollupPublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >;
   [ProvingRequestType.BLOCK_ROOT_ROLLUP]: PublicInputsAndRecursiveProof<
-    BlockRootOrBlockMergePublicInputs,
+    BlockRollupPublicInputs,
+    typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+  >;
+  [ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP]: PublicInputsAndRecursiveProof<
+    BlockRollupPublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >;
   [ProvingRequestType.BLOCK_MERGE_ROLLUP]: PublicInputsAndRecursiveProof<
-    BlockRootOrBlockMergePublicInputs,
+    BlockRollupPublicInputs,
+    typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+  >;
+  [ProvingRequestType.CHECKPOINT_ROOT_ROLLUP]: PublicInputsAndRecursiveProof<
+    CheckpointRollupPublicInputs,
+    typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+  >;
+  [ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP]: PublicInputsAndRecursiveProof<
+    CheckpointRollupPublicInputs,
+    typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+  >;
+  [ProvingRequestType.CHECKPOINT_PADDING_ROLLUP]: PublicInputsAndRecursiveProof<
+    CheckpointRollupPublicInputs,
+    typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+  >;
+  [ProvingRequestType.CHECKPOINT_MERGE_ROLLUP]: PublicInputsAndRecursiveProof<
+    CheckpointRollupPublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >;
   [ProvingRequestType.ROOT_ROLLUP]: PublicInputsAndRecursiveProof<RootRollupPublicInputs>;

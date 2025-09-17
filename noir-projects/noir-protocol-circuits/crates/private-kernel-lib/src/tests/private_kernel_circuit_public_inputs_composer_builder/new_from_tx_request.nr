@@ -2,7 +2,10 @@ use crate::{
     components::private_kernel_circuit_public_inputs_composer::create_protocol_nullifier,
     tests::private_kernel_circuit_public_inputs_composer_builder::PrivateKernelCircuitPublicInputsComposerBuilder,
 };
-use dep::types::{abis::side_effect::OrderedValue, constants::MAX_U64_VALUE, traits::Empty};
+use dep::types::{
+    abis::side_effect::OrderedValue, constants::MAX_U64_VALUE, tests::utils::make_fixture,
+    traits::Empty,
+};
 
 #[test]
 fn new_from_tx_request_succeeds() {
@@ -14,8 +17,7 @@ fn new_from_tx_request_succeeds() {
     assert(!tx_request.is_empty());
     let protocol_nullifier = create_protocol_nullifier(tx_request);
 
-    builder.private_call.anchor_block_header.total_fees = 979797;
-    builder.private_call.anchor_block_header.content_commitment.out_hash = 122122;
+    builder.private_call.anchor_block_header = make_fixture(1);
     let anchor_block_header = builder.private_call.anchor_block_header;
 
     // Safety: this is a test.
@@ -51,8 +53,7 @@ fn new_from_tx_request_without_protocol_nullifier_succeeds() {
     let tx_request = builder.tx_request;
     assert(!tx_request.is_empty());
 
-    builder.private_call.anchor_block_header.total_fees = 979797;
-    builder.private_call.anchor_block_header.content_commitment.out_hash = 122122;
+    builder.private_call.anchor_block_header = make_fixture(1);
     let anchor_block_header = builder.private_call.anchor_block_header;
     // Safety: this is a test.
     let output = unsafe { builder.new_from_tx_request(false).public_inputs_builder.finish() };

@@ -1,4 +1,5 @@
 export * from './l2_block.js';
+export * from './l2_block_header.js';
 export * from './l2_block_stream/index.js';
 export * from './in_block.js';
 export * from './body.js';

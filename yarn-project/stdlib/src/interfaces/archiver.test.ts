@@ -325,8 +325,8 @@ class MockArchiver implements ArchiverApi {
   }
   async getBlockHeadersForEpoch(epochNumber: bigint): Promise<BlockHeader[]> {
     expect(epochNumber).toEqual(1n);
-    const { header } = await L2Block.random(Number(epochNumber));
-    return [header];
+    const block = await L2Block.random(Number(epochNumber));
+    return [block.getBlockHeader()];
   }
   isEpochComplete(epochNumber: bigint): Promise<boolean> {
     expect(epochNumber).toEqual(1n);

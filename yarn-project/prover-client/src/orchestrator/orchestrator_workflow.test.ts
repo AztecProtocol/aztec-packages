@@ -1,10 +1,11 @@
-import { BatchedBlob, Blob } from '@aztec/blob-lib';
 import { NESTED_RECURSIVE_PROOF_LENGTH, RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
+import { timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
+import { createBlockEndMarker } from '@aztec/stdlib/block';
 import {
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
@@ -13,12 +14,13 @@ import {
 import type { ParityPublicInputs } from '@aztec/stdlib/parity';
 import { ClientIvcProof, makeRecursiveProof } from '@aztec/stdlib/proofs';
 import { makeParityPublicInputs } from '@aztec/stdlib/testing';
-import { type BlockHeader, type GlobalVariables, Tx } from '@aztec/stdlib/tx';
+import { Tx } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { TestContext } from '../mocks/test_context.js';
+import { buildBlobDataFromTxs, buildFinalBlobChallenges } from './block-building-helpers.js';
 import type { ProvingOrchestrator } from './orchestrator.js';
 
 const logger = createLogger('prover-client:test:orchestrator-workflow');
@@ -26,8 +28,6 @@ const logger = createLogger('prover-client:test:orchestrator-workflow');
 describe('prover/orchestrator', () => {
   describe('workflow', () => {
     let orchestrator: ProvingOrchestrator;
-    let globalVariables: GlobalVariables;
-    let previousBlockHeader: BlockHeader;
     let context: TestContext;
 
     describe('with mock prover', () => {
@@ -39,8 +39,7 @@ describe('prover/orchestrator', () => {
           proverCount: 4,
           createProver: () => Promise.resolve(mockProver),
         });
-        ({ orchestrator, globalVariables } = context);
-        previousBlockHeader = context.getPreviousBlockHeader();
+        ({ orchestrator } = context);
       });
 
       it('calls root parity circuit only when ready', async () => {
@@ -78,10 +77,18 @@ describe('prover/orchestrator', () => {
           }
         });
 
-        const emptyChallenges = await BatchedBlob.precomputeEmptyBatchedBlobChallenges();
+        const blobFields = [createBlockEndMarker(0)];
+        const finalBlobChallenges = await buildFinalBlobChallenges([blobFields]);
 
-        orchestrator.startNewEpoch(1, 1, 1, emptyChallenges);
-        await orchestrator.startNewBlock(globalVariables, [message], previousBlockHeader);
+        orchestrator.startNewEpoch(1, context.firstCheckpointNumber, 1, finalBlobChallenges);
+        await orchestrator.startNewCheckpoint(
+          context.getCheckpointConstants(),
+          [message],
+          1,
+          blobFields.length,
+          context.getPreviousBlockHeader(),
+        );
+        await orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, 1);
 
         // the prover broker deduplicates jobs, so the base parity proof
         // for the three sets empty messages is called only once. so total
@@ -106,16 +113,24 @@ describe('prover/orchestrator', () => {
 
       beforeEach(async () => {
         context = await TestContext.new(logger);
-        ({ prover, orchestrator, globalVariables } = context);
-        previousBlockHeader = context.getPreviousBlockHeader();
+        ({ prover, orchestrator } = context);
       });
 
       it('waits for block to be completed before enqueueing block root proof', async () => {
         const { txs } = await context.makePendingBlock(2);
-        const blobs = await Blob.getBlobsPerBlock(txs.map(tx => tx.txEffect.toBlobFields()).flat());
-        const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
-        orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
-        await orchestrator.startNewBlock(globalVariables, [], previousBlockHeader);
+        const {
+          blobFieldsLengths: [blobFieldsLength],
+          finalBlobChallenges,
+        } = await buildBlobDataFromTxs([txs]);
+        orchestrator.startNewEpoch(1, context.firstCheckpointNumber, 1, finalBlobChallenges);
+        await orchestrator.startNewCheckpoint(
+          context.getCheckpointConstants(),
+          [],
+          1, // numBlocks
+          blobFieldsLength,
+          context.getPreviousBlockHeader(),
+        );
+        await orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, txs.length);
         await orchestrator.addTxs(txs);
 
         // wait for the block root proof to try to be enqueued
@@ -131,9 +146,18 @@ describe('prover/orchestrator', () => {
       it('can start tube proofs before adding processed txs', async () => {
         const getTubeSpy = jest.spyOn(prover, 'getPublicTubeProof');
         const { txs: processedTxs } = await context.makePendingBlock(2);
-        const blobs = await Blob.getBlobsPerBlock(processedTxs.map(tx => tx.txEffect.toBlobFields()).flat());
-        const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
-        orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
+        const {
+          blobFieldsLengths: [blobFieldsLength],
+          finalBlobChallenges,
+        } = await buildBlobDataFromTxs([processedTxs]);
+        orchestrator.startNewEpoch(1, context.firstCheckpointNumber, 1, finalBlobChallenges);
+        await orchestrator.startNewCheckpoint(
+          context.getCheckpointConstants(),
+          [],
+          1, // numBlocks
+          blobFieldsLength,
+          context.getPreviousBlockHeader(),
+        );
 
         processedTxs.forEach(tx => (tx.clientIvcProof = ClientIvcProof.random()));
         const txs = processedTxs.map(tx =>
@@ -151,12 +175,52 @@ describe('prover/orchestrator', () => {
         expect(getTubeSpy).toHaveBeenCalledTimes(2);
         getTubeSpy.mockReset();
 
-        await orchestrator.startNewBlock(globalVariables, [], previousBlockHeader);
+        await orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, processedTxs.length);
         await orchestrator.addTxs(processedTxs);
         await orchestrator.setBlockCompleted(context.blockNumber);
         const result = await orchestrator.finalizeEpoch();
         expect(result.proof).toBeDefined();
         expect(getTubeSpy).toHaveBeenCalledTimes(0);
+      });
+
+      it('can add checkpoints in arbitrary order', async () => {
+        const numCheckpoints = 3;
+        const numBlocksPerCheckpoint = 2;
+        const numTxsPerBlock = 2;
+        const checkpoints = await timesAsync(numCheckpoints, i =>
+          context.makePendingBlocksInCheckpoint(numBlocksPerCheckpoint, {
+            checkpointIndex: i,
+            numTxsPerBlock,
+          }),
+        );
+        const finalBlobChallenges = await buildFinalBlobChallenges(checkpoints.map(c => c.blobFields));
+
+        context.orchestrator.startNewEpoch(1, context.firstCheckpointNumber, numCheckpoints, finalBlobChallenges);
+
+        // Start checkpoint in reverse order.
+        for (let i = numCheckpoints - 1; i >= 0; i--) {
+          const { blocks, blobFields, l1ToL2Messages } = checkpoints[i];
+          await context.orchestrator.startNewCheckpoint(
+            context.getCheckpointConstants(i),
+            l1ToL2Messages,
+            blocks.length,
+            blobFields.length,
+            context.getPreviousBlockHeader(blocks[0].header.globalVariables.blockNumber),
+          );
+
+          // Blocks in a checkpoint need to be started in order.
+          for (const block of blocks) {
+            const { txs } = block;
+            const { blockNumber, timestamp } = block.header.globalVariables;
+            await context.orchestrator.startNewBlock(blockNumber, timestamp, txs.length);
+            await context.orchestrator.addTxs(txs);
+            await context.orchestrator.setBlockCompleted(blockNumber);
+          }
+        }
+
+        logger.info('Finalizing epoch');
+        const epoch = await context.orchestrator.finalizeEpoch();
+        expect(epoch.proof).toBeDefined();
       });
     });
   });

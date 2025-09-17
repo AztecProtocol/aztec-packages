@@ -1,29 +1,30 @@
-import { BatchedBlob, type FinalBlobBatchingChallenges } from '@aztec/blob-lib';
+import { BatchedBlob, BatchedBlobAccumulator, type FinalBlobBatchingChallenges } from '@aztec/blob-lib';
 import type {
   ARCHIVE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
 } from '@aztec/constants';
-import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
-import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
 import type { PrivateToPublicKernelCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import type { Proof } from '@aztec/stdlib/proofs';
 import {
-  BlockMergeRollupInputs,
-  type BlockRootOrBlockMergePublicInputs,
-  PreviousRollupBlockData,
-  RootRollupInputs,
+  CheckpointConstantData,
+  CheckpointMergeRollupPrivateInputs,
+  CheckpointPaddingRollupPrivateInputs,
+  CheckpointRollupPublicInputs,
+  RootRollupPrivateInputs,
   type RootRollupPublicInputs,
 } from '@aztec/stdlib/rollup';
 import type { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
-import type { BlockHeader, GlobalVariables } from '@aztec/stdlib/tx';
-import { VkData } from '@aztec/stdlib/vks';
+import type { BlockHeader } from '@aztec/stdlib/tx';
 
-import { BlockProvingState } from './block-proving-state.js';
+import { toProofData } from './block-building-helpers.js';
+import type { ProofState } from './block-proving-state.js';
+import { CheckpointProvingState } from './checkpoint-proving-state.js';
 
 export type TreeSnapshots = Map<MerkleTreeId, AppendOnlyTreeSnapshot>;
 
@@ -43,13 +44,16 @@ export type ProvingResult = { status: 'success' } | { status: 'failure'; reason:
  * Captures resolve and reject callbacks to provide a promise base interface to the consumer of our proving.
  */
 export class EpochProvingState {
-  private blockRootOrMergeProvingOutputs: UnbalancedTreeStore<
-    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  private checkpointProofs: UnbalancedTreeStore<
+    ProofState<CheckpointRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
   >;
-  private paddingBlockRootProvingOutput:
-    | PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  private checkpointPaddingProof:
+    | ProofState<CheckpointRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
     | undefined;
-  private rootRollupProvingOutput: PublicInputsAndRecursiveProof<RootRollupPublicInputs> | undefined;
+  private rootRollupProof: ProofState<RootRollupPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined;
+  private checkpoints: (CheckpointProvingState | undefined)[] = [];
+  private startBlobAccumulator: BatchedBlobAccumulator;
+  private endBlobAccumulator: BatchedBlobAccumulator | undefined;
   private finalBatchedBlob: BatchedBlob | undefined;
   private provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_CREATED;
 
@@ -64,53 +68,84 @@ export class EpochProvingState {
     >
   >();
 
-  public blocks: (BlockProvingState | undefined)[] = [];
-
   constructor(
     public readonly epochNumber: number,
-    public readonly firstBlockNumber: number,
-    public readonly totalNumBlocks: number,
-    public readonly finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
+    private readonly firstCheckpointNumber: Fr,
+    public readonly totalNumCheckpoints: number,
+    private readonly finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
+    private onCheckpointBlobAccumulatorSet: (checkpoint: CheckpointProvingState) => void,
     private completionCallback: (result: ProvingResult) => void,
     private rejectionCallback: (reason: string) => void,
   ) {
-    this.blockRootOrMergeProvingOutputs = new UnbalancedTreeStore(totalNumBlocks);
+    this.checkpointProofs = new UnbalancedTreeStore(totalNumCheckpoints);
+    this.startBlobAccumulator = BatchedBlobAccumulator.newWithChallenges(finalBlobBatchingChallenges);
   }
 
   // Adds a block to the proving state, returns its index
   // Will update the proving life cycle if this is the last block
-  public startNewBlock(
-    globalVariables: GlobalVariables,
-    l1ToL2Messages: Fr[],
-    l1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
-    l1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
-    l1ToL2MessageTreeSnapshotAfterInsertion: AppendOnlyTreeSnapshot,
-    lastArchiveSnapshot: AppendOnlyTreeSnapshot,
-    lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
-    newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
+  public startNewCheckpoint(
+    constants: CheckpointConstantData,
+    totalNumBlocks: number,
+    totalNumBlobFields: number,
     previousBlockHeader: BlockHeader,
-    proverId: EthAddress,
-  ): BlockProvingState {
-    const index = globalVariables.blockNumber - this.firstBlockNumber;
-    const block = new BlockProvingState(
+    lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
+    l1ToL2Messages: Fr[],
+    lastL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
+    lastL1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
+    newL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
+    newL1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
+  ): CheckpointProvingState {
+    const slotNumber = constants.slotNumber;
+    if (slotNumber.lt(this.firstCheckpointNumber)) {
+      throw new Error(
+        `Unable to start a new checkpoint - checkpoint too old. Epoch started at ${this.firstCheckpointNumber.toNumber()}. Got ${slotNumber.toNumber()}.`,
+      );
+    }
+
+    const index = slotNumber.sub(this.firstCheckpointNumber).toNumber();
+    if (index >= this.totalNumCheckpoints) {
+      throw new Error(
+        `Unable to start a new checkpoint at index ${index}. Expected at most ${this.totalNumCheckpoints} checkpoints.`,
+      );
+    }
+
+    const checkpoint = new CheckpointProvingState(
       index,
-      globalVariables,
-      l1ToL2Messages,
-      l1ToL2MessageTreeSnapshot,
-      l1ToL2MessageSubtreeSiblingPath,
-      l1ToL2MessageTreeSnapshotAfterInsertion,
-      lastArchiveSnapshot,
-      lastArchiveSiblingPath,
-      newArchiveSiblingPath,
+      constants,
+      totalNumBlocks,
+      totalNumBlobFields,
+      this.finalBlobBatchingChallenges,
       previousBlockHeader,
-      proverId,
+      lastArchiveSiblingPath,
+      l1ToL2Messages,
+      lastL1ToL2MessageTreeSnapshot,
+      lastL1ToL2MessageSubtreeSiblingPath,
+      newL1ToL2MessageTreeSnapshot,
+      newL1ToL2MessageSubtreeSiblingPath,
       this,
+      this.onCheckpointBlobAccumulatorSet,
     );
-    this.blocks[index] = block;
-    if (this.blocks.filter(b => !!b).length === this.totalNumBlocks) {
+    this.checkpoints[index] = checkpoint;
+
+    if (this.checkpoints.filter(c => !!c).length === this.totalNumCheckpoints) {
       this.provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_FULL;
     }
-    return block;
+
+    return checkpoint;
+  }
+
+  public getCheckpointProvingState(index: number) {
+    return this.checkpoints[index];
+  }
+
+  public getCheckpointProvingStateByBlockNumber(blockNumber: number) {
+    return this.checkpoints.find(
+      c => c && blockNumber >= c.firstBlockNumber && blockNumber < c.firstBlockNumber + c.totalNumBlocks,
+    );
+  }
+
+  public getBlockProvingStateByBlockNumber(blockNumber: number) {
+    return this.getCheckpointProvingStateByBlockNumber(blockNumber)?.getBlockProvingStateByBlockNumber(blockNumber);
   }
 
   // Returns true if this proving state is still valid, false otherwise
@@ -121,120 +156,146 @@ export class EpochProvingState {
     );
   }
 
-  // Returns true if we are still able to accept blocks, false otherwise
-  public isAcceptingBlocks() {
-    return this.provingStateLifecycle === PROVING_STATE_LIFECYCLE.PROVING_STATE_CREATED;
+  // Returns true if we are still able to accept checkpoints, false otherwise.
+  public isAcceptingCheckpoints() {
+    return this.checkpoints.filter(c => !!c).length < this.totalNumCheckpoints;
   }
 
-  public setBlockRootRollupProof(
-    blockIndex: number,
-    proof: PublicInputsAndRecursiveProof<
-      BlockRootOrBlockMergePublicInputs,
+  public setCheckpointRootRollupProof(
+    checkpointIndex: number,
+    provingOutput: PublicInputsAndRecursiveProof<
+      CheckpointRollupPublicInputs,
       typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
     >,
   ): TreeNodeLocation {
-    return this.blockRootOrMergeProvingOutputs.setLeaf(blockIndex, proof);
+    return this.checkpointProofs.setLeaf(checkpointIndex, { provingOutput });
   }
 
-  public setBlockMergeRollupProof(
+  public tryStartProvingCheckpointMerge(location: TreeNodeLocation) {
+    if (this.checkpointProofs.getNode(location)?.isProving) {
+      return false;
+    } else {
+      this.checkpointProofs.setNode(location, { isProving: true });
+      return true;
+    }
+  }
+
+  public setCheckpointMergeRollupProof(
     location: TreeNodeLocation,
-    proof: PublicInputsAndRecursiveProof<
-      BlockRootOrBlockMergePublicInputs,
+    provingOutput: PublicInputsAndRecursiveProof<
+      CheckpointRollupPublicInputs,
       typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
     >,
   ) {
-    this.blockRootOrMergeProvingOutputs.setNode(location, proof);
+    this.checkpointProofs.setNode(location, { provingOutput });
   }
 
-  public setRootRollupProof(proof: PublicInputsAndRecursiveProof<RootRollupPublicInputs>) {
-    this.rootRollupProvingOutput = proof;
+  public tryStartProvingRootRollup() {
+    if (this.rootRollupProof?.isProving) {
+      return false;
+    } else {
+      this.rootRollupProof = { isProving: true };
+      return true;
+    }
   }
 
-  public setPaddingBlockRootProof(
-    proof: PublicInputsAndRecursiveProof<
-      BlockRootOrBlockMergePublicInputs,
+  public setRootRollupProof(provingOutput: PublicInputsAndRecursiveProof<RootRollupPublicInputs>) {
+    this.rootRollupProof = { provingOutput };
+  }
+
+  public tryStartProvingPaddingCheckpoint() {
+    if (this.checkpointPaddingProof?.isProving) {
+      return false;
+    } else {
+      this.checkpointPaddingProof = { isProving: true };
+      return true;
+    }
+  }
+
+  public setCheckpointPaddingProof(
+    provingOutput: PublicInputsAndRecursiveProof<
+      CheckpointRollupPublicInputs,
       typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
     >,
   ) {
-    this.paddingBlockRootProvingOutput = proof;
+    this.checkpointPaddingProof = { provingOutput };
   }
 
-  public setFinalBatchedBlob(batchedBlob: BatchedBlob) {
-    this.finalBatchedBlob = batchedBlob;
-  }
-
-  public async setBlobAccumulators(toBlock?: number) {
-    let previousAccumulator;
-    const end = toBlock ? toBlock - this.firstBlockNumber : this.blocks.length;
+  public async setBlobAccumulators() {
+    let previousAccumulator = this.startBlobAccumulator;
     // Accumulate blobs as far as we can for this epoch.
-    for (let i = 0; i <= end; i++) {
-      const block = this.blocks[i];
-      if (!block || !block.block) {
-        // If the block proving state does not have a .block property, it may be awaiting more txs.
+    for (let i = 0; i < this.totalNumCheckpoints; i++) {
+      const checkpoint = this.checkpoints[i];
+      if (!checkpoint) {
         break;
       }
-      if (!block.startBlobAccumulator) {
-        // startBlobAccumulator always exists for firstBlockNumber, so the below should never assign an undefined:
-        block.setStartBlobAccumulator(previousAccumulator!);
+
+      const endAccumulator =
+        checkpoint.getEndBlobAccumulator() || (await checkpoint.accumulateBlobs(previousAccumulator));
+      if (!endAccumulator) {
+        break;
       }
-      if (block.startBlobAccumulator && !block.endBlobAccumulator) {
-        await block.accumulateBlobs();
+
+      previousAccumulator = endAccumulator;
+
+      // If this is the last checkpoint, set the end blob accumulator.
+      if (i === this.totalNumCheckpoints - 1) {
+        this.endBlobAccumulator = endAccumulator;
       }
-      previousAccumulator = block.endBlobAccumulator;
     }
+  }
+
+  public async finalizeBatchedBlob() {
+    if (!this.endBlobAccumulator) {
+      throw new Error('End blob accumulator not ready.');
+    }
+    this.finalBatchedBlob = await this.endBlobAccumulator.finalize();
   }
 
   public getParentLocation(location: TreeNodeLocation) {
-    return this.blockRootOrMergeProvingOutputs.getParentLocation(location);
+    return this.checkpointProofs.getParentLocation(location);
   }
 
-  public getBlockMergeRollupInputs(mergeLocation: TreeNodeLocation) {
-    const [left, right] = this.blockRootOrMergeProvingOutputs.getChildren(mergeLocation);
+  public getCheckpointMergeRollupInputs(mergeLocation: TreeNodeLocation) {
+    const [left, right] = this.checkpointProofs.getChildren(mergeLocation).map(c => c?.provingOutput);
     if (!left || !right) {
-      throw new Error('At lease one child is not ready.');
+      throw new Error('At least one child is not ready for the checkpoint merge rollup.');
     }
 
-    return new BlockMergeRollupInputs([this.#getPreviousRollupData(left), this.#getPreviousRollupData(right)]);
+    return new CheckpointMergeRollupPrivateInputs([toProofData(left), toProofData(right)]);
   }
 
   public getRootRollupInputs() {
     const [left, right] = this.#getChildProofsForRoot();
     if (!left || !right) {
-      throw new Error('At lease one child is not ready.');
+      throw new Error('At least one child is not ready for the root rollup.');
     }
 
-    return RootRollupInputs.from({
-      previousRollupData: [this.#getPreviousRollupData(left), this.#getPreviousRollupData(right)],
+    return RootRollupPrivateInputs.from({
+      previousRollups: [toProofData(left), toProofData(right)],
     });
   }
 
-  public getPaddingBlockRootInputs() {
-    if (!this.blocks[0]?.isComplete()) {
-      throw new Error('Epoch needs one completed block in order to be padded.');
-    }
-
-    return this.blocks[0].getPaddingBlockRootInputs();
-  }
-
-  // Returns a specific transaction proving state
-  public getBlockProvingStateByBlockNumber(blockNumber: number) {
-    return this.blocks.find(block => block?.blockNumber === blockNumber);
+  public getPaddingCheckpointInputs() {
+    return new CheckpointPaddingRollupPrivateInputs();
   }
 
   public getEpochProofResult(): { proof: Proof; publicInputs: RootRollupPublicInputs; batchedBlobInputs: BatchedBlob } {
-    if (!this.rootRollupProvingOutput || !this.finalBatchedBlob) {
+    const provingOutput = this.rootRollupProof?.provingOutput;
+
+    if (!provingOutput || !this.finalBatchedBlob) {
       throw new Error('Unable to get epoch proof result. Root rollup is not ready.');
     }
 
     return {
-      proof: this.rootRollupProvingOutput.proof.binaryProof,
-      publicInputs: this.rootRollupProvingOutput.inputs,
+      proof: provingOutput.proof.binaryProof,
+      publicInputs: provingOutput.inputs,
       batchedBlobInputs: this.finalBatchedBlob,
     };
   }
 
-  public isReadyForBlockMerge(location: TreeNodeLocation) {
-    return this.blockRootOrMergeProvingOutputs.getSibling(location) !== undefined;
+  public isReadyForCheckpointMerge(location: TreeNodeLocation) {
+    return !!this.checkpointProofs.getSibling(location)?.provingOutput;
   }
 
   // Returns true if we have sufficient inputs to execute the block root rollup
@@ -271,21 +332,8 @@ export class EpochProvingState {
   #getChildProofsForRoot() {
     const rootLocation = { level: 0, index: 0 };
     // If there's only 1 block, its block root proof will be stored at the root.
-    return this.totalNumBlocks === 1
-      ? [this.blockRootOrMergeProvingOutputs.getNode(rootLocation), this.paddingBlockRootProvingOutput]
-      : this.blockRootOrMergeProvingOutputs.getChildren(rootLocation);
-  }
-
-  #getPreviousRollupData({
-    inputs,
-    proof,
-    verificationKey,
-  }: PublicInputsAndRecursiveProof<
-    BlockRootOrBlockMergePublicInputs,
-    typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
-  >) {
-    const leafIndex = getVKIndex(verificationKey.keyAsFields);
-    const vkData = new VkData(verificationKey, leafIndex, getVKSiblingPath(leafIndex));
-    return new PreviousRollupBlockData(inputs, proof, vkData);
+    return this.totalNumCheckpoints === 1
+      ? [this.checkpointProofs.getNode(rootLocation)?.provingOutput, this.checkpointPaddingProof?.provingOutput]
+      : this.checkpointProofs.getChildren(rootLocation).map(c => c?.provingOutput);
   }
 }

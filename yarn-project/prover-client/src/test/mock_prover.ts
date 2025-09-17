@@ -22,22 +22,29 @@ import type { BaseParityInputs, RootParityInputs } from '@aztec/stdlib/parity';
 import { makeEmptyRecursiveProof, makeRecursiveProof } from '@aztec/stdlib/proofs';
 import type {
   BaseOrMergeRollupPublicInputs,
-  BlockMergeRollupInputs,
-  BlockRootOrBlockMergePublicInputs,
-  BlockRootRollupInputs,
-  EmptyBlockRootRollupInputs,
+  BlockMergeRollupPrivateInputs,
+  BlockRollupPublicInputs,
+  BlockRootEmptyTxFirstRollupPrivateInputs,
+  BlockRootFirstRollupPrivateInputs,
+  BlockRootRollupPrivateInputs,
+  BlockRootSingleTxFirstRollupPrivateInputs,
+  BlockRootSingleTxRollupPrivateInputs,
+  CheckpointMergeRollupPrivateInputs,
+  CheckpointPaddingRollupPrivateInputs,
+  CheckpointRollupPublicInputs,
+  CheckpointRootRollupPrivateInputs,
+  CheckpointRootSingleBlockRollupPrivateInputs,
   MergeRollupInputs,
-  PaddingBlockRootRollupInputs,
   PrivateBaseRollupInputs,
   PublicBaseRollupInputs,
   PublicTubePrivateInputs,
-  RootRollupInputs,
+  RootRollupPrivateInputs,
   RootRollupPublicInputs,
-  SingleTxBlockRootRollupInputs,
 } from '@aztec/stdlib/rollup';
 import {
   makeBaseOrMergeRollupPublicInputs,
-  makeBlockRootOrBlockMergeRollupPublicInputs,
+  makeBlockRollupPublicInputs,
+  makeCheckpointRollupPublicInputs,
   makeParityPublicInputs,
   makePrivateToPublicKernelCircuitPublicInputs,
   makeRootRollupPublicInputs,
@@ -199,42 +206,42 @@ export class MockProver implements ServerCircuitProver {
     );
   }
 
-  getBlockMergeRollupProof(_input: BlockMergeRollupInputs, _signal?: AbortSignal, _epochNumber?: number) {
+  getBlockRootFirstRollupProof(
+    _input: BlockRootFirstRollupPrivateInputs,
+    _signal?: AbortSignal,
+    _epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
-        makeBlockRootOrBlockMergeRollupPublicInputs(),
+        makeBlockRollupPublicInputs(),
         makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
         VerificationKeyData.makeFakeRollupHonk(),
       ),
     );
   }
 
-  getEmptyBlockRootRollupProof(
-    _input: EmptyBlockRootRollupInputs,
+  getBlockRootSingleTxFirstRollupProof(
+    _input: BlockRootSingleTxFirstRollupPrivateInputs,
     _signal?: AbortSignal,
     _epochNumber?: number,
-  ): Promise<
-    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
-  > {
+  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
-        makeBlockRootOrBlockMergeRollupPublicInputs(),
+        makeBlockRollupPublicInputs(),
         makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
-        VerificationKeyData.makeFakeRollupHonk(),
+        VerificationKeyData.makeFakeHonk(),
       ),
     );
   }
 
-  getPaddingBlockRootRollupProof(
-    _input: PaddingBlockRootRollupInputs,
+  getBlockRootEmptyTxFirstRollupProof(
+    _input: BlockRootEmptyTxFirstRollupPrivateInputs,
     _signal?: AbortSignal,
     _epochNumber?: number,
-  ): Promise<
-    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
-  > {
+  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
-        makeBlockRootOrBlockMergeRollupPublicInputs(),
+        makeBlockRollupPublicInputs(),
         makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
         VerificationKeyData.makeFakeRollupHonk(),
       ),
@@ -242,39 +249,109 @@ export class MockProver implements ServerCircuitProver {
   }
 
   getBlockRootRollupProof(
-    _input: BlockRootRollupInputs,
+    _input: BlockRootRollupPrivateInputs,
     _signal?: AbortSignal,
     _epochNumber?: number,
-  ): Promise<
-    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
-  > {
+  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
-        makeBlockRootOrBlockMergeRollupPublicInputs(),
+        makeBlockRollupPublicInputs(),
         makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
         VerificationKeyData.makeFakeRollupHonk(),
       ),
     );
   }
 
-  getSingleTxBlockRootRollupProof(
-    _input: SingleTxBlockRootRollupInputs,
+  getBlockRootSingleTxRollupProof(
+    _input: BlockRootSingleTxRollupPrivateInputs,
     _signal?: AbortSignal,
     _epochNumber?: number,
-  ): Promise<
-    PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
-  > {
+  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
-        makeBlockRootOrBlockMergeRollupPublicInputs(),
+        makeBlockRollupPublicInputs(),
         makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
         VerificationKeyData.makeFakeHonk(),
       ),
     );
   }
 
+  getBlockMergeRollupProof(_input: BlockMergeRollupPrivateInputs, _signal?: AbortSignal, _epochNumber?: number) {
+    return Promise.resolve(
+      makePublicInputsAndRecursiveProof(
+        makeBlockRollupPublicInputs(),
+        makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
+        VerificationKeyData.makeFakeRollupHonk(),
+      ),
+    );
+  }
+
+  getCheckpointRootRollupProof(
+    _input: CheckpointRootRollupPrivateInputs,
+    _signal?: AbortSignal,
+    _epochNumber?: number,
+  ): Promise<
+    PublicInputsAndRecursiveProof<CheckpointRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
+    return Promise.resolve(
+      makePublicInputsAndRecursiveProof(
+        makeCheckpointRollupPublicInputs(),
+        makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
+        VerificationKeyData.makeFakeRollupHonk(),
+      ),
+    );
+  }
+
+  getCheckpointRootSingleBlockRollupProof(
+    _input: CheckpointRootSingleBlockRollupPrivateInputs,
+    _signal?: AbortSignal,
+    _epochNumber?: number,
+  ): Promise<
+    PublicInputsAndRecursiveProof<CheckpointRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
+    return Promise.resolve(
+      makePublicInputsAndRecursiveProof(
+        makeCheckpointRollupPublicInputs(),
+        makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
+        VerificationKeyData.makeFakeRollupHonk(),
+      ),
+    );
+  }
+
+  getCheckpointMergeRollupProof(
+    _input: CheckpointMergeRollupPrivateInputs,
+    _signal?: AbortSignal,
+    _epochNumber?: number,
+  ): Promise<
+    PublicInputsAndRecursiveProof<CheckpointRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
+    return Promise.resolve(
+      makePublicInputsAndRecursiveProof(
+        makeCheckpointRollupPublicInputs(),
+        makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
+        VerificationKeyData.makeFakeRollupHonk(),
+      ),
+    );
+  }
+
+  getCheckpointPaddingRollupProof(
+    _input: CheckpointPaddingRollupPrivateInputs,
+    _signal?: AbortSignal,
+    _epochNumber?: number,
+  ): Promise<
+    PublicInputsAndRecursiveProof<CheckpointRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
+    return Promise.resolve(
+      makePublicInputsAndRecursiveProof(
+        makeCheckpointRollupPublicInputs(),
+        makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
+        VerificationKeyData.makeFakeRollupHonk(),
+      ),
+    );
+  }
+
   getRootRollupProof(
-    _input: RootRollupInputs,
+    _input: RootRollupPrivateInputs,
     _signal?: AbortSignal,
     _epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<RootRollupPublicInputs>> {
