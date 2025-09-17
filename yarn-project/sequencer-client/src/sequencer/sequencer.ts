@@ -1,5 +1,5 @@
 import type { L2Block } from '@aztec/aztec.js';
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { BLOBS_PER_BLOCK, FIELDS_PER_BLOB, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { FormattedViemError, NoCommitteeError, type RollupContract } from '@aztec/ethereum';
 import { omit, pick } from '@aztec/foundation/collection';
@@ -583,6 +583,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       maxTransactions: this.maxTxsPerBlock,
       maxBlockSize: this.maxBlockSizeInBytes,
       maxBlockGas: this.maxBlockGas,
+      maxBlobFields: BLOBS_PER_BLOCK * FIELDS_PER_BLOB,
       deadline,
     };
   }
