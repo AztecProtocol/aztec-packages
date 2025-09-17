@@ -15,7 +15,7 @@ template <typename FF_> class to_radix_memImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 30> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 5, 3, 5, 3, 5, 3, 6, 4, 4, 4, 4, 7, 4, 3, 3
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)

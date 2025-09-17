@@ -14,8 +14,8 @@ template <typename FF_> class update_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 18> SUBRELATION_PARTIAL_LENGTHS = { 3, 2, 3, 3, 3, 3, 3, 4, 3,
-                                                                            3, 3, 2, 3, 5, 3, 5, 5, 5 };
+    static constexpr std::array<size_t, 18> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {

@@ -84,7 +84,7 @@ class AvmFlavor {
 
     using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
-    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = 3; // compute_max_partial_relation_length<Relations>();
 
     static_assert(MAX_PARTIAL_RELATION_LENGTH < 8, "MAX_PARTIAL_RELATION_LENGTH must be less than 8");
 

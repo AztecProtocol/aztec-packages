@@ -14,7 +14,7 @@ template <typename FF_> class emit_nullifierImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 7> SUBRELATION_PARTIAL_LENGTHS = { 3, 5, 4, 4, 4, 4, 4 };
+    static constexpr std::array<size_t, 7> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {

@@ -14,7 +14,7 @@ template <typename FF_> class registersImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 8> SUBRELATION_PARTIAL_LENGTHS = { 4, 4, 4, 4, 4, 4, 4, 6 };
+    static constexpr std::array<size_t, 8> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {

@@ -15,9 +15,9 @@ template <typename FF_> class contextImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 78> SUBRELATION_PARTIAL_LENGTHS = {
-        2, 3, 3, 3, 4, 3, 3, 4, 5, 5, 5, 5, 5, 6, 5, 5, 5, 5, 5, 5, 3, 5, 6, 6, 5, 5,
-        5, 5, 6, 5, 3, 5, 6, 5, 3, 5, 5, 5, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-        4, 4, 3, 3, 4, 3, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 5, 5
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)

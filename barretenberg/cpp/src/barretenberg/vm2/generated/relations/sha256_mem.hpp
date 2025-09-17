@@ -15,9 +15,9 @@ template <typename FF_> class sha256_memImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 51> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            4, 2, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-                                                                            5, 5, 5, 5, 5, 5, 3, 3, 6, 4, 3, 3, 5,
-                                                                            4, 3, 4, 5, 3, 3, 3, 5, 6, 3, 3, 4 };
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {

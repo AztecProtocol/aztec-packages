@@ -48,8 +48,8 @@ template <typename Settings, typename FF_> class GenericPermutationRelationImpl 
     static constexpr size_t LENGTH = READ_TERMS + WRITE_TERMS + 3; // 5
 
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
-        LENGTH, // inverse polynomial correctness sub-relation
-        LENGTH  // log-derived terms subrelation
+        3, // inverse polynomial correctness sub-relation
+        3  // log-derived terms subrelation
     };
 
     /**
