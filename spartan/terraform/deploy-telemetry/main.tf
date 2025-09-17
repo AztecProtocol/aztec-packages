@@ -91,7 +91,7 @@ resource "kubernetes_manifest" "otel_ingress_backend" {
 
 locals {
   prefixes   = jsondecode(file("../../../yarn-project/cli/public_include_metric_prefixes.json"))
-  registries = ["0xec4156431d0f3df66d4e24ba3d30dcb4c85fa309", "0x6c04b1c116ec1ea0f918e3cc91e87b0af3e23b73", "0x2e48addca360da61e4d6c21ff2b1961af56eb83b", "0x3946727059698390de46be93f3c04b16ac731de6"]
+  registries = ["0xec4156431d0f3df66d4e24ba3d30dcb4c85fa309", "0xf299347e765cfb27f913bde8e4983fd0f195676f", "0x2e48addca360da61e4d6c21ff2b1961af56eb83b", "0xc2f24280f5c7f4897370dfdeb30f79ded14f1c81"]
   roles      = ["sequencer"]
 
   otel_metric_allowlist   = join(" or ", formatlist("HasPrefix(name, %q)", local.prefixes))
