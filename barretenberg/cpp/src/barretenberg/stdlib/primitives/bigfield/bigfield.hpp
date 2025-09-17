@@ -1138,6 +1138,12 @@ template <typename Builder, typename T> class bigfield {
 class bigfield_test_access {
   public:
     template <typename bigfield>
+    static void unsafe_assert_less_than(const bigfield& input, const uint256_t& upper_limit)
+    {
+        input.unsafe_assert_less_than(upper_limit);
+    }
+
+    template <typename bigfield>
     static void unsafe_evaluate_multiply_add(const bigfield& input_left,
                                              const bigfield& input_to_mul,
                                              const std::vector<bigfield>& to_add,
