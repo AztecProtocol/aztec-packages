@@ -22,281 +22,195 @@ tags:
   - infrastructure
 ---
 
-## Background
+This guide will go over the steps required to run a sequencer node on Aztec. It will also provide context to ensure users are comfortable with the steps they are taking.
 
 The Aztec sequencer node is critical infrastructure responsible for ordering transactions and producing blocks.
 
 The sequencer node takes part in three key actions:
 
 1. Assemble unprocessed transactions and propose the next block
-2. Attest to correct execution of txs in the proposed block (if part of sequencer committee)
+2. Attest to correct execution of txs in the proposed block (if part of the sequencer committee)
 3. Submit the successfully attested block to L1
 
-When transactions are sent to the Aztec network, sequencer nodes bundles them into blocks, checking various constraints such as gas limits, block size, and transaction validity. Before a block can be published, it must be validated by a committee of other sequencer nodes who re-execute public transactions and verify private function proofs so they can attest to correct execution. These sequencers attest to the block's validity by signing it, and once enough attestations are collected (two-thirds of the committee plus one), the sequencer can submit the block to L1.
+When transactions are sent to the Aztec network, sequencer nodes bundle them into blocks, checking various constraints such as gas limits, block size, and transaction validity. Before a block can be published, it must be validated by a committee of other sequencer nodes who re-execute public transactions and verify private function proofs so they can attest to correct execution. These sequencers attest to the block's validity by signing the block header, and once enough attestations are collected (two-thirds of the committee plus one), the sequencer can submit the block to L1.
 
 The archiver component complements this process by maintaining historical chain data. It continuously monitors L1 for new blocks, processes them, and maintains a synchronized view of the chain state. This includes managing contract data, transaction logs, and L1-to-L2 messages, making it essential for network synchronization and data availability.
 
-## Setup
+## Prerequisites
 
-### Requirements
-
-A computer running Linux or MacOS with the following specifictions:
+Minimum hardware requirements:
 
 - 2 core / 4 vCPU
 - 16 GB RAM
-- 1 TB NVMe SDD
+- 1TB NVMe SSD
 - 25 Mbps network connection
 
-### Installation
+Please note that these requirements are subject to change as the network throughput increases.
 
-import { General, Fees } from '@site/src/components/Snippets/general_snippets';
+This guide expects you to be using a "standard" Linux distribution like Debian / Ubuntu when following along with the steps.
 
-<General.InstallationInstructions />
+It also is assumed that you have installed Docker and the aztec toolchain via aztec-up as described in the [getting started section](../../index.md).
 
-Now install the latest testnet version of aztec: `aztec-up -v latest`
+Furthermore, as this guide uses Docker compose, you will need to install it. Please follow [this](https://docs.docker.com/compose/install/) guide to do so.
 
-Join the [Discord](https://discord.gg/aztec) to connect with the community and get help with your setup.
+Finally, this guide requires you to have endpoints of an L1 node stack of an execution and consensus client. If you do not have one set up, you can see a good guide on how to do that [here at Eth Docker](https://ethdocker.com/Usage/QuickStart).
 
-## Sequencer Quickstart
 
-With the alpha-testnet version of the aztec tools, you now need to define required variables for your node.
+## Configure the sequencer
 
-The following variable names are specific to the `aztec start` command, set them as variables in the terminal or inline before the command.
+There are a few important things to note when setting up a sequencer. This guide will guide you in setting up and running a sequencer with a standard setup using Docker compose with a .env file.
 
-- `ETHEREUM_HOSTS=<url>`: One or more comma-separated public rpc provider url(s). NB - don't share your access token
-- `L1_CONSENSUS_HOST_URLS=<url>`: One or more comma-separated public rpc provider url(s) that supports consensus client requests
-- `VALIDATOR_PRIVATE_KEY="Ox<hex value>"`: Private key of testnet L1 EOA that defines the sequencer identity that holds Sepolia ETH (0.01 Sepolia ETH can get you started)
-- `COINBASE="0x<eth address>"`: Recipient of block rewards (for node security on mainnet, this should be a different address to the sequencer EOA)
-- `P2P_IP="x.x.x.x"`: IP address of computer running the node (you can get this by running, `curl api.ipify.org`, on your node)
+The setup of the sequencer has four important steps.
 
-Now in a terminal start your node as a sequencer and archiver:
+1. Define private keys / accounts used for sequencer duties
+2. Set required node configuration
+3. Ensure auto-update / auto-restart is enabled
+4. Apply your Docker compose file
 
-If the above variables are set you can simply use: `aztec start --node --archiver --sequencer --network alpha-testnet`
+Let's start by creating a new directory called `aztec-sequencer`, with two subdirectories, `keys`, and `data`. This is where all the information used by the sequencer will be stored. Please also create an empty `.env` file in `aztec-sequencer` to define your settings before moving on to the next step.
 
-Otherwise you can specify values via the CLI flags (using values in place of the variable names):
+### Define private keys / accounts
 
-```bash
-aztec start --node --archiver --sequencer \
-  --network alpha-testnet \
-  --l1-rpc-urls $ETHEREUM_HOSTS \
-  --l1-consensus-host-urls $L1_CONSENSUS_HOST_URLS \
-  --sequencer.validatorPrivateKeys $VALIDATOR_PRIVATE_KEY \
-  --sequencer.coinbase $COINBASE \
-  --p2p.p2pIp $P2P_IP
+A sequencer must hold and use private keys identifying it as a valid proposer or attester. This is done is by defining a keystore file.
+
+An example keystore file is below. Copy this file and save it as `keystore.json` into your `aztec-sequencer/keys` folder.
+
+```JSON
+{
+  schemaVersion: 1,
+  validators: [
+    {
+      attester: ["ETH_PRIVATE_KEY_0"]
+      publisher: ["ETH_PRIVATE_KEY_1"],
+      coinbase: "ETH_ADDRESS_2",
+      feeRecipient: "AZTEC_ADDRESS_0"
+    }
+  ]
+}
 ```
 
-**Additional Parameters**: The comprehensive list of parameters can be seen via: `aztec help start`. For example:
+The keystore defines a few important keys and addresses for sequencer operation. They include but are not limited to:
 
-```
---p2p.p2pPort <value>        (default: 40400)        ($P2P_PORT)
-      The port for the P2P service.
-```
+- `attester`: the private key of the sequencer, used for signing block proposals and attestations on block proposals produced by other sequencers. The corresponding Ethereum address of the private key is the identity of the sequencer.
+- `publisher`: the private key of the Ethereum EOA used for sending the block proposal to L1. This defaults to the attester private key if not set.
+- `coinbase`: the Ethereum address set in a block proposal. L1 rewards and fees are sent to this address. This falls back to the address derived by the attester private key if not set.
+- `feeRecipient`: the Aztec Address of the fee recipient address when proposing blocks. The unburnt portion of the tx fees in a given block are sent to this address.
 
-### Port forwarding
+Please set these values with the ones you want and save `keystore.json`.
 
-For some restricted environments, you may need to explicity forward the p2p port (default: 40400) to your local node ip address.
+### Node configuration
 
-This is often in a router's advanced network settings if required.
+Next you will need to define some environment variables that set important configuration for your node.
 
-### Next steps
+These include:
 
-To add your sequencer you'll need the following few values, as well as `ETHEREUM_HOSTS` from before:
+- `DATA_DIRECTORY`: the folder where the data of the sequencer is stored
+- `KEY_STORE_DIRECTORY`: can be a path to the file or directory where keystores are located. In our case it is the path to the folder containing the `keystore.json` file created above
+- `LOG_LEVEL`: the desired level of logging for the sequencer. It defaults to `INFO`.
+- `ETHEREUM_HOSTS`: The execution RPC endpoints
+- `L1_CONSENSUS_HOST_URLS`: The consensus RPC endpoints
+- `P2P_IP`: The IP address of this sequencer
+- `P2P_PORT`: The port that P2P communication happens on
+- `AZTEC_PORT`: The port that the sequencer node API is exposed on
 
-- `STAKING_ASSET_HANDLER="0xF739D03e98e23A7B65940848aBA8921fF3bAc4b2"`: Constant L1 contract address
-- `L1_CHAIN_ID="11155111"`: Sepolia chainid
-- `PRIVATE_KEY="0x<hex value>`: private key of account with sepolia eth to make transaction (eg can use funded sequencer key)
+Please paste this sample `.env` file into the empty one currently residing in your `aztec-sequencer` folder. Please note that we are assuming you are using the default ports of 8080 for the sequencer itself, and 40400 for p2p connectivity. If this is not the case, please overwrite the defaults below.
 
-Then run the aztec command to add your address as an L1 sequencer, with rpc url(s) for Etheruem L1 execution requests:
-
-```bash
-aztec add-l1-validator --staking-asset-handler=0xF739D03e98e23A7B65940848aBA8921fF3bAc4b2 \
-  --l1-rpc-urls $ETHEREUM_HOSTS \
-  --l1-chain-id 11155111 \
-  --private-key "0x<hex value>" \
-  --attester "0x<eth address>" \
-  --proposer-eoa "0x<eth address>"
-```
-
-**Tip**: Use `aztec help add-l1-validator` for further parameter details.
-
-:::note Sequencer Quota Filled
-
-In the absence of real-world staking incentives, becoming a sequencer is throttled with time, so you may see `ValidatorQuotaFilledUntil(uint256 _timestamp)` at the beginning of the text returned.
-
-The timestamp is when the next round of sequencers can be added into the sequencer set, so try again right after that.
-
-:::
-
-## Deeper dive
-
-This guide will describe how to setup your sequencer using the `aztec start` command. For more advanced setups, refer to the Advanced Configuration section below.
-
-The `aztec start` tool is a one-stop-shop for running your sequencer on any Aztec Network. It assigns default values to several config variables based on a `--network` flag and launches a docker container running the sequencer software.
-
-To use the `aztec start` command, you need to obtain the following:
-
-#### RPCs
-
-- An L1 execution client (for reading transactions and state). It can be specified via the `--l1-rpc-urls` flag when using `aztec start` or via the env var `ETHEREUM_HOSTS`. Popular execution clients include [Geth](https://geth.ethereum.org/) or [Nethermind](https://nethermind.io/). You can run your own node or use a service like [Alchemy](https://www.alchemy.com/) or [Infura](https://www.infura.io/).
-
-- An L1 consensus client (for blobs). It can be specified via the `--l1-consensus-host-urls` flag when using `aztec start` or via the env var `L1_CONSENSUS_HOST_URLS`. Popular consensus clients include [Lighthouse](https://lighthouse.sigmaprime.io/) or [Prysm](https://prysmaticlabs.com/). Not all RPC providers support consensus endpoints, [Quicknode](https://www.quicknode.com/) and [dRPC](https://drpc.org/) have been known to work for consensus endpoints.
-
-- To reduce load on your consensus endpoint, the Aztec sequencer supports an optional remote server that serves blobs to the client. This is often called a "blob sink" or "blob storage service". You can pass your own or use one provided by a trusted party via the `--sequencer.blobSinkUrl` flag when using `aztec start`, or via the env var `BLOB_SINK_URL`. Some providers like [Alchemy](https://www.alchemy.com/) offer blob storage services as part of their infrastructure offerings.
-
-#### Ethereum Keys
-
-You will need an Ethereum private key and the corresponding public address. The private key is set via the `--sequencer.validatorPrivateKeys` flag while the public address should be specified via the `--sequencer.coinbase ` flag.
-
-The private key is needed as your sequencer will post blocks to Ethereum, and the public address will be the recipient of any block rewards.
-
-Disclaimer: you may want to generate and use a new Ethereum private key.
-
-#### Networking
-
-You MUST forward your ports. Your router must send UDP and TCP traffic on port `40400` (unless you changed the default) to your IP address on your local network. Failure to do so may result in your sequencer not participating on the p2p network.
-
-As a tip, configure your router to give your MAC address the same IP address every time it does a DHCP refresh.
-
-You also need to grab your external IP address and pass it along to the `--p2p.p2pIp` when using `aztec start`.
-
-#### Sepolia ETH
-
-You'll need Sepolia ETH to cover gas costs. Here are some options:
-
-- Use a PoW faucet like [Sepolia PoW Faucet](https://sepolia-faucet.pk910.de/)
-- Ask in our Discord community (and remember to pay it forward when you can!)
-
-### Now Start Your Sequencer
-
-To boot up a sequencer using `aztec start`, run the following command:
-
-```bash
-aztec start --node --archiver --sequencer \
-  --network alpha-testnet \
-  --l1-rpc-urls https://example.com \
-  --l1-consensus-host-urls https://example.com \
-  --sequencer.validatorPrivateKeys 0xYourPrivateKey \
-  --sequencer.coinbase 0xYourAddress \
-  --p2p.p2pIp 999.99.999.99 \
-  --p2p.maxTxPoolSize 1000000000
+```sh
+DATA_DIRECTORY=./data
+KEY_STORE_DIRECTORY=./keys
+LOG_LEVEL=info
+ETHEREUM_HOSTS=<your L1 execution endpoint, or a comma separated list if you have multiple>
+L1_CONSENSUS_HOST_URLS=<your L1 consensus endpoint, or a comma separated list if you have multiple>
+P2P_IP=<your external IP address>
+P2P_PORT=40400
+AZTEC_PORT=8080
 ```
 
 :::tip
+You MUST forward your ports. Your router must send UDP and TCP traffic on the port specified by `AZTEC_NODE_P2P_PORT` to your IP address on your local network.
 
-For a full overview of all available commands, check out the [CLI reference sheet](../../reference/cli_reference.md).
+Running the command `curl ipv4.icanhazip.com` can retrieve your public IP address for you.
 :::
 
-:::tip
+### Enable auto-update / auto-restart
 
-If you are unable to determine your public ip. Running the command `curl ipv4.icanhazip.com` can retrieve it for you.
-:::
+It is imperative that the built in auto-updating functionality of the sequencer is not disabled. The update-checker is a background module in the Aztec node that enables global coordination of updates. It allows the protocol team to:
 
-### Register as a Sequencer
+- Push configuration changes to all nodes
+- Trigger shutdowns so that nodes can pull the latest image version
+- Apply hot-fixes quickly
+- Coordinate node resets after a governance upgrade, especially when a new canonical rollup is published to the Registry
 
-Once your node is fully synced, you can register as a sequencer using the `add-l1-validator` command:
+This module ensures that upgrades and fixes propagate smoothly without requiring manual intervention from every node operator.
 
-```bash
-aztec add-l1-validator \
-  --l1-rpc-urls https://eth-sepolia.g.example.com/example/your-key \
-  --private-key your-private-key \
-  --attester your-sequencer-address \
-  --proposer-eoa your-sequencer-address \
-  --staking-asset-handler 0xF739D03e98e23A7B65940848aBA8921fF3bAc4b2 \
-  --l1-chain-id 11155111
+Please ensure environment variables:
+
+`AUTO_UPDATE_URL` and `AUTO_UPDATE` remain unset, as to take their default values (which are the s3 bucket being used to host the update information, and `config-and-version` respectively).
+
+Because docker-compose does not respect pull policies on container restarts, to handle updates properly, add Watchtower to your stack by running:
+
+```sh
+docker run -d \
+  --name watchtower \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  containrrr/watchtower
 ```
 
-:::warning
+### Applying your Docker compose file
 
-You may see a warning when trying to register as a sequencer. To maintain network health there is a daily quota for sequencers to join the sequencer set. If you are not able to join, it could mean that today's quota of sequencers has already been added to the set. If you see this, you can try again later. Read [our blog post](https://aztec.network/blog/what-is-aztec-testnet) for more info.
-
-:::
-
-## Advanced Configuration
-
-### Using Environment Variables
-
-Every flag in the `aztec start` command corresponds to an environment variable. You can see the variable names by running `aztec start --help`. A reference is provided [here](../../reference/cli_reference.md).
-
-For example:
-
-- `--l1-rpc-urls` maps to `ETHEREUM_HOSTS`
-- `--l1-consensus-host-urls` maps to `L1_CONSENSUS_HOSTS_URLS`
-
-You can create a `.env` file with these variables:
-
-```bash
-ETHEREUM_HOSTS=https://example.com
-L1_CONSENSUS_HOST_URLS=https://example.com
-# Add other configuration variables as needed
-```
-
-Then source this file before running your command:
-
-```bash
-source .env
-aztec start --network alpha-testnet --archiver --node --sequencer # other flags...
-```
-
-### Using a Docker Compose
-
-If you would like to run in a docker compose, you can use a configuration like the one below:
-
-```yml
-name: aztec-node
-services:
-  node:
-    network_mode: host # Optional, run with host networking
-    image: aztecprotocol/aztec:latest
-    environment:
-      ETHEREUM_HOSTS: ""
-      L1_CONSENSUS_HOST_URLS: ""
-      DATA_DIRECTORY: /data
-      VALIDATOR_PRIVATE_KEY: $VALIDATOR_PRIVATE_KEY
-      P2P_IP: $P2P_IP
-      LOG_LEVEL: debug
-    entrypoint: >
-      sh -c 'node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --network alpha-testnet start --node --archiver --sequencer'
-    ports:
-      - 40400:40400/tcp
-      - 40400:40400/udp
-      - 8080:8080
-
-    volumes:
-      - /home/my-node/node:/data # Local directory
-```
-
-## Troubleshooting
-
-### L1 Access
-
-If you're hosting your own Ethereum execution or consensus client locally (rather than using an external RPC like Alchemy), you need to ensure that the prover node inside Docker can reach it.
-
-By default, Docker runs containers on a bridge network that isolates them from the host machine's network interfaces. This means localhost inside the container won't point to the host's localhost.
-
-To fix this:
-
-Option 1: Use the special hostname host.docker.internal
-This tells Docker to route traffic from the container to the host machine. For example:
-
-```bash
---l1-rpc-urls http://host.docker.internal:8545
-```
-
-Option 2: Add a host network entry to your Docker Compose file (advanced users)
-This gives your container direct access to the host's network stack, but removes Docker's network isolation. Add to your `docker-compose.yml`
+Now that you have done all the setup, create a Docker compose file named `compose.yml` in your `aztec-sequencer` directory and paste the below code into it.
 
 ```yaml
-network_mode: "host"
+services:
+ aztec-sequencer:
+  image: "aztecprotocol/aztec:1.2.1"
+  container_name: "aztec-sequencer"
+  ports:
+    - ${AZTEC_PORT}:${AZTEC_PORT}
+    - ${P2P_PORT}:${P2P_PORT}
+    - ${P2P_PORT}:${P2P_PORT}/udp
+  volumes:
+    - ${DATA_DIRECTORY}:/var/lib/data
+    - ${KEY_STORE_DIRECTORY}:/var/lib/keystore
+  environment:
+    KEY_STORE_DIRECTORY: /var/lib/keystore
+    DATA_DIRECTORY: /var/lib/data
+    LOG_LEVEL: ${LOG_LEVEL}
+    ETHEREUM_HOSTS: ${ETHEREUM_HOSTS}
+    L1_CONSENSUS_HOST_URLS: ${L1_CONSENSUS_HOST_URLS}
+    P2P_IP: ${P2P_IP}
+    P2P_PORT: ${P2P_PORT}
+    AZTEC_PORT: ${AZTEC_PORT}
+  entrypoint: node /usr/src/yarn-project/aztec/dest/bin/index.js
+  command: >-
+    start
+    --network alpha-testnet
+    --node
+    --archiver
+    --sequencer
+  networks:
+   - aztec
+  restart: always
+
+networks:
+ aztec:
+  name: aztec
 ```
 
-⚠️ Note: network_mode: "host" only works on Linux. On macOS and Windows, use `host.docker.internal`.
+Please note that we are setting only the necessary configuration for running this sequencer. The full list of settings and flags can be explored here at the [cli reference](../../reference/cli_reference.md). A lot of these options are preset to defaults by the `--network` flag above. This downloads defaults for the specified network and applies them to the node.
 
-:::info
+Now, you can run `docker compose up` inside your `aztec-sequencer` folder to start the sequencer!
 
-You can run your own Sepolia ETH Node. However, at the moment only [`geth`](https://github.com/ethereum/go-ethereum) and [`reth`](https://github.com/paradigmxyz/reth) nodes are confirmed to work reliably with the Aztec client.
+To check if it is currently synced, which may take a few minutes, run this command and compare its output to any of the Aztec block explorers. (See [Aztec Scan](https://aztecscan.xyz/) or [Aztec Explorer](https://aztecexplorer.xyz/))
 
-:::
+```sh
+curl -s -X POST -H 'Content-Type: application/json' \
+-d '{"jsonrpc":"2.0","method":"node_getL2Tips","params":[],"id":67}' \
+http://localhost:8080 | jq -r ".result.proven.number"
+```
 
-Once you have your node running, head to the [Aztec Discord](https://discord.gg/aztec) to interact with other network operators.
+## Add yourself to the testnet sequencer set
 
-Happy sequencing!
+After setting up your node you must explicitly request to be added to the sequencer set.
+
+To complete this final step you can now head to [testnet.aztec.network](https://testnet.aztec.network) and complete the onboarding flow there utilizing zkPassport !
