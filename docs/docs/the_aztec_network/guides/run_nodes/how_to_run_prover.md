@@ -25,19 +25,17 @@ tags:
 
 ## Background
 
-This guide covers the steps required to run a prover on Aztec. It will also provide context to ensure users are comfortable with the steps they are taking.
+This guide covers the steps required to run a prover on the Aztec network. Before you begin, you should understand that operating a prover is a resource-intensive role typically undertaken by experienced engineers due to its technical complexity and hardware requirements.
 
-Aztec provers are a critical part of the Aztec network's infrastructure. They generate cryptographic proofs that attest to the correctness of transactions, ultimately producing a single rollup proof that is submitted to Ethereum.
+Aztec provers are critical infrastructure components that generate cryptographic proofs attesting to transaction correctness, ultimately producing a single rollup proof submitted to Ethereum.
 
-The prover is a complex stack of processes that consists of:
+The prover consists of three main components:
 
-1. The prover node: responsible for polling the L1 for unproven epochs and initiating the proof process. When an epoch is ready to be proven, the prover node creates proving jobs and distributes them to the broker. It is also responsible for submitting the final rollup proof to the rollup contract.
+1. **Prover node**: Polls L1 for unproven epochs, creates proving jobs, distributes them to the broker, and submits the final rollup proof to the rollup contract.
 
-2. The prover broker: manages a queue of proving jobs, distributing them to available agents and forwarding results back to the node.
+2. **Prover broker**: Manages the job queue, distributing work to agents and collecting results.
 
-3. The prover agent(s): executes the actual proof jobs. Agents are stateless, fetch work from the broker, and return the results.
-
-Operating a prover requires a solid grasp of blockchain protocols, cryptographic systems, DevOps best practices, and high-performance hardware. It’s a resource-intensive role typically undertaken by experienced engineers or specialized teams due to its cost and technical and operational complexity.
+3. **Prover agent(s)**: Executes proof generation jobs in a stateless manner.
 
 ## Prerequisites
 
@@ -68,29 +66,29 @@ Minimum specifications:
 - 128 GB RAM
 - 10 GB SSD
 
-This guide will outline a basic, non-distributed setup placing all of the components on one machine that is powerful enough to handle the combined load. The minimum specifications should align to be at least as powerful as the requirements for the proving agents.
+This guide outlines a basic, non-distributed setup with all components on a single machine. Your hardware must meet or exceed the proving agent requirements listed above.
 
-This guide expects you to be using a standard Linux distribution like Debian or Ubuntu when following along with the steps.
+This guide assumes you are using a standard Linux distribution (Debian or Ubuntu).
 
-It also is assumed that you have installed Docker and the aztec toolchain via aztec-up as described in the [getting started section](../../index.md).
+### Required Software
 
-Furthermore, as this guide uses Docker compose, you will need to install it. Please follow [this](https://docs.docker.com/compose/install/) guide to do so.
+- Docker and the Aztec toolchain installed via aztec-up (see the [getting started section](../../index.md))
+- Docker Compose ([installation guide](https://docs.docker.com/compose/install/))
+- Access to L1 node endpoints (execution and consensus clients). See [Eth Docker's guide](https://ethdocker.com/Usage/QuickStart) if you need to set these up.
 
-Finally, this guide requires you to have endpoints of an L1 node stack of an execution and consensus client. If you do not have one set up, you can see a good guide on how to do that [here at Eth Docker](https://ethdocker.com/Usage/QuickStart).
+**Note**: This guide assumes advanced technical knowledge of blockchain infrastructure and DevOps practices.
 
-Your confidence level is expected to be around "I'd be able to run a Prover _without_ this guide".
+## Configure the Prover
 
-## Configure the prover
+Setting up a prover involves configuring three components through environment variables and Docker Compose.
 
-There are a few important things to note when setting up a prover. This guide will guide you in setting up and running a prover with a standard setup using Docker compose with a .env file.
+### Setup Steps
 
-The setup of the prover has four important steps.
+1. Configure components via environment variables
+2. Enable auto-update and auto-restart functionality
+3. Deploy with Docker Compose
 
-1. Set required component configuration
-2. Ensure auto-update / auto-restart is enabled
-3. Apply your Docker compose file
-
-Let's start by creating a new directory called `aztec-prover`, with two subdirectories, `prover-node-data`, and `prover-broker-data`. This is where all the information used by the prover will be stored.
+First, create the directory structure for prover data storage:
 
 ```sh
 mkdir -p aztec-prover/prover-node-data aztec-prover/prover-broker-data
@@ -98,17 +96,13 @@ cd aztec-prover
 touch .env
 ```
 
-### Prover configuration
+### Component Configuration
 
-You will need to define some environment variables that set important configuration for your prover.
+Each prover component requires specific environment variables. Configure them as follows:
 
-As we have three components, we will split our config respectively.
+#### Prover Node
 
-#### Prover node configuration
-
-Let's start by defining configuration for the prover node
-
-These include:
+Required environment variables:
 
 - `DATA_DIRECTORY`: the folder where the data of the prover node is stored
 - `P2P_IP`: the IP address of this prover node
@@ -120,7 +114,7 @@ These include:
 - `PROVER_PUBLISHER_PRIVATE_KEY`: the private key of the Ethereum EOA used for publishing the proofs to L1
 - `AZTEC_PORT`: the port that the prover node API is exposed on
 
-Paste the contents of this sample `.env` file into the empty one currently residing in your `aztec-prover` folder. Please note that we are assuming you are using the default ports of 8080 for the prover node itself, and 40400 for p2p connectivity. If this is not the case, overwrite the defaults below.
+Add the following to your `.env` file (using default ports 8080 and 40400):
 
 ```sh
 DATA_DIRECTORY=./prover-node-data
@@ -134,19 +128,17 @@ PROVER_PUBLISHER_PRIVATE_KEY=<the private key of the L1 EOA your prover will pub
 AZTEC_PORT=8080
 ```
 
-Note this setup assumes that the prover broker will be run on `http://prover-broker:8080` as it will be defined later in the docker compose.
+**Note**: The broker URL `http://prover-broker:8080` references the Docker Compose service name defined later.
 
 :::tip
-You MUST forward your ports. Your router must send UDP and TCP traffic on the port specified by `P2P_PORT` to your IP address on your local network.
+You MUST forward ports for P2P connectivity. Configure your router to forward both UDP and TCP traffic on the port specified by `P2P_PORT` to your local IP address.
 
-Running the command `curl ipv4.icanhazip.com` can retrieve your public IP address for you.
+To find your public IP address, run: `curl ipv4.icanhazip.com`
 :::
 
-#### Prover broker configuration
+#### Prover Broker
 
-Let's continue by outlining configuration for the prover broker.
-
-These include:
+Required environment variables:
 
 - `DATA_DIRECTORY`: the folder where the data of the prover broker is stored
 - `LOG_LEVEL`: the desired level of logging for the prover broker. It defaults to `INFO`
@@ -154,25 +146,24 @@ These include:
 - `P2P_IP`: the IP address of this prover broker
 - `P2P_PORT`: the port that P2P communication happens on
 
-Note that while this configuration is repeated in our example as there exists overlap in the environment variables that set configuration between this and the prover node above, we are showing it for illustration purposes in the case that you want to a different machine for the prover broker and the prover node. Due to this reuse in `DATA_DIRECTORY` between the prover node and the prover broker to define where their data stores are located, you will define a different environment variable to be used by the prover broker.
+**Note**: Some variables overlap with the prover node configuration. If running components on separate machines, adjust accordingly. Since `DATA_DIRECTORY` is used by both components, define a separate variable for the broker:
 
-Please add this line to your `.env` file.
+Add to your `.env` file:
+
 ```sh
 PROVER_BROKER_DATA_DIRECTORY=./prover-broker-data
 ```
 
-#### Prover agent configuration
+#### Prover Agent
 
-Finally, let's finish by defining configuration for the prover agent
+Required environment variables:
 
-These include:
+- `PROVER_AGENT_COUNT`: Number of agents to run (each requires ~10GB RAM)
+- `PROVER_AGENT_POLL_INTERVAL_MS`: Polling interval for job requests (milliseconds)
+- `PROVER_BROKER_HOST`: Broker endpoint for job submission
+- `PROVER_ID`: Ethereum address corresponding to `PROVER_PUBLISHER_PRIVATE_KEY`
 
-- `PROVER_AGENT_COUNT`: how many prover agents are run in the process. each agent takes approximately 10GB of ram to run without creating bottlenecks
-- `PROVER_AGENT_POLL_INTERVAL_MS`: how long that the prover agent should wait between each request to the proving broker
-- `PROVER_BROKER_HOST`: the location for the proving agent to look and to submit its jobs to
-- `PROVER_ID`: the address of the Ethereum EOA used for publishing the proofs to L1 (this should correspond to `PROVER_PUBLISHER_PRIVATE_KEY` set as config in the prover node)
-
-Please add these lines into the `.env` file currently residing in your `aztec-prover` folder.
+Add to your `.env` file:
 
 ```sh
 PROVER_AGENT_COUNT=10
@@ -181,22 +172,18 @@ PROVER_BROKER_HOST=http://prover-broker:8080
 PROVER_ID=<the address corresponding to the PROVER_PUBLISHER_PRIVATE_KEY you set on the node>
 ```
 
-### Enable auto-update / auto-restart
+### Enable Auto-Update and Auto-Restart
 
-It is imperative that the built in auto-updating functionality of the prover node is not disabled. The update-checker is a background module in the prover node that enables global coordination of updates. It allows the protocol team to:
+The prover's auto-update functionality is critical for network coordination. This background module enables:
 
-- Push configuration changes to all nodes
-- Trigger shutdowns so that nodes can pull the latest image version
-- Apply hot-fixes quickly
-- Coordinate node resets after a governance upgrade, especially when a new canonical rollup is published to the Registry
+- Configuration updates across all nodes
+- Automated image updates via controlled shutdowns
+- Rapid hot-fix deployment
+- Coordinated resets after governance upgrades
 
-This module ensures that upgrades and fixes propagate smoothly without requiring manual intervention from every node operator.
+**Important**: Do NOT set `AUTO_UPDATE_URL` or `AUTO_UPDATE` environment variables. These must use their default values for proper operation.
 
-Please ensure environment variables:
-
-`AUTO_UPDATE_URL` and `AUTO_UPDATE` remain unset, as to take their default values (which are the s3 bucket being used to host the update information, and `config-and-version` respectively).
-
-Because docker-compose does not respect pull policies on container restarts, to handle updates properly, add Watchtower to your stack by running:
+Since Docker Compose doesn't respect pull policies on container restarts, install Watchtower for automatic updates:
 
 ```sh
 docker run -d \
@@ -205,7 +192,7 @@ docker run -d \
   containrrr/watchtower
 ```
 
-### Applying your Docker compose file
+### Deploy with Docker Compose
 
 Create a `docker-compose.yml` file in your `aztec-prover` directory with the following content:
 
@@ -280,10 +267,72 @@ services:
     restart: unless-stopped
 ```
 
-Please note that we are setting only the necessary configuration for running this prover. The full list of settings and flags can be explored here at the [cli reference](../../reference/cli_reference.md). A lot of these options are preset to defaults by the `--network` flag above. This downloads defaults for the specified network and applies them to the node.
+**Note**: This configuration includes only essential settings. The `--network alpha-testnet` flag applies network-specific defaults. See the [CLI reference](../../reference/cli_reference.md) for all available options.
 
-Start the prover with the defined environment variables with:
+Start the prover:
 
 ```sh
 docker compose up -d
 ```
+
+## Verification
+
+To verify your prover is running correctly:
+
+1. Check that all services are running:
+
+```sh
+docker compose ps
+```
+
+2. View logs for each component:
+
+```sh
+# Prover node logs
+docker compose logs -f prover-node
+
+# Broker logs
+docker compose logs -f prover-broker
+
+# Agent logs
+docker compose logs -f prover-agent
+```
+
+3. Confirm the prover node is connected to the network:
+
+```sh
+curl http://localhost:8080/status
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Port forwarding not working:**
+
+- Verify your external IP address matches the `P2P_IP` setting
+- Check firewall rules on your router and local machine
+- Test connectivity using: `nc -zv <your-ip> <p2p-port>`
+
+**Prover agent out of memory:**
+
+- Reduce `PROVER_AGENT_COUNT` in your `.env` file
+- Ensure your system meets the minimum RAM requirements
+
+**Connection to L1 failing:**
+
+- Verify your L1 endpoints are accessible
+- Check that both execution and consensus clients are fully synced
+- Test endpoints using: `curl -X POST <endpoint> -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'`
+
+**Docker Compose issues:**
+
+- Ensure Docker and Docker Compose are up to date
+- Check disk space availability
+- Review container logs for specific error messages
+
+## Next Steps
+
+- Monitor your prover's performance and uptime
+- Join the [Aztec Discord](https://discord.gg/aztec) for operator support
+- Consider implementing monitoring and alerting for production deployments
