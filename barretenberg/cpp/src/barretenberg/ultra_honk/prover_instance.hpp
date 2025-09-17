@@ -24,13 +24,41 @@
 #include <chrono>
 
 namespace bb {
+
 /**
- * @brief  A ProverInstance is normally constructed from a finalized circuit and it contains all the information
- * required by an Mega Honk prover to create a proof. A ProverInstance is also the result of running the
+ * @brief A ProverInstance is normally constructed from a finalized circuit and it contains all the information
+ * required by a Mega Honk prover to create a proof. A ProverInstance is also the result of running the
  * Protogalaxy prover, in which case it becomes a relaxed counterpart with the folding parameters (target sum and gate
  * challenges set to non-zero values).
  *
- * @details This is the equivalent of ω in the paper.
+ * @details A ProverInstance is the equivalent of \f$\omega\f$ in the Protogalaxy paper.
+ *
+ * Our arithmetisation works as follows. The Flavor defines \f$fM\f$ (Flavor::NUM_ALL_ENTITIES) and a series of
+ * relations
+ * \f$R_1, \dots, R_n\f$ (Flavor::Relations_). Each relation is made up by a series of subrelations: \f$R_i =
+ * (R_{i,1}, \dots, R_{i,n_i})\f$.
+ *
+ * Write \f$p_1, \dots, p_M\f$ for the prover polynomials and \f$p_{i,k}\f$ for the \f$k\f$-th coefficient of \f$p_i\f$.
+ * Let \f$n\f$ be the max degree of the prover polynomials. A non-relaxed ProverInstance is valid if for all \f$i, j,
+ * k\f$ we have \f$R_{i,j}(p_{1,k}, \dots, p_{M,k}) = 0\f$.
+ *
+ * Instead of checking each equality separately, we batch them using challenges that we call `alphas`. Thus, a
+ * ProverInstance is valid if for each \f$k = 0, \dots, n\f$.
+ * \f[
+ *  f_k(\omega) := \sum_{i, j} \alpha_{i,j} R_{i,j}(p_{1,k}, \dots, p_{M,k}) = 0
+ * \f]
+ *
+ * Instead of checking each equality separately, we once again batch them using challenges. These challenges are the
+ * \f$pow_i(\beta)\f$ in the Protogalaxy paper, and are derived using the vector `gate_challenges` as the vector
+ * \f$\beta\f$. Write \f$gc\f$ for the vector `gate_challenges`. Then, a ProverInstance is valid if
+ * \f[
+ *  \sum_{k} pow_k(gc) f_k(\omega) = 0
+ * \f]
+ * The equation is modified for a relaxed ProverInstance to
+ * \f[
+ *  \sum_{k} pow_k(gc) f_k(\omega) = ts
+ * \f]
+ * where we write \f$ts\f$ for the vector `target_sum`.
  */
 
 template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
