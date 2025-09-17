@@ -35,6 +35,24 @@ provider "helm" {
   }
 }
 
+module "web3signer" {
+  source                 = "../modules/web3signer"
+  NAMESPACE              = var.NAMESPACE
+  RELEASE_NAME           = var.RELEASE_PREFIX
+  AZTEC_DOCKER_IMAGE     = var.AZTEC_DOCKER_IMAGE
+  CHAIN_ID               = var.L1_CHAIN_ID
+  MNEMONIC               = var.VALIDATOR_MNEMONIC
+  ADDRESS_CONFIGMAP_NAME = "${var.RELEASE_PREFIX}-attester-addresses"
+  ATTESTERS_PER_NODE     = tonumber(var.VALIDATORS_PER_NODE)
+  NODE_COUNT             = tonumber(var.VALIDATOR_REPLICAS)
+  MNEMONIC_INDEX_START   = tonumber(var.VALIDATOR_MNEMONIC_START_INDEX)
+
+  providers = {
+    helm       = helm.gke-cluster
+    kubernetes = kubernetes.gke-cluster
+  }
+}
+
 locals {
   aztec_image = {
     repository = split(":", var.AZTEC_DOCKER_IMAGE)[0]
@@ -105,9 +123,12 @@ locals {
       ]
       custom_settings = {
         "global.customAztecNetwork.enabled"                 = true
+        "validator.web3signerUrl"                           = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
         "validator.mnemonic"                                = var.VALIDATOR_MNEMONIC
         "validator.mnemonicStartIndex"                      = var.VALIDATOR_MNEMONIC_START_INDEX
         "validator.validatorsPerNode"                       = var.VALIDATORS_PER_NODE
+        "validator.publishersPerValidatorKey"               = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
+        "validator.publisherMnemonicStartIndex"             = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
         "validator.replicaCount"                            = var.VALIDATOR_REPLICAS
         "validator.sentinel.enabled"                        = var.SENTINEL_ENABLED
         "validator.slash.minPenaltyPercentage"              = var.SLASH_MIN_PENALTY_PERCENTAGE
@@ -124,6 +145,10 @@ locals {
         "validator.slash.maxPayloadSize"                    = var.SLASH_MAX_PAYLOAD_SIZE
         "validator.node.env.TRANSACTIONS_DISABLED"          = var.TRANSACTIONS_DISABLED
         "validator.node.env.NETWORK"                        = var.NETWORK
+        "validator.node.env.KEY_INDEX_START"                = var.VALIDATOR_MNEMONIC_START_INDEX
+        "validator.node.env.PUBLISHER_KEY_INDEX_START"      = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
+        "validator.node.env.VALIDATORS_PER_NODE"            = var.VALIDATORS_PER_NODE
+        "validator.node.env.PUBLISHERS_PER_VALIDATOR_KEY"   = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
       }
       boot_node_host_path  = "validator.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "validator.node.env.BOOTSTRAP_NODES"
@@ -141,6 +166,7 @@ locals {
         "node.mnemonic"                = var.PROVER_MNEMONIC
         "node.mnemonicStartIndex"      = var.PROVER_MNEMONIC_START_INDEX
         "node.node.proverRealProofs"   = var.PROVER_REAL_PROOFS
+        "node.web3signerUrl"           = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
         "node.node.env.NETWORK"        = var.NETWORK
         "broker.node.proverRealProofs" = var.PROVER_REAL_PROOFS
         "broker.node.env.NETWORK"      = var.NETWORK

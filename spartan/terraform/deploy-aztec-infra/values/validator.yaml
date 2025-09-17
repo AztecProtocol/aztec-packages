@@ -2,7 +2,7 @@ validator:
   node:
     logLevel: "debug; info: aztec:simulator, json-rpc"
     preStartScript: |
-      source /scripts/get-private-key.sh
+      source /scripts/setup-attester-keystore.sh
 
       if [ -n "${BOOT_NODE_HOST:-}" ] && [ -z "${NETWORK:-}" ]; then
         until curl --silent --head --fail "${BOOT_NODE_HOST}/status" > /dev/null; do
