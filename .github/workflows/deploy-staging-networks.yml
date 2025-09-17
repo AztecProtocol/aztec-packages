@@ -243,10 +243,10 @@ jobs:
           BOT_SWAPS_REPLICAS=0
           FLUSH_ENTRY_QUEUE=false
 
-          # RPC_INGRESS_ENABLED=true
-          # RPC_INGRESS_HOST=rpc.testnet.aztec-labs.com
-          # RPC_INGRESS_STATIC_IP_NAME=testnet-rpc-ingress
-          # RPC_INGRESS_SSL_CERT_NAME=testnet-rpc-cert
+          RPC_INGRESS_ENABLED=true
+          RPC_INGRESS_HOST=rpc.testnet.aztec-labs.com
+          RPC_INGRESS_STATIC_IP_NAME=testnet-rpc-ip
+          RPC_INGRESS_SSL_CERT_NAME=testnet-rpc-cert
 
           EOF
           echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV

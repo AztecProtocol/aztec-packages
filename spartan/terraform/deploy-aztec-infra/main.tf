@@ -194,7 +194,10 @@ locals {
         service = {
           rpc = {
             annotations = {
-              "cloud.google.com/neg" = "{\"ingress\": true}"
+              "cloud.google.com/neg" = jsonencode({ ingress = true })
+              "cloud.google.com/backend-config" = jsonencode({
+                default = "${var.RELEASE_PREFIX}-rpc-ingress-backend"
+              })
             }
           }
         }
@@ -316,6 +319,31 @@ resource "helm_release" "releases" {
     content {
       name  = set_list.key
       value = set_list.value
+    }
+  }
+}
+
+resource "kubernetes_manifest" "rpc_ingress_backend" {
+  count    = var.RPC_INGRESS_ENABLED ? 1 : 0
+  provider = kubernetes.gke-cluster
+
+  manifest = {
+    apiVersion = "cloud.google.com/v1"
+    kind       = "BackendConfig"
+    metadata = {
+      name      = "${var.RELEASE_PREFIX}-rpc-ingress-backend"
+      namespace = var.NAMESPACE
+    }
+    spec = {
+      healthCheck = {
+        checkIntervalSec   = 15
+        timeoutSec         = 5
+        healthyThreshold   = 2
+        unhealthyThreshold = 2
+        type               = "HTTP"
+        port               = 8080
+        requestPath        = "/status"
+      }
     }
   }
 }
