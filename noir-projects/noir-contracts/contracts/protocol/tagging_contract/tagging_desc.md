@@ -14,7 +14,7 @@ So how does it work?
 
 ### STEP 2: Recipient and sender discovering handshake
 
-1. A contract function is being simulated and and a `aztec::messages::discovery::discover_new_messages(contract_address)` is called,
+1. A contract function is being simulated and a `aztec::messages::discovery::discover_new_messages(contract_address)` is called,
 2. in the oracle handler, before `this.executionDataProvider.syncTaggedLogs(contractAddress)` is called we would call <span style="color:red;">syncTaggingSecrets()</span> that would:
 3. load last_synced_tagging_secrets_block and get all the public logs since that block until the latest synced PXE block node.getPublicLogs(from: last_synced_tagging_secrets_block, last_block_synced_by_pxe, HANDSHAKER_CONTRACT_ADDRESS),
 4. we would brute force decrypt both sender and recipient ciphertexts in the logs in TS and add the resulting master tagging secrets to PXE. (I am aware decrypting in TS here is ugly but we need it to be fast and it's fine to enshrine the encryption because the tagging contract is enshrined as well.)
