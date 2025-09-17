@@ -1905,14 +1905,16 @@ void bigfield<Builder, T>::unsafe_assert_less_than(const uint256_t& upper_limit)
     field_t<Builder> r2 = upper_limit_2 - binary_basis_limbs[2].element +
                           (static_cast<field_t<Builder>>(borrow_2) * shift_1) - static_cast<field_t<Builder>>(borrow_1);
     field_t<Builder> r3 = upper_limit_3 - binary_basis_limbs[3].element - static_cast<field_t<Builder>>(borrow_2);
-    r0 = r0.normalize();
-    r1 = r1.normalize();
-    r2 = r2.normalize();
-    r3 = r3.normalize();
-    context->decompose_into_default_range(r0.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
-    context->decompose_into_default_range(r1.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
-    context->decompose_into_default_range(r2.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
-    context->decompose_into_default_range(r3.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
+
+    // We need to range constrain the r0,r1,r2,r3 values to ensure they are "small enough".
+    get_context()->range_constrain_two_limbs(r0.get_normalized_witness_index(),
+                                             r1.get_normalized_witness_index(),
+                                             static_cast<size_t>(NUM_LIMB_BITS),
+                                             static_cast<size_t>(NUM_LIMB_BITS));
+    get_context()->range_constrain_two_limbs(r2.get_normalized_witness_index(),
+                                             r3.get_normalized_witness_index(),
+                                             static_cast<size_t>(NUM_LIMB_BITS),
+                                             static_cast<size_t>(NUM_LIMB_BITS));
 }
 
 // check elements are equal mod p by proving their integer difference is a multiple of p.
