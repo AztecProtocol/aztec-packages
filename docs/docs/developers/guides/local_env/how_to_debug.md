@@ -1,5 +1,5 @@
 ---
-title: How to Debug
+title: Debugging Aztec Code
 sidebar_position: 5
 tags: [debugging, errors, logging, sandbox, aztec.nr]
 description: This guide shows you how to debug issues in your Aztec contracts.

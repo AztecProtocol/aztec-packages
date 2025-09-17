@@ -1,474 +1,260 @@
 ---
-title: Implementing a Token Contract
-sidebar_position: 1
+title: Getting Started on Sandbox
+description: Guide for developers to get started with the Aztec sandbox, including account creation and contract deployment.
+sidebar_position: 0
 tags: [sandbox, testnet]
-description: Quick start guide for developers to set up their environment and begin building on Aztec.
 ---
 
-## Write your first Aztec contract and deploy it to the sandbox
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
-### Installation
+Get started on your local environment using the sandbox. If you'd rather jump into testnet, read the [getting started on testnet guide](../guides/getting_started_on_testnet.md).
 
-#### Prerequisites:
-Before you start, ensure you have a working environment. You need:
-* Docker
-* `aztec-up` - install by running
-```sh
+The Sandbox is an local development Aztec network running fully on your machine, and interacting with a development Ethereum node. You can develop and deploy on it just like on a testnet or mainnet (when the time comes). The sandbox makes it faster and easier to develop and test your Aztec applications.
+
+What's included in the sandbox:
+
+- Local Ethereum network (Anvil)
+- Deployed Aztec protocol contracts (for L1 and L2)
+- A set of test accounts with some test tokens to pay fees
+- Development tools to compile contracts and interact with the network (`aztec-nargo` and `aztec-wallet`)
+
+All of this comes packages in a Docker container to make it easy to install and run.
+
+This guide will teach you how to install the Aztec sandbox, run it using the Aztec CLI, and interact with contracts using the wallet CLI. To jump right into the testnet instead, click the `Testnet` tab.
+
+## Prerequisites
+
+import { General, Fees } from '@site/src/components/Snippets/general_snippets';
+
+You need two global dependencies on your machine:
+
+- <General.node_ver />
+- Docker (visit [this page of the Docker docs](https://docs.docker.com/get-docker/) on how to install it)
+
+## Install and run the sandbox
+
+### Start Docker
+
+Docker needs to be running in order to install the sandbox. Find instructions on the [Docker website](https://docs.docker.com/get-started/).
+
+### Install the sandbox
+
+Run:
+
+```bash
 bash -i <(curl -s https://install.aztec.network)
 ```
-* Node.js (minimum version 22)
 
-For easier development, install the Noir extension/LSP for VSCode ([download](https://marketplace.visualstudio.com/items?itemName=noir-lang.vscode-noir)).
+This will install the following tools:
 
-Once the prerequisites are met, run this command to install the Aztec toolchain:
+- **aztec** - launches various infrastructure subsystems (full sandbox, sequencer, prover, pxe, etc) and provides utility commands to interact with the network
+- **aztec-nargo** - aztec's build of nargo, the noir compiler toolchain.
+- **aztec-postprocess-contract** - postprocessing tool for Aztec contracts (transpilation and VK generation).
+- **aztec-up** - a tool to upgrade the aztec toolchain to the latest, or specific versions.
+- **aztec-wallet** - a tool for interacting with the aztec network
 
-`aztec-up -v #include_version_without_prefix`
+### Start the sandbox
 
-(optional) To set up the LSP for Aztec programming, go to the Noir extension settings in VSCode and under `Noir: Nargo Path` set this value to the location of `aztec-nargo` installed in the command above (this should be in `~/.aztec/bin/aztec-nargo`). `aztec-nargo` is the Noir build tool pinned at a version bundled with each Aztec release to ensure compatibility.
+Once these have been installed, to start the sandbox, run:
 
-### Project setup and structure
-
-Clone the [`aztec-examples` repository](https://github.com/AztecProtocol/aztec-examples) and navigate to the `starter-token/start-here` folder. This folder will be our main reference through out this tutorial.
-
-This tutorial uses both Aztec.nr and Aztec.js to write code that interacts with the network.
-
-#### Aztec.nr
-
-Aztec.nr is the smart contract framework for building private applications on Aztec using Noir. Noir is a Rust-inspired DSL for writing zero-knowledge proofs; Aztec.nr extends it with Aztec-specific libraries for state management, privacy primitives, and protocol interactions.
-
-It provides rails that helps you implement best practices and avoid potentially dangerous ones (eg letting a user spend another user's notes).
-
-#### Aztec.js
-
-Aztec.js is the library for interacting with the Aztec network. It provides tools for deploying contracts, managing accounts, sending transactions, and querying private state. The SDK handles encryption, note management, and proof generation, enabling developers to build privacy-first applications using familiar web development patterns.
-
-### Define a contract with Aztec.nr
-
-First, take a quick look at Nargo.toml in `contract/`
-
-```toml
-[package]
-name = "starter_token_contract"
-authors = [""]
-compiler_version = ">=1.0.0"
-type = "contract"
-
-[dependencies]
-aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/aztec-nr/aztec" }
-```
-
-This file is required and defines the contract's metadata and dependencies (including Aztec.nr).
-
-After reviewing `Nargo.toml`, you can start reviewing the contract itself. Navigate to `contract/src/main.nr` and review the code stub.
-
-```noir
-use aztec::macros::aztec;
-
-#[aztec]
-pub contract StarterToken {
-  // Start here !
-}
-```
-
-This code is a bare-bones Aztec contract. It imports the `aztec` macro, which defines and annotates a contract using the `contract` keyword. Macros are very important and prevalent throughout Aztec contracts, because Aztec.nr uses them to inject code into and transform code of the structs and functions they decorate.
-
-
-## Building the Contract
-
-### Writing the Contract
-
-
-In this section you will build a token contract with both public and private functionality on Aztec. You'll start with a basic public token (similar to an ERC-20), then add private state and functions, implement cross-domain interactions between private and public execution, and finally explore the composability of Aztec contracts through cross-contract interactions.
-
-The token contract used in this tutorial has two basic operations: mint and transfer in both public and private. Only designated owners can mint, while anyone with a sufficient balance can transfer.
-
-Please make sure to import any missing definitions as you come across them when following along with this tutorial. The imports and code snippets shared are assumed to be placed directly inside the contract struct, like so.
-
-For example, if you need to use the state variable `PublicMutable`, you can use the noir extension to automatically import it, or you can manually locate the specific type from Aztec.nr.
-
-
-```noir
-pub contract StarterToken {
-    use aztec::state_vars::public_mutable::PublicMutable,
-    ...
-}
-```
-
-Note any further required imports follow Rust formatting. If any further clarification is needed, please take a look at the completed imports section in the contract under the `starter-token/reference` folder.
-
-## Part 1: Public token contract
-
-### Set up storage
-
-First, define the contract's storage structure. To declare storage, use a `Storage` struct with the `#[storage]` macro:
-
-```noir
-#[storage]
-struct Storage<Context> {
-    owner: PublicMutable<AztecAddress, Context>,
-    balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
-}
-```
-
-This creates:
-- `owner`: A mutable public state variable that stores the contract owner's address
-- `balances`: A map from user addresses to their token balances (as a u128, the largest unsigned int type). Note that the value of this map is also a mutable public state variable
-
-The `#[storage]` macro injects code to expose the contents of this struct to:
-- other functions defined in the contract
-- any non-Noir consumer of the contract (like Aztec.js) via the artifact
-
-The verbose `<Context>` declarations are required by Noir's type system (inherited from Rust).
-
-### Initialize the contract
-
-Use an initializer to set the contract owner when the contract is first deployed.
-
-```noir
-#[initializer]
-#[public]
-fn setup() {
-    // The deployer becomes the owner
-    storage.owner.write(context.msg_sender());
-}
-```
-
-The `#[initializer]` macro ensures that this function runs before any other functions in the contract. It is useful in situations where some setup is required before the other functions can operate correctly. In this case the initializer helps ensure that the owner is never undefined.
-
-The `#[public]` macro provides access to:
-- `storage`: Your contract's state variables
-- `context`: Execution context including `msg_sender()`
-
-
-### Add minting
-
-Add a mint function that only the owner can call:
-
-```noir
-#[public]
-fn mint(to: AztecAddress, amount: u128) {
-    assert_eq(context.msg_sender(), storage.owner.read());
-
-    let recipient_balance = storage.balances.at(to).read();
-    storage.balances.at(to).write(recipient_balance + amount);
-}
-```
-
-This function:
-1. Verifies the caller is the owner
-2. Reads the recipient's current balance
-3. Adds the minted amount to their balance
-
-Note that you access the user value with the `Map` via `.at`, and like the above, the explicit use of `.write()` to interact with the `PublicMutable`.
-
-### Enable transfers
-
-Enable token transfers between users:
-
-```noir
-#[public]
-fn transfer(to: AztecAddress, amount: u128) {
-    let sender = context.msg_sender();
-    let sender_balance = storage.balances.at(sender).read();
-
-    assert(sender_balance >= amount, "Insufficient balance");
-
-    storage.balances.at(sender).write(sender_balance - amount);
-
-    let recipient_balance = storage.balances.at(to).read();
-    storage.balances.at(to).write(recipient_balance + amount);
-}
-```
-
-This function:
-1. Reads the sender's current balance
-2. Verifies that the balance is greater than the amount being sent
-3. Sets the sender's balance to their current balance minus the amount being sent
-4. Reads the recipient's current balance
-5. Adds the transferred amount to their balance
-
-### Transfer ownership
-
-Add a function to change the contract owner:
-
-```noir
-#[public]
-fn transfer_ownership(new_owner: AztecAddress) {
-    assert_eq(context.msg_sender(), storage.owner.read());
-    storage.owner.write(new_owner);
-}
-```
-
-This function:
-1. Verifies the caller is the owner
-2. Writes the new owner in contract storage
-
-**Checkpoint**: You now have a basic public token contract with mint, transfer, and ownership functions. Next, add private functionality.
-
-## Part 2: Adding private state
-
-### Private state primer
-
-Private state in Aztec uses a UTXO model with "notes" rather than account balances. In this token contract, each note represents a discrete amount of tokens owned by a specific address. When you transfer tokens privately, you create new notes for the recipient rather than updating their balance directly (since their balance is private and unknown to you). A user's total token balance is the sum of all their unspent notes, which only they can see and spend.
-
-### Update storage
-
-As setup, first import `easy_private_state` by adding it to your `[dependencies]` section in your `Nargo.toml`.
-
-```
-[dependencies]
-aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/aztec-nr/aztec" }
-easy_private_state = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/aztec-nr/easy-easy_private-state" }
-```
-
-Then import `EasyPrivateUint` at the top of your contract:
-
-```
-use aztec::macros::aztec;
-
-pub contract StarterToken {
-  ...
-  use easy_private_state::EasyPrivateUint;
-  ...
-}
-```
-
-EasyPrivateUint is a wrapper of `PrivateSet` that enables the storing of collections of u128 values in private state. It handles the complexity of using notes and `PrivateSet` directly. It allows anyone to add a note to a user's accumulated balance, while only letting the recipient view or spend them.
-
-Add private balances alongside public ones:
-
-```noir
-#[storage]
-struct Storage<Context> {
-    // Public state
-    balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
-    owner: PublicMutable<AztecAddress, Context>,
-
-    // Private state
-    private_balances: Map<AztecAddress, EasyPrivateUint<Context>, Context>
-}
-```
-
-
-Use `PrivateSet` (or its wrappers) instead of `PrivateMutable` for private balances. Since private state works by accumulating notes rather than updating a single value, `PrivateSet` allows multiple parties to add notes to someone's balance without needing to know their current total.
-
-### Mint private tokens
-
-Create a function to mint private tokens:
-
-```noir
-#[private]
-fn mint_private(to: AztecAddress, amount: u128) {
-    storage.private_balances.at(to).add(value, to);
-}
-```
-
-Like the `#[public]` macro, the `#[private]` macro exposes the storage variable, but instead of providing a `PublicContext`, it provides a `PrivateContext`.
-
-This function:
-1. Creates a new note with the specified value
-2. Inserts it into the recipient's note set
-3. Emits an encrypted log so the recipient can discover the note
-
-
-**Important**: At this point, the contract allows anyone to mint private tokens. Part 4 shows you how to add access control.
-
-### Transfer private tokens
-
-Transferring private tokens requires three steps:
-
-#### Step 1: Spend sender's notes
-
-```noir
-fn transfer_private(to: AztecAddress, amount: u128) {
-    let sender = context.msg_sender();
-
-    storage.private_balances.at(sender).sub(amount, sender);
-```
-
-This code fetches all notes of the sender and verifies they sum to at least the transfer amount. It then spends those notes to remove them from the sender's balance.
-
-#### Step 2: Create recipient's note
-
-```noir
-    storage.private_balances.at(to).add(amount, to);
-```
-
-This mirrors the `mint` example above.
-
-Your full function should look like this:
-
-```noir
-    #[private]
-    fn transfer_private(to: AztecAddress, amount: u128) {
-        let sender = context.msg_sender();
-
-        storage.private_balances.at(sender).sub(amount, sender);
-
-        storage.private_balances.at(to).add(amount, to);
-    }
-```
-
-### View private balances
-
-Add a utility function to check private balances locally:
-
-```noir
-#[utility]
-unconstrained fn view_private_balance(owner: AztecAddress) -> BoundedVec<UintNote, MAX_NOTES_PER_PAGE> {
-    storage.user_private_state.at(key: owner).view_notes(NoteViewerOptions::new())
-}
-```
-
-The `#[utility]` macro indicates local-only execution without generating proofs nor altering any network / global state. This function fetches unspent notes from your local state.
-
-## Part 3: Execution environments
-
-Aztec has three execution environments:
-
-1. **Private**: Executes locally on user devices with historical state. All transactions start here.
-2. **Public**: Executes on sequencers with current state (similar to Ethereum).
-3. **Utility**: Local queries that don't affect network state or require proofs.
-
-### Key concept: Separation of concerns
-
-Private and public execution happen separately:
-- Private functions can't read current public state (but they can read historical public state)
-- Public functions can't read private state
-- Private execution uses historical data and happens first
-
-The main side effect is a decoupling between private and public state, and any transaction that accesses private and public state must take this into account. This separation is fundamental to maintaining privacy while enabling composability.
-
-## Part 4: Cross-domain interactions
-
-### The challenge
-
-The private mint function lacks access control (anyone can mint). But the owner is stored in public state, which private functions can't access directly.
-
-### The solution
-
-You cannot use `PrivateMutable` for ownership that others **need to verify**. While it might seem logical to declare a `PrivateMutable private_owner`, this won't work because private notes can only be read by their owner. When someone else tries to check who owns the contract, they would be unable to fetch the private note containing this information, causing the check to fail. For ownership information that needs to be publicly verifiable, you must use public state.
-
-To enforce ownership checks in private functions, you can enqueue a public function call that executes after the private portion completes. This public function can access the public owner state variable to validate ownership. If the validation fails, the entire transaction reverts, including the private operations. Here's how to implement this pattern:
-
-```noir
-#[public]
-#[internal]
-fn assert_is_owner(maybe_owner: AztecAddress) {
-    assert_eq(maybe_owner, storage.owner.read());
-}
-```
-
-The `#[internal]` macro restricts this function to internal calls only.
-
-Now update the private mint to enqueue this check:
-
-```noir
-#[private]
-fn mint_private(to: AztecAddress, amount: u128) {
-    // Enqueue public validation
-    GettingStarted::at(context.this_address())._assert_is_owner(context.msg_sender()).enqueue(&mut context);
-
-    // Proceed with minting
-    storage.private_balances.at(to)
-        .insert(UintNote::new(value, to));
-        .emit(encode_and_encrypt_note(&mut context, to));
-}
-```
-
-If the public validation fails, the entire transaction reverts, even though the private proof was valid. This common pattern enables access control across execution domains.
-
-## Part 5 (Bonus): Cross-contract interactions
-
-Aztec contracts can call functions on other contracts, enabling composability for use cases like AMMs and swaps. Cross-contract calls work similarly to enqueuing public functions, but use the external contract's address instead of `context.this_address()`.
-
-Navigate to `contract/src/external_call_contract.nr` to see an example. The calling contract needs the target contract's address:
-
-
-```noir
-#[private]
-fn call_mint_on_other_contract(contract_address: AztecAddress, to: AztecAddress, amount: u128) {
-  GettingStarted::at(contract_address).mint_private(to, amount).call(&mut context);
-}
-```
-
-Note that if `mint_private` returned a value, it could be accessed by calling `.get_preimage()` on the return value of `.call()`.
-
-## Build and deploy
-
-Compile your contract:
 ```bash
-aztec-nargo compile
+aztec start --sandbox
 ```
 
-Generate TypeScript bindings:
+**Congratulations, you have just installed and run the Aztec Sandbox!**
+
 ```bash
-aztec codegen target --outdir ../ts/artifacts
+     /\        | |
+    /  \    ___| |_ ___  ___
+   / /\ \  |_  / __/ _ \/ __|
+  / ____ \  / /| ||  __/ (__
+ /_/___ \_\/___|\__\___|\___|
+
 ```
 
-This generates everything you need to interact with your contract from TypeScript and places it into the `ts/artifacts` folder.
+In the terminal, you will see some logs:
 
-### Testing
+1. Sandbox version
+2. Contract addresses of rollup contracts
+3. PXE (private execution environment) setup logs
+4. Initial accounts that are shipped with the sandbox and can be used in tests
 
-#### Sandbox via Aztec.js
+You'll know the sandbox is ready to go when you see something like this:
 
-Now that you've written your first Aztec contract, you can deploy and test it using the sandbox.
-
-The sandbox is a local replica of the entire Aztec protocol stack, including the node and Private eXecution Environment (PXE). It lets you deploy and interact with contracts locally before deploying to a real network. You'll interact with it using TypeScript and Aztec.js.
-
-Note that state resets when you restart the sandbox.
-
-1. Navigate to the `ts` folder
-
-2. Install JavaScript dependencies with `npm i`. Dependencies include Aztec.js, TypeScript, and helpers. Check package.json for the complete list.
-
-3. Inspect the index.ts file and continue writing the script
-The code starts off by importing the code we generated in the last section of the tutorial. Make sure to auto-import any missing functions from Aztec.js or other dependencies when following along.
-
-```typescript
-import { StarterTokenContract } from '../artifacts/StarterToken.js';
+```bash
+[INFO] Aztec Server listening on port 8080
 ```
 
-You should first connect to the PXE exposed by the sandbox using the default port.
+## Using the sandbox test accounts
 
-```typescript
-const pxe = createPXEClient('http://localhost:8080');
-await waitForPXE(pxe);
+import { CLI_Add_Test_Accounts } from '@site/src/components/Snippets/general_snippets';
+
+<CLI_Add_Test_Accounts />
+
+To add the test accounts in the PXE, run this in another terminal:
+
+```bash
+aztec-wallet import-test-accounts
 ```
 
-This code introduces the Private eXecution Environment (PXE), which is the client-side software that creates proofs, stores state, and interacts with the network. Wallets typically embed this component, so users don't interact with it directly. Treat it as a black box for now. Learn more about the PXE [here](../../aztec/concepts/pxe/index.md).
+We'll use the first test account, `test0`, throughout to pay for transactions.
 
-Define the wallets or accounts you'll use. This example uses prefunded test wallets:
+## Creating an account in the sandbox
 
-```typescript
-const wallets = await getInitialTestAccountsWallets(pxe);
-const deployerWallet = wallets[0];
+```bash
+aztec-wallet create-account -a my-wallet --payment method=fee_juice,feePayer=test0
 ```
 
-You obtain test wallets and assign the first as the deployer.
+This will create a new wallet with an account and give it the alias `my-wallet`. Accounts can be referenced with `accounts:<alias>`. You will see logs telling you the address, public key, secret key, and more.
 
-Note: "Wallets" here aren't the same as general-purpose wallets. We will dive deeper into those definitions later.
+On successful depoyment of the account, you should see something like this:
 
-Deploy your contract:
+```bash
+New account:
 
-```typescript
-const gettingStartedContract = await GettingStartedContract
-  .deploy(deployerWallet)
-  .send().wait();
+Address:         0x066108a2398e3e2ff53ec4b502e4c2e778c6de91bb889de103d5b4567530d99c
+Public key:      0x007343da506ea513e6c05ba4d5e92e3c682333d97447d45db357d05a28df0656181e47a6257e644c3277c0b11223b28f2b36c94f9b0a954523de61ac967b42662b60e402f55e3b7384ba61261335040fe4cd52cb0383f559a36eeea304daf67d1645b06c38ee6098f90858b21b90129e7e1fdc4666dd58d13ef8fab845b2211906656d11b257feee0e91a42cb28f46b80aabdc70baad50eaa6bb2c5a7acff4e30b5036e1eb8bdf96fad3c81e63836b8aa39759d11e1637bd71e3fc76e3119e500fbcc1a22e61df8f060004104c5a75b52a1b939d0f315ac29013e2f908ca6bc50529a5c4a2604c754d52c9e7e3dee158be21b7e8008e950991174e2765740f58
+Secret key:     0x1c94f8b19e91d23fd3ab6e15f7891fde7ba7cae01d3fa94e4c6afb4006ec0cfb
+Partial address: 0x2fd6b540a6bb129dd2c05ff91a9c981fb5aa2ac8beb4268f10b3aa5fb4a0fcd1
+Salt:            0x0000000000000000000000000000000000000000000000000000000000000000
+Init hash:       0x28df95b579a365e232e1c63316375c45a16f6a6191af86c5606c31a940262db2
+Deployer:        0x0000000000000000000000000000000000000000000000000000000000000000
+
+Waiting for account contract deployment...
+Deploy tx hash:  0a632ded6269bda38ad6b54cd49bef033078218b4484b902e326c30ce9dc6a36
+Deploy tx fee:   200013616
+Account stored in database with aliases last & my-wallet
 ```
 
-4. To run this code against your sandbox, open a new terminal window, ensure Docker is running, and execute `aztec start --sandbox`.
+You may need to scroll up as there are some other logs printed after it.
 
-This starts a local Aztec blockchain that runs in a Docker container, listening for instructions on the configured port (default: localhost:8080).
+You can double check by running `aztec-wallet get-alias accounts:my-wallet`.
 
-5. Return to your original terminal window and execute `npm start`. This command runs the TypeScript code you just wrote to deploy the contract in the sandbox.
+For simplicity we'll keep using the test account, let's deploy our own test token!
 
-6. Confirm the deployment by checking the sandbox terminal window for output similar to this:
+## Deploying a contract
+
+The sandbox comes with some contracts that you can deploy and play with. One of these is an example token contract.
+
+Deploy it with this:
+
+```bash
+aztec-wallet deploy TokenContractArtifact --from accounts:test0 --args accounts:test0 TestToken TST 18 -a testtoken
 ```
-INFO: pxe:service Added contract StarterToken at 0x... with class 0x...
-INFO: pxe:service Proving completed in 888.888...ms
-INFO: node Received tx 0x...
-INFO: pxe:service Sent transaction 0x...
-INFO: simulator:public-processor Processed 1 successful txs and 0 failed txs in 0.888s
-INFO: sequencer Built block 8 for slot 8 with 1 txs and 0 messages. 88888.888 mana/s
+
+This takes
+
+- the contract artifact as the argument, which is `TokenContractArtifact`
+- the deployer account, which we used `test0`
+- the args that the contract constructor takes, which is the `admin` (`accounts:test0`), `name` (`TestToken`), `symbol` (`TST`), and `decimals` (`18`).
+- an alias `testtoken` (`-a`) so we can easily reference it later with `contracts:testtoken`
+
+On successful deployment, you should see something like this:
+
+```bash
+aztec:wallet [INFO] Using wallet with address 0x066108a2398e3e2ff53ec4b502e4c2e778c6de91bb889de103d5b4567530d99c +0ms
+Contract deployed at 0x15ce68d4be65819fe9c335132f10643b725a9ebc7d86fb22871f6eb8bdbc3abd
+Contract partial address 0x25a91e546590d77108d7b184cb81b0a0999e8c0816da1a83a2fa6903480ea138
+Contract init hash 0x0abbaf0570bf684da355bd9a9a4b175548be6999625b9c8e0e9775d140c78506
+Deployment tx hash: 0a8ccd1f4e28092a8fa4d1cb85ef877f8533935c4e94b352a38af73eee17944f
+Deployment salt: 0x266295eb5da322aba96fbb24f9de10b2ba01575dde846b806f884f749d416707
+Deployment fee: 200943060
+Contract stored in database with aliases last & testtoken
 ```
+
+In the next step, let's mint some tokens!
+
+## Minting public tokens
+
+Call the public mint function like this:
+
+```bash
+aztec-wallet send mint_to_public --from accounts:test0 --contract-address contracts:testtoken --args accounts:test0 100
+```
+
+This takes
+
+- the function name as the argument, which is `mint_to_public`
+- the `from` account (caller) which is `accounts:test0`
+- the contract address, which is aliased as `contracts:testtoken` (or simply `testtoken`)
+- the args that the function takes, which is the account to mint the tokens into (`test0`), and `amount` (`100`).
+
+This only works because we are using the secret key of the admin who has permissions to mint.
+
+A successful call should print something like this:
+
+```bash
+aztec:wallet [INFO] Using wallet with address 0x066108a2398e3e2ff53ec4b502e4c2e778c6de91bb889de103d5b4567530d99c +0ms
+Maximum total tx fee:   1161660
+Estimated total tx fee: 116166
+Estimated gas usage:    da=1127,l2=115039,teardownDA=0,teardownL2=0
+
+Transaction hash: 2ac383e8e2b68216cda154b52e940207a905c1c38dadba7a103c81caacec403d
+Transaction has been mined
+ Tx fee: 200106180
+ Status: success
+ Block number: 17
+ Block hash: 1e27d200600bc45ab94d467c230490808d1e7d64f5ee6cee5e94a08ee9580809
+Transaction hash stored in database with aliases last & mint_to_public-9044
+```
+
+You can double-check by calling the function that checks your public account balance:
+
+```bash
+aztec-wallet simulate balance_of_public --from test0 --contract-address testtoken --args accounts:test0
+```
+
+This should print
+
+```bash
+Simulation result:  100n
+```
+
+## Playing with hybrid state and private functions
+
+In the following steps, we'll moving some tokens from public to private state, and check our private and public balance.
+
+```bash
+aztec-wallet send transfer_to_private --from accounts:test0 --contract-address testtoken --args accounts:test0 25
+```
+
+The arguments for `transfer_to_private` function are:
+
+- the account address to transfer to
+- the amount of tokens to send to private
+
+A successful call should print something similar to what you've seen before.
+
+Now when you call `balance_of_public` again you will see 75!
+
+```bash
+aztec-wallet simulate balance_of_public --from test0 --contract-address testtoken --args accounts:test0
+```
+
+This should print
+
+```bash
+Simulation result:  75n
+```
+
+And then call `balance_of_private` to check that you have your tokens!
+
+```bash
+aztec-wallet simulate balance_of_private --from test0 --contract-address testtoken --args accounts:test0
+```
+
+This should print
+
+```bash
+Simulation result:  25n
+```
+
+**Congratulations, you now know the fundamentals of working with the Aztec sandbox!** You are ready to move onto the more fun stuff.
+
+## What's next?
+
+Want to build something cool on Aztec?
+
+- Check out the [Token Contract Tutorial](../tutorials/contract_tutorials/token_contract.md) for a beginner tutorial, or jump into more advanced ones
+- Start on your own thing and check out the How To Guides to help you!

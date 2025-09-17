@@ -43,15 +43,15 @@ Aztec.js assumes your project is using ESM, so make sure you add `"type": "modul
 
 ### Connecting to the sandbox
 
-We want to [connect to our running sandbox](../../guides/js_apps/connect_to_sandbox.md) and import the test accounts into the local PXE. Let's call them Alice and Bob (of course). Create an `index.ts` with it:
+We want to [connect to our running sandbox](../../guides/js_apps/how_to_connect_to_sandbox.md) and import the test accounts into the local PXE. Let's call them Alice and Bob (of course). Create an `index.ts` with it:
 
 ```typescript
 import { createPXEClient } from "@aztec/aztec.js";
-import { getDeployedTestAccountsWallets } from "@aztec/accounts/testing";
+import { getInitialTestAccountsData } from "@aztec/accounts/testing";
 const pxe = await createPXEClient("http://localhost:8080");
 
-const alice = (await getDeployedTestAccountsWallets(pxe))[0];
-const bob = (await getDeployedTestAccountsWallets(pxe))[1];
+const alice = (await getInitialTestAccountsData())[0];
+const bob = (await getInitialTestAccountsData())[1];
 ```
 
 ## Deploy the token contract
@@ -65,12 +65,12 @@ import { TokenContract } from "@aztec/noir-contracts.js/Token";
 
 const token = await TokenContract.deploy(
   alice,
-  alice.getAddress(),
+  alice.address,
   "TokenName",
   "TKN",
   18
 )
-  .send({ from: alice.getAddress() })
+  .send({ from: alice.address })
   .deployed();
 ```
 
@@ -80,8 +80,8 @@ Let's go ahead and have Alice mint herself some tokens, in private:
 
 ```typescript
 await token.methods
-  .mint_to_private(alice.getAddress(), 100)
-  .send({ from: alice.getAddress() })
+  .mint_to_private(alice.address, 100)
+  .send({ from: alice.address })
   .wait();
 ```
 
@@ -89,12 +89,12 @@ Let's check both Alice's and Bob's balances now:
 
 ```typescript
 let aliceBalance = await token.methods
-  .balance_of_private(alice.getAddress())
-  .simulate({ from: alice.getAddress() });
+  .balance_of_private(alice.address)
+  .simulate({ from: alice.address });
 console.log(`Alice's balance: ${aliceBalance}`); // whoooaa 100 tokens
 let bobBalance = await token.methods
-  .balance_of_private(bob.getAddress())
-  .simulate({ from: bob.getAddress() });
+  .balance_of_private(bob.address)
+  .simulate({ from: bob.address });
 console.log(`Bob's balance: ${bobBalance}`); // you get nothin' 🥹
 ```
 
@@ -102,12 +102,12 @@ Great! Let's have Alice transfer some tokens to Bob, also in private:
 
 ```typescript
 await token.methods
-  .transfer(bob.getAddress(), 10)
-  .send({ from: alice.getAddress() })
+  .transfer(bob.address, 10)
+  .send({ from: alice.address })
   .wait();
 bobBalance = await token.methods
-  .balance_of_private(bob.getAddress())
-  .simulate({ from: bob.getAddress() });
+  .balance_of_private(bob.address)
+  .simulate({ from: bob.address });
 console.log(`Bob's balance: ${bobBalance}`);
 ```
 
@@ -119,8 +119,8 @@ Say that Alice is nice and wants to set Bob as a minter. Even though it's a publ
 
 ```typescript
 await token.methods
-  .set_minter(bob.getAddress(), true)
-  .send({ from: alice.getAddress() })
+  .set_minter(bob.address, true)
+  .send({ from: alice.address })
   .wait();
 ```
 
@@ -129,12 +129,12 @@ Bob is now the minter, so he can mint some tokens to himself, notice that for th
 ```typescript
 await token
   .withWallet(bob)
-  .methods.mint_to_private(bob.getAddress(), 100)
-  .send({ from: bob.getAddress() })
+  .methods.mint_to_private(bob.address, 100)
+  .send({ from: bob.address })
   .wait();
 bobBalance = await token.methods
-  .balance_of_private(bob.getAddress())
-  .simulate({ from: bob.getAddress() });
+  .balance_of_private(bob.address)
+  .simulate({ from: bob.address });
 console.log(`Bob's balance: ${bobBalance}`);
 ```
 

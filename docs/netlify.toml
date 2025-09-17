@@ -210,3 +210,94 @@
 [[redirects]]
     from = "/developers/tutorials/codealong/cli_wallet/faceid_wallet"
     to = "/developers/tutorials/codealong/faceid_wallet"
+
+# Redirects for renamed JS app guide pages
+[[redirects]]
+    from = "/developers/guides/js_apps/connect_to_sandbox"
+    to = "/developers/guides/js_apps/how_to_connect_to_sandbox"
+
+[[redirects]]
+    from = "/developers/guides/js_apps/create_account"
+    to = "/developers/guides/js_apps/how_to_create_account"
+
+[[redirects]]
+    from = "/developers/guides/js_apps/deploy_contract"
+    to = "/developers/guides/js_apps/how_to_deploy_contract"
+
+[[redirects]]
+    from = "/developers/guides/js_apps/send_transaction"
+    to = "/developers/guides/js_apps/how_to_send_transaction"
+
+[[redirects]]
+    from = "/developers/guides/js_apps/call_view_function"
+    to = "/developers/guides/js_apps/how_to_simulate_function"
+
+[[redirects]]
+    from = "/developers/guides/js_apps/authwit"
+    to = "/developers/guides/js_apps/how_to_use_authwit"
+
+[[redirects]]
+    from = "/developers/guides/js_apps/pay_fees"
+    to = "/developers/guides/js_apps/how_to_pay_fees"
+
+[[redirects]]
+    from = "/developers/guides/js_apps/test"
+    to = "/developers/guides/js_apps/how_to_test"
+
+# Redirects for renamed smart contract guide pages
+[[redirects]]
+    from = "/developers/guides/smart_contracts/compile_contract"
+    to = "/developers/guides/smart_contracts/how_to_compile_contract"
+
+[[redirects]]
+    from = "/developers/guides/smart_contracts/deploy_contract"
+    to = "/developers/guides/smart_contracts/how_to_deploy_contract"
+
+[[redirects]]
+    from = "/developers/guides/smart_contracts/define_functions"
+    to = "/developers/guides/smart_contracts/how_to_define_functions"
+
+[[redirects]]
+    from = "/developers/guides/smart_contracts/define_storage"
+    to = "/developers/guides/smart_contracts/how_to_define_storage"
+
+[[redirects]]
+    from = "/developers/guides/smart_contracts/call_contracts"
+    to = "/developers/guides/smart_contracts/how_to_call_contracts"
+
+[[redirects]]
+    from = "/developers/guides/smart_contracts/emit_event"
+    to = "/developers/guides/smart_contracts/how_to_emit_event"
+
+[[redirects]]
+    from = "/developers/guides/smart_contracts/pop_capsule"
+    to = "/developers/guides/smart_contracts/how_to_pop_capsule"
+
+[[redirects]]
+    from = "/developers/guides/smart_contracts/use_dependencies"
+    to = "/developers/guides/smart_contracts/how_to_use_dependencies"
+
+[[redirects]]
+    from = "/developers/guides/smart_contracts/write_custom_note"
+    to = "/developers/guides/smart_contracts/how_to_write_custom_note"
+
+[[redirects]]
+    from = "/developers/guides/smart_contracts/test_contracts"
+    to = "/developers/guides/smart_contracts/how_to_test_contracts"
+
+# Redirects for renamed local_env guide pages
+[[redirects]]
+    from = "/developers/guides/local_env/debug"
+    to = "/developers/guides/local_env/how_to_debug"
+
+[[redirects]]
+    from = "/developers/guides/local_env/run_devnet_against_mainnet_fork"
+    to = "/developers/guides/local_env/how_to_run_devnet_against_mainnet_fork"
+
+[[redirects]]
+    from = "/developers/guides/local_env/run_more_than_one_pxe"
+    to = "/developers/guides/local_env/how_to_run_more_than_one_pxe"
+
+[[redirects]]
+    from = "/developers/guides/local_env/set_hardware_resource_limits"
+    to = "/developers/guides/local_env/how_to_set_hardware_resource_limits"

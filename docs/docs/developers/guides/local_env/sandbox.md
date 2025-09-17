@@ -199,14 +199,14 @@ You can enable proving on a per-transaction basis using the `aztec-wallet` CLI b
 PXE_PROVER_ENABLED=1 aztec-wallet create-account -a test
 ```
 
-Check the [Quickstart](../../getting_started/getting_started_on_sandbox.md) for a refresher on how to send transactions using `aztec-wallet` or check the [reference here](../../reference/environment_reference/cli_wallet_reference.md)
+Check the [Quickstart](../../getting_started/getting_started.md) for a refresher on how to send transactions using `aztec-wallet` or check the [reference here](../../reference/environment_reference/cli_wallet_reference.md)
 
 Note that you do not need to restart the sandbox in order to start sending proven transactions. You can optionally set this for one-off transactions.
 
 If this is the first time you are sending transactions with proving enabled, it will take a while to download a CRS file (which is several MBs) that is required for proving.
 
 :::note
-You can also profile your transactions to get gate count, if you don't want to prove your transactions but check how many constraints it is. Follow the [guide here](../../guides/smart_contracts/advanced/profiling_transactions.md)
+You can also profile your transactions to get gate count, if you don't want to prove your transactions but check how many constraints it is. Follow the [guide here](../../guides/smart_contracts/advanced/how_to_profile_transactions.md)
 :::
 
 ## Running Multiple PXEs in the Sandbox

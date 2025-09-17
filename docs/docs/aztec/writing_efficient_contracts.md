@@ -51,7 +51,7 @@ When private functions are called, the overhead of a "kernel circuit" is added e
 
 #### Profiling using FlameGraph
 
-Measuring the gate count across a private function can be seen at the end of the counter tutorial [here](../developers/tutorials/contract_tutorials/counter_contract#investigate-the-increment-function). Full profiling and flamegraph commands explained [here](../developers/guides/smart_contracts/advanced/profiling_transactions).
+Measuring the gate count across a private function can be seen at the end of the counter tutorial [here](../developers/tutorials/contract_tutorials/counter_contract#investigate-the-increment-function). Full profiling and flamegraph commands explained [here](../developers/guides/smart_contracts/advanced/how_to_profile_transactions).
 
 ### L2 Data costs
 
