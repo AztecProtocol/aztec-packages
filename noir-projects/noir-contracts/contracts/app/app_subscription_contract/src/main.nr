@@ -154,11 +154,12 @@ pub contract AppSubscription {
             &mut context,
         );
 
-        let subscription_note = SubscriptionNote::new(subscriber, expiry_block_number, tx_count);
         storage
             .subscriptions
             .at(subscriber)
-            .initialize_or_replace(subscription_note, |_old| subscription_note)
+            .initialize_or_replace(|_| {
+                SubscriptionNote::new(subscriber, expiry_block_number, tx_count)
+            })
             .emit(&mut context, subscriber, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
