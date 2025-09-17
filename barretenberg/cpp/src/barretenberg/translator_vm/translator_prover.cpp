@@ -62,7 +62,7 @@ void TranslatorProver::execute_preamble_round()
  * @param label
  */
 void TranslatorProver::commit_to_witness_polynomials(const RefVector<Polynomial>& polynomials,
-                                                     const std::vector<std::string_view>& labels)
+                                                     const std::vector<std::string>& labels)
 {
     BB_ASSERT_EQ(polynomials.size(), labels.size());
 
@@ -96,7 +96,7 @@ void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
         auto wires = key->proving_key->polynomials.get_wires();
         auto wire_labels = commitment_labels.get_wires();
         RefVector<Polynomial> wire_polys(wires);
-        std::vector<std::string_view> labels;
+        std::vector<std::string> labels;
         for (const auto& label : wire_labels) {
             labels.push_back(label);
         }
@@ -108,7 +108,7 @@ void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
         auto constraints = key->proving_key->polynomials.get_ordered_range_constraints();
         auto constraint_labels = commitment_labels.get_ordered_range_constraints();
         RefVector<Polynomial> constraint_polys(constraints);
-        std::vector<std::string_view> labels;
+        std::vector<std::string> labels;
         for (const auto& label : constraint_labels) {
             labels.push_back(label);
         }

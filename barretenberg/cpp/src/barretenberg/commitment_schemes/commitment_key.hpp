@@ -114,54 +114,59 @@ template <class Curve> class CommitmentKey {
      */
     std::vector<Commitment> batch_commit(const std::vector<PolynomialSpan<const Fr>>& polynomials) const
     {
-        BB_BENCH_NAME("CommitmentKey::batch_commit");
-        // Check environment variable for max batch size
-        static const size_t max_batch_size = []() -> size_t {
-            const char* env_val = std::getenv("BB_BATCH_MSM_MAX");
-            if (env_val != nullptr) {
-                return static_cast<size_t>(std::stoull(env_val));
-            }
-            return static_cast<size_t>(4); // Default to 4 polynomials
-        }();
-
-        std::span<const G1> point_table = srs->get_monomial_points();
-
-        // We can only commit max_batch_size at a time
-        // This is to prevent excessive memory usage in the pippenger algorithm
-
-        // First batch, create the commitments vector
         std::vector<Commitment> commitments;
-
-        for (size_t i = 0; i < polynomials.size(); i += max_batch_size) {
-            size_t batch_end = std::min(i + max_batch_size, polynomials.size());
-
-            // Prepare spans for batch MSM
-            std::vector<std::span<const G1>> points_spans;
-            // Note, we need to const_cast unfortunately as pippenger takes non-const spans
-            // as it converts back and forth from montgomery form
-            std::vector<std::span<Fr>> scalar_spans;
-
-            for (auto& polynomial : std::span{ polynomials }.subspan(i, batch_end - i)) {
-                std::span<const G1> point_table = srs->get_monomial_points().subspan(polynomial.start_index);
-                size_t consumed_srs = polynomial.start_index + polynomial.size();
-                if (consumed_srs > srs->get_monomial_size()) {
-                    throw_or_abort(format("Attempting to commit to a polynomial that needs ",
-                                          consumed_srs,
-                                          " points with an SRS of siz e ",
-                                          srs->get_monomial_size()));
-                }
-                std::span<Fr> scalar_span = std::span<Fr>(const_cast<Fr*>(polynomial.span.data()), polynomial.size());
-                scalar_spans.emplace_back(scalar_span);
-                points_spans.emplace_back(point_table);
-            }
-
-            // Perform batch MSM
-            auto results = scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(points_spans, scalar_spans, false);
-            for (const auto& result : results) {
-                commitments.emplace_back(result);
-            }
+        commitments.reserve(polynomials.size());
+        for (const auto& polynomial : polynomials) {
+            commitments.emplace_back(commit(polynomial));
         }
         return commitments;
+        // BB_BENCH_NAME("CommitmentKey::batch_commit");
+        // // Check environment variable for max batch size
+        // static const size_t max_batch_size = []() -> size_t {
+        //     const char* env_val = std::getenv("BB_BATCH_MSM_MAX");
+        //     if (env_val != nullptr) {
+        //         return static_cast<size_t>(std::stoull(env_val));
+        //     }
+        //     return static_cast<size_t>(4); // Default to 4 polynomials
+        // }();
+
+        // std::span<const G1> point_table = srs->get_monomial_points();
+
+        // // We can only commit max_batch_size at a time
+        // // This is to prevent excessive memory usage in the pippenger algorithm
+
+        // // First batch, create the commitments vector
+        // std::vector<Commitment> commitments;
+
+        // for (size_t i = 0; i < polynomials.size(); i += max_batch_size) {
+        //     size_t batch_end = std::min(i + max_batch_size, polynomials.size());
+
+        //     // Prepare spans for batch MSM
+        //     std::vector<std::span<const G1>> points_spans;
+        //     // Note, we need to const_cast unfortunately as pippenger takes non-const spans
+        //     // as it converts back and forth from montgomery form
+        //     std::vector<std::span<Fr>> scalar_spans;
+
+        //     for (auto& polynomial : std::span{ polynomials }.subspan(i, batch_end - i)) {
+        //         std::span<const G1> point_table = srs->get_monomial_points().subspan(polynomial.start_index);
+        //         size_t consumed_srs = polynomial.start_index + polynomial.size();
+        //         if (consumed_srs > srs->get_monomial_size()) {
+        //             throw_or_abort(format("Attempting to commit to a polynomial that needs ",
+        //                                   consumed_srs,
+        //                                   " points with an SRS of siz e ",
+        //                                   srs->get_monomial_size()));
+        //         }
+        //         std::span<Fr> scalar_span = std::span<Fr>(const_cast<Fr*>(polynomial.span.data()),
+        //         polynomial.size()); scalar_spans.emplace_back(scalar_span); points_spans.emplace_back(point_table);
+        //     }
+
+        //     // Perform batch MSM
+        //     auto results = scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(points_spans, scalar_spans,
+        //     false); for (const auto& result : results) {
+        //         commitments.emplace_back(result);
+        //     }
+        // }
+        // return commitments;
     };
 
     /**

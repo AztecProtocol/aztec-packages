@@ -100,7 +100,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
             auto ecc_op_wires = proving_key->polynomials.get_ecc_op_wires();
             auto ecc_op_labels = commitment_labels.get_ecc_op_wires();
             RefVector<Polynomial<FF>> ecc_op_polys(ecc_op_wires);
-            std::vector<std::string_view> labels;
+            std::vector<std::string> labels;
             for (const auto& label : ecc_op_labels) {
                 labels.push_back(label);
             }
@@ -113,7 +113,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
             auto databus_entities = proving_key->polynomials.get_databus_entities();
             auto databus_labels = commitment_labels.get_databus_entities();
             RefVector<Polynomial<FF>> databus_polys(databus_entities);
-            std::vector<std::string_view> labels;
+            std::vector<std::string> labels;
             for (const auto& label : databus_labels) {
                 labels.push_back(label);
             }
@@ -183,7 +183,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivat
         auto databus_inverses = proving_key->polynomials.get_databus_inverses();
         auto databus_inverse_labels = commitment_labels.get_databus_inverses();
         RefVector<Polynomial<FF>> databus_inv_polys(databus_inverses);
-        std::vector<std::string_view> labels;
+        std::vector<std::string> labels;
         for (const auto& label : databus_inverse_labels) {
             labels.push_back(label);
         }
@@ -240,7 +240,7 @@ template <IsUltraOrMegaHonk Flavor> typename Flavor::SubrelationSeparators OinkP
  */
 template <IsUltraOrMegaHonk Flavor>
 void OinkProver<Flavor>::commit_to_witness_polynomials(const RefVector<Polynomial<FF>>& polynomials,
-                                                       const std::vector<std::string_view>& labels,
+                                                       const std::vector<std::string>& labels,
                                                        const CommitmentKey::CommitType type)
 {
     BB_BENCH_NAME("OinkProver::commit_to_witness_polynomials");

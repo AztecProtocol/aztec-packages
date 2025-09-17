@@ -82,7 +82,7 @@ void ECCVMProver::execute_wire_commitments_round()
         auto accumulators = key->polynomials.get_accumulators();
         auto acc_labels = commitment_labels.get_accumulators();
         RefVector<Polynomial> acc_polys(accumulators);
-        std::vector<std::string_view> labels;
+        std::vector<std::string> labels;
         for (const auto& label : acc_labels) {
             labels.push_back(label);
         }
@@ -350,7 +350,7 @@ void ECCVMProver::compute_translation_opening_claims()
  * @param label
  */
 void ECCVMProver::commit_to_witness_polynomials(const RefVector<Polynomial>& polynomials,
-                                                const std::vector<std::string_view>& labels,
+                                                const std::vector<std::string>& labels,
                                                 const std::vector<std::pair<size_t, size_t>>& active_ranges,
                                                 CommitmentKey::CommitType commit_type)
 {

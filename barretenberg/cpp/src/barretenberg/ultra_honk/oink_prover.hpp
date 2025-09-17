@@ -77,7 +77,7 @@ template <IsUltraOrMegaHonk Flavor> class OinkProver {
     void execute_grand_product_computation_round();
     SubrelationSeparators generate_alphas_round();
     void commit_to_witness_polynomials(const RefVector<Polynomial<FF>>& polynomials,
-                                       const std::vector<std::string_view>& labels,
+                                       const std::vector<std::string>& labels,
                                        const CommitmentKey::CommitType type = CommitmentKey::CommitType::Default);
 };
 
