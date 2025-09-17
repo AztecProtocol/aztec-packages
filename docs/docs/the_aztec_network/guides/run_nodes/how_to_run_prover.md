@@ -35,7 +35,7 @@ Operating a prover node requires a solid grasp of blockchain protocols, cryptogr
 
 Before following this guide, make sure you:
 
-- Have the `aztec` tool [installed](../../../developers/getting_started/getting_started_on_sandbox.md#install-the-sandbox)
+- Have the `aztec` tool [installed](../../../developers/getting_started/getting_started.md#install-the-sandbox)
 - Have sufficient hardware resources for proving operations
 - Your confidence level is expected to be around "I'd be able to run a Prover _without_ this guide"
 
