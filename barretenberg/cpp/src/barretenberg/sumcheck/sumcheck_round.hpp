@@ -462,6 +462,7 @@ template <typename Flavor> class SumcheckProverRound {
         // these are unmasked; we will mask in sumcheck.
         const auto round_univariate =
             batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alphas, gate_separators);
+        // define eval at 0 from target sum/or previous round univariate
 
         return round_univariate;
     };

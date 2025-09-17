@@ -1,0 +1,7 @@
+apiVersion: v2
+name: aztec-mnemonic
+description: This chart derives private keys and addresses from a mnemonic
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+
