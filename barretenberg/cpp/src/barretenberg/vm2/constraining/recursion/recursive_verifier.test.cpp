@@ -3,7 +3,7 @@
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
-#include "barretenberg/ultra_honk/decider_proving_key.hpp"
+#include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "barretenberg/vm2/constraining/prover.hpp"
@@ -138,7 +138,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
 
     // Construct and verify an Ultra Rollup proof of the AVM recursive verifier circuit. This proof carries an IPA claim
     // from ECCVM recursive verification in its public inputs that will be verified as part of the UltraRollupVerifier.
-    auto outer_proving_key = std::make_shared<DeciderProvingKey_<UltraRollupFlavor>>(outer_circuit);
+    auto outer_proving_key = std::make_shared<ProverInstance_<UltraRollupFlavor>>(outer_circuit);
 
     // Scoped to free memory of UltraRollupProver.
     auto outer_proof = [&]() {
@@ -233,7 +233,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursionWithoutPIValidation)
 
     // Construct and verify an Ultra Rollup proof of the AVM recursive verifier circuit. This proof carries an IPA claim
     // from ECCVM recursive verification in its public inputs that will be verified as part of the UltraRollupVerifier.
-    auto outer_proving_key = std::make_shared<DeciderProvingKey_<UltraRollupFlavor>>(outer_circuit);
+    auto outer_proving_key = std::make_shared<ProverInstance_<UltraRollupFlavor>>(outer_circuit);
 
     // Scoped to free memory of UltraRollupProver.
     auto outer_proof = [&]() {
