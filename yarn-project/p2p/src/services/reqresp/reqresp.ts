@@ -114,6 +114,13 @@ export class ReqResp implements ReqRespInterface {
   }
 
   /**
+   * Get the connection sampler instance
+   */
+  getConnectionSampler(): Pick<ConnectionSampler, 'getPeerListSortedByConnectionCountAsc'> {
+    return this.connectionSampler;
+  }
+
+  /**
    * Start the reqresp service
    */
   async start(subProtocolHandlers: ReqRespSubProtocolHandlers, subProtocolValidators: ReqRespSubProtocolValidators) {

@@ -9,11 +9,10 @@ import { Tx, TxArray, TxHash } from '@aztec/stdlib/tx';
 import type { PeerId } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
 
-import type { ConnectionSampler } from '.././connection-sampler/connection_sampler.js';
-import { type ReqRespInterface, ReqRespSubProtocol } from '.././interface.js';
+import { ReqRespSubProtocol } from '.././interface.js';
 import { BlockTxsRequest, BlockTxsResponse } from '.././protocols/index.js';
 import { ReqRespStatus } from '.././status.js';
-import type { BatchTxRequesterOptions, ITxMetadataCollection } from './interface.js';
+import type { BatchTxRequesterLibP2PService, BatchTxRequesterOptions, ITxMetadataCollection } from './interface.js';
 import { MissingTxMetadata, MissingTxMetadataCollection, TX_BATCH_SIZE } from './missing_txs.js';
 import { type IPeerCollection, PeerCollection, RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL } from './peer_collection.js';
 
@@ -50,9 +49,7 @@ export class BatchTxRequester {
     private readonly blockProposal: BlockProposal,
     private readonly pinnedPeer: PeerId | undefined,
     private readonly timeoutMs: number,
-    private readonly reqresp: ReqRespInterface,
-    private readonly connectionSampler: ConnectionSampler,
-    private readonly txValidator: (tx: Tx, peerId: PeerId) => Promise<boolean>,
+    private readonly p2pService: BatchTxRequesterLibP2PService,
     private readonly logger = createLogger('p2p:reqresp_batch'),
     private readonly dateProvider: DateProvider = new DateProvider(),
     private readonly opts: BatchTxRequesterOptions = {
@@ -66,7 +63,7 @@ export class BatchTxRequester {
     if (this.opts.peerCollection) {
       this.peers = this.opts.peerCollection;
     } else {
-      const initialPeers = this.connectionSampler.getPeerListSortedByConnectionCountAsc();
+      const initialPeers = this.p2pService.connectionSampler.getPeerListSortedByConnectionCountAsc();
       this.peers = new PeerCollection(initialPeers, pinnedPeer, dateProvider);
     }
     const entries: Array<[string, MissingTxMetadata]> = missingTxs.map(h => [h.toString(), new MissingTxMetadata(h)]);
@@ -436,7 +433,11 @@ export class BatchTxRequester {
   private async requestTxBatch(peerId: PeerId, request: BlockTxsRequest): Promise<void> {
     try {
       this.peers.markPeerInFlight(peerId);
-      const response = await this.reqresp.sendRequestToPeer(peerId, ReqRespSubProtocol.BLOCK_TXS, request.toBuffer());
+      const response = await this.p2pService.reqResp.sendRequestToPeer(
+        peerId,
+        ReqRespSubProtocol.BLOCK_TXS,
+        request.toBuffer(),
+      );
       if (response.status !== ReqRespStatus.SUCCESS) {
         this.logger.debug(`Peer ${peerId.toString()} failed to respond with status: ${response.status}`);
         this.handleFailResponseFromPeer(peerId, response.status);
@@ -503,7 +504,7 @@ export class BatchTxRequester {
     const validationResults = await Promise.allSettled(
       newTxs.map(async tx => ({
         tx,
-        isValid: await this.txValidator(tx, peerId),
+        isValid: await this.p2pService.txValidator(tx, peerId),
       })),
     );
 
