@@ -13,10 +13,10 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS{
-        7, // external poseidon2 round sub-relation for first value
-        7, // external poseidon2 round sub-relation for second value
-        7, // external poseidon2 round sub-relation for third value
-        7, // external poseidon2 round sub-relation for fourth value
+        3, // external poseidon2 round sub-relation for first value (temporarily reduced from 7)
+        3, // external poseidon2 round sub-relation for second value (temporarily reduced from 7)
+        3, // external poseidon2 round sub-relation for third value (temporarily reduced from 7)
+        3, // external poseidon2 round sub-relation for fourth value (temporarily reduced from 7)
     };
 
     /**

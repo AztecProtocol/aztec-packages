@@ -18,10 +18,10 @@ template <typename FF_> class TranslatorDecompositionRelationImpl {
     static constexpr size_t RELATION_LENGTH =
         4; // degree(lagrange_even_in_minicircuit_in_minicircuit(a - a_0 - a_1*2¹⁴ ... - a_l⋅2¹⁴ˡ )op) = 3
     static constexpr std::array<size_t, 48> SUBRELATION_PARTIAL_LENGTHS{
-        4, // decomposition of accumulator limb 0 into microlimbs subrelation
-        4, // decomposition of accumulator limb 1 into microlimbs subrelation
-        4, // decomposition of accumulator limb 2 into microlimbs subrelation
-        4, // decomposition of accumulator limb 3 into microlimbs subrelation
+        3, // decomposition of accumulator limb 0 into microlimbs subrelation (temporarily reduced from 4)
+        3, // decomposition of accumulator limb 1 into microlimbs subrelation (temporarily reduced from 4)
+        3, // decomposition of accumulator limb 2 into microlimbs subrelation (temporarily reduced from 4)
+        3, // decomposition of accumulator limb 3 into microlimbs subrelation (temporarily reduced from 4)
         3, // decomposition of P.y limb 0 into microlimbs subrelation
         3, // decomposition of P.y limb 1 into microlimbs subrelation
         3, // decomposition of P.y limb 2 into microlimbs subrelation

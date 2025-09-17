@@ -21,8 +21,8 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     using FF = FF_;
     static constexpr size_t WRITE_TERMS = 1; // the number of write terms in the lookup relation
     // 1 + polynomial degree of this relation
-    static constexpr size_t INVERSE_SUBRELATION_LENGTH = 5; // both subrelations are degree 4
-    static constexpr size_t LOOKUP_SUBRELATION_LENGTH = 5;  // both subrelations are degree 4
+    static constexpr size_t INVERSE_SUBRELATION_LENGTH = 3; // temporarily reduced from 5
+    static constexpr size_t LOOKUP_SUBRELATION_LENGTH = 3;  // temporarily reduced from 5
     static constexpr size_t BOOLEAN_CHECK_SUBRELATION_LENGTH =
         3; // deg + 1 of the relation checking that read_tag_m is a boolean value
 

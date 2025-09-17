@@ -15,12 +15,12 @@ template <typename FF_> class MemoryRelationImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS{
-        6, // memory sub-relation;
-        6, // ROM consistency sub-relation 1
-        6, // ROM consistency sub-relation 2
-        6, // RAM consistency sub-relation 1
-        6, // RAM consistency sub-relation 2
-        6  // RAM consistency sub-relation 3
+        3, // memory sub-relation (temporarily reduced from 6)
+        3, // ROM consistency sub-relation 1 (temporarily reduced from 6)
+        3, // ROM consistency sub-relation 2 (temporarily reduced from 6)
+        3, // RAM consistency sub-relation 1 (temporarily reduced from 6)
+        3, // RAM consistency sub-relation 2 (temporarily reduced from 6)
+        3  // RAM consistency sub-relation 3 (temporarily reduced from 6)
     };
 
     static constexpr std::array<size_t, 6> TOTAL_LENGTH_ADJUSTMENTS{

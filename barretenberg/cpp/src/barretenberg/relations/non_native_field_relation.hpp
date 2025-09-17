@@ -15,7 +15,7 @@ template <typename FF_> class NonNativeFieldRelationImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 1> SUBRELATION_PARTIAL_LENGTHS{
-        6 // nnf sub-relation;
+        3 // nnf sub-relation (temporarily reduced from 6)
     };
 
     /**

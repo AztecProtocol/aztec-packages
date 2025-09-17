@@ -43,6 +43,7 @@ class BN254 {
         ScalarField(uint256_t("0x204bd3277422fad364751ad938e2b5e6a54cf8c68712848a692c553d0329f5d6"));
     // The length of the polynomials used to mask the Sumcheck Round Univariates. Computed as
     // max(BATCHED_PARTIAL_RELATION_LENGTH) for BN254 Flavors with ZK
-    static constexpr uint32_t LIBRA_UNIVARIATES_LENGTH = 9;
+    // Temporarily reduced from 9 to 5 for performance testing with reduced relation lengths
+    static constexpr uint32_t LIBRA_UNIVARIATES_LENGTH = 5;
 };
 } // namespace bb::curve

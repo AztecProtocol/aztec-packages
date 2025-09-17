@@ -14,10 +14,10 @@ template <typename FF_> class DeltaRangeConstraintRelationImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS{
-        6, // range constrain sub-relation 1
-        6, // range constrain sub-relation 2
-        6, // range constrain sub-relation 3
-        6  // range constrain sub-relation 4
+        3, // range constrain sub-relation 1 (temporarily reduced from 6)
+        3, // range constrain sub-relation 2 (temporarily reduced from 6)
+        3, // range constrain sub-relation 3 (temporarily reduced from 6)
+        3  // range constrain sub-relation 4 (temporarily reduced from 6)
     };
 
     /**

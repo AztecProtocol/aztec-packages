@@ -16,11 +16,11 @@ template <typename FF_> class TranslatorOpcodeConstraintRelationImpl {
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 6;
     static constexpr std::array<size_t, 5> SUBRELATION_PARTIAL_LENGTHS{
-        6, // opcode constraint relation
-        6, // opcode constraint relation
-        6, // opcode constraint relation
-        6, // opcode constraint relation
-        6  // opcode constraint relation
+        3, // opcode constraint relation (temporarily reduced from 6)
+        3, // opcode constraint relation (temporarily reduced from 6)
+        3, // opcode constraint relation (temporarily reduced from 6)
+        3, // opcode constraint relation (temporarily reduced from 6)
+        3  // opcode constraint relation (temporarily reduced from 6)
     };
 
     /**
@@ -57,18 +57,22 @@ template <typename FF_> class TranslatorAccumulatorTransferRelationImpl {
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 4; // degree((SOME_LAGRANGE)(A-B)) = 2
     static constexpr std::array<size_t, 12> SUBRELATION_PARTIAL_LENGTHS{
-        4, // transfer accumulator limb 0 at odd index subrelation
-        4, // transfer accumulator limb 1 at odd index subrelation
-        4, // transfer accumulator limb 2 at odd index subrelation
-        4, // transfer accumulator limb 3 at odd index subrelation
-        4, // accumulator limb 0 is zero at the start of accumulation subrelation
-        4, // accumulator limb 1 is zero at the start of accumulation subrelation
-        4, // accumulator limb 2 is zero at the start of accumulation subrelation
-        4, // accumulator limb 3 is zero at the start of accumulation subrelation
-        4, // accumulator limb 0 is equal to given result at the end of accumulation subrelation
-        4, // accumulator limb 1 is equal to given result at the end of accumulation subrelation
-        4, // accumulator limb 2 is equal to given result at the end of accumulation subrelation
-        4  // accumulator limb 3 is equal to given result at the end of accumulation subrelation
+        3, // transfer accumulator limb 0 at odd index subrelation (temporarily reduced from 4)
+        3, // transfer accumulator limb 1 at odd index subrelation (temporarily reduced from 4)
+        3, // transfer accumulator limb 2 at odd index subrelation (temporarily reduced from 4)
+        3, // transfer accumulator limb 3 at odd index subrelation (temporarily reduced from 4)
+        3, // accumulator limb 0 is zero at the start of accumulation subrelation (temporarily reduced from 4)
+        3, // accumulator limb 1 is zero at the start of accumulation subrelation (temporarily reduced from 4)
+        3, // accumulator limb 2 is zero at the start of accumulation subrelation (temporarily reduced from 4)
+        3, // accumulator limb 3 is zero at the start of accumulation subrelation (temporarily reduced from 4)
+        3, // accumulator limb 0 is equal to given result at the end of accumulation subrelation (temporarily reduced
+           // from 4)
+        3, // accumulator limb 1 is equal to given result at the end of accumulation subrelation (temporarily reduced
+           // from 4)
+        3, // accumulator limb 2 is equal to given result at the end of accumulation subrelation (temporarily reduced
+           // from 4)
+        3  // accumulator limb 3 is equal to given result at the end of accumulation subrelation (temporarily reduced
+           // from 4)
 
     };
 
@@ -116,74 +120,74 @@ template <typename FF_> class TranslatorZeroConstraintsRelationImpl {
     static constexpr size_t RELATION_LENGTH = 4; // degree((some lagrange)(A)) = 2
 
     static constexpr std::array<size_t, 68> SUBRELATION_PARTIAL_LENGTHS{
-        4, // p_x_low_limbs_range_constraint_0 is zero outside of the minicircuit
-        4, // p_x_low_limbs_range_constraint_1 is zero outside of the minicircuit
-        4, // p_x_low_limbs_range_constraint_2 is zero outside of the minicircuit
-        4, // p_x_low_limbs_range_constraint_3 is zero outside of the minicircuit
-        4, // p_x_low_limbs_range_constraint_4 is zero outside of the minicircuit
-        4, // p_x_high_limbs_range_constraint_0 is zero outside of the minicircuit
-        4, // p_x_high_limbs_range_constraint_1 is zero outside of the minicircuit
-        4, // p_x_high_limbs_range_constraint_2 is zero outside of the minicircuit
-        4, // p_x_high_limbs_range_constraint_3 is zero outside of the minicircuit
-        4, // p_x_high_limbs_range_constraint_4 is zero outside of the minicircuit
-        4, // p_y_low_limbs_range_constraint_0 is zero outside of the minicircuit
-        4, // p_y_low_limbs_range_constraint_1 is zero outside of the minicircuit
-        4, // p_y_low_limbs_range_constraint_2 is zero outside of the minicircuit
-        4, // p_y_low_limbs_range_constraint_3 is zero outside of the minicircuit
-        4, // p_y_low_limbs_range_constraint_4 is zero outside of the minicircuit
-        4, // p_y_high_limbs_range_constraint_0 is zero outside of the minicircuit
-        4, // p_y_high_limbs_range_constraint_1 is zero outside of the minicircuit
-        4, // p_y_high_limbs_range_constraint_2 is zero outside of the minicircuit
-        4, // p_y_high_limbs_range_constraint_3 is zero outside of the minicircuit
-        4, // p_y_high_limbs_range_constraint_4 is zero outside of the minicircuit
-        4, // z_low_limbs_range_constraint_0 is zero outside of the minicircuit
-        4, // z_low_limbs_range_constraint_1 is zero outside of the minicircuit
-        4, // z_low_limbs_range_constraint_2 is zero outside of the minicircuit
-        4, // z_low_limbs_range_constraint_3 is zero outside of the minicircuit
-        4, // z_low_limbs_range_constraint_4 is zero outside of the minicircuit
-        4, // z_high_limbs_range_constraint_0 is zero outside of the minicircuit
-        4, // z_high_limbs_range_constraint_1 is zero outside of the minicircuit
-        4, // z_high_limbs_range_constraint_2 is zero outside of the minicircuit
-        4, // z_high_limbs_range_constraint_3 is zero outside of the minicircuit
-        4, // z_high_limbs_range_constraint_4 is zero outside of the minicircuit
-        4, // accumulator_low_limbs_range_constraint_0 is zero outside of the minicircuit
-        4, // accumulator_low_limbs_range_constraint_1 is zero outside of the minicircuit
-        4, // accumulator_low_limbs_range_constraint_2 is zero outside of the minicircuit
-        4, // accumulator_low_limbs_range_constraint_3 is zero outside of the minicircuit
-        4, // accumulator_low_limbs_range_constraint_4 is zero outside of the minicircuit
-        4, // accumulator_high_limbs_range_constraint_0 is zero outside of the minicircuit
-        4, // accumulator_high_limbs_range_constraint_1 is zero outside of the minicircuit
-        4, // accumulator_high_limbs_range_constraint_2 is zero outside of the minicircuit
-        4, // accumulator_high_limbs_range_constraint_3 is zero outside of the minicircuit
-        4, // accumulator_high_limbs_range_constraint_4 is zero outside of the minicircuit
-        4, // quotient_low_limbs_range_constraint_0 is zero outside of the minicircuit
-        4, // quotient_low_limbs_range_constraint_1 is zero outside of the minicircuit
-        4, // quotient_low_limbs_range_constraint_2 is zero outside of the minicircuit
-        4, // quotient_low_limbs_range_constraint_3 is zero outside of the minicircuit
-        4, // quotient_low_limbs_range_constraint_4 is zero outside of the minicircuit
-        4, // quotient_high_limbs_range_constraint_0 is zero outside of the minicircuit
-        4, // quotient_high_limbs_range_constraint_1 is zero outside of the minicircuit
-        4, // quotient_high_limbs_range_constraint_2 is zero outside of the minicircuit
-        4, // quotient_high_limbs_range_constraint_3 is zero outside of the minicircuit
-        4, // quotient_high_limbs_range_constraint_4 is zero outside of the minicircuit
-        4, // relation_wide_limbs_range_constraint_0 is zero outside of the minicircuit
-        4, // relation_wide_limbs_range_constraint_1 is zero outside of the minicircuit
-        4, // relation_wide_limbs_range_constraint_2 is zero outside of the minicircuit
-        4, // relation_wide_limbs_range_constraint_3 is zero outside of the minicircuit
-        4, // p_x_low_limbs_range_constraint_tail is zero outside of the minicircuit
-        4, // p_x_high_limbs_range_constraint_tail is zero outside of the minicircuit
-        4, // p_y_low_limbs_range_constraint_tail is zero outside of the minicircuit
-        4, // p_y_high_limbs_range_constraint_tail is zero outside of the minicircuit
-        4, // z_low_limbs_range_constraint_tail is zero outside of the minicircuit
-        4, // z_high_limbs_range_constraint_tail is zero outside of the minicircuit
-        4, // accumulator_low_limbs_range_constraint_tail is zero outside of the minicircuit
-        4, // accumulator_high_limbs_range_constraint_tail is zero outside of the minicircuit
-        4, // quotient_low_limbs_range_constraint_tail is zero outside of the minicircuit
-        4, // quotient_high_limbs_range_constraint_tail is zero outside of the minicircuit
-        4, // op is zero outside of the minicircuit
-        4, // x_lo_y_hi is zero outside of the minicircuit
-        4, // x_hi_z_1 is zero outside of the minicircuit
-        4, // y_lo_z_2 is zero outside of the minicircuit
+        3, // p_x_low_limbs_range_constraint_0 is zero outside of the minicircuit
+        3, // p_x_low_limbs_range_constraint_1 is zero outside of the minicircuit
+        3, // p_x_low_limbs_range_constraint_2 is zero outside of the minicircuit
+        3, // p_x_low_limbs_range_constraint_3 is zero outside of the minicircuit
+        3, // p_x_low_limbs_range_constraint_4 is zero outside of the minicircuit
+        3, // p_x_high_limbs_range_constraint_0 is zero outside of the minicircuit
+        3, // p_x_high_limbs_range_constraint_1 is zero outside of the minicircuit
+        3, // p_x_high_limbs_range_constraint_2 is zero outside of the minicircuit
+        3, // p_x_high_limbs_range_constraint_3 is zero outside of the minicircuit
+        3, // p_x_high_limbs_range_constraint_4 is zero outside of the minicircuit
+        3, // p_y_low_limbs_range_constraint_0 is zero outside of the minicircuit
+        3, // p_y_low_limbs_range_constraint_1 is zero outside of the minicircuit
+        3, // p_y_low_limbs_range_constraint_2 is zero outside of the minicircuit
+        3, // p_y_low_limbs_range_constraint_3 is zero outside of the minicircuit
+        3, // p_y_low_limbs_range_constraint_4 is zero outside of the minicircuit
+        3, // p_y_high_limbs_range_constraint_0 is zero outside of the minicircuit
+        3, // p_y_high_limbs_range_constraint_1 is zero outside of the minicircuit
+        3, // p_y_high_limbs_range_constraint_2 is zero outside of the minicircuit
+        3, // p_y_high_limbs_range_constraint_3 is zero outside of the minicircuit
+        3, // p_y_high_limbs_range_constraint_4 is zero outside of the minicircuit
+        3, // z_low_limbs_range_constraint_0 is zero outside of the minicircuit
+        3, // z_low_limbs_range_constraint_1 is zero outside of the minicircuit
+        3, // z_low_limbs_range_constraint_2 is zero outside of the minicircuit
+        3, // z_low_limbs_range_constraint_3 is zero outside of the minicircuit
+        3, // z_low_limbs_range_constraint_4 is zero outside of the minicircuit
+        3, // z_high_limbs_range_constraint_0 is zero outside of the minicircuit
+        3, // z_high_limbs_range_constraint_1 is zero outside of the minicircuit
+        3, // z_high_limbs_range_constraint_2 is zero outside of the minicircuit
+        3, // z_high_limbs_range_constraint_3 is zero outside of the minicircuit
+        3, // z_high_limbs_range_constraint_4 is zero outside of the minicircuit
+        3, // accumulator_low_limbs_range_constraint_0 is zero outside of the minicircuit
+        3, // accumulator_low_limbs_range_constraint_1 is zero outside of the minicircuit
+        3, // accumulator_low_limbs_range_constraint_2 is zero outside of the minicircuit
+        3, // accumulator_low_limbs_range_constraint_3 is zero outside of the minicircuit
+        3, // accumulator_low_limbs_range_constraint_4 is zero outside of the minicircuit
+        3, // accumulator_high_limbs_range_constraint_0 is zero outside of the minicircuit
+        3, // accumulator_high_limbs_range_constraint_1 is zero outside of the minicircuit
+        3, // accumulator_high_limbs_range_constraint_2 is zero outside of the minicircuit
+        3, // accumulator_high_limbs_range_constraint_3 is zero outside of the minicircuit
+        3, // accumulator_high_limbs_range_constraint_4 is zero outside of the minicircuit
+        3, // quotient_low_limbs_range_constraint_0 is zero outside of the minicircuit
+        3, // quotient_low_limbs_range_constraint_1 is zero outside of the minicircuit
+        3, // quotient_low_limbs_range_constraint_2 is zero outside of the minicircuit
+        3, // quotient_low_limbs_range_constraint_3 is zero outside of the minicircuit
+        3, // quotient_low_limbs_range_constraint_4 is zero outside of the minicircuit
+        3, // quotient_high_limbs_range_constraint_0 is zero outside of the minicircuit
+        3, // quotient_high_limbs_range_constraint_1 is zero outside of the minicircuit
+        3, // quotient_high_limbs_range_constraint_2 is zero outside of the minicircuit
+        3, // quotient_high_limbs_range_constraint_3 is zero outside of the minicircuit
+        3, // quotient_high_limbs_range_constraint_4 is zero outside of the minicircuit
+        3, // relation_wide_limbs_range_constraint_0 is zero outside of the minicircuit
+        3, // relation_wide_limbs_range_constraint_1 is zero outside of the minicircuit
+        3, // relation_wide_limbs_range_constraint_2 is zero outside of the minicircuit
+        3, // relation_wide_limbs_range_constraint_3 is zero outside of the minicircuit
+        3, // p_x_low_limbs_range_constraint_tail is zero outside of the minicircuit
+        3, // p_x_high_limbs_range_constraint_tail is zero outside of the minicircuit
+        3, // p_y_low_limbs_range_constraint_tail is zero outside of the minicircuit
+        3, // p_y_high_limbs_range_constraint_tail is zero outside of the minicircuit
+        3, // z_low_limbs_range_constraint_tail is zero outside of the minicircuit
+        3, // z_high_limbs_range_constraint_tail is zero outside of the minicircuit
+        3, // accumulator_low_limbs_range_constraint_tail is zero outside of the minicircuit
+        3, // accumulator_high_limbs_range_constraint_tail is zero outside of the minicircuit
+        3, // quotient_low_limbs_range_constraint_tail is zero outside of the minicircuit
+        3, // quotient_high_limbs_range_constraint_tail is zero outside of the minicircuit
+        3, // op is zero outside of the minicircuit
+        3, // x_lo_y_hi is zero outside of the minicircuit
+        3, // x_hi_z_1 is zero outside of the minicircuit
+        3, // y_lo_z_2 is zero outside of the minicircuit (temporarily reduced from 4)
 
     };
 
