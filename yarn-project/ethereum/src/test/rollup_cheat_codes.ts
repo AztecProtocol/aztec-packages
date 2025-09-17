@@ -209,6 +209,47 @@ export class RollupCheatCodes {
   }
 
   /**
+   * Overrides the inProgress field of the Inbox contract state
+   * @param howMuch - How many blocks to move it forward
+   */
+  public advanceInboxInProgress(howMuch: number | bigint): Promise<bigint> {
+    return this.ethCheatCodes.execWithPausedAnvil(async () => {
+      // Storage slot 2 contains the InboxState struct
+      const inboxStateSlot = 2n;
+
+      // Get inbox and its current state values
+      const inboxAddress = await this.rollup.read.getInbox();
+      const currentStateValue = await this.ethCheatCodes.load(EthAddress.fromString(inboxAddress), inboxStateSlot);
+
+      // Extract current values from the packed storage slot
+      // Storage layout: rollingHash (128 bits) | totalMessagesInserted (64 bits) | inProgress (64 bits)
+      const currentRollingHash = currentStateValue & ((1n << 128n) - 1n);
+      const currentTotalMessages = (currentStateValue >> 128n) & ((1n << 64n) - 1n);
+      const currentInProgress = currentStateValue >> 192n;
+      const newInProgress = currentInProgress + BigInt(howMuch);
+
+      // Pack new values: rollingHash (low 128 bits) | totalMessages (middle 64 bits) | inProgress (high 64 bits)
+      const newValue = (BigInt(newInProgress) << 192n) | (currentTotalMessages << 128n) | currentRollingHash;
+
+      await this.ethCheatCodes.store(EthAddress.fromString(inboxAddress), inboxStateSlot, newValue, {
+        silent: true,
+      });
+
+      this.logger.warn(`Inbox inProgress advanced from ${currentInProgress} to ${newInProgress}`, {
+        inbox: inboxAddress,
+        oldValue: '0x' + currentStateValue.toString(16),
+        newValue: '0x' + newValue.toString(16),
+        rollingHash: currentRollingHash,
+        totalMessages: currentTotalMessages,
+        oldInProgress: currentInProgress,
+        newInProgress,
+      });
+
+      return newInProgress;
+    });
+  }
+
+  /**
    * Executes an action impersonated as the owner of the Rollup contract.
    * @param action - The action to execute
    */

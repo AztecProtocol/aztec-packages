@@ -206,6 +206,10 @@ export class PXEService implements PXE {
     return this.node.isL1ToL2MessageSynced(l1ToL2Message);
   }
 
+  public getL1ToL2MessageBlock(l1ToL2Message: Fr): Promise<number | undefined> {
+    return this.node.getL1ToL2MessageBlock(l1ToL2Message);
+  }
+
   public async getL2ToL1MembershipWitness(
     blockNumber: number,
     l2Tol1Message: Fr,

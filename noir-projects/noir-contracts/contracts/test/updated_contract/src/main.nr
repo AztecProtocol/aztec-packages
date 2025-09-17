@@ -4,8 +4,8 @@ use aztec::macros::aztec;
 #[aztec]
 contract Updated {
     use aztec::{
-        event::event_interface::MessageDelivery,
         macros::{functions::{private, public, utility}, storage::storage},
+        messages::message_delivery::MessageDelivery,
         protocol_types::constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
         state_vars::{PrivateMutable, PublicMutable},
     };
@@ -26,8 +26,8 @@ contract Updated {
     #[private]
     fn set_private_value() {
         let owner = context.msg_sender();
-        let new_note = ValueNote::new(27, owner);
-        storage.private_value.replace(new_note).emit(
+
+        storage.private_value.replace(|_old| ValueNote::new(27, owner)).emit(
             &mut context,
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,

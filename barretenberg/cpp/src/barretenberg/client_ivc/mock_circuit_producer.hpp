@@ -202,6 +202,11 @@ class PrivateFunctionExecutionMockCircuitProducer {
     std::pair<ClientCircuit, std::shared_ptr<VerificationKey>> create_next_circuit_and_vk(ClientIVC& ivc,
                                                                                           TestSettings settings = {})
     {
+        // If this is a mock hiding kernel, remove the settings and use a default (non-structured) trace
+        if (ivc.num_circuits_accumulated == ivc.get_num_circuits() - 1) {
+            settings = TestSettings{};
+            ivc.trace_settings = TraceSettings{};
+        }
         auto circuit = create_next_circuit(ivc, settings.log2_num_gates, settings.num_public_inputs);
         return { circuit, get_verification_key(circuit, ivc.trace_settings) };
     }

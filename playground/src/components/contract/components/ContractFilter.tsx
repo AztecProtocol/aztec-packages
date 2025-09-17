@@ -113,7 +113,7 @@ export function ContractFilter({ filters, onFilterChange }: ContractFilterProps)
           </Tooltip>
 
           <Tooltip
-            title="These are off-chain getters (for you to query the state) without generating any proofs. They are unconstrained, so no proof is generated and data is fetched locally."
+            title="These are offchain getters (for you to query the state) without generating any proofs. They are unconstrained, so no proof is generated and data is fetched locally."
             arrow
             slotProps={{
               tooltip: {

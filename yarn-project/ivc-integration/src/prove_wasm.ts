@@ -26,7 +26,7 @@ export async function proveClientIVC(
       witnessStack.map((arr: Uint8Array) => ungzip(arr)),
       vks.map(hex => new Uint8Array(Buffer.from(hex, 'hex'))),
     );
-    return new ClientIvcProof(Buffer.from(proof));
+    return ClientIvcProof.fromBufferArray(proof);
   } finally {
     await backend.destroy();
   }
@@ -45,11 +45,11 @@ export async function proveThenVerifyAztecClient(
   );
   try {
     // These are optional - easier not to pass them.
-    const [proof, vk] = await backend.prove(
+    const [_, msgpackProof, vk] = await backend.prove(
       witnessStack.map((arr: Uint8Array) => ungzip(arr)),
       vks.map(hex => new Uint8Array(Buffer.from(hex, 'hex'))),
     );
-    const verified = await backend.verify(proof, vk);
+    const verified = await backend.verify(msgpackProof, vk);
     return verified;
   } finally {
     await backend.destroy();

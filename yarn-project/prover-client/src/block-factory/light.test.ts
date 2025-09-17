@@ -2,6 +2,7 @@ import { TestCircuitProver } from '@aztec/bb-prover';
 import { BatchedBlob, BatchedBlobAccumulator, Blob, BlobAccumulatorPublicInputs, SpongeBlob } from '@aztec/blob-lib';
 import {
   BLOBS_PER_BLOCK,
+  CIVC_PROOF_LENGTH,
   FIELDS_PER_BLOB,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -13,16 +14,15 @@ import {
 import { padArrayEnd, times, timesParallel } from '@aztec/foundation/collection';
 import { BLS12Point, Fr } from '@aztec/foundation/fields';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
-import { ProtocolCircuitVkIndexes, ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
-import type { ProtocolCircuitName } from '@aztec/noir-protocol-circuits-types/types';
-import { getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { getVkData } from '@aztec/noir-protocol-circuits-types/server/vks';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { MerkleTreeWriteOperations, ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
 import { BaseParityInputs, ParityPublicInputs, RootParityInput, RootParityInputs } from '@aztec/stdlib/parity';
-import { type RecursiveProof, makeEmptyRecursiveProof } from '@aztec/stdlib/proofs';
+import { ProofData, type RecursiveProof, makeEmptyRecursiveProof } from '@aztec/stdlib/proofs';
 import {
   type BaseOrMergeRollupPublicInputs,
   BlockConstantData,
@@ -34,7 +34,6 @@ import {
   PreviousRollupData,
   type PrivateBaseRollupHints,
   PrivateBaseRollupInputs,
-  PrivateTubeData,
   SingleTxBlockRootRollupInputs,
 } from '@aztec/stdlib/rollup';
 import { makeBloatedProcessedTx, makeGlobalVariables } from '@aztec/stdlib/testing';
@@ -46,7 +45,6 @@ import {
   StateReference,
   toNumBlobFields,
 } from '@aztec/stdlib/tx';
-import { VkData } from '@aztec/stdlib/vks';
 import { type MerkleTreeAdminDatabase, NativeWorldStateService } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
@@ -76,22 +74,19 @@ describe('LightBlockBuilder', () => {
 
   let emptyProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
   let emptyRollupProof: RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>;
+  let emptyCivcProof: RecursiveProof<typeof CIVC_PROOF_LENGTH>;
 
   let feePayer: AztecAddress;
   let feePayerSlot: Fr;
   let feePayerBalance: Fr;
   const expectedTxFee = new Fr(0x2200);
 
-  const getVkData = (artifact: ProtocolCircuitName) => {
-    const vkIndex = ProtocolCircuitVkIndexes[artifact];
-    return new VkData(ProtocolCircuitVks[artifact], vkIndex, getVKSiblingPath(vkIndex));
-  };
-
   beforeAll(() => {
     simulator = new TestCircuitProver();
     vkTreeRoot = getVKTreeRoot();
     emptyProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
     emptyRollupProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH);
+    emptyCivcProof = makeEmptyRecursiveProof(CIVC_PROOF_LENGTH);
   });
 
   beforeEach(async () => {
@@ -294,10 +289,10 @@ describe('LightBlockBuilder', () => {
     const rollupOutputs = [];
     const spongeBlobState = SpongeBlob.init(toNumBlobFields(txs));
     for (const tx of txs) {
-      const vkData = getVkData('PrivateTube');
-      const tubeData = new PrivateTubeData(
+      const vkData = getVkData('HidingKernelToRollup');
+      const hidingKernelProofData = new ProofData(
         tx.data.toPrivateToRollupKernelCircuitPublicInputs(),
-        emptyRollupProof,
+        emptyCivcProof,
         vkData,
       );
       const hints = await insertSideEffectsAndBuildBaseRollupHints(
@@ -307,7 +302,7 @@ describe('LightBlockBuilder', () => {
         expectsFork,
         spongeBlobState,
       );
-      const inputs = new PrivateBaseRollupInputs(tubeData, hints as PrivateBaseRollupHints);
+      const inputs = new PrivateBaseRollupInputs(hidingKernelProofData, hints as PrivateBaseRollupHints);
       const result = await simulator.getPrivateBaseRollupProof(inputs);
       // Update `expectedTxFee` if the fee changes.
       expect(result.inputs.accumulatedFees).toEqual(expectedTxFee);

@@ -1,4 +1,4 @@
-import { getInitialTestAccounts } from '@aztec/accounts/testing';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import type { PXE, TxReceipt } from '@aztec/aztec.js';
 import { Bot, type BotConfig, getBotDefaultConfig } from '@aztec/bot';
 import type { Logger } from '@aztec/foundation/log';
@@ -27,7 +27,7 @@ describe('e2e_sequencer_config', () => {
     // Sane targets < 64 bits.
     const manaTarget = 21e10;
     beforeAll(async () => {
-      const initialFundedAccounts = await getInitialTestAccounts();
+      const initialFundedAccounts = await getInitialTestAccountsData();
       ({ teardown, sequencer, pxe, logger } = await setup(1, {
         maxL2BlockGas: manaTarget * 2,
         manaTarget: BigInt(manaTarget),

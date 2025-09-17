@@ -1,7 +1,7 @@
-import { EthAddress, Fr, type Logger, type PXE, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress, EthAddress, Fr, type Logger } from '@aztec/aztec.js';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { SecretValue } from '@aztec/foundation/config';
-import type { PXEService } from '@aztec/pxe/server';
+import type { TestWallet } from '@aztec/test-wallet';
 
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -14,8 +14,8 @@ jest.setTimeout(1000 * 60 * 10);
 describe('e2e_l1_with_wall_time', () => {
   let logger: Logger;
   let teardown: () => Promise<void>;
-  let wallet: Wallet;
-  let pxe: PXE;
+  let wallet: TestWallet;
+  let defaultAccountAddress: AztecAddress;
 
   const deploymentsPerBlock = 8;
   const numberOfBlocks = 4;
@@ -33,7 +33,12 @@ describe('e2e_l1_with_wall_time', () => {
     ];
     const { ethereumSlotDuration } = getL1ContractsConfigEnvVars();
 
-    ({ teardown, logger, wallet, pxe } = await setup(1, {
+    ({
+      teardown,
+      logger,
+      wallet,
+      accounts: [defaultAccountAddress],
+    } = await setup(1, {
       initialValidators,
       ethereumSlotDuration,
       salt: 420,
@@ -44,7 +49,7 @@ describe('e2e_l1_with_wall_time', () => {
 
   it('should produce blocks with a bunch of transactions', async () => {
     for (let i = 0; i < numberOfBlocks; i++) {
-      const txs = await submitTxsTo(pxe as PXEService, deploymentsPerBlock, wallet, logger);
+      const txs = await submitTxsTo(wallet, defaultAccountAddress, deploymentsPerBlock, logger);
       await Promise.all(
         txs.map(async (tx, j) => {
           logger.info(`Waiting for tx ${i}-${j}: ${(await tx.getTxHash()).toString()} to be mined`);

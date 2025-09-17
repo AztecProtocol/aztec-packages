@@ -4,8 +4,8 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract StateVars {
     use aztec::{
-        event::event_interface::MessageDelivery,
         macros::{functions::{private, public, utility, view}, storage::{storage, storage_no_init}},
+        messages::message_delivery::MessageDelivery,
         protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}},
         state_vars::{PrivateImmutable, PrivateMutable, PublicImmutable, PublicMutable},
     };
@@ -121,32 +121,22 @@ pub contract StateVars {
 
     #[private]
     fn update_private_mutable(randomness: Field, value: Field) {
-        let new_note = ValueNote::new(value, context.msg_sender());
-
-        storage.private_mutable.replace(new_note).emit(
-            &mut context,
-            context.msg_sender(),
-            MessageDelivery.CONSTRAINED_ONCHAIN,
-        );
+        storage
+            .private_mutable
+            .replace(|_old_note| ValueNote::new(value, context.msg_sender()))
+            .emit(&mut context, context.msg_sender(), MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[private]
     fn increase_private_value() {
-        // Get current value from private mutable storage
-        let current = storage.private_mutable.get_note().note;
-
-        // Increment value by 1
-        let new_value = current.value() + 1;
-
-        // Create new note with incremented value
-        let new_note = ValueNote::new(new_value, context.msg_sender());
-
-        // Replace existing note with new note
-        storage.private_mutable.replace(new_note).emit(
-            &mut context,
-            context.msg_sender(),
-            MessageDelivery.CONSTRAINED_ONCHAIN,
-        );
+        // Replace existing note with new note containing incremented value
+        storage
+            .private_mutable
+            .replace(|old_note| {
+                let new_value = old_note.value() + 1;
+                ValueNote::new(new_value, context.msg_sender())
+            })
+            .emit(&mut context, context.msg_sender(), MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[utility]

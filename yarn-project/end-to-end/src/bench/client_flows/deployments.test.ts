@@ -1,4 +1,4 @@
-import { AccountWallet, type AztecNode, type SimulateMethodOptions } from '@aztec/aztec.js';
+import { AztecAddress, type AztecNode, type SimulateMethodOptions, type Wallet } from '@aztec/aztec.js';
 import { PrivateVotingContract } from '@aztec/noir-contracts.js/PrivateVoting';
 import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
@@ -13,6 +13,9 @@ jest.setTimeout(1_600_000);
 describe('Deployment benchmark', () => {
   const t = new ClientFlowsBenchmark('deployments');
   let node: AztecNode;
+
+  // The wallet used by the user to interact
+  let userWallet: Wallet;
   // Sponsored FPC contract
   let sponsoredFPC: SponsoredFPCContract;
   // Benchmarking configuration
@@ -22,7 +25,7 @@ describe('Deployment benchmark', () => {
     await t.applyBaseSnapshots();
     await t.applyDeploySponsoredFPCSnapshot();
 
-    ({ aztecNode: node, sponsoredFPC } = await t.setup());
+    ({ aztecNode: node, sponsoredFPC, userWallet } = await t.setup());
   });
 
   afterAll(async () => {
@@ -36,11 +39,11 @@ describe('Deployment benchmark', () => {
   function deploymentBenchmark(accountType: AccountType) {
     return describe(`Deployment benchmark for ${accountType}`, () => {
       // Our benchmarking user
-      let benchysWallet: AccountWallet;
+      let benchysAddress: AztecAddress;
 
       beforeAll(async () => {
-        benchysWallet = await t.createAndFundBenchmarkingWallet(accountType);
-        await benchysWallet.registerContract(sponsoredFPC);
+        benchysAddress = await t.createAndFundBenchmarkingAccountOnUserWallet(accountType);
+        await userWallet.registerContract(sponsoredFPC);
       });
 
       function deploymentTest(benchmarkingPaymentMethod: BenchmarkingFeePaymentMethod) {
@@ -56,11 +59,11 @@ describe('Deployment benchmark', () => {
           it(`${accountType} contract deploys a TokenContract, pays using ${benchmarkingPaymentMethod}`, async () => {
             const paymentMethod = t.paymentMethods[benchmarkingPaymentMethod];
             const options: SimulateMethodOptions = {
-              from: benchysWallet.getAddress(),
-              fee: { paymentMethod: await paymentMethod.forWallet(benchysWallet) },
+              from: benchysAddress,
+              fee: { paymentMethod: await paymentMethod.forWallet(userWallet, benchysAddress) },
             };
 
-            const deploymentInteraction = PrivateVotingContract.deploy(benchysWallet, benchysWallet.getAddress());
+            const deploymentInteraction = PrivateVotingContract.deploy(userWallet, benchysAddress);
 
             await captureProfile(
               `${accountType}+deploy_tokenContract_${

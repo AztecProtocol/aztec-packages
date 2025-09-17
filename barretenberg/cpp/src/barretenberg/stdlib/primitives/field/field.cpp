@@ -29,7 +29,9 @@ field_t<Builder>::field_t(const witness_t<Builder>& value)
     , additive_constant(bb::fr::zero())
     , multiplicative_constant(bb::fr::one())
     , witness_index(value.witness_index)
-{}
+{
+    set_free_witness_tag();
+}
 
 template <typename Builder>
 field_t<Builder>::field_t(Builder* parent_context, const bb::fr& value)

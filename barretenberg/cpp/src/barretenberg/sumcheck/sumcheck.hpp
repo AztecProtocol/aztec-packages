@@ -230,6 +230,8 @@ template <typename Flavor> class SumcheckProver {
      */
     SumcheckOutput<Flavor> prove()
     {
+        vinfo("starting sumcheck rounds...");
+
         // Given gate challenges β = (β₀, ..., β_{d−1}) and d = `multivariate_d`, compute the evaluations of
         // GateSeparator_β (X₀, ..., X_{d−1}) = ∏ₖ₌₀^{d−1} (1 − Xₖ + Xₖ · βₖ)
         // on the boolean hypercube.
@@ -244,7 +246,6 @@ template <typename Flavor> class SumcheckProver {
         // This will use the information in the structured full polynomials to save memory if possible.
         partially_evaluated_polynomials = PartiallyEvaluatedMultivariates(full_polynomials, multivariate_n);
 
-        vinfo("starting sumcheck rounds...");
         {
             BB_BENCH_NAME("rest of sumcheck round 1");
 
@@ -518,7 +519,7 @@ template <typename Flavor> class SumcheckProver {
             // virtually zeroize any leftover values beyond the limit (in-place computation).
             // This is important to zeroize leftover values to not mess up with compute_univariate().
             // Note that the virtual size of pep_view[j] remains unchanged.
-            pep_view[j].shrink_end_index(limit / 2 + limit % 2);
+            pep_view[j].shrink_end_index((limit / 2) + (limit % 2));
         });
     };
     /**
@@ -543,7 +544,7 @@ template <typename Flavor> class SumcheckProver {
             // virtually zeroize any leftover values beyond the limit (in-place computation).
             // This is important to zeroize leftover values to not mess up with compute_univariate().
             // Note that the virtual size of pep_view[j] remains unchanged.
-            pep_view[j].shrink_end_index(limit / 2 + limit % 2);
+            pep_view[j].shrink_end_index((limit / 2) + (limit % 2));
         });
     };
 

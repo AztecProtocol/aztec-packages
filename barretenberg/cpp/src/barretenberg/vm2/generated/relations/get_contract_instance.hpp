@@ -34,26 +34,26 @@ template <typename FF> class get_contract_instance : public Relation<get_contrac
   public:
     static constexpr const std::string_view NAME = "get_contract_instance";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 1:
-            return "WRITE_OUT_OF_BOUNDS_CHECK";
-        case 2:
-            return "IS_VALID_MEMBER_ENUM_ONLY_SET_BY_PRECOMPUTED_LOOKUP";
-        case 3:
-            return "ERROR_AGGREGATION";
-        case 4:
-            return "SELECTED_MEMBER";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_WRITE_OUT_OF_BOUNDS_CHECK = 1;
     static constexpr size_t SR_IS_VALID_MEMBER_ENUM_ONLY_SET_BY_PRECOMPUTED_LOOKUP = 2;
     static constexpr size_t SR_ERROR_AGGREGATION = 3;
     static constexpr size_t SR_SELECTED_MEMBER = 4;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_WRITE_OUT_OF_BOUNDS_CHECK:
+            return "WRITE_OUT_OF_BOUNDS_CHECK";
+        case SR_IS_VALID_MEMBER_ENUM_ONLY_SET_BY_PRECOMPUTED_LOOKUP:
+            return "IS_VALID_MEMBER_ENUM_ONLY_SET_BY_PRECOMPUTED_LOOKUP";
+        case SR_ERROR_AGGREGATION:
+            return "ERROR_AGGREGATION";
+        case SR_SELECTED_MEMBER:
+            return "SELECTED_MEMBER";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

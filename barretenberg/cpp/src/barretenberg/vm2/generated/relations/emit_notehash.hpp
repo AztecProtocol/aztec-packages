@@ -34,29 +34,29 @@ template <typename FF> class emit_notehash : public Relation<emit_notehashImpl<F
   public:
     static constexpr const std::string_view NAME = "emit_notehash";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 1:
-            return "MAX_NOTE_HASHES_REACHED";
-        case 2:
-            return "OPCODE_ERROR_IF_MAX_NOTE_HASHES_REACHED_OR_STATIC";
-        case 4:
-            return "EMIT_NOTEHASH_TREE_ROOT_NOT_CHANGED";
-        case 5:
-            return "EMIT_NOTEHASH_TREE_SIZE_INCREASE";
-        case 6:
-            return "EMIT_NOTEHASH_NUM_NOTE_HASHES_EMITTED_INCREASE";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_MAX_NOTE_HASHES_REACHED = 1;
     static constexpr size_t SR_OPCODE_ERROR_IF_MAX_NOTE_HASHES_REACHED_OR_STATIC = 2;
     static constexpr size_t SR_EMIT_NOTEHASH_TREE_ROOT_NOT_CHANGED = 4;
     static constexpr size_t SR_EMIT_NOTEHASH_TREE_SIZE_INCREASE = 5;
     static constexpr size_t SR_EMIT_NOTEHASH_NUM_NOTE_HASHES_EMITTED_INCREASE = 6;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_MAX_NOTE_HASHES_REACHED:
+            return "MAX_NOTE_HASHES_REACHED";
+        case SR_OPCODE_ERROR_IF_MAX_NOTE_HASHES_REACHED_OR_STATIC:
+            return "OPCODE_ERROR_IF_MAX_NOTE_HASHES_REACHED_OR_STATIC";
+        case SR_EMIT_NOTEHASH_TREE_ROOT_NOT_CHANGED:
+            return "EMIT_NOTEHASH_TREE_ROOT_NOT_CHANGED";
+        case SR_EMIT_NOTEHASH_TREE_SIZE_INCREASE:
+            return "EMIT_NOTEHASH_TREE_SIZE_INCREASE";
+        case SR_EMIT_NOTEHASH_NUM_NOTE_HASHES_EMITTED_INCREASE:
+            return "EMIT_NOTEHASH_NUM_NOTE_HASHES_EMITTED_INCREASE";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

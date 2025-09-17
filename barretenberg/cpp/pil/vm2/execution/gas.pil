@@ -68,7 +68,7 @@ namespace execution;
     // Assumes l2_gas_limit is 32 bit and total_gas_l2 is 64 bit.
 
     #[IS_OUT_OF_GAS_L2]
-    sel_should_check_gas { total_gas_l2, l2_gas_limit, out_of_gas_l2 } in gt.sel { gt.input_a, gt.input_b, gt.res };
+    sel_should_check_gas { total_gas_l2, l2_gas_limit, out_of_gas_l2 } in gt.sel_gas { gt.input_a, gt.input_b, gt.res };
 
     // TODO: Once we support expression in lookup, we can replace this column by an alias.
     pol commit total_gas_da;
@@ -76,7 +76,7 @@ namespace execution;
     // Assumes da_gas_limit is 32 bit and total_gas_da is 64 bit.
 
     #[IS_OUT_OF_GAS_DA]
-    sel_should_check_gas { total_gas_da, da_gas_limit, out_of_gas_da } in gt.sel { gt.input_a, gt.input_b, gt.res };
+    sel_should_check_gas { total_gas_da, da_gas_limit, out_of_gas_da } in gt.sel_gas { gt.input_a, gt.input_b, gt.res };
 
     pol commit sel_out_of_gas;
     sel_out_of_gas = 1 - (1 - out_of_gas_l2) * (1 - out_of_gas_da);

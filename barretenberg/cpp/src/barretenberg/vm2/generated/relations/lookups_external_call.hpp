@@ -18,7 +18,7 @@ struct lookup_external_call_call_is_l2_gas_allocated_lt_left_settings_ {
     static constexpr std::string_view RELATION_NAME = "external_call";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_enter_call;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column DST_SELECTOR = Column::gt_sel_others;
     static constexpr Column COUNTS = Column::lookup_external_call_call_is_l2_gas_allocated_lt_left_counts;
     static constexpr Column INVERSES = Column::lookup_external_call_call_is_l2_gas_allocated_lt_left_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -44,7 +44,7 @@ struct lookup_external_call_call_is_da_gas_allocated_lt_left_settings_ {
     static constexpr std::string_view RELATION_NAME = "external_call";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_enter_call;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column DST_SELECTOR = Column::gt_sel_others;
     static constexpr Column COUNTS = Column::lookup_external_call_call_is_da_gas_allocated_lt_left_counts;
     static constexpr Column INVERSES = Column::lookup_external_call_call_is_da_gas_allocated_lt_left_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {

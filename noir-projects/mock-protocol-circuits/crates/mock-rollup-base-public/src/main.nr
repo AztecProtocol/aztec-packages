@@ -1,15 +1,15 @@
 use dep::mock_types::{
     AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
-    AvmCircuitPublicInputs, PROOF_TYPE_AVM, RollupPublicInputs, TubeData, VerificationKey,
+    AvmCircuitPublicInputs, CivcProofData, PROOF_TYPE_AVM, RollupPublicInputs, VerificationKey,
 };
 
 fn main(
-    tube_data: TubeData,
+    civc_proof_data: CivcProofData,
     verification_key: VerificationKey<AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED>,
     proof: [Field; AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED],
     public_inputs: AvmCircuitPublicInputs,
 ) -> pub RollupPublicInputs {
-    tube_data.verify();
+    civc_proof_data.verify();
     std::verify_proof_with_type(
         verification_key.key,
         proof,

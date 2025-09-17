@@ -1,5 +1,6 @@
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { ValidatorStatusInSlot } from '@aztec/stdlib/validators';
 
@@ -8,11 +9,15 @@ import { SentinelStore } from './store.js';
 describe('sentinel-store', () => {
   let kvStore: AztecLMDBStoreV2;
   let store: SentinelStore;
+  let log: Logger;
+
   const historyLength = 4;
+  const historicProvenPerformanceLength = 3;
 
   beforeEach(async () => {
+    log = createLogger('sentinel:store:test');
     kvStore = await openTmpStore('sentinel-store-test');
-    store = new SentinelStore(kvStore, { historyLength });
+    store = new SentinelStore(kvStore, { historyLength, historicProvenPerformanceLength });
   });
 
   afterEach(async () => {
@@ -112,6 +117,85 @@ describe('sentinel-store', () => {
       { epoch: 1n, missed: 3, total: 10 },
       { epoch: 2n, missed: 4, total: 10 },
     ]);
+  });
+
+  it('trims proven performance to the specified historicProvenPerformanceLength', async () => {
+    const validator = EthAddress.random();
+
+    // Add 5 epochs worth of proven performance data (more than historicProvenPerformanceLength = 3)
+    for (let i = 1; i <= 5; i++) {
+      await store.updateProvenPerformance(BigInt(i), { [validator.toString()]: { missed: i, total: 10 } });
+    }
+
+    const provenPerformance = await store.getProvenPerformance(validator);
+
+    // Should only keep the most recent 3 entries (epochs 3, 4, 5)
+    expect(provenPerformance).toHaveLength(historicProvenPerformanceLength);
+    expect(provenPerformance).toEqual([
+      { epoch: 3n, missed: 3, total: 10 },
+      { epoch: 4n, missed: 4, total: 10 },
+      { epoch: 5n, missed: 5, total: 10 },
+    ]);
+  });
+
+  it('getHistoricProvenPerformanceLength returns the correct value', () => {
+    expect(store.getHistoricProvenPerformanceLength()).toBe(historicProvenPerformanceLength);
+  });
+
+  it('proven performance with 2k entries', async () => {
+    const validator = EthAddress.random();
+    const totalEntries = 2000;
+
+    log.info(`Starting stress test with ${totalEntries} proven performance entries`);
+
+    // Track timing for additions
+    const addTimes: number[] = [];
+    const startTime = Date.now();
+
+    // Add 2k entries
+    for (let i = 1; i <= totalEntries; i++) {
+      const addStart = Date.now();
+      await store.updateProvenPerformance(BigInt(i), {
+        [validator.toString()]: { missed: i % 10, total: 10 },
+      });
+      const addEnd = Date.now();
+      addTimes.push(addEnd - addStart);
+
+      // Log progress every 500 entries
+      if (i % 500 === 0) {
+        const avgAddTime = addTimes.slice(-500).reduce((a, b) => a + b, 0) / 500;
+        log.info(`Added ${i}/${totalEntries} entries, avg time per entry: ${avgAddTime.toFixed(2)}ms`);
+      }
+    }
+
+    const totalAddTime = Date.now() - startTime;
+    const avgAddTime = addTimes.reduce((a, b) => a + b, 0) / addTimes.length;
+
+    log.info(`Added ${totalEntries} entries in ${totalAddTime}ms with avg ${avgAddTime.toFixed(2)}ms per entry`);
+
+    // Track timing for retrievals
+    const retrievalTimes: number[] = [];
+    const numRetrievals = 10;
+
+    log.info(`Starting ${numRetrievals} retrieval tests`);
+
+    for (let i = 0; i < numRetrievals; i++) {
+      const retrievalStart = Date.now();
+      const performance = await store.getProvenPerformance(validator);
+      const retrievalEnd = Date.now();
+      retrievalTimes.push(retrievalEnd - retrievalStart);
+
+      // Verify we only keep the configured number of entries
+      expect(performance).toHaveLength(historicProvenPerformanceLength);
+
+      // Verify we kept the most recent entries
+      const expectedStartEpoch = totalEntries - historicProvenPerformanceLength + 1;
+      expect(performance[0].epoch).toBe(BigInt(expectedStartEpoch));
+      expect(performance[performance.length - 1].epoch).toBe(BigInt(totalEntries));
+    }
+
+    const avgRetrievalTime = retrievalTimes.reduce((a, b) => a + b, 0) / retrievalTimes.length;
+    log.info(`Completed ${numRetrievals} retrievals with avg time of ${avgRetrievalTime.toFixed(2)}ms per retrieval`);
   });
 
   it('does not allow insertion of invalid validator addresses', async () => {

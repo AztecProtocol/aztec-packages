@@ -40,79 +40,6 @@ template <typename FF> class addressing : public Relation<addressingImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "addressing";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 16:
-            return "INDIRECT_RECONSTRUCTION";
-        case 24:
-            return "NUM_RELATIVE_INV_CHECK";
-        case 25:
-            return "BASE_ADDRESS_CHECK";
-        case 26:
-            return "NOT_RELATIVE_NO_OVERFLOW_0";
-        case 27:
-            return "NOT_RELATIVE_NO_OVERFLOW_1";
-        case 28:
-            return "NOT_RELATIVE_NO_OVERFLOW_2";
-        case 29:
-            return "NOT_RELATIVE_NO_OVERFLOW_3";
-        case 30:
-            return "NOT_RELATIVE_NO_OVERFLOW_4";
-        case 31:
-            return "NOT_RELATIVE_NO_OVERFLOW_5";
-        case 32:
-            return "NOT_RELATIVE_NO_OVERFLOW_6";
-        case 33:
-            return "RELATIVE_RESOLUTION_0";
-        case 34:
-            return "RELATIVE_RESOLUTION_1";
-        case 35:
-            return "RELATIVE_RESOLUTION_2";
-        case 36:
-            return "RELATIVE_RESOLUTION_3";
-        case 37:
-            return "RELATIVE_RESOLUTION_4";
-        case 38:
-            return "RELATIVE_RESOLUTION_5";
-        case 39:
-            return "RELATIVE_RESOLUTION_6";
-        case 41:
-            return "INDIRECT_GATING_0";
-        case 42:
-            return "INDIRECT_GATING_1";
-        case 43:
-            return "INDIRECT_GATING_2";
-        case 44:
-            return "INDIRECT_GATING_3";
-        case 45:
-            return "INDIRECT_GATING_4";
-        case 46:
-            return "INDIRECT_GATING_5";
-        case 47:
-            return "INDIRECT_GATING_6";
-        case 48:
-            return "INDIRECT_PROPAGATION_0";
-        case 49:
-            return "INDIRECT_PROPAGATION_1";
-        case 50:
-            return "INDIRECT_PROPAGATION_2";
-        case 51:
-            return "INDIRECT_PROPAGATION_3";
-        case 52:
-            return "INDIRECT_PROPAGATION_4";
-        case 53:
-            return "INDIRECT_PROPAGATION_5";
-        case 54:
-            return "INDIRECT_PROPAGATION_6";
-        case 55:
-            return "BATCHED_TAGS_DIFF_CHECK";
-        case 56:
-            return "ADDRESSING_COLLECTION_INV_CHECK";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_INDIRECT_RECONSTRUCTION = 16;
     static constexpr size_t SR_NUM_RELATIVE_INV_CHECK = 24;
@@ -147,6 +74,79 @@ template <typename FF> class addressing : public Relation<addressingImpl<FF>> {
     static constexpr size_t SR_INDIRECT_PROPAGATION_6 = 54;
     static constexpr size_t SR_BATCHED_TAGS_DIFF_CHECK = 55;
     static constexpr size_t SR_ADDRESSING_COLLECTION_INV_CHECK = 56;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_INDIRECT_RECONSTRUCTION:
+            return "INDIRECT_RECONSTRUCTION";
+        case SR_NUM_RELATIVE_INV_CHECK:
+            return "NUM_RELATIVE_INV_CHECK";
+        case SR_BASE_ADDRESS_CHECK:
+            return "BASE_ADDRESS_CHECK";
+        case SR_NOT_RELATIVE_NO_OVERFLOW_0:
+            return "NOT_RELATIVE_NO_OVERFLOW_0";
+        case SR_NOT_RELATIVE_NO_OVERFLOW_1:
+            return "NOT_RELATIVE_NO_OVERFLOW_1";
+        case SR_NOT_RELATIVE_NO_OVERFLOW_2:
+            return "NOT_RELATIVE_NO_OVERFLOW_2";
+        case SR_NOT_RELATIVE_NO_OVERFLOW_3:
+            return "NOT_RELATIVE_NO_OVERFLOW_3";
+        case SR_NOT_RELATIVE_NO_OVERFLOW_4:
+            return "NOT_RELATIVE_NO_OVERFLOW_4";
+        case SR_NOT_RELATIVE_NO_OVERFLOW_5:
+            return "NOT_RELATIVE_NO_OVERFLOW_5";
+        case SR_NOT_RELATIVE_NO_OVERFLOW_6:
+            return "NOT_RELATIVE_NO_OVERFLOW_6";
+        case SR_RELATIVE_RESOLUTION_0:
+            return "RELATIVE_RESOLUTION_0";
+        case SR_RELATIVE_RESOLUTION_1:
+            return "RELATIVE_RESOLUTION_1";
+        case SR_RELATIVE_RESOLUTION_2:
+            return "RELATIVE_RESOLUTION_2";
+        case SR_RELATIVE_RESOLUTION_3:
+            return "RELATIVE_RESOLUTION_3";
+        case SR_RELATIVE_RESOLUTION_4:
+            return "RELATIVE_RESOLUTION_4";
+        case SR_RELATIVE_RESOLUTION_5:
+            return "RELATIVE_RESOLUTION_5";
+        case SR_RELATIVE_RESOLUTION_6:
+            return "RELATIVE_RESOLUTION_6";
+        case SR_INDIRECT_GATING_0:
+            return "INDIRECT_GATING_0";
+        case SR_INDIRECT_GATING_1:
+            return "INDIRECT_GATING_1";
+        case SR_INDIRECT_GATING_2:
+            return "INDIRECT_GATING_2";
+        case SR_INDIRECT_GATING_3:
+            return "INDIRECT_GATING_3";
+        case SR_INDIRECT_GATING_4:
+            return "INDIRECT_GATING_4";
+        case SR_INDIRECT_GATING_5:
+            return "INDIRECT_GATING_5";
+        case SR_INDIRECT_GATING_6:
+            return "INDIRECT_GATING_6";
+        case SR_INDIRECT_PROPAGATION_0:
+            return "INDIRECT_PROPAGATION_0";
+        case SR_INDIRECT_PROPAGATION_1:
+            return "INDIRECT_PROPAGATION_1";
+        case SR_INDIRECT_PROPAGATION_2:
+            return "INDIRECT_PROPAGATION_2";
+        case SR_INDIRECT_PROPAGATION_3:
+            return "INDIRECT_PROPAGATION_3";
+        case SR_INDIRECT_PROPAGATION_4:
+            return "INDIRECT_PROPAGATION_4";
+        case SR_INDIRECT_PROPAGATION_5:
+            return "INDIRECT_PROPAGATION_5";
+        case SR_INDIRECT_PROPAGATION_6:
+            return "INDIRECT_PROPAGATION_6";
+        case SR_BATCHED_TAGS_DIFF_CHECK:
+            return "BATCHED_TAGS_DIFF_CHECK";
+        case SR_ADDRESSING_COLLECTION_INV_CHECK:
+            return "ADDRESSING_COLLECTION_INV_CHECK";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

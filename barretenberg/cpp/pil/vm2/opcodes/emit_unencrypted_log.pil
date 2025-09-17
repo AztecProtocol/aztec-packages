@@ -129,12 +129,11 @@ namespace emit_unencrypted_log;
     #[CHECK_LOG_SIZE_TOO_LARGE]
     start { log_size, max_log_size, error_too_large }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     // Memory bounds check
 
-    pol commit error_out_of_bounds;
-    error_out_of_bounds * (1 - error_out_of_bounds) = 0;
+    pol commit error_out_of_bounds; // Constrained to be boolean by the lookup into gt. (provided that start == 1).
 
     // TODO: Column needed until we support constants in lookups
     pol commit max_mem_addr;
@@ -146,7 +145,7 @@ namespace emit_unencrypted_log;
     #[CHECK_MEMORY_OUT_OF_BOUNDS]
     start { end_log_address, max_mem_addr, error_out_of_bounds }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     // Error out of bounds is propagated down to disable memory reads
     #[ERROR_OUT_OF_BOUNDS_CONSISTENCY]
@@ -154,8 +153,7 @@ namespace emit_unencrypted_log;
 
     // Log count check
 
-    pol commit error_too_many_logs;
-    error_too_many_logs * (1 - error_too_many_logs) = 0;
+    pol commit error_too_many_logs; // Constrained to be boolean by the lookup into gt. (provided that start == 1).
 
     // error_too_many_logs = prev_num_unencrypted_logs == MAX_PUBLIC_LOGS_PER_TX
     // If we are at max logs, we can't emit any more logs.

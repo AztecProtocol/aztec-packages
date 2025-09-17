@@ -47,25 +47,25 @@ template <typename FF> void MegaCircuitBuilder_<FF>::add_mega_gates_to_ensure_al
     add_public_calldata(this->add_variable(BusVector::DEFAULT_VALUE));    // add one entry in calldata
     auto raw_read_idx = static_cast<uint32_t>(get_calldata().size()) - 1; // read data that was just added
     auto read_idx = this->add_variable(raw_read_idx);
-    read_calldata(read_idx);
+    update_finalize_witnesses({ read_idx, read_calldata(read_idx) });
 
     // Create an arbitrary secondary_calldata read gate
     add_public_secondary_calldata(this->add_variable(BusVector::DEFAULT_VALUE)); // add one entry in secondary_calldata
     raw_read_idx = static_cast<uint32_t>(get_secondary_calldata().size()) - 1;   // read data that was just added
     read_idx = this->add_variable(raw_read_idx);
-    read_secondary_calldata(read_idx);
+    update_finalize_witnesses({ read_idx, read_secondary_calldata(read_idx) });
 
     // Create an arbitrary return data read gate
     add_public_return_data(this->add_variable(BusVector::DEFAULT_VALUE)); // add one entry in return data
     raw_read_idx = static_cast<uint32_t>(get_return_data().size()) - 1;   // read data that was just added
     read_idx = this->add_variable(raw_read_idx);
-    read_return_data(read_idx);
+    update_finalize_witnesses({ read_idx, read_return_data(read_idx) });
 
     if (op_queue->get_current_subtable_size() == 0) {
         // Add a mul dummy op in the subtable to avoid column polynomial being zero (it has to be a mul rather than an
         // add to ensure all 4 column polynomials contain some data)
-        this->queue_ecc_mul_accum(bb::g1::affine_element::one(), 2);
-        this->queue_ecc_eq();
+        this->queue_ecc_mul_accum(bb::g1::affine_element::one(), 2, /*in_finalize=*/true);
+        this->queue_ecc_eq(/*in_finalize=*/true);
     }
 }
 
@@ -107,32 +107,37 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_add_accum
  * @tparam FF
  * @param point
  * @param scalar The scalar by which point is multiplied prior to being accumulated
+ * @param in_finalize It's used in boomerang catcher to mark
+ * that all variables from some connected component were created after finalize method was called
  * @return ecc_op_tuple encoding the point and scalar inputs to the mul accum
  */
 template <typename FF>
-ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_mul_accum(const bb::g1::affine_element& point, const FF& scalar)
+ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_mul_accum(const bb::g1::affine_element& point,
+                                                          const FF& scalar,
+                                                          bool in_finalize)
 {
     // Add the operation to the op queue
     auto ultra_op = op_queue->mul_accumulate(point, scalar);
 
     // Add corresponding gates for the operation
-    ecc_op_tuple op_tuple = populate_ecc_op_wires(ultra_op);
+    ecc_op_tuple op_tuple = populate_ecc_op_wires(ultra_op, in_finalize);
     return op_tuple;
 }
 
 /**
  * @brief Add point equality operation to the op queue based on the value of the internal accumulator and add
  * corresponding gates
- *
+ * @param in_finalize It's used in boomerang catcher to mark
+ * that all variables from some connected component were created after finalize method was called
  * @return ecc_op_tuple encoding the point to which equality has been asserted
  */
-template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_eq()
+template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_eq(bool in_finalize)
 {
     // Add the operation to the op queue
     auto ultra_op = op_queue->eq_and_reset();
 
     // Add corresponding gates for the operation
-    ecc_op_tuple op_tuple = populate_ecc_op_wires(ultra_op);
+    ecc_op_tuple op_tuple = populate_ecc_op_wires(ultra_op, in_finalize);
     op_tuple.return_is_infinity = ultra_op.return_is_infinity;
     return op_tuple;
 }
@@ -156,9 +161,12 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_no_op()
  * @brief Add goblin ecc op gates for a single operation
  *
  * @param ultra_op Operation data expressed in the ultra format
+ * @param in_finalize It's used in boomerang catcher to mark
+ * that all variables from some connected component were created after finalize method was called
  * @note All selectors are set to 0 since the ecc op selector is derived later based on the block size/location.
  */
-template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wires(const UltraOp& ultra_op)
+template <typename FF>
+ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wires(const UltraOp& ultra_op, bool in_finalize)
 {
     ecc_op_tuple op_tuple;
     op_tuple.op = get_ecc_op_idx(ultra_op.op_code);
@@ -186,6 +194,13 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wir
     this->blocks.ecc_op.populate_wires(op_val_idx_2, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2);
     for (auto& selector : this->blocks.ecc_op.get_selectors()) {
         selector.emplace_back(0);
+    }
+
+    if (in_finalize) {
+        update_used_witnesses(
+            { op_tuple.op, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2 });
+        update_finalize_witnesses(
+            { op_tuple.op, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2 });
     }
 
     return op_tuple;

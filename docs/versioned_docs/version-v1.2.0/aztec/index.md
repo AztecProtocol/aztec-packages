@@ -84,7 +84,7 @@ Noir is a zero-knowledge domain specific language used for writing smart contrac
 ### Start coding
 
 <div>
- <Card shadow='tl' link='/developers/getting_started'>
+ <Card  link='/developers/getting_started'>
     <CardHeader>
       <h3>Developer Getting Started Guide</h3>
     </CardHeader>
@@ -100,7 +100,7 @@ Explore the Concepts for a deeper understanding into the components that make up
 
 <div className="card-container">
 
-  <Card shadow='tl' link='/aztec/concepts/accounts'>
+  <Card  link='/aztec/concepts/accounts'>
     <CardHeader>
       <h3>Accounts</h3>
     </CardHeader>
@@ -109,7 +109,7 @@ Explore the Concepts for a deeper understanding into the components that make up
     </CardBody>
   </Card>
 
-  <Card shadow='tl' link='/aztec/concepts/pxe'>
+  <Card  link='/aztec/concepts/pxe'>
     <CardHeader>
       <h3>PXE (pronounced 'pixie')</h3>
     </CardHeader>
@@ -118,7 +118,7 @@ Explore the Concepts for a deeper understanding into the components that make up
     </CardBody>
   </Card>
 
-   <Card shadow='tl' link='/aztec/concepts/storage/state_model'>
+   <Card  link='/aztec/concepts/storage/state_model'>
     <CardHeader>
       <h3>State model</h3>
     </CardHeader>
@@ -127,7 +127,7 @@ Explore the Concepts for a deeper understanding into the components that make up
     </CardBody>
   </Card>
 
-  <Card shadow='tl' link='/aztec/concepts/storage'>
+  <Card  link='/aztec/concepts/storage'>
     <CardHeader>
       <h3>Storage</h3>
     </CardHeader>
@@ -136,7 +136,7 @@ Explore the Concepts for a deeper understanding into the components that make up
     </CardBody>
   </Card>
 
-  <Card shadow='tl' link='/aztec/concepts/wallets'>
+  <Card  link='/aztec/concepts/wallets'>
     <CardHeader>
       <h3>Wallets</h3>
     </CardHeader>
@@ -145,7 +145,7 @@ Explore the Concepts for a deeper understanding into the components that make up
     </CardBody>
   </Card>
 
-  <Card shadow='tl' link='/aztec/concepts/advanced/circuits'>
+  <Card  link='/aztec/concepts/advanced/circuits'>
     <CardHeader>
       <h3>Protocol Circuits</h3>
     </CardHeader>
