@@ -6,7 +6,7 @@ For each sub-trace defined in a .pil file, one can optionally add so-called "ski
 
 ## Explanations
 
-A sub-trace contains a list of algebraic sub-relations/equations which must be satisfied. We do not consider lookups nor permutations in this discussion (they are not using the skippable condition).
+A sub-trace contains a list of algebraic sub-relations/equations which must be satisfied. We do not consider lookups nor permutations in this discussion (they are using the same skippable condition defined in interactions_base.hpp consisting in skipping when the inverse column entry is zero).
 
 A valid "skippable" condition is a condition defined on some columns which guarantee that the accumulation in sumcheck rounds will be zero for this sub-trace, i.e., any sub-relation contribution will be zero. This means that the sub-relation is satisfied (equal to zero) with columns values accumulated during sumcheck rounds.
 
@@ -45,7 +45,7 @@ b \cdot (1 - b) = 0
 $$
 
 Skippable condition $a == 0$.
-Strictly speaking, the skippable condition does not algebraically nullifies the second equation ($b$ is almost a free variable).
+Strictly speaking, the skippable condition does not algebraically nullify the second equation ($b$ is almost a free variable).
 However, if we know that our witness generator will always set $b = 0$ whenever $a == 0$, then we are fine. Namely, for every pair of contiguous rows with skippable condition being satisfied, the merged row will be skippable. For these two rows, we know that $b == 0$ and that the merged row entry will be zero as well. Therefore, contribution for the second sub-relation can be skipped.
 
 WARNING: If $a == 0$ would imply $b == 1$, this would not work even though $b == 1$ satisfy the second relation. Namely, after merging two rows, $b$ would be randomized and the second relation would not be satisfied but the merged $a$ value would be zero and wrongly satisfy the skippable condition.
