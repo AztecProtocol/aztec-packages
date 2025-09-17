@@ -127,7 +127,7 @@ jobs:
 
           RPC_INGRESS_ENABLED=true
           RPC_INGRESS_HOST=staging.alpha-testnet.aztec-labs.com
-          RPC_INGRESS_STATIC_IP_NAME=staging-rc-1-ingress
+          RPC_INGRESS_STATIC_IP_NAME=staging-public-rpc-ip
           RPC_INGRESS_SSL_CERT_NAME=staging-public-rpc-cert
 
           FLUSH_ENTRY_QUEUE=false
