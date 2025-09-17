@@ -8,6 +8,8 @@
 
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/claim_batcher.hpp"
+#include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -51,8 +53,8 @@ namespace bb {
 
 /**
  * @brief Prover output (evalutation pair, witness) that can be passed on to Shplonk batch opening.
- * @details Evaluation pairs {r, A₀₊(r)}, {-r, A₀₋(-r)}, {r^{2^j}, Aⱼ(r^{2^j)}, {-r^{2^j}, Aⱼ(-r^{2^j)}, j = [1, ...,
- * m-1] and witness (Fold) polynomials
+ * @details Evaluation pairs {r, A₀₊(r)}, {-r, A₀₋(-r)}, {r^{2^j}, Aⱼ(r^{2^j)}, {-r^{2^j}, Aⱼ(-r^{2^j)}, j = [1,
+ * ..., m-1] and witness (Fold) polynomials
  * [
  *   A₀₊(X) = F(X) + r⁻¹⋅G(X)
  *   A₀₋(X) = F(X) - r⁻¹⋅G(X)
@@ -108,17 +110,21 @@ template <typename Curve> class GeminiProver_ {
 
   public:
     /**
-     * @brief Class responsible for computation of the batched multilinear polynomials required by the Gemini protocol
-     * @details Opening multivariate polynomials using Gemini requires the computation of three batched polynomials. The
-     * first, here denoted A₀, is a linear combination of all polynomials to be opened. If we denote the linear
+     * @brief Class responsible for computation of the batched multilinear polynomials required by the Gemini
+     * protocol
+     * @details Opening multivariate polynomials using Gemini requires the computation of three batched polynomials.
+     * The first, here denoted A₀, is a linear combination of all polynomials to be opened. If we denote the linear
      * combinations (based on challenge rho) of the unshifted, to-be-shifted-by-1, and to-be-right-shifted-by-k
-     * polynomials by F, G, and H respectively, then A₀ = F + G/X + X^k*H. (Note: 'k' is assumed even and thus a factor
-     * (-1)^k in not needed for the evaluation at -r). This polynomial is "folded" in Gemini to produce d-1 univariate
-     * polynomials Fold_i, i = 1, ..., d-1. The second and third are the partially evaluated batched polynomials A₀₊ = F
-     * + G/r + r^K*H, and A₀₋ = F - G/r + r^K*H. These are required in order to prove the opening of shifted polynomials
-     * G_i/X, X^k*H_i and from the commitments to their unshifted counterparts G_i and H_i.
-     * @note TODO(https://github.com/AztecProtocol/barretenberg/issues/1223): There are certain operations herein that
-     * could be made more efficient by e.g. reusing already initialized polynomials, possibly at the expense of clarity.
+     * polynomials by F, G, and H respectively, then A₀ = F + G/X + X^k*H. (Note: 'k' is assumed even and thus a
+     * factor
+     * (-1)^k in not needed for the evaluation at -r). This polynomial is "folded" in Gemini to produce d-1
+     * univariate polynomials Fold_i, i = 1, ..., d-1. The second and third are the partially evaluated batched
+     * polynomials A₀₊ = F
+     * + G/r + r^K*H, and A₀₋ = F - G/r + r^K*H. These are required in order to prove the opening of shifted
+     * polynomials G_i/X, X^k*H_i and from the commitments to their unshifted counterparts G_i and H_i.
+     * @note TODO(https://github.com/AztecProtocol/barretenberg/issues/1223): There are certain operations herein
+     * that could be made more efficient by e.g. reusing already initialized polynomials, possibly at the expense of
+     * clarity.
      */
     class PolynomialBatcher {
 
@@ -194,6 +200,7 @@ template <typename Curve> class GeminiProver_ {
          */
         Polynomial compute_batched(const Fr& challenge, Fr& running_scalar)
         {
+            BB_BENCH_NAME("compute_batched");
             // lambda for batching polynomials; updates the running scalar in place
             auto batch = [&](Polynomial& batched, const RefVector<Polynomial>& polynomials_to_batch) {
                 for (auto& poly : polynomials_to_batch) {
@@ -234,13 +241,18 @@ template <typename Curve> class GeminiProver_ {
                 for (size_t i = 0; i < groups_to_be_interleaved[0].size(); ++i) {
                     batched_group.push_back(Polynomial(full_batched_size));
                 }
+
                 for (size_t i = 0; i < groups_to_be_interleaved.size(); ++i) {
                     batched_interleaved.add_scaled(interleaved[i], running_scalar);
-                    for (size_t j = 0; j < groups_to_be_interleaved[0].size(); ++j) {
-                        batched_group[j].add_scaled(groups_to_be_interleaved[i][j], running_scalar);
-                    }
+                    // Use parallel chunking for the batching operations
+                    parallel_for([this, running_scalar, i](const ThreadChunk& chunk) {
+                        for (size_t j = 0; j < groups_to_be_interleaved[0].size(); ++j) {
+                            batched_group[j].add_scaled_chunk(chunk, groups_to_be_interleaved[i][j], running_scalar);
+                        }
+                    });
                     running_scalar *= challenge;
                 }
+
                 full_batched += batched_interleaved;
             }
 
@@ -248,7 +260,8 @@ template <typename Curve> class GeminiProver_ {
         }
 
         /**
-         * @brief Compute partially evaluated batched polynomials A₀(X, r) = A₀₊ = F + G/r, A₀(X, -r) = A₀₋ = F - G/r
+         * @brief Compute partially evaluated batched polynomials A₀(X, r) = A₀₊ = F + G/r, A₀(X, -r) = A₀₋ = F -
+         * G/r
          * @details If the random polynomial is set, it is added to each batched polynomial for ZK
          *
          * @param r_challenge partial evaluation challenge
@@ -288,9 +301,9 @@ template <typename Curve> class GeminiProver_ {
          * @brief Compute the partially evaluated polynomials P₊(X, r) and P₋(X, -r)
          *
          * @details If the interleaved polynomials are set, the full partially evaluated identites A₀(r) and  A₀(-r)
-         * contain the contributions of P₊(r^s) and  P₋(r^s) respectively where s is the size of the interleaved group
-         * assumed even. This function computes P₊(X) = ∑ r^i Pᵢ(X) and P₋(X) = ∑ (-r)^i Pᵢ(X) where Pᵢ(X) is the i-th
-         * polynomial in the batched group.
+         * contain the contributions of P₊(r^s) and  P₋(r^s) respectively where s is the size of the interleaved
+         * group assumed even. This function computes P₊(X) = ∑ r^i Pᵢ(X) and P₋(X) = ∑ (-r)^i Pᵢ(X) where Pᵢ(X) is
+         * the i-th polynomial in the batched group.
          * @param r_challenge partial evaluation challenge
          * @return std::pair<Polynomial, Polynomial> {P₊, P₋}
          */
@@ -431,10 +444,8 @@ template <typename Curve> class GeminiVerifier_ {
 
             for (auto [group_commitments, interleaved_evaluation] : zip_view(
                      claim_batcher.get_interleaved().commitments_groups, claim_batcher.get_interleaved().evaluations)) {
-                // Compute the contribution from each group j of commitments Gⱼ = {C₀, C₁, C₂, C₃, ..., Cₛ₋₁} where s is
-                // assumed even
-                // C_P_pos += ∑ᵢ ρᵏ⁺ᵐ⁺ʲ⋅ rⁱ ⋅ Cᵢ
-                // C_P_neg += ∑ᵢ ρᵏ⁺ᵐ⁺ʲ⋅ (-r)ⁱ ⋅ Cᵢ
+                // Compute the contribution from each group j of commitments Gⱼ = {C₀, C₁, C₂, C₃, ..., Cₛ₋₁} where
+                // s is assumed even C_P_pos += ∑ᵢ ρᵏ⁺ᵐ⁺ʲ⋅ rⁱ ⋅ Cᵢ C_P_neg += ∑ᵢ ρᵏ⁺ᵐ⁺ʲ⋅ (-r)ⁱ ⋅ Cᵢ
                 for (size_t i = 0; i < interleaved_group_size; ++i) {
                     C_P_pos += group_commitments[i] * batching_scalar * r_shifts_pos[i];
                     C_P_neg += group_commitments[i] * batching_scalar * r_shifts_neg[i];
@@ -529,10 +540,11 @@ template <typename Curve> class GeminiVerifier_ {
      * Recall that \f$ A_0(r) = \sum \rho^i \cdot f_i + \frac{1}{r} \cdot \sum \rho^{i+k} g_i \f$, where \f$
      * k \f$ is the number of "unshifted" commitments.
      *
-     * @details Initialize `a_pos` = \f$ A_{d}(r) \f$ with the batched evaluation \f$ \sum \rho^i f_i(\vec{u}) + \sum
+     * @details Initialize `a_pos` = \f$ A_{d}(r) \f$ with the batched evaluation \f$ \sum \rho^i f_i(\vec{u}) +
+     * \sum
      * \rho^{i+k} g_i(\vec{u}) \f$. The verifier recovers \f$ A_{l-1}(r^{2^{l-1}}) \f$ from the "negative" value \f$
-     * A_{l-1}\left(-r^{2^{l-1}}\right) \f$ received from the prover and the value \f$ A_{l}\left(r^{2^{l}}\right) \f$
-     * computed at the previous step. Namely, the verifier computes
+     * A_{l-1}\left(-r^{2^{l-1}}\right) \f$ received from the prover and the value \f$ A_{l}\left(r^{2^{l}}\right)
+     * \f$ computed at the previous step. Namely, the verifier computes
      * \f{align}{ A_{l-1}\left(r^{2^{l-1}}\right) =
      * \frac{2 \cdot r^{2^{l-1}} \cdot A_{l}\left(r^{2^l}\right) - A_{l-1}\left( -r^{2^{l-1}} \right)\cdot
      * \left(r^{2^{l-1}} (1-u_{l-1}) - u_{l-1}\right)} {r^{2^{l-1}} (1- u_{l-1}) + u_{l-1}}. \f}
@@ -541,9 +553,9 @@ template <typename Curve> class GeminiVerifier_ {
      * P_{-}(-r^s)\f$, where \f$ s \f$ is the size of the group to be interleaved.
      *
      * This method uses `padding_indicator_array`, whose i-th entry is FF{1} if i < log_n and 0 otherwise.
-     * We use these entries to either assign `eval_pos_prev` the value `eval_pos` computed in the current iteration of
-     * the loop, or to propagate the batched evaluation of the multilinear polynomials to the next iteration. This
-     * ensures the correctnes of the computation of the required positive evaluations.
+     * We use these entries to either assign `eval_pos_prev` the value `eval_pos` computed in the current iteration
+     * of the loop, or to propagate the batched evaluation of the multilinear polynomials to the next iteration.
+     * This ensures the correctnes of the computation of the required positive evaluations.
      *
      * To ensure that dummy evaluations cannot be used to tamper with the final batch_mul result, we multiply dummy
      * positive evaluations by the entries of `padding_indicator_array`.
