@@ -1263,39 +1263,6 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
 /**
  * @brief Splits the field element into (lo, hi), where:
  * - lo contains bits [0, lsb_index)
- * - hi contains bits [lsb_index, max_bits)
- *
- */
-template <typename Builder>
-std::pair<field_t<Builder>, field_t<Builder>> field_t<Builder>::split_at(const size_t lsb_index) const
-{
-    static constexpr size_t max_bits = native::modulus.get_msb() + 1;
-    ASSERT(lsb_index < max_bits);
-
-    const uint256_t value(this->get_value());
-    const uint256_t lo_val = value.slice(0, lsb_index);
-    const uint256_t hi_val = value.slice(lsb_index, max_bits);
-
-    // If `this` is constant, return constants based on the native hi/lo values
-    if (this->is_constant()) {
-        return { field_t(lo_val), field_t(hi_val) };
-    }
-
-    // Otherwise, create hi/lo witnesses and constrain them to reconstruct `this` in the field
-    field_t lo = from_witness(get_context(), lo_val);
-    field_t hi = from_witness(get_context(), hi_val);
-    const uint256_t shift = uint256_t(1) << lsb_index;
-    (lo + (hi * shift)).assert_equal(*this);
-
-    // Set the origin tag for the limbs to be that of the original field element
-    lo.set_origin_tag(get_origin_tag());
-    hi.set_origin_tag(get_origin_tag());
-    return { lo, hi };
-}
-
-/**
- * @brief Splits the field element into (lo, hi), where:
- * - lo contains bits [0, lsb_index)
  * - hi contains bits [lsb_index, num_bits)
  * @details Max bits is specified as an argument, and must be <= grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH (to ensure no
  * modular wrap).

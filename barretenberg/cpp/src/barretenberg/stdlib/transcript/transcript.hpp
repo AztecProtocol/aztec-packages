@@ -10,6 +10,7 @@
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
+#include "barretenberg/stdlib/primitives/field/field_utils.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 namespace bb::stdlib::recursion::honk {
@@ -26,20 +27,17 @@ template <typename Builder> struct StdlibTranscriptParams {
     }
     /**
      * @brief Split a challenge field element into two half-width challenges
-     * @details `lo` is 128 bits and `hi` is 126 bits.
-     * This should provide significantly more than our security parameter bound: 100 bits
+     * @details `lo` is 128 bits and `hi` is 126 bits which should provide significantly more than our security
+     * parameter bound: 100 bits. The decomposition is constrained to be unique.
      *
      * @param challenge
      * @return std::array<DataType, 2>
      */
     static inline std::array<DataType, 2> split_challenge(const DataType& challenge)
     {
-        // Note: Current choice of bit splitting is somewhat arbitrary and based on historic use of cycle_scalar.
-        const size_t lo_bits = 128;
-        const size_t hi_bits = 126;
-        const auto [lo, hi] = challenge.split_at(lo_bits);
-        lo.create_range_constraint(lo_bits);
-        hi.create_range_constraint(hi_bits);
+        const size_t lo_bits = DataType::native::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
+        // Constuct a unique lo/hi decomposition of the challenge (hi_bits will be 254 - 128 = 126)
+        const auto [lo, hi] = split_unique(challenge, lo_bits);
         return std::array<DataType, 2>{ lo, hi };
     }
     template <typename T> static inline T convert_challenge(const DataType& challenge)

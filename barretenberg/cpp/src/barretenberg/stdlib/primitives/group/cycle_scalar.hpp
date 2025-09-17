@@ -38,7 +38,7 @@ template <typename Builder> class cycle_scalar {
     using ScalarField = typename Curve::ScalarField;
     using BigScalarField = stdlib::bigfield<Builder, typename ScalarField::Params>;
 
-    static constexpr size_t NUM_BITS = ScalarField::modulus.get_msb() + 1;
+    static constexpr size_t NUM_BITS = ScalarField::modulus.get_msb() + 1; // equivalent for both bn254 and grumpkin
     static constexpr size_t LO_BITS = field_t::native::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
     static constexpr size_t HI_BITS = NUM_BITS - LO_BITS;
 
@@ -92,9 +92,14 @@ template <typename Builder> class cycle_scalar {
     {
         return _use_bn254_scalar_field_for_primality_test;
     }
-    void validate_scalar_is_in_field() const;
 
+    /**
+     * @brief Validates that the scalar (lo + hi * 2^LO_BITS) is less than the appropriate field modulus
+     * @details Checks against either bn254 scalar field or grumpkin scalar field based on internal flags
+     */
+    void validate_scalar_is_in_field() const;
     explicit cycle_scalar(BigScalarField&);
+
     /**
      * @brief Get the origin tag of the cycle_scalar (a merge of the lo and hi tags)
      *

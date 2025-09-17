@@ -8,6 +8,7 @@
 #include "./cycle_group.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
+#include "barretenberg/stdlib/primitives/field/field_utils.hpp"
 
 namespace bb::stdlib {
 
@@ -69,9 +70,14 @@ cycle_scalar<Builder> cycle_scalar<Builder>::from_u256_witness(Builder* context,
  */
 template <typename Builder> cycle_scalar<Builder> cycle_scalar<Builder>::create_from_bn254_scalar(const field_t& in)
 {
-    auto [lo, hi] = in.split_at(LO_BITS);
+    // Use split_unique with skip_range_constraints=true since the range constraints are implicit
+    // in the lookup arguments used in scalar multiplication and thus do not need to be applied here.
+    auto [lo, hi] = split_unique(in, LO_BITS, /*skip_range_constraints=*/true);
+    // AUDITTODO: we skip the primality test in the constructor here since its done in split_unique. Eventually
+    // the skip_primality_test logic will be removed entirely and constraints will always be applied immediately on
+    // construction.
     return cycle_scalar{
-        lo, hi, NUM_BITS, /*skip_primality_test=*/false, /*use_bn254_scalar_field_for_primality_test=*/true
+        lo, hi, NUM_BITS, /*skip_primality_test=*/true, /*use_bn254_scalar_field_for_primality_test=*/true
     };
 }
 
@@ -145,7 +151,7 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& 
             const uint64_t hi_bits = hi_max.get_msb() + 1;
             lo.create_range_constraint(BigScalarField::NUM_LIMB_BITS);
             hi.create_range_constraint(static_cast<size_t>(hi_bits));
-            limb0.assert_equal(lo + hi * BigScalarField::shift_1);
+            limb0.assert_equal(lo + (hi * BigScalarField::shift_1));
 
             limb1 += hi;
             limb1_max += hi_max;
@@ -177,7 +183,7 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& 
         // We need to propagate the origin tag to the chunks of limb1
         limb_1_lo.set_origin_tag(limb1.get_origin_tag());
         limb_1_hi.set_origin_tag(limb1.get_origin_tag());
-        limb1.assert_equal(limb_1_hi * limb_1_hi_multiplicand + limb_1_lo);
+        limb1.assert_equal((limb_1_hi * limb_1_hi_multiplicand) + limb_1_lo);
 
         // Step 4: apply range constraints to validate both slices represent the expected contributions to *this.lo and
         // *this,hi
@@ -207,50 +213,20 @@ template <typename Builder> bool cycle_scalar<Builder>::is_constant() const
 }
 
 /**
- * @brief Checks that a cycle_scalar value is smaller than a prime field modulus when evaluated over the INTEGERS
- * N.B. The prime we check can be either the SNARK curve group order or the circuit's embedded curve group order
- * (i.e. BN254 or Grumpkin)
- * For a canonical scalar mul, we check against the embedded curve (i.e. the curve
- * cycle_group implements).
- * HOWEVER: for Pedersen hashes and Pedersen commitments, the hashed/committed data will be
- * native circuit field elements i.e. for a BN254 snark, cycle_group = Grumpkin and we will be committing/hashing
- * BN254::ScalarField values *NOT* Grumpkin::ScalarFIeld values.
- * TLDR: whether the input scalar has to be < BN254::ScalarField or < Grumpkin::ScalarField is context-dependent.
+ * @brief Validates that the scalar (lo + hi * 2^LO_BITS) is less than the appropriate field modulus
+ * @details Checks against either bn254 scalar field or grumpkin scalar field based on internal flags.
+ *          If _skip_primality_test is true, no validation is performed.
+ * @note: Implies (lo + hi * 2^LO_BITS) < field_modulus as integers when combined with appropriate range constraints on
+ * lo and hi.
  *
  * @tparam Builder
  */
 template <typename Builder> void cycle_scalar<Builder>::validate_scalar_is_in_field() const
 {
-    using FF = typename field_t::native;
-    constexpr bool IS_ULTRA = Builder::CIRCUIT_TYPE == CircuitType::ULTRA;
-
-    // AUDITTODO: Investigate using field_t::split_at here per Sergei's suggestion
-    if (!is_constant() && !skip_primality_test()) {
-        // Check that scalar.hi * 2^LO_BITS + scalar.lo < cycle_group_modulus when evaluated over the integers
-        const uint256_t cycle_group_modulus =
-            use_bn254_scalar_field_for_primality_test() ? FF::modulus : ScalarField::modulus;
-        const auto [r_lo, r_hi] = decompose_into_lo_hi(cycle_group_modulus);
-
-        bool need_borrow = uint256_t(lo.get_value()) > r_lo;
-        field_t borrow = lo.is_constant() ? need_borrow : field_t::from_witness(get_context(), need_borrow);
-
-        // directly call `create_new_range_constraint` to avoid creating an arithmetic gate
-        if (!lo.is_constant()) {
-            // We need to manually propagate the origin tag
-            borrow.set_origin_tag(lo.get_origin_tag());
-            if constexpr (IS_ULTRA) {
-                get_context()->create_new_range_constraint(borrow.get_witness_index(), 1, "borrow");
-            } else {
-                borrow.assert_equal(borrow * borrow);
-            }
-        }
-        // Hi range check = r_hi - y_hi - borrow
-        // Lo range check = r_lo - y_lo + borrow * 2^{126}
-        field_t hi_diff = (-hi + r_hi) - borrow;
-        field_t lo_diff = (-lo + r_lo) + (borrow * (uint256_t(1) << LO_BITS));
-
-        hi_diff.create_range_constraint(HI_BITS);
-        lo_diff.create_range_constraint(LO_BITS);
+    if (!_skip_primality_test) {
+        const uint256_t& field_modulus =
+            _use_bn254_scalar_field_for_primality_test ? field_t::native::modulus : ScalarField::modulus;
+        validate_split_in_field(lo, hi, LO_BITS, field_modulus);
     }
 }
 
