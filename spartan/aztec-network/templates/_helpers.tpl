@@ -104,7 +104,7 @@ Service Address Setup Container
 */}}
 {{- define "aztec-network.serviceAddressSetupContainer" -}}
 - name: setup-service-addresses
-  image: bitnami/kubectl
+  image: rancher/kubectl:v1.34.1
   command:
     - /bin/bash
     - -c
@@ -306,7 +306,7 @@ Combined P2P, and Service Address Setup Container
 {{- define "aztec-network.combinedAllSetupContainer" -}}
 {{- $serviceName := base $.Template.Name | trimSuffix ".yaml" -}}
 - name: setup-all
-  image: bitnami/kubectl
+  image: rancher/kubectl:v1.34.1
   command:
     - /bin/bash
     - -c
