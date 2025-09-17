@@ -58,7 +58,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     // TODO(#15892): Fiat-Shamir the vk hash by uncommenting the line below.
     FF vk_hash = key->hash();
     // transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
-    info("AVM vk hash in verifier: ", vk_hash);
+    vinfo("AVM vk hash in verifier: ", vk_hash);
 
     // Check public inputs size.
     if (public_inputs.size() != AVM_NUM_PUBLIC_INPUT_COLUMNS) {

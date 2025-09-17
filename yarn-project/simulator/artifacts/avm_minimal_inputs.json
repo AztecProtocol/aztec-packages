@@ -896,6 +896,7 @@
       "feeRecipient": "0x0000000000000000000000000000000000000000000000000000000000000000",
       "gasFees": { "feePerDaGas": "2", "feePerL2Gas": "3" }
     },
+    "protocolContractTreeRoot": "0x0dcca15f6b97b59e13712bd9e5a6a2e7fe2349ebb82b5a82a4ae554358bac73a",
     "startTreeSnapshots": {
       "l1ToL2MessageTree": {
         "root": "0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6",

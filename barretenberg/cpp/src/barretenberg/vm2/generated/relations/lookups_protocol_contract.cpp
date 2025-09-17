@@ -25,6 +25,7 @@
 
 namespace bb::avm2 {
 
+INSTANTIATE_LOOKUP(lookup_protocol_contract_public_input_protocol_contract_root_relation);
 INSTANTIATE_LOOKUP(lookup_protocol_contract_leaf_hash_relation);
 INSTANTIATE_LOOKUP(lookup_protocol_contract_merkle_check_relation);
 

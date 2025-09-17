@@ -20,6 +20,7 @@ void ProtocolContractTraceBuilder::process(
                       { C::protocol_contract_derived_address, event.derived_address },
                       { C::protocol_contract_next_derived_address, event.next_derived_address },
                       { C::protocol_contract_leaf_hash, event.leaf_hash },
+                      { C::protocol_contract_pi_index, AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACT_TREE_ROOT },
                       { C::protocol_contract_root, event.protocol_contract_tree_root },
                       { C::protocol_contract_tree_depth, PROTOCOL_CONTRACT_TREE_HEIGHT } } });
 
@@ -30,6 +31,8 @@ void ProtocolContractTraceBuilder::process(
 const InteractionDefinition ProtocolContractTraceBuilder::interactions =
     InteractionDefinition()
         .add<lookup_protocol_contract_merkle_check_settings, InteractionType::LookupGeneric>()
-        .add<lookup_protocol_contract_leaf_hash_settings, InteractionType::LookupGeneric>();
+        .add<lookup_protocol_contract_leaf_hash_settings, InteractionType::LookupGeneric>()
+        .add<lookup_protocol_contract_public_input_protocol_contract_root_settings,
+             InteractionType::LookupIntoIndexedByClk>();
 
 } // namespace bb::avm2::tracegen

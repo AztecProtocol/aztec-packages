@@ -28,6 +28,7 @@ struct PublicInputs {
     ///////////////////////////////////
     // Inputs
     GlobalVariables globalVariables;
+    FF protocolContractTreeRoot;
     TreeSnapshots startTreeSnapshots;
     Gas startGasUsed;
     GasSettings gasSettings;
@@ -86,6 +87,7 @@ struct PublicInputs {
     bool operator==(const PublicInputs& other) const = default;
 
     MSGPACK_FIELDS(globalVariables,
+                   protocolContractTreeRoot,
                    startTreeSnapshots,
                    startGasUsed,
                    gasSettings,

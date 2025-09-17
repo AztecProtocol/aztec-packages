@@ -60,6 +60,7 @@ use crate::{
         AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX,
         AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
         AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACT_TREE_ROOT,
         AVM_PUBLIC_INPUTS_PUBLIC_APP_LOGIC_CALL_REQUESTS_ROW_IDX,
         AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_APP_LOGIC_CALLS_ROW_IDX,
         AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX,
@@ -86,6 +87,7 @@ pub struct AvmCircuitPublicInputs {
     ///////////////////////////////////
     // Inputs.
     pub global_variables: GlobalVariables,
+    pub protocol_contract_tree_root: Field,
     pub start_tree_snapshots: TreeSnapshots,
     pub start_gas_used: Gas,
     pub gas_settings: GasSettings,
@@ -114,6 +116,7 @@ impl Empty for AvmCircuitPublicInputs {
     fn empty() -> Self {
         AvmCircuitPublicInputs {
             global_variables: GlobalVariables::empty(),
+            protocol_contract_tree_root: 0,
             start_tree_snapshots: TreeSnapshots::empty(),
             start_gas_used: Gas::empty(),
             gas_settings: GasSettings::empty(),
@@ -271,6 +274,9 @@ impl AvmCircuitPublicInputs {
             &mut cols,
             AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX,
         );
+
+        // Protocol Contract Tree Root
+        cols[0][AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACT_TREE_ROOT] = self.protocol_contract_tree_root;
 
         // Start tree snapshots
         set_snapshot_in_cols(
