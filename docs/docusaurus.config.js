@@ -52,7 +52,7 @@ const config = {
       /** @type {import('@docusaurus/preset-classic').Options} */
       {
         docs: {
-          path: "processed-docs",
+          path: process.env.ENV === "dev" ? "docs" : "processed-docs",
           sidebarPath: "./sidebars.js",
           editUrl: (params) => {
             return (
@@ -70,7 +70,7 @@ const config = {
           lastVersion: versions[1],
           versions: {
             [versions[0]]: {
-              path: "nightly",
+              ...(versions[0].includes("nightly") && { path: "nightly" }),
             },
             ...(process.env.ENV === "dev" && {
               current: {
@@ -300,7 +300,7 @@ const config = {
                 to: "/",
               },
               {
-                label: "Developer Getting Started Guide",
+                label: "Developer Getting Started",
                 to: "/developers/getting_started",
               },
               {

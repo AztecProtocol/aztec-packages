@@ -30,6 +30,7 @@ include "../gt.pil";
 // This is a virtual gadget, which is part of the execution trace.
 namespace execution;
 
+// We skip if sel_bytecode_retrieval_success == 0 or sel_instruction_fetching_success == 0.
 #[skippable_if]
 SEL_SHOULD_RESOLVE_ADDRESS = 0;
 

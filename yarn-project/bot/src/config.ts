@@ -154,7 +154,7 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   l1ToL2MessageTimeoutSeconds: {
     env: 'BOT_L1_TO_L2_TIMEOUT_SECONDS',
     description: 'How long to wait for L1 to L2 messages to become available on L2',
-    ...numberConfigHelper(60),
+    ...numberConfigHelper(3600),
   },
   senderPrivateKey: {
     env: 'BOT_PRIVATE_KEY',

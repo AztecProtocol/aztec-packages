@@ -7,13 +7,14 @@ use crate::context::{PrivateContext, UtilityContext};
 use crate::note::{
     lifecycle::{create_note, destroy_note_unsafe},
     note_emission::NoteEmission,
-    note_getter::{get_note, view_notes},
+    note_getter::{get_note, view_note},
     note_interface::{NoteHash, NoteType},
-    note_viewer_options::NoteViewerOptions,
 };
 use crate::note::retrieved_note::RetrievedNote;
 use crate::oracle::notes::check_nullifier_exists;
 use crate::state_vars::storage::HasStorageSlot;
+
+mod test;
 
 /// # PrivateMutable
 ///
@@ -107,8 +108,6 @@ pub struct PrivateMutable<Note, Context> {
     storage_slot: Field,
 }
 // docs:end:struct
-
-mod test;
 
 // Private storage slots are not really 'slots' but rather a value in the note hash preimage, so there is no notion of a
 // value spilling over multiple slots. For this reason PrivateMutable (and all other private state variables) needs just
@@ -254,8 +253,8 @@ where
     /// Reads the current note of a PrivateMutable state variable, nullifies it,
     /// and inserts a new note produced by a user-provided function.
     ///
-    /// This function implements a "read-and-replace" pattern for updating private state in Aztec.
-    /// It first retrieves the current note, then nullifies it (marking it as spent),
+    /// This function implements a "read-and-replace" pattern for updating private state
+    /// in Aztec. It first retrieves the current note, then nullifies it (marking it as spent),
     /// and finally inserts a `new_note` produced by the user-provided function `f`.
     ///
     /// This is conceptually similar to updating a variable in Ethereum smart contracts,
@@ -264,12 +263,13 @@ where
     ///
     /// This function can only be called after the PrivateMutable has been initialized.
     /// If called on an uninitialized PrivateMutable, it will fail because there is
-    /// no current note to replace.
+    /// no current note to replace. If you don't know if the state variable has been
+    /// initialized already, you can use `initialize_or_replace` to handle both cases.
     ///
     /// ## Arguments
     ///
-    /// * `f` - A function that takes the current `Note` and returns a new `Note`.
-    ///         This allows you to transform the current note before it is reinserted.
+    /// * `f` - A function that takes the current `Note` and returns a new `Note` that
+    ///         will replace it and become the "current value".
     ///
     /// ## Returns
     ///
@@ -323,8 +323,10 @@ where
     ///
     /// ## Arguments
     ///
-    /// * `init_note`    - The note to use if the PrivateMutable is uninitialized.
-    /// * `transform_fn` - A function that takes the current `Note` and returns a new `Note` to replace it.
+    /// * `f` - A function that takes an `Option` with the current `Note` and returns the `Note` to insert. This allows
+    ///         you to transform the current note before it is reinserted. The `Option` is `none` if the state variable
+    ///         was not initialized.
+    ///
     ///
     /// ## Returns
     ///
@@ -334,11 +336,7 @@ where
     ///                          the note, or `.discard()` to skip emission.
     ///                          See NoteEmission documentation for more details.
     ///
-    pub fn initialize_or_replace<Env>(
-        self,
-        init_note: Note,
-        transform_fn: fn[Env](Note) -> Note,
-    ) -> NoteEmission<Note>
+    pub fn initialize_or_replace<Env>(self, f: fn[Env](Option<Note>) -> Note) -> NoteEmission<Note>
     where
         Note: Packable,
     {
@@ -357,9 +355,9 @@ where
             unsafe { check_nullifier_exists(self.compute_initialization_nullifier()) };
 
         if !is_initialized {
-            self.initialize(init_note)
+            self.initialize(f(Option::none()))
         } else {
-            self.replace(transform_fn)
+            self.replace(|note| f(Option::some(note)))
         }
     }
 
@@ -465,8 +463,7 @@ where
     where
         Note: Packable,
     {
-        let mut options = NoteViewerOptions::<Note, <Note as Packable>::N>::new();
-        view_notes(self.storage_slot, options.set_limit(1)).get(0)
+        view_note(self.storage_slot).note
     }
     // docs:end:view_note
 }

@@ -1,0 +1,133 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-derive-accounts
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    spec:
+      serviceAccountName: {{ include "aztec-keystore.serviceAccountName" . }}
+      restartPolicy: OnFailure
+      volumes:
+        - name: shared
+          emptyDir: {}
+        {{- if .Values.mnemonic.fromSecret.name }}
+        - name: mnemonic
+          secret:
+            secretName: {{ .Values.mnemonic.fromSecret.name }}
+            items:
+              - key: {{ .Values.mnemonic.fromSecret.key | default "mnemonic" }}
+                path: mnemonic
+        {{- end }}
+      initContainers:
+        - name: derive
+          image: {{ printf "%s:%s" .Values.global.aztecImage.repository .Values.global.aztecImage.tag }}
+          imagePullPolicy: {{ .Values.global.aztecImage.pullPolicy }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              NODES="{{ .Values.attesters.nodeCount }}"
+              ATTESTERS_PER_NODE="{{ .Values.attesters.attestersPerNode }}"
+              PUBLISHERS_PER_VALIDATOR_KEY="{{ .Values.publishers.perValidatorKey }}"
+              ATTESTER_KEY_INDEX_START="{{ .Values.attesters.mnemonicStartIndex }}"
+              PUBLISHER_KEY_INDEX_START="{{ .Values.publishers.mnemonicStartIndex }}"
+
+              {{- if .Values.mnemonic.fromSecret.name }}
+              MNEMONIC="/mnemonic/mnemonic"
+              {{- else }}
+              MNEMONIC="{{ .Values.mnemonic.value }}"
+              {{- end }}
+
+              for ((i=0;i<NODES;i++)); do
+                KS_FILE=/shared/attesters/keystores/node_$i.yaml
+                ADDR_FILE=/shared/attesters/addresses/node_$i
+                PUB_KS_FILE=/shared/publishers/keystores/node_$i.yaml
+                PUB_ADDR_FILE=/shared/publishers/addresses/node_$i
+
+                mkdir -p $(dirname $KS_FILE) $(dirname $ADDR_FILE) $(dirname $PUB_KS_FILE) $(dirname $PUB_ADDR_FILE)
+
+                truncate -s 0 "$ADDR_FILE"
+                truncate -s 0 "$KS_FILE"
+                truncate -s 0 "$PUB_ADDR_FILE"
+                truncate -s 0 "$PUB_KS_FILE"
+
+                for ((j=0;j<ATTESTERS_PER_NODE;j++)); do
+                  idx=$((ATTESTER_KEY_INDEX_START + ATTESTERS_PER_NODE * i + j))
+                  pk="$(cast wallet private-key --mnemonic "$MNEMONIC" --mnemonic-index "$idx")"
+                  addr="$(cast wallet address --private-key $pk)"
+
+                  [[ $j -gt 0 ]] && echo '---' >> "$KS_FILE"
+                  printf 'type: file-raw\nkeyType: SECP256K1\nprivateKey: %s\n' "$pk" >> "$KS_FILE"
+
+                  [[ $j -gt 0 ]] && printf ',' >> "$ADDR_FILE"
+                  printf '%s' "$addr" >> "$ADDR_FILE"
+                done
+
+                # Publishers: start index per node, then pack by validator j and publisher p
+                pub_base=$((PUBLISHER_KEY_INDEX_START + i * ATTESTERS_PER_NODE * PUBLISHERS_PER_VALIDATOR_KEY))
+                for ((j=0;j<ATTESTERS_PER_NODE;j++)); do
+                  for ((p=0;p<PUBLISHERS_PER_VALIDATOR_KEY;p++)); do
+                    pub_idx=$((pub_base + j * PUBLISHERS_PER_VALIDATOR_KEY + p))
+                    ppk="$(cast wallet private-key --mnemonic "$MNEMONIC" --mnemonic-index "$pub_idx")"
+                    paddr="$(cast wallet address --private-key $ppk)"
+
+                    # write keystore file-separated entries
+                    [[ $j -gt 0 || $p -gt 0 ]] && echo '---' >> "$PUB_KS_FILE"
+                    printf 'type: file-raw\nkeyType: SECP256K1\nprivateKey: %s\n' "$ppk" >> "$PUB_KS_FILE"
+
+                    # write addresses CSV per node
+                    if [[ $j -gt 0 || $p -gt 0 ]]; then printf ',' >> "$PUB_ADDR_FILE"; fi
+                    printf '%s' "$paddr" >> "$PUB_ADDR_FILE"
+                  done
+                done
+
+                echo "Generated config for attesters on node $i"
+              done
+          volumeMounts:
+            - name: shared
+              mountPath: /shared
+            {{- if .Values.mnemonic.fromSecret.name }}
+            - name: mnemonic
+              mountPath: /mnemonic
+            {{- end }}
+      containers:
+        - name: publish
+          image: {{ printf "%s:%s" .Values.global.kubectlImage.repository .Values.global.kubectlImage.tag }}
+          imagePullPolicy: {{ .Values.global.kubectlImage.pullPolicy }}
+          env:
+            - name: K8S_NAMESPACE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+
+              ATTESTER_KEYSTORE_SECRET_NAME="{{ .Values.attesters.keyStoreSecret.name | default (printf "%s-%s" .Release.Name "attester-keystores") }}"
+
+              kubectl -n "$K8S_NAMESPACE_NAME" create secret generic "$ATTESTER_KEYSTORE_SECRET_NAME" \
+                --from-file /shared/attesters/keystores \
+                --dry-run=client -o yaml | kubectl apply -f -
+
+              ATTESTER_ADDRESS_CM_NAME="{{ .Values.attesters.addressConfigMap.name | default (printf "%s-%s" .Release.Name "attester-addresses") }}"
+              PUBLISHER_KEYSTORE_SECRET_NAME="{{ .Values.publishers.keyStoreSecret.name | default (printf "%s-%s" .Release.Name "publisher-keystores") }}"
+              kubectl -n "$K8S_NAMESPACE_NAME" create secret generic "$PUBLISHER_KEYSTORE_SECRET_NAME" \
+                --from-file /shared/publishers/keystores \
+                --dry-run=client -o yaml | kubectl apply -f -
+
+              PUBLISHER_ADDRESS_CM_NAME="{{ .Values.publishers.addressConfigMap.name | default (printf "%s-%s" .Release.Name "publisher-addresses") }}"
+              kubectl -n "$K8S_NAMESPACE_NAME" create configmap "$PUBLISHER_ADDRESS_CM_NAME" \
+                --from-file /shared/publishers/addresses \
+                --dry-run=client -o yaml | kubectl apply -f -
+              kubectl -n "$K8S_NAMESPACE_NAME" create configmap "$ATTESTER_ADDRESS_CM_NAME" \
+                --from-file /shared/attesters/addresses \
+                --dry-run=client -o yaml | kubectl apply -f -
+          volumeMounts:
+            - name: shared
+              mountPath: /shared

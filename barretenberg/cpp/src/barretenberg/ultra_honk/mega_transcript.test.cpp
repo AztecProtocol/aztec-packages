@@ -4,7 +4,7 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "barretenberg/ultra_honk/decider_proving_key.hpp"
+#include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -18,7 +18,7 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
   public:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
     using FF = Flavor::FF;
     /**
      * @brief Construct a manifest for a Mega Honk proof
@@ -186,7 +186,7 @@ TYPED_TEST_SUITE(MegaTranscriptTests, FlavorTypes);
 TYPED_TEST(MegaTranscriptTests, ProverManifestConsistency)
 {
     using Flavor = TypeParam;
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
 
     using Prover = UltraProver_<Flavor>;
     // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
@@ -194,9 +194,9 @@ TYPED_TEST(MegaTranscriptTests, ProverManifestConsistency)
     TestFixture::generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest by constructing a proof
-    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
-    Prover prover(proving_key, verification_key);
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(prover_instance->get_precomputed());
+    Prover prover(prover_instance, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
@@ -225,7 +225,7 @@ TYPED_TEST(MegaTranscriptTests, ProverManifestConsistency)
 TYPED_TEST(MegaTranscriptTests, VerifierManifestConsistency)
 {
     using Flavor = TypeParam;
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
@@ -235,9 +235,9 @@ TYPED_TEST(MegaTranscriptTests, VerifierManifestConsistency)
     TestFixture::generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
-    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
-    Prover prover(proving_key, verification_key);
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+    Prover prover(prover_instance, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
@@ -292,7 +292,7 @@ TYPED_TEST(MegaTranscriptTests, ChallengeGenerationTest)
 TYPED_TEST(MegaTranscriptTests, StructureTest)
 {
     using Flavor = TypeParam;
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
     using FF = Flavor::FF;
     using Commitment = typename Flavor::Commitment;
@@ -309,10 +309,10 @@ TYPED_TEST(MegaTranscriptTests, StructureTest)
         this->generate_test_circuit(builder);
 
         // Automatically generate a transcript manifest by constructing a proof
-        auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-        Prover prover(proving_key);
+        auto prover_instance = std::make_shared<ProverInstance>(builder);
+        Prover prover(prover_instance);
         auto proof = prover.construct_proof();
-        auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
+        auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
         Verifier verifier(verification_key);
         EXPECT_TRUE(verifier.verify_proof(proof));
 
