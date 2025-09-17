@@ -74,7 +74,6 @@ export const DefaultL1ContractsConfig = {
   aztecProofSubmissionEpochs: 1, // you have a full epoch to submit a proof after the epoch to prove ends
   activationThreshold: 100n * 10n ** 18n,
   ejectionThreshold: 50n * 10n ** 18n,
-  localEjectionThreshold: 98n * 10n ** 18n,
   slashAmountSmall: 10n * 10n ** 18n,
   slashAmountMedium: 20n * 10n ** 18n,
   slashAmountLarge: 50n * 10n ** 18n,

@@ -96,8 +96,6 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   aztecEpochDuration: 32,
   /** The target validator committee size. */
   aztecTargetCommitteeSize: 24,
-  /** The number of epochs to lag behind the current epoch for validator selection. */
-  lagInEpochs: 2,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: 1,
   /** How many sequencers must agree with a slash for it to be executed. */
@@ -120,7 +118,6 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
 
   /** The proving cost per mana */
   provingCostPerMana: 0n,
-  localEjectionThreshold: 196_000n * 10n ** 18n,
 
   ejectionThreshold: 100_000n * 10n ** 18n,
   activationThreshold: 200_000n * 10n ** 18n,
@@ -145,7 +142,6 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   slashGracePeriodL2Slots: 32 * 4, // One round from genesis
   slashOffenseExpirationRounds: 8,
   sentinelEnabled: true,
-  slashingDisableDuration: 5 * 24 * 60 * 60,
 };
 
 export const stagingPublicL2ChainConfig: L2ChainConfig = {
@@ -246,6 +242,7 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   ...DefaultSlashConfig,
   slashPrunePenalty: 0n,
   slashDataWithholdingPenalty: 0n,
+  slashInactivityPenalty: DefaultL1ContractsConfig.slashAmountMedium,
 };
 
 const BOOTNODE_CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour;
