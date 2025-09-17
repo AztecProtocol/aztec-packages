@@ -78,6 +78,7 @@ locals {
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
+      wait                 = true
     } : null
 
     p2p_bootstrap = var.DEPLOY_INTERNAL_BOOTNODE ? {
@@ -93,6 +94,7 @@ locals {
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
+      wait                 = true
     } : null
 
     validators = {
@@ -127,6 +129,7 @@ locals {
       }
       boot_node_host_path  = "validator.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "validator.node.env.BOOTSTRAP_NODES"
+      wait                 = true
     }
 
     prover = {
@@ -150,6 +153,7 @@ locals {
       }
       boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.node.env.BOOTSTRAP_NODES"
+      wait                 = true
     }
 
     rpc = {
@@ -187,6 +191,7 @@ locals {
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
+      wait                 = true
     }
 
     # Optional: transfer bots
@@ -209,6 +214,7 @@ locals {
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
+      wait                 = false
     } : null
 
     # Optional: AMM swap bots
@@ -231,6 +237,7 @@ locals {
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
+      wait                 = false
     } : null
   }
 }
@@ -250,7 +257,7 @@ resource "helm_release" "releases" {
   recreate_pods    = true
   reuse_values     = false
   timeout          = 600
-  wait             = true
+  wait             = each.value.wait
   wait_for_jobs    = true
 
   values = concat(
