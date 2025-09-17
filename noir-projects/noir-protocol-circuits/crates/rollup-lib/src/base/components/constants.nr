@@ -16,7 +16,7 @@ pub(crate) fn validate_tx_constant_data(
     perform_archive_membership_check(
         block_constants.last_archive.root,
         archive_root_membership_witness,
-        tx_constants.historical_header,
+        tx_constants.anchor_block_header,
     );
 
     validate_max_fees_per_gas(

@@ -58,7 +58,6 @@ export class PublicProcessorFactory {
 
   /**
    * Creates a new instance of a PublicProcessor.
-   * @param historicalHeader - The header of a block previous to the one in which the tx is included.
    * @param globalVariables - The global variables for the block being processed.
    * @param skipFeeEnforcement - Allows disabling balance checks for fee estimations.
    * @returns A new instance of a PublicProcessor.

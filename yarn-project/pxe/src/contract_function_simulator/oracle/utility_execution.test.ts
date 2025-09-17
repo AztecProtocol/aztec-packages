@@ -68,7 +68,7 @@ describe('Utility Execution test suite', () => {
     );
 
     executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
-    executionDataProvider.getBlockHeader.mockResolvedValue(BlockHeader.empty());
+    executionDataProvider.getAnchorBlockHeader.mockResolvedValue(BlockHeader.empty());
 
     const execRequest: FunctionCall = {
       name: artifact.name,

@@ -908,7 +908,7 @@ export function mapTxContextFromNoir(txContext: TxContextNoir): TxContext {
 
 export function mapTxConstantDataFromNoir(data: TxConstantDataNoir) {
   return new TxConstantData(
-    mapHeaderFromNoir(data.historical_header),
+    mapHeaderFromNoir(data.anchor_block_header),
     mapTxContextFromNoir(data.tx_context),
     mapFieldFromNoir(data.vk_tree_root),
     mapFieldFromNoir(data.protocol_contract_tree_root),
@@ -917,7 +917,7 @@ export function mapTxConstantDataFromNoir(data: TxConstantDataNoir) {
 
 export function mapTxConstantDataToNoir(data: TxConstantData): TxConstantDataNoir {
   return {
-    historical_header: mapHeaderToNoir(data.historicalHeader),
+    anchor_block_header: mapHeaderToNoir(data.anchorBlockHeader),
     tx_context: mapTxContextToNoir(data.txContext),
     vk_tree_root: mapFieldToNoir(data.vkTreeRoot),
     protocol_contract_tree_root: mapFieldToNoir(data.protocolContractTreeRoot),

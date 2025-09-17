@@ -96,7 +96,7 @@ describe('prover/orchestrator/public-functions', () => {
           );
         }
         for (const tx of txs) {
-          tx.data.constants.historicalHeader = context.getBlockHeader(0);
+          tx.data.constants.anchorBlockHeader = context.getBlockHeader(0);
           tx.data.constants.vkTreeRoot = getVKTreeRoot();
           tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
           await tx.recomputeHash();

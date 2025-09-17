@@ -14,11 +14,11 @@ unconstrained fn at_sets_contract_address() {
 }
 
 #[test]
-unconstrained fn opts_sets_contract_address_and_historical_block_number() {
+unconstrained fn opts_sets_contract_address_and_anchor_block_number() {
     let env = TestEnvironment::new();
 
     env.mine_block();
-    let historical_block_number = env.last_block_number() - 1;
+    let anchor_block_number = env.last_block_number() - 1;
 
     let contract_address = AztecAddress::from_field(17);
 
@@ -28,24 +28,24 @@ unconstrained fn opts_sets_contract_address_and_historical_block_number() {
     );
 
     env.private_context_opts(
-        PrivateContextOptions::new().at_historical_block_number(historical_block_number),
+        PrivateContextOptions::new().at_anchor_block_number(anchor_block_number),
         |context| {
             assert_eq(
-                context.get_block_header().global_variables.block_number,
-                historical_block_number,
+                context.get_anchor_block_header().global_variables.block_number,
+                anchor_block_number,
             );
         },
     );
 
     env.private_context_opts(
-        PrivateContextOptions::new()
-            .at_contract_address(contract_address)
-            .at_historical_block_number(historical_block_number),
+        PrivateContextOptions::new().at_contract_address(contract_address).at_anchor_block_number(
+            anchor_block_number,
+        ),
         |context| {
             assert_eq(context.this_address(), contract_address);
             assert_eq(
-                context.get_block_header().global_variables.block_number,
-                historical_block_number,
+                context.get_anchor_block_header().global_variables.block_number,
+                anchor_block_number,
             );
         },
     );

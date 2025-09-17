@@ -68,7 +68,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
     private readonly txContext: TxContext,
     private readonly callContext: CallContext,
     /** Header of a block whose state is used during private execution (not the block the transaction is included in). */
-    protected readonly historicalHeader: BlockHeader,
+    protected readonly anchorBlockHeader: BlockHeader,
     /** List of transient auth witnesses to be used during this simulation */
     authWitnesses: AuthWitness[],
     capsules: Capsule[],
@@ -104,7 +104,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
 
     const privateContextInputs = new PrivateContextInputs(
       this.callContext,
-      this.historicalHeader,
+      this.anchorBlockHeader,
       this.txContext,
       this.sideEffectCounter,
     );
@@ -413,7 +413,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
 
-    await verifyCurrentClassId(targetContractAddress, this.executionDataProvider, this.historicalHeader);
+    await verifyCurrentClassId(targetContractAddress, this.executionDataProvider, this.anchorBlockHeader);
 
     const targetArtifact = await this.executionDataProvider.getFunctionArtifact(
       targetContractAddress,
@@ -428,7 +428,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
       argsHash,
       derivedTxContext,
       derivedCallContext,
-      this.historicalHeader,
+      this.anchorBlockHeader,
       this.authWitnesses,
       this.capsules,
       this.executionCache,

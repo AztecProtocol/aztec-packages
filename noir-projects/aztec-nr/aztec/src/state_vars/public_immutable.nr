@@ -249,10 +249,10 @@ impl<T> PublicImmutable<T, &mut PrivateContext> {
     /// only the hash instead of the full packed value.
     ///
     /// The historical read mechanism:
-    /// - Uses an oracle to obtain the value from the historical block
+    /// - Uses an oracle to obtain the value from the anchor block
     /// - Proves inclusion of the value's hash in the public data tree
     /// - Proves that the root of this public data tree is correct, relative to the
-    ///   historical block header that is being referenced by this private function.
+    ///   anchor block header.
     /// - Verifies that the oracle-provided value matches the stored hash
     ///
     pub fn read(self) -> T
@@ -261,7 +261,7 @@ impl<T> PublicImmutable<T, &mut PrivateContext> {
     {
         // TODO(#15703): this fn should fail if the variable is not initialized
         WithHash::historical_public_storage_read(
-            self.context.get_block_header(),
+            self.context.get_anchor_block_header(),
             self.context.this_address(),
             self.storage_slot,
         )

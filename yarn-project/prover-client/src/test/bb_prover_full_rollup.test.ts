@@ -58,7 +58,7 @@ describe('prover/bb_prover/full-rollup', () => {
         const txs = await timesParallel(nonEmptyTxs, async (i: number) => {
           const txOpts = { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 };
           const tx = await mockTx(blockNum * 100_000 + 1000 * (i + 1), txOpts);
-          tx.data.constants.historicalHeader = initialHeader;
+          tx.data.constants.anchorBlockHeader = initialHeader;
           tx.data.constants.vkTreeRoot = getVKTreeRoot();
           return tx;
         });
@@ -124,7 +124,7 @@ describe('prover/bb_prover/full-rollup', () => {
       }),
     );
     for (const tx of txs) {
-      tx.data.constants.historicalHeader = context.getBlockHeader(0);
+      tx.data.constants.anchorBlockHeader = context.getBlockHeader(0);
     }
 
     const l1ToL2Messages = makeTuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>(

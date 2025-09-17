@@ -454,8 +454,13 @@ export class PXEService implements PXE {
     privateExecutionResult: PrivateExecutionResult,
     config: PrivateKernelExecutionProverConfig,
   ): Promise<PrivateKernelExecutionProofOutput<PrivateKernelTailCircuitPublicInputs>> {
-    const block = privateExecutionResult.getSimulationBlockNumber();
-    const kernelOracle = new PrivateKernelOracleImpl(this.contractDataProvider, this.keyStore, this.node, block);
+    const simulationAnchorBlock = privateExecutionResult.getSimulationAnchorBlockNumber();
+    const kernelOracle = new PrivateKernelOracleImpl(
+      this.contractDataProvider,
+      this.keyStore,
+      this.node,
+      simulationAnchorBlock,
+    );
     const kernelTraceProver = new PrivateKernelExecutionProver(kernelOracle, proofCreator, !this.proverEnabled);
     this.log.debug(`Executing kernel trace prover (${JSON.stringify(config)})...`);
     return await kernelTraceProver.proveWithKernels(txExecutionRequest.toTxRequest(), privateExecutionResult, config);

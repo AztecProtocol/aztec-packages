@@ -265,7 +265,7 @@ pub contract Test {
         let (retrieved_notes, _): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
             get_notes(&mut context, storage_slot, options);
 
-        let header = context.get_block_header();
+        let header = context.get_anchor_block_header();
 
         header.prove_note_inclusion(retrieved_notes.get(0), storage_slot);
     }
@@ -421,13 +421,13 @@ pub contract Test {
 
     #[private]
     fn assert_header_private(header_hash: Field) {
-        assert(context.historical_header.hash() == header_hash, "Invalid header hash");
+        assert(context.anchor_block_header.hash() == header_hash, "Invalid header hash");
     }
 
     // TODO(4840): add AVM opcodes for getting header (members)
     //#[public]
     //fn assert_header_public(header_hash: Field) {
-    //    assert(context.historical_header.hash() == header_hash, "Invalid header hash");
+    //    assert(context.anchor_block_header.hash() == header_hash, "Invalid header hash");
     //}
 
     #[private]

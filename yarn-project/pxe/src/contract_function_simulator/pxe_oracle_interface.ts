@@ -192,7 +192,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   }
 
   public async getNullifierMembershipWitnessAtLatestBlock(nullifier: Fr) {
-    const blockNumber = (await this.getBlockHeader()).globalVariables.blockNumber;
+    const blockNumber = (await this.getAnchorBlockHeader()).globalVariables.blockNumber;
     return this.getNullifierMembershipWitness(blockNumber, nullifier);
   }
 
@@ -207,7 +207,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     blockNumber: number,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    const header = await this.getBlockHeader();
+    const header = await this.getAnchorBlockHeader();
     if (blockNumber > header.globalVariables.blockNumber) {
       throw new Error(`Block number ${blockNumber} is higher than current block ${header.globalVariables.blockNumber}`);
     }
@@ -215,7 +215,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   }
 
   public async getBlock(blockNumber: number): Promise<L2Block | undefined> {
-    const header = await this.getBlockHeader();
+    const header = await this.getAnchorBlockHeader();
     if (blockNumber > header.globalVariables.blockNumber) {
       throw new Error(`Block number ${blockNumber} is higher than current block ${header.globalVariables.blockNumber}`);
     }
@@ -223,7 +223,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   }
 
   public async getPublicDataWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    const header = await this.getBlockHeader();
+    const header = await this.getAnchorBlockHeader();
     if (blockNumber > header.globalVariables.blockNumber) {
       throw new Error(`Block number ${blockNumber} is higher than current block ${header.globalVariables.blockNumber}`);
     }
@@ -231,14 +231,14 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   }
 
   public async getPublicStorageAt(blockNumber: number, contract: AztecAddress, slot: Fr): Promise<Fr> {
-    const header = await this.getBlockHeader();
+    const header = await this.getAnchorBlockHeader();
     if (blockNumber > header.globalVariables.blockNumber) {
       throw new Error(`Block number ${blockNumber} is higher than current block ${header.globalVariables.blockNumber}`);
     }
     return await this.aztecNode.getPublicStorageAt(blockNumber, contract, slot);
   }
 
-  getBlockHeader(): Promise<BlockHeader> {
+  getAnchorBlockHeader(): Promise<BlockHeader> {
     return this.syncDataProvider.getBlockHeader();
   }
 
@@ -490,7 +490,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         for (let logIndex = 0; logIndex < logsByTags.length; logIndex++) {
           const logsByTag = logsByTags[logIndex];
           if (logsByTag.length > 0) {
-            // We filter out the logs that are newer than the historical block number of the tx currently being constructed
+            // We filter out the logs that are newer than the anchor block number of the tx currently being constructed
             const filteredLogsByBlockNumber = logsByTag.filter(l => l.blockNumber <= maxBlockNumber);
 
             // We store the logs in capsules (to later be obtained in Noir)

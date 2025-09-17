@@ -415,7 +415,7 @@ While `DelayedPublicMutable` state variables are much less leaky than the assert
 
 ### Choosing Delays
 
-The `include_by_timestamp` transaction property will be set to a value close to the current timestamp plus the duration of the delay in seconds. The exact value depends on the historical block over which the private proof is constructed. For example, if current timestamp is `X` and a `DelayedPublicMutable` state variable has a delay of 3000 seconds, then transactions that read this value privately will set `include_by_timestamp` to a value close to 'X + 3000' (clients building proofs on older state will select a lower `include_by_timestamp`).
+The `include_by_timestamp` transaction property will be set to a value close to the current timestamp plus the duration of the delay in seconds. The exact value depends on the anchor block over which the private proof is constructed. For example, if current timestamp is `X` and a `DelayedPublicMutable` state variable has a delay of 3000 seconds, then transactions that read this value privately will set `include_by_timestamp` to a value close to 'X + 3000' (clients building proofs on older state will select a lower `include_by_timestamp`).
 
 These delays can be changed during the contract lifetime as the application's needs evolve.
 

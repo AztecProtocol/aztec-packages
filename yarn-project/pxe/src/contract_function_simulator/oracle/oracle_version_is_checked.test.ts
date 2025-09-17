@@ -25,7 +25,7 @@ describe('Oracle Version Check test suite', () => {
     // Mock basic oracle responses
     executionDataProvider.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
     executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
-    executionDataProvider.getBlockHeader.mockResolvedValue(BlockHeader.empty());
+    executionDataProvider.getAnchorBlockHeader.mockResolvedValue(BlockHeader.empty());
     executionDataProvider.getContractInstance.mockResolvedValue({
       currentContractClassId: new Fr(42),
       originalContractClassId: new Fr(42),

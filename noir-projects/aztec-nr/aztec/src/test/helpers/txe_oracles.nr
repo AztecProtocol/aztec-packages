@@ -121,7 +121,7 @@ pub unconstrained fn set_top_level_txe_context() {}
 #[oracle(txeSetPrivateTXEContext)]
 pub unconstrained fn set_private_txe_context(
     contract_address: Option<AztecAddress>,
-    historical_block_number: Option<u32>,
+    anchor_block_number: Option<u32>,
 ) -> PrivateContextInputs {}
 
 #[oracle(txeSetPublicTXEContext)]

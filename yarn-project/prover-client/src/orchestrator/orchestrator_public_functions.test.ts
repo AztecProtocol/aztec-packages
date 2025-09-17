@@ -32,7 +32,7 @@ describe('prover/orchestrator/public-functions', () => {
         numberOfNonRevertiblePublicCallRequests: 0,
         numberOfRevertiblePublicCallRequests: 1,
       });
-      tx.data.constants.historicalHeader = context.getBlockHeader(0);
+      tx.data.constants.anchorBlockHeader = context.getBlockHeader(0);
       tx.data.constants.vkTreeRoot = getVKTreeRoot();
       tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
       await tx.recomputeHash();
@@ -62,7 +62,7 @@ describe('prover/orchestrator/public-functions', () => {
       const tx = await mockTx(1234, {
         numberOfRevertiblePublicCallRequests: 1,
       });
-      tx.data.constants.historicalHeader = context.getBlockHeader(0);
+      tx.data.constants.anchorBlockHeader = context.getBlockHeader(0);
       tx.data.constants.vkTreeRoot = getVKTreeRoot();
       tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
 

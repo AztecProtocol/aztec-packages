@@ -300,7 +300,7 @@ export class TXEOracleTopLevelContext extends TXETypedOracle {
 
     const txContext = new TxContext(this.chainId, this.version, gasSettings);
 
-    const blockHeader = await this.pxeOracleInterface.getBlockHeader();
+    const blockHeader = await this.pxeOracleInterface.getAnchorBlockHeader();
 
     const txRequestHash = getSingleTxBlockRequestHash(blockNumber);
     const noteCache = new ExecutionNoteCache(txRequestHash);
@@ -472,7 +472,7 @@ export class TXEOracleTopLevelContext extends TXETypedOracle {
 
     const txContext = new TxContext(this.chainId, this.version, gasSettings);
 
-    const blockHeader = await this.pxeOracleInterface.getBlockHeader();
+    const anchorBlockHeader = await this.pxeOracleInterface.getAnchorBlockHeader();
 
     const calldataHash = await computeCalldataHash(calldata);
     const calldataHashedValues = new HashedValues(calldata, calldataHash);
@@ -516,7 +516,7 @@ export class TXEOracleTopLevelContext extends TXETypedOracle {
       PublicCallRequest.empty(),
     );
 
-    const constantData = new TxConstantData(blockHeader, txContext, Fr.zero(), Fr.zero());
+    const constantData = new TxConstantData(anchorBlockHeader, txContext, Fr.zero(), Fr.zero());
 
     const txData = new PrivateKernelTailCircuitPublicInputs(
       constantData,

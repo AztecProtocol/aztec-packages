@@ -49,6 +49,16 @@ As we prepare for a bigger `Wallet` interface refactor and the upcoming `WalletS
 
 ## [Aztec.nr]
 
+### Historical block renamed as anchor block
+
+A historical block term has been used as a term that denotes the block against which a private part of a tx has been executed.
+This name is ambiguous and for this reason we've introduce "anchor block".
+This naming change resulted in quite a few changes and if you've access private context's or utility context's block header you will need to update your code:
+
+```diff
+- let header = context.get_block_header();
++ let header = context.get_anchor_block_header();
+```diff
 
 ### PrivateMutable: replace / initialize_or_replace behaviour change
 

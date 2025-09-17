@@ -157,11 +157,11 @@ class TxContext {
 TxContext *-- GasSettings : gas_settings
 
 class CombinedConstantData {
-    historical_header: Header
+    anchor_block_header: Header
     tx_context: TxContext
     global_variables: GlobalVariables
 }
-CombinedConstantData *-- Header : historical_header
+CombinedConstantData *-- Header : anchor_block_header
 CombinedConstantData *-- TxContext : tx_context
 CombinedConstantData *-- GlobalVariables : global_variables
 
@@ -204,7 +204,7 @@ class StateDiffHints {
 }
 
 class BaseRollupInputs {
-  historical_header_membership_witnesses: HeaderMembershipWitness
+  anchor_block_header_membership_witnesses: HeaderMembershipWitness
   kernel_data: KernelData
   partial: PartialStateReference
   state_diff_hints: StateDiffHints
@@ -237,7 +237,7 @@ Fee structs and contract deployment structs will need to be revised, in line wit
 ```python
 def BaseRollupCircuit(
   state_diff_hints: StateDiffHints,
-  historical_header_membership_witnesses: HeaderMembershipWitness,
+  anchor_block_header_membership_witnesses: HeaderMembershipWitness,
   kernel_data: KernelData,
   partial: PartialStateReference,
   constants: ConstantRollupData,
@@ -248,7 +248,7 @@ def BaseRollupCircuit(
     kernel_data,
     constants,
     public_data_tree_root,
-    historical_header_membership_witnesses,
+    anchor_block_header_membership_witnesses,
   )
 
   note_hash_subtree = MerkleTree(kernel_data.public_inputs.end.note_hashes)
@@ -304,7 +304,7 @@ def kernel_checks(
   kernel: KernelData,
   constants: ConstantRollupData,
   public_data_tree_root: Fr,
-  historical_header_membership_witness: HeaderMembershipWitness
+  anchor_block_header_membership_witness: HeaderMembershipWitness
 ) -> (Fr[2], Fr[], Fr):
   assert public_data_tree_root == kernel.public_inputs.end.start_public_data_root
   assert kernel.proof.verify(kernel.public_inputs)
@@ -317,9 +317,9 @@ def kernel_checks(
   assert len(kernel.public_inputs.end.public_call_stack) == 0
 
   assert merkle_inclusion(
-    kernel.constants.historical_header.hash(),
-    kernel.constants.historical_header.global_variables.block_number,
-    historical_header_membership_witness,
+    kernel.constants.anchor_block_header.hash(),
+    kernel.constants.anchor_block_header.global_variables.block_number,
+    anchor_block_header_membership_witness,
     constants.last_archive
   )
 

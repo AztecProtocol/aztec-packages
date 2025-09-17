@@ -17,7 +17,7 @@ describe('computeTxIncludeByTimestamp', () => {
 
   beforeEach(() => {
     previousKernel = PrivateKernelCircuitPublicInputs.empty();
-    previousKernel.constants.historicalHeader.globalVariables.timestamp = blockTimestamp;
+    previousKernel.constants.anchorBlockHeader.globalVariables.timestamp = blockTimestamp;
   });
 
   it('rounds down to the max allowed duration', () => {
