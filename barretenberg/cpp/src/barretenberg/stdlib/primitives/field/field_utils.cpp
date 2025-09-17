@@ -18,7 +18,7 @@ void validate_split_in_field(const field_t<Builder>& lo,
 {
     constexpr bool IS_ULTRA = Builder::CIRCUIT_TYPE == CircuitType::ULTRA;
 
-    const size_t hi_bits = field_modulus.get_msb() + 1 - lo_bits;
+    const size_t hi_bits = static_cast<size_t>(field_modulus.get_msb()) + 1 - lo_bits;
 
     // Split the field modulus at the same position
     const uint256_t r_lo = field_modulus.slice(0, lo_bits);
