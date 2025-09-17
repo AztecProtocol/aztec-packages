@@ -72,7 +72,7 @@ const DefaultSlashConfig = {
 
 export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   l1ChainId: 11155111,
-  testAccounts: true,
+  testAccounts: false,
   sponsoredFPC: false,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
@@ -90,23 +90,64 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
 
-  ...DefaultL1ContractsConfig,
-  ...DefaultSlashConfig,
-
   /** How many seconds an L1 slot lasts. */
   ethereumSlotDuration: 12,
   /** How many seconds an L2 slots lasts (must be multiple of ethereum slot duration). */
-  aztecSlotDuration: 36,
+  aztecSlotDuration: 72,
   /** How many L2 slots an epoch lasts. */
   aztecEpochDuration: 32,
   /** The target validator committee size. */
-  aztecTargetCommitteeSize: 48,
+  aztecTargetCommitteeSize: 24,
+  /** The number of epochs to lag behind the current epoch for validator selection. */
+  lagInEpochs: 2,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: 1,
+  /** How many sequencers must agree with a slash for it to be executed. */
+  slashingQuorum: 65,
+
+  slashingRoundSizeInEpochs: 4,
+  slashingLifetimeInRounds: 40,
+  slashingExecutionDelayInRounds: 28,
+  slashAmountSmall: 2_000n * 10n ** 18n,
+  slashAmountMedium: 10_000n * 10n ** 18n,
+  slashAmountLarge: 50_000n * 10n ** 18n,
+  slashingOffsetInRounds: 2,
+  slasherFlavor: 'tally',
+  slashingVetoer: EthAddress.ZERO, // TODO TMNT-329
+
   /** The mana target for the rollup */
   manaTarget: 0n,
+
+  exitDelaySeconds: 5 * 24 * 60 * 60,
+
   /** The proving cost per mana */
   provingCostPerMana: 0n,
+  localEjectionThreshold: 196_000n * 10n ** 18n,
+
+  ejectionThreshold: 100_000n * 10n ** 18n,
+  activationThreshold: 200_000n * 10n ** 18n,
+
+  governanceProposerRoundSize: 300, // TODO TMNT-322
+  governanceProposerQuorum: 151, // TODO TMNT-322
+
+  // Node slashing config
+  // TODO TMNT-330
+  slashMinPenaltyPercentage: 0.5,
+  slashMaxPenaltyPercentage: 2.0,
+  slashInactivityTargetPercentage: 0.7,
+  slashInactivityConsecutiveEpochThreshold: 2,
+  slashInactivityPenalty: 2_000n * 10n ** 18n,
+  slashPrunePenalty: 0n, // 2_000n * 10n ** 18n, We disable slashing for prune offenses right now
+  slashDataWithholdingPenalty: 0n, // 2_000n * 10n ** 18n, We disable slashing for data withholding offenses right now
+  slashProposeInvalidAttestationsPenalty: 50_000n * 10n ** 18n,
+  slashAttestDescendantOfInvalidPenalty: 50_000n * 10n ** 18n,
+  slashUnknownPenalty: 2_000n * 10n ** 18n,
+  slashBroadcastedInvalidBlockPenalty: 10_000n * 10n ** 18n,
+  slashMaxPayloadSize: 50,
+  slashGracePeriodL2Slots: 32 * 4, // One round from genesis
+  slashOffenseExpirationRounds: 8,
+  sentinelEnabled: true,
+  slashingDisableDuration: 5 * 24 * 60 * 60,
 };
 
 export const stagingPublicL2ChainConfig: L2ChainConfig = {
@@ -213,6 +254,8 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
 
   ...DefaultSlashConfig,
+  slashPrunePenalty: 0n,
+  slashDataWithholdingPenalty: 0n,
 };
 
 const BOOTNODE_CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour;
