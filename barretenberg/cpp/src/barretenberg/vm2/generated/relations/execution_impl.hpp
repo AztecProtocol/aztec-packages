@@ -15,8 +15,6 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/execution");
-
     const auto constants_MEM_TAG_U1 = FF(1);
     const auto constants_MEM_TAG_U32 = FF(4);
     const auto constants_AVM_SUBTRACE_ID_EXECUTION = FF(1);

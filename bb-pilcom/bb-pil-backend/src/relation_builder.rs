@@ -137,6 +137,7 @@ impl RelationBuilder for BBFiles {
                 })
                 // Length is degree + 1.
                 .map(|(_, degree)| *degree + 1)
+                .map(|length| 3)
                 .collect_vec();
 
             let used_alias_defs_in_order = alias_expressions_in_order

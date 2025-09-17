@@ -199,8 +199,8 @@ template <typename Settings, typename FF_> class GenericLookupRelationImpl {
         LOOKUP_WRITE_TERM_PREDICATE_START_POLYNOMIAL_INDEX + WRITE_TERMS;
 
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
-        LENGTH, // inverse polynomial correctness sub-relation
-        LENGTH  // log-derived terms subrelation
+        3, // inverse polynomial correctness sub-relation
+        3  // log-derived terms subrelation
     };
     /**
      * @brief We apply the power polynomial only to the first subrelation

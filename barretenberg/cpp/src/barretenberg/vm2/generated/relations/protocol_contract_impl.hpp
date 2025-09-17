@@ -15,8 +15,6 @@ void protocol_contractImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/protocol_contract");
-
     const auto constants_PROTOCOL_CONTRACT_TREE_HEIGHT = FF(3);
 
     {

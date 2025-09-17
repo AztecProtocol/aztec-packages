@@ -14,9 +14,9 @@ template <typename FF_> class emit_unencrypted_logImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 44> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 5, 3, 3, 3, 3,
-                                                                            4, 5, 3, 4, 3, 3, 5, 3, 5, 5, 4, 4, 3, 3, 3,
-                                                                            5, 5, 4, 4, 4, 4, 4, 4, 3, 5, 3, 4, 4, 4 };
+    static constexpr std::array<size_t, 44> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {

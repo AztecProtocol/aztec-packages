@@ -15,8 +15,6 @@ void aluImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/alu");
-
     const auto constants_MEM_TAG_FF = FF(0);
     const auto constants_MEM_TAG_U1 = FF(1);
     const auto constants_MEM_TAG_U128 = FF(6);

@@ -15,8 +15,6 @@ void to_radix_memImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/to_radix_mem");
-
     const auto constants_MEM_TAG_U1 = FF(1);
     const auto constants_MEM_TAG_U8 = FF(2);
     const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);
