@@ -551,7 +551,7 @@ export const deployRollup = async (
     provingCostPerMana: args.provingCostPerMana,
     rewardConfig: rewardConfig,
     version: 0,
-    rewardBoostConfig: getRewardBoostConfig(networkName),
+    rewardBoostConfig: getRewardBoostConfig(),
     stakingQueueConfig: getEntryQueueConfig(networkName),
     exitDelaySeconds: BigInt(args.exitDelaySeconds),
     slasherFlavor: slasherFlavorToSolidityEnum(args.slasherFlavor),
