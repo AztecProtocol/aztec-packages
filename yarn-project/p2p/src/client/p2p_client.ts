@@ -799,29 +799,33 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       }
     }
 
-    this.log.info(
-      `Detected chain prune. Removing invalid txs count=${
-        txsToDelete.size
-      } newLatestBlock=${latestBlock} previousLatestBlock=${await this.getSyncedLatestBlockNum()}`,
-    );
+    this.log.info(`Detected chain prune. Removing ${txsToDelete.size} txs built against pruned blocks.`, {
+      newLatestBlock: latestBlock,
+      previousLatestBlock: await this.getSyncedLatestBlockNum(),
+    });
 
     // delete invalid txs (both pending and mined)
     await this.txPool.deleteTxs(Array.from(txsToDelete.values()));
 
     // everything left in the mined set was built against a block on the proven chain so its still valid
-    // move back to pending the txs that were reorged out of the chain
+    // move back to pending the txs that were reorged out of the chain, unless txPoolDeleteTxsAfterReorg is set,
+    // in which case we clean them up to avoid potential reorg loops
     // NOTE: we can't move _all_ txs back to pending because the tx pool could keep hold of mined txs for longer
     // (see this.keepProvenTxsFor)
-
-    const txsToMoveToPending: TxHash[] = [];
+    const minedTxsFromReorg: TxHash[] = [];
     for (const [txHash, blockNumber] of minedTxs) {
       if (blockNumber > latestBlock) {
-        txsToMoveToPending.push(txHash);
+        minedTxsFromReorg.push(txHash);
       }
     }
 
-    this.log.info(`Moving ${txsToMoveToPending.length} mined txs back to pending`);
-    await this.txPool.markMinedAsPending(txsToMoveToPending);
+    if (this.config.txPoolDeleteTxsAfterReorg) {
+      this.log.info(`Deleting ${minedTxsFromReorg.length} mined txs from reorg`);
+      await this.txPool.deleteTxs(minedTxsFromReorg);
+    } else {
+      this.log.info(`Moving ${minedTxsFromReorg.length} mined txs from reorg back to pending`);
+      await this.txPool.markMinedAsPending(minedTxsFromReorg);
+    }
 
     await this.synchedLatestBlockNumber.set(latestBlock);
     // no need to update block hashes, as they will be updated as new blocks are added
