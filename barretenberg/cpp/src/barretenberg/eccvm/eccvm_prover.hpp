@@ -6,7 +6,6 @@
 
 #pragma once
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
-#include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
@@ -53,10 +52,10 @@ class ECCVMProver {
     ECCVMProof export_proof();
     ECCVMProof construct_proof();
     void compute_translation_opening_claims();
-    void commit_to_witness_polynomials(const RefVector<Polynomial>& polynomials,
-                                       const std::vector<std::string>& labels,
-                                       const std::vector<std::pair<size_t, size_t>>& active_ranges = {},
-                                       CommitmentKey::CommitType commit_type = CommitmentKey::CommitType::Default);
+    void commit_to_witness_polynomial(Polynomial& polynomial,
+                                      const std::string& label,
+                                      CommitmentKey::CommitType commit_type = CommitmentKey::CommitType::Default,
+                                      const std::vector<std::pair<size_t, size_t>>& active_ranges = {});
 
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript;

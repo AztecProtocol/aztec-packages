@@ -61,28 +61,9 @@ void TranslatorProver::execute_preamble_round()
  * @param polynomial
  * @param label
  */
-void TranslatorProver::commit_to_witness_polynomials(const RefVector<Polynomial>& polynomials,
-                                                     const std::vector<std::string>& labels)
+void TranslatorProver::commit_to_witness_polynomial(Polynomial& polynomial, const std::string& label)
 {
-    BB_ASSERT_EQ(polynomials.size(), labels.size());
-
-    if (polynomials.size() == 1) {
-        // Single polynomial - just commit directly
-        transcript->send_to_verifier(std::string(labels[0]), key->proving_key->commitment_key.commit(polynomials[0]));
-    } else {
-        // Batch commit multiple polynomials
-        std::vector<PolynomialSpan<const FF>> poly_spans;
-        poly_spans.reserve(polynomials.size());
-        for (const auto& polynomial : polynomials) {
-            poly_spans.emplace_back(polynomial);
-        }
-
-        auto commitments = key->proving_key->commitment_key.batch_commit(poly_spans);
-
-        for (size_t i = 0; i < commitments.size(); ++i) {
-            transcript->send_to_verifier(std::string(labels[i]), commitments[i]);
-        }
-    }
+    transcript->send_to_verifier(label, key->proving_key->commitment_key.commit(polynomial));
 }
 
 /**
@@ -92,27 +73,17 @@ void TranslatorProver::commit_to_witness_polynomials(const RefVector<Polynomial>
 void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
 {
 
-    {
-        auto wires = key->proving_key->polynomials.get_wires();
-        auto wire_labels = commitment_labels.get_wires();
-        RefVector<Polynomial> wire_polys(wires);
-        std::vector<std::string> labels;
-        for (const auto& label : wire_labels) {
-            labels.push_back(label);
-        }
-        commit_to_witness_polynomials(wire_polys, labels);
+    for (const auto& [wire, label] :
+         zip_view(key->proving_key->polynomials.get_wires(), commitment_labels.get_wires())) {
+
+        commit_to_witness_polynomial(wire, label);
     }
 
     // The ordered range constraints are of full circuit size.
-    {
-        auto constraints = key->proving_key->polynomials.get_ordered_range_constraints();
-        auto constraint_labels = commitment_labels.get_ordered_range_constraints();
-        RefVector<Polynomial> constraint_polys(constraints);
-        std::vector<std::string> labels;
-        for (const auto& label : constraint_labels) {
-            labels.push_back(label);
-        }
-        commit_to_witness_polynomials(constraint_polys, labels);
+    for (const auto& [ordered_range_constraint, label] :
+         zip_view(key->proving_key->polynomials.get_ordered_range_constraints(),
+                  commitment_labels.get_ordered_range_constraints())) {
+        commit_to_witness_polynomial(ordered_range_constraint, label);
     }
 }
 
@@ -157,7 +128,7 @@ void TranslatorProver::execute_grand_product_computation_round()
     // Compute constraint permutation grand product
     compute_grand_products<Flavor>(key->proving_key->polynomials, relation_parameters);
 
-    commit_to_witness_polynomials({ key->proving_key->polynomials.z_perm }, { commitment_labels.z_perm });
+    commit_to_witness_polynomial(key->proving_key->polynomials.z_perm, commitment_labels.z_perm);
 }
 
 /**

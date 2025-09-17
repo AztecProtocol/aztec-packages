@@ -10,8 +10,6 @@
 
 namespace bb {
 
-// Useful for programatically benching different thread counts
-void set_hardware_concurrency(size_t num_cores);
 inline size_t get_num_cpus()
 {
     return env_hardware_concurrency();

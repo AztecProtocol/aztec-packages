@@ -63,30 +63,25 @@ void ECCVMProver::execute_wire_commitments_round()
     // wire entries.
     const size_t circuit_size = key->circuit_size;
     unmasked_witness_size = circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK;
+
+    CommitmentKey::CommitType commit_type =
+        (circuit_size > key->real_size) ? CommitmentKey::CommitType::Structured : CommitmentKey::CommitType::Default;
+
     // Commit to wires whose length is bounded by the real size of the ECCVM
-    {
-        auto wires = key->polynomials.get_wires_without_accumulators();
-        auto labels = commitment_labels.get_wires_without_accumulators();
-        for (size_t i = 0; i < wires.size(); ++i) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1240) Structured Polynomials in
-            // ECCVM/Translator/MegaZK
-            const size_t start = circuit_size == wires[i].size() ? 0 : 1;
-            std::vector<std::pair<size_t, size_t>> active_ranges{ { start, key->real_size + start },
-                                                                  { unmasked_witness_size, circuit_size } };
-            commit_to_witness_polynomials({ wires[i] }, { labels[i] }, active_ranges);
-        }
+    for (const auto& [wire, label] : zip_view(key->polynomials.get_wires_without_accumulators(),
+                                              commitment_labels.get_wires_without_accumulators())) {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1240) Structured Polynomials in
+        // ECCVM/Translator/MegaZK
+        const size_t start = circuit_size == wire.size() ? 0 : 1;
+        std::vector<std::pair<size_t, size_t>> active_ranges{ { start, key->real_size + start },
+                                                              { unmasked_witness_size, circuit_size } };
+        commit_to_witness_polynomial(wire, label, commit_type, active_ranges);
     }
 
     // The accumulators are populated until the 2^{CONST_ECCVM_LOG_N}, therefore we commit to a full-sized polynomial
-    {
-        auto accumulators = key->polynomials.get_accumulators();
-        auto acc_labels = commitment_labels.get_accumulators();
-        RefVector<Polynomial> acc_polys(accumulators);
-        std::vector<std::string> labels;
-        for (const auto& label : acc_labels) {
-            labels.push_back(label);
-        }
-        commit_to_witness_polynomials(acc_polys, labels);
+    for (const auto& [wire, label] :
+         zip_view(key->polynomials.get_accumulators(), commitment_labels.get_accumulators())) {
+        commit_to_witness_polynomial(wire, label);
     }
 }
 
@@ -115,7 +110,7 @@ void ECCVMProver::execute_log_derivative_commitments_round()
                                   typename Flavor::LookupRelation,
                                   typename Flavor::ProverPolynomials,
                                   true>(key->polynomials, relation_parameters, unmasked_witness_size);
-    commit_to_witness_polynomials({ key->polynomials.lookup_inverses }, { commitment_labels.lookup_inverses });
+    commit_to_witness_polynomial(key->polynomials.lookup_inverses, commitment_labels.lookup_inverses);
 }
 
 /**
@@ -127,7 +122,7 @@ void ECCVMProver::execute_grand_product_computation_round()
     BB_BENCH_NAME("ECCVMProver::execute_grand_product_computation_round");
     // Compute permutation grand product and their commitments
     compute_grand_products<Flavor>(key->polynomials, relation_parameters, unmasked_witness_size);
-    commit_to_witness_polynomials({ key->polynomials.z_perm }, { commitment_labels.z_perm });
+    commit_to_witness_polynomial(key->polynomials.z_perm, commitment_labels.z_perm);
 }
 
 /**
@@ -349,22 +344,14 @@ void ECCVMProver::compute_translation_opening_claims()
  * @param polynomial
  * @param label
  */
-void ECCVMProver::commit_to_witness_polynomials(const RefVector<Polynomial>& polynomials,
-                                                const std::vector<std::string>& labels,
-                                                const std::vector<std::pair<size_t, size_t>>& active_ranges,
-                                                CommitmentKey::CommitType commit_type)
+void ECCVMProver::commit_to_witness_polynomial(Polynomial& polynomial,
+                                               const std::string& label,
+                                               CommitmentKey::CommitType commit_type,
+                                               const std::vector<std::pair<size_t, size_t>>& active_ranges)
 {
-    BB_ASSERT_EQ(polynomials.size(), labels.size());
-
     // We add NUM_DISABLED_ROWS_IN_SUMCHECK-1 random values to the coefficients of each wire polynomial to not leak
     // information via the commitment and evaluations. -1 is caused by shifts.
-    for (auto& polynomial : polynomials) {
-        polynomial.mask();
-    }
-
-    for (size_t i = 0; i < polynomials.size(); ++i) {
-        transcript->send_to_verifier(std::string(labels[i]),
-                                     key->commitment_key.commit_with_type(polynomials[i], commit_type, active_ranges));
-    }
+    polynomial.mask();
+    transcript->send_to_verifier(label, key->commitment_key.commit_with_type(polynomial, commit_type, active_ranges));
 }
 } // namespace bb
