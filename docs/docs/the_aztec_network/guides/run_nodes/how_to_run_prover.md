@@ -207,7 +207,7 @@ services:
       - --prover-node
       - --archiver
       - --network
-      - alpha-testnet
+      - testnet
     depends_on:
       prover-broker:
         condition: service_started
@@ -237,7 +237,7 @@ services:
       - start
       - --prover-broker
       - --network
-      - alpha-testnet
+      - testnet
     environment:
       DATA_DIRECTORY: /var/lib/data
       ETHEREUM_HOSTS: ${ETHEREUM_HOSTS}
@@ -255,7 +255,7 @@ services:
       - start
       - --prover-agent
       - --network
-      - alpha-testnet
+      - testnet
     environment:
       PROVER_AGENT_COUNT: ${PROVER_AGENT_COUNT}
       PROVER_AGENT_POLL_INTERVAL_MS: ${PROVER_AGENT_POLL_INTERVAL_MS}

@@ -76,7 +76,7 @@ Options:
 
 #### Network Options
 
-- `--network <value>`: Network to run Aztec on, e.g. `alpha-testnet`. By default connects to sandbox (local network)
+- `--network <value>`: Network to run Aztec on, e.g. `testnet`. By default connects to sandbox (local network)
 
 #### API Options
 
@@ -122,10 +122,10 @@ Options:
 
 ##### Example Usage
 
-Here is an example of how to start a node that connects to the alpha-testnet.
+Here is an example of how to start a node that connects to the testnet.
 
 ```bash
-aztec-up alpha-testnet
+aztec-up latest
 
 export DATA_DIRECTORY=/any/directory/to/store/node/data
 export BLOB_SINK_URL=<blob-sink-url>
