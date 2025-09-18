@@ -92,8 +92,9 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
     if constexpr (IsMegaFlavor<Flavor>) {
 
         // Commit to Goblin ECC op wires.
-        // To avoid possible issues with the current work on the merge protocol, they are not
-        // masked in MegaZKFlavor
+        // Note even with zk, we do not mask here. The masking for these is done differently.
+        // It is necessary that "random" ops are added to the op_queue, which is then used to populate these ecc op
+        // wires. This is more holistic and obviates the need to extend with random values.
         bool mask_ecc_op_polys = false; // Flavor::HasZK
 
         for (auto [polynomial, label] :

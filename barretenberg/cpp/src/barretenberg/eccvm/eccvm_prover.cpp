@@ -66,7 +66,6 @@ void ECCVMProver::execute_wire_commitments_round()
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1240) Structured Polynomials in
     // ECCVM/Translator/MegaZK
-    // TODO(AD): ^ close this??
 
     for (auto& wire : key->polynomials.get_wires()) {
         // add masking random values for zk
