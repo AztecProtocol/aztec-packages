@@ -516,7 +516,7 @@ TYPED_TEST(ScalarMultiplicationTest, BenchBatchMsm)
     using AffineElement = typename Curve::AffineElement;
 
     const size_t num_msms = 3;
-    const size_t msm_max_size = 1 << 15;
+    const size_t msm_max_size = 1 << 17;
     const double max_sparsity = 0.1;
 
     // Generate test data with varying sparsity
@@ -524,7 +524,6 @@ TYPED_TEST(ScalarMultiplicationTest, BenchBatchMsm)
     std::vector<std::span<ScalarField>> all_scalars;
     std::vector<std::vector<ScalarField>> scalar_storage;
 
-    size_t offset = 0;
     for (size_t i = 0; i < num_msms; ++i) {
         // Generate random sizes and density of 0s
         const size_t size = engine.get_random_uint64() % msm_max_size;
@@ -532,11 +531,9 @@ TYPED_TEST(ScalarMultiplicationTest, BenchBatchMsm)
         auto scalars = generate_sparse_scalars<ScalarField>(size, sparsity, engine);
         scalar_storage.push_back(std::move(scalars));
 
-        std::span<const AffineElement> points(&TestFixture::generators[offset], size);
+        std::span<const AffineElement> points(&TestFixture::generators[i], size);
         all_points.push_back(points);
         all_scalars.push_back(scalar_storage.back());
-
-        offset += size;
     }
     auto func = [&]<bb::detail::OperationLabel thread_prefix>(size_t num_threads) {
         set_hardware_concurrency(num_threads);
