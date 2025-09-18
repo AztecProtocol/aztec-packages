@@ -10,7 +10,7 @@ So how does it work?
 
 ### STEP 1: Emitting handshaking log and nullifier
 
-1. A wallet figures out whether a sender needs to handshake with a recipient or if it already has been done --> if it hasn't been done it will insert a call to the `Handshaker::handshake(recipient, true/false)` as the first call in the app payload (Very relevant for Grego, can this be done similar to how we collect authwit requests?)
+1. A wallet figures out whether a sender needs to handshake with a recipient or if it already has been done --> if it hasn't been done it will insert a call to the `Handshaker::handshake(recipient, true/false)` as the first call in the app payload.
 
 ### STEP 2: Recipient and sender discovering handshake
 

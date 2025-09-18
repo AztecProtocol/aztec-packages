@@ -4,15 +4,6 @@ fn get_next_tag(
     hidden_sender: bool,
     context: &mut PrivateContext,
 ) -> Field {
-    if !handshake_exists(sender, recipient, hidden_sender) {
-        // The handshake doesn't exist, so we need to call the handshake function of the Handshaker contract.
-        context.call_private_function(
-            HANDSHAKER_CONTRACT_ADDRESS,
-            FunctionSelector::from_signature("handshake((Field,bool))"),
-            [sender.to_field(), recipient.to_field(), hidden_sender as Field],
-        );
-    }
-
     let shared_tagging_public_key = get_shared_tagging_public_key(sender, recipient, hidden_sender);
 
     let sender_npk_m = get_public_keys(sender).npk_m;
