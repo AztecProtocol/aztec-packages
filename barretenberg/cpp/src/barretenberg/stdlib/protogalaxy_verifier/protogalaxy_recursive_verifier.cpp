@@ -191,6 +191,7 @@ std::shared_ptr<VerifierInstance> ProtogalaxyRecursiveVerifier_<VerifierInstance
     // Enforce [C] = (1 - gamma) * [B] + gamma * [A]
     output_sum.x.assert_equal(folded_sum.x);
     output_sum.y.assert_equal(folded_sum.y);
+    output_sum.is_point_at_infinity().assert_equal(folded_sum.is_point_at_infinity());
 
     // Step 13. Update the target sum: e^{\ast} = F(\alpha) * L_0(\gamma) + Z(\gamma) * K(\gamma)
     accumulator->target_sum =
