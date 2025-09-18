@@ -20,10 +20,10 @@ import MockPrivateKernelInitCircuit from '../artifacts/mock_private_kernel_init.
 import MockPrivateKernelInnerCircuit from '../artifacts/mock_private_kernel_inner.json' with { type: 'json' };
 import MockPrivateKernelResetCircuit from '../artifacts/mock_private_kernel_reset.json' with { type: 'json' };
 import MockPrivateKernelTailCircuit from '../artifacts/mock_private_kernel_tail.json' with { type: 'json' };
-import MockRollupBasePrivateCircuit from '../artifacts/mock_rollup_base_private.json' with { type: 'json' };
-import MockRollupBasePublicCircuit from '../artifacts/mock_rollup_base_public.json' with { type: 'json' };
-import MockRollupMergeCircuit from '../artifacts/mock_rollup_merge.json' with { type: 'json' };
 import MockRollupRootCircuit from '../artifacts/mock_rollup_root.json' with { type: 'json' };
+import MockRollupTxBasePrivateCircuit from '../artifacts/mock_rollup_tx_base_private.json' with { type: 'json' };
+import MockRollupTxBasePublicCircuit from '../artifacts/mock_rollup_tx_base_public.json' with { type: 'json' };
+import MockRollupTxMergeCircuit from '../artifacts/mock_rollup_tx_merge.json' with { type: 'json' };
 import type {
   AppCreatorInputType,
   AppPublicInputs,
@@ -35,10 +35,10 @@ import type {
   MockPrivateKernelInnerInputType,
   MockPrivateKernelResetInputType,
   MockPrivateKernelTailInputType,
-  MockRollupBasePrivateInputType,
-  MockRollupBasePublicInputType,
-  MockRollupMergeInputType,
   MockRollupRootInputType,
+  MockRollupTxBasePrivateInputType,
+  MockRollupTxBasePublicInputType,
+  MockRollupTxMergeInputType,
   PrivateKernelPublicInputs,
   RollupPublicInputs,
   VerificationKey,
@@ -60,9 +60,9 @@ const MockPrivateKernelInnerVk = extractVkFromCircuit(MockPrivateKernelInnerCirc
 const MockPrivateKernelResetVk = extractVkFromCircuit(MockPrivateKernelResetCircuit);
 const MockPrivateKernelTailVk = extractVkFromCircuit(MockPrivateKernelTailCircuit);
 const MockHidingVk = extractVkFromCircuit(MockHidingCircuit);
-const MockRollupBasePrivateVk = extractVkFromCircuit(MockRollupBasePrivateCircuit);
-const MockRollupBasePublicVk = extractVkFromCircuit(MockRollupBasePublicCircuit);
-const MockRollupMergeVk = extractVkFromCircuit(MockRollupMergeCircuit);
+const MockRollupTxBasePrivateVk = extractVkFromCircuit(MockRollupTxBasePrivateCircuit);
+const MockRollupTxBasePublicVk = extractVkFromCircuit(MockRollupTxBasePublicCircuit);
+const MockRollupTxMergeVk = extractVkFromCircuit(MockRollupTxMergeCircuit);
 const MockRollupRootVk = extractVkFromCircuit(MockRollupRootCircuit);
 
 // Re export the circuit jsons
@@ -80,12 +80,12 @@ export {
   MockPrivateKernelTailCircuit,
   MockHidingCircuit,
   MockPrivateKernelTailVk,
-  MockRollupBasePrivateCircuit,
-  MockRollupBasePrivateVk,
-  MockRollupBasePublicCircuit,
-  MockRollupBasePublicVk,
-  MockRollupMergeCircuit,
-  MockRollupMergeVk,
+  MockRollupTxBasePrivateCircuit,
+  MockRollupTxBasePrivateVk,
+  MockRollupTxBasePublicCircuit,
+  MockRollupTxBasePublicVk,
+  MockRollupTxMergeCircuit,
+  MockRollupTxMergeVk,
   MockRollupRootCircuit,
   MockRollupRootVk,
 };
@@ -202,9 +202,9 @@ export async function witnessGenMockHidingCircuit(
 }
 
 export async function witnessGenMockPublicBaseCircuit(
-  args: MockRollupBasePublicInputType,
+  args: MockRollupTxBasePublicInputType,
 ): Promise<WitnessGenResult<RollupPublicInputs>> {
-  const program = new Noir(MockRollupBasePublicCircuit);
+  const program = new Noir(MockRollupTxBasePublicCircuit);
   const { witness, returnValue } = await program.execute(args, foreignCallHandler);
   return {
     witness,
@@ -212,10 +212,10 @@ export async function witnessGenMockPublicBaseCircuit(
   };
 }
 
-export async function witnessGenMockRollupBasePrivateCircuit(
-  args: MockRollupBasePrivateInputType,
+export async function witnessGenMockRollupTxBasePrivateCircuit(
+  args: MockRollupTxBasePrivateInputType,
 ): Promise<WitnessGenResult<RollupPublicInputs>> {
-  const program = new Noir(MockRollupBasePrivateCircuit);
+  const program = new Noir(MockRollupTxBasePrivateCircuit);
   const { witness, returnValue } = await program.execute(args, foreignCallHandler);
   return {
     witness,
@@ -223,10 +223,10 @@ export async function witnessGenMockRollupBasePrivateCircuit(
   };
 }
 
-export async function witnessGenMockRollupMergeCircuit(
-  args: MockRollupMergeInputType,
+export async function witnessGenMockRollupTxMergeCircuit(
+  args: MockRollupTxMergeInputType,
 ): Promise<WitnessGenResult<RollupPublicInputs>> {
-  const program = new Noir(MockRollupMergeCircuit);
+  const program = new Noir(MockRollupTxMergeCircuit);
   const { witness, returnValue } = await program.execute(args, foreignCallHandler);
   return {
     witness,

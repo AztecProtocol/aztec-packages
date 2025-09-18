@@ -13,9 +13,9 @@ import {
   AvmProofData,
   type BaseRollupHints,
   PrivateBaseRollupHints,
-  PrivateBaseRollupInputs,
+  PrivateTxBaseRollupPrivateInputs,
   PublicBaseRollupHints,
-  PublicBaseRollupInputs,
+  PublicTxBaseRollupPrivateInputs,
 } from '@aztec/stdlib/rollup';
 import type { CircuitName } from '@aztec/stdlib/stats';
 import type { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
@@ -61,12 +61,12 @@ export class TxProvingState {
   public getBaseRollupTypeAndInputs() {
     if (this.requireAvmProof) {
       return {
-        rollupType: 'public-base-rollup' satisfies CircuitName,
+        rollupType: 'rollup-tx-base-public' satisfies CircuitName,
         inputs: this.#getPublicBaseInputs(),
       };
     } else {
       return {
-        rollupType: 'private-base-rollup' satisfies CircuitName,
+        rollupType: 'rollup-tx-base-private' satisfies CircuitName,
         inputs: this.#getPrivateBaseInputs(),
       };
     }
@@ -96,7 +96,7 @@ export class TxProvingState {
       getVkData('HidingKernelToRollup'),
     );
 
-    return new PrivateBaseRollupInputs(privateTailProofData, this.baseRollupHints);
+    return new PrivateTxBaseRollupPrivateInputs(privateTailProofData, this.baseRollupHints);
   }
 
   #getPublicBaseInputs() {
@@ -121,7 +121,7 @@ export class TxProvingState {
       this.#getVkData(this.avm!.verificationKey, AVM_VK_INDEX),
     );
 
-    return new PublicBaseRollupInputs(publicTubeProofData, avmProofData, this.baseRollupHints);
+    return new PublicTxBaseRollupPrivateInputs(publicTubeProofData, avmProofData, this.baseRollupHints);
   }
 
   #getVkData(verificationKey: VerificationKeyData, vkIndex: number) {

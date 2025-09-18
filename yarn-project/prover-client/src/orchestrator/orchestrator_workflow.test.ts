@@ -52,14 +52,14 @@ describe('prover/orchestrator', () => {
         const expectedBaseParityResult = makePublicInputsAndRecursiveProof(
           makeParityPublicInputs(0xff),
           makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-          ProtocolCircuitVks.BaseParityArtifact,
+          ProtocolCircuitVks.ParityBaseArtifact,
         );
 
         mockProver.getRootParityProof.mockResolvedValue(
           makePublicInputsAndRecursiveProof(
             makeParityPublicInputs(),
             makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
-            ProtocolCircuitVks.RootParityArtifact,
+            ProtocolCircuitVks.ParityRootArtifact,
           ),
         );
 
@@ -71,7 +71,7 @@ describe('prover/orchestrator', () => {
               makePublicInputsAndRecursiveProof(
                 makeParityPublicInputs(),
                 makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
-                ProtocolCircuitVks.BaseParityArtifact,
+                ProtocolCircuitVks.ParityBaseArtifact,
               ),
             );
           }

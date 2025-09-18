@@ -10,8 +10,6 @@ import { sleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import {
   type ServerProtocolArtifact,
-  convertBaseParityInputsToWitnessMap,
-  convertBaseParityOutputsFromWitnessMap,
   convertBlockMergeRollupOutputsFromWitnessMap,
   convertBlockMergeRollupPrivateInputsToWitnessMap,
   convertBlockRootEmptyTxFirstRollupOutputsFromWitnessMap,
@@ -32,20 +30,23 @@ import {
   convertCheckpointRootRollupPrivateInputsToWitnessMap,
   convertCheckpointRootSingleBlockRollupOutputsFromWitnessMap,
   convertCheckpointRootSingleBlockRollupPrivateInputsToWitnessMap,
-  convertMergeRollupInputsToWitnessMap,
-  convertMergeRollupOutputsFromWitnessMap,
-  convertRootParityInputsToWitnessMap,
-  convertRootParityOutputsFromWitnessMap,
+  convertParityBaseOutputsFromWitnessMap,
+  convertParityBasePrivateInputsToWitnessMap,
+  convertParityRootOutputsFromWitnessMap,
+  convertParityRootPrivateInputsToWitnessMap,
+  convertPrivateTxBaseRollupOutputsFromWitnessMap,
+  convertPrivateTxBaseRollupPrivateInputsToWitnessMap,
+  convertPublicTxBaseRollupOutputsFromWitnessMap,
+  convertPublicTxBaseRollupPrivateInputsToWitnessMap,
   convertRootRollupOutputsFromWitnessMap,
   convertRootRollupPrivateInputsToWitnessMap,
-  convertSimulatedPrivateBaseRollupInputsToWitnessMap,
-  convertSimulatedPrivateBaseRollupOutputsFromWitnessMap,
-  convertSimulatedPublicBaseRollupInputsToWitnessMap,
-  convertSimulatedPublicBaseRollupOutputsFromWitnessMap,
+  convertTxMergeRollupOutputsFromWitnessMap,
+  convertTxMergeRollupPrivateInputsToWitnessMap,
   foreignCallHandler,
   getSimulatedServerCircuitArtifact,
 } from '@aztec/noir-protocol-circuits-types/server';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
+import { mapProtocolArtifactNameToCircuitName } from '@aztec/noir-protocol-circuits-types/types';
 import type { WitnessMap } from '@aztec/noir-types';
 import { type CircuitSimulator, WASMSimulatorWithBlobs, emitCircuitSimulationStats } from '@aztec/simulator/server';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
@@ -57,10 +58,9 @@ import {
   makePublicInputsAndRecursiveProof,
 } from '@aztec/stdlib/interfaces/server';
 import type { PrivateToPublicKernelCircuitPublicInputs } from '@aztec/stdlib/kernel';
-import type { BaseParityInputs, ParityPublicInputs, RootParityInputs } from '@aztec/stdlib/parity';
+import type { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
 import { type Proof, ProvingRequestType, makeEmptyRecursiveProof, makeRecursiveProof } from '@aztec/stdlib/proofs';
 import type {
-  BaseOrMergeRollupPublicInputs,
   BlockMergeRollupPrivateInputs,
   BlockRollupPublicInputs,
   BlockRootEmptyTxFirstRollupPrivateInputs,
@@ -73,18 +73,18 @@ import type {
   CheckpointRollupPublicInputs,
   CheckpointRootRollupPrivateInputs,
   CheckpointRootSingleBlockRollupPrivateInputs,
-  MergeRollupInputs,
-  PrivateBaseRollupInputs,
-  PublicBaseRollupInputs,
+  PrivateTxBaseRollupPrivateInputs,
   PublicTubePrivateInputs,
+  PublicTxBaseRollupPrivateInputs,
   RootRollupPrivateInputs,
   RootRollupPublicInputs,
+  TxMergeRollupPrivateInputs,
+  TxRollupPublicInputs,
 } from '@aztec/stdlib/rollup';
 import { VerificationKeyData } from '@aztec/stdlib/vks';
 import { type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { ProverInstrumentation } from '../instrumentation.js';
-import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { PROOF_DELAY_MS, WITGEN_DELAY_MS } from './delay_values.js';
 
 type TestDelay =
@@ -125,15 +125,15 @@ export class TestCircuitProver implements ServerCircuitProver {
    */
   @trackSpan('TestCircuitProver.getBaseParityProof')
   public getBaseParityProof(
-    inputs: BaseParityInputs,
+    inputs: ParityBasePrivateInputs,
   ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
-    return this.applyDelay(ProvingRequestType.BASE_PARITY, () =>
+    return this.applyDelay(ProvingRequestType.PARITY_BASE, () =>
       this.simulate(
         inputs,
-        'BaseParityArtifact',
+        'ParityBaseArtifact',
         RECURSIVE_PROOF_LENGTH,
-        convertBaseParityInputsToWitnessMap,
-        convertBaseParityOutputsFromWitnessMap,
+        convertParityBasePrivateInputsToWitnessMap,
+        convertParityBaseOutputsFromWitnessMap,
       ),
     );
   }
@@ -145,15 +145,15 @@ export class TestCircuitProver implements ServerCircuitProver {
    */
   @trackSpan('TestCircuitProver.getRootParityProof')
   public getRootParityProof(
-    inputs: RootParityInputs,
+    inputs: ParityRootPrivateInputs,
   ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
-    return this.applyDelay(ProvingRequestType.ROOT_PARITY, () =>
+    return this.applyDelay(ProvingRequestType.PARITY_ROOT, () =>
       this.simulate(
         inputs,
-        'RootParityArtifact',
+        'ParityRootArtifact',
         NESTED_RECURSIVE_PROOF_LENGTH,
-        convertRootParityInputsToWitnessMap,
-        convertRootParityOutputsFromWitnessMap,
+        convertParityRootPrivateInputsToWitnessMap,
+        convertParityRootOutputsFromWitnessMap,
       ),
     );
   }
@@ -175,36 +175,32 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
-  @trackSpan('TestCircuitProver.getPrivateBaseRollupProof')
-  public getPrivateBaseRollupProof(
-    inputs: PrivateBaseRollupInputs,
-  ): Promise<
-    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
-  > {
-    return this.applyDelay(ProvingRequestType.PRIVATE_BASE_ROLLUP, () =>
+  @trackSpan('TestCircuitProver.getPrivateTxBaseRollupProof')
+  public getPrivateTxBaseRollupProof(
+    inputs: PrivateTxBaseRollupPrivateInputs,
+  ): Promise<PublicInputsAndRecursiveProof<TxRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+    return this.applyDelay(ProvingRequestType.PRIVATE_TX_BASE_ROLLUP, () =>
       this.simulate(
         inputs,
-        'PrivateBaseRollupArtifact',
+        'PrivateTxBaseRollupArtifact',
         NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-        convertSimulatedPrivateBaseRollupInputsToWitnessMap,
-        convertSimulatedPrivateBaseRollupOutputsFromWitnessMap,
+        convertPrivateTxBaseRollupPrivateInputsToWitnessMap,
+        convertPrivateTxBaseRollupOutputsFromWitnessMap,
       ),
     );
   }
 
-  @trackSpan('TestCircuitProver.getPublicBaseRollupProof')
-  public getPublicBaseRollupProof(
-    inputs: PublicBaseRollupInputs,
-  ): Promise<
-    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
-  > {
-    return this.applyDelay(ProvingRequestType.PUBLIC_BASE_ROLLUP, () =>
+  @trackSpan('TestCircuitProver.getPublicTxBaseRollupProof')
+  public getPublicTxBaseRollupProof(
+    inputs: PublicTxBaseRollupPrivateInputs,
+  ): Promise<PublicInputsAndRecursiveProof<TxRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+    return this.applyDelay(ProvingRequestType.PUBLIC_TX_BASE_ROLLUP, () =>
       this.simulate(
         inputs,
-        'PublicBaseRollupArtifact',
+        'PublicTxBaseRollupArtifact',
         NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-        convertSimulatedPublicBaseRollupInputsToWitnessMap,
-        convertSimulatedPublicBaseRollupOutputsFromWitnessMap,
+        convertPublicTxBaseRollupPrivateInputsToWitnessMap,
+        convertPublicTxBaseRollupOutputsFromWitnessMap,
       ),
     );
   }
@@ -214,19 +210,17 @@ export class TestCircuitProver implements ServerCircuitProver {
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  @trackSpan('TestCircuitProver.getMergeRollupProof')
-  public getMergeRollupProof(
-    input: MergeRollupInputs,
-  ): Promise<
-    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
-  > {
-    return this.applyDelay(ProvingRequestType.MERGE_ROLLUP, () =>
+  @trackSpan('TestCircuitProver.getTxMergeRollupProof')
+  public getTxMergeRollupProof(
+    input: TxMergeRollupPrivateInputs,
+  ): Promise<PublicInputsAndRecursiveProof<TxRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+    return this.applyDelay(ProvingRequestType.TX_MERGE_ROLLUP, () =>
       this.simulate(
         input,
-        'MergeRollupArtifact',
+        'TxMergeRollupArtifact',
         NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-        convertMergeRollupInputsToWitnessMap,
-        convertMergeRollupOutputsFromWitnessMap,
+        convertTxMergeRollupPrivateInputsToWitnessMap,
+        convertTxMergeRollupOutputsFromWitnessMap,
       ),
     );
   }

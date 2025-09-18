@@ -195,9 +195,9 @@ function test_cmds {
     private-kernel-reset
     private-kernel-tail-to-public
     private-kernel-tail
-    rollup-base-private
-    rollup-base-public
-    rollup-merge
+    rollup-tx-base-private
+    rollup-tx-base-public
+    rollup-tx-merge
     rollup-block-root-first
     rollup-block-root-first-single-tx
     rollup-block-root-first-empty-tx

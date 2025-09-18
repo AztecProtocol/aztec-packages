@@ -1,8 +1,8 @@
 mod parity_public_inputs;
 mod base;
-pub mod root;
+mod root;
+mod tests;
 
-pub use crate::base::base_parity_inputs::BaseParityInputs;
+pub use crate::base::parity_base_private_inputs::ParityBasePrivateInputs;
 pub use crate::parity_public_inputs::ParityPublicInputs;
-pub use crate::root::root_parity_input::RootParityInput;
-pub use crate::root::root_parity_inputs::RootParityInputs;
+pub use crate::root::parity_root_private_inputs::ParityRootPrivateInputs;

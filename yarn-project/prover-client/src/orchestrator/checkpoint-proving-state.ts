@@ -17,7 +17,7 @@ import { BLS12Point, Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
-import { BaseParityInputs } from '@aztec/stdlib/parity';
+import { ParityBasePrivateInputs } from '@aztec/stdlib/parity';
 import {
   BlockMergeRollupPrivateInputs,
   BlockRollupPublicInputs,
@@ -185,7 +185,7 @@ export class CheckpointProvingState {
       Fr.ZERO,
       NUM_MSGS_PER_BASE_PARITY,
     );
-    return new BaseParityInputs(messages, this.constants.vkTreeRoot);
+    return new ParityBasePrivateInputs(messages, this.constants.vkTreeRoot);
   }
 
   public async accumulateBlobs(startBlobAccumulator: BatchedBlobAccumulator) {
@@ -220,7 +220,7 @@ export class CheckpointProvingState {
   }
 
   public getCheckpointRootRollupType(): CircuitName {
-    return this.totalNumBlocks === 1 ? 'checkpoint-root-single-block-rollup' : 'checkpoint-root-rollup';
+    return this.totalNumBlocks === 1 ? 'rollup-checkpoint-root-single-block' : 'rollup-checkpoint-root';
   }
 
   public async getCheckpointRootRollupInputs() {

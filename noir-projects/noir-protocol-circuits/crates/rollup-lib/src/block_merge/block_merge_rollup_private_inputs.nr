@@ -1,18 +1,24 @@
 use crate::{
-    abis::{BlockRollupPublicInputs, RollupProofData},
+    abis::BlockRollupPublicInputs,
     block_merge::utils::{
         merge_block_rollups::merge_block_rollups,
         validate_consecutive_block_rollups::validate_consecutive_block_rollups,
     },
 };
-use dep::types::constants::{
-    BLOCK_MERGE_ROLLUP_VK_INDEX, BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
-    BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX,
-    BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
-    PROOF_TYPE_ROLLUP_HONK,
+use dep::types::{
+    constants::{
+        BLOCK_MERGE_ROLLUP_VK_INDEX, BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
+        BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX,
+        BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
+    },
+    proof::proof_data::RollupHonkProofData,
 };
 
 global ALLOWED_PREVIOUS_VK_INDICES: [u32; 6] = [
+    // The first block roots may only appear as the left child of the block merge rollup. Instead of defining two
+    // separate allowed lists, we rely on the rules in  `validate_consecutive_block_rollups` to enforce this.
+    // These rules also ensure that the first block root is only used once - a condition that cannot be constrained
+    // simply by using two allowed lists.
     BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
     BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,
     BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
@@ -21,19 +27,19 @@ global ALLOWED_PREVIOUS_VK_INDICES: [u32; 6] = [
     BLOCK_MERGE_ROLLUP_VK_INDEX,
 ];
 
-/// VkIndex: MERGE_ROLLUP_VK_INDEX
 pub struct BlockMergeRollupPrivateInputs {
-    pub previous_rollups: [RollupProofData<BlockRollupPublicInputs>; 2],
+    pub(crate) previous_rollups: [RollupHonkProofData<BlockRollupPublicInputs>; 2],
 }
 
 impl BlockMergeRollupPrivateInputs {
+    /// VkIndex: BLOCK_MERGE_ROLLUP_VK_INDEX
     pub fn execute(self) -> BlockRollupPublicInputs {
-        // Verify the previous rollup proofs
+        // Verify the previous rollup proofs and vks.
         if !dep::std::runtime::is_unconstrained() {
             let vk_tree_root = self.previous_rollups[0].public_inputs.constants.vk_tree_root;
 
             for i in 0..2 {
-                self.previous_rollups[i].verify(PROOF_TYPE_ROLLUP_HONK);
+                self.previous_rollups[i].verify_proof();
                 self.previous_rollups[i].vk_data.validate_allowed_in_vk_tree(
                     vk_tree_root,
                     ALLOWED_PREVIOUS_VK_INDICES,
@@ -49,156 +55,3 @@ impl BlockMergeRollupPrivateInputs {
         merge_block_rollups(left, right)
     }
 }
-
-// mod tests {
-//     use crate::tests::block_merge_rollup_inputs::default_block_merge_rollup_inputs;
-//     use dep::types::constants::{
-//         BLOCK_MERGE_ROLLUP_VK_INDEX, BLOCK_ROOT_ROLLUP_VK_INDEX, ROOT_PARITY_INDEX,
-//     };
-//     use dep::types::tests::fixtures;
-//     use types::merkle_tree::merkle_tree::MerkleTree;
-
-//     #[test(should_fail_with = "input blocks have different chain id")]
-//     fn constants_different_chain_id_fails() {
-//         let mut inputs = default_block_merge_rollup_inputs();
-//         inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.end_global_variables.chain_id =
-//             1;
-//         let _output = inputs.block_merge_rollup_circuit();
-//     }
-
-//     #[test(should_fail_with = "input blocks have different chain version")]
-//     fn constants_different_ver_fails() {
-//         let mut inputs = default_block_merge_rollup_inputs();
-//         inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.end_global_variables.version =
-//             1;
-//         let _output = inputs.block_merge_rollup_circuit();
-//     }
-
-//     #[test(should_fail_with = "input blocks have different epoch blob challenges")]
-//     fn blob_different_challenges_fails() {
-//         let mut inputs = default_block_merge_rollup_inputs();
-//         inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.blob_public_inputs.final_blob_challenges.z +=
-//             1;
-//         let _output = inputs.block_merge_rollup_circuit();
-//     }
-
-//     #[test(should_fail_with = "input blocks have different archive tree snapshots")]
-//     fn previous_rollups_dont_follow_archive() {
-//         let mut inputs = default_block_merge_rollup_inputs();
-//         inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.new_archive.root = 0;
-//         inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.previous_archive.root =
-//             1;
-//         let _output = inputs.block_merge_rollup_circuit();
-//     }
-
-//     #[test(should_fail_with = "input block numbers do not follow on from each other")]
-//     fn previous_rollups_dont_follow_block_number() {
-//         let mut inputs = default_block_merge_rollup_inputs();
-//         inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.start_global_variables.block_number =
-//             3;
-//         // Change the end block number to match the start block number so that the number of blocks is 1. This will
-//         // form a sibling for previous_rollup_data[0], whose number of blocks is also 1, to pass the check for the
-//         // rollup structure.
-//         inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.end_global_variables.block_number =
-//             3;
-//         let _output = inputs.block_merge_rollup_circuit();
-//     }
-
-//     #[test(should_fail_with = "input block blob accumulators do not follow on from each other")]
-//     fn previous_rollups_dont_follow_blob_accumulator() {
-//         let mut inputs = default_block_merge_rollup_inputs();
-//         inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.z_acc +=
-//             1;
-//         let _output = inputs.block_merge_rollup_circuit();
-//     }
-
-//     #[test]
-//     fn block_fees_are_accumulated() {
-//         let mut inputs = default_block_merge_rollup_inputs();
-//         let outputs = inputs.block_merge_rollup_circuit();
-//         // TODO(Miranda): Uncomment below when fees with the same recipient are combined in merge_block_rollups.nr -> accumulate_blocks_fees()
-//         // // Default previous rollup inputs have the same fee recipient, so they should be accumulated into one
-//         // let expected_fee_total = inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.fees[0].value
-//         //     + inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.fees[0].value;
-//         // assert_eq(outputs.fees[0].value, expected_fee_total);
-//         // assert(is_empty(outputs.fees[1]));
-//         // inputs = default_block_merge_rollup_inputs();
-//         // // Force each previous rollup to have different fee recipients
-//         // inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.fees[0].recipient = EthAddress::from_field(2);
-//         // let outputs = inputs.block_merge_rollup_circuit();
-//         assert_eq(
-//             outputs.fees[0],
-//             inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.fees[0],
-//         );
-//         assert_eq(
-//             outputs.fees[1],
-//             inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.fees[0],
-//         );
-//     }
-
-//     #[test]
-//     fn blob_inputs_are_accumulated() {
-//         let mut inputs = default_block_merge_rollup_inputs();
-//         let outputs = inputs.block_merge_rollup_circuit();
-
-//         assert_eq(
-//             outputs.blob_public_inputs.start_blob_accumulator,
-//             inputs.previous_rollup_data[0]
-//                 .block_root_or_block_merge_public_inputs
-//                 .blob_public_inputs
-//                 .start_blob_accumulator,
-//         );
-//         assert_eq(
-//             outputs.blob_public_inputs.end_blob_accumulator,
-//             inputs.previous_rollup_data[1]
-//                 .block_root_or_block_merge_public_inputs
-//                 .blob_public_inputs
-//                 .end_blob_accumulator,
-//         );
-//     }
-
-//     #[test]
-//     fn valid_previous_circuit_block_root() {
-//         let mut inputs = default_block_merge_rollup_inputs();
-
-//         let vk_index = BLOCK_ROOT_ROLLUP_VK_INDEX;
-//         let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
-//             fixtures::vk_tree::VK_MERKLE_TREE;
-//         inputs.previous_rollup_data[0].vk_data.vk =
-//             fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(vk_index);
-//         inputs.previous_rollup_data[0].vk_data.leaf_index = vk_index;
-//         inputs.previous_rollup_data[0].vk_data.sibling_path = vk_tree.get_sibling_path(vk_index);
-
-//         let _outputs = inputs.block_merge_rollup_circuit();
-//     }
-
-//     #[test]
-//     fn valid_previous_circuit_block_merge() {
-//         let mut inputs = default_block_merge_rollup_inputs();
-
-//         let vk_index = BLOCK_MERGE_ROLLUP_VK_INDEX;
-//         let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
-//             fixtures::vk_tree::VK_MERKLE_TREE;
-//         inputs.previous_rollup_data[0].vk_data.vk =
-//             fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(vk_index);
-//         inputs.previous_rollup_data[0].vk_data.leaf_index = vk_index;
-//         inputs.previous_rollup_data[0].vk_data.sibling_path = vk_tree.get_sibling_path(vk_index);
-
-//         let _outputs = inputs.block_merge_rollup_circuit();
-//     }
-
-//     #[test(should_fail_with = "Invalid vk index")]
-//     fn invalid_previous_circuit() {
-//         let mut inputs = default_block_merge_rollup_inputs();
-
-//         let vk_index = ROOT_PARITY_INDEX;
-//         let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
-//             fixtures::vk_tree::VK_MERKLE_TREE;
-//         inputs.previous_rollup_data[0].vk_data.vk =
-//             fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(vk_index);
-//         inputs.previous_rollup_data[0].vk_data.leaf_index = vk_index;
-//         inputs.previous_rollup_data[0].vk_data.sibling_path = vk_tree.get_sibling_path(vk_index);
-
-//         let _outputs = inputs.block_merge_rollup_circuit();
-//     }
-// }

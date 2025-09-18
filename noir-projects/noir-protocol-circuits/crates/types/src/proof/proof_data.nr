@@ -1,6 +1,7 @@
 use crate::{
     constants::{
-        CIVC_PROOF_LENGTH, CIVC_VK_LENGTH_IN_FIELDS, PROOF_TYPE_CIVC, PROOF_TYPE_ROLLUP_HONK,
+        CIVC_PROOF_LENGTH, CIVC_VK_LENGTH_IN_FIELDS, PROOF_TYPE_CIVC, PROOF_TYPE_HONK,
+        PROOF_TYPE_ROLLUP_HONK, PROOF_TYPE_ROOT_ROLLUP_HONK, RECURSIVE_PROOF_LENGTH,
         RECURSIVE_ROLLUP_HONK_PROOF_LENGTH, ULTRA_VK_LENGTH_IN_FIELDS,
     },
     proof::vk_data::VkData,
@@ -42,6 +43,15 @@ where
     }
 }
 
+impl<T> ProofData<T, RECURSIVE_PROOF_LENGTH, ULTRA_VK_LENGTH_IN_FIELDS>
+where
+    T: Serialize,
+{
+    pub fn verify_proof(self) {
+        self.verify(PROOF_TYPE_HONK);
+    }
+}
+
 impl<T> ProofData<T, RECURSIVE_ROLLUP_HONK_PROOF_LENGTH, ULTRA_VK_LENGTH_IN_FIELDS>
 where
     T: Serialize,
@@ -49,8 +59,17 @@ where
     pub fn verify_proof(self) {
         self.verify(PROOF_TYPE_ROLLUP_HONK);
     }
+
+    pub fn verify_proof_in_root(self) {
+        // Root rollup honk proof type that does full IPA recursive verifier.
+        self.verify(PROOF_TYPE_ROOT_ROLLUP_HONK);
+    }
 }
 
 pub type CivcProofData<T> = ProofData<T, CIVC_PROOF_LENGTH, CIVC_VK_LENGTH_IN_FIELDS>;
 
+/// Using this type for both RECURSIVE_PROOF_LENGTH and NESTED_RECURSIVE_PROOF_LENGTH.
+pub type UltraHonkProofData<T> = ProofData<T, RECURSIVE_PROOF_LENGTH, ULTRA_VK_LENGTH_IN_FIELDS>;
+
+/// Using this type for both RECURSIVE_ROLLUP_HONK_PROOF_LENGTH and NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH.
 pub type RollupHonkProofData<T> = ProofData<T, RECURSIVE_ROLLUP_HONK_PROOF_LENGTH, ULTRA_VK_LENGTH_IN_FIELDS>;

@@ -21,7 +21,7 @@ import { getWorkingDirectory } from './bb_working_directory.js';
 import { proveAvm, proveClientIVC, proveRollupHonk } from './prove_native.js';
 import type { KernelPublicInputs } from './types/index.js';
 import {
-  MockRollupBasePublicCircuit,
+  MockRollupTxBasePublicCircuit,
   generateTestingIVCStack,
   mapAvmProofToNoir,
   mapRecursiveProofToNoir,
@@ -67,10 +67,10 @@ async function proveMockPublicBaseRollup(
   });
 
   await proveRollupHonk(
-    'MockRollupBasePublicCircuit',
+    'MockRollupTxBasePublicCircuit',
     bbBinaryPath,
     bbWorkingDirectory,
-    MockRollupBasePublicCircuit,
+    MockRollupTxBasePublicCircuit,
     baseWitnessResult.witness,
     logger,
   );

@@ -23,10 +23,9 @@ import {
   makeProvingJobId,
 } from '@aztec/stdlib/interfaces/server';
 import type { PrivateToPublicKernelCircuitPublicInputs } from '@aztec/stdlib/kernel';
-import type { BaseParityInputs, ParityPublicInputs, RootParityInputs } from '@aztec/stdlib/parity';
+import type { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import type {
-  BaseOrMergeRollupPublicInputs,
   BlockMergeRollupPrivateInputs,
   BlockRollupPublicInputs,
   BlockRootEmptyTxFirstRollupPrivateInputs,
@@ -39,12 +38,13 @@ import type {
   CheckpointRollupPublicInputs,
   CheckpointRootRollupPrivateInputs,
   CheckpointRootSingleBlockRollupPrivateInputs,
-  MergeRollupInputs,
-  PrivateBaseRollupInputs,
-  PublicBaseRollupInputs,
+  PrivateTxBaseRollupPrivateInputs,
   PublicTubePrivateInputs,
+  PublicTxBaseRollupPrivateInputs,
   RootRollupPrivateInputs,
   RootRollupPublicInputs,
+  TxMergeRollupPrivateInputs,
+  TxRollupPublicInputs,
 } from '@aztec/stdlib/rollup';
 
 import { InlineProofStore, type ProofStore } from './proof_store/index.js';
@@ -418,29 +418,27 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
   }
 
   getBaseParityProof(
-    inputs: BaseParityInputs,
+    inputs: ParityBasePrivateInputs,
     signal?: AbortSignal,
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueJob(
-      this.generateId(ProvingRequestType.BASE_PARITY, inputs, epochNumber),
-      ProvingRequestType.BASE_PARITY,
+      this.generateId(ProvingRequestType.PARITY_BASE, inputs, epochNumber),
+      ProvingRequestType.PARITY_BASE,
       inputs,
       epochNumber,
       signal,
     );
   }
 
-  getMergeRollupProof(
-    input: MergeRollupInputs,
+  getTxMergeRollupProof(
+    input: TxMergeRollupPrivateInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<
-    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
-  > {
+  ): Promise<PublicInputsAndRecursiveProof<TxRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
     return this.enqueueJob(
-      this.generateId(ProvingRequestType.MERGE_ROLLUP, input, epochNumber),
-      ProvingRequestType.MERGE_ROLLUP,
+      this.generateId(ProvingRequestType.TX_MERGE_ROLLUP, input, epochNumber),
+      ProvingRequestType.TX_MERGE_ROLLUP,
       input,
       epochNumber,
       signal,
@@ -466,32 +464,28 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     );
   }
 
-  getPrivateBaseRollupProof(
-    baseRollupInput: PrivateBaseRollupInputs,
+  getPrivateTxBaseRollupProof(
+    baseRollupInput: PrivateTxBaseRollupPrivateInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<
-    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
-  > {
+  ): Promise<PublicInputsAndRecursiveProof<TxRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
     return this.enqueueJob(
-      this.generateId(ProvingRequestType.PRIVATE_BASE_ROLLUP, baseRollupInput, epochNumber),
-      ProvingRequestType.PRIVATE_BASE_ROLLUP,
+      this.generateId(ProvingRequestType.PRIVATE_TX_BASE_ROLLUP, baseRollupInput, epochNumber),
+      ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
       baseRollupInput,
       epochNumber,
       signal,
     );
   }
 
-  getPublicBaseRollupProof(
-    inputs: PublicBaseRollupInputs,
+  getPublicTxBaseRollupProof(
+    inputs: PublicTxBaseRollupPrivateInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<
-    PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
-  > {
+  ): Promise<PublicInputsAndRecursiveProof<TxRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
     return this.enqueueJob(
-      this.generateId(ProvingRequestType.PUBLIC_BASE_ROLLUP, inputs, epochNumber),
-      ProvingRequestType.PUBLIC_BASE_ROLLUP,
+      this.generateId(ProvingRequestType.PUBLIC_TX_BASE_ROLLUP, inputs, epochNumber),
+      ProvingRequestType.PUBLIC_TX_BASE_ROLLUP,
       inputs,
       epochNumber,
       signal,
@@ -499,13 +493,13 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
   }
 
   getRootParityProof(
-    inputs: RootParityInputs,
+    inputs: ParityRootPrivateInputs,
     signal?: AbortSignal,
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
     return this.enqueueJob(
-      this.generateId(ProvingRequestType.ROOT_PARITY, inputs, epochNumber),
-      ProvingRequestType.ROOT_PARITY,
+      this.generateId(ProvingRequestType.PARITY_ROOT, inputs, epochNumber),
+      ProvingRequestType.PARITY_ROOT,
       inputs,
       epochNumber,
       signal,

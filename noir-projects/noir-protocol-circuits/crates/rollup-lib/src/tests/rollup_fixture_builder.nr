@@ -1,298 +1,492 @@
-use crate::abis::{
-    block_root_rollup_data::{BlockRootRollupBlobData, BlockRootRollupData},
-    previous_rollup_data::PreviousRollupData,
-};
+use crate::abis::{BlockRollupPublicInputs, CheckpointRollupPublicInputs, TxRollupPublicInputs};
 use blob::blob_batching_public_inputs::{
     BatchingBlobCommitment, BlobAccumulatorPublicInputs, BLSPoint, FinalBlobBatchingChallenges,
 };
-use parity_lib::root::root_rollup_parity_input::RootRollupParityInput;
-use std::test::OracleMock;
+use parity_lib::ParityPublicInputs;
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_constant_data::BlockConstantData,
-        block_header::BlockHeader, global_variables::GlobalVariables,
-        partial_state_reference::PartialStateReference, sponge_blob::SpongeBlob,
+        block_header::BlockHeader, checkpoint_constant_data::CheckpointConstantData,
+        epoch_constant_data::EpochConstantData, fee_recipient::FeeRecipient, gas_fees::GasFees,
+        global_variables::GlobalVariables, partial_state_reference::PartialStateReference,
+        sponge_blob::SpongeBlob, state_reference::StateReference,
     },
-    address::EthAddress,
+    address::{AztecAddress, EthAddress},
     constants::{
-        ARCHIVE_HEIGHT, BLOBS_PER_BLOCK, FIELDS_PER_BLOB, L1_TO_L2_MSG_SUBTREE_HEIGHT,
+        ARCHIVE_HEIGHT, AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_BLOCK, L1_TO_L2_MSG_SUBTREE_HEIGHT,
         L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, L1_TO_L2_MSG_TREE_HEIGHT,
-        PUBLIC_BASE_ROLLUP_VK_INDEX, ROOT_PARITY_INDEX,
     },
-    merkle_tree::{append_only_tree, calculate_empty_tree_root, MerkleTree},
-    proof::vk_data::VkData,
-    tests::{fixtures, merkle_tree_utils::{compute_zero_hashes, NonEmptyMerkleTree}},
-    traits::{Empty, Hash, Serialize},
+    hash::poseidon2_hash,
+    merkle_tree::calculate_empty_tree_root,
+    proof::{proof_data::ProofData, vk_data::VkData},
+    tests::{
+        fixtures::vk_tree::{generate_fake_vk_for_index, VK_MERKLE_TREE},
+        merkle_tree_utils::SingleSubtreeMerkleTree,
+        utils::{make_fixture, pad_end},
+    },
+    traits::{Deserialize, Empty, Hash},
 };
 
 pub struct RollupFixtureBuilder {
-    pub previous_rollup_data: [PreviousRollupData; 2],
-    pub previous_block_header: BlockHeader,
-    pub previous_block_hash: Field,
-    pub last_l1_to_l2: AppendOnlyTreeSnapshot,
-    pub last_l1_to_l2_subtree_sibling_path: [Field; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
-    pub new_l1_to_l2: AppendOnlyTreeSnapshot,
-    pub last_archive: AppendOnlyTreeSnapshot,
-    pub last_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
-    pub new_archive: AppendOnlyTreeSnapshot,
-    pub new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
-    pub start_blob_accumulator: BlobAccumulatorPublicInputs,
-    pub final_blob_challenges: FinalBlobBatchingChallenges,
-    pub blobs_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
-    pub blob_commitments: [BLSPoint; BLOBS_PER_BLOCK],
-    pub blobs_hash: Field,
-    pub vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH>,
+    // Epoch constants.
+    pub chain_id: Field,
+    pub version: Field,
     pub vk_tree_root: Field,
     pub protocol_contract_tree_root: Field,
-    pub global_variables: GlobalVariables,
     pub prover_id: Field,
+
+    // Used to identify the first block, which will have an empty start_sponge_blob, and non-empty in_hash.
+    pub start_block_number: u32,
+
+    // Used to identify the first checkpoint, which will have an empty start_blob_accumulator.
+    pub start_slot_number: Field,
+
+    // Used to generate the consistent and correct final_blob_challenges for all rollups.
+    pub end_slot_number: Field,
 }
 
 impl RollupFixtureBuilder {
     pub fn new() -> Self {
-        let vk_tree = fixtures::vk_tree::VK_MERKLE_TREE;
-        let vk_tree_root = vk_tree.get_root();
-
-        let mut global_variables = GlobalVariables::empty();
-        global_variables.coinbase = EthAddress::from_field(998877);
-
         RollupFixtureBuilder {
-            previous_rollup_data: [PreviousRollupData::empty(); 2],
-            previous_block_header: BlockHeader::empty(),
-            previous_block_hash: 0,
-            last_l1_to_l2: AppendOnlyTreeSnapshot::empty(),
-            last_l1_to_l2_subtree_sibling_path: [0; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
-            new_l1_to_l2: AppendOnlyTreeSnapshot::empty(),
-            last_archive: AppendOnlyTreeSnapshot::empty(),
-            last_archive_sibling_path: [0; ARCHIVE_HEIGHT],
-            new_archive: AppendOnlyTreeSnapshot::empty(),
-            new_archive_sibling_path: [0; ARCHIVE_HEIGHT],
-            start_blob_accumulator: BlobAccumulatorPublicInputs::empty(),
-            final_blob_challenges: FinalBlobBatchingChallenges::empty(),
-            blobs_fields: [0; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
-            blob_commitments: [BatchingBlobCommitment::empty().point; BLOBS_PER_BLOCK],
-            blobs_hash: 0,
-            vk_tree,
-            vk_tree_root,
-            protocol_contract_tree_root: 0,
-            global_variables,
-            prover_id: 0,
+            chain_id: 1,
+            version: 2,
+            vk_tree_root: VK_MERKLE_TREE.get_root(),
+            protocol_contract_tree_root: 98765,
+            prover_id: 76543,
+            start_block_number: 13,
+            start_slot_number: 7,
+            end_slot_number: 7,
         }
     }
 
-    pub fn new_for_block_root() -> Self {
-        RollupFixtureBuilder::new()
-            .with_l1_to_l2_roots()
-            .with_previous_block_header()
-            .with_last_archive()
-            .with_previous_base_rollups()
+    pub fn make_proof_data<T, let ProofLen: u32, let VkLen: u32>(
+        public_inputs: T,
+        vk_index: u32,
+    ) -> ProofData<T, ProofLen, VkLen> {
+        let value_offset = vk_index as Field * 8976;
+        ProofData {
+            public_inputs,
+            proof: pad_end([
+                value_offset + 79427943,
+                value_offset + 94340,
+                value_offset + 4789150,
+                value_offset + 524,
+            ]),
+            vk_data: Self::get_vk_data(vk_index),
+        }
     }
 
-    pub fn with_previous_rollup_data(&mut self, vk_index: u32) -> Self {
-        let mut rollup_0 = self.previous_rollup_data[0].base_or_merge_rollup_public_inputs;
-        let mut rollup_1 = self.previous_rollup_data[1].base_or_merge_rollup_public_inputs;
+    pub fn get_vk_data<let VkLen: u32>(vk_index: u32) -> VkData<VkLen> {
+        let vk = generate_fake_vk_for_index(vk_index);
+        let sibling_path = VK_MERKLE_TREE.get_sibling_path(vk_index);
+        VkData { vk, leaf_index: vk_index, sibling_path }
+    }
 
-        rollup_0.constants = self.to_block_constant_data();
-        rollup_1.constants = self.to_block_constant_data();
-
-        let vk = fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(vk_index);
-        let vk_data = VkData {
-            vk,
-            leaf_index: vk_index,
-            sibling_path: self.vk_tree.get_sibling_path(vk_index),
+    pub fn build_archive_tree(
+        self,
+        block_number: u32,
+    ) -> (AppendOnlyTreeSnapshot, [Field; ARCHIVE_HEIGHT]) {
+        // Insert header hashes of existing blocks.
+        let block_header_hashes = if block_number % 2 == 0 {
+            [self.get_block_header(block_number).hash(), 0]
+        } else {
+            [
+                self.get_block_header(block_number - 1).hash(),
+                self.get_block_header(block_number).hash(),
+            ]
         };
-        self.previous_rollup_data[0].vk_data = vk_data;
-        self.previous_rollup_data[1].vk_data = vk_data;
+        let insert_index = block_number - block_number % 2;
+        let tree = SingleSubtreeMerkleTree::<2, 1, ARCHIVE_HEIGHT>::new_at_index(
+            block_header_hashes,
+            insert_index,
+        );
 
-        let mut note_hash_tree = self.previous_block_header.state.partial.note_hash_tree;
-        rollup_0.start.note_hash_tree = note_hash_tree;
-        note_hash_tree.root += 0x111;
-        note_hash_tree.next_available_leaf_index += 1;
-        rollup_0.end.note_hash_tree = note_hash_tree;
-        rollup_1.start.note_hash_tree = note_hash_tree;
-        note_hash_tree.root += 0x111;
-        note_hash_tree.next_available_leaf_index += 1;
-        rollup_1.end.note_hash_tree = note_hash_tree;
-
-        let mut nullifier_tree = self.previous_block_header.state.partial.nullifier_tree;
-        rollup_0.start.nullifier_tree = nullifier_tree;
-        nullifier_tree.root += 0x222;
-        nullifier_tree.next_available_leaf_index += 1;
-        rollup_0.end.nullifier_tree = nullifier_tree;
-        rollup_1.start.nullifier_tree = nullifier_tree;
-        nullifier_tree.root += 0x222;
-        nullifier_tree.next_available_leaf_index += 1;
-        rollup_1.end.nullifier_tree = nullifier_tree;
-
-        let mut public_data_tree = self.previous_block_header.state.partial.public_data_tree;
-        rollup_0.start.public_data_tree = public_data_tree;
-        public_data_tree.root += 0x333;
-        public_data_tree.next_available_leaf_index += 1;
-        rollup_0.end.public_data_tree = public_data_tree;
-        rollup_1.start.public_data_tree = public_data_tree;
-        public_data_tree.root += 0x333;
-        public_data_tree.next_available_leaf_index += 1;
-        rollup_1.end.public_data_tree = public_data_tree;
-
-        rollup_0.num_txs = 1;
-        rollup_1.num_txs = 1;
-
-        rollup_0.accumulated_fees = 12;
-        rollup_1.accumulated_fees = 34;
-
-        rollup_0.out_hash = 1;
-        rollup_1.out_hash = 2;
-
-        self.previous_rollup_data[0].base_or_merge_rollup_public_inputs = rollup_0;
-        self.previous_rollup_data[1].base_or_merge_rollup_public_inputs = rollup_1;
-
-        *self
-    }
-
-    pub fn with_previous_base_rollups(&mut self) -> Self {
-        self.with_previous_rollup_data(PUBLIC_BASE_ROLLUP_VK_INDEX)
-    }
-
-    pub fn with_blobs_fields<let N: u32, let M: u32>(
-        &mut self,
-        blob_fields_0: [Field; N],
-        blob_fields_1: [Field; M],
-    ) -> Self {
-        for i in 0..N {
-            self.blobs_fields[i] = blob_fields_0[i];
-        }
-        for i in 0..M {
-            self.blobs_fields[N + i] = blob_fields_1[i];
-        }
-
-        self.blob_commitments[0] =
-            BatchingBlobCommitment::from_limbs([31, 0, 0, 0], [75, 0, 0, 0]).point;
-
-        self.blobs_hash = 8901;
-
-        let mut sponge_blob = SpongeBlob::new(N + M);
-        self.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_sponge_blob =
-            sponge_blob;
-
-        sponge_blob.absorb(blob_fields_0, N);
-        self.previous_rollup_data[0].base_or_merge_rollup_public_inputs.end_sponge_blob =
-            sponge_blob;
-        self.previous_rollup_data[1].base_or_merge_rollup_public_inputs.start_sponge_blob =
-            sponge_blob;
-
-        sponge_blob.absorb(blob_fields_1, M);
-        self.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_sponge_blob =
-            sponge_blob;
-
-        *self
-    }
-
-    pub fn with_l1_to_l2_roots(&mut self) -> Self {
-        let zero_hashes = compute_zero_hashes([0; L1_TO_L2_MSG_TREE_HEIGHT]);
         let snapshot = AppendOnlyTreeSnapshot {
-            root: zero_hashes[zero_hashes.len() - 1],
-            next_available_leaf_index: 0,
+            root: tree.get_root(),
+            next_available_leaf_index: block_number + 1,
         };
 
-        let mut sibling_path = [0; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH];
-        for i in 0..L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH {
-            let index = L1_TO_L2_MSG_SUBTREE_HEIGHT + i - 1;
-            sibling_path[i] = zero_hashes[index];
+        // Get the sibling path for the current block.
+        let sibling_path = tree.get_sibling_path(block_number);
+
+        (snapshot, sibling_path)
+    }
+
+    pub fn build_archive_tree_for_insertion(
+        self,
+        block_number: u32,
+    ) -> (AppendOnlyTreeSnapshot, [Field; ARCHIVE_HEIGHT]) {
+        // Insert header hashes of the previous blocks.
+        let insert_index = block_number - block_number % 4;
+        let mut block_header_hashes = [0; 4];
+        for i in insert_index..block_number {
+            block_header_hashes[i % 4] = self.get_block_header(i).hash();
         }
-
-        self.last_l1_to_l2 = snapshot;
-        self.last_l1_to_l2_subtree_sibling_path = sibling_path;
-
-        let converted_root = self.to_root_rollup_parity_input().public_inputs.converted_root;
-        let empty_l1_to_l2_subtree_root = calculate_empty_tree_root(L1_TO_L2_MSG_SUBTREE_HEIGHT);
-        self.new_l1_to_l2 = append_only_tree::insert_subtree_to_snapshot_tree(
-            snapshot,
-            sibling_path,
-            empty_l1_to_l2_subtree_root,
-            converted_root,
-            L1_TO_L2_MSG_SUBTREE_HEIGHT as u8,
+        let tree = SingleSubtreeMerkleTree::<4, 2, ARCHIVE_HEIGHT>::new_at_index(
+            block_header_hashes,
+            insert_index,
         );
 
-        *self
-    }
-
-    pub fn with_previous_block_header(&mut self) -> Self {
-        self.previous_block_header.state.l1_to_l2_message_tree = self.last_l1_to_l2;
-        self.previous_block_header.state.partial = PartialStateReference {
-            note_hash_tree: AppendOnlyTreeSnapshot { root: 0x101, next_available_leaf_index: 11 },
-            nullifier_tree: AppendOnlyTreeSnapshot { root: 0x202, next_available_leaf_index: 22 },
-            public_data_tree: AppendOnlyTreeSnapshot { root: 0x303, next_available_leaf_index: 33 },
+        let previous_snapshot = AppendOnlyTreeSnapshot {
+            root: tree.get_root(),
+            next_available_leaf_index: block_number,
         };
 
-        self.previous_block_hash = self.previous_block_header.hash();
+        // Get the sibling path for inserting the current block header hash.
+        let sibling_path_for_insertion = tree.get_sibling_path(block_number);
 
-        *self
+        (previous_snapshot, sibling_path_for_insertion)
     }
 
-    pub fn with_last_archive(&mut self) -> Self {
-        let tree = NonEmptyMerkleTree::new(
-            [self.previous_block_hash, 0],
-            [0; ARCHIVE_HEIGHT],
-            [0; ARCHIVE_HEIGHT - 1],
-            [0; 1],
+    pub fn build_l1_to_l2_message_subtree_for_insertion(
+        self,
+        slot_number: Field,
+    ) -> (AppendOnlyTreeSnapshot, [Field; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH], AppendOnlyTreeSnapshot) {
+        // Create a subtree of size 4 filled with subtree roots before the current slot.
+        let new_slot_index = self.get_l1_to_l2_message_next_available_leaf_index(slot_number - 1)
+            >> L1_TO_L2_MSG_SUBTREE_HEIGHT;
+        let start_slot_index = new_slot_index - new_slot_index % 4;
+        let mut subtree_roots = [0; 4];
+        for i in start_slot_index..new_slot_index {
+            subtree_roots[i % 4] =
+                self.get_l1_to_l2_message_subtree_root(slot_number - 4 + i as Field);
+        }
+        let empty_subtree_root = calculate_empty_tree_root(L1_TO_L2_MSG_SUBTREE_HEIGHT);
+        subtree_roots[new_slot_index % 4] = empty_subtree_root;
+
+        let mut tree = SingleSubtreeMerkleTree::<4, 2, L1_TO_L2_MSG_TREE_HEIGHT - L1_TO_L2_MSG_SUBTREE_HEIGHT>::new_tree_roots_at_index::<L1_TO_L2_MSG_SUBTREE_HEIGHT>(
+            subtree_roots,
+            start_slot_index,
         );
+        let previous_snapshot = AppendOnlyTreeSnapshot {
+            root: tree.get_root(),
+            next_available_leaf_index: self.get_l1_to_l2_message_next_available_leaf_index(
+                slot_number - 1,
+            ),
+        };
 
-        self.last_archive =
-            AppendOnlyTreeSnapshot { root: tree.get_root(), next_available_leaf_index: 1 };
+        // Get the sibling path for inserting the current l1-to-l2 messages.
+        let sibling_path_for_insertion = tree.get_sibling_path(new_slot_index);
 
-        self.last_archive_sibling_path = tree.get_sibling_path(0);
-        self.new_archive_sibling_path = tree.get_sibling_path(1);
+        // Insert subtree of the current l1-to-l2 messages.
+        tree.update_leaf(new_slot_index, self.get_l1_to_l2_message_subtree_root(slot_number));
+        let new_snapshot = AppendOnlyTreeSnapshot {
+            root: tree.get_root(),
+            next_available_leaf_index: self.get_l1_to_l2_message_next_available_leaf_index(
+                slot_number,
+            ),
+        };
 
-        *self
+        (previous_snapshot, sibling_path_for_insertion, new_snapshot)
     }
 
-    pub fn to_block_constant_data(self) -> BlockConstantData {
-        BlockConstantData {
-            last_archive: self.last_archive,
-            l1_to_l2_tree_snapshot: self.new_l1_to_l2,
+    pub fn get_epoch_constant_data(self) -> EpochConstantData {
+        EpochConstantData {
+            chain_id: self.chain_id,
+            version: self.version,
             vk_tree_root: self.vk_tree_root,
             protocol_contract_tree_root: self.protocol_contract_tree_root,
-            global_variables: self.global_variables,
-        }
-    }
-
-    pub fn to_root_rollup_parity_input(self) -> RootRollupParityInput {
-        let mut input = RootRollupParityInput::empty();
-
-        let vk_index = ROOT_PARITY_INDEX;
-        input.verification_key = fixtures::vk_tree::generate_fake_honk_vk_for_index(vk_index);
-        input.vk_path = self.vk_tree.get_sibling_path(vk_index);
-        input.public_inputs.vk_tree_root = self.vk_tree_root;
-
-        input
-    }
-
-    pub fn to_block_root_rollup_data(self) -> BlockRootRollupData {
-        BlockRootRollupData {
-            l1_to_l2_roots: self.to_root_rollup_parity_input(),
-            l1_to_l2_message_subtree_sibling_path: self.last_l1_to_l2_subtree_sibling_path,
-            previous_archive_sibling_path: self.last_archive_sibling_path,
-            new_archive_sibling_path: self.new_archive_sibling_path,
-            previous_block_header: self.previous_block_header,
-            start_blob_accumulator: self.start_blob_accumulator,
-            final_blob_challenges: self.final_blob_challenges,
             prover_id: self.prover_id,
         }
     }
 
-    pub fn to_block_root_rollup_blob_data(self) -> BlockRootRollupBlobData {
-        BlockRootRollupBlobData {
-            blobs_fields: self.blobs_fields,
-            blob_commitments: self.blob_commitments,
-            blobs_hash: self.blobs_hash,
+    pub fn get_checkpoint_constant_data(self, slot_number: Field) -> CheckpointConstantData {
+        CheckpointConstantData {
+            chain_id: self.chain_id,
+            version: self.version,
+            vk_tree_root: self.vk_tree_root,
+            protocol_contract_tree_root: self.protocol_contract_tree_root,
+            prover_id: self.prover_id,
+            slot_number,
+            coinbase: self.get_coinbase(slot_number),
+            fee_recipient: self.get_fee_recipient(slot_number),
+            gas_fees: self.get_gas_fees(slot_number),
         }
     }
 
-    pub fn mock_evaluate_blobs_and_batch(_self: Self) {
-        // Safety: Mock the oracle call when the blob data is not relevant to the test.
-        unsafe {
-            let _ = OracleMock::mock("evaluateBlobs").returns(BlobAccumulatorPublicInputs::empty()
-                .serialize());
+    pub fn get_global_variables(self, block_number: u32) -> GlobalVariables {
+        let slot_number = self.start_slot_number;
+        GlobalVariables {
+            chain_id: self.chain_id,
+            version: self.version,
+            block_number,
+            slot_number,
+            timestamp: self.get_timestamp(block_number),
+            coinbase: self.get_coinbase(slot_number),
+            fee_recipient: self.get_fee_recipient(slot_number),
+            gas_fees: self.get_gas_fees(slot_number),
         }
     }
+
+    pub fn get_block_constant_data(self, block_number: u32) -> BlockConstantData {
+        BlockConstantData {
+            last_archive: self.get_archive(block_number - 1),
+            l1_to_l2_tree_snapshot: self.get_l1_to_l2_message_tree_snapshot(self.start_slot_number),
+            vk_tree_root: self.vk_tree_root,
+            protocol_contract_tree_root: self.protocol_contract_tree_root,
+            prover_id: self.prover_id,
+            global_variables: self.get_global_variables(block_number),
+        }
+    }
+
+    pub fn get_block_header(self, block_number: u32) -> BlockHeader {
+        BlockHeader {
+            last_archive: self.get_archive(block_number - 1),
+            state: self.get_state_reference(block_number),
+            sponge_blob_hash: block_number as Field * 9439783,
+            global_variables: self.get_global_variables(block_number),
+            total_fees: self.get_fee(block_number),
+            total_mana_used: self.get_mana_used(block_number),
+        }
+    }
+
+    pub fn get_tx_rollup_public_inputs(self, tx_index: u16) -> TxRollupPublicInputs {
+        self.get_merged_tx_rollup_public_inputs(tx_index, tx_index)
+    }
+
+    pub fn get_merged_tx_rollup_public_inputs(
+        self,
+        start_tx_index: u16,
+        end_tx_index: u16,
+    ) -> TxRollupPublicInputs {
+        let block_number = self.start_block_number;
+
+        let num_txs = 1 + end_tx_index - start_tx_index;
+
+        TxRollupPublicInputs {
+            num_txs,
+            constants: self.get_block_constant_data(block_number),
+            start_partial_state: self.get_partial_state_reference(start_tx_index as u32 - 1),
+            end_partial_state: self.get_partial_state_reference(end_tx_index as u32),
+            start_sponge_blob: self.get_sponge_blob(start_tx_index as u32 - 1),
+            end_sponge_blob: self.get_sponge_blob(end_tx_index as u32),
+            out_hash: self.get_out_hash(end_tx_index as u32),
+            accumulated_fees: self.get_fee(end_tx_index as u32),
+            accumulated_mana_used: self.get_mana_used(end_tx_index as u32),
+        }
+    }
+
+    pub fn get_block_rollup_public_inputs(self, block_number: u32) -> BlockRollupPublicInputs {
+        self.get_merged_block_rollup_public_inputs(block_number, block_number)
+    }
+
+    pub fn get_merged_block_rollup_public_inputs(
+        self,
+        start_block_number: u32,
+        end_block_number: u32,
+    ) -> BlockRollupPublicInputs {
+        let slot_number = self.start_slot_number;
+
+        let in_hash = if start_block_number == self.start_block_number {
+            self.get_in_hash(slot_number)
+        } else {
+            0
+        };
+
+        BlockRollupPublicInputs {
+            constants: self.get_checkpoint_constant_data(slot_number),
+            previous_archive: self.get_archive(start_block_number - 1),
+            new_archive: self.get_archive(end_block_number),
+            start_state: self.get_state_reference(start_block_number - 1),
+            end_state: self.get_state_reference(end_block_number),
+            start_sponge_blob: self.get_sponge_blob(start_block_number - 1),
+            end_sponge_blob: self.get_sponge_blob(end_block_number),
+            start_timestamp: self.get_timestamp(start_block_number),
+            end_timestamp: self.get_timestamp(end_block_number),
+            in_hash,
+            out_hash: self.get_out_hash(end_block_number),
+            accumulated_fees: self.get_fee(end_block_number),
+            accumulated_mana_used: self.get_mana_used(end_block_number),
+        }
+    }
+
+    pub fn get_checkpoint_rollup_public_inputs(
+        self,
+        slot_number: Field,
+    ) -> CheckpointRollupPublicInputs {
+        self.get_merged_checkpoint_rollup_public_inputs(slot_number, slot_number)
+    }
+
+    pub fn get_merged_checkpoint_rollup_public_inputs(
+        self,
+        start_slot_number: Field,
+        end_slot_number: Field,
+    ) -> CheckpointRollupPublicInputs {
+        let mut checkpoint_header_hashes = [0; AZTEC_MAX_EPOCH_DURATION];
+        let mut fees = [FeeRecipient::empty(); AZTEC_MAX_EPOCH_DURATION];
+        let num_checkpoints = (end_slot_number - start_slot_number) as u32 + 1;
+        for i in 0..num_checkpoints {
+            let slot_number = i as Field + start_slot_number;
+            checkpoint_header_hashes[i] = self.get_checkpoint_header_hash(slot_number);
+            fees[i] = self.get_fee_and_coinbase(slot_number);
+        }
+
+        CheckpointRollupPublicInputs {
+            constants: self.get_epoch_constant_data(),
+            // Archive is created with block number, but we only need the values to be consistent for consecutive
+            // checkpoints validation, so we use the slot numbers here to generate the fixtures.
+            previous_archive: self.get_archive(start_slot_number as u32 - 1),
+            new_archive: self.get_archive(end_slot_number as u32),
+            checkpoint_header_hashes,
+            fees,
+            start_blob_accumulator: self.get_blob_accumulator(start_slot_number - 1),
+            end_blob_accumulator: self.get_blob_accumulator(end_slot_number),
+            final_blob_challenges: self.get_final_blob_challenges(),
+        }
+    }
+
+    pub fn get_parity_public_inputs(self, slot_number: Field) -> ParityPublicInputs {
+        ParityPublicInputs {
+            sha_root: slot_number * 85831493,
+            converted_root: self.get_l1_to_l2_message_subtree_root(slot_number),
+            vk_tree_root: self.vk_tree_root,
+        }
+    }
+
+    pub fn get_sponge_blob(self, block_number: u32) -> SpongeBlob {
+        let mut sponge: SpongeBlob = self.make_fixture(1, block_number, 661);
+        sponge.sponge.cache_size = 0;
+        sponge.sponge.squeeze_mode = false;
+        sponge
+    }
+
+    pub fn get_blob_accumulator(self, slot_number: Field) -> BlobAccumulatorPublicInputs {
+        if slot_number == (self.start_slot_number - 1) {
+            // The first checkpoint in an epoch should start with an empty blob accumulator.
+            BlobAccumulatorPublicInputs::empty()
+        } else {
+            self.make_fixture(slot_number, 0, 1)
+        }
+    }
+
+    pub fn get_blob_commitments(self, slot_number: Field) -> [BLSPoint; BLOBS_PER_BLOCK] {
+        let mut commitments: [BLSPoint; BLOBS_PER_BLOCK] = std::mem::zeroed();
+        for i in 0..BLOBS_PER_BLOCK {
+            let x: [u128; 4] = self.make_fixture(slot_number, i, 58);
+            let y: [u128; 4] = self.make_fixture(slot_number, i, 49);
+            commitments[i] = BatchingBlobCommitment::from_limbs(x, y).point
+        }
+        commitments
+    }
+
+    pub fn get_final_blob_challenges(self) -> FinalBlobBatchingChallenges {
+        // Derived from the end block accumulator of the last checkpoint in an epoch, so that the validation in root rollup will pass.
+        let end_block_accumulator = self.get_blob_accumulator(self.end_slot_number);
+        let z = end_block_accumulator.z_acc;
+        // Safety: This is only for testing.
+        let gamma = unsafe { __from_field(poseidon2_hash([end_block_accumulator.gamma_acc, z])) };
+        FinalBlobBatchingChallenges { z, gamma: bigint::bignum::BigNum::from_limbs(gamma) }
+    }
+
+    fn get_fee(_self: Self, tx_or_block_number: u32) -> Field {
+        tx_or_block_number as Field * 36
+    }
+
+    fn get_mana_used(_self: Self, tx_or_block_number: u32) -> Field {
+        tx_or_block_number as Field * 23
+    }
+
+    fn get_out_hash(_self: Self, tx_or_block_number: u32) -> Field {
+        tx_or_block_number as Field * 60415
+    }
+
+    fn get_in_hash(_self: Self, slot_number: Field) -> Field {
+        slot_number * 94297
+    }
+
+    fn get_timestamp(_self: Self, block_number: u32) -> u64 {
+        block_number as u64 + 507124
+    }
+
+    fn get_fee_recipient(self, slot_number: Field) -> AztecAddress {
+        self.make_fixture(slot_number, 1, 283)
+    }
+
+    fn get_coinbase(self, slot_number: Field) -> EthAddress {
+        self.make_fixture(slot_number, 1, 471)
+    }
+
+    fn get_fee_and_coinbase(self, slot_number: Field) -> FeeRecipient {
+        let recipient = self.get_coinbase(slot_number);
+        let value = slot_number * 81;
+        FeeRecipient { recipient, value }
+    }
+
+    fn get_gas_fees(self, slot_number: Field) -> GasFees {
+        self.make_fixture(slot_number, 1, 848)
+    }
+
+    fn get_partial_state_reference(self, tx_or_block_number: u32) -> PartialStateReference {
+        self.make_fixture(1, tx_or_block_number, 252)
+    }
+
+    fn get_state_reference(self, block_number: u32) -> StateReference {
+        StateReference {
+            l1_to_l2_message_tree: self.get_l1_to_l2_message_tree_snapshot(self.start_slot_number),
+            partial: self.get_partial_state_reference(block_number),
+        }
+    }
+
+    fn get_l1_to_l2_message_subtree_root(_self: Self, slot_number: Field) -> Field {
+        slot_number * 7639901
+    }
+
+    fn get_l1_to_l2_message_next_available_leaf_index(_self: Self, slot_number: Field) -> u32 {
+        (slot_number as u32 + 1) * (1 << L1_TO_L2_MSG_SUBTREE_HEIGHT)
+    }
+
+    fn get_l1_to_l2_message_tree_snapshot(self, slot_number: Field) -> AppendOnlyTreeSnapshot {
+        let next_available_leaf_index =
+            self.get_l1_to_l2_message_next_available_leaf_index(slot_number);
+        AppendOnlyTreeSnapshot { root: slot_number as Field * 247953, next_available_leaf_index }
+    }
+
+    fn get_archive(_self: Self, block_number: u32) -> AppendOnlyTreeSnapshot {
+        AppendOnlyTreeSnapshot {
+            root: block_number as Field * 30785,
+            next_available_leaf_index: block_number + 1,
+        }
+    }
+
+    fn get_checkpoint_header_hash(_self: Self, slot_number: Field) -> Field {
+        slot_number * 9246 + 57149
+    }
+
+    fn make_fixture<T>(_self: Self, slot_number: Field, block_or_tx_number: u32, seed: Field) -> T
+    where
+        T: Deserialize,
+    {
+        let value_offset = slot_number * (seed * 37) + block_or_tx_number as Field * (seed + 11);
+        make_fixture(value_offset)
+    }
+}
+
+global TWO_POW_120: u128 = 0x1000000000000000000000000000000;
+
+// Copied from the noir-bignum library. For testing purposes only.
+unconstrained fn __from_field<let N: u32>(field: Field) -> [u128; N] {
+    let mut x = field;
+    let x_first_u128 = (x as u128);
+    let first: u128 = x_first_u128 % TWO_POW_120;
+    // this becomes the same as a integer division because we're removing the remainder
+    x = (x - (first as Field)) / (TWO_POW_120 as Field);
+    let x_second_u128 = (x as u128);
+    let second = x_second_u128 % TWO_POW_120;
+    x = (x - (second as Field)) / (TWO_POW_120 as Field);
+    let x_third_u128 = (x as u128);
+    let third = x_third_u128 % TWO_POW_120;
+    let mut result: [u128; N] = [0; N];
+    if N > 2 {
+        result[0] = first;
+        result[1] = second;
+        result[2] = third;
+    }
+    if N == 2 {
+        result[0] = first;
+        result[1] = second;
+    }
+    if N == 1 {
+        result[0] = first;
+    }
+    result
 }

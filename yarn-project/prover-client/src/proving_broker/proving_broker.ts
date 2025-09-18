@@ -46,9 +46,9 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     [ProvingRequestType.PUBLIC_VM]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.PUBLIC_TUBE]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
 
-    [ProvingRequestType.PRIVATE_BASE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.PUBLIC_BASE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.MERGE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.PRIVATE_TX_BASE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.PUBLIC_TX_BASE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.TX_MERGE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.ROOT_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
 
     [ProvingRequestType.BLOCK_MERGE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
@@ -69,8 +69,8 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     [ProvingRequestType.CHECKPOINT_MERGE_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.CHECKPOINT_PADDING_ROLLUP]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
 
-    [ProvingRequestType.BASE_PARITY]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
-    [ProvingRequestType.ROOT_PARITY]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.PARITY_BASE]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+    [ProvingRequestType.PARITY_ROOT]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
   };
 
   // holds a copy of the database in memory in order to quickly fulfill requests
@@ -696,11 +696,11 @@ export const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
   ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP,
   ProvingRequestType.CHECKPOINT_MERGE_ROLLUP,
   ProvingRequestType.CHECKPOINT_PADDING_ROLLUP,
-  ProvingRequestType.MERGE_ROLLUP,
-  ProvingRequestType.PUBLIC_BASE_ROLLUP,
-  ProvingRequestType.PRIVATE_BASE_ROLLUP,
+  ProvingRequestType.TX_MERGE_ROLLUP,
+  ProvingRequestType.PUBLIC_TX_BASE_ROLLUP,
+  ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
   ProvingRequestType.PUBLIC_VM,
   ProvingRequestType.PUBLIC_TUBE,
-  ProvingRequestType.ROOT_PARITY,
-  ProvingRequestType.BASE_PARITY,
+  ProvingRequestType.PARITY_ROOT,
+  ProvingRequestType.PARITY_BASE,
 ];

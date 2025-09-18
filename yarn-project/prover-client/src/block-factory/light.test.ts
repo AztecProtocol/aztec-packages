@@ -22,18 +22,22 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { createBlockEndMarker } from '@aztec/stdlib/block';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations, ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
-import { BaseParityInputs, ParityPublicInputs, RootParityInput, RootParityInputs } from '@aztec/stdlib/parity';
+import {
+  ParityBasePrivateInputs,
+  type ParityBaseProofData,
+  ParityPublicInputs,
+  ParityRootPrivateInputs,
+} from '@aztec/stdlib/parity';
 import { ProofData, type RecursiveProof, makeEmptyRecursiveProof } from '@aztec/stdlib/proofs';
 import {
-  type BaseOrMergeRollupPublicInputs,
   BlockRootEmptyTxFirstRollupPrivateInputs,
   BlockRootFirstRollupPrivateInputs,
   BlockRootSingleTxFirstRollupPrivateInputs,
   CheckpointConstantData,
-  MergeRollupInputs,
-  PreviousRollupData,
   type PrivateBaseRollupHints,
-  PrivateBaseRollupInputs,
+  PrivateTxBaseRollupPrivateInputs,
+  TxMergeRollupPrivateInputs,
+  type TxRollupPublicInputs,
 } from '@aztec/stdlib/rollup';
 import { makeBloatedProcessedTx } from '@aztec/stdlib/testing';
 import { type AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
@@ -223,7 +227,7 @@ describe('LightBlockBuilder', () => {
   const buildExpectedHeader = async (
     txs: ProcessedTx[],
     l1ToL2Messages: Fr[],
-    getTopMerges?: (rollupOutputs: BaseOrMergeRollupPublicInputs[]) => Promise<BaseOrMergeRollupPublicInputs[]>,
+    getTopMerges?: (rollupOutputs: TxRollupPublicInputs[]) => Promise<TxRollupPublicInputs[]>,
   ) => {
     if (txs.length <= 2) {
       // No need to run a merge if there's 0-2 txs
@@ -297,8 +301,8 @@ describe('LightBlockBuilder', () => {
         expectsFork,
       );
       await spongeBlobState.absorb(tx.txEffect.toBlobFields());
-      const inputs = new PrivateBaseRollupInputs(hidingKernelProofData, hints as PrivateBaseRollupHints);
-      const result = await simulator.getPrivateBaseRollupProof(inputs);
+      const inputs = new PrivateTxBaseRollupPrivateInputs(hidingKernelProofData, hints as PrivateBaseRollupHints);
+      const result = await simulator.getPrivateTxBaseRollupProof(inputs);
       // Update `expectedTxFee` if the fee changes.
       expect(result.inputs.accumulatedFees).toEqual(expectedTxFee);
       rollupOutputs.push(result.inputs);
@@ -307,12 +311,12 @@ describe('LightBlockBuilder', () => {
     return rollupOutputs;
   };
 
-  const getMergeOutput = async (left: BaseOrMergeRollupPublicInputs, right: BaseOrMergeRollupPublicInputs) => {
-    const baseRollupVk = getVkData('PrivateBaseRollupArtifact');
-    const leftInput = new PreviousRollupData(left, emptyRollupProof, baseRollupVk);
-    const rightInput = new PreviousRollupData(right, emptyRollupProof, baseRollupVk);
-    const inputs = new MergeRollupInputs([leftInput, rightInput]);
-    const result = await simulator.getMergeRollupProof(inputs);
+  const getMergeOutput = async (left: TxRollupPublicInputs, right: TxRollupPublicInputs) => {
+    const baseRollupVk = getVkData('PrivateTxBaseRollupArtifact');
+    const leftInput = new ProofData(left, emptyRollupProof, baseRollupVk);
+    const rightInput = new ProofData(right, emptyRollupProof, baseRollupVk);
+    const inputs = new TxMergeRollupPrivateInputs([leftInput, rightInput]);
+    const result = await simulator.getTxMergeRollupProof(inputs);
     return result.inputs;
   };
 
@@ -320,22 +324,21 @@ describe('LightBlockBuilder', () => {
     const l1ToL2Messages = padArrayEnd(msgs, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
     await expectsFork.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
 
-    const rootParityInputs: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>[] = [];
-    const baseParityVk = getVkData('BaseParityArtifact');
+    const parityBases: ParityBaseProofData[] = [];
+    const baseParityVk = getVkData('ParityBaseArtifact');
     for (let i = 0; i < NUM_BASE_PARITY_PER_ROOT_PARITY; i++) {
-      const input = BaseParityInputs.fromSlice(l1ToL2Messages, i, vkTreeRoot);
+      const input = ParityBasePrivateInputs.fromSlice(l1ToL2Messages, i, vkTreeRoot);
       const { inputs } = await simulator.getBaseParityProof(input);
-      const rootInput = new RootParityInput(emptyProof, baseParityVk.vk.keyAsFields, baseParityVk.siblingPath, inputs);
-      rootParityInputs.push(rootInput);
+      parityBases.push(new ProofData(inputs, emptyProof, baseParityVk));
     }
 
-    const rootParityInput = new RootParityInputs(assertLength(rootParityInputs, NUM_BASE_PARITY_PER_ROOT_PARITY));
+    const rootParityInput = new ParityRootPrivateInputs(assertLength(parityBases, NUM_BASE_PARITY_PER_ROOT_PARITY));
     const result = await simulator.getRootParityProof(rootParityInput);
     return result.inputs;
   };
 
   const getBlockRootOutput = async (
-    previousRollups: BaseOrMergeRollupPublicInputs[],
+    previousRollups: TxRollupPublicInputs[],
     parityOutput: ParityPublicInputs,
     lastArchive: AppendOnlyTreeSnapshot,
     lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
@@ -343,10 +346,10 @@ describe('LightBlockBuilder', () => {
     lastL1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
     startSpongeBlob: SpongeBlob,
   ) => {
-    const mergeRollupVk = getVkData('MergeRollupArtifact');
+    const mergeRollupVk = getVkData('TxMergeRollupArtifact');
     const previousRollupsProofs = previousRollups.map(r => new ProofData(r, emptyRollupProof, mergeRollupVk));
 
-    const rootParityVk = getVkData('RootParityArtifact');
+    const rootParityVk = getVkData('ParityRootArtifact');
     const l1ToL2Roots = new ProofData(parityOutput, emptyProof, rootParityVk);
 
     // The sibling paths to insert the new leaf are the last sibling paths.

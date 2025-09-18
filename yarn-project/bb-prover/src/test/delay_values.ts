@@ -1,7 +1,7 @@
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
 export const WITGEN_DELAY_MS: Record<ProvingRequestType, number> = {
-  [ProvingRequestType.BASE_PARITY]: 60,
+  [ProvingRequestType.PARITY_BASE]: 60,
   [ProvingRequestType.BLOCK_MERGE_ROLLUP]: 650,
   [ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP]: 60_000,
   [ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP]: 40_000,
@@ -12,17 +12,17 @@ export const WITGEN_DELAY_MS: Record<ProvingRequestType, number> = {
   [ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP]: 20_000,
   [ProvingRequestType.CHECKPOINT_PADDING_ROLLUP]: 0,
   [ProvingRequestType.CHECKPOINT_MERGE_ROLLUP]: 650,
-  [ProvingRequestType.MERGE_ROLLUP]: 0,
-  [ProvingRequestType.PRIVATE_BASE_ROLLUP]: 400_000,
-  [ProvingRequestType.PUBLIC_BASE_ROLLUP]: 470_000,
-  [ProvingRequestType.ROOT_PARITY]: 100,
+  [ProvingRequestType.TX_MERGE_ROLLUP]: 0,
+  [ProvingRequestType.PRIVATE_TX_BASE_ROLLUP]: 400_000,
+  [ProvingRequestType.PUBLIC_TX_BASE_ROLLUP]: 470_000,
+  [ProvingRequestType.PARITY_ROOT]: 100,
   [ProvingRequestType.ROOT_ROLLUP]: 650,
   [ProvingRequestType.PUBLIC_TUBE]: 0,
   [ProvingRequestType.PUBLIC_VM]: 0,
 };
 
 export const PROOF_DELAY_MS: Record<ProvingRequestType, number> = {
-  [ProvingRequestType.BASE_PARITY]: 3_000,
+  [ProvingRequestType.PARITY_BASE]: 3_000,
   [ProvingRequestType.BLOCK_MERGE_ROLLUP]: 15_000,
   [ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP]: 55_000,
   [ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP]: 35_000,
@@ -33,10 +33,10 @@ export const PROOF_DELAY_MS: Record<ProvingRequestType, number> = {
   [ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP]: 15_000,
   [ProvingRequestType.CHECKPOINT_PADDING_ROLLUP]: 0,
   [ProvingRequestType.CHECKPOINT_MERGE_ROLLUP]: 15_000,
-  [ProvingRequestType.MERGE_ROLLUP]: 0,
-  [ProvingRequestType.PRIVATE_BASE_ROLLUP]: 145_000,
-  [ProvingRequestType.PUBLIC_BASE_ROLLUP]: 160_000,
-  [ProvingRequestType.ROOT_PARITY]: 30_000,
+  [ProvingRequestType.TX_MERGE_ROLLUP]: 0,
+  [ProvingRequestType.PRIVATE_TX_BASE_ROLLUP]: 145_000,
+  [ProvingRequestType.PUBLIC_TX_BASE_ROLLUP]: 160_000,
+  [ProvingRequestType.PARITY_ROOT]: 30_000,
   [ProvingRequestType.ROOT_ROLLUP]: 15_000,
   [ProvingRequestType.PUBLIC_TUBE]: 30_000,
   [ProvingRequestType.PUBLIC_VM]: 0,

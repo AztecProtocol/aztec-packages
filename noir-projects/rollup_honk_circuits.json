@@ -1,7 +1,1 @@
-[
-  "tube.*",
-  "rollup_base.*",
-  "rollup_block.*",
-  "rollup_merge",
-  "rollup_checkpoint.*"
-]
+["tube.*", "rollup_tx.*", "rollup_block.*", "rollup_checkpoint.*"]

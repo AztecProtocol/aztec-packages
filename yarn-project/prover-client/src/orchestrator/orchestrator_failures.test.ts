@@ -90,13 +90,13 @@ describe('prover/orchestrator/failures', () => {
     it.each([
       [
         'Private Base Rollup Failed',
-        (msg: string) => jest.spyOn(prover, 'getPrivateBaseRollupProof').mockRejectedValue(msg),
+        (msg: string) => jest.spyOn(prover, 'getPrivateTxBaseRollupProof').mockRejectedValue(msg),
       ],
       [
         'Public Base Rollup Failed',
-        (msg: string) => jest.spyOn(prover, 'getPublicBaseRollupProof').mockRejectedValue(msg),
+        (msg: string) => jest.spyOn(prover, 'getPublicTxBaseRollupProof').mockRejectedValue(msg),
       ],
-      ['Merge Rollup Failed', (msg: string) => jest.spyOn(prover, 'getMergeRollupProof').mockRejectedValue(msg)],
+      ['Tx Merge Rollup Failed', (msg: string) => jest.spyOn(prover, 'getTxMergeRollupProof').mockRejectedValue(msg)],
       [
         'Block Root First Rollup Failed',
         (msg: string) => jest.spyOn(prover, 'getBlockRootFirstRollupProof').mockRejectedValue(msg),

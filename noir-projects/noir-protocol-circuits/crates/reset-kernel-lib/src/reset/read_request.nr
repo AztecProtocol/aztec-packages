@@ -306,7 +306,10 @@ mod tests {
         abis::{read_request::{ReadRequest, ScopedReadRequest}, side_effect::Readable},
         address::AztecAddress,
         merkle_tree::{LeafPreimage, MembershipWitness},
-        tests::{merkle_tree_utils::NonEmptyMerkleTree, utils::{assert_array_eq, pad_end}},
+        tests::{
+            merkle_tree_utils::NonEmptyMerkleTree,
+            utils::{assert_array_eq, pad_end, pad_end_with},
+        },
         traits::{Empty, FromField},
         utils::arrays::{ClaimedLengthArray, find_index_hint},
     };
@@ -433,17 +436,14 @@ mod tests {
             };
 
             let pending_values = ClaimedLengthArray {
-                array: pad_end(
-                    [
-                        TestValue { value: siloed_values[2], counter: 2 },
-                        TestValue { value: siloed_values[3], counter: 8 },
-                    ],
-                    TestValue::empty(),
-                ),
+                array: pad_end([
+                    TestValue { value: siloed_values[2], counter: 2 },
+                    TestValue { value: siloed_values[3], counter: 8 },
+                ]),
                 length: 2,
             };
 
-            let pending_read_hints = pad_end(
+            let pending_read_hints = pad_end_with(
                 [
                     PendingReadHint { read_request_index: 1, pending_value_index: 1 },
                     PendingReadHint { read_request_index: 2, pending_value_index: 0 },
@@ -456,7 +456,7 @@ mod tests {
                 TestLeafPreimage { value: siloed_values[1] },
             ];
 
-            let settled_read_partial_hints = pad_end(
+            let settled_read_partial_hints = pad_end_with(
                 [
                     TestSettledReadPartialHint { read_request_index: 0, leaf_index: 1 },
                     TestSettledReadPartialHint { read_request_index: 3, leaf_index: 0 },

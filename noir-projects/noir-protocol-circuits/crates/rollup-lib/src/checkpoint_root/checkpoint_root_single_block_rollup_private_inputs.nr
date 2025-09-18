@@ -1,13 +1,16 @@
 use crate::{
-    abis::{BlockRollupPublicInputs, CheckpointRollupPublicInputs, RollupProofData},
+    abis::{BlockRollupPublicInputs, CheckpointRollupPublicInputs},
     checkpoint_root::{
         checkpoint_root_rollup_private_inputs::CheckpointRootRollupHints,
         components::{CheckpointRollupPublicInputsComposer, CheckpointRootInputsValidator},
     },
 };
-use types::constants::{
-    BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
-    BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,
+use types::{
+    constants::{
+        BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
+        BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,
+    },
+    proof::proof_data::RollupHonkProofData,
 };
 
 // If there's only one previous rollup (i.e., one block in the checkpoint), it must be the first block root rollup.
@@ -17,13 +20,13 @@ global ALLOWED_PREVIOUS_VK_INDICES: [u32; 3] = [
     BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
 ];
 
-/// VkIndex: CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP_VK_INDEX
 pub struct CheckpointRootSingleBlockRollupPrivateInputs {
-    previous_rollup: RollupProofData<BlockRollupPublicInputs>,
-    hints: CheckpointRootRollupHints,
+    pub(crate) previous_rollup: RollupHonkProofData<BlockRollupPublicInputs>,
+    pub(crate) hints: CheckpointRootRollupHints,
 }
 
 impl CheckpointRootSingleBlockRollupPrivateInputs {
+    /// VkIndex: CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP_VK_INDEX
     pub fn execute(self) -> CheckpointRollupPublicInputs {
         let hints = self.hints;
         CheckpointRootInputsValidator::new(

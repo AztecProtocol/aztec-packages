@@ -159,8 +159,8 @@ function getProofCounts(
     counts[priorityIndex(ProvingRequestType.CHECKPOINT_ROOT_ROLLUP)] = numCheckpoints;
   }
 
-  counts[priorityIndex(ProvingRequestType.BASE_PARITY)] = numCheckpoints * 4;
-  counts[priorityIndex(ProvingRequestType.ROOT_PARITY)] = numCheckpoints;
+  counts[priorityIndex(ProvingRequestType.PARITY_BASE)] = numCheckpoints * 4;
+  counts[priorityIndex(ProvingRequestType.PARITY_ROOT)] = numCheckpoints;
 
   if (numBlocksPerCheckpoint > 2) {
     counts[priorityIndex(ProvingRequestType.BLOCK_MERGE_ROLLUP)] = (numBlocksPerCheckpoint - 2) * numCheckpoints;
@@ -182,11 +182,11 @@ function getProofCounts(
   }
 
   if (numTxsPerBlock > 2) {
-    counts[priorityIndex(ProvingRequestType.MERGE_ROLLUP)] = (numTxsPerBlock - 2) * totalNumBlocks;
+    counts[priorityIndex(ProvingRequestType.TX_MERGE_ROLLUP)] = (numTxsPerBlock - 2) * totalNumBlocks;
   }
 
-  counts[priorityIndex(ProvingRequestType.PRIVATE_BASE_ROLLUP)] = numPrivateBasesPerBlock * totalNumBlocks;
-  counts[priorityIndex(ProvingRequestType.PUBLIC_BASE_ROLLUP)] = numPublicBasesPerBlock * totalNumBlocks;
+  counts[priorityIndex(ProvingRequestType.PRIVATE_TX_BASE_ROLLUP)] = numPrivateBasesPerBlock * totalNumBlocks;
+  counts[priorityIndex(ProvingRequestType.PUBLIC_TX_BASE_ROLLUP)] = numPublicBasesPerBlock * totalNumBlocks;
   counts[priorityIndex(ProvingRequestType.PUBLIC_VM)] = numPublicBasesPerBlock * totalNumBlocks;
   counts[priorityIndex(ProvingRequestType.PUBLIC_TUBE)] = numPublicBasesPerBlock * totalNumBlocks;
 
@@ -623,11 +623,11 @@ describe('Proving Broker: Benchmarks', () => {
     const fullCleanupJobId = makeRandomProvingJobId(3);
     const fullCleanupInputsUri = (await proofStore.saveProofInput(
       fullCleanupJobId,
-      ProvingRequestType.PRIVATE_BASE_ROLLUP,
+      ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
     )) as any;
     await broker.enqueueProvingJob({
       id: fullCleanupJobId,
-      type: ProvingRequestType.PRIVATE_BASE_ROLLUP,
+      type: ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
       inputsUri: fullCleanupInputsUri,
       epochNumber: 3,
     });

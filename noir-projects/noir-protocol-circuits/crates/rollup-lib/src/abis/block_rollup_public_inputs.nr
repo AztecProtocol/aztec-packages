@@ -24,9 +24,9 @@ pub struct BlockRollupPublicInputs {
     // State reference after applying this block range.
     pub end_state: StateReference,
 
-    // Sponge blob containing tx effects before this block range.
+    // Sponge blob after absorbing tx effects and block end markers of all the blocks before this block range.
     pub start_sponge_blob: SpongeBlob,
-    // Sponge blob after absorbing the tx effects and the block end marker in this block range.
+    // Sponge blob after additionally absorbing tx effects and block end markers from this block range.
     pub end_sponge_blob: SpongeBlob,
 
     // Timestamp of the first block in this block range.
@@ -44,16 +44,22 @@ pub struct BlockRollupPublicInputs {
     // same checkpoint to form a wonky tree. The root of that tree becomes the final `out_hash` used on L1.
     pub out_hash: Field,
 
+    // Accumulated fees for all blocks in this block range.
     pub accumulated_fees: Field,
+
+    // Accumulated mana used for all blocks in this block range.
     pub accumulated_mana_used: Field,
 }
 
 impl BlockRollupPublicInputs {
-    pub fn num_blocks(self) -> u32 {
+    pub fn num_blocks(self) -> u16 {
         // Each block header hash is inserted into the archive tree in order, incrementing `next_available_leaf_index`
         // by 1 for each new block. So the number of blocks created between the two snapshots is the difference between
         // the indices.
-        self.new_archive.next_available_leaf_index - self.previous_archive.next_available_leaf_index
+        let num_blocks = self.new_archive.next_available_leaf_index
+            - self.previous_archive.next_available_leaf_index;
+        assert(num_blocks < (1 << 16), "Too many accumulated blocks");
+        num_blocks as u16
     }
 }
 
@@ -63,4 +69,20 @@ fn serialization_of_block_rollup_public_inputs() {
     let serialized: [Field; BLOCK_ROLLUP_PUBLIC_INPUTS_LENGTH] = item.serialize();
     let deserialized = BlockRollupPublicInputs::deserialize(serialized);
     assert(item.eq(deserialized));
+}
+
+#[test]
+fn correct_num_blocks() {
+    let mut item: BlockRollupPublicInputs = make_fixture(1);
+    item.previous_archive.next_available_leaf_index = 35;
+    item.new_archive.next_available_leaf_index = 38;
+    assert_eq(item.num_blocks(), 3);
+}
+
+#[test(should_fail_with = "Too many accumulated blocks")]
+fn too_many_num_blocks() {
+    let mut item: BlockRollupPublicInputs = make_fixture(1);
+    item.previous_archive.next_available_leaf_index = 35;
+    item.new_archive.next_available_leaf_index = (1 << 16) + 35;
+    let _ = item.num_blocks();
 }

@@ -1,4 +1,4 @@
-use crate::{abis::BlockRollupPublicInputs, merge::assert_rollups_filled_greedily};
+use crate::{abis::BlockRollupPublicInputs, tx_merge::assert_rollups_filled_greedily};
 
 pub fn validate_consecutive_block_rollups(
     left: BlockRollupPublicInputs,

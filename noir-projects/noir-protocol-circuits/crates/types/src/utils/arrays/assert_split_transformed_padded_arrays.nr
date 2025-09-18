@@ -241,21 +241,18 @@ mod tests {
 
     impl TestBuilder {
         pub fn new() -> Self {
-            let sorted_array = pad_end(
-                [
-                    TestValue { value: 40, counter: 3 },
-                    TestValue { value: 30, counter: 7 },
-                    TestValue { value: 80, counter: 13 },
-                    TestValue { value: 20, counter: MAX_U32_VALUE },
-                    TestValue { value: 50, counter: MAX_U32_VALUE },
-                    TestValue { value: 10, counter: MAX_U32_VALUE },
-                ],
-                TestValue::empty(),
-            );
+            let sorted_array = pad_end([
+                TestValue { value: 40, counter: 3 },
+                TestValue { value: 30, counter: 7 },
+                TestValue { value: 80, counter: 13 },
+                TestValue { value: 20, counter: MAX_U32_VALUE },
+                TestValue { value: 50, counter: MAX_U32_VALUE },
+                TestValue { value: 10, counter: MAX_U32_VALUE },
+            ]);
 
-            let transformed_value_array_lt = pad_end([40, 30, 20], 0);
+            let transformed_value_array_lt = pad_end([40, 30, 20]);
 
-            let transformed_value_array_gte = pad_end([80, 50, 10], 0);
+            let transformed_value_array_gte = pad_end([80, 50, 10]);
 
             TestBuilder {
                 sorted_array,
@@ -269,18 +266,15 @@ mod tests {
         }
 
         pub fn new_without_padded() -> Self {
-            let sorted_array = pad_end(
-                [
-                    TestValue { value: 40, counter: 3 },
-                    TestValue { value: 30, counter: 7 },
-                    TestValue { value: 80, counter: 13 },
-                ],
-                TestValue::empty(),
-            );
+            let sorted_array = pad_end([
+                TestValue { value: 40, counter: 3 },
+                TestValue { value: 30, counter: 7 },
+                TestValue { value: 80, counter: 13 },
+            ]);
 
-            let transformed_value_array_lt = pad_end([40, 30], 0);
+            let transformed_value_array_lt = pad_end([40, 30]);
 
-            let transformed_value_array_gte = pad_end([80], 0);
+            let transformed_value_array_gte = pad_end([80]);
 
             TestBuilder {
                 sorted_array,
@@ -343,8 +337,8 @@ mod tests {
         // Make everything revertible.
         builder.split_counter = 1;
 
-        builder.transformed_value_array_lt = pad_end([20], 0);
-        builder.transformed_value_array_gte = pad_end([40, 30, 80, 50, 10], 0);
+        builder.transformed_value_array_lt = pad_end([20]);
+        builder.transformed_value_array_gte = pad_end([40, 30, 80, 50, 10]);
 
         builder.execute();
     }
@@ -356,8 +350,8 @@ mod tests {
         // Make everything non-revertible.
         builder.split_counter = 99;
 
-        builder.transformed_value_array_lt = pad_end([40, 30, 80, 20], 0);
-        builder.transformed_value_array_gte = pad_end([50, 10], 0);
+        builder.transformed_value_array_lt = pad_end([40, 30, 80, 20]);
+        builder.transformed_value_array_gte = pad_end([50, 10]);
 
         builder.execute();
     }

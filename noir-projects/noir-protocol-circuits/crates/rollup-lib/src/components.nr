@@ -1,4 +1,4 @@
-use super::abis::tx_effect::TxEffect;
+use super::abis::TxEffect;
 use dep::types::{
     abis::{
         contract_class_log::ContractClassLog, log_hash::LogHash, private_log::PrivateLog,

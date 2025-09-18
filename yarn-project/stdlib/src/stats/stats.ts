@@ -86,25 +86,26 @@ export type ClientCircuitName =
   | 'app-circuit';
 
 export type ServerCircuitName =
-  | 'base-parity'
-  | 'root-parity'
-  | 'public-tube'
-  | 'private-base-rollup'
-  | 'public-base-rollup'
-  | 'merge-rollup'
-  | 'block-root-first-rollup'
-  | 'block-root-single-tx-first-rollup'
-  | 'block-root-empty-tx-first-rollup'
-  | 'block-root-rollup'
-  | 'block-root-single-tx-rollup'
-  | 'block-merge-rollup'
-  | 'checkpoint-root-rollup'
-  | 'checkpoint-root-single-block-rollup'
-  | 'checkpoint-padding-rollup'
-  | 'checkpoint-merge-rollup'
-  | 'root-rollup'
+  | 'parity-base'
+  | 'parity-root'
+  | 'tube-public'
+  | 'rollup-tx-base-private'
+  | 'rollup-tx-base-public'
+  | 'rollup-tx-merge'
+  | 'rollup-block-root-first'
+  | 'rollup-block-root-first-single-tx'
+  | 'rollup-block-root-first-empty-tx'
+  | 'rollup-block-root'
+  | 'rollup-block-root-single-tx'
+  | 'rollup-block-merge'
+  | 'rollup-checkpoint-root'
+  | 'rollup-checkpoint-root-single-block'
+  | 'rollup-checkpoint-padding'
+  | 'rollup-checkpoint-merge'
+  | 'rollup-root'
   | 'avm-circuit';
 
+// Circuit names should match the corresponding names in noir-protocol-circuits.
 export type CircuitName = ClientCircuitName | ServerCircuitName;
 
 /** Stats for circuit simulation. */

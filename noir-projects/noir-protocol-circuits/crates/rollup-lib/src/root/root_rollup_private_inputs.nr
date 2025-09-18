@@ -1,13 +1,13 @@
 use crate::{
-    abis::{CheckpointRollupPublicInputs, RollupProofData, RootRollupPublicInputs},
+    abis::{CheckpointRollupPublicInputs, RootRollupPublicInputs},
     checkpoint_merge::{merge_checkpoint_rollups, validate_consecutive_checkpoint_rollups},
 };
 use types::{
     constants::{
         CHECKPOINT_MERGE_ROLLUP_VK_INDEX, CHECKPOINT_PADDING_ROLLUP_VK_INDEX,
         CHECKPOINT_ROOT_ROLLUP_VK_INDEX, CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP_VK_INDEX,
-        PROOF_TYPE_ROOT_ROLLUP_HONK,
     },
+    proof::proof_data::RollupHonkProofData,
     traits::Empty,
 };
 
@@ -25,18 +25,18 @@ global ALLOWED_RIGHT_ROLLUP_VK_INDICES: [u32; 4] = [
     CHECKPOINT_PADDING_ROLLUP_VK_INDEX,
 ];
 
-/// VkIndex: ROOT_ROLLUP_VK_INDEX
 pub struct RootRollupPrivateInputs {
-    pub previous_rollups: [RollupProofData<CheckpointRollupPublicInputs>; 2],
+    pub(crate) previous_rollups: [RollupHonkProofData<CheckpointRollupPublicInputs>; 2],
 }
 
 impl RootRollupPrivateInputs {
+    /// VkIndex: ROOT_ROLLUP_VK_INDEX
     pub fn execute(self) -> RootRollupPublicInputs {
         // Verify the previous rollup proofs
         if !dep::std::runtime::is_unconstrained() {
             let vk_tree_root = self.previous_rollups[0].public_inputs.constants.vk_tree_root;
 
-            self.previous_rollups[0].verify(PROOF_TYPE_ROOT_ROLLUP_HONK); // root rollup honk proof type so we do full IPA recursive verifier
+            self.previous_rollups[0].verify_proof_in_root();
             // The vk validation below ensures that the left rollup can never be a padding block root rollup,
             // because `CHECKPOINT_PADDING_ROLLUP_VK_INDEX` is not included in `ALLOWED_LEFT_ROLLUP_VK_INDICES`.
             self.previous_rollups[0].vk_data.validate_allowed_in_vk_tree(
@@ -44,7 +44,7 @@ impl RootRollupPrivateInputs {
                 ALLOWED_LEFT_ROLLUP_VK_INDICES,
             );
 
-            self.previous_rollups[1].verify(PROOF_TYPE_ROOT_ROLLUP_HONK); // root rollup honk proof type so we do full IPA recursive verifier
+            self.previous_rollups[1].verify_proof_in_root();
             self.previous_rollups[1].vk_data.validate_allowed_in_vk_tree(
                 vk_tree_root,
                 ALLOWED_RIGHT_ROLLUP_VK_INDICES,
