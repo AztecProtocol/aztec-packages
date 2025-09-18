@@ -1,6 +1,7 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -20,12 +21,13 @@ import {
   type WatcherEmitter,
 } from '@aztec/slasher';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { CommitteeAttestationsAndSigners, L2BlockSource } from '@aztec/stdlib/block';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type { IFullNodeBlockBuilder, Validator, ValidatorClientFullConfig } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@aztec/stdlib/p2p';
-import { GlobalVariables, type ProposedBlockHeader, type StateReference, type Tx } from '@aztec/stdlib/tx';
+import type { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { GlobalVariables, type StateReference, type Tx } from '@aztec/stdlib/tx';
 import {
   AttestationTimeoutError,
   ReExFailedTxsError,
@@ -170,8 +172,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       telemetry,
     );
 
-    // TODO(PhilWindle): This seems like it could/should be done inside start()
-    validator.registerBlockProposalHandler();
     return validator;
   }
 
@@ -202,9 +202,15 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   public async start() {
+    if (this.epochCacheUpdateLoop.isRunning()) {
+      this.log.warn(`Validator client already started`);
+      return;
+    }
+
+    this.registerBlockProposalHandler();
+
     // Sync the committee from the smart contract
     // https://github.com/AztecProtocol/aztec-packages/issues/7962
-
     const myAddresses = this.getValidatorAddresses();
 
     const inCommittee = await this.epochCache.filterInCommittee('now', myAddresses);
@@ -466,7 +472,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   async createBlockProposal(
     blockNumber: number,
-    header: ProposedBlockHeader,
+    header: CheckpointHeader,
     archive: Fr,
     stateReference: StateReference,
     txs: Tx[],
@@ -493,6 +499,13 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   async broadcastBlockProposal(proposal: BlockProposal): Promise<void> {
     await this.p2pClient.broadcastProposal(proposal);
+  }
+
+  async signAttestationsAndSigners(
+    attestationsAndSigners: CommitteeAttestationsAndSigners,
+    proposer: EthAddress,
+  ): Promise<Signature> {
+    return await this.validationService.signAttestationsAndSigners(attestationsAndSigners, proposer);
   }
 
   async collectOwnAttestations(proposal: BlockProposal): Promise<BlockAttestation[]> {

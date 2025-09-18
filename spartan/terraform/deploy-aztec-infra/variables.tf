@@ -49,6 +49,16 @@ variable "RPC_RESOURCE_PROFILE" {
   }
 }
 
+variable "BOT_RESOURCE_PROFILE" {
+  description = "Resource profile to use for the bots (dev or prod)"
+  type        = string
+  default     = "prod"
+  validation {
+    condition     = contains(["dev", "prod"], var.BOT_RESOURCE_PROFILE)
+    error_message = "BOT_RESOURCE_PROFILE must be either 'dev' or 'prod'."
+  }
+}
+
 variable "K8S_CLUSTER_CONTEXT" {
   description = "GKE cluster context"
   type        = string
@@ -151,6 +161,18 @@ variable "VALIDATORS_PER_NODE" {
   description = "The number of validators per node"
   type        = string
   default     = 12
+}
+
+variable "VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY" {
+  description = "Number of publisher EOAs per validator key"
+  type        = string
+  default     = 1
+}
+
+variable "VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX" {
+  description = "Mnemonic start index for validator publishers"
+  type        = string
+  default     = 5000
 }
 
 variable "VALIDATOR_REPLICAS" {
@@ -283,4 +305,116 @@ variable "NETWORK" {
   description = "One of the existing network names to use default config for"
   type        = string
   nullable    = true
+}
+
+variable "STORE_SNAPSHOT_URL" {
+  description = "Location to store snapshots in"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "SNAPSHOT_CRON" {
+  description = "Location to store snapshots in"
+  type        = string
+  default     = "0 */12 * * *"
+}
+
+variable "BOT_MNEMONIC" {
+  description = "The bot mnemonic"
+  type        = string
+  default     = "test test test test test test test test test test test junk"
+}
+
+variable "BOT_TRANSFERS_MNEMONIC_START_INDEX" {
+  description = "The prover mnemonic start index"
+  type        = string
+  default     = ""
+}
+
+variable "BOT_TRANSFERS_REPLICAS" {
+  description = "Number of transfer bot replicas to deploy (0 to disable)"
+  type        = number
+  default     = 0
+}
+
+variable "BOT_TRANSFERS_TX_INTERVAL_SECONDS" {
+  description = "Interval in seconds between transfer bot transactions"
+  type        = number
+  default     = 10
+}
+
+variable "BOT_TRANSFERS_FOLLOW_CHAIN" {
+  description = "Transfers bot follow-chain mode (e.g., NONE)"
+  type        = string
+  default     = "PENDING"
+}
+
+variable "BOT_TRANSFERS_L2_PRIVATE_KEY" {
+  description = "Private key for the transfers bot (hex string starting with 0x)"
+  nullable    = true
+  default     = null
+}
+
+variable "BOT_SWAPS_MNEMONIC_START_INDEX" {
+  description = "The prover mnemonic start index"
+  type        = string
+  default     = ""
+}
+
+variable "BOT_SWAPS_REPLICAS" {
+  description = "Number of AMM swap bot replicas to deploy (0 to disable)"
+  type        = number
+  default     = 0
+}
+
+variable "BOT_SWAPS_TX_INTERVAL_SECONDS" {
+  description = "Interval in seconds between AMM swap bot transactions"
+  type        = number
+  default     = 10
+}
+
+variable "BOT_SWAPS_FOLLOW_CHAIN" {
+  description = "AMM swaps bot follow-chain mode (e.g., NONE)"
+  type        = string
+  default     = "PENDING"
+}
+
+variable "BOT_SWAPS_L2_PRIVATE_KEY" {
+  description = "Private key for the AMM swaps bot (hex string starting with 0x)"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+# RPC ingress configuration (GKE-specific)
+variable "RPC_INGRESS_ENABLED" {
+  description = "Enable GKE ingress for RPC nodes"
+  type        = bool
+  default     = false
+}
+
+variable "RPC_INGRESS_HOST" {
+  description = "Hostname for RPC ingress"
+  type        = string
+  default     = ""
+}
+
+variable "RPC_INGRESS_STATIC_IP_NAME" {
+  description = "Name of the GCP static IP resource for the ingress"
+  type        = string
+  default     = ""
+}
+
+variable "RPC_INGRESS_SSL_CERT_NAME" {
+  description = "Name of the GCP managed SSL certificate for the ingress"
+  type        = string
+  default     = ""
+}
+
+variable "PROVER_FAILED_PROOF_STORE" {
+  description = "Optional GCS/URI to store failed proofs from the prover"
+  type        = string
+  nullable    = false
+  default     = ""
 }

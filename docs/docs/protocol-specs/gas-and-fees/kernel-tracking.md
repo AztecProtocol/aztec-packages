@@ -41,7 +41,7 @@ class PrivateCircuitPublicInputs {
   +bool is_fee_payer
   +u32 min_revertible_side_effect_counter
   +Field public_teardown_function_hash
-  +Header historical_header
+  +Header anchor_block_header
 }
 PrivateCircuitPublicInputs --> TxContext
 PrivateCircuitPublicInputs --> Header
@@ -69,7 +69,7 @@ class PrivateAccumulatedData {
 }
 
 class CombinedConstantData {
-    +Header historical_header
+    +Header anchor_block_header
     +TxContext tx_context
     +GlobalVariables global_variables
 }
@@ -163,7 +163,7 @@ It must:
 
 - check that the `TxContext` provided as in the `TxRequest` input matches the `TxContext` in the `PrivateCallData`
 - copy the `TxContext` from the `TxRequest` to the `PrivateKernelCircuitPublicInputs.constants.tx_context`
-- copy the `Header` from the `PrivateCircuitPublicInputs` to the `PrivateKernelCircuitPublicInputs.constants.historical_header`
+- copy the `Header` from the `PrivateCircuitPublicInputs` to the `PrivateKernelCircuitPublicInputs.constants.anchor_block_header`
 - set the min_revertible_side_effect_counter if it is present in the `PrivateCallData`
 - set the `fee_payer` if the `is_fee_payer` flag is set in the `PrivateCircuitPublicInputs`
 - set the `public_teardown_function_hash` if it is present in the `PrivateCircuitPublicInputs`
@@ -304,7 +304,7 @@ PublicKernelCircuitPublicInputs --> PublicAccumulatedData
 PublicKernelCircuitPublicInputs --> CombinedConstantData
 
 class CombinedConstantData {
-    +Header historical_header
+    +Header anchor_block_header
     +TxContext tx_context
     +GlobalVariables global_variables
 }
@@ -387,7 +387,7 @@ class CombinedAccumulatedData {
 CombinedAccumulatedData --> Gas
 
 class PublicContextInputs {
-    +Header historical_header
+    +Header anchor_block_header
     +GlobalVariables public_global_variables
     +Gas gas_left
     +Field transaction_fee

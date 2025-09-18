@@ -35,49 +35,6 @@ template <typename FF> class merkle_check : public Relation<merkle_checkImpl<FF>
   public:
     static constexpr const std::string_view NAME = "merkle_check";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 1:
-            return "TRACE_CONTINUITY";
-        case 6:
-            return "START_AFTER_LATCH";
-        case 7:
-            return "SELECTOR_ON_END";
-        case 8:
-            return "PROPAGATE_READ_ROOT";
-        case 9:
-            return "PROPAGATE_WRITE";
-        case 10:
-            return "PROPAGATE_WRITE_ROOT";
-        case 11:
-            return "PATH_LEN_DECREMENTS";
-        case 12:
-            return "END_WHEN_PATH_EMPTY";
-        case 14:
-            return "NEXT_INDEX_IS_HALVED";
-        case 15:
-            return "FINAL_INDEX_IS_0_OR_1";
-        case 16:
-            return "ASSIGN_NODE_LEFT_OR_RIGHT_READ";
-        case 17:
-            return "ASSIGN_SIBLING_LEFT_OR_RIGHT_READ";
-        case 18:
-            return "ASSIGN_NODE_LEFT_OR_RIGHT_WRITE";
-        case 19:
-            return "ASSIGN_SIBLING_LEFT_OR_RIGHT_WRITE";
-        case 21:
-            return "OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE";
-        case 22:
-            return "OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE";
-        case 23:
-            return "READ_OUTPUT_HASH_IS_READ_ROOT";
-        case 24:
-            return "WRITE_OUTPUT_HASH_IS_WRITE_ROOT";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_TRACE_CONTINUITY = 1;
     static constexpr size_t SR_START_AFTER_LATCH = 6;
@@ -97,6 +54,49 @@ template <typename FF> class merkle_check : public Relation<merkle_checkImpl<FF>
     static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE = 22;
     static constexpr size_t SR_READ_OUTPUT_HASH_IS_READ_ROOT = 23;
     static constexpr size_t SR_WRITE_OUTPUT_HASH_IS_WRITE_ROOT = 24;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_TRACE_CONTINUITY:
+            return "TRACE_CONTINUITY";
+        case SR_START_AFTER_LATCH:
+            return "START_AFTER_LATCH";
+        case SR_SELECTOR_ON_END:
+            return "SELECTOR_ON_END";
+        case SR_PROPAGATE_READ_ROOT:
+            return "PROPAGATE_READ_ROOT";
+        case SR_PROPAGATE_WRITE:
+            return "PROPAGATE_WRITE";
+        case SR_PROPAGATE_WRITE_ROOT:
+            return "PROPAGATE_WRITE_ROOT";
+        case SR_PATH_LEN_DECREMENTS:
+            return "PATH_LEN_DECREMENTS";
+        case SR_END_WHEN_PATH_EMPTY:
+            return "END_WHEN_PATH_EMPTY";
+        case SR_NEXT_INDEX_IS_HALVED:
+            return "NEXT_INDEX_IS_HALVED";
+        case SR_FINAL_INDEX_IS_0_OR_1:
+            return "FINAL_INDEX_IS_0_OR_1";
+        case SR_ASSIGN_NODE_LEFT_OR_RIGHT_READ:
+            return "ASSIGN_NODE_LEFT_OR_RIGHT_READ";
+        case SR_ASSIGN_SIBLING_LEFT_OR_RIGHT_READ:
+            return "ASSIGN_SIBLING_LEFT_OR_RIGHT_READ";
+        case SR_ASSIGN_NODE_LEFT_OR_RIGHT_WRITE:
+            return "ASSIGN_NODE_LEFT_OR_RIGHT_WRITE";
+        case SR_ASSIGN_SIBLING_LEFT_OR_RIGHT_WRITE:
+            return "ASSIGN_SIBLING_LEFT_OR_RIGHT_WRITE";
+        case SR_OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE:
+            return "OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE";
+        case SR_OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE:
+            return "OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE";
+        case SR_READ_OUTPUT_HASH_IS_READ_ROOT:
+            return "READ_OUTPUT_HASH_IS_READ_ROOT";
+        case SR_WRITE_OUTPUT_HASH_IS_WRITE_ROOT:
+            return "WRITE_OUTPUT_HASH_IS_WRITE_ROOT";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

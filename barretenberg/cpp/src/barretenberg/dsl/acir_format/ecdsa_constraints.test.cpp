@@ -131,7 +131,7 @@ TYPED_TEST(EcdsaConstraintsTest, GenerateVKFromConstraints)
 {
     using Flavor = TestFixture::Flavor;
     using Builder = TestFixture::Builder;
-    using ProvingKey = DeciderProvingKey_<Flavor>;
+    using ProvingKey = ProverInstance_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
 
     auto [constraint_system, witness_values] = TestFixture::generate_constraint_system();
@@ -142,8 +142,8 @@ TYPED_TEST(EcdsaConstraintsTest, GenerateVKFromConstraints)
         auto builder = create_circuit<Builder>(program);
         info("Num gates: ", builder.get_estimated_num_finalized_gates());
 
-        auto proving_key = std::make_shared<ProvingKey>(builder);
-        vk_from_witness = std::make_shared<VerificationKey>(proving_key->get_precomputed());
+        auto prover_instance = std::make_shared<ProvingKey>(builder);
+        vk_from_witness = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
 
         // Validate the builder
         EXPECT_TRUE(CircuitChecker::check(builder));
@@ -153,8 +153,8 @@ TYPED_TEST(EcdsaConstraintsTest, GenerateVKFromConstraints)
     {
         AcirProgram program{ constraint_system, /*witness=*/{} };
         auto builder = create_circuit<Builder>(program);
-        auto proving_key = std::make_shared<ProvingKey>(builder);
-        vk_from_constraint = std::make_shared<VerificationKey>(proving_key->get_precomputed());
+        auto prover_instance = std::make_shared<ProvingKey>(builder);
+        vk_from_constraint = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
     }
 
     EXPECT_EQ(*vk_from_witness, *vk_from_constraint);

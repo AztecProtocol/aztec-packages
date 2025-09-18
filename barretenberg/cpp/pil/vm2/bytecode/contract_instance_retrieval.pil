@@ -1,7 +1,8 @@
 include "bc_hashing.pil";
 include "address_derivation.pil";
 include "update_check.pil";
-include "../precomputed.pil";
+include "../ff_gt.pil";
+include "../protocol_contract.pil";
 
 /**
  * Contract Instance Retrieval gadget.
@@ -84,13 +85,22 @@ namespace contract_instance_retrieval;
     pol commit deployer_protocol_contract_address;
     sel * (constants.CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS - deployer_protocol_contract_address) = 0;
 
-    // Indicates if the instance belongs to a protocol contract. Is hinted by the prover.
-    // If this is set to true for non-protocol contracts the lookup #[PROTOCOL_CONTRACT_DERIVED_ADDRESS] will fail.
-    // If this is set to false for protocol contracts #[ADDRESS_DERIVATION] will fail since it will use the canonical address.
+    // Indicates if the instance belongs to a protocol contract
     pol commit is_protocol_contract;
-    is_protocol_contract * (1 - is_protocol_contract) = 0;
 
-    // If is_protocol_contract = 1, then exists = 1. But if have is_protocol_contract = 0, we don't constrain exists  here.
+    // Canonical Addresses can be in the range of 1 <= address <= MAX_PROTOCOL_CONTRACT_ADDRESS
+    // currently MAX_PROTOCOL_CONTRACT_ADDRESS = ROUTER_ADDRESS (but it is bound to change)
+    pol commit max_protocol_contract_address;
+    max_protocol_contract_address = sel * constants.MAX_PROTOCOL_CONTRACT_ADDRESS;
+
+    pol commit address_sub_one;
+    address_sub_one = sel * (address - 1);
+    #[CHECK_PROTOCOL_ADDRESS_RANGE]
+    sel { max_protocol_contract_address, address_sub_one, is_protocol_contract }
+    in
+    ff_gt.sel { ff_gt.a, ff_gt.b, ff_gt.result};
+
+    // If is_protocol_contract = 1, then exists = 1. But if have is_protocol_contract = 0, we don't constrain exists here.
     // It is later constrained by the nullifier check 
     sel * is_protocol_contract * (1 - exists) = 0 ;
 
@@ -128,13 +138,13 @@ namespace contract_instance_retrieval;
 
     // The address that is checked in address derivation.
     pol commit derived_address;
-    // For protocol contracts we retrieve the derived address from the precomputed trace, else use the input address
+    // For protocol contracts we retrieve the derived address from the protocol contract trace, else use the input address
     #[UNCHANGED_ADDRESS_NON_PROTOCOL]
     sel * (1 - is_protocol_contract) * (derived_address - address) = 0;
 
     #[PROTOCOL_CONTRACT_DERIVED_ADDRESS]
     is_protocol_contract { address, derived_address } in
-    precomputed.sel_protocol_contract { precomputed.clk, precomputed.protocol_contract_derived_address };
+    protocol_contract.sel { protocol_contract.canonical_address, protocol_contract.derived_address };
 
     // Address derivation lookup (only if the nullifier exists or for protocol contract instances)
     #[ADDRESS_DERIVATION]

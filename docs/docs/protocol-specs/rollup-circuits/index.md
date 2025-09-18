@@ -281,11 +281,11 @@ class TxContext {
 TxContext *-- GasSettings : gas_settings
 
 class CombinedConstantData {
-    historical_header: Header
+    anchor_block_header: Header
     tx_context: TxContext
     global_variables: GlobalVariables
 }
-CombinedConstantData *-- Header : historical_header
+CombinedConstantData *-- Header : anchor_block_header
 CombinedConstantData *-- TxContext : tx_context
 CombinedConstantData *-- GlobalVariables : global_variables
 
@@ -327,7 +327,7 @@ class StateDiffHints {
 }
 
 class BaseRollupInputs {
-  historical_header_membership_witnesses: HeaderMembershipWitness
+  anchor_block_header_membership_witnesses: HeaderMembershipWitness
   kernel_data: KernelData
   partial: PartialStateReference
   state_diff_hints: StateDiffHints

@@ -19,6 +19,7 @@ namespace bb::stdlib::field_conversion {
  */
 template <typename Builder> fq<Builder> convert_to_grumpkin_fr(Builder& builder, const fr<Builder>& fr_element)
 {
+    ASSERT(!fr_element.is_constant());
     static constexpr uint64_t NUM_LIMB_BITS = fq<Builder>::NUM_LIMB_BITS;
 
     constexpr uint64_t NUM_BITS_IN_TWO_LIMBS = 2 * NUM_LIMB_BITS; // 136
@@ -33,13 +34,11 @@ template <typename Builder> fq<Builder> convert_to_grumpkin_fr(Builder& builder,
     fr<Builder> low{ witness_t<Builder>(&builder, low_val) };
     fr<Builder> hi{ witness_t<Builder>(&builder, hi_val) };
 
-    constrain_bigfield_limbs(low, hi);
-
     BB_ASSERT_EQ(static_cast<uint256_t>(low_val) + (static_cast<uint256_t>(hi_val) << NUM_BITS_IN_TWO_LIMBS),
                  value,
                  "field_conversion: limb decomposition");
-    // checks this decomposition low + hi * 2^64 = value with an assert_equal
-    const fr<Builder> zero = fr<Builder>::from_witness_index(&builder, 0);
+    // check the decomposition low + hi * 2^136 = value in circuit
+    const fr<Builder> zero = fr<Builder>::from_witness_index(&builder, builder.zero_idx);
     fr<Builder>::evaluate_linear_identity(hi * shift, low, -fr_element, zero);
 
     return fq<Builder>(low, hi);

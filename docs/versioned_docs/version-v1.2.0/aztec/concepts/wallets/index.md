@@ -19,7 +19,7 @@ In addition to these usual responsibilities, wallets in Aztec also need to track
 
 ## Account setup
 
-The first step for any wallet is to let the user set up their [accounts](../accounts/index.md). An account in Aztec is represented on-chain by its corresponding account contract that the user must deploy to begin interacting with the network. This account contract dictates how transactions are authenticated and executed.
+The first step for any wallet is to let the user set up their [accounts](../accounts/index.md). An account in Aztec is represented onchain by its corresponding account contract that the user must deploy to begin interacting with the network. This account contract dictates how transactions are authenticated and executed.
 
 A wallet must support at least one specific account contract implementation, which means being able to deploy such a contract, as well as interacting with it when sending transactions. Code-wise, this requires [implementing the `AccountContract` interface](https://github.com/AztecProtocol/aztec-packages/blob/v1.2.0/yarn-project/aztec.js/src/account/interface.ts).
 

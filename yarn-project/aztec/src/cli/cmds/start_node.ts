@@ -1,7 +1,8 @@
-import { getInitialTestAccounts } from '@aztec/accounts/testing';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, aztecNodeConfigMappings, getConfigEnvVars } from '@aztec/aztec-node';
 import { Fr } from '@aztec/aztec.js';
 import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
+import { getL1Config } from '@aztec/cli/config';
 import { getPublicClient } from '@aztec/ethereum';
 import { SecretValue } from '@aztec/foundation/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
@@ -16,7 +17,6 @@ import {
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { createAztecNode } from '../../sandbox/index.js';
-import { getL1Config } from '../get_l1_config.js';
 import {
   extractNamespacedOptions,
   extractRelevantOptions,
@@ -50,7 +50,7 @@ export async function startNode(
 
   await preloadCrsDataForVerifying(nodeConfig, userLog);
 
-  const testAccounts = nodeConfig.testAccounts ? (await getInitialTestAccounts()).map(a => a.address) : [];
+  const testAccounts = nodeConfig.testAccounts ? (await getInitialTestAccountsData()).map(a => a.address) : [];
   const sponsoredFPCAccounts = nodeConfig.sponsoredFPC ? [await getSponsoredFPCAddress()] : [];
   const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts);
 

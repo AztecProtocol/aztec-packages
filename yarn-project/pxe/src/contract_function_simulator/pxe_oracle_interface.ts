@@ -30,7 +30,6 @@ import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import { TxHash } from '@aztec/stdlib/tx';
-import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { ExecutionDataProvider, ExecutionStats } from '../contract_function_simulator/execution_data_provider.js';
 import { MessageLoadOracleInputs } from '../contract_function_simulator/oracle/message_load_oracle_inputs.js';
@@ -193,7 +192,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   }
 
   public async getNullifierMembershipWitnessAtLatestBlock(nullifier: Fr) {
-    return this.getNullifierMembershipWitness(await this.getBlockNumber(), nullifier);
+    const blockNumber = (await this.getAnchorBlockHeader()).globalVariables.blockNumber;
+    return this.getNullifierMembershipWitness(blockNumber, nullifier);
   }
 
   public getNullifierMembershipWitness(
@@ -203,33 +203,42 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return this.aztecNode.getNullifierMembershipWitness(blockNumber, nullifier);
   }
 
-  public getLowNullifierMembershipWitness(
+  public async getLowNullifierMembershipWitness(
     blockNumber: number,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
+    const header = await this.getAnchorBlockHeader();
+    if (blockNumber > header.globalVariables.blockNumber) {
+      throw new Error(`Block number ${blockNumber} is higher than current block ${header.globalVariables.blockNumber}`);
+    }
     return this.aztecNode.getLowNullifierMembershipWitness(blockNumber, nullifier);
   }
 
   public async getBlock(blockNumber: number): Promise<L2Block | undefined> {
+    const header = await this.getAnchorBlockHeader();
+    if (blockNumber > header.globalVariables.blockNumber) {
+      throw new Error(`Block number ${blockNumber} is higher than current block ${header.globalVariables.blockNumber}`);
+    }
     return await this.aztecNode.getBlock(blockNumber);
   }
 
   public async getPublicDataWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+    const header = await this.getAnchorBlockHeader();
+    if (blockNumber > header.globalVariables.blockNumber) {
+      throw new Error(`Block number ${blockNumber} is higher than current block ${header.globalVariables.blockNumber}`);
+    }
     return await this.aztecNode.getPublicDataWitness(blockNumber, leafSlot);
   }
 
   public async getPublicStorageAt(blockNumber: number, contract: AztecAddress, slot: Fr): Promise<Fr> {
+    const header = await this.getAnchorBlockHeader();
+    if (blockNumber > header.globalVariables.blockNumber) {
+      throw new Error(`Block number ${blockNumber} is higher than current block ${header.globalVariables.blockNumber}`);
+    }
     return await this.aztecNode.getPublicStorageAt(blockNumber, contract, slot);
   }
 
-  /**
-   * Retrieve the latest block header synchronized by the PXE.
-   * @dev This structure is fed into the circuits simulator and is used to prove against certain historical roots.
-   * @returns The BlockHeader object.
-   * TODO: I think this naming is bad as it's not the latest block header synched by the node, but the latest block
-   * header synchronized by the PXE. Would rename this to something like getSynchronizedBlockHeader().
-   */
-  getBlockHeader(): Promise<BlockHeader> {
+  getAnchorBlockHeader(): Promise<BlockHeader> {
     return this.syncDataProvider.getBlockHeader();
   }
 
@@ -237,42 +246,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     if (version !== ORACLE_VERSION) {
       throw new Error(`Incompatible oracle version. Expected version ${ORACLE_VERSION}, got ${version}.`);
     }
-  }
-
-  /**
-   * Fetches the latest block number synchronized by the node.
-   * @returns The block number.
-   */
-  public async getBlockNumber(): Promise<number> {
-    return await this.aztecNode.getBlockNumber();
-  }
-
-  /**
-   * Fetches the timestamp of the latest block synchronized by the node.
-   * @returns The timestamp.
-   */
-  public async getTimestamp(): Promise<UInt64> {
-    const latestBlockHeader = await this.aztecNode.getBlockHeader();
-    if (!latestBlockHeader) {
-      throw new Error('Latest block header not found when getting timestamp');
-    }
-    return latestBlockHeader.globalVariables.timestamp;
-  }
-
-  /**
-   * Fetches the current chain id.
-   * @returns The chain id.
-   */
-  public async getChainId(): Promise<number> {
-    return await this.aztecNode.getChainId();
-  }
-
-  /**
-   * Fetches the current version.
-   * @returns The version.
-   */
-  public async getVersion(): Promise<number> {
-    return await this.aztecNode.getVersion();
   }
 
   public getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string> {
@@ -381,6 +354,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
    * @param contractAddress - The address of the contract that the logs are tagged for
    * @param sender - The address of the sender, we must know the sender's ivsk_m.
    * @param recipient - The address of the recipient.
+   * TODO: This is used only withing PXEOracleInterface and tests so we most likely just want to hide this.
    */
   public async syncTaggedLogsAsSender(
     contractAddress: AztecAddress,
@@ -516,7 +490,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         for (let logIndex = 0; logIndex < logsByTags.length; logIndex++) {
           const logsByTag = logsByTags[logIndex];
           if (logsByTag.length > 0) {
-            // We filter out the logs that are newer than the historical block number of the tx currently being constructed
+            // We filter out the logs that are newer than the anchor block number of the tx currently being constructed
             const filteredLogsByBlockNumber = logsByTag.filter(l => l.blockNumber <= maxBlockNumber);
 
             // We store the logs in capsules (to later be obtained in Noir)
@@ -740,7 +714,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
     if (nullifierIndex !== undefined) {
       const { data: _, ...blockHashAndNum } = nullifierIndex;
-      await this.noteDataProvider.removeNullifiedNotes([{ data: siloedNullifier, ...blockHashAndNum }], recipient);
+      await this.noteDataProvider.removeNullifiedNotes([{ data: siloedNullifier, ...blockHashAndNum }]);
 
       this.log.verbose(`Removed just-added note`, {
         contract: contractAddress,
@@ -921,51 +895,48 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     // available, even for non-archive nodes.
     const syncedBlockNumber = await this.syncDataProvider.getBlockNumber();
 
-    for (const recipient of await this.keyStore.getAccounts()) {
-      const currentNotesForRecipient = await this.noteDataProvider.getNotes({ contractAddress, recipient });
+    const contractNotes = await this.noteDataProvider.getNotes({ contractAddress });
 
-      if (currentNotesForRecipient.length === 0) {
-        // Save a call to the node if there are no notes for the recipient
-        continue;
-      }
-
-      const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
-      const nullifierBatches = nullifiersToCheck.reduce(
-        (acc, nullifier) => {
-          if (acc[acc.length - 1].length < MAX_RPC_LEN) {
-            acc[acc.length - 1].push(nullifier);
-          } else {
-            acc.push([nullifier]);
-          }
-          return acc;
-        },
-        [[]] as Fr[][],
-      );
-      const nullifierIndexes = (
-        await Promise.all(
-          nullifierBatches.map(batch =>
-            this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NULLIFIER_TREE, batch),
-          ),
-        )
-      ).flat();
-
-      const foundNullifiers = nullifiersToCheck
-        .map((nullifier, i) => {
-          if (nullifierIndexes[i] !== undefined) {
-            return { ...nullifierIndexes[i], ...{ data: nullifier } } as InBlock<Fr>;
-          }
-        })
-        .filter(nullifier => nullifier !== undefined) as InBlock<Fr>[];
-
-      const nullifiedNotes = await this.noteDataProvider.removeNullifiedNotes(foundNullifiers, recipient);
-      nullifiedNotes.forEach(noteDao => {
-        this.log.verbose(`Removed note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`, {
-          contract: noteDao.contractAddress,
-          slot: noteDao.storageSlot,
-          nullifier: noteDao.siloedNullifier.toString(),
-        });
-      });
+    if (contractNotes.length === 0) {
+      return;
     }
+
+    const nullifiersToCheck = contractNotes.map(note => note.siloedNullifier);
+    const nullifierBatches = nullifiersToCheck.reduce(
+      (acc, nullifier) => {
+        if (acc[acc.length - 1].length < MAX_RPC_LEN) {
+          acc[acc.length - 1].push(nullifier);
+        } else {
+          acc.push([nullifier]);
+        }
+        return acc;
+      },
+      [[]] as Fr[][],
+    );
+    const nullifierIndexes = (
+      await Promise.all(
+        nullifierBatches.map(batch =>
+          this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NULLIFIER_TREE, batch),
+        ),
+      )
+    ).flat();
+
+    const foundNullifiers = nullifiersToCheck
+      .map((nullifier, i) => {
+        if (nullifierIndexes[i] !== undefined) {
+          return { ...nullifierIndexes[i], ...{ data: nullifier } } as InBlock<Fr>;
+        }
+      })
+      .filter(nullifier => nullifier !== undefined) as InBlock<Fr>[];
+
+    const nullifiedNotes = await this.noteDataProvider.removeNullifiedNotes(foundNullifiers);
+    nullifiedNotes.forEach(noteDao => {
+      this.log.verbose(`Removed note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`, {
+        contract: noteDao.contractAddress,
+        slot: noteDao.storageSlot,
+        nullifier: noteDao.siloedNullifier.toString(),
+      });
+    });
   }
 
   storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {

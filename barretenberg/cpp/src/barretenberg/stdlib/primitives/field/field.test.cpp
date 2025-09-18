@@ -1326,8 +1326,8 @@ template <typename Builder> class stdlib_field : public testing::Test {
             uint256_t(bb::fr::random_element()) & ((uint256_t(1) << grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH) - 1);
         auto a = field_ct(witness_ct(&builder, a_val));
         auto b = field_ct(witness_ct(&builder, bb::fr::random_element()));
-        EXPECT_TRUE(a.get_origin_tag().is_empty());
-        EXPECT_TRUE(b.get_origin_tag().is_empty());
+        EXPECT_TRUE(a.get_origin_tag().is_free_witness());
+        EXPECT_TRUE(b.get_origin_tag().is_free_witness());
         const size_t parent_id = 0;
 
         const auto submitted_value_origin_tag = OriginTag(parent_id, /*round_id=*/0, /*is_submitted=*/true);

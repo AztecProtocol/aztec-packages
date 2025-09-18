@@ -57,14 +57,14 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
 
     // Case: RESET kernel; single PG recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == pg_type) {
-        ivc->recursive_verifier_native_accum = create_mock_decider_vk<ClientIVC::Flavor>();
+        ivc->recursive_verifier_native_accum = create_mock_verifier_instance<ClientIVC::Flavor>();
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
         return ivc;
     }
 
     // Case: TAIL kernel; single PG recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == pg_tail_type) {
-        ivc->recursive_verifier_native_accum = create_mock_decider_vk<ClientIVC::Flavor>();
+        ivc->recursive_verifier_native_accum = create_mock_verifier_instance<ClientIVC::Flavor>();
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG_TAIL, /*is_kernel=*/true);
         return ivc;
     }
@@ -73,7 +73,7 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
     if (constraints.size() == 2) {
         BB_ASSERT_EQ(constraints[0].proof_type, pg_type);
         BB_ASSERT_EQ(constraints[1].proof_type, pg_type);
-        ivc->recursive_verifier_native_accum = create_mock_decider_vk<ClientIVC::Flavor>();
+        ivc->recursive_verifier_native_accum = create_mock_verifier_instance<ClientIVC::Flavor>();
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/false);
         return ivc;
@@ -81,7 +81,7 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
 
     // Case: HIDING kernel; single PG_FINAL recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == pg_final_type) {
-        ivc->recursive_verifier_native_accum = create_mock_decider_vk<ClientIVC::Flavor>();
+        ivc->recursive_verifier_native_accum = create_mock_verifier_instance<ClientIVC::Flavor>();
         mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG_FINAL, /*is_kernel=*/true);
         return ivc;
     }
@@ -162,8 +162,6 @@ void mock_ivc_accumulation(const std::shared_ptr<ClientIVC>& ivc, ClientIVC::QUE
     ivc->goblin.merge_verification_queue.emplace_back(acir_format::create_mock_merge_proof());
     // If the type is PG_FINAL, we also need to populate the ivc instance with a mock decider proof
     if (type == ClientIVC::QUEUE_TYPE::PG_FINAL) {
-        // we have to create a mock honk vk
-        ivc->honk_vk = entry.honk_vk;
         ivc->decider_proof = acir_format::create_mock_decider_proof<ClientIVC::Flavor>();
     }
     ivc->num_circuits_accumulated++;

@@ -160,7 +160,7 @@ TEST(UltraCircuitSMT, EllipticRelationDBL)
     builder.set_variable_name(p2.x.get_witness_index(), "x2");
     builder.set_variable_name(p1.y.get_witness_index(), "y1");
     builder.set_variable_name(p2.y.get_witness_index(), "y2");
-    builder.set_variable_name(p1.is_point_at_infinity().witness_index, "is_inf");
+    builder.set_variable_name(p1.is_point_at_infinity().get_normalized_witness_index(), "is_inf");
 
     auto circuit_info = unpack_from_buffer(builder.export_circuit());
     Solver s(circuit_info.modulus, ultra_solver_config);

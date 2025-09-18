@@ -19,9 +19,9 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { L2Block, Signature } from '@aztec/stdlib/block';
+import { CommitteeAttestationsAndSigners, L2Block, Signature } from '@aztec/stdlib/block';
 import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
-import type { ProposedBlockHeader } from '@aztec/stdlib/tx';
+import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 
 import { jest } from '@jest/globals';
 import express, { json } from 'express';
@@ -71,9 +71,8 @@ describe('SequencerPublisher', () => {
   let proposeTxReceipt: GetTransactionReceiptReturnType;
   let l2Block: L2Block;
 
-  let header: ProposedBlockHeader;
+  let header: CheckpointHeader;
   let archive: Buffer;
-  let blockHash: Buffer;
 
   let blobSinkClient: HttpBlobSinkClient;
   let mockBlobSinkServer: Server | undefined = undefined;
@@ -93,9 +92,8 @@ describe('SequencerPublisher', () => {
 
     l2Block = await L2Block.random(42);
 
-    header = l2Block.header.toPropose();
+    header = l2Block.getCheckpointHeader();
     archive = l2Block.archive.root.toBuffer();
-    blockHash = (await l2Block.header.hash()).toBuffer();
 
     proposeTxHash = `0x${Buffer.from('txHashPropose').toString('hex')}`; // random tx hash
 
@@ -177,9 +175,8 @@ describe('SequencerPublisher', () => {
 
     l2Block = await L2Block.random(42, undefined, undefined, undefined, undefined, Number(currentL2Slot));
 
-    header = l2Block.header.toPropose();
+    header = l2Block.getCheckpointHeader();
     archive = l2Block.archive.root.toBuffer();
-    blockHash = (await l2Block.header.hash()).toBuffer();
   });
 
   const closeServer = (server: Server): Promise<void> => {
@@ -232,7 +229,9 @@ describe('SequencerPublisher', () => {
     // Expect the blob sink server to receive the blobs
     await runBlobSinkServer(expectedBlobs);
 
-    expect(await publisher.enqueueProposeL2Block(l2Block)).toEqual(true);
+    expect(
+      await publisher.enqueueProposeL2Block(l2Block, CommitteeAttestationsAndSigners.empty(), Signature.empty()),
+    ).toEqual(true);
     const govPayload = EthAddress.random();
     const voteSig = Signature.random();
     governanceProposerContract.getRoundInfo.mockResolvedValue({
@@ -274,14 +273,13 @@ describe('SequencerPublisher', () => {
         header: header.toViem(),
         archive: toHex(archive),
         stateReference: l2Block.header.state.toViem(),
-        blockHash: toHex(blockHash),
         oracleInput: {
           feeAssetPriceModifier: 0n,
         },
-        txHashes: [],
       },
-      RollupContract.packAttestations([]),
+      CommitteeAttestationsAndSigners.empty().getPackedAttestations(),
       [],
+      Signature.empty().toViemSignature(),
       blobInput,
     ] as const;
 
@@ -320,7 +318,11 @@ describe('SequencerPublisher', () => {
       errorMsg: undefined,
     });
 
-    const enqueued = await publisher.enqueueProposeL2Block(l2Block);
+    const enqueued = await publisher.enqueueProposeL2Block(
+      l2Block,
+      CommitteeAttestationsAndSigners.empty(),
+      Signature.empty(),
+    );
     expect(enqueued).toEqual(true);
     const result = await publisher.sendRequests();
     expect(result).toEqual(undefined);
@@ -329,7 +331,9 @@ describe('SequencerPublisher', () => {
   it('does not send propose tx if rollup validation fails', async () => {
     l1TxUtils.simulate.mockRejectedValueOnce(new Error('Test error'));
 
-    await expect(publisher.enqueueProposeL2Block(l2Block)).rejects.toThrow();
+    await expect(
+      publisher.enqueueProposeL2Block(l2Block, CommitteeAttestationsAndSigners.empty(), Signature.empty()),
+    ).rejects.toThrow();
 
     expect(l1TxUtils.simulate).toHaveBeenCalledTimes(1);
 
@@ -345,7 +349,11 @@ describe('SequencerPublisher', () => {
       errorMsg: 'Test error',
     });
 
-    const enqueued = await publisher.enqueueProposeL2Block(l2Block);
+    const enqueued = await publisher.enqueueProposeL2Block(
+      l2Block,
+      CommitteeAttestationsAndSigners.empty(),
+      Signature.empty(),
+    );
     expect(enqueued).toEqual(true);
     const result = await publisher.sendRequests();
 
@@ -366,7 +374,11 @@ describe('SequencerPublisher', () => {
           errorMsg: undefined;
         }>,
     );
-    const enqueued = await publisher.enqueueProposeL2Block(l2Block);
+    const enqueued = await publisher.enqueueProposeL2Block(
+      l2Block,
+      CommitteeAttestationsAndSigners.empty(),
+      Signature.empty(),
+    );
     expect(enqueued).toEqual(true);
     publisher.interrupt();
     const resultPromise = publisher.sendRequests();

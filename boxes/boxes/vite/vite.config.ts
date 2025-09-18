@@ -47,7 +47,9 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
-      nodePolyfillsFix({ include: ["buffer", "path", "process"] }),
+      nodePolyfillsFix({
+        include: ["buffer", "path", "process", "net", "tty"],
+      }),
     ],
     define: {
       "process.env": JSON.stringify({

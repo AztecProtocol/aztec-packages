@@ -167,12 +167,20 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     return this.initialHeader!;
   }
 
-  public async handleL2BlockAndMessages(l2Block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull> {
+  public async handleL2BlockAndMessages(
+    l2Block: L2Block,
+    l1ToL2Messages: Fr[],
+    // TODO(#17027)
+    // Temporary hack to only insert l1 to l2 messages for the first block in a checkpoint.
+    isFirstBlock = true,
+  ): Promise<WorldStateStatusFull> {
     // We have to pad both the values within tx effects because that's how the trees are built by circuits.
     const paddedNoteHashes = l2Block.body.txEffects.flatMap(txEffect =>
       padArrayEnd(txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
     );
-    const paddedL1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+    const paddedL1ToL2Messages = isFirstBlock
+      ? padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP)
+      : [];
 
     const paddedNullifiers = l2Block.body.txEffects
       .flatMap(txEffect => padArrayEnd(txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX))
@@ -192,7 +200,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         WorldStateMessageType.SYNC_BLOCK,
         {
           blockNumber: l2Block.number,
-          blockHeaderHash: await l2Block.header.hash(),
+          blockHeaderHash: await l2Block.getBlockHeader().hash(),
           paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
           paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
           paddedNullifiers: paddedNullifiers.map(serializeLeaf),

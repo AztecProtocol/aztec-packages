@@ -34,23 +34,23 @@ template <typename FF> class tx_discard : public Relation<tx_discardImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "tx_discard";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 1:
-            return "CAN_ONLY_DISCARD_IN_REVERTIBLE_PHASES";
-        case 2:
-            return "FAILURE_MUST_DISCARD";
-        case 3:
-            return "DISCARD_PROPAGATION";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_CAN_ONLY_DISCARD_IN_REVERTIBLE_PHASES = 1;
     static constexpr size_t SR_FAILURE_MUST_DISCARD = 2;
     static constexpr size_t SR_DISCARD_PROPAGATION = 3;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_CAN_ONLY_DISCARD_IN_REVERTIBLE_PHASES:
+            return "CAN_ONLY_DISCARD_IN_REVERTIBLE_PHASES";
+        case SR_FAILURE_MUST_DISCARD:
+            return "FAILURE_MUST_DISCARD";
+        case SR_DISCARD_PROPAGATION:
+            return "DISCARD_PROPAGATION";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

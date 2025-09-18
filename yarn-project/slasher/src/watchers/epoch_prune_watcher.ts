@@ -44,15 +44,18 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
   // Store bound function reference for proper listener removal
   private boundHandlePruneL2Blocks = this.handlePruneL2Blocks.bind(this);
 
+  private penalties: EpochPruneWatcherPenalties;
+
   constructor(
     private l2BlockSource: L2BlockSourceEventEmitter,
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private epochCache: EpochCache,
     private txProvider: Pick<ITxProvider, 'getAvailableTxs'>,
     private blockBuilder: IFullNodeBlockBuilder,
-    private penalties: EpochPruneWatcherPenalties,
+    penalties: EpochPruneWatcherPenalties,
   ) {
     super();
+    this.penalties = pick(penalties, ...EpochPruneWatcherPenaltiesConfigKeys);
     this.log.verbose(
       `EpochPruneWatcher initialized with penalties: valid epoch pruned=${penalties.slashPrunePenalty} data withholding=${penalties.slashDataWithholdingPenalty}`,
     );
@@ -90,7 +93,9 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
       })
       .catch(async error => {
         if (error instanceof TransactionsNotAvailableError) {
-          this.log.info(`Data for pruned epoch ${epochNumber} was not available. Will want to slash.`, error);
+          this.log.info(`Data for pruned epoch ${epochNumber} was not available. Will want to slash.`, {
+            message: error.message,
+          });
           const validators = await this.getValidatorsForEpoch(epochNumber);
           return {
             validators,

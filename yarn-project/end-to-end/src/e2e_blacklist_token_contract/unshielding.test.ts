@@ -5,7 +5,7 @@ import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
 
 describe('e2e_blacklist_token_contract unshielding', () => {
   const t = new BlacklistTokenContractTest('unshielding');
-  let { asset, tokenSim, admin, adminAddress, other, otherAddress, blacklisted, blacklistedAddress } = t;
+  let { asset, tokenSim, aztecNode, wallet, adminAddress, otherAddress, blacklistedAddress } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
@@ -13,7 +13,7 @@ describe('e2e_blacklist_token_contract unshielding', () => {
     await t.applyMintSnapshot();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
-    ({ asset, tokenSim, admin, adminAddress, other, otherAddress, blacklisted, blacklistedAddress } = t);
+    ({ asset, tokenSim, aztecNode, wallet, adminAddress, otherAddress, blacklistedAddress } = t);
   }, 600_000);
 
   afterAll(async () => {
@@ -41,19 +41,18 @@ describe('e2e_blacklist_token_contract unshielding', () => {
     expect(amount).toBeGreaterThan(0n);
 
     // We need to compute the message we want to sign and add it to the wallet as approved
-    const action = asset.withWallet(other).methods.unshield(adminAddress, otherAddress, amount, authwitNonce);
+    const action = asset.methods.unshield(adminAddress, otherAddress, amount, authwitNonce);
 
     // Both wallets are connected to same node and PXE so we could just insert directly
     // But doing it in two actions to show the flow.
-    const witness = await admin.createAuthWit({ caller: otherAddress, action });
+    const witness = await wallet.createAuthWit(adminAddress, { caller: otherAddress, action });
 
     await action.send({ from: otherAddress, authWitnesses: [witness] }).wait();
     tokenSim.transferToPublic(adminAddress, otherAddress, amount);
 
     // Perform the transfer again, should fail
-    const txReplay = asset
-      .withWallet(other)
-      .methods.unshield(adminAddress, otherAddress, amount, authwitNonce)
+    const txReplay = asset.methods
+      .unshield(adminAddress, otherAddress, amount, authwitNonce)
       .send({ from: otherAddress, authWitnesses: [witness] });
     await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
     // @todo @LHerskind This error is weird?
@@ -89,11 +88,11 @@ describe('e2e_blacklist_token_contract unshielding', () => {
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const action = asset.withWallet(other).methods.unshield(adminAddress, otherAddress, amount, authwitNonce);
+      const action = asset.methods.unshield(adminAddress, otherAddress, amount, authwitNonce);
 
       // Both wallets are connected to same node and PXE so we could just insert directly
       // But doing it in two actions to show the flow.
-      const witness = await admin.createAuthWit({ caller: otherAddress, action });
+      const witness = await wallet.createAuthWit(adminAddress, { caller: otherAddress, action });
 
       await expect(action.simulate({ from: otherAddress, authWitnesses: [witness] })).rejects.toThrow(
         'Assertion failed: Balance too low',
@@ -107,15 +106,15 @@ describe('e2e_blacklist_token_contract unshielding', () => {
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const action = asset.withWallet(blacklisted).methods.unshield(adminAddress, otherAddress, amount, authwitNonce);
+      const action = asset.methods.unshield(adminAddress, otherAddress, amount, authwitNonce);
       const expectedMessageHash = await computeAuthWitMessageHash(
         { caller: blacklistedAddress, action },
-        { chainId: admin.getChainId(), version: admin.getVersion() },
+        { chainId: new Fr(await aztecNode.getChainId()), version: new Fr(await aztecNode.getVersion()) },
       );
 
       // Both wallets are connected to same node and PXE so we could just insert directly
       // But doing it in two actions to show the flow.
-      const witness = await admin.createAuthWit({ caller: otherAddress, action });
+      const witness = await wallet.createAuthWit(adminAddress, { caller: otherAddress, action });
 
       await expect(action.simulate({ from: blacklistedAddress, authWitnesses: [witness] })).rejects.toThrow(
         `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
@@ -124,10 +123,7 @@ describe('e2e_blacklist_token_contract unshielding', () => {
 
     it('unshield from blacklisted account', async () => {
       await expect(
-        asset
-          .withWallet(blacklisted)
-          .methods.unshield(blacklistedAddress, adminAddress, 1n, 0)
-          .simulate({ from: blacklistedAddress }),
+        asset.methods.unshield(blacklistedAddress, adminAddress, 1n, 0).simulate({ from: blacklistedAddress }),
       ).rejects.toThrow('Assertion failed: Blacklisted: Sender');
     });
 

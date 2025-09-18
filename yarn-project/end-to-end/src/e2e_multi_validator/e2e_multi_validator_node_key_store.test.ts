@@ -21,7 +21,8 @@ import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/Stat
 import type { Sequencer, SequencerClient, SequencerPublisherFactory } from '@aztec/sequencer-client';
 import type { TestSequencer, TestSequencerClient } from '@aztec/sequencer-client/test';
 import type { BlockProposalOptions } from '@aztec/stdlib/p2p';
-import type { ProposedBlockHeader, StateReference, Tx } from '@aztec/stdlib/tx';
+import type { CheckpointHeader } from '@aztec/stdlib/rollup';
+import type { StateReference, Tx } from '@aztec/stdlib/tx';
 import { NodeKeystoreAdapter, ValidatorClient } from '@aztec/validator-client';
 
 import { jest } from '@jest/globals';
@@ -146,7 +147,7 @@ describe('e2e_multi_validator_node', () => {
   let initialValidatorPrivateKeys: `0x${string}`[];
   let validatorAddresses: `0x${string}`[];
   let teardown: () => Promise<void>;
-  let owner: Wallet;
+  let wallet: Wallet;
   let ownerAddress: AztecAddress;
   let config: AztecNodeConfig;
   let deployL1ContractsValues: DeployL1ContractsReturnType;
@@ -279,7 +280,7 @@ describe('e2e_multi_validator_node', () => {
 
     ({
       teardown,
-      wallets: [owner],
+      wallet,
       accounts: [ownerAddress],
       config,
       deployL1ContractsValues,
@@ -332,7 +333,7 @@ describe('e2e_multi_validator_node', () => {
   });
 
   const sendTx = async (sender: AztecAddress, contractAddressSalt: Fr) => {
-    const deployer = new ContractDeployer(artifact, owner);
+    const deployer = new ContractDeployer(artifact, wallet);
     const provenTx = await deployer.deploy(ownerAddress, sender, 1).prove({
       from: ownerAddress,
       contractAddressSalt,
@@ -372,7 +373,7 @@ describe('e2e_multi_validator_node', () => {
     const originalCreateProposal = validatorClient.createBlockProposal.bind(validatorClient);
     const createBlockProposal = (
       blockNumber: number,
-      header: ProposedBlockHeader,
+      header: CheckpointHeader,
       archive: Fr,
       stateReference: StateReference,
       txs: Tx[],

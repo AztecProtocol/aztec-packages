@@ -40,7 +40,7 @@ struct lookup_gas_is_out_of_gas_l2_settings_ {
     static constexpr std::string_view RELATION_NAME = "gas";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_should_check_gas;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column DST_SELECTOR = Column::gt_sel_gas;
     static constexpr Column COUNTS = Column::lookup_gas_is_out_of_gas_l2_counts;
     static constexpr Column INVERSES = Column::lookup_gas_is_out_of_gas_l2_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -64,7 +64,7 @@ struct lookup_gas_is_out_of_gas_da_settings_ {
     static constexpr std::string_view RELATION_NAME = "gas";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_should_check_gas;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column DST_SELECTOR = Column::gt_sel_gas;
     static constexpr Column COUNTS = Column::lookup_gas_is_out_of_gas_da_counts;
     static constexpr Column INVERSES = Column::lookup_gas_is_out_of_gas_da_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {

@@ -23,7 +23,7 @@ A contract class includes:
 - `private_functions`: List of individual private functions, including constructors
 - `packed_public_bytecode`: Packed bytecode representation of the AVM bytecode for all public functions
 
-The specification of the artifact hash is not enforced by the protocol. It should include commitments to utility functions code and compilation metadata. It is intended to be used by clients to verify that an off-chain fetched artifact matches a registered class.
+The specification of the artifact hash is not enforced by the protocol. It should include commitments to utility functions code and compilation metadata. It is intended to be used by clients to verify that an offchain fetched artifact matches a registered class.
 
 ### Contract Class Registration
 
@@ -61,7 +61,7 @@ Aztec makes an important distinction between initialization and public deploymen
 
 ### Initialization
 
-Contract constructors are not enshrined in the protocol, but handled at the application circuit level. Constructors are methods used for initializing a contract, either private or public, and contract classes may declare more than a single constructor. They can be declared by the `#[initializer]` macro. You can read more about how to use them on the [Defining Initializer Functions](../../developers/guides/smart_contracts/define_functions.md#initializer-functions) page.
+Contract constructors are not enshrined in the protocol, but handled at the application circuit level. Constructors are methods used for initializing a contract, either private or public, and contract classes may declare more than a single constructor. They can be declared by the `#[initializer]` macro. You can read more about how to use them on the [Defining Initializer Functions](../../developers/guides/smart_contracts/how_to_define_functions.md#initializer-functions) page.
 
 A contract must ensure:
 

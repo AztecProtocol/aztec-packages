@@ -14,16 +14,16 @@ template <typename FF_> class memoryImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 59> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 4, 3, 2, 2, 5, 5, 2, 4, 4, 4, 4, 5, 3 };
+    static constexpr std::array<size_t, 60> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, 3, 4, 3, 2, 2, 5, 5, 2, 4, 4, 4, 4, 5, 3
+    };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
 
-        return ((in.get(C::memory_sel) + in.get(C::precomputed_first_row))).is_zero();
+        return (in.get(C::memory_sel)).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -37,53 +37,56 @@ template <typename FF> class memory : public Relation<memoryImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "memory";
 
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_ACTIVE_ROW_NEEDS_PERM_SELECTOR = 42;
+    static constexpr size_t SR_MEM_CONTIGUOUS = 47;
+    static constexpr size_t SR_SEL_RNG_CHK = 48;
+    static constexpr size_t SR_GLOBAL_ADDR = 49;
+    static constexpr size_t SR_TIMESTAMP = 50;
+    static constexpr size_t SR_LAST_ACCESS = 51;
+    static constexpr size_t SR_DIFF = 52;
+    static constexpr size_t SR_DIFF_DECOMP = 53;
+    static constexpr size_t SR_MEMORY_INIT_VALUE = 54;
+    static constexpr size_t SR_MEMORY_INIT_TAG = 55;
+    static constexpr size_t SR_READ_WRITE_CONSISTENCY_VALUE = 56;
+    static constexpr size_t SR_READ_WRITE_CONSISTENCY_TAG = 57;
+    static constexpr size_t SR_TAG_IS_FF = 58;
+    static constexpr size_t SR_SEL_RNG_WRITE = 59;
+
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case 46:
+        case SR_ACTIVE_ROW_NEEDS_PERM_SELECTOR:
+            return "ACTIVE_ROW_NEEDS_PERM_SELECTOR";
+        case SR_MEM_CONTIGUOUS:
             return "MEM_CONTIGUOUS";
-        case 47:
+        case SR_SEL_RNG_CHK:
             return "SEL_RNG_CHK";
-        case 48:
+        case SR_GLOBAL_ADDR:
             return "GLOBAL_ADDR";
-        case 49:
+        case SR_TIMESTAMP:
             return "TIMESTAMP";
-        case 50:
+        case SR_LAST_ACCESS:
             return "LAST_ACCESS";
-        case 51:
+        case SR_DIFF:
             return "DIFF";
-        case 52:
+        case SR_DIFF_DECOMP:
             return "DIFF_DECOMP";
-        case 53:
+        case SR_MEMORY_INIT_VALUE:
             return "MEMORY_INIT_VALUE";
-        case 54:
+        case SR_MEMORY_INIT_TAG:
             return "MEMORY_INIT_TAG";
-        case 55:
+        case SR_READ_WRITE_CONSISTENCY_VALUE:
             return "READ_WRITE_CONSISTENCY_VALUE";
-        case 56:
+        case SR_READ_WRITE_CONSISTENCY_TAG:
             return "READ_WRITE_CONSISTENCY_TAG";
-        case 57:
+        case SR_TAG_IS_FF:
             return "TAG_IS_FF";
-        case 58:
+        case SR_SEL_RNG_WRITE:
             return "SEL_RNG_WRITE";
         }
         return std::to_string(index);
     }
-
-    // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_MEM_CONTIGUOUS = 46;
-    static constexpr size_t SR_SEL_RNG_CHK = 47;
-    static constexpr size_t SR_GLOBAL_ADDR = 48;
-    static constexpr size_t SR_TIMESTAMP = 49;
-    static constexpr size_t SR_LAST_ACCESS = 50;
-    static constexpr size_t SR_DIFF = 51;
-    static constexpr size_t SR_DIFF_DECOMP = 52;
-    static constexpr size_t SR_MEMORY_INIT_VALUE = 53;
-    static constexpr size_t SR_MEMORY_INIT_TAG = 54;
-    static constexpr size_t SR_READ_WRITE_CONSISTENCY_VALUE = 55;
-    static constexpr size_t SR_READ_WRITE_CONSISTENCY_TAG = 56;
-    static constexpr size_t SR_TAG_IS_FF = 57;
-    static constexpr size_t SR_SEL_RNG_WRITE = 58;
 };
 
 } // namespace bb::avm2

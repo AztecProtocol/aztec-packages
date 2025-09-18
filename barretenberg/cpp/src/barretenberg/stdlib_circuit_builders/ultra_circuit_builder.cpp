@@ -38,7 +38,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit(const bool ensure_no
      *
      * Now we have two variables referred to as `n` in the code:
      *  1. ComposerBase::n => refers to the size of the witness of a given program,
-     *  2. proving_key::n => the next power of two ≥ total witness size.
+     *  2. prover_instance::n => the next power of two ≥ total witness size.
      *
      * In this case, we have composer.num_gates = n_computation before we execute the following two functions.
      * After these functions are executed, the composer's `n` is incremented to include the ROM
@@ -227,9 +227,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
                                                           read_data[plookup::ColumnIdx::C2],
                                                           read_data[plookup::ColumnIdx::C3] };
     for (const auto& column : parse_read_data) {
-        for (const auto& index : column) {
-            update_used_witnesses(index);
-        }
+        update_used_witnesses(column);
+        update_finalize_witnesses(column);
     }
 
     // mock a poseidon external gate, with all zeros as input
@@ -1923,7 +1922,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::po
 }
 
 /**
- * @brief Called in `compute_proving_key` when finalizing circuit.
+ * @brief Called in `compute_prover_instance` when finalizing circuit.
  * Iterates over the cached_non_native_field_multiplication objects,
  * removes duplicates, and instantiates the remainder as constraints`
  */

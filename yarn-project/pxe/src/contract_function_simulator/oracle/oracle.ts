@@ -78,24 +78,9 @@ export class Oracle {
     return [values.map(toACVMField)];
   }
 
-  async utilityGetBlockNumber(): Promise<ACVMField[]> {
-    return [toACVMField(await this.typedOracle.utilityGetBlockNumber())];
-  }
-
-  async utilityGetTimestamp(): Promise<ACVMField[]> {
-    return [toACVMField(await this.typedOracle.utilityGetTimestamp())];
-  }
-
-  async utilityGetContractAddress(): Promise<ACVMField[]> {
-    return [toACVMField(await this.typedOracle.utilityGetContractAddress())];
-  }
-
-  async utilityGetVersion(): Promise<ACVMField[]> {
-    return [toACVMField(await this.typedOracle.utilityGetVersion())];
-  }
-
-  async utilityGetChainId(): Promise<ACVMField[]> {
-    return [toACVMField(await this.typedOracle.utilityGetChainId())];
+  async utilityGetUtilityContext(): Promise<(ACVMField | ACVMField[])[]> {
+    const context = await this.typedOracle.utilityGetUtilityContext();
+    return context.toNoirRepresentation();
   }
 
   async utilityGetKeyValidationRequest([pkMHash]: ACVMField[]): Promise<ACVMField[]> {
@@ -201,10 +186,9 @@ export class Oracle {
     return [witness.map(toACVMField)];
   }
 
-  // TODO(benesjan): This doesn't map to the underlying oracle name which is just ugly.
   async utilityGetPublicKeysAndPartialAddress([address]: ACVMField[]): Promise<ACVMField[][]> {
     const parsedAddress = AztecAddress.fromField(Fr.fromString(address));
-    const { publicKeys, partialAddress } = await this.typedOracle.utilityGetCompleteAddress(parsedAddress);
+    const { publicKeys, partialAddress } = await this.typedOracle.utilityGetPublicKeysAndPartialAddress(parsedAddress);
 
     return [[...publicKeys.toFields(), partialAddress].map(toACVMField)];
   }

@@ -1,9 +1,9 @@
-import { BatchedBlob } from '@aztec/blob-lib';
 import { NUM_BASE_PARITY_PER_ROOT_PARITY } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
+import { createBlockEndMarker } from '@aztec/stdlib/block';
 import type { ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
 
 import { jest } from '@jest/globals';
@@ -12,6 +12,7 @@ import { jest } from '@jest/globals';
 // eslint-disable-next-line import/no-relative-packages
 import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
 import { TestContext } from '../mocks/test_context.js';
+import { buildFinalBlobChallenges } from './block-building-helpers.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
 const logger = createLogger('prover-client:test:orchestrator-lifecycle');
@@ -39,9 +40,17 @@ describe('prover/orchestrator/lifecycle', () => {
         deferredPromises.push(deferred);
         return deferred.promise;
       });
-      const emptyChallenges = await BatchedBlob.precomputeEmptyBatchedBlobChallenges();
-      orchestrator.startNewEpoch(1, 1, 1, emptyChallenges);
-      await orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
+      const blobFields = [createBlockEndMarker(0)];
+      const finalBlobChallenges = await buildFinalBlobChallenges([blobFields]);
+      orchestrator.startNewEpoch(1, context.firstCheckpointNumber, 1, finalBlobChallenges);
+      await orchestrator.startNewCheckpoint(
+        context.getCheckpointConstants(),
+        [],
+        1,
+        blobFields.length,
+        context.getPreviousBlockHeader(),
+      );
+      await orchestrator.startNewBlock(context.blockNumber, context.globalVariables.timestamp, 0);
 
       await sleep(1);
 

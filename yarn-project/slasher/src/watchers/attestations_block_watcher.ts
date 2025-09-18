@@ -3,9 +3,9 @@ import { merge, pick } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   type InvalidBlockDetectedEvent,
+  type L2BlockInfo,
   type L2BlockSourceEventEmitter,
   L2BlockSourceEvents,
-  PublishedL2Block,
   type ValidateBlockNegativeResult,
 } from '@aztec/stdlib/block';
 import { OffenseType } from '@aztec/stdlib/slashing';
@@ -37,13 +37,14 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
   // All invalid archive roots seen
   private invalidArchiveRoots: Set<string> = new Set();
 
+  private config: AttestationsBlockWatcherConfig;
+
   private boundHandleInvalidBlock = (event: InvalidBlockDetectedEvent) => {
     try {
       this.handleInvalidBlock(event);
     } catch (err) {
       this.log.error('Error handling invalid block', err, {
-        ...event.validationResult.block.block.toBlockInfo(),
-        ...event.validationResult.block.l1,
+        ...event.validationResult,
         reason: event.validationResult.reason,
       });
     }
@@ -52,9 +53,10 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
   constructor(
     private l2BlockSource: L2BlockSourceEventEmitter,
     private epochCache: EpochCache,
-    private config: AttestationsBlockWatcherConfig,
+    config: AttestationsBlockWatcherConfig,
   ) {
     super();
+    this.config = pick(config, ...AttestationsBlockWatcherConfigKeys);
     this.log.info('AttestationsBlockWatcher initialized');
   }
 
@@ -78,16 +80,16 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
 
   private handleInvalidBlock(event: InvalidBlockDetectedEvent): void {
     const { validationResult } = event;
-    const block = validationResult.block.block;
+    const block = validationResult.block;
 
     // Check if we already have processed this block, archiver may emit the same event multiple times
-    if (this.invalidArchiveRoots.has(block.archive.root.toString())) {
-      this.log.trace(`Already processed invalid block ${block.number}`);
+    if (this.invalidArchiveRoots.has(block.archive.toString())) {
+      this.log.trace(`Already processed invalid block ${block.blockNumber}`);
       return;
     }
 
-    this.log.verbose(`Detected invalid block ${block.number}`, {
-      ...block.toBlockInfo(),
+    this.log.verbose(`Detected invalid block ${block.blockNumber}`, {
+      ...block,
       reason: validationResult.valid === false ? validationResult.reason : 'unknown',
     });
 
@@ -104,11 +106,11 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
   private slashAttestorsOnAncestorInvalid(validationResult: ValidateBlockNegativeResult) {
     const block = validationResult.block;
 
-    const parentArchive = block.block.header.lastArchive.root.toString();
-    if (this.invalidArchiveRoots.has(block.block.header.lastArchive.root.toString())) {
-      const attestors = validationResult.attestations.map(a => a.getSender());
-      this.log.info(`Want to slash attestors of block ${block.block.number} built on invalid block`, {
-        ...block.block.toBlockInfo(),
+    const parentArchive = block.lastArchive.toString();
+    if (this.invalidArchiveRoots.has(parentArchive)) {
+      const attestors = validationResult.attestors;
+      this.log.info(`Want to slash attestors of block ${block.blockNumber} built on invalid block`, {
+        ...block,
         ...attestors,
         parentArchive,
       });
@@ -119,7 +121,7 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
           validator: attestor,
           amount: this.config.slashAttestDescendantOfInvalidPenalty,
           offenseType: OffenseType.ATTESTED_DESCENDANT_OF_INVALID,
-          epochOrSlot: block.block.slot,
+          epochOrSlot: BigInt(block.slotNumber),
         })),
       );
     }
@@ -127,8 +129,8 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
 
   private slashProposer(validationResult: ValidateBlockNegativeResult) {
     const { reason, block } = validationResult;
-    const blockNumber = block.block.number;
-    const slot = block.block.header.getSlot();
+    const blockNumber = block.blockNumber;
+    const slot = BigInt(block.slotNumber);
     const proposer = this.epochCache.getProposerFromEpochCommittee(validationResult, slot);
 
     if (!proposer) {
@@ -142,11 +144,11 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
       validator: proposer,
       amount,
       offenseType: offense,
-      epochOrSlot: block.block.slot,
+      epochOrSlot: slot,
     };
 
     this.log.info(`Want to slash proposer of block ${blockNumber} due to ${reason}`, {
-      ...block.block.toBlockInfo(),
+      ...block,
       ...args,
     });
 
@@ -166,8 +168,8 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
     }
   }
 
-  private addInvalidBlock(block: PublishedL2Block) {
-    this.invalidArchiveRoots.add(block.block.archive.root.toString());
+  private addInvalidBlock(block: L2BlockInfo) {
+    this.invalidArchiveRoots.add(block.archive.toString());
 
     // Prune old entries if we exceed the maximum
     if (this.invalidArchiveRoots.size > this.maxInvalidBlocks) {

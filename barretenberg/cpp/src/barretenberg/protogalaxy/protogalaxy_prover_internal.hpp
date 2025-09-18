@@ -20,35 +20,36 @@ namespace bb {
 /**
  * @brief A purely static class (never add state to this!) consisting of functions used by the Protogalaxy prover.
  *
- * @tparam DeciderProvingKeys_
+ * @tparam ProverInstances_
  */
-template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
+template <class ProverInstances_> class ProtogalaxyProverInternal {
   public:
-    using DeciderPKs = DeciderProvingKeys_;
-    using Flavor = typename DeciderPKs::Flavor;
+    using ProverInstances = ProverInstances_;
+    using Flavor = typename ProverInstances::Flavor;
     using FF = typename Flavor::FF;
-    using DeciderPK = typename DeciderPKs::DeciderPK;
+    using ProverInstance = typename ProverInstances::ProverInstance;
     using RelationUtils = bb::RelationUtils<Flavor>;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Relations = typename Flavor::Relations;
     using AllValues = typename Flavor::AllValues;
     using SubrelationSeparators = typename Flavor::SubrelationSeparators;
-    static constexpr size_t NUM_KEYS = DeciderProvingKeys_::NUM;
+    static constexpr size_t NUM_INSTANCES = ProverInstances_::NUM;
     using UnivariateRelationParametersNoOptimisticSkipping =
-        bb::RelationParameters<Univariate<FF, DeciderProvingKeys_::EXTENDED_LENGTH>>;
+        bb::RelationParameters<Univariate<FF, ProverInstances_::EXTENDED_LENGTH>>;
     using UnivariateRelationParameters =
-        bb::RelationParameters<Univariate<FF, DeciderProvingKeys_::EXTENDED_LENGTH, 0, /*skip_count=*/NUM_KEYS - 1>>;
+        bb::RelationParameters<Univariate<FF, ProverInstances_::EXTENDED_LENGTH, 0, /*skip_count=*/NUM_INSTANCES - 1>>;
     using UnivariateSubrelationSeparators =
-        std::array<Univariate<FF, DeciderPKs::BATCHED_EXTENDED_LENGTH>, Flavor::NUM_SUBRELATIONS - 1>;
+        std::array<Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH>, Flavor::NUM_SUBRELATIONS - 1>;
 
     // The length of ExtendedUnivariate is the largest length (==max_relation_degree + 1) of a univariate polynomial
-    // obtained by composing a relation with Lagrange polynomial-linear combination of NUM-many decider pks, with
+    // obtained by composing a relation with Lagrange polynomial-linear combination of NUM-many prover instances, with
     // relation parameters regarded as variables.
-    using ExtendedUnivariate = Univariate<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (DeciderPKs::NUM - 1) + 1>;
+    using ExtendedUnivariate = Univariate<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1>;
     // Represents the total length of the combiner univariate, obtained by combining the already folded relations with
     // the folded relation batching challenge.
     using ExtendedUnivariateWithRandomization =
-        Univariate<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 1 + DeciderPKs::NUM - 1) * (DeciderPKs::NUM - 1) + 1>;
+        Univariate<FF,
+                   (Flavor::MAX_TOTAL_RELATION_LENGTH - 1 + ProverInstances::NUM - 1) * (ProverInstances::NUM - 1) + 1>;
 
     /**
      * @brief ShortUnivariates is an optimisation to improve the evaluation of Flavor relations when the output is a
@@ -67,25 +68,26 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * can go unused. By skipping the basis extension entirely we avoid this unneccessary work.
      *
      * Tests indicates that utilizing ShortUnivariates speeds up the `benchmark_client_ivc.sh` benchmark by 10%
-     * @note This only works if DeciderPKs::NUM == 2. The whole protogalaxy class would require substantial revision to
-     * support more PKs so this should be adequate for now
+     * @note This only works if ProverInstances::NUM == 2. The whole protogalaxy class would require substantial
+     * revision to support more PKs so this should be adequate for now
      */
-    using ShortUnivariates = typename Flavor::template ProverUnivariates<DeciderPKs::NUM>;
+    using ShortUnivariates = typename Flavor::template ProverUnivariates<ProverInstances::NUM>;
 
     using ExtendedUnivariates =
         typename Flavor::template ProverUnivariatesWithOptimisticSkipping<ExtendedUnivariate::LENGTH,
-                                                                          /* SKIP_COUNT= */ DeciderPKs::NUM - 1>;
+                                                                          /* SKIP_COUNT= */ ProverInstances::NUM - 1>;
 
     using ExtendedUnivariatesType =
         std::conditional_t<Flavor::USE_SHORT_MONOMIALS, ShortUnivariates, ExtendedUnivariates>;
 
-    using TupleOfTuplesOfUnivariates = typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<DeciderPKs::NUM>;
+    using TupleOfTuplesOfUnivariates =
+        typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<ProverInstances::NUM>;
     using TupleOfTuplesOfUnivariatesNoOptimisticSkipping =
-        typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping<DeciderPKs::NUM>;
+        typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping<ProverInstances::NUM>;
 
     using RelationEvaluations = decltype(create_tuple_of_arrays_of_values<typename Flavor::Relations>());
 
-    static constexpr size_t NUM_SUBRELATIONS = DeciderPKs::NUM_SUBRELATIONS;
+    static constexpr size_t NUM_SUBRELATIONS = ProverInstances::NUM_SUBRELATIONS;
 
     ExecutionTraceUsageTracker trace_usage_tracker;
 
@@ -94,14 +96,14 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     {}
 
     /**
-     * @brief A scale subrelations evaluations by challenges ('alphas') and part of the linearly dependent relation
-     * evaluation(s).
+     * @brief Scale all linearly independent subrelations evaluations by challenges ('alphas').
      *
-     * @details Note that a linearly dependent subrelation is not computed on a specific row but rather on the entire
-     * execution trace.
+     * @details Note that this is not done for linearly dependent subrelation, because their evaluation is not
+     * computed on a specific row but rather on the entire execution trace.
      *
      * @param evals The evaluations of all subrelations on some row
-     * @param challenges The 'alpha' challenges used to batch the subrelations
+     * @param challenges The 'alpha' challenges used to batch the subrelations (we use separate challenges rather than a
+     * single alpha raised to powers to avoid an unsustainable degree increase in the combiner polynomial)
      * @param linearly_dependent_contribution An accumulator for values of  the linearly-dependent (i.e., 'whole-trace')
      * subrelations
      * @return FF The evaluation of the linearly-independent (i.e., 'per-row') subrelations
@@ -134,10 +136,10 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     /**
      * @brief Compute the values of the aggregated relation evaluations at each row in the execution trace, representing
      * f_i(ω) in the Protogalaxy paper, given the evaluations of all the prover polynomials and \vec{α} (the batching
-     * challenges that help establishing each subrelation is independently valid in Honk - from the Plonk paper, DO NOT
-     * confuse with α in Protogalaxy).
+     * challenges that help establishing each subrelation is independently valid in Mega Honk relation - this α is same
+     * as in the Plonk paper, DO NOT confuse with α in Protogalaxy).
      *
-     * @details When folding Mega decider proving keys, one of the relations is linearly dependent. We define such
+     * @details When folding Mega prover instances, one of the relations is linearly dependent. We define such
      * relations as acting on the entire execution trace and hence requiring to be accumulated separately as we iterate
      * over each row. At the end of the function, the linearly dependent contribution is accumulated at index 0
      * representing the sum f_0(ω) + α_j*g(ω) where f_0 represents the full honk evaluation at row 0, g(ω) is the
@@ -160,8 +162,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         std::vector<FF> linearly_dependent_contribution_accumulators(num_threads);
 
         // Distribute the execution trace rows across threads so that each handles an equal number of active rows
-        trace_usage_tracker.construct_thread_ranges(
-            num_threads, polynomial_size, /*use_prev_accumulator_tracker=*/true);
+        trace_usage_tracker.construct_thread_ranges(num_threads, polynomial_size, /*use_prev_accumulator=*/true);
 
         parallel_for(num_threads, [&](size_t thread_idx) {
             for (const ExecutionTraceUsageTracker::Range& range : trace_usage_tracker.thread_ranges[thread_idx]) {
@@ -242,9 +243,10 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     }
 
     /**
-     * @brief Construct the power perturbator polynomial F(X) in coefficient form from the accumulator
+     * @brief Construct the perturbator polynomial F(X) in coefficient form from the accumulator resulted from a
+     * previous round of Protogalaxy
      */
-    Polynomial<FF> compute_perturbator(const std::shared_ptr<const DeciderPK>& accumulator,
+    Polynomial<FF> compute_perturbator(const std::shared_ptr<const ProverInstance>& accumulator,
                                        const std::vector<FF>& deltas)
     {
         BB_BENCH();
@@ -268,25 +270,23 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
     /**
      * @brief Prepare a univariate polynomial for relation execution in one step of the combiner construction.
-     * @details For a fixed prover polynomial index, extract that polynomial from each key in DeciderProvingKeys. From
+     * @details For a fixed prover polynomial index, extract that polynomial from each key in ProverInstances. From
      * each polynomial, extract the value at row_idx. Use these values to create a univariate polynomial, and then
      * extend (i.e., compute additional evaluations at adjacent domain values) as needed.
-     * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/751) Optimize memory
      */
-
     template <size_t skip_count = 0>
     BB_INLINE static void extend_univariates(ExtendedUnivariatesType& extended_univariates,
-                                             const DeciderPKs& keys,
+                                             const ProverInstances& instances,
                                              const size_t row_idx)
     {
         if constexpr (Flavor::USE_SHORT_MONOMIALS) {
-            extended_univariates = std::move(keys.row_to_short_univariates(row_idx));
+            extended_univariates = std::move(instances.row_to_short_univariates(row_idx));
         } else {
             auto incoming_univariates =
-                keys.template row_to_univariates<ExtendedUnivariate::LENGTH, skip_count>(row_idx);
+                instances.template row_to_univariates<ExtendedUnivariate::LENGTH, skip_count>(row_idx);
             for (auto [extended_univariate, incoming_univariate] :
                  zip_view(extended_univariates.get_all(), incoming_univariates)) {
-                incoming_univariate.template self_extend_from<NUM_KEYS>();
+                incoming_univariate.template self_extend_from<NUM_INSTANCES>();
                 extended_univariate = std::move(incoming_univariate);
             }
         }
@@ -348,7 +348,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * @param gate_separators
      * @return ExtendedUnivariateWithRandomization
      */
-    ExtendedUnivariateWithRandomization compute_combiner(const DeciderPKs& keys,
+    ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances,
                                                          const GateSeparatorPolynomial<FF>& gate_separators,
                                                          const UnivariateRelationParameters& relation_parameters,
                                                          const UnivariateSubrelationSeparators& alphas,
@@ -359,7 +359,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         // Determine the number of threads over which to distribute the work
         // The polynomial size is given by the virtual size since the computation includes
         // the incoming key which could have nontrivial values on the larger domain in case of overflow.
-        const size_t common_polynomial_size = keys[0]->polynomials.w_l.virtual_size();
+        const size_t common_polynomial_size = instances[0]->polynomials.w_l.virtual_size();
         const size_t num_threads = compute_num_threads(common_polynomial_size);
 
         // Univariates are optimized for usual PG, but we need the unoptimized version for tests (it's a version that
@@ -380,11 +380,11 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
             for (const ExecutionTraceUsageTracker::Range& range : trace_usage_tracker.thread_ranges[thread_idx]) {
                 for (size_t idx = range.first; idx < range.second; idx++) {
-                    // Instantiate univariates, possibly with skipping toto ignore computation in those indices
+                    // Instantiate univariates, possibly with skipping to ignore computation in those indices
                     // (they are still available for skipping relations, but all derived univariate will ignore
                     // those evaluations) No need to initialize extended_univariates to 0, as it's assigned to.
-                    constexpr size_t skip_count = DeciderPKs::NUM - 1;
-                    extend_univariates<skip_count>(extended_univariates, keys, idx);
+                    constexpr size_t skip_count = ProverInstances::NUM - 1;
+                    extend_univariates<skip_count>(extended_univariates, instances, idx);
 
                     const FF pow_challenge = gate_separators[idx];
 
@@ -411,14 +411,14 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         return batch_over_relations(deoptimized_univariates, alphas);
     }
 
-    ExtendedUnivariateWithRandomization compute_combiner(const DeciderPKs& keys,
+    ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances,
                                                          const GateSeparatorPolynomial<FF>& gate_separators,
                                                          const UnivariateRelationParameters& relation_parameters,
                                                          const UnivariateSubrelationSeparators& alphas)
     {
         // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
         TupleOfTuplesOfUnivariates accumulators{};
-        return compute_combiner(keys, gate_separators, relation_parameters, alphas, accumulators);
+        return compute_combiner(instances, gate_separators, relation_parameters, alphas, accumulators);
     }
 
     /**
@@ -451,8 +451,8 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         TupleOfTuplesOfUnivariatesNoOptimisticSkipping& univariate_accumulators,
         const UnivariateSubrelationSeparators& alphas)
     {
-        auto result =
-            std::get<0>(std::get<0>(univariate_accumulators)).template extend_to<DeciderPKs::BATCHED_EXTENDED_LENGTH>();
+        auto result = std::get<0>(std::get<0>(univariate_accumulators))
+                          .template extend_to<ProverInstances::BATCHED_EXTENDED_LENGTH>();
 
         size_t idx = 0;
         const auto scale_and_sum = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
@@ -460,7 +460,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                 return;
             }
 
-            auto extended = element.template extend_to<DeciderPKs::BATCHED_EXTENDED_LENGTH>();
+            auto extended = element.template extend_to<ProverInstances::BATCHED_EXTENDED_LENGTH>();
             extended *= alphas[idx];
             result += extended;
             idx++;
@@ -472,66 +472,37 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         return result;
     }
 
-    static std::pair<typename DeciderPKs::FF, std::array<typename DeciderPKs::FF, DeciderPKs::NUM>>
+    static std::pair<typename ProverInstances::FF, std::array<typename ProverInstances::FF, ProverInstances::NUM>>
     compute_vanishing_polynomial_and_lagranges(const FF& challenge)
     {
+        static_assert(ProverInstances::NUM == 2);
         FF vanishing_polynomial_at_challenge;
-        std::array<FF, DeciderPKs::NUM> lagranges;
-        constexpr FF inverse_two = FF(2).invert();
-
-        if constexpr (DeciderPKs::NUM == 2) {
-            vanishing_polynomial_at_challenge = challenge * (challenge - FF(1));
-            lagranges = { FF(1) - challenge, challenge };
-        } else if constexpr (DeciderPKs::NUM == 3) {
-            vanishing_polynomial_at_challenge = challenge * (challenge - FF(1)) * (challenge - FF(2));
-            lagranges = { (FF(1) - challenge) * (FF(2) - challenge) * inverse_two,
-                          challenge * (FF(2) - challenge),
-                          challenge * (challenge - FF(1)) / FF(2) };
-        } else if constexpr (DeciderPKs::NUM == 4) {
-            constexpr FF inverse_six = FF(6).invert();
-            vanishing_polynomial_at_challenge =
-                challenge * (challenge - FF(1)) * (challenge - FF(2)) * (challenge - FF(3));
-            lagranges = { (FF(1) - challenge) * (FF(2) - challenge) * (FF(3) - challenge) * inverse_six,
-                          challenge * (FF(2) - challenge) * (FF(3) - challenge) * inverse_two,
-                          challenge * (challenge - FF(1)) * (FF(3) - challenge) * inverse_two,
-                          challenge * (challenge - FF(1)) * (challenge - FF(2)) * inverse_six };
-        }
-        static_assert(DeciderPKs::NUM < 5);
+        std::array<FF, ProverInstances::NUM> lagranges;
+        vanishing_polynomial_at_challenge = challenge * (challenge - FF(1));
+        lagranges = { FF(1) - challenge, challenge };
 
         return { vanishing_polynomial_at_challenge, lagranges };
     }
 
     /**
-     * @brief Compute the combiner quotient defined as $K$ polynomial in the paper.
+     * @brief Compute the combiner quotient defined as $K$ polynomial in the paper specialised for only folding two
+     * instances at once.
      */
-    static Univariate<FF, DeciderPKs::BATCHED_EXTENDED_LENGTH, DeciderPKs::NUM> compute_combiner_quotient(
+    static Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH, ProverInstances::NUM> compute_combiner_quotient(
         FF perturbator_evaluation, ExtendedUnivariateWithRandomization combiner)
     {
-        std::array<FF, DeciderPKs::BATCHED_EXTENDED_LENGTH - DeciderPKs::NUM> combiner_quotient_evals = {};
+        static_assert(ProverInstances::NUM == 2);
+        std::array<FF, ProverInstances::BATCHED_EXTENDED_LENGTH - ProverInstances::NUM> combiner_quotient_evals = {};
 
-        constexpr FF inverse_two = FF(2).invert();
-        constexpr FF inverse_six = FF(6).invert();
-        for (size_t point = DeciderPKs::NUM; point < combiner.size(); point++) {
-            auto idx = point - DeciderPKs::NUM;
-            FF lagrange_0;
-            FF vanishing_polynomial;
-            if constexpr (DeciderPKs::NUM == 2) {
-                lagrange_0 = FF(1) - FF(point);
-                vanishing_polynomial = FF(point) * (FF(point) - 1);
-            } else if constexpr (DeciderPKs::NUM == 3) {
-                lagrange_0 = (FF(1) - FF(point)) * (FF(2) - FF(point)) * inverse_two;
-                vanishing_polynomial = FF(point) * (FF(point) - 1) * (FF(point) - 2);
-            } else if constexpr (DeciderPKs::NUM == 4) {
-                lagrange_0 = (FF(1) - FF(point)) * (FF(2) - FF(point)) * (FF(3) - FF(point)) * inverse_six;
-                vanishing_polynomial = FF(point) * (FF(point) - 1) * (FF(point) - 2) * (FF(point) - 3);
-            }
-            static_assert(DeciderPKs::NUM < 5);
-
+        for (size_t point = ProverInstances::NUM; point < combiner.size(); point++) {
+            auto idx = point - ProverInstances::NUM;
+            FF lagrange_0 = FF(1) - FF(point);
+            FF vanishing_polynomial = FF(point) * (FF(point) - 1);
             combiner_quotient_evals[idx] =
                 (combiner.value_at(point) - perturbator_evaluation * lagrange_0) * vanishing_polynomial.invert();
         }
 
-        return Univariate<FF, DeciderPKs::BATCHED_EXTENDED_LENGTH, DeciderPKs::NUM>(combiner_quotient_evals);
+        return Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH, ProverInstances::NUM>(combiner_quotient_evals);
     }
 
     /**
@@ -539,15 +510,15 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * combiner compute.
      */
     template <typename ExtendedRelationParameters>
-    static ExtendedRelationParameters compute_extended_relation_parameters(const DeciderPKs& keys)
+    static ExtendedRelationParameters compute_extended_relation_parameters(const ProverInstances& instances)
     {
         using UnivariateParameter = typename ExtendedRelationParameters::DataType;
         ExtendedRelationParameters result;
         size_t param_idx = 0;
         for (auto& param : result.get_to_fold()) {
-            Univariate<FF, DeciderPKs::NUM> tmp(0);
+            Univariate<FF, ProverInstances::NUM> tmp(0);
             size_t key_idx = 0;
-            for (auto& key : keys) {
+            for (auto& key : instances) {
                 tmp.value_at(key_idx) = key->relation_parameters.get_to_fold()[param_idx];
                 key_idx++;
             }
@@ -558,21 +529,21 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     }
 
     /**
-     * @brief Combine the relation batching parameters (alphas) from each decider proving key into a univariate for
-     * using in the combiner computation.
+     * @brief Combine the relation batching parameters (alphas) from each prover instance into a univariate for the
+     * combiner computation.
      */
-    static UnivariateSubrelationSeparators compute_and_extend_alphas(const DeciderPKs& keys)
+    static UnivariateSubrelationSeparators compute_and_extend_alphas(const ProverInstances& instances)
     {
         UnivariateSubrelationSeparators result;
         size_t alpha_idx = 0;
         for (auto& alpha : result) {
-            Univariate<FF, DeciderPKs::NUM> tmp;
+            Univariate<FF, ProverInstances::NUM> tmp;
             size_t key_idx = 0;
-            for (auto& key : keys) {
+            for (auto& key : instances) {
                 tmp.value_at(key_idx) = key->alphas[alpha_idx];
                 key_idx++;
             }
-            alpha = tmp.template extend_to<DeciderPKs::BATCHED_EXTENDED_LENGTH>();
+            alpha = tmp.template extend_to<ProverInstances::BATCHED_EXTENDED_LENGTH>();
             alpha_idx++;
         }
         return result;

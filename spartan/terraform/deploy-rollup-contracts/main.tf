@@ -22,14 +22,15 @@ locals {
   deploy_args = concat(
     ["deploy-l1-contracts"],
     ["--l1-rpc-urls", var.L1_RPC_URLS],
-    ["--mnemonic", var.MNEMONIC],
+    ["--private-key", var.PRIVATE_KEY],
     ["--l1-chain-id", tostring(var.L1_CHAIN_ID)],
     ["--validators", var.VALIDATORS],
     ["--json"], # Always output JSON for easier parsing
     ["--create-verification-json", "/tmp/l1-verify"],
     var.SALT != null ? ["--salt", tostring(var.SALT)] : [],
     var.SPONSORED_FPC ? ["--sponsored-fpc"] : [],
-    var.REAL_VERIFIER ? ["--real-verifier"] : []
+    var.REAL_VERIFIER ? ["--real-verifier"] : [],
+    var.FLUSH_ENTRY_QUEUE ? ["--flush-entry-queue"] : []
   )
 
 

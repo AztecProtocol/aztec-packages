@@ -8,12 +8,7 @@ import {
   makePxeOption,
   parseAztecAddress,
   parseEthereumAddress,
-  parseField,
   parseFieldFromHexString,
-  parseOptionalAztecAddress,
-  parseOptionalInteger,
-  parseOptionalLogId,
-  parseOptionalTxHash,
   parsePublicKey,
   pxeOption,
 } from '../../utils/commands.js';
@@ -51,16 +46,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     });
 
   program
-    .command('get-block')
-    .description('Gets info for a given block or latest.')
-    .argument('[blockNumber]', 'Block height', parseOptionalInteger)
-    .addOption(pxeOption)
-    .action(async (blockNumber, options) => {
-      const { getBlock } = await import('./get_block.js');
-      await getBlock(options.rpcUrl, blockNumber, debugLogger, log);
-    });
-
-  program
     .command('get-current-base-fee')
     .description('Gets the current base fee.')
     .addOption(pxeOption)
@@ -81,25 +66,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     });
 
   program
-    .command('get-logs')
-    .description('Gets all the public logs from an intersection of all the filter params.')
-    .option('-tx, --tx-hash <txHash>', 'A transaction hash to get the receipt for.', parseOptionalTxHash)
-    .option(
-      '-fb, --from-block <blockNum>',
-      'Initial block number for getting logs (defaults to 1).',
-      parseOptionalInteger,
-    )
-    .option('-tb, --to-block <blockNum>', 'Up to which block to fetch logs (defaults to latest).', parseOptionalInteger)
-    .option('-al --after-log <logId>', 'ID of a log after which to fetch the logs.', parseOptionalLogId)
-    .option('-ca, --contract-address <address>', 'Contract address to filter logs by.', parseOptionalAztecAddress)
-    .addOption(pxeOption)
-    .option('--follow', 'If set, will keep polling for new logs until interrupted.')
-    .action(async ({ txHash, fromBlock, toBlock, afterLog, contractAddress, rpcUrl, follow }) => {
-      const { getLogs } = await import('./get_logs.js');
-      await getLogs(txHash, fromBlock, toBlock, afterLog, contractAddress, rpcUrl, follow, debugLogger, log);
-    });
-
-  program
     .command('get-accounts')
     .description('Gets all the Aztec accounts stored in the PXE.')
     .addOption(pxeOption)
@@ -117,27 +83,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .action(async (address, options) => {
       const { getAccount } = await import('./get_account.js');
       await getAccount(address, options.rpcUrl, debugLogger, log);
-    });
-
-  program
-    .command('block-number')
-    .description('Gets the current Aztec L2 block number.')
-    .addOption(pxeOption)
-    .action(async (options: any) => {
-      const { blockNumber } = await import('./block_number.js');
-      await blockNumber(options.rpcUrl, debugLogger, log);
-    });
-
-  program
-    .command('get-l1-to-l2-message-witness')
-    .description('Gets a L1 to L2 message witness.')
-    .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.', parseAztecAddress)
-    .requiredOption('--message-hash <messageHash>', 'The L1 to L2 message hash.', parseField)
-    .requiredOption('--secret <secret>', 'The secret used to claim the L1 to L2 message', parseField)
-    .addOption(pxeOption)
-    .action(async ({ contractAddress, messageHash, secret, rpcUrl }) => {
-      const { getL1ToL2MessageWitness } = await import('./get_l1_to_l2_message_witness.js');
-      await getL1ToL2MessageWitness(rpcUrl, contractAddress, messageHash, secret, debugLogger, log);
     });
 
   program

@@ -1,4 +1,5 @@
 import { type ContractInstanceWithAddress, Fr, Point } from '@aztec/aztec.js';
+import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX } from '@aztec/constants';
 import { packAsRetrievedNote } from '@aztec/pxe/simulator';
 import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -48,18 +49,18 @@ export class TXEService {
   async txeSetPrivateTXEContext(
     foreignContractAddressIsSome: ForeignCallSingle,
     foreignContractAddressValue: ForeignCallSingle,
-    foreignHistoricalBlockNumberIsSome: ForeignCallSingle,
-    foreignHistoricalBlockNumberValue: ForeignCallSingle,
+    foreignAnchorBlockNumberIsSome: ForeignCallSingle,
+    foreignAnchorBlockNumberValue: ForeignCallSingle,
   ) {
     const contractAddress = fromSingle(foreignContractAddressIsSome).toBool()
       ? AztecAddress.fromField(fromSingle(foreignContractAddressValue))
       : undefined;
 
-    const historicalBlockNumber = fromSingle(foreignHistoricalBlockNumberIsSome).toBool()
-      ? fromSingle(foreignHistoricalBlockNumberValue).toNumber()
+    const anchorBlockNumber = fromSingle(foreignAnchorBlockNumberIsSome).toBool()
+      ? fromSingle(foreignAnchorBlockNumberValue).toNumber()
       : undefined;
 
-    const privateContextInputs = await this.stateHandler.setPrivateContext(contractAddress, historicalBlockNumber);
+    const privateContextInputs = await this.stateHandler.setPrivateContext(contractAddress, anchorBlockNumber);
 
     return toForeignCallResult(privateContextInputs.toFields().map(toSingle));
   }
@@ -93,6 +94,18 @@ export class TXEService {
   // Other oracles - these get handled by the oracle handler
 
   // TXE-specific oracles
+
+  async txeGetNextBlockNumber() {
+    const nextBlockNumber = await this.oracleHandler.txeGetNextBlockNumber();
+
+    return toForeignCallResult([toSingle(nextBlockNumber)]);
+  }
+
+  async txeGetNextBlockTimestamp() {
+    const nextBlockTimestamp = await this.oracleHandler.txeGetNextBlockTimestamp();
+
+    return toForeignCallResult([toSingle(nextBlockTimestamp)]);
+  }
 
   async txeAdvanceBlocksBy(foreignBlocks: ForeignCallSingle) {
     const blocks = fromSingle(foreignBlocks).toNumber();
@@ -177,29 +190,20 @@ export class TXEService {
     return toForeignCallResult([toSingle(randomField)]);
   }
 
-  async utilityGetContractAddress() {
-    const contractAddress = await this.oracleHandler.utilityGetContractAddress();
-
-    return toForeignCallResult([toSingle(contractAddress.toField())]);
-  }
-
-  async utilityGetBlockNumber() {
-    const blockNumber = await this.oracleHandler.utilityGetBlockNumber();
-
-    return toForeignCallResult([toSingle(new Fr(blockNumber))]);
-  }
-
-  // seems to be used to mean the timestamp of the last mined block in txe (but that's not what is done here)
-  async utilityGetTimestamp() {
-    const timestamp = await this.oracleHandler.utilityGetTimestamp();
-
-    return toForeignCallResult([toSingle(new Fr(timestamp))]);
-  }
-
   async txeGetLastBlockTimestamp() {
     const timestamp = await this.oracleHandler.txeGetLastBlockTimestamp();
 
     return toForeignCallResult([toSingle(new Fr(timestamp))]);
+  }
+
+  async txeGetLastTxEffects() {
+    const { txHash, noteHashes, nullifiers } = await this.oracleHandler.txeGetLastTxEffects();
+
+    return toForeignCallResult([
+      toSingle(txHash.hash),
+      ...arrayToBoundedVec(toArray(noteHashes), MAX_NOTE_HASHES_PER_TX),
+      ...arrayToBoundedVec(toArray(nullifiers), MAX_NULLIFIERS_PER_TX),
+    ]);
   }
 
   // Since the argument is a slice, noir automatically adds a length field to oracle call.
@@ -409,7 +413,7 @@ export class TXEService {
   async utilityGetPublicKeysAndPartialAddress(foreignAddress: ForeignCallSingle) {
     const address = addressFromSingle(foreignAddress);
 
-    const { publicKeys, partialAddress } = await this.oracleHandler.utilityGetCompleteAddress(address);
+    const { publicKeys, partialAddress } = await this.oracleHandler.utilityGetPublicKeysAndPartialAddress(address);
 
     return toForeignCallResult([toArray([...publicKeys.toFields(), partialAddress])]);
   }
@@ -482,16 +486,10 @@ export class TXEService {
     throw new Error('Enqueueing public calls is not supported in TestEnvironment::private_context');
   }
 
-  async utilityGetChainId() {
-    const chainId = await this.oracleHandler.utilityGetChainId();
+  async utilityGetUtilityContext() {
+    const context = await this.oracleHandler.utilityGetUtilityContext();
 
-    return toForeignCallResult([toSingle(chainId)]);
-  }
-
-  async utilityGetVersion() {
-    const version = await this.oracleHandler.utilityGetVersion();
-
-    return toForeignCallResult([toSingle(version)]);
+    return toForeignCallResult(context.toNoirRepresentation());
   }
 
   async utilityGetBlockHeader(foreignBlockNumber: ForeignCallSingle) {
@@ -881,7 +879,7 @@ export class TXEService {
     const argsHash = fromSingle(foreignArgsHash);
     const isStaticCall = fromSingle(foreignIsStaticCall).toBool();
 
-    const result = await this.oracleHandler.txePrivateCallNewFlow(
+    const returnValues = await this.oracleHandler.txePrivateCallNewFlow(
       from,
       targetContractAddress,
       functionSelector,
@@ -890,21 +888,26 @@ export class TXEService {
       isStaticCall,
     );
 
-    return toForeignCallResult([toArray([result.endSideEffectCounter, result.returnsHash, result.txHash.hash])]);
+    return toForeignCallResult([toArray(returnValues)]);
   }
 
-  async simulateUtilityFunction(
+  async txeSimulateUtilityFunction(
     foreignTargetContractAddress: ForeignCallSingle,
     foreignFunctionSelector: ForeignCallSingle,
-    foreignArgsHash: ForeignCallSingle,
+    _foreignArgsLength: ForeignCallSingle,
+    foreignArgs: ForeignCallArray,
   ) {
     const targetContractAddress = addressFromSingle(foreignTargetContractAddress);
     const functionSelector = FunctionSelector.fromField(fromSingle(foreignFunctionSelector));
-    const argsHash = fromSingle(foreignArgsHash);
+    const args = fromArray(foreignArgs);
 
-    const result = await this.oracleHandler.simulateUtilityFunction(targetContractAddress, functionSelector, argsHash);
+    const returnValues = await this.oracleHandler.txeSimulateUtilityFunction(
+      targetContractAddress,
+      functionSelector,
+      args,
+    );
 
-    return toForeignCallResult([toSingle(result)]);
+    return toForeignCallResult([toArray(returnValues)]);
   }
 
   async txePublicCallNewFlow(
@@ -919,9 +922,9 @@ export class TXEService {
     const calldata = fromArray(foreignCalldata);
     const isStaticCall = fromSingle(foreignIsStaticCall).toBool();
 
-    const result = await this.oracleHandler.txePublicCallNewFlow(from, address, calldata, isStaticCall);
+    const returnValues = await this.oracleHandler.txePublicCallNewFlow(from, address, calldata, isStaticCall);
 
-    return toForeignCallResult([toArray([result.returnsHash, result.txHash.hash])]);
+    return toForeignCallResult([toArray(returnValues)]);
   }
 
   async privateGetSenderForTags() {
