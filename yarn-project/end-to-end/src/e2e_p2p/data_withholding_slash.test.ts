@@ -1,4 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
+import { times } from '@aztec/foundation/collection';
+import { OffenseType } from '@aztec/slasher';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
@@ -15,6 +17,11 @@ jest.setTimeout(1000000);
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_VALIDATORS = 4;
 const BOOT_NODE_UDP_PORT = 4500;
+const COMMITTEE_SIZE = NUM_VALIDATORS;
+
+// This test needs longer slot window to ensure that the client has enough time to submit their txs,
+// and have the nodes get recreated, prior to the reorg.
+const AZTEC_SLOT_DURATION = process.env.AZTEC_SLOT_DURATION ? parseInt(process.env.AZTEC_SLOT_DURATION) : 32;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'data-withholding-slash-'));
 
@@ -40,9 +47,6 @@ describe('e2e_p2p_data_withholding_slash', () => {
   const slashingUnit = BigInt(1e18);
   const slashingQuorum = 3;
   const slashingRoundSize = 4;
-  // This test needs longer slot window to ensure that the client has enough time to submit their txs,
-  // and have the nodes get recreated, prior to the reorg.
-  const aztecSlotDuration = 32;
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
@@ -55,8 +59,9 @@ describe('e2e_p2p_data_withholding_slash', () => {
         listenAddress: '127.0.0.1',
         aztecEpochDuration: 2,
         ethereumSlotDuration: 4,
-        aztecSlotDuration,
+        aztecSlotDuration: AZTEC_SLOT_DURATION,
         aztecProofSubmissionEpochs: 0, // effectively forces instant reorgs
+        aztecTargetCommitteeSize: COMMITTEE_SIZE,
         slashingQuorum,
         slashingRoundSizeInEpochs: slashingRoundSize / 2,
         slashAmountSmall: slashingUnit,
@@ -110,7 +115,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
     t.ctx.aztecNodeConfig.validatorReexecute = false;
     t.ctx.aztecNodeConfig.minTxsPerBlock = 1;
 
-    t.logger.info('Creating nodes');
+    t.logger.warn('Creating nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
       t.ctx.dateProvider,
@@ -138,9 +143,9 @@ describe('e2e_p2p_data_withholding_slash', () => {
     await debugRollup();
 
     // Send Aztec txs
-    t.logger.info('Setup account');
+    t.logger.warn('Setup account');
     await t.setupAccount();
-    t.logger.info('Stopping nodes');
+    t.logger.warn('Stopping nodes');
     // Note, we needed to keep the initial node running, as that is the one the txs were sent to.
     await t.removeInitialNode();
     // Now stop the nodes,
@@ -152,7 +157,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
 
     // Re-create the nodes.
     // ASSUMING they sync in the middle of the epoch, they will "see" the reorg, and try to slash.
-    t.logger.info('Re-creating nodes');
+    t.logger.warn('Re-creating nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
       t.ctx.dateProvider,
@@ -163,12 +168,17 @@ describe('e2e_p2p_data_withholding_slash', () => {
       DATA_DIR,
     );
 
-    await awaitOffenseDetected({
+    const offenses = await awaitOffenseDetected({
       epochDuration: t.ctx.aztecNodeConfig.aztecEpochDuration,
       logger: t.logger,
       nodeAdmin: nodes[0],
       slashingRoundSize,
+      waitUntilOffenseCount: COMMITTEE_SIZE,
     });
+
+    // Check offenses are correct
+    expect(offenses.map(o => o.validator.toChecksumString()).sort()).toEqual(committee.map(a => a.toString()).sort());
+    expect(offenses.map(o => o.offenseType)).toEqual(times(COMMITTEE_SIZE, () => OffenseType.DATA_WITHHOLDING));
 
     await awaitCommitteeKicked({
       rollup,
@@ -177,7 +187,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
       slashFactory,
       slashingProposer,
       slashingRoundSize,
-      aztecSlotDuration,
+      aztecSlotDuration: AZTEC_SLOT_DURATION,
       logger: t.logger,
       dateProvider: t.ctx.dateProvider,
     });

@@ -148,10 +148,11 @@ describe('P2P Client', () => {
     expect(txPool.deleteTxs).not.toHaveBeenCalled();
 
     await advanceToFinalizedBlock(5);
-    expect(txPool.deleteTxs).toHaveBeenCalledTimes(5);
+    expect(txPool.deleteTxs).toHaveBeenCalledTimes(1);
+    txPool.deleteTxs.mockClear();
 
     await advanceToFinalizedBlock(8);
-    expect(txPool.deleteTxs).toHaveBeenCalledTimes(8);
+    expect(txPool.deleteTxs).toHaveBeenCalledTimes(1);
     await client.stop();
   });
 

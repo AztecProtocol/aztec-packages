@@ -1,5 +1,8 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
+import { times } from '@aztec/foundation/collection';
+import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
+import { OffenseType } from '@aztec/slasher';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
@@ -15,23 +18,27 @@ jest.setTimeout(10 * 60_000); // 10 minutes
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_VALIDATORS = 4;
+const COMMITTEE_SIZE = NUM_VALIDATORS;
 const BOOT_NODE_UDP_PORT = 4500;
 
-const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'valid-epoch-pruned-'));
+const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'valid-epoch-pruned-slash-'));
 
 /**
  * Test that we slash the committee when the pruned epoch could have been proven.
- *
- * Note, we don't need to do anything special for this test other than to run it without a prover node
- * (which is the default), and this will produce pruned epochs that could have been proven.
+ * We don't need to do anything special for this test other than to run it without a prover node
+ * (which is the default), and this will produce pruned epochs that could have been proven. But we do
+ * need to send a tx to make sure that the slash is due to valid epoch prune and not data withholding.
  */
-describe('e2e_p2p_valid_epoch_pruned', () => {
+describe('e2e_p2p_valid_epoch_pruned_slash', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
 
   const slashingQuorum = 3;
   const slashingRoundSize = 4;
+  const ethereumSlotDuration = 4;
   const aztecSlotDuration = 8;
+  const aztecEpochDuration = 2;
+  const initialEpoch = 8;
   const slashingUnit = BigInt(1e18);
 
   beforeEach(async () => {
@@ -42,23 +49,26 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
       basePort: BOOT_NODE_UDP_PORT,
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
+        cancelTxOnTimeout: false,
+        publisherAllowInvalidStates: true,
         listenAddress: '127.0.0.1',
-        aztecEpochDuration: 2,
-        ethereumSlotDuration: 4,
+        aztecEpochDuration,
+        ethereumSlotDuration,
         aztecSlotDuration,
-        aztecProofSubmissionEpochs: 0, // reorg as soon as epoch ends
+        aztecProofSubmissionEpochs: 1,
         slashingQuorum,
-        slashingRoundSizeInEpochs: slashingRoundSize / 2,
+        slashingRoundSizeInEpochs: slashingRoundSize / aztecEpochDuration,
         slashSelfAllowed: true,
+        slashGracePeriodL2Slots: initialEpoch * aztecEpochDuration,
         slashAmountSmall: slashingUnit,
         slashAmountMedium: slashingUnit * 2n,
         slashAmountLarge: slashingUnit * 3n,
+        aztecTargetCommitteeSize: COMMITTEE_SIZE,
       },
     });
 
     await t.applyBaseSnapshots();
     await t.setup();
-    await t.removeInitialNode();
   });
 
   afterEach(async () => {
@@ -93,16 +103,10 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
 
     t.ctx.aztecNodeConfig.slashPrunePenalty = slashingAmount;
     t.ctx.aztecNodeConfig.validatorReexecute = false;
-    t.ctx.aztecNodeConfig.minTxsPerBlock = 0;
+    t.ctx.aztecNodeConfig.minTxsPerBlock = 1;
+    t.ctx.aztecNodeConfig.txPoolDeleteTxsAfterReorg = true;
 
-    // Jump forward to an epoch in the future such that the validator set is not empty
-    await t.ctx.cheatCodes.rollup.advanceToEpoch(4n);
-
-    // create our network of nodes and submit txs into each of them
-    // the number of txs per node and the number of txs per rollup
-    // should be set so that the only way for rollups to be built
-    // is if the txs are successfully gossiped around the nodes.
-    t.logger.info('Creating nodes');
+    t.logger.warn(`Creating ${NUM_VALIDATORS} new nodes`);
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
       t.ctx.dateProvider,
@@ -120,16 +124,58 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
     await debugRollup();
 
     // Wait for the committee to exist
+    await t.ctx.cheatCodes.rollup.advanceToEpoch(2, { updateDateProvider: t.ctx.dateProvider });
+    await t.ctx.cheatCodes.rollup.markAsProven();
     const committee = await awaitCommitteeExists({ rollup, logger: t.logger });
     await debugRollup();
 
+    // Set up a wallet and keep it out of reorgs
+    await t.ctx.cheatCodes.rollup.markAsProven();
+    await t.setupAccount();
+    await t.ctx.cheatCodes.rollup.markAsProven();
+
+    // Warp forward to after the initial grace period
+    expect(await rollup.getCurrentEpoch()).toBeLessThan(initialEpoch);
+    await t.ctx.cheatCodes.rollup.advanceToEpoch(initialEpoch, {
+      updateDateProvider: t.ctx.dateProvider,
+      offset: -ethereumSlotDuration,
+    });
+    await t.ctx.cheatCodes.rollup.markAsProven();
+
+    // Send a tx to deploy a contract so that we have a tx with public function execution in the pruned epoch
+    // This allows us to test that the slashed offense is valid epoch prune and not data withholding
+    t.logger.warn(`Submitting deployment tx to the network`);
+    const _spamContract = await SpamContract.deploy(t.wallet!).send({ from: t.defaultAccountAddress! }).deployed();
+
+    // And send a tx that depends on a tx with public function execution on a contract class that will be reorged out
+    // This allows us to test that we handle pruned contract classes correctly
+    // TODO(palla/A-51): For this check to actually check what we need, we need to ensure the deployment and the
+    // this tx are in different blocks but within the same epoch, so it gets reexecuted by the prune-watcher.
+    // This does not always happen in the current test setup.
+    // t.logger.warn(`Submitting tx with public function execution to the network`);
+    // await spamContract.methods.spam(1, 1, true).send({ from: t.defaultAccountAddress! }).wait();
+
+    // Initial node receives the txs, so we cannot stop it before that one is mined
+    // Yes, that means that there are probably two nodes running the same validator key (the initial node and nodes[0])
+    // This will come back and haunt us eventually, not just here but in most e2e p2p tests that make the same mistake
+    t.logger.warn(`Removing initial node`);
+    await t.removeInitialNode();
+
+    // Warp forward so we can prune the epoch
+    await t.ctx.cheatCodes.rollup.advanceToNextEpoch({ updateDateProvider: t.ctx.dateProvider });
+
     // Wait for epoch to be pruned and the offense to be detected
-    const _offenses = await awaitOffenseDetected({
+    const offenses = await awaitOffenseDetected({
       logger: t.logger,
       nodeAdmin: nodes[0],
       slashingRoundSize,
       epochDuration: t.ctx.aztecNodeConfig.aztecEpochDuration,
+      waitUntilOffenseCount: COMMITTEE_SIZE,
     });
+
+    // Check offenses are correct
+    expect(offenses.map(o => o.validator.toChecksumString()).sort()).toEqual(committee.map(a => a.toString()).sort());
+    expect(offenses.map(o => o.offenseType)).toEqual(times(COMMITTEE_SIZE, () => OffenseType.VALID_EPOCH_PRUNED));
 
     // And then wait for them to be kicked out
     await awaitCommitteeKicked({

@@ -20,6 +20,8 @@ export class InMemoryTxPool extends (EventEmitter as new () => TypedEventEmitter
   private txs: Map<bigint, Tx>;
   private minedTxs: Map<bigint, number>;
   private pendingTxs: Set<bigint>;
+  private deletedMinedTxHashes: Map<bigint, number>;
+  private blockToDeletedMinedTxHash: Map<number, Set<bigint>>;
 
   private metrics: PoolInstrumentation<Tx>;
 
@@ -35,6 +37,8 @@ export class InMemoryTxPool extends (EventEmitter as new () => TypedEventEmitter
     this.txs = new Map<bigint, Tx>();
     this.minedTxs = new Map();
     this.pendingTxs = new Set();
+    this.deletedMinedTxHashes = new Map();
+    this.blockToDeletedMinedTxHash = new Map();
     this.metrics = new PoolInstrumentation(telemetry, PoolName.TX_POOL, this.countTx);
   }
 
@@ -54,6 +58,19 @@ export class InMemoryTxPool extends (EventEmitter as new () => TypedEventEmitter
   public markAsMined(txHashes: TxHash[], blockHeader: BlockHeader): Promise<void> {
     const keys = txHashes.map(x => x.toBigInt());
     for (const key of keys) {
+      // If this tx was previously soft-deleted, remove it from the deleted sets
+      if (this.deletedMinedTxHashes.has(key)) {
+        const originalBlock = this.deletedMinedTxHashes.get(key)!;
+        this.deletedMinedTxHashes.delete(key);
+        // Remove from block-to-hash mapping
+        const txHashesForBlock = this.blockToDeletedMinedTxHash.get(originalBlock);
+        if (txHashesForBlock) {
+          txHashesForBlock.delete(key);
+          if (txHashesForBlock.size === 0) {
+            this.blockToDeletedMinedTxHash.delete(originalBlock);
+          }
+        }
+      }
       this.minedTxs.set(key, blockHeader.globalVariables.blockNumber);
       this.pendingTxs.delete(key);
     }
@@ -83,7 +100,12 @@ export class InMemoryTxPool extends (EventEmitter as new () => TypedEventEmitter
       (tx1, tx2) => -getPendingTxPriority(tx1).localeCompare(getPendingTxPriority(tx2)),
     );
     const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
-    return txHashes.filter(txHash => this.pendingTxs.has(txHash.toBigInt()));
+
+    // No need to check deleted since pending txs are never soft-deleted
+    return txHashes.filter(txHash => {
+      const key = txHash.toBigInt();
+      return this.pendingTxs.has(key);
+    });
   }
 
   public getMinedTxHashes(): Promise<[TxHash, number][]> {
@@ -93,16 +115,21 @@ export class InMemoryTxPool extends (EventEmitter as new () => TypedEventEmitter
   }
 
   public getPendingTxCount(): Promise<number> {
+    // Soft-deleted transactions are always mined, never pending
     return Promise.resolve(this.pendingTxs.size);
   }
 
-  public getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined> {
+  public getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | 'deleted' | undefined> {
     const key = txHash.toBigInt();
-    if (this.pendingTxs.has(key)) {
-      return Promise.resolve('pending');
+
+    if (this.deletedMinedTxHashes.has(key)) {
+      return Promise.resolve('deleted');
     }
     if (this.minedTxs.has(key)) {
       return Promise.resolve('mined');
+    }
+    if (this.pendingTxs.has(key)) {
+      return Promise.resolve('pending');
     }
     return Promise.resolve(undefined);
   }
@@ -161,15 +188,34 @@ export class InMemoryTxPool extends (EventEmitter as new () => TypedEventEmitter
 
   /**
    * Deletes transactions from the pool. Tx hashes that are not present are ignored.
-   * @param txHashes - An array of tx hashes to be removed from the tx pool.
-   * @returns The number of transactions that was deleted from the pool.
+   * Mined transactions are soft-deleted with a timestamp, pending transactions are permanently deleted.
+   * @param txHashes - An array of tx hashes to be deleted from the tx pool.
+   * @returns Empty promise.
    */
-  public deleteTxs(txHashes: TxHash[]): Promise<void> {
+  public deleteTxs(txHashes: TxHash[], opts?: { permanently?: boolean }): Promise<void> {
     for (const txHash of txHashes) {
       const key = txHash.toBigInt();
-      this.txs.delete(key);
-      this.pendingTxs.delete(key);
-      this.minedTxs.delete(key);
+      if (this.txs.has(key)) {
+        if (this.minedTxs.has(key)) {
+          const blockNumber = this.minedTxs.get(key)!;
+          this.minedTxs.delete(key);
+          // Soft-delete mined transactions: remove from mined set but keep in storage
+          if (opts?.permanently) {
+            // Permanently delete mined transactions if specified
+            this.txs.delete(key);
+          } else {
+            this.deletedMinedTxHashes.set(key, blockNumber);
+            if (!this.blockToDeletedMinedTxHash.has(blockNumber)) {
+              this.blockToDeletedMinedTxHash.set(blockNumber, new Set());
+            }
+            this.blockToDeletedMinedTxHash.get(blockNumber)!.add(key);
+          }
+        } else {
+          // Permanently delete pending transactions
+          this.txs.delete(key);
+          this.pendingTxs.delete(key);
+        }
+      }
     }
 
     return Promise.resolve();
@@ -195,5 +241,38 @@ export class InMemoryTxPool extends (EventEmitter as new () => TypedEventEmitter
 
   markTxsAsNonEvictable(_: TxHash[]): Promise<void> {
     return Promise.resolve();
+  }
+
+  /**
+   * Permanently deletes deleted mined transactions from blocks up to and including the specified block number.
+   * @param blockNumber - Block number threshold. Deleted mined txs from this block or earlier will be permanently deleted.
+   * @returns The number of transactions permanently deleted.
+   */
+  public cleanupDeletedMinedTxs(blockNumber: number): Promise<number> {
+    let deletedCount = 0;
+    const blocksToDelete: number[] = [];
+
+    // Find all blocks up to the specified block number
+    for (const [block, txHashes] of this.blockToDeletedMinedTxHash.entries()) {
+      if (block <= blockNumber) {
+        // Permanently delete all transactions from this block
+        for (const txHash of txHashes) {
+          this.txs.delete(txHash);
+          this.deletedMinedTxHashes.delete(txHash);
+          deletedCount++;
+        }
+        blocksToDelete.push(block);
+      }
+    }
+
+    // Clean up block-to-hash mapping
+    for (const block of blocksToDelete) {
+      this.blockToDeletedMinedTxHash.delete(block);
+    }
+
+    if (deletedCount > 0) {
+      this.log.debug(`Permanently deleted ${deletedCount} deleted mined txs from blocks up to ${blockNumber}`);
+    }
+    return Promise.resolve(deletedCount);
   }
 }
