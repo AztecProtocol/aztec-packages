@@ -1,9 +1,7 @@
-import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
-import type { SiblingPath } from '@aztec/foundation/trees';
 import { KeyStore } from '@aztec/key-store';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
@@ -25,7 +23,6 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2Block } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractClassWithId,
@@ -41,8 +38,6 @@ import { siloNullifier } from '@aztec/stdlib/hash';
 import type {
   AztecNode,
   EventMetadataDefinition,
-  GetContractClassLogsResponse,
-  GetPublicLogsResponse,
   PXE,
   PXEInfo,
   PrivateKernelProver,
@@ -52,13 +47,10 @@ import type {
   PrivateKernelExecutionProofOutput,
   PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/stdlib/kernel';
-import type { LogFilter } from '@aztec/stdlib/logs';
-import { computeL2ToL1MembershipWitness, getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { type NotesFilter, UniqueNote } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   type ContractOverrides,
-  type IndexedTxEffect,
   PrivateExecutionResult,
   PrivateSimulationResult,
   type ProvingTimings,
@@ -202,59 +194,8 @@ export class PXEService implements PXE {
 
   // Aztec node proxy methods
 
-  public isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
-    return this.node.isL1ToL2MessageSynced(l1ToL2Message);
-  }
-
-  public getL1ToL2MessageBlock(l1ToL2Message: Fr): Promise<number | undefined> {
-    return this.node.getL1ToL2MessageBlock(l1ToL2Message);
-  }
-
-  public async getL2ToL1MembershipWitness(
-    blockNumber: number,
-    l2Tol1Message: Fr,
-  ): Promise<[bigint, SiblingPath<number>]> {
-    const result = await computeL2ToL1MembershipWitness(this.node, blockNumber, l2Tol1Message);
-    if (!result) {
-      throw new Error(`L2 to L1 message not found in block ${blockNumber}`);
-    }
-    return [result.leafIndex, result.siblingPath];
-  }
-
   public getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
     return this.node.getTxReceipt(txHash);
-  }
-
-  public getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
-    return this.node.getTxEffect(txHash);
-  }
-
-  public getBlockNumber(): Promise<number> {
-    return this.node.getBlockNumber();
-  }
-
-  public getProvenBlockNumber(): Promise<number> {
-    return this.node.getProvenBlockNumber();
-  }
-
-  public getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
-    return this.node.getPublicLogs(filter);
-  }
-
-  public getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
-    return this.node.getContractClassLogs(filter);
-  }
-
-  public getPublicStorageAt(contract: AztecAddress, slot: Fr) {
-    return this.node.getPublicStorageAt('latest', contract, slot);
-  }
-
-  public async getL1ToL2MembershipWitness(
-    contractAddress: AztecAddress,
-    messageHash: Fr,
-    secret: Fr,
-  ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>]> {
-    return await getNonNullifiedL1ToL2MessageWitness(this.node, contractAddress, messageHash, secret);
   }
 
   // Internal methods
@@ -690,14 +631,6 @@ export class PXEService implements PXE {
       return new UniqueNote(dao.note, recipient, dao.contractAddress, dao.storageSlot, dao.txHash, dao.noteNonce);
     });
     return Promise.all(extendedNotes);
-  }
-
-  public async getBlock(blockNumber: number): Promise<L2Block | undefined> {
-    // If a negative block number is provided the current block number is fetched.
-    if (blockNumber < 0) {
-      blockNumber = await this.node.getBlockNumber();
-    }
-    return await this.node.getBlock(blockNumber);
   }
 
   public async getCurrentBaseFees(): Promise<GasFees> {

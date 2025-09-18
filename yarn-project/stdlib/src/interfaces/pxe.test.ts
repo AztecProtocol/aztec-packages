@@ -28,9 +28,6 @@ import {
 import { GasFees } from '../gas/gas_fees.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { PublicKeys } from '../keys/public_keys.js';
-import { ExtendedContractClassLog } from '../logs/extended_contract_class_log.js';
-import { ExtendedPublicLog } from '../logs/extended_public_log.js';
-import type { LogFilter } from '../logs/log_filter.js';
 import { UniqueNote } from '../note/index.js';
 import type { NotesFilter } from '../note/notes_filter.js';
 import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
@@ -48,7 +45,6 @@ import { TxProfileResult, UtilitySimulationResult } from '../tx/profiling.js';
 import { TxProvingResult } from '../tx/proven_tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxExecutionRequest } from '../tx/tx_execution_request.js';
-import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_logs_response.js';
 import {
   type ContractClassMetadata,
   type ContractMetadata,
@@ -98,15 +94,6 @@ describe('PXESchema', () => {
   afterAll(() => {
     const all = Object.keys(PXESchema);
     expect([...tested].sort()).toEqual(all.sort());
-  });
-
-  it('isL1ToL2MessageSynced', async () => {
-    await context.client.isL1ToL2MessageSynced(Fr.random());
-  });
-
-  it('getL1ToL2MessageBlock', async () => {
-    const result = await context.client.getL1ToL2MessageBlock(Fr.random());
-    expect(result).toEqual(5);
   });
 
   it('registerAccount', async () => {
@@ -202,36 +189,9 @@ describe('PXESchema', () => {
     expect(result).toBeInstanceOf(TxReceipt);
   });
 
-  it('getTxEffect', async () => {
-    const { l2BlockHash, l2BlockNumber, data } = (await context.client.getTxEffect(TxHash.random()))!;
-    expect(data).toBeInstanceOf(TxEffect);
-    expect(l2BlockHash).toBeInstanceOf(L2BlockHash);
-    expect(l2BlockNumber).toBe(1);
-  });
-
-  it('getPublicStorageAt', async () => {
-    const result = await context.client.getPublicStorageAt(address, Fr.random());
-    expect(result).toBeInstanceOf(Fr);
-  });
-
   it('getNotes', async () => {
     const result = await context.client.getNotes({ contractAddress: address });
     expect(result).toEqual([expect.any(UniqueNote)]);
-  });
-
-  it('getL1ToL2MembershipWitness', async () => {
-    const result = await context.client.getL1ToL2MembershipWitness(address, Fr.random(), Fr.random());
-    expect(result).toEqual([expect.any(BigInt), expect.any(SiblingPath)]);
-  });
-
-  it('getL2ToL1MembershipWitness', async () => {
-    const result = await context.client.getL2ToL1MembershipWitness(42, Fr.random());
-    expect(result).toEqual([expect.any(BigInt), expect.any(SiblingPath)]);
-  });
-
-  it('getBlock', async () => {
-    const result = await context.client.getBlock(1);
-    expect(result).toBeInstanceOf(L2Block);
   });
 
   it('getCurrentBaseFees', async () => {
@@ -242,26 +202,6 @@ describe('PXESchema', () => {
   it('simulateUtility', async () => {
     const result = await context.client.simulateUtility('function', [], address, [], address, [address]);
     expect(result).toEqual({ result: 10n });
-  });
-
-  it('getPublicLogs', async () => {
-    const result = await context.client.getPublicLogs({ contractAddress: address });
-    expect(result).toEqual({ logs: [expect.any(ExtendedPublicLog)], maxLogsHit: true });
-  });
-
-  it('getContractClassLogs', async () => {
-    const result = await context.client.getContractClassLogs({ contractAddress: address });
-    expect(result).toEqual({ logs: [expect.any(ExtendedContractClassLog)], maxLogsHit: true });
-  });
-
-  it('getBlockNumber', async () => {
-    const result = await context.client.getBlockNumber();
-    expect(result).toBe(1);
-  });
-
-  it('getProvenBlockNumber', async () => {
-    const result = await context.client.getProvenBlockNumber();
-    expect(result).toBe(1);
   });
 
   it('getNodeInfo', async () => {
@@ -326,12 +266,6 @@ class MockPXE implements PXE {
     private instance: ContractInstanceWithAddress,
   ) {}
 
-  isL1ToL2MessageSynced(_l1ToL2Message: Fr): Promise<boolean> {
-    return Promise.resolve(false);
-  }
-  getL1ToL2MessageBlock(_l1ToL2Message: Fr): Promise<number | undefined> {
-    return Promise.resolve(5);
-  }
   registerAccount(secretKey: Fr, partialAddress: Fr): Promise<CompleteAddress> {
     expect(secretKey).toBeInstanceOf(Fr);
     expect(partialAddress).toBeInstanceOf(Fr);
@@ -456,11 +390,6 @@ class MockPXE implements PXE {
     expect(secret).toBeInstanceOf(Fr);
     return Promise.resolve([1n, SiblingPath.random(L1_TO_L2_MSG_TREE_HEIGHT)]);
   }
-  getL2ToL1MembershipWitness(blockNumber: number, l2Tol1Message: Fr): Promise<[bigint, SiblingPath<number>]> {
-    expect(typeof blockNumber).toEqual('number');
-    expect(l2Tol1Message).toBeInstanceOf(Fr);
-    return Promise.resolve([1n, SiblingPath.random<number>(4)]);
-  }
   getL2ToL1Messages(blockNumber: number): Promise<Fr[][] | undefined> {
     expect(typeof blockNumber).toEqual('number');
     return Promise.resolve([[Fr.random()], [Fr.random(), Fr.random()]]);
@@ -484,20 +413,6 @@ class MockPXE implements PXE {
     expect(scopes).toEqual([this.address]);
     expect(authwits).toEqual([]);
     return Promise.resolve(new UtilitySimulationResult(10n));
-  }
-  async getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
-    expect(filter.contractAddress).toEqual(this.address);
-    return { logs: [await ExtendedPublicLog.random()], maxLogsHit: true };
-  }
-  async getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
-    expect(filter.contractAddress).toEqual(this.address);
-    return Promise.resolve({ logs: [await ExtendedContractClassLog.random()], maxLogsHit: true });
-  }
-  getBlockNumber(): Promise<number> {
-    return Promise.resolve(1);
-  }
-  getProvenBlockNumber(): Promise<number> {
-    return Promise.resolve(1);
   }
   @memoize
   async getNodeInfo(): Promise<NodeInfo> {
