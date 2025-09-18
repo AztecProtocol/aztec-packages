@@ -58,18 +58,25 @@ template <class VerifierInstance> class ProtogalaxyRecursiveVerifier_ {
     };
 
     /**
-     * @brief Process the public data ϕ for the decider verification keys to be folded.
+     * @brief Process the public data \f$\phi\f$ for the decider verification keys to be folded.
      */
     void run_oink_verifier_on_each_incomplete_instance(const std::vector<FF>&);
 
     /**
-     * @brief Run the folding protocol on the verifier side to establish whether the public data ϕ of the new
+     * @brief Run the folding protocol on the verifier side to establish whether the public data \f$\phi\f$ of the new
      * accumulator, received from the prover is the same as that produced by the verifier.
      *
-     * @details In the recursive setting this function doesn't return anything because the equality checks performed by
-     * the recursive verifier, ensuring the folded ϕ*, e* and β* on the verifier side correspond to what has been sent
-     * by the prover, are expressed as constraints.
+     * @note We update the first instance with which the verifier was constructed in-place. That is, the result of the
+     * folding verification is stored in insts_to_fold[0] after the execution of this function.
      *
+     * @note In the recursive setting this function doesn't return anything because the equality checks performed by
+     * the recursive verifier, ensuring the folded \f$\phi^{\ast}\f$, \f$e^{\ast}\f$ and \f$\beta^{\ast}\f$ on the
+     * verifier side correspond to what has been sent by the prover, are expressed as constraints.
+     *
+     * @details We run the Protogalaxy verifier with parameters k = 1 (we fold one instance/accumulator with an
+     * instance) , n = 2^CONST_PG_LOG_N, and d = (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) + 1 (the first term is the
+     * maximum of the degrees of the subrelations considering relation parameters as variables, while the second term
+     * comes from the batching challenges).
      */
     std::shared_ptr<VerifierInstance> verify_folding_proof(const stdlib::Proof<Builder>&);
 
