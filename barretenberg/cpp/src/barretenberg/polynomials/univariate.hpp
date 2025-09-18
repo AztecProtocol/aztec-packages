@@ -549,6 +549,12 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         return result;
     }
 
+    /**
+     * @brief Compute the evaluations of the polynomial from the INITIAL_LENGTH up to the total LENGTH. Currently only
+     * supports INITIAL_LENGTH = 2.
+     *
+     * @tparam INITIAL_LENGTH
+     */
     template <size_t INITIAL_LENGTH> void self_extend_from()
     {
         if constexpr (INITIAL_LENGTH == 2) {
@@ -558,6 +564,8 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
                 next += delta;
                 value_at(idx) = next;
             }
+        } else {
+            throw_or_abort("self_extend_from called with INITIAL_LENGTH different from 2.");
         }
     }
 
