@@ -149,7 +149,7 @@ std::shared_ptr<VerifierInstance> ProtogalaxyRecursiveVerifier_<VerifierInstance
         const auto rhs = instance_commitments[i].get_value();             // [P_{1,i}]
         const auto output =
             lhs * lhs_scalar + rhs * rhs_scalar; // [Q_i] := L_0(\gamma) * [P_{0,i}] + L_1(\gamma) * [P_{1,i}]
-        // Add a new witness whose underlying value (for an honest prover) is [Q_i]
+        // Add a new witness whose underlying value for an honest prover is [Q_i]
         output_commitments.emplace_back(Commitment::from_witness(builder, output));
         // Add the output commitment to the transcript to ensure they can't be spoofed
         batch_mul_transcript.add_to_hash_buffer("new_accumulator_commitment_" + std::to_string(i),
