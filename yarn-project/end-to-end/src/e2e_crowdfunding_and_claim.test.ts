@@ -1,4 +1,4 @@
-import { Fr, type Logger, type PXE, type UniqueNote, type Wallet, deriveKeys } from '@aztec/aztec.js';
+import { Fr, type Logger, type PXE, type UniqueNote, deriveKeys } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdfundingContract } from '@aztec/noir-contracts.js/Crowdfunding';
@@ -6,6 +6,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePartialAddress } from '@aztec/stdlib/contract';
+import type { TestWallet } from '@aztec/test-wallet';
 
 import { jest } from '@jest/globals';
 
@@ -30,7 +31,7 @@ describe('e2e_crowdfunding_and_claim', () => {
 
   let teardown: () => Promise<void>;
 
-  let wallet: Wallet;
+  let wallet: TestWallet;
   let operatorAddress: AztecAddress;
   let donor1Address: AztecAddress;
   let donor2Address: AztecAddress;

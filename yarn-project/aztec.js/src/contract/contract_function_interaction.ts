@@ -21,7 +21,7 @@ import type { ProfileMethodOptions, RequestMethodOptions, SimulateMethodOptions 
  * so contract interfaces behave as plain functions. If `includeMetadata` is set to true in `SimulateMethodOptions` on the input of `simulate(...)`,
  * it will provide extra information.
  */
-type SimulationReturn<T extends boolean | undefined> = T extends true
+export type SimulationReturn<T extends boolean | undefined> = T extends true
   ? {
       /**
        * Additional stats about the simulation
@@ -58,6 +58,24 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     }
   }
 
+  /**
+   * Returns the encoded function call wrapped by this interaction
+   * Useful when generating authwits
+   * @returns An encoded function call
+   */
+  public async getFunctionCall() {
+    const args = encodeArguments(this.functionDao, this.args);
+    return {
+      name: this.functionDao.name,
+      args,
+      selector: await FunctionSelector.fromNameAndParameters(this.functionDao.name, this.functionDao.parameters),
+      type: this.functionDao.functionType,
+      to: this.contractAddress,
+      isStatic: this.functionDao.isStatic,
+      returnTypes: this.functionDao.returnTypes,
+    };
+  }
+
   // docs:start:request
   /**
    * Returns an execution request that represents this operation.
@@ -67,18 +85,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    */
   public override async request(options: RequestMethodOptions = {}): Promise<ExecutionPayload> {
     // docs:end:request
-    const args = encodeArguments(this.functionDao, this.args);
-    const calls = [
-      {
-        name: this.functionDao.name,
-        args,
-        selector: await FunctionSelector.fromNameAndParameters(this.functionDao.name, this.functionDao.parameters),
-        type: this.functionDao.functionType,
-        to: this.contractAddress,
-        isStatic: this.functionDao.isStatic,
-        returnTypes: this.functionDao.returnTypes,
-      },
-    ];
+    const calls = [await this.getFunctionCall()];
     const { authWitnesses, capsules } = options;
     return new ExecutionPayload(
       calls,

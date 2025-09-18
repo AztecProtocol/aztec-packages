@@ -27,7 +27,7 @@ export class TXE extends TXETypedOracle {
 
   public noteCache: ExecutionNoteCache;
 
-  constructor(
+  private constructor(
     private contractAddress: AztecAddress,
     private pxeOracleInterface: PXEOracleInterface,
     private forkedWorldTrees: MerkleTreeWriteOperations,
@@ -41,6 +41,30 @@ export class TXE extends TXETypedOracle {
     this.logger.debug('Entering Private/Utility context');
 
     this.noteCache = new ExecutionNoteCache(txRequestHash);
+  }
+
+  static async create(
+    contractAddress: AztecAddress,
+    pxeOracleInterface: PXEOracleInterface,
+    forkedWorldTrees: MerkleTreeWriteOperations,
+    anchorBlockGlobalVariables: GlobalVariables,
+    nextBlockGlobalVariables: GlobalVariables,
+    txRequestHash: Fr,
+  ) {
+    // There is no automatic message discovery and contract-driven syncing process in inlined private or utility
+    // contexts, which means that known nullifiers are also not searched for, since it is during the tagging sync that
+    // we perform this. We therefore search for known nullifiers now, as otherwise notes that were nullified would not
+    // be removed from the database.
+    await pxeOracleInterface.removeNullifiedNotes(contractAddress);
+
+    return new TXE(
+      contractAddress,
+      pxeOracleInterface,
+      forkedWorldTrees,
+      anchorBlockGlobalVariables,
+      nextBlockGlobalVariables,
+      txRequestHash,
+    );
   }
 
   // Utils
@@ -122,7 +146,7 @@ export class TXE extends TXETypedOracle {
   }
 
   override async utilityGetBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
-    return (await this.pxeOracleInterface.getBlock(blockNumber))?.header;
+    return (await this.pxeOracleInterface.getBlock(blockNumber))?.header.toBlockHeader();
   }
 
   override utilityGetPublicKeysAndPartialAddress(account: AztecAddress) {

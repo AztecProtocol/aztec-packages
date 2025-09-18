@@ -1,4 +1,4 @@
-import { type AztecAddress, Contract, type Wallet } from '@aztec/aztec.js';
+import { type AztecAddress, Contract, SetPublicAuthwitContractInteraction, type Wallet } from '@aztec/aztec.js';
 import { prepTx } from '@aztec/cli/utils';
 import type { LogFn } from '@aztec/foundation/log';
 
@@ -30,7 +30,12 @@ export async function authorizeAction(
   const contract = await Contract.at(contractAddress, contractArtifact, wallet);
   const action = contract.methods[functionName](...functionArgs);
 
-  const setAuthwitnessInteraction = await wallet.setPublicAuthWit(from, { caller, action }, true);
+  const setAuthwitnessInteraction = await SetPublicAuthwitContractInteraction.create(
+    wallet,
+    from,
+    { caller, action },
+    true,
+  );
   const witness = await setAuthwitnessInteraction.send({ from }).wait({ timeout: DEFAULT_TX_TIMEOUT_S });
 
   log(`Authorized action ${functionName} on contract ${contractAddress} for caller ${caller}`);

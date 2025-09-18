@@ -7,7 +7,7 @@
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
-#include "barretenberg/ultra_honk/decider_proving_key.hpp"
+#include "barretenberg/ultra_honk/prover_instance.hpp"
 
 #include <gtest/gtest.h>
 
@@ -59,13 +59,13 @@ TYPED_TEST(StdlibVerificationKeyTests, VKHashingConsistency)
     if constexpr (IsAnyOf<Flavor, TranslatorRecursiveFlavor, ECCVMRecursiveFlavor>) {
         native_vk = std::make_shared<NativeVerificationKey>();
     } else {
-        using DeciderProvingKey = DeciderProvingKey_<NativeFlavor>;
+        using ProverInstance = ProverInstance_<NativeFlavor>;
         using InnerBuilder = typename NativeFlavor::CircuitBuilder;
 
         InnerBuilder builder;
         TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
-        auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-        native_vk = std::make_shared<NativeVerificationKey>(proving_key->get_precomputed());
+        auto prover_instance = std::make_shared<ProverInstance>(builder);
+        native_vk = std::make_shared<NativeVerificationKey>(prover_instance->get_precomputed());
     }
 
     OuterBuilder outer_builder;

@@ -77,7 +77,7 @@ describe('e2e_token_contract transfer public', () => {
       { caller: account1Address, action },
       true,
     );
-    await validateActionInteraction.send({ from: adminAddress }).wait();
+    await validateActionInteraction.send().wait();
     // docs:end:authwit_public_transfer_example
 
     // Perform the transfer
@@ -141,7 +141,7 @@ describe('e2e_token_contract transfer public', () => {
       const intent = { caller: account1Address, action };
       // We need to compute the message we want to sign and add it to the wallet as approved
       const validateActionInteraction = await wallet.setPublicAuthWit(adminAddress, intent, true);
-      await validateActionInteraction.send({ from: adminAddress }).wait();
+      await validateActionInteraction.send().wait();
 
       const witness = await wallet.createAuthWit(adminAddress, { caller: account1Address, action });
 
@@ -171,7 +171,7 @@ describe('e2e_token_contract transfer public', () => {
         { caller: adminAddress, action },
         true,
       );
-      await validateActionInteraction.send({ from: adminAddress }).wait();
+      await validateActionInteraction.send().wait();
 
       // Perform the transfer
       await expect(action.simulate({ from: account1Address })).rejects.toThrow(/unauthorized/);
@@ -196,7 +196,7 @@ describe('e2e_token_contract transfer public', () => {
         { caller: adminAddress, action },
         true,
       );
-      await validateActionInteraction.send({ from: adminAddress }).wait();
+      await validateActionInteraction.send().wait();
 
       // Perform the transfer
       await expect(action.simulate({ from: account1Address })).rejects.toThrow(/unauthorized/);
@@ -220,7 +220,7 @@ describe('e2e_token_contract transfer public', () => {
         { caller: account1Address, action },
         true,
       );
-      await validateActionInteraction.send({ from: adminAddress }).wait();
+      await validateActionInteraction.send().wait();
 
       const cancelActionInteraction = await wallet.setPublicAuthWit(
         adminAddress,
@@ -249,7 +249,7 @@ describe('e2e_token_contract transfer public', () => {
         { caller: account1Address, action },
         true,
       );
-      await validateActionInteraction.send({ from: adminAddress }).wait();
+      await validateActionInteraction.send().wait();
 
       const cancelActionInteraction = await wallet.setPublicAuthWit(
         adminAddress,

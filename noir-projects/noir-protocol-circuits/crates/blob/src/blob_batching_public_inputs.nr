@@ -401,38 +401,13 @@ impl Eq for FinalBlobAccumulatorPublicInputs {
     }
 }
 
-/**
-* - start_blob_accumulator: Accumulated opening proofs for all blobs before this block range.
-* - end_blob_accumulator: Accumulated opening proofs for all blobs after adding this block range.
-* - final_blob_challenges: Final values z and gamma, shared across the epoch.
-*/
-#[derive(Deserialize, Eq, Serialize)]
-pub struct BlockBlobPublicInputs {
-    pub start_blob_accumulator: BlobAccumulatorPublicInputs,
-    pub end_blob_accumulator: BlobAccumulatorPublicInputs,
-    pub final_blob_challenges: FinalBlobBatchingChallenges,
-}
-
-impl Empty for BlockBlobPublicInputs {
-    fn empty() -> Self {
-        Self {
-            start_blob_accumulator: BlobAccumulatorPublicInputs::empty(),
-            end_blob_accumulator: BlobAccumulatorPublicInputs::empty(),
-            final_blob_challenges: FinalBlobBatchingChallenges::empty(),
-        }
-    }
-}
-
 mod tests {
     use crate::blob_batching_public_inputs::{
-        BatchingBlobCommitment, BlockBlobPublicInputs, BLSPoint, compress_to_blob_commitment,
-        get_flags,
+        BatchingBlobCommitment, BLSPoint, compress_to_blob_commitment, get_flags,
     };
     use bigcurve::{BigCurve, curves::bls12_381::{BLS12_381 as Point, BLS12_381_PARAMS}};
     use bigint::{BigNum, BLS12_381_Fq as Q};
     use std::ops::{Add, Mul};
-    use types::constants::BLOCK_BLOB_PUBLIC_INPUTS;
-    use types::traits::{Deserialize, Empty, Serialize};
 
     #[test]
     unconstrained fn point_compression() {
@@ -528,15 +503,5 @@ mod tests {
     unconstrained fn empty_blob_commitment() {
         let expected = compress_to_blob_commitment(BLSPoint::point_at_infinity());
         assert_eq(expected, BatchingBlobCommitment::empty_blob());
-    }
-
-    #[test]
-    unconstrained fn serialization_of_empty() {
-        let item = BlockBlobPublicInputs::empty();
-        // We use the BLOCK_BLOB_PUBLIC_INPUTS constant to ensure that there is a match between the derived trait
-        // implementation and the constant.
-        let serialized: [Field; BLOCK_BLOB_PUBLIC_INPUTS] = item.serialize();
-        let deserialized = BlockBlobPublicInputs::deserialize(serialized);
-        assert(item.eq(deserialized));
     }
 }

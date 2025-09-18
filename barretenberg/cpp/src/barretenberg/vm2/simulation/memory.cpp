@@ -40,6 +40,13 @@ const MemoryValue& Memory::get(MemoryAddress index) const
     return vt;
 }
 
+const MemoryValue& Memory::unconstrained_get(MemoryAddress index) const
+{
+    static const auto default_value = MemoryValue::from<FF>(0);
+    auto it = memory.find(index);
+    return it != memory.end() ? it->second : default_value;
+}
+
 // Sadly this is circuit leaking. In simulation we know the tag-value is consistent.
 // But the circuit does need to force a range check.
 void Memory::validate_tag(const MemoryValue& value) const

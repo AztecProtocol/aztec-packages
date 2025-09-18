@@ -613,7 +613,6 @@ describe('e2e_block_building', () => {
       ({
         teardown,
         aztecNode,
-        pxe,
         logger,
         wallet,
         cheatCodes,
@@ -622,7 +621,7 @@ describe('e2e_block_building', () => {
       } = await setup(1));
 
       contract = await StatefulTestContract.deploy(wallet, ownerAddress, 1).send({ from: ownerAddress }).deployed();
-      initialBlockNumber = await pxe.getBlockNumber();
+      initialBlockNumber = await aztecNode.getBlockNumber();
       logger.info(`Stateful test contract deployed at ${contract.address}`);
 
       await cheatCodes.rollup.advanceToNextEpoch();

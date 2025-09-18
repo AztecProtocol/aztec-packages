@@ -21,7 +21,7 @@ void emit_unencrypted_logImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_PUBLIC_LOG_SIZE_IN_FIELDS = FF(13);
     const auto constants_MEM_TAG_FF = FF(0);
     const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);
-    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX = FF(511);
+    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX = FF(512);
     const auto emit_unencrypted_log_NOT_END =
         in.get(C::emit_unencrypted_log_sel) * (FF(1) - in.get(C::emit_unencrypted_log_end));
     const auto emit_unencrypted_log_LATCH_CONDITION =

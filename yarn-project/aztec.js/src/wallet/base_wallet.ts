@@ -36,7 +36,6 @@ import type {
 } from '@aztec/stdlib/tx';
 
 import type { Account } from '../account/account.js';
-import type { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import { getGasLimits } from '../contract/get_gas_limits.js';
 import type {
   ProfileMethodOptions,
@@ -44,8 +43,8 @@ import type {
   SimulateMethodOptions,
 } from '../contract/interaction_options.js';
 import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
-import type { IntentAction, IntentInnerHash } from '../utils/authwit.js';
-import type { Aliased, ContractInstanceAndArtifact, Wallet } from './wallet.js';
+import type { CallIntent, IntentInnerHash } from '../utils/authwit.js';
+import type { Aliased, ChainInfo, ContractInstanceAndArtifact, Wallet } from './wallet.js';
 
 /**
  * A base class for Wallet implementations
@@ -64,6 +63,11 @@ export abstract class BaseWallet implements Wallet {
     return senders.map(sender => ({ item: sender, alias: '' }));
   }
 
+  async getChainInfo(): Promise<ChainInfo> {
+    const { l1ChainId, rollupVersion } = await this.pxe.getNodeInfo();
+    return { chainId: new Fr(l1ChainId), version: new Fr(rollupVersion) };
+  }
+
   protected async createTxExecutionRequestFromPayloadAndFee(
     executionPayload: ExecutionPayload,
     from: AztecAddress,
@@ -77,19 +81,10 @@ export abstract class BaseWallet implements Wallet {
 
   public async createAuthWit(
     from: AztecAddress,
-    messageHashOrIntent: Fr | Buffer | IntentInnerHash | IntentAction,
+    messageHashOrIntent: Fr | Buffer | IntentInnerHash | CallIntent,
   ): Promise<AuthWitness> {
     const account = await this.getAccountFromAddress(from);
     return account.createAuthWit(messageHashOrIntent);
-  }
-
-  public async setPublicAuthWit(
-    from: AztecAddress,
-    messageHashOrIntent: Fr | Buffer | IntentInnerHash | IntentAction,
-    authorized: boolean,
-  ): Promise<ContractFunctionInteraction> {
-    const account = await this.getAccountFromAddress(from);
-    return account.setPublicAuthWit(this, messageHashOrIntent, authorized);
   }
 
   // docs:start:estimateGas
@@ -177,7 +172,7 @@ export abstract class BaseWallet implements Wallet {
     return { gasSettings, paymentMethod };
   }
 
-  registerSender(address: AztecAddress, _alias: string): Promise<AztecAddress> {
+  registerSender(address: AztecAddress, _alias: string = ''): Promise<AztecAddress> {
     return this.pxe.registerSender(address);
   }
 
@@ -291,8 +286,5 @@ export abstract class BaseWallet implements Wallet {
     recipients: AztecAddress[] = [],
   ): Promise<T[]> {
     return this.pxe.getPrivateEvents(contractAddress, event, from, limit, recipients);
-  }
-  getPublicEvents<T>(event: EventMetadataDefinition, from: number, limit: number): Promise<T[]> {
-    return this.pxe.getPublicEvents(event, from, limit);
   }
 }

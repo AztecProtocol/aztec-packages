@@ -21,7 +21,8 @@ import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/Stat
 import type { Sequencer, SequencerClient, SequencerPublisherFactory } from '@aztec/sequencer-client';
 import type { TestSequencer, TestSequencerClient } from '@aztec/sequencer-client/test';
 import type { BlockProposalOptions } from '@aztec/stdlib/p2p';
-import type { ProposedBlockHeader, StateReference, Tx } from '@aztec/stdlib/tx';
+import type { CheckpointHeader } from '@aztec/stdlib/rollup';
+import type { StateReference, Tx } from '@aztec/stdlib/tx';
 import { NodeKeystoreAdapter, ValidatorClient } from '@aztec/validator-client';
 
 import { jest } from '@jest/globals';
@@ -372,7 +373,7 @@ describe('e2e_multi_validator_node', () => {
     const originalCreateProposal = validatorClient.createBlockProposal.bind(validatorClient);
     const createBlockProposal = (
       blockNumber: number,
-      header: ProposedBlockHeader,
+      header: CheckpointHeader,
       archive: Fr,
       stateReference: StateReference,
       txs: Tx[],

@@ -188,6 +188,10 @@ tests:
     error_regex: "This is a bug"
     owners:
       - *palla
+  - regex: "src/e2e_epochs/epochs_proof_public_cross_chain.test.ts"
+    error_regex: "Error: Failed to find an available publisher"
+    owners:
+      - *palla
   - regex: "src/e2e_epochs/epochs_l1_reorgs.test.ts"
     owners:
       - *palla
@@ -289,6 +293,11 @@ tests:
     error_regex: "ContractFunctionExecutionError: The contract function"
     owners:
       - *mitch
+  - regex: "e2e_p2p/inactivity_slash_with_consecutive_epochs.test.ts"
+    error_regex: "only slashes validator inactive for N consecutive epochs"
+    owners:
+      - *palla
+
   # Nightly GKE tests
   - regex: "spartan/bootstrap.sh"
     owners:

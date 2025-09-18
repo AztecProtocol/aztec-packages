@@ -57,10 +57,10 @@ impl PrivateKernelCircuitPublicInputsComposer {
         public_inputs_builder.is_private_only = is_private_only;
 
         public_inputs_builder.constants = TxConstantData {
-            historical_header: private_call_public_inputs.historical_header,
-            tx_context: tx_request.tx_context,
-            vk_tree_root,
-            protocol_contract_tree_root,
+            tx_context: private_call_public_inputs.tx_context,
+            vk_tree_root: vk_tree_root,
+            protocol_contract_tree_root: protocol_contract_tree_root,
+            anchor_block_header: private_call_public_inputs.anchor_block_header,
         };
 
         // If no non revertible nullifiers are created, the PXE can instruct the protocol to create a nullifier

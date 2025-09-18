@@ -22,9 +22,9 @@ impl<T> ScheduledValueChange<T> {
 
     /// Returns the value stored in the data structure at a given timestamp. This function can be called both in public
     /// (where `timestamp` is simply the current timestamp, i.e. the timestamp at which the current transaction will be
-    /// included) and in private (where `timestamp` is the historical timestamp that is used to construct the proof).
-    /// Reading in private is only safe if the transaction's `include_by_timestamp` property is set to a value lower or
-    /// equal to the time horizon (see `get_time_horizon()`).
+    /// included) and in private (where `timestamp` is the anchor block's timestamp). Reading in private is only safe
+    /// if the transaction's `include_by_timestamp` property is set to a value lower or equal to the time horizon (see
+    /// `get_time_horizon()`).
     pub fn get_current_at(self, timestamp: u64) -> T {
         // The post value becomes the current one at the timestamp of change. This means different things in each realm:
         // - in public, any transaction that is included at the timestamp of change will use the post value
@@ -51,37 +51,36 @@ impl<T> ScheduledValueChange<T> {
     }
 
     /// Returns the largest timestamp at which the value returned by `get_current_at` is known to remain the current
-    /// value. This value is only meaningful in private when constructing a proof at some `historical_timestamp`
-    /// (timestamp of a historical block at which we are constructing a proof), since due to its asynchronous nature
-    /// private execution cannot know about any later scheduled changes.
+    /// value. This value is only meaningful in private where the proof is constructed against an anchor block, since
+    /// due to its asynchronous nature private execution cannot know about any later scheduled changes.
     /// The caller of this function must know how quickly the value can change due to a scheduled change in the form of
     /// `minimum_delay`. If the delay itself is immutable, then this is just its duration. If the delay is mutable
     /// however, then this value is the 'effective minimum delay' (obtained by calling
     /// `ScheduledDelayChange.get_effective_minimum_delay_at`), which equals the minimum time in seconds that needs to
     /// elapse from the next block's timestamp until the value changes, regardless of further delay changes.
-    /// The value returned by `get_current_at` in private when called with a historical timestamp is only safe to use
+    /// The value returned by `get_current_at` in private when called with a anchor block's timestamp is only safe to use
     /// if the transaction's `include_by_timestamp` property is set to a value lower or equal to the time horizon
-    /// computed using the same historical timestamp.
-    pub fn get_time_horizon(self, historical_timestamp: u64, minimum_delay: u64) -> u64 {
+    /// computed using the same anchor timestamp.
+    pub fn get_time_horizon(self, anchor_timestamp: u64, minimum_delay: u64) -> u64 {
         // The time horizon is the very last timestamp in which the current value is known. Any timestamp past the
         // horizon (i.e. with a timestamp larger than the time horizon) may have a different current value.
         // Reading the current value in private typically requires constraining the maximum valid timestamp to be equal
         // to the time horizon.
-        if historical_timestamp >= self.timestamp_of_change {
+        if anchor_timestamp >= self.timestamp_of_change {
             // Once the timestamp of change has passed (block with timestamp >= timestamp_of_change was mined),
             // the current value (post) will not change unless a new value change is scheduled. This did not happen at
-            // the historical timestamp (or else it would not be greater or equal to the timestamp of change), and
-            // therefore could only happen after the historical timestamp. The earliest would be the immediate next
-            // timestamp, and so the smallest possible next timestamp of change equals `historical_timestamp + 1 +
+            // the anchor timestamp (or else it would not be greater or equal to the timestamp of change), and
+            // therefore could only happen after the anchor timestamp. The earliest would be the immediate next
+            // timestamp, and so the smallest possible next timestamp of change equals `anchor_timestamp + 1 +
             // minimum_delay`. Our time horizon is simply the previous timestamp to that one.
             //
-            //   timestamp of    historical
+            //   timestamp of    anchor
             //      change       timestamp          time horizon
             //   =======|=============N===================H===========>
             //                         ^                   ^
             //                         ---------------------
             //                             minimum delay
-            historical_timestamp + minimum_delay
+            anchor_timestamp + minimum_delay
         } else {
             // If the timestamp of change has not yet been reached however, then there are two possible scenarios.
             //   a) It could be so far into the future that the time horizon is actually determined by the minimum
@@ -89,7 +88,7 @@ impl<T> ScheduledValueChange<T> {
             //      This is similar to the scenario where the timestamp of change is in the past: the time horizon is
             //      the timestamp prior to the earliest one in which a new timestamp of change might land.
             //
-            //         historical
+            //         anchor
             //         timestamp                      time horizon    timestamp of change
             //        =====N=================================H=================|=========>
             //              ^                                 ^
@@ -97,12 +96,12 @@ impl<T> ScheduledValueChange<T> {
             //              -----------------------------------
             //                        minimum delay
             //
-            //   b) It could be fewer than `minimum_delay` seconds away from the historical timestamp, in which case
+            //   b) It could be fewer than `minimum_delay` seconds away from the anchor timestamp, in which case
             //      the timestamp of change would become the limiting factor for the time horizon, which would equal
             //      the timestamp right before the timestamp of change (since by definition the value changes at the
             //      timestamp of change).
             //
-            //           historical                         time horizon
+            //           anchor                         time horizon
             //           timestamp   timestamp of change    if not scheduled
             //        =======N=============|===================H=================>
             //                ^           ^                     ^
@@ -113,11 +112,11 @@ impl<T> ScheduledValueChange<T> {
             // Note that the current implementation does not allow the caller to set the timestamp of change to an
             // arbitrary value, and therefore scenario a) is not currently possible. However implementing #5501 would
             // allow for this to happen.
-            // Because historical_timestamp < self.timestamp_of_change, then timestamp_of_change > 0 and we can safely
+            // Because anchor_timestamp < self.timestamp_of_change, then timestamp_of_change > 0 and we can safely
             // subtract 1.
             min(
                 self.timestamp_of_change - 1,
-                historical_timestamp + minimum_delay,
+                anchor_timestamp + minimum_delay,
             )
         }
     }

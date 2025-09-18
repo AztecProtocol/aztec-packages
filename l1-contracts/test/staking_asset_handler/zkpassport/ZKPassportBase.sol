@@ -4,9 +4,10 @@ pragma solidity >=0.8.27;
 
 import {ZKPassportVerifier, ProofVerificationParams} from "@zkpassport/ZKPassportVerifier.sol";
 import {IRootRegistry} from "@zkpassport/IRootRegistry.sol";
-import {HonkVerifier as OuterVerifier5} from "@zkpassport/OuterCount5.sol";
+import {HonkVerifier as OuterVerifier7} from "@zkpassport/OuterCount7.sol";
 import {MockRootRegistry} from "./MockRootRegistry.sol";
 import {MockZKPassportVerifier} from "@aztec/mock/staking_asset_handler/MockZKPassportVerifier.sol";
+import {CommittedInputLen} from "@zkpassport/Constants.sol";
 
 import {Test} from "forge-std/Test.sol";
 
@@ -14,7 +15,7 @@ contract ZKPassportBase is Test {
   ZKPassportVerifier public zkPassportVerifier;
   MockZKPassportVerifier public mockZKPassportVerifier;
 
-  OuterVerifier5 public verifier;
+  OuterVerifier7 public verifier;
   IRootRegistry public rootRegistry;
 
   ProofVerificationParams internal fakeProof;
@@ -22,13 +23,14 @@ contract ZKPassportBase is Test {
 
   // Path to the proof file - using files directly in project root
   // Fixtures copied from within the zk passport subrepo
-  bytes32 constant VKEY_HASH = bytes32(uint256(0x2ab349ef31f5d516da820a3f55f93c53f9c899b0b991c93fc341199cc1e3b36c));
-  bytes32 constant CERTIFICATE_REGISTRY_ROOT =
-    bytes32(uint256(0x130b5775fe59204b0490bdfcdd02bd7cc2bbf5fe3f3fee34cee13c3a3f9b7bbb));
+  bytes32 constant VKEY_HASH = 0x2992c925ad8932475d5784bf202b58f1c9d043d6ec04e236a7c761593caea5ce;
 
   // From fixtures - see lib/circuits/src/solidity/test/SampleContract.t.sol
   string constant CORRECT_DOMAIN = "zkpassport.id";
   string constant CORRECT_SCOPE = "bigproof";
+
+  // Time when the proof was generated - Tue Sep 09 2025 13:20:59 UTC
+  uint256 public PROOF_GENERATION_TIMESTAMP = 1_757_424_059;
 
   // Using this base contract will make a zkpassport verifier and proof available for testing purposes
   constructor() {
@@ -38,7 +40,7 @@ contract ZKPassportBase is Test {
     // Deploy wrapper verifier
     zkPassportVerifier = new ZKPassportVerifier(address(rootRegistry));
     // Deploy actual circuit verifier
-    verifier = new OuterVerifier5();
+    verifier = new OuterVerifier7();
 
     // Add to the zk passport verifier
     bytes32[] memory vkeyHashes = new bytes32[](1);
@@ -48,11 +50,9 @@ contract ZKPassportBase is Test {
     verifiers[0] = address(verifier);
 
     zkPassportVerifier.addVerifiers(vkeyHashes, verifiers);
-    zkPassportVerifier.addCertificateRegistryRoot(CERTIFICATE_REGISTRY_ROOT);
 
-    // ( When the proof was made )
-    // Set the timestamp to 2025-07-16 20:26:48 UTC
-    vm.warp(1_752_697_608);
+    // Set the timestamp to PROOF_GENERATION_TIMESTAMP
+    vm.warp(PROOF_GENERATION_TIMESTAMP);
     realProof = makeValidProof();
     fakeProof = makeFakeProof();
 
@@ -66,9 +66,11 @@ contract ZKPassportBase is Test {
     bytes memory committedInputs = loadBytesFromFile("valid_committed_inputs.hex");
 
     // Order of bytes of committed inputs for each disclosure proof
-    uint256[] memory committedInputCounts = new uint256[](2);
-    committedInputCounts[0] = 181;
-    committedInputCounts[1] = 501;
+    uint256[] memory committedInputCounts = new uint256[](4);
+    committedInputCounts[0] = CommittedInputLen.BIND;
+    committedInputCounts[1] = CommittedInputLen.SANCTIONS;
+    committedInputCounts[2] = CommittedInputLen.EXCL_NATIONALITY;
+    committedInputCounts[3] = CommittedInputLen.COMPARE_AGE;
 
     params = ProofVerificationParams({
       vkeyHash: VKEY_HASH,
@@ -76,7 +78,7 @@ contract ZKPassportBase is Test {
       publicInputs: publicInputs,
       committedInputs: committedInputs,
       committedInputCounts: committedInputCounts,
-      validityPeriodInDays: 7,
+      validityPeriodInSeconds: 7 days,
       domain: "zkpassport.id",
       scope: "bigproof",
       devMode: false
@@ -105,7 +107,7 @@ contract ZKPassportBase is Test {
       publicInputs: publicInputs,
       committedInputs: committedInputs,
       committedInputCounts: committedInputCounts,
-      validityPeriodInDays: 7,
+      validityPeriodInSeconds: 7 days,
       domain: "zkpassport.id",
       scope: "bigproof",
       devMode: true

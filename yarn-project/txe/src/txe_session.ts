@@ -23,8 +23,8 @@ import { TXE } from './oracle/txe_oracle.js';
 import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
 import { TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.js';
 import type { TXETypedOracle } from './oracle/txe_typed_oracle.js';
+import { RPCTranslator } from './rpc_translator.js';
 import { TXEStateMachine } from './state_machine/index.js';
-import { TXEService } from './txe_service/txe_service.js';
 import type { ForeignCallArgs, ForeignCallResult } from './util/encoding.js';
 import { TXEAccountDataProvider } from './util/txe_account_data_provider.js';
 import { TXEContractDataProvider } from './util/txe_contract_data_provider.js';
@@ -65,12 +65,12 @@ type MethodNames<T> = {
  * The name of an oracle function that TXE supports, which are a combination of PXE oracles, non-transpiled AVM opcodes,
  * and custom TXE oracles.
  */
-export type TXEOracleFunctionName = MethodNames<TXEService>;
+export type TXEOracleFunctionName = MethodNames<RPCTranslator>;
 
 export interface TXESessionStateHandler {
   setTopLevelContext(): Promise<void>;
   setPublicContext(contractAddress?: AztecAddress): Promise<void>;
-  setPrivateContext(contractAddress?: AztecAddress, historicalBlockNumber?: UInt32): Promise<PrivateContextInputs>;
+  setPrivateContext(contractAddress?: AztecAddress, anchorBlockNumber?: UInt32): Promise<PrivateContextInputs>;
   setUtilityContext(contractAddress?: AztecAddress): Promise<void>;
 }
 
@@ -168,7 +168,7 @@ export class TXESession implements TXESessionStateHandler {
    * @returns The oracle return values.
    */
   processFunction(functionName: TXEOracleFunctionName, inputs: ForeignCallArgs): Promise<ForeignCallResult> {
-    return (new TXEService(this, this.oracleHandler) as any)[functionName](...inputs);
+    return (new RPCTranslator(this, this.oracleHandler) as any)[functionName](...inputs);
   }
 
   async setTopLevelContext() {
@@ -252,7 +252,7 @@ export class TXESession implements TXESessionStateHandler {
       contractAddress ?? DEFAULT_ADDRESS,
     );
 
-    this.oracleHandler = new TXE(
+    this.oracleHandler = await TXE.create(
       contractAddress ?? DEFAULT_ADDRESS,
       this.pxeOracleInterface,
       await this.stateMachine.synchronizer.nativeWorldStateService.fork(),
@@ -274,7 +274,7 @@ export class TXESession implements TXESessionStateHandler {
     // all the way to the tip of the chain.
     const latestBlock = await this.stateMachine.node.getBlockHeader('latest');
 
-    this.oracleHandler = new TXE(
+    this.oracleHandler = await TXE.create(
       contractAddress ?? DEFAULT_ADDRESS,
       this.pxeOracleInterface,
       await this.stateMachine.synchronizer.nativeWorldStateService.fork(),

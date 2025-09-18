@@ -8,6 +8,7 @@ import {
   createSecretKeyOption,
   l1ChainIdOption,
   logJson,
+  nodeOption,
   parseBigint,
   parseFieldFromHexString,
   parsePublicKey,
@@ -455,11 +456,12 @@ export function injectCommands(
     .option('--mint', 'Mint the tokens on L1', false)
     .option('--l1-private-key <string>', 'The private key to the eth account bridging', PRIVATE_KEY)
     .addOption(pxeOption)
+    .addOption(nodeOption)
     .addOption(l1ChainIdOption)
     .option('--json', 'Output the claim in JSON format')
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
-    .option('--no-wait', 'Wait for the brigded funds to be available in L2, polling every 60 seconds')
+    .option('--no-wait', 'Wait for the bridged funds to be available in L2, polling every 60 seconds')
     .addOption(
       new Option('--interval <number>', 'The polling interval in seconds for the bridged funds')
         .default('60')
@@ -467,13 +469,26 @@ export function injectCommands(
     )
     .action(async (amount, recipient, options) => {
       const { bridgeL1FeeJuice } = await import('./bridge_fee_juice.js');
-      const { rpcUrl, l1ChainId, l1RpcUrls, l1PrivateKey, mnemonic, mint, json, wait, interval: intervalS } = options;
+      const {
+        rpcUrl,
+        l1ChainId,
+        l1RpcUrls,
+        l1PrivateKey,
+        mnemonic,
+        mint,
+        json,
+        wait,
+        interval: intervalS,
+        nodeUrl,
+      } = options;
       const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
+      const node = pxeWrapper?.getNode() ?? createAztecNodeClient(nodeUrl);
 
       const [secret, messageLeafIndex] = await bridgeL1FeeJuice(
         amount,
         recipient,
         client,
+        node,
         l1RpcUrls,
         l1ChainId,
         l1PrivateKey,
@@ -569,6 +584,7 @@ export function injectCommands(
     .description('Gets the status of the recent txs, or a detailed view if a specific transaction hash is provided')
     .argument('[txHash]', 'A transaction hash to get the receipt for.', txHash => aliasedTxHashParser(txHash, db))
     .addOption(pxeOption)
+    .addOption(nodeOption)
     .option('-p, --page <number>', 'The page number to display', value => integerArgParser(value, '--page', 1), 1)
     .option(
       '-s, --page-size <number>',
@@ -578,12 +594,13 @@ export function injectCommands(
     )
     .action(async (txHash, options) => {
       const { checkTx } = await import('./check_tx.js');
-      const { rpcUrl, pageSize } = options;
+      const { rpcUrl, nodeUrl, pageSize } = options;
       let { page } = options;
       const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
+      const aztecNode = createAztecNodeClient(nodeUrl);
 
       if (txHash) {
-        await checkTx(client, txHash, false, log);
+        await checkTx(client, aztecNode, txHash, false, log);
       } else if (db) {
         const aliases = await db.listAliases('transactions');
         const totalPages = Math.ceil(aliases.length / pageSize);
@@ -593,7 +610,7 @@ export function injectCommands(
             alias: key,
             txHash: value,
             cancellable: (await db.retrieveTxData(TxHash.fromString(value))).cancellable,
-            status: await checkTx(client, TxHash.fromString(value), true, log),
+            status: await checkTx(client, aztecNode, TxHash.fromString(value), true, log),
           })),
         );
         log(`Recent transactions:`);

@@ -9,6 +9,7 @@ import {
   MNEMONIC,
   PRIVATE_KEY,
   l1ChainIdOption,
+  nodeOption,
   parseAztecAddress,
   parseBigint,
   parseEthereumAddress,
@@ -509,10 +510,10 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     )
     .argument('[blockNumber]', 'The target block number, defaults to the latest pending block number.', parseBigint)
     .addOption(l1RpcUrlsOption)
-    .addOption(pxeOption)
+    .addOption(nodeOption)
     .action(async (blockNumber, options) => {
       const { assumeProvenThrough } = await import('./assume_proven_through.js');
-      await assumeProvenThrough(blockNumber, options.l1RpcUrls, options.rpcUrl, log);
+      await assumeProvenThrough(blockNumber, options.l1RpcUrls, options.nodeUrl, log);
     });
 
   program

@@ -150,9 +150,9 @@ class PrivateFunctionExecutionMockCircuitProducer {
 
         // Deepcopy the opqueue to avoid modifying the original one when finalising the circuit
         builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
-        std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key =
-            std::make_shared<ClientIVC::DeciderProvingKey>(builder, trace_settings);
-        std::shared_ptr<VerificationKey> vk = std::make_shared<VerificationKey>(proving_key->get_precomputed());
+        std::shared_ptr<ClientIVC::ProverInstance> prover_instance =
+            std::make_shared<ClientIVC::ProverInstance>(builder, trace_settings);
+        std::shared_ptr<VerificationKey> vk = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
         return vk;
     }
 

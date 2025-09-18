@@ -178,7 +178,7 @@ export class BlacklistTokenContractTest {
     secretHash: Fr,
     txHash: TxHash,
   ) {
-    const txEffects = await this.pxe.getTxEffect(txHash);
+    const txEffects = await this.aztecNode.getTxEffect(txHash);
     await contract.methods
       .deliver_transparent_note(
         contract.address,

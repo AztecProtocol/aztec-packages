@@ -154,6 +154,19 @@ export class TXEOracleTopLevelContext extends TXETypedOracle {
     return (await this.stateMachine.node.getBlockHeader('latest'))!.globalVariables.timestamp;
   }
 
+  override async txeGetLastTxEffects() {
+    const block = await this.stateMachine.archiver.getBlock('latest');
+
+    if (block!.body.txEffects.length != 1) {
+      // Note that calls like env.mine() will result in blocks with no transactions, hitting this
+      throw new Error(`Expected a single transaction in the last block, found ${block!.body.txEffects.length}`);
+    }
+
+    const txEffects = block!.body.txEffects[0];
+
+    return { txHash: txEffects.txHash, noteHashes: txEffects.noteHashes, nullifiers: txEffects.nullifiers };
+  }
+
   override async txeAdvanceBlocksBy(blocks: number) {
     this.logger.debug(`time traveling ${blocks} blocks`);
 
@@ -287,7 +300,7 @@ export class TXEOracleTopLevelContext extends TXETypedOracle {
 
     const txContext = new TxContext(this.chainId, this.version, gasSettings);
 
-    const blockHeader = await this.pxeOracleInterface.getBlockHeader();
+    const blockHeader = await this.pxeOracleInterface.getAnchorBlockHeader();
 
     const txRequestHash = getSingleTxBlockRequestHash(blockNumber);
     const noteCache = new ExecutionNoteCache(txRequestHash);
@@ -459,7 +472,7 @@ export class TXEOracleTopLevelContext extends TXETypedOracle {
 
     const txContext = new TxContext(this.chainId, this.version, gasSettings);
 
-    const blockHeader = await this.pxeOracleInterface.getBlockHeader();
+    const anchorBlockHeader = await this.pxeOracleInterface.getAnchorBlockHeader();
 
     const calldataHash = await computeCalldataHash(calldata);
     const calldataHashedValues = new HashedValues(calldata, calldataHash);
@@ -503,7 +516,7 @@ export class TXEOracleTopLevelContext extends TXETypedOracle {
       PublicCallRequest.empty(),
     );
 
-    const constantData = new TxConstantData(blockHeader, txContext, Fr.zero(), Fr.zero());
+    const constantData = new TxConstantData(anchorBlockHeader, txContext, Fr.zero(), Fr.zero());
 
     const txData = new PrivateKernelTailCircuitPublicInputs(
       constantData,

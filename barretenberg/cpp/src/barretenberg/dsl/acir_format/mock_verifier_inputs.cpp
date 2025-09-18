@@ -13,7 +13,7 @@
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
-#include "barretenberg/ultra_honk/decider_keys.hpp"
+#include "barretenberg/ultra_honk/instances.hpp"
 #include "proof_surgeon.hpp"
 #include "recursion_constraint.hpp"
 
@@ -195,7 +195,7 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_pg_proof()
 
     // Populate mock combiner quotient coefficients
     size_t NUM_COEFF_COMBINER_QUOTIENT =
-        DeciderProvingKeys_<Flavor>::BATCHED_EXTENDED_LENGTH - DeciderProvingKeys_<Flavor>::NUM;
+        ProverInstances_<Flavor>::BATCHED_EXTENDED_LENGTH - ProverInstances_<Flavor>::NUM;
     populate_field_elements<fr>(proof, NUM_COEFF_COMBINER_QUOTIENT, /*value=*/fr::zero());
 
     return proof;
@@ -439,28 +439,27 @@ std::shared_ptr<typename Flavor::VerificationKey> create_mock_honk_vk(const size
 }
 
 /**
- * @brief Create a mock Decider verification key for initilization of a mock verifier accumulator
+ * @brief Create  a mock instance for initilization of a mock verifier accumulator
  *
  */
-template <typename Flavor> std::shared_ptr<DeciderVerificationKey_<Flavor>> create_mock_decider_vk()
+template <typename Flavor> std::shared_ptr<VerifierInstance_<Flavor>> create_mock_verifier_instance()
 {
     using FF = typename Flavor::FF;
 
     // Set relevant VK metadata and commitments
-    auto decider_verification_key = std::make_shared<DeciderVerificationKey_<Flavor>>();
+    auto verifier_instance = std::make_shared<VerifierInstance_<Flavor>>();
     std::shared_ptr<typename Flavor::VerificationKey> vk =
         create_mock_honk_vk<Flavor, stdlib::recursion::honk::DefaultIO<typename Flavor::CircuitBuilder>>(
             0, 0); // metadata does not need to be accurate
-    decider_verification_key->vk = vk;
-    decider_verification_key->is_complete = true;
-    decider_verification_key->gate_challenges =
-        std::vector<FF>(static_cast<size_t>(CONST_PG_LOG_N), FF::random_element());
+    verifier_instance->vk = vk;
+    verifier_instance->is_complete = true;
+    verifier_instance->gate_challenges = std::vector<FF>(static_cast<size_t>(CONST_PG_LOG_N), FF::random_element());
 
-    for (auto& commitment : decider_verification_key->witness_commitments.get_all()) {
+    for (auto& commitment : verifier_instance->witness_commitments.get_all()) {
         commitment = curve::BN254::AffineElement::one(); // arbitrary mock commitment
     }
 
-    return decider_verification_key;
+    return verifier_instance;
 }
 
 // Explicitly instantiate template functions
@@ -535,6 +534,6 @@ template std::shared_ptr<UltraRollupFlavor::VerificationKey> create_mock_honk_vk
                                                                                  stdlib::recursion::honk::RollupIO>(
     const size_t, const size_t, const size_t);
 
-template std::shared_ptr<DeciderVerificationKey_<MegaFlavor>> create_mock_decider_vk<MegaFlavor>();
+template std::shared_ptr<VerifierInstance_<MegaFlavor>> create_mock_verifier_instance<MegaFlavor>();
 
 } // namespace acir_format
