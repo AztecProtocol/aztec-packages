@@ -4,8 +4,7 @@ title: Reacting to Upgrades
 description: Learn how to react to upgrades on the Aztec network.
 ---
 
-This is a guide for sequencer operators to understand how to react to protocol upgrades. To learn about how upgrades work, read the [concept section](../concepts/governance/upgrades.md).
-
+This is a guide for sequencer operators to understand how to react to protocol upgrades.
 ## Sequencers signal for governance upgrades
 
 To signal for governance upgrades, sequencers must set their `GOVERNANCE_PROPOSER_PAYLOAD` on their sequencer node to the address of a `payload`. This will register their signal with the GovernanceProposer contract.

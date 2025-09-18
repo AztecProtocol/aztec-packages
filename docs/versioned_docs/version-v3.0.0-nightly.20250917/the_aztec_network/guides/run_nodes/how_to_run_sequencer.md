@@ -22,7 +22,9 @@ tags:
   - infrastructure
 ---
 
-This guide will go over the steps required to run a sequencer node on Aztec. It will also provide context to ensure users are comfortable with the steps they are taking.
+## Background
+
+This guide covers the steps required to run a sequencer node on Aztec. It will also provide context to ensure users are comfortable with the steps they are taking.
 
 The Aztec sequencer node is critical infrastructure responsible for ordering transactions and producing blocks.
 
@@ -55,6 +57,7 @@ Furthermore, as this guide uses Docker compose, you will need to install it. Ple
 
 Finally, this guide requires you to have endpoints of an L1 node stack of an execution and consensus client. If you do not have one set up, you can see a good guide on how to do that [here at Eth Docker](https://ethdocker.com/Usage/QuickStart).
 
+
 ## Configure the sequencer
 
 There are a few important things to note when setting up a sequencer. This guide will guide you in setting up and running a sequencer with a standard setup using Docker compose with a .env file.
@@ -70,19 +73,19 @@ Let's start by creating a new directory called `aztec-sequencer`, with two subdi
 
 ### Define private keys / accounts
 
-A sequencer must hold and use private keys identifying it as a valid proposer or attester. This is done is by defining a keystore file.
+A sequencer must hold and use private keys identifying it as a valid proposer or attester. This is done by defining a keystore file.
 
 An example keystore file is below. Copy this file and save it as `keystore.json` into your `aztec-sequencer/keys` folder.
 
-```JSON
+```json
 {
-  schemaVersion: 1,
-  validators: [
+  "schemaVersion": 1,
+  "validators": [
     {
-      attester: ["ETH_PRIVATE_KEY_0"]
-      publisher: ["ETH_PRIVATE_KEY_1"],
-      coinbase: "ETH_ADDRESS_2",
-      feeRecipient: "AZTEC_ADDRESS_0"
+      "attester": ["ETH_PRIVATE_KEY_0"],
+      "publisher": ["ETH_PRIVATE_KEY_1"],
+      "coinbase": "ETH_ADDRESS_2",
+      "feeRecipient": "AZTEC_ADDRESS_0"
     }
   ]
 }
@@ -126,7 +129,7 @@ AZTEC_PORT=8080
 ```
 
 :::tip
-You MUST forward your ports. Your router must send UDP and TCP traffic on the port specified by `AZTEC_NODE_P2P_PORT` to your IP address on your local network.
+Forward your ports. Your router must send UDP and TCP traffic on the port specified by `P2P_PORT` to your IP address on your local network.
 
 Running the command `curl ipv4.icanhazip.com` can retrieve your public IP address for you.
 :::
@@ -183,7 +186,7 @@ services:
     entrypoint: node /usr/src/yarn-project/aztec/dest/bin/index.js
     command: >-
       start
-      --network alpha-testnet
+      --network testnet
       --node
       --archiver
       --sequencer
@@ -200,7 +203,7 @@ Please note that we are setting only the necessary configuration for running thi
 
 Now, you can run `docker compose up` inside your `aztec-sequencer` folder to start the sequencer!
 
-To check if it is currently synced, which may take a few minutes, run this command and compare its output to any of the Aztec block explorers. (See [Aztec Scan](https://aztecscan.xyz/) or [Aztec Explorer](https://aztecexplorer.xyz/))
+To check if your sequencer is currently synced, which may take a few minutes, run this command and compare its output to any of the Aztec block explorers. (See [Aztec Scan](https://aztecscan.xyz/) or [Aztec Explorer](https://aztecexplorer.xyz/))
 
 ```sh
 curl -s -X POST -H 'Content-Type: application/json' \
@@ -212,4 +215,4 @@ http://localhost:8080 | jq -r ".result.proven.number"
 
 After setting up your node you must explicitly request to be added to the sequencer set.
 
-To complete this final step you can now head to [testnet.aztec.network](https://testnet.aztec.network) and complete the onboarding flow there utilizing zkPassport !
+To complete this final step you can now head to [testnet.aztec.network](https://testnet.aztec.network) and complete the onboarding flow there utilizing zkPassport!

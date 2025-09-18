@@ -265,7 +265,7 @@ services:
     restart: unless-stopped
 ```
 
-**Note**: This configuration includes only essential settings. The `--network alpha-testnet` flag applies network-specific defaults. See the [CLI reference](../../reference/cli_reference.md) for all available options.
+**Note**: This configuration includes only essential settings. The `--network testnet` flag applies network-specific defaults. See the [CLI reference](../../reference/cli_reference.md) for all available options.
 
 Start the prover:
 
