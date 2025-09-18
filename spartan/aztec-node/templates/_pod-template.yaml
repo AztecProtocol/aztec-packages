@@ -35,30 +35,21 @@ spec:
   {{- if .Values.initContainers }}
     {{- tpl (toYaml .Values.initContainers | nindent 4) $ }}
   {{- end }}
-  {{- if or .Values.service.p2p.nodePortEnabled .Values.hostNetwork }}
+  {{- if .Values.service.p2p.nodePortEnabled }}
     - name: init-nodeport
-      image: rancher/kubectl:v1.34.1
+      image: registry.suse.com/suse/kubectl:1.33
       securityContext:
         runAsNonRoot: false
         runAsUser: 0
       command:
-        - sh
+        - /bin/bash
         - -c
         - |
           export POD_INDEX=$(echo ${POD_NAME} | awk -F'-' '{print $NF}');
-
-          # If running host network, we don't need to get the node port from the service
-          {{- if not .Values.hostNetwork }}
           export EXTERNAL_PORT=$(kubectl get services -l "pod-index in (${POD_INDEX}), type in (p2p)" -o jsonpath='{.items[0].spec.ports[0].nodePort}');
-          echo "export EXTERNAL_PORT=$EXTERNAL_PORT" >  /shared/init-nodeport;
-          echo "export P2P_PORT=$EXTERNAL_PORT"      >> /shared/init-nodeport;
-          {{- end }}
 
-          # Get the external IP of the node
-          export EXTERNAL_IP=$(kubectl get nodes "${NODE_NAME}" -o jsonpath='{.status.addresses[?(@.type=="ExternalIP")].address}');
+          echo "export P2P_BROADCAST_PORT=$EXTERNAL_PORT"      >> /shared/init-nodeport;
 
-          echo "export EXTERNAL_IP=$EXTERNAL_IP" >> /shared/init-nodeport;
-          echo "export P2P_IP=$EXTERNAL_IP"      >> /shared/init-nodeport;
           cat /shared/init-nodeport;
       env:
         - name: POD_NAME
@@ -82,7 +73,10 @@ spec:
         - -c
         - |
           {{- if or .Values.service.p2p.nodePortEnabled .Values.hostNetwork }}
-          source /shared/init-nodeport;
+          if [ -f /shared/init-nodeport ]; then
+            source /shared/init-nodeport;
+          fi
+          export P2P_QUERY_FOR_IP=true
           {{- else }}
           export P2P_IP=$(hostname -i)
           {{- end }}

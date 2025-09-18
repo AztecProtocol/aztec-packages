@@ -104,7 +104,7 @@ Service Address Setup Container
 */}}
 {{- define "aztec-network.serviceAddressSetupContainer" -}}
 - name: setup-service-addresses
-  image: rancher/kubectl:v1.34.1
+  image: registry.suse.com/suse/kubectl:1.33
   command:
     - /bin/bash
     - -c
@@ -306,7 +306,7 @@ Combined P2P, and Service Address Setup Container
 {{- define "aztec-network.combinedAllSetupContainer" -}}
 {{- $serviceName := base $.Template.Name | trimSuffix ".yaml" -}}
 - name: setup-all
-  image: rancher/kubectl:v1.34.1
+  image: registry.suse.com/suse/kubectl:1.33
   command:
     - /bin/bash
     - -c
