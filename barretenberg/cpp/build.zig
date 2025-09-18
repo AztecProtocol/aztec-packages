@@ -22,6 +22,11 @@ const platforms = [_]Platform{
 };
 
 fn buildLmdb(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
+    const lmdb_dep = b.dependency("lmdb", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
     const lmdb_lib = b.addLibrary(.{
         .name = "lmdb",
         .linkage = .static,
@@ -33,21 +38,27 @@ fn buildLmdb(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
 
     lmdb_lib.addCSourceFiles(.{
         .files = &.{
-            "build/_deps/lmdb/src/lmdb_repo/libraries/liblmdb/mdb.c",
-            "build/_deps/lmdb/src/lmdb_repo/libraries/liblmdb/midl.c",
+            "libraries/liblmdb/mdb.c",
+            "libraries/liblmdb/midl.c",
         },
         .flags = &.{
             "-DMDB_USE_ROBUST=0", // Disable robust mutexes for better compatibility
         },
+        .root = lmdb_dep.path("."),
     });
 
-    lmdb_lib.addIncludePath(b.path("build/_deps/lmdb/src/lmdb_repo/libraries/liblmdb"));
+    lmdb_lib.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
     lmdb_lib.linkLibC();
 
     return lmdb_lib;
 }
 
 fn buildLibdeflate(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
+    const libdeflate_dep = b.dependency("libdeflate", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
     const libdeflate_lib = b.addLibrary(.{
         .name = "deflate",
         .linkage = .static,
@@ -57,29 +68,33 @@ fn buildLibdeflate(b: *std.Build, target: std.Build.ResolvedTarget, optimize: st
         }),
     });
 
-    // Libdeflate sources - computed at comptime
-    // For cross-compilation, exclude platform-specific optimizations that cause issues
-    const libdeflate_common_sources = [_][]const u8{
-        "build/_deps/libdeflate-src/lib/utils.c",
-        "build/_deps/libdeflate-src/lib/deflate_compress.c",
-        "build/_deps/libdeflate-src/lib/deflate_decompress.c",
-        "build/_deps/libdeflate-src/lib/gzip_compress.c",
-        "build/_deps/libdeflate-src/lib/gzip_decompress.c",
-        "build/_deps/libdeflate-src/lib/zlib_compress.c",
-        "build/_deps/libdeflate-src/lib/zlib_decompress.c",
+    // Use libdeflate v1.24's improved cross-compilation support
+    // As noted in changelog: "you don't need to worry about excluding irrelevant
+    // architecture-specific code, as this is already handled using #ifdefs"
+    const libdeflate_sources = [_][]const u8{
+        "lib/utils.c",
+        "lib/deflate_compress.c",
+        "lib/deflate_decompress.c",
+        "lib/gzip_compress.c",
+        "lib/gzip_decompress.c",
+        "lib/zlib_compress.c",
+        "lib/zlib_decompress.c",
+        "lib/adler32.c", // v1.24 handles cross-compilation properly
+        "lib/crc32.c", // v1.24 handles cross-compilation properly
+        // Architecture-specific files are included automatically by libdeflate's #ifdefs
+        "lib/arm/cpu_features.c",
+        "lib/x86/cpu_features.c",
     };
 
-    // Skip problematic adler32.c and crc32.c that include platform-specific code
-    // These are optional optimizations - deflate/gzip work fine without them
-
-    // Add common sources with consistent flags
+    // Add all sources - v1.24 handles cross-compilation through proper #ifdefs
     libdeflate_lib.addCSourceFiles(.{
-        .files = &libdeflate_common_sources,
-        .flags = &[_][]const u8{"-std=c99", "-DFREESTANDING", "-UX86_CPU_FEATURES_KNOWN", "-UARM_CPU_FEATURES_KNOWN", "-UARCH_X86_64", "-UARCH_X86_32", "-UARCH_ARM32", "-UARCH_ARM64"},
+        .files = &libdeflate_sources,
+        .flags = &[_][]const u8{"-std=c99"},
+        .root = libdeflate_dep.path("."),
     });
 
-    libdeflate_lib.addIncludePath(b.path("build/_deps/libdeflate-src"));
-    libdeflate_lib.addIncludePath(b.path("build/_deps/libdeflate-src/lib"));
+    libdeflate_lib.addIncludePath(libdeflate_dep.path("."));
+    libdeflate_lib.addIncludePath(libdeflate_dep.path("lib"));
     libdeflate_lib.linkLibC();
 
     return libdeflate_lib;
@@ -89,7 +104,7 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    // C++ compilation flags for standard build (without VM2)
+    // C++ compilation flags for standard build (without AVM)
     const cpp_flags = [_][]const u8{
         "-std=c++20",
         "-fPIC",
@@ -103,8 +118,8 @@ pub fn build(b: *std.Build) void {
         "-fbracket-depth=1024",
     };
 
-    // VM2 build flags (without DISABLE_AZTEC_VM)
-    const vm2_flags = [_][]const u8{
+    // AVM build flags (without DISABLE_AZTEC_VM)
+    const avm_flags = [_][]const u8{
         "-std=c++20",
         "-fPIC",
         // Note: NOT disabling AVM for this build
@@ -203,7 +218,7 @@ pub fn build(b: *std.Build) void {
         "src/barretenberg/transcript/origin_tag.cpp",
         "src/barretenberg/transcript/transcript.cpp",
 
-        // Client IVC (needs libdeflate)
+        // Client IVC
         "src/barretenberg/client_ivc/client_ivc.cpp",
         "src/barretenberg/client_ivc/private_execution_steps.cpp",
 
@@ -399,10 +414,8 @@ pub fn build(b: *std.Build) void {
         "src/barretenberg/env/data_store.cpp",
     };
 
-    // VM2 (AVM) sources - can be excluded with DISABLE_AZTEC_VM
-    const vm2_sources = [_][]const u8{
-        // You would list VM2 files here if we were including them
-        // For now, leaving empty as we're using DISABLE_AZTEC_VM=1
+    // AVM sources
+    const avm_sources = [_][]const u8{
         "src/barretenberg/vm2/avm_api.cpp",
         "src/barretenberg/vm2/common/avm_inputs.cpp",
         "src/barretenberg/vm2/common/gas.cpp",
@@ -637,7 +650,7 @@ pub fn build(b: *std.Build) void {
 
     // Combine source files at compile-time
     const all_sources = core_sources ++ env_sources;
-    const vm2_all_sources = core_sources ++ env_sources ++ vm2_sources;
+    const avm_all_sources = core_sources ++ env_sources ++ avm_sources;
 
     // Build for default target if specified
     if (target.query.isNative()) {
@@ -648,12 +661,12 @@ pub fn build(b: *std.Build) void {
         const bb_install = b.addInstallArtifact(bb_exe, .{ .dest_dir = .{ .override = .{ .custom = native_platform } } });
         b.getInstallStep().dependOn(&bb_install.step);
 
-        const bb_vm2_exe = buildForTarget(b, target, optimize, "bb-vm2", &vm2_all_sources, &vm2_flags, true);
+        const bb_avm_exe = buildForTarget(b, target, optimize, "bb-avm", &avm_all_sources, &avm_flags, true);
 
-        // Create VM2 build step
-        const vm2_step = b.step("vm2", "Build bb with VM2/AVM support");
-        const bb_vm2_install = b.addInstallArtifact(bb_vm2_exe, .{ .dest_dir = .{ .override = .{ .custom = native_platform } } });
-        vm2_step.dependOn(&bb_vm2_install.step);
+        // Create AVM build step
+        const avm_step = b.step("avm", "Build bb with AVM support");
+        const bb_avm_install = b.addInstallArtifact(bb_avm_exe, .{ .dest_dir = .{ .override = .{ .custom = native_platform } } });
+        avm_step.dependOn(&bb_avm_install.step);
 
         // Create run steps
         const run_cmd = b.addRunArtifact(bb_exe);
@@ -664,17 +677,17 @@ pub fn build(b: *std.Build) void {
         const run_step = b.step("run", "Run the bb executable");
         run_step.dependOn(&run_cmd.step);
 
-        const run_vm2_cmd = b.addRunArtifact(bb_vm2_exe);
+        const run_avm_cmd = b.addRunArtifact(bb_avm_exe);
         if (b.args) |args| {
-            run_vm2_cmd.addArgs(args);
+            run_avm_cmd.addArgs(args);
         }
-        const run_vm2_step = b.step("run-vm2", "Run the bb-vm2 executable");
-        run_vm2_step.dependOn(&run_vm2_cmd.step);
+        const run_avm_step = b.step("run-avm", "Run the bb-avm executable");
+        run_avm_step.dependOn(&run_avm_cmd.step);
     }
 
     // Create cross-compilation steps
     const cross_step = b.step("cross", "Build for all platforms");
-    const cross_vm2_step = b.step("cross-vm2", "Build VM2 for all platforms");
+    const cross_avm_step = b.step("cross-avm", "Build AVM for all platforms");
 
     for (platforms) |platform| {
         const platform_target = b.resolveTargetQuery(.{
@@ -690,13 +703,13 @@ pub fn build(b: *std.Build) void {
         platform_step.dependOn(&bb_install.step);
         cross_step.dependOn(platform_step);
 
-        const vm2_step_name = std.fmt.allocPrint(b.allocator, "{s}-vm2", .{platform.name}) catch unreachable;
-        const vm2_platform_step = b.step(vm2_step_name, b.fmt("Build VM2 for {s}", .{platform.name}));
+        const avm_step_name = std.fmt.allocPrint(b.allocator, "{s}-avm", .{platform.name}) catch unreachable;
+        const avm_platform_step = b.step(avm_step_name, b.fmt("Build AVM for {s}", .{platform.name}));
 
-        const bb_vm2 = buildForTarget(b, platform_target, optimize, "bb-vm2", &vm2_all_sources, &vm2_flags, true);
-        const bb_vm2_install = b.addInstallArtifact(bb_vm2, .{ .dest_dir = .{ .override = .{ .custom = platform.name } } });
-        vm2_platform_step.dependOn(&bb_vm2_install.step);
-        cross_vm2_step.dependOn(vm2_platform_step);
+        const bb_avm = buildForTarget(b, platform_target, optimize, "bb-avm", &avm_all_sources, &avm_flags, true);
+        const bb_avm_install = b.addInstallArtifact(bb_avm, .{ .dest_dir = .{ .override = .{ .custom = platform.name } } });
+        avm_platform_step.dependOn(&bb_avm_install.step);
+        cross_avm_step.dependOn(avm_platform_step);
     }
 }
 
@@ -707,9 +720,9 @@ fn buildForTarget(
     exe_name: []const u8,
     sources: []const []const u8,
     flags: []const []const u8,
-    is_vm2: bool,
+    is_avm: bool,
 ) *std.Build.Step.Compile {
-    const lib_name = if (is_vm2) "barretenberg-vm2" else "barretenberg";
+    const lib_name = if (is_avm) "barretenberg-avm" else "barretenberg";
 
     // Build dependencies from source for each target
     const lmdb_lib = buildLmdb(b, target, optimize);
