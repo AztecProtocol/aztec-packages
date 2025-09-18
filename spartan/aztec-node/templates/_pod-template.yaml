@@ -37,7 +37,7 @@ spec:
   {{- end }}
   {{- if or .Values.service.p2p.nodePortEnabled .Values.hostNetwork }}
     - name: init-nodeport
-      image: bitnami/kubectl
+      image: rancher/kubectl:v1.34.1
       securityContext:
         runAsNonRoot: false
         runAsUser: 0

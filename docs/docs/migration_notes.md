@@ -9,6 +9,10 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+## [Public functions]
+
+The L2 gas cost of the different AVM opcodes have been updated to reflect more realistic proving costs. Developers should review the L2 gas costs of executing public functions and reevaluate any hardcoded L2 gas limits.
+
 ## [Aztec Tools]
 
 ### Contract compilation now requires two steps
@@ -45,6 +49,16 @@ As we prepare for a bigger `Wallet` interface refactor and the upcoming `WalletS
 
 ## [Aztec.nr]
 
+### Historical block renamed as anchor block
+
+A historical block term has been used as a term that denotes the block against which a private part of a tx has been executed.
+This name is ambiguous and for this reason we've introduce "anchor block".
+This naming change resulted in quite a few changes and if you've access private context's or utility context's block header you will need to update your code:
+
+```diff
+- let header = context.get_block_header();
++ let header = context.get_anchor_block_header();
+```diff
 
 ### PrivateMutable: replace / initialize_or_replace behaviour change
 
@@ -54,21 +68,28 @@ Updating a note used to require reading it first (via `get_note`, which nullifie
 **Key points:**
 
 1. `replace(self, new_note)` (old) → `replace(self, f)` (new), where `f` takes the current note and returns a transformed note.
-2. `initialize_or_replace(self, note)` (old) → `initialize_or_replace(self, init_note, f)` (new). Uninitialized variables use `init_note`, initialized ones pass the transform function to `replace`.
+2. `initialize_or_replace(self, note)` (old) → `initialize_or_replace(self, f)` (new), where `f` takes an `Option` with the current none, or `none` if uninitialized.
 3. Previous note is automatically nullified before the new note is inserted.
 4. `NoteEmission<Note>` still requires `.emit()` or `.discard()`.
 
 **Example Migration:**
 
 ```diff
+- let current_note = storage.my_var.get_note();
+- let new_note = f(current_note);
 - storage.my_var.replace(new_note);
-+ let x: Field = 5;
-+ storage.my_var.replace(|note| UintNote::new(note.value + x));
++ storage.my_var.replace(|current_note| f(current_note));
 ```
 
 ```diff
-- storage.my_var.initialize_or_replace(init_note);
-+ storage.my_var.initialize_or_replace(init_note, |note| UintNote::new(note.value + 5));
+- storage.my_var.initialize_or_replace(new_note);
++ storage.my_var.initialize_or_replace(|_| new_note);
+```
+
+This makes it easy and efficient to handle both initialization and current value mutation via `initialize_or_replace`, e.g. if implementing a note that simply counts how many times it has been read:
+
+```diff
++ storage.my_var.initialize_or_replace(|opt_current: Option<Note>| opt_current.unwrap_or(0 /* initial value */) + 1);
 ```
 
 

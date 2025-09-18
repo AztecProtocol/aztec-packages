@@ -913,12 +913,10 @@ describe('PXEOracleInterface', () => {
 
     it('should search for notes from all accounts', async () => {
       // Add multiple accounts to keystore
-      const numAccounts = 3;
-
       await keyStore.addAccount(Fr.random(), Fr.random());
       await keyStore.addAccount(Fr.random(), Fr.random());
 
-      expect(await keyStore.getAccounts()).toHaveLength(numAccounts);
+      expect(await keyStore.getAccounts()).toHaveLength(3);
 
       // Spy on the noteDataProvider.getNotesSpy
       const getNotesSpy = jest.spyOn(noteDataProvider, 'getNotes');
@@ -926,14 +924,11 @@ describe('PXEOracleInterface', () => {
       // Call the function under test
       await pxeOracleInterface.removeNullifiedNotes(contractAddress);
 
-      // Verify removeNullifiedNotes was called once for each account
-      expect(getNotesSpy).toHaveBeenCalledTimes(numAccounts);
+      // Verify removeNullifiedNotes was called once for all accounts
+      expect(getNotesSpy).toHaveBeenCalledTimes(1);
 
-      // Verify getNotes was called with the correct contract address and recipient for each account
-      const accounts = await keyStore.getAccounts();
-      accounts.forEach(recipient => {
-        expect(getNotesSpy).toHaveBeenCalledWith(expect.objectContaining({ contractAddress, recipient }));
-      });
+      // Verify getNotes was called with the correct contract address
+      expect(getNotesSpy).toHaveBeenCalledWith(expect.objectContaining({ contractAddress }));
     });
   });
 
@@ -975,15 +970,15 @@ describe('PXEOracleInterface', () => {
     });
   });
 
-  describe('getBlockHeader', () => {
-    it('returns the synced block header and not header from aztec node', async () => {
+  describe('getAnchorBlockHeader', () => {
+    it('returns the anchor block header and not a header from aztec node', async () => {
       const blockNumber = 42;
       const header = BlockHeader.empty({
         globalVariables: GlobalVariables.empty({ blockNumber }),
       });
       await syncDataProvider.setHeader(header);
 
-      const result = await pxeOracleInterface.getBlockHeader();
+      const result = await pxeOracleInterface.getAnchorBlockHeader();
       expect(result).toEqual(header);
     });
   });

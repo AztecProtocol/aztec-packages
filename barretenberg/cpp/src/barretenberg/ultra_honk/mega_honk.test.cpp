@@ -30,8 +30,8 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
-    using DeciderVerificationKey = DeciderVerificationKey_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
+    using VerifierInstance = VerifierInstance_<Flavor>;
 
     /**
      * @brief Construct and a verify a Honk proof
@@ -39,9 +39,9 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
      */
     bool construct_and_verify_honk_proof(auto& builder)
     {
-        auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-        auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
-        Prover prover(proving_key, verification_key);
+        auto prover_instance = std::make_shared<ProverInstance>(builder);
+        auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+        Prover prover(prover_instance, verification_key);
         Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
         bool verified = verifier.template verify_proof<DefaultIO>(proof).result;
@@ -59,11 +59,11 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
         using Prover = UltraProver_<MegaFlavor>;
         using Verifier = UltraVerifier_<MegaFlavor>;
         using VerificationKey = typename MegaFlavor::VerificationKey;
-        using DeciderProvingKey = DeciderProvingKey_<MegaFlavor>;
-        auto proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
+        using ProverInstance = ProverInstance_<MegaFlavor>;
+        auto prover_instance = std::make_shared<ProverInstance>(builder, trace_settings);
 
-        auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
-        Prover prover(proving_key, verification_key);
+        auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+        Prover prover(prover_instance, verification_key);
         Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
         bool verified = verifier.template verify_proof<DefaultIO>(proof).result;
@@ -117,9 +117,9 @@ TYPED_TEST(MegaHonkTests, ProofLengthCheck)
     DefaultIO::add_default(builder);
 
     // Construct a mega proof and ensure its size matches expectation; if not, the constant may need to be updated
-    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
-    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
-    UltraProver_<Flavor> prover(proving_key, verification_key);
+    auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder);
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(prover_instance->get_precomputed());
+    UltraProver_<Flavor> prover(prover_instance, verification_key);
     HonkProof mega_proof = prover.construct_proof();
     EXPECT_EQ(mega_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + DefaultIO::PUBLIC_INPUTS_SIZE);
 }
@@ -183,16 +183,16 @@ TYPED_TEST(MegaHonkTests, BasicStructured)
 
     // Construct and verify Honk proof using a structured trace
     TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
-    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder, trace_settings);
-    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
-    Prover prover(proving_key, verification_key);
+    auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder, trace_settings);
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(prover_instance->get_precomputed());
+    Prover prover(prover_instance, verification_key);
     Verifier verifier(verification_key);
     auto proof = prover.construct_proof();
 
     // Sanity check: ensure z_perm is not zero everywhere
-    EXPECT_TRUE(!proving_key->polynomials.z_perm.is_zero());
+    EXPECT_TRUE(!prover_instance->polynomials.z_perm.is_zero());
 
-    RelationChecker<Flavor>::check_all(proving_key->polynomials, proving_key->relation_parameters);
+    RelationChecker<Flavor>::check_all(prover_instance->polynomials, prover_instance->relation_parameters);
 
     bool result = verifier.template verify_proof<DefaultIO>(proof).result;
     EXPECT_TRUE(result);
@@ -224,20 +224,20 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
 
     // Construct and verify Honk proof using a structured trace
     TraceSettings trace_settings{ SMALL_TEST_STRUCTURE_FOR_OVERFLOWS };
-    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder, trace_settings);
-    auto proving_key_copy = std::make_shared<DeciderProvingKey_<Flavor>>(builder_copy, trace_settings);
-    auto circuit_size = proving_key->dyadic_size();
+    auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(builder, trace_settings);
+    auto prover_instance_copy = std::make_shared<ProverInstance_<Flavor>>(builder_copy, trace_settings);
+    auto circuit_size = prover_instance->dyadic_size();
 
     auto doubled_circuit_size = 2 * circuit_size;
-    proving_key_copy->polynomials.increase_polynomials_virtual_size(doubled_circuit_size);
+    prover_instance_copy->polynomials.increase_polynomials_virtual_size(doubled_circuit_size);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1158)
-    // proving_key_copy->dyadic_circuit_size = doubled_circuit_size;
+    // prover_instance_copy->dyadic_circuit_size = doubled_circuit_size;
 
-    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
-    Prover prover(proving_key, verification_key);
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(prover_instance->get_precomputed());
+    Prover prover(prover_instance, verification_key);
 
-    auto verification_key_copy = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
-    Prover prover_copy(proving_key_copy, verification_key_copy);
+    auto verification_key_copy = std::make_shared<typename Flavor::VerificationKey>(prover_instance->get_precomputed());
+    Prover prover_copy(prover_instance_copy, verification_key_copy);
 
     for (auto [entry, entry_copy] : zip_view(verification_key->get_all(), verification_key_copy->get_all())) {
         EXPECT_EQ(entry, entry_copy);
@@ -246,14 +246,14 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
     Verifier verifier(verification_key);
     auto proof = prover.construct_proof();
 
-    RelationChecker<Flavor>::check_all(proving_key->polynomials, proving_key->relation_parameters);
+    RelationChecker<Flavor>::check_all(prover_instance->polynomials, prover_instance->relation_parameters);
     bool result = verifier.template verify_proof<DefaultIO>(proof).result;
     EXPECT_TRUE(result);
 
     Verifier verifier_copy(verification_key_copy);
     auto proof_copy = prover_copy.construct_proof();
 
-    RelationChecker<Flavor>::check_all(proving_key->polynomials, proving_key->relation_parameters);
+    RelationChecker<Flavor>::check_all(prover_instance->polynomials, prover_instance->relation_parameters);
     bool result_copy = verifier_copy.template verify_proof<DefaultIO>(proof_copy).result;
     EXPECT_TRUE(result_copy);
 }
@@ -489,24 +489,24 @@ TYPED_TEST(MegaHonkTests, PolySwap)
     auto builder_copy = builder;
 
     // Construct two identical proving keys
-    auto proving_key_1 = std::make_shared<typename TestFixture::DeciderProvingKey>(builder, trace_settings);
-    auto proving_key_2 = std::make_shared<typename TestFixture::DeciderProvingKey>(builder_copy, trace_settings);
+    auto prover_instance_1 = std::make_shared<typename TestFixture::ProverInstance>(builder, trace_settings);
+    auto prover_instance_2 = std::make_shared<typename TestFixture::ProverInstance>(builder_copy, trace_settings);
 
     // Tamper with the polys of pkey 1 in such a way that verification should fail
-    for (size_t i = 0; i < proving_key_1->dyadic_size(); ++i) {
-        if (proving_key_1->polynomials.q_arith[i] != 0) {
-            proving_key_1->polynomials.w_l.at(i) += 1;
+    for (size_t i = 0; i < prover_instance_1->dyadic_size(); ++i) {
+        if (prover_instance_1->polynomials.q_arith[i] != 0) {
+            prover_instance_1->polynomials.w_l.at(i) += 1;
             break;
         }
     }
 
     // Swap the polys of the two proving keys; result should be pkey 1 is valid and pkey 2 should fail
-    std::swap(proving_key_1->polynomials, proving_key_2->polynomials);
+    std::swap(prover_instance_1->polynomials, prover_instance_2->polynomials);
 
     { // Verification based on pkey 1 should succeed
         auto verification_key =
-            std::make_shared<typename TestFixture::VerificationKey>(proving_key_1->get_precomputed());
-        typename TestFixture::Prover prover(proving_key_1, verification_key);
+            std::make_shared<typename TestFixture::VerificationKey>(prover_instance_1->get_precomputed());
+        typename TestFixture::Prover prover(prover_instance_1, verification_key);
         typename TestFixture::Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
         bool result = verifier.template verify_proof<DefaultIO>(proof).result;
@@ -515,8 +515,8 @@ TYPED_TEST(MegaHonkTests, PolySwap)
 
     { // Verification based on pkey 2 should fail
         auto verification_key =
-            std::make_shared<typename TestFixture::VerificationKey>(proving_key_2->get_precomputed());
-        typename TestFixture::Prover prover(proving_key_2, verification_key);
+            std::make_shared<typename TestFixture::VerificationKey>(prover_instance_2->get_precomputed());
+        typename TestFixture::Prover prover(prover_instance_2, verification_key);
         typename TestFixture::Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
         bool result = verifier.template verify_proof<DefaultIO>(proof).result;

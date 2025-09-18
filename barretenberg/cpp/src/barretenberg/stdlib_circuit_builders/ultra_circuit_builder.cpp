@@ -38,7 +38,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit(const bool ensure_no
      *
      * Now we have two variables referred to as `n` in the code:
      *  1. ComposerBase::n => refers to the size of the witness of a given program,
-     *  2. proving_key::n => the next power of two ≥ total witness size.
+     *  2. prover_instance::n => the next power of two ≥ total witness size.
      *
      * In this case, we have composer.num_gates = n_computation before we execute the following two functions.
      * After these functions are executed, the composer's `n` is incremented to include the ROM
@@ -1922,7 +1922,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::po
 }
 
 /**
- * @brief Called in `compute_proving_key` when finalizing circuit.
+ * @brief Called in `compute_prover_instance` when finalizing circuit.
  * Iterates over the cached_non_native_field_multiplication objects,
  * removes duplicates, and instantiates the remainder as constraints`
  */

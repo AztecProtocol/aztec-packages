@@ -148,7 +148,7 @@ class AvmGoblinRecursiveVerifier {
 
         // Recursively verify the goblin proof\pi_G in the Ultra circuit
         MergeCommitments merge_commitments{
-            .t_commitments = mega_verifier.key->witness_commitments.get_ecc_op_wires().get_copy(),
+            .t_commitments = mega_verifier.verifier_instance->witness_commitments.get_ecc_op_wires().get_copy(),
             .T_prev_commitments = stdlib::recursion::honk::empty_ecc_op_tables(
                 ultra_builder) // Empty ecc op tables because there is only one layer of Goblin
         };
@@ -236,7 +236,7 @@ class AvmGoblinRecursiveVerifier {
         // All prover components share a single transcript
         std::shared_ptr<Goblin::Transcript> transcript = std::make_shared<Goblin::Transcript>();
         // Construct Mega proof \pi_M of the AVM recursive verifier circuit
-        auto mega_proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(mega_builder);
+        auto mega_proving_key = std::make_shared<ProverInstance_<MegaFlavor>>(mega_builder);
         // Detect when MEGA_AVM_LOG_N needs to be bumped.
         BB_ASSERT_LTE(
             mega_proving_key->log_dyadic_size(),

@@ -70,7 +70,7 @@ export type TXEOracleFunctionName = MethodNames<TXEService>;
 export interface TXESessionStateHandler {
   setTopLevelContext(): Promise<void>;
   setPublicContext(contractAddress?: AztecAddress): Promise<void>;
-  setPrivateContext(contractAddress?: AztecAddress, historicalBlockNumber?: UInt32): Promise<PrivateContextInputs>;
+  setPrivateContext(contractAddress?: AztecAddress, anchorBlockNumber?: UInt32): Promise<PrivateContextInputs>;
   setUtilityContext(contractAddress?: AztecAddress): Promise<void>;
 }
 
@@ -252,7 +252,7 @@ export class TXESession implements TXESessionStateHandler {
       contractAddress ?? DEFAULT_ADDRESS,
     );
 
-    this.oracleHandler = new TXE(
+    this.oracleHandler = await TXE.create(
       contractAddress ?? DEFAULT_ADDRESS,
       this.pxeOracleInterface,
       await this.stateMachine.synchronizer.nativeWorldStateService.fork(),
@@ -274,7 +274,7 @@ export class TXESession implements TXESessionStateHandler {
     // all the way to the tip of the chain.
     const latestBlock = await this.stateMachine.node.getBlockHeader('latest');
 
-    this.oracleHandler = new TXE(
+    this.oracleHandler = await TXE.create(
       contractAddress ?? DEFAULT_ADDRESS,
       this.pxeOracleInterface,
       await this.stateMachine.synchronizer.nativeWorldStateService.fork(),

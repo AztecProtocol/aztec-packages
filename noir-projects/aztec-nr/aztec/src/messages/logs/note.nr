@@ -3,43 +3,36 @@ use crate::{
         encoding::encode_message,
         encryption::{aes128::AES128, log_encryption::LogEncryption},
         logs::utils::prefix_with_tag,
-        msg_type::PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID,
+        msg_type::{PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID, PRIVATE_NOTE_MSG_TYPE_ID},
     },
     note::note_interface::NoteType,
 };
 use protocol_types::{
-    address::AztecAddress,
-    constants::{PRIVATE_LOG_CIPHERTEXT_LEN, PRIVATE_LOG_SIZE_IN_FIELDS},
-    traits::Packable,
+    address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS, traits::Packable,
 };
 
 // TODO(#16881): once partial notes support emission via an offchain message we will most likely want to remove this.
-pub fn compute_partial_note_log<Note>(
-    note: Note,
+pub fn compute_partial_note_private_content_log<PartialNotePrivateContent>(
+    partial_note_private_content: PartialNotePrivateContent,
     storage_slot: Field,
     recipient: AztecAddress,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
-    Note: NoteType + Packable,
+    PartialNotePrivateContent: NoteType + Packable,
 {
-    let ciphertext = compute_note_message_ciphertext(
-        note,
+    let message_plaintext = partial_note_private_content_to_message_plaintext(
+        partial_note_private_content,
         storage_slot,
-        recipient,
-        PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID,
     );
+    let message_ciphertext = AES128::encrypt_log(message_plaintext, recipient);
 
-    let log = prefix_with_tag(ciphertext, recipient);
-
-    log
+    prefix_with_tag(message_ciphertext, recipient)
 }
 
-pub fn compute_note_message_ciphertext<Note>(
+pub fn private_note_to_message_plaintext<Note>(
     note: Note,
     storage_slot: Field,
-    recipient: AztecAddress,
-    msg_type: u64,
-) -> [Field; PRIVATE_LOG_CIPHERTEXT_LEN]
+) -> [Field; <Note as Packable>::N + 2]
 where
     Note: NoteType + Packable,
 {
@@ -53,7 +46,29 @@ where
     }
 
     // Notes use the note type id for metadata
-    let plaintext = encode_message(msg_type, Note::get_id() as u64, msg_content);
+    encode_message(PRIVATE_NOTE_MSG_TYPE_ID, Note::get_id() as u64, msg_content)
+}
 
-    AES128::encrypt_log(plaintext, recipient)
+pub fn partial_note_private_content_to_message_plaintext<PartialNotePrivateContent>(
+    partial_note_private_content: PartialNotePrivateContent,
+    storage_slot: Field,
+) -> [Field; <PartialNotePrivateContent as Packable>::N + 2]
+where
+    PartialNotePrivateContent: NoteType + Packable,
+{
+    let packed_private_content = partial_note_private_content.pack();
+
+    // A partial note message's content is the storage slot followed by the packed private content representation
+    let mut msg_content = [0; 1 + <PartialNotePrivateContent as Packable>::N];
+    msg_content[0] = storage_slot;
+    for i in 0..packed_private_content.len() {
+        msg_content[1 + i] = packed_private_content[i];
+    }
+
+    encode_message(
+        PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID,
+        // Notes use the note type id for metadata
+        PartialNotePrivateContent::get_id() as u64,
+        msg_content,
+    )
 }

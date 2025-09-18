@@ -1,6 +1,7 @@
-import { SpongeBlob } from '@aztec/blob-lib';
+import { SpongeBlob } from '@aztec/blob-lib/types';
 import { ARCHIVE_HEIGHT, MAX_CONTRACT_CLASS_LOGS_PER_TX } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { MembershipWitness } from '@aztec/foundation/trees';
@@ -127,6 +128,10 @@ export class PublicBaseRollupHints {
      * Preimages to the kernel's contractClassLogsHashes.
      */
     public contractClassLogsFields: Tuple<ContractClassLogFields, typeof MAX_CONTRACT_CLASS_LOGS_PER_TX>,
+    /**
+     * Identifier of the prover.
+     */
+    public proverId: Fr,
   ) {}
 
   static from(fields: FieldsOf<PublicBaseRollupHints>): PublicBaseRollupHints {
@@ -139,6 +144,7 @@ export class PublicBaseRollupHints {
       fields.lastArchive,
       fields.archiveRootMembershipWitness,
       fields.contractClassLogsFields,
+      fields.proverId,
     ] as const;
   }
 
@@ -165,6 +171,7 @@ export class PublicBaseRollupHints {
       reader.readObject(AppendOnlyTreeSnapshot),
       MembershipWitness.fromBuffer(reader, ARCHIVE_HEIGHT),
       makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, () => reader.readObject(ContractClassLogFields)),
+      reader.readObject(Fr),
     );
   }
 
@@ -178,6 +185,7 @@ export class PublicBaseRollupHints {
       AppendOnlyTreeSnapshot.empty(),
       MembershipWitness.empty(ARCHIVE_HEIGHT),
       makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ContractClassLogFields.empty),
+      Fr.ZERO,
     );
   }
 }

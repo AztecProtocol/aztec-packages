@@ -8,10 +8,14 @@ use std::meta::derive;
 pub struct BlockConstantData {
     // Archive tree snapshot at the very beginning of the entire block.
     pub last_archive: AppendOnlyTreeSnapshot,
-    // L1toL2Message tree snapshot after this block lands.
-    pub new_l1_to_l2: AppendOnlyTreeSnapshot,
+    // L1-to-L2 message tree snapshot after this block lands.
+    // For the first block in a checkpoint, this should be the snapshot after inserting the new l1-to-l2 message subtree
+    // into the last l1-to-l2 tree snapshot in `last_archive`.
+    // For subsequent blocks, this should match the snapshot of the previous block.
+    pub l1_to_l2_tree_snapshot: AppendOnlyTreeSnapshot,
     pub vk_tree_root: Field,
     pub protocol_contract_tree_root: Field,
+    pub prover_id: Field,
     pub global_variables: GlobalVariables,
 }
 
@@ -19,9 +23,10 @@ impl Empty for BlockConstantData {
     fn empty() -> Self {
         BlockConstantData {
             last_archive: AppendOnlyTreeSnapshot::empty(),
-            new_l1_to_l2: AppendOnlyTreeSnapshot::empty(),
+            l1_to_l2_tree_snapshot: AppendOnlyTreeSnapshot::empty(),
             vk_tree_root: 0,
             protocol_contract_tree_root: 0,
+            prover_id: 0,
             global_variables: GlobalVariables::empty(),
         }
     }
@@ -43,9 +48,13 @@ mod test {
     fn serialization_of_block_constant_data() {
         let item = BlockConstantData {
             last_archive: AppendOnlyTreeSnapshot { root: 123, next_available_leaf_index: 456 },
-            new_l1_to_l2: AppendOnlyTreeSnapshot { root: 789, next_available_leaf_index: 101112 },
+            l1_to_l2_tree_snapshot: AppendOnlyTreeSnapshot {
+                root: 789,
+                next_available_leaf_index: 101112,
+            },
             vk_tree_root: 131415,
             protocol_contract_tree_root: 161718,
+            prover_id: 192021,
             global_variables: GlobalVariables {
                 version: 1,
                 chain_id: 2,

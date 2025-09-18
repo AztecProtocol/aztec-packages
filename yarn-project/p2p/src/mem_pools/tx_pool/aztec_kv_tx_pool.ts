@@ -671,7 +671,7 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
   private async addPendingTxIndices(tx: Tx, txHash: string): Promise<void> {
     await this.#pendingTxPriorityToHash.set(getPendingTxPriority(tx), txHash);
     await this.#pendingTxHashToSize.set(txHash, tx.getSize());
-    await this.#pendingTxHashToHeaderHash.set(txHash, (await tx.data.constants.historicalHeader.hash()).toString());
+    await this.#pendingTxHashToHeaderHash.set(txHash, (await tx.data.constants.anchorBlockHeader.hash()).toString());
   }
 
   private async removePendingTxIndices(tx: Tx, txHash: string): Promise<void> {

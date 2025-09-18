@@ -80,7 +80,6 @@ use crate::{
     point::Point,
     proof::{
         proof_data::ProofData,
-        recursive_proof::NestedRecursiveProof,
         verification_key::{ClientIVCVerificationKey, HonkVerificationKey, VerificationKey},
         vk_data::VkData,
     },
@@ -95,7 +94,7 @@ use crate::{
             vk_tree::{generate_fake_vk_for_index, VK_MERKLE_TREE},
         },
         merkle_tree_utils::NonEmptyMerkleTree,
-        utils::pad_end_with_empty,
+        utils::pad_end,
     },
     traits::{Deserialize, Empty, FromField, Hash, Packable, ToField},
     utils::arrays::ClaimedLengthArray,
@@ -149,7 +148,7 @@ pub struct FixtureBuilder {
     pub effective_gas_fees: GasFees,
 
     // Constant data.
-    pub historical_header: BlockHeader,
+    pub anchor_block_header: BlockHeader,
     pub tx_context: TxContext,
     pub global_variables: GlobalVariables,
 
@@ -193,7 +192,6 @@ pub struct FixtureBuilder {
     pub prover_address: AztecAddress,
 
     // Proof.
-    pub proof: NestedRecursiveProof,
     pub honk_vk: HonkVerificationKey,
     pub client_ivc_vk: ClientIVCVerificationKey,
     pub vk_index: u32,
@@ -237,13 +235,16 @@ impl FixtureBuilder {
     pub fn new_from_counter(counter_start: u32) -> Self {
         let mut builder = FixtureBuilder::empty();
 
-        builder.historical_header.global_variables.timestamp = fixtures::GENESIS_TIMESTAMP;
+        builder.anchor_block_header.global_variables.timestamp = fixtures::GENESIS_TIMESTAMP;
 
         builder.global_variables.chain_id = fixtures::CHAIN_ID;
         builder.global_variables.version = fixtures::VERSION;
         builder.global_variables.timestamp = fixtures::GENESIS_TIMESTAMP + 135;
 
-        let max_allowed_include_by_timestamp = builder.historical_header.global_variables.timestamp
+        let max_allowed_include_by_timestamp = builder
+            .anchor_block_header
+            .global_variables
+            .timestamp
             + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
         builder.include_by_timestamp = max_allowed_include_by_timestamp;
 
@@ -357,7 +358,7 @@ impl FixtureBuilder {
 
     pub fn use_last_archive(&mut self) -> Self {
         let random_block_hash = 38127689;
-        let previous_block_hash = self.historical_header.hash();
+        let previous_block_hash = self.anchor_block_header.hash();
         let pre_existing_block_hashes = [random_block_hash, previous_block_hash];
         let archive_tree = NonEmptyMerkleTree::new(
             pre_existing_block_hashes,
@@ -394,7 +395,7 @@ impl FixtureBuilder {
         let value_offset = vk_index as Field * 8976;
         ProofData {
             public_inputs,
-            proof: pad_end_with_empty([
+            proof: pad_end([
                 value_offset + 79427943,
                 value_offset + 94340,
                 value_offset + 4789150,
@@ -412,7 +413,7 @@ impl FixtureBuilder {
 
     pub fn to_tx_constant_data(self) -> TxConstantData {
         TxConstantData {
-            historical_header: self.historical_header,
+            anchor_block_header: self.anchor_block_header,
             tx_context: self.tx_context,
             vk_tree_root: self.vk_tree_root,
             protocol_contract_tree_root: self.protocol_contract_tree_root,
@@ -422,10 +423,11 @@ impl FixtureBuilder {
     pub fn to_block_constant_data(self) -> BlockConstantData {
         BlockConstantData {
             last_archive: self.archive_tree,
-            new_l1_to_l2: self.start_snapshots.l1_to_l2_message_tree,
+            l1_to_l2_tree_snapshot: self.start_snapshots.l1_to_l2_message_tree,
             vk_tree_root: self.vk_tree_root,
             protocol_contract_tree_root: self.protocol_contract_tree_root,
             global_variables: self.global_variables,
+            prover_id: 1,
         }
     }
 
@@ -528,7 +530,7 @@ impl FixtureBuilder {
                     .map(|l: Scoped<Counted<LogHash>>| l.inner)),
                 length: self.contract_class_logs_hashes.len(),
             },
-            historical_header: self.historical_header,
+            anchor_block_header: self.anchor_block_header,
             tx_context: self.tx_context,
         }
     }
@@ -559,9 +561,9 @@ impl FixtureBuilder {
 
         if self.updated_class_id_value_change.is_empty()
             & self.updated_class_id_delay_change.is_empty() {
-            self.historical_header.state.partial.public_data_tree.root =
+            self.anchor_block_header.state.partial.public_data_tree.root =
                 public_data_tree.get_root();
-            self.historical_header.state.partial.public_data_tree.next_available_leaf_index =
+            self.anchor_block_header.state.partial.public_data_tree.next_available_leaf_index =
                 public_data_prefill;
 
             self.updated_class_id_witness = MembershipWitness {
@@ -606,9 +608,9 @@ impl FixtureBuilder {
                 next_index: 0,
             };
             public_data_tree.update_leaf(public_data_prefill, self.updated_class_id_leaf.hash());
-            self.historical_header.state.partial.public_data_tree.root =
+            self.anchor_block_header.state.partial.public_data_tree.root =
                 public_data_tree.get_root();
-            self.historical_header.state.partial.public_data_tree.next_available_leaf_index =
+            self.anchor_block_header.state.partial.public_data_tree.next_available_leaf_index =
                 public_data_prefill + 1;
             self.updated_class_id_witness = MembershipWitness {
                 leaf_index: public_data_prefill as Field,
@@ -617,8 +619,8 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn set_historical_header_from_call_data(&mut self, private_call: PrivateCallData) {
-        self.historical_header = private_call.public_inputs.historical_header;
+    pub fn set_anchor_block_header_from_call_data(&mut self, private_call: PrivateCallData) {
+        self.anchor_block_header = private_call.public_inputs.anchor_block_header;
     }
 
     pub fn to_private_call_data(mut self) -> PrivateCallData {
@@ -836,6 +838,7 @@ impl FixtureBuilder {
 
         AvmCircuitPublicInputs {
             global_variables: self.global_variables,
+            protocol_contract_tree_root: self.protocol_contract_tree_root,
             start_tree_snapshots: self.start_snapshots,
             start_gas_used: self.start_gas_used,
             gas_settings: self.tx_context.gas_settings,
@@ -1510,7 +1513,7 @@ impl Empty for FixtureBuilder {
             fee_payer: AztecAddress::zero(),
             public_teardown_call_request: PublicCallRequest::empty(),
             effective_gas_fees: GasFees::empty(),
-            historical_header: BlockHeader::empty(),
+            anchor_block_header: BlockHeader::empty(),
             tx_context: TxContext::empty(),
             global_variables: GlobalVariables::empty(),
             note_hashes: BoundedVec::new(),
@@ -1538,7 +1541,6 @@ impl Empty for FixtureBuilder {
             contract_class_public_bytecode_commitment: 0,
             bytecode_hash: 0,
             prover_address: AztecAddress::zero(),
-            proof: NestedRecursiveProof::empty(),
             honk_vk: VerificationKey::empty(),
             client_ivc_vk: VerificationKey::empty(),
             vk_index: 0,

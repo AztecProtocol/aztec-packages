@@ -119,6 +119,11 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual([1n, expect.any(SiblingPath)]);
   });
 
+  it('getL1ToL2MessageBlock', async () => {
+    const response = await context.client.getL1ToL2MessageBlock(Fr.random());
+    expect(response).toEqual(5);
+  });
+
   it('isL1ToL2MessageSynced', async () => {
     const response = await context.client.isL1ToL2MessageSynced(Fr.random());
     expect(response).toBe(true);
@@ -533,6 +538,10 @@ class MockAztecNode implements AztecNode {
   ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
     expect(noteHash).toBeInstanceOf(Fr);
     return Promise.resolve(MembershipWitness.random(NOTE_HASH_TREE_HEIGHT));
+  }
+  getL1ToL2MessageBlock(l1ToL2Message: Fr): Promise<number | undefined> {
+    expect(l1ToL2Message).toBeInstanceOf(Fr);
+    return Promise.resolve(5);
   }
   isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
     expect(l1ToL2Message).toBeInstanceOf(Fr);

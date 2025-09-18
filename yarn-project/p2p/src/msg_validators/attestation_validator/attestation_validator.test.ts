@@ -1,6 +1,6 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
-import { makeBlockAttestation, makeHeader } from '@aztec/stdlib/testing';
+import { makeBlockAttestation, makeL2BlockHeader } from '@aztec/stdlib/testing';
 
 import { mock } from 'jest-mock-extended';
 
@@ -17,7 +17,7 @@ describe('AttestationValidator', () => {
 
   it('returns high tolerance error if slot number is not current or next slot', async () => {
     // Create an attestation for slot 97
-    const header = makeHeader(1, 97, 97);
+    const header = makeL2BlockHeader(1, 97, 97);
     const mockAttestation = makeBlockAttestation({
       header,
     });
@@ -36,7 +36,7 @@ describe('AttestationValidator', () => {
   it('returns high tolerance error if attester is not in committee', async () => {
     // The slot is correct, but the attester is not in the committee
     const mockAttestation = makeBlockAttestation({
-      header: makeHeader(1, 100, 100),
+      header: makeL2BlockHeader(1, 100, 100),
     });
 
     // Mock epoch cache to return matching slot number but invalid committee membership
@@ -53,7 +53,7 @@ describe('AttestationValidator', () => {
   it('returns undefined if attestation is valid (current slot)', async () => {
     // Create an attestation for slot 100
     const mockAttestation = makeBlockAttestation({
-      header: makeHeader(1, 100, 100),
+      header: makeL2BlockHeader(1, 100, 100),
     });
 
     // Mock epoch cache for valid case with current slot
@@ -70,7 +70,7 @@ describe('AttestationValidator', () => {
   it('returns undefined if attestation is valid (next slot)', async () => {
     // Setup attestation for next slot
     const mockAttestation = makeBlockAttestation({
-      header: makeHeader(1, 101, 101),
+      header: makeL2BlockHeader(1, 101, 101),
     });
 
     // Mock epoch cache for valid case with next slot
