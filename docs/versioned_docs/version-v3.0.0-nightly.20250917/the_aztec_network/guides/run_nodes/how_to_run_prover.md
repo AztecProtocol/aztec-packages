@@ -237,7 +237,7 @@ services:
       - start
       - --prover-broker
       - --network
-      - alpha-testnet
+      - testnet
     environment:
       DATA_DIRECTORY: /var/lib/data
       ETHEREUM_HOSTS: ${ETHEREUM_HOSTS}
@@ -255,7 +255,7 @@ services:
       - start
       - --prover-agent
       - --network
-      - alpha-testnet
+      - testnet
     environment:
       PROVER_AGENT_COUNT: ${PROVER_AGENT_COUNT}
       PROVER_AGENT_POLL_INTERVAL_MS: ${PROVER_AGENT_POLL_INTERVAL_MS}
@@ -265,7 +265,7 @@ services:
     restart: unless-stopped
 ```
 
-**Note**: This configuration includes only essential settings. The `--network alpha-testnet` flag applies network-specific defaults. See the [CLI reference](../../reference/cli_reference.md) for all available options.
+**Note**: This configuration includes only essential settings. The `--network testnet` flag applies network-specific defaults. See the [CLI reference](../../reference/cli_reference.md) for all available options.
 
 Start the prover:
 

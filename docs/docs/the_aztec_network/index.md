@@ -5,6 +5,8 @@ title: Running a Full Node
 description: A guide about how to run a full node on the Aztec network.
 ---
 
+## Background
+
 This guide will go over the steps required to run a full node on Aztec with a basic setup.
 
 A full node allows users to connect and interact with the network. It provides users an interface to send and receive transactions and state updates without relying on a third party.
@@ -24,18 +26,18 @@ Minimum hardware requirements:
 
 Please note that these requirements are subject to change as the network throughput increases.
 
-Along with the above minimum hardware requirements, it is assumed that the user has access to a performant ethereum RPC endpoint. Furthermore, this guide expects the user to be using a "standard" Linux distribution like Debian / Ubuntu when following along with the steps.
+Along with the above minimum hardware requirements, it is assumed that the user has access to a performant Ethereum RPC endpoint. Furthermore, this guide expects the user to be using a "standard" Linux distribution like Debian / Ubuntu when following along with the steps.
 
-Overview
+## Overview
 
 1. Install Docker
-2. Install aztec
+2. Install Aztec
 3. Configure the node
 4. Start the node!
 
 ## Install and set up Docker
 
-Please ensure that docker is installed. If not, here is a convenient way to install it.
+Ensure Docker is installed. If not, here is a convenient way to install it.
 This uses the script at
 [https://get.docker.com/](https://get.docker.com/) to install the
 latest stable release of Docker on Linux:
@@ -45,7 +47,7 @@ curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
 ```
 
-Afterwards, the currently logged in user must be added to the docker group, so sudo is not needed to invoke docker.
+Afterwards, the currently logged in user must be added to the docker group, so `sudo` is not needed to invoke docker.
 
 ```console
 sudo groupadd docker
@@ -57,13 +59,13 @@ docker run hello-world
 
 ## Install Aztec
 
-Run these commands to grab the aztec stack and add them to path.
+Run these commands to grab the Aztec stack and add them to path.
 
 ```console
 bash -i <(curl -s https://install.aztec.network)
 # Users should check that it is installed by using
 ls ~/.aztec/bin
-# aztec, aztec-up aztec-nargo and aztec-wallet should show up here
+# aztec, aztec-up, aztec-nargo and aztec-wallet should show up here
 echo 'export PATH="$HOME/.aztec/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
 ```
@@ -88,7 +90,7 @@ Now that the correct version of the node is installed, it needs to be configured
 mkdir aztec-node && cd ./aztec-node
 ```
 
-Next, set some required configuration options. This guide will use `custom_named` environment variables (e.g. `AZTEC_NODE_P2P_IP`) but this is not necessary; you can pass valued directly into the command without specifying them as environment variables. The external IP address of the node, and the L1 RPC endpoints must be defined when starting a node. Also, configuration defining the network version should be set, as this will let the node define the other required protocol variables, like rollup address, registry address etc. Please note that the specified RPC endpoints must support high throughput, otherwise the node will suffer degraded performance.
+Next, set some required configuration options. This guide will use `custom_named` environment variables (e.g. `AZTEC_NODE_P2P_IP`) but this is not necessary; you can pass values directly into the command without specifying them as environment variables. The external IP address of the node, and the L1 RPC endpoints must be defined when starting a node. Also, configuration defining the network version should be set, as this will let the node define the other required protocol variables, like rollup address, registry address etc. Note that the specified RPC endpoints must support high throughput, otherwise the node will suffer degraded performance.
 
 ```console
 # If the external IP of the machine the node is running on is unknown, it can be obtained by running `curl ifconfig.me`.
@@ -110,16 +112,16 @@ To verify the node is working, run these commands in another terminal window:
 
 ```console
 # Rule 1: For HTTP traffic on port 8080
-curl -X POST --data '{"method": "node_getL2Tips"}'
+curl -X POST http://localhost:8080 --data '{"method": "node_getL2Tips"}'
 # should return JSON data in the format of "{"result":{"latest":{"number":"...}}}"
 
 # Rule 2: For TCP traffic on port 40400 (set by default)
-nc -vz IP 40400
-# should return "Connection to IP 40400 port [tcp/*] succeeded!" if port open
+nc -vz [YOUR_EXTERNAL_IP] 40400
+# should return "Connection to [YOUR_EXTERNAL_IP] 40400 port [tcp/*] succeeded!" if port open
 
 # Rule 3: For UDP traffic on port 40400 (set by default)
-nc - vu IP 40400
-# should return "Connection to IP 40400 port [udp/*] succeeded!" if port open
+nc -vu [YOUR_EXTERNAL_IP] 40400
+# should return "Connection to [YOUR_EXTERNAL_IP] 40400 port [udp/*] succeeded!" if port open
 ```
 
 Congrats, the node should be up, running, and connected to the network!
