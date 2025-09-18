@@ -88,7 +88,7 @@ void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
                   commitment_labels.get_ordered_range_constraints())) {
         batch.add_to_batch(ordered_range_constraint, label, /*mask for zk?*/ false);
     }
-    batch.send_to_verifier(transcript);
+    batch.commit_and_send_to_verifier(transcript);
 }
 
 /**

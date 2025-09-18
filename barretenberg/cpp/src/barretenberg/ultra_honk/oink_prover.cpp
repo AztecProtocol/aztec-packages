@@ -114,7 +114,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
             }
         }
     }
-    batch.send_to_verifier(transcript);
+    batch.commit_and_send_to_verifier(transcript);
 }
 
 /**
@@ -146,7 +146,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_sorted_list
         prover_instance->polynomials.lookup_read_tags, commitment_labels.lookup_read_tags, /*mask?*/ Flavor::HasZK);
     batch.add_to_batch(
         prover_instance->polynomials.w_4, domain_separator + commitment_labels.w_4, /*mask?*/ Flavor::HasZK);
-    batch.send_to_verifier(transcript);
+    batch.commit_and_send_to_verifier(transcript);
 }
 
 /**
@@ -176,7 +176,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivat
             batch.add_to_batch(polynomial, label, /*mask?*/ Flavor::HasZK);
         };
     }
-    batch.send_to_verifier(transcript);
+    batch.commit_and_send_to_verifier(transcript);
 }
 
 /**

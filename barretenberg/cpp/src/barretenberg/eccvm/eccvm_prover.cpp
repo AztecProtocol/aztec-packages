@@ -68,7 +68,7 @@ void ECCVMProver::execute_wire_commitments_round()
     for (const auto& [wire, label] : zip_view(key->polynomials.get_wires(), commitment_labels.get_wires())) {
         batch.add_to_batch(wire, label, /* mask for zk? */ true);
     }
-    batch.send_to_verifier(transcript);
+    batch.commit_and_send_to_verifier(transcript);
 }
 
 /**

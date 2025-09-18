@@ -522,6 +522,7 @@ TYPED_TEST(ScalarMultiplicationTest, BenchBatchMsm)
     // Generate test data with varying sparsity
     std::vector<std::span<const AffineElement>> all_points;
     std::vector<std::span<ScalarField>> all_scalars;
+    std::vector<AffineElement> all_commitments;
     std::vector<std::vector<ScalarField>> scalar_storage;
 
     for (size_t i = 0; i < num_msms; ++i) {
@@ -534,6 +535,7 @@ TYPED_TEST(ScalarMultiplicationTest, BenchBatchMsm)
         std::span<const AffineElement> points(&TestFixture::generators[i], size);
         all_points.push_back(points);
         all_scalars.push_back(scalar_storage.back());
+        all_commitments.push_back(naive_msm(all_scalars.back(), all_points.back()));
     }
     auto func = [&]<bb::detail::OperationLabel thread_prefix>(size_t num_threads) {
         set_hardware_concurrency(num_threads);
@@ -543,13 +545,15 @@ TYPED_TEST(ScalarMultiplicationTest, BenchBatchMsm)
             for (size_t i = 0; i < num_msms; ++i) {
                 std::vector<std::span<const AffineElement>> single_points = { all_points[i] };
                 std::vector<std::span<ScalarField>> single_scalars = { all_scalars[i] };
-                scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(single_points, single_scalars);
+                auto result = scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(single_points, single_scalars);
+                EXPECT_EQ(result[0], all_commitments[i]);
             }
         }
-        // Strategy 4: Full Batch
+        // Strategy 2: Batch
         {
             BB_BENCH_NAME((bb::detail::concat<thread_prefix, "BatchMSMs">()));
-            scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(all_points, all_scalars);
+            auto result = scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(all_points, all_scalars);
+            EXPECT_EQ(result, all_commitments);
         }
     };
     // call lambda with template param

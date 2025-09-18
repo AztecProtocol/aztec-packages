@@ -121,7 +121,6 @@ template <class Curve> class CommitmentKey {
 
         // We can only commit max_batch_size at a time
         // This is to prevent excessive memory usage in the pippenger algorithm
-
         // First batch, create the commitments vector
         std::vector<Commitment> commitments;
 
@@ -164,7 +163,7 @@ template <class Curve> class CommitmentKey {
         CommitmentKey* key;
         RefVector<Polynomial<Fr>> wires;
         std::vector<std::string> labels;
-        void send_to_verifier(auto transcript, size_t max_batch_size = std::numeric_limits<size_t>::max())
+        void commit_and_send_to_verifier(auto transcript, size_t max_batch_size = std::numeric_limits<size_t>::max())
         {
             std::vector<Commitment> commitments = key->batch_commit(wires, max_batch_size);
             for (size_t i = 0; i < commitments.size(); ++i) {

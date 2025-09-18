@@ -88,7 +88,7 @@ void AvmProver::execute_wire_commitments_round()
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
         batch.add_to_batch(wire_polys[idx], labels[idx], /*mask for zk?*/ false);
     }
-    batch.send_to_verifier(transcript, AVM_MAX_MSM_BATCH_SIZE);
+    batch.commit_and_send_to_verifier(transcript, AVM_MAX_MSM_BATCH_SIZE);
 }
 
 void AvmProver::execute_log_derivative_inverse_round()
@@ -127,7 +127,7 @@ void AvmProver::execute_log_derivative_inverse_commitments_round()
 
         batch.add_to_batch(derived_poly, label, /*mask for zk?*/ false);
     }
-    batch.send_to_verifier(transcript, AVM_MAX_MSM_BATCH_SIZE);
+    batch.commit_and_send_to_verifier(transcript, AVM_MAX_MSM_BATCH_SIZE);
 }
 
 /**
