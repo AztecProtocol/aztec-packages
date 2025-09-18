@@ -80,7 +80,6 @@ use crate::{
     point::Point,
     proof::{
         proof_data::ProofData,
-        recursive_proof::NestedRecursiveProof,
         verification_key::{ClientIVCVerificationKey, HonkVerificationKey, VerificationKey},
         vk_data::VkData,
     },
@@ -95,7 +94,7 @@ use crate::{
             vk_tree::{generate_fake_vk_for_index, VK_MERKLE_TREE},
         },
         merkle_tree_utils::NonEmptyMerkleTree,
-        utils::pad_end_with_empty,
+        utils::pad_end,
     },
     traits::{Deserialize, Empty, FromField, Hash, Packable, ToField},
     utils::arrays::ClaimedLengthArray,
@@ -193,7 +192,6 @@ pub struct FixtureBuilder {
     pub prover_address: AztecAddress,
 
     // Proof.
-    pub proof: NestedRecursiveProof,
     pub honk_vk: HonkVerificationKey,
     pub client_ivc_vk: ClientIVCVerificationKey,
     pub vk_index: u32,
@@ -397,7 +395,7 @@ impl FixtureBuilder {
         let value_offset = vk_index as Field * 8976;
         ProofData {
             public_inputs,
-            proof: pad_end_with_empty([
+            proof: pad_end([
                 value_offset + 79427943,
                 value_offset + 94340,
                 value_offset + 4789150,
@@ -1543,7 +1541,6 @@ impl Empty for FixtureBuilder {
             contract_class_public_bytecode_commitment: 0,
             bytecode_hash: 0,
             prover_address: AztecAddress::zero(),
-            proof: NestedRecursiveProof::empty(),
             honk_vk: VerificationKey::empty(),
             client_ivc_vk: VerificationKey::empty(),
             vk_index: 0,

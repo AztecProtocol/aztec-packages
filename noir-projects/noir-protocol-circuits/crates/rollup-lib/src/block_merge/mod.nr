@@ -1,5 +1,6 @@
 pub(crate) mod utils;
-mod block_merge_rollup_private_inputs;
+pub(crate) mod block_merge_rollup_private_inputs;
+mod tests;
 
 pub(crate) use utils::{
     merge_block_rollups::merge_block_rollups,

@@ -55,7 +55,7 @@ describe('prover/orchestrator/single-checkpoint', () => {
 
     if (isGenerateTestDataEnabled()) {
       // These are the circuits that are not executed in prover/full.test.ts
-      ['rollup-merge', 'rollup-block-root-first-empty-tx', 'rollup-block-root'].forEach(circuitName => {
+      ['rollup-tx-merge', 'rollup-block-root-first-empty-tx', 'rollup-block-root'].forEach(circuitName => {
         const data = getTestData(circuitName);
         updateProtocolCircuitSampleInputs(circuitName, TOML.stringify(data[0] as any));
       });

@@ -1,5 +1,6 @@
 pub(crate) mod utils;
-mod checkpoint_merge_rollup_private_inputs;
+pub(crate) mod checkpoint_merge_rollup_private_inputs;
+mod tests;
 
 pub(crate) use utils::{
     merge_checkpoint_rollups::merge_checkpoint_rollups,

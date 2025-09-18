@@ -13,7 +13,6 @@ import {
   BLS12_FR_LIMBS,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
   type NULLIFIER_TREE_HEIGHT,
-  RECURSIVE_PROOF_LENGTH,
   ULTRA_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
 import { BLS12Fq, BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
@@ -31,11 +30,10 @@ import {
   type PrivateToAvmAccumulatedDataArrayLengths,
   PrivateToPublicKernelCircuitPublicInputs,
 } from '@aztec/stdlib/kernel';
-import { BaseParityInputs, ParityPublicInputs, type RootParityInput, RootParityInputs } from '@aztec/stdlib/parity';
+import { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
 import type { ProofData, RecursiveProof } from '@aztec/stdlib/proofs';
 import {
   type AvmProofData,
-  BaseOrMergeRollupPublicInputs,
   BlockConstantData,
   BlockMergeRollupPrivateInputs,
   BlockRollupPublicInputs,
@@ -52,14 +50,14 @@ import {
   CheckpointRootSingleBlockRollupPrivateInputs,
   EpochConstantData,
   FeeRecipient,
-  type MergeRollupInputs,
-  type PreviousRollupData,
-  type PrivateBaseRollupInputs,
   type PrivateBaseStateDiffHints,
-  type PublicBaseRollupInputs,
+  type PrivateTxBaseRollupPrivateInputs,
   PublicTubePrivateInputs,
+  type PublicTxBaseRollupPrivateInputs,
   RootRollupPrivateInputs,
   RootRollupPublicInputs,
+  type TxMergeRollupPrivateInputs,
+  TxRollupPublicInputs,
 } from '@aztec/stdlib/rollup';
 import { TreeSnapshots } from '@aztec/stdlib/tx';
 
@@ -71,8 +69,6 @@ import type {
   BLS12_381_Fq as BLS12FqNoir,
   BLS12_381_Fr as BLS12FrNoir,
   BLS12_381 as BLS12PointNoir,
-  BaseOrMergeRollupPublicInputs as BaseOrMergeRollupPublicInputsNoir,
-  BaseParityInputs as BaseParityInputsNoir,
   BlobAccumulatorPublicInputs as BlobAccumulatorPublicInputsNoir,
   BlockConstantData as BlockConstantDataNoir,
   BlockMergeRollupPrivateInputs as BlockMergeRollupPrivateInputsNoir,
@@ -92,26 +88,26 @@ import type {
   FeeRecipient as FeeRecipientNoir,
   FinalBlobAccumulatorPublicInputs as FinalBlobAccumulatorPublicInputsNoir,
   FinalBlobBatchingChallenges as FinalBlobBatchingChallengesNoir,
-  MergeRollupInputs as MergeRollupInputsNoir,
   Field as NoirField,
+  ParityBasePrivateInputs as ParityBasePrivateInputsNoir,
   ParityPublicInputs as ParityPublicInputsNoir,
-  RootParityInput as ParityRootParityInputNoir,
+  ParityRootPrivateInputs as ParityRootPrivateInputsNoir,
   Poseidon2Sponge as Poseidon2SpongeNoir,
-  PreviousRollupData as PreviousRollupDataNoir,
-  PrivateBaseRollupInputs as PrivateBaseRollupInputsNoir,
   PrivateBaseStateDiffHints as PrivateBaseStateDiffHintsNoir,
   PrivateToAvmAccumulatedDataArrayLengths as PrivateToAvmAccumulatedDataArrayLengthsNoir,
   PrivateToAvmAccumulatedData as PrivateToAvmAccumulatedDataNoir,
   PrivateToPublicKernelCircuitPublicInputs as PrivateToPublicKernelCircuitPublicInputsNoir,
+  PrivateTxBaseRollupPrivateInputs as PrivateTxBaseRollupPrivateInputsNoir,
   ProofData as ProofDataNoir,
-  PublicBaseRollupInputs as PublicBaseRollupInputsNoir,
   PublicDataHint as PublicDataHintNoir,
   PublicTubePrivateInputs as PublicTubePrivateInputsNoir,
-  RootParityInputs as RootParityInputsNoir,
+  PublicTxBaseRollupPrivateInputs as PublicTxBaseRollupPrivateInputsNoir,
   RootRollupPrivateInputs as RootRollupPrivateInputsNoir,
   RootRollupPublicInputs as RootRollupPublicInputsNoir,
   SpongeBlob as SpongeBlobNoir,
   TreeSnapshots as TreeSnapshotsNoir,
+  TxMergeRollupPrivateInputs as TxMergeRollupPrivateInputsNoir,
+  TxRollupPublicInputs as TxRollupPublicInputsNoir,
 } from '../types/index.js';
 import {
   mapAppendOnlyTreeSnapshotFromNoir,
@@ -153,7 +149,6 @@ import {
   mapTxConstantDataFromNoir,
   mapU64FromNoir,
   mapU64ToNoir,
-  mapVerificationKeyToNoir,
   mapVkDataToNoir,
 } from './common.js';
 
@@ -424,24 +419,31 @@ function mapEpochConstantDataToNoir(data: EpochConstantData): EpochConstantDataN
   };
 }
 
-/**
- * Maps a base or merge rollup public inputs to a noir base or merge rollup public inputs.
- * @param baseOrMergeRollupPublicInputs - The base or merge rollup public inputs.
- * @returns The noir base or merge rollup public inputs.
- */
-export function mapBaseOrMergeRollupPublicInputsToNoir(
-  baseOrMergeRollupPublicInputs: BaseOrMergeRollupPublicInputs,
-): BaseOrMergeRollupPublicInputsNoir {
+export function mapTxRollupPublicInputsFromNoir(publicInputs: TxRollupPublicInputsNoir): TxRollupPublicInputs {
+  return new TxRollupPublicInputs(
+    mapNumberFromNoir(publicInputs.num_txs),
+    mapBlockConstantDataFromNoir(publicInputs.constants),
+    mapPartialStateReferenceFromNoir(publicInputs.start_partial_state),
+    mapPartialStateReferenceFromNoir(publicInputs.end_partial_state),
+    mapSpongeBlobFromNoir(publicInputs.start_sponge_blob),
+    mapSpongeBlobFromNoir(publicInputs.end_sponge_blob),
+    mapFieldFromNoir(publicInputs.out_hash),
+    mapFieldFromNoir(publicInputs.accumulated_fees),
+    mapFieldFromNoir(publicInputs.accumulated_mana_used),
+  );
+}
+
+export function mapTxRollupPublicInputsToNoir(publicInputs: TxRollupPublicInputs): TxRollupPublicInputsNoir {
   return {
-    num_txs: mapFieldToNoir(new Fr(baseOrMergeRollupPublicInputs.numTxs)),
-    constants: mapBlockConstantDataToNoir(baseOrMergeRollupPublicInputs.constants),
-    start: mapPartialStateReferenceToNoir(baseOrMergeRollupPublicInputs.start),
-    end: mapPartialStateReferenceToNoir(baseOrMergeRollupPublicInputs.end),
-    start_sponge_blob: mapSpongeBlobToNoir(baseOrMergeRollupPublicInputs.startSpongeBlob),
-    end_sponge_blob: mapSpongeBlobToNoir(baseOrMergeRollupPublicInputs.endSpongeBlob),
-    out_hash: mapFieldToNoir(baseOrMergeRollupPublicInputs.outHash),
-    accumulated_fees: mapFieldToNoir(baseOrMergeRollupPublicInputs.accumulatedFees),
-    accumulated_mana_used: mapFieldToNoir(baseOrMergeRollupPublicInputs.accumulatedManaUsed),
+    num_txs: mapFieldToNoir(new Fr(publicInputs.numTxs)),
+    constants: mapBlockConstantDataToNoir(publicInputs.constants),
+    start_partial_state: mapPartialStateReferenceToNoir(publicInputs.startPartialState),
+    end_partial_state: mapPartialStateReferenceToNoir(publicInputs.endPartialState),
+    start_sponge_blob: mapSpongeBlobToNoir(publicInputs.startSpongeBlob),
+    end_sponge_blob: mapSpongeBlobToNoir(publicInputs.endSpongeBlob),
+    out_hash: mapFieldToNoir(publicInputs.outHash),
+    accumulated_fees: mapFieldToNoir(publicInputs.accumulatedFees),
+    accumulated_mana_used: mapFieldToNoir(publicInputs.accumulatedManaUsed),
   };
 }
 
@@ -463,17 +465,6 @@ function mapProofDataToNoir<T extends Bufferable, TN, PROOF_LENGTH extends numbe
     public_inputs: publicInputsToNoir(proofData.publicInputs),
     proof: mapFieldArrayToNoir(proofData.proof.proof),
     vk_data: mapVkDataToNoir(proofData.vkData, vkLength),
-  };
-}
-
-function mapRootParityInputToNoir(
-  rootParityInput: RootParityInput<typeof RECURSIVE_PROOF_LENGTH>,
-): ParityRootParityInputNoir {
-  return {
-    proof: mapRecursiveProofToNoir(rootParityInput.proof),
-    verification_key: mapVerificationKeyToNoir(rootParityInput.verificationKey, ULTRA_VK_LENGTH_IN_FIELDS),
-    vk_path: mapTuple(rootParityInput.vkPath, mapFieldToNoir),
-    public_inputs: mapParityPublicInputsToNoir(rootParityInput.publicInputs),
   };
 }
 
@@ -663,21 +654,6 @@ export function mapCheckpointRollupPublicInputsToNoir(
   };
 }
 
-/**
- * Maps a previous rollup data from the stdlib type to noir.
- * @param previousRollupData - The stdlib previous rollup data.
- * @returns The noir previous rollup data.
- */
-function mapPreviousRollupDataToNoir(previousRollupData: PreviousRollupData): PreviousRollupDataNoir {
-  return {
-    base_or_merge_rollup_public_inputs: mapBaseOrMergeRollupPublicInputsToNoir(
-      previousRollupData.baseOrMergeRollupPublicInputs,
-    ),
-    proof: mapRecursiveProofToNoir(previousRollupData.proof),
-    vk_data: mapVkDataToNoir(previousRollupData.vkData, ULTRA_VK_LENGTH_IN_FIELDS),
-  };
-}
-
 export function mapPrivateToPublicKernelCircuitPublicInputsFromNoir(
   inputs: PrivateToPublicKernelCircuitPublicInputsNoir,
 ) {
@@ -689,27 +665,6 @@ export function mapPrivateToPublicKernelCircuitPublicInputsFromNoir(
     mapGasFromNoir(inputs.gas_used),
     mapAztecAddressFromNoir(inputs.fee_payer),
     mapU64FromNoir(inputs.include_by_timestamp),
-  );
-}
-
-/**
- * Maps a base or merge rollup public inputs from noir to the stdlib type.
- * @param baseOrMergeRollupPublicInputs - The noir base or merge rollup public inputs.
- * @returns The stdlib base or merge rollup public inputs.
- */
-export function mapBaseOrMergeRollupPublicInputsFromNoir(
-  baseOrMergeRollupPublicInputs: BaseOrMergeRollupPublicInputsNoir,
-): BaseOrMergeRollupPublicInputs {
-  return new BaseOrMergeRollupPublicInputs(
-    mapNumberFromNoir(baseOrMergeRollupPublicInputs.num_txs),
-    mapBlockConstantDataFromNoir(baseOrMergeRollupPublicInputs.constants),
-    mapPartialStateReferenceFromNoir(baseOrMergeRollupPublicInputs.start),
-    mapPartialStateReferenceFromNoir(baseOrMergeRollupPublicInputs.end),
-    mapSpongeBlobFromNoir(baseOrMergeRollupPublicInputs.start_sponge_blob),
-    mapSpongeBlobFromNoir(baseOrMergeRollupPublicInputs.end_sponge_blob),
-    mapFieldFromNoir(baseOrMergeRollupPublicInputs.out_hash),
-    mapFieldFromNoir(baseOrMergeRollupPublicInputs.accumulated_fees),
-    mapFieldFromNoir(baseOrMergeRollupPublicInputs.accumulated_mana_used),
   );
 }
 
@@ -735,26 +690,18 @@ export function mapPrivateBaseStateDiffHintsToNoir(hints: PrivateBaseStateDiffHi
   };
 }
 
-/**
- * Maps base parity inputs to noir.
- * @param inputs - The stdlib base parity inputs.
- * @returns The noir base parity inputs.
- */
-export function mapBaseParityInputsToNoir(inputs: BaseParityInputs): BaseParityInputsNoir {
+export function mapParityBasePrivateInputsToNoir(inputs: ParityBasePrivateInputs): ParityBasePrivateInputsNoir {
   return {
     msgs: mapTuple(inputs.msgs, mapFieldToNoir),
     vk_tree_root: mapFieldToNoir(inputs.vkTreeRoot),
   };
 }
 
-/**
- * Maps root parity inputs to noir.
- * @param inputs - The stdlib root parity inputs.
- * @returns The noir root parity inputs.
- */
-export function mapRootParityInputsToNoir(inputs: RootParityInputs): RootParityInputsNoir {
+export function mapParityRootPrivateInputsToNoir(inputs: ParityRootPrivateInputs): ParityRootPrivateInputsNoir {
   return {
-    children: mapTuple(inputs.children, mapRootParityInputToNoir),
+    children: mapTuple(inputs.children, c =>
+      mapProofDataToNoir(c, mapParityPublicInputsToNoir, ULTRA_VK_LENGTH_IN_FIELDS),
+    ),
   };
 }
 
@@ -767,18 +714,15 @@ export function mapPublicTubePrivateInputsToNoir(inputs: PublicTubePrivateInputs
   };
 }
 
-/**
- * Maps the inputs to the base rollup to noir.
- * @param input - The stdlib base rollup inputs.
- * @returns The noir base rollup inputs.
- */
-export function mapPrivateBaseRollupInputsToNoir(inputs: PrivateBaseRollupInputs): PrivateBaseRollupInputsNoir {
+export function mapPrivateTxBaseRollupPrivateInputsToNoir(
+  inputs: PrivateTxBaseRollupPrivateInputs,
+): PrivateTxBaseRollupPrivateInputsNoir {
   return {
     hiding_kernel_proof_data: mapProofDataToNoir(
       inputs.hidingKernelProofData,
       mapPrivateToRollupKernelCircuitPublicInputsToNoir,
     ),
-    start: mapPartialStateReferenceToNoir(inputs.hints.start),
+    start_partial_state: mapPartialStateReferenceToNoir(inputs.hints.start),
     start_sponge_blob: mapSpongeBlobToNoir(inputs.hints.startSpongeBlob),
     state_diff_hints: mapPrivateBaseStateDiffHintsToNoir(inputs.hints.stateDiffHints),
     fee_payer_fee_juice_balance_read_hint: mapPublicDataHintToNoir(inputs.hints.feePayerFeeJuiceBalanceReadHint),
@@ -798,7 +742,9 @@ function mapAvmProofDataToNoir(data: AvmProofData): AvmProofDataNoir {
   };
 }
 
-export function mapPublicBaseRollupInputsToNoir(inputs: PublicBaseRollupInputs): PublicBaseRollupInputsNoir {
+export function mapPublicTxBaseRollupPrivateInputsToNoir(
+  inputs: PublicTxBaseRollupPrivateInputs,
+): PublicTxBaseRollupPrivateInputsNoir {
   return {
     public_tube_proof_data: mapProofDataToNoir(
       inputs.publicTubeProofData,
@@ -815,14 +761,14 @@ export function mapPublicBaseRollupInputsToNoir(inputs: PublicBaseRollupInputs):
   };
 }
 
-/**
- * Maps the merge rollup inputs to noir.
- * @param mergeRollupInputs - The stdlib merge rollup inputs.
- * @returns The noir merge rollup inputs.
- */
-export function mapMergeRollupInputsToNoir(mergeRollupInputs: MergeRollupInputs): MergeRollupInputsNoir {
+export function mapTxMergeRollupPrivateInputsToNoir(
+  inputs: TxMergeRollupPrivateInputs,
+): TxMergeRollupPrivateInputsNoir {
   return {
-    previous_rollup_data: mapTuple(mergeRollupInputs.previousRollupData, mapPreviousRollupDataToNoir),
+    previous_rollups: [
+      mapProofDataToNoir(inputs.previousRollups[0], mapTxRollupPublicInputsToNoir),
+      mapProofDataToNoir(inputs.previousRollups[1], mapTxRollupPublicInputsToNoir),
+    ],
   };
 }
 
@@ -840,8 +786,8 @@ export function mapBlockRootFirstRollupPrivateInputsToNoir(
   return {
     parity_root: mapProofDataToNoir(inputs.l1ToL2Roots, mapParityPublicInputsToNoir),
     previous_rollups: [
-      mapProofDataToNoir(inputs.previousRollups[0], mapBaseOrMergeRollupPublicInputsToNoir),
-      mapProofDataToNoir(inputs.previousRollups[1], mapBaseOrMergeRollupPublicInputsToNoir),
+      mapProofDataToNoir(inputs.previousRollups[0], mapTxRollupPublicInputsToNoir),
+      mapProofDataToNoir(inputs.previousRollups[1], mapTxRollupPublicInputsToNoir),
     ],
     previous_l1_to_l2: mapAppendOnlyTreeSnapshotToNoir(inputs.previousL1ToL2),
     new_l1_to_l2_message_subtree_sibling_path: mapTuple(inputs.newL1ToL2MessageSubtreeSiblingPath, mapFieldToNoir),
@@ -854,7 +800,7 @@ export function mapBlockRootSingleTxFirstRollupPrivateInputsToNoir(
 ): BlockRootSingleTxFirstRollupPrivateInputsNoir {
   return {
     parity_root: mapProofDataToNoir(inputs.l1ToL2Roots, mapParityPublicInputsToNoir),
-    previous_rollup: mapProofDataToNoir(inputs.previousRollup, mapBaseOrMergeRollupPublicInputsToNoir),
+    previous_rollup: mapProofDataToNoir(inputs.previousRollup, mapTxRollupPublicInputsToNoir),
     previous_l1_to_l2: mapAppendOnlyTreeSnapshotToNoir(inputs.previousL1ToL2),
     new_l1_to_l2_message_subtree_sibling_path: mapTuple(inputs.newL1ToL2MessageSubtreeSiblingPath, mapFieldToNoir),
     new_archive_sibling_path: mapTuple(inputs.newArchiveSiblingPath, mapFieldToNoir),
@@ -881,8 +827,8 @@ export function mapBlockRootRollupPrivateInputsToNoir(
 ): BlockRootRollupPrivateInputsNoir {
   return {
     previous_rollups: [
-      mapProofDataToNoir(inputs.previousRollups[0], mapBaseOrMergeRollupPublicInputsToNoir),
-      mapProofDataToNoir(inputs.previousRollups[1], mapBaseOrMergeRollupPublicInputsToNoir),
+      mapProofDataToNoir(inputs.previousRollups[0], mapTxRollupPublicInputsToNoir),
+      mapProofDataToNoir(inputs.previousRollups[1], mapTxRollupPublicInputsToNoir),
     ],
     new_archive_sibling_path: mapTuple(inputs.newArchiveSiblingPath, mapFieldToNoir),
   };
@@ -892,18 +838,18 @@ export function mapBlockRootSingleTxRollupPrivateInputsToNoir(
   inputs: BlockRootSingleTxRollupPrivateInputs,
 ): BlockRootSingleTxRollupPrivateInputsNoir {
   return {
-    previous_rollup: mapProofDataToNoir(inputs.previousRollup, mapBaseOrMergeRollupPublicInputsToNoir),
+    previous_rollup: mapProofDataToNoir(inputs.previousRollup, mapTxRollupPublicInputsToNoir),
     new_archive_sibling_path: mapTuple(inputs.newArchiveSiblingPath, mapFieldToNoir),
   };
 }
 
 export function mapBlockMergeRollupPrivateInputsToNoir(
-  mergeRollupInputs: BlockMergeRollupPrivateInputs,
+  inputs: BlockMergeRollupPrivateInputs,
 ): BlockMergeRollupPrivateInputsNoir {
   return {
     previous_rollups: [
-      mapProofDataToNoir(mergeRollupInputs.previousRollups[0], mapBlockRollupPublicInputsToNoir),
-      mapProofDataToNoir(mergeRollupInputs.previousRollups[1], mapBlockRollupPublicInputsToNoir),
+      mapProofDataToNoir(inputs.previousRollups[0], mapBlockRollupPublicInputsToNoir),
+      mapProofDataToNoir(inputs.previousRollups[1], mapBlockRollupPublicInputsToNoir),
     ],
   };
 }

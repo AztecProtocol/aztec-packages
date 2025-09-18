@@ -39,7 +39,6 @@ import {
   PRIVATE_LOG_SIZE_IN_FIELDS,
   PUBLIC_DATA_TREE_HEIGHT,
   PUBLIC_LOG_SIZE_IN_FIELDS,
-  RECURSIVE_PROOF_LENGTH,
   RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
@@ -127,34 +126,32 @@ import { ContractClassLogFields } from '../logs/index.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { PublicLog } from '../logs/public_log.js';
 import { CountedL2ToL1Message, L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
-import { BaseParityInputs } from '../parity/base_parity_inputs.js';
+import { ParityBasePrivateInputs } from '../parity/parity_base_private_inputs.js';
 import { ParityPublicInputs } from '../parity/parity_public_inputs.js';
-import { RootParityInput } from '../parity/root_parity_input.js';
-import { RootParityInputs } from '../parity/root_parity_inputs.js';
+import { ParityRootPrivateInputs } from '../parity/parity_root_private_inputs.js';
+import { ProofData } from '../proofs/index.js';
 import { Proof } from '../proofs/proof.js';
-import { ProofData } from '../proofs/proof_data.js';
 import { ProvingRequestType } from '../proofs/proving_request_type.js';
 import { makeRecursiveProof } from '../proofs/recursive_proof.js';
 import { AvmProofData } from '../rollup/avm_proof_data.js';
-import { BaseOrMergeRollupPublicInputs } from '../rollup/base_or_merge_rollup_public_inputs.js';
 import { PrivateBaseRollupHints, PublicBaseRollupHints } from '../rollup/base_rollup_hints.js';
 import { BlockConstantData } from '../rollup/block_constant_data.js';
-import { BlockMergeRollupPrivateInputs } from '../rollup/block_merge_rollup.js';
+import { BlockMergeRollupPrivateInputs } from '../rollup/block_merge_rollup_private_inputs.js';
 import { BlockRollupPublicInputs } from '../rollup/block_rollup_public_inputs.js';
 import {
   BlockRootFirstRollupPrivateInputs,
   BlockRootSingleTxRollupPrivateInputs,
-} from '../rollup/block_root_rollup.js';
+} from '../rollup/block_root_rollup_private_inputs.js';
 import { CheckpointConstantData } from '../rollup/checkpoint_constant_data.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { CheckpointRollupPublicInputs, FeeRecipient } from '../rollup/checkpoint_rollup_public_inputs.js';
 import { EpochConstantData } from '../rollup/epoch_constant_data.js';
-import { MergeRollupInputs } from '../rollup/merge_rollup.js';
-import { PreviousRollupData } from '../rollup/previous_rollup_data.js';
-import { PrivateBaseRollupInputs } from '../rollup/private_base_rollup_inputs.js';
-import { PublicBaseRollupInputs } from '../rollup/public_base_rollup_inputs.js';
-import { RootRollupPublicInputs } from '../rollup/root_rollup.js';
+import { PrivateTxBaseRollupPrivateInputs } from '../rollup/private_tx_base_rollup_private_inputs.js';
+import { PublicTxBaseRollupPrivateInputs } from '../rollup/public_tx_base_rollup_private_inputs.js';
+import { RootRollupPublicInputs } from '../rollup/root_rollup_public_inputs.js';
 import { PrivateBaseStateDiffHints } from '../rollup/state_diff_hints.js';
+import { TxMergeRollupPrivateInputs } from '../rollup/tx_merge_rollup_private_inputs.js';
+import { TxRollupPublicInputs } from '../rollup/tx_rollup_public_inputs.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierLeaf, NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
@@ -706,11 +703,11 @@ function makeEpochConstantData(seed = 1) {
  * @param blockNumber - The block number to use for generating the base rollup circuit public inputs.
  * @returns A base or merge rollup circuit public inputs.
  */
-export function makeBaseOrMergeRollupPublicInputs(
+export function makeTxRollupPublicInputs(
   seed = 0,
   globalVariables: GlobalVariables | undefined = undefined,
-): BaseOrMergeRollupPublicInputs {
-  return new BaseOrMergeRollupPublicInputs(
+): TxRollupPublicInputs {
+  return new TxRollupPublicInputs(
     1,
     makeBlockConstantData(seed + 0x200, globalVariables),
     makePartialStateReference(seed + 0x300),
@@ -761,38 +758,6 @@ export function makeCheckpointRollupPublicInputs(seed = 0) {
   );
 }
 
-/**
- * Makes arbitrary previous rollup data.
- * @param seed - The seed to use for generating the previous rollup data.
- * @param globalVariables - The global variables to use when generating the previous rollup data.
- * @returns A previous rollup data.
- */
-export function makePreviousRollupData(
-  seed = 0,
-  globalVariables: GlobalVariables | undefined = undefined,
-): PreviousRollupData {
-  return new PreviousRollupData(
-    makeBaseOrMergeRollupPublicInputs(seed, globalVariables),
-    makeRecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>(
-      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-      seed + 0x50,
-    ),
-    makeVkData(seed + 0x100),
-  );
-}
-
-export function makeRootParityInput<PROOF_LENGTH extends number>(
-  proofSize: PROOF_LENGTH,
-  seed = 0,
-): RootParityInput<PROOF_LENGTH> {
-  return new RootParityInput<PROOF_LENGTH>(
-    makeRecursiveProof<PROOF_LENGTH>(proofSize, seed),
-    VerificationKeyAsFields.makeFake(seed + 0x100),
-    makeTuple(VK_TREE_HEIGHT, fr, 0x200),
-    makeParityPublicInputs(seed + 0x300),
-  );
-}
-
 export function makeParityPublicInputs(seed = 0): ParityPublicInputs {
   return new ParityPublicInputs(
     new Fr(BigInt(seed + 0x200)),
@@ -801,17 +766,13 @@ export function makeParityPublicInputs(seed = 0): ParityPublicInputs {
   );
 }
 
-export function makeBaseParityInputs(seed = 0): BaseParityInputs {
-  return new BaseParityInputs(makeTuple(NUM_MSGS_PER_BASE_PARITY, fr, seed + 0x3000), new Fr(seed + 0x4000));
+export function makeParityBasePrivateInputs(seed = 0): ParityBasePrivateInputs {
+  return new ParityBasePrivateInputs(makeTuple(NUM_MSGS_PER_BASE_PARITY, fr, seed + 0x3000), new Fr(seed + 0x4000));
 }
 
-export function makeRootParityInputs(seed = 0): RootParityInputs {
-  return new RootParityInputs(
-    makeTuple(
-      NUM_BASE_PARITY_PER_ROOT_PARITY,
-      () => makeRootParityInput<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH),
-      seed + 0x4100,
-    ),
+export function makeParityRootPrivateInputs(seed = 0) {
+  return new ParityRootPrivateInputs(
+    makeTuple(NUM_BASE_PARITY_PER_ROOT_PARITY, () => makeProofData(seed, makeParityPublicInputs)),
   );
 }
 
@@ -949,22 +910,17 @@ export function makePartialStateReference(seed = 0): PartialStateReference {
   );
 }
 
-/**
- * Makes arbitrary merge rollup inputs.
- * @param seed - The seed to use for generating the merge rollup inputs.
- * @returns A merge rollup inputs.
- */
-export function makeMergeRollupInputs(seed = 0): MergeRollupInputs {
-  return new MergeRollupInputs([makePreviousRollupData(seed), makePreviousRollupData(seed + 0x1000)]);
+export function makeTxMergeRollupPrivateInputs(seed = 0): TxMergeRollupPrivateInputs {
+  return new TxMergeRollupPrivateInputs([
+    makeProofData(seed, makeTxRollupPublicInputs),
+    makeProofData(seed + 0x1000, makeTxRollupPublicInputs),
+  ]);
 }
 
 export function makeBlockRootFirstRollupPrivateInputs(seed = 0) {
   return new BlockRootFirstRollupPrivateInputs(
     makeProofData(seed, makeParityPublicInputs),
-    [
-      makeProofData(seed + 0x1000, makeBaseOrMergeRollupPublicInputs),
-      makeProofData(seed + 0x2000, makeBaseOrMergeRollupPublicInputs),
-    ],
+    [makeProofData(seed + 0x1000, makeTxRollupPublicInputs), makeProofData(seed + 0x2000, makeTxRollupPublicInputs)],
     makeAppendOnlyTreeSnapshot(seed + 0x3000),
     makeSiblingPath(seed + 0x4000, L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH),
     makeSiblingPath(seed + 0x5000, ARCHIVE_HEIGHT),
@@ -973,7 +929,7 @@ export function makeBlockRootFirstRollupPrivateInputs(seed = 0) {
 
 export function makeBlockRootSingleTxRollupPrivateInputs(seed = 0) {
   return new BlockRootSingleTxRollupPrivateInputs(
-    makeProofData(seed + 0x1000, makeBaseOrMergeRollupPublicInputs),
+    makeProofData(seed + 0x1000, makeTxRollupPublicInputs),
     makeSiblingPath(seed + 0x4000, ARCHIVE_HEIGHT),
   );
 }
@@ -1125,8 +1081,8 @@ function makePublicBaseRollupHints(seed = 1) {
   });
 }
 
-export function makePrivateBaseRollupInputs(seed = 0) {
-  return PrivateBaseRollupInputs.from({
+export function makePrivateTxBaseRollupPrivateInputs(seed = 0) {
+  return PrivateTxBaseRollupPrivateInputs.from({
     hidingKernelProofData: makeProofData(seed, makePrivateToRollupKernelCircuitPublicInputs, CIVC_PROOF_LENGTH),
     hints: makePrivateBaseRollupHints(seed + 0x100),
   });
@@ -1140,7 +1096,7 @@ function makeAvmProofData(seed = 1) {
   );
 }
 
-export function makePublicBaseRollupInputs(seed = 0) {
+export function makePublicTxBaseRollupPrivateInputs(seed = 0) {
   const publicTubeProofData = makeProofData(
     seed,
     makePrivateToPublicKernelCircuitPublicInputs,
@@ -1149,7 +1105,7 @@ export function makePublicBaseRollupInputs(seed = 0) {
   const avmProofData = makeAvmProofData(seed + 0x100);
   const hints = makePublicBaseRollupHints(seed + 0x200);
 
-  return PublicBaseRollupInputs.from({
+  return PublicTxBaseRollupPrivateInputs.from({
     publicTubeProofData,
     avmProofData,
     hints,

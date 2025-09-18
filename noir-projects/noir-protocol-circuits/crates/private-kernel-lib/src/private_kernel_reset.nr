@@ -817,7 +817,7 @@ mod tests {
         }
             .scope(SIDE_EFFECT_MASKING_ADDRESS)];
         let padded_private_logs = [PrivateLogData {
-            log: PrivateLog { fields: pad_end([22, 33], 0), length: 2 },
+            log: PrivateLog { fields: pad_end([22, 33]), length: 2 },
             note_hash_counter: 0,
             counter: MAX_U32_VALUE,
         }

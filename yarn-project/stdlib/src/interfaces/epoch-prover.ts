@@ -4,7 +4,7 @@ import type { Fr } from '@aztec/foundation/fields';
 
 import type { Proof } from '../proofs/proof.js';
 import type { CheckpointConstantData } from '../rollup/checkpoint_constant_data.js';
-import type { RootRollupPublicInputs } from '../rollup/root_rollup.js';
+import type { RootRollupPublicInputs } from '../rollup/root_rollup_public_inputs.js';
 import type { BlockHeader } from '../tx/block_header.js';
 import type { Tx } from '../tx/tx.js';
 import type { UInt64 } from '../types/index.js';

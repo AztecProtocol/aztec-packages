@@ -1,4 +1,4 @@
-use crate::{abis::CheckpointRollupPublicInputs, merge::assert_rollups_filled_greedily};
+use crate::{abis::CheckpointRollupPublicInputs, tx_merge::assert_rollups_filled_greedily};
 
 pub fn validate_consecutive_checkpoint_rollups(
     left: CheckpointRollupPublicInputs,

@@ -114,9 +114,9 @@ pub comptime global HIDING_KERNEL_TO_ROLLUP_VK_INDEX: u32 = 4;
 pub comptime global HIDING_KERNEL_TO_PUBLIC_VK_INDEX: u32 = 5;
 pub comptime global PUBLIC_TUBE_VK_INDEX: u32 = 6;
 pub comptime global AVM_VK_INDEX: u32 = 7;
-pub comptime global PRIVATE_BASE_ROLLUP_VK_INDEX: u32 = 8;
-pub comptime global PUBLIC_BASE_ROLLUP_VK_INDEX: u32 = 9;
-pub comptime global MERGE_ROLLUP_VK_INDEX: u32 = 10;
+pub comptime global PRIVATE_TX_BASE_ROLLUP_VK_INDEX: u32 = 8;
+pub comptime global PUBLIC_TX_BASE_ROLLUP_VK_INDEX: u32 = 9;
+pub comptime global TX_MERGE_ROLLUP_VK_INDEX: u32 = 10;
 pub comptime global BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX: u32 = 11;
 pub comptime global BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX: u32 = 12;
 pub comptime global BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX: u32 = 13;
@@ -127,9 +127,9 @@ pub comptime global CHECKPOINT_ROOT_ROLLUP_VK_INDEX: u32 = 17;
 pub comptime global CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP_VK_INDEX: u32 = 18;
 pub comptime global CHECKPOINT_PADDING_ROLLUP_VK_INDEX: u32 = 19;
 pub comptime global CHECKPOINT_MERGE_ROLLUP_VK_INDEX: u32 = 20;
-pub comptime global ROOT_ROLLUP_INDEX: u32 = 21;
-pub comptime global BASE_PARITY_INDEX: u32 = 22;
-pub comptime global ROOT_PARITY_INDEX: u32 = 23;
+pub comptime global ROOT_ROLLUP_VK_INDEX: u32 = 21;
+pub comptime global PARITY_BASE_VK_INDEX: u32 = 22;
+pub comptime global PARITY_ROOT_VK_INDEX: u32 = 23;
 pub comptime global PRIVATE_KERNEL_RESET_INDEX: u32 = 24;
 // Important: Do not define indexes after the PRIVATE_KERNEL_RESET_INDEX. They are allocated for the variants of private kernel reset.
 
@@ -496,7 +496,7 @@ pub global EPOCH_CONSTANT_DATA_LENGTH: u32 = 1 /* chain_id */
     + 1 /* protocol_contract_tree_root */
     + 1 /* prover_id */;
 
-pub global BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH: u32 = BLOCK_CONSTANT_DATA_LENGTH
+pub global TX_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = BLOCK_CONSTANT_DATA_LENGTH
     + PARTIAL_STATE_REFERENCE_LENGTH /* start_state_reference */
     + PARTIAL_STATE_REFERENCE_LENGTH /* end_state_reference */
     + SPONGE_BLOB_LENGTH /* start_sponge_blob */

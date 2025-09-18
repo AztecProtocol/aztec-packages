@@ -1,4 +1,4 @@
-pub fn is_power_of_2(n: u32) -> bool {
+pub fn is_power_of_2(n: u16) -> bool {
     if n == 0 {
         false
     } else {

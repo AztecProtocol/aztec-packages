@@ -18,9 +18,9 @@ const circuits = [
   'hiding_kernel_to_rollup',
   'hiding_kernel_to_public',
   'tube_public',
-  'rollup_base_private',
-  'rollup_base_public',
-  'rollup_merge',
+  'rollup_tx_base_private',
+  'rollup_tx_base_public',
+  'rollup_tx_merge',
   'rollup_block_root',
   'rollup_block_root_single_tx',
   'rollup_block_root_first',
@@ -53,15 +53,12 @@ const main = async () => {
     const abiObj: CompiledCircuit = JSON.parse(rawData);
     programs.push([pascalCase(circuit), abiObj]);
   }
-  let code = codegen(
+  const code = codegen(
     programs,
     false, // Don't embed artifacts
     true, // Use fixed length arrays
   );
 
-  code += `
-    export * from '../artifacts/types.js';
-  `;
   await fs.writeFile('./src/types/index.ts', code);
 };
 

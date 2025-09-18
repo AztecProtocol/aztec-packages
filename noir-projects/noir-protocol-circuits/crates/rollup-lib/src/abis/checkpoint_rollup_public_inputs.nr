@@ -35,10 +35,12 @@ pub struct CheckpointRollupPublicInputs {
 }
 
 impl CheckpointRollupPublicInputs {
-    pub fn num_checkpoints(self) -> u32 {
+    pub fn num_checkpoints(self) -> u16 {
         // Each checkpoint inserts its header hash into the `checkpoint_header_hashes` array.
         // The number of checkpoints is equal to the number of non-empty hashes in the array.
-        array_length(self.checkpoint_header_hashes)
+        // When merging two checkpoints, the checkpoint_merge circuit checks that the total number of checkpoints
+        // does not exceed the size of the `checkpoint_header_hashes` array.
+        array_length(self.checkpoint_header_hashes) as u16
     }
 }
 
@@ -63,4 +65,14 @@ fn serialization_of_checkpoint_rollup_public_inputs() {
     let serialized: [Field; CHECKPOINT_ROLLUP_PUBLIC_INPUTS_LENGTH] = item.serialize();
     let deserialized = CheckpointRollupPublicInputs::deserialize(serialized);
     assert(item.eq(deserialized));
+}
+
+#[test]
+fn correct_num_checkpoints() {
+    let mut item: CheckpointRollupPublicInputs = make_fixture(1);
+    item.checkpoint_header_hashes = [0; AZTEC_MAX_EPOCH_DURATION];
+    item.checkpoint_header_hashes[0] = 11;
+    item.checkpoint_header_hashes[1] = 22;
+    item.checkpoint_header_hashes[2] = 33;
+    assert_eq(item.num_checkpoints(), 3);
 }

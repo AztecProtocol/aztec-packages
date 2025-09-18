@@ -11,13 +11,12 @@ import { z } from 'zod';
 import { AvmCircuitInputs } from '../avm/avm.js';
 import { AvmProvingRequestSchema } from '../avm/avm_proving_request.js';
 import { PrivateToPublicKernelCircuitPublicInputs } from '../kernel/private_to_public_kernel_circuit_public_inputs.js';
-import { BaseParityInputs } from '../parity/base_parity_inputs.js';
+import { ParityBasePrivateInputs } from '../parity/parity_base_private_inputs.js';
 import { ParityPublicInputs } from '../parity/parity_public_inputs.js';
-import { RootParityInputs } from '../parity/root_parity_inputs.js';
+import { ParityRootPrivateInputs } from '../parity/parity_root_private_inputs.js';
 import { ProvingRequestType } from '../proofs/proving_request_type.js';
 import { RecursiveProof } from '../proofs/recursive_proof.js';
-import { BaseOrMergeRollupPublicInputs } from '../rollup/base_or_merge_rollup_public_inputs.js';
-import { BlockMergeRollupPrivateInputs } from '../rollup/block_merge_rollup.js';
+import { BlockMergeRollupPrivateInputs } from '../rollup/block_merge_rollup_private_inputs.js';
 import { BlockRollupPublicInputs } from '../rollup/block_rollup_public_inputs.js';
 import {
   BlockRootEmptyTxFirstRollupPrivateInputs,
@@ -25,20 +24,21 @@ import {
   BlockRootRollupPrivateInputs,
   BlockRootSingleTxFirstRollupPrivateInputs,
   BlockRootSingleTxRollupPrivateInputs,
-} from '../rollup/block_root_rollup.js';
-import { CheckpointMergeRollupPrivateInputs } from '../rollup/checkpoint_merge_rollup.js';
+} from '../rollup/block_root_rollup_private_inputs.js';
+import { CheckpointMergeRollupPrivateInputs } from '../rollup/checkpoint_merge_rollup_private_inputs.js';
 import { CheckpointRollupPublicInputs } from '../rollup/checkpoint_rollup_public_inputs.js';
 import {
   CheckpointPaddingRollupPrivateInputs,
   CheckpointRootRollupPrivateInputs,
   CheckpointRootSingleBlockRollupPrivateInputs,
-} from '../rollup/checkpoint_root_rollup.js';
+} from '../rollup/checkpoint_root_rollup_private_inputs.js';
 import { PublicTubePrivateInputs } from '../rollup/index.js';
-import { MergeRollupInputs } from '../rollup/merge_rollup.js';
-import { PrivateBaseRollupInputs } from '../rollup/private_base_rollup_inputs.js';
-import { PublicBaseRollupInputs } from '../rollup/public_base_rollup_inputs.js';
-import { RootRollupPrivateInputs, RootRollupPublicInputs } from '../rollup/root_rollup.js';
-import type { ServerCircuitName } from '../stats/index.js';
+import { PrivateTxBaseRollupPrivateInputs } from '../rollup/private_tx_base_rollup_private_inputs.js';
+import { PublicTxBaseRollupPrivateInputs } from '../rollup/public_tx_base_rollup_private_inputs.js';
+import { RootRollupPrivateInputs } from '../rollup/root_rollup_private_inputs.js';
+import { RootRollupPublicInputs } from '../rollup/root_rollup_public_inputs.js';
+import { TxMergeRollupPrivateInputs } from '../rollup/tx_merge_rollup_private_inputs.js';
+import { TxRollupPublicInputs } from '../rollup/tx_rollup_public_inputs.js';
 import { VerificationKeyData } from '../vks/verification_key.js';
 
 export type ProofAndVerificationKey<N extends number> = {
@@ -87,59 +87,20 @@ export function makePublicInputsAndRecursiveProof<T, N extends number = typeof N
   return { inputs, proof, verificationKey };
 }
 
-export function mapProvingRequestTypeToCircuitName(type: ProvingRequestType): ServerCircuitName {
-  switch (type) {
-    case ProvingRequestType.PUBLIC_VM:
-      return 'avm-circuit';
-    case ProvingRequestType.PUBLIC_TUBE:
-      return 'public-tube';
-    case ProvingRequestType.PRIVATE_BASE_ROLLUP:
-      return 'private-base-rollup';
-    case ProvingRequestType.PUBLIC_BASE_ROLLUP:
-      return 'public-base-rollup';
-    case ProvingRequestType.MERGE_ROLLUP:
-      return 'merge-rollup';
-    case ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP:
-      return 'block-root-first-rollup';
-    case ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP:
-      return 'block-root-single-tx-first-rollup';
-    case ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP:
-      return 'block-root-empty-tx-first-rollup';
-    case ProvingRequestType.BLOCK_ROOT_ROLLUP:
-      return 'block-root-rollup';
-    case ProvingRequestType.BLOCK_ROOT_SINGLE_TX_ROLLUP:
-      return 'block-root-single-tx-rollup';
-    case ProvingRequestType.BLOCK_MERGE_ROLLUP:
-      return 'block-merge-rollup';
-    case ProvingRequestType.CHECKPOINT_ROOT_ROLLUP:
-      return 'checkpoint-root-rollup';
-    case ProvingRequestType.CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP:
-      return 'checkpoint-root-single-block-rollup';
-    case ProvingRequestType.CHECKPOINT_PADDING_ROLLUP:
-      return 'checkpoint-padding-rollup';
-    case ProvingRequestType.CHECKPOINT_MERGE_ROLLUP:
-      return 'checkpoint-merge-rollup';
-    case ProvingRequestType.ROOT_ROLLUP:
-      return 'root-rollup';
-    case ProvingRequestType.BASE_PARITY:
-      return 'base-parity';
-    case ProvingRequestType.ROOT_PARITY:
-      return 'root-parity';
-    default: {
-      const _exhaustive: never = type;
-      throw new Error(`Cannot find circuit name for proving request type: ${type}`);
-    }
-  }
-}
-
 export const ProvingJobInputs = z.discriminatedUnion('type', [
   AvmProvingRequestSchema,
-  z.object({ type: z.literal(ProvingRequestType.BASE_PARITY), inputs: BaseParityInputs.schema }),
-  z.object({ type: z.literal(ProvingRequestType.ROOT_PARITY), inputs: RootParityInputs.schema }),
+  z.object({ type: z.literal(ProvingRequestType.PARITY_BASE), inputs: ParityBasePrivateInputs.schema }),
+  z.object({ type: z.literal(ProvingRequestType.PARITY_ROOT), inputs: ParityRootPrivateInputs.schema }),
   z.object({ type: z.literal(ProvingRequestType.PUBLIC_TUBE), inputs: PublicTubePrivateInputs.schema }),
-  z.object({ type: z.literal(ProvingRequestType.PRIVATE_BASE_ROLLUP), inputs: PrivateBaseRollupInputs.schema }),
-  z.object({ type: z.literal(ProvingRequestType.PUBLIC_BASE_ROLLUP), inputs: PublicBaseRollupInputs.schema }),
-  z.object({ type: z.literal(ProvingRequestType.MERGE_ROLLUP), inputs: MergeRollupInputs.schema }),
+  z.object({
+    type: z.literal(ProvingRequestType.PRIVATE_TX_BASE_ROLLUP),
+    inputs: PrivateTxBaseRollupPrivateInputs.schema,
+  }),
+  z.object({
+    type: z.literal(ProvingRequestType.PUBLIC_TX_BASE_ROLLUP),
+    inputs: PublicTxBaseRollupPrivateInputs.schema,
+  }),
+  z.object({ type: z.literal(ProvingRequestType.TX_MERGE_ROLLUP), inputs: TxMergeRollupPrivateInputs.schema }),
   z.object({
     type: z.literal(ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP),
     inputs: BlockRootFirstRollupPrivateInputs.schema,
@@ -183,12 +144,12 @@ export function getProvingJobInputClassFor(type: ProvingRequestType) {
       return AvmCircuitInputs;
     case ProvingRequestType.PUBLIC_TUBE:
       return PublicTubePrivateInputs;
-    case ProvingRequestType.PRIVATE_BASE_ROLLUP:
-      return PrivateBaseRollupInputs;
-    case ProvingRequestType.PUBLIC_BASE_ROLLUP:
-      return PublicBaseRollupInputs;
-    case ProvingRequestType.MERGE_ROLLUP:
-      return MergeRollupInputs;
+    case ProvingRequestType.PRIVATE_TX_BASE_ROLLUP:
+      return PrivateTxBaseRollupPrivateInputs;
+    case ProvingRequestType.PUBLIC_TX_BASE_ROLLUP:
+      return PublicTxBaseRollupPrivateInputs;
+    case ProvingRequestType.TX_MERGE_ROLLUP:
+      return TxMergeRollupPrivateInputs;
     case ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP:
       return BlockRootFirstRollupPrivateInputs;
     case ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP:
@@ -211,10 +172,10 @@ export function getProvingJobInputClassFor(type: ProvingRequestType) {
       return CheckpointMergeRollupPrivateInputs;
     case ProvingRequestType.ROOT_ROLLUP:
       return RootRollupPrivateInputs;
-    case ProvingRequestType.BASE_PARITY:
-      return BaseParityInputs;
-    case ProvingRequestType.ROOT_PARITY:
-      return RootParityInputs;
+    case ProvingRequestType.PARITY_BASE:
+      return ParityBasePrivateInputs;
+    case ProvingRequestType.PARITY_ROOT:
+      return ParityRootPrivateInputs;
     default: {
       const _exhaustive: never = type;
       throw new Error(`Cannot find circuit inputs class for proving type ${type}`);
@@ -227,9 +188,9 @@ export type ProvingJobInputs = z.infer<typeof ProvingJobInputs>;
 export type ProvingJobInputsMap = {
   [ProvingRequestType.PUBLIC_VM]: AvmCircuitInputs;
   [ProvingRequestType.PUBLIC_TUBE]: PublicTubePrivateInputs;
-  [ProvingRequestType.PRIVATE_BASE_ROLLUP]: PrivateBaseRollupInputs;
-  [ProvingRequestType.PUBLIC_BASE_ROLLUP]: PublicBaseRollupInputs;
-  [ProvingRequestType.MERGE_ROLLUP]: MergeRollupInputs;
+  [ProvingRequestType.PRIVATE_TX_BASE_ROLLUP]: PrivateTxBaseRollupPrivateInputs;
+  [ProvingRequestType.PUBLIC_TX_BASE_ROLLUP]: PublicTxBaseRollupPrivateInputs;
+  [ProvingRequestType.TX_MERGE_ROLLUP]: TxMergeRollupPrivateInputs;
   [ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP]: BlockRootFirstRollupPrivateInputs;
   [ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP]: BlockRootSingleTxFirstRollupPrivateInputs;
   [ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP]: BlockRootEmptyTxFirstRollupPrivateInputs;
@@ -241,8 +202,8 @@ export type ProvingJobInputsMap = {
   [ProvingRequestType.CHECKPOINT_PADDING_ROLLUP]: CheckpointPaddingRollupPrivateInputs;
   [ProvingRequestType.CHECKPOINT_MERGE_ROLLUP]: CheckpointMergeRollupPrivateInputs;
   [ProvingRequestType.ROOT_ROLLUP]: RootRollupPrivateInputs;
-  [ProvingRequestType.BASE_PARITY]: BaseParityInputs;
-  [ProvingRequestType.ROOT_PARITY]: RootParityInputs;
+  [ProvingRequestType.PARITY_BASE]: ParityBasePrivateInputs;
+  [ProvingRequestType.PARITY_ROOT]: ParityRootPrivateInputs;
 };
 
 export const ProvingJobResult = z.discriminatedUnion('type', [
@@ -258,23 +219,23 @@ export const ProvingJobResult = z.discriminatedUnion('type', [
     ),
   }),
   z.object({
-    type: z.literal(ProvingRequestType.PRIVATE_BASE_ROLLUP),
+    type: z.literal(ProvingRequestType.PRIVATE_TX_BASE_ROLLUP),
     result: schemaForPublicInputsAndRecursiveProof(
-      BaseOrMergeRollupPublicInputs.schema,
+      TxRollupPublicInputs.schema,
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
     ),
   }),
   z.object({
-    type: z.literal(ProvingRequestType.PUBLIC_BASE_ROLLUP),
+    type: z.literal(ProvingRequestType.PUBLIC_TX_BASE_ROLLUP),
     result: schemaForPublicInputsAndRecursiveProof(
-      BaseOrMergeRollupPublicInputs.schema,
+      TxRollupPublicInputs.schema,
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
     ),
   }),
   z.object({
-    type: z.literal(ProvingRequestType.MERGE_ROLLUP),
+    type: z.literal(ProvingRequestType.TX_MERGE_ROLLUP),
     result: schemaForPublicInputsAndRecursiveProof(
-      BaseOrMergeRollupPublicInputs.schema,
+      TxRollupPublicInputs.schema,
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
     ),
   }),
@@ -353,11 +314,11 @@ export const ProvingJobResult = z.discriminatedUnion('type', [
     result: schemaForPublicInputsAndRecursiveProof(RootRollupPublicInputs.schema, NESTED_RECURSIVE_PROOF_LENGTH),
   }),
   z.object({
-    type: z.literal(ProvingRequestType.BASE_PARITY),
+    type: z.literal(ProvingRequestType.PARITY_BASE),
     result: schemaForPublicInputsAndRecursiveProof(ParityPublicInputs.schema, RECURSIVE_PROOF_LENGTH),
   }),
   z.object({
-    type: z.literal(ProvingRequestType.ROOT_PARITY),
+    type: z.literal(ProvingRequestType.PARITY_ROOT),
     result: schemaForPublicInputsAndRecursiveProof(ParityPublicInputs.schema, NESTED_RECURSIVE_PROOF_LENGTH),
   }),
 ]);
@@ -368,16 +329,16 @@ export type ProvingJobResultsMap = {
     PrivateToPublicKernelCircuitPublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >;
-  [ProvingRequestType.PRIVATE_BASE_ROLLUP]: PublicInputsAndRecursiveProof<
-    BaseOrMergeRollupPublicInputs,
+  [ProvingRequestType.PRIVATE_TX_BASE_ROLLUP]: PublicInputsAndRecursiveProof<
+    TxRollupPublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >;
-  [ProvingRequestType.PUBLIC_BASE_ROLLUP]: PublicInputsAndRecursiveProof<
-    BaseOrMergeRollupPublicInputs,
+  [ProvingRequestType.PUBLIC_TX_BASE_ROLLUP]: PublicInputsAndRecursiveProof<
+    TxRollupPublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >;
-  [ProvingRequestType.MERGE_ROLLUP]: PublicInputsAndRecursiveProof<
-    BaseOrMergeRollupPublicInputs,
+  [ProvingRequestType.TX_MERGE_ROLLUP]: PublicInputsAndRecursiveProof<
+    TxRollupPublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >;
   [ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP]: PublicInputsAndRecursiveProof<
@@ -421,8 +382,8 @@ export type ProvingJobResultsMap = {
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
   >;
   [ProvingRequestType.ROOT_ROLLUP]: PublicInputsAndRecursiveProof<RootRollupPublicInputs>;
-  [ProvingRequestType.BASE_PARITY]: PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>;
-  [ProvingRequestType.ROOT_PARITY]: PublicInputsAndRecursiveProof<
+  [ProvingRequestType.PARITY_BASE]: PublicInputsAndRecursiveProof<ParityPublicInputs, typeof RECURSIVE_PROOF_LENGTH>;
+  [ProvingRequestType.PARITY_ROOT]: PublicInputsAndRecursiveProof<
     ParityPublicInputs,
     typeof NESTED_RECURSIVE_PROOF_LENGTH
   >;

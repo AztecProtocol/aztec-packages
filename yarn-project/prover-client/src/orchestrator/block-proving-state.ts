@@ -5,17 +5,15 @@ import {
   NESTED_RECURSIVE_PROOF_LENGTH,
   type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
-  type RECURSIVE_PROOF_LENGTH,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
-import type { Tuple } from '@aztec/foundation/serialize';
+import { type Tuple, assertLength } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
-import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { getBlockBlobFields } from '@aztec/stdlib/block';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
-import { type ParityPublicInputs, RootParityInput, RootParityInputs } from '@aztec/stdlib/parity';
+import { type ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
+import type { RollupHonkProofData } from '@aztec/stdlib/proofs';
 import {
-  type BaseOrMergeRollupPublicInputs,
   BlockRollupPublicInputs,
   BlockRootEmptyTxFirstRollupPrivateInputs,
   BlockRootFirstRollupPrivateInputs,
@@ -23,15 +21,13 @@ import {
   BlockRootSingleTxFirstRollupPrivateInputs,
   BlockRootSingleTxRollupPrivateInputs,
   CheckpointConstantData,
-  MergeRollupInputs,
-  PreviousRollupData,
-  type RollupProofData,
+  TxMergeRollupPrivateInputs,
+  type TxRollupPublicInputs,
 } from '@aztec/stdlib/rollup';
 import type { CircuitName } from '@aztec/stdlib/stats';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { type BlockHeader, GlobalVariables } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
-import { VkData } from '@aztec/stdlib/vks';
 
 import { buildHeaderFromCircuitOutputs, toProofData } from './block-building-helpers.js';
 import type { CheckpointProvingState } from './checkpoint-proving-state.js';
@@ -48,7 +44,7 @@ export type ProofState<T, PROOF_LENGTH extends number> = {
  */
 export class BlockProvingState {
   private baseOrMergeProofs: UnbalancedTreeStore<
-    ProofState<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+    ProofState<TxRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
   > = new UnbalancedTreeStore(0);
   private baseParityProofs: (ProofState<ParityPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined)[] =
     Array.from({
@@ -121,7 +117,7 @@ export class BlockProvingState {
   public setBaseRollupProof(
     txIndex: number,
     provingOutput: PublicInputsAndRecursiveProof<
-      BaseOrMergeRollupPublicInputs,
+      TxRollupPublicInputs,
       typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
     >,
   ): TreeNodeLocation {
@@ -140,7 +136,7 @@ export class BlockProvingState {
   public setMergeRollupProof(
     location: TreeNodeLocation,
     provingOutput: PublicInputsAndRecursiveProof<
-      BaseOrMergeRollupPublicInputs,
+      TxRollupPublicInputs,
       typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
     >,
   ) {
@@ -254,7 +250,7 @@ export class BlockProvingState {
       throw new Error('At least one child is not ready for the merge rollup.');
     }
 
-    return new MergeRollupInputs([this.#getPreviousRollupData(left), this.#getPreviousRollupData(right)]);
+    return new TxMergeRollupPrivateInputs([toProofData(left), toProofData(right)]);
   }
 
   public getBlockRootRollupTypeAndInputs() {
@@ -272,18 +268,18 @@ export class BlockProvingState {
     const [leftRollup, rightRollup] = previousRollups;
     if (!rightRollup) {
       return {
-        rollupType: 'block-root-single-tx-rollup' satisfies CircuitName,
+        rollupType: 'rollup-block-root-single-tx' satisfies CircuitName,
         inputs: new BlockRootSingleTxRollupPrivateInputs(leftRollup, this.lastArchiveSiblingPath),
       };
     } else {
       return {
-        rollupType: 'block-root-rollup' satisfies CircuitName,
+        rollupType: 'rollup-block-root' satisfies CircuitName,
         inputs: new BlockRootRollupPrivateInputs([leftRollup, rightRollup], this.lastArchiveSiblingPath),
       };
     }
   }
 
-  #getFirstBlockRootRollupTypeAndInputs([leftRollup, rightRollup]: RollupProofData<BaseOrMergeRollupPublicInputs>[]) {
+  #getFirstBlockRootRollupTypeAndInputs([leftRollup, rightRollup]: RollupHonkProofData<TxRollupPublicInputs>[]) {
     if (!this.rootParityProof?.provingOutput) {
       throw new Error('Root parity is not ready.');
     }
@@ -291,7 +287,7 @@ export class BlockProvingState {
 
     if (!leftRollup) {
       return {
-        rollupType: 'block-root-empty-tx-first-rollup' satisfies CircuitName,
+        rollupType: 'rollup-block-root-first-empty-tx' satisfies CircuitName,
         inputs: new BlockRootEmptyTxFirstRollupPrivateInputs(
           l1ToL2Roots,
           this.lastArchiveTreeSnapshot,
@@ -305,7 +301,7 @@ export class BlockProvingState {
       };
     } else if (!rightRollup) {
       return {
-        rollupType: 'block-root-single-tx-first-rollup' satisfies CircuitName,
+        rollupType: 'rollup-block-root-first-single-tx' satisfies CircuitName,
         inputs: new BlockRootSingleTxFirstRollupPrivateInputs(
           l1ToL2Roots,
           leftRollup,
@@ -316,7 +312,7 @@ export class BlockProvingState {
       };
     } else {
       return {
-        rollupType: 'block-root-first-rollup' satisfies CircuitName,
+        rollupType: 'rollup-block-root-first' satisfies CircuitName,
         inputs: new BlockRootFirstRollupPrivateInputs(
           l1ToL2Roots,
           [leftRollup, rightRollup],
@@ -328,16 +324,14 @@ export class BlockProvingState {
     }
   }
 
-  public getRootParityInputs() {
+  public getParityRootInputs() {
     const baseParityProvingOutputs = this.baseParityProofs.filter(p => !!p?.provingOutput).map(p => p!.provingOutput!);
     if (baseParityProvingOutputs.length !== this.baseParityProofs.length) {
       throw new Error('At lease one base parity is not ready.');
     }
 
-    const children = baseParityProvingOutputs.map(p => this.#getRootParityData(p));
-    return new RootParityInputs(
-      children as Tuple<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>, typeof NUM_BASE_PARITY_PER_ROOT_PARITY>,
-    );
+    const children = baseParityProvingOutputs.map(p => toProofData(p));
+    return new ParityRootPrivateInputs(assertLength(children, NUM_BASE_PARITY_PER_ROOT_PARITY));
   }
 
   // Returns a specific transaction proving state
@@ -395,24 +389,5 @@ export class BlockProvingState {
     return this.totalNumTxs === 1
       ? [this.baseOrMergeProofs.getNode(rootLocation)?.provingOutput]
       : this.baseOrMergeProofs.getChildren(rootLocation).map(c => c?.provingOutput);
-  }
-
-  #getPreviousRollupData({
-    inputs,
-    proof,
-    verificationKey,
-  }: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>) {
-    const leafIndex = getVKIndex(verificationKey.keyAsFields);
-    const vkData = new VkData(verificationKey, leafIndex, getVKSiblingPath(leafIndex));
-    return new PreviousRollupData(inputs, proof, vkData);
-  }
-
-  #getRootParityData({ inputs, proof, verificationKey }: PublicInputsAndRecursiveProof<ParityPublicInputs>) {
-    return new RootParityInput(
-      proof,
-      verificationKey.keyAsFields,
-      getVKSiblingPath(getVKIndex(verificationKey)),
-      inputs,
-    );
   }
 }

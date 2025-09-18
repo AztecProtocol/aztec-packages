@@ -8,6 +8,7 @@ import { FeeJuicePortalAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { Gas } from '@aztec/stdlib/gas';
 import { PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
+import type { CircuitName } from '@aztec/stdlib/stats';
 import { TX_ERROR_INVALID_PROOF } from '@aztec/stdlib/tx';
 
 import TOML from '@iarna/toml';
@@ -240,26 +241,28 @@ describe('full_prover', () => {
     );
 
     // For the commented out circuits, run the tests in orchestrator_single_checkpoint.test.ts to generate the sample inputs.
-    [
-      'private-kernel-init',
-      'private-kernel-inner',
-      'private-kernel-tail',
-      'private-kernel-tail-to-public',
-      'private-kernel-reset',
-      'rollup-base-private',
-      'rollup-base-public',
-      // 'rollup-merge',
-      'rollup-block-root-first',
-      'rollup-block-root-first-single-tx',
-      // 'rollup-block-root-first-empty-tx',
-      // 'rollup-block-root',
-      // 'rollup-block-root-single-tx',
-      // 'rollup-block-merge',
-      // 'rollup-checkpoint-root',
-      'rollup-checkpoint-root-single-block',
-      'rollup-checkpoint-merge',
-      'rollup-root',
-    ].forEach(circuitName => {
+    (
+      [
+        'private-kernel-init',
+        'private-kernel-inner',
+        'private-kernel-tail',
+        'private-kernel-tail-to-public',
+        'private-kernel-reset',
+        'rollup-tx-base-private',
+        'rollup-tx-base-public',
+        // 'rollup-tx-merge',
+        'rollup-block-root-first',
+        'rollup-block-root-first-single-tx',
+        // 'rollup-block-root-first-empty-tx',
+        // 'rollup-block-root',
+        // 'rollup-block-root-single-tx',
+        // 'rollup-block-merge',
+        // 'rollup-checkpoint-root',
+        'rollup-checkpoint-root-single-block',
+        'rollup-checkpoint-merge',
+        'rollup-root',
+      ] satisfies CircuitName[]
+    ).forEach(circuitName => {
       const data = getTestData(circuitName);
       if (!data) {
         logger.warn(`No test data found for ${circuitName}.`);
