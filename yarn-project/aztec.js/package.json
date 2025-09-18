@@ -90,7 +90,8 @@
     "@aztec/stdlib": "workspace:^",
     "axios": "^1.8.2",
     "tslib": "^2.4.0",
-    "viem": "2.23.7"
+    "viem": "2.23.7",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.0",

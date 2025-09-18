@@ -5,6 +5,7 @@ import {
   FunctionSelector,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
+  SetPublicAuthwitContractInteraction,
   TxStatus,
   type Wallet,
 } from '@aztec/aztec.js';
@@ -347,11 +348,12 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
 
     const asset = await this.getAsset();
 
-    const setPublicAuthWitInteraction = await this.wallet.setPublicAuthWit(
+    const setPublicAuthWitInteraction = await SetPublicAuthwitContractInteraction.create(
+      this.wallet,
       this.sender,
       {
         caller: this.paymentContract,
-        action: {
+        call: {
           name: 'transfer_in_public',
           args: [this.sender.toField(), this.paymentContract.toField(), maxFee, authwitNonce],
           selector: await FunctionSelector.fromSignature('transfer_in_public((Field),(Field),u128,Field)'),

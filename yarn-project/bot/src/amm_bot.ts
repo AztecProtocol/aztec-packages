@@ -55,7 +55,9 @@ export class AmmBot extends BaseBot {
 
     const swapAuthwit = await wallet.createAuthWit(this.defaultAccountAddress, {
       caller: amm.address,
-      action: tokenIn.methods.transfer_to_public(this.defaultAccountAddress, amm.address, amountIn, authwitNonce),
+      call: await tokenIn.methods
+        .transfer_to_public(this.defaultAccountAddress, amm.address, amountIn, authwitNonce)
+        .getFunctionCall(),
     });
 
     const amountOutMin = await amm.methods

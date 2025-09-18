@@ -285,21 +285,25 @@ export class BotFactory {
     // Add authwitnesses for the transfers in AMM::add_liquidity function
     const token0Authwit = await this.wallet.createAuthWit(defaultAccountAddress, {
       caller: amm.address,
-      action: token0.methods.transfer_to_public_and_prepare_private_balance_increase(
-        liquidityProvider,
-        amm.address,
-        amount0Max,
-        authwitNonce,
-      ),
+      call: await token0.methods
+        .transfer_to_public_and_prepare_private_balance_increase(
+          liquidityProvider,
+          amm.address,
+          amount0Max,
+          authwitNonce,
+        )
+        .getFunctionCall(),
     });
     const token1Authwit = await this.wallet.createAuthWit(defaultAccountAddress, {
       caller: amm.address,
-      action: token1.methods.transfer_to_public_and_prepare_private_balance_increase(
-        liquidityProvider,
-        amm.address,
-        amount1Max,
-        authwitNonce,
-      ),
+      call: await token1.methods
+        .transfer_to_public_and_prepare_private_balance_increase(
+          liquidityProvider,
+          amm.address,
+          amount1Max,
+          authwitNonce,
+        )
+        .getFunctionCall(),
     });
 
     const mintTx = new BatchCall(this.wallet, [

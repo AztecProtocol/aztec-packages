@@ -27,7 +27,7 @@ description: "Connect to Aztec Alpha Testnet, explore the ecosystem, and start b
 
 **Version**: `2.0.2`
 
-**Node URL**: `https://aztec-alpha-testnet-fullnode.zkv.xyz`
+**Node URL**: `https://aztec-testnet-fullnode.zkv.xyz`
 
 **L1 Chain ID**: `11155111`
 

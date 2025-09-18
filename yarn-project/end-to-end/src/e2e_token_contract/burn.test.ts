@@ -5,14 +5,14 @@ import { TokenContractTest } from './token_contract_test.js';
 
 describe('e2e_token_contract burn', () => {
   const t = new TokenContractTest('burn');
-  let { asset, tokenSim, wallet, node, adminAddress, account1Address, account2Address } = t;
+  let { asset, tokenSim, wallet, adminAddress, account1Address, account2Address } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
-    ({ asset, wallet, node, adminAddress, tokenSim, adminAddress, account1Address, account2Address } = t);
+    ({ asset, wallet, adminAddress, tokenSim, adminAddress, account1Address, account2Address } = t);
   });
 
   afterAll(async () => {
@@ -46,7 +46,7 @@ describe('e2e_token_contract burn', () => {
         { caller: account1Address, action },
         true,
       );
-      await validateActionInteraction.send({ from: adminAddress }).wait();
+      await validateActionInteraction.send().wait();
 
       await action.send({ from: account1Address }).wait();
 
@@ -101,7 +101,7 @@ describe('e2e_token_contract burn', () => {
           { caller: account1Address, action },
           true,
         );
-        await validateActionInteraction.send({ from: adminAddress }).wait();
+        await validateActionInteraction.send().wait();
 
         await expect(action.simulate({ from: account1Address })).rejects.toThrow(U128_UNDERFLOW_ERROR);
       });
@@ -119,7 +119,7 @@ describe('e2e_token_contract burn', () => {
           { caller: adminAddress, action },
           true,
         );
-        await validateActionInteraction.send({ from: adminAddress }).wait();
+        await validateActionInteraction.send().wait();
 
         await expect(
           asset.methods.burn_public(adminAddress, amount, authwitNonce).simulate({ from: account1Address }),
@@ -211,8 +211,8 @@ describe('e2e_token_contract burn', () => {
         // We need to compute the message we want to sign and add it to the wallet as approved
         const action = asset.methods.burn_private(adminAddress, amount, authwitNonce);
         const messageHash = await computeAuthWitMessageHash(
-          { caller: account1Address, action },
-          { chainId: new Fr(await node.getChainId()), version: new Fr(await node.getVersion()) },
+          { caller: account1Address, call: await action.getFunctionCall() },
+          await wallet.getChainInfo(),
         );
 
         await expect(action.simulate({ from: account1Address })).rejects.toThrow(
@@ -229,8 +229,8 @@ describe('e2e_token_contract burn', () => {
         // We need to compute the message we want to sign and add it to the wallet as approved
         const action = asset.methods.burn_private(adminAddress, amount, authwitNonce);
         const expectedMessageHash = await computeAuthWitMessageHash(
-          { caller: account2Address, action },
-          { chainId: new Fr(await node.getChainId()), version: new Fr(await node.getVersion()) },
+          { caller: account2Address, call: await action.getFunctionCall() },
+          await wallet.getChainInfo(),
         );
 
         const witness = await wallet.createAuthWit(adminAddress, { caller: account1Address, action });

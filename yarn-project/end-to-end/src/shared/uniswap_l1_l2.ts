@@ -5,7 +5,6 @@ import {
   Fr,
   type Logger,
   type PXE,
-  type Wallet,
   computeAuthWitMessageHash,
   generateClaimSecret,
 } from '@aztec/aztec.js';
@@ -22,6 +21,7 @@ import { InboxAbi, UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-art
 import { UniswapContract } from '@aztec/noir-contracts.js/Uniswap';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
+import type { TestWallet } from '@aztec/test-wallet';
 
 import { jest } from '@jest/globals';
 import { type GetContractReturnType, getContract, parseEther, toFunctionSelector } from 'viem';
@@ -50,7 +50,7 @@ export type UniswapSetupContext = {
   /** The L1 wallet client, extended with public actions. */
   l1Client: ExtendedViemWalletClient;
   /** The wallet. */
-  wallet: Wallet;
+  wallet: TestWallet;
   /** The owner address. */
   ownerAddress: AztecAddress;
   /** The sponsor wallet. */
@@ -80,7 +80,7 @@ export const uniswapL1L2TestSuite = (
 
     let l1Client: ExtendedViemWalletClient;
 
-    let wallet: Wallet;
+    let wallet: TestWallet;
     let ownerAddress: AztecAddress;
     let ownerEthAddress: EthAddress;
     // does transactions on behalf of owner on Aztec:
@@ -614,14 +614,16 @@ export const uniswapL1L2TestSuite = (
       const expectedMessageHash = await computeAuthWitMessageHash(
         {
           caller: uniswapL2Contract.address,
-          action: wethCrossChainHarness.l2Token.methods.transfer_to_public(
-            ownerAddress,
-            uniswapL2Contract.address,
-            wethAmountToBridge,
-            nonceForWETHTransferToPublicApproval,
-          ),
+          call: await wethCrossChainHarness.l2Token.methods
+            .transfer_to_public(
+              ownerAddress,
+              uniswapL2Contract.address,
+              wethAmountToBridge,
+              nonceForWETHTransferToPublicApproval,
+            )
+            .getFunctionCall(),
         },
-        { chainId: new Fr(await aztecNode.getChainId()), version: new Fr(await aztecNode.getVersion()) },
+        await wallet.getChainInfo(),
       );
 
       await expect(
@@ -699,7 +701,7 @@ export const uniswapL1L2TestSuite = (
         },
         true,
       );
-      await validateActionInteraction.send({ from: ownerAddress }).wait();
+      await validateActionInteraction.send().wait();
 
       // No approval to call `swap` but should work even without it:
       const [_, secretHashForDepositingSwappedDai] = await generateClaimSecret();
@@ -749,7 +751,7 @@ export const uniswapL1L2TestSuite = (
         { caller: approvedUser, action },
         true,
       );
-      await validateActionInteraction.send({ from: ownerAddress }).wait();
+      await validateActionInteraction.send().wait();
 
       await expect(action.simulate({ from: sponsorAddress })).rejects.toThrow(/unauthorized/);
     });
@@ -771,7 +773,7 @@ export const uniswapL1L2TestSuite = (
         },
         true,
       );
-      await validateActionInteraction.send({ from: ownerAddress }).wait();
+      await validateActionInteraction.send().wait();
 
       await expect(
         uniswapL2Contract.methods
@@ -942,7 +944,7 @@ export const uniswapL1L2TestSuite = (
         },
         true,
       );
-      await validateActionInteraction.send({ from: ownerAddress }).wait();
+      await validateActionInteraction.send().wait();
 
       // Call swap_public on L2
       const secretHashForDepositingSwappedDai = Fr.random();
