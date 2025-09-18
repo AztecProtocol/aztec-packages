@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.3](https://github.com/AztecProtocol/aztec-packages/compare/v2.0.2...v2.0.3) (2025-09-18)
+
+
+### Miscellaneous
+
+* **playground:** update sfpc artifacts ([#17057](https://github.com/AztecProtocol/aztec-packages/issues/17057)) ([d87997a](https://github.com/AztecProtocol/aztec-packages/commit/d87997aa5b30744edb9fc423f718be3f5670342a))
+
 ## [2.0.2](https://github.com/AztecProtocol/aztec-packages/compare/v2.0.1...v2.0.2) (2025-09-17)
 
 
