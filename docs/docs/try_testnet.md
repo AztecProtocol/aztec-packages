@@ -31,15 +31,7 @@ description: "Connect to Aztec Alpha Testnet, explore the ecosystem, and start b
 
 **L1 Chain ID**: `11155111`
 
-**Rollup Version**: `3924331020`
-
-**Node ENR**:
-
-<!-- cspell:disable -->
-
-`enr:-M24QDZDoyfM7Ys5Y7M0kSmwarvlywtVmciWA-cT8qw6RTgqDnJDtUjULKQKNVOutHhrsHDwo0lFNtRLM_Q1zAVa3n4HhWF6dGVjsTAwLTExMTU1MTExLTIxNmYwNzE2LTM5MjQzMzEwMjAtMDBkMDk4MDYtMWE1MDc5YjWCaWSCdjSCaXCEJRuLyIlzZWNwMjU2azGhA1k50LogNpVrOJ5Gc3jxHWCN7KillKXv_LaWVCvYP8nJg3RjcIKeNIN1ZHCCnjSDdmVyhTEuMS4y`
-
-<!-- cspell:enable -->
+**Rollup Version**: `1714840162`
 
 ## Core L1 and L2 Precompiles and Contracts
 
@@ -47,20 +39,20 @@ description: "Connect to Aztec Alpha Testnet, explore the ecosystem, and start b
 
 | Contract Name             | Address                                      |
 | ------------------------- | -------------------------------------------- |
-| Rollup                    | `0x216f071653a82ced3ef9d29f3f0c0ed7829c8f81` |
-| Registry                  | `0xec4156431d0f3df66d4e24ba3d30dcb4c85fa309` |
-| L1 → L2 Inbox             | `0xc653855532932ab3d42b236b20c027d824c4834b` |
-| L2 → L1 Outbox            | `0xdb4f4c5cc724a3e4e3e9ad7b48eb3e02002ae936` |
-| Fee Juice                 | `0x98e8e6792eff2b956b6beb7da05965a8c9441722` |
-| Staking Asset             | `0x0c04089ed32638ae3cdf649f54f90544ac3fc199` |
-| Fee Juice Portal          | `0x47e85e305e971c7d19fca8cb582d1f9629d0b26d` |
-| Coin Issuer               | `0x3b218d0f26d15b36c715cb06c949210a0d630637` |
-| Reward Distributor        | `0x2d513c8a3f551a5fdbd33be7c1fcb472172bf759` |
-| Governance Proposer       | `0x76beb64eaee34eefdd747a848ba0e99faf650bc6` |
-| Governance                | `0x1b504af897af5fdf7e534a8809c88e15331814b8` |
-| Slash Factory             | `0x8b1566249dc8fb47234037538ce491f9500480b1` |
-| Fee Asset Handler         | `0x4f0376b8bcbdf72ddb38c38f48317c00e9c9aec3` |
-| Governance Staking Escrow | `0xd4b08bbb0844438a2020cd2bfc736a3f95b60458` |
+| Rollup                    | `0x29fa27e173f058d0f5f618f5abad2757747f673f` |
+| Registry                  | `0xc2f24280f5c7f4897370dfdeb30f79ded14f1c81` |
+| L1 → L2 Inbox             | `0x8f4d9a05374c1d99825fdb291340021b9a7dc6d2` |
+| L2 → L1 Outbox            | `0x3aebed9bf5f4303401547ae68da04a124c100bc1` |
+| Fee Juice                 | `0xaab785eea290aeae003732e603987979e63955e2` |
+| Staking Asset             | `0x6732cedafcbf85afa9b5c83f0385967840bbce47` |
+| Fee Juice Portal          | `0x96109891056303267969f58e1b5a61b87da47129` |
+| Coin Issuer               | `0x6aa988bd21a8b3be6a57ce89b7fe4de2b0bf2d2c` |
+| Reward Distributor        | `0x2b171f0e4856e32a43fed78691cec79dec2823b3` |
+| Governance Proposer       | `0xb973b3d5884e0b8da179d808308f7702d317b280` |
+| Governance                | `0x6f4f1f5e6d96b08530043830725f3ebcb95908d5` |
+| Slash Factory             | `0x76291684ae928d6e5bcff348e36917f4cc532db8` |
+| Fee Asset Handler         | `0x50513c3713ffd33301e85f30d86ab764df421fe9` |
+| Governance Staking Escrow | `0x67788e5083646ccedeeb07e7bc35ab0d511fc8b9` |
 
 ### L2 Contract Addresses
 
@@ -70,4 +62,4 @@ description: "Connect to Aztec Alpha Testnet, explore the ecosystem, and start b
 | Fee Juice         | `0x0000000000000000000000000000000000000000000000000000000000000005` |
 | Instance Registry | `0x0000000000000000000000000000000000000000000000000000000000000002` |
 | MultiCall         | `0x0000000000000000000000000000000000000000000000000000000000000004` |
-| Sponsored FPC     | `0x19b5539ca1b104d4c3705de94e4555c9630def411f025e023a13189d0c56f8f2` |
+| Sponsored FPC     | `0x299f255076aa461e4e94a843f0275303470a6b8ebe7cb44a471c66711151e529` |

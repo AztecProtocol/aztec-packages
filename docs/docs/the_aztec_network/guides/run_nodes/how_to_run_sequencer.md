@@ -55,7 +55,6 @@ Furthermore, as this guide uses Docker compose, you will need to install it. Ple
 
 Finally, this guide requires you to have endpoints of an L1 node stack of an execution and consensus client. If you do not have one set up, you can see a good guide on how to do that [here at Eth Docker](https://ethdocker.com/Usage/QuickStart).
 
-
 ## Configure the sequencer
 
 There are a few important things to note when setting up a sequencer. This guide will guide you in setting up and running a sequencer with a standard setup using Docker compose with a .env file.
@@ -162,39 +161,39 @@ Now that you have done all the setup, create a Docker compose file named `compos
 
 ```yaml
 services:
- aztec-sequencer:
-  image: "aztecprotocol/aztec:1.2.1"
-  container_name: "aztec-sequencer"
-  ports:
-    - ${AZTEC_PORT}:${AZTEC_PORT}
-    - ${P2P_PORT}:${P2P_PORT}
-    - ${P2P_PORT}:${P2P_PORT}/udp
-  volumes:
-    - ${DATA_DIRECTORY}:/var/lib/data
-    - ${KEY_STORE_DIRECTORY}:/var/lib/keystore
-  environment:
-    KEY_STORE_DIRECTORY: /var/lib/keystore
-    DATA_DIRECTORY: /var/lib/data
-    LOG_LEVEL: ${LOG_LEVEL}
-    ETHEREUM_HOSTS: ${ETHEREUM_HOSTS}
-    L1_CONSENSUS_HOST_URLS: ${L1_CONSENSUS_HOST_URLS}
-    P2P_IP: ${P2P_IP}
-    P2P_PORT: ${P2P_PORT}
-    AZTEC_PORT: ${AZTEC_PORT}
-  entrypoint: node /usr/src/yarn-project/aztec/dest/bin/index.js
-  command: >-
-    start
-    --network alpha-testnet
-    --node
-    --archiver
-    --sequencer
-  networks:
-   - aztec
-  restart: always
+  aztec-sequencer:
+    image: "aztecprotocol/aztec:latest"
+    container_name: "aztec-sequencer"
+    ports:
+      - ${AZTEC_PORT}:${AZTEC_PORT}
+      - ${P2P_PORT}:${P2P_PORT}
+      - ${P2P_PORT}:${P2P_PORT}/udp
+    volumes:
+      - ${DATA_DIRECTORY}:/var/lib/data
+      - ${KEY_STORE_DIRECTORY}:/var/lib/keystore
+    environment:
+      KEY_STORE_DIRECTORY: /var/lib/keystore
+      DATA_DIRECTORY: /var/lib/data
+      LOG_LEVEL: ${LOG_LEVEL}
+      ETHEREUM_HOSTS: ${ETHEREUM_HOSTS}
+      L1_CONSENSUS_HOST_URLS: ${L1_CONSENSUS_HOST_URLS}
+      P2P_IP: ${P2P_IP}
+      P2P_PORT: ${P2P_PORT}
+      AZTEC_PORT: ${AZTEC_PORT}
+    entrypoint: node /usr/src/yarn-project/aztec/dest/bin/index.js
+    command: >-
+      start
+      --network testnet
+      --node
+      --archiver
+      --sequencer
+    networks:
+      - aztec
+    restart: always
 
 networks:
- aztec:
-  name: aztec
+  aztec:
+    name: aztec
 ```
 
 Please note that we are setting only the necessary configuration for running this sequencer. The full list of settings and flags can be explored here at the [cli reference](../../reference/cli_reference.md). A lot of these options are preset to defaults by the `--network` flag above. This downloads defaults for the specified network and applies them to the node.

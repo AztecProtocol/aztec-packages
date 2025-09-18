@@ -207,7 +207,7 @@ services:
       - --prover-node
       - --archiver
       - --network
-      - alpha-testnet
+      - testnet
     depends_on:
       prover-broker:
         condition: service_started

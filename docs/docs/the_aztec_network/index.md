@@ -68,10 +68,10 @@ echo 'export PATH="$HOME/.aztec/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
-The next step is to install the correct version of aztec that is running on testnet. The correct version of the aztec network currently is `1.2.0`. If that is not the version that was installed in the previous step, please run this to ensure the correct version is installed.
+The next step is to install the correct version of aztec that is running on testnet. The correct version of the aztec network currently is #include_testnet_version. If that is not the version that was installed in the previous step, please run this to ensure the correct version is installed.
 
 ```console
-aztec-up 1.2.0
+aztec-up #include_testnet_version
 ```
 
 The user can confirm that they are running on the correct version with:
