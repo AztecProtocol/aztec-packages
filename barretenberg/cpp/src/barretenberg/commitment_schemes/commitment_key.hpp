@@ -198,10 +198,14 @@ template <class Curve> class CommitmentKey {
                     wire.mask();
                 }
             }
-            std::vector<Commitment> commitments = key->batch_commit(wires, max_batch_size);
-            for (size_t i = 0; i < commitments.size(); ++i) {
-                transcript->send_to_verifier(labels[i], commitments[i]);
+            (void)max_batch_size;
+            for (auto [label, wire] : zip_view(labels, wires)) {
+                transcript->send_to_verifier(label, key->commit(wire));
             }
+            // std::vector<Commitment> commitments = key->batch_commit(wires, max_batch_size);
+            // for (size_t i = 0; i < commitments.size(); ++i) {
+            //     transcript->send_to_verifier(labels[i], commitments[i]);
+            // }
         }
 
         void add_to_batch(Polynomial<Fr>& poly, const std::string& label)
