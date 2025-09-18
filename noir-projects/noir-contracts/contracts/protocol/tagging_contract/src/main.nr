@@ -35,14 +35,14 @@ contract Handshaker {
         // recipient. Handshaking is costly so we want the handshake to be valid in both directions and hence we sort
         // the addresses.
         let (address_0, address_1) = crate::util::sort_addresses(sender, recipient);
-        let handshake_commitment = poseidon2_hash([
+        let handshake_nullifier = poseidon2_hash([
             "AZTEC_NR::HANDSHAKE_SEPARATOR",
             shared_tagging_public_key.x,
             shared_tagging_public_key.y,
             address_0,
             address_1,
         ]);
-        context.push_nullifier(handshake_commitment);
+        context.push_nullifier(handshake_nullifier);
 
         // We need to emit the log in public because we need the log contract address to be public for everyone to know
         // what logs to brute-force.

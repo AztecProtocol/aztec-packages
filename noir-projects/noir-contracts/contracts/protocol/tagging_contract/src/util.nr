@@ -14,12 +14,12 @@ fn get_next_tag(
     // 0 and checks if it exists in the nullifier tree.
     let first_time_tagging: bool = is_first_time_tagging(sender, recipient, hidden_sender);
 
-    let (unsiloed_nullifier_preimage, app_to_silo_with, directional_app_tagging_secret, index) = if first_time_tagging {
+    let (unsiloed_nullifier_preimage, app_to_silo_with, directional_shared_app_tagging_secret, index) = if first_time_tagging {
         // Sort addresses to reliably get bi-directional handshake commitment. We do that in an unconstrained function
         // and then we constrain the result to optimize constraints.
         let (address_0, address_1) = sort_addresses(sender, recipient);
 
-        let handshake_commitment_preimage = [
+        let handshake_nullifier_preimage = [
             "AZTEC_NR::HANDSHAKE_SEPARATOR",
             shared_tagging_public_key.x,
             shared_tagging_public_key.y,
@@ -27,28 +27,30 @@ fn get_next_tag(
             address_1,
         ];
 
-        let app_tagging_secret = context.request_shared_tsk(shared_tagging_public_key.hash());
-        let directional_app_tagging_secret = poseidon2_hash([app_tagging_secret, recipient]);
+        let shared_app_tagging_secret =
+            context.request_shared_app_tagging_secret(shared_tagging_public_key.hash());
+        let directional_shared_app_tagging_secret =
+            poseidon2_hash([shared_app_tagging_secret, recipient]);
 
         (
-            handshake_commitment_preimage, HANDSHAKER_CONTRACT_ADDRESS,
-            directional_app_tagging_secret, 0,
+            handshake_nullifier_preimage, HANDSHAKER_CONTRACT_ADDRESS,
+            directional_shared_app_tagging_secret, 0,
         )
     } else {
         // Get the app tagging secret and last index from oracle
-        let (directional_app_tagging_secret, last_index) =
+        let (directional_shared_app_tagging_secret, last_index) =
             get_last_tag_nullifier_preimage(sender, recipient, hidden_sender);
         let previous_tag_nullifier_preimage = [
             "AZTEC_NR::TAG_SEPARATOR",
             sender_nsk_app,
             recipient,
-            directional_app_tagging_secret,
+            directional_shared_app_tagging_secret,
             last_index,
         ];
 
         (
-            previous_tag_nullifier_preimage, context.this_address(), directional_app_tagging_secret,
-            last_index + 1,
+            previous_tag_nullifier_preimage, context.this_address(),
+            directional_shared_app_tagging_secret, last_index + 1,
         )
     };
 
@@ -61,12 +63,12 @@ fn get_next_tag(
         "AZTEC_NR::TAG_SEPARATOR",
         sender_nsk_app,
         recipient,
-        directional_app_tagging_secret,
+        directional_shared_app_tagging_secret,
         index,
     ]);
     context.push_nullifier(tag_nullifier);
 
-    let tag = poseidon2_hash([directional_app_tagging_secret, index]);
+    let tag = poseidon2_hash([directional_shared_app_tagging_secret, index]);
     tag
 }
 
