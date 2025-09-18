@@ -918,11 +918,21 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 }
 
 /**
- * @brief Internal algorithm to perform a fixed-base batch mul for ULTRA Builder
+ * @brief Internal algorithm to perform a fixed-base batch mul
  *
- * @details Uses plookup tables which contain lookups for precomputed multiples of the input base points.
- *          Means we can avoid all point doublings and reduce one scalar mul to ~29 lookups + 29 ecc addition gates
- * @note Assumes that all base_points are one of two generators for which precomputed plookup tables exist.
+ * @details Computes a batch mul of fixed base points using the Straus multiscalar multiplication algorithm with lookup
+ * tables. Each scalar (cycle_scalar) is decomposed into two limbs, lo and hi, with 128 and 126 bits respectively. For
+ * each limb we use one of four precomputed plookup multi-tables FIXED_BASE_<LEFT/RIGHT>_<LO/HI> corresponding to the
+ * lo/hi limbs of the two generator points supported by this algorithm (defined in bb::plookup::fixed_base::table).
+ *
+ * The LO multi-table consists of fifteen basic tables (14 × 9-bit + 1 × 2-bit = 128 bits) and the HI multi-table
+ * consists of fourteen 9-bit basic tables (14 × 9 = 126 bits). Each basic table stores at index i the precomputed
+ * points: [offset_generator_i] + k * 2^(table_bits*i) * [base_point] for k = 0, 1, ..., 2^table_bits - 1. The offset
+ * generators prevent point-at-infinity edge cases. The algorithm sums all looked-up points to compute scalar *
+ * [base_point] + [sum of offset generators]. We return both the accumulator and the sum of offset generators, so that
+ * it can be subtracted off later.
+ *
+ * This approach avoids all point doublings and reduces one scalar mul to ~29 lookups + ~29 ecc addition gates.
  *
  * @tparam Builder
  * @param scalars
@@ -940,8 +950,8 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     using ColumnIdx = plookup::ColumnIdx;
     using plookup::fixed_base::table;
 
-    std::vector<MultiTableId> plookup_table_ids;
-    std::vector<field_t> plookup_scalars;
+    std::vector<MultiTableId> multitable_ids;
+    std::vector<field_t> scalar_limbs;
 
     OriginTag tag{};
     for (const auto [point, scalar] : zip_view(base_points, scalars)) {
@@ -949,32 +959,33 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         // AUDITTODO: in the variable base method we combine point and scalar tags - should we do the same here?
         tag = OriginTag(tag, scalar.get_origin_tag());
         std::array<MultiTableId, 2> table_id = table::get_lookup_table_ids_for_point(point);
-        plookup_table_ids.push_back(table_id[0]);
-        plookup_table_ids.push_back(table_id[1]);
-        plookup_scalars.push_back(scalar.lo);
-        plookup_scalars.push_back(scalar.hi);
+        multitable_ids.push_back(table_id[0]);
+        multitable_ids.push_back(table_id[1]);
+        scalar_limbs.push_back(scalar.lo);
+        scalar_limbs.push_back(scalar.hi);
     }
 
+    // Look up the multiples of each slice of each lo/hi scalar limb in the corresponding plookup table.
     std::vector<cycle_group> lookup_points;
     Element offset_generator_accumulator = Group::point_at_infinity;
-    for (const auto [table_id, scalar] : zip_view(plookup_table_ids, plookup_scalars)) {
+    for (const auto [table_id, scalar] : zip_view(multitable_ids, scalar_limbs)) {
+        // Each lookup returns multiple EC points corresponding to different bit slices of the scalar.
+        // For a scalar slice s_i at bit position (table_bits*i), the table stores the point:
+        //     P_i = [offset_generator_i] + (s_i * 2^(table_bits*i)) * [base_point]
         plookup::ReadData<field_t> lookup_data = plookup_read<Builder>::get_lookup_accumulators(table_id, scalar);
         for (size_t j = 0; j < lookup_data[ColumnIdx::C2].size(); ++j) {
             const field_t x = lookup_data[ColumnIdx::C2][j];
             const field_t y = lookup_data[ColumnIdx::C3][j];
             lookup_points.emplace_back(x, y, /*is_infinity=*/false);
         }
-
-        AffineElement generator_offset = table::get_generator_offset_for_table_id(table_id);
-        offset_generator_accumulator += generator_offset;
+        // Update offset accumulator with the total offset for the corresponding multitable
+        offset_generator_accumulator += table::get_generator_offset_for_table_id(table_id);
     }
 
-    /**
-     * Compute the witness values of the batch_mul algorithm natively, as Element types with a Z-coordinate.
-     * We then batch-convert to AffineElement types, and feed these points as "hints" into the cycle_group methods.
-     * This avoids the need to compute modular inversions for every group operation, which dramatically reduces
-     * witness generation times
-     */
+    // Compute the witness values of the batch_mul algorithm natively, as Element types with a Z-coordinate.
+    // We then batch-convert to AffineElement types, and feed these points as "hints" into the in-circuit addition.
+    // This avoids the need to compute modular inversions for every group operation, which dramatically reduces
+    // witness generation times.
     std::vector<Element> operation_transcript;
     {
         Element accumulator = lookup_points[0].get_value();
@@ -990,20 +1001,17 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         operation_hints.emplace_back(element.x, element.y);
     }
 
-    // Perform all point additions sequentially. The Ultra ecc_addition relation costs 1 gate iff additions are
-    // chained and output point of previous addition = input point of current addition. If this condition is not
-    // met, the addition relation costs 2 gates. So it's good to do these sequentially!
+    // Perform the in-circuit point additions sequentially. Each addition costs 1 gate iff additions are chained such
+    // that the output of each addition is the input to the next. Otherwise, each addition costs 2 gates.
     cycle_group accumulator = lookup_points[0];
     for (size_t i = 1; i < lookup_points.size(); ++i) {
         accumulator = accumulator.unconditional_add(lookup_points[i], operation_hints[i - 1]);
     }
-    /**
-     * offset_generator_accumulator represents the sum of all the offset generator terms present in `accumulator`.
-     * We don't subtract off yet, as we may be able to combine `offset_generator_accumulator` with other constant
-     * terms in `batch_mul` before performing the subtraction.
-     */
-    // Set accumulator's origin tag to the union of all scalars' tags
-    accumulator.set_origin_tag(tag);
+
+    // The offset_generator_accumulator represents the sum of all the offset generator terms present in `accumulator`.
+    // We don't subtract off yet, as we may be able to combine `offset_generator_accumulator` with other constant
+    // terms in `batch_mul` before performing the subtraction.
+    accumulator.set_origin_tag(tag); // Set accumulator's origin tag to the union of all scalars' tags
     return { accumulator, offset_generator_accumulator };
 }
 
