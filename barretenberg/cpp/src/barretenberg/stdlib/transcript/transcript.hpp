@@ -10,6 +10,7 @@
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
+#include "barretenberg/stdlib/primitives/field/field_utils.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 namespace bb::stdlib::recursion::honk {
@@ -28,22 +29,18 @@ template <typename Builder> struct StdlibTranscriptParams {
     // move it to field_conversion?
     /**
      * @brief Split a challenge field element into two half-width challenges
-     * @details `lo` is 128 bits and `hi` is 126 bits.
-     * This should provide significantly more than our security parameter bound: 100 bits
+     * @details `lo` is 128 bits and `hi` is 126 bits which should provide significantly more than our security
+     * parameter bound: 100 bits. The decomposition is constrained to be unique.
      *
      * @param challenge
      * @return std::array<DataType, 2>
      */
     static inline std::array<DataType, 2> split_challenge(const DataType& challenge)
     {
-
-        // split field_t challenge into (low, hi), in case of bigfield, create 2 bigfield elements bigfield(low, 0),
-        // bigfield(hi, 0). use existing field-splitting code in cycle_scalar
-        using cycle_scalar = typename stdlib::cycle_group<Builder>::cycle_scalar;
-        const cycle_scalar scalar = cycle_scalar(challenge);
-        scalar.lo.create_range_constraint(cycle_scalar::LO_BITS);
-        scalar.hi.create_range_constraint(cycle_scalar::HI_BITS);
-        return std::array<DataType, 2>{ scalar.lo, scalar.hi };
+        const size_t lo_bits = DataType::native::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
+        // Constuct a unique lo/hi decomposition of the challenge (hi_bits will be 254 - 128 = 126)
+        const auto [lo, hi] = split_unique(challenge, lo_bits);
+        return std::array<DataType, 2>{ lo, hi };
     }
     template <typename T> static inline T convert_challenge(const DataType& challenge)
     {

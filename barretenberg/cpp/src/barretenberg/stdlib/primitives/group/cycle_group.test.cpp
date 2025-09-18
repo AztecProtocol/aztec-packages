@@ -20,7 +20,8 @@
     using Group = typename Curve::Group;                                                                               \
     using bool_ct = stdlib::bool_t<Builder>;                                                                           \
     using witness_ct = stdlib::witness_t<Builder>;                                                                     \
-    using cycle_scalar_ct = cycle_group_ct::cycle_scalar;
+    using cycle_scalar_ct = cycle_group_ct::cycle_scalar;                                                              \
+    using BigScalarField = typename cycle_scalar_ct::BigScalarField;
 
 using namespace bb;
 
@@ -771,22 +772,26 @@ TYPED_TEST(CycleGroupTest, TestBatchMulGeneralMSM)
         // 1: add entry where point, scalar are witnesses
         expected += (element * scalar);
         points.emplace_back(cycle_group_ct::from_witness(&builder, element));
-        scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
+        BigScalarField big_scalar1(&builder, scalar);
+        scalars.emplace_back(cycle_scalar_ct(big_scalar1));
 
         // 2: add entry where point is constant, scalar is witness
         expected += (element * scalar);
         points.emplace_back(cycle_group_ct(element));
-        scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
+        BigScalarField big_scalar2(&builder, scalar);
+        scalars.emplace_back(cycle_scalar_ct(big_scalar2));
 
         // 3: add entry where point is witness, scalar is constant
         expected += (element * scalar);
         points.emplace_back(cycle_group_ct::from_witness(&builder, element));
-        scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
+        BigScalarField big_scalar3(&builder, scalar);
+        scalars.emplace_back(cycle_scalar_ct(big_scalar3));
 
         // 4: add entry where point is constant, scalar is constant
         expected += (element * scalar);
         points.emplace_back(cycle_group_ct(element));
-        scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
+        BigScalarField big_scalar4(&builder, scalar);
+        scalars.emplace_back(cycle_scalar_ct(big_scalar4));
     }
 
     // Here and in the following cases assign different tags to points and scalars and get the union of them back
@@ -813,10 +818,12 @@ TYPED_TEST(CycleGroupTest, TestBatchMulProducesInfinity)
     auto element = TestFixture::generators[0];
     typename Group::Fr scalar = Group::Fr::random_element(&engine);
     points.emplace_back(cycle_group_ct::from_witness(&builder, element));
-    scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
+    BigScalarField big_scalar1(&builder, scalar);
+    scalars.emplace_back(cycle_scalar_ct(big_scalar1));
 
     points.emplace_back(cycle_group_ct::from_witness(&builder, element));
-    scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, -scalar));
+    BigScalarField big_scalar2(&builder, -scalar);
+    scalars.emplace_back(cycle_scalar_ct(big_scalar2));
 
     const auto expected_tag = assign_and_merge_tags(points, scalars);
 
@@ -841,7 +848,8 @@ TYPED_TEST(CycleGroupTest, TestBatchMulMultiplyByZero)
     auto element = TestFixture::generators[0];
     typename Group::Fr scalar = 0;
     points.emplace_back(cycle_group_ct::from_witness(&builder, element));
-    scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
+    BigScalarField big_scalar(&builder, scalar);
+    scalars.emplace_back(cycle_scalar_ct(big_scalar));
 
     const auto expected_tag = assign_and_merge_tags(points, scalars);
     auto result = cycle_group_ct::batch_mul(points, scalars);
@@ -869,14 +877,16 @@ TYPED_TEST(CycleGroupTest, TestBatchMulInputsAreInfinity)
         cycle_group_ct point = cycle_group_ct::from_witness(&builder, element);
         point.set_point_at_infinity(witness_ct(&builder, true));
         points.emplace_back(point);
-        scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
+        BigScalarField big_scalar1(&builder, scalar);
+        scalars.emplace_back(cycle_scalar_ct(big_scalar1));
     }
     // is_infinity = constant
     {
         cycle_group_ct point = cycle_group_ct::from_witness(&builder, element);
         point.set_point_at_infinity(true);
         points.emplace_back(point);
-        scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
+        BigScalarField big_scalar2(&builder, scalar);
+        scalars.emplace_back(cycle_scalar_ct(big_scalar2));
     }
 
     const auto expected_tag = assign_and_merge_tags(points, scalars);
@@ -907,14 +917,16 @@ TYPED_TEST(CycleGroupTest, TestBatchMulFixedBaseInLookupTable)
         // 1: add entry where point is constant, scalar is witness
         expected += (element * scalar);
         points.emplace_back(element);
-        scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
+        BigScalarField big_scalar(&builder, scalar);
+        scalars.emplace_back(cycle_scalar_ct(big_scalar));
         scalars_native.emplace_back(uint256_t(scalar));
 
         // 2: add entry where point is constant, scalar is constant
         element = plookup::fixed_base::table::rhs_generator_point();
         expected += (element * scalar);
         points.emplace_back(element);
-        scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
+        BigScalarField big_scalar_const(&builder, scalar);
+        scalars.emplace_back(cycle_scalar_ct(big_scalar_const));
         scalars_native.emplace_back(uint256_t(scalar));
     }
     const auto expected_tag = assign_and_merge_tags(points, scalars);
@@ -946,14 +958,16 @@ TYPED_TEST(CycleGroupTest, TestBatchMulFixedBaseSomeInLookupTable)
         // 1: add entry where point is constant, scalar is witness
         expected += (element * scalar);
         points.emplace_back(element);
-        scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
+        BigScalarField big_scalar(&builder, scalar);
+        scalars.emplace_back(cycle_scalar_ct(big_scalar));
         scalars_native.emplace_back(scalar);
 
         // 2: add entry where point is constant, scalar is constant
         element = plookup::fixed_base::table::rhs_generator_point();
         expected += (element * scalar);
         points.emplace_back(element);
-        scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
+        BigScalarField big_scalar_const(&builder, scalar);
+        scalars.emplace_back(cycle_scalar_ct(big_scalar_const));
         scalars_native.emplace_back(scalar);
 
         // 3: add entry where point is constant, scalar is witness
@@ -961,7 +975,8 @@ TYPED_TEST(CycleGroupTest, TestBatchMulFixedBaseSomeInLookupTable)
         element = Group::one * Group::Fr::random_element(&engine);
         expected += (element * scalar);
         points.emplace_back(element);
-        scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
+        BigScalarField big_scalar2(&builder, scalar);
+        scalars.emplace_back(cycle_scalar_ct(big_scalar2));
         scalars_native.emplace_back(scalar);
     }
     const auto expected_tag = assign_and_merge_tags(points, scalars);
@@ -989,11 +1004,13 @@ TYPED_TEST(CycleGroupTest, TestBatchMulFixedBaseZeroScalars)
 
         // 1: add entry where point is constant, scalar is witness
         points.emplace_back((element));
-        scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&builder, scalar));
+        BigScalarField big_scalar(&builder, scalar);
+        scalars.emplace_back(cycle_scalar_ct(big_scalar));
 
         // 2: add entry where point is constant, scalar is constant
         points.emplace_back((element));
-        scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
+        BigScalarField big_scalar_const(&builder, scalar);
+        scalars.emplace_back(cycle_scalar_ct(big_scalar_const));
     }
     const auto expected_tag = assign_and_merge_tags(points, scalars);
     auto result = cycle_group_ct::batch_mul(points, scalars);
@@ -1014,7 +1031,6 @@ TYPED_TEST(CycleGroupTest, TestMul)
     // case 1, general MSM with inputs that are combinations of constant and witnesses
     {
         cycle_group_ct point;
-        typename cycle_group_ct::cycle_scalar scalar;
         cycle_group_ct result;
         for (size_t i = 0; i < num_muls; ++i) {
             auto element = TestFixture::generators[i];
@@ -1023,7 +1039,8 @@ TYPED_TEST(CycleGroupTest, TestMul)
 
             // 1: add entry where point, scalar are witnesses
             point = (cycle_group_ct::from_witness(&builder, element));
-            scalar = (cycle_group_ct::cycle_scalar::from_witness(&builder, native_scalar));
+            BigScalarField big_scalar1(&builder, native_scalar);
+            cycle_scalar_ct scalar = (cycle_scalar_ct(big_scalar1));
             point.set_origin_tag(submitted_value_origin_tag);
             scalar.set_origin_tag(challenge_origin_tag);
             result = point * scalar;
@@ -1032,16 +1049,21 @@ TYPED_TEST(CycleGroupTest, TestMul)
 
             // 2: add entry where point is constant, scalar is witness
             point = (cycle_group_ct(element));
-            scalar = (cycle_group_ct::cycle_scalar::from_witness(&builder, native_scalar));
+            BigScalarField big_scalar2(&builder, native_scalar);
+            scalar = (cycle_scalar_ct(big_scalar2));
 
             EXPECT_EQ((result).get_value(), (expected_result));
 
             // 3: add entry where point is witness, scalar is constant
             point = (cycle_group_ct::from_witness(&builder, element));
+            BigScalarField big_scalar3(&builder, native_scalar);
+            scalar = (cycle_scalar_ct(big_scalar3));
             EXPECT_EQ((result).get_value(), (expected_result));
 
             // 4: add entry where point is constant, scalar is constant
             point = (cycle_group_ct(element));
+            BigScalarField big_scalar4(&builder, native_scalar);
+            scalar = (cycle_scalar_ct(big_scalar4));
             EXPECT_EQ((result).get_value(), (expected_result));
         }
     }
@@ -1158,9 +1180,9 @@ TYPED_TEST(CycleGroupTest, MixedLengthScalarsIsNotSupported)
     std::vector<typename cycle_group_ct::cycle_scalar> scalars;
 
     // First scalar: 254 bits (default cycle_scalar::NUM_BITS)
-    auto scalar1_value = FF::random_element(&engine);
-    auto scalar1 = FF_ct::from_witness(&builder, scalar1_value);
-    scalars.emplace_back(scalar1);
+    uint256_t scalar1_value = uint256_t(123456789);
+    BigScalarField big_scalar1(&builder, typename Curve::ScalarField(scalar1_value));
+    scalars.push_back(cycle_scalar_ct(big_scalar1));
     EXPECT_EQ(scalars[0].num_bits(), cycle_scalar_ct::NUM_BITS);
 
     // Second scalar: 256 bits
@@ -1194,8 +1216,10 @@ TYPED_TEST(CycleGroupTest, TestFixedBaseBatchMul)
     auto scalar1_val = Group::Fr::random_element(&engine);
     auto scalar2_val = Group::Fr::random_element(&engine);
 
-    scalars.push_back(cycle_scalar_ct::from_witness(&builder, scalar1_val));
-    scalars.push_back(cycle_scalar_ct::from_witness(&builder, scalar2_val));
+    BigScalarField big_scalar1(&builder, scalar1_val);
+    BigScalarField big_scalar2(&builder, scalar2_val);
+    scalars.push_back(cycle_scalar_ct(big_scalar1));
+    scalars.push_back(cycle_scalar_ct(big_scalar2));
     points.push_back(cycle_group_ct(lhs_generator)); // constant point
     points.push_back(cycle_group_ct(rhs_generator)); // constant point
 
