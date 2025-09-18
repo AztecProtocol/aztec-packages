@@ -535,7 +535,7 @@ TYPED_TEST(ScalarMultiplicationTest, BenchBatchMsm)
         std::span<const AffineElement> points(&TestFixture::generators[i], size);
         all_points.push_back(points);
         all_scalars.push_back(scalar_storage.back());
-        all_commitments.push_back(naive_msm(all_scalars.back(), all_points.back()));
+        all_commitments.push_back(TestFixture::naive_msm(all_scalars.back(), all_points.back()));
     }
     auto func = [&]<bb::detail::OperationLabel thread_prefix>(size_t num_threads) {
         set_hardware_concurrency(num_threads);
