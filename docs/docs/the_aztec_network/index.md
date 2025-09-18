@@ -93,14 +93,18 @@ mkdir aztec-node && cd ./aztec-node
 Next, set some required configuration options. This guide will use `custom_named` environment variables (e.g. `AZTEC_NODE_P2P_IP`) but this is not necessary; you can pass values directly into the command without specifying them as environment variables. The external IP address of the node, and the L1 RPC endpoints must be defined when starting a node. Also, configuration defining the network version should be set, as this will let the node define the other required protocol variables, like rollup address, registry address etc. Note that the specified RPC endpoints must support high throughput, otherwise the node will suffer degraded performance.
 
 ```console
-# If the external IP of the machine the node is running on is unknown, it can be obtained by running `curl ifconfig.me`.
-export AZTEC_NODE_P2P_IP=IP
 export AZTEC_NODE_NETWORK=testnet
+export AZTEC_NODE_P2P_IP=IP
 export AZTEC_NODE_ETH_HOSTS=<execution endpoint>
 export AZTEC_NODE_CONSENSUS_HOSTS=<consensus endpoint>
 ```
 
-Finally, the ports used by the node must be accessible to other Aztec nodes on the internet. This will require disabling the firewall for and / or forwarding these ports. The router must be able to send UDP and TCP traffic on port 40400 (unless the defaults were changed) to the node IP address on its local network. Failure to do so may result in the node not participating in p2p duties.
+:::tip
+
+The ports used by the node must be accessible to other Aztec nodes on the internet. This will require disabling the firewall for and / or forwarding these ports. The router must be able to send UDP and TCP traffic on port 40400 (unless the defaults were changed) to the node IP address on its local network. Failure to do so may result in the node not participating in p2p duties.
+
+Running the command `curl ipv4.icanhazip.com` can retrieve your public IP address for you.
+:::
 
 ## Run the node
 
