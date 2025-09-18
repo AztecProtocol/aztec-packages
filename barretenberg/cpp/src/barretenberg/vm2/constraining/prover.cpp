@@ -77,11 +77,13 @@ void AvmProver::execute_wire_commitments_round()
     // logderivative phase)
     auto wire_polys = prover_polynomials.get_wires();
     const auto& labels = prover_polynomials.get_wires_labels();
+    // TODO(AD): @facundo - tune this value
+    const size_t MAX_BATCH_SIZE = 4;
     auto batch = commitment_key.start_batch();
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
-        batch.add_to_batch(wire_polys[idx], labels[idx]);
+        batch.add_to_batch(wire_polys[idx], labels[idx], /*mask for zk?*/ false);
     }
-    batch.send_to_verifier(transcript);
+    batch.send_to_verifier(transcript, MAX_BATCH_SIZE);
 }
 
 void AvmProver::execute_log_derivative_inverse_round()

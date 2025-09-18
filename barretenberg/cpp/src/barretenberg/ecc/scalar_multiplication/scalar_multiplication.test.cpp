@@ -499,7 +499,8 @@ std::vector<ScalarField> generate_sparse_scalars(size_t num_scalars, double spar
 }
 
 // Test different MSM strategies with detailed benchmarking
-TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMulStrategyComparison)
+// NOTE this requres BB_BENCH=1 to be set before the test command
+TYPED_TEST(ScalarMultiplicationTest, BenchBatchMsm)
 {
 #ifndef __wasm__
     if (!bb::detail::use_bb_bench) {
@@ -515,15 +516,14 @@ TYPED_TEST(ScalarMultiplicationTest, BatchMultiScalarMulStrategyComparison)
     using AffineElement = typename Curve::AffineElement;
 
     const size_t num_msms = 3;
-    const size_t msm_max_size = 1 << 18;
+    const size_t msm_max_size = 1 << 15;
     const double max_sparsity = 0.1;
 
     // Generate test data with varying sparsity
     std::vector<std::span<const AffineElement>> all_points;
     std::vector<std::span<ScalarField>> all_scalars;
     std::vector<std::vector<ScalarField>> scalar_storage;
-    // reset seed
-    numeric::get_debug_randomness(true, 1);
+
     size_t offset = 0;
     for (size_t i = 0; i < num_msms; ++i) {
         // Generate random sizes and density of 0s
