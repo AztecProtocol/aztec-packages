@@ -114,17 +114,20 @@ namespace public_data_check;
 
     // ========= SORTING =========
     // If not the last row, clock must not decrease
-    pol commit clk_diff;
-    clk_diff = not_end * (clk' - clk);
+    pol CLK_DIFF = not_end * (clk' - clk);
 
-    // TODO: Commited because lookups don't support constants
-    pol commit constant_32;
-    sel * (32 - constant_32) = 0;
+    pol commit clk_diff_lo;
+    pol commit clk_diff_hi;
+    #[CLK_DIFF_DECOMP]
+    CLK_DIFF = clk_diff_lo + 2**16 * clk_diff_hi;
 
-    // Disabled sorting lookups for now
-    // #[CLK_DIFF_RANGE]
-    // not_end { clk_diff, constant_32 }
-    // in range_check.sel { range_check.value, range_check.rng_chk_bits };
+    #[CLK_DIFF_RANGE_LO]
+    not_end { clk_diff_lo }
+    in precomputed.sel_range_16 { precomputed.clk };
+
+    #[CLK_DIFF_RANGE_HI]
+    not_end { clk_diff_hi }
+    in precomputed.sel_range_16 { precomputed.clk };
 
     // We enforce reads, which have unconstrained clk, to have clk = 0
     // So they have to be at the start of the trace

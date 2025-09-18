@@ -168,7 +168,8 @@ TEST_P(PublicDataReadPositiveTests, Positive)
                                                      .nextAvailableLeafIndex = 128,
                                                  });
 
-    precomputed_builder.process_misc(trace, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
+    precomputed_builder.process_misc(trace, 1 << 16);
+    precomputed_builder.process_sel_range_16(trace);
     public_inputs_builder.process_public_inputs(trace, test_public_inputs);
     public_inputs_builder.process_public_inputs_aux_precomputed(trace);
     range_check_builder.process(range_check_emitter.dump_events(), trace);
@@ -380,7 +381,8 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveWriteExists)
                                                                                     false);
     EXPECT_EQ(next_snapshot, result_snapshot);
 
-    precomputed_builder.process_misc(trace, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
+    precomputed_builder.process_misc(trace, 1 << 16);
+    precomputed_builder.process_sel_range_16(trace);
     public_inputs_builder.process_public_inputs(trace, test_public_inputs);
     public_inputs_builder.process_public_inputs_aux_precomputed(trace);
     range_check_builder.process(range_check_emitter.dump_events(), trace);
@@ -566,7 +568,8 @@ TEST_F(PublicDataTreeCheckConstrainingTest, PositiveSquashing)
                                                                                           true);
     EXPECT_EQ(next_snapshot, snapshot_after_update);
 
-    precomputed_builder.process_misc(trace, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
+    precomputed_builder.process_misc(trace, 1 << 16);
+    precomputed_builder.process_sel_range_16(trace);
     public_inputs_builder.process_public_inputs(trace, test_public_inputs);
     public_inputs_builder.process_public_inputs_aux_precomputed(trace);
     range_check_builder.process(range_check_emitter.dump_events(), trace);
