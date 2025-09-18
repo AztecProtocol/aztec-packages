@@ -153,8 +153,20 @@ export class ArchiverInstrumentation {
 
   public processNewMessages(count: number, syncPerMessageMs: number) {
     this.syncMessageCount.add(count);
-    this.syncDurationPerMessage.record(Math.ceil(syncPerMessageMs));
-  }
+  const v = Math.round(syncPerMessageMs);
+
+if (!Number.isInteger(v)) {
+  // eslint-disable-next-line no-console
+  console.warn('INT metric got non-integer', {
+    metric: 'aztec.archiver.message.sync_per_item_duration',
+    raw: syncPerMessageMs,
+    rounded: v,
+    source: 'instrumentation.processNewMessages',
+  });
+}
+
+this.syncDurationPerMessage.record(v);
+	}
 
   public processPrune(duration: number) {
     this.pruneCount.add(1);
