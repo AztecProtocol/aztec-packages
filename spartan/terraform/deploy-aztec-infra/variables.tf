@@ -317,7 +317,7 @@ variable "BOT_MNEMONIC" {
 variable "BOT_TRANSFERS_MNEMONIC_START_INDEX" {
   description = "The prover mnemonic start index"
   type        = string
-  default     = 5000
+  default     = ""
 }
 
 variable "BOT_TRANSFERS_REPLICAS" {
@@ -347,7 +347,7 @@ variable "BOT_TRANSFERS_L2_PRIVATE_KEY" {
 variable "BOT_SWAPS_MNEMONIC_START_INDEX" {
   description = "The prover mnemonic start index"
   type        = string
-  default     = 6000
+  default     = ""
 }
 
 variable "BOT_SWAPS_REPLICAS" {
@@ -379,5 +379,30 @@ variable "PROVER_FAILED_PROOF_STORE" {
   description = "Optional GCS/URI to store failed proofs from the prover"
   type        = string
   nullable    = false
+  default     = ""
+}
+
+# RPC ingress configuration (GKE-specific)
+variable "RPC_INGRESS_ENABLED" {
+  description = "Enable GKE ingress for RPC nodes"
+  type        = bool
+  default     = false
+}
+
+variable "RPC_INGRESS_HOST" {
+  description = "Hostname for RPC ingress"
+  type        = string
+  default     = ""
+}
+
+variable "RPC_INGRESS_STATIC_IP_NAME" {
+  description = "Name of the GCP static IP resource for the ingress"
+  type        = string
+  default     = ""
+}
+
+variable "RPC_INGRESS_SSL_CERT_NAME" {
+  description = "Name of the GCP managed SSL certificate for the ingress"
+  type        = string
   default     = ""
 }

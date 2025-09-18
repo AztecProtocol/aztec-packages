@@ -2,6 +2,7 @@ import { DefaultL1ContractsConfig, type L1ContractsConfig } from '@aztec/ethereu
 import type { EnvVar, NetworkNames } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { SharedNodeConfig } from '@aztec/node-lib/config';
+import type { P2PConfig } from '@aztec/p2p/config';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 
 import { mkdir, readFile, stat, writeFile } from 'fs/promises';
@@ -10,6 +11,7 @@ import path, { dirname, join } from 'path';
 import publicIncludeMetrics from '../../public_include_metric_prefixes.json' with { type: 'json' };
 
 export type L2ChainConfig = L1ContractsConfig &
+  Pick<P2PConfig, 'txPoolDeleteTxsAfterReorg'> &
   Omit<SlasherConfig, 'slashValidatorsNever' | 'slashValidatorsAlways'> & {
     l1ChainId: number;
     testAccounts: boolean;
@@ -87,24 +89,62 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
-
-  ...DefaultL1ContractsConfig,
-  ...DefaultSlashConfig,
+  txPoolDeleteTxsAfterReorg: false,
 
   /** How many seconds an L1 slot lasts. */
   ethereumSlotDuration: 12,
   /** How many seconds an L2 slots lasts (must be multiple of ethereum slot duration). */
-  aztecSlotDuration: 36,
+  aztecSlotDuration: 72,
   /** How many L2 slots an epoch lasts. */
   aztecEpochDuration: 32,
   /** The target validator committee size. */
-  aztecTargetCommitteeSize: 48,
+  aztecTargetCommitteeSize: 24,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: 1,
+  /** How many sequencers must agree with a slash for it to be executed. */
+  slashingQuorum: 65,
+
+  slashingRoundSizeInEpochs: 4,
+  slashingLifetimeInRounds: 40,
+  slashingExecutionDelayInRounds: 28,
+  slashAmountSmall: 2_000n * 10n ** 18n,
+  slashAmountMedium: 10_000n * 10n ** 18n,
+  slashAmountLarge: 50_000n * 10n ** 18n,
+  slashingOffsetInRounds: 2,
+  slasherFlavor: 'tally',
+  slashingVetoer: EthAddress.ZERO, // TODO TMNT-329
+
   /** The mana target for the rollup */
   manaTarget: 0n,
+
+  exitDelaySeconds: 5 * 24 * 60 * 60,
+
   /** The proving cost per mana */
   provingCostPerMana: 0n,
+
+  ejectionThreshold: 100_000n * 10n ** 18n,
+  activationThreshold: 200_000n * 10n ** 18n,
+
+  governanceProposerRoundSize: 300, // TODO TMNT-322
+  governanceProposerQuorum: 151, // TODO TMNT-322
+
+  // Node slashing config
+  // TODO TMNT-330
+  slashMinPenaltyPercentage: 0.5,
+  slashMaxPenaltyPercentage: 2.0,
+  slashInactivityTargetPercentage: 0.7,
+  slashInactivityConsecutiveEpochThreshold: 2,
+  slashInactivityPenalty: 2_000n * 10n ** 18n,
+  slashPrunePenalty: 0n, // 2_000n * 10n ** 18n, We disable slashing for prune offenses right now
+  slashDataWithholdingPenalty: 0n, // 2_000n * 10n ** 18n, We disable slashing for data withholding offenses right now
+  slashProposeInvalidAttestationsPenalty: 50_000n * 10n ** 18n,
+  slashAttestDescendantOfInvalidPenalty: 50_000n * 10n ** 18n,
+  slashUnknownPenalty: 2_000n * 10n ** 18n,
+  slashBroadcastedInvalidBlockPenalty: 10_000n * 10n ** 18n,
+  slashMaxPayloadSize: 50,
+  slashGracePeriodL2Slots: 32 * 4, // One round from genesis
+  slashOffenseExpirationRounds: 8,
+  sentinelEnabled: true,
 };
 
 export const stagingPublicL2ChainConfig: L2ChainConfig = {
@@ -126,6 +166,7 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
   maxTxPoolSize: 100_000_000, // 100MB
+  txPoolDeleteTxsAfterReorg: true,
 
   // Deployment stuff
   /** How many seconds an L1 slot lasts. */
@@ -162,9 +203,9 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   sponsoredFPC: true,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
-  registryAddress: '0x3946727059698390de46be93f3c04b16ac731de6',
-  slashFactoryAddress: '0xfef5bad3d566a73dfbd2a9512ae1b94644907898',
-  feeAssetHandlerAddress: '0x9626212d923289fcf1c099bb70fff5714590f8c0',
+  registryAddress: '0xc2f24280f5c7f4897370dfdeb30f79ded14f1c81',
+  slashFactoryAddress: '0x76291684ae928d6e5bcff348e36917f4cc532db8',
+  feeAssetHandlerAddress: '0x50513c3713ffd33301e85f30d86ab764df421fe9',
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 20,
   realProofs: true,
@@ -175,6 +216,7 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
+  txPoolDeleteTxsAfterReorg: true,
 
   // Deployment stuff
   /** How many seconds an L1 slot lasts. */
@@ -203,6 +245,9 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
 
   ...DefaultSlashConfig,
+  slashPrunePenalty: 0n,
+  slashDataWithholdingPenalty: 0n,
+  slashInactivityPenalty: DefaultL1ContractsConfig.slashAmountMedium,
 };
 
 const BOOTNODE_CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour;

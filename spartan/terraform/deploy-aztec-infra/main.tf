@@ -78,6 +78,7 @@ locals {
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
+      wait                 = true
     } : null
 
     p2p_bootstrap = var.DEPLOY_INTERNAL_BOOTNODE ? {
@@ -93,6 +94,7 @@ locals {
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
+      wait                 = true
     } : null
 
     validators = {
@@ -127,6 +129,7 @@ locals {
       }
       boot_node_host_path  = "validator.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "validator.node.env.BOOTSTRAP_NODES"
+      wait                 = true
     }
 
     prover = {
@@ -150,6 +153,7 @@ locals {
       }
       boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.node.env.BOOTSTRAP_NODES"
+      wait                 = true
     }
 
     rpc = {
@@ -160,12 +164,37 @@ locals {
         "rpc.yaml",
         "rpc-resources-${var.RPC_RESOURCE_PROFILE}.yaml"
       ]
+      inline_values = var.RPC_INGRESS_ENABLED ? [yamlencode({
+        service = {
+          rpc = {
+            annotations = {
+              "cloud.google.com/neg" = jsonencode({ ingress = true })
+              "cloud.google.com/backend-config" = jsonencode({
+                default = "${var.RELEASE_PREFIX}-rpc-ingress-backend"
+              })
+            }
+          }
+        }
+        ingress = {
+          rpc = {
+            annotations = {
+              "kubernetes.io/ingress.class"                 = "gce"
+              "kubernetes.io/ingress.global-static-ip-name" = var.RPC_INGRESS_STATIC_IP_NAME
+              "ingress.gcp.kubernetes.io/pre-shared-cert"   = var.RPC_INGRESS_SSL_CERT_NAME
+              "kubernetes.io/ingress.allow-http"            = "false"
+            }
+          }
+        }
+      })] : []
       custom_settings = {
-        "nodeType"         = "rpc"
-        "node.env.NETWORK" = var.NETWORK
+        "nodeType"            = "rpc"
+        "node.env.NETWORK"    = var.NETWORK
+        "ingress.rpc.enabled" = var.RPC_INGRESS_ENABLED
+        "ingress.rpc.host"    = var.RPC_INGRESS_HOST
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
+      wait                 = true
     }
 
     # Optional: transfer bots
@@ -188,6 +217,7 @@ locals {
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
+      wait                 = false
     } : null
 
     # Optional: AMM swap bots
@@ -210,6 +240,7 @@ locals {
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
+      wait                 = false
     } : null
   }
 }
@@ -229,10 +260,13 @@ resource "helm_release" "releases" {
   recreate_pods    = true
   reuse_values     = false
   timeout          = 600
-  wait             = true
+  wait             = each.value.wait
   wait_for_jobs    = true
 
-  values = [for v in each.value.values : file("./values/${v}")]
+  values = concat(
+    [for v in each.value.values : file("./values/${v}")],
+    lookup(each.value, "inline_values", [])
+  )
 
   # Common settings
   dynamic "set" {
@@ -259,6 +293,31 @@ resource "helm_release" "releases" {
     content {
       name  = set_list.key
       value = set_list.value
+    }
+  }
+}
+
+resource "kubernetes_manifest" "rpc_ingress_backend" {
+  count    = var.RPC_INGRESS_ENABLED ? 1 : 0
+  provider = kubernetes.gke-cluster
+
+  manifest = {
+    apiVersion = "cloud.google.com/v1"
+    kind       = "BackendConfig"
+    metadata = {
+      name      = "${var.RELEASE_PREFIX}-rpc-ingress-backend"
+      namespace = var.NAMESPACE
+    }
+    spec = {
+      healthCheck = {
+        checkIntervalSec   = 15
+        timeoutSec         = 5
+        healthyThreshold   = 2
+        unhealthyThreshold = 2
+        type               = "HTTP"
+        port               = 8080
+        requestPath        = "/status"
+      }
     }
   }
 }
