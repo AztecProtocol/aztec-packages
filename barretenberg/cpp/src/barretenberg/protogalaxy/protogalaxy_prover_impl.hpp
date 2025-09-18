@@ -58,7 +58,7 @@ std::tuple<std::vector<typename Flavor::FF>, Polynomial<typename Flavor::FF>> Pr
 
     const std::vector<FF> deltas = transcript->template get_powers_of_challenge<FF>("delta", CONST_PG_LOG_N);
     // An honest prover with valid initial key computes that the perturbator is 0 in the first round
-    const Polynomial<FF> perturbator = accumulator->from_first_instance
+    const Polynomial<FF> perturbator = accumulator->is_relaxed_instance
                                            ? pg_internal.compute_perturbator(accumulator, deltas)
                                            : Polynomial<FF>(CONST_PG_LOG_N + 1);
     // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
@@ -128,7 +128,7 @@ void ProtogalaxyProver_<Flavor>::update_target_sum_and_fold(
 
     std::shared_ptr<ProverInstance> accumulator = instances[0];
     std::shared_ptr<ProverInstance> incoming = instances[1];
-    accumulator->from_first_instance = true;
+    accumulator->is_relaxed_instance = true;
 
     // At this point the virtual sizes of the polynomials should already agree
     BB_ASSERT_EQ(accumulator->polynomials.w_l.virtual_size(), incoming->polynomials.w_l.virtual_size());
