@@ -1682,10 +1682,10 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
 
     for (size_t i = 0; i < 5; i++) {
         if (lo_masks[i] != 0) {
-            create_new_range_constraint(lo_sublimbs[i], lo_masks[i]);
+            create_new_range_constraint(lo_sublimbs[i], lo_masks[i], "ultra_circuit_builder: sublimb of low too large");
         }
         if (hi_masks[i] != 0) {
-            create_new_range_constraint(hi_sublimbs[i], hi_masks[i]);
+            create_new_range_constraint(hi_sublimbs[i], hi_masks[i], "ultra_circuit_builder: sublimb of hi too large");
         }
     }
 };
