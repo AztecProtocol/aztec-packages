@@ -63,7 +63,7 @@ The testnet is version dependent. It is currently running version `#include_test
 Set the required environment variables:
 
 ```bash
-export NODE_URL=https://aztec-alpha-testnet-fullnode.zkv.xyz
+export NODE_URL=https://aztec-testnet-fullnode.zkv.xyz
 export SPONSORED_FPC_ADDRESS=0x299f255076aa461e4e94a843f0275303470a6b8ebe7cb44a471c66711151e529
 ```
 
@@ -139,7 +139,7 @@ If you have an existing app running on sandbox, here's how to migrate it to test
 Instead of running a local sandbox, connect to the testnet node:
 
 ```sh
-export NODE_URL=https://aztec-alpha-testnet-fullnode.zkv.xyz
+export NODE_URL=https://aztec-testnet-fullnode.zkv.xyz
 ```
 
 When running `aztec-wallet` commands, include the node URL:
@@ -171,7 +171,7 @@ import { createAztecNodeClient } from "@aztec/aztec.js";
 import { getPXEServiceConfig } from "@aztec/pxe/server";
 import { createStore } from "@aztec/kv-store/lmdb";
 
-const NODE_URL = "https://aztec-alpha-testnet-fullnode.zkv.xyz";
+const NODE_URL = "https://aztec-testnet-fullnode.zkv.xyz";
 const node = createAztecNodeClient(NODE_URL);
 const l1Contracts = await node.getL1ContractAddresses();
 const config = getPXEServiceConfig();
