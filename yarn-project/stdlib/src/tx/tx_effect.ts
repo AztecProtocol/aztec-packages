@@ -1,3 +1,4 @@
+import { TX_EFFECT_PREFIX_BYTE_LENGTH, TX_START_PREFIX_BYTES_LENGTH } from '@aztec/blob-lib/encoding';
 import {
   CONTRACT_CLASS_LOGS_PREFIX,
   L2_L1_MSGS_PREFIX,
@@ -14,6 +15,7 @@ import {
   PUBLIC_LOGS_PREFIX,
   REVERT_CODE_PREFIX,
   TX_FEE_PREFIX,
+  TX_START_PREFIX,
 } from '@aztec/constants';
 import { type FieldsOf, makeTuple, makeTupleAsync } from '@aztec/foundation/array';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
@@ -37,13 +39,6 @@ import { ContractClassLog } from '../logs/contract_class_log.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { PublicLog } from '../logs/public_log.js';
 import { TxHash } from './tx_hash.js';
-
-// This will appear as 0x74785f7374617274 in logs
-export const TX_START_PREFIX = 8392562855083340404n;
-// These are helper constants to decode tx effects from blob encoded fields
-export const TX_START_PREFIX_BYTES_LENGTH = TX_START_PREFIX.toString(16).length / 2;
-// 7 bytes for: | 0 | txlen[0] | txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revertCode |
-export const TX_EFFECT_PREFIX_BYTE_LENGTH = TX_START_PREFIX_BYTES_LENGTH + 7;
 
 export class TxEffect {
   constructor(

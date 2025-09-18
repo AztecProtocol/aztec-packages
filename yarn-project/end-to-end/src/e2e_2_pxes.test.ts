@@ -17,7 +17,6 @@ describe('e2e_2_pxes', () => {
   jest.setTimeout(TIMEOUT);
 
   let aztecNode: AztecNode | undefined;
-  let pxeA: PXE;
   let pxeB: PXE;
   let walletA: TestWallet;
   let walletB: TestWallet;
@@ -31,7 +30,6 @@ describe('e2e_2_pxes', () => {
   beforeEach(async () => {
     ({
       aztecNode,
-      pxe: pxeA,
       initialFundedAccounts,
       wallet: walletA,
       accounts: [accountAAddress],
@@ -109,8 +107,8 @@ describe('e2e_2_pxes', () => {
     return contract.instance;
   };
 
-  const getChildStoredValue = (child: { address: AztecAddress }, pxe: PXE) =>
-    pxe.getPublicStorageAt(child.address, new Fr(1));
+  const getChildStoredValue = (child: { address: AztecAddress }, node: AztecNode) =>
+    node.getPublicStorageAt('latest', child.address, new Fr(1));
 
   it('user calls a public function on a contract deployed by a different user using a different PXE', async () => {
     const childCompleteAddress = await deployChildContractViaServerA();
@@ -129,10 +127,10 @@ describe('e2e_2_pxes', () => {
       .send({ from: accountBAddress })
       .wait({ interval: 0.1 });
 
-    const storedValueOnB = await getChildStoredValue(childCompleteAddress, pxeB);
+    const storedValueOnB = await getChildStoredValue(childCompleteAddress, aztecNode!);
     expect(storedValueOnB).toEqual(newValueToSet);
 
-    const storedValueOnA = await getChildStoredValue(childCompleteAddress, pxeA);
+    const storedValueOnA = await getChildStoredValue(childCompleteAddress, aztecNode!);
     expect(storedValueOnA).toEqual(newValueToSet);
   });
 

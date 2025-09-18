@@ -41,7 +41,7 @@ export class UtilityExecutionOracle extends TypedOracle {
   }
 
   public override async utilityGetUtilityContext(): Promise<UtilityContext> {
-    const blockHeader = await this.executionDataProvider.getBlockHeader();
+    const blockHeader = await this.executionDataProvider.getAnchorBlockHeader();
     return UtilityContext.from({
       blockNumber: blockHeader.globalVariables.blockNumber,
       timestamp: blockHeader.globalVariables.timestamp,
@@ -124,7 +124,7 @@ export class UtilityExecutionOracle extends TypedOracle {
     if (!block) {
       return undefined;
     }
-    return block.header;
+    return block.getBlockHeader();
   }
 
   /**

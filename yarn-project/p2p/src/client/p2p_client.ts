@@ -683,7 +683,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   private async markTxsAsMinedFromBlocks(blocks: L2Block[]): Promise<void> {
     for (const block of blocks) {
       const txHashes = block.body.txEffects.map(txEffect => txEffect.txHash);
-      await this.txPool.markAsMined(txHashes, block.header);
+      await this.txPool.markAsMined(txHashes, block.getBlockHeader());
     }
   }
 
@@ -793,7 +793,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     // Find transactions that reference pruned blocks in their historical header
     for (const tx of await this.txPool.getAllTxs()) {
       // every tx that's been generated against a block that has now been pruned is no longer valid
-      if (tx.data.constants.historicalHeader.globalVariables.blockNumber > latestBlock) {
+      if (tx.data.constants.anchorBlockHeader.globalVariables.blockNumber > latestBlock) {
         const txHash = tx.getTxHash();
         txsToDelete.set(txHash.toString(), txHash);
       }

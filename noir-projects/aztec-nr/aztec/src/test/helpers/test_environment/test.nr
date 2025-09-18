@@ -55,10 +55,13 @@ unconstrained fn set_next_block_timestamp_sets_next_private_context_inclusion_bl
     env.set_next_block_timestamp(expected_next_block_timestamp);
 
     // Note that for private_context what is set is the timestamp of the block that'll be created with the effects
-    // collected there - NOT the timestamp of the historical block in the context, which corresponds to the last block's
+    // collected there - NOT the timestamp of the anchor block in the context, which corresponds to the last block's
     // timestamp.
     env.private_context(|context| {
-        assert_eq(context.get_block_header().global_variables.timestamp, last_block_timestamp);
+        assert_eq(
+            context.get_anchor_block_header().global_variables.timestamp,
+            last_block_timestamp,
+        );
     });
 
     assert_eq(env.last_block_timestamp(), expected_next_block_timestamp);
@@ -193,7 +196,10 @@ unconstrained fn private_context_uses_last_block_number() {
     let last_block_number = env.last_block_number();
 
     env.private_context(|context| {
-        assert_eq(last_block_number, context.get_block_header().global_variables.block_number);
+        assert_eq(
+            last_block_number,
+            context.get_anchor_block_header().global_variables.block_number,
+        );
     });
 }
 
@@ -201,10 +207,12 @@ unconstrained fn private_context_uses_last_block_number() {
 unconstrained fn private_context_advances_block_number() {
     let env = TestEnvironment::new();
 
-    let first_block_number =
-        env.private_context(|context| context.get_block_header().global_variables.block_number);
-    let second_block_number =
-        env.private_context(|context| context.get_block_header().global_variables.block_number);
+    let first_block_number = env.private_context(|context| {
+        context.get_anchor_block_header().global_variables.block_number
+    });
+    let second_block_number = env.private_context(|context| {
+        context.get_anchor_block_header().global_variables.block_number
+    });
 
     assert_eq(second_block_number, first_block_number + 1);
 }

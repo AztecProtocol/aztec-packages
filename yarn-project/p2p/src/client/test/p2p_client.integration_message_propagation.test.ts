@@ -8,7 +8,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
-import { type MakeConsensusPayloadOptions, makeBlockProposal, makeHeader, mockTx } from '@aztec/stdlib/testing';
+import { type MakeConsensusPayloadOptions, makeBlockProposal, makeL2BlockHeader, mockTx } from '@aztec/stdlib/testing';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { describe, expect, it, jest } from '@jest/globals';
@@ -175,7 +175,7 @@ describe('p2p client integration message propagation', () => {
     // Client 1 sends a block proposal
     const dummyPayload: MakeConsensusPayloadOptions = {
       signer: Secp256k1Signer.random(),
-      header: makeHeader(),
+      header: makeL2BlockHeader(),
       archive: Fr.random(),
       txHashes: [TxHash.random()],
     };
@@ -324,7 +324,7 @@ describe('p2p client integration message propagation', () => {
         // Client 1 sends a block proposal
         const dummyPayload: MakeConsensusPayloadOptions = {
           signer: Secp256k1Signer.random(),
-          header: makeHeader(),
+          header: makeL2BlockHeader(),
           archive: Fr.random(),
           txHashes: [TxHash.random()],
         };

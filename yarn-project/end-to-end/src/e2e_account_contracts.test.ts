@@ -7,6 +7,7 @@ import {
   type AccountContract,
   AccountManager,
   AztecAddress,
+  type AztecNode,
   BaseAccount,
   CompleteAddress,
   FeeJuicePaymentMethod,
@@ -35,6 +36,7 @@ const itShouldBehaveLikeAnAccountContract = (
 ) => {
   describe(`behaves like an account contract`, () => {
     let pxe: PXE;
+    let aztecNode: AztecNode;
     let logger: Logger;
     let teardown: () => Promise<void>;
     let wallet: Wallet;
@@ -54,7 +56,7 @@ const itShouldBehaveLikeAnAccountContract = (
         address,
       };
 
-      ({ logger, pxe, teardown } = await setup(0, { initialFundedAccounts: [accountData] }));
+      ({ logger, pxe, teardown, aztecNode } = await setup(0, { initialFundedAccounts: [accountData] }));
       wallet = new TestWalletInternals(pxe);
 
       const accountManager = await AccountManager.create(wallet, pxe, secret, accountContract, salt);
@@ -82,7 +84,7 @@ const itShouldBehaveLikeAnAccountContract = (
     it('calls a public function', async () => {
       logger.info('Calling public function...');
       await child.methods.pub_inc_value(42).send({ from: completeAddress.address }).wait({ interval: 0.1 });
-      const storedValue = await pxe.getPublicStorageAt(child.address, new Fr(1));
+      const storedValue = await aztecNode.getPublicStorageAt('latest', child.address, new Fr(1));
       expect(storedValue).toEqual(new Fr(42n));
     });
 

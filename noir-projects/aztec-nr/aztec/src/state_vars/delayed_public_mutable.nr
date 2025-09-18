@@ -189,45 +189,41 @@ where
         // However, since this value might change, we must constrain the maximum transaction timestamp as this proof
         // will only be valid for the time we can ensure the value will not change, which will depend on the
         // current delay and any scheduled delay changes.
-        let (value_change, delay_change, historical_timestamp) =
-            self.historical_read_from_public_storage();
+        let (value_change, delay_change, anchor_timestamp) = self.anchor_read_from_public_storage();
 
-        // We use the effective minimum delay as opposed to the current delay at the historical timestamp (timestamp of
-        // the historical block against which we are executing the private part of the tx) as this one also takes into
-        // consideration any scheduled delay changes.
+        // We use the effective minimum delay as opposed to the current delay at the anchor block's timestamp as this
+        // one also takes into consideration any scheduled delay changes.
         // For example, consider a scenario in which at timestamp `x` the current delay was 86400 seconds (1 day). We
-        // may naively think that the earliest we could change the value would be at timestamp `x + 86400` by scheduling
-        // immediately after the historical timestamp, i.e. at timestamp `x + 1`. But if there was a delay change scheduled
-        // for timestamp `y` to reduce the delay to 43200 seconds (12 hours), then if a value change was scheduled at
-        // timestamp `y` it would go into effect at timestamp `y + 43200`, which is earlier than what we'd expect if we
-        // only considered the current delay.
-        let effective_minimum_delay =
-            delay_change.get_effective_minimum_delay_at(historical_timestamp);
-        let time_horizon =
-            value_change.get_time_horizon(historical_timestamp, effective_minimum_delay);
+        // may naively think that the earliest we could change the value would be at timestamp `x + 86400` by
+        // scheduling immediately after the anchor block's timestamp, i.e. at timestamp `x + 1`. But if there was
+        // a delay change scheduled for timestamp `y` to reduce the delay to 43200 seconds (12 hours), then if a value
+        // change was scheduled at timestamp `y` it would go into effect at timestamp `y + 43200`, which is earlier
+        // than what we'd expect if we only considered the current delay.
+        let effective_minimum_delay = delay_change.get_effective_minimum_delay_at(anchor_timestamp);
+        let time_horizon = value_change.get_time_horizon(anchor_timestamp, effective_minimum_delay);
 
         // We prevent this transaction from being included in any timestamp after the time horizon, ensuring that the
         // historical public value matches the current one, since it can only change after the horizon.
         self.context.set_include_by_timestamp(time_horizon);
 
-        value_change.get_current_at(historical_timestamp)
+        value_change.get_current_at(anchor_timestamp)
     }
 
-    fn historical_read_from_public_storage(
+    fn anchor_read_from_public_storage(
         self,
     ) -> (ScheduledValueChange<T>, ScheduledDelayChange<InitialDelay>, u64)
     where
         T: Packable,
     {
-        let header = self.context.get_block_header();
+        let header = self.context.get_anchor_block_header();
         let address = self.context.this_address();
 
-        let historical_timestamp = header.global_variables.timestamp;
+        let anchor_timestamp = header.global_variables.timestamp;
 
         let values: DelayedPublicMutableValues<T, InitialDelay> =
             WithHash::historical_public_storage_read(header, address, self.storage_slot);
 
-        (values.svc, values.sdc, historical_timestamp)
+        (values.svc, values.sdc, anchor_timestamp)
     }
 }
 

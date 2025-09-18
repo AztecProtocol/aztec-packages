@@ -970,15 +970,15 @@ describe('PXEOracleInterface', () => {
     });
   });
 
-  describe('getBlockHeader', () => {
-    it('returns the synced block header and not header from aztec node', async () => {
+  describe('getAnchorBlockHeader', () => {
+    it('returns the anchor block header and not a header from aztec node', async () => {
       const blockNumber = 42;
       const header = BlockHeader.empty({
         globalVariables: GlobalVariables.empty({ blockNumber }),
       });
       await syncDataProvider.setHeader(header);
 
-      const result = await pxeOracleInterface.getBlockHeader();
+      const result = await pxeOracleInterface.getAnchorBlockHeader();
       expect(result).toEqual(header);
     });
   });

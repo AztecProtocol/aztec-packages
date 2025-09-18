@@ -6,9 +6,10 @@ import {
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
+import { L2BlockHeader } from '@aztec/stdlib/block';
 import { makeContentCommitment } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot, MerkleTreeId, type MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
-import { BlockHeader, GlobalVariables, TxEffect } from '@aztec/stdlib/tx';
+import { GlobalVariables, TxEffect } from '@aztec/stdlib/tx';
 
 /**
  * Returns a transaction request hash that is valid for transactions that are the only ones in a block.
@@ -45,15 +46,16 @@ export async function insertTxEffectIntoWorldTrees(
 export async function makeTXEBlockHeader(
   worldTrees: MerkleTreeWriteOperations,
   globalVariables: GlobalVariables,
-): Promise<BlockHeader> {
+): Promise<L2BlockHeader> {
   const stateReference = await worldTrees.getStateReference();
   const archiveInfo = await worldTrees.getTreeInfo(MerkleTreeId.ARCHIVE);
 
-  return new BlockHeader(
+  return new L2BlockHeader(
     new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
     makeContentCommitment(),
     stateReference,
     globalVariables,
+    Fr.ZERO,
     Fr.ZERO,
     Fr.ZERO,
   );

@@ -1,4 +1,3 @@
-import { BatchedBlob, Blob } from '@aztec/blob-lib';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -6,6 +5,9 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { buildFinalBlobChallenges } from '@aztec/prover-client/helpers';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import {
@@ -14,6 +16,7 @@ import {
   EpochProvingJobTerminalState,
   type ForkMerkleTreeOperations,
 } from '@aztec/stdlib/interfaces/server';
+import { CheckpointConstantData } from '@aztec/stdlib/rollup';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { ProcessedTx, Tx } from '@aztec/stdlib/tx';
 import { Attributes, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
@@ -123,12 +126,15 @@ export class EpochProvingJob implements Traceable {
     this.runPromise = promise;
 
     try {
-      const allBlobs = (
-        await Promise.all(this.blocks.map(async block => await Blob.getBlobsPerBlock(block.body.toBlobFields())))
-      ).flat();
+      const firstCheckpointNumber = this.blocks[0].header.globalVariables.slotNumber;
+      const blobFieldsPerCheckpoint = this.blocks.map(block => block.body.toBlobFields());
+      const finalBlobBatchingChallenges = await buildFinalBlobChallenges(blobFieldsPerCheckpoint);
 
-      const finalBlobBatchingChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(allBlobs);
-      this.prover.startNewEpoch(epochNumber, fromBlock, epochSizeBlocks, finalBlobBatchingChallenges);
+      // TODO(#17027): Enable multiple blocks per checkpoint.
+      // Total number of checkpoints equals number of blocks because we currently build a checkpoint with only one block.
+      const totalNumCheckpoints = epochSizeBlocks;
+
+      this.prover.startNewEpoch(epochNumber, firstCheckpointNumber, totalNumCheckpoints, finalBlobBatchingChallenges);
       await this.prover.startTubeCircuits(Array.from(this.txs.values()));
 
       await asyncPool(this.config.parallelBlockLimit ?? 32, this.blocks, async block => {
@@ -151,8 +157,32 @@ export class EpochProvingJob implements Traceable {
           ...globalVariables,
         });
 
+        const checkpointConstants = CheckpointConstantData.from({
+          chainId: globalVariables.chainId,
+          version: globalVariables.version,
+          vkTreeRoot: getVKTreeRoot(),
+          protocolContractTreeRoot: protocolContractTreeRoot,
+          proverId: this.prover.getProverId().toField(),
+          slotNumber: globalVariables.slotNumber,
+          coinbase: globalVariables.coinbase,
+          feeRecipient: globalVariables.feeRecipient,
+          gasFees: globalVariables.gasFees,
+        });
+
+        // TODO(#17027): Enable multiple blocks per checkpoint.
+        // Each checkpoint has only one block.
+        const totalNumBlocks = 1;
+        const checkpointIndex = block.number - fromBlock;
+        await this.prover.startNewCheckpoint(
+          checkpointConstants,
+          l1ToL2Messages,
+          totalNumBlocks,
+          blobFieldsPerCheckpoint[checkpointIndex].length,
+          previousHeader,
+        );
+
         // Start block proving
-        await this.prover.startNewBlock(globalVariables, l1ToL2Messages, previousHeader);
+        await this.prover.startNewBlock(block.number, globalVariables.timestamp, txs.length);
 
         // Process public fns
         const db = await this.createFork(block.number - 1, l1ToL2Messages);
@@ -167,7 +197,8 @@ export class EpochProvingJob implements Traceable {
         });
 
         // Mark block as completed to pad it
-        await this.prover.setBlockCompleted(block.number, block.header);
+        const expectedBlockHeader = block.getBlockHeader();
+        await this.prover.setBlockCompleted(block.number, expectedBlockHeader);
       });
 
       const executionTime = timer.ms();
@@ -318,7 +349,7 @@ export class EpochProvingJob implements Traceable {
   private getBlockHeader(blockNumber: number) {
     const block = this.blocks.find(b => b.number === blockNumber);
     if (block) {
-      return block.header;
+      return block.getBlockHeader();
     }
 
     if (blockNumber === Number(this.data.previousBlockHeader.getBlockNumber())) {

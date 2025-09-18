@@ -49,18 +49,18 @@ export class TXEService {
   async txeSetPrivateTXEContext(
     foreignContractAddressIsSome: ForeignCallSingle,
     foreignContractAddressValue: ForeignCallSingle,
-    foreignHistoricalBlockNumberIsSome: ForeignCallSingle,
-    foreignHistoricalBlockNumberValue: ForeignCallSingle,
+    foreignAnchorBlockNumberIsSome: ForeignCallSingle,
+    foreignAnchorBlockNumberValue: ForeignCallSingle,
   ) {
     const contractAddress = fromSingle(foreignContractAddressIsSome).toBool()
       ? AztecAddress.fromField(fromSingle(foreignContractAddressValue))
       : undefined;
 
-    const historicalBlockNumber = fromSingle(foreignHistoricalBlockNumberIsSome).toBool()
-      ? fromSingle(foreignHistoricalBlockNumberValue).toNumber()
+    const anchorBlockNumber = fromSingle(foreignAnchorBlockNumberIsSome).toBool()
+      ? fromSingle(foreignAnchorBlockNumberValue).toNumber()
       : undefined;
 
-    const privateContextInputs = await this.stateHandler.setPrivateContext(contractAddress, historicalBlockNumber);
+    const privateContextInputs = await this.stateHandler.setPrivateContext(contractAddress, anchorBlockNumber);
 
     return toForeignCallResult(privateContextInputs.toFields().map(toSingle));
   }
