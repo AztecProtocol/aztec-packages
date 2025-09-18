@@ -27,10 +27,11 @@ template <class Fr, size_t view_domain_end, size_t view_domain_start, size_t ski
  * memory efficiency purposes, we store the evaluations in an array starting from 0 and make the mapping to the right
  * domain under the hood.
  *
- * @tparam skip_count Skip computing the values of elements [domain_start+1,..,domain_start+skip_count]. Used for
- * optimising computation in protogalaxy. The value at [domain_start] is the value from the accumulator, while the
- * values in [domain_start+1, ... domain_start + skip_count] in the accumulator should be zero if the original if the
- * skip_count-many keys to be folded are all valid
+ * @tparam skip_count Skip computing the values of the univariate at the points
+ * [domain_start+1, .., domain_start+skip_count]. Used for optimising the computation of the combiner (the polynomial
+ * \f$G\f$) in Protogalaxy. The value at [domain_start] is the value from the accumulator, while the values at
+ * [domain_start+1, ... domain_start + skip_count] should be zero if the skip_count-many keys to be
+ * folded are all valid.
  */
 template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_count = 0> class Univariate {
   public:

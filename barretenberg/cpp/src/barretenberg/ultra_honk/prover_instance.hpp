@@ -36,16 +36,17 @@ namespace bb {
  * Our arithmetisation works as follows. The Flavor defines \f$fM\f$ (Flavor::NUM_ALL_ENTITIES) and a series of
  * relations
  * \f$R_1, \dots, R_n\f$ (Flavor::Relations_). Each relation is made up by a series of subrelations: \f$R_i =
- * (R_{i,1}, \dots, R_{i,n_i})\f$.
+ * (R_{i,1}, \dots, R_{i,r_i})\f$.
  *
  * Write \f$p_1, \dots, p_M\f$ for the prover polynomials and \f$p_{i,k}\f$ for the \f$k\f$-th coefficient of \f$p_i\f$.
- * Let \f$n\f$ be the max degree of the prover polynomials. A non-relaxed ProverInstance is valid if for all \f$i, j,
- * k\f$ we have \f$R_{i,j}(p_{1,k}, \dots, p_{M,k}) = 0\f$.
+ * Write \f$\theta_1, \dots, \theta_6\f$ for the relation parameters. Let \f$n\f$ be the max degree of the prover
+ * polynomials. A non-relaxed ProverInstance is valid if for all \f$i, j, k\f$ we have \f$R_{i,j}(p_{1,k}, \dots,
+ * p_{M,k}, \theta_1, \dots, \theta_6) = 0\f$.
  *
  * Instead of checking each equality separately, we batch them using challenges that we call `alphas`. Thus, a
  * ProverInstance is valid if for each \f$k = 0, \dots, n\f$.
  * \f[
- *  f_k(\omega) := \sum_{i, j} \alpha_{i,j} R_{i,j}(p_{1,k}, \dots, p_{M,k}) = 0
+ *  f_k(\omega) := \sum_{i, j} \alpha_{i,j} R_{i,j}(p_{1,k}, \dots, p_{M,k}, \theta_1, \dots, \theta_6) = 0
  * \f]
  *
  * Instead of checking each equality separately, we once again batch them using challenges. These challenges are the
@@ -59,6 +60,10 @@ namespace bb {
  *  \sum_{k} pow_k(gc) f_k(\omega) = ts
  * \f]
  * where we write \f$ts\f$ for the vector `target_sum`.
+ *
+ * Hence, the correspondence between the class below and the Protogalaxy paper is \f$\omega = (p_1, \dots, p_M, ,
+ * \theta_1, \dots, \theta_6, \alpha_{1,1}, \dots, \alpha_{n,r_n})\f$, \f$\beta\f$ are the `gate_challenges`, and
+ * \f$e\f$ is `target_sum`.
  */
 
 template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {

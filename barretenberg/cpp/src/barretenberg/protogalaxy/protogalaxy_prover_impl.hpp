@@ -82,13 +82,19 @@ ProtogalaxyProver_<Flavor>::combiner_quotient_round(const std::vector<FF>& gate_
 {
     BB_BENCH_NAME("ProtogalaxyProver_::combiner_quotient_round");
 
+    // Generate the challenge (\alpha in the paper) at which to evaluate the perturbator (F in the paper)
     const FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
 
+    // Step 8. in the paper: \beta is updated to \beta + \alpha * \delta
     const std::vector<FF> updated_gate_challenges =
         update_gate_challenges(perturbator_challenge, gate_challenges, deltas);
-    const UnivariateSubrelationSeparators alphas = PGInternal::compute_and_extend_alphas(instances);
+
     const GateSeparatorPolynomial<FF> gate_separators{ updated_gate_challenges,
                                                        numeric::get_msb(get_max_dyadic_size()) };
+
+    // Fold the batching challenges (\alphas in the ProverInstances)
+    const UnivariateSubrelationSeparators alphas = PGInternal::compute_and_extend_alphas(instances);
+    // Fold the relation parameters in the ProverInstances
     const UnivariateRelationParameters relation_parameters =
         PGInternal::template compute_extended_relation_parameters<UnivariateRelationParameters>(instances);
 
