@@ -78,25 +78,29 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_preamble_ro
  */
 template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commitments_round()
 {
-    auto batch = proving_key->commitment_key.start_batch();
-
     BB_BENCH_NAME("OinkProver::execute_wire_commitments_round");
+    // Commit to the first three wire polynomials
+    // We only commit to the fourth wire polynomial after adding memory recordss
+    auto batch = proving_key->commitment_key.start_batch();
     // Commit to the first three wire polynomials
     // We only commit to the fourth wire polynomial after adding memory records
 
-    batch.add_to_batch(proving_key->polynomials.w_l, commitment_labels.w_l);
-    batch.add_to_batch(proving_key->polynomials.w_r, commitment_labels.w_r);
-    batch.add_to_batch(proving_key->polynomials.w_o, commitment_labels.w_o);
+    batch.add_to_batch(proving_key->polynomials.w_l, commitment_labels.w_l, /*mask?*/ Flavor::HasZK);
+    batch.add_to_batch(proving_key->polynomials.w_r, commitment_labels.w_r, /*mask?*/ Flavor::HasZK);
+    batch.add_to_batch(proving_key->polynomials.w_o, commitment_labels.w_o, /*mask?*/ Flavor::HasZK);
 
     if constexpr (IsMegaFlavor<Flavor>) {
 
         // Commit to Goblin ECC op wires.
         // To avoid possible issues with the current work on the merge protocol, they are not
         // masked in MegaZKFlavor
+        bool mask_ecc_op_polys = false; // Flavor::HasZK
+
         for (auto [polynomial, label] :
              zip_view(proving_key->polynomials.get_ecc_op_wires(), commitment_labels.get_ecc_op_wires())) {
             {
-                batch.add_to_batch(polynomial, domain_separator + label);
+                BB_BENCH_NAME("COMMIT::ecc_op_wires");
+                batch.add_to_batch(polynomial, domain_separator + label, mask_ecc_op_polys);
             };
         }
 
@@ -104,12 +108,12 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
         for (auto [polynomial, label] :
              zip_view(proving_key->polynomials.get_databus_entities(), commitment_labels.get_databus_entities())) {
             {
-                batch.add_to_batch(polynomial, label);
+                BB_BENCH_NAME("COMMIT::databus");
+                batch.add_to_batch(polynomial, label, /*mask?*/ Flavor::HasZK);
             }
         }
     }
-    // Batch commit to all the polynomials added to the batch
-    batch.send_to_verifier(transcript, Flavor::HasZK);
+    batch.send_to_verifier(transcript);
 }
 
 /**
@@ -135,11 +139,12 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_sorted_list
 
     // Commit to lookup argument polynomials and the finalized (i.e. with memory records) fourth wire polynomial
     auto batch = proving_key->commitment_key.start_batch();
-
-    batch.add_to_batch(proving_key->polynomials.lookup_read_counts, commitment_labels.lookup_read_counts);
-    batch.add_to_batch(proving_key->polynomials.lookup_read_tags, commitment_labels.lookup_read_tags);
-    batch.add_to_batch(proving_key->polynomials.w_4, domain_separator + commitment_labels.w_4);
-    batch.send_to_verifier(transcript, Flavor::HasZK);
+    batch.add_to_batch(
+        proving_key->polynomials.lookup_read_counts, commitment_labels.lookup_read_counts, /*mask?*/ Flavor::HasZK);
+    batch.add_to_batch(
+        proving_key->polynomials.lookup_read_tags, commitment_labels.lookup_read_tags, /*mask?*/ Flavor::HasZK);
+    batch.add_to_batch(proving_key->polynomials.w_4, domain_separator + commitment_labels.w_4, /*mask?*/ Flavor::HasZK);
+    batch.send_to_verifier(transcript);
 }
 
 /**
@@ -157,6 +162,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivat
     WitnessComputation<Flavor>::compute_logderivative_inverses(
         proving_key->polynomials, proving_key->dyadic_size(), proving_key->relation_parameters);
 
+    auto batch = proving_key->commitment_key.start_batch();
     {
         BB_BENCH_NAME("COMMIT::lookup_inverses");
         commit_to_witness_polynomial(proving_key->polynomials.lookup_inverses,

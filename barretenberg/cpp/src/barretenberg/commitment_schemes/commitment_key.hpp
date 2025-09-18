@@ -117,23 +117,6 @@ template <class Curve> class CommitmentKey {
                                          size_t max_batch_size = std::numeric_limits<size_t>::max()) const
     {
         BB_BENCH_NAME("CommitmentKey::batch_commit");
-        max_batch_size = 1;
-        // std::vector<Commitment> commitments;
-        // commitments.reserve(polynomials.size());
-        // for (const auto& polynomial : polynomials) {
-        //     commitments.emplace_back(commit(polynomial));
-        // }
-        // return commitments;
-        // BB_BENCH_NAME("CommitmentKey::batch_commit");
-        // Check environment variable for max batch size
-        // static const size_t max_batch_size = []() -> size_t {
-        //     const char* env_val = std::getenv("BB_BATCH_MSM_MAX");
-        //     if (env_val != nullptr) {
-        //         return static_cast<size_t>(std::stoull(env_val));
-        //     }
-        //     return static_cast<size_t>(4); // Default to 4 polynomials
-        // }();
-
         std::span<const G1> point_table = srs->get_monomial_points();
 
         // We can only commit max_batch_size at a time
@@ -180,36 +163,20 @@ template <class Curve> class CommitmentKey {
     struct CommitBatch {
         CommitmentKey* key;
         RefVector<Polynomial<Fr>> wires;
-        RefVector<const std::string> labels;
-        void mask_and_send_to_verifier(auto transcript, size_t max_batch_size = std::numeric_limits<size_t>::max())
+        std::vector<std::string> labels;
+        void send_to_verifier(auto transcript, size_t max_batch_size = std::numeric_limits<size_t>::max())
         {
-            send_to_verifier(transcript, max_batch_size, true);
-        }
-        void send_to_verifier(auto transcript, bool is_zk)
-        {
-            send_to_verifier(transcript, std::numeric_limits<size_t>::max(), is_zk);
-        }
-        void send_to_verifier(auto transcript,
-                              size_t max_batch_size = std::numeric_limits<size_t>::max(),
-                              bool is_zk = false)
-        {
-            if (is_zk) {
-                for (auto& wire : wires) {
-                    wire.mask();
-                }
+            std::vector<Commitment> commitments = key->batch_commit(wires, max_batch_size);
+            for (size_t i = 0; i < commitments.size(); ++i) {
+                transcript->send_to_verifier(labels[i], commitments[i]);
             }
-            (void)max_batch_size;
-            for (auto [label, wire] : zip_view(labels, wires)) {
-                transcript->send_to_verifier(label, key->commit(wire));
-            }
-            // std::vector<Commitment> commitments = key->batch_commit(wires, max_batch_size);
-            // for (size_t i = 0; i < commitments.size(); ++i) {
-            //     transcript->send_to_verifier(labels[i], commitments[i]);
-            // }
         }
 
-        void add_to_batch(Polynomial<Fr>& poly, const std::string& label)
+        void add_to_batch(Polynomial<Fr>& poly, const std::string& label, bool mask)
         {
+            if (mask) {
+                poly.mask();
+            }
             wires.push_back(poly);
             labels.push_back(label);
         }
