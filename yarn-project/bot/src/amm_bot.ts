@@ -15,7 +15,7 @@ type Balances = { token0: bigint; token1: bigint };
 
 export class AmmBot extends BaseBot {
   protected constructor(
-    pxe: PXE,
+    node: AztecNode,
     wallet: Wallet,
     defaultAccountAddress: AztecAddress,
     public readonly amm: AMMContract,
@@ -23,18 +23,18 @@ export class AmmBot extends BaseBot {
     public readonly token1: TokenContract,
     config: BotConfig,
   ) {
-    super(pxe, wallet, defaultAccountAddress, config);
+    super(node, wallet, defaultAccountAddress, config);
   }
 
   static async create(
     config: BotConfig,
     dependencies: { pxe?: PXE; node?: AztecNode; nodeAdmin?: AztecNodeAdmin },
   ): Promise<AmmBot> {
-    const { pxe, wallet, defaultAccountAddress, token0, token1, amm } = await new BotFactory(
+    const { node, wallet, defaultAccountAddress, token0, token1, amm } = await new BotFactory(
       config,
       dependencies,
     ).setupAmm();
-    return new AmmBot(pxe, wallet, defaultAccountAddress, amm, token0, token1, config);
+    return new AmmBot(node, wallet, defaultAccountAddress, amm, token0, token1, config);
   }
 
   protected async createAndSendTx(logCtx: object): Promise<SentTx> {

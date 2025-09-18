@@ -1,7 +1,7 @@
-import { type AztecNode, type PXE, createAztecNodeClient, createLogger } from '@aztec/aztec.js';
+import { type AztecNode, createAztecNodeClient, createLogger } from '@aztec/aztec.js';
 import { omit } from '@aztec/foundation/collection';
 import { RunningPromise } from '@aztec/foundation/running-promise';
-import { type AztecNodeAdmin, createAztecNodeAdminClient } from '@aztec/stdlib/interfaces/client';
+import { type AztecNodeAdmin, type PXE, createAztecNodeAdminClient } from '@aztec/stdlib/interfaces/client';
 import { type TelemetryClient, type Traceable, type Tracer, makeTracedFetch, trackSpan } from '@aztec/telemetry-client';
 
 import { AmmBot } from './amm_bot.js';
@@ -27,7 +27,6 @@ export class BotRunner implements BotRunnerApi, Traceable {
     dependencies: { pxe?: PXE; node?: AztecNode; nodeAdmin?: AztecNodeAdmin; telemetry: TelemetryClient },
   ) {
     this.tracer = dependencies.telemetry.getTracer('Bot');
-    this.pxe = dependencies.pxe;
     if (!dependencies.node && !config.nodeUrl) {
       throw new Error(`Missing node URL in config or dependencies`);
     }

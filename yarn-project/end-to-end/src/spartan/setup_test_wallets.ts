@@ -136,7 +136,9 @@ export async function deployTestAccountsWithTokens(
   const fundedAccounts = await Promise.all(funded.map(a => wallet.createSchnorrAccount(a.secret, a.salt)));
 
   const claims = await Promise.all(
-    fundedAccounts.map(a => bridgeL1FeeJuice(l1RpcUrls, mnemonicOrPrivateKey, pxe, a.getAddress(), undefined, logger)),
+    fundedAccounts.map(a =>
+      bridgeL1FeeJuice(l1RpcUrls, mnemonicOrPrivateKey, pxe, node, a.getAddress(), undefined, logger),
+    ),
   );
 
   // Progress by 3 L2 blocks so that the l1ToL2Message added above will be available to use on L2.
@@ -179,6 +181,7 @@ async function bridgeL1FeeJuice(
   l1RpcUrls: string[],
   mnemonicOrPrivateKey: string,
   pxe: PXE,
+  node: AztecNode,
   recipient: AztecAddress,
   amount: bigint | undefined,
   log: Logger,
@@ -192,7 +195,7 @@ async function bridgeL1FeeJuice(
   const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);
   // docs:end:bridge_fee_juice
 
-  const isSynced = async () => await pxe.isL1ToL2MessageSynced(Fr.fromHexString(claim.messageHash));
+  const isSynced = async () => (await node.getL1ToL2MessageBlock(Fr.fromHexString(claim.messageHash))) !== undefined;
   await retryUntil(isSynced, `message ${claim.messageHash} sync`, 24, 0.5);
 
   log.info(`Created a claim for ${amount} L1 fee juice to ${recipient}.`, claim);

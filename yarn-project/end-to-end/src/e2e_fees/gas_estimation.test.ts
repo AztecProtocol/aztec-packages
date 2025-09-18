@@ -80,7 +80,7 @@ describe('e2e_fees gas_estimation', () => {
     const [withEstimate, withoutEstimate] = await sendTransfers(paymentMethod);
 
     // This is the interesting case, which we hit most of the time.
-    const block = await t.pxe.getBlock(withEstimate.blockNumber!);
+    const block = await t.aztecNode.getBlock(withEstimate.blockNumber!);
     expect(block!.header.totalManaUsed.toNumber()).toBe(estimatedGas.gasLimits.l2Gas * 2);
 
     // Tx has no teardown cost, so both fees should just reflect the actual gas cost.
@@ -122,7 +122,7 @@ describe('e2e_fees gas_estimation', () => {
 
     // Check that estimated fee and fee of the tx with estimate are the same. We need to use the gas fees (gas price)
     // from the block in which the tx with estimate landed.
-    const block = await t.pxe.getBlock(withEstimate.blockNumber!);
+    const block = await t.aztecNode.getBlock(withEstimate.blockNumber!);
     const gasFeesForBlockInWhichTxWithEstimateLanded = block!.header.globalVariables.gasFees;
 
     const estimatedFee = estimatedGas.gasLimits.computeFee(gasFeesForBlockInWhichTxWithEstimateLanded).toBigInt();
@@ -154,7 +154,7 @@ describe('e2e_fees gas_estimation', () => {
 
     // Check that estimated fee and fee of the tx with estimate are the same. We need to use the gas fees (gas price)
     // from the block in which the tx with estimate landed.
-    const block = await t.pxe.getBlock(withEstimate.blockNumber!);
+    const block = await t.aztecNode.getBlock(withEstimate.blockNumber!);
     const gasFeesForBlockInWhichTxWithEstimateLanded = block!.header.globalVariables.gasFees;
 
     const estimatedFee = estimatedGas.gasLimits.computeFee(gasFeesForBlockInWhichTxWithEstimateLanded).toBigInt();

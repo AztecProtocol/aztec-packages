@@ -1,7 +1,7 @@
 import {
   type AztecAddress,
+  type AztecNode,
   BatchCall,
-  type PXE,
   PrivateFeePaymentMethod,
   type Wallet,
   waitForProven,
@@ -22,7 +22,7 @@ describe('e2e_fees private_payment', () => {
   let bananaCoin: BananaCoin;
   let bananaFPC: FPCContract;
   let gasSettings: GasSettings;
-  let pxe: PXE;
+  let aztecNode: AztecNode;
 
   const t = new FeesTest('private_payment');
 
@@ -30,7 +30,8 @@ describe('e2e_fees private_payment', () => {
     await t.applyBaseSnapshots();
     await t.applyFPCSetupSnapshot();
     await t.applyFundAliceWithBananas();
-    ({ wallet, aliceAddress, bobAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings, pxe } = await t.setup());
+    ({ wallet, aliceAddress, bobAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings, aztecNode } =
+      await t.setup());
 
     // Prove up until the current state by just marking it as proven.
     // Then turn off the watcher to prevent it from keep proving
@@ -59,7 +60,7 @@ describe('e2e_fees private_payment', () => {
   beforeEach(async () => {
     gasSettings = GasSettings.from({
       ...gasSettings,
-      maxFeesPerGas: await pxe.getCurrentBaseFees(),
+      maxFeesPerGas: await aztecNode.getCurrentBaseFees(),
     });
 
     [
@@ -116,7 +117,7 @@ describe('e2e_fees private_payment', () => {
     await t.cheatCodes.rollup.advanceToNextEpoch();
 
     const receipt = await tx.wait({ timeout: 300, interval: 10 });
-    await waitForProven(pxe, receipt, { provenTimeout: 300 });
+    await waitForProven(aztecNode, receipt, { provenTimeout: 300 });
 
     // @note There is a potential race condition here if other tests send transactions that get into the same
     // epoch and thereby pays out fees at the same time (when proven).

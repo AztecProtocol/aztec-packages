@@ -9,6 +9,7 @@ import {
   Fr,
   GrumpkinScalar,
   PrivateFeePaymentMethod,
+  createAztecNodeClient,
   createLogger,
   createPXEClient,
   getFeeJuiceBalance,
@@ -26,7 +27,7 @@ import { format } from 'util';
 // docs:end:imports3
 import { deployToken, mintTokensToPrivate } from '../fixtures/token_utils.js';
 
-const { PXE_URL = 'http://localhost:8080' } = process.env;
+const { PXE_URL = 'http://localhost:8080', AZTEC_NODE_URL = 'http://localhost:8080' } = process.env;
 
 describe('e2e_sandbox_example', () => {
   it('sandbox example works', async () => {
@@ -138,6 +139,7 @@ describe('e2e_sandbox_example', () => {
     const logger = createLogger('e2e:token');
     // We create PXE client connected to the sandbox URL
     const pxe = createPXEClient(PXE_URL);
+    const node = createAztecNodeClient(AZTEC_NODE_URL);
     // Wait for sandbox to be ready
     await waitForPXE(pxe, logger);
 
@@ -224,7 +226,7 @@ describe('e2e_sandbox_example', () => {
     const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(sponsoredFPC);
     // The payment method can also be initialized as follows:
     // const sponsoredPaymentMethod = await SponsoredFeePaymentMethod.new(pxe);
-    const initialFPCFeeJuice = await getFeeJuiceBalance(sponsoredFPC, pxe);
+    const initialFPCFeeJuice = await getFeeJuiceBalance(sponsoredFPC, node);
 
     // docs:start:transaction_with_payment_method
     const receiptForBob = await bananaCoin.methods
@@ -241,6 +243,6 @@ describe('e2e_sandbox_example', () => {
     logger.info(`Bob's new balance: ${bobNewBalance}`);
     expect(bobNewBalance).toEqual(bobBalance - amountTransferToAlice);
 
-    expect(await getFeeJuiceBalance(sponsoredFPC, pxe)).toEqual(initialFPCFeeJuice - receiptForBob.transactionFee!);
+    expect(await getFeeJuiceBalance(sponsoredFPC, node)).toEqual(initialFPCFeeJuice - receiptForBob.transactionFee!);
   });
 });

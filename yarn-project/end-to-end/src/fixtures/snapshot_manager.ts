@@ -8,7 +8,6 @@ import {
   type ContractFunctionInteraction,
   EthAddress,
   type Logger,
-  type PXE,
   type Wallet,
   getContractClassFromArtifact,
   waitForProven,
@@ -450,7 +449,7 @@ async function setupFromFresh(
   pxeConfig.proverEnabled = !!opts.realProofs;
   const pxe = await createPXEService(aztecNode, pxeConfig);
   const wallet = new TestWallet(pxe);
-  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, pxe);
+  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, pxe, aztecNode);
 
   if (statePath) {
     writeFileSync(`${statePath}/aztec_node_config.json`, JSON.stringify(aztecNodeConfig, resolver));
@@ -579,7 +578,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   pxeConfig.dataDirectory = statePath;
   const pxe = await createPXEService(aztecNode, pxeConfig);
   const wallet = new TestWallet(pxe);
-  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, pxe);
+  const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, pxe, aztecNode);
 
   return {
     aztecNodeConfig,
@@ -641,13 +640,13 @@ export const deployAccounts =
  * @param sender - Wallet to send the deployment tx.
  * @param accountsToDeploy - Which accounts to publicly deploy.
  * @param waitUntilProven - Whether to wait for the tx to be proven.
- * @param pxeOrNode - PXE or AztecNode to wait for proven.
+ * @param node - AztecNode used to wait for proven tx.
  */
 export async function publicDeployAccounts(
   wallet: Wallet,
   accountsToDeploy: AztecAddress[],
   waitUntilProven = false,
-  pxeOrNode?: PXE | AztecNode,
+  node?: AztecNode,
 ) {
   const instances = (await Promise.all(accountsToDeploy.map(account => wallet.getContractMetadata(account)))).map(
     metadata => metadata.contractInstance,
@@ -665,10 +664,10 @@ export async function publicDeployAccounts(
 
   const txReceipt = await batch.send({ from: accountsToDeploy[0] }).wait();
   if (waitUntilProven) {
-    if (!pxeOrNode) {
-      throw new Error('Need to provide a PXE or AztecNode to wait for proven.');
+    if (!node) {
+      throw new Error('Need to provide an AztecNode to wait for proven.');
     } else {
-      await waitForProven(pxeOrNode, txReceipt);
+      await waitForProven(node, txReceipt);
     }
   }
 }

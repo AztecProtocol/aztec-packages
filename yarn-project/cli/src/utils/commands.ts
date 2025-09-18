@@ -38,6 +38,14 @@ export const makePxeOption = (mandatory: boolean) =>
 
 export const pxeOption = makePxeOption(true);
 
+export const makeNodeOption = (mandatory: boolean) =>
+  new Option('-n, --node-url <string>', 'URL of the Aztec node')
+    .env('AZTEC_NODE_URL')
+    .default(`http://${LOCALHOST}:8079`)
+    .makeOptionMandatory(mandatory);
+
+export const nodeOption = makeNodeOption(true);
+
 export const l1ChainIdOption = new Option('-c, --l1-chain-id <number>', 'Chain ID of the ethereum host')
   .env('L1_CHAIN_ID')
   .default(31337)

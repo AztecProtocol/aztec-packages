@@ -6,6 +6,7 @@ import {
   Fr,
   L1TokenManager,
   L1TokenPortalManager,
+  createAztecNodeClient,
   createLogger,
   createPXEClient,
   waitForPXE,
@@ -21,6 +22,7 @@ import {
 } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
+import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 import { TestWallet } from '@aztec/test-wallet';
 
 import { getContract } from 'viem';
@@ -36,11 +38,12 @@ const ownerEthAddress = l1Client.account.address;
 const MINT_AMOUNT = BigInt(1e15);
 
 const setupSandbox = async () => {
-  const { PXE_URL = 'http://localhost:8080' } = process.env;
+  const { AZTEC_NODE_URL = 'http://localhost:8079', PXE_URL = 'http://localhost:8080' } = process.env;
   // eslint-disable-next-line @typescript-eslint/await-thenable
   const pxe = await createPXEClient(PXE_URL);
   await waitForPXE(pxe);
-  return pxe;
+  const node = createAztecNodeClient(AZTEC_NODE_URL);
+  return { pxe, node };
 };
 
 async function deployTestERC20(): Promise<EthAddress> {
@@ -76,7 +79,7 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
   it('Deploys tokens & bridges to L1 & L2, mints & publicly bridges tokens', async () => {
     // docs:start:setup
     const logger = createLogger('aztec:token-bridge-tutorial');
-    const pxe = await setupSandbox();
+    const { pxe, node } = await setupSandbox();
     const wallet = new TestWallet(pxe);
     const [ownerAccount] = await getDeployedTestAccounts(pxe);
     await wallet.createSchnorrAccount(ownerAccount.secret, ownerAccount.salt, ownerAccount.signingKey);
@@ -153,7 +156,7 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     // docs:start:l1-bridge-public
     const claim = await l1PortalManager.bridgeTokensPublic(ownerAztecAddress, MINT_AMOUNT, true);
 
-    // Do 2 unrleated actions because
+    // Do 2 unrelated actions because
     // https://github.com/AztecProtocol/aztec-packages/blob/7e9e2681e314145237f95f79ffdc95ad25a0e319/yarn-project/end-to-end/src/shared/cross_chain_test_harness.ts#L354-L355
     await l2TokenContract.methods.mint_to_public(ownerAztecAddress, 0n).send({ from: ownerAztecAddress }).wait();
     await l2TokenContract.methods.mint_to_public(ownerAztecAddress, 0n).send({ from: ownerAztecAddress }).wait();
@@ -208,16 +211,17 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     // docs:end:l2-withdraw
 
     // docs:start:l1-withdraw
-    const [l2ToL1MessageIndex, siblingPath] = await pxe.getL2ToL1MembershipWitness(
-      await pxe.getBlockNumber(),
-      l2ToL1Message,
-    );
+    const result = await computeL2ToL1MembershipWitness(node, await node.getBlockNumber(), l2ToL1Message);
+    if (!result) {
+      throw new Error('L2 to L1 message not found');
+    }
+
     await l1PortalManager.withdrawFunds(
       withdrawAmount,
       EthAddress.fromString(ownerEthAddress),
       BigInt(l2TxReceipt.blockNumber!),
-      l2ToL1MessageIndex,
-      siblingPath,
+      result.leafIndex,
+      result.siblingPath,
     );
     const newL1Balance = await l1TokenManager.getL1TokenBalance(ownerEthAddress);
     logger.info(`New L1 balance of ${ownerEthAddress} is ${newL1Balance}`);

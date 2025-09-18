@@ -16,7 +16,7 @@ import type { Logger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import { PXESchema } from '@aztec/stdlib/interfaces/client';
+import { type AztecNode, PXESchema } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { TestWallet } from '@aztec/test-wallet';
 
@@ -56,6 +56,7 @@ export const getLocalhost = () =>
 describe('End-to-end tests for devnet', () => {
   let pxe: PXE;
   let pxeUrl: string; // needed for the CLI
+  let node: AztecNode;
   let wallet: TestWallet;
   let logger: Logger;
   let l1ChainId: number;
@@ -81,7 +82,7 @@ describe('End-to-end tests for devnet', () => {
 
     if (AZTEC_NODE_URL) {
       logger.info(`Using AZTEC_NODE_URL: ${AZTEC_NODE_URL}`);
-      const node = createAztecNodeClient(AZTEC_NODE_URL);
+      node = createAztecNodeClient(AZTEC_NODE_URL);
       const bbConfig = await getBBConfig(logger);
       const acvmConfig = await getACVMConfig(logger);
       const svc = await setupPXEService(node, {
@@ -285,8 +286,8 @@ describe('End-to-end tests for devnet', () => {
   }
 
   async function waitForL1MessageToArrive() {
-    const targetBlockNumber = (await pxe.getBlockNumber()) + MIN_BLOCKS_FOR_BRIDGING;
-    await retryUntil(async () => (await pxe.getBlockNumber()) >= targetBlockNumber, 'wait_for_l1_message', 0, 10);
+    const targetBlockNumber = (await node.getBlockNumber()) + MIN_BLOCKS_FOR_BRIDGING;
+    await retryUntil(async () => (await node.getBlockNumber()) >= targetBlockNumber, 'wait_for_l1_message', 0, 10);
   }
 
   async function advanceChainWithEmptyBlocks(wallet: TestWallet) {

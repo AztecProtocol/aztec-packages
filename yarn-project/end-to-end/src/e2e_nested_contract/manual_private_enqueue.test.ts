@@ -6,15 +6,16 @@ import { NestedContractTest } from './nested_contract_test.js';
 
 describe('e2e_nested_contract manual_enqueue', () => {
   const t = new NestedContractTest('manual_enqueue');
-  let { wallet, pxe, parentContract, childContract, defaultAccountAddress } = t;
+  let { wallet, parentContract, childContract, defaultAccountAddress, aztecNode } = t;
 
-  const getChildStoredValue = (child: { address: AztecAddress }) => pxe.getPublicStorageAt(child.address, new Fr(1));
+  const getChildStoredValue = (child: { address: AztecAddress }) =>
+    aztecNode.getPublicStorageAt('latest', child.address, new Fr(1));
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     // We don't have the manual snapshot because every test requires a fresh setup and teardown
     await t.setup();
-    ({ wallet, pxe, defaultAccountAddress } = t);
+    ({ wallet, defaultAccountAddress, aztecNode } = t);
   });
 
   beforeEach(async () => {

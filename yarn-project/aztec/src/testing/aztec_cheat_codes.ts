@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { deriveStorageSlotInMap } from '@aztec/stdlib/hash';
-import type { PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
 import type { Note } from '@aztec/stdlib/note';
 
 /**
@@ -14,6 +14,10 @@ export class AztecCheatCodes {
      * The PXE Service to use for interacting with the chain
      */
     public pxe: PXE,
+    /**
+     * The Aztec Node to use for interacting with the chain
+     */
+    public node: AztecNode,
     /**
      * The logger to use for the aztec cheatcodes
      */
@@ -36,7 +40,7 @@ export class AztecCheatCodes {
    * @returns The current block number
    */
   public async blockNumber(): Promise<number> {
-    return await this.pxe.getBlockNumber();
+    return await this.node.getBlockNumber();
   }
 
   /**
@@ -44,7 +48,7 @@ export class AztecCheatCodes {
    * @returns The current timestamp
    */
   public async timestamp(): Promise<number> {
-    const res = await this.pxe.getBlock(await this.blockNumber());
+    const res = await this.node.getBlock(await this.blockNumber());
     return Number(res?.header.globalVariables.timestamp ?? 0);
   }
 
@@ -55,7 +59,7 @@ export class AztecCheatCodes {
    * @returns The value stored at the given slot
    */
   public async loadPublic(who: AztecAddress, slot: Fr | bigint): Promise<Fr> {
-    const storageValue = await this.pxe.getPublicStorageAt(who, new Fr(slot));
+    const storageValue = await this.node.getPublicStorageAt('latest', who, new Fr(slot));
     return storageValue;
   }
 

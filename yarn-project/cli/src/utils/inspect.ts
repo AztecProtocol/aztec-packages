@@ -2,12 +2,18 @@ import type { AztecAddress, ContractArtifact, Fr } from '@aztec/aztec.js';
 import type { LogFn } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { siloNullifier } from '@aztec/stdlib/hash';
-import type { PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
 import type { ExtendedNote } from '@aztec/stdlib/note';
 import type { TxHash } from '@aztec/stdlib/tx';
 
-export async function inspectBlock(pxe: PXE, blockNumber: number, log: LogFn, opts: { showTxs?: boolean } = {}) {
-  const block = await pxe.getBlock(blockNumber);
+export async function inspectBlock(
+  pxe: PXE,
+  aztecNode: AztecNode,
+  blockNumber: number,
+  log: LogFn,
+  opts: { showTxs?: boolean } = {},
+) {
+  const block = await aztecNode.getBlock(blockNumber);
   if (!block) {
     log(`No block found for block number ${blockNumber}`);
     return;
@@ -27,7 +33,7 @@ export async function inspectBlock(pxe: PXE, blockNumber: number, log: LogFn, op
     log(``);
     const artifactMap = await getKnownArtifacts(pxe);
     for (const txHash of block.body.txEffects.map(tx => tx.txHash)) {
-      await inspectTx(pxe, txHash, log, { includeBlockInfo: false, artifactMap });
+      await inspectTx(pxe, aztecNode, txHash, log, { includeBlockInfo: false, artifactMap });
     }
   } else {
     log(` Transactions: ${block.body.txEffects.length}`);
@@ -36,11 +42,12 @@ export async function inspectBlock(pxe: PXE, blockNumber: number, log: LogFn, op
 
 export async function inspectTx(
   pxe: PXE,
+  aztecNode: AztecNode,
   txHash: TxHash,
   log: LogFn,
   opts: { includeBlockInfo?: boolean; artifactMap?: ArtifactMap } = {},
 ) {
-  const [receipt, effectsInBlock] = await Promise.all([pxe.getTxReceipt(txHash), pxe.getTxEffect(txHash)]);
+  const [receipt, effectsInBlock] = await Promise.all([aztecNode.getTxReceipt(txHash), aztecNode.getTxEffect(txHash)]);
   // Base tx data
   log(`Tx ${txHash.toString()}`);
   log(` Status: ${receipt.status} ${effectsInBlock ? `(${effectsInBlock.data.revertCode.getDescription()})` : ''}`);

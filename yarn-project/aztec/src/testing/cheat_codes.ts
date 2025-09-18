@@ -18,9 +18,9 @@ export class CheatCodes {
     public rollup: RollupCheatCodes,
   ) {}
 
-  static async create(rpcUrls: string[], pxe: PXE): Promise<CheatCodes> {
+  static async create(rpcUrls: string[], pxe: PXE, node: AztecNode): Promise<CheatCodes> {
     const ethCheatCodes = new EthCheatCodes(rpcUrls);
-    const aztecCheatCodes = new AztecCheatCodes(pxe);
+    const aztecCheatCodes = new AztecCheatCodes(pxe, node);
     const rollupCheatCodes = new RollupCheatCodes(
       ethCheatCodes,
       await pxe.getNodeInfo().then(n => n.l1ContractAddresses),

@@ -236,7 +236,7 @@ async function setupWithRemoteEnvironment(
     rollupVersion,
   };
   const ethCheatCodes = new EthCheatCodes(config.l1RpcUrls);
-  const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxeClient!);
+  const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxeClient!, aztecNode);
   const teardown = () => Promise.resolve();
 
   logger.verbose('Populating wallet from already registered accounts...');
@@ -657,7 +657,7 @@ export async function setup(
     logger.verbose('Creating a pxe...');
     const { pxe, teardown: pxeTeardown } = await setupPXEService(aztecNode!, pxeOpts, logger);
 
-    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxe!);
+    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxe!, aztecNode);
 
     if (
       (opts.aztecTargetCommitteeSize && opts.aztecTargetCommitteeSize > 0) ||
@@ -675,7 +675,7 @@ export async function setup(
     // Below we continue with what we described in the long comment on line 571.
     if (numberOfAccounts === 0) {
       logger.info('No accounts are being deployed, waiting for an empty block 1 to be mined');
-      while ((await pxe.getBlockNumber()) === 0) {
+      while ((await aztecNode.getBlockNumber()) === 0) {
         await sleep(2000);
       }
     } else {
