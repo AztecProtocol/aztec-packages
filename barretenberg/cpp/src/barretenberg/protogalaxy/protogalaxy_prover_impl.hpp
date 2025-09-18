@@ -114,7 +114,7 @@ ProtogalaxyProver_<Flavor>::combiner_quotient_round(const std::vector<FF>& gate_
 }
 
 /**
- * @brief Given the challenge \gamma, compute Z(\gamma) and {L_0(\gamma),L_1(\gamma)}
+ * @brief Given the challenge \f$\gamma\f$, compute \f$Z(\gamma)\f$ and \f$L_0(\gamma),L_1(\gamma)\f$
  */
 template <IsUltraOrMegaHonk Flavor>
 void ProtogalaxyProver_<Flavor>::update_target_sum_and_fold(
@@ -133,9 +133,10 @@ void ProtogalaxyProver_<Flavor>::update_target_sum_and_fold(
     // At this point the virtual sizes of the polynomials should already agree
     BB_ASSERT_EQ(accumulator->polynomials.w_l.virtual_size(), incoming->polynomials.w_l.virtual_size());
 
+    // Step 12., \gamma challenge
     const FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
 
-    // Compute the next target sum (for its own use; verifier must compute its own values)
+    // Step 13., compute the next target sum (for its own use; verifier must compute its own values)
     auto [vanishing_polynomial_at_challenge, lagranges] =
         PGInternal::compute_vanishing_polynomial_and_lagranges(combiner_challenge);
     accumulator->target_sum = perturbator_evaluation * lagranges[0] +
