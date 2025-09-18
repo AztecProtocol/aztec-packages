@@ -72,14 +72,16 @@ void AvmProver::execute_public_inputs_round()
  */
 void AvmProver::execute_wire_commitments_round()
 {
+    BB_BENCH_NAME("AvmProver::execute_wire_commitments_round");
     // Commit to all polynomials (apart from logderivative inverse polynomials, which are committed to in the later
     // logderivative phase)
     auto wire_polys = prover_polynomials.get_wires();
     const auto& labels = prover_polynomials.get_wires_labels();
+    auto batch = commitment_key.start_batch();
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
-        auto comm = commitment_key.commit(wire_polys[idx]);
-        transcript->send_to_verifier(labels[idx], comm);
+        batch.add_to_batch(wire_polys[idx], labels[idx]);
     }
+    batch.send_to_verifier(transcript);
 }
 
 void AvmProver::execute_log_derivative_inverse_round()

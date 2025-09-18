@@ -27,7 +27,7 @@ template <typename T> class RefSpan {
     {}
 
     // Constructor from an array of pointers and size
-    RefSpan(T** ptr_array, std::size_t size)
+    RefSpan(T* const* ptr_array, std::size_t size)
         : storage(ptr_array)
         , array_size(size)
     {}
@@ -56,6 +56,18 @@ template <typename T> class RefSpan {
 
     // Get size of the RefSpan
     constexpr std::size_t size() const { return array_size; }
+
+    RefSpan subspan(std::size_t offset, std::size_t count)
+    {
+        // NOTE: like std::span, assumes the caller ensures offset and count are within bounds.
+        return RefSpan(storage + offset, count);
+    }
+
+    RefSpan subspan(std::size_t offset)
+    {
+        // NOTE: like std::span, assumes the caller ensures offset and count are within bounds.
+        return RefSpan(storage + offset, array_size - offset);
+    }
 
     // Iterator implementation
     class iterator {

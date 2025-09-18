@@ -78,16 +78,15 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_preamble_ro
  */
 template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commitments_round()
 {
+    auto batch = proving_key->commitment_key.start_batch();
+
     BB_BENCH_NAME("OinkProver::execute_wire_commitments_round");
     // Commit to the first three wire polynomials
-    // We only commit to the fourth wire polynomial after adding memory recordss
-    {
-        auto commit_type = CommitmentKey::CommitType::Default;
+    // We only commit to the fourth wire polynomial after adding memory records
 
-        commit_to_witness_polynomial(proving_key->polynomials.w_l, commitment_labels.w_l, commit_type);
-        commit_to_witness_polynomial(proving_key->polynomials.w_r, commitment_labels.w_r, commit_type);
-        commit_to_witness_polynomial(proving_key->polynomials.w_o, commitment_labels.w_o, commit_type);
-    }
+    batch.add_to_batch(proving_key->polynomials.w_l, commitment_labels.w_l);
+    batch.add_to_batch(proving_key->polynomials.w_r, commitment_labels.w_r);
+    batch.add_to_batch(proving_key->polynomials.w_o, commitment_labels.w_o);
 
     if constexpr (IsMegaFlavor<Flavor>) {
 
@@ -97,8 +96,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
         for (auto [polynomial, label] :
              zip_view(proving_key->polynomials.get_ecc_op_wires(), commitment_labels.get_ecc_op_wires())) {
             {
-                BB_BENCH_NAME("COMMIT::ecc_op_wires");
-                transcript->send_to_verifier(domain_separator + label, proving_key->commitment_key.commit(polynomial));
+                batch.add_to_batch(polynomial, domain_separator + label);
             };
         }
 
@@ -106,11 +104,12 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
         for (auto [polynomial, label] :
              zip_view(proving_key->polynomials.get_databus_entities(), commitment_labels.get_databus_entities())) {
             {
-                BB_BENCH_NAME("COMMIT::databus");
-                commit_to_witness_polynomial(polynomial, label);
+                batch.add_to_batch(polynomial, label);
             }
         }
     }
+    // Batch commit to all the polynomials added to the batch
+    batch.send_to_verifier(transcript, Flavor::HasZK);
 }
 
 /**
@@ -135,22 +134,12 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_sorted_list
                                                                      eta_three);
 
     // Commit to lookup argument polynomials and the finalized (i.e. with memory records) fourth wire polynomial
-    {
-        BB_BENCH_NAME("COMMIT::lookup_counts_tags");
-        commit_to_witness_polynomial(proving_key->polynomials.lookup_read_counts,
-                                     commitment_labels.lookup_read_counts,
-                                     CommitmentKey::CommitType::Default);
+    auto batch = proving_key->commitment_key.start_batch();
 
-        commit_to_witness_polynomial(proving_key->polynomials.lookup_read_tags,
-                                     commitment_labels.lookup_read_tags,
-                                     CommitmentKey::CommitType::Default);
-    }
-    {
-        BB_BENCH_NAME("COMMIT::wires");
-        auto commit_type = CommitmentKey::CommitType::Default;
-        commit_to_witness_polynomial(
-            proving_key->polynomials.w_4, domain_separator + commitment_labels.w_4, commit_type);
-    }
+    batch.add_to_batch(proving_key->polynomials.lookup_read_counts, commitment_labels.lookup_read_counts);
+    batch.add_to_batch(proving_key->polynomials.lookup_read_tags, commitment_labels.lookup_read_tags);
+    batch.add_to_batch(proving_key->polynomials.w_4, domain_separator + commitment_labels.w_4);
+    batch.send_to_verifier(transcript, Flavor::HasZK);
 }
 
 /**
