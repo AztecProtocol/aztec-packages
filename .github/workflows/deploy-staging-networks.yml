@@ -248,6 +248,8 @@ jobs:
           RPC_INGRESS_STATIC_IP_NAME=testnet-rpc-ip
           RPC_INGRESS_SSL_CERT_NAME=testnet-rpc-cert
 
+          DEPLOY_ARCHIVAL_NODE=true
+
           EOF
           echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
 
