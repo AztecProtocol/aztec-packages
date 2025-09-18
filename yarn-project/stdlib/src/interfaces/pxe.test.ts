@@ -248,15 +248,6 @@ describe('PXESchema', () => {
     );
     expect(result).toEqual([{ value: 1n }]);
   });
-
-  it('getPublicEvents', async () => {
-    const result = await context.client.getPublicEvents<{ value: bigint }>(
-      { abiType: { kind: 'boolean' }, eventSelector: EventSelector.random(), fieldNames: ['name'] },
-      1,
-      1,
-    );
-    expect(result).toEqual([{ value: 1n }]);
-  });
 });
 
 class MockPXE implements PXE {
@@ -467,11 +458,6 @@ class MockPXE implements PXE {
     expect(from).toBe(1);
     expect(limit).toBe(1);
     expect(_recipients[0]).toBeInstanceOf(AztecAddress);
-    return Promise.resolve([{ value: 1n } as T]);
-  }
-  getPublicEvents<T>(_eventMetadata: EventMetadataDefinition, from: number, limit: number): Promise<T[]> {
-    expect(from).toBe(1);
-    expect(limit).toBe(1);
     return Promise.resolve([{ value: 1n } as T]);
   }
 }

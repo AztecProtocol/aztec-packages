@@ -1,6 +1,14 @@
 import DialogTitle from '@mui/material/DialogTitle';
 import Dialog from '@mui/material/Dialog';
-import { AztecAddress, Contract, ContractFunctionInteraction, type SendMethodOptions } from '@aztec/aztec.js';
+import {
+  AztecAddress,
+  computeAuthWitMessageHash,
+  Contract,
+  ContractFunctionInteraction,
+  Fr,
+  SetPublicAuthwitContractInteraction,
+  type SendMethodOptions,
+} from '@aztec/aztec.js';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import FormControl from '@mui/material/FormControl';
@@ -49,7 +57,7 @@ export function CreateAuthwitDialog({ open, contract, fnName, args, isPrivate, o
 
   const [feePaymentMethod, setFeePaymentMethod] = useState(null);
 
-  const { wallet, playgroundDB, from } = useContext(AztecContext);
+  const { wallet, node, playgroundDB, from } = useContext(AztecContext);
 
   const handleClose = () => {
     onClose();
@@ -57,22 +65,19 @@ export function CreateAuthwitDialog({ open, contract, fnName, args, isPrivate, o
 
   const createAuthwit = async () => {
     setCreating(true);
+    const call = await contract.methods[fnName](...args).getFunctionCall();
+    const intent = {
+      caller: AztecAddress.fromString(caller),
+      call,
+    };
     try {
-      const action = contract.methods[fnName](...args);
       let witness;
       if (isPrivate) {
-        witness = await wallet.createAuthWit(from, {
-          caller: AztecAddress.fromString(caller),
-          action,
-        });
+        witness = await wallet.createAuthWit(from, intent);
         await playgroundDB.storeAuthwitness(witness, undefined, alias);
         onClose();
       } else {
-        const validateActionInteraction = await wallet.setPublicAuthWit(
-          from,
-          { caller: AztecAddress.fromString(caller), action },
-          true,
-        );
+        const validateActionInteraction = await SetPublicAuthwitContractInteraction.create(wallet, from, intent, true);
         const opts: SendMethodOptions = { from, fee: { paymentMethod: feePaymentMethod } };
         onClose(true, validateActionInteraction, opts);
       }
