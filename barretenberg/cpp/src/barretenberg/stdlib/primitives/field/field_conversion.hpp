@@ -54,12 +54,15 @@ template <typename Builder, typename T> bool_t<Builder> check_point_at_infinity(
  * @param challenge a 128- or a 126- bit limb of a full challenge
  * @return T
  */
-template <typename Builder, typename T> inline T convert_challenge(Builder& builder, const fr<Builder>& challenge)
+template <typename Builder, typename T> inline T convert_challenge(const fr<Builder>& challenge)
 {
     if constexpr (std::is_same_v<T, fr<Builder>>) {
         return challenge;
     } else if constexpr (std::is_same_v<T, fq<Builder>>) {
-        return T(challenge, fr<Builder>::from_witness_index(&builder, builder.zero_idx));
+        Builder* builder = challenge.get_context();
+        ASSERT(builder);
+        ASSERT(!challenge.is_constant());
+        return T(challenge, fr<Builder>::from_witness_index(builder, builder->zero_idx));
     }
 }
 
