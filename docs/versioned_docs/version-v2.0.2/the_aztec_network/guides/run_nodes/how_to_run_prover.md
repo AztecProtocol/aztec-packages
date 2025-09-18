@@ -161,12 +161,13 @@ Required environment variables:
 - `PROVER_BROKER_HOST`: Broker endpoint for job submission
 - `PROVER_ID`: Ethereum address corresponding to `PROVER_PUBLISHER_PRIVATE_KEY`
 
+**Note**: Some variables overlap with the prover node configuration. In this case we use the same value for `PROVER_BROKER_HOST`, so we will not duplicate it in our `.env` file.
+
 Add to your `.env` file:
 
 ```sh
 PROVER_AGENT_COUNT=10
 PROVER_AGENT_POLL_INTERVAL_MS=10000
-PROVER_BROKER_HOST=http://prover-broker:8080
 PROVER_ID=<the address corresponding to the PROVER_PUBLISHER_PRIVATE_KEY you set on the node>
 ```
 
@@ -199,15 +200,14 @@ name: aztec-prover
 services:
   prover-node:
     image: aztecprotocol/aztec:latest
-    command:
-      - node
-      - --no-warnings
-      - /usr/src/yarn-project/aztec/dest/bin/index.js
-      - start
-      - --prover-node
-      - --archiver
-      - --network
-      - testnet
+    entrypoint: >-
+      node
+      --no-warnings
+      /usr/src/yarn-project/aztec/dest/bin/index.js
+      start
+      --prover-node
+      --archiver
+      --network testnet
     depends_on:
       prover-broker:
         condition: service_started
@@ -219,6 +219,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL}
       PROVER_BROKER_HOST: ${PROVER_BROKER_HOST}
       PROVER_PUBLISHER_PRIVATE_KEY: ${PROVER_PUBLISHER_PRIVATE_KEY}
+      P2P_IP: ${P2P_IP}
       P2P_PORT: ${P2P_PORT}
       AZTEC_PORT: ${AZTEC_PORT}
     ports:
@@ -230,14 +231,13 @@ services:
 
   prover-broker:
     image: aztecprotocol/aztec:latest
-    command:
-      - node
-      - --no-warnings
-      - /usr/src/yarn-project/aztec/dest/bin/index.js
-      - start
-      - --prover-broker
-      - --network
-      - testnet
+    entrypoint: >-
+      node
+      --no-warnings
+      /usr/src/yarn-project/aztec/dest/bin/index.js
+      start
+      --prover-broker
+      --network testnet
     environment:
       DATA_DIRECTORY: /var/lib/data
       ETHEREUM_HOSTS: ${ETHEREUM_HOSTS}
@@ -248,14 +248,13 @@ services:
 
   prover-agent:
     image: aztecprotocol/aztec:latest
-    command:
-      - node
-      - --no-warnings
-      - /usr/src/yarn-project/aztec/dest/bin/index.js
-      - start
-      - --prover-agent
-      - --network
-      - testnet
+    entrypoint: >-
+      node
+      --no-warnings
+      /usr/src/yarn-project/aztec/dest/bin/index.js
+      start
+      --prover-agent
+      --network testnet
     environment:
       PROVER_AGENT_COUNT: ${PROVER_AGENT_COUNT}
       PROVER_AGENT_POLL_INTERVAL_MS: ${PROVER_AGENT_POLL_INTERVAL_MS}
