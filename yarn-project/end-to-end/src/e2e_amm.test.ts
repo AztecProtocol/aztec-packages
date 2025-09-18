@@ -1,6 +1,7 @@
-import { AztecAddress, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress, Fr, type Logger } from '@aztec/aztec.js';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { TestWallet } from '@aztec/test-wallet';
 
 import { jest } from '@jest/globals';
 
@@ -16,7 +17,7 @@ describe('AMM', () => {
 
   let logger: Logger;
 
-  let wallet: Wallet;
+  let wallet: TestWallet;
 
   let adminAddress: AztecAddress;
   let liquidityProviderAddress: AztecAddress;

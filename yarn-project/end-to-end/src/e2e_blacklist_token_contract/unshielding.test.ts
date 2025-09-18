@@ -5,7 +5,7 @@ import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
 
 describe('e2e_blacklist_token_contract unshielding', () => {
   const t = new BlacklistTokenContractTest('unshielding');
-  let { asset, tokenSim, aztecNode, wallet, adminAddress, otherAddress, blacklistedAddress } = t;
+  let { asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
@@ -13,7 +13,7 @@ describe('e2e_blacklist_token_contract unshielding', () => {
     await t.applyMintSnapshot();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
-    ({ asset, tokenSim, aztecNode, wallet, adminAddress, otherAddress, blacklistedAddress } = t);
+    ({ asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t);
   }, 600_000);
 
   afterAll(async () => {
@@ -108,8 +108,8 @@ describe('e2e_blacklist_token_contract unshielding', () => {
       // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset.methods.unshield(adminAddress, otherAddress, amount, authwitNonce);
       const expectedMessageHash = await computeAuthWitMessageHash(
-        { caller: blacklistedAddress, action },
-        { chainId: new Fr(await aztecNode.getChainId()), version: new Fr(await aztecNode.getVersion()) },
+        { caller: blacklistedAddress, call: await action.getFunctionCall() },
+        await wallet.getChainInfo(),
       );
 
       // Both wallets are connected to same node and PXE so we could just insert directly

@@ -5,7 +5,7 @@ import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
 
 describe('e2e_blacklist_token_contract transfer private', () => {
   const t = new BlacklistTokenContractTest('transfer_private');
-  let { asset, aztecNode, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t;
+  let { asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
@@ -13,7 +13,7 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     await t.applyMintSnapshot();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
-    ({ asset, aztecNode, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t);
+    ({ asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t);
   }, 600_000);
 
   afterAll(async () => {
@@ -133,8 +133,8 @@ describe('e2e_blacklist_token_contract transfer private', () => {
       // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset.methods.transfer(adminAddress, otherAddress, amount, authwitNonce);
       const messageHash = await computeAuthWitMessageHash(
-        { caller: otherAddress, action },
-        { chainId: new Fr(await aztecNode.getChainId()), version: new Fr(await aztecNode.getVersion()) },
+        { caller: otherAddress, call: await action.getFunctionCall() },
+        await wallet.getChainInfo(),
       );
 
       await expect(action.simulate({ from: otherAddress })).rejects.toThrow(
@@ -151,8 +151,8 @@ describe('e2e_blacklist_token_contract transfer private', () => {
       // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset.methods.transfer(adminAddress, otherAddress, amount, authwitNonce);
       const expectedMessageHash = await computeAuthWitMessageHash(
-        { caller: blacklistedAddress, action },
-        { chainId: new Fr(await aztecNode.getChainId()), version: new Fr(await aztecNode.getVersion()) },
+        { caller: blacklistedAddress, call: await action.getFunctionCall() },
+        await wallet.getChainInfo(),
       );
 
       const witness = await wallet.createAuthWit(adminAddress, { caller: otherAddress, action });

@@ -76,6 +76,7 @@ export * from './api/account.js';
 export * from './api/addresses.js';
 export * from './api/deployment.js';
 export * from './api/ethereum.js';
+export * from './api/events.js';
 export * from './api/eth_address.js';
 export * from './api/fee.js';
 export * from './api/log.js';

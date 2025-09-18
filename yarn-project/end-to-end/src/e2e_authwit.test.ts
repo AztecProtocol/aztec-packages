@@ -158,7 +158,7 @@ describe('e2e_authwit_tests', () => {
 
         // docs:start:set_public_authwit
         const validateActionInteraction = await wallet.setPublicAuthWit(account1Address, intent, true);
-        await validateActionInteraction.send({ from: account1Address }).wait();
+        await validateActionInteraction.send().wait();
         // docs:end:set_public_authwit
         expect(await wallet.lookupValidity(account1Address, intent, witness)).toEqual({
           isValidInPrivate: true,
@@ -187,7 +187,7 @@ describe('e2e_authwit_tests', () => {
           });
 
           const validateActionInteraction = await wallet.setPublicAuthWit(account1Address, intent, true);
-          await validateActionInteraction.send({ from: account1Address }).wait();
+          await validateActionInteraction.send().wait();
 
           expect(await wallet.lookupValidity(account1Address, intent, witness)).toEqual({
             isValidInPrivate: true,

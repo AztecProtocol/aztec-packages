@@ -73,7 +73,7 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
       },
       true,
     );
-    await validateActionInteraction.send({ from: ownerAddress }).wait();
+    await validateActionInteraction.send().wait();
 
     // 5. Withdraw owner's funds from L2 to L1
     logger.verbose('5. Withdraw owner funds from L2 to L1');

@@ -284,15 +284,6 @@ export interface PXE {
     numBlocks: number,
     recipients: AztecAddress[],
   ): Promise<T[]>;
-
-  /**
-   * Returns the public events given search parameters.
-   * @param eventMetadata - Metadata of the event. This should be the class generated from the contract. e.g. Contract.events.Event
-   * @param from - The block number to search from.
-   * @param limit - The amount of blocks to search.
-   * @returns - The deserialized events.
-   */
-  getPublicEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number): Promise<T[]>;
 }
 // docs:end:pxe-interface
 
@@ -302,7 +293,7 @@ export type EventMetadataDefinition = {
   fieldNames: string[];
 };
 
-const EventMetadataDefinitionSchema = z.object({
+export const EventMetadataDefinitionSchema = z.object({
   eventSelector: schemas.EventSelector,
   abiType: AbiTypeSchema,
   fieldNames: z.array(z.string()),
@@ -334,13 +325,13 @@ export interface ContractClassMetadata {
   artifact?: ContractArtifact | undefined;
 }
 
-const ContractMetadataSchema = z.object({
+export const ContractMetadataSchema = z.object({
   contractInstance: z.union([ContractInstanceWithAddressSchema, z.undefined()]),
   isContractInitialized: z.boolean(),
   isContractPublished: z.boolean(),
 }) satisfies ZodFor<ContractMetadata>;
 
-const ContractClassMetadataSchema = z.object({
+export const ContractClassMetadataSchema = z.object({
   contractClass: z.union([ContractClassWithIdSchema, z.undefined()]),
   isContractClassPubliclyRegistered: z.boolean(),
   artifact: z.union([ContractArtifactSchema, z.undefined()]),
@@ -411,9 +402,5 @@ export const PXESchema: ApiSchemaFor<PXE> = {
   getPrivateEvents: z
     .function()
     .args(schemas.AztecAddress, EventMetadataDefinitionSchema, z.number(), z.number(), z.array(schemas.AztecAddress))
-    .returns(z.array(AbiDecodedSchema)),
-  getPublicEvents: z
-    .function()
-    .args(EventMetadataDefinitionSchema, z.number(), z.number())
     .returns(z.array(AbiDecodedSchema)),
 };

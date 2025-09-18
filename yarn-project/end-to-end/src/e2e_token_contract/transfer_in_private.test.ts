@@ -5,13 +5,13 @@ import { TokenContractTest } from './token_contract_test.js';
 
 describe('e2e_token_contract transfer private', () => {
   const t = new TokenContractTest('transfer_private');
-  let { asset, tokenSim, wallet, node, adminAddress, account1Address, account2Address, badAccount } = t;
+  let { asset, tokenSim, wallet, adminAddress, account1Address, account2Address, badAccount } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
-    ({ asset, tokenSim, wallet, node, adminAddress, account1Address, account2Address, badAccount } = t);
+    ({ asset, tokenSim, wallet, adminAddress, account1Address, account2Address, badAccount } = t);
   });
 
   afterAll(async () => {
@@ -101,8 +101,8 @@ describe('e2e_token_contract transfer private', () => {
       // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset.methods.transfer_in_private(adminAddress, account1Address, amount, authwitNonce);
       const messageHash = await computeAuthWitMessageHash(
-        { caller: account1Address, action },
-        { chainId: new Fr(await node.getChainId()), version: new Fr(await node.getVersion()) },
+        { caller: account1Address, call: await action.getFunctionCall() },
+        await wallet.getChainInfo(),
       );
 
       await expect(action.simulate({ from: account1Address })).rejects.toThrow(
@@ -119,8 +119,8 @@ describe('e2e_token_contract transfer private', () => {
       // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset.methods.transfer_in_private(adminAddress, account1Address, amount, authwitNonce);
       const expectedMessageHash = await computeAuthWitMessageHash(
-        { caller: account2Address, action },
-        { chainId: new Fr(await node.getChainId()), version: new Fr(await node.getVersion()) },
+        { caller: account2Address, call: await action.getFunctionCall() },
+        await wallet.getChainInfo(),
       );
 
       const witness = await wallet.createAuthWit(adminAddress, { caller: account1Address, action });

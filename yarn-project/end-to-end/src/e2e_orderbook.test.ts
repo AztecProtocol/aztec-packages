@@ -1,6 +1,7 @@
-import { AztecAddress, type FieldLike, Fr, type Logger, type PXE, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress, type AztecNode, type FieldLike, Fr, type Logger, getDecodedPublicEvents } from '@aztec/aztec.js';
 import { type OrderCreated, type OrderFulfilled, OrderbookContract } from '@aztec/noir-contracts.js/Orderbook';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { TestWallet } from '@aztec/test-wallet';
 
 import { jest } from '@jest/globals';
 
@@ -19,9 +20,9 @@ describe('Orderbook', () => {
   let teardown: () => Promise<void>;
   let logger: Logger;
 
-  let pxe: PXE;
+  let aztecNode: AztecNode;
 
-  let wallet: Wallet;
+  let wallet: TestWallet;
 
   let adminAddress: AztecAddress;
   let makerAddress: AztecAddress;
@@ -36,9 +37,9 @@ describe('Orderbook', () => {
 
   beforeAll(async () => {
     ({
-      pxe,
       teardown,
       wallet,
+      aztecNode,
       accounts: [adminAddress, makerAddress, takerAddress],
       logger,
     } = await setup(3));
@@ -76,7 +77,12 @@ describe('Orderbook', () => {
         .send({ from: makerAddress })
         .wait();
 
-      const orderCreatedEvents = await pxe.getPublicEvents<OrderCreated>(OrderbookContract.events.OrderCreated, 0, 100);
+      const orderCreatedEvents = await getDecodedPublicEvents<OrderCreated>(
+        aztecNode,
+        OrderbookContract.events.OrderCreated,
+        0,
+        100,
+      );
       expect(orderCreatedEvents.length).toBe(1);
 
       // TODO: Check that the order ID returned from create_order matches the one in the event. It's currently not
@@ -125,7 +131,8 @@ describe('Orderbook', () => {
         .wait();
 
       // Verify order was fulfilled by checking events
-      const orderFulfilledEvents = await pxe.getPublicEvents<OrderFulfilled>(
+      const orderFulfilledEvents = await getDecodedPublicEvents<OrderFulfilled>(
+        aztecNode,
         OrderbookContract.events.OrderFulfilled,
         0,
         100,

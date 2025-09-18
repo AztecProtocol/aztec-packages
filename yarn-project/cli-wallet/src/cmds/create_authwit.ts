@@ -28,9 +28,9 @@ export async function createAuthwit(
   }
 
   const contract = await Contract.at(contractAddress, contractArtifact, wallet);
-  const action = contract.methods[functionName](...functionArgs);
+  const call = await contract.methods[functionName](...functionArgs).getFunctionCall();
 
-  const witness = await wallet.createAuthWit(from, { caller, action });
+  const witness = await wallet.createAuthWit(from, { caller, call });
 
   log(`Created authorization witness for action ${functionName} on contract ${contractAddress} for caller ${caller}`);
 

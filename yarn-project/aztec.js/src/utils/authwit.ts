@@ -1,34 +1,54 @@
 import { Fr } from '@aztec/foundation/fields';
-import type { FunctionCall } from '@aztec/stdlib/abi';
-import { computeInnerAuthWitHash, computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { type ABIParameterVisibility, type FunctionAbi, type FunctionCall, FunctionType } from '@aztec/stdlib/abi';
+import { AuthWitness, computeInnerAuthWitHash, computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeVarArgsHash } from '@aztec/stdlib/hash';
+import type { TxProfileResult } from '@aztec/stdlib/tx';
 
-import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
-
-/** Metadata for the intent */
-export type IntentMetadata = {
-  /** The chain id to approve */
-  chainId: Fr;
-  /** The version to approve  */
-  version: Fr;
-};
+import { ContractFunctionInteraction, type SimulationReturn } from '../contract/contract_function_interaction.js';
+import type {
+  ProfileMethodOptions,
+  SendMethodOptions,
+  SimulateMethodOptions,
+} from '../contract/interaction_options.js';
+import type { SentTx } from '../contract/sent_tx.js';
+import type { ChainInfo, Wallet } from '../wallet/index.js';
 
 /** Intent with an inner hash */
 export type IntentInnerHash = {
   /** The consumer   */
   consumer: AztecAddress;
   /** The action to approve */
-  innerHash: Buffer | Fr;
+  innerHash: Buffer<ArrayBuffer> | Fr;
 };
 
-/** Intent with an action */
-export type IntentAction = {
+/** Intent with a call */
+export type CallIntent = {
+  /** The caller to approve  */
+  caller: AztecAddress;
+  /** The call to approve */
+  call: FunctionCall;
+};
+
+/** Intent with a ContractFunctionInteraction */
+export type ContractFunctionInteractionCallIntent = {
   /** The caller to approve  */
   caller: AztecAddress;
   /** The action to approve */
-  action: ContractFunctionInteraction | FunctionCall;
+  action: ContractFunctionInteraction;
 };
+
+/** Identifies ContractFunctionInteractionCallIntents */
+function isContractFunctionIntractionCallIntent(
+  messageHashOrIntent: Fr | Buffer | IntentInnerHash | CallIntent | ContractFunctionInteractionCallIntent,
+): messageHashOrIntent is ContractFunctionInteractionCallIntent {
+  return (
+    'caller' in messageHashOrIntent &&
+    'action' in messageHashOrIntent &&
+    messageHashOrIntent.action instanceof ContractFunctionInteraction
+  );
+}
 
 // docs:start:authwit_computeAuthWitMessageHash
 /**
@@ -41,7 +61,7 @@ export type IntentAction = {
  * and use it for the authentication check.
  * Therefore, any allowed `innerHash` will therefore also have information around where it can be spent (version, chainId) and who can spend it (consumer).
  *
- * If using the `IntentAction`, the caller is the address that is making the call, for a token approval from Alice to Bob, this would be Bob.
+ * If using the `CallIntent`, the caller is the address that is making the call, for a token approval from Alice to Bob, this would be Bob.
  * The action is then used along with the `caller` to compute the `innerHash` and the consumer.
  *
  *
@@ -52,18 +72,20 @@ export type IntentAction = {
  * @param metadata - The metadata for the intent (chainId, version)
  * @returns The message hash for the action
  */
-export const computeAuthWitMessageHash = async (intent: IntentInnerHash | IntentAction, metadata: IntentMetadata) => {
+export const computeAuthWitMessageHash = async (
+  intent: IntentInnerHash | CallIntent | ContractFunctionInteractionCallIntent,
+  metadata: ChainInfo,
+) => {
   const chainId = metadata.chainId;
   const version = metadata.version;
 
   if ('caller' in intent) {
-    const fnCall =
-      intent.action instanceof ContractFunctionInteraction ? (await intent.action.request()).calls[0] : intent.action;
+    const call = isContractFunctionIntractionCallIntent(intent) ? await intent.action.getFunctionCall() : intent.call;
     return computeOuterAuthWitHash(
-      fnCall.to,
+      call.to,
       chainId,
       version,
-      await computeInnerAuthWitHashFromFunctionCall(intent.caller, fnCall),
+      await computeInnerAuthWitHashFromAction(intent.caller, call),
     );
   } else {
     const inner = Buffer.isBuffer(intent.innerHash) ? Fr.fromBuffer(intent.innerHash) : intent.innerHash;
@@ -73,28 +95,240 @@ export const computeAuthWitMessageHash = async (intent: IntentInnerHash | Intent
 // docs:end:authwit_computeAuthWitMessageHash
 
 /**
- * Computes the inner authwitness hash for a function call, for it to later be combined with the metadata
- * required for the outer hash and eventually the full AuthWitness.
- * @param caller - Who is going to be calling the function
- * @param fnCall - The function call to compute the inner hash from
- * @returns The inner hash for the function call
- **/
-export const computeInnerAuthWitHashFromFunctionCall = async (caller: AztecAddress, fnCall: FunctionCall) => {
-  return computeInnerAuthWitHash([caller.toField(), fnCall.selector.toField(), await computeVarArgsHash(fnCall.args)]);
-};
+ * Compute an authentication witness message hash from an intent and metadata. This is just
+ * a wrapper around computeAuthwitMessageHash that allows receiving an already computed messageHash as input
+ * @param messageHashOrIntent - The precomputed messageHash or intent to approve (consumer and innerHash or caller and call/action)
+ * @param metadata - The metadata for the intent (chainId, version)
+ * @returns The message hash for the intent
+ */
+export async function getMessageHashFromIntent(
+  messageHashOrIntent: Fr | Buffer | IntentInnerHash | CallIntent | ContractFunctionInteractionCallIntent,
+  chainInfo: ChainInfo,
+) {
+  let messageHash: Fr;
+  const { chainId, version } = chainInfo;
+  if (Buffer.isBuffer(messageHashOrIntent)) {
+    messageHash = Fr.fromBuffer(messageHashOrIntent);
+  } else if (messageHashOrIntent instanceof Fr) {
+    messageHash = messageHashOrIntent;
+  } else {
+    messageHash = await computeAuthWitMessageHash(messageHashOrIntent, { chainId, version });
+  }
+  return messageHash;
+}
 
 /**
- * Computes the inner authwitness hash for an action, that can either be a ContractFunctionInteraction
- * or an isolated FunctionCall. Since the former is just a wrapper around the latter, we can just extract
- * the first (and only) call from the ContractFunctionInteraction and use it to compute the inner hash.
- * @param caller - Who is going to be performing the action
- * @param action - The ContractFunctionInteraction or FunctionCall to compute the inner hash for
+ * Computes the inner authwitness hash for either a function call or an action, for it to later be combined with the metadata
+ * required for the outer hash and eventually the full AuthWitness.
+ * @param caller - Who is going to be calling the function
+ * @param action - The action to compute the inner hash from
  * @returns The inner hash for the action
  **/
 export const computeInnerAuthWitHashFromAction = async (
   caller: AztecAddress,
   action: FunctionCall | ContractFunctionInteraction,
 ) => {
-  action = action instanceof ContractFunctionInteraction ? (await action.request()).calls[0] : action;
-  return computeInnerAuthWitHash([caller.toField(), action.selector.toField(), await computeVarArgsHash(action.args)]);
+  const call = action instanceof ContractFunctionInteraction ? await action.getFunctionCall() : action;
+  return computeInnerAuthWitHash([caller.toField(), call.selector.toField(), await computeVarArgsHash(call.args)]);
 };
+
+/**
+ * Lookup the validity of an authwit in private and public contexts.
+ *
+ * Uses the chain id and version of the wallet.
+ *
+ * @param wallet - The wallet use to simulate and read the public data
+ * @param onBehalfOf - The address of the "approver"
+ * @param intent - The consumer and inner hash or the caller and action to lookup
+ * @param witness - The computed authentication witness to check
+ * @returns - A struct containing the validity of the authwit in private and public contexts.
+ */
+export async function lookupValidity(
+  wallet: Wallet,
+  onBehalfOf: AztecAddress,
+  intent: IntentInnerHash | CallIntent | ContractFunctionInteractionCallIntent,
+  witness: AuthWitness,
+): Promise<{
+  /** boolean flag indicating if the authwit is valid in private context */
+  isValidInPrivate: boolean;
+  /** boolean flag indicating if the authwit is valid in public context */
+  isValidInPublic: boolean;
+}> {
+  let innerHash, consumer;
+  if ('caller' in intent) {
+    const call = isContractFunctionIntractionCallIntent(intent) ? await intent.action.getFunctionCall() : intent.call;
+    innerHash = await computeInnerAuthWitHashFromAction(intent.caller, call);
+    consumer = call.to;
+  } else if (Buffer.isBuffer(intent.innerHash)) {
+    innerHash = Fr.fromBuffer(intent.innerHash);
+    consumer = intent.consumer;
+  } else {
+    ({ innerHash, consumer } = intent);
+  }
+  const chainInfo = await wallet.getChainInfo();
+  const messageHash = await getMessageHashFromIntent(intent, chainInfo);
+  const results = { isValidInPrivate: false, isValidInPublic: false };
+
+  // Check private
+  const lookupValidityAbi = {
+    name: 'lookup_validity',
+    isInitializer: false,
+    functionType: FunctionType.UTILITY,
+    isInternal: false,
+    isStatic: false,
+    parameters: [{ name: 'message_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility }],
+    returnTypes: [{ kind: 'boolean' }],
+    errorTypes: {},
+  } as FunctionAbi;
+  try {
+    results.isValidInPrivate = (await new ContractFunctionInteraction(wallet, onBehalfOf, lookupValidityAbi, [
+      consumer,
+      innerHash,
+    ]).simulate({ from: onBehalfOf, authWitnesses: [witness] })) as boolean;
+    // TODO: Narrow down the error to make sure simulation failed due to an invalid authwit
+    // eslint-disable-next-line no-empty
+  } catch {}
+
+  // check public
+  const isConsumableAbi = {
+    name: 'utility_is_consumable',
+    isInitializer: false,
+    functionType: FunctionType.UTILITY,
+    isInternal: false,
+    isStatic: false,
+    parameters: [
+      {
+        name: 'address',
+        type: {
+          fields: [{ name: 'inner', type: { kind: 'field' } }],
+          kind: 'struct',
+          path: 'authwit::aztec::protocol_types::address::aztec_address::AztecAddress',
+        },
+        visibility: 'private' as ABIParameterVisibility,
+      },
+      { name: 'message_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility },
+    ],
+    returnTypes: [{ kind: 'boolean' }],
+    errorTypes: {},
+  } as FunctionAbi;
+  results.isValidInPublic = (await new ContractFunctionInteraction(
+    wallet,
+    ProtocolContractAddress.AuthRegistry,
+    isConsumableAbi,
+    [onBehalfOf, messageHash],
+  ).simulate({ from: onBehalfOf })) as boolean;
+
+  return results;
+}
+
+/**
+ * Convenience class designed to wrap the very common interaction of setting a public authwit in the AuthRegistry contract
+ */
+export class SetPublicAuthwitContractInteraction extends ContractFunctionInteraction {
+  private constructor(
+    wallet: Wallet,
+    private from: AztecAddress,
+    messageHash: Fr,
+    authorized: boolean,
+  ) {
+    super(wallet, ProtocolContractAddress.AuthRegistry, SetPublicAuthwitContractInteraction.getSetAuthorizedAbi(), [
+      messageHash,
+      authorized,
+    ]);
+  }
+
+  static async create(
+    wallet: Wallet,
+    from: AztecAddress,
+    messageHashOrIntent: Fr | Buffer | IntentInnerHash | CallIntent | ContractFunctionInteractionCallIntent,
+    authorized: boolean,
+  ) {
+    const chainInfo = await wallet.getChainInfo();
+    const messageHash = await getMessageHashFromIntent(messageHashOrIntent, chainInfo);
+    return new SetPublicAuthwitContractInteraction(wallet, from, messageHash, authorized);
+  }
+
+  /**
+   * Overrides the proveInternal method, adding the sender of the authwit (authorizer) as from
+   * and preventing misuse
+   * @param options - An optional object containing additional configuration for the transaction.
+   * @returns The result of the transaction as returned by the contract function.
+   */
+  public override proveInternal(options: SendMethodOptions = { from: this.from }) {
+    if (!options.from.equals(this.from)) {
+      throw new Error(`A public authwit can only be sent from the account authorizing the action(${this.from})`);
+    }
+    return super.proveInternal(options);
+  }
+
+  /**
+   * Overrides the simulate method, adding the sender of the authwit (authorizer) as from
+   * and preventing misuse
+   * @param options - An optional object containing additional configuration for the transaction.
+   * @returns The result of the transaction as returned by the contract function.
+   */
+  public override simulate<T extends SimulateMethodOptions>(
+    options: T,
+  ): Promise<SimulationReturn<T['includeMetadata']>>;
+  // eslint-disable-next-line jsdoc/require-jsdoc
+  public override simulate(
+    options: SimulateMethodOptions = { from: this.from },
+  ): Promise<SimulationReturn<typeof options.includeMetadata>> {
+    if (!options.from.equals(this.from)) {
+      throw new Error(`A public authwit can only be sent from the account authorizing the action(${this.from})`);
+    }
+    return super.simulate(options);
+  }
+
+  /**
+   * Overrides the profile method, adding the sender of the authwit (authorizer) as from
+   * and preventing misuse
+   * @param options - Same options as `simulate`, plus profiling method
+   * @returns An object containing the function return value and profile result.
+   */
+  public override profile(
+    options: ProfileMethodOptions = { from: this.from, profileMode: 'gates' },
+  ): Promise<TxProfileResult> {
+    if (!options.from.equals(this.from)) {
+      throw new Error(`A public authwit can only be sent from the account authorizing the action(${this.from})`);
+    }
+    return super.profile(options);
+  }
+
+  /**
+   * Overrides the send method, adding the sender of the authwit (authorizer) as from
+   * and preventing misuse
+   * @param options - An optional object containing 'fee' options information
+   * @returns A SentTx instance for tracking the transaction status and information.
+   */
+  public override send(options: SendMethodOptions = { from: this.from }): SentTx {
+    if (!options.from.equals(this.from)) {
+      throw new Error(`A public authwit can only be sent from the account authorizing the action(${this.from})`);
+    }
+    return super.send(options);
+  }
+
+  private static getSetAuthorizedAbi(): FunctionAbi {
+    return {
+      name: 'set_authorized',
+      isInitializer: false,
+      functionType: FunctionType.PUBLIC,
+      isInternal: true,
+      isStatic: false,
+      parameters: [
+        {
+          name: 'message_hash',
+          type: { kind: 'field' },
+          visibility: 'private' as ABIParameterVisibility,
+        },
+        {
+          name: 'authorize',
+          type: { kind: 'boolean' },
+          visibility: 'private' as ABIParameterVisibility,
+        },
+      ],
+      returnTypes: [],
+      errorTypes: {},
+    };
+  }
+}

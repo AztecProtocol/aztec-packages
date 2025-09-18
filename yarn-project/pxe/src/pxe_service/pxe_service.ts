@@ -13,7 +13,6 @@ import {
 import type { CircuitSimulator } from '@aztec/simulator/client';
 import {
   type ContractArtifact,
-  EventSelector,
   FunctionCall,
   FunctionSelector,
   FunctionType,
@@ -1034,35 +1033,6 @@ export class PXEService implements PXE {
     );
 
     const decodedEvents = events.map((event: Fr[]): T => decodeFromAbi([eventMetadataDef.abiType], event) as T);
-
-    return decodedEvents;
-  }
-
-  async getPublicEvents<T>(eventMetadataDef: EventMetadataDefinition, from: number, limit: number): Promise<T[]> {
-    const { logs } = await this.node.getPublicLogs({
-      fromBlock: from,
-      toBlock: from + limit,
-    });
-
-    const decodedEvents = logs
-      .map(log => {
-        // +1 for the event selector
-        const expectedLength = eventMetadataDef.fieldNames.length + 1;
-        if (log.log.emittedLength !== expectedLength) {
-          throw new Error(
-            `Something is weird here, we have matching EventSelectors, but the actual payload has mismatched length. Expected ${expectedLength}. Got ${log.log.emittedLength}.`,
-          );
-        }
-
-        const logFields = log.log.getEmittedFields();
-        // We are assuming here that event logs are the last 4 bytes of the event. This is not enshrined but is a function of aztec.nr raw log emission.
-        if (!EventSelector.fromField(logFields[logFields.length - 1]).equals(eventMetadataDef.eventSelector)) {
-          return undefined;
-        }
-
-        return decodeFromAbi([eventMetadataDef.abiType], log.log.fields) as T;
-      })
-      .filter(log => log !== undefined) as T[];
 
     return decodedEvents;
   }

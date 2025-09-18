@@ -2,13 +2,16 @@ import {
   type Account,
   type AccountContract,
   AccountManager,
-  BaseAccount,
   BaseWallet,
+  type CallIntent,
   type ContractArtifact,
-  type IntentAction,
+  type ContractFunctionInteractionCallIntent,
   type IntentInnerHash,
+  SetPublicAuthwitContractInteraction,
   SignerlessAccount,
   type SimulateMethodOptions,
+  getMessageHashFromIntent,
+  lookupValidity,
 } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
@@ -94,9 +97,60 @@ export abstract class BaseTestWallet extends BaseWallet {
   abstract createECDSARAccount(secret: Fr, salt: Fr, signingKey: Buffer): Promise<AccountManager>;
   abstract createECDSAKAccount(secret: Fr, salt: Fr, signingKey: Buffer): Promise<AccountManager>;
 
-  async lookupValidity(address: AztecAddress, intent: IntentInnerHash | IntentAction, witness: AuthWitness) {
-    const account = (await this.getAccountFromAddress(address)) as BaseAccount;
-    return account.lookupValidity(this, address, intent, witness);
+  /**
+   * Lookup the validity of an authwit in private and public contexts.
+   *
+   * Uses the chain id and version of the wallet.
+   *
+   * @param wallet - The wallet use to simulate and read the public data
+   * @param onBehalfOf - The address of the "approver"
+   * @param intent - The consumer and inner hash or the caller and action to lookup
+   * @param witness - The computed authentication witness to check
+   * @returns - A struct containing the validity of the authwit in private and public contexts.
+   */
+  lookupValidity(
+    onBehalfOf: AztecAddress,
+    intent: IntentInnerHash | CallIntent | ContractFunctionInteractionCallIntent,
+    witness: AuthWitness,
+  ): Promise<{
+    /** boolean flag indicating if the authwit is valid in private context */
+    isValidInPrivate: boolean;
+    /** boolean flag indicating if the authwit is valid in public context */
+    isValidInPublic: boolean;
+  }> {
+    return lookupValidity(this, onBehalfOf, intent, witness);
+  }
+
+  /**
+   * Returns an interaction that can be used to set the authorization status
+   * of an intent
+   * @param from - The address authorizing/revoking the action
+   * @param messageHashOrIntent - The action to authorize/revoke
+   * @param authorized - Whether the action can be performed or not
+   */
+  public setPublicAuthWit(
+    from: AztecAddress,
+    messageHashOrIntent: Fr | Buffer | IntentInnerHash | CallIntent | ContractFunctionInteractionCallIntent,
+    authorized: boolean,
+  ): Promise<SetPublicAuthwitContractInteraction> {
+    return SetPublicAuthwitContractInteraction.create(this, from, messageHashOrIntent, authorized);
+  }
+
+  /**
+   * Creates and returns an authwit according the the rules
+   * of the provided account. This authwit can be verified
+   * by the account contract
+   * @param from - The address authorizing the action
+   * @param messageHashOrIntent - The action to authorize
+   */
+  public override async createAuthWit(
+    from: AztecAddress,
+    messageHashOrIntent: Fr | Buffer | IntentInnerHash | CallIntent | ContractFunctionInteractionCallIntent,
+  ): Promise<AuthWitness> {
+    const account = await this.getAccountFromAddress(from);
+    const chainInfo = await this.getChainInfo();
+    const messageHash = await getMessageHashFromIntent(messageHashOrIntent, chainInfo);
+    return account.createAuthWit(messageHash);
   }
 
   abstract getFakeAccountDataFor(
