@@ -348,7 +348,6 @@ template <typename Builder> void cycle_group<Builder>::standardize()
  */
 template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement> hint) const
-    requires IsUltraArithmetic<Builder>
 {
     // ensure we use a value of y that is not zero. (only happens if point at infinity)
     // this costs 0 gates if `is_infinity` is a circuit constant
@@ -768,6 +767,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 {
     BB_ASSERT_EQ(!scalars.empty(), true, "Empty scalars provided to variable base batch mul!");
     BB_ASSERT_EQ(scalars.size(), base_points.size(), "Points/scalars size mismatch in variable base batch mul!");
+    BB_ASSERT_EQ(offset_generators.size(), base_points.size() + 1, "Too few offset generators provided!");
     const size_t num_points = scalars.size();
 
     Builder* context = nullptr;
@@ -788,12 +788,12 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     for (auto& s : scalars) {
         BB_ASSERT_EQ(s.num_bits(), num_bits, "Scalars of different bit-lengths not supported!");
     }
-    size_t num_rounds = numeric::ceil_div(num_bits, TABLE_BITS);
+    size_t num_rounds = numeric::ceil_div(num_bits, ROM_TABLE_BITS);
 
     std::vector<straus_scalar_slice> scalar_slices;
     scalar_slices.reserve(num_points);
     for (const auto& scalar : scalars) {
-        scalar_slices.emplace_back(context, scalar, TABLE_BITS);
+        scalar_slices.emplace_back(context, scalar, ROM_TABLE_BITS);
     }
 
     /**
@@ -809,7 +809,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         std::vector<std::vector<Element>> native_straus_tables;
         for (size_t i = 0; i < num_points; ++i) {
             std::vector<Element> table_transcript = straus_lookup_table::compute_straus_lookup_table_hints(
-                base_points[i].get_value(), offset_generators[i + 1], TABLE_BITS);
+                base_points[i].get_value(), offset_generators[i + 1], ROM_TABLE_BITS);
             std::copy(table_transcript.begin() + 1, table_transcript.end(), std::back_inserter(operation_transcript));
             native_straus_tables.emplace_back(std::move(table_transcript));
         }
@@ -818,7 +818,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         Element accumulator = offset_generators[0];
         for (size_t i = 0; i < num_rounds; ++i) {
             if (i != 0) {
-                for (size_t j = 0; j < TABLE_BITS; ++j) {
+                for (size_t j = 0; j < ROM_TABLE_BITS; ++j) {
                     accumulator = accumulator.dbl();
                     operation_transcript.push_back(accumulator);
                     offset_generator_accumulator = offset_generator_accumulator.dbl();
@@ -846,14 +846,14 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 
     // Construct an in-circuit straus lookup table for each point
     std::vector<straus_lookup_table> point_tables;
-    const size_t hints_per_table = (1ULL << TABLE_BITS) - 1;
+    const size_t hints_per_table = (1ULL << ROM_TABLE_BITS) - 1;
     OriginTag tag{};
     for (size_t i = 0; i < num_points; ++i) {
         // Merge tags
         tag = OriginTag(tag, scalars[i].get_origin_tag(), base_points[i].get_origin_tag());
 
         std::span<AffineElement> table_hints(&operation_hints[i * hints_per_table], hints_per_table);
-        point_tables.emplace_back(context, base_points[i], offset_generators[i + 1], TABLE_BITS, table_hints);
+        point_tables.emplace_back(context, base_points[i], offset_generators[i + 1], ROM_TABLE_BITS, table_hints);
     }
 
     AffineElement* hint_ptr = &operation_hints[num_points * hints_per_table];
@@ -878,7 +878,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     for (size_t i = 0; i < num_rounds; ++i) {
         // perform once-per-round doublings (except for first round)
         if (i != 0) {
-            for (size_t j = 0; j < TABLE_BITS; ++j) {
+            for (size_t j = 0; j < ROM_TABLE_BITS; ++j) {
                 accumulator = accumulator.dbl(*hint_ptr);
                 hint_ptr++;
             }
@@ -941,7 +941,6 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     using plookup::fixed_base::table;
 
     std::vector<MultiTableId> plookup_table_ids;
-    std::vector<AffineElement> plookup_base_points;
     std::vector<field_t> plookup_scalars;
 
     OriginTag tag{};
@@ -952,8 +951,6 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         std::array<MultiTableId, 2> table_id = table::get_lookup_table_ids_for_point(point);
         plookup_table_ids.push_back(table_id[0]);
         plookup_table_ids.push_back(table_id[1]);
-        plookup_base_points.push_back(point);
-        plookup_base_points.push_back(Element(point) * (uint256_t(1) << cycle_scalar::LO_BITS));
         plookup_scalars.push_back(scalar.lo);
         plookup_scalars.push_back(scalar.hi);
     }
@@ -1014,14 +1011,17 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
  * @brief Multiscalar multiplication algorithm.
  *
  * @details Uses the Straus MSM algorithm. `batch_mul` splits inputs into three categories:
- *          1. point and scalar multiplier are both constant
- *          2. point is constant, scalar multiplier is a witness
- *          3. point is a witness, scalar multiplier can be witness or constant
+ * Case 1. Point and scalar are both constant: scalar mul can be computed without constraints.
+ * Case 2A. Point is constant and one of two specific generators, scalar is a witness: use fixed-base Straus with
+ * plookup tables
+ * Case 2B. Point is constant but not one of two specific generators, scalar is a witness: use
+ * variable-base Straus using ROM tables.
+ * Case 3. Point is a witness, scalar is witness or constant: use variable-base Straus using ROM tables.
  *
- * For Category 1, the scalar mul can be precomuted without constraints
- * For Category 2, we use a fixed-base variant of Straus (with plookup tables if available).
- * For Category 3, we use standard Straus.
- * The results from all 3 categories are combined and returned as an output point.
+ * The results from all 3 categories are combined and returned as a single output point.
+ *
+ * @note Both the fixed and variable-base algorithms utilize an offset mechanism to avoid point at infinity edge cases.
+ * The total offset is tracked and subtracted from the final result to yield the correct output.
  *
  * @note batch_mul can handle all known cases of trigger incomplete addition formula exceptions and other weirdness:
  *       1. some/all of the input points are points at infinity
@@ -1030,13 +1030,13 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
  *       4. output is the point at infinity
  *       5. input vectors are empty
  *
- * @note offset_generator_data is a pointer to precomputed offset generator list.
- *       There is a default parameter point that poitns to a list with DEFAULT_NUM_GENERATORS generator points (32)
- *       If more offset generators are required, they will be derived in-place which can be expensive.
- *       (num required offset generators is either num input points + 1 or num input points + 2,
- *        depends on if one or both of _fixed_base_batch_mul_internal, _variable_base_batch_mul_internal are called)
- *       If you're calling this function repeatedly and you KNOW you need >32 offset generators,
- *       it's faster to create a `generator_data` object with the required size and pass it in as a parameter.
+ * @note offset_generator_data is a pointer to precomputed offset generator list. There is a default parameter point
+ * that points to a list with DEFAULT_NUM_GENERATORS generator points (8). If more offset generators are required, they
+ * will be derived in-place which can be expensive. (num required offset generators is either num input points + 1 or
+ * num input points + 2, depends on if one or both of _fixed_base_batch_mul_internal, _variable_base_batch_mul_internal
+ * are called). If you're calling this function repeatedly and you KNOW you need >8 offset generators, it's faster to
+ * create a `generator_data` object with the required size and pass it in as a parameter.
+ *
  * @tparam Builder
  * @param scalars
  * @param base_points
@@ -1070,17 +1070,17 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
         s.validate_scalar_is_in_field();
     }
 
-    // if scalars are not full sized, we skip lookup-version of fixed-base scalar mul. too much complexity
+    // If scalars are not full sized, we skip lookup-version of fixed-base scalar mul. too much complexity
     bool scalars_are_full_sized = (num_bits == NUM_BITS_FULL_FIELD_SIZE);
 
-    // When calling `_variable_base_batch_mul_internal`, we can unconditionally add iff all of the input points
-    // are fixed-base points
-    // (i.e. we are ULTRA Builder and we are doing fixed-base mul over points not present in our plookup tables)
+    // We can unconditionally add in the variable-base algorithm iff all of the input points are fixed-base points (i.e.
+    // we are doing fixed-base mul over points not present in our plookup tables)
     bool can_unconditional_add = true;
     bool has_non_constant_component = false;
     Element constant_acc = Group::point_at_infinity;
     for (const auto [point, scalar] : zip_view(base_points, scalars)) {
         if (scalar.is_constant() && point.is_constant()) {
+            // Case 1: both point and scalar are constant; update constant accumulator without adding gates
             constant_acc += (point.get_value()) * (scalar.get_value());
         } else if (!scalar.is_constant() && point.is_constant()) {
             if (point.get_value().is_point_at_infinity()) {
@@ -1090,15 +1090,17 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
             }
             if (scalars_are_full_sized &&
                 plookup::fixed_base::table::lookup_table_exists_for_point(point.get_value())) {
+                // Case 2A: constant point is one of two for which we have plookup tables; use fixed-base Straus
                 fixed_base_scalars.push_back(scalar);
                 fixed_base_points.push_back(point.get_value());
             } else {
-                // womp womp. We have lookup tables at home. ROM tables.
+                // Case 2B: constant point but no precomputed lookup tables; use variable-base Straus with ROM tables
                 variable_base_scalars.push_back(scalar);
                 variable_base_points.push_back(point);
             }
             has_non_constant_component = true;
         } else {
+            // Case 3: point is a witness; use variable-base Straus with ROM tables
             variable_base_scalars.push_back(scalar);
             variable_base_points.push_back(point);
             can_unconditional_add = false;
@@ -1113,14 +1115,15 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
         return result;
     }
 
-    // add the constant component into our offset accumulator
-    // (we'll subtract `offset_accumulator` from the MSM output i.e. we negate here to counter the future negation)
+    // Add the constant component into our offset accumulator. (Note: we'll subtract `offset_accumulator` from the MSM
+    // output later on so we negate here to counter that future negation).
     Element offset_accumulator = -constant_acc;
     const bool has_variable_points = !variable_base_points.empty();
     const bool has_fixed_points = !fixed_base_points.empty();
 
     cycle_group result;
     if (has_fixed_points) {
+        // Compute the result of the fixed-base portion of the MSM and update the offset accumulator
         const auto [fixed_accumulator, offset_generator_delta] =
             _fixed_base_batch_mul_internal(fixed_base_scalars, fixed_base_points);
         offset_accumulator += offset_generator_delta;
@@ -1133,9 +1136,12 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
         const std::span<AffineElement const> offset_generators =
             context.generators->get(num_offset_generators, 0, OFFSET_GENERATOR_DOMAIN_SEPARATOR);
 
+        // Compute the result of the variable-base portion of the MSM and update the offset accumulator
         const auto [variable_accumulator, offset_generator_delta] = _variable_base_batch_mul_internal(
             variable_base_scalars, variable_base_points, offset_generators, can_unconditional_add);
         offset_accumulator += offset_generator_delta;
+
+        // Combine the variable-base result with the fixed-base result (if present)
         if (has_fixed_points) {
             result = can_unconditional_add ? result.unconditional_add(variable_accumulator)
                                            : result.checked_unconditional_add(variable_accumulator);
@@ -1148,25 +1154,21 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
     // We have two potential modes here:
     // 1. All inputs are fixed-base and constant_acc is not the point at infinity
     // 2. Everything else.
-    // Case 1 is a special case, as we *know* we cannot hit incomplete addition edge cases,
-    // under the assumption that all input points are linearly independent of one another.
-    // Because constant_acc is not the point at infinity we know that at least 1 input scalar was not zero,
-    // i.e. the output will not be the point at infinity. We also know under case 1, we won't trigger the
-    // doubling formula either, as every point is linearly independent of every other point (including offset
-    // generators).
+    // Case 1 is a special case, as we *know* we cannot hit incomplete addition edge cases, under the assumption that
+    // all input points are linearly independent of one another. Because constant_acc is not the point at infinity we
+    // know that at least 1 input scalar was not zero, i.e. the output will not be the point at infinity. We also know
+    // that, under case 1, we won't trigger the doubling formula either, as every point is linearly independent of every
+    // other point (including offset generators).
     if (!constant_acc.is_point_at_infinity() && can_unconditional_add) {
         result = result.unconditional_add(AffineElement(-offset_accumulator));
     } else {
         // For case 2, we must use a full subtraction operation that handles all possible edge cases, as the output
         // point may be the point at infinity.
-        // TODO(@zac-williamson) We can probably optimize this a bit actually. We might hit the point at infinity,
-        // but an honest prover won't trigger the doubling edge case.
-        // (doubling edge case implies input points are also the offset generator points,
-        // which we can assume an honest Prover will not do if we make this case produce unsatisfiable constraints)
-        // We could do the following:
+        // Note about optimizations for posterity: An honest prover might hit the point at infinity, but won't
+        // trigger the doubling edge case (since doubling edge case implies input points are also the offset generator
+        // points). We could do the following which would be slightly cheaper than operator-:
         // 1. If x-coords match, assert y-coords do not match
-        // 2. If x-coords match, return point at infinity, else return result - offset_accumulator.
-        // This would be slightly cheaper than operator- as we do not have to evaluate the double edge case.
+        // 2. If x-coords match, return point at infinity, else unconditionally compute result - offset_accumulator.
         result = result - AffineElement(offset_accumulator);
     }
     // Ensure the tag of the result is a union of all inputs

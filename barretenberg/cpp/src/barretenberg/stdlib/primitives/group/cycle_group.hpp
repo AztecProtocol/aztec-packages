@@ -21,15 +21,9 @@
 
 namespace bb::stdlib {
 
-template <typename Builder>
-concept IsUltraArithmetic = (Builder::CIRCUIT_TYPE == CircuitType::ULTRA);
-
 /**
- * @brief cycle_group represents a group Element of the proving system's embedded curve
- *        i.e. a curve with a cofactor 1 defined over a field equal to the circuit's native field Builder::FF
- *
- *        (todo @zac-williamson) once the pedersen refactor project is finished, this class will supercede
- * `stdlib::group`
+ * @brief cycle_group represents a group Element of the proving system's embedded curve, i.e. a curve with a cofactor 1
+ * defined over a field equal to the circuit's native field Builder::FF
  *
  * @tparam Builder
  */
@@ -50,8 +44,10 @@ template <typename Builder> class cycle_group {
     using straus_lookup_table = ::bb::stdlib::straus_lookup_table<Builder>;
     using straus_scalar_slice = ::bb::stdlib::straus_scalar_slice<Builder>;
 
-    static constexpr size_t TABLE_BITS = 4;
+    // Bit-size for scalars represented in the ROM lookup tables used in the variable-base MSM algorithm
+    static constexpr size_t ROM_TABLE_BITS = 4;
     static constexpr size_t NUM_BITS_FULL_FIELD_SIZE = bb::fq::modulus.get_msb() + 1;
+    // Domain separator for generating offset generator points in the variable-base MSM algorithm
     static constexpr std::string_view OFFSET_GENERATOR_DOMAIN_SEPARATOR = "cycle_group_offset_generator";
 
     // Since the cycle_group base field is the circuit's native field, it can be stored using two public inputs.
@@ -85,8 +81,7 @@ template <typename Builder> class cycle_group {
     bool is_standard() const { return this->_is_standard; };
     cycle_group get_standard_form();
     void validate_is_on_curve() const;
-    cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const
-        requires IsUltraArithmetic<Builder>;
+    cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const;
     cycle_group unconditional_add(const cycle_group& other,
                                   const std::optional<AffineElement> hint = std::nullopt) const;
     cycle_group unconditional_subtract(const cycle_group& other,
