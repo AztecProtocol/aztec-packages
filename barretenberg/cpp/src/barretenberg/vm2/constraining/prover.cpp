@@ -12,8 +12,15 @@
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/constraining/polynomials.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
+#include <cstdlib>
 
 namespace bb::avm2 {
+
+// TODO(AD): @facundo - tune this value
+// The number of polynomials to compute MSMs for at once. it could be computed heuristically based on a max memory size
+// (maybe that would be the env var?)
+const size_t AVM_MAX_MSM_BATCH_SIZE =
+    getenv("AVM_MAX_MSM_BATCH_SIZE") != nullptr ? std::stoul(getenv("AVM_MAX_MSM_BATCH_SIZE")) : 4;
 
 using Flavor = AvmFlavor;
 using FF = Flavor::FF;
@@ -77,13 +84,11 @@ void AvmProver::execute_wire_commitments_round()
     // logderivative phase)
     auto wire_polys = prover_polynomials.get_wires();
     const auto& labels = prover_polynomials.get_wires_labels();
-    // TODO(AD): @facundo - tune this value
-    const size_t MAX_BATCH_SIZE = 4;
     auto batch = commitment_key.start_batch();
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
         batch.add_to_batch(wire_polys[idx], labels[idx], /*mask for zk?*/ false);
     }
-    batch.send_to_verifier(transcript, MAX_BATCH_SIZE);
+    batch.send_to_verifier(transcript, AVM_MAX_MSM_BATCH_SIZE);
 }
 
 void AvmProver::execute_log_derivative_inverse_round()
@@ -113,13 +118,16 @@ void AvmProver::execute_log_derivative_inverse_round()
 
 void AvmProver::execute_log_derivative_inverse_commitments_round()
 {
+    BB_BENCH_NAME("AvmProver::execute_log_derivative_inverse_commitments_round");
+    auto batch = commitment_key.start_batch();
     // Commit to all logderivative inverse polynomials and send to verifier
     for (auto [derived_poly, commitment, label] : zip_view(prover_polynomials.get_derived(),
                                                            witness_commitments.get_derived(),
                                                            prover_polynomials.get_derived_labels())) {
-        commitment = commitment_key.commit(derived_poly);
-        transcript->send_to_verifier(label, commitment);
+
+        batch.add_to_batch(derived_poly, label, /*mask for zk?*/ false);
     }
+    batch.send_to_verifier(transcript, AVM_MAX_MSM_BATCH_SIZE);
 }
 
 /**
