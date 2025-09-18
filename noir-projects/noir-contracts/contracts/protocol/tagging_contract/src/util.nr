@@ -14,7 +14,7 @@ fn get_next_tag(
     // 0 and checks if it exists in the nullifier tree.
     let first_time_tagging: bool = is_first_time_tagging(sender, recipient, hidden_sender);
 
-    let (unsiloed_nullifier_preimage, app_to_silo_with, directional_shared_app_tagging_secret, index) = if first_time_tagging {
+    let (nullifier_preimage, app_to_silo_with, directional_shared_app_tagging_secret, index) = if first_time_tagging {
         // Sort addresses to reliably get bi-directional handshake commitment. We do that in an unconstrained function
         // and then we constrain the result to optimize constraints.
         let (address_0, address_1) = sort_addresses(sender, recipient);
@@ -54,10 +54,9 @@ fn get_next_tag(
         )
     };
 
-    let unsiloed_nullifier_to_prove = poseidon2_hash(unsiloed_nullifier_preimage);
-    let nullifier_to_prove =
-        compute_siloed_nullifier(app_to_silo_with, unsiloed_nullifier_to_prove);
-    prove_nullifier_inclusion(nullifier_to_prove);
+    let siloed_nullifier_to_prove =
+        compute_siloed_nullifier(app_to_silo_with, poseidon2_hash(nullifier_preimage));
+    prove_nullifier_inclusion(siloed_nullifier_to_prove);
 
     let tag_nullifier = poseidon2_hash([
         "AZTEC_NR::TAG_SEPARATOR",
