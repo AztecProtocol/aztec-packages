@@ -548,10 +548,8 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
      * @details The combiner quotient is defined by the formula \f$G(X) = F(\alpha) L_0(X) + Z(X) K(X)\f$. The
      * polynomial \f$Z(X)\f$ is the vanishing polynomial of the set 0, .., ProverInstances::NUM-1. Therefore, we cannot
      * compute the value of \f$K(X)\f$ on these values. We evaluate \f$K(X)\f$ on ProverInstances::NUM, ...,
-     * ProverInstances::BATCHED_EXTENDED_LENGTH (the length of the combiner) and we abuse the class Univariate by
-     * returning a univariate the skips the first ProverInstances::NUM evaluations (abuse because the skip_count in
-     * Univariate is used to denote the points in the domain where the univariate evaluates to zero; in this case we
-     * don't know its evaluation).
+     * ProverInstances::BATCHED_EXTENDED_LENGTH (the length of the combiner) and we return the univariate over this
+     * domain.
      *
      */
     static Univariate<FF, BATCHED_EXTENDED_LENGTH, NUM_INSTANCES> compute_combiner_quotient(
