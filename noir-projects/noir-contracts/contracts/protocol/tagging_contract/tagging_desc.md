@@ -10,14 +10,14 @@ So how does it work?
 
 ### STEP 1: Emitting handshaking log and nullifier
 
-1. A wallet figures out whether a sender needs to handshake with a recipient or if it already has been done --> if it hasn't been done it will insert a call to the `Handshaker::handshake(recipient, true/false)` as the first call in the app payload.
+1. A wallet figures out whether a sender needs to handshake with a recipient or if it already has been done --> if it hasn't been done it will insert a call to the `Handshaker::handshake(recipient, hidden_sender =)` as the first call in the app payload.
 
 ### STEP 2: Recipient and sender discovering handshake
 
 1. A contract function is being simulated and a `aztec::messages::discovery::discover_new_messages(contract_address)` is called,
 2. in the oracle handler, before `this.executionDataProvider.syncTaggedLogs(contractAddress)` is called we would call <span style="color:red;">syncTaggingSecrets()</span> that would:
 3. load last_synced_tagging_secrets_block and get all the public logs since that block until the latest synced PXE block node.getPublicLogs(from: last_synced_tagging_secrets_block, last_block_synced_by_pxe, HANDSHAKER_CONTRACT_ADDRESS),
-4. we would brute force decrypt both sender and recipient ciphertexts in the logs in TS and add the resulting master tagging secrets to PXE. (I am aware decrypting in TS here is ugly but we need it to be fast and it's fine to enshrine the encryption because the tagging contract is enshrined as well.)
+4. we would brute force decrypt both sender and recipient ciphertexts in the logs in TS and add the resulting shared_tagging_secret_key to PXE. (I am aware decrypting in TS here is ugly but we need it to be fast and it's fine to enshrine the encryption because the tagging contract is enshrined as well.)
 
 ### STEP 3
 
@@ -25,19 +25,19 @@ See the `get_next_tag` in `noir-projects/noir-contracts/contracts/protocol/taggi
 
 #### STEP 3.a: Tagging for the first time
 
-1. We get the master tagging public key by calling a <span style="color:red;">newly introduced oracle</span> `get_shared_tagging_public_key(sender, recipient, hidden_sender)`
+1. We get the shared_tagging_public_key by calling a <span style="color:red;">newly introduced oracle</span> `get_shared_tagging_public_key(sender, recipient, hidden_sender)`
 2. we sort the addresses (just like in the Handshaker) and prove the handshake commitment exists: `prove_nullifier_inclusion(compute_siloed_nullifier(HANDSHAKER_CONTRACT_ADDRESS, poseidon2_hash(["AZTEC_NR::HANDSHAKE_SEPARATOR", shared_tagging_public_key.x, shared_tagging_public_key.y, address_0, address_1])));`
-3. we get the app-siloed secret with `let app_tagging_secret = context.request_tsk(shared_tagging_public_key.hash())` <span style="color:red;">This requires implementing the request_tsk method on context and modifying PXE such that it feeds the correct shared_tagging_secret_key to the kernel circuits for the key validation request</span>,
-4. we compute the directional app tagging secret as `let directional_app_tagging_secret = poseidon2_hash([app_tagging_secret, recipient]);`,
+3. we get the app_tagging_secret with `let app_tagging_secret = context.request_shared_tsk(shared_tagging_public_key.hash())` <span style="color:red;">This requires implementing the request_shared_tsk method on context and modifying PXE such that it feeds the correct shared_tagging_secret_key to the kernel circuits for the key validation request</span>,
+4. we compute the directional_app_tagging_secret as `let directional_app_tagging_secret = poseidon2_hash([app_tagging_secret, recipient]);`,
 5. we compute the tag as `poseidon2_hash([directional_app_tagging_secret, 0])`
-6. we compute and emit the `tag_nullifier = poseidon2_hash("AZTEC_NR::TAG_SEPARATOR", sender_nsk_app, recipient, directional_app_tagging_secret, i = 0);` _(--> the `sender_nsk_app` hides the contents of the nullifier, whilst keeping it deterministic)_
+6. we compute and emit the `tag_nullifier = poseidon2_hash("AZTEC_NR::TAG_SEPARATOR", sender_nsk_app, recipient, directional_app_tagging_secret, index = 0);` _(--> the `sender_nsk_app` hides the contents of the nullifier, whilst keeping it deterministic)_
 7. ~~we increment the index in PXE by calling <span style="color:red;">newly introduced oracle</span> `increment_app_tagging_secret_index(app_tagging_secret)`~~ (realized this is not necessary, nor desirable, because we can brute force the index in PXE in step 3.b --> this will also makes it resistant to "vicious Mike throws your laptop into the ocean" attack)
 
 #### STEP 3.b: Tagging for subsequent rounds
 
-1. We call a <span style="color:red;">newly introduced `let [directional_app_tagging_secret, index] = get_tag_nullifier_preimage(sender, recipient, hidden_sender)` oracle</span> that brute forces the index (no key validation request is needed now because the `app_siloed_tagging_shared_secret` has been loaded from the preimage) and we prove its inclusion,
-2. we compute the tag as `poseidon2_hash([directional_app_tagging_secret, index])`
-3. the tag nullifier is computed and emitted `tag_nullifier = poseidon2_hash("AZTEC_NR::TAG_SEPARATOR", sender_nsk_app, recipient, directional_app_tagging_secret, index);`,
+1. We call a <span style="color:red;">newly introduced `let [directional_app_tagging_secret, last_index] = get_last_tag_nullifier_preimage(sender, recipient, hidden_sender)` oracle</span> that brute forces the index (no key validation request is needed now because the `app_tagging_secret` has been loaded from the preimage) and we prove its inclusion,
+2. we compute the tag as `poseidon2_hash([directional_app_tagging_secret, last_index + 1])`
+3. the tag nullifier is computed and emitted `tag_nullifier = poseidon2_hash("AZTEC_NR::TAG_SEPARATOR", sender_nsk_app, recipient, directional_app_tagging_secret, last_index + 1);`,
 
 ### STEP 4: Recipient discovering notes
 
