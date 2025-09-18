@@ -5,8 +5,8 @@ import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/st
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
-import type { TXETypedOracle } from '../oracle/txe_typed_oracle.js';
-import type { TXESessionStateHandler } from '../txe_session.js';
+import type { TXETypedOracle } from './oracle/txe_typed_oracle.js';
+import type { TXESessionStateHandler } from './txe_session.js';
 import {
   type ForeignCallArray,
   type ForeignCallSingle,
@@ -21,11 +21,11 @@ import {
   toArray,
   toForeignCallResult,
   toSingle,
-} from '../util/encoding.js';
+} from './util/encoding.js';
 
-export class TXEService {
+export class RPCTranslator {
   /**
-   * Create a new instance of `TXEService` that will translate all TXE RPC calls to and from the foreign
+   * Create a new instance of `RPCTranslator` that will translate all TXE RPC calls to and from the foreign
    * (`ForeignCallSingle`, `ForeignCallResult`, etc.) and native TS types, delegating actual execution of the oracles
    * to the different handlers.
    * @param stateHandler The handler that will process TXE session state transitions, such as entering a private or
