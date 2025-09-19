@@ -7,10 +7,10 @@ import {
   Fr,
   getContractInstanceFromInstantiationParams,
   PublicKeys,
-  type PXE,
   SponsoredFeePaymentMethod,
   type Wallet,
 } from '@aztec/aztec.js';
+import { type AztecNode } from '@aztec/aztec.js/interfaces';
 import { createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
 import { createStore } from '@aztec/kv-store/lmdb';
 import { getDefaultInitializer } from '@aztec/stdlib/abi';
@@ -26,9 +26,7 @@ const WRITE_ENV_FILE = process.env.WRITE_ENV_FILE === 'false' ? false : true;
 
 const PXE_STORE_DIR = path.join(import.meta.dirname, '.store');
 
-async function setupPXE() {
-  const aztecNode = createAztecNodeClient(AZTEC_NODE_URL);
-
+async function setupPXE(aztecNode: AztecNode) {
   fs.rmSync(PXE_STORE_DIR, { recursive: true, force: true });
 
   const store = await createStore('pxe', {
@@ -159,8 +157,9 @@ async function writeEnvFile(deploymentInfo) {
 }
 
 async function createAccountAndDeployContract() {
-  const pxe = await setupPXE();
-  const wallet = new TestWallet(pxe);
+  const aztecNode = createAztecNodeClient(AZTEC_NODE_URL);
+  const pxe = await setupPXE(aztecNode);
+  const wallet = new TestWallet(pxe, aztecNode);
 
   // Register the SponsoredFPC contract (for sponsored fee payments)
   await wallet.registerContract(

@@ -26,13 +26,11 @@ import {
   CompleteAddress,
   type ContractClassWithId,
   type ContractInstanceWithAddress,
-  type NodeInfo,
   type PartialAddress,
   computeContractAddressFromInstance,
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
-import type { GasFees } from '@aztec/stdlib/gas';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type {
   AztecNode,
@@ -58,10 +56,8 @@ import {
   type SimulationTimings,
   Tx,
   TxExecutionRequest,
-  type TxHash,
   TxProfileResult,
   TxProvingResult,
-  type TxReceipt,
   TxSimulationResult,
   UtilitySimulationResult,
 } from '@aztec/stdlib/tx';
@@ -97,8 +93,6 @@ import { enrichPublicSimulationError, enrichSimulationError } from './error_enri
  * A Private eXecution Environment (PXE) implementation.
  */
 export class PXEService implements PXE {
-  #nodeInfo?: NodeInfo;
-
   private constructor(
     private node: AztecNode,
     private synchronizer: Synchronizer,
@@ -186,15 +180,9 @@ export class PXEService implements PXE {
     pxeService.jobQueue.start();
 
     await pxeService.#registerProtocolContracts();
-    const info = await pxeService.getNodeInfo();
+    const info = await node.getNodeInfo();
     log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.rollupVersion}`);
     return pxeService;
-  }
-
-  // Aztec node proxy methods
-
-  public getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
-    return this.node.getTxReceipt(txHash);
   }
 
   // Internal methods
@@ -632,10 +620,6 @@ export class PXEService implements PXE {
     return Promise.all(extendedNotes);
   }
 
-  public async getCurrentBaseFees(): Promise<GasFees> {
-    return await this.node.getCurrentBaseFees();
-  }
-
   public proveTx(
     txRequest: TxExecutionRequest,
     privateExecutionResult?: PrivateExecutionResult,
@@ -902,19 +886,6 @@ export class PXEService implements PXE {
     });
   }
 
-  public async sendTx(tx: Tx): Promise<TxHash> {
-    const txHash = tx.getTxHash();
-    if (await this.node.getTxEffect(txHash)) {
-      throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
-    }
-    this.log.debug(`Sending transaction ${txHash}`);
-    await this.node.sendTx(tx).catch(err => {
-      throw this.#contextualizeError(err, inspect(tx));
-    });
-    this.log.info(`Sent transaction ${txHash}`);
-    return txHash;
-  }
-
   public simulateUtility(
     functionName: string,
     args: any[],
@@ -966,34 +937,6 @@ export class PXEService implements PXE {
         );
       }
     });
-  }
-
-  public async getNodeInfo(): Promise<NodeInfo> {
-    // This assumes we're connected to a single node, so we cache the info to avoid repeated calls.
-    // Load balancers and a myriad other configurations can break this assumption, so review this!
-    // Temporary measure to avoid hammering full nodes with requests on testnet.
-    if (!this.#nodeInfo) {
-      const [nodeVersion, rollupVersion, chainId, enr, contractAddresses, protocolContractAddresses] =
-        await Promise.all([
-          this.node.getNodeVersion(),
-          this.node.getVersion(),
-          this.node.getChainId(),
-          this.node.getEncodedEnr(),
-          this.node.getL1ContractAddresses(),
-          this.node.getProtocolContractAddresses(),
-        ]);
-
-      this.#nodeInfo = {
-        nodeVersion,
-        l1ChainId: chainId,
-        rollupVersion,
-        enr,
-        l1ContractAddresses: contractAddresses,
-        protocolContractAddresses: protocolContractAddresses,
-      };
-    }
-
-    return this.#nodeInfo;
   }
 
   public getPXEInfo(): Promise<PXEInfo> {

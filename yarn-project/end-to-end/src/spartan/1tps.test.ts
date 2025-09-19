@@ -5,6 +5,7 @@ import {
   SentTx,
   SponsoredFeePaymentMethod,
   Tx,
+  createAztecNodeClient,
   readFieldCompressedString,
   sleep,
 } from '@aztec/aztec.js';
@@ -44,9 +45,10 @@ describe('token transfer test', () => {
     const rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
 
     ({ pxe, cleanup } = await startCompatiblePXE(rpcUrl, config.REAL_VERIFIER, logger));
+    const node = createAztecNodeClient(rpcUrl);
 
     // Setup wallets
-    testAccounts = await deploySponsoredTestAccounts(pxe, MINT_AMOUNT, logger);
+    testAccounts = await deploySponsoredTestAccounts(pxe, node, MINT_AMOUNT, logger);
 
     expect(ROUNDS).toBeLessThanOrEqual(MINT_AMOUNT);
   });

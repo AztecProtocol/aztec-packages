@@ -31,7 +31,7 @@ export async function bridgeL1FeeJuice(
   } = await pxe.getPXEInfo();
 
   // Setup portal manager
-  const portal = await L1FeeJuicePortalManager.new(pxe, client, debugLogger);
+  const portal = await L1FeeJuicePortalManager.new(node, client, debugLogger);
   const { claimAmount, claimSecret, messageHash, messageLeafIndex } = await portal.bridgeTokensPublic(
     recipient,
     amount,

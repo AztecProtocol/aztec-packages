@@ -17,8 +17,10 @@ import {
   getContractClassFromArtifact,
   getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';
+import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import type {
+  AztecNode,
   ContractClassMetadata,
   ContractMetadata,
   EventMetadataDefinition,
@@ -34,6 +36,8 @@ import type {
   TxSimulationResult,
   UtilitySimulationResult,
 } from '@aztec/stdlib/tx';
+
+import { inspect } from 'util';
 
 import type { Account } from '../account/account.js';
 import { getGasLimits } from '../contract/get_gas_limits.js';
@@ -52,7 +56,10 @@ import type { Aliased, ChainInfo, ContractInstanceAndArtifact, Wallet } from './
 export abstract class BaseWallet implements Wallet {
   protected log = createLogger('aztecjs:base_wallet');
 
-  constructor(protected readonly pxe: PXE) {}
+  constructor(
+    protected readonly pxe: PXE,
+    protected readonly aztecNode: AztecNode,
+  ) {}
 
   protected abstract getAccountFromAddress(address: AztecAddress): Promise<Account>;
 
@@ -64,7 +71,7 @@ export abstract class BaseWallet implements Wallet {
   }
 
   async getChainInfo(): Promise<ChainInfo> {
-    const { l1ChainId, rollupVersion } = await this.pxe.getNodeInfo();
+    const { l1ChainId, rollupVersion } = await this.aztecNode.getNodeInfo();
     return { chainId: new Fr(l1ChainId), version: new Fr(rollupVersion) };
   }
 
@@ -116,7 +123,8 @@ export abstract class BaseWallet implements Wallet {
    */
   private async getDefaultFeeOptions(account: Account, fee: UserFeeOptions | undefined): Promise<FeeOptions> {
     const maxFeesPerGas =
-      fee?.gasSettings?.maxFeesPerGas ?? (await this.pxe.getCurrentBaseFees()).mul(1 + (fee?.baseFeePadding ?? 0.5));
+      fee?.gasSettings?.maxFeesPerGas ??
+      (await this.aztecNode.getCurrentBaseFees()).mul(1 + (fee?.baseFeePadding ?? 0.5));
     const paymentMethod = fee?.paymentMethod ?? new FeeJuicePaymentMethod(account.getAddress());
     const gasSettings: GasSettings = GasSettings.default({ ...fee?.gasSettings, maxFeesPerGas });
     this.log.debug(`Using L2 gas settings`, gasSettings);
@@ -253,8 +261,31 @@ export abstract class BaseWallet implements Wallet {
     return this.pxe.proveTx(txRequest);
   }
 
-  sendTx(tx: Tx): Promise<TxHash> {
-    return this.pxe.sendTx(tx);
+  async sendTx(tx: Tx): Promise<TxHash> {
+    const txHash = tx.getTxHash();
+    if (await this.aztecNode.getTxEffect(txHash)) {
+      throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
+    }
+    this.log.debug(`Sending transaction ${txHash}`);
+    await this.aztecNode.sendTx(tx).catch(err => {
+      throw this.#contextualizeError(err, inspect(tx));
+    });
+    this.log.info(`Sent transaction ${txHash}`);
+    return txHash;
+  }
+
+  #contextualizeError(err: Error, ...context: string[]): Error {
+    let contextStr = '';
+    if (context.length > 0) {
+      contextStr = `\nContext:\n${context.join('\n')}`;
+    }
+    if (err instanceof SimulationError) {
+      err.setAztecContext(contextStr);
+    } else {
+      this.log.error(err.name, err);
+      this.log.debug(contextStr);
+    }
+    return err;
   }
 
   simulateUtility(
@@ -275,7 +306,7 @@ export abstract class BaseWallet implements Wallet {
   }
 
   getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
-    return this.pxe.getTxReceipt(txHash);
+    return this.aztecNode.getTxReceipt(txHash);
   }
 
   getPrivateEvents<T>(

@@ -1,4 +1,4 @@
-import { type AztecAddress, type PXE, PublicFeePaymentMethod, type Wallet } from '@aztec/aztec.js';
+import { type AztecAddress, type AztecNode, PublicFeePaymentMethod, type Wallet } from '@aztec/aztec.js';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { GasSettings } from '@aztec/stdlib/gas';
@@ -7,8 +7,8 @@ import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
 
 describe('e2e_fees public_payment', () => {
+  let aztecNode: AztecNode;
   let wallet: Wallet;
-  let pxe: PXE;
   let aliceAddress: AztecAddress;
   let bobAddress: AztecAddress;
   let sequencerAddress: AztecAddress;
@@ -22,7 +22,8 @@ describe('e2e_fees public_payment', () => {
     await t.applyBaseSnapshots();
     await t.applyFPCSetupSnapshot();
     await t.applyFundAliceWithBananas();
-    ({ wallet, aliceAddress, bobAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings, pxe } = await t.setup());
+    ({ wallet, aliceAddress, bobAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings, aztecNode } =
+      await t.setup());
   });
 
   afterAll(async () => {
@@ -42,7 +43,7 @@ describe('e2e_fees public_payment', () => {
   beforeEach(async () => {
     gasSettings = GasSettings.from({
       ...gasSettings,
-      maxFeesPerGas: await pxe.getCurrentBaseFees(),
+      maxFeesPerGas: await aztecNode.getCurrentBaseFees(),
     });
 
     [

@@ -139,7 +139,7 @@ export class CrossChainTestHarness {
     underlyingERC20Address: EthAddress,
   ): Promise<CrossChainTestHarness> {
     const ethAccount = EthAddress.fromString((await l1Client.getAddresses())[0]);
-    const l1ContractAddresses = (await pxeService.getNodeInfo()).l1ContractAddresses;
+    const l1ContractAddresses = (await aztecNode.getNodeInfo()).l1ContractAddresses;
 
     // Deploy and initialize all required contracts
     logger.info('Deploying and initializing token, portal and its bridge...');

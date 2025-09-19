@@ -1,5 +1,6 @@
 export {
   type Aliased,
+  type ChainInfo,
   BaseWallet,
   type Wallet,
   AccountManager,

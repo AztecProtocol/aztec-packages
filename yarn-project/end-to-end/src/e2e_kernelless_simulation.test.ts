@@ -1,4 +1,4 @@
-import { AztecAddress, CallAuthorizationRequest, Fr, type Logger, type PXE } from '@aztec/aztec.js';
+import { AztecAddress, type AztecNode, CallAuthorizationRequest, Fr, type Logger } from '@aztec/aztec.js';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import { type TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { type AbiDecoded, decodeFromAbi, getFunctionArtifact } from '@aztec/stdlib/abi';
@@ -19,6 +19,7 @@ describe('Kernelless simulation', () => {
   let logger: Logger;
 
   let wallet: TestWallet;
+  let aztecNode: AztecNode;
 
   let adminAddress: AztecAddress;
   let liquidityProviderAddress: AztecAddress;
@@ -29,13 +30,11 @@ describe('Kernelless simulation', () => {
 
   let amm: AMMContract;
 
-  let pxe: PXE;
-
   const INITIAL_TOKEN_BALANCE = 1_000_000_000n;
 
   beforeAll(async () => {
     ({
-      pxe,
+      aztecNode,
       teardown,
       wallet,
       accounts: [adminAddress, liquidityProviderAddress],
@@ -82,7 +81,7 @@ describe('Kernelless simulation', () => {
 
       const nonceForAuthwits = Fr.random();
 
-      // This interaction requires 2 authwitnesses, one for each token so they can be transfered from the provider's
+      // This interaction requires 2 authwitnesses, one for each token so they can be transferred from the provider's
       // private balance to the AMM's public balance. Using the copycat wallet, we collect the request hashes
       // for later comparison
 
@@ -165,7 +164,7 @@ describe('Kernelless simulation', () => {
         ),
       });
 
-      const { l1ChainId: chainId, rollupVersion: version } = await pxe.getNodeInfo();
+      const { l1ChainId: chainId, rollupVersion: version } = await aztecNode.getNodeInfo();
 
       const token0AuthwitHash = await computeOuterAuthWitHash(
         token0.address,

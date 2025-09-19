@@ -1,4 +1,4 @@
-import { EthAddress, type PXE } from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/aztec.js';
 import {
   type ContractArtifact,
   type FunctionAbi,
@@ -20,7 +20,6 @@ import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
 import TOML from '@iarna/toml';
 import { readFile } from 'fs/promises';
-import { gtr, ltr, satisfies, valid } from 'semver';
 
 import { encodeArgs } from './encoding.js';
 
@@ -259,39 +258,4 @@ export function prettyPrintNargoToml(config: NoirPackageConfig): string {
   });
 
   return partialToml + '\n[dependencies]\n' + dependenciesToml.join('\n') + '\n';
-}
-
-/** Mismatch between server and client versions. */
-class VersionMismatchError extends Error {}
-
-/**
- * Checks that Private eXecution Environment (PXE) version matches the expected one by this CLI. Throws if not.
- * @param pxe - PXE client.
- * @param expectedVersionRange - Expected version by CLI.
- */
-export async function checkServerVersion(pxe: PXE, expectedVersionRange: string) {
-  const serverName = 'Aztec Node';
-  const { nodeVersion } = await pxe.getNodeInfo();
-  if (!nodeVersion) {
-    throw new VersionMismatchError(`Couldn't determine ${serverName} version. You may run into issues.`);
-  }
-  if (!nodeVersion || !valid(nodeVersion)) {
-    throw new VersionMismatchError(
-      `Missing or invalid version identifier for ${serverName} (${nodeVersion ?? 'empty'}).`,
-    );
-  } else if (!satisfies(nodeVersion, expectedVersionRange)) {
-    if (gtr(nodeVersion, expectedVersionRange)) {
-      throw new VersionMismatchError(
-        `${serverName} is running version ${nodeVersion} which is newer than the expected by this CLI (${expectedVersionRange}). Consider upgrading your CLI to a newer version.`,
-      );
-    } else if (ltr(nodeVersion, expectedVersionRange)) {
-      throw new VersionMismatchError(
-        `${serverName} is running version ${nodeVersion} which is older than the expected by this CLI (${expectedVersionRange}). Consider upgrading your ${serverName} to a newer version.`,
-      );
-    } else {
-      throw new VersionMismatchError(
-        `${serverName} is running version ${nodeVersion} which does not match the expected by this CLI (${expectedVersionRange}).`,
-      );
-    }
-  }
 }

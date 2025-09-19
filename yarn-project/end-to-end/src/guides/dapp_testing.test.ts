@@ -38,6 +38,7 @@ describe('guides/dapp/testing', () => {
 
     describe('token contract with initial accounts', () => {
       let pxe: PXE;
+      let aztecNode: AztecNode;
       let wallet: TestWallet;
       let ownerAddress: AztecAddress;
       let recipientAddress: AztecAddress;
@@ -46,8 +47,9 @@ describe('guides/dapp/testing', () => {
       beforeEach(async () => {
         // docs:start:use-existing-wallets
         pxe = createPXEClient(PXE_URL);
+        aztecNode = createAztecNodeClient(AZTEC_NODE_URL);
         const [owner, recipient] = await getDeployedTestAccounts(pxe);
-        wallet = new TestWallet(pxe);
+        wallet = new TestWallet(pxe, aztecNode);
         await wallet.createSchnorrAccount(owner.secret, owner.salt);
         await wallet.createSchnorrAccount(recipient.secret, recipient.salt);
         ownerAddress = owner.address;
@@ -74,8 +76,8 @@ describe('guides/dapp/testing', () => {
 
     describe('assertions', () => {
       let pxe: PXE;
-      let wallet: TestWallet;
       let aztecNode: AztecNode;
+      let wallet: TestWallet;
       let ownerAddress: AztecAddress;
       let recipientAddress: AztecAddress;
       let testContract: TestContract;
@@ -87,7 +89,7 @@ describe('guides/dapp/testing', () => {
         pxe = createPXEClient(PXE_URL);
         aztecNode = createAztecNodeClient(AZTEC_NODE_URL);
         const [owner, recipient] = await getDeployedTestAccounts(pxe);
-        wallet = new TestWallet(pxe);
+        wallet = new TestWallet(pxe, aztecNode);
         await wallet.createSchnorrAccount(owner.secret, owner.salt);
         await wallet.createSchnorrAccount(recipient.secret, recipient.salt);
         ownerAddress = owner.address;

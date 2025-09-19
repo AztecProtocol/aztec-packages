@@ -226,7 +226,7 @@ async function setupWithRemoteEnvironment(
   await waitForPXE(pxeClient, logger);
   logger.verbose('JSON RPC client connected to PXE');
   logger.verbose(`Retrieving contract addresses from ${PXE_URL}`);
-  const { l1ContractAddresses, rollupVersion } = await pxeClient.getNodeInfo();
+  const { l1ContractAddresses, rollupVersion } = await aztecNode.getNodeInfo();
 
   const l1Client = createExtendedL1Client(config.l1RpcUrls, account, foundry);
 
@@ -241,7 +241,7 @@ async function setupWithRemoteEnvironment(
 
   logger.verbose('Populating wallet from already registered accounts...');
   const initialFundedAccounts = await getDeployedTestAccounts(pxeClient);
-  const wallet = new TestWallet(pxeClient);
+  const wallet = new TestWallet(pxeClient, aztecNode);
 
   if (initialFundedAccounts.length < numberOfAccounts) {
     throw new Error(`Required ${numberOfAccounts} accounts. Found ${initialFundedAccounts.length}.`);
@@ -670,7 +670,7 @@ export async function setup(
       await cheatCodes.rollup.setupEpoch();
       await cheatCodes.rollup.debugRollup();
     }
-    const wallet = new TestWallet(pxe);
+    const wallet = new TestWallet(pxe, aztecNode);
     let accounts: AztecAddress[] = [];
     // Below we continue with what we described in the long comment on line 571.
     if (numberOfAccounts === 0) {

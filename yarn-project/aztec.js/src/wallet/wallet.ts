@@ -75,11 +75,9 @@ export type ChainInfo = {
 /**
  * The wallet interface.
  */
-export type Wallet = Pick<
-  PXE,
-  'getContractClassMetadata' | 'getContractMetadata' | 'getTxReceipt' | 'getPrivateEvents'
-> & {
+export type Wallet = Pick<PXE, 'getContractClassMetadata' | 'getContractMetadata' | 'getPrivateEvents'> & {
   getChainInfo(): Promise<ChainInfo>;
+  getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
   registerSender(address: AztecAddress, alias?: string): Promise<AztecAddress>;
   getSenders(): Promise<Aliased<AztecAddress>[]>;
   getAccounts(): Promise<Aliased<AztecAddress>[]>;

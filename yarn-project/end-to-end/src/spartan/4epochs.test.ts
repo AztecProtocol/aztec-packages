@@ -1,4 +1,10 @@
-import { type PXE, SponsoredFeePaymentMethod, readFieldCompressedString } from '@aztec/aztec.js';
+import {
+  type AztecNode,
+  type PXE,
+  SponsoredFeePaymentMethod,
+  createAztecNodeClient,
+  readFieldCompressedString,
+} from '@aztec/aztec.js';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
@@ -29,6 +35,7 @@ describe('token transfer test', () => {
   let ETHEREUM_HOSTS: string[];
   const forwardProcesses: ChildProcess[] = [];
   let pxe: PXE;
+  let node: AztecNode;
   let cleanup: undefined | (() => Promise<void>);
 
   afterAll(async () => {
@@ -47,9 +54,10 @@ describe('token transfer test', () => {
     ETHEREUM_HOSTS = [`http://127.0.0.1:${ethereumPort}`];
 
     ({ pxe, cleanup } = await startCompatiblePXE(rpcUrl, config.REAL_VERIFIER, logger));
+    node = createAztecNodeClient(rpcUrl);
 
     // Setup wallets
-    testAccounts = await deploySponsoredTestAccounts(pxe, MINT_AMOUNT, logger);
+    testAccounts = await deploySponsoredTestAccounts(pxe, node, MINT_AMOUNT, logger);
 
     expect(ROUNDS).toBeLessThanOrEqual(MINT_AMOUNT);
     logger.info(`Tested wallets setup: ${ROUNDS} < ${MINT_AMOUNT}`);
@@ -65,7 +73,7 @@ describe('token transfer test', () => {
 
   it('transfer tokens for 4 epochs', async () => {
     const ethCheatCodes = new EthCheatCodesWithState(ETHEREUM_HOSTS);
-    const l1ContractAddresses = await testAccounts.pxe.getNodeInfo().then(n => n.l1ContractAddresses);
+    const l1ContractAddresses = await testAccounts.aztecNode.getNodeInfo().then(n => n.l1ContractAddresses);
     // Get 4 epochs
     const rollupCheatCodes = new RollupCheatCodes(ethCheatCodes, l1ContractAddresses);
     logger.info(`Deployed L1 contract addresses: ${JSON.stringify(l1ContractAddresses)}`);

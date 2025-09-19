@@ -27,7 +27,7 @@ import { format } from 'util';
 // docs:end:imports3
 import { deployToken, mintTokensToPrivate } from '../fixtures/token_utils.js';
 
-const { PXE_URL = 'http://localhost:8080', AZTEC_NODE_URL = 'http://localhost:8080' } = process.env;
+const { PXE_URL = 'http://localhost:8080', AZTEC_NODE_URL = 'http://localhost:8079' } = process.env;
 
 describe('e2e_sandbox_example', () => {
   it('sandbox example works', async () => {
@@ -37,14 +37,15 @@ describe('e2e_sandbox_example', () => {
 
     // We create PXE client connected to the sandbox URL
     const pxe = createPXEClient(PXE_URL);
+    const node = createAztecNodeClient(AZTEC_NODE_URL);
     // Wait for sandbox to be ready
     await waitForPXE(pxe, logger);
 
-    const nodeInfo = await pxe.getNodeInfo();
+    const nodeInfo = await node.getNodeInfo();
 
     logger.info(format('Aztec Sandbox Info ', nodeInfo));
 
-    const wallet = new TestWallet(pxe);
+    const wallet = new TestWallet(pxe, node);
     // docs:end:setup
 
     expect(typeof nodeInfo.rollupVersion).toBe('number');
@@ -148,7 +149,7 @@ describe('e2e_sandbox_example', () => {
 
     // Use one of the pre-funded accounts to pay for the deployments.
     const [fundedAccount] = await getDeployedTestAccounts(pxe);
-    const wallet = new TestWallet(pxe);
+    const wallet = new TestWallet(pxe, node);
     await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
 
     // Creates new accounts using an account contract that verifies schnorr signatures

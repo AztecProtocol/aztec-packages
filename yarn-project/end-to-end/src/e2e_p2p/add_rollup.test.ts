@@ -242,7 +242,7 @@ describe('e2e_p2p_add_rollup', () => {
         { ...getPXEServiceConfig(), proverEnabled: false },
         { useLogSuffix: true },
       );
-      const wallet = new TestWallet(pxeService);
+      const wallet = new TestWallet(pxeService, node);
       const aliceAccountManager = await wallet.createSchnorrAccount(aliceAccount.secret, aliceAccount.salt);
       await aliceAccountManager.deploy().wait();
 

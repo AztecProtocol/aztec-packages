@@ -224,7 +224,7 @@ export class FullProverTest {
       this.logger.debug(`Contract address ${this.fakeProofsAsset.address}`);
       await result.pxe.registerContract(this.fakeProofsAsset);
 
-      const provenWallet = new TestWallet(result.pxe);
+      const provenWallet = new TestWallet(result.pxe, this.aztecNode);
 
       for (let i = 0; i < 2; i++) {
         await provenWallet.createSchnorrAccount(this.deployedAccounts[i].secret, this.deployedAccounts[i].salt);

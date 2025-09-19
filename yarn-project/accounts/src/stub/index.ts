@@ -1,4 +1,4 @@
-import { BaseAccount, type CompleteAddress, type NodeInfo } from '@aztec/aztec.js';
+import { BaseAccount, type ChainInfo, type CompleteAddress } from '@aztec/aztec.js';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import { loadContractArtifact } from '@aztec/stdlib/abi';
 import type { NoirCompiledContract } from '@aztec/stdlib/noir';
@@ -26,15 +26,12 @@ export class StubAccountContract extends StubBaseAccountContract {
 /**
  *
  */
-export function createStubAccount(
-  originalAddress: CompleteAddress,
-  nodeInfo: Pick<NodeInfo, 'l1ChainId' | 'rollupVersion'>,
-) {
+export function createStubAccount(originalAddress: CompleteAddress, chainInfo: ChainInfo) {
   const accountContract = new StubAccountContract();
   const accountInterface = new DefaultAccountInterface(
     accountContract.getAuthWitnessProvider(originalAddress),
     originalAddress,
-    nodeInfo,
+    chainInfo,
   );
   return new BaseAccount(accountInterface);
 }

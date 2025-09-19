@@ -1,4 +1,4 @@
-import { type PXE, SponsoredFeePaymentMethod, readFieldCompressedString } from '@aztec/aztec.js';
+import { type PXE, SponsoredFeePaymentMethod, createAztecNodeClient, readFieldCompressedString } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
@@ -33,10 +33,10 @@ describe('token transfer test', () => {
     const { process, port } = await startPortForwardForRPC(config.NAMESPACE);
     forwardProcesses.push(process);
     const rpcUrl = `http://127.0.0.1:${port}`;
-
+    const node = createAztecNodeClient(rpcUrl);
     ({ pxe, cleanup } = await startCompatiblePXE(rpcUrl, config.REAL_VERIFIER, logger));
 
-    testAccounts = await deploySponsoredTestAccounts(pxe, MINT_AMOUNT, logger);
+    testAccounts = await deploySponsoredTestAccounts(pxe, node, MINT_AMOUNT, logger);
     expect(ROUNDS).toBeLessThanOrEqual(MINT_AMOUNT);
   });
 

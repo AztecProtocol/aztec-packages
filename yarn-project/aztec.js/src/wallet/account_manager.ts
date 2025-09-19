@@ -1,8 +1,11 @@
 import type { FeePaymentMethod } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CompleteAddress, type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
+import {
+  CompleteAddress,
+  type ContractInstanceWithAddress,
+  getContractInstanceFromInstantiationParams,
+} from '@aztec/stdlib/contract';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
 import { deriveKeys } from '@aztec/stdlib/keys';
 
@@ -81,9 +84,9 @@ export class AccountManager {
    * @returns An entrypoint.
    */
   public async getAccountInterface(): Promise<AccountInterface> {
-    const nodeInfo = await this.pxe.getNodeInfo();
+    const chainInfo = await this.wallet.getChainInfo();
     const completeAddress = await this.getCompleteAddress();
-    return this.accountContract.getInterface(completeAddress, nodeInfo);
+    return this.accountContract.getInterface(completeAddress, chainInfo);
   }
 
   /**

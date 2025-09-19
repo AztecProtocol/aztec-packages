@@ -39,14 +39,14 @@ export class TestWallet extends BaseTestWallet {
   }
 
   async getFakeAccountDataFor(address: AztecAddress) {
-    const nodeInfo = await this.pxe.getNodeInfo();
+    const chainInfo = await this.getChainInfo();
     const originalAccount = await this.getAccountFromAddress(address);
     const originalAddress = originalAccount.getCompleteAddress();
     const { contractInstance } = await this.pxe.getContractMetadata(originalAddress.address);
     if (!contractInstance) {
       throw new Error(`No contract instance found for address: ${originalAddress.address}`);
     }
-    const stubAccount = createStubAccount(originalAddress, nodeInfo);
+    const stubAccount = createStubAccount(originalAddress, chainInfo);
     const instance = await getContractInstanceFromInstantiationParams(StubAccountContractArtifact, {
       salt: Fr.random(),
     });

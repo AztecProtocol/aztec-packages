@@ -48,7 +48,7 @@ async function main() {
   program = injectAztecCommands(program, userLog, debugLogger);
   program = injectBuilderCommands(program);
   program = injectContractCommands(program, userLog, debugLogger);
-  program = injectInfrastructureCommands(program, userLog, debugLogger);
+  program = injectInfrastructureCommands(program, userLog);
   program = injectL1Commands(program, userLog, debugLogger);
   program = injectPXECommands(program, userLog, debugLogger);
   program = injectAztecNodeCommands(program, userLog, debugLogger);

@@ -1,20 +1,9 @@
-import { type AztecNode, type PXE, createAztecNodeClient, createCompatibleClient } from '@aztec/aztec.js';
-import type { LogFn, Logger } from '@aztec/foundation/log';
+import { createAztecNodeClient } from '@aztec/aztec.js';
+import type { LogFn } from '@aztec/foundation/log';
 
-export async function getNodeInfo(
-  rpcUrl: string,
-  pxeRequest: boolean,
-  debugLogger: Logger,
-  json: boolean,
-  log: LogFn,
-  logJson: (output: any) => void,
-) {
-  let client: AztecNode | PXE;
-  if (pxeRequest) {
-    client = await createCompatibleClient(rpcUrl, debugLogger);
-  } else {
-    client = createAztecNodeClient(rpcUrl);
-  }
+export async function getNodeInfo(nodeUrl: string, json: boolean, log: LogFn, logJson: (output: any) => void) {
+  const client = createAztecNodeClient(nodeUrl);
+
   const info = await client.getNodeInfo();
   if (json) {
     logJson({
