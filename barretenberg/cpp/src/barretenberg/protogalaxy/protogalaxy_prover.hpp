@@ -7,6 +7,7 @@
 #pragma once
 #include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/protogalaxy/constants.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
 #include "barretenberg/ultra_honk/instances.hpp"
@@ -17,20 +18,18 @@ namespace bb {
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1239): clean out broken support for multi-folding
 template <IsUltraOrMegaHonk Flavor> class ProtogalaxyProver_ {
   public:
-    static constexpr size_t NUM_INSTANCES = 2;
-    static constexpr size_t SKIP_COUNT =
-        NUM_INSTANCES - 1; // Number of coeffiecients calculation to be skipped in the calculation of the combiner
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
+    static constexpr size_t EXTENDED_LENGTH = computed_extended_length<Flavor>();
+    static constexpr size_t BATCHED_EXTENDED_LENGTH = computed_batched_extended_length<Flavor>();
 
     using ProverInstance = ProverInstance_<Flavor>;
     using VerifierInstance = VerifierInstance_<Flavor>;
     using FF = typename Flavor::FF;
-    using CombinerQuotient = Univariate<FF, ProverInstance::BATCHED_EXTENDED_LENGTH>;
+    using CombinerQuotient = Univariate<FF, BATCHED_EXTENDED_LENGTH>;
     using TupleOfTuplesOfUnivariates = typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<2>;
     using UnivariateRelationParameters =
-        bb::RelationParameters<Univariate<FF, ProverInstance::EXTENDED_LENGTH, 0, /*skip_count=*/SKIP_COUNT>>;
-    using UnivariateSubrelationSeparators =
-        std::array<Univariate<FF, ProverInstance::BATCHED_EXTENDED_LENGTH>, NUM_SUBRELATIONS - 1>;
+        bb::RelationParameters<Univariate<FF, EXTENDED_LENGTH, 0, /*skip_count=*/SKIP_COUNT>>;
+    using UnivariateSubrelationSeparators = std::array<Univariate<FF, BATCHED_EXTENDED_LENGTH>, NUM_SUBRELATIONS - 1>;
 
     using Transcript = typename Flavor::Transcript;
     using CommitmentKey = typename Flavor::CommitmentKey;
