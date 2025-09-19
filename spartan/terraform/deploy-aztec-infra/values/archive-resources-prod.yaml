@@ -1,18 +1,7 @@
-global:
-  aztecRollupVersion: "canonical"
-  aztecNetwork: "alpha-testnet"
-
-  aztecImage:
-    repository: aztecprotocol/aztec
-    tag: latest
-    pullPolicy: Always
-
-hostNetwork: true
-replicaCount: 1
-
 nodeSelector:
   local-ssd: "false"
   node-type: "network"
+  cores: "2"
 
 affinity:
   podAntiAffinity:
@@ -26,16 +15,18 @@ affinity:
         topologyKey: "kubernetes.io/hostname"
         namespaceSelector: {}
 
+replicaCount: 1
+hostNetwork: true
+
 node:
-  env:
-    P2P_ARCHIVED_TX_LIMIT: "10000000" # 10 million
   resources:
     requests:
-      cpu: "3"
-      memory: "12Gi"
+      cpu: "1.5"
+      memory: "5Gi"
 
 persistence:
   enabled: true
+
 statefulSet:
   enabled: true
   volumeClaimTemplates:
@@ -44,8 +35,7 @@ statefulSet:
         annotations:
           "helm.sh/resource-policy": "Retain"
       spec:
-        storageClassName: "standard"
-        accessModes: ["ReadWriteOnce"]
+        accessModes: [ReadWriteOnce]
         resources:
           requests:
             storage: "1Ti"

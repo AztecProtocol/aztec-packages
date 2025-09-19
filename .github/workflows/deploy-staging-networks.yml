@@ -248,6 +248,8 @@ jobs:
           BOT_SWAPS_REPLICAS=0
           FLUSH_ENTRY_QUEUE=false
 
+          DEPLOY_ARCHIVAL_NODE=true
+
           RPC_INGRESS_ENABLED=true
           RPC_INGRESS_HOST=rpc.testnet.aztec-labs.com
           RPC_INGRESS_STATIC_IP_NAME=testnet-rpc-ip
