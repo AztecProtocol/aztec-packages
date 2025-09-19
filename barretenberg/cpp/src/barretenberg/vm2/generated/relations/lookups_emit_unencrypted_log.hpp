@@ -11,32 +11,6 @@
 
 namespace bb::avm2 {
 
-/////////////////// lookup_emit_unencrypted_log_check_log_size_too_large ///////////////////
-
-struct lookup_emit_unencrypted_log_check_log_size_too_large_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_EMIT_UNENCRYPTED_LOG_CHECK_LOG_SIZE_TOO_LARGE";
-    static constexpr std::string_view RELATION_NAME = "emit_unencrypted_log";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::emit_unencrypted_log_start;
-    static constexpr Column DST_SELECTOR = Column::gt_sel_others;
-    static constexpr Column COUNTS = Column::lookup_emit_unencrypted_log_check_log_size_too_large_counts;
-    static constexpr Column INVERSES = Column::lookup_emit_unencrypted_log_check_log_size_too_large_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::emit_unencrypted_log_log_size,
-        ColumnAndShifts::emit_unencrypted_log_max_log_size,
-        ColumnAndShifts::emit_unencrypted_log_error_too_large
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
-                                                                                    ColumnAndShifts::gt_input_b,
-                                                                                    ColumnAndShifts::gt_res };
-};
-
-using lookup_emit_unencrypted_log_check_log_size_too_large_settings =
-    lookup_settings<lookup_emit_unencrypted_log_check_log_size_too_large_settings_>;
-template <typename FF_>
-using lookup_emit_unencrypted_log_check_log_size_too_large_relation =
-    lookup_relation_base<FF_, lookup_emit_unencrypted_log_check_log_size_too_large_settings>;
-
 /////////////////// lookup_emit_unencrypted_log_check_memory_out_of_bounds ///////////////////
 
 struct lookup_emit_unencrypted_log_check_memory_out_of_bounds_settings_ {
@@ -63,35 +37,56 @@ template <typename FF_>
 using lookup_emit_unencrypted_log_check_memory_out_of_bounds_relation =
     lookup_relation_base<FF_, lookup_emit_unencrypted_log_check_memory_out_of_bounds_settings>;
 
-/////////////////// lookup_emit_unencrypted_log_write_log_to_public_inputs ///////////////////
+/////////////////// lookup_emit_unencrypted_log_check_log_fields_count ///////////////////
 
-struct lookup_emit_unencrypted_log_write_log_to_public_inputs_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_EMIT_UNENCRYPTED_LOG_WRITE_LOG_TO_PUBLIC_INPUTS";
+struct lookup_emit_unencrypted_log_check_log_fields_count_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_EMIT_UNENCRYPTED_LOG_CHECK_LOG_FIELDS_COUNT";
     static constexpr std::string_view RELATION_NAME = "emit_unencrypted_log";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr Column SRC_SELECTOR = Column::emit_unencrypted_log_start;
+    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column COUNTS = Column::lookup_emit_unencrypted_log_check_log_fields_count_counts;
+    static constexpr Column INVERSES = Column::lookup_emit_unencrypted_log_check_log_fields_count_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::emit_unencrypted_log_expected_next_log_fields,
+        ColumnAndShifts::emit_unencrypted_log_public_logs_payload_length,
+        ColumnAndShifts::emit_unencrypted_log_error_too_many_log_fields
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
+                                                                                    ColumnAndShifts::gt_input_b,
+                                                                                    ColumnAndShifts::gt_res };
+};
+
+using lookup_emit_unencrypted_log_check_log_fields_count_settings =
+    lookup_settings<lookup_emit_unencrypted_log_check_log_fields_count_settings_>;
+template <typename FF_>
+using lookup_emit_unencrypted_log_check_log_fields_count_relation =
+    lookup_relation_base<FF_, lookup_emit_unencrypted_log_check_log_fields_count_settings>;
+
+/////////////////// lookup_emit_unencrypted_log_write_data_to_public_inputs ///////////////////
+
+struct lookup_emit_unencrypted_log_write_data_to_public_inputs_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_EMIT_UNENCRYPTED_LOG_WRITE_DATA_TO_PUBLIC_INPUTS";
+    static constexpr std::string_view RELATION_NAME = "emit_unencrypted_log";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::emit_unencrypted_log_sel_should_write_to_public_inputs;
     static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
-    static constexpr Column COUNTS = Column::lookup_emit_unencrypted_log_write_log_to_public_inputs_counts;
-    static constexpr Column INVERSES = Column::lookup_emit_unencrypted_log_write_log_to_public_inputs_inv;
+    static constexpr Column COUNTS = Column::lookup_emit_unencrypted_log_write_data_to_public_inputs_counts;
+    static constexpr Column INVERSES = Column::lookup_emit_unencrypted_log_write_data_to_public_inputs_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::emit_unencrypted_log_public_inputs_index,
-        ColumnAndShifts::emit_unencrypted_log_contract_address,
-        ColumnAndShifts::emit_unencrypted_log_log_size,
-        ColumnAndShifts::emit_unencrypted_log_value
+        ColumnAndShifts::emit_unencrypted_log_public_inputs_value
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
-        ColumnAndShifts::public_inputs_cols_0_,
-        ColumnAndShifts::public_inputs_cols_1_,
-        ColumnAndShifts::public_inputs_cols_2_
+        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
     };
 };
 
-using lookup_emit_unencrypted_log_write_log_to_public_inputs_settings =
-    lookup_settings<lookup_emit_unencrypted_log_write_log_to_public_inputs_settings_>;
+using lookup_emit_unencrypted_log_write_data_to_public_inputs_settings =
+    lookup_settings<lookup_emit_unencrypted_log_write_data_to_public_inputs_settings_>;
 template <typename FF_>
-using lookup_emit_unencrypted_log_write_log_to_public_inputs_relation =
-    lookup_relation_base<FF_, lookup_emit_unencrypted_log_write_log_to_public_inputs_settings>;
+using lookup_emit_unencrypted_log_write_data_to_public_inputs_relation =
+    lookup_relation_base<FF_, lookup_emit_unencrypted_log_write_data_to_public_inputs_settings>;
 
 /////////////////// lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log ///////////////////
 
@@ -106,11 +101,11 @@ struct lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_settings_ 
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::precomputed_clk,
         ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::execution_rop_0_,
-        ColumnAndShifts::execution_register_1_,
+        ColumnAndShifts::execution_rop_1_,
+        ColumnAndShifts::execution_register_0_,
         ColumnAndShifts::execution_contract_address,
-        ColumnAndShifts::execution_prev_num_unencrypted_logs,
-        ColumnAndShifts::execution_num_unencrypted_logs,
+        ColumnAndShifts::execution_prev_num_unencrypted_log_fields,
+        ColumnAndShifts::execution_num_unencrypted_log_fields,
         ColumnAndShifts::execution_is_static,
         ColumnAndShifts::execution_sel_opcode_error,
         ColumnAndShifts::execution_discard
@@ -121,8 +116,8 @@ struct lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_settings_ 
         ColumnAndShifts::emit_unencrypted_log_log_address,
         ColumnAndShifts::emit_unencrypted_log_log_size,
         ColumnAndShifts::emit_unencrypted_log_contract_address,
-        ColumnAndShifts::emit_unencrypted_log_prev_num_unencrypted_logs,
-        ColumnAndShifts::emit_unencrypted_log_next_num_unencrypted_logs,
+        ColumnAndShifts::emit_unencrypted_log_prev_num_unencrypted_log_fields,
+        ColumnAndShifts::emit_unencrypted_log_next_num_unencrypted_log_fields,
         ColumnAndShifts::emit_unencrypted_log_is_static,
         ColumnAndShifts::emit_unencrypted_log_error,
         ColumnAndShifts::emit_unencrypted_log_discard
