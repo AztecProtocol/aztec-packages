@@ -384,13 +384,12 @@ TYPED_TEST(EcdsaTests, ZeroS)
     TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::ZeroS);
 }
 
-// TODO(federicobarbacovi): this throw makes it impossible to check that the circuit is actually unsatisfied
 TYPED_TEST(EcdsaTests, InvalidPubKey)
 {
-    // Return an error because `validate_on_curve` raises an error in the `mult_madd` function:
+    // Disable asserts because `validate_on_curve` raises an error in the `mult_madd` function:
     // BB_ASSERT_EQ(remainder_1024.lo, uint512_t(0))
-    EXPECT_ANY_THROW(
-        TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::InvalidPubKey));
+    BB_DISABLE_ASSERTS();
+    TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::InvalidPubKey);
 }
 
 TYPED_TEST(EcdsaTests, OutOfBoundsHash)
