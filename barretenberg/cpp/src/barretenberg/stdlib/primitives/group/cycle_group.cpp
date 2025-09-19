@@ -342,30 +342,21 @@ template <typename Builder> void cycle_group<Builder>::standardize()
 template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement> hint) const
 {
-    // ensure we use a value of y that is not zero. (only happens if point at infinity)
-    // this costs 0 gates if `is_infinity` is a circuit constant
-    auto modified_y = field_t::conditional_assign(is_point_at_infinity(), 1, y).normalize();
-
-    // We have to return the point at infinity immediately
-    // Cause in that very case the `modified_y` is a constant value, with witness_index = -1
-    // Hence the following `create_ecc_dbl_gate` will throw an ASSERTION error
+    // If this is a constant point at infinity, return early
     if (this->is_point_at_infinity().is_constant() && this->is_point_at_infinity().get_value()) {
         return *this;
     }
 
-    cycle_group result;
+    // ensure we use a value of y that is not zero. (only happens if point at infinity)
+    // this costs 0 gates if `is_infinity` is a circuit constant
+    auto modified_y = field_t::conditional_assign(is_point_at_infinity(), 1, y).normalize();
+
+    // Compute the doubled point coordinates (either from hint or by calculation)
+    bb::fr x3;
+    bb::fr y3;
     if (hint.has_value()) {
-        const bb::fr x3 = hint.value().x;
-        const bb::fr y3 = hint.value().y;
-        if (is_constant()) {
-            result = cycle_group(x3, y3, is_point_at_infinity());
-            // We need to manually propagate the origin tag
-            result.set_origin_tag(get_origin_tag());
-
-            return result;
-        }
-
-        result = cycle_group(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
+        x3 = hint.value().x;
+        y3 = hint.value().y;
     } else {
         const bb::fr x1 = x.get_value();
         const bb::fr y1 = modified_y.get_value();
@@ -378,28 +369,32 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
         const bb::fr x_pow_4 = x1 * (y_pow_2 - Group::curve_b);
         const bb::fr lambda_squared = (x_pow_4 * 9) / (y_pow_2 * 4);
         const bb::fr lambda = (x1 * x1 * 3) / (y1 + y1);
-        const bb::fr x3 = lambda_squared - x1 - x1;
-        const bb::fr y3 = lambda * (x1 - x3) - y1;
-        if (is_constant()) {
-            auto result = cycle_group(x3, y3, is_point_at_infinity().get_value());
-            // We need to manually propagate the origin tag
-            result.set_origin_tag(get_origin_tag());
-            return result;
-        }
-
-        result = cycle_group(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
+        x3 = lambda_squared - x1 - x1;
+        y3 = lambda * (x1 - x3) - y1;
     }
 
-    context->create_ecc_dbl_gate(bb::ecc_dbl_gate_<bb::fr>{
-        .x1 = x.get_witness_index(),
-        .y1 = modified_y.get_witness_index(),
-        .x3 = result.x.get_witness_index(),
-        .y3 = result.y.get_witness_index(),
-    });
+    // Create the result based on whether this is a constant or witness
+    cycle_group result;
+    if (is_constant()) {
+        result = cycle_group(x3, y3, is_point_at_infinity());
+        // For constants, propagate the origin tag as-is
+        result.set_origin_tag(get_origin_tag());
+    } else {
+        // For witness points, create witness result and add constraint gate
+        result = cycle_group(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
 
-    // We need to manually propagate the origin tag
-    result.x.set_origin_tag(OriginTag(x.get_origin_tag(), y.get_origin_tag()));
-    result.y.set_origin_tag(OriginTag(x.get_origin_tag(), y.get_origin_tag()));
+        context->create_ecc_dbl_gate(bb::ecc_dbl_gate_<bb::fr>{
+            .x1 = x.get_witness_index(),
+            .y1 = modified_y.get_witness_index(),
+            .x3 = result.x.get_witness_index(),
+            .y3 = result.y.get_witness_index(),
+        });
+
+        // For witnesses, merge the x and y origin tags
+        result.x.set_origin_tag(OriginTag(x.get_origin_tag(), y.get_origin_tag()));
+        result.y.set_origin_tag(OriginTag(x.get_origin_tag(), y.get_origin_tag()));
+    }
+
     return result;
 }
 
