@@ -126,7 +126,6 @@ export class EpochProvingJob implements Traceable {
     this.runPromise = promise;
 
     try {
-      const firstCheckpointNumber = this.blocks[0].header.globalVariables.slotNumber;
       const blobFieldsPerCheckpoint = this.blocks.map(block => block.body.toBlobFields());
       const finalBlobBatchingChallenges = await buildFinalBlobChallenges(blobFieldsPerCheckpoint);
 
@@ -134,7 +133,7 @@ export class EpochProvingJob implements Traceable {
       // Total number of checkpoints equals number of blocks because we currently build a checkpoint with only one block.
       const totalNumCheckpoints = epochSizeBlocks;
 
-      this.prover.startNewEpoch(epochNumber, firstCheckpointNumber, totalNumCheckpoints, finalBlobBatchingChallenges);
+      this.prover.startNewEpoch(epochNumber, totalNumCheckpoints, finalBlobBatchingChallenges);
       await this.prover.startTubeCircuits(Array.from(this.txs.values()));
 
       await asyncPool(this.config.parallelBlockLimit ?? 32, this.blocks, async block => {
@@ -174,6 +173,7 @@ export class EpochProvingJob implements Traceable {
         const totalNumBlocks = 1;
         const checkpointIndex = block.number - fromBlock;
         await this.prover.startNewCheckpoint(
+          checkpointIndex,
           checkpointConstants,
           l1ToL2Messages,
           totalNumBlocks,

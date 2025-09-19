@@ -19,8 +19,9 @@ describe('prover/orchestrator/mixed-blocks', () => {
       finalBlobChallenges,
     } = await buildBlobDataFromTxs([txs]);
 
-    context.orchestrator.startNewEpoch(1, context.firstCheckpointNumber, 1, finalBlobChallenges);
+    context.orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
     await context.orchestrator.startNewCheckpoint(
+      0, // checkpointIndex
       context.getCheckpointConstants(),
       l1ToL2Messages,
       1, // numBlocks

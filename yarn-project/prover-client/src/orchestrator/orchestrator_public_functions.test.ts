@@ -46,8 +46,9 @@ describe('prover/orchestrator/public-functions', () => {
       } = await buildBlobDataFromTxs([processed]);
 
       // This will need to be a 2 tx block
-      context.orchestrator.startNewEpoch(1, context.firstCheckpointNumber, 1 /* numCheckpoints */, finalBlobChallenges);
+      context.orchestrator.startNewEpoch(1, 1 /* numCheckpoints */, finalBlobChallenges);
       await context.orchestrator.startNewCheckpoint(
+        0, // checkpointIndex
         context.getCheckpointConstants(),
         [],
         1, // numBlocks
@@ -84,8 +85,9 @@ describe('prover/orchestrator/public-functions', () => {
         blobFieldsLengths: [blobFieldsLength],
         finalBlobChallenges,
       } = await buildBlobDataFromTxs([processed]);
-      context.orchestrator.startNewEpoch(1, context.firstCheckpointNumber, 1 /* numCheckpoints */, finalBlobChallenges);
+      context.orchestrator.startNewEpoch(1, 1 /* numCheckpoints */, finalBlobChallenges);
       await context.orchestrator.startNewCheckpoint(
+        0, // checkpointIndex
         context.getCheckpointConstants(),
         [],
         1, // numBlocks

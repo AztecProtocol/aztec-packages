@@ -80,8 +80,9 @@ describe('prover/orchestrator', () => {
         const blobFields = [createBlockEndMarker(0)];
         const finalBlobChallenges = await buildFinalBlobChallenges([blobFields]);
 
-        orchestrator.startNewEpoch(1, context.firstCheckpointNumber, 1, finalBlobChallenges);
+        orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
         await orchestrator.startNewCheckpoint(
+          0, // checkpointIndex
           context.getCheckpointConstants(),
           [message],
           1,
@@ -122,8 +123,9 @@ describe('prover/orchestrator', () => {
           blobFieldsLengths: [blobFieldsLength],
           finalBlobChallenges,
         } = await buildBlobDataFromTxs([txs]);
-        orchestrator.startNewEpoch(1, context.firstCheckpointNumber, 1, finalBlobChallenges);
+        orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
         await orchestrator.startNewCheckpoint(
+          0, // checkpointIndex
           context.getCheckpointConstants(),
           [],
           1, // numBlocks
@@ -150,8 +152,9 @@ describe('prover/orchestrator', () => {
           blobFieldsLengths: [blobFieldsLength],
           finalBlobChallenges,
         } = await buildBlobDataFromTxs([processedTxs]);
-        orchestrator.startNewEpoch(1, context.firstCheckpointNumber, 1, finalBlobChallenges);
+        orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
         await orchestrator.startNewCheckpoint(
+          0, // checkpointIndex
           context.getCheckpointConstants(),
           [],
           1, // numBlocks
@@ -195,13 +198,14 @@ describe('prover/orchestrator', () => {
         );
         const finalBlobChallenges = await buildFinalBlobChallenges(checkpoints.map(c => c.blobFields));
 
-        context.orchestrator.startNewEpoch(1, context.firstCheckpointNumber, numCheckpoints, finalBlobChallenges);
+        context.orchestrator.startNewEpoch(1, numCheckpoints, finalBlobChallenges);
 
         // Start checkpoint in reverse order.
-        for (let i = numCheckpoints - 1; i >= 0; i--) {
-          const { blocks, blobFields, l1ToL2Messages } = checkpoints[i];
+        for (let checkpointIndex = numCheckpoints - 1; checkpointIndex >= 0; checkpointIndex--) {
+          const { blocks, blobFields, l1ToL2Messages } = checkpoints[checkpointIndex];
           await context.orchestrator.startNewCheckpoint(
-            context.getCheckpointConstants(i),
+            checkpointIndex,
+            context.getCheckpointConstants(checkpointIndex),
             l1ToL2Messages,
             blocks.length,
             blobFields.length,

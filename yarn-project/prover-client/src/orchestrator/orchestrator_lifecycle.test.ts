@@ -42,8 +42,9 @@ describe('prover/orchestrator/lifecycle', () => {
       });
       const blobFields = [createBlockEndMarker(0)];
       const finalBlobChallenges = await buildFinalBlobChallenges([blobFields]);
-      orchestrator.startNewEpoch(1, context.firstCheckpointNumber, 1, finalBlobChallenges);
+      orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
       await orchestrator.startNewCheckpoint(
+        0, // checkpointIndex
         context.getCheckpointConstants(),
         [],
         1,

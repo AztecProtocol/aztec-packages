@@ -70,7 +70,6 @@ export class EpochProvingState {
 
   constructor(
     public readonly epochNumber: number,
-    private readonly firstCheckpointNumber: Fr,
     public readonly totalNumCheckpoints: number,
     private readonly finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
     private onCheckpointBlobAccumulatorSet: (checkpoint: CheckpointProvingState) => void,
@@ -84,6 +83,7 @@ export class EpochProvingState {
   // Adds a block to the proving state, returns its index
   // Will update the proving life cycle if this is the last block
   public startNewCheckpoint(
+    checkpointIndex: number,
     constants: CheckpointConstantData,
     totalNumBlocks: number,
     totalNumBlobFields: number,
@@ -95,22 +95,14 @@ export class EpochProvingState {
     newL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
     newL1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
   ): CheckpointProvingState {
-    const slotNumber = constants.slotNumber;
-    if (slotNumber.lt(this.firstCheckpointNumber)) {
+    if (checkpointIndex >= this.totalNumCheckpoints) {
       throw new Error(
-        `Unable to start a new checkpoint - checkpoint too old. Epoch started at ${this.firstCheckpointNumber.toNumber()}. Got ${slotNumber.toNumber()}.`,
-      );
-    }
-
-    const index = slotNumber.sub(this.firstCheckpointNumber).toNumber();
-    if (index >= this.totalNumCheckpoints) {
-      throw new Error(
-        `Unable to start a new checkpoint at index ${index}. Expected at most ${this.totalNumCheckpoints} checkpoints.`,
+        `Unable to start a new checkpoint at index ${checkpointIndex}. Expected at most ${this.totalNumCheckpoints} checkpoints.`,
       );
     }
 
     const checkpoint = new CheckpointProvingState(
-      index,
+      checkpointIndex,
       constants,
       totalNumBlocks,
       totalNumBlobFields,
@@ -125,7 +117,7 @@ export class EpochProvingState {
       this,
       this.onCheckpointBlobAccumulatorSet,
     );
-    this.checkpoints[index] = checkpoint;
+    this.checkpoints[checkpointIndex] = checkpoint;
 
     if (this.checkpoints.filter(c => !!c).length === this.totalNumCheckpoints) {
       this.provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_FULL;

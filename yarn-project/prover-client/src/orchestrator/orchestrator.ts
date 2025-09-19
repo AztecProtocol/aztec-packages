@@ -119,7 +119,6 @@ export class ProvingOrchestrator implements EpochProver {
 
   public startNewEpoch(
     epochNumber: number,
-    firstCheckpointNumber: Fr,
     totalNumCheckpoints: number,
     finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
   ) {
@@ -134,7 +133,6 @@ export class ProvingOrchestrator implements EpochProver {
     logger.info(`Starting epoch ${epochNumber} with ${totalNumCheckpoints} checkpoints.`);
     this.provingState = new EpochProvingState(
       epochNumber,
-      firstCheckpointNumber,
       totalNumCheckpoints,
       finalBlobBatchingChallenges,
       provingState => this.checkAndEnqueueCheckpointRootRollup(provingState),
@@ -145,6 +143,7 @@ export class ProvingOrchestrator implements EpochProver {
   }
 
   public async startNewCheckpoint(
+    checkpointIndex: number,
     constants: CheckpointConstantData,
     l1ToL2Messages: Fr[],
     totalNumBlocks: number,
@@ -178,6 +177,7 @@ export class ProvingOrchestrator implements EpochProver {
     } = await this.updateL1ToL2MessageTree(l1ToL2Messages, db);
 
     this.provingState.startNewCheckpoint(
+      checkpointIndex,
       constants,
       totalNumBlocks,
       totalNumBlobFields,
