@@ -301,6 +301,12 @@ variable "EXTERNAL_BOOTNODES" {
   default     = []
 }
 
+variable "DEPLOY_ARCHIVAL_NODE" {
+  description = "Whether to deploy the archival node"
+  type        = bool
+  default     = false
+}
+
 variable "NETWORK" {
   description = "One of the existing network names to use default config for"
   type        = string
