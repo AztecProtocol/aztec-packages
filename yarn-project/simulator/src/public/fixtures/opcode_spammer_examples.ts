@@ -914,3 +914,42 @@ export async function executeOpcodeSpam(
   const opcodeString = Opcode[opcode]; // Get enum name as string
   return await OpcodeSpammer.executeAsContract(tester, `${opcodeString}SpamContract`, instructions);
 }
+
+/**
+ * Create opcode spam config for use with the new ProgramBuilder architecture
+ *
+ * @param opcode - Opcode enum value
+ * @param useInfiniteLoop - If true, creates infinite loop config
+ * @returns OpcodeSpamConfig for use with new architecture
+ */
+export function createOpcodeSpamConfig(opcode: Opcode, useInfiniteLoop = false): OpcodeSpamConfig {
+  const configWithoutName = OPCODE_SPAM_CONFIGS[opcode];
+
+  if (!configWithoutName) {
+    throw new Error(`No spam config found for opcode ${Opcode[opcode]}`);
+  }
+
+  const config: OpcodeSpamConfig = {
+    opcodeName: Opcode[opcode], // fill in name
+    ...configWithoutName,
+    useInfiniteLoop,
+  };
+
+  return config;
+}
+
+/**
+ * Get the gas cost for a specific opcode
+ *
+ * @param opcode - Opcode enum value
+ * @returns Gas cost per operation
+ */
+export function getGasForOpcode(opcode: Opcode): number {
+  const config = OPCODE_SPAM_CONFIGS[opcode];
+
+  if (!config) {
+    throw new Error(`No spam config found for opcode ${Opcode[opcode]}`);
+  }
+
+  return config.gasPerOp;
+}
