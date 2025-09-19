@@ -4,7 +4,7 @@
 
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/nullifier_tree_check_event.hpp"
-#include "barretenberg/vm2/simulation/nullifier_tree_check.hpp"
+#include "barretenberg/vm2/simulation/gadgets/nullifier_tree_check.hpp"
 
 namespace bb::avm2::simulation {
 

@@ -68,4 +68,11 @@ bool AvmAPI::verify(const AvmProof& proof, const PublicInputs& pi, const AvmVeri
     return AVM_TRACK_TIME_V("verifing/all", proving_helper.verify(proof, pi, vk_data));
 }
 
+void AvmAPI::simulate(const ExecutionHints& hints)
+{
+    info("Simulating...");
+    AvmSimulationHelper simulation_helper(hints);
+    AVM_TRACK_TIME("simulation/all", simulation_helper.simulate_fast());
+}
+
 } // namespace bb::avm2

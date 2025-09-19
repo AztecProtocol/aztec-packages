@@ -7,7 +7,7 @@
 #include <gmock/gmock.h>
 
 #include "barretenberg/vm2/common/memory_types.hpp"
-#include "barretenberg/vm2/simulation/execution.hpp"
+#include "barretenberg/vm2/simulation/gadgets/execution.hpp"
 
 namespace bb::avm2::simulation {
 

@@ -13,7 +13,7 @@
 #include "barretenberg/vm2/generated/relations/perms_keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
-#include "barretenberg/vm2/simulation/keccakf1600.hpp"
+#include "barretenberg/vm2/simulation/gadgets/keccakf1600.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {

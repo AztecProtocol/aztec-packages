@@ -11,7 +11,7 @@
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
-#include "barretenberg/vm2/simulation/keccakf1600.hpp"
+#include "barretenberg/vm2/simulation/gadgets/keccakf1600.hpp"
 #include "barretenberg/vm2/tracegen/lib/get_contract_instance_spec.hpp"
 #include "barretenberg/vm2/tracegen/lib/get_env_var_spec.hpp"
 #include "barretenberg/vm2/tracegen/lib/instruction_spec.hpp"

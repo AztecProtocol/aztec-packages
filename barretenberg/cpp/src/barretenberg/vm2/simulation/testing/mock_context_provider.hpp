@@ -5,8 +5,8 @@
 
 #include <gmock/gmock.h>
 
-#include "barretenberg/vm2/simulation/context_provider.hpp"
-#include "barretenberg/vm2/simulation/memory.hpp"
+#include "barretenberg/vm2/simulation/gadgets/context_provider.hpp"
+#include "barretenberg/vm2/simulation/gadgets/memory.hpp"
 
 namespace bb::avm2::simulation {
 

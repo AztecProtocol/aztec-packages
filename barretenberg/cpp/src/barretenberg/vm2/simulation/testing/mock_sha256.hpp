@@ -3,8 +3,8 @@
 #include <gmock/gmock.h>
 
 #include "barretenberg/vm2/common/memory_types.hpp"
-#include "barretenberg/vm2/simulation/memory.hpp"
-#include "barretenberg/vm2/simulation/sha256.hpp"
+#include "barretenberg/vm2/simulation/gadgets/memory.hpp"
+#include "barretenberg/vm2/simulation/gadgets/sha256.hpp"
 
 namespace bb::avm2::simulation {
 

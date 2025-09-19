@@ -3,7 +3,7 @@
 #include <gmock/gmock.h>
 
 #include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/vm2/simulation/retrieved_bytecodes_tree_check.hpp"
+#include "barretenberg/vm2/simulation/gadgets/retrieved_bytecodes_tree_check.hpp"
 
 namespace bb::avm2::simulation {
 

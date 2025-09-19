@@ -3,8 +3,8 @@
 #include <gmock/gmock.h>
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
-#include "barretenberg/vm2/simulation/get_contract_instance.hpp"
-#include "barretenberg/vm2/simulation/memory.hpp"
+#include "barretenberg/vm2/simulation/gadgets/get_contract_instance.hpp"
+#include "barretenberg/vm2/simulation/gadgets/memory.hpp"
 
 namespace bb::avm2::simulation {
 

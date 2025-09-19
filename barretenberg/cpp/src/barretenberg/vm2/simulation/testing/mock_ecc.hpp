@@ -3,7 +3,7 @@
 #include <gmock/gmock.h>
 
 #include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/vm2/simulation/ecc.hpp"
+#include "barretenberg/vm2/simulation/gadgets/ecc.hpp"
 
 namespace bb::avm2::simulation {
 
