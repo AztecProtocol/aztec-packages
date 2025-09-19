@@ -26,6 +26,7 @@ library TestConstants {
   uint256 internal constant AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS = 0;
   uint256 internal constant AZTEC_SLASHING_OFFSET_IN_ROUNDS = 2;
   address internal constant AZTEC_SLASHING_VETOER = address(0);
+  uint256 internal constant AZTEC_SLASHING_DISABLE_DURATION = 5 days;
   uint256 internal constant AZTEC_SLASH_AMOUNT_SMALL = 20e18;
   uint256 internal constant AZTEC_SLASH_AMOUNT_MEDIUM = 40e18;
   uint256 internal constant AZTEC_SLASH_AMOUNT_LARGE = 60e18;
@@ -37,6 +38,7 @@ library TestConstants {
   uint256 internal constant AZTEC_ENTRY_QUEUE_MAX_FLUSH_SIZE = 480;
   uint256 internal constant AZTEC_EXIT_DELAY_SECONDS = 2 * 24 * 60 * 60; // 2 days
   EthValue internal constant AZTEC_PROVING_COST_PER_MANA = EthValue.wrap(100);
+  uint256 internal constant AZTEC_COIN_ISSUER_RATE = uint256(25_000_000_000e18) / uint256(60 * 60 * 24 * 365);
 
   uint256 internal constant ACTIVATION_THRESHOLD = 100e18;
   uint256 internal constant EJECTION_THRESHOLD = 50e18;
@@ -103,6 +105,7 @@ library TestConstants {
       slashingExecutionDelayInRounds: AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS,
       slashingOffsetInRounds: AZTEC_SLASHING_OFFSET_IN_ROUNDS,
       slashingVetoer: AZTEC_SLASHING_VETOER,
+      slashingDisableDuration: AZTEC_SLASHING_DISABLE_DURATION,
       manaTarget: AZTEC_MANA_TARGET,
       exitDelaySeconds: AZTEC_EXIT_DELAY_SECONDS,
       provingCostPerMana: AZTEC_PROVING_COST_PER_MANA,

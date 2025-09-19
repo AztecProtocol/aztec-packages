@@ -16,8 +16,7 @@ const TIMEOUT = 300_000;
 describe('e2e_2_pxes', () => {
   jest.setTimeout(TIMEOUT);
 
-  let aztecNode: AztecNode | undefined;
-  let pxeA: PXE;
+  let aztecNode: AztecNode;
   let pxeB: PXE;
   let walletA: TestWallet;
   let walletB: TestWallet;
@@ -31,7 +30,6 @@ describe('e2e_2_pxes', () => {
   beforeEach(async () => {
     ({
       aztecNode,
-      pxe: pxeA,
       initialFundedAccounts,
       wallet: walletA,
       accounts: [accountAAddress],
@@ -42,8 +40,8 @@ describe('e2e_2_pxes', () => {
     // Account A is already deployed in setup
 
     // Deploy accountB via pxeB.
-    ({ pxe: pxeB, teardown: teardownB } = await setupPXEService(aztecNode!, {}, undefined, true));
-    walletB = new TestWallet(pxeB);
+    ({ pxe: pxeB, teardown: teardownB } = await setupPXEService(aztecNode, {}, undefined, true));
+    walletB = new TestWallet(pxeB, aztecNode);
     const accountB = await walletB.createSchnorrAccount(initialFundedAccounts[1].secret, initialFundedAccounts[1].salt);
     accountBAddress = accountB.getAddress();
     await accountB.deploy().wait();
@@ -52,8 +50,8 @@ describe('e2e_2_pxes', () => {
      What is a more robust solution? */
     await sleep(5000);
 
-    await walletA.registerSender(accountBAddress);
-    await walletB.registerSender(accountAAddress);
+    await walletA.registerSender(accountBAddress, 'accountB');
+    await walletB.registerSender(accountAAddress, 'accountA');
   });
 
   afterEach(async () => {
@@ -109,8 +107,8 @@ describe('e2e_2_pxes', () => {
     return contract.instance;
   };
 
-  const getChildStoredValue = (child: { address: AztecAddress }, pxe: PXE) =>
-    pxe.getPublicStorageAt(child.address, new Fr(1));
+  const getChildStoredValue = (child: { address: AztecAddress }, node: AztecNode) =>
+    node.getPublicStorageAt('latest', child.address, new Fr(1));
 
   it('user calls a public function on a contract deployed by a different user using a different PXE', async () => {
     const childCompleteAddress = await deployChildContractViaServerA();
@@ -129,10 +127,10 @@ describe('e2e_2_pxes', () => {
       .send({ from: accountBAddress })
       .wait({ interval: 0.1 });
 
-    const storedValueOnB = await getChildStoredValue(childCompleteAddress, pxeB);
+    const storedValueOnB = await getChildStoredValue(childCompleteAddress, aztecNode!);
     expect(storedValueOnB).toEqual(newValueToSet);
 
-    const storedValueOnA = await getChildStoredValue(childCompleteAddress, pxeA);
+    const storedValueOnA = await getChildStoredValue(childCompleteAddress, aztecNode!);
     expect(storedValueOnA).toEqual(newValueToSet);
   });
 

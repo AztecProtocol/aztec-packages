@@ -10,7 +10,6 @@ import { IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
-import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
@@ -41,28 +40,8 @@ export class UtilityExecutionOracle extends TypedOracle {
     return Fr.random();
   }
 
-  public override utilityGetBlockNumber(): Promise<number> {
-    return this.executionDataProvider.getBlockNumber();
-  }
-
-  public override utilityGetTimestamp(): Promise<UInt64> {
-    return this.executionDataProvider.getTimestamp();
-  }
-
-  public override utilityGetContractAddress(): Promise<AztecAddress> {
-    return Promise.resolve(this.contractAddress);
-  }
-
-  public override utilityGetChainId(): Promise<Fr> {
-    return Promise.resolve(this.executionDataProvider.getChainId().then(id => new Fr(id)));
-  }
-
-  public override utilityGetVersion(): Promise<Fr> {
-    return Promise.resolve(this.executionDataProvider.getVersion().then(v => new Fr(v)));
-  }
-
   public override async utilityGetUtilityContext(): Promise<UtilityContext> {
-    const blockHeader = await this.executionDataProvider.getBlockHeader();
+    const blockHeader = await this.executionDataProvider.getAnchorBlockHeader();
     return UtilityContext.from({
       blockNumber: blockHeader.globalVariables.blockNumber,
       timestamp: blockHeader.globalVariables.timestamp,
@@ -145,7 +124,7 @@ export class UtilityExecutionOracle extends TypedOracle {
     if (!block) {
       return undefined;
     }
-    return block.header;
+    return block.getBlockHeader();
   }
 
   /**

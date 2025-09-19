@@ -36,7 +36,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
     using OuterFlavor = std::conditional_t<IsMegaBuilder<OuterBuilder>, MegaFlavor, UltraFlavor>;
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
-    using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
+    using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
     using TranslatorBF = TranslatorRecursiveFlavor::BF;
 
@@ -146,9 +146,9 @@ class TranslatorRecursiveTests : public ::testing::Test {
         }
 
         {
-            auto proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
-            auto verification_key = std::make_shared<OuterFlavor::VerificationKey>(proving_key->get_precomputed());
-            OuterProver prover(proving_key, verification_key);
+            auto prover_instance = std::make_shared<OuterProverInstance>(outer_circuit);
+            auto verification_key = std::make_shared<OuterFlavor::VerificationKey>(prover_instance->get_precomputed());
+            OuterProver prover(prover_instance, verification_key);
             OuterVerifier verifier(verification_key);
             auto proof = prover.construct_proof();
             bool verified = verifier.template verify_proof<DefaultIO>(proof).result;
@@ -200,7 +200,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
                 verifier.verify_proof(inner_proof, stdlib_evaluation_challenge_x, stdlib_batching_challenge_v);
             pairing_points.set_public();
 
-            auto outer_proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
+            auto outer_proving_key = std::make_shared<OuterProverInstance>(outer_circuit);
             auto outer_verification_key =
                 std::make_shared<typename OuterFlavor::VerificationKey>(outer_proving_key->get_precomputed());
 

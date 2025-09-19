@@ -226,7 +226,7 @@ async function setupWithRemoteEnvironment(
   await waitForPXE(pxeClient, logger);
   logger.verbose('JSON RPC client connected to PXE');
   logger.verbose(`Retrieving contract addresses from ${PXE_URL}`);
-  const { l1ContractAddresses, rollupVersion } = await pxeClient.getNodeInfo();
+  const { l1ContractAddresses, rollupVersion } = await aztecNode.getNodeInfo();
 
   const l1Client = createExtendedL1Client(config.l1RpcUrls, account, foundry);
 
@@ -236,12 +236,12 @@ async function setupWithRemoteEnvironment(
     rollupVersion,
   };
   const ethCheatCodes = new EthCheatCodes(config.l1RpcUrls);
-  const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxeClient!);
+  const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxeClient!, aztecNode);
   const teardown = () => Promise.resolve();
 
   logger.verbose('Populating wallet from already registered accounts...');
   const initialFundedAccounts = await getDeployedTestAccounts(pxeClient);
-  const wallet = new TestWallet(pxeClient);
+  const wallet = new TestWallet(pxeClient, aztecNode);
 
   if (initialFundedAccounts.length < numberOfAccounts) {
     throw new Error(`Required ${numberOfAccounts} accounts. Found ${initialFundedAccounts.length}.`);
@@ -573,7 +573,7 @@ export async function setup(
     await blobSink.start();
     config.blobSinkUrl = `http://localhost:${blobSinkPort}`;
 
-    logger.verbose('Creating and synching an aztec node...');
+    logger.verbose('Creating and synching an aztec node', config);
 
     const acvmConfig = await getACVMConfig(logger);
     if (acvmConfig) {
@@ -657,7 +657,7 @@ export async function setup(
     logger.verbose('Creating a pxe...');
     const { pxe, teardown: pxeTeardown } = await setupPXEService(aztecNode!, pxeOpts, logger);
 
-    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxe!);
+    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxe!, aztecNode);
 
     if (
       (opts.aztecTargetCommitteeSize && opts.aztecTargetCommitteeSize > 0) ||
@@ -670,12 +670,12 @@ export async function setup(
       await cheatCodes.rollup.setupEpoch();
       await cheatCodes.rollup.debugRollup();
     }
-    const wallet = new TestWallet(pxe);
+    const wallet = new TestWallet(pxe, aztecNode);
     let accounts: AztecAddress[] = [];
     // Below we continue with what we described in the long comment on line 571.
     if (numberOfAccounts === 0) {
       logger.info('No accounts are being deployed, waiting for an empty block 1 to be mined');
-      while ((await pxe.getBlockNumber()) === 0) {
+      while ((await aztecNode.getBlockNumber()) === 0) {
         await sleep(2000);
       }
     } else {
@@ -959,6 +959,7 @@ export function createAndSyncProverNode(
       txGatheringTimeoutMs: 24_000,
       proverNodeFailedEpochStore: undefined,
       proverId: EthAddress.fromNumber(1),
+      proverNodeEpochProvingDelayMs: undefined,
       ...proverNodeConfig,
     };
 

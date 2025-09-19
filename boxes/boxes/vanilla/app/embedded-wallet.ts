@@ -43,10 +43,9 @@ export class EmbeddedWallet extends BaseWallet {
   ): Promise<Account> {
     let account: Account | undefined;
     if (address.equals(AztecAddress.ZERO)) {
-      const { l1ChainId: chainId, rollupVersion } =
-        await this.pxe.getNodeInfo();
+      const {chainId, version} = await this.getChainInfo();
       account = new SignerlessAccount(
-        new DefaultMultiCallEntrypoint(chainId, rollupVersion)
+        new DefaultMultiCallEntrypoint(chainId.toNumber(), version.toNumber())
       );
     } else {
       account = this.accounts.get(address?.toString() ?? '');
@@ -59,9 +58,18 @@ export class EmbeddedWallet extends BaseWallet {
     return account;
   }
 
+  getAccounts() {
+    return Promise.resolve(
+      Array.from(this.accounts.values()).map((acc) => ({
+        alias: '',
+        item: acc.getAddress(),
+      }))
+    );
+  }
+
   static async initialize(nodeUrl: string) {
     // Create Aztec Node Client
-    const aztecNode = await createAztecNodeClient(nodeUrl);
+    const aztecNode = createAztecNodeClient(nodeUrl);
 
     // Create PXE Service
     const config = getPXEServiceConfig();
@@ -75,9 +83,9 @@ export class EmbeddedWallet extends BaseWallet {
     await pxe.registerContract(await EmbeddedWallet.#getSponsoredPFCContract());
 
     // Log the Node Info
-    const nodeInfo = await pxe.getNodeInfo();
+    const nodeInfo = await aztecNode.getNodeInfo();
     logger.info('PXE Connected to node', nodeInfo);
-    return new EmbeddedWallet(pxe);
+    return new EmbeddedWallet(pxe, aztecNode);
   }
 
   // Internal method to use the Sponsored FPC Contract for fee payment
@@ -220,7 +228,7 @@ export class EmbeddedWallet extends BaseWallet {
   }
 
   private async getFakeAccountDataFor(address: AztecAddress) {
-    const nodeInfo = await this.pxe.getNodeInfo();
+    const chainInfo = await this.getChainInfo();
     const originalAccount = await this.getAccountFromAddress(address);
     const originalAddress = await originalAccount.getCompleteAddress();
     const { contractInstance } = await this.pxe.getContractMetadata(
@@ -231,11 +239,11 @@ export class EmbeddedWallet extends BaseWallet {
         `No contract instance found for address: ${originalAddress.address}`
       );
     }
-    const stubAccount = createStubAccount(originalAddress, nodeInfo);
+    const stubAccount = createStubAccount(originalAddress, chainInfo);
     const StubAccountContractArtifact = await getStubAccountContractArtifact();
     const instance = await getContractInstanceFromInstantiationParams(
       StubAccountContractArtifact,
-      {}
+      { salt: Fr.random() }
     );
     return {
       account: stubAccount,

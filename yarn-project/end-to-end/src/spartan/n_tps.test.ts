@@ -1,4 +1,4 @@
-import { Fr, type PXE, ProvenTx, Tx, readFieldCompressedString, sleep } from '@aztec/aztec.js';
+import { Fr, type PXE, ProvenTx, Tx, createAztecNodeClient, readFieldCompressedString, sleep } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
@@ -35,10 +35,11 @@ describe('sustained 10 TPS test', () => {
     const rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
 
     ({ pxe, cleanup } = await startCompatiblePXE(rpcUrl, config.REAL_VERIFIER, logger));
+    const node = createAztecNodeClient(rpcUrl);
 
     // Setup wallets
     logger.info('deploying test wallets');
-    testAccounts = await deploySponsoredTestAccounts(pxe, MINT_AMOUNT, logger);
+    testAccounts = await deploySponsoredTestAccounts(pxe, node, MINT_AMOUNT, logger);
     logger.info(`testAccounts ready`);
 
     logger.info(

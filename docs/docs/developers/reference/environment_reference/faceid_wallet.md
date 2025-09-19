@@ -15,7 +15,7 @@ Aztec is in active development and this has only been tested on MacOS. Please re
 :::
 
 :::note
-This tutorial is for the sandbox and will need adjustments if you want to use it on testnet. Install the sandbox [here](../../getting_started/getting_started_on_sandbox.md).
+This tutorial is for the sandbox and will need adjustments if you want to use it on testnet. Install the sandbox [here](../../getting_started/getting_started.md).
 :::
 
 ## Prerequisites

@@ -200,9 +200,9 @@ impl PrivateCallDataValidator {
         let constants = previous_kernel.constants;
         let public_inputs = self.data.public_inputs;
         assert_eq(
-            public_inputs.historical_header,
-            constants.historical_header,
-            "mismatch historical header",
+            public_inputs.anchor_block_header,
+            constants.anchor_block_header,
+            "anchor block header mismatch",
         );
         assert_eq(public_inputs.tx_context, constants.tx_context, "mismatch tx context");
         // constants.global_variables is not relevant to private functions and is ensured to be empty in PrivateKernelCircuitOutputValidator.

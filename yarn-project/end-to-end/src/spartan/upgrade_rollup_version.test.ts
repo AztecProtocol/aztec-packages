@@ -56,7 +56,7 @@
 //     ETHEREUM_HOSTS = [`http://127.0.0.1:${ethPort}`];
 
 //     pxe = await createCompatibleClient(PXE_URL, debugLogger);
-//     nodeInfo = await pxe.getNodeInfo();
+//     nodeInfo = await aztecNode.getNodeInfo();
 //     originalL1ContractAddresses = omit(nodeInfo.l1ContractAddresses, [
 //       'slashFactoryAddress',
 //       'stakingAssetHandlerAddress',
@@ -176,7 +176,7 @@
 //       const PXE_URL = `http://127.0.0.1:${pxePort}`;
 //       pxe = await createCompatibleClient(PXE_URL, debugLogger);
 
-//       const newNodeInfo = await pxe.getNodeInfo();
+//       const newNodeInfo = await aztecNode.getNodeInfo();
 
 //       // @todo There is an issue here, probably related to #12791, but somehow
 //       // the address returned by the pxe node info is NEITHER the old nor the new rollup address

@@ -24,7 +24,7 @@ import { Gas } from '@aztec/stdlib/gas';
 import type { BuildBlockResult, IFullNodeBlockBuilder, SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
-import { makeBlockAttestation, makeBlockProposal, makeHeader, mockTx } from '@aztec/stdlib/testing';
+import { makeBlockAttestation, makeBlockProposal, makeL2BlockHeader, mockTx } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { ContentCommitment, type Tx, TxHash } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
@@ -108,13 +108,13 @@ describe('ValidatorClient', () => {
 
   describe('createBlockProposal', () => {
     it('should create a valid block proposal without txs', async () => {
-      const header = makeHeader();
+      const header = makeL2BlockHeader();
       const archive = Fr.random();
       const txs = await Promise.all([1, 2, 3, 4, 5].map(() => mockTx()));
 
       const blockProposal = await validatorClient.createBlockProposal(
         header.globalVariables.blockNumber,
-        header.toPropose(),
+        header.toCheckpointHeader(),
         archive,
         header.state,
         txs,
@@ -203,7 +203,7 @@ describe('ValidatorClient', () => {
     beforeEach(async () => {
       const emptyInHash = await computeInHashFromL1ToL2Messages([]);
       const contentCommitment = new ContentCommitment(Fr.random(), emptyInHash, Fr.random());
-      proposal = makeBlockProposal({ header: makeHeader(1, 100, 100, { contentCommitment }) });
+      proposal = makeBlockProposal({ header: makeL2BlockHeader(1, 100, 100, { contentCommitment }) });
       // Set the current time to the start of the slot of the proposal
       const genesisTime = 1n;
       const slotTime = genesisTime + proposal.slotNumber.toBigInt() * BigInt(blockBuilder.getConfig().slotDuration);
@@ -244,7 +244,7 @@ describe('ValidatorClient', () => {
         numMsgs: 0,
         usedTxs: [],
         block: {
-          header: makeHeader(),
+          header: makeL2BlockHeader(),
           body: { txEffects: times(proposal.txHashes.length, () => ({})) },
           archive: new AppendOnlyTreeSnapshot(proposal.archive, proposal.blockNumber),
         } as L2Block,

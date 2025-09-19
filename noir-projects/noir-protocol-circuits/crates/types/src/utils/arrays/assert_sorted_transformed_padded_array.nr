@@ -305,11 +305,10 @@ mod tests {
             self.original_array.length = 0;
 
             let prev = self.padded_items;
-            self.padded_items = pad_end([prev[3], prev[4]], TestTwoValues::empty());
+            self.padded_items = pad_end([prev[3], prev[4]]);
 
             let prev = self.sorted_transformed_padded_array.array;
-            self.sorted_transformed_padded_array.array =
-                pad_end([prev[3], prev[4]], TestValue::empty());
+            self.sorted_transformed_padded_array.array = pad_end([prev[3], prev[4]]);
             self.sorted_transformed_padded_array.length = 2;
 
             self.sorted_indexes = [0, 1, 2, 3, 4, 5, 6, 7];
@@ -539,38 +538,29 @@ mod tests {
     fn assert_sorted_transformed_padded_array__padded_twice_fails() {
         let mut builder = TestDataBuilder::new();
 
-        builder.original_array.array = pad_end(
-            [
-                TestTwoValues { value_1: 10, value_2: 5, counter: 44 },
-                TestTwoValues { value_1: 20, value_2: 6, counter: 22 },
-                // Add a padded item to the original array.
-                TestTwoValues { value_1: 987, value_2: 3, counter: MAX_U32_VALUE },
-            ],
-            TestTwoValues::empty(),
-        );
+        builder.original_array.array = pad_end([
+            TestTwoValues { value_1: 10, value_2: 5, counter: 44 },
+            TestTwoValues { value_1: 20, value_2: 6, counter: 22 },
+            // Add a padded item to the original array.
+            TestTwoValues { value_1: 987, value_2: 3, counter: MAX_U32_VALUE },
+        ]);
         builder.original_array.length += 3;
 
-        builder.padded_items = pad_end(
-            [
-                TestTwoValues::empty(),
-                TestTwoValues::empty(),
-                TestTwoValues::empty(),
-                // Add a duplicated padded item to the padded items.
-                TestTwoValues { value_1: 987, value_2: 3, counter: MAX_U32_VALUE },
-            ],
+        builder.padded_items = pad_end([
             TestTwoValues::empty(),
-        );
+            TestTwoValues::empty(),
+            TestTwoValues::empty(),
+            // Add a duplicated padded item to the padded items.
+            TestTwoValues { value_1: 987, value_2: 3, counter: MAX_U32_VALUE },
+        ]);
 
-        builder.sorted_transformed_padded_array.array = pad_end(
-            [
-                TestValue { value: 26, counter: 22 },
-                // Add a random item to the result.
-                TestValue { value: 10101, counter: 33 },
-                TestValue { value: 15, counter: 44 },
-                TestValue { value: 990, counter: MAX_U32_VALUE },
-            ],
-            TestValue::empty(),
-        );
+        builder.sorted_transformed_padded_array.array = pad_end([
+            TestValue { value: 26, counter: 22 },
+            // Add a random item to the result.
+            TestValue { value: 10101, counter: 33 },
+            TestValue { value: 15, counter: 44 },
+            TestValue { value: 990, counter: MAX_U32_VALUE },
+        ]);
         builder.sorted_transformed_padded_array.length += 4;
 
         // Map the padded item in the original array to the new padded item: sorted_index[2] = 3

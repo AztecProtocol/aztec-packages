@@ -261,7 +261,7 @@ export const deploySharedContracts = async (
 
   const coinIssuerAddress = await deployer.deploy(CoinIssuerArtifact, [
     feeAssetAddress.toString(),
-    1_000_000n * 10n ** 18n, // @todo  #8084
+    (25_000_000_000n * 10n ** 18n) / (60n * 60n * 24n * 365n),
     l1Client.account.address,
   ]);
   logger.verbose(`Deployed CoinIssuer at ${coinIssuerAddress}`);
@@ -551,13 +551,14 @@ export const deployRollup = async (
     provingCostPerMana: args.provingCostPerMana,
     rewardConfig: rewardConfig,
     version: 0,
-    rewardBoostConfig: getRewardBoostConfig(networkName),
+    rewardBoostConfig: getRewardBoostConfig(),
     stakingQueueConfig: getEntryQueueConfig(networkName),
     exitDelaySeconds: BigInt(args.exitDelaySeconds),
     slasherFlavor: slasherFlavorToSolidityEnum(args.slasherFlavor),
     slashingOffsetInRounds: BigInt(args.slashingOffsetInRounds),
     slashAmounts: [args.slashAmountSmall, args.slashAmountMedium, args.slashAmountLarge],
     localEjectionThreshold: args.localEjectionThreshold,
+    slashingDisableDuration: BigInt(args.slashingDisableDuration ?? 0n),
   };
 
   const genesisStateArgs = {

@@ -1,11 +1,11 @@
+import { TX_START_PREFIX } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
 
 import { Blob } from './blob.js';
 import { BatchedBlobAccumulator, FinalBlobBatchingChallenges } from './blob_batching.js';
-import { BlobAccumulatorPublicInputs, BlockBlobPublicInputs } from './blob_batching_public_inputs.js';
-import { TX_START_PREFIX, TX_START_PREFIX_BYTES_LENGTH } from './encoding.js';
+import { TX_START_PREFIX_BYTES_LENGTH } from './encoding.js';
 import { Poseidon2Sponge, SpongeBlob } from './sponge_blob.js';
 
 /**
@@ -43,21 +43,6 @@ export function makeBatchedBlobAccumulator(seed = 1): BatchedBlobAccumulator {
     new Fr(seed + 3),
     new BLS12Fr(seed + 4),
     new FinalBlobBatchingChallenges(new Fr(seed + 5), new BLS12Fr(seed + 6)),
-  );
-}
-
-/**
- * Makes arbitrary block blob public inputs.
- * Note: will not verify inside the circuit.
- * @param seed - The seed to use for generating the blob inputs.
- * @returns A block blob public inputs instance.
- */
-export function makeBlockBlobPublicInputs(seed = 1): BlockBlobPublicInputs {
-  const startBlobAccumulator = makeBatchedBlobAccumulator(seed);
-  return new BlockBlobPublicInputs(
-    BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(startBlobAccumulator),
-    BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(seed + 1)),
-    startBlobAccumulator.finalBlobChallenges,
   );
 }
 

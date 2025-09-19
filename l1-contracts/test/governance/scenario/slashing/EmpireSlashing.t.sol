@@ -147,7 +147,7 @@ contract SlashingTest is TestBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.GovernanceProposer__RoundTooNew.selector, firstSlashingRound, slashingProposer.getCurrentRound()
+        Errors.EmpireBase__RoundTooNew.selector, firstSlashingRound, slashingProposer.getCurrentRound()
       )
     );
     slashingProposer.submitRoundWinner(firstSlashingRound);

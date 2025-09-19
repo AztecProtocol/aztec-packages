@@ -189,6 +189,12 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
     let logData: Record<string, unknown> = { currentRound, executableRound, slotNumber };
 
     try {
+      // Check if slashing is enabled at all
+      if (!(await this.slasher.isSlashingEnabled())) {
+        this.log.warn(`Slashing is disabled in the Slasher contract (skipping execution)`, logData);
+        return undefined;
+      }
+
       const roundInfo = await this.tallySlashingProposer.getRound(executableRound);
       logData = { ...logData, roundInfo };
       if (roundInfo.isExecuted) {

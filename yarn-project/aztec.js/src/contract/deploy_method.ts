@@ -1,6 +1,6 @@
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { mergeExecutionPayloads } from '@aztec/entrypoints/payload';
-import type { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { type ContractArtifact, type FunctionAbi, type FunctionArtifact, getInitializer } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -95,7 +95,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     // in case the initializer is public. This hints at the need of having "transient" contracts scoped to a
     // simulation, so we can run the simulation with a set of contracts, but only "commit" them to the wallet
     // once this tx has gone through.
-    await this.wallet.registerContract({ artifact: this.artifact, instance: await this.getInstance(options) });
+    await this.wallet.registerContract(await this.getInstance(options), this.artifact);
 
     const initialization = await this.getInitializationExecutionPayload(options);
     const exec = [publication, initialization];
@@ -124,7 +124,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   public async register(options?: DeployOptions): Promise<TContract> {
     const instance = await this.getInstance(options);
-    await this.wallet.registerContract({ artifact: this.artifact, instance });
+    await this.wallet.registerContract(instance, this.artifact);
     return this.postDeployCtor(instance.address, this.wallet);
   }
 
@@ -222,7 +222,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     if (!this.instance) {
       this.instance = await getContractInstanceFromInstantiationParams(this.artifact, {
         constructorArgs: this.args,
-        salt: options?.contractAddressSalt,
+        salt: options?.contractAddressSalt ?? Fr.random(),
         publicKeys: this.publicKeys,
         constructorArtifact: this.constructorArtifact,
         deployer: !options || options.universalDeploy ? AztecAddress.ZERO : options.from,

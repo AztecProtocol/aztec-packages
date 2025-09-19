@@ -1075,13 +1075,18 @@ field_t<Builder> field_t<Builder>::select_from_three_bit_table(const std::array<
  * @brief Constrain a + b + c + d to be equal to 0
  */
 template <typename Builder>
-void field_t<Builder>::evaluate_linear_identity(const field_t& a, const field_t& b, const field_t& c, const field_t& d)
+void field_t<Builder>::evaluate_linear_identity(
+    const field_t& a, const field_t& b, const field_t& c, const field_t& d, const std::string& msg)
 {
     Builder* ctx = validate_context(a.context, b.context, c.context, d.context);
 
     if (a.is_constant() && b.is_constant() && c.is_constant() && d.is_constant()) {
         BB_ASSERT_EQ(a.get_value() + b.get_value() + c.get_value() + d.get_value(), 0);
         return;
+    }
+
+    if (a.get_value() + b.get_value() + c.get_value() + d.get_value() != bb::fr::zero()) {
+        ctx->failure(msg);
     }
 
     // validate that a + b + c + d = 0
@@ -1105,10 +1110,8 @@ void field_t<Builder>::evaluate_linear_identity(const field_t& a, const field_t&
  * by creating a `big_mul_gate`.
  */
 template <typename Builder>
-void field_t<Builder>::evaluate_polynomial_identity(const field_t& a,
-                                                    const field_t& b,
-                                                    const field_t& c,
-                                                    const field_t& d)
+void field_t<Builder>::evaluate_polynomial_identity(
+    const field_t& a, const field_t& b, const field_t& c, const field_t& d, const std::string& msg)
 {
     if (a.is_constant() && b.is_constant() && c.is_constant() && d.is_constant()) {
         ASSERT((a.get_value() * b.get_value() + c.get_value() + d.get_value()).is_zero());
@@ -1116,6 +1119,10 @@ void field_t<Builder>::evaluate_polynomial_identity(const field_t& a,
     }
 
     Builder* ctx = validate_context(a.context, b.context, c.context, d.context);
+
+    if ((a.get_value() * b.get_value() + c.get_value() + d.get_value()) != bb::fr::zero()) {
+        ctx->failure(msg);
+    }
 
     // validate that a * b + c + d = 0
     bb::fr mul_scaling = a.multiplicative_constant * b.multiplicative_constant;

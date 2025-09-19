@@ -70,6 +70,7 @@ export class PublicTxContext {
     public readonly state: PhaseStateManager,
     private readonly startTreeSnapshots: TreeSnapshots,
     private readonly globalVariables: GlobalVariables,
+    private readonly protocolContractTreeRoot: Fr,
     private readonly gasSettings: GasSettings,
     private readonly gasUsedByPrivate: Gas,
     private readonly gasAllocatedToPublic: Gas,
@@ -90,6 +91,7 @@ export class PublicTxContext {
     contractsDB: PublicContractsDBInterface,
     tx: Tx,
     globalVariables: GlobalVariables,
+    protocolContractTreeRoot: Fr,
     doMerkleOperations: boolean,
   ) {
     const nonRevertibleAccumulatedDataFromPrivate = tx.data.forPublic!.nonRevertibleAccumulatedData;
@@ -118,6 +120,7 @@ export class PublicTxContext {
       new PhaseStateManager(txStateManager),
       await txStateManager.getTreeSnapshots(),
       globalVariables,
+      protocolContractTreeRoot,
       gasSettings,
       gasUsedByPrivate,
       gasAllocatedToPublic,
@@ -374,6 +377,7 @@ export class PublicTxContext {
 
     return new AvmCircuitPublicInputs(
       this.globalVariables,
+      this.protocolContractTreeRoot,
       this.startTreeSnapshots,
       /*startGasUsed=*/ this.gasUsedByPrivate,
       this.gasSettings,

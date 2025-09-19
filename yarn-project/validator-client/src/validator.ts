@@ -26,7 +26,8 @@ import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type { IFullNodeBlockBuilder, Validator, ValidatorClientFullConfig } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@aztec/stdlib/p2p';
-import { GlobalVariables, type ProposedBlockHeader, type StateReference, type Tx } from '@aztec/stdlib/tx';
+import type { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { GlobalVariables, type StateReference, type Tx } from '@aztec/stdlib/tx';
 import {
   AttestationTimeoutError,
   ReExFailedTxsError,
@@ -171,8 +172,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       telemetry,
     );
 
-    // TODO(PhilWindle): This seems like it could/should be done inside start()
-    validator.registerBlockProposalHandler();
     return validator;
   }
 
@@ -203,9 +202,15 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   public async start() {
+    if (this.epochCacheUpdateLoop.isRunning()) {
+      this.log.warn(`Validator client already started`);
+      return;
+    }
+
+    this.registerBlockProposalHandler();
+
     // Sync the committee from the smart contract
     // https://github.com/AztecProtocol/aztec-packages/issues/7962
-
     const myAddresses = this.getValidatorAddresses();
 
     const inCommittee = await this.epochCache.filterInCommittee('now', myAddresses);
@@ -467,7 +472,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   async createBlockProposal(
     blockNumber: number,
-    header: ProposedBlockHeader,
+    header: CheckpointHeader,
     archive: Fr,
     stateReference: StateReference,
     txs: Tx[],

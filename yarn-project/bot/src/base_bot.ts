@@ -11,7 +11,7 @@ import {
   waitForProven,
 } from '@aztec/aztec.js';
 import { Gas } from '@aztec/stdlib/gas';
-import type { PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import type { BotConfig } from './config.js';
 
@@ -22,7 +22,7 @@ export abstract class BaseBot {
   protected successes: number = 0;
 
   protected constructor(
-    public readonly pxe: PXE,
+    public readonly node: AztecNode,
     public readonly wallet: Wallet,
     public readonly defaultAccountAddress: AztecAddress,
     public config: BotConfig,
@@ -51,7 +51,7 @@ export abstract class BaseBot {
       timeout: txMinedWaitSeconds,
     });
     if (followChain === 'PROVEN') {
-      await waitForProven(this.pxe, receipt, { provenTimeout: txMinedWaitSeconds });
+      await waitForProven(this.node, receipt, { provenTimeout: txMinedWaitSeconds });
     }
     this.successes++;
     this.log.info(
