@@ -733,29 +733,24 @@ template <typename Builder> cycle_group<Builder>& cycle_group<Builder>::operator
 }
 
 /**
- * @brief Internal algorithm to perform a variable-base batch mul.
+ * @brief Internal logic to perform a variable-base batch mul using the Straus MSM algorithm.
  *
- * @note Explicit assumption that all base_points are witnesses and not constants!
- *       Constant points must be filtered out by `batch_mul` before calling this.
+ * @details Computes \sum_i scalars[i] * base_points[i] using the windowed Straus algorithm with 4-bit windows.
+ * The algorithm operates in three phases:
+ * 1. Native computation: Compute all EC operations natively to generate witness hints (avoiding expensive modular
+ * inversions)
+ * 2. Table construction: Build in-circuit ROM lookup tables containing multiples of each base point
+ * 3. Circuit execution: Perform the Straus algorithm in-circuit using the ROM tables and precomputed hints
  *
- * @details batch mul performed via the Straus multiscalar multiplication algorithm
- *          (optimal for MSMs where num points <128-ish).
+ * @note Offset generators are added to prevent point-at-infinity edge cases. The returned result is:
+ *       \sum_i scalars[i] * base_points[i] + offset_accumulator
+ *       where offset_accumulator is also returned separately for later subtraction.
  *
- * @details If `unconditional_add = true`, we use `::unconditional_add` instead of `::checked_unconditional_add`.
- *          Use with caution! Only should be `true` if we're doing an ULTRA fixed-base MSM so we know the points cannot
- *          collide with the offset generators.
- *
- * @note This method is used to evaluate fixed-base MSMs over points that do not exist in our precomputed plookup
- * tables. This is a compromise between maximizing circuit efficiency and minimizing the blowup size of our precomputed
- * table polynomials. variable-base mul uses small ROM lookup tables which are witness-defined and not part of the
- * plookup protocol.
- *
- * @tparam Builder
- * @param scalars
- * @param base_points
- * @param offset_generators
- * @param unconditional_add
- * @return cycle_group<Builder>::batch_mul_internal_output
+ * @param scalars Vector of scalar multipliers (must all have the same bit length)
+ * @param base_points Vector of EC points to multiply (can be constants or witnesses)
+ * @param offset_generators Precomputed offset points to prevent infinity edge cases (size = base_points.size() + 1)
+ * @param unconditional_add If true, skip x-coordinate collision checks (safe only when points are guaranteed distinct)
+ * @return {accumulator, offset_accumulator} where result = accumulator - offset_accumulator
  */
 template <typename Builder>
 typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_variable_base_batch_mul_internal(
