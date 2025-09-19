@@ -1,4 +1,4 @@
-import { PUBLIC_LOGS_PAYLOAD_LENGTH, PUBLIC_LOG_HEADER_LENGTH } from '@aztec/constants';
+import { FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH, PUBLIC_LOG_HEADER_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
@@ -22,11 +22,11 @@ describe('FlatPublicLogs', () => {
   describe('constructor', () => {
     it('should create FlatPublicLogs with valid parameters', () => {
       const length = 10;
-      const payload = Array(PUBLIC_LOGS_PAYLOAD_LENGTH).fill(Fr.ZERO);
+      const payload = Array(FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH).fill(Fr.ZERO);
       const logs = new FlatPublicLogs(length, payload);
 
       expect(logs.length).toBe(length);
-      expect(logs.payload.length).toBe(PUBLIC_LOGS_PAYLOAD_LENGTH);
+      expect(logs.payload.length).toBe(FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH);
     });
 
     it('should throw error if payload length is invalid', () => {
@@ -37,8 +37,8 @@ describe('FlatPublicLogs', () => {
     });
 
     it('should throw error if length is greater than payload length', () => {
-      const length = PUBLIC_LOGS_PAYLOAD_LENGTH + 1;
-      const payload = Array(PUBLIC_LOGS_PAYLOAD_LENGTH).fill(Fr.ZERO);
+      const length = FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH + 1;
+      const payload = Array(FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH).fill(Fr.ZERO);
 
       expect(() => new FlatPublicLogs(length, payload)).toThrow('Invalid length given to FlatPublicLogs');
     });
@@ -49,7 +49,7 @@ describe('FlatPublicLogs', () => {
       const emptyLogs = FlatPublicLogs.empty();
 
       expect(emptyLogs.length).toBe(0);
-      expect(emptyLogs.payload.length).toBe(PUBLIC_LOGS_PAYLOAD_LENGTH);
+      expect(emptyLogs.payload.length).toBe(FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH);
       expect(emptyLogs.isEmpty()).toBe(true);
     });
 
@@ -57,7 +57,7 @@ describe('FlatPublicLogs', () => {
       const logs = FlatPublicLogs.fromLogs(sampleLogs);
 
       expect(logs.length).toEqual(sampleLogs.reduce((acc, log) => acc + log.sizeInFields(), 0));
-      expect(logs.payload.length).toBe(PUBLIC_LOGS_PAYLOAD_LENGTH);
+      expect(logs.payload.length).toBe(FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH);
       expect(logs.isEmpty()).toBe(false);
     });
 

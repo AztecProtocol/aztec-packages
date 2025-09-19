@@ -131,7 +131,7 @@ struct PublicLog {
 
 struct PublicLogs {
     uint32_t length;
-    std::array<FF, PUBLIC_LOGS_PAYLOAD_LENGTH> payload;
+    std::array<FF, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH> payload;
     bool operator==(const PublicLogs& other) const = default;
 
     MSGPACK_FIELDS(length, payload);

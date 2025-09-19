@@ -1,11 +1,11 @@
 import {
+  FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  PUBLIC_LOGS_PAYLOAD_LENGTH,
   PUBLIC_LOG_HEADER_LENGTH,
 } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -143,7 +143,7 @@ describe('Public Side Effect Trace', () => {
       // Fill the payload with one super large log
       trace.tracePublicLog(
         AztecAddress.fromNumber(42),
-        new Array(PUBLIC_LOGS_PAYLOAD_LENGTH - PUBLIC_LOG_HEADER_LENGTH).fill(new Fr(42)),
+        new Array(FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH - PUBLIC_LOG_HEADER_LENGTH).fill(new Fr(42)),
       );
       expect(() => trace.tracePublicLog(AztecAddress.fromNumber(42), [])).toThrow(SideEffectLimitReachedError);
     });
@@ -191,7 +191,7 @@ describe('Public Side Effect Trace', () => {
           MAX_NOTE_HASHES_PER_TX,
           MAX_NULLIFIERS_PER_TX,
           MAX_L2_TO_L1_MSGS_PER_TX,
-          PUBLIC_LOGS_PAYLOAD_LENGTH,
+          FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH,
         ),
       );
       await expect(

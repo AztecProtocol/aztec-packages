@@ -1,11 +1,11 @@
 import {
+  FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  PUBLIC_LOGS_PAYLOAD_LENGTH,
 } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -229,8 +229,8 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
 
     const publicLog = new PublicLog(contractAddress, log);
 
-    if (previouslyEmittedPublicLogFieldsCount + publicLog.sizeInFields() > PUBLIC_LOGS_PAYLOAD_LENGTH) {
-      throw new SideEffectLimitReachedError('public log fields', PUBLIC_LOGS_PAYLOAD_LENGTH);
+    if (previouslyEmittedPublicLogFieldsCount + publicLog.sizeInFields() > FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH) {
+      throw new SideEffectLimitReachedError('public log fields', FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH);
     }
 
     this.publicLogs.push(publicLog);

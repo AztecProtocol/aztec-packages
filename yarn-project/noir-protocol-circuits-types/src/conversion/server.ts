@@ -12,8 +12,8 @@ import {
   BLS12_FQ_LIMBS,
   BLS12_FR_LIMBS,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
+  FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH,
   type NULLIFIER_TREE_HEIGHT,
-  PUBLIC_LOGS_PAYLOAD_LENGTH,
   ULTRA_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
 import { BLS12Fq, BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
@@ -540,7 +540,7 @@ function mapPrivateToAvmAccumulatedDataArrayLengthsToNoir(
 function mapFlatPublicLogsToNoir(logs: FlatPublicLogs): PublicLogsNoir {
   return {
     length: mapNumberToNoir(logs.length),
-    payload: logs.payload.map(mapFieldToNoir) as FixedLengthArray<NoirField, typeof PUBLIC_LOGS_PAYLOAD_LENGTH>,
+    payload: logs.payload.map(mapFieldToNoir) as FixedLengthArray<NoirField, typeof FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH>,
   };
 }
 

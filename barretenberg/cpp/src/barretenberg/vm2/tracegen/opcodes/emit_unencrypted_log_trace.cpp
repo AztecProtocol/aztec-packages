@@ -95,7 +95,7 @@ void EmitUnencryptedLogTraceBuilder::process(
                     { C::emit_unencrypted_log_end_log_address, log_address + event.log_size - 1 },
                     { C::emit_unencrypted_log_error_too_many_log_fields, event.error_too_many_log_fields },
                     { C::emit_unencrypted_log_expected_next_log_fields, expected_next_log_fields },
-                    { C::emit_unencrypted_log_public_logs_payload_length, PUBLIC_LOGS_PAYLOAD_LENGTH },
+                    { C::emit_unencrypted_log_public_logs_payload_length, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH },
                     { C::emit_unencrypted_log_error_tag_mismatch, event.error_tag_mismatch },
                     { C::emit_unencrypted_log_seen_wrong_tag, seen_wrong_tag },
                     { C::emit_unencrypted_log_error_too_many_logs_wrong_tag_is_static,

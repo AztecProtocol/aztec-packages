@@ -1,4 +1,4 @@
-import { PUBLIC_LOGS_PAYLOAD_LENGTH, PUBLIC_LOG_HEADER_LENGTH } from '@aztec/constants';
+import { FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH, PUBLIC_LOG_HEADER_LENGTH } from '@aztec/constants';
 import type { FieldsOf } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
@@ -15,12 +15,12 @@ function totalSizeInFields(logs: PublicLog[]) {
 
 // This class represents logs in the same format as noir does, with a bounded maximum length.
 export class FlatPublicLogs {
-  // We don't use tuple here because PUBLIC_LOGS_PAYLOAD_LENGTH is too large
+  // We don't use tuple here because FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH is too large
   constructor(
     public length: number,
     public payload: Fr[],
   ) {
-    if (payload.length !== PUBLIC_LOGS_PAYLOAD_LENGTH) {
+    if (payload.length !== FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH) {
       throw new Error('Invalid payload given to FlatPublicLogs');
     }
     if (length > payload.length) {
@@ -30,7 +30,7 @@ export class FlatPublicLogs {
 
   private static fromUnpaddedPayload(payload: Fr[]) {
     const length = payload.length;
-    return new FlatPublicLogs(length, [...payload, ...Array(PUBLIC_LOGS_PAYLOAD_LENGTH - length).fill(Fr.ZERO)]);
+    return new FlatPublicLogs(length, [...payload, ...Array(FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH - length).fill(Fr.ZERO)]);
   }
 
   // In blobs, the actual nonempty length of the logs is encoded with the prefix, and then we have the non-padded payload.
@@ -64,7 +64,7 @@ export class FlatPublicLogs {
     return z
       .object({
         length: z.number(),
-        payload: z.array(schemas.Fr).min(PUBLIC_LOGS_PAYLOAD_LENGTH).max(PUBLIC_LOGS_PAYLOAD_LENGTH),
+        payload: z.array(schemas.Fr).min(FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH).max(FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH),
       })
       .transform(({ length, payload }) => new FlatPublicLogs(length, payload));
   }
@@ -89,14 +89,14 @@ export class FlatPublicLogs {
     // We need to do this because field reader returns tuples, which break the type system on these sizes.
     const length = reader.readU32();
     const payload: Fr[] = [];
-    for (let i = 0; i < PUBLIC_LOGS_PAYLOAD_LENGTH; ++i) {
+    for (let i = 0; i < FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH; ++i) {
       payload.push(reader.readField());
     }
     return new FlatPublicLogs(length, payload);
   }
 
   static empty() {
-    return new FlatPublicLogs(0, Array(PUBLIC_LOGS_PAYLOAD_LENGTH).fill(Fr.ZERO));
+    return new FlatPublicLogs(0, Array(FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH).fill(Fr.ZERO));
   }
 
   isEmpty() {

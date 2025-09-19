@@ -110,8 +110,8 @@ TEST(EmitUnencryptedLogConstrainingTest, ErrorTooManyLogFields)
     MemoryAddress log_address = 27;
     uint32_t log_size = 2;
     // Minus three so header = 2 + log_size = 2 doesn't fit
-    SideEffectStates side_effect_states = { .numUnencryptedLogFields = PUBLIC_LOGS_PAYLOAD_LENGTH - 3 };
-    SideEffectStates next_side_effect_states = { .numUnencryptedLogFields = PUBLIC_LOGS_PAYLOAD_LENGTH - 3 };
+    SideEffectStates side_effect_states = { .numUnencryptedLogFields = FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH - 3 };
+    SideEffectStates next_side_effect_states = { .numUnencryptedLogFields = FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH - 3 };
 
     EmitUnencryptedLogWriteEvent event = {
         .execution_clk = 1,
@@ -243,7 +243,7 @@ TEST(EmitUnencryptedLogConstrainingTest, Interactions)
             // GT - check log size
             { C::gt_sel, 1 },
             { C::gt_input_a, next_side_effect_states.numUnencryptedLogFields },
-            { C::gt_input_b, PUBLIC_LOGS_PAYLOAD_LENGTH },
+            { C::gt_input_b, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH },
             { C::gt_res, 0 },
         },
         {

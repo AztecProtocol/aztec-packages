@@ -20,7 +20,7 @@ include "../constants_gen.pil";
  *
  * Validation checks:
  * - Memory addresses must be within bounds (≤ AVM_HIGHEST_MEM_ADDRESS)
- * - Must not exceed maximum log fields per transaction (PUBLIC_LOGS_PAYLOAD_LENGTH)
+ * - Must not exceed maximum log fields per transaction (FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH)
  * - All log fields must have FF tags
  * - Cannot emit logs in static context
  *
@@ -151,7 +151,7 @@ namespace emit_unencrypted_log;
 
     // TODO: Column needed until we support constants in lookups
     pol commit public_logs_payload_length;
-    start * (public_logs_payload_length - constants.PUBLIC_LOGS_PAYLOAD_LENGTH) = 0;
+    start * (public_logs_payload_length - constants.FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH) = 0;
 
     #[CHECK_LOG_FIELDS_COUNT]
     start { expected_next_log_fields, public_logs_payload_length, error_too_many_log_fields }

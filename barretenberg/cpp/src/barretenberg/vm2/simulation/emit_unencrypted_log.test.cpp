@@ -36,7 +36,7 @@ TEST(EmitUnencryptedLogTest, Basic)
     EmitUnencryptedLog emit_unencrypted_log(execution_id_manager, greater_than, event_emitter);
 
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillOnce(Return(1));
-    EXPECT_CALL(greater_than, gt(expected_next_num_unencrypted_log_fields, PUBLIC_LOGS_PAYLOAD_LENGTH))
+    EXPECT_CALL(greater_than, gt(expected_next_num_unencrypted_log_fields, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH))
         .WillOnce(Return(false));
     EXPECT_CALL(greater_than, gt(end_log_address, AVM_HIGHEST_MEM_ADDRESS)).WillOnce(Return(false));
 
@@ -91,7 +91,7 @@ TEST(EmitUnencryptedLogTest, NegativeMemoryOutOfBounds)
     EmitUnencryptedLog emit_unencrypted_log(execution_id_manager, greater_than, event_emitter);
 
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillOnce(Return(1));
-    EXPECT_CALL(greater_than, gt(expected_next_num_unencrypted_log_fields, PUBLIC_LOGS_PAYLOAD_LENGTH))
+    EXPECT_CALL(greater_than, gt(expected_next_num_unencrypted_log_fields, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH))
         .WillOnce(Return(false));
     EXPECT_CALL(greater_than, gt(end_log_address, AVM_HIGHEST_MEM_ADDRESS)).WillOnce(Return(true));
 
@@ -136,14 +136,14 @@ TEST(EmitUnencryptedLogTest, NegativeTooManyLogs)
     uint32_t log_size = 2;
     uint64_t end_log_address = 28;
     // Minus three so header = 2 + log_size = 2 doesn't fit
-    SideEffectStates side_effect_states = { .numUnencryptedLogFields = PUBLIC_LOGS_PAYLOAD_LENGTH - 3 };
-    uint32_t expected_next_num_unencrypted_log_fields = PUBLIC_LOGS_PAYLOAD_LENGTH + 1;
-    SideEffectStates next_side_effect_states = { .numUnencryptedLogFields = PUBLIC_LOGS_PAYLOAD_LENGTH - 3 };
+    SideEffectStates side_effect_states = { .numUnencryptedLogFields = FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH - 3 };
+    uint32_t expected_next_num_unencrypted_log_fields = FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH + 1;
+    SideEffectStates next_side_effect_states = { .numUnencryptedLogFields = FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH - 3 };
 
     EmitUnencryptedLog emit_unencrypted_log(execution_id_manager, greater_than, event_emitter);
 
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillOnce(Return(1));
-    EXPECT_CALL(greater_than, gt(expected_next_num_unencrypted_log_fields, PUBLIC_LOGS_PAYLOAD_LENGTH))
+    EXPECT_CALL(greater_than, gt(expected_next_num_unencrypted_log_fields, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH))
         .WillOnce(Return(true));
     EXPECT_CALL(greater_than, gt(end_log_address, AVM_HIGHEST_MEM_ADDRESS)).WillOnce(Return(false));
 
@@ -199,7 +199,7 @@ TEST(EmitUnencryptedLogTest, NegativeTagMismatch)
     EmitUnencryptedLog emit_unencrypted_log(execution_id_manager, greater_than, event_emitter);
 
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillOnce(Return(1));
-    EXPECT_CALL(greater_than, gt(expected_next_num_unencrypted_log_fields, PUBLIC_LOGS_PAYLOAD_LENGTH))
+    EXPECT_CALL(greater_than, gt(expected_next_num_unencrypted_log_fields, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH))
         .WillOnce(Return(false));
     EXPECT_CALL(greater_than, gt(end_log_address, AVM_HIGHEST_MEM_ADDRESS)).WillOnce(Return(false));
 
@@ -255,7 +255,7 @@ TEST(EmitUnencryptedLogTest, NegativeStatic)
     EmitUnencryptedLog emit_unencrypted_log(execution_id_manager, greater_than, event_emitter);
 
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillOnce(Return(1));
-    EXPECT_CALL(greater_than, gt(expected_next_num_unencrypted_log_fields, PUBLIC_LOGS_PAYLOAD_LENGTH))
+    EXPECT_CALL(greater_than, gt(expected_next_num_unencrypted_log_fields, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH))
         .WillOnce(Return(false));
     EXPECT_CALL(greater_than, gt(end_log_address, AVM_HIGHEST_MEM_ADDRESS)).WillOnce(Return(false));
 

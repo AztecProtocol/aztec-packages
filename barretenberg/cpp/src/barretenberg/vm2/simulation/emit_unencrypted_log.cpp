@@ -22,7 +22,7 @@ void EmitUnencryptedLog::emit_unencrypted_log(MemoryInterface& memory,
 
     uint32_t expected_next_emitted_log_fields = prev_emitted_log_fields + total_log_fields_size;
 
-    bool error_too_many_log_fields = greater_than.gt(expected_next_emitted_log_fields, PUBLIC_LOGS_PAYLOAD_LENGTH);
+    bool error_too_many_log_fields = greater_than.gt(expected_next_emitted_log_fields, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH);
 
     bool error_is_static = context.get_is_static();
 

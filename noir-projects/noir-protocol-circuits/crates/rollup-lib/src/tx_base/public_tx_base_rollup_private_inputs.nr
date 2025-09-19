@@ -159,12 +159,12 @@ mod tests {
         },
         constants::{
             AVM_VK_INDEX, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_CLASS_LOGS_PREFIX,
-            L2_L1_MSGS_PREFIX, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
-            MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
+            FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH, L2_L1_MSGS_PREFIX, MAX_CONTRACT_CLASS_LOGS_PER_TX,
+            MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
             MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTES_PREFIX, NULLIFIERS_PREFIX,
             PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOGS_PREFIX, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
-            PUBLIC_LOGS_PAYLOAD_LENGTH, PUBLIC_LOGS_PREFIX, PUBLIC_TUBE_VK_INDEX,
-            REVERT_CODE_PREFIX, TX_FEE_PREFIX, TX_START_PREFIX,
+            PUBLIC_LOGS_PREFIX, PUBLIC_TUBE_VK_INDEX, REVERT_CODE_PREFIX, TX_FEE_PREFIX,
+            TX_START_PREFIX,
         },
         data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::{compute_contract_class_log_hash, silo_l2_to_l1_message},
@@ -545,9 +545,9 @@ mod tests {
         let mut builder = PublicTxBaseRollupPrivateInputsBuilder::new();
 
         // Create a log whose length is larger than the max allowed.
-        builder.avm_data.append_public_logs_with_lengths::<PUBLIC_LOGS_PAYLOAD_LENGTH + 1, _>([
-            PUBLIC_LOGS_PAYLOAD_LENGTH + 1,
-        ]);
+        builder.avm_data.append_public_logs_with_lengths::<FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH + 1, _>(
+            [FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH + 1],
+        );
 
         let _ = builder.execute();
     }
