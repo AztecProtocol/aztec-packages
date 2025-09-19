@@ -74,7 +74,12 @@ std::string format_percentage_value(double percentage, const char* color)
 std::string format_percentage(double value, double total, double min_threshold = 0.0)
 {
     double percentage = (total <= 0) ? 0.0 : (value / total) * 100.0;
-    if (total <= 0 || percentage < min_threshold) {
+    // TEMPORARILY DISABLED: Show all percentages no matter how small
+    // if (total <= 0 || percentage < min_threshold) {
+    //     return "       ";
+    // }
+    (void)min_threshold; // Suppress unused parameter warning
+    if (total <= 0) {
         return "       ";
     }
 
@@ -345,7 +350,8 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
 
         // Print time if available with aligned section including indent level
         if (entry.time_max > 0) {
-            if (time_ms < 100.0) {
+            // TEMPORARILY DISABLED: Show full format for all times
+            if (false) { // was: time_ms < 100.0
                 // Minimal format for <100ms: only [level] and percentage, no time display
                 std::ostringstream minimal_oss;
                 minimal_oss << Colors::MAGENTA << "[" << indent_level << "] " << Colors::RESET;
@@ -401,7 +407,9 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
         if (!printed_in_detail.contains(key)) {
             for (const auto& [child_key, parent_map] : aggregated) {
                 for (const auto& [parent_key, entry] : parent_map) {
-                    if (parent_key == key && entry.time_max >= 500000) { // 0.5ms in nanoseconds
+                    // TEMPORARILY DISABLED: Show all children no matter how small
+                    // if (parent_key == key && entry.time_max >= 500000) { // 0.5ms in nanoseconds
+                    if (parent_key == key && entry.time_max > 0) { // Show everything
                         children.push_back(child_key);
                         break;
                     }
@@ -438,7 +446,9 @@ void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream
         for (const auto& child_key : children) {
             if (auto it = aggregated.find(child_key); it != aggregated.end()) {
                 for (const auto& [parent_key, entry] : it->second) {
-                    if (parent_key == key && entry.time_max >= 500000) { // 0.5ms in nanoseconds
+                    // TEMPORARILY DISABLED: Count all children time
+                    // if (parent_key == key && entry.time_max >= 500000) { // 0.5ms in nanoseconds
+                    if (parent_key == key && entry.time_max > 0) { // Count everything
                         children_total_time += entry.time_max;
                     }
                 }
