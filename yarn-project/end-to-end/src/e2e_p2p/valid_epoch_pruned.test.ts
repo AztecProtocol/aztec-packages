@@ -92,7 +92,7 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
     expect(activationThreshold - slashingAmount).toBeLessThan(biggestEjection);
 
     t.ctx.aztecNodeConfig.slashPrunePenalty = slashingAmount;
-    t.ctx.aztecNodeConfig.validatorReexecute = false;
+    t.ctx.aztecNodeConfig.sequencerReexecute = false;
     t.ctx.aztecNodeConfig.minTxsPerBlock = 0;
 
     // Jump forward to an epoch in the future such that the validator set is not empty

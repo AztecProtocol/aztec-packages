@@ -498,7 +498,7 @@ describe('e2e_synching', () => {
           async (opts: Partial<EndToEndContext>, variant: TestVariant) => {
             // All the blocks have been "re-played" and we are now to simply get a new node up to speed
             const timer = new Timer();
-            const freshNode = await AztecNodeService.createAndSync({ ...opts.config!, disableValidator: true });
+            const freshNode = await AztecNodeService.createAndSync({ ...opts.config!, disableSequencer: true });
             const syncTime = timer.s();
 
             const blockNumber = await freshNode.getBlockNumber();

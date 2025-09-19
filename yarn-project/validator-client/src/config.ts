@@ -11,17 +11,17 @@ import type { ValidatorClientConfig } from '@aztec/stdlib/interfaces/server';
 export type { ValidatorClientConfig };
 
 export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientConfig> = {
-  validatorPrivateKeys: {
-    env: 'VALIDATOR_PRIVATE_KEYS',
-    description: 'List of private keys of the validators participating in attestation duties',
+  sequencerPrivateKeys: {
+    env: 'SEQUENCER_PRIVATE_KEYS',
+    description: 'List of private keys of the sequencers participating in attestation duties',
     ...secretValueConfigHelper<`0x${string}`[]>(val =>
       val ? val.split(',').map<`0x${string}`>(key => `0x${key.replace('0x', '')}`) : [],
     ),
-    fallback: ['VALIDATOR_PRIVATE_KEY'],
+    fallback: ['SEQUENCER_PRIVATE_KEY'],
   },
   validatorAddresses: {
-    env: 'VALIDATOR_ADDRESSES',
-    description: 'List of addresses of the validators to use with remote signers',
+    env: 'SEQUENCER_ADDRESSES',
+    description: 'List of addresses of the sequencers to use with remote signers',
     parseEnv: (val: string) =>
       val
         .split(',')
@@ -29,13 +29,13 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
         .map(address => EthAddress.fromString(address.trim())),
     defaultValue: [],
   },
-  disableValidator: {
-    env: 'VALIDATOR_DISABLED',
-    description: 'Do not run the validator',
+  disableSequencer: {
+    env: 'SEQUENCER_DISABLED',
+    description: 'Do not run the sequencer',
     ...booleanConfigHelper(false),
   },
-  disabledValidators: {
-    description: 'Temporarily disable these specific validator addresses',
+  disabledSequencers: {
+    description: 'Temporarily disable these specific sequencer addresses',
     parseEnv: (val: string) =>
       val
         .split(',')
@@ -44,17 +44,17 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     defaultValue: [],
   },
   attestationPollingIntervalMs: {
-    env: 'VALIDATOR_ATTESTATIONS_POLLING_INTERVAL_MS',
+    env: 'SEQUENCER_ATTESTATIONS_POLLING_INTERVAL_MS',
     description: 'Interval between polling for new attestations',
     ...numberConfigHelper(200),
   },
-  validatorReexecute: {
-    env: 'VALIDATOR_REEXECUTE',
+  sequencerReexecute: {
+    env: 'SEQUENCER_REEXECUTE',
     description: 'Re-execute transactions before attesting',
     ...booleanConfigHelper(true),
   },
-  validatorReexecuteDeadlineMs: {
-    env: 'VALIDATOR_REEXECUTE_DEADLINE_MS',
+  sequencerReexecuteDeadlineMs: {
+    env: 'SEQUENCER_REEXECUTE_DEADLINE_MS',
     description: 'Will re-execute until this many milliseconds are left in the slot',
     ...numberConfigHelper(6000),
   },

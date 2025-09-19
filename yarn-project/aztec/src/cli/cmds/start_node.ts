@@ -92,7 +92,7 @@ export async function startNode(
   };
 
   if (!options.sequencer) {
-    nodeConfig.disableValidator = true;
+    nodeConfig.disableSequencer = true;
   } else {
     const sequencerConfig = {
       ...configFromEnvVars,
@@ -100,8 +100,8 @@ export async function startNode(
     };
     // If no publisher private keys have been given, use the first validator key
     if (sequencerConfig.publisherPrivateKeys === undefined || !sequencerConfig.publisherPrivateKeys.length) {
-      if (sequencerConfig.validatorPrivateKeys?.getValue().length) {
-        sequencerConfig.publisherPrivateKeys = [new SecretValue(sequencerConfig.validatorPrivateKeys.getValue()[0])];
+      if (sequencerConfig.sequencerPrivateKeys?.getValue().length) {
+        sequencerConfig.publisherPrivateKeys = [new SecretValue(sequencerConfig.sequencerPrivateKeys.getValue()[0])];
       }
     }
     nodeConfig.publisherPrivateKeys = sequencerConfig.publisherPrivateKeys;

@@ -27,7 +27,7 @@ fi
 
 SALT=${1:-$RANDOM}
 CHAIN_ID=$2
-VALIDATOR_ADDRESSES=$3
+SEQUENCER_ADDRESSES=$3
 
 # If the chain ID is 11155111 or 1, we are deploying to a public network, make sure that we do not use accelerated test deployments
 PUBLIC_CHAIN_ID=false
@@ -82,7 +82,7 @@ for attempt in $(seq 1 $MAX_RETRIES); do
 
   # Add validators if INIT_VALIDATORS is true
   if [ "${INIT_VALIDATORS:-false}" = "true" ]; then
-    base_cmd="$base_cmd --validators $VALIDATOR_ADDRESSES"
+    base_cmd="$base_cmd --validators $SEQUENCER_ADDRESSES"
   fi
 
   output=$(eval $base_cmd --l1-chain-id $CHAIN_ID --salt $SALT) && break

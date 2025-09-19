@@ -342,7 +342,7 @@ async function setupFromFresh(
   const proverNodePrivateKey = getPrivateKeyFromIndex(0);
 
   aztecNodeConfig.publisherPrivateKeys = [new SecretValue<`0x${string}`>(`0x${publisherPrivKey!.toString('hex')}`)];
-  aztecNodeConfig.validatorPrivateKeys = new SecretValue([`0x${validatorPrivKey!.toString('hex')}`]);
+  aztecNodeConfig.sequencerPrivateKeys = new SecretValue([`0x${validatorPrivKey!.toString('hex')}`]);
   aztecNodeConfig.coinbase = opts.coinbase ?? EthAddress.fromString(`${hdAccount.address}`);
 
   logger.info(`Setting up environment with config`, aztecNodeConfig);

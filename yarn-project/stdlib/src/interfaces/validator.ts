@@ -18,25 +18,25 @@ import type { CheckpointHeader } from '../rollup/checkpoint_header.js';
  */
 export interface ValidatorClientConfig {
   /** The private keys of the validators participating in attestation duties */
-  validatorPrivateKeys?: SecretValue<`0x${string}`[]>;
+  sequencerPrivateKeys?: SecretValue<`0x${string}`[]>;
 
   /** The addresses of the validators to use with remote signers */
   validatorAddresses?: EthAddress[];
 
   /** Do not run the validator */
-  disableValidator: boolean;
+  disableSequencer: boolean;
 
   /** Temporarily disable these specific validator addresses */
-  disabledValidators: EthAddress[];
+  disabledSequencers: EthAddress[];
 
   /** Interval between polling for new attestations from peers */
   attestationPollingIntervalMs: number;
 
   /** Re-execute transactions before attesting */
-  validatorReexecute: boolean;
+  sequencerReexecute: boolean;
 
   /** Will re-execute until this many milliseconds are left in the slot */
-  validatorReexecuteDeadlineMs: number;
+  sequencerReexecuteDeadlineMs: number;
 }
 
 export type ValidatorClientFullConfig = ValidatorClientConfig &
@@ -45,12 +45,12 @@ export type ValidatorClientFullConfig = ValidatorClientConfig &
 
 export const ValidatorClientConfigSchema = z.object({
   validatorAddresses: z.array(schemas.EthAddress).optional(),
-  disableValidator: z.boolean(),
-  disabledValidators: z.array(schemas.EthAddress),
+  disableSequencer: z.boolean(),
+  disabledSequencers: z.array(schemas.EthAddress),
   attestationPollingIntervalMs: z.number().min(0),
-  validatorReexecute: z.boolean(),
-  validatorReexecuteDeadlineMs: z.number().min(0),
-}) satisfies ZodFor<Omit<ValidatorClientConfig, 'validatorPrivateKeys'>>;
+  sequencerReexecute: z.boolean(),
+  sequencerReexecuteDeadlineMs: z.number().min(0),
+}) satisfies ZodFor<Omit<ValidatorClientConfig, 'sequencerPrivateKeys'>>;
 
 export interface Validator {
   start(): Promise<void>;

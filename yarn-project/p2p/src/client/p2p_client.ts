@@ -119,7 +119,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     // validator-client code into here so we can validate a proposal is reasonable.
     this.registerBlockProposalHandler(async (block, sender) => {
       this.log.debug(`Received block proposal from ${sender.toString()}`);
-      // TODO(palla/txs): Need to subtract validatorReexecuteDeadlineMs from this deadline (see ValidatorClient.getReexecutionDeadline)
+      // TODO(palla/txs): Need to subtract sequencerReexecuteDeadlineMs from this deadline (see ValidatorClient.getReexecutionDeadline)
       const constants = this.txCollection.getConstants();
       const nextSlotTimestampSeconds = Number(getTimestampForSlot(block.slotNumber.toBigInt() + 1n, constants));
       const deadline = new Date(nextSlotTimestampSeconds * 1000);

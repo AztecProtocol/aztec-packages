@@ -54,7 +54,7 @@ spec:
               source /scripts/get-validator-addresses.sh
               {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
 
-              /scripts/deploy-l1-contracts.sh "{{ .Values.aztec.l1Salt }}" "{{ .Values.ethereum.chainId }}" "$VALIDATOR_ADDRESSES"
+              /scripts/deploy-l1-contracts.sh "{{ .Values.aztec.l1Salt }}" "{{ .Values.ethereum.chainId }}" "$SEQUENCER_ADDRESSES"
           volumeMounts:
             - name: scripts-output
               mountPath: /shared/contracts
@@ -187,7 +187,7 @@ spec:
               value: "{{ .Values.network.mempoolLimitBytes }}"
             - name: COINBASE
               value: "{{ .Values.bootNode.coinbaseAddress }}"
-            - name: VALIDATOR_DISABLED
+            - name: SEQUENCER_DISABLED
               value: "true"
             - name: L1_CHAIN_ID
               value: "{{ .Values.ethereum.chainId }}"

@@ -178,7 +178,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   public getValidatorAddresses() {
     return this.keyStore
       .getAddresses()
-      .filter(addr => !this.config.disabledValidators.some(disabled => disabled.equals(addr)));
+      .filter(addr => !this.config.disabledSequencers.some(disabled => disabled.equals(addr)));
   }
 
   public signWithAddress(addr: EthAddress, msg: TypedDataDefinition) {
@@ -361,7 +361,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     // Try re-executing the transactions in the proposal
     try {
       this.log.verbose(`Processing attestation for slot ${slotNumber}`, proposalInfo);
-      if (this.config.validatorReexecute) {
+      if (this.config.sequencerReexecute) {
         this.log.verbose(`Re-executing transactions in the proposal before attesting`);
         await this.reExecuteTransactions(proposal, txs, l1ToL2Messages);
       }
@@ -388,7 +388,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     config: { l1GenesisTime: bigint; slotDuration: number },
   ): Date {
     const nextSlotTimestampSeconds = Number(getTimestampForSlot(proposal.slotNumber.toBigInt() + 1n, config));
-    const msNeededForPropagationAndPublishing = this.config.validatorReexecuteDeadlineMs;
+    const msNeededForPropagationAndPublishing = this.config.sequencerReexecuteDeadlineMs;
     return new Date(nextSlotTimestampSeconds * 1000 - msNeededForPropagationAndPublishing);
   }
 

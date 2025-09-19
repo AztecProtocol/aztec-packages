@@ -40,20 +40,20 @@ private_key=$(cast wallet private-key "$MNEMONIC" --mnemonic-index $PRIVATE_KEY_
 address=$(cast wallet address "$private_key")
 
 # combine keys
-validator_private_keys=$(
+SEQUENCER_PRIVATE_KEYS=$(
   IFS=,
   echo "${private_keys[*]}"
 )
 
-validator_addresses=$(
+SEQUENCER_ADDRESSES=$(
   IFS=,
   echo "${addresses[*]}"
 )
 
 # Note, currently writing keys for all services for convenience
 cat <<EOF >/shared/config/keys.env
-export VALIDATOR_PRIVATE_KEYS=$validator_private_keys
-export VALIDATOR_ADDRESSES=$validator_addresses
+export SEQUENCER_PRIVATE_KEYS=$SEQUENCER_PRIVATE_KEYS
+export SEQUENCER_ADDRESSES=$SEQUENCER_ADDRESSES
 export L1_PRIVATE_KEY=$private_key
 export SEQ_PUBLISHER_ADDRESSES=$address
 export SEQ_PUBLISHER_PRIVATE_KEY=$private_key

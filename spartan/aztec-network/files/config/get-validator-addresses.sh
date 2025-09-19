@@ -20,7 +20,7 @@ first_two=$(echo "$MNEMONIC" | cut -d' ' -f1-2)
 echo "First two words of mnemonic: $first_two"
 
 # Initialize empty string for validator addresses
-VALIDATOR_ADDRESSES_LIST=""
+SEQUENCER_ADDRESSES_LIST=""
 
 i=$KEY_INDEX_START
 while [ $i -lt $((KEY_INDEX_START + TOTAL_VALIDATORS)) ]; do
@@ -29,13 +29,13 @@ while [ $i -lt $((KEY_INDEX_START + TOTAL_VALIDATORS)) ]; do
   address=$(cast wallet address "$private_key")
 
   # Append address with comma if not first address
-  if [ -n "$VALIDATOR_ADDRESSES_LIST" ]; then
-    VALIDATOR_ADDRESSES_LIST="$VALIDATOR_ADDRESSES_LIST,$address"
+  if [ -n "$SEQUENCER_ADDRESSES_LIST" ]; then
+    SEQUENCER_ADDRESSES_LIST="$SEQUENCER_ADDRESSES_LIST,$address"
   else
-    VALIDATOR_ADDRESSES_LIST="$address"
+    SEQUENCER_ADDRESSES_LIST="$address"
   fi
 
   i=$((i + 1))
 done
 
-export VALIDATOR_ADDRESSES=$VALIDATOR_ADDRESSES_LIST
+export SEQUENCER_ADDRESSES=$SEQUENCER_ADDRESSES_LIST

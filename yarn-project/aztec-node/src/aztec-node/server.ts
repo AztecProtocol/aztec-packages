@@ -213,7 +213,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
 
     // If we are a validator, verify our configuration before doing too much more.
-    if (!config.disableValidator) {
+    if (!config.disableSequencer) {
       if (keyStoreManager === undefined) {
         throw new Error('Failed to create key store, a requirement for running a validator');
       }
@@ -370,7 +370,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     let sequencer: SequencerClient | undefined;
     let slasherClient: SlasherClientInterface | undefined;
 
-    if (!config.disableValidator) {
+    if (!config.disableSequencer) {
       // We create a slasher only if we have a sequencer, since all slashing actions go through the sequencer publisher
       // as they are executed when the node is selected as proposer.
       const validatorAddresses = keyStoreManager

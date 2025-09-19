@@ -56,7 +56,7 @@ export type AztecNodeConfig = ArchiverConfig &
     /** L1 contracts addresses */
     l1Contracts: L1ContractAddresses;
     /** Whether the validator is disabled for this node */
-    disableValidator: boolean;
+    disableSequencer: boolean;
   };
 
 export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
@@ -77,8 +77,8 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
     description: 'The deployed L1 contract addresses',
     nested: l1ContractAddressesMapping,
   },
-  disableValidator: {
-    env: 'VALIDATOR_DISABLED',
+  disableSequencer: {
+    env: 'SEQUENCER_DISABLED',
     description: 'Whether the validator is disabled for this node.',
     ...booleanConfigHelper(),
   },
@@ -126,8 +126,8 @@ function createKeyStoreFromWeb3Signer(config: ConfigRequiredToBuildKeyStore) {
 
 function createKeyStoreFromPrivateKeys(config: ConfigRequiredToBuildKeyStore) {
   const validatorKeyStores: ValidatorKeyStore[] = [];
-  const ethPrivateKeys = config.validatorPrivateKeys
-    ? config.validatorPrivateKeys.getValue().map(x => ethPrivateKeySchema.parse(x))
+  const ethPrivateKeys = config.sequencerPrivateKeys
+    ? config.sequencerPrivateKeys.getValue().map(x => ethPrivateKeySchema.parse(x))
     : [];
 
   if (!ethPrivateKeys.length) {

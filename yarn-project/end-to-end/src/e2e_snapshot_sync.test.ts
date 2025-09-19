@@ -54,7 +54,7 @@ describe('e2e_snapshot_sync', () => {
     return await withLogNameSuffix(suffix, () =>
       AztecNodeService.createAndSync({
         ...context.config,
-        disableValidator: true,
+        disableSequencer: true,
         dataDirectory: join(context.config.dataDirectory!, randomBytes(8).toString('hex')),
         ...config,
       }),

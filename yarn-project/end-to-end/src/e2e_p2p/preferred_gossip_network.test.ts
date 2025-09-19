@@ -164,11 +164,11 @@ describe('e2e_p2p_preferred_network', () => {
       throw new Error('Bootstrap node ENR is not available');
     }
 
-    t.ctx.aztecNodeConfig.validatorReexecute = true;
+    t.ctx.aztecNodeConfig.sequencerReexecute = true;
 
     const preferredNodeConfig: AztecNodeConfig = {
       ...t.ctx.aztecNodeConfig,
-      disableValidator: true,
+      disableSequencer: true,
       // Only permit validators to connect and switch off discovery
       p2pAllowOnlyValidators: true,
       p2pDiscoveryDisabled: true,
@@ -210,7 +210,7 @@ describe('e2e_p2p_preferred_network', () => {
 
     const nodeConfig: AztecNodeConfig = {
       ...t.ctx.aztecNodeConfig,
-      disableValidator: true,
+      disableSequencer: true,
 
       // The regular nodes will attempt to connect to the preferred nodes but they should fail the authentication
       preferredPeers: preferredNodeEnrs.filter(enr => enr !== undefined),
@@ -236,7 +236,7 @@ describe('e2e_p2p_preferred_network', () => {
 
     const validatorConfig: AztecNodeConfig = {
       ...t.ctx.aztecNodeConfig,
-      disableValidator: false,
+      disableSequencer: false,
       preferredPeers: preferredNodeEnrs.filter(enr => enr !== undefined),
     };
 
@@ -260,7 +260,7 @@ describe('e2e_p2p_preferred_network', () => {
     const lastValidatorConfig: AztecNodeConfig = {
       ...t.ctx.aztecNodeConfig,
       p2pDiscoveryDisabled: true,
-      disableValidator: false,
+      disableSequencer: false,
       preferredPeers: preferredNodeEnrs.filter(enr => enr !== undefined),
     };
 

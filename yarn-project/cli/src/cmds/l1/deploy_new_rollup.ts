@@ -18,7 +18,7 @@ export async function deployNewRollup(
   testAccounts: boolean,
   sponsoredFPC: boolean,
   json: boolean,
-  initialValidators: Operator[],
+  initialSequencers: Operator[],
   realVerifier: boolean,
   log: LogFn,
   debugLogger: Logger,
@@ -38,7 +38,7 @@ export async function deployNewRollup(
     mnemonic,
     mnemonicIndex,
     salt,
-    initialValidators,
+    initialSequencers,
     genesisArchiveRoot,
     fundingNeeded,
     config,
@@ -52,7 +52,7 @@ export async function deployNewRollup(
         {
           rollupAddress: rollup.address,
           initialFundedAccounts: initialFundedAccounts.map(a => a.toString()),
-          initialValidators: initialValidators.map(a => a.attester.toString()),
+          initialValidators: initialSequencers.map(a => a.attester.toString()),
           genesisArchiveRoot: genesisArchiveRoot.toString(),
           slashFactoryAddress: slashFactoryAddress.toString(),
         },
@@ -63,7 +63,7 @@ export async function deployNewRollup(
   } else {
     log(`Rollup Address: ${rollup.address}`);
     log(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
-    log(`Initial validators: ${initialValidators.map(a => a.attester.toString()).join(', ')}`);
+    log(`Initial validators: ${initialSequencers.map(a => a.attester.toString()).join(', ')}`);
     log(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
     log(`Slash Factory Address: ${slashFactoryAddress.toString()}`);
   }

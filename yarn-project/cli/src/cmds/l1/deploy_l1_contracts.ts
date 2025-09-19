@@ -20,7 +20,7 @@ export async function deployL1Contracts(
   acceleratedTestDeployments: boolean,
   json: boolean,
   createVerificationJson: string | false,
-  initialValidators: EthAddress[],
+  initialSequencers: EthAddress[],
   realVerifier: boolean,
   log: LogFn,
   debugLogger: Logger,
@@ -32,7 +32,7 @@ export async function deployL1Contracts(
   const initialFundedAccounts = initialAccounts.map(a => a.address).concat(sponsoredFPCAddress);
   const { genesisArchiveRoot, fundingNeeded } = await getGenesisValues(initialFundedAccounts);
 
-  const initialValidatorOperators = initialValidators.map(a => ({
+  const initialValidatorOperators = initialSequencers.map(a => ({
     attester: a,
     withdrawer: a,
     bn254SecretKey: new SecretValue(Fr.random().toBigInt()),
@@ -81,7 +81,7 @@ export async function deployL1Contracts(
     log(`StakingAssetHandler Address: ${l1ContractAddresses.stakingAssetHandlerAddress?.toString()}`);
     log(`ZK Passport Verifier Address: ${l1ContractAddresses.zkPassportVerifierAddress?.toString()}`);
     log(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
-    log(`Initial validators: ${initialValidators.map(a => a.toString()).join(', ')}`);
+    log(`Initial validators: ${initialSequencers.map(a => a.toString()).join(', ')}`);
     log(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
   }
 }

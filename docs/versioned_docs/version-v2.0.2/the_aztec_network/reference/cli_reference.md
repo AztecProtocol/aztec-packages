@@ -449,19 +449,19 @@ If two subsystems can contain the same configuration option, only one needs to b
     --sequencer
           Starts Aztec Sequencer with options
 
-    --sequencer.validatorPrivateKeys <value>                       (default: [Redacted])                                         ($VALIDATOR_PRIVATE_KEYS)
+    --sequencer.sequencerPrivateKeys <value>                       (default: [Redacted])                                         ($SEQUENCER_PRIVATE_KEYS)
           List of private keys of the validators participating in attestation duties
 
-    --sequencer.disableValidator <value>                                                                                          ($VALIDATOR_DISABLED)
+    --sequencer.disableSequencer <value>                                                                                          ($SEQUENCER_DISABLED)
           Do not run the validator
 
-    --sequencer.attestationPollingIntervalMs <value>               (default: 200)                                                ($VALIDATOR_ATTESTATIONS_POLLING_INTERVAL_MS)
+    --sequencer.attestationPollingIntervalMs <value>               (default: 200)                                                ($SEQUENCER_ATTESTATIONS_POLLING_INTERVAL_MS)
           Interval between polling for new attestations
 
-    --sequencer.validatorReexecute <value>                         (default: true)                                               ($VALIDATOR_REEXECUTE)
+    --sequencer.sequencerReexecute <value>                         (default: true)                                               ($SEQUENCER_REEXECUTE)
           Re-execute transactions before attesting
 
-    --sequencer.validatorReexecuteDeadlineMs <value>               (default: 6000)                                               ($VALIDATOR_REEXECUTE_DEADLINE_MS)
+    --sequencer.sequencerReexecuteDeadlineMs <value>               (default: 6000)                                               ($SEQUENCER_REEXECUTE_DEADLINE_MS)
           Will re-execute until this many milliseconds are left in the slot
 
     --sequencer.transactionPollingIntervalMS <value>               (default: 500)                                                ($SEQ_TX_POLLING_INTERVAL_MS)

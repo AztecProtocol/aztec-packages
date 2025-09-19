@@ -144,7 +144,7 @@ function verifyKeyStore(directory: string) {
 }
 
 describe('e2e_multi_validator_node', () => {
-  let initialValidatorPrivateKeys: `0x${string}`[];
+  let initialsequencerPrivateKeys: `0x${string}`[];
   let validatorAddresses: `0x${string}`[];
   let teardown: () => Promise<void>;
   let wallet: Wallet;
@@ -168,15 +168,15 @@ describe('e2e_multi_validator_node', () => {
   const expectedPublishers = new Map<string, string[]>();
 
   beforeEach(async () => {
-    initialValidatorPrivateKeys = Array.from(
+    initialsequencerPrivateKeys = Array.from(
       { length: VALIDATOR_COUNT },
       (_, i) => `0x${getPrivateKeyFromIndex(i + VALIDATOR_KEY_START_INDEX)!.toString('hex')}` as `0x${string}`,
     );
-    validatorAddresses = initialValidatorPrivateKeys.map(pk => {
+    validatorAddresses = initialsequencerPrivateKeys.map(pk => {
       const account = privateKeyToAccount(pk);
       return EthAddress.fromString(account.address).toString();
     });
-    const initialValidators = initialValidatorPrivateKeys.map(pk => {
+    const initialValidators = initialsequencerPrivateKeys.map(pk => {
       const account = privateKeyToAccount(pk);
       return {
         attester: EthAddress.fromString(account.address),

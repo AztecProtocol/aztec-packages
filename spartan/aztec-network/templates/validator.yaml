@@ -134,9 +134,9 @@ spec:
               value: "{{ .Values.validator.p2p.dropTransactions }}"
             - name: P2P_DROP_TX_CHANCE
               value: "{{ .Values.validator.p2p.dropTransactionsProbability }}"
-            - name: VALIDATOR_DISABLED
+            - name: SEQUENCER_DISABLED
               value: "{{ .Values.validator.validator.disabled }}"
-            - name: VALIDATOR_REEXECUTE
+            - name: SEQUENCER_REEXECUTE
               value: "{{ .Values.validator.validator.reexecute }}"
             - name: SEQ_MIN_TX_PER_BLOCK
               value: "{{ .Values.validator.sequencer.minTxsPerBlock }}"
@@ -154,7 +154,7 @@ spec:
               value: "{{ .Values.aztec.epochDuration }}"
             - name: AZTEC_PROOF_SUBMISSION_WINDOW
               value: "{{ .Values.aztec.proofSubmissionWindow }}"
-            - name: VALIDATOR_ATTESTATIONS_POLLING_INTERVAL_MS
+            - name: SEQUENCER_ATTESTATIONS_POLLING_INTERVAL_MS
               value: {{ .Values.validator.attestationPollingInterval | quote }}
             - name: ARCHIVER_POLLING_INTERVAL_MS
               value: {{ .Values.validator.archiverPollingInterval | quote }}

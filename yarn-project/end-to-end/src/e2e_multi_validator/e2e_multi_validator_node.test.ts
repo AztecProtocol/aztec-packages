@@ -33,7 +33,7 @@ const COMMITTEE_SIZE = VALIDATOR_COUNT - 2;
 const PUBLISHER_COUNT = 2;
 
 describe('e2e_multi_validator_node', () => {
-  let initialValidatorPrivateKeys: `0x${string}`[];
+  let initialsequencerPrivateKeys: `0x${string}`[];
   let validatorAddresses: `0x${string}`[];
   let teardown: () => Promise<void>;
   let wallet: Wallet;
@@ -47,7 +47,7 @@ describe('e2e_multi_validator_node', () => {
   const artifact = StatefulTestContractArtifact;
 
   beforeEach(async () => {
-    initialValidatorPrivateKeys = Array.from(
+    initialsequencerPrivateKeys = Array.from(
       { length: VALIDATOR_COUNT },
       (_, i) => `0x${getPrivateKeyFromIndex(i)!.toString('hex')}` as `0x${string}`,
     );
@@ -55,11 +55,11 @@ describe('e2e_multi_validator_node', () => {
       { length: PUBLISHER_COUNT },
       (_, i) => `0x${getPrivateKeyFromIndex(i + VALIDATOR_COUNT)!.toString('hex')}` as `0x${string}`,
     );
-    validatorAddresses = initialValidatorPrivateKeys.map(pk => {
+    validatorAddresses = initialsequencerPrivateKeys.map(pk => {
       const account = privateKeyToAccount(pk);
       return EthAddress.fromString(account.address).toString();
     });
-    const initialValidators = initialValidatorPrivateKeys.map(pk => {
+    const initialValidators = initialsequencerPrivateKeys.map(pk => {
       const account = privateKeyToAccount(pk);
       return {
         attester: EthAddress.fromString(account.address),
@@ -146,7 +146,7 @@ describe('e2e_multi_validator_node', () => {
     const rollupContract1 = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
       abi: RollupAbi,
-      client: createExtendedL1Client(config.l1RpcUrls, initialValidatorPrivateKeys[VALIDATOR_COUNT - 1]),
+      client: createExtendedL1Client(config.l1RpcUrls, initialsequencerPrivateKeys[VALIDATOR_COUNT - 1]),
     });
     await rollupContract1.write.initiateWithdraw([
       validatorAddresses[VALIDATOR_COUNT - 1],
@@ -156,7 +156,7 @@ describe('e2e_multi_validator_node', () => {
     const rollupContract2 = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
       abi: RollupAbi,
-      client: createExtendedL1Client(config.l1RpcUrls, initialValidatorPrivateKeys[VALIDATOR_COUNT - 2]),
+      client: createExtendedL1Client(config.l1RpcUrls, initialsequencerPrivateKeys[VALIDATOR_COUNT - 2]),
     });
     await rollupContract2.write.initiateWithdraw([
       validatorAddresses[VALIDATOR_COUNT - 2],
