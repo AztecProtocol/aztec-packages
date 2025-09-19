@@ -7,7 +7,6 @@ const Platform = struct {
     name: []const u8,
 };
 
-
 const platforms = [_]Platform{
     .{ .arch = .x86_64, .os = .linux, .name = "x86_64-linux" },
     .{ .arch = .aarch64, .os = .linux, .name = "aarch64-linux" },
@@ -15,6 +14,7 @@ const platforms = [_]Platform{
     .{ .arch = .aarch64, .os = .macos, .name = "aarch64-macos" },
     .{ .arch = .x86_64, .os = .windows, .name = "x86_64-windows" },
     .{ .arch = .aarch64, .os = .windows, .name = "aarch64-windows" },
+    .{ .arch = .wasm32, .os = .wasi, .name = "wasm32-wasi" },
 };
 
 fn buildLmdb(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
@@ -95,6 +95,11 @@ pub fn build(b: *std.Build) void {
     // Add AVM option
     const enable_avm = b.option(bool, "avm", "Enable Aztec Virtual Machine support") orelse false;
 
+    // Disallow AVM builds for wasm targets.
+    if (target.result.cpu.arch == .wasm32 and enable_avm) {
+        std.debug.panic("AVM builds are not supported for wasm32 targets.", .{});
+    }
+
     const common_flags = [_][]const u8{
         "-std=c++20",
         "-fPIC",
@@ -107,9 +112,17 @@ pub fn build(b: *std.Build) void {
         "-fbracket-depth=1024",
     };
 
-    // Conditional compilation flags based on AVM option
     const cpp_flags_with_disable = common_flags ++ [_][]const u8{"-DDISABLE_AZTEC_VM=1"};
-    const cpp_flags = if (enable_avm) &common_flags else &cpp_flags_with_disable;
+
+    const wasm_flags = cpp_flags_with_disable ++ [_][]const u8{
+        "-DDISABLE_ADX",
+        "-DDISABLE_ASM",
+        "-DTRACY_ENABLE=0",
+        "-D_WASI_EMULATED_PROCESS_CLOCKS",
+        // "-DBB_NO_EXCEPTIONS",
+        // "-fno-exceptions",
+        // "-fno-rtti",
+    };
 
     // Core source files - essential barretenberg functionality
     const core_sources = [_][]const u8{
@@ -152,10 +165,6 @@ pub fn build(b: *std.Build) void {
         "src/barretenberg/crypto/sha256/c_bind.cpp",
         "src/barretenberg/crypto/sha256/sha256.cpp",
 
-        // Merkle tree
-        "src/barretenberg/crypto/merkle_tree/nullifier_tree/nullifier_tree.cpp",
-        "src/barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.cpp",
-
         // Circuit builders
         "src/barretenberg/stdlib_circuit_builders/circuit_builder_base.cpp",
         "src/barretenberg/stdlib_circuit_builders/mega_circuit_builder.cpp",
@@ -165,14 +174,11 @@ pub fn build(b: *std.Build) void {
         "src/barretenberg/stdlib_circuit_builders/plookup_tables/non_native_group_generator.cpp",
         "src/barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.cpp",
 
-        // SRS
+        // SRS (basic bindings and memory factories only for WASM)
         "src/barretenberg/srs/c_bind.cpp",
         "src/barretenberg/srs/global_crs.cpp",
-        "src/barretenberg/srs/factories/native_crs_factory.cpp",
         "src/barretenberg/srs/factories/mem_bn254_crs_factory.cpp",
         "src/barretenberg/srs/factories/mem_grumpkin_crs_factory.cpp",
-        "src/barretenberg/srs/factories/get_bn254_crs.cpp",
-        "src/barretenberg/srs/factories/get_grumpkin_crs.cpp",
 
         // Common utilities
         "src/barretenberg/common/c_bind.cpp",
@@ -200,23 +206,6 @@ pub fn build(b: *std.Build) void {
         // Client IVC
         "src/barretenberg/client_ivc/client_ivc.cpp",
         "src/barretenberg/client_ivc/private_execution_steps.cpp",
-
-        // LMDB library wrapper
-        "src/barretenberg/lmdblib/lmdb_db_transaction.cpp",
-        "src/barretenberg/lmdblib/lmdb_environment.cpp",
-        "src/barretenberg/lmdblib/lmdb_helpers.cpp",
-        "src/barretenberg/lmdblib/lmdb_read_transaction.cpp",
-        "src/barretenberg/lmdblib/lmdb_store.cpp",
-        "src/barretenberg/lmdblib/lmdb_store_base.cpp",
-        "src/barretenberg/lmdblib/lmdb_transaction.cpp",
-        "src/barretenberg/lmdblib/lmdb_write_transaction.cpp",
-        "src/barretenberg/lmdblib/lmdb_cursor.cpp",
-        "src/barretenberg/lmdblib/lmdb_database.cpp",
-        "src/barretenberg/lmdblib/queries.cpp",
-
-        // World state
-        "src/barretenberg/world_state/types.cpp",
-        "src/barretenberg/world_state/world_state.cpp",
 
         // Goblin
         "src/barretenberg/goblin/goblin.cpp",
@@ -281,13 +270,6 @@ pub fn build(b: *std.Build) void {
         "src/barretenberg/bbapi/c_bind.cpp",
         "src/barretenberg/bbapi/bbapi_client_ivc.cpp",
         "src/barretenberg/bbapi/bbapi_ultra_honk.cpp",
-
-        // API
-        "src/barretenberg/api/acir_format_getters.cpp",
-        "src/barretenberg/api/api_ultra_honk.cpp",
-        "src/barretenberg/api/api_client_ivc.cpp",
-        "src/barretenberg/api/prove_tube.cpp",
-        "src/barretenberg/api/api_avm.cpp",
 
         // BB CLI
         "src/barretenberg/bb/cli.cpp",
@@ -383,6 +365,41 @@ pub fn build(b: *std.Build) void {
         "src/barretenberg/protogalaxy/protogalaxy_prover_mega.cpp",
         "src/barretenberg/protogalaxy/protogalaxy_verifier.cpp",
         "src/barretenberg/ext/starknet/crypto/poseidon/poseidon.cpp",
+    };
+
+    const world_state_sources = [_][]const u8{
+        // LMDB library wrapper
+        "src/barretenberg/lmdblib/lmdb_db_transaction.cpp",
+        "src/barretenberg/lmdblib/lmdb_environment.cpp",
+        "src/barretenberg/lmdblib/lmdb_helpers.cpp",
+        "src/barretenberg/lmdblib/lmdb_read_transaction.cpp",
+        "src/barretenberg/lmdblib/lmdb_store.cpp",
+        "src/barretenberg/lmdblib/lmdb_store_base.cpp",
+        "src/barretenberg/lmdblib/lmdb_transaction.cpp",
+        "src/barretenberg/lmdblib/lmdb_write_transaction.cpp",
+        "src/barretenberg/lmdblib/lmdb_cursor.cpp",
+        "src/barretenberg/lmdblib/lmdb_database.cpp",
+        "src/barretenberg/lmdblib/queries.cpp",
+
+        // Merkle trees
+        "src/barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.cpp",
+        "src/barretenberg/crypto/merkle_tree/nullifier_tree/nullifier_tree.cpp",
+
+        // World state
+        "src/barretenberg/world_state/types.cpp",
+        "src/barretenberg/world_state/world_state.cpp",
+
+        // API files (require file I/O, not available in WASM)
+        // "src/barretenberg/api/acir_format_getters.cpp",
+        // "src/barretenberg/api/api_ultra_honk.cpp",
+        // "src/barretenberg/api/api_client_ivc.cpp",
+        // "src/barretenberg/api/prove_tube.cpp",
+        // "src/barretenberg/api/api_avm.cpp",
+
+        // SRS files with file I/O (not available in WASM)
+        "src/barretenberg/srs/factories/native_crs_factory.cpp",
+        "src/barretenberg/srs/factories/get_bn254_crs.cpp",
+        "src/barretenberg/srs/factories/get_grumpkin_crs.cpp",
     };
 
     // Environment-specific files
@@ -621,16 +638,16 @@ pub fn build(b: *std.Build) void {
         "src/barretenberg/vm2/tracegen_helper.cpp",
     };
 
-    // WASI-specific sources (not currently used but available)
+    // WASI-specific sources (only for JS WASM builds, not WASMTIME)
     _ = [_][]const u8{
         "src/barretenberg/wasi/wasm_init.cpp",
         "src/barretenberg/wasi/wasi_stubs.cpp",
     };
 
     // Combine source files based on AVM option
-    const base_sources = core_sources ++ env_sources;
+    const base_sources = core_sources ++ env_sources ++ world_state_sources;
     const avm_sources_full = base_sources ++ avm_sources;
-    const all_sources = if (enable_avm) &avm_sources_full else &base_sources;
+    const wasm_sources = core_sources ++ env_sources;
 
     // Determine current host platform for default build
     const host_platform = std.fmt.allocPrint(
@@ -648,8 +665,11 @@ pub fn build(b: *std.Build) void {
             .os_tag = platform.os,
         });
 
+        const all_sources = if (platform.arch == .wasm32) &wasm_sources else if (enable_avm) &avm_sources_full else &base_sources;
+        const cpp_flags = if (platform.arch == .wasm32) &wasm_flags else if (enable_avm) &common_flags else &cpp_flags_with_disable;
+
         const platform_step = b.step(platform.name, b.fmt("Build for {s}", .{platform.name}));
-        const exe = buildForTarget(b, platform_target, optimize, "bb", all_sources, cpp_flags, enable_avm);
+        const exe = buildForTarget(b, platform_target, optimize, "bb", all_sources, cpp_flags);
         const install = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = platform.name } } });
 
         platform_step.dependOn(&install.step);
@@ -669,21 +689,17 @@ fn buildForTarget(
     exe_name: []const u8,
     sources: []const []const u8,
     flags: []const []const u8,
-    is_avm: bool,
 ) *std.Build.Step.Compile {
-    const lib_name = if (is_avm) "barretenberg-avm" else "barretenberg";
-
-    // Build dependencies from source for each target
-    const lmdb_lib = buildLmdb(b, target, optimize);
     const libdeflate_lib = buildLibdeflate(b, target, optimize);
 
     // Create library
     const lib = b.addLibrary(.{
-        .name = lib_name,
+        .name = "barretenberg",
         .linkage = .static,
         .root_module = b.createModule(.{
             .target = target,
             .optimize = optimize,
+            .single_threaded = false,
         }),
     });
 
@@ -693,6 +709,15 @@ fn buildForTarget(
     });
 
     // Add include paths
+    // Use wasi-sdk for WASM targets if available
+    if (target.result.cpu.arch == .wasm32 and target.result.os.tag == .wasi) {
+        const wasi_sdk_path = "/opt/wasi-sdk";
+        // Add wasi-sdk include paths
+        lib.addIncludePath(.{ .cwd_relative = wasi_sdk_path ++ "/share/wasi-sysroot/include" });
+        lib.addIncludePath(.{ .cwd_relative = wasi_sdk_path ++ "/share/wasi-sysroot/include/wasm32-wasi/c++/v1" });
+        lib.addLibraryPath(.{ .cwd_relative = wasi_sdk_path ++ "/share/wasi-sysroot/lib/wasm32-wasi" });
+    }
+
     lib.addIncludePath(b.path("src"));
     lib.addIncludePath(b.path("build/_deps/msgpack-c/src/msgpack-c/include"));
     lib.addIncludePath(b.path("build/_deps/tracy-src/public"));
@@ -706,6 +731,7 @@ fn buildForTarget(
         .root_module = b.createModule(.{
             .target = target,
             .optimize = optimize,
+            .single_threaded = false,
         }),
     });
 
@@ -714,8 +740,19 @@ fn buildForTarget(
         .flags = flags,
     });
 
+    // Use wasi-sdk for WASM executable targets if available
+    if (target.result.cpu.arch == .wasm32 and target.result.os.tag == .wasi) {
+        const wasi_sdk_path = "/opt/wasi-sdk";
+        exe.addIncludePath(.{ .cwd_relative = wasi_sdk_path ++ "/share/wasi-sysroot/include" });
+        exe.addIncludePath(.{ .cwd_relative = wasi_sdk_path ++ "/share/wasi-sysroot/include/wasm32-wasi/c++/v1" });
+        exe.addLibraryPath(.{ .cwd_relative = wasi_sdk_path ++ "/share/wasi-sysroot/lib/wasm32-wasi" });
+    }
+
     exe.linkLibrary(lib);
-    exe.linkLibrary(lmdb_lib);
+    if (target.result.cpu.arch != .wasm32) {
+        const lmdb_lib = buildLmdb(b, target, optimize);
+        exe.linkLibrary(lmdb_lib);
+    }
     exe.linkLibrary(libdeflate_lib);
     exe.linkLibCpp();
     exe.addIncludePath(b.path("src"));
