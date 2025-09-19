@@ -780,6 +780,74 @@ TEST(PublicDataTreeConstrainingTest, NegativeWriteIdxIncrement)
                               "WRITE_IDX_INCREMENT");
 }
 
+// Negative clock diff decompostion
+TEST(PublicDataTreeConstrainingTest, NegativeClockDiffDecomposition)
+{
+    // Test constraint: CLK_DIFF = clk_diff_lo + 2**16 * clk_diff_hi;
+    TestTraceContainer trace({
+        {
+            { C::public_data_check_not_end, 1 },
+            { C::public_data_check_clk, 12 << 28 },
+            { C::public_data_check_clk_diff_lo, 234 },
+            { C::public_data_check_clk_diff_hi, 1 << 12 },
+        },
+        {
+            { C::public_data_check_clk, (13 << 28) + 234 },
+        },
+    });
+
+    check_relation<public_data_check>(trace, public_data_check::SR_CLK_DIFF_DECOMP);
+
+    // Mutate wrongly clk_diff_lo
+    trace.set(C::public_data_check_clk_diff_lo, 0, trace.get(C::public_data_check_clk_diff_lo, 0) + 1);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_CLK_DIFF_DECOMP),
+                              "CLK_DIFF_DECOMP");
+
+    // Reset
+    trace.set(C::public_data_check_clk_diff_lo, 0, trace.get(C::public_data_check_clk_diff_lo, 0) - 1);
+
+    // Mutate wrongly clk_diff_hi
+    trace.set(C::public_data_check_clk_diff_hi, 0, trace.get(C::public_data_check_clk_diff_hi, 0) + 1);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_CLK_DIFF_DECOMP),
+                              "CLK_DIFF_DECOMP");
+}
+
+// Out of range clock diff
+TEST(PublicDataTreeConstrainingTest, NegativeOutOfRangeClockDiff)
+{
+    TestTraceContainer trace({
+        {
+            { C::public_data_check_not_end, 1 },
+            { C::public_data_check_clk_diff_lo, UINT16_MAX },
+            { C::public_data_check_clk_diff_hi, UINT16_MAX },
+        },
+    });
+
+    PrecomputedTraceBuilder precomputed_trace_builder;
+    precomputed_trace_builder.process_sel_range_16(trace);
+    precomputed_trace_builder.process_misc(trace, 1 << 16);
+
+    check_interaction<PublicDataTreeTraceBuilder,
+                      lookup_public_data_check_clk_diff_range_lo_settings,
+                      lookup_public_data_check_clk_diff_range_hi_settings>(trace);
+
+    // Mutate wrongly clk_diff_lo
+    trace.set(C::public_data_check_clk_diff_lo, 0, UINT16_MAX + 1);
+
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<PublicDataTreeTraceBuilder, lookup_public_data_check_clk_diff_range_lo_settings>(trace)),
+        "Failed.*LOOKUP_PUBLIC_DATA_CHECK_CLK_DIFF_RANGE_LO. Could not find tuple in destination.");
+
+    // Mutate wrongly clk_diff_hi
+    trace.set(C::public_data_check_clk_diff_hi, 0, UINT16_MAX + 1);
+
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<PublicDataTreeTraceBuilder, lookup_public_data_check_clk_diff_range_hi_settings>(trace)),
+        "Failed.*LOOKUP_PUBLIC_DATA_CHECK_CLK_DIFF_RANGE_HI. Could not find tuple in destination.");
+}
+
 // Squashing subtrace
 
 TEST(PublicDataTreeConstrainingTest, SquashingNegativeStartCondition)
@@ -888,6 +956,136 @@ TEST(PublicDataTreeConstrainingTest, SquashingNegativeFinalValueCheck)
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_FINAL_VALUE_CHECK),
                               "FINAL_VALUE_CHECK");
     trace.set(C::public_data_squash_value, 1, 27);
+}
+
+TEST(PublicDataTreeConstrainingTest, SquashingNegativeLeafSlotIncrease)
+{
+    // Test constraint: leaf_slot_increase { leaf_slot', leaf_slot, sel } in ff_gt.sel_gt { ff_gt.a, ff_gt.b,
+    // ff_gt.result }
+    TestTraceContainer trace({ {
+                                   { C::public_data_squash_leaf_slot_increase, 1 },
+                                   { C::public_data_squash_leaf_slot, FF::modulus_minus_two },
+                                   { C::public_data_squash_sel, 1 },
+                               },
+                               {
+                                   { C::public_data_squash_leaf_slot_increase, 0 },
+                                   { C::public_data_squash_leaf_slot, FF::modulus - 1 },
+                                   { C::public_data_squash_sel, 1 },
+                               } });
+
+    // Corresponding ff_gt values. For this trace we keep the correct result.
+    trace.set(0,
+              { {
+                  { C::ff_gt_sel_gt, 1 },
+                  { C::ff_gt_a, FF::modulus - 1 },
+                  { C::ff_gt_b, FF::modulus_minus_two },
+                  { C::ff_gt_result, 1 },
+              } });
+
+    trace.set(1,
+              { {
+                  { C::ff_gt_sel_gt, 1 },
+                  { C::ff_gt_a, FF::modulus_minus_two },
+                  { C::ff_gt_b, FF::modulus_minus_two },
+                  { C::ff_gt_result, 0 },
+              } });
+
+    trace.set(2,
+              { {
+                  { C::ff_gt_sel_gt, 1 },
+                  { C::ff_gt_a, FF::modulus_minus_two },
+                  { C::ff_gt_b, FF::modulus - 3 },
+                  { C::ff_gt_result, 0 },
+              } });
+
+    check_interaction<PublicDataTreeTraceBuilder, lookup_public_data_squash_leaf_slot_increase_ff_gt_settings>(trace);
+
+    // Mutate the second row to be equal to the first row
+    trace.set(C::public_data_squash_leaf_slot, 1, FF::modulus_minus_two);
+
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<PublicDataTreeTraceBuilder, lookup_public_data_squash_leaf_slot_increase_ff_gt_settings>(
+            trace)),
+        "Failed.*LOOKUP_PUBLIC_DATA_SQUASH_LEAF_SLOT_INCREASE_FF_GT. Could not find tuple in destination.");
+
+    // Mutate the second row to be smaller than the first row
+    trace.set(C::public_data_squash_leaf_slot, 1, FF::modulus - 3);
+
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<PublicDataTreeTraceBuilder, lookup_public_data_squash_leaf_slot_increase_ff_gt_settings>(
+            trace)),
+        "Failed.*LOOKUP_PUBLIC_DATA_SQUASH_LEAF_SLOT_INCREASE_FF_GT. Could not find tuple in destination.");
+}
+
+TEST(PublicDataTreeConstrainingTest, SquashingNegativeClockDecomposition)
+{
+    // Test constraint: CLK_DIFF = clk_diff_lo + 2**16 * clk_diff_hi;
+    TestTraceContainer trace({
+        {
+            { C::public_data_squash_sel, 1 },
+            { C::public_data_squash_check_clock, 1 },
+            { C::public_data_squash_clk, 1 << 25 },
+            { C::public_data_squash_clk_diff_lo, 37 },
+            { C::public_data_squash_clk_diff_hi, 12 },
+        },
+        {
+            { C::public_data_squash_sel, 1 },
+            { C::public_data_squash_clk, (1 << 25) + (12 << 16) + 37 },
+        },
+    });
+
+    check_relation<public_data_squash>(trace, public_data_squash::SR_CLK_DIFF_DECOMP);
+
+    // Mutate wrongly clk_diff_lo
+    trace.set(C::public_data_squash_clk_diff_lo, 0, trace.get(C::public_data_squash_clk_diff_lo, 0) + 1);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_CLK_DIFF_DECOMP),
+                              "CLK_DIFF_DECOMP");
+
+    // Reset
+    trace.set(C::public_data_squash_clk_diff_lo, 0, trace.get(C::public_data_squash_clk_diff_lo, 0) - 1);
+
+    // Mutate wrongly clk_diff_hi
+    trace.set(C::public_data_squash_clk_diff_hi, 0, trace.get(C::public_data_squash_clk_diff_hi, 0) + 1);
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_squash>(trace, public_data_squash::SR_CLK_DIFF_DECOMP),
+                              "CLK_DIFF_DECOMP");
+}
+
+// Out of range clk diff
+TEST(PublicDataTreeConstrainingTest, SquashingNegativeOutOfRangeClockDiff)
+{
+    TestTraceContainer trace({
+        {
+            { C::public_data_squash_sel, 1 },
+            { C::public_data_squash_check_clock, 1 },
+            { C::public_data_squash_clk, 1 << 25 },
+            { C::public_data_squash_clk_diff_lo, UINT16_MAX },
+            { C::public_data_squash_clk_diff_hi, UINT16_MAX },
+        },
+    });
+
+    PrecomputedTraceBuilder precomputed_trace_builder;
+    precomputed_trace_builder.process_sel_range_16(trace);
+    precomputed_trace_builder.process_misc(trace, 1 << 16);
+
+    check_interaction<PublicDataTreeTraceBuilder,
+                      lookup_public_data_squash_clk_diff_range_lo_settings,
+                      lookup_public_data_squash_clk_diff_range_hi_settings>(trace);
+
+    // Mutate wrongly clk_diff_lo
+    trace.set(C::public_data_squash_clk_diff_lo, 0, UINT16_MAX + 1);
+
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<PublicDataTreeTraceBuilder, lookup_public_data_squash_clk_diff_range_lo_settings>(trace)),
+        "Failed.*LOOKUP_PUBLIC_DATA_SQUASH_CLK_DIFF_RANGE_LO. Could not find tuple in destination.");
+
+    // Mutate wrongly clk_diff_hi
+    trace.set(C::public_data_squash_clk_diff_hi, 0, UINT16_MAX + 1);
+
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<PublicDataTreeTraceBuilder, lookup_public_data_squash_clk_diff_range_hi_settings>(trace)),
+        "Failed.*LOOKUP_PUBLIC_DATA_SQUASH_CLK_DIFF_RANGE_HI. Could not find tuple in destination.");
 }
 
 } // namespace

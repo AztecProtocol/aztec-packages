@@ -188,7 +188,6 @@ void PublicDataTreeTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::PublicDataTreeCheckEvent>::Container& events,
     TraceContainer& trace)
 {
-
     std::vector<EventWithDiscard> events_with_metadata;
     std::unordered_map<FF, uint32_t> first_write_per_slot;
     std::unordered_map<FF, FF> last_value_per_slot;
@@ -205,11 +204,11 @@ void PublicDataTreeTraceBuilder::process(
     });
 
     // Sort by clk in ascending order (reads will have clk=0)
-    std::sort(events_with_metadata.begin(),
-              events_with_metadata.end(),
-              [](const EventWithDiscard& a, const EventWithDiscard& b) {
-                  return a.event.execution_id < b.event.execution_id;
-              });
+    std::ranges::sort(events_with_metadata.begin(),
+                      events_with_metadata.end(),
+                      [](const EventWithDiscard& a, const EventWithDiscard& b) {
+                          return a.event.execution_id < b.event.execution_id;
+                      });
 
     process_public_data_tree_check_trace(events_with_metadata, first_write_per_slot, last_value_per_slot, trace);
 
@@ -223,14 +222,14 @@ void PublicDataTreeTraceBuilder::process(
     }
 
     // Sort by slot, and then by clk
-    std::sort(nondiscarded_writes.begin(),
-              nondiscarded_writes.end(),
-              [](const PublicDataTreeReadWriteEvent& a, const PublicDataTreeReadWriteEvent& b) {
-                  if (a.leaf_slot == b.leaf_slot) {
-                      return a.execution_id < b.execution_id;
-                  }
-                  return static_cast<uint256_t>(a.leaf_slot) < static_cast<uint256_t>(b.leaf_slot);
-              });
+    std::ranges::sort(nondiscarded_writes.begin(),
+                      nondiscarded_writes.end(),
+                      [](const PublicDataTreeReadWriteEvent& a, const PublicDataTreeReadWriteEvent& b) {
+                          if (a.leaf_slot == b.leaf_slot) {
+                              return a.execution_id < b.execution_id;
+                          }
+                          return static_cast<uint256_t>(a.leaf_slot) < static_cast<uint256_t>(b.leaf_slot);
+                      });
 
     process_squashing_trace(nondiscarded_writes, first_write_per_slot, last_value_per_slot, trace);
 }
