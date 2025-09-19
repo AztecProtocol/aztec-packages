@@ -27,7 +27,6 @@ import {
   StateReference,
   Tx,
   TxExecutionPhase,
-  type TxValidator,
   makeProcessedTxFromPrivateOnlyTx,
   makeProcessedTxFromTxWithPublicCalls,
 } from '@aztec/stdlib/tx';
@@ -384,10 +383,7 @@ export class PublicProcessor implements Traceable {
     return [processedTx, returnValues ?? []];
   }
 
-  private async doTreeInsertionsForPrivateOnlyTx(
-    processedTx: ProcessedTx,
-    txValidator?: TxValidator<ProcessedTx>,
-  ): Promise<void> {
+  private async doTreeInsertionsForPrivateOnlyTx(processedTx: ProcessedTx): Promise<void> {
     const treeInsertionStart = process.hrtime.bigint();
 
     // Update the state so that the next tx in the loop has the correct .startState
@@ -406,14 +402,8 @@ export class PublicProcessor implements Traceable {
         padArrayEnd(processedTx.txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(n => n.toBuffer()),
         NULLIFIER_SUBTREE_HEIGHT,
       );
-    } catch {
-      if (txValidator) {
-        // Ideally the validator has already caught this above, but just in case:
-        throw new Error(`Transaction ${processedTx.hash} invalid after processing public functions`);
-      } else {
-        // We have no validator and assume this call should blindly process txs with duplicates being caught later
-        this.log.warn(`Detected duplicate nullifier after public processing for: ${processedTx.hash}.`);
-      }
+    } catch (cause) {
+      throw new Error(`Transaction ${processedTx.hash} failed with duplicate nullifiers`, { cause });
     }
 
     const treeInsertionEnd = process.hrtime.bigint();
