@@ -42,7 +42,7 @@ template <typename Builder> class cycle_group {
     using BigScalarField = stdlib::bigfield<Builder, bb::fq::Params>;
     using cycle_scalar = ::bb::stdlib::cycle_scalar<Builder>;
     using straus_lookup_table = ::bb::stdlib::straus_lookup_table<Builder>;
-    using straus_scalar_slice = ::bb::stdlib::straus_scalar_slice<Builder>;
+    using straus_scalar_slices = ::bb::stdlib::straus_scalar_slices<Builder>;
 
     // Bit-size for scalars represented in the ROM lookup tables used in the variable-base MSM algorithm
     static constexpr size_t ROM_TABLE_BITS = 4;

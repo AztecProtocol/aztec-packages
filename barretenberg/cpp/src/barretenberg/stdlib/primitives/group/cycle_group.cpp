@@ -740,17 +740,16 @@ template <typename Builder> cycle_group<Builder>& cycle_group<Builder>::operator
  *
  * @details batch mul performed via the Straus multiscalar multiplication algorithm
  *          (optimal for MSMs where num points <128-ish).
- *          If Builder is not ULTRA, number of bits per Straus round = 1,
- *          which reduces to the basic double-and-add algorithm
  *
  * @details If `unconditional_add = true`, we use `::unconditional_add` instead of `::checked_unconditional_add`.
  *          Use with caution! Only should be `true` if we're doing an ULTRA fixed-base MSM so we know the points cannot
  *          collide with the offset generators.
  *
- * @note ULTRA Builder will call `_variable_base_batch_mul_internal` to evaluate fixed-base MSMs over points that do
- *       not exist in our precomputed plookup tables. This is a comprimise between maximising circuit efficiency and
- *       minimizing the blowup size of our precomputed table polynomials. variable-base mul uses small ROM lookup tables
- *       which are witness-defined and not part of the plookup protocol.
+ * @note This method is used to evaluate fixed-base MSMs over points that do not exist in our precomputed plookup
+ * tables. This is a compromise between maximizing circuit efficiency and minimizing the blowup size of our precomputed
+ * table polynomials. variable-base mul uses small ROM lookup tables which are witness-defined and not part of the
+ * plookup protocol.
+ *
  * @tparam Builder
  * @param scalars
  * @param base_points
@@ -771,15 +770,11 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     const size_t num_points = scalars.size();
 
     Builder* context = nullptr;
-    for (auto& scalar : scalars) {
-        if (scalar.lo.get_context() != nullptr) {
-            context = scalar.get_context();
+    for (auto [scalar, point] : zip_view(scalars, base_points)) {
+        if (context = scalar.get_context(); context != nullptr) {
             break;
         }
-    }
-    for (auto& point : base_points) {
-        if (point.get_context() != nullptr) {
-            context = point.get_context();
+        if (context = point.get_context(); context != nullptr) {
             break;
         }
     }
@@ -790,34 +785,37 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     }
     size_t num_rounds = numeric::ceil_div(num_bits, ROM_TABLE_BITS);
 
-    std::vector<straus_scalar_slice> scalar_slices;
+    // Decompose each scalar into 4-bit slices. This operation also enforces range constraints on the lo/hi limbs
+    // of each scalar (LO_BITS and (num_bits - LO_BITS) respectively).
+    std::vector<straus_scalar_slices> scalar_slices;
     scalar_slices.reserve(num_points);
     for (const auto& scalar : scalars) {
         scalar_slices.emplace_back(context, scalar, ROM_TABLE_BITS);
     }
 
-    /**
-     * Compute the witness values of the batch_mul algorithm natively, as Element types with a Z-coordinate.
-     * We then batch-convert to AffineElement types, and feed these points as "hints" into the cycle_group methods.
-     * This avoids the need to compute modular inversions for every group operation, which dramatically reduces witness
-     * generation times
-     */
+    // Compute the result of each point addition involved in the Straus MSM algorithm natively so they can be used as
+    // "hints" in the in-circuit Straus algorithm. Points are computed as Element types with a Z-coordinate then
+    // batch-converted to AffineElement types. This avoids the need to compute modular inversions for every group
+    // operation, which dramatically reduces witness generation times.
     std::vector<Element> operation_transcript;
     Element offset_generator_accumulator = offset_generators[0];
     {
-        // Construct native straus lookup table for each point
+        // For each point, construct native straus lookup table of the form {G , G + [1]P, G + [2]P, ... , G + [15]P}
         std::vector<std::vector<Element>> native_straus_tables;
         for (size_t i = 0; i < num_points; ++i) {
-            std::vector<Element> table_transcript = straus_lookup_table::compute_straus_lookup_table_hints(
-                base_points[i].get_value(), offset_generators[i + 1], ROM_TABLE_BITS);
-            std::copy(table_transcript.begin() + 1, table_transcript.end(), std::back_inserter(operation_transcript));
-            native_straus_tables.emplace_back(std::move(table_transcript));
+            AffineElement point = base_points[i].get_value();
+            AffineElement offset = offset_generators[i + 1];
+            std::vector<Element> table = straus_lookup_table::compute_native_table(point, offset, ROM_TABLE_BITS);
+            // Copy all but the first entry (the offset generator) into the operation transcript for use as hints
+            std::copy(table.begin() + 1, table.end(), std::back_inserter(operation_transcript));
+            native_straus_tables.emplace_back(std::move(table));
         }
 
         // Perform the Straus algorithm natively to generate the witness values (hints) for all intermediate points
         Element accumulator = offset_generators[0];
         for (size_t i = 0; i < num_rounds; ++i) {
             if (i != 0) {
+                // Perform doublings of the accumulator and offset generator accumulator
                 for (size_t j = 0; j < ROM_TABLE_BITS; ++j) {
                     accumulator = accumulator.dbl();
                     operation_transcript.push_back(accumulator);
@@ -825,13 +823,14 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
                 }
             }
             for (size_t j = 0; j < num_points; ++j) {
-                const Element point =
-                    native_straus_tables[j][static_cast<size_t>(scalar_slices[j].slices_native[num_rounds - i - 1])];
-
+                // Look up and accumulate the appropriate point for this scalar slice
+                uint64_t slice_value = scalar_slices[j].slices_native[num_rounds - i - 1];
+                const Element point = native_straus_tables[j][slice_value];
                 accumulator += point;
 
+                // Populate hint and update offset generator accumulator
                 operation_transcript.push_back(accumulator);
-                offset_generator_accumulator = offset_generator_accumulator + Element(offset_generators[j + 1]);
+                offset_generator_accumulator += Element(offset_generators[j + 1]);
             }
         }
     }
@@ -844,7 +843,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         operation_hints.emplace_back(element.x, element.y);
     }
 
-    // Construct an in-circuit straus lookup table for each point
+    // Construct an in-circuit Straus lookup table for each point
     std::vector<straus_lookup_table> point_tables;
     const size_t hints_per_table = (1ULL << ROM_TABLE_BITS) - 1;
     OriginTag tag{};
