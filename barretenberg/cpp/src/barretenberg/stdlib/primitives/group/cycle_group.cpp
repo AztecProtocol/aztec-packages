@@ -333,11 +333,11 @@ template <typename Builder> void cycle_group<Builder>::standardize()
 }
 
 /**
- * @brief Evaluates a doubling. Uses Ultra double gate
+ * @brief Evaluates a point doubling using Ultra ECC double gate (if non-constant)
  *
  * @tparam Builder
- * @param hint : value of output point witness, if known ahead of time (used to avoid modular inversions during witgen)
- * @return cycle_group<Builder>
+ * @param hint native result of the doubling (optional; used to avoid modular inversions during witgen)
+ * @return cycle_group<Builder> The doubled point
  */
 template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement> hint) const
@@ -347,11 +347,11 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
         return *this;
     }
 
-    // ensure we use a value of y that is not zero. (only happens if point at infinity)
-    // this costs 0 gates if `is_infinity` is a circuit constant
+    // To support the point at infinity, we conditionally modify y to be 1 to avoid division by zero in the
+    // doubling formula
     auto modified_y = field_t::conditional_assign(is_point_at_infinity(), 1, y).normalize();
 
-    // Compute the doubled point coordinates (either from hint or by calculation)
+    // Compute the doubled point coordinates (either from hint or by native calculation)
     bb::fr x3;
     bb::fr y3;
     if (hint.has_value()) {
@@ -362,8 +362,7 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
         const bb::fr y1 = modified_y.get_value();
 
         // N.B. the formula to derive the witness value for x3 mirrors the formula in elliptic_relation.hpp
-        // Specifically, we derive x^4 via the Short Weierstrass curve formula `y^2 = x^3 + b`
-        // i.e. x^4 = x * (y^2 - b)
+        // Specifically, we derive x^4 via the Short Weierstrass curve formula `y^2 = x^3 + b` i.e. x^4 = x * (y^2 - b)
         // We must follow this pattern exactly to support the edge-case where the input is the point at infinity.
         const bb::fr y_pow_2 = y1.sqr();
         const bb::fr x_pow_4 = x1 * (y_pow_2 - Group::curve_b);
@@ -373,11 +372,11 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
         y3 = lambda * (x1 - x3) - y1;
     }
 
-    // Create the result based on whether this is a constant or witness
+    // Construct the doubled point based on whether this is a constant or witness
     cycle_group result;
     if (is_constant()) {
         result = cycle_group(x3, y3, is_point_at_infinity());
-        // For constants, propagate the origin tag as-is
+        // Propagate the origin tag as-is
         result.set_origin_tag(get_origin_tag());
     } else {
         // For witness points, create witness result and add constraint gate
@@ -390,7 +389,7 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
             .y3 = result.y.get_witness_index(),
         });
 
-        // For witnesses, merge the x and y origin tags
+        // Merge the x and y origin tags since the output depends on both
         result.x.set_origin_tag(OriginTag(x.get_origin_tag(), y.get_origin_tag()));
         result.y.set_origin_tag(OriginTag(x.get_origin_tag(), y.get_origin_tag()));
     }
