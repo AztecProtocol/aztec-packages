@@ -7,6 +7,13 @@ const Platform = struct {
     name: []const u8,
 };
 
+const BuildVariant = struct {
+    name_suffix: []const u8,  // e.g., "", "-avm"
+    description: []const u8,
+    sources: []const []const u8,
+    flags: []const []const u8,
+};
+
 const platforms = [_]Platform{
     .{ .arch = .x86_64, .os = .linux, .name = "x86_64-linux" },
     .{ .arch = .aarch64, .os = .linux, .name = "aarch64-linux" },
@@ -150,7 +157,7 @@ pub fn build(b: *std.Build) void {
         "src/barretenberg/crypto/sha256/c_bind.cpp",
         "src/barretenberg/crypto/sha256/sha256.cpp",
 
-        // Merkle trees (needs lmdb)
+        // Merkle tree
         "src/barretenberg/crypto/merkle_tree/nullifier_tree/nullifier_tree.cpp",
         "src/barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.cpp",
 
@@ -629,6 +636,12 @@ pub fn build(b: *std.Build) void {
     const all_sources = core_sources ++ env_sources;
     const avm_all_sources = all_sources ++ avm_sources;
 
+    // Define build variants
+    const variants = [_]BuildVariant{
+        .{ .name_suffix = "", .description = "standard build", .sources = &all_sources, .flags = &cpp_flags },
+        .{ .name_suffix = "-avm", .description = "AVM build", .sources = &avm_all_sources, .flags = &avm_flags },
+    };
+
     // Determine current host platform for default build
     const host_platform = std.fmt.allocPrint(
         b.allocator,
@@ -636,9 +649,16 @@ pub fn build(b: *std.Build) void {
         .{ @tagName(target.result.cpu.arch), @tagName(target.result.os.tag) },
     ) catch unreachable;
 
-    // Create cross-compilation steps and handle default build
-    const cross_step = b.step("cross", "Build for all platforms");
-    const cross_avm_step = b.step("cross-avm", "Build AVM for all platforms");
+    // Create cross-compilation steps
+    const cross_steps = blk: {
+        var steps: [variants.len]*std.Build.Step = undefined;
+        for (variants, 0..) |variant, i| {
+            const step_name = if (variant.name_suffix.len == 0) "cross" else b.fmt("cross{s}", .{variant.name_suffix});
+            const step_desc = b.fmt("Build {s} for all platforms", .{variant.description});
+            steps[i] = b.step(step_name, step_desc);
+        }
+        break :blk steps;
+    };
 
     for (platforms) |platform| {
         const platform_target = b.resolveTargetQuery(.{
@@ -646,30 +666,31 @@ pub fn build(b: *std.Build) void {
             .os_tag = platform.os,
         });
 
-        const step_name = std.fmt.allocPrint(b.allocator, "{s}", .{platform.name}) catch unreachable;
-        const platform_step = b.step(step_name, b.fmt("Build for {s}", .{platform.name}));
+        for (variants, 0..) |variant, variant_idx| {
+            const step_name = b.fmt("{s}{s}", .{ platform.name, variant.name_suffix });
+            const exe_name = if (variant.name_suffix.len == 0) "bb" else b.fmt("bb{s}", .{variant.name_suffix});
+            const step_desc = b.fmt("Build {s} for {s}", .{ variant.description, platform.name });
 
-        const bb = buildForTarget(b, platform_target, optimize, "bb", &all_sources, &cpp_flags, false);
-        const bb_install = b.addInstallArtifact(bb, .{ .dest_dir = .{ .override = .{ .custom = platform.name } } });
-        platform_step.dependOn(&bb_install.step);
-        cross_step.dependOn(platform_step);
+            const platform_step = b.step(step_name, step_desc);
+            const exe = buildForTarget(b, platform_target, optimize, exe_name, variant.sources, variant.flags, variant.name_suffix.len > 0);
+            const install = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = platform.name } } });
 
-        const avm_step_name = std.fmt.allocPrint(b.allocator, "{s}-avm", .{platform.name}) catch unreachable;
-        const avm_platform_step = b.step(avm_step_name, b.fmt("Build AVM for {s}", .{platform.name}));
+            platform_step.dependOn(&install.step);
+            cross_steps[variant_idx].dependOn(platform_step);
 
-        const bb_avm = buildForTarget(b, platform_target, optimize, "bb-avm", &avm_all_sources, &avm_flags, true);
-        const bb_avm_install = b.addInstallArtifact(bb_avm, .{ .dest_dir = .{ .override = .{ .custom = platform.name } } });
-        avm_platform_step.dependOn(&bb_avm_install.step);
-        cross_avm_step.dependOn(avm_platform_step);
-
-        // If this platform matches the host, add to default build
-        if (std.mem.eql(u8, platform.name, host_platform)) {
-            // Add default build to the install step
-            b.getInstallStep().dependOn(&bb_install.step);
-
-            // Create AVM build step for host platform
-            const avm_step = b.step("avm", "Build bb with AVM support for host platform");
-            avm_step.dependOn(&bb_avm_install.step);
+            // If this platform matches the host, add to default build
+            if (std.mem.eql(u8, platform.name, host_platform)) {
+                if (variant.name_suffix.len == 0) {
+                    // Default build
+                    b.getInstallStep().dependOn(&install.step);
+                } else {
+                    // Create named variant step for host platform (e.g., "avm")
+                    const host_variant_name = variant.name_suffix[1..]; // Remove the "-" prefix
+                    const host_variant_desc = b.fmt("Build {s} for host platform", .{variant.description});
+                    const host_variant_step = b.step(host_variant_name, host_variant_desc);
+                    host_variant_step.dependOn(&install.step);
+                }
+            }
         }
     }
 }
