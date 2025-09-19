@@ -24,7 +24,7 @@ export class DoubleSpendTxValidator<T extends AnyTx> implements TxValidator<T> {
     const nullifiers = tx instanceof Tx ? tx.data.getNonEmptyNullifiers() : tx.txEffect.nullifiers;
 
     // Ditch this tx if it has repeated nullifiers
-    const uniqueNullifiers = new Set(nullifiers);
+    const uniqueNullifiers = new Set(nullifiers.map(n => n.toBigInt()));
     if (uniqueNullifiers.size !== nullifiers.length) {
       this.#log.verbose(`Rejecting tx ${'txHash' in tx ? tx.txHash : tx.hash} for emitting duplicate nullifiers`);
       return { result: 'invalid', reason: [TX_ERROR_DUPLICATE_NULLIFIER_IN_TX] };
