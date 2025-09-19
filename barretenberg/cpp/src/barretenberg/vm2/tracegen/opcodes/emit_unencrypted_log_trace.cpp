@@ -110,7 +110,7 @@ void EmitUnencryptedLogTraceBuilder::process(
                     { C::emit_unencrypted_log_correct_tag, correct_tag },
                     { C::emit_unencrypted_log_tag_inv, tag_inv },
                     { C::emit_unencrypted_log_public_inputs_index,
-                      AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX + PUBLIC_LOGS_HEADER_LENGTH +
+                      AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX + FLAT_PUBLIC_LOGS_HEADER_LENGTH +
                           event.prev_num_unencrypted_log_fields + i },
                     { C::emit_unencrypted_log_public_inputs_value, public_inputs_value },
                 } });

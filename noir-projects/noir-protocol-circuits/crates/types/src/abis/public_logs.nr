@@ -1,6 +1,6 @@
 use crate::abis::log::Log;
 use crate::address::aztec_address::AztecAddress;
-use crate::constants::PUBLIC_LOGS_PAYLOAD_LENGTH;
+use crate::constants::{PUBLIC_LOG_HEADER_LENGTH, PUBLIC_LOGS_PAYLOAD_LENGTH};
 use crate::traits::{Deserialize, Empty, Serialize, ToField};
 
 #[derive(Eq, Serialize, Deserialize)]
@@ -16,12 +16,14 @@ impl PublicLogs {
     }
 
     pub fn add_log<let N: u32>(&mut self, contract_address: AztecAddress, log: Log<N>) {
+        // Header
         self.payload[self.length] = log.length as Field;
         self.payload[self.length + 1] = contract_address.to_field();
+        // Payload
         for i in 0..log.length {
-            self.payload[self.length + 2 + i] = log.fields[i];
+            self.payload[self.length + PUBLIC_LOG_HEADER_LENGTH + i] = log.fields[i];
         }
-        self.length += log.length + 2;
+        self.length += log.length + PUBLIC_LOG_HEADER_LENGTH;
     }
 }
 

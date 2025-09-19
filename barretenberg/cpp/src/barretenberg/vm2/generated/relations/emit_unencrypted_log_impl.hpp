@@ -17,7 +17,7 @@ void emit_unencrypted_logImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 
     BB_BENCH_NAME("accumulate/emit_unencrypted_log");
 
-    const auto constants_PUBLIC_LOGS_HEADER_LENGTH = FF(1);
+    const auto constants_FLAT_PUBLIC_LOGS_HEADER_LENGTH = FF(1);
     const auto constants_PUBLIC_LOGS_PAYLOAD_LENGTH = FF(4096);
     const auto constants_PUBLIC_LOG_HEADER_LENGTH = FF(2);
     const auto constants_MEM_TAG_FF = FF(0);
@@ -230,8 +230,8 @@ void emit_unencrypted_logImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<27, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::emit_unencrypted_log_start)) -
-                    static_cast<View>(in.get(C::emit_unencrypted_log_is_write_contract_address_shift)));
+        auto tmp = (static_cast<View>(in.get(C::emit_unencrypted_log_is_write_contract_address_shift)) -
+                    static_cast<View>(in.get(C::emit_unencrypted_log_start)));
         std::get<27>(evals) += (tmp * scaling_factor);
     }
     {
@@ -333,7 +333,7 @@ void emit_unencrypted_logImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         using View = typename std::tuple_element_t<41, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::emit_unencrypted_log_start)) *
                    ((CView(constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX) +
-                     CView(constants_PUBLIC_LOGS_HEADER_LENGTH) +
+                     CView(constants_FLAT_PUBLIC_LOGS_HEADER_LENGTH) +
                      static_cast<View>(in.get(C::emit_unencrypted_log_prev_num_unencrypted_log_fields))) -
                     static_cast<View>(in.get(C::emit_unencrypted_log_public_inputs_index)));
         std::get<41>(evals) += (tmp * scaling_factor);

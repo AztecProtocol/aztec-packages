@@ -138,12 +138,14 @@ struct PublicLogs {
 
     void add_log(PublicLog log)
     {
+        // Header
         payload[length] = log.fields.size();
         payload[length + 1] = log.contractAddress;
+        // Payload
         for (size_t i = 0; i < log.fields.size(); ++i) {
-            payload[length + 2 + i] = log.fields[i];
+            payload[length + PUBLIC_LOG_HEADER_LENGTH + i] = log.fields[i];
         }
-        length += log.fields.size() + 2;
+        length += log.fields.size() + PUBLIC_LOG_HEADER_LENGTH;
     }
 };
 

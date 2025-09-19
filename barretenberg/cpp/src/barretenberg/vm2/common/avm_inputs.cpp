@@ -79,9 +79,11 @@ void set_public_logs_in_cols(const PublicLogs& public_logs,
                              std::vector<std::vector<FF>>& cols,
                              size_t array_start_row_idx)
 {
+    // Header
     cols[0][array_start_row_idx] = public_logs.length;
+    // Payload
     for (size_t i = 0; i < public_logs.length; ++i) {
-        cols[0][array_start_row_idx + i + PUBLIC_LOGS_HEADER_LENGTH] = public_logs.payload[i];
+        cols[0][array_start_row_idx + i + FLAT_PUBLIC_LOGS_HEADER_LENGTH] = public_logs.payload[i];
     }
 }
 

@@ -344,9 +344,11 @@ TEST(AvmInputsTest, ValuesInColumns)
 
     // Test public logs
     size_t public_logs_row = AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX;
+    // Header
     EXPECT_EQ(flat[col0_offset + public_logs_row], pi.accumulatedData.publicLogs.length);
+    // Payload
     for (size_t j = 0; j < 3; ++j) {
-        EXPECT_EQ(flat[col0_offset + public_logs_row + PUBLIC_LOGS_HEADER_LENGTH + j],
+        EXPECT_EQ(flat[col0_offset + public_logs_row + FLAT_PUBLIC_LOGS_HEADER_LENGTH + j],
                   pi.accumulatedData.publicLogs.payload[j]);
     }
 

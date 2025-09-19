@@ -73,7 +73,7 @@ use crate::{
         AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
-        AVM_VK_INDEX, MAX_ENQUEUED_CALLS_PER_TX, PROOF_TYPE_AVM, PUBLIC_LOGS_HEADER_LENGTH,
+        AVM_VK_INDEX, FLAT_PUBLIC_LOGS_HEADER_LENGTH, MAX_ENQUEUED_CALLS_PER_TX, PROOF_TYPE_AVM,
     },
     messaging::l2_to_l1_message::L2ToL1Message,
     proof::{avm_proof::AvmProof, traits::Verifiable, vk_data::VkData},
@@ -222,9 +222,11 @@ fn set_public_logs_in_cols(
     cols: &mut [[Field; AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH]; AVM_NUM_PUBLIC_INPUT_COLUMNS],
     array_start_row_idx: u32,
 ) {
+    // Header
     cols[0][array_start_row_idx] = logs.length as Field;
+    // Payload
     for i in 0..logs.payload.len() {
-        cols[0][array_start_row_idx + i + PUBLIC_LOGS_HEADER_LENGTH] = logs.payload[i];
+        cols[0][array_start_row_idx + i + FLAT_PUBLIC_LOGS_HEADER_LENGTH] = logs.payload[i];
     }
 }
 

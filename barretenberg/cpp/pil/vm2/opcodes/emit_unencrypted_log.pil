@@ -30,35 +30,39 @@ include "../constants_gen.pil";
  * - Disables memory reads if addressing error occurs
  *
  * Public inputs interaction:
- * - Writes contract_address, log_size, and log data to public inputs
+ * - Writes log_size, contract_address, and log data to public inputs, in that order.
  * - Only writes if no errors occur and discard flag is not set
  * - Updates the count of emitted unencrypted logs
  *
  * Partial trace of the gadget:
  *
- * +-----+-----+----------+----------+----------+------------------+------------+------------+-----------+-------+-------+-----+----------+--------------+----------------+-----------+----------+-------+-----+
- * | sel | clk | space_id | log_addr | log_size | contract_address | prev_log_f | next_log_f | is_static | error | start | end | rem_rows | tag_mismatch | seen_wrong_tag | is_w_addr | is_w_mem | value | tag |
- * +-----+-----+----------+----------+----------+------------------+------------+------------+-----------+-------+-------+-----+----------+--------------+----------------+-----------+----------+-------+-----+
- * |   0 |   0 |        0 |        0 | 0        | 0                | 0          | 0          | 0         | 0     |     0 |   0 |        0 |            0 |              0 |         0 |        0 |     0 | 0   |
- * |   1 |  27 |        4 |       27 | 10       | 0xdeadbeef       | 0          | 10         | 0         | 0     |     1 |   0 |       11 |            0 |              0 |         0 |        0 |     0 | ff  |
- * |   1 |  27 |        4 |       27 | unc      | 0xdeadbeef       | unc        | unc        | unc       | unc   |     0 |   0 |       10 |            0 |              0 |         1 |        0 |     0 | ff  |
- * |   1 |  27 |        4 |       27 | unc      | 0xdeadbeef       | unc        | unc        | unc       | unc   |     0 |   0 |        9 |            0 |              0 |         0 |        1 |    10 | ff  |
- * |   1 |  27 |        4 |       28 | unc      | 0xdeadbeef       | unc        | unc        | unc       | unc   |     0 |   0 |        8 |            0 |              0 |         0 |        1 |    20 | ff  |
- * |   1 |  27 |        4 |       29 | unc      | 0xdeadbeef       | unc        | unc        | unc       | unc   |     0 |   0 |        7 |            0 |              0 |         0 |        1 |    30 | ff  |
- * |   1 |  27 |        4 |       30 | unc      | 0xdeadbeef       | unc        | unc        | unc       | unc   |     0 |   0 |        6 |            0 |              0 |         0 |        1 |    40 | ff  |
- * |   1 |  27 |        4 |       31 | unc      | 0xdeadbeef       | unc        | unc        | unc       | unc   |     0 |   0 |        5 |            0 |              0 |         0 |        1 |    50 | ff  |
- * |   1 |  27 |        4 |       32 | unc      | 0xdeadbeef       | unc        | unc        | unc       | unc   |     0 |   0 |        4 |            0 |              0 |         0 |        1 |    60 | ff  |
- * |   1 |  27 |        4 |       33 | unc      | 0xdeadbeef       | unc        | unc        | unc       | unc   |     0 |   0 |        3 |            0 |              0 |         0 |        1 |    70 | ff  |
- * |   1 |  27 |        4 |       34 | unc      | 0xdeadbeef       | unc        | unc        | unc       | unc   |     0 |   0 |        2 |            0 |              0 |         0 |        1 |    80 | ff  |
- * |   1 |  27 |        4 |       35 | unc      | 0xdeadbeef       | unc        | unc        | unc       | unc   |     0 |   0 |        1 |            0 |              0 |         0 |        1 |    90 | ff  |
- * |   1 |  27 |        4 |       36 | unc      | 0xdeadbeef       | unc        | unc        | unc       | unc   |     0 |   1 |        0 |            0 |              0 |         0 |        1 |   100 | ff  |
- * |   0 |   0 |        0 |        0 | 0        | 0                | 0          | 0          | 0         | 0     |     0 |   0 |        0 |            0 |              0 |         0 |        0 |     0 | 0   |
- * +-----+-----+----------+----------+----------+------------------+------------+------------+-----------+-------+-------+-----+----------+--------------+----------------+-----------+----------+-------+-----+
+ * +-----+-----+--------+----------+----------+---------------+------------+------------+-----------+-------+-------+-----+----------+------------+---------------+----------+-----------+----------+-------+-----+------------+
+ * | sel | clk | spc_id | log_addr | log_size | contract_addr | prev_log_f | next_log_f | is_static | error | start | end | rem_rows | tag_msmtch | seen_wrng_tag | IS_W_LEN | is_w_addr | is_w_mem | value | tag |  pi_value  |
+ * +-----+-----+--------+----------+----------+---------------+------------+------------+-----------+-------+-------+-----+----------+------------+---------------+----------+-----------+----------+-------+-----+------------+
+ * |   0 |   0 |      0 |        0 | 0        | 0             | 0          | 0          | 0         | 0     |     0 |   0 |        0 |          0 |             0 |        0 |         0 |        0 |     0 | 0   | 0          |
+ * |   1 |  27 |      4 |       27 | 10       | 0xdeadbeef    | 0          | 10         | 0         | 0     |     1 |   0 |       11 |          0 |             0 |        1 |         0 |        0 |     0 | ff  | 10         |
+ * |   1 |  27 |      4 |       27 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |       10 |          0 |             0 |        0 |         1 |        0 |     0 | ff  | 0xdeadbeef |
+ * |   1 |  27 |      4 |       27 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        9 |          0 |             0 |        0 |         0 |        1 |    10 | ff  | 10         |
+ * |   1 |  27 |      4 |       28 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        8 |          0 |             0 |        0 |         0 |        1 |    20 | ff  | 20         |
+ * |   1 |  27 |      4 |       29 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        7 |          0 |             0 |        0 |         0 |        1 |    30 | ff  | 30         |
+ * |   1 |  27 |      4 |       30 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        6 |          0 |             0 |        0 |         0 |        1 |    40 | ff  | 40         |
+ * |   1 |  27 |      4 |       31 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        5 |          0 |             0 |        0 |         0 |        1 |    50 | ff  | 50         |
+ * |   1 |  27 |      4 |       32 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        4 |          0 |             0 |        0 |         0 |        1 |    60 | ff  | 60         |
+ * |   1 |  27 |      4 |       33 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        3 |          0 |             0 |        0 |         0 |        1 |    70 | ff  | 70         |
+ * |   1 |  27 |      4 |       34 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        2 |          0 |             0 |        0 |         0 |        1 |    80 | ff  | 80         |
+ * |   1 |  27 |      4 |       35 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   0 |        1 |          0 |             0 |        0 |         0 |        1 |    90 | ff  | 90         |
+ * |   1 |  27 |      4 |       36 | unc      | 0xdeadbeef    | unc        | unc        | unc       | unc   |     0 |   1 |        0 |          0 |             0 |        0 |         0 |        1 |   100 | ff  | 100        |
+ * |   0 |   0 |      0 |        0 | 0        | 0             | 0          | 0          | 0         | 0     |     0 |   0 |        0 |          0 |             0 |        0 |         0 |        0 |     0 | 0   | 0          |
+ * +-----+-----+--------+----------+----------+---------------+------------+------------+-----------+-------+-------+-----+----------+------------+---------------+----------+-----------+----------+-------+-----+------------+
  * We perform some checks on start and only propagate down relevant columns to constrain the "worker" rows. Worker rows are the ones after start that only perform optional memory
  * read and optional writes to public inputs. Columns not propagated down are marked as "unc" in the table above.
- * Rows:
- * - Interact with public inputs conditionally if there is no error or no discard
- * - Interact with memory conditionally if there is no addressing error. Otherwise they'll read (given they are is_write_mem rows).
+ * In this trace:
+ * - There are three "types" of rows for one log emission:
+ *    - IS_WRITE_LOG_LENGTH: This one processes the log length. This is the first row.
+ *    - is_write_contract_address: This one processes the contract address. This is the second row.
+ *    - is_write_memory_value: These ones process the log body, the values read from memory. These are the rest of rows.
+ * - Rows interact with public inputs conditionally if there is no error or no discard.
+ * - Rows interact with memory conditionally if there is no addressing error. Otherwise they'll read (given they are is_write_memory_value rows).
  */
 namespace emit_unencrypted_log;
 
@@ -189,7 +193,7 @@ namespace emit_unencrypted_log;
     start * ((1 - error_too_many_log_fields) * (1 - error_tag_mismatch) * (1 - is_static) - (1 - error_too_many_logs_wrong_tag_is_static)) = 0;
     start * ((1 - error_out_of_bounds) * (1 - error_too_many_logs_wrong_tag_is_static) - (1 - error)) = 0;
 
-    // Increase next num logs emitted if error is off
+    // Increase next num logs emitted if error is off. We increase even in the discard case, since discard only implies not writing to public inputs.
     start * (prev_num_unencrypted_log_fields + (1 - error) * TOTAL_LOG_FIELDS_SIZE - next_num_unencrypted_log_fields) = 0;
 
     // =============== SEQUENCE ===============
@@ -198,7 +202,7 @@ namespace emit_unencrypted_log;
     // is_write_contract_address will only be on in the row after start. There will always be a row after start, the contract address one.
     pol commit is_write_contract_address;
     is_write_contract_address * (1 - is_write_contract_address) = 0;
-    start = is_write_contract_address';
+    is_write_contract_address' = start;
     // is_write_memory_value starts off and is turned on after is_write_contract_address
     pol commit is_write_memory_value;
     is_write_memory_value * (1 - is_write_memory_value) = 0;
@@ -208,6 +212,7 @@ namespace emit_unencrypted_log;
     NOT_END * (is_write_memory_value + is_write_contract_address - is_write_memory_value') = 0;
 
     // =============== MEMORY READ ===============
+    // For simplicity, we always generate all rows necessary to process a log, even in error cases.
     // We have the following error cases:
     //  - error_memory_out_of_bounds: can't read mem
     //  - error_tag_mismatch: we need to read mem
@@ -255,7 +260,9 @@ namespace emit_unencrypted_log;
 
     // =============== WRITE TO PI ===============
 
-    // We write to public inputs if we don't have an error at all and if discard is off
+    // We write to public inputs if we don't have an error at all and if discard is off.
+    // Remember that we will always generate all rows necessary to process a log, it's just that we'll
+    // gate the writes to public inputs based on the error and discard flags.
     pol commit sel_should_write_to_public_inputs;
     start * ((1 - error) * (1 - discard) - sel_should_write_to_public_inputs) = 0;
     #[SEL_SHOULD_WRITE_TO_PUBLIC_INPUTS_CONSISTENCY]
@@ -263,7 +270,7 @@ namespace emit_unencrypted_log;
 
     pol commit public_inputs_index;
 
-    start * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX + constants.PUBLIC_LOGS_HEADER_LENGTH + prev_num_unencrypted_log_fields - public_inputs_index) = 0;
+    start * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX + constants.FLAT_PUBLIC_LOGS_HEADER_LENGTH + prev_num_unencrypted_log_fields - public_inputs_index) = 0;
     // Increment public inputs index until end
     NOT_END * (public_inputs_index + 1 - public_inputs_index') = 0;
 
