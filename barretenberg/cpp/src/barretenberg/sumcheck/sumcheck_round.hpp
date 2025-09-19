@@ -270,7 +270,10 @@ template <typename Flavor> class SumcheckProverRound {
                 size_t start = (chunk_idx * chunk_size) + (thread_idx * chunk_thread_portion_size);
                 size_t end = (chunk_idx * chunk_size) + ((thread_idx + 1) * chunk_thread_portion_size);
                 for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
-                    extend_edges(extended_edges, polynomials, edge_idx);
+                    {
+                        BB_BENCH_NAME("extend_edges in compute_univariate_with_chunking");
+                        extend_edges(extended_edges, polynomials, edge_idx);
+                    }
                     // Compute the \f$ \ell \f$-th edge's univariate contribution,
                     // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for
                     // \f$ \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$
@@ -441,7 +444,10 @@ template <typename Flavor> class SumcheckProverRound {
             ExtendedEdges extended_edges;
             for (size_t i = start; i < end; ++i) {
                 size_t edge_idx = edge_iterator.get_next_edge();
-                extend_edges(extended_edges, polynomials, edge_idx);
+                {
+                    BB_BENCH_NAME("extend_edges in compute_univariate_with_row_skipping");
+                    extend_edges(extended_edges, polynomials, edge_idx);
+                }
                 // Compute the \f$ \ell \f$-th edge's univariate contribution,
                 // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for \f$
                 // \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$ (\ell_{i+1},\ldots,
@@ -511,7 +517,10 @@ template <typename Flavor> class SumcheckProverRound {
         size_t start_edge_idx = (round_idx == 0) ? round_size - 4 : round_size - 2;
 
         for (size_t edge_idx = start_edge_idx; edge_idx < round_size; edge_idx += 2) {
-            extend_edges(extended_edges, polynomials, edge_idx);
+            {
+                BB_BENCH_NAME("extend_edges in compute_disabled_contribution");
+                extend_edges(extended_edges, polynomials, edge_idx);
+            }
             accumulate_relation_univariates(univariate_accumulator,
                                             extended_edges,
                                             relation_parameters,
@@ -545,7 +554,10 @@ template <typename Flavor> class SumcheckProverRound {
         const size_t virtual_contribution_edge_idx = 0;
 
         // Perform the usual sumcheck accumulation, but for a single edge.
-        extend_edges(extended_edges, polynomials, virtual_contribution_edge_idx);
+        {
+            BB_BENCH_NAME("extend_edges in compute_virtual_contribution");
+            extend_edges(extended_edges, polynomials, virtual_contribution_edge_idx);
+        }
         // The tail of G(X) = \prod_{k} (1 + X_k(\beta_k - 1) ) evaluated at the edge (0, ..., 0).
         const FF gate_separator_tail{ 1 };
         accumulate_relation_univariates(
