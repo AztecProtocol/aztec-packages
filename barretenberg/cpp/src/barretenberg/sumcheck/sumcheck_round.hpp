@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/gate_separator.hpp"
@@ -412,7 +413,7 @@ template <typename Flavor> class SumcheckProverRound {
         const bb::GateSeparatorPolynomial<FF>& gate_separators,
         const SubrelationSeparators alphas)
     {
-        BB_BENCH_NAME("compute_univariate_with_row_skipping");
+        // BB_BENCH_NAME("compute_univariate_with_row_skipping");
 
         std::vector<BlockOfContiguousRows> round_manifest = compute_contiguous_round_size(polynomials);
         // Compute how many nonzero rows we have
@@ -448,15 +449,20 @@ template <typename Flavor> class SumcheckProverRound {
                     BB_BENCH_NAME("extend_edges in compute_univariate_with_row_skipping");
                     extend_edges(extended_edges, polynomials, edge_idx);
                 }
-                // Compute the \f$ \ell \f$-th edge's univariate contribution,
-                // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for \f$
-                // \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$ (\ell_{i+1},\ldots,
-                // \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot
-                // \beta_{d-1}^{\ell_{d-1}}\f$.
-                accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
-                                                extended_edges,
-                                                relation_parameters,
-                                                gate_separators[(edge_idx >> 1) * gate_separators.periodicity]);
+                {
+                    BB_BENCH_NAME("accumulate_relation_univariates in compute_univariate_with_row_skipping");
+                    // Compute the \f$ \ell \f$-th edge's univariate contribution,
+                    // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for
+                    // \f$
+                    // \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$ (\ell_{i+1},\ldots,
+                    // \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots
+                    // \cdot
+                    // \beta_{d-1}^{\ell_{d-1}}\f$.
+                    accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
+                                                    extended_edges,
+                                                    relation_parameters,
+                                                    gate_separators[(edge_idx >> 1) * gate_separators.periodicity]);
+                }
             }
         });
 
@@ -464,13 +470,16 @@ template <typename Flavor> class SumcheckProverRound {
         for (auto& accumulators : thread_univariate_accumulators) {
             Utils::add_nested_tuples(univariate_accumulators, accumulators);
         }
-        // Batch the univariate contributions from each sub-relation to obtain the round univariate
-        // these are unmasked; we will mask in sumcheck.
-        const auto round_univariate =
-            batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alphas, gate_separators);
-        // define eval at 0 from target sum/or previous round univariate
+        {
+            BB_BENCH_NAME("batch_over_relations in compute_univariate_with_row_skipping");
+            // Batch the univariate contributions from each sub-relation to obtain the round univariate
+            // these are unmasked; we will mask in sumcheck.
+            const auto round_univariate =
+                batch_over_relations<SumcheckRoundUnivariate>(univariate_accumulators, alphas, gate_separators);
+            // define eval at 0 from target sum/or previous round univariate
 
-        return round_univariate;
+            return round_univariate;
+        }
     };
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     SumcheckRoundUnivariate compute_hiding_univariate(
