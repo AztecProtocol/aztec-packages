@@ -30,7 +30,7 @@ include "../constants_gen.pil";
  * - Disables memory reads if addressing error occurs
  *
  * Public inputs interaction:
- * - Writes log_size, contract_address, and log data to public inputs, in that order.
+ * - Writes log_size (number of fields read from memory), contract_address, and log data to public inputs, in that order.
  * - Only writes if no errors occur and discard flag is not set
  * - Updates the count of emitted unencrypted logs
  *
