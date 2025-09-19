@@ -15,8 +15,6 @@ void public_data_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/public_data_check");
-
     const auto constants_PUBLIC_DATA_TREE_HEIGHT = FF(40);
     const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX = FF(374);
     const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX = FF(4608);

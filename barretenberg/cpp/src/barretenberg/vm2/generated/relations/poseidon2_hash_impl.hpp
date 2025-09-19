@@ -15,8 +15,6 @@ void poseidon2_hashImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/poseidon2_hash");
-
     const auto poseidon2_hash_TWOPOW64 = FF(uint256_t{ 0UL, 1UL, 0UL, 0UL });
     const auto poseidon2_hash_IV = poseidon2_hash_TWOPOW64 * in.get(C::poseidon2_hash_input_len);
     const auto poseidon2_hash_LATCH_CONDITION = in.get(C::poseidon2_hash_end) + in.get(C::precomputed_first_row);

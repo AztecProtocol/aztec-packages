@@ -15,8 +15,6 @@ void emit_nullifierImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/emit_nullifier");
-
     const auto constants_MAX_NULLIFIERS_PER_TX = FF(64);
     const auto execution_REMAINING_NULLIFIER_WRITES =
         (constants_MAX_NULLIFIERS_PER_TX - in.get(C::execution_prev_num_nullifiers_emitted));
