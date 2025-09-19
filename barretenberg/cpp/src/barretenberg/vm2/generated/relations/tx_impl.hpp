@@ -15,8 +15,6 @@ void txImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/tx");
-
     const auto constants_MAX_NOTE_HASHES_PER_TX = FF(64);
     const auto constants_MAX_NULLIFIERS_PER_TX = FF(64);
     const auto constants_MAX_L2_TO_L1_MSGS_PER_TX = FF(8);

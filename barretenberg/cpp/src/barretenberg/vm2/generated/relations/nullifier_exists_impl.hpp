@@ -15,8 +15,6 @@ void nullifier_existsImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/nullifier_exists");
-
     const auto constants_MEM_TAG_U1 = FF(1);
 
     { // NULLIFIER_EXISTS_U1_OUTPUT_TAG

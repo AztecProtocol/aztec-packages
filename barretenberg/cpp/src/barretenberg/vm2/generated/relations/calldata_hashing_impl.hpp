@@ -15,8 +15,6 @@ void calldata_hashingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/calldata_hashing");
-
     { // TRACE_CONTINUITY
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
         auto tmp = (FF(1) - static_cast<View>(in.get(C::precomputed_first_row))) *

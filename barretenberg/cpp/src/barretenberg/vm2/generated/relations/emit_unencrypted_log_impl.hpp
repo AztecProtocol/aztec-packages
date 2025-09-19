@@ -15,8 +15,6 @@ void emit_unencrypted_logImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/emit_unencrypted_log");
-
     const auto constants_FLAT_PUBLIC_LOGS_HEADER_LENGTH = FF(1);
     const auto constants_FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH = FF(4096);
     const auto constants_PUBLIC_LOG_HEADER_LENGTH = FF(2);

@@ -15,8 +15,6 @@ void tx_discardImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/tx_discard");
-
     const auto tx_LAST_ROW_OF_SETUP = (FF(1) - in.get(C::tx_is_revertible)) * in.get(C::tx_is_revertible_shift);
     const auto tx_PROPAGATE_DISCARD = (FF(1) - tx_LAST_ROW_OF_SETUP) * (FF(1) - in.get(C::tx_reverted));
 
