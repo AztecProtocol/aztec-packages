@@ -303,12 +303,17 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         bool has_pairing_points =
             has_honk_recursion_constraints || has_civc_recursion_constraints || has_avm_recursion_constraints;
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1523): Only handle either HONK or CIVC + AVM and
-        // fail fast otherwise
+        // We only handle:
+        // - CIVC recursion constraints (Private Base Rollup)
+        // - HONK + AVM recursion constraints (Public Base Rollup)
+        // - HONK recursion constraints
+        // - AVM recursion constraints
+        // However, as mock protocol circuits use CIVC + AVM (mock Public Base Rollup), instead of throwing an assert we
+        // return a vinfo for the case of CIVC + AVM
         BB_ASSERT_EQ(has_pg_recursion_constraints,
                      false,
                      "Invalid circuit: pg recursion constraints are present with UltraBuilder.");
-        BB_ASSERT_EQ(!(has_honk_recursion_constraints && has_civc_recursion_constraints),
+        BB_ASSERT_EQ(!(has_civc_recursion_constraints && has_honk_recursion_constraints),
                      true,
                      "Invalid circuit: both honk and civc recursion constraints are present.");
         BB_ASSERT_EQ(
@@ -316,6 +321,11 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
                 is_recursive_circuit,
             true,
             "Invalid circuit: honk, civc, or avm recursion constraints present but the circuit is not recursive.");
+        if (has_civc_recursion_constraints && has_avm_recursion_constraints) {
+            vinfo("WARNING: both civc and avm recursion constraints are present. While we support this combination, we "
+                  "expect to see it only in a mock "
+                  "circuit.");
+        }
 
         // Container for data to be propagated
         HonkRecursionConstraintsOutput<Builder> honk_output;
