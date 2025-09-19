@@ -58,7 +58,6 @@ export async function deployAztecContracts(
   config: L1ContractsConfig,
   realVerifier: boolean,
   createVerificationJson: string | false,
-  flushEntryQueue: boolean,
   debugLogger: Logger,
 ): Promise<DeployL1ContractsReturnType> {
   const { createEthereumChain, deployL1Contracts } = await import('@aztec/ethereum');
@@ -89,7 +88,6 @@ export async function deployAztecContracts(
     },
     config,
     createVerificationJson,
-    flushEntryQueue,
   );
 
   return result;
