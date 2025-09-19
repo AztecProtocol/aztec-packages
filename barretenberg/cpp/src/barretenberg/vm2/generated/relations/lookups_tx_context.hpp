@@ -186,7 +186,7 @@ struct lookup_tx_context_restore_state_on_revert_settings_ {
         ColumnAndShifts::tx_prev_public_data_tree_size_shift,
         ColumnAndShifts::tx_prev_written_public_data_slots_tree_root_shift,
         ColumnAndShifts::tx_prev_written_public_data_slots_tree_size_shift,
-        ColumnAndShifts::tx_prev_num_unencrypted_logs_shift,
+        ColumnAndShifts::tx_prev_num_unencrypted_log_fields_shift,
         ColumnAndShifts::tx_prev_num_l2_to_l1_messages_shift
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
@@ -202,7 +202,7 @@ struct lookup_tx_context_restore_state_on_revert_settings_ {
         ColumnAndShifts::tx_next_public_data_tree_size,
         ColumnAndShifts::tx_next_written_public_data_slots_tree_root,
         ColumnAndShifts::tx_next_written_public_data_slots_tree_size,
-        ColumnAndShifts::tx_next_num_unencrypted_logs,
+        ColumnAndShifts::tx_next_num_unencrypted_log_fields,
         ColumnAndShifts::tx_next_num_l2_to_l1_messages
     };
 };
@@ -296,7 +296,8 @@ struct lookup_tx_context_public_inputs_write_unencrypted_log_count_settings_ {
     static constexpr Column COUNTS = Column::lookup_tx_context_public_inputs_write_unencrypted_log_count_counts;
     static constexpr Column INVERSES = Column::lookup_tx_context_public_inputs_write_unencrypted_log_count_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::tx_array_length_unencrypted_logs_pi_offset, ColumnAndShifts::tx_prev_num_unencrypted_logs
+        ColumnAndShifts::tx_fields_length_unencrypted_logs_pi_offset,
+        ColumnAndShifts::tx_prev_num_unencrypted_log_fields
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_

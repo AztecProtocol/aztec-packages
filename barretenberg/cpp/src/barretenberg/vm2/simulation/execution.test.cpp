@@ -262,7 +262,7 @@ TEST_F(ExecutionSimulationTest, Call)
         }
     };
 
-    SideEffectStates side_effect_states = SideEffectStates{ .numUnencryptedLogs = 1, .numL2ToL1Messages = 2 };
+    SideEffectStates side_effect_states = SideEffectStates{ .numUnencryptedLogFields = 1, .numL2ToL1Messages = 2 };
 
     EXPECT_CALL(gas_tracker, compute_gas_limit_for_call(Gas{ 6, 7 })).WillOnce(Return(Gas{ 2, 3 }));
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
@@ -340,7 +340,7 @@ TEST_F(ExecutionSimulationTest, ExternalCallStaticnessPropagation)
                     .nullifierTree = { .tree = { .root = 7, .nextAvailableLeafIndex = 6 }, .counter = 5 },
                     .l1ToL2MessageTree = { .tree = { .root = 4, .nextAvailableLeafIndex = 3 }, .counter = 0 },
                     .publicDataTree = { .tree = { .root = 2, .nextAvailableLeafIndex = 1 }, .counter = 1 } };
-    SideEffectStates side_effect_states = SideEffectStates{ .numUnencryptedLogs = 1, .numL2ToL1Messages = 2 };
+    SideEffectStates side_effect_states = SideEffectStates{ .numUnencryptedLogFields = 1, .numL2ToL1Messages = 2 };
 
     auto setup_context_expectations = [&](bool parent_is_static) {
         EXPECT_CALL(gas_tracker, compute_gas_limit_for_call(Gas{ 6, 7 })).WillOnce(Return(Gas{ 2, 3 }));
@@ -1142,21 +1142,19 @@ TEST_F(ExecutionSimulationTest, EmitUnencryptedLog)
 {
     MemoryAddress log_offset = 10;
     MemoryAddress log_size_offset = 20;
-    MemoryValue first_field = MemoryValue::from<FF>(42);
     MemoryValue log_size = MemoryValue::from<uint32_t>(10);
     AztecAddress address = 0xdeadbeef;
 
     EXPECT_CALL(context, get_memory);
-    EXPECT_CALL(memory, get(log_offset)).WillOnce(ReturnRef(first_field));
     EXPECT_CALL(memory, get(log_size_offset)).WillOnce(ReturnRef(log_size));
 
     EXPECT_CALL(context, get_address).WillOnce(ReturnRef(address));
 
     EXPECT_CALL(emit_unencrypted_log, emit_unencrypted_log(_, _, address, log_offset, log_size.as<uint32_t>()));
 
-    EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, log_size.as<uint32_t>() }));
+    EXPECT_CALL(gas_tracker, consume_gas(Gas{ log_size.as<uint32_t>(), log_size.as<uint32_t>() }));
 
-    execution.emit_unencrypted_log(context, log_offset, log_size_offset);
+    execution.emit_unencrypted_log(context, log_size_offset, log_offset);
 }
 
 TEST_F(ExecutionSimulationTest, SendL2ToL1Msg)

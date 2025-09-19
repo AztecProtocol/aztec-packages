@@ -180,7 +180,7 @@ class Execution : public ExecutionInterface {
                      MemoryAddress num_limbs_addr,
                      MemoryAddress is_output_bits_addr,
                      MemoryAddress dst_addr);
-    void emit_unencrypted_log(ContextInterface& context, MemoryAddress log_offset, MemoryAddress log_size_offset);
+    void emit_unencrypted_log(ContextInterface& context, MemoryAddress log_size_offset, MemoryAddress log_offset);
     void send_l2_to_l1_msg(ContextInterface& context, MemoryAddress recipient_addr, MemoryAddress content_addr);
     void sha256_compression(ContextInterface& context,
                             MemoryAddress output_addr,

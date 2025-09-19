@@ -159,12 +159,12 @@ mod tests {
         },
         constants::{
             AVM_VK_INDEX, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_CLASS_LOGS_PREFIX,
-            L2_L1_MSGS_PREFIX, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
-            MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
+            FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH, L2_L1_MSGS_PREFIX, MAX_CONTRACT_CLASS_LOGS_PER_TX,
+            MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
             MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTES_PREFIX, NULLIFIERS_PREFIX,
             PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOGS_PREFIX, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
-            PUBLIC_LOG_SIZE_IN_FIELDS, PUBLIC_LOGS_PREFIX, PUBLIC_TUBE_VK_INDEX, REVERT_CODE_PREFIX,
-            TX_FEE_PREFIX, TX_START_PREFIX,
+            PUBLIC_LOGS_PREFIX, PUBLIC_TUBE_VK_INDEX, REVERT_CODE_PREFIX, TX_FEE_PREFIX,
+            TX_START_PREFIX,
         },
         data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::{compute_contract_class_log_hash, silo_l2_to_l1_message},
@@ -384,7 +384,6 @@ mod tests {
         let private_log_lengths = [7, 2, 9];
         let NUM_PRIVATE_LOGS = private_log_lengths.len();
         let pub_log_lengths = [3, 2, 7, 1];
-        let NUM_PUBLIC_LOGS = pub_log_lengths.len();
         let cc_log_0 = [58, 79, 14];
         let cc_log_lengths = [cc_log_0.len()];
         let NUM_CC_LOGS = cc_log_lengths.len();
@@ -415,7 +414,7 @@ mod tests {
             0, PublicDataTreeLeaf { slot: PUB_DATA_SLOT, value: PUB_DATA_VALUE },
         ));
         builder.public_tube_proof_data.append_private_logs_with_lengths(private_log_lengths);
-        builder.avm_data.append_public_logs_with_lengths(pub_log_lengths);
+        builder.avm_data.append_public_logs_with_lengths::<10, _>(pub_log_lengths);
         builder.append_contract_class_log(cc_log_0);
         let inputs = builder.build_inputs();
         let outputs = inputs.execute();
@@ -480,21 +479,13 @@ mod tests {
             }
         }
         // public logs
-        let public_logs_prefix = encode_blob_prefix(PUBLIC_LOGS_PREFIX, NUM_PUBLIC_LOGS);
+        let public_logs_prefix =
+            encode_blob_prefix(PUBLIC_LOGS_PREFIX, builder.avm_data.public_logs.length);
         reconstructed_tx_effects[offset] = public_logs_prefix;
         offset += 1;
-        for i in 0..pub_log_lengths.len() {
-            let log_len = pub_log_lengths[i];
-            let log_fields = builder.avm_data.public_logs.get(i).log.fields;
-            reconstructed_tx_effects[offset] = log_len as Field;
+        for i in 0..builder.avm_data.public_logs.length {
+            reconstructed_tx_effects[offset] = builder.avm_data.public_logs.payload[i];
             offset += 1;
-            reconstructed_tx_effects[offset] =
-                builder.public_tube_proof_data.contract_address.to_field();
-            offset += 1;
-            for j in 0..log_len {
-                reconstructed_tx_effects[offset] = log_fields[j];
-                offset += 1;
-            }
         }
         // cc logs
         let contract_class_logs_prefix =
@@ -554,7 +545,9 @@ mod tests {
         let mut builder = PublicTxBaseRollupPrivateInputsBuilder::new();
 
         // Create a log whose length is larger than the max allowed.
-        builder.avm_data.append_public_logs_with_lengths([PUBLIC_LOG_SIZE_IN_FIELDS + 1]);
+        builder.avm_data.append_public_logs_with_lengths::<FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH + 1, _>(
+            [FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH + 1],
+        );
 
         let _ = builder.execute();
     }

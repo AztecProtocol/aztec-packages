@@ -18,8 +18,8 @@ void public_data_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     BB_BENCH_NAME("accumulate/public_data_check");
 
     const auto constants_PUBLIC_DATA_TREE_HEIGHT = FF(40);
-    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX = FF(375);
-    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX = FF(616);
+    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX = FF(374);
+    const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX = FF(4608);
     const auto constants_GENERATOR_INDEX__PUBLIC_LEAF_INDEX = FF(23);
     const auto public_data_check_LEAF_EXISTS = (FF(1) - in.get(C::public_data_check_leaf_not_exists));
     const auto public_data_check_LEAF_SLOT_LOW_LEAF_SLOT_DIFF =

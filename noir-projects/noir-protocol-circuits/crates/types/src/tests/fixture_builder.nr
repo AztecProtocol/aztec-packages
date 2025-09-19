@@ -37,7 +37,7 @@ use crate::{
         protocol_contract_leaf_preimage::ProtocolContractLeafPreimage,
         public_call_request::{PublicCallRequest, PublicCallRequestArrayLengths},
         public_data_write::PublicDataWrite,
-        public_log::PublicLog,
+        public_logs::PublicLogs,
         read_request::{ReadRequest, ScopedReadRequest},
         side_effect::{Counted, Ordered, scoped::Scoped},
         transaction::{tx_context::TxContext, tx_request::TxRequest},
@@ -55,11 +55,11 @@ use crate::{
         MAX_FIELD_VALUE, MAX_INCLUDE_BY_TIMESTAMP_DURATION, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
         MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
-        MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_PUBLIC_LOGS_PER_TX,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_U32_VALUE, MEGA_VK_LENGTH_IN_FIELDS,
         PRIVATE_CALL_REQUEST_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS, PROTOCOL_CONTRACT_TREE_HEIGHT,
-        PUBLIC_CALL_REQUEST_LENGTH, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_LOG_SIZE_IN_FIELDS,
-        SIDE_EFFECT_MASKING_ADDRESS, UPDATED_CLASS_IDS_SLOT, VK_TREE_HEIGHT,
+        PUBLIC_CALL_REQUEST_LENGTH, PUBLIC_DATA_TREE_HEIGHT, SIDE_EFFECT_MASKING_ADDRESS,
+        UPDATED_CLASS_IDS_SLOT, VK_TREE_HEIGHT,
     },
     contract_class_id::ContractClassId,
     data::{
@@ -157,7 +157,7 @@ pub struct FixtureBuilder {
     pub nullifiers: BoundedVec<ScopedNullifier, MAX_NULLIFIERS_PER_TX>,
     pub l2_to_l1_msgs: BoundedVec<Scoped<Counted<L2ToL1Message>>, MAX_L2_TO_L1_MSGS_PER_TX>,
     pub private_logs: BoundedVec<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX>,
-    pub public_logs: BoundedVec<PublicLog, MAX_PUBLIC_LOGS_PER_TX>,
+    pub public_logs: PublicLogs,
     pub contract_class_logs_hashes: BoundedVec<Scoped<Counted<LogHash>>, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     pub public_data_writes: BoundedVec<PublicDataWrite, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
     pub private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
@@ -789,7 +789,7 @@ impl FixtureBuilder {
             l2_to_l1_msgs: self.l2_to_l1_msgs.storage().map(|m: Scoped<Counted<L2ToL1Message>>| {
                 m.expose_to_public()
             }),
-            public_logs: self.public_logs.storage(),
+            public_logs: self.public_logs,
             public_data_writes: self.public_data_writes.storage(),
         }
     }
@@ -1217,28 +1217,33 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_public_log(&mut self, fields: [Field; PUBLIC_LOG_SIZE_IN_FIELDS], length: u32) {
-        let inner = Log { fields, length };
-        let log = PublicLog { log: inner, contract_address: self.contract_address };
-        let _ = self.next_counter();
-        self.public_logs.push(log);
+    pub fn add_public_log<let MAX_LENGTH: u32>(
+        &mut self,
+        fields: [Field; MAX_LENGTH],
+        length: u32,
+    ) {
+        let log = Log { fields, length };
+        self.public_logs.add_log(self.contract_address, log);
     }
 
-    pub fn append_public_logs(&mut self, num_logs: u32) {
-        let index_offset = self.public_logs.len();
-        for i in 0..self.public_logs.max_len() {
-            if i < num_logs {
-                let fields = self.mock_public_log_fields(index_offset + i);
-                self.add_public_log(fields, fields.len());
-            }
+    pub fn append_public_logs<let COUNT: u32>(&mut self) {
+        let index_offset = self.public_logs.length;
+        for i in 0..COUNT {
+            // 10 here is just arbitrary length. If you want custom lengths, use append_public_logs_with_lengths instead.
+            let fields = self.mock_public_log_fields_with_length::<10>(index_offset + i, 10);
+            self.add_public_log(fields, fields.len());
         }
     }
 
-    pub fn append_public_logs_with_lengths<let N: u32>(&mut self, lengths: [u32; N]) {
-        let index_offset = self.public_logs.len();
+    pub fn append_public_logs_with_lengths<let MAX_LENGTH: u32, let COUNT: u32>(
+        &mut self,
+        lengths: [u32; COUNT],
+    ) {
+        let index_offset = self.public_logs.length;
         for i in 0..lengths.len() {
             let length = lengths[i];
-            let fields = self.mock_public_log_fields_with_length(index_offset + i, length);
+            let fields =
+                self.mock_public_log_fields_with_length::<MAX_LENGTH>(index_offset + i, length);
             self.add_public_log(fields, length);
         }
     }
@@ -1438,19 +1443,10 @@ impl FixtureBuilder {
         fields
     }
 
-    fn mock_public_log_fields(self, index: u32) -> [Field; PUBLIC_LOG_SIZE_IN_FIELDS] {
-        self.mock_public_log_fields_with_length(index, PUBLIC_LOG_SIZE_IN_FIELDS)
-    }
-
-    fn mock_public_log_fields_with_length(
-        self,
-        index: u32,
-        length: u32,
-    ) -> [Field; PUBLIC_LOG_SIZE_IN_FIELDS] {
-        let value_offset =
-            199199 + self.value_offset + (index * PUBLIC_LOG_SIZE_IN_FIELDS) as Field;
-        let mut fields = [0; PUBLIC_LOG_SIZE_IN_FIELDS];
-        for i in 0..PUBLIC_LOG_SIZE_IN_FIELDS {
+    fn mock_public_log_fields_with_length<let N: u32>(self, index: u32, length: u32) -> [Field; N] {
+        let value_offset = 199199 + self.value_offset + (index * N) as Field;
+        let mut fields = [0; N];
+        for i in 0..N {
             if i < length {
                 fields[i] = value_offset + i as Field;
             }
@@ -1520,7 +1516,7 @@ impl Empty for FixtureBuilder {
             nullifiers: BoundedVec::new(),
             l2_to_l1_msgs: BoundedVec::new(),
             private_logs: BoundedVec::new(),
-            public_logs: BoundedVec::new(),
+            public_logs: PublicLogs::empty(),
             contract_class_logs_hashes: BoundedVec::new(),
             public_data_writes: BoundedVec::new(),
             private_call_requests: BoundedVec::new(),

@@ -623,13 +623,13 @@ TEST(ContextConstrainingTest, SideEffectStateContinuity)
         {
             // First Row of execution
             { C::execution_sel, 1 },
-            { C::execution_num_unencrypted_logs, 10 },
+            { C::execution_num_unencrypted_log_fields, 10 },
             { C::execution_num_l2_to_l1_messages, 11 },
         },
         {
             // Second row of execution
             { C::execution_sel, 1 },
-            { C::execution_prev_num_unencrypted_logs, 10 },
+            { C::execution_prev_num_unencrypted_log_fields, 10 },
             { C::execution_prev_num_l2_to_l1_messages, 11 },
         },
     });
@@ -638,7 +638,7 @@ TEST(ContextConstrainingTest, SideEffectStateContinuity)
         trace, context::SR_NUM_UNENCRYPTED_LOGS_CONTINUITY, context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY);
 
     // Negative test: change num unencrypted logs
-    trace.set(C::execution_prev_num_unencrypted_logs, 2, 100);
+    trace.set(C::execution_prev_num_unencrypted_log_fields, 2, 100);
     EXPECT_THROW_WITH_MESSAGE(check_relation<context>(trace, context::SR_NUM_UNENCRYPTED_LOGS_CONTINUITY),
                               "NUM_UNENCRYPTED_LOGS_CONTINUITY");
 

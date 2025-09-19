@@ -12,6 +12,7 @@ import {
   BLS12_FQ_LIMBS,
   BLS12_FR_LIMBS,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
+  FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH,
   type NULLIFIER_TREE_HEIGHT,
   ULTRA_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
@@ -30,6 +31,7 @@ import {
   type PrivateToAvmAccumulatedDataArrayLengths,
   PrivateToPublicKernelCircuitPublicInputs,
 } from '@aztec/stdlib/kernel';
+import type { FlatPublicLogs } from '@aztec/stdlib/logs';
 import { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
 import type { ProofData, RecursiveProof } from '@aztec/stdlib/proofs';
 import {
@@ -88,6 +90,7 @@ import type {
   FeeRecipient as FeeRecipientNoir,
   FinalBlobAccumulatorPublicInputs as FinalBlobAccumulatorPublicInputsNoir,
   FinalBlobBatchingChallenges as FinalBlobBatchingChallengesNoir,
+  FixedLengthArray,
   Field as NoirField,
   ParityBasePrivateInputs as ParityBasePrivateInputsNoir,
   ParityPublicInputs as ParityPublicInputsNoir,
@@ -100,6 +103,7 @@ import type {
   PrivateTxBaseRollupPrivateInputs as PrivateTxBaseRollupPrivateInputsNoir,
   ProofData as ProofDataNoir,
   PublicDataHint as PublicDataHintNoir,
+  PublicLogs as PublicLogsNoir,
   PublicTubePrivateInputs as PublicTubePrivateInputsNoir,
   PublicTxBaseRollupPrivateInputs as PublicTxBaseRollupPrivateInputsNoir,
   RootRollupPrivateInputs as RootRollupPrivateInputsNoir,
@@ -141,7 +145,6 @@ import {
   mapPublicCallRequestToNoir,
   mapPublicDataTreePreimageToNoir,
   mapPublicDataWriteToNoir,
-  mapPublicLogToNoir,
   mapScopedL2ToL1MessageToNoir,
   mapStateReferenceFromNoir,
   mapStateReferenceToNoir,
@@ -534,12 +537,19 @@ function mapPrivateToAvmAccumulatedDataArrayLengthsToNoir(
   };
 }
 
+function mapFlatPublicLogsToNoir(logs: FlatPublicLogs): PublicLogsNoir {
+  return {
+    length: mapNumberToNoir(logs.length),
+    payload: logs.payload.map(mapFieldToNoir) as FixedLengthArray<NoirField, typeof FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH>,
+  };
+}
+
 function mapAvmAccumulatedDataToNoir(data: AvmAccumulatedData): AvmAccumulatedDataNoir {
   return {
     note_hashes: mapTuple(data.noteHashes, mapFieldToNoir),
     nullifiers: mapTuple(data.nullifiers, mapFieldToNoir),
     l2_to_l1_msgs: mapTuple(data.l2ToL1Msgs, mapScopedL2ToL1MessageToNoir),
-    public_logs: mapTuple(data.publicLogs, mapPublicLogToNoir),
+    public_logs: mapFlatPublicLogsToNoir(data.publicLogs),
     public_data_writes: mapTuple(data.publicDataWrites, mapPublicDataWriteToNoir),
   };
 }
@@ -551,7 +561,6 @@ function mapAvmAccumulatedDataArrayLengthsToNoir(
     note_hashes: mapNumberToNoir(data.noteHashes),
     nullifiers: mapNumberToNoir(data.nullifiers),
     l2_to_l1_msgs: mapNumberToNoir(data.l2ToL1Msgs),
-    public_logs: mapNumberToNoir(data.publicLogs),
     public_data_writes: mapNumberToNoir(data.publicDataWrites),
   };
 }

@@ -472,6 +472,10 @@ pub contract AvmTest {
         let s: CompressedString<2, 44> =
             CompressedString::from_string("A long time ago, in a galaxy far far away...");
         context.emit_public_log(/*message=*/ s);
+        context.emit_public_log(/*message=*/ [
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+            25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42,
+        ]); // Large log
     }
 
     #[public]

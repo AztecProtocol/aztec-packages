@@ -243,7 +243,7 @@ namespace tx;
         prev_retrieved_bytecodes_tree_root,
         prev_retrieved_bytecodes_tree_size,
         // Side Effect States
-        prev_num_unencrypted_logs,
+        prev_num_unencrypted_log_fields,
         prev_num_l2_to_l1_messages,
         // Gas Info
         prev_l2_gas_used_sent_to_enqueued_call,
@@ -273,7 +273,7 @@ namespace tx;
         execution.prev_retrieved_bytecodes_tree_root,
         execution.prev_retrieved_bytecodes_tree_size,
         // Side Effect States
-        execution.prev_num_unencrypted_logs,
+        execution.prev_num_unencrypted_log_fields,
         execution.prev_num_l2_to_l1_messages,
         // Gas Info
         execution.prev_l2_gas_used,
@@ -304,7 +304,7 @@ namespace tx;
        next_retrieved_bytecodes_tree_root,
        next_retrieved_bytecodes_tree_size,
        // Side Effect States
-       next_num_unencrypted_logs,
+       next_num_unencrypted_log_fields,
        next_num_l2_to_l1_messages,
        // Gas Info
        next_l2_gas_used_sent_to_enqueued_call,
@@ -330,7 +330,7 @@ namespace tx;
        execution.retrieved_bytecodes_tree_root,
        execution.retrieved_bytecodes_tree_size,
        // Side Effect States
-       execution.num_unencrypted_logs,
+       execution.num_unencrypted_log_fields,
        execution.num_l2_to_l1_messages,
        // Gas Info
        execution.l2_gas_used,

@@ -11,9 +11,10 @@ use crate::{
         gas_fees::GasFees,
         gas_settings::GasSettings,
         global_variables::GlobalVariables,
+        log::Log,
         public_call_request::{PublicCallRequest, PublicCallRequestArrayLengths},
         public_data_write::PublicDataWrite,
-        public_log::PublicLog,
+        public_logs::PublicLogs,
         side_effect::scoped::Scoped,
         tree_snapshots::TreeSnapshots,
     },
@@ -24,7 +25,6 @@ use crate::{
         AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX,
         AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX,
         AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX,
-        AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_LOGS_ROW_IDX,
         AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX,
         AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
         AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
@@ -73,7 +73,7 @@ use crate::{
         AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
-        AVM_VK_INDEX, MAX_ENQUEUED_CALLS_PER_TX, PROOF_TYPE_AVM, PUBLIC_LOG_SIZE_IN_FIELDS,
+        AVM_VK_INDEX, FLAT_PUBLIC_LOGS_HEADER_LENGTH, MAX_ENQUEUED_CALLS_PER_TX, PROOF_TYPE_AVM,
     },
     messaging::l2_to_l1_message::L2ToL1Message,
     proof::{avm_proof::AvmProof, traits::Verifiable, vk_data::VkData},
@@ -106,6 +106,7 @@ pub struct AvmCircuitPublicInputs {
     // Outputs.
     pub end_tree_snapshots: TreeSnapshots,
     pub end_gas_used: Gas,
+    // TODO(avm): Use this to check zero-padded arrays in accumulated data
     pub accumulated_data_array_lengths: AvmAccumulatedDataArrayLengths,
     pub accumulated_data: AvmAccumulatedData,
     pub transaction_fee: Field,
@@ -216,20 +217,16 @@ fn set_l2_to_l1_msg_array_in_cols<let SIZE: u32>(
     }
 }
 
-fn set_public_logs_in_cols<let SIZE: u32>(
-    logs: [PublicLog; SIZE],
+fn set_public_logs_in_cols(
+    logs: PublicLogs,
     cols: &mut [[Field; AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH]; AVM_NUM_PUBLIC_INPUT_COLUMNS],
     array_start_row_idx: u32,
 ) {
-    for i in 0..logs.len() {
-        let first_row_for_log = array_start_row_idx + i * PUBLIC_LOG_SIZE_IN_FIELDS;
-        for j in 0..PUBLIC_LOG_SIZE_IN_FIELDS {
-            // always set contract address in col 0 so that some entry in the row is always non-zero
-            cols[0][first_row_for_log + j] = logs[i].contract_address.to_field();
-            cols[1][first_row_for_log + j] = logs[i].log.length as Field;
-            // and set the actual log data entry
-            cols[2][first_row_for_log + j] = logs[i].log.fields[j];
-        }
+    // Header
+    cols[0][array_start_row_idx] = logs.length as Field;
+    // Payload
+    for i in 0..logs.payload.len() {
+        cols[0][array_start_row_idx + i + FLAT_PUBLIC_LOGS_HEADER_LENGTH] = logs.payload[i];
     }
 }
 
@@ -450,8 +447,6 @@ impl AvmCircuitPublicInputs {
             self.accumulated_data_array_lengths.nullifiers as Field;
         cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX] =
             self.accumulated_data_array_lengths.l2_to_l1_msgs as Field;
-        cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_LOGS_ROW_IDX] =
-            self.accumulated_data_array_lengths.public_logs as Field;
         cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX] =
             self.accumulated_data_array_lengths.public_data_writes as Field;
 
@@ -579,12 +574,11 @@ fn flat_columns_of_avm_circuit_public_inputs() {
     item.accumulated_data.note_hashes[2] = 54321;
 
     // Add a public log
-    item.accumulated_data.public_logs[0].contract_address = AztecAddress::from_field(11223);
-    // set some number of items in the log (less than max)
-    item.accumulated_data.public_logs[0].log.length = PUBLIC_LOG_SIZE_IN_FIELDS - 2;
-    for j in 0..PUBLIC_LOG_SIZE_IN_FIELDS - 2 {
-        item.accumulated_data.public_logs[0].log.fields[j] = 10000 + j as Field;
-    }
+    let public_log = Log::new(
+        [10000, 10001, 10002, 10003, 10004, 10005, 10006, 10007, 10008, 10009],
+        5, // Only consider the first 5 fields
+    );
+    item.accumulated_data.public_logs.add_log(AztecAddress::from_field(11223), public_log);
 
     // Add a public data write
     item.accumulated_data.public_data_writes[1].leaf_slot = 5555;
@@ -633,9 +627,11 @@ fn flat_columns_of_avm_circuit_public_inputs() {
 
     // Public logs
     let public_log_row = AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX;
-    assert_eq(flat[col1_offset + public_log_row], (PUBLIC_LOG_SIZE_IN_FIELDS - 2) as Field);
-    for j in 0..PUBLIC_LOG_SIZE_IN_FIELDS - 2 {
-        assert_eq(flat[col2_offset + public_log_row + j], 10000 + j as Field);
+    assert_eq(flat[col0_offset + public_log_row], (public_log.length + 2) as Field);
+    assert_eq(flat[col0_offset + public_log_row + 1], public_log.length as Field);
+    assert_eq(flat[col0_offset + public_log_row + 2], 11223);
+    for j in 0..public_log.length {
+        assert_eq(flat[col0_offset + public_log_row + 3 + j], 10000 + j as Field);
     }
 
     // Public data writes
