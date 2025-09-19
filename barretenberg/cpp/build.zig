@@ -7,12 +7,6 @@ const Platform = struct {
     name: []const u8,
 };
 
-const BuildVariant = struct {
-    name_suffix: []const u8,  // e.g., "", "-avm"
-    description: []const u8,
-    sources: []const []const u8,
-    flags: []const []const u8,
-};
 
 const platforms = [_]Platform{
     .{ .arch = .x86_64, .os = .linux, .name = "x86_64-linux" },
@@ -98,6 +92,9 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    // Add AVM option
+    const enable_avm = b.option(bool, "avm", "Enable Aztec Virtual Machine support") orelse false;
+
     const common_flags = [_][]const u8{
         "-std=c++20",
         "-fPIC",
@@ -110,11 +107,9 @@ pub fn build(b: *std.Build) void {
         "-fbracket-depth=1024",
     };
 
-    // C++ compilation flags for standard build (without AVM)
-    const cpp_flags = common_flags ++ [_][]const u8{"-DDISABLE_AZTEC_VM=1"};
-
-    // AVM build flags (without DISABLE_AZTEC_VM)
-    const avm_flags = common_flags;
+    // Conditional compilation flags based on AVM option
+    const cpp_flags_with_disable = common_flags ++ [_][]const u8{"-DDISABLE_AZTEC_VM=1"};
+    const cpp_flags = if (enable_avm) &common_flags else &cpp_flags_with_disable;
 
     // Core source files - essential barretenberg functionality
     const core_sources = [_][]const u8{
@@ -632,15 +627,10 @@ pub fn build(b: *std.Build) void {
         "src/barretenberg/wasi/wasi_stubs.cpp",
     };
 
-    // Combine source files at compile-time
-    const all_sources = core_sources ++ env_sources;
-    const avm_all_sources = all_sources ++ avm_sources;
-
-    // Define build variants
-    const variants = [_]BuildVariant{
-        .{ .name_suffix = "", .description = "standard build", .sources = &all_sources, .flags = &cpp_flags },
-        .{ .name_suffix = "-avm", .description = "AVM build", .sources = &avm_all_sources, .flags = &avm_flags },
-    };
+    // Combine source files based on AVM option
+    const base_sources = core_sources ++ env_sources;
+    const avm_sources_full = base_sources ++ avm_sources;
+    const all_sources = if (enable_avm) &avm_sources_full else &base_sources;
 
     // Determine current host platform for default build
     const host_platform = std.fmt.allocPrint(
@@ -649,16 +639,8 @@ pub fn build(b: *std.Build) void {
         .{ @tagName(target.result.cpu.arch), @tagName(target.result.os.tag) },
     ) catch unreachable;
 
-    // Create cross-compilation steps
-    const cross_steps = blk: {
-        var steps: [variants.len]*std.Build.Step = undefined;
-        for (variants, 0..) |variant, i| {
-            const step_name = if (variant.name_suffix.len == 0) "cross" else b.fmt("cross{s}", .{variant.name_suffix});
-            const step_desc = b.fmt("Build {s} for all platforms", .{variant.description});
-            steps[i] = b.step(step_name, step_desc);
-        }
-        break :blk steps;
-    };
+    // Create cross-compilation step
+    const cross_step = b.step("cross", "Build for all platforms");
 
     for (platforms) |platform| {
         const platform_target = b.resolveTargetQuery(.{
@@ -666,31 +648,16 @@ pub fn build(b: *std.Build) void {
             .os_tag = platform.os,
         });
 
-        for (variants, 0..) |variant, variant_idx| {
-            const step_name = b.fmt("{s}{s}", .{ platform.name, variant.name_suffix });
-            const exe_name = if (variant.name_suffix.len == 0) "bb" else b.fmt("bb{s}", .{variant.name_suffix});
-            const step_desc = b.fmt("Build {s} for {s}", .{ variant.description, platform.name });
+        const platform_step = b.step(platform.name, b.fmt("Build for {s}", .{platform.name}));
+        const exe = buildForTarget(b, platform_target, optimize, "bb", all_sources, cpp_flags, enable_avm);
+        const install = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = platform.name } } });
 
-            const platform_step = b.step(step_name, step_desc);
-            const exe = buildForTarget(b, platform_target, optimize, exe_name, variant.sources, variant.flags, variant.name_suffix.len > 0);
-            const install = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = platform.name } } });
+        platform_step.dependOn(&install.step);
+        cross_step.dependOn(platform_step);
 
-            platform_step.dependOn(&install.step);
-            cross_steps[variant_idx].dependOn(platform_step);
-
-            // If this platform matches the host, add to default build
-            if (std.mem.eql(u8, platform.name, host_platform)) {
-                if (variant.name_suffix.len == 0) {
-                    // Default build
-                    b.getInstallStep().dependOn(&install.step);
-                } else {
-                    // Create named variant step for host platform (e.g., "avm")
-                    const host_variant_name = variant.name_suffix[1..]; // Remove the "-" prefix
-                    const host_variant_desc = b.fmt("Build {s} for host platform", .{variant.description});
-                    const host_variant_step = b.step(host_variant_name, host_variant_desc);
-                    host_variant_step.dependOn(&install.step);
-                }
-            }
+        // If this platform matches the host, add to default build
+        if (std.mem.eql(u8, platform.name, host_platform)) {
+            b.getInstallStep().dependOn(&install.step);
         }
     }
 }
