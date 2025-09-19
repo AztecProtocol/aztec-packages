@@ -7,18 +7,13 @@ const Platform = struct {
     name: []const u8,
 };
 
-// Compile-time helper for building source file lists
-fn buildSources(comptime base_sources: []const []const u8, comptime additional: []const []const u8) []const []const u8 {
-    return base_sources ++ additional;
-}
-
 const platforms = [_]Platform{
     .{ .arch = .x86_64, .os = .linux, .name = "x86_64-linux" },
     .{ .arch = .aarch64, .os = .linux, .name = "aarch64-linux" },
-    .{ .arch = .x86_64, .os = .macos, .name = "x86_64-darwin" },
-    .{ .arch = .aarch64, .os = .macos, .name = "aarch64-darwin" },
-    .{ .arch = .x86_64, .os = .windows, .name = "x86_64-win32" },
-    .{ .arch = .aarch64, .os = .windows, .name = "aarch64-win32" },
+    .{ .arch = .x86_64, .os = .macos, .name = "x86_64-macos" },
+    .{ .arch = .aarch64, .os = .macos, .name = "aarch64-macos" },
+    .{ .arch = .x86_64, .os = .windows, .name = "x86_64-windows" },
+    .{ .arch = .aarch64, .os = .windows, .name = "aarch64-windows" },
 };
 
 fn buildLmdb(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
@@ -650,42 +645,16 @@ pub fn build(b: *std.Build) void {
 
     // Combine source files at compile-time
     const all_sources = core_sources ++ env_sources;
-    const avm_all_sources = core_sources ++ env_sources ++ avm_sources;
+    const avm_all_sources = all_sources ++ avm_sources;
 
-    // Build for default target if specified
-    if (target.query.isNative()) {
-        // Get platform name for native target
-        const native_platform = getPlatformName(b, target.result.cpu.arch, target.result.os.tag);
+    // Determine current host platform for default build
+    const host_platform = std.fmt.allocPrint(
+        b.allocator,
+        "{s}-{s}",
+        .{ @tagName(target.result.cpu.arch), @tagName(target.result.os.tag) },
+    ) catch unreachable;
 
-        const bb_exe = buildForTarget(b, target, optimize, "bb", &all_sources, &cpp_flags, false);
-        const bb_install = b.addInstallArtifact(bb_exe, .{ .dest_dir = .{ .override = .{ .custom = native_platform } } });
-        b.getInstallStep().dependOn(&bb_install.step);
-
-        const bb_avm_exe = buildForTarget(b, target, optimize, "bb-avm", &avm_all_sources, &avm_flags, true);
-
-        // Create AVM build step
-        const avm_step = b.step("avm", "Build bb with AVM support");
-        const bb_avm_install = b.addInstallArtifact(bb_avm_exe, .{ .dest_dir = .{ .override = .{ .custom = native_platform } } });
-        avm_step.dependOn(&bb_avm_install.step);
-
-        // Create run steps
-        const run_cmd = b.addRunArtifact(bb_exe);
-        run_cmd.step.dependOn(b.getInstallStep());
-        if (b.args) |args| {
-            run_cmd.addArgs(args);
-        }
-        const run_step = b.step("run", "Run the bb executable");
-        run_step.dependOn(&run_cmd.step);
-
-        const run_avm_cmd = b.addRunArtifact(bb_avm_exe);
-        if (b.args) |args| {
-            run_avm_cmd.addArgs(args);
-        }
-        const run_avm_step = b.step("run-avm", "Run the bb-avm executable");
-        run_avm_step.dependOn(&run_avm_cmd.step);
-    }
-
-    // Create cross-compilation steps
+    // Create cross-compilation steps and handle default build
     const cross_step = b.step("cross", "Build for all platforms");
     const cross_avm_step = b.step("cross-avm", "Build AVM for all platforms");
 
@@ -710,6 +679,16 @@ pub fn build(b: *std.Build) void {
         const bb_avm_install = b.addInstallArtifact(bb_avm, .{ .dest_dir = .{ .override = .{ .custom = platform.name } } });
         avm_platform_step.dependOn(&bb_avm_install.step);
         cross_avm_step.dependOn(avm_platform_step);
+
+        // If this platform matches the host, add to default build
+        if (std.mem.eql(u8, platform.name, host_platform)) {
+            // Add default build to the install step
+            b.getInstallStep().dependOn(&bb_install.step);
+
+            // Create AVM build step for host platform
+            const avm_step = b.step("avm", "Build bb with AVM support for host platform");
+            avm_step.dependOn(&bb_avm_install.step);
+        }
     }
 }
 
@@ -752,11 +731,11 @@ fn buildForTarget(
     lib.linkLibCpp();
 
     // Add Windows-specific system libraries
-    if (target.result.os.tag == .windows) {
-        lib.linkSystemLibrary("ws2_32");
-        lib.linkSystemLibrary("advapi32");  // For CryptoAPI
-        lib.linkSystemLibrary("psapi");     // For process info
-    }
+    // if (target.result.os.tag == .windows) {
+    //     lib.linkSystemLibrary("ws2_32");
+    //     lib.linkSystemLibrary("advapi32"); // For CryptoAPI
+    //     lib.linkSystemLibrary("psapi"); // For process info
+    // }
 
     // Create executable
     const exe = b.addExecutable(.{
@@ -781,26 +760,9 @@ fn buildForTarget(
     // Add Windows-specific system libraries to executable
     if (target.result.os.tag == .windows) {
         exe.linkSystemLibrary("ws2_32");
-        exe.linkSystemLibrary("advapi32");  // For CryptoAPI
-        exe.linkSystemLibrary("psapi");     // For process info
+        exe.linkSystemLibrary("advapi32"); // For CryptoAPI
+        exe.linkSystemLibrary("psapi"); // For process info
     }
 
     return exe;
-}
-
-fn getPlatformName(b: *std.Build, arch: std.Target.Cpu.Arch, os: std.Target.Os.Tag) []const u8 {
-    const arch_str = switch (arch) {
-        .x86_64 => "x86_64",
-        .aarch64 => "aarch64",
-        else => "unknown",
-    };
-
-    const os_str = switch (os) {
-        .linux => "linux",
-        .macos => "darwin",
-        .windows => "win32",
-        else => "unknown",
-    };
-
-    return std.fmt.allocPrint(b.allocator, "{s}-{s}", .{ arch_str, os_str }) catch unreachable;
 }

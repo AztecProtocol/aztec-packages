@@ -6,8 +6,10 @@
 #include <sys/resource.h>
 #include <sys/time.h>
 #else
+// clang-format off
+#include <windows.h>  // Must come before psapi.h
 #include <psapi.h>
-#include <windows.h>
+// clang-format on
 #endif
 
 /**
