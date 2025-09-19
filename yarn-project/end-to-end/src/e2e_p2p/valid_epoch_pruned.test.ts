@@ -32,7 +32,6 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
   const slashingQuorum = 3;
   const slashingRoundSize = 4;
   const aztecSlotDuration = 8;
-  const slashingUnit = BigInt(1e18);
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
@@ -50,9 +49,6 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
         slashingQuorum,
         slashingRoundSizeInEpochs: slashingRoundSize / 2,
         slashSelfAllowed: true,
-        slashAmountSmall: slashingUnit,
-        slashAmountMedium: slashingUnit * 2n,
-        slashAmountLarge: slashingUnit * 3n,
       },
     });
 
@@ -87,11 +83,11 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
     ]);
 
     // Slashing amount should be enough to kick validators out
-    const slashingAmount = slashingUnit * 3n;
+    const slashingAmount = t.ctx.aztecNodeConfig.slashAmountLarge;
     const biggestEjection = ejectionThreshold > localEjectionThreshold ? ejectionThreshold : localEjectionThreshold;
     expect(activationThreshold - slashingAmount).toBeLessThan(biggestEjection);
 
-    t.ctx.aztecNodeConfig.slashPrunePenalty = slashingAmount;
+    t.ctx.aztecNodeConfig.slashPrunePenalty = t.ctx.aztecNodeConfig.slashAmountLarge;
     t.ctx.aztecNodeConfig.validatorReexecute = false;
     t.ctx.aztecNodeConfig.minTxsPerBlock = 0;
 

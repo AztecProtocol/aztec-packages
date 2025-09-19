@@ -306,7 +306,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     uint96[] memory amounts = new uint96[](attesters.length);
 
     // We say, these things are bad, call the baba yaga to take care of them!
-    uint96 slashAmount = 90e18;
+    uint96 slashAmount = 1 + uint96(rollup.getActivationThreshold()) - uint96(rollup.getEjectionThreshold());
     for (uint256 i = 0; i < attesters.length; i++) {
       AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
       stakes[i] = attesterView.effectiveBalance;

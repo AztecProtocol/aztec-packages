@@ -19,8 +19,6 @@ const SLASHING_ROUND_SIZE_IN_EPOCHS = 2;
 const BOOT_NODE_UDP_PORT = 4500;
 const ETHEREUM_SLOT_DURATION = 4;
 const AZTEC_SLOT_DURATION = 8;
-const SLASHING_UNIT = BigInt(1e18);
-const SLASHING_AMOUNT = SLASHING_UNIT * 3n;
 
 // How many epochs it may take to set everything up, so we dont slash during this period
 const SETUP_EPOCH_DURATION = 5;
@@ -71,9 +69,6 @@ export class P2PInactivityTest {
         slashingRoundSizeInEpochs: SLASHING_ROUND_SIZE_IN_EPOCHS,
         slashInactivityTargetPercentage: 0.8,
         slashGracePeriodL2Slots: SETUP_EPOCH_DURATION * EPOCH_DURATION, // do not slash during setup
-        slashAmountSmall: SLASHING_UNIT,
-        slashAmountMedium: SLASHING_UNIT * 2n,
-        slashAmountLarge: SLASHING_UNIT * 3n,
         ...opts,
       },
     });
@@ -92,8 +87,8 @@ export class P2PInactivityTest {
       rollup.getLocalEjectionThreshold(),
     ]);
     const biggestEjection = ejectionThreshold > localEjectionThreshold ? ejectionThreshold : localEjectionThreshold;
-    expect(activationThreshold - SLASHING_AMOUNT).toBeLessThan(biggestEjection);
-    this.test.ctx.aztecNodeConfig.slashInactivityPenalty = SLASHING_AMOUNT;
+    expect(activationThreshold - this.slashingAmount * 3n).toBeLessThan(biggestEjection);
+    this.test.ctx.aztecNodeConfig.slashInactivityPenalty = this.test.ctx.aztecNodeConfig.slashAmountSmall;
     this.rollup = rollup;
 
     if (!this.keepInitialNode) {
@@ -169,6 +164,6 @@ export class P2PInactivityTest {
   }
 
   public get slashingAmount() {
-    return SLASHING_AMOUNT;
+    return this.test.ctx.aztecNodeConfig.slashAmountSmall;
   }
 }

@@ -51,7 +51,6 @@ import {FeeModelTestPoints, TestPoint, FeeHeaderModel, ManaBaseFeeComponentsMode
 
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
-
 import {MinimalFeeModel} from "./MinimalFeeModel.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
@@ -103,7 +102,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
     RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost).setManaTarget(
       MANA_TARGET
-    ).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION).setMintFeeAmount(1e30).setTargetCommitteeSize(0);
+    ).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION).setMintFeeAmount(1e30).setTargetCommitteeSize(0)
+      .setSequencerBps(5000);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;

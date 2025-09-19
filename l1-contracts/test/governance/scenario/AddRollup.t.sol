@@ -129,19 +129,21 @@ contract AddRollupTest is TestBase {
     assertEq(originalPayload, address(payload));
     assertEq(gsePayload.getURI(), payload.getURI());
 
+    uint256 emperorPower = 10_000e18 + rollup.getActivationThreshold() * VALIDATOR_COUNT;
+
     vm.prank(token.owner());
-    token.mint(EMPEROR, 10_000 ether);
+    token.mint(EMPEROR, emperorPower);
 
     vm.startPrank(EMPEROR);
-    token.approve(address(governance), 10_000 ether);
-    governance.deposit(EMPEROR, 10_000 ether);
+    token.approve(address(governance), emperorPower);
+    governance.deposit(EMPEROR, emperorPower);
     vm.stopPrank();
 
     vm.warp(Timestamp.unwrap(upw.pendingThrough(proposal)) + 1);
     assertTrue(governance.getProposalState(0) == ProposalState.Active);
 
     vm.prank(EMPEROR);
-    governance.vote(0, 10_000 ether, true);
+    governance.vote(0, emperorPower, true);
 
     vm.warp(Timestamp.unwrap(upw.activeThrough(proposal)) + 1);
     assertTrue(governance.getProposalState(0) == ProposalState.Queued);

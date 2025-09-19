@@ -65,7 +65,9 @@ contract SlashingTest is TestBase {
 
     IPayload payload = slashFactory.createSlashPayload(offenders, amounts, offenses);
 
-    for (uint256 i = 0; i < 10; i++) {
+    uint256 quorum = slashingProposer.QUORUM_SIZE();
+
+    for (uint256 i = 0; i < quorum; i++) {
       address proposer = rollup.getCurrentProposer();
       vm.prank(proposer);
       slashingProposer.signal(payload);
@@ -225,6 +227,11 @@ contract SlashingTest is TestBase {
     // We slash a small amount and see that they are all still validating, but less stake
     uint96 slashAmount1 = 10e18;
     (uint256 firstSlashingRound,) = _createPayloadAndSignalForSlashing(attesters, slashAmount1, howManyToSlash);
+
+    uint256 firstExecutableSlot =
+      (firstSlashingRound + slashingProposer.EXECUTION_DELAY_IN_ROUNDS() + 1) * slashingProposer.ROUND_SIZE();
+    timeCheater.cheat__jumpToSlot(firstExecutableSlot);
+
     slashingProposer.submitRoundWinner(firstSlashingRound);
 
     for (uint256 i = 0; i < howManyToSlash; i++) {
@@ -237,8 +244,14 @@ contract SlashingTest is TestBase {
     // Now we do it all again, but this time enough to kick them out of the system!
     // Why we doing it in two steps explicitly here? To make sure that it is clear
     // that it works like this.
-    uint96 slashAmount2 = 40e18 + 1;
+    uint96 slashAmount2 =
+      uint96(rollup.getActivationThreshold()) - uint96(rollup.getEjectionThreshold()) - slashAmount1 + 1;
     (uint256 secondSlashingRound,) = _createPayloadAndSignalForSlashing(attesters, slashAmount2, howManyToSlash);
+
+    uint256 secondExecutableSlot =
+      (secondSlashingRound + slashingProposer.EXECUTION_DELAY_IN_ROUNDS() + 1) * slashingProposer.ROUND_SIZE();
+    timeCheater.cheat__jumpToSlot(secondExecutableSlot);
+
     slashingProposer.submitRoundWinner(secondSlashingRound);
 
     for (uint256 i = 0; i < howManyToSlash; i++) {

@@ -51,8 +51,6 @@ const SLASH_INACTIVITY_TARGET_PERCENTAGE = 0.5;
 const LIFETIME_IN_ROUNDS = 2;
 // round N must be submitted after round N + EXECUTION_DELAY_IN_ROUNDS
 const EXECUTION_DELAY_IN_ROUNDS = 1;
-// unit of slashing
-const SLASHING_UNIT = BigInt(20e18);
 // offset for slashing rounds
 const SLASH_OFFSET_IN_ROUNDS = 2;
 const COMMITEE_SIZE = NUM_VALIDATORS;
@@ -85,9 +83,6 @@ describe('veto slash', () => {
         sentinelEnabled: true,
         slashSelfAllowed: true,
         slashingOffsetInRounds: SLASH_OFFSET_IN_ROUNDS,
-        slashAmountSmall: SLASHING_UNIT,
-        slashAmountMedium: SLASHING_UNIT * 2n,
-        slashAmountLarge: SLASHING_UNIT * 3n,
         slashingRoundSizeInEpochs: SLASHING_ROUND_SIZE / EPOCH_DURATION,
         slashingQuorum: SLASHING_QUORUM,
         slashInactivityTargetPercentage: SLASH_INACTIVITY_TARGET_PERCENTAGE,
@@ -116,14 +111,15 @@ describe('veto slash', () => {
 
     ({ rollup } = await t.getContracts());
 
-    const [activationThreshold, ejectionThreshold] = await Promise.all([
+    const [activationThreshold, ejectionThreshold, localEjectionThreshold] = await Promise.all([
       rollup.getActivationThreshold(),
       rollup.getEjectionThreshold(),
+      rollup.getLocalEjectionThreshold(),
     ]);
 
-    // Slashing amount should be enough to kick validators out
-    slashingAmount = SLASHING_UNIT * 3n;
-    expect(activationThreshold - slashingAmount).toBeLessThan(ejectionThreshold);
+    slashingAmount = t.ctx.aztecNodeConfig.slashAmountSmall;
+    const biggestEjection = ejectionThreshold > localEjectionThreshold ? ejectionThreshold : localEjectionThreshold;
+    expect(activationThreshold - slashingAmount * 3n).toBeLessThan(biggestEjection);
 
     t.ctx.aztecNodeConfig.slashInactivityPenalty = slashingAmount;
     for (const node of nodes) {
@@ -181,7 +177,11 @@ describe('veto slash', () => {
         BigInt(SLASHING_ROUND_SIZE),
         BigInt(LIFETIME_IN_ROUNDS),
         BigInt(EXECUTION_DELAY_IN_ROUNDS),
-        [SLASHING_UNIT, SLASHING_UNIT * 2n, SLASHING_UNIT * 3n],
+        [
+          t.ctx.aztecNodeConfig.slashAmountSmall,
+          t.ctx.aztecNodeConfig.slashAmountMedium,
+          t.ctx.aztecNodeConfig.slashAmountLarge,
+        ],
         BigInt(COMMITEE_SIZE),
         BigInt(EPOCH_DURATION),
         BigInt(SLASH_OFFSET_IN_ROUNDS),

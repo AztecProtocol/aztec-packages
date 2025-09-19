@@ -37,7 +37,6 @@ describe('e2e_p2p_data_withholding_slash', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
 
-  const slashingUnit = BigInt(1e18);
   const slashingQuorum = 3;
   const slashingRoundSize = 4;
   // This test needs longer slot window to ensure that the client has enough time to submit their txs,
@@ -59,9 +58,6 @@ describe('e2e_p2p_data_withholding_slash', () => {
         aztecProofSubmissionEpochs: 0, // effectively forces instant reorgs
         slashingQuorum,
         slashingRoundSizeInEpochs: slashingRoundSize / 2,
-        slashAmountSmall: slashingUnit,
-        slashAmountMedium: slashingUnit * 2n,
-        slashAmountLarge: slashingUnit * 3n,
         slashSelfAllowed: true,
         minTxsPerBlock: 0,
       },
@@ -101,7 +97,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
     ]);
 
     // Slashing amount should be enough to kick validators out
-    const slashingAmount = slashingUnit * 3n;
+    const slashingAmount = t.ctx.aztecNodeConfig.slashAmountLarge;
     const biggestEjection = ejectionThreshold > localEjectionThreshold ? ejectionThreshold : localEjectionThreshold;
     expect(activationThreshold - slashingAmount).toBeLessThan(biggestEjection);
 

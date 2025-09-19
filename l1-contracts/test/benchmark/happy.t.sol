@@ -412,7 +412,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
    * @param _size - The number of validators
    * @return Encoded vote data
    */
-  function createTallyVoteData(uint256 _size) internal returns (bytes memory) {
+  function createTallyVoteData(uint256 _size) internal view returns (bytes memory) {
     require(_size % 4 == 0, "Vote data must have multiple of 4 validators");
 
     bytes32 seed = keccak256(abi.encode(_size, block.timestamp));
