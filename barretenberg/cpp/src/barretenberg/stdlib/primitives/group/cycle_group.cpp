@@ -794,7 +794,8 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     }
 
     // Compute the result of each point addition involved in the Straus MSM algorithm natively so they can be used as
-    // "hints" in the in-circuit Straus algorithm. Points are computed as Element types with a Z-coordinate then
+    // "hints" in the in-circuit Straus algorithm. This includes the additions needed to construct the point tables and
+    // those needed to compute the MSM via Straus. Points are computed as Element types with a Z-coordinate then
     // batch-converted to AffineElement types. This avoids the need to compute modular inversions for every group
     // operation, which dramatically reduces witness generation times.
     std::vector<Element> operation_transcript;
@@ -845,35 +846,26 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 
     // Construct an in-circuit Straus lookup table for each point
     std::vector<straus_lookup_table> point_tables;
+    point_tables.reserve(num_points);
     const size_t hints_per_table = (1ULL << ROM_TABLE_BITS) - 1;
     OriginTag tag{};
     for (size_t i = 0; i < num_points; ++i) {
         // Merge tags
         tag = OriginTag(tag, scalars[i].get_origin_tag(), base_points[i].get_origin_tag());
 
+        // Construct Straus table
         std::span<AffineElement> table_hints(&operation_hints[i * hints_per_table], hints_per_table);
-        point_tables.emplace_back(context, base_points[i], offset_generators[i + 1], ROM_TABLE_BITS, table_hints);
+        straus_lookup_table table(context, base_points[i], offset_generators[i + 1], ROM_TABLE_BITS, table_hints);
+        point_tables.push_back(std::move(table));
     }
 
+    // Point to the first hint after those used to construct the tables above
     AffineElement* hint_ptr = &operation_hints[num_points * hints_per_table];
     cycle_group accumulator = offset_generators[0];
 
-    // populate the set of points we are going to add into our accumulator, *before* we do any ECC operations
-    // this way we are able to fuse mutliple ecc add / ecc double operations and reduce total gate count.
-    // (ecc add/ecc double gates normally cost 2 Ultra gates. However if we chain add->add, add->double,
-    // double->add, double->double, they only cost one)
-    std::vector<cycle_group> points_to_add;
-    for (size_t i = 0; i < num_rounds; ++i) {
-        for (size_t j = 0; j < num_points; ++j) {
-            const field_t scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
-            const cycle_group point = point_tables[j].read(scalar_slice);
-            points_to_add.push_back(point);
-        }
-    }
-
-    // Perform the Straus algorithm in-circuit, using the previously computed native hints
-    std::vector<std::tuple<field_t, field_t>> x_coordinate_checks;
-    size_t point_counter = 0;
+    // Perform the Straus algorithm in-circuit, using the previously computed native hints. If unconditional_add ==
+    // false we batch validate that no two x-coordinates collide via a product of their differences.
+    field_t coordinate_check_product = 1;
     for (size_t i = 0; i < num_rounds; ++i) {
         // perform once-per-round doublings (except for first round)
         if (i != 0) {
@@ -884,35 +876,28 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         }
         // perform each round's additions
         for (size_t j = 0; j < num_points; ++j) {
-            field_t scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
-
+            const field_t scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
             BB_ASSERT_EQ(scalar_slice.get_value(), scalar_slices[j].slices_native[num_rounds - i - 1]);
-            const auto& point = points_to_add[point_counter++];
+            const cycle_group point = point_tables[j].read(scalar_slice);
             if (!unconditional_add) {
-                x_coordinate_checks.emplace_back(accumulator.x, point.x);
+                coordinate_check_product *= point.x - accumulator.x;
             }
             accumulator = accumulator.unconditional_add(point, *hint_ptr);
             hint_ptr++;
         }
     }
 
-    // validate that none of the x-coordinate differences are zero
-    // we batch the x-coordinate checks together
-    // because `assert_is_not_zero` witness generation needs a modular inversion (expensive)
-    field_t coordinate_check_product = 1;
-    for (auto& [x1, x2] : x_coordinate_checks) {
-        const field_t x_diff = x2 - x1;
-        coordinate_check_product *= x_diff;
+    // Batch-validate no x-coordinate collisions. (Note: requires a modular inversion which is expensive).
+    if (!unconditional_add) {
+        coordinate_check_product.assert_is_not_zero("_variable_base_batch_mul_internal x-coordinate collision");
     }
-    coordinate_check_product.assert_is_not_zero("_variable_base_batch_mul_internal x-coordinate collision");
 
     // Set the final accumulator's tag to the union of all points' and scalars' tags
     accumulator.set_origin_tag(tag);
-    /**
-     * offset_generator_accumulator represents the sum of all the offset generator terms present in `accumulator`.
-     * We don't subtract off yet, as we may be able to combine `offset_generator_accumulator` with other constant terms
-     * in `batch_mul` before performing the subtraction.
-     */
+
+    // Note: offset_generator_accumulator represents the sum of all the offset generator terms present in `accumulator`.
+    // We don't subtract it off yet as we may be able to combine it with other constant terms in `batch_mul` before
+    // performing the subtraction.
     return { accumulator, AffineElement(offset_generator_accumulator) };
 }
 
