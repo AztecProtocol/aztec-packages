@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
@@ -238,10 +239,13 @@ template <typename Flavor> class SumcheckProver {
         GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
 
         multivariate_challenge.reserve(virtual_log_n);
-        // In the first round, we compute the first univariate polynomial and populate the book-keeping table of
-        // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns.
-        auto round_univariate =
-            round.compute_univariate(full_polynomials, relation_parameters, gate_separators, alphas);
+        SumcheckRoundUnivariate round_univariate;
+        {
+            BB_BENCH_NAME("compute first univariate");
+            // In the first round, we compute the first univariate polynomial and populate the book-keeping table of
+            // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns.
+            round_univariate = round.compute_univariate(full_polynomials, relation_parameters, gate_separators, alphas);
+        }
         // Initialize the partially evaluated polynomials which will be used in the following rounds.
         // This will use the information in the structured full polynomials to save memory if possible.
         partially_evaluated_polynomials = PartiallyEvaluatedMultivariates(full_polynomials, multivariate_n);
@@ -253,9 +257,12 @@ template <typename Flavor> class SumcheckProver {
             transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
             multivariate_challenge.emplace_back(round_challenge);
-            // Prepare sumcheck book-keeping table for the next round
-            partially_evaluate(full_polynomials, round_challenge);
-            gate_separators.partially_evaluate(round_challenge);
+            {
+                BB_BENCH_NAME("first partially_evaluate");
+                // Prepare sumcheck book-keeping table for the next round
+                partially_evaluate(full_polynomials, round_challenge);
+                gate_separators.partially_evaluate(round_challenge);
+            }
             round.round_size = round.round_size >> 1; // TODO(#224)(Cody): Maybe partially_evaluate should do this and
             // release memory?        // All but final round
             // We operate on partially_evaluated_polynomials in place.
@@ -263,16 +270,22 @@ template <typename Flavor> class SumcheckProver {
         for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
             BB_BENCH_NAME("sumcheck loop");
 
-            // Write the round univariate to the transcript
-            round_univariate =
-                round.compute_univariate(partially_evaluated_polynomials, relation_parameters, gate_separators, alphas);
+            {
+                BB_BENCH_NAME("compute_univariate in loop");
+                // Write the round univariate to the transcript
+                round_univariate = round.compute_univariate(
+                    partially_evaluated_polynomials, relation_parameters, gate_separators, alphas);
+            }
             // Place evaluations of Sumcheck Round Univariate in the transcript
             transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), round_univariate);
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
             multivariate_challenge.emplace_back(round_challenge);
-            // Prepare sumcheck book-keeping table for the next round.
-            partially_evaluate(partially_evaluated_polynomials, round_challenge);
-            gate_separators.partially_evaluate(round_challenge);
+            {
+                BB_BENCH_NAME("partially_evaluate in loop");
+                // Prepare sumcheck book-keeping table for the next round.
+                partially_evaluate(partially_evaluated_polynomials, round_challenge);
+                gate_separators.partially_evaluate(round_challenge);
+            }
             round.round_size = round.round_size >> 1;
         }
         vinfo("completed ", multivariate_d, " rounds of sumcheck");
