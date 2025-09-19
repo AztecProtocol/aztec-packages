@@ -131,12 +131,12 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
     const privKey = hdAccount.getHdKey().privateKey;
     aztecNodeConfig.publisherPrivateKeys = [new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const)];
   }
-  if (!aztecNodeConfig.validatorPrivateKeys?.getValue().length) {
+  if (!aztecNodeConfig.sequencerPrivateKeys?.getValue().length) {
     const privKey = hdAccount.getHdKey().privateKey;
-    aztecNodeConfig.validatorPrivateKeys = new SecretValue([`0x${Buffer.from(privKey!).toString('hex')}`]);
+    aztecNodeConfig.sequencerPrivateKeys = new SecretValue([`0x${Buffer.from(privKey!).toString('hex')}`]);
   }
   aztecNodeConfig.coinbase = EthAddress.fromString(
-    privateKeyToAddress(aztecNodeConfig.validatorPrivateKeys.getValue()[0]),
+    privateKeyToAddress(aztecNodeConfig.sequencerPrivateKeys.getValue()[0]),
   );
 
   const initialAccounts = await (async () => {

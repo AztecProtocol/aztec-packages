@@ -119,7 +119,7 @@ spec:
               value: "{{ .Values.fullNode.p2p.floodPublish }}"
             - name: COINBASE
               value: "{{ .Values.fullNode.coinbaseAddress }}"
-            - name: VALIDATOR_DISABLED
+            - name: SEQUENCER_DISABLED
               value: "true"
             - name: L1_CHAIN_ID
               value: "{{ .Values.ethereum.chainId }}"

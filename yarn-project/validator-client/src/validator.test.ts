@@ -63,16 +63,16 @@ describe('ValidatorClient', () => {
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
     dateProvider = new TestDateProvider();
 
-    const validatorPrivateKeys = [generatePrivateKey(), generatePrivateKey()];
-    validatorAccounts = validatorPrivateKeys.map(privateKey => privateKeyToAccount(privateKey));
+    const sequencerPrivateKeys = [generatePrivateKey(), generatePrivateKey()];
+    validatorAccounts = sequencerPrivateKeys.map(privateKey => privateKeyToAccount(privateKey));
 
     config = {
-      validatorPrivateKeys: new SecretValue(validatorPrivateKeys),
+      sequencerPrivateKeys: new SecretValue(sequencerPrivateKeys),
       attestationPollingIntervalMs: 1000,
-      disableValidator: false,
-      disabledValidators: [],
-      validatorReexecute: false,
-      validatorReexecuteDeadlineMs: 6000,
+      disableSequencer: false,
+      disabledSequencers: [],
+      sequencerReexecute: false,
+      sequencerReexecuteDeadlineMs: 6000,
       slashBroadcastedInvalidBlockPenalty: 1n,
     };
 
@@ -83,7 +83,7 @@ describe('ValidatorClient', () => {
       remoteSigner: undefined,
       validators: [
         {
-          attester: validatorPrivateKeys.map(key => key as Hex<32>),
+          attester: sequencerPrivateKeys.map(key => key as Hex<32>),
           feeRecipient: AztecAddress.ZERO,
           coinbase: undefined,
           remoteSigner: undefined,
@@ -196,7 +196,7 @@ describe('ValidatorClient', () => {
     const makeTxFromHash = (txHash: TxHash) => ({ getTxHash: () => txHash, txHash }) as Tx;
 
     const enableReexecution = () => {
-      (validatorClient as any).config.validatorReexecute = true;
+      (validatorClient as any).config.sequencerReexecute = true;
       blockBuilder.buildBlock.mockImplementation(() => Promise.resolve(blockBuildResult));
     };
 
@@ -443,7 +443,7 @@ describe('ValidatorClient', () => {
 
       // We should have used the first address to sign
       const payloadToSign = request.getPayloadToSign();
-      const firstSigner = new Secp256k1Signer(Buffer32.fromString(config.validatorPrivateKeys!.getValue()[0]));
+      const firstSigner = new Secp256k1Signer(Buffer32.fromString(config.sequencerPrivateKeys!.getValue()[0]));
       const signature = firstSigner.sign(makeEthSignDigest(payloadToSign));
       expect(authResponse.signature.equals(signature)).toBeTruthy();
     });
@@ -454,7 +454,7 @@ describe('ValidatorClient', () => {
       p2pClient.handleAuthRequestFromPeer.mockResolvedValueOnce(ourStatus);
       // Make sure our addresses are registered
       const registeredAddress = validatorClient.getValidatorAddresses()[1];
-      const validatorPrivateKey = config.validatorPrivateKeys!.getValue()[1];
+      const validatorPrivateKey = config.sequencerPrivateKeys!.getValue()[1];
       epochCache.getRegisteredValidators.mockResolvedValueOnce([registeredAddress]);
       const peerId = await createSecp256k1PeerId();
       const request = AuthRequest.random();
@@ -472,19 +472,19 @@ describe('ValidatorClient', () => {
   });
 
   describe('configuration', () => {
-    it('should use VALIDATOR_PRIVATE_KEY for validatorPrivateKeys when VALIDATOR_PRIVATE_KEYS is not set', () => {
+    it('should use SEQUENCER_PRIVATE_KEY for sequencerPrivateKeys when SEQUENCER_PRIVATE_KEYS is not set', () => {
       const originalEnv = process.env;
       const testPrivateKey = '0x' + '1'.repeat(64);
 
       process.env = {
         ...originalEnv,
-        VALIDATOR_PRIVATE_KEY: testPrivateKey,
-        VALIDATOR_PRIVATE_KEYS: undefined,
+        SEQUENCER_PRIVATE_KEY: testPrivateKey,
+        SEQUENCER_PRIVATE_KEYS: undefined,
       };
 
       const config = getConfigFromMappings<ValidatorClientConfig>(validatorClientConfigMappings);
-      expect(config.validatorPrivateKeys!.getValue()).toHaveLength(1);
-      expect(config.validatorPrivateKeys!.getValue()[0]).toBe(process.env.VALIDATOR_PRIVATE_KEY);
+      expect(config.sequencerPrivateKeys!.getValue()).toHaveLength(1);
+      expect(config.sequencerPrivateKeys!.getValue()[0]).toBe(process.env.SEQUENCER_PRIVATE_KEY);
     });
 
     it('should update configuration', () => {
@@ -494,7 +494,7 @@ describe('ValidatorClient', () => {
 
     it('should skip disabled validator addresses', () => {
       const addresses = validatorClient.getValidatorAddresses();
-      validatorClient.updateConfig({ disabledValidators: [validatorClient.getValidatorAddresses()[0]] });
+      validatorClient.updateConfig({ disabledSequencers: [validatorClient.getValidatorAddresses()[0]] });
       expect(validatorClient.getValidatorAddresses()).toEqual(addresses.slice(1));
     });
   });

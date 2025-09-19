@@ -29,7 +29,7 @@ done
 private_key=${private_keys[0]}
 
 # combine keys
-validator_private_keys=$(
+SEQUENCER_PRIVATE_KEYS=$(
   IFS=,
   echo "${private_keys[*]}"
 )
@@ -43,8 +43,8 @@ if [[ -n "${SLASHER_KEY_INDEX_START:-}" ]]; then
   export SLASHER_PRIVATE_KEY=$slasher_private_key
 fi
 
-export VALIDATOR_PRIVATE_KEYS=$validator_private_keys
-export VALIDATOR_PRIVATE_KEY=$private_key # backwards compatibility with older node versions
+export SEQUENCER_PRIVATE_KEYS=$SEQUENCER_PRIVATE_KEYS
+export SEQUENCER_PRIVATE_KEY=$private_key # backwards compatibility with older node versions
 export L1_PRIVATE_KEY=$private_key
 export SEQ_PUBLISHER_PRIVATE_KEY=$private_key
 export PROVER_PUBLISHER_PRIVATE_KEY=$private_key

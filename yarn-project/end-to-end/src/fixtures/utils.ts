@@ -390,7 +390,7 @@ export async function setup(
 
     const config: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
     // use initialValidators for the node config
-    config.validatorPrivateKeys = new SecretValue(opts.initialValidators?.map(v => v.privateKey) ?? []);
+    config.sequencerPrivateKeys = new SecretValue(opts.initialValidators?.map(v => v.privateKey) ?? []);
 
     config.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
     // For tests we only want proving enabled if specifically requested
@@ -620,9 +620,9 @@ export async function setup(
     config.p2pEnabled = opts.mockGossipSubNetwork || config.p2pEnabled;
     config.p2pIp = opts.p2pIp ?? config.p2pIp ?? '127.0.0.1';
 
-    if (!config.disableValidator) {
-      if ((config.validatorPrivateKeys?.getValue().length ?? 0) === 0) {
-        config.validatorPrivateKeys = new SecretValue([generatePrivateKey()]);
+    if (!config.disableSequencer) {
+      if ((config.sequencerPrivateKeys?.getValue().length ?? 0) === 0) {
+        config.sequencerPrivateKeys = new SecretValue([generatePrivateKey()]);
       }
     }
 

@@ -104,7 +104,7 @@ export async function deployNewRollupContracts(
   mnemonic: string,
   mnemonicIndex: number,
   salt: number | undefined,
-  initialValidators: Operator[],
+  initialSequencers: Operator[],
   genesisArchiveRoot: Fr,
   feeJuicePortalInitialBalance: bigint,
   config: L1ContractsConfig,
@@ -121,12 +121,12 @@ export async function deployNewRollupContracts(
   const chain = createEthereumChain(rpcUrls, chainId);
   const client = createExtendedL1Client(rpcUrls, account, chain.chainInfo, undefined, mnemonicIndex);
 
-  if (!initialValidators || initialValidators.length === 0) {
+  if (!initialSequencers || initialSequencers.length === 0) {
     // initialize the new rollup with Amin's validator address.
     const aminAddressString = '0x3b218d0F26d15B36C715cB06c949210a0d630637';
     const amin = EthAddress.fromString(aminAddressString);
 
-    initialValidators = [
+    initialSequencers = [
       {
         attester: amin,
         withdrawer: amin,
@@ -134,7 +134,7 @@ export async function deployNewRollupContracts(
         bn254SecretKey: new SecretValue(Fr.fromHexString(aminAddressString).toBigInt()),
       },
     ];
-    logger.info('Initializing new rollup with old attesters', { initialValidators });
+    logger.info('Initializing new rollup with old attesters', { initialValidators: initialSequencers });
   }
 
   const { rollup, slashFactoryAddress } = await deployRollupForUpgrade(
@@ -144,7 +144,7 @@ export async function deployNewRollupContracts(
       vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
       genesisArchiveRoot,
-      initialValidators,
+      initialValidators: initialSequencers,
       feeJuicePortalInitialBalance,
       realVerifier,
       ...config,

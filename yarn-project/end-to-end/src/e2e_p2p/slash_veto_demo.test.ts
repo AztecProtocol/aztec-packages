@@ -81,7 +81,7 @@ describe('veto slash', () => {
         listenAddress: '127.0.0.1',
         minTxsPerBlock: 0,
         aztecEpochDuration: EPOCH_DURATION,
-        validatorReexecute: false,
+        sequencerReexecute: false,
         sentinelEnabled: true,
         slashSelfAllowed: true,
         slashingOffsetInRounds: SLASH_OFFSET_IN_ROUNDS,

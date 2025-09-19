@@ -34,7 +34,7 @@ describe('createKeyStoreForValidator', () => {
     validatorAddresses: EthAddress[] = [],
     publisherAddresses: EthAddress[] = [],
   ): TxSenderConfig & ValidatorClientConfig & SequencerClientConfig & SharedNodeConfig => {
-    const mockValidatorPrivateKeys =
+    const mocksequencerPrivateKeys =
       validatorKeys.length > 0
         ? {
             getValue: () => validatorKeys,
@@ -45,7 +45,7 @@ describe('createKeyStoreForValidator', () => {
       publisherKeys.length > 0 ? publisherKeys.map(key => ({ getValue: () => key })) : undefined;
 
     return {
-      validatorPrivateKeys: mockValidatorPrivateKeys,
+      sequencerPrivateKeys: mocksequencerPrivateKeys,
       publisherPrivateKeys: mockPublisherPrivateKeys,
       coinbase: coinbase,
       feeRecipient: feeRecipient,
@@ -65,9 +65,9 @@ describe('createKeyStoreForValidator', () => {
     expect(result).toBeUndefined();
   });
 
-  it('should return undefined when validatorPrivateKeys is undefined', () => {
+  it('should return undefined when sequencerPrivateKeys is undefined', () => {
     const config = {
-      validatorPrivateKeys: undefined,
+      sequencerPrivateKeys: undefined,
       publisherPrivateKeys: undefined,
       coinbase: undefined,
       feeRecipient: undefined,

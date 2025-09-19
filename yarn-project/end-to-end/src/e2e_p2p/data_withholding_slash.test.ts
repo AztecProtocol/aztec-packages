@@ -107,7 +107,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
 
     t.ctx.aztecNodeConfig.slashDataWithholdingPenalty = slashingAmount;
     t.ctx.aztecNodeConfig.slashPrunePenalty = slashingAmount;
-    t.ctx.aztecNodeConfig.validatorReexecute = false;
+    t.ctx.aztecNodeConfig.sequencerReexecute = false;
     t.ctx.aztecNodeConfig.minTxsPerBlock = 1;
 
     t.logger.info('Creating nodes');

@@ -70,7 +70,7 @@ SEQ_MAX_TX_PER_BLOCK=32 # Maximum txs to go on a block. (default: 32)
 SEQ_MIN_TX_PER_BLOCK=1 # Minimum txs to go on a block. (default: 1)
 
 ## Validator variables ##
-VALIDATOR_PRIVATE_KEY=0x01234567890abcde01234567890abcde  # Private key of the ethereum account that will be used to perform validator duties
+SEQUENCER_PRIVATE_KEY=0x01234567890abcde01234567890abcde  # Private key of the ethereum account that will be used to perform validator duties
 ```
 
 **PXE**

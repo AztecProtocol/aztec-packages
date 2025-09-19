@@ -25,10 +25,10 @@ for ((i = 0; i < NUM_VALIDATORS; i++)); do
   P2P_PORT=$((40401 + i))
 
   # Use the arrays generated from generate-aztec-validator-keys.sh
-  ADDRESS="${VALIDATOR_ADDRESSES_LIST[$i]}"
-  VALIDATOR_PRIVATE_KEY="${VALIDATOR_PRIVATE_KEYS[$i]}"
+  ADDRESS="${SEQUENCER_ADDRESSES_LIST[$i]}"
+  SEQUENCER_PRIVATE_KEY="${SEQUENCER_PRIVATE_KEYS[$i]}"
 
-  CMD+=("./validator.sh $PORT $P2P_PORT $ADDRESS $VALIDATOR_PRIVATE_KEY")
+  CMD+=("./validator.sh $PORT $P2P_PORT $ADDRESS $SEQUENCER_PRIVATE_KEY")
 done
 
 # If there's only one validator, run it directly

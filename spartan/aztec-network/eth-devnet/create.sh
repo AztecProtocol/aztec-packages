@@ -76,7 +76,7 @@ function prefund_accounts {
   local updated_json="$genesis_json"
 
   # Initialize array to store addresses
-  declare -a VALIDATOR_ADDRESSES_LIST
+  declare -a SEQUENCER_ADDRESSES_LIST
 
   # Generate addresses from key indices from mnemonic
   # Creates an array of key_indices
@@ -85,11 +85,11 @@ function prefund_accounts {
     # Get private key and address
     PRIVATE_KEY=$(cast wallet private-key "$MNEMONIC" --mnemonic-index $i)
     ADDRESS=$(cast wallet address "$PRIVATE_KEY")
-    VALIDATOR_ADDRESSES_LIST+=("$ADDRESS")
+    SEQUENCER_ADDRESSES_LIST+=("$ADDRESS")
   done
 
   # Add each address to the genesis allocation
-  for address in "${VALIDATOR_ADDRESSES_LIST[@]}"; do
+  for address in "${SEQUENCER_ADDRESSES_LIST[@]}"; do
     updated_json=$(echo "$updated_json" | jq --arg addr "$address" \
       '.alloc[$addr] = {"balance": "1000000000000000000000000000", "nonce": "0"}')
   done

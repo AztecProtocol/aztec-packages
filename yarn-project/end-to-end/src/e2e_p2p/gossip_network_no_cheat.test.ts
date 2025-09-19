@@ -86,7 +86,7 @@ describe('e2e_p2p_network', () => {
       throw new Error('Bootstrap node ENR is not available');
     }
 
-    t.ctx.aztecNodeConfig.validatorReexecute = true;
+    t.ctx.aztecNodeConfig.sequencerReexecute = true;
 
     expect(t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetHandlerAddress).toBeDefined();
 

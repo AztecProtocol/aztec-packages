@@ -15,7 +15,7 @@ set -eu
 if [ $# -gt 0 ]; then
   INIT_VALIDATORS="true"
   NUMBER_OF_VALIDATORS="$1"
-  # Generate validator keys, this will set the VALIDATOR_ADDRESSES variable
+  # Generate validator keys, this will set the SEQUENCER_ADDRESSES variable
   source $REPO/yarn-project/end-to-end/scripts/native-network/generate-aztec-validator-keys.sh $NUMBER_OF_VALIDATORS
 else
   INIT_VALIDATORS="false"
@@ -54,7 +54,7 @@ COMMAND="node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/
   --test-accounts"
 
 # Add validators if specified
-[ "$INIT_VALIDATORS" = "true" ] && COMMAND="$COMMAND --validators $VALIDATOR_ADDRESSES"
+[ "$INIT_VALIDATORS" = "true" ] && COMMAND="$COMMAND --validators $SEQUENCER_ADDRESSES"
 
 # Add private key if provided
 [ -n "$PRIVATE_KEY" ] && COMMAND="$COMMAND --private-key $PRIVATE_KEY"

@@ -96,8 +96,8 @@ CREATE_CHAOS_MESH=${CREATE_CHAOS_MESH:-false}
 
 
 # Compute validator addresses
-VALIDATOR_ADDRESSES=$(echo "$VALIDATOR_INDICES" | tr ',' '\n' | xargs -I{} cast wallet address --mnemonic "$LABS_INFRA_MNEMONIC" --mnemonic-index {} | tr '\n' ',' | sed 's/,$//')
-log "VALIDATOR_ADDRESSES: ${VALIDATOR_ADDRESSES}"
+SEQUENCER_ADDRESSES=$(echo "$VALIDATOR_INDICES" | tr ',' '\n' | xargs -I{} cast wallet address --mnemonic "$LABS_INFRA_MNEMONIC" --mnemonic-index {} | tr '\n' ',' | sed 's/,$//')
+log "SEQUENCER_ADDRESSES: ${SEQUENCER_ADDRESSES}"
 
 # Compute and include publisher indices in prefunding list
 # Uses env overrides when provided, otherwise falls back to values.yaml defaults
@@ -212,7 +212,7 @@ L1_RPC_URLS = "${CSV_RPC_URLS}"
 PRIVATE_KEY = "${ROLLUP_DEPLOYMENT_PRIVATE_KEY}"
 L1_CHAIN_ID = "${ETHEREUM_CHAIN_ID}"
 SALT = "${SALT}"
-VALIDATORS = "${VALIDATOR_ADDRESSES}"
+VALIDATORS = "${SEQUENCER_ADDRESSES}"
 SPONSORED_FPC = ${SPONSORED_FPC}
 TEST_ACCOUNTS = ${TEST_ACCOUNTS}
 REAL_VERIFIER = ${REAL_VERIFIER}

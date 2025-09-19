@@ -207,7 +207,7 @@ export class EpochsTestContext {
 
   public createNonValidatorNode(opts: Partial<AztecNodeConfig> = {}) {
     this.logger.warn('Creating and syncing a node without a validator...');
-    return this.createNode({ ...opts, disableValidator: true });
+    return this.createNode({ ...opts, disableSequencer: true });
   }
 
   public createValidatorNode(
@@ -215,7 +215,7 @@ export class EpochsTestContext {
     opts: Partial<AztecNodeConfig> & { txDelayerMaxInclusionTimeIntoSlot?: number; dontStartSequencer?: boolean } = {},
   ) {
     this.logger.warn('Creating and syncing a validator node...');
-    return this.createNode({ ...opts, disableValidator: false, validatorPrivateKeys: new SecretValue(privateKeys) });
+    return this.createNode({ ...opts, disableSequencer: false, sequencerPrivateKeys: new SecretValue(privateKeys) });
   }
 
   private async createNode(
@@ -231,7 +231,7 @@ export class EpochsTestContext {
         {
           ...resolvedConfig,
           dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
-          validatorPrivateKeys: opts.validatorPrivateKeys ?? new SecretValue([]),
+          sequencerPrivateKeys: opts.sequencerPrivateKeys ?? new SecretValue([]),
           p2pEnabled,
           p2pIp,
         },

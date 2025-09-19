@@ -78,7 +78,7 @@ export async function createNodes(
 
   // Sanity check that we have a sequencer if required
   const seqClient = nodes[0].getSequencer();
-  if (!seqClient && config.disableValidator === false) {
+  if (!seqClient && config.disableSequencer === false) {
     throw new Error('Sequencer not found');
   }
 
@@ -157,7 +157,7 @@ export async function createValidatorConfig(
 
   const attesterPrivateKey = bufferToHex(getPrivateKeyFromIndex(ATTESTER_PRIVATE_KEYS_START_INDEX + addressIndex)!);
 
-  config.validatorPrivateKeys = new SecretValue([attesterPrivateKey]);
+  config.sequencerPrivateKeys = new SecretValue([attesterPrivateKey]);
   config.publisherPrivateKeys = [new SecretValue(attesterPrivateKey)];
 
   const nodeConfig: AztecNodeConfig = {

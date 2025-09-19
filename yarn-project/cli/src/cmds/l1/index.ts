@@ -35,7 +35,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .description('Deploys all necessary Ethereum contracts for Aztec.')
     .addOption(l1RpcUrlsOption)
     .option('-pk, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
-    .option('--validators <string>', 'Comma separated list of validators')
+    .option('--sequencers <string>', 'Comma separated list of sequencers')
     .option(
       '-m, --mnemonic <string>',
       'The mnemonic to use in deployment',
@@ -54,8 +54,8 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .action(async options => {
       const { deployL1Contracts } = await import('./deploy_l1_contracts.js');
 
-      const initialValidators =
-        options.validators?.split(',').map((validator: string) => EthAddress.fromString(validator)) || [];
+      const initialSequencers =
+        options.sequencers?.split(',').map((sequencer: string) => EthAddress.fromString(sequencer)) || [];
       await deployL1Contracts(
         options.l1RpcUrls,
         options.l1ChainId,
@@ -68,7 +68,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         options.acceleratedTestDeployments,
         options.json,
         options.createVerificationJson,
-        initialValidators,
+        initialSequencers,
         options.realVerifier,
         options.flushEntryQueue,
         log,
@@ -82,7 +82,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .requiredOption('-r, --registry-address <string>', 'The address of the registry contract', parseEthereumAddress)
     .addOption(l1RpcUrlsOption)
     .option('-pk, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
-    .option('--validators <string>', 'Comma separated list of validators')
+    .option('--sequencers <string>', 'Comma separated list of sequencers')
     .option(
       '-m, --mnemonic <string>',
       'The mnemonic to use in deployment',
@@ -98,8 +98,8 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .action(async options => {
       const { deployNewRollup } = await import('./deploy_new_rollup.js');
 
-      const initialValidators =
-        options.validators?.split(',').map((validator: string) => EthAddress.fromString(validator)) || [];
+      const initialSequencers =
+        options.sequencers?.split(',').map((sequencer: string) => EthAddress.fromString(sequencer)) || [];
       await deployNewRollup(
         options.registryAddress,
         options.l1RpcUrls,
@@ -111,7 +111,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         options.testAccounts,
         options.sponsoredFpc,
         options.json,
-        initialValidators,
+        initialSequencers,
         options.realVerifier,
         log,
         debugLogger,

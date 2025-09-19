@@ -51,7 +51,7 @@ describe('e2e_gov_proposal', () => {
         anvilAccounts: 100,
         aztecTargetCommitteeSize: COMMITTEE_SIZE,
         initialValidators: validators.map(v => ({ ...v, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) })),
-        validatorPrivateKeys: new SecretValue(validators.map(v => v.privateKey)), // sequencer runs with all validator keys
+        sequencerPrivateKeys: new SecretValue(validators.map(v => v.privateKey)), // sequencer runs with all validator keys
         governanceProposerRoundSize: ROUND_SIZE,
         governanceProposerQuorum: QUORUM_SIZE,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,

@@ -158,11 +158,11 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       slashUnknownPenalty: 1000n,
       slashGracePeriodL2Slots: 0,
       slasherClientType: 'tally' as const,
-      disableValidator: false,
-      disabledValidators: [],
+      disableSequencer: false,
+      disabledSequencers: [],
       attestationPollingIntervalMs: 1000,
-      validatorReexecute: true,
-      validatorReexecuteDeadlineMs: 1000,
+      sequencerReexecute: true,
+      sequencerReexecuteDeadlineMs: 1000,
     });
   }
   startSnapshotUpload(_location: string): Promise<void> {
