@@ -26,14 +26,10 @@ namespace bb::stdlib {
  * coordinates later.
  */
 // WORKTODO: is this fuzzer only logic? if so lets mark it accordingly e.g. with sig (Builder* _context, FUZZER_ONLY)
-template <typename Builder>
-cycle_group<Builder>::cycle_group(Builder* _context)
-    : x(0)
-    , y(0)
-    , _is_infinity(true)
-    , _is_standard(true)
-    , context(_context)
-{}
+template <typename Builder> cycle_group<Builder>::cycle_group(Builder* _context)
+{
+    *this = constant_infinity(_context);
+}
 
 /**
  * @brief Construct a new cycle group<Builder>::cycle group object
@@ -58,9 +54,7 @@ cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity)
     }
 
     if (is_infinity.is_constant() && is_infinity.get_value()) {
-        this->x = 0;
-        this->y = 0;
-        this->_is_infinity = true;
+        *this = constant_infinity(this->context);
     }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1067): This ASSERT is missing in the constructor but
@@ -127,6 +121,25 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::one(Build
 }
 
 /**
+ * @brief Construct a constant point at infinity.
+ *
+ */
+template <typename Builder> cycle_group<Builder> cycle_group<Builder>::constant_infinity(Builder* _context)
+{
+    cycle_group result(bb::fr(0), bb::fr(0), /*is_infinity=*/true);
+
+    // If context provided, create field_t/bool_t with that context
+    if (_context != nullptr) {
+        result.x = field_t(_context, bb::fr(0));
+        result.y = field_t(_context, bb::fr(0));
+        result._is_infinity = bool_t(_context, true);
+        result.context = _context;
+    }
+
+    return result;
+}
+
+/**
  * @brief Converts an AffineElement into a circuit witness.
  *
  * @details Somewhat expensive as we do an on-curve check and `_is_infinity` is a witness and not a constant.
@@ -181,8 +194,7 @@ cycle_group<Builder> cycle_group<Builder>::from_constant_witness(Builder* _conte
     // Since we are not using these coordinates anyway
     // We can set them both to be zero
     if (_in.is_point_at_infinity()) {
-        result.x = bb::fr::zero();
-        result.y = bb::fr::zero();
+        result = constant_infinity(_context);
     } else {
         result.x = field_t(witness_t(_context, _in.x));
         result.y = field_t(witness_t(_context, _in.y));
@@ -255,18 +267,14 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
         ASSERT((this->_is_infinity.get_value() == is_infinity.get_value()) || is_infinity.get_value());
 
         if (is_infinity.get_value()) {
-            this->x = 0;
-            this->y = 0;
-            this->_is_infinity = true;
+            *this = constant_infinity(this->context);
         }
         return;
     }
 
     if (is_infinity.is_constant() && !this->_is_infinity.is_constant()) {
         if (is_infinity.get_value()) {
-            this->x = 0;
-            this->y = 0;
-            this->_is_infinity = true;
+            *this = constant_infinity(this->context);
         } else {
             this->_is_infinity.assert_equal(false);
             this->_is_infinity = false;
@@ -278,8 +286,7 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
         // I can't imagine this case happening, but still
         is_infinity.assert_equal(true);
 
-        this->x = 0;
-        this->y = 0;
+        *this = constant_infinity(this->context);
         return;
     }
 

@@ -69,6 +69,7 @@ template <typename Builder> class cycle_group {
     cycle_group(const bb::fr& _x, const bb::fr& _y, bool _is_infinity);
     cycle_group(const AffineElement& _in);
     static cycle_group one(Builder* _context);
+    static cycle_group constant_infinity(Builder* _context = nullptr);
     static cycle_group from_witness(Builder* _context, const AffineElement& _in);
     static cycle_group from_constant_witness(Builder* _context, const AffineElement& _in);
     Builder* get_context(const cycle_group& other) const;
