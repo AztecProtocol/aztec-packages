@@ -151,6 +151,8 @@ locals {
         "validator.node.env.PUBLISHER_KEY_INDEX_START"      = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
         "validator.node.env.VALIDATORS_PER_NODE"            = var.VALIDATORS_PER_NODE
         "validator.node.env.PUBLISHERS_PER_VALIDATOR_KEY"   = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
+        "validator.node.proverRealProofs"                   = var.PROVER_REAL_PROOFS
+
       }
       boot_node_host_path  = "validator.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "validator.node.env.BOOTSTRAP_NODES"
@@ -213,8 +215,10 @@ locals {
         }
       })] : []
       custom_settings = {
-        "nodeType"            = "rpc"
-        "node.env.NETWORK"    = var.NETWORK
+        "nodeType"              = "rpc"
+        "node.env.NETWORK"      = var.NETWORK
+        "node.proverRealProofs" = var.PROVER_REAL_PROOFS
+
         "ingress.rpc.enabled" = var.RPC_INGRESS_ENABLED
         "ingress.rpc.host"    = var.RPC_INGRESS_HOST
       }
