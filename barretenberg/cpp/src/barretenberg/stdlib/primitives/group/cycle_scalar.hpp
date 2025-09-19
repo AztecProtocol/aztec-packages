@@ -38,7 +38,7 @@ template <typename Builder> class cycle_scalar {
     using ScalarField = typename Curve::ScalarField;
     using BigScalarField = stdlib::bigfield<Builder, typename ScalarField::Params>;
 
-    static constexpr size_t NUM_BITS = ScalarField::modulus.get_msb() + 1;
+    static constexpr size_t NUM_BITS = ScalarField::modulus.get_msb() + 1; // equivalent for both bn254 and grumpkin
     static constexpr size_t LO_BITS = field_t::native::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
     static constexpr size_t HI_BITS = NUM_BITS - LO_BITS;
 
@@ -63,7 +63,6 @@ template <typename Builder> class cycle_scalar {
         return { value.slice(0, LO_BITS), value.slice(LO_BITS, NUM_BITS) };
     }
 
-  public:
     cycle_scalar(const field_t& _lo,
                  const field_t& _hi,
                  const size_t bits,
@@ -74,12 +73,16 @@ template <typename Builder> class cycle_scalar {
         , _num_bits(bits)
         , _skip_primality_test(skip_primality_test)
         , _use_bn254_scalar_field_for_primality_test(use_bn254_scalar_field_for_primality_test) {};
+
+  public:
+    // AUDITTODO: this is used only in the fuzzer.
     cycle_scalar(const ScalarField& _in = 0);
     cycle_scalar(const field_t& _lo, const field_t& _hi);
-    cycle_scalar(const field_t& _in);
+    // AUDITTODO: this is used only in the fuzzer. Its not inherently problematic, but perhaps the fuzzer should use a
+    // production entrypoint.
     static cycle_scalar from_witness(Builder* context, const ScalarField& value);
     static cycle_scalar from_u256_witness(Builder* context, const uint256_t& bitstring);
-    static cycle_scalar create_from_bn254_scalar(const field_t& _in, bool skip_primality_test = false);
+    static cycle_scalar create_from_bn254_scalar(const field_t& _in);
     [[nodiscard]] bool is_constant() const;
     ScalarField get_value() const;
     Builder* get_context() const { return lo.get_context() != nullptr ? lo.get_context() : hi.get_context(); }
@@ -89,9 +92,14 @@ template <typename Builder> class cycle_scalar {
     {
         return _use_bn254_scalar_field_for_primality_test;
     }
-    void validate_scalar_is_in_field() const;
 
+    /**
+     * @brief Validates that the scalar (lo + hi * 2^LO_BITS) is less than the appropriate field modulus
+     * @details Checks against either bn254 scalar field or grumpkin scalar field based on internal flags
+     */
+    void validate_scalar_is_in_field() const;
     explicit cycle_scalar(BigScalarField&);
+
     /**
      * @brief Get the origin tag of the cycle_scalar (a merge of the lo and hi tags)
      *
