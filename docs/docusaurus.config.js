@@ -185,10 +185,9 @@ const config = {
             position: "left",
             label: "Learn",
           },
-
           {
             type: "docSidebar",
-            sidebarId: "buildSidebar",
+            sidebarId: "sidebar",
             position: "left",
             label: "Build",
           },
