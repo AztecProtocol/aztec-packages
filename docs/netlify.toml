@@ -298,3 +298,125 @@
 [[redirects]]
     from = "/developers/guides/local_env/set_hardware_resource_limits"
     to = "/developers/guides/local_env/how_to_set_hardware_resource_limits"
+
+# Redirects for fixed documentation structure links
+# Added to handle all the broken links that were fixed in the documentation
+
+# Redirect old aztec/concepts paths to new structure
+[[redirects]]
+    from = "/aztec/concepts/*"
+    to = "/developers/docs/concepts/:splat"
+
+# Redirect getting_started variations
+[[redirects]]
+    from = "/developers/getting_started/getting_started"
+    to = "/developers/getting_started_on_sandbox"
+
+[[redirects]]
+    from = "/getting_started/getting_started"
+    to = "/developers/getting_started_on_sandbox"
+
+[[redirects]]
+    from = "/developers/getting_started/getting_started.md"
+    to = "/developers/getting_started_on_sandbox"
+
+# Redirect guides that moved to aztec-js
+[[redirects]]
+    from = "/developers/guides/js_apps/how_to_connect_to_sandbox"
+    to = "/developers/guides/aztec-js/how_to_connect_to_sandbox"
+
+[[redirects]]
+    from = "/developers/guides/js_apps/how_to_create_account"
+    to = "/developers/guides/aztec-js/how_to_create_account"
+
+[[redirects]]
+    from = "/developers/guides/js_apps/how_to_deploy_contract"
+    to = "/developers/guides/aztec-js/how_to_deploy_contract"
+
+[[redirects]]
+    from = "/developers/guides/js_apps/how_to_send_transaction"
+    to = "/developers/guides/aztec-js/how_to_send_transaction"
+
+[[redirects]]
+    from = "/developers/guides/js_apps/how_to_simulate_function"
+    to = "/developers/guides/aztec-js/how_to_simulate_function"
+
+[[redirects]]
+    from = "/developers/guides/js_apps/how_to_use_authwit"
+    to = "/developers/guides/aztec-js/how_to_use_authwit"
+
+[[redirects]]
+    from = "/developers/guides/js_apps/how_to_pay_fees"
+    to = "/developers/guides/aztec-js/how_to_pay_fees"
+
+[[redirects]]
+    from = "/developers/guides/js_apps/how_to_test"
+    to = "/developers/guides/aztec-js/how_to_test"
+
+# Redirect tutorials paths
+[[redirects]]
+    from = "/developers/tutorials/js_tutorials/*"
+    to = "/developers/docs/tutorials/js_tutorials/:splat"
+
+[[redirects]]
+    from = "/developers/tutorials/contract_tutorials/*"
+    to = "/developers/docs/tutorials/contract_tutorials/:splat"
+
+# Redirect for smart_contracts_overview
+[[redirects]]
+    from = "/aztec/smart_contracts_overview"
+    to = "/developers/docs/concepts/smart_contracts/contract_structure"
+
+[[redirects]]
+    from = "/developers/docs/concepts/smart_contracts_overview"
+    to = "/developers/docs/concepts/smart_contracts/contract_structure"
+
+# Redirect for cli_wallet_reference
+[[redirects]]
+    from = "/developers/guides/local_env/advanced/cli_wallet_reference"
+    to = "/developers/docs/reference/environment_reference/cli_wallet_reference"
+
+# Handle relative path redirects for concepts
+[[redirects]]
+    from = "/developers/docs/concepts/concepts/*"
+    to = "/developers/docs/concepts/:splat"
+
+# Handle oracles redirect
+[[redirects]]
+    from = "/aztec/smart_contracts/oracles"
+    to = "/developers/docs/concepts/smart_contracts/oracles"
+
+# Handle storage redirects
+[[redirects]]
+    from = "/aztec/concepts/storage/*"
+    to = "/developers/docs/concepts/storage/:splat"
+
+# Handle PXE redirects
+[[redirects]]
+    from = "/aztec/concepts/pxe/*"
+    to = "/developers/docs/concepts/pxe/:splat"
+
+# Handle accounts redirects
+[[redirects]]
+    from = "/aztec/concepts/accounts/*"
+    to = "/developers/docs/concepts/accounts/:splat"
+
+# Handle advanced concepts redirects
+[[redirects]]
+    from = "/aztec/concepts/advanced/*"
+    to = "/developers/docs/concepts/advanced/:splat"
+
+# Getting started on testnet redirect
+[[redirects]]
+    from = "/developers/guides/getting_started_on_testnet"
+    to = "/developers/getting_started_on_testnet"
+
+# Sandbox reference redirect
+[[redirects]]
+    from = "/developers/guides/local_env/sandbox-reference"
+    to = "/developers/docs/reference/environment_reference/sandbox-reference"
+
+# FaceID wallet redirect
+[[redirects]]
+    from = "/developers/tutorials/codealong/faceid_wallet"
+    to = "/developers/docs/guides/local_env/advanced/faceid_wallet"
