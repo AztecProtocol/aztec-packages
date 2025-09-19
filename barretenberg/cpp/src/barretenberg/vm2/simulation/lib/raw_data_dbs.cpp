@@ -555,6 +555,7 @@ void HintedRawMerkleDB::pad_tree(world_state::MerkleTreeId tree_id, size_t num_l
 {
     auto& tree_info = get_tree_info(tree_id);
     auto size_before = tree_info.nextAvailableLeafIndex;
+    (void)size_before; // To please the compiler.
     tree_info.nextAvailableLeafIndex += num_leaves;
 
     debug("Padded tree ", get_tree_name(tree_id), " from size ", size_before, " to ", tree_info.nextAvailableLeafIndex);
