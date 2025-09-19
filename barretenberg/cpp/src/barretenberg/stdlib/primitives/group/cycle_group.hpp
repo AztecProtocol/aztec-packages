@@ -74,7 +74,7 @@ template <typename Builder> class cycle_group {
     Builder* get_context(const cycle_group& other) const;
     Builder* get_context() const { return context; }
     AffineElement get_value() const;
-    [[nodiscard]] bool is_constant() const { return _is_constant; }
+    [[nodiscard]] bool is_constant() const { return x.is_constant() && y.is_constant() && _is_infinity.is_constant(); }
     bool_t is_point_at_infinity() const { return _is_infinity; }
     void set_point_at_infinity(const bool_t& is_infinity);
     void standardize();
@@ -201,7 +201,6 @@ template <typename Builder> class cycle_group {
 
   private:
     bool_t _is_infinity;
-    bool _is_constant;
     // The point is considered to be `standard` or in `standard form` when:
     // - It's not a point at infinity, and the coordinates belong to the curve
     // - It's a point at infinity and both of the coordinates are set to be 0. (0, 0)

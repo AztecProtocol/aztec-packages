@@ -31,7 +31,6 @@ cycle_group<Builder>::cycle_group(Builder* _context)
     : x(0)
     , y(0)
     , _is_infinity(true)
-    , _is_constant(true)
     , _is_standard(true)
     , context(_context)
 {}
@@ -48,7 +47,6 @@ cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity)
     : x(_x.normalize())
     , y(_y.normalize())
     , _is_infinity(is_infinity)
-    , _is_constant(_x.is_constant() && _y.is_constant() && is_infinity.is_constant())
     , _is_standard(is_infinity.is_constant())
 {
     if (_x.get_context() != nullptr) {
@@ -63,7 +61,6 @@ cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity)
         this->x = 0;
         this->y = 0;
         this->_is_infinity = true;
-        this->_is_constant = true;
     }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1067): This ASSERT is missing in the constructor but
@@ -90,7 +87,6 @@ cycle_group<Builder>::cycle_group(const bb::fr& _x, const bb::fr& _y, bool is_in
     : x(is_infinity ? 0 : _x)
     , y(is_infinity ? 0 : _y)
     , _is_infinity(is_infinity)
-    , _is_constant(true)
     , _is_standard(true)
     , context(nullptr)
 {
@@ -112,7 +108,6 @@ cycle_group<Builder>::cycle_group(const AffineElement& _in)
     : x(_in.is_point_at_infinity() ? 0 : _in.x)
     , y(_in.is_point_at_infinity() ? 0 : _in.y)
     , _is_infinity(_in.is_point_at_infinity())
-    , _is_constant(true)
     , _is_standard(true)
     , context(nullptr)
 {}
@@ -159,7 +154,6 @@ cycle_group<Builder> cycle_group<Builder>::from_witness(Builder* _context, const
         result.y = field_t(witness_t(_context, _in.y));
     }
     result._is_infinity = bool_t(witness_t(_context, _in.is_point_at_infinity()));
-    result._is_constant = false;
     result._is_standard = true;
     result.validate_is_on_curve();
     result.set_free_witness_tag();
@@ -189,13 +183,11 @@ cycle_group<Builder> cycle_group<Builder>::from_constant_witness(Builder* _conte
     if (_in.is_point_at_infinity()) {
         result.x = bb::fr::zero();
         result.y = bb::fr::zero();
-        result._is_constant = true;
     } else {
         result.x = field_t(witness_t(_context, _in.x));
         result.y = field_t(witness_t(_context, _in.y));
         result.x.assert_equal(result.x.get_value());
         result.y.assert_equal(result.y.get_value());
-        result._is_constant = false;
     }
     // point at infinity is circuit constant
     result._is_infinity = _in.is_point_at_infinity();
@@ -255,9 +247,6 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::get_stand
  */
 template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(const bool_t& is_infinity)
 {
-    BB_ASSERT_EQ(this->x.is_constant() && this->y.is_constant() && this->_is_infinity.is_constant(),
-                 this->_is_constant);
-
     this->_is_standard = true;
 
     if (is_infinity.is_constant() && this->_is_infinity.is_constant()) {
@@ -269,7 +258,6 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
             this->x = 0;
             this->y = 0;
             this->_is_infinity = true;
-            this->_is_constant = true;
         }
         return;
     }
@@ -279,7 +267,6 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
             this->x = 0;
             this->y = 0;
             this->_is_infinity = true;
-            this->_is_constant = true;
         } else {
             this->_is_infinity.assert_equal(false);
             this->_is_infinity = false;
@@ -293,17 +280,18 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
 
         this->x = 0;
         this->y = 0;
-        this->_is_constant = true;
         return;
     }
 
     this->x = field_t::conditional_assign(is_infinity, 0, this->x).normalize();
     this->y = field_t::conditional_assign(is_infinity, 0, this->y).normalize();
 
+    // At this point, we know at least one of is_infinity or this->_is_infinity is a witness (not constant)
+    // because all cases with both being constants were handled above and returned early.
+    // Therefore, after conditional_assign, x and y will be witnesses, not constants.
     // We won't bump into the case where we end up with non constant coordinates
     ASSERT(!this->x.is_constant());
     ASSERT(!this->y.is_constant());
-    this->_is_constant = false;
 
     // We have to check this to avoid the situation, where we change the infinity
     bool_t set_allowed = (this->_is_infinity == is_infinity) || is_infinity;
@@ -323,10 +311,8 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
  */
 template <typename Builder> void cycle_group<Builder>::standardize()
 {
-    BB_ASSERT_EQ(this->x.is_constant() && this->y.is_constant() && this->_is_infinity.is_constant(),
-                 this->_is_constant);
     if (this->_is_infinity.is_constant() && this->_is_infinity.get_value()) {
-        ASSERT(this->_is_constant);
+        ASSERT(this->is_constant());
         ASSERT(this->_is_standard);
     }
 
