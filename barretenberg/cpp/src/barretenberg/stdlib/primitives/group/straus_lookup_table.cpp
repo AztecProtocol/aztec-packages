@@ -79,8 +79,11 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
     // lost here since native addition with the point at infinity is nearly free).
     const bool hints_available = hints.has_value() && !base_point.is_point_at_infinity().get_value();
     auto get_hint = [&](size_t i) -> std::optional<AffineElement> {
+        if (!hints_available) {
+            return std::nullopt;
+        }
         BB_ASSERT_LT(i, hints.value().size(), "Invalid hint index");
-        return hints_available ? std::optional<AffineElement>(hints.value()[i]) : std::nullopt;
+        return std::optional<AffineElement>(hints.value()[i]);
     };
 
     if (base_point.is_constant() && !base_point.is_point_at_infinity().get_value()) {
