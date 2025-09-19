@@ -13,17 +13,17 @@ template <typename Builder> using grumpkin_element = cycle_group<Builder>;
 template <typename Builder> class stdlib_field_conversion : public ::testing::Test {
   public:
     // Serialize and deserialize
-    template <typename T> void check_conversion(T x, bool valid_circuit = true, bool point_at_infinity = false)
+    template <typename T> void check_conversion(T in, bool valid_circuit = true, bool point_at_infinity = false)
     {
         size_t len = bb::stdlib::field_conversion::calc_num_bn254_frs<Builder, T>();
-        auto frs = bb::stdlib::field_conversion::convert_to_bn254_frs<Builder, T>(x);
+        auto frs = bb::stdlib::field_conversion::convert_to_bn254_frs<Builder, T>(in);
         EXPECT_EQ(len, frs.size());
-        auto y = bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, T>(frs);
+        auto out = bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, T>(frs);
         bool expected = std::is_same_v<Builder, UltraCircuitBuilder> ? !point_at_infinity : true;
 
-        EXPECT_EQ(x.get_value() == y.get_value(), expected);
+        EXPECT_EQ(in.get_value() == out.get_value(), expected);
 
-        auto ctx = x.get_context();
+        auto ctx = in.get_context();
 
         EXPECT_EQ(CircuitChecker::check(*ctx), valid_circuit);
     }
@@ -188,7 +188,7 @@ TYPED_TEST(stdlib_field_conversion, DeserializePointAtInfinity)
 {
     using Builder = TypeParam;
     Builder builder;
-    const fr<Builder> zero(fr<Builder>::from_witness_index(&builder, 0));
+    const fr<Builder> zero(fr<Builder>::from_witness_index(&builder, builder->zero_idx));
 
     {
         std::vector<fr<Builder>> zeros(4, zero);
