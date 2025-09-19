@@ -208,12 +208,23 @@ fn demoRandomScalars() !void {
     print("✓ Random scalar generation completed successfully!\n", .{});
 }
 
+fn testThreading() !void {
+    print("\n=== Threading Test (to trigger pthread linking) ===\n", .{});
+
+    print("Testing parallel_for function call...\n", .{});
+    c.test_pthread_linking();
+    print("✓ Threading test completed!\n", .{});
+}
+
 pub fn main() !void {
     print("🚀 Barretenberg Grumpkin ECC Demo with Zig!\n", .{});
     print("============================================\n", .{});
 
     // Start with just the working demos
     try demoRandomScalars();
+
+    // Add threading test to force pthread linking
+    try testThreading();
 
     // Skip the point operations for now since we need to understand
     // how the C API expects the generator point to be represented

@@ -20,6 +20,9 @@ void ecc_secp256k1__get_random_scalar_mod_circuit_modulus(uint8_t* result);
 
 void bn254_fr_sqrt(const uint8_t* input, uint8_t* result);
 
+// Threading test function that will force pthread linking
+void test_pthread_linking(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -17,5 +17,9 @@
             .url = "https://github.com/LMDB/lmdb/archive/refs/tags/LMDB_0.9.31.tar.gz",
             .hash = "N-V-__8AAHEsCACb_b9D1HnCysDKIhKFOrITbxYh9JRh9ix5",
         },
+        .msgpack = .{
+            .url = "https://github.com/AztecProtocol/msgpack-c/archive/5ee9a1c8c325658b29867829677c7eb79c433a98.tar.gz",
+            .hash = "N-V-__8AAKNnXgCffVATgTub7UmV-IbR7wQG19QHDwsuXyF8",
+        },
     },
 }

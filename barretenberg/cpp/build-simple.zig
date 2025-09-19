@@ -128,6 +128,7 @@ pub fn build(b: *std.Build) void {
     };
 
     // For WASM, use most source files but exclude problematic ones
+    // Adding polynomial_arithmetic.cpp will trigger pthread issues due to parallel_for usage
     const wasm_sources = [_][]const u8{
         "src/barretenberg/ecc/curves/grumpkin/c_bind.cpp",
         "src/barretenberg/ecc/curves/secp256k1/c_bind.cpp",
@@ -145,8 +146,12 @@ pub fn build(b: *std.Build) void {
         // "src/barretenberg/env/throw_or_abort_impl.cpp",
         "src/barretenberg/common/parallel_for_queued.cpp",
         "src/barretenberg/common/parallel_for_atomic_pool.cpp",
-        "src/barretenberg/common/parallel_for_mutex_pool.cpp",
+        "src/barretenberg/common/parallel_for_mutex_pool.cpp", // This uses std::mutex and std::condition_variable!
         "src/barretenberg/common/debug_log.cpp",
+
+        // ADD: Force threading usage by adding a file that calls parallel_for
+        "src/barretenberg/polynomials/polynomial_arithmetic.cpp", // This calls parallel_for
+        "src/barretenberg/threading/thread_test.cpp", // Direct parallel_for call that will be exported
     };
 
     wasm_lib.addCSourceFiles(.{

@@ -14,7 +14,6 @@ const platforms = [_]Platform{
     .{ .arch = .aarch64, .os = .macos, .name = "aarch64-macos" },
     .{ .arch = .x86_64, .os = .windows, .name = "x86_64-windows" },
     .{ .arch = .aarch64, .os = .windows, .name = "aarch64-windows" },
-    .{ .arch = .wasm32, .os = .wasi, .name = "wasm32-wasi" },
 };
 
 fn buildLmdb(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
@@ -95,11 +94,6 @@ pub fn build(b: *std.Build) void {
     // Add AVM option
     const enable_avm = b.option(bool, "avm", "Enable Aztec Virtual Machine support") orelse false;
 
-    // Disallow AVM builds for wasm targets.
-    if (target.result.cpu.arch == .wasm32 and enable_avm) {
-        std.debug.panic("AVM builds are not supported for wasm32 targets.", .{});
-    }
-
     const common_flags = [_][]const u8{
         "-std=c++20",
         "-fPIC",
@@ -113,16 +107,6 @@ pub fn build(b: *std.Build) void {
     };
 
     const cpp_flags_with_disable = common_flags ++ [_][]const u8{"-DDISABLE_AZTEC_VM=1"};
-
-    const wasm_flags = cpp_flags_with_disable ++ [_][]const u8{
-        "-DDISABLE_ADX",
-        "-DDISABLE_ASM",
-        "-DTRACY_ENABLE=0",
-        "-D_WASI_EMULATED_PROCESS_CLOCKS",
-        // "-DBB_NO_EXCEPTIONS",
-        // "-fno-exceptions",
-        // "-fno-rtti",
-    };
 
     // Core source files - essential barretenberg functionality
     const core_sources = [_][]const u8{
@@ -179,6 +163,9 @@ pub fn build(b: *std.Build) void {
         "src/barretenberg/srs/global_crs.cpp",
         "src/barretenberg/srs/factories/mem_bn254_crs_factory.cpp",
         "src/barretenberg/srs/factories/mem_grumpkin_crs_factory.cpp",
+        // "src/barretenberg/srs/factories/native_crs_factory.cpp",
+        // "src/barretenberg/srs/factories/get_bn254_crs.cpp",
+        // "src/barretenberg/srs/factories/get_grumpkin_crs.cpp",
 
         // Common utilities
         "src/barretenberg/common/c_bind.cpp",
@@ -202,10 +189,6 @@ pub fn build(b: *std.Build) void {
         // Transcript
         "src/barretenberg/transcript/origin_tag.cpp",
         "src/barretenberg/transcript/transcript.cpp",
-
-        // Client IVC
-        "src/barretenberg/client_ivc/client_ivc.cpp",
-        "src/barretenberg/client_ivc/private_execution_steps.cpp",
 
         // Goblin
         "src/barretenberg/goblin/goblin.cpp",
@@ -271,8 +254,9 @@ pub fn build(b: *std.Build) void {
         "src/barretenberg/bbapi/bbapi_client_ivc.cpp",
         "src/barretenberg/bbapi/bbapi_ultra_honk.cpp",
 
-        // BB CLI
-        "src/barretenberg/bb/cli.cpp",
+        // Client IVC files
+        // "src/barretenberg/client_ivc/client_ivc.cpp",
+        // "src/barretenberg/client_ivc/private_execution_steps.cpp",
 
         // Stdlib - essential circuit building blocks
         "src/barretenberg/stdlib/primitives/field/field.cpp",
@@ -352,19 +336,29 @@ pub fn build(b: *std.Build) void {
         "src/barretenberg/relations/translator_vm/translator_non_native_field_relation.cpp",
         "src/barretenberg/relations/translator_vm/translator_permutation_relation.cpp",
 
+        // API files
+        // "src/barretenberg/api/acir_format_getters.cpp",
+        // "src/barretenberg/api/api_ultra_honk.cpp",
+        // "src/barretenberg/api/api_client_ivc.cpp",
+        // "src/barretenberg/api/prove_tube.cpp",
+        // "src/barretenberg/api/api_avm.cpp",
+
+        // CLI functionality
+        // "src/barretenberg/bb/cli.cpp",
+
         // Other essentials
-        "src/barretenberg/trace_to_polynomials/trace_to_polynomials.cpp",
-        "src/barretenberg/op_queue/ecc_op_queue.cpp",
-        "src/barretenberg/boomerang_value_detection/graph.cpp",
-        "src/barretenberg/circuit_checker/ultra_circuit_checker.cpp",
-        "src/barretenberg/circuit_checker/translator_circuit_checker.cpp",
-        "src/barretenberg/flavor/flavor.cpp",
-        "src/barretenberg/honk/utils/testing.cpp",
-        "src/barretenberg/honk/relation_checker.cpp",
-        "src/barretenberg/honk/prover_instance_inspector.cpp",
-        "src/barretenberg/protogalaxy/protogalaxy_prover_mega.cpp",
-        "src/barretenberg/protogalaxy/protogalaxy_verifier.cpp",
-        "src/barretenberg/ext/starknet/crypto/poseidon/poseidon.cpp",
+        // "src/barretenberg/trace_to_polynomials/trace_to_polynomials.cpp",
+        // "src/barretenberg/op_queue/ecc_op_queue.cpp",
+        // "src/barretenberg/boomerang_value_detection/graph.cpp",
+        // "src/barretenberg/circuit_checker/ultra_circuit_checker.cpp",
+        // "src/barretenberg/circuit_checker/translator_circuit_checker.cpp",
+        // "src/barretenberg/flavor/flavor.cpp",
+        // "src/barretenberg/honk/utils/testing.cpp",
+        // "src/barretenberg/honk/relation_checker.cpp",
+        // "src/barretenberg/honk/prover_instance_inspector.cpp",
+        // "src/barretenberg/protogalaxy/protogalaxy_prover_mega.cpp",
+        // "src/barretenberg/protogalaxy/protogalaxy_verifier.cpp",
+        // "src/barretenberg/ext/starknet/crypto/poseidon/poseidon.cpp",
     };
 
     const world_state_sources = [_][]const u8{
@@ -388,19 +382,8 @@ pub fn build(b: *std.Build) void {
         // World state
         "src/barretenberg/world_state/types.cpp",
         "src/barretenberg/world_state/world_state.cpp",
-
-        // API files (require file I/O, not available in WASM)
-        // "src/barretenberg/api/acir_format_getters.cpp",
-        // "src/barretenberg/api/api_ultra_honk.cpp",
-        // "src/barretenberg/api/api_client_ivc.cpp",
-        // "src/barretenberg/api/prove_tube.cpp",
-        // "src/barretenberg/api/api_avm.cpp",
-
-        // SRS files with file I/O (not available in WASM)
-        "src/barretenberg/srs/factories/native_crs_factory.cpp",
-        "src/barretenberg/srs/factories/get_bn254_crs.cpp",
-        "src/barretenberg/srs/factories/get_grumpkin_crs.cpp",
     };
+    _ = world_state_sources;
 
     // Environment-specific files
     const env_sources = [_][]const u8{
@@ -638,16 +621,14 @@ pub fn build(b: *std.Build) void {
         "src/barretenberg/vm2/tracegen_helper.cpp",
     };
 
-    // WASI-specific sources (only for JS WASM builds, not WASMTIME)
-    _ = [_][]const u8{
-        "src/barretenberg/wasi/wasm_init.cpp",
-        "src/barretenberg/wasi/wasi_stubs.cpp",
+    // WASI-specific sources (for JS WASM reactor builds)
+    const wasi_sources = [_][]const u8{
+        // "src/barretenberg/wasi/wasm_init.cpp",
+        // "src/barretenberg/wasi/wasi_stubs.cpp",
     };
 
     // Combine source files based on AVM option
-    const base_sources = core_sources ++ env_sources ++ world_state_sources;
-    const avm_sources_full = base_sources ++ avm_sources;
-    const wasm_sources = core_sources ++ env_sources;
+    const core_avm_sources = core_sources ++ avm_sources;
 
     // Determine current host platform for default build
     const host_platform = std.fmt.allocPrint(
@@ -665,8 +646,8 @@ pub fn build(b: *std.Build) void {
             .os_tag = platform.os,
         });
 
-        const all_sources = if (platform.arch == .wasm32) &wasm_sources else if (enable_avm) &avm_sources_full else &base_sources;
-        const cpp_flags = if (platform.arch == .wasm32) &wasm_flags else if (enable_avm) &common_flags else &cpp_flags_with_disable;
+        const all_sources = if (enable_avm) &core_avm_sources else &core_sources;
+        const cpp_flags = if (enable_avm) &common_flags else &cpp_flags_with_disable;
 
         const platform_step = b.step(platform.name, b.fmt("Build for {s}", .{platform.name}));
         const exe = buildForTarget(b, platform_target, optimize, "bb", all_sources, cpp_flags);
@@ -680,6 +661,27 @@ pub fn build(b: *std.Build) void {
             b.getInstallStep().dependOn(&install.step);
         }
     }
+
+    // Add WASI-SDK WASM build targets
+    const wasm_step = b.step("wasm", "Build both WASM targets using wasi-sdk");
+    const wasm_exe_step = b.step("wasm-exe", "Build executable WASM for wasmtime using wasi-sdk");
+    const wasm_reactor_step = b.step("wasm-reactor", "Build reactor WASM for JS using wasi-sdk");
+
+    // Determine source sets based on AVM option
+    const wasm_exe_sources = core_sources ++ env_sources;
+    _ = core_sources ++ wasi_sources;
+
+    // Build executable WASM (full barretenberg with main() for wasmtime)
+    const wasm_exe_cmd = buildWasmExecutable(b, optimize, &wasm_exe_sources, &common_flags);
+    wasm_exe_step.dependOn(&wasm_exe_cmd.step);
+
+    // Build reactor WASM (library for JS/web)
+    // const wasm_reactor_cmd = buildWasmReactorWithWasiSdk(b, optimize, &wasm_reactor_sources, &common_flags);
+    // wasm_reactor_step.dependOn(&wasm_reactor_cmd.step);
+
+    // Combined WASM step builds both
+    wasm_step.dependOn(wasm_exe_step);
+    wasm_step.dependOn(wasm_reactor_step);
 }
 
 fn buildForTarget(
@@ -690,6 +692,7 @@ fn buildForTarget(
     sources: []const []const u8,
     flags: []const []const u8,
 ) *std.Build.Step.Compile {
+    const lmdb_lib = buildLmdb(b, target, optimize);
     const libdeflate_lib = buildLibdeflate(b, target, optimize);
 
     // Create library
@@ -708,21 +711,7 @@ fn buildForTarget(
         .flags = flags,
     });
 
-    // Add include paths
-    // Use wasi-sdk for WASM targets if available
-    if (target.result.cpu.arch == .wasm32 and target.result.os.tag == .wasi) {
-        const wasi_sdk_path = "/opt/wasi-sdk";
-        // Add wasi-sdk include paths
-        lib.addIncludePath(.{ .cwd_relative = wasi_sdk_path ++ "/share/wasi-sysroot/include" });
-        lib.addIncludePath(.{ .cwd_relative = wasi_sdk_path ++ "/share/wasi-sysroot/include/wasm32-wasi/c++/v1" });
-        lib.addLibraryPath(.{ .cwd_relative = wasi_sdk_path ++ "/share/wasi-sysroot/lib/wasm32-wasi" });
-    }
-
     lib.addIncludePath(b.path("src"));
-    lib.addIncludePath(b.path("build/_deps/msgpack-c/src/msgpack-c/include"));
-    lib.addIncludePath(b.path("build/_deps/tracy-src/public"));
-    lib.addIncludePath(b.path("build/_deps/lmdb/src/lmdb_repo/libraries/liblmdb"));
-    lib.addIncludePath(b.path("build/_deps/libdeflate-src"));
     lib.linkLibCpp();
 
     // Create executable
@@ -740,19 +729,8 @@ fn buildForTarget(
         .flags = flags,
     });
 
-    // Use wasi-sdk for WASM executable targets if available
-    if (target.result.cpu.arch == .wasm32 and target.result.os.tag == .wasi) {
-        const wasi_sdk_path = "/opt/wasi-sdk";
-        exe.addIncludePath(.{ .cwd_relative = wasi_sdk_path ++ "/share/wasi-sysroot/include" });
-        exe.addIncludePath(.{ .cwd_relative = wasi_sdk_path ++ "/share/wasi-sysroot/include/wasm32-wasi/c++/v1" });
-        exe.addLibraryPath(.{ .cwd_relative = wasi_sdk_path ++ "/share/wasi-sysroot/lib/wasm32-wasi" });
-    }
-
     exe.linkLibrary(lib);
-    if (target.result.cpu.arch != .wasm32) {
-        const lmdb_lib = buildLmdb(b, target, optimize);
-        exe.linkLibrary(lmdb_lib);
-    }
+    exe.linkLibrary(lmdb_lib);
     exe.linkLibrary(libdeflate_lib);
     exe.linkLibCpp();
     exe.addIncludePath(b.path("src"));
@@ -765,4 +743,85 @@ fn buildForTarget(
     }
 
     return exe;
+}
+
+fn buildWasmExecutable(
+    b: *std.Build,
+    optimize: std.builtin.OptimizeMode,
+    sources: []const []const u8,
+    _: []const []const u8,
+) *std.Build.Step.Run {
+    const target = b.resolveTargetQuery(.{
+        .cpu_arch = .wasm32,
+        .os_tag = .wasi,
+        .cpu_features_add = std.Target.wasm.featureSet(&.{ .atomics, .bulk_memory }),
+    });
+
+    // Zig-built static lib(s)
+    const libdeflate_lib = buildLibdeflate(b, target, optimize);
+    const libdeflate_dep = b.dependency("libdeflate", .{});
+    const msgpack_dep = b.dependency("msgpack", .{});
+
+    const exe = b.addExecutable(.{
+        .name = "bb-executable",
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+            .single_threaded = false,
+        }),
+    });
+    exe.entry = .disabled;
+    exe.wasi_exec_model = .reactor;
+    exe.shared_memory = true;
+    exe.import_memory = true;
+    exe.export_memory = true;
+    exe.import_symbols = true;
+    exe.stack_size = 1024 * 1024;
+    exe.max_memory = 1024 * 1024 * 1024 * 4;
+    exe.rdynamic = true;
+
+    const flags = &[_][]const u8{
+        "-std=c++20",
+        "-fPIC",
+        "-fno-sanitize=undefined",
+        "-fno-exceptions",
+        "-Wno-unused-function",
+        "-Wno-unused-variable",
+        "-Wno-unused-parameter",
+        "-Wno-missing-field-initializers",
+        "-DNO_PAR_ALGOS",
+        "-fbracket-depth=1024",
+        "-DDISABLE_ADX",
+        "-DDISABLE_ASM",
+        "-DDISABLE_AZTEC_VM=1",
+        "-DTRACY_ENABLE=0",
+        "-D_WASI_EMULATED_PROCESS_CLOCKS",
+        "-DBB_NO_EXCEPTIONS",
+    };
+
+    // Includes
+    exe.addIncludePath(b.path("src"));
+    exe.addIncludePath(b.path("src/barretenberg/wasi"));
+    exe.addIncludePath(libdeflate_dep.path("."));
+    exe.addIncludePath(libdeflate_dep.path("lib"));
+    exe.addIncludePath(msgpack_dep.path("include"));
+
+    // Sources
+    exe.addCSourceFiles(.{
+        .files = sources,
+        .flags = flags,
+    });
+
+    exe.linkLibC();
+    exe.linkLibCpp();
+    exe.linkLibrary(libdeflate_lib);
+    exe.root_module.linkSystemLibrary("pthread", .{});
+
+    // Produce artifact in zig-out/bin
+    const install = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .bin } });
+
+    // Return a Run step that depends on install
+    const done = b.addSystemCommand(&.{"true"});
+    done.step.dependOn(&install.step);
+    return done;
 }
