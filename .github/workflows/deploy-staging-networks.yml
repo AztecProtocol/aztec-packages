@@ -136,8 +136,33 @@ jobs:
           EOF
           echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
 
-      - name: Run
+      - name: Create GitHub deployment for staging-public
         if: env.SEMVER != '' && env.MAJOR_VERSION == '2'
+        id: deployment-staging-public
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.sha,
+              task: 'deploy:staging-public',
+              auto_merge: false,
+              required_contexts: [],
+              environment: 'staging-public',
+              description: `Deploying v${{ env.SEMVER }} to staging-public`,
+              payload: {
+                version: '${{ env.SEMVER }}',
+                network: 'staging-public',
+                workflow_run_id: '${{ github.run_id }}',
+                workflow_run_url: `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`
+              }
+            });
+            return deployment.data.id;
+
+      - name: Run staging-public deployment
+        if: env.SEMVER != '' && env.MAJOR_VERSION == '2'
+        id: deploy-staging-public
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -153,6 +178,21 @@ jobs:
           # the network env file and gcp credentials file are mounted into the ec2 instance
           # see ci3/bootstrap_ec2
           exec ./ci.sh network-deploy
+
+      - name: Update deployment status for staging-public
+        if: always() && env.SEMVER != '' && env.MAJOR_VERSION == '2' && steps.deployment-staging-public.outputs.result
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: ${{ steps.deployment-staging-public.outputs.result }},
+              state: '${{ steps.deploy-staging-public.outcome }}' === 'success' ? 'success' : 'failure',
+              environment_url: 'https://staging.alpha-testnet.aztec-labs.com',
+              log_url: `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`,
+              description: '${{ steps.deploy-staging-public.outcome }}' === 'success' ? 'Deployment succeeded' : 'Deployment failed'
+            });
 
       #############
       # Deploy staging-ignition network
@@ -193,8 +233,33 @@ jobs:
           EOF
           echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
 
-      - name: Run
+      - name: Create GitHub deployment for staging-ignition
         if: env.SEMVER != '' && env.MAJOR_VERSION == '2'
+        id: deployment-staging-ignition
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.sha,
+              task: 'deploy:staging-ignition',
+              auto_merge: false,
+              required_contexts: [],
+              environment: 'staging-ignition',
+              description: `Deploying v${{ env.SEMVER }} to staging-ignition`,
+              payload: {
+                version: '${{ env.SEMVER }}',
+                network: 'staging-ignition',
+                workflow_run_id: '${{ github.run_id }}',
+                workflow_run_url: `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`
+              }
+            });
+            return deployment.data.id;
+
+      - name: Run staging-ignition deployment
+        if: env.SEMVER != '' && env.MAJOR_VERSION == '2'
+        id: deploy-staging-ignition
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -210,6 +275,21 @@ jobs:
           # the network env file and gcp credentials file are mounted into the ec2 instance
           # see ci3/bootstrap_ec2
           exec ./ci.sh network-deploy
+
+      - name: Update deployment status for staging-ignition
+        if: always() && env.SEMVER != '' && env.MAJOR_VERSION == '2' && steps.deployment-staging-ignition.outputs.result
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: ${{ steps.deployment-staging-ignition.outputs.result }},
+              state: '${{ steps.deploy-staging-ignition.outcome }}' === 'success' ? 'success' : 'failure',
+              environment_url: '',
+              log_url: `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`,
+              description: '${{ steps.deploy-staging-ignition.outcome }}' === 'success' ? 'Deployment succeeded' : 'Deployment failed'
+            });
 
       #############
       # Deploy testnet if we are not a pre-release (i.e. semver does not contain a hyphen)
@@ -258,8 +338,33 @@ jobs:
           EOF
           echo "NAMESPACE=$NAMESPACE" >> $GITHUB_ENV
 
-      - name: Run
+      - name: Create GitHub deployment for testnet
         if: env.SEMVER != '' && env.MAJOR_VERSION == '2' && !contains(env.SEMVER, '-')
+        id: deployment-testnet
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.sha,
+              task: 'deploy:testnet',
+              auto_merge: false,
+              required_contexts: [],
+              environment: 'testnet',
+              description: `Deploying v${{ env.SEMVER }} to testnet`,
+              payload: {
+                version: '${{ env.SEMVER }}',
+                network: 'testnet',
+                workflow_run_id: '${{ github.run_id }}',
+                workflow_run_url: `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`
+              }
+            });
+            return deployment.data.id;
+
+      - name: Run testnet deployment
+        if: env.SEMVER != '' && env.MAJOR_VERSION == '2' && !contains(env.SEMVER, '-')
+        id: deploy-testnet
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -275,6 +380,21 @@ jobs:
           # the network env file and gcp credentials file are mounted into the ec2 instance
           # see ci3/bootstrap_ec2
           exec ./ci.sh network-deploy
+
+      - name: Update deployment status for testnet
+        if: always() && env.SEMVER != '' && env.MAJOR_VERSION == '2' && !contains(env.SEMVER, '-') && steps.deployment-testnet.outputs.result
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: ${{ steps.deployment-testnet.outputs.result }},
+              state: '${{ steps.deploy-testnet.outcome }}' === 'success' ? 'success' : 'failure',
+              environment_url: 'https://rpc.testnet.aztec-labs.com',
+              log_url: `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`,
+              description: '${{ steps.deploy-testnet.outcome }}' === 'success' ? 'Deployment succeeded' : 'Deployment failed'
+            });
 
       - name: Update Monitoring App
         if: env.SEMVER != '' && env.MAJOR_VERSION == '2' && !contains(env.SEMVER, '-')
