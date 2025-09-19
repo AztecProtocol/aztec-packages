@@ -254,7 +254,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             R_i += aux_generator * inner_prod_R;
 
             // Step 6.c
-            // Send commitments to the verifier
+            // Send L_i and R_i to the verifier
             std::string index = std::to_string(log_poly_length - i - 1);
             transcript->send_to_verifier("IPA:L_" + index, Commitment(L_i));
             transcript->send_to_verifier("IPA:R_" + index, Commitment(R_i));
@@ -312,9 +312,9 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      *
      * @details The procedure runs as follows:
      *
-     *1. Receive \f$d\f$ (polynomial degree plus one) from the prover
+     *1. Receive commitment, challenge, and claimed evaluation from the prover
      *2. Receive the generator challenge \f$u\f$, abort if it's zero, otherwise compute \f$U=u\cdot G\f$
-     *3. Compute  \f$C'=C+f(\beta)\cdot U\f$
+     *3. Compute  \f$C'=C+f(\beta)\cdot U\f$. (Note that this latter term is the claimed evaluation.)
      *4. Receive \f$L_j, R_j\f$ and compute challenges \f$u_j\f$ for \f$j \in {k-1,..,0}\f$, abort immediately on
      receiving a \f$u_j=0\f$
      *5. Compute \f$C_0 = C' + \sum_{j=0}^{k-1}(u_j^{-1}L_j + u_jR_j)\f$
@@ -350,7 +350,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Compute C' = C + f(\beta) ⋅ U
         GroupElement C_prime = opening_claim.commitment + (aux_generator * opening_claim.opening_pair.evaluation);
 
-        auto pippenger_size = 2 * log_poly_length;
+        auto pippenger_size = 2 * log_poly_length;  // corresponding to L_{k-1}, R_{k-1}, L_{k-2}, ..., L_0, R_0.
         std::vector<Fr> round_challenges(log_poly_length);
         // the group elements that will participate in our MSM.
         std::vector<Commitment> msm_elements(pippenger_size);
@@ -449,7 +449,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
         typename Curve::Builder* builder = generator_challenge.get_context();
 
-        auto pippenger_size = 2 * log_poly_length;
+        auto pippenger_size = 2 * log_poly_length + 2; // to verify, we need to compute an MSM. in comparison to the corresponding to L_{k-1}, R_{k-1}, L_{k-2}, ..., L_0, R_0, G_0, -G_zero, and Commitment::one().
         std::vector<Fr> round_challenges(log_poly_length);
         std::vector<Fr> round_challenges_inv(log_poly_length);
         std::vector<Commitment> msm_elements(pippenger_size);
