@@ -3,6 +3,7 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/primitives/group/test_utils.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 #include <gtest/gtest.h>
@@ -28,6 +29,8 @@ TYPED_TEST_SUITE(CycleScalarTest, CircuitTypes);
 
 STANDARD_TESTING_TAGS
 
+using bb::stdlib::test_utils::check_circuit_and_gate_count;
+
 /**
  * @brief Test witness construction
  */
@@ -44,7 +47,7 @@ TYPED_TEST(CycleScalarTest, TestFromWitness)
     EXPECT_FALSE(scalar.is_constant());
     EXPECT_EQ(scalar.num_bits(), cycle_scalar::NUM_BITS);
 
-    EXPECT_TRUE(CircuitChecker::check(builder));
+    check_circuit_and_gate_count(builder, 0);
 }
 
 /**
@@ -63,7 +66,7 @@ TYPED_TEST(CycleScalarTest, TestFromU256Witness)
     EXPECT_FALSE(scalar.is_constant());
     EXPECT_EQ(scalar.num_bits(), 256);
 
-    EXPECT_TRUE(CircuitChecker::check(builder));
+    check_circuit_and_gate_count(builder, 0);
 }
 
 /**
@@ -84,7 +87,7 @@ TYPED_TEST(CycleScalarTest, TestLoHiDecomposition)
     uint256_t reconstructed = lo_val + (hi_val << cycle_scalar::LO_BITS);
 
     EXPECT_EQ(ScalarField(reconstructed), scalar_val);
-    EXPECT_TRUE(CircuitChecker::check(builder));
+    check_circuit_and_gate_count(builder, 0);
 }
 
 /**
@@ -107,7 +110,7 @@ TYPED_TEST(CycleScalarTest, TestCreateFromBn254Scalar)
     EXPECT_FALSE(scalar.is_constant());
     EXPECT_TRUE(scalar.use_bn254_scalar_field_for_primality_test());
 
-    EXPECT_TRUE(CircuitChecker::check(builder));
+    check_circuit_and_gate_count(builder, 2762);
 }
 
 /**
@@ -126,7 +129,7 @@ TYPED_TEST(CycleScalarTest, TestScalarFieldValidation)
     scalar.validate_scalar_is_in_field();
     EXPECT_FALSE(builder.failed());
 
-    EXPECT_TRUE(CircuitChecker::check(builder));
+    check_circuit_and_gate_count(builder, 2761);
 }
 
 /**
@@ -148,5 +151,5 @@ TYPED_TEST(CycleScalarTest, TestDifferentBitLengths)
     auto scalar_254 = cycle_scalar::from_witness(&builder, ScalarField::random_element(&engine));
     EXPECT_EQ(scalar_254.num_bits(), cycle_scalar::NUM_BITS);
 
-    EXPECT_TRUE(CircuitChecker::check(builder));
+    check_circuit_and_gate_count(builder, 0);
 }

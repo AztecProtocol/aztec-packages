@@ -2,6 +2,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_scalar.hpp"
+#include "barretenberg/stdlib/primitives/group/test_utils.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
 #include <gtest/gtest.h>
 
@@ -25,6 +26,8 @@ using CircuitTypes = ::testing::Types<bb::UltraCircuitBuilder, bb::MegaCircuitBu
 TYPED_TEST_SUITE(StrausScalarSliceTest, CircuitTypes);
 
 STANDARD_TESTING_TAGS
+
+using bb::stdlib::test_utils::check_circuit_and_gate_count;
 
 /**
  * @brief Test slice reading and value reconstruction
@@ -57,7 +60,7 @@ TYPED_TEST(StrausScalarSliceTest, TestSliceReadAndReconstruction)
     reconstructed &= mask;
 
     EXPECT_EQ(ScalarField(reconstructed), scalar_val);
-    EXPECT_TRUE(CircuitChecker::check(builder));
+    check_circuit_and_gate_count(builder, 51);
 }
 
 /**
@@ -89,7 +92,7 @@ TYPED_TEST(StrausScalarSliceTest, TestDifferentTableBitSizes)
         }
     }
 
-    EXPECT_TRUE(CircuitChecker::check(builder));
+    check_circuit_and_gate_count(builder, 457);
 }
 
 /**
@@ -132,5 +135,5 @@ TYPED_TEST(StrausScalarSliceTest, TestBinaryDecomposition)
         }
     }
 
-    EXPECT_TRUE(CircuitChecker::check(builder));
+    check_circuit_and_gate_count(builder, 153);
 }

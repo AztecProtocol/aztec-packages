@@ -2,6 +2,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
+#include "barretenberg/stdlib/primitives/group/test_utils.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 #include <gtest/gtest.h>
@@ -29,6 +30,8 @@ using CircuitTypes = ::testing::Types<bb::UltraCircuitBuilder, bb::MegaCircuitBu
 TYPED_TEST_SUITE(StrausLookupTableTest, CircuitTypes);
 
 STANDARD_TESTING_TAGS
+
+using bb::stdlib::test_utils::check_circuit_and_gate_count;
 
 /**
  * @brief Test reading from lookup table
@@ -63,7 +66,16 @@ TYPED_TEST(StrausLookupTableTest, TestTableRead)
         EXPECT_EQ(result.get_value(), expected);
     }
 
-    EXPECT_TRUE(CircuitChecker::check(builder));
+    // Gate count difference explanation:
+    // Mega pre-adds constants {0, 3, 4, 8} for ECC op codes during construction.
+    // When setting ROM elements at index 3, Mega doesn't need to add a gate for the constant,
+    // saving 1 gate compared to Ultra which must call put_constant_variable(3).
+    // Ultra: 60 gates, Mega: 59 gates (both excluding their respective base gates)
+    if constexpr (std::is_same_v<TypeParam, bb::UltraCircuitBuilder>) {
+        check_circuit_and_gate_count(builder, 60);
+    } else {
+        check_circuit_and_gate_count(builder, 59);
+    }
 }
 
 /**
@@ -109,7 +121,15 @@ TYPED_TEST(StrausLookupTableTest, TestWithProvidedHints)
     AffineElement expected = AffineElement(offset_gen_native + (base_point_native * 5));
     EXPECT_EQ(result.get_value(), expected);
 
-    EXPECT_TRUE(CircuitChecker::check(builder));
+    // Gate count difference explanation:
+    // ROM with 8 elements (indices 0-7). Mega pre-adds constants {0, 3, 4, 8} for ECC op codes.
+    // This saves gates when setting ROM elements at indices 3 and 4 (no put_constant_variable needed).
+    // Ultra: 98 gates, Mega: 96 gates (2 gates saved for the two pre-added constants)
+    if constexpr (std::is_same_v<TypeParam, bb::UltraCircuitBuilder>) {
+        check_circuit_and_gate_count(builder, 98);
+    } else {
+        check_circuit_and_gate_count(builder, 96);
+    }
 }
 
 /**
@@ -143,5 +163,13 @@ TYPED_TEST(StrausLookupTableTest, TestInfinityBasePoint)
         EXPECT_EQ(result.get_value(), AffineElement(offset_gen_native));
     }
 
-    EXPECT_TRUE(CircuitChecker::check(builder));
+    // Gate count difference explanation:
+    // Same as TestTableRead - ROM with 4 elements (indices 0-3).
+    // Mega saves 1 gate at index 3 since constant 3 is pre-added for ECC operations.
+    // Ultra: 60 gates, Mega: 59 gates (both excluding their respective base gates)
+    if constexpr (std::is_same_v<TypeParam, bb::UltraCircuitBuilder>) {
+        check_circuit_and_gate_count(builder, 60);
+    } else {
+        check_circuit_and_gate_count(builder, 59);
+    }
 }
