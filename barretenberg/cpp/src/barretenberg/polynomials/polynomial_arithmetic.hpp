@@ -103,10 +103,7 @@ template <typename Fr>
     requires SupportsFFT<Fr>
 Fr compute_kate_opening_coefficients(const Fr* src, Fr* dest, const Fr& z, const size_t n);
 
-fr compute_barycentric_evaluation(const fr* coeffs,
-                                  unsigned long num_coeffs,
-                                  const fr& z,
-                                  const EvaluationDomain<fr>& domain);
+fr compute_barycentric_evaluation(const fr* coeffs, size_t num_coeffs, const fr& z, const EvaluationDomain<fr>& domain);
 
 // This function computes sum of all scalars in a given array.
 template <typename Fr> Fr compute_sum(const Fr* src, const size_t n);

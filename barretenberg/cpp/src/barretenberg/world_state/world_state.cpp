@@ -119,7 +119,7 @@ void WorldState::create_canonical_fork(const std::string& dataDir,
         std::filesystem::path directory = dataDir;
         directory /= name;
         std::filesystem::create_directories(directory);
-        return std::make_shared<LMDBTreeStore>(directory, name, dbSize.at(id), maxReaders);
+        return std::make_shared<LMDBTreeStore>(directory.string(), name, dbSize.at(id), maxReaders);
     };
     _persistentStores = std::make_unique<WorldStateStores>(createStore(MerkleTreeId::NULLIFIER_TREE),
                                                            createStore(MerkleTreeId::PUBLIC_DATA_TREE),
@@ -177,7 +177,7 @@ void WorldState::copy_stores(const std::string& dstPath, bool compact) const
         std::filesystem::path directory = dstPath;
         directory /= store->get_name();
         std::filesystem::create_directories(directory);
-        store->copy_store(directory, compact);
+        store->copy_store(directory.string(), compact);
     };
 
     std::for_each(_persistentStores->begin(), _persistentStores->end(), copyStore);

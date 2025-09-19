@@ -751,6 +751,13 @@ fn buildForTarget(
     lib.addIncludePath(b.path("build/_deps/libdeflate-src"));
     lib.linkLibCpp();
 
+    // Add Windows-specific system libraries
+    if (target.result.os.tag == .windows) {
+        lib.linkSystemLibrary("ws2_32");
+        lib.linkSystemLibrary("advapi32");  // For CryptoAPI
+        lib.linkSystemLibrary("psapi");     // For process info
+    }
+
     // Create executable
     const exe = b.addExecutable(.{
         .name = exe_name,
@@ -770,6 +777,13 @@ fn buildForTarget(
     exe.linkLibrary(libdeflate_lib);
     exe.linkLibCpp();
     exe.addIncludePath(b.path("src"));
+
+    // Add Windows-specific system libraries to executable
+    if (target.result.os.tag == .windows) {
+        exe.linkSystemLibrary("ws2_32");
+        exe.linkSystemLibrary("advapi32");  // For CryptoAPI
+        exe.linkSystemLibrary("psapi");     // For process info
+    }
 
     return exe;
 }

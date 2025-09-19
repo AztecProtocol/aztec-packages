@@ -1,7 +1,7 @@
 #pragma once
 
 #ifdef _WIN32
-#define BB_INLINE __forceinline inline
+#define BB_INLINE __forceinline
 #else
 #define BB_INLINE __attribute__((always_inline)) inline
 #endif

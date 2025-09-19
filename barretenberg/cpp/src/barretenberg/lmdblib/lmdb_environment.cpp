@@ -76,7 +76,7 @@ uint64_t LMDBEnvironment::get_map_size() const
 
 uint64_t LMDBEnvironment::get_data_file_size() const
 {
-    std::string dataPath = (std::filesystem::path(_directory) / "data.mdb").string();
+    std::filesystem::path dataPath = std::filesystem::path(_directory) / "data.mdb";
     if (std::filesystem::exists(dataPath)) {
         return std::filesystem::file_size(dataPath);
     }

@@ -138,7 +138,7 @@ bool ClientIVCAPI::prove_and_verify(const std::filesystem::path& input_path)
 void ClientIVCAPI::gates(const Flags& flags, const std::filesystem::path& bytecode_path)
 {
     BB_BENCH_NAME("ClientIVCAPI::gates");
-    gate_count_for_ivc(bytecode_path, flags.include_gates_per_opcode);
+    gate_count_for_ivc(bytecode_path.string(), flags.include_gates_per_opcode);
 }
 
 void ClientIVCAPI::write_solidity_verifier([[maybe_unused]] const Flags& flags,
@@ -258,7 +258,7 @@ void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem
 
     // Write the proof and verification keys into the working directory in 'binary' format
     vinfo("writing ClientIVC proof and vk...");
-    proof.to_file_msgpack(output_dir / "proof");
+    proof.to_file_msgpack((output_dir / "proof").string());
 
     write_file(output_dir / "vk", to_buffer(ivc.get_vk()));
 }

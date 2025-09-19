@@ -1305,7 +1305,7 @@ TEST_F(LMDBStoreTest, reports_stats)
 
     std::vector<DBStats> stats;
     auto [mapSize, physicalFileSize] = store->get_stats(stats);
-    std::string dataDbPath = (std::filesystem::path(_directory) / "data.mdb").string();
+    std::filesystem::path dataDbPath = std::filesystem::path(_directory) / "data.mdb";
     EXPECT_TRUE(std::filesystem::exists(dataDbPath));
 
     EXPECT_EQ(mapSize, LMDBStoreTest::_mapSize * 1024);

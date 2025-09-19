@@ -2,8 +2,13 @@
 #include <cstdio>
 #include <ctime>
 #include <string>
+#ifndef _WIN32
 #include <sys/resource.h>
 #include <sys/time.h>
+#else
+#include <psapi.h>
+#include <windows.h>
+#endif
 
 /**
  * @brief Get the execution between a block of code.

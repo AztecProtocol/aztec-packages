@@ -617,7 +617,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
         // TUBE
         if (prove_tube_command->parsed()) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1201): Potentially remove this extra logic.
-            prove_tube(prove_tube_output_path, vk_path);
+            prove_tube(prove_tube_output_path, vk_path.string());
         } else if (verify_tube_command->parsed()) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1322): Remove verify_tube logic.
             auto tube_public_inputs_path = tube_proof_and_vk_path + "/public_inputs";

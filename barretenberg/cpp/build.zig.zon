@@ -1,0 +1,21 @@
+.{
+    .name = .barretenberg,
+    .version = "0.1.0",
+    .minimum_zig_version = "0.15.0",
+    .fingerprint = 0xedf41718ec8ef3f5,
+    .paths = .{
+        "src/",
+        "build.zig",
+        "build.zig.zon",
+    },
+    .dependencies = .{
+        .libdeflate = .{
+            .url = "https://github.com/ebiggers/libdeflate/archive/refs/tags/v1.24.tar.gz",
+            .hash = "N-V-__8AANOECwBB2x7zLpkdR81ENuO8pwNvKuFHK5PffRR0",
+        },
+        .lmdb = .{
+            .url = "https://github.com/LMDB/lmdb/archive/refs/tags/LMDB_0.9.31.tar.gz",
+            .hash = "N-V-__8AAHEsCACb_b9D1HnCysDKIhKFOrITbxYh9JRh9ix5",
+        },
+    },
+}

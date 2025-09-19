@@ -10,7 +10,12 @@
 #include <cstring>
 #include <functional>
 #include <random>
+#ifndef _WIN32
 #include <sys/random.h>
+#else
+#include <wincrypt.h>
+#include <windows.h>
+#endif
 
 namespace bb::numeric {
 
@@ -62,8 +67,18 @@ template <size_t size_in_unsigned_ints> std::array<unsigned int, size_in_unsigne
             // loop
             ssize_t read_bytes =
                 getentropy(current_offset, BYTES_PER_GETENTROPY_READ) == -1 ? -1 : BYTES_PER_GETENTROPY_READ;
+#elif defined(_WIN32)
+            // Use Windows CryptoAPI for random generation
+            HCRYPTPROV hProv;
+            ssize_t read_bytes = -1;
+            if (CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)) {
+                if (CryptGenRandom(hProv, static_cast<DWORD>(bytes_left), current_offset)) {
+                    read_bytes = static_cast<ssize_t>(bytes_left);
+                }
+                CryptReleaseContext(hProv, 0);
+            }
 #else
-            // Sample from urandom on native
+            // Sample from urandom on native Linux
             auto read_bytes = getrandom(current_offset, bytes_left, 0);
 #endif
             // If we read something, update the leftover

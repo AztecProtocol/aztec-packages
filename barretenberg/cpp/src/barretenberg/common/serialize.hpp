@@ -39,6 +39,9 @@
 #include <optional>
 #include <type_traits>
 #include <vector>
+#ifdef _WIN32
+#include <malloc.h>
+#endif
 
 #ifndef __i386__
 __extension__ using uint128_t = unsigned __int128;
@@ -425,6 +428,16 @@ template <typename T> std::vector<uint8_t> to_buffer(T const& value)
  * It can result in the (expected) oddity of e.g. a vector<uint8_t> being "multiple prefixed":
  * e.g. [heap buffer length][value length][value bytes].
  */
+// Cross-platform aligned allocation
+inline void* aligned_alloc_wrapper(size_t alignment, size_t size)
+{
+#ifdef _WIN32
+    return _aligned_malloc(size, alignment);
+#else
+    return aligned_alloc(alignment, size);
+#endif
+}
+
 template <typename T> uint8_t* to_heap_buffer(T const& value)
 {
     using serialize::write;
@@ -438,7 +451,7 @@ template <typename T> uint8_t* to_heap_buffer(T const& value)
     // Passing a non-multiple of 64 bytes to aligned_alloc is undefined behaviour.
     auto heap_buf_size_aligned = (heap_buf.size() + 63) & ~static_cast<size_t>(63);
 
-    auto* ptr = reinterpret_cast<uint8_t*>(aligned_alloc(64, heap_buf_size_aligned));
+    auto* ptr = reinterpret_cast<uint8_t*>(aligned_alloc_wrapper(64, heap_buf_size_aligned));
     std::copy(heap_buf.begin(), heap_buf.end(), ptr);
     return ptr;
 }

@@ -8,13 +8,15 @@
 
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#if !defined(__wasm__) && !defined(_WIN32)
 #include "unistd.h"
+#include <fcntl.h>
+#endif
 #include <atomic>
 #include <cstring>
-#include <fcntl.h>
 #include <filesystem>
 #include <memory>
-#ifndef __wasm__
+#if !defined(__wasm__) && !defined(_WIN32)
 #include <sys/mman.h>
 #endif
 
@@ -32,7 +34,7 @@ size_t parse_size_string(const std::string& size_str);
 
 template <typename T> class AlignedMemory;
 
-#ifndef __wasm__
+#if !defined(__wasm__) && !defined(_WIN32)
 template <typename T> class FileBackedMemory;
 #endif
 
@@ -50,7 +52,7 @@ template <typename Fr> class BackingMemory {
 
     static std::shared_ptr<BackingMemory<Fr>> allocate(size_t size)
     {
-#ifndef __wasm__
+#if !defined(__wasm__) && !defined(_WIN32)
         if (slow_low_memory) {
             auto file_backed = try_allocate_file_backed(size);
             if (file_backed) {
@@ -62,7 +64,7 @@ template <typename Fr> class BackingMemory {
     }
 
   private:
-#ifndef __wasm__
+#if !defined(__wasm__) && !defined(_WIN32)
     static std::shared_ptr<BackingMemory<Fr>> try_allocate_file_backed(size_t size)
     {
         size_t required_bytes = size * sizeof(Fr);
@@ -104,7 +106,7 @@ template <typename T> class AlignedMemory : public BackingMemory<T> {
     friend BackingMemory<T>;
 };
 
-#ifndef __wasm__
+#if !defined(__wasm__) && !defined(_WIN32)
 template <typename T> class FileBackedMemory : public BackingMemory<T> {
   public:
     FileBackedMemory(const FileBackedMemory&) = delete;            // delete copy constructor
@@ -134,7 +136,8 @@ template <typename T> class FileBackedMemory : public BackingMemory<T> {
             temp_dir = std::filesystem::current_path();
         }
 
-        std::string filename = temp_dir / ("poly-mmap-" + std::to_string(getpid()) + "-" + std::to_string(id));
+        std::string filename =
+            (temp_dir / ("poly-mmap-" + std::to_string(getpid()) + "-" + std::to_string(id))).string();
 
         int fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0644);
         if (fd < 0) {
