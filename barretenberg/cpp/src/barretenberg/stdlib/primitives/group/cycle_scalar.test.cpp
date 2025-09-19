@@ -23,7 +23,7 @@ template <class Builder> class CycleScalarTest : public ::testing::Test {
     using NativeField = typename Builder::FF;
 };
 
-using CircuitTypes = ::testing::Types<bb::UltraCircuitBuilder>;
+using CircuitTypes = ::testing::Types<bb::UltraCircuitBuilder, bb::MegaCircuitBuilder>;
 TYPED_TEST_SUITE(CycleScalarTest, CircuitTypes);
 
 STANDARD_TESTING_TAGS
@@ -33,11 +33,10 @@ STANDARD_TESTING_TAGS
  */
 TYPED_TEST(CycleScalarTest, TestFromWitness)
 {
-    using Builder = TypeParam;
     using cycle_scalar = typename TestFixture::cycle_scalar;
     using ScalarField = typename TestFixture::ScalarField;
 
-    Builder builder;
+    TypeParam builder;
     auto scalar_val = ScalarField::random_element(&engine);
     auto scalar = cycle_scalar::from_witness(&builder, scalar_val);
 
@@ -53,14 +52,14 @@ TYPED_TEST(CycleScalarTest, TestFromWitness)
  */
 TYPED_TEST(CycleScalarTest, TestFromU256Witness)
 {
-    using Builder = TypeParam;
     using cycle_scalar = typename TestFixture::cycle_scalar;
+    using ScalarField = typename TestFixture::ScalarField;
 
-    Builder builder;
+    TypeParam builder;
     uint256_t value(123456789);
     auto scalar = cycle_scalar::from_u256_witness(&builder, value);
 
-    EXPECT_EQ(scalar.get_value(), typename TestFixture::ScalarField(value));
+    EXPECT_EQ(scalar.get_value(), ScalarField(value));
     EXPECT_FALSE(scalar.is_constant());
     EXPECT_EQ(scalar.num_bits(), 256);
 
@@ -72,11 +71,10 @@ TYPED_TEST(CycleScalarTest, TestFromU256Witness)
  */
 TYPED_TEST(CycleScalarTest, TestLoHiDecomposition)
 {
-    using Builder = TypeParam;
     using cycle_scalar = typename TestFixture::cycle_scalar;
     using ScalarField = typename TestFixture::ScalarField;
 
-    Builder builder;
+    TypeParam builder;
     auto scalar_val = ScalarField::random_element(&engine);
     auto scalar = cycle_scalar::from_witness(&builder, scalar_val);
 
@@ -94,18 +92,18 @@ TYPED_TEST(CycleScalarTest, TestLoHiDecomposition)
  */
 TYPED_TEST(CycleScalarTest, TestCreateFromBn254Scalar)
 {
-    using Builder = TypeParam;
     using cycle_scalar = typename TestFixture::cycle_scalar;
+    using ScalarField = typename TestFixture::ScalarField;
     using field_t = typename TestFixture::field_t;
     using NativeField = typename TestFixture::NativeField;
 
-    Builder builder;
+    TypeParam builder;
     auto native_val = NativeField::random_element(&engine);
     auto field_val = field_t::from_witness(&builder, native_val);
 
     auto scalar = cycle_scalar::create_from_bn254_scalar(field_val);
 
-    EXPECT_EQ(scalar.get_value(), typename TestFixture::ScalarField(uint256_t(native_val)));
+    EXPECT_EQ(scalar.get_value(), ScalarField(uint256_t(native_val)));
     EXPECT_FALSE(scalar.is_constant());
     EXPECT_TRUE(scalar.use_bn254_scalar_field_for_primality_test());
 
@@ -117,11 +115,10 @@ TYPED_TEST(CycleScalarTest, TestCreateFromBn254Scalar)
  */
 TYPED_TEST(CycleScalarTest, TestScalarFieldValidation)
 {
-    using Builder = TypeParam;
     using cycle_scalar = typename TestFixture::cycle_scalar;
     using ScalarField = typename TestFixture::ScalarField;
 
-    Builder builder;
+    TypeParam builder;
 
     // Test with a valid scalar
     auto valid_scalar = ScalarField::random_element(&engine);
@@ -137,10 +134,10 @@ TYPED_TEST(CycleScalarTest, TestScalarFieldValidation)
  */
 TYPED_TEST(CycleScalarTest, TestDifferentBitLengths)
 {
-    using Builder = TypeParam;
     using cycle_scalar = typename TestFixture::cycle_scalar;
+    using ScalarField = typename TestFixture::ScalarField;
 
-    Builder builder;
+    TypeParam builder;
 
     // Create scalar with 256 bits
     uint256_t value_256(0xFFFFFFFFFFFFFFFF);
@@ -148,7 +145,7 @@ TYPED_TEST(CycleScalarTest, TestDifferentBitLengths)
     EXPECT_EQ(scalar_256.num_bits(), 256);
 
     // Create scalar with default bits (254 for bn254/grumpkin)
-    auto scalar_254 = cycle_scalar::from_witness(&builder, TestFixture::ScalarField::random_element(&engine));
+    auto scalar_254 = cycle_scalar::from_witness(&builder, ScalarField::random_element(&engine));
     EXPECT_EQ(scalar_254.num_bits(), cycle_scalar::NUM_BITS);
 
     EXPECT_TRUE(CircuitChecker::check(builder));

@@ -25,7 +25,7 @@ template <class Builder> class StrausLookupTableTest : public ::testing::Test {
     using ScalarField = typename Curve::ScalarField;
 };
 
-using CircuitTypes = ::testing::Types<bb::UltraCircuitBuilder>;
+using CircuitTypes = ::testing::Types<bb::UltraCircuitBuilder, bb::MegaCircuitBuilder>;
 TYPED_TEST_SUITE(StrausLookupTableTest, CircuitTypes);
 
 STANDARD_TESTING_TAGS

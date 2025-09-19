@@ -21,7 +21,7 @@ template <class Builder> class StrausScalarSliceTest : public ::testing::Test {
     using ScalarField = typename Curve::ScalarField;
 };
 
-using CircuitTypes = ::testing::Types<bb::UltraCircuitBuilder>;
+using CircuitTypes = ::testing::Types<bb::UltraCircuitBuilder, bb::MegaCircuitBuilder>;
 TYPED_TEST_SUITE(StrausScalarSliceTest, CircuitTypes);
 
 STANDARD_TESTING_TAGS
