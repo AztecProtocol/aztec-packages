@@ -1361,7 +1361,7 @@ fn handle_debug_log(
         _ => panic!("Message for ForeignCall::DEBUGLOG should be a HeapArray."),
     };
     // Length and pointer
-    let (fields_offset_ptr, fields_size_ptr) = match &inputs[3] {
+    let (fields_offset_ptr, fields_size_offset) = match &inputs[3] {
         ValueOrArray::HeapVector(HeapVector { pointer, size }) => (pointer, size),
         ValueOrArray::HeapArray(HeapArray { pointer, .. }) => {
             // match inputs[2] to be a regular
@@ -1379,20 +1379,20 @@ fn handle_debug_log(
         //  * message_offset INDIRECT
         //  * (N/A) message_size is an immediate
         //  * fields_offset_ptr INDIRECT
-        //  * fields_size_ptr direct
+        //  * fields_size_offset direct
         indirect: Some(
             AddressingModeBuilder::default()
                 .direct_operand(level)
                 .indirect_operand(message_offset)
                 .indirect_operand(fields_offset_ptr)
-                .direct_operand(fields_size_ptr)
+                .direct_operand(fields_size_offset)
                 .build(),
         ),
         operands: vec![
             AvmOperand::U16 { value: level.to_usize() as u16 },
             AvmOperand::U16 { value: message_offset.to_usize() as u16 },
             AvmOperand::U16 { value: fields_offset_ptr.to_usize() as u16 },
-            AvmOperand::U16 { value: fields_size_ptr.to_usize() as u16 },
+            AvmOperand::U16 { value: fields_size_offset.to_usize() as u16 },
         ],
         immediates: vec![AvmOperand::U16 { value: message_size as u16 }],
         ..Default::default()

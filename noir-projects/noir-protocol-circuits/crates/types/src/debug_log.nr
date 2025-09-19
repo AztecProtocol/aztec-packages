@@ -17,6 +17,12 @@ pub fn debug_log<let N: u32>(msg: str<N>) {
     debug_log_format(msg, []);
 }
 
+/// Same as debug_log, but allows to customize the log level.
+/// Consider changing just to 'log'
+pub fn debug_log_with_level<let N: u32>(log_level: u8, msg: str<N>) {
+    debug_log_format_with_level(log_level, msg, []);
+}
+
 /// Utility function to console.log data in the acir simulator. This variant receives a format string in which the
 /// `${k}` tokens will be replaced with the k-eth value in the `args` array.
 /// Examples:
@@ -26,6 +32,18 @@ pub fn debug_log_format<let M: u32, let N: u32>(msg: str<M>, args: [Field; N]) {
     // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
     // to call.
     unsafe { debug_log_array_oracle_wrapper(DEBUG_LOG_LEVEL, msg, args) };
+}
+
+/// Same as debug_log_format, but allows to customize the log level.
+/// Consider changing just to 'log_format'
+pub fn debug_log_format_with_level<let M: u32, let N: u32>(
+    log_level: u8,
+    msg: str<M>,
+    args: [Field; N],
+) {
+    // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
+    // to call.
+    unsafe { debug_log_array_oracle_wrapper(log_level, msg, args) };
 }
 
 /// Utility function to console.log data in the acir simulator. This variant receives a format string in which the
