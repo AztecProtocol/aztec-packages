@@ -161,7 +161,7 @@ cycle_group<Builder> cycle_group<Builder>::from_witness(Builder* _context, const
     result._is_infinity = bool_t(witness_t(_context, _in.is_point_at_infinity()));
     result._is_constant = false;
     result._is_standard = true;
-    result.validate_is_on_curve();
+    result.validate_on_curve();
     result.set_free_witness_tag();
     return result;
 }
@@ -226,7 +226,7 @@ template <typename Builder> typename cycle_group<Builder>::AffineElement cycle_g
  *
  * @tparam Builder
  */
-template <typename Builder> void cycle_group<Builder>::validate_is_on_curve() const
+template <typename Builder> void cycle_group<Builder>::validate_on_curve() const
 {
     // This class is for short Weierstrass curves only!
     static_assert(Group::curve_a == 0);

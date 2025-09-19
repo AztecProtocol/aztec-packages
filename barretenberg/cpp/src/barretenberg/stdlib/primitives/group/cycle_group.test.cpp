@@ -227,7 +227,7 @@ TYPED_TEST(CycleGroupTest, TestConditionalAssignSuperMixupRegression)
 }
 
 /**
- * @brief Checks that a point on the curve passes the validate_is_on_curve check
+ * @brief Checks that a point on the curve passes the validate_on_curve check
  *
  */
 TYPED_TEST(CycleGroupTest, TestValidateOnCurveSucceed)
@@ -237,14 +237,14 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveSucceed)
 
     auto lhs = TestFixture::generators[0];
     cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
-    a.validate_is_on_curve();
+    a.validate_on_curve();
     EXPECT_FALSE(builder.failed());
     check_circuit_and_gates(builder, 12);
 }
 
 /**
  * @brief Checks that a point that is not on the curve but marked as the point at infinity passes the
- * validate_is_on_curve check
+ * validate_on_curve check
  * @details Should pass since marking it with _is_infinity=true makes whatever other point data invalid.
  */
 TYPED_TEST(CycleGroupTest, TestValidateOnCurveInfinitySucceed)
@@ -256,14 +256,14 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveInfinitySucceed)
     auto y = stdlib::field_t<Builder>::from_witness(&builder, 1);
 
     cycle_group_ct a(x, y, /*_is_infinity=*/true); // marks this point as the point at infinity
-    a.validate_is_on_curve();
+    a.validate_on_curve();
     EXPECT_FALSE(builder.failed());
     check_circuit_and_gates(builder, 1);
 }
 
 /**
  * @brief Checks that a point that is not on the curve but *not* marked as the point at infinity fails the
- * validate_is_on_curve check
+ * validate_on_curve check
  * @details (1, 1) is not on the either the Grumpkin curve or the BN254 curve.
  */
 TYPED_TEST(CycleGroupTest, TestValidateOnCurveFail)
@@ -275,14 +275,14 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveFail)
     auto y = stdlib::field_t<Builder>::from_witness(&builder, 1);
 
     cycle_group_ct a(x, y, /*_is_infinity=*/false);
-    a.validate_is_on_curve();
+    a.validate_on_curve();
     EXPECT_TRUE(builder.failed());
     EXPECT_FALSE(CircuitChecker::check(builder));
 }
 
 /**
  * @brief Checks that a point that is not on the curve but *not* marked as the point at infinity fails the
- * validate_is_on_curve check
+ * validate_on_curve check
  * @details (1, 1) is not on the either the Grumpkin curve or the BN254 curve.
  */
 TYPED_TEST(CycleGroupTest, TestValidateOnCurveFail2)
@@ -294,7 +294,7 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveFail2)
     auto y = stdlib::field_t<Builder>::from_witness(&builder, 1);
 
     cycle_group_ct a(x, y, /*_is_infinity=*/bool_ct(witness_ct(&builder, false)));
-    a.validate_is_on_curve();
+    a.validate_on_curve();
     EXPECT_TRUE(builder.failed());
     EXPECT_FALSE(CircuitChecker::check(builder));
 }
