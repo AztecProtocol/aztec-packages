@@ -769,6 +769,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     BB_ASSERT_EQ(offset_generators.size(), base_points.size() + 1, "Too few offset generators provided!");
     const size_t num_points = scalars.size();
 
+    // Extract the circuit context from any scalar or point
     Builder* context = nullptr;
     for (auto [scalar, point] : zip_view(scalars, base_points)) {
         if (context = scalar.get_context(); context != nullptr) {
@@ -779,6 +780,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         }
     }
 
+    // Validate all scalars have the same bit length (required for Straus algorithm to process slices)
     size_t num_bits = scalars[0].num_bits();
     for (auto& s : scalars) {
         BB_ASSERT_EQ(s.num_bits(), num_bits, "Scalars of different bit-lengths not supported!");
@@ -844,7 +846,8 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         operation_hints.emplace_back(element.x, element.y);
     }
 
-    // Construct an in-circuit Straus lookup table for each point
+    // Construct in-circuit Straus lookup tables for each point.
+    // ROM tables enable efficient scalar multiplication by replacing doublings with table lookups.
     std::vector<straus_lookup_table> point_tables;
     point_tables.reserve(num_points);
     const size_t hints_per_table = (1ULL << ROM_TABLE_BITS) - 1;
@@ -859,22 +862,22 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         point_tables.push_back(std::move(table));
     }
 
-    // Point to the first hint after those used to construct the tables above
+    // Initialize pointer to traverse the precomputed Straus algorithm hints (not the table construction hints)
     AffineElement* hint_ptr = &operation_hints[num_points * hints_per_table];
     cycle_group accumulator = offset_generators[0];
 
-    // Perform the Straus algorithm in-circuit, using the previously computed native hints. If unconditional_add ==
-    // false we batch validate that no two x-coordinates collide via a product of their differences.
+    // Execute Straus algorithm in-circuit using the precomputed hints.
+    // If unconditional_add == false, accumulate x-coordinate differences to batch-validate no collisions.
     field_t coordinate_check_product = 1;
     for (size_t i = 0; i < num_rounds; ++i) {
-        // perform once-per-round doublings (except for first round)
+        // Double the accumulator ROM_TABLE_BITS times (except in first round)
         if (i != 0) {
             for (size_t j = 0; j < ROM_TABLE_BITS; ++j) {
                 accumulator = accumulator.dbl(*hint_ptr);
                 hint_ptr++;
             }
         }
-        // perform each round's additions
+        // Add the contribution from each point's scalar slice for this round
         for (size_t j = 0; j < num_points; ++j) {
             const field_t scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
             BB_ASSERT_EQ(scalar_slice.get_value(), scalar_slices[j].slices_native[num_rounds - i - 1]);
@@ -887,7 +890,8 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         }
     }
 
-    // Batch-validate no x-coordinate collisions. (Note: requires a modular inversion which is expensive).
+    // Batch-validate no x-coordinate collisions occurred. We batch because each assert_is_not_zero
+    // requires an expensive modular inversion during witness generation.
     if (!unconditional_add) {
         coordinate_check_product.assert_is_not_zero("_variable_base_batch_mul_internal x-coordinate collision");
     }
