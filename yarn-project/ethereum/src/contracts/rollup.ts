@@ -442,6 +442,10 @@ export class RollupContract {
     return this.rollup.read.getEntryQueueLength();
   }
 
+  getAvailableValidatorFlushes() {
+    return this.rollup.read.getAvailableValidatorFlushes();
+  }
+
   getNextFlushableEpoch() {
     return this.rollup.read.getNextFlushableEpoch();
   }

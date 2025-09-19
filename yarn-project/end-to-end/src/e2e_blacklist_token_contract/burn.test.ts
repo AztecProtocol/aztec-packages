@@ -5,7 +5,7 @@ import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
 
 describe('e2e_blacklist_token_contract burn', () => {
   const t = new BlacklistTokenContractTest('burn');
-  let { asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress, aztecNode } = t;
+  let { asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
@@ -13,7 +13,7 @@ describe('e2e_blacklist_token_contract burn', () => {
     await t.applyMintSnapshot();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
-    ({ asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress, aztecNode } = t);
+    ({ asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t);
   }, 600_000);
 
   afterAll(async () => {
@@ -47,7 +47,7 @@ describe('e2e_blacklist_token_contract burn', () => {
         { caller: otherAddress, action },
         true,
       );
-      await validateActionInteraction.send({ from: adminAddress }).wait();
+      await validateActionInteraction.send().wait();
 
       await action.send({ from: otherAddress }).wait();
 
@@ -102,7 +102,7 @@ describe('e2e_blacklist_token_contract burn', () => {
           { caller: otherAddress, action },
           true,
         );
-        await validateActionInteraction.send({ from: adminAddress }).wait();
+        await validateActionInteraction.send().wait();
 
         await expect(action.simulate({ from: otherAddress })).rejects.toThrow(U128_UNDERFLOW_ERROR);
       });
@@ -120,7 +120,7 @@ describe('e2e_blacklist_token_contract burn', () => {
           { caller: adminAddress, action },
           true,
         );
-        await validateActionInteraction.send({ from: adminAddress }).wait();
+        await validateActionInteraction.send().wait();
 
         await expect(
           asset.methods.burn_public(adminAddress, amount, authwitNonce).simulate({ from: otherAddress }),
@@ -216,8 +216,8 @@ describe('e2e_blacklist_token_contract burn', () => {
         // We need to compute the message we want to sign and add it to the wallet as approved
         const action = asset.methods.burn(adminAddress, amount, authwitNonce);
         const messageHash = await computeAuthWitMessageHash(
-          { caller: otherAddress, action },
-          { chainId: new Fr(await aztecNode.getChainId()), version: new Fr(await aztecNode.getVersion()) },
+          { caller: otherAddress, call: await action.getFunctionCall() },
+          await wallet.getChainInfo(),
         );
 
         await expect(action.simulate({ from: otherAddress })).rejects.toThrow(
@@ -234,8 +234,8 @@ describe('e2e_blacklist_token_contract burn', () => {
         // We need to compute the message we want to sign and add it to the wallet as approved
         const action = asset.methods.burn(adminAddress, amount, authwitNonce);
         const expectedMessageHash = await computeAuthWitMessageHash(
-          { caller: blacklistedAddress, action },
-          { chainId: new Fr(await aztecNode.getChainId()), version: new Fr(await aztecNode.getVersion()) },
+          { caller: blacklistedAddress, call: await action.getFunctionCall() },
+          await wallet.getChainInfo(),
         );
 
         const witness = await wallet.createAuthWit(adminAddress, { caller: otherAddress, action });

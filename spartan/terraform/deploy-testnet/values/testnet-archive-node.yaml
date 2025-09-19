@@ -28,7 +28,7 @@ affinity:
 
 node:
   env:
-    P2P_ARCHIVED_TX_LIMIT: 10000000 # 10 million
+    P2P_ARCHIVED_TX_LIMIT: "10000000" # 10 million
   resources:
     requests:
       cpu: "3"

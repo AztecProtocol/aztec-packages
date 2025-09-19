@@ -80,11 +80,11 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     // docs:start:setup
     const logger = createLogger('aztec:token-bridge-tutorial');
     const { pxe, node } = await setupSandbox();
-    const wallet = new TestWallet(pxe);
+    const wallet = new TestWallet(pxe, node);
     const [ownerAccount] = await getDeployedTestAccounts(pxe);
     await wallet.createSchnorrAccount(ownerAccount.secret, ownerAccount.salt, ownerAccount.signingKey);
     const { address: ownerAztecAddress } = ownerAccount;
-    const l1ContractAddresses = (await pxe.getNodeInfo()).l1ContractAddresses;
+    const l1ContractAddresses = (await node.getNodeInfo()).l1ContractAddresses;
     logger.info('L1 Contract Addresses:');
     logger.info(`Registry Address: ${l1ContractAddresses.registryAddress}`);
     logger.info(`Inbox Address: ${l1ContractAddresses.inboxAddress}`);

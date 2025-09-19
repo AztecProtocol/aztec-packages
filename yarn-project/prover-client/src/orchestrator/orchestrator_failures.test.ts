@@ -43,13 +43,14 @@ describe('prover/orchestrator/failures', () => {
       const { blobFieldsLengths, finalBlobChallenges } = await buildBlobDataFromTxs(blocks.map(b => b.txs));
 
       const numCheckpoints = blocks.length;
-      orchestrator.startNewEpoch(1, context.firstCheckpointNumber, numCheckpoints, finalBlobChallenges);
+      orchestrator.startNewEpoch(1, numCheckpoints, finalBlobChallenges);
 
       for (let i = 0; i < blocks.length; i++) {
         const { block, txs, l1ToL2Messages } = blocks[i];
         // these operations could fail if the target circuit fails before adding all blocks or txs
         try {
           await orchestrator.startNewCheckpoint(
+            i, // checkpointIndex
             context.getCheckpointConstants(i),
             l1ToL2Messages,
             1, // numBlocks

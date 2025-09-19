@@ -174,14 +174,14 @@ services:
       - ${DATA_DIRECTORY}:/var/lib/data
       - ${KEY_STORE_DIRECTORY}:/var/lib/keystore
     environment:
-    KEY_STORE_DIRECTORY: /var/lib/keystore
-    DATA_DIRECTORY: /var/lib/data
-    LOG_LEVEL: ${LOG_LEVEL}
-    ETHEREUM_HOSTS: ${ETHEREUM_HOSTS}
-    L1_CONSENSUS_HOST_URLS: ${L1_CONSENSUS_HOST_URLS}
-    P2P_IP: ${P2P_IP}
-    P2P_PORT: ${P2P_PORT}
-    AZTEC_PORT: ${AZTEC_PORT}
+      KEY_STORE_DIRECTORY: /var/lib/keystore
+      DATA_DIRECTORY: /var/lib/data
+      LOG_LEVEL: ${LOG_LEVEL}
+      ETHEREUM_HOSTS: ${ETHEREUM_HOSTS}
+      L1_CONSENSUS_HOST_URLS: ${L1_CONSENSUS_HOST_URLS}
+      P2P_IP: ${P2P_IP}
+      P2P_PORT: ${P2P_PORT}
+      AZTEC_PORT: ${AZTEC_PORT}
     entrypoint: >-
       node
       --no-warnings

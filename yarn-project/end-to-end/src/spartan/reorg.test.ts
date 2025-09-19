@@ -1,5 +1,5 @@
 // CREATE_CHAOS_MESH should be set to true to run this test
-import { type PXE, sleep } from '@aztec/aztec.js';
+import { type AztecNode, type PXE, createAztecNodeClient, sleep } from '@aztec/aztec.js';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { createLogger } from '@aztec/foundation/log';
@@ -46,6 +46,7 @@ describe('reorg test', () => {
 
   let testAccounts: TestAccounts;
   let pxe: PXE;
+  let node: AztecNode;
   let cleanup: undefined | (() => Promise<void>);
 
   afterAll(async () => {
@@ -62,14 +63,15 @@ describe('reorg test', () => {
     rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
     ETHEREUM_HOSTS = [`http://127.0.0.1:${ethPort}`];
 
+    node = createAztecNodeClient(rpcUrl);
     ({ pxe, cleanup } = await startCompatiblePXE(rpcUrl, config.REAL_VERIFIER, debugLogger));
-    testAccounts = await deploySponsoredTestAccounts(pxe, MINT_AMOUNT, debugLogger);
+    testAccounts = await deploySponsoredTestAccounts(pxe, node, MINT_AMOUNT, debugLogger);
   });
 
   it('survives a reorg', async () => {
     const rollupCheatCodes = new RollupCheatCodes(
       new EthCheatCodesWithState(ETHEREUM_HOSTS),
-      await pxe.getNodeInfo().then(n => n.l1ContractAddresses),
+      await testAccounts.aztecNode.getNodeInfo().then(n => n.l1ContractAddresses),
     );
     const { epochDuration, slotDuration } = await rollupCheatCodes.getConfig();
 
@@ -107,7 +109,7 @@ describe('reorg test', () => {
     // Restart the PXE
     ({ pxe, cleanup } = await startCompatiblePXE(rpcUrl, config.REAL_VERIFIER, debugLogger));
     await sleep(30 * 1000);
-    testAccounts = await deploySponsoredTestAccounts(pxe, MINT_AMOUNT, debugLogger);
+    testAccounts = await deploySponsoredTestAccounts(pxe, node, MINT_AMOUNT, debugLogger);
     // TODO(#9327): end delete
 
     await performTransfers({

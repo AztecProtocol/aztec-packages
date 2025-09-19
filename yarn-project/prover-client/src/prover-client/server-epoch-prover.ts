@@ -19,19 +19,14 @@ export class ServerEpochProver implements EpochProver {
 
   startNewEpoch(
     epochNumber: number,
-    firstCheckpointNumber: Fr,
     totalNumCheckpoints: number,
     finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
   ): void {
-    this.orchestrator.startNewEpoch(
-      epochNumber,
-      firstCheckpointNumber,
-      totalNumCheckpoints,
-      finalBlobBatchingChallenges,
-    );
+    this.orchestrator.startNewEpoch(epochNumber, totalNumCheckpoints, finalBlobBatchingChallenges);
     this.facade.start();
   }
   startNewCheckpoint(
+    checkpointIndex: number,
     constants: CheckpointConstantData,
     l1ToL2Messages: Fr[],
     totalNumBlocks: number,
@@ -39,6 +34,7 @@ export class ServerEpochProver implements EpochProver {
     headerOfLastBlockInPreviousCheckpoint: BlockHeader,
   ): Promise<void> {
     return this.orchestrator.startNewCheckpoint(
+      checkpointIndex,
       constants,
       l1ToL2Messages,
       totalNumBlocks,

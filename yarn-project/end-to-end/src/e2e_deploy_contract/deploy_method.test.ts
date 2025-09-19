@@ -6,6 +6,7 @@ import {
   type Logger,
   type PXE,
   type Wallet,
+  createAztecNodeClient,
   createPXEClient,
   makeFetch,
 } from '@aztec/aztec.js';
@@ -161,12 +162,13 @@ describe('e2e_deploy_contract deploy method', () => {
 
   describe('regressions', () => {
     it('fails properly when trying to deploy a contract with a failing constructor with a pxe client with retries', async () => {
-      const { PXE_URL } = process.env;
-      if (!PXE_URL) {
+      const { PXE_URL, AZTEC_NODE_URL } = process.env;
+      if (!PXE_URL || !AZTEC_NODE_URL) {
         return;
       }
       const pxeClient = createPXEClient(PXE_URL, {}, makeFetch([1, 2, 3], false));
-      const retryingWallet = new TestWallet(pxeClient);
+      const aztecNode = createAztecNodeClient(AZTEC_NODE_URL);
+      const retryingWallet = new TestWallet(pxeClient, aztecNode);
       await expect(
         StatefulTestContract.deployWithOpts({ wallet: retryingWallet, method: 'wrong_constructor' })
           .send({ from: defaultAccountAddress })
