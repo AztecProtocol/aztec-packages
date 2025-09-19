@@ -22,6 +22,19 @@ This naming change resulted in quite a few changes and if you've access private 
 + let header = context.get_anchor_block_header();
 ```
 
+### Removed ValueNote utils
+
+The `value_note::utils` module has been removed because it was incorrect to have those in the value note package.
+
+For the increment function you can easily just insert the note:
+
+```diff
+- use value_note::utils;
+- utils::increment(storage.notes.at(owner), value, owner, sender);
++ let note = ValueNote::new(value, owner);
++ storage.notes.at(owner).insert(note).emit(&mut context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+```
+
 ### PrivateMutable: replace / initialize_or_replace behaviour change
 
 **Motivation:**

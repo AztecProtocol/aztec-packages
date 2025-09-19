@@ -1,8 +1,6 @@
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
 import { randomInt } from '@aztec/foundation/crypto';
 import { memoize } from '@aztec/foundation/decorators';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import { SiblingPath } from '@aztec/foundation/trees';
@@ -20,7 +18,6 @@ import { L2Block } from '../block/l2_block.js';
 import {
   CompleteAddress,
   type ContractInstanceWithAddress,
-  type NodeInfo,
   type ProtocolContractAddresses,
   ProtocolContractsNames,
   getContractClassFromArtifact,
@@ -36,7 +33,6 @@ import {
   type IndexedTxEffect,
   PrivateExecutionResult,
   SimulationOverrides,
-  Tx,
   TxHash,
   TxReceipt,
   TxSimulationResult,
@@ -179,39 +175,14 @@ describe('PXESchema', () => {
     expect(result).toBeInstanceOf(TxSimulationResult);
   });
 
-  it('sendTx', async () => {
-    const result = await context.client.sendTx(Tx.random());
-    expect(result).toBeInstanceOf(TxHash);
-  });
-
-  it('getTxReceipt', async () => {
-    const result = await context.client.getTxReceipt(TxHash.random());
-    expect(result).toBeInstanceOf(TxReceipt);
-  });
-
   it('getNotes', async () => {
     const result = await context.client.getNotes({ contractAddress: address });
     expect(result).toEqual([expect.any(UniqueNote)]);
   });
 
-  it('getCurrentBaseFees', async () => {
-    const result = await context.client.getCurrentBaseFees();
-    expect(result).toEqual(GasFees.empty());
-  });
-
   it('simulateUtility', async () => {
     const result = await context.client.simulateUtility('function', [], address, [], address, [address]);
     expect(result).toEqual({ result: 10n });
-  });
-
-  it('getNodeInfo', async () => {
-    const result = await context.client.getNodeInfo();
-    expect(result).toEqual(await handler.getNodeInfo());
-  });
-
-  it('getPXEInfo', async () => {
-    const result = await context.client.getPXEInfo();
-    expect(result).toEqual(await handler.getPXEInfo());
   });
 
   it('getContractMetadata', async () => {
@@ -247,6 +218,14 @@ describe('PXESchema', () => {
       [await AztecAddress.random()],
     );
     expect(result).toEqual([{ value: 1n }]);
+  });
+
+  it('getPXEInfo', async () => {
+    const result = await context.client.getPXEInfo();
+    expect(result).toEqual({
+      pxeVersion: '1.0',
+      protocolContractAddresses: expect.any(Object),
+    });
   });
 });
 
@@ -344,10 +323,6 @@ class MockPXE implements PXE {
     }
     return new TxSimulationResult(await PrivateExecutionResult.random(), PrivateKernelTailCircuitPublicInputs.empty());
   }
-  sendTx(tx: Tx): Promise<TxHash> {
-    expect(tx).toBeInstanceOf(Tx);
-    return Promise.resolve(tx.getTxHash());
-  }
   getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
     expect(txHash).toBeInstanceOf(TxHash);
     return Promise.resolve(TxReceipt.empty());
@@ -404,22 +379,6 @@ class MockPXE implements PXE {
     expect(scopes).toEqual([this.address]);
     expect(authwits).toEqual([]);
     return Promise.resolve(new UtilitySimulationResult(10n));
-  }
-  @memoize
-  async getNodeInfo(): Promise<NodeInfo> {
-    const protocolContracts = await Promise.all(
-      ProtocolContractsNames.map(async name => [name, await AztecAddress.random()]),
-    );
-    return {
-      nodeVersion: '1.0',
-      l1ChainId: 1,
-      rollupVersion: 1,
-      enr: 'enr',
-      l1ContractAddresses: Object.fromEntries(
-        L1ContractsNames.map(name => [name, EthAddress.random()]),
-      ) as L1ContractAddresses,
-      protocolContractAddresses: Object.fromEntries(protocolContracts) as ProtocolContractAddresses,
-    };
   }
   @memoize
   async getPXEInfo(): Promise<PXEInfo> {

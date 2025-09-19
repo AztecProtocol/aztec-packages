@@ -13,25 +13,14 @@ import {
   ContractClassWithIdSchema,
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,
-  type NodeInfo,
-  NodeInfoSchema,
   type PartialAddress,
   type ProtocolContractAddresses,
   ProtocolContractAddressesSchema,
 } from '../contract/index.js';
-import { GasFees } from '../gas/gas_fees.js';
 import { UniqueNote } from '../note/extended_note.js';
 import { type NotesFilter, NotesFilterSchema } from '../note/notes_filter.js';
 import { AbiDecodedSchema, optional, schemas } from '../schemas/schemas.js';
-import {
-  PrivateExecutionResult,
-  SimulationOverrides,
-  Tx,
-  TxExecutionRequest,
-  TxHash,
-  TxReceipt,
-  TxSimulationResult,
-} from '../tx/index.js';
+import { PrivateExecutionResult, SimulationOverrides, TxExecutionRequest, TxSimulationResult } from '../tx/index.js';
 import { TxProfileResult, UtilitySimulationResult } from '../tx/profiling.js';
 import { TxProvingResult } from '../tx/proven_tx.js';
 
@@ -177,34 +166,11 @@ export interface PXE {
   ): Promise<TxProfileResult>;
 
   /**
-   * Sends a transaction to an Aztec node to be broadcasted to the network and mined.
-   * @param tx - The transaction as created via `proveTx`.
-   * @returns A hash of the transaction, used to identify it.
-   */
-  sendTx(tx: Tx): Promise<TxHash>;
-
-  /**
-   * Fetches a transaction receipt for a given transaction hash. Returns a mined receipt if it was added
-   * to the chain, a pending receipt if it's still in the mempool of the connected Aztec node, or a dropped
-   * receipt if not found in the connected Aztec node.
-   *
-   * @param txHash - The transaction hash.
-   * @returns A receipt of the transaction.
-   */
-  getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
-
-  /**
    * Gets notes registered in this PXE based on the provided filter.
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
   getNotes(filter: NotesFilter): Promise<UniqueNote[]>;
-
-  /**
-   * Method to fetch the current base fees.
-   * @returns The current base fees.
-   */
-  getCurrentBaseFees(): Promise<GasFees>;
 
   /**
    * Simulate the execution of a contract utility function.
@@ -226,13 +192,6 @@ export interface PXE {
     from?: AztecAddress,
     scopes?: AztecAddress[],
   ): Promise<UtilitySimulationResult>;
-
-  /**
-   * Returns the information about the server's node. Includes current Node version, compatible Noir version,
-   * L1 chain identifier, rollup version, and L1 address of the rollup contract.
-   * @returns - The node information.
-   */
-  getNodeInfo(): Promise<NodeInfo>;
 
   /**
    * Returns information about this PXE.
@@ -379,10 +338,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
       optional(z.array(schemas.AztecAddress)),
     )
     .returns(TxSimulationResult.schema),
-  sendTx: z.function().args(Tx.schema).returns(TxHash.schema),
-  getTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema),
   getNotes: z.function().args(NotesFilterSchema).returns(z.array(UniqueNote.schema)),
-  getCurrentBaseFees: z.function().returns(GasFees.schema),
 
   simulateUtility: z
     .function()
@@ -395,7 +351,6 @@ export const PXESchema: ApiSchemaFor<PXE> = {
       optional(z.array(schemas.AztecAddress)),
     )
     .returns(UtilitySimulationResult.schema),
-  getNodeInfo: z.function().returns(NodeInfoSchema),
   getPXEInfo: z.function().returns(PXEInfoSchema),
   getContractMetadata: z.function().args(schemas.AztecAddress).returns(ContractMetadataSchema),
   getContractClassMetadata: z.function().args(schemas.Fr, optional(z.boolean())).returns(ContractClassMetadataSchema),

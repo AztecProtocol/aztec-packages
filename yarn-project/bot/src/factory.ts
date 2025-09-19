@@ -73,7 +73,7 @@ export class BotFactory {
       this.node = createAztecNodeClient(config.nodeUrl!, getVersions(), makeTracedFetch([1, 2, 3], false));
     }
 
-    this.wallet = new TestWallet(this.pxe);
+    this.wallet = new TestWallet(this.pxe, this.node);
   }
 
   /**
@@ -400,11 +400,11 @@ export class BotFactory {
       );
     }
 
-    const { l1ChainId } = await this.pxe.getNodeInfo();
+    const { l1ChainId } = await this.node.getNodeInfo();
     const chain = createEthereumChain(l1RpcUrls, l1ChainId);
     const extendedClient = createExtendedL1Client(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
 
-    const portal = await L1FeeJuicePortalManager.new(this.pxe, extendedClient, this.log);
+    const portal = await L1FeeJuicePortalManager.new(this.node, extendedClient, this.log);
     const mintAmount = await portal.getTokenManager().getMintAmount();
     const claim = await portal.bridgeTokensPublic(recipient, mintAmount, true /* mint */);
 

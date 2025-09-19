@@ -22,7 +22,7 @@ export class PrivateEnv {
       l1Contracts,
     } as PXEServiceConfig;
     const pxe = await createPXEService(aztecNode, configWithContracts);
-    const wallet = new TestWallet(pxe);
+    const wallet = new TestWallet(pxe, aztecNode);
 
     const [accountData] = await getInitialTestAccountsData();
     if (!accountData) {

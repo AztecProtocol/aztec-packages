@@ -3,10 +3,12 @@ use dep::aztec::{
     context::UtilityContext, note::note_viewer_options::NoteViewerOptions, state_vars::PrivateSet,
 };
 
+// DEPRECATED: Having this functionality in the value note package is incorrect and will be removed in the future.
 pub unconstrained fn get_balance(set: PrivateSet<ValueNote, UtilityContext>) -> Field {
     get_balance_with_offset(set, 0)
 }
 
+// DEPRECATED: Having this functionality in the value note package is incorrect and will be removed in the future.
 pub unconstrained fn get_balance_with_offset(
     set: PrivateSet<ValueNote, UtilityContext>,
     offset: u32,

@@ -60,8 +60,10 @@ export abstract class BaseTestWallet extends BaseWallet {
   protected async getAccountFromAddress(address: AztecAddress): Promise<Account> {
     let account: Account | undefined;
     if (address.equals(AztecAddress.ZERO)) {
-      const { l1ChainId: chainId, rollupVersion } = await this.pxe.getNodeInfo();
-      account = new SignerlessAccount(new DefaultMultiCallEntrypoint(chainId, rollupVersion));
+      const chainInfo = await this.getChainInfo();
+      account = new SignerlessAccount(
+        new DefaultMultiCallEntrypoint(chainInfo.chainId.toNumber(), chainInfo.version.toNumber()),
+      );
     } else {
       account = this.accounts.get(address?.toString() ?? '');
     }

@@ -65,7 +65,7 @@ export const createPXEServiceAndSubmitTransactions = async (
   const rpcConfig = getRpcConfig();
   rpcConfig.proverEnabled = false;
   const pxeService = await createPXEService(node, rpcConfig, { useLogSuffix: true });
-  const wallet = new TestWallet(pxeService);
+  const wallet = new TestWallet(pxeService, node);
   const fundedAccountManager = await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
   const txs = await submitTxsTo(wallet, fundedAccountManager.getAddress(), numTxs, logger);
   return { txs, pxeService, node };
@@ -81,7 +81,7 @@ export async function createPXEServiceAndPrepareTransactions(
   rpcConfig.proverEnabled = false;
   const pxe = await createPXEService(node, rpcConfig, { useLogSuffix: true });
 
-  const wallet = new TestWallet(pxe);
+  const wallet = new TestWallet(pxe, node);
   const fundedAccountManager = await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
 
   const testContractInstance = await getContractInstanceFromInstantiationParams(TestContractArtifact, {

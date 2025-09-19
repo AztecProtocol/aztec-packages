@@ -19,7 +19,6 @@
 #include "barretenberg/api/api_msgpack.hpp"
 #include "barretenberg/api/api_ultra_honk.hpp"
 #include "barretenberg/api/file_io.hpp"
-#include "barretenberg/api/prove_tube.hpp"
 #include "barretenberg/bb/cli11_formatter.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
@@ -522,30 +521,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
         "-i,--input", msgpack_input_file, "Input file containing msgpack buffers (defaults to stdin)");
 
     /***************************************************************************************************************
-     * Subcommand: prove_tube
-     ***************************************************************************************************************/
-    CLI ::App* prove_tube_command = app.add_subcommand("prove_tube", "");
-    prove_tube_command->group(""); // hide from list of subcommands
-    add_verbose_flag(prove_tube_command);
-    add_debug_flag(prove_tube_command);
-    add_crs_path_option(prove_tube_command);
-    add_vk_path_option(prove_tube_command);
-    std::string prove_tube_output_path{ "./target" };
-    add_output_path_option(prove_tube_command, prove_tube_output_path);
-
-    /***************************************************************************************************************
-     * Subcommand: verify_tube
-     ***************************************************************************************************************/
-    CLI::App* verify_tube_command = app.add_subcommand("verify_tube", "");
-    verify_tube_command->group(""); // hide from list of subcommands
-    add_verbose_flag(verify_tube_command);
-    add_debug_flag(verify_tube_command);
-    add_crs_path_option(verify_tube_command);
-    // doesn't make sense that this is set by -o but that's how it was
-    std::string tube_proof_and_vk_path{ "./target" };
-    add_output_path_option(verify_tube_command, tube_proof_and_vk_path);
-
-    /***************************************************************************************************************
      * Build the CLI11 App
      ***************************************************************************************************************/
 
@@ -613,19 +588,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
         }
         if (msgpack_run_command->parsed()) {
             return execute_msgpack_run(msgpack_input_file);
-        }
-        // TUBE
-        if (prove_tube_command->parsed()) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1201): Potentially remove this extra logic.
-            prove_tube(prove_tube_output_path, vk_path);
-        } else if (verify_tube_command->parsed()) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1322): Remove verify_tube logic.
-            auto tube_public_inputs_path = tube_proof_and_vk_path + "/public_inputs";
-            auto tube_proof_path = tube_proof_and_vk_path + "/proof";
-            auto tube_vk_path = tube_proof_and_vk_path + "/vk";
-            UltraHonkAPI api;
-            return api.verify({ .ipa_accumulation = true }, tube_public_inputs_path, tube_proof_path, tube_vk_path) ? 0
-                                                                                                                    : 1;
         }
         // AVM
 #ifndef DISABLE_AZTEC_VM

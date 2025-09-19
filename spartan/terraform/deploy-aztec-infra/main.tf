@@ -223,6 +223,24 @@ locals {
       wait                 = true
     }
 
+    archive = var.DEPLOY_ARCHIVAL_NODE ? {
+      name  = "${var.RELEASE_PREFIX}-archive"
+      chart = "aztec-node"
+      values = [
+        "common.yaml",
+        "archive.yaml",
+        "archive-resources-dev.yaml"
+      ]
+      custom_settings = {
+        "nodeType"                       = "archive"
+        "node.env.NETWORK"               = var.NETWORK
+        "node.env.P2P_ARCHIVED_TX_LIMIT" = "10000000"
+      }
+      boot_node_host_path  = "node.env.BOOT_NODE_HOST"
+      bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
+      wait                 = true
+    } : null
+
     # Optional: transfer bots
     bot_transfers = var.BOT_TRANSFERS_REPLICAS > 0 ? {
       name  = "${var.RELEASE_PREFIX}-bot-transfers"

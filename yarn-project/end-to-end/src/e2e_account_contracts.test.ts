@@ -57,7 +57,7 @@ const itShouldBehaveLikeAnAccountContract = (
       };
 
       ({ logger, pxe, teardown, aztecNode } = await setup(0, { initialFundedAccounts: [accountData] }));
-      wallet = new TestWalletInternals(pxe);
+      wallet = new TestWalletInternals(pxe, aztecNode);
 
       const accountManager = await AccountManager.create(wallet, pxe, secret, accountContract, salt);
       completeAddress = await accountManager.getCompleteAddress();
@@ -93,7 +93,7 @@ const itShouldBehaveLikeAnAccountContract = (
       const accountInterface = new DefaultAccountInterface(
         randomContract.getAuthWitnessProvider(completeAddress),
         completeAddress,
-        await pxe.getNodeInfo(),
+        await wallet.getChainInfo(),
       );
       const account = new BaseAccount(accountInterface);
       (wallet as TestWalletInternals).replaceAccountAt(account, completeAddress.address);

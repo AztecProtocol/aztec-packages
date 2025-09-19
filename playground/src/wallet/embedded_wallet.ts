@@ -12,6 +12,7 @@ import {
   type PXE,
   createAztecNodeClient,
   type Aliased,
+  type AztecNode,
 } from '@aztec/aztec.js';
 import { getPXEServiceConfig, type PXEServiceConfig } from '@aztec/pxe/config';
 import { createPXEService } from '@aztec/pxe/client/lazy';
@@ -48,13 +49,14 @@ export interface AccountData {
 export class EmbeddedWallet extends BaseWallet {
   constructor(
     pxe: PXE,
+    aztecNode: AztecNode,
     private walletDB: WalletDB,
   ) {
-    super(pxe);
+    super(pxe, aztecNode);
   }
 
   static async create(nodeURL: string) {
-    const aztecNode = await createAztecNodeClient(nodeURL);
+    const aztecNode = createAztecNodeClient(nodeURL);
 
     const l1Contracts = await aztecNode.getL1ContractAddresses();
     const rollupAddress = l1Contracts.rollupAddress;
@@ -83,13 +85,13 @@ export class EmbeddedWallet extends BaseWallet {
       walletLogger,
     );
     const db = WalletDB.init(walletDBStore, walletLogger.info);
-    return new EmbeddedWallet(pxe, db);
+    return new EmbeddedWallet(pxe, aztecNode, db);
   }
 
   protected async getAccountFromAddress(address: AztecAddress): Promise<Account> {
     let account: Account | undefined;
     if (address.equals(AztecAddress.ZERO)) {
-      const { l1ChainId: chainId, rollupVersion } = await this.pxe.getNodeInfo();
+      const { l1ChainId: chainId, rollupVersion } = await this.aztecNode.getNodeInfo();
       account = new SignerlessAccount(new DefaultMultiCallEntrypoint(chainId, rollupVersion));
     } else {
       const { secretKey, salt, signingKey, type } = await this.walletDB.retrieveAccount(address);
@@ -205,14 +207,14 @@ export class EmbeddedWallet extends BaseWallet {
   }
 
   private async getFakeAccountDataFor(address: AztecAddress) {
-    const nodeInfo = await this.pxe.getNodeInfo();
+    const chainInfo = await this.getChainInfo();
     const originalAccount = await this.getAccountFromAddress(address);
     const originalAddress = await originalAccount.getCompleteAddress();
     const { contractInstance } = await this.pxe.getContractMetadata(originalAddress.address);
     if (!contractInstance) {
       throw new Error(`No contract instance found for address: ${originalAddress.address}`);
     }
-    const stubAccount = createStubAccount(originalAddress, nodeInfo);
+    const stubAccount = createStubAccount(originalAddress, chainInfo);
     const StubAccountContractArtifact = await getStubAccountContractArtifact();
     const instance = await getContractInstanceFromInstantiationParams(StubAccountContractArtifact, {
       salt: Fr.random(),
