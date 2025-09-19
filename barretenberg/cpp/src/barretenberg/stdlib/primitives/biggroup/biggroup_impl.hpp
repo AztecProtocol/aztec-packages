@@ -37,6 +37,13 @@ element<C, Fq, Fr, G>::element(const Fq& x_in, const Fq& y_in)
 {}
 
 template <typename C, class Fq, class Fr, class G>
+element<C, Fq, Fr, G>::element(const Fq& x_in, const Fq& y_in, const bool_ct& is_infinity)
+    : x(x_in)
+    , y(y_in)
+    , _is_infinity(is_infinity)
+{}
+
+template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G>::element(const element& other)
     : x(other.x)
     , y(other.y)

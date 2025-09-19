@@ -20,7 +20,7 @@ import { Fr } from '@aztec/foundation/fields';
 import type { LogFn } from '@aztec/foundation/log';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
-import type { PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import type { TxExecutionRequest, TxProvingResult, TxSimulationResult } from '@aztec/stdlib/tx';
 
@@ -34,10 +34,11 @@ export type AccountType = (typeof AccountTypes)[number];
 export class CLIWallet extends BaseWallet {
   constructor(
     pxe: PXE,
+    node: AztecNode,
     private userLog: LogFn,
     private db?: WalletDB,
   ) {
-    super(pxe);
+    super(pxe, node);
   }
 
   override async getAccounts(): Promise<Aliased<AztecAddress>[]> {
@@ -70,8 +71,10 @@ export class CLIWallet extends BaseWallet {
   override async getAccountFromAddress(address: AztecAddress) {
     let account: Account | undefined;
     if (address.equals(AztecAddress.ZERO)) {
-      const { l1ChainId: chainId, rollupVersion } = await this.pxe.getNodeInfo();
-      account = new SignerlessAccount(new DefaultMultiCallEntrypoint(chainId, rollupVersion));
+      const chainInfo = await this.getChainInfo();
+      account = new SignerlessAccount(
+        new DefaultMultiCallEntrypoint(chainInfo.chainId.toNumber(), chainInfo.version.toNumber()),
+      );
     } else {
       const accountManager = await this.createOrRetrieveAccount(address);
       account = await accountManager.getAccount();
@@ -150,14 +153,14 @@ export class CLIWallet extends BaseWallet {
   }
 
   private async getFakeAccountDataFor(address: AztecAddress) {
-    const nodeInfo = await this.pxe.getNodeInfo();
+    const chainInfo = await this.getChainInfo();
     const originalAccount = await this.getAccountFromAddress(address);
     const originalAddress = originalAccount.getCompleteAddress();
     const { contractInstance } = await this.pxe.getContractMetadata(originalAddress.address);
     if (!contractInstance) {
       throw new Error(`No contract instance found for address: ${originalAddress.address}`);
     }
-    const stubAccount = createStubAccount(originalAddress, nodeInfo);
+    const stubAccount = createStubAccount(originalAddress, chainInfo);
     const instance = await getContractInstanceFromInstantiationParams(StubAccountContractArtifact, {
       salt: Fr.random(),
     });

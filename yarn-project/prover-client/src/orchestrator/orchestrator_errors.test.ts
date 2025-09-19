@@ -36,8 +36,9 @@ describe('prover/orchestrator/errors', () => {
         finalBlobChallenges,
       } = await buildBlobDataFromTxs([txs]);
 
-      orchestrator.startNewEpoch(1, context.firstCheckpointNumber, 1 /* numCheckpoints */, finalBlobChallenges);
+      orchestrator.startNewEpoch(1, 1 /* numCheckpoints */, finalBlobChallenges);
       await orchestrator.startNewCheckpoint(
+        0, // checkpointIndex
         context.getCheckpointConstants(),
         [],
         1, // numBlocks
@@ -59,8 +60,9 @@ describe('prover/orchestrator/errors', () => {
         finalBlobChallenges,
       } = await buildBlobDataFromTxs([txs]);
 
-      orchestrator.startNewEpoch(1, context.firstCheckpointNumber, 1, finalBlobChallenges);
+      orchestrator.startNewEpoch(1, 1 /* numCheckpoints */, finalBlobChallenges);
       await orchestrator.startNewCheckpoint(
+        0, // checkpointIndex
         context.getCheckpointConstants(),
         [],
         1, // numBlocks
@@ -84,15 +86,16 @@ describe('prover/orchestrator/errors', () => {
     });
 
     it('throws if adding a transaction before starting checkpoint', async () => {
-      orchestrator.startNewEpoch(1, context.firstCheckpointNumber, 1, emptyChallenges);
+      orchestrator.startNewEpoch(1, 1, emptyChallenges);
       await expect(async () => await orchestrator.addTxs([await context.makeProcessedTx()])).rejects.toThrow(
         /Proving state for block 1 not found/,
       );
     });
 
     it('throws if adding a transaction before starting block', async () => {
-      orchestrator.startNewEpoch(1, context.firstCheckpointNumber, 1, emptyChallenges);
+      orchestrator.startNewEpoch(1, 1, emptyChallenges);
       await orchestrator.startNewCheckpoint(
+        0, // checkpointIndex
         context.getCheckpointConstants(),
         [],
         1,
@@ -105,15 +108,16 @@ describe('prover/orchestrator/errors', () => {
     });
 
     it('throws if completing a block before start', async () => {
-      orchestrator.startNewEpoch(1, context.firstCheckpointNumber, 1, emptyChallenges);
+      orchestrator.startNewEpoch(1, 1, emptyChallenges);
       await expect(async () => await orchestrator.setBlockCompleted(context.blockNumber)).rejects.toThrow(
         /Block proving state for 1 not found/,
       );
     });
 
     it('throws if adding to a cancelled block', async () => {
-      orchestrator.startNewEpoch(1, context.firstCheckpointNumber, 1, emptyChallenges);
+      orchestrator.startNewEpoch(1, 1, emptyChallenges);
       await orchestrator.startNewCheckpoint(
+        0, // checkpointIndex
         context.getCheckpointConstants(),
         [],
         1,
@@ -131,10 +135,11 @@ describe('prover/orchestrator/errors', () => {
 
     it('rejects if too many l1 to l2 messages are provided', async () => {
       const l1ToL2Messages = new Array(100).fill(new Fr(0n));
-      orchestrator.startNewEpoch(1, context.firstCheckpointNumber, 1, emptyChallenges);
+      orchestrator.startNewEpoch(1, 1, emptyChallenges);
       await expect(
         async () =>
           await orchestrator.startNewCheckpoint(
+            0, // checkpointIndex
             context.getCheckpointConstants(),
             l1ToL2Messages,
             1,

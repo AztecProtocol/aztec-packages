@@ -155,7 +155,7 @@ export const uniswapL1L2TestSuite = (
         .send({ from: ownerAddress })
         .deployed();
 
-      const registryAddress = (await pxe.getNodeInfo()).l1ContractAddresses.registryAddress;
+      const registryAddress = (await aztecNode.getNodeInfo()).l1ContractAddresses.registryAddress;
 
       await uniswapPortal.write.initialize(
         [registryAddress.toString(), uniswapL2Contract.address.toString()],

@@ -92,7 +92,7 @@ describe('End-to-end tests for devnet', () => {
       });
       pxe = svc.pxe;
 
-      const nodeInfo = await pxe.getNodeInfo();
+      const nodeInfo = await node.getNodeInfo();
       const pxeInfo = await pxe.getPXEInfo();
 
       expect(nodeInfo.protocolContractAddresses.classRegistry).toEqual(pxeInfo.protocolContractAddresses.classRegistry);
@@ -123,18 +123,19 @@ describe('End-to-end tests for devnet', () => {
     } else if (PXE_URL) {
       logger.info(`Using PXE_URL: ${PXE_URL}`);
       pxe = createPXEClient(PXE_URL);
+      node = createAztecNodeClient(PXE_URL);
       pxeUrl = PXE_URL;
       teardown = () => {};
     } else {
       throw new Error('AZTEC_NODE_URL or PXE_URL must be set');
     }
 
-    wallet = new TestWallet(pxe);
+    wallet = new TestWallet(pxe, node);
 
     ({
       l1ChainId,
       l1ContractAddresses: { feeJuiceAddress: feeJuiceL1 },
-    } = await pxe.getNodeInfo());
+    } = await node.getNodeInfo());
     logger.info(`PXE instance started`);
   });
 
@@ -209,7 +210,7 @@ describe('End-to-end tests for devnet', () => {
     // );
 
     expect(txReceipt.status).toBe(TxStatus.SUCCESS);
-    const feeJuice = await FeeJuiceContract.at((await pxe.getNodeInfo()).protocolContractAddresses.feeJuice, wallet);
+    const feeJuice = await FeeJuiceContract.at((await node.getNodeInfo()).protocolContractAddresses.feeJuice, wallet);
     const balance = await feeJuice.methods
       .balance_of_public(l2Account.getAddress())
       .simulate({ from: l2AccountAddress });

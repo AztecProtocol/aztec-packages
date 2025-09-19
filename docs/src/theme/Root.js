@@ -3,6 +3,7 @@ import useMatomo from '@site/src/components/Matomo/matomo';
 import BrowserOnly from '@docusaurus/BrowserOnly';
 import useIsBrowser from '@docusaurus/useIsBrowser';
 import AskCookbook from '@cookbookdev/docsbot/react';
+import { analytics } from '@site/src/utils/analytics';
 
 function OptOutForm() {
   const banner = useMatomo();
@@ -16,6 +17,11 @@ const COOKBOOK_PUBLIC_API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOi
 export default function Root({ children }) {
   const useIsBrowserValue = useIsBrowser();
   if (!useIsBrowserValue) return <>{children}</>;
+
+  // Make analytics globally available for Matomo integration
+  if (typeof window !== 'undefined') {
+    window.analytics = analytics;
+  }
 
   return (
     <>

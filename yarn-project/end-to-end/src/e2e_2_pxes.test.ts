@@ -16,7 +16,7 @@ const TIMEOUT = 300_000;
 describe('e2e_2_pxes', () => {
   jest.setTimeout(TIMEOUT);
 
-  let aztecNode: AztecNode | undefined;
+  let aztecNode: AztecNode;
   let pxeB: PXE;
   let walletA: TestWallet;
   let walletB: TestWallet;
@@ -40,8 +40,8 @@ describe('e2e_2_pxes', () => {
     // Account A is already deployed in setup
 
     // Deploy accountB via pxeB.
-    ({ pxe: pxeB, teardown: teardownB } = await setupPXEService(aztecNode!, {}, undefined, true));
-    walletB = new TestWallet(pxeB);
+    ({ pxe: pxeB, teardown: teardownB } = await setupPXEService(aztecNode, {}, undefined, true));
+    walletB = new TestWallet(pxeB, aztecNode);
     const accountB = await walletB.createSchnorrAccount(initialFundedAccounts[1].secret, initialFundedAccounts[1].salt);
     accountBAddress = accountB.getAddress();
     await accountB.deploy().wait();

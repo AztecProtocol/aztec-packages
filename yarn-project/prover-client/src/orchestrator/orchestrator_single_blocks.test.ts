@@ -22,8 +22,9 @@ describe('prover/orchestrator/blocks', () => {
     it('builds an empty L2 block', async () => {
       const blobFields = [createBlockEndMarker(0)];
       const finalBlobChallenges = await buildFinalBlobChallenges([blobFields]);
-      context.orchestrator.startNewEpoch(1, context.firstCheckpointNumber, 1, finalBlobChallenges);
+      context.orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
       await context.orchestrator.startNewCheckpoint(
+        0, // checkpointIndex
         context.getCheckpointConstants(),
         [],
         1,
@@ -46,8 +47,9 @@ describe('prover/orchestrator/blocks', () => {
       } = await buildBlobDataFromTxs([txs]);
 
       // This will need to be a 2 tx block
-      context.orchestrator.startNewEpoch(1, context.firstCheckpointNumber, 1, finalBlobChallenges);
+      context.orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
       await context.orchestrator.startNewCheckpoint(
+        0, // checkpointIndex
         context.getCheckpointConstants(),
         [],
         1, // numBlocks
@@ -73,8 +75,9 @@ describe('prover/orchestrator/blocks', () => {
         finalBlobChallenges,
       } = await buildBlobDataFromTxs([txs]);
 
-      context.orchestrator.startNewEpoch(1, context.firstCheckpointNumber, 1, finalBlobChallenges);
+      context.orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
       await context.orchestrator.startNewCheckpoint(
+        0, // checkpointIndex
         context.getCheckpointConstants(),
         l1ToL2Messages,
         1, // numBlocks

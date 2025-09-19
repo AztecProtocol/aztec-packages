@@ -33,7 +33,11 @@
 
 [[redirects]]
     from = "/tutorials/simple_dapp/*"
-    to = "developers/tutorials/codealong/js_tutorials/simple_dapp"
+    to = "developers/tutorials/js_tutorials/aztecjs-getting-started"
+
+[[redirects]]
+    from = "/v2.0.2/migration_notes"
+    to = "/migration_notes"
 
 [[redirects]]
     from = "/tutorials/contract_tutorials/crowdfunding_contract"
@@ -200,16 +204,9 @@
     to = "/the_aztec_network"
 
 [[redirects]]
-    from = "/developers/tutorials/codealong/contract_tutorials/uniswap/*"
-    to = "/developers/tutorials/codealong/js_tutorials/uniswap"
+    from = "/developers/tutorials/codealong/contract_tutorials/counter_contract"
+    to = "/developers/tutorials/contract_tutorials/counter_contract"
 
-[[redirects]]
-    from = "/developers/tutorials/codealong/contract_tutorials/token_bridge"
-    to = "/developers/tutorials/codealong/js_tutorials/token_bridge"
-
-[[redirects]]
-    from = "/developers/tutorials/codealong/cli_wallet/faceid_wallet"
-    to = "/developers/tutorials/codealong/faceid_wallet"
 
 # Redirects for renamed JS app guide pages
 [[redirects]]

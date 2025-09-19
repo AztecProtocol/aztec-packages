@@ -111,7 +111,7 @@ create_civc_recursion_constraints(Builder& builder,
     }
 
     // Recursively verify CIVC proof
-    auto mega_vk = std::make_shared<VerificationKey>(builder, key_fields);
+    auto mega_vk = std::make_shared<VerificationKey>(key_fields);
     auto mega_vk_and_hash = std::make_shared<RecursiveVKAndHash>(mega_vk, vk_hash);
     ClientIVCRecursiveVerifier::StdlibProof stdlib_proof(proof_fields, input.public_inputs.size());
 

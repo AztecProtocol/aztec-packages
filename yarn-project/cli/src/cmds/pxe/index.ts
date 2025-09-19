@@ -5,7 +5,6 @@ import type { Command } from 'commander';
 
 import {
   logJson,
-  makePxeOption,
   parseAztecAddress,
   parseEthereumAddress,
   parseFieldFromHexString,
@@ -46,15 +45,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     });
 
   program
-    .command('get-current-base-fee')
-    .description('Gets the current base fee.')
-    .addOption(pxeOption)
-    .action(async options => {
-      const { getCurrentBaseFee } = await import('./get_current_base_fee.js');
-      await getCurrentBaseFee(options.rpcUrl, debugLogger, log);
-    });
-
-  program
     .command('get-contract-data')
     .description('Gets information about the Aztec contract deployed at the specified address.')
     .argument('<contractAddress>', 'Aztec address of the contract.', parseAztecAddress)
@@ -83,23 +73,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .action(async (address, options) => {
       const { getAccount } = await import('./get_account.js');
       await getAccount(address, options.rpcUrl, debugLogger, log);
-    });
-
-  program
-    .command('get-node-info')
-    .description('Gets the information of an Aztec node from a PXE or directly from an Aztec node.')
-    .option('--node-url <string>', 'URL of the node.')
-    .option('--json', 'Emit output as json')
-    .addOption(makePxeOption(false))
-    .action(async options => {
-      const { getNodeInfo } = await import('./get_node_info.js');
-      let url: string;
-      if (options.nodeUrl) {
-        url = options.nodeUrl;
-      } else {
-        url = options.rpcUrl;
-      }
-      await getNodeInfo(url, !options.nodeUrl, debugLogger, options.json, log, logJson(log));
     });
 
   program

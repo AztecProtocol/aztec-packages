@@ -177,8 +177,7 @@ bool _verify(const bool ipa_accumulation,
         const std::ptrdiff_t honk_proof_with_pub_inputs_length =
             static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
         auto ipa_proof = Proof(complete_proof.begin() + honk_proof_with_pub_inputs_length, complete_proof.end());
-        auto tube_honk_proof =
-            Proof(complete_proof.begin(), complete_proof.begin() + honk_proof_with_pub_inputs_length);
+        auto honk_proof = Proof(complete_proof.begin(), complete_proof.begin() + honk_proof_with_pub_inputs_length);
         verified = verifier.template verify_proof<RollupIO>(complete_proof, ipa_proof).result;
     } else {
         verified = verifier.template verify_proof<DefaultIO>(complete_proof).result;

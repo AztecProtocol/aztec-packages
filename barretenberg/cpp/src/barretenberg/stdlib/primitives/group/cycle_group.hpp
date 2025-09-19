@@ -30,6 +30,7 @@ namespace bb::stdlib {
 template <typename Builder> class cycle_group {
   public:
     using field_t = stdlib::field_t<Builder>;
+    using BaseField = field_t;
     using bool_t = stdlib::bool_t<Builder>;
     using witness_t = stdlib::witness_t<Builder>;
 
@@ -81,7 +82,7 @@ template <typename Builder> class cycle_group {
     void standardize();
     bool is_standard() const { return this->_is_standard; };
     cycle_group get_standard_form();
-    void validate_is_on_curve() const;
+    void validate_on_curve() const;
     cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const;
     cycle_group unconditional_add(const cycle_group& other,
                                   const std::optional<AffineElement> hint = std::nullopt) const;
