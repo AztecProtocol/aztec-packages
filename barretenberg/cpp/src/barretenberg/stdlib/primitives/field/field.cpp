@@ -1271,10 +1271,13 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
  * @brief Splits the field element into (lo, hi), where:
  * - lo contains bits [0, lsb_index)
  * - hi contains bits [lsb_index, num_bits)
+ * @details Max bits is specified as an argument, and must be <= grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH (to ensure no
+ * modular wrap).
+ *
  */
 template <typename Builder>
-std::pair<field_t<Builder>, field_t<Builder>> field_t<Builder>::split_at(const size_t lsb_index,
-                                                                         const size_t num_bits) const
+std::pair<field_t<Builder>, field_t<Builder>> field_t<Builder>::no_wrap_split_at(const size_t lsb_index,
+                                                                                 const size_t num_bits) const
 {
     ASSERT(lsb_index < num_bits);
     ASSERT(num_bits <= grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH);
