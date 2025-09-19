@@ -13,7 +13,7 @@ cd ..
 # - Generate a hash for versioning: sha256sum bb-civc-inputs.tar.gz
 # - Upload the compressed results: aws s3 cp bb-civc-inputs.tar.gz s3://aztec-ci-artifacts/protocol/bb-civc-inputs-[hash(0:8)].tar.gz
 # Note: In case of the "Test suite failed to run ... Unexpected token 'with' " error, need to run: docker pull aztecprotocol/build:3.0
-pinned_short_hash="04f38201"
+pinned_short_hash="e70f08be"
 pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-${pinned_short_hash}.tar.gz"
 
 function compress_and_upload {

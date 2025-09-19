@@ -223,7 +223,7 @@ class AvmGoblinRecursiveVerifier {
         const FF mega_hash = stdlib::poseidon2<MegaBuilder>::hash(mega_hash_buffer);
 
         // Construct a Mega-arithmetized AVM2 recursive verifier circuit
-        auto stdlib_key = std::make_shared<AvmRecursiveVerificationKey>(mega_builder, std::span<FF>(key_fields));
+        auto stdlib_key = std::make_shared<AvmRecursiveVerificationKey>(std::span<FF>(key_fields));
         AvmRecursiveVerifier recursive_verifier{ mega_builder, stdlib_key };
         MegaPairingPoints points_accumulator = recursive_verifier.verify_proof(mega_stdlib_proof, mega_public_inputs);
 

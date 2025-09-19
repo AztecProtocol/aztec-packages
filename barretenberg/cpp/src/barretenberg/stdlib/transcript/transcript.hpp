@@ -54,9 +54,7 @@ template <typename Builder> struct StdlibTranscriptParams {
     template <typename T> static inline T deserialize(std::span<const DataType> frs)
     {
         ASSERT(!frs.empty());
-        ASSERT(frs[0].get_context() != nullptr);
-        Builder* builder = frs[0].get_context();
-        return bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, T>(*builder, frs);
+        return bb::stdlib::field_conversion::convert_from_bn254_frs<Builder, T>(frs);
     }
 
     template <typename T> static inline std::vector<DataType> serialize(const T& element)
