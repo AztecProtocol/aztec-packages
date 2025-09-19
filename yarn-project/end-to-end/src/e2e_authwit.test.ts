@@ -24,14 +24,14 @@ describe('e2e_authwit_tests', () => {
   let auth: AuthWitTestContract;
 
   beforeAll(async () => {
-    const { wallet: defaultWallet, accounts, pxe } = await setup(2);
+    const { wallet: defaultWallet, accounts, aztecNode } = await setup(2);
     // docs:start:public_deploy_accounts
     [account1Address, account2Address] = accounts;
     wallet = defaultWallet as TestWallet;
     await ensureAccountContractsPublished(wallet, accounts.slice(0, 2));
     // docs:end:public_deploy_accounts
 
-    const nodeInfo = await pxe.getNodeInfo();
+    const nodeInfo = await aztecNode.getNodeInfo();
     chainId = new Fr(nodeInfo.l1ChainId);
     version = new Fr(nodeInfo.rollupVersion);
 

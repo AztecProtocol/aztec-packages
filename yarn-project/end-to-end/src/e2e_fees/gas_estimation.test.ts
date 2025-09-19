@@ -1,9 +1,9 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import {
   type AztecAddress,
+  type AztecNode,
   FeeJuicePaymentMethod,
   type FeePaymentMethod,
-  type PXE,
   PublicFeePaymentMethod,
   type Wallet,
 } from '@aztec/aztec.js';
@@ -17,7 +17,6 @@ import { inspect } from 'util';
 import { FeesTest } from './fees_test.js';
 
 describe('e2e_fees gas_estimation', () => {
-  let pxe: PXE;
   let wallet: Wallet;
   let aliceAddress: AztecAddress;
   let bobAddress: AztecAddress;
@@ -25,6 +24,7 @@ describe('e2e_fees gas_estimation', () => {
   let bananaFPC: FPCContract;
   let gasSettings: GasSettings;
   let logger: Logger;
+  let aztecNode: AztecNode;
 
   const t = new FeesTest('gas_estimation');
 
@@ -32,12 +32,12 @@ describe('e2e_fees gas_estimation', () => {
     await t.applyBaseSnapshots();
     await t.applyFPCSetupSnapshot();
     await t.applyFundAliceWithBananas();
-    ({ pxe, wallet, aliceAddress, bobAddress, bananaCoin, bananaFPC, gasSettings, logger } = await t.setup());
+    ({ wallet, aliceAddress, bobAddress, bananaCoin, bananaFPC, gasSettings, logger, aztecNode } = await t.setup());
   });
 
   beforeEach(async () => {
     // Load the gas fees at the start of each test, use those exactly as the max fees per gas
-    const gasFees = await pxe.getCurrentBaseFees();
+    const gasFees = await aztecNode.getCurrentBaseFees();
     gasSettings = GasSettings.from({
       ...gasSettings,
       maxFeesPerGas: gasFees,

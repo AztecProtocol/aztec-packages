@@ -1,7 +1,7 @@
 /* eslint-disable import/no-duplicates */
 // docs:start:create_account_imports
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import { Fr, GrumpkinScalar, createPXEClient } from '@aztec/aztec.js';
+import { Fr, GrumpkinScalar, createAztecNodeClient, createPXEClient } from '@aztec/aztec.js';
 // docs:end:create_account_imports
 // docs:start:import_contract
 import { Contract } from '@aztec/aztec.js';
@@ -17,6 +17,8 @@ describe('docs_examples', () => {
     // docs:start:full_deploy
     // docs:start:define_account_vars
     const PXE_URL = process.env.PXE_URL || 'http://localhost:8080';
+    const AZTEC_NODE_URL = process.env.AZTEC_NODE_URL || 'http://localhost:8079';
+    const node = createAztecNodeClient(AZTEC_NODE_URL);
     const pxe = createPXEClient(PXE_URL);
     const secretKey = Fr.random();
     const signingPrivateKey = GrumpkinScalar.random();
@@ -24,7 +26,7 @@ describe('docs_examples', () => {
 
     // docs:start:create_wallet
     // Use a pre-funded wallet to pay for the fees for the deployments.
-    const wallet = new TestWallet(pxe);
+    const wallet = new TestWallet(pxe, node);
     const [accountData] = await getInitialTestAccountsData();
     const prefundedAccount = await wallet.createSchnorrAccount(accountData.secret, accountData.salt);
     const newAccount = await wallet.createSchnorrAccount(secretKey, Fr.random(), signingPrivateKey);

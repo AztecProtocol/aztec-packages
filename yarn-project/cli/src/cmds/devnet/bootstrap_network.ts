@@ -6,7 +6,6 @@ import {
   EthAddress,
   Fr,
   L1FeeJuicePortalManager,
-  type PXE,
   type WaitForProvenOpts,
   type WaitOpts,
   type Wallet,
@@ -58,7 +57,7 @@ export async function bootstrapNetwork(
 ) {
   const pxe = await createCompatibleClient(pxeUrl, debugLog);
   const node = createAztecNodeClient(nodeUrl);
-  const wallet = new TestWallet(pxe);
+  const wallet = new TestWallet(pxe, node);
 
   // We assume here that the initial test accounts were prefunded with deploy-l1-contracts, and deployed with setup-l2-contracts
   // so all we need to do is register them to our pxe.
@@ -85,14 +84,14 @@ export async function bootstrapNetwork(
 
   const { token, bridge } = await deployToken(wallet, defaultAccountAddress, portalAddress);
 
-  await initPortal(pxe, l1Client, erc20Address, portalAddress, bridge.address);
+  await initPortal(node, l1Client, erc20Address, portalAddress, bridge.address);
 
   const fpcAdmin = defaultAccountAddress;
   const fpc = await deployFPC(wallet, defaultAccountAddress, token.address, fpcAdmin);
 
   const counter = await deployCounter(wallet, defaultAccountAddress);
 
-  await fundFPC(pxe, node, counter.address, wallet, defaultAccountAddress, l1Client, fpc.address, debugLog);
+  await fundFPC(node, counter.address, wallet, defaultAccountAddress, l1Client, fpc.address, debugLog);
 
   if (json) {
     log(
@@ -219,7 +218,7 @@ async function deployToken(
  * Step 3. Initialize DevCoin's L1 portal
  */
 async function initPortal(
-  pxe: PXE,
+  aztecNode: AztecNode,
   l1Client: ExtendedViemWalletClient,
   erc20: EthAddress,
   portal: EthAddress,
@@ -228,7 +227,7 @@ async function initPortal(
   const { TokenPortalAbi } = await import('@aztec/l1-artifacts');
   const {
     l1ContractAddresses: { registryAddress },
-  } = await pxe.getNodeInfo();
+  } = await aztecNode.getNodeInfo();
 
   const contract = getContract({
     abi: TokenPortalAbi,
@@ -278,7 +277,6 @@ async function deployCounter(wallet: Wallet, defaultAccountAddress: AztecAddress
 
 // NOTE: Disabling for now in order to get devnet running
 async function fundFPC(
-  pxe: PXE,
   node: AztecNode,
   counterAddress: AztecAddress,
   wallet: Wallet,
@@ -295,11 +293,11 @@ async function fundFPC(
   const { CounterContract } = await import('@aztec/noir-test-contracts.js/Counter');
   const {
     protocolContractAddresses: { feeJuice },
-  } = await pxe.getNodeInfo();
+  } = await node.getNodeInfo();
 
   const feeJuiceContract = await FeeJuiceContract.at(feeJuice, wallet);
 
-  const feeJuicePortal = await L1FeeJuicePortalManager.new(pxe, l1Client, debugLog);
+  const feeJuicePortal = await L1FeeJuicePortalManager.new(node, l1Client, debugLog);
 
   const { claimAmount, claimSecret, messageLeafIndex, messageHash } = await feeJuicePortal.bridgeTokensPublic(
     fpcAddress,

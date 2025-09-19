@@ -198,7 +198,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
   );
   const pxeServiceConfig = { proverEnabled: aztecNodeConfig.realProofs };
   const pxe = await createAztecPXE(node, pxeServiceConfig);
-  const wallet = new TestWallet(pxe);
+  const wallet = new TestWallet(pxe, node);
 
   if (initialAccounts.length) {
     userLog('Setting up funded test accounts...');
