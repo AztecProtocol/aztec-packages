@@ -36,9 +36,6 @@ fn buildLmdb(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.buil
             "libraries/liblmdb/mdb.c",
             "libraries/liblmdb/midl.c",
         },
-        .flags = &.{
-            "-DMDB_USE_ROBUST=0", // Disable robust mutexes for better compatibility
-        },
         .root = lmdb_dep.path("."),
     });
 
@@ -63,9 +60,6 @@ fn buildLibdeflate(b: *std.Build, target: std.Build.ResolvedTarget, optimize: st
         }),
     });
 
-    // Use libdeflate v1.24's improved cross-compilation support
-    // As noted in changelog: "you don't need to worry about excluding irrelevant
-    // architecture-specific code, as this is already handled using #ifdefs"
     const libdeflate_sources = [_][]const u8{
         "lib/utils.c",
         "lib/deflate_compress.c",
@@ -74,14 +68,12 @@ fn buildLibdeflate(b: *std.Build, target: std.Build.ResolvedTarget, optimize: st
         "lib/gzip_decompress.c",
         "lib/zlib_compress.c",
         "lib/zlib_decompress.c",
-        "lib/adler32.c", // v1.24 handles cross-compilation properly
-        "lib/crc32.c", // v1.24 handles cross-compilation properly
-        // Architecture-specific files are included automatically by libdeflate's #ifdefs
+        "lib/adler32.c",
+        "lib/crc32.c",
         "lib/arm/cpu_features.c",
         "lib/x86/cpu_features.c",
     };
 
-    // Add all sources - v1.24 handles cross-compilation through proper #ifdefs
     libdeflate_lib.addCSourceFiles(.{
         .files = &libdeflate_sources,
         .flags = &[_][]const u8{"-std=c99"},
@@ -99,11 +91,9 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    // C++ compilation flags for standard build (without AVM)
-    const cpp_flags = [_][]const u8{
+    const common_flags = [_][]const u8{
         "-std=c++20",
         "-fPIC",
-        "-DDISABLE_AZTEC_VM=1",
         "-fno-sanitize=undefined",
         "-Wno-unused-function",
         "-Wno-unused-variable",
@@ -113,19 +103,11 @@ pub fn build(b: *std.Build) void {
         "-fbracket-depth=1024",
     };
 
+    // C++ compilation flags for standard build (without AVM)
+    const cpp_flags = common_flags ++ [_][]const u8{"-DDISABLE_AZTEC_VM=1"};
+
     // AVM build flags (without DISABLE_AZTEC_VM)
-    const avm_flags = [_][]const u8{
-        "-std=c++20",
-        "-fPIC",
-        // Note: NOT disabling AVM for this build
-        "-fno-sanitize=undefined",
-        "-Wno-unused-function",
-        "-Wno-unused-variable",
-        "-Wno-unused-parameter",
-        "-Wno-missing-field-initializers",
-        "-DNO_PAR_ALGOS",
-        "-fbracket-depth=1024",
-    };
+    const avm_flags = common_flags;
 
     // Core source files - essential barretenberg functionality
     const core_sources = [_][]const u8{
@@ -729,13 +711,6 @@ fn buildForTarget(
     lib.addIncludePath(b.path("build/_deps/lmdb/src/lmdb_repo/libraries/liblmdb"));
     lib.addIncludePath(b.path("build/_deps/libdeflate-src"));
     lib.linkLibCpp();
-
-    // Add Windows-specific system libraries
-    // if (target.result.os.tag == .windows) {
-    //     lib.linkSystemLibrary("ws2_32");
-    //     lib.linkSystemLibrary("advapi32"); // For CryptoAPI
-    //     lib.linkSystemLibrary("psapi"); // For process info
-    // }
 
     // Create executable
     const exe = b.addExecutable(.{
