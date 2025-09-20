@@ -668,8 +668,9 @@ pub fn build(b: *std.Build) void {
     const wasm_reactor_step = b.step("wasm-reactor", "Build reactor WASM for JS using wasi-sdk");
 
     // Determine source sets based on AVM option
-    const wasm_exe_sources = core_sources ++ env_sources;
-    _ = core_sources ++ wasi_sources;
+    const wasm_exe_sources = core_sources;
+    _ = wasi_sources;
+    _ = env_sources;
 
     // Build executable WASM (full barretenberg with main() for wasmtime)
     const wasm_exe_cmd = buildWasmExecutable(b, optimize, &wasm_exe_sources, &common_flags);
@@ -815,7 +816,7 @@ fn buildWasmExecutable(
     exe.linkLibC();
     exe.linkLibCpp();
     exe.linkLibrary(libdeflate_lib);
-    exe.root_module.linkSystemLibrary("pthread", .{});
+    // exe.root_module.linkSystemLibrary("pthread", .{});
 
     // Produce artifact in zig-out/bin
     const install = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .bin } });

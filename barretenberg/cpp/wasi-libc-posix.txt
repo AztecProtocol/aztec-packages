@@ -1,0 +1,6 @@
+include_dir=/opt/wasi-sdk/share/wasi-sysroot/include/wasm32-wasi-threads
+sys_include_dir=/opt/wasi-sdk/share/wasi-sysroot/include/wasm32-wasi-threads
+crt_dir=/opt/wasi-sdk/share/wasi-sysroot/lib/wasm32-wasi-threads
+msvc_lib_dir=
+kernel32_lib_dir=
+gcc_dir=
