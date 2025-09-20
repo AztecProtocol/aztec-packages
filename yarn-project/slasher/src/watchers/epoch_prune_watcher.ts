@@ -9,6 +9,7 @@ import {
   type L2BlockSourceEventEmitter,
   L2BlockSourceEvents,
 } from '@aztec/stdlib/block';
+import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
   IFullNodeBlockBuilder,
   ITxProvider,
@@ -78,9 +79,14 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
 
   private handlePruneL2Blocks(event: L2BlockPruneEvent): void {
     const { blocks, epochNumber } = event;
-    this.log.info(`Detected chain prune. Validating epoch ${epochNumber}`);
+    const l1Constants = this.epochCache.getL1Constants();
+    const epochBlocks = blocks.filter(b => getEpochAtSlot(b.slot, l1Constants) === epochNumber);
+    this.log.info(
+      `Detected chain prune. Validating epoch ${epochNumber} with blocks ${epochBlocks[0]?.number} to ${epochBlocks[epochBlocks.length - 1]?.number}.`,
+      { blocks: epochBlocks.map(b => b.toBlockInfo()) },
+    );
 
-    this.validateBlocks(blocks)
+    this.validateBlocks(epochBlocks)
       .then(async () => {
         this.log.info(`Pruned epoch ${epochNumber} was valid. Want to slash committee for not having it proven.`);
         const validators = await this.getValidatorsForEpoch(epochNumber);
