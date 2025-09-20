@@ -139,9 +139,9 @@ ports:
     protocol: TCP
 service:
   enabled: true
-  type: LoadBalancer
   annotations:
     cloud.google.com/backend-config: "{\"default\":\"otel-ingress-backend\"}"
+    cloud.google.com/neg: "{\"ingress\": true}"
 
 ingress:
   enabled: true

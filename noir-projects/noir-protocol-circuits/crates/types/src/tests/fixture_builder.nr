@@ -37,7 +37,7 @@ use crate::{
         protocol_contract_leaf_preimage::ProtocolContractLeafPreimage,
         public_call_request::{PublicCallRequest, PublicCallRequestArrayLengths},
         public_data_write::PublicDataWrite,
-        public_log::PublicLog,
+        public_logs::PublicLogs,
         read_request::{ReadRequest, ScopedReadRequest},
         side_effect::{Counted, Ordered, scoped::Scoped},
         transaction::{tx_context::TxContext, tx_request::TxRequest},
@@ -55,11 +55,11 @@ use crate::{
         MAX_FIELD_VALUE, MAX_INCLUDE_BY_TIMESTAMP_DURATION, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
         MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX,
-        MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_PUBLIC_LOGS_PER_TX,
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_U32_VALUE, MEGA_VK_LENGTH_IN_FIELDS,
         PRIVATE_CALL_REQUEST_LENGTH, PRIVATE_LOG_SIZE_IN_FIELDS, PROTOCOL_CONTRACT_TREE_HEIGHT,
-        PUBLIC_CALL_REQUEST_LENGTH, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_LOG_SIZE_IN_FIELDS,
-        SIDE_EFFECT_MASKING_ADDRESS, UPDATED_CLASS_IDS_SLOT, VK_TREE_HEIGHT,
+        PUBLIC_CALL_REQUEST_LENGTH, PUBLIC_DATA_TREE_HEIGHT, SIDE_EFFECT_MASKING_ADDRESS,
+        UPDATED_CLASS_IDS_SLOT, VK_TREE_HEIGHT,
     },
     contract_class_id::ContractClassId,
     data::{
@@ -80,7 +80,6 @@ use crate::{
     point::Point,
     proof::{
         proof_data::ProofData,
-        recursive_proof::NestedRecursiveProof,
         verification_key::{ClientIVCVerificationKey, HonkVerificationKey, VerificationKey},
         vk_data::VkData,
     },
@@ -95,7 +94,7 @@ use crate::{
             vk_tree::{generate_fake_vk_for_index, VK_MERKLE_TREE},
         },
         merkle_tree_utils::NonEmptyMerkleTree,
-        utils::pad_end_with_empty,
+        utils::pad_end,
     },
     traits::{Deserialize, Empty, FromField, Hash, Packable, ToField},
     utils::arrays::ClaimedLengthArray,
@@ -149,7 +148,7 @@ pub struct FixtureBuilder {
     pub effective_gas_fees: GasFees,
 
     // Constant data.
-    pub historical_header: BlockHeader,
+    pub anchor_block_header: BlockHeader,
     pub tx_context: TxContext,
     pub global_variables: GlobalVariables,
 
@@ -158,7 +157,7 @@ pub struct FixtureBuilder {
     pub nullifiers: BoundedVec<ScopedNullifier, MAX_NULLIFIERS_PER_TX>,
     pub l2_to_l1_msgs: BoundedVec<Scoped<Counted<L2ToL1Message>>, MAX_L2_TO_L1_MSGS_PER_TX>,
     pub private_logs: BoundedVec<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX>,
-    pub public_logs: BoundedVec<PublicLog, MAX_PUBLIC_LOGS_PER_TX>,
+    pub public_logs: PublicLogs,
     pub contract_class_logs_hashes: BoundedVec<Scoped<Counted<LogHash>>, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     pub public_data_writes: BoundedVec<PublicDataWrite, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
     pub private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
@@ -193,7 +192,6 @@ pub struct FixtureBuilder {
     pub prover_address: AztecAddress,
 
     // Proof.
-    pub proof: NestedRecursiveProof,
     pub honk_vk: HonkVerificationKey,
     pub client_ivc_vk: ClientIVCVerificationKey,
     pub vk_index: u32,
@@ -237,13 +235,16 @@ impl FixtureBuilder {
     pub fn new_from_counter(counter_start: u32) -> Self {
         let mut builder = FixtureBuilder::empty();
 
-        builder.historical_header.global_variables.timestamp = fixtures::GENESIS_TIMESTAMP;
+        builder.anchor_block_header.global_variables.timestamp = fixtures::GENESIS_TIMESTAMP;
 
         builder.global_variables.chain_id = fixtures::CHAIN_ID;
         builder.global_variables.version = fixtures::VERSION;
         builder.global_variables.timestamp = fixtures::GENESIS_TIMESTAMP + 135;
 
-        let max_allowed_include_by_timestamp = builder.historical_header.global_variables.timestamp
+        let max_allowed_include_by_timestamp = builder
+            .anchor_block_header
+            .global_variables
+            .timestamp
             + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
         builder.include_by_timestamp = max_allowed_include_by_timestamp;
 
@@ -357,7 +358,7 @@ impl FixtureBuilder {
 
     pub fn use_last_archive(&mut self) -> Self {
         let random_block_hash = 38127689;
-        let previous_block_hash = self.historical_header.hash();
+        let previous_block_hash = self.anchor_block_header.hash();
         let pre_existing_block_hashes = [random_block_hash, previous_block_hash];
         let archive_tree = NonEmptyMerkleTree::new(
             pre_existing_block_hashes,
@@ -394,7 +395,7 @@ impl FixtureBuilder {
         let value_offset = vk_index as Field * 8976;
         ProofData {
             public_inputs,
-            proof: pad_end_with_empty([
+            proof: pad_end([
                 value_offset + 79427943,
                 value_offset + 94340,
                 value_offset + 4789150,
@@ -412,7 +413,7 @@ impl FixtureBuilder {
 
     pub fn to_tx_constant_data(self) -> TxConstantData {
         TxConstantData {
-            historical_header: self.historical_header,
+            anchor_block_header: self.anchor_block_header,
             tx_context: self.tx_context,
             vk_tree_root: self.vk_tree_root,
             protocol_contract_tree_root: self.protocol_contract_tree_root,
@@ -422,10 +423,11 @@ impl FixtureBuilder {
     pub fn to_block_constant_data(self) -> BlockConstantData {
         BlockConstantData {
             last_archive: self.archive_tree,
-            new_l1_to_l2: self.start_snapshots.l1_to_l2_message_tree,
+            l1_to_l2_tree_snapshot: self.start_snapshots.l1_to_l2_message_tree,
             vk_tree_root: self.vk_tree_root,
             protocol_contract_tree_root: self.protocol_contract_tree_root,
             global_variables: self.global_variables,
+            prover_id: 1,
         }
     }
 
@@ -528,7 +530,7 @@ impl FixtureBuilder {
                     .map(|l: Scoped<Counted<LogHash>>| l.inner)),
                 length: self.contract_class_logs_hashes.len(),
             },
-            historical_header: self.historical_header,
+            anchor_block_header: self.anchor_block_header,
             tx_context: self.tx_context,
         }
     }
@@ -559,9 +561,9 @@ impl FixtureBuilder {
 
         if self.updated_class_id_value_change.is_empty()
             & self.updated_class_id_delay_change.is_empty() {
-            self.historical_header.state.partial.public_data_tree.root =
+            self.anchor_block_header.state.partial.public_data_tree.root =
                 public_data_tree.get_root();
-            self.historical_header.state.partial.public_data_tree.next_available_leaf_index =
+            self.anchor_block_header.state.partial.public_data_tree.next_available_leaf_index =
                 public_data_prefill;
 
             self.updated_class_id_witness = MembershipWitness {
@@ -606,9 +608,9 @@ impl FixtureBuilder {
                 next_index: 0,
             };
             public_data_tree.update_leaf(public_data_prefill, self.updated_class_id_leaf.hash());
-            self.historical_header.state.partial.public_data_tree.root =
+            self.anchor_block_header.state.partial.public_data_tree.root =
                 public_data_tree.get_root();
-            self.historical_header.state.partial.public_data_tree.next_available_leaf_index =
+            self.anchor_block_header.state.partial.public_data_tree.next_available_leaf_index =
                 public_data_prefill + 1;
             self.updated_class_id_witness = MembershipWitness {
                 leaf_index: public_data_prefill as Field,
@@ -617,8 +619,8 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn set_historical_header_from_call_data(&mut self, private_call: PrivateCallData) {
-        self.historical_header = private_call.public_inputs.historical_header;
+    pub fn set_anchor_block_header_from_call_data(&mut self, private_call: PrivateCallData) {
+        self.anchor_block_header = private_call.public_inputs.anchor_block_header;
     }
 
     pub fn to_private_call_data(mut self) -> PrivateCallData {
@@ -787,7 +789,7 @@ impl FixtureBuilder {
             l2_to_l1_msgs: self.l2_to_l1_msgs.storage().map(|m: Scoped<Counted<L2ToL1Message>>| {
                 m.expose_to_public()
             }),
-            public_logs: self.public_logs.storage(),
+            public_logs: self.public_logs,
             public_data_writes: self.public_data_writes.storage(),
         }
     }
@@ -836,6 +838,7 @@ impl FixtureBuilder {
 
         AvmCircuitPublicInputs {
             global_variables: self.global_variables,
+            protocol_contract_tree_root: self.protocol_contract_tree_root,
             start_tree_snapshots: self.start_snapshots,
             start_gas_used: self.start_gas_used,
             gas_settings: self.tx_context.gas_settings,
@@ -1214,28 +1217,33 @@ impl FixtureBuilder {
         }
     }
 
-    pub fn add_public_log(&mut self, fields: [Field; PUBLIC_LOG_SIZE_IN_FIELDS], length: u32) {
-        let inner = Log { fields, length };
-        let log = PublicLog { log: inner, contract_address: self.contract_address };
-        let _ = self.next_counter();
-        self.public_logs.push(log);
+    pub fn add_public_log<let MAX_LENGTH: u32>(
+        &mut self,
+        fields: [Field; MAX_LENGTH],
+        length: u32,
+    ) {
+        let log = Log { fields, length };
+        self.public_logs.add_log(self.contract_address, log);
     }
 
-    pub fn append_public_logs(&mut self, num_logs: u32) {
-        let index_offset = self.public_logs.len();
-        for i in 0..self.public_logs.max_len() {
-            if i < num_logs {
-                let fields = self.mock_public_log_fields(index_offset + i);
-                self.add_public_log(fields, fields.len());
-            }
+    pub fn append_public_logs<let COUNT: u32>(&mut self) {
+        let index_offset = self.public_logs.length;
+        for i in 0..COUNT {
+            // 10 here is just arbitrary length. If you want custom lengths, use append_public_logs_with_lengths instead.
+            let fields = self.mock_public_log_fields_with_length::<10>(index_offset + i, 10);
+            self.add_public_log(fields, fields.len());
         }
     }
 
-    pub fn append_public_logs_with_lengths<let N: u32>(&mut self, lengths: [u32; N]) {
-        let index_offset = self.public_logs.len();
+    pub fn append_public_logs_with_lengths<let MAX_LENGTH: u32, let COUNT: u32>(
+        &mut self,
+        lengths: [u32; COUNT],
+    ) {
+        let index_offset = self.public_logs.length;
         for i in 0..lengths.len() {
             let length = lengths[i];
-            let fields = self.mock_public_log_fields_with_length(index_offset + i, length);
+            let fields =
+                self.mock_public_log_fields_with_length::<MAX_LENGTH>(index_offset + i, length);
             self.add_public_log(fields, length);
         }
     }
@@ -1435,19 +1443,10 @@ impl FixtureBuilder {
         fields
     }
 
-    fn mock_public_log_fields(self, index: u32) -> [Field; PUBLIC_LOG_SIZE_IN_FIELDS] {
-        self.mock_public_log_fields_with_length(index, PUBLIC_LOG_SIZE_IN_FIELDS)
-    }
-
-    fn mock_public_log_fields_with_length(
-        self,
-        index: u32,
-        length: u32,
-    ) -> [Field; PUBLIC_LOG_SIZE_IN_FIELDS] {
-        let value_offset =
-            199199 + self.value_offset + (index * PUBLIC_LOG_SIZE_IN_FIELDS) as Field;
-        let mut fields = [0; PUBLIC_LOG_SIZE_IN_FIELDS];
-        for i in 0..PUBLIC_LOG_SIZE_IN_FIELDS {
+    fn mock_public_log_fields_with_length<let N: u32>(self, index: u32, length: u32) -> [Field; N] {
+        let value_offset = 199199 + self.value_offset + (index * N) as Field;
+        let mut fields = [0; N];
+        for i in 0..N {
             if i < length {
                 fields[i] = value_offset + i as Field;
             }
@@ -1510,14 +1509,14 @@ impl Empty for FixtureBuilder {
             fee_payer: AztecAddress::zero(),
             public_teardown_call_request: PublicCallRequest::empty(),
             effective_gas_fees: GasFees::empty(),
-            historical_header: BlockHeader::empty(),
+            anchor_block_header: BlockHeader::empty(),
             tx_context: TxContext::empty(),
             global_variables: GlobalVariables::empty(),
             note_hashes: BoundedVec::new(),
             nullifiers: BoundedVec::new(),
             l2_to_l1_msgs: BoundedVec::new(),
             private_logs: BoundedVec::new(),
-            public_logs: BoundedVec::new(),
+            public_logs: PublicLogs::empty(),
             contract_class_logs_hashes: BoundedVec::new(),
             public_data_writes: BoundedVec::new(),
             private_call_requests: BoundedVec::new(),
@@ -1538,7 +1537,6 @@ impl Empty for FixtureBuilder {
             contract_class_public_bytecode_commitment: 0,
             bytecode_hash: 0,
             prover_address: AztecAddress::zero(),
-            proof: NestedRecursiveProof::empty(),
             honk_vk: VerificationKey::empty(),
             client_ivc_vk: VerificationKey::empty(),
             vk_index: 0,

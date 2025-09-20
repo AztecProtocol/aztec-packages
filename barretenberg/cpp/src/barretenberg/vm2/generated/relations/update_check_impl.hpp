@@ -15,8 +15,6 @@ void update_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/update_check");
-
     const auto constants_CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS = FF(2);
     const auto constants_UPDATED_CLASS_IDS_SLOT = FF(1);
     const auto constants_AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX = FF(4);

@@ -9,46 +9,31 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
-## [Public functions]
-
-The L2 gas cost of the different AVM opcodes have been updated to reflect more realistic proving costs. Developers should review the L2 gas costs of executing public functions and reevaluate any hardcoded L2 gas limits.
-
-## [Aztec Tools]
-
-### Contract compilation now requires two steps
-
-The `aztec-nargo` command is now a direct pass-through to vanilla nargo, without any special compilation flags or postprocessing. Contract compilation for Aztec now requires two explicit steps:
-
-1. Compile your contracts with `aztec-nargo compile`
-2. Run postprocessing with the new `aztec-postprocess-contract` command
-
-The postprocessing step includes:
-
-- Transpiling functions for the Aztec VM
-- Generating verification keys for private functions
-- Caching verification keys for faster subsequent compilations
-
-Update your build scripts accordingly:
-
-```diff
-- aztec-nargo compile
-+ aztec-nargo compile
-+ aztec-postprocess-contract
-```
-
-If you're using the `aztec-up` installer, the `aztec-postprocess-contract` command will be automatically installed alongside `aztec-nargo`.
-
-## [Aztec.js] Mandatory `from`
-
-As we prepare for a bigger `Wallet` interface refactor and the upcoming `WalletSDK`, a new parameter has been added to contract interactions, which now should indicate _explicitly_ the address of the entrypoint (usually the account contract) that will be used to authenticate the request. This will be checked in runtime against the current `this.wallet.getAddress()` value, to ensure consistent behavior while the rest of the API is reworked.
-
-```diff
-- await contract.methods.my_func(arg).send().wait();
-+ await contract.methods.my_func(arg).send({ from: account1Address }).wait();
-```
-
 ## [Aztec.nr]
 
+### Historical block renamed as anchor block
+
+A historical block term has been used as a term that denotes the block against which a private part of a tx has been executed.
+This name is ambiguous and for this reason we've introduce "anchor block".
+This naming change resulted in quite a few changes and if you've access private context's or utility context's block header you will need to update your code:
+
+```diff
+- let header = context.get_block_header();
++ let header = context.get_anchor_block_header();
+```
+
+### Removed ValueNote utils
+
+The `value_note::utils` module has been removed because it was incorrect to have those in the value note package.
+
+For the increment function you can easily just insert the note:
+
+```diff
+- use value_note::utils;
+- utils::increment(storage.notes.at(owner), value, owner, sender);
++ let note = ValueNote::new(value, owner);
++ storage.notes.at(owner).insert(note).emit(&mut context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+```
 
 ### PrivateMutable: replace / initialize_or_replace behaviour change
 
@@ -58,23 +43,29 @@ Updating a note used to require reading it first (via `get_note`, which nullifie
 **Key points:**
 
 1. `replace(self, new_note)` (old) → `replace(self, f)` (new), where `f` takes the current note and returns a transformed note.
-2. `initialize_or_replace(self, note)` (old) → `initialize_or_replace(self, init_note, f)` (new). Uninitialized variables use `init_note`, initialized ones pass the transform function to `replace`.
+2. `initialize_or_replace(self, note)` (old) → `initialize_or_replace(self, f)` (new), where `f` takes an `Option` with the current none, or `none` if uninitialized.
 3. Previous note is automatically nullified before the new note is inserted.
 4. `NoteEmission<Note>` still requires `.emit()` or `.discard()`.
 
 **Example Migration:**
 
 ```diff
+- let current_note = storage.my_var.get_note();
+- let new_note = f(current_note);
 - storage.my_var.replace(new_note);
-+ let x: Field = 5;
-+ storage.my_var.replace(|note| UintNote::new(note.value + x));
++ storage.my_var.replace(|current_note| f(current_note));
 ```
 
 ```diff
-- storage.my_var.initialize_or_replace(init_note);
-+ storage.my_var.initialize_or_replace(init_note, |note| UintNote::new(note.value + 5));
+- storage.my_var.initialize_or_replace(new_note);
++ storage.my_var.initialize_or_replace(|_| new_note);
 ```
 
+This makes it easy and efficient to handle both initialization and current value mutation via `initialize_or_replace`, e.g. if implementing a note that simply counts how many times it has been read:
+
+```diff
++ storage.my_var.initialize_or_replace(|opt_current: Option<Note>| opt_current.unwrap_or(0 /* initial value */) + 1);
+```
 
 - The callback can be a closure (inline) or a named function.
 - Any previous assumptions that replace simply inserts a new_note directly must be updated.
@@ -144,6 +135,48 @@ Then update the emissions:
 - storage.balances.at(owner).insert(note).emit(encode_and_encrypt_note_and_emit_as_offchain_message(&mut context, context.msg_sender());
 + storage.balances.at(owner).insert(note).emit(&mut context, context.msg_sender(), MessageDelivery.UNCONSTRAINED_OFFCHAIN);
 ```
+
+## 2.0.2
+
+## [Public functions]
+
+The L2 gas cost of the different AVM opcodes have been updated to reflect more realistic proving costs. Developers should review the L2 gas costs of executing public functions and reevaluate any hardcoded L2 gas limits.
+
+## [Aztec Tools]
+
+### Contract compilation now requires two steps
+
+The `aztec-nargo` command is now a direct pass-through to vanilla nargo, without any special compilation flags or postprocessing. Contract compilation for Aztec now requires two explicit steps:
+
+1. Compile your contracts with `aztec-nargo compile`
+2. Run postprocessing with the new `aztec-postprocess-contract` command
+
+The postprocessing step includes:
+
+- Transpiling functions for the Aztec VM
+- Generating verification keys for private functions
+- Caching verification keys for faster subsequent compilations
+
+Update your build scripts accordingly:
+
+```diff
+- aztec-nargo compile
++ aztec-nargo compile
++ aztec-postprocess-contract
+```
+
+If you're using the `aztec-up` installer, the `aztec-postprocess-contract` command will be automatically installed alongside `aztec-nargo`.
+
+## [Aztec.js] Mandatory `from`
+
+As we prepare for a bigger `Wallet` interface refactor and the upcoming `WalletSDK`, a new parameter has been added to contract interactions, which now should indicate _explicitly_ the address of the entrypoint (usually the account contract) that will be used to authenticate the request. This will be checked in runtime against the current `this.wallet.getAddress()` value, to ensure consistent behavior while the rest of the API is reworked.
+
+```diff
+- await contract.methods.my_func(arg).send().wait();
++ await contract.methods.my_func(arg).send({ from: account1Address }).wait();
+```
+
+## [Aztec.nr]
 
 ### `emit_event_in_public_log` function renamed as `emit_event_in_public`
 
@@ -299,7 +332,7 @@ The `private` and `public` methods are gone. Private, public and utility context
 
 The following are two tests using the older version of `TestEnvironment`:
 
-```noir
+```rust
 #[test]
 unconstrained fn initial_empty_value() {
     let mut env = TestEnvironment::new();
@@ -339,7 +372,7 @@ unconstrained fn non_admin_cannot_set_authorized() {
 
 These now look like this:
 
-```noir
+```rust
 #[test]
 unconstrained fn authorized_initially_unset() {
     let mut env = TestEnvironment::new();
@@ -1135,7 +1168,7 @@ This is a breaking change because we now require `Packable` trait implementation
 
 Example implementation of Packable trait for `U128` type from `noir::std`:
 
-```
+```rust
 use crate::traits::{Packable, ToField};
 
 let U128_PACKED_LEN: u32 = 1;

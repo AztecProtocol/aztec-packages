@@ -50,7 +50,7 @@ export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLo
       case 'blocks-added': {
         const blocks = event.blocks.map(b => b.block);
         for (const block of blocks) {
-          await this.l2BlockHashesStore.set(block.number, (await block.header.hash()).toString());
+          await this.l2BlockHashesStore.set(block.number, (await block.hash()).toString());
         }
         await this.l2TipsStore.set('latest', blocks.at(-1)!.number);
         break;

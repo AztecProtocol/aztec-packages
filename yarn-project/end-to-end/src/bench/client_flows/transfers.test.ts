@@ -2,6 +2,7 @@ import { AztecAddress, type AztecNode, Fr, type SimulateMethodOptions, type Wall
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { TestWallet } from '@aztec/test-wallet';
 
 import { jest } from '@jest/globals';
 
@@ -20,7 +21,7 @@ describe('Transfer benchmark', () => {
   // The wallet used by the admin to interact
   let adminWallet: Wallet;
   // The wallet used by the user to interact
-  let userWallet: Wallet;
+  let userWallet: TestWallet;
   // The admin that aids in the setup of the test
   let adminAddress: AztecAddress;
   // FPC that accepts bananas

@@ -1,10 +1,12 @@
 import {
   AztecAddress,
+  type AztecNode,
   BatchCall,
   Fr,
   type Logger,
   type PXE,
   type Wallet,
+  createAztecNodeClient,
   createPXEClient,
   makeFetch,
 } from '@aztec/aztec.js';
@@ -23,10 +25,11 @@ describe('e2e_deploy_contract deploy method', () => {
   let pxe: PXE;
   let logger: Logger;
   let wallet: Wallet;
+  let aztecNode: AztecNode;
   let defaultAccountAddress: AztecAddress;
 
   beforeAll(async () => {
-    ({ pxe, logger, wallet, defaultAccountAddress } = await t.setup());
+    ({ pxe, logger, wallet, aztecNode, defaultAccountAddress } = await t.setup());
   });
 
   afterAll(() => t.teardown());
@@ -101,7 +104,7 @@ describe('e2e_deploy_contract deploy method', () => {
     const arbitraryValue = 42;
     logger.debug(`Call a public function to check that it was publicly deployed`);
     const receipt = await contract.methods.emit_public(arbitraryValue).send({ from: defaultAccountAddress }).wait();
-    const logs = await pxe.getPublicLogs({ txHash: receipt.txHash });
+    const logs = await aztecNode.getPublicLogs({ txHash: receipt.txHash });
     expect(logs.logs[0].log.getEmittedFields()).toEqual([new Fr(arbitraryValue)]);
   });
 
@@ -159,12 +162,13 @@ describe('e2e_deploy_contract deploy method', () => {
 
   describe('regressions', () => {
     it('fails properly when trying to deploy a contract with a failing constructor with a pxe client with retries', async () => {
-      const { PXE_URL } = process.env;
-      if (!PXE_URL) {
+      const { PXE_URL, AZTEC_NODE_URL } = process.env;
+      if (!PXE_URL || !AZTEC_NODE_URL) {
         return;
       }
       const pxeClient = createPXEClient(PXE_URL, {}, makeFetch([1, 2, 3], false));
-      const retryingWallet = new TestWallet(pxeClient);
+      const aztecNode = createAztecNodeClient(AZTEC_NODE_URL);
+      const retryingWallet = new TestWallet(pxeClient, aztecNode);
       await expect(
         StatefulTestContract.deployWithOpts({ wallet: retryingWallet, method: 'wrong_constructor' })
           .send({ from: defaultAccountAddress })

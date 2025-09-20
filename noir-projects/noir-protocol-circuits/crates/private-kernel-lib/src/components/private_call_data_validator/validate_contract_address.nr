@@ -69,7 +69,7 @@ pub fn validate_contract_address(
     // A time horizon for this delayed public mutable should be set separately when generating/validating kernel output.
     // This is a confusingly-named function.
     validate_with_hash_hints(
-        private_call_data.public_inputs.historical_header,
+        private_call_data.public_inputs.anchor_block_header,
         derive_storage_slot_in_map(UPDATED_CLASS_IDS_SLOT as Field, contract_address),
         CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
         delayed_public_mutable_values,
@@ -80,7 +80,7 @@ pub fn validate_contract_address(
     // Q: How is the private call's vk validated against this updated_contract_class_id?
     // A: below, we assert that the previously-computed contract_class_id == updated_contract_class_id.
     let updated_contract_class_id = delayed_public_mutable_values.svc.get_current_at(
-        private_call_data.public_inputs.historical_header.global_variables.timestamp,
+        private_call_data.public_inputs.anchor_block_header.global_variables.timestamp,
     );
 
     let contract_address_field = contract_address.to_field();

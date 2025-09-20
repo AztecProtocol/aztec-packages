@@ -3,7 +3,7 @@
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp" // just for an alias; should perhaps move to prover
 #include "barretenberg/translator_vm/translator_flavor.hpp"
-#include "barretenberg/ultra_honk/decider_keys.hpp"
+#include "barretenberg/ultra_honk/instances.hpp"
 #include <benchmark/benchmark.h>
 
 namespace {
@@ -53,10 +53,9 @@ template <typename Flavor, typename Relation> void execute_relation_for_univaria
 // Single execution of relation on PG univariates, i.e. PG combiner work
 template <typename Flavor, typename Relation> void execute_relation_for_pg_univariates(::benchmark::State& state)
 {
-    using DeciderProvingKeys = DeciderProvingKeys_<Flavor>;
-    using Input = ProtogalaxyProverInternal<DeciderProvingKeys>::ExtendedUnivariates;
-    using Accumulator =
-        typename Relation::template ProtogalaxyTupleOfUnivariatesOverSubrelations<DeciderProvingKeys::NUM>;
+    using ProverInstances = ProverInstances_<Flavor>;
+    using Input = ProtogalaxyProverInternal<ProverInstances>::ExtendedUnivariates;
+    using Accumulator = typename Relation::template ProtogalaxyTupleOfUnivariatesOverSubrelations<ProverInstances::NUM>;
 
     execute_relation<Flavor, Relation, Input, Accumulator>(state);
 }

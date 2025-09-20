@@ -4,7 +4,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { TxHash } from '@aztec/stdlib/tx';
 
 // TODO(#14617): should we compute this from constants? This value is aztec-nr specific.
-const MAX_NOTE_PACKED_LEN = 12;
+export const MAX_NOTE_PACKED_LEN = 12;
 
 /**
  * Intermediate struct used to perform batch note validation by PXE. The `utilityValidateEnqueuedNotesAndEvents` oracle

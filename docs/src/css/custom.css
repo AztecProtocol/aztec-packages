@@ -118,6 +118,14 @@
   --brand-background: #1a1400;
   --ifm-font-color-base: #f2eee1;
   background: #1a1400;
+
+  /* Dark theme Typesense/DocSearch contrast improvements */
+  --docsearch-modal-background: #1a1400;
+  --docsearch-hit-background: #a9cc1f;
+  --docsearch-highlight-color: #a9cc1f;
+  --docsearch-text-color: #f2eee1;
+  --docsearch-muted-color: #999;
+  --docsearch-searchbox-focus-background: #2a2000;
 }
 
 [data-theme="dark"] .footer {
@@ -125,6 +133,8 @@
   --ifm-footer-color: var(--ifm-footer-link-color);
   --ifm-footer-link-color: var(--ifm-color-secondary);
   --ifm-footer-title-color: var(--ifm-color-white);
+  /* border-top: 1px solid #303846;
+  box-shadow: 0px -1px 5px 0px #0000001a; */
 }
 
 [data-theme="light"] .navbar {

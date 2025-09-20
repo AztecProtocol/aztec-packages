@@ -1,6 +1,6 @@
 import { CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader } from '@aztec/foundation/serialize';
+import { FieldReader } from '@aztec/foundation/serialize';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceUpdateWithAddress } from '@aztec/stdlib/contract';
 import type { PublicLog } from '@aztec/stdlib/logs';
@@ -25,13 +25,11 @@ export class ContractInstanceUpdatedEvent {
   }
 
   static fromLog(log: PublicLog) {
-    const bufferWithoutAddressAndTag = log.toBuffer().subarray(64);
-    const reader = new BufferReader(bufferWithoutAddressAndTag);
+    const reader = new FieldReader(log.fields.slice(1) /* remove tag */);
     const address = reader.readObject(AztecAddress);
-    const prevContractClassId = reader.readObject(Fr);
-    const newContractClassId = reader.readObject(Fr);
-    const timestampOfChange = reader.readObject(Fr).toBigInt();
-
+    const prevContractClassId = reader.readField();
+    const newContractClassId = reader.readField();
+    const timestampOfChange = reader.readField().toBigInt();
     return new ContractInstanceUpdatedEvent(address, prevContractClassId, newContractClassId, timestampOfChange);
   }
 

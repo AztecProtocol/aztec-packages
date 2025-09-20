@@ -1,7 +1,7 @@
 async function preprocessIncludeVersion(markdownContent) {
   const originalContent = markdownContent;
   const commitTag = process.env.COMMIT_TAG || "next";
-  const testnetTag = process.env.TESTNET_TAG || "1.2.0";
+  const testnetTag = process.env.TESTNET_TAG || "2.0.2";
 
   markdownContent = markdownContent.replaceAll(
     `#include_aztec_version`,

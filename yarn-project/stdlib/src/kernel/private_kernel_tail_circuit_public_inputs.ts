@@ -170,7 +170,7 @@ export class PrivateKernelTailCircuitPublicInputs {
       throw new Error('Private tail public inputs is not for rollup circuit.');
     }
     const constants = new TxConstantData(
-      this.constants.historicalHeader,
+      this.constants.anchorBlockHeader,
       this.constants.txContext,
       this.constants.vkTreeRoot,
       this.constants.protocolContractTreeRoot,

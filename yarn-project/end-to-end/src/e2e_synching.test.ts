@@ -550,7 +550,7 @@ describe('e2e_synching', () => {
             const { pxe } = await setupPXEService(aztecNode!);
 
             variant.setPXE(pxe);
-            const wallet = new TestWallet(pxe);
+            const wallet = new TestWallet(pxe, aztecNode);
             variant.setWallet(wallet);
             const defaultAccountAddress = (await variant.deployAccounts(opts.initialFundedAccounts!.slice(0, 1)))[0];
 

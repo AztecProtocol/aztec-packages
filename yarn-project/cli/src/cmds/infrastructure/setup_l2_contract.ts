@@ -1,5 +1,12 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import { AccountManager, type AztecAddress, type WaitOpts, createPXEClient, makeFetch } from '@aztec/aztec.js';
+import {
+  AccountManager,
+  type AztecAddress,
+  type WaitOpts,
+  createAztecNodeClient,
+  createPXEClient,
+  makeFetch,
+} from '@aztec/aztec.js';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { LogFn } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -8,7 +15,8 @@ import { TestWallet, deployFundedSchnorrAccounts } from '@aztec/test-wallet';
 import { setupSponsoredFPC } from '../../utils/setup_contracts.js';
 
 export async function setupL2Contracts(
-  rpcUrl: string,
+  pxeUrl: string,
+  nodeUrl: string,
   testAccounts: boolean,
   sponsoredFPC: boolean,
   json: boolean,
@@ -20,8 +28,9 @@ export async function setupL2Contracts(
   };
   log('setupL2Contracts: Wait options' + jsonStringify(waitOpts));
   log('setupL2Contracts: Creating PXE client...');
-  const pxe = createPXEClient(rpcUrl, {}, makeFetch([1, 1, 1, 1, 1], false));
-  const wallet = new TestWallet(pxe);
+  const pxe = createPXEClient(pxeUrl, {}, makeFetch([1, 1, 1, 1, 1], false));
+  const node = createAztecNodeClient(nodeUrl);
+  const wallet = new TestWallet(pxe, node);
 
   let deployedAccountManagers: AccountManager[] = [];
   if (testAccounts) {

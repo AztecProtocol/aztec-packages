@@ -15,8 +15,6 @@ void contract_instance_retrievalImpl<FF_>::accumulate(ContainerOverSubrelations&
 {
     using C = ColumnAndShifts;
 
-    BB_BENCH_NAME("accumulate/contract_instance_retrieval");
-
     const auto constants_CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS = FF(2);
     const auto constants_MAX_PROTOCOL_CONTRACT_ADDRESS = FF(6);
 

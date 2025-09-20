@@ -41,7 +41,7 @@ export class FeeJuicePortalTestingHarnessFactory {
     const { aztecNode, aztecNodeAdmin, pxeService, l1Client, wallet, logger } = this.config;
 
     const ethAccount = EthAddress.fromString((await l1Client.getAddresses())[0]);
-    const l1ContractAddresses = (await pxeService.getNodeInfo()).l1ContractAddresses;
+    const l1ContractAddresses = (await aztecNode.getNodeInfo()).l1ContractAddresses;
 
     const feeJuiceAddress = l1ContractAddresses.feeJuiceAddress;
     const feeJuicePortalAddress = l1ContractAddresses.feeJuicePortalAddress;

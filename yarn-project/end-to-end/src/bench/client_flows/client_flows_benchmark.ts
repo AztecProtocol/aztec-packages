@@ -207,7 +207,7 @@ export class ClientFlowsBenchmark {
         this.pxe = pxe;
         this.adminWallet = wallet;
         this.aztecNode = aztecNode;
-        this.cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, pxe);
+        this.cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, pxe, aztecNode);
 
         this.adminAddress = adminAddress;
         this.sequencerAddress = sequencerAddress;
@@ -229,7 +229,7 @@ export class ClientFlowsBenchmark {
             prover: this.proxyLogger.createLogger('pxe:bb:wasm:bundle:proxied'),
           },
         });
-        this.userWallet = new TestWallet(this.userPXE);
+        this.userWallet = new TestWallet(this.userPXE, this.aztecNode);
       },
     );
   }

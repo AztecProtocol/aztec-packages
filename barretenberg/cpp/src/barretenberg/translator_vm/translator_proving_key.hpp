@@ -79,21 +79,20 @@ class TranslatorProvingKey {
             }
         }
 
-        // First and last lagrange polynomials (in the full circuit size)
-        // Construct polynomials with odd and even indices set to 1 up to the minicircuit margin + lagrange
-        // polynomials at second and second to last indices in the minicircuit
         compute_lagrange_polynomials();
 
-        // Construct the extra range constraint numerator which contains all the additional values in the ordered range
+        // Construct the extra range constraint numerator which contains all the additional values in ordered range
         // constraints not present in the interleaved polynomials
         // NB this will always have a fixed size unless we change the allowed range
         compute_extra_range_constraint_numerator();
 
-        // Construct the polynomials resulted from interleaving the small polynomials in each group
+        // Construct the polynomials resulted from interleaving the small range constraints polynomials in each group
+        // to be interleaved
         compute_interleaved_polynomials();
 
         // Construct the ordered polynomials, containing the values of the interleaved polynomials + enough values to
-        // bridge the range from 0 to 3 (3 is the maximum allowed range defined by the range constraint).
+        // bridge the range from 0 to 3 (3 is the maximum difference between two consecutive values in the ordered range
+        // constraint).
         compute_translator_range_constraint_ordered_polynomials();
     };
 

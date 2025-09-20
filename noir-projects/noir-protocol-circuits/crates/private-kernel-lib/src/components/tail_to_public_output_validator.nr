@@ -75,7 +75,7 @@ impl TailToPublicOutputValidator {
         );
         validate_include_by_timestamp_duration(
             include_by_timestamp,
-            self.previous_kernel.constants.historical_header.global_variables,
+            self.previous_kernel.constants.anchor_block_header.global_variables,
         );
         assert_eq(
             self.output.include_by_timestamp,

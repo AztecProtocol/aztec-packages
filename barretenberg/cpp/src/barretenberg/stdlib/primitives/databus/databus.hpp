@@ -9,7 +9,7 @@
 #include "../field/field.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/public_input_component/public_input_component.hpp"
-#include "barretenberg/stdlib/protogalaxy_verifier/recursive_decider_verification_keys.hpp"
+#include "barretenberg/stdlib/protogalaxy_verifier/recursive_verifier_instances.hpp"
 #include "barretenberg/stdlib_circuit_builders/databus.hpp"
 
 namespace bb::stdlib {
