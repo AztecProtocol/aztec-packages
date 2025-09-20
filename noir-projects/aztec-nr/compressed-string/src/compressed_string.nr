@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::{traits::{Deserialize, Serialize}, utils::field::field_from_bytes};
+use dep::aztec::protocol_types::{traits::{Deserialize, Packable, Serialize}, utils::field::field_from_bytes};
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/15968): Kill, refactor and/or relocate this.
 
@@ -68,6 +68,18 @@ impl<let N: u32, let M: u32> Serialize for CompressedString<N, M> {
     }
 }
 
+impl<let N: u32, let M: u32> Packable for CompressedString<N, M> {
+    let N: u32 = N;
+
+    fn pack(self) -> [Field; Self::N] {
+        self.value
+    }
+
+    fn unpack(fields: [Field; Self::N]) -> Self {
+        Self { value: fields }
+    }
+}
+
 #[test]
 unconstrained fn test_short_string() {
     let i = "Hello world";
@@ -101,6 +113,22 @@ unconstrained fn test_serde() {
     let name: CompressedString<5, 118> = CompressedString::from_string(i);
 
     assert_eq(name, CompressedString::deserialize(name.serialize()));
+}
+
+#[test]
+unconstrained fn test_packable() {
+    let i = "Hello world. I'm setting up a very long text of blibbablubb such that we can see if works as planned for longer names.";
+    let name: CompressedString<5, 118> = CompressedString::from_string(i);
+
+    // Test pack and unpack
+    let packed = name.pack();
+    let unpacked = CompressedString::unpack(packed);
+
+    // Verify that the unpacked value is equal to the original
+    assert_eq(name, unpacked);
+
+    // Verify that the packed fields are the same as the original value
+    assert_eq(name.value, packed);
 }
 
 #[test(should_fail)]
