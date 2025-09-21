@@ -27,12 +27,15 @@ class Formatter : public CLI::Formatter {
         }
         std::string desc = opt->get_description();
         wrap_text(out, desc, wrap_width);
+#ifndef __wasm__
+        // Skip validator description display in WASM builds to avoid exception issues
         CLI::Validator* is_member_validator = get_validator(const_cast<CLI::Option*>(opt), "is_member");
         if (is_member_validator) {
             out << "\n";
             std::string options = is_member_validator->get_description();
             wrap_text(out, "Options: " + replace(options, ",", ", "), wrap_width);
         }
+#endif
         return out.str();
     }
 
