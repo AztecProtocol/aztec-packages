@@ -282,7 +282,7 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
         return;
     }
 
-    if (this->_is_infinity.is_constant() && this->_is_infinity.get_value()) {
+    if (this->is_constant_point_at_infinity()) {
         // I can't imagine this case happening, but still
         is_infinity.assert_equal(true);
 
@@ -318,7 +318,7 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
  */
 template <typename Builder> void cycle_group<Builder>::standardize()
 {
-    if (this->_is_infinity.is_constant() && this->_is_infinity.get_value()) {
+    if (this->is_constant_point_at_infinity()) {
         ASSERT(this->is_constant());
         ASSERT(this->_is_standard);
     }
@@ -343,7 +343,7 @@ template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement> hint) const
 {
     // If this is a constant point at infinity, return early
-    if (this->is_point_at_infinity().is_constant() && this->is_point_at_infinity().get_value()) {
+    if (this->is_constant_point_at_infinity()) {
         return *this;
     }
 
@@ -415,10 +415,8 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
                                                                           const std::optional<AffineElement> hint) const
 {
     // This method should not be called on points at infinity
-    ASSERT(!this->is_point_at_infinity().is_constant() || !this->is_point_at_infinity().get_value(),
-           "_unconditional_add_or_subtract called with lhs at infinity");
-    ASSERT(!other.is_point_at_infinity().is_constant() || !other.is_point_at_infinity().get_value(),
-           "_unconditional_add_or_subtract called with rhs at infinity");
+    ASSERT(!this->is_constant_point_at_infinity(), "_unconditional_add_or_subtract called with lhs at infinity");
+    ASSERT(!other.is_constant_point_at_infinity(), "_unconditional_add_or_subtract called with rhs at infinity");
 
     auto context = get_context(other);
 
@@ -553,10 +551,10 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_subtract(const 
 template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+(const cycle_group& other) const
 {
     // If either point is a constant point at infinity, return the other point
-    if (this->_is_infinity.is_constant() && this->_is_infinity.get_value()) {
+    if (this->is_constant_point_at_infinity()) {
         return other;
     }
-    if (other._is_infinity.is_constant() && other._is_infinity.get_value()) {
+    if (other.is_constant_point_at_infinity()) {
         return *this;
     }
 
@@ -626,10 +624,10 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
  */
 template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-(const cycle_group& other) const
 {
-    if (other._is_infinity.is_constant() && other._is_infinity.get_value()) {
+    if (other.is_constant_point_at_infinity()) {
         return *this;
     }
-    if (this->_is_infinity.is_constant() && this->_is_infinity.get_value()) {
+    if (this->is_constant_point_at_infinity()) {
         return -other;
     }
 

@@ -78,6 +78,10 @@ template <typename Builder> class cycle_group {
     AffineElement get_value() const;
     [[nodiscard]] bool is_constant() const { return x.is_constant() && y.is_constant() && _is_infinity.is_constant(); }
     bool_t is_point_at_infinity() const { return _is_infinity; }
+    [[nodiscard]] bool is_constant_point_at_infinity() const
+    {
+        return _is_infinity.is_constant() && _is_infinity.get_value();
+    }
     void set_point_at_infinity(const bool_t& is_infinity);
     void standardize();
     bool is_standard() const { return this->_is_standard; };
