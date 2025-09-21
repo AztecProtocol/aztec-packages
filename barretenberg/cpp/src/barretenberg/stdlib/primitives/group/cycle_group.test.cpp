@@ -568,6 +568,217 @@ TYPED_TEST(CycleGroupTest, TestDblMixedConstantWitness)
     );
 }
 
+TYPED_TEST(CycleGroupTest, TestUnconditionalAddNonConstantPoints)
+{
+    STDLIB_TYPE_ALIASES;
+
+    // Test case 1: Two witness points WITHOUT hint
+    {
+        auto builder = Builder();
+        auto lhs = TestFixture::generators[0];
+        auto rhs = TestFixture::generators[1];
+        cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
+        cycle_group_ct b = cycle_group_ct::from_witness(&builder, rhs);
+
+        cycle_group_ct result = a.unconditional_add(b);
+
+        Element expected_element = Element(lhs) + Element(rhs);
+        AffineElement expected(expected_element);
+        EXPECT_EQ(result.get_value(), expected);
+        EXPECT_FALSE(result.is_point_at_infinity().get_value());
+
+        check_circuit_and_gates(builder, 14);
+    }
+
+    // Test case 2: Two witness points WITH hint
+    {
+        auto builder = Builder();
+        auto lhs = TestFixture::generators[2];
+        auto rhs = TestFixture::generators[3];
+        cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
+        cycle_group_ct b = cycle_group_ct::from_witness(&builder, rhs);
+
+        Element sum_element = Element(lhs) + Element(rhs);
+        AffineElement hint(sum_element);
+
+        cycle_group_ct result = a.unconditional_add(b, hint);
+
+        EXPECT_EQ(result.get_value(), hint);
+        EXPECT_FALSE(result.is_point_at_infinity().get_value());
+
+        check_circuit_and_gates(builder, 14);
+    }
+
+    // Test case 3: Mixed witness and constant points
+    {
+        auto builder = Builder();
+        auto lhs = TestFixture::generators[0];
+        auto rhs = TestFixture::generators[1];
+        cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
+        cycle_group_ct b(rhs); // constant
+
+        cycle_group_ct result = a.unconditional_add(b);
+
+        Element expected_element = Element(lhs) + Element(rhs);
+        AffineElement expected(expected_element);
+        EXPECT_EQ(result.get_value(), expected);
+        EXPECT_FALSE(result.is_constant());
+        EXPECT_FALSE(result.is_point_at_infinity().get_value());
+
+        check_circuit_and_gates(builder, 10);
+    }
+}
+
+TYPED_TEST(CycleGroupTest, TestUnconditionalAddConstantPoints)
+{
+    STDLIB_TYPE_ALIASES;
+
+    // Test case 1: Two constant points WITHOUT hint
+    {
+        auto builder = Builder();
+        auto lhs = TestFixture::generators[0];
+        auto rhs = TestFixture::generators[1];
+        cycle_group_ct a(lhs);
+        cycle_group_ct b(rhs);
+
+        cycle_group_ct result = a.unconditional_add(b);
+
+        Element expected_element = Element(lhs) + Element(rhs);
+        AffineElement expected(expected_element);
+        EXPECT_EQ(result.get_value(), expected);
+        EXPECT_TRUE(result.is_constant());
+        EXPECT_FALSE(result.is_point_at_infinity().get_value());
+
+        check_circuit_and_gates(builder, 0);
+    }
+
+    // Test case 2: Two constant points WITH hint
+    {
+        auto builder = Builder();
+        auto lhs = TestFixture::generators[2];
+        auto rhs = TestFixture::generators[3];
+        cycle_group_ct a(lhs);
+        cycle_group_ct b(rhs);
+
+        Element sum_element = Element(lhs) + Element(rhs);
+        AffineElement hint(sum_element);
+
+        cycle_group_ct result = a.unconditional_add(b, hint);
+
+        EXPECT_EQ(result.get_value(), hint);
+        EXPECT_TRUE(result.is_constant());
+        EXPECT_FALSE(result.is_point_at_infinity().get_value());
+
+        check_circuit_and_gates(builder, 0);
+    }
+}
+
+TYPED_TEST(CycleGroupTest, TestUnconditionalSubtractNonConstantPoints)
+{
+    STDLIB_TYPE_ALIASES;
+
+    // Test case 1: Two witness points WITHOUT hint
+    {
+        auto builder = Builder();
+        auto lhs = TestFixture::generators[0];
+        auto rhs = TestFixture::generators[1];
+        cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
+        cycle_group_ct b = cycle_group_ct::from_witness(&builder, rhs);
+
+        cycle_group_ct result = a.unconditional_subtract(b);
+
+        Element expected_element = Element(lhs) - Element(rhs);
+        AffineElement expected(expected_element);
+        EXPECT_EQ(result.get_value(), expected);
+        EXPECT_FALSE(result.is_point_at_infinity().get_value());
+
+        check_circuit_and_gates(builder, 14);
+    }
+
+    // Test case 2: Two witness points WITH hint
+    {
+        auto builder = Builder();
+        auto lhs = TestFixture::generators[2];
+        auto rhs = TestFixture::generators[3];
+        cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
+        cycle_group_ct b = cycle_group_ct::from_witness(&builder, rhs);
+
+        Element diff_element = Element(lhs) - Element(rhs);
+        AffineElement hint(diff_element);
+
+        cycle_group_ct result = a.unconditional_subtract(b, hint);
+
+        EXPECT_EQ(result.get_value(), hint);
+        EXPECT_FALSE(result.is_point_at_infinity().get_value());
+
+        // Same gate count as without hint - hint is a witness generation optimization only
+        check_circuit_and_gates(builder, 14);
+    }
+
+    // Test case 3: Mixed witness and constant points
+    {
+        auto builder = Builder();
+        auto lhs = TestFixture::generators[0];
+        auto rhs = TestFixture::generators[1];
+        cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
+        cycle_group_ct b(rhs); // constant
+
+        cycle_group_ct result = a.unconditional_subtract(b);
+
+        Element expected_element = Element(lhs) - Element(rhs);
+        AffineElement expected(expected_element);
+        EXPECT_EQ(result.get_value(), expected);
+        EXPECT_FALSE(result.is_constant());
+        EXPECT_FALSE(result.is_point_at_infinity().get_value());
+
+        check_circuit_and_gates(builder, 10);
+    }
+}
+
+TYPED_TEST(CycleGroupTest, TestUnconditionalSubtractConstantPoints)
+{
+    STDLIB_TYPE_ALIASES;
+
+    // Test case 1: Two constant points WITHOUT hint
+    {
+        auto builder = Builder();
+        auto lhs = TestFixture::generators[0];
+        auto rhs = TestFixture::generators[1];
+        cycle_group_ct a(lhs);
+        cycle_group_ct b(rhs);
+
+        cycle_group_ct result = a.unconditional_subtract(b);
+
+        Element expected_element = Element(lhs) - Element(rhs);
+        AffineElement expected(expected_element);
+        EXPECT_EQ(result.get_value(), expected);
+        EXPECT_TRUE(result.is_constant());
+        EXPECT_FALSE(result.is_point_at_infinity().get_value());
+
+        check_circuit_and_gates(builder, 0);
+    }
+
+    // Test case 2: Two constant points WITH hint
+    {
+        auto builder = Builder();
+        auto lhs = TestFixture::generators[2];
+        auto rhs = TestFixture::generators[3];
+        cycle_group_ct a(lhs);
+        cycle_group_ct b(rhs);
+
+        Element diff_element = Element(lhs) - Element(rhs);
+        AffineElement hint(diff_element);
+
+        cycle_group_ct result = a.unconditional_subtract(b, hint);
+
+        EXPECT_EQ(result.get_value(), hint);
+        EXPECT_TRUE(result.is_constant());
+        EXPECT_FALSE(result.is_point_at_infinity().get_value());
+
+        check_circuit_and_gates(builder, 0);
+    }
+}
+
 TYPED_TEST(CycleGroupTest, TestUnconditionalAdd)
 {
     STDLIB_TYPE_ALIASES;

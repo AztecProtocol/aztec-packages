@@ -379,7 +379,7 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
         // Propagate the origin tag as-is
         result.set_origin_tag(get_origin_tag());
     } else {
-        // For witness points, create witness result and add constraint gate
+        // Create result witness and construct ECC double constraint
         result = cycle_group(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
 
         context->create_ecc_dbl_gate(bb::ecc_dbl_gate_<bb::fr>{
@@ -404,67 +404,78 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
  * addition gate.
  *
  * @tparam Builder
- * @param other
+ * @param other Point to add/subtract
  * @param is_addition : true for addition, false for subtraction
  * @param hint : value of output point witness, if known ahead of time (used to avoid modular inversions during witgen)
- * @return cycle_group<Builder>
+ * @return cycle_group<Builder> Result of addition/subtraction
  */
 template <typename Builder>
 cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const cycle_group& other,
                                                                           bool is_addition,
                                                                           const std::optional<AffineElement> hint) const
 {
+    // This method should not be called on points at infinity
+    ASSERT(!this->is_point_at_infinity().is_constant() || !this->is_point_at_infinity().get_value(),
+           "_unconditional_add_or_subtract called with lhs at infinity");
+    ASSERT(!other.is_point_at_infinity().is_constant() || !other.is_point_at_infinity().get_value(),
+           "_unconditional_add_or_subtract called with rhs at infinity");
+
     auto context = get_context(other);
 
-    // if one or the other point is constant, construct a corresponding fixed witness in order to utilize the custom
-    // ecc_add gate
+    // If one point is a witness and the other is a constant, convert the constant to a fixed witness then call this
+    // method again so we can use the ecc_add gate
     const bool lhs_constant = is_constant();
     const bool rhs_constant = other.is_constant();
+
     if (lhs_constant && !rhs_constant) {
         auto lhs = cycle_group::from_constant_witness(context, get_value());
-        // We need to manually propagate the origin tag
-        lhs.set_origin_tag(get_origin_tag());
+        lhs.set_origin_tag(get_origin_tag()); // Maintain the origin tag
         return lhs._unconditional_add_or_subtract(other, is_addition, hint);
     }
     if (!lhs_constant && rhs_constant) {
         auto rhs = cycle_group::from_constant_witness(context, other.get_value());
-        // We need to manually propagate the origin tag
-        rhs.set_origin_tag(other.get_origin_tag());
+        rhs.set_origin_tag(other.get_origin_tag()); // Maintain the origin tag
         return _unconditional_add_or_subtract(rhs, is_addition, hint);
     }
-    cycle_group result;
+
+    // Compute the result coordinates (either from hint or by native calculation)
+    bb::fr x3;
+    bb::fr y3;
     if (hint.has_value()) {
-        const bb::fr x3 = hint.value().x;
-        const bb::fr y3 = hint.value().y;
-        if (lhs_constant && rhs_constant) {
-            return cycle_group(x3, y3, /*is_infinity=*/false);
-        }
-        result = cycle_group(witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false);
+        x3 = hint.value().x;
+        y3 = hint.value().y;
     } else {
         const AffineElement p1 = get_value();
         const AffineElement p2 = other.get_value();
         AffineElement p3 = is_addition ? (Element(p1) + Element(p2)) : (Element(p1) - Element(p2));
-        if (lhs_constant && rhs_constant) {
-            auto result = cycle_group(p3);
-            // We need to manually propagate the origin tag
-            result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
-            return result;
-        }
-        result = cycle_group(witness_t(context, p3.x), witness_t(context, p3.y), /*is_infinity=*/false);
+        x3 = p3.x;
+        y3 = p3.y;
     }
-    bb::ecc_add_gate_<bb::fr> add_gate{
-        .x1 = x.get_witness_index(),
-        .y1 = y.get_witness_index(),
-        .x2 = other.x.get_witness_index(),
-        .y2 = other.y.get_witness_index(),
-        .x3 = result.x.get_witness_index(),
-        .y3 = result.y.get_witness_index(),
-        .sign_coefficient = is_addition ? 1 : -1,
-    };
-    context->create_ecc_add_gate(add_gate);
 
-    // We need to manually propagate the origin tag (merging the tag of two inputs)
-    result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
+    // Construct the result based on whether inputs are constant or witness
+    cycle_group result;
+    if (lhs_constant && rhs_constant) {
+        result = cycle_group(x3, y3, /*is_infinity=*/false);
+        // Merge the origin tags from both inputs
+        result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
+    } else {
+        // Both points are witnesses - create result witness and construct ECC add constraint
+        result = cycle_group(witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false);
+
+        context->create_ecc_add_gate(bb::ecc_add_gate_<bb::fr>{
+            .x1 = x.get_witness_index(),
+            .y1 = y.get_witness_index(),
+            .x2 = other.x.get_witness_index(),
+            .y2 = other.y.get_witness_index(),
+            .x3 = result.x.get_witness_index(),
+            .y3 = result.y.get_witness_index(),
+            .sign_coefficient = is_addition ? 1 : -1,
+        });
+
+        // Merge the origin tags from both inputs
+        result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
+    }
+
     return result;
 }
 
