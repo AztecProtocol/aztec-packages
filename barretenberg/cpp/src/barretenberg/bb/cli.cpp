@@ -131,7 +131,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
 
     API::Flags flags{};
     // Some paths, with defaults, that may or may not be set by commands
-#ifdef _LIBCPP_NO_FILESYSTEM
     std::string bytecode_path{ "./target/program.json" };
     std::string witness_path{ "./target/witness.gz" };
     std::string ivc_inputs_path{ "./ivc-inputs.msgpack" };
@@ -141,17 +140,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     std::string public_inputs_path{ "./target/public_inputs" };
     std::string proof_path{ "./target/proof" };
     std::string vk_path{ "./target/vk" };
-#else
-    std::filesystem::path bytecode_path{ "./target/program.json" };
-    std::filesystem::path witness_path{ "./target/witness.gz" };
-    std::filesystem::path ivc_inputs_path{ "./ivc-inputs.msgpack" };
-    std::filesystem::path output_path{
-        "./out"
-    }; // sometimes a directory where things will be written, sometimes the path of a file to be written
-    std::filesystem::path public_inputs_path{ "./target/public_inputs" };
-    std::filesystem::path proof_path{ "./target/proof" };
-    std::filesystem::path vk_path{ "./target/vk" };
-#endif
     flags.scheme = "";
     flags.oracle_hash_type = "poseidon2";
     flags.crs_path = srs::bb_crs_path();
@@ -472,13 +460,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_crs_path_option(OLD_API_prove_and_verify);
     add_bytecode_path_option(OLD_API_prove_and_verify);
 
-#ifdef _LIBCPP_NO_FILESYSTEM
     std::string avm_inputs_path{ "./target/avm_inputs.bin" };
     std::string avm_public_inputs_path{ "./target/avm_public_inputs.bin" };
-#else
-    std::filesystem::path avm_inputs_path{ "./target/avm_inputs.bin" };
-    std::filesystem::path avm_public_inputs_path{ "./target/avm_public_inputs.bin" };
-#endif
     const auto add_avm_inputs_option = [&](CLI::App* subcommand) {
         return subcommand->add_option("--avm-inputs", avm_inputs_path, "");
     };
@@ -494,11 +477,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_verbose_flag(avm_prove_command);
     add_debug_flag(avm_prove_command);
     add_crs_path_option(avm_prove_command);
-#ifdef _LIBCPP_NO_FILESYSTEM
     std::string avm_prove_output_path{ "./proofs" };
-#else
-    std::filesystem::path avm_prove_output_path{ "./proofs" };
-#endif
     add_output_path_option(avm_prove_command, avm_prove_output_path);
     add_avm_inputs_option(avm_prove_command);
 
@@ -640,11 +619,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
         // TUBE
         if (prove_tube_command->parsed()) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1201): Potentially remove this extra logic.
-#ifdef _LIBCPP_NO_FILESYSTEM
             prove_tube(prove_tube_output_path, vk_path);
-#else
-            prove_tube(prove_tube_output_path, vk_path.string());
-#endif
         } else if (verify_tube_command->parsed()) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1322): Remove verify_tube logic.
             auto tube_public_inputs_path = tube_proof_and_vk_path + "/public_inputs";

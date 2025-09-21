@@ -639,7 +639,7 @@ fn buildLibdeflate(b: *std.Build, target: std.Build.ResolvedTarget, optimize: st
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
-    const optimize = b.standardOptimizeOption(.{});
+    var optimize = b.standardOptimizeOption(.{});
 
     // Add AVM option
     const enable_avm = b.option(bool, "avm", "Enable Aztec Virtual Machine support") orelse false;
@@ -655,6 +655,12 @@ pub fn build(b: *std.Build) void {
     const cross_step = b.step("cross", "Build for all platforms");
 
     for (platforms) |platform| {
+        // We always default to ReleaseSmall for WASM builds.
+        // Debug builds are so slow they basically hang.
+        if (platform.os == .wasi) {
+            optimize = .ReleaseSmall;
+        }
+
         const platform_step = buildForTarget(b, platform, optimize, enable_avm);
         cross_step.dependOn(platform_step);
 
