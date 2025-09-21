@@ -27,15 +27,12 @@ class Formatter : public CLI::Formatter {
         }
         std::string desc = opt->get_description();
         wrap_text(out, desc, wrap_width);
-#ifndef __wasm__
-        // Skip validator description display in WASM builds to avoid exception issues
         CLI::Validator* is_member_validator = get_validator(const_cast<CLI::Option*>(opt), "is_member");
         if (is_member_validator) {
             out << "\n";
             std::string options = is_member_validator->get_description();
             wrap_text(out, "Options: " + replace(options, ",", ", "), wrap_width);
         }
-#endif
         return out.str();
     }
 
@@ -99,16 +96,13 @@ class Formatter : public CLI::Formatter {
 
     CLI::Validator* get_validator(CLI::Option* opt, const std::string& name) const
     {
-#ifdef __wasm__
-        // In WASM builds, completely avoid validator access to prevent exceptions
-        return nullptr;
-#else
+        CLI::Validator* result;
         try {
-            return opt->get_validator(name);
+            result = opt->get_validator(name);
         } catch (const CLI::OptionNotFound& err) {
-            return nullptr;
+            result = nullptr;
         }
-#endif
+        return result;
     }
 
     std::string replace(std::string& in, const std::string& pat, const std::string& rep) const

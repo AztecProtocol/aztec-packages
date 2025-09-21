@@ -131,15 +131,15 @@ int parse_and_run_cli_command(int argc, char* argv[])
 
     API::Flags flags{};
     // Some paths, with defaults, that may or may not be set by commands
-    std::string bytecode_path{ "./target/program.json" };
-    std::string witness_path{ "./target/witness.gz" };
-    std::string ivc_inputs_path{ "./ivc-inputs.msgpack" };
-    std::string output_path{
+    std::filesystem::path bytecode_path{ "./target/program.json" };
+    std::filesystem::path witness_path{ "./target/witness.gz" };
+    std::filesystem::path ivc_inputs_path{ "./ivc-inputs.msgpack" };
+    std::filesystem::path output_path{
         "./out"
     }; // sometimes a directory where things will be written, sometimes the path of a file to be written
-    std::string public_inputs_path{ "./target/public_inputs" };
-    std::string proof_path{ "./target/proof" };
-    std::string vk_path{ "./target/vk" };
+    std::filesystem::path public_inputs_path{ "./target/public_inputs" };
+    std::filesystem::path proof_path{ "./target/proof" };
+    std::filesystem::path vk_path{ "./target/vk" };
     flags.scheme = "";
     flags.oracle_hash_type = "poseidon2";
     flags.crs_path = srs::bb_crs_path();
@@ -460,11 +460,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_crs_path_option(OLD_API_prove_and_verify);
     add_bytecode_path_option(OLD_API_prove_and_verify);
 
-    std::string avm_inputs_path{ "./target/avm_inputs.bin" };
-    std::string avm_public_inputs_path{ "./target/avm_public_inputs.bin" };
+    std::filesystem::path avm_inputs_path{ "./target/avm_inputs.bin" };
     const auto add_avm_inputs_option = [&](CLI::App* subcommand) {
         return subcommand->add_option("--avm-inputs", avm_inputs_path, "");
     };
+    std::filesystem::path avm_public_inputs_path{ "./target/avm_public_inputs.bin" };
     const auto add_avm_public_inputs_option = [&](CLI::App* subcommand) {
         return subcommand->add_option("--avm-public-inputs", avm_public_inputs_path, "");
     };
@@ -477,7 +477,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_verbose_flag(avm_prove_command);
     add_debug_flag(avm_prove_command);
     add_crs_path_option(avm_prove_command);
-    std::string avm_prove_output_path{ "./proofs" };
+    std::filesystem::path avm_prove_output_path{ "./proofs" };
     add_output_path_option(avm_prove_command, avm_prove_output_path);
     add_avm_inputs_option(avm_prove_command);
 
@@ -555,9 +555,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     srs::init_net_crs_factory(flags.crs_path);
     if ((prove->parsed() || write_vk->parsed()) && output_path != "-") {
         // If writing to an output folder, make sure it exists.
-        // #ifndef __wasm__
         std::filesystem::create_directories(output_path);
-        // #endif
     }
     debug_logging = flags.debug;
     verbose_logging = debug_logging || flags.verbose;
@@ -619,7 +617,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
         // TUBE
         if (prove_tube_command->parsed()) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1201): Potentially remove this extra logic.
-            prove_tube(prove_tube_output_path, vk_path);
+            prove_tube(prove_tube_output_path, vk_path.string());
         } else if (verify_tube_command->parsed()) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1322): Remove verify_tube logic.
             auto tube_public_inputs_path = tube_proof_and_vk_path + "/public_inputs";
@@ -658,12 +656,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
         else if (flags.scheme == "client_ivc") {
             ClientIVCAPI api;
             if (prove->parsed()) {
-#ifndef __wasm__
                 if (!std::filesystem::exists(ivc_inputs_path)) {
                     throw_or_abort("The prove command for ClientIVC expect a valid file passed with --ivc_inputs_path "
                                    "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
-#endif
                 api.prove(flags, ivc_inputs_path, output_path);
 #ifndef __wasm__
                 if (print_bench) {
@@ -677,12 +673,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 return 0;
             }
             if (check->parsed()) {
-#ifndef __wasm__
                 if (!std::filesystem::exists(ivc_inputs_path)) {
                     throw_or_abort("The check command for ClientIVC expect a valid file passed with --ivc_inputs_path "
                                    "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
-#endif
                 return api.check_precomputed_vks(flags, ivc_inputs_path) ? 0 : 1;
             }
             return execute_non_prove_command(api);

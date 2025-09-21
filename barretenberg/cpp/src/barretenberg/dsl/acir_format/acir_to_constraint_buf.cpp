@@ -12,9 +12,7 @@
 #include <tuple>
 #include <utility>
 
-#ifndef __wasm__
 #include "barretenberg/api/get_bytecode.hpp"
-#endif
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/map.hpp"
@@ -1005,7 +1003,6 @@ WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t>&& buf)
     return witness_vector_stack;
 }
 
-#ifndef __wasm__
 AcirProgramStack get_acir_program_stack(std::string const& bytecode_path, std::string const& witness_path)
 {
     vinfo("in get_acir_program_stack; witness path is ", witness_path);
@@ -1024,6 +1021,5 @@ AcirProgramStack get_acir_program_stack(std::string const& bytecode_path, std::s
 
     return { std::move(constraint_systems), std::move(witness_stack) };
 }
-#endif
 
 } // namespace acir_format

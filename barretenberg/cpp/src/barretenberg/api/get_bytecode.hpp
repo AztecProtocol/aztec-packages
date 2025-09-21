@@ -1,5 +1,6 @@
 #pragma once
 #include "exec_pipe.hpp"
+#include <filesystem>
 #include <iostream>
 #include <iterator>
 
@@ -16,13 +17,18 @@ inline std::vector<uint8_t> get_bytecode(const std::string& bytecodePath)
     if (bytecodePath == "-") {
         return { (std::istreambuf_iterator<char>(std::cin)), std::istreambuf_iterator<char>() };
     }
-    // Check if the file has a .json extension
-    size_t dotPos = bytecodePath.find_last_of('.');
-    if (dotPos != std::string::npos && bytecodePath.substr(dotPos) == ".json") {
+    std::filesystem::path filePath = bytecodePath;
+    if (filePath.extension() == ".json") {
         // Try reading json files as if they are a Nargo build artifact
         return bb::exec_pipe_with_stdin(bytecodePath, "jq -r '.bytecode' - | base64 -d | gunzip -c");
     }
 
     // For other extensions, assume file is a raw ACIR program
     return gunzip(bytecodePath);
+}
+
+// Filesystem path overload for convenience
+inline std::vector<uint8_t> get_bytecode(const std::filesystem::path& bytecodePath)
+{
+    return get_bytecode(bytecodePath.string());
 }

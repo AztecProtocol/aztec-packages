@@ -26,20 +26,15 @@ std::vector<uint8_t> download_bn254_g2_data()
 } // namespace
 
 namespace bb {
-std::vector<g1::affine_element> get_bn254_g1_data(const std::string& path,
+std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& path,
                                                   size_t num_points,
                                                   bool allow_download)
 {
-#ifdef __wasm__
-    // WASM doesn't support file operations or downloading - return empty data
-    throw_or_abort("bn254 g1 data not available in WASM context");
-#else
     // TODO(AD): per Charlie this should just download and replace the flat file portion atomically so we have no race
     // condition
-    // Create directories if they don't exist (using system call for string path)
-    system(("mkdir -p " + path).c_str());
+    std::filesystem::create_directories(path);
 
-    auto g1_path = path + "/bn254_g1.dat";
+    auto g1_path = path / "bn254_g1.dat";
     size_t g1_downloaded_points = get_file_size(g1_path) / sizeof(g1::affine_element);
 
     if (g1_downloaded_points >= num_points) {
@@ -70,19 +65,13 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::string& path,
         points[i] = from_buffer<g1::affine_element>(data, i * sizeof(g1::affine_element));
     }
     return points;
-#endif
 }
 
-g2::affine_element get_bn254_g2_data(const std::string& path, bool allow_download)
+g2::affine_element get_bn254_g2_data(const std::filesystem::path& path, bool allow_download)
 {
-#ifdef __wasm__
-    // WASM doesn't support file operations or downloading - return empty data
-    throw_or_abort("bn254 g2 data not available in WASM context");
-#else
-    // Create directories if they don't exist (using system call for string path)
-    system(("mkdir -p " + path).c_str());
+    std::filesystem::create_directories(path);
 
-    auto g2_path = path + "/bn254_g2.dat";
+    auto g2_path = path / "bn254_g2.dat";
     size_t g2_file_size = get_file_size(g2_path);
 
     if (g2_file_size == sizeof(g2::affine_element)) {
@@ -95,6 +84,5 @@ g2::affine_element get_bn254_g2_data(const std::string& path, bool allow_downloa
     auto data = download_bn254_g2_data();
     write_file(g2_path, data);
     return from_buffer<g2::affine_element>(data.data());
-#endif
 }
 } // namespace bb

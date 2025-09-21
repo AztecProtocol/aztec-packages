@@ -23,40 +23,40 @@ namespace bb {
 
 namespace {
 
-void write_vk_outputs(const bbapi::CircuitComputeVk::Response& vk_response, const std::string& output_dir)
+void write_vk_outputs(const bbapi::CircuitComputeVk::Response& vk_response, const std::filesystem::path& output_dir)
 {
-    write_file(output_dir + "/vk", vk_response.bytes);
-    info("VK saved to ", output_dir + "/vk");
-    write_file(output_dir + "/vk_hash", vk_response.hash);
-    info("VK Hash saved to ", output_dir + "/vk_hash");
+    write_file(output_dir / "vk", vk_response.bytes);
+    info("VK saved to ", output_dir / "vk");
+    write_file(output_dir / "vk_hash", vk_response.hash);
+    info("VK Hash saved to ", output_dir / "vk_hash");
 }
 
-void write_proof_outputs(const bbapi::CircuitProve::Response& prove_response, const std::string& output_dir)
+void write_proof_outputs(const bbapi::CircuitProve::Response& prove_response, const std::filesystem::path& output_dir)
 {
     auto public_inputs_buf = to_buffer(prove_response.public_inputs);
     auto proof_buf = to_buffer(prove_response.proof);
 
-    write_file(output_dir + "/public_inputs", public_inputs_buf);
-    write_file(output_dir + "/proof", proof_buf);
-    info("Public inputs saved to ", output_dir + "/public_inputs");
-    info("Proof saved to ", output_dir + "/proof");
+    write_file(output_dir / "public_inputs", public_inputs_buf);
+    write_file(output_dir / "proof", proof_buf);
+    info("Public inputs saved to ", output_dir / "public_inputs");
+    info("Proof saved to ", output_dir / "proof");
 }
 
 } // anonymous namespace
 
 bool UltraHonkAPI::check([[maybe_unused]] const Flags& flags,
-                         [[maybe_unused]] const std::string& bytecode_path,
-                         [[maybe_unused]] const std::string& witness_path)
+                         [[maybe_unused]] const std::filesystem::path& bytecode_path,
+                         [[maybe_unused]] const std::filesystem::path& witness_path)
 {
     throw_or_abort("API function check_witness not implemented");
     return false;
 }
 
 void UltraHonkAPI::prove(const Flags& flags,
-                         const std::string& bytecode_path,
-                         const std::string& witness_path,
-                         const std::string& vk_path,
-                         const std::string& output_dir)
+                         const std::filesystem::path& bytecode_path,
+                         const std::filesystem::path& witness_path,
+                         const std::filesystem::path& vk_path,
+                         const std::filesystem::path& output_dir)
 {
     BB_BENCH_NAME("UltraHonkAPI::prove");
     // Validate output directory
@@ -94,9 +94,9 @@ void UltraHonkAPI::prove(const Flags& flags,
 }
 
 bool UltraHonkAPI::verify(const Flags& flags,
-                          const std::string& public_inputs_path,
-                          const std::string& proof_path,
-                          const std::string& vk_path)
+                          const std::filesystem::path& public_inputs_path,
+                          const std::filesystem::path& proof_path,
+                          const std::filesystem::path& vk_path)
 {
     BB_BENCH_NAME("UltraHonkAPI::verify");
     // Read input files
@@ -120,14 +120,16 @@ bool UltraHonkAPI::verify(const Flags& flags,
 }
 
 bool UltraHonkAPI::prove_and_verify([[maybe_unused]] const Flags& flags,
-                                    [[maybe_unused]] const std::string& bytecode_path,
-                                    [[maybe_unused]] const std::string& witness_path)
+                                    [[maybe_unused]] const std::filesystem::path& bytecode_path,
+                                    [[maybe_unused]] const std::filesystem::path& witness_path)
 {
     throw_or_abort("API function prove_and_verify not implemented");
     return false;
 }
 
-void UltraHonkAPI::write_vk(const Flags& flags, const std::string& bytecode_path, const std::string& output_dir)
+void UltraHonkAPI::write_vk(const Flags& flags,
+                            const std::filesystem::path& bytecode_path,
+                            const std::filesystem::path& output_dir)
 {
     BB_BENCH_NAME("UltraHonkAPI::write_vk");
     // Validate output directory
@@ -150,7 +152,8 @@ void UltraHonkAPI::write_vk(const Flags& flags, const std::string& bytecode_path
     write_vk_outputs(response, output_dir);
 }
 
-void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags, [[maybe_unused]] const std::string& bytecode_path)
+void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
+                         [[maybe_unused]] const std::filesystem::path& bytecode_path)
 {
     BB_BENCH_NAME("UltraHonkAPI::gates");
     // Get the bytecode directly
@@ -202,8 +205,8 @@ void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags, [[maybe_unused]] c
 }
 
 void UltraHonkAPI::write_solidity_verifier(const Flags& flags,
-                                           const std::string& output_path,
-                                           const std::string& vk_path)
+                                           const std::filesystem::path& output_path,
+                                           const std::filesystem::path& vk_path)
 {
     BB_BENCH_NAME("UltraHonkAPI::write_solidity_verifier");
     // Read VK file

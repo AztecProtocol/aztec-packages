@@ -4,11 +4,9 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#ifndef __wasm__
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#endif
 #include <memory>
 #include <sstream>
 #include <string>
@@ -45,7 +43,6 @@ struct PathHoldingFile {
 
     PathHoldingFile(const std::string& target)
     {
-#ifndef __wasm__
         // Use RNG to generate a random suffix for the temporary file
         auto& rng = numeric::get_randomness();
         uint64_t random_suffix = rng.get_random_uint64();
@@ -56,29 +53,12 @@ struct PathHoldingFile {
         // Write the path to the temporary file
         std::ofstream f(path);
         f << target;
-#else
-        // WASM fallback - use C functions
-        auto& rng = numeric::get_randomness();
-        uint64_t random_suffix = rng.get_random_uint64();
-        path = "/tmp/bb_safe_" + std::to_string(random_suffix) + ".txt";
-
-        FILE* f = fopen(path.c_str(), "w");
-        if (f) {
-            fputs(target.c_str(), f);
-            fclose(f);
-        }
-#endif
     }
 
     ~PathHoldingFile()
     {
-#ifndef __wasm__
         std::error_code ec;
         std::filesystem::remove(path, ec);
-#else
-        // WASM fallback - use C function
-        remove(path.c_str());
-#endif
     }
     PathHoldingFile(const PathHoldingFile&) = delete;
     PathHoldingFile& operator=(const PathHoldingFile&) = delete;

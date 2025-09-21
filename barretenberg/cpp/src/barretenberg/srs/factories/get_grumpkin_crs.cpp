@@ -22,19 +22,14 @@ std::vector<uint8_t> download_grumpkin_g1_data(size_t num_points)
 } // namespace
 
 namespace bb {
-std::vector<curve::Grumpkin::AffineElement> get_grumpkin_g1_data(const std::string& path,
+std::vector<curve::Grumpkin::AffineElement> get_grumpkin_g1_data(const std::filesystem::path& path,
                                                                  size_t num_points,
                                                                  bool allow_download)
 {
-#ifdef __wasm__
-    // WASM doesn't support file operations or downloading - return empty data
-    throw_or_abort("grumpkin g1 data not available in WASM context");
-#else
     // TODO(AD): per Charlie this should just download and replace the flat file portion atomically so we have no race
     // condition
-    // Create directories if they don't exist (using system call for string path)
-    system(("mkdir -p " + path).c_str());
-    auto g1_path = path + "/grumpkin_g1.flat.dat";
+    std::filesystem::create_directories(path);
+    auto g1_path = path / "grumpkin_g1.flat.dat";
     size_t g1_downloaded_points = get_file_size(g1_path) / sizeof(curve::Grumpkin::AffineElement);
     if (g1_downloaded_points >= num_points) {
         vinfo("using cached grumpkin crs with num points ", g1_downloaded_points, " at: ", g1_path);
@@ -58,13 +53,12 @@ std::vector<curve::Grumpkin::AffineElement> get_grumpkin_g1_data(const std::stri
     }
     vinfo("downloading grumpkin crs...");
     auto data = download_grumpkin_g1_data(num_points);
-    write_file(path + "/grumpkin_g1.flat.dat", data);
+    write_file(path / "grumpkin_g1.flat.dat", data);
 
     std::vector<curve::Grumpkin::AffineElement> points(num_points);
     for (uint32_t i = 0; i < num_points; ++i) {
         points[i] = from_buffer<curve::Grumpkin::AffineElement>(data, i * sizeof(curve::Grumpkin::AffineElement));
     }
     return points;
-#endif
 }
 } // namespace bb

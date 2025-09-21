@@ -761,9 +761,6 @@ ClientIVC::Proof ClientIVC::Proof::from_msgpack_buffer(const msgpack::sbuffer& b
 
 void ClientIVC::Proof::to_file_msgpack(const std::string& filename) const
 {
-#ifdef __wasm__
-    throw_or_abort("File I/O not supported in WASM context");
-#else
     msgpack::sbuffer buffer = to_msgpack_buffer();
     std::ofstream ofs(filename, std::ios::binary);
     if (!ofs.is_open()) {
@@ -771,14 +768,10 @@ void ClientIVC::Proof::to_file_msgpack(const std::string& filename) const
     }
     ofs.write(buffer.data(), static_cast<std::streamsize>(buffer.size()));
     ofs.close();
-#endif
 }
 
 ClientIVC::Proof ClientIVC::Proof::from_file_msgpack(const std::string& filename)
 {
-#ifdef __wasm__
-    throw_or_abort("File I/O not supported in WASM context");
-#else
     std::ifstream ifs(filename, std::ios::binary);
     if (!ifs.is_open()) {
         throw_or_abort("Failed to open file for reading.");
@@ -795,7 +788,6 @@ ClientIVC::Proof ClientIVC::Proof::from_file_msgpack(const std::string& filename
     msgpack_buffer.write(buffer.data(), file_size);
 
     return Proof::from_msgpack_buffer(msgpack_buffer);
-#endif
 }
 
 // VerificationKey construction
