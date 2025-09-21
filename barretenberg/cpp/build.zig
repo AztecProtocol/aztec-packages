@@ -558,7 +558,7 @@ const avm_sources = [_][]const u8{
 // WASI-specific sources (for JS WASM reactor builds).
 const wasi_sources = [_][]const u8{
     // "src/barretenberg/wasi/wasm_init.cpp",
-    // "src/barretenberg/wasi/wasi_stubs.cpp",
+    "src/barretenberg/wasi/wasi_stubs.cpp",
 };
 
 // Combine source files based on AVM option.
@@ -824,5 +824,8 @@ fn buildWasmReactor(
     exe.linkLibrary(libdeflate_lib);
 
     const install = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = "wasm32-wasi" } } });
-    platform_step.dependOn(&install.step);
+    // Add step to gzip the output wasm file to the same file with .gz extension.
+    const gzip = b.addSystemCommand(&.{ "gzip", "-k", "-f", b.getInstallPath(.{ .custom = "wasm32-wasi" }, "barretenberg.wasm") });
+    gzip.step.dependOn(&install.step);
+    platform_step.dependOn(&gzip.step);
 }
