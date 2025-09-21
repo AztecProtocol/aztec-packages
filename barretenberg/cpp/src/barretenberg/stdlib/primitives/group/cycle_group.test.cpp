@@ -1087,6 +1087,86 @@ TYPED_TEST(CycleGroupTest, TestAddMixedConstantWitness)
     }
 }
 
+// Test the infinity result logic specifically
+TYPED_TEST(CycleGroupTest, TestAddInfinityResultLogic)
+{
+    STDLIB_TYPE_ALIASES;
+    auto builder = Builder();
+
+    // Test Case 1: P + (-P) = O (infinity_predicate true, neither input is infinity)
+    {
+        auto point = TestFixture::generators[0];
+        auto neg_point = -point;
+
+        cycle_group_ct a = cycle_group_ct::from_witness(&builder, point);
+        cycle_group_ct b = cycle_group_ct::from_witness(&builder, neg_point);
+
+        cycle_group_ct result = a + b;
+
+        // Verify result is infinity
+        EXPECT_TRUE(result.is_point_at_infinity().get_value());
+        EXPECT_TRUE(result.get_value().is_point_at_infinity());
+    }
+
+    // Test Case 2: O + O = O (both inputs are infinity)
+    {
+        cycle_group_ct inf1 = cycle_group_ct::from_witness(&builder, Group::affine_point_at_infinity);
+        cycle_group_ct inf2 = cycle_group_ct::from_witness(&builder, Group::affine_point_at_infinity);
+
+        cycle_group_ct result = inf1 + inf2;
+
+        // Verify result is infinity
+        EXPECT_TRUE(result.is_point_at_infinity().get_value());
+        EXPECT_TRUE(result.get_value().is_point_at_infinity());
+    }
+
+    // Test Case 3: P + O = P (only rhs is infinity, result should NOT be infinity)
+    {
+        auto point = TestFixture::generators[1];
+
+        cycle_group_ct a = cycle_group_ct::from_witness(&builder, point);
+        cycle_group_ct b = cycle_group_ct::from_witness(&builder, Group::affine_point_at_infinity);
+
+        cycle_group_ct result = a + b;
+
+        // Verify result is NOT infinity
+        EXPECT_FALSE(result.is_point_at_infinity().get_value());
+        EXPECT_EQ(result.get_value(), point);
+    }
+
+    // Test Case 4: O + P = P (only lhs is infinity, result should NOT be infinity)
+    {
+        auto point = TestFixture::generators[2];
+
+        cycle_group_ct a = cycle_group_ct::from_witness(&builder, Group::affine_point_at_infinity);
+        cycle_group_ct b = cycle_group_ct::from_witness(&builder, point);
+
+        cycle_group_ct result = a + b;
+
+        // Verify result is NOT infinity
+        EXPECT_FALSE(result.is_point_at_infinity().get_value());
+        EXPECT_EQ(result.get_value(), point);
+    }
+
+    // Test Case 5: P + P = 2P (doubling, result should NOT be infinity unless P is special)
+    {
+        auto point = TestFixture::generators[3];
+
+        cycle_group_ct a = cycle_group_ct::from_witness(&builder, point);
+        cycle_group_ct b = cycle_group_ct::from_witness(&builder, point);
+
+        cycle_group_ct result = a + b;
+
+        // Verify result is NOT infinity (it's 2P)
+        EXPECT_FALSE(result.is_point_at_infinity().get_value());
+
+        AffineElement expected(Element(point).dbl());
+        EXPECT_EQ(result.get_value(), expected);
+    }
+
+    check_circuit_and_gates(builder, 235);
+}
+
 TYPED_TEST(CycleGroupTest, TestUnconditionalSubtract)
 {
     STDLIB_TYPE_ALIASES;
