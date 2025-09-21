@@ -13,7 +13,7 @@ namespace bb::srs::factories {
  * @param allow_download whether to download the crs files if they are not found. Useful for making sure benches and
  * tests do not rely on the network.
  */
-MemBn254CrsFactory init_bn254_crs(const std::filesystem::path& path, size_t dyadic_circuit_size, bool allow_download)
+MemBn254CrsFactory init_bn254_crs(const std::string& path, size_t dyadic_circuit_size, bool allow_download)
 {
     auto bn254_g1_data = get_bn254_g1_data(path, dyadic_circuit_size, allow_download);
     auto bn254_g2_data = get_bn254_g2_data(path);
@@ -28,7 +28,7 @@ MemBn254CrsFactory init_bn254_crs(const std::filesystem::path& path, size_t dyad
  * @param allow_download whether to download the crs files if they are not found. Useful for making sure benches and
  * tests do not rely on the network.
  */
-MemGrumpkinCrsFactory init_grumpkin_crs(const std::filesystem::path& path,
+MemGrumpkinCrsFactory init_grumpkin_crs(const std::string& path,
                                         size_t eccvm_dyadic_circuit_size,
                                         bool allow_download)
 {

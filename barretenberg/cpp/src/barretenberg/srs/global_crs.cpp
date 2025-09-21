@@ -11,16 +11,16 @@ std::shared_ptr<bb::srs::factories::CrsFactory<bb::curve::Grumpkin>> grumpkin_cr
 
 namespace bb::srs {
 
-std::filesystem::path bb_crs_path()
+std::string bb_crs_path()
 {
     char* crs_path = std::getenv("CRS_PATH");
     if (crs_path != nullptr) {
-        return std::filesystem::path(crs_path);
+        return std::string(crs_path);
     }
     // Detect home directory for default CRS path
     char* home = std::getenv("HOME");
-    std::filesystem::path base = home != nullptr ? std::filesystem::path(home) : "./";
-    return base / ".bb-crs";
+    std::string base = home != nullptr ? std::string(home) : "./";
+    return base + "/.bb-crs";
 }
 
 void init_bn254_mem_crs_factory(std::vector<g1::affine_element> const& points, g2::affine_element const& g2_point)
@@ -33,8 +33,7 @@ void init_grumpkin_mem_crs_factory(std::vector<curve::Grumpkin::AffineElement> c
     grumpkin_crs_factory = std::make_shared<factories::MemGrumpkinCrsFactory>(points);
 }
 
-// Initializes the crs using the memory buffers
-void init_bn254_net_crs_factory(const std::filesystem::path& path)
+void init_bn254_net_crs_factory(const std::string& path)
 {
     if (bn254_crs_factory != nullptr) {
         return;
@@ -43,7 +42,7 @@ void init_bn254_net_crs_factory(const std::filesystem::path& path)
 }
 
 // Initializes crs from a file path this we use in the entire codebase
-void init_bn254_file_crs_factory(const std::filesystem::path& path)
+void init_bn254_file_crs_factory(const std::string& path)
 {
     if (bn254_crs_factory != nullptr) {
         return;
@@ -52,7 +51,7 @@ void init_bn254_file_crs_factory(const std::filesystem::path& path)
 }
 
 // Initializes the crs using the memory buffers
-void init_grumpkin_net_crs_factory(const std::filesystem::path& path)
+void init_grumpkin_net_crs_factory(const std::string& path)
 {
     if (grumpkin_crs_factory != nullptr) {
         return;
@@ -60,7 +59,7 @@ void init_grumpkin_net_crs_factory(const std::filesystem::path& path)
     grumpkin_crs_factory = std::make_shared<factories::NativeGrumpkinCrsFactory>(path);
 }
 
-void init_grumpkin_file_crs_factory(const std::filesystem::path& path)
+void init_grumpkin_file_crs_factory(const std::string& path)
 {
     if (grumpkin_crs_factory != nullptr) {
         return;

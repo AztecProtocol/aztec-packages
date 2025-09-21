@@ -3,8 +3,8 @@
 #include "barretenberg/srs/factories/crs_factory.hpp"
 #include "barretenberg/srs/factories/mem_bn254_crs_factory.hpp"
 #include "barretenberg/srs/factories/mem_grumpkin_crs_factory.hpp"
-#include <filesystem>
 #include <memory>
+#include <string>
 
 namespace bb::srs::factories {
 
@@ -22,10 +22,10 @@ namespace bb::srs::factories {
  * BN254 has one 128 byte G2 point. Grumpkin has no G2 points.
  */
 
-MemBn254CrsFactory init_bn254_crs(const std::filesystem::path& path,
+MemBn254CrsFactory init_bn254_crs(const std::string& path,
                                   size_t dyadic_circuit_size,
                                   bool allow_download = true);
-MemGrumpkinCrsFactory init_grumpkin_crs(const std::filesystem::path& path,
+MemGrumpkinCrsFactory init_grumpkin_crs(const std::string& path,
                                         size_t eccvm_dyadic_circuit_size,
                                         bool allow_download = true);
 
@@ -34,7 +34,7 @@ MemGrumpkinCrsFactory init_grumpkin_crs(const std::filesystem::path& path,
  */
 class NativeBn254CrsFactory : public CrsFactory<curve::BN254> {
   public:
-    NativeBn254CrsFactory(const std::filesystem::path& path, bool allow_download = true)
+    NativeBn254CrsFactory(const std::string& path, bool allow_download = true)
         : path_(path)
         , allow_download_(allow_download)
     {}
@@ -48,7 +48,7 @@ class NativeBn254CrsFactory : public CrsFactory<curve::BN254> {
     }
 
   private:
-    std::filesystem::path path_;
+    std::string path_;
     bool allow_download_ = true;
     size_t last_degree_ = 0;
     std::shared_ptr<MemBn254CrsFactory> mem_crs_;
@@ -56,7 +56,7 @@ class NativeBn254CrsFactory : public CrsFactory<curve::BN254> {
 
 class NativeGrumpkinCrsFactory : public CrsFactory<curve::Grumpkin> {
   public:
-    NativeGrumpkinCrsFactory(const std::filesystem::path& path, bool allow_download = true)
+    NativeGrumpkinCrsFactory(const std::string& path, bool allow_download = true)
         : path_(path)
         , allow_download_(allow_download)
     {}
@@ -71,7 +71,7 @@ class NativeGrumpkinCrsFactory : public CrsFactory<curve::Grumpkin> {
     }
 
   private:
-    std::filesystem::path path_;
+    std::string path_;
     bool allow_download_ = true;
     size_t last_degree_ = 0;
     std::unique_ptr<MemGrumpkinCrsFactory> mem_crs_;

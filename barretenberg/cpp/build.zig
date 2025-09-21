@@ -39,6 +39,11 @@ const wasm_flags = no_avm_flags ++ [_][]const u8{
     "-DTRACY_ENABLE=0",
     "-D_WASI_EMULATED_PROCESS_CLOCKS",
     "-DBB_NO_EXCEPTIONS",
+    "-D_LIBCPP_NO_FILESYSTEM",
+    "-fno-exceptions",
+    "-D_LIBCPP_NO_EXCEPTIONS",
+    "-g1",
+    "-fno-standalone-debug",
 };
 
 fn buildLmdb(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
@@ -333,19 +338,19 @@ pub fn build(b: *std.Build) void {
         "src/barretenberg/stdlib/translator_vm_verifier/translator_permutation_relation.cpp",
 
         // Relations (needed for verifiers)
-        "src/barretenberg/relations/ecc_vm/ecc_bools_relation.cpp",
-        "src/barretenberg/relations/ecc_vm/ecc_lookup_relation.cpp",
-        "src/barretenberg/relations/ecc_vm/ecc_msm_relation.cpp",
-        "src/barretenberg/relations/ecc_vm/ecc_point_table_relation.cpp",
-        "src/barretenberg/relations/ecc_vm/ecc_set_relation.cpp",
-        "src/barretenberg/relations/ecc_vm/ecc_transcript_relation.cpp",
-        "src/barretenberg/relations/ecc_vm/ecc_wnaf_relation.cpp",
-        "src/barretenberg/relations/translator_vm/translator_decomposition_relation_2.cpp",
-        "src/barretenberg/relations/translator_vm/translator_delta_range_constraint_relation.cpp",
-        "src/barretenberg/relations/translator_vm/translator_extra_relations.cpp",
-        "src/barretenberg/relations/translator_vm/translator_decomposition_relation_1.cpp",
-        "src/barretenberg/relations/translator_vm/translator_non_native_field_relation.cpp",
-        "src/barretenberg/relations/translator_vm/translator_permutation_relation.cpp",
+        // "src/barretenberg/relations/ecc_vm/ecc_bools_relation.cpp",
+        // "src/barretenberg/relations/ecc_vm/ecc_lookup_relation.cpp",
+        // "src/barretenberg/relations/ecc_vm/ecc_msm_relation.cpp",
+        // "src/barretenberg/relations/ecc_vm/ecc_point_table_relation.cpp",
+        // "src/barretenberg/relations/ecc_vm/ecc_set_relation.cpp",
+        // "src/barretenberg/relations/ecc_vm/ecc_transcript_relation.cpp",
+        // "src/barretenberg/relations/ecc_vm/ecc_wnaf_relation.cpp",
+        // "src/barretenberg/relations/translator_vm/translator_decomposition_relation_2.cpp",
+        // "src/barretenberg/relations/translator_vm/translator_delta_range_constraint_relation.cpp",
+        // "src/barretenberg/relations/translator_vm/translator_extra_relations.cpp",
+        // "src/barretenberg/relations/translator_vm/translator_decomposition_relation_1.cpp",
+        // "src/barretenberg/relations/translator_vm/translator_non_native_field_relation.cpp",
+        // "src/barretenberg/relations/translator_vm/translator_permutation_relation.cpp",
 
         // API files
         "src/barretenberg/api/acir_format_getters.cpp",
@@ -656,6 +661,10 @@ pub fn build(b: *std.Build) void {
         const platform_target = b.resolveTargetQuery(.{
             .cpu_arch = platform.arch,
             .os_tag = platform.os,
+            .cpu_features_add = if (platform.os == .wasi)
+                std.Target.wasm.featureSet(&.{ .atomics, .bulk_memory })
+            else
+                std.Target.Cpu.Feature.Set.empty,
         });
 
         const all_sources = if (enable_avm) &full_avm_sources else &full_sources;

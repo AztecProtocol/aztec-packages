@@ -55,6 +55,9 @@ std::vector<uint8_t> decompress(const void* bytes, size_t size)
 
 template <typename T> T unpack_from_file(const std::filesystem::path& filename)
 {
+#ifdef __wasm__
+    throw_or_abort("File I/O not supported in WASM context");
+#else
     std::ifstream fin;
     fin.open(filename, std::ios::ate | std::ios::binary);
     if (!fin.is_open()) {
@@ -72,6 +75,7 @@ template <typename T> T unpack_from_file(const std::filesystem::path& filename)
     fin.read(encoded_data.data(), static_cast<std::streamsize>(fsize));
     msgpack::unpack(encoded_data.data(), fsize).get().convert(result);
     return result;
+#endif
 }
 
 // TODO(#7371) we should not have so many levels of serialization here.
@@ -169,6 +173,9 @@ std::shared_ptr<ClientIVC> PrivateExecutionSteps::accumulate()
 void PrivateExecutionStepRaw::compress_and_save(std::vector<PrivateExecutionStepRaw>&& steps,
                                                 const std::filesystem::path& output_path)
 {
+#ifdef __wasm__
+    throw_or_abort("File I/O not supported in WASM context");
+#else
     // First, compress the bytecode and witness fields of each step
     for (PrivateExecutionStepRaw& step : steps) {
         step.bytecode = compress(step.bytecode);
@@ -187,5 +194,6 @@ void PrivateExecutionStepRaw::compress_and_save(std::vector<PrivateExecutionStep
     }
     file.write(packed_data.data(), static_cast<std::streamsize>(packed_data.size()));
     file.close();
+#endif
 }
 } // namespace bb
