@@ -555,9 +555,9 @@ int parse_and_run_cli_command(int argc, char* argv[])
     srs::init_net_crs_factory(flags.crs_path);
     if ((prove->parsed() || write_vk->parsed()) && output_path != "-") {
         // If writing to an output folder, make sure it exists.
-#ifndef __wasm__
+        // #ifndef __wasm__
         std::filesystem::create_directories(output_path);
-#endif
+        // #endif
     }
     debug_logging = flags.debug;
     verbose_logging = debug_logging || flags.verbose;

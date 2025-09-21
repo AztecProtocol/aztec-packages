@@ -37,8 +37,9 @@ const wasm_flags = no_avm_flags ++ [_][]const u8{
     "-DDISABLE_ADX",
     "-DDISABLE_ASM",
     "-D_WASI_EMULATED_PROCESS_CLOCKS",
+    "-D_LIBCPP_HAS_FILESYSTEM",
+    "-D_LIBCPP_HAS_LOCALIZATION",
     "-DBB_NO_EXCEPTIONS",
-    "-D_LIBCPP_NO_FILESYSTEM",
     "-fno-exceptions",
 };
 
@@ -669,10 +670,9 @@ pub fn build(b: *std.Build) void {
             b.getInstallStep().dependOn(platform_step);
         }
 
-        if (platform.os == .wasi) {
-            buildWasmReactor(b, optimize, platform_step);
-            // cross_step.dependOn(wasm_reactor_step);
-        }
+        // if (platform.os == .wasi) {
+        //     buildWasmReactor(b, optimize, platform_step);
+        // }
     }
 }
 
@@ -761,6 +761,8 @@ fn buildForTarget(
             exe.linkSystemLibrary("psapi"); // For process info
         },
         .wasi => {
+            exe.addObjectFile(b.path("zig-out/lib/libcxxfs.a"));
+
             exe.libc_file = b.path("wasi-libc-posix.txt");
             exe.wasi_exec_model = .command;
             exe.shared_memory = true;

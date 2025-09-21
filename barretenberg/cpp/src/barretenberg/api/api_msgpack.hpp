@@ -104,9 +104,6 @@ inline int process_msgpack_commands(std::istream& input_stream)
  */
 inline int execute_msgpack_run(const std::string& msgpack_input_file)
 {
-#ifdef __wasm__
-    throw_or_abort("Msgpack file I/O not supported in WASM context");
-#else
     // Process msgpack API commands from stdin or file
     std::istream* input_stream = &std::cin;
     std::ifstream file_stream;
@@ -121,7 +118,6 @@ inline int execute_msgpack_run(const std::string& msgpack_input_file)
     }
 
     return process_msgpack_commands(*input_stream);
-#endif
 }
 
 } // namespace bb

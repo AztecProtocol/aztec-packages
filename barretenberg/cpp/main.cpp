@@ -1,5 +1,7 @@
 #include <atomic>
 #include <chrono>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <mutex>
 #include <thread>
@@ -26,6 +28,15 @@ void worker_thread(int thread_id)
 
 int main()
 {
+    std::ofstream file("test.txt");
+    file << "This is a test file." << std::endl;
+    file.close();
+
+    if (std::filesystem::exists("test.txt")) {
+        std::cout << "filesystem working, test file exists..." << std::endl;
+    }
+    std::filesystem::remove("test.txt");
+
     std::cout << "Starting threading test..." << std::endl;
 
     const int num_threads = 4;
