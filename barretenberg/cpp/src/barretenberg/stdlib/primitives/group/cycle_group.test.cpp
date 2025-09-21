@@ -844,7 +844,60 @@ TYPED_TEST(CycleGroupTest, TestConstrainedUnconditionalAddFail)
     EXPECT_FALSE(CircuitChecker::check(builder));
 }
 
-TYPED_TEST(CycleGroupTest, TestAdd)
+// Test regular addition of witness points (no edge cases)
+TYPED_TEST(CycleGroupTest, TestAddRegular)
+{
+    STDLIB_TYPE_ALIASES;
+    auto builder = Builder();
+
+    auto lhs = TestFixture::generators[0];
+    auto rhs = -TestFixture::generators[1];
+
+    cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
+    cycle_group_ct b = cycle_group_ct::from_witness(&builder, rhs);
+
+    // Test tag merging
+    a.set_origin_tag(submitted_value_origin_tag);
+    b.set_origin_tag(challenge_origin_tag);
+
+    cycle_group_ct c = a + b;
+
+    AffineElement expected(Element(lhs) + Element(rhs));
+    EXPECT_EQ(c.get_value(), expected);
+    EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+
+    // Regular witness addition takes 47 gates
+    check_circuit_and_gates(builder, 47);
+}
+
+// Test addition with LHS point at infinity
+TYPED_TEST(CycleGroupTest, TestAddLhsInfinity)
+{
+    STDLIB_TYPE_ALIASES;
+    auto builder = Builder();
+
+    auto rhs = -TestFixture::generators[1];
+
+    cycle_group_ct point_at_infinity = cycle_group_ct::from_witness(&builder, rhs);
+    point_at_infinity.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));
+
+    cycle_group_ct a = point_at_infinity;
+    cycle_group_ct b = cycle_group_ct::from_witness(&builder, rhs);
+
+    a.set_origin_tag(submitted_value_origin_tag);
+    b.set_origin_tag(challenge_origin_tag);
+
+    cycle_group_ct c = a + b;
+
+    EXPECT_EQ(c.get_value(), rhs);
+    EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+
+    // Addition with witness infinity point
+    check_circuit_and_gates(builder, 53);
+}
+
+// Test addition with RHS point at infinity
+TYPED_TEST(CycleGroupTest, TestAddRhsInfinity)
 {
     STDLIB_TYPE_ALIASES;
     auto builder = Builder();
@@ -855,88 +908,183 @@ TYPED_TEST(CycleGroupTest, TestAdd)
     cycle_group_ct point_at_infinity = cycle_group_ct::from_witness(&builder, rhs);
     point_at_infinity.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));
 
-    // case 1. no edge-cases triggered
+    cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
+    cycle_group_ct b = point_at_infinity;
+
+    a.set_origin_tag(submitted_value_origin_tag);
+    b.set_origin_tag(challenge_origin_tag);
+
+    cycle_group_ct c = a + b;
+
+    EXPECT_EQ(c.get_value(), lhs);
+    EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+
+    // Addition with witness infinity point
+    check_circuit_and_gates(builder, 53);
+}
+
+// Test addition with both points at infinity
+TYPED_TEST(CycleGroupTest, TestAddBothInfinity)
+{
+    STDLIB_TYPE_ALIASES;
+    auto builder = Builder();
+
+    auto point = -TestFixture::generators[1];
+
+    cycle_group_ct point_at_infinity1 = cycle_group_ct::from_witness(&builder, point);
+    point_at_infinity1.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));
+
+    cycle_group_ct point_at_infinity2 = cycle_group_ct::from_witness(&builder, point);
+    point_at_infinity2.set_point_at_infinity(bool_ct(witness_ct(&builder, true)));
+
+    cycle_group_ct a = point_at_infinity1;
+    cycle_group_ct b = point_at_infinity2;
+
+    a.set_origin_tag(submitted_value_origin_tag);
+    b.set_origin_tag(challenge_origin_tag);
+
+    cycle_group_ct c = a + b;
+
+    EXPECT_TRUE(c.is_point_at_infinity().get_value());
+    EXPECT_TRUE(c.get_value().is_point_at_infinity());
+    EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+
+    // Both points at infinity
+    check_circuit_and_gates(builder, 58);
+}
+
+// Test addition of inverse points (result is infinity)
+TYPED_TEST(CycleGroupTest, TestAddInversePoints)
+{
+    STDLIB_TYPE_ALIASES;
+    auto builder = Builder();
+
+    auto lhs = TestFixture::generators[0];
+
+    cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
+    cycle_group_ct b = cycle_group_ct::from_witness(&builder, -lhs);
+
+    a.set_origin_tag(submitted_value_origin_tag);
+    b.set_origin_tag(challenge_origin_tag);
+
+    cycle_group_ct c = a + b;
+
+    EXPECT_TRUE(c.is_point_at_infinity().get_value());
+    EXPECT_TRUE(c.get_value().is_point_at_infinity());
+    EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+
+    // Addition resulting in infinity
+    check_circuit_and_gates(builder, 47);
+}
+
+// Test doubling (adding point to itself)
+TYPED_TEST(CycleGroupTest, TestAddDoubling)
+{
+    STDLIB_TYPE_ALIASES;
+    auto builder = Builder();
+
+    auto lhs = TestFixture::generators[0];
+
+    cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
+    cycle_group_ct b = cycle_group_ct::from_witness(&builder, lhs);
+
+    a.set_origin_tag(submitted_value_origin_tag);
+    b.set_origin_tag(challenge_origin_tag);
+
+    cycle_group_ct c = a + b;
+
+    AffineElement expected((Element(lhs)).dbl());
+    EXPECT_EQ(c.get_value(), expected);
+    EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+
+    // Doubling via operator+
+    check_circuit_and_gates(builder, 47);
+}
+
+TYPED_TEST(CycleGroupTest, TestAddConstantPoints)
+{
+    STDLIB_TYPE_ALIASES;
+
+    // Test adding constant points - this takes a completely different path than witness points
+    // The existing TestAdd only tests witness points
     {
-        cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
-        cycle_group_ct b = cycle_group_ct::from_witness(&builder, rhs);
-        // Here and in the following cases we assign two different tags
-        a.set_origin_tag(submitted_value_origin_tag);
-        b.set_origin_tag(challenge_origin_tag);
-        cycle_group_ct c = a + b;
+        auto builder = Builder();
+        auto lhs = TestFixture::generators[5];
+        auto rhs = TestFixture::generators[6];
+
+        cycle_group_ct a(lhs);
+        cycle_group_ct b(rhs);
+
+        cycle_group_ct result = a + b;
+
         AffineElement expected(Element(lhs) + Element(rhs));
-        AffineElement result = c.get_value();
-        EXPECT_EQ(result, expected);
-        // We expect the tags to be merged in the result
-        EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+        EXPECT_EQ(result.get_value(), expected);
+        EXPECT_TRUE(result.is_constant());
+
+        // No gates needed for constant arithmetic
+        check_circuit_and_gates(builder, 0);
     }
 
-    // case 2. lhs is point at infinity
+    // Test constant point + constant infinity (early return optimization)
     {
-        cycle_group_ct a = point_at_infinity;
-        cycle_group_ct b = cycle_group_ct::from_witness(&builder, rhs);
-        a.set_origin_tag(submitted_value_origin_tag);
-        b.set_origin_tag(challenge_origin_tag);
+        auto builder = Builder();
+        auto lhs = TestFixture::generators[7];
 
-        cycle_group_ct c = a + b;
-        AffineElement result = c.get_value();
-        EXPECT_EQ(result, rhs);
-        EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+        cycle_group_ct a(lhs);
+        cycle_group_ct b = cycle_group_ct::constant_infinity(&builder);
+
+        cycle_group_ct result = a + b;
+
+        EXPECT_EQ(result.get_value(), lhs);
+        EXPECT_TRUE(result.is_constant());
+
+        // Uses early return for constant infinity
+        check_circuit_and_gates(builder, 0);
     }
+}
 
-    // case 3. rhs is point at infinity
+TYPED_TEST(CycleGroupTest, TestAddMixedConstantWitness)
+{
+    STDLIB_TYPE_ALIASES;
+
+    // Test mixed constant/witness operations which use different code paths than pure witness ops
+    // The existing TestAdd doesn't cover these mixed scenarios
+
+    // Test witness + constant infinity (early return path)
     {
+        auto builder = Builder();
+        auto lhs = TestFixture::generators[10];
+
         cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
-        cycle_group_ct b = point_at_infinity;
-        a.set_origin_tag(submitted_value_origin_tag);
-        b.set_origin_tag(challenge_origin_tag);
+        cycle_group_ct b = cycle_group_ct::constant_infinity(&builder);
 
-        cycle_group_ct c = a + b;
-        AffineElement result = c.get_value();
-        EXPECT_EQ(result, lhs);
-        EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+        cycle_group_ct result = a + b;
+
+        EXPECT_EQ(result.get_value(), lhs);
+        EXPECT_FALSE(result.is_constant());
+
+        // Early return optimization for constant infinity
+        check_circuit_and_gates(builder, 6);
     }
 
-    // case 4. both points are at infinity
+    // Test constant + witness point (different gate count than witness + witness)
     {
-        cycle_group_ct a = point_at_infinity;
-        cycle_group_ct b = point_at_infinity;
-        a.set_origin_tag(submitted_value_origin_tag);
-        b.set_origin_tag(challenge_origin_tag);
+        auto builder = Builder();
+        auto lhs = TestFixture::generators[11];
+        auto rhs = TestFixture::generators[12];
 
-        cycle_group_ct c = a + b;
-        EXPECT_TRUE(c.is_point_at_infinity().get_value());
-        EXPECT_TRUE(c.get_value().is_point_at_infinity());
-        EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+        cycle_group_ct a(lhs);                                          // constant
+        cycle_group_ct b = cycle_group_ct::from_witness(&builder, rhs); // witness
+
+        cycle_group_ct result = a + b;
+
+        AffineElement expected(Element(lhs) + Element(rhs));
+        EXPECT_EQ(result.get_value(), expected);
+        EXPECT_FALSE(result.is_constant());
+
+        // Different gate count than pure witness addition
+        check_circuit_and_gates(builder, 23);
     }
-
-    // case 5. lhs = -rhs
-    {
-        cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
-        cycle_group_ct b = cycle_group_ct::from_witness(&builder, -lhs);
-        a.set_origin_tag(submitted_value_origin_tag);
-        b.set_origin_tag(challenge_origin_tag);
-
-        cycle_group_ct c = a + b;
-        EXPECT_TRUE(c.is_point_at_infinity().get_value());
-        EXPECT_TRUE(c.get_value().is_point_at_infinity());
-        EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
-    }
-
-    // case 6. lhs = rhs
-    {
-        cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
-        cycle_group_ct b = cycle_group_ct::from_witness(&builder, lhs);
-        a.set_origin_tag(submitted_value_origin_tag);
-        b.set_origin_tag(challenge_origin_tag);
-
-        cycle_group_ct c = a + b;
-        AffineElement expected((Element(lhs)).dbl());
-        AffineElement result = c.get_value();
-        EXPECT_EQ(result, expected);
-        EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
-    }
-
-    check_circuit_and_gates(builder, 267);
 }
 
 TYPED_TEST(CycleGroupTest, TestUnconditionalSubtract)
