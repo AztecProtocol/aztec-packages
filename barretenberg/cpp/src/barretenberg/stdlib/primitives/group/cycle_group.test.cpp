@@ -866,8 +866,8 @@ TYPED_TEST(CycleGroupTest, TestAddRegular)
     EXPECT_EQ(c.get_value(), expected);
     EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
-    // Regular witness addition takes 47 gates
-    check_circuit_and_gates(builder, 47);
+    // Regular witness addition takes 48 gates
+    check_circuit_and_gates(builder, 48);
 }
 
 // Test addition with LHS point at infinity
@@ -893,7 +893,7 @@ TYPED_TEST(CycleGroupTest, TestAddLhsInfinity)
     EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
     // Addition with witness infinity point
-    check_circuit_and_gates(builder, 53);
+    check_circuit_and_gates(builder, 54);
 }
 
 // Test addition with RHS point at infinity
@@ -920,7 +920,7 @@ TYPED_TEST(CycleGroupTest, TestAddRhsInfinity)
     EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
     // Addition with witness infinity point
-    check_circuit_and_gates(builder, 53);
+    check_circuit_and_gates(builder, 54);
 }
 
 // Test addition with both points at infinity
@@ -950,7 +950,7 @@ TYPED_TEST(CycleGroupTest, TestAddBothInfinity)
     EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
     // Both points at infinity
-    check_circuit_and_gates(builder, 58);
+    check_circuit_and_gates(builder, 59);
 }
 
 // Test addition of inverse points (result is infinity)
@@ -974,7 +974,7 @@ TYPED_TEST(CycleGroupTest, TestAddInversePoints)
     EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
     // Addition resulting in infinity
-    check_circuit_and_gates(builder, 47);
+    check_circuit_and_gates(builder, 48);
 }
 
 // Test doubling (adding point to itself)
@@ -998,7 +998,7 @@ TYPED_TEST(CycleGroupTest, TestAddDoubling)
     EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
     // Doubling via operator+
-    check_circuit_and_gates(builder, 47);
+    check_circuit_and_gates(builder, 48);
 }
 
 TYPED_TEST(CycleGroupTest, TestAddConstantPoints)
@@ -1164,7 +1164,7 @@ TYPED_TEST(CycleGroupTest, TestAddInfinityResultLogic)
         EXPECT_EQ(result.get_value(), expected);
     }
 
-    check_circuit_and_gates(builder, 235);
+    check_circuit_and_gates(builder, 240);
 }
 
 TYPED_TEST(CycleGroupTest, TestUnconditionalSubtract)
@@ -1328,7 +1328,7 @@ TYPED_TEST(CycleGroupTest, TestSubtract)
         EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
     }
 
-    check_circuit_and_gates(builder, 273);
+    check_circuit_and_gates(builder, 278);
 }
 
 /**

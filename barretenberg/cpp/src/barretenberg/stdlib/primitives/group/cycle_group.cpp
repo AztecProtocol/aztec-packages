@@ -541,8 +541,9 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_subtract(const 
 
 /**
  * @brief Will evaluate ECC point addition over `*this` and `other`.
- * @details This method uses complete addition i.e. is compatible with edge cases. Method is expensive due to needing to
- * evaluate both an addition, a doubling, plus conditional logic to handle points at infinity.
+ * @details This method uses complete addition i.e. is compatible with all edge cases and is therefore expensive. To
+ * handle the possibility of x-coordinate collisions we evaluate both an addition (modified to avoid division by zero)
+ * and and a doubling, then conditionally assign the result.
  *
  * @tparam Builder
  * @param other Point to add
@@ -550,7 +551,7 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_subtract(const 
  */
 template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+(const cycle_group& other) const
 {
-    // If either point is a constant point at infinity, return the other point
+    // If lhs is constant point at infinity, return the rhs and vice versa
     if (this->is_constant_point_at_infinity()) {
         return other;
     }
@@ -560,27 +561,16 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
 
     const bool_t x_coordinates_match = (x == other.x);
     const bool_t y_coordinates_match = (y == other.y);
-    const bool_t double_predicate = (x_coordinates_match && y_coordinates_match);
 
     const field_t x1 = x;
     const field_t y1 = y;
     const field_t x2 = other.x;
     const field_t y2 = other.y;
 
-    // Compute lambda = (y2 - y1)/(x2 - x1 + x_coordinates_match) to avoid the possibility of division by zero.
+    // Execute point addition with modified lambda = (y2 - y1)/(x2 - x1 + x_coordinates_match) to avoid the possibility
+    // of division by zero.
     const field_t x_diff = x2.add_two(-x1, x_coordinates_match);
-    field_t lambda;
-    if ((y1.is_constant() && y2.is_constant()) || x_diff.is_constant()) {
-        lambda = (y2 - y1).divide_no_zero_check(x_diff);
-    } else {
-        bb::fr lambda_value = (y2.get_value() - y1.get_value()) / x_diff.get_value();
-        lambda = field_t::from_witness(this->get_context(other), lambda_value);
-        // We need to manually propagate the origin tag
-        lambda.set_origin_tag(OriginTag(x_diff.get_origin_tag(), y1.get_origin_tag(), y2.get_origin_tag()));
-        field_t::evaluate_polynomial_identity(x_diff, lambda, -y2, y1);
-    }
-
-    // Compute the addition result
+    const field_t lambda = (y2 - y1).divide_no_zero_check(x_diff);
     const field_t x3 = lambda.madd(lambda, -(x2 + x1)); // x3 = lambda^2 - x1 - x2
     const field_t y3 = lambda.madd(x1 - x3, -y1);       // y3 = lambda * (x1 - x3) - y1
     cycle_group add_result(x3, y3, /*is_infinity=*/x_coordinates_match);
@@ -589,6 +579,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
     const cycle_group dbl_result = dbl();
 
     // If the addition amounts to a doubling then the result is the doubling result, else the addition result.
+    const bool_t double_predicate = (x_coordinates_match && y_coordinates_match);
     auto result_x = field_t::conditional_assign(double_predicate, dbl_result.x, add_result.x);
     auto result_y = field_t::conditional_assign(double_predicate, dbl_result.y, add_result.y);
 
@@ -612,85 +603,65 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
 
 /**
  * @brief Will evaluate ECC point subtraction over `*this` and `other`.
- *        This method uses complete addition i.e. is compatible with edge cases.
- *        Method is expensive due to needing to evaluate both an addition, a doubling,
- *        plus conditional logic to handle points at infinity.
+ * @details This method uses complete subtraction i.e. is compatible with all edge cases and is therefore expensive. To
+ * handle the possibility of x-coordinate collisions we evaluate both a subtraction (modified to avoid division by zero)
+ * and a doubling, then conditionally assign the result.
  *
  * @tparam Builder
- * @param other
- * @return cycle_group<Builder>
+ * @param other Point to subtract
+ * @return cycle_group<Builder> Result of subtraction
  */
 template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-(const cycle_group& other) const
 {
-    if (other.is_constant_point_at_infinity()) {
-        return *this;
-    }
+    // If lhs is constant point at infinity, return -rhs
     if (this->is_constant_point_at_infinity()) {
         return -other;
+    }
+    // If rhs is constant point at infinity, return the lhs
+    if (other.is_constant_point_at_infinity()) {
+        return *this;
     }
 
     const bool_t x_coordinates_match = (x == other.x);
     const bool_t y_coordinates_match = (y == other.y);
-    const bool_t double_predicate = (x_coordinates_match && !y_coordinates_match).normalize();
-    const bool_t infinity_predicate = (x_coordinates_match && y_coordinates_match).normalize();
-    if (!infinity_predicate.is_constant()) {
-        infinity_predicate.get_context()->update_used_witnesses(infinity_predicate.get_normalized_witness_index());
-    }
+
     const field_t x1 = x;
     const field_t y1 = y;
     const field_t x2 = other.x;
     const field_t y2 = other.y;
+
+    // Execute point addition with modified lambda = (-y2 - y1)/(x2 - x1 + x_coordinates_match) to avoid the possibility
+    // of division by zero.
     const field_t x_diff = x2.add_two(-x1, x_coordinates_match);
-    // Computes lambda = (-y2-y1)/x_diff, using the fact that x_diff is never 0
-    field_t lambda;
-    if ((y1.is_constant() && y2.is_constant()) || x_diff.is_constant()) {
-        lambda = (-y2 - y1).divide_no_zero_check(x_diff);
-    } else {
-        lambda =
-            field_t::from_witness(this->get_context(other), (-y2.get_value() - y1.get_value()) / x_diff.get_value());
-        // We need to manually propagate the origin tag
-        lambda.set_origin_tag(OriginTag(x_diff.get_origin_tag(), y1.get_origin_tag(), y2.get_origin_tag()));
-        field_t::evaluate_polynomial_identity(x_diff, lambda, y2, y1);
-    }
+    const field_t lambda = (-y2 - y1).divide_no_zero_check(x_diff);
+    const field_t x3 = lambda.madd(lambda, -(x2 + x1)); // x3 = lambda^2 - x1 - x2
+    const field_t y3 = lambda.madd(x1 - x3, -y1);       // y3 = lambda * (x1 - x3) - y1
+    cycle_group sub_result(x3, y3, /*is_infinity=*/x_coordinates_match);
 
-    const field_t x3 = lambda.madd(lambda, -(x2 + x1));
-    const field_t y3 = lambda.madd(x1 - x3, -y1);
-    cycle_group add_result(x3, y3, x_coordinates_match);
-
+    // Compute the doubling result
     const cycle_group dbl_result = dbl();
 
-    // dbl if x_match, !y_match
-    // infinity if x_match, y_match
-    field_t result_x = field_t::conditional_assign(double_predicate, dbl_result.x, add_result.x);
-    field_t result_y = field_t::conditional_assign(double_predicate, dbl_result.y, add_result.y);
+    // If the subtraction amounts to a doubling then the result is the doubling result, else the subtraction result.
+    const bool_t double_predicate = (x_coordinates_match && !y_coordinates_match);
+    auto result_x = field_t::conditional_assign(double_predicate, dbl_result.x, sub_result.x);
+    auto result_y = field_t::conditional_assign(double_predicate, dbl_result.y, sub_result.y);
 
-    if constexpr (IsUltraBuilder<Builder>) {
-        if (result_x.get_context()) {
-            result_x.get_context()->update_used_witnesses(result_x.witness_index);
-        }
-        if (result_y.get_context()) {
-            result_y.get_context()->update_used_witnesses(result_y.witness_index);
-        }
-    }
-
+    // If the lhs is the point at infinity, return -rhs
     const bool_t lhs_infinity = is_point_at_infinity();
-    const bool_t rhs_infinity = other.is_point_at_infinity();
-    // if lhs infinity, return -rhs
     result_x = field_t::conditional_assign(lhs_infinity, other.x, result_x);
     result_y = field_t::conditional_assign(lhs_infinity, (-other.y).normalize(), result_y);
 
-    // if rhs infinity, return lhs
+    // If the rhs is the point at infinity, return lhs
+    const bool_t rhs_infinity = other.is_point_at_infinity();
     result_x = field_t::conditional_assign(rhs_infinity, x, result_x).normalize();
     result_y = field_t::conditional_assign(rhs_infinity, y, result_y).normalize();
 
-    // is result point at infinity?
-    // yes = infinity_predicate && !lhs_infinity && !rhs_infinity
-    // yes = lhs_infinity && rhs_infinity
-    // n.b. can likely optimize this
-    bool_t result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
+    // The result is the point at infinity if:
+    // (lhs.x, lhs.y) == (rhs.x, rhs.y) and neither are infinity, OR both are the point at infinity
+    bool_t result_is_infinity = (x_coordinates_match && y_coordinates_match) && (!lhs_infinity && !rhs_infinity);
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
 
-    return cycle_group(result_x, result_y, result_is_infinity);
+    return cycle_group(result_x, result_y, /*is_infinity=*/result_is_infinity);
 }
 
 /**
