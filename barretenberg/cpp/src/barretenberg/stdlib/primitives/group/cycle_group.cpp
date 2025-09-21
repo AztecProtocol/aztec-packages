@@ -495,14 +495,12 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_gr
 
 /**
  * @brief Will evaluate ECC point addition over `*this` and `other`.
- *        Uses incomplete addition formula
- *        If incomplete addition formula edge cases are triggered (x-coordinates of operands collide),
- *        the constraints produced by this method will be unsatisfiable.
- *        Useful when an honest prover will not produce a point collision with overwhelming probability,
- *        but a cheating prover will be able to.
+ * @details Uses incomplete addition formula. If incomplete addition formula edge cases are triggered (x-coordinates of
+ * operands collide), the constraints produced by this method will be unsatisfiable. Useful when an honest prover will
+ * not produce a point collision with overwhelming probability, but a cheating prover will be able to.
  *
  * @tparam Builder
- * @param other
+ * @param other Point to add
  * @param hint : value of output point witness, if known ahead of time (used to avoid modular inversions during witgen)
  * @return cycle_group<Builder>
  */
@@ -521,14 +519,12 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_add(const cycle
 
 /**
  * @brief Will evaluate ECC point subtraction over `*this` and `other`.
- *        Uses incomplete addition formula
- *        If incomplete addition formula edge cases are triggered (x-coordinates of operands collide),
- *        the constraints produced by this method will be unsatisfiable.
- *        Useful when an honest prover will not produce a point collision with overwhelming probability,
- *        but a cheating prover will be able to.
+ * @details Uses incomplete addition formula. If incomplete addition formula edge cases are triggered (x-coordinates of
+ * operands collide), the constraints produced by this method will be unsatisfiable. Useful when an honest prover will
+ * not produce a point collision with overwhelming probability, but a cheating prover will be able to.
  *
  * @tparam Builder
- * @param other
+ * @param other Point to subtract
  * @param hint : value of output point witness, if known ahead of time (used to avoid modular inversions during witgen)
  * @return cycle_group<Builder>
  */
@@ -547,16 +543,16 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_subtract(const 
 
 /**
  * @brief Will evaluate ECC point addition over `*this` and `other`.
- *        This method uses complete addition i.e. is compatible with edge cases.
- *        Method is expensive due to needing to evaluate both an addition, a doubling,
- *        plus conditional logic to handle points at infinity.
+ * @details This method uses complete addition i.e. is compatible with edge cases. Method is expensive due to needing to
+ * evaluate both an addition, a doubling, plus conditional logic to handle points at infinity.
  *
  * @tparam Builder
- * @param other
- * @return cycle_group<Builder>
+ * @param other Point to add
+ * @return cycle_group<Builder> Result of addition
  */
 template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+(const cycle_group& other) const
 {
+    // If either point is a constant point at infinity, return the other point
     if (this->_is_infinity.is_constant() && this->_is_infinity.get_value()) {
         return other;
     }
