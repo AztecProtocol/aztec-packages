@@ -153,4 +153,19 @@ void PublicDataTreeCheck::on_checkpoint_reverted()
     events.emit(CheckPointEventType::REVERT_CHECKPOINT);
 }
 
+void PublicDataTreeCheck::generate_ff_gt_events_for_squashing(
+    std::array<PublicDataWrite, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>& public_data_writes,
+    uint32_t public_data_writes_length)
+{
+    std::sort(public_data_writes.begin(),
+              public_data_writes.begin() + public_data_writes_length,
+              [](const PublicDataWrite& a, const PublicDataWrite& b) {
+                  return static_cast<uint256_t>(a.leafSlot) < static_cast<uint256_t>(b.leafSlot);
+              });
+
+    for (size_t i = 0; i < public_data_writes_length - 1; i++) {
+        field_gt.ff_gt(public_data_writes.at(i + 1).leafSlot, public_data_writes.at(i).leafSlot);
+    }
+}
+
 } // namespace bb::avm2::simulation

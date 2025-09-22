@@ -237,18 +237,7 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
 
     tx_execution.simulate(hints.tx);
 
-    // Sort public data writes by leaf slot between index 0 and of size publicDataWritesLength.
-    // Leaf slot needs to be casted as uint256_t to compare.s
-    // Sorting over pointers instead of structs would be faster but probably negligible for such a small array.
-    std::sort(publicDataWrites.begin(),
-              publicDataWrites.begin() + publicDataWritesLength,
-              [](const PublicDataWrite& a, const PublicDataWrite& b) {
-                  return static_cast<uint256_t>(a.leafSlot) < static_cast<uint256_t>(b.leafSlot);
-              });
-
-    for (size_t i = 0; i < publicDataWritesLength - 1; i++) {
-        field_gt.ff_gt(publicDataWrites.at(i + 1).leafSlot, publicDataWrites.at(i).leafSlot);
-    }
+    public_data_tree_check.generate_ff_gt_events_for_squashing(public_data_writes, public_data_writes_length);
 
     return {
         tx_event_emitter.dump_events(),
