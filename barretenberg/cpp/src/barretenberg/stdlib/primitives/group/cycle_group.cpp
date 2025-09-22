@@ -19,11 +19,9 @@
 namespace bb::stdlib {
 
 /**
- * @brief Construct a new cycle group<Builder>::cycle group object
- * defaults to a constant point at infinity.
+ * @brief Construct a new constant point at infinity cycle group object.
  *
- * @note Please don't use this constructor in case you want to assign the
- * coordinates later.
+ * @note Don't use this constructor in case you want to assign the coordinates later.
  */
 // AUDITTODO: Used only by fuzzer. Remove if possible, otherwise mark it accordingly.
 template <typename Builder> cycle_group<Builder>::cycle_group(Builder* _context)
@@ -106,7 +104,7 @@ cycle_group<Builder>::cycle_group(const AffineElement& _in)
 {}
 
 /**
- * @brief Construct a cycle_group representation of Group::one.
+ * @brief Construct a constant cycle_group representation of Group::one.
  *
  * @tparam Builder
  * @param _context
@@ -189,9 +187,6 @@ cycle_group<Builder> cycle_group<Builder>::from_constant_witness(Builder* _conte
 {
     cycle_group result(_context);
 
-    // Point at infinity's coordinates break our arithmetic
-    // Since we are not using these coordinates anyway
-    // We can set them both to be zero
     if (_in.is_point_at_infinity()) {
         result = constant_infinity(_context);
     } else {
@@ -296,9 +291,6 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
     this->x = field_t::conditional_assign(is_infinity, 0, this->x).normalize();
     this->y = field_t::conditional_assign(is_infinity, 0, this->y).normalize();
 
-    // At this point, we know at least one of is_infinity or this->_is_infinity is a witness (not constant)
-    // because all cases with both being constants were handled above and returned early.
-    // Therefore, after conditional_assign, x and y will be witnesses, not constants.
     // We won't bump into the case where we end up with non constant coordinates
     ASSERT(!this->x.is_constant());
     ASSERT(!this->y.is_constant());
@@ -418,7 +410,7 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
                                                                           bool is_addition,
                                                                           const std::optional<AffineElement> hint) const
 {
-    // This method should not be called on points at infinity
+    // This method should not be called on known points at infinity
     ASSERT(!this->is_constant_point_at_infinity(), "_unconditional_add_or_subtract called with lhs at infinity");
     ASSERT(!other.is_constant_point_at_infinity(), "_unconditional_add_or_subtract called with rhs at infinity");
 
@@ -579,6 +571,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
     if ((y1.is_constant() && y2.is_constant()) || x_diff.is_constant()) {
         lambda = (y2 - y1).divide_no_zero_check(x_diff);
     } else {
+        // Note: branch saves one gate vs just using divide_no_zero_check because we avoid computing y2 - y1 in circuit
         Builder* context = get_context(other);
         lambda = field_t::from_witness(context, (y2.get_value() - y1.get_value()) / x_diff.get_value());
         // We need to manually propagate the origin tag
@@ -610,7 +603,8 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
 
     // The result is the point at infinity if:
     // (lhs.x, lhs.y) == (rhs.x, -rhs.y) and neither are infinity, OR both are the point at infinity
-    bool_t result_is_infinity = (x_coordinates_match && !y_coordinates_match) && (!lhs_infinity && !rhs_infinity);
+    const bool_t infinity_predicate = (x_coordinates_match && !y_coordinates_match);
+    bool_t result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
 
     return cycle_group(result_x, result_y, /*is_infinity=*/result_is_infinity);
@@ -637,6 +631,8 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
         return *this;
     }
 
+    Builder* context = get_context(other);
+
     const bool_t x_coordinates_match = (x == other.x);
     const bool_t y_coordinates_match = (y == other.y);
 
@@ -653,7 +649,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     if ((y1.is_constant() && y2.is_constant()) || x_diff.is_constant()) {
         lambda = (-y2 - y1).divide_no_zero_check(x_diff);
     } else {
-        Builder* context = get_context(other);
+        // Note: branch saves one gate vs just using divide_no_zero_check because we avoid computing y2 - y1 in circuit
         lambda = field_t::from_witness(context, (-y2.get_value() - y1.get_value()) / x_diff.get_value());
         // We need to manually propagate the origin tag
         lambda.set_origin_tag(OriginTag(x_diff.get_origin_tag(), y1.get_origin_tag(), y2.get_origin_tag()));
@@ -672,6 +668,9 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     auto result_x = field_t::conditional_assign(double_predicate, dbl_result.x, sub_result.x);
     auto result_y = field_t::conditional_assign(double_predicate, dbl_result.y, sub_result.y);
 
+    context->update_used_witnesses(result_x.witness_index);
+    context->update_used_witnesses(result_y.witness_index);
+
     // If the lhs is the point at infinity, return -rhs
     const bool_t lhs_infinity = is_point_at_infinity();
     result_x = field_t::conditional_assign(lhs_infinity, other.x, result_x);
@@ -684,7 +683,11 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
 
     // The result is the point at infinity if:
     // (lhs.x, lhs.y) == (rhs.x, rhs.y) and neither are infinity, OR both are the point at infinity
-    bool_t result_is_infinity = (x_coordinates_match && y_coordinates_match) && (!lhs_infinity && !rhs_infinity);
+    const bool_t infinity_predicate = (x_coordinates_match && y_coordinates_match).normalize();
+    if (!infinity_predicate.is_constant()) {
+        context->update_used_witnesses(infinity_predicate.get_normalized_witness_index());
+    }
+    bool_t result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
 
     return cycle_group(result_x, result_y, /*is_infinity=*/result_is_infinity);
@@ -724,20 +727,20 @@ template <typename Builder> cycle_group<Builder>& cycle_group<Builder>::operator
  *
  * @details Computes \sum_i scalars[i] * base_points[i] using the windowed Straus algorithm with 4-bit windows.
  * The algorithm operates in three phases:
- * 1. Native computation: Compute all EC operations natively to generate witness hints (avoiding expensive modular
- * inversions)
- * 2. Table construction: Build in-circuit ROM lookup tables containing multiples of each base point
+ * 1. Native computation: Compute all EC operations natively to generate witness hints using batched operations. (This
+ * avoids the need to perform expensive modular inversions per operation during witness generation)
+ * 2. Table construction: Build in-circuit ROM lookup tables for each base point
  * 3. Circuit execution: Perform the Straus algorithm in-circuit using the ROM tables and precomputed hints
  *
  * @note Offset generators are added to prevent point-at-infinity edge cases. The returned result is:
- *       \sum_i scalars[i] * base_points[i] + offset_accumulator
- *       where offset_accumulator is also returned separately for later subtraction.
+ * \sum_i scalars[i] * base_points[i] + offset_accumulator
+ * where offset_accumulator is also returned separately for later subtraction.
  *
  * @param scalars Vector of scalar multipliers (must all have the same bit length)
  * @param base_points Vector of EC points to multiply (can be constants or witnesses)
  * @param offset_generators Precomputed offset points to prevent infinity edge cases (size = base_points.size() + 1)
  * @param unconditional_add If true, skip x-coordinate collision checks (safe only when points are guaranteed distinct)
- * @return {accumulator, offset_accumulator} where result = accumulator - offset_accumulator
+ * @return {accumulator, offset_accumulator} where batch mul result = accumulator - offset_accumulator
  */
 template <typename Builder>
 typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_variable_base_batch_mul_internal(
@@ -769,8 +772,8 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     }
     size_t num_rounds = numeric::ceil_div(num_bits, ROM_TABLE_BITS);
 
-    // Decompose each scalar into 4-bit slices. This operation also enforces range constraints on the lo/hi limbs
-    // of each scalar (LO_BITS and (num_bits - LO_BITS) respectively).
+    // Decompose each scalar into 4-bit slices. Note: This operation enforces range constraints on the lo/hi limbs of
+    // each scalar (LO_BITS and (num_bits - LO_BITS) respectively).
     std::vector<straus_scalar_slices> scalar_slices;
     scalar_slices.reserve(num_points);
     for (const auto& scalar : scalars) {
@@ -828,8 +831,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         operation_hints.emplace_back(element.x, element.y);
     }
 
-    // Construct in-circuit Straus lookup tables for each point.
-    // ROM tables enable efficient scalar multiplication by replacing doublings with table lookups.
+    // Construct an in-circuit Straus lookup table for each point
     std::vector<straus_lookup_table> point_tables;
     point_tables.reserve(num_points);
     const size_t hints_per_table = (1ULL << ROM_TABLE_BITS) - 1;
@@ -844,7 +846,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         point_tables.push_back(std::move(table));
     }
 
-    // Initialize pointer to traverse the precomputed Straus algorithm hints (not the table construction hints)
+    // Initialize pointer to the precomputed Straus algorithm hints (stored just after the table construction hints)
     AffineElement* hint_ptr = &operation_hints[num_points * hints_per_table];
     cycle_group accumulator = offset_generators[0];
 
@@ -862,7 +864,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         // Add the contribution from each point's scalar slice for this round
         for (size_t j = 0; j < num_points; ++j) {
             const field_t scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
-            BB_ASSERT_EQ(scalar_slice.get_value(), scalar_slices[j].slices_native[num_rounds - i - 1]);
+            BB_ASSERT_EQ(scalar_slice.get_value(), scalar_slices[j].slices_native[num_rounds - i - 1]); // Sanity check
             const cycle_group point = point_tables[j].read(scalar_slice);
             if (!unconditional_add) {
                 coordinate_check_product *= point.x - accumulator.x;
@@ -895,8 +897,8 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
  * each limb we use one of four precomputed plookup multi-tables FIXED_BASE_<LEFT/RIGHT>_<LO/HI> corresponding to the
  * lo/hi limbs of the two generator points supported by this algorithm (defined in bb::plookup::fixed_base::table).
  *
- * The LO multi-table consists of fifteen basic tables (14 × 9-bit + 1 × 2-bit = 128 bits) and the HI multi-table
- * consists of fourteen 9-bit basic tables (14 × 9 = 126 bits). Each basic table stores at index i the precomputed
+ * The LO multi-tables consist of fifteen basic tables (14 × 9-bit + 1 × 2-bit = 128 bits) and the HI multi-tables
+ * consist of fourteen 9-bit basic tables (14 × 9 = 126 bits). Each basic table stores at index i the precomputed
  * points: [offset_generator_i] + k * 2^(table_bits*i) * [base_point] for k = 0, 1, ..., 2^table_bits - 1. The offset
  * generators prevent point-at-infinity edge cases. The algorithm sums all looked-up points to compute scalar *
  * [base_point] + [sum of offset generators]. We return both the accumulator and the sum of offset generators, so that
@@ -953,9 +955,6 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
     }
 
     // Compute the witness values of the batch_mul algorithm natively, as Element types with a Z-coordinate.
-    // We then batch-convert to AffineElement types, and feed these points as "hints" into the in-circuit addition.
-    // This avoids the need to compute modular inversions for every group operation, which dramatically reduces
-    // witness generation times.
     std::vector<Element> operation_transcript;
     {
         Element accumulator = lookup_points[0].get_value();
@@ -964,6 +963,9 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
             operation_transcript.push_back(accumulator);
         }
     }
+    // Batch-convert to AffineElement types, and feed these points as "hints" into the in-circuit addition. This avoids
+    // the need to compute modular inversions for every group operation, which dramatically reduces witness generation
+    // times.
     Element::batch_normalize(&operation_transcript[0], operation_transcript.size());
     std::vector<AffineElement> operation_hints;
     operation_hints.reserve(operation_transcript.size());

@@ -24,6 +24,7 @@ namespace bb::stdlib {
 /**
  * @brief cycle_group represents a group Element of the proving system's embedded curve, i.e. a curve with a cofactor 1
  * defined over a field equal to the circuit's native field Builder::FF
+ * @details In barretenberg, cycle group is used to represent the Grumpkin curve defined over the bn254 scalar field.
  *
  * @tparam Builder
  */
