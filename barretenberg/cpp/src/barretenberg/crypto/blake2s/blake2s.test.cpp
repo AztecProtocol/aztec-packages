@@ -12,6 +12,7 @@ struct test_vector {
     std::array<uint8_t, 32> output;
 };
 
+namespace {
 test_vector test_vectors[] = {
     { "",
       {
@@ -379,6 +380,7 @@ test_vector test_vectors[] = {
           0x3D, 0x1C, 0x2A, 0xC2, 0xB1, 0x00, 0x54, 0x1E, 0x04, 0xFE, 0x87, 0xB4, 0xA5, 0x9E, 0x12, 0x43,
       } },
 };
+}
 
 TEST(misc_blake2s, test_vectors)
 {

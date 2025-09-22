@@ -25,6 +25,7 @@ template <size_t S> constexpr std::array<uint8_t, S> convert(const std::string_v
     return output;
 }
 
+namespace {
 static constexpr std::array<test_vector, 73> test_vectors{
     test_vector{ .input = "",
       .output = {
@@ -392,6 +393,7 @@ static constexpr std::array<test_vector, 73> test_vectors{
           0x31, 0xEC, 0x87, 0xE8, 0xE2, 0x19, 0x2E, 0x80, 0x24, 0x12, 0x53, 0xB2, 0xA9, 0x4D, 0xB0, 0x11,
       }}
 };
+}
 
 TEST(MiscBlake3s, TestVectors)
 {

@@ -638,6 +638,38 @@ fn buildLibdeflate(b: *std.Build, target: std.Build.ResolvedTarget, optimize: st
     return libdeflate_lib;
 }
 
+fn buildGTest(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
+    const gtest_dep = b.dependency("googletest", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const gtest_lib = b.addLibrary(.{
+        .name = "gtest",
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+
+    const gtest_sources = [_][]const u8{
+        "googletest/src/gtest-all.cc",
+        "googletest/src/gtest_main.cc",
+    };
+
+    gtest_lib.addCSourceFiles(.{
+        .files = &gtest_sources,
+        .flags = &[_][]const u8{"-std=c++14"},
+        .root = gtest_dep.path("."),
+    });
+
+    gtest_lib.addIncludePath(gtest_dep.path("googletest/include"));
+    gtest_lib.addIncludePath(gtest_dep.path("googletest"));
+    gtest_lib.linkLibCpp();
+
+    return gtest_lib;
+}
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
@@ -876,7 +908,20 @@ const project_paths = [_][]const u8{
     // "src/barretenberg/commitment_schemes",
     // "src/barretenberg/commitment_schemes_recursion",
     // "src/barretenberg/common",
-    "src/barretenberg/crypto",
+    "src/barretenberg/crypto/aes128",
+    "src/barretenberg/crypto/blake2s",
+    "src/barretenberg/crypto/blake3s",
+    "src/barretenberg/crypto/blake3s_full",
+    "src/barretenberg/crypto/ecdsa",
+    "src/barretenberg/crypto/generators",
+    "src/barretenberg/crypto/hmac",
+    "src/barretenberg/crypto/keccak",
+    // "src/barretenberg/crypto/merkle_tree",
+    "src/barretenberg/crypto/pedersen_commitment",
+    "src/barretenberg/crypto/pedersen_hash",
+    "src/barretenberg/crypto/poseidon2",
+    "src/barretenberg/crypto/schnorr",
+    "src/barretenberg/crypto/sha256",
     // "src/barretenberg/dsl",
     // "src/barretenberg/ecc",
     // "src/barretenberg/eccvm",
@@ -923,6 +968,7 @@ fn buildTestsForTarget(
     });
 
     const lmdb_lib = buildLmdb(b, target, optimize);
+    const gtest_lib = buildGTest(b, target, optimize);
 
     const flags = if (enable_avm) &common_flags else &no_avm_flags;
 
@@ -973,13 +1019,17 @@ fn buildTestsForTarget(
         // const libdeflate_lib = buildLibdeflate(b, target, optimize);
         const lmdb_dep = b.dependency("lmdb", .{});
         const msgpack_dep = b.dependency("msgpack", .{});
-        // test_exe.linkLibrary(libdeflate_lib);
+        const gtest_dep = b.dependency("googletest", .{});
+
         test_exe.linkLibCpp();
         test_exe.linkLibrary(lmdb_lib);
+        test_exe.linkLibrary(gtest_lib);
+        // test_exe.linkLibrary(libdeflate_lib);
         test_exe.addIncludePath(b.path("src"));
         test_exe.addIncludePath(b.path("src/tracy_stub"));
         test_exe.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
         test_exe.addIncludePath(msgpack_dep.path("include"));
+        test_exe.addIncludePath(gtest_dep.path("googletest/include"));
 
         // Platform-specific settings
         switch (target.result.os.tag) {
@@ -1028,4 +1078,22 @@ fn getProjectName(project_path: []const u8) []const u8 {
         return result;
     }
     return project_path;
+}
+
+// Convert test file path to a clean test name (e.g., "src/barretenberg/crypto/aes128/aes128.test.cpp" -> "crypto_aes128_aes128_test")
+fn getTestName(test_file_path: []const u8) []const u8 {
+    // Remove "src/barretenberg/" prefix and ".test.cpp" suffix
+    const prefix = "src/barretenberg/";
+    const suffix = ".test.cpp";
+
+    if (std.mem.startsWith(u8, test_file_path, prefix) and std.mem.endsWith(u8, test_file_path, suffix)) {
+        const middle = test_file_path[prefix.len .. test_file_path.len - suffix.len];
+        // Replace slashes and dots with underscores
+        const result = std.heap.page_allocator.dupe(u8, middle) catch return test_file_path;
+        for (result) |*char| {
+            if (char.* == '/' or char.* == '.') char.* = '_';
+        }
+        return std.fmt.allocPrint(std.heap.page_allocator, "{s}_test", .{result}) catch return test_file_path;
+    }
+    return test_file_path;
 }

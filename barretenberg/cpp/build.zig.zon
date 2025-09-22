@@ -21,5 +21,9 @@
             .url = "https://github.com/AztecProtocol/msgpack-c/archive/5ee9a1c8c325658b29867829677c7eb79c433a98.tar.gz",
             .hash = "N-V-__8AAKNnXgCffVATgTub7UmV-IbR7wQG19QHDwsuXyF8",
         },
+        .googletest = .{
+            .url = "https://github.com/google/googletest/archive/refs/tags/v1.15.2.tar.gz",
+            .hash = "122001093b5794ecf5a5b53887622c75d633af2b0c3402a266ce45c6aa4d179c53ba",
+        },
     },
 }
