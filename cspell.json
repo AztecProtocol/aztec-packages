@@ -253,6 +253,7 @@
     "prestat",
     "prevrandao",
     "println",
+    "privateland",
     "productionify",
     "protobuf",
     "protogalaxy",
@@ -263,6 +264,7 @@
     "proxify",
     "pseudocode",
     "pubkey",
+    "publicland",
     "pxes",
     "quickstart",
     "Quickstarts",
@@ -302,6 +304,7 @@
     "starknet",
     "staticcall",
     "stdlib",
+    "stringifying",
     "struct",
     "structs",
     "subarray",
@@ -395,5 +398,5 @@
     "lib",
     "*.cmake"
   ],
-  "flagWords": ["anonymous", "offence", "offences"]
+  "flagWords": ["anonymous", "offence", "offences", "on-chain", "off-chain", "out-of-band"]
 }

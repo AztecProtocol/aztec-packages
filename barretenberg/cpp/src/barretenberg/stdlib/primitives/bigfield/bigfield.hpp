@@ -939,6 +939,9 @@ template <typename Builder, typename T> class bigfield {
 
     static_assert(PROHIBITED_LIMB_BITS < MAXIMUM_LIMB_SIZE_THAT_WOULDNT_OVERFLOW);
 
+    // For testing purposes only
+    friend class bigfield_test_access;
+
   private:
     /**
      * @brief Get the witness indices of the (normalized) binary basis limbs
@@ -1122,6 +1125,31 @@ template <typename Builder, typename T> class bigfield {
         const std::array<uint256_t, NUM_LIMBS>& a_limbs, const std::array<uint256_t, NUM_LIMBS>& b_limbs);
 
 }; // namespace stdlib
+
+// NOTE: For testing private functions in bigfield
+class bigfield_test_access {
+  public:
+    template <typename bigfield>
+    static void unsafe_evaluate_multiply_add(const bigfield& input_left,
+                                             const bigfield& input_to_mul,
+                                             const std::vector<bigfield>& to_add,
+                                             const bigfield& input_quotient,
+                                             const std::vector<bigfield>& input_remainders)
+    {
+        bigfield::unsafe_evaluate_multiply_add(input_left, input_to_mul, to_add, input_quotient, input_remainders);
+    }
+
+    template <typename bigfield>
+    static void unsafe_evaluate_multiple_multiply_add(const std::vector<bigfield>& input_left,
+                                                      const std::vector<bigfield>& input_right,
+                                                      const std::vector<bigfield>& to_add,
+                                                      const bigfield& input_quotient,
+                                                      const std::vector<bigfield>& input_remainders)
+    {
+        bigfield::unsafe_evaluate_multiple_multiply_add(
+            input_left, input_right, to_add, input_quotient, input_remainders);
+    }
+};
 
 template <typename C, typename T> inline std::ostream& operator<<(std::ostream& os, bigfield<T, C> const& v)
 {

@@ -41,6 +41,7 @@ using poseidon2_hash = bb::avm2::poseidon2_hash<FF>;
 using poseidon2_perm = bb::avm2::optimized_poseidon2_perm<FF>;
 using poseidon2_mem = bb::avm2::poseidon2_mem<FF>;
 
+using simulation::DeduplicatingEventEmitter;
 using simulation::EventEmitter;
 using simulation::ExecutionIdManager;
 using simulation::FieldGreaterThan;
@@ -65,7 +66,7 @@ class Poseidon2ConstrainingTest : public ::testing::Test {
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     EventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     EventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
-    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     EventEmitter<GreaterThanEvent> gt_event_emitter;
 
     ExecutionIdManager execution_id_manager;
@@ -216,8 +217,6 @@ TEST_F(Poseidon2ConstrainingTest, NegativeHashPermInteractions)
 
     builder.process_hash(hash_event_emitter.dump_events(), trace);
 
-    // This sets the length of the inverse polynomial via SetDummyInverses, so we still need to call this even
-    // though we know it will fail.
     EXPECT_THROW_WITH_MESSAGE(
         (check_interaction<Poseidon2TraceBuilder, lookup_poseidon2_hash_poseidon2_perm_settings>(trace)),
         "Failed.*POSEIDON2_PERM. Could not find tuple in destination.");

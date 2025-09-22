@@ -33,10 +33,14 @@ export class EmpireSlashingProposerContract extends EventEmitter implements IEmp
 
   constructor(
     public readonly client: ViemClient,
-    address: Hex,
+    address: Hex | EthAddress,
   ) {
     super();
-    this.proposer = getContract({ address, abi: EmpireSlashingProposerAbi, client });
+    this.proposer = getContract({
+      address: typeof address === 'string' ? address : address.toString(),
+      abi: EmpireSlashingProposerAbi,
+      client,
+    });
   }
 
   public get address() {

@@ -1,5 +1,5 @@
 // CREATE_CHAOS_MESH should be set to true to run this test
-import { type PXE, sleep } from '@aztec/aztec.js';
+import { type AztecNode, type PXE, createAztecNodeClient, sleep } from '@aztec/aztec.js';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { createLogger } from '@aztec/foundation/log';
@@ -8,8 +8,8 @@ import { expect, jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
 
 import {
-  type TestWallets,
-  deploySponsoredTestWallets,
+  type TestAccounts,
+  deploySponsoredTestAccounts,
   performTransfers,
   startCompatiblePXE,
 } from './setup_test_wallets.js';
@@ -18,20 +18,20 @@ import { applyProverFailure, setupEnvironment, startPortForwardForEthereum, star
 const config = { ...setupEnvironment(process.env), REAL_VERIFIER: true }; // todo: remove REAL_VERIFIER condition, currently false produces invalid proofs
 const debugLogger = createLogger('e2e:spartan-test:reorg');
 
-async function checkBalances(testWallets: TestWallets, mintAmount: bigint, totalAmountTransferred: bigint) {
-  for (const w of testWallets.wallets) {
+async function checkBalances(testAccounts: TestAccounts, mintAmount: bigint, totalAmountTransferred: bigint) {
+  for (const acc of testAccounts.accounts) {
     expect(
-      await testWallets.tokenAdminWallet.methods
-        .balance_of_public(w.getAddress())
-        .simulate({ from: testWallets.tokenAdminAddress }),
+      await testAccounts.tokenContract.methods
+        .balance_of_public(acc)
+        .simulate({ from: testAccounts.tokenAdminAddress }),
     ).toBe(mintAmount - totalAmountTransferred);
   }
 
   expect(
-    await testWallets.tokenAdminWallet.methods
-      .balance_of_public(testWallets.recipientWallet.getAddress())
-      .simulate({ from: testWallets.tokenAdminAddress }),
-  ).toBe(totalAmountTransferred * BigInt(testWallets.wallets.length));
+    await testAccounts.tokenContract.methods
+      .balance_of_public(testAccounts.recipientAddress)
+      .simulate({ from: testAccounts.tokenAdminAddress }),
+  ).toBe(totalAmountTransferred * BigInt(testAccounts.accounts.length));
 }
 
 describe('reorg test', () => {
@@ -44,8 +44,9 @@ describe('reorg test', () => {
   const forwardProcesses: ChildProcess[] = [];
   let rpcUrl: string;
 
-  let testWallets: TestWallets;
+  let testAccounts: TestAccounts;
   let pxe: PXE;
+  let node: AztecNode;
   let cleanup: undefined | (() => Promise<void>);
 
   afterAll(async () => {
@@ -62,24 +63,25 @@ describe('reorg test', () => {
     rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
     ETHEREUM_HOSTS = [`http://127.0.0.1:${ethPort}`];
 
+    node = createAztecNodeClient(rpcUrl);
     ({ pxe, cleanup } = await startCompatiblePXE(rpcUrl, config.REAL_VERIFIER, debugLogger));
-    testWallets = await deploySponsoredTestWallets(pxe, MINT_AMOUNT, debugLogger);
+    testAccounts = await deploySponsoredTestAccounts(pxe, node, MINT_AMOUNT, debugLogger);
   });
 
   it('survives a reorg', async () => {
     const rollupCheatCodes = new RollupCheatCodes(
       new EthCheatCodesWithState(ETHEREUM_HOSTS),
-      await pxe.getNodeInfo().then(n => n.l1ContractAddresses),
+      await testAccounts.aztecNode.getNodeInfo().then(n => n.l1ContractAddresses),
     );
     const { epochDuration, slotDuration } = await rollupCheatCodes.getConfig();
 
     await performTransfers({
-      testWallets,
+      testAccounts,
       rounds: Number(epochDuration) * SETUP_EPOCHS,
       transferAmount: TRANSFER_AMOUNT,
       logger: debugLogger,
     });
-    await checkBalances(testWallets, MINT_AMOUNT, TRANSFER_AMOUNT * epochDuration * BigInt(SETUP_EPOCHS));
+    await checkBalances(testAccounts, MINT_AMOUNT, TRANSFER_AMOUNT * epochDuration * BigInt(SETUP_EPOCHS));
 
     // get the tips before the reorg
     const { pending: preReorgPending, proven: preReorgProven } = await rollupCheatCodes.getTips();
@@ -107,11 +109,11 @@ describe('reorg test', () => {
     // Restart the PXE
     ({ pxe, cleanup } = await startCompatiblePXE(rpcUrl, config.REAL_VERIFIER, debugLogger));
     await sleep(30 * 1000);
-    testWallets = await deploySponsoredTestWallets(pxe, MINT_AMOUNT, debugLogger);
+    testAccounts = await deploySponsoredTestAccounts(pxe, node, MINT_AMOUNT, debugLogger);
     // TODO(#9327): end delete
 
     await performTransfers({
-      testWallets,
+      testAccounts,
       rounds: Number(epochDuration) * SETUP_EPOCHS,
       transferAmount: TRANSFER_AMOUNT,
       logger: debugLogger,

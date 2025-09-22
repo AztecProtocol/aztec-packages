@@ -1,3 +1,4 @@
+import type { L1ContractAddresses } from '@aztec/ethereum';
 import type { ApiSchemaFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
@@ -23,6 +24,41 @@ import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import { GetContractClassLogsResponseSchema, GetPublicLogsResponseSchema } from './get_logs_response.js';
 import type { L2LogsSource } from './l2_logs_source.js';
+
+/**
+ * The archiver configuration.
+ */
+export type ArchiverSpecificConfig = {
+  /** The polling interval in ms for retrieving new L2 blocks and encrypted logs. */
+  archiverPollingIntervalMS?: number;
+
+  /** The number of L2 blocks the archiver will attempt to download at a time. */
+  archiverBatchSize?: number;
+
+  /** The polling interval viem uses in ms */
+  viemPollingIntervalMS?: number;
+
+  /** The deployed L1 contract addresses */
+  l1Contracts: L1ContractAddresses;
+
+  /** The max number of logs that can be obtained in 1 "getPublicLogs" call. */
+  maxLogs?: number;
+
+  /** The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKB. */
+  archiverStoreMapSizeKb?: number;
+
+  /** Whether to skip validating block attestations (use only for testing). */
+  skipValidateBlockAttestations?: boolean;
+};
+
+export const ArchiverSpecificConfigSchema = z.object({
+  archiverPollingIntervalMS: schemas.Integer.optional(),
+  archiverBatchSize: schemas.Integer.optional(),
+  viemPollingIntervalMS: schemas.Integer.optional(),
+  maxLogs: schemas.Integer.optional(),
+  archiverStoreMapSizeKb: schemas.Integer.optional(),
+  skipValidateBlockAttestations: z.boolean().optional(),
+});
 
 export type ArchiverApi = Omit<
   L2BlockSource & L2LogsSource & ContractDataSource & L1ToL2MessageSource,

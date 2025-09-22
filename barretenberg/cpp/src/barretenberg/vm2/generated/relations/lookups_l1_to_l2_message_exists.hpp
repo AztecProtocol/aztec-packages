@@ -18,7 +18,7 @@ struct lookup_l1_to_l2_message_exists_l1_to_l2_msg_leaf_index_in_range_settings_
     static constexpr std::string_view RELATION_NAME = "l1_to_l2_message_exists";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_l1_to_l2_message_exists;
-    static constexpr Column DST_SELECTOR = Column::gt_sel;
+    static constexpr Column DST_SELECTOR = Column::gt_sel_others;
     static constexpr Column COUNTS = Column::lookup_l1_to_l2_message_exists_l1_to_l2_msg_leaf_index_in_range_counts;
     static constexpr Column INVERSES = Column::lookup_l1_to_l2_message_exists_l1_to_l2_msg_leaf_index_in_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {

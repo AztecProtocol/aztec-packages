@@ -2,7 +2,7 @@
 #include "barretenberg/honk/utils/testing.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
-#include "barretenberg/ultra_honk/decider_keys.hpp"
+#include "barretenberg/ultra_honk/instances.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
@@ -10,7 +10,7 @@ using namespace bb;
 using Flavor = MegaFlavor;
 using Polynomial = typename Flavor::Polynomial;
 using FF = typename Flavor::FF;
-constexpr size_t NUM_KEYS = 2;
+constexpr size_t NUM_INSTANCES = 2;
 
 /**
  * @brief Extend the ProtogalaxyProverInternal class to compute the combiner *without* optimistically skipping
@@ -22,13 +22,13 @@ constexpr size_t NUM_KEYS = 2;
  * we can test whether the optimistic skipping algorithm produces the correct result
  *
  */
-class PGInternalTest : public ProtogalaxyProverInternal<DeciderProvingKeys_<Flavor, NUM_KEYS>> {
+class PGInternalTest : public ProtogalaxyProverInternal<ProverInstances_<Flavor, NUM_INSTANCES>> {
   public:
     using ExtendedUnivariatesNoOptimisticSkipping =
         typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH>;
 
     using UnivariateRelationParametersNoOptimisticSkipping =
-        bb::RelationParameters<Univariate<FF, DeciderPKs::EXTENDED_LENGTH>>;
+        bb::RelationParameters<Univariate<FF, ProverInstances::EXTENDED_LENGTH>>;
     using ExtendedUnivariatesTypeNoOptimisticSkipping =
         std::conditional_t<Flavor::USE_SHORT_MONOMIALS, ShortUnivariates, ExtendedUnivariatesNoOptimisticSkipping>;
 
@@ -37,7 +37,7 @@ class PGInternalTest : public ProtogalaxyProverInternal<DeciderProvingKeys_<Flav
      * @details This is only used for testing the combiner calculation.
      */
     ExtendedUnivariateWithRandomization compute_combiner_no_optimistic_skipping(
-        const DeciderPKs& keys,
+        const ProverInstances& keys,
         const GateSeparatorPolynomial<FF>& gate_separators,
         const UnivariateRelationParametersNoOptimisticSkipping& relation_parameters,
         const UnivariateSubrelationSeparators& alphas)
@@ -59,7 +59,7 @@ class PGInternalTest : public ProtogalaxyProverInternal<DeciderProvingKeys_<Flav
      * @return ExtendedUnivariateWithRandomization
      */
     ExtendedUnivariateWithRandomization compute_combiner_no_optimistic_skipping(
-        const DeciderPKs& keys,
+        const ProverInstances& keys,
         const GateSeparatorPolynomial<FF>& gate_separators,
         const UnivariateRelationParametersNoOptimisticSkipping& relation_parameters,
         const UnivariateSubrelationSeparators& alphas,
@@ -172,8 +172,8 @@ class PGInternalTest : public ProtogalaxyProverInternal<DeciderProvingKeys_<Flav
 // arithmetic relation so we more than unit test folding relation parameters and alpha as well.
 TEST(Protogalaxy, CombinerOn2Keys)
 {
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
-    using DeciderProvingKeys = DeciderProvingKeys_<Flavor, NUM_KEYS>;
+    using ProverInstance = ProverInstance_<Flavor>;
+    using ProverInstances = ProverInstances_<Flavor, NUM_INSTANCES>;
 
     const auto restrict_to_standard_arithmetic_relation = [](auto& polys) {
         std::fill(polys.q_arith.coeffs().begin(), polys.q_arith.coeffs().end(), 1);
@@ -195,10 +195,10 @@ TEST(Protogalaxy, CombinerOn2Keys)
         // Combiner test on prover polynomials containing random values, restricted to only the standard arithmetic
         // relation.
         if (is_random_input) {
-            std::vector<std::shared_ptr<DeciderProvingKey>> keys_data(NUM_KEYS);
+            std::vector<std::shared_ptr<ProverInstance>> keys_data(NUM_INSTANCES);
 
-            for (size_t idx = 0; idx < NUM_KEYS; idx++) {
-                auto key = std::make_shared<DeciderProvingKey>();
+            for (size_t idx = 0; idx < NUM_INSTANCES; idx++) {
+                auto key = std::make_shared<ProverInstance>();
                 auto prover_polynomials = get_sequential_prover_polynomials<Flavor>(
                     /*log_circuit_size=*/1, idx * 128);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
@@ -207,7 +207,7 @@ TEST(Protogalaxy, CombinerOn2Keys)
                 keys_data[idx] = key;
             }
 
-            DeciderProvingKeys keys{ keys_data };
+            ProverInstances keys{ keys_data };
             PGInternalTest::UnivariateSubrelationSeparators alphas;
             alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
             GateSeparatorPolynomial<FF> gate_separators({ 2 }, /*log_num_monomials=*/1);
@@ -229,10 +229,10 @@ TEST(Protogalaxy, CombinerOn2Keys)
                                                                           9171435464UL });
             EXPECT_EQ(result_no_skipping, expected_result);
         } else {
-            std::vector<std::shared_ptr<DeciderProvingKey>> keys_data(NUM_KEYS);
+            std::vector<std::shared_ptr<ProverInstance>> keys_data(NUM_INSTANCES);
 
-            for (size_t idx = 0; idx < NUM_KEYS; idx++) {
-                auto key = std::make_shared<DeciderProvingKey>();
+            for (size_t idx = 0; idx < NUM_INSTANCES; idx++) {
+                auto key = std::make_shared<ProverInstance>();
                 auto prover_polynomials = get_zero_prover_polynomials<Flavor>(
                     /*log_circuit_size=*/1);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
@@ -241,7 +241,7 @@ TEST(Protogalaxy, CombinerOn2Keys)
                 keys_data[idx] = key;
             }
 
-            DeciderProvingKeys keys{ keys_data };
+            ProverInstances keys{ keys_data };
             PGInternalTest::UnivariateSubrelationSeparators alphas;
             alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
 
@@ -270,7 +270,7 @@ TEST(Protogalaxy, CombinerOn2Keys)
             restrict_to_standard_arithmetic_relation(keys[0]->polynomials);
             restrict_to_standard_arithmetic_relation(keys[1]->polynomials);
 
-            /* DeciderProvingKey 0                            DeciderProvingKey 1
+            /* ProverInstance 0                            ProverInstance 1
                 w_l w_r w_o q_m q_l q_r q_o q_c               w_l w_r w_o q_m q_l q_r q_o q_c
                 1   2   3   0   1   1   -1  0                 3   4   7   0   1   1   -1  0
                 0   4   4   0   1   1   -1  0                 1   4   4   1   0   0   -1  0             */
@@ -310,8 +310,8 @@ TEST(Protogalaxy, CombinerOn2Keys)
 // Check that the optimized combiner computation yields a result consistent with the unoptimized version
 TEST(Protogalaxy, CombinerOptimizationConsistency)
 {
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
-    using DeciderProvingKeys = DeciderProvingKeys_<Flavor, NUM_KEYS>;
+    using ProverInstance = ProverInstance_<Flavor>;
+    using ProverInstances = ProverInstances_<Flavor, NUM_INSTANCES>;
     using UltraArithmeticRelation = UltraArithmeticRelation<FF>;
 
     constexpr size_t UNIVARIATE_LENGTH = 12;
@@ -333,11 +333,11 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
         // Combiner test on prover polynomisls containing random values, restricted to only the standard arithmetic
         // relation.
         if (is_random_input) {
-            std::vector<std::shared_ptr<DeciderProvingKey>> keys_data(NUM_KEYS);
-            ASSERT_EQ(NUM_KEYS, 2U); // Don't want to handle more here
+            std::vector<std::shared_ptr<ProverInstance>> keys_data(NUM_INSTANCES);
+            ASSERT_EQ(NUM_INSTANCES, 2U); // Don't want to handle more here
 
-            for (size_t idx = 0; idx < NUM_KEYS; idx++) {
-                auto key = std::make_shared<DeciderProvingKey>();
+            for (size_t idx = 0; idx < NUM_INSTANCES; idx++) {
+                auto key = std::make_shared<ProverInstance>();
                 auto prover_polynomials = get_sequential_prover_polynomials<Flavor>(
                     /*log_circuit_size=*/1, idx * 128);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
@@ -346,7 +346,7 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
                 keys_data[idx] = key;
             }
 
-            DeciderProvingKeys keys{ keys_data };
+            ProverInstances keys{ keys_data };
             PGInternalTest::UnivariateSubrelationSeparators alphas;
             alphas.fill(bb::Univariate<FF, UNIVARIATE_LENGTH>(FF(0))); // focus on the arithmetic relation only
             GateSeparatorPolynomial<FF> gate_separators({ 2 }, /*log_num_monomials=*/1);
@@ -361,7 +361,7 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             // Accumulate arithmetic relation over 2 rows on the second key
             for (size_t i = 0; i < 2; i++) {
                 UltraArithmeticRelation::accumulate(std::get<0>(temporary_accumulator),
-                                                    keys_data[NUM_KEYS - 1]->polynomials.get_row(i),
+                                                    keys_data[NUM_INSTANCES - 1]->polynomials.get_row(i),
                                                     relation_parameters,
                                                     gate_separators[i]);
             }
@@ -373,9 +373,9 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
                 extended_polynomials; // These hold the extensions of prover polynomials
 
             // Manually extend all polynomials. Create new ProverPolynomials from extended values
-            for (size_t idx = NUM_KEYS; idx < UNIVARIATE_LENGTH; idx++) {
+            for (size_t idx = NUM_INSTANCES; idx < UNIVARIATE_LENGTH; idx++) {
 
-                auto key = std::make_shared<DeciderProvingKey>();
+                auto key = std::make_shared<ProverInstance>();
                 auto prover_polynomials = get_zero_prover_polynomials<Flavor>(1);
                 for (auto [key_0_polynomial, key_1_polynomial, new_polynomial] :
                      zip_view(keys_data[0]->polynomials.get_all(),
@@ -393,7 +393,7 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             for (size_t idx = 0; idx < UNIVARIATE_LENGTH; idx++) {
                 // Note: {} is required to initialize the tuple contents. Otherwise the values contain garbage.
                 TupleOfArraysOfValues accumulator{};
-                if (idx < NUM_KEYS) {
+                if (idx < NUM_INSTANCES) {
                     for (size_t i = 0; i < 2; i++) {
                         UltraArithmeticRelation::accumulate(std::get<0>(accumulator),
                                                             keys_data[idx]->polynomials.get_row(i),
@@ -403,7 +403,7 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
                 } else {
                     for (size_t i = 0; i < 2; i++) {
                         UltraArithmeticRelation::accumulate(std::get<0>(accumulator),
-                                                            extended_polynomials[idx - NUM_KEYS].get_row(i),
+                                                            extended_polynomials[idx - NUM_INSTANCES].get_row(i),
                                                             relation_parameters,
                                                             gate_separators[i]);
                     }
@@ -421,10 +421,10 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             EXPECT_EQ(result_no_skipping, expected_result);
             EXPECT_EQ(result_with_skipping, expected_result);
         } else {
-            std::vector<std::shared_ptr<DeciderProvingKey>> keys_data(NUM_KEYS);
+            std::vector<std::shared_ptr<ProverInstance>> keys_data(NUM_INSTANCES);
 
-            for (size_t idx = 0; idx < NUM_KEYS; idx++) {
-                auto key = std::make_shared<DeciderProvingKey>();
+            for (size_t idx = 0; idx < NUM_INSTANCES; idx++) {
+                auto key = std::make_shared<ProverInstance>();
                 auto prover_polynomials = get_zero_prover_polynomials<Flavor>(
                     /*log_circuit_size=*/1);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
@@ -433,7 +433,7 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
                 keys_data[idx] = key;
             }
 
-            DeciderProvingKeys keys{ keys_data };
+            ProverInstances keys{ keys_data };
             PGInternalTest::UnivariateSubrelationSeparators alphas;
             alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
 
@@ -462,7 +462,7 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             restrict_to_standard_arithmetic_relation(keys[0]->polynomials);
             restrict_to_standard_arithmetic_relation(keys[1]->polynomials);
 
-            /* DeciderProvingKey 0                            DeciderProvingKey 1
+            /* ProverInstance 0                            ProverInstance 1
                 w_l w_r w_o q_m q_l q_r q_o q_c               w_l w_r w_o q_m q_l q_r q_o q_c
                 1   2   3   0   1   1   -1  0                 3   4   7   0   1   1   -1  0
                 0   4   4   0   1   1   -1  0                 1   4   4   1   0   0   -1  0             */

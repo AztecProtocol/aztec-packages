@@ -2,10 +2,11 @@ import { runInDirectory } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
-import type {
-  ClientProtocolArtifact,
-  ProtocolArtifact,
-  ServerProtocolArtifact,
+import {
+  type ClientProtocolArtifact,
+  type ProtocolArtifact,
+  type ServerProtocolArtifact,
+  mapProtocolArtifactNameToCircuitName,
 } from '@aztec/noir-protocol-circuits-types/types';
 import type { ClientProtocolCircuitVerifier, IVCProofVerificationResult } from '@aztec/stdlib/interfaces/server';
 import type { Proof } from '@aztec/stdlib/proofs';
@@ -27,7 +28,6 @@ import {
 import type { BBConfig } from '../config.js';
 import { getUltraHonkFlavorForCircuit } from '../honk.js';
 import { writeClientIVCProofToPath } from '../prover/proof_utils.js';
-import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 
 export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
   private constructor(

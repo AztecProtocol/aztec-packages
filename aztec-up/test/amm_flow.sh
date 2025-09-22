@@ -52,7 +52,6 @@ aztec-wallet \
 
 aztec-wallet \
   register-contract $canonical_sponsored_fpc_address SponsoredFPC \
-  -f accounts:main \
   --salt 0
 
 aztec-wallet \

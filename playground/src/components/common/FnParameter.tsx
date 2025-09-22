@@ -1,8 +1,8 @@
-import { type ABIParameter, type AbiType, AztecAddress, isAddressStruct } from '@aztec/aztec.js';
+import { type ABIParameter, type AbiType, type Aliased, AztecAddress, isAddressStruct } from '@aztec/aztec.js';
 import { formatFrAsString, parseAliasedBuffersAsString } from '../../utils/conversion';
 import { useContext, useState } from 'react';
 import EditIcon from '@mui/icons-material/Edit';
-import { AztecContext } from '../../aztecEnv';
+import { AztecContext } from '../../aztecContext';
 import TextField from '@mui/material/TextField';
 import { css } from '@mui/styled-engine';
 import Autocomplete from '@mui/material/Autocomplete';
@@ -10,7 +10,6 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { capitalize } from '@mui/material/utils';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
-
 
 const container = css({
   display: 'flex',
@@ -31,12 +30,12 @@ interface FunctionParameterProps {
 }
 
 export function FunctionParameter({ parameter, required, onParameterChange, defaultValue }: FunctionParameterProps) {
-  const { walletDB } = useContext(AztecContext);
+  const { wallet, playgroundDB } = useContext(AztecContext);
 
   const [manualInput, setManualInput] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [aliasedAddresses, setAliasedAddresses] = useState([]);
+  const [aliasedAddresses, setAliasedAddresses] = useState<Aliased<AztecAddress>[]>([]);
   // Controlled input value only for structs
   const [value, setValue] = useState(defaultValue);
 
@@ -48,8 +47,7 @@ export function FunctionParameter({ parameter, required, onParameterChange, defa
           let bigintValue;
           if (newValue.startsWith('0x')) {
             bigintValue = BigInt(newValue);
-          }
-          else {
+          } else {
             bigintValue = BigInt(newValue);
           }
           setError('');
@@ -70,13 +68,16 @@ export function FunctionParameter({ parameter, required, onParameterChange, defa
   const handleOpen = () => {
     const setAliases = async () => {
       setLoading(true);
-      const accountAliases = await walletDB.listAliases('accounts');
-      const contractAliases = await walletDB.listAliases('contracts');
-      const senderAliases = await walletDB.listAliases('senders');
-      setAliasedAddresses(parseAliasedBuffersAsString([...accountAliases, ...contractAliases, ...senderAliases]));
+      const accounts = await wallet.getAccounts();
+      const senders = await wallet.getSenders();
+
+      const contracts = parseAliasedBuffersAsString(await playgroundDB.listAliases('contracts')).map(
+        ({ alias, item }) => ({ alias, item: AztecAddress.fromString(item) }),
+      );
+      setAliasedAddresses([...accounts, ...senders, ...contracts]);
       setLoading(false);
     };
-    if (walletDB) {
+    if (wallet && playgroundDB) {
       setAliases();
     }
   };
@@ -104,17 +105,17 @@ export function FunctionParameter({ parameter, required, onParameterChange, defa
   // type can be 'field','boolean','integer','array','tuple','string','struct'
 
   if (isAddressStruct(parameter.type)) {
-    const options = aliasedAddresses.map(alias => ({
-      id: alias.value,
-      label: `${alias.key} (${formatFrAsString(alias.value)})`,
-    }))
+    const options = aliasedAddresses.map(address => ({
+      id: address.item.toString(),
+      label: `${address.alias} (${formatFrAsString(address.item.toString())})`,
+    }));
 
     // Add zero address option
     const zeroAddress = AztecAddress.ZERO.toString();
     options.push({
       id: zeroAddress,
       label: formatFrAsString(zeroAddress),
-    })
+    });
 
     return (
       <div css={container}>
@@ -139,7 +140,7 @@ export function FunctionParameter({ parameter, required, onParameterChange, defa
                 {...params}
                 required={required}
                 label={capitalize(parameter.name)}
-                size='small'
+                size="small"
                 slotProps={{
                   input: {
                     ...params.InputProps,
@@ -161,7 +162,7 @@ export function FunctionParameter({ parameter, required, onParameterChange, defa
             css={css}
             variant="outlined"
             defaultValue={defaultValue}
-            size='small'
+            size="small"
             type="text"
             label={`${capitalize(parameter.name)}  (${getParameterLabel(parameter.type)})`}
             onChange={e => {
@@ -173,7 +174,7 @@ export function FunctionParameter({ parameter, required, onParameterChange, defa
           <EditIcon />
         </IconButton>
       </div>
-    )
+    );
   }
 
   if (parameter.type.kind === 'struct') {
@@ -184,12 +185,12 @@ export function FunctionParameter({ parameter, required, onParameterChange, defa
         </Typography>
 
         <div style={{ marginLeft: '1rem', width: 'calc(100% - 1rem)' }}>
-          {parameter.type.fields.map((field) => (
+          {parameter.type.fields.map(field => (
             <FunctionParameter
               key={field.name}
               parameter={{ ...field, visibility: parameter.visibility }}
               required={required}
-              onParameterChange={(nv) => {
+              onParameterChange={nv => {
                 const newValues = Object.assign({}, value);
                 newValues[field.name] = nv;
                 setValue(newValues);
@@ -200,7 +201,7 @@ export function FunctionParameter({ parameter, required, onParameterChange, defa
           ))}
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -211,7 +212,7 @@ export function FunctionParameter({ parameter, required, onParameterChange, defa
         css={css}
         variant="outlined"
         defaultValue={defaultValue}
-        size='small'
+        size="small"
         disabled={['array', 'tuple'].includes(parameter.type.kind)}
         key={parameter.name}
         type="text"

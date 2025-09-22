@@ -373,8 +373,16 @@ template <typename Builder_> class field_t {
                                                const bool_t<Builder>& t1,
                                                const bool_t<Builder>& t0);
 
-    static void evaluate_linear_identity(const field_t& a, const field_t& b, const field_t& c, const field_t& d);
-    static void evaluate_polynomial_identity(const field_t& a, const field_t& b, const field_t& c, const field_t& d);
+    static void evaluate_linear_identity(const field_t& a,
+                                         const field_t& b,
+                                         const field_t& c,
+                                         const field_t& d,
+                                         const std::string& msg = "field_t::evaluate_linear_identity");
+    static void evaluate_polynomial_identity(const field_t& a,
+                                             const field_t& b,
+                                             const field_t& c,
+                                             const field_t& d,
+                                             const std::string& msg = "field_t::evaluate_polynomial_identity");
 
     static field_t accumulate(const std::vector<field_t>& input);
 
@@ -388,7 +396,7 @@ template <typename Builder_> class field_t {
 
     Builder* get_context() const { return context; }
 
-    std::pair<field_t<Builder>, field_t<Builder>> split_at(
+    std::pair<field_t<Builder>, field_t<Builder>> no_wrap_split_at(
         const size_t lsb_index, const size_t num_bits = grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH) const;
 
     bool_t<Builder> is_zero() const;

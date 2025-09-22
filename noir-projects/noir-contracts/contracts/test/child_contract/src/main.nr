@@ -6,8 +6,8 @@ pub contract Child {
     use dep::aztec::protocol_types::address::AztecAddress;
 
     use dep::aztec::{
-        event::event_interface::MessageDelivery,
         macros::{functions::{internal, private, public}, storage::storage},
+        messages::message_delivery::MessageDelivery,
         note::{note_getter_options::NoteGetterOptions, note_interface::NoteProperties},
         state_vars::{Map, PrivateSet, PublicMutable},
         utils::comparison::Comparator,

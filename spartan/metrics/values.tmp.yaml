@@ -116,9 +116,8 @@ grafana:
     server:
       domain:
   env:
-    PRODUCTION_NAMESPACES_REGEX: "testnet"
-    STAGING_NAMESPACES_REGEX: "staging-testnet"
-    NIGHTLY_NAMESPACES_REGEX: "staging-rc-1|next-rc-1"
+    PRODUCTION_NAMESPACES_REGEX: "testnet|v2-testnet|staging-public|staging-ignition"
+    NIGHTLY_NAMESPACES_REGEX: "next-rc-1"
     SLACK_WEBHOOK_URL: "http://127.0.0.1" # dummy value
   datasources:
     datasources.yaml:

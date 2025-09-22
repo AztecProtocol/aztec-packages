@@ -58,7 +58,6 @@ export class PublicProcessorFactory {
 
   /**
    * Creates a new instance of a PublicProcessor.
-   * @param historicalHeader - The header of a block previous to the one in which the tx is included.
    * @param globalVariables - The global variables for the block being processed.
    * @param skipFeeEnforcement - Allows disabling balance checks for fee estimations.
    * @returns A new instance of a PublicProcessor.
@@ -154,7 +153,7 @@ export class PublicProcessor implements Traceable {
     limits: PublicProcessorLimits = {},
     validator: PublicProcessorValidator = {},
   ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[]]> {
-    const { maxTransactions, maxBlockSize, deadline, maxBlockGas } = limits;
+    const { maxTransactions, maxBlockSize, deadline, maxBlockGas, maxBlobFields } = limits;
     const { preprocessValidator, nullifierCache } = validator;
     const result: ProcessedTx[] = [];
     const usedTxs: Tx[] = [];
@@ -165,6 +164,7 @@ export class PublicProcessor implements Traceable {
     let returns: NestedProcessReturnValues[] = [];
     let totalPublicGas = new Gas(0, 0);
     let totalBlockGas = new Gas(0, 0);
+    let totalBlobFields = 0;
 
     for await (const origTx of txs) {
       // Only process up to the max tx limit
@@ -252,6 +252,23 @@ export class PublicProcessor implements Traceable {
           continue;
         }
 
+        // If the actual blob fields of this tx would exceed the limit, skip it
+        const txBlobFields = processedTx.txEffect.toBlobFields().length;
+        if (maxBlobFields !== undefined && totalBlobFields + txBlobFields > maxBlobFields) {
+          this.log.debug(
+            `Skipping processed tx ${txHash} with ${txBlobFields} blob fields due to max blob fields limit.`,
+            {
+              txHash,
+              txBlobFields,
+              totalBlobFields,
+              maxBlobFields,
+            },
+          );
+          // Need to revert the checkpoint here and don't go any further
+          await checkpoint.revert();
+          continue;
+        }
+
         // FIXME(fcarreiro): it's ugly to have to notify the validator of nullifiers.
         // I'd rather pass the validators the processedTx as well and let them deal with it.
         nullifierCache?.addNullifiers(processedTx.txEffect.nullifiers.map(n => n.toBuffer()));
@@ -262,6 +279,7 @@ export class PublicProcessor implements Traceable {
         totalPublicGas = totalPublicGas.add(processedTx.gasUsed.publicGas);
         totalBlockGas = totalBlockGas.add(processedTx.gasUsed.totalGas);
         totalSizeInBytes += txSize;
+        totalBlobFields += txBlobFields;
       } catch (err: any) {
         if (err?.name === 'PublicProcessorTimeoutError') {
           this.log.warn(`Stopping tx processing due to timeout.`);

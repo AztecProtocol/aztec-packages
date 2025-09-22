@@ -34,20 +34,20 @@ template <typename FF> class sload : public Relation<sloadImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "sload";
 
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_SLOAD_FF_OUTPUT_TAG = 0;
+    static constexpr size_t SR_SLOAD_SUCCESS = 1;
+
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case 0:
+        case SR_SLOAD_FF_OUTPUT_TAG:
             return "SLOAD_FF_OUTPUT_TAG";
-        case 1:
+        case SR_SLOAD_SUCCESS:
             return "SLOAD_SUCCESS";
         }
         return std::to_string(index);
     }
-
-    // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_SLOAD_FF_OUTPUT_TAG = 0;
-    static constexpr size_t SR_SLOAD_SUCCESS = 1;
 };
 
 } // namespace bb::avm2

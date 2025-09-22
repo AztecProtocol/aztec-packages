@@ -1,7 +1,5 @@
 import { keccak256String } from '@aztec/foundation/crypto';
 
-import deterministicStringify from 'json-stringify-deterministic';
-
 import { Oracle } from '../contract_function_simulator/oracle/oracle.js';
 import { TypedOracle } from '../contract_function_simulator/oracle/typed_oracle.js';
 import { ORACLE_INTERFACE_HASH } from '../oracle_version.js';
@@ -23,8 +21,13 @@ class OracleMock extends TypedOracle {}
  */
 function assertOracleInterfaceMatches(): void {
   const oracle = new Oracle(new OracleMock('OracleMock'));
+  const acirCallback = oracle.toACIRCallback();
+  // Create a hashable representation of the oracle interface by concatenating its method names. Return values are
+  // excluded from the hash calculation since they are typically arrays of fields and I didn't manage to reliably
+  // stringify them.
+  const oracleInterfaceMethodNames = Object.keys(acirCallback).sort().join('');
   // We use keccak256 here just because we already have it in the dependencies.
-  const oracleInterfaceHash = keccak256String(deterministicStringify(oracle.toACIRCallback()));
+  const oracleInterfaceHash = keccak256String(oracleInterfaceMethodNames);
   if (oracleInterfaceHash !== ORACLE_INTERFACE_HASH) {
     // This check exists only to notify you when you need to update the ORACLE_VERSION constant.
     throw new Error(

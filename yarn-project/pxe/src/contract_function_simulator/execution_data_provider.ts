@@ -9,7 +9,6 @@ import { IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, NodeStats } from '@aztec/stdlib/tx';
-import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { MessageLoadOracleInputs } from './oracle/message_load_oracle_inputs.js';
 import type { NoteData } from './oracle/typed_oracle.js';
@@ -146,11 +145,12 @@ export interface ExecutionDataProvider {
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
 
   /**
-   * Retrieve the latest block header synchronized by the PXE.
-   * @dev This structure is fed into the circuits simulator and is used to prove against certain historical roots.
-   * @returns The BlockHeader object.
+   * Retrieve the latest block header synchronized by the execution data provider. This block header is referred
+   * to as the anchor block header in Aztec terminology and it defines the state that is used during private function
+   * execution.
+   * @returns The anchor block header.
    */
-  getBlockHeader(): Promise<BlockHeader>;
+  getAnchorBlockHeader(): Promise<BlockHeader>;
 
   /**
    * Fetches the index and sibling path of a leaf at a given block from a given tree.
@@ -213,30 +213,6 @@ export interface ExecutionDataProvider {
    * @param version - The expected version.
    */
   assertCompatibleOracleVersion(version: number): void;
-
-  /**
-   * Fetches the latest block number synchronized by the node.
-   * @returns The block number.
-   */
-  getBlockNumber(): Promise<number>;
-
-  /**
-   * Fetches the timestamp of the latest block synchronized by the node.
-   * @returns The timestamp.
-   */
-  getTimestamp(): Promise<UInt64>;
-
-  /**
-   * Fetches the current chain id.
-   * @returns The chain id.
-   */
-  getChainId(): Promise<number>;
-
-  /**
-   * Fetches the current chain id.
-   * @returns The chain id.
-   */
-  getVersion(): Promise<number>;
 
   /**
    * Returns the tagging secret for a given sender and recipient pair. For this to work, the ivsk_m of the sender must be known.

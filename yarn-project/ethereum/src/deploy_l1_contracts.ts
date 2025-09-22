@@ -10,6 +10,7 @@ import type { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import type { Abi, Narrow } from 'abitype';
 import { mkdir, writeFile } from 'fs/promises';
+import chunk from 'lodash.chunk';
 import {
   type Chain,
   type ContractConstructorArgs,
@@ -74,8 +75,6 @@ import { formatViemError } from './utils.js';
 import { ZK_PASSPORT_DOMAIN, ZK_PASSPORT_SCOPE, ZK_PASSPORT_VERIFIER_ADDRESS } from './zkPassportVerifierAddress.js';
 
 export const DEPLOYER_ADDRESS: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
-
-const networkName = getActiveNetworkName();
 
 export type Operator = {
   attester: EthAddress;
@@ -182,6 +181,8 @@ export const deploySharedContracts = async (
   args: DeployL1ContractsArgs,
   logger: Logger,
 ) => {
+  const networkName = getActiveNetworkName();
+
   logger.info(`Deploying shared contracts for network configuration: ${networkName}`);
 
   const txHashes: Hex[] = [];
@@ -260,7 +261,7 @@ export const deploySharedContracts = async (
 
   const coinIssuerAddress = await deployer.deploy(CoinIssuerArtifact, [
     feeAssetAddress.toString(),
-    1_000_000n * 10n ** 18n, // @todo  #8084
+    (25_000_000_000n * 10n ** 18n) / (60n * 60n * 24n * 365n),
     l1Client.account.address,
   ]);
   logger.verbose(`Deployed CoinIssuer at ${coinIssuerAddress}`);
@@ -313,6 +314,7 @@ export const deploySharedContracts = async (
         stakingAsset: stakingAssetAddress.toString(),
         registry: registryAddress.toString(),
         withdrawer: AMIN.toString(),
+        validatorsToFlush: 16n,
         mintInterval: BigInt(60 * 60 * 24),
         depositsPerMint: BigInt(10),
         depositMerkleRoot: '0x0000000000000000000000000000000000000000000000000000000000000000',
@@ -506,6 +508,7 @@ export const deployRollup = async (
   if (!addresses.gseAddress) {
     throw new Error('GSE address is required when deploying');
   }
+  const networkName = getActiveNetworkName();
 
   logger.info(`Deploying rollup using network configuration: ${networkName}`);
 
@@ -530,6 +533,7 @@ export const deployRollup = async (
     aztecSlotDuration: BigInt(args.aztecSlotDuration),
     aztecEpochDuration: BigInt(args.aztecEpochDuration),
     targetCommitteeSize: BigInt(args.aztecTargetCommitteeSize),
+    lagInEpochs: BigInt(args.lagInEpochs),
     aztecProofSubmissionEpochs: BigInt(args.aztecProofSubmissionEpochs),
     slashingQuorum: BigInt(args.slashingQuorum ?? (args.slashingRoundSizeInEpochs * args.aztecEpochDuration) / 2 + 1),
     slashingRoundSize: BigInt(args.slashingRoundSizeInEpochs * args.aztecEpochDuration),
@@ -540,13 +544,14 @@ export const deployRollup = async (
     provingCostPerMana: args.provingCostPerMana,
     rewardConfig: rewardConfig,
     version: 0,
-    rewardBoostConfig: getRewardBoostConfig(networkName),
+    rewardBoostConfig: getRewardBoostConfig(),
     stakingQueueConfig: getEntryQueueConfig(networkName),
     exitDelaySeconds: BigInt(args.exitDelaySeconds),
     slasherFlavor: slasherFlavorToSolidityEnum(args.slasherFlavor),
     slashingOffsetInRounds: BigInt(args.slashingOffsetInRounds),
     slashAmounts: [args.slashAmountSmall, args.slashAmountMedium, args.slashAmountLarge],
     localEjectionThreshold: args.localEjectionThreshold,
+    slashingDisableDuration: BigInt(args.slashingDisableDuration ?? 0n),
   };
 
   const genesisStateArgs = {
@@ -875,100 +880,111 @@ export const addMultipleValidators = async (
       validators = enrichedValidators.filter(v => v.status === 0).map(v => v.operator);
     }
 
-    if (validators.length > 0) {
-      const gseContract = new GSEContract(extendedClient, gseAddress);
-      const multiAdder = await deployer.deploy(MultiAdderArtifact, [rollupAddress, deployer.client.account.address]);
+    if (validators.length === 0) {
+      logger.warn('No validators to add. Skipping.');
+      return;
+    }
 
-      const makeValidatorTuples = async (validator: Operator) => {
-        const registrationTuple = await gseContract.makeRegistrationTuple(validator.bn254SecretKey.getValue());
-        return {
-          attester: getAddress(validator.attester.toString()),
-          withdrawer: getAddress(validator.withdrawer.toString()),
-          ...registrationTuple,
-        };
+    const gseContract = new GSEContract(extendedClient, gseAddress);
+    const multiAdder = await deployer.deploy(MultiAdderArtifact, [rollupAddress, deployer.client.account.address]);
+
+    const makeValidatorTuples = async (validator: Operator) => {
+      const registrationTuple = await gseContract.makeRegistrationTuple(validator.bn254SecretKey.getValue());
+      return {
+        attester: getAddress(validator.attester.toString()),
+        withdrawer: getAddress(validator.withdrawer.toString()),
+        ...registrationTuple,
       };
+    };
 
-      const validatorsTuples = await Promise.all(validators.map(makeValidatorTuples));
+    const validatorsTuples = await Promise.all(validators.map(makeValidatorTuples));
 
-      // Mint tokens, approve them, use cheat code to initialize validator set without setting up the epoch.
-      const stakeNeeded = activationThreshold * BigInt(validators.length);
+    // Mint tokens, approve them, use cheat code to initialize validator set without setting up the epoch.
+    const stakeNeeded = activationThreshold * BigInt(validators.length);
 
-      await deployer.l1TxUtils.sendAndMonitorTransaction({
-        to: stakingAssetAddress,
-        data: encodeFunctionData({
-          abi: StakingAssetArtifact.contractAbi,
-          functionName: 'mint',
-          args: [multiAdder.toString(), stakeNeeded],
-        }),
-      });
+    await deployer.l1TxUtils.sendAndMonitorTransaction({
+      to: stakingAssetAddress,
+      data: encodeFunctionData({
+        abi: StakingAssetArtifact.contractAbi,
+        functionName: 'mint',
+        args: [multiAdder.toString(), stakeNeeded],
+      }),
+    });
 
-      const entryQueueLengthBefore = await rollup.getEntryQueueLength();
-      const validatorCountBefore = await rollup.getActiveAttesterCount();
+    const entryQueueLengthBefore = await rollup.getEntryQueueLength();
+    const validatorCountBefore = await rollup.getActiveAttesterCount();
 
-      logger.info(`Adding ${validators.length} validators to the rollup`);
+    logger.info(`Adding ${validators.length} validators to the rollup`);
 
-      // Adding to the queue and flushing need to be done in two transactions
-      // if we are adding many validators.
-      if (validatorsTuples.length > 10) {
-        await deployer.l1TxUtils.sendAndMonitorTransaction(
-          {
-            to: multiAdder.toString(),
-            data: encodeFunctionData({
-              abi: MultiAdderArtifact.contractAbi,
-              functionName: 'addValidators',
-              args: [validatorsTuples, true],
-            }),
-          },
-          {
-            gasLimit: 40_000_000n,
-          },
-        );
+    const chunkSize = 16;
 
-        await deployer.l1TxUtils.sendAndMonitorTransaction(
-          {
-            to: rollupAddress,
-            data: encodeFunctionData({
-              abi: RollupArtifact.contractAbi,
-              functionName: 'flushEntryQueue',
-              args: [],
-            }),
-          },
-          {
-            gasLimit: 40_000_000n,
-          },
-        );
-      } else {
-        await deployer.l1TxUtils.sendAndMonitorTransaction(
-          {
-            to: multiAdder.toString(),
-            data: encodeFunctionData({
-              abi: MultiAdderArtifact.contractAbi,
-              functionName: 'addValidators',
-              args: [validatorsTuples, false],
-            }),
-          },
-          {
-            gasLimit: 45_000_000n,
-          },
-        );
-      }
-
-      const entryQueueLengthAfter = await rollup.getEntryQueueLength();
-      const validatorCountAfter = await rollup.getActiveAttesterCount();
-
-      if (
-        entryQueueLengthAfter + validatorCountAfter <
-        entryQueueLengthBefore + validatorCountBefore + BigInt(validators.length)
-      ) {
-        throw new Error(
-          `Failed to add ${validators.length} validators. Active validators: ${validatorCountBefore} -> ${validatorCountAfter}. Queue: ${entryQueueLengthBefore} -> ${entryQueueLengthAfter}`,
-        );
-      }
-
-      logger.info(
-        `Added ${validators.length} validators. Active validators: ${validatorCountBefore} -> ${validatorCountAfter}. Queue: ${entryQueueLengthBefore} -> ${entryQueueLengthAfter}`,
+    // We will add `chunkSize` validators to the queue until we have covered all of our validators.
+    // The `chunkSize` needs to be small enough to fit inside a single tx, therefore 16.
+    for (const c of chunk(validatorsTuples, chunkSize)) {
+      await deployer.l1TxUtils.sendAndMonitorTransaction(
+        {
+          to: multiAdder.toString(),
+          data: encodeFunctionData({
+            abi: MultiAdderArtifact.contractAbi,
+            functionName: 'addValidators',
+            args: [c, BigInt(0)],
+          }),
+        },
+        {
+          gasLimit: 16_000_000n,
+        },
       );
     }
+
+    // After adding to the queue, we will now try to flush from it.
+    // We are explicitly doing this as a second step instead of as part of adding to benefit
+    // from the accounting used to speed the process up.
+    // As the queue computes the amount of possible flushes in an epoch when told to flush,
+    // waiting until we have added all we want allows us to benefit in the case were we added
+    // enough to pass the bootstrap set size without needing to wait another epoch.
+    // This is useful when we are testing as it speeds up the tests slightly.
+    while (true) {
+      // If the queue is empty, we can break
+      if ((await rollup.getEntryQueueLength()) == 0n) {
+        break;
+      }
+
+      // If there are no available validator flushes, no need to even try
+      if ((await rollup.getAvailableValidatorFlushes()) == 0n) {
+        break;
+      }
+
+      // Note that we are flushing at most `chunkSize` at each call
+      await deployer.l1TxUtils.sendAndMonitorTransaction(
+        {
+          to: rollup.address,
+          data: encodeFunctionData({
+            abi: RollupArtifact.contractAbi,
+            functionName: 'flushEntryQueue',
+            args: [BigInt(chunkSize)],
+          }),
+        },
+        {
+          gasLimit: 16_000_000n,
+        },
+      );
+    }
+
+    const entryQueueLengthAfter = await rollup.getEntryQueueLength();
+    const validatorCountAfter = await rollup.getActiveAttesterCount();
+
+    if (
+      entryQueueLengthAfter + validatorCountAfter <
+      entryQueueLengthBefore + validatorCountBefore + BigInt(validators.length)
+    ) {
+      throw new Error(
+        `Failed to add ${validators.length} validators. Active validators: ${validatorCountBefore} -> ${validatorCountAfter}. Queue: ${entryQueueLengthBefore} -> ${entryQueueLengthAfter}. A likely issue is the bootstrap size.`,
+      );
+    }
+
+    logger.info(
+      `Added ${validators.length} validators. Active validators: ${validatorCountBefore} -> ${validatorCountAfter}. Queue: ${entryQueueLengthBefore} -> ${entryQueueLengthAfter}`,
+    );
   }
 };
 
@@ -1143,7 +1159,7 @@ export const deployL1Contracts = async (
 
       // Include Slasher and SlashingProposer (if deployed) in verification data
       try {
-        const slasherAddrHex = await rollup.getSlasher();
+        const slasherAddrHex = await rollup.getSlasherAddress();
         const slasherAddr = EthAddress.fromString(slasherAddrHex);
         if (!slasherAddr.isZero()) {
           // Slasher constructor: (address _vetoer, address _governance)
@@ -1248,6 +1264,7 @@ export const deployL1Contracts = async (
       // Ensure the verification output directory exists
       await mkdir(createVerificationJson, { recursive: true });
       const verificationOutputPath = `${createVerificationJson}/l1-verify-${chain.id}-${formattedDate.slice(0, 6)}-${formattedDate.slice(6)}.json`;
+      const networkName = getActiveNetworkName();
       const verificationData = {
         chainId: chain.id,
         network: networkName,

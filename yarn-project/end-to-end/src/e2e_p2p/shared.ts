@@ -1,4 +1,3 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import {
@@ -21,6 +20,7 @@ import { PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } fro
 import { getRoundForOffense } from '@aztec/slasher';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
+import { TestWallet } from '@aztec/test-wallet';
 
 import type { NodeContext } from '../fixtures/setup_p2p_test.js';
 import { submitTxsTo } from '../shared/submit-transactions.js';
@@ -65,17 +65,9 @@ export const createPXEServiceAndSubmitTransactions = async (
   const rpcConfig = getRpcConfig();
   rpcConfig.proverEnabled = false;
   const pxeService = await createPXEService(node, rpcConfig, { useLogSuffix: true });
-
-  const account = await getSchnorrAccount(
-    pxeService,
-    fundedAccount.secret,
-    fundedAccount.signingKey,
-    fundedAccount.salt,
-  );
-  await account.register();
-  const wallet = await account.getWallet();
-
-  const txs = await submitTxsTo(pxeService, numTxs, wallet, logger);
+  const wallet = new TestWallet(pxeService, node);
+  const fundedAccountManager = await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
+  const txs = await submitTxsTo(wallet, fundedAccountManager.getAddress(), numTxs, logger);
   return { txs, pxeService, node };
 };
 
@@ -89,16 +81,17 @@ export async function createPXEServiceAndPrepareTransactions(
   rpcConfig.proverEnabled = false;
   const pxe = await createPXEService(node, rpcConfig, { useLogSuffix: true });
 
-  const account = await getSchnorrAccount(pxe, fundedAccount.secret, fundedAccount.signingKey, fundedAccount.salt);
-  await account.register();
-  const wallet = await account.getWallet();
+  const wallet = new TestWallet(pxe, node);
+  const fundedAccountManager = await wallet.createSchnorrAccount(fundedAccount.secret, fundedAccount.salt);
 
-  const testContractInstance = await getContractInstanceFromInstantiationParams(TestContractArtifact, {});
-  await wallet.registerContract({ instance: testContractInstance, artifact: TestContractArtifact });
+  const testContractInstance = await getContractInstanceFromInstantiationParams(TestContractArtifact, {
+    salt: Fr.random(),
+  });
+  await wallet.registerContract(testContractInstance, TestContractArtifact);
   const contract = await TestContract.at(testContractInstance.address, wallet);
 
   const txs = await timesAsync(numTxs, async () => {
-    const tx = await contract.methods.emit_nullifier(Fr.random()).prove({ from: account.getAddress() });
+    const tx = await contract.methods.emit_nullifier(Fr.random()).prove({ from: fundedAccountManager.getAddress() });
     const txHash = tx.getTxHash();
     logger.info(`Tx prepared with hash ${txHash}`);
     return tx;
@@ -219,8 +212,9 @@ export async function awaitCommitteeKicked({
 
   logger.info(`Advancing epochs so we start slashing`);
   await cheatCodes.debugRollup();
-  await cheatCodes.advanceToNextEpoch({ updateDateProvider: dateProvider });
-  await cheatCodes.advanceToNextEpoch({ updateDateProvider: dateProvider });
+  await cheatCodes.advanceToEpoch((await cheatCodes.getEpoch()) + (await rollup.getLagInEpochs()) + 1n, {
+    updateDateProvider: dateProvider,
+  });
 
   // Await for the slash payload to be created if empire (no payload is created on tally until execution time)
   if (slashingProposer.type === 'empire') {
@@ -265,10 +259,11 @@ export async function awaitCommitteeKicked({
     expect(attesterInfo.status).toEqual(2); // Living
   }
 
-  logger.info(`Advancing two epochs to check current committee`);
+  logger.info(`Advancing to check current committee`);
   await cheatCodes.debugRollup();
-  await cheatCodes.advanceToNextEpoch({ updateDateProvider: dateProvider });
-  await cheatCodes.advanceToNextEpoch({ updateDateProvider: dateProvider });
+  await cheatCodes.advanceToEpoch((await cheatCodes.getEpoch()) + (await rollup.getLagInEpochs()) + 1n, {
+    updateDateProvider: dateProvider,
+  });
   await cheatCodes.debugRollup();
 
   const committeeNextEpoch = await rollup.getCurrentEpochCommittee();

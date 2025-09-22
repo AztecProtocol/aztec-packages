@@ -811,9 +811,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   private async processValidBlockProposal(block: BlockProposal, sender: PeerId) {
     const slot = block.slotNumber.toBigInt();
     const previousSlot = slot - 1n;
-    const epoch = slot / 32n;
     this.logger.verbose(
-      `Received block ${block.blockNumber} for slot ${slot} epoch ${epoch} from external peer ${sender.toString()}.`,
+      `Received block ${block.blockNumber} for slot ${slot} from external peer ${sender.toString()}.`,
       {
         p2pMessageIdentifier: await block.p2pMessageIdentifier(),
         slot: block.slotNumber.toNumber(),

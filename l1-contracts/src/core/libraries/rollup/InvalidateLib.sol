@@ -44,7 +44,7 @@ import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
  *      - Validates against TempBlockLog storage for block metadata
  *      - Emits BlockInvalidated events via IRollupCore interface
  *
- *      This invalidation mechanism ensures that even though attestations are not fully validated on-chain
+ *      This invalidation mechanism ensures that even though attestations are not fully validated onchain
  *      during block proposal (to save gas), invalid attestations can be challenged and removed after the fact,
  *      maintaining the security of the rollup while optimizing for efficient block production.
  *

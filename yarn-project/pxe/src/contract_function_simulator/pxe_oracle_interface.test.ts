@@ -1,5 +1,4 @@
-import { PUBLIC_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
-import { padArrayEnd, timesParallel } from '@aztec/foundation/collection';
+import { timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fq, Fr } from '@aztec/foundation/fields';
 import { KeyStore } from '@aztec/key-store';
@@ -758,8 +757,7 @@ describe('PXEOracleInterface', () => {
 
       const log = PublicLog.from({
         contractAddress: logContractAddress,
-        fields: padArrayEnd(logContent, Fr.ZERO, PUBLIC_LOG_SIZE_IN_FIELDS),
-        emittedLength: logContent.length,
+        fields: logContent,
       });
       const scopedLogWithPadding = new TxScopedL2Log(
         TxHash.random(),
@@ -913,12 +911,10 @@ describe('PXEOracleInterface', () => {
 
     it('should search for notes from all accounts', async () => {
       // Add multiple accounts to keystore
-      const numAccounts = 3;
-
       await keyStore.addAccount(Fr.random(), Fr.random());
       await keyStore.addAccount(Fr.random(), Fr.random());
 
-      expect(await keyStore.getAccounts()).toHaveLength(numAccounts);
+      expect(await keyStore.getAccounts()).toHaveLength(3);
 
       // Spy on the noteDataProvider.getNotesSpy
       const getNotesSpy = jest.spyOn(noteDataProvider, 'getNotes');
@@ -926,14 +922,62 @@ describe('PXEOracleInterface', () => {
       // Call the function under test
       await pxeOracleInterface.removeNullifiedNotes(contractAddress);
 
-      // Verify removeNullifiedNotes was called once for each account
-      expect(getNotesSpy).toHaveBeenCalledTimes(numAccounts);
+      // Verify removeNullifiedNotes was called once for all accounts
+      expect(getNotesSpy).toHaveBeenCalledTimes(1);
 
-      // Verify getNotes was called with the correct contract address and recipient for each account
-      const accounts = await keyStore.getAccounts();
-      accounts.forEach(recipient => {
-        expect(getNotesSpy).toHaveBeenCalledWith(expect.objectContaining({ contractAddress, recipient }));
+      // Verify getNotes was called with the correct contract address
+      expect(getNotesSpy).toHaveBeenCalledWith(expect.objectContaining({ contractAddress }));
+    });
+  });
+
+  describe('Respects synced block number', () => {
+    const syncedBlockNumber = 100;
+    let contractAddress: AztecAddress;
+    let nullifier: Fr;
+    let leafSlot: Fr;
+
+    beforeEach(async () => {
+      contractAddress = await AztecAddress.random();
+      nullifier = Fr.random();
+      leafSlot = Fr.random();
+      await setSyncedBlockNumber(syncedBlockNumber);
+    });
+
+    it('throws when getting low nullifier membership witness for future block', async () => {
+      await expect(
+        pxeOracleInterface.getLowNullifierMembershipWitness(syncedBlockNumber + 1, nullifier),
+      ).rejects.toThrow(`Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`);
+    });
+
+    it('throws when getting block for future block number', async () => {
+      await expect(pxeOracleInterface.getBlock(syncedBlockNumber + 1)).rejects.toThrow(
+        `Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`,
+      );
+    });
+
+    it('throws when getting public data witness for future block', async () => {
+      await expect(pxeOracleInterface.getPublicDataWitness(syncedBlockNumber + 1, leafSlot)).rejects.toThrow(
+        `Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`,
+      );
+    });
+
+    it('throws when getting public storage for future block', async () => {
+      await expect(
+        pxeOracleInterface.getPublicStorageAt(syncedBlockNumber + 1, contractAddress, leafSlot),
+      ).rejects.toThrow(`Block number ${syncedBlockNumber + 1} is higher than current block ${syncedBlockNumber}`);
+    });
+  });
+
+  describe('getAnchorBlockHeader', () => {
+    it('returns the anchor block header and not a header from aztec node', async () => {
+      const blockNumber = 42;
+      const header = BlockHeader.empty({
+        globalVariables: GlobalVariables.empty({ blockNumber }),
       });
+      await syncDataProvider.setHeader(header);
+
+      const result = await pxeOracleInterface.getAnchorBlockHeader();
+      expect(result).toEqual(header);
     });
   });
 

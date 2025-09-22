@@ -19,7 +19,7 @@ TEST(AvmSimulationFieldGreaterThanTest, BasicGt)
 {
     NiceMock<MockRangeCheck> range_check;
 
-    EventEmitter<FieldGreaterThanEvent> event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt(range_check, event_emitter);
 
     auto p_limbs = decompose(FF::modulus);
@@ -75,7 +75,7 @@ TEST(AvmSimulationFieldGreaterThanTest, BasicGt)
 TEST(AvmSimulationFieldGreaterThanTest, BasicDec)
 {
     NiceMock<MockRangeCheck> range_check;
-    EventEmitter<FieldGreaterThanEvent> event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt(range_check, event_emitter);
 
     auto p_limbs = decompose(FF::modulus);
@@ -114,7 +114,7 @@ TEST(AvmSimulationFieldGreaterThanTest, ResultsGt)
 {
     NiceMock<MockRangeCheck> range_check;
 
-    EventEmitter<FieldGreaterThanEvent> event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt(range_check, event_emitter);
 
     EXPECT_TRUE(field_gt.ff_gt(1, 0));
@@ -132,7 +132,7 @@ TEST(AvmSimulationFieldGreaterThanTest, ResultsDec)
 {
     NiceMock<MockRangeCheck> range_check;
 
-    EventEmitter<FieldGreaterThanEvent> event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt(range_check, event_emitter);
 
     U256Decomposition expected_result = { .lo = 8765, .hi = 0 };

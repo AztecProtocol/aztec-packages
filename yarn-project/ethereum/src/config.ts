@@ -28,6 +28,8 @@ export type L1ContractsConfig = {
   aztecEpochDuration: number;
   /** The target validator committee size. */
   aztecTargetCommitteeSize: number;
+  /** The number of epochs to lag behind the current epoch for validator selection. */
+  lagInEpochs: number;
   /** The number of epochs after an epoch ends that proofs are still accepted. */
   aztecProofSubmissionEpochs: number;
   /** The deposit amount for a validator */
@@ -48,6 +50,8 @@ export type L1ContractsConfig = {
   slashingVetoer: EthAddress;
   /** How many slashing rounds back we slash (ie when slashing in round N, we slash for offenses committed during epochs of round N-offset) */
   slashingOffsetInRounds: number;
+  /** How long slashing can be disabled for in seconds when vetoer disables it */
+  slashingDisableDuration: number;
   /** Type of slasher proposer */
   slasherFlavor: 'empire' | 'tally' | 'none';
   /** Minimum amount that can be slashed in tally slashing */
@@ -73,13 +77,14 @@ export const DefaultL1ContractsConfig = {
   aztecSlotDuration: 36,
   aztecEpochDuration: 32,
   aztecTargetCommitteeSize: 48,
+  lagInEpochs: 2,
   aztecProofSubmissionEpochs: 1, // you have a full epoch to submit a proof after the epoch to prove ends
-  activationThreshold: BigInt(100e18),
-  ejectionThreshold: BigInt(50e18),
-  localEjectionThreshold: BigInt(98e18),
-  slashAmountSmall: BigInt(10e18),
-  slashAmountMedium: BigInt(20e18),
-  slashAmountLarge: BigInt(50e18),
+  activationThreshold: 100n * 10n ** 18n,
+  ejectionThreshold: 50n * 10n ** 18n,
+  localEjectionThreshold: 98n * 10n ** 18n,
+  slashAmountSmall: 10n * 10n ** 18n,
+  slashAmountMedium: 20n * 10n ** 18n,
+  slashAmountLarge: 50n * 10n ** 18n,
   slashingRoundSizeInEpochs: 4,
   slashingLifetimeInRounds: 5,
   slashingExecutionDelayInRounds: 0, // round N may be submitted in round N + 1
@@ -90,6 +95,7 @@ export const DefaultL1ContractsConfig = {
   exitDelaySeconds: 2 * 24 * 60 * 60,
   slasherFlavor: 'tally' as const,
   slashingOffsetInRounds: 2,
+  slashingDisableDuration: 5 * 24 * 60 * 60, // 5 days in seconds
 } satisfies L1ContractsConfig;
 
 const LocalGovernanceConfiguration = {
@@ -122,31 +128,32 @@ const StagingPublicGovernanceConfiguration = {
 
 const TestnetGovernanceConfiguration = {
   proposeConfig: {
-    lockDelay: 60n * 60n * 24n,
-    lockAmount: DefaultL1ContractsConfig.activationThreshold * 100n,
+    lockDelay: 10n * 365n * 24n * 60n * 60n,
+    lockAmount: 1250n * 200_000n * 10n ** 18n,
   },
-  votingDelay: 60n,
-  votingDuration: 60n * 60n,
-  executionDelay: 60n * 60n * 24n,
-  gracePeriod: 60n * 60n * 24n * 7n,
-  quorum: 3n * 10n ** 17n, // 30%
-  requiredYeaMargin: 4n * 10n ** 16n, // 4%
-  minimumVotes: DefaultL1ContractsConfig.ejectionThreshold * 200n,
+
+  votingDelay: 12n * 60n * 60n, // 12 hours
+  votingDuration: 1n * 24n * 60n * 60n, // 1 day
+  executionDelay: 12n * 60n * 60n, // 12 hours
+  gracePeriod: 1n * 24n * 60n * 60n, // 1 day
+  quorum: 2n * 10n ** 17n, // 20%
+  requiredYeaMargin: 1n * 10n ** 17n, // 10%
+  minimumVotes: 1250n * 200_000n * 10n ** 18n,
 };
 
 const StagingIgnitionGovernanceConfiguration = {
   proposeConfig: {
-    lockDelay: 60n * 60n * 24n * 30n, // 30 days
-    lockAmount: DefaultL1ContractsConfig.activationThreshold * 100n,
+    lockDelay: 10n * 365n * 24n * 60n * 60n,
+    lockAmount: 1250n * 200_000n * 10n ** 18n,
   },
 
-  votingDelay: 60n,
-  votingDuration: 60n * 60n,
-  executionDelay: 60n,
-  gracePeriod: 60n * 60n * 24n * 7n,
-  quorum: 3n * 10n ** 17n, // 30%
-  requiredYeaMargin: 4n * 10n ** 16n, // 4%
-  minimumVotes: DefaultL1ContractsConfig.ejectionThreshold * 200n, // >= 200 validators must vote
+  votingDelay: 7n * 24n * 60n * 60n,
+  votingDuration: 7n * 24n * 60n * 60n,
+  executionDelay: 30n * 24n * 60n * 60n,
+  gracePeriod: 7n * 24n * 60n * 60n,
+  quorum: 2n * 10n ** 17n, // 20%
+  requiredYeaMargin: 1n * 10n ** 17n, // 10%
+  minimumVotes: 1250n * 200_000n * 10n ** 18n,
 };
 
 export const getGovernanceConfiguration = (networkName: NetworkNames) => {
@@ -169,10 +176,10 @@ export const getGovernanceConfiguration = (networkName: NetworkNames) => {
 // for it seems overkill
 
 const DefaultRewardConfig = {
-  sequencerBps: 5000,
+  sequencerBps: 8000,
   rewardDistributor: EthAddress.ZERO.toString(),
   booster: EthAddress.ZERO.toString(),
-  blockReward: BigInt(50e18),
+  blockReward: 500n * 10n ** 18n,
 };
 
 export const getRewardConfig = (networkName: NetworkNames) => {
@@ -187,65 +194,30 @@ export const getRewardConfig = (networkName: NetworkNames) => {
   }
 };
 
-const LocalRewardBoostConfig = {
-  increment: 200000,
-  maxScore: 5000000,
-  a: 5000,
-  k: 1000000,
-  minimum: 100000,
-};
-
-const StagingPublicRewardBoostConfig = {
-  increment: 200000,
-  maxScore: 5000000,
-  a: 5000,
-  k: 1000000,
-  minimum: 100000,
-};
-
-const TestnetRewardBoostConfig = {
-  increment: 125000,
-  maxScore: 15000000,
-  a: 1000,
-  k: 1000000,
-  minimum: 100000,
-};
-
-const StagingIgnitionRewardBoostConfig = {
-  increment: 200000,
-  maxScore: 5000000,
-  a: 5000,
-  k: 1000000,
-  minimum: 100000,
-};
-
-export const getRewardBoostConfig = (networkName: NetworkNames) => {
-  switch (networkName) {
-    case 'local':
-      return LocalRewardBoostConfig;
-    case 'staging-public':
-      return StagingPublicRewardBoostConfig;
-    case 'testnet':
-      return TestnetRewardBoostConfig;
-    case 'staging-ignition':
-      return StagingIgnitionRewardBoostConfig;
-    default:
-      throw new Error(`Unrecognized network name: ${networkName}`);
-  }
+export const getRewardBoostConfig = () => {
+  // The reward configuration is specified with a precision of 1e5, and we use the same across
+  // all networks.
+  return {
+    increment: 125000, // 1.25
+    maxScore: 15000000, // 150
+    a: 1000, // 0.01
+    k: 1000000, // 10
+    minimum: 100000, // 1
+  };
 };
 
 // Similar to the above, no need for environment variables for this.
 const LocalEntryQueueConfig = {
   bootstrapValidatorSetSize: 0n,
   bootstrapFlushSize: 0n,
-  normalFlushSizeMin: 48n, // will effectively be bounded by maxQueueFlushSize
+  normalFlushSizeMin: 48n,
   normalFlushSizeQuotient: 2n,
   maxQueueFlushSize: 32n,
 };
 
 const StagingPublicEntryQueueConfig = {
   bootstrapValidatorSetSize: 48n,
-  bootstrapFlushSize: 48n, // will effectively be bounded by maxQueueFlushSize
+  bootstrapFlushSize: 48n,
   normalFlushSizeMin: 1n,
   normalFlushSizeQuotient: 2475n,
   maxQueueFlushSize: 32n, // Limited to 32 so flush cost are kept below 15M gas.
@@ -253,18 +225,18 @@ const StagingPublicEntryQueueConfig = {
 
 const TestnetEntryQueueConfig = {
   bootstrapValidatorSetSize: 750n,
-  bootstrapFlushSize: 48n, // will effectively be bounded by maxQueueFlushSize
-  normalFlushSizeMin: 1n,
+  bootstrapFlushSize: 32n,
+  normalFlushSizeMin: 32n,
   normalFlushSizeQuotient: 2475n,
-  maxQueueFlushSize: 32n, // Limited to 32 so flush cost are kept below 15M gas.
+  maxQueueFlushSize: 32n,
 };
 
 const StagingIgnitionEntryQueueConfig = {
-  bootstrapValidatorSetSize: 750n,
-  bootstrapFlushSize: 48n, // will effectively be bounded by maxQueueFlushSize
+  bootstrapValidatorSetSize: 1250n,
+  bootstrapFlushSize: 8n,
   normalFlushSizeMin: 1n,
-  normalFlushSizeQuotient: 2475n,
-  maxQueueFlushSize: 32n, // Limited to 32 so flush cost are kept below 15M gas.
+  normalFlushSizeQuotient: 2048n,
+  maxQueueFlushSize: 8n,
 };
 
 export const getEntryQueueConfig = (networkName: NetworkNames) => {
@@ -302,6 +274,11 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     env: 'AZTEC_TARGET_COMMITTEE_SIZE',
     description: 'The target validator committee size.',
     ...numberConfigHelper(DefaultL1ContractsConfig.aztecTargetCommitteeSize),
+  },
+  lagInEpochs: {
+    env: 'AZTEC_LAG_IN_EPOCHS',
+    description: 'The number of epochs to lag behind the current epoch for validator selection.',
+    ...numberConfigHelper(DefaultL1ContractsConfig.lagInEpochs),
   },
   aztecProofSubmissionEpochs: {
     env: 'AZTEC_PROOF_SUBMISSION_EPOCHS',
@@ -376,6 +353,11 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     parseEnv: (val: string) => EthAddress.fromString(val),
     defaultValue: DefaultL1ContractsConfig.slashingVetoer,
   },
+  slashingDisableDuration: {
+    env: 'AZTEC_SLASHING_DISABLE_DURATION',
+    description: 'How long slashing can be disabled for in seconds when vetoer disables it',
+    ...numberConfigHelper(DefaultL1ContractsConfig.slashingDisableDuration),
+  },
   governanceProposerQuorum: {
     env: 'AZTEC_GOVERNANCE_PROPOSER_QUORUM',
     description: 'The governance proposing quorum',
@@ -449,7 +431,7 @@ export function validateConfig(config: Omit<L1ContractsConfig, keyof L1TxUtilsCo
   }
 
   // EmpireBase constructor validations for governance/slashing proposers
-  // From: require(QUORUM_SIZE > ROUND_SIZE / 2, Errors.GovernanceProposer__InvalidQuorumAndRoundSize(QUORUM_SIZE, ROUND_SIZE));
+  // From: require(QUORUM_SIZE > ROUND_SIZE / 2, Errors.EmpireBase__InvalidQuorumAndRoundSize(QUORUM_SIZE, ROUND_SIZE));
   const { governanceProposerQuorum, governanceProposerRoundSize } = config;
   if (
     governanceProposerQuorum !== undefined &&
@@ -460,7 +442,7 @@ export function validateConfig(config: Omit<L1ContractsConfig, keyof L1TxUtilsCo
     );
   }
 
-  // From: require(QUORUM_SIZE <= ROUND_SIZE, Errors.GovernanceProposer__QuorumCannotBeLargerThanRoundSize(QUORUM_SIZE, ROUND_SIZE));
+  // From: require(QUORUM_SIZE <= ROUND_SIZE, Errors.EmpireBase__QuorumCannotBeLargerThanRoundSize(QUORUM_SIZE, ROUND_SIZE));
   if (governanceProposerQuorum !== undefined && governanceProposerQuorum > governanceProposerRoundSize) {
     errors.push(
       `governanceProposerQuorum (${governanceProposerQuorum}) cannot be larger than governanceProposerRoundSize (${governanceProposerRoundSize})`,

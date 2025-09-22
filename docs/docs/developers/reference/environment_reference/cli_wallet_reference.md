@@ -11,8 +11,8 @@ For development, it may be useful to deploy, transact, or create notes in a non-
 - Deploying contracts
 - Sending transactions
 - Bridging L1 "Fee Juice" into Aztec
-- Pushing arbitrary [notes](../../guides/smart_contracts/note_types.md) to your PXE
-- Creating [authwits](../../guides/smart_contracts/authwit.md)
+- Pushing arbitrary [notes](../../guides/smart_contracts/how_to_implement_custom_notes.md) to your PXE
+- Creating [authwits](../../guides/smart_contracts/how_to_use_authwit.md)
 - Aliasing info and secrets for further usage
 - Proving your transactions and profile gate counts
 
@@ -163,7 +163,7 @@ To connect to the testnet, pass the `AZTEC_NODE_URL` to the wallet with the `--n
 
 ```bash
 export AZTEC_NODE_URL=<testnet-ip-address>
-export SPONSORED_FPC_ADDRESS=0x19b5539ca1b104d4c3705de94e4555c9630def411f025e023a13189d0c56f8f2
+export SPONSORED_FPC_ADDRESS=0x299f255076aa461e4e94a843f0275303470a6b8ebe7cb44a471c66711151e529
 # Register a new account
 aztec-wallet create-account --register-only -a main -n $AZTEC_NODE_URL
 aztec-wallet register-contract $SPONSORED_FPC_ADDRESS SponsoredFPC --from main -n $AZTEC_NODE_URL --salt 0 -a sponsoredfpc

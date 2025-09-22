@@ -77,14 +77,14 @@ class AvmRecursiveFlavor {
          * @param builder
          * @param elements
          */
-        VerificationKey(CircuitBuilder& builder, std::span<const FF> elements)
+        VerificationKey(std::span<const FF> elements)
         {
             size_t num_frs_read = 0;
             size_t num_frs_Comm = stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, Commitment>();
 
             for (Commitment& comm : this->get_all()) {
                 comm = stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, Commitment>(
-                    builder, elements.subspan(num_frs_read, num_frs_Comm));
+                    elements.subspan(num_frs_read, num_frs_Comm));
                 num_frs_read += num_frs_Comm;
             }
         }

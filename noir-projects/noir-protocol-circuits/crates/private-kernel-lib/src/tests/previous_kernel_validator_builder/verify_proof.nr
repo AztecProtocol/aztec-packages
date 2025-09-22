@@ -27,7 +27,7 @@ fn validate_proof__vk_not_allowed_failed() {
     builder.verify_proof([PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_RESET_INDEX]);
 }
 
-#[test(should_fail_with = "membership check failed")]
+#[test(should_fail_with = "Membership check failed: vk hash not found in vk tree")]
 fn validate_proof__vk_hash_mismatch_fails() {
     let mut builder = PreviousKernelValidatorBuilder::new_with_vk(PRIVATE_KERNEL_INNER_INDEX);
 

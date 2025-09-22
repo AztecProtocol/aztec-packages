@@ -22,6 +22,7 @@ import {
   HashedValuesCache,
   Oracle,
   PrivateExecutionOracle,
+  UtilityContext,
   UtilityExecutionOracle,
   executePrivateFunction,
   generateSimulatedProvingResult,
@@ -124,13 +125,21 @@ export class TXEOracleTopLevelContext extends TXETypedOracle {
   }
 
   // temporary - authwits require this, consider removing it once authwit support improves
-  override utilityGetChainId(): Promise<Fr> {
-    return Promise.resolve(this.chainId);
-  }
-
-  // temporary - authwits require this, consider removing it once authwit support improves
-  override utilityGetVersion(): Promise<Fr> {
-    return Promise.resolve(this.version);
+  override utilityGetUtilityContext(): Promise<UtilityContext> {
+    // The zero values for block number, timestamp and contract address are unfortunate sideeffect of use replacing
+    // the utilityGetContractAddress, utilityGetBlockNumber, utilityGetTimestamp, utilityGetChainId and
+    // utilityGetVersion oracles with utilityGetUtilityContext. Having those values populated does not make sense here
+    // as they have no meaning in top level context. OTOH version and chain id also don't really make sense here so
+    // think it's fine to learn to live with this tech debt for now.
+    return Promise.resolve(
+      UtilityContext.from({
+        blockNumber: 0,
+        timestamp: 0n,
+        contractAddress: AztecAddress.zero(),
+        version: this.version,
+        chainId: this.chainId,
+      }),
+    );
   }
 
   override async txeGetNextBlockNumber(): Promise<number> {
@@ -143,6 +152,19 @@ export class TXEOracleTopLevelContext extends TXETypedOracle {
 
   override async txeGetLastBlockTimestamp() {
     return (await this.stateMachine.node.getBlockHeader('latest'))!.globalVariables.timestamp;
+  }
+
+  override async txeGetLastTxEffects() {
+    const block = await this.stateMachine.archiver.getBlock('latest');
+
+    if (block!.body.txEffects.length != 1) {
+      // Note that calls like env.mine() will result in blocks with no transactions, hitting this
+      throw new Error(`Expected a single transaction in the last block, found ${block!.body.txEffects.length}`);
+    }
+
+    const txEffects = block!.body.txEffects[0];
+
+    return { txHash: txEffects.txHash, noteHashes: txEffects.noteHashes, nullifiers: txEffects.nullifiers };
   }
 
   override async txeAdvanceBlocksBy(blocks: number) {
@@ -278,7 +300,7 @@ export class TXEOracleTopLevelContext extends TXETypedOracle {
 
     const txContext = new TxContext(this.chainId, this.version, gasSettings);
 
-    const blockHeader = await this.pxeOracleInterface.getBlockHeader();
+    const blockHeader = await this.pxeOracleInterface.getAnchorBlockHeader();
 
     const txRequestHash = getSingleTxBlockRequestHash(blockNumber);
     const noteCache = new ExecutionNoteCache(txRequestHash);
@@ -450,7 +472,7 @@ export class TXEOracleTopLevelContext extends TXETypedOracle {
 
     const txContext = new TxContext(this.chainId, this.version, gasSettings);
 
-    const blockHeader = await this.pxeOracleInterface.getBlockHeader();
+    const anchorBlockHeader = await this.pxeOracleInterface.getAnchorBlockHeader();
 
     const calldataHash = await computeCalldataHash(calldata);
     const calldataHashedValues = new HashedValues(calldata, calldataHash);
@@ -494,7 +516,7 @@ export class TXEOracleTopLevelContext extends TXETypedOracle {
       PublicCallRequest.empty(),
     );
 
-    const constantData = new TxConstantData(blockHeader, txContext, Fr.zero(), Fr.zero());
+    const constantData = new TxConstantData(anchorBlockHeader, txContext, Fr.zero(), Fr.zero());
 
     const txData = new PrivateKernelTailCircuitPublicInputs(
       constantData,

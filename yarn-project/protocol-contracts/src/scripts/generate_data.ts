@@ -43,15 +43,6 @@ const contractAddressMapping: { [name: string]: number } = {
   Router: ROUTER_ADDRESS,
 };
 
-const contractAddressNameMapping: { [name: string]: string } = {
-  AuthRegistry: 'CANONICAL_AUTH_REGISTRY_ADDRESS',
-  ContractInstanceRegistry: 'CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS',
-  ContractClassRegistry: 'CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS',
-  MultiCallEntrypoint: 'MULTI_CALL_ENTRYPOINT_ADDRESS',
-  FeeJuice: 'FEE_JUICE_ADDRESS',
-  Router: 'ROUTER_ADDRESS',
-};
-
 async function clearDestDir() {
   try {
     await fs.access(destArtifactsDir);
@@ -171,47 +162,6 @@ async function generateOutputFile(names: string[], leaves: Fr[]) {
   await fs.writeFile(outputFilePath, content);
 }
 
-async function generateHppOutputFile() {
-  const content = `// GENERATED FILE - DO NOT EDIT, RUN yarn generate in yarn-project/protocol-contracts
-#pragma once
-
-#include "barretenberg/vm2/common/aztec_constants.hpp"
-#include "barretenberg/vm2/common/aztec_types.hpp"
-
-#include <unordered_map>
-
-namespace bb::avm2 {
-
-using CanonicalAddress = AztecAddress;
-using DerivedAddress = AztecAddress;
-
-extern const std::unordered_map<CanonicalAddress, DerivedAddress> derived_addresses;
-
-} // namespace bb::avm2
-`;
-  await fs.writeFile(cppOutputFilePath, content);
-}
-
-async function generateCppOutputFile(names: string[], leaves: Fr[]) {
-  await generateHppOutputFile();
-  const data = names.map((name, i) => ({
-    name: contractAddressNameMapping[name],
-    addr: leaves[i].toString(),
-  }));
-  const content = `// GENERATED FILE - DO NOT EDIT, RUN yarn generate in yarn-project/protocol-contracts
-#include "protocol_contract_data.hpp"
-
-namespace bb::avm2 {
-
-const std::unordered_map<CanonicalAddress, DerivedAddress> derived_addresses = {
-    ${data.map(({ name, addr }) => `{ ${name}, AztecAddress("${addr}") }`).join(',\n\t')}
-};
-
-} // namespace bb::avm2
-`;
-  await fs.writeFile(cppOutputFilePath.replace('.hpp', '.cpp'), content);
-}
-
 async function main() {
   await clearDestDir();
 
@@ -230,7 +180,6 @@ async function main() {
     leaves.push(contractLeaf.toField());
   }
 
-  await generateCppOutputFile(destNames, leaves);
   await generateOutputFile(destNames, leaves);
 }
 

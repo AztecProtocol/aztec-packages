@@ -9,6 +9,7 @@ import {
   type L2BlockSourceEventEmitter,
   L2BlockSourceEvents,
 } from '@aztec/stdlib/block';
+import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
   IFullNodeBlockBuilder,
   ITxProvider,
@@ -44,15 +45,18 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
   // Store bound function reference for proper listener removal
   private boundHandlePruneL2Blocks = this.handlePruneL2Blocks.bind(this);
 
+  private penalties: EpochPruneWatcherPenalties;
+
   constructor(
     private l2BlockSource: L2BlockSourceEventEmitter,
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private epochCache: EpochCache,
     private txProvider: Pick<ITxProvider, 'getAvailableTxs'>,
     private blockBuilder: IFullNodeBlockBuilder,
-    private penalties: EpochPruneWatcherPenalties,
+    penalties: EpochPruneWatcherPenalties,
   ) {
     super();
+    this.penalties = pick(penalties, ...EpochPruneWatcherPenaltiesConfigKeys);
     this.log.verbose(
       `EpochPruneWatcher initialized with penalties: valid epoch pruned=${penalties.slashPrunePenalty} data withholding=${penalties.slashDataWithholdingPenalty}`,
     );
@@ -75,9 +79,14 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
 
   private handlePruneL2Blocks(event: L2BlockPruneEvent): void {
     const { blocks, epochNumber } = event;
-    this.log.info(`Detected chain prune. Validating epoch ${epochNumber}`);
+    const l1Constants = this.epochCache.getL1Constants();
+    const epochBlocks = blocks.filter(b => getEpochAtSlot(b.slot, l1Constants) === epochNumber);
+    this.log.info(
+      `Detected chain prune. Validating epoch ${epochNumber} with blocks ${epochBlocks[0]?.number} to ${epochBlocks[epochBlocks.length - 1]?.number}.`,
+      { blocks: epochBlocks.map(b => b.toBlockInfo()) },
+    );
 
-    this.validateBlocks(blocks)
+    this.validateBlocks(epochBlocks)
       .then(async () => {
         this.log.info(`Pruned epoch ${epochNumber} was valid. Want to slash committee for not having it proven.`);
         const validators = await this.getValidatorsForEpoch(epochNumber);
@@ -90,7 +99,9 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
       })
       .catch(async error => {
         if (error instanceof TransactionsNotAvailableError) {
-          this.log.info(`Data for pruned epoch ${epochNumber} was not available. Will want to slash.`, error);
+          this.log.info(`Data for pruned epoch ${epochNumber} was not available. Will want to slash.`, {
+            message: error.message,
+          });
           const validators = await this.getValidatorsForEpoch(epochNumber);
           return {
             validators,

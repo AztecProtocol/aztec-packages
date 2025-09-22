@@ -58,7 +58,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     // TODO(#15892): Fiat-Shamir the vk hash by uncommenting the line below.
     FF vk_hash = key->hash();
     // transcript->add_to_hash_buffer("avm_vk_hash", vk_hash);
-    info("AVM vk hash in verifier: ", vk_hash);
+    vinfo("AVM vk hash in verifier: ", vk_hash);
 
     // Check public inputs size.
     if (public_inputs.size() != AVM_NUM_PUBLIC_INPUT_COLUMNS) {
@@ -71,10 +71,11 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
             vinfo("Public input size mismatch");
             return false;
         }
-        for (size_t j = 0; j < public_inputs[i].size(); j++) {
-            transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
-                                           public_inputs[i][j]);
-        }
+        // TODO(https://github.com/AztecProtocol/aztec-packages/pull/17045): make the protocols secure at some point
+        // for (size_t j = 0; j < public_inputs[i].size(); j++) {
+        //     transcript->add_to_hash_buffer("public_input_" + std::to_string(i) + "_" + std::to_string(j),
+        //                                    public_inputs[i][j]);
+        // }
     }
     VerifierCommitments commitments{ key };
     // Get commitments to VM wires

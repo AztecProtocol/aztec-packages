@@ -1,4 +1,4 @@
-import type { CompleteAddress, ContractArtifact, ContractInstanceWithAddress } from '@aztec/aztec.js';
+import type { CompleteAddress, ContractArtifact, ContractInstanceWithAddress, TxHash } from '@aztec/aztec.js';
 import type { Fr } from '@aztec/foundation/fields';
 import { TypedOracle } from '@aztec/pxe/simulator';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
@@ -99,6 +99,14 @@ export class TXETypedOracle extends TypedOracle {
 
   txeGetLastBlockTimestamp(): Promise<bigint> {
     throw new OracleMethodNotAvailableError(this.className, 'txeGetLastBlockTimestamp');
+  }
+
+  txeGetLastTxEffects(): Promise<{
+    txHash: TxHash;
+    noteHashes: Fr[];
+    nullifiers: Fr[];
+  }> {
+    throw new OracleMethodNotAvailableError(this.className, 'txeGetLastTxEffects');
   }
 
   storageWrite(_startStorageSlot: Fr, _values: Fr[]): Promise<Fr[]> {

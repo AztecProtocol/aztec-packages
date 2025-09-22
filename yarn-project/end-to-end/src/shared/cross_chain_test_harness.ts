@@ -1,6 +1,5 @@
 // docs:start:cross_chain_test_harness
 import {
-  type AccountWallet,
   AuthWitness,
   type AztecAddress,
   type AztecNode,
@@ -134,13 +133,13 @@ export class CrossChainTestHarness {
     aztecNode: AztecNode,
     pxeService: PXE,
     l1Client: ExtendedViemWalletClient,
-    wallet: AccountWallet,
+    wallet: Wallet,
     ownerAddress: AztecAddress,
     logger: Logger,
     underlyingERC20Address: EthAddress,
   ): Promise<CrossChainTestHarness> {
     const ethAccount = EthAddress.fromString((await l1Client.getAddresses())[0]);
-    const l1ContractAddresses = (await pxeService.getNodeInfo()).l1ContractAddresses;
+    const l1ContractAddresses = (await aztecNode.getNodeInfo()).l1ContractAddresses;
 
     // Deploy and initialize all required contracts
     logger.info('Deploying and initializing token, portal and its bridge...');
@@ -148,7 +147,7 @@ export class CrossChainTestHarness {
       wallet,
       l1Client,
       l1ContractAddresses.registryAddress,
-      wallet.getAddress(),
+      ownerAddress,
       underlyingERC20Address,
     );
     logger.info('Deployed and initialized token, portal and its bridge.');
@@ -198,8 +197,8 @@ export class CrossChainTestHarness {
     /** Deployment addresses for all L1 contracts */
     public readonly l1ContractAddresses: L1ContractAddresses,
 
-    /** Wallet of the owner. */
-    public readonly ownerWallet: AccountWallet,
+    /** Wallet to simulate and send txs from. */
+    public readonly wallet: Wallet,
 
     /** Owner of the l2 token and bridge */
     public readonly ownerAddress: AztecAddress,
@@ -213,7 +212,6 @@ export class CrossChainTestHarness {
       this.logger,
     );
     this.l1TokenManager = this.l1TokenPortalManager.getTokenManager();
-    this.ownerAddress = this.ownerWallet.getAddress();
   }
 
   async mintTokensOnL1(amount: bigint) {
@@ -246,7 +244,7 @@ export class CrossChainTestHarness {
   }
 
   async mintTokensPrivateOnL2(amount: bigint) {
-    await mintTokensToPrivate(this.l2Token, this.ownerAddress, this.ownerWallet, this.ownerAddress, amount);
+    await mintTokensToPrivate(this.l2Token, this.ownerAddress, this.ownerAddress, amount);
   }
 
   async sendL2PublicTransfer(transferAmount: bigint, receiverAddress: AztecAddress) {
