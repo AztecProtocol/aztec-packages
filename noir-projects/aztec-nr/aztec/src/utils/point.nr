@@ -1,5 +1,4 @@
-use crate::utils::field::sqrt;
-use dep::protocol_types::point::Point;
+use protocol_types::{point::Point, utils::field::sqrt};
 
 // I am storing the modulus minus 1 divided by 2 here because full modulus would throw "String literal too large" error
 // Full modulus is 21888242871839275222246405745257275088548364400416034343698204186575808495617
@@ -39,33 +38,41 @@ pub fn get_sign_of_point(p: Point) -> bool {
     !BN254_FR_MODULUS_DIV_2.lt(p.y)
 }
 
-pub fn point_from_x_coord(x: Field) -> Point {
+/// Returns a `Point` in the Grumpkin curve given its x coordinate.
+///
+/// Because not all values in the field are valid x coordinates of points in the curve (i.e. there
+/// is no corresponding y value in the field that satisfies the curve equation), it may not be
+/// possible to reconstruct a `Point`. `Option::none()` is returned in such cases.
+pub fn point_from_x_coord(x: Field) -> Option<Point> {
     // y ^ 2 = x ^ 3 - 17
     let rhs = x * x * x - 17;
-    let y = sqrt(rhs).unwrap();
-    Point { x, y, is_infinite: false }
+    sqrt(rhs).map(|y| Point { x, y, is_infinite: false })
 }
 
-/// Uses the x coordinate and sign flag (+/-) to reconstruct the point.
-/// The y coordinate can be derived from the x coordinate and the "sign" flag by solving the grumpkin curve
-/// equation for y.
+/// Returns a `Point` in the Grumpkin curve given its x coordinate and sign for the y coordinate.
+///
+/// Because not all values in the field are valid x coordinates of points in the curve (i.e. there
+/// is no corresponding y value in the field that satisfies the curve equation), it may not be
+/// possible to reconstruct a `Point`. `Option::none()` is returned in such cases.
+///
 /// @param x - The x coordinate of the point
 /// @param sign - The "sign" of the y coordinate - determines whether y <= (Fr.MODULUS - 1) / 2
-pub fn point_from_x_coord_and_sign(x: Field, sign: bool) -> Point {
+pub fn point_from_x_coord_and_sign(x: Field, sign: bool) -> Option<Point> {
     // y ^ 2 = x ^ 3 - 17
     let rhs = x * x * x - 17;
-    let y = sqrt(rhs).unwrap();
 
-    // If y > MOD_DIV_2 and we want positive sign (or vice versa), negate y
-    let y_is_positive = !BN254_FR_MODULUS_DIV_2.lt(y);
-    let final_y = if y_is_positive == sign { y } else { -y };
-
-    Point { x, y: final_y, is_infinite: false }
+    sqrt(rhs).map(|y| {
+        // If there is a square root, we need to ensure it has the correct "sign"
+        let y_is_positive = !BN254_FR_MODULUS_DIV_2.lt(y);
+        let final_y = if y_is_positive == sign { y } else { -y };
+        Point { x, y: final_y, is_infinite: false }
+    })
 }
 
 mod test {
-    use crate::utils::point::{point_from_x_coord_and_sign, point_to_bytes};
+    use crate::utils::point::{point_from_x_coord, point_from_x_coord_and_sign, point_to_bytes};
     use dep::protocol_types::point::Point;
+    use dep::protocol_types::utils::field::pow;
 
     #[test]
     unconstrained fn test_point_to_bytes_positive_sign() {
@@ -107,7 +114,7 @@ mod test {
         // Test positive y coordinate
         let x = 0x1af41f5de96446dc3776a1eb2d98bb956b7acd9979a67854bec6fa7c2973bd73;
         let sign = true;
-        let p = point_from_x_coord_and_sign(x, sign);
+        let p = point_from_x_coord_and_sign(x, sign).unwrap();
 
         assert_eq(p.x, x);
         assert_eq(p.y, 0x07fc22c7f2c7057571f137fe46ea9c95114282bc95d37d71ec4bfb88de457d4a);
@@ -116,10 +123,31 @@ mod test {
         // Test negative y coordinate
         let x2 = 0x247371652e55dd74c9af8dbe9fb44931ba29a9229994384bd7077796c14ee2b5;
         let sign2 = false;
-        let p2 = point_from_x_coord_and_sign(x2, sign2);
+        let p2 = point_from_x_coord_and_sign(x2, sign2).unwrap();
 
         assert_eq(p2.x, x2);
         assert_eq(p2.y, 0x26441aec112e1ae4cee374f42556932001507ad46e255ffb27369c7e3766e5c0);
         assert_eq(p2.is_infinite, false);
     }
+
+    #[test]
+    unconstrained fn test_point_from_x_coord_valid() {
+        // x = 8 is a known quadratic residue - should give a valid point
+        let result = point_from_x_coord(Field::from(8));
+        assert(result.is_some());
+
+        let point = result.unwrap();
+        assert_eq(point.x, Field::from(8));
+        // Check curve equation y^2 = x^3 - 17
+        assert_eq(pow(point.y, 2), pow(point.x, 3) - 17);
+    }
+
+    #[test]
+    unconstrained fn test_point_from_x_coord_invalid() {
+        // x = 3 is a non-residue for this curve - should give None
+        let x = Field::from(3);
+        let maybe_point = point_from_x_coord(x);
+        assert(maybe_point.is_none());
+    }
+
 }
