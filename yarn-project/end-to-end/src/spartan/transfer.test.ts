@@ -1,12 +1,17 @@
-import { type PXE, SponsoredFeePaymentMethod, createAztecNodeClient, readFieldCompressedString } from '@aztec/aztec.js';
+import { type AztecNode, SponsoredFeePaymentMethod, readFieldCompressedString } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TestWallet } from '@aztec/test-wallet';
 
 import { jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
 
 import { getSponsoredFPCAddress } from '../fixtures/utils.js';
-import { type TestAccounts, deploySponsoredTestAccounts, startCompatiblePXE } from './setup_test_wallets.js';
+import {
+  type TestAccounts,
+  createWalletAndAztecNodeClient,
+  deploySponsoredTestAccounts,
+} from './setup_test_wallets.js';
 import { setupEnvironment, startPortForwardForRPC } from './utils.js';
 
 const config = setupEnvironment(process.env);
@@ -21,7 +26,8 @@ describe('token transfer test', () => {
 
   let testAccounts: TestAccounts;
   const forwardProcesses: ChildProcess[] = [];
-  let pxe: PXE;
+  let wallet: TestWallet;
+  let aztecNode: AztecNode;
   let cleanup: undefined | (() => Promise<void>);
 
   afterAll(async () => {
@@ -33,10 +39,9 @@ describe('token transfer test', () => {
     const { process, port } = await startPortForwardForRPC(config.NAMESPACE);
     forwardProcesses.push(process);
     const rpcUrl = `http://127.0.0.1:${port}`;
-    const node = createAztecNodeClient(rpcUrl);
-    ({ pxe, cleanup } = await startCompatiblePXE(rpcUrl, config.REAL_VERIFIER, logger));
+    ({ wallet, aztecNode, cleanup } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, logger));
 
-    testAccounts = await deploySponsoredTestAccounts(pxe, node, MINT_AMOUNT, logger);
+    testAccounts = await deploySponsoredTestAccounts(wallet, aztecNode, MINT_AMOUNT, logger);
     expect(ROUNDS).toBeLessThanOrEqual(MINT_AMOUNT);
   });
 

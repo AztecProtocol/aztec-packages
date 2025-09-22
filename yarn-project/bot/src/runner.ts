@@ -1,21 +1,19 @@
-import { type AztecNode, createAztecNodeClient, createLogger } from '@aztec/aztec.js';
+import { type AztecNode, createLogger } from '@aztec/aztec.js';
 import { omit } from '@aztec/foundation/collection';
 import { RunningPromise } from '@aztec/foundation/running-promise';
-import { type AztecNodeAdmin, type PXE, createAztecNodeAdminClient } from '@aztec/stdlib/interfaces/client';
-import { type TelemetryClient, type Traceable, type Tracer, makeTracedFetch, trackSpan } from '@aztec/telemetry-client';
+import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
+import type { TestWallet } from '@aztec/test-wallet';
 
 import { AmmBot } from './amm_bot.js';
 import type { BaseBot } from './base_bot.js';
 import { Bot } from './bot.js';
-import { type BotConfig, getVersions } from './config.js';
+import type { BotConfig } from './config.js';
 import type { BotInfo, BotRunnerApi } from './interface.js';
 
 export class BotRunner implements BotRunnerApi, Traceable {
   private log = createLogger('bot');
   private bot?: Promise<BaseBot>;
-  private pxe?: PXE;
-  private node: AztecNode;
-  private nodeAdmin?: AztecNodeAdmin;
   private runningPromise: RunningPromise;
   private consecutiveErrors = 0;
   private healthy = true;
@@ -24,18 +22,13 @@ export class BotRunner implements BotRunnerApi, Traceable {
 
   public constructor(
     private config: BotConfig,
-    dependencies: { pxe?: PXE; node?: AztecNode; nodeAdmin?: AztecNodeAdmin; telemetry: TelemetryClient },
+    private readonly wallet: TestWallet,
+    private readonly aztecNode: AztecNode,
+    private readonly telemetry: TelemetryClient,
+    private readonly aztecNodeAdmin?: AztecNodeAdmin,
   ) {
-    this.tracer = dependencies.telemetry.getTracer('Bot');
-    if (!dependencies.node && !config.nodeUrl) {
-      throw new Error(`Missing node URL in config or dependencies`);
-    }
-    const versions = getVersions();
-    const fetch = makeTracedFetch([1, 2, 3], true);
-    this.node = dependencies.node ?? createAztecNodeClient(config.nodeUrl!, versions, fetch);
-    this.nodeAdmin =
-      dependencies.nodeAdmin ??
-      (config.nodeAdminUrl ? createAztecNodeAdminClient(config.nodeAdminUrl, versions, fetch) : undefined);
+    this.tracer = telemetry.getTracer('Bot');
+
     this.runningPromise = new RunningPromise(() => this.#work(), this.log, config.txIntervalSeconds * 1000);
   }
 
@@ -150,8 +143,8 @@ export class BotRunner implements BotRunnerApi, Traceable {
   async #createBot() {
     try {
       this.bot = this.config.ammTxs
-        ? AmmBot.create(this.config, { pxe: this.pxe, node: this.node, nodeAdmin: this.nodeAdmin })
-        : Bot.create(this.config, { pxe: this.pxe, node: this.node, nodeAdmin: this.nodeAdmin });
+        ? AmmBot.create(this.config, this.wallet, this.aztecNode, this.aztecNodeAdmin)
+        : Bot.create(this.config, this.wallet, this.aztecNode);
       await this.bot;
     } catch (err) {
       this.log.error(`Error setting up bot: ${err}`);
@@ -162,7 +155,7 @@ export class BotRunner implements BotRunnerApi, Traceable {
   @trackSpan('Bot.work')
   async #work() {
     if (this.config.maxPendingTxs > 0) {
-      const pendingTxCount = await this.node.getPendingTxCount();
+      const pendingTxCount = await this.aztecNode.getPendingTxCount();
       if (pendingTxCount >= this.config.maxPendingTxs) {
         this.log.verbose(`Not sending bot tx since node has ${pendingTxCount} pending txs`);
         return;

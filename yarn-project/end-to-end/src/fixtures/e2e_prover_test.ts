@@ -1,6 +1,6 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import { type Archiver, createArchiver } from '@aztec/archiver';
-import { AztecAddress, type AztecNode, EthAddress, type Logger, type PXE, createLogger } from '@aztec/aztec.js';
+import { AztecAddress, type AztecNode, EthAddress, type Logger, createLogger } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec/testing';
 import {
   BBCircuitVerifier,
@@ -16,7 +16,6 @@ import { SecretValue } from '@aztec/foundation/config';
 import { FeeAssetHandlerAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
-import type { PXEService } from '@aztec/pxe/server';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { TestWallet } from '@aztec/test-wallet';
 import { getGenesisValues } from '@aztec/world-state/testing';
@@ -34,12 +33,12 @@ import {
   deployAccounts,
   publicDeployAccounts,
 } from './snapshot_manager.js';
-import { getPrivateKeyFromIndex, getSponsoredFPCAddress, setupPXEService } from './utils.js';
+import { getPrivateKeyFromIndex, getSponsoredFPCAddress, setupPXEServiceAndGetWallet } from './utils.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
 
 type ProvenSetup = {
-  pxe: PXE;
+  wallet: TestWallet;
   teardown: () => Promise<void>;
 };
 
@@ -63,7 +62,6 @@ export class FullProverTest {
   tokenSim!: TokenSimulator;
   aztecNode!: AztecNode;
   aztecNodeAdmin!: AztecNodeAdmin;
-  pxe!: PXEService;
   cheatCodes!: CheatCodes;
   blobSink!: BlobSinkServer;
   private provenComponents: ProvenSetup[] = [];
@@ -161,7 +159,6 @@ export class FullProverTest {
 
     this.simulatedProverNode = this.context.proverNode!;
     ({
-      pxe: this.pxe,
       aztecNode: this.aztecNode,
       deployL1ContractsValues: this.l1Contracts,
       cheatCodes: this.cheatCodes,
@@ -211,7 +208,7 @@ export class FullProverTest {
 
     this.logger.verbose(`Main setup completed, initializing full prover PXE, Node, and Prover Node`);
     for (let i = 0; i < 2; i++) {
-      const result = await setupPXEService(
+      const { wallet: provenWallet, teardown: provenTeardown } = await setupPXEServiceAndGetWallet(
         this.aztecNode,
         {
           proverEnabled: this.realProofs,
@@ -222,9 +219,7 @@ export class FullProverTest {
         true,
       );
       this.logger.debug(`Contract address ${this.fakeProofsAsset.address}`);
-      await result.pxe.registerContract(this.fakeProofsAsset);
-
-      const provenWallet = new TestWallet(result.pxe, this.aztecNode);
+      await provenWallet.registerContract(this.fakeProofsAsset);
 
       for (let i = 0; i < 2; i++) {
         await provenWallet.createSchnorrAccount(this.deployedAccounts[i].secret, this.deployedAccounts[i].salt);
@@ -233,8 +228,8 @@ export class FullProverTest {
 
       const asset = await TokenContract.at(this.fakeProofsAsset.address, provenWallet);
       this.provenComponents.push({
-        pxe: result.pxe,
-        teardown: result.teardown,
+        wallet: provenWallet,
+        teardown: provenTeardown,
       });
       this.provenAssets.push(asset);
     }

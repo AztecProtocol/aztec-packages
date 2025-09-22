@@ -4,7 +4,6 @@ import {
   EthAddress,
   Fr,
   type Logger,
-  type PXE,
   computeAuthWitMessageHash,
   generateClaimSecret,
 } from '@aztec/aztec.js';
@@ -43,8 +42,6 @@ const TIMEOUT = 360_000;
 export type UniswapSetupContext = {
   /** Aztec Node instance */
   aztecNode: AztecNode;
-  /** The Private eXecution Environment (PXE). */
-  pxe: PXE;
   /** Logger instance named as the current test. */
   logger: Logger;
   /** The L1 wallet client, extended with public actions. */
@@ -75,7 +72,6 @@ export const uniswapL1L2TestSuite = (
     const DAI_ADDRESS: EthAddress = EthAddress.fromString('0x6B175474E89094C44Da98b954EedeAC495271d0F');
 
     let aztecNode: AztecNode;
-    let pxe: PXE;
     let logger: Logger;
 
     let l1Client: ExtendedViemWalletClient;
@@ -102,7 +98,7 @@ export const uniswapL1L2TestSuite = (
     let cheatCodes: CheatCodes;
     let version: number;
     beforeAll(async () => {
-      ({ aztecNode, pxe, logger, l1Client, wallet, ownerAddress, sponsorAddress, deployL1ContractsValues, cheatCodes } =
+      ({ aztecNode, logger, l1Client, wallet, ownerAddress, sponsorAddress, deployL1ContractsValues, cheatCodes } =
         await setup());
 
       if (Number(await l1Client.getBlockNumber()) < expectedForkBlockNumber) {
@@ -121,7 +117,6 @@ export const uniswapL1L2TestSuite = (
       logger.info('Deploying DAI Portal, initializing and deploying l2 contract...');
       daiCrossChainHarness = await CrossChainTestHarness.new(
         aztecNode,
-        pxe,
         deployL1ContractsValues.l1Client,
         wallet,
         ownerAddress,
@@ -132,7 +127,6 @@ export const uniswapL1L2TestSuite = (
       logger.info('Deploying WETH Portal, initializing and deploying l2 contract...');
       wethCrossChainHarness = await CrossChainTestHarness.new(
         aztecNode,
-        pxe,
         l1Client,
         wallet,
         ownerAddress,

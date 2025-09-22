@@ -1,8 +1,7 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { type AztecNode, BatchCall, type SentTx, type WaitOpts } from '@aztec/aztec.js';
+import { BatchCall, type SentTx, type WaitOpts } from '@aztec/aztec.js';
 import { mean, stdDev, times } from '@aztec/foundation/collection';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
-import { type PXEService, type PXEServiceConfig, createPXEService } from '@aztec/pxe/server';
 import type { MetricsType } from '@aztec/telemetry-client';
 import type { BenchmarkDataPoint, BenchmarkMetricsType, BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 
@@ -148,32 +147,6 @@ export async function waitTxs(txs: SentTx[], context: EndToEndContext, txWaitOpt
   context.logger.info(`Awaiting ${txs.length} txs to be mined`);
   await Promise.all(txs.map(tx => tx.wait(txWaitOpts)));
   context.logger.info(`All ${txs.length} txs have been mined`);
-}
-
-/**
- * Creates a new PXE
- * @param node - Node to connect the pxe to.
- * @param contract - Benchmark contract to add to the pxe.
- * @param startingBlock - First l2 block to process.
- * @returns The new PXE.
- */
-export async function createNewPXE(node: AztecNode, contract: BenchmarkingContract): Promise<PXEService> {
-  const l1Contracts = await node.getL1ContractAddresses();
-  const { l1ChainId, rollupVersion } = await node.getNodeInfo();
-  const pxeConfig = {
-    l2BlockBatchSize: 50,
-    l2BlockPollingIntervalMS: 100,
-    dataDirectory: undefined,
-    dataStoreMapSizeKB: 1024 * 1024,
-    l1Contracts,
-    l1ChainId,
-    rollupVersion,
-  } as PXEServiceConfig;
-  // docs:start:PXEcreate
-  const pxe = await createPXEService(node, pxeConfig);
-  // docs:end:PXEcreate
-  await pxe.registerContract(contract);
-  return pxe;
 }
 
 function randomBytesAsBigInts(length: number): bigint[] {

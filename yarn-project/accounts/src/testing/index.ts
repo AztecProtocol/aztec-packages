@@ -18,11 +18,11 @@ import {
 } from './configuration.js';
 
 export {
-  type InitialAccountData,
   INITIAL_TEST_ACCOUNT_SALTS,
   INITIAL_TEST_ENCRYPTION_KEYS,
   INITIAL_TEST_SECRET_KEYS,
   INITIAL_TEST_SIGNING_KEYS,
+  type InitialAccountData,
 } from './configuration.js';
 
 /**
@@ -45,10 +45,11 @@ export function getInitialTestAccountsData(): Promise<InitialAccountData[]> {
 
 /**
  * Queries a PXE for it's registered accounts.
- * @param pxe - PXE instance.
+ * @param testWalletOrPxe - Test wallet or pxe instance to use to get the registered accounts.
  * @returns A set of key data for each of the initial accounts.
  */
-export async function getDeployedTestAccounts(pxe: PXE): Promise<InitialAccountData[]> {
+export async function getDeployedTestAccounts(testWalletOrPxe: { getPxe(): PXE } | PXE): Promise<InitialAccountData[]> {
+  const pxe = 'getPxe' in testWalletOrPxe ? testWalletOrPxe.getPxe() : testWalletOrPxe;
   const registeredAccounts = await pxe.getRegisteredAccounts();
   const testAccounts = await getInitialTestAccountsData();
   return testAccounts.filter(t => registeredAccounts.some(r => r.address.equals(t.address)));

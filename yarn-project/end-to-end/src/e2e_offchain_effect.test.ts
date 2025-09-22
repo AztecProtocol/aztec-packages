@@ -1,4 +1,4 @@
-import { AztecAddress, type AztecNode, Fr, type PXE, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress, type AztecNode, Fr, type Wallet } from '@aztec/aztec.js';
 import { PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
 import { OffchainEffectContract, type TestEvent } from '@aztec/noir-test-contracts.js/OffchainEffect';
 import { MessageContext } from '@aztec/stdlib/logs';
@@ -13,7 +13,6 @@ const TIMEOUT = 120_000;
 describe('e2e_offchain_effect', () => {
   let contract1: OffchainEffectContract;
   let contract2: OffchainEffectContract;
-  let pxe: PXE;
   let aztecNode: AztecNode;
 
   jest.setTimeout(TIMEOUT);
@@ -27,7 +26,6 @@ describe('e2e_offchain_effect', () => {
       teardown,
       wallet,
       accounts: [defaultAccountAddress],
-      pxe,
       aztecNode,
     } = await setup(1));
     contract1 = await OffchainEffectContract.deploy(wallet).send({ from: defaultAccountAddress }).deployed();
@@ -104,7 +102,7 @@ describe('e2e_offchain_effect', () => {
       .simulate({ from: defaultAccountAddress });
 
     // Get the event from PXE
-    const events = await pxe.getPrivateEvents<TestEvent>(
+    const events = await wallet.getPrivateEvents<TestEvent>(
       contract1.address,
       OffchainEffectContract.events.TestEvent,
       blockNumber!,

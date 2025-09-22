@@ -4,7 +4,6 @@ import {
   AztecAddress,
   type AztecNode,
   Fr,
-  type PXE,
   TxStatus,
   createAztecNodeClient,
   createPXEClient,
@@ -37,7 +36,6 @@ describe('guides/dapp/testing', () => {
     });
 
     describe('token contract with initial accounts', () => {
-      let pxe: PXE;
       let aztecNode: AztecNode;
       let wallet: TestWallet;
       let ownerAddress: AztecAddress;
@@ -46,10 +44,10 @@ describe('guides/dapp/testing', () => {
 
       beforeEach(async () => {
         // docs:start:use-existing-wallets
-        pxe = createPXEClient(PXE_URL);
+        const pxe = createPXEClient(PXE_URL);
         aztecNode = createAztecNodeClient(AZTEC_NODE_URL);
-        const [owner, recipient] = await getDeployedTestAccounts(pxe);
         wallet = new TestWallet(pxe, aztecNode);
+        const [owner, recipient] = await getDeployedTestAccounts(wallet);
         await wallet.createSchnorrAccount(owner.secret, owner.salt);
         await wallet.createSchnorrAccount(recipient.secret, recipient.salt);
         ownerAddress = owner.address;
@@ -75,7 +73,6 @@ describe('guides/dapp/testing', () => {
     });
 
     describe('assertions', () => {
-      let pxe: PXE;
       let aztecNode: AztecNode;
       let wallet: TestWallet;
       let ownerAddress: AztecAddress;
@@ -86,10 +83,10 @@ describe('guides/dapp/testing', () => {
       let ownerSlot: Fr;
 
       beforeAll(async () => {
-        pxe = createPXEClient(PXE_URL);
+        const pxe = createPXEClient(PXE_URL);
         aztecNode = createAztecNodeClient(AZTEC_NODE_URL);
-        const [owner, recipient] = await getDeployedTestAccounts(pxe);
         wallet = new TestWallet(pxe, aztecNode);
+        const [owner, recipient] = await getDeployedTestAccounts(wallet);
         await wallet.createSchnorrAccount(owner.secret, owner.salt);
         await wallet.createSchnorrAccount(recipient.secret, recipient.salt);
         ownerAddress = owner.address;
@@ -104,7 +101,7 @@ describe('guides/dapp/testing', () => {
         await mintTokensToPrivate(token, ownerAddress, ownerAddress, mintAmount);
 
         // docs:start:calc-slot
-        cheats = await CheatCodes.create(ETHEREUM_HOSTS.split(','), pxe, aztecNode);
+        cheats = await CheatCodes.create(ETHEREUM_HOSTS.split(','), wallet, aztecNode);
         // The balances mapping is indexed by user address
         ownerSlot = await cheats.aztec.computeSlotInMap(TokenContract.storage.balances.slot, ownerAddress);
         // docs:end:calc-slot
@@ -113,7 +110,7 @@ describe('guides/dapp/testing', () => {
       it('checks private storage', async () => {
         // docs:start:private-storage
         await token.methods.sync_private_state().simulate({ from: ownerAddress });
-        const notes = await pxe.getNotes({
+        const notes = await wallet.getNotes({
           recipient: ownerAddress,
           contractAddress: token.address,
           storageSlot: ownerSlot,

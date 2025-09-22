@@ -9,10 +9,7 @@ import {
   type DeployOptions,
   FeeJuicePaymentMethodWithClaim,
   L1FeeJuicePortalManager,
-  type PXE,
-  createAztecNodeClient,
   createLogger,
-  createPXEClient,
   waitForL1ToL2MessageReady,
 } from '@aztec/aztec.js';
 import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
@@ -23,58 +20,23 @@ import { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
-import { makeTracedFetch } from '@aztec/telemetry-client';
 import { TestWallet } from '@aztec/test-wallet';
 
-import { type BotConfig, SupportedTokenContracts, getVersions } from './config.js';
+import { type BotConfig, SupportedTokenContracts } from './config.js';
 import { getBalances, getPrivateBalance, isStandardTokenContract } from './utils.js';
 
 const MINT_BALANCE = 1e12;
 const MIN_BALANCE = 1e3;
 
 export class BotFactory {
-  private pxe: PXE;
-  private wallet: TestWallet;
-  private node: AztecNode;
-  private nodeAdmin?: AztecNodeAdmin;
   private log = createLogger('bot');
 
   constructor(
     private readonly config: BotConfig,
-    dependencies: { pxe?: PXE; nodeAdmin?: AztecNodeAdmin; node?: AztecNode },
-  ) {
-    if (config.flushSetupTransactions && !dependencies.nodeAdmin) {
-      throw new Error(
-        `Either a node admin client or node admin url must be provided if transaction flushing is requested`,
-      );
-    }
-    if (config.senderPrivateKey && config.senderPrivateKey.getValue() && !dependencies.node) {
-      throw new Error(
-        `Either a node client or node url must be provided for bridging L1 fee juice to deploy an account with private key`,
-      );
-    }
-    if (!dependencies.pxe && !config.pxeUrl) {
-      throw new Error(`Either a PXE client or a PXE URL must be provided`);
-    }
-
-    this.nodeAdmin = dependencies.nodeAdmin;
-
-    if (dependencies.pxe) {
-      this.log.info(`Using local PXE`);
-      this.pxe = dependencies.pxe;
-    } else {
-      this.log.info(`Using remote PXE at ${config.pxeUrl!}`);
-      this.pxe = createPXEClient(config.pxeUrl!, getVersions(), makeTracedFetch([1, 2, 3], false));
-    }
-
-    if (dependencies.node) {
-      this.node = dependencies.node;
-    } else {
-      this.node = createAztecNodeClient(config.nodeUrl!, getVersions(), makeTracedFetch([1, 2, 3], false));
-    }
-
-    this.wallet = new TestWallet(this.pxe, this.node);
-  }
+    private readonly wallet: TestWallet,
+    private readonly aztecNode: AztecNode,
+    private readonly aztecNodeAdmin?: AztecNodeAdmin,
+  ) {}
 
   /**
    * Initializes a new bot by setting up the sender account, registering the recipient,
@@ -85,7 +47,7 @@ export class BotFactory {
     const defaultAccountAddress = await this.setupAccount();
     const token = await this.setupToken(defaultAccountAddress);
     await this.mintTokens(token, defaultAccountAddress);
-    return { wallet: this.wallet, defaultAccountAddress, token, node: this.node, recipient };
+    return { wallet: this.wallet, defaultAccountAddress, token, node: this.aztecNode, recipient };
   }
 
   public async setupAmm() {
@@ -109,7 +71,7 @@ export class BotFactory {
     await this.fundAmm(defaultAccountAddress, defaultAccountAddress, amm, token0, token1, liquidityToken);
     this.log.info(`AMM initialized and funded`);
 
-    return { wallet: this.wallet, defaultAccountAddress, amm, token0, token1, node: this.node };
+    return { wallet: this.wallet, defaultAccountAddress, amm, token0, token1, node: this.aztecNode };
   }
 
   /**
@@ -136,7 +98,7 @@ export class BotFactory {
       contract: new SchnorrAccountContract(signingKey!),
     };
     const accountManager = await this.wallet.createAccount(accountData);
-    const isInit = (await this.pxe.getContractMetadata(accountManager.getAddress())).isContractInitialized;
+    const isInit = (await this.wallet.getContractMetadata(accountManager.getAddress())).isContractInitialized;
     if (isInit) {
       this.log.info(`Account at ${accountManager.getAddress().toString()} already initialized`);
       const timer = new Timer();
@@ -176,7 +138,7 @@ export class BotFactory {
    * Registers the recipient for txs in the pxe.
    */
   private async registerRecipient() {
-    const recipient = await this.pxe.registerAccount(this.config.recipientEncryptionSecret.getValue(), Fr.ONE);
+    const recipient = await this.wallet.registerAccount(this.config.recipientEncryptionSecret.getValue(), Fr.ONE);
     return recipient.address;
   }
 
@@ -204,7 +166,7 @@ export class BotFactory {
     }
 
     const address = (await deploy.getInstance(deployOpts)).address;
-    if ((await this.pxe.getContractMetadata(address)).isContractPublished) {
+    if ((await this.wallet.getContractMetadata(address)).isContractPublished) {
       this.log.info(`Token at ${address.toString()} already deployed`);
       return deploy.register();
     } else {
@@ -337,7 +299,7 @@ export class BotFactory {
     deployOpts: DeployOptions,
   ): Promise<T> {
     const address = (await deploy.getInstance(deployOpts)).address;
-    if ((await this.pxe.getContractMetadata(address)).isContractPublished) {
+    if ((await this.wallet.getContractMetadata(address)).isContractPublished) {
       this.log.info(`Contract ${name} at ${address.toString()} already deployed`);
       return deploy.register();
     } else {
@@ -400,16 +362,16 @@ export class BotFactory {
       );
     }
 
-    const { l1ChainId } = await this.node.getNodeInfo();
+    const { l1ChainId } = await this.aztecNode.getNodeInfo();
     const chain = createEthereumChain(l1RpcUrls, l1ChainId);
     const extendedClient = createExtendedL1Client(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
 
-    const portal = await L1FeeJuicePortalManager.new(this.node, extendedClient, this.log);
+    const portal = await L1FeeJuicePortalManager.new(this.aztecNode, extendedClient, this.log);
     const mintAmount = await portal.getTokenManager().getMintAmount();
     const claim = await portal.bridgeTokensPublic(recipient, mintAmount, true /* mint */);
 
     await this.withNoMinTxsPerBlock(() =>
-      waitForL1ToL2MessageReady(this.node, Fr.fromHexString(claim.messageHash), {
+      waitForL1ToL2MessageReady(this.aztecNode, Fr.fromHexString(claim.messageHash), {
         timeoutSeconds: this.config.l1ToL2MessageTimeoutSeconds,
         forPublicConsumption: false,
       }),
@@ -421,18 +383,18 @@ export class BotFactory {
   }
 
   private async withNoMinTxsPerBlock<T>(fn: () => Promise<T>): Promise<T> {
-    if (!this.nodeAdmin || !this.config.flushSetupTransactions) {
+    if (!this.aztecNodeAdmin || !this.config.flushSetupTransactions) {
       this.log.verbose(`No node admin client or flushing not requested (not setting minTxsPerBlock to 0)`);
       return fn();
     }
-    const { minTxsPerBlock } = await this.nodeAdmin.getConfig();
+    const { minTxsPerBlock } = await this.aztecNodeAdmin.getConfig();
     this.log.warn(`Setting sequencer minTxsPerBlock to 0 from ${minTxsPerBlock} to flush setup transactions`);
-    await this.nodeAdmin.setConfig({ minTxsPerBlock: 0 });
+    await this.aztecNodeAdmin.setConfig({ minTxsPerBlock: 0 });
     try {
       return await fn();
     } finally {
       this.log.warn(`Restoring sequencer minTxsPerBlock to ${minTxsPerBlock}`);
-      await this.nodeAdmin.setConfig({ minTxsPerBlock });
+      await this.aztecNodeAdmin.setConfig({ minTxsPerBlock });
     }
   }
 }

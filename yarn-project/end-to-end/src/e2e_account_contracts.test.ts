@@ -14,8 +14,6 @@ import {
   Fr,
   GrumpkinScalar,
   type Logger,
-  type PXE,
-  type Wallet,
   getAccountContractAddress,
 } from '@aztec/aztec.js';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -35,11 +33,10 @@ const itShouldBehaveLikeAnAccountContract = (
   getAccountContract: (encryptionKey: GrumpkinScalar) => AccountContract,
 ) => {
   describe(`behaves like an account contract`, () => {
-    let pxe: PXE;
     let aztecNode: AztecNode;
     let logger: Logger;
     let teardown: () => Promise<void>;
-    let wallet: Wallet;
+    let wallet: TestWallet;
     let completeAddress: CompleteAddress;
     let child: ChildContract;
 
@@ -56,10 +53,10 @@ const itShouldBehaveLikeAnAccountContract = (
         address,
       };
 
-      ({ logger, pxe, teardown, aztecNode } = await setup(0, { initialFundedAccounts: [accountData] }));
-      wallet = new TestWalletInternals(pxe, aztecNode);
+      ({ logger, wallet, teardown, aztecNode } = await setup(0, { initialFundedAccounts: [accountData] }));
+      wallet = new TestWalletInternals(wallet.getPxe(), aztecNode);
 
-      const accountManager = await AccountManager.create(wallet, pxe, secret, accountContract, salt);
+      const accountManager = await AccountManager.create(wallet, wallet.getPxe(), secret, accountContract, salt);
       completeAddress = await accountManager.getCompleteAddress();
       if (await accountManager.hasInitializer()) {
         // The account is pre-funded and can pay for its own fee.

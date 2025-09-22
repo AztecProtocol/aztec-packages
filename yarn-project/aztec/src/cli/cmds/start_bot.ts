@@ -1,13 +1,14 @@
 import { type BotConfig, BotRunner, botConfigMappings, getBotRunnerApiHandler } from '@aztec/bot';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
-import { type AztecNode, type PXE, createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
+import { type AztecNode, type AztecNodeAdmin, createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 import {
   getConfigEnvVars as getTelemetryClientConfig,
   initTelemetryClient,
   makeTracedFetch,
 } from '@aztec/telemetry-client';
+import { TestWallet } from '@aztec/test-wallet';
 
 import { extractRelevantOptions } from '../util.js';
 import { getVersions } from '../versioning.js';
@@ -32,28 +33,28 @@ export async function startBot(
     throw new Error('The bot requires access to a Node');
   }
 
-  const node = createAztecNodeClient(config.nodeUrl, getVersions(), fetch);
+  const aztecNode = createAztecNodeClient(config.nodeUrl, getVersions(), fetch);
 
-  // Start a PXE client that is used by the bot if required
-  let pxe: PXE | undefined;
-  if (options.pxe) {
-    const { addPXE } = await import('./start_pxe.js');
-    ({ pxe } = await addPXE(options, signalHandlers, services, userLog, { node }));
-  }
+  // Start a PXE client and get a wallet that is used by the bot if required
+  const { startPXEServiceGetWallet } = await import('./start_pxe.js');
+  const { wallet } = await startPXEServiceGetWallet(options, services, userLog, { node: aztecNode });
 
   const telemetry = initTelemetryClient(getTelemetryClientConfig());
-  await addBot(options, signalHandlers, services, { pxe, telemetry, node });
+  await addBot(options, signalHandlers, services, wallet, aztecNode, telemetry, undefined);
 }
 
 export function addBot(
   options: any,
   signalHandlers: (() => Promise<void>)[],
   services: NamespacedApiHandlers,
-  deps: { pxe?: PXE; node?: AztecNode; telemetry: TelemetryClient },
+  wallet: TestWallet,
+  aztecNode: AztecNode,
+  telemetry: TelemetryClient,
+  aztecNodeAdmin?: AztecNodeAdmin,
 ) {
   const config = extractRelevantOptions<BotConfig>(options, botConfigMappings, 'bot');
 
-  const botRunner = new BotRunner(config, deps);
+  const botRunner = new BotRunner(config, wallet, aztecNode, telemetry, aztecNodeAdmin);
   if (!config.noStart) {
     void botRunner.start(); // Do not block since bot setup takes time
   }

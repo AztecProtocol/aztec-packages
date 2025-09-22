@@ -63,8 +63,8 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       const { startBlobSink } = await import('./cmds/start_blob_sink.js');
       await startBlobSink(options, signalHandlers, userLog);
     } else if (options.pxe) {
-      const { startPXE } = await import('./cmds/start_pxe.js');
-      ({ config } = await startPXE(options, signalHandlers, services, userLog));
+      const { startPXEServiceGetWallet } = await import('./cmds/start_pxe.js');
+      ({ config } = await startPXEServiceGetWallet(options, services, userLog));
     } else if (options.archiver) {
       const { startArchiver } = await import('./cmds/start_archiver.js');
       ({ config } = await startArchiver(options, signalHandlers, services));

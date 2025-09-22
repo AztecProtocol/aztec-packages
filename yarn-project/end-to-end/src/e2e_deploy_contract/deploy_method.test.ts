@@ -4,7 +4,6 @@ import {
   BatchCall,
   Fr,
   type Logger,
-  type PXE,
   type Wallet,
   createAztecNodeClient,
   createPXEClient,
@@ -22,14 +21,13 @@ import { DeployTest } from './deploy_test.js';
 describe('e2e_deploy_contract deploy method', () => {
   const t = new DeployTest('deploy method');
 
-  let pxe: PXE;
   let logger: Logger;
   let wallet: Wallet;
   let aztecNode: AztecNode;
   let defaultAccountAddress: AztecAddress;
 
   beforeAll(async () => {
-    ({ pxe, logger, wallet, aztecNode, defaultAccountAddress } = await t.setup());
+    ({ logger, wallet, aztecNode, defaultAccountAddress } = await t.setup());
   });
 
   afterAll(() => t.teardown());
@@ -54,7 +52,8 @@ describe('e2e_deploy_contract deploy method', () => {
     await contract.methods.increment_public_value(owner, 84).send({ from: defaultAccountAddress }).wait();
     expect(await contract.methods.get_public_value(owner).simulate({ from: defaultAccountAddress })).toEqual(84n);
     expect(
-      (await pxe.getContractClassMetadata(contract.instance.currentContractClassId)).isContractClassPubliclyRegistered,
+      (await wallet.getContractClassMetadata(contract.instance.currentContractClassId))
+        .isContractClassPubliclyRegistered,
     ).toBeTrue();
   });
 

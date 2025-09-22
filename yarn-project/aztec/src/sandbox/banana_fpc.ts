@@ -6,7 +6,7 @@ import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
-import type { PXE } from '@aztec/stdlib/interfaces/client';
+import type { TestWallet } from '@aztec/test-wallet';
 
 const BANANA_COIN_SALT = new Fr(0);
 const bananaCoinArgs = {
@@ -62,20 +62,20 @@ export async function setupBananaFPC(initialAccounts: InitialAccountData[], wall
   log(`FPC: ${fpc.address}`);
 }
 
-export async function getDeployedBananaCoinAddress(pxe: PXE) {
+export async function getDeployedBananaCoinAddress(wallet: TestWallet) {
   const initialAccounts = await getInitialTestAccountsData();
   const bananaCoin = await getBananaCoinAddress(initialAccounts);
-  const contracts = await pxe.getContracts();
+  const contracts = await wallet.getContracts();
   if (!contracts.find(c => c.equals(bananaCoin))) {
     throw new Error('BananaCoin not deployed.');
   }
   return bananaCoin;
 }
 
-export async function getDeployedBananaFPCAddress(pxe: PXE) {
+export async function getDeployedBananaFPCAddress(wallet: TestWallet) {
   const initialAccounts = await getInitialTestAccountsData();
   const fpc = await getBananaFPCInstance(initialAccounts);
-  const contracts = await pxe.getContracts();
+  const contracts = await wallet.getContracts();
   if (!contracts.find(c => c.equals(fpc.address))) {
     throw new Error('BananaFPC not deployed.');
   }

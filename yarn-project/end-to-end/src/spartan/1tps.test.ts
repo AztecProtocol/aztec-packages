@@ -1,14 +1,5 @@
 // TODO(#11825) finalize (probably once we have nightly tests setup for GKE) & enable in bootstrap.sh
-import {
-  type PXE,
-  ProvenTx,
-  SentTx,
-  SponsoredFeePaymentMethod,
-  Tx,
-  createAztecNodeClient,
-  readFieldCompressedString,
-  sleep,
-} from '@aztec/aztec.js';
+import { ProvenTx, SentTx, SponsoredFeePaymentMethod, Tx, readFieldCompressedString, sleep } from '@aztec/aztec.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 
@@ -16,7 +7,11 @@ import { jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
 
 import { getSponsoredFPCAddress } from '../fixtures/utils.js';
-import { type TestAccounts, deploySponsoredTestAccounts, startCompatiblePXE } from './setup_test_wallets.js';
+import {
+  type TestAccounts,
+  createWalletAndAztecNodeClient,
+  deploySponsoredTestAccounts,
+} from './setup_test_wallets.js';
 import { setupEnvironment, startPortForwardForRPC } from './utils.js';
 
 const config = { ...setupEnvironment(process.env), REAL_VERIFIER: true }; // TODO: remove REAL_VERIFIER: true
@@ -30,7 +25,6 @@ describe('token transfer test', () => {
 
   let testAccounts: TestAccounts;
   const forwardProcesses: ChildProcess[] = [];
-  let pxe: PXE;
   let cleanup: undefined | (() => Promise<void>);
 
   afterAll(async () => {
@@ -44,11 +38,15 @@ describe('token transfer test', () => {
     forwardProcesses.push(aztecRpcProcess);
     const rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
 
-    ({ pxe, cleanup } = await startCompatiblePXE(rpcUrl, config.REAL_VERIFIER, logger));
-    const node = createAztecNodeClient(rpcUrl);
+    const {
+      wallet,
+      aztecNode,
+      cleanup: _cleanup,
+    } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, logger);
+    cleanup = _cleanup;
 
     // Setup wallets
-    testAccounts = await deploySponsoredTestAccounts(pxe, node, MINT_AMOUNT, logger);
+    testAccounts = await deploySponsoredTestAccounts(wallet, aztecNode, MINT_AMOUNT, logger);
 
     expect(ROUNDS).toBeLessThanOrEqual(MINT_AMOUNT);
   });

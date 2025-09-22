@@ -52,7 +52,6 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
-import type { PXEService } from '@aztec/pxe/server';
 import { SequencerPublisher, SequencerPublisherMetrics } from '@aztec/sequencer-client';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestationsAndSigners, L2Block } from '@aztec/stdlib/block';
@@ -66,7 +65,7 @@ import { getContract } from 'viem';
 
 import { DEFAULT_BLOB_SINK_PORT } from './fixtures/fixtures.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
-import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEService } from './fixtures/utils.js';
+import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEServiceAndGetWallet } from './fixtures/utils.js';
 
 const SALT = 420;
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
@@ -101,7 +100,6 @@ type VariantDefinition = {
  */
 class TestVariant {
   private logger: Logger = createLogger(`test_variant`);
-  private pxe!: PXEService;
   private token!: TokenContract;
   private spam!: SpamContract;
 
@@ -120,10 +118,6 @@ class TestVariant {
     this.blockCount = def.blockCount;
     this.txCount = def.txCount;
     this.txComplexity = def.txComplexity;
-  }
-
-  setPXE(pxe: PXEService) {
-    this.pxe = pxe;
   }
 
   setWallet(wallet: TestWallet) {
@@ -160,8 +154,8 @@ class TestVariant {
   }
 
   async setup(accounts: InitialAccountData[] = []) {
-    if (this.pxe === undefined) {
-      throw new Error('Undefined PXE');
+    if (this.wallet === undefined) {
+      throw new Error('Undefined wallet');
     }
 
     this.accounts = accounts.map(acc => acc.address);
@@ -189,8 +183,8 @@ class TestVariant {
   }
 
   async createAndSendTxs() {
-    if (!this.pxe) {
-      throw new Error('Undefined PXE');
+    if (!this.wallet) {
+      throw new Error('Undefined wallet');
     }
 
     if (this.txComplexity == TxComplexity.Deployment) {
@@ -323,7 +317,6 @@ describe('e2e_synching', () => {
       // This is to keep the setup more stable, so as long as the setup is less than 100 L1 txs, changing the setup should not break the setup
       const {
         teardown,
-        pxe,
         sequencer,
         aztecNode,
         wallet,
@@ -336,7 +329,6 @@ describe('e2e_synching', () => {
         l2StartTime: START_TIME + 200 * ETHEREUM_SLOT_DURATION,
         numberOfInitialFundedAccounts: variant.txCount + 1,
       });
-      variant.setPXE(pxe as PXEService);
       variant.setWallet(wallet);
 
       // Deploy a token, such that we could use it
@@ -390,7 +382,6 @@ describe('e2e_synching', () => {
       aztecNode,
       sequencer,
       watcher,
-      pxe,
       wallet,
       blobSink,
       initialFundedAccounts,
@@ -477,7 +468,7 @@ describe('e2e_synching', () => {
     }
 
     await alternativeSync(
-      { deployL1ContractsValues, cheatCodes, config, logger, pxe, initialFundedAccounts, wallet },
+      { deployL1ContractsValues, cheatCodes, config, logger, initialFundedAccounts, wallet },
       variant,
     );
 
@@ -547,10 +538,7 @@ describe('e2e_synching', () => {
             const aztecNode = await AztecNodeService.createAndSync(opts.config!);
             const sequencer = aztecNode.getSequencer();
 
-            const { pxe } = await setupPXEService(aztecNode!);
-
-            variant.setPXE(pxe);
-            const wallet = new TestWallet(pxe, aztecNode);
+            const { wallet } = await setupPXEServiceAndGetWallet(aztecNode!);
             variant.setWallet(wallet);
             const defaultAccountAddress = (await variant.deployAccounts(opts.initialFundedAccounts!.slice(0, 1)))[0];
 
@@ -692,8 +680,8 @@ describe('e2e_synching', () => {
           expect(await aztecNode.getBlockNumber()).toBeLessThan(blockBeforePrune);
 
           // We need to start the pxe after the re-org for now, because it won't handle it otherwise
-          const { pxe } = await setupPXEService(aztecNode!);
-          variant.setPXE(pxe);
+          const { wallet } = await setupPXEServiceAndGetWallet(aztecNode!);
+          variant.setWallet(wallet);
 
           const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
 
@@ -750,9 +738,8 @@ describe('e2e_synching', () => {
           const aztecNode = await AztecNodeService.createAndSync(opts.config!);
           const sequencer = aztecNode.getSequencer();
 
-          const { pxe } = await setupPXEService(aztecNode!);
-
-          variant.setPXE(pxe);
+          const { wallet: newWallet } = await setupPXEServiceAndGetWallet(aztecNode!);
+          variant.setWallet(newWallet);
 
           const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
 

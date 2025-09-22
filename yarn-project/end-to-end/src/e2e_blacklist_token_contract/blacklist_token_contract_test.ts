@@ -3,7 +3,6 @@ import {
   type AztecNode,
   Fr,
   type Logger,
-  type PXE,
   type TxHash,
   computeSecretHash,
   createLogger,
@@ -62,7 +61,6 @@ export class BlacklistTokenContractTest {
   private snapshotManager: ISnapshotManager;
   logger: Logger;
   wallet!: TestWallet;
-  pxe!: PXE;
   asset!: TokenBlacklistContract;
   tokenSim!: TokenSimulator;
   badAccount!: InvalidAccountContract;
@@ -99,8 +97,7 @@ export class BlacklistTokenContractTest {
     await this.snapshotManager.snapshot(
       '3_accounts',
       deployAccounts(3, this.logger),
-      ({ deployedAccounts }, { pxe, cheatCodes, aztecNode, sequencer, wallet }) => {
-        this.pxe = pxe;
+      ({ deployedAccounts }, { cheatCodes, aztecNode, sequencer, wallet }) => {
         this.cheatCodes = cheatCodes;
         this.aztecNode = aztecNode;
         this.sequencer = sequencer;
