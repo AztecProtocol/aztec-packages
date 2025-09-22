@@ -117,14 +117,14 @@ export class EthAddress {
    * @param address - The Ethereum address as a hex-encoded string.
    * @returns The Ethereum address in its checksum format.
    */
-  public static toChecksumAddress(address: string) {
+  public static toChecksumAddress(address: string): `0x${string}` {
     if (!EthAddress.isAddress(address)) {
       throw new Error('Invalid address string.');
     }
 
     address = address.toLowerCase().replace(/^0x/i, '');
     const addressHash = keccak256String(address);
-    let checksumAddress = '0x';
+    let checksumAddress: `0x${string}` = '0x';
 
     for (let i = 0; i < address.length; i++) {
       // If ith character is 9 to f then make it uppercase.

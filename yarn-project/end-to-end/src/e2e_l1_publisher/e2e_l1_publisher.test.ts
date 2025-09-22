@@ -240,6 +240,7 @@ describe('L1Publisher integration', () => {
         slashFactoryContract,
         dateProvider,
         metrics: sequencerPublisherMetrics,
+        lastActions: {},
       },
     );
 
