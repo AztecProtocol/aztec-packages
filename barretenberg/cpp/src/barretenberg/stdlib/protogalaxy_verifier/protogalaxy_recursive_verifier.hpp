@@ -8,24 +8,26 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/protogalaxy/constants.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
-#include "barretenberg/stdlib/protogalaxy_verifier/recursive_verifier_instances.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/instances.hpp"
 
 namespace bb::stdlib::recursion::honk {
-template <class VerifierInstances> class ProtogalaxyRecursiveVerifier_ {
+template <class VerifierInstance> class ProtogalaxyRecursiveVerifier_ {
   public:
-    using Flavor = typename VerifierInstances::Flavor;
+    using Flavor = typename VerifierInstance::Flavor;
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
-    using VerifierInstance = typename VerifierInstances::VerifierInstance;
     using VKAndHash = typename Flavor::VKAndHash;
+    using VerifierInstances = std::array<std::shared_ptr<VerifierInstance>, NUM_INSTANCES>;
 
     using Builder = typename Flavor::CircuitBuilder;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
 
+    static constexpr size_t EXTENDED_LENGTH = computed_extended_length<Flavor>();
+    static constexpr size_t BATCHED_EXTENDED_LENGTH = computed_batched_extended_length<Flavor>();
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
     Builder* builder;
@@ -36,19 +38,25 @@ template <class VerifierInstances> class ProtogalaxyRecursiveVerifier_ {
 
     ProtogalaxyRecursiveVerifier_(Builder* builder,
                                   const std::shared_ptr<VerifierInstance>& accumulator,
-                                  const std::vector<std::shared_ptr<VKAndHash>>& vk_and_hashs,
+                                  const std::shared_ptr<VKAndHash>& vk_and_hash,
                                   const std::shared_ptr<Transcript>& transcript)
         : builder(builder)
-        , insts_to_fold(VerifierInstances(builder, accumulator, vk_and_hashs))
-        , transcript(transcript) {};
+        , transcript(transcript)
+    {
+        insts_to_fold[0] = accumulator;
+        insts_to_fold[1] = std::make_shared<VerifierInstance>(builder, vk_and_hash);
+    };
 
     ProtogalaxyRecursiveVerifier_(Builder* builder,
                                   const std::shared_ptr<VerifierInstance>& accumulator,
                                   const std::shared_ptr<VerifierInstance>& incoming_instance,
                                   const std::shared_ptr<Transcript>& transcript)
         : builder(builder)
-        , insts_to_fold(VerifierInstances(builder, accumulator, incoming_instance))
-        , transcript(transcript) {};
+        , transcript(transcript)
+    {
+        insts_to_fold[0] = accumulator;
+        insts_to_fold[1] = incoming_instance;
+    };
 
     /**
      * @brief Process the public data ϕ for the decider verification keys to be folded.
