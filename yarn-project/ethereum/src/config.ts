@@ -79,12 +79,12 @@ export const DefaultL1ContractsConfig = {
   aztecTargetCommitteeSize: 48,
   lagInEpochs: 2,
   aztecProofSubmissionEpochs: 1, // you have a full epoch to submit a proof after the epoch to prove ends
-  activationThreshold: 100n * 10n ** 18n,
-  ejectionThreshold: 50n * 10n ** 18n,
-  localEjectionThreshold: 98n * 10n ** 18n,
-  slashAmountSmall: 10n * 10n ** 18n,
-  slashAmountMedium: 20n * 10n ** 18n,
-  slashAmountLarge: 50n * 10n ** 18n,
+  activationThreshold: 200_000n * 10n ** 18n,
+  ejectionThreshold: 100_000n * 10n ** 18n,
+  localEjectionThreshold: 196_000n * 10n ** 18n,
+  slashAmountSmall: 2_000n * 10n ** 18n,
+  slashAmountMedium: 10_000n * 10n ** 18n,
+  slashAmountLarge: 50_000n * 10n ** 18n,
   slashingRoundSizeInEpochs: 4,
   slashingLifetimeInRounds: 5,
   slashingExecutionDelayInRounds: 0, // round N may be submitted in round N + 1

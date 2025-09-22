@@ -33,6 +33,7 @@ import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {SignatureLib, Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {SlashRound} from "@aztec/core/libraries/SlashRoundLib.sol";
 import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
+import {Ownable} from "@oz/access/Ownable.sol";
 
 // solhint-disable comprehensive-interface
 // solhint-disable func-name-mixedcase
@@ -197,6 +198,7 @@ contract SlashingTest is TestBase {
     assertEq(rollup.getActiveAttesterCount(), validatorCount, "Invalid attester count");
   }
 
+  /// forge-config: default.fuzz.runs = 8
   function test_CannotSlashBeforeDelay(uint256 _lifetimeInRounds, uint256 _executionDelayInRounds, uint256 _jumpToSlot)
     public
   {
@@ -225,6 +227,7 @@ contract SlashingTest is TestBase {
     slashingProposer.executeRound(firstSlashingRound, committees);
   }
 
+  /// forge-config: default.fuzz.runs = 8
   function test_CanSlashAfterDelay(uint256 _lifetimeInRounds, uint256 _executionDelayInRounds, uint256 _jumpToSlot)
     public
   {
@@ -267,6 +270,7 @@ contract SlashingTest is TestBase {
     }
   }
 
+  /// forge-config: default.fuzz.runs = 8
   function test_CannotSlashIfVetoed(uint256 _lifetimeInRounds, uint256 _executionDelayInRounds, uint256 _jumpToSlot)
     public
   {
@@ -309,9 +313,6 @@ contract SlashingTest is TestBase {
 
   function test_SlashingDisableTimestamp() public {
     _setupCommitteeForSlashing();
-    address[] memory attesters = rollup.getEpochCommittee(Epoch.wrap(INITIAL_EPOCH));
-    uint96 slashAmount = uint96(slashingProposer.SLASH_AMOUNT_SMALL());
-    SlashRound firstSlashingRound = _createSlashingVotes(slashAmount, attesters.length);
 
     // Initially slashing should be enabled
     assertEq(slasher.isSlashingEnabled(), true, "Slashing should be enabled initially");
@@ -387,7 +388,7 @@ contract SlashingTest is TestBase {
     uint256 howManyToSlash = HOW_MANY_SLASHED;
 
     // We slash a small amount and see that they are all still validating, but less stake
-    uint96 slashAmount1 = 10e18;
+    uint96 slashAmount1 = uint96(slashingProposer.SLASH_AMOUNT_SMALL());
     SlashRound firstSlashingRound = _createSlashingVotes(slashAmount1, howManyToSlash);
 
     // Grab the attesters and their initial stakes
@@ -445,7 +446,57 @@ contract SlashingTest is TestBase {
     uint256 howManyToSlash = HOW_MANY_SLASHED;
 
     // We slash a small amount and see that they are all still validating, but less stake
-    uint96 slashAmount1 = 60e18;
+    uint96 slashAmount1 = uint96(slashingProposer.SLASH_AMOUNT_LARGE());
+    SlashRound firstSlashingRound = _createSlashingVotes(slashAmount1, howManyToSlash);
+
+    // Grab the attesters and their initial stakes
+    address[][] memory committees = new address[][](slashingProposer.ROUND_SIZE_IN_EPOCHS());
+    address[] memory attesters = new address[](slashingProposer.ROUND_SIZE_IN_EPOCHS() * COMMITTEE_SIZE);
+    uint256[] memory stakes = new uint256[](attesters.length);
+    for (uint256 i = 0; i < slashingProposer.ROUND_SIZE_IN_EPOCHS(); i++) {
+      Epoch epochSlashed = slashingProposer.getSlashTargetEpoch(firstSlashingRound, i);
+      address[] memory committee = rollup.getEpochCommittee(epochSlashed);
+      committees[i] = committee;
+      for (uint256 j = 0; j < committee.length; j++) {
+        address attester = committee[j];
+        attesters[i * COMMITTEE_SIZE + j] = attester;
+        AttesterView memory attesterView = rollup.getAttesterView(attester);
+        stakes[i * COMMITTEE_SIZE + j] = attesterView.effectiveBalance;
+        assertTrue(attesterView.status == Status.VALIDATING, "Invalid status");
+      }
+    }
+
+    // Wait for execution delay and execute - need to be in the next round for execution
+    uint256 roundsToWait = slashingProposer.EXECUTION_DELAY_IN_ROUNDS() + 1;
+    timeCheater.cheat__jumpForwardSlots(roundsToWait * slashingProposer.ROUND_SIZE());
+
+    // Execute the slash
+    slashingProposer.executeRound(firstSlashingRound, committees);
+
+    // Check balances
+    for (uint256 i = 0; i < howManyToSlash; i++) {
+      AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
+      assertEq(attesterView.effectiveBalance, stakes[i] - slashAmount1);
+      assertEq(attesterView.exit.amount, 0, "Invalid stake");
+      assertTrue(attesterView.status == Status.VALIDATING, "Invalid status");
+    }
+
+    // Verify that slashing was successful and validators are still active
+    assertEq(rollup.getActiveAttesterCount(), VALIDATOR_COUNT, "All validators should remain active after small slash");
+  }
+
+  function test_SlashingLargeAmount_smallLocalEjectionThreshold() public {
+    _setupCommitteeForSlashing();
+
+    uint256 howManyToSlash = HOW_MANY_SLASHED;
+
+    // We slash a large amount AND alter the local ejection threshold, to see that this should kick us out.
+    uint96 slashAmount1 = uint96(slashingProposer.SLASH_AMOUNT_LARGE());
+    uint256 localEjectionThreshold = rollup.getActivationThreshold() - slashAmount1 + 1;
+
+    vm.prank(Ownable(address(rollup)).owner());
+    rollup.setLocalEjectionThreshold(localEjectionThreshold);
+
     SlashRound firstSlashingRound = _createSlashingVotes(slashAmount1, howManyToSlash);
 
     // Grab the attesters and their initial stakes

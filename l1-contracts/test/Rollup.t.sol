@@ -39,6 +39,7 @@ import {RollupBuilder} from "./builder/RollupBuilder.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {AttestationLib, CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
+import {Bps, BpsLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -419,7 +420,8 @@ contract RollupTest is RollupBase {
     );
     proverFees *= 10; // the price conversion
 
-    uint256 expectedProverRewards = rollup.getBlockReward() / 2 * 2 + proverFees;
+    uint256 sequencerBlockReward = BpsLib.mul(rollup.getBlockReward(), rollup.getRewardConfig().sequencerBps);
+    uint256 expectedProverRewards = (rollup.getBlockReward() - sequencerBlockReward) * 2 + proverFees;
 
     assertEq(rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(0)), expectedProverRewards, "invalid prover rewards");
   }
@@ -524,9 +526,10 @@ contract RollupTest is RollupBase {
         assertEq(provingCosts, FeeAssetValue.unwrap(interim.provingCostPerManaInFeeAsset), "invalid proving costs");
       }
 
-      uint256 expectedProverReward =
-        rollup.getBlockReward() / 2 + FeeAssetValue.unwrap(interim.provingCostPerManaInFeeAsset) * interim.manaUsed;
-      uint256 expectedSequencerReward = rollup.getBlockReward() / 2 + interim.feeAmount
+      uint256 sequencerBlockReward = BpsLib.mul(rollup.getBlockReward(), rollup.getRewardConfig().sequencerBps);
+      uint256 expectedProverReward = rollup.getBlockReward() - sequencerBlockReward
+        + FeeAssetValue.unwrap(interim.provingCostPerManaInFeeAsset) * interim.manaUsed;
+      uint256 expectedSequencerReward = sequencerBlockReward + interim.feeAmount
         - FeeAssetValue.unwrap(interim.provingCostPerManaInFeeAsset) * interim.manaUsed;
 
       assertEq(rollup.getSequencerRewards(header.coinbase), expectedSequencerReward, "invalid sequencer rewards");

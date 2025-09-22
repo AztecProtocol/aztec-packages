@@ -63,11 +63,13 @@ contract Test15050 is StakingBase {
 
     assertEq(caller.getCurrentRound(), 0);
 
-    while (caller.getCurrentRound() == 0) {
+    uint256 waitUntilRound = caller.EXECUTION_DELAY_IN_ROUNDS() + 1;
+
+    while (caller.getCurrentRound() < waitUntilRound) {
       vm.warp(block.timestamp + 12);
     }
 
-    assertEq(caller.getCurrentRound(), 1);
+    assertEq(caller.getCurrentRound(), waitUntilRound);
 
     RoundAccounting memory r = caller.getRoundData(address(staking), 0);
     assertFalse(r.executed);

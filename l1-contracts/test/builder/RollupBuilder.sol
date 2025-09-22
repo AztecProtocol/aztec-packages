@@ -22,6 +22,8 @@ import {CoinIssuer} from "@aztec/governance/CoinIssuer.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
 import {GSEWithSkip} from "@test/GSEWithSkip.sol";
 import {TestGov} from "@test/governance/helpers/TestGov.sol";
+import {Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 // Stack the layers to avoid the stack too deep 🧌
 struct ConfigFlags {
@@ -62,6 +64,7 @@ struct Config {
  */
 contract RollupBuilder is Test {
   using stdStorage for StdStorage;
+  using SafeCast for uint256;
 
   Config public config;
 
@@ -157,6 +160,12 @@ contract RollupBuilder is Test {
 
   function setProvingCostPerMana(EthValue _provingCostPerMana) public returns (RollupBuilder) {
     config.rollupConfigInput.provingCostPerMana = _provingCostPerMana;
+    return this;
+  }
+
+  function setSequencerBps(uint256 _sequencerBps) public returns (RollupBuilder) {
+    require(_sequencerBps <= 10_000, "Sequencer BPS must be less than or equal to 10000");
+    config.rollupConfigInput.rewardConfig.sequencerBps = Bps.wrap(_sequencerBps.toUint32());
     return this;
   }
 

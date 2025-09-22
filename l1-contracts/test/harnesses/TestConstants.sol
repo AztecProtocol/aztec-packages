@@ -20,16 +20,16 @@ library TestConstants {
   uint256 internal constant AZTEC_TARGET_COMMITTEE_SIZE = 48;
   uint256 internal constant AZTEC_LAG_IN_EPOCHS = 2;
   uint256 internal constant AZTEC_PROOF_SUBMISSION_EPOCHS = 1;
-  uint256 internal constant AZTEC_SLASHING_QUORUM = 6;
-  uint256 internal constant AZTEC_SLASHING_ROUND_SIZE = 10;
-  uint256 internal constant AZTEC_SLASHING_LIFETIME_IN_ROUNDS = 5;
-  uint256 internal constant AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS = 0;
+  uint256 internal constant AZTEC_SLASHING_QUORUM = 65;
+  uint256 internal constant AZTEC_SLASHING_ROUND_SIZE = 4 * AZTEC_EPOCH_DURATION;
+  uint256 internal constant AZTEC_SLASHING_LIFETIME_IN_ROUNDS = 40;
+  uint256 internal constant AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS = 28;
   uint256 internal constant AZTEC_SLASHING_OFFSET_IN_ROUNDS = 2;
   address internal constant AZTEC_SLASHING_VETOER = address(0);
   uint256 internal constant AZTEC_SLASHING_DISABLE_DURATION = 5 days;
-  uint256 internal constant AZTEC_SLASH_AMOUNT_SMALL = 20e18;
-  uint256 internal constant AZTEC_SLASH_AMOUNT_MEDIUM = 40e18;
-  uint256 internal constant AZTEC_SLASH_AMOUNT_LARGE = 60e18;
+  uint256 internal constant AZTEC_SLASH_AMOUNT_SMALL = 2000e18;
+  uint256 internal constant AZTEC_SLASH_AMOUNT_MEDIUM = 10_000e18;
+  uint256 internal constant AZTEC_SLASH_AMOUNT_LARGE = 30_000e18;
   uint256 internal constant AZTEC_MANA_TARGET = 100_000_000;
   uint256 internal constant AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN = 4;
   uint256 internal constant AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT = 2;
@@ -40,8 +40,8 @@ library TestConstants {
   EthValue internal constant AZTEC_PROVING_COST_PER_MANA = EthValue.wrap(100);
   uint256 internal constant AZTEC_COIN_ISSUER_RATE = uint256(25_000_000_000e18) / uint256(60 * 60 * 24 * 365);
 
-  uint256 internal constant ACTIVATION_THRESHOLD = 100e18;
-  uint256 internal constant EJECTION_THRESHOLD = 50e18;
+  uint256 internal constant ACTIVATION_THRESHOLD = 200_000e18;
+  uint256 internal constant EJECTION_THRESHOLD = 100_000e18;
 
   // Genesis state
   bytes32 internal constant GENESIS_ARCHIVE_ROOT = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
@@ -70,15 +70,15 @@ library TestConstants {
   }
 
   function getRewardBoostConfig() internal pure returns (RewardBoostConfig memory) {
-    return RewardBoostConfig({increment: 200_000, maxScore: 5_000_000, a: 5000, k: 1_000_000, minimum: 100_000});
+    return RewardBoostConfig({increment: 1.25e5, maxScore: 150e5, a: 0.01e5, k: 10e5, minimum: 1e5});
   }
 
   function getRewardConfig() internal pure returns (RewardConfig memory) {
     return RewardConfig({
       rewardDistributor: IRewardDistributor(address(0)),
-      sequencerBps: Bps.wrap(5000),
+      sequencerBps: Bps.wrap(8000),
       booster: IBoosterCore(address(0)), // Will cause a deployment
-      blockReward: 50e18
+      blockReward: 500e18
     });
   }
 
