@@ -107,20 +107,29 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
      * @tparam UnivariateType The type of the univariate to be returned
      * @return The univariates whose extensions will be used to construct the combiner.
      */
-    template <class UnivariateType> static UnivariateType row_to_univariates(ProverInstances& instances, size_t row_idx)
+    template <class ContainerType>
+    static ContainerType row_to_univariates(const ProverInstances& instances, size_t row_idx)
     {
         // As a practical measure, get the first prover instance's view to deduce the array type
         std::array<decltype(instances[0]->polynomials.get_all()), NUM_INSTANCES> views;
         views[0] = instances[0]->polynomials.get_all();
         views[1] = instances[1]->polynomials.get_all();
 
-        std::array<UnivariateType, views[0].size()> results;
+        ContainerType results;
         // Set the size corresponding to the number of rows in the execution trace
         // Iterate over the prover polynomials' views corresponding to each prover instance
         for (size_t inst_idx = 0; auto& get_all : views) {
             // Iterate over all columns in the trace execution of an prover instance and extract their value at row_idx.
-            for (auto [result, poly_ptr] : zip_view(results, get_all)) {
-                result.evaluations[inst_idx] = poly_ptr[row_idx];
+            if constexpr (Flavor::USE_SHORT_MONOMIALS) {
+                // In this case, the elements of the array are AllEntities, so we need to get the underlying polynomials
+                // via get_all()
+                for (auto [result, poly_ptr] : zip_view(results.get_all(), get_all)) {
+                    result.evaluations[inst_idx] = poly_ptr[row_idx];
+                }
+            } else {
+                for (auto [result, poly_ptr] : zip_view(results, get_all)) {
+                    result.evaluations[inst_idx] = poly_ptr[row_idx];
+                }
             }
             inst_idx++;
         }
@@ -315,8 +324,9 @@ template <class ProverInstance> class ProtogalaxyProverInternal {
             extended_univariates =
                 std::move(row_to_univariates<typename Flavor::template ProverUnivariates<2>>(instances, row_idx));
         } else {
-            auto incoming_univariates =
-                row_to_univariates<Univariate<FF, ExtendedUnivariates::LENGTH, 0, skip_count>>(row_idx);
+            auto incoming_univariates = row_to_univariates<
+                std::array<Univariate<FF, ExtendedUnivariates::LENGTH, 0, skip_count>, NUM_INSTANCES>>(instances,
+                                                                                                       row_idx);
             for (auto [extended_univariate, incoming_univariate] :
                  zip_view(extended_univariates.get_all(), incoming_univariates)) {
                 incoming_univariate.template self_extend_from<NUM_INSTANCES>();

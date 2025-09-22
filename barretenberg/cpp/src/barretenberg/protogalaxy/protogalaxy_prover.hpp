@@ -26,7 +26,7 @@ template <IsMegaFlavor Flavor> class ProtogalaxyProver_ {
     using ProverInstance = ProverInstance_<Flavor>;
     using VerifierInstance = VerifierInstance_<Flavor>;
     using FF = typename Flavor::FF;
-    using CombinerQuotient = Univariate<FF, BATCHED_EXTENDED_LENGTH>;
+    using CombinerQuotient = Univariate<FF, BATCHED_EXTENDED_LENGTH, NUM_INSTANCES>;
     using TupleOfTuplesOfUnivariates = typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<NUM_INSTANCES>;
     using UnivariateRelationParameters =
         bb::RelationParameters<Univariate<FF, EXTENDED_LENGTH, 0, /*skip_count=*/SKIP_COUNT>>;
@@ -126,5 +126,17 @@ template <IsMegaFlavor Flavor> class ProtogalaxyProver_ {
      * accumulator was computed correctly.
      */
     BB_PROFILE FoldingResult<Flavor> prove();
+
+  private:
+    /**
+     * @brief Get the maximum dyadic circuit size among all prover instances
+     * @return The maximum dyadic size
+     */
+    size_t get_max_dyadic_size() const
+    {
+        return std::ranges::max(prover_insts_to_fold | std::views::transform([](const auto& inst) {
+                                    return inst != nullptr ? inst->dyadic_size() : 0;
+                                }));
+    }
 };
 } // namespace bb

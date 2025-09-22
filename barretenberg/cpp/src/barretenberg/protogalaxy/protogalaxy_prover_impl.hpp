@@ -15,7 +15,7 @@
 #include "protogalaxy_prover.hpp"
 
 namespace bb {
-template <IsUltraOrMegaHonk Flavor>
+template <IsMegaFlavor Flavor>
 void ProtogalaxyProver_<Flavor>::run_oink_prover_on_one_incomplete_instance(std::shared_ptr<ProverInstance> key,
                                                                             std::shared_ptr<VerifierInstance> vk,
                                                                             const std::string& domain_separator)
@@ -26,7 +26,7 @@ void ProtogalaxyProver_<Flavor>::run_oink_prover_on_one_incomplete_instance(std:
     oink_prover.prove();
 }
 
-template <IsUltraOrMegaHonk Flavor> void ProtogalaxyProver_<Flavor>::run_oink_prover_on_each_incomplete_instance()
+template <IsMegaFlavor Flavor> void ProtogalaxyProver_<Flavor>::run_oink_prover_on_each_incomplete_instance()
 {
     size_t idx = 0;
     auto& key = prover_insts_to_fold[0];
@@ -50,7 +50,7 @@ template <IsUltraOrMegaHonk Flavor> void ProtogalaxyProver_<Flavor>::run_oink_pr
     accumulator = prover_insts_to_fold[0];
 };
 
-template <IsUltraOrMegaHonk Flavor>
+template <IsMegaFlavor Flavor>
 std::tuple<std::vector<typename Flavor::FF>, Polynomial<typename Flavor::FF>> ProtogalaxyProver_<
     Flavor>::perturbator_round(const std::shared_ptr<const ProverInstance>& accumulator)
 {
@@ -70,7 +70,7 @@ std::tuple<std::vector<typename Flavor::FF>, Polynomial<typename Flavor::FF>> Pr
     return std::make_tuple(deltas, perturbator);
 };
 
-template <IsUltraOrMegaHonk Flavor>
+template <IsMegaFlavor Flavor>
 std::tuple<std::vector<typename Flavor::FF>,
            typename ProtogalaxyProver_<Flavor>::UnivariateSubrelationSeparators,
            typename ProtogalaxyProver_<Flavor>::UnivariateRelationParameters,
@@ -88,7 +88,7 @@ ProtogalaxyProver_<Flavor>::combiner_quotient_round(const std::vector<FF>& gate_
         update_gate_challenges(perturbator_challenge, gate_challenges, deltas);
     const UnivariateSubrelationSeparators alphas = PGInternal::compute_and_extend_alphas(instances);
     const GateSeparatorPolynomial<FF> gate_separators{ updated_gate_challenges,
-                                                       numeric::get_msb(instances.get_max_dyadic_size()) };
+                                                       numeric::get_msb(get_max_dyadic_size()) };
     const UnivariateRelationParameters relation_parameters =
         PGInternal::template compute_extended_relation_parameters<UnivariateRelationParameters>(instances);
 
@@ -99,7 +99,7 @@ ProtogalaxyProver_<Flavor>::combiner_quotient_round(const std::vector<FF>& gate_
     const FF perturbator_evaluation = perturbator.evaluate(perturbator_challenge);
     const CombinerQuotient combiner_quotient = PGInternal::compute_combiner_quotient(perturbator_evaluation, combiner);
 
-    for (size_t idx = NUM_INSTANCES; idx < ProverInstances::BATCHED_EXTENDED_LENGTH; idx++) {
+    for (size_t idx = NUM_INSTANCES; idx < BATCHED_EXTENDED_LENGTH; idx++) {
         transcript->send_to_verifier("combiner_quotient_" + std::to_string(idx), combiner_quotient.value_at(idx));
     }
 
@@ -110,7 +110,7 @@ ProtogalaxyProver_<Flavor>::combiner_quotient_round(const std::vector<FF>& gate_
 /**
  * @brief Given the challenge \gamma, compute Z(\gamma) and {L_0(\gamma),L_1(\gamma)}
  */
-template <IsUltraOrMegaHonk Flavor>
+template <IsMegaFlavor Flavor>
 void ProtogalaxyProver_<Flavor>::update_target_sum_and_fold(
     const ProverInstances& instances,
     const CombinerQuotient& combiner_quotient,
@@ -175,7 +175,7 @@ void ProtogalaxyProver_<Flavor>::update_target_sum_and_fold(
     }
 }
 
-template <IsUltraOrMegaHonk Flavor> FoldingResult<Flavor> ProtogalaxyProver_<Flavor>::prove()
+template <IsMegaFlavor Flavor> FoldingResult<Flavor> ProtogalaxyProver_<Flavor>::prove()
 {
     BB_BENCH_NAME("ProtogalaxyProver::prove");
 
