@@ -515,7 +515,7 @@ void ExecutionTraceBuilder::process(
             if (*exec_opcode == ExecutionOpCode::TORADIXBE) {
                 uint32_t radix = ex_event.inputs[1].as<uint32_t>();     // Safe since already tag checked
                 uint32_t num_limbs = ex_event.inputs[2].as<uint32_t>(); // Safe since already tag checked
-                uint32_t num_p_limbs = radix > 256 ? 32 : static_cast<uint32_t>(get_p_limbs_per_radix()[radix].size());
+                uint32_t num_p_limbs = radix > 256 ? 32 : static_cast<uint32_t>(get_p_limbs_per_radix_size(radix));
                 trace.set(row,
                           { {
                               // To Radix BE Dynamic Gas

@@ -321,7 +321,7 @@ TEST(GasConstrainingTest, DynGasFactorToRadix)
 
     uint32_t radix = 10;
     uint32_t num_limbs = 20;
-    uint32_t num_p_limbs = static_cast<uint32_t>(get_p_limbs_per_radix()[radix].size());
+    uint32_t num_p_limbs = static_cast<uint32_t>(get_p_limbs_per_radix_size(radix));
     TestTraceContainer trace(
         { {
               { C::execution_sel, 1 },
